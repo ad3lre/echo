@@ -135,7 +135,7 @@
     "@tauri-apps/cli": "^2.11.0",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
-    "jsdom": "^27.0.0",
+    "jsdom": "^29.1.1",
     "kill-port": "^2.0.1",
     "prettier": "^3.8.3",
     "sharp": "^0.34.5",
