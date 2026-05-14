@@ -15,7 +15,7 @@
     "pg": "^8.20.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20.19.39",
     "@types/pg": "^8.20.0",
     "ts-node": "^10.9.2",
