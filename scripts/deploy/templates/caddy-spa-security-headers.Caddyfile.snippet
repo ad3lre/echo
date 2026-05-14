@@ -1,0 +1,23 @@
+# Paste inside your site block (e.g. `chat-echo.com { ... }`) **after** any `handle /api/*` and
+# `handle /socket.io*` routes so JSON and Engine.IO responses still use Helmet only, while HTML
+# and static assets get CSP + HSTS here (Mozilla HTTP Observatory grades `GET /`).
+#
+# Adjust `root` to your active `frontend/dist` path (same release as the API upstream).
+
+route {
+	# Defense-in-depth: never serve source maps from the static root (CI also rejects *.map in dist).
+	@sourceMaps path_regexp \.map$
+	handle @sourceMaps {
+		respond 404
+	}
+
+	handle {
+		root * /srv/echo/frontend/dist
+		header {
+			Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+			Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com; upgrade-insecure-requests"
+		}
+		try_files {path} /index.html
+		file_server
+	}
+}

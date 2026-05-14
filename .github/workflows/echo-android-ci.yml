@@ -1,0 +1,92 @@
+name: Echo Android (Tauri)
+
+on:
+  push:
+    paths:
+      - 'src-tauri/**'
+      - 'frontend/**'
+      - 'scripts/tauri-android-build.mjs'
+      - 'scripts/tauri-before-build-frontend.mjs'
+      - 'scripts/verify-android-version.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/echo-android-ci.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/**'
+      - 'frontend/**'
+      - 'scripts/tauri-android-build.mjs'
+      - 'scripts/tauri-before-build-frontend.mjs'
+      - 'scripts/verify-android-version.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VITE_API_URL: https://chat-echo.com
+  VITE_SOCKET_IO_URL: https://chat-echo.com
+
+jobs:
+  tauri-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13'
+          cache: 'npm'
+
+      - name: Setup Java (Temurin 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.80'
+          targets: 'aarch64-linux-android'
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Verify Android version alignment
+        run: node scripts/verify-android-version.mjs
+
+      - name: Init Android Gradle project
+        run: |
+          if [ ! -f src-tauri/gen/android/settings.gradle ]; then
+            node node_modules/@tauri-apps/cli/tauri.js android init --ci
+          else
+            echo "src-tauri/gen/android already present; skipping init"
+          fi
+        env:
+          CI: '1'
+
+      # Single ABI + CI matches rust-cache target (aarch64-linux-android); Play uploads use full ABI matrix locally or in a release workflow.
+      - name: Tauri Android build (unsigned)
+        run: npm run tauri:android:build:ci
+
+      - name: Upload Android outputs (AAB/APK)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-universal-release
+          path: |
+            src-tauri/gen/android/app/build/outputs/**/*.aab
+            src-tauri/gen/android/app/build/outputs/**/*.apk
+          if-no-files-found: warn

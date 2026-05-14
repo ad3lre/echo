@@ -1,0 +1,24 @@
+# Runs deploy periodically so production tracks main without manual SSH sessions.
+# Adjust OnCalendar to taste (example: every 30 minutes).
+#
+# Install:
+#   sudo cp infra/systemd/echo-deploy-up.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now echo-deploy-up.timer
+#
+# Logs:
+#   journalctl -u echo-deploy-up.service -n 200 --no-pager
+#
+# Requires passwordless Git over SSH for systemd (deploy key or HTTPS remote); see
+# docs/operations/blue-green-deployment.md and infra/systemd/README.md.
+
+[Unit]
+Description=Timer — Echo blue-green deploy (npm run deploy:up)
+
+[Timer]
+OnCalendar=*-*-* *:0/30:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,57 @@
+/*
+ * Interface density — comfortable is the baseline (:root).
+ * Compact / spacious set html[data-echo-density] via theme store (see utils/theme.ts).
+ */
+
+:root {
+  /* Guild / forum channel rows (.channel-row) */
+  --echo-density-channel-py: 0.375rem;
+  --echo-density-channel-px: 0.625rem;
+
+  /* DM inbox rows (.dm-user-row) */
+  --echo-density-dm-row-py: 0.625rem;
+  --echo-density-dm-row-px: 0.75rem;
+  --echo-density-dm-inbox-gap: 0.25rem;
+
+  /* Settings modal toggles (.settings-toggle) */
+  --echo-density-settings-toggle-pad: 1rem;
+
+  /* Message list vertical rhythm (messageBubble.scss) */
+  --echo-density-msg-header-mt: 1.0625rem;
+  --echo-density-msg-header-first-mt: 1.5rem;
+  --echo-density-msg-header-py: 0.25rem;
+  --echo-density-msg-continuation-py: 0.0625rem;
+  --echo-density-msg-last-mb: 1rem;
+}
+
+html[data-echo-density='compact'] {
+  --echo-density-channel-py: 0.25rem;
+  --echo-density-channel-px: 0.5rem;
+  --echo-density-dm-row-py: 0.5rem;
+  --echo-density-dm-row-px: 0.625rem;
+  --echo-density-dm-inbox-gap: 0.125rem;
+  --echo-density-settings-toggle-pad: 0.75rem;
+  --echo-density-msg-header-mt: 0.8125rem;
+  --echo-density-msg-header-first-mt: 1.125rem;
+  --echo-density-msg-header-py: 0.1875rem;
+  --echo-density-msg-continuation-py: 0.0625rem;
+  --echo-density-msg-last-mb: 0.75rem;
+}
+
+html[data-echo-density='spacious'] {
+  --echo-density-channel-py: 0.5rem;
+  --echo-density-channel-px: 0.75rem;
+  --echo-density-dm-row-py: 0.75rem;
+  --echo-density-dm-row-px: 0.875rem;
+  --echo-density-dm-inbox-gap: 0.375rem;
+  --echo-density-settings-toggle-pad: 1.125rem;
+  --echo-density-msg-header-mt: 1.25rem;
+  --echo-density-msg-header-first-mt: 1.75rem;
+  --echo-density-msg-header-py: 0.3125rem;
+  --echo-density-msg-continuation-py: 0.125rem;
+  --echo-density-msg-last-mb: 1.25rem;
+}
+
+.dm-inbox-dnd > * + * {
+  margin-top: var(--echo-density-dm-inbox-gap);
+}

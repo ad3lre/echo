@@ -1,0 +1,37 @@
+/* Server banner strip (ChannelPanelHeader). Kept separate so scoped styles in the
+   header SFC actually match — parent ChannelPanel.vue scoped @use does not pierce
+   child component inner nodes. */
+
+.server-banner {
+  overflow: hidden;
+}
+
+.server-banner-blur {
+  z-index: 0;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.server-banner-shadow {
+  z-index: 1;
+  background: linear-gradient(
+    0deg,
+    var(--banner-shadow-stop-1) 0%,
+    var(--banner-shadow-stop-2) 24%,
+    var(--banner-shadow-stop-3) 46%,
+    var(--banner-shadow-stop-4) 68%,
+    var(--banner-shadow-stop-5) 82%
+  );
+}
+
+.server-banner-title {
+  /* Do not raise above sibling controls — z-index here caused the title flex item
+   * to stack over the invite / server-menu buttons and steal clicks. */
+  font-size: 0.9rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--banner-title-fg);
+  text-shadow: 0 1px 10px var(--banner-title-shadow);
+}

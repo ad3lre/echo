@@ -1,0 +1,14 @@
+{
+  "identifier": "ios",
+  "description": "Echo iOS WebView — desktop-only permissions omitted",
+  "platforms": ["iOS"],
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "deep-link:default",
+    "dialog:allow-save",
+    "notification:default",
+    "opener:default",
+    "process:default"
+  ]
+}

@@ -1,0 +1,239 @@
+---
+import MarketingShell from '../layouts/MarketingShell.astro';
+import { CHAT_APP_ORIGIN } from '../site';
+
+const title = 'Communities on Echo | Discover public servers';
+const description =
+  'Browse public Echo communities—gaming, study groups, creators, and more. Open Explore in the app to join and see the full directory.';
+
+// Fetch real communities from Echo API at build time
+let communities: Array<{
+  id: string;
+  name: string;
+  iconUrl: string;
+  bannerUrl: string;
+  description?: string;
+  tags?: string[];
+  memberCount?: number;
+  initials: string;
+  iconBg: string;
+}> = [];
+
+/**
+ * Hard filter: drop obviously blank server profiles. Explore in-app cares
+ * about newness; on the marketing page we don't want to show empty servers
+ * with no banner, icon, description, or tags — they look broken.
+ */
+function isPresentableProfile(s: any): boolean {
+  const desc =
+    typeof s.description === 'string' && s.description.trim().length >= 20;
+  const banner =
+    typeof s.bannerUrl === 'string' && s.bannerUrl.trim() !== '';
+  const icon = typeof s.iconUrl === 'string' && s.iconUrl.trim() !== '';
+  const hasTags =
+    Array.isArray(s.tags) &&
+    s.tags.some((t: unknown) => typeof t === 'string' && t.trim() !== '');
+  return desc || banner || icon || hasTags;
+}
+
+/** Used only as a tiebreaker when two servers have very similar member counts. */
+function profileCompleteness(s: any): number {
+  const iconUrl = typeof s.iconUrl === 'string' ? s.iconUrl.trim() : '';
+  const bannerUrl = typeof s.bannerUrl === 'string' ? s.bannerUrl.trim() : '';
+  const description =
+    typeof s.description === 'string' ? s.description.trim() : '';
+  const tags = Array.isArray(s.tags)
+    ? s.tags.filter((t: unknown) => typeof t === 'string' && t.trim() !== '')
+    : [];
+
+  let score = 0;
+  if (iconUrl) score += 2;
+  if (bannerUrl) score += 2;
+  if (description) {
+    score += 2;
+    if (description.length >= 40) score += 1;
+    if (description.length >= 100) score += 1;
+  }
+  score += Math.min(tags.length, 3);
+  return score;
+}
+
+try {
+  // Directory endpoint returns up to 200 listed servers (alphabetical), each
+  // with memberCount. Two-stage ranking for the marketing page:
+  //   1. Filter blank profiles, then take the top 12 by member count
+  //      (the most-active communities people actually use).
+  //   2. Re-order that exact set by profile fullness so the cards that DO
+  //      have banners/descriptions/tags appear first. Member count is the
+  //      tiebreaker.
+  const DISPLAY_COUNT = 12;
+  const res = await fetch(`${CHAT_APP_ORIGIN}/api/v1/echo/directory/servers`);
+  if (res.ok) {
+    const data = await res.json();
+    const rawServers = data.servers || [];
+    const ranked = rawServers
+      .filter((s: any) => s.id && s.name)
+      .filter(isPresentableProfile)
+      .map((s: any) => ({
+        raw: s,
+        memberCount:
+          typeof s.memberCount === 'number' ? s.memberCount : 0,
+        score: profileCompleteness(s),
+      }))
+      .sort(
+        (
+          a: { raw: any; memberCount: number; score: number },
+          b: { raw: any; memberCount: number; score: number },
+        ) => b.memberCount - a.memberCount,
+      )
+      .slice(0, DISPLAY_COUNT)
+      .sort(
+        (
+          a: { raw: any; memberCount: number; score: number },
+          b: { raw: any; memberCount: number; score: number },
+        ) =>
+          b.score - a.score ||
+          b.memberCount - a.memberCount ||
+          String(a.raw.name).localeCompare(String(b.raw.name)),
+      );
+    communities = ranked.map(({ raw: s }: { raw: any }) => ({
+      id: s.id,
+      name: s.name,
+      iconUrl: s.iconUrl || '',
+      bannerUrl: s.bannerUrl || '',
+      description: s.description || '',
+      tags: s.tags?.slice(0, 2) || [],
+      memberCount: s.memberCount || 0,
+      initials: s.name.charAt(0).toUpperCase(),
+      iconBg: stringToColor(s.id),
+    }));
+  }
+} catch {
+  // Fallback to empty, we'll show a CTA to explore
+  communities = [];
+}
+
+// Generate consistent color from string
+function stringToColor(str: string): string {
+  const colors = [
+    '#5842f4', '#4f46e5', '#0d9488', '#ea580c', '#db2777',
+    '#15803d', '#7c3aed', '#dc2626', '#0891b2', '#9333ea'
+  ];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function formatMemberCount(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}k members`;
+  }
+  return `${count} member${count === 1 ? '' : 's'}`;
+}
+---
+
+<MarketingShell title={title} description={description} canonicalPath="/communities">
+  <main id="main" class="subpage-main">
+    <section class="communities-hero">
+      <div class="container">
+        <div class="communities-hero-content">
+          <span class="hero-eyebrow">Explore</span>
+          <h1>Find your community</h1>
+          <p class="hero-lead">
+            Join public servers on Echo. From gaming to study groups, there's a place for everyone.
+          </p>
+          <div class="hero-actions">
+            <a class="btn-primary" href={`${CHAT_APP_ORIGIN}/explore`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+              Browse all communities
+            </a>
+            <a class="btn-secondary" href={CHAT_APP_ORIGIN}>
+              Open Echo app
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="communities-section">
+      <div class="container">
+        {communities.length > 0 ? (
+          <div class="communities-grid">
+            {communities.map((c) => (
+              <article class="community-card">
+                <div class="community-banner">
+                  {c.bannerUrl ? (
+                    <img src={c.bannerUrl} alt="" loading="lazy" />
+                  ) : (
+                    <div class="community-banner-placeholder" style={`background: linear-gradient(135deg, ${c.iconBg}40, ${c.iconBg}20)`} />
+                  )}
+                  <div class="community-banner-overlay" />
+                </div>
+                <div class="community-body">
+                  <div class="community-avatar" style={`background: ${c.iconBg}`}>
+                    {c.iconUrl ? (
+                      <img src={c.iconUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span>{c.initials}</span>
+                    )}
+                  </div>
+                  <div class="community-info">
+                    <h3>{c.name}</h3>
+                    {c.tags && c.tags.length > 0 && (
+                      <div class="community-tags">
+                        {c.tags.map((t) => (
+                          <span class="tag">{t}</span>
+                        ))}
+                      </div>
+                    )}
+                    <p class="community-meta">
+                      {c.memberCount ? formatMemberCount(c.memberCount) : 'Public server'}
+                    </p>
+                    {c.description && (
+                      <p class="community-desc">{c.description.slice(0, 80)}{c.description.length > 80 ? '...' : ''}</p>
+                    )}
+                  </div>
+                </div>
+                <div class="community-footer">
+                  <a 
+                    href={`${CHAT_APP_ORIGIN}/explore`}
+                    class="btn-community"
+                  >
+                    View in app
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path d="M7 17L17 7"/>
+                      <path d="M7 7h10v10"/>
+                    </svg>
+                  </a>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div class="communities-empty">
+            <div class="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <h2>Discover communities in the app</h2>
+            <p>See the full directory with search, filters, and one-click joining.</p>
+            <div class="hero-actions" style="justify-content: center;">
+              <a class="btn-primary" href={`${CHAT_APP_ORIGIN}/explore`}>
+                Open Explore
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  </main>
+</MarketingShell>

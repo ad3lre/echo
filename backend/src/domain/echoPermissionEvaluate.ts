@@ -1,0 +1,591 @@
+/**
+ * Evaluation contract: buildEvaluationPlan (async data) → executeEvaluationPlan (pure computation).
+ *
+ * buildEvaluationPlan gathers all inputs from the database and produces an EvaluationPlan —
+ * a plain data structure with no business logic.
+ *
+ * executeEvaluationPlan runs the reducer pipeline using only echoPermissionPrimitives.
+ * No SQL, no side effects, no ad-hoc permission logic — preventing accidental bypass.
+ */
+
+import type pg from 'pg';
+import {
+  applyLayerFromPartialObject,
+  ECHO_PERMISSIONS,
+  foldRolePermissions,
+  normalizePermissionOverwritePartial,
+} from './echoPermissionPrimitives';
+import type {
+  EchoTraceMode,
+  FoldTraceContext,
+  ServerAggregationTrace,
+} from './echoPermissionTrace';
+import {
+  createTraceCollector,
+  finalizeCompressed,
+  recordCompressedBulkOwner,
+} from './echoPermissionTrace';
+import {
+  mergeOverwritesForMember,
+  type DbOverwriteRow,
+} from './permissionOverwriteMerge';
+import { DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS } from './echoStore/constants';
+const RBAC_SEPARATE_TRACES = process.env.RBAC_SEPARATE_TRACES === '1';
+
+const ALL_KEYS = [...ECHO_PERMISSIONS];
+
+/** Safe baseline when the role fold produced an empty set (Discord-named bits); matches default @everyone (no MANAGE_CHANNELS). Includes EMBED_LINKS like post-migration rows. */
+const EVERYONE_FALLBACK = new Set([
+  ...DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS,
+  'EMBED_LINKS',
+]);
+
+export type EvaluatePermissionSetResult = {
+  effective: Set<string>;
+  ownerBypass: boolean;
+  traces: ServerAggregationTrace[];
+};
+
+// ---------------------------------------------------------------------------
+// Evaluation plan (pure data — no logic)
+// ---------------------------------------------------------------------------
+
+type RoleInput = {
+  id: string;
+  position: number;
+  permissions: unknown;
+  roleType?: string;
+};
+
+export type EvaluationPlan =
+  | { kind: 'owner_bypass' }
+  | { kind: 'not_member' }
+  | { kind: 'banned' }
+  | { kind: 'no_roles' }
+  | {
+      kind: 'evaluate';
+      /** Roles in fold order (position ASC, id ASC). */
+      roles: RoleInput[];
+      /** Category-level partial JSON override (null = none). */
+      categoryOverride: Record<string, unknown> | null;
+      /** Channel-level partial JSON override (null = none). */
+      channelOverride: Record<string, unknown> | null;
+    };
+
+// ---------------------------------------------------------------------------
+// Phase 1: build plan (async, database only, zero business logic)
+// ---------------------------------------------------------------------------
+
+async function isEchoServerOwnerLocal(
+  pool: pg.Pool,
+  serverId: string,
+  userId: string,
+): Promise<boolean> {
+  const r = await pool.query(
+    `SELECT owner_id FROM echo_servers WHERE id = $1`,
+    [serverId],
+  );
+  const row = r.rows[0];
+  return !!row && String(row.owner_id) === userId;
+}
+
+async function isMember(
+  pool: pg.Pool,
+  serverId: string,
+  userId: string,
+): Promise<boolean> {
+  const r = await pool.query(
+    `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
+    [serverId, userId],
+  );
+  return r.rows.length > 0;
+}
+
+async function isBanned(
+  pool: pg.Pool,
+  serverId: string,
+  userId: string,
+): Promise<boolean> {
+  const r = await pool.query(
+    `
+    SELECT 1 FROM echo_server_bans
+    WHERE server_id = $1 AND user_id = $2
+      AND (expires_at IS NULL OR expires_at > NOW())
+    `,
+    [serverId, userId],
+  );
+  return r.rows.length > 0;
+}
+
+export async function buildEvaluationPlan(
+  pool: pg.Pool,
+  serverId: string,
+  userId: string,
+  channelId: string | undefined,
+): Promise<EvaluationPlan> {
+  if (await isEchoServerOwnerLocal(pool, serverId, userId))
+    return { kind: 'owner_bypass' };
+  if (!(await isMember(pool, serverId, userId))) return { kind: 'not_member' };
+  if (await isBanned(pool, serverId, userId)) return { kind: 'banned' };
+
+  const r = await pool.query(
+    `
+    SELECT r.id, r.position, r.permissions, r.role_type
+    FROM echo_roles r
+    LEFT JOIN echo_member_roles mr
+      ON mr.server_id = r.server_id
+     AND mr.role_id = r.id
+     AND mr.user_id = $2
+    WHERE r.server_id = $1
+      AND (mr.user_id IS NOT NULL OR r.name = '@everyone')
+    ORDER BY r.position ASC, r.id ASC
+    `,
+    [serverId, userId],
+  );
+
+  let roles: RoleInput[] = r.rows.map(
+    (row: {
+      id: unknown;
+      position: unknown;
+      permissions: unknown;
+      role_type?: unknown;
+    }) => ({
+      id: String(row.id),
+      position: Number(row.position ?? 0),
+      permissions: row.permissions,
+      roleType:
+        row.role_type != null && typeof row.role_type === 'string'
+          ? row.role_type
+          : 'mixed',
+    }),
+  );
+
+  if (roles.length === 0) return { kind: 'no_roles' };
+
+  let categoryOverride: Record<string, unknown> | null = null;
+  let channelOverride: Record<string, unknown> | null = null;
+
+  if (channelId) {
+    const ch = await pool.query(
+      `SELECT ch.category_id, ch.permission_overrides
+       FROM echo_channels ch
+       WHERE ch.id = $1 AND ch.server_id = $2`,
+      [channelId, serverId],
+    );
+    if (ch.rows[0]) {
+      const categoryId = String(ch.rows[0].category_id ?? '');
+
+      const catOw = await pool.query(
+        `SELECT id, target_type, target_id, partial
+         FROM echo_category_permission_overwrite_rows
+         WHERE server_id = $1 AND category_id = $2`,
+        [serverId, categoryId],
+      );
+      if (catOw.rows.length > 0) {
+        const dbRows: DbOverwriteRow[] = catOw.rows.map(
+          (row: Record<string, unknown>) => ({
+            id: String(row.id),
+            target_type: String(row.target_type),
+            target_id: row.target_id != null ? String(row.target_id) : null,
+            partial: row.partial,
+          }),
+        );
+        categoryOverride = mergeOverwritesForMember(dbRows, roles, userId);
+      } else {
+        const catRow = await pool.query(
+          `SELECT permission_overrides FROM echo_category_permission_overrides WHERE server_id = $1 AND category_id = $2`,
+          [serverId, categoryId],
+        );
+        const catRaw = catRow.rows[0]?.permission_overrides;
+        if (
+          catRaw != null &&
+          typeof catRaw === 'object' &&
+          !Array.isArray(catRaw)
+        ) {
+          categoryOverride = catRaw as Record<string, unknown>;
+        }
+      }
+
+      const chOw = await pool.query(
+        `SELECT id, target_type, target_id, partial
+         FROM echo_channel_permission_overwrite_rows
+         WHERE server_id = $1 AND channel_id = $2`,
+        [serverId, channelId],
+      );
+      if (chOw.rows.length > 0) {
+        const dbRows: DbOverwriteRow[] = chOw.rows.map(
+          (row: Record<string, unknown>) => ({
+            id: String(row.id),
+            target_type: String(row.target_type),
+            target_id: row.target_id != null ? String(row.target_id) : null,
+            partial: row.partial,
+          }),
+        );
+        channelOverride = mergeOverwritesForMember(dbRows, roles, userId);
+      } else {
+        const chRaw = ch.rows[0].permission_overrides;
+        if (
+          chRaw != null &&
+          typeof chRaw === 'object' &&
+          !Array.isArray(chRaw)
+        ) {
+          channelOverride = chRaw as Record<string, unknown>;
+        }
+      }
+    }
+  }
+
+  return { kind: 'evaluate', roles, categoryOverride, channelOverride };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: execute plan (synchronous, pure computation via primitives only)
+// ---------------------------------------------------------------------------
+
+function toServerTrace(
+  col: ReturnType<typeof createTraceCollector>,
+): ServerAggregationTrace {
+  if (col.mode === 'full') {
+    return { mode: 'full', full: col.full };
+  }
+  if (col.compressed) {
+    finalizeCompressed(col.compressed);
+    return { mode: 'compressed', compressed: col.compressed.compressed };
+  }
+  return { mode: 'compressed', compressed: [] };
+}
+
+export function executeEvaluationPlan(
+  plan: EvaluationPlan,
+  traceMode: EchoTraceMode = 'compressed',
+): EvaluatePermissionSetResult {
+  if (plan.kind === 'owner_bypass') {
+    const col = createTraceCollector(traceMode);
+    if (col.mode === 'compressed' && col.compressed) {
+      recordCompressedBulkOwner(col.compressed, ALL_KEYS);
+      finalizeCompressed(col.compressed);
+    }
+    return {
+      effective: new Set(ECHO_PERMISSIONS),
+      ownerBypass: true,
+      traces: [toServerTrace(col)],
+    };
+  }
+
+  if (
+    plan.kind === 'not_member' ||
+    plan.kind === 'banned' ||
+    plan.kind === 'no_roles'
+  ) {
+    return { effective: new Set(), ownerBypass: false, traces: [] };
+  }
+
+  const foldCol = createTraceCollector(traceMode);
+  const foldTrace: FoldTraceContext =
+    foldCol.mode === 'full'
+      ? { mode: 'full', full: foldCol.full }
+      : { mode: 'compressed', compressed: foldCol.compressed! };
+
+  let state = foldRolePermissions(plan.roles, {
+    trace: foldTrace,
+    allKeys: ALL_KEYS,
+    presorted: true,
+  });
+
+  if (state.size === 0) {
+    state = new Set(EVERYONE_FALLBACK);
+  }
+
+  // Discord semantics: ADMINISTRATOR bypasses category/channel overwrites.
+  // If it is present after server-role fold, layer denies must not remove SEND_MESSAGES/VIEW_CHANNEL.
+  if (state.has('ADMINISTRATOR')) {
+    return {
+      effective: new Set(ECHO_PERMISSIONS),
+      ownerBypass: false,
+      traces: [toServerTrace(foldCol)],
+    };
+  }
+
+  const categoryOverride =
+    plan.categoryOverride != null
+      ? normalizePermissionOverwritePartial(plan.categoryOverride)
+      : null;
+  const channelOverride =
+    plan.channelOverride != null
+      ? normalizePermissionOverwritePartial(plan.channelOverride)
+      : null;
+
+  const layerTrace: FoldTraceContext | undefined =
+    traceMode === 'full' && foldCol.full
+      ? { mode: 'full', full: foldCol.full }
+      : undefined;
+
+  if (RBAC_SEPARATE_TRACES) {
+    // create separate collectors for category and channel layers to produce separate trace artifacts
+    const catCol = createTraceCollector(traceMode);
+    const chCol = createTraceCollector(traceMode);
+    const catTrace: FoldTraceContext | undefined =
+      traceMode === 'full' && catCol.full
+        ? ({
+            mode: 'full' as EchoTraceMode,
+            full: catCol.full,
+          } as FoldTraceContext)
+        : undefined;
+    const chTrace: FoldTraceContext | undefined =
+      traceMode === 'full' && chCol.full
+        ? ({
+            mode: 'full' as EchoTraceMode,
+            full: chCol.full,
+          } as FoldTraceContext)
+        : undefined;
+
+    if (plan.categoryOverride) {
+      state = applyLayerFromPartialObject(
+        state,
+        plan.categoryOverride,
+        ALL_KEYS,
+        {
+          layer: 'category',
+          trace: catTrace,
+        },
+      );
+    }
+    if (plan.channelOverride) {
+      state = applyLayerFromPartialObject(
+        state,
+        plan.channelOverride,
+        ALL_KEYS,
+        {
+          layer: 'channel',
+          trace: chTrace,
+        },
+      );
+    }
+
+    const tracesOut = [toServerTrace(foldCol)];
+    // include non-empty layer traces
+    const cat = toServerTrace(catCol);
+    const ch = toServerTrace(chCol);
+    function traceHasContent(t: ServerAggregationTrace): boolean {
+      if (t.mode === 'compressed')
+        return Array.isArray(t.compressed) && t.compressed.length > 0;
+      if (t.mode === 'full')
+        return Array.isArray((t as any).full) && (t as any).full.length > 0;
+      return false;
+    }
+    if (traceHasContent(cat)) tracesOut.push(cat);
+    if (traceHasContent(ch)) tracesOut.push(ch);
+    return { effective: state, ownerBypass: false, traces: tracesOut };
+  }
+
+  if (categoryOverride && Object.keys(categoryOverride).length > 0) {
+    state = applyLayerFromPartialObject(state, categoryOverride, ALL_KEYS, {
+      layer: 'category',
+      trace: layerTrace,
+    });
+  }
+  if (channelOverride && Object.keys(channelOverride).length > 0) {
+    state = applyLayerFromPartialObject(state, channelOverride, ALL_KEYS, {
+      layer: 'channel',
+      trace: layerTrace,
+    });
+  }
+
+  return {
+    effective: state,
+    ownerBypass: false,
+    traces: [toServerTrace(foldCol)],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Batch plan builder — prefetches server-level data once, then builds
+// per-channel plans from bulk-fetched overwrite rows.  Produces identical
+// results to calling buildEvaluationPlan per channel but with O(1) server
+// queries instead of O(channels).
+// ---------------------------------------------------------------------------
+
+export async function buildBatchEvaluationPlans(
+  pool: pg.Pool,
+  serverId: string,
+  userId: string,
+  channelIds: string[],
+): Promise<Map<string, EvaluationPlan>> {
+  const result = new Map<string, EvaluationPlan>();
+  if (channelIds.length === 0) return result;
+
+  if (await isEchoServerOwnerLocal(pool, serverId, userId)) {
+    for (const cid of channelIds) result.set(cid, { kind: 'owner_bypass' });
+    return result;
+  }
+  if (!(await isMember(pool, serverId, userId))) {
+    for (const cid of channelIds) result.set(cid, { kind: 'not_member' });
+    return result;
+  }
+  if (await isBanned(pool, serverId, userId)) {
+    for (const cid of channelIds) result.set(cid, { kind: 'banned' });
+    return result;
+  }
+
+  const r = await pool.query(
+    `SELECT r.id, r.position, r.permissions
+     FROM echo_roles r
+     LEFT JOIN echo_member_roles mr
+       ON mr.server_id = r.server_id
+      AND mr.role_id = r.id
+      AND mr.user_id = $2
+     WHERE r.server_id = $1
+       AND (mr.user_id IS NOT NULL OR r.name = '@everyone')
+     ORDER BY r.position ASC, r.id ASC`,
+    [serverId, userId],
+  );
+
+  let roles: RoleInput[] = r.rows.map(
+    (row: { id: unknown; position: unknown; permissions: unknown }) => ({
+      id: String(row.id),
+      position: Number(row.position ?? 0),
+      permissions: row.permissions,
+    }),
+  );
+
+  if (roles.length === 0) {
+    for (const cid of channelIds) result.set(cid, { kind: 'no_roles' });
+    return result;
+  }
+
+  const chRes = await pool.query(
+    `SELECT ch.id, ch.category_id, ch.permission_overrides
+     FROM echo_channels ch
+     WHERE ch.id = ANY($1::text[]) AND ch.server_id = $2`,
+    [channelIds, serverId],
+  );
+  const channelInfoMap = new Map<
+    string,
+    { categoryId: string; permissionOverrides: unknown }
+  >();
+  for (const row of chRes.rows as Record<string, unknown>[]) {
+    channelInfoMap.set(String(row.id), {
+      categoryId: String(row.category_id ?? ''),
+      permissionOverrides: row.permission_overrides,
+    });
+  }
+
+  const categoryIds = [
+    ...new Set(
+      [...channelInfoMap.values()].map((c) => c.categoryId).filter(Boolean),
+    ),
+  ];
+
+  const catOwMap = new Map<string, DbOverwriteRow[]>();
+  if (categoryIds.length > 0) {
+    const catOwRes = await pool.query(
+      `SELECT id, category_id, target_type, target_id, partial
+       FROM echo_category_permission_overwrite_rows
+       WHERE server_id = $1 AND category_id = ANY($2::text[])`,
+      [serverId, categoryIds],
+    );
+    for (const row of catOwRes.rows as Record<string, unknown>[]) {
+      const catId = String(row.category_id);
+      if (!catOwMap.has(catId)) catOwMap.set(catId, []);
+      catOwMap.get(catId)!.push({
+        id: String(row.id),
+        target_type: String(row.target_type),
+        target_id: row.target_id != null ? String(row.target_id) : null,
+        partial: row.partial,
+      });
+    }
+  }
+
+  const categoriesWithoutRows = categoryIds.filter((cid) => !catOwMap.has(cid));
+  const catLegacyMap = new Map<string, Record<string, unknown>>();
+  if (categoriesWithoutRows.length > 0) {
+    const catLegRes = await pool.query(
+      `SELECT category_id, permission_overrides
+       FROM echo_category_permission_overrides
+       WHERE server_id = $1 AND category_id = ANY($2::text[])`,
+      [serverId, categoriesWithoutRows],
+    );
+    for (const row of catLegRes.rows as Record<string, unknown>[]) {
+      const raw = row.permission_overrides;
+      if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+        catLegacyMap.set(
+          String(row.category_id),
+          raw as Record<string, unknown>,
+        );
+      }
+    }
+  }
+
+  const chOwMap = new Map<string, DbOverwriteRow[]>();
+  const chOwRes = await pool.query(
+    `SELECT id, channel_id, target_type, target_id, partial
+     FROM echo_channel_permission_overwrite_rows
+     WHERE server_id = $1 AND channel_id = ANY($2::text[])`,
+    [serverId, channelIds],
+  );
+  for (const row of chOwRes.rows as Record<string, unknown>[]) {
+    const chId = String(row.channel_id);
+    if (!chOwMap.has(chId)) chOwMap.set(chId, []);
+    chOwMap.get(chId)!.push({
+      id: String(row.id),
+      target_type: String(row.target_type),
+      target_id: row.target_id != null ? String(row.target_id) : null,
+      partial: row.partial,
+    });
+  }
+
+  for (const channelId of channelIds) {
+    const chInfo = channelInfoMap.get(channelId);
+    if (!chInfo) {
+      result.set(channelId, { kind: 'no_roles' });
+      continue;
+    }
+
+    let categoryOverride: Record<string, unknown> | null = null;
+    let channelOverride: Record<string, unknown> | null = null;
+
+    const categoryId = chInfo.categoryId;
+    if (categoryId) {
+      const catRows = catOwMap.get(categoryId);
+      if (catRows && catRows.length > 0) {
+        categoryOverride = mergeOverwritesForMember(catRows, roles, userId);
+      } else {
+        categoryOverride = catLegacyMap.get(categoryId) ?? null;
+      }
+    }
+
+    const chRows = chOwMap.get(channelId);
+    if (chRows && chRows.length > 0) {
+      channelOverride = mergeOverwritesForMember(chRows, roles, userId);
+    } else {
+      const raw = chInfo.permissionOverrides;
+      if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+        channelOverride = raw as Record<string, unknown>;
+      }
+    }
+
+    result.set(channelId, {
+      kind: 'evaluate',
+      roles,
+      categoryOverride,
+      channelOverride,
+    });
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Public entry: build → execute (the only function callers should use)
+// ---------------------------------------------------------------------------
+
+export async function evaluatePermissionSet(
+  pool: pg.Pool,
+  serverId: string,
+  userId: string,
+  channelId: string | undefined,
+  opts?: { traceMode?: EchoTraceMode },
+): Promise<EvaluatePermissionSetResult> {
+  const plan = await buildEvaluationPlan(pool, serverId, userId, channelId);
+  return executeEvaluationPlan(plan, opts?.traceMode);
+}

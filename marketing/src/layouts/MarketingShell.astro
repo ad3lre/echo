@@ -1,0 +1,35 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath: string;
+  ogImagePath?: string;
+  structuredData?: unknown;
+}
+
+const {
+  title,
+  description,
+  canonicalPath,
+  ogImagePath = '/og-card.svg',
+  structuredData,
+} = Astro.props;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonicalPath={canonicalPath}
+  ogImagePath={ogImagePath}
+  structuredData={structuredData}
+>
+  <div class="site-shell">
+    <SiteHeader />
+    <slot />
+    <SiteFooter />
+  </div>
+</BaseLayout>

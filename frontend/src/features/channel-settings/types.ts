@@ -1,0 +1,307 @@
+import type { ChannelPermissionKey } from '@shared/types';
+
+export type PermissionOverwriteTargetType = 'everyone' | 'role' | 'member';
+
+export interface PermissionOverwriteRowDraft {
+  targetType: PermissionOverwriteTargetType;
+  targetId?: string | null;
+  partial: Partial<Record<ChannelPermissionKey, boolean>>;
+}
+
+export interface PermissionOverwriteSubjectOption {
+  id: string;
+  label: string;
+  subtitle?: string;
+  color?: string;
+  avatarUrl?: string;
+}
+
+export interface EchoPermissionEditorState {
+  loading: boolean;
+  roles: PermissionOverwriteSubjectOption[];
+  members: PermissionOverwriteSubjectOption[];
+  rows: PermissionOverwriteRowDraft[];
+}
+
+/** Snapshot when opening category settings (rename + permission defaults). */
+export interface CategorySettingsSnapshot {
+  categoryId: string;
+  originalName: string;
+  name: string;
+  /** Echo server id (guild) — set when opened from a real server. */
+  serverId?: string;
+  /** Number of channels in this category (for delete confirmation copy). */
+  channelCount: number;
+  /** Text + forum channels only — used for Discord chat bulk sync copy. */
+  textForumChannelCount?: number;
+  channelPermissionDefaults: Partial<Record<ChannelPermissionKey, boolean>>;
+  echoPermissionRows?: PermissionOverwriteRowDraft[];
+}
+
+/** Tabs shared with category settings (no delete tab on categories). */
+export type CategorySettingsTab =
+  | 'overview'
+  | 'permissions'
+  | 'discord_chat_sync'
+  | 'discord_voice_mirror';
+
+export type ChannelSettingsTab =
+  | CategorySettingsTab
+  | 'discord_sync'
+  | 'forum_creator'
+  | 'delete_channel';
+
+export const CHANNEL_TAB_COPY: Record<
+  ChannelSettingsTab,
+  { title: string; description: string }
+> = {
+  overview: {
+    title: 'Overview',
+    description:
+      'Set the channel name, category, slowmode, and other channel options.',
+  },
+  permissions: {
+    title: 'Permissions',
+    description: 'Control who can see this channel and what they can do here.',
+  },
+  discord_sync: {
+    title: 'Discord Sync',
+    description:
+      'Mirror messages between this Echo channel and a Discord channel.',
+  },
+  forum_creator: {
+    title: 'Post creators',
+    description:
+      'Defaults for members who start a post: extra control over their own thread without server-wide mod permissions.',
+  },
+  delete_channel: {
+    title: 'Delete Channel',
+    description: 'Permanently delete this channel. This cannot be undone.',
+  },
+  discord_voice_mirror: {
+    title: 'Discord voice mirror',
+    description:
+      'Show who is in Discord voice channels (display-only in Echo — join voice in Discord).',
+  },
+  discord_chat_sync: {
+    title: 'Discord chat sync',
+    description:
+      'Apply the same live message mirroring to every text and forum channel in a category.',
+  },
+};
+
+/** Groups match common channel-permission section labels (subset). */
+export type ChannelPermissionGroup =
+  | 'General permissions'
+  | 'Text channel'
+  | 'Threads'
+  | 'Voice channel';
+
+export interface ChannelPermissionDef {
+  key: ChannelPermissionKey;
+  label: string;
+  group: ChannelPermissionGroup;
+}
+
+/** Shared general rows (text + voice). Single source so category merge never drifts. */
+export const CHANNEL_GENERAL_PERMISSION_DEFS: ChannelPermissionDef[] = [
+  { key: 'viewChannel', label: 'View channel', group: 'General permissions' },
+  {
+    key: 'manageChannel',
+    label: 'Manage channel',
+    group: 'General permissions',
+  },
+  {
+    key: 'managePermissions',
+    label: 'Manage permissions',
+    group: 'General permissions',
+  },
+  {
+    key: 'manageWebhooks',
+    label: 'Manage webhooks',
+    group: 'General permissions',
+  },
+  { key: 'createInvite', label: 'Create invite', group: 'General permissions' },
+];
+
+/**
+ * Voice-only channel permissions (canonical wire order: Connect → Speak → Use Voice Activity → …).
+ * Always included in voice channel + category UIs from the same source.
+ */
+export const CHANNEL_VOICE_ONLY_DEFS: ChannelPermissionDef[] = [
+  { key: 'connect', label: 'Connect', group: 'Voice channel' },
+  { key: 'speak', label: 'Speak', group: 'Voice channel' },
+  {
+    key: 'useVoiceActivity',
+    label: 'Use Voice Activity',
+    group: 'Voice channel',
+  },
+  { key: 'video', label: 'Video', group: 'Voice channel' },
+  { key: 'muteMembers', label: 'Mute members', group: 'Voice channel' },
+  { key: 'deafenMembers', label: 'Deafen members', group: 'Voice channel' },
+  { key: 'moveMembers', label: 'Move members', group: 'Voice channel' },
+  {
+    key: 'prioritySpeaker',
+    label: 'Use priority speaker',
+    group: 'Voice channel',
+  },
+  { key: 'stream', label: 'Stream', group: 'Voice channel' },
+  {
+    key: 'useEmbeddedActivities',
+    label: 'Use activities',
+    group: 'Voice channel',
+  },
+  { key: 'requestToSpeak', label: 'Request to speak', group: 'Voice channel' },
+  { key: 'useSoundboard', label: 'Use soundboard', group: 'Voice channel' },
+  {
+    key: 'useExternalSounds',
+    label: 'Use external sounds',
+    group: 'Voice channel',
+  },
+  { key: 'manageEvents', label: 'Manage events', group: 'Voice channel' },
+  { key: 'createEvents', label: 'Create events', group: 'Voice channel' },
+];
+
+/** Full text-channel permission list (compact). */
+export const CHANNEL_PERMISSION_DEFS_TEXT: ChannelPermissionDef[] = [
+  ...CHANNEL_GENERAL_PERMISSION_DEFS,
+  /* Text */
+  { key: 'sendMessages', label: 'Send messages', group: 'Text channel' },
+  { key: 'embedLinks', label: 'Embed links', group: 'Text channel' },
+  { key: 'attachFiles', label: 'Attach files', group: 'Text channel' },
+  { key: 'addReactions', label: 'Add reactions', group: 'Text channel' },
+  {
+    key: 'useExternalEmoji',
+    label: 'Use external emoji',
+    group: 'Text channel',
+  },
+  {
+    key: 'useExternalStickers',
+    label: 'Use external stickers',
+    group: 'Text channel',
+  },
+  {
+    key: 'mentionEveryone',
+    label: 'Mention @everyone, @here, and all roles',
+    group: 'Text channel',
+  },
+  { key: 'manageMessages', label: 'Manage messages', group: 'Text channel' },
+  {
+    key: 'readMessageHistory',
+    label: 'Read message history',
+    group: 'Text channel',
+  },
+  {
+    key: 'sendTTS',
+    label: 'Send text-to-speech messages',
+    group: 'Text channel',
+  },
+  {
+    key: 'useApplicationCommands',
+    label: 'Use application commands',
+    group: 'Text channel',
+  },
+  { key: 'createPolls', label: 'Create polls', group: 'Text channel' },
+  {
+    key: 'sendVoiceMessages',
+    label: 'Send voice messages',
+    group: 'Text channel',
+  },
+  { key: 'pinMessages', label: 'Pin messages', group: 'Text channel' },
+  { key: 'bypassSlowmode', label: 'Bypass slowmode', group: 'Text channel' },
+  { key: 'useExternalApps', label: 'Use external apps', group: 'Text channel' },
+  /* Threads */
+  {
+    key: 'sendMessagesInThreads',
+    label: 'Send messages in threads',
+    group: 'Threads',
+  },
+  {
+    key: 'createPublicThreads',
+    label: 'Create public threads',
+    group: 'Threads',
+  },
+  {
+    key: 'createPrivateThreads',
+    label: 'Create private threads',
+    group: 'Threads',
+  },
+  { key: 'manageThreads', label: 'Manage threads', group: 'Threads' },
+];
+
+/** Voice channel settings: general + voice-only (same rows as category’s Voice section). */
+export const CHANNEL_PERMISSION_DEFS_VOICE: ChannelPermissionDef[] = [
+  ...CHANNEL_GENERAL_PERMISSION_DEFS,
+  ...CHANNEL_VOICE_ONLY_DEFS,
+];
+
+/** Category-level: union of text + voice (deduped by key). */
+export const CHANNEL_PERMISSION_DEFS_CATEGORY: ChannelPermissionDef[] = (() => {
+  const seen = new Set<ChannelPermissionKey>();
+  const out: ChannelPermissionDef[] = [];
+  for (const d of [
+    ...CHANNEL_PERMISSION_DEFS_TEXT,
+    ...CHANNEL_PERMISSION_DEFS_VOICE,
+  ]) {
+    if (seen.has(d.key)) continue;
+    seen.add(d.key);
+    out.push(d);
+  }
+  return out;
+})();
+
+/**
+ * Channel settings permissions tab: text channels get text defs; voice channels get the same
+ * General + Voice rows as category settings (from merged list), so “Use Voice Activity” is always
+ * present for voice in the same order as category defaults.
+ */
+export function getChannelPermissionDefsForChannelType(
+  channelType: 'text' | 'voice' | 'forum',
+): ChannelPermissionDef[] {
+  if (channelType === 'text' || channelType === 'forum')
+    return CHANNEL_PERMISSION_DEFS_TEXT;
+  return CHANNEL_PERMISSION_DEFS_CATEGORY.filter(
+    (d) => d.group === 'General permissions' || d.group === 'Voice channel',
+  );
+}
+
+export const CATEGORY_TAB_COPY: Record<
+  CategorySettingsTab,
+  { title: string; description: string }
+> = {
+  overview: {
+    title: 'Overview',
+    description:
+      'Rename this category. Channels that sync permissions inherit from the Permissions tab.',
+  },
+  permissions: {
+    title: 'Permissions',
+    description:
+      'Set default permissions for this category. Channels with “sync with category” use these rules.',
+  },
+  discord_chat_sync: {
+    title: 'Discord chat sync',
+    description:
+      'Apply the same live message mirroring (Discord ↔ Echo) to every text and forum channel in this category, using each channel’s import mapping.',
+  },
+  discord_voice_mirror: {
+    title: 'Discord voice mirror',
+    description:
+      'Mirror live Discord voice activity for channels in this category. Echo shows roster only.',
+  },
+};
+
+export const SLOW_MODE_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Off', value: '0' },
+  { label: '5 seconds', value: '5' },
+  { label: '10 seconds', value: '10' },
+  { label: '15 seconds', value: '15' },
+  { label: '30 seconds', value: '30' },
+  { label: '1 minute', value: '60' },
+  { label: '5 minutes', value: '300' },
+  { label: '10 minutes', value: '600' },
+  { label: '15 minutes', value: '900' },
+  { label: '1 hour', value: '3600' },
+  { label: '6 hours', value: '21600' },
+  { label: '24 hours', value: '86400' },
+];

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="ytbg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a0508"/>
+      <stop offset="45%" stop-color="#120a14"/>
+      <stop offset="100%" stop-color="#0a1524"/>
+    </linearGradient>
+  </defs>
+  <rect width="160" height="100" fill="url(#ytbg)"/>
+  <image
+    xlink:href="youtube-logo-wikimedia.svg"
+    href="youtube-logo-wikimedia.svg"
+    x="35"
+    y="19"
+    width="90"
+    height="62"
+    preserveAspectRatio="xMidYMid meet"
+  />
+</svg>

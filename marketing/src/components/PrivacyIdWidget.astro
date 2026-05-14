@@ -1,0 +1,242 @@
+---
+/**
+ * High-fidelity recreation of the privacy / “No ID” marketing widget (vector-quality CSS).
+ */
+---
+
+<div class="idw" aria-hidden="true">
+  <div class="idw__plate">
+    <div class="idw__grid">
+      <div class="idw__avatar">
+        <div class="idw__avatar-ring">
+          <div class="idw__hood"></div>
+          <div class="idw__eyes">
+            <span class="idw__eye">
+              <span class="idw__pupil"></span>
+            </span>
+            <span class="idw__eye">
+              <span class="idw__pupil"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="idw__copy">
+        <span class="idw__skeleton idw__skeleton--a"></span>
+        <span class="idw__skeleton idw__skeleton--b"></span>
+      </div>
+
+      <div class="idw__badge">
+        <span class="idw__badge-label">No ID needed</span>
+        <span class="idw__badge-dot">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M20 6L9 17l-5-5"
+              stroke="currentColor"
+              stroke-width="3.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"></path>
+          </svg>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .idw {
+    --idw-panel: #f3f1f9;
+    --idw-panel-edge: rgba(88, 86, 214, 0.07);
+    --idw-avatar-hi: #e4defc;
+    --idw-avatar-lo: #b8a9ef;
+    --idw-hood: #2f2756;
+    --idw-hood-deep: #1e1638;
+    --idw-eye: #ffffff;
+    --idw-pupil: #16132e;
+    --idw-skel: rgba(88, 72, 178, 0.38);
+    --idw-badge-bg: #e8e4f8;
+    --idw-badge-text: #4f46b8;
+    --idw-dot: #5856d6;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .idw__plate {
+    border-radius: 16px;
+    background: var(--idw-panel);
+    border: 1px solid var(--idw-panel-edge);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.65),
+      0 1px 2px rgba(25, 20, 60, 0.04);
+    padding: 14px 16px 13px;
+    overflow: hidden;
+  }
+
+  .idw__grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto auto;
+    column-gap: 14px;
+    row-gap: 7px;
+    align-items: center;
+  }
+
+  .idw__avatar {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .idw__avatar-ring {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(168deg, var(--idw-avatar-hi) 0%, var(--idw-avatar-lo) 52%, #9b87e8 100%);
+    box-shadow:
+      inset 0 -6px 10px rgba(45, 35, 95, 0.12),
+      inset 0 2px 2px rgba(255, 255, 255, 0.55),
+      0 2px 6px rgba(72, 58, 140, 0.18);
+  }
+
+  .idw__avatar-ring::after {
+    content: '';
+    position: absolute;
+    left: 12%;
+    top: 10%;
+    right: 12%;
+    height: 38%;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 72%);
+    pointer-events: none;
+  }
+
+  .idw__hood {
+    position: absolute;
+    left: 50%;
+    bottom: 9%;
+    width: 78%;
+    height: 58%;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #3f3568 0%, var(--idw-hood) 38%, var(--idw-hood-deep) 100%);
+    border-radius: 50% 50% 42% 42% / 58% 58% 38% 38%;
+    box-shadow:
+      inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+      inset 0 2px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .idw__eyes {
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    z-index: 2;
+  }
+
+  .idw__eye {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--idw-eye);
+    box-shadow:
+      0 0 0 1px rgba(20, 15, 50, 0.06),
+      inset 0 -1px 1px rgba(0, 0, 0, 0.05);
+  }
+
+  .idw__eye + .idw__eye .idw__pupil {
+    left: 46%;
+  }
+
+  .idw__pupil {
+    position: absolute;
+    left: 54%;
+    top: 47%;
+    width: 4px;
+    height: 4px;
+    margin: -2px 0 0 -2px;
+    border-radius: 50%;
+    background: var(--idw-pupil);
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.35);
+  }
+
+  .idw__copy {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+    padding-top: 1px;
+  }
+
+  .idw__skeleton {
+    display: block;
+    height: 9px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--idw-skel) 0%, rgba(140, 124, 210, 0.45) 50%, var(--idw-skel) 100%);
+    background-size: 200% 100%;
+    max-width: 100%;
+  }
+
+  .idw__skeleton--a {
+    width: min(148px, 100%);
+  }
+
+  .idw__skeleton--b {
+    width: min(102px, 72%);
+  }
+
+  .idw__badge {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px 7px 13px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #efeafd 0%, var(--idw-badge-bg) 100%);
+    border: 1px solid rgba(88, 86, 214, 0.1);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.75),
+      0 1px 2px rgba(40, 32, 90, 0.05);
+    margin-top: 2px;
+  }
+
+  .idw__badge-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--idw-badge-text);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .idw__badge-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(165deg, #6d64e8 0%, var(--idw-dot) 55%, #4b42c4 100%);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 1px 3px rgba(40, 32, 120, 0.25);
+  }
+
+  .idw__badge-dot svg {
+    display: block;
+    margin-top: 0.5px;
+  }
+</style>

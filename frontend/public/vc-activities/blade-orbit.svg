@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="bo-bg" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0ea5e9"/>
+      <stop offset="0.55" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="bo-orbit" x1="32" y1="12" x2="32" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#a5b4fc" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bo-bg)"/>
+  <ellipse cx="32" cy="34" rx="22" ry="14" stroke="url(#bo-orbit)" stroke-width="2.2" fill="none"/>
+  <circle cx="32" cy="34" r="7" fill="#0f172a" stroke="#e2e8f8" stroke-width="1.5"/>
+  <path d="M46 18 L52 14 L48 22 Z" fill="#f8fafc" opacity="0.95"/>
+  <path d="M46 18 L40 20 L44 24 Z" fill="#cbd5f5" opacity="0.85"/>
+</svg>

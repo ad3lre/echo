@@ -1,0 +1,5 @@
+# Applied by Cloudflare Pages / Netlify to static responses from this build output.
+# For Cloudflare proxy → origin (non-Pages), see docs/operations/http-observatory-headers.md
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com; upgrade-insecure-requests

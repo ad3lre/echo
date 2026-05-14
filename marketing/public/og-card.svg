@@ -1,0 +1,23 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#0D0812"/>
+  <circle cx="210" cy="96" r="196" fill="#6366F1" fill-opacity="0.18"/>
+  <circle cx="1110" cy="42" r="162" fill="#8B5CF6" fill-opacity="0.16"/>
+  <rect x="52" y="52" width="1096" height="526" rx="40" fill="#130C1B" stroke="#FFFFFF" stroke-opacity="0.08"/>
+  <rect x="100" y="100" width="92" height="92" rx="28" fill="#171022" stroke="#FFFFFF" stroke-opacity="0.12"/>
+  <path d="M125 146C125 125.013 142.013 108 163 108H210V125.5H163.75C152.29 125.5 143 134.79 143 146.25C143 157.71 152.29 167 163.75 167H184.75V152.5H167.25V135H218.25V183H163C142.013 183 125 165.987 125 146Z" fill="url(#paint0_linear_1_4)"/>
+  <text x="236" y="152" fill="#FFFFFF" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">Echo</text>
+  <text x="100" y="270" fill="#FFFFFF" font-size="86" font-family="Inter, Arial, sans-serif" font-weight="700">Private chat app and</text>
+  <text x="100" y="360" fill="#FFFFFF" font-size="86" font-family="Inter, Arial, sans-serif" font-weight="700">Discord alternative</text>
+  <text x="100" y="448" fill="#FFFFFF" fill-opacity="0.72" font-size="34" font-family="Inter, Arial, sans-serif">
+    Privacy-focused messaging, voice, and community conversation.
+  </text>
+  <text x="100" y="500" fill="#FFFFFF" fill-opacity="0.72" font-size="34" font-family="Inter, Arial, sans-serif">
+    Start at app-echo.net and open the live app on chat-echo.com.
+  </text>
+  <defs>
+    <linearGradient id="paint0_linear_1_4" x1="127" y1="114" x2="216" y2="183" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+</svg>

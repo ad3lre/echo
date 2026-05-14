@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="ec-sky" x1="8" y1="6" x2="56" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="ec-grass" x1="10" y1="36" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4ade80"/>
+      <stop offset="0.55" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#15803d"/>
+    </linearGradient>
+    <linearGradient id="ec-dirt" x1="14" y1="48" x2="50" y2="62" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#92400e"/>
+      <stop offset="1" stop-color="#451a03"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#ec-sky)"/>
+  <rect x="8" y="30" width="48" height="22" rx="3" fill="url(#ec-grass)"/>
+  <rect x="10" y="48" width="44" height="10" rx="2" fill="url(#ec-dirt)"/>
+  <rect x="18" y="24" width="10" height="10" fill="#166534" opacity="0.9"/>
+  <rect x="36" y="22" width="10" height="12" fill="#166534" opacity="0.92"/>
+  <rect x="26" y="18" width="8" height="8" fill="#14532d" opacity="0.88"/>
+  <path
+    d="M20 40h6v6h-6v-6zm9 0h6v6h-6v-6zm9 0h6v6h-6v-6z"
+    fill="#14532d"
+    opacity="0.35"
+  />
+</svg>

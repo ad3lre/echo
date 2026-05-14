@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="sk-bg" x1="36" y1="12" x2="284" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fb923c"/>
+      <stop offset="0.5" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="sk-kart" x1="91" y1="69" x2="228" y2="144" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#facc15"/>
+      <stop offset="1" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="200" rx="22" fill="url(#sk-bg)"/>
+  <path d="M0 145C43 120 76 119 116 140C162 164 207 163 320 108V200H0V145Z" fill="#020617" opacity="0.38"/>
+  <path d="M45 128C96 97 154 94 219 111C252 120 282 120 320 103" stroke="#f8fafc" stroke-opacity="0.18" stroke-width="10" stroke-linecap="round"/>
+  <g transform="translate(77 56)">
+    <path d="M30 62L54 27H121L151 62L143 91H19L30 62Z" fill="url(#sk-kart)"/>
+    <path d="M53 29L68 8H111L122 29H53Z" fill="#fef3c7"/>
+    <path d="M63 35H111L126 58H48L63 35Z" fill="#0f172a" opacity="0.88"/>
+    <path d="M19 63H151L164 79C166 82 164 87 160 87H9C5 87 3 82 6 79L19 63Z" fill="#ef4444"/>
+    <circle cx="40" cy="88" r="20" fill="#020617"/>
+    <circle cx="40" cy="88" r="9" fill="#94a3b8"/>
+    <circle cx="130" cy="88" r="20" fill="#020617"/>
+    <circle cx="130" cy="88" r="9" fill="#94a3b8"/>
+    <path d="M116 47L148 31" stroke="#f8fafc" stroke-width="6" stroke-linecap="round"/>
+    <path d="M26 68H145" stroke="#fed7aa" stroke-opacity="0.8" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g fill="#f8fafc" opacity="0.76">
+    <path d="M244 53L252 69L270 72L257 84L260 102L244 93L228 102L231 84L218 72L236 69L244 53Z"/>
+    <path d="M59 32L64 42L75 44L67 52L69 63L59 57L49 63L51 52L43 44L54 42L59 32Z" opacity="0.62"/>
+  </g>
+</svg>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-device backup (API &lt; 31): exclude volatile caches; tighten further when secret storage paths are fixed. -->
+<full-backup-content xmlns:android="http://schemas.android.com/apk/res/android">
+    <exclude domain="file" path="cache" />
+    <exclude domain="file" path="code_cache" />
+</full-backup-content>

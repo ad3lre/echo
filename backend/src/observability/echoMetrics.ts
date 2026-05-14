@@ -1,0 +1,148 @@
+import {
+  Registry,
+  Counter,
+  Histogram,
+  collectDefaultMetrics,
+} from 'prom-client';
+
+const registry = new Registry();
+collectDefaultMetrics({ register: registry, prefix: 'echo_' });
+
+export const echoSocketBranchTotal = new Counter({
+  name: 'echo_socket_message_branch_total',
+  help: 'Socket message handler branch (echo_persisted, reject_unknown)',
+  labelNames: ['branch'],
+  registers: [registry],
+});
+
+export const echoMessageFailedTotal = new Counter({
+  name: 'echo_message_failed_total',
+  help: 'message_failed emissions by code',
+  labelNames: ['code'],
+  registers: [registry],
+});
+
+export const echoMessagesPersistedTotal = new Counter({
+  name: 'echo_messages_persisted_total',
+  help: 'Echo messages inserted vs duplicate idempotent',
+  labelNames: ['result'],
+  registers: [registry],
+});
+
+export const echoSocketHandlerDurationSeconds = new Histogram({
+  name: 'echo_socket_message_handler_duration_seconds',
+  help: 'Time spent in async message handler',
+  buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2],
+  registers: [registry],
+});
+
+export const echoWorkspaceEventPublishedTotal = new Counter({
+  name: 'echo_workspace_event_published_total',
+  help: 'Versioned Echo workspace/state events published to clients',
+  labelNames: ['kind'],
+  registers: [registry],
+});
+
+export const echoWorkspaceSnapshotRejectedTotal = new Counter({
+  name: 'echo_workspace_snapshot_rejected_total',
+  help: 'Workspace snapshots rejected as stale on the client/server contract boundary',
+  labelNames: ['reason'],
+  registers: [registry],
+});
+
+export const echoPermissionDenialReasonTotal = new Counter({
+  name: 'echo_permission_denial_reason_total',
+  help: 'Permission denials by diagnosed reason',
+  labelNames: ['reason'],
+  registers: [registry],
+});
+
+/** ADR 002: generator blocked until next millisecond (sequence bucket or clock catch-up). */
+export const echoSnowflakeGeneratorWaitNextMsTotal = new Counter({
+  name: 'echo_snowflake_generator_wait_next_ms_total',
+  help: 'Snowflake generator waited for next millisecond',
+  registers: [registry],
+});
+
+/** ADR 002: sequence slot used at emit (0–4095); high values warn before blocking. */
+export const echoSnowflakeGeneratorSequenceObserved = new Histogram({
+  name: 'echo_snowflake_generator_sequence_observed',
+  help: 'Sequence value observed when emitting a snowflake id',
+  buckets: [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4095],
+  registers: [registry],
+});
+
+/** Message search (REST) — duration and hit counts for ops dashboards. */
+export const echoMessageSearchDurationSeconds = new Histogram({
+  name: 'echo_message_search_duration_seconds',
+  help: 'Echo GET …/messages/search wall time',
+  labelNames: ['scope'],
+  buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
+  registers: [registry],
+});
+
+export const echoMessageSearchResultCount = new Histogram({
+  name: 'echo_message_search_result_count',
+  help: 'Number of messages returned per search request',
+  labelNames: ['scope'],
+  buckets: [0, 1, 2, 4, 8, 16, 24, 32, 50, 100],
+  registers: [registry],
+});
+
+/** REST RED slice — low-cardinality route_group (not raw paths). */
+export const echoRestHttpRequestsTotal = new Counter({
+  name: 'echo_rest_http_requests_total',
+  help: 'HTTP requests completed by route group, method, and status class',
+  labelNames: ['route_group', 'method', 'status_class'],
+  registers: [registry],
+});
+
+export const echoRestHttpRequestDurationSeconds = new Histogram({
+  name: 'echo_rest_http_request_duration_seconds',
+  help: 'HTTP request duration in seconds by route group',
+  labelNames: ['route_group'],
+  buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 15],
+  registers: [registry],
+});
+
+/** DM open outcomes (complements echo.dm.open structured logs). */
+export const echoDmOpenTotal = new Counter({
+  name: 'echo_dm_open_total',
+  help: 'POST /dm/open outcomes',
+  labelNames: ['outcome'],
+  registers: [registry],
+});
+
+export const echoVoiceModerateTotal = new Counter({
+  name: 'echo_voice_moderate_total',
+  help: 'Voice moderation POST outcomes (low-cardinality action + result)',
+  labelNames: ['action', 'result'],
+  registers: [registry],
+});
+
+export const echoLivekitWebhookEventTotal = new Counter({
+  name: 'echo_livekit_webhook_event_total',
+  help: 'LiveKit webhook events that matched a handler branch',
+  labelNames: ['event'],
+  registers: [registry],
+});
+
+/** E2EE device pairing REST outcomes (bounded `result` labels). */
+export const echoE2eePairingTotal = new Counter({
+  name: 'echo_e2ee_pairing_total',
+  help: 'E2EE pairing HTTP outcomes',
+  labelNames: ['result'],
+  registers: [registry],
+});
+
+/** E2EE encryption block / envelope rejected in shared message payload validation. */
+export const echoE2eeEnvelopeRejectedTotal = new Counter({
+  name: 'echo_e2ee_envelope_rejected_total',
+  help: 'E2EE wire validation rejections (encryption block + envelope bounds)',
+  labelNames: ['reason'],
+  registers: [registry],
+});
+
+export function getEchoMetricsRegistry(): Registry {
+  return registry;
+}

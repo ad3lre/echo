@@ -1,0 +1,38 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-foreground: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+
+  /* Theme-aware chrome (see --ui-* in themes.css) */
+  --color-fg-strong: var(--text);
+  --color-fg: var(--ui-fg);
+  --color-fg-soft: var(--ui-fg-soft);
+  --color-fg-subtle: var(--ui-fg-subtle);
+  --color-glass-1: var(--ui-glass-1);
+  --color-glass-2: var(--ui-glass-2);
+  --color-glass-3: var(--ui-glass-3);
+  --color-glass-hover: var(--ui-glass-hover);
+  --color-glass-active: var(--ui-glass-active);
+  --color-scrim-1: var(--ui-scrim-1);
+  --color-scrim-2: var(--ui-scrim-2);
+
+  --color-overlay-dim: var(--overlay-dim);
+  --color-overlay-heavy: var(--overlay-heavy);
+  --color-overlay-ink: var(--overlay-ink);
+  --color-overlay-subtle: var(--overlay-subtle);
+  --color-glass-tint: var(--glass-tint);
+  --color-glass-border: var(--glass-border);
+
+  --shadow-0: var(--shadow-0);
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+  --shadow-4: var(--shadow-4);
+  --shadow-5: var(--shadow-5);
+}

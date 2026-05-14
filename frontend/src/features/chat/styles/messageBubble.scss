@@ -1,0 +1,431 @@
+/* Group spacing: header = first in group, continuation = follow-up */
+.author-trigger,
+.author-name-trigger {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.author-trigger {
+  border-radius: 9999px;
+}
+
+.author-name-trigger:hover {
+  text-decoration: underline;
+}
+
+.msg-header {
+  margin-top: var(--echo-density-msg-header-mt, 1.0625rem);
+  padding-top: var(--echo-density-msg-header-py, 0.25rem);
+  padding-bottom: var(--echo-density-msg-header-py, 0.25rem);
+}
+/* List position is set on the bubble (MessageList); :first-child broke when each row was wrapped for virtualization. */
+.msg-header--first {
+  margin-top: var(--echo-density-msg-header-first-mt, 1.5rem);
+}
+.msg-continuation {
+  padding-top: var(--echo-density-msg-continuation-py, 0.0625rem);
+  padding-bottom: var(--echo-density-msg-continuation-py, 0.0625rem);
+}
+.msg-bubble--last {
+  margin-bottom: var(--echo-density-msg-last-mb, 1rem);
+}
+
+/* Temporary highlight when scrolled to from reply click */
+.message-bubble.message-highlight {
+  animation: message-highlight-flash 2s ease-out;
+}
+@keyframes message-highlight-flash {
+  0% {
+    background-color: var(--message-highlight-flash);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Reply: avatar lower, aligned with author name */
+.reply-avatar {
+  margin-top: 26px; /* skip reply line height, align with author row */
+}
+
+/* Simple L: up from avatar top-center, right to quote. No long vertical. */
+.content-with-reply {
+  position: relative;
+  --line: var(--reply-thread-line);
+  /* Short vertical up from avatar top */
+  &::before {
+    content: '';
+    position: absolute;
+    left: -36px;
+    top: 4px;
+    width: 2px;
+    height: 4px;
+    background: var(--line);
+  }
+  /* Horizontal to quoted message */
+  &::after {
+    content: '';
+    position: absolute;
+    left: -36px;
+    top: 4px;
+    width: 36px;
+    height: 2px;
+    background: var(--line);
+  }
+}
+
+/* Reaction pills + row: see MessageReactionsRow.vue (scoped — was broken under parent-only scoped CSS). */
+
+/* Dark liquid glass bar behind message actions */
+.msg-actions-bar {
+  background: var(--msg-actions-bar-bg);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: inset 0 1px 0 var(--msg-actions-bar-inset);
+}
+
+/*
+ * Quick-react / edit-row emoji buttons inside MessageBubble template only.
+ * Hover bar lives in MessageActionBar.vue (scoped) — sizing is defined there.
+ */
+.msg-action-emoji :deep(img.emoji),
+.msg-action-emoji :deep(img.custom-emoji) {
+  width: 1rem;
+  height: 1rem;
+  max-width: 1rem;
+  max-height: 1rem;
+  display: block;
+  object-fit: contain;
+}
+@keyframes reaction-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.25);
+  }
+  65% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.msg-action-emoji--pop {
+  animation: reaction-pop 0.4s ease-out;
+}
+
+/* .ellipsis-menu — global liquid glass in main.scss */
+
+.message-text {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
+  /*
+   * Do not use overflow-x: hidden here: with overflow-y: visible it forces overflow-y
+   * to compute to `auto`, which clips KaTeX (fractions, tall radicals) and inline math
+   * that extends past the line box. Wide prose still wraps via overflow-wrap/word-break;
+   * code blocks / tables use their own overflow-x rules.
+   */
+  overflow: visible;
+}
+/* Ensure mentions in rendered messages get correct styles (chat display) */
+.message-text :deep(.mention) {
+  color: var(--mention-user-fg);
+  background: var(--mention-user-bg);
+  padding: 0 0.2em;
+  border-radius: 3px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.message-text :deep(.mention:hover) {
+  background: var(--mention-user-bg-hover);
+  color: var(--mention-user-fg-hover);
+}
+.message-text :deep(.mention--special) {
+  color: var(--mention-special-fg);
+  background: var(--mention-special-bg);
+}
+.message-text :deep(.mention--special:hover) {
+  background: var(--mention-special-bg-hover);
+  color: var(--mention-special-fg-hover);
+}
+.message-text :deep(.mention--channel) {
+  color: var(--mention-channel-fg);
+  background: var(--mention-channel-bg);
+}
+.message-text :deep(.mention--channel:hover) {
+  background: var(--mention-channel-bg-hover);
+  color: var(--mention-channel-fg-hover);
+}
+/* `display: inline` on replaced elements sits on the baseline and clips the
+   bottom of emoji / custom emoji / app-icon images in the line box. */
+.message-text :deep(.emoji) {
+  height: 1.15em;
+  width: 1.15em;
+  max-height: 1.15em;
+  max-width: 1.15em;
+  object-fit: contain;
+  vertical-align: -0.12em;
+  display: inline-block;
+  box-sizing: content-box;
+}
+
+.message-video-shell {
+  position: relative;
+  width: min(100%, 40rem);
+  border-radius: 16px;
+  padding: 0.5rem;
+  background: var(--msg-video-shell-bg);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(20px) saturate(1.15);
+  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  box-shadow:
+    inset 0 1px 0 var(--msg-video-shell-inset),
+    0 18px 36px var(--msg-video-shell-shadow);
+}
+
+.message-video {
+  display: block;
+  width: 100%;
+  max-height: 24rem;
+  border-radius: 12px;
+  background: var(--msg-video-inner-bg);
+}
+
+.message-text--emoji-only :deep(.emoji) {
+  height: 48px;
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  max-width: 48px;
+  max-height: 48px;
+  object-fit: contain;
+  vertical-align: -0.12em;
+  display: inline-block;
+}
+
+/* Markdown content in messages */
+.message-content :deep(p) {
+  margin: 0 0 0.5em;
+}
+.message-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.message-content :deep(pre) {
+  margin: 0.5em 0;
+  padding: 0.5em 0.75em;
+  border-radius: 6px;
+  background: var(--md-code-bg);
+  overflow-x: auto;
+  max-width: 100%;
+  font-size: 0.9em;
+}
+.message-content :deep(code) {
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  background: var(--md-inline-code-bg);
+  font-size: 0.9em;
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+.message-content :deep(pre code) {
+  padding: 0;
+  background: none;
+}
+.message-content :deep(blockquote) {
+  margin: 0.5em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--border);
+  color: var(--text);
+}
+.message-content :deep(.md-alert) {
+  --alert-accent: #60a5fa;
+  --alert-accent-soft: color-mix(in srgb, var(--alert-accent) 18%, transparent);
+  margin: 0.75em 0;
+  padding: 0.7em 0.85em 0.72em;
+  border-left: 3px solid var(--alert-accent);
+  border-radius: 0.6rem;
+  background: linear-gradient(
+    100deg,
+    var(--alert-accent-soft) 0%,
+    color-mix(in srgb, var(--surface) 72%, transparent) 100%
+  );
+}
+.message-content :deep(.md-alert__title) {
+  margin: 0 0 0.38em;
+  font-weight: 700;
+  font-size: 0.95em;
+  letter-spacing: 0.01em;
+  color: var(--alert-accent);
+}
+.message-content :deep(.md-alert__title::before) {
+  content: 'i';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.45em;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--alert-accent) 45%, transparent);
+  color: var(--alert-accent);
+  font-size: 0.72em;
+  font-weight: 800;
+}
+.message-content :deep(.md-alert > :last-child) {
+  margin-bottom: 0;
+}
+.message-content :deep(.md-alert--note) {
+  --alert-accent: #60a5fa;
+}
+.message-content :deep(.md-alert--tip) {
+  --alert-accent: #34d399;
+}
+.message-content :deep(.md-alert--important) {
+  --alert-accent: #a78bfa;
+}
+.message-content :deep(.md-alert--warning) {
+  --alert-accent: #fbbf24;
+}
+.message-content :deep(.md-alert--caution) {
+  --alert-accent: #f87171;
+}
+.message-content :deep(.md-alert--tip .md-alert__title::before) {
+  content: '\2726';
+}
+.message-content :deep(.md-alert--important .md-alert__title::before) {
+  content: '!';
+}
+.message-content :deep(.md-alert--warning .md-alert__title::before) {
+  content: '!';
+}
+.message-content :deep(.md-alert--caution .md-alert__title::before) {
+  content: '\00d7';
+}
+.message-content :deep(ul) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+  list-style-type: disc;
+}
+.message-content :deep(ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+  list-style-type: decimal;
+}
+.message-content :deep(ul ul),
+.message-content :deep(ol ul) {
+  list-style-type: circle;
+}
+.message-content :deep(ul ul ul),
+.message-content :deep(ol ul ul),
+.message-content :deep(ol ol ul),
+.message-content :deep(ul ol ul) {
+  list-style-type: square;
+}
+.message-content :deep(ol ol) {
+  list-style-type: lower-alpha;
+}
+.message-content :deep(ol ol ol) {
+  list-style-type: lower-roman;
+}
+.message-content :deep(li) {
+  margin: 0.25em 0;
+  display: list-item;
+}
+.message-content :deep(a:not(.invite-embed__join)) {
+  color: var(--md-link-fg);
+  text-decoration: underline;
+}
+.message-content :deep(a:not(.invite-embed__join):hover) {
+  color: var(--md-link-fg-hover);
+}
+.message-content :deep(h1) {
+  margin: 0.5em 0 0.25em;
+  font-size: 1.35em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.message-content :deep(h2) {
+  margin: 0.5em 0 0.25em;
+  font-size: 1.2em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.message-content :deep(h3) {
+  margin: 0.5em 0 0.25em;
+  font-size: 1.1em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* Tables */
+.message-content :deep(table) {
+  margin: 0.5em 0;
+  border-collapse: collapse;
+  max-width: 100%;
+  table-layout: fixed;
+}
+.message-content :deep(th),
+.message-content :deep(td) {
+  border: 1px solid var(--border);
+  padding: 0.35em 0.6em;
+  text-align: left;
+}
+.message-content :deep(th) {
+  background: var(--md-table-header-bg);
+  font-weight: 600;
+}
+.message-content :deep(tr:nth-child(even) td) {
+  background: var(--md-table-stripe-bg);
+}
+
+/* Horizontal rule */
+.message-content :deep(hr) {
+  margin: 1em 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* Task list (checkbox) */
+.message-content :deep(input[type='checkbox']) {
+  margin-right: 0.35em;
+  vertical-align: 0.2em;
+  accent-color: var(--md-checkbox-accent);
+}
+.message-content :deep(li:has(input[type='checkbox'])) {
+  list-style: none;
+  margin-left: -1.5em;
+}
+
+/* Highlight (==text==) */
+.message-content :deep(mark) {
+  background: var(--md-mark-bg);
+  color: inherit;
+  padding: 0.1em 0.2em;
+  border-radius: 3px;
+}
+
+/* Footnotes */
+.message-content :deep(sup[data-footnote-ref]) {
+  font-size: 0.75em;
+}
+.message-content :deep(section[data-footnotes]) {
+  margin-top: 1em;
+  padding-top: 0.75em;
+  border-top: 1px solid var(--border);
+  font-size: 0.9em;
+  color: var(--muted);
+}
+.message-content :deep(section[data-footnotes] ol) {
+  padding-left: 1.5em;
+  margin: 0.25em 0;
+}
+.message-content :deep([data-footnote-backref]) {
+  margin-left: 0.25em;
+  opacity: 0.8;
+}

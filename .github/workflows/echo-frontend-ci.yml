@@ -1,0 +1,54 @@
+name: Echo frontend checks
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/echo-frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+jobs:
+  frontend-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint (theme + TS + Vue essential)
+        run: npm run lint -w frontend
+
+      - name: Strict theme ESLint
+        run: npm run lint:theme -w frontend
+
+      - name: Stylelint (SCSS + Vue SFC styles)
+        run: npm run lint:style -w frontend
+
+      - name: Typecheck + build
+        run: npm run build -w frontend
+
+      - name: Assert no source maps in dist
+        run: |
+          if compgen -G "frontend/dist/**/*.map" > /dev/null; then
+            echo "ERROR: source map files found under frontend/dist/"
+            find frontend/dist -name '*.map' -print
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: npm run test -w frontend

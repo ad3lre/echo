@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# When pushing refs/heads/release/1.0.0 to a non-GitHub remote (e.g. GitLab origin),
+# mirror that same ref to the remote named "github" (https://github.com/ad3lre/echo).
+# Pushes whose URL is already github.com are left alone (no mirror, no loop).
+set -euo pipefail
+
+push_url="${2:-}"
+
+if [[ "$push_url" == *github.com* ]]; then
+  exit 0
+fi
+
+if ! git remote get-url github &>/dev/null; then
+    echo "pre-push: remote 'github' is missing. Add it once, then retry:" >&2
+    echo "  git remote add github https://github.com/ad3lre/echo.git" >&2
+    exit 1
+fi
+
+# So --force-with-lease can compare against the last mirrored tip.
+git fetch github refs/heads/release/1.0.0:refs/remotes/github/release/1.0.0 --quiet 2>/dev/null || true
+
+while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -z "${local_ref:-}" ]] && continue
+  if [[ "$local_sha" == 0000000000000000000000000000000000000000 ]]; then
+    continue
+  fi
+  if [[ "$remote_ref" != "refs/heads/release/1.0.0" ]]; then
+    continue
+  fi
+  echo "pre-push: mirroring release/1.0.0 to github (ad3lre/echo)..."
+  prev=$(git rev-parse github/release/1.0.0 2>/dev/null || true)
+  if [[ -n "$prev" ]]; then
+    git push github "${local_sha}:refs/heads/release/1.0.0" --force-with-lease=refs/heads/release/1.0.0:"$prev"
+  else
+    git push github "${local_sha}:refs/heads/release/1.0.0"
+  fi
+done

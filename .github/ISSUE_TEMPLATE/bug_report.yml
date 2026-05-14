@@ -1,0 +1,39 @@
+name: Bug report
+description: File a bug report (not for undisclosed security issues — see SECURITY.md).
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security:** do not file undisclosed vulnerabilities here. Use the repository **Security** tab → **Report a vulnerability**, or read `.github/SECURITY.md` on the default branch.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong in one or two sentences?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps (commands, URLs, clicks). Include OS and browser or app (web / Tauri) if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Version / context
+      description: Commit SHA or tag, Node version if relevant, and whether you use Docker Compose services (`npm run db:up`).

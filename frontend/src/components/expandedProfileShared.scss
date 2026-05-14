@@ -1,0 +1,1007 @@
+/* Shared by ExpandedProfileModal (async chunk), DMProfilePanel (sync), and
+ * member-profile/MemberProfileHeader (popout banner actions).
+ * Keep in sync: DM side panel must not depend on loading the modal chunk for .ep-* rules. */
+
+/* ─── overlay ─── */
+.ep-overlay {
+  background: var(--vue-auto-132);
+  animation: ep-fade 160ms ease-out;
+}
+
+.ep-overlay--panel {
+  background: transparent;
+  pointer-events: none;
+}
+
+/* ─── modal shell ─── */
+.ep-modal {
+  width: min(940px, calc(100vw - 40px));
+  height: min(775px, calc(100vh - 48px));
+  border-radius: 20px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, var(--vue-auto-133), transparent 40%),
+    linear-gradient(180deg, var(--vue-auto-134), var(--vue-auto-135));
+  box-shadow: 0 32px 80px var(--vue-auto-016);
+  animation: ep-scale 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ep-modal--panel {
+  width: 360px;
+  max-width: 100%;
+  height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: auto;
+}
+
+/* Desktop two-column layout — ~55% profile / ~45% mutuals */
+.ep-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 11fr) minmax(280px, 9fr);
+  width: 100%;
+  height: 100%;
+}
+
+.ep-layout .ep-left {
+  min-width: 0;
+}
+
+.ep-right {
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.ep-right-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 24px 22px 18px;
+}
+
+.ep-tab-bar--right {
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--vue-auto-001);
+}
+
+/* Single-column layout */
+.ep-left {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  position: relative;
+}
+
+/* Fixed height: holds banner + bottom overlay row (⋮) without expanding layout. */
+.ep-banner-stack {
+  position: relative;
+  z-index: 1;
+  height: 90px;
+  flex-shrink: 0;
+  width: 100%;
+  overflow: visible;
+}
+
+.ep-banner-stack > .ep-banner {
+  height: 100%;
+}
+
+.ep-banner {
+  position: relative;
+  height: 90px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* Legacy: banner-bottom action strip (⋮ / add friend) — prefer name-row actions; kept for any older callers. */
+.ep-profile-banner-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  padding: 0 14px 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--vue-auto-135) 40%, black 60%) 100%
+  );
+}
+
+/* Guild role chips: anchored to bottom inside banner (member popout). */
+.ep-profile-banner-tags {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  max-width: 100%;
+  padding: 18px 10px 6px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--vue-auto-135) 44%, black 56%) 100%
+  );
+}
+
+.ep-profile-banner-tags__scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding-bottom: 1px;
+  scrollbar-width: thin;
+  pointer-events: auto;
+}
+
+/* Member quick profile: roles row sits in the card body (not absolutely positioned on banner art). */
+.ep-profile-banner-tags--popout-body {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  padding: 0;
+  margin: 0;
+  background: none;
+  pointer-events: auto;
+}
+
+.ep-profile-banner-tags--popout-body .ep-profile-banner-tags__scroll {
+  padding-bottom: 2px;
+}
+
+.ep-profile-banner-line__inner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.ep-profile-banner-line__inner > * {
+  pointer-events: auto;
+}
+
+.ep-profile-banner-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 2px 10px rgba(0, 0, 0, 0.35);
+  transition:
+    background-color 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.ep-profile-banner-more-btn:hover {
+  background: rgba(0, 0, 0, 0.68);
+  transform: translateY(-1px);
+}
+
+.ep-profile-banner-more-btn :deep(.ep-more-icon) {
+  width: 15px;
+  height: 15px;
+  opacity: 0.92;
+}
+
+/* Dark glass pill: `main.scss` clears `img.filter.invert` in light mode; keep the ⋮ glyph light. */
+[data-theme='light'] .ep-profile-banner-more-btn img.filter.invert {
+  filter: brightness(0) invert(1) !important;
+  opacity: 0.92;
+}
+
+/* Add friend: same glass pill as ⋮; primary placement when friendship state is “none”. */
+.ep-profile-banner-friend-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 2px 10px rgba(0, 0, 0, 0.35);
+  transition:
+    background-color 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.ep-profile-banner-friend-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.68);
+  transform: translateY(-1px);
+}
+
+.ep-profile-banner-friend-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ep-profile-banner-friend-btn__icon {
+  width: 15px;
+  height: 15px;
+  filter: brightness(0) saturate(100%) invert(65%) sepia(52%) saturate(600%)
+    hue-rotate(100deg);
+}
+
+.ep-profile-banner-friend-btn--labeled {
+  width: auto;
+  min-width: auto;
+  padding: 0 12px 0 8px;
+  gap: 6px;
+  column-gap: 6px;
+}
+
+.ep-profile-banner-friend-btn__text {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+}
+
+[data-theme='light'] .ep-profile-banner-friend-btn__text {
+  color: rgba(15, 23, 42, 0.88);
+}
+
+.ep-banner-actions {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: calc(100% - 16px);
+}
+
+.ep-banner__bg {
+  background: var(--banner-bg);
+}
+
+.ep-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: linear-gradient(
+    180deg,
+    transparent 30%,
+    var(--vue-auto-136) 100%
+  );
+  pointer-events: none;
+}
+
+/* Holds refraction + scroll child; overflow visible so filter:blur bleed is not clipped */
+.ep-left-main {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.ep-left-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  position: relative;
+  z-index: 1;
+  padding: 10px 30px 28px;
+}
+
+.ep-refraction {
+  position: absolute;
+  /* Inset past the blur radius (~28px) so edges are not visibly clipped */
+  top: -36px;
+  left: -36px;
+  right: -36px;
+  bottom: -36px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--profile-banner-refraction-opacity, 0.24);
+  filter: blur(28px) saturate(1.25);
+  mix-blend-mode: var(--profile-banner-refraction-mix-blend-mode, screen);
+  transform: translateZ(0);
+}
+
+.ep-avatar-wrap {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  left: 18px;
+  top: 50px; /* roughly banner midline */
+  z-index: 3;
+}
+
+/* Banner seam row: avatar left, primary actions right (expanded + DM panel). */
+.ep-top-band {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 18px;
+  margin-top: -36px;
+  position: relative;
+  /* Above banner overlays (blackout/gradient) and `.ep-left-main` so the PFP is never dimmed. */
+  z-index: 30;
+  pointer-events: none;
+  /* Match avatar height so the flex row reserves space (avoids name block sliding under the PFP). */
+  min-height: 80px;
+  flex-shrink: 0;
+}
+
+.ep-top-band__avatar,
+.ep-top-band__custom-status,
+.ep-top-band button,
+.ep-top-band a {
+  pointer-events: auto;
+}
+
+.ep-top-band__avatar {
+  position: relative;
+  z-index: 2;
+  width: 80px;
+  height: 80px;
+  flex: 0 0 auto;
+  margin-right: auto;
+  align-self: flex-start;
+}
+
+.ep-top-band__custom-status {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  align-self: center;
+  padding-left: 4px;
+}
+
+.ep-top-band__avatar .relative.block.h-full.w-full {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+/* Name row + Message / ⋯ on one line (avoids a full-width empty strip under the banner). */
+.ep-profile-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  /* Keep actions beside identity on narrow widths; title truncates via `.ep-name`. */
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+}
+
+.ep-profile-head-row__primary {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ep-profile-head-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.ep-name-block {
+  min-width: 0;
+}
+
+.ep-name-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  min-width: 0;
+}
+
+.ep-name-heading .ep-name {
+  margin-top: 0;
+}
+
+/* Legacy absolute banner avatar (`.ep-avatar-wrap`). DM rail uses `.ep-top-band__avatar` instead. */
+.ep-avatar-wrap--dm {
+  left: 18px;
+  top: 50px;
+  transform: none;
+}
+
+/* DM panel: same flex seam row as modal — do not offset the PFP with legacy left/top. */
+.ep-top-band__avatar.ep-avatar-wrap--dm {
+  left: auto;
+  top: auto;
+}
+
+.ep-avatar-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 4px solid var(--vue-auto-071);
+  object-fit: cover;
+  display: block;
+}
+
+/**
+ * PausedGifAvatar → LimitedGifImg nests `img` inside a wrapper div.
+ * Do not use `:deep()` here: this file is @use'd from unscoped SFC styles,
+ * so `:deep(img)` is never compiled and the rule is dropped (square avatars).
+ */
+.ep-avatar-wrap--static-pfp img {
+  border-radius: 50%;
+  border: 4px solid var(--vue-auto-071);
+  object-fit: cover;
+  box-sizing: border-box;
+  /* WebKit: layered GIF / multiple `<img>` stacks can show square fringes without this. */
+  clip-path: inset(0 round 9999px);
+  -webkit-clip-path: inset(0 round 9999px);
+}
+
+.ep-avatar-status {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  box-shadow: 0 0 0 3px var(--vue-auto-071);
+}
+
+/* Text */
+.ep-header-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 14px 10px;
+  margin-top: 0;
+}
+
+.ep-header-text {
+  min-width: 0;
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.ep-header-actions {
+  margin-left: 0;
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.ep-header-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  padding-inline: 10px;
+  background: color-mix(in srgb, var(--vue-auto-007) 88%, white 12%);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--vue-auto-008) 76%, transparent);
+  color: var(--vue-auto-017);
+  transition:
+    background 120ms,
+    color 120ms,
+    transform 120ms,
+    box-shadow 120ms;
+
+  &:hover {
+    background: color-mix(in srgb, var(--vue-auto-004) 84%, white 16%);
+    color: var(--vue-auto-025);
+    transform: translateY(-1px);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--vue-auto-001) 70%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+
+    &:hover {
+      background: var(--vue-auto-007);
+      color: var(--vue-auto-017);
+    }
+  }
+}
+
+.ep-header-btn-message {
+  width: auto;
+  padding-inline: 12px;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ep-header-btn-icon-only {
+  width: 34px;
+  min-width: 34px;
+  padding-inline: 0;
+  gap: 0;
+}
+
+.ep-header-btn-more {
+  width: 34px;
+  min-width: 34px;
+  padding-inline: 0;
+  flex-shrink: 0;
+}
+
+.ep-header-btn-decline {
+  min-width: auto;
+  padding-inline: 10px;
+  width: auto;
+}
+
+.ep-header-btn-message span {
+  color: inherit;
+}
+
+/* Match `.ep-header-btn` (34px) and `.ep-header-btn-more` — do not override to 26px. */
+.ep-header-btn-friend {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ep-header-btn-friend--sent,
+.ep-header-btn-friend--add,
+.ep-header-btn-friend--friend,
+.ep-header-btn-friend--unknown {
+  width: auto;
+  max-width: 120px;
+  min-height: 34px;
+  height: 34px;
+  padding-inline: 8px;
+  gap: 4px;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.ep-header-btn-friend--sent span,
+.ep-header-btn-friend--add span,
+.ep-header-btn-friend--friend span,
+.ep-header-btn-friend--unknown span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Add friend: green icon */
+.ep-header-btn-friend--add img {
+  filter: brightness(0) saturate(100%) invert(65%) sepia(52%) saturate(600%)
+    hue-rotate(100deg);
+}
+
+/* Request sent: amber icon */
+.ep-header-btn-friend--sent img {
+  filter: brightness(0) saturate(100%) invert(77%) sepia(73%) saturate(690%)
+    hue-rotate(352deg);
+}
+
+/* Friends: green icon */
+.ep-header-btn-friend--friend img {
+  filter: brightness(0) saturate(100%) invert(65%) sepia(52%) saturate(600%)
+    hue-rotate(100deg);
+}
+
+/* Unknown: muted icon */
+.ep-header-btn-friend--unknown img {
+  opacity: 0.7;
+  filter: invert(1);
+}
+
+/* Trigger glyph: `UserProfileMoreMenu` uses `filter invert` on the img so global
+ * `img.filter.invert` (main.scss) applies isolation + translateZ — needed on glass/
+ * backdrop surfaces; scoped filter-only CSS was invisible in some themes. */
+.ep-more-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.ep-name {
+  margin-top: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--vue-auto-006);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  [data-theme='light'] & {
+    color: var(--text);
+  }
+}
+
+.ep-username-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.45rem;
+  margin-top: 2px;
+  min-width: 0;
+}
+
+.ep-username-row > .ep-username {
+  margin-top: 0;
+}
+
+.ep-username {
+  font-size: 13px;
+  color: var(--vue-auto-028);
+  margin-top: 2px;
+}
+
+.ep-about-block {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--vue-auto-001) 72%, transparent);
+}
+
+/* About */
+.ep-about-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vue-auto-029);
+}
+
+.ep-card-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--vue-auto-043);
+}
+
+.ep-card-meta {
+  font-size: 11px;
+  color: var(--vue-auto-033);
+  margin-bottom: 8px; /* separates "Member since" from the NOTE block */
+}
+
+.ep-note-input {
+  width: 100%;
+  min-height: 1.5rem;
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  resize: none;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--vue-auto-020);
+  outline: none;
+}
+
+.ep-note-input::placeholder {
+  color: var(--vue-auto-072);
+}
+
+/* Roles */
+.ep-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--member-role-chip-fg);
+  background: var(--member-role-chip-bg);
+  border: 1px solid var(--member-role-chip-border);
+  box-shadow: none;
+}
+
+[data-theme='light'] .ep-role {
+  border: none;
+}
+
+.ep-role-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── right column ─── */
+.ep-tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ep-tab-bar--inline {
+  padding: 0 0 4px;
+  border-bottom: 1px solid var(--vue-auto-001);
+}
+
+.ep-tab {
+  flex: 1;
+  padding: 14px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--vue-auto-029);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition:
+    color 120ms,
+    border-color 120ms;
+
+  &:hover {
+    color: var(--vue-auto-017);
+  }
+}
+
+.ep-tab--active {
+  color: var(--vue-auto-025);
+  border-bottom-color: var(--vue-auto-029);
+}
+
+.ep-tab-bar--right .ep-tab {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.ep-tab-bar--right .ep-tab.ep-tab--active {
+  border-bottom: none;
+}
+
+.ep-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  margin-left: auto;
+  color: var(--vue-auto-028);
+  transition:
+    background 120ms,
+    color 120ms;
+
+  &:hover {
+    background: var(--vue-auto-001);
+    color: var(--vue-auto-009);
+  }
+}
+
+/* Tab content */
+.ep-tab-content {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 10px;
+}
+
+.ep-tab-content--inline {
+  max-height: min(420px, 55vh);
+}
+
+.ep-tab-content--desktop {
+  flex: 1;
+  max-height: none;
+  padding-top: 16px;
+}
+
+.ep-empty {
+  font-size: 13px;
+  color: var(--vue-auto-029);
+  text-align: center;
+  padding: 32px 0;
+}
+
+/* ─── Mutual Servers: vertical list ─── */
+.ep-server-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ep-server-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition:
+    background 100ms,
+    transform 100ms;
+
+  &:hover {
+    background: var(--vue-auto-005);
+    transform: translateY(-1px);
+  }
+}
+
+.ep-server-icon {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--vue-auto-001);
+}
+
+.ep-server-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vue-auto-044);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Mutual Friends ─── */
+.ep-friend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ep-friend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition:
+    background 100ms,
+    transform 100ms;
+
+  &:hover {
+    background: var(--vue-auto-005);
+    transform: translateY(-1px);
+  }
+}
+
+/* ─── animations ─── */
+@keyframes ep-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ep-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Compact shell / phones: full-viewport profile, stacked mutuals below (readable scroll). */
+@media (max-width: 799px) {
+  .ep-overlay {
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+
+  .ep-modal {
+    width: 100%;
+    height: 100%;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .ep-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .ep-left {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 52vh;
+    overflow: hidden;
+  }
+
+  .ep-left-main {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .ep-left-body {
+    padding: 10px 16px 18px;
+  }
+
+  .ep-right {
+    flex: 1 1 auto;
+    min-height: 0;
+    border-top: 1px solid var(--vue-auto-001);
+  }
+
+  .ep-right-body {
+    padding: 12px 16px 16px;
+    min-height: 0;
+  }
+
+  .ep-tab-content--desktop {
+    max-height: min(42dvh, 360px);
+  }
+
+  .ep-profile-head-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .ep-profile-head-row__actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

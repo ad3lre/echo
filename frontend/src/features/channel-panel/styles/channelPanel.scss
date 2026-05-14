@@ -1,0 +1,788 @@
+@use './channelPanelBanner.scss' as *;
+
+/* Slightly darker than `var(--surface)` (chat) so the channel list reads as its own column */
+.channel-panel-wrapper {
+  background: var(--echo-channel-panel-bg);
+}
+
+/* VC panel - pinned to bottom */
+.vc-panel {
+  background: var(--vc-panel-bg);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.vc-panel-enter-active,
+.vc-panel-leave-active {
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease;
+}
+.vc-panel-enter-from,
+.vc-panel-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+/* Quick VC settings slide-up panel */
+.vc-settings-slide-enter-active,
+.vc-settings-slide-leave-active {
+  transition:
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.18s ease;
+}
+.vc-settings-slide-enter-from,
+.vc-settings-slide-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+/* Quick VC settings – match Settings > Voice & Video, filled track, custom dropdowns */
+.vc-settings-panel {
+  position: relative;
+  z-index: 10;
+  overflow: visible;
+}
+
+/* Voice & video → full settings: same row style as device pickers */
+.vc-device-name--link {
+  width: 100%;
+  margin-top: 0.125rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid color-mix(in srgb, white 6%, transparent);
+}
+.vc-device-name-chevron--forward {
+  transform: none;
+  opacity: 0.35;
+  color: var(--vc-device-name-muted);
+}
+
+.vc-panel-controls--below-settings {
+  position: relative;
+  z-index: 1;
+}
+/* Device name: same name-like style, no dropdown look */
+.vc-device-name {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0;
+  min-height: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--vc-device-name-fg);
+}
+.vc-device-name-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  opacity: 0.9;
+  filter: invert(1);
+}
+.vc-device-name span {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vc-device-name-chevron {
+  width: 0.875rem;
+  height: 0.875rem;
+  opacity: 0.35;
+  color: var(--vc-device-name-muted);
+  transition: transform 0.2s ease;
+}
+.vc-device-name:hover .vc-device-name-chevron,
+.vc-device-name--open .vc-device-name-chevron {
+  opacity: 0.6;
+}
+.vc-device-name--link:hover .vc-device-name-chevron--forward {
+  opacity: 0.55;
+}
+.vc-device-name--open .vc-device-name-chevron {
+  transform: rotate(180deg);
+}
+
+/* Slide-up list: full width, sharp, no radius – highlights full-bleed */
+.vc-device-list {
+  overflow: hidden;
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+  margin-left: -0.75rem;
+  margin-right: -0.75rem;
+  width: calc(100% + 1.5rem);
+  max-height: 240px;
+  border-radius: 0;
+  background: var(--vc-device-list-bg);
+  box-sizing: border-box;
+}
+.vc-device-list .vc-device-option {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  box-sizing: border-box;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--vc-device-name-fg);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.vc-device-list .vc-device-option:hover {
+  background: var(--vc-device-row-hover-bg);
+  color: var(--vc-device-name-fg);
+}
+.vc-device-list .vc-device-option--selected {
+  color: var(--vc-device-name-fg);
+  font-weight: 600;
+  background: var(--vc-device-row-selected-bg);
+}
+
+.vc-device-list-enter-active,
+.vc-device-list-leave-active {
+  transition:
+    max-height 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease;
+}
+.vc-device-list-enter-from,
+.vc-device-list-leave-to {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+
+.vc-settings-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.vc-settings-value {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--vc-settings-accent-fg);
+}
+.vc-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Combined device + volume: device name is dropdown trigger, volume slider below */
+.vc-device-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.vc-device-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.vc-device-volume--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.vc-volume-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1.125rem;
+  flex-wrap: nowrap;
+}
+.vc-volume-label-group {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+.vc-volume-label {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* Quick VC panel: short names (Output / Input), one line, no “volume” / all-caps noise */
+.vc-settings-panel .vc-volume-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--vc-device-name-muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vc-volume-manual-badge {
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, mediumseagreen 18%, transparent);
+  color: mediumaquamarine;
+  flex-shrink: 0;
+}
+.vc-discord-meter {
+  margin: 0.125rem 0 0;
+}
+.vc-discord-meter-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, black 42%, transparent);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px color-mix(in srgb, black 35%, transparent);
+}
+.vc-discord-meter-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, mediumseagreen 0%, mediumaquamarine 100%);
+  transition: width 70ms linear;
+  min-width: 0;
+  box-shadow: 0 0 8px color-mix(in srgb, mediumseagreen 35%, transparent);
+}
+.vc-device-volume-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.vc-device-volume-slider-row .vc-settings-slider {
+  flex: 1;
+  min-width: 0;
+}
+.vc-settings-slider--input-gain {
+  background: linear-gradient(
+    to right,
+    mediumseagreen 0%,
+    mediumseagreen var(--value),
+    var(--vc-slider-track) var(--value),
+    var(--vc-slider-track) 100%
+  );
+}
+.vc-device-volume .vc-settings-slider {
+  flex: 1;
+  min-width: 0;
+}
+.vc-device-volume .vc-settings-value {
+  flex-shrink: 0;
+}
+
+/* Slider: filled (indigo) track from 0 to value, dark track from value to 100 */
+.vc-settings-slider {
+  --value: 0%;
+  width: 100%;
+  height: 0.375rem;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(
+    to right,
+    var(--vc-slider-fill) 0%,
+    var(--vc-slider-fill) var(--value),
+    var(--vc-slider-track) var(--value),
+    var(--vc-slider-track) 100%
+  );
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+}
+.vc-settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--vc-slider-thumb-bg);
+  cursor: pointer;
+  box-shadow: 0 1px 3px var(--vc-slider-thumb-shadow);
+  border: none;
+}
+.vc-settings-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--vc-slider-thumb-bg);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 3px var(--vc-slider-thumb-shadow);
+}
+
+/* Header right padding so leave icon’s end matches headphone icon below (headphone is 20px centered in 42px btn → icon ends 11px in from btn right; row has pr-3 so 12 + 11 = 23px) */
+.vc-panel-header--align-leave {
+  padding-right: 23px;
+}
+
+/* Activities — indigo accent, adjacent to leave */
+.vc-activities-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px 6px 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    filter 0.15s ease;
+
+  &:hover {
+    opacity: 0.95;
+    .vc-icon-activities {
+      filter: invert(0.35) sepia(1) saturate(6) hue-rotate(225deg)
+        brightness(1.05);
+    }
+  }
+  &:active {
+    opacity: 0.85;
+  }
+}
+
+.vc-leave-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0 6px 10px;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 0.9;
+    .vc-icon-disconnect {
+      filter: invert(0.4) sepia(0.8) saturate(5) hue-rotate(350deg);
+    }
+  }
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+/* Light theme: red disconnect glyph (default .vc-icon invert reads as white on light) */
+[data-theme='light'] .vc-leave-btn .vc-icon-disconnect {
+  filter: invert(27%) sepia(93%) saturate(1690%) hue-rotate(337deg)
+    brightness(91%) contrast(95%);
+}
+[data-theme='light'] .vc-leave-btn:hover .vc-icon-disconnect {
+  filter: invert(20%) sepia(94%) saturate(2000%) hue-rotate(337deg)
+    brightness(88%) contrast(95%);
+}
+
+[data-theme='light'] .vc-activities-btn .vc-icon-activities {
+  filter: invert(27%) sepia(90%) saturate(1200%) hue-rotate(225deg)
+    brightness(0.95) contrast(95%);
+}
+[data-theme='light'] .vc-activities-btn:hover .vc-icon-activities {
+  filter: invert(22%) sepia(95%) saturate(1400%) hue-rotate(220deg)
+    brightness(0.92) contrast(98%);
+}
+
+.vc-ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--vc-ctrl-bg);
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease;
+
+  &:hover {
+    background: var(--vc-ctrl-bg-hover);
+    transform: scale(1.06);
+  }
+  &:active {
+    transform: scale(0.96);
+  }
+}
+.vc-ctrl-btn--active {
+  background: var(--vc-ctrl-bg-active);
+}
+.vc-ctrl-btn--video-on {
+  background: color-mix(in srgb, mediumseagreen 36%, transparent);
+}
+.vc-ctrl-btn--video-on:hover {
+  background: color-mix(in srgb, mediumseagreen 48%, transparent);
+}
+.vc-ctrl-btn--screenshare-on {
+  background: color-mix(in srgb, mediumpurple 36%, transparent);
+}
+.vc-ctrl-btn--screenshare-on:hover {
+  background: color-mix(in srgb, mediumpurple 48%, transparent);
+}
+
+/* Server mute / deafen — compact red emphasis */
+.vc-ctrl-btn--server-mod {
+  background: color-mix(in srgb, firebrick 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, lightcoral 38%, transparent);
+  &:hover {
+    background: color-mix(in srgb, firebrick 32%, transparent);
+  }
+}
+
+/* Light theme: white dock circles + dark icons (glyphs are black assets; skip invert) */
+[data-theme='light'] .vc-panel-controls--below-settings .vc-ctrl-btn {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.07);
+}
+[data-theme='light'] .vc-panel-controls--below-settings .vc-ctrl-btn .vc-icon {
+  filter: none;
+}
+[data-theme='light']
+  .vc-panel-controls--below-settings
+  .vc-ctrl-btn
+  .vc-icon--off {
+  filter: invert(40%) sepia(95%) saturate(1200%) hue-rotate(330deg)
+    brightness(95%) contrast(92%);
+}
+.vc-icon--server-mod {
+  filter: invert(0.42) sepia(0.9) saturate(6) hue-rotate(330deg);
+}
+[data-theme='light']
+  .vc-panel-controls--below-settings
+  .vc-ctrl-btn
+  .vc-icon--server-mod {
+  filter: invert(42%) sepia(90%) saturate(600%) hue-rotate(330deg)
+    brightness(95%) contrast(96%);
+}
+
+/*
+ * Sunny light — VC dock: warm hover washes, inset-only control rings (avoids the
+ * cool grey outer drop-shadow that reads as a “ghost” icon on cream), crisper
+ * connection glyph filters (no muddy green halo).
+ */
+html[data-theme='light'][data-echo-light-variant='sunny']
+  .vc-voice-status-trigger:hover {
+  background: rgba(120, 80, 30, 0.065);
+}
+
+html[data-theme='light'][data-echo-light-variant='sunny']
+  .vc-voice-status-trigger
+  .vc-icon-network.vc-network-good {
+  filter: invert(42%) sepia(72%) saturate(640%) hue-rotate(108deg)
+    brightness(94%) contrast(92%);
+  opacity: 1;
+}
+html[data-theme='light'][data-echo-light-variant='sunny']
+  .vc-voice-status-trigger:hover
+  .vc-icon-network.vc-network-good {
+  filter: invert(38%) sepia(78%) saturate(720%) hue-rotate(108deg)
+    brightness(97%) contrast(92%);
+  opacity: 1;
+}
+html[data-theme='light'][data-echo-light-variant='sunny']
+  .vc-voice-status-trigger
+  .vc-icon-network.vc-network-warn {
+  filter: invert(38%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(96%)
+    contrast(92%);
+}
+html[data-theme='light'][data-echo-light-variant='sunny']
+  .vc-voice-status-trigger:hover
+  .vc-icon-network.vc-network-warn {
+  filter: invert(34%) sepia(88%) saturate(950%) hue-rotate(5deg) brightness(99%)
+    contrast(92%);
+}
+html[data-theme='light'][data-echo-light-variant='sunny']
+  .vc-voice-status-trigger
+  .vc-icon-network.vc-network-error {
+  filter: invert(32%) sepia(90%) saturate(1200%) hue-rotate(330deg)
+    brightness(94%) contrast(92%);
+}
+html[data-theme='light'][data-echo-light-variant='sunny']
+  .vc-voice-status-trigger:hover
+  .vc-icon-network.vc-network-error {
+  filter: invert(28%) sepia(92%) saturate(1300%) hue-rotate(328deg)
+    brightness(96%) contrast(92%);
+}
+
+html[data-theme='light'][data-echo-light-variant='sunny']
+  .vc-panel-controls--below-settings
+  .vc-ctrl-btn {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 75%, transparent);
+}
+
+html[data-theme='light'][data-echo-light-variant='sunny'] .vc-network-popup {
+  box-shadow: 0 10px 28px rgba(120, 80, 30, 0.12);
+}
+
+/* Quick VC settings rows: device pickers + “Voice & video” use dark icons on light shell */
+[data-theme='light'] .vc-device-name-icon {
+  filter: none;
+}
+.vc-icon-strike--server {
+  background: color-mix(in srgb, lightcoral 100%, transparent);
+}
+
+.vc-icon {
+  filter: invert(1);
+  transition: filter 0.2s ease-out;
+}
+.vc-icon--off {
+  filter: invert(0.4) sepia(0.85) saturate(5) hue-rotate(330deg);
+}
+.vc-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.vc-icon-strike {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 140%;
+  height: 1.5px;
+  background: var(--vc-strike-red);
+  transform: translate(-50%, -50%) rotate(-45deg);
+  border-radius: 1px;
+  pointer-events: none;
+}
+.vc-icon-network.vc-network-good {
+  filter: invert(0.6) sepia(0.6) saturate(4) hue-rotate(100deg);
+  opacity: 0.95;
+}
+.vc-icon-network.vc-network-warn {
+  filter: invert(0.7) sepia(0.6) saturate(3) hue-rotate(15deg);
+  opacity: 0.9;
+}
+.vc-icon-network.vc-network-error {
+  filter: invert(0.5) sepia(0.8) saturate(5) hue-rotate(340deg);
+  opacity: 0.95;
+}
+.vc-icon-network.vc-icon-pulse {
+  animation: vc-pulse 1.4s ease-in-out infinite;
+}
+@keyframes vc-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Network info popup */
+.vc-network-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 240px;
+  background: color-mix(in srgb, var(--elevated) 94%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 8px 24px color-mix(in srgb, black 50%, transparent);
+  z-index: 100;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.vc-network-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.vc-network-popup-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.vc-network-popup-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.vc-badge-good {
+  background: color-mix(in srgb, rgb(34 197 94) 18%, transparent);
+  color: rgb(22 163 74);
+}
+[data-theme='dark'] .vc-badge-good {
+  background: color-mix(in srgb, mediumspringgreen 15%, transparent);
+  color: mediumspringgreen;
+}
+.vc-badge-warn {
+  background: color-mix(in srgb, rgb(245 158 11) 18%, transparent);
+  color: rgb(180 83 9);
+}
+[data-theme='dark'] .vc-badge-warn {
+  background: color-mix(in srgb, gold 15%, transparent);
+  color: gold;
+}
+.vc-network-popup-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vc-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+}
+.vc-stat-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.vc-stat-value {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.vc-stat-ok {
+  color: var(--text);
+}
+.vc-stat-warn {
+  color: rgb(245 158 11);
+}
+[data-theme='dark'] .vc-stat-warn {
+  color: gold;
+}
+.vc-network-popup-enter-active {
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+.vc-network-popup-leave-active {
+  transition:
+    opacity 0.1s ease,
+    transform 0.1s ease;
+}
+.vc-network-popup-enter-from,
+.vc-network-popup-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+/* Voice status row: icon + label share one hit target (connection info popup). */
+.vc-voice-status-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0.125rem 0.25rem 0.125rem 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  line-height: 0;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, white 6%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: 2px;
+  }
+
+  /* Keep tinted network filters; do not replace with bare brightness (reads as black). */
+  &:hover .vc-icon-network.vc-network-good {
+    filter: invert(0.6) sepia(0.6) saturate(4) hue-rotate(100deg)
+      brightness(1.14);
+    opacity: 1;
+  }
+  &:hover .vc-icon-network.vc-network-warn {
+    filter: invert(0.7) sepia(0.6) saturate(3) hue-rotate(15deg)
+      brightness(1.14);
+    opacity: 1;
+  }
+  &:hover .vc-icon-network.vc-network-error {
+    filter: invert(0.5) sepia(0.8) saturate(5) hue-rotate(340deg)
+      brightness(1.14);
+    opacity: 1;
+  }
+}
+
+/* ── Video quality selector grid ── */
+.vc-quality-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+.vc-quality-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: color-mix(in srgb, white 55%, transparent);
+  background: color-mix(in srgb, white 4%, transparent);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, white 8%, transparent);
+    color: color-mix(in srgb, white 80%, transparent);
+  }
+
+  &.vc-quality-option--selected {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+}
+
+.strike-enter-active {
+  animation: vc-strike-in 0.25s ease-out;
+}
+.strike-leave-active {
+  animation: vc-strike-out 0.2s ease-in;
+}
+@keyframes vc-strike-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
+  }
+}
+@keyframes vc-strike-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
+  }
+}

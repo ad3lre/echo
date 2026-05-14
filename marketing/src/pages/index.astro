@@ -1,0 +1,288 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import MarketingShell from '../layouts/MarketingShell.astro';
+import PrivacyIdWidget from '../components/PrivacyIdWidget.astro';
+import ShareScreenWidget from '../components/ShareScreenWidget.astro';
+import VoiceCallWidget from '../components/VoiceCallWidget.astro';
+
+/** IHDR width/height so the hero phone frame always matches `public/mobile-screenshot.png` at build time. */
+function readPngIhdrSize(absPath: string): { w: number; h: number } {
+  const buf = fs.readFileSync(absPath);
+  if (buf.length < 24) throw new Error(`PNG too small: ${absPath}`);
+  const pngSig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!buf.subarray(0, 8).equals(pngSig)) throw new Error(`Not a PNG: ${absPath}`);
+  return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+}
+
+const mobileShotCandidates = [
+  path.join(process.cwd(), 'public', 'mobile-screenshot.png'),
+  path.join(process.cwd(), 'marketing', 'public', 'mobile-screenshot.png'),
+];
+const mobileShotPath = mobileShotCandidates.find((p) => fs.existsSync(p));
+if (!mobileShotPath) {
+  throw new Error(
+    `mobile-screenshot.png not found (tried: ${mobileShotCandidates.join(', ')}); cwd=${process.cwd()}`
+  );
+}
+const mobileShot = readPngIhdrSize(mobileShotPath);
+
+const title = 'Echo | Where communities come to life';
+const description =
+  'Echo is a modern community platform built for connection, conversation, and collaboration. Voice, chat, and privacy-minded design—try Echo at chat-echo.com.';
+
+const faqs = [
+  {
+    question: 'What is Echo?',
+    answer:
+      'Echo is a privacy-focused communication platform with real-time chat, voice, and community features.',
+  },
+  {
+    question: 'Is Echo a Discord alternative?',
+    answer:
+      'Yes. Echo is built for people who want a modern Discord alternative for communities, group chat, and voice conversations.',
+  },
+  {
+    question: 'Where can I try Echo?',
+    answer:
+      'Open the live app at chat-echo.com. This site (app-echo.net) is the marketing home for discovery and SEO.',
+  },
+  {
+    question: 'Who is Echo for?',
+    answer:
+      'Echo is for communities, friend groups, and teams who want voice, text, and media in one focused place.',
+  },
+];
+
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Echo',
+    url: 'https://app-echo.net/',
+    logo: 'https://app-echo.net/echo-rounded-logo.png',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Echo',
+    applicationCategory: 'CommunicationApplication',
+    operatingSystem: 'Web, Windows',
+    description,
+    url: 'https://app-echo.net/',
+    installUrl: 'https://chat-echo.com/',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.answer,
+      },
+    })),
+  },
+];
+
+const featureCards = [
+  {
+    id: 'privacy',
+    title: "We don't ask for your ID",
+    body: 'Join freely and stay anonymous. No ID verification, ever.',
+  },
+  {
+    id: 'share',
+    title: 'Share your screen',
+    body: 'Show, explain, and collaborate in real time.',
+  },
+  {
+    id: 'voice',
+    title: 'Voice chats that connect',
+    body: 'Crystal-clear voice chats built for real conversations.',
+  },
+];
+---
+
+<MarketingShell
+  title={title}
+  description={description}
+  canonicalPath="/"
+  ogImagePath="/og-card.svg"
+  structuredData={structuredData}
+>
+  <main id="main">
+      <section class="hero">
+        <div class="container hero-grid">
+          <div>
+            <p class="hero-label">Echo</p>
+            <h1 class="hero-title">Where communities come to life.</h1>
+            <p class="hero-lede">
+              Echo is a modern community platform built for connection, conversation, and collaboration.
+            </p>
+            <div class="hero-actions">
+              <a class="btn-download-primary" href="https://chat-echo.com/">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 4v10" />
+                  <path d="M8 12l4 4 4-4" />
+                  <path d="M5 20h14" />
+                </svg>
+                Download Echo
+              </a>
+              <a class="btn-outline" href="https://chat-echo.com/">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M3 12h18M12 3a14 14 0 009 9 14 14 0 00-9 9 14 14 0 00-9-9 14 14 0 009-9z" stroke-linecap="round" />
+                </svg>
+                Open in Browser
+              </a>
+            </div>
+          </div>
+
+          <div class="hero-visual">
+            <div class="hero-device-stack">
+              <div class="hero-desktop-wrap">
+                <img
+                  class="hero-desktop-img"
+                  src="/desktop-screenshot.png"
+                  width="2559"
+                  height="1352"
+                  alt="Echo desktop app with servers, channels, and chat"
+                  loading="eager"
+                  fetchpriority="high"
+                />
+              </div>
+              <div
+                class="hero-mobile-wrap"
+                style={`aspect-ratio: ${mobileShot.w} / ${mobileShot.h};`}
+              >
+                <img
+                  class="hero-mobile-img"
+                  src="/mobile-screenshot.png"
+                  width={mobileShot.w}
+                  height={mobileShot.h}
+                  alt="Echo on mobile"
+                  loading="eager"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-features" id="community" aria-labelledby="features-heading">
+        <div class="container">
+          <h2 id="features-heading" class="visually-hidden">Why Echo</h2>
+          <div class="feature-cards">
+            {featureCards.map((card) => (
+              <article class="feature-card feature-card--ad">
+                <header class="feature-card-head">
+                  <div class="feature-icon-tile" aria-hidden="true">
+                    {card.id === 'privacy' && (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V7l8-4z" stroke-linejoin="round" />
+                      </svg>
+                    )}
+                    {card.id === 'share' && (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="12" rx="2" />
+                        <path d="M8 20h8M12 16v4" stroke-linecap="round" />
+                      </svg>
+                    )}
+                    {card.id === 'voice' && (
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
+                        <path d="M4 14V10M8 16V8M12 18V6M16 16V8M20 14V10" stroke-linecap="round" />
+                      </svg>
+                    )}
+                  </div>
+                  <div class="feature-card-text">
+                    <h3>{card.title}</h3>
+                    <p>{card.body}</p>
+                  </div>
+                </header>
+
+                <div class="card-art-panel card-art-panel--build">
+                  {card.id === 'privacy' && <PrivacyIdWidget />}
+                  {card.id === 'share' && <ShareScreenWidget />}
+                  {card.id === 'voice' && <VoiceCallWidget />}
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="section alt" id="download">
+        <div class="container">
+          <div class="section-heading">
+            <span class="eyebrow">Download</span>
+            <h2>Get Echo on your devices.</h2>
+            <p>
+              Start in the browser instantly, or use native builds when available. Everything points to the same Echo
+              experience at chat-echo.com.
+            </p>
+          </div>
+          <div class="hero-actions hero-actions--flush">
+            <a class="btn-download-primary" href="https://chat-echo.com/">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 4v10" />
+                <path d="M8 12l4 4 4-4" />
+                <path d="M5 20h14" />
+              </svg>
+              Download Echo
+            </a>
+            <a class="btn-outline" href="https://chat-echo.com/">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3a14 14 0 009 9 14 14 0 00-9 9 14 14 0 00-9-9 14 14 0 009-9z" stroke-linecap="round" />
+              </svg>
+              Open in Browser
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="faq">
+        <div class="container">
+          <div class="section-heading">
+            <span class="eyebrow">Support</span>
+            <h2>Frequently asked questions.</h2>
+            <p>Quick answers for people comparing Echo to other community and voice apps.</p>
+          </div>
+          <div class="faq-grid">
+            {faqs.map((faq) => (
+              <article class="faq-card">
+                <h3>{faq.question}</h3>
+                <p>{faq.answer}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="cta-bar">
+            <h2>Open Echo and invite your community.</h2>
+            <p>Same product on the web—fast to try, easy to share.</p>
+            <a class="btn-download-primary" href="https://chat-echo.com/">Open chat-echo.com</a>
+          </div>
+        </div>
+      </section>
+    </main>
+</MarketingShell>
+
+<style>
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>
