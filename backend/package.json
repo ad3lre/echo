@@ -67,7 +67,7 @@
     "@opentelemetry/auto-instrumentations-node": "^0.76.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
     "@opentelemetry/sdk-node": "^0.218.0",
-    "@scure/base": "^1.2.6",
+    "@scure/base": "^2.2.0",
     "@simplewebauthn/server": "^13.3.0",
     "bcrypt": "^6.0.0",
     "dotenv": "^16.6.1",
