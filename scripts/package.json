@@ -11,7 +11,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.6.1",
-    "execa": "^5.1.1",
+    "execa": "^9.6.1",
     "pg": "^8.20.0"
   },
   "devDependencies": {
