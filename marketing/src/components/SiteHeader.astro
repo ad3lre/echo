@@ -1,0 +1,52 @@
+---
+import { CHAT_APP_ORIGIN, GITHUB_REPO_URL } from '../site';
+
+const pathname = Astro.url.pathname.replace(/\/$/, '') || '/';
+
+const nav = [
+  { label: 'Home', href: '/' },
+  { label: 'Download', href: '/download' },
+  { label: 'Communities', href: '/communities' },
+  { label: 'Support', href: '/support' },
+];
+---
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="header-brand" href="/" aria-label="Echo home">
+      <img
+        class="header-logo"
+        src="/echo-rounded-logo.png"
+        width="44"
+        height="44"
+        alt=""
+        decoding="async"
+      />
+    </a>
+
+    <nav class="nav-main" aria-label="Primary">
+      {
+        nav.map((item) => (
+          <a
+            href={item.href}
+            aria-current={pathname === item.href ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+      <a
+        href={GITHUB_REPO_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Echo source code on GitHub (opens in new tab)"
+      >
+        GitHub
+      </a>
+    </nav>
+
+    <div class="header-actions">
+      <a class="btn-open-echo" href={CHAT_APP_ORIGIN}>Open Echo</a>
+    </div>
+  </div>
+</header>

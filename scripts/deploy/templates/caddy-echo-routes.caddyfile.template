@@ -1,0 +1,19 @@
+# Managed by Echo deploy (scripts/deploy/echo-deploy.mjs). Regenerated on each cutover.
+#
+# Import inside your site block **before** the SPA catch-all `handle` (see docs/operations/blue-green-deployment.md), e.g.:
+#   chat-echo.com {
+#     import /opt/echo/proxy/echo-generated-routes.caddyfile
+#     handle { ... root ... try_files ... file_server }
+#   }
+#
+# Static SPA — use the same release directory as the API on 127.0.0.1:{{API_PORT}}:
+#   root * {{RELEASE_ROOT}}/frontend/dist
+
+handle /api/* {
+	reverse_proxy 127.0.0.1:{{API_PORT}}
+}
+
+@echo_socket path /socket.io*
+handle @echo_socket {
+	reverse_proxy 127.0.0.1:{{API_PORT}}
+}

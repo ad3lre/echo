@@ -1,0 +1,103 @@
+name: Echo Android (Tauri)
+
+on:
+  push:
+    paths:
+      - 'src-tauri/**'
+      - 'frontend/**'
+      - 'scripts/tauri-android-build.mjs'
+      - 'scripts/tauri-before-build-frontend.mjs'
+      - 'scripts/verify-android-version.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/echo-android-ci.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/**'
+      - 'frontend/**'
+      - 'scripts/tauri-android-build.mjs'
+      - 'scripts/tauri-before-build-frontend.mjs'
+      - 'scripts/verify-android-version.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VITE_API_URL: https://chat-echo.com
+  VITE_SOCKET_IO_URL: https://chat-echo.com
+  NODE_OPTIONS: --max-old-space-size=6144
+
+jobs:
+  tauri-android:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      # Leave headroom for Gradle + Rust alongside the frontend build.
+      NODE_OPTIONS: --max-old-space-size=4096
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13.1'
+          cache: 'npm'
+
+      - name: Setup Java (Temurin 17)
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          # Default is only tools+platform-tools; app uses compileSdk 36 (see gen/android/app/build.gradle.kts).
+          # NDK required for Rust Android link; Tauri/AGP on GHA commonly resolves NDK 29.x (keep in sync with linker env).
+          packages: tools platform-tools platforms;android-36 build-tools;35.0.0 ndk;29.0.14206865
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: 'aarch64-linux-android'
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: android-tauri
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Verify Android version alignment
+        run: node scripts/verify-android-version.mjs
+
+      - name: Init Android Gradle project
+        run: |
+          if [ ! -f src-tauri/gen/android/settings.gradle ]; then
+            node node_modules/@tauri-apps/cli/tauri.js android init --ci
+          else
+            echo "src-tauri/gen/android already present; skipping init"
+          fi
+        env:
+          CI: '1'
+
+      # Single ABI + CI matches rust-cache target (aarch64-linux-android); Play uploads use full ABI matrix locally or in a release workflow.
+      - name: Tauri Android build (unsigned)
+        env:
+          JAVA_TOOL_OPTIONS: -Xmx4096m
+        run: npm run tauri:android:build:ci
+
+      - name: Upload Android outputs (AAB/APK)
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-universal-release
+          path: |
+            src-tauri/gen/android/app/build/outputs/**/*.aab
+            src-tauri/gen/android/app/build/outputs/**/*.apk
+          if-no-files-found: warn

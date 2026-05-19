@@ -1,0 +1,71 @@
+/* Boot splash until the main bundle runs (see index.html).
+ * Light-first canvas: OS prefers light → match default Echo light --bg so no dark
+ * “frame” peeks around rounded shells / subpixels before JS applies data-theme.
+ * Dark OS keeps the historical ink splash. */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #e6ebf4;
+}
+@media (prefers-color-scheme: dark) {
+  html,
+  body {
+    background: #0d0812;
+  }
+}
+#app {
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.echo-boot-splash {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #e6ebf4;
+}
+@media (prefers-color-scheme: dark) {
+  .echo-boot-splash {
+    background: #0d0812;
+  }
+}
+.echo-boot-spinner {
+  width: 40px;
+  height: 40px;
+  animation: echoBootSpin 0.72s linear infinite;
+}
+@media (prefers-color-scheme: light) {
+  .echo-boot-spinner circle:nth-child(1) {
+    stroke: rgba(15, 23, 42, 0.12) !important;
+  }
+  .echo-boot-spinner circle:nth-child(2) {
+    stroke: rgba(15, 23, 42, 0.88) !important;
+  }
+}
+@keyframes echoBootSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.echo-boot-splash__hint {
+  margin-top: 1.25rem;
+  max-width: 20rem;
+  padding: 0 1rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.55);
+}
+@media (prefers-color-scheme: light) {
+  .echo-boot-splash__hint {
+    color: rgba(30, 41, 59, 0.62);
+  }
+}
+.echo-boot-splash__hint[hidden] {
+  display: none !important;
+}

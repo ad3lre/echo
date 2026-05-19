@@ -1,0 +1,70 @@
+---
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+import '@fontsource/inter/800.css';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath?: string;
+  ogImagePath?: string;
+  structuredData?: unknown;
+}
+
+const {
+  title,
+  description,
+  canonicalPath = '/',
+  ogImagePath = '/og-card.svg',
+  structuredData,
+} = Astro.props;
+
+const pageUrl = new URL(canonicalPath, Astro.site);
+const ogImageUrl = new URL(ogImagePath, Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f9f9fb" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href={pageUrl.toString()} />
+    <link rel="icon" type="image/png" href="/echo-rounded-logo.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Echo" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={pageUrl.toString()} />
+    <meta property="og:image" content={ogImageUrl.toString()} />
+    <meta property="og:image:alt" content="Echo marketing card" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl.toString()} />
+    <meta name="twitter:image:alt" content="Echo marketing card" />
+
+    {
+      structuredData && (
+        <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+      )
+    }
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <slot />
+  </body>
+</html>

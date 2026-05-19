@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
+  <defs>
+    <linearGradient id="wdg" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#14532d"/>
+      <stop offset="100%" stop-color="#4ade80"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="200" fill="url(#wdg)"/>
+  <g transform="translate(52 76)" fill="#ecfdf5" fill-opacity="0.95">
+    <rect x="0" y="0" width="36" height="48" rx="6"/>
+    <rect x="44" y="0" width="36" height="48" rx="6"/>
+    <rect x="88" y="0" width="36" height="48" rx="6"/>
+    <rect x="132" y="0" width="36" height="48" rx="6"/>
+    <rect x="176" y="0" width="36" height="48" rx="6"/>
+  </g>
+  <text x="160" y="46" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="28" font-weight="800" fill="#fff" opacity="0.9">W</text>
+</svg>

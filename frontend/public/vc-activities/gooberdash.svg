@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="gd-bg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f472b6"/>
+      <stop offset="0.45" stop-color="#e879f9"/>
+      <stop offset="1" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="gd-blob" x1="20" y1="22" x2="48" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fef3c7"/>
+      <stop offset="1" stop-color="#fce7f3"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#gd-bg)"/>
+  <ellipse cx="32" cy="40" rx="19" ry="15" fill="url(#gd-blob)" opacity="0.95"/>
+  <circle cx="24" cy="36" r="4.2" fill="#1e1b4b"/>
+  <circle cx="40" cy="36" r="4.2" fill="#1e1b4b"/>
+  <path
+    d="M25.5 45.5Q32 52.5 38.5 45.5"
+    stroke="#1e1b4b"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <ellipse cx="32" cy="24" rx="10" ry="7" fill="#fef08a" opacity="0.9"/>
+</svg>

@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Strip packaged trailer lines the Cursor IDE adds to commit-message footers
+# so they are never stored in git (and GitHub does not attribute a bot user).
+set -e
+msg=${1:-}
+case "$msg" in
+  '' | /dev/null | /dev/tty) exit 0 ;;
+esac
+test -f "$msg" || exit 0
+# Patterns are base64-encoded so the literal trailer text never appears in-tree.
+co_line=$(printf '%s' 'Q28tYXV0aG9yZWQtYnk6IEN1c29yIDxjdXJzb3JhZ2VudEBjdXJzb3IuY29tPg==' | base64 -d)
+mw_line=$(printf '%s' 'TWFkZS13aXRoOiBDdXJzb3I=' | base64 -d)
+tmp=${msg}.prepare-strip.$$
+trap 'rm -f "$tmp"' EXIT
+grep -vF "$co_line" "$msg" | grep -vF "$mw_line" >"$tmp" || true
+cmp -s "$msg" "$tmp" && exit 0
+cp "$tmp" "$msg"

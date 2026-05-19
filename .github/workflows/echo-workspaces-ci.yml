@@ -1,0 +1,47 @@
+name: Echo auxiliary workspace checks
+
+on:
+  push:
+    paths:
+      - 'marketing/**'
+      - 'bot/**'
+      - 'voice-sidecar/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/echo-workspaces-ci.yml'
+  pull_request:
+    paths:
+      - 'marketing/**'
+      - 'bot/**'
+      - 'voice-sidecar/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+jobs:
+  auxiliary-workspaces:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13.1'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build marketing
+        run: npm run build -w marketing
+
+      - name: Build Discord bot
+        run: npm run build -w bot
+
+      - name: Build voice sidecar
+        run: npm run build -w voice-sidecar
+
+      - name: Test voice sidecar
+        run: npm run test -w voice-sidecar

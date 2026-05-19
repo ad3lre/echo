@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="ytbg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a0508"/>
+      <stop offset="45%" stop-color="#120a14"/>
+      <stop offset="100%" stop-color="#0a1524"/>
+    </linearGradient>
+  </defs>
+  <rect width="160" height="100" fill="url(#ytbg)"/>
+  <!-- Inlined from youtube-logo-wikimedia.svg so <img> loads work (relative <image> href resolves against the HTML page, not this file). -->
+  <g transform="translate(35 19) scale(0.28732)">
+    <g transform="translate(-54.079375 -5.2758072)">
+      <path
+        d="m 210.53177,221.29866 c 0,0 98.12514,0 122.46443,-6.48069 13.70449,-3.6724 24.01093,-14.2575 27.62825,-27.32688 6.68807,-23.97854 6.68807,-74.41988 6.68807,-74.41988 0,0 0,-50.117297 -6.68807,-73.879819 C 357.00713,25.79798 346.70069,15.42887 332.9962,11.864515 308.65691,5.2758072 210.53177,5.2758072 210.53177,5.2758072 c 0,0 -97.9062,0 -122.135976,6.5887078 -13.485335,3.564355 -24.010529,13.933465 -27.847831,27.326876 -6.468588,23.762522 -6.468588,73.879819 -6.468588,73.879819 0,0 0,50.44134 6.468588,74.41988 3.837302,13.06938 14.362496,23.65448 27.847831,27.32688 24.229776,6.48069 122.135976,6.48069 122.135976,6.48069 z"
+        fill="#ff0033"
+        style="stroke-width:0.0208149"
+      />
+      <path
+        d="M 259.30109,113.28723 178.29251,67.382379 v 91.809711 z"
+        fill="#ffffff"
+        style="stroke-width:0.0208149"
+      />
+    </g>
+  </g>
+</svg>

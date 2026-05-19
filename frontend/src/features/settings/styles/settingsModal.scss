@@ -1,0 +1,643 @@
+/* Enter/leave transition — GPU-friendly (opacity + transform) */
+.settings-modal-enter-active,
+.settings-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.settings-modal-enter-active .settings-modal,
+.settings-modal-leave-active .settings-modal {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.settings-modal-enter-from,
+.settings-modal-leave-to {
+  opacity: 0;
+
+  .settings-modal {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+.settings-modal-enter-to,
+.settings-modal-leave-from {
+  opacity: 1;
+
+  .settings-modal {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Panel switch transition — fade + subtle slide */
+.settings-panel-root {
+  min-height: 0;
+}
+
+/* Shared tile for Friends / Sounds cards (panel bg matches existing tokens). */
+.settings-panel-tile {
+  border-radius: 0.75rem;
+  background: var(--set-panel-bg);
+  box-shadow: inset 0 0 0 1px var(--set-panel-ring);
+}
+
+.settings-panel-enter-active,
+.settings-panel-leave-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.settings-panel-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.settings-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.settings-panel-enter-to,
+.settings-panel-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modal-overlay-bg {
+  background-color: var(--overlay-dim);
+}
+
+/* Prefer vertical scroll for the primary pan so horizontal swipes are less ambiguous. */
+.settings-content--touch-swipe {
+  touch-action: pan-y;
+}
+
+.settings-modal {
+  box-shadow: var(--shadow-5);
+  transform: translateZ(0);
+  background: var(--bg);
+}
+
+[data-theme='light'] .settings-modal {
+  /* Hairline + softer drop shadow so the shell reads “paper” not heavy modal */
+  box-shadow:
+    var(--shadow-4),
+    0 0 0 1px rgba(15, 10, 25, 0.06);
+}
+
+/* Grid: minmax(0, 1fr) prevents intrinsic flex overflow that clipped controls at the right edge. */
+.settings-modal--layout {
+  display: grid;
+  grid-template-columns: minmax(10.5rem, 17rem) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .settings-modal--layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
+.settings-sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Sidebar nav icons: theme sets invert for dark sidebar, none for light */
+.settings-nav-item__icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  opacity: var(--set-nav-icon-opacity);
+  filter: var(--set-nav-icon-filter);
+}
+
+.settings-nav-item--active .settings-nav-item__icon,
+.settings-nav-item--active-logout .settings-nav-item__icon {
+  opacity: var(--set-nav-icon-opacity-active);
+}
+
+.settings-nav-item--logout:not(.settings-nav-item--active-logout)
+  .settings-nav-item__icon {
+  opacity: var(--set-nav-icon-opacity-logout);
+}
+
+.settings-content {
+  background: var(--bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  scrollbar-gutter: stable;
+}
+
+.settings-content-pane {
+  padding: 1.75rem 2rem 2rem;
+
+  @media (max-width: 639px) {
+    padding: 1.25rem 1.25rem 1.5rem;
+  }
+}
+
+.settings-nav-item--active {
+  background: var(--set-nav-active-grad);
+  color: var(--set-nav-active-fg);
+  box-shadow: inset 0 0 0 1px var(--set-nav-active-ring);
+}
+
+.settings-nav-item--logout {
+  color: var(--set-nav-logout-fg);
+
+  &:hover {
+    background: var(--set-nav-logout-hover-bg);
+    color: var(--set-nav-logout-hover-fg);
+  }
+}
+
+.settings-nav-item--active-logout {
+  background: var(--set-nav-active-logout-grad);
+  color: var(--set-nav-logout-hover-fg);
+  box-shadow: inset 0 0 0 1px var(--set-nav-active-logout-ring);
+}
+
+.settings-nav-item--legal {
+  color: var(--set-nav-legal-fg);
+
+  &:hover:not(.settings-nav-item--active-legal) {
+    background: var(--set-nav-legal-hover-bg);
+  }
+}
+
+.settings-nav-item__legal-icon {
+  background: var(--set-nav-legal-icon-bg);
+  box-shadow: inset 0 0 0 1px var(--set-nav-legal-icon-ring);
+}
+
+.settings-nav-item__legal-sub {
+  color: var(--set-nav-legal-muted);
+}
+
+.settings-nav-item--active-legal {
+  background: var(--set-nav-active-legal-grad);
+  color: var(--set-nav-legal-active-fg);
+  box-shadow: inset 0 0 0 1px var(--set-nav-active-legal-ring);
+}
+
+.settings-nav-item--active-legal .settings-nav-item__legal-sub {
+  color: var(--set-nav-legal-active-sub);
+}
+
+.settings-nav-item--active-legal .settings-nav-item__legal-icon {
+  background: var(--set-nav-legal-active-icon-bg);
+  box-shadow: inset 0 0 0 1px var(--set-nav-legal-active-icon-ring);
+}
+
+.settings-card {
+  background: var(--set-card-bg);
+  box-shadow: inset 0 0 0 1px var(--set-card-ring);
+}
+
+.settings-panel {
+  background: var(--set-panel-bg);
+  box-shadow: inset 0 0 0 1px var(--set-panel-ring);
+}
+
+.profile-banner {
+  transition: background-color 0.3s ease;
+}
+
+.banner-color-picker {
+  box-shadow: 0 4px 12px var(--set-banner-picker-shadow);
+}
+
+.settings-banner-refraction {
+  position: absolute;
+  top: -22px;
+  left: -22px;
+  right: -22px;
+  bottom: -18px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--profile-banner-refraction-opacity, 0.24);
+  transform: translateZ(0);
+  filter: blur(28px) saturate(1.25);
+  mix-blend-mode: var(--profile-banner-refraction-mix-blend-mode, screen);
+}
+
+.settings-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.settings-subtitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+/* Settings dropdowns should size to sensible control widths, not full card width. */
+.settings-card .echo-dropdown-container {
+  max-width: min(100%, 26rem);
+}
+
+/* In User Settings, use the same neutral card/panel treatment for dropdown menus. */
+.settings-content .echo-dropdown-menu:not(.echo-dropdown-menu--server) {
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--shadow-3);
+  opacity: 1;
+
+  &::before {
+    display: none !important;
+  }
+}
+
+.settings-content
+  .echo-dropdown-menu:not(.echo-dropdown-menu--server)
+  .echo-dropdown-option {
+  color: var(--text);
+
+  &:hover {
+    background: var(--set-panel-bg);
+  }
+
+  &.echo-dropdown-option--selected {
+    color: var(--text);
+    background: var(--set-chip-active-bg);
+    font-weight: 700;
+  }
+}
+
+.settings-input {
+  width: 100%;
+  border: none;
+  border-radius: 0.95rem;
+  background: var(--set-input-bg);
+  box-shadow: inset 0 0 0 1px var(--border);
+  padding: 0.9rem 0.95rem;
+  color: var(--text);
+  outline: none;
+}
+
+.settings-input:focus {
+  /* Inset-only: outer glow is clipped by .settings-card { overflow:hidden } */
+  box-shadow: inset 0 0 0 2px var(--set-input-focus-ring);
+}
+
+.settings-action,
+.primary-btn,
+.success-btn,
+.danger-btn,
+.choice-chip {
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.settings-action {
+  background: var(--set-action-bg);
+  color: var(--text);
+}
+
+.settings-action:hover,
+.choice-chip:hover {
+  background: var(--set-action-hover-bg);
+  transform: translateY(-1px);
+}
+
+.primary-btn {
+  background: var(--set-primary-grad);
+  color: var(--set-primary-fg);
+}
+
+.primary-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.success-btn {
+  background: var(--set-success-grad);
+  color: var(--set-primary-fg);
+}
+
+.success-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.danger-btn {
+  background: var(--set-danger-btn-bg);
+  color: var(--set-danger-btn-fg);
+  box-shadow: inset 0 0 0 1px var(--set-danger-btn-ring);
+}
+
+.danger-btn:hover {
+  background: var(--set-danger-btn-hover);
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  border-radius: 1rem;
+  background: var(--set-toggle-bg);
+  box-shadow: inset 0 0 0 1px var(--set-toggle-ring);
+  padding: var(--echo-density-settings-toggle-pad, 1rem);
+  text-align: left;
+}
+
+.toggle-pill {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.6rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: var(--set-toggle-pill-off);
+  transition: background-color 0.18s ease;
+}
+
+.toggle-pill::after {
+  content: '';
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 9999px;
+  background: var(--set-toggle-knob);
+  transition: transform 0.18s ease;
+}
+
+.toggle-pill--on {
+  background: var(--set-toggle-pill-on);
+}
+
+.toggle-pill--on::after {
+  transform: translateX(1.1rem);
+}
+
+.banner-effects-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+@media (max-width: 900px) {
+  .banner-effects-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.banner-effect-widget {
+  display: flex;
+  min-height: 6.8rem;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.85rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--set-toggle-bg) 80%, transparent);
+  box-shadow: inset 0 0 0 1px var(--set-toggle-ring);
+  padding: 0.9rem;
+  text-align: left;
+  transition:
+    transform 0.14s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.banner-effect-widget:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--set-toggle-bg) 60%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--set-toggle-ring) 60%, white 12%),
+    0 10px 24px color-mix(in srgb, var(--shadow-5) 38%, transparent);
+}
+
+.banner-effect-widget:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 52%, transparent);
+  outline-offset: 2px;
+}
+
+.banner-effect-widget__head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.banner-effect-widget__icon-wrap {
+  display: inline-flex;
+  height: 1.9rem;
+  width: 1.9rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--set-input-bg) 72%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 82%, transparent);
+}
+
+.banner-effect-widget__icon {
+  height: 0.95rem;
+  width: 0.95rem;
+  filter: var(--set-nav-icon-filter);
+  opacity: 0.86;
+}
+
+.banner-effect-widget__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.banner-effect-widget__title {
+  font-size: 0.94rem;
+  font-weight: 680;
+  color: var(--text);
+}
+
+.banner-effect-widget__subtitle {
+  margin-top: 0.06rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.banner-effect-widget__pill {
+  align-self: flex-end;
+}
+
+.choice-chip {
+  border-radius: 9999px;
+  background: var(--set-chip-bg);
+  padding: 0.7rem 1rem;
+  color: var(--set-chip-fg);
+  box-shadow: inset 0 0 0 1px var(--set-chip-ring);
+}
+
+.choice-chip--active {
+  background: var(--set-chip-active-bg);
+  box-shadow: inset 0 0 0 1px var(--set-chip-active-ring);
+}
+
+.keycap {
+  border-radius: 0.7rem;
+  background: var(--set-keycap-bg);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--set-keycap-fg);
+  box-shadow: inset 0 -2px 0 var(--set-keycap-shadow);
+}
+
+.invoice-row + .invoice-row {
+  border-top: 1px solid var(--border);
+}
+
+.close-btn {
+  background: var(--set-close-bg);
+}
+
+/* ── Echo+ / Echo Black premium page ── */
+
+.premium-hero {
+  position: relative;
+  isolation: isolate;
+}
+
+.premium-hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--set-premium-hero-bg);
+  box-shadow: inset 0 0 0 1px var(--set-premium-hero-ring);
+}
+
+.premium-hero__title {
+  color: var(--set-premium-hero-title-fg);
+}
+
+.premium-hero__lede {
+  color: var(--set-premium-hero-lede-fg);
+}
+
+.premium-card {
+  background: var(--set-premium-card-bg);
+  box-shadow: inset 0 0 0 1px var(--set-premium-card-ring);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.premium-card--plus {
+  box-shadow:
+    inset 0 0 0 1px var(--set-premium-plus-ring),
+    0 0 40px -8px var(--set-premium-plus-glow);
+
+  &:hover {
+    box-shadow:
+      inset 0 0 0 1px var(--set-premium-plus-ring-hover),
+      0 0 50px -4px var(--set-premium-plus-glow-hover);
+  }
+}
+
+.premium-card--black {
+  background: var(--set-premium-black-grad);
+  box-shadow:
+    inset 0 0 0 1px var(--set-premium-black-ring),
+    0 0 40px -8px var(--set-premium-black-glow);
+
+  &:hover {
+    box-shadow:
+      inset 0 0 0 1px var(--set-premium-black-ring-hover),
+      0 0 50px -4px var(--set-premium-black-glow-hover);
+  }
+}
+
+.premium-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.premium-badge--plus {
+  background: var(--set-premium-badge-plus-bg);
+  color: var(--set-premium-badge-plus-fg);
+  box-shadow: inset 0 0 0 1px var(--set-premium-badge-plus-ring);
+}
+
+.premium-cta {
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease,
+    box-shadow 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.premium-cta--plus {
+  background: var(--set-premium-cta-plus-grad);
+  box-shadow: 0 4px 20px -4px var(--set-premium-cta-plus-shadow);
+
+  &:hover {
+    box-shadow: 0 6px 28px -4px var(--set-premium-cta-plus-shadow-hover);
+  }
+}
+
+.premium-cta--black {
+  background: var(--set-premium-cta-black-grad);
+  box-shadow: 0 4px 20px -4px var(--set-premium-cta-black-shadow);
+
+  &:hover {
+    box-shadow: 0 6px 28px -4px var(--set-premium-cta-black-shadow-hover);
+  }
+}
+
+.premium-why-card {
+  background: var(--set-premium-why-bg);
+  box-shadow: inset 0 0 0 1px var(--set-premium-why-ring);
+  transition: background-color 0.18s ease;
+
+  &:hover {
+    background: var(--set-premium-why-hover);
+  }
+}

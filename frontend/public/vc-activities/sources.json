@@ -1,0 +1,95 @@
+{
+  "notes": "VC activity library hero tiles. Prefer official/hosted art; placeholders are Echo-generated SVGs (no third-party marks) where automated fetch or licensing blocked a safe promo file.",
+  "assets": [
+    {
+      "file": "youtube-hero.svg",
+      "kind": "composite",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fd/YouTube_full-color_icon_%282024%29.svg",
+      "license": "Wikimedia Commons — public domain per file page (YouTube logo); local composite adds gradient only."
+    },
+    {
+      "file": "youtube-logo-wikimedia.svg",
+      "kind": "raster_source_vector",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fd/YouTube_full-color_icon_%282024%29.svg",
+      "license": "Wikimedia Commons — public domain (file page)."
+    },
+    {
+      "file": "wordle-hero.png",
+      "kind": "official_og",
+      "sourceUrl": "https://www.nytimes.com/games-assets/v2/assets/wordle/wordle_og_1200x630.png",
+      "license": "Hosted by NYT for Wordle sharing; trademark to respective owners."
+    },
+    {
+      "file": "hangman-hero.svg",
+      "kind": "echo_placeholder",
+      "sourceUrl": null,
+      "license": "Original SVG by Echo (generic hangman diagram motif)."
+    },
+    {
+      "file": "openguessr-hero.svg",
+      "kind": "echo_placeholder",
+      "sourceUrl": null,
+      "license": "Original SVG — openguessr.com returned Cloudflare challenge to server fetch; no safe direct promo URL captured."
+    },
+    {
+      "file": "skribbl-hero.png",
+      "kind": "official_promo",
+      "sourceUrl": "https://skribbl.io/img/thumbnail.png",
+      "license": "Served from skribbl.io origin as their linked Open Graph / promo thumbnail."
+    },
+    {
+      "file": "gartic-phone-hero.svg",
+      "kind": "echo_placeholder",
+      "sourceUrl": null,
+      "license": "Original SVG — garticphone.com blocked automated HTML fetch (403); no verified static hero URL without scraping."
+    },
+    {
+      "file": "krunker-hero.svg",
+      "kind": "echo_placeholder",
+      "sourceUrl": null,
+      "license": "Original SVG — krunker.io static paths returned 403 from this environment; prior 256px local JPG was too small for full-bleed hero."
+    },
+    {
+      "file": "goober-dash-hero.png",
+      "kind": "official_client_asset",
+      "sourceUrl": "https://gooberdash.winterpixel.io/capsule.png",
+      "license": "Winterpixel official web client asset (same origin as VC embed gooberdash.winterpixel.io)."
+    },
+    {
+      "file": "smash-karts-hero.png",
+      "kind": "official_client_asset",
+      "sourceUrl": "https://smashkarts.io/images/smashkarts.png",
+      "license": "Tall Team official web client asset from smashkarts.io."
+    },
+    {
+      "file": "basketball-stars-2026-hero.jpg",
+      "kind": "official_og",
+      "sourceUrl": "https://img.gamedistribution.com/516d6908fbc848bdb89e65a58a43a7dc-512x512.jpg",
+      "license": "GameDistribution og:image for the MadPuffers title (same game id as Echo embed URL)."
+    },
+    {
+      "file": "cluster-rush-hero.jpg",
+      "kind": "official_site",
+      "sourceUrl": "https://clusterrush.io/data/image/game/cluster-rush-game-icon-1.jpg",
+      "license": "Linked from clusterrush.io Open Graph meta as game imagery."
+    },
+    {
+      "file": "tetris-hero.svg",
+      "kind": "echo_placeholder",
+      "sourceUrl": null,
+      "license": "Original abstract bars — not Tetris Company artwork; Y8 embed page not fetched for promo art in this environment."
+    },
+    {
+      "file": "codenames-hero.avif",
+      "kind": "official_marketing",
+      "sourceUrl": "https://cdn.prod.website-files.com/6842a3f0bd06c7a0b7e03584/6880e01ed2b9ce2cdb64cbb2_og-image-homepage.avif",
+      "license": "Codenamesgame.com Webflow CDN og:image (publisher marketing asset)."
+    },
+    {
+      "file": "richup-hero.png",
+      "kind": "official_og",
+      "sourceUrl": "https://richup.io/og_image.png",
+      "license": "Richup.io Open Graph image served from site origin."
+    }
+  ]
+}

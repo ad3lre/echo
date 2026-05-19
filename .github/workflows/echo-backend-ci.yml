@@ -1,0 +1,176 @@
+name: Echo backend checks
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'shared/**'
+      - 'scripts/check-*.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/echo-backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'shared/**'
+      - 'scripts/check-*.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+jobs:
+  echo-ci:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: echo
+          POSTGRES_PASSWORD: echo_dev
+          POSTGRES_DB: echo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      nats:
+        image: nats:2-alpine
+        ports:
+          - 4222:4222
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13.1'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck backend
+        run: npm run build -w backend
+
+      - name: Contract surface + CI guards
+        env:
+          PG_TEST_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+        run: |
+          npm run test:storage-mode -w backend
+          npm run test:production-config-gates -w backend
+          npm run test:linkUnfurlStubs -w backend
+          npm run test:linkUnfurlExtract -w backend
+          npm run test:shipping-security -w backend
+          npm run test:echo:contract -w backend
+          npm run check:echo-channels
+          npm run check:echo-snowflake
+          npm run check:echo-single-reality
+          npm run check:echo-rbac
+          npm run check:channel-message-writes
+          node scripts/check-echo-no-sql-in-routes.mjs
+
+      - name: Pipeline integration (Postgres)
+        env:
+          ECHO_BACKEND_STORAGE: postgres
+          DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+          USE_MOCK_DB: 'false'
+        run: npm run test:echo:pipeline -w backend
+      - name: Multi-node integration (Postgres + NATS)
+        env:
+          ECHO_BACKEND_STORAGE: postgres
+          DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+          NATS_URL: nats://127.0.0.1:4222
+          USE_MOCK_DB: 'false'
+        run: npm run test:echo:multinode -w backend
+      - name: Upload presign smoke (Postgres)
+        env:
+          ECHO_BACKEND_STORAGE: postgres
+          DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+          USE_MOCK_DB: 'false'
+        run: npm run test:echo:uploads -w backend
+      - name: RBAC integration + goldens (Postgres)
+        env:
+          ECHO_BACKEND_STORAGE: postgres
+          DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+          USE_MOCK_DB: 'false'
+        run: npm run test:echo:rbac -w backend
+      - name: RBAC sparse bench
+        env:
+          DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+        run: npx ts-node backend/src/tests/echo.rbac.sparse.bench.ts
+
+  perf-validation:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: echo
+          POSTGRES_PASSWORD: echo_dev
+          POSTGRES_DB: echo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13.1'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build backend
+        run: npm run build -w backend
+
+      - name: Permission cache smoke test
+        run: npx ts-node backend/src/tests/echo.permission.cache.test.ts
+
+      - name: Discord import smoke test
+        env:
+          ECHO_BACKEND_STORAGE: postgres
+          DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+          USE_MOCK_DB: 'false'
+          PG_TEST_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+        run: npx ts-node backend/src/tests/echo.discordImport.test.ts
+
+      - name: Start backend for benchmark
+        env:
+          PORT: '3000'
+          HOST: 127.0.0.1
+          ECHO_BACKEND_STORAGE: postgres
+          DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+          USE_MOCK_DB: 'false'
+        run: |
+          node backend/dist/backend/src/index.js > /tmp/echo-backend.log 2>&1 &
+          echo $! > /tmp/echo-backend.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/api/v1/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start"
+          cat /tmp/echo-backend.log
+          exit 1
+
+      - name: Benchmark health endpoint
+        run: npx autocannon -c 20 -d 20 http://127.0.0.1:3000/api/v1/health
+
+      - name: Stop benchmark backend
+        if: always()
+        run: |
+          if [ -f /tmp/echo-backend.pid ]; then
+            kill "$(cat /tmp/echo-backend.pid)" || true
+          fi

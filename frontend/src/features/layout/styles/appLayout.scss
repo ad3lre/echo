@@ -1,0 +1,367 @@
+// When running as a desktop app without native decorations the shell root
+// clips overflow. Rounded corners were removed: with `decorations: false` the native
+// window is often still rectangular / darker behind the WebView clip, which read as
+// a thick “canvas” frame in light mode (esp. next to `var(--bg)` chrome).
+.echo-shell-root--desktop {
+  overflow: hidden;
+}
+
+/* Paint through any flex/grid subpixel gaps between #app and the shell (light + dark). */
+.echo-shell-root {
+  background-color: var(--bg);
+}
+
+.app-layout {
+  transition: grid-template-columns 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.echo-shell-root .app-layout {
+  min-height: 0;
+}
+
+/* Desktop: action rail on top — full-width strip in row 1; chrome + main in row 2. */
+.app-layout--action-rail-top > .app-layout__top-action-rail {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.app-layout--action-rail-top
+  > *:not(.app-layout__top-action-rail):not(.main-content-area) {
+  grid-row: 2;
+}
+
+.app-layout--action-rail-top > .main-content-area {
+  grid-row: 2;
+}
+
+/* Always occupy the final template column. Left chrome is a multi-root component: when ServerList /
+ * ChannelPanel unmount (explore + welcome-back rail collapse), auto-placement would otherwise put this
+ * div in an earlier 0px track and the 1fr column stays empty — looks like a blank screen. */
+.app-layout > .main-content-area {
+  grid-column: -2 / -1;
+  min-width: 0;
+}
+
+.main-content-area {
+  background-color: var(--echo-chat-view-bg);
+}
+
+/* Ensure explore view paints above any grid siblings when it's the only child */
+.main-content-area--explore {
+  isolation: isolate;
+  z-index: 1;
+}
+
+.app-layout {
+  background-color: var(--bg);
+}
+
+.chat-header-glass {
+  /* Same recipe as `.pins-dropdown`: token tint + backdrop blur, no extra shade or hover gloss. */
+  background-color: var(--chat-glass-header-bg);
+  border-bottom: none;
+  backdrop-filter: var(--chat-glass-header-backdrop);
+  -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  isolation: isolate;
+}
+
+/* Call controls on liquid glass (quarter view) */
+.dm-call-on-glass-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--dm-call-on-glass-bg);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+.dm-call-on-glass-btn:hover {
+  background: var(--dm-call-on-glass-bg-hover);
+  transform: scale(1.05);
+}
+.dm-call-on-glass-btn:active {
+  transform: scale(0.98);
+}
+.dm-call-on-glass-btn--active {
+  background: var(--dm-call-on-glass-bg-active);
+}
+.dm-call-on-glass-btn--video-on {
+  background: color-mix(in srgb, mediumseagreen 34%, transparent);
+}
+.dm-call-on-glass-btn--video-on:hover {
+  background: color-mix(in srgb, mediumseagreen 46%, transparent);
+}
+.dm-call-on-glass-btn--screenshare-on {
+  background: color-mix(in srgb, mediumpurple 34%, transparent);
+}
+.dm-call-on-glass-btn--screenshare-on:hover {
+  background: color-mix(in srgb, mediumpurple 46%, transparent);
+}
+.dm-call-on-glass-btn--leave {
+  background: var(--dm-call-leave-bg);
+}
+.dm-call-on-glass-btn--leave:hover {
+  background: var(--dm-call-leave-bg-hover);
+}
+
+/* DM call: peer avatar while ringing / no-answer vanish (fullscreen + quarter glass) */
+.dm-call-peer-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  will-change: transform, opacity, filter;
+}
+
+.dm-call-peer-visual--ring {
+  opacity: 0.7;
+  animation: dm-call-peer-vibrate 0.26s ease-in-out infinite;
+}
+
+.dm-call-peer-visual--vanish {
+  pointer-events: none;
+  animation: dm-call-peer-vanish-out 0.48s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+
+@keyframes dm-call-peer-vibrate {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(-1.5px, 1px) rotate(-0.65deg);
+  }
+  50% {
+    transform: translate(1.5px, -1px) rotate(0.65deg);
+  }
+  75% {
+    transform: translate(-1px, -1px) rotate(-0.35deg);
+  }
+}
+
+@keyframes dm-call-peer-vanish-out {
+  to {
+    opacity: 0;
+    transform: scale(0.72) translateY(14px);
+    filter: blur(5px);
+  }
+}
+
+/* Pins dropdown: same glass as header / menus */
+.pins-dropdown {
+  background-color: var(--chat-glass-header-bg);
+  backdrop-filter: var(--chat-glass-header-backdrop);
+  -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.pins-dropdown-item {
+  transition: background 0.1s ease;
+}
+
+/* DM header action buttons: consistent light grey */
+.dm-header-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.dm-header-action-btn:hover {
+  background: var(--dm-call-on-glass-bg);
+  color: var(--text);
+}
+
+/* Start/leave call: crisp white on dark chat chrome; dark stroke on light theme */
+.dm-header-action-btn--call {
+  color: color-mix(in srgb, white 85%, transparent);
+}
+[data-theme='dark'] .dm-header-action-btn--member-toggle {
+  /* Keep the control compact but visually discoverable over glass. */
+  background: color-mix(in srgb, white 6%, transparent);
+  color: color-mix(in srgb, white 78%, transparent);
+}
+[data-theme='light'] .dm-header-action-btn--member-toggle {
+  background: color-mix(in srgb, black 4.5%, transparent);
+  color: color-mix(in srgb, var(--foreground) 66%, transparent);
+}
+[data-theme='dark'] .dm-header-action-btn--member-toggle:hover,
+[data-theme='dark'] .dm-header-action-btn--member-toggle:focus-visible {
+  background: color-mix(in srgb, white 11%, transparent);
+  color: color-mix(in srgb, white 96%, transparent);
+}
+[data-theme='light'] .dm-header-action-btn--member-toggle:hover,
+[data-theme='light'] .dm-header-action-btn--member-toggle:focus-visible {
+  background: color-mix(in srgb, black 8%, transparent);
+  color: color-mix(in srgb, var(--foreground) 84%, transparent);
+}
+[data-theme='dark']
+  .dm-header-action-btn--member-toggle
+  .dm-header-action-icon:not(.dm-header-action-icon--svg) {
+  opacity: 0.86;
+}
+[data-theme='light']
+  .dm-header-action-btn--member-toggle
+  .dm-header-action-icon:not(.dm-header-action-icon--svg) {
+  opacity: 0.8;
+}
+[data-theme='dark']
+  .dm-header-action-btn--member-toggle:hover
+  .dm-header-action-icon:not(.dm-header-action-icon--svg),
+[data-theme='dark']
+  .dm-header-action-btn--member-toggle:focus-visible
+  .dm-header-action-icon:not(.dm-header-action-icon--svg) {
+  opacity: 0.98;
+}
+[data-theme='light']
+  .dm-header-action-btn--member-toggle:hover
+  .dm-header-action-icon:not(.dm-header-action-icon--svg),
+[data-theme='light']
+  .dm-header-action-btn--member-toggle:focus-visible
+  .dm-header-action-icon:not(.dm-header-action-icon--svg) {
+  opacity: 0.9;
+}
+[data-theme='light'] .dm-header-action-btn--call {
+  color: color-mix(in srgb, var(--foreground) 55%, transparent);
+}
+[data-theme='light'] .dm-header-action-btn--call:hover {
+  color: var(--text);
+}
+.dm-header-action-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+/*
+ * Icon assets are dark-filled SVGs/PNGs. Default invert for dark glass; light theme
+ * overrides (higher specificity) so icons stay dark on light glass.
+ */
+.dm-header-action-icon:not(.dm-header-action-icon--svg) {
+  filter: invert(1);
+  opacity: 0.75;
+}
+[data-theme='light'] .dm-header-action-icon:not(.dm-header-action-icon--svg) {
+  filter: none;
+  opacity: 0.72;
+}
+.dm-header-action-btn:hover
+  .dm-header-action-icon:not(.dm-header-action-icon--svg) {
+  opacity: 0.95;
+}
+[data-theme='light']
+  .dm-header-action-btn:hover
+  .dm-header-action-icon:not(.dm-header-action-icon--svg) {
+  opacity: 0.88;
+}
+.dm-header-action-icon--svg {
+  stroke: currentColor;
+}
+
+/* Members column: collapse control (chevron toward chat) */
+.members-column-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.members-column-collapse-btn__icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+[data-theme='dark'] .members-column-collapse-btn {
+  background: color-mix(in srgb, white 6%, transparent);
+  color: color-mix(in srgb, white 78%, transparent);
+}
+[data-theme='light'] .members-column-collapse-btn {
+  background: color-mix(in srgb, black 4.5%, transparent);
+  color: color-mix(in srgb, var(--foreground) 66%, transparent);
+}
+[data-theme='dark'] .members-column-collapse-btn:hover,
+[data-theme='dark'] .members-column-collapse-btn:focus-visible {
+  background: color-mix(in srgb, white 11%, transparent);
+  color: color-mix(in srgb, white 96%, transparent);
+}
+[data-theme='light'] .members-column-collapse-btn:hover,
+[data-theme='light'] .members-column-collapse-btn:focus-visible {
+  background: color-mix(in srgb, black 8%, transparent);
+  color: color-mix(in srgb, var(--foreground) 84%, transparent);
+}
+.members-column-collapse-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+/* Title row leading icon (friends hub / fallback channel glyph) — same invert rules */
+.chat-header-leading-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  opacity: 0.5;
+  filter: invert(1);
+}
+[data-theme='light'] .chat-header-leading-icon {
+  filter: none;
+  opacity: 0.58;
+}
+
+.chat-header-leading-icon--raster {
+  filter: none !important;
+  opacity: 0.92;
+  object-fit: contain;
+}
+[data-theme='light'] .chat-header-leading-icon--raster {
+  opacity: 1;
+}
+
+/* DM quarter-view toolbar: ensure dark glyph contrast on light glass. */
+[data-theme='light'] .dm-call-on-glass-btn:not(.dm-call-on-glass-btn--leave) {
+  color: color-mix(in srgb, var(--foreground) 88%, black 12%);
+}
+[data-theme='light']
+  .dm-call-on-glass-btn:not(.dm-call-on-glass-btn--leave)
+  img {
+  filter: brightness(0) saturate(100%) !important;
+  opacity: 0.94;
+}
+[data-theme='light']
+  .dm-call-on-glass-btn:not(.dm-call-on-glass-btn--leave):hover
+  img {
+  opacity: 1;
+}
+
+/*
+ * Compact mobile pagers (horizontal scroll + snap): promote the scroller to its own layer and
+ * use legacy iOS momentum scrolling. Reduces jank when swiping between rail / chat / members
+ * while the main thread is busy with Vue updates.
+ */
+.compact-tri-pane-scroll,
+.compact-dual-pane-scroll {
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+}

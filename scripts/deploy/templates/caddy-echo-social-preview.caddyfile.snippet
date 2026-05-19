@@ -1,0 +1,33 @@
+# Echo — rich Open Graph for vanity invite URLs (optional).
+#
+# Paste **inside your chat app site block** so it runs **after** the deploy-generated fragment that
+# imports `echo-generated-routes.caddyfile` (`handle /api/*`, `/socket.io`) and **before** the SPA
+# `handle { try_files … file_server }` catch-all.
+#
+# Social crawlers requesting `GET /{vanity}` receive the same HTML as
+# `GET /api/v1/echo/invites/{vanity}/share` (OG tags + redirect for humans). Normal browsers still
+# load `index.html` for the SPA.
+#
+# Replace {{API_PORT}} with the same `127.0.0.1:<port>` as `echo-generated-routes` (active API).
+
+@crawler_invite {
+	header_regexp User-Agent (?i)(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|LinkedInApp|Slackbot|Slack-ImgProxy|Discordbot|TelegramBot|WhatsApp|SkypeUriPreview|Pinterest|Embedly|redditbot|vkShare|Quora Link Preview)
+	not path /api/*
+	not path /socket.io*
+	not path /explore
+	not path /explore/*
+	not path /channels*
+	not path /assets*
+	not path /static*
+	not path /founder*
+	not path /invite*
+	not path /reset-password*
+	not path /forgot-password*
+	not path_regexp (?i)\.[a-z0-9]{2,12}$
+	path_regexp vanity ^/([^/.]+)/?$
+}
+
+handle @crawler_invite {
+	rewrite * /api/v1/echo/invites/{http.regexp.vanity.1}/share{query}
+	reverse_proxy 127.0.0.1:{{API_PORT}}
+}

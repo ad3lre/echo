@@ -1,0 +1,56 @@
+#!/usr/bin/env node
+/**
+ * Runs `tauri android build` via the repo-local CLI (same pattern as `tauri-build.mjs`).
+ * Frontend assets use `ECHO_TAURI_ANDROID=1` via `tauri.android.conf.json` → `beforeBuildCommand`.
+ *
+ * Passthrough: arguments after `--` are forwarded (e.g. `-- --apk`).
+ */
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, '..');
+const tauriCliJs = path.join(
+  repoRoot,
+  'node_modules',
+  '@tauri-apps',
+  'cli',
+  'tauri.js',
+);
+
+if (!fs.existsSync(tauriCliJs)) {
+  console.error(
+    '[tauri-android-build] Missing @tauri-apps/cli at',
+    tauriCliJs,
+    '— run npm ci from the repo root.',
+  );
+  process.exit(1);
+}
+
+const dash = process.argv.indexOf('--');
+/** Forward `npm run … -- --flags` (no `--` in argv) and `node script -- --flags`. */
+const passthrough =
+  dash >= 0 ? process.argv.slice(dash + 1) : process.argv.slice(2);
+
+const result = spawnSync(
+  process.execPath,
+  [tauriCliJs, 'android', 'build', ...passthrough],
+  {
+    stdio: 'inherit',
+    shell: false,
+    env: {
+      ...process.env,
+      VITE_ECHO_TAURI: '1',
+      VITE_ECHO_ANDROID: '1',
+    },
+    cwd: repoRoot,
+  },
+);
+
+if (result.error) {
+  console.error(result.error);
+  process.exit(1);
+}
+process.exit(result.status === null ? 1 : result.status);

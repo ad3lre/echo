@@ -1,0 +1,14 @@
+{
+  "identifier": "android",
+  "description": "Echo Android WebView — desktop-only permissions omitted",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "deep-link:default",
+    "dialog:allow-save",
+    "notification:default",
+    "opener:default",
+    "process:default"
+  ]
+}

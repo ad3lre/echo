@@ -1,0 +1,47 @@
+---
+import { AGPL_LICENSE_URL, CHAT_APP_ORIGIN, GITHUB_REPO_URL } from '../site';
+---
+
+<footer class="footer">
+  <div class="container footer-inner footer-inner--stack">
+    <div class="footer-columns">
+      <div class="footer-col">
+        <h2 class="footer-heading">Echo</h2>
+        <ul class="footer-links" aria-label="Product">
+          <li><a href="/">Home</a></li>
+          <li><a href="/download">Download</a></li>
+          <li><a href="/communities">Communities</a></li>
+          <li><a href="/support">Support</a></li>
+          <li><a href={CHAT_APP_ORIGIN}>Open Echo</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2 class="footer-heading">Legal</h2>
+        <ul class="footer-links" aria-label="Legal">
+          <li><a href="/terms">Terms of service</a></li>
+          <li><a href="/privacy">Privacy policy</a></li>
+          <li><a href="/community-guidelines">Community guidelines</a></li>
+          <li><a href="/attributions">Attributions</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2 class="footer-heading">Open source</h2>
+        <ul class="footer-links" aria-label="Open source">
+          <li>
+            <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+          </li>
+          <li>
+            <a href={AGPL_LICENSE_URL} target="_blank" rel="noopener noreferrer">GNU AGPL v3</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <p class="footer-copy">
+      Echo is <strong>open source</strong> (GNU Affero General Public License v3.0)—inspect the
+      code, self-host, and contribute on{' '}
+      <a class="footer-copy-link" href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">GitHub</a>.
+      Echo is also a privacy-focused communication platform for real-time chat, voice, and community
+      conversation.
+    </p>
+  </div>
+</footer>

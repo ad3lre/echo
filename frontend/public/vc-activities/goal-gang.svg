@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="gg-bg" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#14532d"/>
+      <stop offset="0.55" stop-color="#166534"/>
+      <stop offset="1" stop-color="#052e16"/>
+    </linearGradient>
+    <radialGradient id="gg-ball" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(40 24) rotate(90) scale(14)">
+      <stop stop-color="#fafafa"/>
+      <stop offset="1" stop-color="#d4d4d8"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#gg-bg)"/>
+  <path
+    fill="#22c55e"
+    fill-opacity="0.35"
+    d="M8 30h48v4H8V30zm0-12h48v3H8V18zm0 24h48v3H8V42zM30 8h4v48h-4V8zm12 0h4v48h-4V8zM18 8h4v48h-4V8z"
+  />
+  <rect x="22" y="26" width="20" height="12" rx="1" fill="none" stroke="#bbf7d0" stroke-opacity="0.55" stroke-width="1.2"/>
+  <circle cx="40" cy="24" r="9" fill="url(#gg-ball)"/>
+  <path
+    fill="#171717"
+    fill-opacity="0.55"
+    d="M34 20c2.8 1.2 5.2 3 6.8 5.4-1.4-.6-2.9-1-4.4-1.1-2.6-.2-5 1-6.8 2.8 1-2.4 2.6-4.4 4.4-6.1zM44 26c.3 2.8-.1 5.6-1.2 8.2 0-1.5-.2-3-.6-4.4-.8-2.5-2.2-4.6-4-6.3 2.4 1 4.5 2.5 5.8 4.5z"
+  />
+  <path stroke="#14532d" stroke-opacity="0.4" stroke-width="1" d="M12 32h40"/>
+</svg>

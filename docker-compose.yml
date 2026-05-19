@@ -1,0 +1,101 @@
+# Local PostgreSQL for Echo dev. Docker Compose reads `.env` in this directory for ${VAR} substitution.
+# `npm run dev` runs `db:up` first (see root package.json predev). Manual: npm run db:up
+# Stop: npm run db:down
+#
+# Defaults match the commented block in `.env.example`. Override POSTGRES_* in `.env` and set
+# DATABASE_URL to the same user/password/db (and host port if you change POSTGRES_PORT).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: echo-postgres
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-echo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-echo_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-echo}
+    volumes:
+      - echo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready defaults to OS username; the healthcheck runs as root, so without -U Postgres
+      # logs FATAL: role "root" does not exist. Use the same DB role the server creates.
+      test:
+        ['CMD-SHELL', 'pg_isready -h localhost -p 5432 -U "$$POSTGRES_USER"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Optional Socket.IO multi-instance adapter when NATS_URL=nats://localhost:4222 (see README).
+  nats:
+    image: nats:2.11.16-alpine@sha256:47169454fd238c3bd104f9947a6f84c1fb4713cd89ebf29da541ce53358fc298
+    container_name: echo-nats
+    ports:
+      - '${NATS_PORT:-4222}:4222'
+
+  # Local SMTP capture for dev: point Echo at localhost:1025 (see ECHO_SMTP_* in .env.example).
+  # Web UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: echo-mailpit
+    ports:
+      - '${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '${MAILPIT_UI_PORT:-8025}:8025'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget -q --spider http://127.0.0.1:8025/api/v1/info || exit 1',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: echo-livekit
+    depends_on:
+      - coturn
+    # Linux: `host.docker.internal` is not built-in (unlike Docker Desktop). Maps to the host gateway
+    # so `infra/livekit/livekit.yaml` webhooks can reach the API on the host (e.g. :3000).
+    # Requires Docker Engine 20.10+ / Compose v2.1+ for the host-gateway special IP.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '7880:7880'
+      - '7881:7881'
+      # Avoid 50000–50100 on Windows: Hyper-V / excluded UDP ranges often overlap and Docker cannot bind.
+      - '57000-57100:57000-57100/udp'
+    volumes:
+      # Default `livekit.yaml` (localhost ICE). Override with `ECHO_LIVEKIT_YAML` after `npm run lan:sync`.
+      - ${ECHO_LIVEKIT_YAML:-./infra/livekit/livekit.yaml}:/etc/livekit.yaml
+    command: ['--config', '/etc/livekit.yaml']
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:7880/ || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # Dev TURN for strict NAT / relay-only networks. Credentials must match infra/livekit/livekit.yaml rtc.turn_servers.
+  coturn:
+    image: coturn/coturn:4.10.0-r1-alpine@sha256:9b5db8e011848c903ebbeaa9b88e77f2dc4438db10e0891971e11ac354b84fce
+    container_name: echo-coturn
+    command:
+      - '-n'
+      - '--log-file=stdout'
+      - '--listening-ip=0.0.0.0'
+      - '--listening-port=3478'
+      - '--fingerprint'
+      - '--lt-cred-mech'
+      - '--user=echo:echo_turn_dev_secret'
+      - '--realm=echo.local'
+      - '--no-cli'
+    ports:
+      - '3478:3478/tcp'
+      - '3478:3478/udp'
+
+volumes:
+  echo_pgdata:

@@ -1,0 +1,240 @@
+/* Channel list + VC row + inline participant rows. Loaded from ChannelPanelList /
+   ChannelPanelVoiceParticipant SFCs — parent ChannelPanel scoped @use does not
+   pierce child component roots (same issue as channelPanelBanner). */
+
+/* Hide any visible scrollbar line on channel list - keep resize area clean */
+.channel-list {
+  scrollbar-color: transparent transparent;
+
+  &.is-scrolling,
+  &:hover {
+    scrollbar-color: var(--channel-scrollbar-hover) transparent;
+  }
+}
+
+.channel-list::-webkit-scrollbar-thumb {
+  border: none;
+}
+
+.channel-list.is-scrolling::-webkit-scrollbar-thumb,
+.channel-list:hover::-webkit-scrollbar-thumb {
+  border: none;
+}
+
+.channel-icon-in-vc {
+  opacity: 1;
+  filter: invert(0.55) sepia(0.6) saturate(4) hue-rotate(100deg);
+}
+
+/*
+ * Light mode: main.scss uses `img.filter.invert { filter: none !important }`, which
+ * strips the green tint from `.channel-icon-in-vc`. Restore a stronger emerald tint
+ * only (no drop-shadow faux stroke — it reads as an ugly offset “clone” on light UI).
+ */
+[data-theme='light'] img.channel-row-icon.channel-icon-in-vc.filter.invert {
+  opacity: 1 !important;
+  filter: invert(34%) sepia(98%) saturate(1250%) hue-rotate(118deg)
+    brightness(90%) contrast(96%) !important;
+}
+
+/* Buttons on the VC channel row (next to user count) */
+.vc-row-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: var(--vc-row-btn-hover);
+      opacity: 0.95;
+    }
+  }
+  &:active {
+    opacity: 0.85;
+  }
+}
+
+.vc-row-icon {
+  width: 14px;
+  height: 14px;
+  filter: invert(1);
+  opacity: 0.8;
+}
+
+.vc-participant-indicators {
+  .vc-indicator-icon {
+    width: 12px;
+    height: 12px;
+    filter: invert(1);
+  }
+}
+
+.vc-indicator-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Moderator server mute / server deafen — same layout as self, red strike + icon tint */
+.vc-indicator-icon-wrap--server {
+  color: var(--vc-server-mute-fg);
+
+  .vc-indicator-icon {
+    filter: invert(48%) sepia(85%) saturate(2200%) hue-rotate(325deg)
+      brightness(1.05);
+  }
+}
+
+.vc-indicator-strike {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 140%;
+  height: 1.5px;
+  background: currentColor;
+  opacity: 0.9;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.vc-indicator-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: 999px;
+  background: var(--vc-indicator-pill-bg);
+}
+
+.vc-indicator-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--vc-indicator-badge-bg);
+}
+
+.vc-indicator-badge--stream {
+  .vc-indicator-icon {
+    display: block;
+  }
+}
+
+.vc-avatar-badge {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vc-avatar-badge-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--vc-avatar-badge-bg);
+}
+
+.vc-avatar-badge-icon {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  filter: invert(1);
+}
+
+.vc-avatar-badge--server {
+  .vc-avatar-badge-bg {
+    background: var(--vc-avatar-server-badge-bg);
+  }
+
+  .vc-avatar-badge-icon {
+    filter: invert(48%) sepia(85%) saturate(2200%) hue-rotate(325deg)
+      brightness(1.08);
+  }
+}
+
+.vc-participant-row:hover .vc-participant-name:not(.vc-participant-name--dim) {
+  color: var(--vc-participant-name-hover);
+}
+
+.vc-participant-name--dim {
+  color: var(--vc-participant-name-dim);
+}
+
+/* ── compact green speaking ring ── */
+.vc-speaking-ring {
+  --speak-strength: 0.4;
+  box-shadow:
+    0 0 0 2px
+      color-mix(
+        in srgb,
+        mediumspringgreen calc(var(--speak-strength) * 100%),
+        transparent
+      ),
+    0 0 calc(var(--speak-strength) * 8px)
+      color-mix(
+        in srgb,
+        mediumspringgreen calc(var(--speak-strength) * 50%),
+        transparent
+      );
+  transition: box-shadow 0.1s ease-out;
+}
+
+[data-theme='light'] .vc-speaking-ring {
+  box-shadow:
+    0 0 0 3px
+      color-mix(
+        in srgb,
+        rgb(4 130 92) calc(var(--speak-strength) * 100%),
+        transparent
+      ),
+    0 0 calc(var(--speak-strength) * 11px)
+      color-mix(
+        in srgb,
+        rgb(4 130 92) calc(var(--speak-strength) * 58%),
+        transparent
+      );
+}
+
+/* Light theme: glyph assets are dark — match text-channel row gears (no invert). */
+[data-theme='light'] .vc-row-icon {
+  filter: none;
+}
+
+[data-theme='light'] .vc-participant-indicators .vc-indicator-icon {
+  filter: none;
+}
+
+/* Stream pill keeps white glyph on accent blue (general rule above is for dark assets on light chrome). */
+[data-theme='light'] .vc-indicator-badge--stream .vc-indicator-icon {
+  filter: invert(1);
+}
+
+[data-theme='light'] .vc-indicator-icon-wrap--server .vc-indicator-icon {
+  filter: invert(48%) sepia(85%) saturate(2200%) hue-rotate(325deg)
+    brightness(1.05);
+}
+
+[data-theme='light'] .vc-avatar-badge-icon {
+  filter: none;
+}
+
+[data-theme='light'] .vc-avatar-badge--server .vc-avatar-badge-icon {
+  filter: invert(48%) sepia(85%) saturate(2200%) hue-rotate(325deg)
+    brightness(1.08);
+}

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/echo-rounded-logo.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Echo" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Default dark; `applyBrowserChromeThemeColor` in main.ts + theme store keeps this in sync -->
+    <meta name="theme-color" content="#0d0812" />
+    <!-- Lets Safari / embedded frames request display capture when allowed for this origin -->
+    <meta
+      http-equiv="Permissions-Policy"
+      content="display-capture=(self), microphone=(self), camera=(self), autoplay=(self)"
+    />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <title>Echo</title>
+    <link rel="stylesheet" href="/echo-boot-splash.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div
+        class="echo-boot-splash"
+        role="status"
+        aria-live="polite"
+        aria-label="Loading Echo"
+      >
+        <svg
+          class="echo-boot-spinner"
+          viewBox="0 0 44 44"
+          width="40"
+          height="40"
+          aria-hidden="true"
+        >
+          <circle
+            cx="22"
+            cy="22"
+            r="18"
+            fill="none"
+            stroke="rgba(255,255,255,0.14)"
+            stroke-width="3.25"
+          />
+          <circle
+            cx="22"
+            cy="22"
+            r="18"
+            fill="none"
+            stroke="rgba(255,255,255,0.92)"
+            stroke-width="3.25"
+            stroke-linecap="round"
+            stroke-dasharray="26.5 90"
+            transform="rotate(-90 22 22)"
+          />
+        </svg>
+        <p id="echo-boot-hint" class="echo-boot-splash__hint" hidden>
+          Still loading — slow or unstable connection, a large first download,
+          or a browser extension may be delaying scripts. Try refreshing if this
+          continues.
+        </p>
+      </div>
+    </div>
+    <script src="/echo-boot-hint.js"></script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

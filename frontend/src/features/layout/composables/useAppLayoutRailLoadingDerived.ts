@@ -1,0 +1,46 @@
+import { computed, type Ref } from 'vue';
+import type { useServerStore } from '@/stores/server';
+import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
+import type { RailTab } from '@/features/layout/mainSurface';
+
+/**
+ * Loading hints while the servers rail switches guild or the first channel/messages hydrate.
+ */
+export function useAppLayoutRailLoadingDerived(opts: {
+  immediateShellSwitchPending: Ref<boolean>;
+  activeRailTab: Ref<RailTab>;
+  serverStore: ReturnType<typeof useServerStore>;
+  workspace: WorkspaceStateApi;
+  activeChannelId: Ref<string>;
+}) {
+  const isServerRailFastSwitchPending = computed(() => {
+    const sid = opts.serverStore.selectedServerId;
+    return (
+      opts.immediateShellSwitchPending.value &&
+      opts.activeRailTab.value === 'servers' &&
+      !!sid &&
+      sid !== 'echo'
+    );
+  });
+
+  const isChannelPanelSwitchLoading = computed(() => {
+    if (!isServerRailFastSwitchPending.value) return false;
+    const sid = opts.serverStore.selectedServerId;
+    if (!sid || sid === 'echo') return false;
+    const cats = opts.workspace.categoriesByServer.value[sid] ?? [];
+    return cats.length === 0 || opts.activeChannelId.value.trim().length === 0;
+  });
+
+  const isMessageSurfaceSwitchLoading = computed(() => {
+    if (!isServerRailFastSwitchPending.value) return false;
+    const cid = opts.activeChannelId.value.trim();
+    if (!cid) return true;
+    return (opts.workspace.messages.value[cid]?.length ?? 0) === 0;
+  });
+
+  return {
+    isServerRailFastSwitchPending,
+    isChannelPanelSwitchLoading,
+    isMessageSurfaceSwitchLoading,
+  };
+}

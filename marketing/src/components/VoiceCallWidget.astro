@@ -1,0 +1,265 @@
+---
+/**
+ * High-fidelity “voice call” marketing widget: participant row + call controls (CSS / SVG).
+ */
+---
+
+<div class="vcw" aria-hidden="true">
+  <div class="vcw__plate">
+    <div class="vcw__row vcw__row--people">
+      <div class="vcw-mini vcw-mini--violet">
+        <div class="vcw-mini__ring">
+          <div class="vcw-mini__hood"></div>
+          <div class="vcw-mini__eyes">
+            <span class="vcw-mini__eye"><span class="vcw-mini__pupil"></span></span>
+            <span class="vcw-mini__eye"><span class="vcw-mini__pupil"></span></span>
+          </div>
+        </div>
+      </div>
+      <div class="vcw-mini vcw-mini--green">
+        <div class="vcw-mini__ring">
+          <div class="vcw-mini__hood"></div>
+          <div class="vcw-mini__eyes">
+            <span class="vcw-mini__eye"><span class="vcw-mini__pupil"></span></span>
+            <span class="vcw-mini__eye"><span class="vcw-mini__pupil"></span></span>
+          </div>
+        </div>
+      </div>
+      <div class="vcw-mini vcw-mini--amber">
+        <div class="vcw-mini__ring">
+          <div class="vcw-mini__hood"></div>
+          <div class="vcw-mini__eyes">
+            <span class="vcw-mini__eye"><span class="vcw-mini__pupil"></span></span>
+            <span class="vcw-mini__eye"><span class="vcw-mini__pupil"></span></span>
+          </div>
+        </div>
+      </div>
+      <div class="vcw-mini vcw-mini--blue">
+        <div class="vcw-mini__ring">
+          <div class="vcw-mini__hood"></div>
+          <div class="vcw-mini__eyes">
+            <span class="vcw-mini__eye"><span class="vcw-mini__pupil"></span></span>
+            <span class="vcw-mini__eye"><span class="vcw-mini__pupil"></span></span>
+          </div>
+        </div>
+      </div>
+      <div class="vcw-more" title="More participants">+3</div>
+    </div>
+
+    <div class="vcw__row vcw__row--controls">
+      <span class="vcw__ctrl" title="Speaker">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 5L6 9H2v6h4l5 4V5z"></path>
+          <path d="M15.54 8.46a5 5 0 010 7.07M17.07 6.93a7 7 0 010 10.15"></path>
+        </svg>
+      </span>
+      <span class="vcw__ctrl" title="Microphone">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"></path>
+          <path d="M19 10v1a7 7 0 01-14 0v-1M12 18v4M9 22h6"></path>
+        </svg>
+      </span>
+      <span class="vcw__ctrl vcw__ctrl--hangup" title="Leave call">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path
+            d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V21c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+          ></path>
+        </svg>
+      </span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .vcw {
+    --vcw-panel: #f3f1f9;
+    --vcw-edge: rgba(88, 86, 214, 0.07);
+    --vcw-hang: #ff3b30;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .vcw__plate {
+    border-radius: 16px;
+    background: var(--vcw-panel);
+    border: 1px solid var(--vcw-edge);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.65),
+      0 1px 2px rgba(25, 20, 60, 0.04);
+    padding: 14px 14px 13px;
+    overflow: hidden;
+  }
+
+  .vcw__row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .vcw__row--people {
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 2px 0 1px;
+  }
+
+  .vcw__row--controls {
+    gap: 11px;
+    margin-top: 15px;
+    padding-top: 2px;
+  }
+
+  /* —— Mini hood avatars —— */
+  .vcw-mini {
+    flex-shrink: 0;
+  }
+
+  .vcw-mini__ring {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    box-shadow:
+      inset 0 -4px 7px rgba(30, 25, 70, 0.1),
+      inset 0 1px 1px rgba(255, 255, 255, 0.55),
+      0 1px 4px rgba(50, 40, 100, 0.12);
+  }
+
+  .vcw-mini__hood {
+    position: absolute;
+    left: 50%;
+    bottom: 8%;
+    width: 76%;
+    height: 56%;
+    transform: translateX(-50%);
+    border-radius: 50% 50% 42% 42% / 58% 58% 36% 36%;
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+  }
+
+  .vcw-mini__eyes {
+    position: absolute;
+    left: 50%;
+    top: 41%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    z-index: 2;
+  }
+
+  .vcw-mini__eye {
+    position: relative;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  }
+
+  .vcw-mini__eye:last-child .vcw-mini__pupil {
+    left: 42%;
+  }
+
+  .vcw-mini__pupil {
+    position: absolute;
+    left: 56%;
+    top: 48%;
+    width: 2.5px;
+    height: 2.5px;
+    margin: -1.25px 0 0 -1.25px;
+    border-radius: 50%;
+    background: #14122a;
+  }
+
+  .vcw-mini--violet .vcw-mini__ring {
+    background: linear-gradient(168deg, #ede9fe 0%, #c4b5fd 55%, #a78bfa 100%);
+  }
+  .vcw-mini--violet .vcw-mini__hood {
+    background: linear-gradient(180deg, #4c3a8f 0%, #3b2f6b 55%, #2a1f4d 100%);
+  }
+
+  .vcw-mini--green .vcw-mini__ring {
+    background: linear-gradient(168deg, #dcfce7 0%, #86efac 55%, #4ade80 100%);
+  }
+  .vcw-mini--green .vcw-mini__hood {
+    background: linear-gradient(180deg, #166534 0%, #14532d 55%, #0f3d24 100%);
+  }
+
+  .vcw-mini--amber .vcw-mini__ring {
+    background: linear-gradient(168deg, #ffedd5 0%, #fdba74 55%, #fb923c 100%);
+  }
+  .vcw-mini--amber .vcw-mini__hood {
+    background: linear-gradient(180deg, #9a3412 0%, #7c2d12 55%, #5c220e 100%);
+  }
+
+  .vcw-mini--blue .vcw-mini__ring {
+    background: linear-gradient(168deg, #dbeafe 0%, #93c5fd 55%, #60a5fa 100%);
+  }
+  .vcw-mini--blue .vcw-mini__hood {
+    background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 55%, #172554 100%);
+  }
+
+  .vcw-mini__ring::after {
+    content: '';
+    position: absolute;
+    left: 14%;
+    top: 11%;
+    right: 14%;
+    height: 36%;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 75%);
+    pointer-events: none;
+  }
+
+  .vcw-more {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: #5b4acb;
+    background: linear-gradient(180deg, #f5f2ff 0%, #ebe4ff 100%);
+    border: 1px solid rgba(88, 86, 214, 0.16);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      0 1px 3px rgba(60, 45, 120, 0.08);
+  }
+
+  /* —— Control row (larger than avatars) —— */
+  .vcw__ctrl {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #fff;
+    border: 1px solid #e6e6ec;
+    color: #25252c;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .vcw__ctrl svg {
+    display: block;
+    margin-top: 0.5px;
+  }
+
+  .vcw__ctrl--hangup {
+    background: linear-gradient(180deg, #ff5c52 0%, var(--vcw-hang) 45%, #e63228 100%);
+    border-color: #f2554b;
+    color: #fff;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      0 2px 8px rgba(255, 59, 48, 0.35);
+  }
+
+  /* Path reads as upright receiver at 0°; 225° + 45° reads clearly as handset-down / end call */
+  .vcw__ctrl--hangup svg {
+    transform: rotate(270deg);
+    margin-top: 0;
+  }
+</style>

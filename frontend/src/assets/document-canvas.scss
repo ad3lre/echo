@@ -1,0 +1,15 @@
+/*
+ * Pin the document root to the theme canvas. Ping/readability tokens reuse rose
+ * (#e11d48, --server-ping-personal); a mistaken or injected `html[data-theme=…]`
+ * background with higher specificity than `html, body { background: var(--bg) }`
+ * would otherwise peek through at subpixel/safe-area gaps.
+ */
+html[data-theme='light'],
+html[data-theme='dark'] {
+  background-color: var(--bg) !important;
+}
+
+html[data-theme='light'] body,
+html[data-theme='dark'] body {
+  background-color: var(--bg) !important;
+}

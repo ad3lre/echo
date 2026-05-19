@@ -1,0 +1,523 @@
+import { API_BASE } from '@/config';
+import { createApp } from 'vue';
+import App from './App.vue';
+import { createPinia } from 'pinia';
+import { useAuthSessionStore } from '@/stores/authSession';
+import { useBugHunterStore } from '@/stores/bugHunter';
+import {
+  applyBrowserChromeThemeColor,
+  applyDarkVariantToDocument,
+  applyInterfaceDensityToDocument,
+  applyLightVariantToDocument,
+  applyThemeToDocument,
+  applyVibrantAccentsToDocument,
+  loadPersistedInterfaceDensity,
+  loadPersistedSyncWithSystem,
+  loadPersistedThemeId,
+  loadPersistedVibrantAccents,
+  resolveCanonicalTheme,
+  resolveEffectiveDarkVariant,
+  resolveEffectiveLightVariant,
+  resolveSystemThemeId,
+} from '@/utils/theme';
+import { getEchoPlatform } from '@/platform/createEchoPlatform';
+import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
+import { scrollbarOnScroll } from '@/directives/scrollbarOnScroll';
+import { spoilerReveal } from '@/directives/spoilerReveal';
+/* Critical path: one Inter weight; 600/700 load after first paint. */
+import '@fontsource/inter/latin-400.css';
+
+import './assets/tailwind.css';
+import './assets/themes.css';
+import './assets/density.css';
+import './assets/main.scss';
+import './assets/document-canvas.scss';
+import { registerEchoServiceWorker } from '@/registerServiceWorker';
+import { initDesktopDeepLinks } from '@/platform/desktopDeepLink';
+import { isDesktop } from '@/platform/desktopBridge';
+import {
+  clearAllPendingDesktopOAuthHandoffState,
+  readPendingDesktopOAuthHandoffCode,
+  readPendingDesktopOAuthHandoffNonce,
+} from '@/platform/desktopOAuthHandoff';
+import { enqueueStartupTask } from '@/utils/startupScheduler';
+import { applyGpuTierToDocument, detectGpuTier } from '@/utils/gpuTier';
+import { installDevConsoleLogRecorder } from '@/dev/consoleLogRecorder';
+import { installGlobalAudioPlaybackUnlock } from '@/audio/audioPlaybackUnlock';
+import {
+  preloadEchoSounds,
+  primeEchoAudioPlayback,
+} from '@/composables/useEchoSounds';
+import {
+  clearSkipAutoGuestOnce,
+  setSkipAutoGuestOnce,
+} from '@/utils/autoGuestOAuthReturn';
+import { authDesktopRedeemHandoff, authFetchMe } from '@/api/authClient';
+import { registerAuthSessionApiBridge } from '@/api/authSessionBridge';
+import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
+
+registerEchoServiceWorker();
+applyGpuTierToDocument(detectGpuTier());
+installDevConsoleLogRecorder();
+installGlobalAudioPlaybackUnlock(() => {
+  primeEchoAudioPlayback();
+  preloadEchoSounds();
+});
+
+// Phase A: hydrate theme + dark variant before first paint.
+const persistedThemeId = loadPersistedThemeId();
+const bootResolvedTheme = loadPersistedSyncWithSystem()
+  ? resolveSystemThemeId()
+  : persistedThemeId;
+const bootCanonicalTheme = resolveCanonicalTheme(bootResolvedTheme);
+applyThemeToDocument(bootCanonicalTheme);
+const bootDarkVariant = resolveEffectiveDarkVariant(
+  bootCanonicalTheme,
+  persistedThemeId,
+);
+const bootLightVariant = resolveEffectiveLightVariant(
+  bootCanonicalTheme,
+  persistedThemeId,
+);
+applyDarkVariantToDocument(bootCanonicalTheme, bootDarkVariant);
+applyLightVariantToDocument(bootCanonicalTheme, bootLightVariant);
+applyBrowserChromeThemeColor(
+  bootCanonicalTheme,
+  bootDarkVariant,
+  bootLightVariant,
+);
+applyVibrantAccentsToDocument(loadPersistedVibrantAccents());
+applyInterfaceDensityToDocument(loadPersistedInterfaceDensity());
+
+function loadDeferredInterWeights() {
+  void import('@fontsource/inter/latin-600.css');
+  void import('@fontsource/inter/latin-700.css');
+}
+
+async function bootstrap() {
+  if (isDesktop()) {
+    /** Attach before mount so cold-start launches from `echo://…` do not miss `getCurrent()`. */
+    void initDesktopDeepLinks();
+    void import('@tauri-apps/api/core')
+      .then(({ invoke }) => invoke<string>('desktop_log_path'))
+      .then((path) => {
+        console.warn(`[echo-desktop] log file: ${path}`);
+      })
+      .catch(() => {
+        /* ignore */
+      });
+    if (
+      import.meta.env.DEV &&
+      import.meta.env.VITE_ECHO_DESKTOP_DIAGNOSTICS === '1'
+    ) {
+      void fetch(`${API_BASE}/api/v1/health`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-store',
+      })
+        .then(async (res) => {
+          let bodyPreview = '';
+          try {
+            bodyPreview = (await res.text()).slice(0, 240);
+          } catch {
+            /* ignore */
+          }
+          console.warn('[echo-desktop] api health probe', {
+            url: `${API_BASE}/api/v1/health`,
+            status: res.status,
+            ok: res.ok,
+            bodyPreview,
+          });
+        })
+        .catch((error: unknown) => {
+          console.error('[echo-desktop] api health probe failed', {
+            url: `${API_BASE}/api/v1/health`,
+            error:
+              error instanceof Error
+                ? { name: error.name, message: error.message }
+                : String(error),
+          });
+        });
+      void fetch(`${API_BASE}/api/v1/auth/me`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'include',
+        cache: 'no-store',
+      })
+        .then(async (res) => {
+          let bodyPreview = '';
+          try {
+            bodyPreview = (await res.text()).slice(0, 240);
+          } catch {
+            /* ignore */
+          }
+          console.warn('[echo-desktop] auth/me include probe', {
+            url: `${API_BASE}/api/v1/auth/me`,
+            status: res.status,
+            ok: res.ok,
+            bodyPreview,
+          });
+        })
+        .catch((error: unknown) => {
+          console.error('[echo-desktop] auth/me include probe failed', {
+            url: `${API_BASE}/api/v1/auth/me`,
+            error:
+              error instanceof Error
+                ? { name: error.name, message: error.message }
+                : String(error),
+          });
+        });
+      void fetch(`${API_BASE}/api/v1/auth/me`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-store',
+      })
+        .then(async (res) => {
+          let bodyPreview = '';
+          try {
+            bodyPreview = (await res.text()).slice(0, 240);
+          } catch {
+            /* ignore */
+          }
+          console.warn('[echo-desktop] auth/me omit probe', {
+            url: `${API_BASE}/api/v1/auth/me`,
+            status: res.status,
+            ok: res.ok,
+            bodyPreview,
+          });
+        })
+        .catch((error: unknown) => {
+          console.error('[echo-desktop] auth/me omit probe failed', {
+            url: `${API_BASE}/api/v1/auth/me`,
+            error:
+              error instanceof Error
+                ? { name: error.name, message: error.message }
+                : String(error),
+          });
+        });
+    }
+  }
+
+  const app = createApp(App);
+  app.directive('scrollbar-on-scroll', scrollbarOnScroll);
+  app.directive('spoiler-reveal', spoilerReveal);
+  const pinia = createPinia();
+
+  app.use(pinia);
+
+  registerAuthSessionApiBridge({
+    invalidateSessionForReauth(message: string) {
+      useAuthSessionStore().invalidateSessionForReauth(message);
+    },
+    clearLocalTokens() {
+      useAuthSessionStore().clearLocalTokens();
+    },
+  });
+
+  const authSessionStore = useAuthSessionStore();
+  authSessionStore.hydrateFromStorage();
+  useBugHunterStore();
+
+  /**
+   * OAuth return params must be applied before `app.mount`: Settings (and other
+   * surfaces) read `echo_discord_oauth_error` / `echo_google_oauth_error` in
+   * `onMounted`. If we wrote those after mount, connect-Discord (link) failures
+   * were missed and looked “silent”.
+   */
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    let shouldStrip = false;
+    if (params.get('emailVerified') === '1') {
+      params.delete('emailVerified');
+      shouldStrip = true;
+      authSessionStore.setEmailVerificationFlash(
+        'Your email address is verified.',
+      );
+    }
+    if (isDesktop()) {
+      console.warn('[echo-desktop] bootstrap desktop handoff check', {
+        href: window.location.href,
+        hasQueryHandoff: Boolean(params.get('echo_handoff')?.trim()),
+        hasStoredHandoff: Boolean(readPendingDesktopOAuthHandoffCode()),
+        hasPendingNonce: Boolean(readPendingDesktopOAuthHandoffNonce()),
+      });
+      const echoHandoff =
+        params.get('echo_handoff')?.trim() ||
+        readPendingDesktopOAuthHandoffCode();
+      if (echoHandoff) {
+        const handoffLen = echoHandoff.length;
+        const handoffHex64 = /^[0-9a-f]{64}$/i.test(echoHandoff);
+        console.warn('[echo-desktop] bootstrap handoff token shape', {
+          handoffLen,
+          handoffHex64,
+        });
+      }
+      if (params.get('echo_handoff')?.trim()) {
+        params.delete('echo_handoff');
+        shouldStrip = true;
+      }
+      if (echoHandoff) {
+        const pendingNonce = readPendingDesktopOAuthHandoffNonce();
+        if (!pendingNonce) {
+          console.error('[echo-desktop] bootstrap missing pending nonce', {
+            hasHandoff: true,
+          });
+          clearAllPendingDesktopOAuthHandoffState();
+          try {
+            sessionStorage.setItem(
+              'echo_discord_oauth_error',
+              'desktop_handoff_failed',
+            );
+          } catch {
+            /* ignore */
+          }
+        } else {
+          setSkipAutoGuestOnce();
+          try {
+            console.warn('[echo-desktop] bootstrap redeem start', {
+              hasHandoff: true,
+            });
+            const payload = await authDesktopRedeemHandoff(
+              echoHandoff,
+              pendingNonce,
+            );
+            authSessionStore.setSession(payload);
+            clearAllPendingDesktopOAuthHandoffState();
+            clearSkipAutoGuestOnce();
+            /**
+             * Warm credentialed cross-origin requests before `app.mount()` so
+             * `startInitialLoad` / Echo layout hydrates do not race the first
+             * cookie application (WebView2 often surfaces that as `Failed to fetch`).
+             */
+            try {
+              await withTransientFetchRetries(() => authFetchMe());
+            } catch (primeError: unknown) {
+              console.warn(
+                '[echo-desktop] bootstrap post-redeem session prime failed',
+                {
+                  err:
+                    primeError instanceof Error
+                      ? { name: primeError.name, message: primeError.message }
+                      : String(primeError),
+                },
+              );
+            }
+            console.warn('[echo-desktop] bootstrap redeem success', {
+              userId: payload.user.id,
+            });
+          } catch (error) {
+            console.error('[echo-desktop] bootstrap redeem failed', {
+              hasHandoff: true,
+              error,
+            });
+            clearAllPendingDesktopOAuthHandoffState();
+            const recovered = await authSessionStore.restoreSessionFromApi();
+            if (!recovered) {
+              try {
+                sessionStorage.setItem(
+                  'echo_discord_oauth_error',
+                  'desktop_handoff_failed',
+                );
+              } catch {
+                /* ignore */
+              }
+            } else {
+              console.warn(
+                '[echo-desktop] bootstrap recover via /auth/me succeeded after redeem failure',
+              );
+              clearSkipAutoGuestOnce();
+            }
+          }
+        }
+      }
+    }
+    const discordErr = params.get('discord_error')?.trim();
+    if (discordErr) {
+      try {
+        sessionStorage.setItem('echo_discord_oauth_error', discordErr);
+      } catch {
+        /* ignore */
+      }
+      params.delete('discord_error');
+      shouldStrip = true;
+    }
+    const discordLinkedParam = params.get('discord_linked');
+    if (discordLinkedParam !== null) {
+      params.delete('discord_linked');
+      shouldStrip = true;
+      /**
+       * Link flow success (`discord_linked=1`) does not rotate the browser session the way
+       * Discord login does, but `/auth/me` must be refetched so the client sees Discord link
+       * state and `guestPendingEmail` after onboarding OAuth — otherwise add-server import /
+       * guest onboarding looks “stuck” after redirect.
+       */
+      if (discordLinkedParam === '1') {
+        const user = await authSessionStore.restoreSessionFromApi();
+        if (!user) {
+          try {
+            sessionStorage.setItem(
+              'echo_discord_oauth_error',
+              'session_restore_failed',
+            );
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    }
+    if (params.get('discord_verify_email_sent') === '1') {
+      params.delete('discord_verify_email_sent');
+      shouldStrip = true;
+      authSessionStore.setEmailVerificationFlash(
+        'Check your email for a link to verify your address.',
+      );
+    }
+    const googleErr = params.get('google_error')?.trim();
+    if (googleErr) {
+      try {
+        sessionStorage.setItem('echo_google_oauth_error', googleErr);
+      } catch {
+        /* ignore */
+      }
+      params.delete('google_error');
+      shouldStrip = true;
+    }
+    const googleLinkedParam = params.get('google_linked');
+    if (googleLinkedParam !== null) {
+      params.delete('google_linked');
+      shouldStrip = true;
+      if (googleLinkedParam === '1') {
+        const user = await authSessionStore.restoreSessionFromApi();
+        if (!user) {
+          try {
+            sessionStorage.setItem(
+              'echo_google_oauth_error',
+              'session_restore_failed',
+            );
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    }
+    if (params.get('discord_login') === '1') {
+      if (params.get('discord_guest_signup') === '1') {
+        params.delete('discord_guest_signup');
+        try {
+          sessionStorage.setItem('echo_discord_guest_signup', '1');
+        } catch {
+          /* ignore */
+        }
+      }
+      params.delete('discord_login');
+      shouldStrip = true;
+      setSkipAutoGuestOnce();
+      const user = await authSessionStore.restoreSessionFromApi();
+      if (user) {
+        clearSkipAutoGuestOnce();
+      } else {
+        try {
+          sessionStorage.setItem(
+            'echo_discord_oauth_error',
+            'session_restore_failed',
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    if (params.get('google_login') === '1') {
+      params.delete('google_login');
+      shouldStrip = true;
+      setSkipAutoGuestOnce();
+      const user = await authSessionStore.restoreSessionFromApi();
+      if (user) {
+        clearSkipAutoGuestOnce();
+      } else {
+        try {
+          sessionStorage.setItem(
+            'echo_google_oauth_error',
+            'session_restore_failed',
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    if (shouldStrip) {
+      const qs = params.toString();
+      const nextPath = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
+      window.history.replaceState(
+        null,
+        '',
+        nextPath || window.location.pathname,
+      );
+    }
+  }
+
+  app.mount('#app');
+
+  if (typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(() => loadDeferredInterWeights());
+  } else {
+    loadDeferredInterWeights();
+  }
+
+  const workspace = getEchoPlatform().workspace as WorkspaceStateApi;
+  void workspace.startInitialLoad();
+
+  /** Warm icon catalog shortly after first paint. */
+  enqueueStartupTask('icon-catalog-preload', 'high', () => {
+    void import('@/assets/iconCatalog').then((m) =>
+      m.ensureIconCatalogLoaded(),
+    );
+  });
+
+  enqueueStartupTask('time-language-prewarm', 'high', () => {
+    void import('@/features/settings/timeLanguagePreferences').then((m) =>
+      m.loadTimeLanguagePreferences(),
+    );
+  });
+
+  /** Defer audio decode until first interaction (or 5s fallback). */
+  enqueueStartupTask('echo-sounds-preload', 'idle', () => {
+    preloadEchoSounds();
+  });
+}
+
+function renderBootstrapFatalFallback(error: unknown) {
+  console.error('[echo][bootstrap] fatal startup failure', {
+    error:
+      error instanceof Error
+        ? { name: error.name, message: error.message, stack: error.stack }
+        : String(error),
+  });
+  if (typeof document === 'undefined') return;
+  const mount = document.getElementById('app');
+  if (!mount) return;
+  mount.innerHTML = '';
+  const shell = document.createElement('div');
+  shell.className = 'echo-app-splash h-full w-full min-h-0 bg-bg';
+  shell.setAttribute('role', 'alert');
+  shell.innerHTML = `
+    <div class="echo-app-load-error__inner">
+      <p class="echo-app-load-error__title">Couldn’t start Echo</p>
+      <p class="echo-app-load-error__detail">
+        Something went wrong while starting the app. Try refreshing the page.
+      </p>
+      <button type="button" class="echo-app-load-error__retry">Refresh page</button>
+    </div>
+  `;
+  const retryButton = shell.querySelector('button');
+  retryButton?.addEventListener('click', () => window.location.reload());
+  mount.appendChild(shell);
+}
+
+void bootstrap().catch((error: unknown) => {
+  renderBootstrapFatalFallback(error);
+});
+
+// Emoji search prebuild loads lazily via ensureEmojiSearchPrebuildLoaded() (picker / : autocomplete)
+// so /emoji-search-index.json is not on the initial critical path (Lighthouse LCP).

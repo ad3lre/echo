@@ -1,0 +1,59 @@
+[package]
+name = "echo-desktop"
+version = "1.0.0"
+description = "Echo desktop shell (Tauri)"
+authors = ["Echo"]
+edition = "2021"
+license = "AGPL-3.0-only"
+# Minimum rustc for this workspace lockfile: transitive crates (e.g. getrandom 0.4.2) use edition 2024,
+# which Cargo 1.80 cannot parse. CI uses stable Rust; keep this aligned with real requirements.
+rust-version = "1.85.0"
+
+[lib]
+name = "echo_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Plugins kept in alphabetical order so additions are obvious in diffs.
+# `tauri-plugin-process` was removed: the frontend never imported it and the
+# capability was unused (auditable surface stays small).
+# No extra `tauri` features are enabled by default; `webview-data-url` would
+# only be needed if we ever loaded `data:text/html,...` URLs into a webview,
+# which the app never does.
+tauri = { version = "2.11", features = ["tray-icon"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-process = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+cpal = "0.15"
+rodio = "0.19"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+# Default release profile: strip symbols from the desktop binary (smaller, less casual symbol leakage).
+[profile.release]
+strip = true
+
+# Faster release-ish profile for local `tauri build` iteration (see root `package.json` scripts).
+# Shipping CI can keep default `release` or pass `--profile release` explicitly.
+[profile.release-fast]
+inherits = "release"
+lto = false
+codegen-units = 16
+incremental = true
+strip = false

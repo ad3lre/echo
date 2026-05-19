@@ -1,0 +1,797 @@
+/*
+ * Glass & accent tokens now live in themes.css (Phase B).
+ * Legacy var(--chat-glass-*) / var(--chat-accent*) still work because
+ * themes.css defines them per [data-theme].
+ */
+
+/**
+ * Menus & popovers: match chat header glass exactly.
+ * `@layer components` so Tailwind `fixed` / `absolute` / `relative` still override `position`.
+ */
+@layer components {
+  /** User profile banners (popout, expanded profile, settings preview) — matches server channel header blur. */
+  .echo-user-banner-blur {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  .ellipsis-menu,
+  .chat-liquid-glass-menu {
+    overflow: hidden;
+    border-radius: 16px;
+    background-color: var(--chat-glass-header-bg);
+    backdrop-filter: var(--chat-glass-header-backdrop);
+    -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  }
+
+  /* Variant for emoji/icon pickers (and similar popovers) teleported over
+   * dense settings modals. Two failure modes are addressed at once:
+   *   1. `.chat-liquid-glass-menu` uses a very translucent background
+   *      (`--chat-glass-header-bg`), which becomes effectively invisible
+   *      when stacked above the dense settings modal — the picker reads as
+   *      broken/missing even though it's mounted.
+   *   2. Stacking the menu's `backdrop-filter: blur(...)` over an already
+   *      blurred + transformed modal triggers Chromium/Linux compositor
+   *      artifacts (repeated/stretched emoji tiles) on the inner content.
+   * The replacement modal-density fill + disabled blur + first-child paint
+   * layer collectively keep the popover legible and artifact-free. */
+  .chat-liquid-glass-menu--over-modal {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: color-mix(
+      in srgb,
+      var(--echo-modal-bg-heavy) 95%,
+      var(--accent) 5%
+    );
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    box-shadow:
+      var(--shadow-4),
+      0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+    isolation: isolate;
+  }
+
+  .chat-liquid-glass-menu--over-modal > :first-child {
+    transform: translateZ(0);
+  }
+
+  .echo-menu-item {
+    color: var(--menu-item-fg);
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .echo-menu-item:hover,
+  .echo-menu-item:focus-visible {
+    color: var(--menu-item-fg-hover);
+    background: var(--menu-item-bg-hover);
+  }
+
+  .echo-menu-item:disabled,
+  .echo-menu-item[aria-disabled='true'] {
+    color: var(--menu-item-disabled-fg);
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .echo-menu-item--selected {
+    color: var(--menu-item-selected-fg);
+    background: var(--menu-item-selected-bg);
+  }
+
+  .echo-autocomplete-menu {
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    box-shadow: var(--shadow-3);
+  }
+
+  .echo-autocomplete-item {
+    color: var(--menu-item-fg);
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .echo-autocomplete-item:hover,
+  .echo-autocomplete-item:focus-visible {
+    color: var(--menu-item-fg-hover);
+    background: var(--menu-item-bg-hover);
+  }
+
+  .echo-autocomplete-item--selected {
+    color: var(--menu-item-selected-fg);
+    background: var(--menu-item-selected-bg);
+  }
+
+  .echo-autocomplete-item-secondary {
+    color: var(--muted);
+  }
+
+  .echo-autocomplete-empty {
+    color: var(--menu-item-disabled-fg);
+  }
+
+  .echo-menu-item--destructive {
+    color: var(--menu-item-destructive-fg);
+  }
+
+  .echo-menu-item--destructive .echo-menu-item-icon {
+    color: var(--menu-item-destructive-fg);
+  }
+
+  .echo-menu-item--destructive:hover,
+  .echo-menu-item--destructive:focus-visible {
+    color: var(--menu-item-destructive-fg-hover);
+    background: var(--menu-item-destructive-bg-hover);
+  }
+
+  .echo-menu-item--warning {
+    color: var(--menu-item-warning-fg);
+  }
+
+  .echo-menu-item--warning .echo-menu-item-icon {
+    color: var(--menu-item-warning-fg);
+  }
+
+  .echo-menu-item--warning:hover,
+  .echo-menu-item--warning:focus-visible {
+    color: var(--menu-item-warning-fg-hover);
+    background: var(--menu-item-warning-bg-hover);
+  }
+
+  .echo-menu-item-icon {
+    color: var(--menu-item-icon);
+    transition: color 120ms ease;
+  }
+
+  .echo-menu-item:hover .echo-menu-item-icon,
+  .echo-menu-item:focus-visible .echo-menu-item-icon {
+    color: var(--menu-item-icon-hover);
+  }
+
+  .echo-menu-item--destructive:hover .echo-menu-item-icon,
+  .echo-menu-item--destructive:focus-visible .echo-menu-item-icon {
+    color: var(--menu-item-destructive-fg-hover);
+  }
+
+  .echo-menu-item--warning:hover .echo-menu-item-icon,
+  .echo-menu-item--warning:focus-visible .echo-menu-item-icon {
+    color: var(--menu-item-warning-fg-hover);
+  }
+
+  .echo-menu-item:disabled .echo-menu-item-icon,
+  .echo-menu-item[aria-disabled='true'] .echo-menu-item-icon {
+    color: var(--menu-item-disabled-icon);
+  }
+
+  .echo-menu-item-icon--img {
+    opacity: 0.84;
+    transition: opacity 120ms ease;
+  }
+
+  .echo-menu-item:hover .echo-menu-item-icon--img,
+  .echo-menu-item:focus-visible .echo-menu-item-icon--img {
+    opacity: 0.96;
+  }
+
+  .echo-menu-item:disabled .echo-menu-item-icon--img,
+  .echo-menu-item[aria-disabled='true'] .echo-menu-item-icon--img {
+    opacity: 0.56;
+  }
+
+  /* PNG menu glyphs are dark-filled; invert for dark glass only (see appLayout DM header). */
+  [data-theme='light'] .ellipsis-menu .echo-menu-item-icon--img,
+  [data-theme='light'] .chat-liquid-glass-menu .echo-menu-item-icon--img {
+    filter: none;
+  }
+
+  /**
+   * Custom status — compact “cloud” pill below username (only when status text exists).
+   * Keeps bio visually separate (bio stays plain body text).
+   */
+  .echo-profile-custom-status-cloud {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.3125rem 0.6875rem;
+    border-radius: 9999px;
+    font-size: 13px;
+    line-height: 1.38;
+    font-weight: 500;
+    color: var(--muted);
+    background: color-mix(in srgb, var(--elevated) 88%, var(--bg));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 6%, transparent),
+      inset 0 -1px 0 color-mix(in srgb, black 18%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent);
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  [data-theme='light'] .echo-profile-custom-status-cloud {
+    color: color-mix(in srgb, var(--text) 78%, var(--muted));
+    background: color-mix(in srgb, var(--surface) 94%, var(--border));
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--border) 85%, transparent);
+  }
+
+  /** Thought-bubble tail: small circles from avatar toward the status cloud (compact). */
+  .echo-profile-custom-status-chain {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .echo-profile-custom-status-chain__dots {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    height: 34px;
+    padding-right: 1px;
+    /* Anchor chain to avatar edge, then descend diagonally into bubble. */
+    margin-left: -14px;
+    margin-top: -8px;
+  }
+
+  .echo-profile-custom-status-chain__dot {
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--elevated) 88%, var(--bg));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 6%, transparent),
+      inset 0 -1px 0 color-mix(in srgb, black 18%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent);
+  }
+
+  .echo-profile-custom-status-chain__dot--1 {
+    width: 6px;
+    height: 6px;
+    align-self: flex-start;
+    margin-top: -2px;
+  }
+
+  .echo-profile-custom-status-chain__dot--2 {
+    width: 9px;
+    height: 9px;
+    margin-left: -3px;
+    align-self: center;
+  }
+
+  .echo-profile-custom-status-chain__dot--3 {
+    width: 12px;
+    height: 12px;
+    margin-left: -4px;
+    align-self: flex-end;
+    margin-bottom: 1px;
+  }
+
+  .echo-profile-custom-status-chain .echo-profile-custom-status-cloud {
+    margin-left: -3px;
+    max-width: min(100%, 280px);
+    border-radius: 14px 18px 20px 16px;
+  }
+
+  [data-theme='light'] .echo-profile-custom-status-chain__dot {
+    background: color-mix(in srgb, var(--surface) 94%, var(--border));
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--border) 85%, transparent);
+  }
+}
+
+/* Basic CSS Reset */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 100vh;
+  /* Embedded / in-app browsers (e.g. Cursor Simple Browser) sometimes break the % height chain;
+     dvh keeps the shell visible so `h-full` layout does not collapse to a blank background. */
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden; /* Prevent page-level scroll; app handles overflow internally */
+  background: var(--bg);
+}
+
+/*
+ * Defensive reset: Prevent stray styles on the document root.
+ * Browser View Transitions API or extensions can sometimes leave orphaned
+ * opacity/blend-mode/filter styles on <html> that wash out the entire page.
+ */
+html {
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  transform: none !important;
+}
+
+#app {
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  min-width: 0;
+  /* Match html/body so compositors never flash a 1px “sheet” seam at the viewport edge (esp. light mode). */
+  background-color: var(--bg);
+}
+
+/* Founder dashboard at /founder: allow normal window scroll (global rule above hides overflow). */
+html.echo-founder-page-scroll,
+html.echo-founder-page-scroll body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: auto;
+  min-height: 100dvh;
+}
+
+html.echo-founder-page-scroll #app {
+  overflow: visible;
+  height: auto;
+  min-height: 100dvh;
+}
+
+/* iOS-style activity indicator: thin arc, smooth rotation */
+.echo-app-splash {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.echo-ios-spinner {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  animation: echo-ios-spinner-rotate 0.72s linear infinite;
+}
+
+.echo-ios-spinner__track {
+  fill: none;
+  stroke: var(--spinner-track);
+  stroke-width: 3.25;
+}
+
+.echo-ios-spinner__arc {
+  fill: none;
+  stroke: var(--spinner-arc);
+  stroke-width: 3.25;
+  stroke-linecap: round;
+  stroke-dasharray: 26.5 90;
+}
+
+@keyframes echo-ios-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* This is the main SCSS file for your frontend application. */
+/* You can add global styles, utility classes, or import other SCSS files here. */
+
+/* Global custom scrollbar - catch-all for any overflow (html, body, unexpected scrolls) */
+html,
+body,
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 10px;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 10px;
+  border: 1px solid var(--scrollbar-border);
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+  border: 1px solid var(--scrollbar-border-hover);
+}
+
+/* Custom Scrollbar Styles - transparent until scrolling (for elements with v-scrollbar-on-scroll) */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.custom-scrollbar.is-scrolling {
+  scrollbar-color: var(--scrollbar-thumb-hover) var(--scrollbar-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.custom-scrollbar.is-scrolling::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border: 1px solid var(--scrollbar-border);
+}
+
+.custom-scrollbar.is-scrolling::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+  border: 1px solid var(--scrollbar-border-hover);
+}
+
+/* Focus hint for keyboard nav - subtle brightening only */
+.chat-focus-ring:focus-visible {
+  outline: none;
+  filter: brightness(1.08);
+}
+
+/* In-house SVG icon tokens (<icon:...>) render as <img>; theme supplies the right filter per mode. */
+img.app-inline-icon {
+  filter: var(--chat-inline-icon-filter);
+  /* Own compositing layer: filtered bitmaps can otherwise fringe / “ghost” against adjacent text (esp. Windows). */
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
+/* Same for Tailwind `filter invert` glyphs (channel list, toolbars). */
+img.filter.invert {
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
+/*
+ * Light mode: inverted / brightness-0 icons are for ink chrome — show native ink
+ * on frost. Opt out on intentional dark pills (voice dock) with .echo-dark-chrome.
+ */
+[data-theme='light'] img.filter.invert,
+[data-theme='light'] img.brightness-0.invert {
+  filter: none !important;
+  opacity: 0.78;
+}
+
+[data-theme='light'] .friends-view svg.filter.invert {
+  filter: none !important;
+  opacity: 0.62;
+}
+
+[data-theme='light'] .echo-dark-chrome img.filter.invert,
+[data-theme='light'] .echo-dark-chrome img.brightness-0.invert {
+  filter: brightness(0) invert(1) !important;
+}
+
+[data-theme='light'] .real-glass-modal {
+  box-shadow: none !important;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+}
+
+/* Server invite cards/embeds: flat in light (drop shadows read muddy on pale chat chrome). */
+[data-theme='light'] .invite-embed,
+[data-theme='light'] .invite-embed__guild-icon,
+[data-theme='light'] .invite-embed__lower {
+  box-shadow: none;
+}
+
+[data-theme='light'] .join-server-confirm-modal .shadow-md {
+  box-shadow: none;
+}
+
+[data-theme='light'] .real-glass-modal.leave-server-confirm-modal {
+  border: none;
+}
+
+[data-theme='light'] .add-server-panel {
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+}
+
+[data-theme='light'] .add-server-primary-btn {
+  box-shadow: none !important;
+}
+
+[data-theme='light'] .add-server-input {
+  color: var(--text) !important;
+  background: var(--elevated) !important;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent) !important;
+}
+
+[data-theme='light'] .member-popout .member-popout__quick-dm-input {
+  border-color: color-mix(in srgb, var(--border) 88%, transparent);
+  background: var(--elevated);
+  box-shadow: none !important;
+}
+
+[data-theme='light'] .member-popout .member-role--chip {
+  box-shadow: none !important;
+}
+
+[data-theme='light'] .member-popout .member-role__dot {
+  border-color: color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+[data-theme='light'] .member-popout--card {
+  box-shadow: var(--shadow-3) !important;
+}
+
+/*
+ * Inline warn / error banners (Discord-sync etc.). Theme-aware so the copy
+ * stays readable on both ink-on-frost (light) and frost-on-ink (dark).
+ */
+.echo-warn-banner {
+  background: var(--menu-item-warning-bg-hover);
+  color: var(--menu-item-warning-fg);
+}
+
+.echo-error-banner {
+  background: var(--menu-item-destructive-bg-hover);
+  color: var(--menu-item-destructive-fg);
+}
+
+/* Outline-style destructive button — readable in both light and dark mode. */
+.echo-destructive-action {
+  color: var(--menu-item-destructive-fg);
+  background: transparent;
+  border: 0;
+}
+
+.echo-destructive-action:hover:not(:disabled) {
+  background: var(--menu-item-destructive-bg-hover);
+  color: var(--menu-item-destructive-fg-hover);
+}
+
+/* Inline destructive text link (e.g. "Remove" in role link list). */
+.echo-destructive-link {
+  color: var(--menu-item-destructive-fg);
+  background: transparent;
+  border: 0;
+}
+
+.echo-destructive-link:hover:not(:disabled) {
+  color: var(--menu-item-destructive-fg-hover);
+}
+
+/* Status pills (warn / danger / success) — readable on light & dark glass. */
+.echo-status-pill {
+  display: inline-flex;
+  align-items: center;
+}
+
+.echo-status-pill--warn {
+  background: var(--menu-item-warning-bg-hover);
+  color: var(--menu-item-warning-fg);
+}
+
+.echo-status-pill--danger {
+  background: var(--menu-item-destructive-bg-hover);
+  color: var(--menu-item-destructive-fg);
+}
+
+.echo-status-pill--success {
+  background: color-mix(
+    in srgb,
+    var(--app-toast-success-border) 20%,
+    transparent
+  );
+  color: color-mix(in srgb, var(--app-toast-success-border) 70%, var(--text));
+}
+
+[data-theme='light'] .echo-status-pill--success {
+  background: color-mix(
+    in srgb,
+    var(--app-toast-success-border) 25%,
+    transparent
+  );
+  color: color-mix(in srgb, var(--app-toast-success-border) 80%, #000);
+}
+
+/* Success / destructive fill blocks — re-use chrome from app-toast tokens. */
+.echo-success-banner {
+  background: color-mix(
+    in srgb,
+    var(--app-toast-success-border) 20%,
+    transparent
+  );
+  color: color-mix(in srgb, var(--app-toast-success-border) 70%, var(--text));
+}
+
+[data-theme='light'] .echo-success-banner {
+  background: color-mix(in srgb, rgb(22 163 74) 18%, transparent);
+  color: rgb(21 128 61);
+}
+
+.echo-destructive-fill {
+  background: var(--menu-item-destructive-bg-hover);
+  color: var(--menu-item-destructive-fg);
+  border: 0;
+}
+
+.echo-destructive-fill:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--menu-item-destructive-bg-hover) 65%,
+    transparent
+  );
+  color: var(--menu-item-destructive-fg-hover);
+}
+
+.echo-warn-action {
+  background: var(--menu-item-warning-bg-hover);
+  color: var(--menu-item-warning-fg);
+  border: 0;
+}
+
+.echo-warn-action:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--menu-item-warning-bg-hover) 65%,
+    transparent
+  );
+  color: var(--menu-item-warning-fg-hover);
+}
+
+.echo-warn-text {
+  color: var(--menu-item-warning-fg);
+}
+
+.echo-destructive-text {
+  color: var(--menu-item-destructive-fg);
+}
+
+.echo-success-text {
+  color: rgb(34 197 94);
+}
+
+[data-theme='light'] .echo-success-text {
+  color: rgb(21 128 61);
+}
+
+.echo-danger-subtitle,
+.echo-danger-title {
+  color: var(--menu-item-destructive-fg);
+}
+
+.echo-danger-body {
+  color: color-mix(in srgb, var(--menu-item-destructive-fg) 75%, var(--text));
+}
+
+.echo-danger-section {
+  background: color-mix(
+    in srgb,
+    var(--menu-item-destructive-bg-hover) 50%,
+    transparent
+  );
+}
+
+/* @mention badges */
+.mention {
+  color: var(--mention-user-fg);
+  background: var(--mention-user-bg);
+  padding: 0 0.2em;
+  border-radius: 3px;
+  font-weight: 500;
+  cursor: pointer;
+  &:hover {
+    background: var(--mention-user-bg-hover);
+    color: var(--mention-user-fg-hover);
+  }
+}
+.mention--special {
+  color: var(--mention-special-fg);
+  background: var(--mention-special-bg);
+  &:hover {
+    background: var(--mention-special-bg-hover);
+    color: var(--mention-special-fg-hover);
+  }
+}
+.mention--channel {
+  color: var(--mention-channel-fg);
+  background: var(--mention-channel-bg);
+  &:hover {
+    background: var(--mention-channel-bg-hover);
+    color: var(--mention-channel-fg-hover);
+  }
+}
+
+/* Message mention highlight — soft amber/gold left border + tinted bg */
+.message-mentioned {
+  background: var(--message-mentioned-bg);
+  border-left: 2px solid var(--message-mentioned-border);
+  &:hover {
+    background: var(--message-mentioned-bg-hover);
+  }
+}
+
+/* Spoiler: hidden until clicked (compact ||text||) */
+.spoiler {
+  background: var(--spoiler-hidden-bg);
+  color: transparent;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  user-select: none;
+  transition:
+    background 0.15s,
+    color 0.15s;
+  &:hover {
+    background: var(--spoiler-hidden-bg-hover);
+  }
+}
+.spoiler.spoiler--revealed {
+  background: transparent;
+  color: inherit;
+  cursor: default;
+  user-select: text;
+}
+
+/* Media spoilers: overlay when hidden, hide btn when revealed */
+.spoiler--media .spoiler__overlay {
+  pointer-events: auto;
+}
+.spoiler--media.spoiler--revealed .spoiler__overlay {
+  pointer-events: none;
+  display: none;
+}
+.spoiler--media .spoiler__hide-btn {
+  pointer-events: none;
+  opacity: 0;
+}
+.spoiler--media.spoiler--revealed .spoiler__hide-btn {
+  pointer-events: auto;
+  opacity: 1;
+  display: block !important;
+}
+
+/* Inline KaTeX: glyphs can extend past the nominal line box — pad so line layout doesn’t clip. */
+.message-content .katex {
+  padding: 0.14em 0.08em 0.22em;
+  box-sizing: content-box;
+}
+
+.message-content .katex-display > .katex {
+  padding: 0;
+}
+
+.message-content .katex-display {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 0.45em 0.25em;
+  margin: 0.35em 0;
+  box-sizing: border-box;
+  /* Matrices are tall; clipping the bottom looks broken. Horizontal scroll only when wider than the bubble. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.message-content .katex-display::-webkit-scrollbar {
+  height: 0;
+}
+
+.message-content .katex-display.echo-katex-display--scrollbar-visible {
+  scrollbar-width: thin;
+}
+
+.message-content
+  .katex-display.echo-katex-display--scrollbar-visible::-webkit-scrollbar {
+  height: 0.5rem;
+}

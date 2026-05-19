@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="wl-bg" x1="8%" y1="0%" x2="92%" y2="100%">
+      <stop offset="0%" stop-color="#0f1411"/>
+      <stop offset="50%" stop-color="#151b17"/>
+      <stop offset="100%" stop-color="#0c1014"/>
+    </linearGradient>
+    <linearGradient id="wl-panel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a221c"/>
+      <stop offset="100%" stop-color="#121814"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#wl-bg)"/>
+  <rect x="96" y="72" width="1008" height="486" rx="22" fill="url(#wl-panel)" stroke="#2a332d" stroke-width="2"/>
+  <g opacity="0.28" fill="none" stroke="#6aaa64" stroke-width="1">
+    <path d="M120 120h960M120 210h960M120 300h960M120 390h960M120 480h960M120 570h960"/>
+    <path d="M120 120v450M264 120v450M408 120v450M552 120v450M696 120v450M840 120v450M984 120v450"/>
+  </g>
+  <g transform="translate(318 178)" font-family="ui-sans-serif, system-ui, sans-serif" font-weight="800" font-size="36" text-anchor="middle" fill="#f8fafc">
+    <g transform="translate(44,44)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#6aaa64" stroke="#3d5238" stroke-width="2"/>
+      <text y="12">E</text>
+    </g>
+    <g transform="translate(148,44)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#c9b458" stroke="#5c5428" stroke-width="2"/>
+      <text y="12">C</text>
+    </g>
+    <g transform="translate(252,44)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#3a3a3c" stroke="#1f1f22" stroke-width="2"/>
+      <text y="12">H</text>
+    </g>
+    <g transform="translate(356,44)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#6aaa64" stroke="#3d5238" stroke-width="2"/>
+      <text y="12">O</text>
+    </g>
+    <g transform="translate(460,44)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#3a3a3c" stroke="#1f1f22" stroke-width="2"/>
+      <text y="12">!</text>
+    </g>
+    <g transform="translate(44,148)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+      <text y="12" fill="#94a3b8">?</text>
+    </g>
+    <g transform="translate(148,148)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+      <text y="12" fill="#94a3b8">?</text>
+    </g>
+    <g transform="translate(252,148)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+      <text y="12" fill="#94a3b8">?</text>
+    </g>
+    <g transform="translate(356,148)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+      <text y="12" fill="#94a3b8">?</text>
+    </g>
+    <g transform="translate(460,148)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+      <text y="12" fill="#94a3b8">?</text>
+    </g>
+    <g transform="translate(44,252)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+    </g>
+    <g transform="translate(148,252)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+    </g>
+    <g transform="translate(252,252)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+    </g>
+    <g transform="translate(356,252)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+    </g>
+    <g transform="translate(460,252)">
+      <rect x="-44" y="-44" width="88" height="88" rx="8" fill="#1e2930" stroke="#2a3238" stroke-width="2"/>
+    </g>
+  </g>
+  <text x="600" y="540" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="600" fill="#64748b" letter-spacing="0.08em">
+    Echo · daily word
+  </text>
+</svg>

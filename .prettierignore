@@ -1,0 +1,50 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build / coverage output
+dist
+**/dist
+frontend/coverage
+
+# Machine-local / export artifacts (see docs/operations/ops/REPO_ARTIFACTS_POLICY.md)
+bot/exports
+console-log.json
+_console-tail.json
+frontend/lint-warnings.json
+frontend/vitest_report.json
+docs/archive/
+
+# Cursor / AI assistants / IDE-local (match .gitignore; keeps CI from formatting tool churn)
+.cursor/
+.claude/
+.windsurf/
+.continue/
+.specstory/
+.agent/
+.aider*
+.aider.chat.history.md
+.fleet/
+.zed/
+.idea/
+.vscode/
+*.code-workspace
+
+# Secrets / local env (never format)
+.env
+**/.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Lockfile — avoid noise; not meaningfully "styled"
+package-lock.json
+**/package-lock.json
+
+# Generated frontend assets
+frontend/public/twemoji
+frontend/public/emoji-search-index.json
+docs/overview/tree.md
+
+# Prisma migrations (binary SQL history; match .gitignore)
+backend/prisma/migrations

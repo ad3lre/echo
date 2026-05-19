@@ -1,0 +1,68 @@
+# Windows desktop installers (NSIS + MSI) for manual QA and version tags.
+# Does not replace PR CI — see echo-desktop-ci.yml. Unsigned unless release secrets are set.
+name: Echo desktop Windows release artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: echo-desktop-release-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  VITE_API_URL: https://chat-echo.com
+  VITE_SOCKET_IO_URL: https://chat-echo.com
+  NODE_OPTIONS: --max-old-space-size=6144
+
+jobs:
+  windows-installers:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13.1'
+          cache: 'npm'
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Tauri build (Windows NSIS + MSI)
+        run: npm run tauri:build
+        # Optional release secrets (repository Settings → Secrets):
+        # TAURI_SIGNING_PRIVATE_KEY + ECHO_TAURI_SIGN=1 for Authenticode if bundle.windows is configured.
+        # ECHO_TAURI_CREATE_UPDATER_ARTIFACTS=1 for .sig updater files (requires minisign key).
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: echo-desktop-windows-installers-${{ github.ref_name }}
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+      - name: Create draft GitHub Release (tags only)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi

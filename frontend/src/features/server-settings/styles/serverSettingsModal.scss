@@ -1,0 +1,978 @@
+.server-settings-modal-enter-active,
+.server-settings-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.server-settings-modal-enter-active .server-settings-modal,
+.server-settings-modal-leave-active .server-settings-modal {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.server-settings-modal-enter-from,
+.server-settings-modal-leave-to {
+  opacity: 0;
+
+  .server-settings-modal {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+.server-settings-modal-enter-to,
+.server-settings-modal-leave-from {
+  opacity: 1;
+
+  .server-settings-modal {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.server-settings-panel-root {
+  min-height: 0;
+}
+
+.server-settings-panel-enter-active,
+.server-settings-panel-leave-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.server-settings-panel-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.server-settings-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/** Theme-aware: dark inverts monochrome glyphs; light keeps SVG colors. */
+.server-settings-inline-icon {
+  opacity: 0.88;
+  filter: var(--chat-inline-icon-filter);
+}
+
+.server-settings-modal {
+  box-shadow: var(--srv-modal-shadow);
+  transform: translateZ(0);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--srv-modal-layer);
+    backdrop-filter: blur(18px) saturate(125%);
+    -webkit-backdrop-filter: blur(18px) saturate(125%);
+  }
+}
+
+.server-settings-sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--srv-sidebar-grad);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text);
+}
+
+.server-settings-content {
+  background: var(--srv-content-grad);
+  color: var(--text);
+}
+
+/* Sidebar group labels (OVERVIEW, ROLES, …) — tokenized, not inherited white. */
+.server-settings-nav-section-label {
+  color: var(--srv-label-fg);
+}
+
+.server-settings-nav-item:not(.server-settings-nav-item--active) {
+  color: var(--ui-fg-soft);
+}
+
+.server-settings-nav-item:not(.server-settings-nav-item--active):hover {
+  color: var(--ui-fg);
+}
+
+.server-settings-nav-item--active {
+  background: var(--srv-nav-active-grad);
+  color: var(--srv-nav-active-fg);
+  box-shadow: var(--srv-nav-active-shadow);
+}
+
+/* Keep active tab chrome when the pointer is still over the row (avoids hover wash). */
+.server-settings-nav-item--active:hover {
+  background: var(--srv-nav-active-grad);
+  color: var(--srv-nav-active-fg);
+}
+
+/* Sidebar / header section icons (<img> glyphs): invert on dark only; light keeps ink SVGs. */
+.server-settings-nav-icon,
+.server-settings-header-section-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+  filter: invert(1);
+}
+
+[data-theme='light'] .server-settings-nav-icon,
+[data-theme='light'] .server-settings-header-section-icon {
+  filter: none;
+  opacity: 0.78;
+}
+
+/* Match ChannelPanel blur/shadow; z-index set on elements (img 0 → blur 1 → blackout 2 → shadow 3 → label 4). */
+.server-settings-banner-preview-blur {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.server-settings-banner-preview-shadow {
+  pointer-events: none;
+  background: var(--srv-banner-preview-grad);
+}
+
+.server-settings-card {
+  background: var(--srv-card-grad);
+  box-shadow: inset 0 0 0 1px var(--srv-card-ring);
+}
+
+.server-settings-panel {
+  background: var(--srv-panel-grad);
+  box-shadow: inset 0 0 0 1px var(--srv-panel-ring);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Emoji settings (library + detail): two .roles-panel cards; inner fields borderless. */
+.server-settings-emoji {
+  .server-input {
+    box-shadow: none;
+  }
+
+  .server-input:focus {
+    box-shadow: none;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Emoji “Add pack” modal: flat inputs (focus uses outline); shell uses .server-settings-modal for liquid chrome. */
+.emoji-pack-modal--flat {
+  .server-input {
+    box-shadow: none;
+  }
+
+  .server-input:focus {
+    box-shadow: none;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Inner panels in Market / Create picker — match server-settings liquid panels. */
+.emoji-pack-modal__surface {
+  border-radius: 0.75rem;
+  background: var(--srv-panel-grad);
+  box-shadow: inset 0 0 0 1px var(--srv-panel-ring);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.emoji-pack-modal__tab-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 0.75rem;
+  background: var(--srv-toolbar-bg);
+  box-shadow: inset 0 0 0 1px var(--srv-panel-ring);
+}
+
+.emoji-pack-modal__tab {
+  border-radius: 0.65rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--srv-subtitle-fg);
+  border: 1px solid transparent;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.emoji-pack-modal__tab:hover {
+  background: var(--srv-toolbar-bg);
+  color: var(--srv-input-fg);
+}
+
+.emoji-pack-modal__tab--active {
+  background: var(--srv-nav-active-grad);
+  color: var(--srv-nav-active-fg);
+  box-shadow: var(--srv-nav-active-shadow);
+}
+
+.emoji-pack-modal__tab--active:hover {
+  background: var(--srv-nav-active-grad);
+  color: var(--srv-nav-active-fg);
+}
+
+/* Overview: flat chrome — no inset ring on panels, card, toggles, or inputs (focus uses outline). */
+.server-settings-overview--borderless {
+  .server-settings-panel,
+  .server-settings-card {
+    box-shadow: none;
+  }
+
+  .server-toggle-row {
+    box-shadow: none;
+  }
+
+  .server-input {
+    box-shadow: none;
+  }
+
+  .server-input:focus {
+    box-shadow: none;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/**
+ * Channel / category settings overview: stacked sections with a single hairline
+ * divider — no inset card chrome.
+ */
+.channel-overview-flat,
+.category-overview-flat {
+  .overview-stack {
+    padding-top: 1.25rem;
+    margin-top: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .overview-stack:first-child {
+    padding-top: 0;
+    margin-top: 0;
+    border-top: none;
+  }
+
+  .overview-stack-heading {
+    margin-bottom: 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--srv-subtitle-fg);
+  }
+}
+
+.danger-row--flat {
+  margin-top: 1.5rem;
+  padding: 1.25rem 0 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border-top: 1px solid var(--border);
+}
+
+.settings-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--srv-label-fg);
+}
+
+.settings-label--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.settings-subtitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--srv-subtitle-fg);
+}
+
+.server-input {
+  border: none;
+  border-radius: 0.9rem;
+  background: var(--srv-input-bg);
+  padding: 0.85rem 1rem;
+  color: var(--srv-input-fg);
+  box-shadow: inset 0 0 0 1px var(--srv-input-ring);
+  outline: none;
+}
+
+.server-input:focus {
+  box-shadow: inset 0 0 0 1px var(--srv-input-focus-ring);
+}
+
+.server-input--borderless {
+  box-shadow: none;
+}
+
+.server-input--borderless:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* Vertical rhythm for stacked role editor controls (inset focus stays inside the control) */
+.server-settings-role-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+  min-width: 0;
+}
+
+.server-settings-role-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.role-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--srv-role-trigger-fg);
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.role-menu-trigger:hover {
+  background: var(--srv-role-trigger-hover-bg);
+  color: var(--srv-role-trigger-hover-fg);
+}
+
+.role-menu-popout {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  z-index: 30;
+  min-width: 130px;
+  border-radius: 0.75rem;
+  background: var(--srv-role-menu-bg);
+  padding: 0.3rem;
+  box-shadow: var(--srv-role-menu-shadow);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.role-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: background 0.12s ease;
+}
+
+.role-menu-item--danger {
+  color: var(--srv-role-danger-fg);
+}
+
+.role-menu-item--danger:hover {
+  background: var(--srv-role-danger-hover-bg);
+  color: var(--srv-role-danger-hover-fg);
+}
+
+.roles-panel {
+  background: var(--srv-roles-panel-grad);
+  box-shadow: inset 0 0 0 1px var(--srv-roles-panel-ring);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.roles-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: 0.9rem;
+  background: var(--srv-toolbar-bg);
+  padding: 0.45rem 0.55rem;
+  box-shadow: none;
+}
+
+.roles-toolbar-search {
+  border: 0;
+  background: transparent;
+  color: var(--srv-toolbar-search-fg);
+  font-size: 0.86rem;
+  outline: none;
+}
+
+.roles-toolbar-search::placeholder {
+  color: var(--srv-toolbar-placeholder);
+}
+
+.roles-toolbar-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.5rem;
+  background: var(--srv-toolbar-add-bg);
+  color: var(--srv-toolbar-add-fg);
+  font-size: 1rem;
+  font-weight: 700;
+  transition: background 0.18s ease;
+}
+
+.roles-toolbar-add:hover {
+  background: var(--srv-toolbar-add-hover);
+}
+
+.roles-list-shell {
+  background: transparent;
+  box-shadow: none;
+}
+
+.roles-list-row {
+  background: transparent;
+  position: relative;
+}
+
+.roles-list-row:hover {
+  background: var(--srv-row-hover);
+}
+
+.roles-list-row--active {
+  background: var(--srv-row-active);
+}
+
+.roles-list-row--dragging {
+  opacity: 0.45;
+}
+
+.roles-list-row--drop-before::before,
+.roles-list-row--drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--srv-drop-line);
+  box-shadow: 0 0 0 1px var(--srv-drop-line-ring);
+}
+
+.roles-list-row--drop-before::before {
+  top: 0;
+}
+
+.roles-list-row--drop-after::after {
+  bottom: 0;
+}
+
+.roles-position-input {
+  background: var(--srv-pos-input-bg);
+  box-shadow: inset 0 0 0 1px var(--srv-pos-input-ring);
+  width: 2.5rem;
+}
+
+.roles-position-input::-webkit-outer-spin-button,
+.roles-position-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.roles-color-layout {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.roles-color-left {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  min-width: 0;
+  contain: layout paint;
+  isolation: isolate;
+}
+
+.roles-color-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.22rem;
+  min-width: 0;
+  align-content: start;
+  contain: layout paint;
+  isolation: isolate;
+}
+
+.roles-color-rect {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  border-radius: 0.55rem;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px var(--srv-color-rect-ring);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.roles-color-rect:hover {
+  transform: translateY(-1px);
+}
+
+.roles-color-rect--swatch {
+  width: 100%;
+  height: 1.32rem;
+}
+
+.role-color-dot {
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--srv-color-dot-ring);
+}
+
+.role-color-dot--colorless,
+.roles-color-rect--colorless {
+  background:
+    linear-gradient(
+      135deg,
+      transparent calc(50% - 1px),
+      var(--srv-colorless-line) calc(50% - 1px),
+      var(--srv-colorless-line) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    var(--srv-colorless-grad), var(--srv-colorless-bg);
+}
+
+.roles-color-rect--active {
+  box-shadow: inset 0 0 0 2px var(--srv-color-active-ring);
+}
+
+.roles-color-rect--custom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 90px;
+  min-height: 3.1rem;
+  background: var(--srv-roles-swatch-grad), var(--srv-roles-swatch-conic);
+  color: var(--srv-roles-swatch-fg);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.roles-color-rect--selected {
+  flex: 0 0 90px;
+  min-height: 3.1rem;
+}
+
+.roles-custom-panel {
+  border-radius: 0.85rem;
+  background: var(--srv-custom-panel-bg);
+  padding: 0.65rem;
+  box-shadow: inset 0 0 0 1px var(--srv-custom-panel-ring);
+}
+
+.roles-wheel-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem;
+}
+
+.roles-color-wheel {
+  border-radius: 50%;
+  cursor: crosshair;
+  width: 220px;
+  height: 220px;
+  display: block;
+  box-shadow: var(--srv-color-wheel-shadow);
+  user-select: none;
+}
+
+.roles-input-col {
+  min-width: 180px;
+  flex: 1;
+}
+
+.roles-input-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.roles-input-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--srv-input-label-fg);
+}
+
+.roles-input-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.roles-step-input {
+  position: relative;
+  display: block;
+  border-radius: 0.45rem;
+  background: var(--srv-step-input-bg);
+  box-shadow: inset 0 0 0 1px var(--srv-step-input-ring);
+  overflow: hidden;
+}
+
+.roles-step-btn {
+  width: 100%;
+  height: 50%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--srv-step-btn-fg);
+  font-size: 0.56rem;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+  padding: 0;
+}
+
+.roles-step-btn:hover {
+  background: var(--srv-step-btn-hover-bg);
+  color: var(--srv-step-btn-hover-fg);
+}
+
+.roles-step-stack {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.roles-step-btn--up {
+  border-bottom: 1px solid var(--srv-step-divider);
+}
+
+.roles-mini-input {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--srv-mini-input-fg);
+  padding: 0.35rem 0.45rem;
+  font-size: 0.72rem;
+  outline: none;
+  box-shadow: none;
+}
+
+.roles-mini-input--step {
+  padding-right: 1.35rem;
+}
+
+.roles-mini-input::-webkit-outer-spin-button,
+.roles-mini-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.roles-mini-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.roles-mini-input:focus {
+  box-shadow: none;
+}
+
+.roles-step-input:focus-within {
+  box-shadow: inset 0 0 0 1px var(--srv-step-focus-ring);
+}
+
+.roles-step-input:focus-within .roles-step-stack {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.roles-custom-hex {
+  width: 100%;
+  border: 0;
+  border-radius: 0.55rem;
+  background: var(--srv-hex-input-bg);
+  color: var(--srv-hex-input-fg);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.78rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--srv-hex-input-ring);
+}
+
+.roles-custom-hex:focus {
+  box-shadow: inset 0 0 0 1px var(--srv-hex-input-focus);
+}
+
+.roles-view-toggle {
+  background: var(--srv-view-toggle-bg);
+  box-shadow: none;
+}
+
+.roles-editor-tabs {
+  border-bottom: 1px solid var(--srv-editor-tab-border);
+}
+
+.roles-editor-tab {
+  position: relative;
+  padding: 0.5rem 0.2rem;
+  margin-right: 1rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--srv-editor-tab-fg);
+  transition: color 0.18s ease;
+}
+
+.roles-editor-tab:hover {
+  color: var(--srv-editor-tab-hover);
+}
+
+.roles-editor-tab--active {
+  color: var(--srv-editor-tab-active);
+}
+
+.roles-editor-tab--active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--srv-editor-tab-indicator);
+}
+
+.roles-permissions-list {
+  gap: 0.55rem;
+}
+
+.role-permission-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1rem;
+  background: var(--srv-perm-row-bg);
+  padding: 1rem 1.05rem;
+  box-shadow: none;
+}
+
+.role-member-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.85rem;
+  background: var(--srv-member-row-bg);
+  padding: 0.6rem 0.7rem;
+  box-shadow: none;
+}
+
+.roles-display-option {
+  padding: 0.72rem 0.9rem;
+}
+
+.roles-change-bar {
+  position: sticky;
+  bottom: 0.6rem;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.05rem;
+  border-radius: 1.05rem;
+  background: var(--srv-change-bar-bg);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--srv-change-bar-shadow);
+  backdrop-filter: blur(16px) saturate(118%);
+  -webkit-backdrop-filter: blur(16px) saturate(118%);
+}
+
+.roles-change-bar button:first-child {
+  background: var(--srv-change-bar-btn1-bg) !important;
+  color: var(--srv-change-bar-btn1-fg) !important;
+}
+
+.roles-change-bar button:first-child:hover {
+  background: var(--srv-change-bar-btn1-hover) !important;
+}
+
+.roles-change-bar button:last-child {
+  background: var(--srv-change-bar-btn2-bg) !important;
+  color: var(--srv-change-bar-btn2-fg) !important;
+}
+
+.roles-change-bar button:last-child:hover {
+  background: var(--srv-change-bar-btn2-hover) !important;
+}
+
+.server-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1rem;
+  background: var(--srv-toggle-row-bg);
+  padding: 1rem;
+  box-shadow: inset 0 0 0 1px var(--srv-toggle-row-ring);
+}
+
+.server-toggle {
+  width: 2.4rem;
+  height: 1.4rem;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  border: 0;
+  background:
+    var(--srv-server-toggle-off-grad), var(--srv-server-toggle-off-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--srv-server-toggle-off-ring),
+    inset 0 6px 12px var(--srv-server-toggle-off-inset-top),
+    inset 0 -6px 12px var(--srv-server-toggle-off-inset-bot);
+  position: relative;
+  cursor: pointer;
+  transition:
+    background 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.18s ease;
+  outline: none;
+}
+
+.server-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.16rem;
+  height: 1.16rem;
+  border-radius: 50%;
+  background: var(--srv-server-toggle-knob);
+  box-shadow: var(--srv-server-toggle-knob-shadow);
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s ease;
+}
+
+.server-toggle:checked {
+  background: var(--srv-server-toggle-on-grad), var(--srv-server-toggle-on-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--srv-server-toggle-on-ring),
+    inset 0 6px 12px var(--srv-server-toggle-on-inset-top),
+    inset 0 -6px 12px var(--srv-server-toggle-on-inset-bot),
+    0 0 0 1px var(--srv-server-toggle-on-outer);
+}
+
+.server-toggle:checked::after {
+  transform: translateX(1rem);
+}
+
+.server-toggle:hover {
+  box-shadow:
+    inset 0 0 0 1px var(--srv-server-toggle-hover-ring),
+    inset 0 6px 12px var(--srv-server-toggle-off-inset-top),
+    inset 0 -6px 12px var(--srv-server-toggle-off-inset-bot);
+}
+
+.server-toggle:focus-visible {
+  box-shadow:
+    inset 0 0 0 2px var(--srv-server-toggle-focus-ring),
+    inset 0 0 0 1px var(--srv-server-toggle-hover-ring),
+    inset 0 6px 12px var(--srv-server-toggle-off-inset-top),
+    inset 0 -6px 12px var(--srv-server-toggle-off-inset-bot);
+}
+
+.server-toggle:checked:focus-visible {
+  box-shadow:
+    inset 0 0 0 2px var(--srv-server-toggle-focus-ring),
+    inset 0 0 0 1px var(--srv-server-toggle-on-ring),
+    inset 0 6px 12px var(--srv-server-toggle-on-inset-top),
+    inset 0 -6px 12px var(--srv-server-toggle-on-inset-bot),
+    0 0 0 1px var(--srv-server-toggle-on-outer);
+}
+
+.server-toggle:active::after {
+  width: 1.24rem;
+}
+
+.server-pill {
+  border-radius: 999px;
+  background: var(--srv-server-pill-bg);
+  padding: 0.45rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--srv-server-pill-fg);
+  box-shadow: inset 0 0 0 1px var(--srv-server-pill-ring);
+}
+
+.danger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1rem;
+  background: var(--srv-danger-row-bg);
+  padding: 1rem;
+  box-shadow: inset 0 0 0 1px var(--srv-danger-row-ring);
+}
+
+.danger-btn {
+  border: none;
+  border-radius: 0.8rem;
+  background: var(--srv-danger-btn-bg);
+  color: var(--srv-danger-btn-fg);
+  padding: 0.7rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.danger-btn:hover {
+  background: var(--srv-danger-btn-hover);
+}
+
+.danger-btn--strong {
+  background: var(--srv-danger-btn-strong);
+}

@@ -1,0 +1,10 @@
+name: Echo CodeQL config
+
+# Dev/operator scripts and tests are not production attack surface.
+paths-ignore:
+  - '**/tests/**'
+  - '**/*.test.ts'
+  - '**/*.runtime.test.ts'
+  - 'scripts/seed-dev-echo.mjs'
+  - 'scripts/vps-logs.mjs'
+  - 'bot/**'

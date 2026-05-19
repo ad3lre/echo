@@ -1,0 +1,31 @@
+# Recording rules for Echo — aggregate rates and latencies for dashboards/alerts.
+# Load alongside echo-alerts.yml. Thresholds in alerts reference these where useful.
+
+groups:
+  - name: echo_recording
+    interval: 30s
+    rules:
+      - record: echo:rest:requests:rate5m
+        expr: sum(rate(echo_rest_http_requests_total[5m]))
+
+      - record: echo:message_failed:rate5m
+        expr: sum(rate(echo_message_failed_total[5m]))
+
+      - record: echo:socket:reject_unknown:rate5m
+        expr: sum(rate(echo_socket_message_branch_total{branch="reject_unknown"}[5m]))
+
+      - record: echo:socket:echo_persisted:rate5m
+        expr: sum(rate(echo_socket_message_branch_total{branch="echo_persisted"}[5m]))
+
+      - record: echo:snowflake:wait_next_ms:rate5m
+        expr: sum(rate(echo_snowflake_generator_wait_next_ms_total[5m]))
+
+      # p95 search latency (seconds), max across scope labels
+      - record: echo:message_search:p95_5m
+        expr: |
+          max(
+            histogram_quantile(
+              0.95,
+              sum by (le) (rate(echo_message_search_duration_seconds_bucket[5m]))
+            )
+          )

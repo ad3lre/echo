@@ -1,0 +1,106 @@
+---
+import MarketingShell from '../layouts/MarketingShell.astro';
+import { AGPL_LICENSE_URL, CHAT_APP_ORIGIN, GITHUB_REPO_URL } from '../site';
+
+const title = 'Download Echo | Web, Windows, macOS & Linux';
+const description =
+  'Get Echo on any device. Echo is open source (GNU AGPL v3). Use it in your browser or download the desktop app for Windows, macOS, and Linux.';
+
+const platforms = [
+  {
+    id: 'web',
+    name: 'Web Browser',
+    icon: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+    badge: 'No install',
+    description: 'Use Echo instantly in any modern browser. No download required.',
+    action: { label: 'Open in browser', href: CHAT_APP_ORIGIN },
+    features: ['Works on any OS', 'Same features as desktop', 'Automatic updates'],
+  },
+  {
+    id: 'windows',
+    name: 'Windows',
+    icon: `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>`,
+    badge: 'Stable',
+    description: 'Native Windows app with system notifications and auto-start.',
+    action: { label: 'Download for Windows', href: CHAT_APP_ORIGIN },
+    features: ['Windows 10 & 11', 'System notifications', 'Auto-updater'],
+  },
+  {
+    id: 'macos',
+    name: 'macOS',
+    icon: `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>`,
+    badge: 'Stable',
+    description: 'Mac app with native menus and keyboard shortcuts.',
+    action: { label: 'Download for macOS', href: CHAT_APP_ORIGIN },
+    features: ['macOS 12+', 'Native menus', 'Universal build'],
+  },
+  {
+    id: 'linux',
+    name: 'Linux',
+    icon: `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Tux, the Linux mascot"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.077 1.092-.3 1.953-1.05 3.02-.886 1.052-2.127 2.203-2.989 3.247-1.667 1.97-3.31 4.394-2.628 7.336.272 1.18 1.045 2.328 2.18 3.222-.32.456-.488 1.04-.488 1.668 0 .618.166 1.195.473 1.65-1.218.298-2.018.756-2.018 1.524 0 1.46 2.812 2.014 6.276 2.014s6.276-.554 6.276-2.014c0-.768-.8-1.226-2.018-1.523.307-.456.473-1.033.473-1.65 0-.629-.169-1.213-.488-1.669 1.135-.894 1.908-2.043 2.18-3.222.682-2.942-.96-5.367-2.628-7.336-.862-1.044-2.103-2.195-2.989-3.247-.75-1.067-.972-1.928-1.05-3.02-.065-1.491 1.056-5.965-3.17-6.298A6.05 6.05 0 0 0 12.504 0zm-2.795 5.585c.6 0 1.089.703 1.089 1.573 0 .145-.015.286-.04.418a1.605 1.605 0 0 0-.41-.117c-.105-.018-.21-.027-.317-.027-.336 0-.65.077-.93.213.04-.103.062-.215.062-.331 0-.466-.182-.844-.408-.844-.225 0-.408.378-.408.844 0 .024 0 .048.001.071a1.45 1.45 0 0 1-.27-.844c0-.87.488-1.573 1.088-1.573l.543.617zm4.589 0 .542-.617c.6 0 1.089.703 1.089 1.573 0 .311-.099.6-.27.844.001-.023.001-.047.001-.071 0-.466-.183-.844-.408-.844-.226 0-.408.378-.408.844 0 .116.022.228.062.331a2.043 2.043 0 0 0-.93-.213c-.108 0-.213.009-.318.027-.146.026-.283.067-.41.117a2.297 2.297 0 0 1-.04-.418c0-.87.49-1.573 1.09-1.573zM12.067 8.4c1.097 0 2.052.71 2.594 1.756-1.072.612-1.66 1.078-1.66 1.78 0 .473.396.85.882.85.485 0 .881-.377.881-.85 0-.205-.114-.402-.296-.553a3.04 3.04 0 0 1 1.18.49c1.146.788 1.733 2.054 1.733 3.45 0 1.83-1.092 3.498-2.857 3.498-1.764 0-2.514-1.024-2.514-1.024s-.751 1.024-2.515 1.024c-1.764 0-2.857-1.668-2.857-3.498 0-1.396.588-2.662 1.734-3.45a3.04 3.04 0 0 1 1.18-.49c-.182.15-.296.348-.296.553 0 .473.396.85.882.85.485 0 .881-.377.881-.85 0-.702-.588-1.168-1.66-1.78.542-1.046 1.498-1.756 2.594-1.756z"/></svg>`,
+    badge: 'Stable',
+    description: 'Linux app with system tray and desktop notifications.',
+    action: { label: 'Download for Linux', href: CHAT_APP_ORIGIN },
+    features: ['AppImage & .deb', 'System tray', 'Auto-updater'],
+  },
+];
+---
+
+<MarketingShell title={title} description={description} canonicalPath="/download">
+  <main id="main" class="subpage-main">
+    <section class="download-hero">
+      <div class="container">
+        <div class="download-hero-content">
+          <span class="hero-eyebrow">Download</span>
+          <h1>Echo for every platform</h1>
+          <p class="hero-lead">
+            Stay connected wherever you are. Use Echo in your browser, or get the desktop app for the best experience.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="download-section">
+      <div class="container">
+        <div class="platforms-grid">
+          {platforms.map((p) => (
+            <article class="platform-card" data-platform={p.id}>
+              <div class="platform-header">
+                <div class="platform-icon" set:html={p.icon} />
+                <span class="platform-badge">{p.badge}</span>
+              </div>
+              <h3>{p.name}</h3>
+              <p class="platform-desc">{p.description}</p>
+              <ul class="platform-features">
+                {p.features.map((f) => (
+                  <li>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <a href={p.action.href} class="btn-platform">
+                {p.action.label}
+              </a>
+            </article>
+          ))}
+        </div>
+
+        <div class="download-note">
+          <p>
+            <strong>Mobile apps:</strong> Echo works great in your mobile browser.
+            Add it to your home screen for an app-like experience.
+          </p>
+          <p>
+            Echo is <strong>open source</strong> under the{' '}
+            <a href={AGPL_LICENSE_URL} target="_blank" rel="noopener noreferrer">GNU AGPL v3</a>.
+            Browse and contribute on{' '}
+            <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">GitHub</a>.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+</MarketingShell>

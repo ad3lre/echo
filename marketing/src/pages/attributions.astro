@@ -1,0 +1,92 @@
+---
+import MarketingShell from '../layouts/MarketingShell.astro';
+
+const title = 'Attributions | Echo';
+const description = 'Credits and licenses for third-party assets and libraries used in Echo.';
+---
+
+<MarketingShell title={title} description={description} canonicalPath="/attributions">
+  <main id="main" class="legal-page">
+    <div class="container">
+      <article class="legal-content">
+        <header class="legal-header">
+          <span class="hero-eyebrow">Legal</span>
+          <h1>Attributions</h1>
+          <p class="legal-meta">Third-party assets and licenses</p>
+        </header>
+
+        <div class="legal-body">
+          <p class="legal-intro">
+            Echo uses assets and libraries from the following sources. We are grateful to 
+            the open source community and respect all license terms.
+          </p>
+
+          <section class="legal-section">
+            <h2>Twemoji (Emoji Graphics)</h2>
+            <p>
+              Emoji graphics provided by <strong>Twemoji</strong>, © Twitter, Inc. and other contributors.
+            </p>
+            <ul>
+              <li><strong>License:</strong> Creative Commons Attribution 4.0 International (CC-BY 4.0)</li>
+              <li><strong>Source:</strong> github.com/twitter/twemoji</li>
+              <li><strong>Usage:</strong> Emoji picker and message display</li>
+            </ul>
+          </section>
+
+          <section class="legal-section">
+            <h2>Unicode Emoji Data</h2>
+            <p>
+              Emoji metadata and category organization from <strong>unicode-emoji-json</strong> by Mu-An Chiou.
+            </p>
+            <ul>
+              <li><strong>License:</strong> MIT</li>
+              <li><strong>Source:</strong> github.com/muan/unicode-emoji-json</li>
+              <li><strong>Usage:</strong> Full emoji list with Unicode categories</li>
+            </ul>
+          </section>
+
+          <section class="legal-section">
+            <h2>UI Icons</h2>
+            <p>
+              UI icons throughout the application from various open source icon sets including 
+              custom-designed icons and licensed assets from icon designers.
+            </p>
+          </section>
+
+          <section class="legal-section">
+            <h2>Open Source Libraries</h2>
+            <p>Echo is built on numerous open source projects including:</p>
+            <ul>
+              <li><strong>Vue.js</strong> — MIT License</li>
+              <li><strong>Astro</strong> — MIT License</li>
+              <li><strong>Fastify</strong> — MIT License</li>
+              <li><strong>PostgreSQL</strong> — PostgreSQL License</li>
+              <li><strong>Redis</strong> — BSD 3-Clause</li>
+              <li><strong>LiveKit</strong> — Apache 2.0</li>
+              <li><strong>Socket.IO</strong> — MIT License</li>
+            </ul>
+          </section>
+
+          <section class="legal-section">
+            <h2>Fonts</h2>
+            <p>
+              <strong>Inter</strong> font family by Rasmus Andersson, used throughout Echo's interface.
+            </p>
+            <ul>
+              <li><strong>License:</strong> SIL Open Font License 1.1</li>
+              <li><strong>Source:</strong> rsms.me/inter</li>
+            </ul>
+          </section>
+        </div>
+
+        <footer class="legal-footer">
+          <nav class="legal-nav">
+            <a href="/terms">Terms of Service</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/community-guidelines">Community Guidelines</a>
+          </nav>
+        </footer>
+      </article>
+    </div>
+  </main>
+</MarketingShell>

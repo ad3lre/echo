@@ -1,0 +1,24 @@
+<svg
+  id="emoji-smile-server-nav"
+  xmlns="http://www.w3.org/2000/svg"
+  width="512"
+  height="512"
+  viewBox="0 0 24 24"
+  fill="none"
+>
+  <circle
+    cx="12"
+    cy="12"
+    r="9.25"
+    stroke="rgb(0,0,0)"
+    stroke-width="1.65"
+  />
+  <circle cx="9" cy="10" r="1.2" fill="rgb(0,0,0)" />
+  <circle cx="15" cy="10" r="1.2" fill="rgb(0,0,0)" />
+  <path
+    d="M8.2 14.6c1.15 1.7 2.6 2.65 3.8 2.65s2.65-.95 3.8-2.65"
+    stroke="rgb(0,0,0)"
+    stroke-width="1.65"
+    stroke-linecap="round"
+  />
+</svg>

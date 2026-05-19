@@ -1,0 +1,98 @@
+# Alerting rules for Echo API metrics.
+# Tune `for` and thresholds after observing baseline traffic in your environment.
+
+groups:
+  - name: echo_alerts
+    interval: 30s
+    rules:
+      - alert: EchoMessageFailedRateHigh
+        expr: sum(rate(echo_message_failed_total[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Elevated Echo message_failed rate
+          description: |
+            Sum of rates over echo_message_failed_total exceeds 0.5/s for 10m.
+            Check structured logs for msg echo.socket.message_failed / echo.rest.message_failed.
+
+      - alert: EchoSocketRejectUnknownSpike
+        expr: |
+          sum(rate(echo_socket_message_branch_total{branch="reject_unknown"}[5m]))
+          > 5 * sum(rate(echo_socket_message_branch_total{branch="echo_persisted"}[5m]))
+          and sum(rate(echo_socket_message_branch_total{branch="echo_persisted"}[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Socket reject_unknown branch spiking vs echo_persisted
+          description: |
+            reject_unknown rate is much higher than echo_persisted (possible bad clients or channel/permission drift).
+
+      - alert: EchoSnowflakeWaitNextMsSustained
+        expr: sum(rate(echo_snowflake_generator_wait_next_ms_total[5m])) > 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Snowflake generator frequently waiting for next millisecond
+          description: |
+            High rate of echo_snowflake_generator_wait_next_ms_total increments — review worker id / clock / load (see ADR 002 and snowflake runbook).
+
+      - alert: EchoMessageSearchP95High
+        expr: |
+          max(
+            histogram_quantile(
+              0.95,
+              sum by (le) (rate(echo_message_search_duration_seconds_bucket[5m]))
+            )
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Message search REST p95 latency high
+          description: |
+            p95 of echo_message_search_duration_seconds above 2s for 10m — check DB, indexes, and scope-specific load.
+
+  - name: echo_livekit
+    interval: 30s
+    rules:
+      - alert: EchoLivekitWebhook4xxSustained
+        expr: |
+          sum(rate(echo_rest_http_requests_total{route_group="hooks_livekit",status_class="4xx"}[5m])) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: LiveKit webhook sustained 4xx rate
+          description: |
+            POST /api/v1/hooks/livekit returns 4xx (often 401 signature mismatch). Check LIVEKIT_API_KEY/SECRET alignment
+            between Echo and LiveKit server, webhook URL, and that the SFU can reach your API over HTTPS.
+            Tune threshold: scanners may cause noise on public endpoints.
+
+      - alert: EchoLivekitWebhookUnknownEventsSpike
+        expr: |
+          sum(rate(echo_livekit_webhook_event_total{event=~"no_handler|room_unparseable"}[5m])) > 0.02
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: LiveKit webhook no_handler or unparseable room spike
+          description: |
+            LiveKit may be sending new event types, or room names no longer match serverId:channelId. Review API logs
+            and LiveKit server version / webhook payload docs.
+
+      - alert: EchoVoiceModerateForbiddenDominatesOk
+        expr: |
+          sum(rate(echo_voice_moderate_total{result="forbidden"}[15m]))
+          > 10 * sum(rate(echo_voice_moderate_total{result="ok"}[15m]))
+          and sum(rate(echo_voice_moderate_total{result="ok"}[15m])) > 0.001
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Voice moderate forbidden rate high vs ok
+          description: |
+            Moderation POSTs return forbidden much more often than ok — possible RBAC drift, client bug, or abuse.
+            Tune or silence if expected for your moderation workflow.

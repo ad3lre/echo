@@ -1,0 +1,240 @@
+---
+import MarketingShell from '../layouts/MarketingShell.astro';
+import { CHAT_APP_ORIGIN, SUPPORT_CONTACT_EMAIL } from '../site';
+
+const title = 'Support | Echo';
+const description =
+  'Get help with Echo. Contact our support team or browse common questions.';
+
+const SUPPORT_CONTACT_ENDPOINT = `${CHAT_APP_ORIGIN}/api/v1/echo/support/contact`;
+
+const faqs = [
+  {
+    q: 'How do I reset my password?',
+    a: 'Use the "Forgot password" link on the login screen. We\'ll send a reset link to your email.'
+  },
+  {
+    q: 'Can I use Echo on mobile?',
+    a: 'Yes—Echo works great in mobile browsers. Add it to your home screen for the best experience.'
+  },
+  {
+    q: 'How do I report a user?',
+    a: 'Right-click any message or user profile and select "Report". Our moderation team will review it.'
+  },
+  {
+    q: 'Is my data encrypted?',
+    a: 'Yes— Echo uses TLS for all connections, and we offer optional end-to-end encryption for voice and DMs.'
+  }
+];
+---
+
+<MarketingShell title={title} description={description} canonicalPath="/support">
+  <main id="main" class="subpage-main">
+    <section class="support-hero">
+      <div class="container">
+        <div class="support-hero-content">
+          <span class="hero-eyebrow">Help Center</span>
+          <h1>How can we help?</h1>
+          <p class="hero-lead">
+            Get answers to common questions or reach out to our team directly.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="support-section">
+      <div class="container">
+        <div class="support-grid">
+          <div class="support-options">
+            <div class="support-card support-card--primary">
+              <div class="support-card-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <h3>Contact Support</h3>
+              <p>Have a specific issue? Send us a message and we'll get back to you quickly.</p>
+              <form id="support-form" class="support-quick-form" novalidate>
+                <div class="form-row">
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="your@email.com"
+                    required
+                    autocomplete="email"
+                    maxlength="320"
+                    class="support-input"
+                  />
+                  <select name="topic" required class="support-select">
+                    <option value="">Topic</option>
+                    <option value="Account">Account</option>
+                    <option value="Bug">Bug report</option>
+                    <option value="Safety">Safety</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <textarea
+                  name="message"
+                  placeholder="Describe your issue..."
+                  required
+                  minlength="10"
+                  maxlength="5000"
+                  class="support-textarea"
+                  rows="4"
+                />
+                <!--
+                  Honeypot: hidden from real users, traps naive bots.
+                  Server returns 200 + drops if filled.
+                -->
+                <div class="support-honeypot" aria-hidden="true">
+                  <label>
+                    Website
+                    <input type="text" name="website" tabindex="-1" autocomplete="off" />
+                  </label>
+                </div>
+                <button type="submit" class="btn-support">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 2L11 13"/>
+                    <path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+                  </svg>
+                  <span data-support-button-label>Send message</span>
+                </button>
+                <p class="support-status" role="status" aria-live="polite" data-support-status hidden></p>
+              </form>
+              <p class="support-alt">
+                Or email us directly at <a href={`mailto:${SUPPORT_CONTACT_EMAIL}`}>{SUPPORT_CONTACT_EMAIL}</a>
+              </p>
+            </div>
+
+          </div>
+
+          <div class="faq-section">
+            <h2>Common questions</h2>
+            <div class="faq-list">
+              {faqs.map((f, i) => (
+                <details class="faq-item" open={i === 0}>
+                  <summary>{f.q}</summary>
+                  <p>{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</MarketingShell>
+
+<style>
+  .support-honeypot {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .support-status {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .support-status[data-state='success'] {
+    color: #15803d;
+  }
+
+  .support-status[data-state='error'] {
+    color: #b91c1c;
+  }
+
+  .support-status[data-state='info'] {
+    color: var(--muted);
+  }
+</style>
+
+<script is:inline define:vars={{ SUPPORT_CONTACT_ENDPOINT, SUPPORT_CONTACT_EMAIL }}>
+  const form = document.getElementById('support-form');
+  if (form) {
+    const button = form.querySelector('button[type="submit"]');
+    const buttonLabel = form.querySelector('[data-support-button-label]');
+    const status = form.querySelector('[data-support-status]');
+    const ERROR_MAP = {
+      invalid_email: 'Please double-check your email address.',
+      invalid_topic: 'Please pick a topic.',
+      invalid_message:
+        'Your message looks too short or too long (10–5000 characters).',
+      send_failed:
+        'We could not deliver your message. Please email us directly at ' +
+        SUPPORT_CONTACT_EMAIL +
+        '.',
+      rate_limited:
+        'Too many submissions from this device. Please wait a few minutes and try again.',
+    };
+
+    function setStatus(state, text) {
+      if (!status) return;
+      if (!text) {
+        status.hidden = true;
+        status.removeAttribute('data-state');
+        status.textContent = '';
+        return;
+      }
+      status.hidden = false;
+      status.setAttribute('data-state', state);
+      status.textContent = text;
+    }
+
+    function setBusy(busy) {
+      if (button instanceof HTMLButtonElement) button.disabled = busy;
+      if (buttonLabel)
+        buttonLabel.textContent = busy ? 'Sending…' : 'Send message';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const payload = {
+        email: String(fd.get('email') ?? '').trim(),
+        topic: String(fd.get('topic') ?? '').trim(),
+        message: String(fd.get('message') ?? '').trim(),
+        website: String(fd.get('website') ?? ''),
+      };
+      if (!payload.email || !payload.topic || !payload.message) {
+        setStatus('error', 'Please fill in your email, a topic, and a message.');
+        return;
+      }
+      setBusy(true);
+      setStatus('info', 'Sending your message…');
+      try {
+        const res = await fetch(SUPPORT_CONTACT_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          form.reset();
+          setStatus(
+            'success',
+            "Thanks — we got your message and will reply by email shortly.",
+          );
+          return;
+        }
+        if (res.status === 429) {
+          setStatus('error', ERROR_MAP.rate_limited);
+          return;
+        }
+        let code = '';
+        try {
+          const data = await res.json();
+          code = (data && data.error) || '';
+        } catch {}
+        setStatus('error', ERROR_MAP[code] || ERROR_MAP.send_failed);
+      } catch {
+        setStatus('error', ERROR_MAP.send_failed);
+      } finally {
+        setBusy(false);
+      }
+    });
+  }
+</script>

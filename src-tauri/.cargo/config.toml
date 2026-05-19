@@ -1,0 +1,4 @@
+# Faster Windows links: uses the LLD shipped with Rust (no separate LLVM install).
+# If `rust-lld.exe` is missing from your toolchain, delete this file or comment the block.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
