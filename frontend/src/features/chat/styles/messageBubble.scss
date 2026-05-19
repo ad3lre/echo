@@ -446,7 +446,8 @@
   font-weight: 500;
   text-underline-offset: 2px;
 }
-.message-content :deep(a.message-md-external-link .message-md-external-link__favicon) {
+.message-content
+  :deep(a.message-md-external-link .message-md-external-link__favicon) {
   width: 0.875rem;
   height: 0.875rem;
   flex-shrink: 0;
@@ -454,7 +455,8 @@
   object-fit: contain;
   margin-top: 0.1em;
 }
-.message-content :deep(a.message-md-external-link .message-md-external-link__label) {
+.message-content
+  :deep(a.message-md-external-link .message-md-external-link__label) {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -607,7 +609,8 @@
 }
 
 .message-content :deep(.echo-magic-time-wrap:hover .echo-magic-time-tooltip),
-.message-content :deep(.echo-magic-time-wrap:focus-within .echo-magic-time-tooltip) {
+.message-content
+  :deep(.echo-magic-time-wrap:focus-within .echo-magic-time-tooltip) {
   visibility: visible;
   opacity: 1;
 }
@@ -659,7 +662,8 @@
   z-index: 5;
 }
 .message-preview :deep(.echo-magic-time-wrap:hover .echo-magic-time-tooltip),
-.message-preview :deep(.echo-magic-time-wrap:focus-within .echo-magic-time-tooltip) {
+.message-preview
+  :deep(.echo-magic-time-wrap:focus-within .echo-magic-time-tooltip) {
   visibility: visible;
   opacity: 1;
 }

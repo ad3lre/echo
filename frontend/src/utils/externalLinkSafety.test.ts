@@ -12,7 +12,11 @@ describe('externalLinkSafety', () => {
   });
 
   it('strips leading www for acknowledgment grouping', () => {
-    expect(externalLinkAcknowledgmentKey('WWW.Example.COM')).toBe('example.com');
-    expect(externalLinkAcknowledgmentKey('sub.example.com')).toBe('sub.example.com');
+    expect(externalLinkAcknowledgmentKey('WWW.Example.COM')).toBe(
+      'example.com',
+    );
+    expect(externalLinkAcknowledgmentKey('sub.example.com')).toBe(
+      'sub.example.com',
+    );
   });
 });

@@ -77,7 +77,7 @@ export interface Channel {
   id: string;
   name: string;
   serverId: string;
-  type: 'text' | 'voice' | 'forum';
+  type: 'text' | 'voice' | 'forum' | 'stage';
   parentChannelId?: string;
   createdAt: string;
   updatedAt: string;
@@ -149,6 +149,11 @@ export interface Channel {
   voiceServerMuteByUserId?: Record<string, boolean>;
   /** Echo workspace: voice channel — server-deafen flags by user id. */
   voiceServerDeafenByUserId?: Record<string, boolean>;
+  /**
+   * Echo workspace: stage channel — users allowed to publish mic (speakers).
+   * Omitted on non-stage channels.
+   */
+  voiceStageSpeakerByUserId?: Record<string, boolean>;
 }
 
 /** Minimal channel info for UI display (e.g. channel list, chat header). */
@@ -187,4 +192,5 @@ export type ChannelSummary = Pick<
   | 'voiceParticipantIds'
   | 'voiceServerMuteByUserId'
   | 'voiceServerDeafenByUserId'
+  | 'voiceStageSpeakerByUserId'
 >;

@@ -27,6 +27,9 @@ const props = withDefaults(
     vcMenuCanDeafen: boolean;
     vcMenuCanDisconnect: boolean;
     vcMenuCanMove?: boolean;
+    vcMenuIsStage?: boolean;
+    vcMenuTargetIsSpeaker?: boolean;
+    vcMenuCanInviteToSpeak?: boolean;
     vcMoveTargets?: Array<{ id: string; name: string; disabled?: boolean }>;
     vcMenuServerMuted?: boolean;
     vcMenuServerDeafened?: boolean;
@@ -122,7 +125,9 @@ const emit = defineEmits<{
   'vc-menu-mention': [];
   'vc-menu-message': [];
   'vc-menu-copy-user-id': [];
-  'vc-moderate': ['serverMute' | 'serverDeafen' | 'disconnect'];
+  'vc-moderate': [
+    'serverMute' | 'serverDeafen' | 'disconnect' | 'inviteToSpeak' | 'moveToAudience',
+  ];
   'vc-menu-move-pick': [targetChannelId: string];
   'vc-moderate-server': ['kick' | 'ban' | 'timeout'];
 }>();
@@ -158,7 +163,8 @@ const emit = defineEmits<{
             class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
           />
           {{
-            panelContext.channel.type === 'voice'
+            panelContext.channel.type === 'voice' ||
+            panelContext.channel.type === 'stage'
               ? 'Join voice channel'
               : 'Open channel'
           }}
@@ -516,6 +522,44 @@ const emit = defineEmits<{
         >
           Voice
         </div>
+        <button
+          v-if="
+            vcContextShowVoiceMod &&
+            vcMenuIsStage &&
+            vcMenuCanInviteToSpeak &&
+            !vcMenuTargetIsSpeaker
+          "
+          type="button"
+          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+          role="menuitem"
+          @click="emit('vc-moderate', 'inviteToSpeak')"
+        >
+          <img
+            :src="icons.mic"
+            alt=""
+            class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert"
+          />
+          Invite to speak
+        </button>
+        <button
+          v-if="
+            vcContextShowVoiceMod &&
+            vcMenuIsStage &&
+            vcMenuCanInviteToSpeak &&
+            vcMenuTargetIsSpeaker
+          "
+          type="button"
+          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+          role="menuitem"
+          @click="emit('vc-moderate', 'moveToAudience')"
+        >
+          <img
+            :src="icons.mic"
+            alt=""
+            class="echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-60 filter invert"
+          />
+          Move to audience
+        </button>
         <button
           v-if="vcContextShowVoiceMod && vcMenuCanMute"
           type="button"

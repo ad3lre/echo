@@ -162,7 +162,12 @@ const lc = computed((): AppLayoutLeftChromeProps => {
       g('canVcModerateMember') ??
       ((
         _userId: string,
-        _action: 'serverMute' | 'serverDeafen' | 'disconnect',
+        _action:
+          | 'serverMute'
+          | 'serverDeafen'
+          | 'disconnect'
+          | 'inviteToSpeak'
+          | 'moveToAudience',
       ) => false),
     handleModerateUser: g('handleModerateUser') ?? (() => {}),
     handleVcModerate: g('handleVcModerate') ?? (() => {}),
@@ -400,7 +405,11 @@ const vcStripMoveTargets = computed(() => {
   for (const cat of cats) {
     for (const ch of cat.channels) {
       if (ch.parentChannelId) continue;
-      if (ch.type !== 'voice' || ch.id === src) continue;
+      if (
+        (ch.type !== 'voice' && ch.type !== 'stage') ||
+        ch.id === src
+      )
+        continue;
       const name = getChannelDisplayName(ch.name);
       const dis = !!(canJoin && !canJoin(ch.id));
       out.push({ id: ch.id, name, disabled: dis });
@@ -437,7 +446,14 @@ function vcStripMenuCopyUserId() {
   vcStripCloseMenu();
 }
 
-function vcStripModerate(action: 'serverMute' | 'serverDeafen' | 'disconnect') {
+function vcStripModerate(
+  action:
+    | 'serverMute'
+    | 'serverDeafen'
+    | 'disconnect'
+    | 'inviteToSpeak'
+    | 'moveToAudience',
+) {
   const ctx = vcStripContext.value;
   if (!ctx) return;
   vcStripCloseMenu();
@@ -560,7 +576,11 @@ const emit = defineEmits<{
   'channel-leave-server': [serverId: string];
   'channel-mark-read': [channelId: string];
   'guild-event-rsvp': [
-    payload: { serverId: string; eventId: string; status: 'going' | 'declined' },
+    payload: {
+      serverId: string;
+      eventId: string;
+      status: 'going' | 'declined';
+    },
   ];
   'open-guild-event-channel': [
     payload: {

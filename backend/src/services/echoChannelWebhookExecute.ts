@@ -14,7 +14,10 @@ import {
   touchEchoChannelWebhookLastUsed,
   verifyEchoChannelWebhookToken,
 } from '../domain/echoChannelWebhooksRepo';
-import { getEchoMessageById, insertEchoMessage } from '../domain/echoMessagesDal';
+import {
+  getEchoMessageById,
+  insertEchoMessage,
+} from '../domain/echoMessagesDal';
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { echoMessagesPersistedTotal } from '../observability/echoMetrics';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
@@ -63,7 +66,9 @@ export function parseEchoChannelWebhookExecuteQuery(
   const wait = parseBoolQuery(q.wait);
   const withComponents = parseBoolQuery(q.with_components);
   const threadId =
-    typeof q.thread_id === 'string' && q.thread_id.trim() ? q.thread_id.trim() : null;
+    typeof q.thread_id === 'string' && q.thread_id.trim()
+      ? q.thread_id.trim()
+      : null;
   return {
     ...(wait !== undefined ? { wait } : {}),
     ...(threadId ? { threadId } : {}),
@@ -128,7 +133,11 @@ export async function executeEchoChannelWebhook(
     plaintextToken: string;
     /** Merged JSON (+ multipart payload_json) body as a plain object. */
     body: Record<string, unknown> | null;
-    multipartFiles?: { filename: string; buffer: Buffer; contentType?: string | null }[];
+    multipartFiles?: {
+      filename: string;
+      buffer: Buffer;
+      contentType?: string | null;
+    }[];
     query?: EchoChannelWebhookExecuteQuery;
     fastify?: FastifyInstance;
   },
@@ -137,7 +146,9 @@ export async function executeEchoChannelWebhook(
       ok: true;
       message: Message;
       wait: boolean;
-      discordWaitBody?: ReturnType<typeof serializeEchoRowForDiscordWebhookExecuteWait>;
+      discordWaitBody?: ReturnType<
+        typeof serializeEchoRowForDiscordWebhookExecuteWait
+      >;
     }
   | { ok: false; status: number; code: string; message: string }
 > {
@@ -179,7 +190,9 @@ export async function executeEchoChannelWebhook(
   const merged: Record<string, unknown> = { ...(opts.body ?? {}) };
 
   const contentRaw = typeof merged.content === 'string' ? merged.content : '';
-  const contentTrim = contentRaw.trim().slice(0, DISCORD_WEBHOOK_EXECUTE_CONTENT_MAX);
+  const contentTrim = contentRaw
+    .trim()
+    .slice(0, DISCORD_WEBHOOK_EXECUTE_CONTENT_MAX);
 
   let username: string | undefined;
   if (typeof merged.username === 'string' && merged.username.trim()) {
@@ -188,7 +201,10 @@ export async function executeEchoChannelWebhook(
   let avatarUrl: string | undefined;
   if (typeof merged.avatar_url === 'string' && merged.avatar_url.trim()) {
     const u = merged.avatar_url.trim().slice(0, 2048);
-    if (u.toLowerCase().startsWith('http://') || u.toLowerCase().startsWith('https://')) {
+    if (
+      u.toLowerCase().startsWith('http://') ||
+      u.toLowerCase().startsWith('https://')
+    ) {
       avatarUrl = u;
     }
   }
@@ -297,9 +313,14 @@ export async function executeEchoChannelWebhook(
     contentRaw,
     allowedMentions,
   );
-  mentions = await filterMentionsForChannelContext(pool, targetChannelId, mentions);
+  mentions = await filterMentionsForChannelContext(
+    pool,
+    targetChannelId,
+    mentions,
+  );
 
-  const permissionUserId = row.createdByUserId?.trim() || ECHO_INTERNAL_WEBHOOK_ACTOR_USER_ID;
+  const permissionUserId =
+    row.createdByUserId?.trim() || ECHO_INTERNAL_WEBHOOK_ACTOR_USER_ID;
 
   if (
     !(await canUserSendMassMentionInChannel(
@@ -385,7 +406,8 @@ export async function executeEchoChannelWebhook(
       ok: false,
       status: 400,
       code: 'INVALID_BODY',
-      message: 'At least one of content, embeds, components, files, or poll is required.',
+      message:
+        'At least one of content, embeds, components, files, or poll is required.',
     };
   }
 
@@ -450,7 +472,10 @@ export async function executeEchoChannelWebhook(
       ...(components !== undefined ? { components } : {}),
     });
   } catch (e) {
-    log.error({ err: e, msg: 'echo_channel_webhook.insert_failed' }, 'Webhook insert failed');
+    log.error(
+      { err: e, msg: 'echo_channel_webhook.insert_failed' },
+      'Webhook insert failed',
+    );
     return {
       ok: false,
       status: 500,

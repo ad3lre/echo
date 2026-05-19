@@ -8,7 +8,10 @@ import type {
   EchoAutomodRule,
 } from '@shared/types/automod';
 import type { AutomodEffectiveCapabilities } from '@shared/types/automod';
-import { AUTOMOD_MAX_NODES_PER_RULE, AUTOMOD_MAX_TREE_DEPTH } from '@shared/types/automod';
+import {
+  AUTOMOD_MAX_NODES_PER_RULE,
+  AUTOMOD_MAX_TREE_DEPTH,
+} from '@shared/types/automod';
 import { useServerAutomodRulesStore } from '@/stores/serverAutomodRules';
 import {
   countAutomodNodes,
@@ -23,11 +26,8 @@ import AutomodTestPanel from './AutomodTestPanel.vue';
 import RoleIconPickerField from '@/features/server-settings/components/RoleIconPickerField.vue';
 import type { EmojiEntry } from '@/composables/useEmojiData';
 import type { AppIconEntry } from '@/composables/useAppIconSearch';
-import { EchoApiError } from '@/api/echo/transport';
-import { uploadServerBrandingFile } from '@/api/echo/uploads';
+import { uploadAutomodRuleIcon } from '@/features/server-settings/composables/useAutomodRuleIconUpload';
 import { getTwemojiSrc } from '@/utils/twemoji';
-import { UIErrorBus } from '@/utils/uiErrorBus';
-import { isEchoGraphId } from '@/utils/echoIds';
 import {
   automodRuleIconPickerUrl,
   defaultAutomodRuleIcon,
@@ -188,28 +188,8 @@ function onAutomodIconPickExternalUrl(url: string) {
 }
 
 async function onAutomodIconUpload(file: File) {
-  const sid = props.serverId?.trim();
-  if (!sid || !isEchoGraphId(sid)) return;
-  try {
-    const url = await uploadServerBrandingFile(
-      props.token,
-      sid,
-      'server_icon',
-      file,
-    );
-    icon.value = url;
-  } catch (e) {
-    const code =
-      e instanceof EchoApiError && typeof e.body.code === 'string'
-        ? e.body.code
-        : undefined;
-    UIErrorBus.emit({
-      context: 'automod-rule-icon-upload',
-      severity: 'error',
-      userMessage: e instanceof Error ? e.message : 'Upload failed',
-      ...(code ? { code } : {}),
-    });
-  }
+  const url = await uploadAutomodRuleIcon(props.token, props.serverId, file);
+  if (url) icon.value = url;
 }
 
 function onAutomodIconClear() {
@@ -275,7 +255,9 @@ async function save() {
           ← Rules
         </button>
         <div class="min-w-0 flex-1">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
+          <p
+            class="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
+          >
             {{ mode === 'create' ? 'New rule' : 'Edit rule' }}
           </p>
           <input
@@ -286,7 +268,9 @@ async function save() {
             placeholder="Rule name"
             autocomplete="off"
           />
-          <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-fg-soft">
+          <div
+            class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-fg-soft"
+          >
             <label class="flex items-center gap-2">
               <span class="text-fg-subtle">Icon</span>
               <RoleIconPickerField
@@ -308,9 +292,7 @@ async function save() {
                 type="checkbox"
                 class="server-toggle"
                 :checked="enabled"
-                @change="
-                  enabled = ($event.target as HTMLInputElement).checked
-                "
+                @change="enabled = ($event.target as HTMLInputElement).checked"
               />
               <span>Enabled</span>
             </label>
@@ -356,10 +338,11 @@ async function save() {
         Regex conditions need the RE2 module on this server build.
       </p>
       <p v-if="capabilities && hasPunishOrRoleActions">
-        Automated timeouts, kicks, bans, deletes, and role changes run as the server owner.
+        Automated timeouts, kicks, bans, deletes, and role changes run as the
+        server owner.
         <template v-if="capabilities.automodActorUserId">
-          Actor id {{ capabilities.automodActorUserId.slice(0, 10) }}… — if the owner cannot act on
-          a member, these actions may fail.
+          Actor id {{ capabilities.automodActorUserId.slice(0, 10) }}… — if the
+          owner cannot act on a member, these actions may fail.
         </template>
       </p>
     </div>
@@ -372,8 +355,8 @@ async function save() {
           <div>
             <h3 class="settings-subtitle">Conditions</h3>
             <p class="mt-1 max-w-3xl text-xs leading-relaxed text-fg-soft">
-              Match incoming messages against this tree. Narrow rules first; broad catch-alls last
-              in the pipeline list.
+              Match incoming messages against this tree. Narrow rules first;
+              broad catch-alls last in the pipeline list.
             </p>
           </div>
           <p
@@ -397,8 +380,9 @@ async function save() {
         <div class="mb-4 border-b border-border/60 pb-3">
           <h3 class="settings-subtitle">Actions</h3>
           <p class="mt-1 max-w-3xl text-xs leading-relaxed text-fg-soft">
-            Executed when conditions match. Block stops the message from being stored; log alerts,
-            channel notices, and DM-style warnings can still run for that send (best effort).
+            Executed when conditions match. Block stops the message from being
+            stored; log alerts, channel notices, and DM-style warnings can still
+            run for that send (best effort).
           </p>
         </div>
         <AutomodActionsEditor
@@ -413,9 +397,10 @@ async function save() {
         <div class="mb-4 border-b border-border/60 pb-3">
           <h3 class="settings-subtitle">Exemptions &amp; logging</h3>
           <p class="mt-1 max-w-3xl text-xs leading-relaxed text-fg-soft">
-            Skip trusted roles or slow channels. Set a log channel when you use the
-            “Log channel alert” action (required on save). The same channel receives staff-visible
-            “DM warning” text if configured; otherwise AutoMod tries the server owner’s DM with the member.
+            Skip trusted roles or slow channels. Set a log channel when you use
+            the “Log channel alert” action (required on save). The same channel
+            receives staff-visible “DM warning” text if configured; otherwise
+            AutoMod tries the server owner’s DM with the member.
           </p>
         </div>
         <div class="grid gap-6 lg:grid-cols-2">
@@ -484,7 +469,10 @@ async function save() {
                     (e) => {
                       const on = (e.target as HTMLInputElement).checked;
                       exemptChannelIds = on
-                        ? [...exemptChannelIds.filter((x) => x !== ch.id), ch.id]
+                        ? [
+                            ...exemptChannelIds.filter((x) => x !== ch.id),
+                            ch.id,
+                          ]
                         : exemptChannelIds.filter((x) => x !== ch.id);
                     }
                   "
@@ -503,8 +491,9 @@ async function save() {
         <div class="mt-6 max-w-md">
           <label class="settings-label">Log / alert channel</label>
           <p class="mt-1 text-[11px] leading-snug text-fg-subtle">
-            Required for “Log channel alert”. Optional for “DM warning” (staff copy); if empty, the
-            warning is sent in the owner’s DM thread with the member when that thread can be opened.
+            Required for “Log channel alert”. Optional for “DM warning” (staff
+            copy); if empty, the warning is sent in the owner’s DM thread with
+            the member when that thread can be opened.
           </p>
           <select
             class="server-input mt-2 w-full"
@@ -514,11 +503,7 @@ async function save() {
             "
           >
             <option value="">None</option>
-            <option
-              v-for="ch in channelOptions"
-              :key="ch.id"
-              :value="ch.id"
-            >
+            <option v-for="ch in channelOptions" :key="ch.id" :value="ch.id">
               #{{ ch.name }}
             </option>
           </select>
@@ -529,7 +514,8 @@ async function save() {
         <div class="mb-4 border-b border-border/60 pb-3">
           <h3 class="settings-subtitle">Dry run</h3>
           <p class="mt-1 max-w-3xl text-xs leading-relaxed text-fg-soft">
-            Trace how this rule evaluates sample text. New rules must be saved once before testing.
+            Trace how this rule evaluates sample text. New rules must be saved
+            once before testing.
           </p>
         </div>
         <AutomodTestPanel
@@ -547,10 +533,7 @@ async function save() {
         </p>
       </section>
 
-      <p
-        v-if="saveError"
-        class="text-sm text-red-400"
-      >
+      <p v-if="saveError" class="text-sm text-red-400">
         {{ saveError }}
       </p>
     </div>
@@ -572,7 +555,13 @@ async function save() {
         :disabled="saving"
         @click="save"
       >
-        {{ saving ? 'Saving…' : mode === 'create' ? 'Create rule' : 'Save changes' }}
+        {{
+          saving
+            ? 'Saving…'
+            : mode === 'create'
+              ? 'Create rule'
+              : 'Save changes'
+        }}
       </button>
     </footer>
   </div>

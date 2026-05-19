@@ -1,4 +1,8 @@
-import type { FastifyInstance, FastifyPluginOptions, FastifyRequest } from 'fastify';
+import type {
+  FastifyInstance,
+  FastifyPluginOptions,
+  FastifyRequest,
+} from 'fastify';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import type { Server } from 'socket.io';
@@ -29,23 +33,40 @@ function decodeTokenParam(raw: string): string {
 }
 
 function isMultipartRequest(req: FastifyRequest): boolean {
-  const ct = typeof req.headers['content-type'] === 'string' ? req.headers['content-type'] : '';
+  const ct =
+    typeof req.headers['content-type'] === 'string'
+      ? req.headers['content-type']
+      : '';
   return ct.toLowerCase().includes('multipart/form-data');
 }
 
 async function parseMultipartWebhookExecute(req: FastifyRequest): Promise<
-  | { ok: true; body: Record<string, unknown>; files: { filename: string; buffer: Buffer; contentType?: string | null }[] }
+  | {
+      ok: true;
+      body: Record<string, unknown>;
+      files: {
+        filename: string;
+        buffer: Buffer;
+        contentType?: string | null;
+      }[];
+    }
   | { ok: false; message: string }
 > {
   const body: Record<string, unknown> = {};
-  const files: { filename: string; buffer: Buffer; contentType?: string | null }[] = [];
+  const files: {
+    filename: string;
+    buffer: Buffer;
+    contentType?: string | null;
+  }[] = [];
   try {
     const parts = req.parts();
     for await (const part of parts) {
       if (part.type === 'field') {
         if (part.fieldname === 'payload_json') {
           const raw =
-            typeof part.value === 'string' ? part.value : String(part.value ?? '');
+            typeof part.value === 'string'
+              ? part.value
+              : String(part.value ?? '');
           if (!raw.trim()) continue;
           let j: unknown;
           try {
@@ -54,7 +75,10 @@ async function parseMultipartWebhookExecute(req: FastifyRequest): Promise<
             return { ok: false, message: 'Invalid payload_json.' };
           }
           if (!j || typeof j !== 'object' || Array.isArray(j)) {
-            return { ok: false, message: 'payload_json must be a JSON object.' };
+            return {
+              ok: false,
+              message: 'payload_json must be a JSON object.',
+            };
           }
           Object.assign(body, j as Record<string, unknown>);
         }
@@ -113,7 +137,10 @@ export default async function echoChannelWebhookHookRoutes(
     });
 
     const executePost = async (
-      req: FastifyRequest<{ Params: { webhookId: string; token: string }; Body: unknown }>,
+      req: FastifyRequest<{
+        Params: { webhookId: string; token: string };
+        Body: unknown;
+      }>,
       reply: import('fastify').FastifyReply,
       mode: 'discord' | 'slack' | 'github',
     ): Promise<void> => {
@@ -180,22 +207,34 @@ export default async function echoChannelWebhookHookRoutes(
         return sendError(reply, res.status, res.code, res.message);
       }
       if (res.wait && res.discordWaitBody) {
-        return reply.code(200).type('application/json').send(res.discordWaitBody);
+        return reply
+          .code(200)
+          .type('application/json')
+          .send(res.discordWaitBody);
       }
       return reply.code(204).send();
     };
 
-    scoped.post<{ Params: { webhookId: string; token: string }; Body: unknown }>(
+    scoped.post<{
+      Params: { webhookId: string; token: string };
+      Body: unknown;
+    }>(
       '/hooks/echo-channel-webhooks/:webhookId/:token',
       { bodyLimit: 8_000_000 },
       (req, reply) => executePost(req, reply, 'discord'),
     );
-    scoped.post<{ Params: { webhookId: string; token: string }; Body: unknown }>(
+    scoped.post<{
+      Params: { webhookId: string; token: string };
+      Body: unknown;
+    }>(
       '/hooks/echo-channel-webhooks/:webhookId/:token/slack',
       { bodyLimit: 8_000_000 },
       (req, reply) => executePost(req, reply, 'slack'),
     );
-    scoped.post<{ Params: { webhookId: string; token: string }; Body: unknown }>(
+    scoped.post<{
+      Params: { webhookId: string; token: string };
+      Body: unknown;
+    }>(
       '/hooks/echo-channel-webhooks/:webhookId/:token/github',
       { bodyLimit: 8_000_000 },
       (req, reply) => executePost(req, reply, 'github'),
@@ -206,7 +245,12 @@ export default async function echoChannelWebhookHookRoutes(
       async (req, reply) => {
         const pool = getPgPool();
         if (!pool) {
-          return sendError(reply, 503, 'NOT_AVAILABLE', 'Database unavailable.');
+          return sendError(
+            reply,
+            503,
+            'NOT_AVAILABLE',
+            'Database unavailable.',
+          );
         }
         const plaintextToken = decodeTokenParam(req.params.token);
         const row = await getEchoChannelWebhookPublicByIdAndToken(
@@ -229,57 +273,57 @@ export default async function echoChannelWebhookHookRoutes(
       },
     );
 
-    scoped.patch<{ Params: { webhookId: string; token: string }; Body: unknown }>(
-      '/hooks/echo-channel-webhooks/:webhookId/:token',
-      async (req, reply) => {
-        const pool = getPgPool();
-        if (!pool) {
-          return sendError(reply, 503, 'NOT_AVAILABLE', 'Database unavailable.');
-        }
-        const plaintextToken = decodeTokenParam(req.params.token);
-        const b = req.body;
-        if (!b || typeof b !== 'object' || Array.isArray(b)) {
-          return sendError(reply, 400, 'INVALID_BODY', 'JSON body required.');
-        }
-        const o = b as Record<string, unknown>;
-        if (o.channel_id !== undefined || o.channelId !== undefined) {
-          return sendError(
-            reply,
-            400,
-            'NOT_SUPPORTED',
-            'Moving a webhook to another channel is not supported.',
-          );
-        }
-        const name = typeof o.name === 'string' ? o.name : undefined;
-        const avatarUrlRaw = o.avatar_url ?? o.avatarUrl;
-        const avatarUrl =
-          avatarUrlRaw === null
-            ? null
-            : typeof avatarUrlRaw === 'string'
-              ? avatarUrlRaw
-              : undefined;
-        const updated = await updateEchoChannelWebhookByToken(
-          pool,
-          req.params.webhookId,
-          plaintextToken,
-          {
-            ...(name !== undefined ? { name } : {}),
-            ...(avatarUrl !== undefined ? { avatarUrl } : {}),
-          },
+    scoped.patch<{
+      Params: { webhookId: string; token: string };
+      Body: unknown;
+    }>('/hooks/echo-channel-webhooks/:webhookId/:token', async (req, reply) => {
+      const pool = getPgPool();
+      if (!pool) {
+        return sendError(reply, 503, 'NOT_AVAILABLE', 'Database unavailable.');
+      }
+      const plaintextToken = decodeTokenParam(req.params.token);
+      const b = req.body;
+      if (!b || typeof b !== 'object' || Array.isArray(b)) {
+        return sendError(reply, 400, 'INVALID_BODY', 'JSON body required.');
+      }
+      const o = b as Record<string, unknown>;
+      if (o.channel_id !== undefined || o.channelId !== undefined) {
+        return sendError(
+          reply,
+          400,
+          'NOT_SUPPORTED',
+          'Moving a webhook to another channel is not supported.',
         );
-        if (!updated) {
-          return sendError(reply, 404, 'NOT_FOUND', 'Not found.');
-        }
-        return reply.code(200).send({
-          id: updated.id,
-          type: 1,
-          guild_id: updated.serverId,
-          channel_id: updated.channelId,
-          name: updated.name,
-          avatar: updated.avatarUrl,
-          token: 'REDACTED',
-        });
-      },
-    );
+      }
+      const name = typeof o.name === 'string' ? o.name : undefined;
+      const avatarUrlRaw = o.avatar_url ?? o.avatarUrl;
+      const avatarUrl =
+        avatarUrlRaw === null
+          ? null
+          : typeof avatarUrlRaw === 'string'
+            ? avatarUrlRaw
+            : undefined;
+      const updated = await updateEchoChannelWebhookByToken(
+        pool,
+        req.params.webhookId,
+        plaintextToken,
+        {
+          ...(name !== undefined ? { name } : {}),
+          ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+        },
+      );
+      if (!updated) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Not found.');
+      }
+      return reply.code(200).send({
+        id: updated.id,
+        type: 1,
+        guild_id: updated.serverId,
+        channel_id: updated.channelId,
+        name: updated.name,
+        avatar: updated.avatarUrl,
+        token: 'REDACTED',
+      });
+    });
   });
 }

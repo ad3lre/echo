@@ -461,7 +461,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     if (!sid || sid === 'echo' || !isEchoGraphId(sid)) return true;
     const ctx = findChannelContextById(channelId);
     const ch = ctx?.channel;
-    if (!ch || ch.type !== 'voice') return true;
+    if (!ch || (ch.type !== 'voice' && ch.type !== 'stage')) return true;
     if (roleUi.isRolePreviewActiveForServer.value) {
       const defaults = ctx.category.channelPermissionDefaults;
       return (
@@ -479,7 +479,10 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
   }) {
     const ctx = findChannelContextById(payload.channelId);
     const vch = ctx?.channel;
-    if (vch?.type === 'voice' && vch.discordVoiceMirrorOnly) {
+    if (
+      (vch?.type === 'voice' || vch?.type === 'stage') &&
+      vch.discordVoiceMirrorOnly
+    ) {
       requestGuildVoiceDiscordMirrorModal();
       return;
     }
@@ -564,7 +567,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
 
   function handleLeaveVoiceNavigation() {
     const ch = findChannelContextById(activeChannelId.value)?.channel;
-    if (ch?.type === 'voice') {
+    if (ch?.type === 'voice' || ch?.type === 'stage') {
       logShellNav(
         'handleLeaveVoiceNavigation',
         'leave_voice_keep_surface_open',
@@ -586,7 +589,10 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
 
   function onVcChatButtonClickNavigation() {
     const viewingVoice =
-      findChannelContextById(activeChannelId.value)?.channel?.type === 'voice';
+      (() => {
+        const t = findChannelContextById(activeChannelId.value)?.channel?.type;
+        return t === 'voice' || t === 'stage';
+      })();
     if (currentVoiceChannelId.value && !viewingVoice) {
       logShellNav('onVcChatButtonClickNavigation', 'jump_to_voice_channel', {
         to: currentVoiceChannelId.value,

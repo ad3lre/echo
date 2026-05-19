@@ -654,7 +654,13 @@ export interface AppLayoutControllerContext {
   canModerateMemberInServer: (userId: string) => boolean;
   canVcModerateMember: (
     targetUserId: string,
-    action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move',
+    action:
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'disconnect'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience',
   ) => boolean;
   canModerateMemberActionInServer: (
     targetUserId: string,
@@ -675,7 +681,13 @@ export interface AppLayoutControllerContext {
   }) => void;
   onModerationModalConfirm: (payload: any) => void;
   handleVcModerate: (payload: {
-    action: 'disconnect' | 'serverMute' | 'serverDeafen' | 'move';
+    action:
+      | 'disconnect'
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;

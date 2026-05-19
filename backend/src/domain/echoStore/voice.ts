@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { isVoiceLikeChannelType } from '../../../../shared/voiceChannelKinds';
 import {
   canActorModerateTargetMember,
   getUserCommunicationTimeoutState,
@@ -28,6 +29,66 @@ async function canActorEchoVoiceMuteOrDeafenOnChannel(
   return p.has(perm);
 }
 
+/** Stage moderators / speakers join with mic publish allowed (Discord parity). */
+export async function computeInitialStageSpeaker(
+  pool: pg.Pool,
+  serverId: string,
+  channelId: string,
+  userId: string,
+): Promise<boolean> {
+  if (await isEchoServerOwner(pool, serverId, userId)) return true;
+  const perms = await getEffectiveChannelPermissions(
+    pool,
+    serverId,
+    userId,
+    channelId,
+  );
+  if (perms.has('SPEAK')) return true;
+  if (perms.has('MUTE_MEMBERS')) return true;
+  if (perms.has('MOVE_MEMBERS')) return true;
+  if (perms.has('MANAGE_CHANNELS')) return true;
+  if (perms.has('MANAGE_GUILD')) return true;
+  return false;
+}
+
+export async function getEchoChannelType(
+  pool: pg.Pool,
+  serverId: string,
+  channelId: string,
+): Promise<string | null> {
+  const ch = await pool.query(
+    `SELECT type FROM echo_channels WHERE id = $1 AND server_id = $2`,
+    [channelId, serverId],
+  );
+  if (!ch.rows[0]) return null;
+  return String(ch.rows[0].type);
+}
+
+/**
+ * Whether a user in a stage channel may publish microphone audio.
+ * Audience members have `stage_speaker = false`.
+ */
+export async function canUserSpeakInStageChannel(
+  pool: pg.Pool,
+  serverId: string,
+  channelId: string,
+  userId: string,
+): Promise<boolean> {
+  const channelType = await getEchoChannelType(pool, serverId, channelId);
+  if (channelType !== 'stage') return true;
+
+  const row = await pool.query(
+    `SELECT stage_speaker, server_muted, server_deafened
+     FROM echo_voice_participants
+     WHERE server_id = $1 AND channel_id = $2 AND user_id = $3`,
+    [serverId, channelId, userId],
+  );
+  if (!row.rows[0]) return false;
+  if (Boolean(row.rows[0].server_muted) || Boolean(row.rows[0].server_deafened))
+    return false;
+  return Boolean(row.rows[0].stage_speaker);
+}
+
 export type EchoVoiceJoinDeniedReason =
   | 'not_found'
   | 'not_member'
@@ -38,7 +99,7 @@ export type EchoVoiceJoinDeniedReason =
   | 'full';
 
 export type EchoVoiceJoinResult =
-  | { ok: true }
+  | { ok: true; stageSpeaker?: boolean }
   | { ok: false; reason: EchoVoiceJoinDeniedReason };
 
 export async function joinEchoVoiceChannel(
@@ -52,7 +113,8 @@ export async function joinEchoVoiceChannel(
     [channelId, serverId],
   );
   if (!ch.rows[0]) return { ok: false, reason: 'not_found' };
-  if (String(ch.rows[0].type) !== 'voice')
+  const channelType = String(ch.rows[0].type);
+  if (!isVoiceLikeChannelType(channelType))
     return { ok: false, reason: 'not_found' };
   const mem = await pool.query(
     `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
@@ -96,15 +158,24 @@ export async function joinEchoVoiceChannel(
     }
   }
 
+  const isStage = channelType === 'stage';
+  const stageSpeaker = isStage
+    ? await computeInitialStageSpeaker(pool, serverId, channelId, userId)
+    : false;
+
   await pool.query(
     `
-    INSERT INTO echo_voice_participants (server_id, channel_id, user_id)
-    VALUES ($1, $2, $3)
-    ON CONFLICT (server_id, user_id) DO UPDATE SET channel_id = $2, joined_at = NOW()
+    INSERT INTO echo_voice_participants (server_id, channel_id, user_id, stage_speaker)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (server_id, user_id) DO UPDATE SET
+      channel_id = $2,
+      joined_at = NOW(),
+      stage_speaker = $4
     `,
-    [serverId, channelId, userId],
+    [serverId, channelId, userId, stageSpeaker],
   );
-  return { ok: true };
+
+  return isStage ? { ok: true, stageSpeaker } : { ok: true };
 }
 
 export async function leaveEchoVoiceChannel(
@@ -112,6 +183,10 @@ export async function leaveEchoVoiceChannel(
   serverId: string,
   userId: string,
 ): Promise<void> {
+  await pool.query(
+    `DELETE FROM echo_stage_speak_requests WHERE server_id = $1 AND user_id = $2`,
+    [serverId, userId],
+  );
   await pool.query(
     `DELETE FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
     [serverId, userId],
@@ -176,7 +251,43 @@ export type EchoVoiceModerationAction =
   | 'server_mute'
   | 'server_unmute'
   | 'server_deafen'
-  | 'server_undeafen';
+  | 'server_undeafen'
+  | 'invite_to_speak'
+  | 'move_to_audience';
+
+async function applyStageSpeakerModeration(
+  pool: pg.Pool,
+  serverId: string,
+  actorId: string,
+  targetUserId: string,
+  stageSpeaker: boolean,
+): Promise<EchoVoiceModerationResult> {
+  const vp = await pool.query(
+    `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+    [serverId, targetUserId],
+  );
+  if (!vp.rows[0]) return 'not_found';
+  const vch = String(vp.rows[0].channel_id);
+  const chType = await getEchoChannelType(pool, serverId, vch);
+  if (chType !== 'stage') return 'not_found';
+  if (
+    !(await canActorEchoVoiceMuteOrDeafenOnChannel(
+      pool,
+      serverId,
+      actorId,
+      targetUserId,
+      vch,
+      'MUTE_MEMBERS',
+    ))
+  ) {
+    return 'forbidden';
+  }
+  await pool.query(
+    `UPDATE echo_voice_participants SET stage_speaker = $1 WHERE server_id = $2 AND user_id = $3`,
+    [stageSpeaker, serverId, targetUserId],
+  );
+  return 'ok';
+}
 
 export async function applyEchoVoiceModerationAction(
   pool: pg.Pool,
@@ -186,6 +297,25 @@ export async function applyEchoVoiceModerationAction(
   targetUserId: string,
   targetChannelId?: string,
 ): Promise<EchoVoiceModerationResult> {
+  if (action === 'invite_to_speak') {
+    return applyStageSpeakerModeration(
+      pool,
+      serverId,
+      actorId,
+      targetUserId,
+      true,
+    );
+  }
+  if (action === 'move_to_audience') {
+    return applyStageSpeakerModeration(
+      pool,
+      serverId,
+      actorId,
+      targetUserId,
+      false,
+    );
+  }
+
   if (
     action === 'server_mute' ||
     action === 'server_unmute' ||
@@ -300,7 +430,7 @@ export async function applyEchoVoiceModerationAction(
   if (
     !ch.rows[0] ||
     String(ch.rows[0].server_id) !== serverId ||
-    String(ch.rows[0].type) !== 'voice'
+    !isVoiceLikeChannelType(String(ch.rows[0].type))
   )
     return 'not_found';
   const vp = await pool.query(
@@ -320,9 +450,20 @@ export async function applyEchoVoiceModerationAction(
   ) {
     return 'forbidden';
   }
+  const destIsStage = String(ch.rows[0].type) === 'stage';
+  const stageSpeaker = destIsStage
+    ? await computeInitialStageSpeaker(
+        pool,
+        serverId,
+        targetChannelId,
+        targetUserId,
+      )
+    : false;
   const upd = await pool.query(
-    `UPDATE echo_voice_participants SET channel_id = $1, joined_at = NOW() WHERE server_id = $2 AND user_id = $3`,
-    [targetChannelId, serverId, targetUserId],
+    `UPDATE echo_voice_participants
+     SET channel_id = $1, joined_at = NOW(), stage_speaker = $4
+     WHERE server_id = $2 AND user_id = $3`,
+    [targetChannelId, serverId, targetUserId, stageSpeaker],
   );
   if (upd.rowCount === 0) return 'not_found';
   return 'ok';

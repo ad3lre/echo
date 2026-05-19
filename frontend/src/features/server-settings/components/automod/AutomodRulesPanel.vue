@@ -137,25 +137,36 @@ async function onDropOn(targetId: string) {
 
     <template v-else>
       <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div
+          class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+        >
           <div class="min-w-0 flex-1">
             <div class="settings-subtitle">AutoMod rules</div>
             <p class="mt-1.5 max-w-2xl text-sm leading-relaxed text-fg-subtle">
-              Rules run in list order after the built-in spam gate. Block stops the message from being
-              stored; other actions still run afterward (moderation, notices, log alerts, DMs when possible).
+              Rules run in list order after the built-in spam gate. Block stops
+              the message from being stored; other actions still run afterward
+              (moderation, notices, log alerts, DMs when possible).
             </p>
-            <ul class="mt-3 grid gap-2 text-xs text-fg-soft sm:grid-cols-2 lg:max-w-3xl">
+            <ul
+              class="mt-3 grid gap-2 text-xs text-fg-soft sm:grid-cols-2 lg:max-w-3xl"
+            >
               <li class="flex gap-2">
                 <span class="font-semibold text-accent">1.</span>
                 <span>Drag the grip to change priority.</span>
               </li>
               <li class="flex gap-2">
                 <span class="font-semibold text-accent">2.</span>
-                <span>Use the toggle to enable or pause without opening the editor.</span>
+                <span
+                  >Use the toggle to enable or pause without opening the
+                  editor.</span
+                >
               </li>
               <li class="flex gap-2 sm:col-span-2">
                 <span class="font-semibold text-accent">3.</span>
-                <span>Edit opens the full inline builder: conditions, actions, exemptions, dry run.</span>
+                <span
+                  >Edit opens the full inline builder: conditions, actions,
+                  exemptions, dry run.</span
+                >
               </li>
             </ul>
           </div>
@@ -177,10 +188,7 @@ async function onDropOn(targetId: string) {
         You need Manage Server to edit AutoMod rules.
       </div>
 
-      <p
-        v-if="store.lastError"
-        class="text-sm text-red-400"
-      >
+      <p v-if="store.lastError" class="text-sm text-red-400">
         {{ store.lastError }}
       </p>
 
@@ -190,10 +198,7 @@ async function onDropOn(targetId: string) {
       >
         Loading rules…
       </div>
-      <div
-        v-else
-        class="space-y-2"
-      >
+      <div v-else class="space-y-2">
         <AutomodRuleCard
           v-for="r in rules"
           :key="r.id"
@@ -212,8 +217,8 @@ async function onDropOn(targetId: string) {
         >
           <p class="text-sm font-medium text-foreground">No custom rules yet</p>
           <p class="mx-auto mt-2 max-w-md text-sm text-fg-subtle">
-            Start from a narrow condition (e.g. invite links) and add actions like block + DM
-            notice. You can reorder anytime.
+            Start from a narrow condition (e.g. invite links) and add actions
+            like block + DM notice. You can reorder anytime.
           </p>
           <button
             type="button"

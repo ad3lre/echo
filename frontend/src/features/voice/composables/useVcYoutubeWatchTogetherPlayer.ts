@@ -123,7 +123,10 @@ export function useVcYoutubeWatchTogetherPlayer(opts: {
     const snap = snapshotFromPlayer();
     if (!snap) return;
     if (reason === 'interval' && !snap.playing) return;
-    if (snap.wallMs - lastPublishedWallMs.value < 400 && reason === 'interval') {
+    if (
+      snap.wallMs - lastPublishedWallMs.value < 400 &&
+      reason === 'interval'
+    ) {
       return;
     }
     lastPublishedWallMs.value = snap.wallMs;
@@ -251,7 +254,7 @@ export function useVcYoutubeWatchTogetherPlayer(opts: {
 
       const p = player.value;
       const target = expectedMediaTime(remote);
-      let cur = 0;
+      let cur: number;
       try {
         cur = p.getCurrentTime();
       } catch {

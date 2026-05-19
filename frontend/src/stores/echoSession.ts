@@ -164,7 +164,10 @@ export const useEchoSessionStore = defineStore('echoSession', () => {
 
   function applyVoiceRosterDelta(payload: EchoWorkspaceEvent): void {
     if (!payload.voiceRosterDelta) return;
-    applyVoiceRosterDeltaToEchoSession(sessionApplyRefs, payload.voiceRosterDelta);
+    applyVoiceRosterDeltaToEchoSession(
+      sessionApplyRefs,
+      payload.voiceRosterDelta,
+    );
   }
 
   function mergeDiscordVoiceMirrorFromSocket(

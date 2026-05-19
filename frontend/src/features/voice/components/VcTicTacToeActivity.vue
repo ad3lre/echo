@@ -177,9 +177,7 @@ watch(
       triggerTicTacToeHaptic(novelty.mark === humanMark ? 'place' : 'opp');
     } else {
       const mine = myMarkInPvp();
-      triggerTicTacToeHaptic(
-        mine && novelty.mark === mine ? 'place' : 'opp',
-      );
+      triggerTicTacToeHaptic(mine && novelty.mark === mine ? 'place' : 'opp');
     }
   },
   { deep: true },
@@ -451,7 +449,11 @@ const inviteFromName = computed(() =>
           <button type="button" class="ttt-btn" @click="onRespondInvite(false)">
             Decline
           </button>
-          <button type="button" class="ttt-btn ttt-btn--ghost" @click="dismissInvite">
+          <button
+            type="button"
+            class="ttt-btn ttt-btn--ghost"
+            @click="dismissInvite"
+          >
             Dismiss
           </button>
         </div>
@@ -459,9 +461,16 @@ const inviteFromName = computed(() =>
 
       <section v-if="surfaceMode === 'hub'" class="ttt-panel">
         <div class="ttt-modes">
-          <button type="button" class="ttt-mode-card" @click="surfaceMode = 'cpu'">
+          <button
+            type="button"
+            class="ttt-mode-card"
+            @click="surfaceMode = 'cpu'"
+          >
             <h3>Play Echo</h3>
-            <p>Practice against a perfect engine — private to you in this activity.</p>
+            <p>
+              Practice against a perfect engine — private to you in this
+              activity.
+            </p>
           </button>
           <button
             type="button"
@@ -484,7 +493,9 @@ const inviteFromName = computed(() =>
       <section v-else class="ttt-panel">
         <div class="ttt-meta">
           <span>
-            <template v-if="surfaceMode === 'cpu'"> You · <b>X</b> vs Echo · <b>O</b> </template>
+            <template v-if="surfaceMode === 'cpu'">
+              You · <b>X</b> vs Echo · <b>O</b>
+            </template>
             <template v-else-if="pvpActivity">
               <b>{{ nameFor(pvpActivity.xUserId) }}</b> (X) vs
               <b>{{ nameFor(pvpActivity.oUserId) }}</b> (O)
@@ -507,7 +518,11 @@ const inviteFromName = computed(() =>
               Play again
             </button>
             <button
-              v-if="surfaceMode === 'pvp' && pvpActivity && pvpActivity.status !== 'playing'"
+              v-if="
+                surfaceMode === 'pvp' &&
+                pvpActivity &&
+                pvpActivity.status !== 'playing'
+              "
               type="button"
               class="ttt-btn ttt-btn--primary"
               :disabled="!liveKitConnected"
@@ -533,13 +548,13 @@ const inviteFromName = computed(() =>
               class="ttt-roster-row"
             >
               <span>{{ p.name }}</span>
-            <button
-              type="button"
-              class="ttt-btn ttt-btn--primary"
-              @click="onChallenge(p.id)"
-            >
-              Challenge
-            </button>
+              <button
+                type="button"
+                class="ttt-btn ttt-btn--primary"
+                @click="onChallenge(p.id)"
+              >
+                Challenge
+              </button>
             </div>
           </template>
           <p v-else class="ttt-foot" style="text-align: left">

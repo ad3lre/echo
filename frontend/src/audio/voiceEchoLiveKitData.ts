@@ -697,8 +697,7 @@ export function decodeEchoCodenamesActivity(
       return null;
     }
     const ts = o.turnStage;
-    if (ts !== 'await_clue' && ts !== 'await_guess' && ts !== 'na')
-      return null;
+    if (ts !== 'await_clue' && ts !== 'await_guess' && ts !== 'na') return null;
     const cells = parseCodenamesPublicCells(o.cells);
     if (!cells) return null;
     const st = o.startingTeam;
@@ -719,13 +718,16 @@ export function decodeEchoCodenamesActivity(
       currentClue = { word: cw.slice(0, 64), number: n };
     }
     const gr =
-      typeof o.guessesRemaining === 'number' && Number.isFinite(o.guessesRemaining)
+      typeof o.guessesRemaining === 'number' &&
+      Number.isFinite(o.guessesRemaining)
         ? Math.max(0, Math.floor(o.guessesRemaining))
         : 0;
     const roleAssignments = parseRoleAssignments(o.roleAssignments);
     if (!roleAssignments) return null;
     const lastEvent =
-      typeof o.lastEvent === 'string' ? o.lastEvent.trim().slice(0, 256) : undefined;
+      typeof o.lastEvent === 'string'
+        ? o.lastEvent.trim().slice(0, 256)
+        : undefined;
     return {
       v: 1,
       t: 'codenames_activity',

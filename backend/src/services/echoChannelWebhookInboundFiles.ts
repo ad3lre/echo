@@ -45,7 +45,8 @@ function coerceAllowedChatContentType(
   filenameHint?: string,
 ): string | null {
   const fromHeader = headerCt?.trim().toLowerCase();
-  if (fromHeader && isAllowedChatUploadContentType(fromHeader)) return fromHeader;
+  if (fromHeader && isAllowedChatUploadContentType(fromHeader))
+    return fromHeader;
   const fn = (filenameHint ?? '').toLowerCase();
   const dot = fn.lastIndexOf('.');
   const ext = dot >= 0 ? fn.slice(dot) : '';
@@ -77,7 +78,8 @@ export async function persistWebhookInboundFiles(opts: {
   files: { filename: string; buffer: Buffer; contentType?: string | null }[];
   log: FastifyBaseLogger;
 }): Promise<
-  { ok: true; attachments: MessageAttachmentPayload[] } | { ok: false; message: string }
+  | { ok: true; attachments: MessageAttachmentPayload[] }
+  | { ok: false; message: string }
 > {
   if (opts.files.length > WEBHOOK_EXECUTE_MAX_FILES) {
     return { ok: false, message: 'Too many files.' };

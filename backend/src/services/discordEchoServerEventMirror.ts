@@ -104,7 +104,9 @@ async function pickEchoChannelIdForDeepLink(
       [ec, serverId],
     );
     if (r.rows.length) {
-      const t = String((r.rows[0] as { type?: unknown }).type ?? '').toLowerCase();
+      const t = String(
+        (r.rows[0] as { type?: unknown }).type ?? '',
+      ).toLowerCase();
       if (t === 'text' || t === 'forum' || t === 'voice') return ec;
     }
   }
@@ -130,7 +132,8 @@ async function buildEchoOpenUrl(
   const vanity = (await getEchoServerVanityCode(pool, serverId)).trim();
   if (vanity) return `${base}/${encodeURIComponent(vanity)}`;
   const ch = await pickEchoChannelIdForDeepLink(pool, serverId, eventChannelId);
-  if (ch) return `${base}/channels/${encodeURIComponent(serverId)}/${encodeURIComponent(ch)}`;
+  if (ch)
+    return `${base}/channels/${encodeURIComponent(serverId)}/${encodeURIComponent(ch)}`;
   return base;
 }
 
@@ -148,7 +151,8 @@ function buildDiscordDescription(args: {
   ].join('\n');
   const user = args.userDescription.trim();
   const room = Math.max(0, DISCORD_EVENT_DESCRIPTION_MAX - header.length);
-  const body = user.length > room ? `${user.slice(0, Math.max(0, room - 1))}…` : user;
+  const body =
+    user.length > room ? `${user.slice(0, Math.max(0, room - 1))}…` : user;
   const out = `${header}${body}`;
   return out.slice(0, DISCORD_EVENT_DESCRIPTION_MAX);
 }
@@ -182,9 +186,10 @@ async function resolveEntityPlan(
   startsAt: Date,
   endsAt: Date,
 ): Promise<EntityPlan | { error: string }> {
-  const ch = row.channel_id != null && String(row.channel_id).trim()
-    ? String(row.channel_id).trim()
-    : null;
+  const ch =
+    row.channel_id != null && String(row.channel_id).trim()
+      ? String(row.channel_id).trim()
+      : null;
   const custom = normLocCell(row.custom_location);
   if (custom) {
     return {
@@ -200,7 +205,9 @@ async function resolveEntityPlan(
       [ch, serverId],
     );
     if (!t.rows.length) return { error: 'Event channel not found' };
-    const typ = String((t.rows[0] as { type?: unknown }).type ?? '').toLowerCase();
+    const typ = String(
+      (t.rows[0] as { type?: unknown }).type ?? '',
+    ).toLowerCase();
     if (typ === 'voice') {
       const dch = ctx.echoToDiscord[ch];
       if (!dch) {
@@ -249,7 +256,10 @@ async function buildCreateOrReplaceBody(
     custom_location: unknown;
   },
 ): Promise<Record<string, unknown> | { error: string }> {
-  const title = String(row.title ?? '').trim().slice(0, DISCORD_EVENT_NAME_MAX) || 'Event';
+  const title =
+    String(row.title ?? '')
+      .trim()
+      .slice(0, DISCORD_EVENT_NAME_MAX) || 'Event';
   const userDesc = String(row.description ?? '').trim();
   const openUrl = await buildEchoOpenUrl(
     pool,
@@ -263,7 +273,14 @@ async function buildCreateOrReplaceBody(
     openUrl,
     userDescription: userDesc,
   });
-  const entity = await resolveEntityPlan(pool, serverId, ctx, row, row.starts_at, row.ends_at);
+  const entity = await resolveEntityPlan(
+    pool,
+    serverId,
+    ctx,
+    row,
+    row.starts_at,
+    row.ends_at,
+  );
   if ('error' in entity) return entity;
   const base: Record<string, unknown> = {
     name: title,
@@ -274,7 +291,8 @@ async function buildCreateOrReplaceBody(
   };
   if (entity.entity_type === 2) {
     base.channel_id = entity.channel_id;
-    if (entity.scheduled_end_time) base.scheduled_end_time = entity.scheduled_end_time;
+    if (entity.scheduled_end_time)
+      base.scheduled_end_time = entity.scheduled_end_time;
   } else {
     base.channel_id = null;
     base.scheduled_end_time = entity.scheduled_end_time;
@@ -447,7 +465,12 @@ export async function syncDiscordMirrorForEchoServerEvent(
   };
 
   if (startDiscordId) {
-    const newBody = await buildCreateOrReplaceBody(pool, input.serverId, ctx, planRow);
+    const newBody = await buildCreateOrReplaceBody(
+      pool,
+      input.serverId,
+      ctx,
+      planRow,
+    );
     if ('error' in newBody)
       return { ok: false, message: (newBody as { error: string }).error };
 
@@ -524,8 +547,14 @@ export async function syncDiscordMirrorForEchoServerEvent(
     );
   }
 
-  const body = await buildCreateOrReplaceBody(pool, input.serverId, ctx, planRow);
-  if ('error' in body) return { ok: false, message: (body as { error: string }).error };
+  const body = await buildCreateOrReplaceBody(
+    pool,
+    input.serverId,
+    ctx,
+    planRow,
+  );
+  if ('error' in body)
+    return { ok: false, message: (body as { error: string }).error };
   const created = await discordBotCreateGuildScheduledEvent(
     token,
     ctx.discordGuildId,
@@ -562,14 +591,26 @@ export async function deleteDiscordMirrorForEchoServerEvent(
   );
   if (!r.rows.length) return;
   const did = String(
-    (r.rows[0] as { discord_scheduled_event_id?: unknown }).discord_scheduled_event_id ??
-      '',
+    (r.rows[0] as { discord_scheduled_event_id?: unknown })
+      .discord_scheduled_event_id ?? '',
   ).trim();
   if (!did) return;
-  const del = await discordBotDeleteGuildScheduledEvent(token, ctx.discordGuildId, did);
+  const del = await discordBotDeleteGuildScheduledEvent(
+    token,
+    ctx.discordGuildId,
+    did,
+  );
   if (!del.ok && del.status !== 404) {
-    log?.warn({ err: del.text, status: del.status }, 'discord_scheduled_event_delete_failed');
+    log?.warn(
+      { err: del.text, status: del.status },
+      'discord_scheduled_event_delete_failed',
+    );
     return;
   }
-  await setEchoServerEventDiscordScheduledEventId(pool, serverId, eventId, null);
+  await setEchoServerEventDiscordScheduledEventId(
+    pool,
+    serverId,
+    eventId,
+    null,
+  );
 }

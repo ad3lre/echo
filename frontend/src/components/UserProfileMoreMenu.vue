@@ -230,10 +230,7 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
 </script>
 
 <template>
-  <div
-    v-if="enabled"
-    :class="showTrigger ? 'relative inline-flex' : 'hidden'"
-  >
+  <div v-if="enabled" :class="showTrigger ? 'relative inline-flex' : 'hidden'">
     <button
       v-if="showTrigger"
       ref="moreBtnRef"

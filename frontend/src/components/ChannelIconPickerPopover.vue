@@ -336,8 +336,7 @@ watch(isOpen, (open) => {
 });
 
 watch(
-  () =>
-    [props.modelValue, channelIconResolver.resolverRevision.value] as const,
+  () => [props.modelValue, channelIconResolver.resolverRevision.value] as const,
   () => {
     void syncTriggerIconUrl();
   },

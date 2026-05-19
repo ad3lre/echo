@@ -254,7 +254,13 @@ export type AppLayoutLeftChromeProps = {
   canModerateMemberInServer: (userId: string) => boolean;
   canVcModerateMember: (
     targetUserId: string,
-    action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move',
+    action:
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'disconnect'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience',
   ) => boolean;
   handleModerateUser: (payload: {
     action: 'kick' | 'ban' | 'timeout';
@@ -262,7 +268,13 @@ export type AppLayoutLeftChromeProps = {
     timeoutMinutes?: number;
   }) => void;
   handleVcModerate: (payload: {
-    action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move';
+    action:
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'disconnect'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;

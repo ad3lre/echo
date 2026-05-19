@@ -528,9 +528,7 @@ function horizontalRingIconCssUrl(server: Server): string {
 
 .server-folder__h-ring-inner--selected {
   filter: saturate(1.18) contrast(1.06)
-    drop-shadow(
-      0 0 5px color-mix(in srgb, var(--text) 28%, transparent)
-    );
+    drop-shadow(0 0 5px color-mix(in srgb, var(--text) 28%, transparent));
   -webkit-mask-image:
     radial-gradient(
       closest-side circle at 50% 50%,

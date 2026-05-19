@@ -101,9 +101,7 @@ export function useAppLayoutEchoDmState(deps: {
       }
     }
     const lastActivityAtMs =
-      'lastActivityAt' in thread
-        ? parseIsoToMs(thread.lastActivityAt)
-        : 0;
+      'lastActivityAt' in thread ? parseIsoToMs(thread.lastActivityAt) : 0;
     if (lastActivityAtMs > 0) {
       const prevAt = at.get(thread.channelId) ?? 0;
       if (lastActivityAtMs > prevAt) at.set(thread.channelId, lastActivityAtMs);

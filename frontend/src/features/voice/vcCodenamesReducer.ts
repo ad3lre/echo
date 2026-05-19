@@ -40,7 +40,11 @@ export function normalizeClueSurface(raw: string): string {
 }
 
 function normalizeBoardWordForCompare(raw: string): string {
-  return raw.normalize('NFC').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return raw
+    .normalize('NFC')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
 }
 
 /** Forms used to reject clues “too close” to an unrevealed board word. */
@@ -97,10 +101,12 @@ export function validateRoleSetup(
   }
   if (seen.size !== roster.size) return null;
   if (redSm !== 1 || blueSm !== 1) return null;
-  const redOps = out.filter((x) => x.team === 'red' && x.role === 'operative')
-    .length;
-  const blueOps = out.filter((x) => x.team === 'blue' && x.role === 'operative')
-    .length;
+  const redOps = out.filter(
+    (x) => x.team === 'red' && x.role === 'operative',
+  ).length;
+  const blueOps = out.filter(
+    (x) => x.team === 'blue' && x.role === 'operative',
+  ).length;
   if (redOps < 1 || blueOps < 1) return null;
   return out.sort((a, b) => a.userId.localeCompare(b.userId));
 }
@@ -131,7 +137,11 @@ export function pickWordsAndKey(opts: {
   gameSeq: number;
   channelSalt: string;
   rosterUserIdsSorted: readonly string[];
-}): { words: string[]; key: EchoCodenamesAffiliationV1[]; startingTeam: 'red' | 'blue' } {
+}): {
+  words: string[];
+  key: EchoCodenamesAffiliationV1[];
+  startingTeam: 'red' | 'blue';
+} {
   const seedStr = `${opts.channelSalt}|${opts.gameSeq}|${opts.rosterUserIdsSorted.join(',')}`;
   let h = 0;
   for (let i = 0; i < seedStr.length; i++) {

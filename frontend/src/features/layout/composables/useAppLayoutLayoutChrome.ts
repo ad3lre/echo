@@ -4,9 +4,7 @@ import type {
   VcActivityUiState,
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
-import {
-  syncYoutubeVideoIdFromPlaylist,
-} from '@/features/voice/vcActivityTypes';
+import { syncYoutubeVideoIdFromPlaylist } from '@/features/voice/vcActivityTypes';
 
 const MORE_SERVERS_PINNED_STORAGE_KEY = 'echo-more-servers-panel-pinned-v1';
 

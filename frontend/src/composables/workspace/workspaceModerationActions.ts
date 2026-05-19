@@ -121,7 +121,11 @@ export function useWorkspaceModerationActions(refs: WorkspaceStateRefs) {
     const nextList = list.map((cat) => ({
       ...cat,
       channels: cat.channels.map((ch) => {
-        if (ch.id !== channelId || ch.type !== 'voice') return ch;
+        if (
+          ch.id !== channelId ||
+          (ch.type !== 'voice' && ch.type !== 'stage')
+        )
+          return ch;
         const ids =
           (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
         if (!ids.includes(userId)) return ch;
@@ -154,7 +158,7 @@ export function useWorkspaceModerationActions(refs: WorkspaceStateRefs) {
     let toExists = false;
     for (const cat of list) {
       for (const ch of cat.channels) {
-        if (ch.type !== 'voice') continue;
+        if (ch.type !== 'voice' && ch.type !== 'stage') continue;
         const ids =
           (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
         if (ch.id === fromChannelId && ids.includes(userId)) fromHasUser = true;
@@ -165,7 +169,7 @@ export function useWorkspaceModerationActions(refs: WorkspaceStateRefs) {
     const nextList = list.map((cat) => ({
       ...cat,
       channels: cat.channels.map((ch) => {
-        if (ch.type !== 'voice') return ch;
+        if (ch.type !== 'voice' && ch.type !== 'stage') return ch;
         const ids =
           (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
         if (ch.id === fromChannelId) {

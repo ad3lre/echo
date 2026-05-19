@@ -5,7 +5,9 @@ import {
 } from '../domain/echoStore/forums';
 import { createEchoChannel } from '../domain/echoStore/categoriesWorkspace';
 
-export function deriveForumPostTitleFromWebhookContent(content: string): string {
+export function deriveForumPostTitleFromWebhookContent(
+  content: string,
+): string {
   const trimmed = content.trim().replace(/\s+/g, ' ');
   if (!trimmed) return 'New post';
   return trimmed.length > 100 ? `${trimmed.slice(0, 99)}…` : trimmed;
@@ -15,7 +17,11 @@ function parseForumAvailableTagIds(forumAvailableTags: unknown): Set<string> {
   const ids = new Set<string>();
   if (!Array.isArray(forumAvailableTags)) return ids;
   for (const t of forumAvailableTags) {
-    if (t && typeof t === 'object' && typeof (t as { id?: unknown }).id === 'string') {
+    if (
+      t &&
+      typeof t === 'object' &&
+      typeof (t as { id?: unknown }).id === 'string'
+    ) {
       const id = String((t as { id: string }).id).trim();
       if (id) ids.add(id);
     }
@@ -76,7 +82,8 @@ export async function resolveWebhookExecuteTargetChannel(opts: {
         ok: false,
         status: 400,
         code: 'INVALID_BODY',
-        message: 'This webhook is attached to a forum channel: provide thread_id or thread_name.',
+        message:
+          'This webhook is attached to a forum channel: provide thread_id or thread_name.',
       };
     }
 
@@ -101,7 +108,12 @@ export async function resolveWebhookExecuteTargetChannel(opts: {
         [tid],
       );
       const row = ch.rows[0] as
-        | { id: unknown; type: unknown; parent_channel_id: unknown; server_id: unknown }
+        | {
+            id: unknown;
+            type: unknown;
+            parent_channel_id: unknown;
+            server_id: unknown;
+          }
         | undefined;
       if (!row || String(row.server_id) !== serverId) {
         return {
@@ -111,12 +123,16 @@ export async function resolveWebhookExecuteTargetChannel(opts: {
           message: 'Invalid thread_id.',
         };
       }
-      if (String(row.type) !== 'text' || String(row.parent_channel_id ?? '') !== webhookChannelId) {
+      if (
+        String(row.type) !== 'text' ||
+        String(row.parent_channel_id ?? '') !== webhookChannelId
+      ) {
         return {
           ok: false,
           status: 400,
           code: 'INVALID_BODY',
-          message: 'thread_id must be a forum post channel under this forum hub.',
+          message:
+            'thread_id must be a forum post channel under this forum hub.',
         };
       }
       return { ok: true, targetChannelId: tid };
@@ -141,7 +157,8 @@ export async function resolveWebhookExecuteTargetChannel(opts: {
       tagIds.push(t);
     }
 
-    const title = tname ?? deriveForumPostTitleFromWebhookContent(contentForTitle);
+    const title =
+      tname ?? deriveForumPostTitleFromWebhookContent(contentForTitle);
     const postChannelId = await createEchoChannel(
       pool,
       serverId,
@@ -180,12 +197,16 @@ export async function resolveWebhookExecuteTargetChannel(opts: {
   }
 
   if (webhookChannelType === 'text') {
-    if (tname || (Array.isArray(bodyAppliedTags) && bodyAppliedTags.length > 0)) {
+    if (
+      tname ||
+      (Array.isArray(bodyAppliedTags) && bodyAppliedTags.length > 0)
+    ) {
       return {
         ok: false,
         status: 400,
         code: 'INVALID_BODY',
-        message: 'thread_name and applied_tags are only valid for forum channel webhooks.',
+        message:
+          'thread_name and applied_tags are only valid for forum channel webhooks.',
       };
     }
     if (!tid) {
@@ -201,7 +222,12 @@ export async function resolveWebhookExecuteTargetChannel(opts: {
       [tid],
     );
     const row = ch.rows[0] as
-      | { id: unknown; type: unknown; parent_channel_id: unknown; server_id: unknown }
+      | {
+          id: unknown;
+          type: unknown;
+          parent_channel_id: unknown;
+          server_id: unknown;
+        }
       | undefined;
     if (!row || String(row.server_id) !== serverId) {
       return {
@@ -211,12 +237,16 @@ export async function resolveWebhookExecuteTargetChannel(opts: {
         message: 'Invalid thread_id.',
       };
     }
-    if (String(row.type) !== 'text' || String(row.parent_channel_id ?? '') !== webhookChannelId) {
+    if (
+      String(row.type) !== 'text' ||
+      String(row.parent_channel_id ?? '') !== webhookChannelId
+    ) {
       return {
         ok: false,
         status: 400,
         code: 'INVALID_BODY',
-        message: 'thread_id must be a child text channel of this webhook’s channel.',
+        message:
+          'thread_id must be a child text channel of this webhook’s channel.',
       };
     }
     return { ok: true, targetChannelId: tid };

@@ -204,7 +204,7 @@ export function useGuildChannelModals(deps: {
 
   async function handleCreateChannelSubmit(payload: {
     name: string;
-    type: 'text' | 'voice' | 'forum';
+    type: 'text' | 'voice' | 'forum' | 'stage';
     categoryId: string;
     iconKey: string;
   }) {
@@ -435,7 +435,7 @@ export function useGuildChannelModals(deps: {
 
   async function handleChannelSettingsSave(payload: {
     channelId: string;
-    channelType: 'text' | 'voice' | 'forum';
+    channelType: 'text' | 'voice' | 'forum' | 'stage';
     serverId: string;
     name: string;
     categoryId: string;

@@ -1,5 +1,9 @@
 import type { EchoMessageRow } from '../domain/echoMessagesDal';
-import type { DiscordAttachment, DiscordMessage, DiscordUser } from '../api/routes/discordApi/serializers';
+import type {
+  DiscordAttachment,
+  DiscordMessage,
+  DiscordUser,
+} from '../api/routes/discordApi/serializers';
 import { serializeUser } from '../api/routes/discordApi/serializers';
 import {
   DISCORD_MSG_FLAG_IS_COMPONENTS_V2,
@@ -54,7 +58,9 @@ export function serializeEchoRowForDiscordWebhookExecuteWait(
   const components =
     (flags & DISCORD_MSG_FLAG_IS_COMPONENTS_V2) !== 0 ||
     (Array.isArray(row.components) && row.components.length > 0)
-      ? (Array.isArray(row.components) ? row.components : undefined)
+      ? Array.isArray(row.components)
+        ? row.components
+        : undefined
       : undefined;
 
   return {

@@ -16,7 +16,9 @@ function readKnownIds(userId: string): Set<string> {
     const parsed = JSON.parse(raw) as { ids?: unknown };
     if (!Array.isArray(parsed.ids)) return new Set();
     return new Set(
-      parsed.ids.filter((x): x is string => typeof x === 'string' && x.length > 0),
+      parsed.ids.filter(
+        (x): x is string => typeof x === 'string' && x.length > 0,
+      ),
     );
   } catch {
     return new Set();

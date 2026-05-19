@@ -358,10 +358,7 @@ function toggleStreamVolumeMute() {
 function onStreamVolumeRangeInput(e: Event) {
   const raw = Number((e.target as HTMLInputElement).value);
   if (!Number.isFinite(raw)) return;
-  const v = Math.max(
-    0,
-    Math.min(STREAM_VOLUME_SLIDER_MAX, Math.round(raw)),
-  );
+  const v = Math.max(0, Math.min(STREAM_VOLUME_SLIDER_MAX, Math.round(raw)));
   if (v > 0) lastNonZeroStreamVolume.value = v;
   emit('remoteStreamVolumeChange', v);
 }
@@ -409,10 +406,7 @@ function onPfpOutputVolumeInput(ev: Event) {
   if (!props.remoteStreamVolumeControl) return;
   const raw = Number((ev.target as HTMLInputElement).value);
   if (!Number.isFinite(raw)) return;
-  const v = Math.max(
-    0,
-    Math.min(STREAM_VOLUME_SLIDER_MAX, Math.round(raw)),
-  );
+  const v = Math.max(0, Math.min(STREAM_VOLUME_SLIDER_MAX, Math.round(raw)));
   pfpOutputMenuDraft.value = v;
   if (v > 0) lastNonZeroStreamVolume.value = v;
   emit('remoteStreamVolumeChange', v);
@@ -810,7 +804,9 @@ onUnmounted(() => {
               max="200"
               step="1"
               :style="{
-                '--value': streamVolumeSliderFillPercent(streamVolumeSliderValue),
+                '--value': streamVolumeSliderFillPercent(
+                  streamVolumeSliderValue,
+                ),
               }"
               :value="streamVolumeSliderValue"
               aria-label="Participant volume"

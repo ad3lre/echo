@@ -134,6 +134,35 @@ async function run(): Promise<void> {
     );
     assert.deepEqual(ipBanned, { ok: false, reason: 'banned' });
 
+    await pool.query(
+      `UPDATE echo_servers SET allow_global_guests = false WHERE id = $1`,
+      [serverId],
+    );
+    const guestJoinBlocked = await joinEchoServerFromDirectory(
+      pool,
+      serverId,
+      candidateId,
+      null,
+      { isGuest: true },
+    );
+    assert.deepEqual(guestJoinBlocked, {
+      ok: false,
+      reason: 'guest_join_forbidden',
+    });
+
+    await pool.query(
+      `UPDATE echo_servers SET allow_global_guests = true WHERE id = $1`,
+      [serverId],
+    );
+    const guestJoinOk = await joinEchoServerFromDirectory(
+      pool,
+      serverId,
+      candidateId,
+      null,
+      { isGuest: true },
+    );
+    assert.equal(guestJoinOk.ok, true);
+
     console.log('echo.joinSecurity.enforcement: ok');
   } finally {
     if (serverId) {

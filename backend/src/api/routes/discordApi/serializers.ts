@@ -10,6 +10,7 @@ import type { BotApp } from './botAuth';
 const CHANNEL_TYPE_MAP: Record<string, number> = {
   text: 0,
   voice: 2,
+  stage: 13,
   announcement: 5,
   forum: 15,
   category: 4,
@@ -270,7 +271,7 @@ export function serializeChannel(
     nsfw: channel.nsfw ?? false,
     last_message_id: null,
   };
-  if (channel.type === 'voice') {
+  if (channel.type === 'voice' || channel.type === 'stage') {
     result.bitrate = channel.bitrateBps ?? 64000;
     result.user_limit = channel.userLimit ?? 0;
   }

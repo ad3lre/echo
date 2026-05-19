@@ -384,9 +384,7 @@ export async function attachAuthorLabelsToEchoMessageRows(
         ...restLabeled,
         authorDisplayName:
           wname && wname.length > 0 ? wname.slice(0, 80) : 'Webhook',
-        ...(wav && wav.length > 0
-          ? { authorAvatar: wav.slice(0, 2048) }
-          : {}),
+        ...(wav && wav.length > 0 ? { authorAvatar: wav.slice(0, 2048) } : {}),
       };
     }
     return baseLabeled;
@@ -1380,7 +1378,7 @@ export async function bulkSoftDeleteEchoMessagesForAuthorInChannelSinceExcludePi
         AND m.deleted_at IS NULL
         AND m.created_at >= $3::timestamptz
         AND NOT EXISTS (SELECT 1 FROM pinned p WHERE p.message_id = m.id)
-      ORDER BY m.created_at ASC
+      ORDER BY m.id ASC
       LIMIT $4
     )
     UPDATE echo_messages m

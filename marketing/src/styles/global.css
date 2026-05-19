@@ -1819,7 +1819,9 @@ button {
   box-shadow:
     0 0 0 4px rgba(255, 255, 255, 0.85) inset,
     0 10px 22px rgba(15, 15, 22, 0.12);
-  transition: background 0.35s ease, box-shadow 0.35s ease;
+  transition:
+    background 0.35s ease,
+    box-shadow 0.35s ease;
 }
 
 .status-orb[data-state='operational'] {
@@ -1909,8 +1911,9 @@ button {
 }
 
 .status-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--muted);
@@ -2131,7 +2134,11 @@ button {
   height: 4.25rem;
   padding: 0.5rem 0.35rem;
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(88, 66, 244, 0.04) 0%, rgba(15, 15, 22, 0.03) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(88, 66, 244, 0.04) 0%,
+    rgba(15, 15, 22, 0.03) 100%
+  );
   border: 1px solid var(--border);
 }
 
@@ -2142,7 +2149,9 @@ button {
   border-radius: 3px;
   background: var(--border-strong);
   opacity: 0.55;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .status-bar--ok {

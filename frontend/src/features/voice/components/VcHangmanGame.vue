@@ -377,7 +377,10 @@ function playHangmanSfx(kind: HangmanSfxKind): void {
   };
 
   if (ctx.state === 'suspended') {
-    void ctx.resume().then(start).catch(() => {});
+    void ctx
+      .resume()
+      .then(start)
+      .catch(() => {});
     return;
   }
   start();
@@ -510,45 +513,108 @@ const hangmanSvgParts = computed(() => wrongCount.value);
 </script>
 
 <template>
-  <div
-    class="hm-game"
-    role="application"
-    aria-label="Echo voice Hangman"
-  >
-
+  <div class="hm-game" role="application" aria-label="Echo voice Hangman">
     <!-- ─── Header ───────────────────────────────────────────── -->
     <header class="hm-header">
       <div class="hm-header__brand">
-        <svg class="hm-header__rope-icon" viewBox="0 0 22 28" fill="none" aria-hidden="true">
-          <line x1="11" y1="2" x2="11" y2="6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-          <line x1="4" y1="6" x2="18" y2="6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-          <line x1="18" y1="6" x2="18" y2="12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-          <path d="M18 12 Q18 17 14 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-          <circle cx="12" cy="22" r="5" stroke="currentColor" stroke-width="2.2" fill="none"/>
+        <svg
+          class="hm-header__rope-icon"
+          viewBox="0 0 22 28"
+          fill="none"
+          aria-hidden="true"
+        >
+          <line
+            x1="11"
+            y1="2"
+            x2="11"
+            y2="6"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          />
+          <line
+            x1="4"
+            y1="6"
+            x2="18"
+            y2="6"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          />
+          <line
+            x1="18"
+            y1="6"
+            x2="18"
+            y2="12"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          />
+          <path
+            d="M18 12 Q18 17 14 18"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            fill="none"
+          />
+          <circle
+            cx="12"
+            cy="22"
+            r="5"
+            stroke="currentColor"
+            stroke-width="2.2"
+            fill="none"
+          />
         </svg>
         <span class="hm-header__wordmark">Hangman</span>
         <span class="hm-header__badge">Voice</span>
       </div>
       <div class="hm-header__right">
         <div v-if="hangmanRosterUserIds.length" class="hm-players">
-          <span class="hm-players__dot" aria-hidden="true"/>
+          <span class="hm-players__dot" aria-hidden="true" />
           <span class="hm-players__text">{{ rosterLabel }}</span>
         </div>
         <details class="hm-rules">
           <summary class="hm-rules__btn" aria-label="How to play">
             <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <circle cx="9" cy="9" r="8" stroke="currentColor" stroke-width="1.6"/>
-              <path d="M9 8.2v4.8M9 5.5v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <circle
+                cx="9"
+                cy="9"
+                r="8"
+                stroke="currentColor"
+                stroke-width="1.6"
+              />
+              <path
+                d="M9 8.2v4.8M9 5.5v1"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
             </svg>
           </summary>
           <div class="hm-rules__panel">
             <p class="hm-rules__title">How it works</p>
             <ul class="hm-rules__list">
-              <li><strong>Setter</strong> types a secret A–Z phrase. Everyone else sees blanks.</li>
-              <li><strong>Guessers</strong> pick one letter per turn. Green = correct, red = miss.</li>
-              <li><strong>6 misses</strong> completes the drawing and ends the round.</li>
-              <li><strong>Turns</strong> rotate round-robin through everyone in this voice room.</li>
-              <li><strong>Sync</strong> — the roster host can apply guesses if the setter’s connection blips.</li>
+              <li>
+                <strong>Setter</strong> types a secret A–Z phrase. Everyone else
+                sees blanks.
+              </li>
+              <li>
+                <strong>Guessers</strong> pick one letter per turn. Green =
+                correct, red = miss.
+              </li>
+              <li>
+                <strong>6 misses</strong> completes the drawing and ends the
+                round.
+              </li>
+              <li>
+                <strong>Turns</strong> rotate round-robin through everyone in
+                this voice room.
+              </li>
+              <li>
+                <strong>Sync</strong> — the roster host can apply guesses if the
+                setter’s connection blips.
+              </li>
             </ul>
           </div>
         </details>
@@ -585,52 +651,157 @@ const hangmanSvgParts = computed(() => wrongCount.value);
 
     <!-- ─── No game data ─────────────────────────────────────── -->
     <div v-if="!act" class="hm-empty">
-      <svg class="hm-empty__icon" viewBox="0 0 56 56" fill="none" aria-hidden="true">
-        <circle cx="28" cy="28" r="26" stroke="currentColor" stroke-width="2" opacity="0.18"/>
-        <line x1="14" y1="14" x2="42" y2="14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="28" y1="14" x2="28" y2="23" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-        <circle cx="28" cy="30" r="6" stroke="currentColor" stroke-width="2.5"/>
-        <line x1="28" y1="36" x2="28" y2="44" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="21" y1="40" x2="28" y2="43" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="35" y1="40" x2="28" y2="43" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+      <svg
+        class="hm-empty__icon"
+        viewBox="0 0 56 56"
+        fill="none"
+        aria-hidden="true"
+      >
+        <circle
+          cx="28"
+          cy="28"
+          r="26"
+          stroke="currentColor"
+          stroke-width="2"
+          opacity="0.18"
+        />
+        <line
+          x1="14"
+          y1="14"
+          x2="42"
+          y2="14"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+        />
+        <line
+          x1="28"
+          y1="14"
+          x2="28"
+          y2="23"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+        />
+        <circle
+          cx="28"
+          cy="30"
+          r="6"
+          stroke="currentColor"
+          stroke-width="2.5"
+        />
+        <line
+          x1="28"
+          y1="36"
+          x2="28"
+          y2="44"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+        />
+        <line
+          x1="21"
+          y1="40"
+          x2="28"
+          y2="43"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+        />
+        <line
+          x1="35"
+          y1="40"
+          x2="28"
+          y2="43"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+        />
       </svg>
       <p class="hm-empty__title">Waiting for the game</p>
-      <p class="hm-empty__body">Join a voice channel and open Hangman so Echo can sync everyone to the same round.</p>
+      <p class="hm-empty__body">
+        Join a voice channel and open Hangman so Echo can sync everyone to the
+        same round.
+      </p>
     </div>
 
     <template v-else>
-
       <!-- ─── Round result banners ──────────────────────────── -->
-      <div v-if="roundOutcome === 'won'" class="hm-banner hm-banner--won" role="status">
-        <svg class="hm-banner__icon" viewBox="0 0 44 44" fill="none" aria-hidden="true">
-          <circle cx="22" cy="22" r="20" stroke="currentColor" stroke-width="2.2"/>
-          <path d="M12 23l8 8 12-14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <div
+        v-if="roundOutcome === 'won'"
+        class="hm-banner hm-banner--won"
+        role="status"
+      >
+        <svg
+          class="hm-banner__icon"
+          viewBox="0 0 44 44"
+          fill="none"
+          aria-hidden="true"
+        >
+          <circle
+            cx="22"
+            cy="22"
+            r="20"
+            stroke="currentColor"
+            stroke-width="2.2"
+          />
+          <path
+            d="M12 23l8 8 12-14"
+            stroke="currentColor"
+            stroke-width="2.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
         <div>
           <p class="hm-banner__title">Solved!</p>
-          <p class="hm-banner__sub">The crew cracked the phrase. Well played.</p>
+          <p class="hm-banner__sub">
+            The crew cracked the phrase. Well played.
+          </p>
         </div>
       </div>
 
-      <div v-else-if="roundOutcome === 'lost'" class="hm-banner hm-banner--lost" role="status">
-        <svg class="hm-banner__icon" viewBox="0 0 44 44" fill="none" aria-hidden="true">
-          <circle cx="22" cy="22" r="20" stroke="currentColor" stroke-width="2.2"/>
-          <path d="M15 15l14 14M29 15L15 29" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <div
+        v-else-if="roundOutcome === 'lost'"
+        class="hm-banner hm-banner--lost"
+        role="status"
+      >
+        <svg
+          class="hm-banner__icon"
+          viewBox="0 0 44 44"
+          fill="none"
+          aria-hidden="true"
+        >
+          <circle
+            cx="22"
+            cy="22"
+            r="20"
+            stroke="currentColor"
+            stroke-width="2.2"
+          />
+          <path
+            d="M15 15l14 14M29 15L15 29"
+            stroke="currentColor"
+            stroke-width="2.6"
+            stroke-linecap="round"
+          />
         </svg>
         <div>
           <p class="hm-banner__title">Round over</p>
-          <p class="hm-banner__sub">Six misses — the phrase was too tough this time.</p>
+          <p class="hm-banner__sub">
+            Six misses — the phrase was too tough this time.
+          </p>
         </div>
       </div>
 
       <!-- ─── Setter: phrase entry card ─────────────────────── -->
-      <div
-        v-if="act.phase === 'setter_picking' && isSetter"
-        class="hm-setter"
-      >
+      <div v-if="act.phase === 'setter_picking' && isSetter" class="hm-setter">
         <div class="hm-setter__intro">
           <p class="hm-setter__eyebrow">Your turn to set the puzzle</p>
-          <p class="hm-setter__hint">Type any phrase using A–Z and spaces. Everyone else only sees blanks until they guess.</p>
+          <p class="hm-setter__hint">
+            Type any phrase using A–Z and spaces. Everyone else only sees blanks
+            until they guess.
+          </p>
         </div>
         <textarea
           id="vc-hangman-phrase"
@@ -644,11 +815,30 @@ const hangmanSvgParts = computed(() => wrongCount.value);
         />
         <div class="hm-setter__footer">
           <span class="hm-setter__count">{{ phraseHelp }}</span>
-          <p v-if="commitError" class="hm-setter__error" role="alert">{{ commitError }}</p>
-          <button type="button" class="hm-btn hm-btn--lock" @click="onSubmitPhrase">
+          <p v-if="commitError" class="hm-setter__error" role="alert">
+            {{ commitError }}
+          </p>
+          <button
+            type="button"
+            class="hm-btn hm-btn--lock"
+            @click="onSubmitPhrase"
+          >
             <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <rect x="3" y="8" width="12" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/>
-              <path d="M6 8V6a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <rect
+                x="3"
+                y="8"
+                width="12"
+                height="9"
+                rx="2"
+                stroke="currentColor"
+                stroke-width="1.8"
+              />
+              <path
+                d="M6 8V6a3 3 0 0 1 6 0v2"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
             </svg>
             Lock in phrase
           </button>
@@ -661,9 +851,9 @@ const hangmanSvgParts = computed(() => wrongCount.value);
         class="hm-waiting"
       >
         <div class="hm-waiting__dots" aria-hidden="true">
-          <span class="hm-waiting__dot"/>
-          <span class="hm-waiting__dot"/>
-          <span class="hm-waiting__dot"/>
+          <span class="hm-waiting__dot" />
+          <span class="hm-waiting__dot" />
+          <span class="hm-waiting__dot" />
         </div>
         <p class="hm-waiting__who">{{ displayNameFor(act.setterUserId) }}</p>
         <p class="hm-waiting__label">is crafting the secret phrase…</p>
@@ -675,367 +865,522 @@ const hangmanSvgParts = computed(() => wrongCount.value);
         class="hm-arena"
       >
         <div class="hm-arena__left">
-        <!-- Gallows scene panel -->
-        <div class="hm-scaffold">
-          <svg
-            class="hm-scaffold__svg"
-            viewBox="0 0 200 240"
-            xmlns="http://www.w3.org/2000/svg"
-            role="img"
-            :aria-label="`${wrongCount} wrong ${wrongCount === 1 ? 'guess' : 'guesses'}. ${drawnBodyParts.length ? 'Body parts drawn: ' + drawnBodyParts.join(', ') + '.' : 'No body parts drawn yet.'}`"
-            :data-damage="wrongCount"
-            :data-outcome="act.phase === 'round_over' ? act.roundResult : null"
-          >
-            <defs>
-              <linearGradient id="hm-sky" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#05030e"/>
-                <stop offset="100%" stop-color="#0c0920"/>
-              </linearGradient>
-              <linearGradient id="hm-wood-v" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#2e1a0c"/>
-                <stop offset="30%" stop-color="#5c3820"/>
-                <stop offset="70%" stop-color="#4a2d16"/>
-                <stop offset="100%" stop-color="#2a1608"/>
-              </linearGradient>
-              <linearGradient id="hm-wood-h" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#6b4224"/>
-                <stop offset="55%" stop-color="#4a2d16"/>
-                <stop offset="100%" stop-color="#281508"/>
-              </linearGradient>
-              <linearGradient id="hm-floor-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#2a1a0a"/>
-                <stop offset="100%" stop-color="#180e04"/>
-              </linearGradient>
-              <linearGradient id="hm-rope-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#a08060"/>
-                <stop offset="100%" stop-color="#6b4e30"/>
-              </linearGradient>
-              <radialGradient id="hm-ambient" cx="50%" cy="40%" r="50%">
-                <stop offset="0%" stop-color="#e8d5a3" stop-opacity="0.08"/>
-                <stop offset="100%" stop-color="#e8d5a3" stop-opacity="0"/>
-              </radialGradient>
-              <radialGradient id="hm-ambient-warn" cx="50%" cy="40%" r="50%">
-                <stop offset="0%" stop-color="#fb923c" stop-opacity="0.16"/>
-                <stop offset="100%" stop-color="#fb923c" stop-opacity="0"/>
-              </radialGradient>
-              <radialGradient id="hm-ambient-crit" cx="50%" cy="40%" r="50%">
-                <stop offset="0%" stop-color="#ef4444" stop-opacity="0.22"/>
-                <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
-              </radialGradient>
-              <filter id="hm-glow-filter" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
-                <feMerge>
-                  <feMergeNode in="blur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
-
-            <!-- Sky -->
-            <rect width="200" height="240" fill="url(#hm-sky)"/>
-
-            <!-- Stars -->
-            <g fill="white">
-              <circle cx="20" cy="16" r="0.9" opacity="0.55"/>
-              <circle cx="52" cy="10" r="0.6" opacity="0.45"/>
-              <circle cx="75" cy="26" r="1.1" opacity="0.6"/>
-              <circle cx="32" cy="44" r="0.5" opacity="0.4"/>
-              <circle cx="108" cy="13" r="0.7" opacity="0.5"/>
-              <circle cx="17" cy="62" r="0.6" opacity="0.35"/>
-              <circle cx="46" cy="52" r="0.5" opacity="0.4"/>
-              <circle cx="90" cy="7" r="0.9" opacity="0.55"/>
-              <circle cx="128" cy="20" r="0.6" opacity="0.45"/>
-              <circle cx="140" cy="48" r="0.5" opacity="0.35"/>
-              <circle cx="62" cy="35" r="0.4" opacity="0.3"/>
-            </g>
-
-            <!-- Ambient figure glow (reactive to damage) -->
-            <ellipse
-              v-if="hangmanSvgParts > 0"
-              cx="154"
-              cy="130"
-              rx="38"
-              ry="55"
-              :fill="hangmanSvgParts >= 5 ? 'url(#hm-ambient-crit)' : hangmanSvgParts >= 3 ? 'url(#hm-ambient-warn)' : 'url(#hm-ambient)'"
-            />
-
-            <!-- Floor platform -->
-            <rect x="8" y="204" width="184" height="16" rx="4" fill="url(#hm-floor-grad)"/>
-            <line x1="8" y1="207" x2="192" y2="207" stroke="#6b4224" stroke-width="0.6" opacity="0.3"/>
-            <line x1="8" y1="212" x2="192" y2="212" stroke="#6b4224" stroke-width="0.6" opacity="0.2"/>
-            <!-- Platform edge highlight -->
-            <line x1="8" y1="204.5" x2="192" y2="204.5" stroke="white" stroke-width="0.5" opacity="0.08"/>
-            <!-- Platform shadow -->
-            <ellipse cx="100" cy="220" rx="90" ry="5" fill="black" opacity="0.5"/>
-
-            <!-- Gallows: vertical post -->
-            <rect x="34" y="36" width="11" height="170" rx="3.5" fill="url(#hm-wood-v)"/>
-            <!-- Post highlight edge -->
-            <line x1="35.5" y1="38" x2="35.5" y2="204" stroke="white" stroke-width="0.5" opacity="0.1"/>
-            <!-- Post grain -->
-            <line x1="40" y1="38" x2="40" y2="204" stroke="#7c4a28" stroke-width="0.8" opacity="0.35"/>
-
-            <!-- Gallows: diagonal brace -->
-            <path d="M45 82 L62 58" fill="none" stroke="#3d2010" stroke-width="10" stroke-linecap="round"/>
-            <path d="M45 82 L62 58" fill="none" stroke="#5c3820" stroke-width="7" stroke-linecap="round"/>
-            <path d="M45 82 L62 58" fill="none" stroke="#6b4224" stroke-width="4.5" stroke-linecap="round"/>
-
-            <!-- Gallows: horizontal beam -->
-            <rect x="34" y="28" width="124" height="12" rx="3.5" fill="url(#hm-wood-h)"/>
-            <line x1="37" y1="29.5" x2="155" y2="29.5" stroke="white" stroke-width="0.5" opacity="0.1"/>
-            <line x1="37" y1="34" x2="155" y2="34" stroke="#7c4a28" stroke-width="0.8" opacity="0.35"/>
-
-            <!-- Gallows: vertical drop from beam -->
-            <rect x="151" y="40" width="6" height="26" rx="2" fill="url(#hm-wood-v)" opacity="0.9"/>
-
-            <!-- Rope noose -->
-            <path
-              d="M154 66 Q153 71 154 76"
-              fill="none"
-              stroke="url(#hm-rope-grad)"
-              stroke-width="3.2"
-              stroke-linecap="round"
-            />
-            <!-- Rope knot detail -->
-            <ellipse cx="154" cy="78" rx="4" ry="3" fill="none" stroke="#8b6840" stroke-width="1.5"/>
-
-            <!-- ── Figure parts ── -->
-            <!-- Each part uses pathLength="1" so stroke-dashoffset: 1 = hidden, 0 = drawn -->
-
-            <!-- 1. Head -->
-            <g
-              class="hm-part"
-              :class="{ 'hm-part--active': hangmanSvgParts >= 1 }"
+          <!-- Gallows scene panel -->
+          <div class="hm-scaffold">
+            <svg
+              class="hm-scaffold__svg"
+              viewBox="0 0 200 240"
+              xmlns="http://www.w3.org/2000/svg"
+              role="img"
+              :aria-label="`${wrongCount} wrong ${wrongCount === 1 ? 'guess' : 'guesses'}. ${drawnBodyParts.length ? 'Body parts drawn: ' + drawnBodyParts.join(', ') + '.' : 'No body parts drawn yet.'}`"
+              :data-damage="wrongCount"
+              :data-outcome="
+                act.phase === 'round_over' ? act.roundResult : null
+              "
             >
-              <circle
-                cx="154"
-                cy="92"
-                r="13"
-                pathLength="1"
-                fill="none"
-                stroke-width="3"
-              />
-              <!-- Dot eyes (alive) -->
-              <circle
-                v-if="!(act.phase === 'round_over' && act.roundResult === 'lost')"
-                cx="150"
-                cy="90"
-                r="2"
-                class="hm-face-dot"
-                :class="{ 'hm-face-dot--show': hangmanSvgParts >= 1 }"
-                fill="currentColor"
-              />
-              <circle
-                v-if="!(act.phase === 'round_over' && act.roundResult === 'lost')"
-                cx="158"
-                cy="90"
-                r="2"
-                class="hm-face-dot"
-                :class="{ 'hm-face-dot--show': hangmanSvgParts >= 1 }"
-                fill="currentColor"
-              />
-              <!-- X eyes (dead) -->
-              <g
-                v-if="act.phase === 'round_over' && act.roundResult === 'lost' && hangmanSvgParts >= 1"
-                class="hm-face-dead"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              >
-                <line x1="147" y1="87" x2="153" y2="93"/>
-                <line x1="153" y1="87" x2="147" y2="93"/>
-                <line x1="155" y1="87" x2="161" y2="93"/>
-                <line x1="161" y1="87" x2="155" y2="93"/>
-              </g>
-              <!-- Mouth line (neutral/grim) -->
-              <path
-                v-if="hangmanSvgParts >= 1"
-                :d="act.phase === 'round_over' && act.roundResult === 'lost' ? 'M150 96 Q154 94 158 96' : 'M150 96 Q154 98 158 96'"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-                stroke-linecap="round"
-                class="hm-face-dot"
-                :class="{ 'hm-face-dot--show': hangmanSvgParts >= 1 }"
-              />
-            </g>
-
-            <!-- 2. Body -->
-            <g
-              class="hm-part"
-              :class="{ 'hm-part--active': hangmanSvgParts >= 2 }"
-            >
-              <line
-                x1="154" y1="105"
-                x2="154" y2="150"
-                pathLength="1"
-                stroke-width="3.5"
-                stroke-linecap="round"
-              />
-            </g>
-
-            <!-- 3. Left arm -->
-            <g
-              class="hm-part"
-              :class="{ 'hm-part--active': hangmanSvgParts >= 3 }"
-            >
-              <path
-                d="M154 117 Q140 126 130 138"
-                pathLength="1"
-                fill="none"
-                stroke-width="3"
-                stroke-linecap="round"
-              />
-            </g>
-
-            <!-- 4. Right arm -->
-            <g
-              class="hm-part"
-              :class="{ 'hm-part--active': hangmanSvgParts >= 4 }"
-            >
-              <path
-                d="M154 117 Q168 126 178 138"
-                pathLength="1"
-                fill="none"
-                stroke-width="3"
-                stroke-linecap="round"
-              />
-            </g>
-
-            <!-- 5. Left leg -->
-            <g
-              class="hm-part"
-              :class="{ 'hm-part--active': hangmanSvgParts >= 5 }"
-            >
-              <path
-                d="M154 150 Q145 165 137 180"
-                pathLength="1"
-                fill="none"
-                stroke-width="3"
-                stroke-linecap="round"
-              />
-            </g>
-
-            <!-- 6. Right leg -->
-            <g
-              class="hm-part"
-              :class="{ 'hm-part--active': hangmanSvgParts >= 6 }"
-            >
-              <path
-                d="M154 150 Q163 165 171 180"
-                pathLength="1"
-                fill="none"
-                stroke-width="3"
-                stroke-linecap="round"
-              />
-            </g>
-
-            <!-- Foot shadow (once both legs exist) -->
-            <ellipse
-              v-if="hangmanSvgParts >= 5"
-              cx="154"
-              cy="186"
-              rx="20"
-              ry="3"
-              fill="black"
-              opacity="0.4"
-            />
-          </svg>
-
-          <p class="hm-scaffold__caption">
-            <template v-if="act.phase === 'round_over'">
-              Ended with <strong>{{ wrongCount }}</strong> {{ wrongCount === 1 ? 'miss' : 'misses' }}
-            </template>
-            <template v-else-if="wrongCount === 0">
-              No misses yet — looking good
-            </template>
-            <template v-else>
-              Next miss draws: <strong>{{ nextBodyPart }}</strong>
-            </template>
-          </p>
-        </div>
-
-        <div class="hm-sidebar">
-          <div v-if="guessLogEntries.length" class="hm-guess-log">
-            <p class="hm-guess-log__title">Guess history</p>
-            <ol class="hm-guess-log__list">
-              <li
-                v-for="(row, idx) in guessLogEntries"
-                :key="`glog-${idx}-${row.letter}-${row.userId}`"
-                class="hm-guess-log__row"
-                :class="
-                  row.hit ? 'hm-guess-log__row--hit' : 'hm-guess-log__row--miss'
-                "
-              >
-                <div class="hm-guess-log__meta">
-                  <span class="hm-guess-log__phrase">Someone guessed</span>
-                  <span class="hm-guess-log__letter" aria-hidden="true">{{
-                    row.letter
-                  }}</span>
-                </div>
-                <span
-                  class="hm-guess-log__verdict"
-                  :class="
-                    row.hit ? 'hm-guess-log__verdict--hit' : 'hm-guess-log__verdict--miss'
-                  "
-                  >{{ row.hit ? 'Hit' : 'Miss' }}</span
+              <defs>
+                <linearGradient id="hm-sky" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#05030e" />
+                  <stop offset="100%" stop-color="#0c0920" />
+                </linearGradient>
+                <linearGradient id="hm-wood-v" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#2e1a0c" />
+                  <stop offset="30%" stop-color="#5c3820" />
+                  <stop offset="70%" stop-color="#4a2d16" />
+                  <stop offset="100%" stop-color="#2a1608" />
+                </linearGradient>
+                <linearGradient id="hm-wood-h" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#6b4224" />
+                  <stop offset="55%" stop-color="#4a2d16" />
+                  <stop offset="100%" stop-color="#281508" />
+                </linearGradient>
+                <linearGradient id="hm-floor-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#2a1a0a" />
+                  <stop offset="100%" stop-color="#180e04" />
+                </linearGradient>
+                <linearGradient id="hm-rope-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#a08060" />
+                  <stop offset="100%" stop-color="#6b4e30" />
+                </linearGradient>
+                <radialGradient id="hm-ambient" cx="50%" cy="40%" r="50%">
+                  <stop offset="0%" stop-color="#e8d5a3" stop-opacity="0.08" />
+                  <stop offset="100%" stop-color="#e8d5a3" stop-opacity="0" />
+                </radialGradient>
+                <radialGradient id="hm-ambient-warn" cx="50%" cy="40%" r="50%">
+                  <stop offset="0%" stop-color="#fb923c" stop-opacity="0.16" />
+                  <stop offset="100%" stop-color="#fb923c" stop-opacity="0" />
+                </radialGradient>
+                <radialGradient id="hm-ambient-crit" cx="50%" cy="40%" r="50%">
+                  <stop offset="0%" stop-color="#ef4444" stop-opacity="0.22" />
+                  <stop offset="100%" stop-color="#ef4444" stop-opacity="0" />
+                </radialGradient>
+                <filter
+                  id="hm-glow-filter"
+                  x="-30%"
+                  y="-30%"
+                  width="160%"
+                  height="160%"
                 >
-              </li>
-            </ol>
+                  <feGaussianBlur
+                    in="SourceGraphic"
+                    stdDeviation="2.5"
+                    result="blur"
+                  />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- Sky -->
+              <rect width="200" height="240" fill="url(#hm-sky)" />
+
+              <!-- Stars -->
+              <g fill="white">
+                <circle cx="20" cy="16" r="0.9" opacity="0.55" />
+                <circle cx="52" cy="10" r="0.6" opacity="0.45" />
+                <circle cx="75" cy="26" r="1.1" opacity="0.6" />
+                <circle cx="32" cy="44" r="0.5" opacity="0.4" />
+                <circle cx="108" cy="13" r="0.7" opacity="0.5" />
+                <circle cx="17" cy="62" r="0.6" opacity="0.35" />
+                <circle cx="46" cy="52" r="0.5" opacity="0.4" />
+                <circle cx="90" cy="7" r="0.9" opacity="0.55" />
+                <circle cx="128" cy="20" r="0.6" opacity="0.45" />
+                <circle cx="140" cy="48" r="0.5" opacity="0.35" />
+                <circle cx="62" cy="35" r="0.4" opacity="0.3" />
+              </g>
+
+              <!-- Ambient figure glow (reactive to damage) -->
+              <ellipse
+                v-if="hangmanSvgParts > 0"
+                cx="154"
+                cy="130"
+                rx="38"
+                ry="55"
+                :fill="
+                  hangmanSvgParts >= 5
+                    ? 'url(#hm-ambient-crit)'
+                    : hangmanSvgParts >= 3
+                      ? 'url(#hm-ambient-warn)'
+                      : 'url(#hm-ambient)'
+                "
+              />
+
+              <!-- Floor platform -->
+              <rect
+                x="8"
+                y="204"
+                width="184"
+                height="16"
+                rx="4"
+                fill="url(#hm-floor-grad)"
+              />
+              <line
+                x1="8"
+                y1="207"
+                x2="192"
+                y2="207"
+                stroke="#6b4224"
+                stroke-width="0.6"
+                opacity="0.3"
+              />
+              <line
+                x1="8"
+                y1="212"
+                x2="192"
+                y2="212"
+                stroke="#6b4224"
+                stroke-width="0.6"
+                opacity="0.2"
+              />
+              <!-- Platform edge highlight -->
+              <line
+                x1="8"
+                y1="204.5"
+                x2="192"
+                y2="204.5"
+                stroke="white"
+                stroke-width="0.5"
+                opacity="0.08"
+              />
+              <!-- Platform shadow -->
+              <ellipse
+                cx="100"
+                cy="220"
+                rx="90"
+                ry="5"
+                fill="black"
+                opacity="0.5"
+              />
+
+              <!-- Gallows: vertical post -->
+              <rect
+                x="34"
+                y="36"
+                width="11"
+                height="170"
+                rx="3.5"
+                fill="url(#hm-wood-v)"
+              />
+              <!-- Post highlight edge -->
+              <line
+                x1="35.5"
+                y1="38"
+                x2="35.5"
+                y2="204"
+                stroke="white"
+                stroke-width="0.5"
+                opacity="0.1"
+              />
+              <!-- Post grain -->
+              <line
+                x1="40"
+                y1="38"
+                x2="40"
+                y2="204"
+                stroke="#7c4a28"
+                stroke-width="0.8"
+                opacity="0.35"
+              />
+
+              <!-- Gallows: diagonal brace -->
+              <path
+                d="M45 82 L62 58"
+                fill="none"
+                stroke="#3d2010"
+                stroke-width="10"
+                stroke-linecap="round"
+              />
+              <path
+                d="M45 82 L62 58"
+                fill="none"
+                stroke="#5c3820"
+                stroke-width="7"
+                stroke-linecap="round"
+              />
+              <path
+                d="M45 82 L62 58"
+                fill="none"
+                stroke="#6b4224"
+                stroke-width="4.5"
+                stroke-linecap="round"
+              />
+
+              <!-- Gallows: horizontal beam -->
+              <rect
+                x="34"
+                y="28"
+                width="124"
+                height="12"
+                rx="3.5"
+                fill="url(#hm-wood-h)"
+              />
+              <line
+                x1="37"
+                y1="29.5"
+                x2="155"
+                y2="29.5"
+                stroke="white"
+                stroke-width="0.5"
+                opacity="0.1"
+              />
+              <line
+                x1="37"
+                y1="34"
+                x2="155"
+                y2="34"
+                stroke="#7c4a28"
+                stroke-width="0.8"
+                opacity="0.35"
+              />
+
+              <!-- Gallows: vertical drop from beam -->
+              <rect
+                x="151"
+                y="40"
+                width="6"
+                height="26"
+                rx="2"
+                fill="url(#hm-wood-v)"
+                opacity="0.9"
+              />
+
+              <!-- Rope noose -->
+              <path
+                d="M154 66 Q153 71 154 76"
+                fill="none"
+                stroke="url(#hm-rope-grad)"
+                stroke-width="3.2"
+                stroke-linecap="round"
+              />
+              <!-- Rope knot detail -->
+              <ellipse
+                cx="154"
+                cy="78"
+                rx="4"
+                ry="3"
+                fill="none"
+                stroke="#8b6840"
+                stroke-width="1.5"
+              />
+
+              <!-- ── Figure parts ── -->
+              <!-- Each part uses pathLength="1" so stroke-dashoffset: 1 = hidden, 0 = drawn -->
+
+              <!-- 1. Head -->
+              <g
+                class="hm-part"
+                :class="{ 'hm-part--active': hangmanSvgParts >= 1 }"
+              >
+                <circle
+                  cx="154"
+                  cy="92"
+                  r="13"
+                  pathLength="1"
+                  fill="none"
+                  stroke-width="3"
+                />
+                <!-- Dot eyes (alive) -->
+                <circle
+                  v-if="
+                    !(act.phase === 'round_over' && act.roundResult === 'lost')
+                  "
+                  cx="150"
+                  cy="90"
+                  r="2"
+                  class="hm-face-dot"
+                  :class="{ 'hm-face-dot--show': hangmanSvgParts >= 1 }"
+                  fill="currentColor"
+                />
+                <circle
+                  v-if="
+                    !(act.phase === 'round_over' && act.roundResult === 'lost')
+                  "
+                  cx="158"
+                  cy="90"
+                  r="2"
+                  class="hm-face-dot"
+                  :class="{ 'hm-face-dot--show': hangmanSvgParts >= 1 }"
+                  fill="currentColor"
+                />
+                <!-- X eyes (dead) -->
+                <g
+                  v-if="
+                    act.phase === 'round_over' &&
+                    act.roundResult === 'lost' &&
+                    hangmanSvgParts >= 1
+                  "
+                  class="hm-face-dead"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                >
+                  <line x1="147" y1="87" x2="153" y2="93" />
+                  <line x1="153" y1="87" x2="147" y2="93" />
+                  <line x1="155" y1="87" x2="161" y2="93" />
+                  <line x1="161" y1="87" x2="155" y2="93" />
+                </g>
+                <!-- Mouth line (neutral/grim) -->
+                <path
+                  v-if="hangmanSvgParts >= 1"
+                  :d="
+                    act.phase === 'round_over' && act.roundResult === 'lost'
+                      ? 'M150 96 Q154 94 158 96'
+                      : 'M150 96 Q154 98 158 96'
+                  "
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  class="hm-face-dot"
+                  :class="{ 'hm-face-dot--show': hangmanSvgParts >= 1 }"
+                />
+              </g>
+
+              <!-- 2. Body -->
+              <g
+                class="hm-part"
+                :class="{ 'hm-part--active': hangmanSvgParts >= 2 }"
+              >
+                <line
+                  x1="154"
+                  y1="105"
+                  x2="154"
+                  y2="150"
+                  pathLength="1"
+                  stroke-width="3.5"
+                  stroke-linecap="round"
+                />
+              </g>
+
+              <!-- 3. Left arm -->
+              <g
+                class="hm-part"
+                :class="{ 'hm-part--active': hangmanSvgParts >= 3 }"
+              >
+                <path
+                  d="M154 117 Q140 126 130 138"
+                  pathLength="1"
+                  fill="none"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                />
+              </g>
+
+              <!-- 4. Right arm -->
+              <g
+                class="hm-part"
+                :class="{ 'hm-part--active': hangmanSvgParts >= 4 }"
+              >
+                <path
+                  d="M154 117 Q168 126 178 138"
+                  pathLength="1"
+                  fill="none"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                />
+              </g>
+
+              <!-- 5. Left leg -->
+              <g
+                class="hm-part"
+                :class="{ 'hm-part--active': hangmanSvgParts >= 5 }"
+              >
+                <path
+                  d="M154 150 Q145 165 137 180"
+                  pathLength="1"
+                  fill="none"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                />
+              </g>
+
+              <!-- 6. Right leg -->
+              <g
+                class="hm-part"
+                :class="{ 'hm-part--active': hangmanSvgParts >= 6 }"
+              >
+                <path
+                  d="M154 150 Q163 165 171 180"
+                  pathLength="1"
+                  fill="none"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                />
+              </g>
+
+              <!-- Foot shadow (once both legs exist) -->
+              <ellipse
+                v-if="hangmanSvgParts >= 5"
+                cx="154"
+                cy="186"
+                rx="20"
+                ry="3"
+                fill="black"
+                opacity="0.4"
+              />
+            </svg>
+
+            <p class="hm-scaffold__caption">
+              <template v-if="act.phase === 'round_over'">
+                Ended with <strong>{{ wrongCount }}</strong>
+                {{ wrongCount === 1 ? 'miss' : 'misses' }}
+              </template>
+              <template v-else-if="wrongCount === 0">
+                No misses yet — looking good
+              </template>
+              <template v-else>
+                Next miss draws: <strong>{{ nextBodyPart }}</strong>
+              </template>
+            </p>
           </div>
 
-          <div class="hm-hit-board">
-            <p class="hm-hit-board__title">Correct guesses</p>
-            <template v-if="hitScoreboard.length">
-              <p v-if="topHitScorer" class="hm-hit-board__lead">
-                <span class="hm-hit-board__lead-label">{{
-                  topHitIsTied ? 'Top (tied)' : 'Top'
-                }}</span>
-                <span class="hm-hit-board__lead-name">{{
-                  topHitTiedNames
-                }}</span>
-                <span class="hm-hit-board__lead-count">{{
-                  topHitScorer.correctCount
-                }}</span>
-              </p>
-              <ol class="hm-hit-board__list">
+          <div class="hm-sidebar">
+            <div v-if="guessLogEntries.length" class="hm-guess-log">
+              <p class="hm-guess-log__title">Guess history</p>
+              <ol class="hm-guess-log__list">
                 <li
-                  v-for="(row, idx) in hitScoreboard"
-                  :key="`hit-${row.userId || 'unk'}-${idx}`"
-                  class="hm-hit-board__row"
-                  :class="{ 'hm-hit-board__row--first': idx === 0 }"
+                  v-for="(row, idx) in guessLogEntries"
+                  :key="`glog-${idx}-${row.letter}-${row.userId}`"
+                  class="hm-guess-log__row"
+                  :class="
+                    row.hit
+                      ? 'hm-guess-log__row--hit'
+                      : 'hm-guess-log__row--miss'
+                  "
                 >
-                  <span class="hm-hit-board__rank" aria-hidden="true">{{
-                    idx + 1
-                  }}</span>
-                  <div class="hm-hit-board__avatar" aria-hidden="true">
-                    <PausedGifAvatar
-                      :src="safeImageUrl(row.pfpUrl)"
-                      :alt="row.displayName"
-                      :session-key="row.userId || `hit-${idx}`"
-                      wrapper-class="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full ring-1 ring-white/12"
-                      img-class="rounded-full object-cover"
-                    />
+                  <div class="hm-guess-log__meta">
+                    <span class="hm-guess-log__phrase">Someone guessed</span>
+                    <span class="hm-guess-log__letter" aria-hidden="true">{{
+                      row.letter
+                    }}</span>
                   </div>
-                  <span class="hm-hit-board__name">{{ row.displayName }}</span>
-                  <span class="hm-hit-board__score">{{ row.correctCount }}</span>
+                  <span
+                    class="hm-guess-log__verdict"
+                    :class="
+                      row.hit
+                        ? 'hm-guess-log__verdict--hit'
+                        : 'hm-guess-log__verdict--miss'
+                    "
+                    >{{ row.hit ? 'Hit' : 'Miss' }}</span
+                  >
                 </li>
               </ol>
-            </template>
-            <p v-else class="hm-hit-board__empty">No letter hits yet</p>
+            </div>
+
+            <div class="hm-hit-board">
+              <p class="hm-hit-board__title">Correct guesses</p>
+              <template v-if="hitScoreboard.length">
+                <p v-if="topHitScorer" class="hm-hit-board__lead">
+                  <span class="hm-hit-board__lead-label">{{
+                    topHitIsTied ? 'Top (tied)' : 'Top'
+                  }}</span>
+                  <span class="hm-hit-board__lead-name">{{
+                    topHitTiedNames
+                  }}</span>
+                  <span class="hm-hit-board__lead-count">{{
+                    topHitScorer.correctCount
+                  }}</span>
+                </p>
+                <ol class="hm-hit-board__list">
+                  <li
+                    v-for="(row, idx) in hitScoreboard"
+                    :key="`hit-${row.userId || 'unk'}-${idx}`"
+                    class="hm-hit-board__row"
+                    :class="{ 'hm-hit-board__row--first': idx === 0 }"
+                  >
+                    <span class="hm-hit-board__rank" aria-hidden="true">{{
+                      idx + 1
+                    }}</span>
+                    <div class="hm-hit-board__avatar" aria-hidden="true">
+                      <PausedGifAvatar
+                        :src="safeImageUrl(row.pfpUrl)"
+                        :alt="row.displayName"
+                        :session-key="row.userId || `hit-${idx}`"
+                        wrapper-class="relative block h-6 w-6 shrink-0 overflow-hidden rounded-full ring-1 ring-white/12"
+                        img-class="rounded-full object-cover"
+                      />
+                    </div>
+                    <span class="hm-hit-board__name">{{
+                      row.displayName
+                    }}</span>
+                    <span class="hm-hit-board__score">{{
+                      row.correctCount
+                    }}</span>
+                  </li>
+                </ol>
+              </template>
+              <p v-else class="hm-hit-board__empty">No letter hits yet</p>
+            </div>
           </div>
         </div>
-        </div><!-- /hm-arena__left -->
+        <!-- /hm-arena__left -->
 
         <!-- Puzzle panel -->
         <div class="hm-puzzle-panel">
-
           <!-- Letter tiles -->
-          <div
-            class="hm-tiles"
-            aria-live="polite"
-            aria-atomic="true"
-          >
+          <div class="hm-tiles" aria-live="polite" aria-atomic="true">
             <div
               v-for="(word, wi) in puzzleWords"
               :key="word.id"
@@ -1047,7 +1392,13 @@ const hangmanSvgParts = computed(() => wrongCount.value);
                 class="hm-tile"
                 :class="
                   slot === '_'
-                    ? ['hm-tile--blank', { 'hm-tile--blank-pulse': act.phase === 'guessing' && !isSetter }]
+                    ? [
+                        'hm-tile--blank',
+                        {
+                          'hm-tile--blank-pulse':
+                            act.phase === 'guessing' && !isSetter,
+                        },
+                      ]
                     : ['hm-tile--lit', { 'hm-tile--fresh': slot === lastGuess }]
                 "
                 :aria-label="
@@ -1055,7 +1406,8 @@ const hangmanSvgParts = computed(() => wrongCount.value);
                     ? `Word ${wi + 1}, letter ${si + 1}, hidden`
                     : `Word ${wi + 1}, letter ${si + 1}, ${slot}`
                 "
-              >{{ slot === '_' ? '' : slot }}</span>
+                >{{ slot === '_' ? '' : slot }}</span
+              >
             </div>
           </div>
 
@@ -1073,7 +1425,13 @@ const hangmanSvgParts = computed(() => wrongCount.value);
             <div class="hm-tracker__col">
               <span class="hm-tracker__label hm-tracker__label--hit">
                 <svg viewBox="0 0 10 10" fill="none" aria-hidden="true">
-                  <path d="M1.5 5l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path
+                    d="M1.5 5l2.5 2.5 4.5-5"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
                 Correct
               </span>
@@ -1083,15 +1441,23 @@ const hangmanSvgParts = computed(() => wrongCount.value);
                   :key="'h-' + l"
                   class="hm-chip hm-chip--hit"
                   :class="{ 'hm-chip--fresh': l === lastGuess }"
-                >{{ l }}</span>
-                <span v-if="!hitLetters.length" class="hm-tracker__empty">none yet</span>
+                  >{{ l }}</span
+                >
+                <span v-if="!hitLetters.length" class="hm-tracker__empty"
+                  >none yet</span
+                >
               </div>
             </div>
-            <div class="hm-tracker__divider" aria-hidden="true"/>
+            <div class="hm-tracker__divider" aria-hidden="true" />
             <div class="hm-tracker__col">
               <span class="hm-tracker__label hm-tracker__label--miss">
                 <svg viewBox="0 0 10 10" fill="none" aria-hidden="true">
-                  <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path
+                    d="M2 2l6 6M8 2L2 8"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 Missed
               </span>
@@ -1101,8 +1467,11 @@ const hangmanSvgParts = computed(() => wrongCount.value);
                   :key="'m-' + l"
                   class="hm-chip hm-chip--miss"
                   :class="{ 'hm-chip--fresh': l === lastGuess }"
-                >{{ l }}</span>
-                <span v-if="!missedLetters.length" class="hm-tracker__empty">none yet</span>
+                  >{{ l }}</span
+                >
+                <span v-if="!missedLetters.length" class="hm-tracker__empty"
+                  >none yet</span
+                >
               </div>
             </div>
           </div>
@@ -1123,15 +1492,13 @@ const hangmanSvgParts = computed(() => wrongCount.value);
               </div>
             </div>
           </div>
-
-        </div><!-- /hm-puzzle-panel -->
-      </div><!-- /hm-arena -->
+        </div>
+        <!-- /hm-puzzle-panel -->
+      </div>
+      <!-- /hm-arena -->
 
       <!-- ─── Keyboard ──────────────────────────────────────── -->
-      <div
-        v-if="act.phase === 'guessing' && !isSetter"
-        class="hm-keyboard"
-      >
+      <div v-if="act.phase === 'guessing' && !isSetter" class="hm-keyboard">
         <div
           v-for="(row, ri) in KEYBOARD_ROWS"
           :key="'kr-' + ri"
@@ -1143,23 +1510,19 @@ const hangmanSvgParts = computed(() => wrongCount.value);
             :key="k"
             type="button"
             class="hm-key"
-            :class="[
-              keyButtonClass(k),
-              { 'hm-key--fresh': k === lastGuess },
-            ]"
+            :class="[keyButtonClass(k), { 'hm-key--fresh': k === lastGuess }]"
             :disabled="!!guessed[k]"
             :aria-label="keyButtonLabel(k)"
             :title="keyButtonLabel(k)"
             @click="tryLetter(k)"
-          >{{ k }}</button>
+          >
+            {{ k }}
+          </button>
         </div>
       </div>
 
       <!-- ─── Next round ────────────────────────────────────── -->
-      <div
-        v-if="act.phase === 'round_over'"
-        class="hm-nextround"
-      >
+      <div v-if="act.phase === 'round_over'" class="hm-nextround">
         <button
           type="button"
           class="hm-btn hm-btn--next"
@@ -1171,8 +1534,19 @@ const hangmanSvgParts = computed(() => wrongCount.value);
           @click="nextRound"
         >
           <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
-            <path d="M9 2v4.5l3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M5 5.5A7 7 0 1 0 9 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path
+              d="M9 2v4.5l3-3"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M5 5.5A7 7 0 1 0 9 2"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
           </svg>
           Play next round
         </button>
@@ -1182,19 +1556,23 @@ const hangmanSvgParts = computed(() => wrongCount.value);
         >
           <template v-if="canSelfAdvanceHangmanRound">
             <template v-if="isRoundHost"
-              >You're the roster host — your tap continues the game right away.</template
+              >You're the roster host — your tap continues the game right
+              away.</template
             >
             <template v-else
-              >You're covering while the host is away — your tap continues the game.</template
+              >You're covering while the host is away — your tap continues the
+              game.</template
             >
           </template>
           <template v-else>
-            Tap to ping <strong>{{ roundOrchestratorDisplayName || 'the roster host' }}</strong>.
-            They can continue in one tap.
+            Tap to ping
+            <strong>{{
+              roundOrchestratorDisplayName || 'the roster host'
+            }}</strong
+            >. They can continue in one tap.
           </template>
         </p>
       </div>
-
     </template>
   </div>
 </template>
@@ -1229,8 +1607,16 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   flex: 1;
   overflow-y: auto;
   background:
-    radial-gradient(ellipse 80% 45% at 50% 0%, rgba(245, 158, 11, 0.05) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 55% at 5% 100%, rgba(124, 58, 237, 0.06) 0%, transparent 60%),
+    radial-gradient(
+      ellipse 80% 45% at 50% 0%,
+      rgba(245, 158, 11, 0.05) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 60% 55% at 5% 100%,
+      rgba(124, 58, 237, 0.06) 0%,
+      transparent 60%
+    ),
     var(--hm-bg);
   color: var(--hm-text);
   font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
@@ -1328,7 +1714,9 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   border-radius: 50%;
   cursor: pointer;
   color: var(--hm-text-muted);
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
   list-style: none;
 
   &:hover {
@@ -1342,7 +1730,9 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   }
 }
 
-.hm-rules__btn::-webkit-details-marker { display: none; }
+.hm-rules__btn::-webkit-details-marker {
+  display: none;
+}
 
 .hm-rules__panel {
   position: absolute;
@@ -1354,7 +1744,9 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   border: 1px solid var(--hm-border-mid);
   border-radius: 10px;
   padding: 1rem;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .hm-rules__title {
@@ -1441,7 +1833,11 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .hm-lives__pip--gone {
@@ -1578,7 +1974,9 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   font-family: var(--font-mono, ui-monospace, monospace);
   letter-spacing: 0.08em;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 
   &::placeholder {
     color: var(--hm-text-muted);
@@ -1638,8 +2036,12 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   background: var(--hm-accent);
   animation: hm-waiting-bounce 1.2s ease-in-out infinite;
 
-  &:nth-child(2) { animation-delay: 0.18s; }
-  &:nth-child(3) { animation-delay: 0.36s; }
+  &:nth-child(2) {
+    animation-delay: 0.18s;
+  }
+  &:nth-child(3) {
+    animation-delay: 0.36s;
+  }
 }
 
 .hm-waiting__who {
@@ -1739,13 +2141,23 @@ const hangmanSvgParts = computed(() => wrongCount.value);
 }
 
 /* Progressive danger coloring on the SVG via data-damage attribute */
-.hm-scaffold__svg[data-damage="3"] .hm-part--active { stroke: #f0c060; }
-.hm-scaffold__svg[data-damage="4"] .hm-part--active { stroke: #f97316; }
-.hm-scaffold__svg[data-damage="5"] .hm-part--active { stroke: #f87171; }
-.hm-scaffold__svg[data-damage="6"] .hm-part--active { stroke: #dc2626; }
+.hm-scaffold__svg[data-damage='3'] .hm-part--active {
+  stroke: #f0c060;
+}
+.hm-scaffold__svg[data-damage='4'] .hm-part--active {
+  stroke: #f97316;
+}
+.hm-scaffold__svg[data-damage='5'] .hm-part--active {
+  stroke: #f87171;
+}
+.hm-scaffold__svg[data-damage='6'] .hm-part--active {
+  stroke: #dc2626;
+}
 
 /* Dead outcome: entire figure turns red */
-.hm-scaffold__svg[data-outcome="lost"] .hm-part--active { stroke: #ef4444; }
+.hm-scaffold__svg[data-outcome='lost'] .hm-part--active {
+  stroke: #ef4444;
+}
 
 /* Face details: fade in after head appears */
 .hm-face-dot {
@@ -1758,7 +2170,9 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   opacity: 0.85;
 }
 
-.hm-scaffold__svg[data-outcome="lost"] .hm-face-dot { color: #ef4444; }
+.hm-scaffold__svg[data-outcome='lost'] .hm-face-dot {
+  color: #ef4444;
+}
 
 .hm-face-dead {
   stroke: #ef4444;
@@ -1820,7 +2234,10 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   font-weight: 800;
   letter-spacing: 0.04em;
   font-family: var(--font-mono, ui-monospace, monospace);
-  transition: background 0.2s, border-color 0.25s, box-shadow 0.25s;
+  transition:
+    background 0.2s,
+    border-color 0.25s,
+    box-shadow 0.25s;
 }
 
 .hm-tile--blank {
@@ -1845,7 +2262,9 @@ const hangmanSvgParts = computed(() => wrongCount.value);
 .hm-tile--fresh {
   background: rgba(16, 185, 129, 0.13);
   border-color: rgba(16, 185, 129, 0.45);
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.22), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  box-shadow:
+    0 0 12px rgba(16, 185, 129, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
   animation: hm-tile-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -2151,8 +2570,12 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   }
 }
 
-.hm-tracker__label--hit { color: var(--hm-hit); }
-.hm-tracker__label--miss { color: var(--hm-miss); }
+.hm-tracker__label--hit {
+  color: var(--hm-hit);
+}
+.hm-tracker__label--miss {
+  color: var(--hm-miss);
+}
 
 .hm-tracker__chips {
   display: flex;
@@ -2396,7 +2819,10 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   font-weight: 700;
   cursor: pointer;
   border: none;
-  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+  transition:
+    opacity 0.15s,
+    transform 0.1s,
+    box-shadow 0.15s;
   user-select: none;
 
   svg {
@@ -2405,16 +2831,22 @@ const hangmanSvgParts = computed(() => wrongCount.value);
     flex-shrink: 0;
   }
 
-  &:active { transform: scale(0.98); }
+  &:active {
+    transform: scale(0.98);
+  }
 }
 
 .hm-btn--lock {
   padding: 0.55rem 1.1rem;
   background: var(--hm-accent);
   color: #18130a;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4), 0 0 18px rgba(245, 158, 11, 0.25);
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.4),
+    0 0 18px rgba(245, 158, 11, 0.25);
 
-  &:hover { opacity: 0.93; }
+  &:hover {
+    opacity: 0.93;
+  }
 }
 
 .hm-btn--next {
@@ -2478,46 +2910,93 @@ const hangmanSvgParts = computed(() => wrongCount.value);
 
 /* ── Animations ──────────────────────────────────────────────── */
 @keyframes hm-draw-part {
-  from { stroke-dashoffset: 1; }
-  to   { stroke-dashoffset: 0; }
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 @keyframes hm-face-appear {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes hm-tile-pop {
-  0%   { transform: scale(0.88) translateY(3px); }
-  55%  { transform: scale(1.06) translateY(-1px); }
-  100% { transform: scale(1) translateY(0); }
+  0% {
+    transform: scale(0.88) translateY(3px);
+  }
+  55% {
+    transform: scale(1.06) translateY(-1px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
 }
 
 @keyframes hm-chip-pop {
-  0%   { transform: scale(0.78); }
-  65%  { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.78);
+  }
+  65% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 @keyframes hm-key-press {
-  0%   { transform: translateY(4px); box-shadow: 0 0 0 0 var(--hm-key-depth), 0 1px 4px rgba(0, 0, 0, 0.35); }
-  60%  { transform: translateY(-1px); }
-  100% { transform: translateY(0); }
+  0% {
+    transform: translateY(4px);
+    box-shadow:
+      0 0 0 0 var(--hm-key-depth),
+      0 1px 4px rgba(0, 0, 0, 0.35);
+  }
+  60% {
+    transform: translateY(-1px);
+  }
+  100% {
+    transform: translateY(0);
+  }
 }
 
 @keyframes hm-pip-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5); }
-  100% { box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 6px rgba(244, 63, 94, 0);
+  }
 }
 
 @keyframes hm-feedback-in {
-  from { opacity: 0; transform: translateY(4px) scale(0.94); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes hm-waiting-bounce {
-  0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
-  40%           { transform: scale(1); opacity: 1; }
+  0%,
+  80%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* ── Reduced motion ──────────────────────────────────────────── */
@@ -2584,8 +3063,12 @@ const hangmanSvgParts = computed(() => wrongCount.value);
     0 5px 10px rgba(244, 63, 94, 0.1);
 }
 
-[data-theme='light'] .hm-chip--hit { color: #065f46; }
-[data-theme='light'] .hm-chip--miss { color: #9f1239; }
+[data-theme='light'] .hm-chip--hit {
+  color: #065f46;
+}
+[data-theme='light'] .hm-chip--miss {
+  color: #9f1239;
+}
 
 [data-theme='light'] .hm-tile--lit {
   background: rgba(0, 0, 0, 0.04);

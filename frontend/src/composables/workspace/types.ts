@@ -52,6 +52,7 @@ export interface MockData {
     memberCount?: number;
     voiceParticipantCount?: number;
     createdAt?: string;
+    allowGlobalGuests?: boolean;
   }[];
   messages: Record<string, RawMessage[]>;
   friendIds: string[];
@@ -170,7 +171,7 @@ export type WorkspaceStateApi = {
     categoryId: string,
     channel: {
       name: string;
-      type: 'text' | 'voice' | 'forum';
+      type: 'text' | 'voice' | 'forum' | 'stage';
       iconKey?: string;
     },
   ) => Promise<string | null>;

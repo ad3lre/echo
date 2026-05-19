@@ -55,6 +55,7 @@ const props = withDefaults(
       bannerImageUrl?: string;
       listedInDirectory?: boolean;
       inviteJoinEnabled?: boolean;
+      allowGlobalGuests?: boolean;
       bannerBlurEnabled?: boolean;
       bannerBlackoutEnabled?: boolean;
       raidProtectionEnabled?: boolean;
@@ -245,6 +246,7 @@ const {
   onOverviewDescriptionBlur,
   onOverviewTagsBlur,
   persistModerationSettings,
+  persistAllowGlobalGuestsSetting,
   persistBannerPositionY,
 } = useServerSettingsOverviewState({
   server: serverRef,
@@ -539,6 +541,25 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
     contentRef: serverSettingsContentRef,
   });
 
+async function onSecurityPatch(patch: {
+  verificationRequireEmail?: boolean;
+  verificationRequirePhone?: boolean;
+  verificationRequire2FA?: boolean;
+  verificationRequireMatureAccount?: boolean;
+  allowGlobalGuests?: boolean;
+}) {
+  const prevGuests = form.allowGlobalGuests;
+  Object.assign(form, patch);
+  if (typeof patch.allowGlobalGuests !== 'boolean') return;
+  if (!props.canManageServer || !props.server?.id) return;
+  if (!isEchoGraphIdLocal(props.server.id)) return;
+  try {
+    await persistAllowGlobalGuestsSetting(patch.allowGlobalGuests);
+  } catch {
+    form.allowGlobalGuests = prevGuests;
+  }
+}
+
 async function onModerationPatch(patch: {
   raidProtectionEnabled?: boolean;
   raidJoinThresholdCount?: number;
@@ -615,9 +636,7 @@ async function onModerationPatch(patch: {
           <div
             class="relative flex min-h-0 min-w-0 shrink-0 flex-col self-stretch border-r border-[var(--border)] bg-[var(--srv-sidebar-grad)]"
             :style="{
-              width: navCollapsed
-                ? '48px'
-                : `${sidebarWidthClamped}px`,
+              width: navCollapsed ? '48px' : `${sidebarWidthClamped}px`,
             }"
           >
             <ServerSettingsSidebar
@@ -1006,7 +1025,7 @@ async function onModerationPatch(patch: {
                 <ServerSettingsSecuritySection
                   v-else-if="activeSection === 'Security'"
                   :form="form"
-                  @patch-form="Object.assign(form, $event)"
+                  @patch-form="onSecurityPatch"
                 />
 
                 <ServerSettingsAccessSection

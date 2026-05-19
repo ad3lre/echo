@@ -50,14 +50,7 @@ function playingBoard(
   partial: Partial<EchoCodenamesActivityV1> = {},
 ): EchoCodenamesActivityV1 {
   const lobby = lobbyWithRoles();
-  const dealt = applyDeal(
-    lobby,
-    words,
-    key,
-    'red',
-    'alice',
-    3,
-  );
+  const dealt = applyDeal(lobby, words, key, 'red', 'alice', 3);
   expect(dealt).not.toBeNull();
   return { ...dealt!, ...partial };
 }
@@ -94,7 +87,10 @@ describe('vcCodenamesReducer', () => {
       ]),
     ).toBeNull();
     expect(
-      validateRoleSetup(sorted, ROLES.filter((r) => r.role !== 'operative')),
+      validateRoleSetup(
+        sorted,
+        ROLES.filter((r) => r.role !== 'operative'),
+      ),
     ).toBeNull();
   });
 
@@ -136,14 +132,7 @@ describe('vcCodenamesReducer', () => {
     const g = playingBoard(words, key, { currentTeam: 'red' });
     const clue = applyClue(g, 'alice', 'X', 1, 'alice', 4);
     expect(clue).not.toBeNull();
-    const after = applyReveal(
-      clue!,
-      'carol',
-      10,
-      key,
-      'alice',
-      5,
-    );
+    const after = applyReveal(clue!, 'carol', 10, key, 'alice', 5);
     expect(after?.phase).toBe('game_over');
     expect(after?.winner).toBe('blue');
   });

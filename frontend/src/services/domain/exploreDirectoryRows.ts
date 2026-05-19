@@ -11,12 +11,22 @@ export type ExploreDirectoryRow = {
   /** Users in voice on this server (directory API). */
   voiceParticipantCount?: number;
   createdAt?: string;
+  /** When false, guest Explore joins are rejected for this listing. */
+  allowGlobalGuests?: boolean;
 };
 
 export type ExploreQuickFilter = {
   tag: string;
   count: number;
 };
+
+/** Guest Explore join is blocked when the server disables global guests. */
+export function isExploreDirectoryJoinLockedForGuest(
+  isGuest: boolean,
+  allowGlobalGuests?: boolean,
+): boolean {
+  return isGuest && allowGlobalGuests === false;
+}
 
 export function isPublicExploreDirectoryRow(
   entry: Pick<ExploreDirectoryRow, 'id' | 'name'>,

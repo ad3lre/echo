@@ -137,8 +137,7 @@ export function useChannelPanelVoiceState(options: VoiceStateOptions) {
     if (!vcId || !uid) return list;
 
     const lk = options.getLiveKitVoiceFilter?.();
-    const lkForCurrent =
-      lk && vcId === (lk.channelId ?? '').trim() ? lk : null;
+    const lkForCurrent = lk && vcId === (lk.channelId ?? '').trim() ? lk : null;
 
     const out: typeof list = [];
     let anyChange = false;
@@ -148,7 +147,7 @@ export function useChannelPanelVoiceState(options: VoiceStateOptions) {
       let catChanged = false;
 
       for (const ch of cat.channels) {
-        if (ch.type !== 'voice') {
+        if (ch.type !== 'voice' && ch.type !== 'stage') {
           nextChannels.push(ch as ChannelWithParticipants);
           continue;
         }

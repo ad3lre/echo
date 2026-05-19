@@ -124,29 +124,30 @@ function onDrop() {
       <div
         class="hidden shrink-0 flex-col items-end justify-center text-right sm:flex"
       >
-        <span class="text-lg font-semibold tabular-nums text-foreground">{{ hits }}</span>
-        <span class="text-[10px] font-medium uppercase tracking-wide text-fg-soft">24h hits</span>
+        <span class="text-lg font-semibold tabular-nums text-foreground">{{
+          hits
+        }}</span>
+        <span
+          class="text-[10px] font-medium uppercase tracking-wide text-fg-soft"
+          >24h hits</span
+        >
       </div>
 
-      <label
-        class="shrink-0"
-        @click.stop
-      >
+      <label class="shrink-0" @click.stop>
         <input
           type="checkbox"
           class="server-toggle"
           :disabled="!canManage"
           :checked="rule.enabled"
           @change="
-            emit(
-              'toggle-enabled',
-              ($event.target as HTMLInputElement).checked,
-            )
+            emit('toggle-enabled', ($event.target as HTMLInputElement).checked)
           "
         />
       </label>
 
-      <div class="flex shrink-0 items-center gap-1 border-l border-border/50 pl-2 sm:pl-3">
+      <div
+        class="flex shrink-0 items-center gap-1 border-l border-border/50 pl-2 sm:pl-3"
+      >
         <button
           type="button"
           class="rounded-lg p-2 text-fg-subtle transition-colors hover:bg-glass-hover hover:text-foreground disabled:opacity-40"

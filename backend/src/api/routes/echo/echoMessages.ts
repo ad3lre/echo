@@ -82,6 +82,7 @@ import type {
   MentionEntity,
   MessageFailedCode,
 } from '../../../../../shared/types';
+import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import {
   echoPool,
   requireEchoStore,
@@ -580,7 +581,17 @@ export default async function echoMessagesRoutes(
     Body: Record<string, unknown>;
   }>(
     '/channels/:channelId/messages',
-    { preHandler: [requireAuth, requireEchoStore], bodyLimit: 2_000_000 },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      bodyLimit: 2_000_000,
+      config: {
+        rateLimit: {
+          max: config.echoSocketMsgPerMinute * 10,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);

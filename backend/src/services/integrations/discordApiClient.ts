@@ -321,7 +321,8 @@ async function discordBotScheduledEventRequest(
 > {
   const token = botToken.trim();
   const gid = guildId.trim();
-  if (!token || !gid) return { ok: false, status: 0, text: 'missing token or guild' };
+  if (!token || !gid)
+    return { ok: false, status: 0, text: 'missing token or guild' };
   const path = scheduledEventId?.trim()
     ? `${DISCORD_API}/guilds/${encodeURIComponent(gid)}/scheduled-events/${encodeURIComponent(scheduledEventId.trim())}`
     : `${DISCORD_API}/guilds/${encodeURIComponent(gid)}/scheduled-events`;
@@ -337,7 +338,8 @@ async function discordBotScheduledEventRequest(
     signal: AbortSignal.timeout(DISCORD_SCHEDULED_EVENT_FETCH_MS),
   });
   const text = await res.text();
-  if (!res.ok) return { ok: false, status: res.status, text: text.slice(0, 500) };
+  if (!res.ok)
+    return { ok: false, status: res.status, text: text.slice(0, 500) };
   if (!text.trim()) return { ok: true, status: res.status, json: null };
   try {
     return { ok: true, status: res.status, json: JSON.parse(text) as unknown };
@@ -354,7 +356,9 @@ export async function discordBotCreateGuildScheduledEvent(
   guildId: string,
   body: Record<string, unknown>,
   fetchImpl: FetchLike = fetch,
-): Promise<{ ok: true; id: string } | { ok: false; status: number; text: string }> {
+): Promise<
+  { ok: true; id: string } | { ok: false; status: number; text: string }
+> {
   const r = await discordBotScheduledEventRequest(
     botToken,
     'POST',
@@ -366,7 +370,8 @@ export async function discordBotCreateGuildScheduledEvent(
   if (!r.ok) return r;
   const j = r.json as { id?: string } | null;
   const id = typeof j?.id === 'string' ? j.id.trim() : '';
-  if (!id) return { ok: false, status: r.status, text: 'missing scheduled event id' };
+  if (!id)
+    return { ok: false, status: r.status, text: 'missing scheduled event id' };
   return { ok: true, id };
 }
 

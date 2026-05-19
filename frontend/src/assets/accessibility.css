@@ -81,10 +81,7 @@ html[data-echo-dyslexia-font='1'],
 html[data-echo-dyslexia-font='1'] input,
 html[data-echo-dyslexia-font='1'] textarea,
 html[data-echo-dyslexia-font='1'] button {
-  font-family:
-    'Atkinson Hyperlegible',
-    system-ui,
-    sans-serif !important;
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif !important;
   letter-spacing: 0.01em;
   word-spacing: 0.05em;
 }

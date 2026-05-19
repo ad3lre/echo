@@ -16,21 +16,18 @@ describe('attachmentSaveLinkAttrs', () => {
   });
 
   it('uses download in-tab for same-origin static paths', () => {
-    expect(
-      attachmentSaveLinkAttrs('/assets/doc-abc.pdf', 'Paper.pdf'),
-    ).toEqual({
-      download: 'Paper.pdf',
-      target: undefined,
-      rel: undefined,
-    });
+    expect(attachmentSaveLinkAttrs('/assets/doc-abc.pdf', 'Paper.pdf')).toEqual(
+      {
+        download: 'Paper.pdf',
+        target: undefined,
+        rel: undefined,
+      },
+    );
   });
 
   it('opens same-origin /api URLs in a new tab without download', () => {
     expect(
-      attachmentSaveLinkAttrs(
-        '/api/v1/echo/uploads/signed?x=1',
-        'Paper.pdf',
-      ),
+      attachmentSaveLinkAttrs('/api/v1/echo/uploads/signed?x=1', 'Paper.pdf'),
     ).toEqual({
       download: undefined,
       target: '_blank',
@@ -39,13 +36,13 @@ describe('attachmentSaveLinkAttrs', () => {
   });
 
   it('opens same-origin /socket.io in a new tab without download', () => {
-    expect(
-      attachmentSaveLinkAttrs('/socket.io/?EIO=4', 'ignored.bin'),
-    ).toEqual({
-      download: undefined,
-      target: '_blank',
-      rel: 'noopener noreferrer',
-    });
+    expect(attachmentSaveLinkAttrs('/socket.io/?EIO=4', 'ignored.bin')).toEqual(
+      {
+        download: undefined,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+      },
+    );
   });
 
   it('opens cross-origin URLs in a new tab without download', () => {

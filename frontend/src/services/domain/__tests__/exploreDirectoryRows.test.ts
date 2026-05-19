@@ -4,11 +4,19 @@ import {
   compareExploreServersWithVoicePriority,
   exploreTagDisplayLabel,
   filterExploreDirectoryRowsByTags,
+  isExploreDirectoryJoinLockedForGuest,
   normalizeExploreDirectoryTags,
   sortExploreServersWithVoicePriority,
 } from '../exploreDirectoryRows';
 
 describe('exploreDirectoryRows', () => {
+  it('locks guest Explore join only when allowGlobalGuests is false', () => {
+    expect(isExploreDirectoryJoinLockedForGuest(true, false)).toBe(true);
+    expect(isExploreDirectoryJoinLockedForGuest(true, true)).toBe(false);
+    expect(isExploreDirectoryJoinLockedForGuest(true, undefined)).toBe(false);
+    expect(isExploreDirectoryJoinLockedForGuest(false, false)).toBe(false);
+  });
+
   it('normalizes tags for filtering', () => {
     expect(
       normalizeExploreDirectoryTags([' Gaming ', '', 'gaming', 'Art']),

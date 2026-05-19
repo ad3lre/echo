@@ -106,7 +106,10 @@ export function normalizeHangmanGuessHistoryForRoster(
   const roster = new Set(
     rosterSorted.map((x) => String(x).trim()).filter(Boolean),
   );
-  if (!Array.isArray(rawHistory) || rawHistory.length !== guessedLetters.length) {
+  if (
+    !Array.isArray(rawHistory) ||
+    rawHistory.length !== guessedLetters.length
+  ) {
     return guessedLetters.map((letter) => ({ userId: '', letter }));
   }
   const out: EchoHangmanGuessHistoryEntryV1[] = [];
@@ -118,10 +121,8 @@ export function normalizeHangmanGuessHistoryForRoster(
     }
     const uidRaw = (row as { userId?: unknown }).userId;
     const chRaw = (row as { letter?: unknown }).letter;
-    let userId =
-      typeof uidRaw === 'string' ? uidRaw.trim().slice(0, 128) : '';
-    const letter =
-      typeof chRaw === 'string' ? chRaw.trim().toUpperCase() : '';
+    let userId = typeof uidRaw === 'string' ? uidRaw.trim().slice(0, 128) : '';
+    const letter = typeof chRaw === 'string' ? chRaw.trim().toUpperCase() : '';
     if (!/^[A-Z]$/.test(letter) || letter !== L) {
       return guessedLetters.map((l) => ({ userId: '', letter: l }));
     }

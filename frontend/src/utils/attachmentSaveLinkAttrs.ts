@@ -52,7 +52,11 @@ export function attachmentSaveLinkAttrs(
     /* invalid URL — treat as cross-origin */
   }
   if (sameOrigin && resolved && sameOriginApiOrSocketPath(resolved)) {
-    return { download: undefined, target: '_blank', rel: 'noopener noreferrer' };
+    return {
+      download: undefined,
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    };
   }
   if (sameOrigin) {
     return { download: safeName, target: undefined, rel: undefined };

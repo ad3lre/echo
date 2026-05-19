@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ref } from 'vue';
-import type { ChannelCategory, ChannelWithParticipants } from './useChannelPanelVoiceState';
+import type {
+  ChannelCategory,
+  ChannelWithParticipants,
+} from './useChannelPanelVoiceState';
 import { useChannelPanelVoiceState } from './useChannelPanelVoiceState';
 
 function voiceCh(

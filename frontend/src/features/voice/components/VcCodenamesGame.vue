@@ -9,7 +9,11 @@ import { hangmanOrchestratorUserId } from '@/features/voice/vcHangmanReducer';
 
 const props = defineProps<{
   currentUserId?: string | null;
-  activeVoiceChannelParticipants: readonly { id: string; name: string; pfp?: string }[];
+  activeVoiceChannelParticipants: readonly {
+    id: string;
+    name: string;
+    pfp?: string;
+  }[];
   vcCodenamesActivity: EchoCodenamesActivityV1 | null;
   codenamesRosterUserIds: readonly string[];
   vcCodenamesSpymasterKey: EchoCodenamesAffiliationV1[] | null;
@@ -96,7 +100,10 @@ function onDeal(): void {
 }
 
 function onClueSubmit(): void {
-  props.requestVcCodenamesClue(clueWord.value.trim(), Math.floor(clueNumber.value));
+  props.requestVcCodenamesClue(
+    clueWord.value.trim(),
+    Math.floor(clueNumber.value),
+  );
   clueWord.value = '';
 }
 
@@ -133,7 +140,8 @@ function cardStyle(
 
 const canGuess = computed(() => {
   const a = act.value;
-  if (!a || a.phase !== 'playing' || a.turnStage !== 'await_guess') return false;
+  if (!a || a.phase !== 'playing' || a.turnStage !== 'await_guess')
+    return false;
   if (myRole.value?.role !== 'operative') return false;
   return myRole.value.team === a.currentTeam;
 });
@@ -160,14 +168,28 @@ const canClue = computed(() => {
         aria-hidden="true"
         style="
           background:
-            radial-gradient(90% 120% at 0% 0%, rgba(56, 189, 248, 0.12) 0%, transparent 50%),
-            radial-gradient(80% 100% at 100% 100%, rgba(167, 139, 250, 0.1) 0%, transparent 48%),
-            linear-gradient(165deg, color-mix(in srgb, var(--elevated) 88%, #0a1220) 0%, var(--elevated) 100%);
+            radial-gradient(
+              90% 120% at 0% 0%,
+              rgba(56, 189, 248, 0.12) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              80% 100% at 100% 100%,
+              rgba(167, 139, 250, 0.1) 0%,
+              transparent 48%
+            ),
+            linear-gradient(
+              165deg,
+              color-mix(in srgb, var(--elevated) 88%, #0a1220) 0%,
+              var(--elevated) 100%
+            );
         "
       />
       <div class="relative flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 class="text-lg font-semibold tracking-tight text-fg">Echoed Names</h2>
+          <h2 class="text-lg font-semibold tracking-tight text-fg">
+            Echoed Names
+          </h2>
           <p class="mt-0.5 text-sm text-fg-soft">
             Team word grid · session host applies moves from everyone in voice
           </p>
@@ -177,7 +199,9 @@ const canClue = computed(() => {
           class="rounded-lg border border-border bg-bg/60 px-3 py-2 text-xs text-fg-soft backdrop-blur-sm"
         >
           Session host:
-          <span class="font-medium text-fg">{{ displayNameFor(orchId || '') }}</span>
+          <span class="font-medium text-fg">{{
+            displayNameFor(orchId || '')
+          }}</span>
         </div>
       </div>
     </div>
@@ -188,8 +212,9 @@ const canClue = computed(() => {
     >
       <p>Waiting for the session host to open the lobby…</p>
       <p class="mt-2 text-xs text-fg-subtle">
-        Only the session host needs this activity open to start; you still need four people in
-        the activity to assign teams and deal, like the tabletop game.
+        Only the session host needs this activity open to start; you still need
+        four people in the activity to assign teams and deal, like the tabletop
+        game.
       </p>
     </div>
 
@@ -201,7 +226,8 @@ const canClue = computed(() => {
         <p class="text-sm text-fg-soft">
           {{ codenamesRosterUserIds.length }} players in this activity
           <span v-if="codenamesRosterUserIds.length < 4" class="text-amber-600">
-            · need at least 4</span>
+            · need at least 4</span
+          >
         </p>
         <div class="flex flex-wrap gap-2">
           <button
@@ -225,7 +251,9 @@ const canClue = computed(() => {
         <p v-if="dealError" class="text-sm text-red-600">{{ dealError }}</p>
         <ul v-if="act.roleAssignments.length" class="text-sm text-fg-soft">
           <li v-for="r in act.roleAssignments" :key="r.userId">
-            <span class="font-medium text-fg">{{ displayNameFor(r.userId) }}</span>
+            <span class="font-medium text-fg">{{
+              displayNameFor(r.userId)
+            }}</span>
             · {{ r.team }} {{ r.role }}
           </li>
         </ul>
@@ -342,7 +370,11 @@ const canClue = computed(() => {
         </div>
 
         <button
-          v-if="act.phase === 'playing' && myRole?.role === 'spymaster' && !isOrchestrator"
+          v-if="
+            act.phase === 'playing' &&
+            myRole?.role === 'spymaster' &&
+            !isOrchestrator
+          "
           type="button"
           class="text-xs font-medium text-primary underline-offset-2 hover:underline"
           @click="requestVcCodenamesPushKeyToOrchestrator()"

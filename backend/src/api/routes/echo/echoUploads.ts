@@ -265,10 +265,7 @@ export default async function echoUploadsRoutes(
       },
     },
     async (req, reply) => {
-      if (
-        !config.echoS3PublicReadThroughApi ||
-        !isEchoS3UploadConfigured()
-      ) {
+      if (!config.echoS3PublicReadThroughApi || !isEchoS3UploadConfigured()) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
       const star = (req.params as { '*': string })['*'];
@@ -296,7 +293,12 @@ export default async function echoUploadsRoutes(
       const client = createEchoS3UploadClient();
       const bucket = getEchoS3UploadBucket();
       if (!client || !bucket) {
-        return sendError(reply, 503, 'UPLOADS_NOT_CONFIGURED', 'S3 not configured');
+        return sendError(
+          reply,
+          503,
+          'UPLOADS_NOT_CONFIGURED',
+          'S3 not configured',
+        );
       }
       try {
         const obj = await client.send(

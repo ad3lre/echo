@@ -181,8 +181,8 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
       v-if="hasAlertLogChannel && !logChannelOk"
       class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
     >
-      Pick a log / alert channel below in “Exemptions &amp; logging” — it is required when this rule
-      includes “Log channel alert”.
+      Pick a log / alert channel below in “Exemptions &amp; logging” — it is
+      required when this rule includes “Log channel alert”.
     </p>
     <p
       class="rounded-lg border border-border/60 bg-glass-2/40 px-3 py-2 text-[11px] leading-relaxed text-fg-subtle"
@@ -194,7 +194,8 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
       <code class="font-mono text-fg-soft">{channelId}</code>,
       <code class="font-mono text-fg-soft">{messageId}</code>,
       <code class="font-mono text-fg-soft">{correlationId}</code>
-      (empty on blocked sends). Channel notice and alerts post as the server owner.
+      (empty on blocked sends). Channel notice and alerts post as the server
+      owner.
     </p>
     <p
       v-if="hasBlock && hasDeleteRecent"

@@ -132,6 +132,7 @@ export default async function echoServerScopedRoutes(
       raidProtectionEnabled?: boolean;
       raidJoinThresholdCount?: number;
       raidJoinWindowSeconds?: number;
+      allowGlobalGuests?: boolean;
       applicationsEnabled?: boolean;
       applicationForm?: unknown;
     };
@@ -208,6 +209,10 @@ export default async function echoServerScopedRoutes(
           typeof req.body?.raidJoinWindowSeconds === 'number'
             ? req.body.raidJoinWindowSeconds
             : undefined,
+        allowGlobalGuests:
+          typeof req.body?.allowGlobalGuests === 'boolean'
+            ? req.body.allowGlobalGuests
+            : undefined,
         applicationsEnabled:
           typeof req.body?.applicationsEnabled === 'boolean'
             ? req.body.applicationsEnabled
@@ -264,6 +269,7 @@ export default async function echoServerScopedRoutes(
           raidProtectionEnabled: body.raidProtectionEnabled,
           raidJoinThresholdCount: body.raidJoinThresholdCount,
           raidJoinWindowSeconds: body.raidJoinWindowSeconds,
+          allowGlobalGuests: body.allowGlobalGuests,
           applicationsEnabled: body.applicationsEnabled,
           applicationFormUpdated: body.applicationForm !== undefined,
         },
@@ -392,9 +398,11 @@ export default async function echoServerScopedRoutes(
       const type =
         req.body?.type === 'voice'
           ? 'voice'
-          : req.body?.type === 'forum'
-            ? 'forum'
-            : 'text';
+          : req.body?.type === 'stage'
+            ? 'stage'
+            : req.body?.type === 'forum'
+              ? 'forum'
+              : 'text';
       let categoryId =
         typeof req.body?.categoryId === 'string'
           ? req.body.categoryId.trim()

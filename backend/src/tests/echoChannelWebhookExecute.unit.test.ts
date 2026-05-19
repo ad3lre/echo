@@ -20,7 +20,10 @@ function run(): void {
     { wait: true, threadId: 'abc', withComponents: false },
   );
 
-  const slack = translateSlackIncomingWebhookBody({ text: 'hi', username: 'bot' });
+  const slack = translateSlackIncomingWebhookBody({
+    text: 'hi',
+    username: 'bot',
+  });
   assert.equal(slack?.content, 'hi');
   assert.equal(slack?.username, 'bot');
   assert.equal(translateSlackIncomingWebhookBody({ blocks: [] }), null);

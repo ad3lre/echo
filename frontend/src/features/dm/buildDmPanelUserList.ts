@@ -298,9 +298,7 @@ export function buildDmPanelInboxList(input: {
         name: 'You',
         pfp: uSelf?.pfp ?? '',
         ...(uSelf?.status ? { status: uSelf.status } : {}),
-        ...(uSelf?.customStatus
-          ? { customStatus: uSelf.customStatus }
-          : {}),
+        ...(uSelf?.customStatus ? { customStatus: uSelf.customStatus } : {}),
         ...(selfUnread > 0 ? { unreadDmCount: selfUnread } : {}),
       },
       rank: { ms: SELF_DM_INBOX_SORT_RANK_MS },

@@ -66,7 +66,8 @@ export function applyMoveIfLegal(
   cellIndex: number,
   mark: 'X' | 'O',
 ): TttCell[] | null {
-  if (cellIndex < 0 || cellIndex > 8 || !Number.isInteger(cellIndex)) return null;
+  if (cellIndex < 0 || cellIndex > 8 || !Number.isInteger(cellIndex))
+    return null;
   if (board[cellIndex] !== '') return null;
   if (terminalFromBoard(board) !== 'playing') return null;
   const next = cloneBoard(board);
@@ -75,7 +76,10 @@ export function applyMoveIfLegal(
 }
 
 /** Lexicographic arbiter for Hangman-style VC authority. */
-export function ticTacToeArbiterUserId(xUserId: string, oUserId: string): string {
+export function ticTacToeArbiterUserId(
+  xUserId: string,
+  oUserId: string,
+): string {
   const x = xUserId.trim();
   const o = oUserId.trim();
   return x < o ? x : o;
@@ -116,7 +120,10 @@ function scoreMinimax(
 }
 
 /** Unbeatable move for `aiMark` (assumes `humanMark` is the opponent). */
-export function bestMoveForAi(board: TttBoard, aiMark: 'X' | 'O'): number | null {
+export function bestMoveForAi(
+  board: TttBoard,
+  aiMark: 'X' | 'O',
+): number | null {
   const humanMark: 'X' | 'O' = aiMark === 'X' ? 'O' : 'X';
   const b = cloneBoard(board);
   let bestI: number | null = null;

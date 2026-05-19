@@ -54,7 +54,8 @@ export async function getEchoChannelVoiceE2eeEnabled(
       [channelId, serverId],
     );
     if (!r.rows[0]) return false;
-    if (String(r.rows[0].type) !== 'voice') return false;
+    const t = String(r.rows[0].type);
+    if (t !== 'voice' && t !== 'stage') return false;
     return Boolean(r.rows[0].voice_e2ee_enabled);
   } catch (e) {
     if (isPostgresUndefinedRelationError(e)) return false;

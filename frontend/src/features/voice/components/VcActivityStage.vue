@@ -302,8 +302,12 @@ const hangmanVoiceParticipants = computed(() => {
 });
 
 const cnActivity = computed(() => unref(props.vcCodenamesActivity));
-const cnRoster = computed(() => [...(unref(props.codenamesRosterUserIds) ?? [])]);
-const cnSpymasterKey = computed(() => unref(props.vcCodenamesSpymasterKey) ?? null);
+const cnRoster = computed(() => [
+  ...(unref(props.codenamesRosterUserIds) ?? []),
+]);
+const cnSpymasterKey = computed(
+  () => unref(props.vcCodenamesSpymasterKey) ?? null,
+);
 
 const auth = useAuthSessionStore();
 
@@ -600,9 +604,7 @@ const youtubeSyncUi = computed(
 );
 
 const syncYoutubeVideoId = computed(() =>
-  youtubeSyncUi.value &&
-  st.value.phase === 'youtube' &&
-  st.value.youtubeVideoId
+  youtubeSyncUi.value && st.value.phase === 'youtube' && st.value.youtubeVideoId
     ? st.value.youtubeVideoId
     : null,
 );
@@ -1647,7 +1649,9 @@ watch(
                     </div>
                   </div>
                 </button>
-                <div class="flex shrink-0 flex-col gap-px rounded-md bg-elevated/50 p-px ring-1 ring-border/60">
+                <div
+                  class="flex shrink-0 flex-col gap-px rounded-md bg-elevated/50 p-px ring-1 ring-border/60"
+                >
                   <button
                     type="button"
                     class="rounded p-0.5 text-fg-soft transition first:rounded-t-md last:rounded-b-md hover:bg-glass-hover hover:text-fg disabled:opacity-30"
@@ -1801,7 +1805,9 @@ watch(
                       >
                         {{ v.title }}
                       </div>
-                      <div class="mt-0.5 truncate text-left text-[10px] text-fg-subtle">
+                      <div
+                        class="mt-0.5 truncate text-left text-[10px] text-fg-subtle"
+                      >
                         {{ v.channelTitle }}
                       </div>
                     </div>
@@ -1886,7 +1892,9 @@ watch(
             @click="toggleBrowseQueue"
           >
             <span class="sm:hidden">{{ st.playlist.length }}</span>
-            <span class="hidden sm:inline">Queue · {{ st.playlist.length }}</span>
+            <span class="hidden sm:inline"
+              >Queue · {{ st.playlist.length }}</span
+            >
           </button>
         </div>
       </div>
@@ -2939,129 +2947,59 @@ watch(
 
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--youtube:hover {
-  border-color: color-mix(
-    in srgb,
-    #fb7185 38%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #fb7185 38%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--wordle:hover {
-  border-color: color-mix(
-    in srgb,
-    #4ade80 36%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #4ade80 36%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--hangman:hover {
-  border-color: color-mix(
-    in srgb,
-    #fbbf24 36%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #fbbf24 36%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--tictactoe:hover {
-  border-color: color-mix(
-    in srgb,
-    #818cf8 36%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #818cf8 36%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--openguessr:hover {
-  border-color: color-mix(
-    in srgb,
-    #2dd4bf 34%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #2dd4bf 34%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--skribblio:hover {
-  border-color: color-mix(
-    in srgb,
-    #22d3ee 36%,
-    #d97706 20%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #22d3ee 36%, #d97706 20%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--garticphone:hover {
-  border-color: color-mix(
-    in srgb,
-    #c084fc 34%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #c084fc 34%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--krunker:hover {
-  border-color: color-mix(
-    in srgb,
-    #fb923c 38%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #fb923c 38%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--gooberdash:hover {
-  border-color: color-mix(
-    in srgb,
-    #e879f9 34%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #e879f9 34%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--echoed-names:hover {
-  border-color: color-mix(
-    in srgb,
-    #22d3ee 32%,
-    #d97706 24%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #22d3ee 32%, #d97706 24%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--richup:hover {
-  border-color: color-mix(
-    in srgb,
-    #34d399 34%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #34d399 34%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--smashkarts:hover {
-  border-color: color-mix(
-    in srgb,
-    #fb923c 38%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #fb923c 38%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--basketballstars2026:hover {
-  border-color: color-mix(
-    in srgb,
-    #fb923c 36%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #fb923c 36%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--clusterrush:hover {
-  border-color: color-mix(
-    in srgb,
-    #f87171 34%,
-    #d97706 22%,
-    var(--border)
-  );
+  border-color: color-mix(in srgb, #f87171 34%, #d97706 22%, var(--border));
 }
 
 .vc-act-widget__media {
@@ -3212,11 +3150,7 @@ watch(
 }
 
 .vc-act-header--echoed-names {
-  border-bottom-color: color-mix(
-    in srgb,
-    #0891b2 26%,
-    var(--border)
-  );
+  border-bottom-color: color-mix(in srgb, #0891b2 26%, var(--border));
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--elevated) 88%, #050f14) 0%,

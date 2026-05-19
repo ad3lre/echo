@@ -10,9 +10,8 @@ import { setAudioTrackVolumeIfSupported } from '@/services/livekit/livekitTrackA
 
 const webAudioAvailable =
   typeof globalThis.AudioContext === 'function' ||
-  typeof (
-    globalThis as unknown as { webkitAudioContext?: typeof AudioContext }
-  ).webkitAudioContext === 'function';
+  typeof (globalThis as unknown as { webkitAudioContext?: typeof AudioContext })
+    .webkitAudioContext === 'function';
 
 describe('client-side remote playback gain (Web Audio)', () => {
   afterEach(() => {

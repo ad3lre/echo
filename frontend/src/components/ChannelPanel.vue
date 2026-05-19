@@ -151,7 +151,13 @@ const props = defineProps<{
   /** Per-action voice moderation (Echo: MUTE_MEMBERS / DEAFEN_MEMBERS / MOVE_MEMBERS). */
   canVcModerateMember?: (
     userId: string,
-    action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move',
+    action:
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'disconnect'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience',
   ) => boolean;
   onModerateUser?: (payload: {
     action: 'kick' | 'ban' | 'timeout';
@@ -159,7 +165,13 @@ const props = defineProps<{
     timeoutMinutes?: number;
   }) => void;
   onVcModerate?: (payload: {
-    action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move';
+    action:
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'disconnect'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;
@@ -445,7 +457,13 @@ onMounted(() => {
 
 function vcModAllowed(
   userId: string,
-  action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move',
+  action:
+    | 'serverMute'
+    | 'serverDeafen'
+    | 'disconnect'
+    | 'move'
+    | 'inviteToSpeak'
+    | 'moveToAudience',
 ): boolean {
   if (props.canVcModerateMember) {
     return props.canVcModerateMember(userId, action);
@@ -535,7 +553,7 @@ const emit = defineEmits<{
 
 function onChannelRowClick(channel: ChannelWithParticipants) {
   closeVcSettings();
-  if (channel.type === 'voice') {
+  if (channel.type === 'voice' || channel.type === 'stage') {
     if (props.canJoinVoice && !props.canJoinVoice(channel.id)) {
       requestGuildVoiceJoinNoPermissionModal();
       return;
@@ -850,7 +868,12 @@ function vcMenuCopyUserId() {
 }
 
 function vcModerateFromMenu(
-  action: 'serverMute' | 'serverDeafen' | 'disconnect',
+  action:
+    | 'serverMute'
+    | 'serverDeafen'
+    | 'disconnect'
+    | 'inviteToSpeak'
+    | 'moveToAudience',
 ) {
   const c = panelContext.value;
   if (!c || c.type !== 'vc' || !props.onVcModerate) return;
@@ -911,6 +934,23 @@ const vcMenuCanMove = computed(() => {
   return vcModAllowed(c.userId, 'move');
 });
 
+const vcMenuIsStage = computed(() => {
+  const c = panelContext.value;
+  return !!(c && c.type === 'vc' && c.channel?.type === 'stage');
+});
+
+const vcMenuTargetIsSpeaker = computed(() => {
+  const c = panelContext.value;
+  if (!c || c.type !== 'vc' || !c.userId || !c.channel) return false;
+  return !!c.channel.voiceStageSpeakerByUserId?.[c.userId];
+});
+
+const vcMenuCanInviteToSpeak = computed(() => {
+  const c = panelContext.value;
+  if (!c || c.type !== 'vc' || !c.userId || !vcMenuIsStage.value) return false;
+  return vcModAllowed(c.userId, 'inviteToSpeak');
+});
+
 const vcMoveTargets = computed(() => {
   const c = panelContext.value;
   const sid = props.selectedServer?.id?.trim();
@@ -922,7 +962,11 @@ const vcMoveTargets = computed(() => {
   const out: Array<{ id: string; name: string; disabled: boolean }> = [];
   for (const cat of cats) {
     for (const ch of cat.channels) {
-      if (ch.type !== 'voice' || ch.id === currentId) continue;
+      if (
+        (ch.type !== 'voice' && ch.type !== 'stage') ||
+        ch.id === currentId
+      )
+        continue;
       const name = getChannelDisplayName(ch.name);
       const disabled = props.canJoinVoice ? !props.canJoinVoice(ch.id) : false;
       out.push({ id: ch.id, name, disabled });
@@ -952,7 +996,8 @@ const vcContextShowVoiceMod = computed(() => {
     vcMenuCanMute.value ||
     vcMenuCanDeafen.value ||
     vcMenuCanDisconnect.value ||
-    vcMenuCanMove.value
+    vcMenuCanMove.value ||
+    vcMenuCanInviteToSpeak.value
   );
 });
 
@@ -1113,6 +1158,7 @@ function forwardInvite(payload?: {
           :current-user-id="currentUserId"
           :current-voice-channel-id="currentVoiceChannelId ?? null"
           :current-voice-channel-name="currentVoiceChannelName ?? ''"
+          :echo-server-id="selectedServer?.id ?? null"
           :focus-guild-voice-channel-in-sidebar="
             focusGuildVoiceChannelInSidebar
           "
@@ -1163,6 +1209,9 @@ function forwardInvite(payload?: {
       :vc-menu-can-deafen="vcMenuCanDeafen"
       :vc-menu-can-disconnect="vcMenuCanDisconnect"
       :vc-menu-can-move="vcMenuCanMove"
+      :vc-menu-is-stage="vcMenuIsStage"
+      :vc-menu-target-is-speaker="vcMenuTargetIsSpeaker"
+      :vc-menu-can-invite-to-speak="vcMenuCanInviteToSpeak"
       :vc-move-targets="vcMoveTargets"
       :vc-menu-server-muted="vcMenuServerMuted"
       :vc-menu-server-deafened="vcMenuServerDeafened"

@@ -178,9 +178,7 @@ export function echoRowToMessage(existing: EchoMessageRow): Message {
     ...(existing.bridgeSource === 'discord_inbound'
       ? { bridgeFromDiscord: true }
       : {}),
-    ...(existing.bridgeSource
-      ? { bridgeSource: existing.bridgeSource }
-      : {}),
+    ...(existing.bridgeSource ? { bridgeSource: existing.bridgeSource } : {}),
     ...(e2eeCiphertext && existing.e2eeEnvelope
       ? {
           encryption: {
@@ -760,7 +758,12 @@ export async function echoAutomodPostOwnerChannelNotice(
   );
 
   if (io) {
-    broadcastToEchoChannel(io, input.targetChannelId, 'message', messageForClients);
+    broadcastToEchoChannel(
+      io,
+      input.targetChannelId,
+      'message',
+      messageForClients,
+    );
   }
 
   const dmRecipients = await listEchoDmParticipantUserIds(

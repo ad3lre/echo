@@ -35,6 +35,7 @@ export type EchoWorkspaceDiscoverableServer = {
   memberCount?: number;
   voiceParticipantCount?: number;
   createdAt?: string;
+  allowGlobalGuests?: boolean;
 };
 
 export type EchoWorkspaceSessionApplyRefs = {
@@ -428,7 +429,9 @@ export function setLiveSyncConnectedOnEchoSession(
  */
 export function applyVoiceRosterDeltaToEchoSession(
   refs: EchoWorkspaceSessionApplyRefs,
-  delta: NonNullable<import('@shared/types/socket').EchoWorkspaceEvent['voiceRosterDelta']>,
+  delta: NonNullable<
+    import('@shared/types/socket').EchoWorkspaceEvent['voiceRosterDelta']
+  >,
 ): void {
   const { serverId, channelId, userId, action } = delta;
   if (!serverId || !userId) return;
@@ -449,13 +452,15 @@ export function applyVoiceRosterDeltaToEchoSession(
    */
   function mapVoiceChannels(
     cats: typeof serverCats,
-    mutateCh: (ch: import('@shared/types').ChannelSummary) => import('@shared/types').ChannelSummary | null,
+    mutateCh: (
+      ch: import('@shared/types').ChannelSummary,
+    ) => import('@shared/types').ChannelSummary | null,
   ): typeof serverCats {
     let anyChange = false;
     const next = cats.map((cat) => {
       let catChanged = false;
       const nextChannels = cat.channels.map((ch) => {
-        if (ch.type !== 'voice') return ch;
+        if (ch.type !== 'voice' && ch.type !== 'stage') return ch;
         const result = mutateCh(ch);
         if (result === null || result === ch) return ch;
         catChanged = true;
@@ -474,7 +479,9 @@ export function applyVoiceRosterDeltaToEchoSession(
       const ids = ch.voiceParticipantIds;
       const hasMute = ch.voiceServerMuteByUserId?.[userId];
       const hasDeaf = ch.voiceServerDeafenByUserId?.[userId];
-      if (!ids?.includes(userId) && !hasMute && !hasDeaf) return ch;
+      const hasSpeaker = ch.voiceStageSpeakerByUserId?.[userId];
+      if (!ids?.includes(userId) && !hasMute && !hasDeaf && !hasSpeaker)
+        return ch;
       const nextIds = ids ? ids.filter((id) => id !== userId) : [];
       const nextMute = hasMute
         ? Object.fromEntries(
@@ -490,23 +497,45 @@ export function applyVoiceRosterDeltaToEchoSession(
             ),
           )
         : ch.voiceServerDeafenByUserId;
+      const nextSpeaker = hasSpeaker
+        ? Object.fromEntries(
+            Object.entries(ch.voiceStageSpeakerByUserId ?? {}).filter(
+              ([k]) => k !== userId,
+            ),
+          )
+        : ch.voiceStageSpeakerByUserId;
       return {
         ...ch,
         voiceParticipantIds: nextIds,
         ...(hasMute ? { voiceServerMuteByUserId: nextMute } : {}),
         ...(hasDeaf ? { voiceServerDeafenByUserId: nextDeaf } : {}),
+        ...(hasSpeaker ? { voiceStageSpeakerByUserId: nextSpeaker } : {}),
       };
     });
   }
 
   let nextCats: typeof serverCats;
 
+  const stageSpeakerHint = delta.stageSpeaker;
+
   if (action === 'join') {
     nextCats = mapVoiceChannels(serverCats, (ch) => {
       if (ch.id !== channelId) return ch;
       const ids = ch.voiceParticipantIds ?? [];
-      if (ids.includes(userId)) return ch;
-      return { ...ch, voiceParticipantIds: [...ids, userId] };
+      const next: import('@shared/types').ChannelSummary = {
+        ...ch,
+        voiceParticipantIds: ids.includes(userId) ? ids : [...ids, userId],
+      };
+      if (
+        ch.type === 'stage' &&
+        stageSpeakerHint !== undefined
+      ) {
+        const spk = { ...(ch.voiceStageSpeakerByUserId ?? {}) };
+        if (stageSpeakerHint) spk[userId] = true;
+        else delete spk[userId];
+        next.voiceStageSpeakerByUserId = spk;
+      }
+      return next;
     });
   } else if (action === 'leave' || action === 'disconnect') {
     nextCats = removeUserFromAll(serverCats);
@@ -540,6 +569,15 @@ export function applyVoiceRosterDeltaToEchoSession(
       if (deafened) nextDeaf[userId] = true;
       else delete nextDeaf[userId];
       return { ...ch, voiceServerDeafenByUserId: nextDeaf };
+    });
+  } else if (action === 'promote_speaker' || action === 'demote_speaker') {
+    const isSpeaker = action === 'promote_speaker';
+    nextCats = mapVoiceChannels(serverCats, (ch) => {
+      if (ch.id !== channelId || ch.type !== 'stage') return ch;
+      const spk = { ...(ch.voiceStageSpeakerByUserId ?? {}) };
+      if (isSpeaker) spk[userId] = true;
+      else delete spk[userId];
+      return { ...ch, voiceStageSpeakerByUserId: spk };
     });
   } else {
     return;

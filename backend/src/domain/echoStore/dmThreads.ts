@@ -898,7 +898,12 @@ export async function createEchoGroupDmThread(
         [channelId, uid],
       );
     }
-    await bumpEchoDmThreadActivity(client, channelId, new Date(), 'group_event');
+    await bumpEchoDmThreadActivity(
+      client,
+      channelId,
+      new Date(),
+      'group_event',
+    );
     await client.query('COMMIT');
   } catch (e) {
     try {

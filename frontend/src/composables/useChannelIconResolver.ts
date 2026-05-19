@@ -22,7 +22,7 @@ import {
 
 type ChannelLike = {
   name: string;
-  type?: 'text' | 'voice' | 'forum';
+  type?: 'text' | 'voice' | 'forum' | 'stage';
   iconKey?: string;
 };
 

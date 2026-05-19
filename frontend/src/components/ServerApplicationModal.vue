@@ -118,7 +118,10 @@ async function onAttachmentFile(q: EchoApplicationQuestionDto, ev: Event) {
   if (!file) return;
   const p = props.payload;
   if (!p || !canSubmitEchoApplications.value) {
-    dispatchAppToast('Sign in with a full account to upload a file.', 'warning');
+    dispatchAppToast(
+      'Sign in with a full account to upload a file.',
+      'warning',
+    );
     return;
   }
   attachmentUploadingId.value = q.id;

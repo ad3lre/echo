@@ -10,7 +10,8 @@
   box-sizing: border-box;
   padding: clamp(0.75rem, 3vw, 1.5rem);
   color: var(--text);
-  background: radial-gradient(
+  background:
+    radial-gradient(
       120% 80% at 50% -10%,
       color-mix(in srgb, var(--accent) 22%, transparent),
       transparent 55%

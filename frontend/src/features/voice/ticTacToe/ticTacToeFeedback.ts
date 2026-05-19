@@ -57,7 +57,10 @@ export function triggerTicTacToeHaptic(
   kind: 'place' | 'opp' | 'win' | 'lose' | 'draw' | 'invite',
 ): void {
   if (shouldSkipHaptics()) return;
-  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function')
+  if (
+    typeof navigator === 'undefined' ||
+    typeof navigator.vibrate !== 'function'
+  )
     return;
   const patterns: Record<typeof kind, number | number[]> = {
     place: 10,
@@ -87,10 +90,7 @@ export function playTicTacToeSfx(kind: TicTacToeSfxKind): void {
   if (!ctx || !spec) return;
 
   const master =
-    Math.max(
-      0,
-      Math.min(100, prefs.settings.soundEffectsMasterVolume),
-    ) / 100;
+    Math.max(0, Math.min(100, prefs.settings.soundEffectsMasterVolume)) / 100;
   const gain = spec.gain * master;
   if (gain <= 0) return;
 
@@ -113,7 +113,10 @@ export function playTicTacToeSfx(kind: TicTacToeSfxKind): void {
   };
 
   if (ctx.state === 'suspended') {
-    void ctx.resume().then(start).catch(() => {});
+    void ctx
+      .resume()
+      .then(start)
+      .catch(() => {});
     return;
   }
   start();

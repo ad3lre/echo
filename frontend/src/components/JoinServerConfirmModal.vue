@@ -120,7 +120,9 @@ function onConfirmJoin() {
         />
       </div>
 
-      <div class="relative flex min-h-0 flex-1 flex-col px-5 pb-5 pt-0 sm:px-6 sm:pb-6">
+      <div
+        class="relative flex min-h-0 flex-1 flex-col px-5 pb-5 pt-0 sm:px-6 sm:pb-6"
+      >
         <!-- Icon overlaps hero -->
         <div class="flex gap-4 -mt-11 sm:-mt-12">
           <img

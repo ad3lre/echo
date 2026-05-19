@@ -172,7 +172,6 @@ export default async function echoServersRoutes(
     req: FastifyRequest<{ Params: { serverId: string } }>,
     reply: FastifyReply,
   ) => {
-    if (req.authUser?.isGuest) return guestServerExploreForbidden(reply);
     const pool = echoPool(req);
     const sid = trimEchoPathParam(req.params.serverId);
     const block = await shouldBlockEchoJoinForPendingApplication(
@@ -196,10 +195,14 @@ export default async function echoServersRoutes(
       sid,
       req.authUser!.id,
       clientIpFromFastifyRequest(req),
+      { isGuest: Boolean(req.authUser?.isGuest) },
     );
     if (!r.ok) {
       if (r.reason === 'not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'Server not found');
+      if (r.reason === 'guest_join_forbidden') {
+        return guestServerExploreForbidden(reply);
+      }
       if (r.reason === 'not_listed') {
         return sendError(
           reply,

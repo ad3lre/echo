@@ -18,9 +18,7 @@ import { isEmojiOnlyUpTo12 } from '@/utils/emojiUtils';
 import { parseSingleEmoji } from '@/utils/twemoji';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
 import { safeImageUrl } from '@/utils/safeImageUrl';
-import {
-  resolveCustomEmojiImageUrlForDisplay,
-} from '@/utils/customEmojiUrl';
+import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import { requestAppConfirm } from '@/utils/appDialogs';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -1368,8 +1366,8 @@ watch(
               class="mt-2 max-w-xl rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text-muted)]"
               data-testid="message-components-placeholder"
             >
-              This message includes bot-style components (Echo shows a placeholder;
-              interactions are not available).
+              This message includes bot-style components (Echo shows a
+              placeholder; interactions are not available).
             </div>
             <PollDisplay
               v-if="pollForDisplay"

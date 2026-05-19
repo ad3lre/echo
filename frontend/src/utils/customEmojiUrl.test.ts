@@ -51,16 +51,21 @@ describe('customEmojiUrl', () => {
   });
 
   it('builds Discord CDN emoji URLs for plausible snowflakes', () => {
-    expect(
-      discordCdnCustomEmojiMediaUrl('304238867010606080', false),
-    ).toBe('https://cdn.discordapp.com/emojis/304238867010606080.png');
-    expect(
-      discordCdnCustomEmojiMediaUrl('304238867010606080', true),
-    ).toBe('https://cdn.discordapp.com/emojis/304238867010606080.gif');
-    const cdn = fallbackDiscordCdnCustomEmojiImageUrl('304238867010606080', false);
+    expect(discordCdnCustomEmojiMediaUrl('304238867010606080', false)).toBe(
+      'https://cdn.discordapp.com/emojis/304238867010606080.png',
+    );
+    expect(discordCdnCustomEmojiMediaUrl('304238867010606080', true)).toBe(
+      'https://cdn.discordapp.com/emojis/304238867010606080.gif',
+    );
+    const cdn = fallbackDiscordCdnCustomEmojiImageUrl(
+      '304238867010606080',
+      false,
+    );
     expect(cdn).toMatch(/^https:\/\/cdn\.discordapp\.com\/emojis\/\d+\.png$/);
     expect(fallbackDiscordCdnCustomEmojiImageUrl('12', false)).toBeNull();
-    expect(fallbackDiscordCdnCustomEmojiImageUrl('notdigits', false)).toBeNull();
+    expect(
+      fallbackDiscordCdnCustomEmojiImageUrl('notdigits', false),
+    ).toBeNull();
   });
 
   it('resolveCustomEmojiImageUrlForDisplay prefers map then Discord after Echo miss', () => {
@@ -76,12 +81,7 @@ describe('customEmojiUrl', () => {
       ),
     ).toBe('https://echo.test/e.png');
     expect(
-      resolveCustomEmojiImageUrlForDisplay(
-        '304238867010606080',
-        true,
-        m,
-        true,
-      ),
+      resolveCustomEmojiImageUrlForDisplay('304238867010606080', true, m, true),
     ).toMatch(/\.gif$/);
     expect(
       resolveCustomEmojiImageUrlForDisplay(

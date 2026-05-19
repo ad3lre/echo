@@ -344,6 +344,8 @@ export type PatchEchoServerPreferencesBody = {
   raidJoinThresholdCount?: number;
   /** Sliding window used for join counting, in seconds (10..3600). */
   raidJoinWindowSeconds?: number;
+  /** When false, guest accounts cannot use Explore or invite join for this server. */
+  allowGlobalGuests?: boolean;
   applicationsEnabled?: boolean;
   applicationForm?: EchoApplicationFormDto;
 };

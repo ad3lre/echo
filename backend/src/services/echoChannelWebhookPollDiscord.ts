@@ -1,6 +1,9 @@
 import type { EchoPollStoredDefinition } from '../domain/echoPollVotesDal';
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
-import { isValidClientMessageId, sanitizePollForStorage } from '../sockets/messageValidation';
+import {
+  isValidClientMessageId,
+  sanitizePollForStorage,
+} from '../sockets/messageValidation';
 
 function textFromPollMedia(media: unknown): string {
   if (!media || typeof media !== 'object') return '';

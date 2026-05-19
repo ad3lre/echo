@@ -509,11 +509,11 @@ async function run(): Promise<void> {
     );
     assert.ok(chat);
     assert.ok(townHall);
-    assert.equal(townHall?.type, 'voice');
+    assert.equal(townHall?.type, 'stage');
     assert.equal(
       String(townHall?.iconKey ?? ''),
       'discordStage',
-      'Discord GUILD_STAGE_VOICE should import as Echo voice with stage icon',
+      'Discord GUILD_STAGE_VOICE should import as Echo stage channel',
     );
     assert.ok(lobby);
     assert.ok(rules);

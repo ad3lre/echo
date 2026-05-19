@@ -245,13 +245,15 @@ export async function listEchoDirectoryServers(
     createdAt: string;
     memberCount: number;
     voiceParticipantCount: number;
+    /** When false, guest accounts may not join from Explore directory. */
+    allowGlobalGuests: boolean;
   }[]
 > {
   const limit = Math.min(500, Math.max(1, opts?.limit ?? 200));
   const exclude = echoDirectoryExcludedNamesSql();
   const sqlFull = `
     WITH srv AS (
-      SELECT id, name, icon_url, banner_url, banner_position_y, description, tags, created_at
+      SELECT id, name, icon_url, banner_url, banner_position_y, description, tags, created_at, allow_global_guests
       FROM echo_servers
       WHERE listed_in_directory = true AND ${exclude}
       ORDER BY name ASC
@@ -269,7 +271,7 @@ export async function listEchoDirectoryServers(
       WHERE vp.server_id = ANY(SELECT id FROM srv)
       GROUP BY vp.server_id
     )
-    SELECT srv.id, srv.name, srv.icon_url, srv.banner_url, srv.banner_position_y, srv.description, srv.tags, srv.created_at,
+    SELECT srv.id, srv.name, srv.icon_url, srv.banner_url, srv.banner_position_y, srv.description, srv.tags, srv.created_at, srv.allow_global_guests,
       COALESCE(counts.member_count, 0) AS member_count,
       COALESCE(voice_counts.voice_participant_count, 0) AS voice_participant_count
     FROM srv
@@ -279,7 +281,7 @@ export async function listEchoDirectoryServers(
   `;
   const sqlNoDescription = `
     WITH srv AS (
-      SELECT id, name, icon_url, banner_url, banner_position_y, tags, created_at
+      SELECT id, name, icon_url, banner_url, banner_position_y, tags, created_at, allow_global_guests
       FROM echo_servers
       WHERE listed_in_directory = true AND ${exclude}
       ORDER BY name ASC
@@ -297,7 +299,7 @@ export async function listEchoDirectoryServers(
       WHERE vp.server_id = ANY(SELECT id FROM srv)
       GROUP BY vp.server_id
     )
-    SELECT srv.id, srv.name, srv.icon_url, srv.banner_url, srv.banner_position_y, srv.tags, srv.created_at,
+    SELECT srv.id, srv.name, srv.icon_url, srv.banner_url, srv.banner_position_y, srv.tags, srv.created_at, srv.allow_global_guests,
       COALESCE(counts.member_count, 0) AS member_count,
       COALESCE(voice_counts.voice_participant_count, 0) AS voice_participant_count
     FROM srv
@@ -363,6 +365,7 @@ export async function listEchoDirectoryServers(
       createdAt,
       memberCount,
       voiceParticipantCount,
+      allowGlobalGuests: Boolean(row.allow_global_guests),
     };
   });
 }
@@ -371,14 +374,18 @@ export async function listEchoDirectoryServers(
 export async function listTopDirectoryServerIdsByMemberCount(
   pool: pg.Pool,
   take: number,
+  opts?: { guestEligibleOnly?: boolean },
 ): Promise<string[]> {
   const limit = Math.min(50, Math.max(1, take));
   const exclude = echoDirectoryExcludedNamesSql();
+  const guestOnly = opts?.guestEligibleOnly
+    ? 'AND s.allow_global_guests = true'
+    : '';
   const sql = `
     SELECT s.id::text AS id,
       (SELECT COUNT(*)::int FROM echo_server_members m WHERE m.server_id = s.id) AS mc
     FROM echo_servers s
-    WHERE s.listed_in_directory = true AND ${exclude}
+    WHERE s.listed_in_directory = true AND ${exclude} ${guestOnly}
     ORDER BY mc DESC, id ASC
     LIMIT $1
   `;
@@ -424,13 +431,14 @@ export async function listEchoServersForUser(
     raidJoinWindowSeconds?: number;
     applicationsEnabled?: boolean;
     discordGuildId?: string;
+    allowGlobalGuests?: boolean;
   }[]
 > {
   const r = await pool.query(
     `
     SELECT s.id, s.name, s.icon_url, s.banner_url, s.banner_position_y, s.owner_id, s.listed_in_directory, s.invite_join_enabled, s.banner_blur_enabled, s.banner_blackout_enabled,
            s.automod_spam_enabled, s.raid_protection_enabled, s.raid_join_threshold_count, s.raid_join_window_seconds,
-           s.vanity_code, s.description, s.tags, s.applications_enabled, ist.discord_guild_id
+           s.vanity_code, s.description, s.tags, s.applications_enabled, s.allow_global_guests, ist.discord_guild_id
     FROM echo_servers s
     INNER JOIN echo_server_members m ON m.server_id = s.id AND m.user_id = $1
     LEFT JOIN echo_discord_import_states ist ON ist.server_id = s.id
@@ -493,6 +501,10 @@ export async function listEchoServersForUser(
       row.applications_enabled === null
         ? undefined
         : Boolean(row.applications_enabled),
+    allowGlobalGuests:
+      row.allow_global_guests === null
+        ? undefined
+        : Boolean(row.allow_global_guests),
     discordGuildId:
       row.discord_guild_id != null
         ? String(row.discord_guild_id).trim()
@@ -538,6 +550,8 @@ export async function updateEchoServerPreferences(
     raidJoinThresholdCount?: number;
     /** Sliding join window used by raid protection (seconds). */
     raidJoinWindowSeconds?: number;
+    /** When false, guest sessions cannot join from Explore or invite flows. */
+    allowGlobalGuests?: boolean;
     applicationsEnabled?: boolean;
     applicationForm?: unknown;
   },
@@ -709,6 +723,11 @@ export async function updateEchoServerPreferences(
     updates.push(`raid_join_window_seconds = $${idx++}`);
     params.push(n);
   }
+  if (body.allowGlobalGuests !== undefined) {
+    if (typeof body.allowGlobalGuests !== 'boolean') return 'invalid_body';
+    updates.push(`allow_global_guests = $${idx++}`);
+    params.push(body.allowGlobalGuests);
+  }
   if (body.applicationsEnabled !== undefined) {
     if (typeof body.applicationsEnabled !== 'boolean') return 'invalid_body';
     updates.push(`applications_enabled = $${idx++}`);
@@ -806,7 +825,8 @@ export type JoinEchoDirectoryResult =
         | 'not_listed'
         | 'banned'
         | 'server_limit'
-        | 'raid_protection';
+        | 'raid_protection'
+        | 'guest_join_forbidden';
     };
 
 export type JoinEchoInviteResult =
@@ -823,7 +843,8 @@ export type JoinEchoInviteResult =
         | 'banned'
         | 'server_limit'
         | 'raid_protection'
-        | 'invites_disabled';
+        | 'invites_disabled'
+        | 'guest_join_forbidden';
     };
 
 /**
@@ -835,7 +856,7 @@ export async function joinEchoServerFromInvite(
   serverId: string,
   userId: string,
   joinClientIp: string | null = null,
-  opts?: { skipInviteJoinGate?: boolean },
+  opts?: { skipInviteJoinGate?: boolean; isGuest?: boolean },
 ): Promise<JoinEchoInviteResult> {
   if (await isUserBannedFromServer(pool, serverId, userId)) {
     return { ok: false, reason: 'banned' };
@@ -849,12 +870,17 @@ export async function joinEchoServerFromInvite(
     await client.query(`BEGIN`);
     try {
       const locked = await client.query(
-        `SELECT invite_join_enabled FROM echo_servers WHERE id = $1 FOR UPDATE`,
+        `SELECT invite_join_enabled, allow_global_guests FROM echo_servers WHERE id = $1 FOR UPDATE`,
         [serverId],
       );
       if (!locked.rows[0]) {
         await client.query(`ROLLBACK`);
         return { ok: false, reason: 'not_found' };
+      }
+      const allowGlobalGuests = Boolean(locked.rows[0].allow_global_guests);
+      if (opts?.isGuest && !allowGlobalGuests) {
+        await client.query(`ROLLBACK`);
+        return { ok: false, reason: 'guest_join_forbidden' };
       }
       const inviteJoinEnabled = locked.rows[0].invite_join_enabled !== false;
       const mem = await client.query(
@@ -911,10 +937,11 @@ export async function joinEchoServerFromDirectory(
   serverId: string,
   userId: string,
   joinClientIp: string | null = null,
+  opts?: { isGuest?: boolean },
 ): Promise<JoinEchoDirectoryResult> {
   const exclude = echoDirectoryExcludedNamesSql();
   const listed = await pool.query(
-    `SELECT id FROM echo_servers WHERE id = $1 AND listed_in_directory = true AND ${exclude} LIMIT 1`,
+    `SELECT id, allow_global_guests FROM echo_servers WHERE id = $1 AND listed_in_directory = true AND ${exclude} LIMIT 1`,
     [serverId],
   );
   if (!listed.rows[0]) {
@@ -925,6 +952,10 @@ export async function joinEchoServerFromDirectory(
     return exists.rows[0]
       ? { ok: false, reason: 'not_listed' }
       : { ok: false, reason: 'not_found' };
+  }
+  const allowGlobalGuests = Boolean(listed.rows[0].allow_global_guests);
+  if (opts?.isGuest && !allowGlobalGuests) {
+    return { ok: false, reason: 'guest_join_forbidden' };
   }
   if (await isUserBannedFromServer(pool, serverId, userId)) {
     return { ok: false, reason: 'banned' };

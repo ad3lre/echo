@@ -308,9 +308,7 @@ const triggerIconSrc = computed(
 const triggerIconClass = computed(
   () => selectedOption.value?.iconClass?.trim() || '',
 );
-const triggerIconMono = computed(
-  () => selectedOption.value?.iconMono === true,
-);
+const triggerIconMono = computed(() => selectedOption.value?.iconMono === true);
 
 const filteredOptions = computed(() => {
   if (!props.searchable || !searchTerm.value.trim()) return props.options;
@@ -719,12 +717,16 @@ function optionRowClass(value: string) {
 }
 
 /* Channel icons in server settings dropdowns: readable on dark menus */
-html[data-theme='dark'] .echo-dropdown--server .echo-dropdown-channel-icon--mono {
+html[data-theme='dark']
+  .echo-dropdown--server
+  .echo-dropdown-channel-icon--mono {
   filter: brightness(0) invert(1);
   opacity: 0.92;
 }
 
-html[data-theme='dark'] .echo-dropdown--server .echo-dropdown-channel-icon--color {
+html[data-theme='dark']
+  .echo-dropdown--server
+  .echo-dropdown-channel-icon--color {
   filter: brightness(1.12);
   opacity: 0.98;
 }

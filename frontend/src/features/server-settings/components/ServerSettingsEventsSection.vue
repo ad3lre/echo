@@ -272,17 +272,22 @@ async function submitSave() {
       !editingHadDiscordMirror.value;
 
     if (editingEventId.value) {
-      const patchOut = await updateGuildEvent('', props.serverId, editingEventId.value, {
-        title: draftTitle.value.trim(),
-        description: draftDescription.value.trim(),
-        imageUrl: draftImageUrl.value.trim(),
-        startsAt: startsIso,
-        endsAt: endsIso,
-        timezoneLabel: null,
-        ...locationBody,
-        maxAttendees: null,
-        ...(mirrorToDiscord ? { mirrorToDiscord: true } : {}),
-      });
+      const patchOut = await updateGuildEvent(
+        '',
+        props.serverId,
+        editingEventId.value,
+        {
+          title: draftTitle.value.trim(),
+          description: draftDescription.value.trim(),
+          imageUrl: draftImageUrl.value.trim(),
+          startsAt: startsIso,
+          endsAt: endsIso,
+          timezoneLabel: null,
+          ...locationBody,
+          maxAttendees: null,
+          ...(mirrorToDiscord ? { mirrorToDiscord: true } : {}),
+        },
+      );
       if (patchOut.discordMirror && !patchOut.discordMirror.ok) {
         dispatchAppToast(
           patchOut.discordMirror.message ??
@@ -401,8 +406,7 @@ async function onCoverFileChange(ev: Event) {
       !echoSyncCapabilities.isMockDataMode && authSession.isAuthenticated
         ? await uploadBrandingAssetWithInlineFallback({
             file: file!,
-            upload: () =>
-              uploadServerEventCoverFile('', props.serverId, file!),
+            upload: () => uploadServerEventCoverFile('', props.serverId, file!),
           })
         : await readBlobAsDataUrl(file!);
     draftImageUrl.value = url;
@@ -431,13 +435,17 @@ function clearCover() {
 <template>
   <div class="server-settings-panel-root space-y-4 pb-8">
     <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div
+        class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+      >
         <div class="min-w-0 flex-1">
           <div class="settings-subtitle">Community events</div>
           <p class="mt-1.5 text-sm leading-snug text-fg-subtle">
-            Schedule covers, times, and where it happens: a voice or text channel on this server, or a
-            custom venue (address, external link, invite, or Echo path). Members see upcoming events in
-            the channel sidebar; RSVPs also surface in DMs. Times use each viewer’s local timezone.
+            Schedule covers, times, and where it happens: a voice or text
+            channel on this server, or a custom venue (address, external link,
+            invite, or Echo path). Members see upcoming events in the channel
+            sidebar; RSVPs also surface in DMs. Times use each viewer’s local
+            timezone.
           </p>
         </div>
         <button
@@ -477,7 +485,11 @@ function clearCover() {
           </p>
           <div
             class="relative mt-3 overflow-hidden rounded-2xl border border-border bg-glass-2"
-            :class="draftImageUrl.trim() ? 'aspect-[16/9] max-h-48' : 'aspect-[16/9] max-h-36'"
+            :class="
+              draftImageUrl.trim()
+                ? 'aspect-[16/9] max-h-48'
+                : 'aspect-[16/9] max-h-36'
+            "
           >
             <img
               v-if="draftImageUrl.trim()"
@@ -525,142 +537,144 @@ function clearCover() {
         </div>
 
         <div class="space-y-4 lg:col-span-7">
-        <div>
-          <label class="settings-label">Title</label>
-          <input
-            v-model="draftTitle"
-            type="text"
-            maxlength="200"
-            class="server-input mt-2 w-full"
-            :class="{ 'ring-1 ring-red-400/60': fieldErrors.title }"
-          />
-          <p v-if="fieldErrors.title" class="mt-1 text-xs text-red-400">
-            {{ fieldErrors.title }}
-          </p>
-        </div>
-
-        <div>
-          <label class="settings-label">Description (optional)</label>
-          <textarea
-            v-model="draftDescription"
-            rows="3"
-            maxlength="4000"
-            class="server-input mt-2 min-h-[88px] w-full resize-y"
-          />
-        </div>
-
-        <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            <label class="settings-label">Starts</label>
+            <label class="settings-label">Title</label>
             <input
-              v-model="draftStarts"
-              type="datetime-local"
+              v-model="draftTitle"
+              type="text"
+              maxlength="200"
               class="server-input mt-2 w-full"
-              :class="{ 'ring-1 ring-red-400/60': fieldErrors.starts }"
+              :class="{ 'ring-1 ring-red-400/60': fieldErrors.title }"
             />
-            <p v-if="fieldErrors.starts" class="mt-1 text-xs text-red-400">
-              {{ fieldErrors.starts }}
-            </p>
-            <p v-else class="mt-1 text-[11px] text-fg-soft">
-              In your device timezone; everyone sees this event in their own local time.
+            <p v-if="fieldErrors.title" class="mt-1 text-xs text-red-400">
+              {{ fieldErrors.title }}
             </p>
           </div>
-          <div>
-            <label class="settings-label">Ends</label>
-            <input
-              v-model="draftEnds"
-              type="datetime-local"
-              class="server-input mt-2 w-full"
-              :class="{ 'ring-1 ring-red-400/60': fieldErrors.ends }"
-            />
-            <p v-if="fieldErrors.ends" class="mt-1 text-xs text-red-400">
-              {{ fieldErrors.ends }}
-            </p>
-          </div>
-        </div>
 
-        <div>
-          <label class="settings-label">Location</label>
-          <p class="mt-1 text-xs text-fg-soft">
-            Pick a voice or text channel on this server, or describe anywhere else (address, link,
-            invite, or an Echo path like <code class="rounded bg-glass-2 px-1">/channels/…</code>).
-          </p>
-          <div
-            class="mt-2 inline-flex rounded-xl border border-border bg-glass-1 p-0.5 text-xs font-semibold"
-            role="tablist"
-            aria-label="Event location type"
-          >
-            <button
-              type="button"
-              class="rounded-lg px-3 py-1.5 transition-colors"
-              :class="
-                locationTab === 'voice'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'text-fg-soft hover:text-foreground'
-              "
-              :disabled="saving"
-              @click="locationTab = 'voice'"
-            >
-              Voice
-            </button>
-            <button
-              type="button"
-              class="rounded-lg px-3 py-1.5 transition-colors"
-              :class="
-                locationTab === 'text'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'text-fg-soft hover:text-foreground'
-              "
-              :disabled="saving"
-              @click="locationTab = 'text'"
-            >
-              Text
-            </button>
-            <button
-              type="button"
-              class="rounded-lg px-3 py-1.5 transition-colors"
-              :class="
-                locationTab === 'custom'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'text-fg-soft hover:text-foreground'
-              "
-              :disabled="saving"
-              @click="locationTab = 'custom'"
-            >
-              Custom
-            </button>
+          <div>
+            <label class="settings-label">Description (optional)</label>
+            <textarea
+              v-model="draftDescription"
+              rows="3"
+              maxlength="4000"
+              class="server-input mt-2 min-h-[88px] w-full resize-y"
+            />
           </div>
-          <div class="mt-3">
-            <EchoDropdown
-              v-if="locationTab === 'voice'"
-              v-model="draftChannelId"
-              label="Voice channel"
-              :options="voiceLocationOptions"
-              surface="server"
-              teleport-menu
-              searchable
-              :disabled="saving"
-            />
-            <EchoDropdown
-              v-else-if="locationTab === 'text'"
-              v-model="draftChannelId"
-              label="Text channel"
-              :options="textLocationOptions"
-              surface="server"
-              teleport-menu
-              searchable
-              :disabled="saving"
-            />
-            <div v-else>
-              <textarea
-                v-model="draftCustomLocation"
-                rows="3"
-                maxlength="2000"
-                class="server-input mt-2 min-h-[88px] w-full resize-y"
-                placeholder="Physical address, another site, Discord/Echo invite, or paste an Echo path (/channels/…)"
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="settings-label">Starts</label>
+              <input
+                v-model="draftStarts"
+                type="datetime-local"
+                class="server-input mt-2 w-full"
+                :class="{ 'ring-1 ring-red-400/60': fieldErrors.starts }"
+              />
+              <p v-if="fieldErrors.starts" class="mt-1 text-xs text-red-400">
+                {{ fieldErrors.starts }}
+              </p>
+              <p v-else class="mt-1 text-[11px] text-fg-soft">
+                In your device timezone; everyone sees this event in their own
+                local time.
+              </p>
+            </div>
+            <div>
+              <label class="settings-label">Ends</label>
+              <input
+                v-model="draftEnds"
+                type="datetime-local"
+                class="server-input mt-2 w-full"
+                :class="{ 'ring-1 ring-red-400/60': fieldErrors.ends }"
+              />
+              <p v-if="fieldErrors.ends" class="mt-1 text-xs text-red-400">
+                {{ fieldErrors.ends }}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label class="settings-label">Location</label>
+            <p class="mt-1 text-xs text-fg-soft">
+              Pick a voice or text channel on this server, or describe anywhere
+              else (address, link, invite, or an Echo path like
+              <code class="rounded bg-glass-2 px-1">/channels/…</code>).
+            </p>
+            <div
+              class="mt-2 inline-flex rounded-xl border border-border bg-glass-1 p-0.5 text-xs font-semibold"
+              role="tablist"
+              aria-label="Event location type"
+            >
+              <button
+                type="button"
+                class="rounded-lg px-3 py-1.5 transition-colors"
+                :class="
+                  locationTab === 'voice'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-fg-soft hover:text-foreground'
+                "
+                :disabled="saving"
+                @click="locationTab = 'voice'"
+              >
+                Voice
+              </button>
+              <button
+                type="button"
+                class="rounded-lg px-3 py-1.5 transition-colors"
+                :class="
+                  locationTab === 'text'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-fg-soft hover:text-foreground'
+                "
+                :disabled="saving"
+                @click="locationTab = 'text'"
+              >
+                Text
+              </button>
+              <button
+                type="button"
+                class="rounded-lg px-3 py-1.5 transition-colors"
+                :class="
+                  locationTab === 'custom'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-fg-soft hover:text-foreground'
+                "
+                :disabled="saving"
+                @click="locationTab = 'custom'"
+              >
+                Custom
+              </button>
+            </div>
+            <div class="mt-3">
+              <EchoDropdown
+                v-if="locationTab === 'voice'"
+                v-model="draftChannelId"
+                label="Voice channel"
+                :options="voiceLocationOptions"
+                surface="server"
+                teleport-menu
+                searchable
                 :disabled="saving"
               />
-            </div>
+              <EchoDropdown
+                v-else-if="locationTab === 'text'"
+                v-model="draftChannelId"
+                label="Text channel"
+                :options="textLocationOptions"
+                surface="server"
+                teleport-menu
+                searchable
+                :disabled="saving"
+              />
+              <div v-else>
+                <textarea
+                  v-model="draftCustomLocation"
+                  rows="3"
+                  maxlength="2000"
+                  class="server-input mt-2 min-h-[88px] w-full resize-y"
+                  placeholder="Physical address, another site, Discord/Echo invite, or paste an Echo path (/channels/…)"
+                  :disabled="saving"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -669,9 +683,13 @@ function clearCover() {
           v-if="showDiscordMirrorUi"
           class="rounded-xl border border-border/90 bg-glass-1 p-3 lg:col-span-12"
         >
-          <p v-if="editingHadDiscordMirror" class="text-sm leading-snug text-fg-subtle">
-            This event is listed on Discord; saving updates that listing. The Discord description
-            keeps a clear link back to this Echo server for RSVPs and full details.
+          <p
+            v-if="editingHadDiscordMirror"
+            class="text-sm leading-snug text-fg-subtle"
+          >
+            This event is listed on Discord; saving updates that listing. The
+            Discord description keeps a clear link back to this Echo server for
+            RSVPs and full details.
           </p>
           <label v-else class="flex cursor-pointer items-start gap-3">
             <input
@@ -685,14 +703,17 @@ function clearCover() {
                 Also create a Discord scheduled event
               </span>
               <span class="mt-0.5 block text-xs leading-snug text-fg-soft">
-                Same title and schedule on Discord. The description points members to this Echo
-                server as the canonical place for RSVPs and details.
+                Same title and schedule on Discord. The description points
+                members to this Echo server as the canonical place for RSVPs and
+                details.
               </span>
             </span>
           </label>
         </div>
 
-        <div class="flex flex-wrap gap-2 border-t border-border/80 pt-3 lg:col-span-12">
+        <div
+          class="flex flex-wrap gap-2 border-t border-border/80 pt-3 lg:col-span-12"
+        >
           <button
             type="button"
             class="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -736,9 +757,10 @@ function clearCover() {
           </div>
           <div class="flex min-w-0 flex-1 flex-col justify-center gap-1">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="truncate text-[15px] font-semibold text-foreground">{{
-                ev.title
-              }}</span>
+              <span
+                class="truncate text-[15px] font-semibold text-foreground"
+                >{{ ev.title }}</span
+              >
               <span
                 v-if="ev.status === 'cancelled'"
                 class="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-300"
@@ -766,11 +788,15 @@ function clearCover() {
               {{ formatLocationSummary(ev) }}
             </p>
             <p class="text-xs text-fg-soft">
-              <span class="font-semibold text-foreground">{{ ev.goingCount }}</span>
+              <span class="font-semibold text-foreground">{{
+                ev.goingCount
+              }}</span>
               going
             </p>
           </div>
-          <div class="flex shrink-0 flex-row gap-2 sm:flex-col sm:justify-center">
+          <div
+            class="flex shrink-0 flex-row gap-2 sm:flex-col sm:justify-center"
+          >
             <button
               v-if="ev.status === 'scheduled'"
               type="button"

@@ -114,13 +114,17 @@ export type EchoWorkspaceEvent = {
       | 'unmute'
       | 'deafen'
       | 'undeafen'
-      | 'disconnect';
+      | 'disconnect'
+      | 'promote_speaker'
+      | 'demote_speaker';
     /** Hint only for 'move' — frontend removes from all channels, not just this one. */
     fromChannelId?: string;
     /** Current server-muted state after mutation (set for mute/unmute). */
     serverMuted?: boolean;
     /** Current server-deafened state after mutation (set for deafen/undeafen). */
     serverDeafened?: boolean;
+    /** Stage channel: mic-publish allowed (set for promote_speaker/demote_speaker/join on stage). */
+    stageSpeaker?: boolean;
     /** Audit snowflake — same value as `version`; used for delta version gating. */
     workspaceVersion: string;
     /** ISO timestamp of when the mutation occurred, for ordering and debug. */

@@ -15,6 +15,7 @@ import {
 } from '@/constants/echoModerationLimits';
 import { canModerateMember } from '@/utils/memberProfiles';
 import type { ChannelSummary } from '@shared/types';
+import { isVoiceLikeChannelType } from '@/utils/voiceChannelKinds';
 import type { Server } from '@shared/types/server';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { RolePreviewState } from '@/features/server-settings/composables/useRolePreview';
@@ -115,13 +116,23 @@ export function useGuildModeration(deps: {
 
   function canVcModerateMember(
     targetUserId: string,
-    action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move',
+    action:
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'disconnect'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience',
   ): boolean {
     if (!canModerateMemberInServerBase(targetUserId)) return false;
     const sid = selectedServer.value?.id;
     if (!sid) return false;
     if (isRolePreviewActiveForServer.value) {
-      if (action === 'serverMute') {
+      if (
+        action === 'serverMute' ||
+        action === 'inviteToSpeak' ||
+        action === 'moveToAudience'
+      ) {
         return previewHasUiPermission('muteMembers');
       }
       if (action === 'serverDeafen') {
@@ -138,7 +149,13 @@ export function useGuildModeration(deps: {
       return canModerateMember(sid, cur, targetUserId);
     }
     if (!echoCapsApplyToServer(sid)) return false;
-    if (action === 'serverMute') return echoCanMuteVoiceMembers.value;
+    if (
+      action === 'serverMute' ||
+      action === 'inviteToSpeak' ||
+      action === 'moveToAudience'
+    ) {
+      return echoCanMuteVoiceMembers.value;
+    }
     if (action === 'serverDeafen') return echoCanDeafenVoiceMembers.value;
     if (action === 'move' || action === 'disconnect') {
       return echoCanMoveVoiceMembers.value;
@@ -404,17 +421,25 @@ export function useGuildModeration(deps: {
     if (cid) {
       const cats = workspace.categoriesByServer.value[serverId] ?? [];
       for (const cat of cats) {
-        const hit = cat.channels.find((c) => c.id === cid && c.type === 'voice');
+        const hit = cat.channels.find(
+          (c) => c.id === cid && isVoiceLikeChannelType(c.type),
+        );
         if (hit) return hit;
       }
     }
     const active = activeChannel.value;
-    if (active?.type === 'voice') return active;
+    if (active && isVoiceLikeChannelType(active.type)) return active;
     return null;
   }
 
   async function handleVcModerate(payload: {
-    action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move';
+    action:
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'disconnect'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;
@@ -426,7 +451,7 @@ export function useGuildModeration(deps: {
       sid,
       payload.contextVoiceChannelId,
     );
-    if (!ch || ch.type !== 'voice') return;
+    if (!ch || !isVoiceLikeChannelType(ch.type)) return;
     if (!canVcModerateMember(payload.targetUserId, payload.action)) return;
 
     const useEchoVoiceModerate =
@@ -434,7 +459,31 @@ export function useGuildModeration(deps: {
       isEchoGraphId(sid) &&
       isEchoAuthUserId(payload.targetUserId);
 
-    if (payload.action === 'serverMute') {
+    if (payload.action === 'inviteToSpeak') {
+      if (!useEchoVoiceModerate) return;
+      try {
+        await postEchoVoiceModerate(authSession.accessToken, sid, {
+          action: 'invite_to_speak',
+          targetUserId: payload.targetUserId,
+        });
+        await hydrateWorkspace?.();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Request failed';
+        dispatchAppToast(`Could not invite to speak: ${msg}`, 'warning');
+      }
+    } else if (payload.action === 'moveToAudience') {
+      if (!useEchoVoiceModerate) return;
+      try {
+        await postEchoVoiceModerate(authSession.accessToken, sid, {
+          action: 'move_to_audience',
+          targetUserId: payload.targetUserId,
+        });
+        await hydrateWorkspace?.();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Request failed';
+        dispatchAppToast(`Could not move to audience: ${msg}`, 'warning');
+      }
+    } else if (payload.action === 'serverMute') {
       if (useEchoVoiceModerate) {
         const muted = !!ch.voiceServerMuteByUserId?.[payload.targetUserId];
         try {

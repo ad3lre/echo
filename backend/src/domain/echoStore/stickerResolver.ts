@@ -4,7 +4,10 @@
  * built from stored data (never trusting client-supplied URLs/names/formats).
  */
 import type pg from 'pg';
-import type { MessageStickerFormat, MessageStickerPayload } from '../../../../shared/types';
+import type {
+  MessageStickerFormat,
+  MessageStickerPayload,
+} from '../../../../shared/types';
 import { getEchoChannelServerId } from './access';
 
 const VALID_STICKER_FORMATS = new Set<string>(['png', 'apng', 'gif', 'lottie']);

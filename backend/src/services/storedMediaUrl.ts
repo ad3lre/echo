@@ -54,9 +54,7 @@ export function validateEchoStoredBrandingUrl(
  */
 export function validateEchoEventCoverImageUrl(
   raw: string | undefined,
-):
-  | { ok: true; value: string }
-  | { ok: false; message: string } {
+): { ok: true; value: string } | { ok: false; message: string } {
   const t = typeof raw === 'string' ? raw.trim() : '';
   if (!t) return { ok: true, value: '' };
   const v = validateEchoStoredBrandingUrl(t);

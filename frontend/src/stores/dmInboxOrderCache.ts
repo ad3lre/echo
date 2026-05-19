@@ -18,7 +18,10 @@ function loadFromStorage(): Map<string, number> {
         typeof (item as PersistedEntry).id === 'string' &&
         typeof (item as PersistedEntry).rankMs === 'number'
       ) {
-        result.set((item as PersistedEntry).id, (item as PersistedEntry).rankMs);
+        result.set(
+          (item as PersistedEntry).id,
+          (item as PersistedEntry).rankMs,
+        );
       }
     }
     return result;
@@ -45,32 +48,35 @@ function loadFromStorage(): Map<string, number> {
  * computed can read it without tracking it as a dependency — this prevents a feedback
  * loop where every `saveOrder` call would re-trigger the computed infinitely.
  */
-export const useDmInboxOrderCacheStore = defineStore('dmInboxOrderCache', () => {
-  /**
-   * Snapshot from localStorage, read once at startup. Non-reactive by design.
-   * Passed into the inbox sort as a cold-start fallback only.
-   */
-  const initialRankMsByKey: ReadonlyMap<string, number> = loadFromStorage();
+export const useDmInboxOrderCacheStore = defineStore(
+  'dmInboxOrderCache',
+  () => {
+    /**
+     * Snapshot from localStorage, read once at startup. Non-reactive by design.
+     * Passed into the inbox sort as a cold-start fallback only.
+     */
+    const initialRankMsByKey: ReadonlyMap<string, number> = loadFromStorage();
 
-  /**
-   * Persist real per-entry sort keys. Callers MUST pass the same ms-epoch number that
-   * was used to produce the visible order this frame; otherwise the cold-start view
-   * will diverge from the last live view.
-   */
-  function saveOrder(
-    entries: readonly { id: string; rankMs: number }[],
-  ): void {
-    if (!entries.length) return;
-    const serialised: PersistedEntry[] = entries
-      .filter((e) => e && typeof e.id === 'string' && e.id && e.rankMs > 0)
-      .map((e) => ({ id: e.id, rankMs: Math.floor(e.rankMs) }));
-    if (!serialised.length) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(serialised));
-    } catch {
-      /* quota / private mode */
+    /**
+     * Persist real per-entry sort keys. Callers MUST pass the same ms-epoch number that
+     * was used to produce the visible order this frame; otherwise the cold-start view
+     * will diverge from the last live view.
+     */
+    function saveOrder(
+      entries: readonly { id: string; rankMs: number }[],
+    ): void {
+      if (!entries.length) return;
+      const serialised: PersistedEntry[] = entries
+        .filter((e) => e && typeof e.id === 'string' && e.id && e.rankMs > 0)
+        .map((e) => ({ id: e.id, rankMs: Math.floor(e.rankMs) }));
+      if (!serialised.length) return;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(serialised));
+      } catch {
+        /* quota / private mode */
+      }
     }
-  }
 
-  return { initialRankMsByKey, saveOrder };
-});
+    return { initialRankMsByKey, saveOrder };
+  },
+);

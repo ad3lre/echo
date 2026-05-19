@@ -20,8 +20,12 @@ import {
   getVoiceChannelUserLimitUi,
   voiceChannelParticipantCount,
 } from '@/features/voice/domain/voiceChannelUserLimit';
+import { useAuthSessionStore } from '@/stores/authSession';
+import { postEchoStageRequestSpeak } from '@/api/echo/voice';
+import { isEchoGraphId } from '@/utils/echoIds';
 
 const workspace = useEchoWorkspace();
+const authSession = useAuthSessionStore();
 
 const injectedVoiceSettings = inject(
   CHANNEL_PANEL_VOICE_SETTINGS_INJECTION_KEY,
@@ -72,6 +76,8 @@ const props = defineProps<{
   currentUserId?: string;
   currentVoiceChannelId?: string | null;
   currentVoiceChannelName?: string;
+  /** Guild id for stage request-to-speak API. */
+  echoServerId?: string | null;
   vcMuted?: boolean;
   vcDeafened?: boolean;
   vcVideo?: boolean;
@@ -228,7 +234,7 @@ function isVcHeadphonesOffForPanel() {
   return isVcHeadphonesOff() || s.serverDeafened;
 }
 
-function toggleVcMute() {
+async function toggleVcMute() {
   if (props.vcDeafened) return;
   const s = vcSelfServerModeration.value;
   if (s.serverMuted || s.serverDeafened) {
@@ -238,6 +244,30 @@ function toggleVcMute() {
         : 'You are server muted. A moderator must unmute you.',
       'warning',
     );
+    return;
+  }
+  const vcId = props.currentVoiceChannelId?.trim();
+  const uid = props.currentUserId?.trim();
+  const row = vcId ? findVoiceChannelById(vcId) : null;
+  if (
+    row?.type === 'stage' &&
+    uid &&
+    !row.voiceStageSpeakerByUserId?.[uid]
+  ) {
+    const sid = props.echoServerId?.trim();
+    const token = authSession.accessToken;
+    if (sid && token && isEchoGraphId(sid)) {
+      try {
+        await postEchoStageRequestSpeak(token, sid, row.id);
+        dispatchAppToast(
+          'Request to speak sent. A moderator can invite you to the stage.',
+          'success',
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Request failed';
+        dispatchAppToast(`Could not request to speak: ${msg}`, 'warning');
+      }
+    }
     return;
   }
   const next = !(props.vcMuted ?? false);

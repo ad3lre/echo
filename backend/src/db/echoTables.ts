@@ -39,6 +39,9 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS listed_in_directory BOOLEAN NOT NULL DEFAULT true;
   `);
   await pool.query(`
+    ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS allow_global_guests BOOLEAN NOT NULL DEFAULT true;
+  `);
+  await pool.query(`
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS invite_join_enabled BOOLEAN NOT NULL DEFAULT true;
   `);
   await pool.query(`
@@ -850,6 +853,19 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     ALTER TABLE echo_voice_participants
     ADD COLUMN IF NOT EXISTS server_deafened BOOLEAN NOT NULL DEFAULT FALSE;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_voice_participants
+    ADD COLUMN IF NOT EXISTS stage_speaker BOOLEAN NOT NULL DEFAULT FALSE;
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_stage_speak_requests (
+      server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
+      channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (server_id, channel_id, user_id)
+    );
   `);
   await pool.query(`
     ALTER TABLE echo_channels

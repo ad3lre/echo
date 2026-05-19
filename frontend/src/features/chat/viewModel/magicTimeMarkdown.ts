@@ -71,9 +71,7 @@ function lexDate(
  * UTC ms range where local calendar date can still plausibly equal `anchor` in `tz`
  * when the message was sent near `refMs`. (Offsets are within ±14h of UTC.)
  */
-function utcWindowForLocalAnchorDay(
-  refMs: number,
-): { lo: number; hi: number } {
+function utcWindowForLocalAnchorDay(refMs: number): { lo: number; hi: number } {
   return { lo: refMs - 30 * 3600000, hi: refMs + 30 * 3600000 };
 }
 
@@ -186,8 +184,7 @@ function makePlaceholder(id: number): string {
   return `${PLACEHOLDER_PREFIX}${id.toString(36)}${PLACEHOLDER_SUFFIX}`;
 }
 
-const RE_WITH_MINUTES_AMPM =
-  /\b(\d{1,2}):(\d{2})\s*([ap])(?:m\.?|m)\b/gi;
+const RE_WITH_MINUTES_AMPM = /\b(\d{1,2}):(\d{2})\s*([ap])(?:m\.?|m)\b/gi;
 const RE_HOUR_ONLY_AMPM = /\b(\d{1,2})\s*([ap])(?:m\.?|m)\b/gi;
 const RE_24H_NO_AMPM =
   /\b(?:[01]?\d|2[0-3]):[0-5]\d\b(?!\s*[ap](?:m\.?|m)\b)/gi;
@@ -201,7 +198,10 @@ type RawMatch = {
 
 function collectMagicTimeMatches(text: string): RawMatch[] {
   const raw: RawMatch[] = [];
-  const tryRe = (re: RegExp, parse: (m: RegExpExecArray) => ParsedClock | null) => {
+  const tryRe = (
+    re: RegExp,
+    parse: (m: RegExpExecArray) => ParsedClock | null,
+  ) => {
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
@@ -219,9 +219,7 @@ function collectMagicTimeMatches(text: string): RawMatch[] {
   tryRe(RE_WITH_MINUTES_AMPM, (m) =>
     parseAmPmHour(m[1] ?? '', m[2] ?? '', m[3] ?? ''),
   );
-  tryRe(RE_HOUR_ONLY_AMPM, (m) =>
-    parseAmPmHour(m[1] ?? '', '0', m[2] ?? ''),
-  );
+  tryRe(RE_HOUR_ONLY_AMPM, (m) => parseAmPmHour(m[1] ?? '', '0', m[2] ?? ''));
   tryRe(RE_24H_NO_AMPM, (m) => {
     const [hh, mm] = (m[0] ?? '').split(':');
     return parse24(hh ?? '', mm ?? '');
@@ -238,7 +236,9 @@ function collectMagicTimeMatches(text: string): RawMatch[] {
   return kept;
 }
 
-export function buildMagicTimeParseCacheExtra(ctx: MagicTimeRenderContext): string {
+export function buildMagicTimeParseCacheExtra(
+  ctx: MagicTimeRenderContext,
+): string {
   const ref = new Date(ctx.messageTimestampIso);
   const day = anchorCalendarInSenderZone(
     ctx.messageTimestampIso,

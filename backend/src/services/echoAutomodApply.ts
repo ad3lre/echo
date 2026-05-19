@@ -223,18 +223,13 @@ async function deliverAutomodCommunication(
     let posted = false;
     const logCh = (rule.logChannelId ?? '').trim();
     if (logCh) {
-      const r = await echoAutomodPostOwnerChannelNotice(
-        ctx.pool,
-        io,
-        ctx.log,
-        {
-          guildServerId: ctx.serverId,
-          targetChannelId: logCh,
-          ownerActorId: ctx.ownerActorId,
-          content: warnBody,
-          correlationId: ctx.correlationId,
-        },
-      );
+      const r = await echoAutomodPostOwnerChannelNotice(ctx.pool, io, ctx.log, {
+        guildServerId: ctx.serverId,
+        targetChannelId: logCh,
+        ownerActorId: ctx.ownerActorId,
+        content: warnBody,
+        correlationId: ctx.correlationId,
+      });
       posted = r.ok;
       if (!r.ok) {
         ctx.log.warn(

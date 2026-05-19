@@ -23,6 +23,7 @@ export type EchoWorkspaceState = {
     raidJoinWindowSeconds?: number;
     discordGuildId?: string;
     applicationsEnabled?: boolean;
+    allowGlobalGuests?: boolean;
   }[];
   categoriesByServer: Record<string, ChannelCategory[]>;
   serverMemberIds: Record<string, string[]>;
@@ -92,6 +93,7 @@ export type EchoWorkspaceRawServer = {
   raidJoinWindowSeconds?: number;
   discordGuildId?: string;
   applicationsEnabled?: boolean;
+  allowGlobalGuests?: boolean;
 };
 
 /** `/workspace` JSON after transport-level structural validation (servers + categories). */
@@ -527,6 +529,9 @@ export function normalizeEchoWorkspaceServerRow(
     raidJoinWindowSeconds: s.raidJoinWindowSeconds,
     discordGuildId: s.discordGuildId,
     applicationsEnabled: s.applicationsEnabled,
+    ...(typeof s.allowGlobalGuests === 'boolean'
+      ? { allowGlobalGuests: s.allowGlobalGuests }
+      : {}),
   };
 }
 

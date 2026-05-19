@@ -26,7 +26,7 @@ export type CreateChannelModalSubmitPayload =
   | {
       kind: 'channel';
       name: string;
-      type: 'text' | 'voice' | 'forum';
+      type: 'text' | 'voice' | 'stage' | 'forum';
       categoryId: string;
       iconKey: string;
     }
@@ -45,7 +45,9 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), channelNameInputRef);
 
 const channelName = ref('');
 /** Text / voice channel, or a new category (no channel row). */
-const creationMode = ref<'text' | 'voice' | 'forum' | 'category'>('text');
+const creationMode = ref<'text' | 'voice' | 'stage' | 'forum' | 'category'>(
+  'text',
+);
 const selectedCategory = ref('');
 const selectedIconKey = ref<string>('message');
 
@@ -53,21 +55,23 @@ const categoryDropdownOptions = computed(() =>
   props.categoryOptions.map((o) => ({ label: o.label, value: o.id })),
 );
 
-function defaultIconForType(t: 'text' | 'voice' | 'forum'): string {
+function defaultIconForType(
+  t: 'text' | 'voice' | 'stage' | 'forum',
+): string {
   if (t === 'voice') return 'volumeUp';
+  if (t === 'stage') return 'discordStage';
   if (t === 'forum') return 'messageAlt';
   return 'message';
 }
 
-const segmentIndex = computed(() =>
-  creationMode.value === 'text'
-    ? 0
-    : creationMode.value === 'voice'
-      ? 1
-      : creationMode.value === 'forum'
-        ? 2
-        : 3,
-);
+const segmentIndex = computed(() => {
+  const m = creationMode.value;
+  if (m === 'text') return 0;
+  if (m === 'voice') return 1;
+  if (m === 'stage') return 2;
+  if (m === 'forum') return 3;
+  return 4;
+});
 
 const trimmedName = computed(() => channelName.value.trim());
 const categoryNameIsDuplicate = computed(() =>
@@ -108,7 +112,12 @@ watch(
 );
 
 watch(creationMode, (mode) => {
-  if (mode === 'text' || mode === 'voice' || mode === 'forum') {
+  if (
+    mode === 'text' ||
+    mode === 'voice' ||
+    mode === 'stage' ||
+    mode === 'forum'
+  ) {
     selectedIconKey.value = defaultIconForType(mode);
   }
 });
@@ -161,7 +170,7 @@ function submit() {
             class="relative mt-2 flex w-full overflow-hidden rounded-lg bg-glass-2 p-0.5"
           >
             <div
-              class="create-channel-type-highlight pointer-events-none absolute inset-y-0.5 w-[calc((100%-4px)/4)] rounded-md transition-transform duration-300 ease-out"
+              class="create-channel-type-highlight pointer-events-none absolute inset-y-0.5 w-[calc((100%-4px)/5)] rounded-md transition-transform duration-300 ease-out"
               style="left: 2px"
               :style="{ transform: `translateX(calc(${segmentIndex} * 100%))` }"
             />
@@ -200,6 +209,24 @@ function submit() {
                 :class="creationMode === 'voice' ? 'opacity-100' : 'opacity-55'"
               />
               <span class="text-xs font-semibold tracking-wide">Voice</span>
+            </button>
+            <button
+              type="button"
+              class="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-md py-2 transition-colors"
+              :class="
+                creationMode === 'stage'
+                  ? 'text-white'
+                  : 'text-fg-subtle hover:text-fg-soft'
+              "
+              @click="creationMode = 'stage'"
+            >
+              <img
+                :src="icons.discordStage"
+                alt=""
+                class="h-4 w-4 shrink-0 object-contain opacity-90 filter invert"
+                :class="creationMode === 'stage' ? 'opacity-100' : 'opacity-55'"
+              />
+              <span class="text-xs font-semibold tracking-wide">Stage</span>
             </button>
             <button
               type="button"
@@ -253,7 +280,11 @@ function submit() {
               v-if="creationMode !== 'category'"
               v-model="selectedIconKey"
               variant="combined"
-              :channel-type="creationMode === 'voice' ? 'voice' : 'text'"
+              :channel-type="
+                creationMode === 'voice' || creationMode === 'stage'
+                  ? 'voice'
+                  : 'text'
+              "
               :server-id="props.serverId ?? undefined"
             />
             <input

@@ -268,7 +268,14 @@ function echoChannelRowInternalToUiChannel(
   const base: Record<string, unknown> = {
     id: c.id,
     name: c.name,
-    type: c.type === 'voice' ? 'voice' : c.type === 'forum' ? 'forum' : 'text',
+    type:
+      c.type === 'voice'
+        ? 'voice'
+        : c.type === 'stage'
+          ? 'stage'
+          : c.type === 'forum'
+            ? 'forum'
+            : 'text',
     serverId,
     ...(c.parentChannelId ? { parentChannelId: c.parentChannelId } : {}),
     createdAt: ts,
@@ -277,7 +284,7 @@ function echoChannelRowInternalToUiChannel(
     userLimit: c.userLimit ?? 0,
     nsfw: c.nsfw ?? false,
     bitrateBps: c.bitrateBps ?? null,
-    ...(c.type === 'voice' && c.voiceE2eeEnabled
+    ...((c.type === 'voice' || c.type === 'stage') && c.voiceE2eeEnabled
       ? { voiceE2eeEnabled: true }
       : {}),
     ...(c.type === 'text' && c.messageHistoryAnchor === 'top'
@@ -1257,7 +1264,7 @@ async function attachVoiceParticipantsToWorkspace(
   if (serverIds.length === 0) return;
   await traceVoiceParticipantRowsAgainstLiveKit(pool, serverIds);
   const vpRes = await pool.query(
-    `SELECT server_id, channel_id, user_id, server_muted, server_deafened
+    `SELECT server_id, channel_id, user_id, server_muted, server_deafened, stage_speaker
      FROM echo_voice_participants
      WHERE server_id = ANY($1::text[])
      ORDER BY server_id, channel_id, joined_at ASC`,
@@ -1266,12 +1273,14 @@ async function attachVoiceParticipantsToWorkspace(
   const map = new Map<string, string[]>();
   const muteMaps = new Map<string, Record<string, boolean>>();
   const deafMaps = new Map<string, Record<string, boolean>>();
+  const speakerMaps = new Map<string, Record<string, boolean>>();
   for (const row of vpRes.rows as {
     server_id: unknown;
     channel_id: unknown;
     user_id: unknown;
     server_muted: unknown;
     server_deafened: unknown;
+    stage_speaker: unknown;
   }[]) {
     const key = `${row.server_id}:${row.channel_id}`;
     if (!map.has(key)) map.set(key, []);
@@ -1285,6 +1294,10 @@ async function attachVoiceParticipantsToWorkspace(
       if (!deafMaps.has(key)) deafMaps.set(key, {});
       deafMaps.get(key)![uid] = true;
     }
+    if (row.stage_speaker === true) {
+      if (!speakerMaps.has(key)) speakerMaps.set(key, {});
+      speakerMaps.get(key)![uid] = true;
+    }
   }
   for (const sid of Object.keys(categoriesByServer)) {
     const cats = categoriesByServer[sid];
@@ -1292,7 +1305,7 @@ async function attachVoiceParticipantsToWorkspace(
     for (const cat of cats) {
       for (const raw of cat.channels) {
         const ch = raw as Record<string, unknown>;
-        if (ch.type !== 'voice') continue;
+        if (ch.type !== 'voice' && ch.type !== 'stage') continue;
         const ckey = `${sid}:${ch.id}`;
         const ids = map.get(ckey) ?? [];
         if (ids.length > 0) {
@@ -1305,6 +1318,12 @@ async function attachVoiceParticipantsToWorkspace(
         const deafM = deafMaps.get(ckey);
         if (deafM && Object.keys(deafM).length > 0) {
           ch.voiceServerDeafenByUserId = deafM;
+        }
+        if (ch.type === 'stage') {
+          const spkM = speakerMaps.get(ckey);
+          if (spkM && Object.keys(spkM).length > 0) {
+            ch.voiceStageSpeakerByUserId = spkM;
+          }
         }
       }
     }
@@ -1573,7 +1592,7 @@ export async function createEchoChannel(
   pool: pg.Pool,
   serverId: string,
   name: string,
-  type: 'text' | 'voice' | 'forum',
+  type: 'text' | 'voice' | 'forum' | 'stage',
   categoryId: string | null,
   iconKey?: string,
   opts?: {
@@ -1624,6 +1643,10 @@ export async function createEchoChannel(
       : null;
   const channelDisplayName = clampEchoChannelName(name) || 'channel';
   const mirrorOnly = opts?.discordVoiceMirrorOnly === true;
+  const resolvedIconKey =
+    type === 'stage' && (ik == null || ik === '')
+      ? 'discordStage'
+      : ik;
   await pool.query(
     `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, parent_channel_id, forum_available_tags, forum_post_tag_ids, forum_post_pinned, forum_post_locked, forum_post_archived_at, forum_post_creator_user_id, discord_voice_mirror_only)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15)`,
@@ -1634,7 +1657,7 @@ export async function createEchoChannel(
       type,
       cid || null,
       pos,
-      ik,
+      resolvedIconKey,
       parent,
       forumTagsJson,
       postTagIdsJson,
@@ -1645,6 +1668,18 @@ export async function createEchoChannel(
       mirrorOnly,
     ],
   );
+  if (type === 'stage') {
+    await pool.query(
+      `INSERT INTO echo_channel_permission_overwrite_rows (id, server_id, channel_id, target_type, target_id, partial)
+       VALUES ($1, $2, $3, 'everyone', NULL, $4::jsonb)`,
+      [
+        nextEchoSnowflakeId(),
+        serverId,
+        id,
+        JSON.stringify({ CONNECT: true, SPEAK: false }),
+      ],
+    );
+  }
   invalidateEchoPermissionCacheForServer(serverId);
   return id;
 }

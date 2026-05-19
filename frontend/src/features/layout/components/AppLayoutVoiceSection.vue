@@ -112,7 +112,13 @@ const props = defineProps<{
     action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move',
   ) => boolean;
   handleVcModerate?: (payload: {
-    action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move';
+    action:
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'disconnect'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;

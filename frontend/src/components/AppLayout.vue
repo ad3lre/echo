@@ -134,7 +134,6 @@ import {
   uninstallExternalLinkClickGate,
 } from '@/utils/externalLinkClickGate';
 import { useDesktopNativeAttention } from '@/composables/useDesktopNativeAttention';
-import { useBrowserTabAttention } from '@/composables/useBrowserTabAttention';
 import { useDesktopGlobalShortcutBringFront } from '@/platform/desktopGlobalShortcutBringFront';
 import { useDesktopUpdateMonitor } from '@/composables/useDesktopUpdateMonitor';
 import { useDesktopIncomingCallAttention } from '@/composables/useDesktopIncomingCallAttention';
@@ -2376,8 +2375,6 @@ const discordBotExportReadyGuildNameForBanner = computed(() => {
   return n ? n : null;
 });
 
-useBrowserTabAttention();
-
 if (isDesktop()) {
   useDesktopNativeAttention();
   useDesktopGlobalShortcutBringFront();
@@ -2508,9 +2505,7 @@ const _initialRecovery = getEchoOutageRecoveryEstimate();
 const serverHealthAvgRecoveryEstimateSec = ref(
   _initialRecovery.estimateSeconds,
 );
-const serverHealthAvgRecoverySampleCount = ref(
-  _initialRecovery.sampleCount,
-);
+const serverHealthAvgRecoverySampleCount = ref(_initialRecovery.sampleCount);
 
 /** True when the latest primary-flow failure looks like backend/API unreachability. */
 const likelyBackendDownPrimaryFlow = computed(() => {
@@ -3550,7 +3545,12 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   onGuildEventRsvp: async (payload) => {
     try {
       /* Cookie session: bearer token is unused by `echoFetch` (see `transport.ts`). */
-      await putGuildEventRsvp('', payload.serverId, payload.eventId, payload.status);
+      await putGuildEventRsvp(
+        '',
+        payload.serverId,
+        payload.eventId,
+        payload.status,
+      );
       await hydrateEchoFromApi();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -3810,15 +3810,14 @@ watch(
     <a
       href="#echo-main-content"
       class="echo-skip-link sr-only focus:not-sr-only"
-    >Skip to messages</a>
+      >Skip to messages</a
+    >
 
     <!-- Navigation announcer: announces active channel/server context on navigation.
          sr-only ensures it is invisible but still read by screen readers. -->
-    <div
-      aria-live="polite"
-      aria-atomic="true"
-      class="sr-only"
-    >{{ navAnnouncerText }}</div>
+    <div aria-live="polite" aria-atomic="true" class="sr-only">
+      {{ navAnnouncerText }}
+    </div>
 
     <DesktopTitlebar v-if="isDesktop()" />
     <div

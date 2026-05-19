@@ -258,8 +258,6 @@ export default async function echoInvitesRoutes(
     '/invites/:code/join',
     { preHandler: [requireAuth, requireEchoStore] },
     async (req, reply) => {
-      if (req.authUser?.isGuest)
-        return sendError(reply, 403, 'FORBIDDEN', 'Guests cannot join servers');
       const pool = echoPool(req);
       const code = trimEchoPathParam(req.params.code);
       const joinCtx = await resolveEchoInviteJoinContext(pool, code);
@@ -285,10 +283,19 @@ export default async function echoInvitesRoutes(
         joinCtx.serverId,
         req.authUser!.id,
         clientIpFromFastifyRequest(req),
+        { isGuest: Boolean(req.authUser?.isGuest) },
       );
       if (!r.ok) {
         if (r.reason === 'not_found') {
           return sendError(reply, 404, 'NOT_FOUND', 'Invite not found');
+        }
+        if (r.reason === 'guest_join_forbidden') {
+          return sendError(
+            reply,
+            403,
+            'UPGRADE_REQUIRED',
+            'Create an account with email to join this server.',
+          );
         }
         if (r.reason === 'invites_disabled') {
           return sendError(

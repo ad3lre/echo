@@ -363,11 +363,7 @@ const progressAriaLabel = computed(
 }
 
 :global(html[data-theme='dark']) .server-down-recovery-bar {
-  background: linear-gradient(
-    90deg,
-    rgb(167 139 250),
-    rgb(244 114 182)
-  );
+  background: linear-gradient(90deg, rgb(167 139 250), rgb(244 114 182));
   box-shadow: 0 0 16px rgba(167, 139, 250, 0.35);
 }
 

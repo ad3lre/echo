@@ -8,7 +8,11 @@ import {
 } from '../../../domain/echoChannelWebhooksRepo';
 import { assertUserCanManageEchoChannelWebhooks } from '../../../services/echoChannelWebhooksPolicy';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
-import { echoPool, requireEchoStore, trimEchoPathParam } from './echoRouteUtils';
+import {
+  echoPool,
+  requireEchoStore,
+  trimEchoPathParam,
+} from './echoRouteUtils';
 
 async function requireWebhookManage(
   reply: import('fastify').FastifyReply,
@@ -167,7 +171,10 @@ export default async function echoChannelWebhooksRoutes(
       if (!out) {
         return sendError(reply, 404, 'NOT_FOUND', 'Webhook not found.');
       }
-      const url = buildEchoChannelWebhookExecuteUrl(webhookId, out.plaintextToken);
+      const url = buildEchoChannelWebhookExecuteUrl(
+        webhookId,
+        out.plaintextToken,
+      );
       return reply.code(200).send({
         token: out.plaintextToken,
         url,

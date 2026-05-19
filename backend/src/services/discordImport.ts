@@ -173,7 +173,7 @@ type NormalizedDiscordCategory = {
 
 type NormalizedDiscordChannel = {
   discordId: string;
-  kind: 'text' | 'voice' | 'forum' | 'unsupported';
+  kind: 'text' | 'voice' | 'stage' | 'forum' | 'unsupported';
   name: string;
   parentDiscordId: string | null;
   position: number;
@@ -1743,7 +1743,7 @@ function buildDiscordTopLevelSidebarOrder(
  */
 function channelTypeKey(
   raw: unknown,
-): 'category' | 'text' | 'voice' | 'forum' | 'unsupported' {
+): 'category' | 'text' | 'voice' | 'stage' | 'forum' | 'unsupported' {
   const type =
     typeof raw === 'number'
       ? raw
@@ -1753,8 +1753,8 @@ function channelTypeKey(
   if (type === 4) return 'category';
   if (type === 0) return 'text';
   if (type === 2) return 'voice';
-  /** GUILD_STAGE_VOICE — Echo voice + stage icon (no separate Echo channel type yet). */
-  if (type === 13) return 'voice';
+  /** GUILD_STAGE_VOICE */
+  if (type === 13) return 'stage';
   /** GUILD_NEWS — same Echo channel kind as GUILD_TEXT; overwrites carry posting rules. */
   if (type === 5) return 'text';
   if (type === 15) return 'forum';
@@ -1836,11 +1836,13 @@ function normalizeDiscordChannels(
       const kind: NormalizedDiscordChannel['kind'] =
         typeKey === 'voice'
           ? 'voice'
-          : typeKey === 'forum'
-            ? 'forum'
-            : typeKey === 'text'
-              ? 'text'
-              : 'unsupported';
+          : typeKey === 'stage'
+            ? 'stage'
+            : typeKey === 'forum'
+              ? 'forum'
+              : typeKey === 'text'
+                ? 'text'
+                : 'unsupported';
       const normalized: NormalizedDiscordChannel = {
         discordId: channel.id != null ? String(channel.id).trim() : '',
         kind,

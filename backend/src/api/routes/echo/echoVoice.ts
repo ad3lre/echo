@@ -8,16 +8,24 @@ import {
 } from '../../errors';
 import {
   applyEchoVoiceModerationAction,
+  canUserSpeakInStageChannel,
+  cancelEchoStageSpeakRequest,
   getActiveVoiceE2eeEpoch,
   getEchoChannelVoiceE2eeEnabled,
   insertEchoAudit,
   joinEchoVoiceChannel,
   leaveEchoVoiceChannel,
+  listEchoStageSpeakRequests,
   listEchoVoiceParticipants,
+  requestEchoStageSpeak,
+  resolveEchoStageSpeakRequest,
   type EchoVoiceModerationAction,
 } from '../../../domain/echoStore';
 import { isMemberOfServer } from '../../../domain/echoPermissions';
-import { publishEchoWorkspaceEvent, publishVoiceRosterDelta } from '../../../platform/echoPlatformEvents';
+import {
+  publishEchoWorkspaceEvent,
+  publishVoiceRosterDelta,
+} from '../../../platform/echoPlatformEvents';
 import { config } from '../../../config';
 import {
   liveKitRoomName,
@@ -42,6 +50,8 @@ const ECHO_VOICE_MODERATE_ACTIONS = new Set<string>([
   'server_unmute',
   'server_deafen',
   'server_undeafen',
+  'invite_to_speak',
+  'move_to_audience',
 ]);
 
 function voiceReadRateLimitKey(req: FastifyRequest): string {
@@ -72,7 +82,10 @@ async function syncLiveKitMicAfterServerModeration(
   });
   if (!config.liveKitEnabled) return;
   const r = await pool.query(
-    `SELECT channel_id, server_muted, server_deafened FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+    `SELECT vp.channel_id, vp.server_muted, vp.server_deafened, vp.stage_speaker, ch.type AS channel_type
+     FROM echo_voice_participants vp
+     JOIN echo_channels ch ON ch.id = vp.channel_id AND ch.server_id = vp.server_id
+     WHERE vp.server_id = $1 AND vp.user_id = $2`,
     [serverId, targetUserId],
   );
   if (!r.rows[0]) {
@@ -83,8 +96,13 @@ async function syncLiveKitMicAfterServerModeration(
     return;
   }
   const cid = String(r.rows[0].channel_id);
+  const channelType = String(r.rows[0].channel_type ?? '');
+  const stageBlocksMic =
+    channelType === 'stage' && !Boolean(r.rows[0].stage_speaker);
   const mute =
-    Boolean(r.rows[0].server_muted) || Boolean(r.rows[0].server_deafened);
+    Boolean(r.rows[0].server_muted) ||
+    Boolean(r.rows[0].server_deafened) ||
+    stageBlocksMic;
   vcTrace(log, 'syncLiveKitMicAfterServerModeration:db_state', {
     serverId,
     channelId: cid,
@@ -185,7 +203,14 @@ export default async function echoVoiceRoutes(
       publishVoiceRosterDelta(
         fastify,
         serverId,
-        { channelId, userId: req.authUser!.id, action: 'join' },
+        {
+          channelId,
+          userId: req.authUser!.id,
+          action: 'join',
+          ...(r.stageSpeaker !== undefined
+            ? { stageSpeaker: r.stageSpeaker }
+            : {}),
+        },
         auditId,
       );
       return reply.code(204).send();
@@ -272,10 +297,17 @@ export default async function echoVoiceRoutes(
         `SELECT server_muted, server_deafened FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
         [serverId, req.authUser!.id],
       );
-      const blockMic =
+      const moderationMute =
         modRow.rows[0] != null &&
         (Boolean(modRow.rows[0].server_muted) ||
           Boolean(modRow.rows[0].server_deafened));
+      const stageSpeakAllowed = await canUserSpeakInStageChannel(
+        pool,
+        serverId,
+        channelId,
+        req.authUser!.id,
+      );
+      const blockMic = moderationMute || !stageSpeakAllowed;
       vcTrace(req.log, 'voice.livekit_session:moderation_row', {
         roomName,
         hasParticipantRow: modRow.rows[0] != null,
@@ -384,7 +416,16 @@ export default async function echoVoiceRoutes(
 
   fastify.post<{ Params: { serverId: string } }>(
     '/servers/:serverId/voice/leave',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -438,7 +479,11 @@ export default async function echoVoiceRoutes(
       publishVoiceRosterDelta(
         fastify,
         sid,
-        { channelId: leaveChannelId, userId: req.authUser!.id, action: 'leave' },
+        {
+          channelId: leaveChannelId,
+          userId: req.authUser!.id,
+          action: 'leave',
+        },
         auditId,
       );
       return reply.code(204).send();
@@ -655,7 +700,9 @@ export default async function echoVoiceRoutes(
         (action === 'server_mute' ||
           action === 'server_unmute' ||
           action === 'server_deafen' ||
-          action === 'server_undeafen')
+          action === 'server_undeafen' ||
+          action === 'invite_to_speak' ||
+          action === 'move_to_audience')
       ) {
         vcTrace(req.log, 'voice.moderate:sync_livekit_mic', {
           action,
@@ -761,10 +808,153 @@ export default async function echoVoiceRoutes(
           },
           auditId,
         );
+      } else if (action === 'invite_to_speak') {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: modCurrentChannelId ?? '',
+            userId: targetUserId,
+            action: 'promote_speaker',
+            stageSpeaker: true,
+          },
+          auditId,
+        );
+      } else if (action === 'move_to_audience') {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: modCurrentChannelId ?? '',
+            userId: targetUserId,
+            action: 'demote_speaker',
+            stageSpeaker: false,
+          },
+          auditId,
+        );
       }
       echoVoiceModerateTotal.labels(action, 'ok').inc();
       vcTrace(req.log, 'voice.moderate:ok', { action, targetUserId });
       return reply.code(204).send();
+    },
+  );
+
+  fastify.post<{ Params: { serverId: string; channelId: string } }>(
+    '/servers/:serverId/channels/:channelId/stage/request-speak',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      if (!okMem) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          ECHO_MSG_NOT_SERVER_MEMBER,
+          'NOT_SERVER_MEMBER',
+        );
+      }
+      const r = await requestEchoStageSpeak(
+        pool,
+        serverId,
+        channelId,
+        req.authUser!.id,
+      );
+      if (r === 'ok') return reply.code(204).send();
+      if (r === 'forbidden')
+        return sendError(reply, 403, 'FORBIDDEN', 'Not allowed to request to speak');
+      if (r === 'already_speaker')
+        return sendError(reply, 409, 'ALREADY_SPEAKER', 'You are already a speaker');
+      if (r === 'already_requested')
+        return sendError(reply, 409, 'ALREADY_REQUESTED', 'Request already pending');
+      return sendError(reply, 404, 'NOT_FOUND', 'Not in this stage channel');
+    },
+  );
+
+  fastify.delete<{ Params: { serverId: string; channelId: string } }>(
+    '/servers/:serverId/channels/:channelId/stage/request-speak',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const r = await cancelEchoStageSpeakRequest(
+        pool,
+        serverId,
+        channelId,
+        req.authUser!.id,
+      );
+      if (r === 'ok') return reply.code(204).send();
+      return sendError(reply, 404, 'NOT_FOUND', 'No pending request');
+    },
+  );
+
+  fastify.get<{ Params: { serverId: string; channelId: string } }>(
+    '/servers/:serverId/channels/:channelId/stage/speak-requests',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const userIds = await listEchoStageSpeakRequests(
+        pool,
+        serverId,
+        channelId,
+      );
+      return reply.send({ userIds });
+    },
+  );
+
+  fastify.post<{
+    Params: { serverId: string; channelId: string; userId: string };
+    Body: { approve?: boolean };
+  }>(
+    '/servers/:serverId/channels/:channelId/stage/speak-requests/:userId',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const targetUserId = trimEchoPathParam(req.params.userId);
+      const approve = req.body?.approve !== false;
+      const r = await resolveEchoStageSpeakRequest(
+        pool,
+        serverId,
+        channelId,
+        req.authUser!.id,
+        targetUserId,
+        approve,
+      );
+      if (r === 'ok') {
+        if (approve) {
+          const auditId = await insertEchoAudit(
+            pool,
+            serverId,
+            req.authUser!.id,
+            'stage.approve_speak_request',
+            'user',
+            targetUserId,
+            { channelId },
+          );
+          publishVoiceRosterDelta(
+            fastify,
+            serverId,
+            {
+              channelId,
+              userId: targetUserId,
+              action: 'promote_speaker',
+              stageSpeaker: true,
+            },
+            auditId,
+          );
+        }
+        return reply.code(204).send();
+      }
+      if (r === 'forbidden')
+        return sendError(reply, 403, 'FORBIDDEN', 'Not allowed to moderate stage');
+      return sendError(reply, 404, 'NOT_FOUND', 'Request not found');
     },
   );
 }

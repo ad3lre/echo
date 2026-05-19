@@ -118,7 +118,7 @@ const props = defineProps<
     channels?: {
       id: string;
       name: string;
-      type?: 'text' | 'voice' | 'forum';
+      type?: 'text' | 'voice' | 'forum' | 'stage';
       iconKey?: string;
     }[];
     sendMessage?: (

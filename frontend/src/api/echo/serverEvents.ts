@@ -52,14 +52,13 @@ export async function createGuildEvent(
     mirrorToDiscord?: boolean;
   },
 ): Promise<{ id: string; discordMirror?: GuildEventDiscordMirrorPayload }> {
-  return echoFetch<{ id: string; discordMirror?: GuildEventDiscordMirrorPayload }>(
-    token,
-    `/servers/${encodeURIComponent(serverId)}/events`,
-    {
-      method: 'POST',
-      body: JSON.stringify(body),
-    },
-  );
+  return echoFetch<{
+    id: string;
+    discordMirror?: GuildEventDiscordMirrorPayload;
+  }>(token, `/servers/${encodeURIComponent(serverId)}/events`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 export async function updateGuildEvent(

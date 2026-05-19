@@ -20,6 +20,11 @@ export interface Server {
   tags?: string[];
   /** Echo: include in public Explore directory listing. */
   listedInDirectory?: boolean;
+  /**
+   * Echo: when false, guest sessions cannot join from Explore or invite flows.
+   * Full members are unaffected.
+   */
+  allowGlobalGuests?: boolean;
   /** Echo: when false, vanity and token invites cannot add new members (closed server). */
   inviteJoinEnabled?: boolean;
   /** Echo: join requests require completing the application form when enabled. */

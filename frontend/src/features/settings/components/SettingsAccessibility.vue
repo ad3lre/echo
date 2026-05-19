@@ -14,11 +14,17 @@ const fontScaleId = useId();
     <!-- Readability card -->
     <div class="settings-card rounded-2xl p-5">
       <div class="settings-label" aria-hidden="true">Readability</div>
-      <div class="mt-4 flex flex-col gap-3" role="group" aria-label="Readability">
+      <div
+        class="mt-4 flex flex-col gap-3"
+        role="group"
+        aria-label="Readability"
+      >
         <!-- High contrast -->
         <div class="settings-toggle">
           <span>
-            <span class="block text-sm font-semibold text-foreground">High contrast</span>
+            <span class="block text-sm font-semibold text-foreground"
+              >High contrast</span
+            >
             <span class="block text-sm text-muted">
               Increase contrast in text, borders, and key actions.
             </span>
@@ -32,9 +38,12 @@ const fontScaleId = useId();
         <!-- Dyslexia-friendly font -->
         <div class="settings-toggle">
           <span>
-            <span class="block text-sm font-semibold text-foreground">Dyslexia-friendly font</span>
+            <span class="block text-sm font-semibold text-foreground"
+              >Dyslexia-friendly font</span
+            >
             <span class="block text-sm text-muted">
-              Swap the main UI font for Atkinson Hyperlegible, a more readable alternative.
+              Swap the main UI font for Atkinson Hyperlegible, a more readable
+              alternative.
             </span>
           </span>
           <SettingsPillSwitch
@@ -46,9 +55,12 @@ const fontScaleId = useId();
         <!-- Message spacing -->
         <div class="settings-toggle">
           <span>
-            <span class="block text-sm font-semibold text-foreground">Message spacing</span>
+            <span class="block text-sm font-semibold text-foreground"
+              >Message spacing</span
+            >
             <span class="block text-sm text-muted">
-              Add extra vertical breathing room between messages for easier scanning.
+              Add extra vertical breathing room between messages for easier
+              scanning.
             </span>
           </span>
           <SettingsPillSwitch
@@ -62,11 +74,17 @@ const fontScaleId = useId();
     <!-- Motion & Layout card -->
     <div class="settings-card rounded-2xl p-5">
       <div class="settings-label" aria-hidden="true">Motion &amp; Layout</div>
-      <div class="mt-4 flex flex-col gap-3" role="group" aria-label="Motion and Layout">
+      <div
+        class="mt-4 flex flex-col gap-3"
+        role="group"
+        aria-label="Motion and Layout"
+      >
         <!-- Reduced motion -->
         <div class="settings-toggle">
           <span>
-            <span class="block text-sm font-semibold text-foreground">Reduced motion</span>
+            <span class="block text-sm font-semibold text-foreground"
+              >Reduced motion</span
+            >
             <span class="block text-sm text-muted">
               Tone down transitions, blur shifts, and UI animations.
             </span>

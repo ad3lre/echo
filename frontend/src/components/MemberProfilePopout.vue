@@ -811,7 +811,10 @@ function handleViewportUpdate() {
           </template>
         </MemberProfileHeader>
 
-        <div v-if="showCompactPersonSettingsRow" class="member-popout__person-settings-wrap shrink-0 px-4">
+        <div
+          v-if="showCompactPersonSettingsRow"
+          class="member-popout__person-settings-wrap shrink-0 px-4"
+        >
           <button
             type="button"
             class="member-popout__person-settings chat-focus-ring"

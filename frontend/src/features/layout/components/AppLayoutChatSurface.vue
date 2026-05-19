@@ -554,7 +554,9 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :close-vc-activity="chatCtx.closeVcActivity"
         :publish-vc-youtube-playback-sync="chatCtx.publishVcYoutubePlaybackSync"
         :vc-youtube-remote-playback="chatCtx.vcYoutubeRemotePlayback"
-        :vc-youtube-playback-should-publish="chatCtx.vcYoutubePlaybackShouldPublish"
+        :vc-youtube-playback-should-publish="
+          chatCtx.vcYoutubePlaybackShouldPublish
+        "
         :can-show-discord-channel-import="chatCtx.canShowDiscordChannelImport"
         :guild-vc-muted="!!chatCtx.vcMuted"
         :guild-vc-deafened="!!chatCtx.vcDeafened"

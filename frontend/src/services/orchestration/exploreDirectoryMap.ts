@@ -44,6 +44,9 @@ export function mapEchoDirectoryServersToExploreRows(
       }
       const createdAt = server.createdAt?.trim();
       if (createdAt) row.createdAt = createdAt;
+      if (typeof server.allowGlobalGuests === 'boolean') {
+        row.allowGlobalGuests = server.allowGlobalGuests;
+      }
       return row;
     }),
   );

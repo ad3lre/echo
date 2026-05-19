@@ -770,10 +770,14 @@ export type LiveKitVoiceRoomApi = {
   ) => void;
   publishCodenamesClueIntent: (payload: EchoCodenamesClueIntentV1) => void;
   publishCodenamesRevealIntent: (payload: EchoCodenamesRevealIntentV1) => void;
-  publishCodenamesEndTurnIntent: (payload: EchoCodenamesEndTurnIntentV1) => void;
+  publishCodenamesEndTurnIntent: (
+    payload: EchoCodenamesEndTurnIntentV1,
+  ) => void;
   publishCodenamesSetupIntent: (payload: EchoCodenamesSetupIntentV1) => void;
   publishCodenamesDealIntent: (payload: EchoCodenamesDealIntentV1) => void;
-  publishCodenamesNewGameIntent: (payload: EchoCodenamesNewGameIntentV1) => void;
+  publishCodenamesNewGameIntent: (
+    payload: EchoCodenamesNewGameIntentV1,
+  ) => void;
 };
 
 export function useLiveKitVoiceRoom(
@@ -3123,18 +3127,24 @@ export function useLiveKitVoiceRoom(
     if (!room || room.state !== ConnectionState.Connected) return;
     const dest = destinationIdentities.map((x) => x.trim()).filter(Boolean);
     if (!dest.length) return;
-    void room.localParticipant.publishData(encodeEchoHangmanRoundSecret(payload), {
-      reliable: true,
-      destinationIdentities: dest,
-    });
+    void room.localParticipant.publishData(
+      encodeEchoHangmanRoundSecret(payload),
+      {
+        reliable: true,
+        destinationIdentities: dest,
+      },
+    );
   }
 
   function publishCodenamesActivity(payload: EchoCodenamesActivityV1) {
     const room = lkRoom.value;
     if (!room || room.state !== ConnectionState.Connected) return;
-    void room.localParticipant.publishData(encodeEchoCodenamesActivity(payload), {
-      reliable: true,
-    });
+    void room.localParticipant.publishData(
+      encodeEchoCodenamesActivity(payload),
+      {
+        reliable: true,
+      },
+    );
   }
 
   function publishCodenamesSpymasterKey(
@@ -3183,7 +3193,9 @@ export function useLiveKitVoiceRoom(
     );
   }
 
-  function publishCodenamesEndTurnIntent(payload: EchoCodenamesEndTurnIntentV1) {
+  function publishCodenamesEndTurnIntent(
+    payload: EchoCodenamesEndTurnIntentV1,
+  ) {
     const room = lkRoom.value;
     if (!room || room.state !== ConnectionState.Connected) return;
     void room.localParticipant.publishData(
@@ -3210,7 +3222,9 @@ export function useLiveKitVoiceRoom(
     );
   }
 
-  function publishCodenamesNewGameIntent(payload: EchoCodenamesNewGameIntentV1) {
+  function publishCodenamesNewGameIntent(
+    payload: EchoCodenamesNewGameIntentV1,
+  ) {
     const room = lkRoom.value;
     if (!room || room.state !== ConnectionState.Connected) return;
     void room.localParticipant.publishData(

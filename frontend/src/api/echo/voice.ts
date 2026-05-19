@@ -124,7 +124,33 @@ export type EchoVoiceModerateAction =
   | 'server_mute'
   | 'server_unmute'
   | 'server_deafen'
-  | 'server_undeafen';
+  | 'server_undeafen'
+  | 'invite_to_speak'
+  | 'move_to_audience';
+
+export async function postEchoStageRequestSpeak(
+  token: string,
+  serverId: string,
+  channelId: string,
+): Promise<void> {
+  await echoFetch<Record<string, unknown>>(
+    token,
+    `/servers/${encodeURIComponent(serverId)}/channels/${encodeURIComponent(channelId)}/stage/request-speak`,
+    { method: 'POST' },
+  );
+}
+
+export async function deleteEchoStageRequestSpeak(
+  token: string,
+  serverId: string,
+  channelId: string,
+): Promise<void> {
+  await echoFetch<Record<string, unknown>>(
+    token,
+    `/servers/${encodeURIComponent(serverId)}/channels/${encodeURIComponent(channelId)}/stage/request-speak`,
+    { method: 'DELETE' },
+  );
+}
 
 export async function postEchoVoiceModerate(
   token: string | null | undefined,

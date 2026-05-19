@@ -33,7 +33,9 @@ export function useLimitedGifPlayback(options: {
   const fallbackLoopMs = options.fallbackLoopMs ?? FALLBACK_LOOP_MS;
 
   const safeUrl = computed(() =>
-    rewriteR2EchoUploadUrlForReadThrough(safeImageUrl(toValue(options.imageUrl))),
+    rewriteR2EchoUploadUrlForReadThrough(
+      safeImageUrl(toValue(options.imageUrl)),
+    ),
   );
   const isGif = computed(() => isLikelyGifImageUrl(toValue(options.imageUrl)));
   const forceActiveRef = computed(() => toValue(options.forceActive) ?? false);

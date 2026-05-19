@@ -427,11 +427,7 @@ export async function updateEchoServerEvent(
     }
     if (nextCh && nextCu) return { ok: false, reason: 'bad_location' };
     if (nextCh) {
-      const chOk = await assertChannelInServer(
-        pool,
-        input.serverId,
-        nextCh,
-      );
+      const chOk = await assertChannelInServer(pool, input.serverId, nextCh);
       if (!chOk) return { ok: false, reason: 'bad_channel' };
     }
   }

@@ -403,7 +403,10 @@ export { joinGuestToSampledEchoServers } from './guestOnboarding';
 
 export {
   applyEchoVoiceModerationAction,
+  canUserSpeakInStageChannel,
+  computeInitialStageSpeaker,
   deleteEchoVoiceParticipantsForUsers,
+  getEchoChannelType,
   joinEchoVoiceChannel,
   leaveEchoVoiceChannel,
   listEchoVoiceParticipants,
@@ -413,6 +416,14 @@ export {
   type EchoVoiceModerationAction,
   type EchoVoiceModerationResult,
 } from './voice';
+
+export {
+  cancelEchoStageSpeakRequest,
+  listEchoStageSpeakRequests,
+  requestEchoStageSpeak,
+  resolveEchoStageSpeakRequest,
+  type StageSpeakRequestResult,
+} from './stageSpeak';
 
 export {
   incrementEchoVcActivityOpen,

@@ -26,6 +26,7 @@ import {
 import { useCompactShell } from '@/composables/useCompactShell';
 import { useEchoSessionStore } from '@/stores/echoSession';
 import ChannelPanelVoiceOccupancyIndicator from '@/features/channel-panel/components/ChannelPanelVoiceOccupancyIndicator.vue';
+import { isVoiceLikeChannelType } from '@/utils/voiceChannelKinds';
 
 const { isCompactShell } = useCompactShell();
 const echoSession = useEchoSessionStore();
@@ -116,7 +117,7 @@ const channelIconResolver = useChannelIconResolver(
 
 function getChannelEmojiOrNull(channel: {
   name: string;
-  type?: 'text' | 'voice' | 'forum';
+  type?: 'text' | 'voice' | 'forum' | 'stage';
   iconKey?: string;
 }): string | null {
   const v = channelIconResolver.getVisual(channel);
@@ -125,7 +126,7 @@ function getChannelEmojiOrNull(channel: {
 
 function getChannelIconUrlOrFallback(channel: {
   name: string;
-  type?: 'text' | 'voice' | 'forum';
+  type?: 'text' | 'voice' | 'forum' | 'stage';
   iconKey?: string;
 }): string {
   const v = channelIconResolver.getVisual(channel);
@@ -666,7 +667,19 @@ function onChannelRowActivate(channel: ChannelWithParticipants) {
   emit('channel-click', channel);
 }
 
-type QuickCreateType = 'text' | 'voice' | 'forum' | 'category';
+type QuickCreateType = 'text' | 'voice' | 'stage' | 'forum' | 'category';
+
+function partitionStageParticipants(channel: ChannelWithParticipants) {
+  const ids = channel.voiceParticipantIds ?? [];
+  const spk = channel.voiceStageSpeakerByUserId ?? {};
+  const speakers: string[] = [];
+  const audience: string[] = [];
+  for (const id of ids) {
+    if (spk[id]) speakers.push(id);
+    else audience.push(id);
+  }
+  return { speakers, audience };
+}
 type QuickCreateStage = 'pick-type' | 'details';
 
 /** Parent forum id when its hub or one of its posts is selected (for compact sidebar). */
@@ -820,6 +833,7 @@ function syncQuickCreateCategory() {
 
 function defaultIconKeyForQuickCreateType(type: QuickCreateType): string {
   if (type === 'voice') return 'volumeUp';
+  if (type === 'stage') return 'discordStage';
   if (type === 'forum') return 'messageAlt';
   return 'message';
 }
@@ -841,7 +855,7 @@ watch(
   async (id, prev) => {
     if (!id || id === prev) return;
     const ch = findTopLevelChannelMeta(id);
-    if (!ch || ch.type !== 'voice') return;
+    if (!ch || !isVoiceLikeChannelType(ch.type)) return;
     await nextTick();
     await nextAnimationFrame();
     const scroller = channelListRef.value;
@@ -907,7 +921,10 @@ function collapseQuickCreate() {
 
 async function selectQuickCreateType(type: QuickCreateType) {
   if (
-    (type === 'text' || type === 'voice' || type === 'forum') &&
+    (type === 'text' ||
+      type === 'voice' ||
+      type === 'stage' ||
+      type === 'forum') &&
     !quickCreateCanUseChannels.value
   ) {
     return;
@@ -1065,7 +1082,7 @@ watch(
               channel.id === activeChannelId
                 ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-400/50'
                 : 'hover:bg-glass-2 text-fg-soft hover:text-fg',
-              channel.type === 'voice' && 'rounded-full',
+              isVoiceLikeChannelType(channel.type) && 'rounded-full',
             ]"
             :title="getChannelDisplayName(channel.name)"
             @click="emit('channel-click', channel)"
@@ -1097,7 +1114,7 @@ watch(
             <!-- Active voice indicator -->
             <div
               v-if="
-                channel.type === 'voice' &&
+                isVoiceLikeChannelType(channel.type) &&
                 (channel.voiceParticipantIds?.length ||
                   discordMirrorMembers(channel.id).length)
               "
@@ -1279,11 +1296,11 @@ watch(
                   'bg-glass-2':
                     activeChannelId === channel.id && channel.type !== 'voice',
                   'ring-1 ring-sky-500/35':
-                    channel.type === 'voice' &&
+                    isVoiceLikeChannelType(channel.type) &&
                     voiceLobbyChannelId &&
                     voiceLobbyChannelId === channel.id,
                   'cursor-not-allowed opacity-50 hover:opacity-55':
-                    channel.type === 'voice' &&
+                    isVoiceLikeChannelType(channel.type) &&
                     canJoinVoice &&
                     !canJoinVoice(channel.id),
                   'channel-row--drag-source':
@@ -1292,14 +1309,14 @@ watch(
                   'cursor-grab active:cursor-grabbing':
                     reorderEnabled &&
                     !(
-                      channel.type === 'voice' &&
+                      isVoiceLikeChannelType(channel.type) &&
                       canJoinVoice &&
                       !canJoinVoice(channel.id)
                     ),
                 }"
                 :draggable="reorderEnabled"
                 :title="
-                  channel.type === 'voice' &&
+                  isVoiceLikeChannelType(channel.type) &&
                   canJoinVoice &&
                   !canJoinVoice(channel.id)
                     ? 'You do not have permission to join this voice channel'
@@ -1331,7 +1348,7 @@ watch(
                 <div
                   class="channel-row-drop-target relative flex items-center gap-2 min-w-0 rounded-md transition-colors"
                   :class="[
-                    channel.type === 'voice'
+                    isVoiceLikeChannelType(channel.type)
                       ? currentVoiceChannelId === channel.id
                         ? 'hover:bg-glass-1 px-1.5 py-1'
                         : 'hover:bg-glass-1 px-1.5 py-1'
@@ -1368,7 +1385,7 @@ watch(
                           activeChannelId !== channel.id,
                         'channel-icon-in-vc':
                           currentVoiceChannelId === channel.id &&
-                          channel.type === 'voice',
+                          isVoiceLikeChannelType(channel.type),
                       }"
                     />
                     <span
@@ -1387,7 +1404,7 @@ watch(
                           activeChannelId !== channel.id,
                         'channel-icon-in-vc':
                           currentVoiceChannelId === channel.id &&
-                          channel.type === 'voice',
+                          isVoiceLikeChannelType(channel.type),
                       }"
                       aria-hidden="true"
                       >{{ getChannelEmojiOrNull(channel) }}</span
@@ -1397,7 +1414,7 @@ watch(
                       :class="[
                         'channel-row-name truncate min-w-0 flex-1 text-[14px] block',
                         currentVoiceChannelId === channel.id &&
-                        channel.type === 'voice'
+                        isVoiceLikeChannelType(channel.type)
                           ? 'font-semibold text-emerald-400 group-hover:text-emerald-300'
                           : activeChannelId === channel.id
                             ? 'font-semibold text-foreground'
@@ -1435,7 +1452,7 @@ watch(
                     />
                   </button>
                   <div
-                    v-if="channel.type === 'voice'"
+                    v-if="isVoiceLikeChannelType(channel.type)"
                     class="ml-auto flex-shrink-0 flex items-center gap-0.5"
                     @click.stop
                   >
@@ -1564,8 +1581,82 @@ watch(
                   />
                 </div>
                 <div
+                  v-else-if="
+                    channel.type === 'stage' &&
+                    channel.voiceParticipantIds?.length
+                  "
+                  class="vc-participants mt-2.5 pl-6 flex flex-col gap-2"
+                >
+                  <template
+                    v-if="partitionStageParticipants(channel).speakers.length"
+                  >
+                    <div
+                      class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
+                    >
+                      Speakers
+                    </div>
+                    <ChannelPanelVoiceParticipant
+                      v-for="userId in partitionStageParticipants(channel).speakers"
+                      :key="`spk-${userId}`"
+                      :user-id="userId"
+                      :name="voiceParticipantName(channel.id, userId)"
+                      :pfp="getUserById(userId)?.pfp"
+                      :is-server-owner="
+                        !!serverOwnerId?.trim() &&
+                        userId === serverOwnerId.trim()
+                      "
+                      :vc="participantVoiceUi(channel.id, userId)"
+                      :is-active="openProfileUserId === userId"
+                      @click="emit('vc-participant-click', userId, $event)"
+                      @contextmenu="
+                        emit(
+                          'vc-participant-contextmenu',
+                          userId,
+                          channel,
+                          categoryIdForApi(category),
+                          category.name,
+                          $event,
+                        )
+                      "
+                    />
+                  </template>
+                  <template
+                    v-if="partitionStageParticipants(channel).audience.length"
+                  >
+                    <div
+                      class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle mt-1"
+                    >
+                      Audience
+                    </div>
+                    <ChannelPanelVoiceParticipant
+                      v-for="userId in partitionStageParticipants(channel).audience"
+                      :key="`aud-${userId}`"
+                      :user-id="userId"
+                      :name="voiceParticipantName(channel.id, userId)"
+                      :pfp="getUserById(userId)?.pfp"
+                      :is-server-owner="
+                        !!serverOwnerId?.trim() &&
+                        userId === serverOwnerId.trim()
+                      "
+                      :vc="participantVoiceUi(channel.id, userId)"
+                      :is-active="openProfileUserId === userId"
+                      @click="emit('vc-participant-click', userId, $event)"
+                      @contextmenu="
+                        emit(
+                          'vc-participant-contextmenu',
+                          userId,
+                          channel,
+                          categoryIdForApi(category),
+                          category.name,
+                          $event,
+                        )
+                      "
+                    />
+                  </template>
+                </div>
+                <div
                   v-if="
-                    channel.type === 'voice' &&
+                    isVoiceLikeChannelType(channel.type) &&
                     discordMirrorMembers(channel.id).length &&
                     !channel.voiceParticipantIds?.length
                   "
@@ -1826,6 +1917,33 @@ watch(
                       </div>
                       <div class="channel-quick-create__widget-subtitle">
                         Create a voice room
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="channel-quick-create__widget channel-quick-create__widget--choice"
+                  :class="{
+                    'channel-quick-create__widget--disabled':
+                      !quickCreateCanUseChannels,
+                  }"
+                  :disabled="!quickCreateCanUseChannels"
+                  @click="selectQuickCreateType('stage')"
+                >
+                  <div class="channel-quick-create__widget-left">
+                    <img
+                      :src="icons.discordStage"
+                      alt=""
+                      class="channel-quick-create__widget-icon"
+                    />
+                    <div class="channel-quick-create__widget-copy">
+                      <div class="channel-quick-create__widget-title">
+                        Stage channel
+                      </div>
+                      <div class="channel-quick-create__widget-subtitle">
+                        Moderated voice with speakers
                       </div>
                     </div>
                   </div>
@@ -2419,7 +2537,8 @@ watch(
   pointer-events: none;
 }
 
-.forum-post-sidebar-row .channel-row-drop-target.channel-row--has-unread::before {
+.forum-post-sidebar-row
+  .channel-row-drop-target.channel-row--has-unread::before {
   left: 0.22rem;
   height: 1rem;
 }

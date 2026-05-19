@@ -277,7 +277,9 @@ const hasAny = computed(
             {{ ev.title.trim().slice(0, 1).toUpperCase() || '·' }}
           </div>
         </div>
-        <div class="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-tight">
+        <div
+          class="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-tight"
+        >
           <p class="truncate text-[12px] font-semibold text-foreground">
             {{ ev.title }}
           </p>
@@ -363,7 +365,9 @@ const hasAny = computed(
             class="flex flex-col gap-2 px-2.5 pb-2.5 pt-1"
           >
             <p class="text-[11px] text-fg-soft">
-              <span class="font-medium text-foreground">{{ ev.goingCount }}</span>
+              <span class="font-medium text-foreground">{{
+                ev.goingCount
+              }}</span>
               going
             </p>
             <div class="flex flex-wrap items-center gap-1.5">
@@ -390,7 +394,9 @@ const hasAny = computed(
               <button
                 type="button"
                 class="rounded-lg border border-border bg-glass-2 px-2 py-1 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
-                :class="ev.userRsvp === 'declined' ? 'ring-1 ring-accent/40' : ''"
+                :class="
+                  ev.userRsvp === 'declined' ? 'ring-1 ring-accent/40' : ''
+                "
                 @click="onRsvp(ev, 'declined')"
               >
                 Not going
@@ -440,7 +446,9 @@ const hasAny = computed(
               <button
                 type="button"
                 class="rounded-lg border border-border bg-glass-2 px-2 py-1 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
-                :class="ev.userRsvp === 'declined' ? 'ring-1 ring-accent/40' : ''"
+                :class="
+                  ev.userRsvp === 'declined' ? 'ring-1 ring-accent/40' : ''
+                "
                 @click="onRsvp(ev, 'declined')"
               >
                 Not going

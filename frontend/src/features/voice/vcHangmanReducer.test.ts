@@ -114,7 +114,9 @@ describe('vcHangmanReducer', () => {
   });
 
   it('sanitizeHangmanActivityForMerge rejects invalid rosters', () => {
-    expect(sanitizeHangmanActivityForMerge(hangmanActivity({ setterUserId: '' }))).toBeNull();
+    expect(
+      sanitizeHangmanActivityForMerge(hangmanActivity({ setterUserId: '' })),
+    ).toBeNull();
     expect(
       sanitizeHangmanActivityForMerge(
         hangmanActivity({ setterUserId: 'x', rosterUserIds: ['a', 'b'] }),

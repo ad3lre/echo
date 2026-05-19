@@ -12,7 +12,11 @@ function asStringArray(v: unknown): string[] {
   const out: string[] = [];
   for (const x of v) {
     if (typeof x === 'string' && x.trim()) out.push(x.trim());
-    else if (x && typeof x === 'object' && typeof (x as { id?: unknown }).id === 'string') {
+    else if (
+      x &&
+      typeof x === 'object' &&
+      typeof (x as { id?: unknown }).id === 'string'
+    ) {
       const id = String((x as { id: string }).id).trim();
       if (id) out.push(id);
     }

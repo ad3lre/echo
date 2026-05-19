@@ -78,7 +78,10 @@ export function resolveGuildEventLocation(input: {
   if (/^https?:\/\//i.test(raw)) {
     const asApp = tryParseSameOriginAppPath(raw, input.base);
     if (asApp && asApp.kind !== 'unknown') {
-      return { kind: 'shell_path', pathWithSearch: shellPathForParsed(asApp, input.base) };
+      return {
+        kind: 'shell_path',
+        pathWithSearch: shellPathForParsed(asApp, input.base),
+      };
     }
     return { kind: 'external', url: raw };
   }
@@ -93,14 +96,20 @@ export function resolveGuildEventLocation(input: {
       input.base,
     );
     if (p.kind !== 'unknown') {
-      return { kind: 'shell_path', pathWithSearch: shellPathForParsed(p, input.base) };
+      return {
+        kind: 'shell_path',
+        pathWithSearch: shellPathForParsed(p, input.base),
+      };
     }
   }
 
   if (raw.startsWith('/')) {
     const p = parseAppPathname(raw, input.base);
     if (p.kind !== 'unknown') {
-      return { kind: 'shell_path', pathWithSearch: shellPathForParsed(p, input.base) };
+      return {
+        kind: 'shell_path',
+        pathWithSearch: shellPathForParsed(p, input.base),
+      };
     }
   }
 

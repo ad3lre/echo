@@ -270,7 +270,7 @@ export const CHANNEL_PERMISSION_DEFS_CATEGORY: ChannelPermissionDef[] = (() => {
  * present for voice in the same order as category defaults.
  */
 export function getChannelPermissionDefsForChannelType(
-  channelType: 'text' | 'voice' | 'forum',
+  channelType: 'text' | 'voice' | 'forum' | 'stage',
 ): ChannelPermissionDef[] {
   if (channelType === 'text' || channelType === 'forum')
     return CHANNEL_PERMISSION_DEFS_TEXT;

@@ -89,7 +89,7 @@ const emit = defineEmits<{
   save: [
     payload: {
       channelId: string;
-      channelType: 'text' | 'voice' | 'forum';
+      channelType: 'text' | 'voice' | 'forum' | 'stage';
       serverId: string;
       name: string;
       categoryId: string;
@@ -198,7 +198,7 @@ const channelSettingsTabs = computed((): ChannelSettingsTab[] => {
 const settingsChannelIconModel = computed(
   (): {
     name: string;
-    type: 'text' | 'voice' | 'forum';
+    type: 'text' | 'voice' | 'forum' | 'stage';
     iconKey?: string;
   } | null => {
     const cs = props.channelSettings;
@@ -717,7 +717,7 @@ async function confirmDeleteChannel() {
                 class="h-3.5 w-3.5 shrink-0 object-contain server-settings-inline-icon"
               />
               <span class="min-w-0 truncate">{{
-                channelType === 'voice'
+                channelType === 'voice' || channelType === 'stage'
                   ? 'Voice channel'
                   : channelType === 'forum'
                     ? 'Forum channel'
@@ -843,7 +843,7 @@ async function confirmDeleteChannel() {
                         v-model="selectedIconKey"
                         variant="combined"
                         :channel-type="
-                          channelType === 'voice' ? 'voice' : 'text'
+                          channelType === 'voice' || channelType === 'stage' ? 'voice' : 'text'
                         "
                         :server-id="channelSettings?.serverId"
                       />

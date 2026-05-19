@@ -225,9 +225,8 @@ export function useServerVoiceSession(deps: {
   const pendingIncomingYoutubeQueue = shallowRef<
     { msg: EchoYoutubeActivityV1; senderIdentity: string }[]
   >([]);
-  const vcYoutubeRemotePlayback = shallowRef<VcYoutubeRemotePlaybackState | null>(
-    null,
-  );
+  const vcYoutubeRemotePlayback =
+    shallowRef<VcYoutubeRemotePlaybackState | null>(null);
   let handlingIncomingYoutubeActivity = false;
 
   const vcYoutubePlaybackShouldPublish = computed(
@@ -266,7 +265,8 @@ export function useServerVoiceSession(deps: {
   }
 
   let liveKitVcDataCleanupTimer: ReturnType<typeof setTimeout> | null = null;
-  let liveKitReconnectQueueFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  let liveKitReconnectQueueFlushTimer: ReturnType<typeof setTimeout> | null =
+    null;
   /** True after `connected` → `connecting` until reconnect succeeds or VC data is torn down. */
   let liveKitVcReconnectFromConnectedPending = false;
 
@@ -283,7 +283,9 @@ export function useServerVoiceSession(deps: {
 
   /** Drop buffered incoming YouTube / VC activity packets (e.g. after reconnect or mid-drain). */
   function flushPendingIncomingYoutubeQueue(reason: string): void {
-    voiceClientTrace('voice.client:vc_youtube_incoming_queue_flush', { reason });
+    voiceClientTrace('voice.client:vc_youtube_incoming_queue_flush', {
+      reason,
+    });
     pendingIncomingYoutubeQueue.value = [];
     handlingIncomingYoutubeActivity = false;
   }
@@ -393,20 +395,17 @@ export function useServerVoiceSession(deps: {
     }
   }
 
-  watch(
-    currentVoiceChannelId,
-    (id, prev) => {
-      const next = id?.trim() ?? '';
-      const was = prev?.trim() ?? '';
-      if (next === was) return;
-      clearVcLiveKitScheduledCleanups();
-      liveKitVcReconnectFromConnectedPending = false;
-      lastAppliedYoutubeAt.value = 0;
-      vcActivitySyncKingUserId.value = null;
-      vcActivitySyncKingDisplayName.value = '';
-      flushPendingIncomingYoutubeQueue('voice_channel_changed');
-    },
-  );
+  watch(currentVoiceChannelId, (id, prev) => {
+    const next = id?.trim() ?? '';
+    const was = prev?.trim() ?? '';
+    if (next === was) return;
+    clearVcLiveKitScheduledCleanups();
+    liveKitVcReconnectFromConnectedPending = false;
+    lastAppliedYoutubeAt.value = 0;
+    vcActivitySyncKingUserId.value = null;
+    vcActivitySyncKingDisplayName.value = '';
+    flushPendingIncomingYoutubeQueue('voice_channel_changed');
+  });
 
   const vcActivityPresenceByUserId = shallowRef(
     new Map<string, VcActivityPresenceKind[]>(),
@@ -477,7 +476,9 @@ export function useServerVoiceSession(deps: {
     return false;
   }
 
-  function tryMergeHangmanPendingSecretForRound(st: EchoHangmanActivityV1): void {
+  function tryMergeHangmanPendingSecretForRound(
+    st: EchoHangmanActivityV1,
+  ): void {
     if (st.phase !== 'guessing') return;
     const pending = vcHangmanPendingSecretByRound.value.get(st.roundSeq);
     if (!pending) return;
@@ -489,8 +490,10 @@ export function useServerVoiceSession(deps: {
       return;
     }
     if (
-      hangmanMaskForSecretAndGuesses(v.normalized, new Set(st.guessedLetters)) !==
-      st.mask
+      hangmanMaskForSecretAndGuesses(
+        v.normalized,
+        new Set(st.guessedLetters),
+      ) !== st.mask
     ) {
       return;
     }
@@ -565,8 +568,9 @@ export function useServerVoiceSession(deps: {
     new Map<number, EchoCodenamesAffiliationV1[]>(),
   );
 
-  let publishCodenamesActivityLocal: (next: EchoCodenamesActivityV1) => void =
-    () => {};
+  let publishCodenamesActivityLocal: (
+    next: EchoCodenamesActivityV1,
+  ) => void = () => {};
   let fanoutCodenamesSpymasterKeys: (opts: {
     gameSeq: number;
     key: EchoCodenamesAffiliationV1[];
@@ -578,7 +582,8 @@ export function useServerVoiceSession(deps: {
     const self = currentUser.value?.id?.trim();
     const ui = vcActivityUi.value;
     if (self && ui.phase === 'codenames') {
-      if (vcActivityPresenceKindsFromUi(ui).includes('codenames')) out.add(self);
+      if (vcActivityPresenceKindsFromUi(ui).includes('codenames'))
+        out.add(self);
     }
     for (const [id, acts] of vcActivityPresenceByUserId.value) {
       const uid = id.trim();
@@ -608,7 +613,10 @@ export function useServerVoiceSession(deps: {
     if (!s) return;
     const orch = hangmanOrchestratorUserId(localR);
     if (!codenamesAuthorAllowed(s, orch)) return;
-    const tick: CodenamesTick = { updatedAt: s.updatedAt, revision: s.revision };
+    const tick: CodenamesTick = {
+      updatedAt: s.updatedAt,
+      revision: s.revision,
+    };
     if (!isNewerCodenamesTick(tick, vcCodenamesLastTick.value)) return;
     vcCodenamesLastTick.value = tick;
     vcCodenamesPublic.value = s;
@@ -778,7 +786,8 @@ export function useServerVoiceSession(deps: {
   }
 
   function tryCodenamesBootstrap(): void {
-    if (lkRoom?.roomState.value !== 'connected' || isDmVoiceCallUi.value) return;
+    if (lkRoom?.roomState.value !== 'connected' || isDmVoiceCallUi.value)
+      return;
     if (vcActivityUi.value.phase !== 'codenames') return;
     const roster = codenamesRosterFromPresence();
     if (roster.length < 1) return;
@@ -1245,7 +1254,9 @@ export function useServerVoiceSession(deps: {
     lkRoom?.publishYoutubeActivity(payload);
   }
 
-  function publishVcYoutubePlaybackSync(sample: EchoYoutubePlaybackSyncV1): void {
+  function publishVcYoutubePlaybackSync(
+    sample: EchoYoutubePlaybackSyncV1,
+  ): void {
     if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
     if (!vcYoutubePlaybackShouldPublish.value) return;
     if (!shouldPublishYoutubeWatchTogether()) return;
@@ -1305,7 +1316,9 @@ export function useServerVoiceSession(deps: {
         liveKitVcReconnectFromConnectedPending = false;
         flushPendingIncomingYoutubeQueue('livekit_connected');
         if (prev !== 'connected') {
-          void nextTick(() => republishVcActivitySnapshotIfHostForLateJoiners());
+          void nextTick(() =>
+            republishVcActivitySnapshotIfHostForLateJoiners(),
+          );
         }
         return;
       }
@@ -1329,7 +1342,9 @@ export function useServerVoiceSession(deps: {
       if (prev === 'connecting' && (s === 'idle' || s === 'error')) {
         if (liveKitVcReconnectFromConnectedPending) {
           liveKitVcReconnectFromConnectedPending = false;
-          scheduleVcLiveKitDataTeardownAfterDisconnect('livekit_reconnect_failed');
+          scheduleVcLiveKitDataTeardownAfterDisconnect(
+            'livekit_reconnect_failed',
+          );
           return;
         }
         flushPendingIncomingYoutubeQueue('livekit_connect_aborted');
@@ -1461,7 +1476,9 @@ export function useServerVoiceSession(deps: {
     enabled: vcPushToTalkEnabled,
     inVoiceChannel: () =>
       (isDmVoiceCallUi.value && liveKitState.value === 'connected') ||
-      (!!currentVoiceChannelId.value && activeChannel.value?.type === 'voice'),
+      (!!currentVoiceChannelId.value &&
+        (activeChannel.value?.type === 'voice' ||
+          activeChannel.value?.type === 'stage')),
   });
 
   const liveKitNetworkStats = computed<LiveKitNetworkStats | null>(
@@ -1779,10 +1796,10 @@ export function useServerVoiceSession(deps: {
     let ch = activeChannel.value;
     // While browsing text (or another surface), keep the connected VC roster so
     // floating voice chrome and stream PiP still see LiveKit/stream state.
-    if ((!ch || ch.type !== 'voice') && currentVoiceId) {
+    if ((!ch || (ch.type !== 'voice' && ch.type !== 'stage')) && currentVoiceId) {
       ch = findChannelContextById(currentVoiceId)?.channel ?? null;
     }
-    if (!ch || ch.type !== 'voice') return [];
+    if (!ch || (ch.type !== 'voice' && ch.type !== 'stage')) return [];
     const channelId = ch.id?.trim() ?? '';
     const voiceGuildSid = resolveEchoServerIdContainingChannel(
       currentVoiceId || null,
@@ -1871,9 +1888,19 @@ export function useServerVoiceSession(deps: {
       const deafened = isCurrentUser
         ? serverDeafened || vcDeafened.value
         : serverDeafened || simDeafened;
+      const stageAudience =
+        ch.type === 'stage' && !ch.voiceStageSpeakerByUserId?.[id];
       const muted = isCurrentUser
-        ? serverMuted || serverDeafened || vcMuted.value || vcDeafened.value
-        : serverMuted || serverDeafened || simMuted || simDeafened;
+        ? serverMuted ||
+          serverDeafened ||
+          vcMuted.value ||
+          vcDeafened.value ||
+          stageAudience
+        : serverMuted ||
+          serverDeafened ||
+          simMuted ||
+          simDeafened ||
+          stageAudience;
 
       const spk =
         speakingMap.value[id] ?? speakingMap.value[displayName] ?? undefined;
@@ -2137,7 +2164,9 @@ export function useServerVoiceSession(deps: {
     );
   }
 
-  const vcTicTacToeActivity = computed<EchoTicTacToeActivityV1 | null>(() => null);
+  const vcTicTacToeActivity = computed<EchoTicTacToeActivityV1 | null>(
+    () => null,
+  );
   const vcTicTacToePendingInvite = computed<EchoTicTacToeInviteV1 | null>(
     () => null,
   );

@@ -172,8 +172,11 @@ export const channelIcons = {
   forum: iconMessageAlt,
 } as const;
 
-function defaultChannelGlyphUrl(type?: 'text' | 'voice' | 'forum'): string {
+function defaultChannelGlyphUrl(
+  type?: 'text' | 'voice' | 'forum' | 'stage',
+): string {
   if (type === 'voice') return channelIcons.voice;
+  if (type === 'stage') return icons.discordStage;
   if (type === 'forum') return channelIcons.forum;
   return channelIcons.text;
 }
@@ -382,7 +385,7 @@ export type ChannelIconVisual =
 
 export function getChannelIconVisual(
   channel:
-    | { name: string; type?: 'text' | 'voice' | 'forum'; iconKey?: string }
+    | { name: string; type?: 'text' | 'voice' | 'forum' | 'stage'; iconKey?: string }
     | null
     | undefined,
   lookup?: ChannelIconEmojiUrlLookup,
@@ -402,6 +405,8 @@ export function getChannelIconVisual(
   if (!key) {
     if (channel.type === 'voice')
       return { kind: 'svg', url: channelIcons.voice };
+    if (channel.type === 'stage')
+      return { kind: 'svg', url: icons.discordStage };
     if (channel.type === 'forum')
       return { kind: 'svg', url: channelIcons.forum };
   }
@@ -425,7 +430,7 @@ export function getChannelIconVisual(
  */
 export function getChannelIconKeyForEdit(
   channel:
-    | { name: string; type?: 'text' | 'voice' | 'forum'; iconKey?: string }
+    | { name: string; type?: 'text' | 'voice' | 'forum' | 'stage'; iconKey?: string }
     | null
     | undefined,
 ): string {
@@ -440,13 +445,14 @@ export function getChannelIconKeyForEdit(
     if (v && v === visual.url) return k;
   }
   if (channel.type === 'voice') return 'volumeUp';
+  if (channel.type === 'stage') return 'discordStage';
   if (channel.type === 'forum') return 'messageAlt';
   return 'message';
 }
 
 export function getChannelIcon(
   channel:
-    | { name: string; type?: 'text' | 'voice' | 'forum'; iconKey?: string }
+    | { name: string; type?: 'text' | 'voice' | 'forum' | 'stage'; iconKey?: string }
     | null
     | undefined,
   lookup?: ChannelIconEmojiUrlLookup,
@@ -466,6 +472,7 @@ export function getChannelIcon(
   }
   if (!key) {
     if (channel.type === 'voice') return channelIcons.voice;
+    if (channel.type === 'stage') return icons.discordStage;
     if (channel.type === 'forum') return channelIcons.forum;
   }
   const name = stripLeadingChannelEmojiForMatching(channel.name).toLowerCase();

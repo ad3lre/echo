@@ -11,9 +11,12 @@ import {
   collectExploreQuickFilters,
   exploreTagDisplayLabel,
   filterExploreDirectoryRowsByTags,
+  isExploreDirectoryJoinLockedForGuest,
   normalizeExploreDirectoryTags,
   sortExploreServersWithVoicePriority,
 } from '@/services/domain/exploreDirectoryRows';
+import { useAuthSessionStore } from '@/stores/authSession';
+import { requestGuestExploreJoinBlockedModal } from '@/utils/guestJoinExploreBlockedDialog';
 
 type DiscoverableServer = {
   id?: string;
@@ -25,6 +28,7 @@ type DiscoverableServer = {
   memberCount?: number;
   voiceParticipantCount?: number;
   createdAt?: string;
+  allowGlobalGuests?: boolean;
 };
 
 type SortMode = 'default' | 'alphabetical' | 'trendy' | 'members' | 'recent';
@@ -48,6 +52,8 @@ type ListedServer = {
   memberCount: number;
   voiceParticipantCount: number;
   createdAtMs: number | null;
+  allowGlobalGuests?: boolean;
+  joinLocked: boolean;
 };
 
 const props = defineProps<{
@@ -64,6 +70,9 @@ const emit = defineEmits<{
   'join-suggested': [payload: { id: string; name: string; pfp: string }];
   back: [];
 }>();
+
+const authSession = useAuthSessionStore();
+const isGuestUser = computed(() => authSession.backendUser?.isGuest === true);
 
 const searchQuery = ref('');
 const sortMode = ref<SortMode>('default');
@@ -179,9 +188,29 @@ const listedServers = computed<ListedServer[]>(() =>
       memberCount,
       voiceParticipantCount,
       createdAtMs: parseCreatedAtMs(server.createdAt),
+      allowGlobalGuests: server.allowGlobalGuests,
+      joinLocked: isExploreDirectoryJoinLockedForGuest(
+        isGuestUser.value,
+        server.allowGlobalGuests,
+      ),
     };
   }),
 );
+
+const guestJoinLockedHint =
+  'This server requires a full Echo account to join from Explore.';
+
+async function onExploreServerJoinClick(server: ListedServer) {
+  if (server.joinLocked) {
+    await requestGuestExploreJoinBlockedModal(guestJoinLockedHint);
+    return;
+  }
+  emit('join-suggested', {
+    id: server.id,
+    name: server.name,
+    pfp: server.pfp,
+  });
+}
 
 const quickFilters = computed(() =>
   collectExploreQuickFilters(listedServers.value),
@@ -499,13 +528,8 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="explore-featured-widget w-full overflow-hidden rounded-[1.25rem] text-left transition-[box-shadow,border-color] duration-200"
-              @click="
-                emit('join-suggested', {
-                  id: server.id,
-                  name: server.name,
-                  pfp: server.pfp,
-                })
-              "
+              :class="{ 'explore-server-widget--join-locked': server.joinLocked }"
+              @click="onExploreServerJoinClick(server)"
             >
               <div
                 class="explore-server-widget__banner relative h-28 w-full overflow-hidden bg-[var(--echo-explore-banner-bg)]"
@@ -750,6 +774,7 @@ onBeforeUnmount(() => {
             <li v-for="server in explorePaginatedServers" :key="server.id">
               <article
                 class="explore-server-widget flex h-full flex-col overflow-hidden rounded-[1.5rem] transition-[box-shadow,border-color] duration-200"
+                :class="{ 'explore-server-widget--join-locked': server.joinLocked }"
               >
                 <div
                   class="explore-server-widget__banner relative h-36 w-full shrink-0 overflow-hidden bg-[var(--echo-explore-banner-bg)] sm:h-40"
@@ -768,7 +793,19 @@ onBeforeUnmount(() => {
                     class="explore-server-widget__banner-scrim pointer-events-none absolute inset-0"
                   />
                   <div
-                    v-if="server.voiceParticipantCount > 0"
+                    v-if="server.joinLocked"
+                    class="explore-join-locked-badge pointer-events-none absolute right-3 top-3 z-[2] inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide"
+                    title="Full account required to join"
+                  >
+                    <img
+                      :src="icons.chatLock"
+                      alt=""
+                      class="h-3 w-3 shrink-0 opacity-90 brightness-0 invert"
+                    />
+                    <span>Account required</span>
+                  </div>
+                  <div
+                    v-else-if="server.voiceParticipantCount > 0"
                     class="explore-voice-badge pointer-events-none absolute right-3 top-3 z-[2] inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide"
                     :title="
                       formatVoiceActivityLabel(server.voiceParticipantCount)
@@ -841,15 +878,23 @@ onBeforeUnmount(() => {
                     class="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4"
                   >
                     <button
+                      v-if="server.joinLocked"
+                      type="button"
+                      class="explore-join-locked-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+                      @click="onExploreServerJoinClick(server)"
+                    >
+                      <img
+                        :src="icons.chatLock"
+                        alt=""
+                        class="h-4 w-4 shrink-0 opacity-85 brightness-0 invert"
+                      />
+                      <span>Create account to join</span>
+                    </button>
+                    <button
+                      v-else
                       type="button"
                       class="explore-primary-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
-                      @click="
-                        emit('join-suggested', {
-                          id: server.id,
-                          name: server.name,
-                          pfp: server.pfp,
-                        })
-                      "
+                      @click="onExploreServerJoinClick(server)"
                     >
                       <span>Join server</span>
                       <span class="text-fg-soft" aria-hidden="true">-></span>
@@ -913,13 +958,8 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 class="explore-featured-widget w-full overflow-hidden rounded-xl text-left transition-[box-shadow,border-color] duration-200"
-                @click="
-                  emit('join-suggested', {
-                    id: server.id,
-                    name: server.name,
-                    pfp: server.pfp,
-                  })
-                "
+                :class="{ 'explore-server-widget--join-locked': server.joinLocked }"
+                @click="onExploreServerJoinClick(server)"
               >
                 <div
                   class="explore-server-widget__banner relative h-24 w-full overflow-hidden bg-[var(--echo-explore-banner-bg)]"
@@ -1198,6 +1238,39 @@ onBeforeUnmount(() => {
   filter: brightness(1.06);
 }
 
+.explore-join-locked-btn {
+  color: color-mix(in srgb, white 78%, transparent);
+  background: color-mix(in srgb, var(--vue-auto-005) 88%, #1a1a24);
+  border: 1px solid color-mix(in srgb, white 14%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.explore-join-locked-btn:hover {
+  background: color-mix(in srgb, var(--vue-auto-048) 70%, #1a1a24);
+  border-color: color-mix(in srgb, white 22%, transparent);
+}
+
+.explore-join-locked-badge {
+  color: color-mix(in srgb, #fef3c7 92%, transparent);
+  background: color-mix(in srgb, #78350f 75%, #1c1917);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #f59e0b 40%, transparent),
+    0 8px 20px color-mix(in srgb, black 35%, transparent);
+}
+
+.explore-server-widget--join-locked {
+  opacity: 0.92;
+}
+
+.explore-server-widget--join-locked:hover .explore-server-widget__banner-image,
+.explore-featured-widget.explore-server-widget--join-locked:hover
+  .explore-server-widget__banner-image {
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
 .explore-secondary-btn {
   background: color-mix(in srgb, black 18%, var(--vue-auto-005));
   border: 1px solid color-mix(in srgb, white 10%, transparent);
@@ -1313,6 +1386,20 @@ onBeforeUnmount(() => {
     background: var(--server-vc-active, #16a34a);
     box-shadow: 0 0 0 2px
       color-mix(in srgb, var(--server-vc-active, #22c55e) 28%, transparent);
+  }
+
+  .explore-join-locked-btn {
+    color: color-mix(in srgb, var(--text) 88%, var(--muted));
+    background: color-mix(in srgb, var(--text) 6%, var(--surface));
+    border-color: color-mix(in srgb, var(--border) 88%, transparent);
+  }
+
+  .explore-join-locked-badge {
+    color: color-mix(in srgb, #92400e 92%, var(--text));
+    background: color-mix(in srgb, #fef3c7 88%, #fff);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, #f59e0b 35%, transparent),
+      0 6px 16px color-mix(in srgb, var(--foreground) 6%, transparent);
   }
 }
 </style>
