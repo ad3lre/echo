@@ -145,7 +145,8 @@ function evalCondition(
         ? c.value.filter((x): x is string => typeof x === 'string')
         : [];
       if (c.op === 'in') ok = arr.includes(ctx.channelId);
-      if (c.op === 'not_in') ok = arr.length > 0 && !arr.includes(ctx.channelId);
+      if (c.op === 'not_in')
+        ok = arr.length > 0 && !arr.includes(ctx.channelId);
       break;
     }
     case 'author.role_ids': {
@@ -190,12 +191,7 @@ function evalCondition(
   return ok;
 }
 
-const TIME_WINDOW_SET = new Set<AutomodTimeWindow>([
-  '1h',
-  '24h',
-  '7d',
-  '30d',
-]);
+const TIME_WINDOW_SET = new Set<AutomodTimeWindow>(['1h', '24h', '7d', '30d']);
 
 export function evaluateAutomodNode(
   ctx: AutomodEvalContext,

@@ -270,6 +270,13 @@ export default async function meRoutes(fastify: FastifyInstance) {
             phone: {
               anyOf: [{ type: 'string', maxLength: 32 }, { type: 'null' }],
             },
+            showLastOnline: { type: 'boolean' },
+            timeZone: {
+              anyOf: [
+                { type: 'string', minLength: 1, maxLength: 64 },
+                { type: 'null' },
+              ],
+            },
           },
           additionalProperties: false,
         },
@@ -363,6 +370,12 @@ export default async function meRoutes(fastify: FastifyInstance) {
           0,
           Math.min(100, req.body.bannerPositionY),
         );
+      if (typeof req.body.showLastOnline === 'boolean')
+        patch.showLastOnline = req.body.showLastOnline;
+      if (req.body.timeZone !== undefined) {
+        patch.timeZone =
+          req.body.timeZone === null ? null : String(req.body.timeZone).trim();
+      }
 
       if (patch.displayName !== undefined && !patch.displayName) {
         return sendError(
@@ -491,6 +504,14 @@ export default async function meRoutes(fastify: FastifyInstance) {
             409,
             'PHONE_IN_USE',
             'That phone number is already in use.',
+          );
+        }
+        if (err?.message === 'INVALID_TIME_ZONE') {
+          return sendError(
+            reply,
+            400,
+            'INVALID_TIME_ZONE',
+            'That timezone is not recognized. Pick a valid region from the list.',
           );
         }
         throw err;

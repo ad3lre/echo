@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Embed, MentionEntity } from '@shared/types';
 import type { IdTokenResolvers } from '@/composables/useMarkdown';
+import type { MagicTimeRenderContext } from '@/features/chat/viewModel/messageContentSegments';
 import MessageContentSegments from '@/components/chat/MessageContentSegments.vue';
 
 export type BubbleBodyMode =
@@ -17,6 +18,7 @@ defineProps<{
   onJumpToMessage?: (channelId: string, messageId: string) => void;
   customEmojiRenderKey: number;
   messageId?: string;
+  magicTime?: MagicTimeRenderContext | null;
 }>();
 </script>
 
@@ -36,5 +38,6 @@ defineProps<{
     :parse-id-resolvers="parseIdResolvers"
     :embeds="embeds"
     :on-jump-to-message="onJumpToMessage"
+    :magic-time="magicTime"
   />
 </template>

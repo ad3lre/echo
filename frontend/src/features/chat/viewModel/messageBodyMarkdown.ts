@@ -684,10 +684,12 @@ function parseMessageCacheKey(
   text: string,
   mentions?: MentionEntity[],
   resolverVersion = 0,
+  parseCacheExtra?: string,
 ): string {
   const m = mentions?.length ? JSON.stringify(mentions) : '';
   const needsResolverVersion = findAllIdTokenMatches(text).length > 0;
-  return `${MARKDOWN_PIPELINE_VERSION}:r${needsResolverVersion ? resolverVersion : 0}:${text}\n${m}`;
+  const extra = parseCacheExtra ? `\x1e${parseCacheExtra}` : '';
+  return `${MARKDOWN_PIPELINE_VERSION}:r${needsResolverVersion ? resolverVersion : 0}:${text}\n${m}${extra}`;
 }
 
 const MAX_KATEX_SOURCE_CHARS = 3000;
@@ -994,11 +996,17 @@ export function extractMarkdownHeadingToc(
   }
 }
 
+export type ParseMessageContentOptions = {
+  /** Bust parse cache when magic-time or other per-viewer transforms wrap the markdown input. */
+  parseCacheExtra?: string;
+};
+
 export function parseMessageContent(
   text: string,
   mentions?: MentionEntity[],
   resolvers?: IdTokenResolvers,
   depth = 0,
+  options?: ParseMessageContentOptions,
 ): string {
   /**
    * Rendering pipeline invariants (order-sensitive):
@@ -1014,7 +1022,12 @@ export function parseMessageContent(
   const resolverVersion = getResolverCacheVersion(resolvers);
   const useCache = depth === 0;
   if (useCache) {
-    const cacheKey = parseMessageCacheKey(text, mentions, resolverVersion);
+    const cacheKey = parseMessageCacheKey(
+      text,
+      mentions,
+      resolverVersion,
+      options?.parseCacheExtra,
+    );
     const cached = PARSE_CACHE.get(cacheKey);
     if (cached !== undefined) return cached;
   }
@@ -1127,7 +1140,12 @@ export function parseMessageContent(
   const twemojified = applyTwemojiOutsideKatex(sanitized);
   const out = DOMPurify.sanitize(twemojified, SANITIZE_OPTS);
   if (useCache) {
-    const cacheKey = parseMessageCacheKey(text, mentions, resolverVersion);
+    const cacheKey = parseMessageCacheKey(
+      text,
+      mentions,
+      resolverVersion,
+      options?.parseCacheExtra,
+    );
     if (PARSE_CACHE.size >= PARSE_CACHE_MAX) {
       const first = PARSE_CACHE.keys().next().value as string | undefined;
       if (first !== undefined) PARSE_CACHE.delete(first);

@@ -9,15 +9,24 @@ import {
   useId,
 } from 'vue';
 
-interface Option {
+export interface EchoDropdownOption {
   label: string;
   value: string;
+  /** Optional leading icon (e.g. channel glyph). */
+  iconSrc?: string;
+  /** Extra classes on the icon `<img>` (e.g. Tailwind `invert`). */
+  iconClass?: string;
+  /**
+   * Channel-style bundled SVG / hash glyph (monochrome). Server dropdowns use this to
+   * render light icons on dark theme without ad-hoc `filter` classes.
+   */
+  iconMono?: boolean;
 }
 
 const props = withDefaults(
   defineProps<{
     modelValue: string;
-    options: Option[];
+    options: EchoDropdownOption[];
     label?: string;
     /** When set, shown on the trigger instead of the selected option label (e.g. dynamic suffix). */
     triggerLabel?: string;
@@ -63,6 +72,7 @@ const menuPanelRef = ref<HTMLElement | null>(null);
 const searchInputRef = ref<HTMLInputElement | null>(null);
 const searchTerm = ref('');
 const listboxId = useId();
+const triggerId = useId();
 /** When opening via keyboard, move focus to first/last option (non-searchable menus). */
 const pendingListFocus = ref<'first' | 'last' | null>(null);
 
@@ -248,7 +258,7 @@ function onOptionKeydown(e: KeyboardEvent) {
   }
 }
 
-function selectOption(option: Option) {
+function selectOption(option: EchoDropdownOption) {
   if (props.disabled) return;
   emit('update:modelValue', option.value);
   isOpen.value = false;
@@ -282,14 +292,25 @@ onUnmounted(() => {
   window.removeEventListener('resize', onScrollOrResize);
 });
 
+const selectedOption = computed(() =>
+  props.options.find((o) => o.value === props.modelValue),
+);
+
 const currentLabel = computed(() => {
   const override = props.triggerLabel?.trim();
   if (override) return override;
-  return (
-    props.options.find((o) => o.value === props.modelValue)?.label ||
-    props.modelValue
-  );
+  return selectedOption.value?.label || props.modelValue;
 });
+
+const triggerIconSrc = computed(
+  () => selectedOption.value?.iconSrc?.trim() || '',
+);
+const triggerIconClass = computed(
+  () => selectedOption.value?.iconClass?.trim() || '',
+);
+const triggerIconMono = computed(
+  () => selectedOption.value?.iconMono === true,
+);
 
 const filteredOptions = computed(() => {
   if (!props.searchable || !searchTerm.value.trim()) return props.options;
@@ -312,7 +333,7 @@ const menuPanelPositionClass = computed(() =>
 function optionRowClass(value: string) {
   const selected = props.modelValue === value;
   const base =
-    'echo-dropdown-option w-full px-4 py-2.5 text-left text-sm transition-colors';
+    'echo-dropdown-option flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors';
   return [base, selected && 'echo-dropdown-option--selected'];
 }
 </script>
@@ -329,6 +350,7 @@ function optionRowClass(value: string) {
     <span v-if="label" class="settings-label">{{ label }}</span>
     <div class="relative">
       <button
+        :id="triggerId"
         ref="triggerRef"
         type="button"
         :disabled="props.disabled"
@@ -352,9 +374,22 @@ function optionRowClass(value: string) {
         @keydown="onTriggerKeydown"
       >
         <span
-          class="echo-dropdown-trigger-text min-w-0 flex-1 text-left text-sm font-medium truncate"
-          >{{ currentLabel }}</span
+          class="echo-dropdown-trigger-text flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium"
         >
+          <img
+            v-if="triggerIconSrc"
+            :src="triggerIconSrc"
+            alt=""
+            class="h-4 w-4 shrink-0 object-contain echo-dropdown-channel-icon"
+            :class="[
+              triggerIconMono
+                ? 'echo-dropdown-channel-icon--mono'
+                : 'echo-dropdown-channel-icon--color',
+              triggerIconClass,
+            ]"
+          />
+          <span class="min-w-0 truncate">{{ currentLabel }}</span>
+        </span>
         <svg
           class="echo-dropdown-chevron h-4 w-4 shrink-0 transition-transform duration-300"
           :class="[
@@ -364,6 +399,7 @@ function optionRowClass(value: string) {
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             stroke-linecap="round"
@@ -381,6 +417,7 @@ function optionRowClass(value: string) {
             :id="listboxId"
             ref="menuPanelRef"
             role="listbox"
+            :aria-labelledby="triggerId"
             class="echo-dropdown-menu absolute z-[420] py-2 overflow-hidden"
             :class="[
               menuPanelPositionClass,
@@ -411,7 +448,19 @@ function optionRowClass(value: string) {
                 @click="selectOption(option)"
                 @keydown="onOptionKeydown"
               >
-                {{ option.label }}
+                <img
+                  v-if="option.iconSrc?.trim()"
+                  :src="option.iconSrc.trim()"
+                  alt=""
+                  class="h-4 w-4 shrink-0 object-contain echo-dropdown-channel-icon"
+                  :class="[
+                    option.iconMono
+                      ? 'echo-dropdown-channel-icon--mono'
+                      : 'echo-dropdown-channel-icon--color',
+                    option.iconClass,
+                  ]"
+                />
+                <span class="min-w-0 truncate">{{ option.label }}</span>
               </button>
             </div>
           </div>
@@ -424,6 +473,7 @@ function optionRowClass(value: string) {
             :id="listboxId"
             ref="menuPanelRef"
             role="listbox"
+            :aria-labelledby="triggerId"
             class="echo-dropdown-menu fixed z-[420] py-2 overflow-hidden"
             :class="[
               !menuMatchTriggerWidth && 'max-w-[calc(100vw-1rem)]',
@@ -454,7 +504,19 @@ function optionRowClass(value: string) {
                 @click="selectOption(option)"
                 @keydown="onOptionKeydown"
               >
-                {{ option.label }}
+                <img
+                  v-if="option.iconSrc?.trim()"
+                  :src="option.iconSrc.trim()"
+                  alt=""
+                  class="h-4 w-4 shrink-0 object-contain echo-dropdown-channel-icon"
+                  :class="[
+                    option.iconMono
+                      ? 'echo-dropdown-channel-icon--mono'
+                      : 'echo-dropdown-channel-icon--color',
+                    option.iconClass,
+                  ]"
+                />
+                <span class="min-w-0 truncate">{{ option.label }}</span>
               </button>
             </div>
           </div>
@@ -654,5 +716,16 @@ function optionRowClass(value: string) {
 .echo-dropdown--server .settings-label {
   color: var(--srv-label-fg);
   letter-spacing: 0.16em;
+}
+
+/* Channel icons in server settings dropdowns: readable on dark menus */
+html[data-theme='dark'] .echo-dropdown--server .echo-dropdown-channel-icon--mono {
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+
+html[data-theme='dark'] .echo-dropdown--server .echo-dropdown-channel-icon--color {
+  filter: brightness(1.12);
+  opacity: 0.98;
 }
 </style>

@@ -63,6 +63,11 @@ export interface AuthUser {
   badges?: import('../../../shared/echoAccountBadges').EchoPublicBadgeId[];
   /** Whether to show "last online" timestamp to other users. Defaults to true. */
   showLastOnline?: boolean;
+  /**
+   * IANA timezone id (e.g. America/New_York) for Magic Time and local scheduling context.
+   * Omitted when unset.
+   */
+  timeZone?: string | null;
 }
 
 /** Second step after password when `totpEnabled` (see login response union). */
@@ -120,6 +125,8 @@ export interface AuthProfileUpdateBody {
   bannerPositionY?: number;
   /** Whether to show "last online" timestamp to other users. Omit to leave unchanged. */
   showLastOnline?: boolean;
+  /** IANA timezone id; empty string clears. Omit to leave unchanged. */
+  timeZone?: string | null;
 }
 
 export type AuthUpgradeGuestBody = {

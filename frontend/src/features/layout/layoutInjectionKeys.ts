@@ -99,6 +99,7 @@ export type LayoutInfoBannersHostHandlers = {
   onPrimaryFlowFailureDismiss: () => void;
   onUiErrorDismiss: () => void;
   onUiErrorRetry: () => void | Promise<void>;
+  onUiErrorCreateAccount: () => void;
 };
 
 export type LayoutInfoBannersContext = {
@@ -239,6 +240,7 @@ export type LayoutLeftChromeHostHandlers = {
   onOpenGuildEventChannel?: (payload: {
     serverId: string;
     channelId?: string | null;
+    customLocation?: string | null;
     eventId?: string;
   }) => void;
 };

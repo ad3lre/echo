@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import type { EchoAutomodRule } from '@shared/types/automod';
 import type { AutomodTestAnnotation } from '@/api/echo/automod';
-import { testEchoAutomodRule } from '@/api/echo/automod';
+import { testEchoAutomodRule } from '@/services/http/echoAutomodTestHttp';
 import AutomodAnnotationTree from './AutomodAnnotationTree.vue';
 
 const props = defineProps<{
@@ -68,11 +68,7 @@ function summarizeActions(r: EchoAutomodRule): string {
         v-model="sampleChannelId"
         class="mt-1 w-full rounded-lg border border-border bg-scrim-2 px-2 py-1 text-sm text-fg"
       >
-        <option
-          v-for="ch in channelOptions"
-          :key="ch.id"
-          :value="ch.id"
-        >
+        <option v-for="ch in channelOptions" :key="ch.id" :value="ch.id">
           {{ ch.name }}
         </option>
       </select>
@@ -94,10 +90,7 @@ function summarizeActions(r: EchoAutomodRule): string {
     >
       {{ loading ? 'Running…' : 'Run test' }}
     </button>
-    <p
-      v-if="error"
-      class="text-sm text-red-400"
-    >
+    <p v-if="error" class="text-sm text-red-400">
       {{ error }}
     </p>
     <div

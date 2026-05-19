@@ -29,7 +29,8 @@ export type AutomodSchemaErrorCode =
   | 'block_and_delete_conflict'
   | 'too_many_nodes'
   | 'too_deep'
-  | 'invalid_condition';
+  | 'invalid_condition'
+  | 'alert_requires_log_channel';
 
 const TIME_WINDOWS: AutomodTimeWindow[] = ['1h', '24h', '7d', '30d'];
 
@@ -104,10 +105,7 @@ function countNodes(n: AutomodNode): number {
 
 function maxDepth(n: AutomodNode, d = 1): number {
   if (n.kind === 'condition') return d;
-  return Math.max(
-    d,
-    ...n.children.map((c) => maxDepth(c, d + 1)),
-  );
+  return Math.max(d, ...n.children.map((c) => maxDepth(c, d + 1)));
 }
 
 function validateConditionValue(
@@ -140,7 +138,8 @@ function validateConditionValue(
   if (field === 'channel.id') {
     if (op !== 'in' && op !== 'not_in') return 'invalid_condition';
     const arr = asStringArray(value);
-    if (!arr || arr.length === 0 || arr.length > 200) return 'invalid_condition';
+    if (!arr || arr.length === 0 || arr.length > 200)
+      return 'invalid_condition';
     return null;
   }
   if (field === 'author.role_ids') {
@@ -162,7 +161,10 @@ function validateConditionValue(
       return 'invalid_condition';
     return null;
   }
-  if (field === 'counter.burst_messages' || field === 'counter.duplicate_messages') {
+  if (
+    field === 'counter.burst_messages' ||
+    field === 'counter.duplicate_messages'
+  ) {
     if (op !== 'gte') return 'invalid_condition';
     const n = asNumber(value);
     if (n == null || n < 0 || n > 10_000) return 'invalid_condition';
@@ -234,20 +236,20 @@ export function parseActions(raw: unknown): AutomodAction[] | null {
       continue;
     }
     if (kind === 'warn_user_dm') {
-      const text = asString(a.text);
-      if (!text || text.length > 2000) return null;
+      const text = asString(a.text) ?? '';
+      if (text.length > 2000) return null;
       out.push({ kind: 'warn_user_dm', phase: 'best_effort_post', text });
       continue;
     }
     if (kind === 'alert_log_channel') {
-      const text = asString(a.text);
-      if (!text || text.length > 2000) return null;
+      const text = asString(a.text) ?? '';
+      if (text.length > 2000) return null;
       out.push({ kind: 'alert_log_channel', phase: 'best_effort_post', text });
       continue;
     }
     if (kind === 'system_notice_in_channel') {
-      const text = asString(a.text);
-      if (!text || text.length > 2000) return null;
+      const text = asString(a.text) ?? '';
+      if (text.length > 2000) return null;
       const channelId = asString(a.channelId);
       out.push({
         kind: 'system_notice_in_channel',
@@ -272,22 +274,24 @@ export function parseActions(raw: unknown): AutomodAction[] | null {
   return out;
 }
 
-export function validateAutomodRuleDraft(input: {
-  name: string;
-  icon?: string;
-  enabled?: boolean;
-  position?: number;
-  triggerType?: AutomodTriggerType;
-  conditionTree: AutomodNode;
-  actions: AutomodAction[];
-  exemptRoleIds: string[];
-  exemptChannelIds: string[];
-  logChannelId: string | null;
-}): { ok: true } | { ok: false; code: AutomodSchemaErrorCode } {
+export function validateAutomodRuleDraft(
+  input: {
+    name: string;
+    icon?: string;
+    enabled?: boolean;
+    position?: number;
+    triggerType?: AutomodTriggerType;
+    conditionTree: AutomodNode;
+    actions: AutomodAction[];
+    exemptRoleIds: string[];
+    exemptChannelIds: string[];
+    logChannelId: string | null;
+  },
+  opts?: { requireAlertLogChannel?: boolean },
+): { ok: true } | { ok: false; code: AutomodSchemaErrorCode } {
   const re2Ok = isRe2AutomodAvailable();
   const depth = maxDepth(input.conditionTree);
-  if (depth > AUTOMOD_MAX_TREE_DEPTH)
-    return { ok: false, code: 'too_deep' };
+  if (depth > AUTOMOD_MAX_TREE_DEPTH) return { ok: false, code: 'too_deep' };
   const nodes = countNodes(input.conditionTree);
   if (nodes > AUTOMOD_MAX_NODES_PER_RULE)
     return { ok: false, code: 'too_many_nodes' };
@@ -301,10 +305,18 @@ export function validateAutomodRuleDraft(input: {
   const hasDelete = input.actions.some(
     (a) => a.kind === 'delete_recent_messages',
   );
-  if (hasBlock && hasDelete) return { ok: false, code: 'block_and_delete_conflict' };
+  if (hasBlock && hasDelete)
+    return { ok: false, code: 'block_and_delete_conflict' };
 
-  if (input.actions.length === 0)
-    return { ok: false, code: 'invalid_actions' };
+  if (
+    opts?.requireAlertLogChannel &&
+    input.actions.some((a) => a.kind === 'alert_log_channel') &&
+    !(input.logChannelId && String(input.logChannelId).trim())
+  ) {
+    return { ok: false, code: 'alert_requires_log_channel' };
+  }
+
+  if (input.actions.length === 0) return { ok: false, code: 'invalid_actions' };
 
   return { ok: true };
 }
@@ -363,14 +375,10 @@ export function parseAutomodRuleFromRow(
     exemptChannelIds,
     logChannelId,
     createdByUserId:
-      row.created_by_user_id != null
-        ? String(row.created_by_user_id)
-        : null,
+      row.created_by_user_id != null ? String(row.created_by_user_id) : null,
     createdAt,
     updatedAt,
-    ...(recentHitCount24h !== undefined
-      ? { recentHitCount24h }
-      : {}),
+    ...(recentHitCount24h !== undefined ? { recentHitCount24h } : {}),
   };
 }
 

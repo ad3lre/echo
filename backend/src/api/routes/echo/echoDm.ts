@@ -113,15 +113,6 @@ export default async function echoDmRoutes(
         return sendError(reply, 400, 'INVALID_BODY', 'peerUserId required');
       const r = await getOrCreateEchoDmThread(pool, req.authUser!.id, peer);
       if (!r.ok) {
-        if (r.reason === 'self') {
-          echoDmOpenTotal.inc({ outcome: 'self' });
-          req.log.info({
-            msg: 'echo.dm.open',
-            outcome: 'self',
-            peerUserIdPrefix: peerUserIdLogPrefix(peer),
-          });
-          return sendError(reply, 400, 'INVALID_BODY', 'Cannot DM yourself');
-        }
         if (r.reason === 'unknown_peer') {
           echoDmOpenTotal.inc({ outcome: 'unknown_peer' });
           req.log.info({
@@ -260,6 +251,7 @@ export default async function echoDmRoutes(
                 name: t.name ?? 'Group',
                 memberUserIds: t.memberUserIds ?? [],
                 lastActivityId: t.lastActivityId,
+                lastActivityAt: t.lastActivityAt,
                 activeCallParticipantUserIds:
                   activeVoiceParticipantUserIdsByChannelId[t.channelId] ?? [],
                 ...(t.groupPfp ? { pfp: t.groupPfp } : {}),
@@ -269,6 +261,7 @@ export default async function echoDmRoutes(
                 kind: 'direct' as const,
                 peerUserId: t.peerId ?? '',
                 lastActivityId: t.lastActivityId,
+                lastActivityAt: t.lastActivityAt,
                 activeCallParticipantUserIds:
                   activeVoiceParticipantUserIdsByChannelId[t.channelId] ?? [],
               },

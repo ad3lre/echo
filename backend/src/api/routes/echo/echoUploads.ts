@@ -12,7 +12,7 @@ import {
 import { echoUsersShareAnyServer } from '../../../domain/echoStore/social';
 import { getEchoEntitlements } from '../../../domain/echoPlanEntitlements';
 import { sendError } from '../../errors';
-import { HeadObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import {
   findEchoUploadDedupeMatch,
   registerEchoUploadDedupe,
@@ -164,6 +164,18 @@ async function canUserReadLocalUploadStorageKey(
     if (!serverId) return false;
     return isMemberOfServer(pool, serverId, userId);
   }
+  if (key.startsWith('echo/server-event-covers/')) {
+    const parts = key.split('/');
+    const serverId = parts[2]?.trim();
+    if (!serverId) return false;
+    return isMemberOfServer(pool, serverId, userId);
+  }
+  if (key.startsWith('echo/server-application-attachments/')) {
+    const parts = key.split('/');
+    const serverId = parts[2]?.trim();
+    if (!serverId) return false;
+    return isMemberOfServer(pool, serverId, userId);
+  }
   if (key.startsWith('echo/')) {
     const parts = key.split('/');
     const serverId = parts[1]?.trim();
@@ -238,6 +250,95 @@ export default async function echoUploadsRoutes(
         .header('Vary', 'X-Forwarded-Proto, X-Forwarded-Host')
         .type(ct)
         .send(stream);
+    },
+  );
+
+  fastify.get(
+    '/uploads/s3/*',
+    {
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      if (
+        !config.echoS3PublicReadThroughApi ||
+        !isEchoS3UploadConfigured()
+      ) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Not found');
+      }
+      const star = (req.params as { '*': string })['*'];
+      if (typeof star !== 'string' || !star) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Not found');
+      }
+      const key = decodeURIComponent(star.replace(/\+/g, ' ')).trim();
+      if (
+        !key ||
+        key.length > 512 ||
+        key.includes('..') ||
+        key.startsWith('/')
+      ) {
+        return sendError(reply, 400, 'INVALID_BODY', 'Invalid key');
+      }
+      const canRead = await canUserReadLocalUploadStorageKey(req, key);
+      if (!canRead) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Not allowed to read this upload',
+        );
+      }
+      const client = createEchoS3UploadClient();
+      const bucket = getEchoS3UploadBucket();
+      if (!client || !bucket) {
+        return sendError(reply, 503, 'UPLOADS_NOT_CONFIGURED', 'S3 not configured');
+      }
+      try {
+        const obj = await client.send(
+          new GetObjectCommand({ Bucket: bucket, Key: key }),
+        );
+        const body = obj.Body;
+        if (!body || typeof body !== 'object' || !('pipe' in body)) {
+          return sendError(reply, 404, 'NOT_FOUND', 'Not found');
+        }
+        const ct =
+          (typeof obj.ContentType === 'string' && obj.ContentType.trim()) ||
+          guessContentTypeFromPath(key);
+        let servedCt = ct;
+        const pgPool = getPgPool();
+        if (pgPool) {
+          try {
+            const r = await pgPool.query<{ content_type: string }>(
+              `SELECT content_type FROM echo_upload_served_content_type WHERE storage_key = $1 LIMIT 1`,
+              [key],
+            );
+            const rowCt = r.rows[0]?.content_type;
+            if (typeof rowCt === 'string' && rowCt.trim()) {
+              servedCt = rowCt.trim();
+            }
+          } catch {
+            /* use S3 / extension guess */
+          }
+        }
+        return reply
+          .header('Cache-Control', 'private, max-age=300')
+          .header('Vary', 'Cookie, Authorization')
+          .type(servedCt)
+          .send(body as import('stream').Readable);
+      } catch (e) {
+        const status = (e as { $metadata?: { httpStatusCode?: number } })
+          ?.$metadata?.httpStatusCode;
+        if (status === 404) {
+          return sendError(reply, 404, 'NOT_FOUND', 'Not found');
+        }
+        req.log.warn({ err: e, key }, 's3 read-through GetObject failed');
+        return sendError(reply, 500, 'INTERNAL', 'Failed to read object');
+      }
     },
   );
 

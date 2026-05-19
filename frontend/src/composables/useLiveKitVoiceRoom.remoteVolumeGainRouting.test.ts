@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
@@ -97,5 +99,110 @@ describe('useLiveKitVoiceRoom per-participant output gain routing', () => {
     expect(
       adapterMocks.setAudioTrackVolumeIfSupported,
     ).not.toHaveBeenLastCalledWith(bobTrack, expect.any(Number));
+  });
+
+  it('applies gain to remote video publication when MediaStream carries muxed audio', () => {
+    adapterMocks.setAudioTrackVolumeIfSupported.mockReset();
+
+    const videoTrack = {
+      sid: 'vid-1',
+      mediaStream: {
+        getAudioTracks: () => [{ readyState: 'live' }],
+      },
+    };
+    const participant = {
+      identity: 'carol',
+      audioTrackPublications: new Map(),
+      trackPublications: new Map([
+        [
+          'pub-v1',
+          {
+            kind: 'video',
+            track: videoTrack,
+          },
+        ],
+      ]),
+    };
+    const room = {
+      remoteParticipants: new Map([['sid-carol', participant]]),
+    };
+
+    const api = useLiveKitVoiceRoom();
+    api.lkRoom.value = room as never;
+    api.setRemoteParticipantVolume('carol', 50);
+
+    expect(adapterMocks.setAudioTrackVolumeIfSupported).toHaveBeenCalledWith(
+      videoTrack,
+      0.5,
+    );
+  });
+
+  it('does not treat ended muxed audio as active (skips video publication)', () => {
+    adapterMocks.setAudioTrackVolumeIfSupported.mockReset();
+
+    const videoTrack = {
+      sid: 'vid-2',
+      mediaStream: {
+        getAudioTracks: () => [{ readyState: 'ended' }],
+      },
+    };
+    const participant = {
+      identity: 'dave',
+      audioTrackPublications: new Map(),
+      trackPublications: new Map([
+        [
+          'pub-v2',
+          {
+            kind: 'video',
+            track: videoTrack,
+          },
+        ],
+      ]),
+    };
+    const room = {
+      remoteParticipants: new Map([['sid-dave', participant]]),
+    };
+
+    const api = useLiveKitVoiceRoom();
+    api.lkRoom.value = room as never;
+    api.setRemoteParticipantVolume('dave', 50);
+
+    expect(adapterMocks.setAudioTrackVolumeIfSupported).not.toHaveBeenCalled();
+  });
+
+  it('applies video mux gain when muxed audio exists but readyState is not yet live', () => {
+    adapterMocks.setAudioTrackVolumeIfSupported.mockReset();
+
+    const videoTrack = {
+      sid: 'vid-3',
+      mediaStream: {
+        getAudioTracks: () => [{ readyState: 'new' }],
+      },
+    };
+    const participant = {
+      identity: 'erin',
+      audioTrackPublications: new Map(),
+      trackPublications: new Map([
+        [
+          'pub-v3',
+          {
+            kind: 'video',
+            track: videoTrack,
+          },
+        ],
+      ]),
+    };
+    const room = {
+      remoteParticipants: new Map([['sid-erin', participant]]),
+    };
+
+    const api = useLiveKitVoiceRoom();
+    api.lkRoom.value = room as never;
+    api.setRemoteParticipantVolume('erin', 60);
+
+    expect(adapterMocks.setAudioTrackVolumeIfSupported).toHaveBeenCalledWith(
+      videoTrack,
+      0.6,
+    );
   });
 });

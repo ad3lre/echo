@@ -39,6 +39,7 @@ export interface MockData {
     bannerBlurEnabled?: boolean;
     bannerBlackoutEnabled?: boolean;
     badges?: string[];
+    timeZone?: string | null;
   }[];
   servers: { id: string; name: string; imageUrl: string; ownerId?: string }[];
   categoriesByServer: Record<string, ChannelCategory[]>;

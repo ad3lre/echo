@@ -1,3 +1,5 @@
+import { ref } from 'vue';
+
 export interface TimeLanguageOption {
   label: string;
   value: string;
@@ -9,6 +11,9 @@ export interface TimeLanguagePreferences {
   locale: SupportedEchoLocale;
   timeZone: string;
 }
+
+/** Bumped when time/language prefs change so chat can re-render Magic Time. */
+export const timeLanguagePrefsEpoch = ref(0);
 
 const STORAGE_KEY = 'echo-time-language-preferences-v1';
 const DEFAULT_LOCALE: SupportedEchoLocale = 'en-US';
@@ -133,6 +138,8 @@ export function saveTimeLanguagePreferences(
   next: Partial<TimeLanguagePreferences>,
 ): TimeLanguagePreferences {
   const current = loadTimeLanguagePreferences();
+  const prevTz = current.timeZone;
+  const prevLocale = current.locale;
   const merged: TimeLanguagePreferences = {
     locale: isSupportedLocale(next.locale) ? next.locale : current.locale,
     timeZone: normalizeTimeZone(next.timeZone ?? current.timeZone),
@@ -145,6 +152,9 @@ export function saveTimeLanguagePreferences(
     }
   }
   cachedPreferences = merged;
+  if (merged.timeZone !== prevTz || merged.locale !== prevLocale) {
+    timeLanguagePrefsEpoch.value += 1;
+  }
   return merged;
 }
 

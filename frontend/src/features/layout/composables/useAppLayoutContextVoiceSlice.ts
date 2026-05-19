@@ -2,6 +2,7 @@ import type { AppLayoutControllerContext } from './appLayoutControllerTypes';
 
 type VoiceSliceKeys =
   | 'getVcActivityPresenceForUser'
+  | 'effectiveVcActivityKingUserId'
   | 'vcHangmanActivity'
   | 'hangmanRosterUserIds'
   | 'commitVcHangmanWord'
@@ -103,6 +104,9 @@ type VoiceSliceKeys =
   | 'playVcYoutubeNext'
   | 'playVcYoutubePrevious'
   | 'closeVcActivity'
+  | 'vcYoutubeRemotePlayback'
+  | 'publishVcYoutubePlaybackSync'
+  | 'vcYoutubePlaybackShouldPublish'
   | 'handleScreenSharePickerConfirm'
   | 'handleToggleScreenshare'
   | 'handleStopScreenShare'

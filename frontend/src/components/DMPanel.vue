@@ -208,6 +208,7 @@ const emit = defineEmits<{
     payload: {
       serverId: string;
       channelId: string | null;
+      customLocation?: string | null;
       eventId: string;
     },
   ];

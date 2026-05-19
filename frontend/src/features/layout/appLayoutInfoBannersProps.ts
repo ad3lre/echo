@@ -24,6 +24,8 @@ export type AppLayoutInfoBannersProps = {
   uiErrorSeverity?: UIErrorSeverity;
   uiErrorShowRetry?: boolean;
   uiErrorRetryBusy?: boolean;
+  /** Guest-only API denial — show CTA to open registration (see `onUiErrorCreateAccount`). */
+  uiErrorShowCreateAccount?: boolean;
   /** Guest sessions: prompt to upgrade to a full account (link opens Settings → Account). */
   showGuestUpgradeBanner?: boolean;
   /** Hide primary flow error banner when the server down gate is already showing the error. */

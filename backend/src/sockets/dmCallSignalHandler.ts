@@ -3,6 +3,7 @@ import type { Socket } from 'socket.io';
 import type { Server } from 'socket.io';
 import { appendBackendDiagnostic } from '../observability/sessionDiagnostics';
 import {
+  bumpEchoDmThreadActivity,
   getEchoStore,
   getEchoDmCallSignalThreadForUser,
   listEchoDmParticipantUserIds,
@@ -164,6 +165,9 @@ export function registerDmCallSignalHandler(
         END_REASONS.has(payload?.reason as EchoDmCallEndedReason)
           ? (payload!.reason as EchoDmCallEndedReason)
           : 'ended';
+      // Any DM call signal (ring, accept, end) is real activity — bump the inbox sort key
+      // BEFORE building per-recipient thread payloads so they carry the fresh timestamp.
+      await bumpEchoDmThreadActivity(pool, channelId, new Date(), 'call');
       for (const participantUserId of participantIds) {
         if (!participantUserId || participantUserId === userId) continue;
         const thread = await getEchoDmCallSignalThreadForUser(

@@ -5,6 +5,15 @@ import {
   parseMessageContent,
   type IdTokenResolvers,
 } from '@/composables/useMarkdown';
+import {
+  applyMagicTimeToPlaintext,
+  buildMagicTimeParseCacheExtra,
+  replaceMagicTimePlaceholdersInHtml,
+} from '@/features/chat/viewModel/magicTimeMarkdown';
+import {
+  loadTimeLanguagePreferences,
+  timeLanguagePrefsEpoch,
+} from '@/features/settings/timeLanguagePreferences';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import LimitedGifImg from '@/components/LimitedGifImg.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -18,6 +27,37 @@ const idTokenResolvers = inject<
   ComputedRef<IdTokenResolvers | undefined> | undefined
 >('idTokenResolvers', undefined);
 const parseIdResolvers = computed(() => idTokenResolvers?.value);
+
+const renderedMessageHtml = computed(() => {
+  void timeLanguagePrefsEpoch.value;
+  const content = props.message.content ?? '';
+  const mentions = props.message.mentions;
+  const res = parseIdResolvers.value;
+  const prefs = loadTimeLanguagePreferences();
+  const sender =
+    typeof props.message.author?.timeZone === 'string'
+      ? props.message.author.timeZone.trim()
+      : '';
+  const ts = props.message.timestamp;
+  if (!sender || !ts) {
+    return parseMessageContent(content, mentions, res);
+  }
+  if (prefs.timeZone === sender) {
+    return parseMessageContent(content, mentions, res);
+  }
+  const ctx = {
+    messageTimestampIso: ts,
+    senderTimeZone: sender,
+    viewerTimeZone: prefs.timeZone,
+    viewerLocale: prefs.locale,
+  };
+  const { text: z, slots } = applyMagicTimeToPlaintext(content, ctx);
+  let html = parseMessageContent(z, mentions, res, 0, {
+    parseCacheExtra: buildMagicTimeParseCacheExtra(ctx),
+  });
+  html = replaceMagicTimePlaceholdersInHtml(html, slots);
+  return html;
+});
 
 const emit = defineEmits<{
   goToMessage: [channelId: string, messageId: string];
@@ -88,13 +128,7 @@ const timestampLabel = computed(() => formatTimestamp(props.message.timestamp));
         <div
           v-spoiler-reveal
           class="message-preview mt-0.5 text-muted line-clamp-2 break-words"
-          v-html="
-            parseMessageContent(
-              message.content ?? '',
-              message.mentions,
-              parseIdResolvers,
-            )
-          "
+          v-html="renderedMessageHtml"
         />
         <!-- Media type badges when no image preview -->
         <div

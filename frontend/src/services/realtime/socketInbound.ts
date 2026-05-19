@@ -19,6 +19,7 @@ export interface EchoSocketInboundListeners {
   onConnectError: (...args: unknown[]) => void;
   onDmActivityIo: (...args: unknown[]) => void;
   onDmCallIo: (...args: unknown[]) => void;
+  onDmThreadActivityIo: (...args: unknown[]) => void;
   onReadStateUpdateIo: (...args: unknown[]) => void;
   onAttentionUpdateIo: (...args: unknown[]) => void;
   onPresenceIo: (...args: unknown[]) => void;
@@ -47,6 +48,7 @@ export function attachEchoSocketInbound(
   socket.on('connect_error', L.onConnectError);
   socket.on('dm:activity', L.onDmActivityIo);
   socket.on('dm:call', L.onDmCallIo);
+  socket.on('dm:thread:activity', L.onDmThreadActivityIo);
   socket.on('read_state:update', L.onReadStateUpdateIo);
   socket.on('attention:update', L.onAttentionUpdateIo);
   socket.on('presence:update', L.onPresenceIo);
@@ -75,6 +77,7 @@ export function detachEchoSocketInbound(
   socket.off('connect_error', L.onConnectError);
   socket.off('dm:activity', L.onDmActivityIo);
   socket.off('dm:call', L.onDmCallIo);
+  socket.off('dm:thread:activity', L.onDmThreadActivityIo);
   socket.off('read_state:update', L.onReadStateUpdateIo);
   socket.off('attention:update', L.onAttentionUpdateIo);
   socket.off('presence:update', L.onPresenceIo);

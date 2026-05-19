@@ -69,6 +69,7 @@ import {
   ref,
   unref,
   watch,
+  type ComputedRef,
 } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAppLayoutController } from '@/features/layout/composables/useAppLayoutController';
@@ -78,7 +79,9 @@ import {
   provideChatPermissions,
 } from '@/composables/useChatPermissions';
 import { AuthApiError, authResendVerification } from '@/api/authClient';
-import { putGuildEventRsvp } from '@/api/echoClient';
+import { putGuildEventRsvp } from '@/services/http/echoServerEventsHttp';
+import { resolveGuildEventLocation } from '@/features/server-events/resolveGuildEventLocation';
+import { applyEchoShellPath } from '@/platform/desktopProductDeepLink';
 import { hasPriorRegistration } from '@/utils/priorRegistration';
 import {
   subscribePrimaryFlowFailures,
@@ -197,6 +200,7 @@ const {
   activeRailTab,
   activeVoiceChannelParticipants,
   getVcActivityPresenceForUser,
+  effectiveVcActivityKingUserId,
   liveKitState,
   liveKitNetworkStats,
   liveKitRoom,
@@ -718,6 +722,9 @@ const {
   playVcYoutubeNext,
   playVcYoutubePrevious,
   closeVcActivity,
+  vcYoutubeRemotePlayback,
+  publishVcYoutubePlaybackSync,
+  vcYoutubePlaybackShouldPublish,
   handleScreenSharePickerConfirm,
   handleDesktopStreamingControlConfirm,
   _handleToggleScreenshare,
@@ -740,6 +747,27 @@ const {
 } = useAppLayoutController();
 
 const themeStore = useThemeStore();
+
+// ─── Navigation announcer ────────────────────────────────────────────────────
+// A single visually-hidden aria-live="polite" region that announces the active
+// channel/server context whenever navigation changes.  Screen readers read it
+// once focus moves naturally; it never steals focus.
+const navAnnouncerText = ref('');
+watch(
+  [activeChannelId, selectedServer] as const,
+  ([chanId, server]) => {
+    const ch = (_activeChannel as ComputedRef<ChannelSummary | null>).value;
+    const chanName = ch?.name ?? '';
+    const serverName = server?.name ?? '';
+    if (!chanId || !chanName) return;
+    navAnnouncerText.value = serverName
+      ? `${serverName}, ${chanName}`
+      : chanName;
+  },
+  { flush: 'post' },
+);
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** Desktop-only: server/action rail along the top instead of the left column (settings preference). */
 const actionRailTopLayout = computed(
   () => themeStore.actionRailPlacement === 'top' && !isCompactShell.value,
@@ -879,6 +907,90 @@ const guildEventActivityCards = computed<GuildEventActivityCard[]>(() =>
     getChannelDisplayName,
   }),
 );
+
+function toastPlainGuildEventLocation(text: string, urls: readonly string[]) {
+  const actions: AppToastAction[] = [
+    {
+      id: 'copy',
+      label: 'Copy',
+      kind: 'primary',
+      run: () => {
+        void navigator.clipboard?.writeText(text);
+      },
+    },
+  ];
+  const first = urls[0];
+  if (first) {
+    actions.push({
+      id: 'open',
+      label: 'Open link',
+      run: () => {
+        window.open(first, '_blank', 'noopener,noreferrer');
+      },
+    });
+  }
+  dispatchAppToastDetail({
+    title: 'Event location',
+    message: text.length > 720 ? `${text.slice(0, 720)}…` : text,
+    subtitle: first,
+    actions,
+    severity: 'info',
+    durationMs: 14_000,
+  });
+}
+
+function navigateGuildEventOpenPayload(payload: {
+  serverId: string;
+  channelId?: string | null;
+  customLocation?: string | null;
+}) {
+  const base = import.meta.env.BASE_URL || '/';
+  const res = resolveGuildEventLocation({
+    eventServerId: payload.serverId,
+    channelId: payload.channelId,
+    customLocation: payload.customLocation,
+    base,
+  });
+  switch (res.kind) {
+    case 'server_channel':
+      openServerSurface(res.serverId, res.channelId);
+      break;
+    case 'shell_path': {
+      const ok = applyEchoShellPath(res.pathWithSearch);
+      if (!ok) {
+        dispatchAppToastDetail({
+          title: 'Open this location',
+          message:
+            'Finish loading Echo, then try again — or paste the link into your browser bar.',
+          severity: 'warning',
+        });
+      }
+      break;
+    }
+    case 'external':
+      window.open(res.url, '_blank', 'noopener,noreferrer');
+      break;
+    case 'plain':
+      toastPlainGuildEventLocation(res.text, res.detectedUrls);
+      break;
+    case 'fallback_server': {
+      const cats = workspace.categoriesByServer.value[res.serverId] ?? [];
+      let cid = '';
+      outer: for (const cat of cats) {
+        for (const ch of cat.channels ?? []) {
+          if (ch.type === 'text') {
+            cid = ch.id;
+            break outer;
+          }
+        }
+      }
+      openServerSurface(res.serverId, cid || undefined);
+      break;
+    }
+    default:
+      break;
+  }
+}
 
 function handleDmPanelJoinGuildVoiceActivity(payload: {
   serverId: string;
@@ -1714,6 +1826,9 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   playVcYoutubeNext,
   playVcYoutubePrevious,
   closeVcActivity,
+  vcYoutubeRemotePlayback,
+  publishVcYoutubePlaybackSync,
+  vcYoutubePlaybackShouldPublish,
   canShowDiscordChannelImport: serverSettingsCanManageServer,
   forumPostsByForumId,
   forumPostsLoadingByForumId,
@@ -2426,6 +2541,8 @@ type UiErrorBannerState = {
   message: string;
   severity: UIErrorSeverity;
   retryAction?: () => void;
+  /** Echo API error code when surfaced via `UIErrorBus` (e.g. `GUEST_FORBIDDEN`). */
+  code?: string;
 };
 
 const uiErrorBanner = ref<UiErrorBannerState | null>(null);
@@ -2554,21 +2671,83 @@ function onChatComposerFocusForToast(e: Event) {
   chatComposerFocusedForToast.value = ce.detail?.focused === true;
 }
 
+/**
+ * Lift bottom-fixed toasts above the chat composer bar. Focus alone is not enough:
+ * message notifications (`incoming_chat_message`) often fire while the composer
+ * is visible but unfocused, which previously pinned the toast under the input strip.
+ *
+ * Any surface that pins a composer / bottom chrome (compact guild tri-pane, compact DMs,
+ * desktop guild channel, desktop DM thread) needs the larger inset — otherwise success /
+ * error toasts sit under the bar and read as “missing”.
+ */
+const appToastClearsBottomChrome = computed(() => {
+  if (chatComposerFocusedForToast.value) return true;
+  if (appToast.value?.variant === 'incoming_chat_message') return true;
+  if (useCompactTriPaneShell.value) return true;
+  if (useCompactDmShell.value) return true;
+  if (unref(hasGuildChannelChrome)) return true;
+  const surface = unref(mainSurface);
+  return unref(isDmUiContext) && surface?.type === 'dmThread';
+});
+
+/** Pixels of layout viewport below the visual viewport (iOS keyboard / chrome). */
+const visualViewportToastBottomExtraPx = ref(0);
+let appToastViewportMetricsRaf = 0;
+
+function syncAppToastVisualViewportBottomExtraNow() {
+  if (typeof window === 'undefined' || !window.visualViewport) {
+    visualViewportToastBottomExtraPx.value = 0;
+    return;
+  }
+  const vv = window.visualViewport;
+  const innerH = window.innerHeight;
+  const gap = innerH - vv.offsetTop - vv.height;
+  const raw = Math.max(0, Math.round(gap));
+  /* Buggy `visualViewport` metrics (some WebViews / split layouts) can report a huge gap,
+   * which blows up `bottom` + `max-height` and effectively hides the toast off-screen. */
+  const cap = Math.min(Math.round(innerH * 0.55), 520);
+  visualViewportToastBottomExtraPx.value = Math.min(raw, cap);
+}
+
+function scheduleAppToastVisualViewportBottomExtra() {
+  if (typeof window === 'undefined') return;
+  if (appToastViewportMetricsRaf !== 0) return;
+  appToastViewportMetricsRaf = window.requestAnimationFrame(() => {
+    appToastViewportMetricsRaf = 0;
+    syncAppToastVisualViewportBottomExtraNow();
+  });
+}
+
+function onAppToastVisualViewportChanged() {
+  scheduleAppToastVisualViewportBottomExtra();
+}
+
+const appToastShellPositionStyle = computed(() => {
+  const elevated = appToastClearsBottomChrome.value;
+  const baseBottomCss = elevated
+    ? 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))'
+    : 'max(1rem, env(safe-area-inset-bottom, 0px))';
+  const extra = visualViewportToastBottomExtraPx.value;
+  const bottom =
+    extra > 0 ? `calc(${baseBottomCss} + ${extra}px)` : baseBottomCss;
+  /* Use dvh (not svh) so max-height tracks the same dynamic viewport that `position: fixed`
+   * + `bottom` use on most engines; svh/dvh mismatch was letting the toast extend past the
+   * visible fold while still honoring max-height math in the “wrong” viewport. */
+  const maxH = elevated
+    ? `min(90dvh, calc(100dvh - max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem)) - ${extra}px - 1rem))`
+    : `min(90dvh, calc(100dvh - max(1rem, env(safe-area-inset-bottom, 0px)) - ${extra}px - 1rem))`;
+  return { bottom, maxHeight: maxH };
+});
+
 const appToastShellClass = computed(() => {
-  const composerUp = chatComposerFocusedForToast.value;
-  const y = composerUp
-    ? 'bottom-[max(8rem,calc(env(safe-area-inset-bottom,0px)+6rem))]'
-    : 'bottom-[max(1rem,env(safe-area-inset-bottom,0px))]';
-  // Use svh (small viewport) so height caps match what is actually visible on
-  // mobile; dvh can be taller than the visible strip and toasts spill below.
-  // max-h subtracts the same bottom inset as `y` plus a 1rem top breathing room.
-  const maxH = composerUp
-    ? 'max-h-[min(90svh,calc(100svh_-_max(8rem,calc(env(safe-area-inset-bottom,0px)+6rem))_-_1rem))]'
-    : 'max-h-[min(90svh,calc(100svh_-_max(1rem,env(safe-area-inset-bottom,0px))_-_1rem))]';
-  const shell = `box-border flex min-h-0 ${maxH} flex-col overflow-hidden overscroll-contain`;
+  /* Grid + minmax(0,1fr) guarantees the scroll row gets a definite bounded height under
+   * max-height (flex-1 + h-0 alone could leave the scroll region at intrinsic height and
+   * clip the quick-reply strip at the shell’s overflow:hidden edge). */
+  const shell =
+    'box-border grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden overscroll-contain';
   return appToastIsRich.value
-    ? `pointer-events-auto fixed ${y} left-1/2 z-[100] w-[min(26rem,calc(100vw-1rem))] -translate-x-1/2 rounded-xl px-3 py-2.5 text-[13px] shadow-2xl ${shell}`
-    : `pointer-events-auto fixed ${y} left-1/2 z-[100] w-[min(24rem,calc(100vw-1rem))] -translate-x-1/2 rounded-xl px-2.5 py-2 text-[13px] shadow-2xl ${shell}`;
+    ? `pointer-events-auto fixed left-1/2 z-[500] w-[min(26rem,calc(100vw-1rem))] -translate-x-1/2 rounded-xl px-3 py-2.5 text-[13px] shadow-2xl ${shell}`
+    : `pointer-events-auto fixed left-1/2 z-[500] w-[min(24rem,calc(100vw-1rem))] -translate-x-1/2 rounded-xl px-2.5 py-2 text-[13px] shadow-2xl ${shell}`;
 });
 
 const callRingtoneStore = useCallRingtoneStore();
@@ -2741,6 +2920,7 @@ onMounted(() => {
       message: d.userMessage,
       severity: d.severity,
       retryAction: d.retryAction,
+      code: d.code,
     };
     uiErrorAutoDismissTimer = setTimeout(() => {
       uiErrorAutoDismissTimer = null;
@@ -2801,6 +2981,14 @@ onMounted(() => {
     onChatComposerFocusForToast,
   );
 
+  syncAppToastVisualViewportBottomExtraNow();
+  window.addEventListener('resize', onAppToastVisualViewportChanged);
+  if (window.visualViewport) {
+    const vv = window.visualViewport;
+    vv.addEventListener('resize', onAppToastVisualViewportChanged);
+    vv.addEventListener('scroll', onAppToastVisualViewportChanged);
+  }
+
   void nextTick(() => {
     if (typeof ResizeObserver === 'undefined') return;
     const el = mainContentAreaEl.value;
@@ -2860,6 +3048,11 @@ async function onUiErrorRetry() {
   } finally {
     uiErrorRetryBusy.value = false;
   }
+}
+
+function onUiErrorCreateAccount() {
+  openAuthModal({ tab: 'register' });
+  dismissUiErrorBanner();
 }
 
 function dismissEmailVerificationFlash() {
@@ -2953,6 +3146,14 @@ provide(LAYOUT_INFO_BANNERS_KEY, {
   uiErrorMessage: computed(() => uiErrorBanner.value?.message ?? null),
   uiErrorSeverity: computed(() => uiErrorBanner.value?.severity ?? 'error'),
   uiErrorShowRetry: computed(() => !!uiErrorBanner.value?.retryAction),
+  uiErrorShowCreateAccount: computed(() => {
+    const b = uiErrorBanner.value;
+    if (!b?.message) return false;
+    return (
+      b.code === 'GUEST_FORBIDDEN' ||
+      b.message.includes('Create an account to use this feature')
+    );
+  }),
   uiErrorRetryBusy,
   onSessionSignIn: () => openAuthModal(),
   onSessionDismiss: () => authSession.clearSessionEndedMessage(),
@@ -2968,6 +3169,7 @@ provide(LAYOUT_INFO_BANNERS_KEY, {
   onPrimaryFlowFailureDismiss: dismissPrimaryFlowFailureBanner,
   onUiErrorDismiss: dismissUiErrorBanner,
   onUiErrorRetry: onUiErrorRetry,
+  onUiErrorCreateAccount,
 });
 
 provide(LAYOUT_GUILD_MODALS_KEY, {
@@ -3155,6 +3357,7 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   onSwitchCamera: switchVcCamera,
   voiceSessionParticipants: activeVoiceChannelParticipants,
   getVcActivityPresence: getVcActivityPresenceForUser,
+  vcActivityKingUserId: effectiveVcActivityKingUserId,
   openMemberProfile,
   activeMemberProfileId: computed(() => activeMemberProfile.value?.id ?? null),
   guildVcMuted: channelPanelVcMutedEffective,
@@ -3288,10 +3491,9 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
     void handleChannelMarkRead(channelId);
   },
   onGuildEventRsvp: async (payload) => {
-    const t = authSession.accessToken?.trim() ?? '';
-    if (!t) return;
     try {
-      await putGuildEventRsvp(t, payload.serverId, payload.eventId, payload.status);
+      /* Cookie session: bearer token is unused by `echoFetch` (see `transport.ts`). */
+      await putGuildEventRsvp('', payload.serverId, payload.eventId, payload.status);
       await hydrateEchoFromApi();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -3304,20 +3506,11 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
     }
   },
   onOpenGuildEventChannel: (payload) => {
-    let cid =
-      typeof payload.channelId === 'string' ? payload.channelId.trim() : '';
-    if (!cid) {
-      const cats = workspace.categoriesByServer.value[payload.serverId] ?? [];
-      outer: for (const cat of cats) {
-        for (const ch of cat.channels ?? []) {
-          if (ch.type === 'text') {
-            cid = ch.id;
-            break outer;
-          }
-        }
-      }
-    }
-    openServerSurface(payload.serverId, cid || undefined);
+    navigateGuildEventOpenPayload({
+      serverId: payload.serverId,
+      channelId: payload.channelId,
+      customLocation: payload.customLocation,
+    });
   },
   /** Mobile dock replaces in-list VC transport while connected. */
   hideChannelPanelVoiceChrome: hideChannelPanelVoiceChromeEffective,
@@ -3422,6 +3615,16 @@ function disposeAppLayoutSideEffects() {
     ECHO_CHAT_COMPOSER_FOCUS_EVENT,
     onChatComposerFocusForToast,
   );
+  if (appToastViewportMetricsRaf !== 0) {
+    window.cancelAnimationFrame(appToastViewportMetricsRaf);
+    appToastViewportMetricsRaf = 0;
+  }
+  window.removeEventListener('resize', onAppToastVisualViewportChanged);
+  if (typeof window !== 'undefined' && window.visualViewport) {
+    const vv = window.visualViewport;
+    vv.removeEventListener('resize', onAppToastVisualViewportChanged);
+    vv.removeEventListener('scroll', onAppToastVisualViewportChanged);
+  }
 }
 
 function maybeAutoCollapseMemberPanelForMainWidth() {
@@ -3545,6 +3748,20 @@ watch(
     class="echo-shell-root relative m-0 flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden p-0 text-foreground"
     :class="{ 'echo-shell-root--desktop': isDesktop() }"
   >
+    <!-- Skip link: allows screen reader + keyboard users to jump past navigation chrome. -->
+    <a
+      href="#echo-main-content"
+      class="echo-skip-link sr-only focus:not-sr-only"
+    >Skip to messages</a>
+
+    <!-- Navigation announcer: announces active channel/server context on navigation.
+         sr-only ensures it is invisible but still read by screen readers. -->
+    <div
+      aria-live="polite"
+      aria-atomic="true"
+      class="sr-only"
+    >{{ navAnnouncerText }}</div>
+
     <DesktopTitlebar v-if="isDesktop()" />
     <div
       v-if="desktopUpdateBannerVisible"
@@ -3576,12 +3793,13 @@ watch(
       <div
         v-if="appToast"
         :class="[appToastShellClass, appToastContainerClass]"
+        :style="appToastShellPositionStyle"
         role="status"
         @contextmenu="onAppToastContextMenu"
         @auxclick="onAppToastContextMenu"
       >
         <div
-          class="h-0 min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+          class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain [grid-row:1]"
         >
           <div class="app-toast-incoming-call__inner flex items-start gap-2.5">
             <div
@@ -3835,7 +4053,7 @@ watch(
         </div>
         <div
           v-if="appToastProgressVisible"
-          class="pointer-events-none mx-3 mb-1.5 mt-0.5 h-[3px] shrink-0 overflow-hidden rounded-full bg-glass-2/90"
+          class="pointer-events-none mx-3 mb-1.5 mt-0.5 h-[3px] shrink-0 overflow-hidden rounded-full bg-glass-2/90 [grid-row:2]"
           aria-hidden="true"
         >
           <div
@@ -4296,7 +4514,8 @@ watch(
         @channel-delete-category="onChannelPanelDeleteCategory"
       />
       <AppLayoutGuildModals />
-      <div
+      <main
+        id="echo-main-content"
         ref="mainContentAreaEl"
         class="main-content-area relative grid min-h-0 min-w-0 overflow-hidden"
         :class="[
@@ -4381,7 +4600,7 @@ watch(
           <AppLayoutChatSurface v-else />
           <AppLayoutMembersColumn />
         </template>
-      </div>
+      </main>
     </div>
 
     <GuildMobileVoiceLobbySheet

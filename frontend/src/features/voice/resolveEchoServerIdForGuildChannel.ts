@@ -22,3 +22,28 @@ export function resolveEchoServerIdContainingChannel(
   }
   return '';
 }
+
+/**
+ * Guild workspace snapshot: which voice channel lists this user as connected.
+ * Returns the first match if data is inconsistent.
+ */
+export function findEchoVoiceChannelIdContainingUserOnServer(
+  serverId: string,
+  userId: string,
+  categoriesByServer: Readonly<Record<string, ChannelCategory[]>>,
+): string | null {
+  const sid = serverId?.trim() ?? '';
+  const uid = userId?.trim() ?? '';
+  if (!sid || !uid) return null;
+  const cats = categoriesByServer[sid];
+  if (!cats?.length) return null;
+  for (const cat of cats) {
+    for (const ch of cat.channels ?? []) {
+      if (ch.type !== 'voice') continue;
+      const ids =
+        (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
+      if (ids.includes(uid)) return ch.id;
+    }
+  }
+  return null;
+}

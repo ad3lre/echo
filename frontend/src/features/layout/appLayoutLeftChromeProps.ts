@@ -39,6 +39,8 @@ export type GuildEventActivityCard = {
   title: string;
   startsAt: string;
   channelId: string | null;
+  /** Present when the event uses a custom (non-channel) location string. */
+  customLocation?: string | null;
   channelDisplayName: string | null;
   goingCount: number;
 };
@@ -268,6 +270,8 @@ export type AppLayoutLeftChromeProps = {
   selectDmUser: (userId: string) => void;
   onSwitchCamera?: (deviceId: string) => void;
   bugHunterEnabled?: boolean;
+  /** Echo user id driving synced VC activity (YouTube / games); empty when none. */
+  vcActivityKingUserId?: string;
   /** Per-user VC activity surface (YouTube, activities picker) — compact roster badges. */
   getVcActivityPresence?: (userId: string) => VcActivityPresenceKind[];
   /** LiveKit-aware VC row state for channel list avatars (speaking ring, levels); same as CallView. */

@@ -70,6 +70,11 @@ import {
 } from '@/features/chat/chatComposerContext';
 import { isMessageAuthorOffline } from '@/utils/isOfflinePresence';
 import { formatShortTime } from '@/utils/formatTimestamp';
+import {
+  loadTimeLanguagePreferences,
+  timeLanguagePrefsEpoch,
+} from '@/features/settings/timeLanguagePreferences';
+import type { MagicTimeRenderContext } from '@/features/chat/viewModel/messageContentSegments';
 import { useAnchoredFloatingPosition } from '@/composables/useAnchoredFloatingPosition';
 import type { MessageListRowPresentation } from '@/features/chat/presentation/messageListRowPresentation';
 import { isEchoMessageLogicallyOwn } from '@/features/chat/domain/discordTwinMessageOwnership';
@@ -139,6 +144,23 @@ const emit = defineEmits<{
 
 const row = computed(() => props.row);
 const message = computed(() => props.row.message);
+
+const magicTimeContext = computed((): MagicTimeRenderContext | null => {
+  void timeLanguagePrefsEpoch.value;
+  const prefs = loadTimeLanguagePreferences();
+  const m = message.value;
+  if (m.systemMessage) return null;
+  const senderTz =
+    typeof m.author?.timeZone === 'string' ? m.author.timeZone.trim() : '';
+  if (!senderTz || !m.timestamp) return null;
+  if (prefs.timeZone === senderTz) return null;
+  return {
+    messageTimestampIso: m.timestamp,
+    senderTimeZone: senderTz,
+    viewerTimeZone: prefs.timeZone,
+    viewerLocale: prefs.locale,
+  };
+});
 
 const devSettings = useDevSettingsStore();
 const { devModeIdsEnabled } = storeToRefs(devSettings);
@@ -464,6 +486,13 @@ const shortTime = computed(() => {
   return atIdx !== -1 ? ts.slice(atIdx + 4) : ts;
 });
 
+/** Accessible label for the article element: "AuthorName, relative-time". */
+const bubbleAriaLabel = computed(() => {
+  const author = authorLabel.value;
+  const ts = message.value.timestamp;
+  return ts ? `${author}, ${ts}` : author;
+});
+
 const messageLink = useMessageLink(
   computed(() => props.channelId),
   computed(() => message.value.id),
@@ -622,8 +651,8 @@ function syncFocusWithinFromDom() {
     const active = document.activeElement;
     focusWithin.value = Boolean(
       active instanceof Element &&
-        (rootRef.value?.contains(active) ||
-          floatingActionBarWrapRef.value?.contains(active)),
+      (rootRef.value?.contains(active) ||
+        floatingActionBarWrapRef.value?.contains(active)),
     );
   });
 }
@@ -990,10 +1019,13 @@ watch(poppingEmojiKey, (val) => {
   reactionsRef.value?.setPoppingEmoji(val);
 });
 
-watch(() => message.value.id, () => {
-  resetForMessageChange();
-  clearMessageActionBarVisibility();
-});
+watch(
+  () => message.value.id,
+  () => {
+    resetForMessageChange();
+    clearMessageActionBarVisibility();
+  },
+);
 </script>
 
 <template>
@@ -1023,9 +1055,10 @@ watch(() => message.value.id, () => {
     </span>
     <span class="h-px flex-1 bg-glass-2" aria-hidden="true" />
   </div>
-  <div
+  <article
     ref="rootRef"
     :id="message.id ? `message-${message.id}` : undefined"
+    :aria-label="bubbleAriaLabel"
     class="message-bubble group relative px-1 rounded transition-colors hover:bg-glass-1"
     :class="[
       continuationLayout ? 'msg-continuation' : 'msg-header',
@@ -1306,6 +1339,7 @@ watch(() => message.value.id, () => {
                 :on-jump-to-message="onGoToMessage"
                 :custom-emoji-render-key="customEmojiRenderKey"
                 :message-id="message.id"
+                :magic-time="magicTimeContext"
               />
             </div>
             <MessageAttachments
@@ -1353,7 +1387,7 @@ watch(() => message.value.id, () => {
         </div>
       </div>
     </div>
-  </div>
+  </article>
 
   <MessageReactionsVotersModal
     v-model="reactionsVotersModalOpen"

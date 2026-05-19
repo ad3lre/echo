@@ -340,7 +340,7 @@ describe('useAppLayoutDmRailUnread', () => {
     ]);
   });
 
-  it('prefers real last-message timestamps over stale activity ids for rail ordering', () => {
+  it('orders the rail by server lastActivityAt per channel', () => {
     const { dmIncomingRailCluster } = useAppLayoutDmRailUnread({
       authSession: {
         isAuthenticated: true,
@@ -354,10 +354,10 @@ describe('useAppLayoutDmRailUnread', () => {
       } as never,
       activeChannelId: ref('server-channel'),
       activeDmPeerUserId: ref(null),
-      activityIdByChannelId: ref(
-        new Map<string, string>([
-          ['chan1', '3000'],
-          ['chan2', '1000'],
+      lastActivityAtMsByChannelId: ref(
+        new Map<string, number>([
+          ['chan1', Date.UTC(2024, 0, 1)],
+          ['chan2', Date.UTC(2025, 0, 1)],
         ]),
       ),
       dmAttentionByChannelId: ref({

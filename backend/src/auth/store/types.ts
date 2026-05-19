@@ -55,6 +55,8 @@ export type AuthProfilePatch = {
   bannerPositionY?: number;
   /** Whether to show "last online" timestamp to other users. */
   showLastOnline?: boolean;
+  /** IANA timezone id; empty string clears stored value. */
+  timeZone?: string | null;
 };
 
 export interface UserStore {

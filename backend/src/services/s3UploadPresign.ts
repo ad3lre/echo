@@ -2,6 +2,7 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from '../config';
 import { ECHO_UPLOAD_ABS_MAX_BYTES } from '../../../shared/echoPlanLimits';
+import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '../../../shared/echoS3ReadThrough';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from './localUploadDisk';
 
 const MAX_KEY_LEN = 512;
@@ -87,11 +88,24 @@ export function getEchoS3UploadBucket(): string | null {
   return config.s3UploadBucket?.trim() || null;
 }
 
+function absoluteEchoS3PublicReadThroughBase(): string {
+  const base = config.echoApiPublicUrl.replace(/\/$/, '');
+  try {
+    return new URL(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX, `${base}/`).href;
+  } catch {
+    return ECHO_S3_PUBLIC_READ_THROUGH_PREFIX;
+  }
+}
+
 /** Public URL prefixes for objects in the configured bucket (for validating message / emoji URLs when S3 is on). */
 export function getEchoUploadPublicUrlPrefixes(): string[] {
   const out: string[] = [];
   if (config.echoLocalUploadDir) {
     out.push(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX);
+  }
+  if (config.echoS3PublicReadThroughApi && isEchoS3UploadConfigured()) {
+    out.push(absoluteEchoS3PublicReadThroughBase());
+    out.push(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX);
   }
   const bucket = config.s3UploadBucket;
   const region = config.s3UploadRegion;
@@ -117,6 +131,10 @@ export function buildEchoUploadPublicUrlForStorageKey(
   if (!trimmedKey) return null;
   if (config.echoLocalUploadDir) {
     return `${ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX}${trimmedKey.split('/').map(encodeURIComponent).join('/')}`;
+  }
+  if (config.echoS3PublicReadThroughApi && isEchoS3UploadConfigured()) {
+    const encoded = trimmedKey.split('/').map(encodeURIComponent).join('/');
+    return `${absoluteEchoS3PublicReadThroughBase()}${encoded}`;
   }
   const bucket = config.s3UploadBucket;
   const region = config.s3UploadRegion;
@@ -240,7 +258,9 @@ export async function presignEchoUpload(opts: {
   });
 
   const uploadUrl = await getSignedUrl(client, command, { expiresIn: 900 });
-  const publicUrl = buildPublicUrlForStorageKey(key, bucket, region, endpoint);
+  const publicUrl =
+    buildEchoUploadPublicUrlForStorageKey(key) ??
+    buildPublicUrlForStorageKey(key, bucket, region, endpoint);
 
   return {
     ok: true,

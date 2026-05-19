@@ -1,13 +1,24 @@
 /**
  * Builds the 1:1 DM inbox rows for {@link DMPanel} (Messages tab).
- * Sources: persisted Echo DM map, legacy `dm-{userId}` channels with message history,
- * and the currently selected peer (e.g. opened from a profile) so they appear immediately.
+ *
+ * Ordering rule (single, no exceptions): rows are sorted by **`lastActivityAt` desc**.
+ * `lastActivityAt` is the server's authoritative DM-activity timestamp from
+ * `echo_dm_activity.last_activity_at`: bumped on message persist, DM call signaling,
+ * friend accept (between the pair), and group events. We do not mix in snowflake-derived
+ * times, message-list timestamps, or any other clock — those produced the
+ * "list disagrees with itself" behaviour the v2 rebuild was designed to fix.
+ *
+ * Local message arrival also drives a `messageTime` fallback so optimistic sends move
+ * the row to the top instantly; the server `dm:activity` re-emit then converges everyone.
+ *
+ * Sources of membership (NOT of ordering): persisted Echo DM map, legacy `dm-{userId}`
+ * channels with message history, and the currently selected peer (e.g. opened from a
+ * profile) so they appear immediately.
  */
 
 import { peerDisplayNamePlaceholder } from '@/features/dm/peerDisplayPlaceholder';
 import type { RawMessage } from '@/services/realtime/chatMessageTypes';
 import { rawMessageOrderingTimeMs } from '@/services/realtime/channelMessageOrder';
-import { parseSnowflakeTime } from '@shared/snowflakeIds';
 
 export type DmPanelUserRow = {
   id: string;
@@ -27,63 +38,23 @@ type UserLike = {
 
 type MsgLike = { timestamp?: string };
 
-export type ActivityRank = {
-  messageTime: number;
-  activityId: string;
-};
+/**
+ * Single, monotonic sort key (ms epoch). 0 means "no known activity"; such rows sort
+ * to the bottom, broken alphabetically. Callers should rarely see 0 because the server
+ * inserts an `echo_dm_activity` row on thread creation (`/dm/open`).
+ */
+export type ActivityRank = { ms: number };
 
-function compareNumericStringDesc(a: string, b: string): number {
-  if (a === b) return 0;
-  if (!a) return 1;
-  if (!b) return -1;
-  try {
-    const ai = BigInt(a);
-    const bi = BigInt(b);
-    if (ai === bi) return 0;
-    return ai > bi ? -1 : 1;
-  } catch {
-    return b.localeCompare(a);
-  }
-}
+const ZERO_RANK: ActivityRank = { ms: 0 };
+
+const SELF_DM_INBOX_SORT_RANK_MS = Number.MAX_SAFE_INTEGER;
 
 export function compareActivityRankDesc(
   a: ActivityRank,
   b: ActivityRank,
 ): number {
-  // Prefer wall-clock / loaded history when both threads have it.
-  const aAct = a.activityId;
-  const bAct = b.activityId;
-  if (
-    a.messageTime > 0 &&
-    b.messageTime > 0 &&
-    a.messageTime !== b.messageTime
-  ) {
-    return b.messageTime - a.messageTime;
-  }
-  // Only compare raw activity ids when neither side has a resolved time — avoids letting
-  // numeric id ordering beat a thread that has real local messages (e.g. just sent).
-  if (
-    a.messageTime === 0 &&
-    b.messageTime === 0 &&
-    aAct &&
-    bAct &&
-    aAct !== bAct
-  ) {
-    return compareNumericStringDesc(aAct, bAct);
-  }
-  if (a.messageTime !== b.messageTime) return b.messageTime - a.messageTime;
-  return compareNumericStringDesc(aAct, bAct);
-}
-
-function parseMessageTime(timestamp?: string): number {
-  if (!timestamp) return 0;
-  const t = new Date(timestamp).getTime();
-  return Number.isNaN(t) ? 0 : t;
-}
-
-function approxMsFromEchoActivityId(activityId: string): number {
-  const d = parseSnowflakeTime(activityId.trim());
-  return d ? d.getTime() : 0;
+  if (a.ms === b.ms) return 0;
+  return b.ms - a.ms;
 }
 
 function latestMessageTimeForChannel(
@@ -99,27 +70,19 @@ function latestMessageTimeForChannel(
 
 export function activityRankForChannel(input: {
   channelId: string;
-  activityIdByChannelId?: ReadonlyMap<string, string>;
-  /** Optional trusted timestamp when message list is unavailable for this surface. */
-  fallbackLastMessageAt?: string;
+  /** Server-authoritative ms epoch per channel. */
+  lastActivityAtMsByChannelId?: ReadonlyMap<string, number>;
   getMessages?: (channelId: string) => readonly MsgLike[] | undefined;
 }): ActivityRank {
-  const {
-    channelId,
-    activityIdByChannelId,
-    fallbackLastMessageAt,
-    getMessages,
-  } = input;
-  const listMessageTime = getMessages
+  const { channelId, lastActivityAtMsByChannelId, getMessages } = input;
+  const fromServer = lastActivityAtMsByChannelId?.get(channelId) ?? 0;
+  // Local message arrival ahead of the server `dm:activity` re-emit: keep parity so
+  // optimistic sends move the row to top immediately. Server bumps converge later.
+  const fromLocal = getMessages
     ? latestMessageTimeForChannel(channelId, getMessages)
     : 0;
-  const fallbackMessageTime = parseMessageTime(fallbackLastMessageAt);
-  const actId = activityIdByChannelId?.get(channelId)?.trim() ?? '';
-  const fromActivityId = actId ? approxMsFromEchoActivityId(actId) : 0;
-  return {
-    messageTime: Math.max(listMessageTime, fallbackMessageTime, fromActivityId),
-    activityId: actId,
-  };
+  const ms = Math.max(fromServer, fromLocal);
+  return ms > 0 ? { ms } : ZERO_RANK;
 }
 
 function latestTimeForPeerMessage(
@@ -127,9 +90,9 @@ function latestTimeForPeerMessage(
   messageKeys: readonly string[],
   echoPeerByChannelId: ReadonlyMap<string, string>,
   getMessages: (channelId: string) => readonly MsgLike[] | undefined,
-  activityIdByChannelId: ReadonlyMap<string, string>,
+  lastActivityAtMsByChannelId: ReadonlyMap<string, number>,
 ): ActivityRank {
-  let rank: ActivityRank = { messageTime: 0, activityId: '' };
+  let best = 0;
   const candidateChannelIds = new Set<string>([
     ...messageKeys,
     ...echoPeerByChannelId.keys(),
@@ -140,14 +103,12 @@ function latestTimeForPeerMessage(
     }
     const next = activityRankForChannel({
       channelId,
-      activityIdByChannelId,
+      lastActivityAtMsByChannelId,
       getMessages,
     });
-    if (compareActivityRankDesc(next, rank) < 0) {
-      rank = next;
-    }
+    if (next.ms > best) best = next.ms;
   }
-  return rank;
+  return best > 0 ? { ms: best } : ZERO_RANK;
 }
 
 export function dmPeerUserIdFromChannelId(
@@ -192,7 +153,8 @@ function dmUnreadCountForPeerUser(
 export function buildDmPanelUserList(input: {
   selfId: string;
   echoPeerByChannelId: ReadonlyMap<string, string>;
-  activityIdByChannelId?: ReadonlyMap<string, string>;
+  /** Server-authoritative ms epoch per channel id. The ONLY ordering source. */
+  lastActivityAtMsByChannelId?: ReadonlyMap<string, number>;
   messageKeys: string[];
   getMessages: (channelId: string) => readonly MsgLike[] | undefined;
   usersById: ReadonlyMap<string, UserLike>;
@@ -201,22 +163,23 @@ export function buildDmPanelUserList(input: {
   const {
     selfId,
     echoPeerByChannelId,
-    activityIdByChannelId = new Map<string, string>(),
+    lastActivityAtMsByChannelId = new Map<string, number>(),
     messageKeys,
     getMessages,
     usersById,
     selectedDmUserId,
   } = input;
 
+  const me = selfId.trim();
   const peerIds = new Set<string>();
   for (const peer of echoPeerByChannelId.values()) {
-    if (peer && peer !== selfId) peerIds.add(peer);
+    if (peer && peer !== me) peerIds.add(peer);
   }
   for (const channelId of messageKeys) {
     const p = dmPeerUserIdFromChannelId(channelId, echoPeerByChannelId);
-    if (p && p !== selfId) peerIds.add(p);
+    if (p && p !== me) peerIds.add(p);
   }
-  if (selectedDmUserId && selectedDmUserId !== selfId) {
+  if (selectedDmUserId && selectedDmUserId.trim() !== me) {
     peerIds.add(selectedDmUserId);
   }
 
@@ -247,7 +210,7 @@ export function buildDmPanelUserList(input: {
         messageKeys,
         echoPeerByChannelId,
         getMessages,
-        activityIdByChannelId,
+        lastActivityAtMsByChannelId,
       ),
     );
   }
@@ -278,12 +241,14 @@ export type DmPanelInboxGroupEntry = {
 export type DmPanelInboxEntry = DmPanelInboxUserEntry | DmPanelInboxGroupEntry;
 
 /**
- * 1:1 + group DM rows for the Messages tab, sorted by latest activity (same basis as 1:1-only list).
+ * 1:1 + group DM rows for the Messages tab, sorted by **`lastActivityAt` desc** only.
+ * See module-level docstring for the activity-source policy.
  */
 export function buildDmPanelInboxList(input: {
   selfId: string;
   echoPeerByChannelId: ReadonlyMap<string, string>;
-  activityIdByChannelId?: ReadonlyMap<string, string>;
+  /** Server-authoritative ms epoch per channel id. The ONLY ordering source. */
+  lastActivityAtMsByChannelId?: ReadonlyMap<string, number>;
   messageKeys: string[];
   getMessages: (channelId: string) => readonly MsgLike[] | undefined;
   usersById: ReadonlyMap<string, UserLike>;
@@ -293,30 +258,69 @@ export function buildDmPanelInboxList(input: {
   activeInboxChannelId: string;
   /** From `attention:update` - keyed by DM / group DM channel id. */
   dmUnreadByChannelId?: ReadonlyMap<string, number>;
+  /**
+   * Persisted cold-start fallback ms-epoch timestamps from the last rendered order,
+   * keyed by peer user id (1:1) and channel id (group). Used ONLY before any live
+   * activity data has arrived, so cold start renders in real chronological order
+   * rather than alphabetical / arbitrary.
+   */
+  fallbackRankMsByKey?: ReadonlyMap<string, number>;
 }): DmPanelInboxEntry[] {
   const userRows = buildDmPanelUserList({
     selfId: input.selfId,
     echoPeerByChannelId: input.echoPeerByChannelId,
-    activityIdByChannelId: input.activityIdByChannelId,
+    lastActivityAtMsByChannelId: input.lastActivityAtMsByChannelId,
     messageKeys: input.messageKeys,
     getMessages: input.getMessages,
     usersById: input.usersById,
     selectedDmUserId: input.selectedDmUserId,
   });
 
-  const activityIdByChannelId =
-    input.activityIdByChannelId ?? new Map<string, string>();
+  const lastActivityAtMsByChannelId =
+    input.lastActivityAtMsByChannelId ?? new Map<string, number>();
   type Stamped = { entry: DmPanelInboxEntry; rank: ActivityRank; name: string };
   const stamped: Stamped[] = [];
 
+  const fallback = input.fallbackRankMsByKey;
+
+  const selfTrim = input.selfId?.trim() ?? '';
+  if (selfTrim) {
+    const uSelf = input.usersById.get(selfTrim);
+    const selfUnread = dmUnreadCountForPeerUser(
+      selfTrim,
+      input.echoPeerByChannelId,
+      input.dmUnreadByChannelId,
+    );
+    stamped.push({
+      entry: {
+        kind: 'user',
+        id: selfTrim,
+        name: 'You',
+        pfp: uSelf?.pfp ?? '',
+        ...(uSelf?.status ? { status: uSelf.status } : {}),
+        ...(uSelf?.customStatus
+          ? { customStatus: uSelf.customStatus }
+          : {}),
+        ...(selfUnread > 0 ? { unreadDmCount: selfUnread } : {}),
+      },
+      rank: { ms: SELF_DM_INBOX_SORT_RANK_MS },
+      name: 'You',
+    });
+  }
+
   for (const row of userRows) {
-    const rank = latestTimeForPeerMessage(
+    const liveRank = latestTimeForPeerMessage(
       row.id,
       input.messageKeys,
       input.echoPeerByChannelId,
       input.getMessages,
-      activityIdByChannelId,
+      lastActivityAtMsByChannelId,
     );
+    // Apply persisted fallback only when no live data has arrived for this peer yet.
+    const rank: ActivityRank =
+      liveRank.ms === 0 && fallback
+        ? { ms: fallback.get(row.id) ?? 0 }
+        : liveRank;
     const unreadDmCount = dmUnreadCountForPeerUser(
       row.id,
       input.echoPeerByChannelId,
@@ -334,11 +338,15 @@ export function buildDmPanelInboxList(input: {
   }
 
   for (const g of input.groups) {
-    const rank = activityRankForChannel({
+    const liveRank = activityRankForChannel({
       channelId: g.id,
-      activityIdByChannelId,
+      lastActivityAtMsByChannelId,
       getMessages: input.getMessages,
     });
+    const rank: ActivityRank =
+      liveRank.ms === 0 && fallback
+        ? { ms: fallback.get(g.id) ?? 0 }
+        : liveRank;
     const gUnread = input.dmUnreadByChannelId?.get(g.id) ?? 0;
     stamped.push({
       entry: {
@@ -360,6 +368,23 @@ export function buildDmPanelInboxList(input: {
   });
 
   return stamped.map((s) => s.entry);
+}
+
+/**
+ * After favorites / visibility ordering, keep the **You** (self-DM) row first (Slack-style).
+ */
+export function pinSelfDmInboxEntryFirst(
+  entries: readonly DmPanelInboxEntry[],
+  selfId: string | undefined,
+): DmPanelInboxEntry[] {
+  const sid = selfId?.trim();
+  if (!sid) return [...entries];
+  const idx = entries.findIndex((e) => e.kind === 'user' && e.id === sid);
+  if (idx <= 0) return [...entries];
+  const out = [...entries];
+  const [row] = out.splice(idx, 1);
+  out.unshift(row);
+  return out;
 }
 
 /** Matches {@link useAppLayoutMessageActions#getLatestDMUserId} for DM rail "open latest" behavior. */

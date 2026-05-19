@@ -189,10 +189,8 @@ function submitCreate() {
       name,
       importFromDiscord: true,
       discordGuildId: gid,
-      discordPostImportSyncAllChannels:
-        discordPostImportSyncAllChannels.value,
-      discordPostImportRecentMessages:
-        discordPostImportRecentMessages.value,
+      discordPostImportSyncAllChannels: discordPostImportSyncAllChannels.value,
+      discordPostImportRecentMessages: discordPostImportRecentMessages.value,
     });
   } else {
     if (newServerIconFile.value) {
@@ -745,8 +743,12 @@ const discordBotWaitStatusLine = computed(() => {
                 autocomplete="organization"
                 @keydown.enter.prevent="submitCreate"
               />
-              <div class="mt-6 space-y-3 rounded-xl bg-scrim-1 p-4 text-left ring-1 ring-white/8">
-                <div class="text-xs font-semibold uppercase tracking-[0.14em] text-fg-subtle">
+              <div
+                class="mt-6 space-y-3 rounded-xl bg-scrim-1 p-4 text-left ring-1 ring-white/8"
+              >
+                <div
+                  class="text-xs font-semibold uppercase tracking-[0.14em] text-fg-subtle"
+                >
                   After import
                 </div>
                 <label
@@ -760,9 +762,9 @@ const discordBotWaitStatusLine = computed(() => {
                   />
                   <span>
                     <span class="font-medium text-fg">Sync all channels</span>
-                    — turn on the Discord ↔ Echo message bridge for every imported
-                    text and forum channel, and enable the voice mirror for every
-                    imported voice room (including stage channels).
+                    — turn on the Discord ↔ Echo message bridge for every
+                    imported text and forum channel, and enable the voice mirror
+                    for every imported voice room (including stage channels).
                   </span>
                 </label>
                 <label
@@ -778,8 +780,8 @@ const discordBotWaitStatusLine = computed(() => {
                     <span class="font-medium text-fg"
                       >Import the last 90 messages</span
                     >
-                    into each empty text or forum channel. Runs one channel at a time
-                    with pauses to stay kind to Discord rate limits.
+                    into each empty text or forum channel. Runs one channel at a
+                    time with pauses to stay kind to Discord rate limits.
                   </span>
                 </label>
               </div>

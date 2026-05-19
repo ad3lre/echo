@@ -48,7 +48,9 @@ const emit = defineEmits<{
           />
         </button>
       </div>
-      <div class="mb-3 flex flex-col items-center gap-1 border-b border-[var(--border)] pb-3">
+      <div
+        class="mb-3 flex flex-col items-center gap-1 border-b border-[var(--border)] pb-3"
+      >
         <div
           class="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-glass-1 text-[10px] font-bold text-fg"
           :title="serverName"
@@ -115,7 +117,11 @@ const emit = defineEmits<{
       >
         You don’t have permission to change this server’s settings.
       </div>
-      <div v-for="group in visibleSectionGroups" :key="group.label" class="mb-5">
+      <div
+        v-for="group in visibleSectionGroups"
+        :key="group.label"
+        class="mb-5"
+      >
         <div
           class="server-settings-nav-section-label truncate px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
         >

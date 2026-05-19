@@ -29,8 +29,10 @@ export const SECTION_COPY: Record<ServerSettingsSection, string> = {
     'Configure verification gates and guest access for who can participate.',
   Access:
     'Control who can discover and join this server, plus optional join applications and waitlist.',
+  Automod:
+    'Define custom AutoMod rules—conditions and actions—that run in order after the built-in spam filter.',
   Moderation:
-    'Tune anti-raid protection, content filters, and AutoMod defaults.',
+    'Tune anti-raid protection, content filters, and built-in moderation defaults (spam filter, mentions).',
   'Audit Log':
     'Review administrative actions and moderation events across your server.',
   Bans: 'Review banned members, reasons, and moderation ownership.',

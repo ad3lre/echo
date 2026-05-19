@@ -1,5 +1,8 @@
 import type { Pool } from 'pg';
-import { resolveDiscordAvatarForStorage } from './discordNormalized';
+import {
+  discordAvatarIdentityKey,
+  resolveDiscordAvatarForStorage,
+} from './discordNormalized';
 import { nextEchoSnowflakeId } from './echoSnowflake';
 import { addEchoServerMember } from './echoStore/servers';
 
@@ -141,20 +144,50 @@ export async function ensureEchoUserForDiscordMember(
       existingShadow.rows[0].pfp != null
         ? String(existingShadow.rows[0].pfp).trim()
         : '';
-    const resolvedPfp = resolveDiscordAvatarForStorage(
-      discordUserId,
-      author.avatar,
-    );
-    const storedLooksLikeUrl = /^https?:\/\//i.test(storedPfp);
-    if (resolvedPfp && !storedLooksLikeUrl) {
-      await pool.query(`UPDATE auth_users SET pfp = $2 WHERE id = $1`, [
-        sid,
-        resolvedPfp,
-      ]);
-      await pool.query(
-        `UPDATE echo_discord_shadow_users SET avatar_url = $2 WHERE shadow_user_id = $1`,
-        [sid, resolvedPfp],
-      );
+    /**
+     * Only apply Discord avatar data when the payload includes `avatar` (string or null).
+     * If the field is omitted, do not derive a default from `undefined` — that would wipe a
+     * valid stored avatar when partial author objects are passed.
+     */
+    const hasExplicitDiscordAvatar =
+      typeof author.avatar === 'string' || author.avatar === null;
+    const resolvedPfp = hasExplicitDiscordAvatar
+      ? resolveDiscordAvatarForStorage(
+          discordUserId,
+          author.avatar as string | null,
+        )
+      : '';
+    if (hasExplicitDiscordAvatar && resolvedPfp) {
+      const before = discordAvatarIdentityKey(discordUserId, storedPfp);
+      const after = discordAvatarIdentityKey(discordUserId, resolvedPfp);
+      if (before !== after) {
+        await pool.query(`UPDATE auth_users SET pfp = $2 WHERE id = $1`, [
+          sid,
+          resolvedPfp,
+        ]);
+        await pool.query(
+          `UPDATE echo_discord_shadow_users SET avatar_url = $2 WHERE shadow_user_id = $1`,
+          [sid, resolvedPfp],
+        );
+      }
+    } else if (!hasExplicitDiscordAvatar) {
+      const storedLooksLikeUrl = /^https?:\/\//i.test(storedPfp);
+      if (!storedLooksLikeUrl && storedPfp) {
+        const materialized = resolveDiscordAvatarForStorage(
+          discordUserId,
+          storedPfp,
+        );
+        if (materialized) {
+          await pool.query(`UPDATE auth_users SET pfp = $2 WHERE id = $1`, [
+            sid,
+            materialized,
+          ]);
+          await pool.query(
+            `UPDATE echo_discord_shadow_users SET avatar_url = $2 WHERE shadow_user_id = $1`,
+            [sid, materialized],
+          );
+        }
+      }
     }
     if (hasGuildMemberNickField(author)) {
       const dn = resolveDiscordShadowDisplayName(author);

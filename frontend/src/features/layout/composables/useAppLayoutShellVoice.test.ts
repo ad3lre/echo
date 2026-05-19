@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 import { useAppLayoutShellVoice } from './useAppLayoutShellVoice';
 
@@ -70,6 +70,10 @@ vi.mock('./useServerVoiceSession', () => ({
     stopScreenShare: vi.fn(),
     getLocalScreenTrack: vi.fn(() => null),
     getLocalCameraTrack: vi.fn(() => null),
+    vcYoutubeRemotePlayback: shallowRef(null),
+    publishVcYoutubePlaybackSync: vi.fn(),
+    vcYoutubePlaybackShouldPublish: computed(() => true),
+    effectiveVcActivityKingUserId: computed(() => ''),
   }),
 }));
 
@@ -147,6 +151,7 @@ describe('useAppLayoutShellVoice', () => {
         codenamesRoomUrl: null,
       }),
       applyVcYoutubeWatchTogetherRemote: vi.fn(),
+      closeVcActivity: vi.fn(),
     });
 
     await shellVoice.handleJoinVoiceNavigation({
@@ -234,6 +239,7 @@ describe('useAppLayoutShellVoice', () => {
         codenamesRoomUrl: null,
       }),
       applyVcYoutubeWatchTogetherRemote: vi.fn(),
+      closeVcActivity: vi.fn(),
     });
 
     shellVoice.handleLeaveVoiceNavigation();

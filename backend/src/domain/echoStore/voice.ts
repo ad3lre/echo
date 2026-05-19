@@ -303,6 +303,11 @@ export async function applyEchoVoiceModerationAction(
     String(ch.rows[0].type) !== 'voice'
   )
     return 'not_found';
+  const vp = await pool.query(
+    `SELECT 1 FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+    [serverId, targetUserId],
+  );
+  if (!vp.rows[0]) return 'not_found';
   const actorTargetPerms = await getEffectiveChannelPermissions(
     pool,
     serverId,
@@ -315,9 +320,10 @@ export async function applyEchoVoiceModerationAction(
   ) {
     return 'forbidden';
   }
-  await pool.query(
+  const upd = await pool.query(
     `UPDATE echo_voice_participants SET channel_id = $1, joined_at = NOW() WHERE server_id = $2 AND user_id = $3`,
     [targetChannelId, serverId, targetUserId],
   );
+  if (upd.rowCount === 0) return 'not_found';
   return 'ok';
 }

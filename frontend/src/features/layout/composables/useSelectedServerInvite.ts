@@ -60,7 +60,8 @@ function formatDirectInviteError(error: unknown): string {
   if (error instanceof EchoApiError) {
     const m = error.message.trim();
     if (m) return m;
-    if (error.status === 403) return 'You do not have permission to create this link.';
+    if (error.status === 403)
+      return 'You do not have permission to create this link.';
   }
   return 'Could not create direct invite. Try again.';
 }
@@ -107,7 +108,8 @@ export function useSelectedServerInvite(deps: {
       fromStore.applicationsEnabled === true ||
       fromWs.applicationsEnabled === true;
     merged.inviteJoinEnabled =
-      fromStore.inviteJoinEnabled === false || fromWs.inviteJoinEnabled === false
+      fromStore.inviteJoinEnabled === false ||
+      fromWs.inviteJoinEnabled === false
         ? false
         : true;
     return merged;
@@ -159,8 +161,7 @@ export function useSelectedServerInvite(deps: {
       const r = await postEchoServerInviteCode(token, sid, {
         skipsApplication: true,
       });
-      const raw =
-        typeof r.inviteUrl === 'string' ? r.inviteUrl.trim() : '';
+      const raw = typeof r.inviteUrl === 'string' ? r.inviteUrl.trim() : '';
       const resolved = resolveInviteUrlFromApi(raw);
       directHexInviteLink.value = appendVoiceToEchoInviteShareUrl(
         resolved,

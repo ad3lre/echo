@@ -125,53 +125,83 @@ export function useChannelPanelVoiceState(options: VoiceStateOptions) {
 
   const categoriesList = computed(() => unref(options.categories));
 
-  /** Only shallow-clone the category that contains the active voice channel; avoids remapping the whole tree. */
+  /**
+   * Workspace `voiceParticipantIds` can lag on moves (add to new VC before remove from old).
+   * The client already knows `currentVoiceChannelId`, so treat that as membership authority
+   * for **self**: strip the current user from every other voice channel’s roster for display.
+   */
   const effectiveCategories = computed(() => {
     const list = categoriesList.value;
-    const vcId = options.getCurrentVoiceChannelId();
-    const uid = options.getCurrentUserId();
+    const vcId = (options.getCurrentVoiceChannelId() ?? '').trim();
+    const uid = (options.getCurrentUserId() ?? '').trim();
     if (!vcId || !uid) return list;
 
-    for (let ci = 0; ci < list.length; ci++) {
-      const cat = list[ci]!;
-      const chIdx = cat.channels.findIndex(
-        (ch) => ch.id === vcId && ch.type === 'voice',
-      );
-      if (chIdx < 0) continue;
+    const lk = options.getLiveKitVoiceFilter?.();
+    const lkForCurrent =
+      lk && vcId === (lk.channelId ?? '').trim() ? lk : null;
 
-      const ch = cat.channels[chIdx]!;
-      const base = (ch as ChannelWithParticipants).voiceParticipantIds ?? [];
-      let ids = base.includes(uid) ? base : [...base, uid];
-      const lk = options.getLiveKitVoiceFilter?.();
-      if (lk && vcId === lk.channelId) {
-        ids = canonicalVoiceParticipantIdsForLiveKitRoom(ids, {
-          remoteIdentities: lk.remoteIdentities,
-          currentUserId: lk.currentUserId,
-          liveKitConnected: true,
-          channelMatches: vcId === lk.channelId,
+    const out: typeof list = [];
+    let anyChange = false;
+
+    for (const cat of list) {
+      const nextChannels: ChannelWithParticipants[] = [];
+      let catChanged = false;
+
+      for (const ch of cat.channels) {
+        if (ch.type !== 'voice') {
+          nextChannels.push(ch as ChannelWithParticipants);
+          continue;
+        }
+        const cwp = ch as ChannelWithParticipants;
+        if (cwp.id !== vcId) {
+          const base = cwp.voiceParticipantIds ?? [];
+          if (!base.includes(uid)) {
+            nextChannels.push(cwp);
+            continue;
+          }
+          catChanged = true;
+          anyChange = true;
+          nextChannels.push({
+            ...cwp,
+            voiceParticipantIds: base.filter((id) => id !== uid),
+          });
+          continue;
+        }
+
+        const base = cwp.voiceParticipantIds ?? [];
+        let ids = base.includes(uid) ? base : [...base, uid];
+        if (lkForCurrent) {
+          ids = canonicalVoiceParticipantIdsForLiveKitRoom(ids, {
+            remoteIdentities: lkForCurrent.remoteIdentities,
+            currentUserId: lkForCurrent.currentUserId,
+            liveKitConnected: true,
+            channelMatches: true,
+          });
+        }
+        const sorted = [...ids].sort((a, b) => {
+          const ra = getVoiceParticipantSortRank(a);
+          const rb = getVoiceParticipantSortRank(b);
+          if (ra !== rb) return rb - ra;
+          const ua = getUserById(a)?.name ?? '';
+          const ub = getUserById(b)?.name ?? '';
+          return ua.localeCompare(ub);
+        });
+        catChanged = true;
+        anyChange = true;
+        nextChannels.push({
+          ...cwp,
+          voiceParticipantIds: sorted,
         });
       }
-      const sorted = [...ids].sort((a, b) => {
-        const ra = getVoiceParticipantSortRank(a);
-        const rb = getVoiceParticipantSortRank(b);
-        if (ra !== rb) return rb - ra;
-        const ua = getUserById(a)?.name ?? '';
-        const ub = getUserById(b)?.name ?? '';
-        return ua.localeCompare(ub);
-      });
-      const updatedCh = {
-        ...ch,
-        voiceParticipantIds: sorted,
-      } as ChannelWithParticipants;
-      const newChannels = cat.channels.slice();
-      newChannels[chIdx] = updatedCh;
-      const newCat = { ...cat, channels: newChannels };
-      const out = list.slice();
-      out[ci] = newCat;
-      return out;
+
+      if (!catChanged) {
+        out.push(cat);
+      } else {
+        out.push({ ...cat, channels: nextChannels });
+      }
     }
 
-    return list;
+    return anyChange ? out : list;
   });
 
   return {

@@ -59,6 +59,8 @@ function schemaErrorToHttp(code: AutomodSchemaErrorCode): string {
   switch (code) {
     case 'regex_requires_re2':
       return 'Regex conditions require the RE2 module on this server.';
+    case 'alert_requires_log_channel':
+      return 'Log channel alert requires a log / alert channel on the rule.';
     default:
       return 'Invalid AutoMod rule payload';
   }
@@ -148,7 +150,9 @@ export default async function echoAutomodRoutes(
         ? body.exemptRoleIds.filter((x): x is string => typeof x === 'string')
         : [];
       const exemptChannelIds = Array.isArray(body.exemptChannelIds)
-        ? body.exemptChannelIds.filter((x): x is string => typeof x === 'string')
+        ? body.exemptChannelIds.filter(
+            (x): x is string => typeof x === 'string',
+          )
         : [];
       const logChannelId =
         typeof body.logChannelId === 'string' && body.logChannelId.trim()
@@ -162,14 +166,11 @@ export default async function echoAutomodRoutes(
         exemptChannelIds,
         logChannelId,
       };
-      const v = validateAutomodRuleDraft(draft);
+      const v = validateAutomodRuleDraft(draft, {
+        requireAlertLogChannel: true,
+      });
       if (!v.ok)
-        return sendError(
-          reply,
-          400,
-          'INVALID_BODY',
-          schemaErrorToHttp(v.code),
-        );
+        return sendError(reply, 400, 'INVALID_BODY', schemaErrorToHttp(v.code));
       const existing = await listEchoAutomodRulesForServer(pool, sid);
       const position = existing.length;
       try {
@@ -289,14 +290,11 @@ export default async function echoAutomodRoutes(
         exemptChannelIds,
         logChannelId,
       };
-      const v = validateAutomodRuleDraft(draft);
+      const v = validateAutomodRuleDraft(draft, {
+        requireAlertLogChannel: true,
+      });
       if (!v.ok)
-        return sendError(
-          reply,
-          400,
-          'INVALID_BODY',
-          schemaErrorToHttp(v.code),
-        );
+        return sendError(reply, 400, 'INVALID_BODY', schemaErrorToHttp(v.code));
 
       const patch: Parameters<typeof updateEchoAutomodRule>[3] = {};
       if (typeof body.name === 'string') patch.name = body.name;
@@ -304,10 +302,10 @@ export default async function echoAutomodRoutes(
       if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
       if (typeof body.triggerType === 'string')
         patch.triggerType = body.triggerType;
-      if (body.conditionTree !== undefined)
-        patch.conditionTree = conditionTree;
+      if (body.conditionTree !== undefined) patch.conditionTree = conditionTree;
       if (body.actions !== undefined) patch.actions = actions;
-      if (Array.isArray(body.exemptRoleIds)) patch.exemptRoleIds = exemptRoleIds;
+      if (Array.isArray(body.exemptRoleIds))
+        patch.exemptRoleIds = exemptRoleIds;
       if (Array.isArray(body.exemptChannelIds))
         patch.exemptChannelIds = exemptChannelIds;
       if (body.logChannelId !== undefined) patch.logChannelId = logChannelId;
@@ -365,8 +363,7 @@ export default async function echoAutomodRoutes(
         return sendError(reply, 403, 'FORBIDDEN', 'MANAGE_GUILD required');
       const ids = Array.isArray(req.body?.orderedIds)
         ? req.body!.orderedIds!.filter(
-            (x): x is string =>
-              typeof x === 'string' && x.trim().length > 0,
+            (x): x is string => typeof x === 'string' && x.trim().length > 0,
           )
         : [];
       if (ids.length === 0)
@@ -401,20 +398,18 @@ export default async function echoAutomodRoutes(
       const rule = await getEchoAutomodRuleById(pool, sid, ruleId);
       if (!rule) return sendError(reply, 404, 'NOT_FOUND', 'Rule not found');
       const sampleContent =
-        typeof req.body?.sampleContent === 'string' ? req.body.sampleContent : '';
+        typeof req.body?.sampleContent === 'string'
+          ? req.body.sampleContent
+          : '';
       const sampleChannelId =
         typeof req.body?.sampleChannelId === 'string'
           ? req.body.sampleChannelId.trim()
-          : rule.exemptChannelIds[0] ?? '';
+          : (rule.exemptChannelIds[0] ?? '');
       const sampleRoles = Array.isArray(req.body?.sampleAuthorRoleIds)
         ? (req.body!.sampleAuthorRoleIds as unknown[]).filter(
             (x): x is string => typeof x === 'string',
           )
-        : await listEchoMemberRoleIdsForServerUser(
-            pool,
-            sid,
-            req.authUser!.id,
-          );
+        : await listEchoMemberRoleIdsForServerUser(pool, sid, req.authUser!.id);
       const mentionCount =
         typeof req.body?.mentionCount === 'number' &&
         Number.isFinite(req.body.mentionCount)

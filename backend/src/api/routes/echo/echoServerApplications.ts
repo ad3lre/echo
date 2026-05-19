@@ -80,8 +80,7 @@ export default async function echoServerApplicationsRoutes(
           'Not allowed to manage applications for this server',
         );
       const s = await getEchoServerApplicationSettings(pool, sid);
-      if (!s)
-        return sendError(reply, 404, 'NOT_FOUND', 'Server not found');
+      if (!s) return sendError(reply, 404, 'NOT_FOUND', 'Server not found');
       return reply.code(200).send({
         applicationsEnabled: s.applicationsEnabled,
         applicationForm: echoApplicationFormForClient(s.applicationForm),

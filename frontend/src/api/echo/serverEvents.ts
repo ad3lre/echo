@@ -11,11 +11,13 @@ export type EchoServerEventManagementRow = {
   timezoneLabel: string | null;
   channelId: string | null;
   channelName: string | null;
+  customLocation: string | null;
   status: 'scheduled' | 'cancelled';
   maxAttendees: number | null;
   goingCount: number;
   createdAt: string;
   updatedAt: string;
+  discordScheduledEventId: string | null;
 };
 
 export async function fetchGuildEventsForManagement(
@@ -29,6 +31,11 @@ export async function fetchGuildEventsForManagement(
   return Array.isArray(raw.events) ? raw.events : [];
 }
 
+export type GuildEventDiscordMirrorPayload = {
+  ok: boolean;
+  message?: string;
+};
+
 export async function createGuildEvent(
   token: string,
   serverId: string,
@@ -40,13 +47,19 @@ export async function createGuildEvent(
     endsAt: string;
     timezoneLabel?: string | null;
     channelId?: string | null;
+    customLocation?: string | null;
     maxAttendees?: number | null;
+    mirrorToDiscord?: boolean;
   },
-): Promise<{ id: string }> {
-  return echoFetch<{ id: string }>(token, `/servers/${encodeURIComponent(serverId)}/events`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
+): Promise<{ id: string; discordMirror?: GuildEventDiscordMirrorPayload }> {
+  return echoFetch<{ id: string; discordMirror?: GuildEventDiscordMirrorPayload }>(
+    token,
+    `/servers/${encodeURIComponent(serverId)}/events`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export async function updateGuildEvent(
@@ -61,10 +74,12 @@ export async function updateGuildEvent(
     endsAt: string;
     timezoneLabel: string | null;
     channelId: string | null;
+    customLocation: string | null;
     maxAttendees: number | null;
+    mirrorToDiscord: boolean;
   }>,
-): Promise<void> {
-  await echoFetch<unknown>(
+): Promise<{ discordMirror?: GuildEventDiscordMirrorPayload }> {
+  return echoFetch<{ discordMirror?: GuildEventDiscordMirrorPayload }>(
     token,
     `/servers/${encodeURIComponent(serverId)}/events/${encodeURIComponent(eventId)}`,
     { method: 'PATCH', body: JSON.stringify(body) },

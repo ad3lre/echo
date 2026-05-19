@@ -37,9 +37,12 @@ const props = withDefaults(
     messageMenuItemDisabled?: boolean;
     /** Override trigger button classes (e.g. popout chrome). */
     triggerClass?: string;
+    /** When false, omit the ⋮ control; parent opens the menu via `toggleMenu(anchor)` / `openMenu(anchor)`. */
+    showTrigger?: boolean;
   }>(),
   {
     triggerClass: undefined,
+    showTrigger: true,
     /** Boolean-ish props: omitting `enabled` must stay “on”; bare `boolean?` coerces to false in Vue. */
     enabled: true,
     isFriend: false,
@@ -77,13 +80,15 @@ const menuOpen = ref(false);
 const reportOpen = ref(false);
 const reportReason = ref('');
 const moreBtnRef = ref<HTMLElement | null>(null);
+/** While the menu is open, prefer this element for positioning (e.g. compact-shell full-width trigger). */
+const menuPositionAnchorRef = ref<HTMLElement | null>(null);
 const menuStyle = ref<{ left: string; top: string }>({
   left: '0px',
   top: '0px',
 });
 
 function positionMenu() {
-  const el = moreBtnRef.value;
+  const el = menuPositionAnchorRef.value ?? moreBtnRef.value;
   if (!el) return;
   const r = el.getBoundingClientRect();
   const w = 200;
@@ -100,16 +105,31 @@ function positionMenu() {
   menuStyle.value = { left: `${left}px`, top: `${top}px` };
 }
 
-function toggleMenu() {
+function toggleMenu(anchorEl?: HTMLElement | null) {
   if (!props.enabled) return;
-  menuOpen.value = !menuOpen.value;
   if (menuOpen.value) {
-    void nextTick(() => positionMenu());
+    closeMenu();
+    return;
   }
+  const anchor = anchorEl ?? moreBtnRef.value;
+  if (!anchor) return;
+  menuPositionAnchorRef.value = anchor;
+  menuOpen.value = true;
+  void nextTick(() => positionMenu());
+}
+
+function openMenu(anchorEl?: HTMLElement | null) {
+  if (!props.enabled) return;
+  const anchor = anchorEl ?? moreBtnRef.value;
+  if (!anchor) return;
+  menuPositionAnchorRef.value = anchor;
+  menuOpen.value = true;
+  void nextTick(() => positionMenu());
 }
 
 function closeMenu() {
   menuOpen.value = false;
+  menuPositionAnchorRef.value = null;
 }
 
 function onBlockClick() {
@@ -179,6 +199,8 @@ const MENU_ITEM =
 function onDocClick(ev: MouseEvent) {
   const t = ev.target as Node;
   if (moreBtnRef.value?.contains(t)) return;
+  const el = t instanceof Element ? t : null;
+  if (el?.closest?.('[data-profile-more-menu-anchor]')) return;
   const menu = document.querySelector('[data-profile-more-menu]');
   if (menu?.contains(t)) return;
   closeMenu();
@@ -204,12 +226,16 @@ onUnmounted(() => {
 });
 
 /** Pass user id for copy — parent sets data-profile-user-id on a wrapper. */
-defineExpose({ closeMenu, toggleMenu });
+defineExpose({ closeMenu, toggleMenu, openMenu });
 </script>
 
 <template>
-  <div v-if="enabled" class="relative inline-flex">
+  <div
+    v-if="enabled"
+    :class="showTrigger ? 'relative inline-flex' : 'hidden'"
+  >
     <button
+      v-if="showTrigger"
       ref="moreBtnRef"
       type="button"
       :class="triggerClass ?? 'ep-header-btn ep-header-btn-more'"
@@ -217,7 +243,7 @@ defineExpose({ closeMenu, toggleMenu });
       aria-label="More options"
       aria-haspopup="menu"
       :aria-expanded="menuOpen"
-      @click.stop="toggleMenu"
+      @click.stop="() => toggleMenu()"
     >
       <img
         :src="icons.moreVertical"

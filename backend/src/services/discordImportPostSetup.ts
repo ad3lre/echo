@@ -134,9 +134,15 @@ export async function runDiscordImportPostSetup(
       }
       messages.channelsTried += 1;
       try {
-        const r = await runDiscordMessageImport(pool, serverId, echoChannelId, actorId, {
-          limit: messageLimit,
-        });
+        const r = await runDiscordMessageImport(
+          pool,
+          serverId,
+          echoChannelId,
+          actorId,
+          {
+            limit: messageLimit,
+          },
+        );
         messages.importedTotal += r.importedCount;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -170,12 +176,18 @@ export async function runDiscordImportPostSetup(
       const t = String(ct.rows[0]?.t ?? '');
 
       if (t === 'text' || t === 'forum') {
-        const r = await applyDiscordBridgePut(pool, serverId, echoChannelId, actorId, {
-          inboundEnabled: true,
-          outboundEnabled: true,
-          discordGuildId: guildId,
-          discordChannelId,
-        });
+        const r = await applyDiscordBridgePut(
+          pool,
+          serverId,
+          echoChannelId,
+          actorId,
+          {
+            inboundEnabled: true,
+            outboundEnabled: true,
+            discordGuildId: guildId,
+            discordChannelId,
+          },
+        );
         if (r.ok) {
           bridges.applied += 1;
         } else if (r.error.code === 'FORBIDDEN') {

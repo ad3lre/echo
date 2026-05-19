@@ -19,7 +19,9 @@ import type { EchoMessageRow } from '../domain/echoMessagesDal';
 import type { EchoPollStoredDefinition } from '../domain/echoPollVotesDal';
 import { mergePollVotesIntoDefinition } from '../domain/echoPollVotesDal';
 import {
+  bumpEchoDmThreadActivity,
   getEchoChannelServerId,
+  ECHO_DM_REALM_SERVER_ID,
   getEchoMessageById,
   getEchoMessageCreatedAtById,
   incrementEchoEmojiUsage,
@@ -558,6 +560,16 @@ export async function echoPersistedMessageCreateAndBroadcast(
   );
   broadcastToEchoChannel(io, channelId, 'message', messageForClients);
   const dmRecipients = await listEchoDmParticipantUserIds(pool, channelId);
+  if (dmRecipients.length > 0) {
+    // Bump the authoritative inbox sort key BEFORE selecting the thread payload so the
+    // resulting `lastActivityAt` reflects this message (and not a stale older value).
+    await bumpEchoDmThreadActivity(
+      pool,
+      channelId,
+      message.timestamp,
+      'message',
+    );
+  }
   for (const recipientUserId of dmRecipients) {
     if (!recipientUserId) continue;
     const thread = await getEchoDmRealtimeThreadForUser(
@@ -654,4 +666,137 @@ export async function echoPersistedMessageCreateAndBroadcast(
     kind: 'broadcast',
     message: redactPollOnMessage(messageForClients, userId),
   };
+}
+
+/**
+ * Post a plain-text channel (or DM) message as the server owner for AutoMod notices.
+ * Skips Discord outbound mirror and link-embed resolution. Validates guild channel server
+ * or DM channel participation for the owner actor.
+ */
+export async function echoAutomodPostOwnerChannelNotice(
+  pool: pg.Pool,
+  io: Server | undefined,
+  log: FastifyBaseLogger,
+  input: {
+    /** Real guild id (automod context); used to validate guild text channels. */
+    guildServerId: string;
+    targetChannelId: string;
+    ownerActorId: string;
+    content: string;
+    correlationId: string;
+  },
+): Promise<{ ok: true; messageId: string } | { ok: false; reason: string }> {
+  const content = String(input.content ?? '').trim();
+  if (!content) return { ok: false, reason: 'empty_content' };
+
+  const chanServer = await getEchoChannelServerId(pool, input.targetChannelId);
+  if (!chanServer) return { ok: false, reason: 'unknown_channel' };
+
+  if (chanServer === ECHO_DM_REALM_SERVER_ID) {
+    const participants = await listEchoDmParticipantUserIds(
+      pool,
+      input.targetChannelId,
+    );
+    if (!participants.includes(input.ownerActorId)) {
+      return { ok: false, reason: 'dm_owner_not_participant' };
+    }
+  } else if (chanServer !== input.guildServerId) {
+    return { ok: false, reason: 'wrong_server' };
+  }
+
+  const messageId = nextEchoSnowflakeId();
+  try {
+    await insertEchoMessage(pool, {
+      id: messageId,
+      channelId: input.targetChannelId,
+      authorId: input.ownerActorId,
+      content,
+      searchIndexText: content,
+      messageFormatVersion: 1,
+      contentSchemaVersion: 1,
+      bridgeSource: 'automod_notice',
+    });
+  } catch (e) {
+    log.warn(
+      {
+        err: e,
+        msg: 'echo.automod.notice_insert_failed',
+        correlationId: input.correlationId,
+        channelId: input.targetChannelId,
+      },
+      'AutoMod notice insert failed',
+    );
+    return { ok: false, reason: 'insert_failed' };
+  }
+
+  echoMessagesPersistedTotal.inc({ result: 'inserted' });
+
+  const row = await getEchoMessageById(pool, messageId);
+  if (!row) return { ok: false, reason: 'row_missing' };
+
+  const messageBase = echoRowToMessage(row);
+  const authorSnap = await authorSnapshotForBroadcast(input.ownerActorId);
+  const messageForClients: Message = { ...messageBase, ...authorSnap };
+
+  log.info(
+    {
+      msg: 'echo.automod.notice_broadcast',
+      correlationId: input.correlationId,
+      channelId: input.targetChannelId,
+      messageId,
+    },
+    'Broadcasting AutoMod notice',
+  );
+
+  if (io) {
+    broadcastToEchoChannel(io, input.targetChannelId, 'message', messageForClients);
+  }
+
+  const dmRecipients = await listEchoDmParticipantUserIds(
+    pool,
+    input.targetChannelId,
+  );
+  if (dmRecipients.length > 0) {
+    await bumpEchoDmThreadActivity(
+      pool,
+      input.targetChannelId,
+      new Date(messageForClients.timestamp),
+      'message',
+    );
+    for (const recipientUserId of dmRecipients) {
+      if (!recipientUserId) continue;
+      const thread = await getEchoDmRealtimeThreadForUser(
+        pool,
+        input.targetChannelId,
+        recipientUserId,
+      );
+      if (!thread || !io) continue;
+      io.to(`echo:user:${recipientUserId}`).emit('dm:activity', {
+        thread,
+        message: messageForClients,
+      });
+    }
+    if (io) {
+      void emitEchoAttentionSnapshotsForUsers(pool, io, dmRecipients, log);
+    }
+  } else if (io) {
+    const sid = await getEchoChannelServerId(pool, input.targetChannelId);
+    if (sid && sid !== ECHO_DM_REALM_SERVER_ID) {
+      const members = await listEchoServerMembers(pool, sid);
+      void emitEchoAttentionSnapshotsForUsers(
+        pool,
+        io,
+        members.map((m) => m.userId),
+        log,
+      );
+      botEventBus.emitBotEvent({
+        kind: 'message',
+        channelId: input.targetChannelId,
+        serverId: sid,
+        message: messageForClients,
+      });
+    }
+  }
+
+  return { ok: true, messageId };
 }

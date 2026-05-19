@@ -38,11 +38,7 @@ export function normalizeEchoInvitePreviewPayload(
   if (isRecord(formRaw)) {
     const ver = formRaw.version;
     const qs = formRaw.questions;
-    if (
-      typeof ver === 'number' &&
-      Number.isFinite(ver) &&
-      Array.isArray(qs)
-    ) {
+    if (typeof ver === 'number' && Number.isFinite(ver) && Array.isArray(qs)) {
       applicationForm = {
         version: Math.floor(ver),
         questions: qs.filter(isRecord).map((q): EchoApplicationQuestionDto => {

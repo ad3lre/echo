@@ -313,7 +313,8 @@ function openSelfProfile(event: MouseEvent) {
 </script>
 
 <template>
-  <div
+  <nav
+    aria-label="Servers"
     class="bg-[var(--echo-server-rail-bg)]"
     :class="
       props.layout === 'horizontal'
@@ -426,7 +427,7 @@ function openSelfProfile(event: MouseEvent) {
       @open-self-profile="openSelfProfile"
       @open-bug-report="emit('open-bug-report')"
     />
-  </div>
+  </nav>
 </template>
 
 <style lang="scss">

@@ -49,6 +49,7 @@ export const USER_SETTINGS_SECTION_GROUPS: UserSettingsSectionGroup[] = [
     label: 'App',
     items: [
       'Style',
+      'Accessibility',
       'Desktop',
       'Voice & Video',
       'Keybinds',

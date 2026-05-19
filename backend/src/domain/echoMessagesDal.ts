@@ -1322,10 +1322,22 @@ export type EchoDmThreadListRow = {
   name: string | null;
   memberUserIds: string[] | null;
   lastActivityId: string;
+  /** Authoritative inbox sort key. ISO 8601 UTC. */
+  lastActivityAt: string;
   /** Custom group icon URL/key (echo_channels.icon_key); direct threads omit. */
   groupPfp: string | null;
 };
 
+/**
+ * DM threads visible to `userId`, ordered by **`echo_dm_activity.last_activity_at` DESC**.
+ *
+ * Ordering invariants:
+ * - The only sort key is `last_activity_at`. Snowflakes are NOT used to break recency ties.
+ * - For channels that somehow lack an activity row (defensive fallback only), we fall back
+ *   to channel `created_at` so they sort to roughly the bottom rather than dropping.
+ * - All real activity (message persisted, DM call signaled, friend accepted between the pair,
+ *   group event) bumps `last_activity_at` via {@link bumpEchoDmThreadActivity}.
+ */
 export async function queryEchoDmThreadsForUser(
   pool: pg.Pool,
   userId: string,
@@ -1344,11 +1356,14 @@ export async function queryEchoDmThreadsForUser(
         CASE WHEN d.user_low = $1 THEN d.user_high ELSE d.user_low END AS peer_id,
         'direct'::text AS kind,
         COALESCE(l.mid, d.channel_id) AS sort_key,
+        COALESCE(act.last_activity_at, ch.created_at) AS last_activity_at,
         NULL::text AS group_name,
         NULL::text[] AS member_ids,
         NULL::text AS group_pfp
       FROM echo_dm_threads d
+      INNER JOIN echo_channels ch ON ch.id = d.channel_id
       LEFT JOIN last_msg l ON l.channel_id = d.channel_id
+      LEFT JOIN echo_dm_activity act ON act.channel_id = d.channel_id
       LEFT JOIN echo_dm_message_requests mr ON mr.channel_id = d.channel_id
       WHERE (d.user_low = $1 OR d.user_high = $1)
         AND (
@@ -1363,6 +1378,7 @@ export async function queryEchoDmThreadsForUser(
         NULL::text AS peer_id,
         'group'::text AS kind,
         COALESCE(l.mid, g.channel_id) AS sort_key,
+        COALESCE(act.last_activity_at, ch.created_at) AS last_activity_at,
         ch.name AS group_name,
         ARRAY(
           SELECT gm.user_id FROM echo_group_dm_members gm
@@ -1373,15 +1389,16 @@ export async function queryEchoDmThreadsForUser(
       FROM echo_group_dm_members g
       INNER JOIN echo_channels ch ON ch.id = g.channel_id
       LEFT JOIN last_msg l ON l.channel_id = g.channel_id
+      LEFT JOIN echo_dm_activity act ON act.channel_id = g.channel_id
       WHERE g.user_id = $1
     )
-    SELECT channel_id, peer_id, kind, sort_key, group_name, member_ids, group_pfp
+    SELECT channel_id, peer_id, kind, sort_key, last_activity_at, group_name, member_ids, group_pfp
     FROM (
       SELECT * FROM direct
       UNION ALL
       SELECT * FROM grp
     ) u
-    ORDER BY sort_key DESC
+    ORDER BY last_activity_at DESC, sort_key DESC
     `,
     [userId],
   );
@@ -1396,6 +1413,13 @@ export async function queryEchoDmThreadsForUser(
       kind === 'group' && groupPfpRaw != null && String(groupPfpRaw).trim()
         ? String(groupPfpRaw).trim()
         : null;
+    const rawActivityAt = row.last_activity_at;
+    const lastActivityAt =
+      rawActivityAt instanceof Date
+        ? rawActivityAt.toISOString()
+        : rawActivityAt
+          ? new Date(String(rawActivityAt)).toISOString()
+          : new Date(0).toISOString();
     return {
       channelId: String(row.channel_id),
       peerId: row.peer_id != null ? String(row.peer_id) : null,
@@ -1403,6 +1427,7 @@ export async function queryEchoDmThreadsForUser(
       name: row.group_name != null ? String(row.group_name) : null,
       memberUserIds: kind === 'group' ? memberUserIds : null,
       lastActivityId: String(row.sort_key),
+      lastActivityAt,
       groupPfp,
     };
   });
@@ -1678,7 +1703,9 @@ export async function selectEchoDmRealtimeDirectThreadRow(
   pool: pg.Pool,
   channelId: string,
   userId: string,
-): Promise<{ peer_id: unknown; sort_key: unknown } | undefined> {
+): Promise<
+  { peer_id: unknown; sort_key: unknown; last_activity_at: unknown } | undefined
+> {
   const direct = await pool.query(
     `
     WITH last_msg AS (
@@ -1690,9 +1717,12 @@ export async function selectEchoDmRealtimeDirectThreadRow(
     SELECT
       d.channel_id,
       CASE WHEN d.user_low = $2 THEN d.user_high ELSE d.user_low END AS peer_id,
-      COALESCE(l.mid, d.channel_id) AS sort_key
+      COALESCE(l.mid, d.channel_id) AS sort_key,
+      COALESCE(act.last_activity_at, ch.created_at) AS last_activity_at
     FROM echo_dm_threads d
+    INNER JOIN echo_channels ch ON ch.id = d.channel_id
     LEFT JOIN last_msg l ON l.channel_id = d.channel_id
+    LEFT JOIN echo_dm_activity act ON act.channel_id = d.channel_id
     LEFT JOIN echo_dm_message_requests mr ON mr.channel_id = d.channel_id
     WHERE d.channel_id = $1
       AND (d.user_low = $2 OR d.user_high = $2)
@@ -1705,7 +1735,9 @@ export async function selectEchoDmRealtimeDirectThreadRow(
     `,
     [channelId, userId],
   );
-  return direct.rows[0] as { peer_id: unknown; sort_key: unknown } | undefined;
+  return direct.rows[0] as
+    | { peer_id: unknown; sort_key: unknown; last_activity_at: unknown }
+    | undefined;
 }
 
 /**
@@ -1718,7 +1750,9 @@ export async function selectEchoDmDirectThreadRowForCallSignal(
   pool: pg.Pool,
   channelId: string,
   userId: string,
-): Promise<{ peer_id: unknown; sort_key: unknown } | undefined> {
+): Promise<
+  { peer_id: unknown; sort_key: unknown; last_activity_at: unknown } | undefined
+> {
   const r = await pool.query(
     `
     WITH last_msg AS (
@@ -1730,16 +1764,21 @@ export async function selectEchoDmDirectThreadRowForCallSignal(
     SELECT
       d.channel_id,
       CASE WHEN d.user_low = $2 THEN d.user_high ELSE d.user_low END AS peer_id,
-      COALESCE(l.mid, d.channel_id) AS sort_key
+      COALESCE(l.mid, d.channel_id) AS sort_key,
+      COALESCE(act.last_activity_at, ch.created_at) AS last_activity_at
     FROM echo_dm_threads d
+    INNER JOIN echo_channels ch ON ch.id = d.channel_id
     LEFT JOIN last_msg l ON l.channel_id = d.channel_id
+    LEFT JOIN echo_dm_activity act ON act.channel_id = d.channel_id
     WHERE d.channel_id = $1
       AND (d.user_low = $2 OR d.user_high = $2)
     LIMIT 1
     `,
     [channelId, userId],
   );
-  return r.rows[0] as { peer_id: unknown; sort_key: unknown } | undefined;
+  return r.rows[0] as
+    | { peer_id: unknown; sort_key: unknown; last_activity_at: unknown }
+    | undefined;
 }
 
 export async function selectEchoDmRealtimeGroupThreadRow(
@@ -1751,6 +1790,7 @@ export async function selectEchoDmRealtimeGroupThreadRow(
       channel_id: unknown;
       group_name: unknown;
       sort_key: unknown;
+      last_activity_at: unknown;
       group_icon_key: unknown;
       member_ids: unknown;
     }
@@ -1768,6 +1808,7 @@ export async function selectEchoDmRealtimeGroupThreadRow(
       ch.id AS channel_id,
       ch.name AS group_name,
       COALESCE(l.mid, ch.id) AS sort_key,
+      COALESCE(act.last_activity_at, ch.created_at) AS last_activity_at,
       NULLIF(BTRIM(ch.icon_key), '') AS group_icon_key,
       ARRAY(
         SELECT gm_all.user_id
@@ -1778,6 +1819,7 @@ export async function selectEchoDmRealtimeGroupThreadRow(
     FROM echo_group_dm_members gm
     INNER JOIN echo_channels ch ON ch.id = gm.channel_id
     LEFT JOIN last_msg l ON l.channel_id = ch.id
+    LEFT JOIN echo_dm_activity act ON act.channel_id = ch.id
     WHERE gm.channel_id = $1
       AND gm.user_id = $2
     LIMIT 1
@@ -1789,6 +1831,7 @@ export async function selectEchoDmRealtimeGroupThreadRow(
         channel_id: unknown;
         group_name: unknown;
         sort_key: unknown;
+        last_activity_at: unknown;
         group_icon_key: unknown;
         member_ids: unknown;
       }

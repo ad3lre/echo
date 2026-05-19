@@ -24,6 +24,7 @@ import echoRoutes from './echo';
 import systemDeployCountdownRoutes from './systemDeployCountdown';
 import discordApiRoutes from './discordApi';
 import discordGatewayRoutes from './discordApi/gateway';
+import embedProxyRoutes from './embedProxy';
 import { getAccessUserIdFromAuthHeader } from '../../auth/token';
 import { isEchoApiReadRequest } from '../../bootstrap/echoReadRateLimitPaths';
 import { config } from '../../config';
@@ -82,6 +83,8 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
     },
     { prefix: '/api/v1/echo' },
   );
+  await fastify.register(embedProxyRoutes, { prefix: '/api/v1' });
+
   // Discord-compatible REST API: bots point baseURL here
   await fastify.register(discordApiRoutes, { prefix: '/discord/v10' });
 

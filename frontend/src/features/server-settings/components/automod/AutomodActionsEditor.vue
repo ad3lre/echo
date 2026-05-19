@@ -1,13 +1,23 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { AutomodAction, AutomodDeleteRecentMinutes } from '@shared/types/automod';
+import type {
+  AutomodAction,
+  AutomodDeleteRecentMinutes,
+} from '@shared/types/automod';
 import { AUTOMOD_DELETE_RECENT_MINUTES } from '@shared/types/automod';
 
-const props = defineProps<{
-  modelValue: AutomodAction[];
-  channelOptions: { id: string; name: string }[];
-  roleOptions: { id: string; name: string }[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    modelValue: AutomodAction[];
+    channelOptions: { id: string; name: string }[];
+    roleOptions: { id: string; name: string }[];
+    /** Set from rule editor; required when using log channel alert. */
+    logChannelId?: string | null;
+  }>(),
+  {
+    logChannelId: null,
+  },
+);
 
 const emit = defineEmits<{
   'update:modelValue': [v: AutomodAction[]];
@@ -21,6 +31,10 @@ const hasBlock = computed(() =>
 const hasDeleteRecent = computed(() =>
   props.modelValue.some((a) => a.kind === 'delete_recent_messages'),
 );
+const hasAlertLogChannel = computed(() =>
+  props.modelValue.some((a) => a.kind === 'alert_log_channel'),
+);
+const logChannelOk = computed(() => !!(props.logChannelId ?? '').trim());
 
 function patchAll(next: AutomodAction[]) {
   emit('update:modelValue', next);
@@ -117,9 +131,9 @@ function labelFor(a: AutomodAction): string {
         ? `Ban (+ purge ${a.deleteRecentMessagesHours}h)`
         : 'Ban member';
     case 'warn_user_dm':
-      return 'DM warning';
+      return 'DM warning (owner DM or log)';
     case 'alert_log_channel':
-      return 'Alert log channel';
+      return 'Log channel alert';
     case 'system_notice_in_channel':
       return 'System notice in channel';
     case 'add_role':
@@ -163,6 +177,25 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
 
 <template>
   <div class="space-y-3">
+    <p
+      v-if="hasAlertLogChannel && !logChannelOk"
+      class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+    >
+      Pick a log / alert channel below in “Exemptions &amp; logging” — it is required when this rule
+      includes “Log channel alert”.
+    </p>
+    <p
+      class="rounded-lg border border-border/60 bg-glass-2/40 px-3 py-2 text-[11px] leading-relaxed text-fg-subtle"
+    >
+      Message templates support placeholders:
+      <code class="font-mono text-fg-soft">{ruleName}</code>,
+      <code class="font-mono text-fg-soft">{ruleId}</code>,
+      <code class="font-mono text-fg-soft">{userId}</code>,
+      <code class="font-mono text-fg-soft">{channelId}</code>,
+      <code class="font-mono text-fg-soft">{messageId}</code>,
+      <code class="font-mono text-fg-soft">{correlationId}</code>
+      (empty on blocked sends). Channel notice and alerts post as the server owner.
+    </p>
     <p
       v-if="hasBlock && hasDeleteRecent"
       class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
@@ -232,9 +265,7 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
                   Math.max(
                     1,
                     Math.floor(
-                      Number(
-                        ($event.target as HTMLInputElement).value || '1',
-                      ),
+                      Number(($event.target as HTMLInputElement).value || '1'),
                     ),
                   ),
                 ),
@@ -267,8 +298,7 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
 
       <template
         v-else-if="
-          action.kind === 'warn_user_dm' ||
-          action.kind === 'alert_log_channel'
+          action.kind === 'warn_user_dm' || action.kind === 'alert_log_channel'
         "
       >
         <textarea
@@ -310,11 +340,7 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
             "
           >
             <option value="">Trigger channel</option>
-            <option
-              v-for="ch in channelOptions"
-              :key="ch.id"
-              :value="ch.id"
-            >
+            <option v-for="ch in channelOptions" :key="ch.id" :value="ch.id">
               {{ ch.name }}
             </option>
           </select>
@@ -335,11 +361,7 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
             })
           "
         >
-          <option
-            v-for="ro in roleOptions"
-            :key="ro.id"
-            :value="ro.id"
-          >
+          <option v-for="ro in roleOptions" :key="ro.id" :value="ro.id">
             {{ ro.name }}
           </option>
         </select>
@@ -355,7 +377,11 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
         >
           <option value="">Choose…</option>
           <optgroup
-            v-for="phase in ['Pre-send', 'Post (must succeed)', 'Post (best effort)']"
+            v-for="phase in [
+              'Pre-send',
+              'Post (must succeed)',
+              'Post (best effort)',
+            ]"
             :key="phase"
             :label="phase"
           >

@@ -13,24 +13,15 @@ export function joinPreviewFromInviteDto(
   const voiceName = preview.voiceChannel?.name?.trim();
   const subtitleParts: string[] = [];
   if (voiceName) subtitleParts.push(voiceName);
-  if (preview.memberCount > 0) {
-    subtitleParts.push(
-      `${preview.memberCount.toLocaleString()} member${preview.memberCount === 1 ? '' : 's'}`,
-    );
-  }
-  const description = preview.description?.trim();
+  const descFull = preview.description?.trim() ?? '';
+  const banner = preview.bannerUrl?.trim();
   return {
     serverName: preview.name?.trim() || 'Server',
     iconUrl: preview.iconUrl,
+    ...(banner ? { bannerUrl: banner } : {}),
+    ...(descFull ? { description: descFull } : {}),
     memberCount: preview.memberCount > 0 ? preview.memberCount : undefined,
-    subtitle:
-      subtitleParts.length > 0
-        ? subtitleParts.join(' · ')
-        : description
-          ? description.length > 72
-            ? `${description.slice(0, 69)}…`
-            : description
-          : undefined,
+    subtitle: subtitleParts.length > 0 ? subtitleParts.join(' · ') : undefined,
     isVoiceInvite: opts?.isVoiceInvite ?? !!preview.voiceChannel?.id,
   };
 }
@@ -57,20 +48,31 @@ export function buildDiscoverableJoinConfirmPreview(entry: {
   pfp: string;
   memberCount?: number;
   description?: string;
+  banner?: string;
+  voiceParticipantCount?: number;
 }): JoinServerConfirmPreview {
   const name = entry.name.trim() || 'Server';
   const description = entry.description?.trim();
+  const banner = entry.banner?.trim();
+  const vpc =
+    typeof entry.voiceParticipantCount === 'number' &&
+    Number.isFinite(entry.voiceParticipantCount)
+      ? Math.max(0, Math.floor(entry.voiceParticipantCount))
+      : 0;
   return {
     serverName: name,
     iconUrl: entry.pfp.trim() || undefined,
+    ...(banner ? { bannerUrl: banner } : {}),
+    ...(description ? { description } : {}),
     memberCount:
       entry.memberCount != null && entry.memberCount > 0
         ? entry.memberCount
         : undefined,
-    subtitle: description
-      ? description.length > 72
-        ? `${description.slice(0, 69)}…`
-        : description
-      : undefined,
+    ...(vpc > 0
+      ? {
+          voiceParticipantCount: vpc,
+          subtitle: `${vpc.toLocaleString()} in voice now`,
+        }
+      : {}),
   };
 }

@@ -31,3 +31,37 @@ export function publishEchoWorkspaceEvent(
   }
   botEventBus.emitBotEvent({ kind: 'workspace', payload });
 }
+
+/**
+ * Publish an immediate voice roster delta to all members of a guild server.
+ * This is a Discord-Gateway-style push (like VOICE_STATE_UPDATE) — clients apply it
+ * in-place to their cached `voiceParticipantIds` / mute-deaf maps without a full
+ * workspace refetch. `workspace_invalidated` is still emitted separately as the
+ * eventual-correctness fallback.
+ */
+export function publishVoiceRosterDelta(
+  fastify: FastifyInstance,
+  serverId: string,
+  delta: Omit<
+    NonNullable<EchoWorkspaceEvent['voiceRosterDelta']>,
+    'serverId' | 'workspaceVersion' | 'occurredAt'
+  >,
+  auditVersion: string,
+): void {
+  const occurredAt = new Date().toISOString();
+  publishEchoWorkspaceEvent(
+    fastify,
+    {
+      kind: 'voice_roster_delta',
+      version: auditVersion,
+      serverId,
+      voiceRosterDelta: {
+        ...delta,
+        serverId,
+        workspaceVersion: auditVersion,
+        occurredAt,
+      },
+    },
+    { serverId },
+  );
+}

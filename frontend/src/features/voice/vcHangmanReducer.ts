@@ -1,4 +1,7 @@
-import type { EchoHangmanActivityV1 } from '@/audio/voiceEchoLiveKitData';
+import type {
+  EchoHangmanActivityV1,
+  EchoHangmanGuessHistoryEntryV1,
+} from '@/audio/voiceEchoLiveKitData';
 
 export const VC_HANGMAN_MAX_WRONG = 6;
 export const VC_HANGMAN_MIN_LEN = 2;
@@ -94,6 +97,40 @@ export function computeHangmanGuessOutcome(opts: {
   return { guessedLetters, wrongCount, mask: lastMask, status, answerReveal };
 }
 
+/** Drop spoofed guesser ids not on the roster (empty = legacy / unknown). */
+export function normalizeHangmanGuessHistoryForRoster(
+  guessedLetters: readonly string[],
+  rawHistory: unknown,
+  rosterSorted: readonly string[],
+): EchoHangmanGuessHistoryEntryV1[] {
+  const roster = new Set(
+    rosterSorted.map((x) => String(x).trim()).filter(Boolean),
+  );
+  if (!Array.isArray(rawHistory) || rawHistory.length !== guessedLetters.length) {
+    return guessedLetters.map((letter) => ({ userId: '', letter }));
+  }
+  const out: EchoHangmanGuessHistoryEntryV1[] = [];
+  for (let i = 0; i < guessedLetters.length; i++) {
+    const row = rawHistory[i];
+    const L = guessedLetters[i]!;
+    if (!row || typeof row !== 'object') {
+      return guessedLetters.map((letter) => ({ userId: '', letter }));
+    }
+    const uidRaw = (row as { userId?: unknown }).userId;
+    const chRaw = (row as { letter?: unknown }).letter;
+    let userId =
+      typeof uidRaw === 'string' ? uidRaw.trim().slice(0, 128) : '';
+    const letter =
+      typeof chRaw === 'string' ? chRaw.trim().toUpperCase() : '';
+    if (!/^[A-Z]$/.test(letter) || letter !== L) {
+      return guessedLetters.map((l) => ({ userId: '', letter: l }));
+    }
+    if (userId && !roster.has(userId)) userId = '';
+    out.push({ userId, letter: L });
+  }
+  return out;
+}
+
 export function mergeHangmanPresenceRoster(
   a: readonly string[],
   b: readonly string[],
@@ -133,11 +170,13 @@ export function sanitizeHangmanActivityForMerge(
   if (!Array.isArray(msg.rosterUserIds)) return null;
   const roster = msg.rosterUserIds.map((x) => String(x).trim()).filter(Boolean);
   if (!roster.includes(msg.setterUserId)) return null;
+  const rosterSorted = [...roster].sort((a, b) => a.localeCompare(b));
   if (msg.phase === 'setter_picking') {
     return {
       ...msg,
-      rosterUserIds: [...roster].sort((a, b) => a.localeCompare(b)),
+      rosterUserIds: rosterSorted,
       guessedLetters: [],
+      guessHistory: [],
       wrongCount: 0,
       mask: null,
       roundResult: null,
@@ -146,19 +185,26 @@ export function sanitizeHangmanActivityForMerge(
   }
   if (msg.phase === 'guessing') {
     if (typeof msg.mask !== 'string' || !msg.mask.length) return null;
-    const guessedLetters = Array.isArray(msg.guessedLetters)
+    const guessedLettersRaw = Array.isArray(msg.guessedLetters)
       ? msg.guessedLetters
           .map((x) => String(x).toUpperCase())
           .filter((x) => /^[A-Z]$/.test(x))
       : [];
+    const guessedLetters = [...new Set(guessedLettersRaw)];
+    const guessHistory = normalizeHangmanGuessHistoryForRoster(
+      guessedLetters,
+      msg.guessHistory,
+      rosterSorted,
+    );
     const wrongCount =
       typeof msg.wrongCount === 'number' && Number.isFinite(msg.wrongCount)
         ? Math.max(0, Math.floor(msg.wrongCount))
         : 0;
     return {
       ...msg,
-      rosterUserIds: [...roster].sort((a, b) => a.localeCompare(b)),
-      guessedLetters: [...new Set(guessedLetters)],
+      rosterUserIds: rosterSorted,
+      guessedLetters,
+      guessHistory,
       wrongCount,
       mask: msg.mask,
       roundResult: null,
@@ -174,11 +220,24 @@ export function sanitizeHangmanActivityForMerge(
     const ar =
       typeof msg.answerReveal === 'string' ? msg.answerReveal.trim() : '';
     if (rr === 'lost' && !ar) return null;
+    const guessedLettersRaw = Array.isArray(msg.guessedLetters)
+      ? msg.guessedLetters
+          .map((x) => String(x).toUpperCase())
+          .filter((x) => /^[A-Z]$/.test(x))
+      : [];
+    const guessedLetters = [...new Set(guessedLettersRaw)];
+    const guessHistory = normalizeHangmanGuessHistoryForRoster(
+      guessedLetters,
+      msg.guessHistory,
+      rosterSorted,
+    );
     return {
       ...msg,
-      rosterUserIds: [...roster].sort((a, b) => a.localeCompare(b)),
+      rosterUserIds: rosterSorted,
       roundResult: rr,
       answerReveal: rr === 'lost' ? ar : null,
+      guessedLetters,
+      guessHistory,
     };
   }
   return null;

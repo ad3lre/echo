@@ -13,8 +13,8 @@ import { useFocusTrap } from '@/composables/useFocusTrap';
 import { openExternal } from '@/platform/desktopBridge';
 import { attachmentSaveLinkAttrs } from '@/utils/attachmentSaveLinkAttrs';
 
-const PdfDocumentViewer = defineAsyncComponent(() =>
-  import('./PdfDocumentViewer.vue'),
+const PdfDocumentViewer = defineAsyncComponent(
+  () => import('./PdfDocumentViewer.vue'),
 );
 
 const props = defineProps<{
@@ -39,9 +39,7 @@ function isPdf(att: MessageAttachmentPayload): boolean {
 }
 
 const useNativePdf = computed(
-  () =>
-    !!props.document?.url?.trim() &&
-    isPdf(props.document),
+  () => !!props.document?.url?.trim() && isPdf(props.document),
 );
 
 const iframeSrc = computed(() => {

@@ -119,6 +119,7 @@ function workspaceVisualsFromAuthUser(user: AuthUserPublic) {
     bannerBlackoutEnabled: user.bannerBlackoutEnabled,
     bannerPositionY: user.bannerPositionY,
     status: user.status ?? '',
+    timeZone: user.timeZone ?? null,
   };
 }
 

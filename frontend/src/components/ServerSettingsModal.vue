@@ -35,6 +35,7 @@ import ServerSettingsEmojiSection from '@/features/server-settings/components/Se
 import ServerSettingsSecuritySection from '@/features/server-settings/components/ServerSettingsSecuritySection.vue';
 import ServerSettingsAccessSection from '@/features/server-settings/components/ServerSettingsAccessSection.vue';
 import ServerSettingsModerationSection from '@/features/server-settings/components/ServerSettingsModerationSection.vue';
+import AutomodRulesPanel from '@/features/server-settings/components/automod/AutomodRulesPanel.vue';
 import ServerSettingsAuditLogSection from '@/features/server-settings/components/ServerSettingsAuditLogSection.vue';
 import ServerSettingsBansSection from '@/features/server-settings/components/ServerSettingsBansSection.vue';
 import ServerSettingsDangerZoneSection from '@/features/server-settings/components/ServerSettingsDangerZoneSection.vue';
@@ -612,7 +613,7 @@ async function onModerationPatch(patch: {
       >
         <template v-if="!isCompactShell">
           <div
-            class="flex min-h-0 min-w-0 shrink-0 flex-col self-stretch border-r border-[var(--border)] bg-[var(--srv-sidebar-grad)]"
+            class="relative flex min-h-0 min-w-0 shrink-0 flex-col self-stretch border-r border-[var(--border)] bg-[var(--srv-sidebar-grad)]"
             :style="{
               width: navCollapsed
                 ? '48px'
@@ -641,17 +642,14 @@ async function onModerationPatch(patch: {
                 Icon rail
               </button>
             </div>
-          </div>
 
-          <div
-            v-if="!navCollapsed"
-            class="server-settings-modal__resize-split group relative z-[5] flex w-1.5 shrink-0 cursor-col-resize items-center justify-center"
-            aria-label="Resize settings navigation"
-            @mousedown="startSidebarResize"
-            @dblclick.stop="resetSidebarWidth"
-          >
-            <span
-              class="h-10 w-0.5 rounded-full bg-transparent transition-colors group-hover:bg-glass-active"
+            <div
+              v-if="!navCollapsed"
+              class="pointer-events-auto absolute bottom-0 right-0 top-0 z-[6] w-2 -mr-1 cursor-col-resize"
+              style="background: transparent; border: none"
+              aria-label="Resize settings navigation"
+              @mousedown="startSidebarResize"
+              @dblclick.stop="resetSidebarWidth"
             />
           </div>
         </template>
@@ -785,6 +783,7 @@ async function onModerationPatch(patch: {
                 <ServerSettingsEventsSection
                   v-else-if="activeSection === 'Events'"
                   :server-id="server?.id ?? ''"
+                  :is-discord-imported-server="!!props.isDiscordImportedServer"
                   @echo-workspace-refresh="emit('echo-workspace-refresh')"
                 />
 
@@ -1022,19 +1021,34 @@ async function onModerationPatch(patch: {
                   @echo-workspace-refresh="emit('echo-workspace-refresh')"
                 />
 
+                <div
+                  v-else-if="activeSection === 'Automod'"
+                  class="server-settings-panel-root"
+                >
+                  <AutomodRulesPanel
+                    v-if="isEchoGraphIdLocal(server?.id ?? '')"
+                    :server-id="server?.id ?? ''"
+                    :access-token="accessToken"
+                    :can-manage="!!props.canManageServer"
+                    :structure-categories="props.structureCategories ?? []"
+                    :echo-roles="
+                      roleManagerRoles.map((r) => ({
+                        id: r.id,
+                        name: r.name,
+                      }))
+                    "
+                  />
+                  <div
+                    v-else
+                    class="server-settings-panel rounded-2xl p-5 text-sm text-fg-soft"
+                  >
+                    Custom AutoMod rules are unavailable for this server id.
+                  </div>
+                </div>
+
                 <ServerSettingsModerationSection
                   v-else-if="activeSection === 'Moderation'"
                   :form="form"
-                  :server-id="server?.id ?? ''"
-                  :access-token="accessToken"
-                  :can-manage-server="!!props.canManageServer"
-                  :structure-categories="props.structureCategories ?? []"
-                  :echo-roles="
-                    roleManagerRoles.map((r) => ({
-                      id: r.id,
-                      name: r.name,
-                    }))
-                  "
                   @patch-form="onModerationPatch"
                 />
 
@@ -1086,6 +1100,7 @@ async function onModerationPatch(patch: {
         <div
           v-if="!isCompactShell"
           class="server-settings-modal__resize-edge pointer-events-auto absolute bottom-6 right-0 top-24 z-[6] w-2 cursor-col-resize"
+          style="background: transparent; border: none"
           aria-label="Resize server settings window"
           @mousedown="startModalWidthResize"
           @dblclick.stop="resetModalWidth"

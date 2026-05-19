@@ -5,6 +5,7 @@ import {
   onMounted,
   onUnmounted,
   ref,
+  shallowRef,
   unref,
   watch,
   type MaybeRef,
@@ -26,7 +27,10 @@ import {
   postEchoVcActivityOpen,
   postEchoYoutubeWatchTogetherUsage,
 } from '@/api/echo/vcActivities';
-import type { EchoHangmanActivityV1 } from '@/audio/voiceEchoLiveKitData';
+import type {
+  EchoHangmanActivityV1,
+  EchoYoutubePlaybackSyncV1,
+} from '@/audio/voiceEchoLiveKitData';
 import { useAuthSessionStore } from '@/stores/authSession';
 import type { EchoVcActivityKey } from '@shared/vcActivityCatalog';
 import type {
@@ -41,8 +45,17 @@ import {
   vcIframeEmbedUrl,
   youtubeNowPlaying,
 } from '@/features/voice/vcActivityTypes';
+import {
+  buildEmbedProxyUrl,
+  fetchEmbedProxyMeta,
+  mintEmbedProxyToken,
+} from '@/api/echo/embedProxy';
 import VcWordlineActivity from '@/features/voice/components/VcWordlineActivity.vue';
 import VcHangmanGame from '@/features/voice/components/VcHangmanGame.vue';
+import {
+  useVcYoutubeWatchTogetherPlayer,
+  type VcYoutubeRemotePlaybackState,
+} from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 
 const appBase = import.meta.env.BASE_URL || '/';
 /**
@@ -81,7 +94,8 @@ const VC_ACTIVITY_LIBRARY_CARDS: readonly {
     artKey: 'youtube',
     widgetClass: 'vc-act-widget--youtube',
     title: 'YouTube',
-    description: 'Shared queue with voice · playback is per person',
+    description:
+      'Shared queue with voice · one host drives sync until they leave; you follow automatically',
     ariaLabel: 'Open YouTube activity',
   },
   {
@@ -229,7 +243,7 @@ const props = withDefaults(
     requestVcHangmanGuessLetter: (letter: string) => void;
     requestVcHangmanNextRound: () => void;
     activeVoiceChannelParticipants?: MaybeRef<
-      readonly { id: string; name: string }[]
+      readonly { id: string; name: string; pfp?: string }[]
     >;
     setVcActivityCodenamesRoomUrl?: (url: string | null) => void;
     /** Lexicographically smallest VC user id — only they create the Codenames room (see `resolveVcCodenamesStarterUserId`). */
@@ -245,6 +259,10 @@ const props = withDefaults(
     isCompactShell?: boolean;
     /** Desktop: narrows the channel column when activity content still overflows vertically. */
     narrowChannelPanelForActivityOverflowStep?: () => boolean;
+    /** Guild VC: LiveKit YouTube playback sync (host publishes; followers apply). */
+    publishVcYoutubePlaybackSync?: (sample: EchoYoutubePlaybackSyncV1) => void;
+    vcYoutubeRemotePlayback?: MaybeRef<VcYoutubeRemotePlaybackState | null>;
+    vcYoutubePlaybackShouldPublish?: MaybeRef<boolean>;
   }>(),
   {
     voiceSideChatCollapsed: false,
@@ -261,7 +279,11 @@ const hmActivity = computed(() => unref(props.vcHangmanActivity));
 const hmRoster = computed(() => [...(unref(props.hangmanRosterUserIds) ?? [])]);
 const hangmanVoiceParticipants = computed(() => {
   const rows = unref(props.activeVoiceChannelParticipants) ?? [];
-  return rows.map((p) => ({ id: p.id, name: p.name }));
+  return rows.map((p) => ({
+    id: p.id,
+    name: p.name,
+    pfp: p.pfp ?? '',
+  }));
 });
 
 const auth = useAuthSessionStore();
@@ -458,6 +480,10 @@ onUnmounted(() => {
     clearTimeout(codenamesWaitTimer);
     codenamesWaitTimer = null;
   }
+  if (codenamesLocationPoll) {
+    clearInterval(codenamesLocationPoll);
+    codenamesLocationPoll = null;
+  }
   void exitActivityFullscreenIfActive();
 });
 
@@ -469,6 +495,7 @@ watch(
     }
     if (phase === 'pick') void exitActivityFullscreenIfActive();
   },
+  { immediate: true },
 );
 
 const iframeEmbedPhase = computed(() => {
@@ -499,7 +526,29 @@ function tryExtractCodenamesUrlFromMessageData(data: unknown): string | null {
     }
     return null;
   };
-  return scan(data);
+  const direct = scan(data);
+  if (direct) return direct;
+  if (data && typeof data === 'object') {
+    try {
+      return scan(JSON.stringify(data));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** Origins for the embedded Codenames document (postMessage source). */
+const CODENAMES_PARENT_MESSAGE_ORIGINS = new Set([
+  'https://codenames.game',
+  'https://www.codenames.game',
+]);
+
+function isAllowedCodenamesMessageOrigin(origin: string): boolean {
+  if (CODENAMES_PARENT_MESSAGE_ORIGINS.has(origin)) return true;
+  // When proxied, the page is same-origin with the SPA — accept our own origin.
+  if (codenamesProxyActive.value && origin === window.location.origin) return true;
+  return false;
 }
 
 const isCodenamesStarter = computed(() => {
@@ -514,7 +563,7 @@ const codenamesSyncedUrl = computed(
 );
 
 function onWindowMessageForCodenames(ev: MessageEvent) {
-  if (ev.origin !== 'https://codenames.game') return;
+  if (!isAllowedCodenamesMessageOrigin(ev.origin)) return;
   if (!isCodenamesStarter.value) return;
   if (st.value.phase !== 'codenames') return;
   if (codenamesSyncedUrl.value) return;
@@ -530,10 +579,70 @@ const codenamesHoldUi = computed(
     !isCodenamesStarter.value,
 );
 
+/** Path prefix for proxied Codenames documents on the API host. */
+const EMBED_CODENAMES_PATH_PREFIX = '/api/v1/embed/codenames/o/';
+
+function codenamesProxyOriginAliasForRoomUrl(synced: string): 'main' | 'www' {
+  try {
+    if (new URL(synced).hostname.toLowerCase() === 'www.codenames.game')
+      return 'www';
+  } catch {
+    /* ignore */
+  }
+  return 'main';
+}
+
+/**
+ * Maps the iframe's location (Echo embed URL) back to a canonical codenames.game URL.
+ */
+function canonicalCodenamesUrlFromProxiedIframeHref(href: string): string | null {
+  try {
+    const u = new URL(href);
+    const p = u.pathname;
+    if (!p.startsWith(EMBED_CODENAMES_PATH_PREFIX)) return null;
+    const tail = p.slice(EMBED_CODENAMES_PATH_PREFIX.length);
+    const slash = tail.indexOf('/');
+    if (slash < 0) return null;
+    const alias = tail.slice(0, slash);
+    const rest = tail.slice(slash) || '/';
+    const origin =
+      alias === 'www'
+        ? 'https://www.codenames.game'
+        : alias === 'main'
+          ? 'https://codenames.game'
+          : null;
+    if (!origin) return null;
+    return `${origin}${rest}${u.search}${u.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+/** True until the first `/embed/meta` + optional `/embed/token` round finishes for this Codenames session. */
+const codenamesProxyGatePending = ref(false);
+let codenamesProxyResolveGen = 0;
+
 const codenamesEmbedSrc = computed(() => {
   if (st.value.phase !== 'codenames') return '';
-  const u = codenamesSyncedUrl.value;
-  return u || VC_CODENAMES_EMBED_URL;
+  if (codenamesProxyGatePending.value) return '';
+  const synced = codenamesSyncedUrl.value;
+  const token = codenamesProxyToken.value;
+
+  if (token) {
+    const roomAlias = synced ? codenamesProxyOriginAliasForRoomUrl(synced) : 'main';
+    let upstreamPath = '/';
+    if (synced) {
+      try {
+        const u = new URL(synced);
+        upstreamPath = u.pathname + u.search + u.hash;
+      } catch {
+        /* fall back to / */
+      }
+    }
+    return buildEmbedProxyUrl('codenames', roomAlias, upstreamPath, token);
+  }
+
+  return synced || VC_CODENAMES_EMBED_URL;
 });
 
 const codenamesPasteDraft = ref('');
@@ -547,6 +656,57 @@ function applyCodenamesPaste() {
 
 const codenamesWaitTimedOut = ref(false);
 let codenamesWaitTimer: ReturnType<typeof setTimeout> | null = null;
+let codenamesLocationPoll: ReturnType<typeof setInterval> | null = null;
+
+// Embed proxy state for Codenames
+const codenamesProxyToken = ref<string | null>(null);
+/** Template ref for the Codenames iframe (same-origin proxy only). */
+const codenamesIframeRef = ref<HTMLIFrameElement | null>(null);
+
+/** Returns true when we have a valid proxy token and proxy access is active. */
+const codenamesProxyActive = computed(() => codenamesProxyToken.value !== null);
+
+/**
+ * Discover embed-proxy availability and mint a token before loading the iframe so we never
+ * flash a cross-origin `codenames.game` document and then swap to the proxy (which would drop a freshly created room).
+ */
+async function resolveCodenamesEmbedProxyGate() {
+  if (st.value.phase !== 'codenames') return;
+  const gen = ++codenamesProxyResolveGen;
+  codenamesProxyGatePending.value = true;
+  codenamesProxyToken.value = null;
+  try {
+    const meta = await fetchEmbedProxyMeta();
+    if (gen !== codenamesProxyResolveGen || st.value.phase !== 'codenames') return;
+    if (!meta.enabled || !meta.slugs.includes('codenames')) return;
+    const token = await mintEmbedProxyToken('codenames');
+    if (gen !== codenamesProxyResolveGen || st.value.phase !== 'codenames') return;
+    if (token) codenamesProxyToken.value = token;
+  } finally {
+    if (gen === codenamesProxyResolveGen) codenamesProxyGatePending.value = false;
+  }
+}
+
+function tryPublishCodenamesRoomFromIframeLocation() {
+  if (!codenamesProxyActive.value || !isCodenamesStarter.value) return;
+  if (codenamesSyncedUrl.value) return;
+  try {
+    const href = codenamesIframeRef.value?.contentWindow?.location?.href;
+    if (!href) return;
+    const upstream = canonicalCodenamesUrlFromProxiedIframeHref(href);
+    if (!upstream) return;
+    const u = new URL(upstream);
+    if (u.pathname === '/' || u.pathname === '') return;
+    const normalized = normalizeCodenamesRoomUrlForEmbed(upstream);
+    if (normalized) props.setVcActivityCodenamesRoomUrl?.(normalized);
+  } catch {
+    /* cross-origin when proxy is inactive */
+  }
+}
+
+function onCodenamesIframeLoad() {
+  tryPublishCodenamesRoomFromIframeLocation();
+}
 
 watch(
   () =>
@@ -564,6 +724,45 @@ watch(
         codenamesWaitTimedOut.value = true;
       }, 90_000);
     }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => st.value.phase,
+  (phase) => {
+    if (phase !== 'codenames') {
+      codenamesProxyResolveGen += 1;
+      codenamesProxyToken.value = null;
+      codenamesProxyGatePending.value = false;
+      if (codenamesLocationPoll) {
+        clearInterval(codenamesLocationPoll);
+        codenamesLocationPoll = null;
+      }
+      return;
+    }
+    void resolveCodenamesEmbedProxyGate();
+  },
+  { immediate: true },
+);
+
+/** Next.js client-side navigations do not fire iframe load — poll location. */
+watch(
+  () => ({
+    phase: st.value.phase,
+    token: codenamesProxyToken.value,
+    synced: codenamesSyncedUrl.value,
+    starter: isCodenamesStarter.value,
+  }),
+  (s) => {
+    if (codenamesLocationPoll) {
+      clearInterval(codenamesLocationPoll);
+      codenamesLocationPoll = null;
+    }
+    if (s.phase !== 'codenames' || !s.token || !!s.synced || !s.starter) return;
+    codenamesLocationPoll = setInterval(() => {
+      tryPublishCodenamesRoomFromIframeLocation();
+    }, 600);
   },
   { immediate: true },
 );
@@ -638,6 +837,52 @@ const embedSrc = computed(() =>
     ? youtubePrivacyEmbedUrl(st.value.youtubeVideoId)
     : '',
 );
+
+const ytWatchPlayerEl = ref<HTMLElement | null>(null);
+const youtubeSyncUi = computed(
+  () => typeof props.publishVcYoutubePlaybackSync === 'function',
+);
+
+const syncYoutubeVideoId = computed(() =>
+  youtubeSyncUi.value &&
+  st.value.phase === 'youtube' &&
+  st.value.youtubeVideoId
+    ? st.value.youtubeVideoId
+    : null,
+);
+
+const remotePlaybackMirror = shallowRef<VcYoutubeRemotePlaybackState | null>(
+  null,
+);
+watch(
+  () => unref(props.vcYoutubeRemotePlayback),
+  (v) => {
+    remotePlaybackMirror.value = v ?? null;
+  },
+  { immediate: true },
+);
+
+const canPublishPlayback = computed(
+  () => unref(props.vcYoutubePlaybackShouldPublish) ?? true,
+);
+
+function publishPlaybackBridge(sample: EchoYoutubePlaybackSyncV1): void {
+  props.publishVcYoutubePlaybackSync?.(sample);
+}
+
+const ytWatchPlayerCtl = useVcYoutubeWatchTogetherPlayer({
+  containerRef: ytWatchPlayerEl,
+  videoId: syncYoutubeVideoId,
+  remotePlayback: remotePlaybackMirror,
+  publish: publishPlaybackBridge,
+  canPublish: canPublishPlayback,
+});
+
+watch(syncYoutubeVideoId, (id, prev) => {
+  if (id && id !== prev && youtubeSyncUi.value) {
+    ytWatchPlayerCtl.publishAfterVideoChange();
+  }
+});
 
 const hasQueue = computed(
   () => st.value.phase === 'youtube' && st.value.playlist.length > 0,
@@ -1008,6 +1253,7 @@ watch(
   >
     <header
       class="vc-act-header flex h-11 min-h-11 w-full min-w-0 shrink-0 items-center gap-1.5 border-b border-border bg-elevated px-2 sm:px-3"
+      :class="st.phase === 'youtube' ? 'vc-act-header--youtube' : ''"
     >
       <button
         type="button"
@@ -1245,13 +1491,13 @@ watch(
 
     <div
       v-else-if="st.phase === 'youtube'"
-      class="relative flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row"
+      class="vc-act-youtube-stage relative flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row"
     >
       <!-- Mobile: quick open search (header has same actions) -->
       <button
         v-if="compactLayout && st.phase === 'youtube'"
         type="button"
-        class="absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-elevated text-fg-soft shadow-md sm:hidden"
+        class="vc-act-yt-fab-search absolute bottom-3 right-3 z-20 flex h-11 w-11 items-center justify-center rounded-full text-white shadow-lg sm:hidden"
         aria-label="Search"
         @click="toggleBrowseFind"
       >
@@ -1270,7 +1516,7 @@ watch(
       <!-- Browse drawer: Search | Queue (compact) -->
       <aside
         v-show="st.youtubeBrowseOpen"
-        class="vc-act-browse-drawer flex min-h-0 shrink-0 flex-col border-border bg-surface lg:relative lg:z-10 lg:max-h-none lg:w-[min(300px,36vw)] lg:border-r"
+        class="vc-act-browse-drawer flex min-h-0 shrink-0 flex-col border-border lg:relative lg:z-10 lg:max-h-none lg:w-[min(340px,38vw)] lg:border-r"
         :class="
           compactLayout
             ? 'absolute inset-0 z-[15] max-h-none border-r-0'
@@ -1289,43 +1535,42 @@ watch(
             Done
           </button>
         </div>
-        <div
-          class="flex shrink-0 gap-0.5 border-b border-border p-1.5"
-          role="tablist"
-        >
-          <button
-            type="button"
-            role="tab"
-            class="min-h-8 flex-1 rounded-md px-2 text-[11px] font-semibold transition-colors"
-            :class="
-              browseTab === 'find'
-                ? 'bg-glass-2 text-fg'
-                : 'text-fg-soft hover:bg-glass-hover hover:text-fg'
-            "
-            :aria-selected="browseTab === 'find'"
-            @click="browseTab = 'find'"
-          >
-            Search
-          </button>
-          <button
-            type="button"
-            role="tab"
-            class="min-h-8 flex-1 rounded-md px-2 text-[11px] font-semibold transition-colors"
-            :class="
-              browseTab === 'queue'
-                ? 'bg-glass-2 text-fg'
-                : 'text-fg-soft hover:bg-glass-hover hover:text-fg'
-            "
-            :aria-selected="browseTab === 'queue'"
-            @click="browseTab = 'queue'"
-          >
-            Up next
-            <span
-              v-if="st.playlist.length"
-              class="ml-0.5 tabular-nums text-fg-subtle"
-              >{{ st.playlist.length }}</span
+        <div class="flex shrink-0 border-b border-border/80 p-2" role="tablist">
+          <div class="vc-act-yt-segment flex min-h-9 w-full gap-0.5 p-0.5">
+            <button
+              type="button"
+              role="tab"
+              class="vc-act-yt-segment__tab min-h-8 flex-1 rounded-lg px-2 text-[11px] font-semibold transition-all duration-200"
+              :class="
+                browseTab === 'find'
+                  ? 'vc-act-yt-segment__tab--active text-fg shadow-sm'
+                  : 'text-fg-soft hover:text-fg'
+              "
+              :aria-selected="browseTab === 'find'"
+              @click="browseTab = 'find'"
             >
-          </button>
+              Search
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="vc-act-yt-segment__tab min-h-8 flex-1 rounded-lg px-2 text-[11px] font-semibold transition-all duration-200"
+              :class="
+                browseTab === 'queue'
+                  ? 'vc-act-yt-segment__tab--active text-fg shadow-sm'
+                  : 'text-fg-soft hover:text-fg'
+              "
+              :aria-selected="browseTab === 'queue'"
+              @click="browseTab = 'queue'"
+            >
+              Up next
+              <span
+                v-if="st.playlist.length"
+                class="ml-0.5 tabular-nums text-fg-subtle"
+                >{{ st.playlist.length }}</span
+              >
+            </button>
+          </div>
         </div>
 
         <!-- Find tab -->
@@ -1333,19 +1578,19 @@ watch(
           v-show="browseTab === 'find'"
           class="flex min-h-0 min-w-0 flex-1 flex-col"
         >
-          <div class="shrink-0 border-b border-border p-2">
-            <div class="flex gap-1.5">
+          <div class="shrink-0 border-b border-border/80 p-2.5">
+            <div class="vc-act-yt-search flex gap-2">
               <input
                 v-model="searchDraft"
                 type="search"
-                class="min-w-0 flex-1 rounded-lg border border-border bg-elevated px-2.5 py-1.5 text-[13px] text-fg outline-none placeholder:text-fg-subtle focus:border-[color-mix(in_srgb,var(--accent)_50%,var(--border))]"
+                class="vc-act-yt-search__input min-w-0 flex-1 rounded-xl border border-border/90 bg-elevated/90 px-3 py-2 text-[13px] text-fg shadow-inner outline-none ring-0 placeholder:text-fg-subtle focus:border-[color-mix(in_srgb,var(--vc-yt-brand,#ff0033)_45%,var(--border))] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--vc-yt-brand,#ff0033)_22%,transparent)]"
                 placeholder="Search or paste a link…"
                 autocomplete="off"
                 @keydown.enter.prevent="submitFindField"
               />
               <button
                 type="button"
-                class="shrink-0 rounded-lg bg-red-600 px-2.5 py-1.5 text-[12px] font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+                class="vc-act-yt-search__go shrink-0 rounded-xl px-3.5 py-2 text-[12px] font-bold text-white shadow-md transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="searchLoading"
                 @click="submitFindField"
               >
@@ -1379,7 +1624,7 @@ watch(
                     v-for="p in QUICK_SEARCH_PRESETS"
                     :key="p.q"
                     type="button"
-                    class="rounded-full border border-border bg-glass-1 px-2 py-0.5 text-[10px] font-medium text-fg-soft transition-colors hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:bg-glass-hover hover:text-fg"
+                    class="rounded-full border border-border/80 bg-elevated/60 px-2.5 py-1 text-[10px] font-semibold text-fg-soft shadow-sm backdrop-blur-sm transition hover:border-[color-mix(in_srgb,var(--vc-yt-brand,#ff0033)_35%,var(--border))] hover:bg-elevated hover:text-fg"
                     @click="applyPresetSearch(p.q)"
                   >
                     {{ p.label }}
@@ -1387,13 +1632,13 @@ watch(
                 </div>
                 <div class="flex items-center justify-between gap-2 px-0.5">
                   <span
-                    class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
+                    class="text-[10px] font-bold uppercase tracking-[0.12em] text-fg-subtle"
                   >
                     Popular on YouTube
                   </span>
                   <button
                     type="button"
-                    class="text-[10px] font-semibold text-fg-soft hover:text-fg disabled:opacity-40"
+                    class="rounded-full px-2 py-0.5 text-[10px] font-bold text-fg-soft transition hover:bg-glass-hover hover:text-fg disabled:opacity-40"
                     :disabled="popularLoading"
                     @click="loadPopular"
                   >
@@ -1420,29 +1665,29 @@ watch(
               >
                 Loading suggestions…
               </div>
-              <ul v-else-if="primaryFindRows.length" class="space-y-0.5">
+              <ul v-else-if="primaryFindRows.length" class="space-y-1.5">
                 <li v-for="v in primaryFindRows" :key="'vc-find-' + v.id">
                   <div
-                    class="flex w-full gap-1.5 rounded-lg px-1 py-0.5 transition-colors"
+                    class="vc-act-yt-row group flex w-full gap-1.5 p-1.5 transition-all duration-200"
                     :class="
                       st.youtubeVideoId === v.id
-                        ? 'bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--accent)_40%,var(--border))]'
-                        : 'hover:bg-glass-hover'
+                        ? 'vc-act-yt-row--current ring-1 ring-[color-mix(in_srgb,var(--vc-yt-brand,#ff0033)_42%,var(--border))]'
+                        : ''
                     "
                   >
                     <button
                       type="button"
-                      class="flex min-w-0 flex-1 gap-2 text-left"
+                      class="flex min-w-0 flex-1 gap-2.5 text-left"
                       @click="pickVideo(v)"
                     >
                       <div
-                        class="relative h-9 w-16 shrink-0 overflow-hidden rounded bg-muted"
+                        class="vc-act-yt-thumb relative aspect-video w-[5.25rem] shrink-0 overflow-hidden rounded-lg bg-muted shadow-inner ring-1 ring-black/20"
                       >
                         <img
                           v-if="v.thumbnailUrl"
                           :src="v.thumbnailUrl"
                           alt=""
-                          class="h-full w-full object-cover"
+                          class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                           loading="lazy"
                         />
                         <div
@@ -1454,11 +1699,11 @@ watch(
                       </div>
                       <div class="min-w-0 flex-1 py-0.5">
                         <div
-                          class="line-clamp-2 text-[12px] font-medium leading-tight"
+                          class="line-clamp-2 text-[12px] font-semibold leading-snug tracking-tight text-fg"
                         >
                           {{ v.title }}
                         </div>
-                        <div class="truncate text-[10px] text-fg-subtle">
+                        <div class="mt-0.5 truncate text-[10px] text-fg-subtle">
                           {{ v.channelTitle }}
                         </div>
                       </div>
@@ -1466,7 +1711,7 @@ watch(
                     <button
                       v-if="hasQueue"
                       type="button"
-                      class="shrink-0 self-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-fg-soft hover:bg-glass-hover"
+                      class="vc-act-yt-pill-btn shrink-0 self-center rounded-full px-2.5 py-1 text-[10px] font-bold text-fg-soft transition hover:text-fg"
                       title="Play now"
                       @click.stop="playVideoNow(v)"
                     >
@@ -1530,25 +1775,25 @@ watch(
             </div>
             <ul
               v-else-if="queueSuggestItems.length"
-              class="max-h-[36vh] space-y-0.5 overflow-y-auto rounded-lg border border-border/60 bg-glass-1/50 p-1 lg:max-h-44"
+              class="max-h-[36vh] space-y-1 overflow-y-auto rounded-xl border border-border/70 bg-elevated/40 p-1.5 shadow-inner lg:max-h-44"
             >
               <li v-for="v in queueSuggestItems" :key="'vc-q-sug-' + v.id">
                 <div
-                  class="flex w-full gap-1 rounded-md px-0.5 py-0.5 hover:bg-glass-hover"
+                  class="vc-act-yt-row group flex w-full gap-1 rounded-lg p-1"
                 >
                   <button
                     type="button"
-                    class="flex min-w-0 flex-1 gap-2 text-left"
+                    class="flex min-w-0 flex-1 gap-2.5 text-left"
                     @click="pickVideo(v)"
                   >
                     <div
-                      class="relative h-8 w-14 shrink-0 overflow-hidden rounded bg-muted"
+                      class="vc-act-yt-thumb relative aspect-video w-[4.5rem] shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-black/15"
                     >
                       <img
                         v-if="v.thumbnailUrl"
                         :src="v.thumbnailUrl"
                         alt=""
-                        class="h-full w-full object-cover"
+                        class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
                         loading="lazy"
                       />
                       <div
@@ -1560,7 +1805,7 @@ watch(
                     </div>
                     <div class="min-w-0 flex-1 py-0.5">
                       <div
-                        class="line-clamp-2 text-[11px] font-medium leading-tight"
+                        class="line-clamp-2 text-[11px] font-semibold leading-snug text-fg"
                       >
                         {{ v.title }}
                       </div>
@@ -1571,7 +1816,7 @@ watch(
                   </button>
                   <button
                     type="button"
-                    class="shrink-0 self-center rounded bg-red-600/90 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-red-500"
+                    class="vc-act-yt-add shrink-0 self-center rounded-lg px-2.5 py-1 text-[10px] font-bold text-white shadow-sm transition hover:brightness-110 active:scale-[0.97]"
                     @click.stop="pickVideo(v)"
                   >
                     Add
@@ -1593,30 +1838,30 @@ watch(
             >
               Nothing queued. Add videos from Search or from suggestions.
             </p>
-            <ul v-else class="space-y-0.5">
+            <ul v-else class="space-y-1">
               <li
                 v-for="(row, i) in st.playlist"
                 :key="row.id + ':' + i"
-                class="flex items-center gap-0.5 rounded-lg px-1 py-0.5"
+                class="vc-act-yt-row group flex items-center gap-1 rounded-xl p-1 transition-all duration-200"
                 :class="
                   i === st.currentIndex
-                    ? 'bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]'
-                    : 'hover:bg-glass-hover/80'
+                    ? 'vc-act-yt-row--current ring-1 ring-[color-mix(in_srgb,var(--vc-yt-brand,#ff0033)_45%,var(--border))]'
+                    : ''
                 "
               >
                 <button
                   type="button"
-                  class="flex min-w-0 flex-1 gap-2 text-left"
+                  class="flex min-w-0 flex-1 gap-2.5 text-left"
                   @click="playVcYoutubeAtIndex(i)"
                 >
                   <div
-                    class="relative h-9 w-16 shrink-0 overflow-hidden rounded bg-muted"
+                    class="vc-act-yt-thumb relative aspect-video w-[5rem] shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-black/20"
                   >
                     <img
                       v-if="row.thumbnailUrl"
                       :src="row.thumbnailUrl"
                       alt=""
-                      class="h-full w-full object-cover"
+                      class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                       loading="lazy"
                     />
                     <div
@@ -1625,28 +1870,28 @@ watch(
                     >
                       ▶
                     </div>
+                    <span
+                      v-if="i === st.currentIndex"
+                      class="absolute bottom-0.5 left-0.5 rounded bg-black/75 px-1 py-px text-[7px] font-bold uppercase tracking-wide text-white"
+                      >Live</span
+                    >
                   </div>
                   <div class="min-w-0 flex-1 py-0.5">
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-start gap-1">
                       <span
-                        v-if="i === st.currentIndex"
-                        class="shrink-0 text-[9px] font-bold uppercase text-fg-subtle"
-                        >Now</span
-                      >
-                      <span
-                        class="line-clamp-2 text-[12px] font-medium leading-tight"
+                        class="line-clamp-2 text-[12px] font-semibold leading-snug tracking-tight text-fg"
                         >{{ row.title }}</span
                       >
                     </div>
-                    <div class="truncate text-[10px] text-fg-subtle">
+                    <div class="mt-0.5 truncate text-[10px] text-fg-subtle">
                       {{ row.channelTitle }}
                     </div>
                   </div>
                 </button>
-                <div class="flex shrink-0 flex-col">
+                <div class="flex shrink-0 flex-col gap-px rounded-md bg-elevated/50 p-px ring-1 ring-border/60">
                   <button
                     type="button"
-                    class="rounded p-0.5 text-fg-soft hover:bg-glass-hover disabled:opacity-30"
+                    class="rounded p-0.5 text-fg-soft transition first:rounded-t-md last:rounded-b-md hover:bg-glass-hover hover:text-fg disabled:opacity-30"
                     aria-label="Move up"
                     :disabled="i === 0"
                     @click="moveVcYoutubeInQueue(i, i - 1)"
@@ -1661,7 +1906,7 @@ watch(
                   </button>
                   <button
                     type="button"
-                    class="rounded p-0.5 text-fg-soft hover:bg-glass-hover disabled:opacity-30"
+                    class="rounded p-0.5 text-fg-soft transition first:rounded-t-md last:rounded-b-md hover:bg-glass-hover hover:text-fg disabled:opacity-30"
                     aria-label="Move down"
                     :disabled="i >= st.playlist.length - 1"
                     @click="moveVcYoutubeInQueue(i, i + 1)"
@@ -1677,7 +1922,7 @@ watch(
                 </div>
                 <button
                   type="button"
-                  class="shrink-0 rounded p-1 text-fg-soft hover:bg-glass-hover hover:text-red-400"
+                  class="shrink-0 rounded-lg p-1.5 text-fg-soft transition hover:bg-red-500/15 hover:text-red-400"
                   aria-label="Remove from queue"
                   @click="removeVcYoutubeFromQueue(i)"
                 >
@@ -1703,107 +1948,122 @@ watch(
         :class="st.youtubeBrowseOpen && !compactLayout ? 'lg:pl-0' : ''"
       >
         <div
-          class="vc-act-player-pane relative min-h-0 min-w-0 flex-1"
-          :class="[
-            compactLayout ? 'min-h-[36vh]' : '',
-            embedSrc ? 'bg-black' : 'bg-bg',
-          ]"
+          class="vc-act-player-pane vc-act-yt-player-pane relative flex min-h-0 min-w-0 flex-1 flex-col p-2 sm:p-2.5"
+          :class="compactLayout ? 'min-h-[36vh]' : ''"
         >
-          <iframe
-            v-if="embedSrc"
-            :key="st.youtubeVideoId ?? ''"
-            :src="embedSrc"
-            class="absolute inset-0 h-full w-full border-0"
-            title="YouTube video"
-            allow="
-              accelerometer;
-              autoplay;
-              clipboard-write;
-              encrypted-media;
-              gyroscope;
-              picture-in-picture;
-              web-share;
-            "
-            referrerpolicy="strict-origin-when-cross-origin"
-            allowfullscreen
-          />
           <div
-            v-else
-            class="custom-scrollbar absolute inset-0 overflow-y-auto px-2 py-2 sm:px-3"
+            class="vc-act-yt-player-frame relative min-h-0 flex-1 overflow-hidden rounded-xl ring-1 sm:rounded-2xl"
+            :class="
+              embedSrc
+                ? 'bg-black ring-white/[0.12]'
+                : 'bg-elevated/20 ring-border/55'
+            "
           >
-            <div class="mb-2 flex items-center justify-between gap-2">
-              <span
-                class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
-              >
-                Suggested
-              </span>
-              <button
-                type="button"
-                class="text-[10px] font-semibold text-fg-soft hover:text-fg"
-                :disabled="popularLoading"
-                @click="loadPopular"
-              >
-                Refresh
-              </button>
-            </div>
-            <p v-if="popularError" class="vc-act-msg-err mb-1.5 text-[11px]">
-              {{ popularError }}
-            </p>
-            <p
-              v-else-if="popularHint"
-              class="vc-act-msg-hint mb-1.5 text-[10px] leading-snug"
-            >
-              {{ popularHint }}
-            </p>
+            <iframe
+              v-if="embedSrc && !youtubeSyncUi"
+              :key="st.youtubeVideoId ?? ''"
+              :src="embedSrc"
+              class="absolute inset-0 h-full w-full rounded-xl border-0 sm:rounded-2xl"
+              title="YouTube video"
+              allow="
+                accelerometer;
+                autoplay;
+                clipboard-write;
+                encrypted-media;
+                gyroscope;
+                picture-in-picture;
+                web-share;
+              "
+              referrerpolicy="strict-origin-when-cross-origin"
+              allowfullscreen
+            />
             <div
-              v-if="popularLoading"
-              class="py-10 text-center text-[12px] text-fg-subtle"
+              v-else-if="embedSrc && youtubeSyncUi"
+              :key="st.youtubeVideoId ?? ''"
+              ref="ytWatchPlayerEl"
+              class="absolute inset-0 h-full w-full min-h-0 rounded-xl bg-black sm:rounded-2xl"
+              title="YouTube video"
+            />
+            <div
+              v-else
+              class="custom-scrollbar absolute inset-0 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4"
             >
-              Loading…
-            </div>
-            <ul v-else class="mx-auto max-w-3xl space-y-0.5">
-              <li v-for="v in popularItems" :key="v.id">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <span
+                  class="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle"
+                >
+                  Suggested for you
+                </span>
                 <button
                   type="button"
-                  class="flex w-full gap-2 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-glass-hover"
-                  @click="pickVideo(v)"
+                  class="rounded-full px-2 py-0.5 text-[10px] font-bold text-fg-soft transition hover:bg-glass-hover hover:text-fg"
+                  :disabled="popularLoading"
+                  @click="loadPopular"
                 >
-                  <div
-                    class="relative h-9 w-16 shrink-0 overflow-hidden rounded bg-muted"
-                  >
-                    <img
-                      v-if="v.thumbnailUrl"
-                      :src="v.thumbnailUrl"
-                      alt=""
-                      class="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                  <div class="min-w-0 flex-1 py-0.5">
-                    <div
-                      class="line-clamp-2 text-[12px] font-medium leading-tight"
-                    >
-                      {{ v.title }}
-                    </div>
-                    <div class="truncate text-[10px] text-fg-subtle">
-                      {{ v.channelTitle }}
-                    </div>
-                  </div>
+                  Refresh
                 </button>
-              </li>
-            </ul>
+              </div>
+              <p v-if="popularError" class="vc-act-msg-err mb-1.5 text-[11px]">
+                {{ popularError }}
+              </p>
+              <p
+                v-else-if="popularHint"
+                class="vc-act-msg-hint mb-1.5 text-[10px] leading-snug"
+              >
+                {{ popularHint }}
+              </p>
+              <div
+                v-if="popularLoading"
+                class="py-10 text-center text-[12px] text-fg-subtle"
+              >
+                Loading…
+              </div>
+              <ul v-else class="mx-auto max-w-3xl space-y-1.5">
+                <li v-for="v in popularItems" :key="v.id">
+                  <button
+                    type="button"
+                    class="vc-act-yt-row group flex w-full gap-2.5 rounded-xl p-1.5 text-left transition-all duration-200"
+                    @click="pickVideo(v)"
+                  >
+                    <div
+                      class="vc-act-yt-thumb relative aspect-video w-[6.5rem] shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-black/20 sm:w-[7.5rem]"
+                    >
+                      <img
+                        v-if="v.thumbnailUrl"
+                        :src="v.thumbnailUrl"
+                        alt=""
+                        class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div class="min-w-0 flex-1 py-0.5">
+                      <div
+                        class="line-clamp-2 text-left text-[13px] font-semibold leading-snug tracking-tight text-fg"
+                      >
+                        {{ v.title }}
+                      </div>
+                      <div class="mt-0.5 truncate text-left text-[10px] text-fg-subtle">
+                        {{ v.channelTitle }}
+                      </div>
+                    </div>
+                  </button>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
         <!-- Slim transport: prev/next + now playing + open queue (full list in drawer) -->
         <div
           v-if="st.phase === 'youtube' && st.playlist.length"
-          class="vc-act-transport flex shrink-0 items-center gap-1 border-t border-border bg-elevated px-1.5 py-1"
+          class="vc-act-transport vc-act-yt-transport mx-2 mb-2 mt-0.5 flex shrink-0 items-center gap-2 rounded-xl border border-border/60 px-2 py-1.5 shadow-lg sm:mx-2.5 sm:gap-2.5 sm:px-2.5 sm:py-2"
         >
-          <div class="flex shrink-0 items-center gap-px">
+          <div
+            class="flex shrink-0 items-center gap-px rounded-lg bg-elevated/70 p-px ring-1 ring-border/55"
+          >
             <button
               type="button"
-              class="rounded-md p-1 text-fg-soft hover:bg-glass-hover hover:text-fg disabled:opacity-35"
+              class="rounded-md p-1.5 text-fg-soft transition hover:bg-glass-hover hover:text-fg disabled:opacity-35"
               aria-label="Previous in queue"
               :disabled="st.currentIndex <= 0"
               @click="playVcYoutubePrevious"
@@ -1819,7 +2079,7 @@ watch(
             </button>
             <button
               type="button"
-              class="rounded-md p-1 text-fg-soft hover:bg-glass-hover hover:text-fg disabled:opacity-35"
+              class="rounded-md p-1.5 text-fg-soft transition hover:bg-glass-hover hover:text-fg disabled:opacity-35"
               aria-label="Next in queue"
               :disabled="st.currentIndex >= st.playlist.length - 1"
               @click="playVcYoutubeNext"
@@ -1834,9 +2094,20 @@ watch(
               </svg>
             </button>
           </div>
-          <div class="min-w-0 flex-1 px-1">
+          <div
+            v-if="nowPlaying?.thumbnailUrl"
+            class="vc-act-yt-transport-thumb hidden h-10 w-[4.5rem] shrink-0 overflow-hidden rounded-md ring-1 ring-black/30 sm:block"
+          >
+            <img
+              :src="nowPlaying.thumbnailUrl"
+              alt=""
+              class="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </div>
+          <div class="min-w-0 flex-1 px-0.5">
             <div
-              class="truncate text-[11px] font-medium leading-tight"
+              class="truncate text-[11px] font-semibold leading-tight tracking-tight"
               :title="nowPlaying?.title ?? ''"
             >
               {{ nowPlaying?.title ?? '—' }}
@@ -1846,17 +2117,17 @@ watch(
               class="truncate text-[10px] leading-tight text-fg-subtle"
               :title="nextInQueue.title"
             >
-              Next · {{ nextInQueue.title }}
+              Up next · {{ nextInQueue.title }}
             </div>
           </div>
           <button
             type="button"
-            class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-fg-soft hover:bg-glass-hover hover:text-fg sm:px-2"
+            class="vc-act-yt-queue-pill shrink-0 rounded-full border border-border/70 bg-elevated/80 px-2.5 py-1 text-[10px] font-bold tabular-nums text-fg-soft shadow-sm transition hover:border-[color-mix(in_srgb,var(--vc-yt-brand,#ff0033)_40%,var(--border))] hover:text-fg sm:px-3"
             :title="`Up next · ${st.playlist.length} in queue`"
             @click="toggleBrowseQueue"
           >
             <span class="sm:hidden">{{ st.playlist.length }}</span>
-            <span class="hidden sm:inline">Up next</span>
+            <span class="hidden sm:inline">Queue · {{ st.playlist.length }}</span>
           </button>
         </div>
       </div>
@@ -1894,13 +2165,16 @@ watch(
     <!-- Codenames: one shared room URL synced over LiveKit (`youtube_activity.codenamesRoomUrl`). -->
     <div
       v-else-if="st.phase === 'codenames'"
-      class="relative flex min-h-0 min-w-0 flex-1 flex-col bg-black"
+      class="relative flex min-h-0 min-w-0 flex-1 flex-col"
+      :class="codenamesHoldUi ? 'bg-bg' : 'bg-black'"
     >
       <div
         v-if="codenamesHoldUi"
         class="custom-scrollbar flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center"
       >
-        <div class="max-w-md space-y-2">
+        <div
+          class="max-w-md space-y-2 rounded-2xl border border-border bg-elevated px-5 py-6 shadow-sm"
+        >
           <p class="text-[15px] font-semibold text-fg">
             Waiting for the Codenames host
           </p>
@@ -1912,13 +2186,31 @@ watch(
             v-if="codenamesWaitTimedOut"
             class="text-xs leading-relaxed text-fg-subtle"
           >
-            This is taking longer than expected. Ask the host to paste the
-            invite link from Codenames, or try re-opening the activity.
+            <template v-if="codenamesProxyActive">
+              This is taking longer than expected. Ask the host to finish
+              creating the lobby in Codenames, or try re-opening the activity.
+            </template>
+            <template v-else>
+              This is taking longer than expected. Ask the host to paste the
+              invite link from Codenames, or try re-opening the activity.
+            </template>
           </p>
         </div>
       </div>
       <template v-else>
+        <div
+          v-if="codenamesProxyGatePending"
+          class="absolute inset-0 flex min-h-0 flex-1 flex-col items-center justify-center gap-2 bg-bg px-6 text-center"
+        >
+          <p class="text-sm font-medium text-fg">Preparing Codenames…</p>
+          <p class="max-w-sm text-xs leading-relaxed text-fg-soft">
+            Connecting through Echo so the room link can be detected
+            automatically.
+          </p>
+        </div>
         <iframe
+          v-else-if="codenamesEmbedSrc"
+          ref="codenamesIframeRef"
           :key="iframeEmbedKey"
           :src="codenamesEmbedSrc"
           class="absolute inset-0 h-full w-full border-0"
@@ -1939,14 +2231,21 @@ watch(
           "
           referrerpolicy="strict-origin-when-cross-origin"
           allowfullscreen
+          @load="onCodenamesIframeLoad"
         />
         <div
-          v-if="isCodenamesStarter && !codenamesSyncedUrl"
+          v-if="
+            isCodenamesStarter &&
+            !codenamesSyncedUrl &&
+            !codenamesProxyActive &&
+            !codenamesProxyGatePending
+          "
           class="pointer-events-auto absolute bottom-0 left-0 right-0 border-t border-white/[0.08] bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3"
         >
           <p class="mb-2 text-[11px] font-medium text-fg-soft">
-            Have the invite link from your browser or the in-game share dialog?
-            Paste it so everyone joins the same room.
+            Echo cannot read the embedded Codenames URL from here (same-origin
+            proxy is off or unavailable). Paste the invite URL from your
+            browser or share dialog so everyone loads the same room.
           </p>
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input
@@ -3118,6 +3417,9 @@ watch(
   .vc-act-widget:hover .vc-act-widget__img {
     transform: none;
   }
+  .vc-act-yt-row:hover {
+    transform: none;
+  }
 }
 
 .vc-act-msg-err {
@@ -3128,13 +3430,162 @@ watch(
   color: var(--vc-status-warn-fg);
 }
 
+/* —— YouTube watch-together: premium panel chrome —— */
+.vc-act-youtube-stage {
+  --vc-yt-brand: #ff0033;
+  --vc-yt-brand-dim: #9f1028;
+  background:
+    radial-gradient(
+      120% 70% at 50% -15%,
+      color-mix(in srgb, var(--vc-yt-brand) 16%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      90% 55% at 100% 100%,
+      color-mix(in srgb, var(--vc-yt-brand) 7%, transparent) 0%,
+      transparent 50%
+    ),
+    var(--bg);
+}
+
+.vc-act-header--youtube {
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--vc-yt-brand) 28%,
+    var(--border)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 88%, #0c0406) 0%,
+    var(--elevated) 100%
+  );
+}
+
+.vc-act-browse-drawer {
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+}
+
+.vc-act-yt-segment {
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--fg) 3.5%, var(--elevated));
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 5%, transparent) inset,
+    0 6px 20px color-mix(in srgb, black 12%, transparent);
+}
+
+.vc-act-yt-segment__tab--active {
+  background: color-mix(in srgb, var(--elevated) 94%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--vc-yt-brand) 22%, var(--border));
+  color: var(--fg);
+}
+
+.vc-act-yt-row {
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  background: color-mix(in srgb, var(--elevated) 52%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, white 4%, transparent) inset;
+}
+
+.vc-act-yt-row:hover {
+  border-color: color-mix(in srgb, var(--vc-yt-brand) 26%, var(--border));
+  background: color-mix(in srgb, var(--elevated) 68%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 5%, transparent) inset,
+    0 10px 28px color-mix(in srgb, black 18%, transparent);
+  transform: translateY(-1px);
+}
+
+.vc-act-yt-row--current {
+  background: color-mix(in srgb, var(--vc-yt-brand) 9%, var(--elevated));
+  border-color: color-mix(in srgb, var(--vc-yt-brand) 34%, var(--border));
+}
+
+.vc-act-yt-search__go,
+.vc-act-yt-add {
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--vc-yt-brand) 92%, white) 0%,
+    color-mix(in srgb, var(--vc-yt-brand-dim) 88%, black) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--vc-yt-brand) 55%, transparent);
+}
+
+.vc-act-yt-pill-btn {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--elevated) 70%, transparent);
+}
+
+.vc-act-yt-pill-btn:hover {
+  border-color: color-mix(in srgb, var(--vc-yt-brand) 35%, var(--border));
+  background: color-mix(in srgb, var(--vc-yt-brand) 8%, var(--elevated));
+}
+
+.vc-act-yt-fab-search {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--vc-yt-brand) 95%, white) 0%,
+    var(--vc-yt-brand-dim) 100%
+  );
+  border: 1px solid color-mix(in srgb, white 22%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, black 35%, transparent),
+    0 12px 28px color-mix(in srgb, var(--vc-yt-brand) 35%, black);
+}
+
+.vc-act-yt-player-pane {
+  min-height: 0;
+}
+
+.vc-act-yt-player-frame {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 6%, transparent) inset,
+    0 22px 50px color-mix(in srgb, black 38%, transparent);
+}
+
+.vc-act-yt-transport {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--elevated) 78%, transparent);
+}
+
+[data-theme='light'] .vc-act-youtube-stage {
+  background:
+    radial-gradient(
+      120% 65% at 50% -12%,
+      color-mix(in srgb, var(--vc-yt-brand) 10%, transparent) 0%,
+      transparent 52%
+    ),
+    var(--bg);
+}
+
+[data-theme='light'] .vc-act-header--youtube {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 96%, #fff5f5) 0%,
+    var(--elevated) 100%
+  );
+}
+
+[data-theme='light'] .vc-act-browse-drawer {
+  background: color-mix(in srgb, var(--surface) 90%, white);
+}
+
 [data-theme='light'] .vc-act-header {
   background: color-mix(in srgb, var(--elevated) 94%, var(--bg));
 }
 
 @media (min-width: 1024px) {
-  .vc-act-browse-drawer {
-    box-shadow: none;
+  .vc-act-youtube-stage .vc-act-browse-drawer {
+    align-self: stretch;
+    margin: 0.5rem 0 0.5rem 0.5rem;
+    max-height: calc(100% - 1rem);
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--vc-yt-brand) 14%, var(--border));
+    box-shadow:
+      0 1px 0 color-mix(in srgb, white 7%, transparent) inset,
+      0 18px 46px color-mix(in srgb, black 28%, transparent);
   }
 }
 </style>

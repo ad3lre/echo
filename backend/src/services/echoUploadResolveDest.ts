@@ -323,7 +323,8 @@ export async function resolveEchoUploadStorageKey(
         error: {
           status: 400,
           code: 'INVALID_BODY',
-          message: 'serverId required for server_application_attachment presign',
+          message:
+            'serverId required for server_application_attachment presign',
         },
       };
     }

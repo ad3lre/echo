@@ -8,6 +8,7 @@ import type {
   EchoAttentionSnapshot,
   EchoDmActivityEvent,
   EchoDmCallEvent,
+  EchoDmThreadActivityEvent,
   EchoWorkspaceEvent,
 } from '@shared/types';
 import { dbgReadState } from '@/utils/echoReadStateDebug';
@@ -107,6 +108,12 @@ export function createEchoSocketInboundListeners(opts: {
     opts.host.dm.applyDmCall(payload);
   };
 
+  const onDmThreadActivityIo: EchoSocketInboundListeners['onDmThreadActivityIo'] =
+    (...args) => {
+      const payload = args[0] as EchoDmThreadActivityEvent;
+      opts.host.dm.applyDmThreadActivity(payload);
+    };
+
   const onReadStateUpdateIo: EchoSocketInboundListeners['onReadStateUpdateIo'] =
     (...args) => {
       const payload = args[0] as {
@@ -162,6 +169,7 @@ export function createEchoSocketInboundListeners(opts: {
     onConnectError,
     onDmActivityIo,
     onDmCallIo,
+    onDmThreadActivityIo,
     onReadStateUpdateIo,
     onAttentionUpdateIo,
     onPresenceIo,

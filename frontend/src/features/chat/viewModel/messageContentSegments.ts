@@ -1,11 +1,18 @@
 import type { Embed, MentionEntity } from '@shared/types';
+import type { MagicTimeRenderContext } from './magicTimeMarkdown';
 import {
   parseMessageContent,
   type IdTokenResolvers,
 } from './messageBodyMarkdown';
+import {
+  applyMagicTimeToPlaintext,
+  buildMagicTimeParseCacheExtra,
+  replaceMagicTimePlaceholdersInHtml,
+} from './magicTimeMarkdown';
 import { splitContentByEchoInviteLinks } from '@/utils/inviteEmbedParse';
 import { splitContentByEchoJumpEmbeds } from '@/utils/messageJumpContentParse';
 
+export type { MagicTimeRenderContext } from './magicTimeMarkdown';
 export type EchoMessageContentSegment =
   | { type: 'text'; text: string }
   | { type: 'invite'; url: string }
@@ -43,10 +50,22 @@ export function buildRenderedEchoMessageSegments(
   embeds: Embed[] | undefined,
   mentions?: MentionEntity[],
   parseIdResolvers?: IdTokenResolvers,
+  magicTime?: MagicTimeRenderContext | null,
 ): EchoRenderedMessageRow[] {
   const raw = buildEchoMessageContentSegments(content, embeds);
   return raw.map((seg) => {
     if (seg.type === 'text') {
+      if (magicTime) {
+        const { text: z, slots } = applyMagicTimeToPlaintext(
+          seg.text,
+          magicTime,
+        );
+        let html = parseMessageContent(z, mentions, parseIdResolvers, 0, {
+          parseCacheExtra: buildMagicTimeParseCacheExtra(magicTime),
+        });
+        html = replaceMagicTimePlaceholdersInHtml(html, slots);
+        return { type: 'text', text: seg.text, html };
+      }
       return {
         type: 'text',
         text: seg.text,

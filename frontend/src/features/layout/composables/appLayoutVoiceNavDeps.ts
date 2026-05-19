@@ -63,6 +63,7 @@ export type AppLayoutVoiceShellDepsSlice = {
     activityPhase?: VcActivityUiPhase;
     codenamesRoomUrl?: string | null;
   }) => void;
+  closeVcActivity: () => void;
 };
 
 /** `useAuthSessionStore` type for composable deps (avoids value import cycles). */

@@ -8,6 +8,8 @@ export type EchoDmThreadFromApi =
       kind: 'direct';
       peerUserId: string;
       lastActivityId?: string;
+      /** ISO 8601 UTC. Authoritative DM inbox sort key from the server. */
+      lastActivityAt?: string;
       activeCallParticipantUserIds?: string[];
     }
   | {
@@ -16,6 +18,7 @@ export type EchoDmThreadFromApi =
       name: string;
       memberUserIds: string[];
       lastActivityId?: string;
+      lastActivityAt?: string;
       pfp?: string;
       activeCallParticipantUserIds?: string[];
     };
@@ -41,6 +44,10 @@ export function normalizeEchoDmThreadsHttpPayload(raw: unknown): {
     )
       ? t.activeCallParticipantUserIds.map((x) => String(x)).filter(Boolean)
       : [];
+    const lastActivityAt =
+      typeof t.lastActivityAt === 'string' && t.lastActivityAt.trim()
+        ? t.lastActivityAt.trim()
+        : undefined;
     if (t.kind === 'group' && Array.isArray(t.memberUserIds)) {
       const pfpRaw = typeof t.pfp === 'string' ? t.pfp.trim() : '';
       threads.push({
@@ -51,6 +58,7 @@ export function normalizeEchoDmThreadsHttpPayload(raw: unknown): {
         ...(typeof t.lastActivityId === 'string' && t.lastActivityId.trim()
           ? { lastActivityId: t.lastActivityId.trim() }
           : {}),
+        ...(lastActivityAt ? { lastActivityAt } : {}),
         ...(activeCallParticipantUserIds.length > 0
           ? { activeCallParticipantUserIds }
           : {}),
@@ -64,6 +72,7 @@ export function normalizeEchoDmThreadsHttpPayload(raw: unknown): {
         ...(typeof t.lastActivityId === 'string' && t.lastActivityId.trim()
           ? { lastActivityId: t.lastActivityId.trim() }
           : {}),
+        ...(lastActivityAt ? { lastActivityAt } : {}),
         ...(activeCallParticipantUserIds.length > 0
           ? { activeCallParticipantUserIds }
           : {}),

@@ -24,6 +24,7 @@ import {
   type InsertUserMentionFn,
 } from '@/features/chat/chatComposerContext';
 import VcActivityPresenceBadges from '@/features/voice/components/VcActivityPresenceBadges.vue';
+import VcActivityKingCrown from '@/features/voice/components/VcActivityKingCrown.vue';
 import VoiceChannelUserLimitBadge from '@/features/voice/components/VoiceChannelUserLimitBadge.vue';
 import { getVoiceChannelUserLimitUi } from '@/features/voice/domain/voiceChannelUserLimit';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
@@ -56,6 +57,8 @@ const props = withDefaults(
       dmCallPresence?: 'live' | 'ringing' | 'connecting' | 'declined';
       /** Guild VC: YouTube watch-together / activities picker (LiveKit presence). */
       activityPresence?: VcActivityPresenceKind[];
+      /** Guild VC: this user drives LiveKit-synced activity until they leave. */
+      isVcActivityKing?: boolean;
     }[];
     currentUserId?: string;
     onOpenProfile?: (
@@ -697,10 +700,10 @@ onUnmounted(() => {
               v-for="t in sideRailVisualTiles"
               :key="t.tileId"
               :class="[
-                'call-participant-rail-media-tile shrink-0 rounded-full border-0',
+                'call-participant-rail-media-tile shrink-0 overflow-hidden rounded-xl border-0 bg-black/20',
                 participants.length >= 5
-                  ? 'h-[8.75rem] min-h-[8.75rem] w-[8.75rem] min-w-[8.75rem] max-w-[8.75rem]'
-                  : 'h-[7.5rem] min-h-[7.5rem] w-[7.5rem] min-w-[7.5rem] max-w-[7.5rem]',
+                  ? 'aspect-video w-[min(11.25rem,40vw)] min-w-[9.25rem] max-w-[12rem]'
+                  : 'aspect-video w-[10rem] min-w-[8.75rem] max-w-[11.5rem]',
               ]"
               :track="(t.track as any) ?? null"
               :participant-name="t.name"
@@ -745,7 +748,6 @@ onUnmounted(() => {
           >
             <!-- Blurred pfp backdrop -->
             <img
-              v-if="!useMeetStageLayout"
               :src="tileAvatar(p)"
               aria-hidden="true"
               class="call-tile-backdrop"
@@ -756,12 +758,20 @@ onUnmounted(() => {
             >
               {{ dmCallPresenceLabel(p.dmCallPresence) }}
             </div>
-            <VcActivityPresenceBadges
-              v-if="p.activityPresence?.length"
-              :kinds="p.activityPresence"
-              :size="useMeetStageLayout ? 'sm' : 'md'"
-              class="call-tile-activity-badges"
-            />
+            <div
+              v-if="p.isVcActivityKing || p.activityPresence?.length"
+              class="call-tile-activity-badges flex items-center gap-0.5"
+            >
+              <VcActivityKingCrown
+                v-if="p.isVcActivityKing"
+                :icon-class="useMeetStageLayout ? 'h-3 w-3' : 'h-3.5 w-3.5'"
+              />
+              <VcActivityPresenceBadges
+                v-if="p.activityPresence?.length"
+                :kinds="p.activityPresence"
+                :size="useMeetStageLayout ? 'sm' : 'md'"
+              />
+            </div>
             <div class="call-tile-avatar-area">
               <div
                 class="call-avatar-ring-host rounded-full"
@@ -1481,14 +1491,14 @@ onUnmounted(() => {
 /* ----- Compact rail variant (under the Meet-style stage) ----- */
 
 .call-tile--rail {
-  --call-tile-w: 7.5rem;
+  --call-tile-w: 10rem;
   --call-tile-pad: 10px;
   --call-tile-radius: 12px;
   width: var(--call-tile-w);
   max-width: var(--call-tile-w);
   flex: 0 0 var(--call-tile-w);
-  aspect-ratio: 1;
-  border-radius: 9999px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--call-tile-radius);
   opacity: 0.85;
   transition:
     transform 0.18s ease,
@@ -1498,10 +1508,10 @@ onUnmounted(() => {
     opacity 0.18s ease;
 }
 
-/* Meet stage: more people → slightly larger circles + more vertical budget (Discord-ish). */
+/* Meet stage: more people → slightly wider tiles in the horizontal rail. */
 .call-participant-rail--expanded-voice-rail .call-tile--rail {
-  --call-tile-w: clamp(7.75rem, 24cqw, 9.5rem);
-  --call-avatar-size: clamp(2.75rem, 20cqw, 3.35rem);
+  --call-tile-w: clamp(9.5rem, 28cqw, 11.75rem);
+  --call-avatar-size: clamp(2.25rem, 17cqw, 3rem);
 }
 
 .call-tile--rail:hover,
@@ -1579,7 +1589,7 @@ onUnmounted(() => {
   width: 100% !important;
   max-height: none !important;
   max-width: none !important;
-  border-radius: 9999px;
+  border-radius: 0.75rem;
 }
 
 .call-tile-indicators {

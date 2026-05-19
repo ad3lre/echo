@@ -305,3 +305,110 @@ export function buildDiscordAuthorizeUrlWithPkce(
   u.searchParams.set('code_challenge_method', 'S256');
   return u.toString();
 }
+
+const DISCORD_SCHEDULED_EVENT_FETCH_MS = 25_000;
+
+async function discordBotScheduledEventRequest(
+  botToken: string,
+  method: 'POST' | 'PATCH' | 'DELETE',
+  guildId: string,
+  scheduledEventId: string | undefined,
+  body: unknown | undefined,
+  fetchImpl: FetchLike = fetch,
+): Promise<
+  | { ok: true; status: number; json: unknown | null }
+  | { ok: false; status: number; text: string }
+> {
+  const token = botToken.trim();
+  const gid = guildId.trim();
+  if (!token || !gid) return { ok: false, status: 0, text: 'missing token or guild' };
+  const path = scheduledEventId?.trim()
+    ? `${DISCORD_API}/guilds/${encodeURIComponent(gid)}/scheduled-events/${encodeURIComponent(scheduledEventId.trim())}`
+    : `${DISCORD_API}/guilds/${encodeURIComponent(gid)}/scheduled-events`;
+  const res = await fetchImpl(path, {
+    method,
+    headers: {
+      Authorization: `Bot ${token}`,
+      ...(body !== undefined
+        ? { 'Content-Type': 'application/json' }
+        : undefined),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(DISCORD_SCHEDULED_EVENT_FETCH_MS),
+  });
+  const text = await res.text();
+  if (!res.ok) return { ok: false, status: res.status, text: text.slice(0, 500) };
+  if (!text.trim()) return { ok: true, status: res.status, json: null };
+  try {
+    return { ok: true, status: res.status, json: JSON.parse(text) as unknown };
+  } catch {
+    return { ok: true, status: res.status, json: null };
+  }
+}
+
+/**
+ * @see https://discord.com/developers/docs/resources/guild-scheduled-event#create-guild-scheduled-event
+ */
+export async function discordBotCreateGuildScheduledEvent(
+  botToken: string,
+  guildId: string,
+  body: Record<string, unknown>,
+  fetchImpl: FetchLike = fetch,
+): Promise<{ ok: true; id: string } | { ok: false; status: number; text: string }> {
+  const r = await discordBotScheduledEventRequest(
+    botToken,
+    'POST',
+    guildId,
+    undefined,
+    body,
+    fetchImpl,
+  );
+  if (!r.ok) return r;
+  const j = r.json as { id?: string } | null;
+  const id = typeof j?.id === 'string' ? j.id.trim() : '';
+  if (!id) return { ok: false, status: r.status, text: 'missing scheduled event id' };
+  return { ok: true, id };
+}
+
+/**
+ * @see https://discord.com/developers/docs/resources/guild-scheduled-event#modify-guild-scheduled-event
+ */
+export async function discordBotPatchGuildScheduledEvent(
+  botToken: string,
+  guildId: string,
+  scheduledEventId: string,
+  body: Record<string, unknown>,
+  fetchImpl: FetchLike = fetch,
+): Promise<{ ok: true } | { ok: false; status: number; text: string }> {
+  const r = await discordBotScheduledEventRequest(
+    botToken,
+    'PATCH',
+    guildId,
+    scheduledEventId,
+    body,
+    fetchImpl,
+  );
+  if (!r.ok) return r;
+  return { ok: true };
+}
+
+/**
+ * @see https://discord.com/developers/docs/resources/guild-scheduled-event#delete-guild-scheduled-event
+ */
+export async function discordBotDeleteGuildScheduledEvent(
+  botToken: string,
+  guildId: string,
+  scheduledEventId: string,
+  fetchImpl: FetchLike = fetch,
+): Promise<{ ok: true } | { ok: false; status: number; text: string }> {
+  const r = await discordBotScheduledEventRequest(
+    botToken,
+    'DELETE',
+    guildId,
+    scheduledEventId,
+    undefined,
+    fetchImpl,
+  );
+  if (!r.ok) return r;
+  return { ok: true };
+}

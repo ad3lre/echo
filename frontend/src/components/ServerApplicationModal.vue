@@ -9,9 +9,11 @@ import type { ServerApplicationModalPayload } from '@/features/layout/composable
 import type {
   EchoApplicationAttachmentAnswerDto,
   EchoApplicationQuestionDto,
-} from '@/api/echo/types';
-import { postEchoServerApplicationSubmit } from '@/api/echo/serverApplications';
-import { uploadServerApplicationAttachmentFile } from '@/api/echo/uploads';
+} from '@/services/http/echoServerApplicationsTypes';
+import {
+  httpSubmitServerApplication,
+  httpUploadServerApplicationAttachment,
+} from '@/services/http/echoServerApplicationsHttp';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
 const props = withDefaults(
@@ -29,7 +31,13 @@ const emit = defineEmits<{
 }>();
 
 const authSession = useAuthSessionStore();
-const { accessToken } = storeToRefs(authSession);
+const { backendUser } = storeToRefs(authSession);
+
+/** Cookie sessions have no bearer token; guests cannot submit applications server-side. */
+const canSubmitEchoApplications = computed(() => {
+  const u = backendUser.value;
+  return !!u && !u.isGuest;
+});
 
 const modalRef = ref<HTMLElement | null>(null);
 useFocusTrap(modalRef, toRef(props, 'modelValue'));
@@ -62,10 +70,7 @@ const iconSrc = computed(() =>
 );
 
 const submitLocked = computed(
-  () =>
-    localBusy.value ||
-    props.busy ||
-    attachmentUploadingId.value != null,
+  () => localBusy.value || props.busy || attachmentUploadingId.value != null,
 );
 
 function close() {
@@ -74,7 +79,11 @@ function close() {
   emit('update:modelValue', false);
 }
 
-function toggleMulti(q: EchoApplicationQuestionDto, opt: string, checked: boolean) {
+function toggleMulti(
+  q: EchoApplicationQuestionDto,
+  opt: string,
+  checked: boolean,
+) {
   const cur = (answers[q.id] as string[]) ?? [];
   if (checked) {
     if (!cur.includes(opt)) cur.push(opt);
@@ -107,21 +116,25 @@ async function onAttachmentFile(q: EchoApplicationQuestionDto, ev: Event) {
   const file = input.files?.[0];
   input.value = '';
   if (!file) return;
-  const tok = accessToken.value?.trim() ?? '';
   const p = props.payload;
-  if (!tok || !p) {
-    dispatchAppToast('Sign in to upload a file.', 'warning');
+  if (!p || !canSubmitEchoApplications.value) {
+    dispatchAppToast('Sign in with a full account to upload a file.', 'warning');
     return;
   }
   attachmentUploadingId.value = q.id;
   attachmentProgress.value = null;
   try {
-    const r = await uploadServerApplicationAttachmentFile(tok, p.serverId, file, {
-      questionMaxBytes: q.maxBytes,
-      onProgress: (pct) => {
-        attachmentProgress.value = pct;
+    const r = await httpUploadServerApplicationAttachment(
+      '',
+      p.serverId,
+      file,
+      {
+        questionMaxBytes: q.maxBytes,
+        onProgress: (pct) => {
+          attachmentProgress.value = pct;
+        },
       },
-    });
+    );
     answers[q.id] = r;
   } catch {
     dispatchAppToast('Could not upload file.', 'error');
@@ -151,14 +164,16 @@ function buildSubmitAnswers(): Record<string, unknown> {
 async function submit() {
   const p = props.payload;
   if (!p || localBusy.value || attachmentUploadingId.value != null) return;
-  const tok = accessToken.value?.trim() ?? '';
-  if (!tok) {
-    dispatchAppToast('Sign in to submit an application.', 'warning');
+  if (!canSubmitEchoApplications.value) {
+    dispatchAppToast(
+      'Sign in with a full account to submit an application.',
+      'warning',
+    );
     return;
   }
   localBusy.value = true;
   try {
-    await postEchoServerApplicationSubmit(tok, p.serverId, {
+    await httpSubmitServerApplication('', p.serverId, {
       source: p.source,
       inviteToken: p.inviteToken,
       answers: buildSubmitAnswers(),
@@ -195,7 +210,8 @@ async function submit() {
           Apply to join
         </h2>
         <p class="mt-1 text-sm text-fg-subtle">
-          This server requires a short application before you can become a member.
+          This server requires a short application before you can become a
+          member.
         </p>
         <div
           class="mt-4 flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--set-card-bg)] px-3 py-2.5"
@@ -301,7 +317,9 @@ async function submit() {
                   :for="'server-app-att-' + q.id"
                   class="inline-flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg)] px-4 py-6 text-center text-sm font-semibold text-fg hover:border-[var(--accent)] hover:bg-[var(--set-action-hover-bg)]"
                   :class="
-                    attachmentUploadingId != null ? 'pointer-events-none opacity-50' : ''
+                    attachmentUploadingId != null
+                      ? 'pointer-events-none opacity-50'
+                      : ''
                   "
                 >
                   Choose file
@@ -312,7 +330,8 @@ async function submit() {
                 class="text-xs text-fg-subtle"
               >
                 Uploading<span v-if="attachmentProgress != null">
-                  {{ ' ' }}{{ attachmentProgress }}%</span>…
+                  {{ ' ' }}{{ attachmentProgress }}%</span
+                >…
               </p>
               <p v-if="q.maxBytes" class="text-xs text-fg-subtle">
                 Max file size: {{ Math.round(q.maxBytes / (1024 * 1024)) }} MiB

@@ -2,10 +2,25 @@ import { computed, type Ref } from 'vue';
 import type { EchoAttentionDmSummary } from '@shared/types';
 import type { useAuthSessionStore } from '@/stores/authSession';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
-import {
-  activityRankForChannel,
-  compareActivityRankDesc,
-} from '@/features/dm/buildDmPanelUserList';
+import { compareActivityRankDesc } from '@/features/dm/buildDmPanelUserList';
+
+/**
+ * Rail rank source-of-truth: server `lastActivityAt` for this channel, falling back
+ * to the attention summary's `lastMessageAt` only when no live activity is known yet.
+ */
+function rankForRail(
+  channelId: string,
+  lastActivityAtMsByChannelId: ReadonlyMap<string, number> | undefined,
+  fallbackLastMessageAt: string | undefined,
+): { ms: number } {
+  const server = lastActivityAtMsByChannelId?.get(channelId) ?? 0;
+  if (server > 0) return { ms: server };
+  if (fallbackLastMessageAt) {
+    const t = new Date(fallbackLastMessageAt).getTime();
+    if (Number.isFinite(t) && t > 0) return { ms: t };
+  }
+  return { ms: 0 };
+}
 
 /** Avatar slot under the DM rail icon (1:1 or group thread). */
 export type DmIncomingRailAvatar =
@@ -32,7 +47,7 @@ type UserRow = {
   userId: string;
   name: string;
   pfp: string;
-  rank: { messageTime: number; activityId: string };
+  rank: { ms: number };
   unreadCount: number;
   inCall: boolean;
 };
@@ -41,7 +56,7 @@ type GroupRow = {
   channelId: string;
   name: string;
   pfp: string;
-  rank: { messageTime: number; activityId: string };
+  rank: { ms: number };
   unreadCount: number;
   inCall: boolean;
 };
@@ -77,8 +92,8 @@ export function useAppLayoutDmRailUnread(deps: {
   activeCallUserIds?: Ref<ReadonlySet<string>>;
   /** Active group DM call thread ids to keep pinned in rail while call is live. */
   activeCallGroupIds?: Ref<ReadonlySet<string>>;
-  /** Canonical DM thread activity ids for recency ordering parity with the DM panel. */
-  activityIdByChannelId?: Ref<ReadonlyMap<string, string>>;
+  /** Authoritative ms-epoch activity timestamps per channel id; matches the DM panel sort. */
+  lastActivityAtMsByChannelId?: Ref<ReadonlyMap<string, number>>;
 }) {
   const {
     authSession,
@@ -117,18 +132,7 @@ export function useAppLayoutDmRailUnread(deps: {
       }
       byUser.set(next.userId, {
         ...prev,
-        rank:
-          prev.rank.activityId || next.rank.activityId
-            ? compareActivityRankDesc(prev.rank, next.rank) <= 0
-              ? prev.rank
-              : next.rank
-            : {
-                activityId: '',
-                messageTime: Math.max(
-                  prev.rank.messageTime,
-                  next.rank.messageTime,
-                ),
-              },
+        rank: { ms: Math.max(prev.rank.ms, next.rank.ms) },
         unreadCount: prev.unreadCount + next.unreadCount,
         inCall: prev.inCall || next.inCall,
       });
@@ -161,11 +165,11 @@ export function useAppLayoutDmRailUnread(deps: {
           channelId,
           name: groupMeta.name?.trim() || 'Group',
           pfp: groupMeta.pfp ?? '',
-          rank: activityRankForChannel({
+          rank: rankForRail(
             channelId,
-            activityIdByChannelId: deps.activityIdByChannelId?.value,
-            fallbackLastMessageAt: summary.lastMessageAt,
-          }),
+            deps.lastActivityAtMsByChannelId?.value,
+            summary.lastMessageAt,
+          ),
           unreadCount: effectiveUnreadCount,
           inCall,
         });
@@ -185,11 +189,11 @@ export function useAppLayoutDmRailUnread(deps: {
         userId: peer,
         name: u?.name ?? 'User',
         pfp: u?.pfp ?? '',
-        rank: activityRankForChannel({
+        rank: rankForRail(
           channelId,
-          activityIdByChannelId: deps.activityIdByChannelId?.value,
-          fallbackLastMessageAt: summary.lastMessageAt,
-        }),
+          deps.lastActivityAtMsByChannelId?.value,
+          summary.lastMessageAt,
+        ),
         unreadCount: effectiveUnreadCount,
         inCall,
       });
@@ -211,7 +215,7 @@ export function useAppLayoutDmRailUnread(deps: {
         userId: peer,
         name: u?.name ?? 'User',
         pfp: u?.pfp ?? '',
-        rank: { activityId: '', messageTime: 0 },
+        rank: { ms: 0 },
         unreadCount: 0,
         inCall: deps.activeCallUserIds?.value.has(peer) ?? false,
       });
@@ -228,7 +232,7 @@ export function useAppLayoutDmRailUnread(deps: {
         userId,
         name: u?.name ?? 'User',
         pfp: u?.pfp ?? '',
-        rank: { activityId: String(now), messageTime: now },
+        rank: { ms: now },
         unreadCount: 0,
         inCall: true,
       });
@@ -242,7 +246,7 @@ export function useAppLayoutDmRailUnread(deps: {
         channelId: cid,
         name: groupMeta?.name?.trim() || 'Group',
         pfp: groupMeta?.pfp ?? '',
-        rank: { activityId: String(now), messageTime: now },
+        rank: { ms: now },
         unreadCount: groupRows.get(cid)?.unreadCount ?? 0,
         inCall: true,
       });

@@ -45,6 +45,7 @@ import {
 import { evaluateAutomodOnMessageSend } from '../../../domain/echoStore/automod/messageEval';
 import {
   applyAutomodAfterMessagePersisted,
+  applyAutomodBlockDeliveries,
   recordAutomodBlockHits,
 } from '../../../services/echoAutomodApply';
 import {
@@ -861,11 +862,18 @@ export default async function echoMessagesRoutes(
             `SELECT owner_id::text AS owner_id FROM echo_servers WHERE id = $1 LIMIT 1`,
             [sidForSlow],
           );
-          const ownerActorId = own.rows[0]
-            ? String(own.rows[0].owner_id)
-            : '';
+          const ownerActorId = own.rows[0] ? String(own.rows[0].owner_id) : '';
           if (ownerActorId) {
             await recordAutomodBlockHits(pool, {
+              serverId: sidForSlow,
+              ownerActorId,
+              channelId,
+              userId,
+              correlationId: automodEval.correlationId,
+              firedRules: automodEval.firedRules,
+              log: req.log,
+            });
+            await applyAutomodBlockDeliveries(fastify, pool, {
               serverId: sidForSlow,
               ownerActorId,
               channelId,
@@ -1003,9 +1011,7 @@ export default async function echoMessagesRoutes(
           `SELECT owner_id::text AS owner_id FROM echo_servers WHERE id = $1 LIMIT 1`,
           [sidForSlow],
         );
-        const ownerActorId = own.rows[0]
-          ? String(own.rows[0].owner_id)
-          : '';
+        const ownerActorId = own.rows[0] ? String(own.rows[0].owner_id) : '';
         if (ownerActorId) {
           await applyAutomodAfterMessagePersisted(fastify, pool, {
             serverId: sidForSlow,

@@ -34,7 +34,11 @@ import type {
   VcActivityUiState,
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
-import type { EchoHangmanActivityV1 } from '@/audio/voiceEchoLiveKitData';
+import type {
+  EchoHangmanActivityV1,
+  EchoYoutubePlaybackSyncV1,
+} from '@/audio/voiceEchoLiveKitData';
+import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
@@ -144,6 +148,9 @@ export interface AppLayoutControllerContext {
   playVcYoutubeNext: () => void;
   playVcYoutubePrevious: () => void;
   closeVcActivity: () => void;
+  vcYoutubeRemotePlayback: ShallowRef<VcYoutubeRemotePlaybackState | null>;
+  publishVcYoutubePlaybackSync: (sample: EchoYoutubePlaybackSyncV1) => void;
+  vcYoutubePlaybackShouldPublish: ComputedRef<boolean>;
   handleScreenSharePickerConfirm: (opts: {
     quality: '1080p60' | '720p30' | '720p15' | 'auto';
     audio: boolean;
@@ -801,6 +808,8 @@ export interface AppLayoutControllerContext {
   activeMemberNote: ComputedRef<string>;
   activeVoiceChannelParticipants: Ref<any>;
   getVcActivityPresenceForUser: (userId: string) => VcActivityPresenceKind[];
+  /** Echo user id hosting synced VC activity (YouTube / embeds); empty when idle. */
+  effectiveVcActivityKingUserId: ComputedRef<string>;
   liveKitState: ComputedRef<'idle' | 'connecting' | 'connected' | 'error'>;
   liveKitNetworkStats: ComputedRef<any>;
   liveKitRoom: any;

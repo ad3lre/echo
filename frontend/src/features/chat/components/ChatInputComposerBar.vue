@@ -999,5 +999,4 @@ function bindRef<E extends HTMLElement>(
   background: var(--md-mark-bg);
   padding: 0.04em 0.12em;
 }
-
 </style>

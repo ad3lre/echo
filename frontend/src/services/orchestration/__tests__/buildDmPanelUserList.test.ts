@@ -1,20 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ECHO_SNOWFLAKE_EPOCH_MS } from '@shared/snowflakeIds';
 import {
   buildDmPanelInboxList,
   buildDmPanelUserList,
   dmPeerUserIdFromChannelId,
   echoDmChannelIdForPeerUser,
   getLatestDmPeerUserId,
+  pinSelfDmInboxEntryFirst,
 } from '@/features/dm/buildDmPanelUserList';
-
-/** Deterministic Echo-format snowflake encoding `ms` (for tests). */
-function echoSnowflakeForMillis(ms: number): string {
-  return (
-    ((BigInt(ms) - BigInt(ECHO_SNOWFLAKE_EPOCH_MS)) << 22n) +
-    1n
-  ).toString();
-}
 
 describe('dmPeerUserIdFromChannelId', () => {
   it('parses legacy dm- channels', () => {
@@ -117,21 +109,22 @@ describe('buildDmPanelUserList', () => {
       groups: [{ id: 'grp1', name: 'G', pfp: '' }],
       activeInboxChannelId: '',
     });
-    expect(entries.map((e) => e.id)).toEqual(['grp1', 'b', 'a']);
-    expect(entries[0]).toMatchObject({ kind: 'group', id: 'grp1' });
+    expect(entries.map((e) => e.id)).toEqual(['me', 'grp1', 'b', 'a']);
+    expect(entries[0]).toMatchObject({ kind: 'user', id: 'me', name: 'You' });
+    expect(entries[1]).toMatchObject({ kind: 'group', id: 'grp1' });
   });
 
-  it('sorts groups by server thread activity ids when messages are not loaded', () => {
+  it('sorts groups by server lastActivityAt when messages are not loaded', () => {
     const users = new Map([
       ['a', { id: 'a', name: 'A', pfp: '', status: 'online' }],
     ]);
     const entries = buildDmPanelInboxList({
       selfId: 'me',
       echoPeerByChannelId: new Map([['100', 'a']]),
-      activityIdByChannelId: new Map([
-        ['100', '1000'],
-        ['grp1', '3000'],
-        ['grp2', '2000'],
+      lastActivityAtMsByChannelId: new Map([
+        ['100', 1_000],
+        ['grp1', 3_000],
+        ['grp2', 2_000],
       ]),
       messageKeys: [],
       getMessages: () => [],
@@ -143,7 +136,7 @@ describe('buildDmPanelUserList', () => {
       ],
       activeInboxChannelId: '',
     });
-    expect(entries.map((e) => e.id)).toEqual(['grp1', 'grp2', 'a']);
+    expect(entries.map((e) => e.id)).toEqual(['me', 'grp1', 'grp2', 'a']);
   });
 
   it('does not boost selected empty threads above truly active entries', () => {
@@ -164,7 +157,7 @@ describe('buildDmPanelUserList', () => {
       groups: [],
       activeInboxChannelId: 'dm-b',
     });
-    expect(entries.map((e) => e.id)).toEqual(['a', 'b']);
+    expect(entries.map((e) => e.id)).toEqual(['me', 'a', 'b']);
   });
 
   it('sorts by latest message time descending', () => {
@@ -187,7 +180,7 @@ describe('buildDmPanelUserList', () => {
     expect(rows.map((r) => r.id)).toEqual(['b', 'a']);
   });
 
-  it('falls back to server thread activity ids when messages are not loaded', () => {
+  it('falls back to server lastActivityAt when messages are not loaded', () => {
     const users = new Map([
       ['a', { id: 'a', name: 'A', pfp: '' }],
       ['b', { id: 'b', name: 'B', pfp: '' }],
@@ -198,9 +191,9 @@ describe('buildDmPanelUserList', () => {
         ['100', 'a'],
         ['200', 'b'],
       ]),
-      activityIdByChannelId: new Map([
-        ['100', '1000'],
-        ['200', '2000'],
+      lastActivityAtMsByChannelId: new Map([
+        ['100', 1_000],
+        ['200', 2_000],
       ]),
       messageKeys: [],
       getMessages: () => [],
@@ -210,7 +203,7 @@ describe('buildDmPanelUserList', () => {
     expect(rows.map((r) => r.id)).toEqual(['b', 'a']);
   });
 
-  it('prefers server last-activity (snowflake) when a thread has no local messages yet', () => {
+  it('uses server lastActivityAt for a thread with no local messages yet', () => {
     const users = new Map([
       ['a', { id: 'a', name: 'A', pfp: '' }],
       ['b', { id: 'b', name: 'B', pfp: '' }],
@@ -218,16 +211,15 @@ describe('buildDmPanelUserList', () => {
     const messages: Record<string, { timestamp: string }[]> = {
       'dm-a': [{ timestamp: '2020-01-01T00:00:00.000Z' }],
     };
-    const newerActivity = echoSnowflakeForMillis(Date.UTC(2026, 2, 1));
     const rows = buildDmPanelUserList({
       selfId: 'me',
       echoPeerByChannelId: new Map([
         ['dm-a', 'a'],
         ['dm-b', 'b'],
       ]),
-      activityIdByChannelId: new Map([
-        ['dm-a', '1000'],
-        ['dm-b', newerActivity],
+      lastActivityAtMsByChannelId: new Map([
+        ['dm-a', Date.UTC(2020, 0, 1)],
+        ['dm-b', Date.UTC(2026, 2, 1)],
       ]),
       messageKeys: Object.keys(messages),
       getMessages: (ch) => messages[ch],
@@ -237,7 +229,7 @@ describe('buildDmPanelUserList', () => {
     expect(rows.map((r) => r.id)).toEqual(['b', 'a']);
   });
 
-  it('prefers loaded message timestamps over stale activity ids when both threads are loaded', () => {
+  it('uses max(server, local) so a fresh local message wins over an older server timestamp', () => {
     const users = new Map([
       ['a', { id: 'a', name: 'A', pfp: '' }],
       ['b', { id: 'b', name: 'B', pfp: '' }],
@@ -252,9 +244,10 @@ describe('buildDmPanelUserList', () => {
         ['dm-a', 'a'],
         ['dm-b', 'b'],
       ]),
-      activityIdByChannelId: new Map([
-        ['dm-a', '1000'],
-        ['dm-b', '2000'],
+      lastActivityAtMsByChannelId: new Map([
+        // Server timestamps trail local by a few seconds — local wins via MAX.
+        ['dm-a', Date.UTC(2026, 0, 1, 23, 59, 50)],
+        ['dm-b', Date.UTC(2026, 0, 0, 23, 59, 50)],
       ]),
       messageKeys: Object.keys(messages),
       getMessages: (ch) => messages[ch],
@@ -264,7 +257,7 @@ describe('buildDmPanelUserList', () => {
     expect(rows.map((r) => r.id)).toEqual(['a', 'b']);
   });
 
-  it('keeps the inbox on real recency even when activity ids disagree with loaded timestamps', () => {
+  it('inbox stays on real recency: server says A older but local message proves A is newer', () => {
     const users = new Map([
       ['a', { id: 'a', name: 'A', pfp: '', status: 'online' }],
       ['b', { id: 'b', name: 'B', pfp: '', status: 'offline' }],
@@ -279,9 +272,9 @@ describe('buildDmPanelUserList', () => {
         ['dm-a', 'a'],
         ['dm-b', 'b'],
       ]),
-      activityIdByChannelId: new Map([
-        ['dm-a', '1000'],
-        ['dm-b', '2000'],
+      lastActivityAtMsByChannelId: new Map([
+        ['dm-a', 1_000],
+        ['dm-b', 2_000],
       ]),
       messageKeys: Object.keys(messages),
       getMessages: (ch) => messages[ch],
@@ -290,7 +283,22 @@ describe('buildDmPanelUserList', () => {
       groups: [],
       activeInboxChannelId: '',
     });
-    expect(entries.map((e) => e.id)).toEqual(['a', 'b']);
+    expect(entries.map((e) => e.id)).toEqual(['me', 'a', 'b']);
+  });
+});
+
+describe('pinSelfDmInboxEntryFirst', () => {
+  it('moves the self row to the top without reordering other entries', () => {
+    const entries = [
+      { kind: 'user' as const, id: 'alice', name: 'Alice', pfp: '' },
+      { kind: 'user' as const, id: 'me', name: 'You', pfp: '' },
+      { kind: 'group' as const, id: 'g1', name: 'G', pfp: '' },
+    ];
+    expect(pinSelfDmInboxEntryFirst(entries, 'me').map((e) => e.id)).toEqual([
+      'me',
+      'alice',
+      'g1',
+    ]);
   });
 });
 

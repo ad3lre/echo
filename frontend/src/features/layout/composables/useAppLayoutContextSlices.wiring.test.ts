@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 import { useAppLayoutContextProfileSlice } from './useAppLayoutContextProfileSlice';
 import { useAppLayoutContextVoiceSlice } from './useAppLayoutContextVoiceSlice';
@@ -72,6 +72,8 @@ describe('app layout context slices wiring', () => {
 
   it('voice/messaging/server slices pass through provided values', () => {
     const voice = useAppLayoutContextVoiceSlice({
+      getVcActivityPresenceForUser: () => [],
+      effectiveVcActivityKingUserId: computed(() => ''),
       activeVoiceChannelParticipants: ref([]),
       liveKitState: computed(() => 'idle'),
       liveKitNetworkStats: computed(() => null),
@@ -184,6 +186,9 @@ describe('app layout context slices wiring', () => {
       playVcYoutubeNext: vi.fn(),
       playVcYoutubePrevious: vi.fn(),
       closeVcActivity: vi.fn(),
+      vcYoutubeRemotePlayback: shallowRef(null),
+      publishVcYoutubePlaybackSync: vi.fn(),
+      vcYoutubePlaybackShouldPublish: computed(() => true),
       handleScreenSharePickerConfirm: vi.fn(async () => undefined),
       openDesktopStreamingControl: vi.fn(),
       closeDesktopStreamingControl: vi.fn(),

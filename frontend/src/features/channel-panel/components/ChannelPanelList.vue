@@ -104,6 +104,8 @@ const props = defineProps<{
   /** Mobile VC lobby: pulse outline on the targeted voice row. */
   voiceLobbyChannelId?: string | null;
   getVcActivityPresence?: (userId: string) => VcActivityPresenceKind[];
+  /** User id hosting synced VC activity for the connected voice session; crown in roster. */
+  vcActivityKingUserId?: string | null;
   /** When true, show icon-only bubble view for narrow panels */
   bubbleMode?: boolean;
 }>();
@@ -1109,6 +1111,8 @@ watch(
     <div
       v-else
       ref="channelListRef"
+      role="tree"
+      aria-label="Channels"
       class="channel-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain py-3 px-3 custom-scrollbar touch-pan-y"
       v-scrollbar-on-scroll
       @dragover.capture="onChannelListDragOverCapture"
@@ -1135,6 +1139,9 @@ watch(
       <div
         v-for="category in effectiveCategories"
         :key="category.id"
+        role="treeitem"
+        :aria-expanded="!isCategoryCollapsed(category.id)"
+        :aria-label="getChannelDisplayName(category.name)"
         class="mb-5"
       >
         <div v-if="category.hideCategoryHeader" class="mb-2 px-2">
@@ -1241,6 +1248,7 @@ watch(
         </template>
         <div
           v-if="!isCategoryCollapsed(category.id)"
+          role="group"
           class="flex flex-col gap-1"
           :class="{
             'channel-list-bucket--channel-dnd': reorderDragChannelId !== null,
@@ -1262,6 +1270,9 @@ watch(
               }"
             >
               <div
+                role="treeitem"
+                :aria-selected="activeChannelId === channel.id"
+                :aria-label="getChannelDisplayName(channel.name)"
                 class="group channel-row flex flex-col rounded-lg cursor-pointer"
                 :data-channel-row-anchor="channel.id"
                 :class="{
@@ -1533,6 +1544,11 @@ watch(
                     "
                     :vc="participantVoiceUi(channel.id, userId)"
                     :activity-presence="getVcActivityPresence?.(userId) ?? []"
+                    :is-vc-activity-king="
+                      !!vcActivityKingUserId?.trim() &&
+                      currentVoiceChannelId === channel.id &&
+                      userId === vcActivityKingUserId.trim()
+                    "
                     :is-active="openProfileUserId === userId"
                     @click="emit('vc-participant-click', userId, $event)"
                     @contextmenu="

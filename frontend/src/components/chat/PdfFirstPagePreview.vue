@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import {
-  ref,
-  watch,
-  onUnmounted,
-  nextTick,
-  computed,
-} from 'vue';
-import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
+import { ref, watch, onUnmounted, nextTick, computed } from 'vue';
+import type {
+  PDFDocumentLoadingTask,
+  PDFDocumentProxy,
+  RenderTask,
+} from 'pdfjs-dist';
 import { destroyPdfLoad, startPdfUrlLoad } from '@/features/pdf/loadPdfFromUrl';
 import { renderPdfPageToCanvas } from '@/features/pdf/renderPdfPage';
 import { pdfLoadErrorMessage } from '@/features/pdf/isProbablyPdfCorsError';

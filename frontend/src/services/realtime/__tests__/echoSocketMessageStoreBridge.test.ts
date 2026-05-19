@@ -20,7 +20,11 @@ function createHostPorts(
 ): EchoRealtimeHostPorts {
   const base: EchoRealtimeHostPorts = {
     presence: { applyPresenceUpdate: vi.fn() },
-    dm: { applyDmActivity: vi.fn(), applyDmCall: vi.fn() },
+    dm: {
+      applyDmActivity: vi.fn(),
+      applyDmCall: vi.fn(),
+      applyDmThreadActivity: vi.fn(),
+    },
     attention: {
       applyReadStateUpdate: vi.fn(),
       applyAttentionSnapshot: vi.fn(),

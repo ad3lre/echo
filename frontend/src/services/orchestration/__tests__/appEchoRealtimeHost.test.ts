@@ -9,6 +9,7 @@ describe('createAppLayoutEchoRealtimeHost', () => {
       onPresenceUpdate: vi.fn(),
       onDmActivity: vi.fn(),
       onDmCall: vi.fn(),
+      onDmThreadActivity: vi.fn(),
       mergeReadStateUpdate,
       replaceAttentionSnapshot: vi.fn(),
       onEchoWorkspaceEvent: vi.fn(),

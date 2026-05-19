@@ -56,9 +56,7 @@ export type EchoWorkspaceSessionApplyRefs = {
   liveSyncConnected: Ref<boolean>;
   lastWorkspaceEventVersion: Ref<string>;
   lastSnapshotFetchedAtMs: Ref<number>;
-  upcomingEventsByServerId: Ref<
-    EchoWorkspaceState['upcomingEventsByServerId']
-  >;
+  upcomingEventsByServerId: Ref<EchoWorkspaceState['upcomingEventsByServerId']>;
   myEventRsvps: Ref<EchoWorkspaceState['myEventRsvps']>;
 };
 
@@ -222,8 +220,7 @@ export function applyWorkspaceSnapshotToEchoSession(
 
   refs.servers.value = state.servers;
   refs.categoriesByServer.value = state.categoriesByServer;
-  refs.upcomingEventsByServerId.value =
-    state.upcomingEventsByServerId ?? {};
+  refs.upcomingEventsByServerId.value = state.upcomingEventsByServerId ?? {};
   refs.myEventRsvps.value = state.myEventRsvps ?? [];
   if (state.membersByServer) {
     refs.serverMemberIds.value = state.serverMemberIds;
@@ -407,4 +404,150 @@ export function setLiveSyncConnectedOnEchoSession(
   connected: boolean,
 ): void {
   refs.liveSyncConnected.value = connected;
+}
+
+/**
+ * Apply a `voice_roster_delta` event in-place to `categoriesByServer`.
+ *
+ * Three-tier model: this is tier-1 (instant optimistic patch). The debounced
+ * full workspace hydrate (`workspace_invalidated` tier-2) and the HTTP snapshot
+ * (tier-3) remain as correctness fallbacks — they overwrite whatever tier-1
+ * left behind if the version ordering allows it.
+ *
+ * Version gate: skip if the session already carries a version strictly newer
+ * than the delta (a full snapshot already corrected this era).
+ *
+ * Mutation rules (all produce a new `categoriesByServer` object for Vue reactivity):
+ *  - join:       add userId to target channel's voiceParticipantIds (idempotent)
+ *  - leave/disconnect: remove userId from EVERY voice channel in the server +
+ *                      clear their mute/deaf entries (prevents ghost tiles)
+ *  - move:       remove userId from ALL channels (same as leave) then add to target
+ *                (fromChannelId is a hint only — correctness does not depend on it)
+ *  - mute/unmute/deafen/undeafen: patch serverMuted / serverDeafened on the
+ *                specific channel using the booleans carried in the delta
+ */
+export function applyVoiceRosterDeltaToEchoSession(
+  refs: EchoWorkspaceSessionApplyRefs,
+  delta: NonNullable<import('@shared/types/socket').EchoWorkspaceEvent['voiceRosterDelta']>,
+): void {
+  const { serverId, channelId, userId, action } = delta;
+  if (!serverId || !userId) return;
+
+  // Version gate: skip if the session already has a strictly newer snapshot.
+  const effectiveV = getEffectiveWorkspaceVersion(
+    refs.lastWorkspaceEventVersion.value,
+    refs.workspaceVersion.value,
+  );
+  if (compareWorkspaceVersion(delta.workspaceVersion, effectiveV) < 0) return;
+
+  const serverCats = refs.categoriesByServer.value[serverId];
+  if (!Array.isArray(serverCats)) return;
+
+  /**
+   * Build a new categories array for the given server, applying `mutateCh`
+   * to each voice channel. Returns the original array if nothing changed.
+   */
+  function mapVoiceChannels(
+    cats: typeof serverCats,
+    mutateCh: (ch: import('@shared/types').ChannelSummary) => import('@shared/types').ChannelSummary | null,
+  ): typeof serverCats {
+    let anyChange = false;
+    const next = cats.map((cat) => {
+      let catChanged = false;
+      const nextChannels = cat.channels.map((ch) => {
+        if (ch.type !== 'voice') return ch;
+        const result = mutateCh(ch);
+        if (result === null || result === ch) return ch;
+        catChanged = true;
+        anyChange = true;
+        return result;
+      });
+      if (!catChanged) return cat;
+      return { ...cat, channels: nextChannels };
+    });
+    return anyChange ? next : cats;
+  }
+
+  /** Remove a user from `voiceParticipantIds` and their mute/deaf map entries on all voice channels. */
+  function removeUserFromAll(cats: typeof serverCats): typeof serverCats {
+    return mapVoiceChannels(cats, (ch) => {
+      const ids = ch.voiceParticipantIds;
+      const hasMute = ch.voiceServerMuteByUserId?.[userId];
+      const hasDeaf = ch.voiceServerDeafenByUserId?.[userId];
+      if (!ids?.includes(userId) && !hasMute && !hasDeaf) return ch;
+      const nextIds = ids ? ids.filter((id) => id !== userId) : [];
+      const nextMute = hasMute
+        ? Object.fromEntries(
+            Object.entries(ch.voiceServerMuteByUserId ?? {}).filter(
+              ([k]) => k !== userId,
+            ),
+          )
+        : ch.voiceServerMuteByUserId;
+      const nextDeaf = hasDeaf
+        ? Object.fromEntries(
+            Object.entries(ch.voiceServerDeafenByUserId ?? {}).filter(
+              ([k]) => k !== userId,
+            ),
+          )
+        : ch.voiceServerDeafenByUserId;
+      return {
+        ...ch,
+        voiceParticipantIds: nextIds,
+        ...(hasMute ? { voiceServerMuteByUserId: nextMute } : {}),
+        ...(hasDeaf ? { voiceServerDeafenByUserId: nextDeaf } : {}),
+      };
+    });
+  }
+
+  let nextCats: typeof serverCats;
+
+  if (action === 'join') {
+    nextCats = mapVoiceChannels(serverCats, (ch) => {
+      if (ch.id !== channelId) return ch;
+      const ids = ch.voiceParticipantIds ?? [];
+      if (ids.includes(userId)) return ch;
+      return { ...ch, voiceParticipantIds: [...ids, userId] };
+    });
+  } else if (action === 'leave' || action === 'disconnect') {
+    nextCats = removeUserFromAll(serverCats);
+  } else if (action === 'move') {
+    // Step 1: remove from all channels. Step 2: add to target.
+    const afterRemove = removeUserFromAll(serverCats);
+    nextCats = mapVoiceChannels(afterRemove, (ch) => {
+      if (ch.id !== channelId) return ch;
+      const ids = ch.voiceParticipantIds ?? [];
+      if (ids.includes(userId)) return ch;
+      return { ...ch, voiceParticipantIds: [...ids, userId] };
+    });
+  } else if (action === 'mute' || action === 'unmute') {
+    const muted = action === 'mute';
+    nextCats = mapVoiceChannels(serverCats, (ch) => {
+      if (ch.id !== channelId) return ch;
+      const cur = ch.voiceServerMuteByUserId ?? {};
+      if (muted === (cur[userId] === true)) return ch;
+      const next = { ...cur };
+      if (muted) next[userId] = true;
+      else delete next[userId];
+      return { ...ch, voiceServerMuteByUserId: next };
+    });
+  } else if (action === 'deafen' || action === 'undeafen') {
+    const deafened = action === 'deafen';
+    nextCats = mapVoiceChannels(serverCats, (ch) => {
+      if (ch.id !== channelId) return ch;
+      const curDeaf = ch.voiceServerDeafenByUserId ?? {};
+      if (deafened === (curDeaf[userId] === true)) return ch;
+      const nextDeaf = { ...curDeaf };
+      if (deafened) nextDeaf[userId] = true;
+      else delete nextDeaf[userId];
+      return { ...ch, voiceServerDeafenByUserId: nextDeaf };
+    });
+  } else {
+    return;
+  }
+
+  if (nextCats === serverCats) return;
+  refs.categoriesByServer.value = {
+    ...refs.categoriesByServer.value,
+    [serverId]: nextCats,
+  };
 }

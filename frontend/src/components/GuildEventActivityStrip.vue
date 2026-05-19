@@ -20,6 +20,7 @@ const emit = defineEmits<{
     payload: {
       serverId: string;
       channelId: string | null;
+      customLocation?: string | null;
       eventId: string;
     },
   ];
@@ -76,6 +77,7 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
           emit('open', {
             serverId: card.serverId,
             channelId: card.channelId,
+            customLocation: card.customLocation ?? null,
             eventId: card.eventId,
           })
         "
@@ -100,13 +102,14 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
             img-class="h-full w-full object-cover"
           />
           <span
-            class="pointer-events-none absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-border bg-surface shadow-sm"
+            class="pointer-events-none absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 border-[var(--surface)] bg-indigo-500 shadow-sm"
             aria-hidden="true"
+            title="Scheduled event"
           >
             <img
               :src="icons.bellSchool"
               alt=""
-              class="h-2.5 w-2.5 opacity-90 dark:brightness-0 dark:invert"
+              class="h-2.5 w-2.5 opacity-95 brightness-0 invert"
             />
           </span>
         </div>
@@ -125,6 +128,14 @@ const layoutSingleColumn = computed(() => props.cards.length === 1);
             <template v-if="card.channelDisplayName">
               <span class="shrink-0" aria-hidden="true">·</span>
               <span class="truncate">{{ card.channelDisplayName }}</span>
+            </template>
+            <template v-else-if="card.customLocation?.trim()">
+              <span class="shrink-0" aria-hidden="true">·</span>
+              <span class="truncate">{{
+                card.customLocation.trim().length > 56
+                  ? `${card.customLocation.trim().slice(0, 56)}…`
+                  : card.customLocation.trim()
+              }}</span>
             </template>
           </p>
           <p class="text-[10px] text-fg-soft">

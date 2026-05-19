@@ -3,6 +3,7 @@ import { icons } from '@/assets/icons';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import ServerOwnerCrownIcon from '@/components/ServerOwnerCrownIcon.vue';
+import VcActivityKingCrown from '@/features/voice/components/VcActivityKingCrown.vue';
 import VcActivityPresenceBadges from '@/features/voice/components/VcActivityPresenceBadges.vue';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
 
@@ -25,6 +26,8 @@ defineProps<{
   isActive: boolean;
   /** YouTube / activities — same source as CallView. */
   activityPresence?: VcActivityPresenceKind[];
+  /** Crown: this user is driving synced VC activity for the room. */
+  isVcActivityKing?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -76,6 +79,7 @@ const emit = defineEmits<{
       :class="vc.deafened || vc.muted ? 'vc-participant-name--dim' : ''"
     >
       <span class="min-w-0 truncate">{{ name ?? 'Unknown' }}</span>
+      <VcActivityKingCrown v-if="isVcActivityKing" icon-class="h-3 w-3" />
       <ServerOwnerCrownIcon v-if="isServerOwner" icon-class="h-3 w-3" />
     </span>
     <div

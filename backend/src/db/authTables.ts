@@ -347,6 +347,9 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
   await pool.query(
     `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS show_last_online BOOLEAN NOT NULL DEFAULT true;`,
   );
+  await pool.query(
+    `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS time_zone TEXT NULL;`,
+  );
   /**
    * One-time for existing deployments (run manually after deploy if you must not force re-verify):
    * UPDATE auth_users SET email_verified_at = created_at WHERE email_verified_at IS NULL AND email IS NOT NULL AND TRIM(email) <> '';

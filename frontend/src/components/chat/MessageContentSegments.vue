@@ -6,6 +6,7 @@ import {
   buildRenderedEchoMessageSegments,
   echoMessageSegmentRowKey,
   type EchoRenderedMessageRow,
+  type MagicTimeRenderContext,
 } from '@/features/chat/viewModel/messageContentSegments';
 import ChatInviteEmbed from './ChatInviteEmbed.vue';
 import MessageJumpEmbed from './MessageJumpEmbed.vue';
@@ -16,6 +17,7 @@ const props = defineProps<{
   parseIdResolvers?: IdTokenResolvers;
   embeds?: Embed[];
   onJumpToMessage?: (channelId: string, messageId: string) => void;
+  magicTime?: MagicTimeRenderContext | null;
 }>();
 
 const renderedRows = computed(() =>
@@ -24,6 +26,7 @@ const renderedRows = computed(() =>
     props.embeds,
     props.mentions,
     props.parseIdResolvers,
+    props.magicTime,
   ),
 );
 

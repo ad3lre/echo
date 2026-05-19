@@ -15,6 +15,7 @@ import {
   type EchoWorkspaceSessionApplyRefs,
   type EchoWorkspaceSessionUser,
   applyWorkspaceSnapshotToEchoSession,
+  applyVoiceRosterDeltaToEchoSession,
   getEffectiveWorkspaceVersion,
   mergeMembersByServerInEchoSession,
   noteWorkspaceEventVersionOnEchoSession,
@@ -161,6 +162,11 @@ export const useEchoSessionStore = defineStore('echoSession', () => {
     setLiveSyncConnectedOnEchoSession(sessionApplyRefs, connected);
   }
 
+  function applyVoiceRosterDelta(payload: EchoWorkspaceEvent): void {
+    if (!payload.voiceRosterDelta) return;
+    applyVoiceRosterDeltaToEchoSession(sessionApplyRefs, payload.voiceRosterDelta);
+  }
+
   function mergeDiscordVoiceMirrorFromSocket(
     payload: NonNullable<EchoWorkspaceEvent['discordVoiceMirror']>,
   ): void {
@@ -259,6 +265,7 @@ export const useEchoSessionStore = defineStore('echoSession', () => {
     patchLastOnlineBatch,
     setLiveSyncConnected,
     mergeDiscordVoiceMirrorFromSocket,
+    applyVoiceRosterDelta,
     refreshDiscordVoiceMirrorRosters,
     resetSessionState,
   };

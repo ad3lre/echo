@@ -47,3 +47,25 @@ export function validateEchoStoredBrandingUrl(
   }
   return { ok: false };
 }
+
+/**
+ * Guild event covers use the same storage rules as branding (presigned / local / dev data URLs).
+ * Empty string clears the cover; arbitrary pasted URLs are rejected.
+ */
+export function validateEchoEventCoverImageUrl(
+  raw: string | undefined,
+):
+  | { ok: true; value: string }
+  | { ok: false; message: string } {
+  const t = typeof raw === 'string' ? raw.trim() : '';
+  if (!t) return { ok: true, value: '' };
+  const v = validateEchoStoredBrandingUrl(t);
+  if (!v.ok) {
+    return {
+      ok: false,
+      message:
+        'Cover images must be uploaded through Echo (arbitrary image URLs are not allowed).',
+    };
+  }
+  return { ok: true, value: v.value };
+}

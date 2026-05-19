@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
-import { storeToRefs } from 'pinia';
+import { computed, onMounted, ref, toRef, watch } from 'vue';
+import type { ChannelSummary } from '@shared/types';
+import { useChannelIconResolver } from '@/composables/useChannelIconResolver';
 import { useEchoWorkspace } from '@/composables/useEchoWorkspace';
 import { useAuthSessionStore } from '@/stores/authSession';
+import { uploadServerEventCoverFile } from '@/services/http/echoServerEventCovers';
 import {
   cancelGuildEvent,
   createGuildEvent,
   fetchGuildEventsForManagement,
   updateGuildEvent,
   type EchoServerEventManagementRow,
-} from '@/api/echoClient';
-import { uploadServerEventCoverFile } from '@/api/echo/uploads';
+} from '@/services/http/echoServerEventsHttp';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { safeImageUrl } from '@/utils/safeImageUrl';
@@ -24,13 +25,14 @@ import {
   uploadBrandingAssetWithInlineFallback,
 } from '@/services/orchestration/brandingUploadFallback';
 import {
-  maxAttendeesFromInput,
   parseDateTimeLocalToUtcIso,
   utcIsoToDateTimeLocalValue,
 } from '@/features/server-settings/utils/serverEventFormDateTime';
 
 const props = defineProps<{
   serverId: string;
+  /** Discord-imported layout: offer mirroring Echo events to Discord scheduled events. */
+  isDiscordImportedServer?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -39,7 +41,8 @@ const emit = defineEmits<{
 
 const workspace = useEchoWorkspace();
 const authSession = useAuthSessionStore();
-const { accessToken } = storeToRefs(authSession);
+const serverIdRef = toRef(props, 'serverId');
+const channelIconResolver = useChannelIconResolver(serverIdRef);
 
 const events = ref<EchoServerEventManagementRow[]>([]);
 const loading = ref(false);
@@ -49,6 +52,13 @@ const cancellingId = ref<string | null>(null);
 const coverUploading = ref(false);
 const coverFileInputRef = ref<HTMLInputElement | null>(null);
 
+const showDiscordMirrorUi = computed(
+  () => props.isDiscordImportedServer === true,
+);
+const draftMirrorToDiscord = ref(false);
+/** True when the row already had a Discord scheduled event id at editor open. */
+const editingHadDiscordMirror = ref(false);
+
 const showEditor = ref(false);
 const editingEventId = ref<string | null>(null);
 
@@ -57,95 +67,90 @@ const draftDescription = ref('');
 const draftStarts = ref('');
 const draftEnds = ref('');
 const draftChannelId = ref('');
-const draftMax = ref('');
 const draftImageUrl = ref('');
-const draftTimezoneValue = ref('');
 
 const fieldErrors = ref({
   title: '',
   starts: '',
   ends: '',
-  max: '',
 });
 
-const flatChannels = computed(() => {
+const flatChannels = computed((): ChannelSummary[] => {
   const cats = workspace.categoriesByServer.value[props.serverId] ?? [];
-  const out: { id: string; name: string; type: string }[] = [];
+  const out: ChannelSummary[] = [];
   for (const c of cats) {
     for (const ch of c.channels ?? []) {
-      out.push({ id: ch.id, name: ch.name, type: ch.type });
-    }
-  }
-  return out.filter((c) => c.type === 'text' || c.type === 'voice');
-});
-
-const channelDropdownOptions = computed(() => {
-  const opts = [{ value: '', label: 'No channel' }];
-  for (const ch of flatChannels.value) {
-    const prefix = ch.type === 'voice' ? 'Voice · ' : '#';
-    opts.push({
-      value: ch.id,
-      label: `${prefix}${ch.name}`,
-    });
-  }
-  return opts;
-});
-
-const timezoneDropdownOptions = computed(() => {
-  let list: string[] = [];
-  try {
-    list = Intl.supportedValuesOf('timeZone');
-  } catch {
-    list = [];
-  }
-  if (list.length === 0) {
-    list = [
-      'UTC',
-      'America/New_York',
-      'America/Los_Angeles',
-      'Europe/London',
-      'Europe/Paris',
-      'Asia/Tokyo',
-    ];
-  }
-  const priority = [
-    'UTC',
-    'America/New_York',
-    'America/Chicago',
-    'America/Denver',
-    'America/Los_Angeles',
-    'Europe/London',
-    'Europe/Paris',
-    'Asia/Tokyo',
-    'Australia/Sydney',
-  ];
-  const seen = new Set<string>();
-  const out: { value: string; label: string }[] = [
-    { value: '', label: 'Default (browser locale)' },
-  ];
-  for (const p of priority) {
-    if (list.includes(p) && !seen.has(p)) {
-      seen.add(p);
-      out.push({ value: p, label: p.replace(/_/g, ' ') });
-    }
-  }
-  for (const z of list) {
-    if (out.length >= 90) break;
-    if (!seen.has(z)) {
-      seen.add(z);
-      out.push({ value: z, label: z.replace(/_/g, ' ') });
+      if (ch.type === 'text' || ch.type === 'voice') out.push(ch);
     }
   }
   return out;
 });
 
+type LocationTab = 'voice' | 'text' | 'custom';
+const locationTab = ref<LocationTab>('voice');
+const draftCustomLocation = ref('');
+
+function pickChannel(id: string): ChannelSummary | undefined {
+  return flatChannels.value.find((c) => c.id === id);
+}
+
+const voiceLocationOptions = computed(() => {
+  const opts: {
+    value: string;
+    label: string;
+    iconSrc?: string;
+    iconMono?: boolean;
+  }[] = [{ value: '', label: 'No voice channel' }];
+  for (const ch of flatChannels.value) {
+    if (ch.type !== 'voice') continue;
+    const iconSrc = channelIconResolver.getIconUrl(ch);
+    opts.push({
+      value: ch.id,
+      label: ch.name,
+      iconSrc: iconSrc || undefined,
+      iconMono: channelIconResolver.usesSvgInvert(ch.iconKey),
+    });
+  }
+  return opts;
+});
+
+const textLocationOptions = computed(() => {
+  const opts: {
+    value: string;
+    label: string;
+    iconSrc?: string;
+    iconMono?: boolean;
+  }[] = [{ value: '', label: 'No text channel' }];
+  for (const ch of flatChannels.value) {
+    if (ch.type !== 'text') continue;
+    const iconSrc = channelIconResolver.getIconUrl(ch);
+    opts.push({
+      value: ch.id,
+      label: `#${ch.name}`,
+      iconSrc: iconSrc || undefined,
+      iconMono: channelIconResolver.usesSvgInvert(ch.iconKey),
+    });
+  }
+  return opts;
+});
+
+watch(locationTab, (tab) => {
+  if (tab !== 'voice' && tab !== 'text') return;
+  const id = draftChannelId.value.trim();
+  if (!id) return;
+  const ch = pickChannel(id);
+  if (!ch || ch.type !== (tab === 'voice' ? 'voice' : 'text')) {
+    draftChannelId.value = '';
+  }
+});
+
 async function load() {
-  const t = accessToken.value?.trim() ?? '';
-  if (!t || !props.serverId.trim()) return;
+  if (!props.serverId.trim()) return;
   loading.value = true;
   error.value = null;
   try {
-    events.value = await fetchGuildEventsForManagement(t, props.serverId);
+    /* `echoFetch` uses cookie session; bearer token arg is ignored (see `transport.ts`). */
+    events.value = await fetchGuildEventsForManagement('', props.serverId);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to load events';
   } finally {
@@ -166,7 +171,6 @@ function clearFieldErrors() {
     title: '',
     starts: '',
     ends: '',
-    max: '',
   };
 }
 
@@ -177,10 +181,12 @@ function resetDraft() {
   draftStarts.value = '';
   draftEnds.value = '';
   draftChannelId.value = '';
-  draftMax.value = '';
+  draftCustomLocation.value = '';
+  locationTab.value = 'voice';
   draftImageUrl.value = '';
-  draftTimezoneValue.value = '';
   clearFieldErrors();
+  draftMirrorToDiscord.value = false;
+  editingHadDiscordMirror.value = false;
 }
 
 function openCreate() {
@@ -195,13 +201,19 @@ function openEdit(ev: EchoServerEventManagementRow) {
   draftDescription.value = ev.description ?? '';
   draftStarts.value = utcIsoToDateTimeLocalValue(ev.startsAt);
   draftEnds.value = utcIsoToDateTimeLocalValue(ev.endsAt);
-  draftChannelId.value = ev.channelId?.trim() ?? '';
-  draftMax.value =
-    ev.maxAttendees != null && ev.maxAttendees > 0
-      ? String(ev.maxAttendees)
-      : '';
+  draftCustomLocation.value = ev.customLocation?.trim() ?? '';
+  if (ev.customLocation?.trim()) {
+    locationTab.value = 'custom';
+    draftChannelId.value = '';
+  } else {
+    const cid = ev.channelId?.trim() ?? '';
+    draftChannelId.value = cid;
+    const ch = cid ? pickChannel(cid) : undefined;
+    locationTab.value = ch?.type === 'text' ? 'text' : 'voice';
+  }
   draftImageUrl.value = ev.imageUrl?.trim() ?? '';
-  draftTimezoneValue.value = ev.timezoneLabel?.trim() ?? '';
+  editingHadDiscordMirror.value = !!ev.discordScheduledEventId?.trim();
+  draftMirrorToDiscord.value = false;
   showEditor.value = true;
 }
 
@@ -231,57 +243,78 @@ function validateForm(): boolean {
     fieldErrors.value.ends = 'End must be after start.';
     ok = false;
   }
-  if (draftMax.value.trim()) {
-    const m = maxAttendeesFromInput(draftMax.value);
-    if (m == null) {
-      fieldErrors.value.max = 'Enter a positive whole number or leave empty.';
-      ok = false;
-    }
-  }
   return ok;
 }
 
 async function submitSave() {
-  const t = accessToken.value?.trim() ?? '';
-  if (!t) {
-    dispatchAppToast('Sign in to save events.', 'warning');
-    return;
-  }
   if (!validateForm()) {
     dispatchAppToast('Fix the highlighted fields.', 'warning');
     return;
   }
   const startsIso = parseDateTimeLocalToUtcIso(draftStarts.value)!;
   const endsIso = parseDateTimeLocalToUtcIso(draftEnds.value)!;
-  const maxA = maxAttendeesFromInput(draftMax.value);
-  const tz = draftTimezoneValue.value.trim() || null;
 
   saving.value = true;
   try {
+    const locationBody =
+      locationTab.value === 'custom'
+        ? {
+            channelId: null,
+            customLocation: draftCustomLocation.value.trim() || null,
+          }
+        : {
+            channelId: draftChannelId.value.trim() || null,
+            customLocation: null,
+          };
+    const mirrorToDiscord =
+      showDiscordMirrorUi.value &&
+      draftMirrorToDiscord.value &&
+      !editingHadDiscordMirror.value;
+
     if (editingEventId.value) {
-      await updateGuildEvent(t, props.serverId, editingEventId.value, {
+      const patchOut = await updateGuildEvent('', props.serverId, editingEventId.value, {
         title: draftTitle.value.trim(),
         description: draftDescription.value.trim(),
         imageUrl: draftImageUrl.value.trim(),
         startsAt: startsIso,
         endsAt: endsIso,
-        timezoneLabel: tz,
-        channelId: draftChannelId.value.trim() || null,
-        maxAttendees: maxA,
+        timezoneLabel: null,
+        ...locationBody,
+        maxAttendees: null,
+        ...(mirrorToDiscord ? { mirrorToDiscord: true } : {}),
       });
-      dispatchAppToast('Event updated.', 'success');
+      if (patchOut.discordMirror && !patchOut.discordMirror.ok) {
+        dispatchAppToast(
+          patchOut.discordMirror.message ??
+            'Echo saved, but Discord could not update the listing.',
+          'warning',
+        );
+      } else {
+        dispatchAppToast('Event updated.', 'success');
+      }
     } else {
-      await createGuildEvent(t, props.serverId, {
+      const created = await createGuildEvent('', props.serverId, {
         title: draftTitle.value.trim(),
         description: draftDescription.value.trim(),
         imageUrl: draftImageUrl.value.trim() || undefined,
         startsAt: startsIso,
         endsAt: endsIso,
-        timezoneLabel: tz,
-        channelId: draftChannelId.value.trim() || null,
-        maxAttendees: maxA,
+        timezoneLabel: null,
+        ...locationBody,
+        maxAttendees: null,
+        ...(showDiscordMirrorUi.value && draftMirrorToDiscord.value
+          ? { mirrorToDiscord: true }
+          : {}),
       });
-      dispatchAppToast('Event created.', 'success');
+      if (created.discordMirror && !created.discordMirror.ok) {
+        dispatchAppToast(
+          created.discordMirror.message ??
+            'Event created on Echo, but Discord did not accept a listing.',
+          'warning',
+        );
+      } else {
+        dispatchAppToast('Event created.', 'success');
+      }
     }
     emit('echo-workspace-refresh');
     closeEditor();
@@ -295,11 +328,9 @@ async function submitSave() {
 }
 
 async function onCancelEvent(id: string) {
-  const t = accessToken.value?.trim() ?? '';
-  if (!t) return;
   cancellingId.value = id;
   try {
-    await cancelGuildEvent(t, props.serverId, id);
+    await cancelGuildEvent('', props.serverId, id);
     dispatchAppToast('Event cancelled.', 'success');
     emit('echo-workspace-refresh');
     await load();
@@ -317,6 +348,7 @@ function formatWhen(row: EchoServerEventManagementRow): string {
     return a.toLocaleString(undefined, {
       dateStyle: 'medium',
       timeStyle: 'short',
+      timeZoneName: 'short',
     });
   } catch {
     return row.startsAt;
@@ -333,13 +365,23 @@ function formatRange(row: EchoServerEventManagementRow): string {
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
+      timeZoneName: 'short',
     })} – ${b.toLocaleTimeString(undefined, {
       hour: 'numeric',
       minute: '2-digit',
+      timeZoneName: 'short',
     })}`;
   } catch {
     return formatWhen(row);
   }
+}
+
+function formatLocationSummary(row: EchoServerEventManagementRow): string {
+  const c = row.customLocation?.trim();
+  if (c) return c;
+  const n = row.channelName?.trim();
+  if (n) return `#${n}`;
+  return '';
 }
 
 async function onCoverFileChange(ev: Event) {
@@ -349,8 +391,7 @@ async function onCoverFileChange(ev: Event) {
     input.value = '';
     return;
   }
-  const token = accessToken.value?.trim() ?? '';
-  if (!token || !props.serverId.trim()) {
+  if (!props.serverId.trim()) {
     input.value = '';
     return;
   }
@@ -361,7 +402,7 @@ async function onCoverFileChange(ev: Event) {
         ? await uploadBrandingAssetWithInlineFallback({
             file: file!,
             upload: () =>
-              uploadServerEventCoverFile(token, props.serverId, file!),
+              uploadServerEventCoverFile('', props.serverId, file!),
           })
         : await readBlobAsDataUrl(file!);
     draftImageUrl.value = url;
@@ -388,17 +429,20 @@ function clearCover() {
 </script>
 
 <template>
-  <div class="server-settings-panel-root space-y-5 pb-8">
-    <div class="server-settings-panel rounded-2xl p-5">
-      <div class="settings-subtitle">Community events</div>
-      <p class="mt-2 text-sm text-fg-subtle">
-        Schedule events with optional cover art and location. Members see them in the channel
-        sidebar and can RSVP; events they join also appear in DMs.
-      </p>
-      <div class="mt-4 flex flex-wrap gap-2">
+  <div class="server-settings-panel-root space-y-4 pb-8">
+    <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div class="min-w-0 flex-1">
+          <div class="settings-subtitle">Community events</div>
+          <p class="mt-1.5 text-sm leading-snug text-fg-subtle">
+            Schedule covers, times, and where it happens: a voice or text channel on this server, or a
+            custom venue (address, external link, invite, or Echo path). Members see upcoming events in
+            the channel sidebar; RSVPs also surface in DMs. Times use each viewer’s local timezone.
+          </p>
+        </div>
         <button
           type="button"
-          class="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+          class="h-fit shrink-0 self-start rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50 sm:self-center"
           :disabled="saving || !serverId.trim()"
           @click="openCreate"
         >
@@ -410,8 +454,8 @@ function clearCover() {
     <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
     <p v-if="loading" class="text-sm text-fg-soft">Loading events…</p>
 
-    <div v-if="showEditor" class="server-settings-panel rounded-2xl p-5">
-      <div class="mb-4 flex items-center justify-between gap-2">
+    <div v-if="showEditor" class="server-settings-panel rounded-2xl p-4 sm:p-5">
+      <div class="mb-3 flex items-center justify-between gap-2">
         <h4 class="text-base font-semibold text-foreground">
           {{ editingEventId ? 'Edit event' : 'Create event' }}
         </h4>
@@ -425,11 +469,11 @@ function clearCover() {
         </button>
       </div>
 
-      <div class="space-y-4">
-        <div>
+      <div class="space-y-4 lg:grid lg:grid-cols-12 lg:gap-5 lg:space-y-0">
+        <div class="lg:col-span-5">
           <label class="settings-label">Cover image</label>
           <p class="mt-1 text-xs text-fg-soft">
-            16:9 works best. Uploads are stored on Echo (same security as server branding).
+            16:9 works best. Upload only — stored like server branding.
           </p>
           <div
             class="relative mt-3 overflow-hidden rounded-2xl border border-border bg-glass-2"
@@ -478,16 +522,9 @@ function clearCover() {
             class="sr-only"
             @change="onCoverFileChange"
           />
-          <label class="settings-label mt-3">Or paste image URL</label>
-          <input
-            v-model="draftImageUrl"
-            type="url"
-            class="server-input mt-2 w-full"
-            placeholder="https://…"
-            autocomplete="off"
-          />
         </div>
 
+        <div class="space-y-4 lg:col-span-7">
         <div>
           <label class="settings-label">Title</label>
           <input
@@ -512,7 +549,7 @@ function clearCover() {
           />
         </div>
 
-        <div class="grid gap-4 md:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2">
           <div>
             <label class="settings-label">Starts</label>
             <input
@@ -524,7 +561,9 @@ function clearCover() {
             <p v-if="fieldErrors.starts" class="mt-1 text-xs text-red-400">
               {{ fieldErrors.starts }}
             </p>
-            <p v-else class="mt-1 text-[11px] text-fg-soft">Local time — stored in UTC.</p>
+            <p v-else class="mt-1 text-[11px] text-fg-soft">
+              In your device timezone; everyone sees this event in their own local time.
+            </p>
           </div>
           <div>
             <label class="settings-label">Ends</label>
@@ -540,45 +579,120 @@ function clearCover() {
           </div>
         </div>
 
-        <div class="max-w-xl">
-          <EchoDropdown
-            v-model="draftTimezoneValue"
-            label="Display timezone (optional)"
-            :options="timezoneDropdownOptions"
-            surface="server"
-            teleport-menu
-            searchable
-            :disabled="saving"
-          />
-        </div>
-
-        <div class="max-w-xl">
-          <EchoDropdown
-            v-model="draftChannelId"
-            label="Location channel (optional)"
-            :options="channelDropdownOptions"
-            surface="server"
-            teleport-menu
-            searchable
-            :disabled="saving"
-          />
-        </div>
-
-        <div class="max-w-xs">
-          <label class="settings-label">Max attendees (optional)</label>
-          <input
-            v-model="draftMax"
-            type="number"
-            min="1"
-            class="server-input mt-2 w-full"
-            :class="{ 'ring-1 ring-red-400/60': fieldErrors.max }"
-          />
-          <p v-if="fieldErrors.max" class="mt-1 text-xs text-red-400">
-            {{ fieldErrors.max }}
+        <div>
+          <label class="settings-label">Location</label>
+          <p class="mt-1 text-xs text-fg-soft">
+            Pick a voice or text channel on this server, or describe anywhere else (address, link,
+            invite, or an Echo path like <code class="rounded bg-glass-2 px-1">/channels/…</code>).
           </p>
+          <div
+            class="mt-2 inline-flex rounded-xl border border-border bg-glass-1 p-0.5 text-xs font-semibold"
+            role="tablist"
+            aria-label="Event location type"
+          >
+            <button
+              type="button"
+              class="rounded-lg px-3 py-1.5 transition-colors"
+              :class="
+                locationTab === 'voice'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-fg-soft hover:text-foreground'
+              "
+              :disabled="saving"
+              @click="locationTab = 'voice'"
+            >
+              Voice
+            </button>
+            <button
+              type="button"
+              class="rounded-lg px-3 py-1.5 transition-colors"
+              :class="
+                locationTab === 'text'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-fg-soft hover:text-foreground'
+              "
+              :disabled="saving"
+              @click="locationTab = 'text'"
+            >
+              Text
+            </button>
+            <button
+              type="button"
+              class="rounded-lg px-3 py-1.5 transition-colors"
+              :class="
+                locationTab === 'custom'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-fg-soft hover:text-foreground'
+              "
+              :disabled="saving"
+              @click="locationTab = 'custom'"
+            >
+              Custom
+            </button>
+          </div>
+          <div class="mt-3">
+            <EchoDropdown
+              v-if="locationTab === 'voice'"
+              v-model="draftChannelId"
+              label="Voice channel"
+              :options="voiceLocationOptions"
+              surface="server"
+              teleport-menu
+              searchable
+              :disabled="saving"
+            />
+            <EchoDropdown
+              v-else-if="locationTab === 'text'"
+              v-model="draftChannelId"
+              label="Text channel"
+              :options="textLocationOptions"
+              surface="server"
+              teleport-menu
+              searchable
+              :disabled="saving"
+            />
+            <div v-else>
+              <textarea
+                v-model="draftCustomLocation"
+                rows="3"
+                maxlength="2000"
+                class="server-input mt-2 min-h-[88px] w-full resize-y"
+                placeholder="Physical address, another site, Discord/Echo invite, or paste an Echo path (/channels/…)"
+                :disabled="saving"
+              />
+            </div>
+            </div>
+          </div>
         </div>
 
-        <div class="flex flex-wrap gap-2 border-t border-border/80 pt-4">
+        <div
+          v-if="showDiscordMirrorUi"
+          class="rounded-xl border border-border/90 bg-glass-1 p-3 lg:col-span-12"
+        >
+          <p v-if="editingHadDiscordMirror" class="text-sm leading-snug text-fg-subtle">
+            This event is listed on Discord; saving updates that listing. The Discord description
+            keeps a clear link back to this Echo server for RSVPs and full details.
+          </p>
+          <label v-else class="flex cursor-pointer items-start gap-3">
+            <input
+              v-model="draftMirrorToDiscord"
+              type="checkbox"
+              class="mt-1 h-4 w-4 shrink-0 rounded border-border"
+              :disabled="saving"
+            />
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold text-foreground">
+                Also create a Discord scheduled event
+              </span>
+              <span class="mt-0.5 block text-xs leading-snug text-fg-soft">
+                Same title and schedule on Discord. The description points members to this Echo
+                server as the canonical place for RSVPs and details.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <div class="flex flex-wrap gap-2 border-t border-border/80 pt-3 lg:col-span-12">
           <button
             type="button"
             class="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -637,17 +751,23 @@ function clearCover() {
               >
                 Scheduled
               </span>
+              <span
+                v-if="ev.discordScheduledEventId?.trim()"
+                class="shrink-0 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-200"
+              >
+                Discord
+              </span>
             </div>
             <p class="text-xs text-fg-subtle">{{ formatRange(ev) }}</p>
-            <p v-if="ev.timezoneLabel" class="text-[11px] text-fg-soft">
-              {{ ev.timezoneLabel }}
+            <p
+              v-if="formatLocationSummary(ev)"
+              class="line-clamp-2 text-xs text-fg-soft"
+            >
+              {{ formatLocationSummary(ev) }}
             </p>
             <p class="text-xs text-fg-soft">
               <span class="font-semibold text-foreground">{{ ev.goingCount }}</span>
               going
-              <template v-if="ev.maxAttendees != null">
-                · cap {{ ev.maxAttendees }}</template
-              >
             </p>
           </div>
           <div class="flex shrink-0 flex-row gap-2 sm:flex-col sm:justify-center">

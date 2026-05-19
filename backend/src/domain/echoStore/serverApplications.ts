@@ -1,8 +1,6 @@
 import type pg from 'pg';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
-import {
-  joinEchoServerFromInvite,
-} from './servers';
+import { joinEchoServerFromInvite } from './servers';
 import {
   parseEchoApplicationFormFromDb,
   validateEchoApplicationAnswers,

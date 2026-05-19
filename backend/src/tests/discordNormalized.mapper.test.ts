@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {
+  discordAvatarIdentityKey,
   mapDiscordUserToNormalized,
+  parseDiscordAvatarHashFromCdnUrl,
   resolveDiscordAvatarForStorage,
 } from '../domain/discordNormalized';
 
@@ -46,13 +48,30 @@ async function run(): Promise<void> {
   assert.ok(fromHash.startsWith('https://cdn.discordapp.com/avatars/'));
   assert.ok(fromHash.includes('/123456789012345678/'));
 
-  const passthrough = resolveDiscordAvatarForStorage(
+  const canonicalFromUrl = resolveDiscordAvatarForStorage(
     '123',
     'https://cdn.discordapp.com/avatars/123/x.webp?size=256',
   );
   assert.equal(
-    passthrough,
-    'https://cdn.discordapp.com/avatars/123/x.webp?size=256',
+    canonicalFromUrl,
+    'https://cdn.discordapp.com/avatars/123/x.webp?size=128',
+  );
+
+  assert.equal(
+    parseDiscordAvatarHashFromCdnUrl(
+      '123',
+      'https://cdn.discordapp.com/avatars/123/a_abc.gif?size=64',
+    ),
+    'a_abc',
+  );
+  assert.equal(parseDiscordAvatarHashFromCdnUrl('999', canonicalFromUrl), null);
+
+  assert.equal(
+    discordAvatarIdentityKey(
+      '123',
+      'https://cdn.discordapp.com/avatars/123/x.webp?size=256',
+    ),
+    discordAvatarIdentityKey('123', 'x'),
   );
 
   const defaultAv = resolveDiscordAvatarForStorage('123456789012345678', null);

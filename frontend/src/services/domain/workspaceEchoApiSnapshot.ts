@@ -48,6 +48,8 @@ export type EchoWorkspaceEventSummary = {
   timezoneLabel: string | null;
   channelId: string | null;
   channelName: string | null;
+  /** Free-text venue / link; mutually exclusive with `channelId` in the editor. */
+  customLocation: string | null;
   goingCount: number;
   maxAttendees: number | null;
   userRsvp: 'going' | 'declined' | null;
@@ -64,6 +66,7 @@ export type EchoWorkspaceMyEventRsvp = {
   endsAt: string;
   channelId: string | null;
   channelName: string | null;
+  customLocation: string | null;
   goingCount: number;
   maxAttendees: number | null;
 };
@@ -196,6 +199,11 @@ export function normalizeWorkspaceMembersByServer(
         'image_url',
       );
       const bio = readMemberString(rec, 'bio');
+      const tzRaw = rec.timeZone ?? rec.time_zone;
+      const timeZone =
+        typeof tzRaw === 'string' && tzRaw.trim()
+          ? tzRaw.trim().slice(0, 64)
+          : null;
       const isDiscordShadow =
         rec.isDiscordShadow === true || rec.is_discord_shadow === true;
       const isGuest =
@@ -246,6 +254,7 @@ export function normalizeWorkspaceMembersByServer(
         bannerBlurEnabled,
         bannerBlackoutEnabled,
         ...(bannerPositionY !== undefined ? { bannerPositionY } : {}),
+        timeZone,
       });
     }
     out[s.id] = rows;
@@ -371,6 +380,7 @@ export function mergeEchoWorkspaceMembersIntoUsers<
     bannerBlackoutEnabled?: boolean;
     bannerPositionY?: number;
     bio?: string;
+    timeZone?: string | null;
   },
 >(existing: T[], membersByServer: Record<string, EchoServerMemberDto[]>): T[] {
   if (!membersByServer || Object.keys(membersByServer).length === 0) {
@@ -397,6 +407,7 @@ export function mergeEchoWorkspaceMembersIntoUsers<
       const isGuest = m.isGuest === true;
 
       const ban = workspaceMemberBannerVisuals(m);
+      const nextTz = m.timeZone ?? null;
 
       if (!prev) {
         changed = true;
@@ -411,8 +422,10 @@ export function mergeEchoWorkspaceMembersIntoUsers<
           ...(isGuest ? { isGuest: true } : {}),
           ...(badges?.length ? { badges } : {}),
           ...ban,
+          timeZone: nextTz,
         } as T);
       } else {
+        const prevTz = (prev as { timeZone?: string | null }).timeZone ?? null;
         const nextName = name ?? prev.name;
         const nextUsername = username ?? prev.username;
         const nextPfp = pfp !== undefined ? pfp : prev.pfp;
@@ -447,7 +460,8 @@ export function mergeEchoWorkspaceMembersIntoUsers<
           prev.isDiscordShadow !== nextIsShadow ||
           (prev as { isGuest?: boolean }).isGuest !== nextIsGuest ||
           !badgesEqual ||
-          !bannerEqual
+          !bannerEqual ||
+          prevTz !== nextTz
         ) {
           changed = true;
           const { badges: _prevBadges, ...prevRest } = prev as T & {
@@ -462,6 +476,7 @@ export function mergeEchoWorkspaceMembersIntoUsers<
             isGuest: nextIsGuest,
             ...(nextBadges?.length ? { badges: nextBadges } : {}),
             ...ban,
+            timeZone: nextTz,
           } as T);
         }
       }
@@ -576,6 +591,10 @@ function normalizeEchoWorkspaceEventSummary(
       const c = evStr(rec, 'channelName', 'channel_name');
       return c || null;
     })(),
+    customLocation: (() => {
+      const c = evStr(rec, 'customLocation', 'custom_location');
+      return c || null;
+    })(),
     goingCount: Math.max(0, evNum(rec, 'goingCount', 'going_count') ?? 0),
     maxAttendees: maxA != null && maxA > 0 ? maxA : null,
     userRsvp,
@@ -629,17 +648,25 @@ function normalizeEchoWorkspaceMyEventRsvp(
       const c = evStr(rec, 'channelName', 'channel_name');
       return c || null;
     })(),
+    customLocation: (() => {
+      const c = evStr(rec, 'customLocation', 'custom_location');
+      return c || null;
+    })(),
     goingCount: Math.max(0, evNum(rec, 'goingCount', 'going_count') ?? 0),
     maxAttendees: maxA != null && maxA > 0 ? maxA : null,
   };
 }
 
-export function normalizeMyEventRsvps(raw: unknown): EchoWorkspaceMyEventRsvp[] {
+export function normalizeMyEventRsvps(
+  raw: unknown,
+): EchoWorkspaceMyEventRsvp[] {
   if (!Array.isArray(raw)) return [];
   const out: EchoWorkspaceMyEventRsvp[] = [];
   for (const item of raw) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
-    const n = normalizeEchoWorkspaceMyEventRsvp(item as Record<string, unknown>);
+    const n = normalizeEchoWorkspaceMyEventRsvp(
+      item as Record<string, unknown>,
+    );
     if (n) out.push(n);
   }
   return out;
@@ -794,8 +821,7 @@ export function workspaceHttpJsonToEchoWorkspaceState(
 
   const rawRec = raw as Record<string, unknown>;
   const upcoming = normalizeUpcomingEventsByServer(
-    rawRec.upcomingEventsByServerId ??
-      rawRec.upcoming_events_by_server_id,
+    rawRec.upcomingEventsByServerId ?? rawRec.upcoming_events_by_server_id,
   );
   const myRsvps = normalizeMyEventRsvps(
     rawRec.myEventRsvps ?? rawRec.my_event_rsvps,

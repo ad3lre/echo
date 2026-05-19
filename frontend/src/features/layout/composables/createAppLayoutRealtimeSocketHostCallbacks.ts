@@ -5,6 +5,7 @@ export function createAppLayoutRealtimeSocketHostCallbacks(deps: {
   applyEchoPresenceFromSocket: AppLayoutEchoRealtimeHostCallbacks['onPresenceUpdate'];
   handleEchoDmActivity: AppLayoutEchoRealtimeHostCallbacks['onDmActivity'];
   handleEchoDmCall: AppLayoutEchoRealtimeHostCallbacks['onDmCall'];
+  handleEchoDmThreadActivity: AppLayoutEchoRealtimeHostCallbacks['onDmThreadActivity'];
   mergeReadStateUpdate: AppLayoutEchoRealtimeHostCallbacks['mergeReadStateUpdate'];
   replaceAttentionSnapshot: AppLayoutEchoRealtimeHostCallbacks['replaceAttentionSnapshot'];
   handleWorkspaceEvent: AppLayoutEchoRealtimeHostCallbacks['onEchoWorkspaceEvent'];
@@ -18,6 +19,7 @@ export function createAppLayoutRealtimeSocketHostCallbacks(deps: {
     onPresenceUpdate: deps.applyEchoPresenceFromSocket,
     onDmActivity: deps.handleEchoDmActivity,
     onDmCall: deps.handleEchoDmCall,
+    onDmThreadActivity: deps.handleEchoDmThreadActivity,
     mergeReadStateUpdate: deps.mergeReadStateUpdate,
     replaceAttentionSnapshot: deps.replaceAttentionSnapshot,
     onEchoWorkspaceEvent: deps.handleWorkspaceEvent,

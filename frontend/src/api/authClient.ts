@@ -69,6 +69,8 @@ export type AuthUserPublic = {
   badges?: string[];
   /** Whether to show "last online" timestamp to other users. Defaults to true. */
   showLastOnline?: boolean;
+  /** IANA timezone id (server-persisted; used for Magic Time). */
+  timeZone?: string | null;
 };
 
 export class AuthApiError extends Error {
@@ -1232,6 +1234,8 @@ export type AuthPatchMeBody = Partial<{
   bannerPositionY: number;
   /** Whether to show "last online" timestamp to other users. */
   showLastOnline: boolean;
+  /** IANA timezone id for Magic Time. */
+  timeZone: string | null;
 }>;
 
 export async function authPatchMe(

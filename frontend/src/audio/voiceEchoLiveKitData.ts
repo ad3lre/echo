@@ -7,6 +7,15 @@ import type {
 } from '@/features/voice/vcActivityTypes';
 import { normalizeCodenamesRoomUrlForEmbed } from '@/features/voice/vcActivityTypes';
 
+/** Wall-clock anchored playback sample for YouTube IFrame API sync (guild VC). */
+export type EchoYoutubePlaybackSyncV1 = {
+  playing: boolean;
+  /** YouTube player media time in seconds at {@link wallMs}. */
+  mediaTimeSec: number;
+  /** `Date.now()` on the publisher when the sample was taken. */
+  wallMs: number;
+};
+
 export type EchoYoutubeActivityV1 = {
   v: 1;
   t: 'youtube_activity';
@@ -20,11 +29,33 @@ export type EchoYoutubeActivityV1 = {
   currentIndex: number;
   youtubeBrowseOpen: boolean;
   /**
+   * Optional: host publishes periodic samples; followers seek/play via the IFrame API.
+   * Omitted on older clients and on non-YouTube phases.
+   */
+  ytPlayback?: EchoYoutubePlaybackSyncV1 | null;
+  /**
    * When {@link activityPhase} is `codenames`, canonical `https://codenames.game/…` room URL
    * for the shared embed (LiveKit unreliable delivery — clients re-broadcast on connect).
    */
   codenamesRoomUrl?: string | null;
 };
+
+function parseEchoYoutubePlaybackSyncV1(
+  raw: unknown,
+): EchoYoutubePlaybackSyncV1 | null {
+  if (raw == null || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.playing !== 'boolean') return null;
+  if (typeof o.mediaTimeSec !== 'number' || !Number.isFinite(o.mediaTimeSec)) {
+    return null;
+  }
+  if (typeof o.wallMs !== 'number' || !Number.isFinite(o.wallMs)) return null;
+  return {
+    playing: o.playing,
+    mediaTimeSec: o.mediaTimeSec,
+    wallMs: o.wallMs,
+  };
+}
 
 export function encodeEchoYoutubeActivity(
   p: EchoYoutubeActivityV1,
@@ -73,14 +104,22 @@ export function decodeEchoYoutubeActivity(
     if (rawCn !== undefined && rawCn !== null && typeof rawCn !== 'string') {
       return null;
     }
+    const rawYt = (o as { ytPlayback?: unknown }).ytPlayback;
+    let ytPlaybackPart: { ytPlayback?: EchoYoutubePlaybackSyncV1 | null } = {};
+    if (rawYt === null) ytPlaybackPart = { ytPlayback: null };
+    else if (rawYt !== undefined) {
+      const parsed = parseEchoYoutubePlaybackSyncV1(rawYt);
+      if (parsed) ytPlaybackPart = { ytPlayback: parsed };
+    }
+
     if (ap === 'codenames') {
       const s =
         typeof rawCn === 'string' && rawCn.trim()
           ? normalizeCodenamesRoomUrlForEmbed(rawCn)
           : null;
-      return { ...o, codenamesRoomUrl: s };
+      return { ...o, codenamesRoomUrl: s, ...ytPlaybackPart };
     }
-    return o;
+    return { ...o, ...ytPlaybackPart };
   } catch {
     return null;
   }
@@ -137,6 +176,40 @@ export function decodeEchoVcActivityPresence(
   }
 }
 
+/** One Hangman letter guess in order (parallel to {@link EchoHangmanActivityV1.guessedLetters}). */
+export type EchoHangmanGuessHistoryEntryV1 = {
+  userId: string;
+  letter: string;
+};
+
+function coalesceHangmanGuessHistory(
+  guessedLetters: readonly string[],
+  raw: unknown,
+): EchoHangmanGuessHistoryEntryV1[] {
+  if (!Array.isArray(raw) || raw.length !== guessedLetters.length) {
+    return guessedLetters.map((letter) => ({ userId: '', letter }));
+  }
+  const out: EchoHangmanGuessHistoryEntryV1[] = [];
+  for (let i = 0; i < guessedLetters.length; i++) {
+    const row = raw[i];
+    const expected = guessedLetters[i]!;
+    if (!row || typeof row !== 'object') {
+      return guessedLetters.map((letter) => ({ userId: '', letter }));
+    }
+    const uidRaw = (row as { userId?: unknown }).userId;
+    const letterRaw = (row as { letter?: unknown }).letter;
+    const userId =
+      typeof uidRaw === 'string' ? uidRaw.trim().slice(0, 128) : '';
+    const letter =
+      typeof letterRaw === 'string' ? letterRaw.trim().toUpperCase() : '';
+    if (!/^[A-Z]$/.test(letter) || letter !== expected) {
+      return guessedLetters.map((l) => ({ userId: '', letter: l }));
+    }
+    out.push({ userId, letter });
+  }
+  return out;
+}
+
 /** Guild VC Hangman — setter publishes authoritative snapshots (LiveKit reliable data). */
 export type EchoHangmanActivityV1 = {
   v: 1;
@@ -150,6 +223,8 @@ export type EchoHangmanActivityV1 = {
   rosterUserIds: string[];
   phase: 'setter_picking' | 'guessing' | 'round_over';
   guessedLetters: string[];
+  /** Same length as {@link guessedLetters} when present; `userId` empty means unknown / legacy. */
+  guessHistory: EchoHangmanGuessHistoryEntryV1[];
   wrongCount: number;
   mask: string | null;
   roundResult: 'won' | 'lost' | null;
@@ -225,6 +300,10 @@ export function decodeEchoHangmanActivity(
         guessedLetters.push(g);
       }
     }
+    const guessHistory = coalesceHangmanGuessHistory(
+      guessedLetters,
+      o.guessHistory,
+    );
     const wrongCount =
       typeof o.wrongCount === 'number' && Number.isFinite(o.wrongCount)
         ? Math.max(0, Math.floor(o.wrongCount))
@@ -240,6 +319,7 @@ export function decodeEchoHangmanActivity(
       rosterUserIds: roster,
       phase: o.phase,
       guessedLetters,
+      guessHistory,
       wrongCount,
       mask: typeof o.mask === 'string' ? o.mask : null,
       roundResult:
@@ -291,6 +371,58 @@ export function decodeEchoHangmanGuessIntent(
       fromUserId: o.fromUserId.trim(),
       roundSeq: Math.floor(o.roundSeq),
       letter: o.letter.toUpperCase(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Setter → orchestrator (LiveKit `destinationIdentities`) so the roster host can
+ * apply letter guesses when the setter’s client is flaky or offline.
+ */
+export type EchoHangmanRoundSecretV1 = {
+  v: 1;
+  t: 'hangman_round_secret';
+  updatedAt: number;
+  roundSeq: number;
+  setterUserId: string;
+  /** Normalized A–Z phrase (same rules as Hangman commit). */
+  secret: string;
+};
+
+export function encodeEchoHangmanRoundSecret(
+  p: EchoHangmanRoundSecretV1,
+): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(p));
+}
+
+export function decodeEchoHangmanRoundSecret(
+  raw: Uint8Array,
+): EchoHangmanRoundSecretV1 | null {
+  try {
+    const o = JSON.parse(
+      new TextDecoder().decode(raw),
+    ) as EchoHangmanRoundSecretV1;
+    if (o?.v !== 1 || o?.t !== 'hangman_round_secret') return null;
+    if (typeof o.updatedAt !== 'number' || !Number.isFinite(o.updatedAt))
+      return null;
+    if (typeof o.roundSeq !== 'number' || !Number.isFinite(o.roundSeq))
+      return null;
+    if (o.roundSeq < 0 || o.roundSeq > 1_000_000) return null;
+    if (typeof o.setterUserId !== 'string' || !o.setterUserId.trim())
+      return null;
+    if (typeof o.secret !== 'string') return null;
+    const secret = o.secret.trim().replace(/\s+/g, ' ').toUpperCase();
+    if (secret.length < 2 || secret.length > 48) return null;
+    if (!/^[A-Z]+(?: [A-Z]+)*$/.test(secret)) return null;
+    return {
+      v: 1,
+      t: 'hangman_round_secret',
+      updatedAt: o.updatedAt,
+      roundSeq: Math.floor(o.roundSeq),
+      setterUserId: o.setterUserId.trim(),
+      secret,
     };
   } catch {
     return null;

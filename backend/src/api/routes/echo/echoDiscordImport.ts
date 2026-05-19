@@ -328,15 +328,23 @@ export default async function echoDiscordImportRoutes(
           importRecentMessages,
           ...(messageLimit != null ? { messageLimit } : {}),
         });
-        await insertEchoAudit(pool, sid, actorId, 'discord_import.post_setup', 'server', sid, {
-          syncAllChannels,
-          importRecentMessages,
-          bridgesApplied: result.sync?.bridges.applied ?? 0,
-          bridgesFailed: result.sync?.bridges.failed ?? 0,
-          voiceEnabled: result.sync?.voice.enabled ?? 0,
-          messagesImported: result.messages?.importedTotal ?? 0,
-          messageFailures: result.messages?.failures.length ?? 0,
-        });
+        await insertEchoAudit(
+          pool,
+          sid,
+          actorId,
+          'discord_import.post_setup',
+          'server',
+          sid,
+          {
+            syncAllChannels,
+            importRecentMessages,
+            bridgesApplied: result.sync?.bridges.applied ?? 0,
+            bridgesFailed: result.sync?.bridges.failed ?? 0,
+            voiceEnabled: result.sync?.voice.enabled ?? 0,
+            messagesImported: result.messages?.importedTotal ?? 0,
+            messageFailures: result.messages?.failures.length ?? 0,
+          },
+        );
         return reply.code(200).send(result);
       } catch (error) {
         fastify.log.error({ err: error }, 'Discord import post-setup failed');
@@ -345,7 +353,12 @@ export default async function echoDiscordImportRoutes(
         if (/permission/i.test(message)) {
           return sendError(reply, 403, 'FORBIDDEN', message);
         }
-        return sendError(reply, 400, 'DISCORD_IMPORT_POST_SETUP_FAILED', message);
+        return sendError(
+          reply,
+          400,
+          'DISCORD_IMPORT_POST_SETUP_FAILED',
+          message,
+        );
       }
     },
   );

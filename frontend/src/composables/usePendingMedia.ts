@@ -203,7 +203,9 @@ export function usePendingMedia() {
   function removeDocument(index: number) {
     const item = pendingDocuments.value[index];
     if (item) URL.revokeObjectURL(item.url);
-    pendingDocuments.value = pendingDocuments.value.filter((_, i) => i !== index);
+    pendingDocuments.value = pendingDocuments.value.filter(
+      (_, i) => i !== index,
+    );
   }
 
   function clearAll() {

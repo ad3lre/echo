@@ -1,18 +1,12 @@
-import {
-  computed,
-  onUnmounted,
-  ref,
-  watch,
-  type Ref,
-} from 'vue';
+import { computed, onUnmounted, ref, watch, type Ref } from 'vue';
 import { COMPACT_SHELL_MEDIA_QUERY } from '@/config/compactShell';
 
 const STORAGE_MODAL_W = 'echo-server-settings-modal-width';
 const STORAGE_SIDEBAR_W = 'echo-server-settings-sidebar-width';
 
-const MODAL_DEFAULT = 1100;
+const MODAL_DEFAULT = 1210;
 const MODAL_MIN = 520;
-const MODAL_MAX = 1280;
+const MODAL_MAX = 1408;
 
 const SIDEBAR_DEFAULT = 288;
 /** Labeled nav can shrink this narrow; labels truncate aggressively before icon rail. */
@@ -26,7 +20,8 @@ const MODAL_INNER_AUTO_COLLAPSE_PX = 820;
 const MODAL_INNER_AUTO_EXPAND_PX = 900;
 
 /** Same band as member-list auto-collapse: desktop shell but left chrome stacks with main. */
-const VIEWPORT_NAV_AUTO_COLLAPSE_MQ = '(min-width: 800px) and (max-width: 972px)';
+const VIEWPORT_NAV_AUTO_COLLAPSE_MQ =
+  '(min-width: 800px) and (max-width: 972px)';
 
 function readCompactShellMatches(): boolean {
   if (typeof window === 'undefined') return false;
@@ -122,7 +117,10 @@ export function useServerSettingsModalLayout(opts: {
 
   const modalWidthClamped = computed(() => {
     if (typeof window === 'undefined') return modalWidth.value;
-    const cap = Math.min(MODAL_MAX, Math.max(MODAL_MIN, window.innerWidth - 16));
+    const cap = Math.min(
+      MODAL_MAX,
+      Math.max(MODAL_MIN, window.innerWidth - 16),
+    );
     return clamp(modalWidth.value, MODAL_MIN, cap);
   });
 
@@ -144,7 +142,10 @@ export function useServerSettingsModalLayout(opts: {
       SIDEBAR_MAX,
     );
     if (typeof window !== 'undefined') {
-      const cap = Math.min(MODAL_MAX, Math.max(MODAL_MIN, window.innerWidth - 16));
+      const cap = Math.min(
+        MODAL_MAX,
+        Math.max(MODAL_MIN, window.innerWidth - 16),
+      );
       modalWidth.value = clamp(modalWidth.value, MODAL_MIN, cap);
     }
   }
@@ -229,7 +230,11 @@ export function useServerSettingsModalLayout(opts: {
   );
 
   watch(
-    () => [viewportWantsCollapsedNav.value, modalInnerWantsCollapsedNav.value] as const,
+    () =>
+      [
+        viewportWantsCollapsedNav.value,
+        modalInnerWantsCollapsedNav.value,
+      ] as const,
     ([v, m]) => {
       if (!v && !m) userPinnedLabelsOpen.value = false;
     },

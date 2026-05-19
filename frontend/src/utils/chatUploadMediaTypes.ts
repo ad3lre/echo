@@ -71,7 +71,12 @@ export function chatDocumentContentTypeForPresign(file: File): string {
   return 'application/pdf';
 }
 
-export type ChatPendingMediaKind = 'image' | 'video' | 'audio' | 'document' | 'unknown';
+export type ChatPendingMediaKind =
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'document'
+  | 'unknown';
 
 /**
  * Classify a file for pending previews (composer). Video before audio so `.mp4` with no

@@ -165,8 +165,7 @@ export function useAddServerFlow(deps: {
     const serverId =
       typeof error.body.serverId === 'string' ? error.body.serverId.trim() : '';
     if (!serverId) return null;
-    const source =
-      error.body.source === 'directory' ? 'directory' : 'invite';
+    const source = error.body.source === 'directory' ? 'directory' : 'invite';
     return { serverId, source };
   }
 
@@ -725,6 +724,8 @@ export function useAddServerFlow(deps: {
         pfp: entryPfp || directoryRow?.pfp || '',
         memberCount: entry.memberCount ?? directoryRow?.memberCount,
         description: directoryRow?.description,
+        banner: directoryRow?.banner,
+        voiceParticipantCount: directoryRow?.voiceParticipantCount,
       });
       const confirmed = await requestJoinServerConfirm(confirmPreview);
       if (!confirmed) return;

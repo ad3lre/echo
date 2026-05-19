@@ -1,46 +1,118 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
-    <linearGradient id="hmSky" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1a0d12"/>
-      <stop offset="45%" stop-color="#12081c"/>
-      <stop offset="100%" stop-color="#0a1018"/>
+    <linearGradient id="hh-sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#05030e"/>
+      <stop offset="50%" stop-color="#0c0920"/>
+      <stop offset="100%" stop-color="#0e0b1e"/>
     </linearGradient>
-    <radialGradient id="hmGlowA" cx="22%" cy="18%" r="55%">
-      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35"/>
-      <stop offset="55%" stop-color="#f59e0b" stop-opacity="0"/>
+    <radialGradient id="hh-glow-a" cx="18%" cy="20%" r="50%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="hmGlowV" cx="92%" cy="88%" r="50%">
-      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.32"/>
-      <stop offset="60%" stop-color="#7c3aed" stop-opacity="0"/>
+    <radialGradient id="hh-glow-b" cx="90%" cy="85%" r="48%">
+      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="hmWood" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#5c4030"/>
-      <stop offset="100%" stop-color="#2d1f18"/>
+    <radialGradient id="hh-figure-glow" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#e8d5a3" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#e8d5a3" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hh-wood-v" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2e1a0c"/>
+      <stop offset="35%" stop-color="#5c3820"/>
+      <stop offset="70%" stop-color="#4a2d16"/>
+      <stop offset="100%" stop-color="#2a1608"/>
     </linearGradient>
-    <filter id="hmSoft" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b"/>
-      <feMerge>
-        <feMergeNode in="b"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <linearGradient id="hh-wood-h" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6b4224"/>
+      <stop offset="55%" stop-color="#4a2d16"/>
+      <stop offset="100%" stop-color="#281508"/>
+    </linearGradient>
+    <linearGradient id="hh-rope" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a08060"/>
+      <stop offset="100%" stop-color="#6b4e30"/>
+    </linearGradient>
+    <linearGradient id="hh-floor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a1a0a"/>
+      <stop offset="100%" stop-color="#160c04"/>
+    </linearGradient>
+    <filter id="hh-soft" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
-  <rect width="480" height="200" fill="url(#hmSky)"/>
-  <rect width="480" height="200" fill="url(#hmGlowA)"/>
-  <rect width="480" height="200" fill="url(#hmGlowV)"/>
-  <!-- Echo rings -->
-  <g opacity="0.14" stroke="#f8fafc" stroke-width="1.25" fill="none">
-    <path d="M392 100c0-28 22-50 50-50"/>
-    <path d="M372 100c0-39 31-70 70-70"/>
-    <path d="M352 100c0-50 40-90 90-90"/>
+
+  <!-- Background -->
+  <rect width="480" height="200" fill="url(#hh-sky)"/>
+  <rect width="480" height="200" fill="url(#hh-glow-a)"/>
+  <rect width="480" height="200" fill="url(#hh-glow-b)"/>
+
+  <!-- Stars -->
+  <g fill="white">
+    <circle cx="38" cy="22" r="1.2" opacity="0.55"/>
+    <circle cx="82" cy="14" r="0.8" opacity="0.45"/>
+    <circle cx="125" cy="32" r="1.4" opacity="0.6"/>
+    <circle cx="55" cy="52" r="0.7" opacity="0.4"/>
+    <circle cx="168" cy="18" r="1" opacity="0.5"/>
+    <circle cx="24" cy="78" r="0.8" opacity="0.35"/>
+    <circle cx="200" cy="8" r="1.1" opacity="0.55"/>
+    <circle cx="230" cy="28" r="0.7" opacity="0.4"/>
   </g>
-  <!-- Ground -->
-  <path d="M0 168c80-8 160-12 240-10s160 6 240 18V200H0Z" fill="#05080c" opacity="0.55"/>
-  <!-- Gallows + figure -->
-  <g transform="translate(118 24) scale(1.42)" filter="url(#hmSoft)">
-    <path stroke="url(#hmWood)" stroke-width="3.5" stroke-linecap="round" fill="none" d="M18 78h62M28 78V26M28 26h36M64 26v14"/>
-    <path stroke="#64748b" stroke-width="2" stroke-linecap="round" opacity="0.85" d="M64 40v6" stroke-dasharray="2 3"/>
-    <circle cx="64" cy="50" r="7" stroke="#fbbf24" stroke-width="2.6" fill="none"/>
-    <path stroke="#fbbf24" stroke-width="2.6" stroke-linecap="round" fill="none" d="M64 57v16M56 68l16 10M56 82l10 10M72 82l-10 10"/>
+
+  <!-- Decorative echo rings (right side) -->
+  <g opacity="0.12" stroke="#f8fafc" stroke-width="1.4" fill="none">
+    <path d="M420 100 Q420 60 460 60"/>
+    <path d="M400 100 Q400 45 460 45"/>
+    <path d="M380 100 Q380 30 460 30"/>
+  </g>
+
+  <!-- Floor -->
+  <rect x="80" y="172" width="260" height="14" rx="4" fill="url(#hh-floor)"/>
+  <line x1="80" y1="175" x2="340" y2="175" stroke="#6b4224" stroke-width="0.7" opacity="0.3"/>
+  <line x1="80" y1="179" x2="340" y2="179" stroke="#6b4224" stroke-width="0.7" opacity="0.2"/>
+  <ellipse cx="210" cy="186" rx="130" ry="6" fill="black" opacity="0.45"/>
+
+  <!-- Gallows structure (larger, premium) -->
+  <g filter="url(#hh-soft)">
+    <!-- Vertical post -->
+    <rect x="108" y="30" width="15" height="145" rx="4.5" fill="url(#hh-wood-v)"/>
+    <line x1="114" y1="33" x2="114" y2="172" stroke="#7c4a28" stroke-width="1" opacity="0.35"/>
+    <!-- Diagonal brace -->
+    <path d="M123 85 L144 58" fill="none" stroke="#3d2010" stroke-width="13" stroke-linecap="round"/>
+    <path d="M123 85 L144 58" fill="none" stroke="#5c3820" stroke-width="9" stroke-linecap="round"/>
+    <path d="M123 85 L144 58" fill="none" stroke="#6b4224" stroke-width="6" stroke-linecap="round"/>
+    <!-- Horizontal beam -->
+    <rect x="108" y="22" width="168" height="16" rx="4.5" fill="url(#hh-wood-h)"/>
+    <line x1="112" y1="23.5" x2="273" y2="23.5" stroke="white" stroke-width="0.6" opacity="0.1"/>
+    <line x1="112" y1="30" x2="273" y2="30" stroke="#7c4a28" stroke-width="1" opacity="0.35"/>
+    <!-- Drop piece -->
+    <rect x="271" y="38" width="8" height="32" rx="2.5" fill="url(#hh-wood-v)" opacity="0.9"/>
+    <!-- Rope -->
+    <path d="M275 70 Q273 78 275 85" fill="none" stroke="url(#hh-rope)" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="275" cy="87" rx="5" ry="3.5" fill="none" stroke="#8b6840" stroke-width="2"/>
+  </g>
+
+  <!-- Figure ambient glow -->
+  <ellipse cx="275" cy="130" rx="50" ry="65" fill="url(#hh-figure-glow)"/>
+
+  <!-- Figure (complete — this is a title card showing the full character) -->
+  <g stroke="#e8d5a3" fill="none" stroke-linecap="round" filter="url(#hh-soft)">
+    <!-- Head -->
+    <circle cx="275" cy="106" r="17" stroke-width="3.5"/>
+    <!-- Eyes -->
+    <circle cx="270" cy="103" r="2.5" fill="#e8d5a3"/>
+    <circle cx="280" cy="103" r="2.5" fill="#e8d5a3"/>
+    <!-- Smile -->
+    <path d="M269 111 Q275 116 281 111" stroke-width="2.2"/>
+    <!-- Body -->
+    <line x1="275" y1="123" x2="275" y2="152" stroke-width="4"/>
+    <!-- Left arm -->
+    <path d="M275 133 Q259 142 248 156" stroke-width="3.5"/>
+    <!-- Right arm -->
+    <path d="M275 133 Q291 142 302 156" stroke-width="3.5"/>
+    <!-- Left leg -->
+    <path d="M275 152 Q265 166 255 178" stroke-width="3.5"/>
+    <!-- Right leg -->
+    <path d="M275 152 Q285 166 295 178" stroke-width="3.5"/>
   </g>
 </svg>

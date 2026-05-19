@@ -143,7 +143,9 @@ export function useServerSettingsOverviewState(
     }
   }
 
-  function onServerAccessModeChange(mode: 'public' | 'invite_only' | 'private') {
+  function onServerAccessModeChange(
+    mode: 'public' | 'invite_only' | 'private',
+  ) {
     const listed = mode === 'public';
     const invites = mode !== 'private';
     listedInDirectoryEnabled.value = listed;

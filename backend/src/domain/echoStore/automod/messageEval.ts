@@ -2,10 +2,7 @@ import { randomUUID } from 'crypto';
 import type pg from 'pg';
 import type { EchoAutomodRule } from '../../../../../shared/types/automod';
 import { getMergedRolePermissions } from '../permissions';
-import {
-  buildAutomodEvalContext,
-  ruleMatches,
-} from './evaluator';
+import { buildAutomodEvalContext, ruleMatches } from './evaluator';
 import {
   listEchoAutomodHitsForUserServerRecent,
   listEchoAutomodRulesForServer,
@@ -31,7 +28,11 @@ export async function evaluateAutomodOnMessageSend(
   },
 ): Promise<AutomodMessageEvalResult> {
   const correlationId = input.correlationId?.trim() || randomUUID();
-  const perms = await getMergedRolePermissions(pool, input.serverId, input.userId);
+  const perms = await getMergedRolePermissions(
+    pool,
+    input.serverId,
+    input.userId,
+  );
   if (
     perms.has('ADMINISTRATOR') ||
     perms.has('MANAGE_GUILD') ||
@@ -45,11 +46,7 @@ export async function evaluateAutomodOnMessageSend(
   }
   const [memberRoleIds, recentHits] = await Promise.all([
     listEchoMemberRoleIdsForServerUser(pool, input.serverId, input.userId),
-    listEchoAutomodHitsForUserServerRecent(
-      pool,
-      input.serverId,
-      input.userId,
-    ),
+    listEchoAutomodHitsForUserServerRecent(pool, input.serverId, input.userId),
   ]);
   const ctx = await buildAutomodEvalContext(pool, {
     serverId: input.serverId,

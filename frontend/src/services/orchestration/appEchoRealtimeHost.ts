@@ -12,6 +12,7 @@ export type AppLayoutEchoRealtimeHostInput = {
   onPresenceUpdate: EchoRealtimeHostPorts['presence']['applyPresenceUpdate'];
   onDmActivity: EchoRealtimeHostPorts['dm']['applyDmActivity'];
   onDmCall: EchoRealtimeHostPorts['dm']['applyDmCall'];
+  onDmThreadActivity: EchoRealtimeHostPorts['dm']['applyDmThreadActivity'];
   mergeReadStateUpdate: (
     channelId: string,
     lastReadMessageId: string | null,
@@ -37,7 +38,11 @@ export function createAppLayoutEchoRealtimeHost(
 ): EchoRealtimeHostPorts {
   return {
     presence: { applyPresenceUpdate: input.onPresenceUpdate },
-    dm: { applyDmActivity: input.onDmActivity, applyDmCall: input.onDmCall },
+    dm: {
+      applyDmActivity: input.onDmActivity,
+      applyDmCall: input.onDmCall,
+      applyDmThreadActivity: input.onDmThreadActivity,
+    },
     attention: {
       applyReadStateUpdate: (payload) =>
         input.mergeReadStateUpdate(

@@ -84,7 +84,10 @@ import { createEchoDmActivityHandler } from '@/features/dm/createEchoDmActivityH
 import { createHandleAcceptMessageRequestOpener } from '@/features/dm/createHandleAcceptMessageRequestOpener';
 import { createLatestDmPeerUserIdForRailResolver } from '@/features/dm/createLatestDmPeerUserIdForRailResolver';
 import { createLatestDmInboxTargetForRailResolver } from '@/features/dm/createLatestDmInboxTargetForRailResolver';
-import { echoDmChannelIdForPeerUser } from '@/features/dm/buildDmPanelUserList';
+import {
+  echoDmChannelIdForPeerUser,
+  pinSelfDmInboxEntryFirst,
+} from '@/features/dm/buildDmPanelUserList';
 import { filterVisibleDmInboxEntries } from '@/features/dm/filterVisibleDmInbox';
 import { maxIncomingPeerMessageMs } from '@/features/dm/hiddenDmInboxUtils';
 import { sortFavoriteDmInboxFirst } from '@/features/dm/sortFavoriteDmInboxFirst';
@@ -95,6 +98,7 @@ import {
 import type { RawMessage } from '@/services/realtime/chatMessageTypes';
 import { useHiddenDmInboxStore } from '@/stores/hiddenDmInbox';
 import { useFavoriteDmInboxStore } from '@/stores/favoriteDmInbox';
+import { useDmInboxOrderCacheStore } from '@/stores/dmInboxOrderCache';
 import { useAppLayoutWorkspaceFriendshipQueries } from './useAppLayoutWorkspaceFriendshipQueries';
 import { createEchoCanContextComputeds } from './createEchoCanContextComputeds';
 import { createStableGoToMessageDelegate } from '@/features/layout/actions/appActionRegistry';
@@ -190,6 +194,7 @@ import {
   postEchoLeaveGroupDm,
   postEchoLeaveServer,
 } from '@/api/echoClient';
+import { postEchoOpenDm } from '@/api/echo/social';
 import {
   postEchoE2eeDeviceRegister,
   getEchoE2eeThreadState,
@@ -797,9 +802,11 @@ export function useAppLayoutController() {
     echoDmPeerByChannelId,
     echoDmThreadIds,
     echoDmLastActivityIdByChannelId,
+    echoDmLastActivityAtMsByChannelId,
     echoDmActiveCallParticipantUserIdsByChannelId,
     echoBlockedUserIds,
     mergeEchoDmThreadsFromApi,
+    mergeEchoDmThread,
     mergeEchoDmThreadFromRealtime,
     mergeEchoBlockedFromApi,
     isEchoUserBlocked,
@@ -879,6 +886,7 @@ export function useAppLayoutController() {
 
   const hiddenDmInboxStore = useHiddenDmInboxStore();
   const favoriteDmInboxStore = useFavoriteDmInboxStore();
+  const dmInboxOrderCacheStore = useDmInboxOrderCacheStore();
   const getLatestDmInboxTargetForRailRef = shallowRef<
     () =>
       | { kind: 'user'; userId: string }
@@ -1048,6 +1056,7 @@ export function useAppLayoutController() {
     hasGuildChannelChrome,
     vcActivityUi,
     applyVcYoutubeWatchTogetherRemote,
+    closeVcActivity,
   });
 
   const {
@@ -1128,6 +1137,10 @@ export function useAppLayoutController() {
     getVcLocalScreenTrack,
     getVcLocalCameraTrack,
     vcMirrorCamera,
+    vcYoutubeRemotePlayback,
+    publishVcYoutubePlaybackSync,
+    vcYoutubePlaybackShouldPublish,
+    effectiveVcActivityKingUserId,
     syncLiveKitAudioFromUiStores: _syncLiveKitAudioFromUiStores,
     dmCallVoiceStripThreadId,
     dmCallVoiceStripTitle,
@@ -1375,6 +1388,17 @@ export function useAppLayoutController() {
     mergeEchoDmThreadFromRealtime,
   });
 
+  /**
+   * Server-driven inbox sort-key update for activity that has no message/call payload
+   * (e.g. friend accepted between the pair). Merging the thread row pulls in the fresh
+   * `lastActivityAt` so the inbox reorders without waiting for a `/dm/threads` refresh.
+   */
+  const handleEchoDmThreadActivity = (
+    payload: import('@shared/types').EchoDmThreadActivityEvent,
+  ) => {
+    mergeEchoDmThreadFromRealtime(payload.thread);
+  };
+
   function applyRealtimeAuthorHint(payload: {
     userId: string;
     displayName?: string;
@@ -1474,7 +1498,7 @@ export function useAppLayoutController() {
       groupDMs,
       messages: workspace.messages,
       echoPeerByChannelId: echoDmPeerByChannelId,
-      echoDmLastActivityIdByChannelId,
+      echoDmLastActivityAtMsByChannelId,
       selectedDMUserId,
       activeChannelId,
       dmUnreadByChannelIdForPanel,
@@ -1489,7 +1513,7 @@ export function useAppLayoutController() {
     activeDmPeerUserId: selectedDMUserId,
     dmAttentionByChannelId,
     dmUnreadCountByChannelId: dmUnreadByChannelIdForPanel,
-    activityIdByChannelId: echoDmLastActivityIdByChannelId,
+    lastActivityAtMsByChannelId: echoDmLastActivityAtMsByChannelId,
     groupDMs,
     isDmChannelId: (channelId) => isKnownDmChannelId(channelId),
     isHiddenDmUser: (userId) => hiddenDmInboxStore.isUserHidden(userId),
@@ -1747,6 +1771,7 @@ export function useAppLayoutController() {
     applyEchoPresenceFromSocket,
     handleEchoDmActivity,
     handleEchoDmCall,
+    handleEchoDmThreadActivity,
     mergeReadStateUpdate: echoAttention.mergeReadStateUpdate,
     replaceAttentionSnapshot: echoAttention.replaceSnapshot,
     setChannelPinsFromEcho,
@@ -2106,6 +2131,13 @@ export function useAppLayoutController() {
           next.set(cid, peerUserId);
           echoDmPeerByChannelId.value = next;
         }
+        // Explicitly opening a conversation from a toast must reveal its inbox
+        // row even if the peer was previously hidden — the user is clearly
+        // requesting to see this conversation.
+        hiddenDmInboxStore.unhideUser(peerUserId);
+      } else {
+        // Group DM (no single peer): unhide by channel id so the row appears.
+        hiddenDmInboxStore.unhideGroup(cid);
       }
       // Same as `navigateToDmForAnswerRef`: changing only `activeChannelId` does not
       // move the rail off servers — the channel tree would stay visible beside DM chat.
@@ -2686,15 +2718,14 @@ export function useAppLayoutController() {
     const channelId = await openEchoDirectDmChannel(token, uid);
     if (!channelId?.trim()) return '';
     const cid = channelId.trim();
-    mergeEchoDmThreadFromRealtime(
-      {
-        channelId: cid,
-        kind: 'direct',
-        peerUserId: uid,
-        lastActivityId: cid,
-      },
-      cid,
-    );
+    // Register the channel→peer mapping only. The server's `/dm/open` insert seeded
+    // `echo_dm_activity.last_activity_at = NOW()`, and the next `/dm/threads` refresh
+    // will deliver the authoritative `lastActivityAt`.
+    mergeEchoDmThreadFromRealtime({
+      channelId: cid,
+      kind: 'direct',
+      peerUserId: uid,
+    });
     return cid;
   }
 
@@ -2898,21 +2929,66 @@ export function useAppLayoutController() {
     groupDMs,
     messages: workspace.messages,
     echoPeerByChannelId: echoDmPeerByChannelId,
-    echoDmLastActivityIdByChannelId,
+    echoDmLastActivityAtMsByChannelId,
     selectedDMUserId,
     activeChannelId,
     dmUnreadByChannelIdForPanel,
+    fallbackRankMsByKey: dmInboxOrderCacheStore.initialRankMsByKey,
   });
   const dmInboxEntriesForPanel = computed(() => {
+    const selfUid = currentUserIdForSocket.value?.trim() ?? '';
     const sorted = sortFavoriteDmInboxFirst(
-      filterVisibleDmInboxEntries(
-        dmInboxEntriesForPanelUnfiltered.value,
-        hiddenDmInboxStore,
-      ),
+      filterVisibleDmInboxEntries(dmInboxEntriesForPanelUnfiltered.value, {
+        isUserHidden: hiddenDmInboxStore.isUserHidden,
+        isGroupHidden: hiddenDmInboxStore.isGroupHidden,
+        selfUserId: selfUid,
+      }),
       favoriteDmInboxStore,
     );
-    return sorted;
+    return pinSelfDmInboxEntryFirst(sorted, selfUid);
   });
+
+  let ensureEchoSelfDmThreadInFlight = false;
+  watch(
+    [
+      () => workspace.socialGraphStatus.value,
+      echoDmPeerByChannelId,
+      () => authSession.backendUser?.id ?? '',
+      () => authSession.backendUser?.isGuest === true,
+      () => authSession.accessToken ?? '',
+    ],
+    () => {
+      if (workspace.socialGraphStatus.value !== 'ready') return;
+      if (echoSyncCapabilities.isMockDataMode) return;
+      const selfId = authSession.backendUser?.id?.trim();
+      if (!selfId || authSession.backendUser?.isGuest) return;
+      const token = authSession.accessToken?.trim();
+      if (!token) return;
+      for (const p of echoDmPeerByChannelId.value.values()) {
+        if (p === selfId) return;
+      }
+      if (ensureEchoSelfDmThreadInFlight) return;
+      ensureEchoSelfDmThreadInFlight = true;
+      void postEchoOpenDm(token, selfId)
+        .then((r) => {
+          const ch = String(r.channelId ?? '').trim();
+          if (ch) {
+            mergeEchoDmThread({
+              kind: 'direct',
+              channelId: ch,
+              peerUserId: selfId,
+            });
+          }
+        })
+        .catch(() => {
+          /* best-effort */
+        })
+        .finally(() => {
+          ensureEchoSelfDmThreadInFlight = false;
+        });
+    },
+    { flush: 'post' },
+  );
 
   function isDmInboxUserFavorite(userId: string) {
     return favoriteDmInboxStore.isUserFavorite(userId);
@@ -2938,7 +3014,7 @@ export function useAppLayoutController() {
   );
 
   watch(
-    [workspace.messages, echoDmLastActivityIdByChannelId],
+    [workspace.messages, echoDmLastActivityAtMsByChannelId],
     () => {
       const selfId = currentUserIdForSocket.value?.trim() ?? '';
       if (!selfId) return;
@@ -2951,6 +3027,30 @@ export function useAppLayoutController() {
     },
     { deep: true },
   );
+
+  /**
+   * Persist real per-entry `lastActivityAt` (ms epoch) keyed by inbox row id so the
+   * next session's cold-start render matches this session's last live render exactly.
+   * For 1:1 rows the row id is the peer user id, so we look up the channel id via
+   * `echoDmPeerByChannelId`; for groups the row id IS the channel id.
+   */
+  watch(dmInboxEntriesForPanel, (entries) => {
+    if (!entries.length) return;
+    const ats = echoDmLastActivityAtMsByChannelId.value;
+    const peerByCh = echoDmPeerByChannelId.value;
+    const channelIdForPeer = new Map<string, string>();
+    for (const [ch, peer] of peerByCh) {
+      if (!channelIdForPeer.has(peer)) channelIdForPeer.set(peer, ch);
+    }
+    const payload = entries.map((e) => {
+      if (e.kind === 'group') {
+        return { id: e.id, rankMs: ats.get(e.id) ?? 0 };
+      }
+      const ch = channelIdForPeer.get(e.id) ?? '';
+      return { id: e.id, rankMs: ch ? (ats.get(ch) ?? 0) : 0 };
+    });
+    dmInboxOrderCacheStore.saveOrder(payload);
+  });
 
   function hideDmFromInboxUser(peerId: string) {
     const selfId = currentUserIdForSocket.value?.trim() ?? '';
@@ -3348,6 +3448,7 @@ export function useAppLayoutController() {
 
   const voiceSlice = useAppLayoutContextVoiceSlice({
     getVcActivityPresenceForUser,
+    effectiveVcActivityKingUserId,
     vcHangmanActivity,
     hangmanRosterUserIds,
     commitVcHangmanWord,
@@ -3459,6 +3560,9 @@ export function useAppLayoutController() {
     playVcYoutubeNext,
     playVcYoutubePrevious,
     closeVcActivity,
+    vcYoutubeRemotePlayback,
+    publishVcYoutubePlaybackSync,
+    vcYoutubePlaybackShouldPublish,
     getLocalScreenTrack: getVcLocalScreenTrack,
     getLocalCameraTrack: getVcLocalCameraTrack,
     getRemoteParticipantVolume,

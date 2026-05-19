@@ -195,6 +195,8 @@ const props = defineProps<{
   }>;
   /** VC activity roster badges (YouTube, activities picker). */
   getVcActivityPresence?: (userId: string) => VcActivityPresenceKind[];
+  /** User id hosting synced VC activity (YouTube / games); crown on roster + CallView. */
+  vcActivityKingUserId?: string | null;
   /**
    * When false, hide the bottom voice connection panel (mute / deafen / device settings).
    * CallView is gallery + side chat only — keep this true for server VC so transport controls stay in the channel list.
@@ -515,9 +517,20 @@ const emit = defineEmits<{
   'quick-create-submit': [payload: CreateChannelModalSubmitPayload];
   'mark-read': [channelId: string];
   'guild-event-rsvp': [
-    payload: { serverId: string; eventId: string; status: 'going' | 'declined' },
+    payload: {
+      serverId: string;
+      eventId: string;
+      status: 'going' | 'declined';
+    },
   ];
-  'open-guild-event-channel': [payload: { serverId: string; channelId: string }];
+  'open-guild-event-channel': [
+    payload: {
+      serverId: string;
+      channelId?: string | null;
+      customLocation?: string | null;
+      eventId?: string;
+    },
+  ];
 }>();
 
 function onChannelRowClick(channel: ChannelWithParticipants) {
@@ -970,8 +983,9 @@ function forwardInvite(payload?: {
 </script>
 
 <template>
-  <div
+  <nav
     ref="channelPanelRef"
+    aria-label="Channels"
     class="channel-panel-wrapper group/channel flex flex-col relative min-w-0 min-h-0 overflow-hidden"
   >
     <div
@@ -999,7 +1013,7 @@ function forwardInvite(payload?: {
         v-if="
           selectedServer?.id &&
           selectedServer.id !== 'echo' &&
-          upcomingServerEvents.length > 0
+          upcomingServerEvents.some((e) => e.userRsvp !== 'declined')
         "
         :server-id="selectedServer.id"
         :events="upcomingServerEvents"
@@ -1013,7 +1027,9 @@ function forwardInvite(payload?: {
         @open-channel="
           emit('open-guild-event-channel', {
             serverId: selectedServer.id,
+            eventId: $event.eventId,
             channelId: $event.channelId,
+            customLocation: $event.customLocation,
           })
         "
       />
@@ -1064,6 +1080,7 @@ function forwardInvite(payload?: {
           :voice-participant-label="voiceParticipantLabel"
           :participant-voice-ui="participantVoiceUi"
           :get-vc-activity-presence="getVcActivityPresence"
+          :vc-activity-king-user-id="vcActivityKingUserId ?? null"
           :row-can-manage-channel="rowCanManageChannel"
           :bubble-mode="bubbleMode"
           @open-create-channel="(id) => emit('open-create-channel', id)"
@@ -1174,7 +1191,7 @@ function forwardInvite(payload?: {
       @vc-moderate="vcModerateFromMenu"
       @vc-moderate-server="vcModerateServerFromMenu"
     />
-  </div>
+  </nav>
 </template>
 
 <style scoped lang="scss">

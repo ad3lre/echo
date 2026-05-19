@@ -22,6 +22,12 @@ function compareNumericStringDesc(a: string, b: string): number {
   }
 }
 
+function parseIsoToMs(value: unknown): number {
+  if (typeof value !== 'string' || !value.trim()) return 0;
+  const t = new Date(value).getTime();
+  return Number.isFinite(t) && t > 0 ? t : 0;
+}
+
 export function useAppLayoutEchoDmState(deps: {
   serverStore: ReturnType<typeof useServerStore>;
   workspace: WorkspaceStateApi;
@@ -51,7 +57,20 @@ export function useAppLayoutEchoDmState(deps: {
   /** Persisted Echo 1:1 DM channels (snowflake ids) → peer user id. */
   const echoDmPeerByChannelId = shallowRef(new Map<string, string>());
   const echoDmThreadIds = shallowRef(new Set<string>());
+  /**
+   * Legacy snowflake-based activity id (kept for backward compatibility with any
+   * non-inbox consumer). Inbox ordering MUST NOT use this — use
+   * {@link echoDmLastActivityAtMsByChannelId} instead.
+   */
   const echoDmLastActivityIdByChannelId = shallowRef(new Map<string, string>());
+  /**
+   * Authoritative DM inbox sort key per channel id. ms epoch.
+   * Sourced from server `lastActivityAt` (ISO) returned by `/dm/threads` and every
+   * realtime DM event. Monotonic: stale events cannot reduce the stored value.
+   */
+  const echoDmLastActivityAtMsByChannelId = shallowRef(
+    new Map<string, number>(),
+  );
   const echoDmActiveCallParticipantUserIdsByChannelId = shallowRef(
     new Map<string, string[]>(),
   );
@@ -63,6 +82,7 @@ export function useAppLayoutEchoDmState(deps: {
     const m = new Map(echoDmPeerByChannelId.value);
     const s = new Set(echoDmThreadIds.value);
     const a = new Map(echoDmLastActivityIdByChannelId.value);
+    const at = new Map(echoDmLastActivityAtMsByChannelId.value);
     const callParticipants = new Map(
       echoDmActiveCallParticipantUserIdsByChannelId.value,
     );
@@ -76,10 +96,17 @@ export function useAppLayoutEchoDmState(deps: {
         : '');
     if (lastActivityId) {
       const prev = a.get(thread.channelId) ?? '';
-      // Keep activity monotonic so stale hydrate/events cannot move recency backward.
       if (!prev || compareNumericStringDesc(lastActivityId, prev) < 0) {
         a.set(thread.channelId, lastActivityId);
       }
+    }
+    const lastActivityAtMs =
+      'lastActivityAt' in thread
+        ? parseIsoToMs(thread.lastActivityAt)
+        : 0;
+    if (lastActivityAtMs > 0) {
+      const prevAt = at.get(thread.channelId) ?? 0;
+      if (lastActivityAtMs > prevAt) at.set(thread.channelId, lastActivityAtMs);
     }
     if ('activeCallParticipantUserIds' in thread) {
       const ids = Array.isArray(thread.activeCallParticipantUserIds)
@@ -114,6 +141,7 @@ export function useAppLayoutEchoDmState(deps: {
     echoDmPeerByChannelId.value = m;
     echoDmThreadIds.value = s;
     echoDmLastActivityIdByChannelId.value = a;
+    echoDmLastActivityAtMsByChannelId.value = at;
     echoDmActiveCallParticipantUserIdsByChannelId.value = callParticipants;
   }
 
@@ -134,6 +162,7 @@ export function useAppLayoutEchoDmState(deps: {
     const m = new Map(echoDmPeerByChannelId.value);
     const s = new Set(echoDmThreadIds.value);
     const a = new Map(echoDmLastActivityIdByChannelId.value);
+    const at = new Map(echoDmLastActivityAtMsByChannelId.value);
     const callParticipants = new Map(
       echoDmActiveCallParticipantUserIdsByChannelId.value,
     );
@@ -142,12 +171,14 @@ export function useAppLayoutEchoDmState(deps: {
       m.delete(ch);
       s.delete(ch);
       a.delete(ch);
+      at.delete(ch);
       callParticipants.delete(ch);
       delete nextGroups[ch];
     }
     echoDmPeerByChannelId.value = m;
     echoDmThreadIds.value = s;
     echoDmLastActivityIdByChannelId.value = a;
+    echoDmLastActivityAtMsByChannelId.value = at;
     echoDmActiveCallParticipantUserIdsByChannelId.value = callParticipants;
     groupDMs.value = nextGroups;
   }
@@ -189,16 +220,19 @@ export function useAppLayoutEchoDmState(deps: {
     const m = new Map(echoDmPeerByChannelId.value);
     const s = new Set(echoDmThreadIds.value);
     const a = new Map(echoDmLastActivityIdByChannelId.value);
+    const at = new Map(echoDmLastActivityAtMsByChannelId.value);
     for (const [ch, peer] of [...m.entries()]) {
       if (peer === peerUserId) {
         m.delete(ch);
         s.delete(ch);
         a.delete(ch);
+        at.delete(ch);
       }
     }
     echoDmPeerByChannelId.value = m;
     echoDmThreadIds.value = s;
     echoDmLastActivityIdByChannelId.value = a;
+    echoDmLastActivityAtMsByChannelId.value = at;
   }
 
   function leaveDmUiIfViewingUser(userId: string) {
@@ -224,9 +258,11 @@ export function useAppLayoutEchoDmState(deps: {
     echoDmPeerByChannelId,
     echoDmThreadIds,
     echoDmLastActivityIdByChannelId,
+    echoDmLastActivityAtMsByChannelId,
     echoDmActiveCallParticipantUserIdsByChannelId,
     echoBlockedUserIds,
     mergeEchoDmThreadsFromApi,
+    mergeEchoDmThread,
     mergeEchoDmThreadFromRealtime,
     mergeEchoBlockedFromApi,
     isEchoUserBlocked,

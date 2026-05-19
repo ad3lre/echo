@@ -35,6 +35,7 @@ export const ECHO_V1_SERVER_SOCKET_EVENTS = [
   'presence:update',
   'dm:activity',
   'dm:call',
+  'dm:thread:activity',
   'read_state:update',
   'attention:update',
   'message:updated',

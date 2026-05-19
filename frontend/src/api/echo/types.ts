@@ -69,6 +69,8 @@ export type EchoServerMemberDto = {
   bannerBlurEnabled?: boolean;
   bannerBlackoutEnabled?: boolean;
   bannerPositionY?: number;
+  /** IANA timezone from `auth_users.time_zone` (Magic Time). */
+  timeZone?: string | null;
 };
 
 export type EchoPermissionOverwriteRowDto = {

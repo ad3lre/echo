@@ -272,6 +272,12 @@ interface AppConfig {
    */
   readonly s3UploadPublicBaseUrl: string | null;
   /**
+   * When true and S3 uploads are configured, presign `publicUrl` and related URLs use same-origin
+   * `GET /api/v1/echo/uploads/s3/...` (session cookie) instead of {@link s3UploadPublicBaseUrl}, so
+   * `fetch`/canvas can read GIF bytes without R2 GET CORS. Adds API bandwidth vs direct R2 reads.
+   */
+  readonly echoS3PublicReadThroughApi: boolean;
+  /**
    * When S3 is not configured: store uploads on local disk (default `data/echo-local-uploads`).
    * Set `ECHO_LOCAL_UPLOADS=false` to disable and keep presign `503` until S3 is configured.
    */
@@ -577,6 +583,24 @@ interface AppConfig {
    * Default: on in non-production (set `ECHO_VC_VERBOSE_LOG=false` to silence); in production off unless `true`.
    */
   readonly echoVcVerboseLogging: boolean;
+  /**
+   * Enables the same-origin embed proxy at `/api/v1/embed/*`.
+   * Set `ECHO_EMBED_PROXY_ENABLED=true`. Off by default; operator opt-in only.
+   * WARNING: proxied third-party JS runs as Echo's origin — enable only for
+   * explicitly trusted targets (see embedProxyCatalog.ts).
+   */
+  readonly echoEmbedProxyEnabled: boolean;
+  /**
+   * Comma-separated allowlist of slugs that may be proxied
+   * (`ECHO_EMBED_PROXY_SLUGS`). When unset, all catalog slugs are allowed
+   * (subject to `echoEmbedProxyEnabled` being true).
+   */
+  readonly echoEmbedProxySlugs: string[] | null;
+  /**
+   * HMAC key for signing short-lived embed tokens (`ECHO_EMBED_PROXY_SECRET`).
+   * Falls back to `jwtSecret` when unset (weaker in production — set explicitly).
+   */
+  readonly echoEmbedProxySecret: string;
 }
 
 /**
@@ -1039,6 +1063,10 @@ export const config: AppConfig = {
   s3UploadSecretKey: process.env.ECHO_S3_SECRET_KEY?.trim() || null,
   s3UploadEndpoint: process.env.ECHO_S3_ENDPOINT?.trim() || null,
   s3UploadPublicBaseUrl: process.env.ECHO_S3_PUBLIC_BASE_URL?.trim() || null,
+  echoS3PublicReadThroughApi: parseBoolean(
+    process.env.ECHO_S3_PUBLIC_READ_THROUGH_API,
+    false,
+  ),
   echoLocalUploadDir: resolveEchoLocalUploadDir(),
   echoLocalUploadBodyMaxBytes: (() => {
     const raw = process.env.ECHO_LOCAL_UPLOAD_MAX_BYTES;
@@ -1473,6 +1501,20 @@ export const config: AppConfig = {
     if (raw === 'false' || raw === '0' || raw === 'no') return false;
     return process.env.NODE_ENV !== 'production';
   })(),
+  echoEmbedProxyEnabled: parseBoolean(
+    process.env.ECHO_EMBED_PROXY_ENABLED,
+    false,
+  ),
+  echoEmbedProxySlugs: (() => {
+    const raw = process.env.ECHO_EMBED_PROXY_SLUGS?.trim() ?? '';
+    if (!raw) return null;
+    return raw
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+  })(),
+  echoEmbedProxySecret:
+    process.env.ECHO_EMBED_PROXY_SECRET?.trim() || resolvedJwtSecret,
 };
 
 // It's a good practice to validate critical configuration variables

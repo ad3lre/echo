@@ -1,8 +1,9 @@
-import {
-  AUTOMOD_MAX_RE2_PATTERN_LEN,
-} from '../../../../../shared/types/automod';
+import { AUTOMOD_MAX_RE2_PATTERN_LEN } from '../../../../../shared/types/automod';
 
-type Re2Ctor = new (pattern: string, flags?: string) => { test(s: string): boolean };
+type Re2Ctor = new (
+  pattern: string,
+  flags?: string,
+) => { test(s: string): boolean };
 
 let Re2Class: Re2Ctor | null = null;
 let re2ProbeDone = false;

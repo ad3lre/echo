@@ -91,10 +91,7 @@ function addSubgroup() {
       structure).
     </div>
 
-    <div
-      v-if="showCombinator"
-      class="mb-3 flex flex-wrap items-center gap-2"
-    >
+    <div v-if="showCombinator" class="mb-3 flex flex-wrap items-center gap-2">
       <span class="text-xs text-fg-subtle">Match</span>
       <select
         class="rounded-lg border border-border bg-scrim-2 px-2 py-1 text-sm text-fg"

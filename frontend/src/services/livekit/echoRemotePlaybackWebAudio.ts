@@ -202,7 +202,12 @@ export function echoPlaybackSetLinearGainOnElement(
     : 1;
   const oldGain = w.gain.gain.value;
   w.gain.gain.value = g;
-  element.volume = 1;
+  /*
+   * element.volume is owned by the caller (setAudioTrackVolumeIfSupported), which
+   * mirrors the clamped gain onto every attached element so playback still tracks
+   * the slider if the GainNode is not actually routing audio (suspended context,
+   * recycled element). Do not pin it to 1 here or that safety net is defeated.
+   */
   vcDebugLog('[Echo:VC:Volume] echoPlaybackSetLinearGainOnElement - SET GAIN', {
     elementId: element.id || 'no-id',
     linearGain,
@@ -211,6 +216,18 @@ export function echoPlaybackSetLinearGainOnElement(
     newGain: w.gain.gain.value,
     elementVolume: element.volume,
   });
+}
+
+/**
+ * Read the linear gain applied to this element after {@link echoPlaybackRegisterTrackElement}
+ * (for diagnostics and tests). Returns null if the element is not wired.
+ */
+export function echoPlaybackPeekLinearGainForElement(
+  element: HTMLMediaElement,
+): number | null {
+  const w = elementWiring.get(element);
+  if (!w) return null;
+  return w.gain.gain.value;
 }
 
 export function echoPlaybackDisposeElement(element: HTMLMediaElement): void {

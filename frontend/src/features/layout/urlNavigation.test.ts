@@ -265,6 +265,9 @@ describe('parseUserSettingsSectionFromQuery / parseGuildSettingsSectionFromQuery
     expect(
       parseUserSettingsSectionFromQuery(encodeURIComponent('Formatting guide')),
     ).toBe('Formatting guide');
+    expect(parseUserSettingsSectionFromQuery('Accessibility')).toBe(
+      'Accessibility',
+    );
     expect(parseUserSettingsSectionFromQuery('Desktop')).toBe('Desktop');
     expect(parseUserSettingsSectionFromQuery('Nope')).toBeNull();
     expect(parseUserSettingsSectionFromQuery('%')).toBeNull();
@@ -277,6 +280,7 @@ describe('parseUserSettingsSectionFromQuery / parseGuildSettingsSectionFromQuery
     expect(parseGuildSettingsSectionFromQuery('Applications')).toBe('Access');
     expect(parseGuildSettingsSectionFromQuery('Access')).toBe('Access');
     expect(parseGuildSettingsSectionFromQuery('Discord')).toBe('Discord');
+    expect(parseGuildSettingsSectionFromQuery('Automod')).toBe('Automod');
     expect(parseGuildSettingsSectionFromQuery('Audit%20Log')).toBe('Audit Log');
     expect(parseGuildSettingsSectionFromQuery('Nope')).toBeNull();
     expect(parseGuildSettingsSectionFromQuery('%')).toBeNull();

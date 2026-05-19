@@ -33,6 +33,12 @@ import {
 import { emitEchoAttentionSnapshotForUser } from '../../../services/echoAttentionRealtime';
 import { clampEchoChannelName } from '../../../../../shared/echoChannelLimits';
 import type { EchoServerNotificationLevel } from '../../../../../shared/types';
+import { validateEchoEventCoverImageUrl } from '../../../services/storedMediaUrl';
+import {
+  deleteDiscordMirrorForEchoServerEvent,
+  peekEchoServerEventDiscordPatchBaseline,
+  syncDiscordMirrorForEchoServerEvent,
+} from '../../../services/discordEchoServerEventMirror';
 
 export default async function echoServerScopedRoutes(
   fastify: FastifyInstance,
@@ -578,90 +584,125 @@ export default async function echoServerScopedRoutes(
       endsAt?: string;
       timezoneLabel?: string | null;
       channelId?: string | null;
+      customLocation?: string | null;
       maxAttendees?: number | null;
+      mirrorToDiscord?: boolean;
     };
-  }>('/servers/:serverId/events', { preHandler: [requireAuth, requireEchoStore] }, async (req, reply) => {
-    const pool = echoPool(req);
-    const sid = trimEchoPathParam(req.params.serverId);
-    const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
-    if (!okMem) {
-      return sendError(
-        reply,
-        403,
-        'FORBIDDEN',
-        ECHO_MSG_NOT_SERVER_MEMBER,
-        'NOT_SERVER_MEMBER',
+  }>(
+    '/servers/:serverId/events',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const sid = trimEchoPathParam(req.params.serverId);
+      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      if (!okMem) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          ECHO_MSG_NOT_SERVER_MEMBER,
+          'NOT_SERVER_MEMBER',
+        );
+      }
+      const caps = await getEchoServerCapabilitiesForUser(
+        pool,
+        sid,
+        req.authUser!.id,
       );
-    }
-    const caps = await getEchoServerCapabilitiesForUser(
-      pool,
-      sid,
-      req.authUser!.id,
-    );
-    if (!caps.canManageServer) {
-      return sendError(reply, 403, 'FORBIDDEN', 'Manage Server is required.');
-    }
-    const title = typeof req.body?.title === 'string' ? req.body.title : '';
-    const startsRaw = req.body?.startsAt;
-    const endsRaw = req.body?.endsAt;
-    const startsAt =
-      typeof startsRaw === 'string' && startsRaw.trim()
-        ? new Date(startsRaw.trim())
-        : null;
-    const endsAt =
-      typeof endsRaw === 'string' && endsRaw.trim()
-        ? new Date(endsRaw.trim())
-        : null;
-    if (!startsAt || Number.isNaN(startsAt.getTime())) {
-      return sendError(reply, 400, 'INVALID_BODY', 'startsAt required (ISO)');
-    }
-    if (!endsAt || Number.isNaN(endsAt.getTime())) {
-      return sendError(reply, 400, 'INVALID_BODY', 'endsAt required (ISO)');
-    }
-    const created = await createEchoServerEvent(pool, {
-      serverId: sid,
-      creatorUserId: req.authUser!.id,
-      title,
-      description:
-        typeof req.body?.description === 'string' ? req.body.description : '',
-      imageUrl:
+      if (!caps.canManageServer) {
+        return sendError(reply, 403, 'FORBIDDEN', 'Manage Server is required.');
+      }
+      const title = typeof req.body?.title === 'string' ? req.body.title : '';
+      const startsRaw = req.body?.startsAt;
+      const endsRaw = req.body?.endsAt;
+      const startsAt =
+        typeof startsRaw === 'string' && startsRaw.trim()
+          ? new Date(startsRaw.trim())
+          : null;
+      const endsAt =
+        typeof endsRaw === 'string' && endsRaw.trim()
+          ? new Date(endsRaw.trim())
+          : null;
+      if (!startsAt || Number.isNaN(startsAt.getTime())) {
+        return sendError(reply, 400, 'INVALID_BODY', 'startsAt required (ISO)');
+      }
+      if (!endsAt || Number.isNaN(endsAt.getTime())) {
+        return sendError(reply, 400, 'INVALID_BODY', 'endsAt required (ISO)');
+      }
+      const imageNorm = validateEchoEventCoverImageUrl(
         typeof req.body?.imageUrl === 'string' ? req.body.imageUrl : '',
-      startsAt,
-      endsAt,
-      timezoneLabel: req.body?.timezoneLabel,
-      channelId: req.body?.channelId ?? undefined,
-      maxAttendees: req.body?.maxAttendees,
-    });
-    if (!created.ok) {
-      return sendError(
-        reply,
-        400,
-        'INVALID_BODY',
-        created.reason === 'bad_channel'
-          ? 'channelId must belong to this server'
-          : 'endsAt must be after startsAt',
       );
-    }
-    const auditId = await insertEchoAudit(
-      pool,
-      sid,
-      req.authUser!.id,
-      'echo.event_created',
-      'event',
-      created.id,
-      { title: title.trim().slice(0, 200) },
-    );
-    publishEchoWorkspaceEvent(
-      fastify,
-      {
-        kind: 'workspace_invalidated',
-        version: auditId,
+      if (!imageNorm.ok) {
+        return sendError(reply, 400, 'INVALID_BODY', imageNorm.message);
+      }
+      const mirrorToDiscord = req.body?.mirrorToDiscord === true;
+      const created = await createEchoServerEvent(pool, {
         serverId: sid,
-      },
-      { serverId: sid },
-    );
-    return reply.code(201).send({ id: created.id });
-  });
+        creatorUserId: req.authUser!.id,
+        title,
+        description:
+          typeof req.body?.description === 'string' ? req.body.description : '',
+        imageUrl: imageNorm.value,
+        startsAt,
+        endsAt,
+        timezoneLabel: null,
+        channelId: req.body?.channelId ?? undefined,
+        customLocation:
+          typeof req.body?.customLocation === 'string'
+            ? req.body.customLocation
+            : req.body?.customLocation === null
+              ? null
+              : undefined,
+        maxAttendees: null,
+      });
+      if (!created.ok) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          created.reason === 'bad_channel'
+            ? 'channelId must belong to this server'
+            : created.reason === 'bad_location'
+              ? 'Use either channelId or customLocation, not both'
+              : 'endsAt must be after startsAt',
+        );
+      }
+      const auditId = await insertEchoAudit(
+        pool,
+        sid,
+        req.authUser!.id,
+        'echo.event_created',
+        'event',
+        created.id,
+        { title: title.trim().slice(0, 200) },
+      );
+      publishEchoWorkspaceEvent(
+        fastify,
+        {
+          kind: 'workspace_invalidated',
+          version: auditId,
+          serverId: sid,
+        },
+        { serverId: sid },
+      );
+      const resBody: {
+        id: string;
+        discordMirror?: { ok: boolean; message?: string };
+      } = { id: created.id };
+      if (mirrorToDiscord) {
+        const m = await syncDiscordMirrorForEchoServerEvent(pool, fastify.log, {
+          serverId: sid,
+          eventId: created.id,
+          mirrorToDiscord: true,
+          prePatch: null,
+        });
+        resBody.discordMirror = m.ok
+          ? { ok: true }
+          : { ok: false, message: m.message };
+      }
+      return reply.code(201).send(resBody);
+    },
+  );
 
   fastify.patch<{
     Params: { serverId: string; eventId: string };
@@ -673,7 +714,9 @@ export default async function echoServerScopedRoutes(
       endsAt?: string;
       timezoneLabel?: string | null;
       channelId?: string | null;
+      customLocation?: string | null;
       maxAttendees?: number | null;
+      mirrorToDiscord?: boolean;
     };
   }>(
     '/servers/:serverId/events/:eventId',
@@ -706,8 +749,15 @@ export default async function echoServerScopedRoutes(
         eventId,
       };
       if (typeof body.title === 'string') patch.title = body.title;
-      if (typeof body.description === 'string') patch.description = body.description;
-      if (typeof body.imageUrl === 'string') patch.imageUrl = body.imageUrl;
+      if (typeof body.description === 'string')
+        patch.description = body.description;
+      if (typeof body.imageUrl === 'string') {
+        const imageNorm = validateEchoEventCoverImageUrl(body.imageUrl);
+        if (!imageNorm.ok) {
+          return sendError(reply, 400, 'INVALID_BODY', imageNorm.message);
+        }
+        patch.imageUrl = imageNorm.value;
+      }
       if (typeof body.startsAt === 'string' && body.startsAt.trim()) {
         const d = new Date(body.startsAt.trim());
         if (!Number.isNaN(d.getTime())) patch.startsAt = d;
@@ -716,9 +766,17 @@ export default async function echoServerScopedRoutes(
         const d = new Date(body.endsAt.trim());
         if (!Number.isNaN(d.getTime())) patch.endsAt = d;
       }
-      if ('timezoneLabel' in body) patch.timezoneLabel = body.timezoneLabel;
       if ('channelId' in body) patch.channelId = body.channelId;
-      if ('maxAttendees' in body) patch.maxAttendees = body.maxAttendees;
+      if ('customLocation' in body) patch.customLocation = body.customLocation;
+      patch.timezoneLabel = null;
+      patch.maxAttendees = null;
+
+      const mirrorToDiscord = body.mirrorToDiscord === true;
+      const prePatch = await peekEchoServerEventDiscordPatchBaseline(
+        pool,
+        sid,
+        eventId,
+      );
 
       const updated = await updateEchoServerEvent(pool, patch);
       if (!updated.ok) {
@@ -731,7 +789,9 @@ export default async function echoServerScopedRoutes(
           'INVALID_BODY',
           updated.reason === 'bad_channel'
             ? 'channelId must belong to this server'
-            : 'endsAt must be after startsAt',
+            : updated.reason === 'bad_location'
+              ? 'Use either channelId or customLocation, not both'
+              : 'endsAt must be after startsAt',
         );
       }
       const auditId = await insertEchoAudit(
@@ -752,7 +812,23 @@ export default async function echoServerScopedRoutes(
         },
         { serverId: sid },
       );
-      return reply.code(204).send();
+      const syncRes = await syncDiscordMirrorForEchoServerEvent(
+        pool,
+        fastify.log,
+        {
+          serverId: sid,
+          eventId,
+          mirrorToDiscord,
+          prePatch: prePatch ?? null,
+        },
+      );
+      const out: { discordMirror?: { ok: boolean; message?: string } } = {};
+      if (!syncRes.ok) {
+        out.discordMirror = { ok: false, message: syncRes.message };
+      } else if (mirrorToDiscord || prePatch?.discordScheduledEventId) {
+        out.discordMirror = { ok: true };
+      }
+      return reply.code(200).send(out);
     },
   );
 
@@ -783,8 +859,19 @@ export default async function echoServerScopedRoutes(
       }
       const ok = await cancelEchoServerEvent(pool, sid, eventId);
       if (!ok) {
-        return sendError(reply, 404, 'NOT_FOUND', 'Event not found or already cancelled');
+        return sendError(
+          reply,
+          404,
+          'NOT_FOUND',
+          'Event not found or already cancelled',
+        );
       }
+      await deleteDiscordMirrorForEchoServerEvent(
+        pool,
+        fastify.log,
+        sid,
+        eventId,
+      );
       const auditId = await insertEchoAudit(
         pool,
         sid,
@@ -829,7 +916,12 @@ export default async function echoServerScopedRoutes(
       }
       const st = req.body?.status;
       if (st !== 'going' && st !== 'declined') {
-        return sendError(reply, 400, 'INVALID_BODY', 'status must be going or declined');
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'status must be going or declined',
+        );
       }
       const r = await setEchoServerEventRsvp(
         pool,
@@ -854,10 +946,21 @@ export default async function echoServerScopedRoutes(
         return sendError(reply, 400, 'INVALID_BODY', 'This event has ended');
       }
       if (r === 'cancelled') {
-        return sendError(reply, 400, 'INVALID_BODY', 'This event was cancelled');
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'This event was cancelled',
+        );
       }
       if (r === 'full') {
-        return sendError(reply, 409, 'CONFLICT', 'Event is at capacity', 'EVENT_FULL');
+        return sendError(
+          reply,
+          409,
+          'CONFLICT',
+          'Event is at capacity',
+          'EVENT_FULL',
+        );
       }
       const auditId = await insertEchoAudit(
         pool,

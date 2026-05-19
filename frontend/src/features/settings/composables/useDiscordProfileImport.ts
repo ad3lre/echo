@@ -22,7 +22,9 @@ function workspaceVisualsFromAuthUser(user: AuthUserPublic) {
     bannerRefractionEnabled: user.bannerRefractionEnabled,
     bannerBlurEnabled: user.bannerBlurEnabled,
     bannerBlackoutEnabled: user.bannerBlackoutEnabled,
+    bannerPositionY: user.bannerPositionY,
     status: user.status ?? '',
+    timeZone: user.timeZone ?? null,
   };
 }
 

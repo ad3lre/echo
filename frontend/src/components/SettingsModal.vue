@@ -50,6 +50,12 @@ import {
   formatDateTimeWithPreferences,
   saveTimeLanguagePreferences,
 } from '@/features/settings/timeLanguagePreferences';
+import { authPatchMe } from '@/api/authClient';
+import {
+  loadAccessibilityPreferences,
+  saveAccessibilityPreferences,
+  applyAccessibilityPreferences,
+} from '@/features/settings/accessibilityPreferences';
 import { sessionUserDisplayName } from '@/utils/memberProfiles';
 import { normalizeBannerColorForForm } from '@/utils/profileBannerGradientFromImage';
 
@@ -62,6 +68,7 @@ import SettingsNotifications from '@/features/settings/components/SettingsNotifi
 import SettingsFriends from '@/features/settings/components/SettingsFriends.vue';
 import SettingsSounds from '@/features/settings/components/SettingsSounds.vue';
 import SettingsVoiceVideo from '@/features/settings/components/SettingsVoiceVideo.vue';
+import SettingsAccessibility from '@/features/settings/components/SettingsAccessibility.vue';
 import SettingsSupplementarySections from '@/features/settings/components/SettingsSupplementarySections.vue';
 import SettingsLegal from '@/features/settings/components/SettingsLegal.vue';
 import SettingsFormattingGuide from '@/features/settings/components/SettingsFormattingGuide.vue';
@@ -160,7 +167,7 @@ watch(
 
 watch(
   () => [form.uiLanguage, form.timezone] as const,
-  ([locale, timeZone]) => {
+  async ([locale, timeZone]) => {
     if (!props.modelValue) return;
     const persisted = saveTimeLanguagePreferences({
       locale: locale as 'en-US' | 'en-GB',
@@ -169,6 +176,19 @@ watch(
     form.uiLanguage = persisted.locale;
     form.timezone = persisted.timeZone;
     form.dateFormat = formatDateTimeWithPreferences(new Date());
+    if (
+      authSession.isAuthenticated &&
+      authSession.backendUser?.id &&
+      !echoSyncCapabilities.isMockDataMode
+    ) {
+      try {
+        const { user } = await authPatchMe({ timeZone: persisted.timeZone });
+        if (authSession.backendUser)
+          Object.assign(authSession.backendUser, user);
+      } catch {
+        /* server may reject invalid tz; local prefs already saved */
+      }
+    }
   },
 );
 
@@ -199,6 +219,25 @@ watch(
     void voiceProcessingApi?.reapplyVoiceProcessing();
   },
   { deep: true },
+);
+
+watch(
+  () => ({
+    reducedMotion: form.accessibilitySettings.reducedMotion,
+    highContrast: form.accessibilitySettings.highContrast,
+    showMessageSpacing: form.accessibilitySettings.showMessageSpacing,
+    dyslexiaFriendlyFont: form.accessibilitySettings.dyslexiaFriendlyFont,
+    fontScale: form.fontScale,
+  }),
+  (cur) => {
+    if (!props.modelValue) return;
+    const saved = saveAccessibilityPreferences(cur);
+    applyAccessibilityPreferences(saved);
+    if (saved.dyslexiaFriendlyFont) {
+      void import('@fontsource/atkinson-hyperlegible/latin-400.css');
+      void import('@fontsource/atkinson-hyperlegible/latin-700.css');
+    }
+  },
 );
 
 watch(
@@ -322,6 +361,13 @@ watch(
     form.density = themeStore.interfaceDensity;
     form.actionRailPlacement = themeStore.actionRailPlacement;
     form.dateFormat = formatDateTimeWithPreferences(new Date());
+
+    const a11y = loadAccessibilityPreferences();
+    form.accessibilitySettings.reducedMotion = a11y.reducedMotion;
+    form.accessibilitySettings.highContrast = a11y.highContrast;
+    form.accessibilitySettings.showMessageSpacing = a11y.showMessageSpacing;
+    form.accessibilitySettings.dyslexiaFriendlyFont = a11y.dyslexiaFriendlyFont;
+    form.fontScale = a11y.fontScale;
 
     try {
       if (
@@ -691,6 +737,11 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                 :theme-options="THEME_OPTIONS"
                 :density-options="DENSITY_OPTIONS"
                 :echo-plan="effectiveEchoPlan"
+              />
+
+              <SettingsAccessibility
+                v-else-if="activeSection === 'Accessibility'"
+                :form="form"
               />
 
               <SettingsDesktop v-else-if="activeSection === 'Desktop'" />

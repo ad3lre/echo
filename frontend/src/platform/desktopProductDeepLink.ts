@@ -101,19 +101,34 @@ export function queueEchoProductDeepLink(pathWithSearch: string): void {
   pendingPathWithSearch = pathWithSearch;
 }
 
+function pushShellPathAndApply(pathWithSearch: string): void {
+  if (typeof window === 'undefined' || !applyFromBrowserLocation) return;
+  const cur = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (cur === pathWithSearch) {
+    applyFromBrowserLocation();
+    return;
+  }
+  window.history.pushState(null, '', pathWithSearch);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+/**
+ * Navigate the main shell to an in-app pathname + search (same contract as the browser bar).
+ * No-op when URL sync has not registered yet (e.g. extremely early boot).
+ */
+export function applyEchoShellPath(pathWithSearch: string): boolean {
+  if (typeof window === 'undefined' || !applyFromBrowserLocation) return false;
+  pushShellPathAndApply(pathWithSearch);
+  return true;
+}
+
 export function flushPendingEchoProductDeepLink(): void {
   if (typeof window === 'undefined' || !applyFromBrowserLocation) return;
   const target = pendingPathWithSearch;
   if (!target) return;
   pendingPathWithSearch = null;
 
-  const cur = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  if (cur === target) {
-    applyFromBrowserLocation();
-    return;
-  }
-  window.history.pushState(null, '', target);
-  window.dispatchEvent(new PopStateEvent('popstate'));
+  pushShellPathAndApply(target);
 }
 
 /**

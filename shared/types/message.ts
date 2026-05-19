@@ -153,6 +153,8 @@ export interface MessageAuthor {
   avatar: string;
   status?: 'online' | 'offline' | 'idle' | 'do_not_disturb';
   isDiscordShadow?: boolean;
+  /** IANA zone from the sender’s account (for Magic Time). */
+  timeZone?: string | null;
 }
 
 /**

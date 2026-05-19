@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { MessageAttachmentPayload, MessageWithAuthor } from '@shared/types';
+import type {
+  MessageAttachmentPayload,
+  MessageWithAuthor,
+} from '@shared/types';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { isMessageAuthorOffline } from '@/utils/isOfflinePresence';
@@ -21,14 +24,14 @@ const quotedAuthorOffline = computed(() => {
  * messages (no legacy `imageUrl`/`videoUrl`) still render a meaningful preview
  * like "[Image]" instead of falling through to the em-dash placeholder.
  */
-const replyAttachmentKind = computed<
-  MessageAttachmentPayload['kind'] | null
->(() => {
-  const list = props.replyToMessage?.attachments;
-  if (!list?.length) return null;
-  const first = list[0];
-  return first?.kind ?? null;
-});
+const replyAttachmentKind = computed<MessageAttachmentPayload['kind'] | null>(
+  () => {
+    const list = props.replyToMessage?.attachments;
+    if (!list?.length) return null;
+    const first = list[0];
+    return first?.kind ?? null;
+  },
+);
 
 defineEmits<{
   scrollToQuotedMessage: [];

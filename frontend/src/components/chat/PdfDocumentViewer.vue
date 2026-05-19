@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import {
-  ref,
-  shallowRef,
-  watch,
-  onUnmounted,
-  nextTick,
-  computed,
-} from 'vue';
+import { ref, shallowRef, watch, onUnmounted, nextTick, computed } from 'vue';
 import type {
   PDFDocumentLoadingTask,
   PDFDocumentProxy,
@@ -293,7 +286,8 @@ watch(
 );
 
 const canvasAriaLabel = computed(
-  () => `${props.documentLabel}, page ${pageNum.value} of ${numPages.value || '?'}`,
+  () =>
+    `${props.documentLabel}, page ${pageNum.value} of ${numPages.value || '?'}`,
 );
 
 function clampPageInput() {
@@ -527,18 +521,12 @@ onUnmounted(() => {
           <p class="mb-2 text-[10px] uppercase tracking-wide text-fg-subtle">
             Tagged structure for page {{ pageNum }} (many PDFs have none).
           </p>
-          <div
-            v-if="structLoading"
-            class="flex justify-center py-4"
-          >
+          <div v-if="structLoading" class="flex justify-center py-4">
             <div
               class="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent"
             />
           </div>
-          <p
-            v-else-if="structError"
-            class="text-xs text-red-400/90"
-          >
+          <p v-else-if="structError" class="text-xs text-red-400/90">
             {{ structError }}
           </p>
           <p

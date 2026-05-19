@@ -76,6 +76,7 @@ import {
   decodeEchoHangmanActivity,
   decodeEchoHangmanGuessIntent,
   decodeEchoHangmanNextRound,
+  decodeEchoHangmanRoundSecret,
   encodeEchoVcData,
   encodeEchoVcPrivateViewer,
   encodeEchoYoutubeActivity,
@@ -83,6 +84,7 @@ import {
   encodeEchoHangmanActivity,
   encodeEchoHangmanGuessIntent,
   encodeEchoHangmanNextRound,
+  encodeEchoHangmanRoundSecret,
   type EchoVcDataV1,
   type EchoVcPrivateViewerV1,
   type EchoYoutubeActivityV1,
@@ -90,6 +92,7 @@ import {
   type EchoHangmanActivityV1,
   type EchoHangmanGuessIntentV1,
   type EchoHangmanNextRoundV1,
+  type EchoHangmanRoundSecretV1,
 } from '@/audio/voiceEchoLiveKitData';
 import {
   announceVoiceChannelPublic,
@@ -121,6 +124,22 @@ const LK_SOURCE_CAMERA = 'camera' as LiveKitTrackPublicationSource;
 const LK_SOURCE_SCREEN_SHARE = 'screen_share' as LiveKitTrackPublicationSource;
 const LK_SOURCE_SCREEN_SHARE_AUDIO =
   'screen_share_audio' as LiveKitTrackPublicationSource;
+
+/** Tab / screen-share mux: apply gain if the video MediaStream still has usable audio. */
+function mediaStreamHasMuxedAudioForRemoteGain(
+  ms: Pick<MediaStream, 'getAudioTracks'>,
+): boolean {
+  return ms.getAudioTracks().some((t) => t.readyState !== 'ended');
+}
+
+function isLikelyMediaStream(
+  ms: unknown,
+): ms is Pick<MediaStream, 'getAudioTracks'> {
+  return (
+    !!ms &&
+    typeof (ms as { getAudioTracks?: unknown }).getAudioTracks === 'function'
+  );
+}
 
 type TrackLike = {
   kind?: string;
@@ -583,7 +602,10 @@ export type UseLiveKitVoiceRoomOptions = {
    */
   getUserWantsLocalCamera?: () => boolean;
   /** Guild VC YouTube “watch together” — incoming playlist snapshots from peers. */
-  onYoutubeActivity?: (msg: EchoYoutubeActivityV1) => void;
+  onYoutubeActivity?: (
+    msg: EchoYoutubeActivityV1,
+    senderIdentity: string,
+  ) => void;
   /** Guild VC Hangman — authoritative snapshots from the current setter. */
   onHangmanActivity?: (
     msg: EchoHangmanActivityV1,
@@ -595,6 +617,11 @@ export type UseLiveKitVoiceRoomOptions = {
   ) => void;
   onHangmanNextRound?: (
     msg: EchoHangmanNextRoundV1,
+    fromIdentity: string,
+  ) => void;
+  /** Setter → orchestrator: phrase for the current round (private data channel). */
+  onHangmanRoundSecret?: (
+    msg: EchoHangmanRoundSecretV1,
     fromIdentity: string,
   ) => void;
   /** Guild VC activity picker / YouTube — who has which activity open. */
@@ -665,6 +692,10 @@ export type LiveKitVoiceRoomApi = {
   publishHangmanActivity: (payload: EchoHangmanActivityV1) => void;
   publishHangmanGuessIntent: (payload: EchoHangmanGuessIntentV1) => void;
   publishHangmanNextRound: (payload: EchoHangmanNextRoundV1) => void;
+  publishHangmanRoundSecret: (
+    payload: EchoHangmanRoundSecretV1,
+    destinationIdentities: string[],
+  ) => void;
 };
 
 export function useLiveKitVoiceRoom(
@@ -675,6 +706,7 @@ export function useLiveKitVoiceRoom(
   const onHangmanActivity = opts?.onHangmanActivity;
   const onHangmanGuessIntent = opts?.onHangmanGuessIntent;
   const onHangmanNextRound = opts?.onHangmanNextRound;
+  const onHangmanRoundSecret = opts?.onHangmanRoundSecret;
   const onVcActivityPresence = opts?.onVcActivityPresence;
   const onRemoteParticipantDisconnected = opts?.onRemoteParticipantDisconnected;
   const viewerLeaveSoundAt = new Map<string, number>();
@@ -777,8 +809,8 @@ export function useLiveKitVoiceRoom(
         const t = pl.track;
         if (!t) continue;
         const ms = (t as TrackLike).mediaStream;
-        if (!(ms instanceof MediaStream)) continue;
-        if (!ms.getAudioTracks().some((x) => x.readyState === 'live')) continue;
+        if (!isLikelyMediaStream(ms)) continue;
+        if (!mediaStreamHasMuxedAudioForRemoteGain(ms)) continue;
         echoPlaybackEnsureTrackElementsWired(t);
         setAudioTrackVolumeIfSupported(t, gain);
       }
@@ -847,9 +879,8 @@ export function useLiveKitVoiceRoom(
           const t = pl.track;
           if (!t) continue;
           const ms = (t as TrackLike).mediaStream;
-          if (!(ms instanceof MediaStream)) continue;
-          if (!ms.getAudioTracks().some((x) => x.readyState === 'live'))
-            continue;
+          if (!isLikelyMediaStream(ms)) continue;
+          if (!mediaStreamHasMuxedAudioForRemoteGain(ms)) continue;
           echoPlaybackEnsureTrackElementsWired(t);
         }
       }
@@ -1941,7 +1972,13 @@ export function useLiveKitVoiceRoom(
           : new Uint8Array(payload as ArrayBufferLike);
       const yt = decodeEchoYoutubeActivity(ytPayload);
       if (yt) {
-        onYoutubeActivity?.(yt);
+        onYoutubeActivity?.(yt, participant.identity);
+        return;
+      }
+
+      const hmSecret = decodeEchoHangmanRoundSecret(ytPayload);
+      if (hmSecret) {
+        onHangmanRoundSecret?.(hmSecret, participant.identity);
         return;
       }
 
@@ -2937,6 +2974,20 @@ export function useLiveKitVoiceRoom(
     );
   }
 
+  function publishHangmanRoundSecret(
+    payload: EchoHangmanRoundSecretV1,
+    destinationIdentities: string[],
+  ) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    const dest = destinationIdentities.map((x) => x.trim()).filter(Boolean);
+    if (!dest.length) return;
+    void room.localParticipant.publishData(encodeEchoHangmanRoundSecret(payload), {
+      reliable: true,
+      destinationIdentities: dest,
+    });
+  }
+
   const api: LiveKitVoiceRoomApi = {
     roomState,
     lkRoom,
@@ -2976,6 +3027,7 @@ export function useLiveKitVoiceRoom(
     publishHangmanActivity,
     publishHangmanGuessIntent,
     publishHangmanNextRound,
+    publishHangmanRoundSecret,
   };
   return api;
 }

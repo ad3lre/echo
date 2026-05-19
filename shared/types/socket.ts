@@ -61,7 +61,14 @@ export type EchoWorkspaceEventKind =
    * Voice E2EE media epoch was superseded (guild: participant join/leave; DM/guild: room finished).
    * Clients must obtain new key material before publishing again.
    */
-  | 'voice_e2ee_epoch_superseded';
+  | 'voice_e2ee_epoch_superseded'
+  /**
+   * Immediate voice channel roster mutation pushed to all guild members on the
+   * persistent socket connection (Discord-Gateway-style VOICE_STATE_UPDATE).
+   * Applied as an in-place patch to `voiceParticipantIds` / mute-deaf maps;
+   * `workspace_invalidated` + hydrate remain as eventual-correctness fallback.
+   */
+  | 'voice_roster_delta';
 
 export type DiscordVoiceMirrorRosterMemberPayload = {
   discordUserId: string;
@@ -90,6 +97,35 @@ export type EchoWorkspaceEvent = {
       members: DiscordVoiceMirrorRosterMemberPayload[];
     }>;
   };
+  /**
+   * Present when kind === 'voice_roster_delta'.
+   * Describes a single voice membership / moderation mutation to apply in-place
+   * to the cached workspace `voiceParticipantIds` and mute/deaf maps.
+   */
+  voiceRosterDelta?: {
+    serverId: string;
+    channelId: string;
+    userId: string;
+    action:
+      | 'join'
+      | 'leave'
+      | 'move'
+      | 'mute'
+      | 'unmute'
+      | 'deafen'
+      | 'undeafen'
+      | 'disconnect';
+    /** Hint only for 'move' — frontend removes from all channels, not just this one. */
+    fromChannelId?: string;
+    /** Current server-muted state after mutation (set for mute/unmute). */
+    serverMuted?: boolean;
+    /** Current server-deafened state after mutation (set for deafen/undeafen). */
+    serverDeafened?: boolean;
+    /** Audit snowflake — same value as `version`; used for delta version gating. */
+    workspaceVersion: string;
+    /** ISO timestamp of when the mutation occurred, for ordering and debug. */
+    occurredAt: string;
+  };
 };
 
 export type EchoDmRealtimeThread =
@@ -98,6 +134,12 @@ export type EchoDmRealtimeThread =
       kind: 'direct';
       peerUserId: string;
       lastActivityId?: string;
+      /**
+       * Authoritative DM inbox sort key (ISO 8601 UTC). Set by **any** real activity
+       * on the thread: message persisted, DM call signaled, friend accepted between
+       * the pair, group event. Drives `/dm/threads` `ORDER BY` and client-side sort.
+       */
+      lastActivityAt?: string;
     }
   | {
       channelId: string;
@@ -105,6 +147,7 @@ export type EchoDmRealtimeThread =
       name: string;
       memberUserIds: string[];
       lastActivityId?: string;
+      lastActivityAt?: string;
       /** Custom group icon when set (echo_channels.icon_key). */
       pfp?: string;
     };
@@ -112,6 +155,15 @@ export type EchoDmRealtimeThread =
 export type EchoDmActivityEvent = {
   thread: EchoDmRealtimeThread;
   message: Message;
+};
+
+/**
+ * Lightweight "the inbox sort key for this thread changed" event used when there is no
+ * accompanying message/call payload (e.g. friend accepted between the pair).
+ */
+export type EchoDmThreadActivityEvent = {
+  thread: EchoDmRealtimeThread;
+  kind: 'friend' | 'group_event' | 'open' | 'call' | 'message';
 };
 
 export type EchoDmCallEventKind = 'incoming' | 'accepted' | 'ended';
@@ -359,6 +411,13 @@ export interface ServerToClientEvents {
 
   /** Recipient-scoped DM call signaling layered on top of LiveKit transport. */
   'dm:call': (payload: EchoDmCallEvent) => void;
+
+  /**
+   * Recipient-scoped "DM inbox sort key changed" event for activity that has no
+   * accompanying message/call payload (e.g. friend accepted between the pair).
+   * Clients merge the thread (including its `lastActivityAt`) to reorder the inbox.
+   */
+  'dm:thread:activity': (payload: EchoDmThreadActivityEvent) => void;
 
   /** User-scoped replicated read cursor update for cross-tab/device convergence. */
   'read_state:update': (payload: {

@@ -7,6 +7,7 @@ import {
   type MaybeRefOrGetter,
 } from 'vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import { rewriteR2EchoUploadUrlForReadThrough } from '@/utils/rewriteR2EchoUploadUrlForReadThrough';
 import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
 import { captureImageFirstFrameDataUrl } from '@/utils/gifFirstFrame';
 import {
@@ -31,7 +32,9 @@ export function useLimitedGifPlayback(options: {
   const maxLoops = options.maxLoops ?? ECHO_GIF_MAX_LOOPS;
   const fallbackLoopMs = options.fallbackLoopMs ?? FALLBACK_LOOP_MS;
 
-  const safeUrl = computed(() => safeImageUrl(toValue(options.imageUrl)));
+  const safeUrl = computed(() =>
+    rewriteR2EchoUploadUrlForReadThrough(safeImageUrl(toValue(options.imageUrl))),
+  );
   const isGif = computed(() => isLikelyGifImageUrl(toValue(options.imageUrl)));
   const forceActiveRef = computed(() => toValue(options.forceActive) ?? false);
   const reducedMotionRef = computed(

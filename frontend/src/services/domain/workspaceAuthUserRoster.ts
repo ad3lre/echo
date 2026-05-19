@@ -18,6 +18,7 @@ export type AuthBackendUserForRoster = {
   bannerBlurEnabled?: boolean;
   bannerBlackoutEnabled?: boolean;
   badges?: string[];
+  timeZone?: string | null;
 };
 
 /**
@@ -50,6 +51,7 @@ export function mergeAuthUserIntoWorkspaceRoster(
           ),
         }
       : {}),
+    ...(u.timeZone !== undefined ? { timeZone: u.timeZone ?? null } : {}),
   };
   if (!users.some((x) => x.id === u.id)) {
     return [row, ...users];

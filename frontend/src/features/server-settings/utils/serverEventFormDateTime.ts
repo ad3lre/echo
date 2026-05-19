@@ -17,11 +17,3 @@ export function utcIsoToDateTimeLocalValue(iso: string): string {
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-
-export function maxAttendeesFromInput(raw: string): number | null {
-  const t = raw.trim();
-  if (!t) return null;
-  const n = Number(t);
-  if (!Number.isFinite(n) || n < 1) return null;
-  return Math.floor(n);
-}

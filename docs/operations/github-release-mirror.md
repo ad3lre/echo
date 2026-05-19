@@ -28,6 +28,25 @@
 - Pushes whose URL contains `github.com` do **not** trigger a mirror (avoids double work and accidental `origin` pushes from a GitHub-targeted push).
 - Pushes of other branches: no GitHub activity from the hook.
 - If the `github` remote is missing, the hook **fails** so `release/1.0.0` is not pushed only to GitLab by mistake while GitHub lags.
+- **Do not fast-forward `release/1.0.0` to `origin/main`.** If the release tip SHA equals `origin/main`, GitHub’s default branch shows the **same per-commit history** as internal `main` (messages, authors, hashes). The `pre-push` hook **refuses** to mirror that case unless you set `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1` (emergency only).
+
+## Publishing internal `main` to the public release line (squash)
+
+Use a **squash** so the mirrored tip is **not** the same commit as `origin/main`, while the **tree** matches what you intend to ship:
+
+```bash
+git fetch origin main release/1.0.0
+git checkout release/1.0.0
+git merge --squash origin/main
+git commit -m "Public release sync (squashed)."   # edit for external audience
+git push origin release/1.0.0
+```
+
+If `release/1.0.0` already advanced with a fast-forward you need to undo, reset it to the prior tip, run the squash steps above, then use `--force-with-lease` if GitLab requires a non-fast-forward update (coordinate with branch protection).
+
+**Never `git merge origin/main` (merge commit) into a flattened `release/1.0.0`.** A merge commit’s second parent would make **all of `main`’s commits reachable** from the public branch again. Use **`git merge --squash origin/main`** only.
+
+To **replace the entire reachable history** with a single commit while keeping the same tree (what you wanted when “removing 1200+ commits” from GitHub): create an orphan branch from `origin/release/1.0.0^{tree}`, commit once, then `git push origin HEAD:refs/heads/release/1.0.0 --force-with-lease=…` (coordinate branch protection). Old SHAs may still be resolvable on the host for a time; the default branch no longer lists them.
 
 ## History rewrites (squash, filter-repo)
 
@@ -40,6 +59,8 @@ GitLab **protected branches** often block `--force` pushes. To land a rewritten 
 ## CI / automation
 
 Server-side GitLab jobs do not run this local hook. If pipelines must update GitHub for `release/1.0.0`, add an explicit job that pushes to `github` for that ref only, using credentials stored in CI variables.
+
+Pipeline pushes must **not** set `release/1.0.0` to the same commit as `origin/main` (same rule as the local hook: use a squash commit or set `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1` only if you accept publishing internal per-commit history).
 
 ## Do not keep `main` on GitHub
 

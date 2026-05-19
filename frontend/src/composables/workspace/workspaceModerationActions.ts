@@ -147,30 +147,49 @@ export function useWorkspaceModerationActions(refs: WorkspaceStateRefs) {
     toChannelId: string,
     userId: string,
   ): boolean {
-    const removed = removeUserFromVoiceChannel(serverId, fromChannelId, userId);
-    if (!removed) return false;
+    if (fromChannelId === toChannelId) return true;
     const list = categoriesByServer.value[serverId];
     if (list === undefined) return false;
-    let changed = false;
+    let fromHasUser = false;
+    let toExists = false;
+    for (const cat of list) {
+      for (const ch of cat.channels) {
+        if (ch.type !== 'voice') continue;
+        const ids =
+          (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
+        if (ch.id === fromChannelId && ids.includes(userId)) fromHasUser = true;
+        if (ch.id === toChannelId) toExists = true;
+      }
+    }
+    if (!fromHasUser || !toExists) return false;
     const nextList = list.map((cat) => ({
       ...cat,
       channels: cat.channels.map((ch) => {
-        if (ch.id !== toChannelId || ch.type !== 'voice') return ch;
+        if (ch.type !== 'voice') return ch;
         const ids =
           (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
-        if (ids.includes(userId)) return ch;
-        changed = true;
-        return {
-          ...ch,
-          voiceParticipantIds: [...ids, userId],
-        } as typeof ch;
+        if (ch.id === fromChannelId) {
+          if (!ids.includes(userId)) return ch;
+          return {
+            ...ch,
+            voiceParticipantIds: ids.filter((id) => id !== userId),
+          } as typeof ch;
+        }
+        if (ch.id === toChannelId) {
+          if (ids.includes(userId)) return ch;
+          return {
+            ...ch,
+            voiceParticipantIds: [...ids, userId],
+          } as typeof ch;
+        }
+        return ch;
       }),
     }));
-    if (!changed) return false;
     categoriesByServer.value = {
       ...categoriesByServer.value,
       [serverId]: nextList,
     };
+    clearVcModerationForUserOnChannel(fromChannelId, userId);
     return true;
   }
 

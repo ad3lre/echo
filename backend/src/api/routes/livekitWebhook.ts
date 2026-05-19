@@ -15,7 +15,7 @@ import { ECHO_DM_REALM_SERVER_ID } from '../../domain/echoStore/dmThreads';
 import { nextEchoSnowflakeId } from '../../domain/echoSnowflake';
 import { echoLivekitWebhookEventTotal } from '../../observability/echoMetrics';
 import { vcTrace } from '../../observability/voiceTraceLog';
-import { publishEchoWorkspaceEvent } from '../../platform/echoPlatformEvents';
+import { publishEchoWorkspaceEvent, publishVoiceRosterDelta } from '../../platform/echoPlatformEvents';
 import { acceptLiveKitWebhookOnce } from '../../services/livekit/webhookReplayCache';
 
 let receiver: WebhookReceiver | null = null;
@@ -244,6 +244,12 @@ export default async function livekitWebhookRoutes(
         { kind: 'workspace_invalidated', version: auditId, serverId },
         { serverId },
       );
+      publishVoiceRosterDelta(
+        fastify,
+        serverId,
+        { channelId, userId: identity, action: 'join' },
+        auditId,
+      );
       if (
         serverId !== ECHO_DM_REALM_SERVER_ID &&
         (await getEchoChannelVoiceE2eeEnabled(pool, serverId, channelId))
@@ -283,6 +289,12 @@ export default async function livekitWebhookRoutes(
         fastify,
         { kind: 'workspace_invalidated', version: auditId, serverId },
         { serverId },
+      );
+      publishVoiceRosterDelta(
+        fastify,
+        serverId,
+        { channelId, userId: identity, action: 'leave' },
+        auditId,
       );
       if (
         serverId !== ECHO_DM_REALM_SERVER_ID &&

@@ -6,6 +6,7 @@ import type { WorkspaceStateApi } from '@/composables/workspace/types';
 import type { EchoDmThreadFromApi } from '@/api/echoClient';
 import { type RailTab } from '@/features/layout/mainSurface';
 import { createEchoWorkspaceLifecycleController } from '@/services/orchestration/echoWorkspaceLifecycleOrchestration';
+import { isEchoGraphId } from '@/utils/echoIds';
 
 export function useEchoWorkspaceLifecycle(deps: {
   serverStore: ReturnType<typeof useServerStore>;
@@ -55,6 +56,22 @@ export function useEchoWorkspaceLifecycle(deps: {
   watch(
     () => deps.authSession.backendUser,
     (u, prev) => vm.onBackendUserChange(u, prev),
+  );
+
+  /**
+   * Voice / VC roster lives in the workspace snapshot. Peers in another guild can
+   * miss `workspace_invalidated` until they open a channel there (socket
+   * `echo:server:*` scope). Re-fetch when the selected guild changes so the
+   * channel tree matches the server you are looking at without a full reload.
+   */
+  watch(
+    () => deps.serverStore.selectedServerId,
+    (sid) => {
+      if (!deps.authSession.isAuthenticated) return;
+      const id = typeof sid === 'string' ? sid.trim() : '';
+      if (!id || id === 'echo' || !isEchoGraphId(id)) return;
+      void vm.hydrateEchoFromApi();
+    },
   );
 
   return {

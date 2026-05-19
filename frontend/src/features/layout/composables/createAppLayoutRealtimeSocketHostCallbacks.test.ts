@@ -8,6 +8,7 @@ describe('createAppLayoutRealtimeSocketHostCallbacks', () => {
       applyEchoPresenceFromSocket: vi.fn(),
       handleEchoDmActivity: vi.fn(),
       handleEchoDmCall: vi.fn(),
+      handleEchoDmThreadActivity: vi.fn(),
       mergeReadStateUpdate: vi.fn(),
       replaceAttentionSnapshot: vi.fn(),
       handleWorkspaceEvent: vi.fn(),

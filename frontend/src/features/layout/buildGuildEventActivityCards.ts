@@ -18,6 +18,7 @@ export function buildGuildEventActivityCardsFromMyRsvps(input: {
       title: r.title?.trim() || 'Event',
       startsAt: r.startsAt,
       channelId: r.channelId,
+      customLocation: r.customLocation?.trim() || null,
       channelDisplayName: r.channelName?.trim()
         ? input.getChannelDisplayName(r.channelName)
         : null,

@@ -1,3 +1,4 @@
+import { EchoApiError } from '@/api/echo/transport';
 import { openEchoGroupDmChannel } from './echoDmCommandFacade';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { UIErrorBus } from '@/utils/uiErrorBus';
@@ -54,6 +55,10 @@ export async function openEchoGroupDmOnServer(opts: {
     reportPrimaryFlowFailure('postEchoOpenGroupDm', e, undefined, {
       showBanner: false,
     });
+    const code =
+      e instanceof EchoApiError && typeof e.body.code === 'string'
+        ? e.body.code
+        : undefined;
     UIErrorBus.emit({
       context: 'postEchoOpenGroupDm',
       severity: 'warning',
@@ -61,6 +66,7 @@ export async function openEchoGroupDmOnServer(opts: {
         e instanceof Error && e.message.trim()
           ? e.message.trim()
           : 'Could not open the group DM. Try again.',
+      ...(code ? { code } : {}),
     });
   }
   return null;

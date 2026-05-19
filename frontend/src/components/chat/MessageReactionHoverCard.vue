@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onUnmounted,
-  ref,
-  watch,
-} from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import type { MessageReaction } from '@shared/types';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
@@ -75,10 +69,8 @@ function updateLayout() {
   const el = cardRef.value;
   const measuredH = el?.getBoundingClientRect().height ?? 0;
   const measuredW = el?.getBoundingClientRect().width ?? 0;
-  const cw =
-    measuredW > 8 ? measuredW : cardWidthPx(vw);
-  const ch =
-    measuredH > 8 ? measuredH : estimatedCardHeight(reaction);
+  const cw = measuredW > 8 ? measuredW : cardWidthPx(vw);
+  const ch = measuredH > 8 ? measuredH : estimatedCardHeight(reaction);
 
   const cx = r.left + r.width / 2;
   const midY = r.top + r.height / 2;

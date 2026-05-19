@@ -256,6 +256,9 @@ async function downloadImage() {
   closeMenu();
   try {
     const res = await fetch(img.url, { mode: 'cors' });
+    if (!res.ok) {
+      throw new Error(`download failed: HTTP ${res.status}`);
+    }
     const blob = await res.blob();
     const ext = img.isGif ? 'gif' : blob.type?.split('/')[1] || 'png';
     const url = URL.createObjectURL(blob);

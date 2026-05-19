@@ -99,11 +99,11 @@ describe('StreamVideoTile runtime context menu', () => {
     ) as HTMLInputElement | null;
     expect(slider).not.toBeNull();
 
-    slider!.value = '42';
+    slider!.value = '84';
     slider!.dispatchEvent(new Event('input', { bubbles: true }));
     await nextTick();
 
-    expect(seen.at(-1)).toBe(42);
+    expect(seen.at(-1)).toBe(84);
     expect(menu?.textContent).toContain('42%');
   });
 
@@ -127,13 +127,15 @@ describe('StreamVideoTile runtime context menu', () => {
     app.mount(container);
     await nextTick();
 
-    const muteBtn = container.querySelector(
-      'button[aria-label="Mute stream audio"]',
-    );
-    expect(muteBtn).not.toBeNull();
+    const volBtn = container.querySelector(
+      'button[aria-label="Stream volume"]',
+    ) as HTMLButtonElement | null;
+    expect(volBtn).not.toBeNull();
+    volBtn!.click();
+    await nextTick();
 
-    const slider = container.querySelector(
-      'input[aria-label="Stream volume"]',
+    const slider = document.body.querySelector(
+      '.stream-tile-volume-popover input[aria-label="Stream volume"]',
     ) as HTMLInputElement | null;
     expect(slider).not.toBeNull();
     expect(slider?.value).toBe('80');

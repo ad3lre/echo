@@ -60,10 +60,7 @@ const emit = defineEmits<{
           {{ activeSection }}
         </h3>
       </div>
-      <p
-        v-if="!compact"
-        class="mt-2 max-w-2xl text-sm text-fg-soft"
-      >
+      <p v-if="!compact" class="mt-2 max-w-2xl text-sm text-fg-soft">
         {{ SECTION_COPY[activeSection] }}
       </p>
       <p

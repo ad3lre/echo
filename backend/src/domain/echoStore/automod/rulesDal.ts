@@ -119,7 +119,7 @@ export async function insertEchoAutomodRule(
       id,
       input.serverId,
       input.name.trim().slice(0, 100),
-      input.icon.trim().slice(0, 32) || 'shield',
+      input.icon.trim().slice(0, 2048) || 'shield',
       input.enabled,
       input.position,
       input.triggerType,
@@ -160,7 +160,7 @@ export async function updateEchoAutomodRule(
   }
   if (patch.icon !== undefined) {
     updates.push(`icon = $${i++}`);
-    params.push(String(patch.icon).trim().slice(0, 32) || 'shield');
+    params.push(String(patch.icon).trim().slice(0, 2048) || 'shield');
   }
   if (patch.enabled !== undefined) {
     updates.push(`enabled = $${i++}`);

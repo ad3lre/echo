@@ -22,7 +22,7 @@ vi.mock('./echoRemotePlaybackWebAudio', () => ({
 import { setAudioTrackVolumeIfSupported } from './livekitTrackAdapter';
 
 describe('setAudioTrackVolumeIfSupported (Web Audio path)', () => {
-  it('routes gain > 1 to GainNode and keeps LiveKit volume at unity', () => {
+  it('routes gain > 1 to GainNode and clamps element.volume to unity (boost via GainNode only)', () => {
     webAudioMocks.getEls.mockReset();
     webAudioMocks.hasWired.mockReset();
     webAudioMocks.setGain.mockReset();
@@ -39,10 +39,11 @@ describe('setAudioTrackVolumeIfSupported (Web Audio path)', () => {
 
     expect(webAudioMocks.ensureWired).toHaveBeenCalledWith(track);
     expect(webAudioMocks.setGain).toHaveBeenCalledWith(el, 2.4);
+    expect(el.volume).toBe(1);
     expect(setVolume).toHaveBeenCalledWith(1);
   });
 
-  it('routes mute to GainNode for wired elements', () => {
+  it('routes mute to GainNode AND element.volume so native output is also silenced', () => {
     webAudioMocks.getEls.mockReset();
     webAudioMocks.hasWired.mockReset();
     webAudioMocks.setGain.mockReset();
@@ -59,7 +60,28 @@ describe('setAudioTrackVolumeIfSupported (Web Audio path)', () => {
 
     expect(webAudioMocks.ensureWired).toHaveBeenCalledWith(track);
     expect(webAudioMocks.setGain).toHaveBeenCalledWith(el, 0);
-    expect(setVolume).toHaveBeenCalledWith(1);
+    expect(el.volume).toBe(0);
+    expect(setVolume).toHaveBeenCalledWith(0);
+  });
+
+  it('routes sub-unity gain to GainNode AND mirrors it onto element.volume', () => {
+    webAudioMocks.getEls.mockReset();
+    webAudioMocks.hasWired.mockReset();
+    webAudioMocks.setGain.mockReset();
+    webAudioMocks.ensureWired.mockReset();
+
+    const el = document.createElement('audio');
+    webAudioMocks.getEls.mockReturnValue([el]);
+    webAudioMocks.hasWired.mockReturnValue(true);
+
+    const setVolume = vi.fn();
+    const track = { setVolume };
+
+    setAudioTrackVolumeIfSupported(track, 0.4);
+
+    expect(webAudioMocks.setGain).toHaveBeenCalledWith(el, 0.4);
+    expect(el.volume).toBeCloseTo(0.4);
+    expect(setVolume).toHaveBeenCalledWith(0.4);
   });
 
   it('clamps to [0, 1] when no wired elements', () => {

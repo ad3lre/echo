@@ -7,8 +7,12 @@ import {
   watchEffect,
   type ComputedRef,
   type MaybeRef,
+  type ShallowRef,
 } from 'vue';
-import type { EchoHangmanActivityV1 } from '@/audio/voiceEchoLiveKitData';
+import type {
+  EchoHangmanActivityV1,
+  EchoYoutubePlaybackSyncV1,
+} from '@/audio/voiceEchoLiveKitData';
 import type { ReactionFavorite } from '@/composables/useReactionFavorites';
 import type {
   ChannelSummary,
@@ -30,6 +34,7 @@ import type {
   VcActivityUiState,
 } from '@/features/voice/vcActivityTypes';
 import { resolveVcCodenamesStarterUserId } from '@/features/voice/vcActivityTypes';
+import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 
 const CallView = defineAsyncComponent(
   () => import('@/components/CallView.vue'),
@@ -50,6 +55,7 @@ const props = defineProps<{
     serverMuted?: boolean;
     serverDeafened?: boolean;
     activityPresence?: VcActivityPresenceKind[];
+    isVcActivityKing?: boolean;
   }>;
   currentUserId?: string;
   linkedDiscordUserId?: string | null;
@@ -180,6 +186,9 @@ const props = defineProps<{
   playVcYoutubeNext: () => void;
   playVcYoutubePrevious: () => void;
   closeVcActivity: () => void;
+  vcYoutubeRemotePlayback: ShallowRef<VcYoutubeRemotePlaybackState | null>;
+  publishVcYoutubePlaybackSync: (sample: EchoYoutubePlaybackSyncV1) => void;
+  vcYoutubePlaybackShouldPublish: ComputedRef<boolean>;
   setVcActivityCodenamesRoomUrl: (url: string | null) => void;
   /** Server owner / manage-server — Discord empty-channel import (voice side chat). */
   canShowDiscordChannelImport?: boolean;
@@ -484,6 +493,9 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :play-vc-youtube-next="playVcYoutubeNext"
             :play-vc-youtube-previous="playVcYoutubePrevious"
             :close-vc-activity="closeVcActivity"
+            :publish-vc-youtube-playback-sync="publishVcYoutubePlaybackSync"
+            :vc-youtube-remote-playback="vcYoutubeRemotePlayback"
+            :vc-youtube-playback-should-publish="vcYoutubePlaybackShouldPublish"
             :vc-hangman-activity="vcHangmanActivity"
             :hangman-roster-user-ids="hangmanRosterUserIds"
             :commit-vc-hangman-word="commitVcHangmanWord"

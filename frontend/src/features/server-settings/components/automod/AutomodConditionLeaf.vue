@@ -158,8 +158,7 @@ const numValue = computed({
 });
 
 const regexBlocked = computed(
-  () =>
-    props.modelValue.op === 'matches_regex_re2' && !props.re2Available,
+  () => props.modelValue.op === 'matches_regex_re2' && !props.re2Available,
 );
 </script>
 
@@ -175,11 +174,7 @@ const regexBlocked = computed(
           )
         "
       >
-        <option
-          v-for="f in AUTOMOD_FIELDS"
-          :key="f.field"
-          :value="f.field"
-        >
+        <option v-for="f in AUTOMOD_FIELDS" :key="f.field" :value="f.field">
           {{ f.label }}
         </option>
       </select>
@@ -193,11 +188,7 @@ const regexBlocked = computed(
           })
         "
       >
-        <option
-          v-for="op in opChoices"
-          :key="op"
-          :value="op"
-        >
+        <option v-for="op in opChoices" :key="op" :value="op">
           {{ op }}
         </option>
       </select>
@@ -212,18 +203,12 @@ const regexBlocked = computed(
         Negate
       </label>
     </div>
-    <p
-      v-if="def?.help"
-      class="text-xs text-fg-subtle"
-    >
+    <p v-if="def?.help" class="text-xs text-fg-subtle">
       {{ def.help }}
     </p>
-    <p
-      v-if="regexBlocked"
-      class="text-xs font-medium text-amber-400"
-    >
-      Regex is disabled on this deployment (RE2 unavailable). Choose a
-      different operator or contact hosting.
+    <p v-if="regexBlocked" class="text-xs font-medium text-amber-400">
+      Regex is disabled on this deployment (RE2 unavailable). Choose a different
+      operator or contact hosting.
     </p>
 
     <template v-if="modelValue.field === 'message.content'">
@@ -284,17 +269,8 @@ const regexBlocked = computed(
         v-model="priorRuleId"
         class="min-w-[8rem] max-w-[14rem] rounded-lg border border-border bg-scrim-2 px-2 py-1 text-sm text-fg"
       >
-        <option
-          disabled
-          value=""
-        >
-          Rule…
-        </option>
-        <option
-          v-for="r in ruleOptions"
-          :key="r.id"
-          :value="r.id"
-        >
+        <option disabled value="">Rule…</option>
+        <option v-for="r in ruleOptions" :key="r.id" :value="r.id">
           {{ r.name }}
         </option>
       </select>
@@ -320,7 +296,9 @@ const regexBlocked = computed(
     </div>
 
     <div v-else-if="modelValue.field === 'channel.id'">
-      <div class="max-h-32 overflow-y-auto rounded-lg border border-border bg-scrim-2 p-2">
+      <div
+        class="max-h-32 overflow-y-auto rounded-lg border border-border bg-scrim-2 p-2"
+      >
         <label
           v-for="ch in channelOptions"
           :key="ch.id"
@@ -329,7 +307,8 @@ const regexBlocked = computed(
           <input
             type="checkbox"
             :checked="
-              Array.isArray(modelValue.value) && modelValue.value.includes(ch.id)
+              Array.isArray(modelValue.value) &&
+              modelValue.value.includes(ch.id)
             "
             @change="
               (e) => {
@@ -348,10 +327,7 @@ const regexBlocked = computed(
           <span class="truncate">{{ ch.name }}</span>
           <span class="text-xs text-fg-subtle">({{ ch.id.slice(0, 8) }}…)</span>
         </label>
-        <p
-          v-if="!channelOptions.length"
-          class="text-xs text-fg-subtle"
-        >
+        <p v-if="!channelOptions.length" class="text-xs text-fg-subtle">
           No channels in structure — enter IDs in raw list.
         </p>
       </div>
@@ -364,7 +340,9 @@ const regexBlocked = computed(
     </div>
 
     <div v-else-if="modelValue.field === 'author.role_ids'">
-      <div class="max-h-32 overflow-y-auto rounded-lg border border-border bg-scrim-2 p-2">
+      <div
+        class="max-h-32 overflow-y-auto rounded-lg border border-border bg-scrim-2 p-2"
+      >
         <label
           v-for="ro in roleOptions"
           :key="ro.id"
@@ -373,7 +351,8 @@ const regexBlocked = computed(
           <input
             type="checkbox"
             :checked="
-              Array.isArray(modelValue.value) && modelValue.value.includes(ro.id)
+              Array.isArray(modelValue.value) &&
+              modelValue.value.includes(ro.id)
             "
             @change="
               (e) => {

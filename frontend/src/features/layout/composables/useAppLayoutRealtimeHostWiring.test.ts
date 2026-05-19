@@ -23,6 +23,7 @@ describe('useAppLayoutRealtimeHostWiring', () => {
       applyEchoPresenceFromSocket: vi.fn(),
       handleEchoDmActivity: vi.fn(),
       handleEchoDmCall: vi.fn(),
+      handleEchoDmThreadActivity: vi.fn(),
       mergeReadStateUpdate: vi.fn(),
       replaceAttentionSnapshot: vi.fn(),
       setChannelPinsFromEcho: vi.fn(),

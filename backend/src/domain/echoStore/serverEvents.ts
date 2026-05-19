@@ -12,6 +12,8 @@ export type EchoWorkspaceEventSummary = {
   timezoneLabel: string | null;
   channelId: string | null;
   channelName: string | null;
+  /** Free-text venue / off-server location; mutually exclusive with `channelId`. */
+  customLocation: string | null;
   goingCount: number;
   maxAttendees: number | null;
   userRsvp: 'going' | 'declined' | null;
@@ -28,6 +30,7 @@ export type EchoWorkspaceMyEventRsvp = {
   endsAt: string;
   channelId: string | null;
   channelName: string | null;
+  customLocation: string | null;
   goingCount: number;
   maxAttendees: number | null;
 };
@@ -43,11 +46,14 @@ export type EchoServerEventManagementRow = {
   timezoneLabel: string | null;
   channelId: string | null;
   channelName: string | null;
+  customLocation: string | null;
   status: 'scheduled' | 'cancelled';
   maxAttendees: number | null;
   goingCount: number;
   createdAt: string;
   updatedAt: string;
+  /** Discord guild scheduled event id when this Echo event is mirrored to Discord. */
+  discordScheduledEventId: string | null;
 };
 
 function iso(d: unknown): string {
@@ -61,6 +67,24 @@ function iso(d: unknown): string {
 
 const UPCOMING_PER_SERVER_CAP = 10;
 const MY_RSVPS_CAP = 30;
+
+function readCustomLocationCell(row: Record<string, unknown>): string | null {
+  const v = row.custom_location ?? row.customLocation;
+  if (v == null) return null;
+  const t = String(v).trim();
+  return t || null;
+}
+
+const ECHO_EVENT_CUSTOM_LOCATION_MAX = 2000;
+
+function normalizeCustomLocation(
+  raw: string | null | undefined,
+): string | null {
+  if (raw == null) return null;
+  const t = String(raw).trim();
+  if (!t) return null;
+  return t.slice(0, ECHO_EVENT_CUSTOM_LOCATION_MAX);
+}
 
 /**
  * Upcoming public event rows + per-user RSVP strip for workspace bootstrap.
@@ -83,7 +107,7 @@ export async function loadEchoWorkspaceEventPayload(
     pool.query(
       `
       SELECT e.id, e.server_id, e.title, e.description, e.image_url,
-             e.starts_at, e.ends_at, e.timezone_label, e.channel_id, e.max_attendees,
+             e.starts_at, e.ends_at, e.timezone_label, e.channel_id, e.custom_location, e.max_attendees,
              ch.name AS channel_name,
              (SELECT COUNT(*)::int FROM echo_server_event_rsvps r2
               WHERE r2.event_id = e.id AND r2.status = 'going') AS going_count,
@@ -101,7 +125,7 @@ export async function loadEchoWorkspaceEventPayload(
     pool.query(
       `
       SELECT e.id, e.server_id, e.title, e.image_url, e.starts_at, e.ends_at, e.channel_id,
-             e.max_attendees,
+             e.custom_location, e.max_attendees,
              ch.name AS channel_name,
              s.name AS server_name, s.icon_url AS server_icon_url,
              (SELECT COUNT(*)::int FROM echo_server_event_rsvps r2
@@ -156,6 +180,7 @@ export async function loadEchoWorkspaceEventPayload(
         row.channel_name != null && String(row.channel_name).trim()
           ? String(row.channel_name).trim()
           : null,
+      customLocation: readCustomLocationCell(row),
       goingCount: Number(row.going_count ?? 0) || 0,
       maxAttendees:
         maxAttendees != null && maxAttendees > 0 ? maxAttendees : null,
@@ -187,6 +212,7 @@ export async function loadEchoWorkspaceEventPayload(
         row.channel_name != null && String(row.channel_name).trim()
           ? String(row.channel_name).trim()
           : null,
+      customLocation: readCustomLocationCell(row),
       goingCount: Number(row.going_count ?? 0) || 0,
       maxAttendees:
         maxAttendees != null && maxAttendees > 0 ? maxAttendees : null,
@@ -203,8 +229,8 @@ export async function listEchoServerEventsForManagement(
   const r = await pool.query(
     `
     SELECT e.id, e.server_id, e.title, e.description, e.image_url,
-           e.starts_at, e.ends_at, e.timezone_label, e.channel_id, e.status, e.max_attendees,
-           e.created_at, e.updated_at,
+           e.starts_at, e.ends_at, e.timezone_label, e.channel_id, e.custom_location, e.status, e.max_attendees,
+           e.created_at, e.updated_at, e.discord_scheduled_event_id,
            ch.name AS channel_name,
            (SELECT COUNT(*)::int FROM echo_server_event_rsvps r2
             WHERE r2.event_id = e.id AND r2.status = 'going') AS going_count
@@ -243,12 +269,18 @@ export async function listEchoServerEventsForManagement(
         row.channel_name != null && String(row.channel_name).trim()
           ? String(row.channel_name).trim()
           : null,
+      customLocation: readCustomLocationCell(row),
       status: st,
       maxAttendees:
         maxAttendees != null && maxAttendees > 0 ? maxAttendees : null,
       goingCount: Number(row.going_count ?? 0) || 0,
       createdAt: iso(row.created_at),
       updatedAt: iso(row.updated_at),
+      discordScheduledEventId:
+        row.discord_scheduled_event_id != null &&
+        String(row.discord_scheduled_event_id).trim()
+          ? String(row.discord_scheduled_event_id).trim()
+          : null,
     };
   });
 }
@@ -279,18 +311,23 @@ export async function createEchoServerEvent(
     endsAt: Date;
     timezoneLabel?: string | null;
     channelId?: string | null;
+    customLocation?: string | null;
     maxAttendees?: number | null;
   },
 ): Promise<
-  { ok: true; id: string } | { ok: false; reason: 'bad_times' | 'bad_channel' }
+  | { ok: true; id: string }
+  | { ok: false; reason: 'bad_times' | 'bad_channel' | 'bad_location' }
 > {
-  if (!(input.endsAt > input.startsAt)) return { ok: false, reason: 'bad_times' };
-  const chOk = await assertChannelInServer(
-    pool,
-    input.serverId,
-    input.channelId,
-  );
-  if (!chOk) return { ok: false, reason: 'bad_channel' };
+  if (!(input.endsAt > input.startsAt))
+    return { ok: false, reason: 'bad_times' };
+  const custom = normalizeCustomLocation(input.customLocation);
+  const chIn = input.channelId?.trim() || null;
+  if (custom && chIn) return { ok: false, reason: 'bad_location' };
+  const ch = custom ? null : chIn;
+  if (ch) {
+    const chOk = await assertChannelInServer(pool, input.serverId, ch);
+    if (!chOk) return { ok: false, reason: 'bad_channel' };
+  }
 
   const id = nextEchoSnowflakeId();
   const title = input.title.trim().slice(0, 200) || 'Event';
@@ -306,14 +343,13 @@ export async function createEchoServerEvent(
     input.maxAttendees > 0
       ? Math.floor(input.maxAttendees)
       : null;
-  const ch = input.channelId?.trim() || null;
 
   await pool.query(
     `
     INSERT INTO echo_server_events (
       id, server_id, title, description, image_url, starts_at, ends_at,
-      timezone_label, channel_id, creator_user_id, status, max_attendees
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'scheduled', $11)
+      timezone_label, channel_id, custom_location, creator_user_id, status, max_attendees
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'scheduled', $12)
     `,
     [
       id,
@@ -325,6 +361,7 @@ export async function createEchoServerEvent(
       input.endsAt,
       tz,
       ch,
+      custom,
       input.creatorUserId,
       maxA,
     ],
@@ -344,29 +381,59 @@ export async function updateEchoServerEvent(
     endsAt?: Date;
     timezoneLabel?: string | null;
     channelId?: string | null;
+    customLocation?: string | null;
     maxAttendees?: number | null;
   },
 ): Promise<
   | { ok: true }
-  | { ok: false; reason: 'not_found' | 'bad_times' | 'bad_channel' }
+  | {
+      ok: false;
+      reason: 'not_found' | 'bad_times' | 'bad_channel' | 'bad_location';
+    }
 > {
   const ev = await pool.query(
-    `SELECT id, starts_at, ends_at FROM echo_server_events WHERE id = $1 AND server_id = $2`,
+    `SELECT id, starts_at, ends_at, channel_id, custom_location
+     FROM echo_server_events WHERE id = $1 AND server_id = $2`,
     [input.eventId, input.serverId],
   );
   if (!ev.rowCount) return { ok: false, reason: 'not_found' };
-  const cur = ev.rows[0] as { starts_at: Date; ends_at: Date };
+  const cur = ev.rows[0] as {
+    starts_at: Date;
+    ends_at: Date;
+    channel_id: unknown;
+    custom_location: unknown;
+  };
   const starts = input.startsAt ?? new Date(cur.starts_at);
   const ends = input.endsAt ?? new Date(cur.ends_at);
   if (!(ends > starts)) return { ok: false, reason: 'bad_times' };
 
-  if (input.channelId !== undefined) {
-    const chOk = await assertChannelInServer(
-      pool,
-      input.serverId,
-      input.channelId,
-    );
-    if (!chOk) return { ok: false, reason: 'bad_channel' };
+  const locTouched =
+    input.channelId !== undefined || input.customLocation !== undefined;
+  let nextCh: string | null =
+    cur.channel_id != null && String(cur.channel_id).trim()
+      ? String(cur.channel_id).trim()
+      : null;
+  let nextCu = readCustomLocationCell({
+    custom_location: cur.custom_location,
+  });
+  if (locTouched) {
+    if (input.channelId !== undefined) {
+      nextCh = input.channelId?.trim() || null;
+      if (nextCh) nextCu = null;
+    }
+    if (input.customLocation !== undefined) {
+      nextCu = normalizeCustomLocation(input.customLocation);
+      if (nextCu) nextCh = null;
+    }
+    if (nextCh && nextCu) return { ok: false, reason: 'bad_location' };
+    if (nextCh) {
+      const chOk = await assertChannelInServer(
+        pool,
+        input.serverId,
+        nextCh,
+      );
+      if (!chOk) return { ok: false, reason: 'bad_channel' };
+    }
   }
 
   const sets: string[] = ['updated_at = NOW()'];
@@ -398,16 +465,16 @@ export async function updateEchoServerEvent(
       tz != null && String(tz).trim() ? String(tz).trim().slice(0, 64) : null,
     );
   }
-  if (input.channelId !== undefined) {
+  if (locTouched) {
     sets.push(`channel_id = $${vals.length + 1}`);
-    vals.push(input.channelId?.trim() || null);
+    vals.push(nextCh);
+    sets.push(`custom_location = $${vals.length + 1}`);
+    vals.push(nextCu);
   }
   if (input.maxAttendees !== undefined) {
     sets.push(`max_attendees = $${vals.length + 1}`);
     const m = input.maxAttendees;
-    vals.push(
-      m != null && Number.isFinite(m) && m > 0 ? Math.floor(m) : null,
-    );
+    vals.push(m != null && Number.isFinite(m) && m > 0 ? Math.floor(m) : null);
   }
 
   const idPh = vals.length + 1;

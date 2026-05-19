@@ -41,6 +41,67 @@ export function discordAvatarUrl(
   return `https://cdn.discordapp.com/avatars/${discordUserId}/${avatarHash}.${ext}?size=128`;
 }
 
+/**
+ * Extract the Discord avatar asset id (e.g. `a_…` or hex hash) from a `cdn.discordapp.com`
+ * avatars URL when it matches `discordUserId`. Used to re-canonicalize stored URLs and to
+ * detect avatar changes without relying on brittle query-string equality.
+ */
+export function parseDiscordAvatarHashFromCdnUrl(
+  discordUserId: string,
+  url: string,
+): string | null {
+  const id = String(discordUserId).trim();
+  if (!id) return null;
+  const raw = typeof url === 'string' ? url.trim() : '';
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (!/^cdn\.discordapp\.com$/i.test(parsed.hostname)) return null;
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  if (parts.length < 3 || parts[0] !== 'avatars') return null;
+  if (parts[1] !== id) return null;
+  const file = parts[2] ?? '';
+  const dot = file.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const hash = file.slice(0, dot).trim();
+  return hash || null;
+}
+
+/**
+ * Stable key for comparing “same Discord avatar” across hash-only storage, CDN URLs, and
+ * default embed avatars (ignores `?size=` and other query params).
+ */
+export function discordAvatarIdentityKey(
+  discordUserId: string,
+  pfp: string | null | undefined,
+): string {
+  const id = String(discordUserId).trim();
+  const s = typeof pfp === 'string' ? pfp.trim() : '';
+  if (!s) return '';
+  if (!/^https?:\/\//i.test(s)) {
+    return `avatar:${s}`;
+  }
+  try {
+    const u = new URL(s);
+    if (!/^cdn\.discordapp\.com$/i.test(u.hostname)) {
+      return `raw:${s}`;
+    }
+    const embed = u.pathname.match(/^\/embed\/avatars\/(\d+)\.(?:png|webp)$/i);
+    if (embed?.[1]) {
+      return `embed:${embed[1]}`;
+    }
+    const h = id ? parseDiscordAvatarHashFromCdnUrl(id, s) : null;
+    if (h) return `avatar:${h}`;
+    return `raw:${s}`;
+  } catch {
+    return `raw:${s}`;
+  }
+}
+
 const DEFAULT_DISCORD_EMBED_AVATAR_COUNT = 6;
 
 /** Discord default avatar when the user has no custom avatar (snowflake → index). */
@@ -71,6 +132,10 @@ export function resolveDiscordAvatarForStorage(
     return discordDefaultAvatarUrl(id);
   }
   if (/^https?:\/\//i.test(a)) {
+    const fromCdn = parseDiscordAvatarHashFromCdnUrl(id, a);
+    if (fromCdn) {
+      return discordAvatarUrl(id, fromCdn) ?? discordDefaultAvatarUrl(id);
+    }
     return a;
   }
   return discordAvatarUrl(id, a) ?? discordDefaultAvatarUrl(id);

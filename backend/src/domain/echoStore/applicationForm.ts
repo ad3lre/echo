@@ -55,7 +55,8 @@ function isStableQuestionId(id: string): boolean {
 export function parseEchoApplicationFormFromDb(
   raw: unknown,
 ): EchoApplicationForm | null {
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw))
+    return null;
   const o = raw as Record<string, unknown>;
   const version = o.version;
   if (typeof version !== 'number' || !Number.isFinite(version) || version < 1)
@@ -73,7 +74,10 @@ export function parseEchoApplicationFormFromDb(
     if (!id || !isStableQuestionId(id) || seenIds.has(id)) return null;
     seenIds.add(id);
     const type = q.type;
-    if (typeof type !== 'string' || !Q_TYPES.has(type as EchoApplicationQuestionType))
+    if (
+      typeof type !== 'string' ||
+      !Q_TYPES.has(type as EchoApplicationQuestionType)
+    )
       return null;
     const qt = type as EchoApplicationQuestionType;
     const label =
@@ -168,7 +172,9 @@ export type ValidateEchoApplicationAnswersContext = {
   userId: string;
 };
 
-function attachmentKeyPrefix(ctx: ValidateEchoApplicationAnswersContext): string {
+function attachmentKeyPrefix(
+  ctx: ValidateEchoApplicationAnswersContext,
+): string {
   return `echo/server-application-attachments/${ctx.serverId}/${ctx.userId}/`;
 }
 
@@ -198,7 +204,10 @@ export function validateEchoApplicationAnswers(
   }
   const needsCtx = form.questions.some((q) => q.type === 'attachment');
   if (needsCtx && !ctx) {
-    return { ok: false, reason: 'missing validation context for attachment answers' };
+    return {
+      ok: false,
+      reason: 'missing validation context for attachment answers',
+    };
   }
   const input = rawAnswers as Record<string, unknown>;
   const out: Record<string, unknown> = {};
@@ -215,7 +224,8 @@ export function validateEchoApplicationAnswers(
       }
       const o = v as Record<string, unknown>;
       const keyRaw = typeof o.key === 'string' ? o.key.trim() : '';
-      const publicUrlRaw = typeof o.publicUrl === 'string' ? o.publicUrl.trim() : '';
+      const publicUrlRaw =
+        typeof o.publicUrl === 'string' ? o.publicUrl.trim() : '';
       const nameRaw = typeof o.name === 'string' ? o.name.trim() : '';
       if (!keyRaw || keyRaw.length > MAX_STORAGE_KEY_LEN)
         return { ok: false, reason: `invalid attachment for: ${q.label}` };
@@ -247,7 +257,8 @@ export function validateEchoApplicationAnswers(
         if (typeof o.contentType !== 'string')
           return { ok: false, reason: `invalid attachment for: ${q.label}` };
         const ct = o.contentType.trim().slice(0, MAX_CONTENT_TYPE_LEN);
-        if (!ct) return { ok: false, reason: `invalid attachment for: ${q.label}` };
+        if (!ct)
+          return { ok: false, reason: `invalid attachment for: ${q.label}` };
         contentType = ct;
       }
       const normalized: Record<string, unknown> = {
@@ -270,7 +281,8 @@ export function validateEchoApplicationAnswers(
       if (typeof v !== 'string')
         return { ok: false, reason: `invalid type for: ${q.label}` };
       const cap =
-        q.maxLength ?? (q.type === 'short' ? DEFAULT_SHORT_MAX : DEFAULT_LONG_MAX);
+        q.maxLength ??
+        (q.type === 'short' ? DEFAULT_SHORT_MAX : DEFAULT_LONG_MAX);
       const s = v.trim().slice(0, cap);
       if (!s && q.required)
         return { ok: false, reason: `missing answer for: ${q.label}` };

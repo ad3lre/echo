@@ -171,6 +171,7 @@ const lc = computed((): AppLayoutLeftChromeProps => {
     bugHunterEnabled: g('bugHunterEnabled'),
     voiceSessionParticipants: g('voiceSessionParticipants'),
     getVcActivityPresence: g('getVcActivityPresence'),
+    vcActivityKingUserId: g('vcActivityKingUserId') ?? '',
     mobileVoiceChannelTapOpensLobby:
       g('mobileVoiceChannelTapOpensLobby') ?? false,
     voiceLobbyChannelId: g('voiceLobbyChannelId') ?? null,
@@ -565,6 +566,7 @@ const emit = defineEmits<{
     payload: {
       serverId: string;
       channelId?: string | null;
+      customLocation?: string | null;
       eventId?: string;
     },
   ];
@@ -903,6 +905,7 @@ function fireGuildEventRsvp(payload: {
 function fireOpenGuildEventChannel(payload: {
   serverId: string;
   channelId?: string | null;
+  customLocation?: string | null;
   eventId?: string;
 }) {
   const h = host();
@@ -913,11 +916,13 @@ function fireOpenGuildEventChannel(payload: {
 function fireDmOpenGuildEvent(payload: {
   serverId: string;
   channelId: string | null;
+  customLocation?: string | null;
   eventId: string;
 }) {
   fireOpenGuildEventChannel({
     serverId: payload.serverId,
     channelId: payload.channelId,
+    customLocation: payload.customLocation,
     eventId: payload.eventId,
   });
 }
@@ -1075,6 +1080,7 @@ function onMoreServersOpenServer(serverId: string) {
         :on-switch-camera="lc.onSwitchCamera"
         :voice-session-participants="lc.voiceSessionParticipants"
         :get-vc-activity-presence="lc.getVcActivityPresence"
+        :vc-activity-king-user-id="lc.vcActivityKingUserId"
         :on-open-profile="lc.openMemberProfile"
         :open-profile-user-id="lc.activeMemberProfileId"
         :vc-muted="lc.guildVcMuted"
@@ -1458,6 +1464,7 @@ function onMoreServersOpenServer(serverId: string) {
         :on-switch-camera="lc.onSwitchCamera"
         :voice-session-participants="lc.voiceSessionParticipants"
         :get-vc-activity-presence="lc.getVcActivityPresence"
+        :vc-activity-king-user-id="lc.vcActivityKingUserId"
         :on-open-profile="lc.openMemberProfile"
         :open-profile-user-id="lc.activeMemberProfileId"
         :vc-muted="lc.guildVcMuted"

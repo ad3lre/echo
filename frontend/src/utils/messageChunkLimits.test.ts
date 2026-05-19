@@ -92,7 +92,10 @@ describe('hard format helpers', () => {
 
   it('stripLeadingDuplicateHardFormatTemplate returns null when not doubled', () => {
     expect(
-      stripLeadingDuplicateHardFormatTemplate('Name:\nAge:\nx', 'Name:\nAge:\n'),
+      stripLeadingDuplicateHardFormatTemplate(
+        'Name:\nAge:\nx',
+        'Name:\nAge:\n',
+      ),
     ).toBe(null);
   });
 });

@@ -36,12 +36,16 @@ const props = withDefaults(
     roleIconUrl?: string | null;
     /** When no icon URL, show a muted tile (or use accent for a dot). */
     accentColor?: string | null;
+    triggerTitle?: string | null;
+    triggerAriaLabel?: string | null;
   }>(),
   {
     serverId: null,
     disabled: false,
     roleIconUrl: null,
     accentColor: null,
+    triggerTitle: null,
+    triggerAriaLabel: null,
   },
 );
 
@@ -303,8 +307,8 @@ onUnmounted(() => {
       type="button"
       class="role-icon-picker-trigger flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-glass-2 ring-1 ring-border transition-colors hover:bg-glass-hover disabled:cursor-not-allowed disabled:opacity-50"
       :disabled="disabled"
-      title="Role icon"
-      aria-label="Choose role icon"
+      :title="triggerTitle ?? 'Role icon'"
+      :aria-label="triggerAriaLabel ?? 'Choose role icon'"
       @click.stop="onTriggerClick"
     >
       <PausedGifAvatar

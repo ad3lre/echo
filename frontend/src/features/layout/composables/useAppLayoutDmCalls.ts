@@ -476,11 +476,13 @@ export function useAppLayoutDmCalls(deps: {
     const token = authSession.accessToken?.trim() ?? '';
     const channelId = await openEchoDirectDmChannel(token, userId);
     if (!channelId) return '';
+    // Register the channel→peer mapping; do NOT synthesize `lastActivityId` from the
+    // channel snowflake. The authoritative `lastActivityAt` arrives from `/dm/threads`
+    // or the subsequent `dm:call` / `dm:activity` event.
     mergeRealtimeDmThread({
       channelId,
       kind: 'direct',
       peerUserId: userId,
-      lastActivityId: channelId,
     });
     return channelId;
   }

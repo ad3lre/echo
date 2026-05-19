@@ -51,4 +51,5 @@ export interface UserForAuthor {
   name: string;
   pfp: string;
   status: string;
+  timeZone?: string | null;
 }

@@ -306,6 +306,19 @@ export class MemoryAuthStore implements AuthStore {
         u._memPendingE164 = e164;
       }
     }
+    if (patch.timeZone !== undefined) {
+      if (patch.timeZone === null || String(patch.timeZone).trim() === '') {
+        delete (u as { timeZone?: string | null }).timeZone;
+      } else {
+        const tz = String(patch.timeZone).trim().slice(0, 64);
+        try {
+          Intl.DateTimeFormat(undefined, { timeZone: tz }).format();
+        } catch {
+          throw new Error('INVALID_TIME_ZONE');
+        }
+        (u as { timeZone?: string }).timeZone = tz;
+      }
+    }
     u.updatedAt = new Date().toISOString();
     return publicUser(u);
   }

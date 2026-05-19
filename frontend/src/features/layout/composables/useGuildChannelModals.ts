@@ -19,6 +19,7 @@ import {
 import { isEchoGraphId } from '@/utils/echoIds';
 import { ensureChannelBucket } from '@/services/realtime/channelMessageAuthority';
 import { channelOverridesToEchoPartial } from '@shared/rolePermissionBridge';
+import { EchoApiError } from '@/api/echo/transport';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { UIErrorBus } from '@/utils/uiErrorBus';
 import type { CategorySettingsSnapshot } from '@/features/channel-settings/types';
@@ -109,11 +110,16 @@ function guildChannelModalFailure(
   fallback: string,
 ) {
   reportPrimaryFlowFailure(flow, e, context, { showBanner: false });
+  const code =
+    e instanceof EchoApiError && typeof e.body.code === 'string'
+      ? e.body.code
+      : undefined;
   UIErrorBus.emit({
     context: flow,
     severity: 'warning',
     userMessage:
       e instanceof Error && e.message.trim() ? e.message.trim() : fallback,
+    ...(code ? { code } : {}),
   });
 }
 

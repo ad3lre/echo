@@ -8,6 +8,7 @@ export type GuildSettingsSection =
   | 'Discord'
   | 'Security'
   | 'Access'
+  | 'Automod'
   | 'Moderation'
   | 'Audit Log'
   | 'Bans'
@@ -44,7 +45,7 @@ export const GUILD_SETTINGS_SECTION_GROUPS: GuildSettingsSectionGroup[] = [
   },
   {
     label: 'Safety',
-    items: ['Security', 'Access', 'Moderation', 'Bans', 'Audit Log'],
+    items: ['Security', 'Access', 'Automod', 'Moderation', 'Bans', 'Audit Log'],
   },
   {
     label: 'Danger zone',

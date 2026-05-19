@@ -19,6 +19,7 @@ type UserForAuthor = {
   name: string;
   pfp: string;
   status: string;
+  timeZone?: string | null;
 };
 
 function mapRawMessagesWithAuthors(
@@ -34,6 +35,9 @@ function mapRawMessagesWithAuthors(
           name: user.name,
           avatar: user.pfp,
           status: user.status as MessageAuthor['status'],
+          ...(typeof user.timeZone === 'string' && user.timeZone.trim()
+            ? { timeZone: user.timeZone.trim() }
+            : {}),
         }
       : {
           id: msg.authorId,

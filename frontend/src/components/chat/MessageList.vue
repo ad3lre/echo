@@ -919,9 +919,7 @@ function estimateMessageRowSize(index: number): number {
     attachments.some((attachment) => attachment.kind === 'video')
   ) {
     size += 280;
-  } else if (
-    attachments.some((attachment) => attachment.kind === 'document')
-  ) {
+  } else if (attachments.some((attachment) => attachment.kind === 'document')) {
     size += 120;
   } else if (
     message.imageUrl ||
@@ -2307,6 +2305,9 @@ defineExpose({
     <div
       ref="containerRef"
       data-cy="message-list"
+      role="log"
+      aria-live="off"
+      :aria-label="channelName ? `Messages in ${channelName}` : 'Messages'"
       class="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 touch-pan-y"
       v-scrollbar-on-scroll
       :class="scrollContainerPaddingBottomClass"

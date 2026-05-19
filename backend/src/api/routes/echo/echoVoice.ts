@@ -17,7 +17,7 @@ import {
   type EchoVoiceModerationAction,
 } from '../../../domain/echoStore';
 import { isMemberOfServer } from '../../../domain/echoPermissions';
-import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
+import { publishEchoWorkspaceEvent, publishVoiceRosterDelta } from '../../../platform/echoPlatformEvents';
 import { config } from '../../../config';
 import {
   liveKitRoomName,
@@ -181,6 +181,12 @@ export default async function echoVoiceRoutes(
           serverId,
         },
         { serverId },
+      );
+      publishVoiceRosterDelta(
+        fastify,
+        serverId,
+        { channelId, userId: req.authUser!.id, action: 'join' },
+        auditId,
       );
       return reply.code(204).send();
     },
@@ -357,6 +363,12 @@ export default async function echoVoiceRoutes(
         },
         { serverId },
       );
+      publishVoiceRosterDelta(
+        fastify,
+        serverId,
+        { channelId, userId: req.authUser!.id, action: 'join' },
+        auditId,
+      );
       return reply.code(200).send({
         url: config.liveKitPublicUrl,
         token,
@@ -391,6 +403,15 @@ export default async function echoVoiceRoutes(
           'NOT_SERVER_MEMBER',
         );
       }
+      // Capture current channel before the delete so the roster delta can reference it.
+      const leaveChannelRow = await pool.query(
+        `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+        [sid, req.authUser!.id],
+      );
+      const leaveChannelId = leaveChannelRow.rows[0]?.channel_id
+        ? String(leaveChannelRow.rows[0].channel_id)
+        : '';
+
       await leaveEchoVoiceChannel(pool, sid, req.authUser!.id);
       vcTrace(req.log, 'voice.leave:ok', {
         serverId: sid,
@@ -413,6 +434,12 @@ export default async function echoVoiceRoutes(
           serverId: sid,
         },
         { serverId: sid },
+      );
+      publishVoiceRosterDelta(
+        fastify,
+        sid,
+        { channelId: leaveChannelId, userId: req.authUser!.id, action: 'leave' },
+        auditId,
       );
       return reply.code(204).send();
     },
@@ -532,14 +559,21 @@ export default async function echoVoiceRoutes(
           'Invalid voice moderation action',
         );
       }
+      // Query current channel for all actions — needed for roster delta and LK kick.
+      const modCurrentChannelRow = await pool.query(
+        `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+        [sid, targetUserId],
+      );
+      const modCurrentChannelId = modCurrentChannelRow.rows[0]?.channel_id
+        ? String(modCurrentChannelRow.rows[0].channel_id)
+        : null;
+
       let liveKitChannelIdForKick: string | null = null;
-      if (action === 'disconnect' && config.liveKitEnabled) {
-        const cur = await pool.query(
-          `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
-          [sid, targetUserId],
-        );
-        const cid = cur.rows[0]?.channel_id;
-        if (cid != null) liveKitChannelIdForKick = String(cid);
+      if (
+        (action === 'disconnect' || action === 'move') &&
+        config.liveKitEnabled
+      ) {
+        liveKitChannelIdForKick = modCurrentChannelId;
       }
       const r = await applyEchoVoiceModerationAction(
         pool,
@@ -654,6 +688,80 @@ export default async function echoVoiceRoutes(
         },
         { serverId: sid },
       );
+      // Emit a targeted voice roster delta so sidebars update without waiting
+      // for the debounced full workspace refetch (tier-1 optimistic fast path).
+      if (action === 'disconnect') {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: modCurrentChannelId ?? '',
+            userId: targetUserId,
+            action: 'disconnect',
+          },
+          auditId,
+        );
+      } else if (action === 'move' && targetChannelId) {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: targetChannelId,
+            userId: targetUserId,
+            action: 'move',
+            fromChannelId: modCurrentChannelId ?? undefined,
+          },
+          auditId,
+        );
+      } else if (action === 'server_mute') {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: modCurrentChannelId ?? '',
+            userId: targetUserId,
+            action: 'mute',
+            serverMuted: true,
+          },
+          auditId,
+        );
+      } else if (action === 'server_unmute') {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: modCurrentChannelId ?? '',
+            userId: targetUserId,
+            action: 'unmute',
+            serverMuted: false,
+          },
+          auditId,
+        );
+      } else if (action === 'server_deafen') {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: modCurrentChannelId ?? '',
+            userId: targetUserId,
+            action: 'deafen',
+            serverDeafened: true,
+          },
+          auditId,
+        );
+      } else if (action === 'server_undeafen') {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: modCurrentChannelId ?? '',
+            userId: targetUserId,
+            action: 'undeafen',
+            serverDeafened: false,
+          },
+          auditId,
+        );
+      }
       echoVoiceModerateTotal.labels(action, 'ok').inc();
       vcTrace(req.log, 'voice.moderate:ok', { action, targetUserId });
       return reply.code(204).send();

@@ -30,6 +30,7 @@ import '@fontsource/inter/latin-400.css';
 import './assets/tailwind.css';
 import './assets/themes.css';
 import './assets/density.css';
+import './assets/accessibility.css';
 import './assets/main.scss';
 import './assets/document-canvas.scss';
 import { registerEchoServiceWorker } from '@/registerServiceWorker';
@@ -55,6 +56,10 @@ import {
 import { authDesktopRedeemHandoff, authFetchMe } from '@/api/authClient';
 import { registerAuthSessionApiBridge } from '@/api/authSessionBridge';
 import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
+import {
+  loadAccessibilityPreferences,
+  applyAccessibilityPreferences,
+} from '@/features/settings/accessibilityPreferences';
 
 registerEchoServiceWorker();
 applyGpuTierToDocument(detectGpuTier());
@@ -88,6 +93,12 @@ applyBrowserChromeThemeColor(
 );
 applyVibrantAccentsToDocument(loadPersistedVibrantAccents());
 applyInterfaceDensityToDocument(loadPersistedInterfaceDensity());
+const bootA11yPrefs = loadAccessibilityPreferences();
+applyAccessibilityPreferences(bootA11yPrefs);
+if (bootA11yPrefs.dyslexiaFriendlyFont) {
+  void import('@fontsource/atkinson-hyperlegible/latin-400.css');
+  void import('@fontsource/atkinson-hyperlegible/latin-700.css');
+}
 
 function loadDeferredInterWeights() {
   void import('@fontsource/inter/latin-600.css');

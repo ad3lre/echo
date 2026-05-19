@@ -6,14 +6,14 @@ import type {
   EchoApplicationQuestionDto,
   EchoApplicationQuestionType,
   EchoServerApplicationRowDto,
-} from '@/api/echo/types';
+} from '@/services/http/echoServerApplicationsTypes';
 import {
-  fetchEchoServerApplicationSettings,
-  fetchEchoServerApplications,
-  postEchoServerApplicationApprove,
-  postEchoServerApplicationReject,
-} from '@/api/echo/serverApplications';
-import { ECHO_CLIENT_UPLOAD_MAX_BYTES } from '@/api/echo/uploads';
+  ECHO_CLIENT_UPLOAD_MAX_BYTES,
+  httpApproveServerApplication,
+  httpFetchServerApplicationSettings,
+  httpFetchServerApplications,
+  httpRejectServerApplication,
+} from '@/services/http/echoServerApplicationsHttp';
 import { createServerSettingsService } from '@/services/orchestration/serverSettings';
 import { useServerStore } from '@/stores/server';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
@@ -48,7 +48,10 @@ const expandedId = ref<string | null>(null);
 const serverSettingsService = createServerSettingsService();
 const serverStore = useServerStore();
 
-const uploadCapMb = Math.max(1, Math.floor(ECHO_CLIENT_UPLOAD_MAX_BYTES / (1024 * 1024)));
+const uploadCapMb = Math.max(
+  1,
+  Math.floor(ECHO_CLIENT_UPLOAD_MAX_BYTES / (1024 * 1024)),
+);
 
 function questionTypeTitle(type: EchoApplicationQuestionType): string {
   switch (type) {
@@ -67,7 +70,9 @@ function questionTypeTitle(type: EchoApplicationQuestionType): string {
   }
 }
 
-function newQuestion(type: EchoApplicationQuestionType): EchoApplicationQuestionDto {
+function newQuestion(
+  type: EchoApplicationQuestionType,
+): EchoApplicationQuestionDto {
   const id = crypto.randomUUID();
   if (type === 'short')
     return { id, type: 'short', label: '', required: true, maxLength: 500 };
@@ -89,7 +94,8 @@ function newQuestion(type: EchoApplicationQuestionType): EchoApplicationQuestion
       required: true,
       options: ['Option A', 'Option B'],
     };
-  if (type === 'attachment') return { id, type: 'attachment', label: '', required: true };
+  if (type === 'attachment')
+    return { id, type: 'attachment', label: '', required: true };
   const _never: never = type;
   return _never;
 }
@@ -98,7 +104,10 @@ function addChoiceOption(q: EchoApplicationQuestionDto) {
   if (q.type !== 'single' && q.type !== 'multi') return;
   if (!q.options) q.options = [];
   if (q.options.length >= MAX_CHOICE_OPTIONS) {
-    dispatchAppToast(`At most ${MAX_CHOICE_OPTIONS} options per question.`, 'warning');
+    dispatchAppToast(
+      `At most ${MAX_CHOICE_OPTIONS} options per question.`,
+      'warning',
+    );
     return;
   }
   q.options.push(`Option ${q.options.length + 1}`);
@@ -128,10 +137,10 @@ function onAttachmentMaxMbInput(q: EchoApplicationQuestionDto, raw: string) {
 }
 
 async function loadSettings() {
-  const tok = props.accessToken?.trim() ?? '';
-  if (!tok || !props.serverId) return;
+  if (!props.serverId) return;
   try {
-    const s = await fetchEchoServerApplicationSettings(tok, props.serverId);
+    /* `echoFetch` uses cookie session; bearer token is legacy/mock only. */
+    const s = await httpFetchServerApplicationSettings('', props.serverId);
     applicationsEnabled.value = s.applicationsEnabled;
     applicationForm.value = {
       version: s.applicationForm.version || 1,
@@ -143,11 +152,10 @@ async function loadSettings() {
 }
 
 async function loadPending() {
-  const tok = props.accessToken?.trim() ?? '';
-  if (!tok || !props.serverId) return;
+  if (!props.serverId) return;
   listBusy.value = true;
   try {
-    const r = await fetchEchoServerApplications(tok, props.serverId, 'pending');
+    const r = await httpFetchServerApplications('', props.serverId, 'pending');
     pending.value = r.applications ?? [];
   } catch {
     dispatchAppToast('Could not load waitlist.', 'error');
@@ -182,29 +190,31 @@ function removeQuestion(i: number) {
   applicationForm.value.questions.splice(i, 1);
 }
 
-async function persistPatch(patch: Record<string, unknown>) {
-  const tok = props.accessToken?.trim() ?? '';
-  if (!tok) return;
+async function persistPatch(patch: Record<string, unknown>): Promise<boolean> {
   saving.value = true;
   try {
     await serverSettingsService.persistPreferences({
-      token: tok,
+      token: props.accessToken?.trim() ?? '',
       serverId: props.serverId,
       patch,
       serverStore,
       workspaceServers: props.workspaceServers,
     });
     emit('echo-workspace-refresh');
+    return true;
   } catch {
     dispatchAppToast('Could not save changes.', 'error');
+    return false;
   } finally {
     saving.value = false;
   }
 }
 
 async function onToggleApplications(v: boolean) {
+  const prev = applicationsEnabled.value;
   applicationsEnabled.value = v;
-  await persistPatch({ applicationsEnabled: v });
+  const ok = await persistPatch({ applicationsEnabled: v });
+  if (!ok) applicationsEnabled.value = prev;
 }
 
 function validateFormForSave(): string | null {
@@ -212,12 +222,15 @@ function validateFormForSave(): string | null {
     if (!q.label.trim()) return 'Each question needs a label.';
     if (q.type === 'single' || q.type === 'multi') {
       const opts = (q.options ?? []).map((s) => s.trim()).filter(Boolean);
-      if (opts.length < 1) return 'Choice questions need at least one non-empty option.';
-      if (opts.length > MAX_CHOICE_OPTIONS) return 'Too many options on one question.';
+      if (opts.length < 1)
+        return 'Choice questions need at least one non-empty option.';
+      if (opts.length > MAX_CHOICE_OPTIONS)
+        return 'Too many options on one question.';
       const seen = new Set<string>();
       for (const o of opts) {
         const k = o.toLowerCase();
-        if (seen.has(k)) return 'Choice options must be unique (case-insensitive).';
+        if (seen.has(k))
+          return 'Choice options must be unique (case-insensitive).';
         seen.add(k);
       }
     }
@@ -231,22 +244,21 @@ async function saveForm() {
     dispatchAppToast(err, 'warning');
     return;
   }
-  await persistPatch({
+  const ok = await persistPatch({
     applicationForm: {
       version: 1,
       questions: applicationForm.value.questions.map((q) => ({ ...q })),
     },
   });
+  if (!ok) return;
   await loadSettings();
   dispatchAppToast('Application form saved.', 'success');
 }
 
 async function approve(id: string) {
-  const tok = props.accessToken?.trim() ?? '';
-  if (!tok) return;
   listBusy.value = true;
   try {
-    await postEchoServerApplicationApprove(tok, props.serverId, id);
+    await httpApproveServerApplication('', props.serverId, id);
     await loadPending();
     emit('echo-workspace-refresh');
     dispatchAppToast('Member approved.', 'success');
@@ -258,11 +270,9 @@ async function approve(id: string) {
 }
 
 async function reject(id: string) {
-  const tok = props.accessToken?.trim() ?? '';
-  if (!tok) return;
   listBusy.value = true;
   try {
-    await postEchoServerApplicationReject(tok, props.serverId, id);
+    await httpRejectServerApplication('', props.serverId, id);
     await loadPending();
     dispatchAppToast('Application rejected.', 'success');
   } catch {
@@ -282,7 +292,9 @@ type WaitlistAnswerRow =
   | { label: string; kind: 'list'; items: string[] }
   | { label: string; kind: 'file'; fileName: string; fileUrl: string };
 
-function waitlistAnswerRows(answers: Record<string, unknown>): WaitlistAnswerRow[] {
+function waitlistAnswerRows(
+  answers: Record<string, unknown>,
+): WaitlistAnswerRow[] {
   const rows: WaitlistAnswerRow[] = [];
   for (const [k, v] of Object.entries(answers)) {
     const label = questionLabelById(k);
@@ -332,8 +344,9 @@ function waitlistAnswerRows(answers: Record<string, unknown>): WaitlistAnswerRow
       <div class="server-settings-panel rounded-2xl p-5">
         <div class="settings-subtitle mb-1">Join applications</div>
         <p class="mb-4 text-sm text-fg-subtle">
-          When enabled, new members must complete your form and wait for approval
-          before they can join (Explore joins and normal invite links). Create a
+          When enabled, new members must complete your form and wait for
+          approval before they can join (Explore joins and normal invite links).
+          Create a
           <strong class="font-semibold text-fg">direct invite</strong> from the
           invite panel to share a link that skips this step.
         </p>
@@ -370,9 +383,9 @@ function waitlistAnswerRows(answers: Record<string, unknown>): WaitlistAnswerRow
       <div class="server-settings-panel rounded-2xl p-5">
         <div class="settings-subtitle mb-3">Form builder</div>
         <p class="mb-4 text-sm text-fg-subtle">
-          Build your questionnaire: joiners see questions in order. Choice questions use
-          explicit options; file uploads use your storage plan limits unless you set a
-          lower cap.
+          Build your questionnaire: joiners see questions in order. Choice
+          questions use explicit options; file uploads use your storage plan
+          limits unless you set a lower cap.
         </p>
         <div
           class="mb-5 flex flex-wrap gap-2 rounded-xl border border-[var(--border)] bg-[var(--set-card-bg)] p-3"
@@ -487,13 +500,21 @@ function waitlistAnswerRows(answers: Record<string, unknown>): WaitlistAnswerRow
                 />
               </div>
 
-              <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-fg">
-                <input v-model="q.required" type="checkbox" class="rounded border-[var(--border)]" />
+              <label
+                class="inline-flex cursor-pointer items-center gap-2 text-sm text-fg"
+              >
+                <input
+                  v-model="q.required"
+                  type="checkbox"
+                  class="rounded border-[var(--border)]"
+                />
                 Required
               </label>
 
               <template v-if="q.type === 'short' || q.type === 'long'">
-                <label class="settings-label block">Placeholder (optional)</label>
+                <label class="settings-label block"
+                  >Placeholder (optional)</label
+                >
                 <input
                   v-model="q.placeholder"
                   type="text"
@@ -528,8 +549,8 @@ function waitlistAnswerRows(answers: Record<string, unknown>): WaitlistAnswerRow
                   </button>
                 </div>
                 <p class="mt-1 text-xs text-fg-subtle">
-                  Up to {{ MAX_CHOICE_OPTIONS }} options; labels must be unique (ignoring
-                  case).
+                  Up to {{ MAX_CHOICE_OPTIONS }} options; labels must be unique
+                  (ignoring case).
                 </p>
                 <ul class="mt-2 space-y-2">
                   <li
@@ -563,9 +584,12 @@ function waitlistAnswerRows(answers: Record<string, unknown>): WaitlistAnswerRow
               </template>
 
               <template v-if="q.type === 'attachment'">
-                <label class="settings-label block">Max file size (optional)</label>
+                <label class="settings-label block"
+                  >Max file size (optional)</label
+                >
                 <p class="mt-0.5 text-xs text-fg-subtle">
-                  Leave blank to use the uploader’s plan limit (at most {{ uploadCapMb }}
+                  Leave blank to use the uploader’s plan limit (at most
+                  {{ uploadCapMb }}
                   MiB). Lower values help keep applications lightweight.
                 </p>
                 <input
@@ -661,7 +685,10 @@ function waitlistAnswerRows(answers: Record<string, unknown>): WaitlistAnswerRow
                 class="text-sm"
               >
                 <div class="font-semibold text-fg">{{ ar.label }}</div>
-                <div v-if="ar.kind === 'text'" class="mt-1 whitespace-pre-wrap text-fg-subtle">
+                <div
+                  v-if="ar.kind === 'text'"
+                  class="mt-1 whitespace-pre-wrap text-fg-subtle"
+                >
                   {{ ar.text }}
                 </div>
                 <ul

@@ -31,10 +31,18 @@ export function useAppLayoutDmPanelInboxComputed(deps: {
   groupDMs: Ref<Record<string, GroupDmRow>>;
   messages: Ref<Record<string, RawMessage[]>>;
   echoPeerByChannelId: Ref<Map<string, string>>;
-  echoDmLastActivityIdByChannelId: Ref<Map<string, string>>;
+  /** Server-authoritative `lastActivityAt` (ms epoch) keyed by channel id. The single sort source. */
+  echoDmLastActivityAtMsByChannelId: Ref<Map<string, number>>;
   selectedDMUserId: Ref<string | null>;
   activeChannelId: Ref<string>;
   dmUnreadByChannelIdForPanel: ComputedRef<Map<string, number>>;
+  /**
+   * Persisted sort-order fallback timestamps from the last session. Intentionally
+   * a plain (non-reactive) value so that the computed does not track it as a
+   * dependency — prevents a feedback loop where `saveOrder` would re-trigger
+   * the computed infinitely.
+   */
+  fallbackRankMsByKey?: ReadonlyMap<string, number>;
 }) {
   return computed(() => {
     if (deps.activeRailTab.value !== 'dm' && !deps.isDMPanelOpen.value) {
@@ -53,7 +61,7 @@ export function useAppLayoutDmPanelInboxComputed(deps: {
     return buildDmPanelInboxList({
       selfId: deps.selfId.value ?? '',
       echoPeerByChannelId: deps.echoPeerByChannelId.value,
-      activityIdByChannelId: deps.echoDmLastActivityIdByChannelId.value,
+      lastActivityAtMsByChannelId: deps.echoDmLastActivityAtMsByChannelId.value,
       messageKeys: [...indexedMessageKeys],
       getMessages: (ch) =>
         getChannelIndex(ch, deps.messages.value[ch] ?? []).sorted.value,
@@ -62,6 +70,7 @@ export function useAppLayoutDmPanelInboxComputed(deps: {
       groups,
       activeInboxChannelId: deps.activeChannelId.value?.trim() ?? '',
       dmUnreadByChannelId: deps.dmUnreadByChannelIdForPanel.value,
+      fallbackRankMsByKey: deps.fallbackRankMsByKey,
     });
   });
 }

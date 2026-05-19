@@ -90,8 +90,8 @@ Forward **`X-Forwarded-For`** and **`X-Forwarded-Proto`** when the backend enfor
 1. Install **Node.js 22.13+** (matches [`README.md`](../../README.md) and `package.json` `engines`; needed for Astro 6 and ESLint in workspaces).
 2. From the **repository root**, run **`npm ci`** (or `npm install`) so workspaces and root **devDependencies** resolve correctly.
 3. On **minimal** images (very slim Ubuntu/Debian) or if **`bcrypt`** / **`sharp`** install fails, install a compiler toolchain, for example on Debian/Ubuntu: `build-essential` (and `python3` if a package’s install script expects it). Prefer **official Node binaries** or **glibc-based** images; **Alpine (musl)** can require extra care for prebuilt native modules.
-
-Skip Windows-only helpers on Linux (for example root `package.json` script **`lan:firewall`**, which invokes PowerShell). Use **`ufw`**, **nftables**, or cloud security groups for firewall rules.
+4. **Automod RE2 (`matches_regex_re2`):** The backend pulls the optional native package **`re2`**. If **`npm ci`** ran **without** a C++ toolchain, npm **drops** `re2` silently and the API reports **`re2RegexAvailable: false`**. After installing **`build-essential`** and **`python3`**, reinstall or rebuild from the repo root, for example **`npm rebuild re2 --workspace=backend`**, or run **`npm ci`** again. Quick check: **`node -e "require('re2'); console.log('re2 ok')"`** (must print `re2 ok`).
+5. Skip Windows-only helpers on Linux (for example root `package.json` script **`lan:firewall`**, which invokes PowerShell). Use **`ufw`**, **nftables**, or cloud security groups for firewall rules.
 
 ## Quick verification on the server
 

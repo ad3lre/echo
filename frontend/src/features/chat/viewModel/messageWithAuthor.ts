@@ -220,6 +220,9 @@ export function buildMessageWithAuthor(
         name: user.name,
         avatar: user.pfp,
         status: st,
+        ...(typeof user.timeZone === 'string' && user.timeZone.trim()
+          ? { timeZone: user.timeZone.trim() }
+          : {}),
         ...(shadow ? { isDiscordShadow: true } : {}),
       }
     : {

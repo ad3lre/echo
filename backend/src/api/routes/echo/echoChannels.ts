@@ -478,7 +478,10 @@ export default async function echoChannelsRoutes(
       if (typeof b.autoDeleteSyncedToCategory === 'boolean') {
         patch.autoDeleteSyncedToCategory = b.autoDeleteSyncedToCategory;
       }
-      if ('messageFormatTemplate' in b && typeof b.messageFormatTemplate === 'string') {
+      if (
+        'messageFormatTemplate' in b &&
+        typeof b.messageFormatTemplate === 'string'
+      ) {
         patch.messageFormatTemplate = b.messageFormatTemplate;
       }
       if (typeof b.messageFormatHard === 'boolean') {

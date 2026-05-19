@@ -232,6 +232,13 @@ export function parseOutboundVideoRtpStats(report: RTCStatsReport): {
 export const ECHO_LIVEKIT_AUDIO_ELEMENT_VOLUME_MAX = 1;
 
 /** Applies LiveKit playback volume when `setVolume` exists (local or remote audio). */
+/**
+ * Remote playback volume: Echo applies gain on the **client** via Web Audio
+ * ({@link echoPlaybackSetLinearGainOnElement}) or `HTMLMediaElement.volume`, not
+ * LiveKit's `RemoteTrack.setVolume` alone (LiveKit is unreliable for muxed /
+ * multi-element playback). This function always {@link echoPlaybackEnsureTrackElementsWired}
+ * first so per-user sliders hit the same graph the user hears.
+ */
 export function setAudioTrackVolumeIfSupported(
   track: object,
   gain: number,
@@ -263,7 +270,6 @@ export function setAudioTrackVolumeIfSupported(
     hasSetVolume: typeof t.setVolume === 'function',
   });
 
-  let usedWebAudio = false;
   for (const el of elements) {
     let isWired = echoPlaybackHasWiredElement(el);
     if (!isWired) {
@@ -279,15 +285,18 @@ export function setAudioTrackVolumeIfSupported(
     });
     if (isWired) {
       echoPlaybackSetLinearGainOnElement(el, finiteGain);
-      usedWebAudio = true;
-    } else {
-      /*
-       * Some builds route playback to attached elements without completing Web Audio
-       * registration; LiveKit's Track.setVolume then does not affect what you hear.
-       * Drive element.volume directly so per-user sliders always change audible level.
-       */
-      el.volume = elementVolume;
     }
+    /*
+     * Also drive HTMLMediaElement.volume directly. When the GainNode is in effect
+     * (createMediaElementSource has rerouted the element through Web Audio), per
+     * spec this assignment does not affect what is heard — the element's native
+     * output is disconnected. When the GainNode is NOT in effect (suspended
+     * AudioContext, recycled element whose source node was already disposed, or
+     * browser quirks that keep the native output alive), this is the only thing
+     * that controls audible volume. Setting it unconditionally is the safety net
+     * that makes master + per-user sliders move audible level in every case.
+     */
+    el.volume = elementVolume;
   }
 
   if (elements.length === 0) {
@@ -301,13 +310,13 @@ export function setAudioTrackVolumeIfSupported(
     });
   }
 
-  if (usedWebAudio) {
-    if (typeof t.setVolume === 'function') {
-      t.setVolume(ECHO_LIVEKIT_AUDIO_ELEMENT_VOLUME_MAX);
-    }
-    return;
-  }
-
+  /*
+   * Also route through LiveKit's own Track.setVolume so any attached element we
+   * did not enumerate (e.g. one LiveKit added internally / from the recycled
+   * pool that we never wired) has its element.volume updated too. With Web Audio
+   * not enabled on the Room, LiveKit's setVolume simply writes element.volume on
+   * every attached element, so this is safe alongside the per-element write above.
+   */
   if (typeof t.setVolume === 'function') {
     t.setVolume(elementVolume);
   }

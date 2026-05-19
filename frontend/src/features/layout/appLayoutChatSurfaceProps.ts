@@ -13,12 +13,16 @@ import type {
   ProfileSurfaceAdapter,
 } from '@/features/layout/regionAdapters';
 import type { ChannelCategory } from '@/composables/useChannels';
-import type { ComputedRef } from 'vue';
+import type { ComputedRef, ShallowRef } from 'vue';
 import type {
   VcActivityUiState,
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
-import type { EchoHangmanActivityV1 } from '@/audio/voiceEchoLiveKitData';
+import type {
+  EchoHangmanActivityV1,
+  EchoYoutubePlaybackSyncV1,
+} from '@/audio/voiceEchoLiveKitData';
+import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 
 /**
  * Props / inject bundle for [`AppLayoutChatSurface.vue`](./components/AppLayoutChatSurface.vue).
@@ -315,6 +319,9 @@ export type AppLayoutChatSurfaceProps = {
   playVcYoutubeNext: () => void;
   playVcYoutubePrevious: () => void;
   closeVcActivity: () => void;
+  vcYoutubeRemotePlayback: ShallowRef<VcYoutubeRemotePlaybackState | null>;
+  publishVcYoutubePlaybackSync: (sample: EchoYoutubePlaybackSyncV1) => void;
+  vcYoutubePlaybackShouldPublish: ComputedRef<boolean>;
   canShowDiscordChannelImport: boolean;
   forumPostsByForumId: Record<string, unknown[]>;
   forumPostsLoadingByForumId: Record<string, boolean>;
@@ -600,6 +607,9 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'playVcYoutubeNext',
   'playVcYoutubePrevious',
   'closeVcActivity',
+  'vcYoutubeRemotePlayback',
+  'publishVcYoutubePlaybackSync',
+  'vcYoutubePlaybackShouldPublish',
   'canShowDiscordChannelImport',
   'forumPostsByForumId',
   'forumPostsLoadingByForumId',

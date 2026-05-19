@@ -1,6 +1,7 @@
 import {
   computed,
   nextTick,
+  onScopeDispose,
   ref,
   shallowRef,
   watch,
@@ -29,7 +30,10 @@ import {
 } from '@/features/layout/domain/voiceParticipantState';
 import { playEchoSound } from '@/composables/useEchoSounds';
 import { liveKitRemoteParticipantByIdentity } from '@/services/livekit/liveKitRoomParticipants';
-import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
+import {
+  findEchoVoiceChannelIdContainingUserOnServer,
+  resolveEchoServerIdContainingChannel,
+} from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { UIErrorBus } from '@/utils/uiErrorBus';
 import { isEchoGraphId } from '@/utils/echoIds';
 import { resolveGuildMemberDisplayName } from '@/utils/resolveGuildMemberDisplayName';
@@ -38,6 +42,7 @@ import {
   shouldAcceptStaleYoutubeActivityForCodenamesRoomUrl,
   shouldPublishYoutubeWatchTogether,
   withYoutubeWatchTogetherSuppressPublish,
+  youtubeWatchTogetherPayloadMatchesLocalUi,
 } from '@/features/voice/youtubeWatchTogetherBridge';
 import type {
   VcActivityPresenceKind,
@@ -47,10 +52,14 @@ import type {
 } from '@/features/voice/vcActivityTypes';
 import { vcActivityPresenceKindsFromUi } from '@/features/voice/vcActivityTypes';
 import { prepareGuildVoiceE2eeMediaKey } from '@/services/voice/voiceE2eePrepare';
+import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 import type {
   EchoHangmanActivityV1,
   EchoHangmanGuessIntentV1,
   EchoHangmanNextRoundV1,
+  EchoHangmanRoundSecretV1,
+  EchoYoutubeActivityV1,
+  EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import {
   coerceHangmanActivityToLocalRoster,
@@ -109,6 +118,11 @@ function resolveParticipantPfpFromWorkspaceAndLiveKit(
   }
 }
 
+/** After LiveKit reconnects, drop buffered VC activity packets (esp. YouTube) before fresh sync. */
+const VC_LK_RECONNECT_QUEUE_FLUSH_MS = 450;
+/** Defer full VC data reset on disconnect so brief drops do not wipe Hangman / presence. */
+const VC_LK_DISCONNECT_TEARDOWN_MS = 600;
+
 export function useServerVoiceSession(deps: {
   authSession: ReturnType<typeof useAuthSessionStore>;
   workspace: WorkspaceStateApi;
@@ -149,6 +163,8 @@ export function useServerVoiceSession(deps: {
     activityPhase?: VcActivityUiPhase;
     codenamesRoomUrl?: string | null;
   }) => void;
+  /** When the activity host leaves voice, followers reset the activity surface. */
+  closeVcActivity: () => void;
 }) {
   const {
     authSession,
@@ -173,9 +189,218 @@ export function useServerVoiceSession(deps: {
     dmCallVideo,
     vcActivityUi,
     applyVcYoutubeWatchTogetherRemote,
+    closeVcActivity,
   } = deps;
 
   const lastAppliedYoutubeAt = ref(0);
+  /** Echo user id whose VC activity we mirror; null = self-led (publish). */
+  const vcActivitySyncKingUserId = ref<string | null>(null);
+  const vcActivitySyncKingDisplayName = ref('');
+  const pendingIncomingYoutubeQueue = shallowRef<
+    { msg: EchoYoutubeActivityV1; senderIdentity: string }[]
+  >([]);
+  const vcYoutubeRemotePlayback = shallowRef<VcYoutubeRemotePlaybackState | null>(
+    null,
+  );
+  let handlingIncomingYoutubeActivity = false;
+
+  const vcYoutubePlaybackShouldPublish = computed(
+    () => vcActivitySyncKingUserId.value == null,
+  );
+
+  const effectiveVcActivityKingUserId = computed(() => {
+    const k = vcActivitySyncKingUserId.value?.trim() ?? '';
+    if (k) return k;
+    const self = currentUser.value?.id?.trim() ?? '';
+    if (self && vcActivityUi.value.phase !== 'closed') return self;
+    return '';
+  });
+
+  function clearVcYoutubeRemotePlayback(): void {
+    vcYoutubeRemotePlayback.value = null;
+  }
+
+  function applyRemoteYoutubePlaybackFromMsg(msg: EchoYoutubeActivityV1): void {
+    const pb = msg.ytPlayback;
+    if (!pb || msg.activityPhase !== 'youtube') return;
+    vcYoutubeRemotePlayback.value = {
+      playing: pb.playing,
+      mediaTimeSec: pb.mediaTimeSec,
+      wallMs: pb.wallMs,
+      updatedAt: msg.updatedAt,
+    };
+  }
+
+  function resetVcWatchTogetherConsentState(): void {
+    vcActivitySyncKingUserId.value = null;
+    vcActivitySyncKingDisplayName.value = '';
+    pendingIncomingYoutubeQueue.value = [];
+    handlingIncomingYoutubeActivity = false;
+    clearVcYoutubeRemotePlayback();
+  }
+
+  let liveKitVcDataCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+  let liveKitReconnectQueueFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  /** True after `connected` → `connecting` until reconnect succeeds or VC data is torn down. */
+  let liveKitVcReconnectFromConnectedPending = false;
+
+  function clearVcLiveKitScheduledCleanups(): void {
+    if (liveKitVcDataCleanupTimer != null) {
+      clearTimeout(liveKitVcDataCleanupTimer);
+      liveKitVcDataCleanupTimer = null;
+    }
+    if (liveKitReconnectQueueFlushTimer != null) {
+      clearTimeout(liveKitReconnectQueueFlushTimer);
+      liveKitReconnectQueueFlushTimer = null;
+    }
+  }
+
+  /** Drop buffered incoming YouTube / VC activity packets (e.g. after reconnect or mid-drain). */
+  function flushPendingIncomingYoutubeQueue(reason: string): void {
+    voiceClientTrace('voice.client:vc_youtube_incoming_queue_flush', { reason });
+    pendingIncomingYoutubeQueue.value = [];
+    handlingIncomingYoutubeActivity = false;
+  }
+
+  function applyIncomingYoutubeActivity(msg: EchoYoutubeActivityV1): void {
+    lastAppliedYoutubeAt.value = Math.max(
+      lastAppliedYoutubeAt.value,
+      msg.updatedAt,
+    );
+    withYoutubeWatchTogetherSuppressPublish(() => {
+      applyVcYoutubeWatchTogetherRemote({
+        playlist: msg.playlist,
+        currentIndex: msg.currentIndex,
+        youtubeBrowseOpen: msg.youtubeBrowseOpen,
+        updatedAt: msg.updatedAt,
+        activityPhase: msg.activityPhase,
+        codenamesRoomUrl: msg.codenamesRoomUrl,
+      });
+    });
+  }
+
+  function handleOneIncomingYoutubeActivity(
+    msg: EchoYoutubeActivityV1,
+    senderIdentity: string,
+  ): void {
+    const self = currentUser.value?.id?.trim();
+    if (!self) return;
+
+    const sid = senderIdentity.trim();
+    const fromId = msg.fromUserId.trim();
+    if (!fromId || sid !== fromId) return;
+
+    const local = vcActivityUi.value;
+    const acceptStale = shouldAcceptStaleYoutubeActivityForCodenamesRoomUrl({
+      msgUpdatedAt: msg.updatedAt,
+      lastAppliedUpdatedAt: lastAppliedYoutubeAt.value,
+      msg,
+      local,
+    });
+    if (msg.updatedAt <= lastAppliedYoutubeAt.value && !acceptStale) return;
+
+    const king = vcActivitySyncKingUserId.value?.trim() || null;
+    if (king && fromId !== king) return;
+
+    const fromOther = fromId !== self;
+
+    if (msg.activityPhase === 'closed' && fromOther) {
+      if (!king || fromId !== king) return;
+    }
+
+    if (
+      fromOther &&
+      !king &&
+      local.phase !== 'closed' &&
+      local.phase !== 'pick' &&
+      !youtubeWatchTogetherPayloadMatchesLocalUi(msg, local)
+    ) {
+      return;
+    }
+
+    if (youtubeWatchTogetherPayloadMatchesLocalUi(msg, local)) {
+      lastAppliedYoutubeAt.value = Math.max(
+        lastAppliedYoutubeAt.value,
+        msg.updatedAt,
+      );
+      if (fromOther && msg.activityPhase === 'closed' && king === fromId) {
+        vcActivitySyncKingUserId.value = null;
+        vcActivitySyncKingDisplayName.value = '';
+      }
+      if (
+        fromOther &&
+        msg.activityPhase === 'youtube' &&
+        msg.ytPlayback &&
+        (king == null || king === fromId)
+      ) {
+        applyRemoteYoutubePlaybackFromMsg(msg);
+      }
+      return;
+    }
+
+    const acceptStaleAfter = shouldAcceptStaleYoutubeActivityForCodenamesRoomUrl(
+      {
+        msgUpdatedAt: msg.updatedAt,
+        lastAppliedUpdatedAt: lastAppliedYoutubeAt.value,
+        msg,
+        local: vcActivityUi.value,
+      },
+    );
+    if (msg.updatedAt <= lastAppliedYoutubeAt.value && !acceptStaleAfter) {
+      return;
+    }
+
+    applyIncomingYoutubeActivity(msg);
+    if (fromOther) {
+      if (msg.activityPhase === 'closed') {
+        vcActivitySyncKingUserId.value = null;
+        vcActivitySyncKingDisplayName.value = '';
+      } else {
+        vcActivitySyncKingUserId.value = fromId;
+        vcActivitySyncKingDisplayName.value = msg.fromName?.trim() ?? '';
+      }
+    }
+    if (fromOther && msg.activityPhase === 'youtube' && msg.ytPlayback) {
+      applyRemoteYoutubePlaybackFromMsg(msg);
+    }
+  }
+
+  async function drainIncomingYoutubeActivities(
+    msg: EchoYoutubeActivityV1,
+    senderIdentity: string,
+  ): Promise<void> {
+    pendingIncomingYoutubeQueue.value = [
+      ...pendingIncomingYoutubeQueue.value,
+      { msg, senderIdentity },
+    ];
+    if (handlingIncomingYoutubeActivity) return;
+    handlingIncomingYoutubeActivity = true;
+    try {
+      while (pendingIncomingYoutubeQueue.value.length > 0) {
+        const cur = pendingIncomingYoutubeQueue.value.shift();
+        if (!cur) break;
+        handleOneIncomingYoutubeActivity(cur.msg, cur.senderIdentity);
+      }
+    } finally {
+      handlingIncomingYoutubeActivity = false;
+    }
+  }
+
+  watch(
+    currentVoiceChannelId,
+    (id, prev) => {
+      const next = id?.trim() ?? '';
+      const was = prev?.trim() ?? '';
+      if (next === was) return;
+      clearVcLiveKitScheduledCleanups();
+      liveKitVcReconnectFromConnectedPending = false;
+      lastAppliedYoutubeAt.value = 0;
+      vcActivitySyncKingUserId.value = null;
+      vcActivitySyncKingDisplayName.value = '';
+      flushPendingIncomingYoutubeQueue('voice_channel_changed');
+    },
+  );
+
   const vcActivityPresenceByUserId = shallowRef(
     new Map<string, VcActivityPresenceKind[]>(),
   );
@@ -204,6 +429,8 @@ export function useServerVoiceSession(deps: {
   const vcHangmanPublic = shallowRef<EchoHangmanActivityV1 | null>(null);
   const vcHangmanLastTick = shallowRef<HangmanTick | null>(null);
   const vcHangmanSecretByRound = shallowRef(new Map<number, string>());
+  /** Secret arrived before the guessing snapshot applied locally. */
+  const vcHangmanPendingSecretByRound = shallowRef(new Map<number, string>());
 
   function hangmanRosterFromPresence(): string[] {
     const out = new Set<string>();
@@ -237,7 +464,62 @@ export function useServerVoiceSession(deps: {
     if (s.phase === 'setter_picking') {
       return s.fromUserId === s.setterUserId || s.fromUserId === orch;
     }
-    return s.fromUserId === s.setterUserId;
+    if (s.phase === 'guessing' || s.phase === 'round_over') {
+      return s.fromUserId === s.setterUserId || s.fromUserId === orch;
+    }
+    return false;
+  }
+
+  function tryMergeHangmanPendingSecretForRound(st: EchoHangmanActivityV1): void {
+    if (st.phase !== 'guessing') return;
+    const pending = vcHangmanPendingSecretByRound.value.get(st.roundSeq);
+    if (!pending) return;
+    const v = validateHangmanSecretWord(pending);
+    if (!v.ok) {
+      const pn = new Map(vcHangmanPendingSecretByRound.value);
+      pn.delete(st.roundSeq);
+      vcHangmanPendingSecretByRound.value = pn;
+      return;
+    }
+    if (
+      hangmanMaskForSecretAndGuesses(v.normalized, new Set(st.guessedLetters)) !==
+      st.mask
+    ) {
+      return;
+    }
+    const next = new Map(vcHangmanSecretByRound.value);
+    next.set(st.roundSeq, v.normalized);
+    vcHangmanSecretByRound.value = next;
+    const pn = new Map(vcHangmanPendingSecretByRound.value);
+    pn.delete(st.roundSeq);
+    vcHangmanPendingSecretByRound.value = pn;
+  }
+
+  function receiveHangmanRoundSecret(
+    msg: EchoHangmanRoundSecretV1,
+    fromIdentity: string,
+  ): void {
+    if (fromIdentity.trim() !== msg.setterUserId.trim()) return;
+    const v = validateHangmanSecretWord(msg.secret);
+    if (!v.ok) return;
+    const normalized = v.normalized;
+    const st = vcHangmanPublic.value;
+    if (
+      st &&
+      st.roundSeq === msg.roundSeq &&
+      st.setterUserId.trim() === msg.setterUserId.trim() &&
+      st.phase === 'guessing' &&
+      hangmanMaskForSecretAndGuesses(normalized, new Set(st.guessedLetters)) ===
+        st.mask
+    ) {
+      const next = new Map(vcHangmanSecretByRound.value);
+      next.set(msg.roundSeq, normalized);
+      vcHangmanSecretByRound.value = next;
+      return;
+    }
+    const pn = new Map(vcHangmanPendingSecretByRound.value);
+    pn.set(msg.roundSeq, normalized);
+    vcHangmanPendingSecretByRound.value = pn;
   }
 
   function tryApplyHangmanRemote(
@@ -254,6 +536,7 @@ export function useServerVoiceSession(deps: {
     if (!isNewerHangmanTick(tick, vcHangmanLastTick.value)) return;
     vcHangmanLastTick.value = tick;
     vcHangmanPublic.value = s;
+    tryMergeHangmanPendingSecretForRound(s);
   }
 
   const hangmanHandlers: {
@@ -269,29 +552,8 @@ export function useServerVoiceSession(deps: {
   const lkRoom = useLiveKitVoiceRoom({
     getUserWantsLocalCamera: () =>
       isDmVoiceCallUi.value ? dmCallVideo.value : vcVideo.value,
-    onYoutubeActivity: (msg) => {
-      const local = vcActivityUi.value;
-      const acceptStale = shouldAcceptStaleYoutubeActivityForCodenamesRoomUrl({
-        msgUpdatedAt: msg.updatedAt,
-        lastAppliedUpdatedAt: lastAppliedYoutubeAt.value,
-        msg,
-        local,
-      });
-      if (msg.updatedAt <= lastAppliedYoutubeAt.value && !acceptStale) return;
-      lastAppliedYoutubeAt.value = Math.max(
-        lastAppliedYoutubeAt.value,
-        msg.updatedAt,
-      );
-      withYoutubeWatchTogetherSuppressPublish(() => {
-        applyVcYoutubeWatchTogetherRemote({
-          playlist: msg.playlist,
-          currentIndex: msg.currentIndex,
-          youtubeBrowseOpen: msg.youtubeBrowseOpen,
-          updatedAt: msg.updatedAt,
-          activityPhase: msg.activityPhase,
-          codenamesRoomUrl: msg.codenamesRoomUrl,
-        });
-      });
+    onYoutubeActivity: (msg, senderIdentity) => {
+      void drainIncomingYoutubeActivities(msg, senderIdentity);
     },
     onVcActivityPresence: (_msg, identity) => {
       mergePresenceFromRemote(identity, _msg.activities);
@@ -301,8 +563,20 @@ export function useServerVoiceSession(deps: {
       hangmanHandlers.onGuess(msg, identity),
     onHangmanNextRound: (msg, identity) =>
       hangmanHandlers.onNext(msg, identity),
+    onHangmanRoundSecret: (msg, identity) =>
+      receiveHangmanRoundSecret(msg, identity),
     onRemoteParticipantDisconnected: (identity) => {
       dropPresenceForRemote(identity);
+      const id = identity.trim();
+      const king = vcActivitySyncKingUserId.value?.trim();
+      if (king && id === king) {
+        flushPendingIncomingYoutubeQueue('watch_together_host_left');
+        vcActivitySyncKingUserId.value = null;
+        vcActivitySyncKingDisplayName.value = '';
+        withYoutubeWatchTogetherSuppressPublish(() => {
+          closeVcActivity();
+        });
+      }
     },
   });
 
@@ -313,6 +587,7 @@ export function useServerVoiceSession(deps: {
     };
     vcHangmanLastTick.value = tick;
     vcHangmanPublic.value = next;
+    tryMergeHangmanPendingSecretForRound(next);
     lkRoom?.publishHangmanActivity(next);
   };
 
@@ -321,9 +596,17 @@ export function useServerVoiceSession(deps: {
     const self = currentUser.value?.id?.trim();
     const st = vcHangmanPublic.value;
     if (!self || !st || st.phase !== 'guessing') return;
-    if (self !== st.setterUserId) return;
     if (intent.fromUserId === st.setterUserId) return;
     if (intent.roundSeq !== st.roundSeq) return;
+    const roster = mergeHangmanPresenceRoster(
+      st.rosterUserIds,
+      hangmanRosterFromPresence(),
+    );
+    const orch = hangmanOrchestratorUserId(roster);
+    const presence = hangmanRosterFromPresence();
+    const orchPresent = !!(orch && presence.includes(orch));
+    const applier = orchPresent ? orch! : st.setterUserId.trim();
+    if (!applier || self !== applier) return;
     const secret = vcHangmanSecretByRound.value.get(st.roundSeq);
     if (!secret) return;
     const next = computeHangmanGuessOutcome({
@@ -332,11 +615,14 @@ export function useServerVoiceSession(deps: {
       letter: intent.letter,
     });
     if (!next) return;
+    const guessHistory = [
+      ...(st.guessHistory ?? []),
+      {
+        userId: intent.fromUserId.trim(),
+        letter: intent.letter.toUpperCase(),
+      },
+    ];
     const now = Date.now();
-    const roster = mergeHangmanPresenceRoster(
-      st.rosterUserIds,
-      hangmanRosterFromPresence(),
-    );
     if (next.status === 'playing') {
       hangmanHandlers.publish({
         v: 1,
@@ -349,6 +635,7 @@ export function useServerVoiceSession(deps: {
         rosterUserIds: roster,
         phase: 'guessing',
         guessedLetters: next.guessedLetters,
+        guessHistory,
         wrongCount: next.wrongCount,
         mask: next.mask,
         roundResult: null,
@@ -366,6 +653,7 @@ export function useServerVoiceSession(deps: {
         rosterUserIds: roster,
         phase: 'round_over',
         guessedLetters: next.guessedLetters,
+        guessHistory,
         wrongCount: next.wrongCount,
         mask: next.mask,
         roundResult: 'won',
@@ -383,6 +671,7 @@ export function useServerVoiceSession(deps: {
         rosterUserIds: roster,
         phase: 'round_over',
         guessedLetters: next.guessedLetters,
+        guessHistory,
         wrongCount: next.wrongCount,
         mask: next.mask,
         roundResult: 'lost',
@@ -391,23 +680,48 @@ export function useServerVoiceSession(deps: {
     }
   };
 
-  hangmanHandlers.onNext = (msg, identity) => {
-    if (msg.fromUserId.trim() !== identity.trim()) return;
+  function hangmanMayApplyNextRoundRequest(requesterUserId: string): boolean {
     const self = currentUser.value?.id?.trim();
     const st = vcHangmanPublic.value;
-    if (!self || !st || st.phase !== 'round_over') return;
-    if (msg.completedRoundSeq !== st.roundSeq) return;
+    if (!self || !st || st.phase !== 'round_over') return false;
+    const req = requesterUserId.trim();
     const roster = mergeHangmanPresenceRoster(
       st.rosterUserIds,
       hangmanRosterFromPresence(),
     );
-    if (!roster.includes(msg.fromUserId)) return;
+    if (!roster.includes(req)) return false;
     const orch = hangmanOrchestratorUserId(roster);
-    if (!orch || orch !== self) return;
-    const nextSeq = st.roundSeq + 1;
+    if (!orch) return false;
+    const presence = hangmanRosterFromPresence();
+    const orchInPresence = presence.includes(orch);
+    const setter = st.setterUserId.trim();
+    if (orchInPresence && self === orch) return true;
+    if (!orchInPresence && self === setter) return true;
+    return false;
+  }
+
+  function advanceHangmanToNextRoundFromRoundOver(
+    completedRoundSeq: number,
+    tickUpdatedAt: number,
+  ): boolean {
+    const self = currentUser.value?.id?.trim();
+    const st = vcHangmanPublic.value;
+    if (!self || !st || st.phase !== 'round_over') return false;
+    if (st.roundSeq !== completedRoundSeq) return false;
+    const roster = mergeHangmanPresenceRoster(
+      st.rosterUserIds,
+      hangmanRosterFromPresence(),
+    );
+    const sm = new Map(vcHangmanSecretByRound.value);
+    sm.delete(completedRoundSeq);
+    vcHangmanSecretByRound.value = sm;
+    const pm = new Map(vcHangmanPendingSecretByRound.value);
+    pm.delete(completedRoundSeq);
+    vcHangmanPendingSecretByRound.value = pm;
+    const nextSeq = completedRoundSeq + 1;
     const nextSetter = expectedSetterForRound(roster, nextSeq);
-    if (!nextSetter) return;
-    const now = Math.max(Date.now(), msg.updatedAt + 1);
+    if (!nextSetter) return false;
+    const now = Math.max(Date.now(), tickUpdatedAt + 1);
     hangmanHandlers.publish({
       v: 1,
       t: 'hangman_activity',
@@ -419,11 +733,25 @@ export function useServerVoiceSession(deps: {
       rosterUserIds: roster,
       phase: 'setter_picking',
       guessedLetters: [],
+      guessHistory: [],
       wrongCount: 0,
       mask: null,
       roundResult: null,
       answerReveal: null,
     });
+    return true;
+  }
+
+  hangmanHandlers.onNext = (msg, identity) => {
+    if (msg.fromUserId.trim() !== identity.trim()) return;
+    const st = vcHangmanPublic.value;
+    if (!st || st.phase !== 'round_over') return;
+    if (msg.completedRoundSeq !== st.roundSeq) return;
+    if (!hangmanMayApplyNextRoundRequest(msg.fromUserId)) return;
+    void advanceHangmanToNextRoundFromRoundOver(
+      msg.completedRoundSeq,
+      msg.updatedAt,
+    );
   };
 
   function commitVcHangmanWord(raw: string): string | null {
@@ -460,11 +788,26 @@ export function useServerVoiceSession(deps: {
       rosterUserIds: roster,
       phase: 'guessing',
       guessedLetters: [],
+      guessHistory: [],
       wrongCount: 0,
       mask,
       roundResult: null,
       answerReveal: null,
     });
+    const orch = hangmanOrchestratorUserId(roster);
+    if (orch && orch !== self) {
+      lkRoom?.publishHangmanRoundSecret(
+        {
+          v: 1,
+          t: 'hangman_round_secret',
+          updatedAt: Date.now(),
+          roundSeq: st.roundSeq,
+          setterUserId: self,
+          secret: validated.normalized,
+        },
+        [orch],
+      );
+    }
     return null;
   }
 
@@ -502,6 +845,10 @@ export function useServerVoiceSession(deps: {
     )
       return;
     if (!self || !st || st.phase !== 'round_over') return;
+    if (hangmanMayApplyNextRoundRequest(self)) {
+      void advanceHangmanToNextRoundFromRoundOver(st.roundSeq, Date.now());
+      return;
+    }
     lkRoom.publishHangmanNextRound({
       v: 1,
       t: 'hangman_next_round',
@@ -534,6 +881,7 @@ export function useServerVoiceSession(deps: {
       rosterUserIds: roster,
       phase: 'setter_picking',
       guessedLetters: [],
+      guessHistory: [],
       wrongCount: 0,
       mask: null,
       roundResult: null,
@@ -581,11 +929,13 @@ export function useServerVoiceSession(deps: {
     () => lkRoom?.roomState.value ?? 'idle',
   );
 
-  function republishCodenamesRoomIfSynced() {
+  function republishVcActivitySnapshotIfHostForLateJoiners() {
     if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
-    const v = vcActivityUi.value;
-    if (v.phase !== 'codenames' || !v.codenamesRoomUrl?.trim()) return;
+    if (vcActivitySyncKingUserId.value != null) return;
     if (!shouldPublishYoutubeWatchTogether()) return;
+    const v = vcActivityUi.value;
+    if (v.phase === 'closed') return;
+    if (v.phase === 'codenames' && !v.codenamesRoomUrl?.trim()) return;
     const who = resolveWatchTogetherAuthor();
     if (!who) return;
     const payload = buildYoutubeActivityPayload(v, who);
@@ -596,32 +946,100 @@ export function useServerVoiceSession(deps: {
     lkRoom?.publishYoutubeActivity(payload);
   }
 
+  function publishVcYoutubePlaybackSync(sample: EchoYoutubePlaybackSyncV1): void {
+    if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
+    if (!vcYoutubePlaybackShouldPublish.value) return;
+    if (!shouldPublishYoutubeWatchTogether()) return;
+    const who = resolveWatchTogetherAuthor();
+    if (!who) return;
+    const v = vcActivityUi.value;
+    if (v.phase !== 'youtube' || !v.youtubeVideoId) return;
+    const payload = buildYoutubeActivityPayload(v, {
+      userId: who.userId,
+      name: who.name,
+      ytPlayback: sample,
+    });
+    lastAppliedYoutubeAt.value = Math.max(
+      lastAppliedYoutubeAt.value,
+      payload.updatedAt,
+    );
+    lkRoom?.publishYoutubeActivity(payload);
+  }
+
+  function scheduleVcLiveKitDataTeardownAfterDisconnect(reason: string): void {
+    liveKitVcDataCleanupTimer = setTimeout(() => {
+      liveKitVcDataCleanupTimer = null;
+      liveKitVcReconnectFromConnectedPending = false;
+      if (liveKitState.value === 'connected') return;
+      lastAppliedYoutubeAt.value = 0;
+      resetVcWatchTogetherConsentState();
+      clearAllRemotePresence();
+      vcHangmanPublic.value = null;
+      vcHangmanLastTick.value = null;
+      vcHangmanSecretByRound.value = new Map();
+      vcHangmanPendingSecretByRound.value = new Map();
+      if (hangmanBootstrapTimer != null) {
+        clearTimeout(hangmanBootstrapTimer);
+        hangmanBootstrapTimer = null;
+      }
+      voiceClientTrace('voice.client:vc_lk_teardown_after_disconnect', {
+        state: liveKitState.value,
+        reason,
+      });
+    }, VC_LK_DISCONNECT_TEARDOWN_MS);
+  }
+
   watch(
     () => liveKitState.value,
     (s, prev) => {
-      if (s !== 'connected') {
-        lastAppliedYoutubeAt.value = 0;
-        clearAllRemotePresence();
-        vcHangmanPublic.value = null;
-        vcHangmanLastTick.value = null;
-        vcHangmanSecretByRound.value = new Map();
-        if (hangmanBootstrapTimer != null) {
-          clearTimeout(hangmanBootstrapTimer);
-          hangmanBootstrapTimer = null;
+      clearVcLiveKitScheduledCleanups();
+
+      if (s === 'connected') {
+        liveKitVcReconnectFromConnectedPending = false;
+        flushPendingIncomingYoutubeQueue('livekit_connected');
+        if (prev !== 'connected') {
+          void nextTick(() => republishVcActivitySnapshotIfHostForLateJoiners());
         }
         return;
       }
-      if (prev !== 'connected') {
-        void nextTick(() => republishCodenamesRoomIfSynced());
+
+      // Reconnect: stay on 'connecting' — do not wipe Hangman/presence; only drain stale data queue.
+      if (prev === 'connected' && s === 'connecting') {
+        liveKitVcReconnectFromConnectedPending = true;
+        liveKitReconnectQueueFlushTimer = setTimeout(() => {
+          liveKitReconnectQueueFlushTimer = null;
+          flushPendingIncomingYoutubeQueue('livekit_reconnect_settled');
+        }, VC_LK_RECONNECT_QUEUE_FLUSH_MS);
+        return;
+      }
+
+      // Real disconnect / error: wait out brief flaps, then tear down synced VC state.
+      if (prev === 'connected') {
+        scheduleVcLiveKitDataTeardownAfterDisconnect('livekit_left_connected');
+        return;
+      }
+
+      if (prev === 'connecting' && (s === 'idle' || s === 'error')) {
+        if (liveKitVcReconnectFromConnectedPending) {
+          liveKitVcReconnectFromConnectedPending = false;
+          scheduleVcLiveKitDataTeardownAfterDisconnect('livekit_reconnect_failed');
+          return;
+        }
+        flushPendingIncomingYoutubeQueue('livekit_connect_aborted');
       }
     },
   );
+
+  onScopeDispose(() => {
+    clearVcLiveKitScheduledCleanups();
+    liveKitVcReconnectFromConnectedPending = false;
+  });
 
   watch(
     () => lkRoom?.remoteParticipants.value.size ?? 0,
     () => {
       if (liveKitState.value === 'connected') {
-        void nextTick(() => republishCodenamesRoomIfSynced());
+        void nextTick(() => republishVcActivitySnapshotIfHostForLateJoiners());
       }
     },
   );
@@ -663,8 +1081,16 @@ export function useServerVoiceSession(deps: {
   watch(
     () => vcActivityUi.value.phase,
     (phase) => {
+      if (phase === 'closed') {
+        vcActivitySyncKingUserId.value = null;
+        vcActivitySyncKingDisplayName.value = '';
+      }
+      if (phase !== 'youtube') {
+        clearVcYoutubeRemotePlayback();
+      }
       if (phase !== 'hangman') {
         vcHangmanSecretByRound.value = new Map();
+        vcHangmanPendingSecretByRound.value = new Map();
       }
     },
   );
@@ -916,8 +1342,52 @@ export function useServerVoiceSession(deps: {
         prev === 'connected' || (prev === 'connecting' && next === 'error');
       if (!wasInSession) return;
 
-      const channelId = currentVoiceChannelId.value?.trim() ?? '';
+      if (!currentVoiceChannelId.value?.trim()) return;
+
+      try {
+        await hydrateWorkspace();
+      } catch {
+        // Best-effort: reconnect still uses local channel if hydrate fails.
+      }
+
+      const uid = currentUser.value?.id?.trim() ?? '';
+      let channelId = currentVoiceChannelId.value?.trim() ?? '';
       if (!channelId) return;
+
+      const voiceSid = resolveEchoServerIdContainingChannel(
+        channelId,
+        workspace.categoriesByServer.value,
+      );
+      const selectedSid = selectedServer.value?.id?.trim() ?? '';
+      const sid =
+        (voiceSid && isEchoGraphId(voiceSid) ? voiceSid : '') ||
+        (selectedSid && isEchoGraphId(selectedSid) ? selectedSid : '');
+
+      if (sid && uid) {
+        const authoritative = findEchoVoiceChannelIdContainingUserOnServer(
+          sid,
+          uid,
+          workspace.categoriesByServer.value,
+        );
+        if (!authoritative) {
+          voiceClientTrace('voice.client:vc_auto_reconnect_no_roster_row', {
+            channelId,
+            serverId: sid,
+          });
+          onLeaveVoiceUi();
+          return;
+        }
+        if (authoritative !== channelId) {
+          voiceClientTrace('voice.client:vc_auto_reconnect_authoritative', {
+            from: channelId,
+            to: authoritative,
+          });
+          currentVoiceChannelId.value = authoritative;
+          currentVoiceChannelName.value =
+            resolveReconnectChannelName(authoritative);
+          channelId = authoritative;
+        }
+      }
 
       const epoch = ++vcAutoReconnectEpoch;
       const channelName = resolveReconnectChannelName(channelId);
@@ -1093,6 +1563,8 @@ export function useServerVoiceSession(deps: {
         ? vcActivityPresenceKindsFromUi(vcActivityUi.value)
         : (vcActivityPresenceByUserId.value.get(id) ?? []);
 
+      const kingId = effectiveVcActivityKingUserId.value.trim();
+
       return {
         id,
         name: displayName,
@@ -1106,6 +1578,7 @@ export function useServerVoiceSession(deps: {
         speaking,
         audioLevel,
         activityPresence,
+        isVcActivityKing: !!kingId && id === kingId,
         ...(hasLiveKitData
           ? {
               cameraTrack,
@@ -1178,6 +1651,10 @@ export function useServerVoiceSession(deps: {
     lkRoom: lkRoom?.lkRoom ?? null,
     /** Full `useLiveKitVoiceRoom()` API (connect, disconnect, media). */
     liveKitVoiceApi: lkRoom ?? null,
+    vcYoutubeRemotePlayback,
+    publishVcYoutubePlaybackSync,
+    vcYoutubePlaybackShouldPublish,
+    effectiveVcActivityKingUserId,
     isCameraEnabled: lkRoom?.isCameraEnabled ?? computed(() => false),
     isScreenShareEnabled: lkRoom?.isScreenShareEnabled ?? computed(() => false),
     selectedCameraDeviceId:

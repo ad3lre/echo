@@ -24,6 +24,7 @@ export function applyWorkspaceMembersToRoster<
     bannerBlackoutEnabled?: boolean;
     bannerPositionY?: number;
     bio?: string;
+    timeZone?: string | null;
   },
 >(
   existingUsers: T[],

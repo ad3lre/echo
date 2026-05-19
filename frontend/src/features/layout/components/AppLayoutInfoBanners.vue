@@ -51,6 +51,9 @@ const primaryFlowFailureBanner = pick('primaryFlowFailureBanner');
 const uiErrorMessage = pick('uiErrorMessage');
 const uiErrorSeverity = pick('uiErrorSeverity');
 const uiErrorShowRetry = computed(() => !!pick('uiErrorShowRetry').value);
+const uiErrorShowCreateAccount = computed(
+  () => !!pick('uiErrorShowCreateAccount').value,
+);
 const uiErrorRetryBusy = computed(() => !!pick('uiErrorRetryBusy').value);
 const showGuestUpgradeBanner = computed(
   () => !!pick('showGuestUpgradeBanner').value,
@@ -71,6 +74,7 @@ const emit = defineEmits<{
   'primary-flow-failure-dismiss': [];
   'ui-error-dismiss': [];
   'ui-error-retry': [];
+  'ui-error-create-account': [];
   'guest-upgrade-open-settings': [];
   'guest-upgrade-dismiss': [];
 }>();
@@ -140,6 +144,11 @@ function fireUiErrorRetry() {
   if (h?.onUiErrorRetry) void h.onUiErrorRetry();
   else emit('ui-error-retry');
 }
+function fireUiErrorCreateAccount() {
+  const h = host();
+  if (h?.onUiErrorCreateAccount) h.onUiErrorCreateAccount();
+  else emit('ui-error-create-account');
+}
 
 /** When any strip is shown, pad below the iOS status bar / notch so copy and actions stay tappable. */
 const hasVisibleInfoBanner = computed(() => {
@@ -188,6 +197,14 @@ const hasVisibleInfoBanner = computed(() => {
         {{ uiErrorMessage }}
       </span>
       <div class="flex shrink-0 flex-wrap items-center justify-center gap-1.5">
+        <button
+          v-if="uiErrorShowCreateAccount"
+          type="button"
+          class="rounded-md bg-indigo-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-400"
+          @click="fireUiErrorCreateAccount"
+        >
+          Create an account
+        </button>
         <button
           v-if="uiErrorShowRetry"
           type="button"

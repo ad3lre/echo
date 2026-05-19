@@ -124,6 +124,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     isCompactGuildTriPane,
     vcActivityUi,
     applyVcYoutubeWatchTogetherRemote,
+    closeVcActivity,
   } = deps;
 
   const {
@@ -159,6 +160,10 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     stopScreenShare: stopVcScreenShare,
     getLocalScreenTrack: getVcLocalScreenTrack,
     getLocalCameraTrack: getVcLocalCameraTrack,
+    vcYoutubeRemotePlayback,
+    publishVcYoutubePlaybackSync,
+    vcYoutubePlaybackShouldPublish,
+    effectiveVcActivityKingUserId,
   } = useServerVoiceSession({
     authSession,
     workspace,
@@ -189,6 +194,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     dmCallVideo,
     vcActivityUi,
     applyVcYoutubeWatchTogetherRemote,
+    closeVcActivity,
   });
 
   const uiAudioDevices = useUiAudioDevicesStore();
@@ -638,6 +644,10 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     stopVcScreenShare,
     getVcLocalScreenTrack,
     getVcLocalCameraTrack,
+    vcYoutubeRemotePlayback,
+    publishVcYoutubePlaybackSync,
+    vcYoutubePlaybackShouldPublish,
+    effectiveVcActivityKingUserId,
     vcMirrorCamera,
     syncLiveKitAudioFromUiStores,
     dmCallVoiceStripThreadId,

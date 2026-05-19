@@ -3,9 +3,16 @@ import { ref } from 'vue';
 export type JoinServerConfirmPreview = {
   serverName: string;
   iconUrl?: string;
+  /** Wide banner image URL when known (invite preview or Explore directory). */
+  bannerUrl?: string;
+  /** Full public description / blurb (About section). */
+  description?: string;
   memberCount?: number;
+  /** Short meta line (e.g. target voice channel name). */
   subtitle?: string;
   isVoiceInvite?: boolean;
+  /** Explore directory: users currently in voice (social proof). */
+  voiceParticipantCount?: number;
 };
 
 export function useJoinServerConfirmModal() {

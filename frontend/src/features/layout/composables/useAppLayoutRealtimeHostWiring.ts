@@ -28,6 +28,7 @@ export function useAppLayoutRealtimeHostWiring(deps: {
   applyEchoPresenceFromSocket: AppLayoutEchoRealtimeHostCallbacks['onPresenceUpdate'];
   handleEchoDmActivity: AppLayoutEchoRealtimeHostCallbacks['onDmActivity'];
   handleEchoDmCall: AppLayoutEchoRealtimeHostCallbacks['onDmCall'];
+  handleEchoDmThreadActivity: AppLayoutEchoRealtimeHostCallbacks['onDmThreadActivity'];
   mergeReadStateUpdate: AppLayoutEchoRealtimeHostCallbacks['mergeReadStateUpdate'];
   replaceAttentionSnapshot: AppLayoutEchoRealtimeHostCallbacks['replaceAttentionSnapshot'];
   setChannelPinsFromEcho: AppLayoutEchoRealtimeHostCallbacks['setChannelPinsFromEcho'];
@@ -59,6 +60,9 @@ export function useAppLayoutRealtimeHostWiring(deps: {
         );
       }
     },
+    onVoiceRosterDelta: (payload) => {
+      deps.echoSession.applyVoiceRosterDelta(payload);
+    },
     onVoiceE2eeEpochSuperseded: deps.onVoiceE2eeEpochSuperseded,
   });
 
@@ -72,6 +76,7 @@ export function useAppLayoutRealtimeHostWiring(deps: {
     applyEchoPresenceFromSocket: deps.applyEchoPresenceFromSocket,
     handleEchoDmActivity: deps.handleEchoDmActivity,
     handleEchoDmCall: deps.handleEchoDmCall,
+    handleEchoDmThreadActivity: deps.handleEchoDmThreadActivity,
     mergeReadStateUpdate: deps.mergeReadStateUpdate,
     replaceAttentionSnapshot: deps.replaceAttentionSnapshot,
     handleWorkspaceEvent,

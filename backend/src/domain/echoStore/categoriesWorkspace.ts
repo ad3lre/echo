@@ -480,6 +480,8 @@ export type EchoWorkspaceMemberDto = {
   bannerPositionY?: number;
   /** Profile bio text from `auth_users.bio`. */
   bio?: string;
+  /** IANA timezone for Magic Time (`auth_users.time_zone`). */
+  timeZone: string | null;
 };
 
 /** One-shot workspace payload: joined servers, category/channel trees, and member rosters per server. */
@@ -581,6 +583,7 @@ export async function listEchoWorkspaceForUser(
              u.banner_blur_enabled,
              u.banner_blackout_enabled,
              u.banner_position_y,
+             NULLIF(TRIM(u.time_zone), '') AS time_zone,
              t.timeout_until AS communication_timeout_until
       FROM echo_server_members m
       INNER JOIN auth_users u ON u.id = m.user_id
@@ -653,6 +656,11 @@ export async function listEchoWorkspaceForUser(
     const accountBio = String(
       (row as { account_bio?: unknown }).account_bio ?? '',
     ).trim();
+    const timeZoneRaw = (row as { time_zone?: unknown }).time_zone;
+    const timeZone =
+      typeof timeZoneRaw === 'string' && timeZoneRaw.trim()
+        ? timeZoneRaw.trim().slice(0, 64)
+        : null;
     const bannerImage = String(
       (row as { banner_image?: unknown }).banner_image ?? '',
     ).trim();
@@ -700,6 +708,7 @@ export async function listEchoWorkspaceForUser(
       bannerBlackoutEnabled: bannerBlackout === true,
       bannerPositionY: bannerPositionYClamped,
       bio: accountBio,
+      timeZone,
     });
   }
 

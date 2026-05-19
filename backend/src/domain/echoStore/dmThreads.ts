@@ -26,21 +26,44 @@ export async function echoUsersShareDirectDm(
   userIdA: string,
   userIdB: string,
 ): Promise<boolean> {
+  return (await getEchoDmChannelIdForPair(pool, userIdA, userIdB)) != null;
+}
+
+/** Channel id of the persisted 1:1 DM thread between two users, or null when none exists. */
+export async function getEchoDmChannelIdForPair(
+  pool: pg.Pool,
+  userIdA: string,
+  userIdB: string,
+): Promise<string | null> {
   const a = userIdA.trim();
   const b = userIdB.trim();
-  if (!a || !b || a === b) return false;
+  if (!a || !b) return null;
+  if (a === b) {
+    const selfRow = await pool.query<{ channel_id: string }>(
+      `
+      SELECT channel_id
+      FROM echo_dm_threads
+      WHERE user_low = $1 AND user_high = $1
+      LIMIT 1
+      `,
+      [a],
+    );
+    const row = selfRow.rows[0];
+    return row ? String(row.channel_id) : null;
+  }
   const low = a < b ? a : b;
   const high = a < b ? b : a;
-  const r = await pool.query(
+  const r = await pool.query<{ channel_id: string }>(
     `
-    SELECT 1
+    SELECT channel_id
     FROM echo_dm_threads
     WHERE user_low = $1 AND user_high = $2
     LIMIT 1
     `,
     [low, high],
   );
-  return r.rows.length > 0;
+  const row = r.rows[0];
+  return row ? String(row.channel_id) : null;
 }
 
 /**
@@ -62,6 +85,51 @@ export const ECHO_DM_REALM_SERVER_ID = 'echo_dm_realm';
 
 export const ECHO_GROUP_DM_MIN_MEMBERS = 3;
 
+export type EchoDmActivityKind =
+  | 'open'
+  | 'message'
+  | 'call'
+  | 'friend'
+  | 'group_event';
+
+/**
+ * Bump the authoritative DM-thread activity timestamp. Monotonic forward: stale events
+ * (older than what is already stored) are ignored so out-of-order signals never reorder
+ * the inbox backward. Returns the effective stored timestamp (ISO string) or null if
+ * the channel has no activity row (i.e. not a DM-realm channel).
+ *
+ * Always idempotent: writing the same timestamp twice is a no-op.
+ */
+export async function bumpEchoDmThreadActivity(
+  db: SqlExecutor,
+  channelId: string,
+  at: string | Date,
+  kind: EchoDmActivityKind,
+): Promise<string | null> {
+  const cid = channelId.trim();
+  if (!cid) return null;
+  const r = await db.query<{ last_activity_at: Date }>(
+    `
+    INSERT INTO echo_dm_activity (channel_id, last_activity_at, last_activity_kind)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (channel_id) DO UPDATE
+      SET last_activity_at = GREATEST(echo_dm_activity.last_activity_at, EXCLUDED.last_activity_at),
+          last_activity_kind = CASE
+            WHEN EXCLUDED.last_activity_at >= echo_dm_activity.last_activity_at
+              THEN EXCLUDED.last_activity_kind
+            ELSE echo_dm_activity.last_activity_kind
+          END
+    RETURNING last_activity_at
+    `,
+    [cid, at, kind],
+  );
+  const row = r.rows[0];
+  if (!row) return null;
+  return row.last_activity_at instanceof Date
+    ? row.last_activity_at.toISOString()
+    : new Date(String(row.last_activity_at)).toISOString();
+}
+
 export type EchoDmThreadRow = {
   channelId: string;
   peerId: string | null;
@@ -69,6 +137,8 @@ export type EchoDmThreadRow = {
   name: string | null;
   memberUserIds: string[] | null;
   lastActivityId: string;
+  /** Authoritative inbox sort key. ISO 8601 UTC. Set by any real DM activity (message, call, friend, group). */
+  lastActivityAt: string;
   /** Persisted custom group icon (echo_channels.icon_key); null when unset or direct thread. */
   groupPfp: string | null;
 };
@@ -113,6 +183,7 @@ export async function getEchoDmPeerUserId(
   if (!row) return null;
   const low = String(row.user_low);
   const high = String(row.user_high);
+  if (low === high) return low;
   if (userId === low) return high;
   if (userId === high) return low;
   return null;
@@ -311,7 +382,10 @@ export async function listEchoDmParticipantUserIds(
     [channelId],
   );
   if (direct.rows[0]) {
-    return [String(direct.rows[0].user_low), String(direct.rows[0].user_high)];
+    const lo = String(direct.rows[0].user_low);
+    const hi = String(direct.rows[0].user_high);
+    if (lo === hi) return [lo];
+    return [lo, hi];
   }
   return listEchoGroupDmMemberIds(pool, channelId);
 }
@@ -343,6 +417,15 @@ export async function listEchoDmActiveVoiceParticipantUserIdsByChannelId(
   return out;
 }
 
+function isoFromActivityAt(value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (value instanceof Date) return value.toISOString();
+  const s = String(value).trim();
+  if (!s) return undefined;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
 export async function getEchoDmRealtimeThreadForUser(
   pool: pg.Pool,
   channelId: string,
@@ -354,11 +437,13 @@ export async function getEchoDmRealtimeThreadForUser(
     userId,
   );
   if (directRow) {
+    const lastActivityAt = isoFromActivityAt(directRow.last_activity_at);
     return {
       channelId,
       kind: 'direct',
       peerUserId: String(directRow.peer_id),
       lastActivityId: String(directRow.sort_key),
+      ...(lastActivityAt ? { lastActivityAt } : {}),
     };
   }
 
@@ -371,6 +456,7 @@ export async function getEchoDmRealtimeThreadForUser(
   const iconRaw = groupRow.group_icon_key;
   const pfp =
     iconRaw != null && String(iconRaw).trim() ? String(iconRaw).trim() : '';
+  const lastActivityAt = isoFromActivityAt(groupRow.last_activity_at);
   return {
     channelId,
     kind: 'group',
@@ -379,6 +465,7 @@ export async function getEchoDmRealtimeThreadForUser(
       ? groupRow.member_ids.map((id: unknown) => String(id))
       : [],
     lastActivityId: String(groupRow.sort_key),
+    ...(lastActivityAt ? { lastActivityAt } : {}),
     ...(pfp ? { pfp } : {}),
   };
 }
@@ -399,11 +486,13 @@ export async function getEchoDmCallSignalThreadForUser(
     userId,
   );
   if (directRow) {
+    const lastActivityAt = isoFromActivityAt(directRow.last_activity_at);
     return {
       channelId,
       kind: 'direct',
       peerUserId: String(directRow.peer_id),
       lastActivityId: String(directRow.sort_key),
+      ...(lastActivityAt ? { lastActivityAt } : {}),
     };
   }
   return getEchoDmRealtimeThreadForUser(pool, channelId, userId);
@@ -504,6 +593,7 @@ export async function userHasEchoDirectDmAccess(
 ): Promise<boolean> {
   const peerId = await getEchoDmPeerUserId(pool, channelId, userId);
   if (!peerId) return false;
+  if (peerId === userId) return true;
   if (await isEchoPairBlocked(pool, userId, peerId)) return false;
   if (await echoPairMayParticipateInDm(pool, userId, peerId)) return true;
   const req = await getEchoDmMessageRequestByChannelId(pool, channelId);
@@ -574,9 +664,72 @@ export async function getOrCreateEchoDmThread(
   peerId: string,
 ): Promise<
   | { ok: true; channelId: string }
-  | { ok: false; reason: 'self' | 'not_friend' | 'unknown_peer' | 'blocked' }
+  | { ok: false; reason: 'not_friend' | 'unknown_peer' | 'blocked' }
 > {
-  if (userId === peerId) return { ok: false, reason: 'self' };
+  if (userId.trim() === peerId.trim()) {
+    const self = userId.trim();
+    if (!self) return { ok: false, reason: 'unknown_peer' };
+    const exists = await pool.query<{ channel_id: string }>(
+      `
+      SELECT channel_id
+      FROM echo_dm_threads
+      WHERE user_low = $1 AND user_high = $1
+      LIMIT 1
+      `,
+      [self],
+    );
+    if (exists.rows[0]) {
+      return { ok: true, channelId: String(exists.rows[0].channel_id) };
+    }
+    const peerRow = await pool.query(`SELECT 1 FROM auth_users WHERE id = $1`, [
+      self,
+    ]);
+    if (peerRow.rows.length === 0) return { ok: false, reason: 'unknown_peer' };
+    await ensureEchoDmRealm(pool, self);
+    const categoryId = await ensureEchoDmCategoryId(pool);
+    const channelId = nextEchoSnowflakeId();
+    const maxPos = await pool.query(
+      `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_channels WHERE server_id = $1 AND category_id = $2`,
+      [ECHO_DM_REALM_SERVER_ID, categoryId],
+    );
+    const position = Number(maxPos.rows[0]?.p ?? 0);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key) VALUES ($1, $2, $3, 'text', $4, $5, '')`,
+        [channelId, ECHO_DM_REALM_SERVER_ID, 'direct', categoryId, position],
+      );
+      await client.query(
+        `INSERT INTO echo_dm_threads (channel_id, user_low, user_high) VALUES ($1, $2, $3)`,
+        [channelId, self, self],
+      );
+      await bumpEchoDmThreadActivity(client, channelId, new Date(), 'open');
+      await client.query('COMMIT');
+    } catch (e) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* ignore */
+      }
+      const again = await pool.query<{ channel_id: string }>(
+        `
+        SELECT channel_id
+        FROM echo_dm_threads
+        WHERE user_low = $1 AND user_high = $1
+        LIMIT 1
+        `,
+        [self],
+      );
+      if (again.rows[0]) {
+        return { ok: true, channelId: String(again.rows[0].channel_id) };
+      }
+      throw e;
+    } finally {
+      client.release();
+    }
+    return { ok: true, channelId };
+  }
   const peerRow = await pool.query(`SELECT 1 FROM auth_users WHERE id = $1`, [
     peerId,
   ]);
@@ -643,6 +796,7 @@ export async function getOrCreateEchoDmThread(
         userId < peerId ? peerId : userId,
       ],
     );
+    await bumpEchoDmThreadActivity(client, channelId, new Date(), 'open');
     if (!eligible) {
       await upsertEchoDmMessageRequest(
         client,
@@ -744,6 +898,7 @@ export async function createEchoGroupDmThread(
         [channelId, uid],
       );
     }
+    await bumpEchoDmThreadActivity(client, channelId, new Date(), 'group_event');
     await client.query('COMMIT');
   } catch (e) {
     try {
@@ -839,6 +994,9 @@ export async function addEchoGroupDmMembers(
          ON CONFLICT (channel_id, user_id) DO NOTHING`,
         [cid, uid],
       );
+    }
+    if (toAddAfterLock.length > 0) {
+      await bumpEchoDmThreadActivity(client, cid, new Date(), 'group_event');
     }
     await client.query('COMMIT');
     return { ok: true, addedMemberUserIds: toAddAfterLock };

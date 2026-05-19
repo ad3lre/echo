@@ -5,6 +5,7 @@ import type {
   EchoAttentionSnapshot,
   EchoDmActivityEvent,
   EchoDmCallEvent,
+  EchoDmThreadActivityEvent,
   EchoWorkspaceEvent,
   ForwardedFrom,
   MentionEntity,
@@ -30,6 +31,8 @@ export type EchoRealtimePresencePort = {
 export type EchoRealtimeDmPort = {
   applyDmActivity: (payload: EchoDmActivityEvent) => void;
   applyDmCall: (payload: EchoDmCallEvent) => void;
+  /** Inbox sort key changed for a thread (no accompanying message/call payload). */
+  applyDmThreadActivity: (payload: EchoDmThreadActivityEvent) => void;
 };
 
 export type EchoRealtimeAttentionPort = {

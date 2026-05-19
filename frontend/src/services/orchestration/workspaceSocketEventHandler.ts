@@ -23,6 +23,11 @@ export type WorkspaceSocketEventHandlerDeps = {
   onDiscordVoiceMirrorRoster?: (payload: EchoWorkspaceEvent) => void;
   /** LiveKit voice E2EE epoch invalidated — disconnect / prompt rejoin. */
   onVoiceE2eeEpochSuperseded?: (payload: EchoWorkspaceEvent) => void;
+  /**
+   * Voice roster delta — apply in-place to cached workspace without a full hydrate.
+   * Not called if the payload has no `voiceRosterDelta` field.
+   */
+  onVoiceRosterDelta?: (payload: EchoWorkspaceEvent) => void;
   /** Debounce before calling `hydrateEchoFromApi` for refresh kinds. Default 200. */
   debounceMs?: number;
 };
@@ -40,6 +45,13 @@ export function createWorkspaceSocketEventHandler(
   return (payload: EchoWorkspaceEvent) => {
     if (payload.kind === 'friend_requests_changed') {
       void deps.refreshEchoSocialFromApi();
+      return;
+    }
+    if (payload.kind === 'voice_roster_delta') {
+      // Tier-1 fast path: immediate in-place patch, no debounced hydrate.
+      // Version cursor is updated so subsequent full snapshots version-gate correctly.
+      deps.noteWorkspaceEventVersion(payload.version);
+      deps.onVoiceRosterDelta?.(payload);
       return;
     }
     if (payload.kind === 'discord_voice_mirror_roster') {

@@ -4,7 +4,10 @@ import {
   getActiveIndexMap,
   getChannelIndex,
 } from '@/features/chat/domain/channelMessageIndex';
-import { buildDmPanelInboxList } from '@/features/dm/buildDmPanelUserList';
+import {
+  buildDmPanelInboxList,
+  pinSelfDmInboxEntryFirst,
+} from '@/features/dm/buildDmPanelUserList';
 import { filterVisibleDmInboxEntries } from '@/features/dm/filterVisibleDmInbox';
 import { sortFavoriteDmInboxFirst } from '@/features/dm/sortFavoriteDmInboxFirst';
 
@@ -28,7 +31,7 @@ export function createLatestDmInboxTargetForRailResolver(deps: {
   groupDMs: Ref<Record<string, GroupDmRow>>;
   messages: Ref<Record<string, RawMessage[]>>;
   echoPeerByChannelId: Ref<Map<string, string>>;
-  echoDmLastActivityIdByChannelId: Ref<Map<string, string>>;
+  echoDmLastActivityAtMsByChannelId: Ref<Map<string, number>>;
   selectedDMUserId: Ref<string | null>;
   activeChannelId: Ref<string>;
   dmUnreadByChannelIdForPanel:
@@ -57,7 +60,7 @@ export function createLatestDmInboxTargetForRailResolver(deps: {
     const list = buildDmPanelInboxList({
       selfId: deps.selfId.value ?? '',
       echoPeerByChannelId: deps.echoPeerByChannelId.value,
-      activityIdByChannelId: deps.echoDmLastActivityIdByChannelId.value,
+      lastActivityAtMsByChannelId: deps.echoDmLastActivityAtMsByChannelId.value,
       messageKeys: [...indexedMessageKeys],
       getMessages: (ch) =>
         getChannelIndex(ch, deps.messages.value[ch] ?? []).sorted.value,
@@ -67,8 +70,14 @@ export function createLatestDmInboxTargetForRailResolver(deps: {
       activeInboxChannelId: deps.activeChannelId.value?.trim() ?? '',
       dmUnreadByChannelId: deps.dmUnreadByChannelIdForPanel.value,
     });
-    const visible = filterVisibleDmInboxEntries(list, deps.hidden);
-    const sorted = sortFavoriteDmInboxFirst(visible, deps.favorite);
+    const visible = filterVisibleDmInboxEntries(list, {
+      ...deps.hidden,
+      selfUserId: deps.selfId.value,
+    });
+    const sorted = pinSelfDmInboxEntryFirst(
+      sortFavoriteDmInboxFirst(visible, deps.favorite),
+      deps.selfId.value,
+    );
     const first = sorted[0];
     if (!first) return null;
     if (first.kind === 'group') return { kind: 'group', channelId: first.id };

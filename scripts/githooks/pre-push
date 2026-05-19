@@ -6,6 +6,10 @@
 #
 # GitHub is release-only: never create or update refs/heads/main there (see
 # docs/operations/github-release-mirror.md). Deletes of remote main are allowed.
+#
+# Also refuse mirroring when release/1.0.0 would point at the same commit as
+# origin/main (fast-forward to main): that publishes GitLab's per-commit graph
+# on the public default branch. Use squash sync (see doc) unless overridden.
 set -euo pipefail
 
 push_url="${2:-}"
@@ -43,6 +47,18 @@ while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
   if [[ "$remote_ref" != "refs/heads/release/1.0.0" ]]; then
     continue
   fi
+  if [[ -z "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]] && git remote get-url origin &>/dev/null; then
+    git fetch origin refs/heads/main:refs/remotes/origin/main --quiet 2>/dev/null || true
+    origin_main=$(git rev-parse origin/main 2>/dev/null || true)
+    if [[ -n "$origin_main" && "$local_sha" == "$origin_main" ]]; then
+      echo "pre-push: refusing to mirror release/1.0.0: tip matches origin/main." >&2
+      echo "  That exposes GitLab main's commit-by-commit history on GitHub (same tip SHA)." >&2
+      echo "  Use a squash sync instead — see docs/operations/github-release-mirror.md" >&2
+      echo "  Emergency override: ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1 git push ..." >&2
+      exit 1
+    fi
+  fi
+
   echo "pre-push: mirroring release/1.0.0 to github (ad3lre/echo)..."
   prev=$(git rev-parse github/release/1.0.0 2>/dev/null || true)
   if [[ -n "$prev" ]]; then

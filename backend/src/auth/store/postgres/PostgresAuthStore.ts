@@ -140,6 +140,9 @@ export class PostgresAuthStore implements AuthStore {
     if (row.show_last_online !== undefined && row.show_last_online !== null) {
       u.showLastOnline = Boolean(row.show_last_online);
     }
+    if (row.time_zone != null && String(row.time_zone).trim()) {
+      u.timeZone = String(row.time_zone).trim().slice(0, 64);
+    }
     const ordRaw = row.signup_ordinal;
     const signupOrdinal =
       ordRaw != null && ordRaw !== '' ? Number(ordRaw) : Number.NaN;
@@ -319,6 +322,7 @@ export class PostgresAuthStore implements AuthStore {
         COALESCE(totp_enabled, false) AS totp_enabled,
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
         COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
+        time_zone,
         signup_ordinal
       FROM auth_users WHERE username = $1`;
     const sqlLegacy = `SELECT id, username, display_name, pfp, status, custom_status, bio, banner_image, banner_color, banner_refraction_enabled, banner_blur_enabled, banner_blackout_enabled, banner_position_y, password_hash, created_at, updated_at FROM auth_users WHERE username = $1`;
@@ -360,6 +364,7 @@ export class PostgresAuthStore implements AuthStore {
         COALESCE(totp_enabled, false) AS totp_enabled,
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
         COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
+        time_zone,
         signup_ordinal
       FROM auth_users WHERE id = $1
       `,
@@ -384,6 +389,7 @@ export class PostgresAuthStore implements AuthStore {
         COALESCE(totp_enabled, false) AS totp_enabled,
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
         COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
+        time_zone,
         signup_ordinal
       FROM auth_users
       ORDER BY created_at DESC
@@ -498,6 +504,21 @@ export class PostgresAuthStore implements AuthStore {
     if (patch.showLastOnline !== undefined) {
       values.push(Boolean(patch.showLastOnline));
       sets.push(`show_last_online = $${values.length}`);
+    }
+    if (patch.timeZone !== undefined) {
+      if (patch.timeZone === null || String(patch.timeZone).trim() === '') {
+        values.push(null);
+        sets.push(`time_zone = $${values.length}`);
+      } else {
+        const tz = String(patch.timeZone).trim().slice(0, 64);
+        try {
+          Intl.DateTimeFormat(undefined, { timeZone: tz }).format();
+        } catch {
+          throw new Error('INVALID_TIME_ZONE');
+        }
+        values.push(tz);
+        sets.push(`time_zone = $${values.length}`);
+      }
     }
     if (patch.email !== undefined) {
       const emailResult = validateRegistrationEmail(patch.email);
@@ -704,6 +725,7 @@ export class PostgresAuthStore implements AuthStore {
         guest_pending_email,
         COALESCE(totp_enabled, false) AS totp_enabled,
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
+        time_zone,
         signup_ordinal
       FROM auth_users WHERE LOWER(TRIM(email)) = $1 LIMIT 1
       `,

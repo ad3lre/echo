@@ -177,6 +177,29 @@ export async function addEchoServerMember(
   invalidateEchoPermissionCacheForUser(serverId, userId);
 }
 
+/**
+ * Guild ids the user is a member of. Used to subscribe authenticated sockets to
+ * `echo:server:${id}` so `workspace_invalidated` (voice roster, etc.) reaches
+ * clients who have not yet called `joinChannel` for that server this session.
+ */
+export async function listEchoServerIdsForUser(
+  pool: pg.Pool,
+  userId: string,
+): Promise<string[]> {
+  const uid = userId.trim();
+  if (!uid) return [];
+  const r = await pool.query(
+    `SELECT server_id FROM echo_server_members WHERE user_id = $1`,
+    [uid],
+  );
+  const out: string[] = [];
+  for (const row of r.rows as { server_id?: unknown }[]) {
+    const sid = String(row.server_id ?? '').trim();
+    if (sid) out.push(sid);
+  }
+  return out;
+}
+
 export async function listEchoServerMembers(
   pool: pg.Pool,
   serverId: string,

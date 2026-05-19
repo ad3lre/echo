@@ -39,6 +39,7 @@ import {
 import { evaluateAutomodOnMessageSend } from '../domain/echoStore/automod/messageEval';
 import {
   applyAutomodAfterMessagePersisted,
+  applyAutomodBlockDeliveries,
   recordAutomodBlockHits,
 } from '../services/echoAutomodApply';
 import { clientIpFromSocketHandshake } from '../net/clientIp';
@@ -541,6 +542,15 @@ export function registerMessageHandler(
                   firedRules: automodEval.firedRules,
                   log,
                 });
+                await applyAutomodBlockDeliveries(fastify, pool, {
+                  serverId: sidForSpam,
+                  ownerActorId,
+                  channelId,
+                  userId,
+                  correlationId: automodEval.correlationId,
+                  firedRules: automodEval.firedRules,
+                  log,
+                });
               }
               log.warn({
                 msg: 'echo.socket.message_failed',
@@ -554,8 +564,7 @@ export function registerMessageHandler(
                 code: 'AUTOMOD_BLOCKED',
                 channelId,
                 clientMessageId,
-                detail:
-                  automodEval.blockUserDetail ?? 'Blocked by AutoMod',
+                detail: automodEval.blockUserDetail ?? 'Blocked by AutoMod',
               });
               return;
             }
@@ -616,8 +625,7 @@ export function registerMessageHandler(
               code: 'VALIDATION',
               channelId,
               clientMessageId,
-              detail:
-                'Message must start with this channel’s format template.',
+              detail: 'Message must start with this channel’s format template.',
             });
             return;
           }

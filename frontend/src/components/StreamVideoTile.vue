@@ -17,7 +17,10 @@ import {
   clearHtmlVideoElement,
   mediaStreamFromLiveKitTrack,
 } from '@/utils/livekitTrackMediaStream';
-import { echoPlaybackRegisterTrackElement } from '@/services/livekit/echoRemotePlaybackWebAudio';
+import {
+  echoPlaybackEnsureAudioContextRunning,
+  echoPlaybackRegisterTrackElement,
+} from '@/services/livekit/echoRemotePlaybackWebAudio';
 import { useLocalScreenSharePreviewSuspend } from '@/composables/useLocalScreenSharePreviewSuspend';
 import { useLiveKitTrackSurfaceGeneration } from '@/composables/useLiveKitTrackSurfaceGeneration';
 import { clampMenuToViewport } from '@/features/chat/composables/useContextMenuPosition';
@@ -241,6 +244,7 @@ function onContextMenu(e: MouseEvent) {
   }
   e.preventDefault();
   closePfpOutputVolumeMenu();
+  closeStreamVolumePopover();
   qualityMenuPos.value = { left: e.clientX, top: e.clientY };
   qualityMenuOpen.value = true;
 }
@@ -248,6 +252,7 @@ function onContextMenu(e: MouseEvent) {
 function selectQuality(q: StreamQuality) {
   selectedQuality.value = q;
   qualityMenuOpen.value = false;
+  closeStreamVolumePopover();
   const pid = props.participantId?.trim() ?? '';
   if (!props.isLocal && pid) {
     emit('manual-stream-layer-quality', { participantId: pid, quality: q });
@@ -256,6 +261,7 @@ function selectQuality(q: StreamQuality) {
 
 function closeQualityMenu() {
   qualityMenuOpen.value = false;
+  closeStreamVolumePopover();
 }
 
 const pipSupported = computed(
@@ -283,28 +289,58 @@ const streamVolumeMuted = computed(
     streamVolumeSliderValue.value <= 0,
 );
 
-const streamVolumeHover = ref(false);
-const streamVolumeFocusWithin = ref(false);
+/** LiveKit per-user output scale (see `useLiveKitVoiceRoom` remote map). */
+const STREAM_VOLUME_SLIDER_MAX = 200;
 
-const streamVolumeSliderExpanded = computed(
-  () => streamVolumeHover.value || streamVolumeFocusWithin.value,
-);
-
-function onStreamVolumeControlFocusIn() {
-  streamVolumeFocusWithin.value = true;
+function streamVolumeSliderFillPercent(vol: number): string {
+  const m = STREAM_VOLUME_SLIDER_MAX;
+  const clamped = Math.max(0, Math.min(m, vol));
+  return `${(clamped / m) * 100}%`;
 }
 
-function onStreamVolumeControlFocusOut(e: FocusEvent) {
-  const root = e.currentTarget;
-  const next = e.relatedTarget;
-  if (
-    root instanceof HTMLElement &&
-    next instanceof Node &&
-    root.contains(next)
-  ) {
+const streamVolumePopoverOpen = ref(false);
+const streamVolumePopoverRef = ref<HTMLElement | null>(null);
+const streamVolumePopoverBtnRef = ref<HTMLButtonElement | null>(null);
+const streamVolumePopoverPos = ref({ left: 0, top: 0 });
+
+function closeStreamVolumePopover() {
+  streamVolumePopoverOpen.value = false;
+}
+
+function toggleStreamVolumePopover() {
+  if (streamVolumePopoverOpen.value) {
+    closeStreamVolumePopover();
     return;
   }
-  streamVolumeFocusWithin.value = false;
+  closeQualityMenu();
+  closePfpOutputVolumeMenu();
+  void echoPlaybackEnsureAudioContextRunning();
+  const btn = streamVolumePopoverBtnRef.value;
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    streamVolumePopoverPos.value = clampMenuToViewport(
+      r.right - 248,
+      r.bottom + 6,
+      256,
+      132,
+    );
+  } else {
+    streamVolumePopoverPos.value = clampMenuToViewport(8, 8, 256, 132);
+  }
+  streamVolumePopoverOpen.value = true;
+  void nextTick(() => {
+    requestAnimationFrame(() => {
+      const el = streamVolumePopoverRef.value;
+      if (!el) return;
+      const mr = el.getBoundingClientRect();
+      streamVolumePopoverPos.value = clampMenuToViewport(
+        mr.left,
+        mr.top,
+        mr.width,
+        mr.height,
+      );
+    });
+  });
 }
 
 function toggleStreamVolumeMute() {
@@ -322,7 +358,10 @@ function toggleStreamVolumeMute() {
 function onStreamVolumeRangeInput(e: Event) {
   const raw = Number((e.target as HTMLInputElement).value);
   if (!Number.isFinite(raw)) return;
-  const v = Math.max(0, Math.min(200, Math.round(raw)));
+  const v = Math.max(
+    0,
+    Math.min(STREAM_VOLUME_SLIDER_MAX, Math.round(raw)),
+  );
   if (v > 0) lastNonZeroStreamVolume.value = v;
   emit('remoteStreamVolumeChange', v);
 }
@@ -370,7 +409,10 @@ function onPfpOutputVolumeInput(ev: Event) {
   if (!props.remoteStreamVolumeControl) return;
   const raw = Number((ev.target as HTMLInputElement).value);
   if (!Number.isFinite(raw)) return;
-  const v = Math.max(0, Math.min(200, Math.round(raw)));
+  const v = Math.max(
+    0,
+    Math.min(STREAM_VOLUME_SLIDER_MAX, Math.round(raw)),
+  );
   pfpOutputMenuDraft.value = v;
   if (v > 0) lastNonZeroStreamVolume.value = v;
   emit('remoteStreamVolumeChange', v);
@@ -387,15 +429,19 @@ function onDocPointerDown(e: MouseEvent) {
     path.some(
       (n) =>
         n instanceof HTMLElement &&
-        n.classList?.contains('stream-quality-menu'),
+        (n.classList?.contains('stream-quality-menu') ||
+          n.classList?.contains('stream-tile-volume-popover')),
     )
   ) {
     return;
   }
   const volRoot = pfpOutputMenuRef.value;
   if (volRoot && path.includes(volRoot)) return;
+  const streamVolBtn = streamVolumePopoverBtnRef.value;
+  if (streamVolBtn && path.includes(streamVolBtn)) return;
   closeQualityMenu();
   closePfpOutputVolumeMenu();
+  closeStreamVolumePopover();
 }
 
 async function togglePip() {
@@ -544,56 +590,28 @@ onUnmounted(() => {
     <div
       class="pointer-events-none absolute right-3 top-3 z-30 flex items-center gap-1.5"
     >
-      <div
+      <button
         v-if="remoteStreamVolumeControl && !isLocal"
-        class="stream-video-tile__vol-ctrl pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center rounded-full bg-scrim-2 pr-0.5 opacity-100 shadow-lg backdrop-blur-sm transition-[max-width,padding] duration-200 ease-out"
-        :class="
-          streamVolumeSliderExpanded ? 'max-w-[11.5rem] pl-2' : 'max-w-9 pl-0'
+        ref="streamVolumePopoverBtnRef"
+        type="button"
+        class="stream-tile-volume-popover-btn pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-scrim-2 text-white opacity-0 shadow-lg backdrop-blur-sm transition-[opacity,background-color] duration-200 hover:bg-overlay-heavy group-hover:opacity-100 pointer-coarse:opacity-100"
+        :class="{ 'opacity-100': streamVolumePopoverOpen }"
+        :aria-expanded="streamVolumePopoverOpen"
+        aria-haspopup="dialog"
+        :aria-label="
+          streamVolumeMuted ? 'Unmute stream audio' : 'Stream volume'
         "
-        @mouseenter="streamVolumeHover = true"
-        @mouseleave="streamVolumeHover = false"
-        @focusin="onStreamVolumeControlFocusIn"
-        @focusout="onStreamVolumeControlFocusOut"
-        @click.stop
-        @pointerdown.stop
+        @click.stop="toggleStreamVolumePopover"
+        @dblclick.stop
       >
-        <input
-          type="range"
-          class="stream-video-tile__vol-range h-1 shrink-0 cursor-pointer appearance-none rounded-full bg-glass-active accent-emerald-400 transition-[width,opacity,margin] duration-200 ease-out pointer-coarse:!mr-1.5 pointer-coarse:!w-[min(28vw,88px)] pointer-coarse:!opacity-100"
-          :class="
-            streamVolumeSliderExpanded
-              ? 'stream-video-tile__vol-range--expanded mr-1.5 w-[min(28vw,96px)] opacity-100'
-              : 'stream-video-tile__vol-range--collapsed pointer-coarse:stream-video-tile__vol-range--expanded'
-          "
-          min="0"
-          max="200"
-          step="1"
-          :value="streamVolumeSliderValue"
-          :aria-valuenow="streamVolumeSliderValue"
-          aria-valuemin="0"
-          aria-valuemax="200"
-          aria-label="Stream volume"
-          @input="onStreamVolumeRangeInput"
+        <img
+          :src="streamVolumeMuted ? icons.notificationsOff : icons.volumeUp"
+          alt=""
+          class="h-[18px] w-[18px] brightness-0 invert"
+          :class="streamVolumeMuted ? 'opacity-90' : ''"
+          aria-hidden="true"
         />
-        <button
-          type="button"
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-overlay-heavy focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
-          :aria-label="
-            streamVolumeMuted ? 'Unmute stream audio' : 'Mute stream audio'
-          "
-          :aria-expanded="streamVolumeSliderExpanded"
-          @click.stop="toggleStreamVolumeMute"
-          @dblclick.stop
-        >
-          <img
-            :src="streamVolumeMuted ? icons.notificationsOff : icons.volumeUp"
-            alt=""
-            class="h-[18px] w-[18px] brightness-0 invert"
-            :class="streamVolumeMuted ? 'opacity-90' : ''"
-            aria-hidden="true"
-          />
-        </button>
-      </div>
+      </button>
       <button
         v-if="pipSupported && track"
         type="button"
@@ -645,6 +663,68 @@ onUnmounted(() => {
 
     <Teleport to="body">
       <div
+        v-if="streamVolumePopoverOpen && remoteStreamVolumeControl && !isLocal"
+        ref="streamVolumePopoverRef"
+        role="dialog"
+        aria-label="Stream volume"
+        class="stream-tile-volume-popover fixed z-[402] w-[min(calc(100vw-1.5rem),16.5rem)] rounded-lg border border-border bg-[var(--echo-menu-bg)] px-3 py-2.5 shadow-xl"
+        :style="{
+          left: `${streamVolumePopoverPos.left}px`,
+          top: `${streamVolumePopoverPos.top}px`,
+        }"
+        @click.stop
+        @pointerdown.stop
+        @mousedown.stop
+      >
+        <p class="truncate text-sm font-semibold text-gray-100">
+          {{ participantName }}
+        </p>
+        <p
+          class="mt-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
+        >
+          <img
+            :src="icons.volumeUp"
+            alt=""
+            class="h-3.5 w-3.5 opacity-80 filter invert"
+          />
+          Their volume
+        </p>
+        <div class="mt-2.5 flex items-center gap-2">
+          <input
+            type="range"
+            class="stream-video-tile-vc-slider min-w-0 flex-1 cursor-pointer"
+            min="0"
+            :max="STREAM_VOLUME_SLIDER_MAX"
+            step="1"
+            :style="{
+              '--value': streamVolumeSliderFillPercent(streamVolumeSliderValue),
+            }"
+            :value="streamVolumeSliderValue"
+            aria-valuemin="0"
+            :aria-valuemax="STREAM_VOLUME_SLIDER_MAX"
+            :aria-valuenow="streamVolumeSliderValue"
+            aria-label="Stream volume"
+            @input="onStreamVolumeRangeInput"
+          />
+          <span
+            class="w-10 shrink-0 text-right text-[11px] tabular-nums text-fg-soft"
+            >{{ Math.round(streamVolumeSliderValue / 2) }}%</span
+          >
+        </div>
+        <div class="mt-2 flex justify-end border-t border-border pt-2">
+          <button
+            type="button"
+            class="rounded-md px-2 py-1 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
+            @click.stop="toggleStreamVolumeMute"
+          >
+            {{ streamVolumeMuted ? 'Unmute' : 'Mute' }}
+          </button>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div
         v-if="pfpOutputMenuOpen && remoteStreamVolumeControl && !isLocal"
         ref="pfpOutputMenuRef"
         class="stream-tile-output-vol-menu fixed z-[400] min-w-[220px] rounded-lg border border-border bg-[var(--echo-menu-bg)] px-3 py-2 shadow-xl"
@@ -675,17 +755,20 @@ onUnmounted(() => {
         <div class="mt-2 flex items-center gap-2">
           <input
             type="range"
-            class="h-1.5 min-w-0 flex-1 cursor-pointer accent-violet-400"
+            class="stream-video-tile-vc-slider min-w-0 flex-1 cursor-pointer"
             min="0"
             max="200"
             step="1"
+            :style="{
+              '--value': streamVolumeSliderFillPercent(pfpOutputMenuDraft),
+            }"
             :value="pfpOutputMenuDraft"
             aria-label="Participant volume"
             @input="onPfpOutputVolumeInput"
           />
           <span
-            class="w-9 shrink-0 text-right text-[11px] tabular-nums text-fg-soft"
-            >{{ Math.round(pfpOutputMenuDraft) }}%</span
+            class="w-10 shrink-0 text-right text-[11px] tabular-nums text-fg-soft"
+            >{{ Math.round(pfpOutputMenuDraft / 2) }}%</span
           >
         </div>
       </div>
@@ -722,17 +805,20 @@ onUnmounted(() => {
           <div class="mt-2 flex items-center gap-2">
             <input
               type="range"
-              class="h-1.5 min-w-0 flex-1 cursor-pointer accent-violet-400"
+              class="stream-video-tile-vc-slider min-w-0 flex-1 cursor-pointer"
               min="0"
               max="200"
               step="1"
+              :style="{
+                '--value': streamVolumeSliderFillPercent(streamVolumeSliderValue),
+              }"
               :value="streamVolumeSliderValue"
               aria-label="Participant volume"
               @input="onStreamVolumeRangeInput"
             />
             <span
-              class="w-9 shrink-0 text-right text-[11px] tabular-nums text-fg-soft"
-              >{{ Math.round(streamVolumeSliderValue) }}%</span
+              class="w-10 shrink-0 text-right text-[11px] tabular-nums text-fg-soft"
+              >{{ Math.round(streamVolumeSliderValue / 2) }}%</span
             >
           </div>
         </div>
@@ -781,45 +867,45 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(10px);
 }
 
-.stream-video-tile__vol-range--collapsed {
-  width: 0;
-  min-width: 0;
-  margin-right: 0;
-  opacity: 0;
-  pointer-events: none;
+/* Match VC settings sliders (`channelPanel.scss` `.vc-settings-slider`). */
+.stream-video-tile-vc-slider {
+  --value: 0%;
+  width: 100%;
+  height: 0.375rem;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(
+    to right,
+    var(--vc-slider-fill) 0%,
+    var(--vc-slider-fill) var(--value),
+    var(--vc-slider-track) var(--value),
+    var(--vc-slider-track) 100%
+  );
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
 }
 
-.stream-video-tile__vol-range {
-  &::-webkit-slider-thumb {
-    appearance: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 9999px;
-    background: mediumspringgreen;
-    border: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, black 35%, transparent);
-  }
+.stream-video-tile-vc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--vc-slider-thumb-bg);
+  cursor: pointer;
+  box-shadow: 0 1px 3px var(--vc-slider-thumb-shadow);
+  border: none;
+}
 
-  &::-moz-range-thumb {
-    width: 12px;
-    height: 12px;
-    border-radius: 9999px;
-    background: mediumspringgreen;
-    border: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, black 35%, transparent);
-  }
-
-  &::-webkit-slider-runnable-track {
-    height: 4px;
-    border-radius: 9999px;
-    background: color-mix(in srgb, white 22%, transparent);
-  }
-
-  &::-moz-range-track {
-    height: 4px;
-    border-radius: 9999px;
-    background: color-mix(in srgb, white 22%, transparent);
-  }
+.stream-video-tile-vc-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--vc-slider-thumb-bg);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 3px var(--vc-slider-thumb-shadow);
 }
 
 .stream-video-tile__loading-dot {

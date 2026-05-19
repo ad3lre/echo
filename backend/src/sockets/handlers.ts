@@ -5,6 +5,7 @@ import { applyPresenceSignal } from '../domain/echoPresenceAuthority';
 import {
   filterVisibleEchoUserIds,
   getEchoStore,
+  listEchoServerIdsForUser,
   upsertEchoPresence,
 } from '../domain/echoStore';
 import { resolveSocketIdentity } from './resolveSocketIdentity';
@@ -188,6 +189,20 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
           config.trustProxy,
         );
         await touchAuthUserLastSeenIp(pool, socket.data.userId, ip);
+        try {
+          const serverIds = await listEchoServerIdsForUser(
+            pool,
+            socket.data.userId,
+          );
+          for (const sid of serverIds) {
+            socket.join(`echo:server:${sid}`);
+          }
+        } catch (err) {
+          log.warn(
+            { err, userId: socket.data.userId },
+            'echo_server_socket_scope_bootstrap_failed',
+          );
+        }
       })();
     }
 

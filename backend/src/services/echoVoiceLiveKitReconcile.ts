@@ -2,7 +2,10 @@ import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type pg from 'pg';
 import { config } from '../config';
 import { insertEchoAudit } from '../domain/echoStore';
-import { publishEchoWorkspaceEvent } from '../platform/echoPlatformEvents';
+import {
+  publishEchoWorkspaceEvent,
+  publishVoiceRosterDelta,
+} from '../platform/echoPlatformEvents';
 import {
   liveKitRoomName,
   listLiveKitParticipants,
@@ -168,6 +171,13 @@ async function emitReconcileEvents(
         log,
       );
       if (id) latestAuditId = id;
+      // Per-user delta so sidebars update immediately (tier-1 fast path).
+      publishVoiceRosterDelta(
+        fastify,
+        serverId,
+        { channelId: row.channelId, userId: row.userId, action: 'leave' },
+        id ?? `reconcile-${occurredAtMs}`,
+      );
     }
     publishEchoWorkspaceEvent(
       fastify,

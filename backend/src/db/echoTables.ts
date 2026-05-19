@@ -262,6 +262,45 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS echo_dm_threads_user_high_idx ON echo_dm_threads(user_high);`,
   );
+  /**
+   * Single canonical "last activity" timestamp per DM (direct or group) channel.
+   * Authoritative ordering key for the DM inbox; written by message persist, DM call
+   * signaling, friend-accept, and group-DM mutation paths. Survives message deletions
+   * (unlike `MAX(echo_messages.id)`) so inbox order does not regress when history is purged.
+   */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_dm_activity (
+      channel_id TEXT PRIMARY KEY REFERENCES echo_channels(id) ON DELETE CASCADE,
+      last_activity_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_activity_kind TEXT NOT NULL DEFAULT 'open'
+        CHECK (last_activity_kind IN ('open','message','call','friend','group_event'))
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_dm_activity_last_idx
+    ON echo_dm_activity (last_activity_at DESC);
+  `);
+  /** Backfill: any DM-realm channel without an activity row → MAX(message.created_at) else channel.created_at. */
+  await pool.query(`
+    INSERT INTO echo_dm_activity (channel_id, last_activity_at, last_activity_kind)
+    SELECT
+      ch.id,
+      COALESCE(
+        (
+          SELECT MAX(m.created_at)
+          FROM echo_messages m
+          WHERE m.channel_id = ch.id AND m.deleted_at IS NULL
+        ),
+        ch.created_at
+      ),
+      CASE WHEN EXISTS (
+        SELECT 1 FROM echo_messages m
+        WHERE m.channel_id = ch.id AND m.deleted_at IS NULL
+      ) THEN 'message' ELSE 'open' END
+    FROM echo_channels ch
+    WHERE ch.server_id = 'echo_dm_realm'
+    ON CONFLICT (channel_id) DO NOTHING;
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_dm_message_requests (
       channel_id TEXT PRIMARY KEY REFERENCES echo_dm_threads(channel_id) ON DELETE CASCADE,
@@ -1644,6 +1683,16 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_server_event_rsvps_user_idx
     ON echo_server_event_rsvps(user_id);
+  `);
+
+  await pool.query(`
+    ALTER TABLE echo_server_events
+    ADD COLUMN IF NOT EXISTS custom_location TEXT NULL;
+  `);
+
+  await pool.query(`
+    ALTER TABLE echo_server_events
+    ADD COLUMN IF NOT EXISTS discord_scheduled_event_id TEXT NULL;
   `);
 
   await pool.query(`

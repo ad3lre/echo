@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, toRef } from 'vue';
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  toRef,
+} from 'vue';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { ChannelSummary } from '@shared/types';
 import { getChannelDisplayName, icons } from '@/assets/icons';

@@ -400,15 +400,16 @@ export function useGuildModeration(deps: {
     serverId: string,
     ctxVoiceId?: string | null,
   ): ChannelSummary | null {
+    const cid = ctxVoiceId?.trim();
+    if (cid) {
+      const cats = workspace.categoriesByServer.value[serverId] ?? [];
+      for (const cat of cats) {
+        const hit = cat.channels.find((c) => c.id === cid && c.type === 'voice');
+        if (hit) return hit;
+      }
+    }
     const active = activeChannel.value;
     if (active?.type === 'voice') return active;
-    const cid = ctxVoiceId?.trim();
-    if (!cid) return null;
-    const cats = workspace.categoriesByServer.value[serverId] ?? [];
-    for (const cat of cats) {
-      const hit = cat.channels.find((c) => c.id === cid && c.type === 'voice');
-      if (hit) return hit;
-    }
     return null;
   }
 

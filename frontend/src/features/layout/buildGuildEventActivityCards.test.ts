@@ -14,6 +14,7 @@ function rsvp(p: Partial<EchoWorkspaceMyEventRsvp>): EchoWorkspaceMyEventRsvp {
     endsAt: '2026-06-01T19:00:00.000Z',
     channelId: null,
     channelName: null,
+    customLocation: null,
     goingCount: 0,
     maxAttendees: null,
     ...p,
@@ -64,5 +65,23 @@ describe('buildGuildEventActivityCardsFromMyRsvps', () => {
     expect(cards[1]!.channelDisplayName).toBe('#announcements');
     expect(cards[1]!.goingCount).toBe(5);
     expect(cards[1]!.eventImageUrl).toBe('https://example.com/cover.png');
+  });
+
+  it('passes through custom locations for DM strip cards', () => {
+    const cards = buildGuildEventActivityCardsFromMyRsvps({
+      rsvps: [
+        rsvp({
+          id: 'c1',
+          serverId: 'srv',
+          channelId: null,
+          channelName: null,
+          customLocation: 'Meet at the studio — https://maps.example/x',
+        }),
+      ],
+      getChannelDisplayName: (n) => `#${n}`,
+    });
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.customLocation).toContain('studio');
+    expect(cards[0]!.channelDisplayName).toBeNull();
   });
 });

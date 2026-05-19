@@ -56,6 +56,7 @@ describe('workspaceEchoApiSnapshot', () => {
         bannerRefractionEnabled: false,
         bannerBlurEnabled: false,
         bannerBlackoutEnabled: false,
+        timeZone: null,
       },
     ]);
   });
@@ -138,6 +139,7 @@ describe('workspaceEchoApiSnapshot', () => {
         bannerRefractionEnabled: false,
         bannerBlurEnabled: false,
         bannerBlackoutEnabled: false,
+        timeZone: null,
       },
     ]);
   });
@@ -193,6 +195,7 @@ describe('workspaceEchoApiSnapshot', () => {
       bannerBlackoutEnabled?: boolean;
       bannerPositionY?: number;
       bio?: string;
+      timeZone?: string | null;
     }>([], membersByServer);
     const u = out.find((x) => x.id === 'u1');
     expect(u?.bio).toBe('About me');
@@ -202,6 +205,7 @@ describe('workspaceEchoApiSnapshot', () => {
     expect(u?.bannerBlurEnabled).toBe(true);
     expect(u?.bannerBlackoutEnabled).toBe(false);
     expect(u?.bannerPositionY).toBe(30);
+    expect(u?.timeZone).toBeNull();
   });
 
   it('mergeEchoWorkspaceMembersIntoUsers prefers accountDisplayName over server display name', () => {
