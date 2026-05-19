@@ -34,31 +34,32 @@
 
 **Goal:** `release/1.0.0` on GitHub should show its **own** linear history: each publish adds **one new commit** whose **parent** is the previous public tip, while the **tree** matches the `origin/main` snapshot you intend to ship. Public commit SHAs stay different from GitLab `main`; `origin/main` must never become an ancestor (no merge commit from `main`).
 
-### Recommended: append one commit with `git commit-tree` (always works)
+### Recommended: `npm run publish:public-release`
 
-If the public branch was bootstrapped with an **orphan** root, `git merge --squash origin/main` hits “unrelated histories” (often with mass add/add conflicts). Building each publish with **`commit-tree`** avoids that: one new commit, parent = last public tip, tree = `origin/main`.
+Use the repo script so each GitHub commit has a **real subject and body** (summarized from internal `main` commits since the last publish), not a repeated generic line.
 
 ```bash
-git fetch origin main release/1.0.0
-
-# Parent = current public tip (usually origin/release/1.0.0 right after fetch).
-PARENT="$(git rev-parse origin/release/1.0.0)"
-TREE="$(git rev-parse origin/main^{tree})"
-
-NEW="$(
-  GIT_AUTHOR_NAME='ad3lre' GIT_AUTHOR_EMAIL='reachbypass@gmail.com' \
-  GIT_COMMITTER_NAME='ad3lre' GIT_COMMITTER_EMAIL='reachbypass@gmail.com' \
-  git commit-tree "$TREE" -p "$PARENT" -m "Public release sync (squashed)."
-)"
-
-git checkout main
-git branch -f release/1.0.0 "$NEW"
-git push origin release/1.0.0
+npm run publish:public-release              # preview message only
+npm run publish:public-release -- --yes     # commit + push origin (mirrors to github)
 ```
 
-Use `git checkout <your-branch>` instead of `main` if you are not on `main`; `git branch -f` fails while `release/1.0.0` is checked out.
+The script:
 
-Each run adds **one** commit on top of the last public tip, so the mirror **advances its own history** over time instead of replacing the branch with a single root each time.
+- Appends one **`commit-tree`** commit (parent = current public tip, tree = `origin/main`).
+- Sets the **subject** from the newest internal commit in the publish range (or a short default).
+- Adds a **bullet list** of internal commit subjects when there are several.
+- Records `Echo-Source: <origin/main-sha>` in the footer so the next publish knows what was already shipped.
+
+**Rewrite existing public messages** (same trees, new messages; force-pushes `release/1.0.0`):
+
+```bash
+npm run publish:public-release -- --rewrite          # preview
+npm run publish:public-release -- --rewrite --yes    # apply + push
+```
+
+Optional: `-m "Custom subject"` overrides only the subject line.
+
+Manual `commit-tree` is still fine for emergencies; prefer the script for normal publishes.
 
 ### Alternative: `git merge --squash` (only when histories are related)
 
