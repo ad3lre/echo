@@ -1746,6 +1746,63 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS echo_server_automod_rule_hits_server_created_idx
     ON echo_server_automod_rule_hits(server_id, created_at DESC);
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_channel_webhooks (
+      id TEXT PRIMARY KEY,
+      server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
+      channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
+      name TEXT NOT NULL DEFAULT 'Webhook',
+      avatar_url TEXT NULL,
+      token_hash TEXT NOT NULL,
+      created_by_user_id TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ NULL
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_channel_webhooks_channel_idx
+    ON echo_channel_webhooks(channel_id);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_channel_webhooks_server_idx
+    ON echo_channel_webhooks(server_id);
+  `);
+
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS source_webhook_id TEXT NULL
+      REFERENCES echo_channel_webhooks(id) ON DELETE SET NULL;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS webhook_username TEXT NULL;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS webhook_avatar_url TEXT NULL;
+  `);
+
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS tts BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS message_flags INT NULL;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS components JSONB NULL;
+  `);
+
+  /** System user: author_id for all channel-webhook-delivered messages (login disabled). */
+  await pool.query(`
+    INSERT INTO auth_users (id, username, display_name, pfp, password_hash, is_guest)
+    SELECT 'echo_internal_webhook_actor_v1',
+           'echo_internal_webhook_actor_v1',
+           'Webhook',
+           '',
+           NULL,
+           false
+    WHERE NOT EXISTS (
+      SELECT 1 FROM auth_users WHERE id = 'echo_internal_webhook_actor_v1'
+    );
+  `);
 }
 
 /**

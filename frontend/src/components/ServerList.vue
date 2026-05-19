@@ -585,13 +585,6 @@ $reactive-decay-ease: cubic-bezier(0.33, 1, 0.68, 1);
   transform: translateY(-50%) !important;
 }
 
-.servers-folder--horizontal .server-folder__slot--rail-dnd::before,
-.servers-folder--horizontal .server-folder__slot--rail-dnd:hover::before,
-.servers-folder--horizontal
-  .server-folder__slot--rail-dnd.server-folder__slot--active::before {
-  transform: translate(-50%, calc(-100% - 5px)) !important;
-}
-
 .server-folder__slot::before {
   content: '';
   position: absolute;
@@ -626,33 +619,12 @@ $reactive-decay-ease: cubic-bezier(0.33, 1, 0.68, 1);
   border: none;
 }
 
-/**
- * Top horizontal server rail: selection / hover “pill” reads from the window edge
- * above (top → down). The default ::before is a left-edge vertical strip for the
- * sidebar layout only.
- */
+/* Top horizontal rail: icon uses an image-sampled arc ring (ServerRailServerIcons). */
 .servers-folder--horizontal .server-folder__slot::before {
-  left: 50%;
-  right: auto;
-  top: 0;
-  bottom: auto;
-  width: 28px;
-  height: 5px;
-  border-radius: 6px 6px 0 0;
-  /* Sit fully above the 40px icon so the pill is not covered by the avatar (z-stacking). */
-  transform: translate(-50%, calc(-100% - 5px));
+  display: none;
 }
 
-.servers-folder--horizontal
-  .server-folder__slot:hover:not(.server-folder__slot--active)::before {
-  background-color: transparent;
-  box-sizing: border-box;
-  border: 1px solid var(--server-rail-pill-fg);
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
-}
-
-/* Top bar: selection pill sits on the top edge — do not lift icons upward on hover. */
+/* Top bar: selection ring sits on the icon — do not lift icons upward on hover. */
 .servers-folder--horizontal .server-folder__item--idle:hover {
   transform: none;
 }

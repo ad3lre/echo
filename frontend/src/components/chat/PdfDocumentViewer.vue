@@ -9,6 +9,7 @@ import { destroyPdfLoad, startPdfUrlLoad } from '@/features/pdf/loadPdfFromUrl';
 import { renderPdfPageToCanvas } from '@/features/pdf/renderPdfPage';
 import { outlineDestToPageNumber } from '@/features/pdf/outlineDestToPage';
 import { pdfLoadErrorMessage } from '@/features/pdf/isProbablyPdfCorsError';
+import { openExternal } from '@/platform/desktopBridge';
 
 /** Mirrors pdf.js structure tree nodes (not exported from `pdfjs-dist` entry). */
 type StructTreeNode = {
@@ -334,7 +335,7 @@ async function onOutlineRowClick(row: FlatOutlineRow) {
   const pdf = pdfRef.value;
   if (!pdf) return;
   if (row.url) {
-    window.open(row.url, '_blank', 'noopener,noreferrer');
+    void openExternal(row.url);
     return;
   }
   const destPage = await outlineDestToPageNumber(pdf, row.dest);

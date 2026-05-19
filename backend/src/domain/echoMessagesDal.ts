@@ -18,6 +18,7 @@ import {
 } from './echoPollVotesDal';
 import { resolveDiscordAvatarForStorage } from './discordNormalized';
 import { echoMessageIdPgGreaterThan } from './echoMessageIdPgCompare';
+import { ECHO_WEBHOOK_BRIDGE_SOURCE } from './echoChannelWebhookConstants';
 
 export type EchoMessageRow = {
   id: string;
@@ -57,6 +58,14 @@ export type EchoMessageRow = {
   /** Derived for clients when `bridgeSource` is discord inbound. */
   bridgeFromDiscord?: boolean;
   forwardedFrom?: ForwardedFrom;
+  /** When `bridgeSource` is `echo_webhook`, the originating webhook row id. */
+  sourceWebhookId?: string;
+  /** Resolved display name for webhook-delivered messages (may include per-execute override). */
+  webhookUsername?: string;
+  webhookAvatarUrl?: string;
+  tts?: boolean;
+  messageFlags?: number;
+  components?: unknown;
 };
 
 type MsgRowDraft = Omit<EchoMessageRow, 'poll'> & {
@@ -169,11 +178,25 @@ function parseStickersColumn(
   return out.length ? out : undefined;
 }
 
+function parseComponentsColumn(raw: unknown): unknown | undefined {
+  if (raw == null) return undefined;
+  let v: unknown = raw;
+  if (typeof v === 'string') {
+    try {
+      v = JSON.parse(v) as unknown;
+    } catch {
+      return undefined;
+    }
+  }
+  return v;
+}
+
 function mapMsgRowsDraft(rows: { [k: string]: unknown }[]): MsgRowDraft[] {
   return rows.map((row) => {
     const pollStored = parseEchoPollStoredColumn(row.poll);
     const attachments = parseAttachmentsColumn(row.attachments);
     const stickers = parseStickersColumn(row.stickers);
+    const components = parseComponentsColumn(row.components);
     const forwardedFrom = parseForwardOfColumn(row.forward_of);
     const mf =
       row.message_format_version != null
@@ -230,6 +253,24 @@ function mapMsgRowsDraft(rows: { [k: string]: unknown }[]): MsgRowDraft[] {
       ...(row.bridge_source != null && String(row.bridge_source).trim() !== ''
         ? { bridgeSource: String(row.bridge_source).trim() }
         : {}),
+      ...(row.source_webhook_id != null &&
+      String(row.source_webhook_id).trim() !== ''
+        ? { sourceWebhookId: String(row.source_webhook_id).trim() }
+        : {}),
+      ...(row.webhook_username != null &&
+      String(row.webhook_username).trim() !== ''
+        ? { webhookUsername: String(row.webhook_username).trim() }
+        : {}),
+      ...(row.webhook_avatar_url != null &&
+      String(row.webhook_avatar_url).trim() !== ''
+        ? { webhookAvatarUrl: String(row.webhook_avatar_url).trim() }
+        : {}),
+      ...(row.tts === true ? { tts: true } : {}),
+      ...(row.message_flags != null &&
+      Number.isFinite(Number(row.message_flags))
+        ? { messageFlags: Number(row.message_flags) }
+        : {}),
+      ...(components !== undefined ? { components } : {}),
     };
     return base;
   });
@@ -323,7 +364,7 @@ export async function attachAuthorLabelsToEchoMessageRows(
     if (!a) {
       return { ...row, authorDisplayName: 'Unknown' };
     }
-    return {
+    const baseLabeled = {
       ...row,
       authorDisplayName: a.name,
       ...(a.pfp ? { authorAvatar: a.pfp } : {}),
@@ -335,6 +376,20 @@ export async function attachAuthorLabelsToEchoMessageRows(
         ? { bridgeFromDiscord: true }
         : {}),
     };
+    if (row.bridgeSource === ECHO_WEBHOOK_BRIDGE_SOURCE) {
+      const wname = row.webhookUsername?.trim();
+      const wav = row.webhookAvatarUrl?.trim();
+      const { authorAvatar: _ignoredAvatar, ...restLabeled } = baseLabeled;
+      return {
+        ...restLabeled,
+        authorDisplayName:
+          wname && wname.length > 0 ? wname.slice(0, 80) : 'Webhook',
+        ...(wav && wav.length > 0
+          ? { authorAvatar: wav.slice(0, 2048) }
+          : {}),
+      };
+    }
+    return baseLabeled;
   });
 }
 
@@ -365,7 +420,8 @@ const SELECT_MSG_FIELDS_BASE = `
   image_url, video_url, audio_url, gif, image_spoiler, attachments, stickers,
   created_at, edited_at,
   content_json, search_index_text, message_format_version, content_schema_version,
-  bridge_source`;
+  bridge_source, source_webhook_id, webhook_username, webhook_avatar_url,
+  tts, message_flags, components`;
 
 /** Cached after first Postgres probe; false when migration for E2EE columns has not been applied. */
 let echoMessagesE2eeColumnsResolved: boolean | null = null;
@@ -544,6 +600,12 @@ export async function insertEchoMessage(
     e2eeSenderDeviceId?: string;
     /** e.g. `discord_inbound` for bridge — skips Echo→Discord mirror. */
     bridgeSource?: string;
+    sourceWebhookId?: string;
+    webhookUsername?: string | null;
+    webhookAvatarUrl?: string | null;
+    tts?: boolean;
+    messageFlags?: number | null;
+    components?: unknown;
   },
 ): Promise<'inserted' | 'duplicate'> {
   const m = row.mentions !== undefined ? JSON.stringify(row.mentions) : null;
@@ -584,6 +646,27 @@ export async function insertEchoMessage(
     typeof row.bridgeSource === 'string' && row.bridgeSource.trim()
       ? row.bridgeSource.trim().slice(0, 64)
       : null;
+  const sourceWebhookId =
+    typeof row.sourceWebhookId === 'string' && row.sourceWebhookId.trim()
+      ? row.sourceWebhookId.trim()
+      : null;
+  const webhookUsername =
+    typeof row.webhookUsername === 'string' && row.webhookUsername.trim()
+      ? row.webhookUsername.trim().slice(0, 80)
+      : null;
+  const webhookAvatarUrl =
+    typeof row.webhookAvatarUrl === 'string' && row.webhookAvatarUrl.trim()
+      ? row.webhookAvatarUrl.trim().slice(0, 2048)
+      : null;
+  const tts = row.tts === true;
+  const messageFlags =
+    row.messageFlags != null &&
+    Number.isFinite(Number(row.messageFlags)) &&
+    Number(row.messageFlags) >= 0
+      ? Math.floor(Number(row.messageFlags))
+      : null;
+  const componentsJson =
+    row.components !== undefined ? JSON.stringify(row.components) : null;
 
   const hasE2eeCols = await echoMessagesTableHasE2eeColumns(pool);
   if (wantsE2ee && !hasE2eeCols) {
@@ -623,12 +706,15 @@ export async function insertEchoMessage(
       content_json, search_index_text, message_format_version, content_schema_version,
       embeds,
       e2ee_envelope, e2ee_ciphertext, e2ee_sender_device_id,
+      source_webhook_id, webhook_username, webhook_avatar_url,
+      tts, message_flags, components,
       bridge_source
     )
     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15::jsonb, NULL, NULL,
       $16::jsonb, $17, $18, $19,
       $20::jsonb,
-      $21::jsonb, $22, $23, $24)
+      $21::jsonb, $22, $23,
+      $24, $25, $26, $27, $28, $29::jsonb, $30)
     ON CONFLICT (id) DO NOTHING
     RETURNING id
     `,
@@ -637,6 +723,12 @@ export async function insertEchoMessage(
           e2eeEnvelopeJson,
           e2eeCiphertext,
           e2eeSenderDeviceId,
+          sourceWebhookId,
+          webhookUsername,
+          webhookAvatarUrl,
+          tts,
+          messageFlags,
+          componentsJson,
           bridgeSrc,
         ],
       )
@@ -648,15 +740,27 @@ export async function insertEchoMessage(
       edited_at, deleted_at,
       content_json, search_index_text, message_format_version, content_schema_version,
       embeds,
+      source_webhook_id, webhook_username, webhook_avatar_url,
+      tts, message_flags, components,
       bridge_source
     )
     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15::jsonb, NULL, NULL,
       $16::jsonb, $17, $18, $19,
-      $20::jsonb, $21)
+      $20::jsonb,
+      $21, $22, $23, $24, $25, $26::jsonb, $27)
     ON CONFLICT (id) DO NOTHING
     RETURNING id
     `,
-        [...baseParams, bridgeSrc],
+        [
+          ...baseParams,
+          sourceWebhookId,
+          webhookUsername,
+          webhookAvatarUrl,
+          tts,
+          messageFlags,
+          componentsJson,
+          bridgeSrc,
+        ],
       );
   return ins.rows.length > 0 ? 'inserted' : 'duplicate';
 }

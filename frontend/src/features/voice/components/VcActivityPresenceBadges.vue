@@ -28,7 +28,7 @@ function titleFor(k: VcActivityPresenceKind): string {
     case 'krunker':
       return 'In Krunker activity';
     case 'codenames':
-      return 'In Codenames activity';
+      return 'In Echoed Names activity';
     case 'richup':
       return 'In Richup.io activity';
     case 'goober_dash':

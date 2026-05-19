@@ -11,7 +11,8 @@
   },
   "bundle": {
     "iOS": {
-      "developmentTeam": "7HBQV8236H"
+      "developmentTeam": "7HBQV8236H",
+      "infoPlist": "Info.ios.plist"
     }
   },
   "app": {

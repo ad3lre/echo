@@ -82,6 +82,8 @@ export interface Message {
   authorDiscordUserId?: string;
   /** Message was mirrored from Discord inbound bridge (not authored natively in Echo). */
   bridgeFromDiscord?: boolean;
+  /** When set (e.g. `echo_webhook`), used for server-side routing; clients may ignore. */
+  bridgeSource?: string;
   content: string;
   /** Same bytes as `search_index_text` / canonical plain (Option A). */
   contentText?: string;
@@ -107,6 +109,12 @@ export interface Message {
   reactions?: MessageReaction[];
   /** Rich link previews (Open Graph); may be filled shortly after send. */
   embeds?: Embed[];
+  /** Text-to-speech hint (Discord-compatible). */
+  tts?: boolean;
+  /** Bitfield (Discord message flags subset Echo persists). */
+  messageFlags?: number;
+  /** Discord-style message components JSON (non-interactive display only in Echo UI). */
+  components?: unknown;
   /** Present when this message forwards another (see `ForwardedFrom`). */
   forwardedFrom?: ForwardedFrom;
   /**
@@ -170,6 +178,9 @@ export interface MessageWithAuthor extends Pick<
   | 'mentions'
   | 'timestamp'
   | 'embeds'
+  | 'tts'
+  | 'messageFlags'
+  | 'components'
   | 'contentText'
   | 'contentJson'
   | 'messageFormatVersion'

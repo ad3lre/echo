@@ -20,6 +20,9 @@ import type {
 } from '@/features/voice/vcActivityTypes';
 import type {
   EchoHangmanActivityV1,
+  EchoCodenamesActivityV1,
+  EchoCodenamesAffiliationV1,
+  EchoCodenamesRoleAssignmentV1,
   EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
@@ -289,11 +292,24 @@ export type AppLayoutChatSurfaceProps = {
   openVcActivityYoutubeBrowse: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
+  openVcActivityTicTacToe: () => void;
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  vcCodenamesActivity: ComputedRef<EchoCodenamesActivityV1 | null>;
+  codenamesRosterUserIds: ComputedRef<string[]>;
+  vcCodenamesSpymasterKey: ComputedRef<EchoCodenamesAffiliationV1[] | null>;
+  commitVcCodenamesDeal: () => string | null;
+  requestVcCodenamesSetup: (
+    assignments: EchoCodenamesRoleAssignmentV1[],
+  ) => void;
+  requestVcCodenamesClue: (word: string, number: number) => void;
+  requestVcCodenamesReveal: (cardIndex: number) => void;
+  requestVcCodenamesEndTurn: () => void;
+  requestVcCodenamesNewGame: () => void;
+  requestVcCodenamesPushKeyToOrchestrator: () => void;
   openVcActivityOpenGuessr: () => void;
   openVcActivitySkribblIo: () => void;
   openVcActivityGarticPhone: () => void;
@@ -310,7 +326,6 @@ export type AppLayoutChatSurfaceProps = {
       Pick<YoutubePlaylistEntry, 'title' | 'channelTitle' | 'thumbnailUrl'>
     >,
   ) => void;
-  setVcActivityCodenamesRoomUrl: (url: string | null) => void;
   setVcYoutubeBrowseOpen: (open: boolean) => void;
   addVcYoutubeToQueue: (entry: YoutubePlaylistEntry) => void;
   removeVcYoutubeFromQueue: (index: number) => void;
@@ -582,11 +597,22 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'openVcActivityYoutubeBrowse',
   'openVcActivityWordle',
   'openVcActivityHangman',
+  'openVcActivityTicTacToe',
   'vcHangmanActivity',
   'hangmanRosterUserIds',
   'commitVcHangmanWord',
   'requestVcHangmanGuessLetter',
   'requestVcHangmanNextRound',
+  'vcCodenamesActivity',
+  'codenamesRosterUserIds',
+  'vcCodenamesSpymasterKey',
+  'commitVcCodenamesDeal',
+  'requestVcCodenamesSetup',
+  'requestVcCodenamesClue',
+  'requestVcCodenamesReveal',
+  'requestVcCodenamesEndTurn',
+  'requestVcCodenamesNewGame',
+  'requestVcCodenamesPushKeyToOrchestrator',
   'openVcActivityOpenGuessr',
   'openVcActivitySkribblIo',
   'openVcActivityGarticPhone',
@@ -598,7 +624,6 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'openVcActivityBasketballStars2026',
   'openVcActivityClusterRush',
   'setVcActivityYoutubeVideo',
-  'setVcActivityCodenamesRoomUrl',
   'setVcYoutubeBrowseOpen',
   'addVcYoutubeToQueue',
   'removeVcYoutubeFromQueue',

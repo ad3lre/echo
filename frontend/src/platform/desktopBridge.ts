@@ -10,11 +10,13 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
 import { IS_ECHO_TAURI_SHELL } from '@/config';
+import { ensureExternalLinkSafetyAcknowledged } from '@/utils/externalLinkSafety';
 
 /** Tauri desktop only (not Android WebView). */
 export function isDesktop(): boolean {
   if (import.meta.env.VITE_ECHO_DESKTOP !== '1') return false;
   if (import.meta.env.VITE_ECHO_ANDROID === '1') return false;
+  if (import.meta.env.VITE_ECHO_IOS === '1') return false;
   /**
    * `VITE_*` flags are compile-time. A mis-built web bundle could bake `VITE_ECHO_DESKTOP=1`
    * and would wrongly show desktop chrome in a normal browser; Tauri injects `isTauri` at runtime.
@@ -22,7 +24,7 @@ export function isDesktop(): boolean {
   return isTauri();
 }
 
-/** Any Tauri shell (Windows/macOS/Linux desktop or Android). */
+/** Any Tauri shell (Windows/macOS/Linux desktop, Android, or iOS). */
 export function isTauriShell(): boolean {
   return IS_ECHO_TAURI_SHELL;
 }
@@ -64,11 +66,23 @@ function isSameOriginAsApp(url: string): boolean {
   }
 }
 
+export type OpenExternalOptions = {
+  /** Skip the per-site external link confirmation (OAuth, tests, etc.). */
+  skipSafetyPrompt?: boolean;
+};
+
 /** Open a URL in the default browser when running under Tauri; otherwise `window.open`. */
-export async function openExternal(url: string): Promise<void> {
+export async function openExternal(
+  url: string,
+  options?: OpenExternalOptions,
+): Promise<void> {
   if (typeof window === 'undefined') return;
   const safeUrl = normalizeExternalUrlForOpen(url);
   if (!safeUrl) return;
+  if (!options?.skipSafetyPrompt) {
+    const ok = await ensureExternalLinkSafetyAcknowledged(safeUrl);
+    if (!ok) return;
+  }
   if (!isTauriShell()) {
     window.open(safeUrl, '_blank', 'noopener,noreferrer');
     return;

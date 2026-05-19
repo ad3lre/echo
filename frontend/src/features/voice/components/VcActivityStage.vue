@@ -28,6 +28,9 @@ import {
   postEchoYoutubeWatchTogetherUsage,
 } from '@/api/echo/vcActivities';
 import type {
+  EchoCodenamesActivityV1,
+  EchoCodenamesAffiliationV1,
+  EchoCodenamesRoleAssignmentV1,
   EchoHangmanActivityV1,
   EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
@@ -38,20 +41,14 @@ import type {
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
 import {
-  VC_CODENAMES_EMBED_URL,
   isVcIframeEmbedPhase,
-  normalizeCodenamesRoomUrlForEmbed,
   vcIframeEmbedTitle,
   vcIframeEmbedUrl,
   youtubeNowPlaying,
 } from '@/features/voice/vcActivityTypes';
-import {
-  buildEmbedProxyUrl,
-  fetchEmbedProxyMeta,
-  mintEmbedProxyToken,
-} from '@/api/echo/embedProxy';
 import VcWordlineActivity from '@/features/voice/components/VcWordlineActivity.vue';
 import VcHangmanGame from '@/features/voice/components/VcHangmanGame.vue';
+import VcCodenamesGame from '@/features/voice/components/VcCodenamesGame.vue';
 import {
   useVcYoutubeWatchTogetherPlayer,
   type VcYoutubeRemotePlaybackState,
@@ -70,7 +67,7 @@ const vcActivityArt = {
   skribblIo: withBasePath('/vc-activities/skribbl-hero.png', appBase),
   garticPhone: withBasePath('/vc-activities/gartic-phone-hero.png', appBase),
   krunker: withBasePath('/vc-activities/krunker-hero.jpg', appBase),
-  codenames: withBasePath('/vc-activities/codenames-hero.avif', appBase),
+  echoedNames: withBasePath('/vc-activities/echoed-names-hero.svg', appBase),
   richup: withBasePath('/vc-activities/richup-hero.png', appBase),
   gooberDash: withBasePath('/vc-activities/goober-dash-hero.png', appBase),
   smashKarts: withBasePath('/vc-activities/smash-karts-hero.png', appBase),
@@ -79,6 +76,7 @@ const vcActivityArt = {
     appBase,
   ),
   clusterRush: withBasePath('/vc-activities/cluster-rush-hero.jpg', appBase),
+  ticTacToe: withBasePath('/vc-activities/tic-tac-toe-hero.svg', appBase),
 } as const;
 
 const VC_ACTIVITY_LIBRARY_CARDS: readonly {
@@ -114,6 +112,15 @@ const VC_ACTIVITY_LIBRARY_CARDS: readonly {
     description:
       'Echo voice classic · shared board, one puzzle master per round, guesses over the voice channel',
     ariaLabel: 'Open Hangman activity',
+  },
+  {
+    key: 'tic_tac_toe',
+    artKey: 'ticTacToe',
+    widgetClass: 'vc-act-widget--tictactoe',
+    title: 'Tic-Tac-Toe',
+    description:
+      '1v1 classic · challenge someone in voice; shared board in this activity',
+    ariaLabel: 'Open Tic-Tac-Toe activity',
   },
   {
     key: 'openguessr',
@@ -185,11 +192,11 @@ const VC_ACTIVITY_LIBRARY_CARDS: readonly {
   },
   {
     key: 'codenames',
-    artKey: 'codenames',
-    widgetClass: 'vc-act-widget--codenames',
-    title: 'Codenames',
-    description: 'Team word game · play in voice together',
-    ariaLabel: 'Open Codenames activity',
+    artKey: 'echoedNames',
+    widgetClass: 'vc-act-widget--echoed-names',
+    title: 'Echoed Names',
+    description: 'Team word game · voice-synced in Echo',
+    ariaLabel: 'Open Echoed Names activity',
   },
   {
     key: 'richup',
@@ -212,6 +219,7 @@ const props = withDefaults(
     openVcActivityYoutubeBrowse: () => void;
     openVcActivityWordle: () => void;
     openVcActivityHangman: () => void;
+    openVcActivityTicTacToe: () => void;
     openVcActivityOpenGuessr: () => void;
     openVcActivitySkribblIo: () => void;
     openVcActivityGarticPhone: () => void;
@@ -245,9 +253,18 @@ const props = withDefaults(
     activeVoiceChannelParticipants?: MaybeRef<
       readonly { id: string; name: string; pfp?: string }[]
     >;
-    setVcActivityCodenamesRoomUrl?: (url: string | null) => void;
-    /** Lexicographically smallest VC user id — only they create the Codenames room (see `resolveVcCodenamesStarterUserId`). */
-    vcCodenamesStarterUserId?: string | null;
+    vcCodenamesActivity: MaybeRef<EchoCodenamesActivityV1 | null>;
+    codenamesRosterUserIds: MaybeRef<readonly string[]>;
+    vcCodenamesSpymasterKey: MaybeRef<EchoCodenamesAffiliationV1[] | null>;
+    commitVcCodenamesDeal: () => string | null;
+    requestVcCodenamesSetup: (
+      assignments: EchoCodenamesRoleAssignmentV1[],
+    ) => void;
+    requestVcCodenamesClue: (word: string, number: number) => void;
+    requestVcCodenamesReveal: (cardIndex: number) => void;
+    requestVcCodenamesEndTurn: () => void;
+    requestVcCodenamesNewGame: () => void;
+    requestVcCodenamesPushKeyToOrchestrator: () => void;
     currentUserId?: string | null;
     /** Jump to owning guild and highlight this VC in the channel list (activity header title). */
     focusGuildVoiceChannelInSidebar?: () => void;
@@ -269,8 +286,6 @@ const props = withDefaults(
     expandVoiceSideChat: () => {},
     channelPanelCollapsed: false,
     isCompactShell: false,
-    vcCodenamesStarterUserId: null,
-    setVcActivityCodenamesRoomUrl: () => {},
     activeVoiceChannelParticipants: () => [],
   },
 );
@@ -285,6 +300,10 @@ const hangmanVoiceParticipants = computed(() => {
     pfp: p.pfp ?? '',
   }));
 });
+
+const cnActivity = computed(() => unref(props.vcCodenamesActivity));
+const cnRoster = computed(() => [...(unref(props.codenamesRosterUserIds) ?? [])]);
+const cnSpymasterKey = computed(() => unref(props.vcCodenamesSpymasterKey) ?? null);
 
 const auth = useAuthSessionStore();
 
@@ -383,6 +402,9 @@ function openActivityFromLibrary(key: VcActivityLibraryCardKey): void {
     case 'hangman':
       props.openVcActivityHangman();
       break;
+    case 'tic_tac_toe':
+      props.openVcActivityTicTacToe();
+      break;
     case 'openguessr':
       props.openVcActivityOpenGuessr();
       break;
@@ -467,7 +489,6 @@ async function toggleActivityFullscreen() {
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncActivityFullscreenState);
-  window.addEventListener('message', onWindowMessageForCodenames);
 });
 
 onUnmounted(() => {
@@ -475,21 +496,12 @@ onUnmounted(() => {
   clearVcYoutubeUsageInterval();
   teardownActivityOverflowLayoutWatch();
   document.removeEventListener('fullscreenchange', syncActivityFullscreenState);
-  window.removeEventListener('message', onWindowMessageForCodenames);
-  if (codenamesWaitTimer) {
-    clearTimeout(codenamesWaitTimer);
-    codenamesWaitTimer = null;
-  }
-  if (codenamesLocationPoll) {
-    clearInterval(codenamesLocationPoll);
-    codenamesLocationPoll = null;
-  }
   void exitActivityFullscreenIfActive();
 });
 
 watch(
-  () => [st.value.phase, st.value.codenamesRoomUrl ?? ''] as const,
-  ([phase]) => {
+  () => st.value.phase,
+  (phase) => {
     if (isVcIframeEmbedPhase(phase)) {
       iframeEmbedKey.value += 1;
     }
@@ -500,7 +512,6 @@ watch(
 
 const iframeEmbedPhase = computed(() => {
   const p = st.value.phase;
-  if (p === 'codenames') return null;
   return isVcIframeEmbedPhase(p) ? p : null;
 });
 
@@ -512,267 +523,12 @@ const iframeEmbedTitle = computed(() =>
   iframeEmbedPhase.value ? vcIframeEmbedTitle(iframeEmbedPhase.value) : '',
 );
 
-function tryExtractCodenamesUrlFromMessageData(data: unknown): string | null {
-  const scan = (v: unknown): string | null => {
-    if (typeof v === 'string') {
-      const m = v.match(/https:\/\/(?:www\.)?codenames\.game[/\w\-?#=&.%+~]*/i);
-      return m?.[0] ? normalizeCodenamesRoomUrlForEmbed(m[0]) : null;
-    }
-    if (v && typeof v === 'object') {
-      for (const x of Object.values(v as Record<string, unknown>)) {
-        const r = scan(x);
-        if (r) return r;
-      }
-    }
-    return null;
-  };
-  const direct = scan(data);
-  if (direct) return direct;
-  if (data && typeof data === 'object') {
-    try {
-      return scan(JSON.stringify(data));
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-/** Origins for the embedded Codenames document (postMessage source). */
-const CODENAMES_PARENT_MESSAGE_ORIGINS = new Set([
-  'https://codenames.game',
-  'https://www.codenames.game',
-]);
-
-function isAllowedCodenamesMessageOrigin(origin: string): boolean {
-  if (CODENAMES_PARENT_MESSAGE_ORIGINS.has(origin)) return true;
-  // When proxied, the page is same-origin with the SPA — accept our own origin.
-  if (codenamesProxyActive.value && origin === window.location.origin) return true;
-  return false;
-}
-
-const isCodenamesStarter = computed(() => {
-  const self = props.currentUserId?.trim() ?? '';
-  const host = props.vcCodenamesStarterUserId?.trim() ?? '';
-  if (!host) return true;
-  return !!self && self === host;
-});
-
-const codenamesSyncedUrl = computed(
-  () => st.value.codenamesRoomUrl?.trim() ?? '',
-);
-
-function onWindowMessageForCodenames(ev: MessageEvent) {
-  if (!isAllowedCodenamesMessageOrigin(ev.origin)) return;
-  if (!isCodenamesStarter.value) return;
-  if (st.value.phase !== 'codenames') return;
-  if (codenamesSyncedUrl.value) return;
-  const extracted = tryExtractCodenamesUrlFromMessageData(ev.data);
-  if (!extracted) return;
-  props.setVcActivityCodenamesRoomUrl?.(extracted);
-}
-
-const codenamesHoldUi = computed(
-  () =>
-    st.value.phase === 'codenames' &&
-    !codenamesSyncedUrl.value &&
-    !isCodenamesStarter.value,
-);
-
-/** Path prefix for proxied Codenames documents on the API host. */
-const EMBED_CODENAMES_PATH_PREFIX = '/api/v1/embed/codenames/o/';
-
-function codenamesProxyOriginAliasForRoomUrl(synced: string): 'main' | 'www' {
-  try {
-    if (new URL(synced).hostname.toLowerCase() === 'www.codenames.game')
-      return 'www';
-  } catch {
-    /* ignore */
-  }
-  return 'main';
-}
-
-/**
- * Maps the iframe's location (Echo embed URL) back to a canonical codenames.game URL.
- */
-function canonicalCodenamesUrlFromProxiedIframeHref(href: string): string | null {
-  try {
-    const u = new URL(href);
-    const p = u.pathname;
-    if (!p.startsWith(EMBED_CODENAMES_PATH_PREFIX)) return null;
-    const tail = p.slice(EMBED_CODENAMES_PATH_PREFIX.length);
-    const slash = tail.indexOf('/');
-    if (slash < 0) return null;
-    const alias = tail.slice(0, slash);
-    const rest = tail.slice(slash) || '/';
-    const origin =
-      alias === 'www'
-        ? 'https://www.codenames.game'
-        : alias === 'main'
-          ? 'https://codenames.game'
-          : null;
-    if (!origin) return null;
-    return `${origin}${rest}${u.search}${u.hash}`;
-  } catch {
-    return null;
-  }
-}
-
-/** True until the first `/embed/meta` + optional `/embed/token` round finishes for this Codenames session. */
-const codenamesProxyGatePending = ref(false);
-let codenamesProxyResolveGen = 0;
-
-const codenamesEmbedSrc = computed(() => {
-  if (st.value.phase !== 'codenames') return '';
-  if (codenamesProxyGatePending.value) return '';
-  const synced = codenamesSyncedUrl.value;
-  const token = codenamesProxyToken.value;
-
-  if (token) {
-    const roomAlias = synced ? codenamesProxyOriginAliasForRoomUrl(synced) : 'main';
-    let upstreamPath = '/';
-    if (synced) {
-      try {
-        const u = new URL(synced);
-        upstreamPath = u.pathname + u.search + u.hash;
-      } catch {
-        /* fall back to / */
-      }
-    }
-    return buildEmbedProxyUrl('codenames', roomAlias, upstreamPath, token);
-  }
-
-  return synced || VC_CODENAMES_EMBED_URL;
-});
-
-const codenamesPasteDraft = ref('');
-
-function applyCodenamesPaste() {
-  const u = normalizeCodenamesRoomUrlForEmbed(codenamesPasteDraft.value);
-  if (!u) return;
-  props.setVcActivityCodenamesRoomUrl?.(u);
-  codenamesPasteDraft.value = '';
-}
-
-const codenamesWaitTimedOut = ref(false);
-let codenamesWaitTimer: ReturnType<typeof setTimeout> | null = null;
-let codenamesLocationPoll: ReturnType<typeof setInterval> | null = null;
-
-// Embed proxy state for Codenames
-const codenamesProxyToken = ref<string | null>(null);
-/** Template ref for the Codenames iframe (same-origin proxy only). */
-const codenamesIframeRef = ref<HTMLIFrameElement | null>(null);
-
-/** Returns true when we have a valid proxy token and proxy access is active. */
-const codenamesProxyActive = computed(() => codenamesProxyToken.value !== null);
-
-/**
- * Discover embed-proxy availability and mint a token before loading the iframe so we never
- * flash a cross-origin `codenames.game` document and then swap to the proxy (which would drop a freshly created room).
- */
-async function resolveCodenamesEmbedProxyGate() {
-  if (st.value.phase !== 'codenames') return;
-  const gen = ++codenamesProxyResolveGen;
-  codenamesProxyGatePending.value = true;
-  codenamesProxyToken.value = null;
-  try {
-    const meta = await fetchEmbedProxyMeta();
-    if (gen !== codenamesProxyResolveGen || st.value.phase !== 'codenames') return;
-    if (!meta.enabled || !meta.slugs.includes('codenames')) return;
-    const token = await mintEmbedProxyToken('codenames');
-    if (gen !== codenamesProxyResolveGen || st.value.phase !== 'codenames') return;
-    if (token) codenamesProxyToken.value = token;
-  } finally {
-    if (gen === codenamesProxyResolveGen) codenamesProxyGatePending.value = false;
-  }
-}
-
-function tryPublishCodenamesRoomFromIframeLocation() {
-  if (!codenamesProxyActive.value || !isCodenamesStarter.value) return;
-  if (codenamesSyncedUrl.value) return;
-  try {
-    const href = codenamesIframeRef.value?.contentWindow?.location?.href;
-    if (!href) return;
-    const upstream = canonicalCodenamesUrlFromProxiedIframeHref(href);
-    if (!upstream) return;
-    const u = new URL(upstream);
-    if (u.pathname === '/' || u.pathname === '') return;
-    const normalized = normalizeCodenamesRoomUrlForEmbed(upstream);
-    if (normalized) props.setVcActivityCodenamesRoomUrl?.(normalized);
-  } catch {
-    /* cross-origin when proxy is inactive */
-  }
-}
-
-function onCodenamesIframeLoad() {
-  tryPublishCodenamesRoomFromIframeLocation();
-}
-
-watch(
-  () =>
-    st.value.phase === 'codenames' &&
-    !codenamesSyncedUrl.value &&
-    !isCodenamesStarter.value,
-  (holding) => {
-    if (codenamesWaitTimer) {
-      clearTimeout(codenamesWaitTimer);
-      codenamesWaitTimer = null;
-    }
-    codenamesWaitTimedOut.value = false;
-    if (holding) {
-      codenamesWaitTimer = setTimeout(() => {
-        codenamesWaitTimedOut.value = true;
-      }, 90_000);
-    }
-  },
-  { immediate: true },
-);
-
-watch(
-  () => st.value.phase,
-  (phase) => {
-    if (phase !== 'codenames') {
-      codenamesProxyResolveGen += 1;
-      codenamesProxyToken.value = null;
-      codenamesProxyGatePending.value = false;
-      if (codenamesLocationPoll) {
-        clearInterval(codenamesLocationPoll);
-        codenamesLocationPoll = null;
-      }
-      return;
-    }
-    void resolveCodenamesEmbedProxyGate();
-  },
-  { immediate: true },
-);
-
-/** Next.js client-side navigations do not fire iframe load — poll location. */
-watch(
-  () => ({
-    phase: st.value.phase,
-    token: codenamesProxyToken.value,
-    synced: codenamesSyncedUrl.value,
-    starter: isCodenamesStarter.value,
-  }),
-  (s) => {
-    if (codenamesLocationPoll) {
-      clearInterval(codenamesLocationPoll);
-      codenamesLocationPoll = null;
-    }
-    if (s.phase !== 'codenames' || !s.token || !!s.synced || !s.starter) return;
-    codenamesLocationPoll = setInterval(() => {
-      tryPublishCodenamesRoomFromIframeLocation();
-    }, 600);
-  },
-  { immediate: true },
-);
-
 const activityRegionLabel = computed(() => {
   const p = st.value.phase;
   if (p === 'pick') return 'Voice activities';
   if (p === 'wordle') return 'Wordle';
   if (p === 'hangman') return 'Hangman';
-  if (p === 'codenames') return 'Codenames';
+  if (p === 'codenames') return 'Echoed Names';
   if (isVcIframeEmbedPhase(p)) return vcIframeEmbedTitle(p);
   return 'YouTube watch together';
 });
@@ -1253,7 +1009,10 @@ watch(
   >
     <header
       class="vc-act-header flex h-11 min-h-11 w-full min-w-0 shrink-0 items-center gap-1.5 border-b border-border bg-elevated px-2 sm:px-3"
-      :class="st.phase === 'youtube' ? 'vc-act-header--youtube' : ''"
+      :class="{
+        'vc-act-header--youtube': st.phase === 'youtube',
+        'vc-act-header--echoed-names': st.phase === 'codenames',
+      }"
     >
       <button
         type="button"
@@ -2162,113 +1921,31 @@ watch(
       />
     </div>
 
-    <!-- Codenames: one shared room URL synced over LiveKit (`youtube_activity.codenamesRoomUrl`). -->
+    <!-- Echoed Names (voice-synced Codenames-style game) -->
     <div
       v-else-if="st.phase === 'codenames'"
-      class="relative flex min-h-0 min-w-0 flex-1 flex-col"
-      :class="codenamesHoldUi ? 'bg-bg' : 'bg-black'"
+      class="custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
     >
-      <div
-        v-if="codenamesHoldUi"
-        class="custom-scrollbar flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center"
-      >
-        <div
-          class="max-w-md space-y-2 rounded-2xl border border-border bg-elevated px-5 py-6 shadow-sm"
-        >
-          <p class="text-[15px] font-semibold text-fg">
-            Waiting for the Codenames host
-          </p>
-          <p class="text-sm leading-relaxed text-fg-soft">
-            The session host is creating your shared room. You will join
-            automatically as soon as the invite link is ready.
-          </p>
-          <p
-            v-if="codenamesWaitTimedOut"
-            class="text-xs leading-relaxed text-fg-subtle"
-          >
-            <template v-if="codenamesProxyActive">
-              This is taking longer than expected. Ask the host to finish
-              creating the lobby in Codenames, or try re-opening the activity.
-            </template>
-            <template v-else>
-              This is taking longer than expected. Ask the host to paste the
-              invite link from Codenames, or try re-opening the activity.
-            </template>
-          </p>
-        </div>
-      </div>
-      <template v-else>
-        <div
-          v-if="codenamesProxyGatePending"
-          class="absolute inset-0 flex min-h-0 flex-1 flex-col items-center justify-center gap-2 bg-bg px-6 text-center"
-        >
-          <p class="text-sm font-medium text-fg">Preparing Codenames…</p>
-          <p class="max-w-sm text-xs leading-relaxed text-fg-soft">
-            Connecting through Echo so the room link can be detected
-            automatically.
-          </p>
-        </div>
-        <iframe
-          v-else-if="codenamesEmbedSrc"
-          ref="codenamesIframeRef"
-          :key="iframeEmbedKey"
-          :src="codenamesEmbedSrc"
-          class="absolute inset-0 h-full w-full border-0"
-          title="Codenames"
-          allow="
-            accelerometer;
-            autoplay;
-            clipboard-write;
-            encrypted-media;
-            fullscreen;
-            gamepad;
-            geolocation;
-            gyroscope;
-            microphone;
-            camera;
-            payment;
-            picture-in-picture;
-          "
-          referrerpolicy="strict-origin-when-cross-origin"
-          allowfullscreen
-          @load="onCodenamesIframeLoad"
-        />
-        <div
-          v-if="
-            isCodenamesStarter &&
-            !codenamesSyncedUrl &&
-            !codenamesProxyActive &&
-            !codenamesProxyGatePending
-          "
-          class="pointer-events-auto absolute bottom-0 left-0 right-0 border-t border-white/[0.08] bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3"
-        >
-          <p class="mb-2 text-[11px] font-medium text-fg-soft">
-            Echo cannot read the embedded Codenames URL from here (same-origin
-            proxy is off or unavailable). Paste the invite URL from your
-            browser or share dialog so everyone loads the same room.
-          </p>
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <input
-              v-model="codenamesPasteDraft"
-              type="url"
-              placeholder="https://codenames.game/…"
-              class="min-h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-black/60 px-2.5 py-1.5 text-xs text-fg outline-none focus:border-sky-400/55 focus:ring-2 focus:ring-sky-400/20"
-              autocomplete="off"
-            />
-            <button
-              type="button"
-              class="shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-fg transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
-              :disabled="!codenamesPasteDraft.trim()"
-              @click="applyCodenamesPaste"
-            >
-              Share with voice
-            </button>
-          </div>
-        </div>
-      </template>
+      <VcCodenamesGame
+        class="min-h-0 min-w-0 flex-1"
+        :current-user-id="currentUserId ?? undefined"
+        :active-voice-channel-participants="hangmanVoiceParticipants"
+        :vc-codenames-activity="cnActivity"
+        :codenames-roster-user-ids="cnRoster"
+        :vc-codenames-spymaster-key="cnSpymasterKey"
+        :commit-vc-codenames-deal="props.commitVcCodenamesDeal"
+        :request-vc-codenames-setup="props.requestVcCodenamesSetup"
+        :request-vc-codenames-clue="props.requestVcCodenamesClue"
+        :request-vc-codenames-reveal="props.requestVcCodenamesReveal"
+        :request-vc-codenames-end-turn="props.requestVcCodenamesEndTurn"
+        :request-vc-codenames-new-game="props.requestVcCodenamesNewGame"
+        :request-vc-codenames-push-key-to-orchestrator="
+          props.requestVcCodenamesPushKeyToOrchestrator
+        "
+      />
     </div>
 
-    <!-- Third-party iframe games (OpenGuessr, skribbl.io, Gartic Phone, Krunker, Codenames, Richup, Goober Dash, Smash Karts, Basketball Stars 2026, Cluster Rush) -->
+    <!-- Third-party iframe games (OpenGuessr, skribbl.io, Gartic Phone, Krunker, Richup, Goober Dash, Smash Karts, Basketball Stars 2026, Cluster Rush) -->
     <div
       v-else-if="iframeEmbedPhase"
       class="relative min-h-0 min-w-0 flex-1 bg-black"
@@ -2489,6 +2166,46 @@ watch(
     0 20px 44px color-mix(in srgb, black 28%, transparent);
 }
 .vc-act-widget--hangman .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 74%, var(--vc-act-a1) 26%);
+}
+
+.vc-act-widget--tictactoe {
+  --vc-act-a1: #6366f1;
+  --vc-act-a2: #f472b6;
+  background:
+    radial-gradient(
+      115% 100% at 8% -5%,
+      color-mix(in srgb, var(--vc-act-a1) 34%, transparent) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      100% 95% at 100% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 28%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      172deg,
+      color-mix(in srgb, var(--elevated) 90%, #0c0818) 0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 22%, var(--border));
+}
+.vc-act-widget--tictactoe .vc-act-widget__media {
+  background: linear-gradient(150deg, #0f0a1a 0%, #120c1c 48%, #081018 100%);
+}
+.vc-act-widget--tictactoe:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 42%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 52px color-mix(in srgb, var(--vc-act-a1) 14%, black 26%);
+}
+.vc-act-widget--tictactoe:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 50%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 35%, transparent),
+    0 20px 44px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--tictactoe .vc-act-widget__cta {
   color: color-mix(in srgb, var(--fg-soft) 74%, var(--vc-act-a1) 26%);
 }
 
@@ -2812,9 +2529,9 @@ watch(
   color: color-mix(in srgb, var(--fg-soft) 70%, var(--vc-act-a1) 30%);
 }
 
-.vc-act-widget--codenames {
-  --vc-act-a1: #1d4ed8;
-  --vc-act-a2: #b91c1c;
+.vc-act-widget--echoed-names {
+  --vc-act-a1: #0e7490;
+  --vc-act-a2: #6d28d9;
   background:
     radial-gradient(
       100% 100% at 0% 0%,
@@ -2828,27 +2545,27 @@ watch(
     ),
     linear-gradient(
       168deg,
-      color-mix(in srgb, var(--elevated) 90%, #080a12) 0%,
+      color-mix(in srgb, var(--elevated) 90%, #061016) 0%,
       color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
     );
-  border-color: color-mix(in srgb, var(--vc-act-a1) 20%, var(--border));
+  border-color: color-mix(in srgb, var(--vc-act-a1) 22%, var(--border));
 }
-.vc-act-widget--codenames .vc-act-widget__media {
-  background: linear-gradient(145deg, #0a0e18 0%, #120c0c 50%, #0c1420 100%);
+.vc-act-widget--echoed-names .vc-act-widget__media {
+  background: linear-gradient(145deg, #071218 0%, #100a1a 50%, #0a1218 100%);
 }
-.vc-act-widget--codenames:hover {
+.vc-act-widget--echoed-names:hover {
   border-color: color-mix(in srgb, var(--vc-act-a1) 36%, var(--border));
   box-shadow:
     0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
     0 24px 52px color-mix(in srgb, var(--vc-act-a2) 12%, black 26%);
 }
-.vc-act-widget--codenames:focus-visible {
+.vc-act-widget--echoed-names:focus-visible {
   border-color: color-mix(in srgb, var(--vc-act-a1) 44%, var(--border));
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 32%, transparent),
     0 20px 44px color-mix(in srgb, black 28%, transparent);
 }
-.vc-act-widget--codenames .vc-act-widget__cta {
+.vc-act-widget--echoed-names .vc-act-widget__cta {
   color: color-mix(in srgb, var(--fg-soft) 78%, var(--vc-act-a1) 22%);
 }
 
@@ -2956,6 +2673,30 @@ watch(
   .vc-act-widget--hangman
   .vc-act-widget__media {
   background: linear-gradient(150deg, #fffbeb 0%, #faf5ff 50%, #f8fafc 100%);
+}
+
+:global(html[data-theme='light']) .vc-act-widget--tictactoe {
+  background:
+    radial-gradient(
+      110% 95% at 8% 0%,
+      color-mix(in srgb, #a5b4fc 42%, transparent) 0%,
+      transparent 48%
+    ),
+    radial-gradient(
+      100% 90% at 100% 100%,
+      color-mix(in srgb, #fbcfe8 38%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      175deg,
+      color-mix(in srgb, var(--elevated) 96%, #eef2ff) 0%,
+      var(--elevated) 100%
+    );
+}
+:global(html[data-theme='light'])
+  .vc-act-widget--tictactoe
+  .vc-act-widget__media {
+  background: linear-gradient(150deg, #eef2ff 0%, #fae8ff 50%, #ecfeff 100%);
 }
 
 :global(html[data-theme='light']) .vc-act-widget--openguessr {
@@ -3078,16 +2819,16 @@ watch(
   background: linear-gradient(152deg, #faf5ff 0%, #ecfeff 48%, #fdf2f8 100%);
 }
 
-:global(html[data-theme='light']) .vc-act-widget--codenames {
+:global(html[data-theme='light']) .vc-act-widget--echoed-names {
   background:
     radial-gradient(
       100% 100% at 0% 0%,
-      color-mix(in srgb, #bfdbfe 55%, transparent) 0%,
+      color-mix(in srgb, #a5f3fc 50%, transparent) 0%,
       transparent 46%
     ),
     radial-gradient(
       100% 100% at 100% 100%,
-      color-mix(in srgb, #fecaca 45%, transparent) 0%,
+      color-mix(in srgb, #ddd6fe 48%, transparent) 0%,
       transparent 46%
     ),
     linear-gradient(
@@ -3097,9 +2838,9 @@ watch(
     );
 }
 :global(html[data-theme='light'])
-  .vc-act-widget--codenames
+  .vc-act-widget--echoed-names
   .vc-act-widget__media {
-  background: linear-gradient(145deg, #eff6ff 0%, #fef2f2 50%, #f8fafc 100%);
+  background: linear-gradient(145deg, #ecfeff 0%, #f5f3ff 50%, #f8fafc 100%);
 }
 
 :global(html[data-theme='light']) .vc-act-widget--richup {
@@ -3224,6 +2965,15 @@ watch(
   );
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
+  .vc-act-widget.vc-act-widget--tictactoe:hover {
+  border-color: color-mix(
+    in srgb,
+    #818cf8 36%,
+    #d97706 22%,
+    var(--border)
+  );
+}
+:global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--openguessr:hover {
   border-color: color-mix(
     in srgb,
@@ -3269,10 +3019,10 @@ watch(
   );
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--codenames:hover {
+  .vc-act-widget.vc-act-widget--echoed-names:hover {
   border-color: color-mix(
     in srgb,
-    #60a5fa 32%,
+    #22d3ee 32%,
     #d97706 24%,
     var(--border)
   );
@@ -3461,6 +3211,19 @@ watch(
   );
 }
 
+.vc-act-header--echoed-names {
+  border-bottom-color: color-mix(
+    in srgb,
+    #0891b2 26%,
+    var(--border)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 88%, #050f14) 0%,
+    var(--elevated) 100%
+  );
+}
+
 .vc-act-browse-drawer {
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
@@ -3564,6 +3327,15 @@ watch(
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--elevated) 96%, #fff5f5) 0%,
+    var(--elevated) 100%
+  );
+}
+
+[data-theme='light'] .vc-act-header--echoed-names {
+  border-bottom-color: color-mix(in srgb, #06b6d4 22%, var(--border));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 96%, #ecfeff) 0%,
     var(--elevated) 100%
   );
 }

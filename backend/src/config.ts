@@ -414,6 +414,11 @@ interface AppConfig {
   readonly authHwidMaxAccountsPerHwidIp: number;
   /** Public base URL of the API (verification links in email). Default http://localhost:3000. */
   readonly echoApiPublicUrl: string;
+  /**
+   * Optional extra pepper for SHA-256 of channel webhook URL tokens at rest.
+   * When empty, hashing falls back to {@link jwtSecret}.
+   */
+  readonly echoChannelWebhookTokenPepper: string;
   /** SPA origin for redirects after email verification (default first CORS origin or localhost:8080). */
   readonly echoAppPublicUrl: string;
   /**
@@ -583,24 +588,6 @@ interface AppConfig {
    * Default: on in non-production (set `ECHO_VC_VERBOSE_LOG=false` to silence); in production off unless `true`.
    */
   readonly echoVcVerboseLogging: boolean;
-  /**
-   * Enables the same-origin embed proxy at `/api/v1/embed/*`.
-   * Set `ECHO_EMBED_PROXY_ENABLED=true`. Off by default; operator opt-in only.
-   * WARNING: proxied third-party JS runs as Echo's origin — enable only for
-   * explicitly trusted targets (see embedProxyCatalog.ts).
-   */
-  readonly echoEmbedProxyEnabled: boolean;
-  /**
-   * Comma-separated allowlist of slugs that may be proxied
-   * (`ECHO_EMBED_PROXY_SLUGS`). When unset, all catalog slugs are allowed
-   * (subject to `echoEmbedProxyEnabled` being true).
-   */
-  readonly echoEmbedProxySlugs: string[] | null;
-  /**
-   * HMAC key for signing short-lived embed tokens (`ECHO_EMBED_PROXY_SECRET`).
-   * Falls back to `jwtSecret` when unset (weaker in production — set explicitly).
-   */
-  readonly echoEmbedProxySecret: string;
 }
 
 /**
@@ -1278,6 +1265,8 @@ export const config: AppConfig = {
   })(),
   echoApiPublicUrl:
     process.env.ECHO_API_PUBLIC_URL?.trim() || 'http://localhost:3000',
+  echoChannelWebhookTokenPepper:
+    process.env.ECHO_CHANNEL_WEBHOOK_TOKEN_PEPPER?.trim() ?? '',
   echoAppPublicUrl: resolvedEchoAppPublicUrl(),
   echoEmailLogoUrl: (() => {
     const raw = process.env.ECHO_EMAIL_LOGO_URL?.trim();
@@ -1501,20 +1490,6 @@ export const config: AppConfig = {
     if (raw === 'false' || raw === '0' || raw === 'no') return false;
     return process.env.NODE_ENV !== 'production';
   })(),
-  echoEmbedProxyEnabled: parseBoolean(
-    process.env.ECHO_EMBED_PROXY_ENABLED,
-    false,
-  ),
-  echoEmbedProxySlugs: (() => {
-    const raw = process.env.ECHO_EMBED_PROXY_SLUGS?.trim() ?? '';
-    if (!raw) return null;
-    return raw
-      .split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
-  })(),
-  echoEmbedProxySecret:
-    process.env.ECHO_EMBED_PROXY_SECRET?.trim() || resolvedJwtSecret,
 };
 
 // It's a good practice to validate critical configuration variables

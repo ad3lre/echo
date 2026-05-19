@@ -1316,6 +1316,13 @@ export type AuthSessionInfo = {
   id: string;
   createdAt: string;
   expiresAt: string;
+  /**
+   * When the request used a browser session cookie, the API marks which refresh-token
+   * row powers this client. Omitted for legacy bearer auth or unknown binding.
+   */
+  isCurrentSession?: boolean;
+  /** Stored client hint when available; otherwise omit or null. */
+  userAgent?: string | null;
 };
 
 export async function authFetchSessions(): Promise<{

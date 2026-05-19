@@ -88,6 +88,10 @@ import {
   primaryFlowFailureSuggestsBackendUnreachable,
   type PrimaryFlowFailureDetail,
 } from '@/utils/primaryFlowFailure';
+import {
+  getEchoOutageRecoveryEstimate,
+  recordEchoOutageRecoveryDuration,
+} from '@/utils/echoOutageRecoveryStats';
 import { CHAT_MESSAGE_NAV_BRIDGE_KEY } from '@/features/navigation/chatMessageNavBridge';
 import { subscribeUIErrors, type UIErrorSeverity } from '@/utils/uiErrorBus';
 import {
@@ -123,7 +127,12 @@ import {
   bringMainWindowToForeground,
   downloadAndRelaunchDesktopUpdate,
   isDesktop,
+  openExternal,
 } from '@/platform/desktopBridge';
+import {
+  installExternalLinkClickGate,
+  uninstallExternalLinkClickGate,
+} from '@/utils/externalLinkClickGate';
 import { useDesktopNativeAttention } from '@/composables/useDesktopNativeAttention';
 import { useBrowserTabAttention } from '@/composables/useBrowserTabAttention';
 import { useDesktopGlobalShortcutBringFront } from '@/platform/desktopGlobalShortcutBringFront';
@@ -697,11 +706,22 @@ const {
   openVcActivityYoutubeBrowse,
   openVcActivityWordle,
   openVcActivityHangman,
+  openVcActivityTicTacToe,
   vcHangmanActivity,
   hangmanRosterUserIds,
   commitVcHangmanWord,
   requestVcHangmanGuessLetter,
   requestVcHangmanNextRound,
+  vcCodenamesActivity,
+  codenamesRosterUserIds,
+  vcCodenamesSpymasterKey,
+  commitVcCodenamesDeal,
+  requestVcCodenamesSetup,
+  requestVcCodenamesClue,
+  requestVcCodenamesReveal,
+  requestVcCodenamesEndTurn,
+  requestVcCodenamesNewGame,
+  requestVcCodenamesPushKeyToOrchestrator,
   openVcActivityOpenGuessr,
   openVcActivitySkribblIo,
   openVcActivityGarticPhone,
@@ -713,7 +733,6 @@ const {
   openVcActivityBasketballStars2026,
   openVcActivityClusterRush,
   setVcActivityYoutubeVideo,
-  setVcActivityCodenamesRoomUrl,
   setVcYoutubeBrowseOpen,
   addVcYoutubeToQueue,
   removeVcYoutubeFromQueue,
@@ -925,7 +944,7 @@ function toastPlainGuildEventLocation(text: string, urls: readonly string[]) {
       id: 'open',
       label: 'Open link',
       run: () => {
-        window.open(first, '_blank', 'noopener,noreferrer');
+        void openExternal(first);
       },
     });
   }
@@ -968,7 +987,7 @@ function navigateGuildEventOpenPayload(payload: {
       break;
     }
     case 'external':
-      window.open(res.url, '_blank', 'noopener,noreferrer');
+      void openExternal(res.url);
       break;
     case 'plain':
       toastPlainGuildEventLocation(res.text, res.detectedUrls);
@@ -1801,11 +1820,22 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   openVcActivityYoutubeBrowse,
   openVcActivityWordle,
   openVcActivityHangman,
+  openVcActivityTicTacToe,
   vcHangmanActivity,
   hangmanRosterUserIds,
   commitVcHangmanWord,
   requestVcHangmanGuessLetter,
   requestVcHangmanNextRound,
+  vcCodenamesActivity,
+  codenamesRosterUserIds,
+  vcCodenamesSpymasterKey,
+  commitVcCodenamesDeal,
+  requestVcCodenamesSetup,
+  requestVcCodenamesClue,
+  requestVcCodenamesReveal,
+  requestVcCodenamesEndTurn,
+  requestVcCodenamesNewGame,
+  requestVcCodenamesPushKeyToOrchestrator,
   openVcActivityOpenGuessr,
   openVcActivitySkribblIo,
   openVcActivityGarticPhone,
@@ -1817,7 +1847,6 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   openVcActivityBasketballStars2026,
   openVcActivityClusterRush,
   setVcActivityYoutubeVideo,
-  setVcActivityCodenamesRoomUrl,
   setVcYoutubeBrowseOpen,
   addVcYoutubeToQueue,
   removeVcYoutubeFromQueue,
@@ -2417,6 +2446,15 @@ async function checkServerHealthNow() {
         }
         return;
       }
+      if (wasDown) {
+        const since = serverHealthOutageSinceMs.value;
+        if (since != null) {
+          recordEchoOutageRecoveryDuration(Date.now() - since);
+          const next = getEchoOutageRecoveryEstimate();
+          serverHealthAvgRecoveryEstimateSec.value = next.estimateSeconds;
+          serverHealthAvgRecoverySampleCount.value = next.sampleCount;
+        }
+      }
       serverHealthDown.value = false;
       serverHealthOutageSinceMs.value = null;
       primaryFlowFailureDetail.value = null;
@@ -2466,6 +2504,14 @@ const serverHealthLastCheckedAtMs = ref<number | null>(null);
 const serverHealthRecoveringReload = ref(false);
 let serverHealthPollTimer: ReturnType<typeof setInterval> | null = null;
 
+const _initialRecovery = getEchoOutageRecoveryEstimate();
+const serverHealthAvgRecoveryEstimateSec = ref(
+  _initialRecovery.estimateSeconds,
+);
+const serverHealthAvgRecoverySampleCount = ref(
+  _initialRecovery.sampleCount,
+);
+
 /** True when the latest primary-flow failure looks like backend/API unreachability. */
 const likelyBackendDownPrimaryFlow = computed(() => {
   const d = primaryFlowFailureDetail.value;
@@ -2480,6 +2526,15 @@ const serverDownGateDetail = computed(() => {
   const u = d.userMessage?.trim();
   return u || `Primary flow error — ${d.flow}: ${d.message}`;
 });
+
+const serverDownGateBind = computed(() => ({
+  checking: serverHealthChecking.value,
+  outageSinceMs: serverHealthOutageSinceMs.value,
+  lastCheckedAtMs: serverHealthLastCheckedAtMs.value,
+  detail: serverDownGateDetail.value,
+  averageRecoverySeconds: serverHealthAvgRecoveryEstimateSec.value,
+  recoverySampleCount: serverHealthAvgRecoverySampleCount.value,
+}));
 
 /**
  * Full-screen downtime gate: confirmed `/health` outage plus a strong unreachability signal.
@@ -2980,6 +3035,8 @@ onMounted(() => {
     ECHO_CHAT_COMPOSER_FOCUS_EVENT,
     onChatComposerFocusForToast,
   );
+
+  installExternalLinkClickGate();
 
   syncAppToastVisualViewportBottomExtraNow();
   window.addEventListener('resize', onAppToastVisualViewportChanged);
@@ -3615,6 +3672,7 @@ function disposeAppLayoutSideEffects() {
     ECHO_CHAT_COMPOSER_FOCUS_EVENT,
     onChatComposerFocusForToast,
   );
+  uninstallExternalLinkClickGate();
   if (appToastViewportMetricsRaf !== 0) {
     window.cancelAnimationFrame(appToastViewportMetricsRaf);
     appToastViewportMetricsRaf = 0;
@@ -4139,10 +4197,7 @@ watch(
                   <ServerDownGate
                     v-if="showServerDownGate"
                     class="col-span-full min-h-full min-w-0 self-stretch"
-                    :checking="serverHealthChecking"
-                    :outage-since-ms="serverHealthOutageSinceMs"
-                    :last-checked-at-ms="serverHealthLastCheckedAtMs"
-                    :detail="serverDownGateDetail"
+                    v-bind="serverDownGateBind"
                     @retry="checkServerHealthNow"
                   />
                   <WelcomeBackExploreGate
@@ -4179,10 +4234,7 @@ watch(
               <ServerDownGate
                 v-if="showServerDownGate"
                 class="col-span-full min-h-full min-w-0 self-stretch"
-                :checking="serverHealthChecking"
-                :outage-since-ms="serverHealthOutageSinceMs"
-                :last-checked-at-ms="serverHealthLastCheckedAtMs"
-                :detail="serverDownGateDetail"
+                v-bind="serverDownGateBind"
                 @retry="checkServerHealthNow"
               />
               <WelcomeBackExploreGate
@@ -4236,10 +4288,7 @@ watch(
                 <ServerDownGate
                   v-if="showServerDownGate"
                   class="col-span-full min-h-full min-w-0 self-stretch"
-                  :checking="serverHealthChecking"
-                  :outage-since-ms="serverHealthOutageSinceMs"
-                  :last-checked-at-ms="serverHealthLastCheckedAtMs"
-                  :detail="serverDownGateDetail"
+                  v-bind="serverDownGateBind"
                   @retry="checkServerHealthNow"
                 />
                 <WelcomeBackExploreGate
@@ -4316,10 +4365,7 @@ watch(
                   <ServerDownGate
                     v-if="showServerDownGate"
                     class="col-span-full min-h-full min-w-0 self-stretch"
-                    :checking="serverHealthChecking"
-                    :outage-since-ms="serverHealthOutageSinceMs"
-                    :last-checked-at-ms="serverHealthLastCheckedAtMs"
-                    :detail="serverDownGateDetail"
+                    v-bind="serverDownGateBind"
                     @retry="checkServerHealthNow"
                   />
                   <WelcomeBackExploreGate
@@ -4356,10 +4402,7 @@ watch(
               <ServerDownGate
                 v-if="showServerDownGate"
                 class="col-span-full min-h-full min-w-0 self-stretch"
-                :checking="serverHealthChecking"
-                :outage-since-ms="serverHealthOutageSinceMs"
-                :last-checked-at-ms="serverHealthLastCheckedAtMs"
-                :detail="serverDownGateDetail"
+                v-bind="serverDownGateBind"
                 @retry="checkServerHealthNow"
               />
               <WelcomeBackExploreGate
@@ -4428,10 +4471,7 @@ watch(
                 <ServerDownGate
                   v-if="showServerDownGate"
                   class="col-span-full min-h-full min-w-0 self-stretch"
-                  :checking="serverHealthChecking"
-                  :outage-since-ms="serverHealthOutageSinceMs"
-                  :last-checked-at-ms="serverHealthLastCheckedAtMs"
-                  :detail="serverDownGateDetail"
+                  v-bind="serverDownGateBind"
                   @retry="checkServerHealthNow"
                 />
                 <WelcomeBackExploreGate
@@ -4468,10 +4508,7 @@ watch(
             <ServerDownGate
               v-if="showServerDownGate"
               class="col-span-full min-h-full min-w-0 self-stretch"
-              :checking="serverHealthChecking"
-              :outage-since-ms="serverHealthOutageSinceMs"
-              :last-checked-at-ms="serverHealthLastCheckedAtMs"
-              :detail="serverDownGateDetail"
+              v-bind="serverDownGateBind"
               @retry="checkServerHealthNow"
             />
             <WelcomeBackExploreGate
@@ -4541,10 +4578,7 @@ watch(
               <ServerDownGate
                 v-if="showServerDownGate"
                 class="col-span-full min-h-full min-w-0 self-stretch"
-                :checking="serverHealthChecking"
-                :outage-since-ms="serverHealthOutageSinceMs"
-                :last-checked-at-ms="serverHealthLastCheckedAtMs"
-                :detail="serverDownGateDetail"
+                v-bind="serverDownGateBind"
                 @retry="checkServerHealthNow"
               />
               <WelcomeBackExploreGate
@@ -4579,10 +4613,7 @@ watch(
           <ServerDownGate
             v-if="showServerDownGate"
             class="col-span-full min-h-full min-w-0 self-stretch"
-            :checking="serverHealthChecking"
-            :outage-since-ms="serverHealthOutageSinceMs"
-            :last-checked-at-ms="serverHealthLastCheckedAtMs"
-            :detail="serverDownGateDetail"
+            v-bind="serverDownGateBind"
             @retry="checkServerHealthNow"
           />
           <WelcomeBackExploreGate

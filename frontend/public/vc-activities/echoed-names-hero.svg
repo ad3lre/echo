@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="en-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c1224"/>
+      <stop offset="45%" stop-color="#14102a"/>
+      <stop offset="100%" stop-color="#0a1818"/>
+    </linearGradient>
+    <linearGradient id="en-cell-a" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0f1729"/>
+    </linearGradient>
+    <linearGradient id="en-cell-b" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5c1f2a"/>
+      <stop offset="100%" stop-color="#1a0a0e"/>
+    </linearGradient>
+    <linearGradient id="en-cell-n" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#27272f"/>
+      <stop offset="100%" stop-color="#121218"/>
+    </linearGradient>
+    <radialGradient id="en-glow" cx="72%" cy="28%" r="55%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25"/>
+      <stop offset="55%" stop-color="#a78bfa" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="en-soft" x="-8%" y="-8%" width="116%" height="116%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.8" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="480" height="200" fill="url(#en-bg)"/>
+  <rect width="480" height="200" fill="url(#en-glow)"/>
+  <g transform="translate(38 36)" filter="url(#en-soft)">
+    <rect x="0" y="0" width="52" height="36" rx="6" fill="url(#en-cell-a)"/>
+    <rect x="58" y="0" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
+    <rect x="116" y="0" width="52" height="36" rx="6" fill="url(#en-cell-b)"/>
+    <rect x="174" y="0" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
+    <rect x="232" y="0" width="52" height="36" rx="6" fill="url(#en-cell-a)"/>
+    <rect x="0" y="42" width="52" height="36" rx="6" fill="url(#en-cell-b)"/>
+    <rect x="58" y="42" width="52" height="36" rx="6" fill="url(#en-cell-a)"/>
+    <rect x="116" y="42" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
+    <rect x="174" y="42" width="52" height="36" rx="6" fill="url(#en-cell-b)"/>
+    <rect x="232" y="42" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
+    <rect x="0" y="84" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
+    <rect x="58" y="84" width="52" height="36" rx="6" fill="url(#en-cell-b)"/>
+    <rect x="116" y="84" width="52" height="36" rx="6" fill="url(#en-cell-a)"/>
+    <rect x="174" y="84" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
+    <rect x="232" y="84" width="52" height="36" rx="6" fill="#0a0a12" stroke="#f472b622"/>
+  </g>
+  <text x="318" y="118" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="700" letter-spacing="-0.02em">Echoed Names</text>
+  <text x="318" y="144" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" letter-spacing="0.14em">VOICE TEAM GRID</text>
+</svg>

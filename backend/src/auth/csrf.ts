@@ -44,6 +44,7 @@ const CSRF_EXEMPT_PREFIXES = [
   '/api/v1/hooks/discord-bot/',
   '/api/v1/hooks/discord-bridge/',
   '/api/v1/hooks/discord-voice-mirror/',
+  '/api/v1/hooks/echo-channel-webhooks/',
 ];
 
 function pathOnly(url: string): string {

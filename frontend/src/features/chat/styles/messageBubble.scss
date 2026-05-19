@@ -436,6 +436,30 @@
   color: var(--md-link-fg);
   text-decoration: underline;
 }
+.message-content :deep(a.message-md-external-link) {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: baseline;
+  vertical-align: baseline;
+  font-weight: 500;
+  text-underline-offset: 2px;
+}
+.message-content :deep(a.message-md-external-link .message-md-external-link__favicon) {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  border-radius: 0.125rem;
+  object-fit: contain;
+  margin-top: 0.1em;
+}
+.message-content :deep(a.message-md-external-link .message-md-external-link__label) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .message-content :deep(a:not(.invite-embed__join):hover) {
   color: var(--md-link-fg-hover);
 }

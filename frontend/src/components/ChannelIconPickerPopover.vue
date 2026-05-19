@@ -24,6 +24,7 @@ import { ensureEmojiSearchPrebuildLoaded } from '@/composables/useEmojiSearchInd
 import { useEmojiPicker } from '@/composables/useEmojiPicker';
 import { useServerEmojiLibrary } from '@/composables/useServerEmojiLibrary';
 import { useUserEmojiLibrary } from '@/composables/useUserEmojiLibrary';
+import { useChannelIconResolver } from '@/composables/useChannelIconResolver';
 import { preloadEmojiImagesOnce } from '@/composables/useEmojiPreload';
 import EmojiCategorySection from '@/components/EmojiCategorySection.vue';
 import AppIconPickerPanel from '@/components/AppIconPickerPanel.vue';
@@ -56,6 +57,7 @@ const emit = defineEmits<{
 const serverIdRef = toRef(props, 'serverId');
 const library = useServerEmojiLibrary(serverIdRef);
 const userLibrary = useUserEmojiLibrary();
+const channelIconResolver = useChannelIconResolver(serverIdRef);
 const serverPackCategories = computed(() => library.pickerPackCategories());
 const customEmojiSearchList = computed(() => [
   ...library.flatCustomEmojis.value,
@@ -194,9 +196,7 @@ watch(activeTab, (t) => {
 });
 
 function lookupCustomEmojiUrl(emojiId: string): string | null {
-  const row = library.emojiById.value.get(emojiId.trim());
-  const url = row?.imageUrl?.trim();
-  return url ? safeCustomEmojiUrl(url) : null;
+  return channelIconResolver.lookupCustomEmojiUrl(emojiId) ?? null;
 }
 
 /* ---- trigger preview: catalog is lazy; resolve filename keys after load ---- */
@@ -336,7 +336,8 @@ watch(isOpen, (open) => {
 });
 
 watch(
-  () => [props.modelValue, library.emojiById.value.size] as const,
+  () =>
+    [props.modelValue, channelIconResolver.resolverRevision.value] as const,
   () => {
     void syncTriggerIconUrl();
   },

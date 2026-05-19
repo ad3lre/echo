@@ -50,6 +50,7 @@ export type CategorySettingsTab =
 export type ChannelSettingsTab =
   | CategorySettingsTab
   | 'discord_sync'
+  | 'webhooks'
   | 'forum_creator'
   | 'format'
   | 'delete_channel';
@@ -66,6 +67,11 @@ export const CHANNEL_TAB_COPY: Record<
   permissions: {
     title: 'Permissions',
     description: 'Control who can see this channel and what they can do here.',
+  },
+  webhooks: {
+    title: 'Webhooks',
+    description:
+      'Create secret URLs that external services can use to post messages into this channel.',
   },
   discord_sync: {
     title: 'Discord Sync',

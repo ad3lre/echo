@@ -205,12 +205,27 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
       const sessions = await store.listActiveRefreshTokensByUser(
         req.authUser.id,
       );
+      const sid = req.authSessionId?.trim();
+      const sess = sid ? await getServerSession(sid) : null;
+      const currentRtId = sess?.refreshTokenId?.trim() || null;
+
       return reply.code(200).send({
-        sessions: sessions.map((s) => ({
-          id: s.id,
-          createdAt: s.createdAt,
-          expiresAt: s.expiresAt,
-        })),
+        sessions: sessions.map((s) => {
+          const row: {
+            id: string;
+            createdAt: string;
+            expiresAt: string;
+            isCurrentSession?: boolean;
+          } = {
+            id: s.id,
+            createdAt: s.createdAt,
+            expiresAt: s.expiresAt,
+          };
+          if (currentRtId) {
+            row.isCurrentSession = s.id === currentRtId;
+          }
+          return row;
+        }),
       });
     },
   );

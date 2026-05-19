@@ -61,7 +61,6 @@ export type AppLayoutVoiceShellDepsSlice = {
     youtubeBrowseOpen?: boolean;
     updatedAt: number;
     activityPhase?: VcActivityUiPhase;
-    codenamesRoomUrl?: string | null;
   }) => void;
   closeVcActivity: () => void;
 };

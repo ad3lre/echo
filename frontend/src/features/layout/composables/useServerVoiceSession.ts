@@ -39,7 +39,6 @@ import { isEchoGraphId } from '@/utils/echoIds';
 import { resolveGuildMemberDisplayName } from '@/utils/resolveGuildMemberDisplayName';
 import {
   buildYoutubeActivityPayload,
-  shouldAcceptStaleYoutubeActivityForCodenamesRoomUrl,
   shouldPublishYoutubeWatchTogether,
   withYoutubeWatchTogetherSuppressPublish,
   youtubeWatchTogetherPayloadMatchesLocalUi,
@@ -54,10 +53,22 @@ import { vcActivityPresenceKindsFromUi } from '@/features/voice/vcActivityTypes'
 import { prepareGuildVoiceE2eeMediaKey } from '@/services/voice/voiceE2eePrepare';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 import type {
+  EchoCodenamesActivityV1,
+  EchoCodenamesAffiliationV1,
+  EchoCodenamesClueIntentV1,
+  EchoCodenamesEndTurnIntentV1,
+  EchoCodenamesKeyToOrchestratorV1,
+  EchoCodenamesNewGameIntentV1,
+  EchoCodenamesRevealIntentV1,
+  EchoCodenamesRoleAssignmentV1,
+  EchoCodenamesSetupIntentV1,
+  EchoCodenamesSpymasterKeyV1,
   EchoHangmanActivityV1,
   EchoHangmanGuessIntentV1,
   EchoHangmanNextRoundV1,
   EchoHangmanRoundSecretV1,
+  EchoTicTacToeActivityV1,
+  EchoTicTacToeInviteV1,
   EchoYoutubeActivityV1,
   EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
@@ -73,6 +84,22 @@ import {
   validateHangmanSecretWord,
   type HangmanTick,
 } from '@/features/voice/vcHangmanReducer';
+import {
+  applyClue,
+  applyDeal,
+  applyEndTurn,
+  applyNewGameLobby,
+  applyReveal,
+  applySetupToLobby,
+  buildBootstrapLobby,
+  codenamesAuthorAllowed,
+  coerceCodenamesActivityToLocalRoster,
+  isNewerCodenamesTick,
+  pickWordsAndKey,
+  sanitizeCodenamesActivityForMerge,
+  type CodenamesTick,
+} from '@/features/voice/vcCodenamesReducer';
+import { VC_CODENAMES_WORD_BANK } from '@/features/voice/vcCodenamesWordBank';
 
 /** Workspace row can lag; LiveKit `Participant.metadata` may carry a URL or JSON `{ pfp }`. */
 function resolveParticipantPfpFromWorkspaceAndLiveKit(
@@ -161,7 +188,6 @@ export function useServerVoiceSession(deps: {
     youtubeBrowseOpen?: boolean;
     updatedAt: number;
     activityPhase?: VcActivityUiPhase;
-    codenamesRoomUrl?: string | null;
   }) => void;
   /** When the activity host leaves voice, followers reset the activity surface. */
   closeVcActivity: () => void;
@@ -274,7 +300,6 @@ export function useServerVoiceSession(deps: {
         youtubeBrowseOpen: msg.youtubeBrowseOpen,
         updatedAt: msg.updatedAt,
         activityPhase: msg.activityPhase,
-        codenamesRoomUrl: msg.codenamesRoomUrl,
       });
     });
   }
@@ -291,13 +316,7 @@ export function useServerVoiceSession(deps: {
     if (!fromId || sid !== fromId) return;
 
     const local = vcActivityUi.value;
-    const acceptStale = shouldAcceptStaleYoutubeActivityForCodenamesRoomUrl({
-      msgUpdatedAt: msg.updatedAt,
-      lastAppliedUpdatedAt: lastAppliedYoutubeAt.value,
-      msg,
-      local,
-    });
-    if (msg.updatedAt <= lastAppliedYoutubeAt.value && !acceptStale) return;
+    if (msg.updatedAt <= lastAppliedYoutubeAt.value) return;
 
     const king = vcActivitySyncKingUserId.value?.trim() || null;
     if (king && fromId !== king) return;
@@ -335,18 +354,6 @@ export function useServerVoiceSession(deps: {
       ) {
         applyRemoteYoutubePlaybackFromMsg(msg);
       }
-      return;
-    }
-
-    const acceptStaleAfter = shouldAcceptStaleYoutubeActivityForCodenamesRoomUrl(
-      {
-        msgUpdatedAt: msg.updatedAt,
-        lastAppliedUpdatedAt: lastAppliedYoutubeAt.value,
-        msg,
-        local: vcActivityUi.value,
-      },
-    );
-    if (msg.updatedAt <= lastAppliedYoutubeAt.value && !acceptStaleAfter) {
       return;
     }
 
@@ -549,6 +556,254 @@ export function useServerVoiceSession(deps: {
     onNext: () => {},
   };
 
+  const vcCodenamesPublic = shallowRef<EchoCodenamesActivityV1 | null>(null);
+  const vcCodenamesLastTick = shallowRef<CodenamesTick | null>(null);
+  const vcCodenamesOrchKeyByGameSeq = shallowRef(
+    new Map<number, EchoCodenamesAffiliationV1[]>(),
+  );
+  const vcCodenamesSpymasterKeyByGameSeq = shallowRef(
+    new Map<number, EchoCodenamesAffiliationV1[]>(),
+  );
+
+  let publishCodenamesActivityLocal: (next: EchoCodenamesActivityV1) => void =
+    () => {};
+  let fanoutCodenamesSpymasterKeys: (opts: {
+    gameSeq: number;
+    key: EchoCodenamesAffiliationV1[];
+    fromUserId: string;
+  }) => void = () => {};
+
+  function codenamesRosterFromPresence(): string[] {
+    const out = new Set<string>();
+    const self = currentUser.value?.id?.trim();
+    const ui = vcActivityUi.value;
+    if (self && ui.phase === 'codenames') {
+      if (vcActivityPresenceKindsFromUi(ui).includes('codenames')) out.add(self);
+    }
+    for (const [id, acts] of vcActivityPresenceByUserId.value) {
+      const uid = id.trim();
+      if (!uid) continue;
+      if (acts.includes('codenames')) out.add(uid);
+    }
+    return [...out].sort((a, b) => a.localeCompare(b));
+  }
+
+  function nextCodenamesRevision(): number {
+    return (
+      Math.max(
+        vcCodenamesPublic.value?.revision ?? -1,
+        vcCodenamesLastTick.value?.revision ?? -1,
+      ) + 1
+    );
+  }
+
+  function tryApplyCodenamesRemote(
+    msg: EchoCodenamesActivityV1,
+    identity: string,
+  ): void {
+    if (msg.fromUserId.trim() !== identity.trim()) return;
+    const localR = codenamesRosterFromPresence();
+    const coerced = coerceCodenamesActivityToLocalRoster(msg, localR);
+    const s = sanitizeCodenamesActivityForMerge(coerced);
+    if (!s) return;
+    const orch = hangmanOrchestratorUserId(localR);
+    if (!codenamesAuthorAllowed(s, orch)) return;
+    const tick: CodenamesTick = { updatedAt: s.updatedAt, revision: s.revision };
+    if (!isNewerCodenamesTick(tick, vcCodenamesLastTick.value)) return;
+    vcCodenamesLastTick.value = tick;
+    vcCodenamesPublic.value = s;
+  }
+
+  function receiveCodenamesSpymasterKey(
+    msg: EchoCodenamesSpymasterKeyV1,
+    identity: string,
+  ): void {
+    if (msg.fromUserId.trim() !== identity.trim()) return;
+    const st = vcCodenamesPublic.value;
+    if (!st || msg.gameSeq !== st.gameSeq) return;
+    const orch = hangmanOrchestratorUserId(st.rosterUserIds);
+    if (identity.trim() !== orch) return;
+    const self = currentUser.value?.id?.trim();
+    if (!self) return;
+    const isSm = st.roleAssignments.some(
+      (r) => r.userId === self && r.role === 'spymaster',
+    );
+    if (!isSm) return;
+    const m = new Map(vcCodenamesSpymasterKeyByGameSeq.value);
+    m.set(msg.gameSeq, msg.key);
+    vcCodenamesSpymasterKeyByGameSeq.value = m;
+  }
+
+  function receiveCodenamesKeyToOrch(
+    msg: EchoCodenamesKeyToOrchestratorV1,
+    identity: string,
+  ): void {
+    if (msg.fromUserId.trim() !== identity.trim()) return;
+    const self = currentUser.value?.id?.trim();
+    if (!self) return;
+    const roster = codenamesRosterFromPresence();
+    const orch = hangmanOrchestratorUserId(roster);
+    if (self !== orch) return;
+    const st = vcCodenamesPublic.value;
+    if (!st || msg.gameSeq !== st.gameSeq) return;
+    const isSm = st.roleAssignments.some(
+      (r) => r.userId === msg.fromUserId && r.role === 'spymaster',
+    );
+    if (!isSm) return;
+    const m = new Map(vcCodenamesOrchKeyByGameSeq.value);
+    m.set(msg.gameSeq, msg.key);
+    vcCodenamesOrchKeyByGameSeq.value = m;
+  }
+
+  function processCodenamesClueIntent(
+    intent: EchoCodenamesClueIntentV1,
+    identity: string,
+  ): void {
+    if (intent.fromUserId.trim() !== identity.trim()) return;
+    const self = currentUser.value?.id?.trim();
+    const roster = codenamesRosterFromPresence();
+    const orch = hangmanOrchestratorUserId(roster);
+    if (!self || self !== orch) return;
+    const st = vcCodenamesPublic.value;
+    if (!st || intent.gameSeq !== st.gameSeq) return;
+    if (!roster.includes(intent.fromUserId.trim())) return;
+    const next = applyClue(
+      st,
+      intent.fromUserId.trim(),
+      intent.word,
+      intent.number,
+      self,
+      nextCodenamesRevision(),
+    );
+    if (!next) return;
+    publishCodenamesActivityLocal(next);
+  }
+
+  function processCodenamesRevealIntent(
+    intent: EchoCodenamesRevealIntentV1,
+    identity: string,
+  ): void {
+    if (intent.fromUserId.trim() !== identity.trim()) return;
+    const self = currentUser.value?.id?.trim();
+    const roster = codenamesRosterFromPresence();
+    const orch = hangmanOrchestratorUserId(roster);
+    if (!self || self !== orch) return;
+    const st = vcCodenamesPublic.value;
+    if (!st || intent.gameSeq !== st.gameSeq) return;
+    if (!roster.includes(intent.fromUserId.trim())) return;
+    const key = vcCodenamesOrchKeyByGameSeq.value.get(st.gameSeq);
+    if (!key) return;
+    const next = applyReveal(
+      st,
+      intent.fromUserId.trim(),
+      intent.cardIndex,
+      key,
+      self,
+      nextCodenamesRevision(),
+    );
+    if (!next) return;
+    publishCodenamesActivityLocal(next);
+  }
+
+  function processCodenamesEndTurnIntent(
+    intent: EchoCodenamesEndTurnIntentV1,
+    identity: string,
+  ): void {
+    if (intent.fromUserId.trim() !== identity.trim()) return;
+    const self = currentUser.value?.id?.trim();
+    const roster = codenamesRosterFromPresence();
+    const orch = hangmanOrchestratorUserId(roster);
+    if (!self || self !== orch) return;
+    const st = vcCodenamesPublic.value;
+    if (!st || intent.gameSeq !== st.gameSeq) return;
+    if (!roster.includes(intent.fromUserId.trim())) return;
+    const next = applyEndTurn(
+      st,
+      intent.fromUserId.trim(),
+      self,
+      nextCodenamesRevision(),
+    );
+    if (!next) return;
+    publishCodenamesActivityLocal(next);
+  }
+
+  function processCodenamesSetupIntent(
+    intent: EchoCodenamesSetupIntentV1,
+    identity: string,
+  ): void {
+    if (intent.fromUserId.trim() !== identity.trim()) return;
+    const self = currentUser.value?.id?.trim();
+    const roster = codenamesRosterFromPresence();
+    const orch = hangmanOrchestratorUserId(roster);
+    if (!self || self !== orch) return;
+    const st = vcCodenamesPublic.value;
+    if (!st || intent.gameSeq !== st.gameSeq) return;
+    if (!roster.includes(intent.fromUserId.trim())) return;
+    const next = applySetupToLobby(
+      st,
+      intent.roleAssignments,
+      self,
+      nextCodenamesRevision(),
+    );
+    if (!next) return;
+    publishCodenamesActivityLocal(next);
+  }
+
+  function processCodenamesNewGameIntent(
+    intent: EchoCodenamesNewGameIntentV1,
+    identity: string,
+  ): void {
+    if (intent.fromUserId.trim() !== identity.trim()) return;
+    const self = currentUser.value?.id?.trim();
+    const roster = codenamesRosterFromPresence();
+    const orch = hangmanOrchestratorUserId(roster);
+    if (!self || self !== orch) return;
+    const st = vcCodenamesPublic.value;
+    if (!st) return;
+    if (!roster.includes(intent.fromUserId.trim())) return;
+    const next = applyNewGameLobby(
+      st,
+      intent.completedGameSeq,
+      self,
+      nextCodenamesRevision(),
+    );
+    if (!next) return;
+    const km = new Map(vcCodenamesOrchKeyByGameSeq.value);
+    km.delete(st.gameSeq);
+    vcCodenamesOrchKeyByGameSeq.value = km;
+    const sm = new Map(vcCodenamesSpymasterKeyByGameSeq.value);
+    sm.delete(st.gameSeq);
+    vcCodenamesSpymasterKeyByGameSeq.value = sm;
+    publishCodenamesActivityLocal(next);
+  }
+
+  function tryCodenamesBootstrap(): void {
+    if (lkRoom?.roomState.value !== 'connected' || isDmVoiceCallUi.value) return;
+    if (vcActivityUi.value.phase !== 'codenames') return;
+    const roster = codenamesRosterFromPresence();
+    if (roster.length < 1) return;
+    if (vcCodenamesPublic.value) return;
+    const self = currentUser.value?.id?.trim();
+    const orch = hangmanOrchestratorUserId(roster);
+    if (!self || orch !== self) return;
+    publishCodenamesActivityLocal(
+      buildBootstrapLobby({
+        fromUserId: self,
+        rosterUserIds: roster,
+        revision: nextCodenamesRevision(),
+      }),
+    );
+  }
+
+  let codenamesBootstrapTimer: ReturnType<typeof setTimeout> | null = null;
+  function scheduleCodenamesBootstrap(): void {
+    if (codenamesBootstrapTimer != null) clearTimeout(codenamesBootstrapTimer);
+    codenamesBootstrapTimer = setTimeout(() => {
+      codenamesBootstrapTimer = null;
+      tryCodenamesBootstrap();
+    }, 220);
+  }
+
   const lkRoom = useLiveKitVoiceRoom({
     getUserWantsLocalCamera: () =>
       isDmVoiceCallUi.value ? dmCallVideo.value : vcVideo.value,
@@ -565,6 +820,14 @@ export function useServerVoiceSession(deps: {
       hangmanHandlers.onNext(msg, identity),
     onHangmanRoundSecret: (msg, identity) =>
       receiveHangmanRoundSecret(msg, identity),
+    onCodenamesActivity: tryApplyCodenamesRemote,
+    onCodenamesSpymasterKey: receiveCodenamesSpymasterKey,
+    onCodenamesKeyToOrchestrator: receiveCodenamesKeyToOrch,
+    onCodenamesClueIntent: processCodenamesClueIntent,
+    onCodenamesRevealIntent: processCodenamesRevealIntent,
+    onCodenamesEndTurnIntent: processCodenamesEndTurnIntent,
+    onCodenamesSetupIntent: processCodenamesSetupIntent,
+    onCodenamesNewGameIntent: processCodenamesNewGameIntent,
     onRemoteParticipantDisconnected: (identity) => {
       dropPresenceForRemote(identity);
       const id = identity.trim();
@@ -579,6 +842,42 @@ export function useServerVoiceSession(deps: {
       }
     },
   });
+
+  publishCodenamesActivityLocal = (next: EchoCodenamesActivityV1): void => {
+    const tick: CodenamesTick = {
+      updatedAt: next.updatedAt,
+      revision: next.revision,
+    };
+    vcCodenamesLastTick.value = tick;
+    vcCodenamesPublic.value = next;
+    lkRoom?.publishCodenamesActivity(next);
+  };
+
+  fanoutCodenamesSpymasterKeys = (opts: {
+    gameSeq: number;
+    key: EchoCodenamesAffiliationV1[];
+    fromUserId: string;
+  }): void => {
+    const st = vcCodenamesPublic.value;
+    if (!st || !lkRoom) return;
+    const sm = st.roleAssignments
+      .filter((r) => r.role === 'spymaster')
+      .map((r) => r.userId.trim())
+      .filter(Boolean);
+    if (!sm.length) return;
+    const now = Date.now();
+    lkRoom.publishCodenamesSpymasterKey(
+      {
+        v: 1,
+        t: 'codenames_spymaster_key',
+        updatedAt: now,
+        fromUserId: opts.fromUserId.trim(),
+        gameSeq: opts.gameSeq,
+        key: opts.key,
+      },
+      sm,
+    );
+  };
 
   hangmanHandlers.publish = (next: EchoHangmanActivityV1) => {
     const tick: HangmanTick = {
@@ -935,7 +1234,7 @@ export function useServerVoiceSession(deps: {
     if (!shouldPublishYoutubeWatchTogether()) return;
     const v = vcActivityUi.value;
     if (v.phase === 'closed') return;
-    if (v.phase === 'codenames' && !v.codenamesRoomUrl?.trim()) return;
+    if (v.phase === 'codenames') return;
     const who = resolveWatchTogetherAuthor();
     if (!who) return;
     const payload = buildYoutubeActivityPayload(v, who);
@@ -978,9 +1277,17 @@ export function useServerVoiceSession(deps: {
       vcHangmanLastTick.value = null;
       vcHangmanSecretByRound.value = new Map();
       vcHangmanPendingSecretByRound.value = new Map();
+      vcCodenamesPublic.value = null;
+      vcCodenamesLastTick.value = null;
+      vcCodenamesOrchKeyByGameSeq.value = new Map();
+      vcCodenamesSpymasterKeyByGameSeq.value = new Map();
       if (hangmanBootstrapTimer != null) {
         clearTimeout(hangmanBootstrapTimer);
         hangmanBootstrapTimer = null;
+      }
+      if (codenamesBootstrapTimer != null) {
+        clearTimeout(codenamesBootstrapTimer);
+        codenamesBootstrapTimer = null;
       }
       voiceClientTrace('voice.client:vc_lk_teardown_after_disconnect', {
         state: liveKitState.value,
@@ -1092,6 +1399,16 @@ export function useServerVoiceSession(deps: {
         vcHangmanSecretByRound.value = new Map();
         vcHangmanPendingSecretByRound.value = new Map();
       }
+      if (phase !== 'codenames') {
+        vcCodenamesPublic.value = null;
+        vcCodenamesLastTick.value = null;
+        vcCodenamesOrchKeyByGameSeq.value = new Map();
+        vcCodenamesSpymasterKeyByGameSeq.value = new Map();
+        if (codenamesBootstrapTimer != null) {
+          clearTimeout(codenamesBootstrapTimer);
+          codenamesBootstrapTimer = null;
+        }
+      }
     },
   );
 
@@ -1103,6 +1420,18 @@ export function useServerVoiceSession(deps: {
     }),
     () => {
       scheduleHangmanBootstrap();
+    },
+    { flush: 'post' },
+  );
+
+  watch(
+    () => ({
+      conn: liveKitState.value,
+      phase: vcActivityUi.value.phase,
+      rosterSig: codenamesRosterFromPresence().join(','),
+    }),
+    () => {
+      scheduleCodenamesBootstrap();
     },
     { flush: 'post' },
   );
@@ -1635,15 +1964,228 @@ export function useServerVoiceSession(deps: {
     lkRoom?.setDesktopStreamingPreferences(patch);
   }
 
+  function requestVcCodenamesSetup(
+    assignments: EchoCodenamesRoleAssignmentV1[],
+  ): void {
+    const self = currentUser.value?.id?.trim();
+    if (
+      !lkRoom ||
+      lkRoom.roomState.value !== 'connected' ||
+      isDmVoiceCallUi.value
+    )
+      return;
+    if (!self) return;
+    const st = vcCodenamesPublic.value;
+    if (!st) return;
+    lkRoom.publishCodenamesSetupIntent({
+      v: 1,
+      t: 'codenames_setup_intent',
+      updatedAt: Date.now(),
+      fromUserId: self,
+      gameSeq: st.gameSeq,
+      roleAssignments: assignments,
+    });
+  }
+
+  function commitVcCodenamesDeal(): string | null {
+    const self = currentUser.value?.id?.trim();
+    const roster = codenamesRosterFromPresence();
+    const orch = hangmanOrchestratorUserId(roster);
+    if (!self || self !== orch) return 'Only the session host can deal cards.';
+    const st = vcCodenamesPublic.value;
+    if (!st || st.phase !== 'lobby') return 'Game is not ready to deal.';
+    if (!st.roleAssignments.length) return 'Assign roles first.';
+    const { words, key, startingTeam } = pickWordsAndKey({
+      wordBank: VC_CODENAMES_WORD_BANK,
+      gameSeq: st.gameSeq,
+      channelSalt: currentVoiceChannelId.value?.trim() ?? 'vc',
+      rosterUserIdsSorted: st.rosterUserIds,
+    });
+    const next = applyDeal(
+      st,
+      words,
+      key,
+      startingTeam,
+      self,
+      nextCodenamesRevision(),
+    );
+    if (!next) return 'Could not deal.';
+    const km = new Map(vcCodenamesOrchKeyByGameSeq.value);
+    km.set(st.gameSeq, key);
+    vcCodenamesOrchKeyByGameSeq.value = km;
+    publishCodenamesActivityLocal(next);
+    fanoutCodenamesSpymasterKeys({
+      gameSeq: st.gameSeq,
+      key,
+      fromUserId: self,
+    });
+    return null;
+  }
+
+  function requestVcCodenamesClue(word: string, number: number): void {
+    const self = currentUser.value?.id?.trim();
+    if (
+      !lkRoom ||
+      lkRoom.roomState.value !== 'connected' ||
+      isDmVoiceCallUi.value
+    )
+      return;
+    if (!self) return;
+    const st = vcCodenamesPublic.value;
+    if (!st) return;
+    lkRoom.publishCodenamesClueIntent({
+      v: 1,
+      t: 'codenames_clue_intent',
+      updatedAt: Date.now(),
+      fromUserId: self,
+      gameSeq: st.gameSeq,
+      word,
+      number,
+    });
+  }
+
+  function requestVcCodenamesReveal(cardIndex: number): void {
+    const self = currentUser.value?.id?.trim();
+    if (
+      !lkRoom ||
+      lkRoom.roomState.value !== 'connected' ||
+      isDmVoiceCallUi.value
+    )
+      return;
+    if (!self) return;
+    const st = vcCodenamesPublic.value;
+    if (!st) return;
+    lkRoom.publishCodenamesRevealIntent({
+      v: 1,
+      t: 'codenames_reveal_intent',
+      updatedAt: Date.now(),
+      fromUserId: self,
+      gameSeq: st.gameSeq,
+      cardIndex,
+    });
+  }
+
+  function requestVcCodenamesEndTurn(): void {
+    const self = currentUser.value?.id?.trim();
+    if (
+      !lkRoom ||
+      lkRoom.roomState.value !== 'connected' ||
+      isDmVoiceCallUi.value
+    )
+      return;
+    if (!self) return;
+    const st = vcCodenamesPublic.value;
+    if (!st) return;
+    lkRoom.publishCodenamesEndTurnIntent({
+      v: 1,
+      t: 'codenames_end_turn_intent',
+      updatedAt: Date.now(),
+      fromUserId: self,
+      gameSeq: st.gameSeq,
+    });
+  }
+
+  function requestVcCodenamesNewGame(): void {
+    const self = currentUser.value?.id?.trim();
+    if (
+      !lkRoom ||
+      lkRoom.roomState.value !== 'connected' ||
+      isDmVoiceCallUi.value
+    )
+      return;
+    if (!self) return;
+    const st = vcCodenamesPublic.value;
+    if (!st) return;
+    lkRoom.publishCodenamesNewGameIntent({
+      v: 1,
+      t: 'codenames_new_game_intent',
+      updatedAt: Date.now(),
+      fromUserId: self,
+      completedGameSeq: st.gameSeq,
+    });
+  }
+
+  function requestVcCodenamesPushKeyToOrchestrator(): void {
+    const self = currentUser.value?.id?.trim();
+    if (
+      !lkRoom ||
+      lkRoom.roomState.value !== 'connected' ||
+      isDmVoiceCallUi.value
+    )
+      return;
+    if (!self) return;
+    const st = vcCodenamesPublic.value;
+    if (!st || st.phase !== 'playing') return;
+    const orch = hangmanOrchestratorUserId(codenamesRosterFromPresence());
+    if (!orch || orch === self) return;
+    const isSm = st.roleAssignments.some(
+      (r) => r.userId === self && r.role === 'spymaster',
+    );
+    if (!isSm) return;
+    const key = vcCodenamesSpymasterKeyByGameSeq.value.get(st.gameSeq);
+    if (!key?.length) return;
+    lkRoom.publishCodenamesKeyToOrchestrator(
+      {
+        v: 1,
+        t: 'codenames_key_to_orch',
+        updatedAt: Date.now(),
+        fromUserId: self,
+        gameSeq: st.gameSeq,
+        key,
+      },
+      [orch],
+    );
+  }
+
+  const vcTicTacToeActivity = computed<EchoTicTacToeActivityV1 | null>(() => null);
+  const vcTicTacToePendingInvite = computed<EchoTicTacToeInviteV1 | null>(
+    () => null,
+  );
+  function sendVcTicTacToeChallenge(_toUserId: string): void {}
+  function respondVcTicTacToeInvite(_accept: boolean): void {
+    void _accept;
+  }
+  function dismissVcTicTacToeInvite(): void {}
+  function requestVcTicTacToeMove(_cellIndex: number): void {
+    void _cellIndex;
+  }
+  function requestVcTicTacToeRematch(): void {}
+
   return {
     onJoinVoice,
     onLeaveVoice,
     getVcActivityPresenceForUser,
     vcHangmanActivity: computed(() => vcHangmanPublic.value),
     hangmanRosterUserIds: computed(() => hangmanRosterFromPresence()),
+    vcCodenamesActivity: computed(() => vcCodenamesPublic.value),
+    codenamesRosterUserIds: computed(() => codenamesRosterFromPresence()),
+    vcCodenamesSpymasterKey: computed(() => {
+      const st = vcCodenamesPublic.value;
+      const self = currentUser.value?.id?.trim();
+      if (!st || !self) return null;
+      const isSm = st.roleAssignments.some(
+        (r) => r.userId === self && r.role === 'spymaster',
+      );
+      if (!isSm) return null;
+      return vcCodenamesSpymasterKeyByGameSeq.value.get(st.gameSeq) ?? null;
+    }),
+    commitVcCodenamesDeal,
+    requestVcCodenamesSetup,
+    requestVcCodenamesClue,
+    requestVcCodenamesReveal,
+    requestVcCodenamesEndTurn,
+    requestVcCodenamesNewGame,
+    requestVcCodenamesPushKeyToOrchestrator,
     commitVcHangmanWord,
     requestVcHangmanGuessLetter,
     requestVcHangmanNextRound,
+    vcTicTacToeActivity,
+    vcTicTacToePendingInvite,
+    sendVcTicTacToeChallenge,
+    respondVcTicTacToeInvite,
+    dismissVcTicTacToeInvite,
+    requestVcTicTacToeMove,
+    requestVcTicTacToeRematch,
     activeVoiceChannelParticipants,
     liveKitState,
     liveKitNetworkStats,

@@ -1,3 +1,4 @@
+import { isEchoPublicId } from '@shared/snowflakeIds';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
 import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
 
@@ -68,4 +69,50 @@ export function renderCustomEmojiHtml(
   return sanitizeEmojiImgHtmlForVHtml(
     `<img class="emoji custom-emoji" draggable="false" alt="${escapeAttr(alt)}" src="${escapeAttr(safeUrl)}"/>`,
   );
+}
+
+/**
+ * Discord serves custom emoji assets at predictable URLs (same id format as Echo public ids).
+ * Only use after Echo’s `/emoji/resolve` has confirmed the emoji is not in the DB, otherwise
+ * we could briefly point at a non-existent Discord asset for an unloaded Echo emoji.
+ */
+export function discordCdnCustomEmojiMediaUrl(
+  id: string,
+  animated: boolean,
+): string {
+  const t = id.trim();
+  return animated
+    ? `https://cdn.discordapp.com/emojis/${t}.gif`
+    : `https://cdn.discordapp.com/emojis/${t}.png`;
+}
+
+export function fallbackDiscordCdnCustomEmojiImageUrl(
+  id: string,
+  animated: boolean,
+): string | null {
+  if (!isEchoPublicId(id)) return null;
+  return safeCustomEmojiUrl(discordCdnCustomEmojiMediaUrl(id, animated));
+}
+
+/**
+ * Prefer Echo-hosted URLs from `cachedById` (library + resolver cache). When
+ * `echoResolveMissed` is true, Echo has no row for this id — use Discord’s CDN
+ * so other guilds’ emojis render like Discord.
+ */
+export function resolveCustomEmojiImageUrlForDisplay(
+  id: string,
+  animated: boolean,
+  cachedById: ReadonlyMap<string, string> | null | undefined,
+  echoResolveMissed: boolean,
+): string | null {
+  const mid = id.trim();
+  if (!mid) return null;
+  const mapped = cachedById?.get(mid)?.trim();
+  if (mapped) {
+    const s = safeCustomEmojiUrl(mapped);
+    if (s) return s;
+  }
+  if (echoResolveMissed)
+    return fallbackDiscordCdnCustomEmojiImageUrl(mid, animated);
+  return null;
 }

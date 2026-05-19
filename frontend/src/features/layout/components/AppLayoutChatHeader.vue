@@ -19,6 +19,11 @@ import { safeImageUrl } from '@/utils/safeImageUrl';
 import { selectPresence } from '@/services/domain/presence';
 import { parseEmojiIconKey } from '@/assets/icons';
 import { resolveChannelIconRasterUrl } from '@/utils/channelIconKeys';
+import {
+  fallbackDiscordCdnCustomEmojiImageUrl,
+  safeCustomEmojiUrl,
+} from '@/utils/customEmojiUrl';
+import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import { useCompactShell } from '@/composables/useCompactShell';
 import { getActivePinia, storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/stores/devSettings';
@@ -427,7 +432,14 @@ const leadingChannelRasterIconUrl = computed(() => {
   return (
     resolveChannelIconRasterUrl(key, (id) => {
       const url = customEmojiUrlById?.value?.get(id)?.trim();
-      if (url) return url;
+      if (url) {
+        const s = safeCustomEmojiUrl(url);
+        if (s) return s;
+      }
+      if (isEchoEmojiTokenResolveMiss(id)) {
+        const cdn = fallbackDiscordCdnCustomEmojiImageUrl(id, false);
+        if (cdn) return cdn;
+      }
       ensureCustomEmojiId?.(id);
       return undefined;
     }) ?? ''

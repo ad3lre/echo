@@ -186,6 +186,9 @@ async function updateStatus() {
         saveDowntime(target, duration);
         state.downtimeStart = null;
       }
+    } else if (!nextUp && !state.downtimeStart) {
+      // Target already down on first observation (e.g. process started mid-outage).
+      state.downtimeStart = Date.now();
     }
 
     state.isUp = nextUp;
@@ -286,6 +289,13 @@ function getMaintenanceHtml(target, req) {
             margin-bottom: 2rem;
         }
 
+        .avg-hint {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.45);
+            margin-top: -1.25rem;
+            margin-bottom: 1.75rem;
+        }
+
         .progress-container {
             width: 100%;
             height: 6px;
@@ -356,6 +366,11 @@ function getMaintenanceHtml(target, req) {
         </svg>
         <h1>Echo is updating</h1>
         <p>${requestHost} is temporarily unavailable while we reconnect it. We'll be back online in just a moment.</p>
+        ${
+          state.historicalDowntimes.length > 0
+            ? `<p class="avg-hint">Recent average recovery: ${state.avgDowntimeSeconds}s (last ${state.historicalDowntimes.length} incidents)</p>`
+            : ''
+        }
         
         <div class="progress-container">
             <div id="bar" class="progress-bar"></div>

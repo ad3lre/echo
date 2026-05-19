@@ -11,6 +11,14 @@ function run(): void {
     isCsrfExemptPath('/api/v1/hooks/discord-voice-mirror/snapshot'),
     true,
   );
+  assert.equal(
+    isCsrfExemptPath('/api/v1/hooks/echo-channel-webhooks/abc/def'),
+    true,
+  );
+  assert.equal(
+    isCsrfExemptPath('/api/v1/hooks/echo-channel-webhooks/abc/def/slack'),
+    true,
+  );
   assert.equal(isCsrfExemptPath('/api/v1/echo/servers'), false);
   console.log('csrf.exemptPaths: ok');
 }

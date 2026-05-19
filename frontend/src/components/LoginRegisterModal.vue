@@ -245,6 +245,11 @@ function mapError(err: unknown): string {
       return 'That username isn’t valid. Try a different one.';
     if (err.body.code === 'INVALID_EMAIL')
       return 'Please enter a valid email address.';
+    if (err.body.code === 'INVALID_EMAIL_PROVIDER')
+      return (
+        err.body.message ||
+        'That email provider cannot be used. Try a normal inbox you keep long term.'
+      );
     if (err.body.code === 'EMAIL_IN_USE')
       return 'That email is already registered. Try logging in instead.';
     if (err.body.code === 'INVALID_DISPLAY_NAME')
@@ -447,7 +452,7 @@ async function startDiscordLogin() {
       setPendingDesktopOAuthReturnPath(returnPath);
       const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
       const startUrl = authDiscordDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl);
+      await openExternal(startUrl, { skipSafetyPrompt: true });
       return;
     }
     const { authorizeUrl } = await authDiscordLoginStart();
@@ -475,7 +480,7 @@ async function startGoogleLogin() {
       setPendingDesktopOAuthReturnPath(returnPath);
       const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
       const startUrl = authGoogleDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl);
+      await openExternal(startUrl, { skipSafetyPrompt: true });
       return;
     }
     const { authorizeUrl } = await authGoogleLoginStart();

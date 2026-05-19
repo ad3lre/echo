@@ -27,6 +27,7 @@ import echoDiscordVoiceMirrorSettings from './echo/echoDiscordVoiceMirrorSetting
 import echoBugReports from './echo/echoBugReports';
 import echoBotApplications from './echo/echoBotApplications';
 import echoYoutubeSearch from './echo/echoYoutubeSearch';
+import echoChannelWebhooks from './echo/echoChannelWebhooks';
 import { registerEchoGuestWriteGuard } from './echo/echoGuestWriteHook';
 import { sendError } from '../errors';
 import { requireAuth } from '../../auth/middleware';
@@ -80,6 +81,7 @@ export default async function echoRoutes(
     await secured.register(echoDiscordImport);
     await secured.register(echoDiscordBridgeSettings);
     await secured.register(echoDiscordVoiceMirrorSettings);
+    await secured.register(echoChannelWebhooks);
     await secured.register(echoBugReports);
     await secured.register(echoBotApplications);
     await secured.register(echoYoutubeSearch);

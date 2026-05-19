@@ -153,7 +153,7 @@ async function onDiscordClick() {
       setPendingDesktopOAuthReturnPath(returnPath);
       const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
       const startUrl = authDiscordDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl);
+      await openExternal(startUrl, { skipSafetyPrompt: true });
       return;
     }
     const { authorizeUrl } = await authDiscordLoginStart();
@@ -181,7 +181,7 @@ async function onGoogleClick() {
       setPendingDesktopOAuthReturnPath(returnPath);
       const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
       const startUrl = authGoogleDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl);
+      await openExternal(startUrl, { skipSafetyPrompt: true });
       return;
     }
     const { authorizeUrl } = await authGoogleLoginStart();

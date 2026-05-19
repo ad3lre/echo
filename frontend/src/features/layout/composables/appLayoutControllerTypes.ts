@@ -35,7 +35,12 @@ import type {
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
 import type {
+  EchoCodenamesActivityV1,
+  EchoCodenamesAffiliationV1,
+  EchoCodenamesRoleAssignmentV1,
   EchoHangmanActivityV1,
+  EchoTicTacToeActivityV1,
+  EchoTicTacToeInviteV1,
   EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
@@ -118,11 +123,31 @@ export interface AppLayoutControllerContext {
   openVcActivityYoutubeBrowse: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
+  openVcActivityTicTacToe: () => void;
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
+  vcTicTacToeActivity: ComputedRef<EchoTicTacToeActivityV1 | null>;
+  vcTicTacToePendingInvite: ComputedRef<EchoTicTacToeInviteV1 | null>;
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  sendVcTicTacToeChallenge: (toUserId: string) => void;
+  respondVcTicTacToeInvite: (accept: boolean) => void;
+  dismissVcTicTacToeInvite: () => void;
+  requestVcTicTacToeMove: (cellIndex: number) => void;
+  requestVcTicTacToeRematch: () => void;
+  vcCodenamesActivity: ComputedRef<EchoCodenamesActivityV1 | null>;
+  codenamesRosterUserIds: ComputedRef<string[]>;
+  vcCodenamesSpymasterKey: ComputedRef<EchoCodenamesAffiliationV1[] | null>;
+  commitVcCodenamesDeal: () => string | null;
+  requestVcCodenamesSetup: (
+    assignments: EchoCodenamesRoleAssignmentV1[],
+  ) => void;
+  requestVcCodenamesClue: (word: string, number: number) => void;
+  requestVcCodenamesReveal: (cardIndex: number) => void;
+  requestVcCodenamesEndTurn: () => void;
+  requestVcCodenamesNewGame: () => void;
+  requestVcCodenamesPushKeyToOrchestrator: () => void;
   openVcActivityOpenGuessr: () => void;
   openVcActivitySkribblIo: () => void;
   openVcActivityGarticPhone: () => void;
@@ -139,7 +164,6 @@ export interface AppLayoutControllerContext {
       Pick<YoutubePlaylistEntry, 'title' | 'channelTitle' | 'thumbnailUrl'>
     >,
   ) => void;
-  setVcActivityCodenamesRoomUrl: (url: string | null) => void;
   setVcYoutubeBrowseOpen: (open: boolean) => void;
   addVcYoutubeToQueue: (entry: YoutubePlaylistEntry) => void;
   removeVcYoutubeFromQueue: (index: number) => void;

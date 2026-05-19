@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch, type ComputedRef } from 'vue';
 import { getTwemojiSrc } from '@/utils/twemoji';
-import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
+import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
+import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import { parsePollOptionCustomEmojiToken } from '@/utils/pollOptionEmojiDisplay';
 
 const props = defineProps<{
@@ -29,9 +30,13 @@ const customToken = computed(() =>
 const customSrc = computed(() => {
   const token = customToken.value;
   if (!token) return '';
-  const fromMap = customEmojiUrlById?.value?.get(token.id)?.trim();
-  const raw = fromMap ?? '';
-  return raw ? (safeCustomEmojiUrl(raw) ?? '') : '';
+  const url = resolveCustomEmojiImageUrlForDisplay(
+    token.id,
+    token.animated,
+    customEmojiUrlById?.value,
+    isEchoEmojiTokenResolveMiss(token.id),
+  );
+  return url ?? '';
 });
 
 const twemojiSrc = computed(() =>

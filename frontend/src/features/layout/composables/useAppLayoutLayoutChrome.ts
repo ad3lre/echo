@@ -5,7 +5,6 @@ import type {
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
 import {
-  normalizeCodenamesRoomUrlForEmbed,
   syncYoutubeVideoIdFromPlaylist,
 } from '@/features/voice/vcActivityTypes';
 
@@ -191,7 +190,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
     youtubeBrowseOpen: true,
     playlist: [],
     currentIndex: 0,
-    codenamesRoomUrl: null,
   });
 
   function closeVcActivity() {
@@ -201,7 +199,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: true,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -213,7 +210,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: true,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -225,7 +221,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: true,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -237,7 +232,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -249,7 +243,17 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
+    };
+  }
+
+  function openVcActivityTicTacToe() {
+    fullscreenStreamParticipantId.value = null;
+    vcActivityUi.value = {
+      phase: 'tic_tac_toe',
+      youtubeVideoId: null,
+      youtubeBrowseOpen: false,
+      playlist: [],
+      currentIndex: 0,
     };
   }
 
@@ -261,7 +265,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -273,7 +276,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -285,7 +287,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -297,7 +298,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -309,7 +309,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -321,7 +320,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -333,7 +331,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -345,7 +342,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -357,7 +353,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -369,7 +364,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       youtubeBrowseOpen: false,
       playlist: [],
       currentIndex: 0,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -404,7 +398,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       playlist: [entry],
       currentIndex: 0,
       youtubeVideoId: entry.id,
-      codenamesRoomUrl: null,
     };
   }
 
@@ -512,7 +505,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
     youtubeBrowseOpen?: boolean;
     updatedAt: number;
     activityPhase?: VcActivityUiPhase;
-    codenamesRoomUrl?: string | null;
   }) {
     void snapshot.updatedAt;
     const ap = snapshot.activityPhase;
@@ -531,7 +523,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
         youtubeBrowseOpen: false,
         playlist: [],
         currentIndex: 0,
-        codenamesRoomUrl: null,
       };
       return;
     }
@@ -542,29 +533,26 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
         youtubeBrowseOpen: false,
         playlist: [],
         currentIndex: 0,
-        codenamesRoomUrl: null,
+      };
+      return;
+    }
+    if (ap === 'tic_tac_toe') {
+      vcActivityUi.value = {
+        phase: 'tic_tac_toe',
+        youtubeVideoId: null,
+        youtubeBrowseOpen: false,
+        playlist: [],
+        currentIndex: 0,
       };
       return;
     }
     if (ap === 'codenames') {
-      const incomingRaw = snapshot.codenamesRoomUrl;
-      const incoming =
-        incomingRaw != null && String(incomingRaw).trim()
-          ? normalizeCodenamesRoomUrlForEmbed(String(incomingRaw))
-          : null;
-      const cur = vcActivityUi.value;
-      const keepExisting =
-        cur.phase === 'codenames' &&
-        !!cur.codenamesRoomUrl?.trim() &&
-        !incoming;
-      const merged = incoming ?? (keepExisting ? cur.codenamesRoomUrl : null);
       vcActivityUi.value = {
         phase: 'codenames',
         youtubeVideoId: null,
         youtubeBrowseOpen: false,
         playlist: [],
         currentIndex: 0,
-        codenamesRoomUrl: merged,
       };
       return;
     }
@@ -585,7 +573,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
         youtubeBrowseOpen: false,
         playlist: [],
         currentIndex: 0,
-        codenamesRoomUrl: null,
       };
       return;
     }
@@ -597,7 +584,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
         youtubeBrowseOpen: snapshot.youtubeBrowseOpen ?? true,
         playlist: [],
         currentIndex: 0,
-        codenamesRoomUrl: null,
       };
       return;
     }
@@ -611,20 +597,7 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       playlist,
       currentIndex: ci,
       youtubeVideoId: playlist[ci].id,
-      codenamesRoomUrl: null,
     };
-  }
-
-  function setVcActivityCodenamesRoomUrl(url: string | null) {
-    const cur = vcActivityUi.value;
-    if (cur.phase !== 'codenames') return;
-    if (url == null || !String(url).trim()) {
-      vcActivityUi.value = { ...cur, codenamesRoomUrl: null };
-      return;
-    }
-    const normalized = normalizeCodenamesRoomUrlForEmbed(String(url));
-    if (!normalized) return;
-    vcActivityUi.value = { ...cur, codenamesRoomUrl: normalized };
   }
 
   watch(currentVoiceChannelId, (id) => {
@@ -763,6 +736,7 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
     openVcActivityYoutubeBrowse,
     openVcActivityWordle,
     openVcActivityHangman,
+    openVcActivityTicTacToe,
     openVcActivityOpenGuessr,
     openVcActivitySkribblIo,
     openVcActivityGarticPhone,
@@ -774,7 +748,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
     openVcActivityBasketballStars2026,
     openVcActivityClusterRush,
     setVcActivityYoutubeVideo,
-    setVcActivityCodenamesRoomUrl,
     setVcYoutubeBrowseOpen,
     addVcYoutubeToQueue,
     removeVcYoutubeFromQueue,

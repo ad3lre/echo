@@ -1,6 +1,10 @@
 import { computed, type Ref } from 'vue';
 import { useServerEmojiLibrary } from '@/composables/useServerEmojiLibrary';
-import { useGlobalEmojiTokenResolver } from '@/composables/useGlobalEmojiTokenResolver';
+import { useUserEmojiLibrary } from '@/composables/useUserEmojiLibrary';
+import {
+  useGlobalEmojiTokenResolver,
+  isEchoEmojiTokenResolveMiss,
+} from '@/composables/useGlobalEmojiTokenResolver';
 import {
   getChannelIcon,
   getChannelIconVisual,
@@ -11,7 +15,10 @@ import {
   resolveChannelIconRasterUrl,
   channelIconKeyUsesSvgInvertFilter,
 } from '@/utils/channelIconKeys';
-import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
+import {
+  fallbackDiscordCdnCustomEmojiImageUrl,
+  safeCustomEmojiUrl,
+} from '@/utils/customEmojiUrl';
 
 type ChannelLike = {
   name: string;
@@ -23,6 +30,7 @@ export function useChannelIconResolver(
   serverId: Ref<string | null | undefined>,
 ) {
   const library = useServerEmojiLibrary(serverId);
+  const userEmojiLibrary = useUserEmojiLibrary();
   const globalEmoji = useGlobalEmojiTokenResolver();
 
   const lookupCustomEmojiUrl: ChannelIconEmojiUrlLookup = (emojiId) => {
@@ -34,10 +42,20 @@ export function useChannelIconResolver(
       const safe = safeCustomEmojiUrl(packUrl);
       if (safe) return safe;
     }
+    const userRow = userEmojiLibrary.emojiById.value.get(id);
+    const userUrl = userRow?.imageUrl?.trim();
+    if (userUrl) {
+      const safe = safeCustomEmojiUrl(userUrl);
+      if (safe) return safe;
+    }
     const cached = globalEmoji.urlById.value.get(id)?.trim();
     if (cached) {
       const safe = safeCustomEmojiUrl(cached);
       if (safe) return safe;
+    }
+    if (isEchoEmojiTokenResolveMiss(id)) {
+      const cdn = fallbackDiscordCdnCustomEmojiImageUrl(id, false);
+      if (cdn) return cdn;
     }
     globalEmoji.ensureEmojiId(id);
     return null;
@@ -47,6 +65,7 @@ export function useChannelIconResolver(
     () =>
       library.packs.value.length +
       library.emojiById.value.size +
+      userEmojiLibrary.emojiById.value.size +
       globalEmoji.cacheVersion.value,
   );
 
@@ -77,5 +96,6 @@ export function useChannelIconResolver(
     getRasterUrl,
     usesSvgInvert,
     lookupCustomEmojiUrl,
+    resolverRevision,
   };
 }

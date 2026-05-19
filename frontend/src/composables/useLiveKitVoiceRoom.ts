@@ -77,6 +77,15 @@ import {
   decodeEchoHangmanGuessIntent,
   decodeEchoHangmanNextRound,
   decodeEchoHangmanRoundSecret,
+  decodeEchoCodenamesActivity,
+  decodeEchoCodenamesSpymasterKey,
+  decodeEchoCodenamesKeyToOrchestrator,
+  decodeEchoCodenamesClueIntent,
+  decodeEchoCodenamesRevealIntent,
+  decodeEchoCodenamesEndTurnIntent,
+  decodeEchoCodenamesSetupIntent,
+  decodeEchoCodenamesDealIntent,
+  decodeEchoCodenamesNewGameIntent,
   encodeEchoVcData,
   encodeEchoVcPrivateViewer,
   encodeEchoYoutubeActivity,
@@ -85,6 +94,15 @@ import {
   encodeEchoHangmanGuessIntent,
   encodeEchoHangmanNextRound,
   encodeEchoHangmanRoundSecret,
+  encodeEchoCodenamesActivity,
+  encodeEchoCodenamesSpymasterKey,
+  encodeEchoCodenamesKeyToOrchestrator,
+  encodeEchoCodenamesClueIntent,
+  encodeEchoCodenamesRevealIntent,
+  encodeEchoCodenamesEndTurnIntent,
+  encodeEchoCodenamesSetupIntent,
+  encodeEchoCodenamesDealIntent,
+  encodeEchoCodenamesNewGameIntent,
   type EchoVcDataV1,
   type EchoVcPrivateViewerV1,
   type EchoYoutubeActivityV1,
@@ -93,6 +111,15 @@ import {
   type EchoHangmanGuessIntentV1,
   type EchoHangmanNextRoundV1,
   type EchoHangmanRoundSecretV1,
+  type EchoCodenamesActivityV1,
+  type EchoCodenamesSpymasterKeyV1,
+  type EchoCodenamesKeyToOrchestratorV1,
+  type EchoCodenamesClueIntentV1,
+  type EchoCodenamesRevealIntentV1,
+  type EchoCodenamesEndTurnIntentV1,
+  type EchoCodenamesSetupIntentV1,
+  type EchoCodenamesDealIntentV1,
+  type EchoCodenamesNewGameIntentV1,
 } from '@/audio/voiceEchoLiveKitData';
 import {
   announceVoiceChannelPublic,
@@ -624,6 +651,42 @@ export type UseLiveKitVoiceRoomOptions = {
     msg: EchoHangmanRoundSecretV1,
     fromIdentity: string,
   ) => void;
+  onCodenamesActivity?: (
+    msg: EchoCodenamesActivityV1,
+    fromIdentity: string,
+  ) => void;
+  onCodenamesSpymasterKey?: (
+    msg: EchoCodenamesSpymasterKeyV1,
+    fromIdentity: string,
+  ) => void;
+  onCodenamesKeyToOrchestrator?: (
+    msg: EchoCodenamesKeyToOrchestratorV1,
+    fromIdentity: string,
+  ) => void;
+  onCodenamesClueIntent?: (
+    msg: EchoCodenamesClueIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onCodenamesRevealIntent?: (
+    msg: EchoCodenamesRevealIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onCodenamesEndTurnIntent?: (
+    msg: EchoCodenamesEndTurnIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onCodenamesSetupIntent?: (
+    msg: EchoCodenamesSetupIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onCodenamesDealIntent?: (
+    msg: EchoCodenamesDealIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onCodenamesNewGameIntent?: (
+    msg: EchoCodenamesNewGameIntentV1,
+    fromIdentity: string,
+  ) => void;
   /** Guild VC activity picker / YouTube — who has which activity open. */
   onVcActivityPresence?: (
     msg: EchoVcActivityPresenceV1,
@@ -696,6 +759,21 @@ export type LiveKitVoiceRoomApi = {
     payload: EchoHangmanRoundSecretV1,
     destinationIdentities: string[],
   ) => void;
+  publishCodenamesActivity: (payload: EchoCodenamesActivityV1) => void;
+  publishCodenamesSpymasterKey: (
+    payload: EchoCodenamesSpymasterKeyV1,
+    destinationIdentities: string[],
+  ) => void;
+  publishCodenamesKeyToOrchestrator: (
+    payload: EchoCodenamesKeyToOrchestratorV1,
+    destinationIdentities: string[],
+  ) => void;
+  publishCodenamesClueIntent: (payload: EchoCodenamesClueIntentV1) => void;
+  publishCodenamesRevealIntent: (payload: EchoCodenamesRevealIntentV1) => void;
+  publishCodenamesEndTurnIntent: (payload: EchoCodenamesEndTurnIntentV1) => void;
+  publishCodenamesSetupIntent: (payload: EchoCodenamesSetupIntentV1) => void;
+  publishCodenamesDealIntent: (payload: EchoCodenamesDealIntentV1) => void;
+  publishCodenamesNewGameIntent: (payload: EchoCodenamesNewGameIntentV1) => void;
 };
 
 export function useLiveKitVoiceRoom(
@@ -707,6 +785,15 @@ export function useLiveKitVoiceRoom(
   const onHangmanGuessIntent = opts?.onHangmanGuessIntent;
   const onHangmanNextRound = opts?.onHangmanNextRound;
   const onHangmanRoundSecret = opts?.onHangmanRoundSecret;
+  const onCodenamesActivity = opts?.onCodenamesActivity;
+  const onCodenamesSpymasterKey = opts?.onCodenamesSpymasterKey;
+  const onCodenamesKeyToOrchestrator = opts?.onCodenamesKeyToOrchestrator;
+  const onCodenamesClueIntent = opts?.onCodenamesClueIntent;
+  const onCodenamesRevealIntent = opts?.onCodenamesRevealIntent;
+  const onCodenamesEndTurnIntent = opts?.onCodenamesEndTurnIntent;
+  const onCodenamesSetupIntent = opts?.onCodenamesSetupIntent;
+  const onCodenamesDealIntent = opts?.onCodenamesDealIntent;
+  const onCodenamesNewGameIntent = opts?.onCodenamesNewGameIntent;
   const onVcActivityPresence = opts?.onVcActivityPresence;
   const onRemoteParticipantDisconnected = opts?.onRemoteParticipantDisconnected;
   const viewerLeaveSoundAt = new Map<string, number>();
@@ -2000,6 +2087,60 @@ export function useLiveKitVoiceRoom(
         return;
       }
 
+      const cn = decodeEchoCodenamesActivity(ytPayload);
+      if (cn) {
+        onCodenamesActivity?.(cn, participant.identity);
+        return;
+      }
+
+      const cnKey = decodeEchoCodenamesSpymasterKey(ytPayload);
+      if (cnKey) {
+        onCodenamesSpymasterKey?.(cnKey, participant.identity);
+        return;
+      }
+
+      const cnOrchKey = decodeEchoCodenamesKeyToOrchestrator(ytPayload);
+      if (cnOrchKey) {
+        onCodenamesKeyToOrchestrator?.(cnOrchKey, participant.identity);
+        return;
+      }
+
+      const cnClue = decodeEchoCodenamesClueIntent(ytPayload);
+      if (cnClue) {
+        onCodenamesClueIntent?.(cnClue, participant.identity);
+        return;
+      }
+
+      const cnRev = decodeEchoCodenamesRevealIntent(ytPayload);
+      if (cnRev) {
+        onCodenamesRevealIntent?.(cnRev, participant.identity);
+        return;
+      }
+
+      const cnEnd = decodeEchoCodenamesEndTurnIntent(ytPayload);
+      if (cnEnd) {
+        onCodenamesEndTurnIntent?.(cnEnd, participant.identity);
+        return;
+      }
+
+      const cnSetup = decodeEchoCodenamesSetupIntent(ytPayload);
+      if (cnSetup) {
+        onCodenamesSetupIntent?.(cnSetup, participant.identity);
+        return;
+      }
+
+      const cnDeal = decodeEchoCodenamesDealIntent(ytPayload);
+      if (cnDeal) {
+        onCodenamesDealIntent?.(cnDeal, participant.identity);
+        return;
+      }
+
+      const cnNg = decodeEchoCodenamesNewGameIntent(ytPayload);
+      if (cnNg) {
+        onCodenamesNewGameIntent?.(cnNg, participant.identity);
+        return;
+      }
+
       const pres = decodeEchoVcActivityPresence(ytPayload);
       if (pres) {
         onVcActivityPresence?.(pres, participant.identity);
@@ -2988,6 +3129,96 @@ export function useLiveKitVoiceRoom(
     });
   }
 
+  function publishCodenamesActivity(payload: EchoCodenamesActivityV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(encodeEchoCodenamesActivity(payload), {
+      reliable: true,
+    });
+  }
+
+  function publishCodenamesSpymasterKey(
+    payload: EchoCodenamesSpymasterKeyV1,
+    destinationIdentities: string[],
+  ) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    const dest = destinationIdentities.map((x) => x.trim()).filter(Boolean);
+    if (!dest.length) return;
+    void room.localParticipant.publishData(
+      encodeEchoCodenamesSpymasterKey(payload),
+      { reliable: true, destinationIdentities: dest },
+    );
+  }
+
+  function publishCodenamesKeyToOrchestrator(
+    payload: EchoCodenamesKeyToOrchestratorV1,
+    destinationIdentities: string[],
+  ) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    const dest = destinationIdentities.map((x) => x.trim()).filter(Boolean);
+    if (!dest.length) return;
+    void room.localParticipant.publishData(
+      encodeEchoCodenamesKeyToOrchestrator(payload),
+      { reliable: true, destinationIdentities: dest },
+    );
+  }
+
+  function publishCodenamesClueIntent(payload: EchoCodenamesClueIntentV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoCodenamesClueIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishCodenamesRevealIntent(payload: EchoCodenamesRevealIntentV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoCodenamesRevealIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishCodenamesEndTurnIntent(payload: EchoCodenamesEndTurnIntentV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoCodenamesEndTurnIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishCodenamesSetupIntent(payload: EchoCodenamesSetupIntentV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoCodenamesSetupIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishCodenamesDealIntent(payload: EchoCodenamesDealIntentV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoCodenamesDealIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishCodenamesNewGameIntent(payload: EchoCodenamesNewGameIntentV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoCodenamesNewGameIntent(payload),
+      { reliable: true },
+    );
+  }
+
   const api: LiveKitVoiceRoomApi = {
     roomState,
     lkRoom,
@@ -3028,6 +3259,15 @@ export function useLiveKitVoiceRoom(
     publishHangmanGuessIntent,
     publishHangmanNextRound,
     publishHangmanRoundSecret,
+    publishCodenamesActivity,
+    publishCodenamesSpymasterKey,
+    publishCodenamesKeyToOrchestrator,
+    publishCodenamesClueIntent,
+    publishCodenamesRevealIntent,
+    publishCodenamesEndTurnIntent,
+    publishCodenamesSetupIntent,
+    publishCodenamesDealIntent,
+    publishCodenamesNewGameIntent,
   };
   return api;
 }

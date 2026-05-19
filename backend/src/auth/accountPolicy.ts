@@ -1,3 +1,4 @@
+import { isDisposableEmailHost } from './disposableEmailDomains';
 import { isValidEmailFormat, normalizeEmail } from './email';
 
 export {
@@ -14,14 +15,24 @@ export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_REGISTER_DISPLAY_NAME_LENGTH = 64;
 export const ECHO_SERVER_ROLE_LIMIT = 512;
 
+function registrationEmailHost(normalizedEmail: string): string | null {
+  const at = normalizedEmail.lastIndexOf('@');
+  if (at <= 0 || at === normalizedEmail.length - 1) return null;
+  return normalizedEmail.slice(at + 1);
+}
+
 export function validateRegistrationEmail(
   email: string,
 ):
   | { ok: true; normalizedEmail: string }
-  | { ok: false; code: 'INVALID_EMAIL' } {
+  | { ok: false; code: 'INVALID_EMAIL' | 'INVALID_EMAIL_PROVIDER' } {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail || !isValidEmailFormat(email)) {
     return { ok: false, code: 'INVALID_EMAIL' };
+  }
+  const host = registrationEmailHost(normalizedEmail);
+  if (host && isDisposableEmailHost(host)) {
+    return { ok: false, code: 'INVALID_EMAIL_PROVIDER' };
   }
   return { ok: true, normalizedEmail };
 }

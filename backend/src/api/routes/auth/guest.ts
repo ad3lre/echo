@@ -317,7 +317,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             reply,
             400,
             'INVALID_EMAIL_PROVIDER',
-            'Use a supported email provider such as Gmail, Outlook, Yahoo, iCloud, or Proton.',
+            'Temporary, disposable, or relay inbox domains cannot be used. Sign up with a normal email address you keep long term.',
           );
         }
         if (err?.message === 'WEAK_PASSWORD') {

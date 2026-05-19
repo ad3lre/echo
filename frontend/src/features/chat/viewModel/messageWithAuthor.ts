@@ -159,6 +159,9 @@ export function messageWithAuthorCacheKey(
     pollFingerprint(msg.poll),
     replyFingerprint(msg.replyTo),
     forwardedFingerprint(msg.forwardedFrom),
+    msg.tts ? '1' : '0',
+    String(msg.messageFlags ?? ''),
+    contentJsonDigest(msg.components),
   ].join(KEY_SEP);
   return `${userKey}${KEY_SEP}${overlayKey}${KEY_SEP}${bodyKey}`;
 }

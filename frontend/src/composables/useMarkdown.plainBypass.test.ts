@@ -16,6 +16,16 @@ describe('useMarkdown marked bypass (plain chat hot path)', () => {
     const out = parseMessageContent('see https://example.com/path');
     expect(out).toMatch(/<a\b[^>]*href=/i);
     expect(out).toContain('example.com');
+    expect(out).toContain('message-md-external-link');
+    expect(out).toMatch(/s2\/favicons/i);
+    expect(out).toContain('example.com/path');
+    expect(out).not.toMatch(/https:\/\/example\.com\/path</);
+  });
+
+  it('does not restyle markdown links with custom anchor text', () => {
+    const out = parseMessageContent('[click here](https://example.com/z)');
+    expect(out).toContain('click here');
+    expect(out).not.toContain('message-md-external-link');
   });
 
   it('still styles @Everyone when present (no bypass)', () => {

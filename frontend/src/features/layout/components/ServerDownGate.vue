@@ -7,12 +7,18 @@ const props = withDefaults(
     outageSinceMs?: number | null;
     lastCheckedAtMs?: number | null;
     detail?: string | null;
+    /** Expected recovery length (seconds); from local past recoveries or a default. */
+    averageRecoverySeconds?: number;
+    /** How many completed recoveries shaped the average (0 = default only). */
+    recoverySampleCount?: number;
   }>(),
   {
     checking: false,
     outageSinceMs: null,
     lastCheckedAtMs: null,
     detail: null,
+    averageRecoverySeconds: 60,
+    recoverySampleCount: 0,
   },
 );
 
@@ -59,6 +65,56 @@ const checkedAgoLabel = computed(() => {
   if (!props.lastCheckedAtMs) return 'Checking now…';
   return `${formatDuration(nowMs.value - props.lastCheckedAtMs)} ago`;
 });
+
+const estimateSeconds = computed(() =>
+  Math.max(15, Math.floor(props.averageRecoverySeconds)),
+);
+
+const outageElapsedSeconds = computed(() => {
+  if (!props.outageSinceMs) return 0;
+  return Math.max(0, Math.floor((nowMs.value - props.outageSinceMs) / 1000));
+});
+
+const recoveryProgressPercent = computed(() => {
+  const est = estimateSeconds.value;
+  if (est <= 0) return 0;
+  return Math.min(100, (outageElapsedSeconds.value / est) * 100);
+});
+
+const recoveryRemainingSeconds = computed(() =>
+  Math.max(0, estimateSeconds.value - outageElapsedSeconds.value),
+);
+
+const typicalRecoveryTitle = computed(() =>
+  props.recoverySampleCount > 0 ? 'Avg. recovery' : 'Typical recovery',
+);
+
+const typicalRecoveryValue = computed(() =>
+  formatDuration(estimateSeconds.value * 1000),
+);
+
+const typicalRecoveryHint = computed(() => {
+  if (props.recoverySampleCount > 0) {
+    return `Based on ${props.recoverySampleCount} past outage${props.recoverySampleCount === 1 ? '' : 's'} on this device`;
+  }
+  return 'Default until we learn from your reconnects';
+});
+
+const recoveryTimerLine = computed(() => {
+  if (!props.outageSinceMs) {
+    return `Typical window about ${formatDuration(estimateSeconds.value * 1000)}`;
+  }
+  const rem = recoveryRemainingSeconds.value;
+  if (rem > 0) {
+    return `About ${rem}s remaining vs typical ${estimateSeconds.value}s`;
+  }
+  return 'Past your usual recovery window — still reconnecting';
+});
+
+const progressAriaLabel = computed(
+  () =>
+    `Recovery progress versus typical ${estimateSeconds.value} second window`,
+);
 </script>
 
 <template>
@@ -97,7 +153,7 @@ const checkedAgoLabel = computed(() => {
         service is healthy again.
       </p>
 
-      <div class="mt-5 grid gap-3 sm:grid-cols-2">
+      <div class="mt-5 grid gap-3 sm:grid-cols-3">
         <div class="rounded-2xl bg-glass-1 px-4 py-3">
           <p
             class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
@@ -118,6 +174,40 @@ const checkedAgoLabel = computed(() => {
             {{ checkedAgoLabel }}
           </p>
         </div>
+        <div class="rounded-2xl bg-glass-1 px-4 py-3">
+          <p
+            class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
+          >
+            {{ typicalRecoveryTitle }}
+          </p>
+          <p class="mt-1 text-base font-semibold text-fg">
+            {{ typicalRecoveryValue }}
+          </p>
+          <p class="mt-1 text-[11px] leading-snug text-fg-soft">
+            {{ typicalRecoveryHint }}
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <div
+          class="server-down-recovery-track overflow-hidden rounded-full"
+          role="progressbar"
+          :aria-label="progressAriaLabel"
+          :aria-valuemin="0"
+          :aria-valuemax="100"
+          :aria-valuenow="Math.round(recoveryProgressPercent)"
+        >
+          <div
+            class="server-down-recovery-bar h-1.5 rounded-full transition-[width] duration-1000 ease-linear"
+            :style="{ width: recoveryProgressPercent + '%' }"
+          />
+        </div>
+        <p
+          class="mt-2 text-center text-xs tabular-nums text-fg-soft sm:text-left"
+        >
+          {{ recoveryTimerLine }}
+        </p>
       </div>
 
       <p
@@ -252,6 +342,33 @@ const checkedAgoLabel = computed(() => {
   box-shadow:
     0 -1px 0 rgba(255, 255, 255, 0.08),
     0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+/* Recovery progress ------------------------------------------------------ */
+.server-down-recovery-track {
+  background: color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.server-down-recovery-bar {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 88%, white 12%),
+    color-mix(in srgb, var(--accent) 55%, rgb(244 63 94) 45%)
+  );
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+:global(html[data-theme='dark']) .server-down-recovery-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:global(html[data-theme='dark']) .server-down-recovery-bar {
+  background: linear-gradient(
+    90deg,
+    rgb(167 139 250),
+    rgb(244 114 182)
+  );
+  box-shadow: 0 0 16px rgba(167, 139, 250, 0.35);
 }
 
 /* Error icon chip -------------------------------------------------------- */

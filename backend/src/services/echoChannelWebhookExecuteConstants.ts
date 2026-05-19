@@ -1,0 +1,16 @@
+/** Discord Execute Webhook documented content cap (not Echo’s general 4000). */
+export const DISCORD_WEBHOOK_EXECUTE_CONTENT_MAX = 2000;
+
+/** Discord message flag bits Echo accepts on webhook execute. */
+export const DISCORD_MSG_FLAG_SUPPRESS_EMBEDS = 1 << 2;
+export const DISCORD_MSG_FLAG_SUPPRESS_NOTIFICATIONS = 1 << 12;
+export const DISCORD_MSG_FLAG_IS_COMPONENTS_V2 = 1 << 15;
+
+export const WEBHOOK_EXECUTE_ALLOWED_MESSAGE_FLAGS_MASK =
+  DISCORD_MSG_FLAG_SUPPRESS_EMBEDS |
+  DISCORD_MSG_FLAG_SUPPRESS_NOTIFICATIONS |
+  DISCORD_MSG_FLAG_IS_COMPONENTS_V2;
+
+export const WEBHOOK_EXECUTE_MAX_FILES = 10;
+export const WEBHOOK_EXECUTE_MAX_FILE_BYTES = 25 * 1024 * 1024;
+export const WEBHOOK_EXECUTE_MAX_COMPONENTS_JSON_BYTES = 256_000;

@@ -19,7 +19,7 @@ const env = {
   ...(isAndroid
     ? { VITE_ECHO_ANDROID: '1' }
     : isIos
-      ? {}
+      ? { VITE_ECHO_IOS: '1' }
       : { VITE_ECHO_DESKTOP: '1' }),
 };
 

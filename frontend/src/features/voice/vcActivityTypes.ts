@@ -13,7 +13,8 @@ export type VcActivityUiPhase =
   | 'goober_dash'
   | 'smash_karts'
   | 'basketball_stars_2026'
-  | 'cluster_rush';
+  | 'cluster_rush'
+  | 'tic_tac_toe';
 
 /** Shown on VC avatars / channel list when a user has that activity surface open (LiveKit-broadcast). */
 export type VcActivityPresenceKind =
@@ -30,7 +31,8 @@ export type VcActivityPresenceKind =
   | 'goober_dash'
   | 'smash_karts'
   | 'basketball_stars_2026'
-  | 'cluster_rush';
+  | 'cluster_rush'
+  | 'tic_tac_toe';
 
 /** OpenGuessr (GeoGuessr-style); embedded in the VC activity surface when allowed by the host. */
 export const VC_OPENGUESSR_EMBED_URL = 'https://openguessr.com/';
@@ -41,8 +43,6 @@ export const VC_SKRIBBL_IO_EMBED_URL = 'https://skribbl.io/';
 export const VC_GARTIC_PHONE_EMBED_URL = 'https://garticphone.com/';
 
 export const VC_KRUNKER_EMBED_URL = 'https://krunker.io/';
-
-export const VC_CODENAMES_EMBED_URL = 'https://codenames.game/';
 
 export const VC_RICHUP_EMBED_URL = 'https://richup.io/';
 
@@ -72,7 +72,6 @@ export type VcIframeEmbedPhase =
   | 'skribbl_io'
   | 'gartic_phone'
   | 'krunker'
-  | 'codenames'
   | 'richup'
   | 'goober_dash'
   | 'smash_karts'
@@ -87,7 +86,6 @@ export function isVcIframeEmbedPhase(
     p === 'skribbl_io' ||
     p === 'gartic_phone' ||
     p === 'krunker' ||
-    p === 'codenames' ||
     p === 'richup' ||
     p === 'goober_dash' ||
     p === 'smash_karts' ||
@@ -106,8 +104,6 @@ export function vcIframeEmbedUrl(p: VcIframeEmbedPhase): string {
       return VC_GARTIC_PHONE_EMBED_URL;
     case 'krunker':
       return VC_KRUNKER_EMBED_URL;
-    case 'codenames':
-      return VC_CODENAMES_EMBED_URL;
     case 'richup':
       return VC_RICHUP_EMBED_URL;
     case 'goober_dash':
@@ -135,8 +131,6 @@ export function vcIframeEmbedTitle(p: VcIframeEmbedPhase): string {
       return 'Gartic Phone';
     case 'krunker':
       return 'Krunker';
-    case 'codenames':
-      return 'Codenames';
     case 'richup':
       return 'Richup.io';
     case 'goober_dash':
@@ -162,40 +156,6 @@ export type YoutubePlaylistEntry = {
   thumbnailUrl: string | null;
 };
 
-/**
- * Deterministic Codenames "session host" for VC: lexicographically smallest Echo user id
- * in the current voice roster (same list CallView uses). Only that client may create the
- * embedded room; everyone else waits for the LiveKit `youtube_activity` payload's
- * `codenamesRoomUrl` before loading the iframe.
- */
-export function resolveVcCodenamesStarterUserId(
-  rosterUserIds: readonly string[],
-): string | null {
-  const uniq = new Set<string>();
-  for (const raw of rosterUserIds) {
-    const id = raw.trim();
-    if (id) uniq.add(id);
-  }
-  if (!uniq.size) return null;
-  return [...uniq].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))[0] ?? null;
-}
-
-/** Accepts invite URLs pasted from the browser or emitted from codenames.game embeds. */
-export function normalizeCodenamesRoomUrlForEmbed(raw: string): string | null {
-  const t = raw.trim();
-  if (!t) return null;
-  const withScheme = /^https?:\/\//i.test(t) ? t : `https://${t}`;
-  try {
-    const u = new URL(withScheme);
-    if (u.protocol !== 'https:') return null;
-    const h = u.hostname.toLowerCase();
-    if (h !== 'codenames.game' && h !== 'www.codenames.game') return null;
-    return u.toString();
-  } catch {
-    return null;
-  }
-}
-
 /** Guild VC "activities" surface — fullscreen in the voice column (not a modal). */
 export type VcActivityUiState = {
   phase: VcActivityUiPhase;
@@ -210,11 +170,6 @@ export type VcActivityUiState = {
   playlist: YoutubePlaylistEntry[];
   /** Index into `playlist` for the active embed. */
   currentIndex: number;
-  /**
-   * When `phase === 'codenames'`: shared room URL synced over LiveKit (`youtube_activity`).
-   * `null` until the session host publishes a canonical invite URL.
-   */
-  codenamesRoomUrl: string | null;
 };
 
 export function youtubeNowPlaying(
@@ -249,5 +204,6 @@ export function vcActivityPresenceKindsFromUi(
   if (s.phase === 'smash_karts') return ['smash_karts'];
   if (s.phase === 'basketball_stars_2026') return ['basketball_stars_2026'];
   if (s.phase === 'cluster_rush') return ['cluster_rush'];
+  if (s.phase === 'tic_tac_toe') return ['tic_tac_toe'];
   return ['youtube'];
 }

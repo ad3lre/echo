@@ -16,6 +16,7 @@ export const ECHO_VC_ACTIVITY_KEYS = [
   'smash_karts',
   'basketball_stars_2026',
   'cluster_rush',
+  'tic_tac_toe',
 ] as const;
 
 export type EchoVcActivityKey = (typeof ECHO_VC_ACTIVITY_KEYS)[number];

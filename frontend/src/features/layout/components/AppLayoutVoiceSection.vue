@@ -11,6 +11,9 @@ import {
 } from 'vue';
 import type {
   EchoHangmanActivityV1,
+  EchoCodenamesActivityV1,
+  EchoCodenamesAffiliationV1,
+  EchoCodenamesRoleAssignmentV1,
   EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import type { ReactionFavorite } from '@/composables/useReactionFavorites';
@@ -33,7 +36,6 @@ import type {
   VcActivityPresenceKind,
   VcActivityUiState,
 } from '@/features/voice/vcActivityTypes';
-import { resolveVcCodenamesStarterUserId } from '@/features/voice/vcActivityTypes';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 
 const CallView = defineAsyncComponent(
@@ -152,11 +154,24 @@ const props = defineProps<{
   openVcActivityYoutubeBrowse: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
+  openVcActivityTicTacToe: () => void;
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  vcCodenamesActivity: ComputedRef<EchoCodenamesActivityV1 | null>;
+  codenamesRosterUserIds: ComputedRef<string[]>;
+  vcCodenamesSpymasterKey: ComputedRef<EchoCodenamesAffiliationV1[] | null>;
+  commitVcCodenamesDeal: () => string | null;
+  requestVcCodenamesSetup: (
+    assignments: EchoCodenamesRoleAssignmentV1[],
+  ) => void;
+  requestVcCodenamesClue: (word: string, number: number) => void;
+  requestVcCodenamesReveal: (cardIndex: number) => void;
+  requestVcCodenamesEndTurn: () => void;
+  requestVcCodenamesNewGame: () => void;
+  requestVcCodenamesPushKeyToOrchestrator: () => void;
   openVcActivityOpenGuessr: () => void;
   openVcActivitySkribblIo: () => void;
   openVcActivityGarticPhone: () => void;
@@ -189,7 +204,6 @@ const props = defineProps<{
   vcYoutubeRemotePlayback: ShallowRef<VcYoutubeRemotePlaybackState | null>;
   publishVcYoutubePlaybackSync: (sample: EchoYoutubePlaybackSyncV1) => void;
   vcYoutubePlaybackShouldPublish: ComputedRef<boolean>;
-  setVcActivityCodenamesRoomUrl: (url: string | null) => void;
   /** Server owner / manage-server — Discord empty-channel import (voice side chat). */
   canShowDiscordChannelImport?: boolean;
   onRequestForward?: (
@@ -250,13 +264,6 @@ const voiceChannelActivityLabel = computed(() => {
 const vcActivitySurfaceOpen = computed(
   () => unref(props.vcActivityUi).phase !== 'closed',
 );
-
-const vcCodenamesStarterUserId = computed(() => {
-  const ids = props.activeVoiceChannelParticipants.map((p) => p.id);
-  const r = resolveVcCodenamesStarterUserId(ids);
-  if (r) return r;
-  return props.currentUserId?.trim() || null;
-});
 
 const dockReservePx = computed(() => props.voiceMobileDockReservePx ?? 0);
 
@@ -471,6 +478,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :open-vc-activity-youtube-browse="openVcActivityYoutubeBrowse"
             :open-vc-activity-wordle="openVcActivityWordle"
             :open-vc-activity-hangman="openVcActivityHangman"
+            :open-vc-activity-tic-tac-toe="openVcActivityTicTacToe"
             :open-vc-activity-open-guessr="openVcActivityOpenGuessr"
             :open-vc-activity-skribbl-io="openVcActivitySkribblIo"
             :open-vc-activity-gartic-phone="openVcActivityGarticPhone"
@@ -501,9 +509,19 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :commit-vc-hangman-word="commitVcHangmanWord"
             :request-vc-hangman-guess-letter="requestVcHangmanGuessLetter"
             :request-vc-hangman-next-round="requestVcHangmanNextRound"
+            :vc-codenames-activity="vcCodenamesActivity"
+            :codenames-roster-user-ids="codenamesRosterUserIds"
+            :vc-codenames-spymaster-key="vcCodenamesSpymasterKey"
+            :commit-vc-codenames-deal="commitVcCodenamesDeal"
+            :request-vc-codenames-setup="requestVcCodenamesSetup"
+            :request-vc-codenames-clue="requestVcCodenamesClue"
+            :request-vc-codenames-reveal="requestVcCodenamesReveal"
+            :request-vc-codenames-end-turn="requestVcCodenamesEndTurn"
+            :request-vc-codenames-new-game="requestVcCodenamesNewGame"
+            :request-vc-codenames-push-key-to-orchestrator="
+              requestVcCodenamesPushKeyToOrchestrator
+            "
             :active-voice-channel-participants="activeVoiceChannelParticipants"
-            :set-vc-activity-codenames-room-url="setVcActivityCodenamesRoomUrl"
-            :vc-codenames-starter-user-id="vcCodenamesStarterUserId"
             :current-user-id="currentUserId"
             :focus-guild-voice-channel-in-sidebar="
               focusGuildVoiceChannelInSidebar

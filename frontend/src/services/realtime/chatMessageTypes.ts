@@ -43,6 +43,9 @@ export interface RawMessage {
   editedAt?: string;
   reactions?: MessageReaction[];
   embeds?: Embed[];
+  tts?: boolean;
+  messageFlags?: number;
+  components?: unknown;
   encryption?: Message['encryption'];
 }
 

@@ -31,6 +31,8 @@ import {
   type RawSpoilerRegion,
   replaceSpoilerPlaceholdersInHtml,
 } from '@/utils/discordSpoilerMarkdown';
+import { bioLinkFaviconUrl, formatBioLinkDisplay } from '@/utils/bioLinkText';
+import { safeImageUrl } from '@/utils/safeImageUrl';
 
 const marked = new Marked()
   .setOptions({ gfm: true, breaks: true })
@@ -533,6 +535,9 @@ const SANITIZE_OPTS = {
     'title',
     'draggable',
     'loading',
+    'decoding',
+    'width',
+    'height',
     /** KaTeX layout depends on inline `style` on spans (width/height/position); stripping it collapses glyphs. */
     'style',
     'aria-hidden',
@@ -636,7 +641,7 @@ const PARSE_CACHE = new Map<string, string>();
 const PARSE_CACHE_MAX = 2000;
 const HTML_STAGE_CACHE_MAX = 2000;
 const MARKDOWN_PIPELINE_VERSION =
-  'mdp1_math3_dollar_inline_latex_text1_sanitize3_katex_svg_twemoji1_alerts1';
+  'mdp1_math3_dollar_inline_latex_text1_sanitize3_katex_svg_twemoji1_alerts1_extlinkfav1';
 const EMOJI_CANDIDATE_RE = /[\u{2600}-\u{27BF}\u{1F000}-\u{1FAFF}]/u;
 const RESOLVER_CACHE_VERSION = new WeakMap<object, number>();
 const HEADING_HTML_CACHE = new Map<string, string>();
@@ -784,6 +789,77 @@ function applyTwemojiOutsideKatex(html: string): string {
       applyTwemojiToHtmlString(html),
       HTML_STAGE_CACHE_MAX,
     );
+  }
+}
+
+/**
+ * When link text is the URL itself (GFM autolinks), show host/path + favicon like profile bios.
+ */
+function anchorLinkTextIsOnlyUrl(
+  href: string,
+  anchor: HTMLAnchorElement,
+): boolean {
+  let text = '';
+  for (const n of anchor.childNodes) {
+    if (n.nodeType === Node.TEXT_NODE) {
+      text += (n as Text).data ?? '';
+    } else {
+      return false;
+    }
+  }
+  text = text.trim();
+  if (!text) return false;
+  if (text === href) return true;
+  try {
+    const h = new URL(href);
+    if (h.protocol !== 'http:' && h.protocol !== 'https:') return false;
+    const t = new URL(text);
+    return t.href === h.href;
+  } catch {
+    return false;
+  }
+}
+
+function applyMessageExternalLinkBioPresentation(html: string): string {
+  if (!html.includes('<a') && !html.includes('<A')) return html;
+  if (typeof window === 'undefined' || !sharedDomParser) return html;
+  try {
+    const doc = sharedDomParser.parseFromString(
+      `<div id="echo-md-external-links">${html}</div>`,
+      'text/html',
+    );
+    const root = doc.getElementById('echo-md-external-links');
+    if (!root) return html;
+    const anchors = root.querySelectorAll(
+      'a[href^="http://"], a[href^="https://"]',
+    );
+    for (const node of anchors) {
+      const a = node as HTMLAnchorElement;
+      const href = a.getAttribute('href');
+      if (!href) continue;
+      try {
+        const uh = new URL(href);
+        if (uh.protocol !== 'http:' && uh.protocol !== 'https:') continue;
+      } catch {
+        continue;
+      }
+      if (!anchorLinkTextIsOnlyUrl(href, a)) continue;
+      const fav = bioLinkFaviconUrl(href);
+      const label = escapeForHighlight(formatBioLinkDisplay(href));
+      const favSafe = fav ? escapeAttr(safeImageUrl(fav)) : '';
+      const imgHtml = favSafe
+        ? `<img class="message-md-external-link__favicon" src="${favSafe}" alt="" loading="lazy" decoding="async" width="14" height="14" />`
+        : '';
+      const existing = a.getAttribute('class')?.trim();
+      a.setAttribute(
+        'class',
+        [existing, 'message-md-external-link'].filter(Boolean).join(' '),
+      );
+      a.innerHTML = `${imgHtml}<span class="message-md-external-link__label">${label}</span>`;
+    }
+    return root.innerHTML;
+  } catch {
+    return html;
   }
 }
 
@@ -1137,6 +1213,7 @@ export function parseMessageContent(
     .replace(/&amp;#39;/g, "'")
     .replace(/&amp;#x27;/gi, "'")
     .replace(/&amp;apos;/gi, "'");
+  sanitized = applyMessageExternalLinkBioPresentation(sanitized);
   const twemojified = applyTwemojiOutsideKatex(sanitized);
   const out = DOMPurify.sanitize(twemojified, SANITIZE_OPTS);
   if (useCache) {

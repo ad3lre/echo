@@ -15,11 +15,11 @@
  *   ensure `path` stays `/socket.io` (see `socketIoSessionWire.ts`). The service worker only intercepts GET
  *   fetch and does not apply to WebSocket upgrades.
  * - **Tauri shell (`VITE_ECHO_TAURI=1`)**: `VITE_API_URL` and `VITE_SOCKET_IO_URL` are **required** at build time
- *   (desktop and Android WebView are not same-origin with the API). Set via `VITE_ECHO_DESKTOP` /
- *   `VITE_ECHO_ANDROID` npm scripts, which also set `VITE_ECHO_TAURI=1`.
+ *   (desktop and mobile WebViews are not same-origin with the API). Set via `VITE_ECHO_DESKTOP` /
+ *   `VITE_ECHO_ANDROID` / `VITE_ECHO_IOS` npm scripts, which also set `VITE_ECHO_TAURI=1`.
  */
 
-/** True when this bundle targets any Tauri shell (Echo desktop or Android). */
+/** True when this bundle targets any Tauri shell (Echo desktop, Android, or iOS). */
 export const IS_ECHO_TAURI_SHELL = import.meta.env.VITE_ECHO_TAURI === '1';
 
 /** Echo HTTP/Socket port when UI talks to the API on the same host (default matches backend `PORT`). */

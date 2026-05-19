@@ -4,6 +4,7 @@ import type {
   MessageWithAuthor,
   MessageAttachmentPayload,
 } from '@shared/types';
+import { openExternal } from '@/platform/desktopBridge';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import GifImage from './GifImage.vue';
 import MessageAudioAttachment from './MessageAudioAttachment.vue';
@@ -25,7 +26,7 @@ function onDocumentOpen(att: MessageAttachmentPayload) {
     return;
   }
   const u = att.url?.trim();
-  if (u) window.open(u, '_blank', 'noopener,noreferrer');
+  if (u) void openExternal(u);
 }
 
 const mediaRevealed = ref(false);

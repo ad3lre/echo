@@ -13,6 +13,7 @@ import {
 } from '@/features/server-notifications/serverPing';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
+import { safeImageUrl } from '@/utils/safeImageUrl';
 import {
   getServerNotifBadge,
   getServerNotifTitle,
@@ -165,6 +166,26 @@ function horizontalPillStaggerMs(index: number, total: number): string {
   const ms = Math.min(ring, 22) * 36;
   return `${Math.round(ms)}ms`;
 }
+
+/** 1/16 turn (22.5°) around the icon; selected guild anchors at bottom. */
+function horizontalRingArcRotationDeg(
+  serverId: string,
+  serverIndex: number,
+  isSelected: boolean,
+): number {
+  if (isSelected) return 180;
+  let h = 2166136261;
+  for (let i = 0; i < serverId.length; i++) {
+    h ^= serverId.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const salt = Math.imul(serverIndex + 1, 0x9e3779b9);
+  return (((h ^ salt) >>> 0) % 16) * 22.5;
+}
+
+function horizontalRingIconCssUrl(server: Server): string {
+  return safeImageUrl(serverGuildIconDisplayUrl(server.imageUrl));
+}
 </script>
 
 <template>
@@ -233,7 +254,7 @@ function horizontalPillStaggerMs(index: number, total: number): string {
       <button
         type="button"
         data-cy="server-rail-icon"
-        class="server-folder__item relative flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-full transition-all"
+        class="server-folder__item group relative flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-full transition-all"
         :class="[
           server.id === selectedServerId
             ? 'server-folder__item--active'
@@ -262,7 +283,38 @@ function horizontalPillStaggerMs(index: number, total: number): string {
         @contextmenu.stop.prevent="emit('contextmenu', server, $event)"
       >
         <span
-          class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-full"
+          v-if="horizontal"
+          class="pointer-events-none absolute -inset-[3px] z-0 rounded-full"
+          :class="[
+            server.id === selectedServerId
+              ? 'opacity-100'
+              : 'opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100 group-focus-visible:opacity-100',
+            railDragSourceIndex === serverIndex ? '!opacity-0' : '',
+          ]"
+          aria-hidden="true"
+        >
+          <span
+            class="block size-full rounded-full"
+            :style="{
+              transform: `rotate(${horizontalRingArcRotationDeg(server.id, serverIndex, server.id === selectedServerId)}deg)`,
+            }"
+          >
+            <span
+              class="server-folder__h-ring-inner block size-full rounded-full"
+              :class="
+                server.id === selectedServerId
+                  ? 'server-folder__h-ring-inner--selected'
+                  : 'server-folder__h-ring-inner--hover'
+              "
+              :style="{
+                transform: `rotate(${-horizontalRingArcRotationDeg(server.id, serverIndex, server.id === selectedServerId)}deg)`,
+                backgroundImage: `url(${horizontalRingIconCssUrl(server)})`,
+              }"
+            />
+          </span>
+        </span>
+        <span
+          class="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center overflow-hidden rounded-full"
           aria-hidden="true"
         >
           <PausedGifAvatar
@@ -424,6 +476,97 @@ function horizontalPillStaggerMs(index: number, total: number): string {
 <style scoped>
 .server-folder__voice-badge {
   background: var(--server-vc-active, #22c55e);
+}
+
+/**
+ * Top horizontal rail: guild icon sampled into a thin ring, masked to a 1/16 turn.
+ * Outer wrapper rotates the wedge; inner counter-rotates so the picture stays aligned
+ * with the avatar while the highlight sits at different compass points per server.
+ */
+.server-folder__h-ring-inner {
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  filter: saturate(1.12) contrast(1.04);
+  -webkit-mask-image:
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      transparent calc(100% * 0.78),
+      #000 calc(100% * 0.78) calc(100% * 0.94),
+      transparent 0
+    ),
+    conic-gradient(
+      from 0deg at 50% 50%,
+      #000 0deg,
+      #000 22.5deg,
+      transparent 22.5deg,
+      transparent 360deg
+    );
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      transparent calc(100% * 0.78),
+      #000 calc(100% * 0.78) calc(100% * 0.94),
+      transparent 0
+    ),
+    conic-gradient(
+      from 0deg at 50% 50%,
+      #000 0deg,
+      #000 22.5deg,
+      transparent 22.5deg,
+      transparent 360deg
+    );
+  mask-size: 100% 100%;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-composite: intersect;
+}
+
+.server-folder__h-ring-inner--selected {
+  filter: saturate(1.18) contrast(1.06)
+    drop-shadow(
+      0 0 5px color-mix(in srgb, var(--text) 28%, transparent)
+    );
+  -webkit-mask-image:
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      transparent calc(100% * 0.74),
+      #000 calc(100% * 0.74) calc(100% * 0.96),
+      transparent 0
+    ),
+    conic-gradient(
+      from 0deg at 50% 50%,
+      #000 0deg,
+      #000 22.5deg,
+      transparent 22.5deg,
+      transparent 360deg
+    );
+  mask-image:
+    radial-gradient(
+      closest-side circle at 50% 50%,
+      transparent calc(100% * 0.74),
+      #000 calc(100% * 0.74) calc(100% * 0.96),
+      transparent 0
+    ),
+    conic-gradient(
+      from 0deg at 50% 50%,
+      #000 0deg,
+      #000 22.5deg,
+      transparent 22.5deg,
+      transparent 360deg
+    );
+}
+
+.server-folder__h-ring-inner--hover {
+  opacity: 0.9;
+}
+
+[data-theme='light'] .server-folder__h-ring-inner--hover {
+  opacity: 0.88;
 }
 
 /* Plain-unread sliver beside the selection pill — theme-aware (not hardcoded white). */

@@ -20,6 +20,7 @@ const port = (process.env.VITE_DEV_ECHO_PORT || '3000').trim();
 const env = {
   ...process.env,
   VITE_ECHO_TAURI: '1',
+  VITE_ECHO_IOS: '1',
   VITE_API_URL: `http://${host}:${port}`,
   VITE_SOCKET_IO_URL: `http://${host}:${port}`,
   /** Smaller Vite dev footprint; set `ECHO_VITE_LOW_MEM=0` to disable. */

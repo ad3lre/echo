@@ -113,7 +113,7 @@ function inferE2eeMessageVersionFromCiphertext(
   return 1;
 }
 
-function echoRowToMessage(existing: EchoMessageRow): Message {
+export function echoRowToMessage(existing: EchoMessageRow): Message {
   const mf = existing.messageFormatVersion ?? 1;
   const cs = existing.contentSchemaVersion ?? 1;
   const plain = existing.searchIndexText ?? existing.content;
@@ -154,6 +154,14 @@ function echoRowToMessage(existing: EchoMessageRow): Message {
     ...(Array.isArray(existing.embeds) && existing.embeds.length
       ? { embeds: existing.embeds as Message['embeds'] }
       : {}),
+    ...(existing.tts === true ? { tts: true } : {}),
+    ...(existing.messageFlags != null &&
+    Number.isFinite(Number(existing.messageFlags))
+      ? { messageFlags: Number(existing.messageFlags) }
+      : {}),
+    ...(existing.components !== undefined
+      ? { components: existing.components }
+      : {}),
     ...(existing.imageUrl ? { imageUrl: existing.imageUrl } : {}),
     ...(existing.videoUrl ? { videoUrl: existing.videoUrl } : {}),
     ...(existing.audioUrl ? { audioUrl: existing.audioUrl } : {}),
@@ -169,6 +177,9 @@ function echoRowToMessage(existing: EchoMessageRow): Message {
       : {}),
     ...(existing.bridgeSource === 'discord_inbound'
       ? { bridgeFromDiscord: true }
+      : {}),
+    ...(existing.bridgeSource
+      ? { bridgeSource: existing.bridgeSource }
       : {}),
     ...(e2eeCiphertext && existing.e2eeEnvelope
       ? {

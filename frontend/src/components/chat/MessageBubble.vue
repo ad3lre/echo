@@ -18,7 +18,10 @@ import { isEmojiOnlyUpTo12 } from '@/utils/emojiUtils';
 import { parseSingleEmoji } from '@/utils/twemoji';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
 import { safeImageUrl } from '@/utils/safeImageUrl';
-import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
+import {
+  resolveCustomEmojiImageUrlForDisplay,
+} from '@/utils/customEmojiUrl';
+import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import { requestAppConfirm } from '@/utils/appDialogs';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { useShiftKey } from '@/composables/useShiftKey';
@@ -283,8 +286,13 @@ function parseSingleEmojiForReactions(emoji: string): string {
   const m = emoji.trim().match(REACTION_CUSTOM_EMOJI);
   if (m) {
     const emojiId = m[2]!;
-    const stored = customEmojiUrlById?.value?.get(emojiId);
-    const url = stored ? safeCustomEmojiUrl(stored) : null;
+    const animated = m[0].startsWith('<a:');
+    const url = resolveCustomEmojiImageUrlForDisplay(
+      emojiId,
+      animated,
+      customEmojiUrlById?.value,
+      isEchoEmojiTokenResolveMiss(emojiId),
+    );
     if (url) {
       const raw = `<img class="emoji custom-emoji" draggable="false" alt="${escReactionAttr(`:${m[1]}:`)}" src="${escReactionAttr(url)}"/>`;
       return sanitizeEmojiImgHtmlForVHtml(raw);
@@ -1353,6 +1361,16 @@ watch(
               class="mt-2"
               :embeds="message.embeds"
             />
+            <div
+              v-if="
+                Array.isArray(message.components) && message.components.length
+              "
+              class="mt-2 max-w-xl rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text-muted)]"
+              data-testid="message-components-placeholder"
+            >
+              This message includes bot-style components (Echo shows a placeholder;
+              interactions are not available).
+            </div>
             <PollDisplay
               v-if="pollForDisplay"
               :poll="pollForDisplay"

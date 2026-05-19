@@ -819,6 +819,7 @@ async function attachChannelPermissionCapsAndStripInvisibleForWorkspace(
     } catch {
       for (const ch of channelMap.values()) {
         ch.canManageChannel = false;
+        ch.canManageWebhooks = false;
         ch.canViewChannel = false;
       }
       permsMap = new Map();
@@ -827,6 +828,11 @@ async function attachChannelPermissionCapsAndStripInvisibleForWorkspace(
     for (const [id, ch] of channelMap) {
       const perms = permsMap.get(id);
       ch.canManageChannel = perms ? perms.has('MANAGE_CHANNELS') : false;
+      ch.canManageWebhooks = perms
+        ? perms.has('MANAGE_WEBHOOKS') ||
+          perms.has('MANAGE_GUILD') ||
+          perms.has('ADMINISTRATOR')
+        : false;
       ch.canViewChannel = perms ? perms.has('VIEW_CHANNEL') : false;
     }
 

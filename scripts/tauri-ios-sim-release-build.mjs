@@ -158,6 +158,7 @@ function main() {
   const env = {
     ...process.env,
     VITE_ECHO_TAURI: '1',
+    VITE_ECHO_IOS: '1',
     ECHO_TAURI_IOS: '1',
     CI: process.env.CI || '1',
     APPLE_DEVELOPMENT_TEAM: process.env.APPLE_DEVELOPMENT_TEAM || '7HBQV8236H',

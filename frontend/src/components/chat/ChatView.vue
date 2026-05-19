@@ -14,8 +14,14 @@ import {
 } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useServerEmojiLibrary } from '@/composables/useServerEmojiLibrary';
-import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
-import { useGlobalEmojiTokenResolver } from '@/composables/useGlobalEmojiTokenResolver';
+import {
+  fallbackDiscordCdnCustomEmojiImageUrl,
+  safeCustomEmojiUrl,
+} from '@/utils/customEmojiUrl';
+import {
+  isEchoEmojiTokenResolveMiss,
+  useGlobalEmojiTokenResolver,
+} from '@/composables/useGlobalEmojiTokenResolver';
 import { useEchoHistory } from '@/composables/useEchoHistory';
 import type {
   ChannelSummary,
@@ -614,7 +620,7 @@ const idTokenResolvers = computed<IdTokenResolvers>(() => ({
   serverLabel: (id) => serverStore.servers.find((s) => s.id === id)?.name ?? id,
   roleLabel: (id) => id,
   messageLabel: (id) => (id.length > 12 ? `${id.slice(0, 8)}…` : id),
-  customEmojiImageUrl: (id) => {
+  customEmojiImageUrl: (id, _name, animated) => {
     const local = serverEmojiLibrary.emojiById.value.get(id)?.imageUrl;
     if (local) {
       const s = safeCustomEmojiUrl(local);
@@ -624,6 +630,10 @@ const idTokenResolvers = computed<IdTokenResolvers>(() => ({
     if (global) {
       const s = safeCustomEmojiUrl(global);
       if (s) return s;
+    }
+    if (isEchoEmojiTokenResolveMiss(id)) {
+      const cdn = fallbackDiscordCdnCustomEmojiImageUrl(id, animated);
+      if (cdn) return cdn;
     }
     globalEmojiResolver.ensureEmojiId(id);
     return undefined;

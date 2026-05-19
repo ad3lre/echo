@@ -19,6 +19,7 @@ export async function mirrorEchoMessageToDiscordIfConfigured(
 ): Promise<void> {
   const bridge = await getDiscordBridgeForEchoChannel(pool, channelId);
   if (!bridge?.outboundEnabled || !bridge.discordWebhookUrl) return;
+  if (message.bridgeSource === 'echo_webhook') return;
 
   const url = normalizeDiscordWebhookUrl(bridge.discordWebhookUrl);
   if (!url) {

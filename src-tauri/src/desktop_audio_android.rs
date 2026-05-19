@@ -1,4 +1,4 @@
-//! No-op audio surface for Android (MVP). Desktop uses `desktop_audio_desktop.rs`.
+//! No-op audio surface for mobile (Android / iOS MVP). Desktop uses `desktop_audio_desktop.rs`.
 
 use serde::Serialize;
 

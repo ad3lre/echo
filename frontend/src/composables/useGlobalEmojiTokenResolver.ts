@@ -31,6 +31,12 @@ function markMissing(id: string) {
   }
 }
 
+/** True after `/emoji/resolve` returned no row for this numeric id (cross-guild Discord emoji). */
+export function isEchoEmojiTokenResolveMiss(id: string): boolean {
+  const k = normalizeEmojiId(id);
+  return !!k && missingIds.has(k);
+}
+
 async function flushQueued(token: string) {
   if (inflight) return;
   inflight = (async () => {

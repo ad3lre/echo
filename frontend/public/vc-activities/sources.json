@@ -74,6 +74,12 @@
       "license": "Linked from clusterrush.io Open Graph meta as game imagery."
     },
     {
+      "file": "tic-tac-toe-hero.svg",
+      "kind": "echo_placeholder",
+      "sourceUrl": null,
+      "license": "Original SVG by Echo — Tic-Tac-Toe VC activity (generic grid motif)."
+    },
+    {
       "file": "tetris-hero.svg",
       "kind": "echo_placeholder",
       "sourceUrl": null,
@@ -84,6 +90,12 @@
       "kind": "official_marketing",
       "sourceUrl": "https://cdn.prod.website-files.com/6842a3f0bd06c7a0b7e03584/6880e01ed2b9ce2cdb64cbb2_og-image-homepage.avif",
       "license": "Codenamesgame.com Webflow CDN og:image (publisher marketing asset)."
+    },
+    {
+      "file": "echoed-names-hero.svg",
+      "kind": "echo_placeholder",
+      "sourceUrl": null,
+      "license": "Original SVG by Echo — Echoed Names voice activity (generic grid motif; not third-party game art)."
     },
     {
       "file": "richup-hero.png",

@@ -3,7 +3,8 @@ import { ref, inject, onBeforeUnmount, type ComputedRef } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import { parseSingleEmoji } from '@/utils/twemoji';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
-import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
+import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
+import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import MessageReactionsRow from '@/features/chat/components/MessageReactionsRow.vue';
 import MessageReactionEmojiPopover from './MessageReactionEmojiPopover.vue';
 import MessageReactionHoverCard from './MessageReactionHoverCard.vue';
@@ -51,8 +52,13 @@ function parseSingleEmojiForReactions(emoji: string): string {
   const m = emoji.trim().match(REACTION_CUSTOM_EMOJI);
   if (m) {
     const emojiId = m[2]!;
-    const stored = customEmojiUrlById?.value?.get(emojiId);
-    const url = stored ? safeCustomEmojiUrl(stored) : null;
+    const animated = m[0].startsWith('<a:');
+    const url = resolveCustomEmojiImageUrlForDisplay(
+      emojiId,
+      animated,
+      customEmojiUrlById?.value,
+      isEchoEmojiTokenResolveMiss(emojiId),
+    );
     if (url) {
       const raw = `<img class="emoji custom-emoji" draggable="false" alt="${escReactionAttr(`:${m[1]}:`)}" src="${escReactionAttr(url)}"/>`;
       return sanitizeEmojiImgHtmlForVHtml(raw);

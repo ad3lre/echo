@@ -12,6 +12,7 @@ import ChannelIconPickerPopover from '@/components/ChannelIconPickerPopover.vue'
 import PermissionOverwriteEditor from '@/features/channel-settings/components/PermissionOverwriteEditor.vue';
 import ChannelDiscordSyncPanel from '@/features/channel-settings/components/ChannelDiscordSyncPanel.vue';
 import ChannelDiscordVoiceMirrorPanel from '@/features/channel-settings/components/ChannelDiscordVoiceMirrorPanel.vue';
+import ChannelWebhooksPanel from '@/features/channel-settings/components/ChannelWebhooksPanel.vue';
 import {
   getChannelIconKeyForEdit,
   getChannelIconVisual,
@@ -176,6 +177,12 @@ const discordSyncChannelType = computed(() =>
 
 const channelSettingsTabs = computed((): ChannelSettingsTab[] => {
   const tabs: ChannelSettingsTab[] = ['overview', 'permissions'];
+  if (
+    (channelType.value === 'text' || channelType.value === 'forum') &&
+    props.channelSettings?.channel.canManageWebhooks === true
+  ) {
+    tabs.splice(2, 0, 'webhooks');
+  }
   if (channelType.value === 'text' || channelType.value === 'forum')
     tabs.push('format');
   if (channelType.value === 'text' || channelType.value === 'forum')
@@ -624,6 +631,7 @@ function onKeydown(e: KeyboardEvent) {
 
 function tabIcon(tab: ChannelSettingsTab) {
   if (tab === 'permissions') return icons.sliders;
+  if (tab === 'webhooks') return icons.puzzle;
   if (tab === 'discord_sync' || tab === 'discord_voice_mirror')
     return icons.discordMark;
   if (tab === 'forum_creator') return icons.messageAlt;
@@ -1068,6 +1076,17 @@ async function confirmDeleteChannel() {
                 class="server-settings-panel-root pb-8"
               >
                 <ChannelDiscordVoiceMirrorPanel
+                  :server-id="channelSettings.serverId"
+                  :channel-id="channelSettings.channel.id"
+                />
+              </div>
+
+              <div
+                v-else-if="activeTab === 'webhooks'"
+                key="webhooks"
+                class="server-settings-panel-root pb-8"
+              >
+                <ChannelWebhooksPanel
                   :server-id="channelSettings.serverId"
                   :channel-id="channelSettings.channel.id"
                 />

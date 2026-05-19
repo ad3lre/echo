@@ -16,6 +16,7 @@ import discordBridgeHookRoutes from './discordBridgeHook';
 import discordVoiceMirrorHookRoutes from './discordVoiceMirrorHook';
 import discordPresenceHookRoutes from './discordPresenceHook';
 import livekitWebhookRoutes from './livekitWebhook';
+import echoChannelWebhookHookRoutes from './echoChannelWebhookHook';
 import analyticsRoutes from './analytics';
 import devDiagnosticsRoutes from './devDiagnostics';
 import founderRoutes from './founder';
@@ -24,7 +25,6 @@ import echoRoutes from './echo';
 import systemDeployCountdownRoutes from './systemDeployCountdown';
 import discordApiRoutes from './discordApi';
 import discordGatewayRoutes from './discordApi/gateway';
-import embedProxyRoutes from './embedProxy';
 import { getAccessUserIdFromAuthHeader } from '../../auth/token';
 import { isEchoApiReadRequest } from '../../bootstrap/echoReadRateLimitPaths';
 import { config } from '../../config';
@@ -58,6 +58,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(discordVoiceMirrorHookRoutes, { prefix: '/api/v1' });
   await fastify.register(discordPresenceHookRoutes, { prefix: '/api/v1' });
   await fastify.register(livekitWebhookRoutes, { prefix: '/api/v1' });
+  await fastify.register(echoChannelWebhookHookRoutes, { prefix: '/api/v1' });
   await fastify.register(analyticsRoutes, { prefix: '/api/v1' });
   await fastify.register(devDiagnosticsRoutes, { prefix: '/api/v1/dev' });
   await fastify.register(founderRoutes, { prefix: '/api/v1/founder' });
@@ -83,7 +84,6 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
     },
     { prefix: '/api/v1/echo' },
   );
-  await fastify.register(embedProxyRoutes, { prefix: '/api/v1' });
 
   // Discord-compatible REST API: bots point baseURL here
   await fastify.register(discordApiRoutes, { prefix: '/discord/v10' });

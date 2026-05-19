@@ -110,6 +110,8 @@ export interface Channel {
   channelPermissions?: ChannelPermissionsState;
   /** Echo workspace: effective MANAGE_CHANNELS on this channel for the current user. */
   canManageChannel?: boolean;
+  /** Echo workspace: effective MANAGE_WEBHOOKS (or admin-equivalent) for channel webhook settings. */
+  canManageWebhooks?: boolean;
   /**
    * Echo workspace: voice channels only — effective CONNECT for the current user.
    * Omitted on text channels; join UI should require `true` before calling voice APIs.
@@ -168,6 +170,7 @@ export type ChannelSummary = Pick<
   | 'categoryAutoDeleteAfterSeconds'
   | 'channelPermissions'
   | 'canManageChannel'
+  | 'canManageWebhooks'
   | 'canConnectVoice'
   | 'discordChannelId'
   | 'forumAvailableTags'

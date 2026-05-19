@@ -30,9 +30,39 @@
 - If the `github` remote is missing, the hook **fails** so `release/1.0.0` is not pushed only to GitLab by mistake while GitHub lags.
 - **Do not fast-forward `release/1.0.0` to `origin/main`.** If the release tip SHA equals `origin/main`, GitHub’s default branch shows the **same per-commit history** as internal `main` (messages, authors, hashes). The `pre-push` hook **refuses** to mirror that case unless you set `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1` (emergency only).
 
-## Publishing internal `main` to the public release line (squash)
+## Publishing internal `main` to the public release line (separate timeline)
 
-Use a **squash** so the mirrored tip is **not** the same commit as `origin/main`, while the **tree** matches what you intend to ship:
+**Goal:** `release/1.0.0` on GitHub should show its **own** linear history: each publish adds **one new commit** whose **parent** is the previous public tip, while the **tree** matches the `origin/main` snapshot you intend to ship. Public commit SHAs stay different from GitLab `main`; `origin/main` must never become an ancestor (no merge commit from `main`).
+
+### Recommended: append one commit with `git commit-tree` (always works)
+
+If the public branch was bootstrapped with an **orphan** root, `git merge --squash origin/main` hits “unrelated histories” (often with mass add/add conflicts). Building each publish with **`commit-tree`** avoids that: one new commit, parent = last public tip, tree = `origin/main`.
+
+```bash
+git fetch origin main release/1.0.0
+
+# Parent = current public tip (usually origin/release/1.0.0 right after fetch).
+PARENT="$(git rev-parse origin/release/1.0.0)"
+TREE="$(git rev-parse origin/main^{tree})"
+
+NEW="$(
+  GIT_AUTHOR_NAME='ad3lre' GIT_AUTHOR_EMAIL='reachbypass@gmail.com' \
+  GIT_COMMITTER_NAME='ad3lre' GIT_COMMITTER_EMAIL='reachbypass@gmail.com' \
+  git commit-tree "$TREE" -p "$PARENT" -m "Public release sync (squashed)."
+)"
+
+git checkout main
+git branch -f release/1.0.0 "$NEW"
+git push origin release/1.0.0
+```
+
+Use `git checkout <your-branch>` instead of `main` if you are not on `main`; `git branch -f` fails while `release/1.0.0` is checked out.
+
+Each run adds **one** commit on top of the last public tip, so the mirror **advances its own history** over time instead of replacing the branch with a single root each time.
+
+### Alternative: `git merge --squash` (only when histories are related)
+
+If `release/1.0.0` and `origin/main` already share a merge-base, you can use:
 
 ```bash
 git fetch origin main release/1.0.0
@@ -42,11 +72,13 @@ git commit -m "Public release sync (squashed)."   # edit for external audience
 git push origin release/1.0.0
 ```
 
-If `release/1.0.0` already advanced with a fast-forward you need to undo, reset it to the prior tip, run the squash steps above, then use `--force-with-lease` if GitLab requires a non-fast-forward update (coordinate with branch protection).
+If you need to undo a mistaken fast-forward, reset `release/1.0.0` to the prior tip, re-run the steps, then `--force-with-lease` if GitLab requires it (coordinate branch protection).
 
-**Never `git merge origin/main` (merge commit) into a flattened `release/1.0.0`.** A merge commit’s second parent would make **all of `main`’s commits reachable** from the public branch again. Use **`git merge --squash origin/main`** only.
+**Never `git merge origin/main` (merge commit) into `release/1.0.0`.** A merge commit’s second parent would make **all of `main`’s commits reachable** from the public branch. Use **`git merge --squash`** or **`commit-tree`** only.
 
-To **replace the entire reachable history** with a single commit while keeping the same tree (what you wanted when “removing 1200+ commits” from GitHub): create an orphan branch from `origin/release/1.0.0^{tree}`, commit once, then `git push origin HEAD:refs/heads/release/1.0.0 --force-with-lease=…` (coordinate branch protection). Old SHAs may still be resolvable on the host for a time; the default branch no longer lists them.
+### Emergency: collapse the whole public branch to one commit again
+
+To replace the entire reachable public history with a **single** commit while keeping a chosen tree: create an orphan branch from that tree, commit once, then `git push origin HEAD:refs/heads/release/1.0.0 --force-with-lease=…` (coordinate branch protection). Old SHAs may remain resolvable on the host for a time. Use only when you intentionally want to wipe the public graph.
 
 ## History rewrites (squash, filter-repo)
 
@@ -54,13 +86,13 @@ GitLab **protected branches** often block `--force` pushes. To land a rewritten 
 
 ## Commit messages (Cursor)
 
-`scripts/githooks/prepare-commit-msg` strips the **Cursor-packaged** trailer lines the IDE appends to commit messages (the extra “co-authored” line and the “Made-with” line), so they are never stored and GitHub does not attribute a second bot identity. Run `./scripts/setup-githooks.sh` so this hook runs. In Cursor, also set **Git author** to your own `user.name` / `user.email` under Settings → Git.
+`scripts/githooks/prepare-commit-msg` strips the **Cursor-packaged** trailer lines the IDE appends to commit messages (the extra “co-authored” line and the “Made-with” line), so they are never stored and GitHub does not attribute a second bot identity. Run `./scripts/setup-githooks.sh` so this hook runs. In Cursor, set **Git author** under Settings → Git to **`ad3lre`** / **`reachbypass@gmail.com`** (or export the same `GIT_AUTHOR_*` / `GIT_COMMITTER_*` variables in the shell) so public and internal commits attribute correctly.
 
 ## CI / automation
 
 Server-side GitLab jobs do not run this local hook. If pipelines must update GitHub for `release/1.0.0`, add an explicit job that pushes to `github` for that ref only, using credentials stored in CI variables.
 
-Pipeline pushes must **not** set `release/1.0.0` to the same commit as `origin/main` (same rule as the local hook: use a squash commit or set `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1` only if you accept publishing internal per-commit history).
+Pipeline pushes must **not** set `release/1.0.0` to the same commit as `origin/main` (same rule as the local hook: use a squash-style or `commit-tree` publish so the tip is not `origin/main`, unless you accept exposing internal per-commit history via `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1`).
 
 ## Do not keep `main` on GitHub
 
