@@ -104,6 +104,22 @@ export default async function echoVoiceE2eeRoutes(
           'Cannot create voice E2EE epoch for this thread.',
         );
       }
+      if (result === 'e2ee_disabled') {
+        return sendError(
+          reply,
+          403,
+          'VOICE_E2EE_DISABLED',
+          'Voice E2EE is not enabled for this thread.',
+        );
+      }
+      if (result === 'recipient_forbidden') {
+        return sendError(
+          reply,
+          403,
+          'VOICE_E2EE_RECIPIENT_FORBIDDEN',
+          'One or more call participants cannot receive encrypted key material for this thread.',
+        );
+      }
       if (result === 'invalid_body') {
         return sendError(
           reply,
@@ -195,6 +211,22 @@ export default async function echoVoiceE2eeRoutes(
           403,
           'FORBIDDEN',
           'Cannot create voice E2EE epoch for this channel.',
+        );
+      }
+      if (result === 'e2ee_disabled') {
+        return sendError(
+          reply,
+          403,
+          'VOICE_E2EE_DISABLED',
+          'Voice E2EE is not enabled for this channel.',
+        );
+      }
+      if (result === 'recipient_forbidden') {
+        return sendError(
+          reply,
+          403,
+          'VOICE_E2EE_RECIPIENT_FORBIDDEN',
+          'One or more voice participants cannot receive encrypted key material for this channel.',
         );
       }
       if (result === 'invalid_body') {

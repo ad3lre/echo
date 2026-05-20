@@ -11,11 +11,13 @@ import { preloadEmojiImagesOnce } from '@/composables/useEmojiPreload';
 import { ensureEmojiSearchPrebuildLoaded } from '@/composables/useEmojiSearchIndex';
 import { useServerEmojiLibrary } from '@/composables/useServerEmojiLibrary';
 import { useUserEmojiLibrary } from '@/composables/useUserEmojiLibrary';
+import { useChannelCustomEmojiPickerAllowed } from '@/composables/useChannelCustomEmojiPickerAllowed';
 import { useSimpleContextMenu } from '@/composables/useSimpleContextMenu';
 import { UIErrorBus } from '@/utils/uiErrorBus';
 
 const props = defineProps<{
   serverId?: string;
+  channelId?: string;
   placement?: 'up' | 'down';
   theme?: 'default' | 'forum';
 }>();
@@ -26,6 +28,8 @@ const emit = defineEmits<{
 }>();
 
 const serverIdRef = toRef(() => props.serverId);
+const channelIdRef = toRef(() => props.channelId);
+const allowCustomEmoji = useChannelCustomEmojiPickerAllowed(channelIdRef);
 const library = useServerEmojiLibrary(serverIdRef);
 const userLibrary = useUserEmojiLibrary();
 const serverPackCategories = computed(() => library.pickerPackCategories());
@@ -166,6 +170,7 @@ const {
   serverPackCategories,
   customEmojiSearchList,
   userPackCategories,
+  allowCustomEmoji,
 });
 
 const pickerTab = ref<'emoji' | 'icons' | 'stickers'>('emoji');

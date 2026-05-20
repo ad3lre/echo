@@ -251,3 +251,120 @@ export function reorderServerRail(input: {
     mruIds: nextMru,
   };
 }
+
+function applyServerRailVisibleOrder(input: {
+  allServers: readonly Server[];
+  pinnedMore: readonly Server[];
+  mruIds: readonly string[];
+  newVisibleIds: readonly string[];
+}): { servers: Server[]; pinnedMore: Server[]; mruIds: string[] } {
+  const { allServers, pinnedMore, mruIds, newVisibleIds } = input;
+  const projection = projectServerRailVisibleServers(
+    allServers,
+    pinnedMore,
+    mruIds,
+  );
+  const starredLen = projection.starred.length;
+  const byId = new Map(allServers.map((s) => [s.id, s] as const));
+
+  let nextPinned = [...pinnedMore];
+  let nextMru = [...mruIds];
+
+  if (starredLen > 0) {
+    const newStarOrder = newVisibleIds.slice(0, starredLen);
+    const frontPinned = newStarOrder
+      .map((id) => byId.get(id))
+      .filter((s): s is Server => !!s);
+    const tailPinned = pinnedMore.filter((s) => !newStarOrder.includes(s.id));
+    nextPinned = [...frontPinned, ...tailPinned];
+  } else {
+    const fillIds = newVisibleIds.slice(starredLen);
+    const fillSet = new Set(fillIds);
+    nextMru = [...fillIds, ...mruIds.filter((id) => !fillSet.has(id))].slice(
+      0,
+      SERVER_RAIL_MRU_MAX_STORED,
+    );
+  }
+
+  const nextVisible = newVisibleIds
+    .map((id) => byId.get(id))
+    .filter((s): s is Server => !!s);
+  const visSet = new Set(newVisibleIds);
+  const remainder = allServers.filter((s) => !visSet.has(s.id));
+  const nextServers = [...nextVisible, ...remainder];
+
+  return {
+    servers: nextServers,
+    pinnedMore: nextPinned,
+    mruIds: nextMru,
+  };
+}
+
+/**
+ * Reorder rail slots when the horizontal action rail shows a transient “recent”
+ * overflow icon (selected guild not in the fixed visible slice). Index `n` is the
+ * overflow slot where `n = projection.visible.length`.
+ */
+export function reorderServerRailWithOverflow(input: {
+  allServers: readonly Server[];
+  pinnedMore: readonly Server[];
+  mruIds: readonly string[];
+  fromIndex: number;
+  toIndex: number;
+  overflowServerId: string;
+}): { servers: Server[]; pinnedMore: Server[]; mruIds: string[] } {
+  const {
+    allServers,
+    pinnedMore,
+    mruIds,
+    fromIndex,
+    toIndex,
+    overflowServerId,
+  } = input;
+  const projection = projectServerRailVisibleServers(
+    allServers,
+    pinnedMore,
+    mruIds,
+  );
+  const n = projection.visible.length;
+  const overflowIndex = n;
+
+  if (n === 0) {
+    return {
+      servers: [...allServers],
+      pinnedMore: [...pinnedMore],
+      mruIds: [...mruIds],
+    };
+  }
+
+  if (fromIndex < n && toIndex < n) {
+    return reorderServerRail({
+      allServers,
+      pinnedMore,
+      mruIds,
+      fromIndex,
+      toIndex,
+    });
+  }
+
+  if (fromIndex === overflowIndex && toIndex < n) {
+    const visibleIds = projection.visible.map((s) => s.id);
+    const to = Math.min(Math.max(0, toIndex), visibleIds.length);
+    const withoutOverflow = visibleIds.filter((id) => id !== overflowServerId);
+    const nextIds = [...withoutOverflow];
+    nextIds.splice(to, 0, overflowServerId);
+    const newVisibleIds = nextIds.slice(0, VISIBLE_SERVER_RAIL_SLOT_COUNT);
+    return applyServerRailVisibleOrder({
+      allServers,
+      pinnedMore,
+      mruIds,
+      newVisibleIds,
+    });
+  }
+
+  return {
+    servers: [...allServers],
+    pinnedMore: [...pinnedMore],
+    mruIds: [...mruIds],
+  };
+}

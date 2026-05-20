@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import {
+  observeChatMediaRetentionVisible,
+  queueChatMediaRetentionTouch,
+} from '@/composables/useChatMediaRetentionTouch';
 import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
 import MediaUnavailablePanel from './MediaUnavailablePanel.vue';
 
 const props = defineProps<{
   url: string;
+  storageKey?: string;
 }>();
 
 const loadFailed = ref(false);
@@ -20,6 +25,17 @@ watch(
 const showUnavailable = computed(
   () => !isTrustedMediaUrl(props.url) || loadFailed.value,
 );
+
+const rootRef = ref<HTMLElement | null>(null);
+let stopObserve: (() => void) | undefined;
+
+onMounted(() => {
+  stopObserve = observeChatMediaRetentionVisible(rootRef.value, props.storageKey);
+});
+
+onUnmounted(() => {
+  stopObserve?.();
+});
 </script>
 
 <template>
@@ -30,11 +46,13 @@ const showUnavailable = computed(
   />
   <video
     v-else
+    ref="rootRef"
     :src="playUrl"
     controls
     playsinline
     preload="metadata"
     class="message-video"
+    @play="queueChatMediaRetentionTouch(storageKey)"
     @error="loadFailed = true"
   />
 </template>

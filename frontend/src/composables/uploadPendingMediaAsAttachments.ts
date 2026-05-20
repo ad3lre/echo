@@ -356,6 +356,7 @@ export async function uploadPendingMediaAsAttachments(
       );
       attachments.push({
         url: uploaded.url,
+        ...(uploaded.storageKey ? { storageKey: uploaded.storageKey } : {}),
         kind: 'image',
         filename: p.file.name,
         mimeType: p.file.type || undefined,
@@ -377,6 +378,7 @@ export async function uploadPendingMediaAsAttachments(
       );
       attachments.push({
         url: uploaded.url,
+        ...(uploaded.storageKey ? { storageKey: uploaded.storageKey } : {}),
         kind: 'video',
         filename: p.file.name,
         mimeType: p.file.type || undefined,
@@ -398,6 +400,7 @@ export async function uploadPendingMediaAsAttachments(
       );
       attachments.push({
         url: uploaded.url,
+        ...(uploaded.storageKey ? { storageKey: uploaded.storageKey } : {}),
         kind: 'audio',
         filename: p.file.name,
         mimeType: p.file.type || undefined,
@@ -420,6 +423,7 @@ export async function uploadPendingMediaAsAttachments(
       );
       attachments.push({
         url: uploaded.url,
+        ...(uploaded.storageKey ? { storageKey: uploaded.storageKey } : {}),
         kind: 'document',
         filename: p.file.name,
         mimeType: chatDocumentContentTypeForPresign(p.file),

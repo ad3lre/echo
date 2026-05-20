@@ -561,7 +561,7 @@ function onOverlayClick() {
                         <img
                           :src="icons.messageAlt"
                           alt=""
-                          class="h-4 w-4 invert"
+                          class="h-4 w-4 filter invert"
                         />
                       </button>
                       <button
@@ -601,7 +601,7 @@ function onOverlayClick() {
                               : icons.friendAdd
                           "
                           alt=""
-                          class="h-4 w-4 invert"
+                          class="h-4 w-4 filter invert"
                         />
                         <span class="text-[11px] font-semibold text-fg-subtle">
                           {{ friendshipUi.primaryLabel }}

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { Server } from '@shared/types';
 import type { ServerPingBubbleDisplay } from '@shared/attentionPing';
 import type { ServerNotificationLevel } from '@/features/server-notifications/types';
@@ -150,13 +150,19 @@ function onServerIconClick(serverId: string) {
 function onMoreServersContextMenu(event: MouseEvent) {
   event.preventDefault();
   event.stopPropagation();
-  const overflowServer = props.selectedOverflowServer ?? null;
-  if (overflowServer) {
-    emit('contextmenu', overflowServer, event);
-    return;
-  }
   emit('toggle-more-servers');
 }
+
+const overflowServerIndex = computed(() =>
+  props.selectedOverflowServer ? props.visibleServers.length : -1,
+);
+
+const railStaggerTotal = computed(
+  () =>
+    props.visibleServers.length +
+    (props.selectedOverflowServer ? 1 : 0) +
+    (props.showExtraServersRailButton ? 1 : 0),
+);
 
 /** Center-out stagger so motion reads as vertical rise, not a left→right sweep. */
 function horizontalPillStaggerMs(index: number, total: number): string {
@@ -229,7 +235,8 @@ function horizontalRingIconCssUrl(server: Server): string {
         railDragSourceIndex !== null &&
         railDropLineBefore === visibleServers.length &&
         serverIndex === visibleServers.length - 1 &&
-        !showExtraServersRailButton
+        !showExtraServersRailButton &&
+        !selectedOverflowServer
           ? horizontal
             ? 'server-folder__slot--rail-drop-after-h'
             : 'server-folder__slot--rail-drop-below'
@@ -272,7 +279,7 @@ function horizontalRingIconCssUrl(server: Server): string {
             ? {
                 animationDelay: horizontalPillStaggerMs(
                   serverIndex,
-                  visibleServers.length + (showExtraServersRailButton ? 1 : 0),
+                  railStaggerTotal,
                 ),
               }
             : undefined
@@ -400,13 +407,89 @@ function horizontalRingIconCssUrl(server: Server): string {
       </button>
     </div>
     <div
+      v-if="horizontal && selectedOverflowServer"
+      class="server-folder__slot server-folder__slot--overflow flex justify-center overflow-visible"
+      :class="[
+        'mr-2 w-auto shrink-0',
+        'server-folder__slot--active',
+        railDragSourceIndex !== null ? 'server-folder__slot--rail-dnd' : '',
+        railDragSourceIndex !== null &&
+        railDropLineBefore === overflowServerIndex
+          ? 'server-folder__slot--rail-drop-before-h'
+          : '',
+        railDragSourceIndex !== null &&
+        railDropLineBefore === overflowServerIndex + 1 &&
+        !showExtraServersRailButton
+          ? 'server-folder__slot--rail-drop-after-h'
+          : '',
+      ]"
+    >
+      <button
+        type="button"
+        data-cy="server-rail-overflow-icon"
+        class="server-folder__item group relative flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-full transition-all server-folder__item--active"
+        :class="[
+          reorderEnabled
+            ? 'cursor-grab select-none touch-none active:cursor-grabbing'
+            : '',
+          railDragSourceIndex === overflowServerIndex
+            ? 'server-folder__item--drag-source'
+            : '',
+          'server-folder__item--enter-h',
+        ]"
+        :style="{
+          animationDelay: horizontalPillStaggerMs(
+            overflowServerIndex,
+            railStaggerTotal,
+          ),
+        }"
+        :title="serverIconTitle(selectedOverflowServer, reorderEnabled)"
+        @pointerdown="onRailPointerDown($event, overflowServerIndex)"
+        @click="onServerIconClick(selectedOverflowServer.id)"
+        @contextmenu.stop.prevent="
+          emit('contextmenu', selectedOverflowServer, $event)
+        "
+      >
+        <span
+          class="pointer-events-none absolute -inset-[3px] z-0 rounded-full opacity-100"
+          aria-hidden="true"
+        >
+          <span
+            class="block size-full rounded-full"
+            :style="{
+              transform: `rotate(${horizontalRingArcRotationDeg(selectedOverflowServer.id, overflowServerIndex, true)}deg)`,
+            }"
+          >
+            <span
+              class="server-folder__h-ring-inner block size-full rounded-full server-folder__h-ring-inner--selected"
+              :style="{
+                transform: `rotate(${-horizontalRingArcRotationDeg(selectedOverflowServer.id, overflowServerIndex, true)}deg)`,
+                backgroundImage: `url(${horizontalRingIconCssUrl(selectedOverflowServer)})`,
+              }"
+            />
+          </span>
+        </span>
+        <span
+          class="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center overflow-hidden rounded-full"
+          aria-hidden="true"
+        >
+          <PausedGifAvatar
+            :src="serverGuildIconDisplayUrl(selectedOverflowServer.imageUrl)"
+            :alt="selectedOverflowServer.name"
+            img-class="h-full w-full rounded-full object-cover"
+          />
+        </span>
+      </button>
+    </div>
+    <div
       v-if="showExtraServersRailButton"
       class="server-folder__slot server-folder__slot--more flex justify-center"
       :class="[
         horizontal ? 'w-auto shrink-0' : 'w-full',
         railDragSourceIndex !== null ? 'server-folder__slot--rail-dnd' : '',
         railDragSourceIndex !== null &&
-        railDropLineBefore === visibleServers.length
+        railDropLineBefore ===
+          visibleServers.length + (selectedOverflowServer ? 1 : 0)
           ? horizontal
             ? 'server-folder__slot--rail-drop-before-h'
             : 'server-folder__slot--rail-drop-above'
@@ -421,8 +504,8 @@ function horizontalRingIconCssUrl(server: Server): string {
           horizontal
             ? {
                 animationDelay: horizontalPillStaggerMs(
-                  visibleServers.length,
-                  visibleServers.length + (showExtraServersRailButton ? 1 : 0),
+                  visibleServers.length + (selectedOverflowServer ? 1 : 0),
+                  railStaggerTotal,
                 ),
               }
             : undefined
@@ -432,16 +515,6 @@ function horizontalRingIconCssUrl(server: Server): string {
         @contextmenu="onMoreServersContextMenu"
       >
         <span class="more-servers-count">{{ moreServersCount }}</span>
-      </button>
-      <button
-        v-if="horizontal && selectedOverflowServer"
-        type="button"
-        class="server-folder__overflow-pill ml-2 inline-flex max-w-[12rem] shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-semibold leading-none"
-        :title="`Current server: ${selectedOverflowServer.name}`"
-        @click="emit('toggle-more-servers')"
-        @contextmenu="onMoreServersContextMenu"
-      >
-        <span class="truncate">{{ selectedOverflowServer.name }}</span>
       </button>
     </div>
     <Teleport to="body">
@@ -599,23 +672,6 @@ function horizontalRingIconCssUrl(server: Server): string {
   transform-origin: center top;
   animation: server-pill-enter-top 0.48s cubic-bezier(0.16, 1, 0.35, 1)
     backwards;
-}
-
-.server-folder__overflow-pill {
-  border: 1px solid var(--srv-server-pill-ring);
-  background: var(--srv-server-pill-bg);
-  color: var(--srv-server-pill-fg);
-  box-shadow:
-    inset 0 0 0 1px var(--srv-server-pill-ring),
-    0 4px 10px color-mix(in srgb, var(--text) 14%, transparent);
-}
-
-.server-folder__overflow-pill:hover {
-  background: color-mix(
-    in srgb,
-    var(--srv-server-pill-bg) 70%,
-    var(--elevated) 30%
-  );
 }
 
 @keyframes server-pill-enter-top {

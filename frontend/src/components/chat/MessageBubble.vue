@@ -19,7 +19,9 @@ import { parseSingleEmoji } from '@/utils/twemoji';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
+import { isEchoPublicId } from '@shared/snowflakeIds';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
+import { useCustomEmojiImgLoadRecovery } from '@/composables/useCustomEmojiImgLoadRecovery';
 import { requestAppConfirm } from '@/utils/appDialogs';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { useShiftKey } from '@/composables/useShiftKey';
@@ -290,6 +292,7 @@ function parseSingleEmojiForReactions(emoji: string): string {
       animated,
       customEmojiUrlById?.value,
       isEchoEmojiTokenResolveMiss(emojiId),
+      { allowDiscordCdnGuess: isEchoPublicId(emojiId) },
     );
     if (url) {
       const raw = `<img class="emoji custom-emoji" draggable="false" alt="${escReactionAttr(`:${m[1]}:`)}" src="${escReactionAttr(url)}"/>`;
@@ -343,6 +346,11 @@ const displayMessageContent = computed(() => {
 
 /** Message body root (markdown / JSON caption) — wires KaTeX overflow scrollbars. */
 const messageContentRef = ref<HTMLElement | null>(null);
+
+const customEmojiUrlByIdForImgRecovery = computed(
+  (): ReadonlyMap<string, string> | undefined => customEmojiUrlById?.value,
+);
+useCustomEmojiImgLoadRecovery(messageContentRef, customEmojiUrlByIdForImgRecovery);
 
 useMessageKatexScrollbarReveal(messageContentRef, () =>
   [
@@ -1393,6 +1401,7 @@ watch(
               ref="reactionsRef"
               :message="message"
               :server-id="serverId"
+              :channel-id="channelId"
               :current-user-id="currentUserId"
               :current-user-display-name="currentUserName"
               :resolve-reactor-display="resolvePollVoterDisplay"

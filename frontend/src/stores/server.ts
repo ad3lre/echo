@@ -14,6 +14,7 @@ import {
   SERVER_RAIL_MRU_MAX_STORED,
   projectServerRailVisibleServers,
   reorderServerRail,
+  reorderServerRailWithOverflow,
 } from '@/utils/serverRailReorder';
 
 /** Show the “extra servers” rail control when joined count exceeds {@link VISIBLE_SERVER_RAIL_SLOT_COUNT}. */
@@ -260,15 +261,28 @@ export const useServerStore = defineStore('server', () => {
     persistPinnedMoreServers();
   }
 
-  function reorderVisibleServers(fromIndex: number, toIndex: number) {
+  function reorderVisibleServers(
+    fromIndex: number,
+    toIndex: number,
+    overflowServerId?: string | null,
+  ) {
     if (fromIndex === toIndex) return;
-    const out = reorderServerRail({
-      allServers: servers.value,
-      pinnedMore: pinnedMoreServers.value,
-      mruIds: serverRailMru.value,
-      fromIndex,
-      toIndex,
-    });
+    const out = overflowServerId
+      ? reorderServerRailWithOverflow({
+          allServers: servers.value,
+          pinnedMore: pinnedMoreServers.value,
+          mruIds: serverRailMru.value,
+          fromIndex,
+          toIndex,
+          overflowServerId,
+        })
+      : reorderServerRail({
+          allServers: servers.value,
+          pinnedMore: pinnedMoreServers.value,
+          mruIds: serverRailMru.value,
+          fromIndex,
+          toIndex,
+        });
     setServersState(out.servers);
     pinnedMoreServers.value = out.pinnedMore;
     serverRailMru.value = out.mruIds;

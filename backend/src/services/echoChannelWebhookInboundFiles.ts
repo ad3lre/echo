@@ -13,6 +13,7 @@ import {
   getEchoS3UploadBucket,
   isAllowedChatUploadContentType,
 } from './s3UploadPresign';
+import { registerChatUploadRetention } from './chatUploadRetention';
 import {
   WEBHOOK_EXECUTE_MAX_FILE_BYTES,
   WEBHOOK_EXECUTE_MAX_FILES,
@@ -144,8 +145,16 @@ export async function persistWebhookInboundFiles(opts: {
     if (!url) {
       return { ok: false, message: 'Failed to build public URL for upload.' };
     }
+    await registerChatUploadRetention(opts.pool, {
+      storageKey,
+      byteLength: f.buffer.length,
+      sourceType: 'webhook',
+      uploaderId: null,
+    });
+
     attachments.push({
       url,
+      storageKey,
       kind: inferAttachmentKind(ct, baseName),
       filename: baseName.slice(0, 256),
       mimeType: ct.slice(0, 128),

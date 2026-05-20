@@ -48,6 +48,8 @@ export interface MentionEntity {
 /** Persisted / socket attachment list (single message, multiple files). */
 export interface MessageAttachmentPayload {
   url: string;
+  /** Echo storage key when uploaded via presign/dedupe (chat media retention). */
+  storageKey?: string;
   kind: 'image' | 'video' | 'gif' | 'audio' | 'document';
   filename?: string;
   mimeType?: string;

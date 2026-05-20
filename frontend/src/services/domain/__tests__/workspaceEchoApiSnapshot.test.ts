@@ -208,6 +208,20 @@ describe('workspaceEchoApiSnapshot', () => {
     expect(u?.timeZone).toBeNull();
   });
 
+  it('mergeEchoWorkspaceMembersIntoUsers keeps highest signupOrdinal across servers', () => {
+    const membersByServer: Record<string, EchoServerMemberDto[]> = {
+      s1: [{ userId: 'u1', name: 'A', pfp: '', signupOrdinal: 12 }],
+      s2: [{ userId: 'u1', name: 'A', pfp: '', signupOrdinal: 99 }],
+    };
+    const out = mergeEchoWorkspaceMembersIntoUsers<{
+      id: string;
+      name: string;
+      pfp: string;
+      signupOrdinal?: number;
+    }>([], membersByServer);
+    expect(out.find((u) => u.id === 'u1')?.signupOrdinal).toBe(99);
+  });
+
   it('mergeEchoWorkspaceMembersIntoUsers prefers accountDisplayName over server display name', () => {
     const membersByServer: Record<string, EchoServerMemberDto[]> = {
       s1: [

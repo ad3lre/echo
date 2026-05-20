@@ -606,10 +606,7 @@ export function useServerVoiceSession(deps: {
   let hangmanSecretShareRound = -1;
 
   function scheduleShareHangmanRoundSecret(roundSeq: number): void {
-    if (
-      hangmanSecretShareRound === roundSeq &&
-      hangmanSecretShareTimer != null
-    ) {
+    if (hangmanSecretShareRound === roundSeq && hangmanSecretShareTimer != null) {
       return;
     }
     hangmanSecretShareRound = roundSeq;
@@ -1726,11 +1723,9 @@ export function useServerVoiceSession(deps: {
     const ctx = findChannelContextById(channelId);
     const ch = ctx?.channel;
     if (ch && ch.type !== 'voice' && ch.type !== 'stage') return null;
-    let members = ch ? [...(ch.accessibleMemberUserIds ?? [])] : [];
-    if (members.length === 0) {
-      const ids = workspace.serverMemberIds.value[serverId];
-      if (Array.isArray(ids)) members = [...ids];
-    }
+    // Only users who can view the channel may receive envelopes; never fall back
+    // to the full server roster (epoch POST rejects inaccessible recipients).
+    const members = ch ? [...(ch.accessibleMemberUserIds ?? [])] : [];
     if (!members.includes(uid)) members.push(uid);
     return prepareGuildVoiceE2eeMediaKey({
       serverId,
@@ -1930,10 +1925,7 @@ export function useServerVoiceSession(deps: {
     let ch = activeChannel.value;
     // While browsing text (or another surface), keep the connected VC roster so
     // floating voice chrome and stream PiP still see LiveKit/stream state.
-    if (
-      (!ch || (ch.type !== 'voice' && ch.type !== 'stage')) &&
-      currentVoiceId
-    ) {
+    if ((!ch || (ch.type !== 'voice' && ch.type !== 'stage')) && currentVoiceId) {
       ch = findChannelContextById(currentVoiceId)?.channel ?? null;
     }
     if (!ch || (ch.type !== 'voice' && ch.type !== 'stage')) return [];

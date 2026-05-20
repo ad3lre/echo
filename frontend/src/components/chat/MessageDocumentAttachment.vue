@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { MessageAttachmentPayload } from '@shared/types';
+import { observeChatMediaRetentionVisible } from '@/composables/useChatMediaRetentionTouch';
 import { attachmentSaveLinkAttrs } from '@/utils/attachmentSaveLinkAttrs';
 import PdfFirstPagePreview from './PdfFirstPagePreview.vue';
 
@@ -48,11 +49,26 @@ const saveLinkAttrs = computed(() =>
   ),
 );
 
+const rootRef = ref<HTMLElement | null>(null);
+let stopObserve: (() => void) | undefined;
+
+onMounted(() => {
+  stopObserve = observeChatMediaRetentionVisible(
+    rootRef.value,
+    props.attachment.storageKey,
+  );
+});
+
+onUnmounted(() => {
+  stopObserve?.();
+});
+
 const pdfPreviewSrc = computed(() => props.attachment.url?.trim() ?? '');
 </script>
 
 <template>
   <div
+    ref="rootRef"
     class="message-document-card group relative flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-glass-1 shadow-sm"
     :class="[
       isPdf ? 'max-w-md' : 'max-w-sm',

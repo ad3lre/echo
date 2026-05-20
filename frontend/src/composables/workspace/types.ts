@@ -40,6 +40,8 @@ export interface MockData {
     bannerBlackoutEnabled?: boolean;
     badges?: string[];
     timeZone?: string | null;
+    /** Higher = newer Echo account (`auth_users.signup_ordinal`). */
+    signupOrdinal?: number;
   }[];
   servers: { id: string; name: string; imageUrl: string; ownerId?: string }[];
   categoriesByServer: Record<string, ChannelCategory[]>;

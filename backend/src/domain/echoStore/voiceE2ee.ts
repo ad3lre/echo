@@ -174,6 +174,10 @@ async function assertRecipientsAllowedForVoiceE2ee(
 export type CreateVoiceE2eeEpochResult =
   | 'ok'
   | 'forbidden'
+  /** Guild/DM channel exists but voice E2EE is off for this channel. */
+  | 'e2ee_disabled'
+  /** One or more envelope recipients cannot access this voice context. */
+  | 'recipient_forbidden'
   | 'invalid_body'
   | 'bad_epoch_id'
   | 'too_many_envelopes'
@@ -206,7 +210,7 @@ export async function createVoiceE2eeEpochWithEnvelopes(
     );
     if (!okJoin) return 'forbidden';
     const need = await echoDmVoiceE2eeRequired(pool, opts.channelId);
-    if (!need) return 'forbidden';
+    if (!need) return 'e2ee_disabled';
   } else {
     const mem = await isMemberOfServer(pool, opts.serverId, opts.actorUserId);
     if (!mem) return 'forbidden';
@@ -215,7 +219,7 @@ export async function createVoiceE2eeEpochWithEnvelopes(
       opts.serverId,
       opts.channelId,
     );
-    if (!enabled) return 'forbidden';
+    if (!enabled) return 'e2ee_disabled';
     const access = await canUserAccessChannel(
       pool,
       opts.actorUserId,
@@ -232,7 +236,7 @@ export async function createVoiceE2eeEpochWithEnvelopes(
       opts.channelId,
       recipientIds,
     );
-    if (allowed !== 'ok') return 'forbidden';
+    if (allowed !== 'ok') return 'recipient_forbidden';
   }
 
   for (const env of opts.envelopes) {

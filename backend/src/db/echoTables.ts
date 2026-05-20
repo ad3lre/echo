@@ -283,27 +283,6 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS echo_dm_activity_last_idx
     ON echo_dm_activity (last_activity_at DESC);
   `);
-  /** Backfill: any DM-realm channel without an activity row → MAX(message.created_at) else channel.created_at. */
-  await pool.query(`
-    INSERT INTO echo_dm_activity (channel_id, last_activity_at, last_activity_kind)
-    SELECT
-      ch.id,
-      COALESCE(
-        (
-          SELECT MAX(m.created_at)
-          FROM echo_messages m
-          WHERE m.channel_id = ch.id AND m.deleted_at IS NULL
-        ),
-        ch.created_at
-      ),
-      CASE WHEN EXISTS (
-        SELECT 1 FROM echo_messages m
-        WHERE m.channel_id = ch.id AND m.deleted_at IS NULL
-      ) THEN 'message' ELSE 'open' END
-    FROM echo_channels ch
-    WHERE ch.server_id = 'echo_dm_realm'
-    ON CONFLICT (channel_id) DO NOTHING;
-  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_dm_message_requests (
       channel_id TEXT PRIMARY KEY REFERENCES echo_dm_threads(channel_id) ON DELETE CASCADE,
@@ -569,6 +548,27 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS echo_messages_deleted_at_purge_idx
     ON echo_messages (deleted_at)
     WHERE deleted_at IS NOT NULL;
+  `);
+  /** Backfill: any DM-realm channel without an activity row → MAX(message.created_at) else channel.created_at. */
+  await pool.query(`
+    INSERT INTO echo_dm_activity (channel_id, last_activity_at, last_activity_kind)
+    SELECT
+      ch.id,
+      COALESCE(
+        (
+          SELECT MAX(m.created_at)
+          FROM echo_messages m
+          WHERE m.channel_id = ch.id AND m.deleted_at IS NULL
+        ),
+        ch.created_at
+      ),
+      CASE WHEN EXISTS (
+        SELECT 1 FROM echo_messages m
+        WHERE m.channel_id = ch.id AND m.deleted_at IS NULL
+      ) THEN 'message' ELSE 'open' END
+    FROM echo_channels ch
+    WHERE ch.server_id = 'echo_dm_realm'
+    ON CONFLICT (channel_id) DO NOTHING;
   `);
   await pool.query(`
     ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS embeds JSONB NULL;
@@ -1522,6 +1522,43 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
       storage_key TEXT PRIMARY KEY,
       content_type TEXT NOT NULL
     );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_chat_upload_retention (
+      storage_key TEXT PRIMARY KEY,
+      uploader_id TEXT NULL,
+      source_type TEXT NOT NULL CHECK (source_type IN ('user', 'webhook', 'import')),
+      byte_length BIGINT NOT NULL,
+      plan_snapshot TEXT NOT NULL CHECK (plan_snapshot IN ('free', 'plus', 'black')),
+      permanent BOOLEAN NOT NULL DEFAULT false,
+      permanent_revoked_at TIMESTAMPTZ NULL,
+      timer_paused BOOLEAN NOT NULL DEFAULT false,
+      abandon_ms BIGINT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NULL,
+      expires_at TIMESTAMPTZ NULL,
+      purge_status TEXT NOT NULL DEFAULT 'active'
+        CHECK (purge_status IN ('active', 'purging', 'purged', 'failed')),
+      purged_at TIMESTAMPTZ NULL,
+      purge_error TEXT NULL,
+      purge_attempts INT NOT NULL DEFAULT 0
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_chat_upload_retention_expires_active
+    ON echo_chat_upload_retention (expires_at)
+    WHERE purge_status = 'active' AND expires_at IS NOT NULL;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_chat_upload_retention_black_paused
+    ON echo_chat_upload_retention (uploader_id)
+    WHERE timer_paused = true AND purge_status = 'active';
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_chat_upload_retention_purge_claim
+    ON echo_chat_upload_retention (purge_status, expires_at)
+    WHERE purge_status IN ('active', 'failed');
   `);
 
   await pool.query(`

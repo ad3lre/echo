@@ -108,11 +108,12 @@ function mediaAspectStyle(
         :key="`${message.id ?? 'm'}-att-${attIdx}`"
       >
         <div v-if="att.kind === 'video'" class="message-video-shell">
-          <MessageChatVideo :url="att.url" />
+          <MessageChatVideo :url="att.url" :storage-key="att.storageKey" />
         </div>
         <MessageAudioAttachment
           v-else-if="att.kind === 'audio'"
           :url="att.url"
+          :storage-key="att.storageKey"
           :filename="att.filename"
           :spoiler="att.spoiler"
         />
@@ -129,12 +130,14 @@ function mediaAspectStyle(
         >
           <GifImage
             :src="safeImageUrl(att.url)"
+            :storage-key="att.storageKey"
             :alt="att.filename || message.content || 'GIF'"
           />
         </button>
         <MessageChatStillImage
           v-else-if="att.kind === 'image'"
           :url="att.url"
+          :storage-key="att.storageKey"
           :alt="att.filename || message.content || 'Image'"
           :image-style="mediaAspectStyle(att)"
           openable

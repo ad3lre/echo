@@ -32,6 +32,7 @@ import {
   normalizeClientHwid,
   recordHwidProfileAccountBinding,
 } from '../../../services/auth/hwidAccountProfile';
+import { tryJoinOfficialEchoServerOnSignup } from '../../../services/auth/officialEchoServerOnSignup';
 
 export default async function guestRoutes(fastify: FastifyInstance) {
   await fastify.register(rateLimit, {
@@ -215,6 +216,9 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           msg: 'echo_product_analytics',
           event: 'guest_minted',
           userId: newGuest.id,
+        });
+        void tryJoinOfficialEchoServerOnSignup(fastify.log, newGuest.id, {
+          joinClientIp: ip,
         });
         return reply
           .code(201)

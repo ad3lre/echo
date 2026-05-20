@@ -563,11 +563,25 @@ const serverEmojiLibrary = useServerEmojiLibrary(
   computed(() => props.serverId),
 );
 
+const composerCustomEmojiAllowed = computed(
+  () =>
+    getSendState({
+      channelId: props.channelId,
+      contentTypes: ['externalEmoji'],
+      context: composerSource,
+    }).allowed,
+);
+
 const emojiAutocomplete = useEmojiAutocomplete(
   () => composer.content.value,
   () => composer.getSelectionStart(),
   composer.replaceRange,
-  { getCustomEmojiEntries: () => serverEmojiLibrary.flatCustomEmojis.value },
+  {
+    getCustomEmojiEntries: () =>
+      composerCustomEmojiAllowed.value
+        ? serverEmojiLibrary.flatCustomEmojis.value
+        : [],
+  },
 );
 
 const mentionAutocompleteOptions = computed<MentionOption[]>(() =>
@@ -1341,6 +1355,7 @@ onMounted(() => {
     <EmojiPopout
       v-if="activePopout === 'emoji'"
       :server-id="serverId"
+      :channel-id="channelId"
       :placement="props.popoutDirection ?? 'up'"
       :theme="props.popoutTheme ?? 'default'"
       @insert="insertEmoji"
@@ -1368,6 +1383,7 @@ onMounted(() => {
     <PollCreateModal
       v-model="pollModalOpen"
       :server-id="serverId"
+      :channel-id="channelId"
       @create="handlePollCreate"
     />
 
@@ -1671,6 +1687,8 @@ onMounted(() => {
 </template>
 
 <style lang="scss">
+@use '@/features/chat/styles/markdownAlerts.scss' as mdAlerts;
+
 .chat-permission-lock.chat-input-bar {
   background: var(--chat-permission-lock-bg);
   border: 1px solid var(--chat-permission-lock-border);
@@ -1845,6 +1863,7 @@ onMounted(() => {
 
   .markdown-preview__content {
     color: var(--vue-auto-009);
+    @include mdAlerts.echo-markdown-alerts();
   }
 
   .markdown-preview__content p:first-child {

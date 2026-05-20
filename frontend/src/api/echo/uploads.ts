@@ -299,7 +299,7 @@ async function uploadPreparedFileWithDedupe(
     videoDedupeFastPath?: boolean;
     emit?: (phase: ChatMediaUploadPhase, uploadPercent: number | null) => void;
   },
-): Promise<string> {
+): Promise<{ url: string; storageKey?: string }> {
   const { contentType, kind } = resolveChatUploadContentTypeAndKind(prepared);
 
   const emit = options?.emit;
@@ -332,7 +332,7 @@ async function uploadPreparedFileWithDedupe(
   const reuse = match.reusePublicUrl?.trim();
   if (reuse) {
     emit?.('done', null);
-    return reuse;
+    return { url: reuse };
   }
 
   emit?.('uploading', 0);
@@ -367,7 +367,7 @@ async function uploadPreparedFileWithDedupe(
     byteLength: prepared.size,
   }).catch(() => {});
   emit?.('done', null);
-  return presign.publicUrl;
+  return { url: presign.publicUrl, storageKey: presign.key };
 }
 
 /** Presign + PUT for chat attachments (requires `channelId` and object storage configured on the API). */
@@ -376,7 +376,7 @@ export async function uploadChatMediaFile(
   channelId: string,
   file: File,
   fileOptions?: ChatMediaUploadFileOptions,
-): Promise<string> {
+): Promise<{ url: string; storageKey?: string }> {
   const isVideo = isChatVideoUpload(file);
   const kind: 'image' | 'video' = isVideo ? 'video' : 'image';
   const emitIf = (
@@ -422,6 +422,7 @@ export async function uploadChatAttachmentFile(
   fileOptions?: ChatMediaUploadFileOptions,
 ): Promise<{
   url: string;
+  storageKey?: string;
   kind: 'image' | 'video' | 'audio' | 'document';
   fileSize?: number;
 }> {
@@ -457,8 +458,8 @@ export async function uploadChatAttachmentFile(
   }
 
   if (kind !== 'audio' && kind !== 'document') {
-    const url = await uploadChatMediaFile(token, channelId, file, fileOptions);
-    return { url, kind };
+    const uploaded = await uploadChatMediaFile(token, channelId, file, fileOptions);
+    return { url: uploaded.url, kind, storageKey: uploaded.storageKey };
   }
 
   if (file.size > ECHO_CLIENT_UPLOAD_MAX_BYTES) {
@@ -498,9 +499,22 @@ export async function uploadChatAttachmentFile(
   emitIf('done', null);
   return {
     url: presign.publicUrl,
+    storageKey: presign.key,
     kind,
     ...(kind === 'document' ? { fileSize: file.size } : {}),
   };
+}
+
+/** Reset abandonment timers when chat attachments become visible (debounced client-side). */
+export async function touchChatUploadRetentionKeys(
+  token: string | null,
+  storageKeys: string[],
+): Promise<{ touched: number }> {
+  if (storageKeys.length === 0) return { touched: 0 };
+  return echoFetch<{ touched: number }>(token, '/uploads/retention/touch', {
+    method: 'POST',
+    body: JSON.stringify({ storageKeys }),
+  });
 }
 
 /** Presign + PUT for custom server emoji image bytes (`purpose: server_emoji`). */
@@ -626,7 +640,7 @@ export async function uploadUserProfileBrandingFile(
       `File exceeds ${ECHO_CLIENT_UPLOAD_MAX_BYTES / (1024 * 1024)} MiB limit`,
     );
   }
-  return uploadPreparedFileWithDedupe(token, { purpose }, prepared);
+  return (await uploadPreparedFileWithDedupe(token, { purpose }, prepared)).url;
 }
 
 /** Presign + PUT for Bug Hunter report screenshots (authenticated; no channel). */
@@ -640,11 +654,9 @@ export async function uploadBugReportImage(
       `File exceeds ${ECHO_CLIENT_UPLOAD_MAX_BYTES / (1024 * 1024)} MiB limit`,
     );
   }
-  return uploadPreparedFileWithDedupe(
-    token,
-    { purpose: 'bug_report' },
-    prepared,
-  );
+  return (
+    await uploadPreparedFileWithDedupe(token, { purpose: 'bug_report' }, prepared)
+  ).url;
 }
 
 /** Presign + PUT for guild event cover images (requires `MANAGE_GUILD` / owner on `serverId`). */
@@ -659,14 +671,12 @@ export async function uploadServerEventCoverFile(
       `File exceeds ${ECHO_CLIENT_UPLOAD_MAX_BYTES / (1024 * 1024)} MiB limit`,
     );
   }
-  return uploadPreparedFileWithDedupe(
-    token,
-    {
+  return (
+    await uploadPreparedFileWithDedupe(token, {
       serverId,
       purpose: 'server_event_cover',
-    },
-    prepared,
-  );
+    }, prepared)
+  ).url;
 }
 
 /** Presign + PUT for server icon or banner image (requires `MANAGE_GUILD`). */
@@ -683,5 +693,6 @@ export async function uploadServerBrandingFile(
       `File exceeds ${ECHO_CLIENT_UPLOAD_MAX_BYTES / (1024 * 1024)} MiB limit`,
     );
   }
-  return uploadPreparedFileWithDedupe(token, { serverId, purpose }, prepared);
+  return (await uploadPreparedFileWithDedupe(token, { serverId, purpose }, prepared))
+    .url;
 }

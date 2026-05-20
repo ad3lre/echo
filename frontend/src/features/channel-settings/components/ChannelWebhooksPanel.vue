@@ -74,7 +74,7 @@ function formatDate(iso: string) {
         </div>
         <button
           type="button"
-          class="mt-1 rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-glass-hover"
+          class="mt-1 rounded-lg border border-border bg-glass-1 px-3 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
           @click="copyText('URL', reveal.url)"
         >
           Copy URL
@@ -91,7 +91,7 @@ function formatDate(iso: string) {
         </div>
         <button
           type="button"
-          class="mt-1 rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-glass-hover"
+          class="mt-1 rounded-lg border border-border bg-glass-1 px-3 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
           @click="copyText('token', reveal.token)"
         >
           Copy token
@@ -118,14 +118,14 @@ function formatDate(iso: string) {
             v-model="newName"
             type="text"
             maxlength="80"
-            class="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-border"
+            class="mt-1 w-full rounded-lg border border-border bg-glass px-3 py-2 text-sm text-fg outline-none focus-visible:ring-2 focus-visible:ring-border"
             placeholder="Webhook"
             :disabled="!canUse || creating || loading"
           />
         </div>
         <button
           type="button"
-          class="shrink-0 rounded-lg bg-foreground px-4 py-2 text-sm font-semibold text-background transition-opacity disabled:opacity-40"
+          class="shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-40"
           :disabled="!canUse || creating || loading"
           @click="onCreate"
         >
@@ -161,14 +161,14 @@ function formatDate(iso: string) {
           <div class="flex shrink-0 flex-wrap gap-2">
             <button
               type="button"
-              class="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-glass-hover"
+              class="rounded-lg border border-border bg-glass-1 px-3 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
               @click="onRegenerate(w)"
             >
               Regenerate token
             </button>
             <button
               type="button"
-              class="rounded-lg border border-red-500/50 px-3 py-1.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
+              class="echo-destructive-action rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
               @click="onDelete(w)"
             >
               Delete

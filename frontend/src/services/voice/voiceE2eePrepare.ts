@@ -1,3 +1,4 @@
+import { fetchEchoDmThreads } from '@/api/echo/social';
 import { EchoApiError, echoFetch } from '@/api/echo/transport';
 import { getOrCreateLocalE2eeDevice } from '@/services/e2ee/e2eeDeviceStore';
 import {
@@ -122,9 +123,47 @@ function toArrayBuffer(u: Uint8Array): ArrayBuffer {
   ) as ArrayBuffer;
 }
 
-/** Server returns 403 when voice E2EE is disabled for the channel/thread. */
+/** Server returns 403 VOICE_E2EE_DISABLED when the channel/thread has no voice E2EE. */
 function isVoiceE2eeNotEnabledOnServer(err: unknown): boolean {
-  return err instanceof EchoApiError && err.status === 403;
+  return (
+    err instanceof EchoApiError &&
+    err.status === 403 &&
+    err.body.code === 'VOICE_E2EE_DISABLED'
+  );
+}
+
+/** Resolve DM/group-DM participants when the caller only knows the viewer id. */
+async function resolveDmVoiceMemberUserIds(opts: {
+  token: string;
+  channelId: string;
+  viewerUserId: string;
+  memberUserIds: string[];
+}): Promise<string[]> {
+  const uid = opts.viewerUserId.trim();
+  const cid = opts.channelId.trim();
+  let members = [
+    ...new Set(
+      opts.memberUserIds.map((id) => id.trim()).filter((id) => id && id !== uid),
+    ),
+  ];
+  if (members.length > 0) {
+    return [uid, ...members];
+  }
+  try {
+    const { threads } = await fetchEchoDmThreads(opts.token);
+    const thread = threads.find((t) => t.channelId === cid);
+    if (thread?.kind === 'group') {
+      members = thread.memberUserIds
+        .map((id) => id.trim())
+        .filter((id) => id && id !== uid);
+    } else if (thread?.kind === 'direct') {
+      const peer = thread.peerUserId.trim();
+      if (peer && peer !== uid) members = [peer];
+    }
+  } catch {
+    // Best-effort; solo epoch still allows the creator to join.
+  }
+  return [uid, ...members];
 }
 
 async function postVoiceE2eeEpochOrSkip(
@@ -172,10 +211,11 @@ export async function prepareDmVoiceE2eeMediaKey(opts: {
   viewerUserId: string;
   memberUserIds: string[];
 }): Promise<ArrayBuffer | null> {
+  const memberUserIds = await resolveDmVoiceMemberUserIds(opts);
   const dev = await getOrCreateLocalE2eeDevice(opts.viewerUserId, opts.token);
   const senderDeviceId = dev.deviceId;
 
-  const peers = opts.memberUserIds.filter((u) => u !== opts.viewerUserId);
+  const peers = memberUserIds.filter((u) => u !== opts.viewerUserId);
   if (peers.length === 0) {
     const seed = randomBytes32();
     const posted = await postVoiceE2eeEpochOrSkip(() =>
@@ -245,8 +285,15 @@ export async function prepareGuildVoiceE2eeMediaKey(opts: {
   viewerUserId: string;
   memberUserIds: string[];
 }): Promise<ArrayBuffer | null> {
-  const memberUserIds =
-    opts.memberUserIds.length > 0 ? opts.memberUserIds : [opts.viewerUserId];
+  const uid = opts.viewerUserId.trim();
+  const memberUserIds = [
+    ...new Set(
+      (opts.memberUserIds.length > 0 ? opts.memberUserIds : [uid])
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (!memberUserIds.includes(uid)) memberUserIds.push(uid);
   const dev = await getOrCreateLocalE2eeDevice(opts.viewerUserId, opts.token);
   const senderDeviceId = dev.deviceId;
 

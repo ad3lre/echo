@@ -475,6 +475,11 @@ export type EchoWorkspaceMemberDto = {
   communicationTimeoutUntil?: string | null;
   /** When this user joined this server (`echo_server_members.joined_at`). */
   joinedAt?: string;
+  /**
+   * Monotonic full-account signup index from `auth_users.signup_ordinal` (higher = newer).
+   * Used for friend suggestions and other “recent Echo signups” surfaces.
+   */
+  signupOrdinal?: number;
   /** Profile badges derived from `auth_users` (e.g. OG for early signups). */
   badges?: string[];
   /** Account profile banner (same row as pfp) — other clients need this in workspace to render updated banners. */
@@ -707,6 +712,7 @@ export async function listEchoWorkspaceForUser(
             ? String(row.communication_timeout_until)
             : null,
       ...(joinedAt ? { joinedAt } : {}),
+      ...(Number.isFinite(signupOrdinal) ? { signupOrdinal } : {}),
       ...(badges.length ? { badges } : {}),
       bannerImage,
       bannerColor,
@@ -1644,7 +1650,9 @@ export async function createEchoChannel(
   const channelDisplayName = clampEchoChannelName(name) || 'channel';
   const mirrorOnly = opts?.discordVoiceMirrorOnly === true;
   const resolvedIconKey =
-    type === 'stage' && (ik == null || ik === '') ? 'discordStage' : ik;
+    type === 'stage' && (ik == null || ik === '')
+      ? 'discordStage'
+      : ik;
   await pool.query(
     `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, parent_channel_id, forum_available_tags, forum_post_tag_ids, forum_post_pinned, forum_post_locked, forum_post_archived_at, forum_post_creator_user_id, discord_voice_mirror_only)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15)`,

@@ -27,6 +27,7 @@ import {
   isAllowedChatUploadContentType,
 } from './s3UploadPresign';
 import { writeLocalEchoUploadFile } from './localUploadDisk';
+import { registerChatUploadRetention } from './chatUploadRetention';
 import type {
   Embed,
   ForwardedFrom,
@@ -190,6 +191,13 @@ async function mirrorDiscordUrlToEcho(opts: {
     );
     return null;
   }
+
+  await registerChatUploadRetention(pool, {
+    storageKey: dest.storageKey,
+    byteLength: buf.length,
+    sourceType: 'import',
+    uploaderId: actorId,
+  });
 
   return buildEchoUploadPublicUrlForStorageKey(dest.storageKey) ?? null;
 }

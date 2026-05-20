@@ -5,6 +5,7 @@ import {
   railLineBeforeFromBoundariesSticky,
   railLineBeforeToToIndex,
   reorderServerRail,
+  reorderServerRailWithOverflow,
   projectServerRailVisibleServers,
   MAX_STARRED_SERVERS,
   VISIBLE_SERVER_RAIL_SLOT_COUNT,
@@ -108,6 +109,53 @@ describe('reorderServerRail', () => {
       'a',
       'b',
       'c',
+      'd',
+      'e',
+    ]);
+  });
+});
+
+describe('reorderServerRailWithOverflow', () => {
+  it('promotes overflow server into a visible slot and updates MRU', () => {
+    const all = [S('a'), S('b'), S('c'), S('d'), S('e'), S('x')];
+    const pinned: Server[] = [];
+    const mru = ['a', 'b', 'c', 'd', 'e', 'x'];
+    const n = projectServerRailVisibleServers(all, pinned, mru).visible
+      .length;
+    const out = reorderServerRailWithOverflow({
+      allServers: all,
+      pinnedMore: pinned,
+      mruIds: mru,
+      fromIndex: n,
+      toIndex: 1,
+      overflowServerId: 'x',
+    });
+    expect(out.servers.map((s) => s.id).slice(0, 5)).toEqual([
+      'a',
+      'x',
+      'b',
+      'c',
+      'd',
+    ]);
+    expect(out.mruIds.slice(0, 5)).toEqual(['a', 'x', 'b', 'c', 'd']);
+  });
+
+  it('still reorders within visible slice when overflow slot is shown', () => {
+    const all = [S('a'), S('b'), S('c'), S('d'), S('e'), S('x')];
+    const pinned: Server[] = [];
+    const mru = ['a', 'b', 'c', 'd', 'e', 'x'];
+    const out = reorderServerRailWithOverflow({
+      allServers: all,
+      pinnedMore: pinned,
+      mruIds: mru,
+      fromIndex: 0,
+      toIndex: 2,
+      overflowServerId: 'x',
+    });
+    expect(out.servers.map((s) => s.id).slice(0, 5)).toEqual([
+      'b',
+      'c',
+      'a',
       'd',
       'e',
     ]);

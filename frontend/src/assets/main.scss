@@ -448,18 +448,30 @@ body::-webkit-scrollbar-thumb:hover,
   filter: brightness(1.08);
 }
 
-/* In-house SVG icon tokens (<icon:...>) render as <img>; theme supplies the right filter per mode. */
-img.app-inline-icon {
-  filter: var(--chat-inline-icon-filter);
-  /* Own compositing layer: filtered bitmaps can otherwise fringe / “ghost” against adjacent text (esp. Windows). */
+/*
+ * Ink icons (dark-authored SVG/PNG): light glyphs on dark chrome, dark on light.
+ * Prefer .app-inline-icon / .echo-ink-icon, or Tailwind `filter invert`.
+ */
+img.app-inline-icon,
+img.echo-ink-icon {
+  filter: var(--echo-ink-icon-filter, var(--chat-inline-icon-filter));
   isolation: isolate;
   transform: translateZ(0);
 }
 
-/* Same for Tailwind `filter invert` glyphs (channel list, toolbars). */
-img.filter.invert {
+img.filter.invert,
+img.brightness-0.invert {
   isolation: isolate;
   transform: translateZ(0);
+}
+
+/* Tailwind `invert` / `brightness-0 invert` without `filter` utility */
+[data-theme='dark'] img.brightness-0.invert {
+  filter: brightness(0) invert(1);
+}
+
+[data-theme='dark'] img.invert:not(.filter):not(.chat-header-leading-icon--raster) {
+  filter: var(--echo-ink-icon-filter, var(--chat-inline-icon-filter, invert(1)));
 }
 
 /*
@@ -467,7 +479,9 @@ img.filter.invert {
  * on frost. Opt out on intentional dark pills (voice dock) with .echo-dark-chrome.
  */
 [data-theme='light'] img.filter.invert,
-[data-theme='light'] img.brightness-0.invert {
+[data-theme='light'] img.brightness-0.invert,
+[data-theme='light'] img.invert:not(.filter),
+[data-theme='light'] img.echo-ink-icon {
   filter: none !important;
   opacity: 0.78;
 }

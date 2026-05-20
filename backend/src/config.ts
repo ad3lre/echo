@@ -343,6 +343,13 @@ interface AppConfig {
    * Requires local upload dir or S3 upload configuration.
    */
   readonly echoDiscordImportMediaMirrorIntervalMs: number;
+  /**
+   * Poll interval for chat upload abandonment purge (ms). 0 disables.
+   * Deletes S3/local objects past `echo_chat_upload_retention.expires_at`.
+   */
+  readonly echoChatUploadRetentionIntervalMs: number;
+  /** Max rows claimed per chat upload retention purge batch. */
+  readonly echoChatUploadRetentionBatchSize: number;
   /** Interval for public status page probes (ms). 0 disables. Default 5 minutes. */
   readonly echoStatusProbeIntervalMs: number;
   /** HTTP(S) URL probed for the web app component (static asset). */
@@ -390,6 +397,13 @@ interface AppConfig {
   readonly echoDiscordBotWebhookSecret: string;
   /** Same token as the export bot; used to see if the bot is already in a guild before opening the install URL. */
   readonly discordBotToken: string;
+  /**
+   * Snowflake id of the official Echo community server. When unset, {@link echoOfficialServerVanity}
+   * is used to resolve the server (default vanity `echo`).
+   */
+  readonly echoOfficialServerId: string;
+  /** Vanity slug for the official server when {@link echoOfficialServerId} is unset. */
+  readonly echoOfficialServerVanity: string;
   /** Top N directory servers (by members) to sample guest auto-joins from. */
   readonly guestDirectoryPoolSize: number;
   /** How many servers a new guest joins from the pool. */
@@ -1130,6 +1144,18 @@ export const config: AppConfig = {
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 8000;
   })(),
+  echoChatUploadRetentionIntervalMs: (() => {
+    const raw = process.env.ECHO_CHAT_UPLOAD_RETENTION_INTERVAL_MS;
+    if (raw === undefined || raw === '') return 60 * 60 * 1000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 60 * 60 * 1000;
+  })(),
+  echoChatUploadRetentionBatchSize: (() => {
+    const raw = process.env.ECHO_CHAT_UPLOAD_RETENTION_BATCH_SIZE;
+    if (raw === undefined || raw === '') return 200;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 && n <= 500 ? n : 200;
+  })(),
   echoStatusProbeIntervalMs: (() => {
     const raw = process.env.ECHO_STATUS_PROBE_INTERVAL_MS;
     if (raw === undefined || raw === '') return 300_000;
@@ -1229,6 +1255,12 @@ export const config: AppConfig = {
     return '';
   })(),
   discordBotToken: process.env.DISCORD_BOT_TOKEN?.trim() || '',
+  echoOfficialServerId: process.env.ECHO_OFFICIAL_SERVER_ID?.trim() || '',
+  echoOfficialServerVanity: (() => {
+    const raw = process.env.ECHO_OFFICIAL_SERVER_VANITY?.trim();
+    if (raw === undefined || raw === '') return 'echo';
+    return raw.toLowerCase();
+  })(),
   guestDirectoryPoolSize: (() => {
     const raw = process.env.ECHO_GUEST_DIRECTORY_POOL_SIZE;
     if (raw === undefined) return 15;

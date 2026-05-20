@@ -1,5 +1,6 @@
 import { isEchoPublicId } from '@shared/snowflakeIds';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
+import { rewriteR2EchoUploadUrlForReadThrough } from '@/utils/rewriteR2EchoUploadUrlForReadThrough';
 import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
 
 function escapeAttr(s: string): string {
@@ -56,7 +57,7 @@ export function safeCustomEmojiUrl(
   const safe = safeImageUrl(trimmed);
   if (!safe) return null;
   if (safe.toLowerCase().startsWith('data:')) return null;
-  return safe;
+  return rewriteR2EchoUploadUrlForReadThrough(safe);
 }
 
 export function renderCustomEmojiHtml(
@@ -76,22 +77,46 @@ export function renderCustomEmojiHtml(
  * Only use after Echo’s `/emoji/resolve` has confirmed the emoji is not in the DB, otherwise
  * we could briefly point at a non-existent Discord asset for an unloaded Echo emoji.
  */
+const DISCORD_EMOJI_CDN_HOSTS = [
+  'https://cdn.discordapp.com',
+  'https://media.discordapp.net',
+] as const;
+
 export function discordCdnCustomEmojiMediaUrl(
   id: string,
   animated: boolean,
 ): string {
   const t = id.trim();
   return animated
-    ? `https://cdn.discordapp.com/emojis/${t}.gif`
-    : `https://cdn.discordapp.com/emojis/${t}.png`;
+    ? `${DISCORD_EMOJI_CDN_HOSTS[0]}/emojis/${t}.gif`
+    : `${DISCORD_EMOJI_CDN_HOSTS[0]}/emojis/${t}.png`;
+}
+
+/** Ordered CDN candidates when the primary Discord URL 404s or the wrong extension was used. */
+export function discordCustomEmojiCandidateUrls(
+  id: string,
+  animated: boolean,
+): string[] {
+  const t = id.trim();
+  if (!isEchoPublicId(t)) return [];
+  const exts = animated
+    ? (['gif', 'webp', 'png'] as const)
+    : (['webp', 'png', 'gif'] as const);
+  const out: string[] = [];
+  for (const host of DISCORD_EMOJI_CDN_HOSTS) {
+    for (const ext of exts) {
+      const s = safeCustomEmojiUrl(`${host}/emojis/${t}.${ext}`);
+      if (s && !out.includes(s)) out.push(s);
+    }
+  }
+  return out;
 }
 
 export function fallbackDiscordCdnCustomEmojiImageUrl(
   id: string,
   animated: boolean,
 ): string | null {
-  if (!isEchoPublicId(id)) return null;
-  return safeCustomEmojiUrl(discordCdnCustomEmojiMediaUrl(id, animated));
+  return discordCustomEmojiCandidateUrls(id, animated)[0] ?? null;
 }
 
 /**
@@ -99,11 +124,20 @@ export function fallbackDiscordCdnCustomEmojiImageUrl(
  * `echoResolveMissed` is true, Echo has no row for this id — use Discord’s CDN
  * so other guilds’ emojis render like Discord.
  */
+export type ResolveCustomEmojiDisplayOpts = {
+  /**
+   * When true, use Discord CDN for snowflake ids not in `cachedById` even before
+   * `/emoji/resolve` marks a miss (cross-guild Discord emojis).
+   */
+  allowDiscordCdnGuess?: boolean;
+};
+
 export function resolveCustomEmojiImageUrlForDisplay(
   id: string,
   animated: boolean,
   cachedById: ReadonlyMap<string, string> | null | undefined,
   echoResolveMissed: boolean,
+  opts?: ResolveCustomEmojiDisplayOpts,
 ): string | null {
   const mid = id.trim();
   if (!mid) return null;
@@ -112,7 +146,8 @@ export function resolveCustomEmojiImageUrlForDisplay(
     const s = safeCustomEmojiUrl(mapped);
     if (s) return s;
   }
-  if (echoResolveMissed)
+  if (echoResolveMissed || opts?.allowDiscordCdnGuess) {
     return fallbackDiscordCdnCustomEmojiImageUrl(mid, animated);
+  }
   return null;
 }

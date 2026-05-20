@@ -45,6 +45,13 @@ import {
 } from '../../../services/csamScan';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { echoPool, requireEchoStore } from './echoRouteUtils';
+import { isEchoChatUserMediaStorageKey } from '../../../../../shared/chatMediaRetention';
+import {
+  getChatUploadRetentionByStorageKey,
+  isChatUploadRetentionExpired,
+  registerChatUploadRetention,
+  touchChatUploadRetention,
+} from '../../../services/chatUploadRetention';
 
 export type EchoPresignBody = {
   /** Preferred: authorize with canUserPostMessage (guild + DM channels). */
@@ -112,6 +119,26 @@ function guessContentTypeFromPath(absPath: string): string {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   };
   return m[ext] ?? 'application/octet-stream';
+}
+
+async function assertChatUploadNotRetentionExpired(
+  req: FastifyRequest,
+  storageKey: string,
+): Promise<boolean> {
+  if (!isEchoChatUserMediaStorageKey(storageKey)) return true;
+  const pool = getPgPool();
+  if (!pool) return true;
+  const row = await getChatUploadRetentionByStorageKey(pool, storageKey);
+  if (!row || !isChatUploadRetentionExpired(row)) return true;
+  req.log.info(
+    {
+      msg: 'chat_upload_retention_expired',
+      storage_key_head: storageKey.slice(0, 28),
+      expired: true,
+    },
+    'chat_upload_retention_expired',
+  );
+  return false;
 }
 
 function dedupeScopePrefixFromStorageKey(storageKey: string): string {
@@ -219,6 +246,9 @@ export default async function echoUploadsRoutes(
           'Not allowed to read this upload',
         );
       }
+      if (!(await assertChatUploadNotRetentionExpired(req, key))) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Not found');
+      }
       const abs = resolveLocalUploadFilePath(key);
       if (!abs) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
@@ -289,6 +319,9 @@ export default async function echoUploadsRoutes(
           'FORBIDDEN',
           'Not allowed to read this upload',
         );
+      }
+      if (!(await assertChatUploadNotRetentionExpired(req, key))) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
       const client = createEchoS3UploadClient();
       const bucket = getEchoS3UploadBucket();
@@ -954,6 +987,13 @@ export default async function echoUploadsRoutes(
         uploaderId: userId,
       });
 
+      await registerChatUploadRetention(pool, {
+        storageKey: storageKeyClient,
+        byteLength,
+        sourceType: 'user',
+        uploaderId: userId,
+      });
+
       if (kind === 'video' && channelIdReg) {
         await enqueueEchoChatVideoOptimize(pool, {
           storageKey: storageKeyClient,
@@ -963,6 +1003,56 @@ export default async function echoUploadsRoutes(
       }
 
       return reply.code(204).send();
+    },
+  );
+
+  type EchoRetentionTouchBody = { storageKeys?: string[] };
+
+  fastify.post<{ Body: EchoRetentionTouchBody }>(
+    '/uploads/retention/touch',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      bodyLimit: 16 * 1024,
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const raw = req.body?.storageKeys;
+      if (!Array.isArray(raw)) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'storageKeys array required',
+        );
+      }
+      const keys = [
+        ...new Set(
+          raw
+            .filter((k): k is string => typeof k === 'string')
+            .map((k) => k.trim())
+            .filter((k) => k && isEchoChatUserMediaStorageKey(k)),
+        ),
+      ].slice(0, 20);
+
+      let touched = 0;
+      for (const storageKey of keys) {
+        const canRead = await canUserReadLocalUploadStorageKey(req, storageKey);
+        if (!canRead) continue;
+        await touchChatUploadRetention(pool, storageKey);
+        touched += 1;
+      }
+
+      return reply
+        .code(200)
+        .header('Cache-Control', 'private, no-store')
+        .send({ touched });
     },
   );
 }

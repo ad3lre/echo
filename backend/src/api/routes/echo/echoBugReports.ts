@@ -7,6 +7,7 @@ import type {
 import { requireAuth } from '../../../auth/middleware';
 import { getAccessUserIdFromAuthHeader } from '../../../auth/token';
 import { insertEchoBugReport } from '../../../domain/echoStore';
+import { sendBugReportSupportEmail } from '../../../services/email/echoBugReportEmail';
 import { sendError } from '../../errors';
 import { echoPool, requireEchoStore } from './echoRouteUtils';
 
@@ -112,6 +113,23 @@ export default async function echoBugReportsRoutes(
           { echoBugReportId: id, reporterId: req.authUser!.id },
           'echo_bug_report_submitted',
         );
+
+        const user = req.authUser!;
+        void sendBugReportSupportEmail(req.log, {
+          id,
+          body: raw,
+          clientMeta: req.body?.client ?? {},
+          traceJson,
+          attachmentUrls,
+          reporter: {
+            id: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            ...(typeof user.email === 'string' && user.email.trim()
+              ? { email: user.email.trim() }
+              : {}),
+          },
+        });
 
         return reply.code(201).send({ id, ok: true });
       },

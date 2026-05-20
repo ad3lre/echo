@@ -4,7 +4,15 @@ import { useAuthSessionStore } from '@/stores/authSession';
 import { scheduleDeferredTask } from '@/utils/scheduleDeferredTask';
 import { resolveEmojiTokens } from '@/services/orchestration/emojiTokenResolve';
 
+export type ResolvedCustomEmojiMeta = {
+  id: string;
+  name: string;
+  animated: boolean;
+  imageUrl: string;
+};
+
 const urlByIdState = shallowReactive(new Map<string, string>());
+const metaByIdState = shallowReactive(new Map<string, ResolvedCustomEmojiMeta>());
 const pendingIds = new Set<string>();
 const missingIds = new Set<string>();
 let inflight: Promise<void> | null = null;
@@ -56,9 +64,23 @@ async function flushQueued(token: string) {
       for (const row of resolved) {
         const key = normalizeEmojiId(row.key);
         const url = typeof row.imageUrl === 'string' ? row.imageUrl.trim() : '';
+        const id = normalizeEmojiId(row.id);
         if (!key || !url) continue;
         urlByIdState.set(key, url);
         hit.add(key);
+        const name =
+          typeof row.name === 'string' ? row.name.trim().toLowerCase() : '';
+        const meta: ResolvedCustomEmojiMeta = {
+          id: id ?? key,
+          name: typeof row.name === 'string' ? row.name.trim() : 'emoji',
+          animated: row.animated === true,
+          imageUrl: url,
+        };
+        metaByIdState.set(key, meta);
+        if (id && id !== key) {
+          urlByIdState.set(id, url);
+          metaByIdState.set(id, meta);
+        }
       }
       for (const id of batch) {
         if (!hit.has(id)) markMissing(id);
@@ -85,20 +107,44 @@ function scheduleFlush(token: string) {
 export function useGlobalEmojiTokenResolver() {
   const auth = useAuthSessionStore();
 
-  function ensureEmojiId(id: string) {
-    const k = normalizeEmojiId(id);
-    if (!k) return;
-    if (urlByIdState.has(k) || missingIds.has(k)) return;
-    pendingIds.add(k);
+  function queueEmojiIds(ids: readonly string[]) {
     if (!auth.isAuthenticated || echoSyncCapabilities.isMockDataMode) return;
     const token = (auth.accessToken ?? '').trim();
     if (!token) return;
-    scheduleFlush(token);
+    let queued = false;
+    for (const raw of ids) {
+      const k = normalizeEmojiId(raw);
+      if (!k) continue;
+      if (urlByIdState.has(k) || missingIds.has(k)) continue;
+      pendingIds.add(k);
+      queued = true;
+    }
+    if (queued) scheduleFlush(token);
   }
+
+  function ensureEmojiId(id: string) {
+    queueEmojiIds([id]);
+  }
+
+  function ensureEmojiIds(ids: readonly string[]) {
+    queueEmojiIds(ids);
+  }
+
+  const emojiByName = computed(() => {
+    const m = new Map<string, ResolvedCustomEmojiMeta>();
+    for (const meta of metaByIdState.values()) {
+      const n = meta.name.trim().toLowerCase();
+      if (!n || m.has(n)) continue;
+      m.set(n, meta);
+    }
+    return m;
+  });
 
   return {
     urlById: computed(() => urlByIdState),
+    emojiByName,
     ensureEmojiId,
+    ensureEmojiIds,
     cacheVersion: computed(() => cacheVersion.value),
   };
 }

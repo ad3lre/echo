@@ -68,6 +68,29 @@ Echo’s math handling **skips** code regions so samples are not mistaken for fo
 
 Lines starting with `>` form blockquotes; nesting is supported.
 
+### Alerts
+
+GitHub-style alerts use blockquote syntax with a type marker on the first line:
+
+```md
+> [!NOTE]
+> Useful information users should know.
+
+> [!TIP]
+> Helpful advice.
+
+> [!IMPORTANT]
+> Key information for the goal.
+
+> [!WARNING]
+> Urgent info that needs attention.
+
+> [!CAUTION]
+> Advises about risks or negative outcomes.
+```
+
+Supported kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION` (case-insensitive). Each renders with a colored left bar, icon, and bold title matching GitHub’s alert styling.
+
 ---
 
 ## Lists

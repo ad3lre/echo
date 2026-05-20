@@ -25,6 +25,11 @@ import {
 import { normalizeKatexInput } from '@/composables/normalizeKatexInput';
 import { preprocessLatexTextCompat } from './latexTextCompat';
 import {
+  appendMarkdownAlertIcon,
+  markdownAlertTitleLabel,
+  type MarkdownAlertKind,
+} from './markdownAlertIcons';
+import {
   buildTextWithSpoilerPlaceholders,
   findRawDiscordSpoilerRegions,
   makeSpoilerPlaceholderToken,
@@ -75,6 +80,31 @@ function preprocessMentions(text: string): string {
   return text.replace(/@(Everyone|Active)/g, (match, name) => {
     const cls = 'mention mention--special';
     return `<span class="${cls}">@${escapeForHighlight(name)}</span>`;
+  });
+}
+
+/** Standalone `:name:` (not `<:name:id>`) → linkable token when name is known. */
+const CUSTOM_EMOJI_SHORTCODE_RE =
+  /(?<!<)(?<![\w:]):([a-zA-Z0-9_]{2,32}):(?![a-zA-Z0-9_]*>)/g;
+
+function expandCustomEmojiShortcodesInSlice(
+  slice: string,
+  resolvers: IdTokenResolvers | undefined,
+): string {
+  const byName = resolvers?.customEmojiByName;
+  if (!byName?.size || !resolvers?.customEmojiImageUrl) return slice;
+  return slice.replace(CUSTOM_EMOJI_SHORTCODE_RE, (match, name: string) => {
+    const row = byName.get(name.toLowerCase());
+    if (!row) return match;
+    const token: ParsedIdToken = {
+      kind: 'emoji',
+      name: row.name,
+      id: row.id,
+      animated: row.animated,
+      rawLen: match.length,
+    };
+    const html = renderIdTokenHtml(token, resolvers);
+    return html.includes('custom-emoji') ? html : match;
   });
 }
 
@@ -131,6 +161,11 @@ export type IdTokenResolvers = {
     name: string,
     animated: boolean,
   ) => string | undefined;
+  /** Lowercase name → metadata for `:name:` shortcodes without id tokens. */
+  customEmojiByName?: ReadonlyMap<
+    string,
+    { id: string; name: string; animated: boolean }
+  >;
   /** In-house SVG icon token `<icon:file.svg>` → image URL (Echo icon catalog). */
   appIconImageUrl?: (filename: string) => string | undefined;
   /**
@@ -294,7 +329,7 @@ export function renderComposerOverlayPlainSegment(
           token.rawLen < 512
             ? token.rawLen
             : 4;
-        out += `<span class="composer-emoji-token-slot" style="width:${w}ch"><img class="emoji custom-emoji" draggable="false" alt="${escapeAttr(t)}" title="${escapeAttr(t)}" src="${escapeAttr(url)}"/></span>`;
+        out += `<span class="composer-emoji-token-slot" style="width:${w}ch"><img class="emoji custom-emoji" draggable="false" alt="${escapeAttr(t)}" title="${escapeAttr(t)}" src="${escapeAttr(url)}" data-emoji-id="${escapeAttr(token.id)}" data-emoji-animated="${token.animated ? 'true' : 'false'}" data-emoji-src-try="0"/></span>`;
       } else {
         out += renderIdTokenHtml(token, r);
       }
@@ -356,15 +391,27 @@ function renderIdTokenHtml(
       return `<span class="mention mention--message-ref id-token" data-message-id="${attr(parsed.id)}" tabindex="0" role="button">${safe('m:' + label)}</span>`;
     }
     case 'emoji': {
-      const rawUrl = resolvers.customEmojiImageUrl?.(
+      let rawUrl = resolvers.customEmojiImageUrl?.(
         parsed.id,
         parsed.name,
         parsed.animated,
       );
+      if (!rawUrl && resolvers.customEmojiByName) {
+        const byName = resolvers.customEmojiByName.get(
+          parsed.name.trim().toLowerCase(),
+        );
+        if (byName) {
+          rawUrl = resolvers.customEmojiImageUrl?.(
+            byName.id,
+            byName.name,
+            byName.animated,
+          );
+        }
+      }
       const url = rawUrl ? safeCustomEmojiUrl(rawUrl) : null;
       if (url) {
         const t = `:${parsed.name}:`;
-        return `<img class="emoji custom-emoji" draggable="false" alt="${attr(t)}" title="${attr(t)}" src="${attr(url)}"/>`;
+        return `<img class="emoji custom-emoji" draggable="false" alt="${attr(t)}" title="${attr(t)}" src="${attr(url)}" data-emoji-id="${attr(parsed.id)}" data-emoji-animated="${parsed.animated ? 'true' : 'false'}" data-emoji-src-try="0"/>`;
       }
       const disp = `:${parsed.name}:`;
       return `<span class="mention mention--custom-emoji id-token" data-emoji-id="${attr(parsed.id)}" data-emoji-name="${attr(parsed.name)}" tabindex="0" role="button">${safe(disp)}</span>`;
@@ -412,7 +459,8 @@ function preprocessMentionsAndTokens(
   let result = '';
   for (const ev of cleaned) {
     if (cursor < ev.start) {
-      result += preprocessMentions(text.slice(cursor, ev.start));
+      const gap = text.slice(cursor, ev.start);
+      result += preprocessMentions(expandCustomEmojiShortcodesInSlice(gap, r));
     }
     if (ev.type === 'entity') {
       result += renderMentionEntityHtml(ev.mention, text);
@@ -421,7 +469,9 @@ function preprocessMentionsAndTokens(
     }
     cursor = ev.end;
   }
-  result += preprocessMentions(text.slice(cursor));
+  result += preprocessMentions(
+    expandCustomEmojiShortcodesInSlice(text.slice(cursor), r),
+  );
   return result;
 }
 
@@ -525,6 +575,8 @@ const SANITIZE_OPTS = {
     'data-message-id',
     'data-emoji-id',
     'data-emoji-name',
+    'data-emoji-animated',
+    'data-emoji-src-try',
     'data-app-icon',
     'aria-describedby',
     'aria-label',
@@ -623,10 +675,17 @@ function echoTextAllowsMarkedBypass(
   text: string,
   mentions: MentionEntity[] | undefined,
   spoilerPass: ReturnType<typeof applyRawSpoilerExtraction>,
+  resolvers?: IdTokenResolvers,
 ): boolean {
   if (mentions?.length) return false;
   if (spoilerPass != null) return false;
   if (findAllIdTokenMatches(text).length > 0) return false;
+  if (
+    resolvers?.customEmojiByName?.size &&
+    CUSTOM_EMOJI_SHORTCODE_RE.test(text)
+  ) {
+    return false;
+  }
   if (/==[^=\n]+?==/.test(text)) return false;
   if (hasMarkdownSyntax(text)) return false;
   if (FOOTNOTE_REF_SYNTAX.test(text)) return false;
@@ -961,8 +1020,6 @@ function collapseNestedChannelMentionSpans(html: string): string {
   return cur;
 }
 
-type MarkdownAlertKind = 'note' | 'tip' | 'important' | 'warning' | 'caution';
-
 const MARKDOWN_ALERT_RE = /^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
 
 function normalizeMarkdownAlertKind(raw: string): MarkdownAlertKind {
@@ -987,7 +1044,6 @@ function transformMarkdownAlertBlockquotes(html: string): string {
       const markerMatch = markerText.match(MARKDOWN_ALERT_RE);
       if (!markerMatch) continue;
       const kind = normalizeMarkdownAlertKind(markerMatch[1] ?? '');
-      const title = `${kind.slice(0, 1).toUpperCase()}${kind.slice(1)}`;
       const nextHtml = first.innerHTML.replace(MARKDOWN_ALERT_RE, '');
       if (nextHtml.trim().length === 0) {
         first.remove();
@@ -999,7 +1055,11 @@ function transformMarkdownAlertBlockquotes(html: string): string {
       alertRoot.setAttribute('role', 'note');
       const heading = doc.createElement('p');
       heading.className = 'md-alert__title';
-      heading.textContent = title;
+      appendMarkdownAlertIcon(doc, heading, kind);
+      const label = doc.createElement('span');
+      label.className = 'md-alert__label';
+      label.textContent = markdownAlertTitleLabel(kind);
+      heading.appendChild(label);
       alertRoot.appendChild(heading);
       while (blockquote.firstChild) {
         alertRoot.appendChild(blockquote.firstChild);
@@ -1116,7 +1176,8 @@ export function parseMessageContent(
   let renderedMath: { token: string; html: string }[];
 
   const useMarkedBypass =
-    depth === 0 && echoTextAllowsMarkedBypass(text, mentions, spoilerPass);
+    depth === 0 &&
+    echoTextAllowsMarkedBypass(text, mentions, spoilerPass, resolvers);
 
   if (useMarkedBypass) {
     const body = text.split('\n').map(escapeForHighlight).join('<br>');

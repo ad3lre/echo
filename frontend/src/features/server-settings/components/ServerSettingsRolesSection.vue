@@ -762,7 +762,7 @@ onUnmounted(() => {
                     <img
                       :src="icons.settings"
                       alt=""
-                      class="h-[18px] w-[18px] opacity-[0.55] invert"
+                      class="h-[18px] w-[18px] opacity-[0.55] filter invert"
                     />
                   </div>
                   <div class="min-w-0">

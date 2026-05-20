@@ -27,6 +27,10 @@ describe('useMarkdown alerts', () => {
     expect(out).toContain('md-alert md-alert--warning');
     expect(out).toContain('md-alert md-alert--caution');
     expect(out).toContain('md-alert__title');
+    expect(out).toContain('md-alert__icon');
+    expect(out).toContain('md-alert__label');
+    expect(out).toContain('>Note</');
+    expect(out).toContain('<svg');
     expect(out).toContain('note body');
     expect(out).not.toContain('[!NOTE]');
   });

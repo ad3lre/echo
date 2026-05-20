@@ -671,7 +671,11 @@ async function handleDmCallLeave() {
       aria-label="Back to channels"
       @click="onMobileBackToChannels"
     >
-      <img :src="icons.arrowLeft" alt="" class="h-3.5 w-3.5 opacity-90" />
+      <img
+        :src="icons.arrowLeft"
+        alt=""
+        class="h-3.5 w-3.5 opacity-90 filter invert"
+      />
       <span>Back to channels</span>
     </button>
   </div>

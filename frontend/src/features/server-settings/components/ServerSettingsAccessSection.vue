@@ -96,7 +96,7 @@ function selectMode(id: ServerAccessMode) {
             <img
               :src="m.icon"
               alt=""
-              class="h-5 w-5 shrink-0 opacity-90 [html[data-theme='dark']_&]:brightness-0 [html[data-theme='dark']_&]:invert"
+              class="h-5 w-5 shrink-0 opacity-90 filter invert"
             />
             <span class="text-[11px] font-bold leading-tight sm:text-xs">{{
               m.label

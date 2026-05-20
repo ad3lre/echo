@@ -794,8 +794,8 @@ async function channelMenuDelete() {
   if (!c || c.type !== 'channel') return;
   const id = c.channel.id;
   const label = c.channel.name;
-  closeMenu();
-  await nextTick();
+  // Keep the menu open until confirm finishes. Closing first lets the same click
+  // hit the dialog backdrop (@click.self cancel) so delete appears to do nothing.
   const ok = await requestAppConfirm({
     title: `Delete channel “${label}”?`,
     message:
@@ -803,6 +803,7 @@ async function channelMenuDelete() {
     confirmLabel: 'Delete channel',
     danger: true,
   });
+  closeMenu();
   if (!ok) return;
   emit('delete-channel', { channelId: id });
 }
@@ -815,14 +816,13 @@ async function categoryMenuDelete() {
   const n =
     effectiveCategories.value.find((cat) => cat.id === id)?.channels.length ??
     0;
-  closeMenu();
-  await nextTick();
   const ok = await requestAppConfirm({
     title: `Delete category “${label}”?`,
     message: `Delete this category and all ${n} channel${n === 1 ? '' : 's'} inside it? This cannot be undone.`,
     confirmLabel: 'Delete category',
     danger: true,
   });
+  closeMenu();
   if (!ok) return;
   emit('delete-category', { categoryId: id });
 }
@@ -962,7 +962,10 @@ const vcMoveTargets = computed(() => {
   const out: Array<{ id: string; name: string; disabled: boolean }> = [];
   for (const cat of cats) {
     for (const ch of cat.channels) {
-      if ((ch.type !== 'voice' && ch.type !== 'stage') || ch.id === currentId)
+      if (
+        (ch.type !== 'voice' && ch.type !== 'stage') ||
+        ch.id === currentId
+      )
         continue;
       const name = getChannelDisplayName(ch.name);
       const disabled = props.canJoinVoice ? !props.canJoinVoice(ch.id) : false;

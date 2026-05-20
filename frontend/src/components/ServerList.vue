@@ -83,8 +83,12 @@ const props = defineProps<{
   canOpenServerSettingsForServer?: (serverId: string) => boolean;
   /** Echo CREATE_INVITE — hide “Invite people” in the rail context menu when false for that guild. */
   canOpenInviteForServer?: (serverId: string) => boolean;
-  /** When set and 2+ visible servers, icons can be drag-reordered on the rail. */
-  reorderVisibleServers?: (fromIndex: number, toIndex: number) => void;
+  /** When set and 2+ rail slots, icons can be drag-reordered on the rail. */
+  reorderVisibleServers?: (
+    fromIndex: number,
+    toIndex: number,
+    overflowServerId?: string | null,
+  ) => void;
   /** Unread DM threads (1:1 or group), newest first; overflow is extra count beyond three avatars. */
   dmIncomingRailCluster?: {
     avatars: Array<
@@ -158,32 +162,7 @@ const {
 const contextServer = ref<Server | null>(null);
 const laneMenuScope = ref<'servers' | 'dm' | null>(null);
 
-const hasTransientSelectedOverflowServer = computed(() => {
-  const selectedId = selectedServerId.value?.trim() ?? '';
-  if (!selectedId || selectedId === 'echo') return false;
-  return (
-    !visibleServers.value.some((s) => s.id === selectedId) &&
-    servers.value.some((s) => s.id === selectedId)
-  );
-});
-
-const reorderEnabled = computed(
-  () =>
-    props.authenticated &&
-    typeof props.reorderVisibleServers === 'function' &&
-    visibleServers.value.length > 1 &&
-    !hasTransientSelectedOverflowServer.value,
-);
-
-const railOrientation = computed(() =>
-  props.layout === 'horizontal' ? 'horizontal' : 'vertical',
-);
-const horizontalRail = computed(() => props.layout === 'horizontal');
-
-/** Rail shows at most {@link VISIBLE_SERVER_RAIL_SLOT_COUNT} guild icons; overflow selection uses the “more” cluster + pill. */
-const visibleServersForRail = computed(() => visibleServers.value);
-
-/** Selected guild not on the fixed rail slots — pill beside “more” (horizontal) or same overflow affordance. */
+/** Horizontal action rail: selected guild not in the fixed visible slice (draggable overflow slot). */
 const selectedOverflowServer = computed<Server | null>(() => {
   if (!horizontalRail.value || !showExtraServersRailButton.value) return null;
   const selectedId = selectedServerId.value;
@@ -194,6 +173,36 @@ const selectedOverflowServer = computed<Server | null>(() => {
   return servers.value.find((server) => server.id === selectedId) ?? null;
 });
 
+/** Visible icons plus optional overflow “recent” slot for pointer reorder. */
+const railReorderSlotCount = computed(
+  () =>
+    visibleServersForRail.value.length +
+    (selectedOverflowServer.value ? 1 : 0),
+);
+
+const reorderEnabled = computed(
+  () =>
+    props.authenticated &&
+    typeof props.reorderVisibleServers === 'function' &&
+    railReorderSlotCount.value > 1,
+);
+
+function handleReorderVisibleServers(fromIndex: number, toIndex: number) {
+  props.reorderVisibleServers?.(
+    fromIndex,
+    toIndex,
+    selectedOverflowServer.value?.id ?? null,
+  );
+}
+
+const railOrientation = computed(() =>
+  props.layout === 'horizontal' ? 'horizontal' : 'vertical',
+);
+const horizontalRail = computed(() => props.layout === 'horizontal');
+
+/** Rail shows at most {@link VISIBLE_SERVER_RAIL_SLOT_COUNT} guild icons; overflow selection uses the “more” cluster + pill. */
+const visibleServersForRail = computed(() => visibleServers.value);
+
 const {
   railDragSourceIndex,
   railDropLineBefore,
@@ -203,8 +212,8 @@ const {
   consumeRailSelectIntent,
 } = useServerRailReorder(
   reorderEnabled,
-  computed(() => visibleServersForRail.value.length),
-  props.reorderVisibleServers,
+  railReorderSlotCount,
+  handleReorderVisibleServers,
   railOrientation,
   showExtraServersRailButton,
 );
@@ -212,6 +221,8 @@ const {
 const railDragGhostServer = computed(() => {
   const i = railDragSourceIndex.value;
   if (i === null) return null;
+  const overflow = selectedOverflowServer.value;
+  if (overflow && i === visibleServersForRail.value.length) return overflow;
   return visibleServersForRail.value[i] ?? null;
 });
 

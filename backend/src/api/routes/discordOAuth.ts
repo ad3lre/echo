@@ -15,6 +15,7 @@ import {
   sessionCookieBaseAttrs,
 } from '../../auth/sessionCookies';
 import { config } from '../../config';
+import { tryJoinOfficialEchoServerOnSignup } from '../../services/auth/officialEchoServerOnSignup';
 import { getPgPool } from '../../db/pg';
 import { ensureAppSchema } from '../../db/ensureAppSchema';
 import { encryptDiscordToken } from '../../auth/discordTokenCrypto';
@@ -536,6 +537,9 @@ export default async function discordOAuthRoutes(
         }
         targetUserId = guest.id;
         provisionedNewGuestViaDiscordLogin = true;
+        void tryJoinOfficialEchoServerOnSignup(fastify.log, targetUserId, {
+          joinClientIp: req.ip,
+        });
       } else {
         targetUserId = echoUserId;
       }

@@ -20,6 +20,7 @@ import {
   normalizeClientHwid,
   recordHwidProfileAccountBinding,
 } from '../../../services/auth/hwidAccountProfile';
+import { tryJoinOfficialEchoServerOnSignup } from '../../../services/auth/officialEchoServerOnSignup';
 
 export default async function registerRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: { token?: string; format?: string } }>(
@@ -149,6 +150,9 @@ export default async function registerRoutes(fastify: FastifyInstance) {
               ip,
             );
           }
+          void tryJoinOfficialEchoServerOnSignup(fastify.log, u.id, {
+            joinClientIp: ip,
+          });
           return reply.code(201).send({ user: u, csrfToken });
         } catch (err: any) {
           if (err?.message === 'USERNAME_TAKEN') {

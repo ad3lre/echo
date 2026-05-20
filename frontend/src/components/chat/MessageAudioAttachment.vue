@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import {
+  observeChatMediaRetentionVisible,
+  queueChatMediaRetentionTouch,
+} from '@/composables/useChatMediaRetentionTouch';
 import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
 import { applyOutputSink } from '@/audio/applyOutputSink';
 import { useUiAudioDevicesStore } from '@/stores/uiAudioDevices';
@@ -7,6 +11,7 @@ import MediaUnavailablePanel from './MediaUnavailablePanel.vue';
 
 const props = defineProps<{
   url: string;
+  storageKey?: string;
   filename?: string;
   spoiler?: boolean;
 }>();
@@ -42,13 +47,21 @@ watch(
   },
 );
 
+const rootRef = ref<HTMLElement | null>(null);
+let stopObserve: (() => void) | undefined;
+
 onMounted(() => {
   void syncSink();
+  stopObserve = observeChatMediaRetentionVisible(rootRef.value, props.storageKey);
+});
+
+onUnmounted(() => {
+  stopObserve?.();
 });
 </script>
 
 <template>
-  <div class="message-audio-shell">
+  <div ref="rootRef" class="message-audio-shell">
     <button
       v-if="props.spoiler && !revealed"
       type="button"
@@ -71,6 +84,7 @@ onMounted(() => {
         controls
         preload="metadata"
         class="message-audio"
+        @play="queueChatMediaRetentionTouch(storageKey)"
         @error="loadFailed = true"
       />
       <a

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   discordCdnCustomEmojiMediaUrl,
+  discordCustomEmojiCandidateUrls,
   fallbackDiscordCdnCustomEmojiImageUrl,
   renderCustomEmojiHtml,
   resolveCustomEmojiImageUrlForDisplay,
@@ -19,10 +20,12 @@ describe('customEmojiUrl', () => {
     expect(safeCustomEmojiUrl('cdn.example.com/emoji.webp')).toBe(
       'https://cdn.example.com/emoji.webp',
     );
-    expect(safeCustomEmojiUrl('/uploads/emoji.webp')).toBe(
-      '/uploads/emoji.webp',
+    const rel = safeCustomEmojiUrl('/uploads/emoji.webp');
+    expect(rel === '/uploads/emoji.webp' || rel?.endsWith('/uploads/emoji.webp')).toBe(
+      true,
     );
-    expect(safeCustomEmojiUrl('emoji.webp')).toBe('/emoji.webp');
+    const bare = safeCustomEmojiUrl('emoji.webp');
+    expect(bare === '/emoji.webp' || bare?.endsWith('/emoji.webp')).toBe(true);
   });
 
   it('rejects unsafe data URLs and scriptable schemes', () => {
@@ -61,11 +64,29 @@ describe('customEmojiUrl', () => {
       '304238867010606080',
       false,
     );
-    expect(cdn).toMatch(/^https:\/\/cdn\.discordapp\.com\/emojis\/\d+\.png$/);
+    expect(cdn).toMatch(
+      /^https:\/\/cdn\.discordapp\.com\/emojis\/\d+\.(?:webp|png)$/,
+    );
+    const candidates = discordCustomEmojiCandidateUrls(
+      '304238867010606080',
+      false,
+    );
+    expect(candidates.length).toBeGreaterThan(1);
+    expect(candidates.some((u) => u.includes('media.discordapp.net'))).toBe(
+      true,
+    );
     expect(fallbackDiscordCdnCustomEmojiImageUrl('12', false)).toBeNull();
     expect(
       fallbackDiscordCdnCustomEmojiImageUrl('notdigits', false),
     ).toBeNull();
+  });
+
+  it('rewrites Echo R2 upload URLs for authenticated read-through', () => {
+    const r2 =
+      'https://bucket.r2.dev/echo/servers/s1/emojis/e1.webp';
+    const out = safeCustomEmojiUrl(r2);
+    expect(out).toContain('/api/v1/echo/uploads/');
+    expect(out).not.toContain('.r2.dev');
   });
 
   it('resolveCustomEmojiImageUrlForDisplay prefers map then Discord after Echo miss', () => {
@@ -91,5 +112,10 @@ describe('customEmojiUrl', () => {
         false,
       ),
     ).toBeNull();
+    expect(
+      resolveCustomEmojiImageUrlForDisplay('304238867010606080', false, m, false, {
+        allowDiscordCdnGuess: true,
+      }),
+    ).toMatch(/cdn\.discordapp\.com/);
   });
 });

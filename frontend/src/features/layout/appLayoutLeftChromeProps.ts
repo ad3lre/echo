@@ -105,7 +105,11 @@ export type AppLayoutLeftChromeProps = {
   /** CREATE_INVITE — show invite UI for this guild when true. */
   canOpenInviteForServer: (serverId: string) => boolean;
   /** Drag-reorder joined servers on the rail (compact). */
-  reorderVisibleServers: (fromIndex: number, toIndex: number) => void;
+  reorderVisibleServers: (
+    fromIndex: number,
+    toIndex: number,
+    overflowServerId?: string | null,
+  ) => void;
   isMoreServersPanelOpen: boolean;
   isMoreServersCompact: boolean;
   isMoreServersPinned: boolean;

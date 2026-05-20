@@ -762,7 +762,11 @@ export interface AppLayoutControllerContext {
   openServerFromMore: (serverId: string) => void;
   openServerSettingsFromUrl: (serverId: string) => void;
   joinEchoServerWithInviteRaw: (raw: string) => void;
-  reorderVisibleServers: (fromIndex: number, toIndex: number) => void;
+  reorderVisibleServers: (
+    fromIndex: number,
+    toIndex: number,
+    overflowServerId?: string | null,
+  ) => void;
   canDeleteCurrentServer: ComputedRef<boolean>;
   isLeaveServerModalOpen: Ref<boolean>;
   leaveServerModalVariant: Ref<'confirm' | 'ownerBlocked'>;

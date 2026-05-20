@@ -478,7 +478,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                         : icons.friendAdd
                     "
                     alt=""
-                    class="h-4 w-4 invert"
+                    class="h-4 w-4 filter invert"
                   />
                   <span
                     v-if="friendshipUi.primaryLabel !== 'Add friend'"

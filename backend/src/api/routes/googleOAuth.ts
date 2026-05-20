@@ -34,6 +34,7 @@ import {
   encodeGoogleOAuthLinkCookieValue,
   encodeGoogleOAuthLoginCookieValue,
 } from '../../domain/googleOAuthState';
+import { tryJoinOfficialEchoServerOnSignup } from '../../services/auth/officialEchoServerOnSignup';
 import {
   findGoogleLinkOwnerForGoogleSub,
   getUserIdByGoogleSub,
@@ -478,6 +479,9 @@ export default async function googleOAuthRoutes(
             }
           }
           targetUserId = userRecord.id;
+          void tryJoinOfficialEchoServerOnSignup(fastify.log, targetUserId, {
+            joinClientIp: req.ip,
+          });
         } catch (err: any) {
           fastify.log.error(err, 'google_oauth_provision_failed');
           if (err?.message === 'EMAIL_IN_USE') {

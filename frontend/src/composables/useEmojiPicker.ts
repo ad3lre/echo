@@ -47,6 +47,8 @@ export type UseEmojiPickerOptions = {
   customEmojiSearchList?: Ref<EmojiEntry[]>;
   /** Non-empty when the user has personal emoji packs (API phase 2). */
   userPackCategories?: Ref<EmojiCategory[]>;
+  /** When false, hide server/custom packs and custom rows in search + recents. */
+  allowCustomEmoji?: Ref<boolean>;
 };
 
 export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
@@ -57,6 +59,7 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
     opts?.customEmojiSearchList ?? ref<EmojiEntry[]>([]);
   const userPackCategoriesRef =
     opts?.userPackCategories ?? ref<EmojiCategory[]>([]);
+  const allowCustomEmojiRef = opts?.allowCustomEmoji ?? ref(true);
 
   const { addRecentlyUsed, recentPickerEntries } = useRecentlyUsedEmojis();
   const emojiCategories = computed(() => getEmojiCategories());
@@ -67,7 +70,10 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
   const activeCategory = ref<string | null>(null);
 
   const recentlyUsedCategory = computed<EmojiCategory | null>(() => {
-    const entries = recentPickerEntries(serverIdRef.value);
+    let entries = recentPickerEntries(serverIdRef.value);
+    if (!allowCustomEmojiRef.value) {
+      entries = entries.filter((e) => e.kind !== 'custom');
+    }
     if (entries.length === 0) return null;
     return {
       name: 'Recently used',
@@ -86,15 +92,19 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
 
   const browsingCategories = computed(() => {
     const recent = recentlyUsedCategory.value;
-    const server = serverPackCategoriesRef.value;
-    const userCats = userPackCategoriesRef.value;
+    const server = allowCustomEmojiRef.value
+      ? serverPackCategoriesRef.value
+      : [];
+    const userCats = allowCustomEmojiRef.value
+      ? userPackCategoriesRef.value
+      : [];
     const personal =
       userCats.length > 0 ? userCats : [personalPacksPlaceholder.value];
     const unicode = emojiCategories.value;
     const parts: EmojiCategory[] = [];
     if (recent) parts.push(recent);
     parts.push(...server);
-    parts.push(...personal);
+    if (allowCustomEmojiRef.value) parts.push(...personal);
     parts.push(...unicode);
     return parts;
   });
@@ -103,11 +113,13 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
     const q = searchQuery.value.trim();
     if (!q) return browsingCategories.value;
     const uni = searchEmojis(q, SEARCH_RESULT_LIMIT);
-    const custom = searchCustomByName(
-      q,
-      customEmojiSearchListRef.value,
-      SEARCH_RESULT_LIMIT,
-    );
+    const custom = allowCustomEmojiRef.value
+      ? searchCustomByName(
+          q,
+          customEmojiSearchListRef.value,
+          SEARCH_RESULT_LIMIT,
+        )
+      : [];
     const seen = new Set<string>();
     const merged: EmojiEntry[] = [];
     for (const e of custom) {

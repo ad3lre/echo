@@ -16,6 +16,7 @@ import { startLoginEventsRetentionJob } from '../jobs/loginEventsRetention';
 import { startMessageAutoDeleteRetentionJob } from '../jobs/messageAutoDeleteRetention';
 import { startVideoUploadOptimizeJob } from '../jobs/videoUploadOptimize';
 import { startDiscordImportMediaMirrorJob } from '../jobs/discordImportMediaMirror';
+import { startChatUploadRetentionJob } from '../jobs/chatUploadRetention';
 import { startEchoVoiceRosterReconcileJob } from '../jobs/voiceRosterReconcile';
 import { startStatusPageProbeJob } from '../jobs/statusPageProbe';
 import { getPgPool } from '../db/pg';
@@ -63,6 +64,7 @@ export async function startServer(
   startMessageAutoDeleteRetentionJob(fastify);
   startVideoUploadOptimizeJob(fastify);
   startDiscordImportMediaMirrorJob(fastify);
+  startChatUploadRetentionJob(fastify);
   startEchoVoiceRosterReconcileJob(fastify);
   startStatusPageProbeJob(fastify);
 

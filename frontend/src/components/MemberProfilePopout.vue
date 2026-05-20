@@ -68,6 +68,7 @@ const popoutArticleRef = ref<HTMLElement | null>(null);
 const popoutMeasuredHeight = ref(0);
 const popoutDisplayNameOverflowPx = ref(0);
 const rolePopupLayoutTick = ref(0);
+const popoutLayoutTick = ref(0);
 const { isCompactShell } = useCompactShell();
 let popoutResizeObserver: ResizeObserver | null = null;
 let popoutHeightResizeObserver: ResizeObserver | null = null;
@@ -167,6 +168,52 @@ const canSendFriendRequestInEllipsisMenu = computed(
 function disconnectPopoutResizeObserver() {
   popoutResizeObserver?.disconnect();
   popoutResizeObserver = null;
+}
+
+/** Keep the quick profile card inside the viewport (chat anchors flip above when needed). */
+function resolveMemberPopoutTop(params: {
+  desiredTop: number;
+  panelHeight: number;
+  viewportHeight: number;
+  padding: number;
+  anchor: PopoutAnchorRect;
+  source: PopoutAnchorRect['source'];
+  gap: number;
+}): number {
+  const {
+    desiredTop,
+    panelHeight,
+    viewportHeight,
+    padding,
+    anchor,
+    source,
+    gap,
+  } = params;
+  const maxTop = Math.max(padding, viewportHeight - panelHeight - padding);
+  const clampTop = (value: number) =>
+    Math.min(Math.max(value, padding), maxTop);
+
+  const isChatSource = source === 'chat-avatar' || source === 'chat-name';
+  if (!isChatSource) {
+    return clampTop(desiredTop);
+  }
+
+  const spaceBelow = viewportHeight - anchor.bottom - padding;
+  const spaceAbove = anchor.top - padding;
+  const preferredBelowTop =
+    source === 'chat-avatar' ? anchor.top - 24 : anchor.top - 42;
+  const preferredAboveTop = anchor.bottom - panelHeight - gap;
+
+  if (spaceBelow >= panelHeight + gap) {
+    return clampTop(preferredBelowTop);
+  }
+  if (spaceAbove >= panelHeight + gap) {
+    return Math.max(preferredAboveTop, padding);
+  }
+  if (spaceBelow >= spaceAbove) {
+    return clampTop(preferredBelowTop);
+  }
+  return Math.max(Math.min(preferredAboveTop, maxTop), padding);
 }
 
 const assignedRoleIds = computed(() => {
@@ -443,7 +490,10 @@ watch(
       const el = popoutArticleRef.value;
       if (!el) return;
       const apply = (h: number) => {
-        if (h > 0) popoutMeasuredHeight.value = h;
+        if (h > 0) {
+          popoutMeasuredHeight.value = h;
+          popoutLayoutTick.value += 1;
+        }
       };
       apply(el.getBoundingClientRect().height);
       const ro = new ResizeObserver((entries) => {
@@ -463,6 +513,7 @@ watch(
 );
 
 const placement = computed(() => {
+  void popoutLayoutTick.value;
   void popoutDisplayNameOverflowPx.value;
   const baseWidth = 308;
   const padding = 16;
@@ -601,14 +652,30 @@ const placement = computed(() => {
     desiredTop = props.anchor.top - 32;
   }
 
-  const top = Math.min(
-    Math.max(desiredTop, padding),
-    viewportHeight - panelHeight - padding,
+  const top = props.anchor
+    ? resolveMemberPopoutTop({
+        desiredTop,
+        panelHeight,
+        viewportHeight,
+        padding,
+        anchor: props.anchor,
+        source,
+        gap,
+      })
+    : Math.min(
+        Math.max(desiredTop, padding),
+        viewportHeight - panelHeight - padding,
+      );
+
+  const viewportFitMaxHeight = Math.max(
+    200,
+    viewportHeight - top - padding,
   );
+  const panelMaxHeight = Math.min(maxPanelHeight, viewportFitMaxHeight);
 
   const arrowCenter = Math.min(
     Math.max(anchorCenterY - top, arrowInset),
-    panelHeight - arrowInset,
+    Math.min(panelHeight, panelMaxHeight) - arrowInset,
   );
 
   return {
@@ -618,7 +685,7 @@ const placement = computed(() => {
     style: {
       left: `${snapPx(left)}px`,
       top: `${snapPx(top)}px`,
-      maxHeight: `${maxPanelHeight}px`,
+      maxHeight: `${panelMaxHeight}px`,
     },
     arrowStyle: {
       top: `${arrowCenter}px`,
@@ -722,6 +789,7 @@ onUnmounted(() => {
 });
 
 function handleViewportUpdate() {
+  popoutLayoutTick.value += 1;
   if (!rolePanelOpen.value) return;
   rolePopupLayoutTick.value += 1;
 }

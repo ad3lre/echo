@@ -13,6 +13,7 @@ This document tracks **Echo (free)**, **Echo+**, and **Echo Black** product limi
 | **Joined servers**            | Free: max **200** memberships (excluding the synthetic DM realm server). Echo+ / Black: unlimited. Enforced on **create server**, **directory join**, and **invite join**.    |
 | **Group DM size**             | Max members (including initiator): free **25**, plus **50**, black **250**. Enforced in `createEchoGroupDmThread`; UI uses `planLimits.groupDmMaxMembers`.                    |
 | **Theme UI (client)**         | Amoled / Sunny swatches require Echo+ or Echo Black when `THEMES_SELECTION_COMING_SOON` is true; Light/Dark stay available.                                                   |
+| **Chat media retention**      | Abandonment expiry on user-sent chat uploads (`echo_chat_upload_retention`); tier rules in [`shared/chatMediaRetention.ts`](../../shared/chatMediaRetention.ts). Echo+ ≤15 MB and Black ≤100 MB permanent at upload (snapshot). `POST /uploads/retention/touch` + visibility in UI. Ops may revoke permanent rows (`permanent_revoked_at`). After `echo_plan` downgrade from Black, call `reconcileChatUploadRetentionOnPlanChange` (document when billing exists). |
 
 ## Not implemented or only partial
 
@@ -31,4 +32,4 @@ This document tracks **Echo (free)**, **Echo+**, and **Echo Black** product limi
 ## Operations notes
 
 - **`ECHO_LOCAL_UPLOAD_MAX_BYTES`**: Raise only if you accept higher memory use for local PUT handling (see config in `backend/src/config.ts`).
-- **Changing a user’s plan**: `UPDATE auth_users SET echo_plan = 'plus' WHERE id = '…';` — session cache may show stale `echoPlan` until the next `/me` or re-login; enforcement paths load fresh entitlements from the DB where it matters (uploads, joins, group DM).
+- **Changing a user’s plan**: `UPDATE auth_users SET echo_plan = 'plus' WHERE id = '…';` — session cache may show stale `echoPlan` until the next `/me` or re-login; enforcement paths load fresh entitlements from the DB where it matters (uploads, joins, group DM). When downgrading from **Black**, unpause &gt;100 MB paused chat media timers via `reconcileChatUploadRetentionOnPlanChange(pool, userId, 'black', newPlan)`.

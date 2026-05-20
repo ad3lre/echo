@@ -218,6 +218,13 @@ export function normalizeWorkspaceMembersByServer(
         'timeout_until',
       );
       const joinedAt = readOptionalIsoDate(rec, 'joinedAt', 'joined_at');
+      const ordRaw = rec.signupOrdinal ?? rec.signup_ordinal;
+      const signupOrdinal =
+        typeof ordRaw === 'number' && Number.isFinite(ordRaw)
+          ? Math.floor(ordRaw)
+          : typeof ordRaw === 'string' && ordRaw.trim()
+            ? Number(ordRaw)
+            : Number.NaN;
       const badges = readMemberBadgeIds(rec, 'badges');
       const bannerImage = readMemberString(rec, 'bannerImage', 'banner_image');
       const bannerColor = readMemberString(rec, 'bannerColor', 'banner_color');
@@ -249,6 +256,7 @@ export function normalizeWorkspaceMembersByServer(
         ...(isGuest ? { isGuest: true } : {}),
         ...(communicationTimeoutUntil ? { communicationTimeoutUntil } : {}),
         ...(joinedAt ? { joinedAt } : {}),
+        ...(Number.isFinite(signupOrdinal) ? { signupOrdinal } : {}),
         ...(badges?.length ? { badges } : {}),
         bannerImage,
         bannerColor,
@@ -365,6 +373,17 @@ function prevBannerKey(u: {
   });
 }
 
+function mergeSignupOrdinal(
+  prev: number | undefined,
+  next: number | undefined,
+): number | undefined {
+  const a = prev != null && Number.isFinite(prev) ? prev : undefined;
+  const b = next != null && Number.isFinite(next) ? next : undefined;
+  if (a == null) return b;
+  if (b == null) return a;
+  return Math.max(a, b);
+}
+
 export function mergeEchoWorkspaceMembersIntoUsers<
   T extends {
     id: string;
@@ -375,6 +394,7 @@ export function mergeEchoWorkspaceMembersIntoUsers<
     isDiscordShadow?: boolean;
     isGuest?: boolean;
     badges?: string[];
+    signupOrdinal?: number;
     bannerImage?: string;
     bannerColor?: string;
     bannerRefractionEnabled?: boolean;
@@ -410,6 +430,10 @@ export function mergeEchoWorkspaceMembersIntoUsers<
 
       const ban = workspaceMemberBannerVisuals(m);
       const nextTz = m.timeZone ?? null;
+      const nextSignupOrdinal = mergeSignupOrdinal(
+        prev ? (prev as { signupOrdinal?: number }).signupOrdinal : undefined,
+        m.signupOrdinal,
+      );
 
       if (!prev) {
         changed = true;
@@ -423,11 +447,14 @@ export function mergeEchoWorkspaceMembersIntoUsers<
           isDiscordShadow,
           ...(isGuest ? { isGuest: true } : {}),
           ...(badges?.length ? { badges } : {}),
+          ...(nextSignupOrdinal != null ? { signupOrdinal: nextSignupOrdinal } : {}),
           ...ban,
           timeZone: nextTz,
         } as T);
       } else {
         const prevTz = (prev as { timeZone?: string | null }).timeZone ?? null;
+        const prevSignupOrdinal = (prev as { signupOrdinal?: number })
+          .signupOrdinal;
         const nextName = name ?? prev.name;
         const nextUsername = username ?? prev.username;
         const nextPfp = pfp !== undefined ? pfp : prev.pfp;
@@ -463,7 +490,8 @@ export function mergeEchoWorkspaceMembersIntoUsers<
           (prev as { isGuest?: boolean }).isGuest !== nextIsGuest ||
           !badgesEqual ||
           !bannerEqual ||
-          prevTz !== nextTz
+          prevTz !== nextTz ||
+          prevSignupOrdinal !== nextSignupOrdinal
         ) {
           changed = true;
           const { badges: _prevBadges, ...prevRest } = prev as T & {
@@ -477,6 +505,9 @@ export function mergeEchoWorkspaceMembersIntoUsers<
             isDiscordShadow: nextIsShadow,
             isGuest: nextIsGuest,
             ...(nextBadges?.length ? { badges: nextBadges } : {}),
+            ...(nextSignupOrdinal != null
+              ? { signupOrdinal: nextSignupOrdinal }
+              : {}),
             ...ban,
             timeZone: nextTz,
           } as T);

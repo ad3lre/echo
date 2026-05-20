@@ -3,7 +3,10 @@ import { ref, inject, onBeforeUnmount, type ComputedRef } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import { parseSingleEmoji } from '@/utils/twemoji';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
-import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
+import {
+  resolveCustomEmojiImageUrlForDisplay,
+} from '@/utils/customEmojiUrl';
+import { isEchoPublicId } from '@shared/snowflakeIds';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import MessageReactionsRow from '@/features/chat/components/MessageReactionsRow.vue';
 import MessageReactionEmojiPopover from './MessageReactionEmojiPopover.vue';
@@ -12,6 +15,7 @@ import MessageReactionHoverCard from './MessageReactionHoverCard.vue';
 const props = defineProps<{
   message: MessageWithAuthor;
   serverId?: string;
+  channelId?: string;
   currentUserId?: string;
   currentUserDisplayName?: string;
   resolveReactorDisplay?: (userId: string) => string;
@@ -58,6 +62,7 @@ function parseSingleEmojiForReactions(emoji: string): string {
       animated,
       customEmojiUrlById?.value,
       isEchoEmojiTokenResolveMiss(emojiId),
+      { allowDiscordCdnGuess: isEchoPublicId(emojiId) },
     );
     if (url) {
       const raw = `<img class="emoji custom-emoji" draggable="false" alt="${escReactionAttr(`:${m[1]}:`)}" src="${escReactionAttr(url)}"/>`;
@@ -166,6 +171,7 @@ defineExpose({
       v-model="reactionPopoverOpen"
       :trigger-rect="reactionTriggerRect"
       :server-id="serverId"
+      :channel-id="channelId"
       @select="handleReact"
     />
     <MessageReactionHoverCard

@@ -15,6 +15,10 @@ const customEmojiUrlById = inject<ComputedRef<Map<string, string>> | undefined>(
   'customEmojiUrlById',
   undefined,
 );
+const ensureCustomEmojiId = inject<((id: string) => void) | undefined>(
+  'ensureCustomEmojiId',
+  undefined,
+);
 
 watch(
   () => props.emoji,
@@ -35,7 +39,9 @@ const customSrc = computed(() => {
     token.animated,
     customEmojiUrlById?.value,
     isEchoEmojiTokenResolveMiss(token.id),
+    { allowDiscordCdnGuess: true },
   );
+  if (!url) ensureCustomEmojiId?.(token.id);
   return url ?? '';
 });
 

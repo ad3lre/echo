@@ -20,10 +20,12 @@ import { renderCustomEmojiHtml } from '@/utils/customEmojiUrl';
 import { parsePollOptionCustomEmojiToken } from '@/utils/pollOptionEmojiDisplay';
 import EmojiCategorySection from '@/components/EmojiCategorySection.vue';
 import { preloadEmojiImagesOnce } from '@/composables/useEmojiPreload';
+import { useChannelCustomEmojiPickerAllowed } from '@/composables/useChannelCustomEmojiPickerAllowed';
 
 const props = defineProps<{
   modelValue: string;
   serverId?: string;
+  channelId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -36,6 +38,8 @@ const popoverRef = ref<HTMLElement | null>(null);
 const popoverStyle = ref({ left: '0px', top: '0px' });
 
 const serverIdRef = toRef(() => props.serverId);
+const channelIdRef = toRef(() => props.channelId);
+const allowCustomEmoji = useChannelCustomEmojiPickerAllowed(channelIdRef);
 const library = useServerEmojiLibrary(serverIdRef);
 const userLibrary = useUserEmojiLibrary();
 const serverPackCategories = computed(() => library.pickerPackCategories());
@@ -76,6 +80,7 @@ const {
   serverPackCategories,
   customEmojiSearchList,
   userPackCategories,
+  allowCustomEmoji,
 });
 
 function updatePosition() {

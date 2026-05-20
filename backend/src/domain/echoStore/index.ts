@@ -409,6 +409,12 @@ export {
 export { joinGuestToSampledEchoServers } from './guestOnboarding';
 
 export {
+  joinNewAccountToOfficialEchoServer,
+  resolveOfficialEchoServerId,
+  resetOfficialEchoServerIdCacheForTests,
+} from './officialServerOnboarding';
+
+export {
   applyEchoVoiceModerationAction,
   canUserSpeakInStageChannel,
   computeInitialStageSpeaker,

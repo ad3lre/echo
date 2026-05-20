@@ -209,7 +209,11 @@ function avatarUrl(p: { id: string; pfp: string }) {
                 title="Voice settings"
                 @click="emit('openAudioSettings')"
               >
-                <img :src="icons.settings" alt="" class="h-[18px] w-[18px]" />
+                <img
+                  :src="icons.settings"
+                  alt=""
+                  class="vc-lobby-glyph h-[18px] w-[18px]"
+                />
               </button>
             </div>
             <button
@@ -271,6 +275,11 @@ function avatarUrl(p: { id: string; pfp: string }) {
 
 :global([data-theme='dark'] .vc-lobby-glyph) {
   filter: brightness(0) invert(1);
+}
+
+:global([data-theme='light'] .vc-lobby-glyph) {
+  filter: none;
+  opacity: 0.78;
 }
 
 /* Join button — vivid green glow pill */

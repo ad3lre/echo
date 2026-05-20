@@ -10,6 +10,7 @@ import EchoDropdown from '@/components/EchoDropdown.vue';
 const props = defineProps<{
   modelValue: boolean;
   serverId?: string;
+  channelId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -179,6 +180,7 @@ useAutofocusOnOpen(toRef(props, 'modelValue'), pollQuestionInputRef);
                 v-model="opt.emoji"
                 class="flex-shrink-0"
                 :server-id="props.serverId"
+                :channel-id="props.channelId"
               />
               <input
                 v-model="opt.text"

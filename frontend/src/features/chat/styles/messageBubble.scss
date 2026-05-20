@@ -1,3 +1,5 @@
+@use './markdownAlerts.scss' as mdAlerts;
+
 /* Group spacing: header = first in group, continuation = follow-up */
 .author-trigger,
 .author-name-trigger {
@@ -338,69 +340,9 @@
   border-left: 3px solid var(--border);
   color: var(--text);
 }
-.message-content :deep(.md-alert) {
-  --alert-accent: #60a5fa;
-  --alert-accent-soft: color-mix(in srgb, var(--alert-accent) 18%, transparent);
-  margin: 0.75em 0;
-  padding: 0.7em 0.85em 0.72em;
-  border-left: 3px solid var(--alert-accent);
-  border-radius: 0.6rem;
-  background: linear-gradient(
-    100deg,
-    var(--alert-accent-soft) 0%,
-    color-mix(in srgb, var(--surface) 72%, transparent) 100%
-  );
-}
-.message-content :deep(.md-alert__title) {
-  margin: 0 0 0.38em;
-  font-weight: 700;
-  font-size: 0.95em;
-  letter-spacing: 0.01em;
-  color: var(--alert-accent);
-}
-.message-content :deep(.md-alert__title::before) {
-  content: 'i';
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.05em;
-  height: 1.05em;
-  margin-right: 0.45em;
-  border-radius: 9999px;
-  border: 1px solid color-mix(in srgb, var(--alert-accent) 45%, transparent);
-  color: var(--alert-accent);
-  font-size: 0.72em;
-  font-weight: 800;
-}
-.message-content :deep(.md-alert > :last-child) {
-  margin-bottom: 0;
-}
-.message-content :deep(.md-alert--note) {
-  --alert-accent: #60a5fa;
-}
-.message-content :deep(.md-alert--tip) {
-  --alert-accent: #34d399;
-}
-.message-content :deep(.md-alert--important) {
-  --alert-accent: #a78bfa;
-}
-.message-content :deep(.md-alert--warning) {
-  --alert-accent: #fbbf24;
-}
-.message-content :deep(.md-alert--caution) {
-  --alert-accent: #f87171;
-}
-.message-content :deep(.md-alert--tip .md-alert__title::before) {
-  content: '\2726';
-}
-.message-content :deep(.md-alert--important .md-alert__title::before) {
-  content: '!';
-}
-.message-content :deep(.md-alert--warning .md-alert__title::before) {
-  content: '!';
-}
-.message-content :deep(.md-alert--caution .md-alert__title::before) {
-  content: '\00d7';
+
+.message-content {
+  @include mdAlerts.echo-markdown-alerts();
 }
 .message-content :deep(ul) {
   margin: 0.5em 0;

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, toRef } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useDevSettingsStore } from '@/stores/devSettings';
 import { useChannelIconResolver } from '@/composables/useChannelIconResolver';
 import type {
   ChannelPermissionKey,
@@ -114,6 +116,9 @@ const emit = defineEmits<{
 const modalRef = ref<HTMLElement | null>(null);
 useFocusTrap(modalRef, toRef(props, 'modelValue'));
 
+const devSettings = useDevSettingsStore();
+const { devModeIdsEnabled } = storeToRefs(devSettings);
+
 const channelIconResolver = useChannelIconResolver(
   toRef(() => props.channelSettings?.serverId),
 );
@@ -178,6 +183,7 @@ const discordSyncChannelType = computed(() =>
 const channelSettingsTabs = computed((): ChannelSettingsTab[] => {
   const tabs: ChannelSettingsTab[] = ['overview', 'permissions'];
   if (
+    devModeIdsEnabled.value &&
     (channelType.value === 'text' || channelType.value === 'forum') &&
     props.channelSettings?.channel.canManageWebhooks === true
   ) {

@@ -98,7 +98,13 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
     - **`purpose: server_icon`** or **`server_banner`** + **`serverId`**: requires `MANAGE_GUILD`; keys `echo/server-icons/{serverId}/{userId}/…` / `echo/server-banners/…`.
   - **200 response:** `uploadUrl`, `publicUrl`, `key`, `headers` (include `Content-Type` for the `PUT`), `publicUrlPrefixes` (for clients).
   - **Errors:** **400** `INVALID_BODY`, **403** `FORBIDDEN`, **503** `UPLOADS_NOT_CONFIGURED`.
-- Socket `message` may include **`attachments`**: array (max 10) of `{ url, kind: image|video|gif, filename?, mimeType?, spoiler? }`. When object storage is configured, `data:` URLs are rejected; do not combine `attachments` with legacy `imageUrl` / `videoUrl` / `gif` in one message.
+- `POST` `/uploads/retention/touch` — authenticated; body `{ storageKeys: string[] }` (max 20). Resets **abandonment** timers for chat media the caller can read. Server ignores touches when `last_seen_at >= now() - 24h` per key.
+- **Chat media abandonment** (user-sent channel/legacy/webhook-inbound keys only; not avatars, banners, emoji, etc.):
+  - Timers start at upload (`expires_at = created_at + abandon_ms`); first UI visibility touch sets `last_seen_at` and recomputes `expires_at`.
+  - Free tiers by size: ≤10 MB → 6y; ≤100 MB → 3y; &gt;100 MB → 12mo. Echo+: ≤15 MB permanent (snapshot); &gt;15 MB ×1.25. Echo Black: ≤100 MB permanent; &gt;100 MB paused until downgrade (then ×1.30). Webhook inbound uses free rules.
+  - Dedupe/shared `storage_key`: **first registration** plan snapshot controls retention for all references.
+  - Expired objects: `GET` `/uploads/files/*` and `/uploads/s3/*` return **404** (internal log `expired: true`). Background job purges blobs; retention rows kept with `purged_at` / `purge_status`.
+- Socket `message` may include **`attachments`**: array (max 10) of `{ url, storageKey?, kind: image|video|gif|audio|document, filename?, mimeType?, fileSize?, spoiler? }`. When object storage is configured, `data:` URLs are rejected; do not combine `attachments` with legacy `imageUrl` / `videoUrl` / `gif` in one message.
 - `POST` `/servers/:serverId/moderation`, `GET` `.../audit`, `GET` `.../moderation/history`
 - `GET` `/workspace` — joined servers + category/channel trees + `membersByServer`; member rows may include `communicationTimeoutUntil` when that member is currently timed out in the guild.
 

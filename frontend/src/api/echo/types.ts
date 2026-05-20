@@ -58,6 +58,8 @@ export type EchoServerMemberDto = {
   communicationTimeoutUntil?: string | null;
   /** When this user joined this server (`echo_server_members.joined_at`). */
   joinedAt?: string;
+  /** Full-account signup index (`auth_users.signup_ordinal`; higher = newer). */
+  signupOrdinal?: number;
   /** Account badges from `auth_users` (workspace bootstrap). */
   badges?: string[];
   /** Profile bio from `auth_users.bio` (server-persisted). */

@@ -480,7 +480,11 @@ watch(streamVolumeSliderValue, (v) => {
           <p
             class="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
           >
-            <img :src="icons.volumeUp" alt="" class="h-3.5 w-3.5 opacity-80" />
+            <img
+              :src="icons.volumeUp"
+              alt=""
+              class="h-3.5 w-3.5 opacity-80 filter invert"
+            />
             Their volume
           </p>
           <div class="mt-2 flex items-center gap-2">

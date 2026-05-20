@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { StyleValue } from 'vue';
+import {
+  observeChatMediaRetentionVisible,
+  queueChatMediaRetentionTouch,
+} from '@/composables/useChatMediaRetentionTouch';
 import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
 import MediaUnavailablePanel from './MediaUnavailablePanel.vue';
 
 const props = defineProps<{
   url: string;
+  storageKey?: string;
   alt: string;
   /** When set (e.g. known width/height from attachment metadata), constrains box; omit for intrinsic size */
   imageStyle?: StyleValue;
@@ -61,6 +66,26 @@ const imgStyle = computed((): StyleValue | undefined => {
 });
 
 const imgIsBoxed = computed(() => shellStyle.value != null);
+
+const rootRef = ref<HTMLElement | null>(null);
+let stopObserve: (() => void) | undefined;
+
+onMounted(() => {
+  void nextTick(() => {
+    stopObserve = observeChatMediaRetentionVisible(
+      rootRef.value,
+      props.storageKey,
+    );
+  });
+});
+
+onUnmounted(() => {
+  stopObserve?.();
+});
+
+function onImageLoad(): void {
+  queueChatMediaRetentionTouch(props.storageKey);
+}
 </script>
 
 <template>
@@ -71,6 +96,7 @@ const imgIsBoxed = computed(() => shellStyle.value != null);
   />
   <button
     v-else-if="openable"
+    ref="rootRef"
     type="button"
     class="block max-w-full min-w-0 text-left cursor-zoom-in rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
     @click="emit('open')"
@@ -83,11 +109,12 @@ const imgIsBoxed = computed(() => shellStyle.value != null);
         class="message-image"
         :class="{ 'message-image--boxed': imgIsBoxed }"
         :style="imgStyle"
+        @load="onImageLoad"
         @error="loadFailed = true"
       />
     </div>
   </button>
-  <div v-else class="message-image-shell" :style="shellStyle">
+  <div v-else ref="rootRef" class="message-image-shell" :style="shellStyle">
     <img
       :src="resolved"
       :alt="alt"
@@ -95,6 +122,7 @@ const imgIsBoxed = computed(() => shellStyle.value != null);
       class="message-image"
       :class="{ 'message-image--boxed': imgIsBoxed }"
       :style="imgStyle"
+      @load="onImageLoad"
       @error="loadFailed = true"
     />
   </div>

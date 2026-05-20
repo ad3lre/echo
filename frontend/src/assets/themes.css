@@ -47,6 +47,8 @@
 
   /* In-house SVG icons shipped as <img src="...svg"> (emoji icon tokens, chat toolbar glyphs). */
   --chat-inline-icon-filter: invert(1) saturate(0) brightness(1.9) contrast(1.1);
+  /* Alias for non-composer ink icons (toolbars, modals) — light on dark. */
+  --echo-ink-icon-filter: var(--chat-inline-icon-filter);
   /* Composer GIF / emoji triggers: full strength once the dark-theme filter lightens glyphs. */
   --chat-composer-toolbar-icon-opacity: 1;
 
@@ -1466,6 +1468,7 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
 
   /* Keep raw SVG colors in light mode (most are dark by default). */
   --chat-inline-icon-filter: none;
+  --echo-ink-icon-filter: none;
   /*
    * Composer GIF/emoji use theme-specific assets (`gifLight` / `emotesLight`);
    * no extra fade needed on light.

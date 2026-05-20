@@ -17,6 +17,8 @@ const props = defineProps<{
     customStatus?: string;
     isGuest?: boolean;
     isDiscordShadow?: boolean;
+    /** Higher = newer Echo account (`auth_users.signup_ordinal`). */
+    signupOrdinal?: number;
   }[];
   currentUserId: string;
   friendIds: string[];
@@ -103,9 +105,15 @@ const addableUsers = computed(() => {
       return ui.kind === 'none';
     })
     .sort((a, b) => {
-      const aHasProfile = !!a.pfp?.trim();
-      const bHasProfile = !!b.pfp?.trim();
-      if (aHasProfile !== bHasProfile) return aHasProfile ? -1 : 1;
+      const aOrd =
+        typeof a.signupOrdinal === 'number' && Number.isFinite(a.signupOrdinal)
+          ? a.signupOrdinal
+          : -1;
+      const bOrd =
+        typeof b.signupOrdinal === 'number' && Number.isFinite(b.signupOrdinal)
+          ? b.signupOrdinal
+          : -1;
+      if (aOrd !== bOrd) return bOrd - aOrd;
 
       return a.name.localeCompare(b.name);
     })
@@ -663,8 +671,8 @@ function sendFriendRequestTo(userId: string) {
                           Add friend
                         </h2>
                         <p class="mt-1 text-sm leading-relaxed text-fg-soft">
-                          Search by name and send a request. Only people you are
-                          not already connected with appear here.
+                          Suggestions are the newest Echo sign-ups. Search by
+                          name to find someone specific.
                         </p>
                       </div>
 
@@ -674,8 +682,7 @@ function sendFriendRequestTo(userId: string) {
                         <img
                           :src="icons.search"
                           alt=""
-                          class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-55"
-                          style="filter: var(--chat-inline-icon-filter, none)"
+                          class="echo-ink-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-55"
                         />
                         <input
                           v-model="addFriendQuery"

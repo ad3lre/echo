@@ -40,7 +40,8 @@ import { emitEchoAttentionSnapshotsForUsers } from './echoAttentionRealtime';
 import { botEventBus } from '../platform/botEventBus';
 import { findAllIdTokenMatches } from '../shared/idTokens';
 import { mirrorEchoMessageToDiscordIfConfigured } from './discordBridgeOutbound';
-import { getEchoUploadPublicUrlPrefixes } from './s3UploadPresign';
+import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
+import { registerChatUploadRetentionFromMessageUrls } from './chatUploadRetention';
 
 async function resolveSafeReplyTo(
   pool: pg.Pool,
@@ -224,58 +225,6 @@ export type EchoPersistedMessageCreateResult =
       detail?: string;
     };
 
-function stripQueryAndHash(input: string): string {
-  const q = input.indexOf('?');
-  const h = input.indexOf('#');
-  const cut = q === -1 ? h : h === -1 ? q : Math.min(q, h);
-  return cut === -1 ? input : input.slice(0, cut);
-}
-
-function decodeStorageKeyFromPublicRemainder(
-  remainderRaw: string,
-): string | null {
-  const remainder = remainderRaw.trim().replace(/^\/+/, '');
-  if (!remainder) return null;
-  const parts = remainder.split('/');
-  try {
-    const decoded = parts.map((p) => decodeURIComponent(p));
-    return decoded.join('/');
-  } catch {
-    return null;
-  }
-}
-
-function extractEchoStorageKeyFromPublicUrl(urlRaw: string): string | null {
-  const raw = stripQueryAndHash(urlRaw.trim());
-  if (!raw) return null;
-  const prefixes = getEchoUploadPublicUrlPrefixes().sort(
-    (a, b) => b.length - a.length,
-  );
-  for (const prefix of prefixes) {
-    const p = prefix.trim();
-    if (!p) continue;
-    if (raw.startsWith(p)) {
-      return decodeStorageKeyFromPublicRemainder(raw.slice(p.length));
-    }
-  }
-  if (/^https?:\/\//i.test(raw)) {
-    try {
-      const parsed = new URL(raw);
-      const pathOnly = parsed.pathname;
-      for (const prefix of prefixes) {
-        const p = prefix.trim();
-        if (!p.startsWith('/')) continue;
-        if (pathOnly.startsWith(p)) {
-          return decodeStorageKeyFromPublicRemainder(pathOnly.slice(p.length));
-        }
-      }
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
 async function validateEchoUploadAttachmentOwnership(opts: {
   pool: pg.Pool;
   userId: string;
@@ -369,6 +318,14 @@ export async function echoPersistedMessageCreateAndBroadcast(
       detail: attachmentOwnership.detail,
     };
   }
+
+  await registerChatUploadRetentionFromMessageUrls(pool, {
+    uploaderId: userId,
+    attachments,
+    imageUrl,
+    videoUrl,
+    sourceType: 'user',
+  });
 
   const isE2ee =
     typeof e2eeCiphertext === 'string' && e2eeCiphertext.trim().length > 0;
