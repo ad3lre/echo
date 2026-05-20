@@ -2,6 +2,7 @@ import type { AppLayoutControllerContext } from './appLayoutControllerTypes';
 
 type VoiceSliceKeys =
   | 'getVcActivityPresenceForUser'
+  | 'getVcChannelActivityPresenceForChannel'
   | 'effectiveVcActivityKingUserId'
   | 'vcHangmanActivity'
   | 'hangmanRosterUserIds'

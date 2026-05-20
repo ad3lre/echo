@@ -131,6 +131,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     onJoinVoice: joinVoiceSession,
     onLeaveVoice: leaveVoiceSession,
     getVcActivityPresenceForUser,
+    getVcChannelActivityPresenceForChannel,
     vcHangmanActivity,
     hangmanRosterUserIds,
     vcCodenamesActivity,
@@ -588,11 +589,10 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
   }
 
   function onVcChatButtonClickNavigation() {
-    const viewingVoice =
-      (() => {
-        const t = findChannelContextById(activeChannelId.value)?.channel?.type;
-        return t === 'voice' || t === 'stage';
-      })();
+    const viewingVoice = (() => {
+      const t = findChannelContextById(activeChannelId.value)?.channel?.type;
+      return t === 'voice' || t === 'stage';
+    })();
     if (currentVoiceChannelId.value && !viewingVoice) {
       logShellNav('onVcChatButtonClickNavigation', 'jump_to_voice_channel', {
         to: currentVoiceChannelId.value,
@@ -636,6 +636,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     joinVoiceSession,
     leaveVoiceSession,
     getVcActivityPresenceForUser,
+    getVcChannelActivityPresenceForChannel,
     vcHangmanActivity,
     hangmanRosterUserIds,
     vcCodenamesActivity,

@@ -1644,9 +1644,7 @@ export async function createEchoChannel(
   const channelDisplayName = clampEchoChannelName(name) || 'channel';
   const mirrorOnly = opts?.discordVoiceMirrorOnly === true;
   const resolvedIconKey =
-    type === 'stage' && (ik == null || ik === '')
-      ? 'discordStage'
-      : ik;
+    type === 'stage' && (ik == null || ik === '') ? 'discordStage' : ik;
   await pool.query(
     `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, parent_channel_id, forum_available_tags, forum_post_tag_ids, forum_post_pinned, forum_post_locked, forum_post_archived_at, forum_post_creator_user_id, discord_voice_mirror_only)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14, $15)`,
@@ -1678,6 +1676,12 @@ export async function createEchoChannel(
         id,
         JSON.stringify({ CONNECT: true, SPEAK: false }),
       ],
+    );
+  }
+  if (type === 'voice' || type === 'stage') {
+    await pool.query(
+      `UPDATE echo_channels SET voice_e2ee_enabled = TRUE WHERE id = $1`,
+      [id],
     );
   }
   invalidateEchoPermissionCacheForServer(serverId);

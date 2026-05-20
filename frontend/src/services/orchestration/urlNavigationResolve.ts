@@ -25,7 +25,10 @@ export function channelValidInServer(
   const cats = ctx.categoriesByServer[serverId] ?? [];
   for (const c of cats) {
     const ch = c.channels?.find((x) => x.id === channelId);
-    if (ch && (ch.type === 'text' || ch.type === 'voice' || ch.type === 'stage'))
+    if (
+      ch &&
+      (ch.type === 'text' || ch.type === 'voice' || ch.type === 'stage')
+    )
       return true;
   }
   return false;

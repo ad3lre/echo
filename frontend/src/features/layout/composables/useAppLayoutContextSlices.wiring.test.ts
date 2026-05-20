@@ -73,6 +73,7 @@ describe('app layout context slices wiring', () => {
   it('voice/messaging/server slices pass through provided values', () => {
     const voice = useAppLayoutContextVoiceSlice({
       getVcActivityPresenceForUser: () => [],
+      getVcChannelActivityPresenceForChannel: () => [],
       effectiveVcActivityKingUserId: computed(() => ''),
       activeVoiceChannelParticipants: ref([]),
       liveKitState: computed(() => 'idle'),

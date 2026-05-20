@@ -793,8 +793,7 @@ function resetDefaults() {
     <div class="settings-card rounded-2xl p-5">
       <div class="settings-label">Developer</div>
       <p class="mt-2 text-sm text-fg-soft">
-        Also enables experimental direct-message end-to-end encryption controls
-        in chat headers (this device only).
+        Shows internal IDs and diagnostics on this device only.
       </p>
       <button
         type="button"

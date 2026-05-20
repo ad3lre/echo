@@ -17,8 +17,7 @@ import {
 import {
   diagnoseEchoChannelAccess,
   createEchoE2eePairingSession,
-  echoUsersShareDirectDm,
-  enableEchoE2eeForDmThread,
+  echoUsersMayFetchE2eeDeviceBundle,
   getEchoE2eePairingStateForUser,
   getEchoE2eeThreadState,
   listEchoE2eeDevicesForUser,
@@ -176,55 +175,17 @@ export default async function echoE2eeRoutes(
     },
   );
 
-  // Convenience endpoint: enable E2EE on a DM/group channel id.
+  // Chat text E2EE was removed; voice uses LiveKit + device bundles instead.
   fastify.post<{ Params: { channelId: string } }>(
     '/dm/:channelId/e2ee/enable',
     { preHandler: [requireAuth, requireEchoStore] },
-    async (req, reply) => {
-      const pool = echoPool(req);
-      const channelId = trimEchoPathParam(req.params.channelId);
-      if (!channelId) {
-        return sendError(reply, 400, 'INVALID_BODY', 'channelId required');
-      }
-      const out = await enableEchoE2eeForDmThread(
-        pool,
-        channelId,
-        req.authUser!.id,
+    async (_req, reply) => {
+      return sendError(
+        reply,
+        410,
+        'E2EE_CHAT_REMOVED',
+        'Encrypted chat messages are no longer supported. Voice channels and calls use end-to-end encryption by default.',
       );
-      if (out === 'not_found') {
-        return sendError(reply, 404, 'NOT_FOUND', 'Thread not found');
-      }
-      if (out === 'forbidden') {
-        return sendError(
-          reply,
-          403,
-          'FORBIDDEN',
-          'Not a member of this thread',
-        );
-      }
-      if (out === 'group_not_supported') {
-        return sendError(
-          reply,
-          403,
-          'FORBIDDEN',
-          'End-to-end encryption is only available for direct (1:1) DM threads in this version.',
-        );
-      }
-      if (out === 'infra_missing') {
-        return replyE2eeInfraMissing(reply);
-      }
-      if (out === 'already_enabled') return reply.code(204).send();
-
-      publishEchoWorkspaceEvent(
-        fastify,
-        {
-          kind: 'workspace_invalidated',
-          version: nextEchoSnowflakeId(),
-          userId: req.authUser!.id,
-        },
-        { userId: req.authUser!.id },
-      );
-      return reply.code(204).send();
     },
   );
 
@@ -241,13 +202,13 @@ export default async function echoE2eeRoutes(
       if (target === me) {
         return sendError(reply, 400, 'INVALID_BODY', 'targetUserId invalid');
       }
-      const may = await echoUsersShareDirectDm(pool, me, target);
+      const may = await echoUsersMayFetchE2eeDeviceBundle(pool, me, target);
       if (!may) {
         return sendError(
           reply,
           403,
           'FORBIDDEN',
-          'You can only fetch device bundles for users you share a direct DM with.',
+          'You can only fetch device bundles for users you share a server, DM, or group chat with.',
         );
       }
       let bundles: Awaited<ReturnType<typeof listEchoE2eePeerDeviceBundles>>;

@@ -20,7 +20,10 @@ import {
   postEchoJoinWithInviteToken,
   uploadServerBrandingFile,
 } from '@/api/echoClient';
-import { fetchEchoInvitePreview } from '@/api/echo/invitesAndDirectory';
+import {
+  fetchEchoDirectoryServerMemberHighlights,
+  fetchEchoInvitePreview,
+} from '@/api/echo/invitesAndDirectory';
 import { fetchEchoJoinApplicationPreview } from '@/api/echo/serverApplications';
 import { EchoApiError } from '@/api/echo/transport';
 import {
@@ -719,6 +722,8 @@ export function useAddServerFlow(deps: {
 
     if (resolvedGraphId) {
       const directoryRow = resolveDiscoverableDirectoryRow(entry);
+      const topMembers =
+        await fetchEchoDirectoryServerMemberHighlights(resolvedGraphId);
       const confirmPreview = buildDiscoverableJoinConfirmPreview({
         name: entryName || directoryRow?.name || 'Server',
         pfp: entryPfp || directoryRow?.pfp || '',
@@ -726,6 +731,7 @@ export function useAddServerFlow(deps: {
         description: directoryRow?.description,
         banner: directoryRow?.banner,
         voiceParticipantCount: directoryRow?.voiceParticipantCount,
+        ...(topMembers.length ? { topMembers } : {}),
       });
       const confirmed = await requestJoinServerConfirm(confirmPreview);
       if (!confirmed) return;

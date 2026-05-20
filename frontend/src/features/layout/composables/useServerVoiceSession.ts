@@ -50,6 +50,7 @@ import type {
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
 import { vcActivityPresenceKindsFromUi } from '@/features/voice/vcActivityTypes';
+import { primaryVcActivityPresenceKind } from '@/features/voice/vcActivityJoin';
 import { prepareGuildVoiceE2eeMediaKey } from '@/services/voice/voiceE2eePrepare';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 import type {
@@ -81,6 +82,7 @@ import {
   isNewerHangmanTick,
   mergeHangmanPresenceRoster,
   sanitizeHangmanActivityForMerge,
+  shouldLocalClientApplyHangmanGuess,
   validateHangmanSecretWord,
   type HangmanTick,
 } from '@/features/voice/vcHangmanReducer';
@@ -360,6 +362,23 @@ export function useServerVoiceSession(deps: {
     }
 
     applyIncomingYoutubeActivity(msg);
+    const chId = currentVoiceChannelId.value?.trim();
+    if (chId) {
+      if (msg.activityPhase === 'closed') {
+        refreshVcChannelActivitySnapshotForCurrentChannel();
+      } else {
+        touchVcChannelActivitySnapshot(
+          chId,
+          vcActivityPresenceKindsFromUi({
+            phase: msg.activityPhase,
+            youtubeVideoId: null,
+            youtubeBrowseOpen: false,
+            playlist: [],
+            currentIndex: 0,
+          }),
+        );
+      }
+    }
     if (fromOther) {
       if (msg.activityPhase === 'closed') {
         vcActivitySyncKingUserId.value = null;
@@ -410,6 +429,40 @@ export function useServerVoiceSession(deps: {
   const vcActivityPresenceByUserId = shallowRef(
     new Map<string, VcActivityPresenceKind[]>(),
   );
+  /** Last-known VC activity kinds per guild voice channel (for join-from-profile UX). */
+  const vcChannelActivityByChannelId = shallowRef(
+    new Map<string, VcActivityPresenceKind[]>(),
+  );
+
+  function touchVcChannelActivitySnapshot(
+    channelId: string,
+    kinds: readonly VcActivityPresenceKind[],
+  ) {
+    const cid = channelId.trim();
+    if (!cid) return;
+    const kind = primaryVcActivityPresenceKind(kinds);
+    const next = new Map(vcChannelActivityByChannelId.value);
+    if (kind && kind !== 'activities') {
+      next.set(cid, [...kinds]);
+    } else {
+      next.delete(cid);
+    }
+    vcChannelActivityByChannelId.value = next;
+  }
+
+  function refreshVcChannelActivitySnapshotForCurrentChannel() {
+    const chId = currentVoiceChannelId.value?.trim();
+    if (!chId || liveKitState.value !== 'connected' || isDmVoiceCallUi.value) {
+      return;
+    }
+    const ctx = findChannelContextById(chId);
+    const ids = ctx?.channel?.voiceParticipantIds ?? [];
+    const merged: VcActivityPresenceKind[] = [];
+    for (const id of ids) {
+      merged.push(...getVcActivityPresenceForUser(id));
+    }
+    touchVcChannelActivitySnapshot(chId, merged);
+  }
 
   function mergePresenceFromRemote(
     identity: string,
@@ -419,6 +472,7 @@ export function useServerVoiceSession(deps: {
     if (activities.length > 0) next.set(identity, [...activities]);
     else next.delete(identity);
     vcActivityPresenceByUserId.value = next;
+    refreshVcChannelActivitySnapshotForCurrentChannel();
   }
 
   function dropPresenceForRemote(identity: string) {
@@ -430,6 +484,7 @@ export function useServerVoiceSession(deps: {
 
   function clearAllRemotePresence() {
     vcActivityPresenceByUserId.value = new Map();
+    vcChannelActivityByChannelId.value = new Map();
   }
 
   const vcHangmanPublic = shallowRef<EchoHangmanActivityV1 | null>(null);
@@ -505,6 +560,66 @@ export function useServerVoiceSession(deps: {
     vcHangmanPendingSecretByRound.value = pn;
   }
 
+  /** Setter → roster host; retried when the host joins late or misses the first DM. */
+  function shareHangmanRoundSecretWithOrchestrator(roundSeq: number): void {
+    const self = currentUser.value?.id?.trim();
+    const st = vcHangmanPublic.value;
+    if (
+      !self ||
+      !st ||
+      st.phase !== 'guessing' ||
+      st.roundSeq !== roundSeq ||
+      self !== st.setterUserId.trim()
+    ) {
+      return;
+    }
+    const secret = vcHangmanSecretByRound.value.get(roundSeq);
+    if (!secret) return;
+    if (
+      !lkRoom ||
+      lkRoom.roomState.value !== 'connected' ||
+      isDmVoiceCallUi.value
+    ) {
+      return;
+    }
+    const roster = mergeHangmanPresenceRoster(
+      st.rosterUserIds,
+      hangmanRosterFromPresence(),
+    );
+    const orch = hangmanOrchestratorUserId(roster);
+    if (!orch || orch === self) return;
+    if (!hangmanRosterFromPresence().includes(orch)) return;
+    lkRoom.publishHangmanRoundSecret(
+      {
+        v: 1,
+        t: 'hangman_round_secret',
+        updatedAt: Date.now(),
+        roundSeq,
+        setterUserId: self,
+        secret,
+      },
+      [orch],
+    );
+  }
+
+  let hangmanSecretShareTimer: ReturnType<typeof setTimeout> | null = null;
+  let hangmanSecretShareRound = -1;
+
+  function scheduleShareHangmanRoundSecret(roundSeq: number): void {
+    if (
+      hangmanSecretShareRound === roundSeq &&
+      hangmanSecretShareTimer != null
+    ) {
+      return;
+    }
+    hangmanSecretShareRound = roundSeq;
+    if (hangmanSecretShareTimer != null) clearTimeout(hangmanSecretShareTimer);
+    hangmanSecretShareTimer = setTimeout(() => {
+      hangmanSecretShareTimer = null;
+      shareHangmanRoundSecretWithOrchestrator(roundSeq);
+    }, 350);
+  }
+
   function receiveHangmanRoundSecret(
     msg: EchoHangmanRoundSecretV1,
     fromIdentity: string,
@@ -547,6 +662,9 @@ export function useServerVoiceSession(deps: {
     vcHangmanLastTick.value = tick;
     vcHangmanPublic.value = s;
     tryMergeHangmanPendingSecretForRound(s);
+    if (s.phase === 'guessing') {
+      scheduleShareHangmanRoundSecret(s.roundSeq);
+    }
   }
 
   const hangmanHandlers: {
@@ -896,6 +1014,9 @@ export function useServerVoiceSession(deps: {
     vcHangmanLastTick.value = tick;
     vcHangmanPublic.value = next;
     tryMergeHangmanPendingSecretForRound(next);
+    if (next.phase === 'guessing') {
+      scheduleShareHangmanRoundSecret(next.roundSeq);
+    }
     lkRoom?.publishHangmanActivity(next);
   };
 
@@ -910,12 +1031,19 @@ export function useServerVoiceSession(deps: {
       st.rosterUserIds,
       hangmanRosterFromPresence(),
     );
-    const orch = hangmanOrchestratorUserId(roster);
     const presence = hangmanRosterFromPresence();
-    const orchPresent = !!(orch && presence.includes(orch));
-    const applier = orchPresent ? orch! : st.setterUserId.trim();
-    if (!applier || self !== applier) return;
     const secret = vcHangmanSecretByRound.value.get(st.roundSeq);
+    if (
+      !shouldLocalClientApplyHangmanGuess({
+        selfUserId: self,
+        setterUserId: st.setterUserId,
+        rosterSorted: roster,
+        presenceUserIds: presence,
+        hasRoundSecret: !!secret,
+      })
+    ) {
+      return;
+    }
     if (!secret) return;
     const next = computeHangmanGuessOutcome({
       secret,
@@ -1102,20 +1230,7 @@ export function useServerVoiceSession(deps: {
       roundResult: null,
       answerReveal: null,
     });
-    const orch = hangmanOrchestratorUserId(roster);
-    if (orch && orch !== self) {
-      lkRoom?.publishHangmanRoundSecret(
-        {
-          v: 1,
-          t: 'hangman_round_secret',
-          updatedAt: Date.now(),
-          roundSeq: st.roundSeq,
-          setterUserId: self,
-          secret: validated.normalized,
-        },
-        [orch],
-      );
-    }
+    scheduleShareHangmanRoundSecret(st.roundSeq);
     return null;
   }
 
@@ -1214,6 +1329,12 @@ export function useServerVoiceSession(deps: {
       return vcActivityPresenceKindsFromUi(vcActivityUi.value);
     }
     return vcActivityPresenceByUserId.value.get(userId) ?? [];
+  }
+
+  function getVcChannelActivityPresenceForChannel(
+    channelId: string,
+  ): VcActivityPresenceKind[] {
+    return vcChannelActivityByChannelId.value.get(channelId.trim()) ?? [];
   }
 
   function resolveWatchTogetherAuthor(): {
@@ -1370,6 +1491,15 @@ export function useServerVoiceSession(deps: {
     vcActivityUi,
     () => {
       if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
+      refreshVcChannelActivitySnapshotForCurrentChannel();
+    },
+    { deep: true },
+  );
+
+  watch(
+    vcActivityUi,
+    () => {
+      if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
       lkRoom?.publishVcActivityPresence({
         v: 1,
         t: 'vc_activity_presence',
@@ -1435,6 +1565,10 @@ export function useServerVoiceSession(deps: {
     }),
     () => {
       scheduleHangmanBootstrap();
+      const st = vcHangmanPublic.value;
+      if (st?.phase === 'guessing') {
+        scheduleShareHangmanRoundSecret(st.roundSeq);
+      }
     },
     { flush: 'post' },
   );
@@ -1586,13 +1720,13 @@ export function useServerVoiceSession(deps: {
     serverId: string,
     channelId: string,
   ): Promise<ArrayBuffer | null> {
-    const ctx = findChannelContextById(channelId);
-    const ch = ctx?.channel;
-    if (!ch?.voiceE2eeEnabled) return null;
     const token = authSession.accessToken?.trim() ?? '';
     const uid = currentUser.value?.id?.trim() ?? '';
     if (!token || !uid) return null;
-    let members = [...(ch.accessibleMemberUserIds ?? [])];
+    const ctx = findChannelContextById(channelId);
+    const ch = ctx?.channel;
+    if (ch && ch.type !== 'voice' && ch.type !== 'stage') return null;
+    let members = ch ? [...(ch.accessibleMemberUserIds ?? [])] : [];
     if (members.length === 0) {
       const ids = workspace.serverMemberIds.value[serverId];
       if (Array.isArray(ids)) members = [...ids];
@@ -1796,7 +1930,10 @@ export function useServerVoiceSession(deps: {
     let ch = activeChannel.value;
     // While browsing text (or another surface), keep the connected VC roster so
     // floating voice chrome and stream PiP still see LiveKit/stream state.
-    if ((!ch || (ch.type !== 'voice' && ch.type !== 'stage')) && currentVoiceId) {
+    if (
+      (!ch || (ch.type !== 'voice' && ch.type !== 'stage')) &&
+      currentVoiceId
+    ) {
       ch = findChannelContextById(currentVoiceId)?.channel ?? null;
     }
     if (!ch || (ch.type !== 'voice' && ch.type !== 'stage')) return [];
@@ -2184,6 +2321,7 @@ export function useServerVoiceSession(deps: {
     onJoinVoice,
     onLeaveVoice,
     getVcActivityPresenceForUser,
+    getVcChannelActivityPresenceForChannel,
     vcHangmanActivity: computed(() => vcHangmanPublic.value),
     hangmanRosterUserIds: computed(() => hangmanRosterFromPresence()),
     vcCodenamesActivity: computed(() => vcCodenamesPublic.value),

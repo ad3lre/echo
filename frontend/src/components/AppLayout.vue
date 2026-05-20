@@ -175,6 +175,11 @@ import type {
   GuildEventActivityCard,
 } from '@/features/layout/appLayoutLeftChromeProps';
 import { buildGuildVoiceActivityCardsForJoinedServers } from '@/features/layout/buildGuildVoiceActivityCards';
+import {
+  applyVcActivityUiPhase,
+  waitForLiveKitConnected,
+} from '@/features/voice/vcActivityJoin';
+import type { VcActivityUiPhase } from '@/features/voice/vcActivityTypes';
 import { buildGuildEventActivityCardsFromMyRsvps } from '@/features/layout/buildGuildEventActivityCards';
 import {
   COMPOSER_INSERT_USER_MENTION_KEY,
@@ -208,6 +213,7 @@ const {
   activeRailTab,
   activeVoiceChannelParticipants,
   getVcActivityPresenceForUser,
+  getVcChannelActivityPresenceForChannel,
   effectiveVcActivityKingUserId,
   liveKitState,
   liveKitNetworkStats,
@@ -711,6 +717,13 @@ const {
   commitVcHangmanWord,
   requestVcHangmanGuessLetter,
   requestVcHangmanNextRound,
+  vcTicTacToeActivity,
+  vcTicTacToePendingInvite,
+  sendVcTicTacToeChallenge,
+  respondVcTicTacToeInvite,
+  dismissVcTicTacToeInvite,
+  requestVcTicTacToeMove,
+  requestVcTicTacToeRematch,
   vcCodenamesActivity,
   codenamesRosterUserIds,
   vcCodenamesSpymasterKey,
@@ -757,11 +770,6 @@ const {
   _watchActiveChannelWithServerChange,
   welcomeBackExploreGate,
   welcomeBackExploreMemberEmptyDirectory,
-  dmE2eeEnabled,
-  enableActiveDmE2ee,
-  isE2eeDevicesModalOpen,
-  openE2eeDevicesModal,
-  onE2eePairingImportSuccess,
 } = useAppLayoutController();
 
 const themeStore = useThemeStore();
@@ -1010,25 +1018,65 @@ function navigateGuildEventOpenPayload(payload: {
   }
 }
 
+const pendingVcActivityPhaseAfterJoin = ref<VcActivityUiPhase | null>(null);
+
+const vcActivityPhaseOpeners = {
+  openVcActivityPicker,
+  openVcActivityYoutubeBrowse,
+  openVcActivityWordle,
+  openVcActivityHangman,
+  openVcActivityTicTacToe,
+  openVcActivityOpenGuessr,
+  openVcActivitySkribblIo,
+  openVcActivityGarticPhone,
+  openVcActivityKrunker,
+  openVcActivityCodenames,
+  openVcActivityRichup,
+  openVcActivityGooberDash,
+  openVcActivitySmashKarts,
+  openVcActivityBasketballStars2026,
+  openVcActivityClusterRush,
+  closeVcActivity,
+};
+
+async function followPendingVcActivityAfterJoin(
+  channelId: string,
+): Promise<void> {
+  const phase = pendingVcActivityPhaseAfterJoin.value;
+  pendingVcActivityPhaseAfterJoin.value = null;
+  if (!phase || phase === 'closed' || phase === 'pick') return;
+  const targetId = channelId.trim();
+  if (currentVoiceChannelId.value?.trim() !== targetId) return;
+  if (liveKitState.value !== 'connected') {
+    await waitForLiveKitConnected(liveKitState);
+  }
+  applyVcActivityUiPhase(phase, vcActivityPhaseOpeners);
+}
+
 function handleDmPanelJoinGuildVoiceActivity(payload: {
   serverId: string;
   channelId: string;
   channelName: string;
+  activityPhase?: VcActivityUiPhase | null;
 }) {
+  const phase = payload.activityPhase ?? null;
+  pendingVcActivityPhaseAfterJoin.value =
+    phase && phase !== 'closed' && phase !== 'pick' ? phase : null;
   isDMPanelOpen.value = false;
   openServerSurface(payload.serverId, payload.channelId);
-  void nextTick(() => {
+  void nextTick(async () => {
     if (isCompactShell.value && hasGuildChannelChrome.value) {
       openGuildMobileVcLobby({
         channelId: payload.channelId,
         channelName: payload.channelName,
       });
-    } else {
-      handleJoinVoiceIfAllowed({
-        channelId: payload.channelId,
-        channelName: payload.channelName,
-      });
+      return;
     }
+    await handleJoinVoiceIfAllowed({
+      channelId: payload.channelId,
+      channelName: payload.channelName,
+    });
+    await followPendingVcActivityAfterJoin(payload.channelId);
   });
 }
 
@@ -1078,10 +1126,13 @@ function handleGuildMobileVcLobbyJoin() {
   const lobby = guildMobileVcLobby.value;
   if (!lobby) return;
   closeGuildMobileVcLobby();
-  handleJoinVoiceIfAllowed({
-    channelId: lobby.channelId,
-    channelName: lobby.channelName,
-  });
+  void (async () => {
+    await handleJoinVoiceIfAllowed({
+      channelId: lobby.channelId,
+      channelName: lobby.channelName,
+    });
+    await followPendingVcActivityAfterJoin(lobby.channelId);
+  })();
 }
 
 function handleGuildMobileVcLobbyChat() {
@@ -1588,11 +1639,6 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   resetMemberWidth,
   effectiveActiveChannel,
   isInDMChat,
-  dmE2eeEnabled,
-  enableActiveDmE2ee,
-  isE2eeDevicesModalOpen,
-  openE2eeDevicesModal,
-  onE2eePairingImportSuccess,
   dmCallMatchesActiveChannel,
   activeDmThreadCallUi,
   isExpandedProfileSidePanel,
@@ -1825,6 +1871,13 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   commitVcHangmanWord,
   requestVcHangmanGuessLetter,
   requestVcHangmanNextRound,
+  vcTicTacToeActivity,
+  vcTicTacToePendingInvite,
+  sendVcTicTacToeChallenge,
+  respondVcTicTacToeInvite,
+  dismissVcTicTacToeInvite,
+  requestVcTicTacToeMove,
+  requestVcTicTacToeRematch,
   vcCodenamesActivity,
   codenamesRosterUserIds,
   vcCodenamesSpymasterKey,
@@ -3409,6 +3462,7 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   onSwitchCamera: switchVcCamera,
   voiceSessionParticipants: activeVoiceChannelParticipants,
   getVcActivityPresence: getVcActivityPresenceForUser,
+  getVcChannelActivityPresence: getVcChannelActivityPresenceForChannel,
   vcActivityKingUserId: effectiveVcActivityKingUserId,
   openMemberProfile,
   activeMemberProfileId: computed(() => activeMemberProfile.value?.id ?? null),

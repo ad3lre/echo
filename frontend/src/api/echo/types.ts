@@ -350,6 +350,11 @@ export type PatchEchoServerPreferencesBody = {
   applicationForm?: EchoApplicationFormDto;
 };
 
+export type EchoServerMemberHighlightDto = {
+  name: string;
+  pfp: string;
+};
+
 export type EchoInvitePreviewDto = {
   name: string;
   iconUrl: string;
@@ -361,6 +366,7 @@ export type EchoInvitePreviewDto = {
   skipsApplication?: boolean;
   applicationForm?: EchoApplicationFormDto;
   voiceChannel?: { id: string; name: string };
+  topMembers?: EchoServerMemberHighlightDto[];
 };
 
 export type EchoEmojiPackMarketSettingsApi = {

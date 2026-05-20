@@ -121,10 +121,7 @@ export function useWorkspaceModerationActions(refs: WorkspaceStateRefs) {
     const nextList = list.map((cat) => ({
       ...cat,
       channels: cat.channels.map((ch) => {
-        if (
-          ch.id !== channelId ||
-          (ch.type !== 'voice' && ch.type !== 'stage')
-        )
+        if (ch.id !== channelId || (ch.type !== 'voice' && ch.type !== 'stage'))
           return ch;
         const ids =
           (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];

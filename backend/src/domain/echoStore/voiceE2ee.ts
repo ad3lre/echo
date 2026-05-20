@@ -3,10 +3,11 @@ import { isPostgresUndefinedRelationError } from '../../db/pgErrors';
 import { liveKitRoomName } from '../../services/livekit/livekitAdapter';
 import {
   ECHO_DM_REALM_SERVER_ID,
+  isEchoGroupDmChannel,
   listEchoDmParticipantUserIds,
   userMayJoinDmLiveKitRoom,
 } from './dmThreads';
-import { assertEchoE2eeDeviceOwned, isEchoE2eeThreadEnabled } from './e2ee';
+import { assertEchoE2eeDeviceOwned } from './e2ee';
 import {
   canUserAccessChannel,
   isMemberOfServer,
@@ -63,11 +64,24 @@ export async function getEchoChannelVoiceE2eeEnabled(
   }
 }
 
+/** All DM and group-DM voice calls use LiveKit E2EE (independent of chat encryption). */
 export async function echoDmVoiceE2eeRequired(
   pool: pg.Pool,
   channelId: string,
 ): Promise<boolean> {
-  return isEchoE2eeThreadEnabled(pool, channelId);
+  const cid = channelId.trim();
+  if (!cid) return false;
+  if (await isEchoGroupDmChannel(pool, cid)) return true;
+  try {
+    const r = await pool.query(
+      `SELECT 1 FROM echo_dm_threads WHERE channel_id = $1 LIMIT 1`,
+      [cid],
+    );
+    return r.rows.length > 0;
+  } catch (e) {
+    if (isPostgresUndefinedRelationError(e)) return false;
+    throw e;
+  }
 }
 
 export async function getActiveVoiceE2eeEpoch(

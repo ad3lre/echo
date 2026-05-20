@@ -683,7 +683,9 @@ async function run(): Promise<void> {
         },
       },
     );
-    assert.equal(enableDmE2ee.status, 204, await enableDmE2ee.text());
+    const enableDmE2eeBody = await enableDmE2ee.text();
+    assert.equal(enableDmE2ee.status, 410, enableDmE2eeBody);
+    assert.match(enableDmE2eeBody, /E2EE_CHAT_REMOVED/);
 
     const e2eeStateOwner = await fetch(
       `${baseUrl}/api/v1/echo/e2ee/thread/${encodeURIComponent(dmOpen1Json.channelId)}/state`,
@@ -693,7 +695,7 @@ async function run(): Promise<void> {
     assert.equal(e2eeStateOwner.status, 200, e2eeStateOwnerBody);
     assert.equal(
       (JSON.parse(e2eeStateOwnerBody) as { enabled?: boolean }).enabled,
-      true,
+      false,
     );
 
     const dmThreads = await fetch(`${baseUrl}/api/v1/echo/dm/threads`, {

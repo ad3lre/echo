@@ -55,9 +55,7 @@ const categoryDropdownOptions = computed(() =>
   props.categoryOptions.map((o) => ({ label: o.label, value: o.id })),
 );
 
-function defaultIconForType(
-  t: 'text' | 'voice' | 'stage' | 'forum',
-): string {
+function defaultIconForType(t: 'text' | 'voice' | 'stage' | 'forum'): string {
   if (t === 'voice') return 'volumeUp';
   if (t === 'stage') return 'discordStage';
   if (t === 'forum') return 'messageAlt';

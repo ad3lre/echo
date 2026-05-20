@@ -20,6 +20,9 @@ import ProfileUserBadges from '@/components/member-profile/ProfileUserBadges.vue
 import ProfileFriendHeartBadge from '@/components/member-profile/ProfileFriendHeartBadge.vue';
 import ProfileMemberSinceInline from '@/components/member-profile/ProfileMemberSinceInline.vue';
 import ProfileVoiceActivityWidget from '@/components/member-profile/ProfileVoiceActivityWidget.vue';
+import ProfileVcActivityWidget from '@/components/member-profile/ProfileVcActivityWidget.vue';
+import { useProfileOngoingVcActivity } from '@/composables/useProfileOngoingVcActivity';
+import type { ProfileOngoingVcActivity } from '@/composables/useProfileOngoingVcActivity';
 import ProfileBioText from '@/components/member-profile/ProfileBioText.vue';
 import ProfileCustomStatusThoughtBubble from '@/components/ProfileCustomStatusThoughtBubble.vue';
 import { useUserVoiceChannelPresenceForProfile } from '@/composables/useUserVoiceChannelPresenceForProfile';
@@ -146,6 +149,10 @@ const expandedMainPresence = computed(() => {
 const voiceActivities = useUserVoiceChannelPresenceForProfile(
   () => props.profile?.id,
 );
+const ongoingVcActivity = useProfileOngoingVcActivity(
+  () => props.profile?.id,
+  voiceActivities,
+);
 
 const showFriendAction = computed(() => {
   const p = props.profile;
@@ -258,6 +265,18 @@ function handleVoiceActivityJoin(activity: UserVoiceChannelPresence) {
     serverId: activity.serverId,
     channelId: activity.channelId,
     channelName: activity.channelName,
+  });
+}
+
+function handleVcActivityJoin(activity: ProfileOngoingVcActivity) {
+  const joinHost = layoutLeft?.onDmPanelJoinGuildVoiceActivity;
+  if (!joinHost) return;
+  close();
+  joinHost({
+    serverId: activity.voice.serverId,
+    channelId: activity.voice.channelId,
+    channelName: activity.voice.channelName,
+    activityPhase: activity.phase,
   });
 }
 
@@ -632,6 +651,13 @@ function onOverlayClick() {
                   :activities="voiceActivities"
                   :joinable="canJoinVoiceActivity"
                   @join="handleVoiceActivityJoin"
+                />
+                <ProfileVcActivityWidget
+                  v-if="ongoingVcActivity"
+                  class="mt-2 w-full"
+                  :activity="ongoingVcActivity"
+                  :joinable="canJoinVoiceActivity"
+                  @join="handleVcActivityJoin"
                 />
 
                 <section

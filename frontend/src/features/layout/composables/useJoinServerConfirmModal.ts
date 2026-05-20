@@ -1,5 +1,10 @@
 import { ref } from 'vue';
 
+export type JoinServerConfirmTopMember = {
+  name: string;
+  pfp: string;
+};
+
 export type JoinServerConfirmPreview = {
   serverName: string;
   iconUrl?: string;
@@ -13,6 +18,8 @@ export type JoinServerConfirmPreview = {
   isVoiceInvite?: boolean;
   /** Explore directory: users currently in voice (social proof). */
   voiceParticipantCount?: number;
+  /** Owner + highest-role members (invite preview or directory highlights). */
+  topMembers?: JoinServerConfirmTopMember[];
 };
 
 export function useJoinServerConfirmModal() {

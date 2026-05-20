@@ -327,7 +327,11 @@ export type ChannelIconVisual =
 
 export function getChannelIconVisual(
   channel:
-    | { name: string; type?: 'text' | 'voice' | 'forum' | 'stage'; iconKey?: string }
+    | {
+        name: string;
+        type?: 'text' | 'voice' | 'forum' | 'stage';
+        iconKey?: string;
+      }
     | null
     | undefined,
 ): ChannelIconVisual {
@@ -358,7 +362,11 @@ export function getChannelIconVisual(
 
 export function getChannelIcon(
   channel:
-    | { name: string; type?: 'text' | 'voice' | 'forum' | 'stage'; iconKey?: string }
+    | {
+        name: string;
+        type?: 'text' | 'voice' | 'forum' | 'stage';
+        iconKey?: string;
+      }
     | null
     | undefined,
 ): string {

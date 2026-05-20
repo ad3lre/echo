@@ -128,9 +128,6 @@ const props = defineProps([
   'dmCallFullscreen',
   /** When set, hides this bar on DM hub surfaces so hub UIs (Friends, requests) are not covered by z-20. */
   'mainSurface',
-  'dmE2eeEnabled',
-  'enableActiveDmE2ee',
-  'openE2eeDevicesModal',
   'getLocalScreenTrack',
   'getLocalCameraTrack',
   'vcMirrorCamera',
@@ -1380,54 +1377,6 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         <span>View group</span>
       </button>
 
-      <button
-        v-if="
-          isInDMMode &&
-          isInDMChat &&
-          !isGroupDM &&
-          !dmE2eeEnabled &&
-          devModeIdsEnabled
-        "
-        type="button"
-        class="ml-1 inline-flex items-center gap-1 rounded-full border border-border bg-glass-1 px-2.5 py-1 text-[11px] font-medium text-fg-soft hover:bg-glass-hover"
-        title="Enable end-to-end encryption"
-        aria-label="Enable end-to-end encryption"
-        @click="enableActiveDmE2ee"
-      >
-        <span>Enable encryption</span>
-      </button>
-      <span
-        v-else-if="isInDMMode && isInDMChat && isGroupDM && devModeIdsEnabled"
-        class="ml-1 inline-flex items-center gap-1 rounded-full border border-border bg-glass-1 px-2.5 py-1 text-[11px] font-medium text-fg-subtle"
-        title="End-to-end encryption is only available for direct (1:1) DMs"
-      >
-        <span>E2EE: direct DMs only</span>
-      </span>
-      <span
-        v-else-if="
-          isInDMMode && isInDMChat && dmE2eeEnabled && devModeIdsEnabled
-        "
-        class="ml-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200"
-        title="End-to-end encryption enabled"
-      >
-        <span>Encrypted</span>
-      </span>
-      <button
-        v-if="
-          isInDMMode &&
-          isInDMChat &&
-          !isGroupDM &&
-          dmE2eeEnabled &&
-          devModeIdsEnabled
-        "
-        type="button"
-        class="ml-1 inline-flex items-center gap-1 rounded-full border border-border bg-glass-1 px-2.5 py-1 text-[11px] font-medium text-fg-soft hover:bg-glass-hover"
-        title="Manage encryption devices"
-        aria-label="Manage encryption devices"
-        @click="openE2eeDevicesModal"
-      >
-        <span>Devices</span>
-      </button>
       <!-- Server search: in header only when members column is collapsed on desktop. On compact shell, search lives in the members column only (avoids duplicate header + members search). -->
       <div
         v-if="

@@ -22,7 +22,7 @@ function loadDevModeIds(): boolean {
 
 /**
  * Client-only Developer Mode conveniences (e.g. copy Echo IDs, role preview tools,
- * and experimental DM E2EE UI). Not synced to the server.
+ * diagnostics). Not synced to the server.
  */
 function loadChannelPanelRuntimeStats(): boolean {
   if (typeof localStorage === 'undefined') return false;

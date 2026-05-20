@@ -19,6 +19,23 @@ describe('normalizeEchoInvitePreviewPayload', () => {
       memberCount: 3,
     });
   });
+
+  it('maps topMembers highlights', () => {
+    expect(
+      normalizeEchoInvitePreviewPayload({
+        name: 'Guild',
+        memberCount: 10,
+        topMembers: [
+          { name: ' Alice ', pfp: 'https://cdn/a.png' },
+          { name: '', pfp: 'x' },
+        ],
+      }),
+    ).toMatchObject({
+      name: 'Guild',
+      memberCount: 10,
+      topMembers: [{ name: 'Alice', pfp: 'https://cdn/a.png' }],
+    });
+  });
 });
 
 describe('normalizeEchoDirectoryServersPayload', () => {

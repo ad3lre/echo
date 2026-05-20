@@ -195,11 +195,6 @@ import {
   postEchoLeaveServer,
 } from '@/api/echoClient';
 import { postEchoOpenDm } from '@/api/echo/social';
-import {
-  postEchoE2eeDeviceRegister,
-  getEchoE2eeThreadState,
-  postEchoEnableThreadE2ee,
-} from '@/api/echo/e2ee';
 import { putEchoChannelReadState } from '@/api/echo/messages';
 import { compareEchoTimelineIds } from '@/services/domain/echoMessageReadState';
 import { resolveEchoDmWireChannelId } from '@/features/layout/resolveEchoDmWireChannelId';
@@ -214,15 +209,6 @@ import {
 } from '@/utils/controllerMissingAction';
 import { registerEchoToastQuickReplySender } from '@/features/layout/echoToastQuickReplyBridge';
 import { insertChannelMessageFromHistory } from '@/services/realtime/channelMessageAuthority';
-import {
-  listCachedE2eeEnabledChannelIds,
-  readCachedE2eeThreadState,
-  writeCachedE2eeThreadState,
-} from '@/services/e2ee/e2eeThreadStateCache';
-import {
-  buildE2eeDeviceRegistration,
-  syncEchoE2eeLocalProtocolDeviceId,
-} from '@/services/e2ee/e2eeDeviceStore';
 import { randomUuidV4 } from '@/utils/randomUuid';
 
 const ExploreView = defineAsyncComponent(
@@ -1106,6 +1092,7 @@ export function useAppLayoutController() {
     joinVoiceSession: _joinVoiceSession,
     leaveVoiceSession,
     getVcActivityPresenceForUser,
+    getVcChannelActivityPresenceForChannel,
     vcHangmanActivity,
     hangmanRosterUserIds,
     vcCodenamesActivity,
@@ -1764,25 +1751,11 @@ export function useAppLayoutController() {
     getPinnedIdsSnapshot,
   } = pinsIntegration;
 
-  async function refreshActiveDmE2eeThreadState(): Promise<void> {
-    const cid = activeChannelId.value?.trim();
-    if (!cid || !isInDMModeComputed.value) return;
-    const token = authSession.accessToken?.trim() ?? '';
-    if (!authSession.isAuthenticated || !token) return;
-    try {
-      const st = await getEchoE2eeThreadState(token, cid);
-      writeCachedE2eeThreadState(cid, st);
-    } catch {
-      /* ignore */
-    }
-  }
-
   const { hostCallbacks } = useAppLayoutRealtimeHostWiring({
     echoSession,
     liveChannelCapabilitiesRefreshKey,
     hydrateEchoFromApi,
     refreshEchoSocialFromApi,
-    refreshActiveDmE2eeThreadState,
     syncEchoPresenceFromApi,
     echoChannelHistory,
     applyEchoPresenceFromSocket,
@@ -3465,6 +3438,7 @@ export function useAppLayoutController() {
 
   const voiceSlice = useAppLayoutContextVoiceSlice({
     getVcActivityPresenceForUser,
+    getVcChannelActivityPresenceForChannel,
     effectiveVcActivityKingUserId,
     vcHangmanActivity,
     hangmanRosterUserIds,
@@ -3828,130 +3802,6 @@ export function useAppLayoutController() {
     confirmServerApplicationSubmittedFromModal,
   });
 
-  const dmE2eeEnabled = computed(() => {
-    const cid = activeChannelId.value?.trim();
-    if (!cid) return false;
-    const s = readCachedE2eeThreadState(cid);
-    return s?.enabled === true;
-  });
-
-  async function enableActiveDmE2ee(): Promise<void> {
-    if (!devModeIdsEnabled.value) return;
-    const cid = activeChannelId.value?.trim();
-    const token = authSession.accessToken?.trim() ?? '';
-    if (!authSession.isAuthenticated || !token || !cid) return;
-    if (isGroupDMComputed.value) {
-      reportPrimaryFlowFailure(
-        'e2ee.group_not_supported',
-        new Error('E2EE is only supported for direct (1:1) DMs'),
-        { channelId: cid },
-      );
-      throw new Error(
-        'End-to-end encryption is only available for direct (1:1) DM threads.',
-      );
-    }
-    const existing = readCachedE2eeThreadState(cid);
-    if (existing?.enabled === true) return;
-    try {
-      const reg = await buildE2eeDeviceRegistration(
-        authSession.backendUser?.id ?? '',
-      );
-      await postEchoE2eeDeviceRegister(token, reg);
-      await syncEchoE2eeLocalProtocolDeviceId(
-        authSession.backendUser?.id ?? '',
-        token,
-      );
-      await postEchoEnableThreadE2ee(token, cid);
-      writeCachedE2eeThreadState(cid, {
-        enabled: true,
-        mode: 'e2ee_v1',
-        keyEpoch: 1,
-        enabledAt: new Date().toISOString(),
-      });
-      const me = authSession.backendUser?.id ?? '';
-      if (me) {
-        insertChannelMessageFromHistory(cid, {
-          id: randomUuidV4(),
-          authorId: me,
-          systemMessage: true,
-          timestamp: new Date().toISOString(),
-          content: 'Encryption enabled — earlier messages are not encrypted.',
-        });
-      }
-    } catch (e) {
-      reportPrimaryFlowFailure('e2ee.enable_failed', e, { channelId: cid });
-      throw e;
-    }
-  }
-
-  async function onE2eePairingImportSuccess(): Promise<void> {
-    if (!devModeIdsEnabled.value) return;
-    const token = authSession.accessToken?.trim() ?? '';
-    if (!authSession.isAuthenticated || !token) return;
-    const reg = await buildE2eeDeviceRegistration(
-      authSession.backendUser?.id ?? '',
-    );
-    await postEchoE2eeDeviceRegister(token, reg);
-    await syncEchoE2eeLocalProtocolDeviceId(
-      authSession.backendUser?.id ?? '',
-      token,
-    );
-    const me = authSession.backendUser?.id ?? '';
-    if (!me.trim()) return;
-    const e2eeChannelIds = listCachedE2eeEnabledChannelIds();
-    for (const cid of e2eeChannelIds) {
-      insertChannelMessageFromHistory(cid, {
-        id: randomUuidV4(),
-        authorId: me,
-        systemMessage: true,
-        timestamp: new Date().toISOString(),
-        content:
-          'This device was registered for encrypted messaging on this account.',
-      });
-    }
-
-    const firstEncrypted =
-      e2eeChannelIds.find((id) => id?.trim())?.trim() ?? '';
-    const actions: AppToastAction[] = [];
-    if (firstEncrypted) {
-      actions.push({
-        id: 'open-encrypted-chat',
-        label: 'Switch to encrypted chat',
-        kind: 'primary',
-        run: () => {
-          void messageActions.handleGoToChannel(firstEncrypted);
-        },
-      });
-    }
-    actions.push({
-      id: 'manage-e2ee-devices',
-      label: 'Devices',
-      kind: 'secondary',
-      run: () => {
-        openE2eeDevicesModal();
-      },
-    });
-
-    dispatchAppToastDetail({
-      title: 'New device connected',
-      subtitle: 'End-to-end encryption is ready on this browser.',
-      message: firstEncrypted
-        ? 'Jump to an encrypted thread, or review linked devices in Settings (dev tools).'
-        : 'When you enable encryption on a DM, this device will be able to decrypt new messages.',
-      severity: 'success',
-      durationMs: 14_000,
-      leadingIconSrc: icons.shield,
-      showAutoDismissProgress: true,
-      actions,
-    });
-  }
-
-  const isE2eeDevicesModalOpen = ref(false);
-  function openE2eeDevicesModal(): void {
-    if (!devModeIdsEnabled.value) return;
-    isE2eeDevicesModalOpen.value = true;
-  }
-
   const friendshipKnownComputed = computed(
     () =>
       echoSyncCapabilities.isMockDataMode ||
@@ -4037,18 +3887,6 @@ export function useAppLayoutController() {
     dmSurface: dmSurfaceAdapter,
     profileSurface: profileSurfaceAdapter,
   });
-
-  watch(devModeIdsEnabled, (on) => {
-    if (!on) isE2eeDevicesModalOpen.value = false;
-  });
-
-  watch(
-    () => [activeChannelId.value, isInDMModeComputed.value] as const,
-    () => {
-      void refreshActiveDmE2eeThreadState();
-    },
-    { immediate: true },
-  );
 
   const context = buildAppLayoutControllerContext(
     {
@@ -4196,11 +4034,6 @@ export function useAppLayoutController() {
       isGuestUpgradeModalOpen,
       isInDMChat: isInDmThreadOrIdleMainSurface,
       isInDMMode: isInDMModeComputed,
-      dmE2eeEnabled,
-      enableActiveDmE2ee,
-      isE2eeDevicesModalOpen,
-      openE2eeDevicesModal,
-      onE2eePairingImportSuccess,
       isMemberPopoutOpen,
       isMemberProfileOpen: useComputedRefAlias(isMemberPopoutOpen),
       isMoreServersCompact,

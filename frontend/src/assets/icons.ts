@@ -385,7 +385,11 @@ export type ChannelIconVisual =
 
 export function getChannelIconVisual(
   channel:
-    | { name: string; type?: 'text' | 'voice' | 'forum' | 'stage'; iconKey?: string }
+    | {
+        name: string;
+        type?: 'text' | 'voice' | 'forum' | 'stage';
+        iconKey?: string;
+      }
     | null
     | undefined,
   lookup?: ChannelIconEmojiUrlLookup,
@@ -430,7 +434,11 @@ export function getChannelIconVisual(
  */
 export function getChannelIconKeyForEdit(
   channel:
-    | { name: string; type?: 'text' | 'voice' | 'forum' | 'stage'; iconKey?: string }
+    | {
+        name: string;
+        type?: 'text' | 'voice' | 'forum' | 'stage';
+        iconKey?: string;
+      }
     | null
     | undefined,
 ): string {
@@ -452,7 +460,11 @@ export function getChannelIconKeyForEdit(
 
 export function getChannelIcon(
   channel:
-    | { name: string; type?: 'text' | 'voice' | 'forum' | 'stage'; iconKey?: string }
+    | {
+        name: string;
+        type?: 'text' | 'voice' | 'forum' | 'stage';
+        iconKey?: string;
+      }
     | null
     | undefined,
   lookup?: ChannelIconEmojiUrlLookup,

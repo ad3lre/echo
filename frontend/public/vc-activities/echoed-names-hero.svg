@@ -1,54 +1,64 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
-    <linearGradient id="en-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0c1224"/>
-      <stop offset="45%" stop-color="#14102a"/>
-      <stop offset="100%" stop-color="#0a1818"/>
+    <linearGradient id="en-table" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1410"/>
+      <stop offset="100%" stop-color="#0f0d0b"/>
     </linearGradient>
-    <linearGradient id="en-cell-a" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1e3a5f"/>
-      <stop offset="100%" stop-color="#0f1729"/>
+    <linearGradient id="en-tile" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f0e6cc"/>
+      <stop offset="100%" stop-color="#d9c9a3"/>
     </linearGradient>
-    <linearGradient id="en-cell-b" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#5c1f2a"/>
-      <stop offset="100%" stop-color="#1a0a0e"/>
+    <linearGradient id="en-red-side" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8b1c1c"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
     </linearGradient>
-    <linearGradient id="en-cell-n" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#27272f"/>
-      <stop offset="100%" stop-color="#121218"/>
+    <linearGradient id="en-blue-side" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#2563eb"/>
     </linearGradient>
-    <radialGradient id="en-glow" cx="72%" cy="28%" r="55%">
-      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25"/>
-      <stop offset="55%" stop-color="#a78bfa" stop-opacity="0.08"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
-    </radialGradient>
-    <filter id="en-soft" x="-8%" y="-8%" width="116%" height="116%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="0.8" result="b"/>
-      <feMerge>
-        <feMergeNode in="b"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="en-shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.35"/>
     </filter>
   </defs>
-  <rect width="480" height="200" fill="url(#en-bg)"/>
-  <rect width="480" height="200" fill="url(#en-glow)"/>
-  <g transform="translate(38 36)" filter="url(#en-soft)">
-    <rect x="0" y="0" width="52" height="36" rx="6" fill="url(#en-cell-a)"/>
-    <rect x="58" y="0" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
-    <rect x="116" y="0" width="52" height="36" rx="6" fill="url(#en-cell-b)"/>
-    <rect x="174" y="0" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
-    <rect x="232" y="0" width="52" height="36" rx="6" fill="url(#en-cell-a)"/>
-    <rect x="0" y="42" width="52" height="36" rx="6" fill="url(#en-cell-b)"/>
-    <rect x="58" y="42" width="52" height="36" rx="6" fill="url(#en-cell-a)"/>
-    <rect x="116" y="42" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
-    <rect x="174" y="42" width="52" height="36" rx="6" fill="url(#en-cell-b)"/>
-    <rect x="232" y="42" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
-    <rect x="0" y="84" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
-    <rect x="58" y="84" width="52" height="36" rx="6" fill="url(#en-cell-b)"/>
-    <rect x="116" y="84" width="52" height="36" rx="6" fill="url(#en-cell-a)"/>
-    <rect x="174" y="84" width="52" height="36" rx="6" fill="url(#en-cell-n)"/>
-    <rect x="232" y="84" width="52" height="36" rx="6" fill="#0a0a12" stroke="#f472b622"/>
+  <rect width="640" height="400" fill="url(#en-table)"/>
+  <rect x="0" y="0" width="18" height="400" fill="url(#en-red-side)" opacity="0.92"/>
+  <rect x="622" y="0" width="18" height="400" fill="url(#en-blue-side)" opacity="0.92"/>
+  <g transform="translate(72 52)" filter="url(#en-shadow)">
+    <g fill="url(#en-tile)" stroke="#b8a67a" stroke-width="1.2">
+      <rect x="0" y="0" width="88" height="58" rx="5"/>
+      <rect x="96" y="0" width="88" height="58" rx="5"/>
+      <rect x="192" y="0" width="88" height="58" rx="5"/>
+      <rect x="288" y="0" width="88" height="58" rx="5"/>
+      <rect x="384" y="0" width="88" height="58" rx="5"/>
+      <rect x="0" y="66" width="88" height="58" rx="5"/>
+      <rect x="96" y="66" width="88" height="58" rx="5"/>
+      <rect x="192" y="66" width="88" height="58" rx="5"/>
+      <rect x="288" y="66" width="88" height="58" rx="5"/>
+      <rect x="384" y="66" width="88" height="58" rx="5"/>
+      <rect x="0" y="132" width="88" height="58" rx="5"/>
+      <rect x="96" y="132" width="88" height="58" rx="5"/>
+      <rect x="192" y="132" width="88" height="58" rx="5"/>
+      <rect x="288" y="132" width="88" height="58" rx="5"/>
+      <rect x="384" y="132" width="88" height="58" rx="5"/>
+      <rect x="0" y="198" width="88" height="58" rx="5"/>
+      <rect x="96" y="198" width="88" height="58" rx="5"/>
+      <rect x="192" y="198" width="88" height="58" rx="5"/>
+      <rect x="288" y="198" width="88" height="58" rx="5"/>
+      <rect x="384" y="198" width="88" height="58" rx="5"/>
+      <rect x="0" y="264" width="88" height="58" rx="5"/>
+      <rect x="96" y="264" width="88" height="58" rx="5"/>
+      <rect x="192" y="264" width="88" height="58" rx="5"/>
+      <rect x="288" y="264" width="88" height="58" rx="5"/>
+      <rect x="384" y="264" width="88" height="58" rx="5"/>
+    </g>
+    <text x="44" y="36" text-anchor="middle" fill="#1c1917" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" letter-spacing="0.06em">ORBIT</text>
+    <text x="140" y="36" text-anchor="middle" fill="#1c1917" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" letter-spacing="0.06em">ECHO</text>
+    <text x="236" y="36" text-anchor="middle" fill="#1c1917" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" letter-spacing="0.06em">PULSE</text>
+    <text x="332" y="36" text-anchor="middle" fill="#1c1917" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" letter-spacing="0.06em">DRIFT</text>
+    <text x="428" y="36" text-anchor="middle" fill="#1c1917" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" letter-spacing="0.06em">FLUX</text>
+    <rect x="384" y="264" width="88" height="58" rx="5" fill="#171717" stroke="#404040"/>
+    <text x="428" y="300" text-anchor="middle" fill="#fafafa" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="800" letter-spacing="0.08em">···</text>
   </g>
-  <text x="318" y="118" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="700" letter-spacing="-0.02em">Echoed Names</text>
-  <text x="318" y="144" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="500" letter-spacing="0.14em">VOICE TEAM GRID</text>
+  <text x="320" y="368" text-anchor="middle" fill="#f5f0e6" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="800" letter-spacing="-0.03em">Echoed Names</text>
+  <text x="320" y="388" text-anchor="middle" fill="#a8a29e" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600" letter-spacing="0.2em">TEAM WORD GRID</text>
 </svg>

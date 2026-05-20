@@ -843,7 +843,9 @@ async function confirmDeleteChannel() {
                         v-model="selectedIconKey"
                         variant="combined"
                         :channel-type="
-                          channelType === 'voice' || channelType === 'stage' ? 'voice' : 'text'
+                          channelType === 'voice' || channelType === 'stage'
+                            ? 'voice'
+                            : 'text'
                         "
                         :server-id="channelSettings?.serverId"
                       />

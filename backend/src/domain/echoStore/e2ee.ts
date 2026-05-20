@@ -1,7 +1,8 @@
 import type pg from 'pg';
 import { isPostgresUndefinedRelationError } from '../../db/pgErrors';
 import { diagnoseEchoPostMessageDenial } from './access';
-import { isEchoGroupDmChannel } from './dmThreads';
+import { echoUsersShareDirectDm, isEchoGroupDmChannel } from './dmThreads';
+import { echoUsersShareAnyServer } from './social';
 
 export type EchoE2eeDeviceUpsertInput = {
   deviceId: string;
@@ -502,6 +503,30 @@ export async function getEchoE2eeThreadState(
     if (isPostgresUndefinedRelationError(e)) return { enabled: false };
     throw e;
   }
+}
+
+/** Device bundles for LibSignal voice key distribution (not chat). */
+export async function echoUsersMayFetchE2eeDeviceBundle(
+  pool: pg.Pool,
+  viewerId: string,
+  targetId: string,
+): Promise<boolean> {
+  const me = viewerId.trim();
+  const target = targetId.trim();
+  if (!me || !target || me === target) return false;
+  if (await echoUsersShareDirectDm(pool, me, target)) return true;
+  if (await echoUsersShareAnyServer(pool, me, target)) return true;
+  const r = await pool.query(
+    `
+    SELECT 1
+    FROM echo_group_dm_members a
+    INNER JOIN echo_group_dm_members b ON a.channel_id = b.channel_id
+    WHERE a.user_id = $1 AND b.user_id = $2
+    LIMIT 1
+    `,
+    [me, target],
+  );
+  return r.rows.length > 0;
 }
 
 export async function isEchoE2eeThreadEnabled(

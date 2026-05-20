@@ -526,10 +526,7 @@ export function applyVoiceRosterDeltaToEchoSession(
         ...ch,
         voiceParticipantIds: ids.includes(userId) ? ids : [...ids, userId],
       };
-      if (
-        ch.type === 'stage' &&
-        stageSpeakerHint !== undefined
-      ) {
+      if (ch.type === 'stage' && stageSpeakerHint !== undefined) {
         const spk = { ...(ch.voiceStageSpeakerByUserId ?? {}) };
         if (stageSpeakerHint) spk[userId] = true;
         else delete spk[userId];

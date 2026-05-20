@@ -26,10 +26,10 @@
       "license": "Original SVG by Echo (generic hangman diagram motif)."
     },
     {
-      "file": "openguessr-hero.svg",
-      "kind": "echo_placeholder",
-      "sourceUrl": null,
-      "license": "Original SVG — openguessr.com returned Cloudflare challenge to server fetch; no safe direct promo URL captured."
+      "file": "openguessr-hero.jpg",
+      "kind": "official_promo",
+      "sourceUrl": "https://imgs.crazygames.com/openguessr_16x9/20250610082759/openguessr_16x9-cover?metadata=none&quality=100&width=1200&height=630&fit=crop",
+      "license": "CrazyGames-hosted OpenGuessr cover art (1200×630); trademark to respective owners."
     },
     {
       "file": "skribbl-hero.png",
@@ -77,7 +77,7 @@
       "file": "tic-tac-toe-hero.svg",
       "kind": "echo_placeholder",
       "sourceUrl": null,
-      "license": "Original SVG by Echo — Tic-Tac-Toe VC activity (generic grid motif)."
+      "license": "Original SVG by Echo — Tic-Tac-Toe VC activity (3×3 board with X/O marks)."
     },
     {
       "file": "tetris-hero.svg",

@@ -1,6 +1,6 @@
 # Voice end-to-end encryption (LiveKit-native)
 
-Echo can require **LiveKit client-side E2EE** for DM calls (when the DM thread has text E2EE enabled) and for **guild voice channels** flagged with `voiceE2eeEnabled`. Media is encrypted after encode and decrypted before decode; the SFU forwards **ciphertext** only.
+Echo uses **LiveKit client-side E2EE** for **all DM/group voice calls** and for **guild voice/stage channels** (on by default via `voice_e2ee_enabled`). Chat text is not E2EE; only voice media keys use the LibSignal envelope flow. Media is encrypted after encode and decrypted before decode; the SFU forwards **ciphertext** only.
 
 ## Version floor
 

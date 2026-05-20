@@ -234,14 +234,6 @@ export interface AppLayoutControllerContext {
   isDmUiContext: ComputedRef<boolean>;
   isGroupDM: ComputedRef<boolean>;
   isInDMChat: ComputedRef<boolean>;
-  /** True when the active DM/group-DM thread is E2EE-enabled (v1). */
-  dmE2eeEnabled: ComputedRef<boolean>;
-  /** Enable E2EE on the active DM/group-DM thread (v1). */
-  enableActiveDmE2ee: () => Promise<void>;
-  isE2eeDevicesModalOpen: Ref<boolean>;
-  openE2eeDevicesModal: () => void;
-  /** After pairing import on a new browser: register device + local system markers in E2EE threads. */
-  onE2eePairingImportSuccess: () => Promise<void>;
   dmPartnerUser: ComputedRef<any>;
   /** Live presence from socket + `/presence` batch; merge with row status in UI (see `selectPresence`). */
   presenceByUserId: Ref<Record<string, string>>;
@@ -844,6 +836,9 @@ export interface AppLayoutControllerContext {
   activeMemberNote: ComputedRef<string>;
   activeVoiceChannelParticipants: Ref<any>;
   getVcActivityPresenceForUser: (userId: string) => VcActivityPresenceKind[];
+  getVcChannelActivityPresenceForChannel: (
+    channelId: string,
+  ) => VcActivityPresenceKind[];
   /** Echo user id hosting synced VC activity (YouTube / embeds); empty when idle. */
   effectiveVcActivityKingUserId: ComputedRef<string>;
   liveKitState: ComputedRef<'idle' | 'connecting' | 'connected' | 'error'>;

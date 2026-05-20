@@ -20,6 +20,8 @@ import {
   pickWordsAndKey,
   sanitizeCodenamesActivityForMerge,
   validateRoleSetup,
+  buildSoloCodenamesRoles,
+  isCodenamesSoloRoster,
 } from '@/features/voice/vcCodenamesReducer';
 
 const ROSTER = ['alice', 'bob', 'carol', 'dave'] as const;
@@ -75,6 +77,43 @@ describe('vcCodenamesReducer', () => {
         { updatedAt: 1, revision: 2 },
       ),
     ).toBe(false);
+  });
+
+  it('validateRoleSetup allows solo spymaster for one-player roster', () => {
+    expect(isCodenamesSoloRoster(['alice'])).toBe(true);
+    const solo = buildSoloCodenamesRoles('alice');
+    expect(validateRoleSetup(['alice'], solo)).toEqual(solo);
+    const lobby = buildBootstrapLobby({
+      fromUserId: 'alice',
+      rosterUserIds: ['alice'],
+      revision: 1,
+    });
+    const withRoles = applySetupToLobby(lobby, solo, 'alice', 2);
+    expect(withRoles?.roleAssignments).toEqual(solo);
+  });
+
+  it('solo player can clue and reveal on any team turn', () => {
+    const solo = buildSoloCodenamesRoles('alice');
+    const lobby = applySetupToLobby(
+      buildBootstrapLobby({
+        fromUserId: 'alice',
+        rosterUserIds: ['alice'],
+        revision: 1,
+      }),
+      solo,
+      'alice',
+      2,
+    );
+    expect(lobby).not.toBeNull();
+    const words = Array.from({ length: 25 }, (_, i) => `W${i}`);
+    const key: EchoCodenamesAffiliationV1[] = Array(25).fill('neutral');
+    key[0] = 'red';
+    const g = applyDeal(lobby!, words, key, 'blue', 'alice', 3);
+    expect(g).not.toBeNull();
+    const clue = applyClue(g!, 'alice', 'STAR', 1, 'alice', 4);
+    expect(clue?.turnStage).toBe('await_guess');
+    const after = applyReveal(clue!, 'alice', 0, key, 'alice', 5);
+    expect(after?.cells[0]?.revealed).toBe(true);
   });
 
   it('validateRoleSetup requires two spymasters and full roster coverage', () => {

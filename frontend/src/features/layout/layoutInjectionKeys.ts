@@ -186,6 +186,10 @@ export type LayoutLeftChromeHostHandlers = {
     serverId: string;
     channelId: string;
     channelName: string;
+    /** When set, opens this activity surface after voice connects (shared game session). */
+    activityPhase?:
+      | import('@/features/voice/vcActivityTypes').VcActivityUiPhase
+      | null;
   }) => void;
   onDmRequestUpgrade: () => void;
   onDmUpdateNotificationsReadPreset?: (preset: NotificationReadPreset) => void;

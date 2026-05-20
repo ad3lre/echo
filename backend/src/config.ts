@@ -343,6 +343,14 @@ interface AppConfig {
    * Requires local upload dir or S3 upload configuration.
    */
   readonly echoDiscordImportMediaMirrorIntervalMs: number;
+  /** Interval for public status page probes (ms). 0 disables. Default 5 minutes. */
+  readonly echoStatusProbeIntervalMs: number;
+  /** HTTP(S) URL probed for the web app component (static asset). */
+  readonly echoStatusWebProbeUrl: string;
+  /** Per-probe timeout for status checks (ms). */
+  readonly echoStatusProbeTimeoutMs: number;
+  /** Days of UTC daily buckets exposed on GET /api/v1/status. */
+  readonly echoStatusHistoryDays: number;
   /** Max chat messages per user per channel per minute (socket). */
   readonly echoSocketMsgPerMinute: number;
   /** Burst: max messages per user per channel within burst window. */
@@ -1121,6 +1129,29 @@ export const config: AppConfig = {
     if (raw === undefined) return 8000;
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 8000;
+  })(),
+  echoStatusProbeIntervalMs: (() => {
+    const raw = process.env.ECHO_STATUS_PROBE_INTERVAL_MS;
+    if (raw === undefined || raw === '') return 300_000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 300_000;
+  })(),
+  echoStatusWebProbeUrl: (() => {
+    const raw = process.env.ECHO_STATUS_WEB_PROBE_URL?.trim();
+    if (raw) return raw;
+    return 'https://chat-echo.com/favicon.svg';
+  })(),
+  echoStatusProbeTimeoutMs: (() => {
+    const raw = process.env.ECHO_STATUS_PROBE_TIMEOUT_MS;
+    if (raw === undefined || raw === '') return 12_000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1000 ? n : 12_000;
+  })(),
+  echoStatusHistoryDays: (() => {
+    const raw = process.env.ECHO_STATUS_HISTORY_DAYS;
+    if (raw === undefined || raw === '') return 90;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 7 && n <= 366 ? n : 90;
   })(),
   echoSocketMsgPerMinute: (() => {
     const raw = process.env.ECHO_SOCKET_MSG_PER_MINUTE;

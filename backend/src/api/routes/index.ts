@@ -3,6 +3,7 @@ import formbody from '@fastify/formbody';
 import websocket from '@fastify/websocket';
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import healthRoutes from './health';
+import statusPageRoutes from './statusPage';
 import giphyRoutes from './giphy';
 import googleImageSearchRoutes from './googleImageSearch';
 import authRoutes from './auth';
@@ -42,6 +43,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(formbody);
 
   await fastify.register(healthRoutes, { prefix: '/api/v1' });
+  await fastify.register(statusPageRoutes, { prefix: '/api/v1' });
   await fastify.register(systemDeployCountdownRoutes, { prefix: '/api/v1' });
   await fastify.register(giphyRoutes, { prefix: '/api/v1' });
   await fastify.register(googleImageSearchRoutes, { prefix: '/api/v1' });

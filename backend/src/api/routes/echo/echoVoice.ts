@@ -864,11 +864,26 @@ export default async function echoVoiceRoutes(
       );
       if (r === 'ok') return reply.code(204).send();
       if (r === 'forbidden')
-        return sendError(reply, 403, 'FORBIDDEN', 'Not allowed to request to speak');
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Not allowed to request to speak',
+        );
       if (r === 'already_speaker')
-        return sendError(reply, 409, 'ALREADY_SPEAKER', 'You are already a speaker');
+        return sendError(
+          reply,
+          409,
+          'ALREADY_SPEAKER',
+          'You are already a speaker',
+        );
       if (r === 'already_requested')
-        return sendError(reply, 409, 'ALREADY_REQUESTED', 'Request already pending');
+        return sendError(
+          reply,
+          409,
+          'ALREADY_REQUESTED',
+          'Request already pending',
+        );
       return sendError(reply, 404, 'NOT_FOUND', 'Not in this stage channel');
     },
   );
@@ -953,7 +968,12 @@ export default async function echoVoiceRoutes(
         return reply.code(204).send();
       }
       if (r === 'forbidden')
-        return sendError(reply, 403, 'FORBIDDEN', 'Not allowed to moderate stage');
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Not allowed to moderate stage',
+        );
       return sendError(reply, 404, 'NOT_FOUND', 'Request not found');
     },
   );

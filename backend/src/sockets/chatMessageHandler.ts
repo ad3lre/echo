@@ -17,10 +17,8 @@ import {
   echoChannelExistsInDb,
   echoSendPlainTextViolatesHardFormat,
   getEchoChannelServerId,
-  isEchoE2eeThreadEnabled,
   isEchoChannelWithinForumContext,
   getEchoStore,
-  assertEchoE2eeDeviceOwned,
   selectEchoChannelMessageFormat,
 } from '../domain/echoStore';
 import { branchFromPersistedChannelRow } from './echoMessageFlow';
@@ -286,52 +284,15 @@ export function registerMessageHandler(
           return;
         }
 
-        if (enabled && pool) {
-          const threadE2eeEnabled = await isEchoE2eeThreadEnabled(
-            pool,
-            channelId,
-          );
-          if (threadE2eeEnabled && !payloadIsE2ee) {
-            emitMessageFailed(socket, {
-              code: 'VALIDATION',
-              channelId: rawChannelId,
-              clientMessageId: rawClientId,
-              detail:
-                'E2EE is enabled for this thread. Send an encrypted message payload.',
-            });
-            return;
-          }
-          if (!threadE2eeEnabled && payloadIsE2ee) {
-            emitMessageFailed(socket, {
-              code: 'VALIDATION',
-              channelId: rawChannelId,
-              clientMessageId: rawClientId,
-              detail: 'E2EE is not enabled for this thread.',
-            });
-            return;
-          }
-          if (payloadIsE2ee && e2eeSenderDeviceId) {
-            const own = await assertEchoE2eeDeviceOwned(
-              pool,
-              userId,
-              e2eeSenderDeviceId,
-            );
-            if (own !== 'ok') {
-              emitMessageFailed(socket, {
-                code:
-                  own === 'revoked'
-                    ? 'E2EE_DEVICE_REVOKED'
-                    : 'E2EE_UNKNOWN_DEVICE',
-                channelId: rawChannelId,
-                clientMessageId: rawClientId,
-                detail:
-                  own === 'revoked'
-                    ? 'This E2EE device was revoked.'
-                    : 'Unknown E2EE device for this account.',
-              });
-              return;
-            }
-          }
+        if (enabled && pool && payloadIsE2ee) {
+          emitMessageFailed(socket, {
+            code: 'VALIDATION',
+            channelId: rawChannelId,
+            clientMessageId: rawClientId,
+            detail:
+              'Encrypted chat messages are no longer supported. Voice uses end-to-end encryption by default.',
+          });
+          return;
         }
 
         if (branch === 'echo_persisted') {

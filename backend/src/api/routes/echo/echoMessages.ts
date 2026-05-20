@@ -31,8 +31,6 @@ import {
   getEchoChannelReadState,
   getEchoChannelServerId,
   getEchoMessageById,
-  assertEchoE2eeDeviceOwned,
-  isEchoE2eeThreadEnabled,
   listEchoMessages,
   listPinnedMessageIdsForChannel,
   selectEchoMessageAnchorRowForListDebug,
@@ -786,47 +784,16 @@ export default async function echoMessagesRoutes(
         e2eeEncryptionVersion,
       } = parsed.value;
 
-      const threadE2eeEnabled = await isEchoE2eeThreadEnabled(pool, channelId);
       const payloadIsE2ee =
         typeof e2eeCiphertext === 'string' && e2eeCiphertext.trim().length > 0;
-      if (threadE2eeEnabled && !payloadIsE2ee) {
+      if (payloadIsE2ee) {
         restMessageFailed('VALIDATION');
         return sendError(
           reply,
           400,
           'INVALID_BODY',
-          'E2EE is enabled for this thread. Send an encrypted message payload.',
+          'Encrypted chat messages are no longer supported. Voice uses end-to-end encryption by default.',
         );
-      }
-      if (!threadE2eeEnabled && payloadIsE2ee) {
-        restMessageFailed('VALIDATION');
-        return sendError(
-          reply,
-          400,
-          'INVALID_BODY',
-          'E2EE is not enabled for this thread.',
-        );
-      }
-
-      if (payloadIsE2ee && e2eeSenderDeviceId) {
-        const own = await assertEchoE2eeDeviceOwned(
-          pool,
-          userId,
-          e2eeSenderDeviceId,
-        );
-        if (own !== 'ok') {
-          const code =
-            own === 'revoked' ? 'E2EE_DEVICE_REVOKED' : 'E2EE_UNKNOWN_DEVICE';
-          restMessageFailed(code);
-          return sendError(
-            reply,
-            403,
-            code,
-            own === 'revoked'
-              ? 'This E2EE device was revoked.'
-              : 'Unknown E2EE device for this account.',
-          );
-        }
       }
 
       if (

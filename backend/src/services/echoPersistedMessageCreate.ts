@@ -374,32 +374,13 @@ export async function echoPersistedMessageCreateAndBroadcast(
     typeof e2eeCiphertext === 'string' && e2eeCiphertext.trim().length > 0;
 
   if (isE2ee) {
-    const e2eeHasPlainMedia = !!(
-      imageUrl ||
-      videoUrl ||
-      gif ||
-      (attachments && attachments.length > 0) ||
-      (stickers && stickers.length > 0)
-    );
-    if (e2eeHasPlainMedia) {
-      return {
-        ok: false,
-        code: 'VALIDATION',
-        clientMessageId,
-        detail:
-          'End-to-end encrypted messages cannot include stickers or plaintext media fields.',
-      };
-    }
-    const e2eeCols = await echoMessagesTableHasE2eeColumns(pool);
-    if (!e2eeCols) {
-      return {
-        ok: false,
-        code: 'E2EE_STORAGE_UNAVAILABLE',
-        clientMessageId,
-        detail:
-          'Encrypted message storage is not enabled on this database yet (missing echo_messages E2EE columns). Plain messages still work.',
-      };
-    }
+    return {
+      ok: false,
+      code: 'VALIDATION',
+      clientMessageId,
+      detail:
+        'Encrypted chat messages are no longer supported. Voice uses end-to-end encryption by default.',
+    };
   }
 
   const scopedMentions = await filterMentionsForChannelContext(

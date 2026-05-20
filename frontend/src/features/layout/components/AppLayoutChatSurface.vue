@@ -11,7 +11,6 @@ import GuildVoiceStreamPip from '@/features/layout/components/GuildVoiceStreamPi
 import AppLayoutForumSection from '@/features/layout/components/AppLayoutForumSection.vue';
 import AppLayoutDmSection from '@/features/layout/components/AppLayoutDmSection.vue';
 import AppLayoutDmSidePanel from '@/features/layout/components/AppLayoutDmSidePanel.vue';
-import E2eeDevicesModal from '@/components/e2ee/E2eeDevicesModal.vue';
 import { APP_LAYOUT_SEARCH_PANEL_KEY } from '@/features/layout/chatSurfaceContext';
 import { LAYOUT_CHAT_SURFACE_KEY } from '@/features/layout/layoutInjectionKeys';
 import {
@@ -313,11 +312,6 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
          main column only — not the DM profile rail or members column, so headers cannot
          overlap adjacent panes. `isolate` keeps call / glass stacking predictable. -->
     <div class="relative isolate flex min-h-0 min-w-0 flex-1 flex-col">
-      <E2eeDevicesModal
-        v-if="devModeIdsEnabled && !!chatCtx.isE2eeDevicesModalOpen"
-        v-model="chatCtx.isE2eeDevicesModalOpen"
-        :on-pairing-import-success="chatCtx.onE2eePairingImportSuccess"
-      />
       <div
         v-if="
           !chatCtx.isViewingVoiceChannel &&
@@ -339,8 +333,6 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :is-viewing-voice-channel="chatCtx.isViewingVoiceChannel"
         :isInDMMode="chatCtx.isInDMMode"
         :isInDMChat="chatCtx.isInDMChat"
-        :dm-e2ee-enabled="chatCtx.dmE2eeEnabled"
-        :enable-active-dm-e2ee="chatCtx.enableActiveDmE2ee"
         :active-dm-thread-call-ui="chatCtx.activeDmThreadCallUi"
         :is-expanded-profile-side-panel="chatCtx.isExpandedProfileSidePanel"
         :is-expanded-profile-modal-open="chatCtx.isExpandedProfileModalOpen"
@@ -519,6 +511,13 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :commit-vc-hangman-word="chatCtx.commitVcHangmanWord"
         :request-vc-hangman-guess-letter="chatCtx.requestVcHangmanGuessLetter"
         :request-vc-hangman-next-round="chatCtx.requestVcHangmanNextRound"
+        :vc-tic-tac-toe-activity="chatCtx.vcTicTacToeActivity"
+        :vc-tic-tac-toe-pending-invite="chatCtx.vcTicTacToePendingInvite"
+        :send-vc-tic-tac-toe-challenge="chatCtx.sendVcTicTacToeChallenge"
+        :respond-vc-tic-tac-toe-invite="chatCtx.respondVcTicTacToeInvite"
+        :dismiss-vc-tic-tac-toe-invite="chatCtx.dismissVcTicTacToeInvite"
+        :request-vc-tic-tac-toe-move="chatCtx.requestVcTicTacToeMove"
+        :request-vc-tic-tac-toe-rematch="chatCtx.requestVcTicTacToeRematch"
         :vc-codenames-activity="chatCtx.vcCodenamesActivity"
         :codenames-roster-user-ids="chatCtx.codenamesRosterUserIds"
         :vc-codenames-spymaster-key="chatCtx.vcCodenamesSpymasterKey"

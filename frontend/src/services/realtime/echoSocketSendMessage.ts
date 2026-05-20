@@ -24,9 +24,6 @@ import type {
   PollData,
   ReplyTo,
 } from '@shared/types';
-import { readCachedE2eeThreadState } from '@/services/e2ee/e2eeThreadStateCache';
-import { getOrCreateLocalE2eeDevice } from '@/services/e2ee/e2eeDeviceStore';
-import { e2eeEncryptDmPlaintext } from '@/services/e2ee/e2eeMessageCrypto';
 import type { E2eeOutboundEncryption } from '@/services/e2ee/e2eeTypes';
 
 export function createEchoSocketSendMessage(opts: {
@@ -144,76 +141,15 @@ export function createEchoSocketSendMessage(opts: {
       });
     }
 
-    const e2eeState = readCachedE2eeThreadState(channelId);
-    const e2eeEnabled = e2eeState?.enabled === true;
-
-    if (preEncryptedE2ee && e2eeEnabled) {
-      emitOutboundChatPayload(
-        '',
-        undefined,
-        replyTo,
-        undefined,
-        undefined,
-        preEncryptedE2ee,
+    if (preEncryptedE2ee) {
+      reportPrimaryFlowFailure(
+        'e2ee.chat_removed',
+        new Error('Encrypted chat messages are no longer supported.'),
+        { channelId },
       );
-      return;
-    }
-
-    if (e2eeEnabled) {
-      if (hasMedia) {
-        reportPrimaryFlowFailure(
-          'e2ee.media_not_supported',
-          new Error(
-            'Images, video, GIFs, and file attachments are not supported in encrypted DMs yet.',
-          ),
-          { channelId },
-        );
-        throw new Error(
-          'This encrypted conversation only supports plain text for now. Remove media and try again.',
-        );
-      }
-      void (async () => {
-        try {
-          const uid = opts.getAuthorId()?.trim();
-          if (!uid) throw new Error('Missing author id for E2EE');
-          const peerUserId = opts.getDmPeerUserId?.(channelId)?.trim();
-          if (!peerUserId) {
-            reportPrimaryFlowFailure(
-              'e2ee.peer_missing',
-              new Error('Direct DM peer is required for E2EE in this build'),
-              { channelId },
-            );
-            return;
-          }
-          const dev = await getOrCreateLocalE2eeDevice(
-            uid,
-            opts.getAccessToken?.(),
-          );
-          const enc = await e2eeEncryptDmPlaintext({
-            viewerUserId: uid,
-            peerUserId,
-            plaintext: content,
-            senderDeviceId: dev.deviceId,
-            authToken: opts.getAccessToken?.(),
-          });
-          emitOutboundChatPayload(
-            '',
-            undefined,
-            replyTo,
-            undefined,
-            undefined,
-            enc,
-          );
-        } catch (e) {
-          reportPrimaryFlowFailure(
-            'e2ee.encrypt_failed',
-            e instanceof Error ? e : new Error(String(e)),
-            { channelId },
-          );
-          throw e;
-        }
-      })();
-      return;
+      throw new Error(
+        'Encrypted chat messages are no longer supported. Voice uses end-to-end encryption by default.',
+      );
     }
 
     runChunkedOrSingleOutboundChatSend({

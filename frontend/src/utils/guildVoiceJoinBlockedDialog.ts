@@ -27,6 +27,12 @@ export function voiceJoinDeniedModalTitle(body: ApiErrorBody): string {
   if (d === 'VOICE_CHANNEL_NOT_FOUND') {
     return 'Voice channel unavailable';
   }
+  if (
+    c === 'VOICE_E2EE_EPOCH_REQUIRED' ||
+    c === 'VOICE_E2EE_ENVELOPE_MISSING'
+  ) {
+    return 'Voice encryption setup failed';
+  }
   return 'Could not join voice';
 }
 

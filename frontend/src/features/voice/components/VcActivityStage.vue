@@ -32,6 +32,8 @@ import type {
   EchoCodenamesAffiliationV1,
   EchoCodenamesRoleAssignmentV1,
   EchoHangmanActivityV1,
+  EchoTicTacToeActivityV1,
+  EchoTicTacToeInviteV1,
   EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -48,6 +50,7 @@ import {
 } from '@/features/voice/vcActivityTypes';
 import VcWordlineActivity from '@/features/voice/components/VcWordlineActivity.vue';
 import VcHangmanGame from '@/features/voice/components/VcHangmanGame.vue';
+import VcTicTacToeActivity from '@/features/voice/components/VcTicTacToeActivity.vue';
 import VcCodenamesGame from '@/features/voice/components/VcCodenamesGame.vue';
 import {
   useVcYoutubeWatchTogetherPlayer,
@@ -250,8 +253,21 @@ const props = withDefaults(
     commitVcHangmanWord: (raw: string) => string | null;
     requestVcHangmanGuessLetter: (letter: string) => void;
     requestVcHangmanNextRound: () => void;
+    vcTicTacToeActivity: MaybeRef<EchoTicTacToeActivityV1 | null>;
+    vcTicTacToePendingInvite: MaybeRef<EchoTicTacToeInviteV1 | null>;
+    sendVcTicTacToeChallenge: (toUserId: string) => void;
+    respondVcTicTacToeInvite: (accept: boolean) => void;
+    dismissVcTicTacToeInvite: () => void;
+    requestVcTicTacToeMove: (cellIndex: number) => void;
+    requestVcTicTacToeRematch: () => void;
+    liveKitConnected?: MaybeRef<boolean>;
     activeVoiceChannelParticipants?: MaybeRef<
-      readonly { id: string; name: string; pfp?: string }[]
+      readonly {
+        id: string;
+        name: string;
+        pfp?: string;
+        activityPresence?: readonly string[];
+      }[]
     >;
     vcCodenamesActivity: MaybeRef<EchoCodenamesActivityV1 | null>;
     codenamesRosterUserIds: MaybeRef<readonly string[]>;
@@ -287,8 +303,13 @@ const props = withDefaults(
     channelPanelCollapsed: false,
     isCompactShell: false,
     activeVoiceChannelParticipants: () => [],
+    liveKitConnected: false,
   },
 );
+
+const tttActivity = computed(() => unref(props.vcTicTacToeActivity));
+const tttPendingInvite = computed(() => unref(props.vcTicTacToePendingInvite));
+const tttLiveKitConnected = computed(() => !!unref(props.liveKitConnected));
 
 const hmActivity = computed(() => unref(props.vcHangmanActivity));
 const hmRoster = computed(() => [...(unref(props.hangmanRosterUserIds) ?? [])]);
@@ -298,6 +319,16 @@ const hangmanVoiceParticipants = computed(() => {
     id: p.id,
     name: p.name,
     pfp: p.pfp ?? '',
+  }));
+});
+
+const ticTacToeVoiceParticipants = computed(() => {
+  const rows = unref(props.activeVoiceChannelParticipants) ?? [];
+  return rows.map((p) => ({
+    id: p.id,
+    name: p.name,
+    pfp: p.pfp ?? '',
+    activityPresence: p.activityPresence ?? [],
   }));
 });
 
@@ -532,6 +563,7 @@ const activityRegionLabel = computed(() => {
   if (p === 'pick') return 'Voice activities';
   if (p === 'wordle') return 'Wordle';
   if (p === 'hangman') return 'Hangman';
+  if (p === 'tic_tac_toe') return 'Tic Tac Echo';
   if (p === 'codenames') return 'Echoed Names';
   if (isVcIframeEmbedPhase(p)) return vcIframeEmbedTitle(p);
   return 'YouTube watch together';
@@ -542,6 +574,7 @@ const showVcFullscreenControl = computed(
     st.value.phase === 'youtube' ||
     st.value.phase === 'wordle' ||
     st.value.phase === 'hangman' ||
+    st.value.phase === 'tic_tac_toe' ||
     st.value.phase === 'codenames' ||
     isVcIframeEmbedPhase(st.value.phase),
 );
@@ -877,7 +910,11 @@ function onKeydownRoot(e: KeyboardEvent) {
     } else {
       props.openVcActivityPicker();
     }
-  } else if (st.value.phase === 'wordle' || st.value.phase === 'hangman') {
+  } else if (
+    st.value.phase === 'wordle' ||
+    st.value.phase === 'hangman' ||
+    st.value.phase === 'tic_tac_toe'
+  ) {
     props.openVcActivityPicker();
   } else if (isVcIframeEmbedPhase(st.value.phase)) {
     props.openVcActivityPicker();
@@ -891,6 +928,7 @@ function headerBack() {
     st.value.phase === 'youtube' ||
     st.value.phase === 'wordle' ||
     st.value.phase === 'hangman' ||
+    st.value.phase === 'tic_tac_toe' ||
     isVcIframeEmbedPhase(st.value.phase)
   ) {
     props.openVcActivityPicker();
@@ -1929,6 +1967,26 @@ watch(
       />
     </div>
 
+    <!-- Tic Tac Echo (CPU + voice PvP) -->
+    <div
+      v-else-if="st.phase === 'tic_tac_toe'"
+      class="custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
+    >
+      <VcTicTacToeActivity
+        class="min-h-0 min-w-0 flex-1"
+        :current-user-id="currentUserId ?? ''"
+        :live-kit-connected="tttLiveKitConnected"
+        :voice-participants="ticTacToeVoiceParticipants"
+        :pvp-activity="tttActivity"
+        :pending-invite="tttPendingInvite"
+        :send-challenge="props.sendVcTicTacToeChallenge"
+        :respond-invite="props.respondVcTicTacToeInvite"
+        :dismiss-invite="props.dismissVcTicTacToeInvite"
+        :request-move="props.requestVcTicTacToeMove"
+        :request-rematch="props.requestVcTicTacToeRematch"
+      />
+    </div>
+
     <!-- Echoed Names (voice-synced Codenames-style game) -->
     <div
       v-else-if="st.phase === 'codenames'"
@@ -2538,8 +2596,8 @@ watch(
 }
 
 .vc-act-widget--echoed-names {
-  --vc-act-a1: #0e7490;
-  --vc-act-a2: #6d28d9;
+  --vc-act-a1: #b91c1c;
+  --vc-act-a2: #1d4ed8;
   background:
     radial-gradient(
       100% 100% at 0% 0%,
@@ -2559,7 +2617,7 @@ watch(
   border-color: color-mix(in srgb, var(--vc-act-a1) 22%, var(--border));
 }
 .vc-act-widget--echoed-names .vc-act-widget__media {
-  background: linear-gradient(145deg, #071218 0%, #100a1a 50%, #0a1218 100%);
+  background: linear-gradient(145deg, #1a1410 0%, #14110e 45%, #0f172a 100%);
 }
 .vc-act-widget--echoed-names:hover {
   border-color: color-mix(in srgb, var(--vc-act-a1) 36%, var(--border));
@@ -2831,24 +2889,24 @@ watch(
   background:
     radial-gradient(
       100% 100% at 0% 0%,
-      color-mix(in srgb, #a5f3fc 50%, transparent) 0%,
+      color-mix(in srgb, #fecaca 55%, transparent) 0%,
       transparent 46%
     ),
     radial-gradient(
       100% 100% at 100% 100%,
-      color-mix(in srgb, #ddd6fe 48%, transparent) 0%,
+      color-mix(in srgb, #bfdbfe 50%, transparent) 0%,
       transparent 46%
     ),
     linear-gradient(
       175deg,
       var(--elevated) 0%,
-      color-mix(in srgb, var(--elevated) 96%, #f8fafc) 100%
+      color-mix(in srgb, var(--elevated) 96%, #fafaf9) 100%
     );
 }
 :global(html[data-theme='light'])
   .vc-act-widget--echoed-names
   .vc-act-widget__media {
-  background: linear-gradient(145deg, #ecfeff 0%, #f5f3ff 50%, #f8fafc 100%);
+  background: linear-gradient(145deg, #fef2f2 0%, #f8fafc 50%, #eff6ff 100%);
 }
 
 :global(html[data-theme='light']) .vc-act-widget--richup {
@@ -3150,10 +3208,10 @@ watch(
 }
 
 .vc-act-header--echoed-names {
-  border-bottom-color: color-mix(in srgb, #0891b2 26%, var(--border));
+  border-bottom-color: color-mix(in srgb, #b91c1c 22%, var(--border));
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--elevated) 88%, #050f14) 0%,
+    color-mix(in srgb, var(--elevated) 88%, #140a0c) 0%,
     var(--elevated) 100%
   );
 }
@@ -3266,10 +3324,10 @@ watch(
 }
 
 [data-theme='light'] .vc-act-header--echoed-names {
-  border-bottom-color: color-mix(in srgb, #06b6d4 22%, var(--border));
+  border-bottom-color: color-mix(in srgb, #dc2626 18%, var(--border));
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--elevated) 96%, #ecfeff) 0%,
+    color-mix(in srgb, var(--elevated) 96%, #fef2f2) 0%,
     var(--elevated) 100%
   );
 }

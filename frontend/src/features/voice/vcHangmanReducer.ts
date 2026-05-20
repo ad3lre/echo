@@ -97,8 +97,23 @@ export function computeHangmanGuessOutcome(opts: {
   return { guessedLetters, wrongCount, mask: lastMask, status, answerReveal };
 }
 
-/** Drop spoofed guesser ids not on the roster (empty = legacy / unknown). */
-export function normalizeHangmanGuessHistoryForRoster(
+/** First occurrence wins — matches deduped {@link dedupeHangmanGuessedLettersPreservingOrder}. */
+export function dedupeHangmanGuessedLettersPreservingOrder(
+  raw: readonly string[],
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const x of raw) {
+    const u = String(x).toUpperCase();
+    if (!/^[A-Z]$/.test(u) || seen.has(u)) continue;
+    seen.add(u);
+    out.push(u);
+  }
+  return out;
+}
+
+/** Map first history row per letter onto deduped guess order (empty userId = unknown). */
+export function alignHangmanGuessHistoryToLetters(
   guessedLetters: readonly string[],
   rawHistory: unknown,
   rosterSorted: readonly string[],
@@ -106,30 +121,38 @@ export function normalizeHangmanGuessHistoryForRoster(
   const roster = new Set(
     rosterSorted.map((x) => String(x).trim()).filter(Boolean),
   );
-  if (
-    !Array.isArray(rawHistory) ||
-    rawHistory.length !== guessedLetters.length
-  ) {
-    return guessedLetters.map((letter) => ({ userId: '', letter }));
-  }
-  const out: EchoHangmanGuessHistoryEntryV1[] = [];
-  for (let i = 0; i < guessedLetters.length; i++) {
-    const row = rawHistory[i];
-    const L = guessedLetters[i]!;
-    if (!row || typeof row !== 'object') {
-      return guessedLetters.map((letter) => ({ userId: '', letter }));
+  const firstByLetter = new Map<string, EchoHangmanGuessHistoryEntryV1>();
+  if (Array.isArray(rawHistory)) {
+    for (const row of rawHistory) {
+      if (!row || typeof row !== 'object') continue;
+      const uidRaw = (row as { userId?: unknown }).userId;
+      const chRaw = (row as { letter?: unknown }).letter;
+      const letter =
+        typeof chRaw === 'string' ? chRaw.trim().toUpperCase() : '';
+      if (!/^[A-Z]$/.test(letter) || firstByLetter.has(letter)) continue;
+      let userId =
+        typeof uidRaw === 'string' ? uidRaw.trim().slice(0, 128) : '';
+      if (userId && !roster.has(userId)) userId = '';
+      firstByLetter.set(letter, { userId, letter });
     }
-    const uidRaw = (row as { userId?: unknown }).userId;
-    const chRaw = (row as { letter?: unknown }).letter;
-    let userId = typeof uidRaw === 'string' ? uidRaw.trim().slice(0, 128) : '';
-    const letter = typeof chRaw === 'string' ? chRaw.trim().toUpperCase() : '';
-    if (!/^[A-Z]$/.test(letter) || letter !== L) {
-      return guessedLetters.map((l) => ({ userId: '', letter: l }));
-    }
-    if (userId && !roster.has(userId)) userId = '';
-    out.push({ userId, letter: L });
   }
-  return out;
+  return guessedLetters.map((letter) => {
+    const hit = firstByLetter.get(letter);
+    return hit ?? { userId: '', letter };
+  });
+}
+
+/** @deprecated Use {@link alignHangmanGuessHistoryToLetters} — kept for call-site clarity. */
+export function normalizeHangmanGuessHistoryForRoster(
+  guessedLetters: readonly string[],
+  rawHistory: unknown,
+  rosterSorted: readonly string[],
+): EchoHangmanGuessHistoryEntryV1[] {
+  return alignHangmanGuessHistoryToLetters(
+    guessedLetters,
+    rawHistory,
+    rosterSorted,
+  );
 }
 
 export function mergeHangmanPresenceRoster(
@@ -187,12 +210,11 @@ export function sanitizeHangmanActivityForMerge(
   if (msg.phase === 'guessing') {
     if (typeof msg.mask !== 'string' || !msg.mask.length) return null;
     const guessedLettersRaw = Array.isArray(msg.guessedLetters)
-      ? msg.guessedLetters
-          .map((x) => String(x).toUpperCase())
-          .filter((x) => /^[A-Z]$/.test(x))
+      ? msg.guessedLetters.map((x) => String(x).toUpperCase())
       : [];
-    const guessedLetters = [...new Set(guessedLettersRaw)];
-    const guessHistory = normalizeHangmanGuessHistoryForRoster(
+    const guessedLetters =
+      dedupeHangmanGuessedLettersPreservingOrder(guessedLettersRaw);
+    const guessHistory = alignHangmanGuessHistoryToLetters(
       guessedLetters,
       msg.guessHistory,
       rosterSorted,
@@ -222,12 +244,11 @@ export function sanitizeHangmanActivityForMerge(
       typeof msg.answerReveal === 'string' ? msg.answerReveal.trim() : '';
     if (rr === 'lost' && !ar) return null;
     const guessedLettersRaw = Array.isArray(msg.guessedLetters)
-      ? msg.guessedLetters
-          .map((x) => String(x).toUpperCase())
-          .filter((x) => /^[A-Z]$/.test(x))
+      ? msg.guessedLetters.map((x) => String(x).toUpperCase())
       : [];
-    const guessedLetters = [...new Set(guessedLettersRaw)];
-    const guessHistory = normalizeHangmanGuessHistoryForRoster(
+    const guessedLetters =
+      dedupeHangmanGuessedLettersPreservingOrder(guessedLettersRaw);
+    const guessHistory = alignHangmanGuessHistoryToLetters(
       guessedLetters,
       msg.guessHistory,
       rosterSorted,
@@ -269,7 +290,30 @@ export function coerceHangmanActivityToLocalRoster(
     msg.rosterUserIds,
     localPresenceRosterSorted,
   );
+  const msgSetter = msg.setterUserId.trim();
+  // During an active round, keep the authoritative setter from the snapshot so
+  // roster/presence churn does not hide the keyboard or reject remote updates.
   const setter =
-    expectedSetterForRound(merged, msg.roundSeq) ?? msg.setterUserId;
+    msg.phase !== 'setter_picking' && msgSetter && merged.includes(msgSetter)
+      ? msgSetter
+      : (expectedSetterForRound(merged, msg.roundSeq) ?? msgSetter);
   return { ...msg, rosterUserIds: merged, setterUserId: setter };
+}
+
+/** Who on this client should apply incoming guess intents (must hold round secret). */
+export function shouldLocalClientApplyHangmanGuess(opts: {
+  selfUserId: string;
+  setterUserId: string;
+  rosterSorted: readonly string[];
+  presenceUserIds: readonly string[];
+  hasRoundSecret: boolean;
+}): boolean {
+  const self = opts.selfUserId.trim();
+  if (!self || !opts.hasRoundSecret) return false;
+  const setter = opts.setterUserId.trim();
+  const orch = hangmanOrchestratorUserId(opts.rosterSorted);
+  const orchPresent = !!(orch && opts.presenceUserIds.includes(orch));
+  if (orchPresent && orch === self) return true;
+  if (!orchPresent && setter === self) return true;
+  return false;
 }

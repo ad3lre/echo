@@ -394,6 +394,7 @@ onMounted(() => {
     :subtitle="m.joinServerConfirmPreview?.subtitle"
     :is-voice-invite="m.joinServerConfirmPreview?.isVoiceInvite === true"
     :voice-participant-count="m.joinServerConfirmPreview?.voiceParticipantCount"
+    :top-members="m.joinServerConfirmPreview?.topMembers"
     :busy="m.joinServerConfirmBusy === true"
     @update:model-value="m.onUpdateJoinServerConfirmModal"
     @confirm="m.onJoinServerConfirmModalConfirm"

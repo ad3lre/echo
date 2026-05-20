@@ -1,4 +1,4 @@
-import { echoFetch } from '@/api/echo/transport';
+import { EchoApiError, echoFetch } from '@/api/echo/transport';
 import { getOrCreateLocalE2eeDevice } from '@/services/e2ee/e2eeDeviceStore';
 import {
   e2eeDecryptIncomingDmBytes,
@@ -122,6 +122,47 @@ function toArrayBuffer(u: Uint8Array): ArrayBuffer {
   ) as ArrayBuffer;
 }
 
+/** Server returns 403 when voice E2EE is disabled for the channel/thread. */
+function isVoiceE2eeNotEnabledOnServer(err: unknown): boolean {
+  return err instanceof EchoApiError && err.status === 403;
+}
+
+async function postVoiceE2eeEpochOrSkip(
+  post: () => Promise<void>,
+): Promise<'posted' | 'skipped'> {
+  try {
+    await post();
+    return 'posted';
+  } catch (e) {
+    if (isVoiceE2eeNotEnabledOnServer(e)) return 'skipped';
+    throw e;
+  }
+}
+
+/**
+ * When an active epoch exists, decrypt the viewer's envelope if present.
+ * Returns null if there is no active epoch yet.
+ */
+async function decryptVoiceE2eeMediaKeyFromActiveEpoch(opts: {
+  res: EchoVoiceE2eeEnvelopesResponse;
+  viewerUserId: string;
+  senderDeviceId: string;
+}): Promise<ArrayBuffer | null> {
+  const { res, viewerUserId, senderDeviceId } = opts;
+  if (!res.epochId || !res.createdByUserId) return null;
+  const mine = res.envelopes.find(
+    (e) => e.recipientDeviceId === senderDeviceId,
+  );
+  if (!mine) return null;
+  const pt = await e2eeDecryptIncomingDmBytes({
+    viewerUserId,
+    authorUserId: res.createdByUserId,
+    envelope: mine.envelope ?? { protocol: 'libsignal-v1' },
+    ciphertext: mine.ciphertext,
+  });
+  return toArrayBuffer(pt);
+}
+
 /**
  * Returns raw 32-byte material for {@link ExternalE2EEKeyProvider#setKey} (HKDF path).
  */
@@ -130,43 +171,37 @@ export async function prepareDmVoiceE2eeMediaKey(opts: {
   token: string;
   viewerUserId: string;
   memberUserIds: string[];
-  threadE2eeEnabled: boolean;
 }): Promise<ArrayBuffer | null> {
-  if (!opts.threadE2eeEnabled) return null;
   const dev = await getOrCreateLocalE2eeDevice(opts.viewerUserId, opts.token);
   const senderDeviceId = dev.deviceId;
 
   const peers = opts.memberUserIds.filter((u) => u !== opts.viewerUserId);
   if (peers.length === 0) {
     const seed = randomBytes32();
-    await postDmVoiceE2eeEpoch(opts.token, opts.channelId, {
-      epochId: crypto.randomUUID(),
-      envelopes: [],
-    });
-    return toArrayBuffer(seed);
+    const posted = await postVoiceE2eeEpochOrSkip(() =>
+      postDmVoiceE2eeEpoch(opts.token, opts.channelId, {
+        epochId: crypto.randomUUID(),
+        envelopes: [],
+      }),
+    );
+    return posted === 'posted' ? toArrayBuffer(seed) : null;
   }
 
   const res = await fetchDmVoiceE2eeEnvelopes(opts.token, opts.channelId);
-  if (res.epochId && res.envelopes.length > 0 && res.createdByUserId) {
-    const mine = res.envelopes.find(
-      (e) => e.recipientDeviceId === senderDeviceId,
+  const fromEpoch = await decryptVoiceE2eeMediaKeyFromActiveEpoch({
+    res,
+    viewerUserId: opts.viewerUserId,
+    senderDeviceId,
+  });
+  if (fromEpoch) return fromEpoch;
+  if (res.epochId && res.envelopes.length > 0) {
+    throw new Error(
+      'Voice E2EE: active epoch exists but no envelope for this device. ' +
+        'The epoch creator must include all participant devices.',
     );
-    if (!mine) {
-      throw new Error(
-        'Voice E2EE: active epoch exists but no envelope for this device. ' +
-          'The epoch creator must include all participant devices.',
-      );
-    }
-    const pt = await e2eeDecryptIncomingDmBytes({
-      viewerUserId: opts.viewerUserId,
-      authorUserId: res.createdByUserId,
-      envelope: mine.envelope ?? { protocol: 'libsignal-v1' },
-      ciphertext: mine.ciphertext,
-    });
-    return toArrayBuffer(pt);
   }
 
-  // No active epoch — this client becomes the epoch creator.
+  // No usable epoch — this client becomes the epoch creator (or rotates).
   const seed = randomBytes32();
   const epochId = crypto.randomUUID();
   const envelopes: Array<{
@@ -194,13 +229,13 @@ export async function prepareDmVoiceE2eeMediaKey(opts: {
     });
   }
 
-  await postDmVoiceE2eeEpoch(opts.token, opts.channelId, {
-    epochId,
-    envelopes,
-  });
-  // The creator already holds the seed — no need to re-fetch and attempt to decrypt
-  // a peer's envelope (which would always fail because we never self-encrypt).
-  return toArrayBuffer(seed);
+  const posted = await postVoiceE2eeEpochOrSkip(() =>
+    postDmVoiceE2eeEpoch(opts.token, opts.channelId, {
+      epochId,
+      envelopes,
+    }),
+  );
+  return posted === 'posted' ? toArrayBuffer(seed) : null;
 }
 
 export async function prepareGuildVoiceE2eeMediaKey(opts: {
@@ -210,18 +245,21 @@ export async function prepareGuildVoiceE2eeMediaKey(opts: {
   viewerUserId: string;
   memberUserIds: string[];
 }): Promise<ArrayBuffer | null> {
-  if (opts.memberUserIds.length === 0) return null;
+  const memberUserIds =
+    opts.memberUserIds.length > 0 ? opts.memberUserIds : [opts.viewerUserId];
   const dev = await getOrCreateLocalE2eeDevice(opts.viewerUserId, opts.token);
   const senderDeviceId = dev.deviceId;
 
-  const peers = opts.memberUserIds.filter((u) => u !== opts.viewerUserId);
+  const peers = memberUserIds.filter((u) => u !== opts.viewerUserId);
   if (peers.length === 0) {
     const seed = randomBytes32();
-    await postGuildVoiceE2eeEpoch(opts.token, opts.serverId, opts.channelId, {
-      epochId: crypto.randomUUID(),
-      envelopes: [],
-    });
-    return toArrayBuffer(seed);
+    const posted = await postVoiceE2eeEpochOrSkip(() =>
+      postGuildVoiceE2eeEpoch(opts.token, opts.serverId, opts.channelId, {
+        epochId: crypto.randomUUID(),
+        envelopes: [],
+      }),
+    );
+    return posted === 'posted' ? toArrayBuffer(seed) : null;
   }
 
   const res = await fetchGuildVoiceE2eeEnvelopes(
@@ -229,26 +267,20 @@ export async function prepareGuildVoiceE2eeMediaKey(opts: {
     opts.serverId,
     opts.channelId,
   );
-  if (res.epochId && res.envelopes.length > 0 && res.createdByUserId) {
-    const mine = res.envelopes.find(
-      (e) => e.recipientDeviceId === senderDeviceId,
+  const fromEpoch = await decryptVoiceE2eeMediaKeyFromActiveEpoch({
+    res,
+    viewerUserId: opts.viewerUserId,
+    senderDeviceId,
+  });
+  if (fromEpoch) return fromEpoch;
+  if (res.epochId && res.envelopes.length > 0) {
+    throw new Error(
+      'Voice E2EE: active epoch exists but no envelope for this device. ' +
+        'The epoch creator must include all participant devices.',
     );
-    if (!mine) {
-      throw new Error(
-        'Voice E2EE: active epoch exists but no envelope for this device. ' +
-          'The epoch creator must include all participant devices.',
-      );
-    }
-    const pt = await e2eeDecryptIncomingDmBytes({
-      viewerUserId: opts.viewerUserId,
-      authorUserId: res.createdByUserId,
-      envelope: mine.envelope ?? { protocol: 'libsignal-v1' },
-      ciphertext: mine.ciphertext,
-    });
-    return toArrayBuffer(pt);
   }
 
-  // No active epoch — this client becomes the epoch creator.
+  // No usable epoch — this client becomes the epoch creator (or rotates).
   const seed = randomBytes32();
   const epochId = crypto.randomUUID();
   const envelopes: Array<{
@@ -276,10 +308,11 @@ export async function prepareGuildVoiceE2eeMediaKey(opts: {
     });
   }
 
-  await postGuildVoiceE2eeEpoch(opts.token, opts.serverId, opts.channelId, {
-    epochId,
-    envelopes,
-  });
-  // Creator already holds the seed — no round-trip needed.
-  return toArrayBuffer(seed);
+  const posted = await postVoiceE2eeEpochOrSkip(() =>
+    postGuildVoiceE2eeEpoch(opts.token, opts.serverId, opts.channelId, {
+      epochId,
+      envelopes,
+    }),
+  );
+  return posted === 'posted' ? toArrayBuffer(seed) : null;
 }

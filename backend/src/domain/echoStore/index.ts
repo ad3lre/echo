@@ -327,6 +327,7 @@ export {
 export {
   assertEchoE2eeDeviceOwned,
   createEchoE2eePairingSession,
+  echoUsersMayFetchE2eeDeviceBundle,
   enableEchoE2eeForDmThread,
   getEchoE2eePairingStateForUser,
   getEchoE2eePeerDeviceBundle,
@@ -388,6 +389,12 @@ export {
   type JoinEchoDirectoryResult,
   type UpdateEchoServerPreferencesResult,
 } from './servers';
+
+export {
+  listEchoDirectoryServerMemberHighlights,
+  listEchoServerMemberHighlights,
+  type EchoServerMemberHighlight,
+} from './memberHighlights';
 
 export {
   approveEchoServerApplication,

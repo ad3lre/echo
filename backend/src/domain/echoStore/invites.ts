@@ -5,6 +5,10 @@ import {
   parseEchoApplicationFormFromDb,
   type EchoApplicationForm,
 } from './applicationForm';
+import {
+  listEchoServerMemberHighlights,
+  type EchoServerMemberHighlight,
+} from './memberHighlights';
 
 function genInviteCode(): string {
   return randomBytes(8).toString('hex');
@@ -124,6 +128,8 @@ export type EchoInvitePreview = {
   applicationForm?: EchoApplicationForm;
   /** When `voiceChannelId` was requested and valid on this server. */
   voiceChannel?: { id: string; name: string };
+  /** Owner + highest-role members for pre-join social proof. */
+  topMembers?: EchoServerMemberHighlight[];
 };
 
 export async function getEchoInvitePreview(
@@ -169,8 +175,15 @@ export async function getEchoInvitePreview(
       ? { applicationForm: echoApplicationFormForClient(formRaw) }
       : {}),
   };
+  const highlights = await listEchoServerMemberHighlights(
+    pool,
+    joinCtx.serverId,
+  );
+  const withHighlights: EchoInvitePreview =
+    highlights.length > 0 ? { ...base, topMembers: highlights } : base;
+
   const vcId = typeof voiceChannelId === 'string' ? voiceChannelId.trim() : '';
-  if (!vcId) return base;
+  if (!vcId) return withHighlights;
   const ch = await pool.query(
     `SELECT ch.id, ch.name FROM echo_channels ch
      WHERE ch.id = $1 AND ch.server_id = $2 AND ch.type = 'voice'
@@ -195,9 +208,9 @@ export async function getEchoInvitePreview(
     [vcId, joinCtx.serverId],
   );
   const crow = ch.rows[0];
-  if (!crow) return base;
+  if (!crow) return withHighlights;
   return {
-    ...base,
+    ...withHighlights,
     voiceChannel: {
       id: String(crow.id ?? '').trim(),
       name: String(crow.name ?? 'Voice').trim() || 'Voice',

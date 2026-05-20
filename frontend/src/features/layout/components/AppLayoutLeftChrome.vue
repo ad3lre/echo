@@ -405,10 +405,7 @@ const vcStripMoveTargets = computed(() => {
   for (const cat of cats) {
     for (const ch of cat.channels) {
       if (ch.parentChannelId) continue;
-      if (
-        (ch.type !== 'voice' && ch.type !== 'stage') ||
-        ch.id === src
-      )
+      if ((ch.type !== 'voice' && ch.type !== 'stage') || ch.id === src)
         continue;
       const name = getChannelDisplayName(ch.name);
       const dis = !!(canJoin && !canJoin(ch.id));

@@ -6,10 +6,27 @@ import type {
   EchoApplicationQuestionDto,
   EchoApplicationQuestionType,
   EchoInvitePreviewDto,
+  EchoServerMemberHighlightDto,
 } from '@/api/echo/types';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+export function normalizeEchoServerMemberHighlightsPayload(
+  data: Record<string, unknown>,
+): EchoServerMemberHighlightDto[] {
+  const raw = data.members ?? data.topMembers;
+  if (!Array.isArray(raw)) return [];
+  const out: EchoServerMemberHighlightDto[] = [];
+  for (const row of raw) {
+    if (!isRecord(row)) continue;
+    const name = typeof row.name === 'string' ? row.name.trim() : '';
+    if (!name) continue;
+    const pfp = typeof row.pfp === 'string' ? row.pfp.trim() : '';
+    out.push({ name, pfp });
+  }
+  return out;
 }
 
 export function normalizeEchoInvitePreviewPayload(
@@ -97,6 +114,10 @@ export function normalizeEchoInvitePreviewPayload(
       : {}),
     ...(applicationForm ? { applicationForm } : {}),
     ...(voiceChannel ? { voiceChannel } : {}),
+    ...(() => {
+      const topMembers = normalizeEchoServerMemberHighlightsPayload(data);
+      return topMembers.length ? { topMembers } : {};
+    })(),
   };
 }
 

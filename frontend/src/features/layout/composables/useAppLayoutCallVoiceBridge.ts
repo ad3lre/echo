@@ -15,7 +15,6 @@ import {
   type DmCallSocketSubmitters,
 } from './useAppLayoutDmCalls';
 import { useAppLayoutShellVoice } from './useAppLayoutShellVoice';
-import { getEchoE2eeThreadState } from '@/api/echo/e2ee';
 import { prepareDmVoiceE2eeMediaKey } from '@/services/voice/voiceE2eePrepare';
 
 export type UseAppLayoutCallVoiceBridgeDeps = {
@@ -76,13 +75,6 @@ export function useAppLayoutCallVoiceBridge(
       const token = deps.authSession.accessToken?.trim() ?? '';
       const uid = deps.authSession.backendUser?.id?.trim() ?? '';
       if (!token || !uid) return null;
-      let st: { enabled?: boolean };
-      try {
-        st = await getEchoE2eeThreadState(token, channelId);
-      } catch {
-        return null;
-      }
-      if (st.enabled !== true) return null;
       const g = deps.groupDMs.value[channelId];
       const peer = deps.echoDmPeerByChannelId.value.get(channelId);
       const members: string[] = g?.memberIds?.length
@@ -95,7 +87,6 @@ export function useAppLayoutCallVoiceBridge(
         token,
         viewerUserId: uid,
         memberUserIds: members,
-        threadE2eeEnabled: true,
       });
     },
   });

@@ -26,6 +26,6 @@ export type ActiveDmThreadCallUi = {
   incoming: boolean;
   ringRemoteVanishing: boolean;
   glassPeer: DmCallGlassPeer | null;
-  /** True when this DM thread has text E2EE enabled — voice uses the same LibSignal-backed media epoch. */
+  /** True when DM/group voice uses LiveKit E2EE (default for calls). */
   voiceE2ee: boolean;
 };

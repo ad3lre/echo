@@ -872,6 +872,16 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
     ADD COLUMN IF NOT EXISTS voice_e2ee_enabled BOOLEAN NOT NULL DEFAULT FALSE;
   `);
   await pool.query(`
+    ALTER TABLE echo_channels
+    ALTER COLUMN voice_e2ee_enabled SET DEFAULT TRUE;
+  `);
+  await pool.query(`
+    UPDATE echo_channels
+    SET voice_e2ee_enabled = TRUE
+    WHERE type IN ('voice', 'stage')
+      AND voice_e2ee_enabled = FALSE;
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_voice_e2ee_epochs (
       id TEXT PRIMARY KEY,
       server_id TEXT NOT NULL,
@@ -1072,6 +1082,28 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
       discord_channel_id TEXT NOT NULL,
       imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       message_count INT NOT NULL DEFAULT 0
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_status_daily (
+      component_id TEXT NOT NULL,
+      day_utc DATE NOT NULL,
+      probe_total INT NOT NULL DEFAULT 0,
+      probe_up INT NOT NULL DEFAULT 0,
+      probe_degraded INT NOT NULL DEFAULT 0,
+      latency_ms_sum BIGINT NOT NULL DEFAULT 0,
+      latency_ms_max INT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (component_id, day_utc)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_status_latest (
+      component_id TEXT PRIMARY KEY,
+      probed_at TIMESTAMPTZ NOT NULL,
+      ok BOOLEAN NOT NULL,
+      degraded BOOLEAN NOT NULL DEFAULT FALSE,
+      latency_ms INT
     );
   `);
   await pool.query(

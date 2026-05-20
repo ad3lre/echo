@@ -1,8 +1,10 @@
 import { echoFetch } from './transport';
 import type { EchoInvitePreviewDto } from './types';
+import type { EchoServerMemberHighlightDto } from './types';
 import {
   normalizeEchoDirectoryServersPayload,
   normalizeEchoInvitePreviewPayload,
+  normalizeEchoServerMemberHighlightsPayload,
   type EchoDirectoryServerEntry,
 } from '@/services/domain/echoInvitesAndDirectoryFromHttp';
 
@@ -94,4 +96,21 @@ export async function fetchEchoDirectoryServers(): Promise<{
     '/directory/servers',
   );
   return normalizeEchoDirectoryServersPayload(data);
+}
+
+/** Explore join modal: owner + top roles for a directory-listed server. */
+export async function fetchEchoDirectoryServerMemberHighlights(
+  serverId: string,
+): Promise<EchoServerMemberHighlightDto[]> {
+  const id = serverId.trim();
+  if (!id) return [];
+  try {
+    const data = await echoFetch<Record<string, unknown>>(
+      null,
+      `/directory/servers/${encodeURIComponent(id)}/member-highlights`,
+    );
+    return normalizeEchoServerMemberHighlightsPayload(data);
+  } catch {
+    return [];
+  }
 }

@@ -51,6 +51,7 @@ type PuzzleWord = {
 
 type GuessLogRow = {
   userId: string;
+  displayName: string;
   letter: string;
   hit: boolean;
 };
@@ -116,7 +117,10 @@ const phraseDraft = ref('');
 const commitError = ref('');
 const statusLine = ref('');
 const pendingLocalGuess = ref<string | null>(null);
+const guessSyncStalled = ref(false);
 const lastRoundResultSfxKey = ref<string | null>(null);
+const guessInputEl = ref<HTMLInputElement | null>(null);
+const guessInputFocused = ref(false);
 
 const uid = () => props.currentUserId?.trim() ?? '';
 
@@ -243,6 +247,7 @@ const guessLogEntries = computed((): GuessLogRow[] => {
     const userId = (entry?.userId ?? '').trim();
     out.push({
       userId,
+      displayName: userId ? displayNameFor(userId) : 'Someone',
       letter: L,
       hit: mask.includes(L),
     });
@@ -308,6 +313,12 @@ const lastGuessWasHit = computed(() => {
   return (act.value?.mask ?? '').includes(last);
 });
 
+const lastGuessDisplayName = computed(() => {
+  const rows = guessLogEntries.value;
+  if (!rows.length) return 'Someone';
+  return rows[rows.length - 1]!.displayName;
+});
+
 const phraseHelp = computed(() => {
   const normalized = phraseDraft.value.trim().replace(/\s+/g, ' ');
   const words = normalized ? normalized.split(' ').length : 0;
@@ -315,6 +326,10 @@ const phraseHelp = computed(() => {
 });
 
 const phase = computed(() => act.value?.phase ?? null);
+
+const canTypeGuess = computed(
+  () => phase.value === 'guessing' && !isSetter.value,
+);
 
 const roundOutcome = computed(() => {
   const st = act.value;
@@ -405,7 +420,7 @@ watch(
           'You made the puzzle — guesses sync through the roster host if your link drops.';
       } else {
         statusLine.value =
-          'Pick a letter. Green fills the phrase; red draws the stickman.';
+          'Tap a key, or click the letter box below and type A–Z on your keyboard.';
       }
     } else if (st.phase === 'round_over') {
       if (st.roundResult === 'won') {
@@ -422,6 +437,7 @@ watch(guessedLetters, (letters) => {
   const pending = pendingLocalGuess.value;
   if (!pending || !letters.includes(pending)) return;
   pendingLocalGuess.value = null;
+  guessSyncStalled.value = false;
   clearPendingGuessTimer();
   const hit = (act.value?.mask ?? '').includes(pending);
   playHangmanSfx(hit ? 'hit' : 'miss');
@@ -435,9 +451,19 @@ watch(
   },
   () => {
     pendingLocalGuess.value = null;
+    guessSyncStalled.value = false;
     clearPendingGuessTimer();
+    guessInputEl.value?.blur();
+    guessInputFocused.value = false;
   },
 );
+
+watch(canTypeGuess, (allowed) => {
+  if (!allowed) {
+    guessInputEl.value?.blur();
+    guessInputFocused.value = false;
+  }
+});
 
 watch(roundOutcome, (outcome) => {
   const st = act.value;
@@ -466,12 +492,69 @@ function tryLetter(ch: string) {
   if (!/^[A-Z]$/.test(c)) return;
   if (guessed.value[c]) return;
   pendingLocalGuess.value = c;
+  guessSyncStalled.value = false;
   clearPendingGuessTimer();
   pendingGuessTimer = setTimeout(() => {
     pendingGuessTimer = null;
-    if (pendingLocalGuess.value === c) pendingLocalGuess.value = null;
+    if (pendingLocalGuess.value === c) {
+      pendingLocalGuess.value = null;
+      guessSyncStalled.value = true;
+    }
   }, PENDING_GUESS_MS);
   props.guessLetter(c);
+}
+
+function clearGuessInputField(): void {
+  const el = guessInputEl.value;
+  if (el) el.value = '';
+}
+
+function focusGuessInput(): void {
+  if (!canTypeGuess.value) return;
+  guessInputEl.value?.focus();
+}
+
+function onGuessInputFocus(): void {
+  guessInputFocused.value = true;
+}
+
+function onGuessInputBlur(): void {
+  guessInputFocused.value = false;
+  clearGuessInputField();
+}
+
+function applyTypedGuess(raw: string): void {
+  const c = raw
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+    .slice(-1);
+  if (!c) return;
+  tryLetter(c);
+  clearGuessInputField();
+}
+
+function onGuessInput(e: Event): void {
+  if (!canTypeGuess.value) return;
+  const el = e.target;
+  if (!(el instanceof HTMLInputElement)) return;
+  applyTypedGuess(el.value);
+}
+
+function onGuessInputKeydown(e: KeyboardEvent): void {
+  if (!canTypeGuess.value) return;
+  if (e.key === 'Escape') {
+    guessInputEl.value?.blur();
+    return;
+  }
+  if (e.key === 'Enter' || e.key === 'Tab') {
+    e.preventDefault();
+    return;
+  }
+  if (e.key.length === 1 && /^[a-zA-Z]$/.test(e.key)) {
+    e.preventDefault();
+    tryLetter(e.key);
+    clearGuessInputField();
+  }
 }
 
 function onKeyDown(e: KeyboardEvent) {
@@ -507,6 +590,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown);
   clearPendingGuessTimer();
+  guessInputEl.value?.blur();
 });
 
 const hangmanSvgParts = computed(() => wrongCount.value);
@@ -1311,7 +1395,9 @@ const hangmanSvgParts = computed(() => wrongCount.value);
                   "
                 >
                   <div class="hm-guess-log__meta">
-                    <span class="hm-guess-log__phrase">Someone guessed</span>
+                    <span class="hm-guess-log__phrase"
+                      >{{ row.displayName }} guessed</span
+                    >
                     <span class="hm-guess-log__letter" aria-hidden="true">{{
                       row.letter
                     }}</span>
@@ -1483,7 +1569,7 @@ const hangmanSvgParts = computed(() => wrongCount.value);
             :class="lastGuessWasHit ? 'hm-feedback--hit' : 'hm-feedback--miss'"
           >
             <div class="hm-feedback__main">
-              <span class="hm-feedback__who">Someone</span>
+              <span class="hm-feedback__who">{{ lastGuessDisplayName }}</span>
               <div class="hm-feedback__guess">
                 <span class="hm-feedback__letter">{{ lastGuess }}</span>
                 <span class="hm-feedback__verdict">{{
@@ -1499,6 +1585,72 @@ const hangmanSvgParts = computed(() => wrongCount.value);
 
       <!-- ─── Keyboard ──────────────────────────────────────── -->
       <div v-if="act.phase === 'guessing' && !isSetter" class="hm-keyboard">
+        <p v-if="guessSyncStalled" class="hm-sync-stall" role="status">
+          Guess didn’t sync — check voice connection or wait for the roster
+          host. Try again or use the letter box below.
+        </p>
+        <div
+          class="hm-type-guess"
+          :class="{
+            'hm-type-guess--focused': guessInputFocused,
+            'hm-type-guess--disabled': !canTypeGuess,
+          }"
+          role="group"
+          :aria-label="
+            guessInputFocused
+              ? 'Type a letter guess on your keyboard'
+              : 'Click to type a letter guess on your keyboard'
+          "
+          @click="focusGuessInput"
+        >
+          <input
+            ref="guessInputEl"
+            type="text"
+            inputmode="text"
+            maxlength="8"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            enterkeyhint="done"
+            class="hm-type-guess__input"
+            :disabled="!canTypeGuess"
+            :tabindex="canTypeGuess ? 0 : -1"
+            aria-label="Letter guess"
+            @focus="onGuessInputFocus"
+            @blur="onGuessInputBlur"
+            @input="onGuessInput"
+            @keydown="onGuessInputKeydown"
+          />
+          <span class="hm-type-guess__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect
+                x="2"
+                y="6"
+                width="20"
+                height="12"
+                rx="2"
+                stroke="currentColor"
+                stroke-width="1.6"
+              />
+              <path
+                d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+          <span class="hm-type-guess__label">
+            <span class="hm-type-guess__title">{{
+              guessInputFocused ? 'Typing…' : 'Type a letter'
+            }}</span>
+            <span class="hm-type-guess__hint">{{
+              guessInputFocused
+                ? 'Press A–Z · Esc to leave'
+                : 'Click here, then use your keyboard'
+            }}</span>
+          </span>
+        </div>
         <div
           v-for="(row, ri) in KEYBOARD_ROWS"
           :key="'kr-' + ri"
@@ -2700,7 +2852,108 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   opacity: 0.85;
 }
 
+/* ── Manual letter input (click + physical keyboard) ─────────── */
+.hm-type-guess {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: min(26rem, 100%);
+  margin-inline: auto;
+  padding: 0.62rem 0.85rem;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, #12102a 0%, #0c0a1c 100%);
+  color: rgba(240, 232, 255, 0.9);
+  cursor: text;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.hm-type-guess:hover:not(.hm-type-guess--disabled) {
+  border-color: rgba(167, 139, 250, 0.45);
+  background: linear-gradient(180deg, #18152f 0%, #100e22 100%);
+}
+
+.hm-type-guess--focused {
+  border-style: solid;
+  border-color: rgba(167, 139, 250, 0.65);
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.18);
+}
+
+.hm-type-guess--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hm-type-guess__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: text;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+}
+
+.hm-type-guess__input:focus {
+  outline: none;
+}
+
+.hm-type-guess__icon {
+  display: flex;
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  color: rgba(196, 181, 253, 0.85);
+}
+
+.hm-type-guess__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.hm-type-guess__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.hm-type-guess__title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.hm-type-guess__hint {
+  font-size: 0.72rem;
+  color: rgba(240, 232, 255, 0.55);
+}
+
 /* ── Keyboard ────────────────────────────────────────────────── */
+.hm-sync-stall {
+  width: 100%;
+  max-width: min(26rem, 100%);
+  margin-inline: auto;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.35);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
 .hm-keyboard {
   --hm-key-gap: clamp(0.14rem, 1.2vw, 0.32rem);
   --hm-key-count: 10;
@@ -3030,6 +3283,25 @@ const hangmanSvgParts = computed(() => wrongCount.value);
   --hm-text-soft: #5a5278;
   --hm-text-muted: #9990b8;
   --hm-key-depth: #b8b4d0;
+}
+
+[data-theme='light'] .hm-type-guess {
+  background: linear-gradient(180deg, #ffffff 0%, #f4f2fc 100%);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: var(--hm-text);
+}
+
+[data-theme='light'] .hm-type-guess:hover:not(.hm-type-guess--disabled) {
+  border-color: rgba(109, 40, 217, 0.35);
+}
+
+[data-theme='light'] .hm-type-guess--focused {
+  border-color: rgba(109, 40, 217, 0.55);
+  box-shadow: 0 0 0 2px rgba(109, 40, 217, 0.12);
+}
+
+[data-theme='light'] .hm-type-guess__hint {
+  color: var(--hm-text-muted);
 }
 
 [data-theme='light'] .hm-key {

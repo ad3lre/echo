@@ -17,6 +17,7 @@ import { startMessageAutoDeleteRetentionJob } from '../jobs/messageAutoDeleteRet
 import { startVideoUploadOptimizeJob } from '../jobs/videoUploadOptimize';
 import { startDiscordImportMediaMirrorJob } from '../jobs/discordImportMediaMirror';
 import { startEchoVoiceRosterReconcileJob } from '../jobs/voiceRosterReconcile';
+import { startStatusPageProbeJob } from '../jobs/statusPageProbe';
 import { getPgPool } from '../db/pg';
 import { reconcileEchoVoiceParticipantsAgainstLiveKit } from '../services/echoVoiceLiveKitReconcile';
 import {
@@ -63,6 +64,7 @@ export async function startServer(
   startVideoUploadOptimizeJob(fastify);
   startDiscordImportMediaMirrorJob(fastify);
   startEchoVoiceRosterReconcileJob(fastify);
+  startStatusPageProbeJob(fastify);
 
   if (config.backendStorageMode === 'postgres') {
     const pool = getPgPool();

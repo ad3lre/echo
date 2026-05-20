@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, toRef } from 'vue';
 import { useFocusTrap } from '@/composables/useFocusTrap';
+import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { icons } from '@/assets/icons';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
+import type { JoinServerConfirmTopMember } from '@/features/layout/composables/useJoinServerConfirmModal';
 
 const props = withDefaults(
   defineProps<{
@@ -17,6 +19,7 @@ const props = withDefaults(
     isVoiceInvite?: boolean;
     /** Explore directory social proof */
     voiceParticipantCount?: number;
+    topMembers?: JoinServerConfirmTopMember[];
     busy?: boolean;
   }>(),
   { busy: false },
@@ -74,7 +77,39 @@ const aboutText = computed(() => props.description?.trim() ?? '');
 
 const showAbout = computed(() => aboutText.value.length > 0);
 
-const decorativeOrbCount = 4;
+const topMembers = computed(() => {
+  const raw = props.topMembers;
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return raw
+    .map((m) => ({
+      name: m.name?.trim() ?? '',
+      pfp: m.pfp?.trim() ?? '',
+    }))
+    .filter((m) => m.name.length > 0)
+    .slice(0, 4);
+});
+
+const showTopMembers = computed(() => topMembers.value.length > 0);
+
+const topMembersSummary = computed(() => {
+  const names = topMembers.value.map((m) => m.name);
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0]!;
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  const rest = names.length - 2;
+  const others =
+    typeof props.memberCount === 'number' && props.memberCount > names.length
+      ? ` and ${(props.memberCount - names.length).toLocaleString()} others`
+      : rest > 0
+        ? ` and ${rest} other${rest === 1 ? '' : 's'}`
+        : '';
+  return `${names[0]}, ${names[1]}${others}`;
+});
+
+function memberAvatarSrc(pfp: string): string {
+  const trimmed = pfp.trim();
+  return safeImageUrl(trimmed || icons.usersAvatar);
+}
 
 function close() {
   if (props.busy) return;
@@ -193,33 +228,27 @@ function onConfirmJoin() {
             </p>
           </div>
 
-          <!-- Decorative “community” strip (no individual member data from API) -->
           <div
-            v-if="memberCount != null && memberCount > 0"
-            class="flex items-center gap-3 rounded-xl border border-border/50 bg-glass-1/60 px-3 py-2.5"
+            v-if="showTopMembers"
+            class="rounded-xl border border-border/50 bg-glass-1/60 px-3 py-2.5"
           >
-            <div class="flex shrink-0 -space-x-2" aria-hidden="true">
-              <div
-                v-for="i in decorativeOrbCount"
-                :key="i"
-                class="h-9 w-9 rounded-full border-2 border-[var(--elevated)] bg-gradient-to-br shadow-sm"
-                :class="[
-                  i === 1
-                    ? 'from-violet-400/90 to-indigo-600/95'
-                    : i === 2
-                      ? 'from-sky-400/85 to-cyan-600/90'
-                      : i === 3
-                        ? 'from-fuchsia-400/85 to-pink-600/90'
-                        : 'from-amber-400/80 to-orange-600/90',
-                ]"
-              />
-            </div>
-            <div class="min-w-0">
-              <p class="text-xs font-semibold text-foreground">Community</p>
-              <p class="text-[11px] text-fg-soft">
-                Member profiles stay private until you join — this is the live
-                headcount.
-              </p>
+            <div class="flex items-center gap-3">
+              <div class="flex shrink-0 -space-x-2" aria-hidden="true">
+                <PausedGifAvatar
+                  v-for="(member, index) in topMembers"
+                  :key="`${member.name}-${index}`"
+                  :src="memberAvatarSrc(member.pfp)"
+                  :alt="member.name"
+                  :session-key="`join-preview-${index}`"
+                  img-class="h-9 w-9 rounded-full border-2 border-[var(--elevated)] object-cover shadow-sm"
+                />
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-foreground">People here</p>
+                <p class="text-[11px] leading-snug text-fg-soft">
+                  {{ topMembersSummary }}
+                </p>
+              </div>
             </div>
           </div>
         </div>

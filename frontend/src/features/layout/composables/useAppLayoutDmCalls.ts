@@ -27,7 +27,6 @@ import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { createVoiceService } from '@/services/orchestration/voice';
 import { deriveCallOverlay } from '@/features/layout/callOverlay';
 import { resolveEchoDmWireChannelId } from '@/features/layout/resolveEchoDmWireChannelId';
-import { readCachedE2eeThreadState } from '@/services/e2ee/e2eeThreadStateCache';
 import { isEchoGraphId } from '@/utils/echoIds';
 import { buildVoiceParticipantMediaState } from '@/features/layout/domain/voiceParticipantState';
 import type { WorkspaceStateApi } from '@/composables/workspace/types';
@@ -731,8 +730,7 @@ export function useAppLayoutDmCalls(deps: {
       threadId.trim(),
       echoDmPeerByChannelId.value,
     ).trim();
-    if (!wire) return false;
-    return readCachedE2eeThreadState(wire)?.enabled === true;
+    return wire.length > 0;
   }
 
   const activeDmThreadCallUi = computed<ActiveDmThreadCallUi | null>(() => {

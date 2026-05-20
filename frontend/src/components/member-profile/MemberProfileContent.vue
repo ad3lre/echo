@@ -7,6 +7,8 @@ import ProfileUserBadges from '@/components/member-profile/ProfileUserBadges.vue
 import ProfileFriendHeartBadge from '@/components/member-profile/ProfileFriendHeartBadge.vue';
 import ProfileMemberSinceInline from '@/components/member-profile/ProfileMemberSinceInline.vue';
 import ProfileVoiceActivityWidget from '@/components/member-profile/ProfileVoiceActivityWidget.vue';
+import ProfileVcActivityWidget from '@/components/member-profile/ProfileVcActivityWidget.vue';
+import { useProfileOngoingVcActivity } from '@/composables/useProfileOngoingVcActivity';
 import ProfileBioText from '@/components/member-profile/ProfileBioText.vue';
 import {
   memberPopoutRoleAccentColor,
@@ -175,6 +177,10 @@ const communicationTimeoutLabel = computed(() => {
 const voiceActivities = useUserVoiceChannelPresenceForProfile(
   () => props.profile.id,
 );
+const ongoingVcActivity = useProfileOngoingVcActivity(
+  () => props.profile.id,
+  voiceActivities,
+);
 
 watch(
   () => props.profile.id,
@@ -289,6 +295,11 @@ defineExpose({
           class="mt-2"
           :activities="voiceActivities"
           compact
+        />
+        <ProfileVcActivityWidget
+          v-if="ongoingVcActivity"
+          class="mt-2"
+          :activity="ongoingVcActivity"
         />
       </div>
 

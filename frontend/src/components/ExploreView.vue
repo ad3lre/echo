@@ -16,6 +16,8 @@ import {
   sortExploreServersWithVoicePriority,
 } from '@/services/domain/exploreDirectoryRows';
 import { useAuthSessionStore } from '@/stores/authSession';
+import { useServerStore } from '@/stores/server';
+import { isEchoGraphId } from '@/utils/echoIds';
 import { requestGuestExploreJoinBlockedModal } from '@/utils/guestJoinExploreBlockedDialog';
 
 type DiscoverableServer = {
@@ -54,6 +56,8 @@ type ListedServer = {
   createdAtMs: number | null;
   allowGlobalGuests?: boolean;
   joinLocked: boolean;
+  /** User is already in this server (show Open instead of Join). */
+  alreadyMember: boolean;
 };
 
 const props = defineProps<{
@@ -72,7 +76,18 @@ const emit = defineEmits<{
 }>();
 
 const authSession = useAuthSessionStore();
+const serverStore = useServerStore();
 const isGuestUser = computed(() => authSession.backendUser?.isGuest === true);
+
+const joinedServerIds = computed(
+  () => new Set(serverStore.servers.map((s) => s.id)),
+);
+
+function isAlreadyJoinedServer(serverId: string): boolean {
+  const id = serverId.trim();
+  if (!id || !isEchoGraphId(id)) return false;
+  return joinedServerIds.value.has(id);
+}
 
 const searchQuery = ref('');
 const sortMode = ref<SortMode>('default');
@@ -173,8 +188,9 @@ const listedServers = computed<ListedServer[]>(() =>
         ? Math.floor(vpc)
         : 0;
     const pfp = server.pfp;
+    const id = server.id ?? `explore-${server.name}-${index}`;
     return {
-      id: server.id ?? `explore-${server.name}-${index}`,
+      id,
       name: server.name,
       pfp,
       banner: bannerFor(server),
@@ -193,6 +209,7 @@ const listedServers = computed<ListedServer[]>(() =>
         isGuestUser.value,
         server.allowGlobalGuests,
       ),
+      alreadyMember: isAlreadyJoinedServer(id),
     };
   }),
 );
@@ -528,7 +545,9 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="explore-featured-widget w-full overflow-hidden rounded-[1.25rem] text-left transition-[box-shadow,border-color] duration-200"
-              :class="{ 'explore-server-widget--join-locked': server.joinLocked }"
+              :class="{
+                'explore-server-widget--join-locked': server.joinLocked,
+              }"
               @click="onExploreServerJoinClick(server)"
             >
               <div
@@ -774,7 +793,9 @@ onBeforeUnmount(() => {
             <li v-for="server in explorePaginatedServers" :key="server.id">
               <article
                 class="explore-server-widget flex h-full flex-col overflow-hidden rounded-[1.5rem] transition-[box-shadow,border-color] duration-200"
-                :class="{ 'explore-server-widget--join-locked': server.joinLocked }"
+                :class="{
+                  'explore-server-widget--join-locked': server.joinLocked,
+                }"
               >
                 <div
                   class="explore-server-widget__banner relative h-36 w-full shrink-0 overflow-hidden bg-[var(--echo-explore-banner-bg)] sm:h-40"
@@ -891,6 +912,15 @@ onBeforeUnmount(() => {
                       <span>Create account to join</span>
                     </button>
                     <button
+                      v-else-if="server.alreadyMember"
+                      type="button"
+                      class="explore-open-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+                      @click="onExploreServerJoinClick(server)"
+                    >
+                      <span>Open server</span>
+                      <span class="opacity-80" aria-hidden="true">-></span>
+                    </button>
+                    <button
                       v-else
                       type="button"
                       class="explore-primary-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
@@ -958,7 +988,9 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 class="explore-featured-widget w-full overflow-hidden rounded-xl text-left transition-[box-shadow,border-color] duration-200"
-                :class="{ 'explore-server-widget--join-locked': server.joinLocked }"
+                :class="{
+                  'explore-server-widget--join-locked': server.joinLocked,
+                }"
                 @click="onExploreServerJoinClick(server)"
               >
                 <div
@@ -1236,6 +1268,23 @@ onBeforeUnmount(() => {
 
 .explore-primary-btn:hover {
   filter: brightness(1.06);
+}
+
+.explore-open-btn {
+  color: white;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #059669 92%, #047857),
+    color-mix(in srgb, #10b981 88%, #059669)
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
+    0 0 0 1px color-mix(in srgb, #34d399 35%, transparent);
+  transition: filter 0.18s ease;
+}
+
+.explore-open-btn:hover {
+  filter: brightness(1.08);
 }
 
 .explore-join-locked-btn {

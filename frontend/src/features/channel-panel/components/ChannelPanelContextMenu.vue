@@ -126,7 +126,11 @@ const emit = defineEmits<{
   'vc-menu-message': [];
   'vc-menu-copy-user-id': [];
   'vc-moderate': [
-    'serverMute' | 'serverDeafen' | 'disconnect' | 'inviteToSpeak' | 'moveToAudience',
+    | 'serverMute'
+    | 'serverDeafen'
+    | 'disconnect'
+    | 'inviteToSpeak'
+    | 'moveToAudience',
   ];
   'vc-menu-move-pick': [targetChannelId: string];
   'vc-moderate-server': ['kick' | 'ban' | 'timeout'];

@@ -21,7 +21,7 @@ import {
   voiceChannelParticipantCount,
 } from '@/features/voice/domain/voiceChannelUserLimit';
 import { useAuthSessionStore } from '@/stores/authSession';
-import { postEchoStageRequestSpeak } from '@/api/echo/voice';
+import { requestEchoStageSpeak } from '@/services/voice/requestStageSpeak';
 import { isEchoGraphId } from '@/utils/echoIds';
 
 const workspace = useEchoWorkspace();
@@ -249,16 +249,12 @@ async function toggleVcMute() {
   const vcId = props.currentVoiceChannelId?.trim();
   const uid = props.currentUserId?.trim();
   const row = vcId ? findVoiceChannelById(vcId) : null;
-  if (
-    row?.type === 'stage' &&
-    uid &&
-    !row.voiceStageSpeakerByUserId?.[uid]
-  ) {
+  if (row?.type === 'stage' && uid && !row.voiceStageSpeakerByUserId?.[uid]) {
     const sid = props.echoServerId?.trim();
     const token = authSession.accessToken;
     if (sid && token && isEchoGraphId(sid)) {
       try {
-        await postEchoStageRequestSpeak(token, sid, row.id);
+        await requestEchoStageSpeak(token, sid, row.id);
         dispatchAppToast(
           'Request to speak sent. A moderator can invite you to the stage.',
           'success',

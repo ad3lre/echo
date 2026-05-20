@@ -15,6 +15,10 @@ export function joinPreviewFromInviteDto(
   if (voiceName) subtitleParts.push(voiceName);
   const descFull = preview.description?.trim() ?? '';
   const banner = preview.bannerUrl?.trim();
+  const topMembers =
+    Array.isArray(preview.topMembers) && preview.topMembers.length > 0
+      ? preview.topMembers
+      : undefined;
   return {
     serverName: preview.name?.trim() || 'Server',
     iconUrl: preview.iconUrl,
@@ -23,6 +27,7 @@ export function joinPreviewFromInviteDto(
     memberCount: preview.memberCount > 0 ? preview.memberCount : undefined,
     subtitle: subtitleParts.length > 0 ? subtitleParts.join(' · ') : undefined,
     isVoiceInvite: opts?.isVoiceInvite ?? !!preview.voiceChannel?.id,
+    ...(topMembers ? { topMembers } : {}),
   };
 }
 
@@ -50,6 +55,7 @@ export function buildDiscoverableJoinConfirmPreview(entry: {
   description?: string;
   banner?: string;
   voiceParticipantCount?: number;
+  topMembers?: JoinServerConfirmPreview['topMembers'];
 }): JoinServerConfirmPreview {
   const name = entry.name.trim() || 'Server';
   const description = entry.description?.trim();
@@ -74,5 +80,6 @@ export function buildDiscoverableJoinConfirmPreview(entry: {
           subtitle: `${vpc.toLocaleString()} in voice now`,
         }
       : {}),
+    ...(entry.topMembers?.length ? { topMembers: entry.topMembers } : {}),
   };
 }

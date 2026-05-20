@@ -1,34 +1,141 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200" role="img" aria-label="Tic tac toe grid">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
-    <linearGradient id="ticG" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6366f1"/>
-      <stop offset="1" stop-color="#38bdf8"/>
+    <linearGradient id="ttt-sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0614"/>
+      <stop offset="48%" stop-color="#100c1e"/>
+      <stop offset="100%" stop-color="#081018"/>
     </linearGradient>
+    <radialGradient id="ttt-glow-indigo" cx="12%" cy="18%" r="52%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ttt-glow-pink" cx="92%" cy="88%" r="46%">
+      <stop offset="0%" stop-color="#f472b6" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#f472b6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ttt-glow-cyan" cx="78%" cy="12%" r="40%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ttt-board-fill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1428"/>
+      <stop offset="100%" stop-color="#12101c"/>
+    </linearGradient>
+    <linearGradient id="ttt-board-edge" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="ttt-win-line" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2"/>
+      <stop offset="50%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#f472b6" stop-opacity="0.2"/>
+    </linearGradient>
+    <filter id="ttt-soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="ttt-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
-  <rect width="320" height="200" rx="26" fill="#130c1b"/>
-  <rect
-    x="58"
-    y="38"
-    width="204"
-    height="124"
-    rx="14"
-    fill="none"
-    stroke="url(#ticG)"
-    stroke-width="3"
-    opacity="0.95"
-  />
-  <g stroke="url(#ticG)" stroke-width="3" stroke-linecap="round" opacity="0.9">
-    <path d="M126 42v116"/>
-    <path d="M186 42v116"/>
-    <path d="M62 80h196"/>
-    <path d="M62 120h196"/>
+
+  <!-- Background -->
+  <rect width="480" height="200" fill="url(#ttt-sky)"/>
+  <rect width="480" height="200" fill="url(#ttt-glow-indigo)"/>
+  <rect width="480" height="200" fill="url(#ttt-glow-pink)"/>
+  <rect width="480" height="200" fill="url(#ttt-glow-cyan)"/>
+
+  <!-- Decorative echo rings (left) -->
+  <g opacity="0.1" stroke="#e2e8f0" stroke-width="1.3" fill="none">
+    <path d="M52 100 Q52 62 92 62"/>
+    <path d="M34 100 Q34 44 94 44"/>
+    <path d="M16 100 Q16 26 96 26"/>
   </g>
-  <circle cx="96" cy="68" r="10" fill="#38bdf8" opacity="0.85"/>
-  <path
-    d="M232 108l14 14m0-14l-14 14"
-    stroke="#f472b6"
-    stroke-width="4"
-    stroke-linecap="round"
-    opacity="0.9"
+
+  <!-- Faded background marks (depth) -->
+  <g opacity="0.07" stroke-linecap="round" fill="none">
+    <path d="M38 42 L54 58 M54 42 L38 58" stroke="#38bdf8" stroke-width="5"/>
+    <circle cx="72" cy="150" r="16" stroke="#f472b6" stroke-width="4"/>
+  </g>
+
+  <!-- Board shadow -->
+  <rect x="159" y="19" width="162" height="162" rx="18" fill="#000" opacity="0.42"/>
+
+  <!-- Board panel -->
+  <rect
+    x="156"
+    y="16"
+    width="168"
+    height="168"
+    rx="20"
+    fill="url(#ttt-board-fill)"
+    stroke="url(#ttt-board-edge)"
+    stroke-width="2"
+    filter="url(#ttt-soft)"
   />
+  <rect
+    x="158"
+    y="18"
+    width="164"
+    height="164"
+    rx="18"
+    fill="none"
+    stroke="white"
+    stroke-width="0.6"
+    opacity="0.08"
+  />
+
+  <!-- Winning diagonal highlight (X wins ↘) -->
+  <line
+    x1="183"
+    y1="39"
+    x2="297"
+    y2="153"
+    stroke="url(#ttt-win-line)"
+    stroke-width="12"
+    stroke-linecap="round"
+    opacity="0.55"
+    filter="url(#ttt-glow)"
+  />
+
+  <!-- Grid lines -->
+  <g stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" opacity="0.55">
+    <path d="M212 34v132"/>
+    <path d="M268 34v132"/>
+    <path d="M170 78h140"/>
+    <path d="M170 122h140"/>
+  </g>
+
+  <!-- Cell highlights (winning X cells) -->
+  <g opacity="0.35">
+    <rect x="172" y="36" width="38" height="40" rx="7" fill="#38bdf8" opacity="0.12"/>
+    <rect x="228" y="80" width="38" height="40" rx="7" fill="#38bdf8" opacity="0.14"/>
+    <rect x="284" y="124" width="38" height="40" rx="7" fill="#38bdf8" opacity="0.12"/>
+  </g>
+
+  <!-- X marks (cyan) — diagonal win: corners + center -->
+  <g stroke="#38bdf8" stroke-width="4.5" stroke-linecap="round" fill="none" filter="url(#ttt-soft)">
+    <path d="M183 43 L199 59 M199 43 L183 59"/>
+    <path d="M281 43 L297 59 M297 43 L281 59"/>
+    <path d="M232 86 L248 102 M248 86 L232 102"/>
+    <path d="M281 129 L297 145 M297 129 L281 145"/>
+  </g>
+
+  <!-- O marks (pink) -->
+  <g stroke="#f472b6" stroke-width="4.5" fill="none" filter="url(#ttt-soft)">
+    <circle cx="240" cy="56" r="13"/>
+    <circle cx="191" cy="100" r="13"/>
+    <circle cx="240" cy="144" r="13"/>
+  </g>
+
+  <!-- Sparkle on winning corners -->
+  <circle cx="297" cy="153" r="3" fill="#f8fafc" opacity="0.75"/>
+  <circle cx="183" cy="39" r="2" fill="#bae6fd" opacity="0.65"/>
 </svg>

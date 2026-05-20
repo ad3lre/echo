@@ -14,6 +14,8 @@ import type {
   EchoCodenamesActivityV1,
   EchoCodenamesAffiliationV1,
   EchoCodenamesRoleAssignmentV1,
+  EchoTicTacToeActivityV1,
+  EchoTicTacToeInviteV1,
   EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import type { ReactionFavorite } from '@/composables/useReactionFavorites';
@@ -41,6 +43,8 @@ import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/
 const CallView = defineAsyncComponent(
   () => import('@/components/CallView.vue'),
 );
+
+const liveKitConnected = computed(() => !!props.lkRoom);
 
 const props = defineProps<{
   isViewingVoiceChannel: boolean;
@@ -166,6 +170,13 @@ const props = defineProps<{
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  vcTicTacToeActivity: ComputedRef<EchoTicTacToeActivityV1 | null>;
+  vcTicTacToePendingInvite: ComputedRef<EchoTicTacToeInviteV1 | null>;
+  sendVcTicTacToeChallenge: (toUserId: string) => void;
+  respondVcTicTacToeInvite: (accept: boolean) => void;
+  dismissVcTicTacToeInvite: () => void;
+  requestVcTicTacToeMove: (cellIndex: number) => void;
+  requestVcTicTacToeRematch: () => void;
   vcCodenamesActivity: ComputedRef<EchoCodenamesActivityV1 | null>;
   codenamesRosterUserIds: ComputedRef<string[]>;
   vcCodenamesSpymasterKey: ComputedRef<EchoCodenamesAffiliationV1[] | null>;
@@ -515,6 +526,14 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :commit-vc-hangman-word="commitVcHangmanWord"
             :request-vc-hangman-guess-letter="requestVcHangmanGuessLetter"
             :request-vc-hangman-next-round="requestVcHangmanNextRound"
+            :vc-tic-tac-toe-activity="vcTicTacToeActivity"
+            :vc-tic-tac-toe-pending-invite="vcTicTacToePendingInvite"
+            :send-vc-tic-tac-toe-challenge="sendVcTicTacToeChallenge"
+            :respond-vc-tic-tac-toe-invite="respondVcTicTacToeInvite"
+            :dismiss-vc-tic-tac-toe-invite="dismissVcTicTacToeInvite"
+            :request-vc-tic-tac-toe-move="requestVcTicTacToeMove"
+            :request-vc-tic-tac-toe-rematch="requestVcTicTacToeRematch"
+            :live-kit-connected="liveKitConnected"
             :vc-codenames-activity="vcCodenamesActivity"
             :codenames-roster-user-ids="codenamesRosterUserIds"
             :vc-codenames-spymaster-key="vcCodenamesSpymasterKey"

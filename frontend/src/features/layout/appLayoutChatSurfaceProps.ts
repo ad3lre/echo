@@ -23,6 +23,8 @@ import type {
   EchoCodenamesActivityV1,
   EchoCodenamesAffiliationV1,
   EchoCodenamesRoleAssignmentV1,
+  EchoTicTacToeActivityV1,
+  EchoTicTacToeInviteV1,
   EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
@@ -64,11 +66,6 @@ export type AppLayoutChatSurfaceProps = {
   resetMemberWidth: () => void;
   effectiveActiveChannel: ChannelSummary | null;
   isInDMChat: boolean;
-  dmE2eeEnabled: boolean;
-  enableActiveDmE2ee: () => Promise<void>;
-  isE2eeDevicesModalOpen: boolean;
-  openE2eeDevicesModal: () => void;
-  onE2eePairingImportSuccess?: () => void | Promise<void>;
   activeDmThreadCallUi: ActiveDmThreadCallUi | null;
   /** Kept for DM section/body flow; header ownership now uses `activeDmThreadCallUi`. */
   dmCallMatchesActiveChannel: boolean;
@@ -298,6 +295,13 @@ export type AppLayoutChatSurfaceProps = {
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  vcTicTacToeActivity: ComputedRef<EchoTicTacToeActivityV1 | null>;
+  vcTicTacToePendingInvite: ComputedRef<EchoTicTacToeInviteV1 | null>;
+  sendVcTicTacToeChallenge: (toUserId: string) => void;
+  respondVcTicTacToeInvite: (accept: boolean) => void;
+  dismissVcTicTacToeInvite: () => void;
+  requestVcTicTacToeMove: (cellIndex: number) => void;
+  requestVcTicTacToeRematch: () => void;
   vcCodenamesActivity: ComputedRef<EchoCodenamesActivityV1 | null>;
   codenamesRosterUserIds: ComputedRef<string[]>;
   vcCodenamesSpymasterKey: ComputedRef<EchoCodenamesAffiliationV1[] | null>;
@@ -398,11 +402,6 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'resetMemberWidth',
   'effectiveActiveChannel',
   'isInDMChat',
-  'dmE2eeEnabled',
-  'enableActiveDmE2ee',
-  'isE2eeDevicesModalOpen',
-  'openE2eeDevicesModal',
-  'onE2eePairingImportSuccess',
   'activeDmThreadCallUi',
   'dmCallMatchesActiveChannel',
   'isExpandedProfileSidePanel',
@@ -603,6 +602,13 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'commitVcHangmanWord',
   'requestVcHangmanGuessLetter',
   'requestVcHangmanNextRound',
+  'vcTicTacToeActivity',
+  'vcTicTacToePendingInvite',
+  'sendVcTicTacToeChallenge',
+  'respondVcTicTacToeInvite',
+  'dismissVcTicTacToeInvite',
+  'requestVcTicTacToeMove',
+  'requestVcTicTacToeRematch',
   'vcCodenamesActivity',
   'codenamesRosterUserIds',
   'vcCodenamesSpymasterKey',

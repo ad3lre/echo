@@ -2,11 +2,17 @@ import rateLimit from '@fastify/rate-limit';
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { config } from '../../../config';
 import {
+  listEchoDirectoryServerMemberHighlights,
   listEchoDirectoryServers,
   listEchoEmojiMarketPacks,
 } from '../../../domain/echoStore';
 import { sendTransactionalEmail } from '../../../services/email/sendMail';
-import { echoPool, requireEchoStore } from './echoRouteUtils';
+import {
+  echoPool,
+  requireEchoStore,
+  trimEchoPathParam,
+} from './echoRouteUtils';
+import { sendError } from '../../errors';
 
 const SUPPORT_TOPIC_VALUES = ['Account', 'Bug', 'Safety', 'Other'] as const;
 type SupportTopic = (typeof SUPPORT_TOPIC_VALUES)[number];
@@ -46,6 +52,24 @@ export default async function echoPublicRoutes(
       const pool = echoPool(_req);
       const servers = await listEchoDirectoryServers(pool);
       return reply.code(200).send({ servers });
+    },
+  );
+
+  /** Notable members for a directory-listed server (pre-join join modal). */
+  fastify.get<{ Params: { serverId: string } }>(
+    '/directory/servers/:serverId/member-highlights',
+    { preHandler: [requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const members = await listEchoDirectoryServerMemberHighlights(
+        pool,
+        serverId,
+      );
+      if (members === null) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Server not in directory');
+      }
+      return reply.code(200).send({ members });
     },
   );
 

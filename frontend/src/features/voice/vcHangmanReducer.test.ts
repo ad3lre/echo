@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { EchoHangmanActivityV1 } from '@/audio/voiceEchoLiveKitData';
 import {
+  alignHangmanGuessHistoryToLetters,
+  coerceHangmanActivityToLocalRoster,
   computeHangmanGuessOutcome,
+  dedupeHangmanGuessedLettersPreservingOrder,
   expectedSetterForRound,
   hangmanMaskForSecretAndGuesses,
   isNewerHangmanTick,
   mergeHangmanPresenceRoster,
   sanitizeHangmanActivityForMerge,
+  shouldLocalClientApplyHangmanGuess,
   validateHangmanSecretWord,
 } from '@/features/voice/vcHangmanReducer';
 
@@ -199,6 +203,74 @@ describe('vcHangmanReducer', () => {
         hangmanActivity({ phase: 'guessing', mask: null }),
       ),
     ).toBeNull();
+  });
+
+  it('dedupeHangmanGuessedLettersPreservingOrder keeps first occurrence', () => {
+    expect(
+      dedupeHangmanGuessedLettersPreservingOrder(['A', 'a', 'B', 'A']),
+    ).toEqual(['A', 'B']);
+  });
+
+  it('alignHangmanGuessHistoryToLetters keeps userId after dedupe', () => {
+    const hist = alignHangmanGuessHistoryToLetters(
+      ['A', 'B'],
+      [
+        { userId: 'player2', letter: 'A' },
+        { userId: 'player2', letter: 'A' },
+        { userId: 'player2', letter: 'B' },
+      ],
+      ['setter1', 'player2'],
+    );
+    expect(hist).toEqual([
+      { userId: 'player2', letter: 'A' },
+      { userId: 'player2', letter: 'B' },
+    ]);
+  });
+
+  it('coerceHangmanActivityToLocalRoster keeps setter during active rounds', () => {
+    const msg = hangmanActivity({
+      phase: 'guessing',
+      roundSeq: 2,
+      setterUserId: 'b',
+      rosterUserIds: ['a', 'b'],
+      mask: '___',
+    });
+    const coerced = coerceHangmanActivityToLocalRoster(msg, ['a', 'b', 'c']);
+    expect(coerced.setterUserId).toBe('b');
+    expect(coerced.rosterUserIds).toEqual(['a', 'b', 'c']);
+  });
+
+  it('shouldLocalClientApplyHangmanGuess prefers roster host when present', () => {
+    expect(
+      shouldLocalClientApplyHangmanGuess({
+        selfUserId: 'a',
+        setterUserId: 'b',
+        rosterSorted: ['a', 'b'],
+        presenceUserIds: ['a', 'b'],
+        hasRoundSecret: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldLocalClientApplyHangmanGuess({
+        selfUserId: 'b',
+        setterUserId: 'b',
+        rosterSorted: ['a', 'b'],
+        presenceUserIds: ['a', 'b'],
+        hasRoundSecret: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('shouldLocalClientApplyHangmanGuess falls back to setter when host left', () => {
+    expect(
+      shouldLocalClientApplyHangmanGuess({
+        selfUserId: 'b',
+        setterUserId: 'b',
+        rosterSorted: ['a', 'b'],
+        presenceUserIds: ['b'],
+        hasRoundSecret: true,
+      }),
+    ).toBe(true);
   });
 
   it('sanitizeHangmanActivityForMerge validates round_over', () => {

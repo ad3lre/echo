@@ -12,7 +12,58 @@ import {
 export { mergeHangmanPresenceRoster as mergeCodenamesPresenceRoster };
 export { hangmanOrchestratorUserId as codenamesOrchestratorUserId };
 
+/** Minimum players for a full tabletop-style session. */
+export const VC_CODENAMES_MIN_PLAYERS = 4;
+
 export type CodenamesTick = { updatedAt: number; revision: number };
+
+function normalizedRosterIds(rosterSorted: readonly string[]): string[] {
+  return [...new Set(rosterSorted.map((x) => x.trim()).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b),
+  );
+}
+
+export function isCodenamesSoloRoster(
+  rosterSorted: readonly string[],
+): boolean {
+  return normalizedRosterIds(rosterSorted).length === 1;
+}
+
+export function codenamesMinPlayersToStart(): number {
+  return 1;
+}
+
+/** One player fills every role for UI and solo play. */
+export function buildSoloCodenamesRoles(
+  userId: string,
+): EchoCodenamesRoleAssignmentV1[] {
+  const uid = userId.trim();
+  if (!uid) return [];
+  return [{ userId: uid, team: 'red', role: 'spymaster' }];
+}
+
+function canClueAsSpymaster(
+  prev: EchoCodenamesActivityV1,
+  spymasterUserId: string,
+): boolean {
+  const uid = spymasterUserId.trim();
+  const role = prev.roleAssignments.find((r) => r.userId === uid);
+  if (!role || role.role !== 'spymaster') return false;
+  if (isCodenamesSoloRoster(prev.rosterUserIds)) return true;
+  return role.team === prev.currentTeam;
+}
+
+function canGuessAsOperative(
+  prev: EchoCodenamesActivityV1,
+  operativeUserId: string,
+): boolean {
+  const uid = operativeUserId.trim();
+  const role = prev.roleAssignments.find((r) => r.userId === uid);
+  if (!role) return false;
+  if (isCodenamesSoloRoster(prev.rosterUserIds)) return true;
+  if (role.role !== 'operative') return false;
+  return role.team === prev.currentTeam;
+}
 
 export function isNewerCodenamesTick(
   next: CodenamesTick,
@@ -80,8 +131,20 @@ export function validateRoleSetup(
   rosterSorted: readonly string[],
   roles: readonly EchoCodenamesRoleAssignmentV1[],
 ): EchoCodenamesRoleAssignmentV1[] | null {
-  const roster = new Set(rosterSorted.map((x) => x.trim()).filter(Boolean));
-  if (roster.size < 4) return null;
+  const rosterList = normalizedRosterIds(rosterSorted);
+  const roster = new Set(rosterList);
+  if (roster.size < codenamesMinPlayersToStart()) return null;
+  if (isCodenamesSoloRoster(rosterList)) {
+    if (roster.size !== 1) return null;
+    const uid = rosterList[0]!;
+    if (roles.length !== 1) return null;
+    const r = roles[0]!;
+    if (r.userId.trim() !== uid) return null;
+    if (r.role !== 'spymaster') return null;
+    if (r.team !== 'red' && r.team !== 'blue') return null;
+    return [{ userId: uid, team: r.team, role: 'spymaster' }];
+  }
+  if (roster.size < VC_CODENAMES_MIN_PLAYERS) return null;
   const seen = new Set<string>();
   let redSm = 0;
   let blueSm = 0;
@@ -297,11 +360,7 @@ export function applyClue(
   const clueWord = word.trim();
   if (!clueWord || number < 0 || number > 9) return null;
   if (clueConflictsWithUnrevealedBoard(clueWord, prev.cells)) return null;
-  const role = prev.roleAssignments.find(
-    (r) => r.userId === spymasterUserId.trim(),
-  );
-  if (!role || role.role !== 'spymaster' || role.team !== prev.currentTeam)
-    return null;
+  if (!canClueAsSpymaster(prev, spymasterUserId)) return null;
   return {
     ...prev,
     updatedAt: Date.now(),
@@ -337,11 +396,7 @@ export function applyReveal(
 ): EchoCodenamesActivityV1 | null {
   if (prev.phase !== 'playing' || prev.turnStage !== 'await_guess') return null;
   if (cardIndex < 0 || cardIndex > 24) return null;
-  const op = prev.roleAssignments.find(
-    (r) => r.userId === operativeUserId.trim(),
-  );
-  if (!op || op.role !== 'operative' || op.team !== prev.currentTeam)
-    return null;
+  if (!canGuessAsOperative(prev, operativeUserId)) return null;
   const cell = prev.cells[cardIndex]!;
   if (cell.revealed) return null;
   const aff = key[cardIndex]!;
@@ -412,11 +467,7 @@ export function applyEndTurn(
   revision: number,
 ): EchoCodenamesActivityV1 | null {
   if (prev.phase !== 'playing' || prev.turnStage !== 'await_guess') return null;
-  const op = prev.roleAssignments.find(
-    (r) => r.userId === operativeUserId.trim(),
-  );
-  if (!op || op.role !== 'operative' || op.team !== prev.currentTeam)
-    return null;
+  if (!canGuessAsOperative(prev, operativeUserId)) return null;
   return {
     ...prev,
     updatedAt: Date.now(),

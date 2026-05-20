@@ -1596,7 +1596,8 @@ watch(
                       Speakers
                     </div>
                     <ChannelPanelVoiceParticipant
-                      v-for="userId in partitionStageParticipants(channel).speakers"
+                      v-for="userId in partitionStageParticipants(channel)
+                        .speakers"
                       :key="`spk-${userId}`"
                       :user-id="userId"
                       :name="voiceParticipantName(channel.id, userId)"
@@ -1629,7 +1630,8 @@ watch(
                       Audience
                     </div>
                     <ChannelPanelVoiceParticipant
-                      v-for="userId in partitionStageParticipants(channel).audience"
+                      v-for="userId in partitionStageParticipants(channel)
+                        .audience"
                       :key="`aud-${userId}`"
                       :user-id="userId"
                       :name="voiceParticipantName(channel.id, userId)"

@@ -286,6 +286,10 @@ export type AppLayoutLeftChromeProps = {
   vcActivityKingUserId?: string;
   /** Per-user VC activity surface (YouTube, activities picker) — compact roster badges. */
   getVcActivityPresence?: (userId: string) => VcActivityPresenceKind[];
+  /** Cached LiveKit activity kinds for a guild voice channel (join-from-profile). */
+  getVcChannelActivityPresence?: (
+    channelId: string,
+  ) => VcActivityPresenceKind[];
   /** LiveKit-aware VC row state for channel list avatars (speaking ring, levels); same as CallView. */
   voiceSessionParticipants?: Array<{
     id: string;
