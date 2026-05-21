@@ -31,7 +31,7 @@
     "@privacyresearch/libsignal-protocol-typescript": "^0.0.16",
     "@simplewebauthn/browser": "^13.3.0",
     "@tailwindcss/vite": "^4.2.4",
-    "@tanstack/vue-virtual": "^3.13.24",
+    "@tanstack/vue-virtual": "^3.13.25",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-deep-link": "^2.4.8",
