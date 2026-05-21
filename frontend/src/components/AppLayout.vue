@@ -545,6 +545,7 @@ const {
   usersForMentionAutocomplete,
   memberPopoutOpenRolesPanel,
   memberPanelCollapsed,
+  memberListShowGuests,
   memberPanelAutoCollapseUserOverride,
   markMemberPanelExpandedByUser,
   markMemberPanelCollapsedByUser,
@@ -1181,6 +1182,10 @@ provide(LAYOUT_MEMBERS_COLUMN_KEY, {
     return id || null;
   }),
   memberPanelCollapsed,
+  memberListShowGuests,
+  onUpdateMemberListShowGuests: (show: boolean) => {
+    memberListShowGuests.value = show;
+  },
   onSearchInput,
   addFilter,
   removeFilter,

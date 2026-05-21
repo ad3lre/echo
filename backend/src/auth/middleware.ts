@@ -23,6 +23,14 @@ declare module 'fastify' {
 function checkGuestGates(
   user: AuthUser,
 ): { code: number; errorCode: string; message: string } | null {
+  if (user.isGuest && !config.guestAccountsEnabled) {
+    return {
+      code: 401,
+      errorCode: 'GUESTS_DISABLED',
+      message:
+        'Guest accounts are not available. Create an account or sign in.',
+    };
+  }
   if (user.isGuest && user.guestDeletedAt) {
     return {
       code: 401,

@@ -42,6 +42,7 @@
     "test:linkUnfurlExtract": "ts-node src/tests/linkUnfurl.extractAndEmbeds.test.ts",
     "migrate:echo-snowflake": "ts-node src/scripts/migrateEchoIdsToSnowflake.ts",
     "backfill:default-pfp": "ts-node src/scripts/backfillDefaultAvatarPfp.ts",
+    "backfill:discord-import-cdn": "ts-node src/scripts/backfillDiscordImportCdnUrls.ts",
     "guest:soft-delete-stale": "ts-node src/scripts/softDeleteStaleGuests.ts",
     "db:wipe": "ts-node src/scripts/wipeAppDatabase.ts"
   },

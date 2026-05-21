@@ -1,0 +1,47 @@
+---
+import MarketingShell from '../layouts/MarketingShell.astro';
+import { renderLegalMarkdown } from '../lib/renderLegalMarkdown';
+
+interface FooterLink {
+  href: string;
+  label: string;
+}
+
+interface Props {
+  title: string;
+  pageHeading: string;
+  description: string;
+  canonicalPath: string;
+  lastUpdated: string;
+  markdown: string;
+  footerLinks: FooterLink[];
+}
+
+const { title, pageHeading, description, canonicalPath, lastUpdated, markdown, footerLinks } =
+  Astro.props;
+const html = renderLegalMarkdown(markdown);
+---
+
+<MarketingShell title={title} description={description} canonicalPath={canonicalPath}>
+  <main id="main" class="legal-page">
+    <div class="container">
+      <article class="legal-content">
+        <header class="legal-header">
+          <span class="hero-eyebrow">Legal</span>
+          <h1>{pageHeading}</h1>
+          <p class="legal-meta">Last updated: {lastUpdated}</p>
+        </header>
+
+        <div class="legal-body legal-body--markdown" set:html={html} />
+
+        <footer class="legal-footer">
+          <nav class="legal-nav" aria-label="Related legal documents">
+            {footerLinks.map((link) => (
+              <a href={link.href}>{link.label}</a>
+            ))}
+          </nav>
+        </footer>
+      </article>
+    </div>
+  </main>
+</MarketingShell>

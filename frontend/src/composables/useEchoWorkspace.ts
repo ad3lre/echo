@@ -25,6 +25,7 @@ import {
 import { dbgMemberList } from '@/utils/echoMemberListDebug';
 import type { MemberRole } from '@/utils/memberProfiles';
 import { hasPriorRegistration } from '@/utils/priorRegistration';
+import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
 import { shouldSkipAutoGuestAfterLogout } from '@/utils/autoGuestLogoutSuppress';
 import { consumeSkipAutoGuestOnce } from '@/utils/autoGuestOAuthReturn';
 import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
@@ -243,7 +244,9 @@ export function createWorkspaceState(): WorkspaceStateApi {
       let sessionUser: AuthUserPublic | null = restoredUser;
       if (!sessionUser || !auth.isAuthenticated) {
         const skipAutoGuest =
-          shouldSkipAutoGuestAfterLogout() || consumeSkipAutoGuestOnce();
+          !ECHO_GUEST_ACCOUNTS_ENABLED ||
+          shouldSkipAutoGuestAfterLogout() ||
+          consumeSkipAutoGuestOnce();
         if (!skipAutoGuest) {
           try {
             const guestSession = await authContinueAsGuest();

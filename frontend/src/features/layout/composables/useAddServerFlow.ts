@@ -132,6 +132,7 @@ export function useAddServerFlow(deps: {
   } = deps;
 
   const addServerJoinError = ref('');
+  const exploreDirectoryJoinBusy = ref(false);
   /** True while create/import API work runs after the user submits Add Server (modal stays open). */
   const addServerCreateBusy = ref(false);
   const delay = (ms: number) =>
@@ -250,6 +251,9 @@ export function useAddServerFlow(deps: {
     serverStore.selectServer(serverId);
     const pick = resolveChannelIdAfterJoin(serverId, preferredChannelId);
     const navRefs = { activeRailTab, dmActiveTab, activeChannelId };
+    const navOpts = isPersistedEchoDmThread
+      ? { isPersistedEchoDmThread }
+      : undefined;
     let next = reduceNavigation(
       navStateFromRefs({
         rail: activeRailTab.value,
@@ -258,7 +262,7 @@ export function useAddServerFlow(deps: {
         selectedServerId: serverStore.selectedServerId ?? null,
       }),
       { type: 'SELECT_SERVERS_TAB' },
-      isPersistedEchoDmThread ? { isPersistedEchoDmThread } : undefined,
+      navOpts,
     );
     applyNavStateToRefs(next, navRefs);
     if (pick) {
@@ -272,6 +276,9 @@ export function useAddServerFlow(deps: {
         { type: 'SELECT_CHANNEL', channelId: pick },
       );
       applyNavStateToRefs(next, navRefs);
+    } else if (activeChannelId.value === 'general') {
+      // Leaving Explore often leaves the placeholder `general` id; avoid unknown channel UI.
+      activeChannelId.value = '';
     }
   }
 
@@ -655,27 +662,30 @@ export function useAddServerFlow(deps: {
     pfp: string;
     memberCount?: number;
   }) {
-    addServerJoinError.value = '';
+    if (exploreDirectoryJoinBusy.value) return;
+    exploreDirectoryJoinBusy.value = true;
+    try {
+      addServerJoinError.value = '';
 
-    function finishMockJoin(serverId: string) {
-      isAddServerModalOpen.value = false;
-      focusJoinedServerInShell(serverId);
-      const uid = currentUser.value?.id;
-      if (uid) {
-        const cur = workspace.serverMemberIds.value[serverId] ?? [];
-        if (!cur.includes(uid)) {
-          workspace.serverMemberIds.value = {
-            ...workspace.serverMemberIds.value,
-            [serverId]: [...cur, uid],
-          };
+      function finishMockJoin(serverId: string) {
+        isAddServerModalOpen.value = false;
+        focusJoinedServerInShell(serverId);
+        const uid = currentUser.value?.id;
+        if (uid) {
+          const cur = workspace.serverMemberIds.value[serverId] ?? [];
+          if (!cur.includes(uid)) {
+            workspace.serverMemberIds.value = {
+              ...workspace.serverMemberIds.value,
+              [serverId]: [...cur, uid],
+            };
+          }
+        }
+        if (!isMoreServersPinned.value) {
+          isMoreServersPanelOpen.value = false;
         }
       }
-      if (!isMoreServersPinned.value) {
-        isMoreServersPanelOpen.value = false;
-      }
-    }
 
-    const token = authSession.accessToken?.trim() ?? '';
+      const token = authSession.accessToken?.trim() ?? '';
     const graphId =
       entry.id?.trim() && isEchoGraphId(entry.id) ? entry.id.trim() : '';
     const entryName = entry.name.trim();
@@ -714,10 +724,19 @@ export function useAddServerFlow(deps: {
     let resolvedGraphId = graphId;
 
     if (!resolvedGraphId && authSession.isAuthenticated) {
-      await workspace.refreshExploreDirectory();
-      resolvedGraphId = resolveGraphIdFromDirectoryRows(
-        workspace.discoverableServers.value,
-      );
+      try {
+        await workspace.refreshExploreDirectory();
+        resolvedGraphId = resolveGraphIdFromDirectoryRows(
+          workspace.discoverableServers.value,
+        );
+      } catch {
+        surfaceAddServerFlowFeedback(
+          'Could not refresh the Explore directory. Check your connection and try again.',
+          'error',
+          'explore_join_directory',
+        );
+        return;
+      }
     }
 
     if (resolvedGraphId) {
@@ -823,6 +842,16 @@ export function useAddServerFlow(deps: {
       'error',
       'explore_join_directory',
     );
+    } catch (cause) {
+      surfaceAddServerFlowFeedback(
+        getJoinFeedbackMessage(cause, 'Could not join this server.'),
+        'error',
+        'explore_join_directory',
+      );
+      finishJoinServerConfirmModal();
+    } finally {
+      exploreDirectoryJoinBusy.value = false;
+    }
   }
 
   function handleInviteFriend(
@@ -893,6 +922,7 @@ export function useAddServerFlow(deps: {
   return {
     addServerJoinError,
     addServerCreateBusy,
+    exploreDirectoryJoinBusy,
     openAddServerModal,
     joinEchoServerWithInviteRaw,
     handleJoinWithInviteLink,

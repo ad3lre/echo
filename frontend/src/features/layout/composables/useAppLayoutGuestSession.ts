@@ -4,6 +4,7 @@ import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { useAuthSessionStore } from '@/stores/authSession';
 import type { RailTab } from '@/features/layout/mainSurface';
 import { AuthApiError, authContinueAsGuest } from '@/api/authClient';
+import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { isGuestWelcomeLayoutDismissedForUser } from '@/utils/guestWelcomeLayout';
 
@@ -82,6 +83,13 @@ export function useAppLayoutGuestSession(deps: {
   );
 
   async function continueAsGuest(captchaToken?: string) {
+    if (!ECHO_GUEST_ACCOUNTS_ENABLED) {
+      dispatchAppToast(
+        'Guest accounts are not available. Create an account or sign in.',
+        'warning',
+      );
+      return;
+    }
     try {
       isAuthModalOpen.value = false;
       const session = await authContinueAsGuest(

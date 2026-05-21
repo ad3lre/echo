@@ -418,17 +418,14 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
         >
           <p class="welcome-back-narrow-header__eyebrow">Echo</p>
           <h1 class="welcome-back-narrow-header__title">
-            <template v-if="memberEmptyDirectory"
-              >Create or join a server</template
-            >
-            <template v-else>Welcome back</template>
+            {{
+              memberEmptyDirectory
+                ? 'Create or join a server'
+                : welcomeTitle
+            }}
           </h1>
           <p class="welcome-back-narrow-header__subtitle">
-            <template v-if="memberEmptyDirectory">
-              The public directory isn't listing any servers right now. Create
-              one or join with an invite.
-            </template>
-            <template v-else>Pick up where you left off.</template>
+            {{ welcomeSubtitle }}
           </p>
         </div>
         <h2 id="welcome-back-gate-heading" class="sr-only">

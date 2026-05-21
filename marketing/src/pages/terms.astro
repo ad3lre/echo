@@ -1,115 +1,22 @@
 ---
-import MarketingShell from '../layouts/MarketingShell.astro';
-import { SUPPORT_CONTACT_EMAIL } from '../site';
+import LegalMarkdownArticle from '../components/LegalMarkdownArticle.astro';
+import termsMd from '../../../terms/terms.md?raw';
 
 const title = 'Terms of Service | Echo';
 const description = 'Read the Terms of Service for using Echo, the privacy-focused communication platform.';
 const lastUpdated = '23 March 2026';
 ---
 
-<MarketingShell title={title} description={description} canonicalPath="/terms">
-  <main id="main" class="legal-page">
-    <div class="container">
-      <article class="legal-content">
-        <header class="legal-header">
-          <span class="hero-eyebrow">Legal</span>
-          <h1>Terms of Service</h1>
-          <p class="legal-meta">Last updated: {lastUpdated}</p>
-        </header>
-
-        <div class="legal-body">
-          <p class="legal-intro">
-            These Terms of Service govern your access to and use of the Echo mobile and web application. 
-            By accessing or using Echo, you agree to these Terms. We operate as a registered business in Germany.
-          </p>
-
-          <section class="legal-section">
-            <h2>1. Service Description</h2>
-            <p>
-              Echo is a communication platform that enables users to create, send, receive, and interact 
-              with content within the Service. Features and functionality may change over time as we improve 
-              the platform.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>2. Eligibility</h2>
-            <p>
-              You must be old enough to form a binding contract under applicable law. If you are a minor, 
-              you may use the Service only if permitted by law and you have parental or guardian consent 
-              where required.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>3. Accounts & Security</h2>
-            <p>
-              You are responsible for activity under your account. Do not impersonate others or create 
-              multiple accounts to evade moderation. We support anonymous accounts where you can use 
-              the Service without providing personal identity.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>4. User Content</h2>
-            <p>
-              You retain ownership of content you submit. By uploading content, you grant us a license 
-              to use it solely to operate and improve the Service. We do not claim ownership of your content.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>5. Acceptable Use</h2>
-            <p>You agree not to use Echo for:</p>
-            <ul>
-              <li>Illegal activities or content</li>
-              <li>Spam, harassment, or abuse</li>
-              <li>Distribution of malware</li>
-              <li>Unauthorized access to systems</li>
-              <li>Impersonation or fraud</li>
-            </ul>
-          </section>
-
-          <section class="legal-section">
-            <h2>6. Termination</h2>
-            <p>
-              We may suspend or terminate accounts that violate these Terms. You may delete your account 
-              at any time. Some content may remain visible to others even after account deletion.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>7. Disclaimers</h2>
-            <p>
-              The Service is provided "as is" without warranties of any kind. We are not liable for 
-              indirect, incidental, or consequential damages arising from your use of the Service.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>8. Changes to Terms</h2>
-            <p>
-              We may update these Terms from time to time. We will notify you of significant changes. 
-              Continued use of the Service constitutes acceptance of the updated Terms.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>9. Contact</h2>
-            <p>
-              For questions about these Terms, contact us through in-app support or at <a href={`mailto:${SUPPORT_CONTACT_EMAIL}`}>{SUPPORT_CONTACT_EMAIL}</a>.
-            </p>
-          </section>
-        </div>
-
-        <footer class="legal-footer">
-          <nav class="legal-nav">
-            <a href="/privacy">Privacy Policy</a>
-            <a href="/community-guidelines">Community Guidelines</a>
-            <a href="/attributions">Attributions</a>
-          </nav>
-        </footer>
-      </article>
-    </div>
-  </main>
-</MarketingShell>
+<LegalMarkdownArticle
+  title={title}
+  pageHeading="Terms of Service"
+  description={description}
+  canonicalPath="/terms"
+  lastUpdated={lastUpdated}
+  markdown={termsMd}
+  footerLinks={[
+    { href: '/privacy', label: 'Privacy Policy' },
+    { href: '/community-guidelines', label: 'Community Guidelines' },
+    { href: '/attributions', label: 'Attributions' },
+  ]}
+/>

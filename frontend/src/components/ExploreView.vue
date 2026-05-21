@@ -64,6 +64,8 @@ const props = defineProps<{
   discoverableServers:
     | DiscoverableServer[]
     | import('vue').Ref<DiscoverableServer[]>;
+  /** True while an Explore directory join/open action is in progress. */
+  directoryJoinBusy?: boolean;
   /** Compact/mobile shell: show a header control to leave Explore (e.g. back to Servers). */
   showMobileBack?: boolean;
 }>();
@@ -71,7 +73,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   'create-server': [];
   'join-server': [inviteLink?: string];
-  'join-suggested': [payload: { id: string; name: string; pfp: string }];
+  'join-suggested': [
+    payload: { id: string; name: string; pfp: string; memberCount?: number },
+  ];
   back: [];
 }>();
 
@@ -218,6 +222,7 @@ const guestJoinLockedHint =
   'This server requires a full Echo account to join from Explore.';
 
 async function onExploreServerJoinClick(server: ListedServer) {
+  if (props.directoryJoinBusy) return;
   if (server.joinLocked) {
     await requestGuestExploreJoinBlockedModal(guestJoinLockedHint);
     return;
@@ -226,6 +231,7 @@ async function onExploreServerJoinClick(server: ListedServer) {
     id: server.id,
     name: server.name,
     pfp: server.pfp,
+    memberCount: server.memberCount,
   });
 }
 
@@ -544,10 +550,11 @@ onBeforeUnmount(() => {
           >
             <button
               type="button"
-              class="explore-featured-widget w-full overflow-hidden rounded-[1.25rem] text-left transition-[box-shadow,border-color] duration-200"
+              class="explore-featured-widget w-full overflow-hidden rounded-[1.25rem] text-left transition-[box-shadow,border-color] duration-200 disabled:pointer-events-none disabled:opacity-50"
               :class="{
                 'explore-server-widget--join-locked': server.joinLocked,
               }"
+              :disabled="directoryJoinBusy"
               @click="onExploreServerJoinClick(server)"
             >
               <div
@@ -901,7 +908,8 @@ onBeforeUnmount(() => {
                     <button
                       v-if="server.joinLocked"
                       type="button"
-                      class="explore-join-locked-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+                      class="explore-join-locked-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-50"
+                      :disabled="directoryJoinBusy"
                       @click="onExploreServerJoinClick(server)"
                     >
                       <img
@@ -914,7 +922,8 @@ onBeforeUnmount(() => {
                     <button
                       v-else-if="server.alreadyMember"
                       type="button"
-                      class="explore-open-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+                      class="explore-open-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-50"
+                      :disabled="directoryJoinBusy"
                       @click="onExploreServerJoinClick(server)"
                     >
                       <span>Open server</span>
@@ -923,7 +932,8 @@ onBeforeUnmount(() => {
                     <button
                       v-else
                       type="button"
-                      class="explore-primary-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
+                      class="explore-primary-btn inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:pointer-events-none disabled:opacity-50"
+                      :disabled="directoryJoinBusy"
                       @click="onExploreServerJoinClick(server)"
                     >
                       <span>Join server</span>
@@ -987,10 +997,11 @@ onBeforeUnmount(() => {
             <li v-for="server in featuredServers" :key="server.id">
               <button
                 type="button"
-                class="explore-featured-widget w-full overflow-hidden rounded-xl text-left transition-[box-shadow,border-color] duration-200"
+                class="explore-featured-widget w-full overflow-hidden rounded-xl text-left transition-[box-shadow,border-color] duration-200 disabled:pointer-events-none disabled:opacity-50"
                 :class="{
                   'explore-server-widget--join-locked': server.joinLocked,
                 }"
+                :disabled="directoryJoinBusy"
                 @click="onExploreServerJoinClick(server)"
               >
                 <div

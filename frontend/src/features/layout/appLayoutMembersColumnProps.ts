@@ -17,7 +17,13 @@ export type AppLayoutMembersColumnProps = {
   searchResultPage: number;
   totalPages: number;
   selectedServerName: string;
-  memberListUsers: { id: string; name: string; pfp: string; status?: string }[];
+  memberListUsers: {
+    id: string;
+    name: string;
+    pfp: string;
+    status?: string;
+    isGuest?: boolean;
+  }[];
   /** Echo: `echo_servers.owner_id` for the active guild (crown in member list). */
   serverOwnerId?: string | null;
   /** Sparse: friends on Echo Web from a phone-class device (compact badge). */
@@ -28,6 +34,9 @@ export type AppLayoutMembersColumnProps = {
   lastOnlineAtByUserId?: Record<string, string>;
   selectedServerId: string;
   memberPanelCollapsed: boolean;
+  /** When false (default), guest accounts are hidden from the roster toggle. */
+  memberListShowGuests?: boolean;
+  onUpdateMemberListShowGuests?: (show: boolean) => void;
   onSearchInput: (v: string) => void;
   addFilter: (key: FilterKey, value: string | boolean | HasType) => void;
   removeFilter: (key: FilterKey) => void;

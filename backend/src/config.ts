@@ -535,6 +535,11 @@ interface AppConfig {
    */
   readonly echoPasskeysEnabled: boolean;
   /**
+   * When true, `POST /api/v1/auth/guest` may mint or resume guest sessions.
+   * **Off by default.** Set `ECHO_GUEST_ACCOUNTS_ENABLED=1` to enable.
+   */
+  readonly guestAccountsEnabled: boolean;
+  /**
    * When non-empty, `GET /api/v1/metrics` requires `Authorization: Bearer <token>`.
    * Required in `NODE_ENV=production` (startup fails if unset). Prefer also restricting scrape at the reverse proxy.
    */
@@ -1514,6 +1519,10 @@ export const config: AppConfig = {
     }
   })(),
   echoPasskeysEnabled: parseBoolean(process.env.ECHO_PASSKEYS_ENABLED, false),
+  guestAccountsEnabled: parseBoolean(
+    process.env.ECHO_GUEST_ACCOUNTS_ENABLED,
+    false,
+  ),
   echoMetricsScrapeToken: process.env.ECHO_METRICS_SCRAPE_TOKEN?.trim() || null,
   echoAgentNetworkDiagnosticsEnabled: parseBoolean(
     process.env.ECHO_AGENT_NETWORK_DIAG_ENABLED,

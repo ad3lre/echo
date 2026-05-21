@@ -1,133 +1,22 @@
 ---
-import MarketingShell from '../layouts/MarketingShell.astro';
-import { SUPPORT_CONTACT_EMAIL } from '../site';
+import LegalMarkdownArticle from '../components/LegalMarkdownArticle.astro';
+import communityGuidelinesMd from '../../../terms/community-guidelines.md?raw';
 
 const title = 'Community Guidelines | Echo';
 const description = 'Our community guidelines for maintaining a safe and respectful environment on Echo.';
 const lastUpdated = '23 March 2026';
 ---
 
-<MarketingShell title={title} description={description} canonicalPath="/community-guidelines">
-  <main id="main" class="legal-page">
-    <div class="container">
-      <article class="legal-content">
-        <header class="legal-header">
-          <span class="hero-eyebrow">Legal</span>
-          <h1>Community Guidelines</h1>
-          <p class="legal-meta">Last updated: {lastUpdated}</p>
-        </header>
-
-        <div class="legal-body">
-          <p class="legal-intro">
-            These guidelines set Echo's platform-wide expectations. Individual communities 
-            (servers) may adopt their own stricter rules, but they cannot override platform-wide 
-            safety requirements.
-          </p>
-
-          <section class="legal-section">
-            <h2>1. Expression & Conduct</h2>
-            <p>
-              Echo protects free expression. No one is removed simply for what they say or believe. 
-              Limits apply only when expression threatens the platform's existence, disrupts its 
-              operation, or prevents others from using it.
-            </p>
-            <p>
-              Individual communities may enforce stricter standards within their own spaces.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>2. NSFW Content</h2>
-            <p>NSFW content is restricted and only allowed under strict conditions:</p>
-            <ul>
-              <li>Servers explicitly marked as 18+</li>
-              <li>Private chats where all participants are confirmed 18+</li>
-              <li>Groups where all members are 18+</li>
-            </ul>
-            <p>Any NSFW content outside these environments is not allowed.</p>
-          </section>
-
-          <section class="legal-section">
-            <h2>3. Violence & Harm</h2>
-            <p>The following is strictly prohibited:</p>
-            <ul>
-              <li>Graphic depictions of real-world violence</li>
-              <li>Gore or explicit violent imagery</li>
-              <li>Content that glorifies real harm</li>
-            </ul>
-            <p>Discussion of real-world events is allowed when non-graphic and informational.</p>
-          </section>
-
-          <section class="legal-section">
-            <h2>4. Threats & Safety Risks</h2>
-            <p>
-              Credible threats of violence are strictly forbidden. Any behavior interpreted as a 
-              real-world threat may result in immediate enforcement action.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>5. Spam & Platform Abuse</h2>
-            <p>The following behaviors are not allowed:</p>
-            <ul>
-              <li>Spam (repeated, irrelevant, or disruptive messaging)</li>
-              <li>Mass messaging or disruptive automation</li>
-              <li>Server raiding or coordinated disruption attempts</li>
-              <li>Self-promotion, advertising, or unsolicited marketing</li>
-            </ul>
-          </section>
-
-          <section class="legal-section">
-            <h2>6. Illegal Content</h2>
-            <p>Content that is illegal to produce, distribute, or possess is prohibited, including:</p>
-            <ul>
-              <li>Child sexual abuse material (CSAM)</li>
-              <li>Content promoting terrorism</li>
-              <li>Content that facilitates serious crimes</li>
-            </ul>
-          </section>
-
-          <section class="legal-section">
-            <h2>7. Harassment & Hate</h2>
-            <p>
-              Coordinated harassment, targeted abuse, or content that incites violence against 
-              individuals or protected groups is prohibited.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>8. Privacy Violations</h2>
-            <p>
-              Do not share others' private information without consent. This includes doxxing, 
-              sharing private messages publicly, or distributing personal data.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>9. Reporting</h2>
-            <p>
-              If you see content that violates these guidelines, report it using the in-app 
-              reporting tools or contact <a href={`mailto:${SUPPORT_CONTACT_EMAIL}`}>{SUPPORT_CONTACT_EMAIL}</a>.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>10. Enforcement</h2>
-            <p>
-              Violations may result in warnings, temporary suspensions, or permanent bans depending 
-              on severity and context. We aim to be fair and proportionate in enforcement.
-            </p>
-          </section>
-        </div>
-
-        <footer class="legal-footer">
-          <nav class="legal-nav">
-            <a href="/terms">Terms of Service</a>
-            <a href="/privacy">Privacy Policy</a>
-            <a href="/attributions">Attributions</a>
-          </nav>
-        </footer>
-      </article>
-    </div>
-  </main>
-</MarketingShell>
+<LegalMarkdownArticle
+  title={title}
+  pageHeading="Community Guidelines"
+  description={description}
+  canonicalPath="/community-guidelines"
+  lastUpdated={lastUpdated}
+  markdown={communityGuidelinesMd}
+  footerLinks={[
+    { href: '/privacy', label: 'Privacy Policy' },
+    { href: '/terms', label: 'Terms of Service' },
+    { href: '/attributions', label: 'Attributions' },
+  ]}
+/>

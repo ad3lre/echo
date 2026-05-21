@@ -66,6 +66,15 @@ export default async function guestRoutes(fastify: FastifyInstance) {
     },
     async (req, reply) => {
       try {
+        if (!config.guestAccountsEnabled) {
+          clearGuestBindingCookie(reply);
+          return sendError(
+            reply,
+            403,
+            'GUESTS_DISABLED',
+            'Guest accounts are not available. Create an account or sign in.',
+          );
+        }
         const { store, mode } = await getAuthStore();
         const captchaTokenRaw =
           typeof req.body?.captchaToken === 'string'

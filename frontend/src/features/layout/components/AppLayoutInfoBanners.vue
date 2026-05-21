@@ -412,7 +412,7 @@ const hasVisibleInfoBanner = computed(() => {
       <span
         class="min-h-0 min-w-0 flex-1 text-center text-[11px] leading-snug break-words line-clamp-3 sm:text-left"
       >
-        Welcome back — log in to restore your workspace.
+        {{ welcomeBackHintText }}
       </span>
       <div class="flex shrink-0 flex-wrap items-center justify-center gap-1.5">
         <button

@@ -12,6 +12,15 @@ describe('useJoinServerConfirmModal', () => {
     expect(modal.isJoinServerConfirmModalOpen.value).toBe(false);
   });
 
+  it('resolves false for a superseded confirm request', async () => {
+    const modal = useJoinServerConfirmModal();
+    const first = modal.requestJoinServerConfirm({ serverName: 'First' });
+    const second = modal.requestJoinServerConfirm({ serverName: 'Second' });
+    await expect(first).resolves.toBe(false);
+    modal.onJoinServerConfirmModalUpdate(false);
+    await expect(second).resolves.toBe(false);
+  });
+
   it('resolves true when the user confirms join', async () => {
     const modal = useJoinServerConfirmModal();
     const pending = modal.requestJoinServerConfirm({

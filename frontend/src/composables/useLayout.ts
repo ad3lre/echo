@@ -4,6 +4,7 @@ import { COMPACT_SHELL_MEDIA_QUERY } from '@/config/compactShell';
 const STORAGE_KEY_CHANNEL = 'echo-layout-channel-width';
 const STORAGE_KEY_MEMBER = 'echo-layout-member-width';
 const STORAGE_KEY_VOICE_SIDE = 'echo-layout-voice-side-width';
+const STORAGE_KEY_MEMBER_LIST_SHOW_GUESTS = 'echo-member-list-show-guests';
 
 const CHANNEL_MIN = 56;
 const CHANNEL_MAX = 480;
@@ -37,6 +38,8 @@ export function useLayout() {
   const channelPanelCollapsed = ref(false);
   const channelPanelBubbleMode = ref(false);
   const memberPanelCollapsed = ref(false);
+  /** Guild member panel: show guest accounts in the roster (default hidden). */
+  const memberListShowGuests = ref(false);
   /**
    * When true, narrow viewport (`max-width: 972px`) auto-collapse and AppLayout’s
    * measured main-area width auto-collapse must not hide the member list — the user
@@ -77,6 +80,20 @@ export function useLayout() {
           voiceSideChatWidth.value = n;
         }
       }
+      const storedShowGuests = localStorage.getItem(
+        STORAGE_KEY_MEMBER_LIST_SHOW_GUESTS,
+      );
+      if (storedShowGuests === '1' || storedShowGuests === 'true') {
+        memberListShowGuests.value = true;
+      }
+    } catch {
+      /* ignore */
+    }
+  });
+
+  watch(memberListShowGuests, (show) => {
+    try {
+      localStorage.setItem(STORAGE_KEY_MEMBER_LIST_SHOW_GUESTS, show ? '1' : '0');
     } catch {
       /* ignore */
     }
@@ -400,6 +417,7 @@ export function useLayout() {
     channelPanelCollapsed,
     channelPanelBubbleMode,
     memberPanelCollapsed,
+    memberListShowGuests,
     memberPanelAutoCollapseUserOverride,
     markMemberPanelExpandedByUser,
     markMemberPanelCollapsedByUser,

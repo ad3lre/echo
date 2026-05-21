@@ -8,6 +8,10 @@ import { LAYOUT_MEMBERS_COLUMN_KEY } from '@/features/layout/layoutInjectionKeys
 import type { AppLayoutMembersColumnProps } from '@/features/layout/appLayoutMembersColumnProps';
 import { layoutHyperLog } from '@/utils/layoutHyperLog';
 import type { FilterKey, HasType } from '@/composables/useSearch';
+import {
+  countMemberListGuests,
+  filterMemberListUsersForPanel,
+} from '@/utils/memberListGuestFilter';
 
 /** Props optional when `LAYOUT_MEMBERS_COLUMN_KEY` is provided from `AppLayout`. */
 const props = defineProps<
@@ -50,6 +54,19 @@ const isVisible = computed(() => {
 const effectiveActiveChannel = pick('effectiveActiveChannel');
 const users = computed(() => pick('users').value ?? []);
 const memberListUsers = computed(() => pick('memberListUsers').value ?? []);
+const memberListShowGuests = computed(
+  () => pick('memberListShowGuests').value ?? false,
+);
+const onUpdateMemberListShowGuests = pick('onUpdateMemberListShowGuests');
+const memberListUsersForPanel = computed(() =>
+  filterMemberListUsersForPanel(memberListUsers.value, {
+    showGuests: memberListShowGuests.value,
+    currentUserId: currentUserId.value,
+  }),
+);
+const memberListGuestCount = computed(() =>
+  countMemberListGuests(memberListUsers.value),
+);
 const selectedServerId = computed(() => pick('selectedServerId').value ?? '');
 const memberPanelCollapsed = computed(() => {
   if (props.visibilityOverride != null) {
@@ -92,6 +109,9 @@ watch(
     visibilityOverride:
       props.visibilityOverride === undefined ? null : props.visibilityOverride,
     memberListUsersLen: memberListUsers.value.length,
+    memberListUsersForPanelLen: memberListUsersForPanel.value.length,
+    memberListGuestCount: memberListGuestCount.value,
+    memberListShowGuests: memberListShowGuests.value,
     usersLen: users.value.length,
     effectiveActiveChannelId: effectiveActiveChannel.value?.id ?? null,
     memberPanelCollapsed: memberPanelCollapsed.value,
@@ -289,7 +309,15 @@ const resolvedSearchScopeHint = computed(() => {
     </div>
     <MemberList
       class="min-w-0 flex-1"
-      :users="memberListUsers"
+      :users="memberListUsersForPanel"
+      :show-guests="memberListShowGuests"
+      :guest-count="memberListGuestCount"
+      @update:show-guests="
+        (next) => {
+          const fn = onUpdateMemberListShowGuests.value;
+          if (typeof fn === 'function') fn(next);
+        }
+      "
       :server-owner-id="serverOwnerId"
       :presence-mobile-by-user-id="presenceMobileByUserId"
       :discord-online-by-user-id="discordOnlineByUserId"

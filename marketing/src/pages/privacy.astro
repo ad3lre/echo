@@ -1,122 +1,23 @@
 ---
-import MarketingShell from '../layouts/MarketingShell.astro';
-import { SUPPORT_CONTACT_EMAIL } from '../site';
+import LegalMarkdownArticle from '../components/LegalMarkdownArticle.astro';
+import privacyMd from '../../../terms/privacy.md?raw';
 
 const title = 'Privacy Policy | Echo';
-const description = 'Learn how Echo handles your data and protects your privacy.';
+const description =
+  'Learn how Echo collects, uses, stores, and shares your data—including Google and YouTube data when you use those features.';
 const lastUpdated = '23 March 2026';
 ---
 
-<MarketingShell title={title} description={description} canonicalPath="/privacy">
-  <main id="main" class="legal-page">
-    <div class="container">
-      <article class="legal-content">
-        <header class="legal-header">
-          <span class="hero-eyebrow">Legal</span>
-          <h1>Privacy Policy</h1>
-          <p class="legal-meta">Last updated: {lastUpdated}</p>
-        </header>
-
-        <div class="legal-body">
-          <p class="legal-intro">
-            This Privacy Policy explains what data Echo collects, why we collect it, and what 
-            choices you have. We operate as a registered business in Germany and comply with 
-            applicable data protection laws including GDPR.
-          </p>
-
-          <section class="legal-section">
-            <h2>1. Information We Collect</h2>
-            <p>We collect only data needed to run and secure the Service:</p>
-            <ul>
-              <li><strong>Account Info:</strong> Email address, username, and login credentials</li>
-              <li><strong>Identity Data:</strong> IP address and device information for security</li>
-              <li><strong>User Content:</strong> Messages and files you choose to share</li>
-              <li><strong>Usage Data:</strong> Activity logs and interaction data</li>
-              <li><strong>Analytics:</strong> Aggregated, de-identified data for improvement</li>
-            </ul>
-          </section>
-
-          <section class="legal-section">
-            <h2>2. How We Use Your Data</h2>
-            <ul>
-              <li>Provide messaging and communication functionality</li>
-              <li>Deliver, store, and manage your content</li>
-              <li>Detect spam, abuse, and illegal content</li>
-              <li>Protect account security and prevent fraud</li>
-              <li>Improve performance and reliability</li>
-            </ul>
-          </section>
-
-          <section class="legal-section">
-            <h2>3. Data Retention</h2>
-            <p>
-              We retain data as long as necessary to provide the Service or comply with legal 
-              obligations. You can request deletion of your account and associated data at any time.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>4. Your Rights</h2>
-            <p>Under GDPR and applicable laws, you have the right to:</p>
-            <ul>
-              <li>Access your personal data</li>
-              <li>Correct inaccurate data</li>
-              <li>Delete your data (right to be forgotten)</li>
-              <li>Restrict or object to processing</li>
-              <li>Data portability</li>
-              <li>Withdraw consent</li>
-            </ul>
-          </section>
-
-          <section class="legal-section">
-            <h2>5. Cookies & Tracking</h2>
-            <p>
-              We use minimal cookies necessary for authentication and security. We do not use 
-              third-party tracking cookies for advertising purposes.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>6. Data Security</h2>
-            <p>
-              We implement appropriate technical and organizational measures to protect your data. 
-              This includes encryption in transit (TLS) and at rest where applicable.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>7. Third Parties</h2>
-            <p>
-              We do not sell your data. We may use service providers for hosting and infrastructure, 
-              subject to strict data protection requirements.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>8. International Transfers</h2>
-            <p>
-              Data may be processed on servers located in different jurisdictions. We ensure 
-              appropriate safeguards are in place for international transfers.
-            </p>
-          </section>
-
-          <section class="legal-section">
-            <h2>9. Contact</h2>
-            <p>
-              For privacy-related requests or questions, contact us at <a href={`mailto:${SUPPORT_CONTACT_EMAIL}`}>{SUPPORT_CONTACT_EMAIL}</a> 
-              or through in-app support.
-            </p>
-          </section>
-        </div>
-
-        <footer class="legal-footer">
-          <nav class="legal-nav">
-            <a href="/terms">Terms of Service</a>
-            <a href="/community-guidelines">Community Guidelines</a>
-            <a href="/attributions">Attributions</a>
-          </nav>
-        </footer>
-      </article>
-    </div>
-  </main>
-</MarketingShell>
+<LegalMarkdownArticle
+  title={title}
+  pageHeading="Privacy Policy"
+  description={description}
+  canonicalPath="/privacy"
+  lastUpdated={lastUpdated}
+  markdown={privacyMd}
+  footerLinks={[
+    { href: '/terms', label: 'Terms of Service' },
+    { href: '/community-guidelines', label: 'Community Guidelines' },
+    { href: '/attributions', label: 'Attributions' },
+  ]}
+/>

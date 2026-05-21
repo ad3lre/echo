@@ -41,3 +41,19 @@ export function isDiscordHostedImportMediaUrl(raw: string): boolean {
     return false;
   }
 }
+
+/**
+ * Path-only key for matching the same Discord asset across URL signature rotations
+ * (`ex` / `is` / `hm` query params). Host is ignored so `cdn.discordapp.com` and
+ * `media.discordapp.net` proxy URLs for one attachment still match.
+ */
+export function discordCdnUrlStableKey(raw: string): string | null {
+  const s = typeof raw === 'string' ? raw.trim() : '';
+  if (!s || !isDiscordHostedImportMediaUrl(s)) return null;
+  try {
+    const u = new URL(s);
+    return u.pathname;
+  } catch {
+    return null;
+  }
+}

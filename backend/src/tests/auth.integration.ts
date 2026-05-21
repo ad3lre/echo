@@ -67,6 +67,7 @@ async function run(): Promise<void> {
   process.env.USE_MOCK_DB = '';
   process.env.ECHO_AUTH_STORE = '';
   process.env.REDIS_URL = '';
+  process.env.ECHO_GUEST_ACCOUNTS_ENABLED = '1';
 
   const [{ default: authRoutes }, { enforceApiCsrf }, serverSession] =
     await Promise.all([

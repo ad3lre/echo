@@ -34,6 +34,7 @@ type User = {
   pfp: string;
   status?: string;
   customStatus?: string;
+  isGuest?: boolean;
 };
 
 const devSettings = useDevSettingsStore();
@@ -123,7 +124,27 @@ const props = defineProps<{
   lastOnlineAtByUserId?: Record<string, string>;
   /** Echo guild owner — shows crown next to display name. */
   serverOwnerId?: string | null;
+  /** When false (default), guest rows are omitted upstream; footer toggles visibility. */
+  showGuests?: boolean;
+  /** Total guest members on the server (including hidden rows). */
+  guestCount?: number;
 }>();
+
+const emit = defineEmits<{
+  'update:collapsed': [value: boolean];
+  'update:showGuests': [value: boolean];
+  'open-profile': [
+    payload: {
+      userId: string;
+      anchorRect: ReturnType<typeof getPopoutAnchorRect>;
+      rolesPanel?: boolean;
+    },
+  ];
+}>();
+
+const showGuestsToggleVisible = computed(
+  () => (props.guestCount ?? 0) > 0,
+);
 
 const {
   menuOpen,
@@ -377,16 +398,9 @@ function subtitleTextWithTimeout(user: User): string {
   return subtitleText(user);
 }
 
-const emit = defineEmits<{
-  'update:collapsed': [value: boolean];
-  'open-profile': [
-    payload: {
-      userId: string;
-      anchorRect: ReturnType<typeof getPopoutAnchorRect>;
-      rolesPanel?: boolean;
-    },
-  ];
-}>();
+function toggleShowGuests() {
+  emit('update:showGuests', !props.showGuests);
+}
 
 async function handleMemberContextMenu(user: User, e: MouseEvent) {
   contextUser.value = user;
@@ -594,6 +608,23 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
             </div>
           </div>
         </div>
+      </div>
+      <div
+        v-if="showGuestsToggleVisible"
+        class="member-list-guest-toggle sticky bottom-0 z-[1] -mx-4 mt-2 border-t border-glass-tint bg-[color-mix(in_srgb,var(--surface-0)_92%,transparent)] px-4 py-2"
+      >
+        <button
+          type="button"
+          class="chat-focus-ring w-full rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted hover:bg-glass-tint hover:text-fg"
+          :aria-pressed="!!showGuests"
+          @click="toggleShowGuests"
+        >
+          {{
+            showGuests
+              ? 'Hide guests'
+              : `Show ${guestCount} guest${guestCount === 1 ? '' : 's'}`
+          }}
+        </button>
       </div>
     </div>
 

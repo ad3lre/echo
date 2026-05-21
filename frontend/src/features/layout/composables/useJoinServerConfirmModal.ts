@@ -31,8 +31,12 @@ export function useJoinServerConfirmModal() {
   function requestJoinServerConfirm(
     next: JoinServerConfirmPreview,
   ): Promise<boolean> {
+    if (resolvePending) {
+      settle(false);
+    }
     preview.value = next;
     isOpen.value = true;
+    joinBusy.value = false;
     return new Promise((resolve) => {
       resolvePending = resolve;
     });

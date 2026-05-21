@@ -391,6 +391,7 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     usersForMentionAutocomplete: ctx.usersForMentionAutocomplete,
     memberPopoutOpenRolesPanel: ctx.memberPopoutOpenRolesPanel,
     memberPanelCollapsed: ctx.memberPanelCollapsed,
+    memberListShowGuests: ctx.memberListShowGuests,
     memberPanelAutoCollapseUserOverride:
       ctx.memberPanelAutoCollapseUserOverride,
     markMemberPanelExpandedByUser: ctx.markMemberPanelExpandedByUser,
