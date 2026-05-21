@@ -91,6 +91,6 @@
     "socket.io": "^4.8.3"
   },
   "optionalDependencies": {
-    "re2": "^1.22.0"
+    "re2": "^1.24.1"
   }
 }
