@@ -5,3 +5,5 @@
  */
 export const iconEchoRounded = '/echo-rounded-logo.png';
 export const iconEcho = '/echo-logo.png';
+/** Tab favicon — dedicated 32×32 raster (see `scripts/generate-pwa-icons.mjs`). */
+export const iconEchoFavicon = '/icons/favicon-32.png';

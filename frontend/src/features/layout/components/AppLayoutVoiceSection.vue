@@ -43,8 +43,18 @@ import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/
 const CallView = defineAsyncComponent(
   () => import('@/components/CallView.vue'),
 );
+const StageCallView = defineAsyncComponent(
+  () => import('@/features/voice/components/StageCallView.vue'),
+);
 
 const liveKitConnected = computed(() => !!props.lkRoom);
+
+const isStageChannel = computed(
+  () => props.effectiveActiveChannel?.type === 'stage',
+);
+const stageSpeakerByUserId = computed(
+  () => props.effectiveActiveChannel?.voiceStageSpeakerByUserId ?? {},
+);
 
 const props = defineProps<{
   isViewingVoiceChannel: boolean;
@@ -113,7 +123,15 @@ const props = defineProps<{
   canModerateVcParticipant?: (userId: string) => boolean;
   canVcModerateParticipantAction?: (
     userId: string,
-    action: 'serverMute' | 'serverDeafen' | 'disconnect' | 'move',
+    action:
+      | 'serverMute'
+      | 'serverDeafen'
+      | 'disconnect'
+      | 'move'
+      | 'inviteToSpeak'
+      | 'moveToAudience'
+      | 'stopCamera'
+      | 'stopScreenShare',
   ) => boolean;
   handleVcModerate?: (payload: {
     action:
@@ -122,7 +140,9 @@ const props = defineProps<{
       | 'disconnect'
       | 'move'
       | 'inviteToSpeak'
-      | 'moveToAudience';
+      | 'moveToAudience'
+      | 'stopCamera'
+      | 'stopScreenShare';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;
@@ -242,10 +262,13 @@ const props = defineProps<{
   focusGuildVoiceChannelInSidebar?: () => void;
 }>();
 
-// Warm the CallView chunk only when voice UI is active (keeps startup tests/paths light).
+// Warm voice call chunks only when voice UI is active (keeps startup tests/paths light).
 watchEffect(() => {
   if (!props.isViewingVoiceChannel) return;
   void import('@/components/CallView.vue');
+  if (isStageChannel.value) {
+    void import('@/features/voice/components/StageCallView.vue');
+  }
 });
 
 const coarsePointer = useCoarsePointer();
@@ -552,6 +575,28 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
               focusGuildVoiceChannelInSidebar
             "
           />
+          <StageCallView
+            v-else-if="isStageChannel && effectiveActiveChannel"
+            class="min-w-0 min-h-0 flex-1"
+            :compact-layout="isCompactMobileGuild"
+            :channel-name="getChannelDisplayName(effectiveActiveChannel.name)"
+            :stage-channel-id="effectiveActiveChannel.id"
+            :echo-server-id="selectedServerId"
+            :participants="activeVoiceChannelParticipants"
+            :stage-speaker-by-user-id="stageSpeakerByUserId"
+            :current-user-id="currentUserId"
+            :on-open-profile="handleCallViewOpenProfile"
+            :can-moderate-participant="canModerateVcParticipant"
+            :can-vc-moderate-participant-action="canVcModerateParticipantAction"
+            :on-vc-moderate="handleVcModerate"
+            :remote-participants="remoteParticipants"
+            :lk-room="lkRoom"
+            :mirror-local-camera="mirrorLocalCamera"
+            :get-local-screen-track="getLocalScreenTrack"
+            :get-local-camera-track="getLocalCameraTrack"
+            :on-go-to-voice-channel-in-sidebar="focusGuildVoiceChannelInSidebar"
+            :voice-channel-user-limit="effectiveActiveChannel.userLimit"
+          />
           <CallView
             v-else
             class="min-w-0 min-h-0 flex-1"
@@ -576,13 +621,15 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :set-remote-participant-volume="setRemoteParticipantVolume"
             :on-request-fullscreen-stream="onRequestFullscreenStream"
             :voice-moderation-channel-id="
-              effectiveActiveChannel?.type === 'voice'
+              effectiveActiveChannel?.type === 'voice' ||
+              effectiveActiveChannel?.type === 'stage'
                 ? effectiveActiveChannel.id
                 : null
             "
             :on-go-to-voice-channel-in-sidebar="focusGuildVoiceChannelInSidebar"
             :voice-channel-user-limit="
-              effectiveActiveChannel?.type === 'voice'
+              effectiveActiveChannel?.type === 'voice' ||
+              effectiveActiveChannel?.type === 'stage'
                 ? effectiveActiveChannel.userLimit
                 : undefined
             "

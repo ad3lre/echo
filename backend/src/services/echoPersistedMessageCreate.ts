@@ -573,6 +573,9 @@ export async function echoPersistedMessageCreateAndBroadcast(
       messageId: message.id,
       authorId: userId,
       content,
+      ...(messageFormatVersion >= 2 && contentJson !== undefined
+        ? { contentJson }
+        : {}),
       correlationId,
     });
   }

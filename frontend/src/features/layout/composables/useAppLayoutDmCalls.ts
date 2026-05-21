@@ -120,7 +120,11 @@ export function useAppLayoutDmCalls(deps: {
    * Wired in `useAppLayoutCallVoiceBridge` to `handleLeaveVoiceNavigation`.
    */
   releaseGuildVoiceIfHeldForDmCall?: () => void;
-  getDmVoiceE2eeMediaKey?: (channelId: string) => Promise<ArrayBuffer | null>;
+  getDmVoiceE2eeMediaKey?: (
+    channelId: string,
+  ) => Promise<
+    import('@/services/voice/voiceE2eePrepare').VoiceE2eePrepareResult
+  >;
 }) {
   const {
     workspace,
@@ -424,7 +428,7 @@ export function useAppLayoutDmCalls(deps: {
     try {
       const notification = new Notification(actorName, {
         body,
-        icon: imageUrl || '/favicon.ico',
+        icon: imageUrl || '/icons/favicon-32.png',
         tag: `echo-dm-call:${payload.channelId}`,
       });
       notification.onclick = () => {

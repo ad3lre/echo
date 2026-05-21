@@ -253,17 +253,10 @@ export default async function livekitWebhookRoutes(
         { channelId, userId: identity, action: 'join' },
         auditId,
       );
-      if (
-        serverId !== ECHO_DM_REALM_SERVER_ID &&
-        (await getEchoChannelVoiceE2eeEnabled(pool, serverId, channelId))
-      ) {
-        const n = await supersedeVoiceE2eeEpochsForChannel(
-          pool,
-          serverId,
-          channelId,
-        );
-        if (n > 0) publishVoiceE2eeEpochSuperseded();
-      }
+      // Do not supersede voice E2EE epochs here — the joiner often just created
+      // the active epoch during livekit-session minting. Superseding on join
+      // invalidates that epoch and clients disconnect via voice_e2ee_epoch_superseded.
+      // Rotation is published from the epoch POST handler when needed.
     } else if (event.event === 'participant_left' && identity) {
       vcTrace(req.log, 'livekit.webhook:branch_participant_left', {
         serverId,
@@ -299,16 +292,25 @@ export default async function livekitWebhookRoutes(
         { channelId, userId: identity, action: 'leave' },
         auditId,
       );
-      if (
-        serverId !== ECHO_DM_REALM_SERVER_ID &&
-        (await getEchoChannelVoiceE2eeEnabled(pool, serverId, channelId))
-      ) {
-        const n = await supersedeVoiceE2eeEpochsForChannel(
-          pool,
-          serverId,
-          channelId,
+      const e2eeEnabled =
+        serverId === ECHO_DM_REALM_SERVER_ID
+          ? await echoDmVoiceE2eeRequired(pool, channelId)
+          : await getEchoChannelVoiceE2eeEnabled(pool, serverId, channelId);
+      if (e2eeEnabled) {
+        const remaining = await pool.query(
+          `SELECT 1 FROM echo_voice_participants
+           WHERE server_id = $1 AND channel_id = $2
+           LIMIT 1`,
+          [serverId, channelId],
         );
-        if (n > 0) publishVoiceE2eeEpochSuperseded();
+        if (remaining.rows.length === 0) {
+          const n = await supersedeVoiceE2eeEpochsForChannel(
+            pool,
+            serverId,
+            channelId,
+          );
+          if (n > 0) publishVoiceE2eeEpochSuperseded();
+        }
       }
     } else if (
       (event.event === 'track_published' ||

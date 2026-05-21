@@ -101,6 +101,7 @@ const emit = defineEmits<{
       nsfw: boolean;
       messageHistoryAnchor: 'top' | 'bottom';
       bitrateBps: number | null | undefined;
+      voiceE2eeEnabled?: boolean;
       channelPermissions: ChannelPermissionsState;
       echoPermissionRows?: PermissionOverwriteRowDraft[];
       forumCreatorDefaultPerms?: ForumCreatorDefaultPerms;
@@ -142,6 +143,7 @@ const MESSAGE_HISTORY_ANCHOR_OPTIONS: {
   { label: 'Top — start of loaded history', value: 'top' },
 ];
 const voiceDefaultBitrate = ref(true);
+const voiceE2eeEnabled = ref(false);
 const bitrateSliderKbps = ref(64);
 const channelPermissions = ref<ChannelPermissionsState>({
   syncWithCategory: true,
@@ -261,6 +263,7 @@ function syncFromProps() {
   messageHistoryAnchorStr.value =
     ch.type === 'text' && ch.messageHistoryAnchor === 'top' ? 'top' : 'bottom';
   voiceDefaultBitrate.value = ch.bitrateBps == null;
+  voiceE2eeEnabled.value = ch.voiceE2eeEnabled === true;
   bitrateSliderKbps.value =
     ch.bitrateBps != null
       ? Math.min(
@@ -447,6 +450,7 @@ const initialSnapshot = computed(() => {
         : 'bottom',
     bitrateBps:
       ch.bitrateBps == null ? null : Math.round((ch.bitrateBps ?? 0) / 1000),
+    voiceE2eeEnabled: ch.voiceE2eeEnabled === true,
     channelPermissions: ch.channelPermissions
       ? {
           syncWithCategory: ch.channelPermissions.syncWithCategory,
@@ -495,6 +499,11 @@ const channelDirty = computed(() => {
       ? Math.round(bitrateSliderKbps.value)
       : null;
   if ((currentBps ?? null) !== (snap.bitrateBps ?? null)) return true;
+  if (
+    (channelType.value === 'voice' || channelType.value === 'stage') &&
+    (voiceE2eeEnabled.value === true) !== (snap.voiceE2eeEnabled === true)
+  )
+    return true;
   if (props.echoPermissionEditor) {
     const currentRows = echoSyncWithCategory.value
       ? []
@@ -588,6 +597,9 @@ function save() {
           ? null
           : kb * 1000
         : undefined,
+    ...(channelType.value === 'voice' || channelType.value === 'stage'
+      ? { voiceE2eeEnabled: voiceE2eeEnabled.value === true }
+      : {}),
     channelPermissions: {
       syncWithCategory: channelPermissions.value.syncWithCategory,
       overrides: { ...channelPermissions.value.overrides },
@@ -1062,6 +1074,28 @@ async function confirmDeleteChannel() {
                         >
                       </div>
                     </div>
+                  </div>
+
+                  <div
+                    v-if="channelType === 'voice' || channelType === 'stage'"
+                    class="server-toggle-row w-full min-w-0 items-start !py-4"
+                  >
+                    <div class="channel-settings-option-row__text min-w-0">
+                      <div class="channel-settings-option-title">
+                        End-to-end encryption (voice)
+                      </div>
+                      <p class="channel-settings-hint mt-1">
+                        When enabled, voice and camera use LiveKit E2EE. Recording,
+                        transcription, and bots that need decoded audio are not
+                        supported in this channel.
+                      </p>
+                    </div>
+                    <input
+                      v-model="voiceE2eeEnabled"
+                      type="checkbox"
+                      class="server-toggle mt-0.5 shrink-0"
+                      aria-label="End-to-end encryption for voice"
+                    />
                   </div>
                 </div>
               </div>

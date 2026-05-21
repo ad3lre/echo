@@ -13,8 +13,8 @@ export function resolveVoiceChannelForParticipants(opts: {
   const vid = opts.currentVoiceChannelId?.trim();
   if (vid) {
     const c = opts.findChannelContextById(vid)?.channel;
-    if (c?.type === 'voice') return c;
+    if (c?.type === 'voice' || c?.type === 'stage') return c;
   }
   const e = opts.effectiveActiveChannel;
-  return e?.type === 'voice' ? e : null;
+  return e?.type === 'voice' || e?.type === 'stage' ? e : null;
 }

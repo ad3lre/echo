@@ -5,6 +5,7 @@ export type UserSettingsSection =
   | 'Terms & policies'
   | 'Formatting guide'
   | 'Discord'
+  | 'YouTube'
   | 'Log out'
   | 'Data & Privacy'
   | 'Style'
@@ -44,7 +45,7 @@ export const USER_SETTINGS_SECTION_GROUPS: UserSettingsSectionGroup[] = [
       'Data & Privacy',
     ],
   },
-  { label: 'External apps', items: ['Discord'] },
+  { label: 'External apps', items: ['Discord', 'YouTube'] },
   {
     label: 'App',
     items: [

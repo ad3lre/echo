@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { ensureAuthTables } from './authTables';
 import { ensureEchoTables } from './echoTables';
 import { ensureBotTables } from './botTables';
+import { ensureIntegrationTables } from './integrationTables';
 
 let inflight: Promise<void> | null = null;
 
@@ -14,6 +15,7 @@ export async function ensureAppSchema(pool: Pool): Promise<void> {
     const run = (async () => {
       await ensureAuthTables(pool);
       await ensureEchoTables(pool);
+      await ensureIntegrationTables(pool);
       await ensureBotTables(pool);
     })();
     inflight = run.catch((err) => {

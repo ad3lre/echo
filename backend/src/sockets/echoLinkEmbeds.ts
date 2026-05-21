@@ -22,10 +22,12 @@ export async function resolveAndBroadcastLinkEmbeds(
     messageId: string;
     authorId: string;
     content: string;
+    contentJson?: unknown;
     correlationId?: string;
   },
 ): Promise<void> {
-  const { channelId, messageId, authorId, content, correlationId } = opts;
+  const { channelId, messageId, authorId, content, contentJson, correlationId } =
+    opts;
   try {
     const serverId = await getEchoChannelServerId(pool, channelId);
     if (!serverId) return;
@@ -42,6 +44,7 @@ export async function resolveAndBroadcastLinkEmbeds(
       budgetMs: 5000,
       pool,
       embedViewerUserId: authorId,
+      contentJson,
     });
     await updateEchoMessageEmbeds(
       pool,

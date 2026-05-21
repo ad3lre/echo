@@ -33,7 +33,9 @@ export type VcModerateAction =
   | 'serverMute'
   | 'serverDeafen'
   | 'disconnect'
-  | 'move';
+  | 'move'
+  | 'stopCamera'
+  | 'stopScreenShare';
 
 const props = withDefaults(
   defineProps<{
@@ -429,7 +431,9 @@ function vcModSectionVisible(userId: string): boolean {
     return (
       vcModAllowed(userId, 'serverMute') ||
       vcModAllowed(userId, 'serverDeafen') ||
-      vcModAllowed(userId, 'disconnect')
+      vcModAllowed(userId, 'disconnect') ||
+      vcModAllowed(userId, 'stopCamera') ||
+      vcModAllowed(userId, 'stopScreenShare')
     );
   }
   return props.canModerateParticipant?.(userId) ?? false;
@@ -1139,6 +1143,40 @@ onUnmounted(() => {
                 ? 'Undeafen member'
                 : 'Deafen member'
             }}
+          </button>
+          <button
+            v-if="
+              vcModerationTarget.video &&
+              vcModAllowed(vcModerationTarget.id, 'stopCamera')
+            "
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-200 hover:bg-red-500/15"
+            role="menuitem"
+            @click="emitVcModerate('stopCamera', vcModerationTarget.id)"
+          >
+            <img
+              :src="icons.cameraOn"
+              alt=""
+              class="app-inline-icon h-4 w-4 opacity-80"
+            />
+            Turn off camera
+          </button>
+          <button
+            v-if="
+              vcModerationTarget.streaming &&
+              vcModAllowed(vcModerationTarget.id, 'stopScreenShare')
+            "
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-200 hover:bg-red-500/15"
+            role="menuitem"
+            @click="emitVcModerate('stopScreenShare', vcModerationTarget.id)"
+          >
+            <img
+              :src="icons.desktop"
+              alt=""
+              class="app-inline-icon h-4 w-4 opacity-80"
+            />
+            Stop screen share
           </button>
           <button
             v-if="vcModAllowed(vcModerationTarget.id, 'disconnect')"

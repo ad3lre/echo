@@ -77,7 +77,7 @@ function sendTestDesktopNotification() {
   }
   const show = (body: string) => {
     try {
-      new Notification('Echo', { body, icon: '/favicon.ico' });
+      new Notification('Echo', { body, icon: '/icons/favicon-32.png' });
       dispatchAppToast('Test notification sent.', 'info');
     } catch {
       notify(`Notification: ${body}`);

@@ -833,7 +833,7 @@ function syncQuickCreateCategory() {
 
 function defaultIconKeyForQuickCreateType(type: QuickCreateType): string {
   if (type === 'voice') return 'volumeUp';
-  if (type === 'stage') return 'discordStage';
+  if (type === 'stage') return 'sofa';
   if (type === 'forum') return 'messageAlt';
   return 'message';
 }
@@ -1936,7 +1936,7 @@ watch(
                 >
                   <div class="channel-quick-create__widget-left">
                     <img
-                      :src="icons.discordStage"
+                      :src="icons.sofa"
                       alt=""
                       class="channel-quick-create__widget-icon"
                     />

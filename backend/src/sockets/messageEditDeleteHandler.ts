@@ -250,6 +250,9 @@ export function registerMessageEditDeleteHandler(
           messageId,
           authorId: row.authorId,
           content: plain,
+          ...(mf >= 2 && row?.contentJson !== undefined
+            ? { contentJson: row.contentJson }
+            : {}),
           correlationId,
         });
       }

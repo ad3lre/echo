@@ -103,4 +103,23 @@ describe('useAppLayoutEffectiveChannel', () => {
     });
     expect(isViewingVoiceChannel.value).toBe(true);
   });
+
+  it('marks voice when active guild channel is stage', () => {
+    const ch: ChannelSummary = {
+      id: 's1',
+      name: 'Town Hall',
+      type: 'stage',
+    };
+    const { isViewingVoiceChannel } = useAppLayoutEffectiveChannel({
+      activeChannelId: ref('s1'),
+      findChannelContextById: (id) =>
+        id === 's1' ? { channel: ch, category: cat } : null,
+      selectedDMUserId: ref(null),
+      echoDmPeerByChannelId: ref(new Map()),
+      users: ref([]),
+      echoDmThreadIds: ref(new Set()),
+      groupDMs: ref({}),
+    });
+    expect(isViewingVoiceChannel.value).toBe(true);
+  });
 });

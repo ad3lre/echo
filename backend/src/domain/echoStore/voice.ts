@@ -253,7 +253,9 @@ export type EchoVoiceModerationAction =
   | 'server_deafen'
   | 'server_undeafen'
   | 'invite_to_speak'
-  | 'move_to_audience';
+  | 'move_to_audience'
+  | 'stop_camera'
+  | 'stop_screen_share';
 
 async function applyStageSpeakerModeration(
   pool: pg.Pool,
@@ -397,6 +399,28 @@ export async function applyEchoVoiceModerationAction(
       `UPDATE echo_voice_participants SET server_deafened = FALSE WHERE server_id = $1 AND user_id = $2`,
       [serverId, targetUserId],
     );
+    return 'ok';
+  }
+
+  if (action === 'stop_camera' || action === 'stop_screen_share') {
+    const vp = await pool.query(
+      `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+      [serverId, targetUserId],
+    );
+    if (!vp.rows[0]) return 'not_found';
+    const vch = String(vp.rows[0].channel_id);
+    if (
+      !(await canActorEchoVoiceMuteOrDeafenOnChannel(
+        pool,
+        serverId,
+        actorId,
+        targetUserId,
+        vch,
+        'MUTE_MEMBERS',
+      ))
+    ) {
+      return 'forbidden';
+    }
     return 'ok';
   }
 

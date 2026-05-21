@@ -873,13 +873,7 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
   `);
   await pool.query(`
     ALTER TABLE echo_channels
-    ALTER COLUMN voice_e2ee_enabled SET DEFAULT TRUE;
-  `);
-  await pool.query(`
-    UPDATE echo_channels
-    SET voice_e2ee_enabled = TRUE
-    WHERE type IN ('voice', 'stage')
-      AND voice_e2ee_enabled = FALSE;
+    ALTER COLUMN voice_e2ee_enabled SET DEFAULT FALSE;
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_voice_e2ee_epochs (
@@ -894,6 +888,22 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_voice_e2ee_epochs_channel_active_idx
+    ON echo_voice_e2ee_epochs (server_id, channel_id)
+    WHERE superseded_at IS NULL;
+  `);
+  await pool.query(`
+    UPDATE echo_voice_e2ee_epochs older
+    SET superseded_at = NOW()
+    WHERE older.superseded_at IS NULL
+      AND older.id NOT IN (
+        SELECT DISTINCT ON (inner_e.server_id, inner_e.channel_id) inner_e.id
+        FROM echo_voice_e2ee_epochs inner_e
+        WHERE inner_e.superseded_at IS NULL
+        ORDER BY inner_e.server_id, inner_e.channel_id, inner_e.created_at DESC
+      );
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS echo_voice_e2ee_epochs_one_active_per_channel_idx
     ON echo_voice_e2ee_epochs (server_id, channel_id)
     WHERE superseded_at IS NULL;
   `);

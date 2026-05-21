@@ -149,6 +149,8 @@ const DEFAULT_DISCORD_OAUTH_SCOPES =
   'connections email guilds identify identify.premium openid relationships.read sdk.social_layer sdk.social_layer_presence';
 
 const DEFAULT_GOOGLE_OAUTH_SCOPES = 'openid email profile';
+const DEFAULT_YOUTUBE_OAUTH_SCOPES =
+  'openid email profile https://www.googleapis.com/auth/youtube.force-ssl';
 
 /**
  * Defines the shape of the application's configuration.
@@ -339,10 +341,14 @@ interface AppConfig {
    */
   readonly echoVideoOptimizeIntervalMs: number;
   /**
-   * Poll interval for background mirroring of Discord CDN URLs on imported messages (ms). 0 disables.
+   * Poll interval for background mirroring of Discord CDN URLs on imported/synced messages (ms). 0 disables.
    * Requires local upload dir or S3 upload configuration.
    */
   readonly echoDiscordImportMediaMirrorIntervalMs: number;
+  /** Max mirror jobs processed per drain tick (interval + post-enqueue kick). */
+  readonly echoDiscordImportMediaMirrorBatchSize: number;
+  /** Debounce (ms) before running a drain after enqueueing mirror work. */
+  readonly echoDiscordImportMediaMirrorKickDebounceMs: number;
   /**
    * Poll interval for chat upload abandonment purge (ms). 0 disables.
    * Deletes S3/local objects past `echo_chat_upload_retention.expires_at`.
@@ -495,6 +501,9 @@ interface AppConfig {
   readonly googleOauthClientSecret: string;
   readonly googleOauthRedirectUri: string;
   readonly googleOauthScopes: string;
+  /** YouTube channel link OAuth (reuses Google OAuth client; separate redirect + scopes). */
+  readonly youtubeOauthRedirectUri: string;
+  readonly youtubeOauthScopes: string;
   /**
    * AES-256 key for Discord access/refresh tokens (64 hex or base32-byte base64).
    * Prefer dedicated key so rotation is independent of ECHO_2FA_ENCRYPTION_KEY.
@@ -577,6 +586,8 @@ interface AppConfig {
   readonly echoMediaUrlAllowedHosts: readonly string[];
   /** True when all required LiveKit env vars are present (key, secret, public URL). */
   readonly liveKitEnabled: boolean;
+  /** Room composite RTMP egress to YouTube (requires LiveKit Egress service). */
+  readonly liveKitEgressEnabled: boolean;
   /**
    * Layer 2 voice intelligence (sidecar) is **paused** by default.
    * When false, Echo will not forward webhook events to any sidecar even if a forward URL is present.
@@ -1140,9 +1151,21 @@ export const config: AppConfig = {
   })(),
   echoDiscordImportMediaMirrorIntervalMs: (() => {
     const raw = process.env.ECHO_DISCORD_IMPORT_MEDIA_MIRROR_MS;
-    if (raw === undefined) return 8000;
+    if (raw === undefined) return 2000;
     const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 0 ? n : 8000;
+    return Number.isFinite(n) && n >= 0 ? n : 2000;
+  })(),
+  echoDiscordImportMediaMirrorBatchSize: (() => {
+    const raw = process.env.ECHO_DISCORD_IMPORT_MEDIA_MIRROR_BATCH_SIZE;
+    if (raw === undefined) return 6;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 ? n : 6;
+  })(),
+  echoDiscordImportMediaMirrorKickDebounceMs: (() => {
+    const raw = process.env.ECHO_DISCORD_IMPORT_MEDIA_MIRROR_KICK_DEBOUNCE_MS;
+    if (raw === undefined) return 50;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 50;
   })(),
   echoChatUploadRetentionIntervalMs: (() => {
     const raw = process.env.ECHO_CHAT_UPLOAD_RETENTION_INTERVAL_MS;
@@ -1444,6 +1467,10 @@ export const config: AppConfig = {
   googleOauthRedirectUri: process.env.GOOGLE_OAUTH_REDIRECT_URI?.trim() ?? '',
   googleOauthScopes:
     process.env.GOOGLE_OAUTH_SCOPES?.trim() || DEFAULT_GOOGLE_OAUTH_SCOPES,
+  youtubeOauthRedirectUri:
+    process.env.YOUTUBE_OAUTH_REDIRECT_URI?.trim() ?? '',
+  youtubeOauthScopes:
+    process.env.YOUTUBE_OAUTH_SCOPES?.trim() || DEFAULT_YOUTUBE_OAUTH_SCOPES,
   echoDiscordTokenEncryptionKey:
     process.env.ECHO_DISCORD_TOKEN_ENCRYPTION_KEY?.trim() || null,
   redisUrl: process.env.REDIS_URL?.trim() || null,
@@ -1542,6 +1569,10 @@ export const config: AppConfig = {
     process.env.LIVEKIT_API_SECRET?.trim() &&
     process.env.LIVEKIT_PUBLIC_URL?.trim()
   ),
+  liveKitEgressEnabled: (() => {
+    const raw = process.env.LIVEKIT_EGRESS_ENABLED?.trim().toLowerCase();
+    return raw === 'true' || raw === '1' || raw === 'yes';
+  })(),
   voiceSidecarEnabled: parseBoolean(process.env.VOICE_SIDECAR_ENABLED, false),
   voiceSidecarForwardUrl: process.env.VOICE_SIDECAR_FORWARD_URL?.trim() || null,
   liveKitEmitActiveSpeakersWebhook:

@@ -397,6 +397,41 @@ export async function authDiscordOAuthStart(): Promise<{
   return { authorizeUrl, ...(redirectUri ? { redirectUri } : {}) };
 }
 
+export async function authYoutubeOAuthStart(): Promise<{
+  authorizeUrl: string;
+  redirectUri?: string;
+}> {
+  assertAuthDomainNetworkAllowed();
+  const traceId = newTraceId();
+  const url = appendDiagTraceId(`${AUTH_BASE}/youtube/start`, traceId);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: echoCsrfHeaders(),
+      credentials: 'include',
+    });
+  } catch (error) {
+    logAuthNetworkFailure({
+      operation: 'youtube_oauth_start',
+      traceId,
+      url,
+      method: 'POST',
+      headers: echoCsrfHeaders(),
+      error,
+    });
+    throw error;
+  }
+  const data = (await parseJson(res)) as Record<string, unknown>;
+  throwIfError(res, data, 'POST /auth/youtube/start');
+  const authorizeUrl =
+    typeof data.authorizeUrl === 'string' ? data.authorizeUrl : '';
+  const redirectUri =
+    typeof data.redirectUri === 'string' ? data.redirectUri : undefined;
+  if (!authorizeUrl) throw new Error('INVALID_YOUTUBE_START_RESPONSE');
+  return { authorizeUrl, ...(redirectUri ? { redirectUri } : {}) };
+}
+
 /**
  * Absolute GET URL for `/auth/discord/login/start` with desktop handoff query params.
  * Open this in the **system browser** (`openExternal`) so OAuth starts without a credentialed

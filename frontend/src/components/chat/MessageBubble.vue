@@ -10,9 +10,11 @@ import {
   type Ref,
 } from 'vue';
 import type {
+  Embed,
   MessageAttachmentPayload,
   MessageWithAuthor,
 } from '@shared/types';
+import { stubVideoEmbedsFromMessage } from '@shared/linkEmbedCandidates';
 import { mentionsUser, type IdTokenResolvers } from '@/composables/useMarkdown';
 import { isEmojiOnlyUpTo12 } from '@/utils/emojiUtils';
 import { parseSingleEmoji } from '@/utils/twemoji';
@@ -22,7 +24,7 @@ import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
 import { isEchoPublicId } from '@shared/snowflakeIds';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import { useCustomEmojiImgLoadRecovery } from '@/composables/useCustomEmojiImgLoadRecovery';
-import { requestAppConfirm } from '@/utils/appDialogs';
+import { requestAppConfirmFromContextMenu } from '@/utils/appDialogs';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { useShiftKey } from '@/composables/useShiftKey';
 import {
@@ -342,6 +344,19 @@ const displayMessageContent = computed(() => {
   const raw = message.value.content ?? '';
   if (message.value.mentions?.length) return raw;
   return applyEmbedTitlesToMessageContent(raw, message.value.embeds);
+});
+
+/** Server unfurl + instant client stubs for YouTube/Vimeo when previews are not stored yet. */
+const linkEmbedsForDisplay = computed((): Embed[] | undefined => {
+  const stored = message.value.embeds ?? [];
+  if (stored.some((e) => !e.echoJump)) return stored;
+  const plain = (
+    message.value.contentText ??
+    message.value.content ??
+    ''
+  ).trim();
+  const stubs = stubVideoEmbedsFromMessage(plain, message.value.contentJson);
+  return stubs.length ? stubs : stored;
 });
 
 /** Message body root (markdown / JSON caption) — wires KaTeX overflow scrollbars. */
@@ -911,14 +926,18 @@ function handleDelete() {
 
 async function confirmModDeleteMessage() {
   if (!message.value.id || !showModActions.value) return;
-  const ok = await requestAppConfirm({
-    title: 'Delete this message?',
-    confirmLabel: 'Delete',
-    danger: true,
-  });
+  const ok = await requestAppConfirmFromContextMenu(
+    () => {
+      menuOpen.value = false;
+    },
+    {
+      title: 'Delete this message?',
+      confirmLabel: 'Delete',
+      danger: true,
+    },
+  );
   if (!ok) return;
   emit('delete', message.value.id);
-  menuOpen.value = false;
 }
 
 function emitModerate(
@@ -1363,9 +1382,9 @@ watch(
               :open-document-viewer="openDocumentViewer"
             />
             <MessageLinkEmbeds
-              v-if="message.embeds?.some((e) => !e.echoJump)"
+              v-if="linkEmbedsForDisplay?.some((e) => !e.echoJump)"
               class="mt-2"
-              :embeds="message.embeds"
+              :embeds="linkEmbedsForDisplay"
             />
             <div
               v-if="

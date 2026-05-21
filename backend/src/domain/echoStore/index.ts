@@ -352,6 +352,7 @@ export {
   createVoiceE2eeEpochWithEnvelopes,
   echoDmVoiceE2eeRequired,
   getActiveVoiceE2eeEpoch,
+  userHasVoiceE2eeEnvelopeForJoin,
   getEchoChannelVoiceE2eeEnabled,
   listVoiceE2eeEnvelopesForUser,
   supersedeVoiceE2eeEpochsForChannel,

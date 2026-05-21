@@ -4,6 +4,7 @@ import { resolveVoiceChannelForParticipants } from './resolveVoiceChannelForPart
 
 const textCh: ChannelSummary = { id: 't', name: 't', type: 'text' };
 const voiceCh: ChannelSummary = { id: 'v', name: 'v', type: 'voice' };
+const stageCh: ChannelSummary = { id: 's', name: 's', type: 'stage' };
 
 describe('resolveVoiceChannelForParticipants', () => {
   it('uses current voice channel when it resolves to voice', () => {
@@ -25,7 +26,16 @@ describe('resolveVoiceChannelForParticipants', () => {
     expect(r).toEqual(voiceCh);
   });
 
-  it('returns null when neither is voice', () => {
+  it('falls back to effective surface when it is stage', () => {
+    const r = resolveVoiceChannelForParticipants({
+      currentVoiceChannelId: null,
+      findChannelContextById: () => null,
+      effectiveActiveChannel: stageCh,
+    });
+    expect(r).toEqual(stageCh);
+  });
+
+  it('returns null when neither is voice nor stage', () => {
     expect(
       resolveVoiceChannelForParticipants({
         currentVoiceChannelId: 't',

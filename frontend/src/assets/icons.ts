@@ -176,7 +176,7 @@ function defaultChannelGlyphUrl(
   type?: 'text' | 'voice' | 'forum' | 'stage',
 ): string {
   if (type === 'voice') return channelIcons.voice;
-  if (type === 'stage') return icons.discordStage;
+  if (type === 'stage') return icons.sofa;
   if (type === 'forum') return channelIcons.forum;
   return channelIcons.text;
 }
@@ -410,7 +410,7 @@ export function getChannelIconVisual(
     if (channel.type === 'voice')
       return { kind: 'svg', url: channelIcons.voice };
     if (channel.type === 'stage')
-      return { kind: 'svg', url: icons.discordStage };
+      return { kind: 'svg', url: icons.sofa };
     if (channel.type === 'forum')
       return { kind: 'svg', url: channelIcons.forum };
   }
@@ -453,7 +453,7 @@ export function getChannelIconKeyForEdit(
     if (v && v === visual.url) return k;
   }
   if (channel.type === 'voice') return 'volumeUp';
-  if (channel.type === 'stage') return 'discordStage';
+  if (channel.type === 'stage') return 'sofa';
   if (channel.type === 'forum') return 'messageAlt';
   return 'message';
 }
@@ -484,7 +484,7 @@ export function getChannelIcon(
   }
   if (!key) {
     if (channel.type === 'voice') return channelIcons.voice;
-    if (channel.type === 'stage') return icons.discordStage;
+    if (channel.type === 'stage') return icons.sofa;
     if (channel.type === 'forum') return channelIcons.forum;
   }
   const name = stripLeadingChannelEmojiForMatching(channel.name).toLowerCase();

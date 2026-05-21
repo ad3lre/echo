@@ -1,7 +1,3 @@
-<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-    <!-- A circular background to make the favicon appear rounded in browser tabs. -->
-    <circle cx="16" cy="16" r="16" fill="#f0f0f0"/>
-
-    <!-- The original Echo icon, centered on top of the circle with some padding. -->
-    <image x="4" y="4" width="24" height="24" xlink:href="/echo-logo.png" />
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <image href="/icons/favicon-32.png" width="32" height="32" />
 </svg>

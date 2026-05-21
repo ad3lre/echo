@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Server } from '@shared/types';
 import { icons } from '@/assets/icons';
+import { ECHO_SIMPLE_CONTEXT_MENU_ATTR } from '@/composables/useSimpleContextMenu';
 
 defineProps<{
   menuOpen: boolean;
@@ -30,6 +31,7 @@ const emit = defineEmits<{
     <div
       v-if="menuOpen && contextServer"
       :ref="menuRef"
+      v-bind="{ [ECHO_SIMPLE_CONTEXT_MENU_ATTR]: '' }"
       class="ellipsis-menu fixed z-[120] min-w-[220px] py-1"
       :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }"
       role="menu"

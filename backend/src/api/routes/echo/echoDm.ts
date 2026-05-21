@@ -18,7 +18,9 @@ import {
   userMayJoinDmLiveKitRoom,
   echoDmVoiceE2eeRequired,
   getActiveVoiceE2eeEpoch,
+  userHasVoiceE2eeEnvelopeForJoin,
 } from '../../../domain/echoStore';
+import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { config } from '../../../config';
 import { getEchoEntitlements } from '../../../domain/echoPlanEntitlements';
 import {
@@ -555,9 +557,21 @@ export default async function echoDmRoutes(
    * Same LiveKit stack as guild voice: room name `echo_dm_realm:<channelId>` (see `liveKitRoomName`).
    * Webhooks update `echo_voice_participants` with server_id = echo_dm_realm.
    */
-  fastify.post<{ Params: { channelId: string } }>(
+  fastify.post<{
+    Params: { channelId: string };
+    Body: { e2eeDeviceId?: string };
+  }>(
     '/dm/channels/:channelId/voice/livekit-session',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
     async (req, reply) => {
       if (req.authUser?.isGuest) {
         return sendError(
@@ -608,11 +622,17 @@ export default async function echoDmRoutes(
         }
         const isCreator = activeEpoch.createdByUserId === uid;
         if (!isCreator) {
-          const mine = await pool.query(
-            `SELECT 1 FROM echo_voice_e2ee_envelopes WHERE epoch_id = $1 AND recipient_user_id = $2 LIMIT 1`,
-            [activeEpoch.id, uid],
+          const e2eeDeviceId =
+            typeof req.body?.e2eeDeviceId === 'string'
+              ? req.body.e2eeDeviceId.trim()
+              : '';
+          const hasEnvelope = await userHasVoiceE2eeEnvelopeForJoin(
+            pool,
+            activeEpoch.id,
+            uid,
+            e2eeDeviceId || null,
           );
-          if (mine.rows.length === 0) {
+          if (!hasEnvelope) {
             return sendError(
               reply,
               409,

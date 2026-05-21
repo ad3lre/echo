@@ -107,6 +107,8 @@ defineEmits<{
 <style scoped lang="scss">
 .member-profile-header {
   position: relative;
+  /* Banner refraction and avatar rim extend outside the header box. */
+  overflow: visible;
 }
 
 .member-popout__banner {

@@ -1079,6 +1079,7 @@ export function useAppLayoutController() {
     endDmCall,
     leaveDmCallVoice,
     rejoinDmCallVoice,
+    reconnectGuildVoiceAfterE2eeRotation,
     answerDmCall,
     declineDmCall,
     dmCallQuarterView,
@@ -1772,13 +1773,27 @@ export function useAppLayoutController() {
       if (!cid) return;
       const guildVc = currentVoiceChannelId.value?.trim();
       const dmVc = _dmLiveKitJoinChannelId.value?.trim();
-      if (guildVc === cid || dmVc === cid) {
-        void _liveKitVoiceApi?.disconnect();
-        dispatchAppToast(
-          'Call encryption was rotated. Rejoin voice to continue.',
-          'warning',
-        );
-      }
+      if (guildVc !== cid && dmVc !== cid) return;
+      void (async () => {
+        await _liveKitVoiceApi?.disconnect();
+        if (dmVc === cid) {
+          rejoinDmCallVoice();
+          return;
+        }
+        if (guildVc === cid) {
+          try {
+            await reconnectGuildVoiceAfterE2eeRotation();
+          } catch {
+            dispatchAppToast(
+              'Call encryption was rotated but reconnect failed. Rejoin voice manually.',
+              'warning',
+            );
+          }
+        }
+      })();
+    },
+    applyVoiceMediaModerationFromSocket: (payload) => {
+      callVoice.applyVoiceMediaModerationFromSocket?.(payload);
     },
   });
 

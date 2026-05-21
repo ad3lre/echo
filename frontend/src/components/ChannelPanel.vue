@@ -20,7 +20,7 @@ import {
   linkTokenServer,
   linkTokenUser,
 } from '@/utils/idTokens';
-import { requestAppConfirm } from '@/utils/appDialogs';
+import { requestAppConfirmFromContextMenu } from '@/utils/appDialogs';
 import type { ChannelSummary } from '@shared/types';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
 import { getChannelDisplayName } from '@/assets/icons';
@@ -157,7 +157,9 @@ const props = defineProps<{
       | 'disconnect'
       | 'move'
       | 'inviteToSpeak'
-      | 'moveToAudience',
+      | 'moveToAudience'
+    | 'stopCamera'
+    | 'stopScreenShare',
   ) => boolean;
   onModerateUser?: (payload: {
     action: 'kick' | 'ban' | 'timeout';
@@ -171,7 +173,9 @@ const props = defineProps<{
       | 'disconnect'
       | 'move'
       | 'inviteToSpeak'
-      | 'moveToAudience';
+      | 'moveToAudience'
+      | 'stopCamera'
+      | 'stopScreenShare';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;
@@ -463,7 +467,9 @@ function vcModAllowed(
     | 'disconnect'
     | 'move'
     | 'inviteToSpeak'
-    | 'moveToAudience',
+    | 'moveToAudience'
+    | 'stopCamera'
+    | 'stopScreenShare',
 ): boolean {
   if (props.canVcModerateMember) {
     return props.canVcModerateMember(userId, action);
@@ -794,16 +800,13 @@ async function channelMenuDelete() {
   if (!c || c.type !== 'channel') return;
   const id = c.channel.id;
   const label = c.channel.name;
-  // Keep the menu open until confirm finishes. Closing first lets the same click
-  // hit the dialog backdrop (@click.self cancel) so delete appears to do nothing.
-  const ok = await requestAppConfirm({
+  const ok = await requestAppConfirmFromContextMenu(closeMenu, {
     title: `Delete channel “${label}”?`,
     message:
       'This cannot be undone.\n\nAll messages in this channel will be removed from the mock.',
     confirmLabel: 'Delete channel',
     danger: true,
   });
-  closeMenu();
   if (!ok) return;
   emit('delete-channel', { channelId: id });
 }
@@ -816,13 +819,12 @@ async function categoryMenuDelete() {
   const n =
     effectiveCategories.value.find((cat) => cat.id === id)?.channels.length ??
     0;
-  const ok = await requestAppConfirm({
+  const ok = await requestAppConfirmFromContextMenu(closeMenu, {
     title: `Delete category “${label}”?`,
     message: `Delete this category and all ${n} channel${n === 1 ? '' : 's'} inside it? This cannot be undone.`,
     confirmLabel: 'Delete category',
     danger: true,
   });
-  closeMenu();
   if (!ok) return;
   emit('delete-category', { categoryId: id });
 }
@@ -873,7 +875,9 @@ function vcModerateFromMenu(
     | 'serverDeafen'
     | 'disconnect'
     | 'inviteToSpeak'
-    | 'moveToAudience',
+    | 'moveToAudience'
+    | 'stopCamera'
+    | 'stopScreenShare',
 ) {
   const c = panelContext.value;
   if (!c || c.type !== 'vc' || !props.onVcModerate) return;

@@ -1731,7 +1731,7 @@ function buildDiscordTopLevelSidebarOrder(
  * Discord channel type → coarse Echo kind.
  *
  * **GUILD_NEWS (type 5)** is imported as a **text** channel (same as GUILD_TEXT).
- * **GUILD_STAGE_VOICE (type 13)** is imported as **voice** with `iconKey` `discordStage`
+ * **GUILD_STAGE_VOICE (type 13)** is imported as **stage** with `iconKey` `sofa`
  * (see `normalizeDiscordChannels`) so stages are never skipped.
  * Channel permission overwrites from `overwrites.jsonl` are keyed by Discord
  * channel id; they apply to news channels unchanged, so typical announcement
@@ -1860,7 +1860,7 @@ function normalizeDiscordChannels(
         ),
       };
       if (discordTypeRaw === 13) {
-        normalized.iconKey = 'discordStage';
+        normalized.iconKey = 'sofa';
       }
       if (typeof channel.rate_limit_per_user === 'number')
         normalized.slowmodeSeconds = Math.max(

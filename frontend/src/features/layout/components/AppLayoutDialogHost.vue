@@ -9,6 +9,8 @@ import {
 
 const active = ref<AppDialogRequest | null>(null);
 const queue = ref<AppDialogRequest[]>([]);
+/** Ignore backdrop dismiss until after the opening pointer/click gesture finishes. */
+const backdropDismissReadyAt = ref(0);
 
 const modalRef = ref<HTMLElement | null>(null);
 const isOpen = computed(() => !!active.value);
@@ -30,6 +32,14 @@ watch(
 
 function setActive(next: AppDialogRequest | null) {
   active.value = next;
+  if (next) {
+    backdropDismissReadyAt.value = performance.now() + 500;
+  }
+}
+
+function onBackdropClick() {
+  if (performance.now() < backdropDismissReadyAt.value) return;
+  cancel();
 }
 
 function maybeDequeue() {
@@ -164,8 +174,8 @@ onUnmounted(() => {
 <template>
   <div
     v-if="active"
-    class="fixed inset-0 z-[170] flex items-center justify-center modal-overlay-bg px-4"
-    @click.self="cancel"
+    class="fixed inset-0 z-[400] flex items-center justify-center modal-overlay-bg px-4"
+    @click.self="onBackdropClick"
     @keydown="onKeydown"
   >
     <div

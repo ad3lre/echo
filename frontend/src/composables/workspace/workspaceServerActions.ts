@@ -273,6 +273,7 @@ export function useWorkspaceServerActions(refs: WorkspaceStateRefs) {
       nsfw?: boolean;
       messageHistoryAnchor?: 'top' | 'bottom';
       bitrateBps?: number | null;
+      voiceE2eeEnabled?: boolean;
       channelPermissions?: ChannelPermissionsState;
       messageFormatTemplate?: string;
       messageFormatHard?: boolean;
@@ -327,6 +328,13 @@ export function useWorkspaceServerActions(refs: WorkspaceStateRefs) {
     }
     if (patch.bitrateBps !== undefined) {
       base.bitrateBps = patch.bitrateBps;
+    }
+    if (patch.voiceE2eeEnabled !== undefined) {
+      if (patch.voiceE2eeEnabled) {
+        base.voiceE2eeEnabled = true;
+      } else {
+        delete base.voiceE2eeEnabled;
+      }
     }
     if (patch.channelPermissions !== undefined) {
       base.channelPermissions = patch.channelPermissions;

@@ -187,6 +187,7 @@ export type EchoChannelRow = {
   slowmodeSeconds: number;
   userLimit: number;
   bitrateBps: number | null;
+  voiceE2eeEnabled?: boolean;
   nsfw: boolean;
   /** Text: initial scroll anchor; default bottom when omitted. */
   messageHistoryAnchor?: 'top' | 'bottom';
@@ -222,6 +223,7 @@ export type EchoChannelPatch = {
   slowmodeSeconds?: number;
   userLimit?: number;
   bitrateBps?: number | null;
+  voiceE2eeEnabled?: boolean;
   nsfw?: boolean;
   iconKey?: string;
   messageHistoryAnchor?: 'top' | 'bottom';

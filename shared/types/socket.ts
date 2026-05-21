@@ -116,7 +116,9 @@ export type EchoWorkspaceEvent = {
       | 'undeafen'
       | 'disconnect'
       | 'promote_speaker'
-      | 'demote_speaker';
+      | 'demote_speaker'
+      | 'stop_camera'
+      | 'stop_screen_share';
     /** Hint only for 'move' — frontend removes from all channels, not just this one. */
     fromChannelId?: string;
     /** Current server-muted state after mutation (set for mute/unmute). */

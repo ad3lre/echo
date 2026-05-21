@@ -12,6 +12,8 @@ import discordOAuthRoutes from './discordOAuth';
 import googleOAuthRoutes from './googleOAuth';
 import meDiscordRoutes from './meDiscord';
 import meGoogleRoutes from './meGoogle';
+import meYoutubeRoutes from './meYoutube';
+import youtubeOAuthRoutes from './youtubeOAuth';
 import discordBotHookRoutes from './discordBotHook';
 import discordBridgeHookRoutes from './discordBridgeHook';
 import discordVoiceMirrorHookRoutes from './discordVoiceMirrorHook';
@@ -53,8 +55,10 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   }
   await fastify.register(discordOAuthRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(googleOAuthRoutes, { prefix: '/api/v1/auth' });
+  await fastify.register(youtubeOAuthRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(meDiscordRoutes, { prefix: '/api/v1' });
   await fastify.register(meGoogleRoutes, { prefix: '/api/v1' });
+  await fastify.register(meYoutubeRoutes, { prefix: '/api/v1' });
   await fastify.register(discordBotHookRoutes, { prefix: '/api/v1' });
   await fastify.register(discordBridgeHookRoutes, { prefix: '/api/v1' });
   await fastify.register(discordVoiceMirrorHookRoutes, { prefix: '/api/v1' });

@@ -181,6 +181,24 @@ describe('deriveMainSurface', () => {
     });
   });
 
+  it('servers rail + stage channel => serverVoice', () => {
+    const nav: NavState = {
+      rail: 'servers',
+      dmSubView: 'messages',
+      activeChannelId: 'stage-1',
+      selectedServerId: 'srv-1',
+    };
+    expect(
+      deriveMainSurface(
+        nav,
+        ctxNoOnboarding((id) => (id === 'stage-1' ? { type: 'voice' } : null)),
+      ),
+    ).toEqual({
+      type: 'serverVoice',
+      channelId: 'stage-1',
+    });
+  });
+
   it('servers rail + no resolvable channel id => serverText empty shell', () => {
     const nav: NavState = {
       rail: 'servers',

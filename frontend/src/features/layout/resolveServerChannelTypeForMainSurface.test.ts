@@ -27,6 +27,11 @@ describe('resolveServerChannelInfoForMainSurface', () => {
         id === 'c3' ? { channel: { type: 'forum' } } : null,
       ),
     ).toEqual({ type: 'forum' });
+    expect(
+      resolveServerChannelInfoForMainSurface('c4', (id) =>
+        id === 'c4' ? { channel: { type: 'stage' } } : null,
+      ),
+    ).toEqual({ type: 'voice' });
   });
 
   it('bindResolveServerChannelInfoForMainSurface closes over findChannelContextById', () => {

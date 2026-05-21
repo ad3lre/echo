@@ -22,13 +22,37 @@
 
 ## Behavior
 
-- `git push origin release/1.0.0`: the `pre-push` hook runs **before** GitLab accepts the push. It mirrors with `--force-with-lease` when `github/release/1.0.0` already exists (after a quick `git fetch github release/1.0.0`). If GitLab **rejects** the push (protected branch, hook, etc.), GitHub may already have been updated; realign with  
-  `git fetch origin && git push github +origin/release/1.0.0:refs/heads/release/1.0.0 --force`  
-  (or the inverse, from whichever remote is canonical for that incident).
-- Pushes whose URL contains `github.com` do **not** trigger a mirror (avoids double work and accidental `origin` pushes from a GitHub-targeted push).
-- Pushes of other branches: no GitHub activity from the hook.
-- If the `github` remote is missing, the hook **fails** so `release/1.0.0` is not pushed only to GitLab by mistake while GitHub lags.
-- **Do not fast-forward `release/1.0.0` to `origin/main`.** If the release tip SHA equals `origin/main`, GitHub’s default branch shows the **same per-commit history** as internal `main` (messages, authors, hashes). The `pre-push` hook **refuses** to mirror that case unless you set `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1` (emergency only).
+### Scheduled GitHub mirror (default: 23:00 daily)
+
+Pushes to **GitLab** `origin/release/1.0.0` do **not** update GitHub immediately. All publishes during the day land on GitLab first; **one batched mirror** pushes the latest tip to GitHub at **23:00** in your configured timezone (default **Europe/Berlin**).
+
+1. **Install the cron job** on a machine that is on at that time (your dev box, VPS, etc.):
+
+   ```bash
+   npm run mirror:github-release:install-cron -- --yes
+   ```
+
+   Override schedule with env vars when installing or in the crontab line:
+
+   - `ECHO_RELEASE_MIRROR_HOUR=23` (24-hour clock)
+   - `ECHO_RELEASE_MIRROR_MINUTE=0`
+   - `ECHO_RELEASE_MIRROR_TZ=Europe/Berlin` (CET/CEST; or `UTC`, `America/New_York`, …)
+
+2. **Manual mirror** (same checks as cron):
+
+   ```bash
+   npm run mirror:github-release
+   ```
+
+3. **Immediate mirror** (emergency; still runs safety checks):
+
+   ```bash
+   ECHO_RELEASE_MIRROR_NOW=1 git push origin release/1.0.0
+   ```
+
+The `pre-push` hook prints a reminder when GitHub is deferred. Pushes whose URL contains `github.com` only validate refs (never create/update `main` there) and do not schedule a mirror.
+
+**Do not fast-forward `release/1.0.0` to `origin/main`.** The mirror script **refuses** when the release tip equals `origin/main` unless `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1` (emergency only).
 
 ## Publishing internal `main` to the public release line (separate timeline)
 
@@ -40,7 +64,7 @@ Use the repo script so each GitHub commit has a **real subject and body** (summa
 
 ```bash
 npm run publish:public-release              # preview message only
-npm run publish:public-release -- --yes     # commit + push origin (mirrors to github)
+npm run publish:public-release -- --yes     # commit + push origin (GitHub at 23:00 cron)
 ```
 
 The script:
@@ -91,9 +115,9 @@ GitLab **protected branches** often block `--force` pushes. To land a rewritten 
 
 ## CI / automation
 
-Server-side GitLab jobs do not run this local hook. If pipelines must update GitHub for `release/1.0.0`, add an explicit job that pushes to `github` for that ref only, using credentials stored in CI variables.
+Server-side GitLab jobs do not run the local hook. To mirror from CI at a fixed time, run `scripts/mirror-release-to-github.sh` in a **scheduled** GitLab pipeline (with `github` deploy credentials), or rely on the same cron script on a runner.
 
-Pipeline pushes must **not** set `release/1.0.0` to the same commit as `origin/main` (same rule as the local hook: use a squash-style or `commit-tree` publish so the tip is not `origin/main`, unless you accept exposing internal per-commit history via `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1`).
+Pipeline pushes must **not** set `release/1.0.0` to the same commit as `origin/main` (same rule as the mirror script: use `publish-public-release`, unless you accept exposing internal history via `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1`).
 
 ## Do not keep `main` on GitHub
 
@@ -102,4 +126,4 @@ GitHub is a **public mirror** for `release/1.0.0` only. The branch **`main` must
 1. **Delete it if it appears:** `git push github --delete main`
 2. **Default branch:** In GitHub → **Settings → General → Default branch**, set **`release/1.0.0`** (not `main`).
 3. **Block recreation (server-side):** In **Settings → Rules → Rulesets** (or classic branch protection), add a rule for branches matching **`main`** that **restricts creation** and **blocks pushes** for everyone (or only allow deletes via admin if GitHub supports that pattern). Rulesets are the reliable way to stop `main` from coming back without relying on local hooks.
-4. **Local hook:** `scripts/githooks/pre-push` refuses any push that would **create or update** `main` on a `github.com` remote (mirroring `release/1.0.0` to GitLab still runs as before).
+4. **Local hook:** `scripts/githooks/pre-push` refuses any push that would **create or update** `main` on a `github.com` remote. GitLab `release/1.0.0` pushes are not mirrored until the daily job (unless `ECHO_RELEASE_MIRROR_NOW=1`).

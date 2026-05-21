@@ -167,7 +167,9 @@ const lc = computed((): AppLayoutLeftChromeProps => {
           | 'serverDeafen'
           | 'disconnect'
           | 'inviteToSpeak'
-          | 'moveToAudience',
+          | 'moveToAudience'
+          | 'stopCamera'
+          | 'stopScreenShare',
       ) => false),
     handleModerateUser: g('handleModerateUser') ?? (() => {}),
     handleVcModerate: g('handleVcModerate') ?? (() => {}),

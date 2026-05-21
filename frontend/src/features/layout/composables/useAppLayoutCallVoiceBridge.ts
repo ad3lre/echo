@@ -74,14 +74,19 @@ export function useAppLayoutCallVoiceBridge(
     getDmVoiceE2eeMediaKey: async (channelId) => {
       const token = deps.authSession.accessToken?.trim() ?? '';
       const uid = deps.authSession.backendUser?.id?.trim() ?? '';
-      if (!token || !uid) return null;
+      if (!token || !uid) return { mediaKey: null, senderDeviceId: '' };
       const g = deps.groupDMs.value[channelId];
       const peer = deps.echoDmPeerByChannelId.value.get(channelId);
-      const members: string[] = g?.memberIds?.length
-        ? [...g.memberIds]
-        : peer
-          ? [uid, peer].sort()
-          : [uid];
+      const activeCall =
+        deps.echoDmActiveCallParticipantUserIdsByChannelId.value.get(
+          channelId,
+        ) ?? [];
+      const members: string[] = [
+        uid,
+        ...(g?.memberIds?.length ? g.memberIds : []),
+        ...(peer && peer !== uid ? [peer] : []),
+        ...activeCall,
+      ];
       return prepareDmVoiceE2eeMediaKey({
         channelId,
         token,

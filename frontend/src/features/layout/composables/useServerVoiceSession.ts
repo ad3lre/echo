@@ -35,6 +35,8 @@ import {
   resolveEchoServerIdContainingChannel,
 } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { UIErrorBus } from '@/utils/uiErrorBus';
+import { dispatchAppToast } from '@/utils/controllerMissingAction';
+import type { EchoWorkspaceEvent } from '@shared/types';
 import { isEchoGraphId } from '@/utils/echoIds';
 import { resolveGuildMemberDisplayName } from '@/utils/resolveGuildMemberDisplayName';
 import {
@@ -1716,17 +1718,20 @@ export function useServerVoiceSession(deps: {
   async function guildVoiceE2eePrepare(
     serverId: string,
     channelId: string,
-  ): Promise<ArrayBuffer | null> {
+  ) {
     const token = authSession.accessToken?.trim() ?? '';
     const uid = currentUser.value?.id?.trim() ?? '';
-    if (!token || !uid) return null;
+    if (!token || !uid) return { mediaKey: null, senderDeviceId: '' };
     const ctx = findChannelContextById(channelId);
     const ch = ctx?.channel;
-    if (ch && ch.type !== 'voice' && ch.type !== 'stage') return null;
-    // Only users who can view the channel may receive envelopes; never fall back
-    // to the full server roster (epoch POST rejects inaccessible recipients).
-    const members = ch ? [...(ch.accessibleMemberUserIds ?? [])] : [];
-    if (!members.includes(uid)) members.push(uid);
+    if (ch && ch.type !== 'voice' && ch.type !== 'stage') {
+      return { mediaKey: null, senderDeviceId: '' };
+    }
+    const roster = ch?.voiceParticipantIds ?? [];
+    const members = [
+      uid,
+      ...roster.map((id) => id.trim()).filter((id) => id && id !== uid),
+    ];
     return prepareGuildVoiceE2eeMediaKey({
       serverId,
       channelId,
@@ -1734,6 +1739,17 @@ export function useServerVoiceSession(deps: {
       viewerUserId: uid,
       memberUserIds: members,
     });
+  }
+
+  async function reconnectGuildVoiceAfterE2eeRotation(): Promise<void> {
+    const channelId = currentVoiceChannelId.value?.trim() ?? '';
+    if (!channelId) return;
+    try {
+      await hydrateWorkspace();
+    } catch {
+      /* reconnect still attempts transport */
+    }
+    await runGuildVoiceJoinTransport(channelId);
   }
 
   async function runGuildVoiceJoinTransport(channelId: string): Promise<void> {
@@ -2312,6 +2328,7 @@ export function useServerVoiceSession(deps: {
   return {
     onJoinVoice,
     onLeaveVoice,
+    reconnectGuildVoiceAfterE2eeRotation,
     getVcActivityPresenceForUser,
     getVcChannelActivityPresenceForChannel,
     vcHangmanActivity: computed(() => vcHangmanPublic.value),
@@ -2404,5 +2421,28 @@ export function useServerVoiceSession(deps: {
     stopScreenShare: () => lkRoom?.stopScreenShare(),
     getLocalScreenTrack: () => lkRoom?.getLocalScreenTrack() ?? null,
     getLocalCameraTrack: () => lkRoom?.getLocalCameraTrack() ?? null,
+    applyVoiceMediaModerationFromSocket: (payload: EchoWorkspaceEvent) => {
+      const delta = payload.voiceRosterDelta;
+      if (!delta) return;
+      const cur = currentUser.value?.id?.trim();
+      if (!cur || delta.userId !== cur) return;
+      if (isDmVoiceCallUi.value) return;
+      const inChannel =
+        currentVoiceChannelId.value?.trim() === delta.channelId?.trim();
+      if (!inChannel) return;
+      if (delta.action === 'stop_camera') {
+        vcVideo.value = false;
+        if (lkRoom && liveKitState.value === 'connected') {
+          void lkRoom.setCameraEnabled(false);
+        }
+        dispatchAppToast('A moderator turned off your camera.', 'info');
+      } else if (delta.action === 'stop_screen_share') {
+        vcScreenshare.value = false;
+        if (lkRoom && liveKitState.value === 'connected') {
+          void lkRoom.stopScreenShare();
+        }
+        dispatchAppToast('A moderator stopped your screen share.', 'info');
+      }
+    },
   };
 }

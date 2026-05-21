@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, type ComponentPublicInstance } from 'vue';
 import { icons } from '@/assets/icons';
 import type { ChannelWithParticipants } from '@/features/channel-panel/composables/useChannelPanelVoiceState';
+import { ECHO_SIMPLE_CONTEXT_MENU_ATTR } from '@/composables/useSimpleContextMenu';
 
 const props = withDefaults(
   defineProps<{
@@ -51,6 +52,18 @@ const props = withDefaults(
 );
 
 const moveVcSubmenuOpen = ref(false);
+
+function bindMenuRef(el: Element | ComponentPublicInstance | null) {
+  const target = props.menuRef;
+  if (!target || typeof target !== 'object' || !('value' in target)) return;
+  const node =
+    el instanceof HTMLElement
+      ? el
+      : el && typeof el === 'object' && '$el' in el && el.$el instanceof HTMLElement
+        ? el.$el
+        : null;
+  (target as { value: HTMLElement | null }).value = node;
+}
 
 watch(
   () => props.menuOpen,
@@ -126,11 +139,7 @@ const emit = defineEmits<{
   'vc-menu-message': [];
   'vc-menu-copy-user-id': [];
   'vc-moderate': [
-    | 'serverMute'
-    | 'serverDeafen'
-    | 'disconnect'
-    | 'inviteToSpeak'
-    | 'moveToAudience',
+    'serverMute' | 'serverDeafen' | 'disconnect' | 'inviteToSpeak' | 'moveToAudience',
   ];
   'vc-menu-move-pick': [targetChannelId: string];
   'vc-moderate-server': ['kick' | 'ban' | 'timeout'];
@@ -146,7 +155,8 @@ const emit = defineEmits<{
         selectedServerId &&
         selectedServerId !== 'echo'
       "
-      :ref="menuRef"
+      :ref="bindMenuRef"
+      v-bind="{ [ECHO_SIMPLE_CONTEXT_MENU_ATTR]: '' }"
       class="ellipsis-menu fixed z-[100] min-w-[200px] py-1"
       :style="{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }"
       role="menu"
@@ -219,7 +229,7 @@ const emit = defineEmits<{
           type="button"
           class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
-          @click="emit('channel-menu-delete')"
+          @click.stop="emit('channel-menu-delete')"
         >
           <img
             :src="icons.trash"
@@ -309,7 +319,7 @@ const emit = defineEmits<{
           type="button"
           class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
-          @click="emit('category-menu-delete')"
+          @click.stop="emit('category-menu-delete')"
         >
           <img
             :src="icons.trash"

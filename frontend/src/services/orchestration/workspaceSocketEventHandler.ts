@@ -60,7 +60,7 @@ export function createWorkspaceSocketEventHandler(
       return;
     }
     if (payload.kind === 'voice_e2ee_epoch_superseded') {
-      if (!deps.noteWorkspaceEventVersion(payload.version)) return;
+      deps.noteWorkspaceEventVersion(payload.version);
       deps.onVoiceE2eeEpochSuperseded?.(payload);
       return;
     }

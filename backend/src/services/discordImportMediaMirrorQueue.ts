@@ -2,6 +2,7 @@ import type pg from 'pg';
 import { config } from '../config';
 import { isEchoS3UploadConfigured } from './s3UploadPresign';
 import { isDiscordHostedImportMediaUrl } from '../domain/discordCdnUrls';
+import { kickDiscordImportMediaMirrorDrain } from './discordImportMediaMirrorScheduler';
 import type {
   Embed,
   ForwardedFrom,
@@ -114,12 +115,46 @@ export async function enqueueDiscordImportMediaMirrorJob(
   row: { messageId: string; channelId: string; actorId: string },
 ): Promise<void> {
   if (!discordImportMediaEchoStorageReady()) return;
-  await pool.query(
+  const ins = await pool.query(
     `INSERT INTO echo_discord_import_media_mirror_queue (message_id, channel_id, actor_id)
      VALUES ($1, $2, $3)
-     ON CONFLICT (message_id) DO NOTHING`,
+     ON CONFLICT (message_id) DO NOTHING
+     RETURNING message_id`,
     [row.messageId, row.channelId, row.actorId],
   );
+  if (ins.rowCount && ins.rowCount > 0) {
+    kickDiscordImportMediaMirrorDrain();
+  }
+}
+
+/** Queue background rehost when a persisted message still references Discord CDN media. */
+export async function maybeEnqueueDiscordImportMediaMirror(
+  pool: pg.Pool,
+  row: {
+    messageId: string;
+    channelId: string;
+    actorId: string;
+    attachments?: MessageAttachmentPayload[];
+    stickers?: MessageStickerPayload[];
+    embeds?: Embed[];
+    forwardedFrom?: ForwardedFrom;
+  },
+): Promise<void> {
+  if (
+    !importedDiscordMessageNeedsMediaMirror({
+      ...(row.attachments?.length ? { attachments: row.attachments } : {}),
+      ...(row.stickers?.length ? { stickers: row.stickers } : {}),
+      ...(row.embeds?.length ? { embeds: row.embeds } : {}),
+      ...(row.forwardedFrom ? { forwardedFrom: row.forwardedFrom } : {}),
+    })
+  ) {
+    return;
+  }
+  await enqueueDiscordImportMediaMirrorJob(pool, {
+    messageId: row.messageId,
+    channelId: row.channelId,
+    actorId: row.actorId,
+  });
 }
 
 export async function claimNextDiscordImportMediaMirrorJob(

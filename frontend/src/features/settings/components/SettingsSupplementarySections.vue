@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import SettingsDiscordLinkSection from '@/features/settings/components/SettingsDiscordLinkSection.vue';
+import SettingsYoutubeLinkSection from '@/features/settings/components/SettingsYoutubeLinkSection.vue';
 import type { SettingsSection } from '@/features/settings/types';
 import { ECHO_PLUS_COMING_SOON, PLAN_TIERS } from '@/features/settings/data';
 import { storeToRefs } from 'pinia';
@@ -112,6 +113,7 @@ function resetDefaults() {
 
 <template>
   <SettingsDiscordLinkSection v-if="activeSection === 'Discord'" />
+  <SettingsYoutubeLinkSection v-if="activeSection === 'YouTube'" />
 
   <div
     v-else-if="activeSection === 'Data & Privacy'"

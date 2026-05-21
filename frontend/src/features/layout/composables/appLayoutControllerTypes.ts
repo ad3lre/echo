@@ -652,7 +652,9 @@ export interface AppLayoutControllerContext {
       | 'disconnect'
       | 'move'
       | 'inviteToSpeak'
-      | 'moveToAudience',
+      | 'moveToAudience'
+      | 'stopCamera'
+      | 'stopScreenShare',
   ) => boolean;
   canModerateMemberActionInServer: (
     targetUserId: string,
@@ -679,7 +681,9 @@ export interface AppLayoutControllerContext {
       | 'serverDeafen'
       | 'move'
       | 'inviteToSpeak'
-      | 'moveToAudience';
+      | 'moveToAudience'
+      | 'stopCamera'
+      | 'stopScreenShare';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;

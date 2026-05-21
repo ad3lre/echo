@@ -68,6 +68,45 @@ async function main() {
     },
   );
 
+  await run(
+    'v2 contentJson link href unfurls YouTube when plain text omits URL',
+    async () => {
+      const contentJson = {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: 'see ' },
+              {
+                type: 'text',
+                text: 'this clip',
+                marks: [
+                  {
+                    type: 'link',
+                    attrs: {
+                      href: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const embeds = await buildLinkEmbedsFromPlainText('see this clip', {
+        allow: true,
+        contentJson,
+        budgetMs: 8000,
+      });
+      assert.equal(embeds.length, 1);
+      assert.equal(embeds[0]?.video?.kind, 'youtube');
+      assert(
+        embeds[0]?.video?.embedUrl?.includes('youtube-nocookie.com/embed/'),
+      );
+    },
+  );
+
   await run('rejects loopback and private IPv6 unfurl targets', () => {
     assert.equal(isUrlSafeForOutboundFetch('http://[::1]/health'), false);
     assert.equal(isUrlSafeForOutboundFetch('http://[fd00::1]/internal'), false);

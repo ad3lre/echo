@@ -1,21 +1,17 @@
 #!/usr/bin/env bash
-# When pushing refs/heads/release/1.0.0 to a non-GitHub remote (e.g. GitLab origin),
-# mirror that same ref to the remote named "github" (https://github.com/ad3lre/echo).
-# Pushes whose URL is already github.com: validate refs (never create/update main there),
-# then exit without mirroring (avoids double work).
+# Validate pushes to github.com (never create/update main there).
+# Mirror release/1.0.0 to GitHub only when ECHO_RELEASE_MIRROR_NOW=1; otherwise the
+# daily cron (23:00, see install-release-mirror-cron.sh) batches all GitLab pushes.
 #
-# GitHub is release-only: never create or update refs/heads/main there (see
-# docs/operations/github-release-mirror.md). Deletes of remote main are allowed.
-#
-# Also refuse mirroring when release/1.0.0 would point at the same commit as
-# origin/main (fast-forward to main): that publishes GitLab's per-commit graph
-# on the public default branch. Use squash sync (see doc) unless overridden.
+# See docs/operations/github-release-mirror.md.
 set -euo pipefail
 
 push_url="${2:-}"
 zero=0000000000000000000000000000000000000000
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+MIRROR_HOUR="${ECHO_RELEASE_MIRROR_HOUR:-23}"
+MIRROR_TZ="${ECHO_RELEASE_MIRROR_TZ:-Europe/Berlin}"
 
-# Git pre-push supplies ref updates on stdin; read once so we can branch on remote URL.
 ref_updates=$(cat || true)
 
 if [[ "$push_url" == *github.com* ]]; then
@@ -30,40 +26,34 @@ if [[ "$push_url" == *github.com* ]]; then
   exit 0
 fi
 
-if ! git remote get-url github &>/dev/null; then
-    echo "pre-push: remote 'github' is missing. Add it once, then retry:" >&2
-    echo "  git remote add github https://github.com/ad3lre/echo.git" >&2
-    exit 1
-fi
-
-# So --force-with-lease can compare against the last mirrored tip.
-git fetch github refs/heads/release/1.0.0:refs/remotes/github/release/1.0.0 --quiet 2>/dev/null || true
-
+release_pushed=0
 while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
   [[ -z "${local_ref:-}" ]] && continue
   if [[ "$local_sha" == "$zero" ]]; then
     continue
   fi
-  if [[ "$remote_ref" != "refs/heads/release/1.0.0" ]]; then
-    continue
-  fi
-  if [[ -z "${ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP:-}" ]] && git remote get-url origin &>/dev/null; then
-    git fetch origin refs/heads/main:refs/remotes/origin/main --quiet 2>/dev/null || true
-    origin_main=$(git rev-parse origin/main 2>/dev/null || true)
-    if [[ -n "$origin_main" && "$local_sha" == "$origin_main" ]]; then
-      echo "pre-push: refusing to mirror release/1.0.0: tip matches origin/main." >&2
-      echo "  That exposes GitLab main's commit-by-commit history on GitHub (same tip SHA)." >&2
-      echo "  Use a squash sync instead — see docs/operations/github-release-mirror.md" >&2
-      echo "  Emergency override: ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1 git push ..." >&2
-      exit 1
-    fi
-  fi
-
-  echo "pre-push: mirroring release/1.0.0 to github (ad3lre/echo)..."
-  prev=$(git rev-parse github/release/1.0.0 2>/dev/null || true)
-  if [[ -n "$prev" ]]; then
-    git push github "${local_sha}:refs/heads/release/1.0.0" --force-with-lease=refs/heads/release/1.0.0:"$prev"
-  else
-    git push github "${local_sha}:refs/heads/release/1.0.0"
+  if [[ "$remote_ref" == "refs/heads/release/1.0.0" ]]; then
+    release_pushed=1
   fi
 done <<<"$ref_updates"
+
+if [[ "$release_pushed" -eq 0 ]]; then
+  exit 0
+fi
+
+if [[ -n "${ECHO_RELEASE_MIRROR_NOW:-}" ]]; then
+  while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+    [[ -z "${local_ref:-}" ]] && continue
+    [[ "$local_sha" == "$zero" ]] && continue
+    [[ "$remote_ref" != "refs/heads/release/1.0.0" ]] && continue
+    bash "$ROOT/scripts/mirror-release-to-github.sh" "$local_sha"
+  done <<<"$ref_updates"
+  exit 0
+fi
+
+printf 'pre-push: GitHub mirror deferred until %s:00 %s (batched once per day).\n' \
+  "$MIRROR_HOUR" "$MIRROR_TZ" >&2
+printf '  GitLab push will continue. To mirror immediately: ECHO_RELEASE_MIRROR_NOW=1 git push …\n' >&2
+printf '  Or: npm run mirror:github-release\n' >&2
+printf '  Install cron: npm run mirror:github-release:install-cron -- --yes\n' >&2
+exit 0

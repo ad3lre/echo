@@ -35,6 +35,10 @@ export const SECTION_COPY: Record<SettingsSection, { blurb: string }> = {
     blurb:
       'Link your Discord account to Echo for profile import and a consistent identity across apps.',
   },
+  YouTube: {
+    blurb:
+      'Connect your YouTube channel to broadcast stage channels live (StreamYard-style RTMP from Echo).',
+  },
   'Log out': {
     blurb: 'End this session on this device. You can sign in again anytime.',
   },

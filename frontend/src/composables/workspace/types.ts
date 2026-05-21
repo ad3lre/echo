@@ -203,6 +203,7 @@ export type WorkspaceStateApi = {
       nsfw?: boolean;
       messageHistoryAnchor?: 'top' | 'bottom';
       bitrateBps?: number | null;
+      voiceE2eeEnabled?: boolean;
       channelPermissions?: any;
       messageFormatTemplate?: string;
       messageFormatHard?: boolean;

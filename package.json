@@ -23,6 +23,8 @@
     "lan:sync": "node scripts/sync-lan-dev.mjs",
     "sync:gitlab-release": "bash scripts/sync-gitlab-release-from-github.sh",
     "publish:public-release": "bash scripts/publish-public-release.sh",
+    "mirror:github-release": "bash scripts/mirror-release-to-github.sh",
+    "mirror:github-release:install-cron": "bash scripts/install-release-mirror-cron.sh",
     "lan:clear": "node scripts/lan-clear.mjs",
     "lan:firewall": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lan-firewall-windows.ps1",
     "dev:lan": "npm run lan:sync && node scripts/compose.mjs up -d --force-recreate livekit coturn && npm run dev",

@@ -179,7 +179,7 @@ publish_append() {
   git branch -f "$BRANCH" "$new_sha"
   echo "Created ${BRANCH} -> ${new_sha}"
   git push "$GITLAB_REMOTE" "$BRANCH"
-  echo "Pushed ${GITLAB_REMOTE}/${BRANCH} (pre-push hook mirrors to github if configured)."
+  echo "Pushed ${GITLAB_REMOTE}/${BRANCH} (GitHub mirror runs at scheduled time; see docs/operations/github-release-mirror.md)."
 }
 
 bootstrap_message() {
@@ -244,7 +244,7 @@ rewrite_release_history() {
   local prev_remote
   prev_remote=$(git rev-parse "$GITLAB_REMOTE/$BRANCH")
   git push "$GITLAB_REMOTE" "$BRANCH" --force-with-lease="refs/heads/${BRANCH}:${prev_remote}"
-  echo "Force-pushed ${GITLAB_REMOTE}/${BRANCH} (GitHub mirror via pre-push hook)."
+  echo "Force-pushed ${GITLAB_REMOTE}/${BRANCH} (GitHub mirror at scheduled time unless ECHO_RELEASE_MIRROR_NOW=1)."
 }
 
 if [[ "$REWRITE" -eq 1 ]]; then

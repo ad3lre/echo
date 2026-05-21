@@ -65,6 +65,7 @@ const rolePopupPanelRef = ref<InstanceType<
 > | null>(null);
 const contentRef = ref<InstanceType<typeof MemberProfileContent> | null>(null);
 const popoutArticleRef = ref<HTMLElement | null>(null);
+const popoutScrollRef = ref<HTMLElement | null>(null);
 const popoutMeasuredHeight = ref(0);
 const popoutDisplayNameOverflowPx = ref(0);
 const rolePopupLayoutTick = ref(0);
@@ -82,6 +83,11 @@ function disconnectPopoutHeightResizeObserver() {
 function disconnectPopoutDisplayNameResizeObserver() {
   popoutDisplayNameResizeObserver?.disconnect();
   popoutDisplayNameResizeObserver = null;
+}
+
+function resetPopoutScroll() {
+  const scrollEl = popoutScrollRef.value;
+  if (scrollEl) scrollEl.scrollTop = 0;
 }
 
 function updateDisplayNameOverflowMeasure() {
@@ -427,6 +433,7 @@ watch(
       roleTriggerRef.value = null;
       return;
     }
+    void nextTick(() => resetPopoutScroll());
     if (props.openRolesPanelWithProfile && props.roleManagement?.enabled) {
       void nextTick(() => {
         rolePanelOpen.value = true;
@@ -439,6 +446,7 @@ watch(
   (newId, oldId) => {
     if (oldId !== undefined && newId !== oldId && props.modelValue) {
       rolePanelOpen.value = false;
+      void nextTick(() => resetPopoutScroll());
     }
   },
 );
@@ -507,6 +515,7 @@ watch(
       roDisplay.observe(el);
       popoutDisplayNameResizeObserver = roDisplay;
       updateDisplayNameOverflowMeasure();
+      resetPopoutScroll();
     });
   },
   { flush: 'post' },
@@ -636,6 +645,11 @@ const placement = computed(() => {
 
   if (source === 'member-list') {
     desiredTop = props.anchor.top - 44;
+    // Keep the full card on-screen when opened from the lower member list.
+    const bottomAlignedTop = viewportHeight - panelHeight - padding;
+    if (desiredTop > bottomAlignedTop) {
+      desiredTop = bottomAlignedTop;
+    }
   } else if (source === 'chat-avatar') {
     desiredTop = props.anchor.top - 24;
   } else if (source === 'chat-name') {
@@ -673,8 +687,14 @@ const placement = computed(() => {
   );
   const panelMaxHeight = Math.min(maxPanelHeight, viewportFitMaxHeight);
 
+  // Re-fit top when rounding or a late height measure would push the card past the viewport.
+  const fittedTop = Math.max(
+    padding,
+    Math.min(top, viewportHeight - panelMaxHeight - padding),
+  );
+
   const arrowCenter = Math.min(
-    Math.max(anchorCenterY - top, arrowInset),
+    Math.max(anchorCenterY - fittedTop, arrowInset),
     Math.min(panelHeight, panelMaxHeight) - arrowInset,
   );
 
@@ -684,13 +704,13 @@ const placement = computed(() => {
     sheet: false,
     style: {
       left: `${snapPx(left)}px`,
-      top: `${snapPx(top)}px`,
+      top: `${snapPx(fittedTop)}px`,
       maxHeight: `${panelMaxHeight}px`,
     },
     arrowStyle: {
       top: `${arrowCenter}px`,
     },
-    offsetY: top - anchorCenterY,
+    offsetY: fittedTop - anchorCenterY,
   };
 });
 
@@ -805,7 +825,7 @@ function handleViewportUpdate() {
       <article
         v-if="!rolesStandaloneUi"
         ref="popoutArticleRef"
-        class="member-popout member-popout--card custom-scrollbar fixed overflow-y-auto rounded-[24px] shadow-2xl"
+        class="member-popout member-popout--card flex flex-col overflow-hidden fixed rounded-[24px] shadow-2xl"
         :class="[
           placement.side === 'right'
             ? 'member-popout--right'
@@ -826,6 +846,7 @@ function handleViewportUpdate() {
         />
 
         <MemberProfileHeader
+          class="shrink-0"
           :profile="profile"
           :banner-refraction-style="bannerRefractionStyle"
           @open-full-profile="emit('open-full-profile')"
@@ -880,53 +901,58 @@ function handleViewportUpdate() {
         </MemberProfileHeader>
 
         <div
-          v-if="showCompactPersonSettingsRow"
-          class="member-popout__person-settings-wrap shrink-0 px-4"
+          ref="popoutScrollRef"
+          class="member-popout__scroll custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
         >
-          <button
-            type="button"
-            class="member-popout__person-settings chat-focus-ring"
-            data-profile-more-menu-anchor
-            aria-haspopup="menu"
-            aria-label="Person settings"
-            @click.stop="onCompactPersonSettingsClick"
+          <div
+            v-if="showCompactPersonSettingsRow"
+            class="member-popout__person-settings-wrap shrink-0 px-4"
           >
-            <img
-              :src="icons.sliders"
-              alt=""
-              class="member-popout__person-settings-icon h-4 w-4 shrink-0 opacity-90"
-              aria-hidden="true"
-            />
-            <span>Person settings</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              class="member-popout__person-settings chat-focus-ring"
+              data-profile-more-menu-anchor
+              aria-haspopup="menu"
+              aria-label="Person settings"
+              @click.stop="onCompactPersonSettingsClick"
+            >
+              <img
+                :src="icons.sliders"
+                alt=""
+                class="member-popout__person-settings-icon h-4 w-4 shrink-0 opacity-90"
+                aria-hidden="true"
+              />
+              <span>Person settings</span>
+            </button>
+          </div>
 
-        <MemberProfileContent
-          ref="contentRef"
-          :profile="profile"
-          :show-friends-badge="showFriendsBadge"
-          :note="note"
-          :quick-dm-enabled="quickDmEnabled"
-          :is-target-blocked="isTargetBlocked"
-          :is-friend="isFriend"
-          :hide-guild-roles-section="hideGuildRolesSection"
-          :displayed-roles="displayedRoles"
-          :assigned-role-ids="assignedRoleIds"
-          :role-management-enabled="roleManagement?.enabled"
-          :hovered-displayed-role-id="hoveredDisplayedRoleId"
-          @update:note="emit('update:note', $event)"
-          @toggle-role-panel="toggleRolePanel"
-          @remove-role="removeRole"
-          @role-mouseenter="onDisplayedRoleMouseEnter"
-          @role-mouseleave="onDisplayedRoleMouseLeave"
-          @quick-dm="emit('quick-dm', $event)"
-          @send-friend-request="emit('send-friend-request', profile.id)"
-          @block="emitPopoutProfileBlock"
-          @unblock="emitPopoutProfileUnblock"
-          @remove-friend="emit('remove-friend', profile.id)"
-          @report="emitPopoutProfileReport"
-          @open-dm="handleOpenDm"
-        />
+          <MemberProfileContent
+            ref="contentRef"
+            :profile="profile"
+            :show-friends-badge="showFriendsBadge"
+            :note="note"
+            :quick-dm-enabled="quickDmEnabled"
+            :is-target-blocked="isTargetBlocked"
+            :is-friend="isFriend"
+            :hide-guild-roles-section="hideGuildRolesSection"
+            :displayed-roles="displayedRoles"
+            :assigned-role-ids="assignedRoleIds"
+            :role-management-enabled="roleManagement?.enabled"
+            :hovered-displayed-role-id="hoveredDisplayedRoleId"
+            @update:note="emit('update:note', $event)"
+            @toggle-role-panel="toggleRolePanel"
+            @remove-role="removeRole"
+            @role-mouseenter="onDisplayedRoleMouseEnter"
+            @role-mouseleave="onDisplayedRoleMouseLeave"
+            @quick-dm="emit('quick-dm', $event)"
+            @send-friend-request="emit('send-friend-request', profile.id)"
+            @block="emitPopoutProfileBlock"
+            @unblock="emitPopoutProfileUnblock"
+            @remove-friend="emit('remove-friend', profile.id)"
+            @report="emitPopoutProfileReport"
+            @open-dm="handleOpenDm"
+          />
+        </div>
       </article>
 
       <MemberProfileRolePanel
@@ -957,6 +983,11 @@ function handleViewportUpdate() {
   margin: 0 auto;
   border-radius: 20px 20px 0 0;
   max-height: min(90dvh, 720px) !important;
+}
+
+.member-popout__scroll {
+  /* Banner/hero overlap stays in the fixed header; only body content scrolls. */
+  overscroll-behavior: contain;
 }
 
 .member-popout--card {

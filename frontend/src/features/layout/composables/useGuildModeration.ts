@@ -122,19 +122,23 @@ export function useGuildModeration(deps: {
       | 'disconnect'
       | 'move'
       | 'inviteToSpeak'
-      | 'moveToAudience',
+      | 'moveToAudience'
+      | 'stopCamera'
+      | 'stopScreenShare',
   ): boolean {
     if (!canModerateMemberInServerBase(targetUserId)) return false;
     const sid = selectedServer.value?.id;
     if (!sid) return false;
     if (isRolePreviewActiveForServer.value) {
-      if (
-        action === 'serverMute' ||
-        action === 'inviteToSpeak' ||
-        action === 'moveToAudience'
-      ) {
-        return previewHasUiPermission('muteMembers');
-      }
+    if (
+      action === 'serverMute' ||
+      action === 'inviteToSpeak' ||
+      action === 'moveToAudience' ||
+      action === 'stopCamera' ||
+      action === 'stopScreenShare'
+    ) {
+      return previewHasUiPermission('muteMembers');
+    }
       if (action === 'serverDeafen') {
         return previewHasUiPermission('deafenMembers');
       }
@@ -152,7 +156,9 @@ export function useGuildModeration(deps: {
     if (
       action === 'serverMute' ||
       action === 'inviteToSpeak' ||
-      action === 'moveToAudience'
+      action === 'moveToAudience' ||
+      action === 'stopCamera' ||
+      action === 'stopScreenShare'
     ) {
       return echoCanMuteVoiceMembers.value;
     }
@@ -439,7 +445,9 @@ export function useGuildModeration(deps: {
       | 'disconnect'
       | 'move'
       | 'inviteToSpeak'
-      | 'moveToAudience';
+      | 'moveToAudience'
+      | 'stopCamera'
+      | 'stopScreenShare';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;
@@ -514,6 +522,24 @@ export function useGuildModeration(deps: {
         }
       } else {
         workspace.toggleVcServerDeafen(ch.id, payload.targetUserId);
+      }
+    } else if (
+      payload.action === 'stopCamera' ||
+      payload.action === 'stopScreenShare'
+    ) {
+      if (!useEchoVoiceModerate) return;
+      const apiAction =
+        payload.action === 'stopCamera' ? 'stop_camera' : 'stop_screen_share';
+      try {
+        await postEchoVoiceModerate(authSession.accessToken, sid, {
+          action: apiAction,
+          targetUserId: payload.targetUserId,
+        });
+      } catch (e) {
+        const label =
+          payload.action === 'stopCamera' ? 'camera' : 'screen share';
+        const msg = e instanceof Error ? e.message : 'Request failed';
+        dispatchAppToast(`Could not stop ${label}: ${msg}`, 'warning');
       }
     } else if (payload.action === 'move') {
       const dest = payload.targetChannelId?.trim();

@@ -14,7 +14,9 @@ import {
 } from '../../domain/echoPermissions';
 
 const MAX_E2EE_CIPHERTEXT_LEN = 1_000_000;
-const MAX_ENVELOPES_PER_EPOCH = 64;
+const MAX_ENVELOPE_JSON_BYTES = 65_536;
+/** One envelope per (user, device); supports large group DMs with multi-device peers. */
+const MAX_ENVELOPES_PER_EPOCH = 512;
 
 export type EchoVoiceE2eeEpochRow = {
   id: string;
@@ -176,12 +178,49 @@ export type CreateVoiceE2eeEpochResult =
   | 'forbidden'
   /** Guild/DM channel exists but voice E2EE is off for this channel. */
   | 'e2ee_disabled'
+  /** Guild: actor must be in echo_voice_participants for this channel. */
+  | 'not_in_voice'
   /** One or more envelope recipients cannot access this voice context. */
   | 'recipient_forbidden'
   | 'invalid_body'
   | 'bad_epoch_id'
   | 'too_many_envelopes'
-  | 'device_invalid';
+  | 'device_invalid'
+  | 'infra_missing'
+  | 'epoch_id_conflict'
+  | 'active_epoch_conflict';
+
+function envelopeJsonByteLength(envelope: unknown): number {
+  if (envelope === undefined || envelope === null) return 0;
+  try {
+    return Buffer.byteLength(JSON.stringify(envelope), 'utf8');
+  } catch {
+    return MAX_ENVELOPE_JSON_BYTES + 1;
+  }
+}
+
+async function assertActorInVoiceChannelForEpochCreate(
+  pool: pg.Pool,
+  serverId: string,
+  channelId: string,
+  actorUserId: string,
+): Promise<'ok' | 'not_in_voice'> {
+  if (serverId === ECHO_DM_REALM_SERVER_ID) return 'ok';
+  try {
+    const r = await pool.query(
+      `
+      SELECT 1 FROM echo_voice_participants
+      WHERE server_id = $1 AND channel_id = $2 AND user_id = $3
+      LIMIT 1
+      `,
+      [serverId, channelId, actorUserId],
+    );
+    return r.rows.length > 0 ? 'ok' : 'not_in_voice';
+  } catch (e) {
+    if (isPostgresUndefinedRelationError(e)) return 'not_in_voice';
+    throw e;
+  }
+}
 
 /**
  * Creates a new epoch (superseding any active row for the channel) and inserts envelopes.
@@ -226,6 +265,13 @@ export async function createVoiceE2eeEpochWithEnvelopes(
       opts.channelId,
     );
     if (!access) return 'forbidden';
+    const inVoice = await assertActorInVoiceChannelForEpochCreate(
+      pool,
+      opts.serverId,
+      opts.channelId,
+      opts.actorUserId,
+    );
+    if (inVoice !== 'ok') return 'not_in_voice';
   }
 
   const recipientIds = opts.envelopes.map((e) => e.recipientUserId);
@@ -245,7 +291,10 @@ export async function createVoiceE2eeEpochWithEnvelopes(
     const ct = env.ciphertext.trim();
     if (!uid || !did || !ct) return 'invalid_body';
     if (ct.length > MAX_E2EE_CIPHERTEXT_LEN) return 'invalid_body';
+    if (envelopeJsonByteLength(env.envelope) > MAX_ENVELOPE_JSON_BYTES)
+      return 'invalid_body';
     const own = await assertEchoE2eeDeviceOwned(pool, uid, did);
+    if (own === 'infra_missing') return 'infra_missing';
     if (own !== 'ok') return 'device_invalid';
   }
 
@@ -293,6 +342,20 @@ export async function createVoiceE2eeEpochWithEnvelopes(
     } catch {
       /* ignore */
     }
+    const code =
+      e && typeof e === 'object' && 'code' in e
+        ? String((e as { code: unknown }).code)
+        : '';
+    const constraint =
+      e && typeof e === 'object' && 'constraint' in e
+        ? String((e as { constraint: unknown }).constraint)
+        : '';
+    if (code === '23505') {
+      if (constraint.includes('one_active_per_channel')) {
+        return 'active_epoch_conflict';
+      }
+      return 'epoch_id_conflict';
+    }
     throw e;
   } finally {
     client.release();
@@ -305,6 +368,41 @@ export type EchoVoiceE2eeEnvelopeRow = {
   ciphertext: string;
   envelope: unknown | null;
 };
+
+/** Non-creators need an envelope row before LiveKit session mint (optionally per device). */
+export async function userHasVoiceE2eeEnvelopeForJoin(
+  pool: pg.Pool,
+  epochId: string,
+  userId: string,
+  deviceId?: string | null,
+): Promise<boolean> {
+  const did = deviceId?.trim() ?? '';
+  try {
+    if (did) {
+      const r = await pool.query(
+        `
+        SELECT 1 FROM echo_voice_e2ee_envelopes
+        WHERE epoch_id = $1 AND recipient_user_id = $2 AND recipient_device_id = $3
+        LIMIT 1
+        `,
+        [epochId, userId, did],
+      );
+      return r.rows.length > 0;
+    }
+    const r = await pool.query(
+      `
+      SELECT 1 FROM echo_voice_e2ee_envelopes
+      WHERE epoch_id = $1 AND recipient_user_id = $2
+      LIMIT 1
+      `,
+      [epochId, userId],
+    );
+    return r.rows.length > 0;
+  } catch (e) {
+    if (isPostgresUndefinedRelationError(e)) return false;
+    throw e;
+  }
+}
 
 export async function listVoiceE2eeEnvelopesForUser(
   pool: pg.Pool,
@@ -328,9 +426,17 @@ export async function listVoiceE2eeEnvelopesForUser(
       opts.userId,
     );
     if (!okJoin) return { ok: false, reason: 'forbidden' };
+    const need = await echoDmVoiceE2eeRequired(pool, opts.channelId);
+    if (!need) return { ok: true, epoch: null, envelopes: [] };
   } else {
     const mem = await isMemberOfServer(pool, opts.serverId, opts.userId);
     if (!mem) return { ok: false, reason: 'forbidden' };
+    const enabled = await getEchoChannelVoiceE2eeEnabled(
+      pool,
+      opts.serverId,
+      opts.channelId,
+    );
+    if (!enabled) return { ok: true, epoch: null, envelopes: [] };
     const access = await canUserAccessChannel(
       pool,
       opts.userId,

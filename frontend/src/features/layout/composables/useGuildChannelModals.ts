@@ -445,6 +445,7 @@ export function useGuildChannelModals(deps: {
     nsfw: boolean;
     messageHistoryAnchor: 'top' | 'bottom';
     bitrateBps?: number | null;
+    voiceE2eeEnabled?: boolean;
     channelPermissions: ChannelPermissionsState;
     echoPermissionRows?: PermissionOverwriteRowDraft[];
     forumCreatorDefaultPerms?: ForumCreatorDefaultPerms;
@@ -473,6 +474,9 @@ export function useGuildChannelModals(deps: {
             : {}),
           ...(payload.channelType === 'voice'
             ? { bitrateBps: payload.bitrateBps }
+            : {}),
+          ...(payload.channelType === 'voice' || payload.channelType === 'stage'
+            ? { voiceE2eeEnabled: payload.voiceE2eeEnabled === true }
             : {}),
           ...(payload.channelType === 'forum' &&
           payload.forumCreatorDefaultPerms
@@ -555,6 +559,9 @@ export function useGuildChannelModals(deps: {
           ? payload.messageHistoryAnchor
           : undefined,
       bitrateBps: payload.bitrateBps,
+      ...(payload.channelType === 'voice' || payload.channelType === 'stage'
+        ? { voiceE2eeEnabled: payload.voiceE2eeEnabled === true }
+        : {}),
       channelPermissions: payload.channelPermissions,
       ...(payload.channelType === 'forum' && payload.forumCreatorDefaultPerms
         ? { forumCreatorDefaultPerms: payload.forumCreatorDefaultPerms }

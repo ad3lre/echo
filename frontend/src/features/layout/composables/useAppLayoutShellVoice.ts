@@ -130,6 +130,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
   const {
     onJoinVoice: joinVoiceSession,
     onLeaveVoice: leaveVoiceSession,
+    reconnectGuildVoiceAfterE2eeRotation,
     getVcActivityPresenceForUser,
     getVcChannelActivityPresenceForChannel,
     vcHangmanActivity,
@@ -182,6 +183,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     publishVcYoutubePlaybackSync,
     vcYoutubePlaybackShouldPublish,
     effectiveVcActivityKingUserId,
+    applyVoiceMediaModerationFromSocket,
   } = useServerVoiceSession({
     authSession,
     workspace,
@@ -635,6 +637,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
   return {
     joinVoiceSession,
     leaveVoiceSession,
+    reconnectGuildVoiceAfterE2eeRotation,
     getVcActivityPresenceForUser,
     getVcChannelActivityPresenceForChannel,
     vcHangmanActivity,
@@ -718,5 +721,6 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     canJoinPreviewVoiceChannel,
     onVcChatButtonClickNavigation,
     buildVoiceBindingForDmCalls,
+    applyVoiceMediaModerationFromSocket,
   };
 }

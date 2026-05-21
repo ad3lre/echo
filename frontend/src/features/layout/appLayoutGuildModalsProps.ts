@@ -27,6 +27,7 @@ export type AppLayoutGuildModalsChannelSettingsSavePayload = {
   nsfw: boolean;
   messageHistoryAnchor: 'top' | 'bottom';
   bitrateBps: number | null | undefined;
+  voiceE2eeEnabled?: boolean;
   channelPermissions: ChannelPermissionsState;
   echoPermissionRows?: PermissionOverwriteRowDraft[];
   forumCreatorDefaultPerms?: ForumCreatorDefaultPerms;

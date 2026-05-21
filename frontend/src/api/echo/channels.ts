@@ -66,6 +66,9 @@ export async function patchEchoChannel(
     body.slowmodeSeconds = patch.slowmodeSeconds;
   if (patch.userLimit !== undefined) body.userLimit = patch.userLimit;
   if (patch.bitrateBps !== undefined) body.bitrateBps = patch.bitrateBps;
+  if (patch.voiceE2eeEnabled !== undefined) {
+    body.voiceE2eeEnabled = patch.voiceE2eeEnabled;
+  }
   if (patch.nsfw !== undefined) body.nsfw = patch.nsfw;
   if (patch.iconKey !== undefined) body.iconKey = patch.iconKey;
   if (patch.messageHistoryAnchor !== undefined)
@@ -121,15 +124,27 @@ export function echoChannelRowToChannelSummary(
   const forumPostTagIds = Array.isArray(c.forumPostTagIds)
     ? c.forumPostTagIds.filter((x): x is string => typeof x === 'string')
     : undefined;
+  const channelType =
+    c.type === 'voice'
+      ? 'voice'
+      : c.type === 'stage'
+        ? 'stage'
+        : c.type === 'forum'
+          ? 'forum'
+          : 'text';
   const base: ChannelSummary = {
     id: c.id,
     name: c.name,
-    type: c.type === 'voice' ? 'voice' : c.type === 'forum' ? 'forum' : 'text',
+    type: channelType,
     ...(parentChannelId ? { parentChannelId } : {}),
     slowModeSeconds: c.slowmodeSeconds ?? 0,
     userLimit: c.userLimit ?? 0,
     nsfw: c.nsfw ?? false,
     bitrateBps: c.bitrateBps ?? null,
+    ...((channelType === 'voice' || channelType === 'stage') &&
+    c.voiceE2eeEnabled === true
+      ? { voiceE2eeEnabled: true }
+      : {}),
     ...(c.type === 'text' && c.messageHistoryAnchor === 'top'
       ? { messageHistoryAnchor: 'top' as const }
       : {}),

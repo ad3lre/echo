@@ -15,7 +15,7 @@ export function resolveServerChannelInfoForMainSurface(
   const ctx = findChannelContextById(channelId);
   if (!ctx?.channel) return null;
   const t = ctx.channel.type;
-  if (t === 'voice') return { type: 'voice' };
+  if (t === 'voice' || t === 'stage') return { type: 'voice' };
   if (t === 'forum') return { type: 'forum' };
   return {
     type: 'text',

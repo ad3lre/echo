@@ -12,6 +12,7 @@ import {
   cancelEchoStageSpeakRequest,
   getActiveVoiceE2eeEpoch,
   getEchoChannelVoiceE2eeEnabled,
+  userHasVoiceE2eeEnvelopeForJoin,
   insertEchoAudit,
   joinEchoVoiceChannel,
   leaveEchoVoiceChannel,
@@ -33,6 +34,8 @@ import {
   pfpForLiveKitParticipantMetadata,
   removeLiveKitParticipant,
   setLiveKitParticipantMicrophoneMuted,
+  stopLiveKitParticipantCamera,
+  stopLiveKitParticipantScreenShare,
 } from '../../../services/livekit/livekitAdapter';
 import { echoVoiceModerateTotal } from '../../../observability/echoMetrics';
 import { vcTrace } from '../../../observability/voiceTraceLog';
@@ -52,6 +55,8 @@ const ECHO_VOICE_MODERATE_ACTIONS = new Set<string>([
   'server_undeafen',
   'invite_to_speak',
   'move_to_audience',
+  'stop_camera',
+  'stop_screen_share',
 ]);
 
 function voiceReadRateLimitKey(req: FastifyRequest): string {
@@ -217,7 +222,10 @@ export default async function echoVoiceRoutes(
     },
   );
 
-  fastify.post<{ Params: { serverId: string; channelId: string } }>(
+  fastify.post<{
+    Params: { serverId: string; channelId: string };
+    Body: { e2eeDeviceId?: string };
+  }>(
     '/servers/:serverId/channels/:channelId/voice/livekit-session',
     {
       preHandler: [requireAuth, requireEchoStore],
@@ -339,11 +347,17 @@ export default async function echoVoiceRoutes(
         const uid = req.authUser!.id;
         const isCreator = activeEpoch.createdByUserId === uid;
         if (!isCreator) {
-          const mine = await pool.query(
-            `SELECT 1 FROM echo_voice_e2ee_envelopes WHERE epoch_id = $1 AND recipient_user_id = $2 LIMIT 1`,
-            [activeEpoch.id, uid],
+          const e2eeDeviceId =
+            typeof req.body?.e2eeDeviceId === 'string'
+              ? req.body.e2eeDeviceId.trim()
+              : '';
+          const hasEnvelope = await userHasVoiceE2eeEnvelopeForJoin(
+            pool,
+            activeEpoch.id,
+            uid,
+            e2eeDeviceId || null,
           );
-          if (mine.rows.length === 0) {
+          if (!hasEnvelope) {
             return sendError(
               reply,
               409,
@@ -715,6 +729,42 @@ export default async function echoVoiceRoutes(
           req.log,
         );
       }
+      if (
+        r === 'ok' &&
+        config.liveKitEnabled &&
+        modCurrentChannelId &&
+        (action === 'stop_camera' || action === 'stop_screen_share')
+      ) {
+        const roomName = liveKitRoomName(sid, modCurrentChannelId);
+        vcTrace(req.log, 'voice.moderate:sync_livekit_media', {
+          action,
+          targetUserId,
+          roomName,
+        });
+        try {
+          if (action === 'stop_camera') {
+            await stopLiveKitParticipantCamera({
+              roomName,
+              identity: targetUserId,
+            });
+          } else {
+            await stopLiveKitParticipantScreenShare({
+              roomName,
+              identity: targetUserId,
+            });
+          }
+        } catch (e) {
+          vcTrace(req.log, 'voice.moderate:sync_livekit_media_error', {
+            action,
+            targetUserId,
+            err: e instanceof Error ? e.message : String(e),
+          });
+          req.log.warn(
+            { err: e },
+            '[LiveKit] stop camera/screen share after voice moderate failed',
+          );
+        }
+      }
       const auditId = await insertEchoAudit(
         pool,
         sid,
@@ -829,6 +879,28 @@ export default async function echoVoiceRoutes(
             userId: targetUserId,
             action: 'demote_speaker',
             stageSpeaker: false,
+          },
+          auditId,
+        );
+      } else if (action === 'stop_camera') {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: modCurrentChannelId ?? '',
+            userId: targetUserId,
+            action: 'stop_camera',
+          },
+          auditId,
+        );
+      } else if (action === 'stop_screen_share') {
+        publishVoiceRosterDelta(
+          fastify,
+          sid,
+          {
+            channelId: modCurrentChannelId ?? '',
+            userId: targetUserId,
+            action: 'stop_screen_share',
           },
           auditId,
         );

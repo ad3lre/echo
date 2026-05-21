@@ -14,6 +14,22 @@ import {
 import { isEchoGraphId } from '@/utils/echoIds';
 import { normalizeVoiceUserMessage } from '@/utils/voiceJoinUserMessage';
 import { UIErrorBus } from '@/utils/uiErrorBus';
+import type { VoiceE2eePrepareResult } from '@/services/voice/voiceE2eePrepare';
+
+type VoiceE2eePrepareFnResult =
+  | VoiceE2eePrepareResult
+  | ArrayBuffer
+  | null;
+
+function normalizeVoiceE2eePrepare(
+  raw: VoiceE2eePrepareFnResult,
+): VoiceE2eePrepareResult {
+  if (raw == null) return { mediaKey: null, senderDeviceId: '' };
+  if (raw instanceof ArrayBuffer) {
+    return { mediaKey: raw, senderDeviceId: '' };
+  }
+  return raw;
+}
 
 export type VoiceServiceDeps = {
   authSession: {
@@ -43,9 +59,11 @@ export type VoiceServiceDeps = {
   getGuildVoiceE2eeMediaKey?: (
     serverId: string,
     channelId: string,
-  ) => Promise<ArrayBuffer | null>;
+  ) => Promise<VoiceE2eePrepareFnResult>;
   /** DM call: LibSignal-wrapped media key epoch (voice E2EE, always on). */
-  getDmVoiceE2eeMediaKey?: (channelId: string) => Promise<ArrayBuffer | null>;
+  getDmVoiceE2eeMediaKey?: (
+    channelId: string,
+  ) => Promise<VoiceE2eePrepareFnResult>;
 };
 
 export function createVoiceService({
@@ -74,40 +92,54 @@ export function createVoiceService({
     e2eePrepare?: (
       serverId: string,
       channelId: string,
-    ) => Promise<ArrayBuffer | null>,
+    ) => Promise<VoiceE2eePrepareFnResult>,
   ): Promise<{
     session: EchoLiveKitSessionResponse;
     e2eeKey: ArrayBuffer | null;
   }> {
-    let e2eeKey: ArrayBuffer | null = null;
+    let prepared = normalizeVoiceE2eePrepare(null);
     if (e2eePrepare) {
-      e2eeKey = await e2eePrepare(serverId, channelId);
+      prepared = normalizeVoiceE2eePrepare(
+        await e2eePrepare(serverId, channelId),
+      );
     }
+    const sessionOpts = prepared.senderDeviceId
+      ? { e2eeDeviceId: prepared.senderDeviceId }
+      : undefined;
     try {
       const session = await postEchoVoiceLivekitSession(
         token,
         serverId,
         channelId,
+        sessionOpts,
       );
-      return { session, e2eeKey };
+      return { session, e2eeKey: prepared.mediaKey };
     } catch (e) {
       if (
         e instanceof EchoApiError &&
         e.status === 409 &&
-        e.body.code === 'VOICE_E2EE_EPOCH_REQUIRED' &&
+        (e.body.code === 'VOICE_E2EE_EPOCH_REQUIRED' ||
+          e.body.code === 'VOICE_E2EE_ENVELOPE_MISSING') &&
         e2eePrepare
       ) {
         voiceClientTrace('voice.client:guild_e2ee_epoch_retry', {
           serverId,
           channelId,
+          code: e.body.code,
         });
-        e2eeKey = await e2eePrepare(serverId, channelId);
+        prepared = normalizeVoiceE2eePrepare(
+          await e2eePrepare(serverId, channelId),
+        );
+        const retryOpts = prepared.senderDeviceId
+          ? { e2eeDeviceId: prepared.senderDeviceId }
+          : undefined;
         const session = await postEchoVoiceLivekitSession(
           token,
           serverId,
           channelId,
+          retryOpts,
         );
-        return { session, e2eeKey };
+        return { session, e2eeKey: prepared.mediaKey };
       }
       throw e;
     }
@@ -116,29 +148,47 @@ export function createVoiceService({
   async function mintDmLiveKitSession(
     token: string,
     channelId: string,
-    e2eePrepare?: (channelId: string) => Promise<ArrayBuffer | null>,
+    e2eePrepare?: (channelId: string) => Promise<VoiceE2eePrepareFnResult>,
   ): Promise<{
     session: EchoLiveKitSessionResponse;
     e2eeKey: ArrayBuffer | null;
   }> {
-    let e2eeKey: ArrayBuffer | null = null;
+    let prepared = normalizeVoiceE2eePrepare(null);
     if (e2eePrepare) {
-      e2eeKey = await e2eePrepare(channelId);
+      prepared = normalizeVoiceE2eePrepare(await e2eePrepare(channelId));
     }
+    const sessionOpts = prepared.senderDeviceId
+      ? { e2eeDeviceId: prepared.senderDeviceId }
+      : undefined;
     try {
-      const session = await postEchoDmLivekitSession(token, channelId);
-      return { session, e2eeKey };
+      const session = await postEchoDmLivekitSession(
+        token,
+        channelId,
+        sessionOpts,
+      );
+      return { session, e2eeKey: prepared.mediaKey };
     } catch (e) {
       if (
         e instanceof EchoApiError &&
         e.status === 409 &&
-        e.body.code === 'VOICE_E2EE_EPOCH_REQUIRED' &&
+        (e.body.code === 'VOICE_E2EE_EPOCH_REQUIRED' ||
+          e.body.code === 'VOICE_E2EE_ENVELOPE_MISSING') &&
         e2eePrepare
       ) {
-        voiceClientTrace('voice.client:dm_e2ee_epoch_retry', { channelId });
-        e2eeKey = await e2eePrepare(channelId);
-        const session = await postEchoDmLivekitSession(token, channelId);
-        return { session, e2eeKey };
+        voiceClientTrace('voice.client:dm_e2ee_epoch_retry', {
+          channelId,
+          code: e.body.code,
+        });
+        prepared = normalizeVoiceE2eePrepare(await e2eePrepare(channelId));
+        const retryOpts = prepared.senderDeviceId
+          ? { e2eeDeviceId: prepared.senderDeviceId }
+          : undefined;
+        const session = await postEchoDmLivekitSession(
+          token,
+          channelId,
+          retryOpts,
+        );
+        return { session, e2eeKey: prepared.mediaKey };
       }
       throw e;
     }

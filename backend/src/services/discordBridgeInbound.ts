@@ -24,6 +24,7 @@ import {
   parseImportedEmbeds,
   parseImportedStickers,
 } from './discordMessageImport';
+import { maybeEnqueueDiscordImportMediaMirror } from './discordImportMediaMirrorQueue';
 
 export type DiscordInboundPayload = {
   discordGuildId: string;
@@ -182,6 +183,15 @@ export async function ingestDiscordBridgeMessage(
   await updateEchoMessageCreatedAtById(pool, messageId, ts);
 
   echoMessagesPersistedTotal.inc({ result: 'inserted' });
+
+  await maybeEnqueueDiscordImportMediaMirror(pool, {
+    messageId,
+    channelId: resolved.echoChannelId,
+    actorId: authorUserId,
+    ...(attachments ? { attachments } : {}),
+    ...(stickers ? { stickers } : {}),
+    ...(embeds ? { embeds } : {}),
+  });
 
   const row = await getEchoMessageById(pool, messageId);
   if (!row) {

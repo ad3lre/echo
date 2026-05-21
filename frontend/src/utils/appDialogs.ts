@@ -87,6 +87,31 @@ function dispatchDialogRequest(req: AppDialogRequest): void {
   );
 }
 
+export type AppConfirmPayload = {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+};
+
+/**
+ * Open dialogs after the current pointer/click gesture completes.
+ * Right-click menu items otherwise mount the backdrop under the same click,
+ * which immediately hits @click.self cancel on AppLayoutDialogHost.
+ */
+function deferDialogDispatch(dispatch: () => void): void {
+  if (typeof window === 'undefined') {
+    dispatch();
+    return;
+  }
+  queueMicrotask(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(dispatch);
+    });
+  });
+}
+
 export function dispatchAppDialogResponse(res: AppDialogResponse): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(
@@ -109,13 +134,7 @@ export function subscribeAppDialogs(
   return () => window.removeEventListener(ECHO_APP_DIALOG_REQUEST_EVENT, fn);
 }
 
-export function requestAppConfirm(payload: {
-  title: string;
-  message?: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  danger?: boolean;
-}): Promise<boolean> {
+export function requestAppConfirm(payload: AppConfirmPayload): Promise<boolean> {
   ensureResponseListener();
   const id = newDialogId();
   const req: Extract<AppDialogRequest, { kind: 'confirm' }> = {
@@ -131,11 +150,20 @@ export function requestAppConfirm(payload: {
       : {}),
     ...(payload.danger ? { danger: true } : {}),
   };
-  dispatchDialogRequest(req);
 
   return new Promise<boolean>((resolve) => {
     pending.set(id, (r) => resolve(r.kind === 'confirm' ? r.ok : false));
+    deferDialogDispatch(() => dispatchDialogRequest(req));
   });
+}
+
+/** Close a context menu, then show the global confirm dialog (safe for right-click actions). */
+export async function requestAppConfirmFromContextMenu(
+  closeMenu: () => void,
+  payload: AppConfirmPayload,
+): Promise<boolean> {
+  closeMenu();
+  return requestAppConfirm(payload);
 }
 
 export function requestAppAlert(payload: {
@@ -156,10 +184,9 @@ export function requestAppAlert(payload: {
       : {}),
     ...(payload.danger ? { danger: true } : {}),
   };
-  dispatchDialogRequest(req);
-
   return new Promise<void>((resolve) => {
     pending.set(id, () => resolve());
+    deferDialogDispatch(() => dispatchDialogRequest(req));
   });
 }
 
@@ -191,10 +218,9 @@ export function requestAppPrompt(payload: {
       ? { initialValue: payload.initialValue }
       : {}),
   };
-  dispatchDialogRequest(req);
-
   return new Promise<string | null>((resolve) => {
     pending.set(id, (r) => resolve(r.kind === 'prompt' ? r.value : null));
+    deferDialogDispatch(() => dispatchDialogRequest(req));
   });
 }
 
@@ -220,8 +246,6 @@ export function requestAppTwoChoice(payload: {
       : {}),
     ...(payload.danger ? { danger: true } : {}),
   };
-  dispatchDialogRequest(req);
-
   return new Promise<'primary' | 'secondary' | null>((resolve) => {
     pending.set(id, (r) => {
       if (r.kind !== 'twoChoice') {
@@ -230,5 +254,6 @@ export function requestAppTwoChoice(payload: {
       }
       resolve(r.choice);
     });
+    deferDialogDispatch(() => dispatchDialogRequest(req));
   });
 }

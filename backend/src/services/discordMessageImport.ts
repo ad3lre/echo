@@ -21,8 +21,7 @@ import type {
 } from '../../../shared/types';
 import { sanitizePollForStorage } from '../sockets/messageValidation';
 import {
-  enqueueDiscordImportMediaMirrorJob,
-  importedDiscordMessageNeedsMediaMirror,
+  maybeEnqueueDiscordImportMediaMirror,
 } from './discordImportMediaMirrorQueue';
 
 export type DiscordImportMessagesOptions = {
@@ -387,20 +386,15 @@ export async function runDiscordMessageImport(
       ...(forwardedFrom ? { forwardedFrom } : {}),
     });
 
-    if (
-      importedDiscordMessageNeedsMediaMirror({
-        ...(attachments ? { attachments } : {}),
-        ...(stickers ? { stickers } : {}),
-        ...(embeds ? { embeds } : {}),
-        ...(forwardedFrom ? { forwardedFrom } : {}),
-      })
-    ) {
-      await enqueueDiscordImportMediaMirrorJob(pool, {
-        messageId: String(m.id),
-        channelId: echoChannelId,
-        actorId,
-      });
-    }
+    await maybeEnqueueDiscordImportMediaMirror(pool, {
+      messageId: String(m.id),
+      channelId: echoChannelId,
+      actorId,
+      ...(attachments ? { attachments } : {}),
+      ...(stickers ? { stickers } : {}),
+      ...(embeds ? { embeds } : {}),
+      ...(forwardedFrom ? { forwardedFrom } : {}),
+    });
 
     // Also set the created_at to match the Discord timestamp
     await updateEchoMessageCreatedAtById(

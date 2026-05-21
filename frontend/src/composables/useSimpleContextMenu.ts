@@ -1,6 +1,9 @@
 import { nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useContextMenuPosition } from '@/features/chat/composables/useContextMenuPosition';
 
+/** Add to teleported menu roots so outside-mousedown detection ignores in-menu clicks. */
+export const ECHO_SIMPLE_CONTEXT_MENU_ATTR = 'data-echo-simple-context-menu';
+
 /**
  * Lightweight right-click menu: position at cursor, close on outside click / Escape.
  */
@@ -27,6 +30,13 @@ export function useSimpleContextMenu() {
   }
 
   function handleDocMouseDown(ev: MouseEvent) {
+    const target = ev.target;
+    if (
+      target instanceof Element &&
+      target.closest(`[${ECHO_SIMPLE_CONTEXT_MENU_ATTR}]`)
+    ) {
+      return;
+    }
     const root = menuRef.value;
     if (root) {
       const path = ev.composedPath();

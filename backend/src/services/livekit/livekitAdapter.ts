@@ -274,6 +274,73 @@ export async function setLiveKitParticipantMicrophoneMuted(opts: {
   });
 }
 
+/** Mute published tracks for the given sources (camera / screen share). Returns count muted. */
+export async function muteLiveKitParticipantPublishedSources(opts: {
+  roomName: string;
+  identity: string;
+  sources: TrackSource[];
+}): Promise<number> {
+  const c = createLiveKitRoomServiceClient();
+  if (!c || opts.sources.length === 0) return 0;
+  const sourceSet = new Set(opts.sources);
+  vcTrace(undefined, 'muteLiveKitParticipantPublishedSources:start', {
+    roomName: opts.roomName,
+    identity: opts.identity,
+    sources: opts.sources,
+  });
+  let participants: Awaited<ReturnType<RoomServiceClient['listParticipants']>>;
+  try {
+    participants = await c.listParticipants(opts.roomName);
+  } catch (err) {
+    vcTrace(undefined, 'muteLiveKitParticipantPublishedSources:list_failed', {
+      roomName: opts.roomName,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
+  }
+  const p = participants.find((x) => x.identity === opts.identity);
+  if (!p?.tracks?.length) return 0;
+  let muted = 0;
+  for (const t of p.tracks) {
+    if (t.source == null || !sourceSet.has(t.source)) continue;
+    await muteLiveKitParticipantTrack({
+      roomName: opts.roomName,
+      identity: opts.identity,
+      trackSid: t.sid,
+      muted: true,
+    });
+    muted += 1;
+  }
+  vcTrace(undefined, 'muteLiveKitParticipantPublishedSources:ok', {
+    roomName: opts.roomName,
+    identity: opts.identity,
+    muted,
+  });
+  return muted;
+}
+
+export async function stopLiveKitParticipantCamera(opts: {
+  roomName: string;
+  identity: string;
+}): Promise<number> {
+  return muteLiveKitParticipantPublishedSources({
+    roomName: opts.roomName,
+    identity: opts.identity,
+    sources: [TrackSource.CAMERA],
+  });
+}
+
+export async function stopLiveKitParticipantScreenShare(opts: {
+  roomName: string;
+  identity: string;
+}): Promise<number> {
+  return muteLiveKitParticipantPublishedSources({
+    roomName: opts.roomName,
+    identity: opts.identity,
+    sources: [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO],
+  });
+}
+
 export async function deleteLiveKitRoom(roomName: string): Promise<void> {
   const c = createLiveKitRoomServiceClient();
   if (!c) return;

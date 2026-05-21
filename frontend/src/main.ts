@@ -60,7 +60,9 @@ import {
   loadAccessibilityPreferences,
   applyAccessibilityPreferences,
 } from '@/features/settings/accessibilityPreferences';
+import { ensureEchoBrandFavicon } from '@/utils/ensureEchoBrandFavicon';
 
+ensureEchoBrandFavicon();
 registerEchoServiceWorker();
 applyGpuTierToDocument(detectGpuTier());
 installDevConsoleLogRecorder();
@@ -412,6 +414,21 @@ async function bootstrap() {
           }
         }
       }
+    }
+    const youtubeErr = params.get('youtube_error')?.trim();
+    if (youtubeErr) {
+      try {
+        sessionStorage.setItem('echo_youtube_oauth_error', youtubeErr);
+      } catch {
+        /* ignore */
+      }
+      params.delete('youtube_error');
+      shouldStrip = true;
+    }
+    const youtubeLinkedParam = params.get('youtube_linked');
+    if (youtubeLinkedParam !== null) {
+      params.delete('youtube_linked');
+      shouldStrip = true;
     }
     if (params.get('discord_login') === '1') {
       if (params.get('discord_guest_signup') === '1') {

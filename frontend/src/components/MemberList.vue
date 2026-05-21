@@ -488,11 +488,11 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
 
 <template>
   <div
-    class="member-list-panel group/member relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-transparent"
+    class="member-list-panel group/member relative flex min-h-0 min-w-0 flex-col bg-transparent"
   >
     <div
       v-show="!collapsed"
-      class="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain bg-transparent px-4 pt-14 [transform:translateZ(0)] [will-change:transform] custom-scrollbar"
+      class="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain bg-transparent px-4 pt-14 custom-scrollbar"
       v-scrollbar-on-scroll
     >
       <div

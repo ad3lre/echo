@@ -2,13 +2,30 @@
  * YouTube / Vimeo URL parsing and canonical iframe player URLs for chat embeds.
  */
 
+const YT_VIDEO_ID_RE = /^[\w-]{10,12}$/;
+
+function youtubeVideoIdFromPath(pathname: string): string | null {
+  const shorts = pathname.match(/^\/shorts\/([\w-]{10,12})/);
+  if (shorts?.[1]) return shorts[1];
+  const embed = pathname.match(/^\/embed\/([\w-]{10,12})/);
+  if (embed?.[1]) return embed[1];
+  const live = pathname.match(/^\/live\/([\w-]{10,12})/);
+  if (live?.[1]) return live[1];
+  const legacyV = pathname.match(/^\/v\/([\w-]{10,12})/);
+  if (legacyV?.[1]) return legacyV[1];
+  return null;
+}
+
 export function tryParseYoutubeVideoId(urlString: string): string | null {
   try {
     const u = new URL(urlString);
     const host = u.hostname.replace(/^www\./i, '').toLowerCase();
     if (host === 'youtu.be') {
       const seg = u.pathname.split('/').filter(Boolean)[0];
-      return seg && /^[\w-]{10,12}$/.test(seg) ? seg : null;
+      return seg && YT_VIDEO_ID_RE.test(seg) ? seg : null;
+    }
+    if (host === 'youtube-nocookie.com') {
+      return youtubeVideoIdFromPath(u.pathname);
     }
     if (
       host === 'youtube.com' ||
@@ -17,12 +34,9 @@ export function tryParseYoutubeVideoId(urlString: string): string | null {
     ) {
       if (u.pathname === '/watch' || u.pathname.startsWith('/watch')) {
         const v = u.searchParams.get('v');
-        return v && /^[\w-]{10,12}$/.test(v) ? v : null;
+        return v && YT_VIDEO_ID_RE.test(v) ? v : null;
       }
-      const shorts = u.pathname.match(/^\/shorts\/([\w-]{10,12})/);
-      if (shorts?.[1]) return shorts[1];
-      const embed = u.pathname.match(/^\/embed\/([\w-]{10,12})/);
-      if (embed?.[1]) return embed[1];
+      return youtubeVideoIdFromPath(u.pathname);
     }
   } catch {
     return null;

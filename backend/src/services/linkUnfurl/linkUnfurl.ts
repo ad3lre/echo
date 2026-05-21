@@ -26,12 +26,14 @@ import {
   shouldSkipHttpUnfurlForUrl,
   stubEmbedFromUrlWhenUnfurlFails,
 } from './linkUnfurlUrlStubs';
+import {
+  collectLinkEmbedCandidateUrls,
+  extractHttpUrlsFromPlainText,
+} from '../../../../shared/linkEmbedCandidates';
 
 export { isUrlSafeForOutboundFetch as isUrlSafeForUnfurlPublic } from './linkUnfurlFetch';
+export { extractHttpUrlsFromPlainText } from '../../../../shared/linkEmbedCandidates';
 
-const URL_IN_TEXT_RE = /https?:\/\/[^\s<>"`{|}\\^\[\]]+/gi;
-/** Markdown `[label](url)` — capture URL so we still find links when adjacent punctuation differs from the loose URL scanner. */
-const MD_PAREN_LINK_RE = /\]\((https?:\/\/[^)\s]+)\)/gi;
 const MAX_BODY_BYTES = 512 * 1024;
 const MAX_REDIRECTS = 4;
 const FETCH_TIMEOUT_MS = 8000;
@@ -45,31 +47,6 @@ function decodeBasicEntities(s: string): string {
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/g, "'")
     .replace(/&#x27;/gi, "'");
-}
-
-function trimTrailingJunk(url: string): string {
-  return url.replace(/[),.;:]+$/g, '');
-}
-
-export function extractHttpUrlsFromPlainText(
-  text: string,
-  max: number,
-): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  const push = (raw: string) => {
-    const u = trimTrailingJunk(raw);
-    if (!u || seen.has(u) || out.length >= max) return;
-    seen.add(u);
-    out.push(u);
-  };
-  for (const m of text.matchAll(URL_IN_TEXT_RE)) {
-    push(m[0] ?? '');
-  }
-  for (const m of text.matchAll(MD_PAREN_LINK_RE)) {
-    push(m[1] ?? '');
-  }
-  return out;
 }
 
 function escapePropRe(prop: string): string {
@@ -408,12 +385,17 @@ export async function buildLinkEmbedsFromPlainText(
     pool?: pg.Pool | null;
     /** User whose access is checked for in-app message link previews (message author). */
     embedViewerUserId?: string | null;
+    /** TipTap doc (v2): also unfurl `href` on link marks when plain text omits the URL. */
+    contentJson?: unknown;
   },
 ): Promise<Embed[]> {
-  if (!content.trim()) return [];
-  const maxEmbeds = Math.min(Math.max(opts.maxUrls ?? 2, 1), 4);
-  const urls = extractHttpUrlsFromPlainText(content, 12);
+  const urls = collectLinkEmbedCandidateUrls(
+    content,
+    opts.contentJson,
+    12,
+  );
   if (!urls.length) return [];
+  const maxEmbeds = Math.min(Math.max(opts.maxUrls ?? 2, 1), 4);
   const deadline = Date.now() + (opts.budgetMs ?? 5000);
   const pool = opts.pool ?? null;
   const viewerId = opts.embedViewerUserId ?? null;

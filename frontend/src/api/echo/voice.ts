@@ -96,11 +96,16 @@ export async function postEchoVoiceLivekitSession(
   token: string,
   serverId: string,
   channelId: string,
+  opts?: { e2eeDeviceId?: string },
 ): Promise<EchoLiveKitSessionResponse> {
+  const body =
+    opts?.e2eeDeviceId?.trim() ?
+      JSON.stringify({ e2eeDeviceId: opts.e2eeDeviceId.trim() })
+    : undefined;
   const raw = await echoFetch<Record<string, unknown>>(
     token,
     `/servers/${encodeURIComponent(serverId)}/channels/${encodeURIComponent(channelId)}/voice/livekit-session`,
-    { method: 'POST' },
+    { method: 'POST', ...(body ? { body } : {}) },
   );
   return parseEchoLiveKitSessionResponse(raw);
 }
@@ -109,11 +114,16 @@ export async function postEchoVoiceLivekitSession(
 export async function postEchoDmLivekitSession(
   token: string,
   channelId: string,
+  opts?: { e2eeDeviceId?: string },
 ): Promise<EchoLiveKitSessionResponse> {
+  const body =
+    opts?.e2eeDeviceId?.trim() ?
+      JSON.stringify({ e2eeDeviceId: opts.e2eeDeviceId.trim() })
+    : undefined;
   const raw = await echoFetch<Record<string, unknown>>(
     token,
     `/dm/channels/${encodeURIComponent(channelId)}/voice/livekit-session`,
-    { method: 'POST' },
+    { method: 'POST', ...(body ? { body } : {}) },
   );
   return parseEchoLiveKitSessionResponse(raw);
 }
@@ -126,7 +136,9 @@ export type EchoVoiceModerateAction =
   | 'server_deafen'
   | 'server_undeafen'
   | 'invite_to_speak'
-  | 'move_to_audience';
+  | 'move_to_audience'
+  | 'stop_camera'
+  | 'stop_screen_share';
 
 export async function postEchoStageRequestSpeak(
   token: string,
@@ -149,6 +161,34 @@ export async function deleteEchoStageRequestSpeak(
     token,
     `/servers/${encodeURIComponent(serverId)}/channels/${encodeURIComponent(channelId)}/stage/request-speak`,
     { method: 'DELETE' },
+  );
+}
+
+export async function fetchEchoStageSpeakRequests(
+  token: string,
+  serverId: string,
+  channelId: string,
+): Promise<{ userIds: string[] }> {
+  return echoFetch(
+    token,
+    `/servers/${encodeURIComponent(serverId)}/channels/${encodeURIComponent(channelId)}/stage/speak-requests`,
+  );
+}
+
+export async function resolveEchoStageSpeakRequest(
+  token: string,
+  serverId: string,
+  channelId: string,
+  targetUserId: string,
+  approve: boolean,
+): Promise<void> {
+  await echoFetch<Record<string, unknown>>(
+    token,
+    `/servers/${encodeURIComponent(serverId)}/channels/${encodeURIComponent(channelId)}/stage/speak-requests/${encodeURIComponent(targetUserId)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ approve }),
+    },
   );
 }
 

@@ -264,7 +264,9 @@ export type AppLayoutLeftChromeProps = {
       | 'disconnect'
       | 'move'
       | 'inviteToSpeak'
-      | 'moveToAudience',
+      | 'moveToAudience'
+      | 'stopCamera'
+      | 'stopScreenShare',
   ) => boolean;
   handleModerateUser: (payload: {
     action: 'kick' | 'ban' | 'timeout';
@@ -278,7 +280,9 @@ export type AppLayoutLeftChromeProps = {
       | 'disconnect'
       | 'move'
       | 'inviteToSpeak'
-      | 'moveToAudience';
+      | 'moveToAudience'
+      | 'stopCamera'
+      | 'stopScreenShare';
     targetUserId: string;
     targetChannelId?: string;
     contextVoiceChannelId?: string;

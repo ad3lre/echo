@@ -54,11 +54,11 @@ export function useAppLayoutEffectiveChannel(opts: {
     opts.findChannelContextById(opts.activeChannelId.value),
   );
 
-  const isViewingVoiceChannel = computed(
-    () =>
-      opts.findChannelContextById(opts.activeChannelId.value)?.channel?.type ===
-      'voice',
-  );
+  const isViewingVoiceChannel = computed(() => {
+    const t = opts.findChannelContextById(opts.activeChannelId.value)?.channel
+      ?.type;
+    return t === 'voice' || t === 'stage';
+  });
 
   return {
     effectiveActiveChannel,

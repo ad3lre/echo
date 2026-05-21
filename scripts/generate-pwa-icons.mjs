@@ -13,6 +13,7 @@ const repoRoot = join(__dirname, '..');
 const roundedSvgPath = join(repoRoot, 'frontend/public/echo-rounded-trans.svg');
 const echoMarkSvgPath = join(repoRoot, 'frontend/src/assets/icons/echo.svg');
 const outDir = join(repoRoot, 'frontend/public/icons');
+const marketingIconsDir = join(repoRoot, 'marketing/public/icons');
 
 const THEME_BG = { r: 13, g: 8, b: 18, alpha: 1 }; // #0d0812 (boot splash)
 
@@ -42,6 +43,7 @@ async function rasterizeBrandAsset(absSvgPath, outPath) {
 
 async function main() {
   await mkdir(outDir, { recursive: true });
+  await mkdir(marketingIconsDir, { recursive: true });
 
   await rasterizeBrandAsset(
     echoMarkSvgPath,
@@ -64,6 +66,10 @@ async function main() {
     join(repoRoot, 'marketing/public/echo-rounded-logo.png'),
   );
 
+  await rasterizeRounded(16).toFile(join(outDir, 'favicon-16.png'));
+  await rasterizeRounded(32).toFile(join(outDir, 'favicon-32.png'));
+  await rasterizeRounded(16).toFile(join(marketingIconsDir, 'favicon-16.png'));
+  await rasterizeRounded(32).toFile(join(marketingIconsDir, 'favicon-32.png'));
   await rasterizeRounded(192).toFile(join(outDir, 'pwa-192.png'));
   await rasterizeRounded(512).toFile(join(outDir, 'pwa-512.png'));
 
@@ -86,8 +92,10 @@ async function main() {
     .png()
     .toFile(join(outDir, 'pwa-maskable-512.png'));
 
+  await rasterizeRounded(32).toFile(join(repoRoot, 'frontend/public/favicon.ico'));
+
   console.log(
-    'PWA + brand PNGs written (public/icons/, echo-logo.png, echo-rounded-logo.png).',
+    'PWA + brand PNGs written (public/icons/, favicon.ico, echo-logo.png, echo-rounded-logo.png).',
   );
 }
 

@@ -57,7 +57,7 @@ const categoryDropdownOptions = computed(() =>
 
 function defaultIconForType(t: 'text' | 'voice' | 'stage' | 'forum'): string {
   if (t === 'voice') return 'volumeUp';
-  if (t === 'stage') return 'discordStage';
+  if (t === 'stage') return 'sofa';
   if (t === 'forum') return 'messageAlt';
   return 'message';
 }
@@ -219,7 +219,7 @@ function submit() {
               @click="creationMode = 'stage'"
             >
               <img
-                :src="icons.discordStage"
+                :src="icons.sofa"
                 alt=""
                 class="h-4 w-4 shrink-0 object-contain opacity-90 filter invert"
                 :class="creationMode === 'stage' ? 'opacity-100' : 'opacity-55'"

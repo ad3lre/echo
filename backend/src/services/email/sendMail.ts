@@ -2,6 +2,12 @@ import nodemailer from 'nodemailer';
 import type { FastifyBaseLogger } from 'fastify';
 import { config } from '../../config';
 
+export type MailAttachment = {
+  filename: string;
+  content: string | Buffer;
+  contentType?: string;
+};
+
 export type OutboundMail = {
   to: string;
   subject: string;
@@ -9,6 +15,7 @@ export type OutboundMail = {
   html: string;
   /** Optional Reply-To header (e.g. for support form so we can reply to the user). */
   replyTo?: string;
+  attachments?: MailAttachment[];
 };
 
 function smtpConfigured(): boolean {
@@ -57,6 +64,15 @@ export async function sendTransactionalEmail(
     text: mail.text,
     html: mail.html,
     ...(mail.replyTo ? { replyTo: mail.replyTo } : {}),
+    ...(mail.attachments?.length
+      ? {
+          attachments: mail.attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            ...(a.contentType ? { contentType: a.contentType } : {}),
+          })),
+        }
+      : {}),
   });
   log.info(
     { msg: 'email_outbound_sent', to: mail.to, subject: mail.subject },
