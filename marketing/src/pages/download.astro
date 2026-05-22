@@ -1,5 +1,6 @@
 ---
 import MarketingShell from '../layouts/MarketingShell.astro';
+import { pageStructuredData, softwareApplicationNode } from '../lib/seo';
 import { AGPL_LICENSE_URL, CHAT_APP_ORIGIN, GITHUB_REPO_URL } from '../site';
 
 const title = 'Download Echo | Web, Windows, macOS & Linux';
@@ -44,9 +45,25 @@ const platforms = [
     features: ['AppImage & .deb', 'System tray', 'Auto-updater'],
   },
 ];
+
+const structuredData = pageStructuredData({
+  title,
+  description,
+  path: '/download',
+  breadcrumbs: [
+    { name: 'Home', path: '/' },
+    { name: 'Download', path: '/download' },
+  ],
+  extra: [softwareApplicationNode(description)],
+});
 ---
 
-<MarketingShell title={title} description={description} canonicalPath="/download">
+<MarketingShell
+  title={title}
+  description={description}
+  canonicalPath="/download"
+  structuredData={structuredData}
+>
   <main id="main" class="subpage-main">
     <section class="download-hero">
       <div class="container">

@@ -1,0 +1,18 @@
+{
+  "name": "Echo",
+  "short_name": "Echo",
+  "description": "Open source community platform for chat, voice, and collaboration.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9f9fb",
+  "theme_color": "#f9f9fb",
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "/echo-rounded-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

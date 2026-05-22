@@ -117,6 +117,9 @@ const props = withDefaults(
     removeSelectedRoleLink: (index: number) => void;
     setSelectedRoleLinkTwoWay: (index: number, twoWay: boolean) => void;
     setSelectedRoleMentionable: (value: boolean) => void;
+    setSelectedRoleScope?: (globalScope: boolean) => void;
+    globalRoleCategoryId?: string | null;
+    reorderRoleCategoriesLocally?: (categoryIds: string[]) => void;
     onRolePermissionCheckboxChange: (
       key: RolePermissionKey,
       event: Event,
@@ -1167,8 +1170,36 @@ onUnmounted(() => {
                   "
                 />
                 <p class="text-[11px] leading-snug text-fg-subtle">
-                  Categories only organize this list (like emoji packs). Drag a
-                  role onto a tab or pick here. Save changes to sync.
+                  Categories organize this list. Drag roles within a tab to
+                  reorder. Save changes to sync.
+                </p>
+              </div>
+              <div
+                v-if="
+                  props.roleCategoryUiEnabled &&
+                  props.selectedRole.name !== '@everyone' &&
+                  props.setSelectedRoleScope
+                "
+                class="server-settings-role-field"
+              >
+                <label class="inline-flex items-center gap-2 text-xs text-fg-soft">
+                  <input
+                    type="checkbox"
+                    class="server-toggle"
+                    :checked="props.selectedRole.roleScope === 'global'"
+                    :disabled="props.echoRolesLocked"
+                    @change="
+                      props.setSelectedRoleScope(
+                        ($event.target as HTMLInputElement).checked,
+                      )
+                    "
+                  />
+                  <span>Manage and assign roles in all categories</span>
+                </label>
+                <p class="text-[11px] leading-snug text-fg-subtle">
+                  When off, members with this role can only manage or assign
+                  roles in the same category (unless they also hold a global
+                  role).
                 </p>
               </div>
               <div

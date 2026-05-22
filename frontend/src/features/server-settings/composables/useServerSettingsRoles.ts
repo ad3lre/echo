@@ -101,6 +101,54 @@ export function useServerSettingsRoles(options: {
     setSelectedRoleMentionable,
   } = useRoleManager(roleCards);
 
+  function setSelectedRoleScope(globalScope: boolean) {
+    if (!selectedRole.value || selectedRole.value.name === '@everyone') return;
+    selectedRole.value.roleScope = globalScope ? 'global' : 'category';
+    roleManagerDirty.value = true;
+  }
+
+  function reorderRolesWithinCategory(draggedId: string, targetId: string, after: boolean) {
+    const tab = selectedRoleCategoryTabId.value;
+    if (tab === 'all') return;
+    const inCat = roleManagerRoles.value.filter(
+      (r) => r.name !== '@everyone' && r.roleCategoryId === tab,
+    );
+    const ids = inCat.map((r) => r.id);
+    const from = ids.indexOf(draggedId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    ids.splice(from, 1);
+    const insertAt = after ? to + (from < to ? 0 : 1) : to + (from < to ? -1 : 0);
+    ids.splice(insertAt, 0, draggedId);
+    const byId = new Map(roleManagerRoles.value.map((r) => [r.id, r]));
+    const others = roleManagerRoles.value.filter(
+      (r) => r.name === '@everyone' || r.roleCategoryId !== tab,
+    );
+    const reordered = [
+      ...ids.map((id) => byId.get(id)).filter((r): r is (typeof roleManagerRoles.value)[number] => !!r),
+      ...others,
+    ];
+    roleManagerRoles.value = reordered;
+    roleManagerDirty.value = true;
+  }
+
+  function onRoleDragOverScoped(roleId: string, event: DragEvent) {
+    const tab = selectedRoleCategoryTabId.value;
+    if (tab === 'all') {
+      onRoleDragOver(roleId, event);
+      return;
+    }
+    if (!draggingRoleId.value || draggingRoleId.value === roleId) return;
+    event.preventDefault();
+    const row = event.currentTarget as HTMLElement | null;
+    const rect = row?.getBoundingClientRect();
+    const midpoint = rect ? rect.top + rect.height / 2 : 0;
+    const after = (event.clientY || 0) > midpoint;
+    dragOverRoleId.value = roleId;
+    dragInsertAfter.value = after;
+    reorderRolesWithinCategory(draggingRoleId.value, roleId, after);
+  }
+
   const {
     roleCustomPanelOpen,
     roleHexInput,
@@ -134,10 +182,26 @@ export function useServerSettingsRoles(options: {
   const echoRoleCategories = ref<EchoRoleCategoryDto[]>([]);
   const selectedRoleCategoryTabId = ref<'all' | string>('all');
 
+  const globalRoleCategoryId = computed(
+    () =>
+      echoRoleCategories.value.find((c) => c.isSystem)?.id ??
+      echoRoleCategories.value[0]?.id ??
+      null,
+  );
+
   function hydrateEchoRoleCategories(categories: EchoRoleCategoryDto[]) {
     echoRoleCategories.value = [...categories].sort(
       (a, b) => a.position - b.position || a.id.localeCompare(b.id),
     );
+    const globalId = globalRoleCategoryId.value;
+    if (
+      roleCategoryUiEnabled.value &&
+      globalId &&
+      (selectedRoleCategoryTabId.value === 'all' ||
+        !categories.some((c) => c.id === selectedRoleCategoryTabId.value))
+    ) {
+      selectedRoleCategoryTabId.value = globalId;
+    }
   }
 
   watch(
@@ -162,9 +226,10 @@ export function useServerSettingsRoles(options: {
     return list.filter((r) => r.roleCategoryId === tab);
   });
 
-  const rolesDragReorderEnabled = computed(
-    () => selectedRoleCategoryTabId.value === 'all',
-  );
+  const rolesDragReorderEnabled = computed(() => {
+    const tab = selectedRoleCategoryTabId.value;
+    return tab !== 'all' && !!tab;
+  });
 
   function assignRoleToCategory(roleId: string, categoryId: string | null) {
     const role = roleManagerRoles.value.find((r) => r.id === roleId);
@@ -200,18 +265,55 @@ export function useServerSettingsRoles(options: {
     const token = accessToken.value ?? '';
     const tab = selectedRoleCategoryTabId.value;
     if (!sid || !isEchoGraphId(sid) || tab === 'all') return;
+    const cat = echoRoleCategories.value.find((c) => c.id === tab);
+    if (cat?.isSystem) return;
     try {
       await deleteEchoRoleCategory(token, sid, tab);
       echoRoleCategories.value = echoRoleCategories.value.filter(
         (c) => c.id !== tab,
       );
+      const globalId = globalRoleCategoryId.value;
       for (const r of roleManagerRoles.value) {
-        if (r.roleCategoryId === tab) r.roleCategoryId = null;
+        if (r.roleCategoryId === tab) {
+          r.roleCategoryId = globalId;
+        }
       }
-      selectedRoleCategoryTabId.value = 'all';
+      selectedRoleCategoryTabId.value = globalId ?? 'all';
     } catch {
       /* non-blocking */
     }
+  }
+
+  const roleCategoryOrderDirty = ref(false);
+  const roleCategoryOrderSnapshot = ref<string[]>([]);
+
+  watch(
+    echoRoleCategories,
+    (cats) => {
+      if (!roleCategoryOrderSnapshot.value.length) {
+        roleCategoryOrderSnapshot.value = cats.map((c) => c.id);
+      }
+    },
+    { deep: true },
+  );
+
+  function markRoleCategoryOrderSnapshot() {
+    roleCategoryOrderSnapshot.value = echoRoleCategories.value.map(
+      (c) => c.id,
+    );
+    roleCategoryOrderDirty.value = false;
+  }
+
+  function reorderRoleCategoriesLocally(categoryIds: string[]) {
+    const byId = new Map(echoRoleCategories.value.map((c) => [c.id, c]));
+    echoRoleCategories.value = categoryIds
+      .map((id, position) => {
+        const row = byId.get(id);
+        return row ? { ...row, position } : null;
+      })
+      .filter((c): c is EchoRoleCategoryDto => c != null);
+    roleCategoryOrderDirty.value =
+      categoryIds.join(',') !== roleCategoryOrderSnapshot.value.join(',');
   }
 
   const roleCategoryListExtra = ref<'settings' | null>(null);
@@ -296,6 +398,10 @@ export function useServerSettingsRoles(options: {
     discardRoleManagerChangesCore,
     onEchoRoleCatalogMutated,
     hydrateEchoRoleCategories,
+    markRoleCategoryOrderSnapshot,
+    roleCategoryOrderDirty,
+    echoRoleCategories,
+    selectedRoleCategoryTabId,
   });
 
   function onRolePermissionCheckboxChange(
@@ -450,7 +556,9 @@ export function useServerSettingsRoles(options: {
     selectedRoleCategoryTabId,
     roleCategoryUiEnabled,
     rolesDragReorderEnabled,
+    globalRoleCategoryId,
     hydrateEchoRoleCategories,
+    reorderRoleCategoriesLocally,
     assignRoleToCategory,
     createRoleCategory,
     deleteActiveRoleCategory,
@@ -465,7 +573,7 @@ export function useServerSettingsRoles(options: {
     rolePosition,
     setRolePosition,
     onRoleDragStart,
-    onRoleDragOver,
+    onRoleDragOver: onRoleDragOverScoped,
     onRoleDrop,
     onRoleDragEnd,
     deleteRole,
@@ -478,6 +586,7 @@ export function useServerSettingsRoles(options: {
     removeSelectedRoleLink,
     setSelectedRoleLinkTwoWay,
     setSelectedRoleMentionable,
+    setSelectedRoleScope,
     roleCustomPanelOpen,
     roleHexInput,
     roleRInput,

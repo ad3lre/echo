@@ -89,6 +89,12 @@ describe('customEmojiUrl', () => {
     expect(out).not.toContain('.r2.dev');
   });
 
+  it('accepts cross-guild emoji asset API paths', () => {
+    const asset = '/api/v1/echo/emoji/304238867010606080/asset';
+    const out = safeCustomEmojiUrl(asset);
+    expect(out === asset || out?.endsWith('/asset')).toBe(true);
+  });
+
   it('resolveCustomEmojiImageUrlForDisplay prefers map then Discord after Echo miss', () => {
     const m = new Map<string, string>([
       ['111111111111111111', 'https://echo.test/e.png'],

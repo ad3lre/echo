@@ -1,3 +1,6 @@
+/** Canonical marketing origin (SEO, sitemap, structured data). */
+export const MARKETING_SITE_ORIGIN = 'https://app-echo.net';
+
 /** Live Echo app (chat, voice, explore). */
 export const CHAT_APP_ORIGIN = 'https://chat-echo.com';
 

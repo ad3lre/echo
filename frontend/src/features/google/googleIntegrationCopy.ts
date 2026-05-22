@@ -37,3 +37,20 @@ export function messageForGoogleOAuthError(code: string | null): string {
     GOOGLE_OAUTH_ERROR_MESSAGES[code] ?? GOOGLE_OAUTH_ERROR_MESSAGES.unknown
   );
 }
+
+export const googleSettingsSectionTitle = 'Google';
+export const googleConnectCta = 'Connect Google account';
+export const googleReconnectCta = 'Reconnect Google';
+export const googleDisconnectCta = 'Disconnect Google';
+
+export const googleOAuthCallbackUrlIntro =
+  'Echo opens Google’s consent screen. After you approve, your Google account is linked to Echo for sign-in and YouTube.';
+
+export const googleMergeHintFull =
+  'Echo can use your Google name and photo where your profile allows it.';
+
+export const googleMergeHintPartial =
+  'Google is linked for sign-in. Profile fields from Google are only applied when you choose to use them.';
+
+export const googleYoutubeRequiresLinkHint =
+  'Link your Google account here first, then connect YouTube in Settings → YouTube using the same Google account that owns your channel.';

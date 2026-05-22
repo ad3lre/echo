@@ -332,6 +332,49 @@ describe('useEchoAttentionStore', () => {
     expect(store.serverAttentionByServerId[serverId]).toBeUndefined();
   });
 
+  it('mergeReadStateUpdate zeros stale unread when cursor is past unread boundary', () => {
+    const store = useEchoAttentionStore();
+    const channelId = 'ch-stale-socket';
+    const serverId = 'srv-stale-socket';
+    const markId = '1492135200000000010';
+
+    store.replaceSnapshot({
+      channelAttentionByChannelId: {
+        [channelId]: {
+          channelId,
+          kind: 'server',
+          serverId,
+          lastReadMessageId: null,
+          unreadCount: 3,
+          pingKind: 'personal',
+        },
+      },
+      serverAttentionByServerId: {
+        [serverId]: { unread: true, pingKind: 'personal' },
+      },
+      serverNotificationLevelByServerId: {},
+    });
+
+    store.applyServerChannelMarkRead(channelId, markId);
+    expect(store.serverAttentionByServerId[serverId]).toBeUndefined();
+
+    store.mergeReadStateUpdate(channelId, markId, {
+      channelId,
+      kind: 'server',
+      serverId,
+      lastReadMessageId: markId,
+      unreadCount: 2,
+      pingKind: 'personal',
+      latestUnreadMessageId: markId,
+    });
+
+    expect(store.channelAttentionByChannelId[channelId]?.unreadCount).toBe(0);
+    expect(
+      store.channelAttentionByChannelId[channelId]?.pingKind,
+    ).toBeUndefined();
+    expect(store.serverAttentionByServerId[serverId]).toBeUndefined();
+  });
+
   it('mergeReadStateUpdate without channelAttention only patches read cursor', () => {
     const store = useEchoAttentionStore();
     const channelId = 'ch-2';

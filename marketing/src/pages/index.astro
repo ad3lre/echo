@@ -2,7 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import MarketingShell from '../layouts/MarketingShell.astro';
-import { AGPL_LICENSE_URL, GITHUB_REPO_URL } from '../site';
+import { homeStructuredData } from '../lib/seo';
+import { AGPL_LICENSE_URL, CHAT_APP_ORIGIN, GITHUB_REPO_URL } from '../site';
 import PrivacyIdWidget from '../components/PrivacyIdWidget.astro';
 import ShareScreenWidget from '../components/ShareScreenWidget.astro';
 import VoiceCallWidget from '../components/VoiceCallWidget.astro';
@@ -60,39 +61,7 @@ const faqs = [
   },
 ];
 
-const structuredData = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'Echo',
-    url: 'https://app-echo.net/',
-    logo: 'https://app-echo.net/echo-rounded-logo.png',
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: 'Echo',
-    applicationCategory: 'CommunicationApplication',
-    operatingSystem: 'Web, Windows',
-    description,
-    url: 'https://app-echo.net/',
-    installUrl: 'https://chat-echo.com/',
-    codeRepository: GITHUB_REPO_URL,
-    license: AGPL_LICENSE_URL,
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: faqs.map((faq) => ({
-      '@type': 'Question',
-      name: faq.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: faq.answer,
-      },
-    })),
-  },
-];
+const structuredData = homeStructuredData({ description, faqs });
 
 const featureCards = [
   {
@@ -141,7 +110,7 @@ const featureCards = [
               <a href="/terms">Terms of Service</a>
             </p>
             <div class="hero-actions">
-              <a class="btn-download-primary" href="https://chat-echo.com/">
+              <a class="btn-download-primary" href={CHAT_APP_ORIGIN}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M12 4v10" />
                   <path d="M8 12l4 4 4-4" />
@@ -149,7 +118,7 @@ const featureCards = [
                 </svg>
                 Download Echo
               </a>
-              <a class="btn-outline" href="https://chat-echo.com/">
+              <a class="btn-outline" href={CHAT_APP_ORIGIN}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
                   <circle cx="12" cy="12" r="9" />
                   <path d="M3 12h18M12 3a14 14 0 009 9 14 14 0 00-9 9 14 14 0 00-9-9 14 14 0 009-9z" stroke-linecap="round" />
@@ -243,7 +212,7 @@ const featureCards = [
             </p>
           </div>
           <div class="hero-actions hero-actions--flush">
-            <a class="btn-download-primary" href="https://chat-echo.com/">
+            <a class="btn-download-primary" href={CHAT_APP_ORIGIN}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 4v10" />
                 <path d="M8 12l4 4 4-4" />
@@ -251,7 +220,7 @@ const featureCards = [
               </svg>
               Download Echo
             </a>
-            <a class="btn-outline" href="https://chat-echo.com/">
+            <a class="btn-outline" href={CHAT_APP_ORIGIN}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" />
                 <path d="M3 12h18M12 3a14 14 0 009 9 14 14 0 00-9 9 14 14 0 00-9-9 14 14 0 009-9z" stroke-linecap="round" />
@@ -285,7 +254,7 @@ const featureCards = [
           <div class="cta-bar">
             <h2>Open Echo and invite your community.</h2>
             <p>Same product on the web—fast to try, easy to share.</p>
-            <a class="btn-download-primary" href="https://chat-echo.com/">Open chat-echo.com</a>
+            <a class="btn-download-primary" href={CHAT_APP_ORIGIN}>Open chat-echo.com</a>
           </div>
         </div>
       </section>

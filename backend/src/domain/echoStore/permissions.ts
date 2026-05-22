@@ -11,9 +11,18 @@ import {
   tryGetCachedPermissions,
 } from '../echoPermissionCache';
 
-/** Assign/remove member roles (owner has all perms including this). */
-export function canAssignEchoMemberRoles(perms: Set<string>): boolean {
-  return perms.has('MANAGE_ROLES');
+/** Create/edit/delete roles, reorder roles/categories (in scope). */
+export function canManageEchoRolesCatalog(perms: ReadonlySet<string>): boolean {
+  return perms.has('MANAGE_ROLES') || perms.has('ADMINISTRATOR');
+}
+
+/** Assign/remove member roles; manage implies assign. */
+export function canAssignEchoMemberRoles(perms: ReadonlySet<string>): boolean {
+  return (
+    perms.has('ASSIGN_ROLES') ||
+    perms.has('MANAGE_ROLES') ||
+    perms.has('ADMINISTRATOR')
+  );
 }
 
 export async function getMergedRolePermissions(

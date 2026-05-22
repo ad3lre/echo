@@ -14,6 +14,7 @@ This document tracks **Echo (free)**, **Echo+**, and **Echo Black** product limi
 | **Group DM size**             | Max members (including initiator): free **25**, plus **50**, black **250**. Enforced in `createEchoGroupDmThread`; UI uses `planLimits.groupDmMaxMembers`.                    |
 | **Theme UI (client)**         | Amoled / Sunny swatches require Echo+ or Echo Black when `THEMES_SELECTION_COMING_SOON` is true; Light/Dark stay available.                                                   |
 | **Chat media retention**      | Abandonment expiry on user-sent chat uploads (`echo_chat_upload_retention`); tier rules in [`shared/chatMediaRetention.ts`](../../shared/chatMediaRetention.ts). Echo+ ≤15 MB and Black ≤100 MB permanent at upload (snapshot). `POST /uploads/retention/touch` + visibility in UI. Ops may revoke permanent rows (`permanent_revoked_at`). After `echo_plan` downgrade from Black, call `reconcileChatUploadRetentionOnPlanChange` (document when billing exists). |
+| **Image search (Serper)**     | `GET /api/v1/image-search` (auth required). Distinct searches per UTC day: free **10**, Echo+ **250**, Echo Black **500** (`ECHO_PLAN_IMAGE_SEARCHES_PER_DAY`). Pagination (pages 2–4) shares one credit per query per day. Postgres L2 cache (~90 days) + global Serper caps (`SERPER_GLOBAL_MAX_*`). |
 
 ## Not implemented or only partial
 

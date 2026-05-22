@@ -107,13 +107,18 @@ async function run(): Promise<void> {
     const rolesAfter = await listEchoRolesForServer(pool, serverId);
     const supportAfter = rolesAfter.find((r) => r.id === roleId);
     assert.ok(supportAfter);
-    assert.equal(supportAfter!.roleCategoryId, null);
+    assert.ok(supportAfter!.roleCategoryId);
 
     const catsAfter = await listEchoRoleCategories(pool, serverId);
     assert.equal(
       catsAfter.some((c) => c.id === categoryId),
       false,
     );
+
+    const globalAfter = catsAfter.find((c) => c.isSystem);
+    assert.ok(globalAfter);
+    const supportAfterGlobal = rolesAfter.find((r) => r.id === roleId);
+    assert.equal(supportAfterGlobal!.roleCategoryId, globalAfter!.id);
 
     console.log('echo.roleCategories: ok');
   } finally {

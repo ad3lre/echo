@@ -630,6 +630,42 @@ export async function authDesktopRedeemHandoff(
   return { user: user as AuthUserPublic };
 }
 
+/** Link Google to the signed-in Echo account (Settings → Google). */
+export async function authGoogleOAuthStart(): Promise<{
+  authorizeUrl: string;
+  redirectUri?: string;
+}> {
+  assertAuthDomainNetworkAllowed();
+  const traceId = newTraceId();
+  const url = appendDiagTraceId(`${AUTH_BASE}/google/start`, traceId);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: echoCsrfHeaders(),
+      credentials: 'include',
+    });
+  } catch (error) {
+    logAuthNetworkFailure({
+      operation: 'google_oauth_start',
+      traceId,
+      url,
+      method: 'POST',
+      headers: echoCsrfHeaders(),
+      error,
+    });
+    throw error;
+  }
+  const data = (await parseJson(res)) as Record<string, unknown>;
+  throwIfError(res, data, 'POST /auth/google/start');
+  const authorizeUrl =
+    typeof data.authorizeUrl === 'string' ? data.authorizeUrl : '';
+  const redirectUri =
+    typeof data.redirectUri === 'string' ? data.redirectUri : undefined;
+  if (!authorizeUrl) throw new Error('INVALID_GOOGLE_START_RESPONSE');
+  return { authorizeUrl, ...(redirectUri ? { redirectUri } : {}) };
+}
+
 /** Sign in with Google (login modal). CSRF-exempt; uses HttpOnly OAuth state cookie. */
 export async function authGoogleLoginStart(body?: {
   desktopBrowserHandoff?: boolean;

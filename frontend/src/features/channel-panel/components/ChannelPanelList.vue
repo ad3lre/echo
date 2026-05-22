@@ -1294,7 +1294,8 @@ watch(
                 :data-channel-row-anchor="channel.id"
                 :class="{
                   'bg-glass-2':
-                    activeChannelId === channel.id && channel.type !== 'voice',
+                    activeChannelId === channel.id &&
+                    !isVoiceLikeChannelType(channel.type),
                   'ring-1 ring-sky-500/35':
                     isVoiceLikeChannelType(channel.type) &&
                     voiceLobbyChannelId &&
@@ -1360,7 +1361,7 @@ watch(
                     },
                     rowCanManageChannel(channel) &&
                     selectedServerId !== 'echo' &&
-                    channel.type !== 'voice'
+                    !isVoiceLikeChannelType(channel.type)
                       ? 'pr-9'
                       : '',
                   ]"
@@ -1429,7 +1430,7 @@ watch(
                     v-if="
                       rowCanManageChannel(channel) &&
                       selectedServerId !== 'echo' &&
-                      channel.type !== 'voice'
+                      !isVoiceLikeChannelType(channel.type)
                     "
                     type="button"
                     class="channel-row-gear chat-focus-ring absolute right-1 top-1/2 z-[3] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-fg-subtle opacity-0 pointer-events-none transition-opacity pointer-fine:hover:bg-glass-hover pointer-fine:hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"

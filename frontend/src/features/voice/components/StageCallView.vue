@@ -30,6 +30,8 @@ import { isEchoGraphId } from '@/utils/echoIds';
 import { deleteEchoStageRequestSpeak } from '@/api/echo/voice';
 import { requestEchoStageSpeak } from '@/services/voice/requestStageSpeak';
 import StageYoutubeLiveBar from '@/features/voice/components/StageYoutubeLiveBar.vue';
+import StageActiveEventBanner from '@/features/voice/components/StageActiveEventBanner.vue';
+import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 
 type StageParticipant = {
   id: string;
@@ -80,9 +82,15 @@ const props = withDefaults(
     onGoToVoiceChannelInSidebar?: () => void;
     voiceChannelUserLimit?: number;
     compactLayout?: boolean;
+    activeStageEvent?: EchoWorkspaceEventSummary | null;
+    stageEventNowMs?: number;
   }>(),
   { compactLayout: false, stageSpeakerByUserId: () => ({}) },
 );
+
+const emit = defineEmits<{
+  dismissStageEvent: [];
+}>();
 
 const authSession = useAuthSessionStore();
 
@@ -517,6 +525,14 @@ watch(
           </div>
         </div>
       </div>
+
+      <StageActiveEventBanner
+        v-if="activeStageEvent"
+        class="mb-3 shrink-0"
+        :event="activeStageEvent"
+        :now-ms="stageEventNowMs ?? Date.now()"
+        @dismiss="emit('dismissStageEvent')"
+      />
 
       <StageYoutubeLiveBar
         :echo-server-id="echoServerId"

@@ -20,6 +20,7 @@ type ShellChromeSliceKeys =
   | 'addServerInitialView'
   | 'addServerJoinError'
   | 'addServerCreateBusy'
+  | 'exploreDirectoryJoinBusy'
   | 'joinEchoServerWithInviteRaw'
   | 'handleJoinWithInviteLink'
   | 'handleCreateServer'

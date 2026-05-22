@@ -37,6 +37,50 @@ const emit = defineEmits<{
   submit: [payload: CreateChannelModalSubmitPayload];
 }>();
 
+type CreationMode = 'text' | 'voice' | 'stage' | 'forum' | 'category';
+
+const CHANNEL_TYPE_OPTIONS: {
+  id: CreationMode;
+  label: string;
+  description: string;
+  icon: string;
+  iconClass?: string;
+}[] = [
+  {
+    id: 'text',
+    label: 'Text',
+    description:
+      'Send messages, images, GIFs, emoji, opinions, and puns.',
+    icon: icons.hashtag,
+    iconClass: 'create-channel-type-icon--hash',
+  },
+  {
+    id: 'voice',
+    label: 'Voice',
+    description: 'Hang out together with voice, video, and screen share.',
+    icon: icons.volumeUp,
+  },
+  {
+    id: 'forum',
+    label: 'Forum',
+    description: 'Create a space for organized discussions.',
+    icon: icons.messageAlt,
+  },
+  {
+    id: 'stage',
+    label: 'Stage',
+    description: 'Host events, panels, and Q&As for an audience.',
+    icon: icons.discordStage,
+    iconClass: 'create-channel-type-icon--native',
+  },
+  {
+    id: 'category',
+    label: 'Category',
+    description: 'Group text and voice channels under a collapsible header.',
+    icon: icons.list,
+  },
+];
+
 const modalRef = ref<HTMLElement | null>(null);
 const channelNameInputRef = ref<HTMLInputElement | null>(null);
 useFocusTrap(modalRef, toRef(props, 'modelValue'));
@@ -44,10 +88,7 @@ useFocusTrap(modalRef, toRef(props, 'modelValue'));
 useAutofocusOnOpen(toRef(props, 'modelValue'), channelNameInputRef);
 
 const channelName = ref('');
-/** Text / voice channel, or a new category (no channel row). */
-const creationMode = ref<'text' | 'voice' | 'stage' | 'forum' | 'category'>(
-  'text',
-);
+const creationMode = ref<CreationMode>('text');
 const selectedCategory = ref('');
 const selectedIconKey = ref<string>('message');
 
@@ -55,21 +96,21 @@ const categoryDropdownOptions = computed(() =>
   props.categoryOptions.map((o) => ({ label: o.label, value: o.id })),
 );
 
+const isCategoryMode = computed(() => creationMode.value === 'category');
+
+const channelNamePrefixIcon = computed(() => {
+  if (isCategoryMode.value) return null;
+  if (creationMode.value === 'voice') return icons.volumeUp;
+  if (creationMode.value === 'stage') return icons.discordStage;
+  return icons.hashtag;
+});
+
 function defaultIconForType(t: 'text' | 'voice' | 'stage' | 'forum'): string {
   if (t === 'voice') return 'volumeUp';
   if (t === 'stage') return 'sofa';
   if (t === 'forum') return 'messageAlt';
   return 'message';
 }
-
-const segmentIndex = computed(() => {
-  const m = creationMode.value;
-  if (m === 'text') return 0;
-  if (m === 'voice') return 1;
-  if (m === 'stage') return 2;
-  if (m === 'forum') return 3;
-  return 4;
-});
 
 const trimmedName = computed(() => channelName.value.trim());
 const categoryNameIsDuplicate = computed(() =>
@@ -154,128 +195,132 @@ function submit() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-channel-title"
-      class="real-glass-modal relative w-full max-w-md rounded-xl p-6 text-foreground"
+      class="create-channel-modal real-glass-modal relative w-full max-w-[440px] rounded-xl p-6 text-foreground"
     >
-      <h2 id="create-channel-title" class="text-xl font-bold">
-        {{ creationMode === 'category' ? 'Create category' : 'Create channel' }}
-      </h2>
-      <p class="mt-1 text-sm text-fg-soft">in {{ serverName }}</p>
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h2 id="create-channel-title" class="text-xl font-bold leading-tight">
+            {{
+              isCategoryMode ? 'Create category' : 'Create channel'
+            }}
+          </h2>
+          <p class="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-fg-soft">
+            <span>in</span>
+            <span class="truncate font-medium text-fg">{{ serverName }}</span>
+          </p>
+        </div>
+        <button
+          type="button"
+          class="create-channel-close shrink-0 rounded-md p-1.5 text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg"
+          aria-label="Close"
+          @click="close"
+        >
+          <svg
+            class="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
 
       <div class="mt-5 space-y-5">
-        <div>
-          <div class="settings-label">Type</div>
+        <fieldset class="min-w-0 border-0 p-0">
+          <legend class="settings-label mb-2">Channel type</legend>
           <div
-            class="relative mt-2 flex w-full overflow-hidden rounded-lg bg-glass-2 p-0.5"
+            class="create-channel-type-list"
+            role="radiogroup"
+            aria-label="Channel type"
           >
-            <div
-              class="create-channel-type-highlight pointer-events-none absolute inset-y-0.5 w-[calc((100%-4px)/5)] rounded-md transition-transform duration-300 ease-out"
-              style="left: 2px"
-              :style="{ transform: `translateX(calc(${segmentIndex} * 100%))` }"
-            />
-            <button
-              type="button"
-              class="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-md py-2 transition-colors"
-              :class="
-                creationMode === 'text'
-                  ? 'text-white'
-                  : 'text-fg-subtle hover:text-fg-soft'
-              "
-              @click="creationMode = 'text'"
+            <label
+              v-for="opt in CHANNEL_TYPE_OPTIONS"
+              :key="opt.id"
+              class="create-channel-type-option"
+              :class="{
+                'create-channel-type-option--selected':
+                  creationMode === opt.id,
+              }"
             >
-              <img
-                :src="icons.message"
-                alt=""
-                class="h-4 w-4 shrink-0 object-contain opacity-90 filter invert"
-                :class="creationMode === 'text' ? 'opacity-100' : 'opacity-55'"
+              <input
+                v-model="creationMode"
+                class="create-channel-type-input"
+                type="radio"
+                name="create-channel-type"
+                :value="opt.id"
               />
-              <span class="text-xs font-semibold tracking-wide">Text</span>
-            </button>
-            <button
-              type="button"
-              class="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-md py-2 transition-colors"
-              :class="
-                creationMode === 'voice'
-                  ? 'text-white'
-                  : 'text-fg-subtle hover:text-fg-soft'
-              "
-              @click="creationMode = 'voice'"
-            >
+              <span class="create-channel-type-radio" aria-hidden="true" />
               <img
-                :src="icons.volumeUp"
+                :src="opt.icon"
                 alt=""
-                class="h-4 w-4 shrink-0 object-contain opacity-90 filter invert"
-                :class="creationMode === 'voice' ? 'opacity-100' : 'opacity-55'"
+                class="create-channel-type-icon shrink-0"
+                :class="opt.iconClass"
               />
-              <span class="text-xs font-semibold tracking-wide">Voice</span>
-            </button>
-            <button
-              type="button"
-              class="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-md py-2 transition-colors"
-              :class="
-                creationMode === 'stage'
-                  ? 'text-white'
-                  : 'text-fg-subtle hover:text-fg-soft'
-              "
-              @click="creationMode = 'stage'"
-            >
-              <img
-                :src="icons.sofa"
-                alt=""
-                class="h-4 w-4 shrink-0 object-contain opacity-90 filter invert"
-                :class="creationMode === 'stage' ? 'opacity-100' : 'opacity-55'"
-              />
-              <span class="text-xs font-semibold tracking-wide">Stage</span>
-            </button>
-            <button
-              type="button"
-              class="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-md py-2 transition-colors"
-              :class="
-                creationMode === 'forum'
-                  ? 'text-white'
-                  : 'text-fg-subtle hover:text-fg-soft'
-              "
-              @click="creationMode = 'forum'"
-            >
-              <img
-                :src="icons.message"
-                alt=""
-                class="h-4 w-4 shrink-0 object-contain opacity-90 filter invert"
-                :class="creationMode === 'forum' ? 'opacity-100' : 'opacity-55'"
-              />
-              <span class="text-xs font-semibold tracking-wide">Forum</span>
-            </button>
-            <button
-              type="button"
-              class="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-row items-center justify-center gap-1.5 rounded-md py-2 transition-colors"
-              :class="
-                creationMode === 'category'
-                  ? 'text-white'
-                  : 'text-fg-subtle hover:text-fg-soft'
-              "
-              @click="creationMode = 'category'"
-            >
-              <img
-                :src="icons.list"
-                alt=""
-                class="h-4 w-4 shrink-0 object-contain opacity-90 filter invert"
-                :class="
-                  creationMode === 'category' ? 'opacity-100' : 'opacity-55'
-                "
-              />
-              <span class="text-xs font-semibold tracking-wide">Category</span>
-            </button>
+              <span class="min-w-0 flex-1">
+                <span class="block text-base font-semibold text-fg">
+                  {{ opt.label }}
+                </span>
+                <span class="mt-0.5 block text-sm leading-snug text-fg-subtle">
+                  {{ opt.description }}
+                </span>
+              </span>
+            </label>
           </div>
-        </div>
+        </fieldset>
 
         <div>
-          <label class="settings-label">
-            {{ creationMode === 'category' ? 'Category name' : 'Channel name' }}
+          <label
+            class="settings-label"
+            :for="isCategoryMode ? 'create-category-name' : 'create-channel-name'"
+          >
+            {{ isCategoryMode ? 'Category name' : 'Channel name' }}
           </label>
           <div
-            class="create-channel-name-row mt-2 flex min-h-[44px] items-stretch overflow-hidden rounded-xl"
+            class="create-channel-name-row mt-2 flex min-h-[44px] items-stretch overflow-hidden rounded-lg"
           >
+            <span
+              v-if="channelNamePrefixIcon && !isCategoryMode"
+              class="create-channel-name-prefix flex shrink-0 items-center justify-center px-3"
+              aria-hidden="true"
+            >
+              <img
+                :src="channelNamePrefixIcon"
+                alt=""
+                class="h-[18px] w-[18px] object-contain opacity-70"
+                :class="
+                  creationMode === 'text' || creationMode === 'forum'
+                    ? 'create-channel-prefix-hash'
+                    : creationMode === 'stage'
+                      ? 'create-channel-prefix-stage opacity-80'
+                      : 'filter invert opacity-60'
+                "
+              />
+            </span>
+            <input
+              :id="
+                isCategoryMode ? 'create-category-name' : 'create-channel-name'
+              "
+              ref="channelNameInputRef"
+              v-model="channelName"
+              type="text"
+              class="create-channel-name-input min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-fg outline-none placeholder:text-fg-subtle"
+              :placeholder="
+                isCategoryMode ? 'new-category' : 'new-channel'
+              "
+              :maxlength="
+                isCategoryMode ? 100 : ECHO_CHANNEL_NAME_MAX_LENGTH
+              "
+              @keydown.enter.prevent="submit"
+            />
             <ChannelIconPickerPopover
-              v-if="creationMode !== 'category'"
+              v-if="!isCategoryMode"
               v-model="selectedIconKey"
               variant="combined"
               :channel-type="
@@ -285,25 +330,10 @@ function submit() {
               "
               :server-id="props.serverId ?? undefined"
             />
-            <input
-              ref="channelNameInputRef"
-              v-model="channelName"
-              type="text"
-              class="create-channel-name-input min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-fg outline-none placeholder:text-fg-subtle"
-              :placeholder="
-                creationMode === 'category' ? 'new-category' : 'new-channel'
-              "
-              :maxlength="
-                creationMode === 'category' ? 100 : ECHO_CHANNEL_NAME_MAX_LENGTH
-              "
-              @keydown.enter.prevent="submit"
-            />
           </div>
           <p
             v-if="
-              creationMode === 'category' &&
-              trimmedName &&
-              categoryNameIsDuplicate
+              isCategoryMode && trimmedName && categoryNameIsDuplicate
             "
             class="mt-2 text-xs text-rose-300/90"
           >
@@ -311,10 +341,7 @@ function submit() {
           </p>
         </div>
 
-        <div
-          v-if="creationMode !== 'category'"
-          class="create-channel-dropdowns"
-        >
+        <div v-if="!isCategoryMode" class="create-channel-dropdowns">
           <EchoDropdown
             v-model="selectedCategory"
             :options="categoryDropdownOptions"
@@ -323,22 +350,22 @@ function submit() {
         </div>
       </div>
 
-      <div class="mt-6 flex justify-end gap-2">
+      <div class="mt-6 flex justify-end gap-3">
         <button
           type="button"
-          class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
+          class="create-channel-btn-cancel rounded-[3px] px-4 py-2 text-sm font-medium text-fg transition-colors"
           @click="close"
         >
           Cancel
         </button>
         <button
           type="button"
-          class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-[color:var(--accent-contrast-fg)] transition-[filter,opacity] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
+          class="create-channel-btn-submit rounded-[3px] px-4 py-2 text-sm font-medium transition-[filter,opacity] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
           :disabled="!canSubmit"
           @click="submit"
         >
           {{
-            creationMode === 'category' ? 'Create category' : 'Create channel'
+            isCategoryMode ? 'Create category' : 'Create channel'
           }}
         </button>
       </div>
@@ -353,21 +380,12 @@ function submit() {
   -webkit-backdrop-filter: blur(2px);
 }
 
-/*
- * Modal shell: theme `--echo-modal-bg` keeps panels readable in light mode (no wash
- * through `--chat-glass-bg-strong`). Inputs use solid `--surface` so nothing bleeds through.
- */
 .real-glass-modal {
   background: var(--echo-modal-bg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-3);
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
-}
-
-.create-channel-name-row {
-  background: var(--surface);
-  border: 1px solid var(--border);
 }
 
 .settings-label {
@@ -377,6 +395,119 @@ function submit() {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.create-channel-type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.create-channel-type-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0.625rem;
+  margin: 0 -0.625rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.create-channel-type-option:hover {
+  background: color-mix(in srgb, var(--elevated) 65%, transparent);
+}
+
+.create-channel-type-option--selected {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.create-channel-type-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.create-channel-type-radio {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.125rem;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  background: transparent;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+  position: relative;
+}
+
+.create-channel-type-option--selected .create-channel-type-radio {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--accent-contrast-fg);
+}
+
+.create-channel-type-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.125rem;
+  object-fit: contain;
+  opacity: 0.88;
+  filter: invert(1);
+}
+
+.create-channel-type-icon--hash,
+.create-channel-prefix-hash {
+  filter: none;
+  opacity: 0.55;
+}
+
+.create-channel-type-icon--native,
+.create-channel-prefix-stage {
+  filter: none;
+}
+
+.create-channel-name-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.create-channel-name-row:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.create-channel-name-prefix {
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+}
+
+.create-channel-name-row :deep(.channel-icon-trigger) {
+  border-left: 1px solid var(--border);
+}
+
+.create-channel-btn-cancel {
+  background: transparent;
+}
+
+.create-channel-btn-cancel:hover {
+  text-decoration: underline;
+}
+
+.create-channel-btn-submit {
+  background: var(--accent);
+  color: var(--accent-contrast-fg);
 }
 
 .create-channel-dropdowns {
@@ -420,13 +551,5 @@ function submit() {
     background: color-mix(in srgb, var(--accent) 14%, transparent);
     font-weight: 700;
   }
-}
-
-.create-channel-type-highlight {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 44%, transparent),
-    color-mix(in srgb, var(--accent) 24%, transparent)
-  );
 }
 </style>

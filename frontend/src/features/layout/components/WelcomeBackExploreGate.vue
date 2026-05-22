@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { icons } from '@/assets/icons';
 import { usePlatform } from '@/platform/usePlatform';
 import {
@@ -29,7 +29,7 @@ import {
 } from '@/config/echoPublicSupportContact';
 import LegalDocsModal from '@/components/LegalDocsModal.vue';
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     /** Signed-in Echo user: empty public directory — show create/join instead of auth CTAs. */
     memberEmptyDirectory?: boolean;
@@ -37,6 +37,15 @@ withDefaults(
     showMobileBack?: boolean;
   }>(),
   { memberEmptyDirectory: false, showMobileBack: false },
+);
+
+const welcomeTitle = computed(() =>
+  props.memberEmptyDirectory ? 'Create or join a server' : 'Welcome back',
+);
+const welcomeSubtitle = computed(() =>
+  props.memberEmptyDirectory
+    ? "The public directory isn't listing any servers right now. Create one or join with an invite."
+    : 'Pick up where you left off.',
 );
 
 defineEmits<{
@@ -418,14 +427,17 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
         >
           <p class="welcome-back-narrow-header__eyebrow">Echo</p>
           <h1 class="welcome-back-narrow-header__title">
-            {{
-              memberEmptyDirectory
-                ? 'Create or join a server'
-                : welcomeTitle
-            }}
+            <template v-if="memberEmptyDirectory"
+              >Create or join a server</template
+            >
+            <template v-else>Welcome back</template>
           </h1>
           <p class="welcome-back-narrow-header__subtitle">
-            {{ welcomeSubtitle }}
+            <template v-if="memberEmptyDirectory">
+              The public directory isn't listing any servers right now. Create
+              one or join with an invite.
+            </template>
+            <template v-else>Pick up where you left off.</template>
           </p>
         </div>
         <h2 id="welcome-back-gate-heading" class="sr-only">

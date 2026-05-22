@@ -6,7 +6,6 @@ import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHt
 import {
   resolveCustomEmojiImageUrlForDisplay,
 } from '@/utils/customEmojiUrl';
-import { isEchoPublicId } from '@shared/snowflakeIds';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import MessageReactionsRow from '@/features/chat/components/MessageReactionsRow.vue';
 import MessageReactionEmojiPopover from './MessageReactionEmojiPopover.vue';
@@ -62,7 +61,7 @@ function parseSingleEmojiForReactions(emoji: string): string {
       animated,
       customEmojiUrlById?.value,
       isEchoEmojiTokenResolveMiss(emojiId),
-      { allowDiscordCdnGuess: isEchoPublicId(emojiId) },
+      { allowDiscordCdnGuess: isEchoEmojiTokenResolveMiss(emojiId) },
     );
     if (url) {
       const raw = `<img class="emoji custom-emoji" draggable="false" alt="${escReactionAttr(`:${m[1]}:`)}" src="${escReactionAttr(url)}"/>`;

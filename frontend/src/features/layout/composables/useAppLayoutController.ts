@@ -2785,6 +2785,7 @@ export function useAppLayoutController() {
   const {
     addServerJoinError,
     addServerCreateBusy,
+    exploreDirectoryJoinBusy,
     openAddServerModal,
     joinEchoServerWithInviteRaw,
     handleJoinWithInviteLink,

@@ -1,6 +1,8 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { requireAuth } from '../../../auth/middleware';
+import { sendEchoCustomEmojiAsset } from '../../../services/echoEmojiAsset';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
+import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import {
   addEchoServerCustomEmoji,
   createEchoCustomEmojiPack,
@@ -54,6 +56,27 @@ export default async function echoEmojiLibraryRoutes(
     },
   );
 
+  fastify.get<{ Params: { emojiId: string } }>(
+    '/emoji/:emojiId/asset',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const emojiId = trimEchoPathParam(req.params.emojiId);
+      if (!emojiId || !/^\d+$/.test(emojiId))
+        return sendError(reply, 400, 'INVALID_BODY', 'Invalid emoji id');
+      const pool = echoPool(req);
+      await sendEchoCustomEmojiAsset(pool, reply, emojiId);
+    },
+  );
+
   fastify.post<{
     Body: { ids?: unknown };
   }>(
@@ -63,6 +86,8 @@ export default async function echoEmojiLibraryRoutes(
       const idsRaw = req.body?.ids;
       if (!Array.isArray(idsRaw))
         return sendError(reply, 400, 'INVALID_BODY', 'ids required');
+      if (idsRaw.length > 200)
+        return sendError(reply, 400, 'INVALID_BODY', 'Too many ids');
       const ids = idsRaw.filter((v) => typeof v === 'string') as string[];
       const pool = echoPool(req);
       const emojis = await resolveEchoEmojiTokens(pool, req.authUser!.id, ids);

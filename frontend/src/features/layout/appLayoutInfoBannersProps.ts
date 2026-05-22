@@ -10,6 +10,7 @@ export type AppLayoutInfoBannersProps = {
   isMockDataMode: boolean;
   echoWorkspaceError: string | null | undefined;
   showWelcomeBackHint?: boolean;
+  welcomeBackHintText?: string;
   emailVerificationFlash?: string | null;
   showUnverifiedEmailBanner?: boolean;
   emailBannerResendBusy?: boolean;

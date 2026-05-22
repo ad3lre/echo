@@ -8,6 +8,7 @@
  */
 
 import { DISCORD_ECHO_PERMISSION_STRINGS } from '../../../shared/discordEchoPermissions';
+import { ECHO_EXTENDED_PERMISSION_STRINGS } from '../../../shared/echoExtendedPermissions';
 import { normalizeEchoRoleType } from '../../../shared/echoRoleTypes';
 
 const THREAD_PERMISSION_NAMES = new Set([
@@ -28,9 +29,12 @@ import {
   recordCompressedSource,
 } from './echoPermissionTrace';
 
-export const ECHO_PERMISSIONS = DISCORD_ECHO_PERMISSION_STRINGS.filter(
-  (k) => !THREAD_PERMISSION_NAMES.has(k),
-);
+export const ECHO_PERMISSIONS = [
+  ...DISCORD_ECHO_PERMISSION_STRINGS.filter(
+    (k) => !THREAD_PERMISSION_NAMES.has(k),
+  ),
+  ...ECHO_EXTENDED_PERMISSION_STRINGS,
+] as const;
 
 export type EchoPermission = (typeof ECHO_PERMISSIONS)[number];
 

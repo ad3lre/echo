@@ -8,14 +8,38 @@ export type MoreServerDropTarget =
   | { kind: 'folder'; folderId: string; index: number }
   | { kind: 'folder-order'; index: number };
 
-function readDragServerId(e: DragEvent): string | null {
-  const raw = e.dataTransfer?.getData(MORE_SERVER_DRAG_MIME)?.trim();
-  return raw || null;
+function transferTypes(e: DragEvent): readonly string[] {
+  const types = e.dataTransfer?.types;
+  if (!types) return [];
+  return Array.from(types);
 }
 
-function readDragFolderId(e: DragEvent): string | null {
-  const raw = e.dataTransfer?.getData(MORE_FOLDER_DRAG_MIME)?.trim();
-  return raw || null;
+/** Resolve drop target from `data-ms-drop` on the element under the pointer (drop fallback). */
+export function resolveMoreServerDropTargetFromEvent(
+  e: DragEvent,
+): MoreServerDropTarget | null {
+  const el = (e.target as Element | null)?.closest('[data-ms-drop]');
+  if (!(el instanceof HTMLElement)) return null;
+  const kind = el.dataset.msDrop;
+  if (kind === 'ungrouped') {
+    const index = Number(el.dataset.msDropIndex ?? '0');
+    return { kind: 'ungrouped', index: Number.isFinite(index) ? index : 0 };
+  }
+  if (kind === 'folder') {
+    const folderId = el.dataset.msDropFolder?.trim();
+    if (!folderId) return null;
+    const index = Number(el.dataset.msDropIndex ?? '0');
+    return {
+      kind: 'folder',
+      folderId,
+      index: Number.isFinite(index) ? index : 0,
+    };
+  }
+  if (kind === 'folder-order') {
+    const index = Number(el.dataset.msDropIndex ?? '0');
+    return { kind: 'folder-order', index: Number.isFinite(index) ? index : 0 };
+  }
+  return null;
 }
 
 /**
@@ -35,17 +59,56 @@ export function useMoreServerFolderDrag(opts: {
     dropTarget.value = null;
   }
 
+  function isServerDrag(e: DragEvent): boolean {
+    if (draggingServerId.value) return true;
+    return transferTypes(e).includes(MORE_SERVER_DRAG_MIME);
+  }
+
+  function isFolderDrag(e: DragEvent): boolean {
+    if (draggingFolderId.value) return true;
+    return transferTypes(e).includes(MORE_FOLDER_DRAG_MIME);
+  }
+
+  function readDragServerId(e: DragEvent): string | null {
+    const raw = e.dataTransfer?.getData(MORE_SERVER_DRAG_MIME)?.trim();
+    if (raw) return raw;
+    return draggingServerId.value;
+  }
+
+  function readDragFolderId(e: DragEvent): string | null {
+    const raw = e.dataTransfer?.getData(MORE_FOLDER_DRAG_MIME)?.trim();
+    if (raw) return raw;
+    return draggingFolderId.value;
+  }
+
   function onServerDragStart(serverId: string, e: DragEvent) {
-    e.dataTransfer?.setData(MORE_SERVER_DRAG_MIME, serverId);
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    const dt = e.dataTransfer;
+    dt?.setData(MORE_SERVER_DRAG_MIME, serverId);
+    // Browsers often block getData() during dragover; types still include our MIME.
+    if (dt) {
+      dt.effectAllowed = 'move';
+      try {
+        dt.setData('text/plain', serverId);
+      } catch {
+        /* some browsers restrict multiple types */
+      }
+    }
     draggingServerId.value = serverId;
     draggingFolderId.value = null;
   }
 
   function onFolderDragStart(folderId: string, e: DragEvent) {
     e.stopPropagation();
-    e.dataTransfer?.setData(MORE_FOLDER_DRAG_MIME, folderId);
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    const dt = e.dataTransfer;
+    dt?.setData(MORE_FOLDER_DRAG_MIME, folderId);
+    if (dt) {
+      dt.effectAllowed = 'move';
+      try {
+        dt.setData('text/plain', folderId);
+      } catch {
+        /* ignore */
+      }
+    }
     draggingFolderId.value = folderId;
     draggingServerId.value = null;
   }
@@ -55,41 +118,41 @@ export function useMoreServerFolderDrag(opts: {
   }
 
   function allowDrop(e: DragEvent) {
-    if (readDragServerId(e) || readDragFolderId(e)) {
+    if (isServerDrag(e) || isFolderDrag(e)) {
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
     }
   }
 
   function onUngroupedDragOver(index: number, e: DragEvent) {
-    if (!readDragServerId(e)) return;
+    if (!isServerDrag(e)) return;
     allowDrop(e);
     dropTarget.value = { kind: 'ungrouped', index };
   }
 
   function onFolderDragOver(folderId: string, index: number, e: DragEvent) {
-    const sid = readDragServerId(e);
-    const fid = readDragFolderId(e);
-    if (sid) {
+    if (isServerDrag(e)) {
       allowDrop(e);
       dropTarget.value = { kind: 'folder', folderId, index };
       return;
     }
-    if (fid && fid !== folderId) {
+    const fid = readDragFolderId(e);
+    if (isFolderDrag(e) && fid && fid !== folderId) {
       allowDrop(e);
       dropTarget.value = { kind: 'folder-order', index };
     }
   }
 
   function onFolderOrderDragOver(index: number, e: DragEvent) {
-    if (!readDragFolderId(e)) return;
+    if (!isFolderDrag(e)) return;
     allowDrop(e);
     dropTarget.value = { kind: 'folder-order', index };
   }
 
   function onDrop(e: DragEvent) {
     e.preventDefault();
-    const target = dropTarget.value;
+    const target =
+      dropTarget.value ?? resolveMoreServerDropTargetFromEvent(e);
     const sid = readDragServerId(e);
     const fid = readDragFolderId(e);
     clearDragState();

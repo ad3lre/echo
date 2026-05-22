@@ -19,28 +19,11 @@ import {
 } from '@/features/layout/appLayoutChatSurfaceProps';
 import type { FilterKey, HasType } from '@/composables/useSearch';
 import { emitChatSwitchEvent } from '@/features/layout/chatSwitchPerfTrace';
-import { useGlobalEmojiTokenResolver } from '@/composables/useGlobalEmojiTokenResolver';
-import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
+import { useChatCustomEmojiResolvers } from '@/composables/useChatCustomEmojiResolvers';
+import type { ChannelSummary, MessageWithAuthor } from '@shared/types';
+import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 
 const props = defineProps<Partial<AppLayoutChatSurfaceProps>>();
-
-/**
- * Chat header / other chrome sit *beside* `ChatView`, so they never see provides
- * declared inside `ChatView`. Mirror the global id→url map here so custom-emoji
- * channel icons and similar lookups work in DMs and every surface.
- */
-const chatSurfaceEmojiResolver = useGlobalEmojiTokenResolver();
-const chatSurfaceCustomEmojiUrlById = computed(() => {
-  void chatSurfaceEmojiResolver.cacheVersion.value;
-  const m = new Map<string, string>();
-  for (const [id, url] of chatSurfaceEmojiResolver.urlById.value) {
-    const safe = safeCustomEmojiUrl(url);
-    if (safe) m.set(id, safe);
-  }
-  return m;
-});
-provide('customEmojiUrlById', chatSurfaceCustomEmojiUrlById);
-provide('ensureCustomEmojiId', chatSurfaceEmojiResolver.ensureEmojiId);
 
 const activePinia = getActivePinia();
 const devSettings = activePinia ? useDevSettingsStore(activePinia) : null;
@@ -133,6 +116,46 @@ const resolvedFilterChips = fromSearchOrInjectOrProps('filterChips');
 const resolvedAllChannels = fromSearchOrInjectOrProps('allChannels');
 const resolvedPaginatedSearchResults = fromSearchOrInjectOrProps(
   'paginatedSearchResults',
+);
+
+/**
+ * Chat header / search sit beside nested `ChatView` instances — provide shared
+ * custom-emoji resolvers here so chrome and search previews resolve cross-guild.
+ */
+const chatSurfaceServerId = computed(() => {
+  const id = chatCtx.value.selectedServerId;
+  return typeof id === 'string' && id.trim() ? id.trim() : undefined;
+});
+
+const chatSurfaceCustomEmoji = useChatCustomEmojiResolvers({
+  serverId: chatSurfaceServerId,
+  users: computed(() => chatCtx.value.users as UserForAuthor[] | undefined),
+  channels: computed(
+    () => chatCtx.value.channels as ChannelSummary[] | undefined,
+  ),
+  activeChannelMessages: computed(() => {
+    const raw = chatCtx.value.activeChannelMessagesMap as
+      | Map<string, MessageWithAuthor>
+      | undefined;
+    return raw?.size ? raw : undefined;
+  }),
+});
+
+provide('customEmojiUrlById', chatSurfaceCustomEmoji.customEmojiUrlById);
+provide('ensureCustomEmojiId', chatSurfaceCustomEmoji.ensureEmojiId);
+provide('idTokenResolvers', chatSurfaceCustomEmoji.idTokenResolvers);
+
+watch(
+  resolvedPaginatedSearchResults,
+  (results) => {
+    const texts: string[] = [];
+    for (const m of results ?? []) {
+      const c = (m as MessageWithAuthor).content?.trim();
+      if (c) texts.push(c);
+    }
+    chatSurfaceCustomEmoji.prefetchEmojiIdsFromTexts(texts);
+  },
+  { immediate: true },
 );
 const resolvedSearchResultMessagesCount = fromSearchOrInjectOrProps(
   'searchResultMessagesCount',

@@ -76,36 +76,15 @@ const isEcho = computed(() => props.selectedServer?.id === 'echo');
           <button
             v-if="!isEcho"
             type="button"
-            class="server-chevron flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors hover:bg-glass-3"
+            class="server-menu-trigger ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-glass-hover"
             aria-label="Server options"
+            title="Server options"
+            aria-haspopup="menu"
             :aria-expanded="isServerMenuOpen"
             @click.stop="toggleServerMenu"
           >
-            <svg
-              class="h-3.5 w-3.5 transition-transform text-[color:var(--banner-title-fg)]"
-              :class="{ 'rotate-180': isServerMenuOpen }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2.5"
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-          <button
-            v-if="!isEcho && canInvite"
-            type="button"
-            class="ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-glass-hover"
-            aria-label="Invite people"
-            title="Invite people"
-            @click.stop="emit('invite')"
-          >
             <img
-              :src="icons.friendAdd"
+              :src="icons.moreVertical"
               alt=""
               class="h-4 w-4 opacity-90 filter invert"
             />

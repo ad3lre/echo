@@ -520,7 +520,16 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
     `CREATE INDEX IF NOT EXISTS echo_role_categories_server_idx ON echo_role_categories(server_id);`,
   );
   await pool.query(`
+    ALTER TABLE echo_role_categories ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
     ALTER TABLE echo_roles ADD COLUMN IF NOT EXISTS role_category_id TEXT NULL REFERENCES echo_role_categories(id) ON DELETE SET NULL;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_roles ADD COLUMN IF NOT EXISTS rank_in_category INT NOT NULL DEFAULT 0;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_roles ADD COLUMN IF NOT EXISTS role_scope TEXT NOT NULL DEFAULT 'category';
   `);
   await pool.query(
     `CREATE INDEX IF NOT EXISTS echo_roles_role_category_idx ON echo_roles(server_id, role_category_id);`,
@@ -1897,6 +1906,26 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
     WHERE NOT EXISTS (
       SELECT 1 FROM auth_users WHERE id = 'echo_internal_webhook_actor_v1'
     );
+  `);
+
+  await migrateEchoGlobalRoleCategories(pool);
+}
+
+/** One pinned Global Roles category per server; backfill uncategorized roles. */
+async function migrateEchoGlobalRoleCategories(pool: pg.Pool): Promise<void> {
+  const { ensureGlobalRoleCategoryForServer, backfillUncategorizedRolesToGlobalCategory } =
+    await import('../domain/echoStore/roleCategoryGlobals');
+  const servers = await pool.query<{ id: string }>(
+    `SELECT id FROM echo_servers`,
+  );
+  for (const row of servers.rows) {
+    const serverId = String(row.id);
+    const globalId = await ensureGlobalRoleCategoryForServer(pool, serverId);
+    await backfillUncategorizedRolesToGlobalCategory(pool, serverId, globalId);
+  }
+  await pool.query(`
+    UPDATE echo_roles SET role_scope = 'category'
+    WHERE role_scope IS NULL OR TRIM(role_scope) = '';
   `);
 }
 

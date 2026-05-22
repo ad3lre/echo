@@ -104,6 +104,11 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
   - Free tiers by size: ≤10 MB → 6y; ≤100 MB → 3y; &gt;100 MB → 12mo. Echo+: ≤15 MB permanent (snapshot); &gt;15 MB ×1.25. Echo Black: ≤100 MB permanent; &gt;100 MB paused until downgrade (then ×1.30). Webhook inbound uses free rules.
   - Dedupe/shared `storage_key`: **first registration** plan snapshot controls retention for all references.
   - Expired objects: `GET` `/uploads/files/*` and `/uploads/s3/*` return **404** (internal log `expired: true`). Background job purges blobs; retention rows kept with `purged_at` / `purge_status`.
+- **Custom emoji (cross-guild rendering):**
+  - Messages store Discord-style tokens `<:name:snowflake>` / `<a:name:snowflake>`.
+  - `POST` `/emoji/resolve` (auth, body `{ ids: string[] }`, max **200** ids) returns `{ emojis: { key, id, name, animated, imageUrl, assetUrl?, sourceDiscordEmojiId? }[] }` — global lookup by Echo emoji id or `discord_source_emoji_id` (no home-server membership required for metadata).
+  - When `image_url` is stored under `echo/emoji/{serverId}/…`, resolve returns `assetUrl` (and `imageUrl` set to the same path) as `/api/v1/echo/emoji/{id}/asset` so viewers in **other** guilds are not blocked by home-server upload read ACL on `/uploads/s3/*`.
+  - `GET` `/emoji/:emojiId/asset` — authenticated; streams the emoji bytes if the row exists (does **not** require `isMemberOfServer` for the emoji’s home server). Server settings / picker uploads still use `purpose: server_emoji` presign + home-server upload ACL.
 - Socket `message` may include **`attachments`**: array (max 10) of `{ url, storageKey?, kind: image|video|gif|audio|document, filename?, mimeType?, fileSize?, spoiler? }`. When object storage is configured, `data:` URLs are rejected; do not combine `attachments` with legacy `imageUrl` / `videoUrl` / `gif` in one message.
 - `POST` `/servers/:serverId/moderation`, `GET` `.../audit`, `GET` `.../moderation/history`
 - `GET` `/workspace` — joined servers + category/channel trees + `membersByServer`; member rows may include `communicationTimeoutUntil` when that member is currently timed out in the guild.

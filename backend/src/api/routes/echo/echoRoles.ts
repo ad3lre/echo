@@ -22,6 +22,7 @@ import {
   replaceEchoRoleCategoryOrder,
   replaceEchoRoleLinksFromAnchor,
   replaceEchoServerRoleOrder,
+  replaceEchoRoleOrderInCategory,
   updateEchoRole,
   updateEchoRoleCategory,
   withoutEchoAuthorityAssignments,
@@ -287,6 +288,13 @@ export default async function echoRolesRoutes(
         );
       if (r === 'not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'Category not found');
+      if (r === 'cannot_delete_system')
+        return sendError(
+          reply,
+          400,
+          'CANNOT_DELETE_SYSTEM_CATEGORY',
+          'The Global Roles category cannot be deleted',
+        );
       return reply.code(204).send();
     },
   );
@@ -350,6 +358,8 @@ export default async function echoRolesRoutes(
       hoist?: boolean;
       defaultOnJoin?: boolean;
       roleCategoryId?: string | null;
+      roleScope?: unknown;
+      insertAfterRoleId?: string | null;
       roleIconUrl?: string | null;
       roleIconEmojiId?: string | null;
       roleType?: unknown;
@@ -399,6 +409,13 @@ export default async function echoRolesRoutes(
             : typeof body.roleIconEmojiId === 'string'
               ? body.roleIconEmojiId
               : undefined,
+        roleScope: body.roleScope,
+        insertAfterRoleId:
+          body.insertAfterRoleId === null
+            ? null
+            : typeof body.insertAfterRoleId === 'string'
+              ? body.insertAfterRoleId
+              : undefined,
         roleType: body.roleType,
       });
       if (r === 'forbidden')
@@ -421,7 +438,10 @@ export default async function echoRolesRoutes(
     },
   );
 
-  fastify.put<{ Params: { serverId: string }; Body: { roleIds?: unknown } }>(
+  fastify.put<{
+    Params: { serverId: string };
+    Body: { roleIds?: unknown; categoryId?: unknown };
+  }>(
     '/servers/:serverId/roles/order',
     { preHandler: [requireAuth, requireEchoStore] },
     async (req, reply) => {
@@ -441,12 +461,23 @@ export default async function echoRolesRoutes(
         return sendError(reply, 400, 'INVALID_BODY', 'roleIds array required');
       }
       const roleIds = raw.map((x) => String(x).trim()).filter(Boolean);
-      const r = await replaceEchoServerRoleOrder(
-        pool,
-        sid,
-        req.authUser!.id,
-        roleIds,
-      );
+      const categoryIdRaw = req.body?.categoryId;
+      const categoryId =
+        typeof categoryIdRaw === 'string' ? categoryIdRaw.trim() : '';
+      const r = categoryId
+        ? await replaceEchoRoleOrderInCategory(
+            pool,
+            sid,
+            req.authUser!.id,
+            categoryId,
+            roleIds,
+          )
+        : await replaceEchoServerRoleOrder(
+            pool,
+            sid,
+            req.authUser!.id,
+            roleIds,
+          );
       if (r === 'forbidden')
         return sendError(
           reply,
@@ -491,6 +522,7 @@ export default async function echoRolesRoutes(
       defaultOnJoin?: boolean;
       permissions?: unknown;
       roleCategoryId?: string | null;
+      roleScope?: unknown;
       roleIconUrl?: string | null;
       roleIconEmojiId?: string | null;
       roleType?: unknown;
@@ -524,6 +556,7 @@ export default async function echoRolesRoutes(
         'roleIconEmojiId',
       );
       const hasRoleType = Object.prototype.hasOwnProperty.call(b, 'roleType');
+      const hasRoleScope = Object.prototype.hasOwnProperty.call(b, 'roleScope');
       if (
         !hasName &&
         !hasColor &&
@@ -534,6 +567,7 @@ export default async function echoRolesRoutes(
         !hasDefaultOnJoin &&
         !hasPerms &&
         !hasRoleCategoryId &&
+        !hasRoleScope &&
         !hasRoleIconUrl &&
         !hasRoleIconEmojiId &&
         !hasRoleType
@@ -542,7 +576,7 @@ export default async function echoRolesRoutes(
           reply,
           400,
           'INVALID_BODY',
-          'At least one of name, color, darkColor, lightColor, separateThemeColors, hoist, defaultOnJoin, permissions, roleCategoryId, roleIconUrl, roleIconEmojiId, roleType required',
+          'At least one of name, color, darkColor, lightColor, separateThemeColors, hoist, defaultOnJoin, permissions, roleCategoryId, roleScope, roleIconUrl, roleIconEmojiId, roleType required',
         );
       }
 
@@ -562,6 +596,7 @@ export default async function echoRolesRoutes(
         defaultOnJoin?: boolean;
         permissions?: unknown;
         roleCategoryId?: string | null;
+        roleScope?: unknown;
         roleIconUrl?: string | null;
         roleIconEmojiId?: string | null;
         roleType?: unknown;
@@ -587,6 +622,7 @@ export default async function echoRolesRoutes(
             'roleCategoryId must be string or null',
           );
       }
+      if (hasRoleScope) patch.roleScope = b.roleScope;
       if (hasRoleIconUrl) {
         if (b.roleIconUrl === null) patch.roleIconUrl = null;
         else if (typeof b.roleIconUrl === 'string')

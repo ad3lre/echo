@@ -1,18 +1,21 @@
 ---
 import MarketingShell from '../layouts/MarketingShell.astro';
+import { pageStructuredData } from '../lib/seo';
 import { CHAT_APP_ORIGIN } from '../site';
 
 const title = 'Status | Echo';
 const description =
   'Fleet-wide availability for chat-echo.com—the Echo web app, API, database, and real-time layer, with 90-day uptime history.';
 
-const structuredData = {
-  '@context': 'https://schema.org',
-  '@type': 'WebPage',
-  name: title,
+const structuredData = pageStructuredData({
+  title,
   description,
-  url: new URL('/status', Astro.site).toString(),
-};
+  path: '/status',
+  breadcrumbs: [
+    { name: 'Home', path: '/' },
+    { name: 'Status', path: '/status' },
+  ],
+});
 ---
 
 <MarketingShell

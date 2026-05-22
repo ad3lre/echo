@@ -82,7 +82,7 @@ function submitDelete() {
         ref="modalRef"
         role="dialog"
         aria-modal="true"
-        class="real-glass-modal w-full max-w-md rounded-xl p-6 text-foreground"
+        class="more-server-folder-modal real-glass-modal relative w-full max-w-md rounded-xl p-6 text-foreground"
         @click.stop
       >
         <h2 class="text-xl font-bold tracking-tight text-fg">{{ title }}</h2>
@@ -101,7 +101,7 @@ function submitDelete() {
             v-model="name"
             type="text"
             maxlength="48"
-            class="w-full rounded-lg border border-border bg-glass-1 px-3 py-2.5 text-sm text-fg outline-none transition focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+            class="msf-name-input w-full rounded-lg border border-border px-3 py-2.5 text-sm text-fg outline-none transition focus:border-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
             placeholder="e.g. Communities, Work, Favorites"
             @keydown.enter.prevent="submitSave"
           />
@@ -150,6 +150,24 @@ function submitDelete() {
 </template>
 
 <style scoped lang="scss">
+.modal-overlay-bg {
+  background-color: var(--vue-auto-011);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+}
+
+.real-glass-modal {
+  background: var(--echo-modal-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-3);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+}
+
+.msf-name-input {
+  background: var(--echo-modal-bg-muted);
+}
+
 .msf-btn {
   border-radius: 8px;
   padding: 0.45rem 0.85rem;

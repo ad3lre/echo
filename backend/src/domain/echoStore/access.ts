@@ -252,6 +252,8 @@ export type EchoPostMessageDenialReason =
 
 export type EchoServerCapabilities = {
   canManageRoles: boolean;
+  /** Assign/remove member roles (ASSIGN_ROLES or MANAGE_ROLES). */
+  canAssignRoles: boolean;
   canManageServer: boolean;
   canCreateChannel: boolean;
   canModerateMembers: boolean;
@@ -640,7 +642,11 @@ export async function getEchoServerCapabilitiesForUser(
   const canTimeoutMembers = perms.has('MODERATE_MEMBERS');
   const bundleModerate = canKickMembers || canBanMembers || canTimeoutMembers;
   return {
-    canManageRoles: perms.has('MANAGE_ROLES'),
+    canManageRoles: perms.has('MANAGE_ROLES') || perms.has('ADMINISTRATOR'),
+    canAssignRoles:
+      perms.has('ASSIGN_ROLES') ||
+      perms.has('MANAGE_ROLES') ||
+      perms.has('ADMINISTRATOR'),
     canManageServer: perms.has('MANAGE_GUILD'),
     canCreateChannel: !timeoutState.active && perms.has('MANAGE_CHANNELS'),
     canModerateMembers: bundleModerate,

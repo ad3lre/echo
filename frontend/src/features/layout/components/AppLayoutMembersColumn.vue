@@ -58,6 +58,10 @@ const memberListShowGuests = computed(
   () => pick('memberListShowGuests').value ?? false,
 );
 const onUpdateMemberListShowGuests = pick('onUpdateMemberListShowGuests');
+
+function onMemberListShowGuestsUpdate(next: boolean) {
+  onUpdateMemberListShowGuests.value?.(next);
+}
 const memberListUsersForPanel = computed(() =>
   filterMemberListUsersForPanel(memberListUsers.value, {
     showGuests: memberListShowGuests.value,
@@ -312,12 +316,7 @@ const resolvedSearchScopeHint = computed(() => {
       :users="memberListUsersForPanel"
       :show-guests="memberListShowGuests"
       :guest-count="memberListGuestCount"
-      @update:show-guests="
-        (next) => {
-          const fn = onUpdateMemberListShowGuests.value;
-          if (typeof fn === 'function') fn(next);
-        }
-      "
+      @update:show-guests="onMemberListShowGuestsUpdate"
       :server-owner-id="serverOwnerId"
       :presence-mobile-by-user-id="presenceMobileByUserId"
       :discord-online-by-user-id="discordOnlineByUserId"

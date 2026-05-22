@@ -26,6 +26,7 @@ import { emitActiveChannelNavDiagnostic } from '@/features/layout/emitActiveChan
 import { beginChatSwitch } from '@/features/layout/chatSwitchPerfTrace';
 import { isServerEmptyOnboarding as isServerEmptyOnboardingDomain } from '@/services/domain/workspaceShellSelection';
 import { isEchoGraphId } from '@/utils/echoIds';
+import { resolveServerChannelInfoForMainSurface } from '@/features/layout/resolveServerChannelTypeForMainSurface';
 
 type CategoryRow = {
   name: string;
@@ -306,21 +307,21 @@ export function useAppLayoutShellNavigation(
   const mainSurface = computed(() =>
     deriveMainSurface(shellNavState(), {
       isServerEmptyOnboarding: isServerEmptyOnboarding.value,
-      getServerChannelInfo: (channelId: string) => {
-        if (isDmThreadId(channelId)) return null;
-        const ctx = opts.findChannelContextById(channelId);
-        if (!ctx?.channel) return null;
-        const t = ctx.channel.type;
-        if (t === 'voice') return { type: 'voice' as const };
-        if (t === 'forum') return { type: 'forum' as const };
-        return {
-          type: 'text' as const,
-          ...(typeof (ctx.channel as any).parentChannelId === 'string' &&
-          (ctx.channel as any).parentChannelId.trim()
-            ? { parentChannelId: (ctx.channel as any).parentChannelId.trim() }
-            : {}),
-        };
-      },
+      getServerChannelInfo: (channelId: string) =>
+        resolveServerChannelInfoForMainSurface(channelId, (id) => {
+          const ctx = opts.findChannelContextById(id);
+          const ch = ctx?.channel;
+          if (!ch?.type) return null;
+          return {
+            channel: {
+              type: ch.type,
+              ...(typeof ch.parentChannelId === 'string' &&
+              ch.parentChannelId.trim()
+                ? { parentChannelId: ch.parentChannelId.trim() }
+                : {}),
+            },
+          };
+        }),
       isPersistedEchoDmThread: (cid: string) =>
         opts.echoDmThreadIds.value.has(cid),
       selectedMessageRequestId: opts.selectedMessageRequestId.value,

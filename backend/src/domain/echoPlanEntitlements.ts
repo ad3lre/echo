@@ -3,6 +3,7 @@ import {
   ECHO_FREE_PHONE_VERIFIED_UPLOAD_CAP_BYTES,
   ECHO_PLAN_FEATURE_FLAGS,
   ECHO_PLAN_GROUP_DM_MAX_MEMBERS,
+  ECHO_PLAN_IMAGE_SEARCHES_PER_DAY,
   ECHO_PLAN_MAX_JOINED_SERVERS,
   ECHO_PLAN_THEME_TIER,
   ECHO_PLAN_UPLOAD_CAP_BYTES,
@@ -11,6 +12,7 @@ import {
   type EchoPlanLimitsPublic,
 } from '../../../shared/echoPlanLimits';
 import { isPostgresUndefinedColumnError } from '../db/pgErrors';
+import { readUserImageSearchUsage } from '../services/serperUserSearchQuota';
 
 /** Must stay aligned with `ECHO_DM_REALM_SERVER_ID` in `echoStore/dmThreads`. */
 const ECHO_DM_REALM_SERVER_ID = 'echo_dm_realm';
@@ -171,6 +173,11 @@ export async function buildEchoPlanLimitsPublic(
 ): Promise<EchoPlanLimitsPublic> {
   const ent = await getEchoEntitlements(pool, userId);
   const joinedServerCount = await countEchoJoinedServersForUser(pool, userId);
+  const imageSearchesPerDay = ECHO_PLAN_IMAGE_SEARCHES_PER_DAY[ent.plan];
+  const imageUsage = await readUserImageSearchUsage(
+    userId,
+    imageSearchesPerDay,
+  );
   return {
     plan: ent.plan,
     uploadMaxBytes: ent.uploadMaxBytes,
@@ -179,5 +186,7 @@ export async function buildEchoPlanLimitsPublic(
     groupDmMaxMembers: ent.groupDmMaxMembers,
     themeTier: ECHO_PLAN_THEME_TIER[ent.plan],
     features: ECHO_PLAN_FEATURE_FLAGS[ent.plan],
+    imageSearchesPerDay,
+    imageSearchesUsedToday: imageUsage.used,
   };
 }

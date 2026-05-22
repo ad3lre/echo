@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import SettingsDiscordLinkSection from '@/features/settings/components/SettingsDiscordLinkSection.vue';
+import SettingsGoogleLinkSection from '@/features/settings/components/SettingsGoogleLinkSection.vue';
 import SettingsYoutubeLinkSection from '@/features/settings/components/SettingsYoutubeLinkSection.vue';
 import type { SettingsSection } from '@/features/settings/types';
 import { ECHO_PLUS_COMING_SOON, PLAN_TIERS } from '@/features/settings/data';
@@ -30,6 +31,7 @@ const { bugHunterEnabled } = storeToRefs(bugHunter);
 
 const props = defineProps<{
   activeSection: SettingsSection;
+  navigateToSection?: (section: SettingsSection) => void;
   form: any;
   languageOptions: any[];
   timezoneOptions: any[];
@@ -113,7 +115,11 @@ function resetDefaults() {
 
 <template>
   <SettingsDiscordLinkSection v-if="activeSection === 'Discord'" />
-  <SettingsYoutubeLinkSection v-if="activeSection === 'YouTube'" />
+  <SettingsGoogleLinkSection v-else-if="activeSection === 'Google'" />
+  <SettingsYoutubeLinkSection
+    v-else-if="activeSection === 'YouTube'"
+    :navigate-to-section="navigateToSection"
+  />
 
   <div
     v-else-if="activeSection === 'Data & Privacy'"

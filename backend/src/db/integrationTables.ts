@@ -23,6 +23,14 @@ export async function ensureIntegrationTables(pool: Pool): Promise<void> {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS integration_youtube_stream_keys (
+      user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
+      rtmp_url_cipher TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_stage_youtube_broadcasts (
       server_id TEXT NOT NULL,
       channel_id TEXT NOT NULL,

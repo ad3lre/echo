@@ -37,6 +37,11 @@ const sessionReturningUserHint = computed(
 const isMockDataMode = computed(() => !!pick('isMockDataMode').value);
 const echoWorkspaceError = pick('echoWorkspaceError');
 const showWelcomeBackHint = computed(() => !!pick('showWelcomeBackHint').value);
+const welcomeBackHintText = computed(
+  () =>
+    pick('welcomeBackHintText').value ??
+    'Welcome back — log in to restore your workspace.',
+);
 const emailVerificationFlash = pick('emailVerificationFlash');
 const showUnverifiedEmailBanner = computed(
   () => !!pick('showUnverifiedEmailBanner').value,
@@ -412,7 +417,7 @@ const hasVisibleInfoBanner = computed(() => {
       <span
         class="min-h-0 min-w-0 flex-1 text-center text-[11px] leading-snug break-words line-clamp-3 sm:text-left"
       >
-        {{ welcomeBackHintText }}
+        Welcome back — log in to restore your workspace.
       </span>
       <div class="flex shrink-0 flex-wrap items-center justify-center gap-1.5">
         <button

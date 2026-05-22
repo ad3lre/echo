@@ -25,6 +25,8 @@ import {
   parseImportedStickers,
 } from './discordMessageImport';
 import { maybeEnqueueDiscordImportMediaMirror } from './discordImportMediaMirrorQueue';
+import { resolveDiscordSyncedContentMentions } from './translateDiscordSyncedMentions';
+import { filterMentionsForChannelContext } from '../domain/echoStore/mentionContext';
 
 export type DiscordInboundPayload = {
   discordGuildId: string;
@@ -141,7 +143,21 @@ export async function ingestDiscordBridgeMessage(
   const attachments = parseImportedAttachments(payload.attachments);
   const stickers = parseImportedStickers(payload.stickers);
   const embeds = parseImportedEmbeds(payload.embeds);
-  const content = typeof payload.content === 'string' ? payload.content : '';
+  const rawContent = typeof payload.content === 'string' ? payload.content : '';
+  const translated = await resolveDiscordSyncedContentMentions(
+    pool,
+    resolved.serverId,
+    rawContent,
+  );
+  let mentions = translated.mentions;
+  if (mentions?.length) {
+    mentions = await filterMentionsForChannelContext(
+      pool,
+      resolved.echoChannelId,
+      mentions,
+    );
+  }
+  const content = translated.content;
 
   const messageId = nextEchoSnowflakeId();
   let ins: 'inserted' | 'duplicate';
@@ -151,6 +167,7 @@ export async function ingestDiscordBridgeMessage(
       channelId: resolved.echoChannelId,
       authorId: authorUserId,
       content,
+      ...(mentions?.length ? { mentions } : {}),
       ...(attachments ? { attachments } : {}),
       ...(stickers ? { stickers } : {}),
       ...(embeds ? { embeds } : {}),
@@ -208,6 +225,9 @@ export async function ingestDiscordBridgeMessage(
     authorId: row.authorId,
     content: row.content,
     ...(plain ? { contentText: plain } : {}),
+    ...(row.mentions && Array.isArray(row.mentions)
+      ? { mentions: row.mentions as Message['mentions'] }
+      : {}),
     messageFormatVersion: mf,
     contentSchemaVersion: cs,
     timestamp: row.timestamp,

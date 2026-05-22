@@ -301,6 +301,9 @@ const {
   removeSelectedRoleLink,
   setSelectedRoleLinkTwoWay,
   setSelectedRoleMentionable,
+  setSelectedRoleScope,
+  globalRoleCategoryId,
+  reorderRoleCategoriesLocally,
   roleCustomPanelOpen,
   roleHexInput,
   roleRInput,
@@ -920,6 +923,9 @@ async function onModerationPatch(patch: {
                   :remove-selected-role-link="removeSelectedRoleLink"
                   :set-selected-role-link-two-way="setSelectedRoleLinkTwoWay"
                   :set-selected-role-mentionable="setSelectedRoleMentionable"
+                  :set-selected-role-scope="setSelectedRoleScope"
+                  :global-role-category-id="globalRoleCategoryId"
+                  :reorder-role-categories-locally="reorderRoleCategoriesLocally"
                   :on-role-permission-checkbox-change="
                     onRolePermissionCheckboxChange
                   "

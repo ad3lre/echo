@@ -44,6 +44,8 @@ export type EchoEmojiTokenResolveApi = {
   name: string;
   animated: boolean;
   imageUrl: string;
+  assetUrl?: string;
+  sourceDiscordEmojiId?: string;
 };
 
 export async function postEchoResolveEmojiTokens(

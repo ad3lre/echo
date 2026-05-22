@@ -360,15 +360,17 @@ export const useServerStore = defineStore('server', () => {
     );
   }
 
-  function pinMoreServer(server: Server) {
-    if (pinnedMoreServers.value.length >= MAX_STARRED_SERVERS) return;
-    if (pinnedMoreServers.value.some((s) => s.id === server.id)) return;
+  /** Returns false when the starred-server cap is reached or the server is already pinned. */
+  function pinMoreServer(server: Server): boolean {
+    if (pinnedMoreServers.value.length >= MAX_STARRED_SERVERS) return false;
+    if (pinnedMoreServers.value.some((s) => s.id === server.id)) return false;
     const canonical = servers.value.find((s) => s.id === server.id) ?? server;
     pinnedMoreServers.value = [...pinnedMoreServers.value, canonical].slice(
       0,
       MAX_STARRED_SERVERS,
     );
     persistPinnedMoreServers();
+    return true;
   }
 
   function unpinMoreServer(serverId: string) {

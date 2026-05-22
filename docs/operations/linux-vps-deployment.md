@@ -47,6 +47,15 @@ This repo includes a small VPS-oriented runner: [`scripts/vps-serve.mjs`](../../
 - **Stop:** `npm run vps:dev:stop` / `npm run vps:prod:stop`
 - **Follow logs (new terminal window when possible):** `npm run vps:logs` (auto dev/prod), or `npm run vps:dev:logs` / `npm run vps:prod:logs`
 
+### TypeScript preverify (prod)
+
+Before **`npm run prod`** stops API/frontend ports or rebuilds, the repo runs **`npm run preverify:prod`** (`scripts/preverify-prod-typecheck.mjs`): `vue-tsc` on the frontend workspace and `tsc` on backend + bot. If it fails, deploy aborts and the **currently running** stack stays up.
+
+- **`npm run vps:prod`** runs the same check **before** spawning `npm run prod` (logged in `logs/vps/prod.launcher.log`).
+- **`npm run vps:prod:watch`** pulls first, then preverifies, then shows the countdown and restarts (failed typecheck skips restart).
+- **`preprod`** no longer runs `kill-port` on `:3000` / `:4173`; ports are freed only after a successful **`npm run build`**, in **`prod:serve`**.
+- Emergency skip: **`VPS_SKIP_PROD_TYPECHECK=1`** (not recommended on production).
+
 ### In-app 6s restart notice (optional)
 
 Before the runner **stops the stack** (git-watch pull restart or `vps:prod:stop`), it can call the live API to broadcast a **Socket.IO** countdown to every connected client, then **wait 6 seconds** so users see a full-screen “restarting for an update” message.

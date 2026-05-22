@@ -61,7 +61,7 @@ export type AppLayoutModalsProps = {
     bannerBlurEnabled?: boolean;
     bannerBlackoutEnabled?: boolean;
   } | null;
-  onOpenSettingsFromProfileBar: () => void;
+  onOpenSettingsFromProfileBar: (section?: SettingsSection) => void;
   isAuthModalOpen: boolean;
   authModalInitialLoginEntry?: 'social' | 'echo';
   authModalPasskeyOnOpen?: boolean;

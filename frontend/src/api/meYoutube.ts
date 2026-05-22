@@ -26,16 +26,25 @@ function throwIfError(res: Response, data: unknown, operation: string): void {
   });
 }
 
+export type YoutubeConnectionMode = 'none' | 'oauth' | 'stream_key';
+
 export type MeYoutubeProfile = {
   youtubeChannelId: string;
   channelTitle: string;
   channelThumbnailUrl: string | null;
 };
 
+export type MeYoutubeStreamKeyMeta = {
+  savedAt: string;
+};
+
 export type MeYoutubeResponse = {
   configured: boolean;
+  googleLinked: boolean;
+  connectionMode: YoutubeConnectionMode;
   linked: boolean;
   profile: MeYoutubeProfile | null;
+  streamKey: MeYoutubeStreamKeyMeta | null;
 };
 
 export async function fetchMeYoutube(): Promise<MeYoutubeResponse> {
@@ -46,6 +55,40 @@ export async function fetchMeYoutube(): Promise<MeYoutubeResponse> {
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'GET /api/v1/me/youtube');
   return data as MeYoutubeResponse;
+}
+
+export async function saveMeYoutubeStreamKey(body: {
+  streamKey?: string;
+  serverUrl?: string;
+  rtmpUrl?: string;
+}): Promise<{ ok: boolean; streamKey: MeYoutubeStreamKeyMeta }> {
+  const res = await fetch(`${API_ROOT}/me/youtube/stream-key`, {
+    method: 'PUT',
+    headers: {
+      ...echoCsrfHeaders(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  const data = (await parseJson(res)) as Record<string, unknown>;
+  throwIfError(res, data, 'PUT /api/v1/me/youtube/stream-key');
+  const sk = data.streamKey as MeYoutubeStreamKeyMeta | undefined;
+  return {
+    ok: true,
+    streamKey: sk ?? { savedAt: new Date().toISOString() },
+  };
+}
+
+export async function revokeMeYoutubeStreamKey(): Promise<void> {
+  const res = await fetch(`${API_ROOT}/me/youtube/stream-key`, {
+    method: 'DELETE',
+    headers: echoCsrfHeaders(),
+    credentials: 'include',
+  });
+  if (res.status === 204 || res.ok) return;
+  const data = (await parseJson(res)) as Record<string, unknown>;
+  throwIfError(res, data, 'DELETE /api/v1/me/youtube/stream-key');
 }
 
 export async function unlinkMeYoutube(): Promise<void> {

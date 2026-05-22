@@ -1,0 +1,3 @@
+Contact: mailto:support@app-echo.net
+Preferred-Languages: en
+Canonical: https://app-echo.net/.well-known/security.txt

@@ -193,6 +193,7 @@ export {
 
 export {
   canAssignEchoMemberRoles,
+  canManageEchoRolesCatalog,
   ECHO_PERMISSIONS,
   getEffectiveChannelPermissions,
   getMergedRolePermissions,
@@ -244,6 +245,7 @@ export {
   reconcileEveryoneRoleHierarchyPosition,
   removeEchoMemberRole,
   replaceEchoServerRoleOrder,
+  replaceEchoRoleOrderInCategory,
   updateEchoRole,
   updateEchoRolePermissions,
   withoutEchoAuthorityAssignments,

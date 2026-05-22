@@ -1,11 +1,27 @@
 ---
 import MarketingShell from '../layouts/MarketingShell.astro';
+import { pageStructuredData } from '../lib/seo';
 
 const title = 'Attributions | Echo';
 const description = 'Credits and licenses for third-party assets and libraries used in Echo.';
+
+const structuredData = pageStructuredData({
+  title,
+  description,
+  path: '/attributions',
+  breadcrumbs: [
+    { name: 'Home', path: '/' },
+    { name: 'Attributions', path: '/attributions' },
+  ],
+});
 ---
 
-<MarketingShell title={title} description={description} canonicalPath="/attributions">
+<MarketingShell
+  title={title}
+  description={description}
+  canonicalPath="/attributions"
+  structuredData={structuredData}
+>
   <main id="main" class="legal-page">
     <div class="container">
       <article class="legal-content">

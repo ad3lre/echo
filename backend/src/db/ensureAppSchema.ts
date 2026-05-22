@@ -3,6 +3,7 @@ import { ensureAuthTables } from './authTables';
 import { ensureEchoTables } from './echoTables';
 import { ensureBotTables } from './botTables';
 import { ensureIntegrationTables } from './integrationTables';
+import { ensureSerperImageSearchCacheTables } from './serperImageSearchCacheTables';
 
 let inflight: Promise<void> | null = null;
 
@@ -17,6 +18,7 @@ export async function ensureAppSchema(pool: Pool): Promise<void> {
       await ensureEchoTables(pool);
       await ensureIntegrationTables(pool);
       await ensureBotTables(pool);
+      await ensureSerperImageSearchCacheTables(pool);
     })();
     inflight = run.catch((err) => {
       inflight = null;

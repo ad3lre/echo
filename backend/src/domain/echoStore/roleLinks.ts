@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
 import {
-  canAssignEchoMemberRoles,
+  canManageEchoRolesCatalog,
   getMergedRolePermissions,
 } from './permissions';
 import { getMemberTopRolePosition, isEchoServerOwner } from './access';
@@ -115,7 +115,7 @@ export async function replaceEchoRoleLinksFromAnchor(
   links: { linkedRoleId: string; twoWay: boolean }[],
 ): Promise<ReplaceEchoRoleLinksResult> {
   const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
-  if (!canAssignEchoMemberRoles(actorPerms)) return 'forbidden';
+  if (!canManageEchoRolesCatalog(actorPerms)) return 'forbidden';
 
   const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
   const actorTop = actorIsOwner

@@ -9,6 +9,7 @@ export const SETTINGS_SECTION_NAV_ICON: Record<SettingsSection, string> = {
   'Terms & policies': icons.globe,
   'Formatting guide': icons.messageAlt,
   Discord: icons.community,
+  Google: icons.globe,
   YouTube: icons.youtube,
   'Log out': icons.logOut,
   'Data & Privacy': icons.list,

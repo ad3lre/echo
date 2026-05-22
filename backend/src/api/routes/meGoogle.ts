@@ -12,6 +12,10 @@ import {
   deleteGoogleUserLink,
   getGoogleLinkByUserId,
 } from '../../domain/googleUserLinkRepo';
+import { isGoogleOauthConfigured } from '../../domain/googleOAuthRedirect';
+import { deleteYoutubeChannelLink } from '../../domain/youtubeUserLinkRepo';
+import { deleteYoutubeStreamKey } from '../../domain/youtubeStreamKeyRepo';
+import { stopAllActiveStageYoutubeStreamsForLinkUser } from '../../services/stage/stageYoutubeStream';
 
 export default async function meGoogleRoutes(
   fastify: FastifyInstance,
@@ -38,12 +42,16 @@ export default async function meGoogleRoutes(
 
       const row = await getGoogleLinkByUserId(pool, req.authUser.id);
       if (!row) {
-        return reply.code(200).send({ linked: false });
+        return reply.code(200).send({
+          linked: false,
+          configured: isGoogleOauthConfigured(),
+        });
       }
 
       const p = row.googleNormalized;
       return reply.code(200).send({
         linked: true,
+        configured: isGoogleOauthConfigured(),
         mergeKind: row.mergeKind,
         profile: {
           googleSub: row.googleSub,
@@ -73,6 +81,10 @@ export default async function meGoogleRoutes(
       const pool = getPgPool();
       if (!pool)
         return sendError(reply, 503, 'NOT_AVAILABLE', 'Database unavailable.');
+
+      await stopAllActiveStageYoutubeStreamsForLinkUser(pool, req.authUser.id);
+      await deleteYoutubeChannelLink(pool, req.authUser.id);
+      await deleteYoutubeStreamKey(pool, req.authUser.id);
 
       const deleted = await deleteGoogleUserLink(pool, req.authUser.id);
       if (!deleted) {

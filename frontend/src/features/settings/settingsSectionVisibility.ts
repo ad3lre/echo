@@ -14,9 +14,5 @@ export function isSettingsSectionVisibleForUser(
   if (section === 'Subscriptions') {
     return user?.hasActiveSubscription === true;
   }
-  // Stage YouTube linking — hidden until the personal-settings flow is ready to ship.
-  if (section === 'YouTube') {
-    return false;
-  }
   return true;
 }

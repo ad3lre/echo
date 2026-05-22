@@ -101,4 +101,25 @@ describe('useMarkdown parse cache', () => {
     expect(out).toContain('class="emoji custom-emoji"');
     expect(out).toContain('src="https://cdn.test/party_blob.webp"');
   });
+
+  it('re-parses when resolver cache version bumps (async emoji resolve)', () => {
+    const input = 'hey <:wave:304238867010606080>';
+    const resolversV0: IdTokenResolvers = {
+      _cacheVersion: 0,
+      customEmojiImageUrl: () => undefined,
+    };
+    const first = parseMessageContent(input, undefined, resolversV0);
+    expect(first).toContain('mention--custom-emoji');
+
+    const resolversV1: IdTokenResolvers = {
+      _cacheVersion: 1,
+      customEmojiImageUrl: (id) =>
+        id === '304238867010606080'
+          ? '/api/v1/echo/emoji/304238867010606080/asset'
+          : undefined,
+    };
+    const second = parseMessageContent(input, undefined, resolversV1);
+    expect(second).toContain('class="emoji custom-emoji"');
+    expect(second).toContain('/api/v1/echo/emoji/304238867010606080/asset');
+  });
 });

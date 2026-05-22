@@ -8,6 +8,7 @@ function isPgUniqueViolation(err: unknown): boolean {
   );
 }
 import { nextEchoSnowflakeId } from '../echoSnowflake';
+import { clientImageUrlForResolvedEmoji } from '../../services/echoEmojiAsset';
 import { mediaUrlPassesEchoPolicy } from '../../services/mediaUrlPolicy';
 import { twemoji72UrlForGlyph } from '../../services/twemojiAssetUrl';
 import { getMergedRolePermissions } from './permissions';
@@ -223,6 +224,10 @@ export type EchoEmojiTokenResolveDto = {
   name: string;
   animated: boolean;
   imageUrl: string;
+  /** Cross-guild proxy path when bytes live under `echo/emoji/{serverId}/…`. */
+  assetUrl?: string;
+  /** Original Discord emoji snowflake when imported. */
+  sourceDiscordEmojiId?: string;
 };
 
 export async function resolveEchoEmojiTokens(
@@ -259,30 +264,32 @@ export async function resolveEchoEmojiTokens(
   const want = new Set(cleaned);
   const out: EchoEmojiTokenResolveDto[] = [];
   const usedKeys = new Set<string>();
-  for (const row of res.rows) {
-    const imageUrl = row.image_url?.trim() ?? '';
-    if (!imageUrl) continue;
 
+  const pushResolve = (key: string, row: (typeof res.rows)[0]) => {
+    const stored = row.image_url?.trim() ?? '';
+    if (!stored) return;
+    const { imageUrl, assetUrl } = clientImageUrlForResolvedEmoji(row.id, stored);
+    const discordSource = row.discord_source_emoji_id?.trim() ?? '';
+    out.push({
+      key,
+      id: row.id,
+      name: row.name,
+      animated: row.animated,
+      imageUrl,
+      ...(assetUrl ? { assetUrl } : {}),
+      ...(discordSource ? { sourceDiscordEmojiId: discordSource } : {}),
+    });
+  };
+
+  for (const row of res.rows) {
     if (want.has(row.id) && !usedKeys.has(row.id)) {
       usedKeys.add(row.id);
-      out.push({
-        key: row.id,
-        id: row.id,
-        name: row.name,
-        animated: row.animated,
-        imageUrl,
-      });
+      pushResolve(row.id, row);
     }
     const d = row.discord_source_emoji_id?.trim() ?? '';
     if (d && want.has(d) && !usedKeys.has(d)) {
       usedKeys.add(d);
-      out.push({
-        key: d,
-        id: row.id,
-        name: row.name,
-        animated: row.animated,
-        imageUrl,
-      });
+      pushResolve(d, row);
     }
   }
   return out;

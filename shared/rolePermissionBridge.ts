@@ -7,8 +7,12 @@
 
 import type { ChannelPermissionKey } from './types/channel';
 import { DISCORD_ECHO_PERMISSION_STRINGS } from './discordEchoPermissions';
+import { ECHO_EXTENDED_PERMISSION_STRINGS } from './echoExtendedPermissions';
 
-export const ECHO_API_PERMISSIONS = DISCORD_ECHO_PERMISSION_STRINGS;
+export const ECHO_API_PERMISSIONS = [
+  ...DISCORD_ECHO_PERMISSION_STRINGS,
+  ...ECHO_EXTENDED_PERMISSION_STRINGS,
+] as const;
 
 export type EchoApiPermission = (typeof ECHO_API_PERMISSIONS)[number];
 
@@ -26,6 +30,7 @@ const UI_TO_ECHO: Record<string, EchoApiPermission | EchoApiPermission[]> = {
   createInvite: 'CREATE_INSTANT_INVITE',
   manageMessages: 'MANAGE_MESSAGES',
   manageRoles: 'MANAGE_ROLES',
+  assignRoles: 'ASSIGN_ROLES',
   manageServer: 'MANAGE_GUILD',
   kickMembers: 'KICK_MEMBERS',
   banMembers: 'BAN_MEMBERS',
@@ -101,6 +106,8 @@ export function roleUiPermissionsFromEchoStrings(
     createInvite: has('CREATE_INSTANT_INVITE') || has('CREATE_INVITE'),
     manageMessages: has('MANAGE_MESSAGES'),
     manageRoles: has('MANAGE_ROLES'),
+    assignRoles:
+      has('ASSIGN_ROLES') || has('MANAGE_ROLES') || has('ADMINISTRATOR'),
     manageServer: has('MANAGE_GUILD') || has('MANAGE_SERVER'),
     kickMembers: has('KICK_MEMBERS'),
     banMembers: has('BAN_MEMBERS'),

@@ -175,30 +175,40 @@ interface AppConfig {
   readonly useMockDb: boolean;
   readonly giphyApiKey: string;
   /**
-   * Google Programmable Search API key for `/api/v1/image-search` (composer Images tab).
-   * Pair with `googleCseCx`. https://developers.google.com/custom-search/v1/overview
+   * Serper.dev API key for `/api/v1/image-search` (composer Images tab).
+   * https://serper.dev
    */
-  readonly googleCseApiKey: string;
-  /** Programmable Search Engine id (`cx` query param). */
-  readonly googleCseCx: string;
+  readonly serperApiKey: string;
   /** Query used when the client opens image browse with an empty search box. */
-  readonly googleCseDefaultQuery: string;
-  /**
-   * When true, each `/image-search` call requests two CSE pages (20 images) but uses 2× API quota.
-   * Set via `GOOGLE_CSE_IMAGE_PAGES=2`.
-   */
-  readonly googleCseImageSecondPage: boolean;
+  readonly serperDefaultQuery: string;
+  /** Number of image results per Serper page (1–100). Default 20. */
+  readonly serperImageNum: number;
+  /** Max Serper page index (1-based). Default 4 = initial 20 + up to 3 scroll loads. */
+  readonly serperImageMaxPage: number;
   /** In-process cache TTL for image search JSON (ms). Default 10 minutes. */
-  readonly googleCseCacheTtlMs: number;
+  readonly serperCacheTtlMs: number;
   /** Max cached queries (LRU). Default 200. */
-  readonly googleCseCacheMaxEntries: number;
+  readonly serperCacheMaxEntries: number;
   /** Per-IP requests/minute to `/image-search` (before upstream; cache hits count). Default 10. */
-  readonly googleCseRateLimitPerMinute: number;
+  readonly serperRateLimitPerMinute: number;
   /**
-   * Max Google CSE API calls per IP per UTC day (cache misses only; 2 if second page enabled).
+   * Max Serper image API calls per IP per UTC day (cache misses only).
    * Default 180. Set to 0 to disable the daily cap.
    */
-  readonly googleCseUpstreamMaxPerDayPerIp: number;
+  readonly serperUpstreamMaxPerDayPerIp: number;
+  /** L2 cache freshness window (days) before async refresh. Default 90. */
+  readonly serperCacheRefreshDays: number;
+  /** Max merged image rows stored per cache entry. Default 60. */
+  readonly serperCacheMaxResults: number;
+  /** Global Serper upstream calls per UTC day (0 = unlimited). Default 500. */
+  readonly serperGlobalMaxPerDay: number;
+  /** Global Serper upstream calls per UTC month (0 = unlimited). Default 10000. */
+  readonly serperGlobalMaxPerMonth: number;
+  /**
+   * Stop async stale refresh after this many consecutive failures (0 = backoff only).
+   * Default 0 (disabled).
+   */
+  readonly serperRefreshFailureMaxCount: number;
   /**
    * YouTube Data API v3 key for VC “Watch together” search (`GET …/youtube/search`).
    * When unset, search uses public Invidious-compatible instances (best-effort).
@@ -993,31 +1003,69 @@ export const config: AppConfig = {
   natsUrl: process.env.NATS_URL ?? null,
   useMockDb: storage.backendStorageMode === 'memory',
   giphyApiKey: process.env.GIPHY_API_KEY ?? '',
-  googleCseApiKey: process.env.GOOGLE_CSE_API_KEY ?? '',
-  googleCseCx: process.env.GOOGLE_CSE_CX ?? '',
-  googleCseDefaultQuery:
-    process.env.GOOGLE_CSE_DEFAULT_QUERY?.trim() || 'photography',
-  googleCseImageSecondPage: process.env.GOOGLE_CSE_IMAGE_PAGES?.trim() === '2',
-  googleCseCacheTtlMs: (() => {
-    const raw = process.env.GOOGLE_CSE_CACHE_TTL_MS?.trim();
+  serperApiKey: process.env.SERPER_API_KEY?.trim() ?? '',
+  serperDefaultQuery:
+    process.env.SERPER_DEFAULT_QUERY?.trim() || 'photography',
+  serperImageNum: (() => {
+    const raw = process.env.SERPER_IMAGE_NUM?.trim();
+    const n = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(n)) return 20;
+    return Math.min(100, Math.max(1, Math.floor(n)));
+  })(),
+  serperImageMaxPage: (() => {
+    const raw = process.env.SERPER_IMAGE_MAX_PAGE?.trim();
+    const n = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(n)) return 4;
+    return Math.min(10, Math.max(1, Math.floor(n)));
+  })(),
+  serperCacheTtlMs: (() => {
+    const raw = process.env.SERPER_CACHE_TTL_MS?.trim();
     const n = raw ? Number(raw) : NaN;
     return Number.isFinite(n) && n >= 5_000 ? Math.floor(n) : 600_000;
   })(),
-  googleCseCacheMaxEntries: (() => {
-    const raw = process.env.GOOGLE_CSE_CACHE_MAX_ENTRIES?.trim();
+  serperCacheMaxEntries: (() => {
+    const raw = process.env.SERPER_CACHE_MAX_ENTRIES?.trim();
     const n = raw ? Number(raw) : NaN;
     return Number.isFinite(n) && n >= 16 ? Math.floor(n) : 200;
   })(),
-  googleCseRateLimitPerMinute: (() => {
-    const raw = process.env.GOOGLE_CSE_RATE_LIMIT_PER_MINUTE?.trim();
+  serperRateLimitPerMinute: (() => {
+    const raw = process.env.SERPER_RATE_LIMIT_PER_MINUTE?.trim();
     const n = raw ? Number(raw) : NaN;
     return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 10;
   })(),
-  googleCseUpstreamMaxPerDayPerIp: (() => {
-    const raw = process.env.GOOGLE_CSE_UPSTREAM_MAX_PER_DAY_PER_IP?.trim();
+  serperUpstreamMaxPerDayPerIp: (() => {
+    const raw = process.env.SERPER_UPSTREAM_MAX_PER_DAY_PER_IP?.trim();
     const n = raw ? Number(raw) : NaN;
     if (raw === '0') return 0;
     return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 180;
+  })(),
+  serperCacheRefreshDays: (() => {
+    const raw = process.env.SERPER_CACHE_REFRESH_DAYS?.trim();
+    const n = raw ? Number(raw) : NaN;
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 90;
+  })(),
+  serperCacheMaxResults: (() => {
+    const raw = process.env.SERPER_CACHE_MAX_RESULTS?.trim();
+    const n = raw ? Number(raw) : NaN;
+    return Number.isFinite(n) && n >= 8 ? Math.floor(n) : 60;
+  })(),
+  serperGlobalMaxPerDay: (() => {
+    const raw = process.env.SERPER_GLOBAL_MAX_PER_DAY?.trim();
+    const n = raw ? Number(raw) : NaN;
+    if (raw === '0') return 0;
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 500;
+  })(),
+  serperGlobalMaxPerMonth: (() => {
+    const raw = process.env.SERPER_GLOBAL_MAX_PER_MONTH?.trim();
+    const n = raw ? Number(raw) : NaN;
+    if (raw === '0') return 0;
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 10_000;
+  })(),
+  serperRefreshFailureMaxCount: (() => {
+    const raw = process.env.SERPER_REFRESH_FAILURE_MAX_COUNT?.trim();
+    const n = raw ? Number(raw) : NaN;
+    if (raw === '0') return 0;
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 0;
   })(),
   youtubeDataApiKey: process.env.YOUTUBE_DATA_API_KEY?.trim() ?? '',
   youtubeInvidiousHosts: (() => {

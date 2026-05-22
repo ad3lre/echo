@@ -16,7 +16,14 @@ import MoreServerFolderModal from '@/components/MoreServerFolderModal.vue';
 import MoreServerCompactHoverPreview from '@/components/MoreServerCompactHoverPreview.vue';
 import { useMoreServerCompactHoverPreview } from '@/composables/useMoreServerCompactHoverPreview';
 import { useServerStore } from '@/stores/server';
+import { MAX_STARRED_SERVERS } from '@/utils/serverRailReorder';
+import { showStarredServerLimitAlert } from '@/utils/serverRailPinFeedback';
 import { visibleFolderServerIds } from '@/utils/moreServerFoldersPersistence';
+import { icons } from '@/assets/icons';
+import iconFolder from '@/assets/icons/folder.svg?url';
+
+const menuItemIconClass =
+  'echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert';
 
 type WidgetFolderContextMenu =
   | { target: 'server'; serverId: string; left: number; top: number }
@@ -58,6 +65,7 @@ const {
   setFolderExpandedInCompact,
   toggleFolderExpandedInCompact,
   isFolderCollapsedInCard,
+  setFolderCollapsedInCard,
   toggleFolderCollapsedInCard,
 } = useMoreServerFolders();
 
@@ -195,6 +203,24 @@ const ungroupedServers = computed(() =>
   sortedServers.value.filter((s) => !idsInAnyFolder.value.has(s.id)),
 );
 
+const otherServersSearchQuery = ref('');
+
+const normalizedOtherServersSearch = computed(() =>
+  otherServersSearchQuery.value.trim().toLowerCase(),
+);
+
+const filteredUngroupedServers = computed(() => {
+  const q = normalizedOtherServersSearch.value;
+  if (!q) return ungroupedServers.value;
+  return ungroupedServers.value.filter((s) =>
+    s.name.toLowerCase().includes(q),
+  );
+});
+
+const showOtherServersSearch = computed(
+  () => ungroupedServers.value.length > 0,
+);
+
 const foldersWithServers = computed(() =>
   folders.value.map((folder) => ({
     folder,
@@ -203,6 +229,14 @@ const foldersWithServers = computed(() =>
       .filter((x): x is MoreServersMockServer => !!x),
   })),
 );
+
+const FOLDER_ICON_PEEK_MAX = 3;
+
+function folderPeekServers(
+  servers: MoreServersMockServer[],
+): MoreServersMockServer[] {
+  return servers.slice(0, FOLDER_ICON_PEEK_MAX);
+}
 
 type CardStackItem =
   | {
@@ -249,12 +283,13 @@ const cardStack = computed((): CardStackItem[] => {
   }
   let ungroupedIndex = 0;
   if (
-    ungroupedServers.value.length > 0 &&
+    (ungroupedServers.value.length > 0 ||
+      normalizedOtherServersSearch.value.length > 0) &&
     foldersWithServers.value.length > 0
   ) {
     out.push({ type: 'ungroupedLabel', key: 'ungrouped-label' });
   }
-  for (const server of ungroupedServers.value) {
+  for (const server of filteredUngroupedServers.value) {
     out.push({
       type: 'server',
       key: `u-${server.id}`,
@@ -290,11 +325,15 @@ const compactRows = computed((): CompactRow[] => {
       folderOrderIndex: folderOrderIndex++,
     });
   }
-  if (ungroupedServers.value.length > 0 && folders.value.length > 0) {
+  if (
+    (ungroupedServers.value.length > 0 ||
+      normalizedOtherServersSearch.value.length > 0) &&
+    folders.value.length > 0
+  ) {
     rows.push({ kind: 'ungroupedLabel' });
   }
   let ungroupedIndex = 0;
-  for (const server of ungroupedServers.value) {
+  for (const server of filteredUngroupedServers.value) {
     rows.push({ kind: 'server', server, ungroupedIndex: ungroupedIndex++ });
   }
   return rows;
@@ -478,13 +517,21 @@ function isPinned(id: string) {
 function togglePin(server: MoreServersMockServer) {
   if (isPinned(server.id)) {
     emit('unpin-server', server.id);
-  } else {
-    emit('pin-server', {
-      id: server.id,
-      name: server.name,
-      imageUrl: server.icon,
-    });
+    openMenuId.value = null;
+    return;
   }
+  if (serverStore.pinnedMoreServers.length >= MAX_STARRED_SERVERS) {
+    openMenuId.value = null;
+    cardMenuPosition.value = null;
+    void showStarredServerLimitAlert();
+    return;
+  }
+  emit('pin-server', {
+    id: server.id,
+    name: server.name,
+    imageUrl: server.icon,
+  });
+  openMenuId.value = null;
 }
 
 function toggleMenu(id: string) {
@@ -540,6 +587,21 @@ function onCardServerDragStart(server: MoreServersMockServer, e: DragEvent) {
     return;
   }
   onServerDragStart(server.id, e);
+}
+
+/** Expand collapsed folder headers while dragging an ungrouped server over them. */
+function onFolderDragOverCard(folderId: string, index: number, e: DragEvent) {
+  if (draggingServerId.value && isFolderCollapsedInCard(folderId)) {
+    setFolderCollapsedInCard(folderId, false);
+  }
+  onFolderDragOver(folderId, index, e);
+}
+
+function onFolderDragOverCompact(folderId: string, index: number, e: DragEvent) {
+  if (draggingServerId.value && !isFolderExpandedInCompact(folderId)) {
+    setFolderExpandedInCompact(folderId, true);
+  }
+  onFolderDragOver(folderId, index, e);
 }
 
 function compactFolderDropRing(
@@ -619,71 +681,54 @@ function compactFolderDropRing(
           </button>
         </div>
 
-        <div class="flex shrink-0 flex-col gap-1 px-3 pb-3">
+        <div class="flex shrink-0 items-center gap-1 px-3 pb-2">
           <button
             type="button"
-            class="view-tab view-tab--active"
-            @click="emit('set-compact', false)"
+            class="view-tab-icon"
+            title="Switch to compact view"
+            aria-label="Switch to compact view"
+            @click="emit('set-compact', true)"
           >
             <svg
-              class="h-3.5 w-3.5 shrink-0"
+              class="h-3.5 w-3.5"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="6" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="12" cy="18" r="2" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="view-tab-icon"
+            :class="props.pinned ? 'view-tab-icon--active' : ''"
+            :title="props.pinned ? 'Unpin panel' : 'Keep panel open'"
+            :aria-label="props.pinned ? 'Unpin panel' : 'Keep panel open'"
+            @click="emit('toggle-pinned')"
+          >
+            <svg
+              class="h-3.5 w-3.5"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               stroke-width="2"
               aria-hidden="true"
             >
-              <rect x="4" y="5" width="16" height="14" rx="2.5" />
-              <line x1="4" y1="11" x2="20" y2="11" />
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
             </svg>
-            <span>Full Size</span>
           </button>
-          <div class="flex items-stretch gap-1">
-            <button
-              type="button"
-              class="view-tab flex-1"
-              @click="emit('set-compact', true)"
-            >
-              <svg
-                class="h-3.5 w-3.5 shrink-0"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="6" r="2" />
-                <circle cx="12" cy="12" r="2" />
-                <circle cx="12" cy="18" r="2" />
-              </svg>
-              <span>Compact</span>
-            </button>
-            <button
-              type="button"
-              class="view-tab-pin"
-              :class="props.pinned ? 'view-tab-pin--active' : ''"
-              :title="props.pinned ? 'Unpin panel' : 'Keep panel open'"
-              @click="emit('toggle-pinned')"
-            >
-              <svg
-                class="h-3.5 w-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <rect x="5" y="11" width="14" height="10" rx="2" />
-                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-              </svg>
-            </button>
-          </div>
           <button
             type="button"
-            class="view-tab w-full justify-center text-[11px] font-semibold"
-            title="Create a compact-style folder for organising overflow servers"
+            class="view-tab-icon"
+            title="New widget folder"
+            aria-label="New widget folder"
             @click="onCreateWidgetFolder"
           >
             <svg
-              class="h-3.5 w-3.5 shrink-0"
+              class="h-3.5 w-3.5"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -701,8 +746,48 @@ function compactFolderDropRing(
                 d="M12 11v6M9 14h6"
               />
             </svg>
-            <span>New widget folder</span>
           </button>
+        </div>
+
+        <div v-if="showOtherServersSearch" class="shrink-0 px-3 pb-2">
+          <label class="sr-only" for="more-servers-other-search"
+            >Search other servers</label
+          >
+          <div class="other-servers-search">
+            <img
+              :src="icons.search"
+              alt=""
+              class="other-servers-search__icon h-3.5 w-3.5 shrink-0 opacity-70 filter invert"
+              aria-hidden="true"
+            />
+            <input
+              id="more-servers-other-search"
+              v-model="otherServersSearchQuery"
+              type="search"
+              class="other-servers-search__input"
+              placeholder="Search other servers…"
+              autocomplete="off"
+            />
+            <button
+              v-if="normalizedOtherServersSearch"
+              type="button"
+              class="other-servers-search__clear"
+              aria-label="Clear search"
+              @click="otherServersSearchQuery = ''"
+            >
+              <svg
+                class="h-3 w-3"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                aria-hidden="true"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div class="h-px w-full shrink-0 bg-glass-1" />
@@ -805,27 +890,43 @@ function compactFolderDropRing(
         @click="onPanelBackgroundClick"
       >
         <div class="flex flex-col gap-2">
+          <p
+            v-if="
+              foldersWithServers.length === 0 &&
+              normalizedOtherServersSearch &&
+              filteredUngroupedServers.length === 0
+            "
+            class="rounded-lg border border-dashed border-[color-mix(in_srgb,var(--border)_40%,transparent)] px-3 py-4 text-center text-[11px] text-fg-subtle"
+          >
+            No servers match “{{ otherServersSearchQuery.trim() }}”.
+          </p>
           <template v-for="item in cardStack" :key="item.key">
             <div
               v-if="item.type === 'folderLabel'"
-              class="widget-folder-card-rail relative mt-2 flex flex-wrap items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors"
+              data-ms-drop="folder"
+              :data-ms-drop-folder="item.folder.id"
+              data-ms-drop-index="0"
+              class="widget-folder-card-rail group relative mt-3 overflow-hidden rounded-xl border transition-all duration-200"
               :class="[
                 draggingFolderId === item.folder.id ? 'opacity-60' : '',
+                draggingServerId ? 'min-h-[3rem]' : '',
                 isDropTargetActive({
                   kind: 'folder-order',
                   index: item.folderOrderIndex,
                 })
-                  ? 'border-sky-400/70 bg-sky-500/10'
+                  ? 'widget-folder-card-rail--drop-order'
                   : isDropTargetActive({
                         kind: 'folder',
                         folderId: item.folder.id,
                         index: 0,
                       })
-                    ? 'border-emerald-400/50 bg-emerald-500/8'
-                    : 'border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-[color-mix(in_srgb,var(--surface)_70%,transparent)]',
+                    ? 'widget-folder-card-rail--drop-in'
+                    : draggingServerId
+                      ? 'widget-folder-card-rail--drop-hint'
+                      : '',
               ]"
               @dragover.prevent="
-                onFolderDragOver(item.folder.id, 0, $event);
+                onFolderDragOverCard(item.folder.id, 0, $event);
                 onFolderOrderDragOver(item.folderOrderIndex, $event);
               "
               @drop.prevent="onDrop"
@@ -833,70 +934,89 @@ function compactFolderDropRing(
                 openFolderContextMenu(item.folder.id, $event)
               "
             >
-              <button
-                type="button"
-                class="widget-folder-chevron"
-                :title="
-                  isFolderCollapsedInCard(item.folder.id)
-                    ? 'Show servers in folder'
-                    : 'Hide servers in folder'
-                "
-                :aria-expanded="
-                  !isFolderCollapsedInCard(item.folder.id) ? 'true' : 'false'
-                "
-                @click.stop="toggleFolderCollapsedInCard(item.folder.id)"
+              <div class="widget-folder-card-rail__shine" aria-hidden="true" />
+              <div class="widget-folder-card-rail__accent" aria-hidden="true" />
+              <div
+                class="widget-folder-card-rail__inner flex min-h-[2.85rem] flex-wrap items-center gap-2 px-2.5 py-2"
               >
-                <svg
-                  class="h-4 w-4 transition-transform"
-                  :class="
+                <button
+                  type="button"
+                  class="widget-folder-chevron"
+                  :title="
                     isFolderCollapsedInCard(item.folder.id)
-                      ? '-rotate-90'
-                      : 'rotate-0'
+                      ? 'Show servers in folder'
+                      : 'Hide servers in folder'
                   "
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  aria-hidden="true"
+                  :aria-expanded="
+                    !isFolderCollapsedInCard(item.folder.id) ? 'true' : 'false'
+                  "
+                  @click.stop="toggleFolderCollapsedInCard(item.folder.id)"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M6 9l6 6 6-6"
-                  />
-                </svg>
-              </button>
-              <span
-                class="widget-folder-drag-handle inline-flex cursor-grab items-center text-fg-subtle active:cursor-grabbing"
-                title="Drag to reorder folders"
-                draggable="true"
-                @dragstart="onFolderDragStart(item.folder.id, $event)"
-                @dragend="onDragEnd"
-                @click.stop
-              >
-                <svg
-                  class="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
+                  <svg
+                    class="h-4 w-4 transition-transform duration-200"
+                    :class="
+                      isFolderCollapsedInCard(item.folder.id)
+                        ? '-rotate-90'
+                        : 'rotate-0'
+                    "
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    aria-hidden="true"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M6 9l6 6 6-6"
+                    />
+                  </svg>
+                </button>
+                <span
+                  class="widget-folder-drag-handle inline-flex cursor-grab items-center text-fg-subtle active:cursor-grabbing"
+                  title="Drag to reorder folders"
+                  draggable="true"
+                  @dragstart="onFolderDragStart(item.folder.id, $event)"
+                  @dragend="onDragEnd"
+                  @click.stop
                 >
-                  <circle cx="9" cy="6" r="1.5" />
-                  <circle cx="15" cy="6" r="1.5" />
-                  <circle cx="9" cy="12" r="1.5" />
-                  <circle cx="15" cy="12" r="1.5" />
-                  <circle cx="9" cy="18" r="1.5" />
-                  <circle cx="15" cy="18" r="1.5" />
-                </svg>
-              </span>
-              <span
-                class="min-w-0 flex-1 truncate text-sm font-semibold text-fg"
-                >{{ item.folder.name }}</span
-              >
-              <span
-                class="rounded-md bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-fg-subtle"
-                >{{ item.folder.serverIds.length }}</span
-              >
-              <div class="flex shrink-0 items-center gap-0.5">
+                  <svg
+                    class="h-4 w-4 opacity-60"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <circle cx="9" cy="6" r="1.5" />
+                    <circle cx="15" cy="6" r="1.5" />
+                    <circle cx="9" cy="12" r="1.5" />
+                    <circle cx="15" cy="12" r="1.5" />
+                    <circle cx="9" cy="18" r="1.5" />
+                    <circle cx="15" cy="18" r="1.5" />
+                  </svg>
+                </span>
+                <div class="widget-folder-card-rail__icon" aria-hidden="true">
+                  <img :src="iconFolder" alt="" class="h-4 w-4 opacity-90" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p
+                    class="widget-folder-card-rail__name truncate text-[13px] font-semibold leading-tight text-fg"
+                  >
+                    {{ item.folder.name }}
+                  </p>
+                  <p
+                    class="widget-folder-card-rail__meta truncate text-[10px] font-medium text-fg-subtle"
+                  >
+                    {{
+                      item.folder.serverIds.length === 1
+                        ? '1 server'
+                        : `${item.folder.serverIds.length} servers`
+                    }}
+                  </p>
+                </div>
+                <span class="widget-folder-card-rail__count">{{
+                  item.folder.serverIds.length
+                }}</span>
+                <div class="flex shrink-0 items-center gap-0.5">
                 <button
                   type="button"
                   class="widget-folder-icon-btn"
@@ -944,11 +1064,14 @@ function compactFolderDropRing(
                     />
                   </svg>
                 </button>
+                </div>
               </div>
             </div>
             <div
               v-else-if="item.type === 'ungroupedLabel'"
-              class="mt-3 flex items-center gap-2 rounded-lg border border-dashed px-2 py-1.5 transition-colors"
+              data-ms-drop="ungrouped"
+              data-ms-drop-index="0"
+              class="mt-3 flex flex-col gap-2 rounded-lg border border-dashed px-2 py-1.5 transition-colors"
               :class="
                 isDropTargetActive({ kind: 'ungrouped', index: 0 })
                   ? 'border-sky-400/60 bg-sky-500/8'
@@ -957,17 +1080,69 @@ function compactFolderDropRing(
               @dragover.prevent="onUngroupedDragOver(0, $event)"
               @drop.prevent="onDrop"
             >
-              <span
-                class="text-[10px] font-bold uppercase tracking-wider text-fg-subtle"
-                >Other servers</span
+              <div class="flex min-w-0 items-center gap-2">
+                <span
+                  class="text-[10px] font-bold uppercase tracking-wider text-fg-subtle"
+                  >Other servers</span
+                >
+                <span
+                  v-if="!draggingServerId"
+                  class="min-w-0 flex-1 truncate text-[10px] text-fg-subtle"
+                  >Drop here to remove from folders</span
+                >
+              </div>
+              <div
+                v-if="draggingServerId && folders.length > 0"
+                class="flex flex-wrap items-center gap-1.5"
+                role="group"
+                aria-label="Drop into widget folder"
               >
-              <span class="text-[10px] text-fg-subtle"
-                >Drop here to remove from folders</span
+                <span class="w-full text-[10px] font-medium text-fg-subtle"
+                  >Drop into folder:</span
+                >
+                <button
+                  v-for="f in folders"
+                  :key="'ungrouped-folder-drop-' + f.id"
+                  type="button"
+                  data-ms-drop="folder"
+                  :data-ms-drop-folder="f.id"
+                  data-ms-drop-index="0"
+                  class="rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors"
+                  :class="
+                    isDropTargetActive({ kind: 'folder', folderId: f.id, index: 0 })
+                      ? 'border-emerald-400/60 bg-emerald-500/12 text-fg'
+                      : 'border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-[color-mix(in_srgb,var(--surface)_65%,transparent)] text-fg-subtle hover:text-fg'
+                  "
+                  @dragover.prevent="onFolderDragOverCard(f.id, 0, $event)"
+                  @drop.prevent="onDrop"
+                >
+                  {{ f.name }}
+                </button>
+              </div>
+              <p
+                v-if="
+                  normalizedOtherServersSearch &&
+                  filteredUngroupedServers.length === 0
+                "
+                class="text-[10px] text-fg-subtle"
               >
+                No other servers match “{{ otherServersSearchQuery.trim() }}”.
+              </p>
             </div>
             <article
               v-else
               class="more-server-card overflow-hidden rounded-xl transition-opacity"
+              :data-ms-drop="
+                item.ungroupedIndex != null ? 'ungrouped' : item.folderId ? 'folder' : undefined
+              "
+              :data-ms-drop-folder="item.folderId"
+              :data-ms-drop-index="
+                item.ungroupedIndex != null
+                  ? String(item.ungroupedIndex)
+                  : item.serverIndexInFolder != null
+                    ? String(item.serverIndexInFolder + 1)
+                    : undefined
+              "
               :class="[
                 item.topSpacer ? 'mt-2' : '',
                 draggingServerId === item.server.id ? 'opacity-50' : '',
@@ -987,7 +1162,7 @@ function compactFolderDropRing(
                 item.ungroupedIndex != null
                   ? onUngroupedDragOver(item.ungroupedIndex, $event)
                   : item.folderId != null && item.serverIndexInFolder != null
-                    ? onFolderDragOver(
+                    ? onFolderDragOverCard(
                         item.folderId,
                         item.serverIndexInFolder + 1,
                         $event,
@@ -1181,7 +1356,9 @@ function compactFolderDropRing(
           >
             <div
               v-if="row.kind === 'ungroupedLabel'"
-              class="mt-2 w-full rounded-md border border-dashed px-1 py-1 text-center transition-colors"
+              data-ms-drop="ungrouped"
+              data-ms-drop-index="0"
+              class="mt-2 w-full rounded-md border border-dashed px-1.5 py-1.5 transition-colors"
               :class="
                 isDropTargetActive({ kind: 'ungrouped', index: 0 })
                   ? 'border-sky-400/60 bg-sky-500/8'
@@ -1194,9 +1371,37 @@ function compactFolderDropRing(
                 class="text-[9px] font-bold uppercase tracking-wide text-fg-subtle"
                 >Other</span
               >
+              <div
+                v-if="draggingServerId && folders.length > 0"
+                class="mt-1.5 flex flex-wrap justify-center gap-1"
+                role="group"
+                aria-label="Drop into widget folder"
+              >
+                <button
+                  v-for="f in folders"
+                  :key="'compact-ungrouped-drop-' + f.id"
+                  type="button"
+                  data-ms-drop="folder"
+                  :data-ms-drop-folder="f.id"
+                  data-ms-drop-index="0"
+                  class="max-w-full truncate rounded border px-1.5 py-0.5 text-[9px] font-semibold transition-colors"
+                  :class="
+                    isDropTargetActive({ kind: 'folder', folderId: f.id, index: 0 })
+                      ? 'border-emerald-400/60 bg-emerald-500/12 text-fg'
+                      : 'border-[color-mix(in_srgb,var(--border)_50%,transparent)] text-fg-subtle'
+                  "
+                  :title="'Drop into ' + f.name"
+                  @dragover.prevent="onFolderDragOverCompact(f.id, 0, $event)"
+                  @drop.prevent="onDrop"
+                >
+                  {{ f.name }}
+                </button>
+              </div>
             </div>
             <div
               v-else-if="row.kind === 'server'"
+              data-ms-drop="ungrouped"
+              :data-ms-drop-index="String(row.ungroupedIndex)"
               class="compact-slot relative flex w-full items-center justify-center transition-opacity"
               :class="[
                 rowIdx === 0 ? 'mt-3' : '',
@@ -1272,7 +1477,10 @@ function compactFolderDropRing(
                 </span>
                 <button
                   type="button"
-                  class="widget-folder-compact-icon compact-circle transition-colors"
+                  data-ms-drop="folder"
+                  :data-ms-drop-folder="row.folder.id"
+                  data-ms-drop-index="0"
+                  class="widget-folder-compact-trigger compact-circle transition-all duration-200"
                   :class="
                     compactFolderDropRing(row.folder.id, row.folderOrderIndex)
                   "
@@ -1294,25 +1502,38 @@ function compactFolderDropRing(
                     openFolderContextMenu(row.folder.id, $event)
                   "
                   @dragover.prevent="
-                    onFolderDragOver(row.folder.id, 0, $event);
+                    onFolderDragOverCompact(row.folder.id, 0, $event);
                     onFolderOrderDragOver(row.folderOrderIndex, $event);
                   "
                   @drop.prevent="onDrop"
                 >
-                  <svg
-                    class="h-[1.15rem] w-[1.15rem] text-fg-subtle"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.75"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
-                    />
-                  </svg>
+                  <div class="widget-folder-compact-trigger__body">
+                    <div
+                      v-if="row.servers.length"
+                      class="widget-folder-compact-stack"
+                      aria-hidden="true"
+                    >
+                      <span
+                        v-for="(peek, si) in folderPeekServers(row.servers)"
+                        :key="peek.id"
+                        class="widget-folder-compact-peek"
+                        :style="{ '--wf-peek': String(si) }"
+                      >
+                        <PausedGifAvatar
+                          :src="serverGuildIconDisplayUrl(peek.icon)"
+                          :alt="''"
+                          img-class="h-full w-full object-cover pointer-events-none"
+                        />
+                      </span>
+                    </div>
+                    <div v-else class="widget-folder-compact-empty">
+                      <img
+                        :src="iconFolder"
+                        alt=""
+                        class="widget-folder-compact-empty__icon"
+                      />
+                    </div>
+                  </div>
                   <span
                     v-if="row.servers.length"
                     class="widget-folder-compact-badge"
@@ -1322,12 +1543,15 @@ function compactFolderDropRing(
               </div>
               <div
                 v-else
-                class="widget-folder-blob w-full transition-colors"
+                data-ms-drop="folder"
+                :data-ms-drop-folder="row.folder.id"
+                data-ms-drop-index="0"
+                class="widget-folder-blob w-full transition-all duration-200"
                 :class="
                   compactFolderDropRing(row.folder.id, row.folderOrderIndex)
                 "
                 @dragover.prevent="
-                  onFolderDragOver(row.folder.id, 0, $event);
+                  onFolderDragOverCompact(row.folder.id, 0, $event);
                   onFolderOrderDragOver(row.folderOrderIndex, $event);
                 "
                 @drop.prevent="onDrop"
@@ -1335,6 +1559,7 @@ function compactFolderDropRing(
                   openFolderContextMenu(row.folder.id, $event)
                 "
               >
+                <div class="widget-folder-blob__glow" aria-hidden="true" />
                 <div class="widget-folder-blob__header">
                   <span
                     class="widget-folder-drag-handle cursor-grab text-fg-subtle active:cursor-grabbing"
@@ -1345,7 +1570,7 @@ function compactFolderDropRing(
                     @click.stop
                   >
                     <svg
-                      class="h-3 w-3"
+                      class="h-3 w-3 opacity-60"
                       viewBox="0 0 24 24"
                       fill="currentColor"
                       aria-hidden="true"
@@ -1358,36 +1583,49 @@ function compactFolderDropRing(
                   </span>
                   <button
                     type="button"
-                    class="widget-folder-compact-icon compact-circle shrink-0"
+                    class="widget-folder-blob__collapse compact-circle shrink-0"
                     :aria-expanded="true"
                     :title="row.folder.name + ' — click to collapse'"
                     @click="toggleFolderExpandedInCompact(row.folder.id)"
                   >
-                    <svg
-                      class="h-[1.15rem] w-[1.15rem] text-fg-subtle"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.75"
+                    <div
+                      v-if="row.servers.length"
+                      class="widget-folder-compact-stack widget-folder-compact-stack--sm"
                       aria-hidden="true"
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
-                      />
-                    </svg>
+                      <span
+                        v-for="(peek, si) in folderPeekServers(row.servers)"
+                        :key="'blob-' + peek.id"
+                        class="widget-folder-compact-peek"
+                        :style="{ '--wf-peek': String(si) }"
+                      >
+                        <PausedGifAvatar
+                          :src="serverGuildIconDisplayUrl(peek.icon)"
+                          :alt="''"
+                          img-class="h-full w-full object-cover pointer-events-none"
+                        />
+                      </span>
+                    </div>
+                    <img
+                      v-else
+                      :src="iconFolder"
+                      alt=""
+                      class="h-4 w-4 opacity-80"
+                    />
                   </button>
                   <p
-                    class="widget-folder-blob__name min-w-0 flex-1 truncate text-center text-[10px] font-semibold text-fg-subtle"
+                    class="widget-folder-blob__name min-w-0 flex-1 truncate text-center text-[10px] font-semibold tracking-wide text-fg"
                     :title="row.folder.name"
                   >
                     {{ row.folder.name }}
                   </p>
+                  <span class="widget-folder-blob__count">{{
+                    row.servers.length
+                  }}</span>
                 </div>
                 <p
                   v-if="!row.servers.length"
-                  class="px-2 pb-2 text-center text-[10px] leading-snug text-fg-subtle"
+                  class="widget-folder-blob__empty px-2 pb-2.5 text-center text-[10px] leading-snug text-fg-subtle"
                 >
                   Empty — drag a server here.
                 </p>
@@ -1406,8 +1644,11 @@ function compactFolderDropRing(
                         ? 'ring-2 ring-emerald-400/35 rounded-full'
                         : '',
                     ]"
+                    data-ms-drop="folder"
+                    :data-ms-drop-folder="row.folder.id"
+                    :data-ms-drop-index="String(si + 1)"
                     @dragover.prevent="
-                      onFolderDragOver(row.folder.id, si + 1, $event)
+                      onFolderDragOverCompact(row.folder.id, si + 1, $event)
                     "
                     @drop.prevent="onDrop"
                   >
@@ -1458,27 +1699,30 @@ function compactFolderDropRing(
       >
         <button
           type="button"
-          class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
           @click="openServerInfo(openMenuServer.id)"
         >
+          <img :src="icons.community" alt="" :class="menuItemIconClass" />
           View server info
         </button>
         <button
           v-if="props.canOpenInviteForServer?.(openMenuServer.id) ?? false"
           type="button"
-          class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
           @click="inviteServer(openMenuServer.id)"
         >
+          <img :src="icons.friendAdd" alt="" :class="menuItemIconClass" />
           Invite people
         </button>
         <button
           type="button"
-          class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
           @click="togglePin(openMenuServer)"
         >
+          <img :src="icons.thumbtack" alt="" :class="menuItemIconClass" />
           {{ isPinned(openMenuServer.id) ? 'Remove from rail' : 'Pin to rail' }}
         </button>
         <div class="my-1 h-px bg-glass-2" role="separator" />
@@ -1490,37 +1734,41 @@ function compactFolderDropRing(
         <button
           v-if="folderForServer(openMenuServer.id)"
           type="button"
-          class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
           @click="assignServerToFolder(openMenuServer.id, null)"
         >
+          <img :src="icons.arrowLeft" alt="" :class="menuItemIconClass" />
           Remove from folder
         </button>
         <button
           v-for="f in folders"
           :key="'card-fm-' + f.id"
           type="button"
-          class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
           @click="assignServerToFolder(openMenuServer.id, f.id)"
         >
+          <img :src="iconFolder" alt="" :class="menuItemIconClass" />
           Move to “{{ f.name }}”
         </button>
         <button
           type="button"
-          class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
           @click="newFolderWithServer(openMenuServer.id)"
         >
+          <img :src="icons.plus" alt="" :class="menuItemIconClass" />
           New folder with this server…
         </button>
         <div class="my-1 h-px bg-glass-2" role="separator" />
         <button
           type="button"
-          class="echo-menu-item echo-menu-item--destructive flex w-full px-3 py-2 text-left text-sm"
+          class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
           @click="onLeaveServer(openMenuServer.id)"
         >
+          <img :src="icons.logOut" alt="" :class="menuItemIconClass" />
           Leave server
         </button>
       </div>
@@ -1540,35 +1788,39 @@ function compactFolderDropRing(
           </div>
           <button
             type="button"
-            class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
             role="menuitem"
             @click="contextMenuToggleFolderLayout"
           >
+            <img :src="icons.list" alt="" :class="menuItemIconClass" />
             {{ contextMenuFolderExpandedLabel }}
           </button>
           <button
             type="button"
-            class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
             role="menuitem"
             @click="contextMenuEditFolder"
           >
+            <img :src="icons.pen" alt="" :class="menuItemIconClass" />
             Edit folder…
           </button>
           <button
             type="button"
-            class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
             role="menuitem"
             @click="openCreateFolderModal"
           >
+            <img :src="icons.plus" alt="" :class="menuItemIconClass" />
             New folder…
           </button>
           <div class="my-1 h-px bg-glass-2" role="separator" />
           <button
             type="button"
-            class="echo-menu-item echo-menu-item--destructive flex w-full px-3 py-2 text-left text-sm"
+            class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
             role="menuitem"
             @click="contextMenuDeleteFolder"
           >
+            <img :src="icons.trash" alt="" :class="menuItemIconClass" />
             Delete folder…
           </button>
         </template>
@@ -1581,28 +1833,31 @@ function compactFolderDropRing(
           <button
             v-if="folderForServer(contextMenu.serverId)"
             type="button"
-            class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
             role="menuitem"
             @click="assignServerToFolderFromMenu(null)"
           >
+            <img :src="icons.arrowLeft" alt="" :class="menuItemIconClass" />
             Remove from folder
           </button>
           <button
             v-for="f in folders"
             :key="'fm-' + f.id"
             type="button"
-            class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
             role="menuitem"
             @click="assignServerToFolderFromMenu(f.id)"
           >
+            <img :src="iconFolder" alt="" :class="menuItemIconClass" />
             Move to “{{ f.name }}”
           </button>
           <button
             type="button"
-            class="echo-menu-item flex w-full px-3 py-2 text-left text-sm"
+            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
             role="menuitem"
             @click="newFolderFromContextMenu"
           >
+            <img :src="icons.plus" alt="" :class="menuItemIconClass" />
             New folder with this server…
           </button>
         </template>
@@ -1684,15 +1939,15 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   color: var(--vue-auto-025);
 }
 
-/* ── view tabs ── */
-.view-tab {
-  display: flex;
+/* ── header icon controls ── */
+.view-tab-icon {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.65rem;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
   border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 500;
   color: var(--vue-auto-087);
   background: var(--vue-auto-007);
   border: 1px solid var(--vue-auto-002);
@@ -1702,37 +1957,52 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
     border-color 0.15s ease-out;
   &:hover {
     background: var(--vue-auto-001);
-    color: var(--vue-auto-041);
+    color: var(--vue-auto-020);
     border-color: var(--vue-auto-034);
   }
 }
-.view-tab--active {
-  background: var(--vue-auto-034);
-  color: var(--vue-auto-012);
-  border-color: var(--vue-auto-004);
-}
-
-.view-tab-pin {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.6rem;
-  border-radius: 8px;
-  color: var(--vue-auto-087);
-  background: var(--vue-auto-007);
-  border: 1px solid var(--vue-auto-002);
-  transition:
-    background-color 0.15s ease-out,
-    color 0.15s ease-out;
-  &:hover {
-    background: var(--vue-auto-001);
-    color: var(--vue-auto-020);
-  }
-}
-.view-tab-pin--active {
+.view-tab-icon--active {
   background: var(--vue-auto-004);
   color: var(--vue-auto-025);
   border-color: var(--vue-auto-014);
+}
+
+.other-servers-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  background: var(--vue-auto-007);
+  border: 1px solid var(--vue-auto-002);
+}
+.other-servers-search__input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--vue-auto-009);
+  outline: none;
+  &::placeholder {
+    color: var(--vue-auto-087);
+  }
+}
+.other-servers-search__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 4px;
+  color: var(--vue-auto-087);
+  transition: background-color 0.15s ease-out;
+  &:hover {
+    background: var(--vue-auto-001);
+    color: var(--vue-auto-009);
+  }
 }
 
 /* ── card ── */
@@ -1845,29 +2115,128 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   border-color: var(--vue-auto-014);
 }
 
-/* ── Extra servers: widget folders (Discord-like compact stacks) ── */
+/* ── Extra servers: widget folders ── */
 .widget-folder-card-rail {
+  border-color: color-mix(in srgb, var(--border) 50%, transparent);
   background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 6%, transparent),
+    145deg,
+    color-mix(in srgb, var(--accent) 14%, transparent),
+    color-mix(in srgb, var(--bg-elevated, var(--bg)) 92%, transparent) 42%,
     color-mix(in srgb, var(--surface) 88%, transparent)
   );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
+    0 8px 22px rgb(0 0 0 / 16%);
+}
+.widget-folder-card-rail:hover {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+.widget-folder-card-rail--drop-order {
+  border-color: rgb(56 189 248 / 55%);
+  box-shadow:
+    inset 0 0 0 1px rgb(56 189 248 / 20%),
+    0 0 20px rgb(56 189 248 / 12%);
+}
+.widget-folder-card-rail--drop-in,
+.widget-folder-card-rail--drop-hint {
+  border-color: rgb(52 211 153 / 45%);
+  box-shadow:
+    inset 0 0 0 1px rgb(52 211 153 / 18%),
+    0 0 18px rgb(52 211 153 / 10%);
+}
+.widget-folder-card-rail__shine {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    color-mix(in srgb, white 8%, transparent) 50%,
+    transparent 65%
+  );
+  opacity: 0.55;
+}
+.widget-folder-card-rail__accent {
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 12px 0 0 12px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 95%, white 8%),
+    color-mix(in srgb, var(--accent) 55%, transparent)
+  );
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.widget-folder-card-rail__inner {
+  position: relative;
+  z-index: 1;
+}
+.widget-folder-card-rail__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--accent) 22%, transparent),
+    color-mix(in srgb, var(--bg) 70%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
+    0 4px 12px rgb(0 0 0 / 18%);
+}
+.widget-folder-card-rail__name {
+  letter-spacing: 0.01em;
+}
+.widget-folder-card-rail__meta {
+  margin-top: 0.1rem;
+  opacity: 0.85;
+}
+.widget-folder-card-rail__count {
+  display: inline-flex;
+  min-width: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-contrast-fg, #fff);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 88%, white 12%),
+    var(--accent)
+  );
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .widget-folder-chevron {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 6px;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 8px;
   color: var(--vue-auto-049);
+  background: color-mix(in srgb, var(--bg) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
   transition:
     background-color 0.12s ease-out,
-    color 0.12s ease-out;
+    color 0.12s ease-out,
+    border-color 0.12s ease-out,
+    transform 0.12s ease-out;
   &:hover {
     background: var(--vue-auto-001);
     color: var(--vue-auto-025);
+    border-color: var(--vue-auto-034);
   }
 }
 
@@ -1875,9 +2244,9 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 6px;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 8px;
   color: var(--vue-auto-049);
   border: 1px solid transparent;
   transition:
@@ -1895,132 +2264,7 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   &:hover {
     background: var(--vue-auto-211);
     color: var(--vue-auto-068);
-  }
-}
-
-.widget-folder-chip-btn {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 0.15rem 0.45rem;
-  border-radius: 6px;
-  color: var(--vue-auto-049);
-  background: transparent;
-  border: 1px solid var(--vue-auto-002);
-  transition:
-    background-color 0.12s ease-out,
-    color 0.12s ease-out;
-  &:hover {
-    background: var(--vue-auto-001);
-    color: var(--vue-auto-025);
-  }
-}
-.widget-folder-chip-btn--danger {
-  color: var(--vue-auto-210);
-  border-color: transparent;
-  &:hover {
-    background: var(--vue-auto-211);
-    color: var(--vue-auto-068);
-  }
-}
-
-.widget-folder-pill {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  width: 2.75rem;
-  min-height: 3.5rem;
-  padding: 0.35rem 0.25rem 0.4rem;
-  border-radius: 1.35rem;
-  background: linear-gradient(
-    180deg,
-    var(--vue-auto-007),
-    color-mix(in srgb, var(--vue-auto-005) 88%, black 12%)
-  );
-  border: 1px solid var(--vue-auto-002);
-  box-shadow: 0 6px 16px var(--vue-auto-089);
-  color: var(--vue-auto-086);
-  transition:
-    transform 0.18s $ease-out-expo,
-    border-color 0.15s ease-out;
-  &:hover {
-    transform: translateY(-1px);
-    border-color: var(--vue-auto-034);
-  }
-}
-
-.widget-folder-pill__stack {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  width: 2.1rem;
-  height: 2.5rem;
-  overflow: hidden;
-}
-
-.widget-folder-pill__peek {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 1.85rem;
-  height: 1.85rem;
-  border-radius: 999px;
-  overflow: hidden;
-  transform: translateX(-50%) translateY(var(--wf-nudge, 0px));
-  border: 2px solid var(--vue-auto-001);
-  box-sizing: border-box;
-}
-
-.widget-folder-pill__empty-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-}
-
-.widget-folder-pill__count {
-  margin-top: 0.1rem;
-  font-size: 10px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--vue-auto-025);
-}
-
-.widget-folder-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  max-width: 100%;
-}
-
-.widget-folder-tb {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 0.125rem 0.35rem;
-  border-radius: 4px;
-  color: var(--vue-auto-049);
-  background: var(--vue-auto-007);
-  border: 1px solid var(--vue-auto-002);
-  transition:
-    background-color 0.12s ease-out,
-    color 0.12s ease-out;
-  &:hover {
-    background: var(--vue-auto-001);
-    color: var(--vue-auto-025);
-  }
-}
-
-.widget-folder-tb--danger {
-  color: var(--vue-auto-210);
-  &:hover {
-    background: var(--vue-auto-211);
-    color: var(--vue-auto-068);
+    border-color: color-mix(in srgb, var(--vue-auto-210) 35%, transparent);
   }
 }
 
@@ -2107,68 +2351,210 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: none;
 }
 
-[data-theme='light'] .widget-folder-pill {
-  box-shadow: none;
-  border-color: color-mix(in srgb, var(--text) 14%, transparent);
-}
-
-.widget-folder-compact-icon {
+.widget-folder-compact-trigger {
   position: relative;
-  display: inline-flex;
+  width: 2.85rem;
+  height: 2.85rem;
+  padding: 0;
+  overflow: visible;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--accent) 18%, transparent),
+    color-mix(in srgb, var(--bg-elevated, var(--bg)) 90%, transparent)
+  );
+  border: 1.5px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
+    0 8px 20px rgb(0 0 0 / 22%);
+  &:hover {
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
+      0 12px 26px rgb(0 0 0 / 28%);
+  }
+}
+.widget-folder-compact-trigger__body {
+  display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--vue-auto-049);
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.widget-folder-compact-stack {
+  position: relative;
+  width: 2rem;
+  height: 2.15rem;
+}
+.widget-folder-compact-stack--sm {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+.widget-folder-compact-peek {
+  --wf-nudge: calc(var(--wf-peek, 0) * 5px);
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  overflow: hidden;
+  transform: translateX(-50%) translateY(var(--wf-nudge));
+  border: 2px solid color-mix(in srgb, var(--bg) 88%, transparent);
+  box-shadow: 0 4px 10px rgb(0 0 0 / 28%);
+  z-index: calc(3 - var(--wf-peek, 0));
+}
+.widget-folder-compact-stack--sm .widget-folder-compact-peek {
+  width: 1.25rem;
+  height: 1.25rem;
+  --wf-nudge: calc(var(--wf-peek, 0) * 4px);
+  border-width: 1.5px;
+}
+
+.widget-folder-compact-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.widget-folder-compact-empty__icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  opacity: 0.72;
+  filter: invert(1) brightness(1.05);
 }
 
 .widget-folder-compact-badge {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  min-width: 1rem;
-  height: 1rem;
-  padding: 0 0.2rem;
+  right: -4px;
+  bottom: -4px;
+  z-index: 4;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.22rem;
   border-radius: 999px;
   font-size: 9px;
-  font-weight: 700;
-  line-height: 1rem;
+  font-weight: 800;
+  line-height: 1.05rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  color: var(--vue-auto-025);
-  background: var(--vue-auto-007);
-  border: 1.5px solid var(--vue-auto-001);
-  box-shadow: 0 2px 6px var(--vue-auto-089);
+  color: var(--accent-contrast-fg, #fff);
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #312e81));
+  border: 1.5px solid color-mix(in srgb, var(--bg) 90%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .widget-folder-blob {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.35rem;
-  padding: 0.45rem 0.35rem 0.5rem;
-  border-radius: 1rem;
-  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  gap: 0.4rem;
+  padding: 0.5rem 0.4rem 0.55rem;
+  border-radius: 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--accent) 5%, transparent),
-    color-mix(in srgb, var(--surface) 82%, transparent)
+    color-mix(in srgb, var(--accent) 12%, transparent),
+    color-mix(in srgb, var(--bg-elevated, var(--bg)) 94%, transparent) 38%,
+    color-mix(in srgb, var(--surface) 90%, transparent)
   );
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent),
+    0 10px 28px rgb(0 0 0 / 20%);
 }
-
+.widget-folder-blob__glow {
+  pointer-events: none;
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    120% 80% at 50% 0%,
+    color-mix(in srgb, var(--accent) 22%, transparent),
+    transparent 68%
+  );
+  opacity: 0.9;
+}
 .widget-folder-blob__header {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0 0.15rem;
+  gap: 0.3rem;
+  padding: 0.15rem 0.2rem 0.1rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--bg) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
 }
-
+.widget-folder-blob__collapse {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--accent) 20%, transparent),
+    color-mix(in srgb, var(--bg) 75%, transparent)
+  );
+}
+.widget-folder-blob__name {
+  text-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+}
+.widget-folder-blob__count {
+  flex-shrink: 0;
+  min-width: 1.1rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-contrast-fg, #fff);
+  background: var(--accent);
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.widget-folder-blob__empty {
+  position: relative;
+  z-index: 1;
+  font-style: italic;
+  opacity: 0.9;
+}
 .widget-folder-blob__servers {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
+  padding-top: 0.1rem;
 }
 
+[data-theme='light'] .widget-folder-card-rail {
+  box-shadow: none;
+  border-color: color-mix(in srgb, var(--text) 12%, transparent);
+}
+[data-theme='light'] .widget-folder-card-rail__icon {
+  box-shadow: none;
+}
+[data-theme='light'] .widget-folder-compact-trigger {
+  box-shadow: none;
+  border-color: color-mix(in srgb, var(--text) 14%, transparent);
+  &:hover {
+    box-shadow: none;
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  }
+}
+[data-theme='light'] .widget-folder-compact-empty__icon {
+  filter: none;
+  opacity: 0.55;
+}
 [data-theme='light'] .widget-folder-blob {
   box-shadow: none;
   border-color: color-mix(in srgb, var(--text) 12%, transparent);

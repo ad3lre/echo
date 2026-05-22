@@ -36,6 +36,7 @@ export function useEchoGuildRoleUi(deps: {
   const echoRoleCategories = ref<EchoRoleCategoryDto[]>([]);
   const echoMemberRoleIdsByUser = ref<Record<string, string[]>>({});
   const echoCanManageRoles = ref(false);
+  const echoCanAssignRoles = ref(false);
   const echoCanManageServer = ref(false);
   const echoCanCreateChannel = ref(false);
   const echoCanModerateMembers = ref(false);
@@ -75,6 +76,7 @@ export function useEchoGuildRoleUi(deps: {
     echoRoleCategories.value = [];
     echoMemberRoleIdsByUser.value = {};
     echoCanManageRoles.value = false;
+    echoCanAssignRoles.value = false;
     echoCanManageServer.value = false;
     echoCanCreateChannel.value = false;
     echoCanModerateMembers.value = false;
@@ -127,6 +129,8 @@ export function useEchoGuildRoleUi(deps: {
       if (serverStore.selectedServerId !== fetchSid) return;
       const caps = bundleRes.capabilities;
       echoCanManageRoles.value = caps.canManageRoles;
+      echoCanAssignRoles.value =
+        caps.canAssignRoles ?? caps.canManageRoles;
       echoCanManageServer.value = caps.canManageServer;
       echoCanCreateChannel.value = caps.canCreateChannel;
       const bundle = caps.canModerateMembers ?? false;
@@ -288,6 +292,7 @@ export function useEchoGuildRoleUi(deps: {
         isEveryone: r.isEveryone,
         position: r.position,
         roleCategoryId: r.roleCategoryId ?? null,
+        roleScope: r.roleScope,
       })),
       roleCategories: echoRoleCategories.value,
       canMutateMemberRole: (
@@ -303,7 +308,15 @@ export function useEchoGuildRoleUi(deps: {
           roleId,
           actorIsServerOwner: !!(ownerId && ownerId === curId),
           targetIsServerOwner: !!(ownerId && ownerId === tid),
-          catalog: echoRoleCatalog.value,
+          catalog: echoRoleCatalog.value.map((r) => ({
+            id: r.id,
+            position: r.position,
+            rankInCategory: r.rankInCategory,
+            roleCategoryId: r.roleCategoryId ?? null,
+            roleScope: r.roleScope,
+            isEveryone: r.isEveryone,
+            permissions: r.permissions,
+          })),
           assignments: assignmentsEcho,
         });
       },

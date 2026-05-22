@@ -25,6 +25,7 @@ import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotifi
 import type { CreateChannelModalSubmitPayload } from '@/components/CreateChannelModal.vue';
 import { channelPanelDiag } from '@/utils/channelPanelDiag';
 import { getChannelDisplayName } from '@/assets/icons';
+import { showStarredServerLimitAlert } from '@/utils/serverRailPinFeedback';
 
 type DmMarkReadPayload =
   | { kind: 'user'; userId: string }
@@ -980,6 +981,17 @@ function onServerRailLeave(serverId: string) {
 function onMoreServersOpenServer(serverId: string) {
   if (layoutServerRail) layoutServerRail.openServerFromMore(serverId);
   else emit('more-servers-open-server', serverId);
+}
+
+function onMoreServersPinServer(payload: {
+  id: string;
+  name: string;
+  imageUrl: string;
+}) {
+  const row = serverStore.servers.find((s) => s.id === payload.id);
+  if (!row) return;
+  if (serverStore.pinMoreServer(row)) return;
+  void showStarredServerLimitAlert();
 }
 </script>
 

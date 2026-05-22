@@ -796,6 +796,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
               <SettingsSupplementarySections
                 v-else
                 :active-section="activeSection"
+                :navigate-to-section="openMobileSection"
                 :form="form"
                 :theme-options="THEME_OPTIONS"
                 :density-options="DENSITY_OPTIONS"

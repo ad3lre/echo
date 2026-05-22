@@ -14,6 +14,7 @@
  * Env:
  *   VPS_GIT_POLL_MS - poll interval for --git-watch (default 60000)
  *   VPS_NPM_INSTALL_AFTER_PULL - set to "1" to run `npm install` after each successful pull
+ *   VPS_SKIP_PROD_TYPECHECK - set to "1" to skip pre-deploy TypeScript checks (emergency only)
  */
 import fs from 'fs';
 import os from 'os';
@@ -342,6 +343,30 @@ async function maybeNpmInstallAfterPull(metaPath) {
   });
 }
 
+/** Run before stopping prod so a type error does not take down the live stack. */
+async function runProdTypecheckPreverify(metaPath) {
+  if (process.env.VPS_SKIP_PROD_TYPECHECK === '1') {
+    appendMeta(
+      metaPath,
+      'preverify:prod skipped (VPS_SKIP_PROD_TYPECHECK=1)',
+    );
+    return;
+  }
+  appendMeta(metaPath, 'preverify:prod — TypeScript check (frontend, backend, bot)');
+  try {
+    await execFileAsync(
+      process.execPath,
+      [path.join(repoRoot, 'scripts', 'preverify-prod-typecheck.mjs')],
+      { cwd: repoRoot, maxBuffer: 20 * 1024 * 1024 },
+    );
+    appendMeta(metaPath, 'preverify:prod ok');
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    appendMeta(metaPath, `preverify:prod failed: ${msg}`);
+    throw e;
+  }
+}
+
 /** Seconds every connected client sees before this launcher stops the stack (matches API default). */
 const VPS_DEPLOY_COUNTDOWN_SECONDS = 6;
 
@@ -468,7 +493,7 @@ async function watchLoop(opts, treeKill) {
 
       appendMeta(
         logs.metaPath,
-        `git: new commits (${status.branch}) — stopping stack, pulling, restarting`,
+        `git: new commits (${status.branch}) — pull, preverify, then restart`,
       );
 
       appendMeta(
@@ -476,11 +501,25 @@ async function watchLoop(opts, treeKill) {
         `git: restarting due to ${status.branch} update (local=${status.local}, remote=${status.remote})`,
       );
 
-      await notifyDeployCountdownAndWait(logs.metaPath);
-      await stopChild();
       await gitPullFfOnly(status.branch);
       await maybeNpmInstallAfterPull(logs.metaPath);
-      appendMeta(logs.metaPath, 'git pull complete; restarting stack');
+      appendMeta(logs.metaPath, 'git pull complete');
+
+      if (mode === 'prod') {
+        try {
+          await runProdTypecheckPreverify(logs.metaPath);
+        } catch {
+          appendMeta(
+            logs.metaPath,
+            'git watch: TypeScript preverify failed — keeping current stack running',
+          );
+          return;
+        }
+      }
+
+      await notifyDeployCountdownAndWait(logs.metaPath);
+      await stopChild();
+      appendMeta(logs.metaPath, 'restarting stack after successful preverify');
       start();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -607,7 +646,32 @@ async function main() {
     return;
   }
 
-  const { child, pidFile, logs } = spawnNpmRun(opts, null, treeKill);
+  const logs = openLogs(opts.logDir, opts.mode);
+  if (opts.mode === 'prod') {
+    try {
+      await runProdTypecheckPreverify(logs.metaPath);
+    } catch {
+      try {
+        fs.closeSync(logs.outFd);
+        fs.closeSync(logs.errFd);
+      } catch {
+        /* ignore */
+      }
+      console.error(
+        '[vps-serve] prod TypeScript preverify failed — deploy aborted (stack unchanged).',
+      );
+      console.error(
+        '[vps-serve] see logs above or run: npm run preverify:prod',
+      );
+      process.exit(1);
+    }
+  }
+
+  const { child, pidFile } = spawnNpmRun(
+    opts,
+    { outFd: logs.outFd, errFd: logs.errFd, metaPath: logs.metaPath },
+    treeKill,
+  );
 
   if (opts.foreground) {
     await new Promise((resolve) => {

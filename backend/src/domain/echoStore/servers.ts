@@ -18,6 +18,7 @@ import { parseEchoApplicationFormFromDb } from './applicationForm';
 import { invalidateEchoPermissionCacheForUser } from '../echoPermissionCache';
 import { applyEchoRoleLinksAfterAssignment } from './roleLinks';
 import { getMergedRolePermissions } from './permissions';
+import { ensureGlobalRoleCategoryForServer } from './roleCategoryGlobals';
 
 async function assignEveryoneRoleToMember(
   pool: pg.Pool | pg.PoolClient,
@@ -100,6 +101,10 @@ export async function createEchoServer(
         `INSERT INTO echo_channels (id, server_id, name, type, category_id, position) VALUES ($1, $2, $3, 'voice', $4, 0)`,
         [defaultVoiceChannelId, serverId, 'voice', voiceCategoryId],
       );
+      const globalRoleCategoryId = await ensureGlobalRoleCategoryForServer(
+        client,
+        serverId,
+      );
       await client.query(
         `INSERT INTO echo_roles (id, server_id, name, color, position, permissions) VALUES ($1, $2, $3, $4, 0, $5::jsonb)`,
         [
@@ -110,21 +115,32 @@ export async function createEchoServer(
           JSON.stringify([...DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS]),
         ],
       );
-      // Seed delegated moderation roles
+      // Seed delegated moderation roles in Global Roles category
       const adminRoleId = nextEchoSnowflakeId();
       const modRoleId = nextEchoSnowflakeId();
       await client.query(
-        `INSERT INTO echo_roles (id, server_id, name, color, position, hoist, permissions) VALUES ($1, $2, $3, $4, 2, true, $5::jsonb)`,
+        `
+        INSERT INTO echo_roles (
+          id, server_id, name, color, position, hoist, permissions,
+          role_category_id, rank_in_category, role_scope
+        ) VALUES ($1, $2, $3, $4, 2, true, $5::jsonb, $6, 1, 'global')
+        `,
         [
           adminRoleId,
           serverId,
           'Admin',
           '#e74c3c',
           JSON.stringify(['ADMINISTRATOR']),
+          globalRoleCategoryId,
         ],
       );
       await client.query(
-        `INSERT INTO echo_roles (id, server_id, name, color, position, hoist, permissions) VALUES ($1, $2, $3, $4, 1, true, $5::jsonb)`,
+        `
+        INSERT INTO echo_roles (
+          id, server_id, name, color, position, hoist, permissions,
+          role_category_id, rank_in_category, role_scope
+        ) VALUES ($1, $2, $3, $4, 1, true, $5::jsonb, $6, 0, 'global')
+        `,
         [
           modRoleId,
           serverId,
@@ -136,6 +152,7 @@ export async function createEchoServer(
             'MODERATE_MEMBERS',
             'MANAGE_MESSAGES',
           ]),
+          globalRoleCategoryId,
         ],
       );
       await assignEveryoneRoleToMember(client, serverId, ownerId);

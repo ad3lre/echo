@@ -11,6 +11,10 @@ import {
   normalizeEchoRoleType,
   type EchoRoleType,
 } from '@shared/echoRoleTypes';
+import {
+  normalizeEchoRoleScope,
+  type EchoRoleScope,
+} from '@shared/echoRoleScope';
 
 type RoleCard = { id: string; name: string; color: string; count: number };
 
@@ -19,6 +23,7 @@ export function defaultRolePermissions(): RolePermissions {
     viewChannels: true,
     manageChannels: false,
     manageRoles: false,
+    assignRoles: false,
     addExpressions: true,
     manageExpressions: false,
     viewAuditLog: false,
@@ -65,6 +70,7 @@ export function permissionsFromName(name: string): RolePermissions {
       ...base,
       manageChannels: true,
       manageRoles: true,
+      assignRoles: true,
       manageExpressions: true,
       viewAuditLog: true,
       manageServer: false,
@@ -121,6 +127,7 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
         mentionable: false,
         memberCount: 0,
         roleCategoryId: null,
+        roleScope: 'category',
         permissions: permissionsFromName('member'),
         roleType: 'mixed',
       },
@@ -144,6 +151,7 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
       mentionable: perms.mentionEveryone,
       memberCount: role.count,
       roleCategoryId: null,
+      roleScope: 'category',
       permissions: perms,
       roleType: 'mixed',
     };
@@ -162,6 +170,7 @@ export type EchoRoleRow = {
   defaultOnJoin?: boolean;
   isEveryone: boolean;
   roleCategoryId?: string | null;
+  roleScope?: EchoRoleScope;
   roleIconUrl?: string | null;
   roleIconEmojiId?: string | null;
   permissions: string[];
@@ -253,6 +262,7 @@ export function buildManagedRolesFromEcho(
       mentionable: full.mentionEveryone,
       memberCount: counts.get(r.id) ?? 0,
       roleCategoryId,
+      roleScope: normalizeEchoRoleScope(r.roleScope),
       permissions: full,
       roleType,
     };
@@ -313,6 +323,7 @@ export function createManagedRole(
     mentionable: false,
     memberCount: 0,
     roleCategoryId: null,
+    roleScope: 'category',
     permissions: defaultRolePermissions(),
     roleType: 'mixed',
   };
@@ -371,6 +382,8 @@ export function calculateRoleDiff(
     patch.defaultOnJoin = current.defaultOnJoin;
   if (initial.roleCategoryId !== current.roleCategoryId)
     patch.roleCategoryId = current.roleCategoryId;
+  if (initial.roleScope !== current.roleScope)
+    patch.roleScope = current.roleScope;
   /** Role icon is a paired shape (preview URL + optional library emoji id); patch both whenever either changes. */
   const roleIconUrlChanged = initial.roleIconUrl !== current.roleIconUrl;
   const roleIconEmojiIdChanged =

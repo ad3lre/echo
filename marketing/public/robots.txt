@@ -1,3 +1,4 @@
+# https://app-echo.net — marketing site for Echo (chat app: chat-echo.com)
 User-agent: *
 Allow: /
 

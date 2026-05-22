@@ -39,7 +39,7 @@ const customSrc = computed(() => {
     token.animated,
     customEmojiUrlById?.value,
     isEchoEmojiTokenResolveMiss(token.id),
-    { allowDiscordCdnGuess: true },
+    { allowDiscordCdnGuess: isEchoEmojiTokenResolveMiss(token.id) },
   );
   if (!url) ensureCustomEmojiId?.(token.id);
   return url ?? '';

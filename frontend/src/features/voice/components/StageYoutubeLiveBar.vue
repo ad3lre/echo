@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { icons } from '@/assets/icons';
 import { useStageYoutubeLive } from '@/features/voice/composables/useStageYoutubeLive';
+import { youtubeStageStreamKeyLiveHint } from '@/features/youtube/youtubeIntegrationCopy';
 
 const props = defineProps<{
   echoServerId: string;
@@ -15,6 +16,8 @@ const {
   actionBusy,
   goLiveTitle,
   privacyStatus,
+  usesStreamKeyDelivery,
+  isStreamKeyLive,
   goLive,
   endLive,
 } = useStageYoutubeLive({
@@ -57,6 +60,12 @@ const showModeratorControls = computed(() => props.canManage);
         Open stream
       </a>
       <span
+        v-else-if="isStreamKeyLive && showModeratorControls"
+        class="max-w-md text-xs text-fg-subtle"
+      >
+        {{ youtubeStageStreamKeyLiveHint }}
+      </span>
+      <span
         v-else-if="!showModeratorControls"
         class="text-xs text-fg-subtle"
       >
@@ -82,6 +91,7 @@ const showModeratorControls = computed(() => props.canManage);
         class="min-w-[10rem] max-w-[14rem] flex-1 rounded-lg border border-border bg-bg px-2 py-1 text-xs text-fg placeholder:text-fg-subtle"
       />
       <select
+        v-if="!usesStreamKeyDelivery"
         v-model="privacyStatus"
         class="rounded-lg border border-border bg-bg px-2 py-1 text-xs text-fg"
       >
@@ -89,6 +99,13 @@ const showModeratorControls = computed(() => props.canManage);
         <option value="public">Public</option>
         <option value="private">Private</option>
       </select>
+      <span
+        v-else
+        class="max-w-xs text-xs text-fg-subtle"
+        title="Privacy is set in YouTube Studio when using a stream key"
+      >
+        Using saved stream key
+      </span>
       <button
         type="button"
         class="rounded-lg bg-red-600/90 px-3 py-1 text-xs font-bold text-white hover:bg-red-500 disabled:opacity-50"

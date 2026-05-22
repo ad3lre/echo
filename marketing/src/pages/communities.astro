@@ -1,5 +1,6 @@
 ---
 import MarketingShell from '../layouts/MarketingShell.astro';
+import { pageStructuredData } from '../lib/seo';
 import { CHAT_APP_ORIGIN } from '../site';
 
 const title = 'Communities on Echo | Discover public servers';
@@ -132,9 +133,41 @@ function formatMemberCount(count: number): string {
   }
   return `${count} member${count === 1 ? '' : 's'}`;
 }
+
+const communityListNode =
+  communities.length > 0
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: 'Public Echo communities',
+        numberOfItems: communities.length,
+        itemListElement: communities.map((c, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: c.name,
+          url: `${CHAT_APP_ORIGIN}/explore`,
+        })),
+      }
+    : null;
+
+const structuredData = pageStructuredData({
+  title,
+  description,
+  path: '/communities',
+  breadcrumbs: [
+    { name: 'Home', path: '/' },
+    { name: 'Communities', path: '/communities' },
+  ],
+  extra: communityListNode ? [communityListNode] : [],
+});
 ---
 
-<MarketingShell title={title} description={description} canonicalPath="/communities">
+<MarketingShell
+  title={title}
+  description={description}
+  canonicalPath="/communities"
+  structuredData={structuredData}
+>
   <main id="main" class="subpage-main">
     <section class="communities-hero">
       <div class="container">
@@ -168,7 +201,7 @@ function formatMemberCount(count: number): string {
               <article class="community-card">
                 <div class="community-banner">
                   {c.bannerUrl ? (
-                    <img src={c.bannerUrl} alt="" loading="lazy" />
+                    <img src={c.bannerUrl} alt={`${c.name} banner`} loading="lazy" decoding="async" />
                   ) : (
                     <div class="community-banner-placeholder" style={`background: linear-gradient(135deg, ${c.iconBg}40, ${c.iconBg}20)`} />
                   )}
@@ -177,7 +210,7 @@ function formatMemberCount(count: number): string {
                 <div class="community-body">
                   <div class="community-avatar" style={`background: ${c.iconBg}`}>
                     {c.iconUrl ? (
-                      <img src={c.iconUrl} alt="" loading="lazy" />
+                      <img src={c.iconUrl} alt={`${c.name} icon`} loading="lazy" decoding="async" />
                     ) : (
                       <span>{c.initials}</span>
                     )}

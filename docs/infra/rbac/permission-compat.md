@@ -30,3 +30,12 @@ This document is the runtime contract for RBAC merge behavior. Implementation mu
 - **Layer apply:** `applyLayerFromPartialObject` iterates only `Object.keys(obj)` intersected with the allowed set — O(writes), not O(|allKeys|).
 - **Compressed trace batching:** ADMIN and owner paths use bulk helpers (`recordCompressedBulkAdmin`, `recordCompressedBulkOwner`) instead of per-bit `recordCompressedSource` calls.
 - **Auth hot paths are compressed-only:** `getMergedRolePermissions` and `getEffectiveChannelPermissions` always pass `traceMode: 'compressed'`; full traces are reserved for the explicit `permission-explain` debug endpoint.
+
+## Role categories (Echo extension)
+
+- Each server has a pinned **Global Roles** category (`echo_role_categories.is_system`, `position = 0`). Uncategorized roles are stored in that category after migration.
+- **Guild/channel effective permissions** still use the single global `echo_roles.position` ladder (fold order unchanged).
+- **Role administration** is category-scoped unless the actor holds a granting role with `role_scope = 'global'`:
+  - `MANAGE_ROLES` — create/edit/delete roles, reorder roles/categories (within scope).
+  - `ASSIGN_ROLES` — assign/remove member roles (within scope); `MANAGE_ROLES` implies assign.
+- Scope checks compare the actor’s top `position` among assigned roles in the same category (or globally when a global-scope granting role is present).

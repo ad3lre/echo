@@ -1,6 +1,6 @@
 import { onMounted, ref, watch } from 'vue';
 import { useAuthSessionStore } from '@/stores/authSession';
-import { authYoutubeOAuthStart } from '@/api/authClient';
+import { authYoutubeOAuthStart, AuthApiError } from '@/api/authClient';
 import { fetchMeYoutube, type MeYoutubeResponse } from '@/api/meYoutube';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { messageForYoutubeOAuthError } from '@/features/youtube/youtubeIntegrationCopy';
@@ -61,6 +61,11 @@ export function useYoutubeLinkSettings() {
 
   async function onConnect() {
     if (!authSession.isAuthenticated) return;
+    if (state.value && !state.value.googleLinked) {
+      actionError.value =
+        'Link your Google account in Settings → Google before connecting YouTube.';
+      return;
+    }
     connectBusy.value = true;
     actionError.value = '';
     try {
@@ -76,10 +81,15 @@ export function useYoutubeLinkSettings() {
       }
       startOAuthFlow(authorizeUrl);
     } catch (e) {
-      actionError.value =
-        e instanceof Error
-          ? e.message
-          : 'We couldn’t open YouTube authorization. Try again in a moment.';
+      if (e instanceof AuthApiError && e.body.code === 'GOOGLE_NOT_LINKED') {
+        actionError.value =
+          'Link your Google account in Settings → Google before connecting YouTube.';
+      } else {
+        actionError.value =
+          e instanceof Error
+            ? e.message
+            : 'We couldn’t open YouTube authorization. Try again in a moment.';
+      }
     } finally {
       connectBusy.value = false;
     }

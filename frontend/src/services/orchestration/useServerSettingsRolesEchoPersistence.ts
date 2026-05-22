@@ -5,6 +5,7 @@ import {
   patchEchoRole,
   putEchoRoleLinks,
   putEchoServerRoleOrder,
+  putEchoRoleCategoryOrder,
   type EchoRolePatch,
 } from '@/api/echoClient';
 import { isEchoGraphId } from '@/utils/echoIds';
@@ -18,6 +19,15 @@ import type {
   ManagedRoleLink,
 } from '@/features/server-settings/types';
 import type { EchoRoleCategoryDto } from '@/api/echo/types';
+
+function displayedRoleOrderInCategory(
+  roles: ManagedRole[],
+  categoryId: string,
+): string[] {
+  return roles
+    .filter((r) => r.name !== '@everyone' && r.roleCategoryId === categoryId)
+    .map((r) => r.id);
+}
 import { fetchManagedRolesFromEcho } from '@/services/orchestration/fetchManagedRolesFromEcho';
 import {
   cloneRoleManagerState,
@@ -50,6 +60,10 @@ export type RoleManagerEchoDeps = {
   onEchoRoleCatalogMutated?: () => void;
   /** Server settings role organizer tabs (Echo). */
   hydrateEchoRoleCategories?: (categories: EchoRoleCategoryDto[]) => void;
+  markRoleCategoryOrderSnapshot?: () => void;
+  roleCategoryOrderDirty?: Ref<boolean>;
+  echoRoleCategories?: Ref<EchoRoleCategoryDto[]>;
+  selectedRoleCategoryTabId?: Ref<'all' | string>;
 };
 
 export function useServerSettingsRolesEchoPersistence(
@@ -95,6 +109,7 @@ export function useServerSettingsRolesEchoPersistence(
           deps.users.value,
         );
         deps.hydrateEchoRoleCategories?.(freshBundle.roleCategories);
+        deps.markRoleCategoryOrderSnapshot?.();
         const { merged, nextSnapshot } = mergeEchoRoleListPreservingLocalEdits({
           fresh: freshBundle.managedRoles,
           local: deps.roleManagerRoles.value,
@@ -138,14 +153,39 @@ export function useServerSettingsRolesEchoPersistence(
           }
         }
 
+        if (deps.roleCategoryOrderDirty?.value) {
+          try {
+            await putEchoRoleCategoryOrder(
+              token ?? '',
+              sid,
+              deps.echoRoleCategories?.value.map((c) => c.id) ?? [],
+            );
+            deps.markRoleCategoryOrderSnapshot?.();
+          } catch (e) {
+            const msg =
+              e instanceof Error ? e.message : 'Failed to save category order';
+            roleSaveError.value = msg;
+          }
+        }
+
+        const activeTab = deps.selectedRoleCategoryTabId?.value;
+        const categoryTab =
+          activeTab && activeTab !== 'all' ? activeTab : undefined;
         const prevOrder = snapshot.map((r) => r.id);
-        const curOrder = current.map((r) => r.id);
+        const curOrder = categoryTab
+          ? displayedRoleOrderInCategory(current, categoryTab)
+          : current.map((r) => r.id);
+        const prevOrderInScope = categoryTab
+          ? displayedRoleOrderInCategory(snapshot, categoryTab)
+          : prevOrder;
         const orderChanged =
-          prevOrder.length !== curOrder.length ||
-          prevOrder.some((id, i) => curOrder[i] !== id);
+          prevOrderInScope.length !== curOrder.length ||
+          prevOrderInScope.some((id, i) => curOrder[i] !== id);
         if (orderChanged) {
           try {
-            await putEchoServerRoleOrder(token ?? '', sid, curOrder);
+            await putEchoServerRoleOrder(token ?? '', sid, curOrder, {
+              categoryId: categoryTab,
+            });
           } catch (e) {
             const msg =
               e instanceof Error ? e.message : 'Failed to save role order';
@@ -183,6 +223,7 @@ export function useServerSettingsRolesEchoPersistence(
           const roleIconEmojiIdChanged =
             role.roleIconEmojiId !== initial.roleIconEmojiId;
           const roleTypeChanged = role.roleType !== initial.roleType;
+          const roleScopeChanged = role.roleScope !== initial.roleScope;
           if (
             !permsChanged &&
             !nameChanged &&
@@ -193,6 +234,7 @@ export function useServerSettingsRolesEchoPersistence(
             !hoistChanged &&
             !defaultOnJoinChanged &&
             !roleCategoryChanged &&
+            !roleScopeChanged &&
             !roleIconUrlChanged &&
             !roleIconEmojiIdChanged &&
             !roleTypeChanged
@@ -210,6 +252,7 @@ export function useServerSettingsRolesEchoPersistence(
           if (defaultOnJoinChanged) patch.defaultOnJoin = role.defaultOnJoin;
           if (permsChanged) patch.permissions = nextEcho;
           if (roleCategoryChanged) patch.roleCategoryId = role.roleCategoryId;
+          if (roleScopeChanged) patch.roleScope = role.roleScope;
           if (roleIconUrlChanged || roleIconEmojiIdChanged) {
             patch.roleIconUrl = role.roleIconUrl ?? null;
             patch.roleIconEmojiId = role.roleIconEmojiId ?? null;
@@ -250,6 +293,7 @@ export function useServerSettingsRolesEchoPersistence(
             deps.users.value,
           );
           deps.hydrateEchoRoleCategories?.(bundle.roleCategories);
+          deps.markRoleCategoryOrderSnapshot?.();
           deps.initRoleManagerFromEcho(bundle.managedRoles);
           deps.onEchoRoleCatalogMutated?.();
           if (

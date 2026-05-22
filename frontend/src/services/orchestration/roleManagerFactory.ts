@@ -12,6 +12,7 @@ export function defaultRolePermissions(): RolePermissions {
     viewChannels: true,
     manageChannels: false,
     manageRoles: false,
+    assignRoles: false,
     addExpressions: true,
     manageExpressions: false,
     viewAuditLog: false,
@@ -114,6 +115,7 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
         mentionable: false,
         memberCount: 0,
         roleCategoryId: null,
+        roleScope: 'category',
         permissions: permissionsFromName('member'),
         roleType: 'mixed',
       },
@@ -137,6 +139,7 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
       mentionable: perms.mentionEveryone,
       memberCount: role.count,
       roleCategoryId: null,
+      roleScope: 'category',
       permissions: perms,
       roleType: 'mixed',
     };
@@ -155,6 +158,7 @@ export type EchoRoleRow = {
   defaultOnJoin?: boolean;
   isEveryone: boolean;
   roleCategoryId?: string | null;
+  roleScope?: 'global' | 'category';
   permissions: string[];
 };
 
@@ -224,6 +228,7 @@ export function buildManagedRolesFromEcho(
       mentionable: full.mentionEveryone,
       memberCount: counts.get(r.id) ?? 0,
       roleCategoryId,
+      roleScope: r.roleScope === 'global' ? 'global' : 'category',
       permissions: full,
       roleType: 'mixed',
     };
@@ -249,6 +254,7 @@ export function createManagedRole(
     mentionable: false,
     memberCount: 0,
     roleCategoryId: null,
+    roleScope: 'category',
     permissions: defaultRolePermissions(),
     roleType: 'mixed',
   };

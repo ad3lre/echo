@@ -426,6 +426,8 @@ export interface AppLayoutControllerContext {
   channelPanelCollapsed: Ref<boolean>;
   channelPanelBubbleMode: Ref<boolean>;
   memberPanelCollapsed: Ref<boolean>;
+  /** Member list: include guest-role rows (persisted per user in layout prefs). */
+  memberListShowGuests: Ref<boolean>;
   memberPanelAutoCollapseUserOverride: Ref<boolean>;
   markMemberPanelExpandedByUser: () => void;
   markMemberPanelCollapsedByUser: () => void;

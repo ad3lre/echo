@@ -9,6 +9,7 @@ export type ResolvedCustomEmojiMeta = {
   name: string;
   animated: boolean;
   imageUrl: string;
+  sourceDiscordEmojiId?: string;
 };
 
 const urlByIdState = shallowReactive(new Map<string, string>());
@@ -63,18 +64,25 @@ async function flushQueued(token: string) {
       const hit = new Set<string>();
       for (const row of resolved) {
         const key = normalizeEmojiId(row.key);
-        const url = typeof row.imageUrl === 'string' ? row.imageUrl.trim() : '';
+        const url =
+          (typeof row.assetUrl === 'string' ? row.assetUrl.trim() : '') ||
+          (typeof row.imageUrl === 'string' ? row.imageUrl.trim() : '');
         const id = normalizeEmojiId(row.id);
         if (!key || !url) continue;
         urlByIdState.set(key, url);
         hit.add(key);
         const name =
           typeof row.name === 'string' ? row.name.trim().toLowerCase() : '';
+        const discordSource =
+          typeof row.sourceDiscordEmojiId === 'string'
+            ? row.sourceDiscordEmojiId.trim()
+            : '';
         const meta: ResolvedCustomEmojiMeta = {
           id: id ?? key,
           name: typeof row.name === 'string' ? row.name.trim() : 'emoji',
           animated: row.animated === true,
           imageUrl: url,
+          ...(discordSource ? { sourceDiscordEmojiId: discordSource } : {}),
         };
         metaByIdState.set(key, meta);
         if (id && id !== key) {

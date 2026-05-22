@@ -56,6 +56,25 @@ function mergePingKinds(
   return rank[next] > rank[current] ? next : current;
 }
 
+/** True when the effective read cursor has caught up to (or past) all unread volume. */
+function isEchoChannelEffectivelyRead(
+  summary: EchoAttentionChannelSummary,
+  lastReadMessageId: string | null | undefined,
+): boolean {
+  if (summary.unreadCount <= 0) return true;
+  if (summary.kind === 'server') {
+    return !isServerChannelUnreadForPingBubble(summary, lastReadMessageId);
+  }
+  if (summary.kind === 'dm') {
+    const boundary = resolveEchoUnreadUpperBoundMessageId(summary);
+    if (!boundary) return false;
+    const lr = String(lastReadMessageId ?? '').trim();
+    if (!lr) return false;
+    return compareEchoTimelineIds(lr, boundary) >= 0;
+  }
+  return false;
+}
+
 function isServerChannelEffectivelyUnread(params: {
   summary: EchoAttentionChannelSummary;
   lastReadMessageId: string | null;
@@ -426,13 +445,25 @@ export const useEchoAttentionStore = defineStore('echoAttention', () => {
     const existing = channelAttentionByChannelId.value[channelId];
     const previousServerId =
       existing?.kind === 'server' ? (existing.serverId?.trim() ?? '') : '';
-    const merged: EchoAttentionChannelSummary = {
+    const cursor =
+      readStateByChannelId.value[channelId] ?? lastReadMessageId ?? null;
+    let merged: EchoAttentionChannelSummary = {
       ...(existing ?? {}),
       ...channelAttention,
+      latestUnreadMessageId:
+        channelAttention.latestUnreadMessageId ??
+        existing?.latestUnreadMessageId,
+      firstUnreadMessageId:
+        channelAttention.firstUnreadMessageId ?? existing?.firstUnreadMessageId,
       kind: channelAttention.kind ?? existing?.kind ?? 'server',
       serverId: channelAttention.serverId ?? existing?.serverId,
       peerUserId: channelAttention.peerUserId ?? existing?.peerUserId,
+      lastReadMessageId:
+        cursor ?? channelAttention.lastReadMessageId ?? existing?.lastReadMessageId,
     };
+    if (isEchoChannelEffectivelyRead(merged, cursor)) {
+      merged = { ...merged, unreadCount: 0 };
+    }
     if (merged.unreadCount <= 0) {
       delete (merged as Partial<EchoAttentionChannelSummary>).pingKind;
     }

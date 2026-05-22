@@ -26,7 +26,7 @@
 
 .server-banner-title {
   /* Do not raise above sibling controls — z-index here caused the title flex item
-   * to stack over the invite / server-menu buttons and steal clicks. */
+   * to stack over the server menu trigger and steal clicks. */
   font-size: 0.9rem;
   line-height: 1;
   font-weight: 700;

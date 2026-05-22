@@ -16,6 +16,10 @@ export const YOUTUBE_OAUTH_ERROR_MESSAGES: Record<string, string> = {
     'That YouTube channel is already linked to someone else on Echo.',
   not_available: 'That isn’t available right now. Try again later.',
   persist_failed: 'We couldn’t save your YouTube link. Try again.',
+  google_not_linked:
+    'Link your Google account in Settings → Google first, then connect YouTube with the same Google account.',
+  google_account_mismatch:
+    'Use the same Google account you linked in Settings → Google when connecting YouTube.',
   unknown: 'Something went wrong while connecting YouTube. Try again.',
 };
 
@@ -32,7 +36,33 @@ export const youtubeReconnectCta = 'Reconnect YouTube';
 export const youtubeOAuthCallbackUrlIntro =
   'Echo opens Google’s consent screen. After you approve, you return here with your channel linked for stage live streaming.';
 
+export const youtubeRequiresGoogleLinkHint =
+  'Connect Google in Settings → Google before linking a YouTube channel.';
+
+export const youtubeNativeConnectionTitle = 'YouTube channel (recommended)';
+export const youtubeNativeConnectionBlurb =
+  'Echo creates the live broadcast and sends video over RTMP. Requires Google + YouTube linking and live streaming on your channel.';
+
+export const youtubeStreamKeyTitle = 'Stream key only';
+export const youtubeStreamKeyBlurb =
+  'Paste the stream key from YouTube Studio → Go live → Stream. Echo sends video to that ingest URL. You start and manage the broadcast in YouTube yourself.';
+
+export const youtubeStreamKeyNeverShownAgain =
+  'After you save, Echo encrypts your key and never shows it again. Revoke here anytime to replace it.';
+
+export const youtubeStreamKeySwitchToNativeHint =
+  'You can switch anytime to a full YouTube channel connection above for automatic broadcasts and watch links in Echo.';
+
+export const youtubeStreamKeySavedLabel = 'Stream key saved';
+export const youtubeStreamKeyRevokeCta = 'Revoke stream key';
+export const youtubeStreamKeySaveCta = 'Save stream key';
+
+export const youtubeStageStreamKeyLiveHint =
+  'Echo is sending video to your saved stream key. Start or end the broadcast in YouTube Studio — watch links are not created by Echo in this mode.';
+
 export const STAGE_YOUTUBE_ERROR_MESSAGES: Record<string, string> = {
+  GOOGLE_NOT_LINKED:
+    'Link your Google account in Settings → Google before using YouTube live.',
   YOUTUBE_NOT_LINKED: 'Link your YouTube channel in Settings → YouTube first.',
   YOUTUBE_TOKEN_EXPIRED: 'Reconnect YouTube in Settings, then try again.',
   VOICE_E2EE_BLOCKS_EGRESS:

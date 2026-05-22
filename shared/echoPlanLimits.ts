@@ -36,6 +36,13 @@ export const ECHO_PLAN_GROUP_DM_MAX_MEMBERS: Record<EchoPlanId, number> = {
   black: 250,
 };
 
+/** Distinct image searches per UTC day (Serper upstream; pagination shares one credit per query). */
+export const ECHO_PLAN_IMAGE_SEARCHES_PER_DAY: Record<EchoPlanId, number> = {
+  free: 10,
+  plus: 250,
+  black: 500,
+};
+
 /**
  * Below this, a `groupDmMaxMembers` value from the API/session is treated as invalid
  * (use `fallback`, usually the free-tier cap).
@@ -104,4 +111,7 @@ export type EchoPlanLimitsPublic = {
   groupDmMaxMembers: number;
   themeTier: EchoThemeTier;
   features: EchoPlanFeatureFlags;
+  imageSearchesPerDay: number;
+  /** Distinct image-search queries used today (UTC); pagination reuses one credit per query. */
+  imageSearchesUsedToday: number;
 };

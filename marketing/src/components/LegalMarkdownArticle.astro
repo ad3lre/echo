@@ -1,5 +1,6 @@
 ---
 import MarketingShell from '../layouts/MarketingShell.astro';
+import { pageStructuredData } from '../lib/seo';
 import { renderLegalMarkdown } from '../lib/renderLegalMarkdown';
 
 interface FooterLink {
@@ -20,9 +21,24 @@ interface Props {
 const { title, pageHeading, description, canonicalPath, lastUpdated, markdown, footerLinks } =
   Astro.props;
 const html = renderLegalMarkdown(markdown);
+
+const structuredData = pageStructuredData({
+  title,
+  description,
+  path: canonicalPath,
+  breadcrumbs: [
+    { name: 'Home', path: '/' },
+    { name: pageHeading, path: canonicalPath },
+  ],
+});
 ---
 
-<MarketingShell title={title} description={description} canonicalPath={canonicalPath}>
+<MarketingShell
+  title={title}
+  description={description}
+  canonicalPath={canonicalPath}
+  structuredData={structuredData}
+>
   <main id="main" class="legal-page">
     <div class="container">
       <article class="legal-content">

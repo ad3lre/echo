@@ -5,6 +5,7 @@ import {
   type GuildSettingsSectionGroup,
 } from '@/features/layout/urlNavigationServerSettingsIds';
 import type { EchoRoleType } from '@shared/echoRoleTypes';
+import type { EchoRoleScope } from '@shared/echoRoleScope';
 
 export type ServerSettingsSection = GuildSettingsSection;
 export type ServerSettingsGroup = GuildSettingsGroup;
@@ -44,6 +45,7 @@ export type RolePermissionKey =
   | 'viewChannels'
   | 'manageChannels'
   | 'manageRoles'
+  | 'assignRoles'
   | 'addExpressions'
   | 'manageExpressions'
   | 'viewAuditLog'
@@ -95,6 +97,8 @@ export interface ManagedRole {
   memberCount: number;
   /** Echo server settings only: organizer tab assignment; null = uncategorized. */
   roleCategoryId: string | null;
+  /** When true, manage/assign on this role applies to all categories. */
+  roleScope: EchoRoleScope;
   permissions: RolePermissions;
   /** Echo-only: mixed (default), authority (hidden from non–Manage Roles), or visual (no permission bits). */
   roleType: EchoRoleType;
@@ -116,6 +120,7 @@ export const ROLE_PERMISSION_DEFS: Array<{
   { key: 'viewChannels', label: 'View channels', group: 'General' },
   { key: 'manageChannels', label: 'Manage Channels', group: 'General' },
   { key: 'manageRoles', label: 'Manage Roles', group: 'General' },
+  { key: 'assignRoles', label: 'Assign Roles', group: 'General' },
   { key: 'viewAuditLog', label: 'View Audit Log', group: 'General' },
   { key: 'viewServerStats', label: 'View Server Stats', group: 'General' },
   {
@@ -164,6 +169,7 @@ export const ECHO_SERVER_SETTINGS_ROLE_PERMISSION_KEYS: RolePermissionKey[] = [
   'viewChannels',
   'manageChannels',
   'manageRoles',
+  'assignRoles',
   'createInvite',
   'sendMessages',
   'mentionEveryone',

@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
+import { ref, watch, onMounted, onUnmounted, computed, inject, unref } from 'vue';
 import { useGifSearch, type GifResult } from '@/composables/useGifSearch';
 import { useImageSearch } from '@/composables/useImageSearch';
 import { pickImageSearchSeed } from '@/utils/imageSearchSeedKeywords';
 import LimitedGifImg from '@/components/LimitedGifImg.vue';
+import { useAuthSessionStore } from '@/stores/authSession';
+import { LAYOUT_MODALS_KEY } from '@/features/layout/layoutInjectionKeys';
 
 type MediaTab = 'gif' | 'image';
 
-/** Set true to show the Images tab and image search again. */
-const SHOW_IMAGES_TAB = false;
+const SHOW_IMAGES_TAB = true;
 
 const props = defineProps<{
   placement?: 'up' | 'down';
@@ -37,9 +38,52 @@ const {
   query: imageSearchQuery,
   images: imageResults,
   loading: imageLoading,
+  loadingMore: imageLoadingMore,
   error: imageError,
+  planLimitHit: imagePlanLimitHit,
+  hasMore: imageHasMore,
   search: searchImages,
+  loadMore: loadMoreImages,
 } = useImageSearch();
+
+const authSession = useAuthSessionStore();
+const layoutModals = inject(LAYOUT_MODALS_KEY, null);
+
+const imageSearchQuotaLabel = computed(() => {
+  const limits = authSession.planLimits;
+  if (!limits?.imageSearchesPerDay) return null;
+  const used = limits.imageSearchesUsedToday ?? 0;
+  const cap = limits.imageSearchesPerDay;
+  const remaining = Math.max(0, cap - used);
+  return `${remaining} of ${cap} searches left today`;
+});
+
+function openEchoPlusSettings() {
+  const open = layoutModals?.onOpenSettingsFromProfileBar;
+  if (open) unref(open)('Echo+');
+}
+
+const imageScrollRoot = ref<HTMLElement | null>(null);
+const imageLoadMoreSentinel = ref<HTMLElement | null>(null);
+let imageLoadMoreObserver: IntersectionObserver | null = null;
+
+function setupImageLoadMoreObserver() {
+  imageLoadMoreObserver?.disconnect();
+  imageLoadMoreObserver = null;
+  const root = imageScrollRoot.value;
+  const target = imageLoadMoreSentinel.value;
+  if (!root || !target || activeTab.value !== 'image') return;
+  imageLoadMoreObserver = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      if (imageHasMore.value && !imageLoading.value && !imageLoadingMore.value) {
+        void loadMoreImages();
+      }
+    },
+    { root, rootMargin: '80px', threshold: 0 },
+  );
+  imageLoadMoreObserver.observe(target);
+}
 
 const prefersReducedMotion = computed(
   () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -70,12 +114,23 @@ watch(
 );
 
 watch(activeTab, (tab) => {
-  if (tab !== 'image') return;
+  if (tab !== 'image') {
+    imageLoadMoreObserver?.disconnect();
+    return;
+  }
   if (!imageTabSeeded.value) {
     imageTabSeeded.value = true;
     imageSearchQuery.value = pickImageSearchSeed(props.seedKeywords ?? []);
   }
+  queueMicrotask(() => setupImageLoadMoreObserver());
 });
+
+watch(
+  [imageScrollRoot, imageLoadMoreSentinel, imageHasMore, imageResults],
+  () => {
+    if (activeTab.value === 'image') setupImageLoadMoreObserver();
+  },
+);
 
 onMounted(() => {
   gifSearchQuery.value = '';
@@ -85,6 +140,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  imageLoadMoreObserver?.disconnect();
   if (gifDebounceTimer) {
     clearTimeout(gifDebounceTimer);
     gifDebounceTimer = null;
@@ -275,12 +331,30 @@ function tabBtnClass(isActive: boolean) {
               : 'text-foreground placeholder:text-muted'
           "
         />
+        <p
+          v-if="imageSearchQuotaLabel"
+          class="mx-2 -mt-1 mb-1 text-xs"
+          :class="
+            props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'
+          "
+        >
+          {{ imageSearchQuotaLabel }}
+        </p>
         <div
+          ref="imageScrollRoot"
           class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
           v-scrollbar-on-scroll
         >
-          <div v-if="imageError" class="py-8 text-center text-sm text-red-400">
-            {{ imageError }}
+          <div v-if="imageError" class="py-8 px-3 text-center text-sm text-red-400">
+            <p>{{ imageError }}</p>
+            <button
+              v-if="imagePlanLimitHit"
+              type="button"
+              class="mt-3 rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+              @click="openEchoPlusSettings"
+            >
+              View Echo+ plans
+            </button>
           </div>
           <div
             v-else-if="imageLoading && imageResults.length === 0"
@@ -324,6 +398,30 @@ function tabBtnClass(isActive: boolean) {
               />
             </button>
           </div>
+          <div
+            v-if="imageResults.length > 0 && imageHasMore"
+            ref="imageLoadMoreSentinel"
+            class="flex min-h-10 items-center justify-center py-2"
+            aria-hidden="true"
+          >
+            <svg
+              v-if="imageLoadingMore"
+              class="echo-ios-spinner"
+              viewBox="0 0 44 44"
+              width="24"
+              height="24"
+              aria-hidden="true"
+            >
+              <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
+              <circle
+                class="echo-ios-spinner__arc"
+                cx="22"
+                cy="22"
+                r="18"
+                transform="rotate(-90 22 22)"
+              />
+            </svg>
+          </div>
           <p
             v-if="imageResults.length > 0 && !imageError"
             class="mt-2 px-0.5 text-center text-[10px] leading-snug opacity-70"
@@ -331,12 +429,12 @@ function tabBtnClass(isActive: boolean) {
           >
             Image results via
             <a
-              href="https://developers.google.com/custom-search/v1/overview"
+              href="https://serper.dev"
               target="_blank"
               rel="noreferrer noopener"
               class="underline hover:opacity-100"
               @click.stop
-              >Google Programmable Search</a
+              >Serper</a
             >
           </p>
         </div>

@@ -3,6 +3,7 @@ import type {
   DiscordRoleImportIssue,
 } from '@shared/types';
 import type { EchoRoleType } from '@shared/echoRoleTypes';
+import type { EchoRoleScope } from '@shared/echoRoleScope';
 
 export type EchoServerRoleDto = {
   id: string;
@@ -17,6 +18,8 @@ export type EchoServerRoleDto = {
   isEveryone: boolean;
   /** Server settings organizer; null = uncategorized. */
   roleCategoryId?: string | null;
+  rankInCategory?: number;
+  roleScope?: EchoRoleScope;
   /** Optional custom icon URL for role chips/list rows. */
   roleIconUrl?: string | null;
   /** Optional source emoji id (custom emoji from library). */
@@ -30,6 +33,7 @@ export type EchoRoleCategoryDto = {
   id: string;
   name: string;
   position: number;
+  isSystem?: boolean;
 };
 
 /** Role A is the anchor (edited in settings); links describe what else to assign when A (or linked, if two-way) is granted. */
@@ -91,6 +95,7 @@ export type EchoRolePatch = {
   defaultOnJoin?: boolean;
   permissions?: string[];
   roleCategoryId?: string | null;
+  roleScope?: EchoRoleScope;
   roleIconUrl?: string | null;
   roleIconEmojiId?: string | null;
   roleType?: EchoRoleType;
@@ -98,6 +103,7 @@ export type EchoRolePatch = {
 
 export type EchoServerCapabilitiesDto = {
   canManageRoles: boolean;
+  canAssignRoles?: boolean;
   canManageServer: boolean;
   canCreateChannel: boolean;
   canModerateMembers: boolean;

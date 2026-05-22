@@ -5,7 +5,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 import healthRoutes from './health';
 import statusPageRoutes from './statusPage';
 import giphyRoutes from './giphy';
-import googleImageSearchRoutes from './googleImageSearch';
+import serperImageSearchRoutes from './serperImageSearch';
 import authRoutes from './auth';
 import passkeyRoutes from './passkeyRoutes';
 import discordOAuthRoutes from './discordOAuth';
@@ -48,7 +48,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(statusPageRoutes, { prefix: '/api/v1' });
   await fastify.register(systemDeployCountdownRoutes, { prefix: '/api/v1' });
   await fastify.register(giphyRoutes, { prefix: '/api/v1' });
-  await fastify.register(googleImageSearchRoutes, { prefix: '/api/v1' });
+  await fastify.register(serperImageSearchRoutes, { prefix: '/api/v1' });
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
   if (config.echoPasskeysEnabled) {
     await fastify.register(passkeyRoutes, { prefix: '/api/v1/auth' });

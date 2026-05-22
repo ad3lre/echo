@@ -130,6 +130,11 @@ const showInlineMobileSend = computed(
     (!!props.hasComposerPayload || pendingMediaCount.value > 0),
 );
 
+/** Compact shell: Send in the toolbar (forum uses Post instead). */
+const showMobileSendInToolbar = computed(
+  () => showInlineMobileSend.value && props.popoutTheme !== 'forum',
+);
+
 function toggleMarkdownMenu() {
   const next = !markdownMenuOpen.value;
   if (next) props.closeOtherPopouts?.();
@@ -372,38 +377,18 @@ function bindRef<E extends HTMLElement>(
           <div
             v-if="!composerContent"
             aria-hidden="true"
-            class="chat-input-placeholder pointer-events-none absolute inset-x-0 top-2 z-[2] truncate text-left text-muted"
-            :class="showInlineMobileSend ? 'pr-[4.5rem]' : 'pr-1'"
+            class="chat-input-placeholder pointer-events-none absolute inset-x-0 top-2 z-[2] truncate pr-1 text-left text-muted"
             :title="composerPlaceholder"
           >
             {{ composerPlaceholder }}
           </div>
-          <div
-            class="chat-input-editor-stack relative min-h-[24px] min-w-0"
-            :class="{ 'pr-[4.5rem]': showInlineMobileSend }"
-          >
+          <div class="chat-input-editor-stack relative min-h-[24px] min-w-0">
             <EditorContent
               v-if="composerEditor"
               :editor="composerEditor"
               class="chat-input-surface min-w-0 w-full"
             />
           </div>
-          <button
-            v-if="showInlineMobileSend"
-            type="button"
-            class="chat-focus-ring absolute bottom-1.5 right-1.5 z-30 flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-lg px-3 text-sm font-semibold transition-colors hover:bg-glass-hover active:bg-glass-3 disabled:cursor-not-allowed disabled:opacity-40"
-            :class="
-              props.popoutTheme === 'forum'
-                ? 'text-indigo-200 hover:text-indigo-100'
-                : 'text-indigo-500 hover:text-indigo-400'
-            "
-            :disabled="composerDisabled"
-            :title="composerDisabled ? composerDisabledReason : 'Send message'"
-            aria-label="Send message"
-            @click="void props.requestSend?.()"
-          >
-            Send
-          </button>
         </div>
       </div>
 
@@ -674,6 +659,17 @@ function bindRef<E extends HTMLElement>(
           />
         </button>
         <button
+          v-if="showMobileSendInToolbar"
+          type="button"
+          class="chat-focus-ring chat-mobile-send-btn ml-0.5 inline-flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-lg px-3 text-xs font-semibold transition-colors"
+          :disabled="composerDisabled"
+          :title="composerDisabled ? composerDisabledReason : 'Send message'"
+          aria-label="Send message"
+          @click="void props.requestSend?.()"
+        >
+          Send
+        </button>
+        <button
           v-if="props.popoutTheme === 'forum'"
           type="button"
           class="chat-focus-ring forum-send-btn ml-1 inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold transition-colors"
@@ -690,15 +686,18 @@ function bindRef<E extends HTMLElement>(
 </template>
 
 <style scoped lang="scss">
+.chat-mobile-send-btn,
 .forum-send-btn {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent-contrast-fg);
 }
 
+.chat-mobile-send-btn:hover:not(:disabled),
 .forum-send-btn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
+.chat-mobile-send-btn:disabled,
 .forum-send-btn:disabled {
   cursor: not-allowed;
   opacity: 0.45;

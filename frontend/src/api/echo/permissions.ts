@@ -102,13 +102,17 @@ export async function putEchoServerRoleOrder(
   token: string,
   serverId: string,
   roleIds: string[],
+  options?: { categoryId?: string },
 ): Promise<void> {
   await echoFetch<Record<string, unknown>>(
     token,
     `/servers/${encodeURIComponent(serverId)}/roles/order`,
     {
       method: 'PUT',
-      body: JSON.stringify({ roleIds }),
+      body: JSON.stringify({
+        roleIds,
+        ...(options?.categoryId ? { categoryId: options.categoryId } : {}),
+      }),
     },
   );
 }

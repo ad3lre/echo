@@ -23,6 +23,8 @@ import { sanitizePollForStorage } from '../sockets/messageValidation';
 import {
   maybeEnqueueDiscordImportMediaMirror,
 } from './discordImportMediaMirrorQueue';
+import { resolveDiscordSyncedContentMentions } from './translateDiscordSyncedMentions';
+import { filterMentionsForChannelContext } from '../domain/echoStore/mentionContext';
 
 export type DiscordImportMessagesOptions = {
   limit?: number;
@@ -372,13 +374,29 @@ export async function runDiscordMessageImport(
       state.channelIdMap,
     );
 
+    const rawContent = typeof m.content === 'string' ? m.content : '';
+    const translated = await resolveDiscordSyncedContentMentions(
+      pool,
+      serverId,
+      rawContent,
+    );
+    let mentions = translated.mentions;
+    if (mentions?.length) {
+      mentions = await filterMentionsForChannelContext(
+        pool,
+        echoChannelId,
+        mentions,
+      );
+    }
+
     // Insert the message.
     // We use the Discord ID as the Echo ID to preserve time and order deterministically.
     await insertEchoMessage(pool, {
       id: String(m.id),
       channelId: echoChannelId,
       authorId: authorUserId,
-      content: typeof m.content === 'string' ? m.content : '',
+      content: translated.content,
+      ...(mentions?.length ? { mentions } : {}),
       ...(attachments ? { attachments } : {}),
       ...(stickers ? { stickers } : {}),
       ...(embeds ? { embeds } : {}),

@@ -39,12 +39,21 @@ import type {
   VcActivityUiState,
 } from '@/features/voice/vcActivityTypes';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
+import { storeToRefs } from 'pinia';
+import { useEchoSessionStore } from '@/stores/echoSession';
+import { useStageVcLobby } from '@/features/voice/composables/useStageVcLobby';
+import { openVcActivityByKey } from '@/features/voice/stage/openVcActivityByKey';
+import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
+import type { EchoVcActivityKey } from '@shared/vcActivityCatalog';
 
 const CallView = defineAsyncComponent(
   () => import('@/components/CallView.vue'),
 );
 const StageCallView = defineAsyncComponent(
   () => import('@/features/voice/components/StageCallView.vue'),
+);
+const StageVcLobby = defineAsyncComponent(
+  () => import('@/features/voice/components/StageVcLobby.vue'),
 );
 
 const liveKitConnected = computed(() => !!props.lkRoom);
@@ -268,6 +277,7 @@ watchEffect(() => {
   void import('@/components/CallView.vue');
   if (isStageChannel.value) {
     void import('@/features/voice/components/StageCallView.vue');
+    void import('@/features/voice/components/StageVcLobby.vue');
   }
 });
 
@@ -304,6 +314,86 @@ const voiceChannelActivityLabel = computed(() => {
 const vcActivitySurfaceOpen = computed(
   () => unref(props.vcActivityUi).phase !== 'closed',
 );
+
+const echoSession = useEchoSessionStore();
+const { upcomingEventsByServerId } = storeToRefs(echoSession);
+
+const stageChannelId = computed(() => props.effectiveActiveChannel?.id ?? '');
+const stageUpcomingEvents = computed(
+  () => upcomingEventsByServerId.value[props.selectedServerId] ?? [],
+);
+
+const channelHasActiveVcActivity = computed(() => {
+  if (unref(props.vcActivityUi).phase !== 'closed') return true;
+  return props.activeVoiceChannelParticipants.some(
+    (p) => (p.activityPresence?.length ?? 0) > 0,
+  );
+});
+
+const stageLobby = useStageVcLobby({
+  isStageChannel,
+  channelId: stageChannelId,
+  serverId: computed(() => props.selectedServerId),
+  upcomingEvents: stageUpcomingEvents,
+  vcActivityUi: props.vcActivityUi,
+  channelHasActiveVcActivity,
+});
+
+const stageLobbyPlanningEvent = computed(
+  () => stageLobby.planningEvent.value,
+);
+const stageLobbyNowMs = computed(() => stageLobby.nowMs.value);
+const stageLobbyActiveStageEvent = computed(
+  () => stageLobby.activeStageEvent.value,
+);
+
+function vcActivityHandlers() {
+  return {
+    youtube: () => props.openVcActivityYoutubeBrowse(),
+    wordle: () => props.openVcActivityWordle(),
+    hangman: () => props.openVcActivityHangman(),
+    tic_tac_toe: () => props.openVcActivityTicTacToe(),
+    openguessr: () => props.openVcActivityOpenGuessr(),
+    skribbl_io: () => props.openVcActivitySkribblIo(),
+    gartic_phone: () => props.openVcActivityGarticPhone(),
+    krunker: () => props.openVcActivityKrunker(),
+    codenames: () => props.openVcActivityCodenames(),
+    richup: () => props.openVcActivityRichup(),
+    goober_dash: () => props.openVcActivityGooberDash(),
+    smash_karts: () => props.openVcActivitySmashKarts(),
+    basketball_stars_2026: () => props.openVcActivityBasketballStars2026(),
+    cluster_rush: () => props.openVcActivityClusterRush(),
+    picker: () => props.openVcActivityPicker(),
+  };
+}
+
+function onStageLobbyYoutube() {
+  stageLobby.dismissLobby('youtube');
+  props.openVcActivityYoutubeBrowse();
+}
+
+function onStageLobbyVoiceOnly() {
+  stageLobby.dismissLobby('voice_only');
+}
+
+function onStageLobbyPicker() {
+  stageLobby.dismissLobby('activity_picker');
+  props.openVcActivityPicker();
+}
+
+function onStageLobbyPlanned(
+  event: EchoWorkspaceEventSummary,
+  activityKey: EchoVcActivityKey | null,
+) {
+  stageLobby.dismissLobby('planned_event', event);
+  if (activityKey) {
+    openVcActivityByKey(activityKey, vcActivityHandlers());
+  }
+}
+
+function onDismissStageEventBanner() {
+  stageLobby.activeStageEvent.value = null;
+}
 
 const dockReservePx = computed(() => props.voiceMobileDockReservePx ?? 0);
 
@@ -471,7 +561,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
               !isCompactMobileGuild &&
               channelPanelCollapsed &&
               expandChannels &&
-              !vcActivitySurfaceOpen
+              !vcActivitySurfaceOpen && !stageLobby.showLobby
             "
             type="button"
             class="absolute left-3 top-3 z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
@@ -487,7 +577,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             <span>Back</span>
           </button>
           <button
-            v-if="isCompactMobileGuild && !vcActivitySurfaceOpen"
+            v-if="isCompactMobileGuild && !vcActivitySurfaceOpen && !stageLobby.showLobby"
             type="button"
             class="absolute left-3 top-[calc(env(safe-area-inset-top,0px)+0.45rem)] z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
             aria-label="Back to channels"
@@ -500,8 +590,19 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             />
             <span>Back</span>
           </button>
+          <StageVcLobby
+            v-if="stageLobby.showLobby && effectiveActiveChannel"
+            class="min-w-0 min-h-0 flex-1"
+            :channel-name="getChannelDisplayName(effectiveActiveChannel.name)"
+            :planning-event="stageLobbyPlanningEvent"
+            :now-ms="stageLobbyNowMs"
+            @start-youtube="onStageLobbyYoutube"
+            @start-voice-only="onStageLobbyVoiceOnly"
+            @start-planned-event="onStageLobbyPlanned"
+            @open-activity-picker="onStageLobbyPicker"
+          />
           <VcActivityStage
-            v-if="vcActivitySurfaceOpen"
+            v-else-if="vcActivitySurfaceOpen"
             class="min-w-0 min-h-0 flex-1"
             :state="vcActivityUi"
             :voice-channel-label="voiceChannelActivityLabel"
@@ -582,6 +683,9 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :channel-name="getChannelDisplayName(effectiveActiveChannel.name)"
             :stage-channel-id="effectiveActiveChannel.id"
             :echo-server-id="selectedServerId"
+            :active-stage-event="stageLobbyActiveStageEvent"
+            :stage-event-now-ms="stageLobbyNowMs"
+            @dismiss-stage-event="onDismissStageEventBanner"
             :participants="activeVoiceChannelParticipants"
             :stage-speaker-by-user-id="stageSpeakerByUserId"
             :current-user-id="currentUserId"

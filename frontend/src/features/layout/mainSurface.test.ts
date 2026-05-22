@@ -6,6 +6,7 @@ import {
   type MainSurface,
   type NavState,
 } from './mainSurface';
+import { bindResolveServerChannelInfoForMainSurface } from './resolveServerChannelTypeForMainSurface';
 
 const ctxNoOnboarding = (
   getInfo: DeriveContext['getServerChannelInfo'],
@@ -194,6 +195,22 @@ describe('deriveMainSurface', () => {
         ctxNoOnboarding((id) => (id === 'stage-1' ? { type: 'voice' } : null)),
       ),
     ).toEqual({
+      type: 'serverVoice',
+      channelId: 'stage-1',
+    });
+  });
+
+  it('servers rail + stage guild channel type resolves to serverVoice surface', () => {
+    const nav: NavState = {
+      rail: 'servers',
+      dmSubView: 'messages',
+      activeChannelId: 'stage-1',
+      selectedServerId: 'srv-1',
+    };
+    const getInfo = bindResolveServerChannelInfoForMainSurface((id) =>
+      id === 'stage-1' ? { channel: { type: 'stage' } } : null,
+    );
+    expect(deriveMainSurface(nav, ctxNoOnboarding(getInfo))).toEqual({
       type: 'serverVoice',
       channelId: 'stage-1',
     });

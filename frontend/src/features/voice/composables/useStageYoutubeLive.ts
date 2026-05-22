@@ -1,7 +1,11 @@
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { EchoApiError } from '@/api/echo/transport';
+import {
+  fetchMeYoutube,
+  type YoutubeConnectionMode,
+} from '@/api/meYoutube';
 import {
   fetchStageYoutubeStream,
   startStageYoutubeStream,
@@ -29,8 +33,29 @@ export function useStageYoutubeLive(opts: {
   const actionBusy = ref(false);
   const goLiveTitle = ref('');
   const privacyStatus = ref<'public' | 'unlisted' | 'private'>('unlisted');
+  const connectionMode = ref<YoutubeConnectionMode>('none');
+
+  const usesStreamKeyDelivery = computed(
+    () => connectionMode.value === 'stream_key',
+  );
+  const isStreamKeyLive = computed(
+    () => stream.value?.streamSource === 'stream_key',
+  );
 
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+  async function loadConnectionMode() {
+    if (!isAuthenticated.value) {
+      connectionMode.value = 'none';
+      return;
+    }
+    try {
+      const me = await fetchMeYoutube();
+      connectionMode.value = me.connectionMode;
+    } catch {
+      connectionMode.value = 'none';
+    }
+  }
 
   function canPoll(): boolean {
     const serverId = opts.echoServerId().trim();
@@ -123,7 +148,10 @@ export function useStageYoutubeLive(opts: {
     }
   }
 
-  onMounted(() => startPolling());
+  onMounted(() => {
+    void loadConnectionMode();
+    startPolling();
+  });
   onUnmounted(() => stopPolling());
 
   watch(
@@ -134,7 +162,10 @@ export function useStageYoutubeLive(opts: {
         opts.enabled(),
         isAuthenticated.value,
       ] as const,
-    () => startPolling(),
+    () => {
+      void loadConnectionMode();
+      startPolling();
+    },
   );
 
   return {
@@ -143,6 +174,8 @@ export function useStageYoutubeLive(opts: {
     actionBusy,
     goLiveTitle,
     privacyStatus,
+    usesStreamKeyDelivery,
+    isStreamKeyLive,
     refresh,
     goLive,
     endLive,

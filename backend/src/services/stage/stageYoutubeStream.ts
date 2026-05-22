@@ -4,7 +4,14 @@ import { getEchoChannelVoiceE2eeEnabled } from '../../domain/echoStore/voiceE2ee
 import { getEchoChannelType } from '../../domain/echoStore/voice';
 import { getEffectiveChannelPermissions } from '../../domain/echoStore/permissions';
 import { isEchoServerOwner } from '../../domain/echoStore/access';
+import { getGoogleLinkByUserId } from '../../domain/googleUserLinkRepo';
 import { getYoutubeLinkByUserId } from '../../domain/youtubeUserLinkRepo';
+import { resolveYoutubeDeliveryForUser } from '../../domain/youtubeDeliveryMode';
+import {
+  isYoutubeStreamKeyStageBroadcast,
+  YOUTUBE_STAGE_STREAM_KEY_BROADCAST_ID,
+  YOUTUBE_STAGE_STREAM_KEY_STREAM_ID,
+} from '../../domain/youtubeRtmpIngest';
 import {
   clearStageYoutubeBroadcast,
   getStageYoutubeBroadcast,
@@ -33,6 +40,8 @@ export type StageYoutubeStreamPublic = {
   privacyStatus: string | null;
   watchUrl: string | null;
   youtubeChannelTitle: string | null;
+  /** How this stage session reaches YouTube (oauth API vs saved stream key). */
+  streamSource: 'oauth' | 'stream_key' | null;
   startedByUserId: string | null;
   errorCode: string | null;
 };
@@ -78,11 +87,13 @@ function publicStreamFromRow(
         privacyStatus: null,
         watchUrl: null,
         youtubeChannelTitle: null,
+        streamSource: null,
         startedByUserId: null,
         errorCode: row?.errorCode ?? null,
       };
     }
     const link = await getYoutubeLinkByUserId(pool, row.youtubeLinkUserId);
+    const streamKeyMode = isYoutubeStreamKeyStageBroadcast(row.youtubeBroadcastId);
     const canSeeDetails = await canUserManageStageYoutubeStream(
       pool,
       serverId,
@@ -95,7 +106,10 @@ function publicStreamFromRow(
       title: canSeeDetails ? row.title : null,
       privacyStatus: canSeeDetails ? row.privacyStatus : null,
       watchUrl: watchUrlForViewer(row, canSeeDetails),
-      youtubeChannelTitle: link?.channelTitle ?? null,
+      youtubeChannelTitle: streamKeyMode
+        ? 'Stream key'
+        : (link?.channelTitle ?? null),
+      streamSource: streamKeyMode ? 'stream_key' : 'oauth',
       startedByUserId: canSeeDetails ? row.startedByUserId : null,
       errorCode: canSeeDetails ? row.errorCode : null,
     };
@@ -196,15 +210,136 @@ export async function startStageYoutubeStream(
     };
   }
 
-  const link = await getYoutubeLinkByUserId(pool, opts.actorUserId);
-  if (!link) {
+  const delivery = await resolveYoutubeDeliveryForUser(pool, opts.actorUserId);
+  if (delivery.mode === 'none') {
     return {
       ok: false,
       code: 'YOUTUBE_NOT_LINKED',
-      message: 'Link your YouTube channel in Settings before going live.',
+      message:
+        'Connect YouTube in Settings (channel link or stream key) before going live.',
     };
   }
 
+  if (delivery.mode === 'oauth') {
+    const googleLink = await getGoogleLinkByUserId(pool, opts.actorUserId);
+    if (!googleLink) {
+      return {
+        ok: false,
+        code: 'GOOGLE_NOT_LINKED',
+        message:
+          'Link your Google account in Settings → Google before using channel link.',
+      };
+    }
+    return startStageYoutubeStreamOauth(pool, opts, delivery.userId);
+  }
+
+  return startStageYoutubeStreamWithStreamKey(pool, opts, delivery.rtmpUrl);
+}
+
+async function startStageYoutubeStreamWithStreamKey(
+  pool: Pool,
+  opts: {
+    serverId: string;
+    channelId: string;
+    actorUserId: string;
+    title?: string;
+    privacyStatus?: YoutubeLivePrivacy;
+    description?: string;
+  },
+  rtmpUrl: string,
+): Promise<StartStageYoutubeStreamResult> {
+  const privacyStatus: YoutubeLivePrivacy =
+    opts.privacyStatus === 'public' ||
+    opts.privacyStatus === 'private' ||
+    opts.privacyStatus === 'unlisted'
+      ? opts.privacyStatus
+      : 'unlisted';
+  const title =
+    (opts.title ?? '').trim() ||
+    `Echo stage — ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
+
+  const claimed = await tryClaimStageYoutubeBroadcastStart(pool, {
+    serverId: opts.serverId,
+    channelId: opts.channelId,
+    startedByUserId: opts.actorUserId,
+    youtubeLinkUserId: opts.actorUserId,
+    privacyStatus,
+    title,
+  });
+  if (!claimed) {
+    return {
+      ok: false,
+      code: 'ALREADY_LIVE',
+      message: 'This stage is already streaming to YouTube.',
+    };
+  }
+
+  await upsertStageYoutubeBroadcast(pool, {
+    serverId: opts.serverId,
+    channelId: opts.channelId,
+    startedByUserId: opts.actorUserId,
+    youtubeLinkUserId: opts.actorUserId,
+    youtubeBroadcastId: YOUTUBE_STAGE_STREAM_KEY_BROADCAST_ID,
+    youtubeStreamId: YOUTUBE_STAGE_STREAM_KEY_STREAM_ID,
+    livekitEgressId: null,
+    status: 'starting',
+    privacyStatus,
+    title,
+    watchUrl: null,
+    errorCode: null,
+  });
+
+  let egressId: string;
+  try {
+    egressId = await startStageRoomCompositeRtmpEgress({
+      serverId: opts.serverId,
+      channelId: opts.channelId,
+      rtmpUrl,
+    });
+  } catch (e) {
+    const code =
+      e instanceof Error && e.message === 'LIVEKIT_EGRESS_NOT_CONFIGURED'
+        ? 'LIVEKIT_EGRESS_DISABLED'
+        : 'LIVEKIT_EGRESS_FAILED';
+    await updateStageYoutubeBroadcastStatus(pool, opts.serverId, opts.channelId, {
+      status: 'failed',
+      errorCode: code,
+      ended: true,
+    });
+    await clearStageYoutubeBroadcast(pool, opts.serverId, opts.channelId);
+    return {
+      ok: false,
+      code,
+      message: 'Could not start the RTMP stream to YouTube.',
+    };
+  }
+
+  await updateStageYoutubeBroadcastStatus(pool, opts.serverId, opts.channelId, {
+    status: 'live',
+    livekitEgressId: egressId,
+  });
+
+  const stream = await getStageYoutubeStreamStatus(
+    pool,
+    opts.serverId,
+    opts.channelId,
+    opts.actorUserId,
+  );
+  return { ok: true, stream };
+}
+
+async function startStageYoutubeStreamOauth(
+  pool: Pool,
+  opts: {
+    serverId: string;
+    channelId: string;
+    actorUserId: string;
+    title?: string;
+    privacyStatus?: YoutubeLivePrivacy;
+    description?: string;
+  },
+  _youtubeUserId: string,
+): Promise<StartStageYoutubeStreamResult> {
   const privacyStatus: YoutubeLivePrivacy =
     opts.privacyStatus === 'public' ||
     opts.privacyStatus === 'private' ||
@@ -385,7 +520,10 @@ async function forceStopStageYoutubeBroadcastRow(
     await stopLiveKitEgress(row.livekitEgressId);
   }
 
-  if (row.youtubeBroadcastId.trim()) {
+  if (
+    row.youtubeBroadcastId.trim() &&
+    !isYoutubeStreamKeyStageBroadcast(row.youtubeBroadcastId)
+  ) {
     try {
       const accessToken = await getYoutubeUserAccessTokenForApi(
         pool,

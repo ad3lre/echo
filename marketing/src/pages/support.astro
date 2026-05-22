@@ -1,5 +1,6 @@
 ---
 import MarketingShell from '../layouts/MarketingShell.astro';
+import { faqPageNode, pageStructuredData } from '../lib/seo';
 import { CHAT_APP_ORIGIN, SUPPORT_CONTACT_EMAIL } from '../site';
 
 const title = 'Support | Echo';
@@ -26,9 +27,29 @@ const faqs = [
     a: 'Yes— Echo uses TLS for all connections, and we offer optional end-to-end encryption for voice and DMs.'
   }
 ];
+
+const structuredData = pageStructuredData({
+  title,
+  description,
+  path: '/support',
+  breadcrumbs: [
+    { name: 'Home', path: '/' },
+    { name: 'Support', path: '/support' },
+  ],
+  extra: [
+    faqPageNode(
+      faqs.map((f) => ({ question: f.q, answer: f.a })),
+    ),
+  ],
+});
 ---
 
-<MarketingShell title={title} description={description} canonicalPath="/support">
+<MarketingShell
+  title={title}
+  description={description}
+  canonicalPath="/support"
+  structuredData={structuredData}
+>
   <main id="main" class="subpage-main">
     <section class="support-hero">
       <div class="container">

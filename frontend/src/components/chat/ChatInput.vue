@@ -647,9 +647,7 @@ const showEmojiAutocomplete = computed(
   () => chatInputFocused.value && emojiAutocomplete.showPopup.value,
 );
 const showMarkdownPreviewToggle = computed(() =>
-  (props.popoutTheme ?? 'default') === 'forum'
-    ? hasMarkdownSyntax(composer.content.value)
-    : true,
+  hasMarkdownSyntax(composer.content.value),
 );
 const hasComposerContent = computed(
   () => composer.content.value.trim().length > 0,

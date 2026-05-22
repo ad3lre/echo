@@ -26,10 +26,12 @@ import {
   youtubeOAuthCookieMaxAgeSec,
   youtubeOAuthCookieName,
 } from '../../domain/youtubeOAuthState';
+import { getGoogleLinkByUserId } from '../../domain/googleUserLinkRepo';
 import {
   findYoutubeLinkOwnerForChannelId,
   upsertYoutubeChannelLink,
 } from '../../domain/youtubeUserLinkRepo';
+import { resolveGoogleUserFromOAuthTokenResponse } from '../../services/integrations/googleOidc';
 import {
   isYoutubeOauthConfigured,
   youtubeOAuthAppRedirect,
@@ -99,8 +101,18 @@ export default async function youtubeOAuthRoutes(
       }
       if (!ensureFederatedOAuthTokenEncryptionReady(reply, fastify.log))
         return;
-      if (!getPgPool()) {
+      const pool = getPgPool();
+      if (!pool) {
         return sendError(reply, 503, 'NOT_AVAILABLE', 'Database unavailable.');
+      }
+      const googleLink = await getGoogleLinkByUserId(pool, req.authUser.id);
+      if (!googleLink) {
+        return sendError(
+          reply,
+          403,
+          'GOOGLE_NOT_LINKED',
+          'Link your Google account in Settings → Google before connecting YouTube.',
+        );
       }
 
       const state = createYoutubeOAuthState();
@@ -170,6 +182,13 @@ export default async function youtubeOAuthRoutes(
           .redirect(youtubeOAuthAppRedirect(false, 'no_database'));
       }
 
+      const googleLink = await getGoogleLinkByUserId(pool, payload.userId);
+      if (!googleLink) {
+        return reply
+          .code(302)
+          .redirect(youtubeOAuthAppRedirect(false, 'google_not_linked'));
+      }
+
       let tokenResponse;
       try {
         tokenResponse = await exchangeYoutubeOAuthCode(
@@ -177,6 +196,24 @@ export default async function youtubeOAuthRoutes(
           payload.pkceVerifier,
           OAUTH_FETCH,
         );
+      } catch {
+        return reply
+          .code(302)
+          .redirect(youtubeOAuthAppRedirect(false, 'token_exchange'));
+      }
+
+      try {
+        const googleUser = await resolveGoogleUserFromOAuthTokenResponse(
+          tokenResponse,
+          OAUTH_FETCH,
+        );
+        if (googleUser.sub !== googleLink.googleSub) {
+          return reply
+            .code(302)
+            .redirect(
+              youtubeOAuthAppRedirect(false, 'google_account_mismatch'),
+            );
+        }
       } catch {
         return reply
           .code(302)

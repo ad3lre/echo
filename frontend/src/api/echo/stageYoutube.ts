@@ -7,6 +7,7 @@ export type StageYoutubeStreamStatus = {
   privacyStatus: string | null;
   watchUrl: string | null;
   youtubeChannelTitle: string | null;
+  streamSource?: 'oauth' | 'stream_key' | null;
   startedByUserId: string | null;
   errorCode: string | null;
 };

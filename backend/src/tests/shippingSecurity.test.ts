@@ -52,7 +52,7 @@ function clearConfigAndRoutes() {
     `${path.sep}backend${path.sep}src${path.sep}services${path.sep}linkUnfurl${path.sep}linkUnfurlFetch.`,
     `${path.sep}backend${path.sep}src${path.sep}api${path.sep}routes${path.sep}health.`,
     `${path.sep}backend${path.sep}src${path.sep}api${path.sep}routes${path.sep}giphy.`,
-    `${path.sep}backend${path.sep}src${path.sep}api${path.sep}routes${path.sep}googleImageSearch.`,
+    `${path.sep}backend${path.sep}src${path.sep}api${path.sep}routes${path.sep}serperImageSearch.`,
     `${path.sep}backend${path.sep}src${path.sep}api${path.sep}routes${path.sep}echo${path.sep}echoInvites.`,
   ]);
 }
@@ -145,10 +145,11 @@ async function run(): Promise<void> {
     await giphyApp.close();
 
     clearConfigAndRoutes();
-    const { default: googleImageSearchRoutes } =
-      await import('../api/routes/googleImageSearch');
+    process.env.SERPER_API_KEY = 'test-serper-key-for-rate-limit';
+    const { default: serperImageSearchRoutes } =
+      await import('../api/routes/serperImageSearch');
     const imageSearchApp = Fastify({ logger: false });
-    await imageSearchApp.register(googleImageSearchRoutes, {
+    await imageSearchApp.register(serperImageSearchRoutes, {
       prefix: '/api/v1',
     });
     let imageSearchLast = 0;

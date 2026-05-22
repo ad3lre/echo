@@ -13,17 +13,7 @@ import {
   type Ref,
 } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useServerEmojiLibrary } from '@/composables/useServerEmojiLibrary';
-import {
-  resolveCustomEmojiImageUrlForDisplay,
-  safeCustomEmojiUrl,
-} from '@/utils/customEmojiUrl';
-import { isEchoPublicId } from '@shared/snowflakeIds';
-import { collectCustomEmojiIdsFromTexts } from '@/utils/collectCustomEmojiIdsFromText';
-import {
-  isEchoEmojiTokenResolveMiss,
-  useGlobalEmojiTokenResolver,
-} from '@/composables/useGlobalEmojiTokenResolver';
+import { useChatCustomEmojiResolvers } from '@/composables/useChatCustomEmojiResolvers';
 import { useEchoHistory } from '@/composables/useEchoHistory';
 import type {
   ChannelSummary,
@@ -40,12 +30,10 @@ import ImageViewerModal from './ImageViewerModal.vue';
 import DocumentViewerModal from './DocumentViewerModal.vue';
 import ChannelDiscordSyncPanel from '@/features/channel-settings/components/ChannelDiscordSyncPanel.vue';
 import type { ImageItem } from './ImageViewerModal.vue';
+import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import type { MemberRole, PopoutAnchorRect } from '@/utils/memberProfiles';
 import { useServerStore } from '@/stores/server';
-import {
-  extractMarkdownHeadingToc,
-  type IdTokenResolvers,
-} from '@/composables/useMarkdown';
+import { extractMarkdownHeadingToc } from '@/composables/useMarkdown';
 import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
 import {
   COMPOSER_INSERT_USER_MENTION_KEY,
@@ -59,10 +47,6 @@ import { useEchoAttentionStore } from '@/stores/echoAttention';
 import { getParentChannelIdOrNull } from '@/features/forums/domain/forumPostChannel';
 import { dbgReadState } from '@/utils/echoReadStateDebug';
 import { isEchoMessageLogicallyOwn } from '@/features/chat/domain/discordTwinMessageOwnership';
-import {
-  ensureIconCatalogLoaded,
-  getIconUrlByFilename,
-} from '@/assets/iconCatalog';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { peerDisplayNamePlaceholder } from '@/features/dm/peerDisplayPlaceholder';
 import { useChannelTypingStore } from '@/stores/channelTyping';
@@ -533,174 +517,22 @@ watch(documentViewerOpen, (open) => {
 provide('openDocumentViewer', openDocumentViewer);
 
 const serverStore = useServerStore();
-const serverEmojiLibrary = useServerEmojiLibrary(
-  computed(() => props.serverId),
-);
-const globalEmojiResolver = useGlobalEmojiTokenResolver();
-provide('ensureCustomEmojiId', globalEmojiResolver.ensureEmojiId);
 
-const customEmojiUrlById = computed(() => {
-  void globalEmojiResolver.cacheVersion.value;
-  const m = new Map<string, string>();
-  for (const [id, row] of serverEmojiLibrary.emojiById.value) {
-    const safe = safeCustomEmojiUrl(row.imageUrl);
-    if (safe) m.set(id, safe);
-  }
-  for (const [id, url] of globalEmojiResolver.urlById.value) {
-    if (m.has(id)) continue;
-    const safe = safeCustomEmojiUrl(url);
-    if (safe) m.set(id, safe);
-  }
-  return m;
+const chatCustomEmoji = useChatCustomEmojiResolvers({
+  serverId: computed(() => props.serverId),
+  users: computed(() => props.users as UserForAuthor[] | undefined),
+  channels: computed(() => props.channels as ChannelSummary[] | undefined),
+  activeChannelMessages: computed(() => props.activeChannelMessages),
 });
-provide('customEmojiUrlById', customEmojiUrlById);
 
-const customEmojiByName = computed(() => {
-  void globalEmojiResolver.cacheVersion.value;
-  const m = new Map<
-    string,
-    { id: string; name: string; animated: boolean }
-  >();
-  for (const row of serverEmojiLibrary.emojiById.value.values()) {
-    const n = row.name.trim().toLowerCase();
-    if (!n || m.has(n)) continue;
-    m.set(n, { id: row.id, name: row.name, animated: row.animated });
-  }
-  for (const [n, meta] of globalEmojiResolver.emojiByName.value) {
-    if (m.has(n)) continue;
-    m.set(n, { id: meta.id, name: meta.name, animated: meta.animated });
-  }
-  return m;
-});
+provide('ensureCustomEmojiId', chatCustomEmoji.ensureEmojiId);
+provide('customEmojiUrlById', chatCustomEmoji.customEmojiUrlById);
+provide('idTokenResolvers', chatCustomEmoji.idTokenResolvers);
 
 const isDiscordImportedServer = computed(() => {
   const s = serverStore.servers.find((s) => s.id === props.serverId);
   return !!s?.discordGuildId;
 });
-
-/** Busts `parseMessageContent` PARSE_CACHE when id→imageUrl mappings change at constant size. */
-function snapshotEmojiLibraryFromPacks(
-  packs: readonly { emojis: readonly { id: string; imageUrl: string }[] }[],
-): string {
-  let s = '';
-  for (const p of packs) {
-    for (const e of p.emojis) {
-      s += `${e.id}\x1e${e.imageUrl}\x1e`;
-    }
-  }
-  return s;
-}
-
-let _resolverCacheVer = 0;
-let _prevUserNameKey: string | null = null;
-let _prevChannelNameKey: string | null = null;
-let _prevServerNameKey: string | null = null;
-let _prevEmojiSnapshotKey = '';
-let _prevIconCatalogKey = '';
-
-const resolverCacheVersion = computed(() => {
-  const uKey = (props.users ?? [])
-    .map((u) => `${u.id}\x00${u.name}`)
-    .join('\x1e');
-  const cKey = (props.channels ?? [])
-    .map((c) => `${c.id}\x00${c.name}`)
-    .join('\x1e');
-  const sKey = serverStore.servers
-    .map((s) => `${s.id}\x00${s.name}`)
-    .join('\x1e');
-  const emojiSnapshotKey = `${snapshotEmojiLibraryFromPacks(
-    serverEmojiLibrary.packs.value,
-  )}\x1f${globalEmojiResolver.cacheVersion.value}\x1f${customEmojiByName.value.size}`;
-  const iconCatalogKey = iconCatalogReady.value ? '1' : '0';
-  if (
-    uKey !== _prevUserNameKey ||
-    cKey !== _prevChannelNameKey ||
-    sKey !== _prevServerNameKey ||
-    emojiSnapshotKey !== _prevEmojiSnapshotKey ||
-    iconCatalogKey !== _prevIconCatalogKey
-  ) {
-    _resolverCacheVer++;
-    _prevUserNameKey = uKey;
-    _prevChannelNameKey = cKey;
-    _prevServerNameKey = sKey;
-    _prevEmojiSnapshotKey = emojiSnapshotKey;
-    _prevIconCatalogKey = iconCatalogKey;
-  }
-  return _resolverCacheVer;
-});
-
-const iconCatalogReady = ref(false);
-void ensureIconCatalogLoaded().then(() => {
-  iconCatalogReady.value = true;
-});
-
-const idTokenResolvers = computed<IdTokenResolvers>(() => ({
-  userLabel: (id) => props.users?.find((u) => u.id === id)?.name ?? id,
-  channelLabel: (id) => props.channels?.find((c) => c.id === id)?.name ?? id,
-  serverLabel: (id) => serverStore.servers.find((s) => s.id === id)?.name ?? id,
-  roleLabel: (id) => id,
-  messageLabel: (id) => (id.length > 12 ? `${id.slice(0, 8)}…` : id),
-  customEmojiImageUrl: (id, name, animated) => {
-    const inLocalLibrary = serverEmojiLibrary.emojiById.value.has(id);
-    let url = resolveCustomEmojiImageUrlForDisplay(
-      id,
-      animated,
-      customEmojiUrlById.value,
-      isEchoEmojiTokenResolveMiss(id),
-      {
-        allowDiscordCdnGuess: !inLocalLibrary && isEchoPublicId(id),
-      },
-    );
-    if (!url && name.trim()) {
-      const byName = customEmojiByName.value.get(name.trim().toLowerCase());
-      if (byName) {
-        const inLocalByName = serverEmojiLibrary.emojiById.value.has(
-          byName.id,
-        );
-        url = resolveCustomEmojiImageUrlForDisplay(
-          byName.id,
-          byName.animated,
-          customEmojiUrlById.value,
-          isEchoEmojiTokenResolveMiss(byName.id),
-          {
-            allowDiscordCdnGuess:
-              !inLocalByName && isEchoPublicId(byName.id),
-          },
-        );
-        if (!url) globalEmojiResolver.ensureEmojiId(byName.id);
-      }
-    }
-    if (!url) globalEmojiResolver.ensureEmojiId(id);
-    return url ?? undefined;
-  },
-  customEmojiByName: customEmojiByName.value,
-  appIconImageUrl: (filename) => getIconUrlByFilename(filename),
-  _cacheVersion: resolverCacheVersion.value,
-}));
-provide('idTokenResolvers', idTokenResolvers);
-
-const channelCustomEmojiIds = computed(() => {
-  const msgs = props.activeChannelMessages;
-  if (!msgs?.size) return [] as string[];
-  const texts: string[] = [];
-  for (const m of msgs.values()) {
-    const c = m.content?.trim();
-    if (c) texts.push(c);
-    for (const r of m.reactions ?? []) {
-      const e = r.emoji?.trim();
-      if (e) texts.push(e);
-    }
-  }
-  return collectCustomEmojiIdsFromTexts(texts);
-});
-
-watch(
-  channelCustomEmojiIds,
-  (ids) => {
-    if (ids.length > 0) globalEmojiResolver.ensureEmojiIds(ids);
-  },
-  { immediate: true },
-);
 
 const replyingTo = ref<ReplyTo | null>(null);
 /**

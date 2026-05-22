@@ -69,9 +69,10 @@ export type MeGoogleLinkedProfile = {
 };
 
 export type MeGoogleResponse =
-  | { linked: false }
+  | { linked: false; configured?: boolean }
   | {
       linked: true;
+      configured?: boolean;
       mergeKind: 'full' | 'partial';
       profile: MeGoogleLinkedProfile;
     };
