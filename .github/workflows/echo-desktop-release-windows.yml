@@ -59,7 +59,7 @@ jobs:
 
       - name: Create draft GitHub Release (tags only)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           draft: true
           generate_release_notes: true
