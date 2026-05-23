@@ -77,6 +77,7 @@ jobs:
           ECHO_BACKEND_STORAGE: postgres
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
+          ECHO_GUEST_ACCOUNTS_ENABLED: '1'
         run: npm run test:echo:pipeline -w backend
       - name: Multi-node integration (Postgres + NATS)
         env:

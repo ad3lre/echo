@@ -1,7 +1,12 @@
 /**
  * Pipeline tests: HTTP + Socket.IO + Postgres (requires DATABASE_URL).
- * Run: npm run test:echo:pipeline -w backend
+ * Run: ECHO_GUEST_ACCOUNTS_ENABLED=1 npm run test:echo:pipeline -w backend
+ *
+ * Guest carve-out tests need guests enabled before Node loads `config` (imports are hoisted).
  */
+process.env.ECHO_GUEST_ACCOUNTS_ENABLED =
+  process.env.ECHO_GUEST_ACCOUNTS_ENABLED ?? '1';
+
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import {
