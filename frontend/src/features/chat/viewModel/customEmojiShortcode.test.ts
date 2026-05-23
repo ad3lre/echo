@@ -7,15 +7,10 @@ describe('custom emoji shortcodes in messages', () => {
     const out = parseMessageContent('hello :adel: there', undefined, {
       _cacheVersion: 1,
       customEmojiByName: new Map([
-        [
-          'adel',
-          { id: '304238867010606080', name: 'adel', animated: false },
-        ],
+        ['adel', { id: '304238867010606080', name: 'adel', animated: false }],
       ]),
       customEmojiImageUrl: (id) =>
-        id === '304238867010606080'
-          ? 'https://cdn.test/adel.webp'
-          : undefined,
+        id === '304238867010606080' ? 'https://cdn.test/adel.webp' : undefined,
     });
     expect(out).toContain('class="emoji custom-emoji"');
     expect(out).toContain('https://cdn.test/adel.webp');

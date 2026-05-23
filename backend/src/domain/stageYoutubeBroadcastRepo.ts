@@ -183,9 +183,7 @@ export async function listActiveStageYoutubeBroadcastsForLinkUser(
     `,
     [youtubeLinkUserId, ACTIVE_YOUTUBE_STATUSES],
   );
-  return r.rows.map((row) =>
-    rowFromDb(row as Record<string, unknown>),
-  );
+  return r.rows.map((row) => rowFromDb(row as Record<string, unknown>));
 }
 
 /**

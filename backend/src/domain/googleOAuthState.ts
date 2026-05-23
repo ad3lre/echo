@@ -1,4 +1,8 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { randomBytes } from 'crypto';
+import {
+  oauthCookieIntegrityTag,
+  oauthCookieIntegrityTagsEqual,
+} from '../auth/oauthCookieIntegrity';
 import { config } from '../config';
 
 const COOKIE_NAME = 'echo_google_oauth';
@@ -38,7 +42,7 @@ function signPayload(
       ? `\n${desktopHandoffNonceHash}`
       : '';
   const payload = `${mode}\n${userId}\n${state}\n${pkceVerifier}\n${exp}${tail}`;
-  return createHmac('sha256', config.jwtSecret).update(payload).digest('hex');
+  return oauthCookieIntegrityTag(config.jwtSecret, payload);
 }
 
 export function encodeGoogleOAuthLinkCookieValue(
@@ -122,15 +126,7 @@ export function decodeGoogleOAuthCookieValue(
       typeof parsed.h === 'string' ? parsed.h.trim().toLowerCase() : '';
     const h = /^[0-9a-f]{64}$/.test(hRaw) ? hRaw : undefined;
     const expect = signPayload('login', '', state, pkceVerifier, exp, h);
-    try {
-      if (
-        expect.length !== sig.length ||
-        !timingSafeEqual(Buffer.from(expect), Buffer.from(sig))
-      )
-        return null;
-    } catch {
-      return null;
-    }
+    if (!oauthCookieIntegrityTagsEqual(expect, sig)) return null;
     if (h) {
       return {
         flow: 'login',
@@ -148,15 +144,7 @@ export function decodeGoogleOAuthCookieValue(
     const userId = typeof parsed.u === 'string' ? parsed.u : '';
     if (!userId) return null;
     const expect = signPayload('link', userId, state, pkceVerifier, exp);
-    try {
-      if (
-        expect.length !== sig.length ||
-        !timingSafeEqual(Buffer.from(expect), Buffer.from(sig))
-      )
-        return null;
-    } catch {
-      return null;
-    }
+    if (!oauthCookieIntegrityTagsEqual(expect, sig)) return null;
     return { flow: 'link', userId, state, pkceVerifier, exp };
   }
 

@@ -206,7 +206,11 @@ export async function deleteYoutubeLiveStream(
 
 export async function createYoutubeLiveSession(
   accessToken: string,
-  opts: { title: string; privacyStatus: YoutubeLivePrivacy; description?: string },
+  opts: {
+    title: string;
+    privacyStatus: YoutubeLivePrivacy;
+    description?: string;
+  },
   fetchImpl: FetchLike = fetch,
 ): Promise<YoutubeLiveSession> {
   const title = opts.title.trim().slice(0, 100) || 'Echo stage live';
@@ -271,7 +275,9 @@ export async function createYoutubeLiveSession(
   );
   const stream = (await streamRes.json()) as {
     id?: string;
-    cdn?: { ingestionInfo?: { ingestionAddress?: string; streamName?: string } };
+    cdn?: {
+      ingestionInfo?: { ingestionAddress?: string; streamName?: string };
+    };
     error?: { message?: string };
   };
   if (!streamRes.ok || !stream.id) {

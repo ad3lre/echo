@@ -18,7 +18,9 @@ function flushPending(): void {
 /**
  * Queue a chat upload storage key for abandonment timer refresh when the attachment is seen.
  */
-export function queueChatMediaRetentionTouch(storageKey: string | undefined | null): void {
+export function queueChatMediaRetentionTouch(
+  storageKey: string | undefined | null,
+): void {
   const key = storageKey?.trim();
   if (!key) return;
   pending.add(key);

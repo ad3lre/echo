@@ -151,8 +151,7 @@ export function useMoreServerFolderDrag(opts: {
 
   function onDrop(e: DragEvent) {
     e.preventDefault();
-    const target =
-      dropTarget.value ?? resolveMoreServerDropTargetFromEvent(e);
+    const target = dropTarget.value ?? resolveMoreServerDropTargetFromEvent(e);
     const sid = readDragServerId(e);
     const fid = readDragFolderId(e);
     clearDragState();

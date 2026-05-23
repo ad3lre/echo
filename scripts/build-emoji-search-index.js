@@ -6,10 +6,20 @@
 const fs = require('fs');
 const path = require('path');
 
-const emojiDataPath = path.resolve(
-  __dirname,
-  '../node_modules/unicode-emoji-json/data-by-group.json',
-);
+function resolveEmojiDataByGroupPath() {
+  for (const rel of [
+    '../node_modules/unicode-emoji-json/data-by-group.json',
+    '../frontend/node_modules/unicode-emoji-json/data-by-group.json',
+  ]) {
+    const candidate = path.resolve(__dirname, rel);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  throw new Error(
+    'unicode-emoji-json/data-by-group.json not found; run npm install',
+  );
+}
+
+const emojiDataPath = resolveEmojiDataByGroupPath();
 const outputPath = path.resolve(
   __dirname,
   '../frontend/public/emoji-search-index.json',

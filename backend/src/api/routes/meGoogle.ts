@@ -4,9 +4,11 @@ import type {
   FastifyReply,
   FastifyRequest,
 } from 'fastify';
+import { ME_FEDERATED_LINK_RATE } from '../meLinkRouteRateLimits';
 import { sendError } from '../errors';
 import { requireAuth } from '../../auth/middleware';
 import { getAuthStore } from '../../auth/store';
+import { config } from '../../config';
 import { getPgPool } from '../../db/pg';
 import {
   deleteGoogleUserLink,
@@ -17,13 +19,22 @@ import { deleteYoutubeChannelLink } from '../../domain/youtubeUserLinkRepo';
 import { deleteYoutubeStreamKey } from '../../domain/youtubeStreamKeyRepo';
 import { stopAllActiveStageYoutubeStreamsForLinkUser } from '../../services/stage/stageYoutubeStream';
 
+function googleOauthRedirectUriForClient(): string | null {
+  if (!isGoogleOauthConfigured()) return null;
+  const uri = config.googleOauthRedirectUri.trim();
+  return uri || null;
+}
+
 export default async function meGoogleRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ) {
   fastify.get(
     '/me/google',
-    { preHandler: [requireAuth] },
+    {
+      preHandler: [requireAuth],
+      config: { rateLimit: ME_FEDERATED_LINK_RATE },
+    },
     async (req: FastifyRequest, reply: FastifyReply) => {
       if (!req.authUser)
         return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
@@ -41,10 +52,12 @@ export default async function meGoogleRoutes(
         return sendError(reply, 503, 'NOT_AVAILABLE', 'Database unavailable.');
 
       const row = await getGoogleLinkByUserId(pool, req.authUser.id);
+      const oauthRedirectUri = googleOauthRedirectUriForClient();
       if (!row) {
         return reply.code(200).send({
           linked: false,
           configured: isGoogleOauthConfigured(),
+          oauthRedirectUri,
         });
       }
 
@@ -52,6 +65,7 @@ export default async function meGoogleRoutes(
       return reply.code(200).send({
         linked: true,
         configured: isGoogleOauthConfigured(),
+        oauthRedirectUri,
         mergeKind: row.mergeKind,
         profile: {
           googleSub: row.googleSub,
@@ -65,7 +79,10 @@ export default async function meGoogleRoutes(
 
   fastify.delete(
     '/me/google',
-    { preHandler: [requireAuth] },
+    {
+      preHandler: [requireAuth],
+      config: { rateLimit: ME_FEDERATED_LINK_RATE },
+    },
     async (req: FastifyRequest, reply: FastifyReply) => {
       if (!req.authUser)
         return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');

@@ -134,7 +134,9 @@ export function subscribeAppDialogs(
   return () => window.removeEventListener(ECHO_APP_DIALOG_REQUEST_EVENT, fn);
 }
 
-export function requestAppConfirm(payload: AppConfirmPayload): Promise<boolean> {
+export function requestAppConfirm(
+  payload: AppConfirmPayload,
+): Promise<boolean> {
   ensureResponseListener();
   const id = newDialogId();
   const req: Extract<AppDialogRequest, { kind: 'confirm' }> = {

@@ -5,6 +5,7 @@ import type {
   FastifyRequest,
 } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { FEDERATED_OAUTH_FLOW_RATE } from '../meLinkRouteRateLimits';
 import { sendError } from '../errors';
 import { requireAuth } from '../../auth/middleware';
 import { getAuthStore } from '../../auth/store';
@@ -70,7 +71,10 @@ export default async function youtubeOAuthRoutes(
 
   fastify.post(
     '/youtube/start',
-    { preHandler: [requireAuth] },
+    {
+      preHandler: [requireAuth],
+      config: { rateLimit: FEDERATED_OAUTH_FLOW_RATE },
+    },
     async (req: FastifyRequest, reply: FastifyReply) => {
       if (!req.authUser)
         return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
@@ -99,8 +103,7 @@ export default async function youtubeOAuthRoutes(
           'ECHO_DISCORD_TOKEN_ENCRYPTION_KEY is required in production for federated tokens.',
         );
       }
-      if (!ensureFederatedOAuthTokenEncryptionReady(reply, fastify.log))
-        return;
+      if (!ensureFederatedOAuthTokenEncryptionReady(reply, fastify.log)) return;
       const pool = getPgPool();
       if (!pool) {
         return sendError(reply, 503, 'NOT_AVAILABLE', 'Database unavailable.');
@@ -135,8 +138,11 @@ export default async function youtubeOAuthRoutes(
     },
   );
 
-  fastify.get<{ Querystring: { code?: string; state?: string; error?: string } }>(
+  fastify.get<{
+    Querystring: { code?: string; state?: string; error?: string };
+  }>(
     '/youtube/callback',
+    { config: { rateLimit: FEDERATED_OAUTH_FLOW_RATE } },
     async (req, reply) => {
       clearOAuthCookie(reply);
       const oauthErr = req.query.error?.trim();
@@ -240,9 +246,7 @@ export default async function youtubeOAuthRoutes(
       if (otherUser) {
         return reply
           .code(302)
-          .redirect(
-            youtubeOAuthAppRedirect(false, 'youtube_already_linked'),
-          );
+          .redirect(youtubeOAuthAppRedirect(false, 'youtube_already_linked'));
       }
 
       const accessCipher = encryptDiscordToken(tokenResponse.access_token);
@@ -252,9 +256,7 @@ export default async function youtubeOAuthRoutes(
       const expiresAt =
         typeof tokenResponse.expires_in === 'number' &&
         Number.isFinite(tokenResponse.expires_in)
-          ? new Date(
-              Date.now() + tokenResponse.expires_in * 1000,
-            ).toISOString()
+          ? new Date(Date.now() + tokenResponse.expires_in * 1000).toISOString()
           : null;
 
       try {
@@ -273,9 +275,7 @@ export default async function youtubeOAuthRoutes(
         if (pgCode === '23505') {
           return reply
             .code(302)
-            .redirect(
-              youtubeOAuthAppRedirect(false, 'youtube_already_linked'),
-            );
+            .redirect(youtubeOAuthAppRedirect(false, 'youtube_already_linked'));
         }
         fastify.log.error(err, 'youtube_oauth_upsert_failed');
         return reply

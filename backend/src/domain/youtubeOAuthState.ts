@@ -1,4 +1,8 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { randomBytes } from 'crypto';
+import {
+  oauthCookieIntegrityTag,
+  oauthCookieIntegrityTagsEqual,
+} from '../auth/oauthCookieIntegrity';
 import { config } from '../config';
 
 const COOKIE_NAME = 'echo_youtube_oauth';
@@ -19,7 +23,7 @@ function signPayload(
   exp: number,
 ): string {
   const payload = `youtube_link\n${userId}\n${state}\n${pkceVerifier}\n${exp}`;
-  return createHmac('sha256', config.jwtSecret).update(payload).digest('hex');
+  return oauthCookieIntegrityTag(config.jwtSecret, payload);
 }
 
 export function createYoutubeOAuthState(): string {
@@ -77,13 +81,7 @@ export function decodeYoutubeOAuthCookieValue(
     return null;
   }
   const expected = signPayload(parsed.u, parsed.s, parsed.v, parsed.e);
-  try {
-    const a = Buffer.from(sig, 'hex');
-    const b = Buffer.from(expected, 'hex');
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  } catch {
-    return null;
-  }
+  if (!oauthCookieIntegrityTagsEqual(expected, sig)) return null;
   if (parsed.e < Date.now()) return null;
   return {
     flow: 'link',

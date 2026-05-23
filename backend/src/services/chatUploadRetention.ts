@@ -52,8 +52,7 @@ function rowFromDb(r: Record<string, unknown>): ChatUploadRetentionRow {
           ? new Date(String(r.permanent_revoked_at))
           : null,
     timer_paused: Boolean(r.timer_paused),
-    abandon_ms:
-      r.abandon_ms == null ? null : (r.abandon_ms as string | number),
+    abandon_ms: r.abandon_ms == null ? null : (r.abandon_ms as string | number),
     created_at:
       r.created_at instanceof Date
         ? r.created_at
@@ -70,7 +69,9 @@ function rowFromDb(r: Record<string, unknown>): ChatUploadRetentionRow {
         : r.expires_at instanceof Date
           ? r.expires_at
           : new Date(String(r.expires_at)),
-    purge_status: String(r.purge_status) as ChatUploadRetentionRow['purge_status'],
+    purge_status: String(
+      r.purge_status,
+    ) as ChatUploadRetentionRow['purge_status'],
     purged_at:
       r.purged_at == null
         ? null
@@ -401,13 +402,12 @@ export async function registerChatUploadRetentionFromMessageUrls(
     const size =
       typeof fileSize === 'number' && Number.isFinite(fileSize) && fileSize > 0
         ? fileSize
-        : keys.get(k) ?? 1;
+        : (keys.get(k) ?? 1);
     keys.set(k, size);
   };
 
   for (const att of opts.attachments ?? []) {
-    const sk =
-      typeof att.storageKey === 'string' ? att.storageKey.trim() : '';
+    const sk = typeof att.storageKey === 'string' ? att.storageKey.trim() : '';
     if (sk) {
       addKey(sk, att.fileSize);
     } else {

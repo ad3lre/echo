@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { safeImageUrl } from '@/utils/safeImageUrl';
-import { disconnectMeGoogle } from '@/api/meClient';
 import {
   googleConnectCta,
   googleDisconnectCta,
@@ -15,19 +14,18 @@ import {
   googleYoutubeRequiresLinkHint,
 } from '@/features/google/googleIntegrationCopy';
 import { useGoogleLinkSettings } from '@/features/settings/composables/useGoogleLinkSettings';
-import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
 const {
   state,
   loading,
   actionError,
   connectBusy,
+  disconnectBusy,
   lastOAuthRedirectUri,
   onConnect,
+  onDisconnect,
   refresh,
 } = useGoogleLinkSettings();
-
-const disconnectBusy = ref(false);
 
 const googleConfigured = computed(() => state.value?.configured !== false);
 
@@ -36,25 +34,6 @@ const displayInitial = computed(() => {
   const n = state.value.profile.name?.trim() ?? '';
   return n ? n.charAt(0).toUpperCase() : '?';
 });
-
-async function onDisconnect() {
-  disconnectBusy.value = true;
-  try {
-    await disconnectMeGoogle();
-    dispatchAppToast(
-      'Google account disconnected. YouTube was unlinked too.',
-      'info',
-    );
-    await refresh();
-  } catch (e) {
-    dispatchAppToast(
-      e instanceof Error ? e.message : 'Could not disconnect Google.',
-      'error',
-    );
-  } finally {
-    disconnectBusy.value = false;
-  }
-}
 </script>
 
 <template>
@@ -74,7 +53,8 @@ async function onDisconnect() {
         v-if="state && !googleConfigured"
         class="max-w-2xl text-sm leading-relaxed text-muted"
       >
-        Google linking isn’t enabled on this Echo server yet. An admin needs to set
+        Google linking isn’t enabled on this Echo server yet. An admin needs to
+        set
         <code class="font-mono text-xs">GOOGLE_OAUTH_CLIENT_ID</code>,
         <code class="font-mono text-xs">GOOGLE_OAUTH_CLIENT_SECRET</code>, and
         <code class="font-mono text-xs">GOOGLE_OAUTH_REDIRECT_URI</code>.
@@ -94,49 +74,61 @@ async function onDisconnect() {
       </div>
 
       <template v-if="state?.linked && state.profile">
-        <div class="settings-card overflow-hidden rounded-2xl px-6 py-8 sm:px-8">
-          <div class="flex items-start gap-4">
-            <div
-              class="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-border bg-bg"
-            >
-              <PausedGifAvatar
-                v-if="state.profile.picture"
-                :src="safeImageUrl(state.profile.picture)"
-                alt=""
-                session-key="google-settings-avatar"
-                img-class="h-full w-full object-cover"
-              />
+        <div class="settings-card overflow-hidden rounded-2xl">
+          <div class="relative px-6 pb-8 pt-8 sm:px-8 sm:pb-10">
+            <div class="flex items-start gap-5">
               <div
-                v-else
-                class="flex h-full w-full items-center justify-center bg-scrim-1 text-xl font-semibold"
+                class="relative h-24 w-24 shrink-0 overflow-hidden rounded-3xl border-[6px] border-bg bg-bg shadow-lg shadow-black/20"
               >
-                {{ displayInitial }}
+                <PausedGifAvatar
+                  v-if="state.profile.picture"
+                  :src="safeImageUrl(state.profile.picture)"
+                  alt=""
+                  session-key="google-settings-avatar"
+                  img-class="h-full w-full object-cover"
+                />
+                <div
+                  v-else
+                  class="flex h-full w-full items-center justify-center bg-scrim-1 text-2xl font-semibold text-foreground"
+                >
+                  {{ displayInitial }}
+                </div>
+              </div>
+              <div class="min-w-0 flex-1 pt-1">
+                <span
+                  class="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/85"
+                >
+                  {{ googleSettingsSectionTitle }}
+                </span>
+                <h4 class="mt-1 text-2xl font-bold text-foreground">
+                  {{ state.profile.name || 'Google account' }}
+                </h4>
+                <p
+                  class="mt-2 text-sm font-medium text-[color:var(--set-positive-label-fg)]"
+                >
+                  Connected
+                </p>
               </div>
             </div>
-            <div class="min-w-0 flex-1">
-              <span
-                class="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/85"
-              >
-                {{ googleSettingsSectionTitle }}
-              </span>
-              <h4 class="text-xl font-bold text-foreground">
-                {{ state.profile.name || 'Google account' }}
-              </h4>
-              <p class="mt-1 font-mono text-xs text-muted break-all">
-                {{ state.profile.googleSub }}
-              </p>
-            </div>
-          </div>
 
-          <div class="mt-6 grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <div class="settings-label mb-1">Email</div>
-              <div class="text-foreground/95">
-                {{
-                  state.profile.emailPresent
-                    ? 'Shared with Echo'
-                    : 'Not shared'
-                }}
+            <div class="mt-10 grid grid-cols-1 gap-x-12 gap-y-8 sm:grid-cols-2">
+              <div class="min-w-0">
+                <div class="settings-label mb-1.5">Email</div>
+                <div class="text-sm leading-snug text-foreground/95">
+                  {{
+                    state.profile.emailPresent
+                      ? 'Shared with Echo'
+                      : 'Not shared'
+                  }}
+                </div>
+              </div>
+              <div class="min-w-0">
+                <div class="settings-label mb-1.5">Google account ID</div>
+                <div
+                  class="font-mono text-xs leading-snug break-all text-foreground/90"
+                >
+                  {{ state.profile.googleSub }}
+                </div>
               </div>
             </div>
           </div>

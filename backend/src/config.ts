@@ -1004,8 +1004,7 @@ export const config: AppConfig = {
   useMockDb: storage.backendStorageMode === 'memory',
   giphyApiKey: process.env.GIPHY_API_KEY ?? '',
   serperApiKey: process.env.SERPER_API_KEY?.trim() ?? '',
-  serperDefaultQuery:
-    process.env.SERPER_DEFAULT_QUERY?.trim() || 'photography',
+  serperDefaultQuery: process.env.SERPER_DEFAULT_QUERY?.trim() || 'photography',
   serperImageNum: (() => {
     const raw = process.env.SERPER_IMAGE_NUM?.trim();
     const n = raw ? Number(raw) : NaN;
@@ -1520,8 +1519,7 @@ export const config: AppConfig = {
   googleOauthRedirectUri: process.env.GOOGLE_OAUTH_REDIRECT_URI?.trim() ?? '',
   googleOauthScopes:
     process.env.GOOGLE_OAUTH_SCOPES?.trim() || DEFAULT_GOOGLE_OAUTH_SCOPES,
-  youtubeOauthRedirectUri:
-    process.env.YOUTUBE_OAUTH_REDIRECT_URI?.trim() ?? '',
+  youtubeOauthRedirectUri: process.env.YOUTUBE_OAUTH_REDIRECT_URI?.trim() ?? '',
   youtubeOauthScopes:
     process.env.YOUTUBE_OAUTH_SCOPES?.trim() || DEFAULT_YOUTUBE_OAUTH_SCOPES,
   echoDiscordTokenEncryptionKey:

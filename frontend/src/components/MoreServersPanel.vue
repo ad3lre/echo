@@ -212,9 +212,7 @@ const normalizedOtherServersSearch = computed(() =>
 const filteredUngroupedServers = computed(() => {
   const q = normalizedOtherServersSearch.value;
   if (!q) return ungroupedServers.value;
-  return ungroupedServers.value.filter((s) =>
-    s.name.toLowerCase().includes(q),
-  );
+  return ungroupedServers.value.filter((s) => s.name.toLowerCase().includes(q));
 });
 
 const showOtherServersSearch = computed(
@@ -597,7 +595,11 @@ function onFolderDragOverCard(folderId: string, index: number, e: DragEvent) {
   onFolderDragOver(folderId, index, e);
 }
 
-function onFolderDragOverCompact(folderId: string, index: number, e: DragEvent) {
+function onFolderDragOverCompact(
+  folderId: string,
+  index: number,
+  e: DragEvent,
+) {
   if (draggingServerId.value && !isFolderExpandedInCompact(folderId)) {
     setFolderExpandedInCompact(folderId, true);
   }
@@ -1017,53 +1019,53 @@ function compactFolderDropRing(
                   item.folder.serverIds.length
                 }}</span>
                 <div class="flex shrink-0 items-center gap-0.5">
-                <button
-                  type="button"
-                  class="widget-folder-icon-btn"
-                  title="Edit folder"
-                  @click.stop="openEditFolderModal(item.folder.id)"
-                >
-                  <svg
-                    class="h-3.5 w-3.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    aria-hidden="true"
+                  <button
+                    type="button"
+                    class="widget-folder-icon-btn"
+                    title="Edit folder"
+                    @click.stop="openEditFolderModal(item.folder.id)"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
-                    />
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  class="widget-folder-icon-btn widget-folder-icon-btn--danger"
-                  title="Delete folder…"
-                  @click.stop="openEditFolderModal(item.folder.id)"
-                >
-                  <svg
-                    class="h-3.5 w-3.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    aria-hidden="true"
+                    <svg
+                      class="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      aria-hidden="true"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
+                      />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="widget-folder-icon-btn widget-folder-icon-btn--danger"
+                    title="Delete folder…"
+                    @click.stop="openEditFolderModal(item.folder.id)"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M3 6h18M8 6V4h8v2m-1 0v14a2 2 0 01-2 2H9a2 2 0 01-2-2V6h10z"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      class="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      aria-hidden="true"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M3 6h18M8 6V4h8v2m-1 0v14a2 2 0 01-2 2H9a2 2 0 01-2-2V6h10z"
+                      />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1109,7 +1111,11 @@ function compactFolderDropRing(
                   data-ms-drop-index="0"
                   class="rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors"
                   :class="
-                    isDropTargetActive({ kind: 'folder', folderId: f.id, index: 0 })
+                    isDropTargetActive({
+                      kind: 'folder',
+                      folderId: f.id,
+                      index: 0,
+                    })
                       ? 'border-emerald-400/60 bg-emerald-500/12 text-fg'
                       : 'border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-[color-mix(in_srgb,var(--surface)_65%,transparent)] text-fg-subtle hover:text-fg'
                   "
@@ -1133,7 +1139,11 @@ function compactFolderDropRing(
               v-else
               class="more-server-card overflow-hidden rounded-xl transition-opacity"
               :data-ms-drop="
-                item.ungroupedIndex != null ? 'ungrouped' : item.folderId ? 'folder' : undefined
+                item.ungroupedIndex != null
+                  ? 'ungrouped'
+                  : item.folderId
+                    ? 'folder'
+                    : undefined
               "
               :data-ms-drop-folder="item.folderId"
               :data-ms-drop-index="
@@ -1386,7 +1396,11 @@ function compactFolderDropRing(
                   data-ms-drop-index="0"
                   class="max-w-full truncate rounded border px-1.5 py-0.5 text-[9px] font-semibold transition-colors"
                   :class="
-                    isDropTargetActive({ kind: 'folder', folderId: f.id, index: 0 })
+                    isDropTargetActive({
+                      kind: 'folder',
+                      folderId: f.id,
+                      index: 0,
+                    })
                       ? 'border-emerald-400/60 bg-emerald-500/12 text-fg'
                       : 'border-[color-mix(in_srgb,var(--border)_50%,transparent)] text-fg-subtle'
                   "
@@ -2443,7 +2457,11 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   text-align: center;
   font-variant-numeric: tabular-nums;
   color: var(--accent-contrast-fg, #fff);
-  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #312e81));
+  background: linear-gradient(
+    180deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 75%, #312e81)
+  );
   border: 1.5px solid color-mix(in srgb, var(--bg) 90%, transparent);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 45%, transparent);
 }

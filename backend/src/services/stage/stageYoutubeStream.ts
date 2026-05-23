@@ -93,7 +93,9 @@ function publicStreamFromRow(
       };
     }
     const link = await getYoutubeLinkByUserId(pool, row.youtubeLinkUserId);
-    const streamKeyMode = isYoutubeStreamKeyStageBroadcast(row.youtubeBroadcastId);
+    const streamKeyMode = isYoutubeStreamKeyStageBroadcast(
+      row.youtubeBroadcastId,
+    );
     const canSeeDetails = await canUserManageStageYoutubeStream(
       pool,
       serverId,
@@ -301,11 +303,16 @@ async function startStageYoutubeStreamWithStreamKey(
       e instanceof Error && e.message === 'LIVEKIT_EGRESS_NOT_CONFIGURED'
         ? 'LIVEKIT_EGRESS_DISABLED'
         : 'LIVEKIT_EGRESS_FAILED';
-    await updateStageYoutubeBroadcastStatus(pool, opts.serverId, opts.channelId, {
-      status: 'failed',
-      errorCode: code,
-      ended: true,
-    });
+    await updateStageYoutubeBroadcastStatus(
+      pool,
+      opts.serverId,
+      opts.channelId,
+      {
+        status: 'failed',
+        errorCode: code,
+        ended: true,
+      },
+    );
     await clearStageYoutubeBroadcast(pool, opts.serverId, opts.channelId);
     return {
       ok: false,
@@ -426,11 +433,16 @@ async function startStageYoutubeStreamOauth(
       e instanceof Error && e.message === 'LIVEKIT_EGRESS_NOT_CONFIGURED'
         ? 'LIVEKIT_EGRESS_DISABLED'
         : 'LIVEKIT_EGRESS_FAILED';
-    await updateStageYoutubeBroadcastStatus(pool, opts.serverId, opts.channelId, {
-      status: 'failed',
-      errorCode: code,
-      ended: true,
-    });
+    await updateStageYoutubeBroadcastStatus(
+      pool,
+      opts.serverId,
+      opts.channelId,
+      {
+        status: 'failed',
+        errorCode: code,
+        ended: true,
+      },
+    );
     try {
       await transitionYoutubeBroadcast(
         accessToken,
@@ -463,11 +475,16 @@ async function startStageYoutubeStreamOauth(
     await transitionYoutubeBroadcast(accessToken, session.broadcastId, 'live');
   } catch {
     await stopLiveKitEgress(egressId);
-    await updateStageYoutubeBroadcastStatus(pool, opts.serverId, opts.channelId, {
-      status: 'failed',
-      errorCode: 'YOUTUBE_GO_LIVE_FAILED',
-      ended: true,
-    });
+    await updateStageYoutubeBroadcastStatus(
+      pool,
+      opts.serverId,
+      opts.channelId,
+      {
+        status: 'failed',
+        errorCode: 'YOUTUBE_GO_LIVE_FAILED',
+        ended: true,
+      },
+    );
     try {
       await transitionYoutubeBroadcast(
         accessToken,
@@ -508,7 +525,11 @@ async function forceStopStageYoutubeBroadcastRow(
   pool: Pool,
   row: StageYoutubeBroadcastRow,
 ): Promise<void> {
-  if (row.status !== 'starting' && row.status !== 'live' && row.status !== 'stopping') {
+  if (
+    row.status !== 'starting' &&
+    row.status !== 'live' &&
+    row.status !== 'stopping'
+  ) {
     return;
   }
 

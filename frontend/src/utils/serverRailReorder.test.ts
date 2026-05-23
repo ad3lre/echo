@@ -120,8 +120,7 @@ describe('reorderServerRailWithOverflow', () => {
     const all = [S('a'), S('b'), S('c'), S('d'), S('e'), S('x')];
     const pinned: Server[] = [];
     const mru = ['a', 'b', 'c', 'd', 'e', 'x'];
-    const n = projectServerRailVisibleServers(all, pinned, mru).visible
-      .length;
+    const n = projectServerRailVisibleServers(all, pinned, mru).visible.length;
     const out = reorderServerRailWithOverflow({
       allServers: all,
       pinnedMore: pinned,

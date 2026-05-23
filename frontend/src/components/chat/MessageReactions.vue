@@ -3,9 +3,7 @@ import { ref, inject, onBeforeUnmount, type ComputedRef } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import { parseSingleEmoji } from '@/utils/twemoji';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
-import {
-  resolveCustomEmojiImageUrlForDisplay,
-} from '@/utils/customEmojiUrl';
+import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import MessageReactionsRow from '@/features/chat/components/MessageReactionsRow.vue';
 import MessageReactionEmojiPopover from './MessageReactionEmojiPopover.vue';

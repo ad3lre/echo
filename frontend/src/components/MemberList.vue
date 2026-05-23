@@ -142,9 +142,7 @@ const emit = defineEmits<{
   ];
 }>();
 
-const showGuestsToggleVisible = computed(
-  () => (props.guestCount ?? 0) > 0,
-);
+const showGuestsToggleVisible = computed(() => (props.guestCount ?? 0) > 0);
 
 const {
   menuOpen,

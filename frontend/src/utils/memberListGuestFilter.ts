@@ -17,6 +17,8 @@ export function filterMemberListUsersForPanel<T extends MemberListPanelUser>(
   return users.filter((u) => !u.isGuest || (selfId != null && u.id === selfId));
 }
 
-export function countMemberListGuests(users: readonly MemberListPanelUser[]): number {
+export function countMemberListGuests(
+  users: readonly MemberListPanelUser[],
+): number {
   return users.reduce((n, u) => (u.isGuest ? n + 1 : n), 0);
 }

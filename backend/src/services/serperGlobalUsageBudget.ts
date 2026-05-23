@@ -38,9 +38,7 @@ function redisMonthKey(month: string): string {
 }
 
 function capsConfigured(): boolean {
-  return (
-    config.serperGlobalMaxPerDay > 0 || config.serperGlobalMaxPerMonth > 0
-  );
+  return config.serperGlobalMaxPerDay > 0 || config.serperGlobalMaxPerMonth > 0;
 }
 
 function failClosedWithoutRedis(): boolean {
@@ -182,12 +180,7 @@ export async function refundGlobalSerperUnit(): Promise<void> {
     return;
   }
   try {
-    await redis.eval(
-      REFUND_LUA,
-      2,
-      redisDayKey(day),
-      redisMonthKey(month),
-    );
+    await redis.eval(REFUND_LUA, 2, redisDayKey(day), redisMonthKey(month));
   } catch {
     /* best-effort */
   }

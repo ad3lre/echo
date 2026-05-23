@@ -80,5 +80,8 @@ export const STAGE_YOUTUBE_ERROR_MESSAGES: Record<string, string> = {
 
 export function messageForStageYoutubeError(code: string | null): string {
   if (!code) return 'Could not update YouTube live stream.';
-  return STAGE_YOUTUBE_ERROR_MESSAGES[code] ?? 'Could not update YouTube live stream.';
+  return (
+    STAGE_YOUTUBE_ERROR_MESSAGES[code] ??
+    'Could not update YouTube live stream.'
+  );
 }

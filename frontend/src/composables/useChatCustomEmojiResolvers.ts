@@ -159,7 +159,8 @@ export function useChatCustomEmojiResolvers(
       options.users?.value?.find((u) => u.id === id)?.name ?? id,
     channelLabel: (id) =>
       options.channels?.value?.find((c) => c.id === id)?.name ?? id,
-    serverLabel: (id) => serverStore.servers.find((s) => s.id === id)?.name ?? id,
+    serverLabel: (id) =>
+      serverStore.servers.find((s) => s.id === id)?.name ?? id,
     roleLabel: (id) => id,
     messageLabel: (id) => (id.length > 12 ? `${id.slice(0, 8)}…` : id),
     customEmojiImageUrl: (id, name, animated) =>

@@ -53,7 +53,8 @@ export async function joinNewAccountToOfficialEchoServer(
   opts?: { joinClientIp?: string | null },
 ): Promise<{ joined: boolean; serverId: string | null; reason?: string }> {
   const serverId = await resolveOfficialEchoServerId(pool);
-  if (!serverId) return { joined: false, serverId: null, reason: 'not_configured' };
+  if (!serverId)
+    return { joined: false, serverId: null, reason: 'not_configured' };
 
   const uid = userId.trim();
   if (!uid) return { joined: false, serverId, reason: 'invalid_user' };
@@ -61,7 +62,13 @@ export async function joinNewAccountToOfficialEchoServer(
   if (await isUserBannedFromServer(pool, serverId, uid)) {
     return { joined: false, serverId, reason: 'banned' };
   }
-  if (await isClientIpBannedFromEchoServer(pool, serverId, opts?.joinClientIp ?? null)) {
+  if (
+    await isClientIpBannedFromEchoServer(
+      pool,
+      serverId,
+      opts?.joinClientIp ?? null,
+    )
+  ) {
     return { joined: false, serverId, reason: 'banned' };
   }
 

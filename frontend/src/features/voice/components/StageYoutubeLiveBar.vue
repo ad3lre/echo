@@ -23,8 +23,7 @@ const {
 } = useStageYoutubeLive({
   echoServerId: () => props.echoServerId,
   stageChannelId: () => props.stageChannelId,
-  enabled: () =>
-    !!props.echoServerId?.trim() && !!props.stageChannelId?.trim(),
+  enabled: () => !!props.echoServerId?.trim() && !!props.stageChannelId?.trim(),
 });
 
 const isLive = computed(
@@ -65,10 +64,7 @@ const showModeratorControls = computed(() => props.canManage);
       >
         {{ youtubeStageStreamKeyLiveHint }}
       </span>
-      <span
-        v-else-if="!showModeratorControls"
-        class="text-xs text-fg-subtle"
-      >
+      <span v-else-if="!showModeratorControls" class="text-xs text-fg-subtle">
         Stream link is visible to moderators only
       </span>
       <button

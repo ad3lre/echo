@@ -37,7 +37,10 @@ async function run(): Promise<void> {
   assert.equal(unknown.content, 'unknown <@999>');
   assert.equal(unknown.mentions, undefined);
 
-  const everyone = translateDiscordSyncedContentAndMentions('@everyone hi', maps);
+  const everyone = translateDiscordSyncedContentAndMentions(
+    '@everyone hi',
+    maps,
+  );
   assert.equal(everyone.content, '@everyone hi');
   assert.equal(everyone.mentions?.[0]?.kind, 'everyone');
 

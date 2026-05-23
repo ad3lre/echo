@@ -57,13 +57,10 @@ async function run(): Promise<void> {
     __resetSerperImageCacheMemForTests,
     __seedSerperImageCacheMemForTests,
   } = await import('../services/serperImageSearchCache');
-  const {
-    reserveUserImageSearchCredit,
-    __resetSerperUserSearchQuotaForTests,
-  } = await import('../services/serperUserSearchQuota');
-  const { __resetSerperGlobalUsageBudgetForTests } = await import(
-    '../services/serperGlobalUsageBudget'
-  );
+  const { reserveUserImageSearchCredit, __resetSerperUserSearchQuotaForTests } =
+    await import('../services/serperUserSearchQuota');
+  const { __resetSerperGlobalUsageBudgetForTests } =
+    await import('../services/serperGlobalUsageBudget');
 
   __resetSerperImageCacheMemForTests();
   __resetSerperUserSearchQuotaForTests();
@@ -111,7 +108,9 @@ async function run(): Promise<void> {
     });
     assert.equal(staleRes.statusCode, 200);
     assert.equal(staleRes.headers['x-echo-image-search-cache'], 'STALE');
-    const staleBody = JSON.parse(staleRes.body) as { results: { url: string }[] };
+    const staleBody = JSON.parse(staleRes.body) as {
+      results: { url: string }[];
+    };
     assert.equal(staleBody.results[0]?.url, 'https://example.com/stale.jpg');
     await staleApp.close();
 

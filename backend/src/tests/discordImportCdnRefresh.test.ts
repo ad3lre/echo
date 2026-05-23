@@ -22,10 +22,7 @@ const expired =
 const fresh =
   'https://cdn.discordapp.com/attachments/111/222/cat.png?ex=new&is=new&hm=live';
 
-assert.equal(
-  discordCdnUrlStableKey(expired),
-  '/attachments/111/222/cat.png',
-);
+assert.equal(discordCdnUrlStableKey(expired), '/attachments/111/222/cat.png');
 assert.equal(discordCdnUrlStableKey(expired), discordCdnUrlStableKey(fresh));
 
 const freshIndex = buildDiscordMediaUrlIndexFromBotMessage({

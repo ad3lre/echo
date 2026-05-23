@@ -15,7 +15,10 @@ export function parsePlannedActivityKeyFromDescription(
   return m[1];
 }
 
-export function isStageEventLive(ev: EchoWorkspaceEventSummary, nowMs: number): boolean {
+export function isStageEventLive(
+  ev: EchoWorkspaceEventSummary,
+  nowMs: number,
+): boolean {
   const a = new Date(ev.startsAt).getTime();
   const b = new Date(ev.endsAt).getTime();
   return !Number.isNaN(a) && !Number.isNaN(b) && nowMs >= a && nowMs <= b;
@@ -52,6 +55,27 @@ export function pickNearestStagePlanningEvent(
     return ta - tb;
   });
   return matches[0] ?? null;
+}
+
+const VC_ACTIVITY_DISPLAY_TITLES: Record<EchoVcActivityKey, string> = {
+  youtube: 'YouTube',
+  wordle: 'Wordle',
+  hangman: 'Hangman',
+  openguessr: 'OpenGuessr',
+  skribbl_io: 'skribbl.io',
+  gartic_phone: 'Gartic Phone',
+  krunker: 'Krunker',
+  codenames: 'Echoed Names',
+  richup: 'Richup.io',
+  goober_dash: 'Goober Dash',
+  smash_karts: 'Smash Karts',
+  basketball_stars_2026: 'Basketball Stars 2026',
+  cluster_rush: 'Cluster Rush',
+  tic_tac_toe: 'Tic-Tac-Toe',
+};
+
+export function formatVcActivityDisplayTitle(key: EchoVcActivityKey): string {
+  return VC_ACTIVITY_DISPLAY_TITLES[key];
 }
 
 export function formatStageEventCountdown(

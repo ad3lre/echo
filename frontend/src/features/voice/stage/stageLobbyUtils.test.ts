@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 import {
+  formatVcActivityDisplayTitle,
   isStageEventWithinPlanningWindow,
   parsePlannedActivityKeyFromDescription,
   pickNearestStagePlanningEvent,
 } from '@/features/voice/stage/stageLobbyUtils';
 
 function ev(
-  partial: Partial<EchoWorkspaceEventSummary> & { channelId: string; startsAt: string; endsAt: string },
+  partial: Partial<EchoWorkspaceEventSummary> & {
+    channelId: string;
+    startsAt: string;
+    endsAt: string;
+  },
 ): EchoWorkspaceEventSummary {
   return {
     id: 'e1',
@@ -28,8 +33,15 @@ function ev(
 describe('stageLobbyUtils', () => {
   it('parses activity tag from description', () => {
     expect(
-      parsePlannedActivityKeyFromDescription('Join us [activity:youtube] tonight'),
+      parsePlannedActivityKeyFromDescription(
+        'Join us [activity:youtube] tonight',
+      ),
     ).toBe('youtube');
+  });
+
+  it('formats activity keys for display', () => {
+    expect(formatVcActivityDisplayTitle('youtube')).toBe('YouTube');
+    expect(formatVcActivityDisplayTitle('tic_tac_toe')).toBe('Tic-Tac-Toe');
   });
 
   it('picks stage event within one hour', () => {

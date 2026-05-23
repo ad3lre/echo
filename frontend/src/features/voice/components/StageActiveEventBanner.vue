@@ -37,13 +37,17 @@ const countdown = computed(() =>
       />
     </div>
     <div class="min-w-0 flex-1">
-      <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-300/90">
+      <p
+        class="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-300/90"
+      >
         {{ isLive ? 'Scheduled event · live' : 'Scheduled event' }}
       </p>
       <p class="truncate text-sm font-semibold text-foreground">
         {{ event.title }}
       </p>
-      <p class="text-xs text-muted">{{ countdown }} · {{ event.goingCount }} going</p>
+      <p class="text-xs text-muted">
+        {{ countdown }} · {{ event.goingCount }} going
+      </p>
     </div>
     <button
       type="button"

@@ -2,10 +2,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { EchoApiError } from '@/api/echo/transport';
-import {
-  fetchMeYoutube,
-  type YoutubeConnectionMode,
-} from '@/api/meYoutube';
+import { fetchMeYoutube, type YoutubeConnectionMode } from '@/api/meYoutube';
 import {
   fetchStageYoutubeStream,
   startStageYoutubeStream,
@@ -60,12 +57,7 @@ export function useStageYoutubeLive(opts: {
   function canPoll(): boolean {
     const serverId = opts.echoServerId().trim();
     const channelId = opts.stageChannelId().trim();
-    return (
-      isAuthenticated.value &&
-      !!serverId &&
-      !!channelId &&
-      opts.enabled()
-    );
+    return isAuthenticated.value && !!serverId && !!channelId && opts.enabled();
   }
 
   async function refresh() {

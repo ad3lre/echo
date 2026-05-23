@@ -26,8 +26,14 @@ export async function resolveAndBroadcastLinkEmbeds(
     correlationId?: string;
   },
 ): Promise<void> {
-  const { channelId, messageId, authorId, content, contentJson, correlationId } =
-    opts;
+  const {
+    channelId,
+    messageId,
+    authorId,
+    content,
+    contentJson,
+    correlationId,
+  } = opts;
   try {
     const serverId = await getEchoChannelServerId(pool, channelId);
     if (!serverId) return;

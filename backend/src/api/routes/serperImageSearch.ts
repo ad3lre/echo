@@ -71,7 +71,10 @@ const l1Cache = new Map<
   { expiresAt: number; data: ImageSearchResultRow[] }
 >();
 
-const inFlightFetch = new Map<string, Promise<SerperFetchOk | SerperFetchFail>>();
+const inFlightFetch = new Map<
+  string,
+  Promise<SerperFetchOk | SerperFetchFail>
+>();
 const inFlightRefresh = new Set<string>();
 
 const TEST_ISOLATION_USER: AuthUser = {
@@ -215,7 +218,10 @@ async function callSerper(
   const diag = serperErrorMessage(parsed, text);
 
   if (!res.ok) {
-    log.warn({ httpStatus: res.status, q, page, serperMessage: diag }, 'Serper HTTP error');
+    log.warn(
+      { httpStatus: res.status, q, page, serperMessage: diag },
+      'Serper HTTP error',
+    );
     return { ok: false, status: res.status, diag };
   }
   if (!parsed || typeof parsed !== 'object') {
@@ -234,7 +240,10 @@ async function callSerper(
   return { ok: true, data: mapSerperItems(parsed.images ?? []) };
 }
 
-function clientMessageForUpstreamFailure(status: number, diag?: string): string {
+function clientMessageForUpstreamFailure(
+  status: number,
+  diag?: string,
+): string {
   if (status === 429) {
     return 'Image search quota exceeded. Try again later or check Serper credit balance.';
   }
@@ -288,10 +297,7 @@ async function scheduleStaleRefresh(
         page,
         existing,
       );
-      log.warn(
-        { cacheKey, status: fetched.status },
-        'serper_refresh_failed',
-      );
+      log.warn({ cacheKey, status: fetched.status }, 'serper_refresh_failed');
       return;
     }
     const merged = mergeImageResults(fetched.data, existing);
@@ -326,11 +332,7 @@ async function coldFetchUpstream(
   const dailyLimit = imageSearchDailyLimitForPlan(ent.plan);
   const qHash = imageSearchQueryHash(normalizedQuery);
 
-  const credit = await reserveUserImageSearchCredit(
-    userId,
-    qHash,
-    dailyLimit,
-  );
+  const credit = await reserveUserImageSearchCredit(userId, qHash, dailyLimit);
   if (!credit.ok) {
     return {
       ok: false,

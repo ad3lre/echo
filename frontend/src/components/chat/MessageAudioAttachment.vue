@@ -52,7 +52,10 @@ let stopObserve: (() => void) | undefined;
 
 onMounted(() => {
   void syncSink();
-  stopObserve = observeChatMediaRetentionVisible(rootRef.value, props.storageKey);
+  stopObserve = observeChatMediaRetentionVisible(
+    rootRef.value,
+    props.storageKey,
+  );
 });
 
 onUnmounted(() => {

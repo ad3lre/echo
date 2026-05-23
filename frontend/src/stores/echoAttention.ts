@@ -459,7 +459,9 @@ export const useEchoAttentionStore = defineStore('echoAttention', () => {
       serverId: channelAttention.serverId ?? existing?.serverId,
       peerUserId: channelAttention.peerUserId ?? existing?.peerUserId,
       lastReadMessageId:
-        cursor ?? channelAttention.lastReadMessageId ?? existing?.lastReadMessageId,
+        cursor ??
+        channelAttention.lastReadMessageId ??
+        existing?.lastReadMessageId,
     };
     if (isEchoChannelEffectivelyRead(merged, cursor)) {
       merged = { ...merged, unreadCount: 0 };

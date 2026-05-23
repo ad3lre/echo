@@ -1,14 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { safeImageUrl } from '@/utils/safeImageUrl';
-import {
-  revokeMeYoutubeStreamKey,
-  saveMeYoutubeStreamKey,
-  unlinkMeYoutube,
-} from '@/api/meYoutube';
 import {
   youtubeConnectCta,
   youtubeNativeConnectionBlurb,
@@ -26,7 +21,6 @@ import {
   youtubeStreamKeyTitle,
 } from '@/features/youtube/youtubeIntegrationCopy';
 import { useYoutubeLinkSettings } from '@/features/settings/composables/useYoutubeLinkSettings';
-import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import type { SettingsSection } from '@/features/settings/types';
 
 const props = defineProps<{
@@ -38,17 +32,19 @@ const {
   loading,
   actionError,
   connectBusy,
+  disconnectBusy,
+  streamKeyInput,
+  streamKeyServerUrl,
+  streamKeyBusy,
+  streamKeyRevokeBusy,
+  streamKeyConfirm,
   lastOAuthRedirectUri,
   onConnect,
+  onDisconnectOAuth,
+  onSaveStreamKey,
+  onRevokeStreamKey,
   refresh,
 } = useYoutubeLinkSettings();
-
-const disconnectBusy = ref(false);
-const streamKeyInput = ref('');
-const streamKeyServerUrl = ref('rtmp://a.rtmp.youtube.com/live2');
-const streamKeyBusy = ref(false);
-const streamKeyRevokeBusy = ref(false);
-const streamKeyConfirm = ref(false);
 
 const hasOAuthLink = computed(() => state.value?.linked === true);
 const hasStreamKey = computed(() => !!state.value?.streamKey);
@@ -60,68 +56,6 @@ const displayInitial = computed(() => {
   const t = state.value.profile?.channelTitle?.trim() ?? '';
   return t ? t.charAt(0).toUpperCase() : '?';
 });
-
-async function onDisconnectOAuth() {
-  disconnectBusy.value = true;
-  try {
-    await unlinkMeYoutube();
-    dispatchAppToast('YouTube channel unlinked.', 'info');
-    await refresh();
-  } catch (e) {
-    dispatchAppToast(
-      e instanceof Error ? e.message : 'Could not unlink YouTube.',
-      'error',
-    );
-  } finally {
-    disconnectBusy.value = false;
-  }
-}
-
-async function onSaveStreamKey() {
-  const key = streamKeyInput.value.trim();
-  if (!key) {
-    dispatchAppToast('Enter your YouTube stream key.', 'error');
-    return;
-  }
-  if (!streamKeyConfirm.value) {
-    dispatchAppToast('Confirm that you understand the key cannot be shown again.', 'error');
-    return;
-  }
-  streamKeyBusy.value = true;
-  try {
-    await saveMeYoutubeStreamKey({
-      streamKey: key,
-      serverUrl: streamKeyServerUrl.value.trim() || undefined,
-    });
-    streamKeyInput.value = '';
-    streamKeyConfirm.value = false;
-    dispatchAppToast('Stream key saved. Echo will not show it again.', 'info');
-    await refresh();
-  } catch (e) {
-    dispatchAppToast(
-      e instanceof Error ? e.message : 'Could not save stream key.',
-      'error',
-    );
-  } finally {
-    streamKeyBusy.value = false;
-  }
-}
-
-async function onRevokeStreamKey() {
-  streamKeyRevokeBusy.value = true;
-  try {
-    await revokeMeYoutubeStreamKey();
-    dispatchAppToast('Stream key revoked.', 'info');
-    await refresh();
-  } catch (e) {
-    dispatchAppToast(
-      e instanceof Error ? e.message : 'Could not revoke stream key.',
-      'error',
-    );
-  } finally {
-    streamKeyRevokeBusy.value = false;
-  }
-}
 </script>
 
 <template>
@@ -141,11 +75,14 @@ async function onRevokeStreamKey() {
         v-if="state && !oauthConfigured && !hasStreamKey"
         class="max-w-2xl text-sm leading-relaxed text-muted"
       >
-        YouTube live isn’t enabled on this Echo server yet. An admin needs to set
+        YouTube live isn’t enabled on this Echo server yet. An admin needs to
+        set
         <code class="font-mono text-xs">GOOGLE_OAUTH_*</code> and
-        <code class="font-mono text-xs">YOUTUBE_OAUTH_REDIRECT_URI</code> for channel
-        linking, or you can still use a stream key once the server can store encrypted
-        credentials (<code class="font-mono text-xs">ECHO_DISCORD_TOKEN_ENCRYPTION_KEY</code>).
+        <code class="font-mono text-xs">YOUTUBE_OAUTH_REDIRECT_URI</code> for
+        channel linking, or you can still use a stream key once the server can
+        store encrypted credentials (<code class="font-mono text-xs"
+          >ECHO_DISCORD_TOKEN_ENCRYPTION_KEY</code
+        >).
       </p>
 
       <div
@@ -288,12 +225,9 @@ async function onRevokeStreamKey() {
             >
               Used for stage go-live
             </p>
-            <p
-              v-else-if="hasOAuthLink"
-              class="mt-2 text-xs text-muted"
-            >
-              Channel link takes priority for go-live. Revoke the channel link to use
-              this stream key on stages.
+            <p v-else-if="hasOAuthLink" class="mt-2 text-xs text-muted">
+              Channel link takes priority for go-live. Revoke the channel link
+              to use this stream key on stages.
             </p>
           </div>
           <p class="mt-4 max-w-xl text-sm text-muted">
@@ -313,7 +247,9 @@ async function onRevokeStreamKey() {
           <p class="mt-4 text-sm text-muted">
             {{ youtubeStreamKeyNeverShownAgain }}
           </p>
-          <label class="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted">
+          <label
+            class="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted"
+          >
             RTMP server (optional)
             <input
               v-model="streamKeyServerUrl"
@@ -323,7 +259,9 @@ async function onRevokeStreamKey() {
               autocomplete="off"
             />
           </label>
-          <label class="mt-3 block text-xs font-semibold uppercase tracking-wide text-muted">
+          <label
+            class="mt-3 block text-xs font-semibold uppercase tracking-wide text-muted"
+          >
             Stream key
             <input
               v-model="streamKeyInput"
@@ -333,15 +271,13 @@ async function onRevokeStreamKey() {
               autocomplete="off"
             />
           </label>
-          <label class="mt-4 flex cursor-pointer items-start gap-3 text-sm text-muted">
-            <input
-              v-model="streamKeyConfirm"
-              type="checkbox"
-              class="mt-1"
-            />
+          <label
+            class="mt-4 flex cursor-pointer items-start gap-3 text-sm text-muted"
+          >
+            <input v-model="streamKeyConfirm" type="checkbox" class="mt-1" />
             <span>
-              I understand Echo will encrypt this key and I won’t be able to view it
-              again in Settings. I can revoke and enter a new key later.
+              I understand Echo will encrypt this key and I won’t be able to
+              view it again in Settings. I can revoke and enter a new key later.
             </span>
           </label>
           <button

@@ -1,5 +1,9 @@
 import type pg from 'pg';
-import type { FastifyInstance, FastifyPluginOptions, FastifyReply } from 'fastify';
+import type {
+  FastifyInstance,
+  FastifyPluginOptions,
+  FastifyReply,
+} from 'fastify';
 import { requireAuth } from '../../../auth/middleware';
 import { sendError } from '../../errors';
 import {
@@ -33,7 +37,12 @@ function sendVoiceE2eeEpochCreateError(
     case 'ok':
       return null;
     case 'forbidden':
-      return sendError(reply, 403, 'FORBIDDEN', 'Cannot create voice E2EE epoch.');
+      return sendError(
+        reply,
+        403,
+        'FORBIDDEN',
+        'Cannot create voice E2EE epoch.',
+      );
     case 'e2ee_disabled':
       return sendError(
         reply,
@@ -95,7 +104,12 @@ function sendVoiceE2eeEpochCreateError(
         'Another active call key was created for this channel. Refresh and retry.',
       );
     default:
-      return sendError(reply, 500, 'INTERNAL', 'Voice E2EE epoch create failed.');
+      return sendError(
+        reply,
+        500,
+        'INTERNAL',
+        'Voice E2EE epoch create failed.',
+      );
   }
 }
 

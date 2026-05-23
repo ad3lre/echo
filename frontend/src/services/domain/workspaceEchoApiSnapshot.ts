@@ -447,7 +447,9 @@ export function mergeEchoWorkspaceMembersIntoUsers<
           isDiscordShadow,
           ...(isGuest ? { isGuest: true } : {}),
           ...(badges?.length ? { badges } : {}),
-          ...(nextSignupOrdinal != null ? { signupOrdinal: nextSignupOrdinal } : {}),
+          ...(nextSignupOrdinal != null
+            ? { signupOrdinal: nextSignupOrdinal }
+            : {}),
           ...ban,
           timeZone: nextTz,
         } as T);

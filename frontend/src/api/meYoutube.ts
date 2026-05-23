@@ -40,6 +40,7 @@ export type MeYoutubeStreamKeyMeta = {
 
 export type MeYoutubeResponse = {
   configured: boolean;
+  oauthRedirectUri?: string | null;
   googleLinked: boolean;
   connectionMode: YoutubeConnectionMode;
   linked: boolean;

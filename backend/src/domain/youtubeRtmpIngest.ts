@@ -29,6 +29,14 @@ function validateStreamKey(key: string): string | null {
   return null;
 }
 
+function trimTrailingSlashes(value: string): string {
+  let out = value;
+  while (out.endsWith('/')) {
+    out = out.slice(0, -1);
+  }
+  return out;
+}
+
 function normalizeRtmpUrl(url: string): string {
   return url.replace(/([^:]\/)\/+/g, '$1');
 }
@@ -73,9 +81,8 @@ export function buildYoutubeRtmpIngestUrl(input: {
   if (keyErr) {
     return { ok: false, message: keyErr };
   }
-  const server = (input.serverUrl?.trim() || DEFAULT_YOUTUBE_RTMP_SERVER).replace(
-    /\/+$/,
-    '',
+  const server = trimTrailingSlashes(
+    input.serverUrl?.trim() || DEFAULT_YOUTUBE_RTMP_SERVER,
   );
   let hostPart: string;
   try {

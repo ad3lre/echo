@@ -53,10 +53,14 @@ export function extractStorageKeyFromEchoMediaUrl(url: string): string | null {
   };
 
   if (t.startsWith(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX)) {
-    return decodeStorageKeyPath(t.slice(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX.length));
+    return decodeStorageKeyPath(
+      t.slice(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX.length),
+    );
   }
   if (t.startsWith(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX)) {
-    return decodeStorageKeyPath(t.slice(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX.length));
+    return decodeStorageKeyPath(
+      t.slice(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX.length),
+    );
   }
 
   if (/^https?:\/\//i.test(t)) {

@@ -11,7 +11,9 @@ export function collectCustomEmojiIdsFromText(text: string): string[] {
   return Array.from(out);
 }
 
-export function collectCustomEmojiIdsFromTexts(texts: Iterable<string>): string[] {
+export function collectCustomEmojiIdsFromTexts(
+  texts: Iterable<string>,
+): string[] {
   const out = new Set<string>();
   for (const text of texts) {
     if (!text) continue;

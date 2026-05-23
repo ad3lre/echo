@@ -53,7 +53,12 @@ import {
   liveKitRemoteParticipantByIdentity,
   resolveLiveKitRemoteParticipantIdentity,
 } from '@/services/livekit/liveKitRoomParticipants';
-import { ensureKrispNoiseFilterEnabled } from '@/services/livekit/krispNoiseFilter';
+import {
+  ensureEchoMicSendProcessor,
+  isLegacyKrispOnlyProcessor,
+  setEchoMicSendLinearGain,
+} from '@/services/livekit/echoLocalMicSendGain';
+import { isKrispNoiseFilterSupportedSafe } from '@/services/livekit/krispNoiseFilter';
 import type { VoiceProcessingPreferencesV2 } from '@/composables/voiceProcessingPreferences';
 import {
   buildAudioCaptureOptionsForSession,
@@ -1032,7 +1037,12 @@ export function useLiveKitVoiceRoom(
     const gated = base * gateMultiplier;
     const pub = room.localParticipant.getTrackPublication(LK_SOURCE_MICROPHONE);
     const t = pub?.track;
-    if (t) setAudioTrackVolumeIfSupported(t, gated);
+    if (t && (t as TrackLike).kind === LK_KIND_AUDIO) {
+      const localAudio = t as LocalAudioTrack;
+      if (!setEchoMicSendLinearGain(localAudio, gated)) {
+        void attachMicSendProcessorIfNeeded(room);
+      }
+    }
     if (micGainZeroLogs < MIC_GAIN_ZERO_LOG_MAX && !!t && base <= 0) {
       micGainZeroLogs++;
       voiceClientDiag('warn', 'voice.client:mic_gain_zero_input_volume', {
@@ -1204,6 +1214,7 @@ export function useLiveKitVoiceRoom(
         'voice.client:krisp_fallback_mic_republished',
         {},
       );
+      await attachMicSendProcessorIfNeeded(room);
     } catch (e2) {
       voiceClientDiag('error', 'voice.client:krisp_fallback_mic_failed', {
         err: e2 instanceof Error ? e2.message : String(e2),
@@ -1256,44 +1267,66 @@ export function useLiveKitVoiceRoom(
     }
   }
 
-  async function attachKrispProcessorIfNeeded(room: LKRoom) {
+  async function attachMicSendProcessorIfNeeded(room: LKRoom) {
     const prefs = loadVoiceProcessingPreferences();
     const capMode = effectiveCaptureMode(prefs, krispSessionFailed.value);
-    if (capMode !== 'krisp') return;
 
     const pub = room.localParticipant.getTrackPublication(LK_SOURCE_MICROPHONE);
     const track = pub?.track;
     if (!track || (track as TrackLike).kind !== LK_KIND_AUDIO) {
-      voiceClientDiag('warn', 'voice.client:krisp_no_local_audio_track', {});
+      voiceClientDiag('warn', 'voice.client:mic_send_no_local_audio_track', {});
       return;
     }
     const localAudio = track as LocalAudioTrack;
-    try {
-      const result = await ensureKrispNoiseFilterEnabled(
-        localAudio,
-        buildKrispNoiseFilterOptions(prefs),
-      );
-      if (result.status === 'unsupported') {
-        voiceClientDiag('warn', 'voice.client:krisp_unsupported_browser', {});
-        voiceClientTrace('voice.client:krisp_unsupported_browser', {});
+
+    if (isLegacyKrispOnlyProcessor(localAudio.getProcessor())) {
+      try {
+        await localAudio.stopProcessor();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    let useKrisp = capMode === 'krisp';
+    if (useKrisp && !(await isKrispNoiseFilterSupportedSafe())) {
+      voiceClientDiag('warn', 'voice.client:krisp_unsupported_browser', {});
+      voiceClientTrace('voice.client:krisp_unsupported_browser', {});
+      if (!krispSessionFailed.value) {
         await applyKrispFailureFallback(room, localAudio, prefs, 'sync');
         return;
       }
-      voiceClientTrace('voice.client:krisp_processor_attached', {
-        reused: result.reused,
+      useKrisp = false;
+    }
+
+    try {
+      await ensureEchoMicSendProcessor(localAudio, {
+        useKrisp,
+        krispOptions: useKrisp
+          ? buildKrispNoiseFilterOptions(prefs)
+          : undefined,
       });
-      voiceClientDiag('info', 'voice.client:krisp_processor_attached', {
-        reused: result.reused,
-      });
-      registerKrispAsyncFailureWatch(room, localAudio);
+      if (useKrisp) {
+        registerKrispAsyncFailureWatch(room, localAudio);
+        voiceClientDiag('info', 'voice.client:mic_send_processor_attached', {
+          useKrisp: true,
+        });
+      } else {
+        clearKrispAsyncRejectionWatch();
+        voiceClientDiag('info', 'voice.client:mic_send_processor_attached', {
+          useKrisp: false,
+        });
+      }
+      applyLocalMicGain(room);
     } catch (e) {
-      voiceClientDiag('error', 'voice.client:krisp_processor_failed', {
+      voiceClientDiag('error', 'voice.client:mic_send_processor_failed', {
         err: e instanceof Error ? e.message : String(e),
       });
-      voiceClientTrace('voice.client:krisp_processor_failed', {
+      voiceClientTrace('voice.client:mic_send_processor_failed', {
         err: e instanceof Error ? e.message : String(e),
       });
-      await applyKrispFailureFallback(room, localAudio, prefs, 'sync');
+      if (useKrisp && !krispSessionFailed.value) {
+        await applyKrispFailureFallback(room, localAudio, prefs, 'sync');
+      }
     }
   }
 
@@ -1308,7 +1341,7 @@ export function useLiveKitVoiceRoom(
         buildAudioCaptureOptionsForSession(prefs, krispSessionFailed.value),
       ) as AudioCaptureOptions;
       await room.localParticipant.setMicrophoneEnabled(true, opts);
-      await attachKrispProcessorIfNeeded(room);
+      await attachMicSendProcessorIfNeeded(room);
       refreshLocalMicLevelMonitor(room);
     } catch (e) {
       voiceClientDiag('error', 'voice.client:reapplyVoiceProcessing_failed', {
@@ -1731,7 +1764,7 @@ export function useLiveKitVoiceRoom(
           jsonPlainClone(getMicCaptureOptions()) as AudioCaptureOptions,
         );
         if (!opts.muted) {
-          void attachKrispProcessorIfNeeded(room);
+          void attachMicSendProcessorIfNeeded(room);
         }
       }
       voiceClientTrace('voice.client:applyVcAudioState_ok', {
@@ -1997,7 +2030,7 @@ export function useLiveKitVoiceRoom(
       roomState.value = 'connected';
       startStatsPolling();
       reapplyRemotePlaybackGains(room);
-      void attachKrispProcessorIfNeeded(room).then(() => {
+      void attachMicSendProcessorIfNeeded(room).then(() => {
         refreshLocalMicLevelMonitor(room);
       });
     });
@@ -2633,7 +2666,7 @@ export function useLiveKitVoiceRoom(
 
       reapplyRemotePlaybackGains(room);
 
-      await attachKrispProcessorIfNeeded(room);
+      await attachMicSendProcessorIfNeeded(room);
       if (myGen !== connectGeneration) {
         voiceClientTrace('voice.client:lk_connect_stale_after_krisp', {});
         connectAbortTarget = null;
@@ -3013,9 +3046,8 @@ export function useLiveKitVoiceRoom(
     }
     try {
       await room.switchActiveDevice('audioinput', deviceId);
-      await attachKrispProcessorIfNeeded(room);
+      await attachMicSendProcessorIfNeeded(room);
       refreshLocalMicLevelMonitor(room);
-      applyLocalMicGain(room);
     } catch (e) {
       voiceClientDiag('error', 'voice.client:switchMicDevice_failed', {
         err: formatVoiceClientError(e),

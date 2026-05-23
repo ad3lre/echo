@@ -92,7 +92,9 @@ async function main() {
     .png()
     .toFile(join(outDir, 'pwa-maskable-512.png'));
 
-  await rasterizeRounded(32).toFile(join(repoRoot, 'frontend/public/favicon.ico'));
+  await rasterizeRounded(32).toFile(
+    join(repoRoot, 'frontend/public/favicon.ico'),
+  );
 
   console.log(
     'PWA + brand PNGs written (public/icons/, favicon.ico, echo-logo.png, echo-rounded-logo.png).',

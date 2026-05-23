@@ -389,11 +389,7 @@ export async function buildLinkEmbedsFromPlainText(
     contentJson?: unknown;
   },
 ): Promise<Embed[]> {
-  const urls = collectLinkEmbedCandidateUrls(
-    content,
-    opts.contentJson,
-    12,
-  );
+  const urls = collectLinkEmbedCandidateUrls(content, opts.contentJson, 12);
   if (!urls.length) return [];
   const maxEmbeds = Math.min(Math.max(opts.maxUrls ?? 2, 1), 4);
   const deadline = Date.now() + (opts.budgetMs ?? 5000);

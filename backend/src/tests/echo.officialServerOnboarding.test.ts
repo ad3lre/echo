@@ -47,7 +47,11 @@ async function run(): Promise<void> {
     await insertAuthUser(pool, ownerId, 'Official Owner');
     await insertAuthUser(pool, newUserId, 'Official New');
 
-    const created = await createEchoServer(pool, ownerId, 'official-onboarding-test');
+    const created = await createEchoServer(
+      pool,
+      ownerId,
+      'official-onboarding-test',
+    );
     Object.defineProperty(config, 'echoOfficialServerId', {
       value: created.serverId,
       writable: true,

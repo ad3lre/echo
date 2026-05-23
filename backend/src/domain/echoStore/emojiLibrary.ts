@@ -268,7 +268,10 @@ export async function resolveEchoEmojiTokens(
   const pushResolve = (key: string, row: (typeof res.rows)[0]) => {
     const stored = row.image_url?.trim() ?? '';
     if (!stored) return;
-    const { imageUrl, assetUrl } = clientImageUrlForResolvedEmoji(row.id, stored);
+    const { imageUrl, assetUrl } = clientImageUrlForResolvedEmoji(
+      row.id,
+      stored,
+    );
     const discordSource = row.discord_source_emoji_id?.trim() ?? '';
     out.push({
       key,

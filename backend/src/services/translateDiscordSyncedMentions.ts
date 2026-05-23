@@ -46,7 +46,11 @@ function collectContentEvents(content: string): ContentEvent[] {
   const reEveryone = /@everyone\b/g;
   let em: RegExpExecArray | null;
   while ((em = reEveryone.exec(content)) !== null) {
-    out.push({ kind: 'everyone', start: em.index, end: em.index + em[0].length });
+    out.push({
+      kind: 'everyone',
+      start: em.index,
+      end: em.index + em[0].length,
+    });
   }
   const reHere = /@here\b/g;
   while ((em = reHere.exec(content)) !== null) {
@@ -122,7 +126,10 @@ export function translateDiscordSyncedContentAndMentions(
       if (token.kind === 'user') {
         const echoUserId = maps.discordToEchoUser.get(token.id);
         if (echoUserId) {
-          const label = displayNameForEchoUser(echoUserId, maps.echoUserDisplayName);
+          const label = displayNameForEchoUser(
+            echoUserId,
+            maps.echoUserDisplayName,
+          );
           const piece = `@${label}`;
           out += piece;
           mentions.push({
@@ -139,8 +146,7 @@ export function translateDiscordSyncedContentAndMentions(
       } else if (token.kind === 'role') {
         const echoRoleId = maps.discordToEchoRole.get(token.id);
         if (echoRoleId) {
-          const label =
-            maps.echoRoleName.get(echoRoleId)?.trim() || 'role';
+          const label = maps.echoRoleName.get(echoRoleId)?.trim() || 'role';
           const piece = `@${label}`;
           out += piece;
           mentions.push({
@@ -285,8 +291,7 @@ async function loadEchoDisplayNames(
   );
   for (const row of r.rows) {
     const id = String(row.id).trim();
-    const dn =
-      row.display_name != null ? String(row.display_name).trim() : '';
+    const dn = row.display_name != null ? String(row.display_name).trim() : '';
     if (id && dn) out.set(id, dn);
   }
   return out;
@@ -297,7 +302,9 @@ async function loadEchoChannelNames(
   serverId: string,
   echoChannelIds: string[],
 ): Promise<Map<string, string>> {
-  const ids = [...new Set(echoChannelIds.map((id) => id.trim()).filter(Boolean))];
+  const ids = [
+    ...new Set(echoChannelIds.map((id) => id.trim()).filter(Boolean)),
+  ];
   const out = new Map<string, string>();
   if (ids.length === 0) return out;
   const r = await pool.query<{ id: string; name: string }>(
@@ -371,11 +378,12 @@ export async function resolveDiscordSyncedContentMentions(
   const echoChannelIds = [...new Set(importMaps.discordToEchoChannel.values())];
   const echoRoleIds = [...new Set(importMaps.discordToEchoRole.values())];
 
-  const [echoUserDisplayName, echoChannelName, echoRoleName] = await Promise.all([
-    loadEchoDisplayNames(pool, echoUserIds),
-    loadEchoChannelNames(pool, serverId, echoChannelIds),
-    loadEchoRoleNames(pool, serverId, echoRoleIds),
-  ]);
+  const [echoUserDisplayName, echoChannelName, echoRoleName] =
+    await Promise.all([
+      loadEchoDisplayNames(pool, echoUserIds),
+      loadEchoChannelNames(pool, serverId, echoChannelIds),
+      loadEchoRoleNames(pool, serverId, echoRoleIds),
+    ]);
 
   const translated = translateDiscordSyncedContentAndMentions(trimmed, {
     discordToEchoUser,

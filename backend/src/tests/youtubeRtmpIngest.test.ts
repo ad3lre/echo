@@ -8,9 +8,7 @@ describe('buildYoutubeRtmpIngestUrl', () => {
     });
     expect(r.ok).toBe(true);
     if (r.ok) {
-      expect(r.rtmpUrl).toBe(
-        'rtmp://a.rtmp.youtube.com/live2/abcd-efgh-1234',
-      );
+      expect(r.rtmpUrl).toBe('rtmp://a.rtmp.youtube.com/live2/abcd-efgh-1234');
     }
   });
 

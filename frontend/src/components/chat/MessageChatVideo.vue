@@ -30,7 +30,10 @@ const rootRef = ref<HTMLElement | null>(null);
 let stopObserve: (() => void) | undefined;
 
 onMounted(() => {
-  stopObserve = observeChatMediaRetentionVisible(rootRef.value, props.storageKey);
+  stopObserve = observeChatMediaRetentionVisible(
+    rootRef.value,
+    props.storageKey,
+  );
 });
 
 onUnmounted(() => {

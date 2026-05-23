@@ -22,9 +22,7 @@ export function useStageSpeakRequests(opts: {
   function canPoll(): boolean {
     const sid = opts.serverId.value?.trim();
     const cid = opts.channelId.value?.trim();
-    return (
-      opts.enabled.value && opts.isAuthenticated.value && !!sid && !!cid
-    );
+    return opts.enabled.value && opts.isAuthenticated.value && !!sid && !!cid;
   }
 
   async function refresh() {

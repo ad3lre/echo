@@ -16,10 +16,7 @@ export type EchoMemberRoleMutateCatalogRow = {
 };
 
 function roleHasManage(perms: readonly string[]): boolean {
-  return (
-    perms.includes('MANAGE_ROLES') ||
-    perms.includes('ADMINISTRATOR')
-  );
+  return perms.includes('MANAGE_ROLES') || perms.includes('ADMINISTRATOR');
 }
 
 function roleHasAssign(perms: readonly string[]): boolean {

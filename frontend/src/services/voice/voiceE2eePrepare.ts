@@ -184,7 +184,9 @@ async function resolveDmVoiceMemberUserIds(opts: {
   const cid = opts.channelId.trim();
   let members = [
     ...new Set(
-      opts.memberUserIds.map((id) => id.trim()).filter((id) => id && id !== uid),
+      opts.memberUserIds
+        .map((id) => id.trim())
+        .filter((id) => id && id !== uid),
     ),
   ];
   if (members.length > 0) {
@@ -271,7 +273,7 @@ async function buildEnvelopesForPeers(opts: {
   const envelopes: EnvelopeOut[] = [];
   const skippedPeerIds: string[] = [];
   for (const uid of opts.peerUserIds) {
-    let deviceIds: string[] = [];
+    let deviceIds: string[];
     try {
       deviceIds = await fetchPeerDeviceIds(opts.token, uid);
     } catch {

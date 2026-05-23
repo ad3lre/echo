@@ -32,13 +32,20 @@ function cacheKey(q: string, page: number): string {
   return `${q.toLowerCase().trim()}|p${page}`;
 }
 
-function getCachedSearch(q: string, page: number): ImageSearchPageResponse | null {
+function getCachedSearch(
+  q: string,
+  page: number,
+): ImageSearchPageResponse | null {
   const entry = searchCache.get(cacheKey(q, page));
   if (!entry || Date.now() - entry.ts > SEARCH_CACHE_TTL_MS) return null;
   return entry.data;
 }
 
-function setCachedSearch(q: string, page: number, data: ImageSearchPageResponse) {
+function setCachedSearch(
+  q: string,
+  page: number,
+  data: ImageSearchPageResponse,
+) {
   searchCache.set(cacheKey(q, page), { data, ts: Date.now() });
 }
 
@@ -110,9 +117,12 @@ export function useImageSearch() {
       applyPageResponse(q, cached, append);
       return;
     }
-    const data = await apiGet<ImageSearchPageResponse>(imageSearchUrl(q, page), {
-      signal: abortController?.signal,
-    });
+    const data = await apiGet<ImageSearchPageResponse>(
+      imageSearchUrl(q, page),
+      {
+        signal: abortController?.signal,
+      },
+    );
     if (!data) return;
     setCachedSearch(q, page, data);
     applyPageResponse(q, data, append);

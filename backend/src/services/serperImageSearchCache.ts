@@ -39,7 +39,10 @@ export function normalizeImageSearchQuery(
 }
 
 export function imageSearchQueryHash(normalizedQuery: string): string {
-  return createHash('sha256').update(normalizedQuery).digest('hex').slice(0, 32);
+  return createHash('sha256')
+    .update(normalizedQuery)
+    .digest('hex')
+    .slice(0, 32);
 }
 
 export function buildSerperImageCacheKey(
@@ -147,7 +150,10 @@ export function refreshBackoffMs(failureCount: number): number {
 }
 
 export function shouldAttemptRefresh(
-  row: Pick<SerperImageCacheRow, 'refreshedAt' | 'lastFailedAt' | 'failureCount'>,
+  row: Pick<
+    SerperImageCacheRow,
+    'refreshedAt' | 'lastFailedAt' | 'failureCount'
+  >,
   nowMs: number = Date.now(),
   refreshDays: number = config.serperCacheRefreshDays,
   maxFailureCount: number = config.serperRefreshFailureMaxCount,
@@ -181,10 +187,7 @@ function parseResultsJson(raw: unknown): ImageSearchResultRow[] {
     const url = typeof o.url === 'string' ? o.url : '';
     if (!url.startsWith('http')) continue;
     out.push({
-      id:
-        typeof o.id === 'string'
-          ? o.id
-          : resultIdFromUrl(url),
+      id: typeof o.id === 'string' ? o.id : resultIdFromUrl(url),
       url,
       thumbUrl: typeof o.thumbUrl === 'string' ? o.thumbUrl : url,
       alt: typeof o.alt === 'string' ? o.alt : 'Image',
@@ -202,9 +205,7 @@ function rowFromPg(r: Record<string, unknown>): SerperImageCacheRow {
     results: parseResultsJson(r.results),
     refreshedAt: new Date(String(r.refreshed_at)),
     createdAt: new Date(String(r.created_at)),
-    lastFailedAt: r.last_failed_at
-      ? new Date(String(r.last_failed_at))
-      : null,
+    lastFailedAt: r.last_failed_at ? new Date(String(r.last_failed_at)) : null,
     failureCount: Number(r.failure_count ?? 0),
   };
 }

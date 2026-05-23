@@ -1085,9 +1085,9 @@ async function confirmDeleteChannel() {
                         End-to-end encryption (voice)
                       </div>
                       <p class="channel-settings-hint mt-1">
-                        When enabled, voice and camera use LiveKit E2EE. Recording,
-                        transcription, and bots that need decoded audio are not
-                        supported in this channel.
+                        When enabled, voice and camera use LiveKit E2EE.
+                        Recording, transcription, and bots that need decoded
+                        audio are not supported in this channel.
                       </p>
                     </div>
                     <input

@@ -13,7 +13,9 @@ export type ResolvedCustomEmojiMeta = {
 };
 
 const urlByIdState = shallowReactive(new Map<string, string>());
-const metaByIdState = shallowReactive(new Map<string, ResolvedCustomEmojiMeta>());
+const metaByIdState = shallowReactive(
+  new Map<string, ResolvedCustomEmojiMeta>(),
+);
 const pendingIds = new Set<string>();
 const missingIds = new Set<string>();
 let inflight: Promise<void> | null = null;

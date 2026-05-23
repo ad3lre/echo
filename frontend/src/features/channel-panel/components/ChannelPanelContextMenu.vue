@@ -59,7 +59,10 @@ function bindMenuRef(el: Element | ComponentPublicInstance | null) {
   const node =
     el instanceof HTMLElement
       ? el
-      : el && typeof el === 'object' && '$el' in el && el.$el instanceof HTMLElement
+      : el &&
+          typeof el === 'object' &&
+          '$el' in el &&
+          el.$el instanceof HTMLElement
         ? el.$el
         : null;
   (target as { value: HTMLElement | null }).value = node;
@@ -139,7 +142,11 @@ const emit = defineEmits<{
   'vc-menu-message': [];
   'vc-menu-copy-user-id': [];
   'vc-moderate': [
-    'serverMute' | 'serverDeafen' | 'disconnect' | 'inviteToSpeak' | 'moveToAudience',
+    | 'serverMute'
+    | 'serverDeafen'
+    | 'disconnect'
+    | 'inviteToSpeak'
+    | 'moveToAudience',
   ];
   'vc-menu-move-pick': [targetChannelId: string];
   'vc-moderate-server': ['kick' | 'ban' | 'timeout'];

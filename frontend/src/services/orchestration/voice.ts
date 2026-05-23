@@ -16,10 +16,7 @@ import { normalizeVoiceUserMessage } from '@/utils/voiceJoinUserMessage';
 import { UIErrorBus } from '@/utils/uiErrorBus';
 import type { VoiceE2eePrepareResult } from '@/services/voice/voiceE2eePrepare';
 
-type VoiceE2eePrepareFnResult =
-  | VoiceE2eePrepareResult
-  | ArrayBuffer
-  | null;
+type VoiceE2eePrepareFnResult = VoiceE2eePrepareResult | ArrayBuffer | null;
 
 function normalizeVoiceE2eePrepare(
   raw: VoiceE2eePrepareFnResult,

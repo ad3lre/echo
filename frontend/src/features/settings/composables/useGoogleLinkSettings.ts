@@ -1,64 +1,80 @@
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { authGoogleOAuthStart } from '@/api/authClient';
-import { fetchMeGoogle, type MeGoogleResponse } from '@/api/meClient';
+import {
+  disconnectMeGoogle,
+  fetchMeGoogle,
+  type MeGoogleResponse,
+} from '@/api/meClient';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { messageForGoogleOAuthError } from '@/features/google/googleIntegrationCopy';
 import { startOAuthFlow } from '@/platform/desktopBridge';
+import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
-const GOOGLE_REDIRECT_HINT_KEY = 'echo_google_oauth_redirect_hint';
+const GOOGLE_OAUTH_ERROR_KEY = 'echo_google_oauth_error';
+const GOOGLE_OAUTH_LINKED_KEY = 'echo_google_oauth_linked';
+
+function takeSessionFlag(key: string): boolean {
+  try {
+    if (sessionStorage.getItem(key) === '1') {
+      sessionStorage.removeItem(key);
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function takeOauthReturnErrorCode(): string | null {
+  try {
+    const code = sessionStorage.getItem(GOOGLE_OAUTH_ERROR_KEY)?.trim();
+    if (code) {
+      sessionStorage.removeItem(GOOGLE_OAUTH_ERROR_KEY);
+      return code;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 export function useGoogleLinkSettings() {
   const authSession = useAuthSessionStore();
+  const { authStateGeneration } = storeToRefs(authSession);
 
   const state = ref<MeGoogleResponse | null>(null);
   const loading = ref(false);
   const actionError = ref('');
   const connectBusy = ref(false);
-  const lastOAuthRedirectUri = ref('');
+  const disconnectBusy = ref(false);
+  const pendingOAuthRedirectUri = ref('');
 
-  function readRedirectHintFromStorage() {
-    try {
-      const u = sessionStorage.getItem(GOOGLE_REDIRECT_HINT_KEY)?.trim();
-      lastOAuthRedirectUri.value = u ?? '';
-    } catch {
-      lastOAuthRedirectUri.value = '';
-    }
-  }
-
-  function clearRedirectHint() {
-    try {
-      sessionStorage.removeItem(GOOGLE_REDIRECT_HINT_KEY);
-    } catch {
-      /* ignore */
-    }
-    lastOAuthRedirectUri.value = '';
-  }
-
-  function readOauthReturnError() {
-    try {
-      const code = sessionStorage.getItem('echo_google_oauth_error');
-      if (code) {
-        sessionStorage.removeItem('echo_google_oauth_error');
-        actionError.value = messageForGoogleOAuthError(code);
-      }
-    } catch {
-      /* ignore */
-    }
-  }
+  const lastOAuthRedirectUri = computed(() => {
+    const pending = pendingOAuthRedirectUri.value.trim();
+    if (pending) return pending;
+    const fromApi = state.value?.oauthRedirectUri?.trim();
+    return fromApi ?? '';
+  });
 
   async function refresh() {
     if (!authSession.isAuthenticated || echoSyncCapabilities.isMockDataMode) {
       state.value = null;
       loading.value = false;
+      actionError.value = '';
+      pendingOAuthRedirectUri.value = '';
       return;
     }
+    const oauthErrorCode = takeOauthReturnErrorCode();
+    const linkJustSucceeded = takeSessionFlag(GOOGLE_OAUTH_LINKED_KEY);
+
     loading.value = true;
     actionError.value = '';
     try {
       state.value = await fetchMeGoogle();
       if (state.value?.linked) {
-        clearRedirectHint();
+        pendingOAuthRedirectUri.value = '';
       }
     } catch (e) {
       state.value = null;
@@ -68,6 +84,16 @@ export function useGoogleLinkSettings() {
           : 'We couldn’t load your Google link. Try again in a moment.';
     } finally {
       loading.value = false;
+      if (
+        !actionError.value &&
+        oauthErrorCode &&
+        state.value?.linked !== true
+      ) {
+        actionError.value = messageForGoogleOAuthError(oauthErrorCode);
+      }
+      if (linkJustSucceeded && state.value?.linked === true) {
+        dispatchAppToast('Google account linked.', 'info');
+      }
     }
   }
 
@@ -77,15 +103,7 @@ export function useGoogleLinkSettings() {
     actionError.value = '';
     try {
       const { authorizeUrl, redirectUri } = await authGoogleOAuthStart();
-      const ru = redirectUri?.trim() ?? '';
-      if (ru) {
-        try {
-          sessionStorage.setItem(GOOGLE_REDIRECT_HINT_KEY, ru);
-        } catch {
-          /* ignore */
-        }
-        lastOAuthRedirectUri.value = ru;
-      }
+      pendingOAuthRedirectUri.value = redirectUri?.trim() ?? '';
       startOAuthFlow(authorizeUrl);
     } catch (e) {
       actionError.value =
@@ -98,8 +116,6 @@ export function useGoogleLinkSettings() {
   }
 
   onMounted(() => {
-    readRedirectHintFromStorage();
-    readOauthReturnError();
     void refresh();
   });
 
@@ -110,13 +126,38 @@ export function useGoogleLinkSettings() {
     },
   );
 
+  watch(authStateGeneration, () => {
+    void refresh();
+  });
+
+  async function onDisconnect() {
+    disconnectBusy.value = true;
+    try {
+      await disconnectMeGoogle();
+      dispatchAppToast(
+        'Google account disconnected. YouTube was unlinked too.',
+        'info',
+      );
+      await refresh();
+    } catch (e) {
+      dispatchAppToast(
+        e instanceof Error ? e.message : 'Could not disconnect Google.',
+        'error',
+      );
+    } finally {
+      disconnectBusy.value = false;
+    }
+  }
+
   return {
     state,
     loading,
     actionError,
     connectBusy,
+    disconnectBusy,
     lastOAuthRedirectUri,
     refresh,
     onConnect,
+    onDisconnect,
   };
 }

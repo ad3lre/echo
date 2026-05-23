@@ -686,162 +686,162 @@ export function useAddServerFlow(deps: {
       }
 
       const token = authSession.accessToken?.trim() ?? '';
-    const graphId =
-      entry.id?.trim() && isEchoGraphId(entry.id) ? entry.id.trim() : '';
-    const entryName = entry.name.trim();
-    const entryPfp = entry.pfp.trim();
+      const graphId =
+        entry.id?.trim() && isEchoGraphId(entry.id) ? entry.id.trim() : '';
+      const entryName = entry.name.trim();
+      const entryPfp = entry.pfp.trim();
 
-    function resolveGraphIdFromDirectoryRows(
-      rows: Array<{ id?: string; name: string; pfp: string }>,
-    ): string {
-      for (const row of rows) {
-        const rid = (row.id ?? '').trim();
-        if (!rid || !isEchoGraphId(rid)) continue;
-        if (entryPfp && row.pfp.trim() === entryPfp) return rid;
-        if (entryName && row.name.trim() === entryName) return rid;
-      }
-      return '';
-    }
-
-    if (graphId && authSession.isAuthenticated) {
-      const already = serverStore.servers.some((s) => s.id === graphId);
-      if (already) {
-        isAddServerModalOpen.value = false;
-        focusJoinedServerInShell(graphId);
-        if (!isMoreServersPinned.value) {
-          isMoreServersPanelOpen.value = false;
+      function resolveGraphIdFromDirectoryRows(
+        rows: Array<{ id?: string; name: string; pfp: string }>,
+      ): string {
+        for (const row of rows) {
+          const rid = (row.id ?? '').trim();
+          if (!rid || !isEchoGraphId(rid)) continue;
+          if (entryPfp && row.pfp.trim() === entryPfp) return rid;
+          if (entryName && row.name.trim() === entryName) return rid;
         }
+        return '';
+      }
+
+      if (graphId && authSession.isAuthenticated) {
+        const already = serverStore.servers.some((s) => s.id === graphId);
+        if (already) {
+          isAddServerModalOpen.value = false;
+          focusJoinedServerInShell(graphId);
+          if (!isMoreServersPinned.value) {
+            isMoreServersPanelOpen.value = false;
+          }
+          return;
+        }
+      }
+
+      if (!authSession.isAuthenticated) {
+        dispatchAppToast('Sign in to join servers from Explore.', 'warning');
+        onPromptSignIn?.();
         return;
       }
-    }
 
-    if (!authSession.isAuthenticated) {
-      dispatchAppToast('Sign in to join servers from Explore.', 'warning');
-      onPromptSignIn?.();
-      return;
-    }
+      let resolvedGraphId = graphId;
 
-    let resolvedGraphId = graphId;
-
-    if (!resolvedGraphId && authSession.isAuthenticated) {
-      try {
-        await workspace.refreshExploreDirectory();
-        resolvedGraphId = resolveGraphIdFromDirectoryRows(
-          workspace.discoverableServers.value,
-        );
-      } catch {
-        surfaceAddServerFlowFeedback(
-          'Could not refresh the Explore directory. Check your connection and try again.',
-          'error',
-          'explore_join_directory',
-        );
-        return;
-      }
-    }
-
-    if (resolvedGraphId) {
-      const directoryRow = resolveDiscoverableDirectoryRow(entry);
-      const topMembers =
-        await fetchEchoDirectoryServerMemberHighlights(resolvedGraphId);
-      const confirmPreview = buildDiscoverableJoinConfirmPreview({
-        name: entryName || directoryRow?.name || 'Server',
-        pfp: entryPfp || directoryRow?.pfp || '',
-        memberCount: entry.memberCount ?? directoryRow?.memberCount,
-        description: directoryRow?.description,
-        banner: directoryRow?.banner,
-        voiceParticipantCount: directoryRow?.voiceParticipantCount,
-        ...(topMembers.length ? { topMembers } : {}),
-      });
-      const confirmed = await requestJoinServerConfirm(confirmPreview);
-      if (!confirmed) return;
-
-      try {
-        const rows = workspace.discoverableServers.value;
-        if (
-          rows.length > 0 &&
-          !rows.some((s) => (s.id ?? '').trim() === resolvedGraphId)
-        ) {
+      if (!resolvedGraphId && authSession.isAuthenticated) {
+        try {
+          await workspace.refreshExploreDirectory();
+          resolvedGraphId = resolveGraphIdFromDirectoryRows(
+            workspace.discoverableServers.value,
+          );
+        } catch {
           surfaceAddServerFlowFeedback(
-            'This server is no longer listed in Explore — the directory was just updated.',
-            'warning',
+            'Could not refresh the Explore directory. Check your connection and try again.',
+            'error',
             'explore_join_directory',
           );
           return;
         }
-        const { serverId, alreadyMember } = await postEchoJoinDirectoryServer(
-          token,
-          resolvedGraphId,
-        );
-        await hydrateWorkspace();
-        const wasAddServerModalOpen = isAddServerModalOpen.value;
-        isAddServerModalOpen.value = false;
-        focusJoinedServerInShell(serverId);
-        if (!isMoreServersPinned.value) {
-          isMoreServersPanelOpen.value = false;
-        }
-        if (alreadyMember && wasAddServerModalOpen) {
-          addServerJoinError.value =
-            'You’re already in that server — opened it for you.';
-        }
-      } catch (e) {
-        if (isEchoUpgradeRequiredJoinError(e)) {
-          addServerJoinError.value =
-            'Guests can’t join from Explore — create an account or use an invite link.';
-          await requestGuestExploreJoinBlockedModal(
-            e instanceof EchoApiError ? e.body.message : undefined,
-          );
-          return;
-        }
-        const appReq = readApplicationRequired(e);
-        if (appReq?.source === 'directory') {
-          try {
-            const j = await fetchEchoJoinApplicationPreview(
-              token,
-              resolvedGraphId,
-            );
-            const out = await requestServerApplicationModal({
-              serverId: appReq.serverId,
-              source: 'directory',
-              applicationForm: j.applicationForm,
-              serverName: entryName || directoryRow?.name,
-              iconUrl: entryPfp || directoryRow?.pfp,
-            });
-            if (out === 'submitted') {
-              addServerJoinError.value =
-                'Your application was submitted. You’ll get access if a moderator approves it.';
-              isAddServerModalOpen.value = false;
-              if (!isMoreServersPinned.value) {
-                isMoreServersPanelOpen.value = false;
-              }
-              return;
-            }
-          } finally {
-            finishServerApplicationModal();
-          }
-        }
-        const msg = getJoinFeedbackMessage(e, 'Could not join this server.');
-        surfaceAddServerFlowFeedback(msg, 'error', 'explore_join_directory');
-      } finally {
-        finishJoinServerConfirmModal();
       }
-      return;
-    }
 
-    const match =
-      workspace.servers.value.find((s) => s.imageUrl === entry.pfp) ??
-      workspace.servers.value.find((s) => s.name === entry.name);
-    if (match) {
-      finishMockJoin(match.id);
-      return;
-    }
-    const missingId = (entry.id ?? '').startsWith('explore-');
-    surfaceAddServerFlowFeedback(
-      missingId
-        ? 'This Explore listing has no valid server id. Refresh the page and try again.'
-        : 'Could not join this server. If you are using Echo, pick a server from the directory list or use an invite link.',
-      'error',
-      'explore_join_directory',
-    );
+      if (resolvedGraphId) {
+        const directoryRow = resolveDiscoverableDirectoryRow(entry);
+        const topMembers =
+          await fetchEchoDirectoryServerMemberHighlights(resolvedGraphId);
+        const confirmPreview = buildDiscoverableJoinConfirmPreview({
+          name: entryName || directoryRow?.name || 'Server',
+          pfp: entryPfp || directoryRow?.pfp || '',
+          memberCount: entry.memberCount ?? directoryRow?.memberCount,
+          description: directoryRow?.description,
+          banner: directoryRow?.banner,
+          voiceParticipantCount: directoryRow?.voiceParticipantCount,
+          ...(topMembers.length ? { topMembers } : {}),
+        });
+        const confirmed = await requestJoinServerConfirm(confirmPreview);
+        if (!confirmed) return;
+
+        try {
+          const rows = workspace.discoverableServers.value;
+          if (
+            rows.length > 0 &&
+            !rows.some((s) => (s.id ?? '').trim() === resolvedGraphId)
+          ) {
+            surfaceAddServerFlowFeedback(
+              'This server is no longer listed in Explore — the directory was just updated.',
+              'warning',
+              'explore_join_directory',
+            );
+            return;
+          }
+          const { serverId, alreadyMember } = await postEchoJoinDirectoryServer(
+            token,
+            resolvedGraphId,
+          );
+          await hydrateWorkspace();
+          const wasAddServerModalOpen = isAddServerModalOpen.value;
+          isAddServerModalOpen.value = false;
+          focusJoinedServerInShell(serverId);
+          if (!isMoreServersPinned.value) {
+            isMoreServersPanelOpen.value = false;
+          }
+          if (alreadyMember && wasAddServerModalOpen) {
+            addServerJoinError.value =
+              'You’re already in that server — opened it for you.';
+          }
+        } catch (e) {
+          if (isEchoUpgradeRequiredJoinError(e)) {
+            addServerJoinError.value =
+              'Guests can’t join from Explore — create an account or use an invite link.';
+            await requestGuestExploreJoinBlockedModal(
+              e instanceof EchoApiError ? e.body.message : undefined,
+            );
+            return;
+          }
+          const appReq = readApplicationRequired(e);
+          if (appReq?.source === 'directory') {
+            try {
+              const j = await fetchEchoJoinApplicationPreview(
+                token,
+                resolvedGraphId,
+              );
+              const out = await requestServerApplicationModal({
+                serverId: appReq.serverId,
+                source: 'directory',
+                applicationForm: j.applicationForm,
+                serverName: entryName || directoryRow?.name,
+                iconUrl: entryPfp || directoryRow?.pfp,
+              });
+              if (out === 'submitted') {
+                addServerJoinError.value =
+                  'Your application was submitted. You’ll get access if a moderator approves it.';
+                isAddServerModalOpen.value = false;
+                if (!isMoreServersPinned.value) {
+                  isMoreServersPanelOpen.value = false;
+                }
+                return;
+              }
+            } finally {
+              finishServerApplicationModal();
+            }
+          }
+          const msg = getJoinFeedbackMessage(e, 'Could not join this server.');
+          surfaceAddServerFlowFeedback(msg, 'error', 'explore_join_directory');
+        } finally {
+          finishJoinServerConfirmModal();
+        }
+        return;
+      }
+
+      const match =
+        workspace.servers.value.find((s) => s.imageUrl === entry.pfp) ??
+        workspace.servers.value.find((s) => s.name === entry.name);
+      if (match) {
+        finishMockJoin(match.id);
+        return;
+      }
+      const missingId = (entry.id ?? '').startsWith('explore-');
+      surfaceAddServerFlowFeedback(
+        missingId
+          ? 'This Explore listing has no valid server id. Refresh the page and try again.'
+          : 'Could not join this server. If you are using Echo, pick a server from the directory list or use an invite link.',
+        'error',
+        'explore_join_directory',
+      );
     } catch (cause) {
       surfaceAddServerFlowFeedback(
         getJoinFeedbackMessage(cause, 'Could not join this server.'),

@@ -49,8 +49,7 @@ const CHANNEL_TYPE_OPTIONS: {
   {
     id: 'text',
     label: 'Text',
-    description:
-      'Send messages, images, GIFs, emoji, opinions, and puns.',
+    description: 'Send messages, images, GIFs, emoji, opinions, and puns.',
     icon: icons.hashtag,
     iconClass: 'create-channel-type-icon--hash',
   },
@@ -200,11 +199,11 @@ function submit() {
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
           <h2 id="create-channel-title" class="text-xl font-bold leading-tight">
-            {{
-              isCategoryMode ? 'Create category' : 'Create channel'
-            }}
+            {{ isCategoryMode ? 'Create category' : 'Create channel' }}
           </h2>
-          <p class="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-fg-soft">
+          <p
+            class="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-fg-soft"
+          >
             <span>in</span>
             <span class="truncate font-medium text-fg">{{ serverName }}</span>
           </p>
@@ -245,8 +244,7 @@ function submit() {
               :key="opt.id"
               class="create-channel-type-option"
               :class="{
-                'create-channel-type-option--selected':
-                  creationMode === opt.id,
+                'create-channel-type-option--selected': creationMode === opt.id,
               }"
             >
               <input
@@ -278,7 +276,9 @@ function submit() {
         <div>
           <label
             class="settings-label"
-            :for="isCategoryMode ? 'create-category-name' : 'create-channel-name'"
+            :for="
+              isCategoryMode ? 'create-category-name' : 'create-channel-name'
+            "
           >
             {{ isCategoryMode ? 'Category name' : 'Channel name' }}
           </label>
@@ -311,12 +311,8 @@ function submit() {
               v-model="channelName"
               type="text"
               class="create-channel-name-input min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-fg outline-none placeholder:text-fg-subtle"
-              :placeholder="
-                isCategoryMode ? 'new-category' : 'new-channel'
-              "
-              :maxlength="
-                isCategoryMode ? 100 : ECHO_CHANNEL_NAME_MAX_LENGTH
-              "
+              :placeholder="isCategoryMode ? 'new-category' : 'new-channel'"
+              :maxlength="isCategoryMode ? 100 : ECHO_CHANNEL_NAME_MAX_LENGTH"
               @keydown.enter.prevent="submit"
             />
             <ChannelIconPickerPopover
@@ -332,9 +328,7 @@ function submit() {
             />
           </div>
           <p
-            v-if="
-              isCategoryMode && trimmedName && categoryNameIsDuplicate
-            "
+            v-if="isCategoryMode && trimmedName && categoryNameIsDuplicate"
             class="mt-2 text-xs text-rose-300/90"
           >
             A category with this name already exists.
@@ -364,9 +358,7 @@ function submit() {
           :disabled="!canSubmit"
           @click="submit"
         >
-          {{
-            isCategoryMode ? 'Create category' : 'Create channel'
-          }}
+          {{ isCategoryMode ? 'Create category' : 'Create channel' }}
         </button>
       </div>
     </div>

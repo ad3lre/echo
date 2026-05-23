@@ -22,7 +22,9 @@ function decodeStorageKeyFromPublicRemainder(
 }
 
 /** Resolve Echo storage key from a public upload URL or local upload path. */
-export function extractEchoStorageKeyFromPublicUrl(urlRaw: string): string | null {
+export function extractEchoStorageKeyFromPublicUrl(
+  urlRaw: string,
+): string | null {
   const raw = stripQueryAndHash(urlRaw.trim());
   if (!raw) return null;
   const prefixes = getEchoUploadPublicUrlPrefixes().sort(

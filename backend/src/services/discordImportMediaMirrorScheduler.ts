@@ -48,10 +48,7 @@ export async function runDiscordImportMediaMirrorDrain(
   tickInProgress = true;
   try {
     await ensureEchoTables(pool);
-    const batch = Math.max(
-      1,
-      config.echoDiscordImportMediaMirrorBatchSize,
-    );
+    const batch = Math.max(1, config.echoDiscordImportMediaMirrorBatchSize);
     for (let i = 0; i < batch; i++) {
       const job = await claimNextDiscordImportMediaMirrorJob(pool);
       if (!job) break;

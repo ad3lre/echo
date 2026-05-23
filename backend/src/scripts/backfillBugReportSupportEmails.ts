@@ -74,9 +74,7 @@ async function main(): Promise<void> {
         id: String(row.reporter_id),
         username: String(row.reporter_username ?? ''),
         displayName: String(row.reporter_display_name ?? ''),
-        ...(row.reporter_email
-          ? { email: String(row.reporter_email) }
-          : {}),
+        ...(row.reporter_email ? { email: String(row.reporter_email) } : {}),
       },
     });
     console.log(`  ✓ ${label}`);

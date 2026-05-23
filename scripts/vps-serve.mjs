@@ -346,13 +346,13 @@ async function maybeNpmInstallAfterPull(metaPath) {
 /** Run before stopping prod so a type error does not take down the live stack. */
 async function runProdTypecheckPreverify(metaPath) {
   if (process.env.VPS_SKIP_PROD_TYPECHECK === '1') {
-    appendMeta(
-      metaPath,
-      'preverify:prod skipped (VPS_SKIP_PROD_TYPECHECK=1)',
-    );
+    appendMeta(metaPath, 'preverify:prod skipped (VPS_SKIP_PROD_TYPECHECK=1)');
     return;
   }
-  appendMeta(metaPath, 'preverify:prod — TypeScript check (frontend, backend, bot)');
+  appendMeta(
+    metaPath,
+    'preverify:prod — TypeScript check (frontend, backend, bot)',
+  );
   try {
     await execFileAsync(
       process.execPath,

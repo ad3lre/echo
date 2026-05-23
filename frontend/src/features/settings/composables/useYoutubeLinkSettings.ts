@@ -1,12 +1,17 @@
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { authYoutubeOAuthStart, AuthApiError } from '@/api/authClient';
-import { fetchMeYoutube, type MeYoutubeResponse } from '@/api/meYoutube';
+import {
+  fetchMeYoutube,
+  revokeMeYoutubeStreamKey,
+  saveMeYoutubeStreamKey,
+  unlinkMeYoutube,
+  type MeYoutubeResponse,
+} from '@/api/meYoutube';
+import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { messageForYoutubeOAuthError } from '@/features/youtube/youtubeIntegrationCopy';
 import { startOAuthFlow } from '@/platform/desktopBridge';
-
-const YOUTUBE_REDIRECT_HINT_KEY = 'echo_youtube_oauth_redirect_hint';
 
 export function useYoutubeLinkSettings() {
   const authSession = useAuthSessionStore();
@@ -15,16 +20,20 @@ export function useYoutubeLinkSettings() {
   const loading = ref(false);
   const actionError = ref('');
   const connectBusy = ref(false);
-  const lastOAuthRedirectUri = ref('');
+  const disconnectBusy = ref(false);
+  const streamKeyInput = ref('');
+  const streamKeyServerUrl = ref('rtmp://a.rtmp.youtube.com/live2');
+  const streamKeyBusy = ref(false);
+  const streamKeyRevokeBusy = ref(false);
+  const streamKeyConfirm = ref(false);
+  const pendingOAuthRedirectUri = ref('');
 
-  function readRedirectHintFromStorage() {
-    try {
-      const u = sessionStorage.getItem(YOUTUBE_REDIRECT_HINT_KEY)?.trim();
-      lastOAuthRedirectUri.value = u ?? '';
-    } catch {
-      lastOAuthRedirectUri.value = '';
-    }
-  }
+  const lastOAuthRedirectUri = computed(() => {
+    const pending = pendingOAuthRedirectUri.value.trim();
+    if (pending) return pending;
+    const fromApi = state.value?.oauthRedirectUri?.trim();
+    return fromApi ?? '';
+  });
 
   function readOauthReturnError() {
     try {
@@ -42,12 +51,16 @@ export function useYoutubeLinkSettings() {
     if (!authSession.isAuthenticated || echoSyncCapabilities.isMockDataMode) {
       state.value = null;
       loading.value = false;
+      pendingOAuthRedirectUri.value = '';
       return;
     }
     loading.value = true;
     actionError.value = '';
     try {
       state.value = await fetchMeYoutube();
+      if (state.value?.linked) {
+        pendingOAuthRedirectUri.value = '';
+      }
     } catch (e) {
       state.value = null;
       actionError.value =
@@ -70,15 +83,7 @@ export function useYoutubeLinkSettings() {
     actionError.value = '';
     try {
       const { authorizeUrl, redirectUri } = await authYoutubeOAuthStart();
-      const ru = redirectUri?.trim() ?? '';
-      if (ru) {
-        try {
-          sessionStorage.setItem(YOUTUBE_REDIRECT_HINT_KEY, ru);
-        } catch {
-          /* ignore */
-        }
-        lastOAuthRedirectUri.value = ru;
-      }
+      pendingOAuthRedirectUri.value = redirectUri?.trim() ?? '';
       startOAuthFlow(authorizeUrl);
     } catch (e) {
       if (e instanceof AuthApiError && e.body.code === 'GOOGLE_NOT_LINKED') {
@@ -96,7 +101,6 @@ export function useYoutubeLinkSettings() {
   }
 
   onMounted(() => {
-    readRedirectHintFromStorage();
     readOauthReturnError();
     void refresh();
   });
@@ -108,13 +112,90 @@ export function useYoutubeLinkSettings() {
     },
   );
 
+  async function onDisconnectOAuth() {
+    disconnectBusy.value = true;
+    try {
+      await unlinkMeYoutube();
+      dispatchAppToast('YouTube channel unlinked.', 'info');
+      await refresh();
+    } catch (e) {
+      dispatchAppToast(
+        e instanceof Error ? e.message : 'Could not unlink YouTube.',
+        'error',
+      );
+    } finally {
+      disconnectBusy.value = false;
+    }
+  }
+
+  async function onSaveStreamKey() {
+    const key = streamKeyInput.value.trim();
+    if (!key) {
+      dispatchAppToast('Enter your YouTube stream key.', 'error');
+      return;
+    }
+    if (!streamKeyConfirm.value) {
+      dispatchAppToast(
+        'Confirm that you understand the key cannot be shown again.',
+        'error',
+      );
+      return;
+    }
+    streamKeyBusy.value = true;
+    try {
+      await saveMeYoutubeStreamKey({
+        streamKey: key,
+        serverUrl: streamKeyServerUrl.value.trim() || undefined,
+      });
+      streamKeyInput.value = '';
+      streamKeyConfirm.value = false;
+      dispatchAppToast(
+        'Stream key saved. Echo will not show it again.',
+        'info',
+      );
+      await refresh();
+    } catch (e) {
+      dispatchAppToast(
+        e instanceof Error ? e.message : 'Could not save stream key.',
+        'error',
+      );
+    } finally {
+      streamKeyBusy.value = false;
+    }
+  }
+
+  async function onRevokeStreamKey() {
+    streamKeyRevokeBusy.value = true;
+    try {
+      await revokeMeYoutubeStreamKey();
+      dispatchAppToast('Stream key revoked.', 'info');
+      await refresh();
+    } catch (e) {
+      dispatchAppToast(
+        e instanceof Error ? e.message : 'Could not revoke stream key.',
+        'error',
+      );
+    } finally {
+      streamKeyRevokeBusy.value = false;
+    }
+  }
+
   return {
     state,
     loading,
     actionError,
     connectBusy,
+    disconnectBusy,
+    streamKeyInput,
+    streamKeyServerUrl,
+    streamKeyBusy,
+    streamKeyRevokeBusy,
+    streamKeyConfirm,
     lastOAuthRedirectUri,
     refresh,
     onConnect,
+    onDisconnectOAuth,
+    onSaveStreamKey,
+    onRevokeStreamKey,
   };
 }

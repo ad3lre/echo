@@ -20,9 +20,7 @@ import type {
   MessageStickerPayload,
 } from '../../../shared/types';
 import { sanitizePollForStorage } from '../sockets/messageValidation';
-import {
-  maybeEnqueueDiscordImportMediaMirror,
-} from './discordImportMediaMirrorQueue';
+import { maybeEnqueueDiscordImportMediaMirror } from './discordImportMediaMirrorQueue';
 import { resolveDiscordSyncedContentMentions } from './translateDiscordSyncedMentions';
 import { filterMentionsForChannelContext } from '../domain/echoStore/mentionContext';
 

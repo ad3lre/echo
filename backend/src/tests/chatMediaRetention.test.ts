@@ -52,7 +52,10 @@ function testRevokedPermanent(): void {
     computeAbandonMs(1024, 'black', { revokedPermanent: true }),
     Math.floor(base * CHAT_MEDIA_RETENTION_BLACK_DECAY_MULTIPLIER),
   );
-  assert.equal(computeAbandonMs(1024, 'free', { revokedPermanent: true }), base);
+  assert.equal(
+    computeAbandonMs(1024, 'free', { revokedPermanent: true }),
+    base,
+  );
 }
 
 function testPolicyPermanentAndPaused(): void {
@@ -72,11 +75,7 @@ function testPolicyPermanentAndPaused(): void {
   assert.equal(blackLarge.timerPaused, true);
   assert.equal(blackLarge.abandonMs, null);
 
-  const webhook = resolveChatUploadRetentionPolicy(
-    1024,
-    'black',
-    'webhook',
-  );
+  const webhook = resolveChatUploadRetentionPolicy(1024, 'black', 'webhook');
   assert.equal(webhook.permanent, false);
   assert.ok(webhook.abandonMs != null);
 }
@@ -86,22 +85,13 @@ function testStorageKeyClassifier(): void {
     isEchoChatUserMediaStorageKey('echo/channels/ch1/u1/file.png'),
     true,
   );
-  assert.equal(
-    isEchoChatUserMediaStorageKey('echo/srv1/u1/file.png'),
-    true,
-  );
+  assert.equal(isEchoChatUserMediaStorageKey('echo/srv1/u1/file.png'), true);
   assert.equal(
     isEchoChatUserMediaStorageKey('echo/webhook-inbound/s/c/m/f.bin'),
     true,
   );
-  assert.equal(
-    isEchoChatUserMediaStorageKey('echo/avatars/u1/p.png'),
-    false,
-  );
-  assert.equal(
-    isEchoChatUserMediaStorageKey('echo/emoji/s/u/e.png'),
-    false,
-  );
+  assert.equal(isEchoChatUserMediaStorageKey('echo/avatars/u1/p.png'), false);
+  assert.equal(isEchoChatUserMediaStorageKey('echo/emoji/s/u/e.png'), false);
 }
 
 testBaseTiers();

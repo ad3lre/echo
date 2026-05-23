@@ -33,7 +33,6 @@ Pushes to **GitLab** `origin/release/1.0.0` do **not** update GitHub immediately
    ```
 
    Override schedule with env vars when installing or in the crontab line:
-
    - `ECHO_RELEASE_MIRROR_HOUR=23` (24-hour clock)
    - `ECHO_RELEASE_MIRROR_MINUTE=0`
    - `ECHO_RELEASE_MIRROR_TZ=Europe/Berlin` (CET/CEST; or `UTC`, `America/New_York`, …)

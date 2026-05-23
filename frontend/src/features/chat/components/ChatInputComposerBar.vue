@@ -704,7 +704,7 @@ function bindRef<E extends HTMLElement>(
 }
 
 .chat-toolbar-icon {
-  filter: var(--chat-inline-icon-filter);
+  filter: var(--chat-composer-toolbar-icon-filter, none);
   opacity: var(--chat-composer-toolbar-icon-opacity, 1);
   isolation: isolate;
   transform: translateZ(0);

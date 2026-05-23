@@ -24,11 +24,16 @@ import {
 } from '@/features/chat/chatComposerContext';
 import { clampMenuToViewport } from '@/features/chat/composables/useContextMenuPosition';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
-import { getPopoutAnchorRect, type PopoutAnchorRect } from '@/utils/memberProfiles';
+import {
+  getPopoutAnchorRect,
+  type PopoutAnchorRect,
+} from '@/utils/memberProfiles';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { isEchoGraphId } from '@/utils/echoIds';
-import { deleteEchoStageRequestSpeak } from '@/api/echo/voice';
-import { requestEchoStageSpeak } from '@/services/voice/requestStageSpeak';
+import {
+  cancelEchoStageSpeakRequest,
+  requestEchoStageSpeak,
+} from '@/services/voice/requestStageSpeak';
 import StageYoutubeLiveBar from '@/features/voice/components/StageYoutubeLiveBar.vue';
 import StageActiveEventBanner from '@/features/voice/components/StageActiveEventBanner.vue';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
@@ -67,10 +72,7 @@ const props = withDefaults(
       action: VcModerateAction | 'inviteToSpeak' | 'moveToAudience',
     ) => boolean;
     onVcModerate?: (payload: {
-      action:
-        | VcModerateAction
-        | 'inviteToSpeak'
-        | 'moveToAudience';
+      action: VcModerateAction | 'inviteToSpeak' | 'moveToAudience';
       targetUserId: string;
       contextVoiceChannelId?: string;
     }) => void;
@@ -133,13 +135,16 @@ const speakRequestsEnabled = computed(
     authSession.isAuthenticated,
 );
 
-const { pendingUserIds, busy: speakRequestsBusy, resolve: resolveSpeakRequest } =
-  useStageSpeakRequests({
-    enabled: speakRequestsEnabled,
-    isAuthenticated: computed(() => authSession.isAuthenticated),
-    serverId: computed(() => props.echoServerId),
-    channelId: computed(() => props.stageChannelId),
-  });
+const {
+  pendingUserIds,
+  busy: speakRequestsBusy,
+  resolve: resolveSpeakRequest,
+} = useStageSpeakRequests({
+  enabled: speakRequestsEnabled,
+  isAuthenticated: computed(() => authSession.isAuthenticated),
+  serverId: computed(() => props.echoServerId),
+  channelId: computed(() => props.stageChannelId),
+});
 
 const selfRequestedSpeakLocal = ref(false);
 
@@ -188,7 +193,9 @@ function remoteTrackInfoForParticipant(
   return m?.get(participantId) ?? null;
 }
 
-function resolveParticipantScreenShareTrack(p: StageParticipant): unknown | null {
+function resolveParticipantScreenShareTrack(
+  p: StageParticipant,
+): unknown | null {
   if (p.screenTrack) return p.screenTrack;
   if (p.id === props.currentUserId) {
     return props.getLocalScreenTrack?.() ?? null;
@@ -296,7 +303,7 @@ async function cancelSpeakRequest() {
   if (!sid || !cid || !authSession.isAuthenticated) return;
   requestSpeakBusy.value = true;
   try {
-    await deleteEchoStageRequestSpeak('', sid, cid);
+    await cancelEchoStageSpeakRequest('', sid, cid);
     selfRequestedSpeakLocal.value = false;
     dispatchAppToast('Speak request cancelled.', 'success');
   } catch (e) {
@@ -450,7 +457,9 @@ watch(
 
     <div
       class="stage-call-body custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto"
-      :class="compactLayout ? 'gap-2 px-2 pb-2 pt-1' : 'gap-3 px-3 pb-3 pt-2 md:px-4'"
+      :class="
+        compactLayout ? 'gap-2 px-2 pb-2 pt-1' : 'gap-3 px-3 pb-3 pt-2 md:px-4'
+      "
     >
       <div
         v-if="!selfIsSpeaker && currentUserId"
@@ -558,8 +567,8 @@ watch(
           >
             <p class="text-sm font-medium text-fg">No speakers yet</p>
             <p class="max-w-xs text-xs">
-              Moderators can invite audience members to speak. Audience can request
-              the mic with Raise hand.
+              Moderators can invite audience members to speak. Audience can
+              request the mic with Raise hand.
             </p>
           </div>
         </template>
@@ -588,7 +597,9 @@ watch(
                   stagePrimaryTile.isLocal &&
                   mirrorLocalCamera !== false
                 "
-                @request-focus="focusedStreamParticipantId = stagePrimaryTile.id"
+                @request-focus="
+                  focusedStreamParticipantId = stagePrimaryTile.id
+                "
               />
             </div>
             <div
@@ -621,7 +632,9 @@ watch(
             class="stage-speaker-grid shrink-0"
             :class="[
               speakerGridClass,
-              hasSpeakerMedia ? 'stage-speaker-grid--under-media p-2 pt-0 md:px-3' : 'p-3 md:p-4',
+              hasSpeakerMedia
+                ? 'stage-speaker-grid--under-media p-2 pt-0 md:px-3'
+                : 'p-3 md:p-4',
             ]"
           >
             <div
@@ -689,7 +702,10 @@ watch(
                   <div
                     v-if="p.muted || p.deafened"
                     class="stage-avatar-badge"
-                    :class="{ 'stage-avatar-badge--server': p.serverMuted || p.serverDeafened }"
+                    :class="{
+                      'stage-avatar-badge--server':
+                        p.serverMuted || p.serverDeafened,
+                    }"
                   >
                     <img
                       :src="p.deafened ? icons.headphones : icons.mic"
@@ -700,7 +716,9 @@ watch(
                 </div>
               </div>
               <div class="stage-tile-bottom">
-                <span class="stage-tile-name" :title="p.name">{{ p.name }}</span>
+                <span class="stage-tile-name" :title="p.name">{{
+                  p.name
+                }}</span>
               </div>
             </div>
           </div>
@@ -914,7 +932,9 @@ watch(
 
 .stage-tile--speaking {
   border-color: #3ba55d;
-  box-shadow: 0 0 0 1px #3ba55d, 0 0 14px rgba(59, 165, 93, 0.35);
+  box-shadow:
+    0 0 0 1px #3ba55d,
+    0 0 14px rgba(59, 165, 93, 0.35);
 }
 
 .stage-tile--self {

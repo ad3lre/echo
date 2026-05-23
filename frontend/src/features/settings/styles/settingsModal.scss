@@ -120,6 +120,11 @@
   filter: var(--set-nav-icon-filter);
 }
 
+/* Brand marks keep their colors in dark sidebar (invert would distort them). */
+.settings-nav-item__icon--brand {
+  filter: none;
+}
+
 .settings-nav-item--active .settings-nav-item__icon,
 .settings-nav-item--active-logout .settings-nav-item__icon {
   opacity: var(--set-nav-icon-opacity-active);

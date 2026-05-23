@@ -130,15 +130,15 @@ export function useGuildModeration(deps: {
     const sid = selectedServer.value?.id;
     if (!sid) return false;
     if (isRolePreviewActiveForServer.value) {
-    if (
-      action === 'serverMute' ||
-      action === 'inviteToSpeak' ||
-      action === 'moveToAudience' ||
-      action === 'stopCamera' ||
-      action === 'stopScreenShare'
-    ) {
-      return previewHasUiPermission('muteMembers');
-    }
+      if (
+        action === 'serverMute' ||
+        action === 'inviteToSpeak' ||
+        action === 'moveToAudience' ||
+        action === 'stopCamera' ||
+        action === 'stopScreenShare'
+      ) {
+        return previewHasUiPermission('muteMembers');
+      }
       if (action === 'serverDeafen') {
         return previewHasUiPermission('deafenMembers');
       }

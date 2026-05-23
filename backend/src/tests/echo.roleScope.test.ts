@@ -64,7 +64,12 @@ async function run(): Promise<void> {
     const globalCat = categories.find((c) => c.isSystem);
     assert.ok(globalCat, 'expected system Global Roles category');
 
-    const gameCat = await createEchoRoleCategory(pool, serverId, ownerId, 'Game 1');
+    const gameCat = await createEchoRoleCategory(
+      pool,
+      serverId,
+      ownerId,
+      'Game 1',
+    );
     assert.ok(typeof gameCat === 'object' && gameCat.ok);
     const gameCatId =
       typeof gameCat === 'object' && gameCat.ok ? gameCat.id : '';

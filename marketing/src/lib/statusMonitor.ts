@@ -7,7 +7,12 @@ const REFRESH_MS = 30_000;
 
 const COMPONENT_IDS = ['web', 'api', 'database', 'realtime'] as const;
 
-export type LiveState = 'operational' | 'degraded' | 'down' | 'pending' | 'unknown';
+export type LiveState =
+  | 'operational'
+  | 'degraded'
+  | 'down'
+  | 'pending'
+  | 'unknown';
 
 type ServerDayState =
   | 'operational'
@@ -52,7 +57,10 @@ function historyBarClass(day: ServerDayState): string {
 }
 
 function formatRelative(iso: string): string {
-  const sec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  const sec = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(iso).getTime()) / 1000),
+  );
   if (sec < 5) return 'just now';
   if (sec < 60) return `${sec}s ago`;
   const m = Math.floor(sec / 60);
@@ -69,7 +77,10 @@ function pillLabel(state: LiveState): string {
   return 'No data';
 }
 
-function aggregateCopy(state: LiveState): { headline: string; subline: string } {
+function aggregateCopy(state: LiveState): {
+  headline: string;
+  subline: string;
+} {
   switch (state) {
     case 'operational':
       return {
@@ -80,12 +91,14 @@ function aggregateCopy(state: LiveState): { headline: string; subline: string } 
     case 'degraded':
       return {
         headline: 'Degraded performance',
-        subline: 'Some components are slow or partially impaired. We are investigating.',
+        subline:
+          'Some components are slow or partially impaired. We are investigating.',
       };
     case 'down':
       return {
         headline: 'Service disruption',
-        subline: 'One or more components are failing checks from our monitoring fleet.',
+        subline:
+          'One or more components are failing checks from our monitoring fleet.',
       };
     case 'unknown':
       return {
@@ -101,7 +114,10 @@ function aggregateCopy(state: LiveState): { headline: string; subline: string } 
   }
 }
 
-function failureCopy(reason: FetchFailure, apiHealthy: boolean): { headline: string; subline: string } {
+function failureCopy(
+  reason: FetchFailure,
+  apiHealthy: boolean,
+): { headline: string; subline: string } {
   if (reason === 'not_found') {
     if (apiHealthy) {
       return {
@@ -119,7 +135,8 @@ function failureCopy(reason: FetchFailure, apiHealthy: boolean): { headline: str
   if (reason === 'network') {
     return {
       headline: 'Could not reach status API',
-      subline: 'Your browser could not load chat-echo.com. Check your connection and try again.',
+      subline:
+        'Your browser could not load chat-echo.com. Check your connection and try again.',
     };
   }
   if (apiHealthy) {
@@ -144,8 +161,7 @@ function setServiceRow(id: string, state: LiveState, ms: number | null) {
     pill.textContent = pillLabel(state);
   }
   if (latency) {
-    latency.textContent =
-      ms != null && Number.isFinite(ms) ? `${ms} ms` : '—';
+    latency.textContent = ms != null && Number.isFinite(ms) ? `${ms} ms` : '—';
   }
   if (row) row.setAttribute('data-state', state);
 }
@@ -165,7 +181,12 @@ function clearServiceHistories(message: string) {
   }
 }
 
-function renderHistory(id: string, history: ServerDayState[], uptimePercent: number | null, historyDays: number) {
+function renderHistory(
+  id: string,
+  history: ServerDayState[],
+  uptimePercent: number | null,
+  historyDays: number,
+) {
   const el = document.getElementById(`status-spark-${id}`);
   if (!el) return;
   el.innerHTML = '';
@@ -206,7 +227,11 @@ function setAggregate(
   if (live) {
     live.setAttribute(
       'data-state',
-      state === 'pending' ? 'connecting' : state === 'unknown' ? 'connecting' : 'live',
+      state === 'pending'
+        ? 'connecting'
+        : state === 'unknown'
+          ? 'connecting'
+          : 'live',
     );
   }
   root.dataset.liveState = state;
@@ -226,7 +251,9 @@ function medianLatency(components: ServerComponent[]): number | null {
   if (!values.length) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid]! : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
+  return sorted.length % 2
+    ? sorted[mid]!
+    : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
 }
 
 function applyPayload(root: HTMLElement, payload: ServerStatusPayload) {
@@ -247,7 +274,12 @@ function applyPayload(root: HTMLElement, payload: ServerStatusPayload) {
   for (const comp of payload.components) {
     const live = toLiveState(comp.status);
     setServiceRow(comp.id, live, comp.latencyMs);
-    renderHistory(comp.id, comp.history, comp.uptimePercent, payload.historyDays);
+    renderHistory(
+      comp.id,
+      comp.history,
+      comp.uptimePercent,
+      payload.historyDays,
+    );
 
     const desc = document.getElementById(`status-desc-${comp.id}`);
     if (desc) desc.textContent = comp.description;
@@ -297,7 +329,9 @@ function applyFetchFailure(
   clearServiceHistories('Status unavailable—fleet probes could not be loaded.');
 }
 
-async function fetchJson<T>(url: string): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
+async function fetchJson<T>(
+  url: string,
+): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
   try {
     const res = await fetch(`${url}?t=${Date.now()}`, {
       method: 'GET',
@@ -311,8 +345,9 @@ async function fetchJson<T>(url: string): Promise<{ ok: true; data: T } | { ok: 
   }
 }
 
-async function fetchStatusPayload():
-  Promise<{ payload: ServerStatusPayload } | { failure: FetchFailure }> {
+async function fetchStatusPayload(): Promise<
+  { payload: ServerStatusPayload } | { failure: FetchFailure }
+> {
   const result = await fetchJson<ServerStatusPayload>(STATUS_API_URL);
   if (result.ok) {
     if (!Array.isArray(result.data.components)) {
@@ -338,7 +373,9 @@ function updateRelativeTime() {
   if (!lastCheckedAt) return;
   const last = document.getElementById('status-last-checked');
   if (!last) return;
-  const prefix = last.textContent?.startsWith('Checked') ? 'Checked' : 'Updated';
+  const prefix = last.textContent?.startsWith('Checked')
+    ? 'Checked'
+    : 'Updated';
   last.textContent = `${prefix} ${formatRelative(lastCheckedAt)}`;
 }
 

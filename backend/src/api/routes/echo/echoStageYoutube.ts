@@ -41,7 +41,11 @@ export default async function echoStageYoutubeRoutes(
     {
       preHandler: [requireAuth, requireEchoStore],
       config: {
-        rateLimit: { max: 120, timeWindow: '1 minute', keyGenerator: authUserOrIpRateLimitKey },
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
       },
     },
     async (req, reply) => {
@@ -144,11 +148,7 @@ export default async function echoStageYoutubeRoutes(
       });
       if (!r.ok) {
         const status =
-          r.code === 'FORBIDDEN'
-            ? 403
-            : r.code === 'NOT_LIVE'
-              ? 404
-              : 400;
+          r.code === 'FORBIDDEN' ? 403 : r.code === 'NOT_LIVE' ? 404 : 400;
         return sendError(reply, status, r.code, r.message);
       }
       return reply.code(204).send();

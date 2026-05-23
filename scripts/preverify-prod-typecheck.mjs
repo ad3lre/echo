@@ -12,7 +12,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const execFileAsync = promisify(execFile);
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 
 function npmCmd() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -44,9 +47,7 @@ async function run(label, args) {
 
 async function main() {
   if (process.env.VPS_SKIP_PROD_TYPECHECK === '1') {
-    console.warn(
-      '[preverify:prod] skipped (VPS_SKIP_PROD_TYPECHECK=1)',
-    );
+    console.warn('[preverify:prod] skipped (VPS_SKIP_PROD_TYPECHECK=1)');
     return;
   }
 

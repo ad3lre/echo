@@ -69,10 +69,11 @@ export type MeGoogleLinkedProfile = {
 };
 
 export type MeGoogleResponse =
-  | { linked: false; configured?: boolean }
+  | { linked: false; configured?: boolean; oauthRedirectUri?: string | null }
   | {
       linked: true;
       configured?: boolean;
+      oauthRedirectUri?: string | null;
       mergeKind: 'full' | 'partial';
       profile: MeGoogleLinkedProfile;
     };

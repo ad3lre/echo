@@ -21,9 +21,9 @@ describe('customEmojiUrl', () => {
       'https://cdn.example.com/emoji.webp',
     );
     const rel = safeCustomEmojiUrl('/uploads/emoji.webp');
-    expect(rel === '/uploads/emoji.webp' || rel?.endsWith('/uploads/emoji.webp')).toBe(
-      true,
-    );
+    expect(
+      rel === '/uploads/emoji.webp' || rel?.endsWith('/uploads/emoji.webp'),
+    ).toBe(true);
     const bare = safeCustomEmojiUrl('emoji.webp');
     expect(bare === '/emoji.webp' || bare?.endsWith('/emoji.webp')).toBe(true);
   });
@@ -82,8 +82,7 @@ describe('customEmojiUrl', () => {
   });
 
   it('rewrites Echo R2 upload URLs for authenticated read-through', () => {
-    const r2 =
-      'https://bucket.r2.dev/echo/servers/s1/emojis/e1.webp';
+    const r2 = 'https://bucket.r2.dev/echo/servers/s1/emojis/e1.webp';
     const out = safeCustomEmojiUrl(r2);
     expect(out).toContain('/api/v1/echo/uploads/');
     expect(out).not.toContain('.r2.dev');
@@ -119,9 +118,15 @@ describe('customEmojiUrl', () => {
       ),
     ).toBeNull();
     expect(
-      resolveCustomEmojiImageUrlForDisplay('304238867010606080', false, m, false, {
-        allowDiscordCdnGuess: true,
-      }),
+      resolveCustomEmojiImageUrlForDisplay(
+        '304238867010606080',
+        false,
+        m,
+        false,
+        {
+          allowDiscordCdnGuess: true,
+        },
+      ),
     ).toMatch(/cdn\.discordapp\.com/);
   });
 });

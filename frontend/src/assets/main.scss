@@ -470,8 +470,12 @@ img.brightness-0.invert {
   filter: brightness(0) invert(1);
 }
 
-[data-theme='dark'] img.invert:not(.filter):not(.chat-header-leading-icon--raster) {
-  filter: var(--echo-ink-icon-filter, var(--chat-inline-icon-filter, invert(1)));
+[data-theme='dark']
+  img.invert:not(.filter):not(.chat-header-leading-icon--raster) {
+  filter: var(
+    --echo-ink-icon-filter,
+    var(--chat-inline-icon-filter, invert(1))
+  );
 }
 
 /*

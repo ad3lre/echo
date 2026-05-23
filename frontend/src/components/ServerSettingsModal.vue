@@ -925,7 +925,9 @@ async function onModerationPatch(patch: {
                   :set-selected-role-mentionable="setSelectedRoleMentionable"
                   :set-selected-role-scope="setSelectedRoleScope"
                   :global-role-category-id="globalRoleCategoryId"
-                  :reorder-role-categories-locally="reorderRoleCategoriesLocally"
+                  :reorder-role-categories-locally="
+                    reorderRoleCategoriesLocally
+                  "
                   :on-role-permission-checkbox-change="
                     onRolePermissionCheckboxChange
                   "

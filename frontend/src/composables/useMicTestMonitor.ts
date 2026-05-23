@@ -9,17 +9,42 @@ import {
 } from '@/audio/applyOutputSink';
 import { supportsAudioContextOutputSelection } from '@/platform/browserCompatibility';
 
+function linearGainFromVolumePct(volumePct: number): number {
+  return Math.max(0, Math.min(6, volumePct / 100));
+}
+
 export function useMicTestMonitor() {
   let ctx: AudioContext | null = null;
   let source: MediaStreamAudioSourceNode | null = null;
-  let gain: GainNode | null = null;
+  let inputGainNode: GainNode | null = null;
+  let outputGainNode: GainNode | null = null;
   let htmlAudio: HTMLAudioElement | null = null;
+  let htmlInputLinearGain = 1;
+  let htmlOutputLinearGain = 1;
+
+  function setInputGain(volumePct: number) {
+    const v = linearGainFromVolumePct(volumePct);
+    htmlInputLinearGain = v;
+    if (inputGainNode) inputGainNode.gain.value = v;
+    syncHtmlAudioVolume();
+  }
 
   /** `volumePct` 0–600 → linear gain 0–6 (matches max boost output multiplier). */
+  function setOutputGain(volumePct: number) {
+    const v = linearGainFromVolumePct(volumePct);
+    htmlOutputLinearGain = v;
+    if (outputGainNode) outputGainNode.gain.value = v;
+    syncHtmlAudioVolume();
+  }
+
+  /** @deprecated Use {@link setOutputGain}. */
   function setGain(volumePct: number) {
-    const v = Math.max(0, Math.min(6, volumePct / 100));
-    if (gain) gain.gain.value = v;
-    if (htmlAudio) htmlAudio.volume = Math.min(1, v);
+    setOutputGain(volumePct);
+  }
+
+  function syncHtmlAudioVolume() {
+    if (!htmlAudio) return;
+    htmlAudio.volume = Math.min(1, htmlInputLinearGain * htmlOutputLinearGain);
   }
 
   async function applySink(sinkId: string) {
@@ -31,20 +56,31 @@ export function useMicTestMonitor() {
     }
   }
 
-  async function start(stream: MediaStream, sinkId: string, volumePct: number) {
+  async function start(
+    stream: MediaStream,
+    sinkId: string,
+    outputVolumePct: number,
+    inputVolumePct = 100,
+  ) {
     stop();
-    const vol = Math.max(0, Math.min(6, volumePct / 100));
+    const outputVol = linearGainFromVolumePct(outputVolumePct);
+    const inputVol = linearGainFromVolumePct(inputVolumePct);
+    htmlInputLinearGain = inputVol;
+    htmlOutputLinearGain = outputVol;
     const ctxCanSink = supportsAudioContextOutputSelection();
-    const needWebAudio = ctxCanSink || vol > 1;
+    const needWebAudio = ctxCanSink || outputVol > 1 || inputVol > 1;
 
     if (needWebAudio) {
       const audioCtx = new AudioContext();
       ctx = audioCtx;
       source = audioCtx.createMediaStreamSource(stream);
-      gain = audioCtx.createGain();
-      gain.gain.value = vol;
-      source.connect(gain);
-      gain.connect(audioCtx.destination);
+      inputGainNode = audioCtx.createGain();
+      inputGainNode.gain.value = inputVol;
+      outputGainNode = audioCtx.createGain();
+      outputGainNode.gain.value = outputVol;
+      source.connect(inputGainNode);
+      inputGainNode.connect(outputGainNode);
+      outputGainNode.connect(audioCtx.destination);
       await applySink(sinkId);
       if (audioCtx.state === 'suspended') {
         await audioCtx.resume().catch(() => {});
@@ -54,8 +90,8 @@ export function useMicTestMonitor() {
 
     const el = new Audio();
     el.srcObject = stream;
-    el.volume = Math.min(1, vol);
     htmlAudio = el;
+    syncHtmlAudioVolume();
     await applySink(sinkId);
     await el.play().catch(() => {});
   }
@@ -69,7 +105,8 @@ export function useMicTestMonitor() {
       }
       source = null;
     }
-    gain = null;
+    inputGainNode = null;
+    outputGainNode = null;
     if (ctx) {
       void ctx.close().catch(() => {});
       ctx = null;
@@ -81,5 +118,5 @@ export function useMicTestMonitor() {
     }
   }
 
-  return { start, stop, setGain, applySink };
+  return { start, stop, setGain, setInputGain, setOutputGain, applySink };
 }

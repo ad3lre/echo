@@ -681,10 +681,7 @@ const placement = computed(() => {
         viewportHeight - panelHeight - padding,
       );
 
-  const viewportFitMaxHeight = Math.max(
-    200,
-    viewportHeight - top - padding,
-  );
+  const viewportFitMaxHeight = Math.max(200, viewportHeight - top - padding);
   const panelMaxHeight = Math.min(maxPanelHeight, viewportFitMaxHeight);
 
   // Re-fit top when rounding or a late height measure would push the card past the viewport.

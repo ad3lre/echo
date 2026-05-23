@@ -426,7 +426,11 @@ export async function replaceEchoRoleOrderInCategory(
 ): Promise<UpdateEchoRoleResult> {
   const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
   if (!canManageEchoRolesCatalog(actorPerms)) return 'forbidden';
-  const okCat = await echoRoleCategoryExistsForServer(pool, serverId, categoryId);
+  const okCat = await echoRoleCategoryExistsForServer(
+    pool,
+    serverId,
+    categoryId,
+  );
   if (!okCat) return 'invalid_body';
 
   const inCat = await pool.query<{ id: string; name: string }>(
@@ -1047,7 +1051,9 @@ export async function createEchoRole(
       ? body.insertAfterRoleId.trim()
       : '';
   if (insertAfter) {
-    const idx = catRoles.rows.findIndex((row) => String(row.id) === insertAfter);
+    const idx = catRoles.rows.findIndex(
+      (row) => String(row.id) === insertAfter,
+    );
     if (idx < 0) return 'invalid_body';
     const after = catRoles.rows[idx]!;
     rankInCategory = Number(after.rank_in_category ?? 0) + 1;

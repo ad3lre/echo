@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { authenticator } from 'otplib';
+import { generateSync } from 'otplib';
 import {
   buildTotpKeyUri,
   generateTotpSecretBase32,
@@ -9,7 +9,7 @@ import {
 async function run(): Promise<void> {
   const secret = generateTotpSecretBase32();
   assert.ok(secret.length >= 16);
-  const token = authenticator.generate(secret);
+  const token = generateSync({ secret });
   assert.ok(verifyTotpCode(secret, token));
   assert.ok(!verifyTotpCode(secret, '000000'));
   const uri = buildTotpKeyUri({

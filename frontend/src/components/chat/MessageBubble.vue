@@ -364,7 +364,10 @@ const messageContentRef = ref<HTMLElement | null>(null);
 const customEmojiUrlByIdForImgRecovery = computed(
   (): ReadonlyMap<string, string> | undefined => customEmojiUrlById?.value,
 );
-useCustomEmojiImgLoadRecovery(messageContentRef, customEmojiUrlByIdForImgRecovery);
+useCustomEmojiImgLoadRecovery(
+  messageContentRef,
+  customEmojiUrlByIdForImgRecovery,
+);
 
 useMessageKatexScrollbarReveal(messageContentRef, () =>
   [

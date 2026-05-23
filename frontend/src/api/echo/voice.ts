@@ -98,9 +98,8 @@ export async function postEchoVoiceLivekitSession(
   channelId: string,
   opts?: { e2eeDeviceId?: string },
 ): Promise<EchoLiveKitSessionResponse> {
-  const body =
-    opts?.e2eeDeviceId?.trim() ?
-      JSON.stringify({ e2eeDeviceId: opts.e2eeDeviceId.trim() })
+  const body = opts?.e2eeDeviceId?.trim()
+    ? JSON.stringify({ e2eeDeviceId: opts.e2eeDeviceId.trim() })
     : undefined;
   const raw = await echoFetch<Record<string, unknown>>(
     token,
@@ -116,9 +115,8 @@ export async function postEchoDmLivekitSession(
   channelId: string,
   opts?: { e2eeDeviceId?: string },
 ): Promise<EchoLiveKitSessionResponse> {
-  const body =
-    opts?.e2eeDeviceId?.trim() ?
-      JSON.stringify({ e2eeDeviceId: opts.e2eeDeviceId.trim() })
+  const body = opts?.e2eeDeviceId?.trim()
+    ? JSON.stringify({ e2eeDeviceId: opts.e2eeDeviceId.trim() })
     : undefined;
   const raw = await echoFetch<Record<string, unknown>>(
     token,

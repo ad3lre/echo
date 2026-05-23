@@ -93,7 +93,10 @@ export function useLayout() {
 
   watch(memberListShowGuests, (show) => {
     try {
-      localStorage.setItem(STORAGE_KEY_MEMBER_LIST_SHOW_GUESTS, show ? '1' : '0');
+      localStorage.setItem(
+        STORAGE_KEY_MEMBER_LIST_SHOW_GUESTS,
+        show ? '1' : '0',
+      );
     } catch {
       /* ignore */
     }

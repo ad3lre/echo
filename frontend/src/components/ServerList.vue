@@ -176,8 +176,7 @@ const selectedOverflowServer = computed<Server | null>(() => {
 /** Visible icons plus optional overflow “recent” slot for pointer reorder. */
 const railReorderSlotCount = computed(
   () =>
-    visibleServersForRail.value.length +
-    (selectedOverflowServer.value ? 1 : 0),
+    visibleServersForRail.value.length + (selectedOverflowServer.value ? 1 : 0),
 );
 
 const reorderEnabled = computed(

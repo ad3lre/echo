@@ -53,8 +53,7 @@ export async function applyRolePositionsFromCategoryBlocks(
     const inCat = roles.rows
       .filter(
         (r) =>
-          r.name !== '@everyone' &&
-          String(r.role_category_id ?? '') === catId,
+          r.name !== '@everyone' && String(r.role_category_id ?? '') === catId,
       )
       .sort(
         (a, b) =>
@@ -94,7 +93,7 @@ export async function applyRolePositionsFromCategoryBlocks(
       const row = roles.rows.find((r) => String(r.id) === roleId);
       const catKey = row?.role_category_id
         ? String(row.role_category_id)
-        : globalId ?? '__none__';
+        : (globalId ?? '__none__');
       const rank = rankByCat.get(catKey) ?? 0;
       rankByCat.set(catKey, rank + 1);
       await client.query(
@@ -137,7 +136,7 @@ export async function buildCategoryRoleOrderMap(
     const catId =
       row.role_category_id != null && String(row.role_category_id).trim()
         ? String(row.role_category_id)
-        : globalId ?? '__uncategorized__';
+        : (globalId ?? '__uncategorized__');
     const list = map.get(catId) ?? [];
     list.push(String(row.id));
     map.set(catId, list);

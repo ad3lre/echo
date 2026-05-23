@@ -458,7 +458,12 @@ export async function uploadChatAttachmentFile(
   }
 
   if (kind !== 'audio' && kind !== 'document') {
-    const uploaded = await uploadChatMediaFile(token, channelId, file, fileOptions);
+    const uploaded = await uploadChatMediaFile(
+      token,
+      channelId,
+      file,
+      fileOptions,
+    );
     return { url: uploaded.url, kind, storageKey: uploaded.storageKey };
   }
 
@@ -655,7 +660,11 @@ export async function uploadBugReportImage(
     );
   }
   return (
-    await uploadPreparedFileWithDedupe(token, { purpose: 'bug_report' }, prepared)
+    await uploadPreparedFileWithDedupe(
+      token,
+      { purpose: 'bug_report' },
+      prepared,
+    )
   ).url;
 }
 
@@ -672,10 +681,14 @@ export async function uploadServerEventCoverFile(
     );
   }
   return (
-    await uploadPreparedFileWithDedupe(token, {
-      serverId,
-      purpose: 'server_event_cover',
-    }, prepared)
+    await uploadPreparedFileWithDedupe(
+      token,
+      {
+        serverId,
+        purpose: 'server_event_cover',
+      },
+      prepared,
+    )
   ).url;
 }
 
@@ -693,6 +706,7 @@ export async function uploadServerBrandingFile(
       `File exceeds ${ECHO_CLIENT_UPLOAD_MAX_BYTES / (1024 * 1024)} MiB limit`,
     );
   }
-  return (await uploadPreparedFileWithDedupe(token, { serverId, purpose }, prepared))
-    .url;
+  return (
+    await uploadPreparedFileWithDedupe(token, { serverId, purpose }, prepared)
+  ).url;
 }

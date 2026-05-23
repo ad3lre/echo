@@ -9,6 +9,7 @@ import {
 } from '../domain/discordCdnUrls';
 import {
   getEchoMessageById,
+  listEchoMessageIdsInChannel,
   updateEchoMessageDiscordImportMirroredMedia,
   type EchoMessageRow,
 } from '../domain/echoMessagesDal';
@@ -73,7 +74,8 @@ export function buildDiscordMediaUrlIndexFromBotMessage(
 function collectRowDiscordUrls(row: EchoMessageRow): string[] {
   const out: string[] = [];
   const push = (u: string | undefined) => {
-    if (typeof u === 'string' && isDiscordHostedImportMediaUrl(u)) out.push(u.trim());
+    if (typeof u === 'string' && isDiscordHostedImportMediaUrl(u))
+      out.push(u.trim());
   };
   push(row.imageUrl);
   push(row.videoUrl);
@@ -275,22 +277,19 @@ export async function refreshDiscordImportCdnUrlsForChannel(
   );
   const freshByMessageId = new Map<string, Map<string, string>>();
   for (const m of fetched) {
-    const id = typeof m.id === 'string' ? m.id.trim() : String(m.id ?? '').trim();
+    const id =
+      typeof m.id === 'string' ? m.id.trim() : String(m.id ?? '').trim();
     if (!id) continue;
     freshByMessageId.set(id, buildDiscordMediaUrlIndexFromBotMessage(m));
   }
 
-  const msgIds = await pool.query<{ id: string }>(
-    `SELECT id FROM echo_messages
-     WHERE channel_id = $1 AND deleted_at IS NULL`,
-    [row.echoChannelId],
-  );
+  const messageIds = await listEchoMessageIdsInChannel(pool, row.echoChannelId);
 
   let updated = 0;
   let skippedNoDiscordRow = 0;
   let skippedNoMatch = 0;
 
-  for (const { id: messageId } of msgIds.rows) {
+  for (const messageId of messageIds) {
     const echoRow = await getEchoMessageById(pool, messageId);
     if (!echoRow || echoRow.channelId !== row.echoChannelId) continue;
     if (!echoMessageRowNeedsDiscordMediaMirror(echoRow)) continue;
@@ -323,7 +322,7 @@ export async function refreshDiscordImportCdnUrlsForChannel(
     echoChannelId: row.echoChannelId,
     discordChannelId: row.discordChannelId,
     fetchedFromDiscord: fetched.length,
-    scanned: msgIds.rows.length,
+    scanned: messageIds.length,
     updated,
     skippedNoDiscordRow,
     skippedNoMatch,
@@ -331,7 +330,9 @@ export async function refreshDiscordImportCdnUrlsForChannel(
 }
 
 /** Collect raw attachment/embed URLs from bot JSON (pre-parse) for tests. */
-export function collectBotMessageDiscordUrls(raw: Record<string, unknown>): string[] {
+export function collectBotMessageDiscordUrls(
+  raw: Record<string, unknown>,
+): string[] {
   const out: string[] = [];
   const add = (url: string) => {
     if (isDiscordHostedImportMediaUrl(url)) out.push(url.trim());

@@ -67,6 +67,7 @@ import iconCreditCard from './icons/credit card.svg?url';
 import iconStopwatch from './icons/stopwatch.svg?url';
 import iconUserBlock from './icons/user-block.svg?url';
 import iconYoutube from './icons/youtube.svg?url';
+import iconGoogle from './icons/google.svg?url';
 import iconImageRemove from './icons/IMAGE-REMOVE.svg?url';
 import iconDiscordStage from './icons/discord-stage.svg?url';
 import iconDiscordMark from './icons/discord-mark.svg?url';
@@ -157,6 +158,8 @@ export const icons = {
   block: iconUserBlock ?? '',
   /** YouTube play mark (channel icon picker + links). */
   youtube: iconYoutube ?? '',
+  /** Google "G" mark (settings nav + integrations). */
+  google: iconGoogle ?? '',
   kick: iconImageRemove ?? '',
   discordStage: iconDiscordStage ?? '',
   /** Legacy “Clyde” mark — OAuth / Discord sync (distinct from stage-channel glyph). */
@@ -409,8 +412,7 @@ export function getChannelIconVisual(
   if (!key) {
     if (channel.type === 'voice')
       return { kind: 'svg', url: channelIcons.voice };
-    if (channel.type === 'stage')
-      return { kind: 'svg', url: icons.sofa };
+    if (channel.type === 'stage') return { kind: 'svg', url: icons.sofa };
     if (channel.type === 'forum')
       return { kind: 'svg', url: channelIcons.forum };
   }

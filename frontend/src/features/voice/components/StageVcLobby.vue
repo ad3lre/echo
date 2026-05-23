@@ -5,6 +5,7 @@ import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import {
   formatStageEventCountdown,
+  formatVcActivityDisplayTitle,
   parsePlannedActivityKeyFromDescription,
 } from '@/features/voice/stage/stageLobbyUtils';
 import type { EchoVcActivityKey } from '@shared/vcActivityCatalog';
@@ -25,7 +26,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   startYoutube: [];
   startVoiceOnly: [];
-  startPlannedEvent: [event: EchoWorkspaceEventSummary, activityKey: EchoVcActivityKey | null];
+  startPlannedEvent: [
+    event: EchoWorkspaceEventSummary,
+    activityKey: EchoVcActivityKey | null,
+  ];
   openActivityPicker: [];
 }>();
 
@@ -33,6 +37,12 @@ const plannedActivityKey = computed(() => {
   const ev = props.planningEvent;
   if (!ev?.description) return null;
   return parsePlannedActivityKeyFromDescription(ev.description);
+});
+
+const plannedActivityLabel = computed(() => {
+  const key = plannedActivityKey.value;
+  if (!key) return '';
+  return formatVcActivityDisplayTitle(key);
 });
 
 const eventCountdown = computed(() => {
@@ -53,7 +63,9 @@ const eventCountdown = computed(() => {
         >
           Stage
         </p>
-        <h1 class="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+        <h1
+          class="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
+        >
           {{ channelName }}
         </h1>
         <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
@@ -90,21 +102,18 @@ const eventCountdown = computed(() => {
               {{ eventCountdown }} · {{ planningEvent.goingCount }}
               {{ planningEvent.goingCount === 1 ? 'person' : 'people' }} going
             </p>
-            <p
-              v-if="plannedActivityKey"
-              class="mt-2 text-xs text-fg-soft"
-            >
+            <p v-if="plannedActivityLabel" class="mt-2 text-xs text-fg-soft">
               Includes activity:
-              <span class="font-semibold text-foreground">{{ plannedActivityKey }}</span>
+              <span class="font-semibold text-foreground">{{
+                plannedActivityLabel
+              }}</span>
             </p>
           </div>
         </div>
         <button
           type="button"
           class="mt-5 w-full rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white shadow-md shadow-indigo-900/40 hover:bg-indigo-400 sm:w-auto"
-          @click="
-            emit('startPlannedEvent', planningEvent, plannedActivityKey)
-          "
+          @click="emit('startPlannedEvent', planningEvent, plannedActivityKey)"
         >
           Start {{ planningEvent.title }}
         </button>
@@ -116,28 +125,28 @@ const eventCountdown = computed(() => {
       >
         <button
           type="button"
-          class="vc-act-widget group text-left vc-act-widget--youtube sm:col-span-2"
+          class="stage-vc-lobby__plain-card stage-vc-lobby__youtube-card group flex flex-col rounded-2xl border border-border bg-glass-1 p-5 text-left transition hover:border-red-500/35 hover:bg-glass-hover sm:col-span-2"
           aria-label="Start YouTube watch together"
           @click="emit('startYoutube')"
         >
-          <div class="vc-act-widget__media">
+          <div
+            class="mb-4 h-28 w-full overflow-hidden rounded-xl border border-border/60 sm:h-32"
+          >
             <img
               :src="vcActivityArt.youtube"
               alt=""
-              class="vc-act-widget__img"
+              class="h-full w-full object-cover"
               loading="lazy"
             />
-            <div class="vc-act-widget__media-scrim" aria-hidden="true" />
           </div>
-          <div class="vc-act-widget__body">
-            <div class="vc-act-widget__title-row">
-              <span class="vc-act-widget__title">YouTube activity</span>
-              <span class="vc-act-widget__cta" aria-hidden="true">Start</span>
-            </div>
-            <p class="vc-act-widget__desc">
-              Shared queue with sync — great for stages before you stream out.
-            </p>
-          </div>
+          <h3 class="text-base font-bold text-foreground">YouTube activity</h3>
+          <p class="mt-1.5 flex-1 text-sm leading-relaxed text-muted">
+            Shared queue with sync — great for stages before you stream out.
+          </p>
+          <span
+            class="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle group-hover:text-foreground"
+            >Start watch together</span
+          >
         </button>
 
         <button
@@ -186,7 +195,8 @@ const eventCountdown = computed(() => {
           </div>
           <h3 class="text-base font-bold text-foreground">More activities</h3>
           <p class="mt-1.5 flex-1 text-sm leading-relaxed text-muted">
-            Wordle, games, and the full activity library — same as voice channels.
+            Wordle, games, and the full activity library — same as voice
+            channels.
           </p>
           <span
             class="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle group-hover:text-foreground"

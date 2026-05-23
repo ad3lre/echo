@@ -4,6 +4,7 @@ import type {
   FastifyReply,
   FastifyRequest,
 } from 'fastify';
+import { ME_FEDERATED_LINK_RATE } from '../meLinkRouteRateLimits';
 import { sendError } from '../errors';
 import { requireAuth } from '../../auth/middleware';
 import { getAuthStore } from '../../auth/store';
@@ -25,6 +26,13 @@ import {
 } from '../../domain/youtubeStreamKeyRepo';
 import { buildYoutubeRtmpIngestUrl } from '../../domain/youtubeRtmpIngest';
 import { stopAllActiveStageYoutubeStreamsForLinkUser } from '../../services/stage/stageYoutubeStream';
+
+function youtubeOauthRedirectUriForClient(): string | null {
+  if (!isYoutubeOauthConfigured()) return null;
+  const uri = config.youtubeOauthRedirectUri.trim();
+  return uri || null;
+}
+
 const STREAM_KEY_SAVE_RATE = {
   max: 8,
   timeWindow: '15 minutes' as const,
@@ -44,7 +52,10 @@ export default async function meYoutubeRoutes(
 ) {
   fastify.get(
     '/me/youtube',
-    { preHandler: [requireAuth] },
+    {
+      preHandler: [requireAuth],
+      config: { rateLimit: ME_FEDERATED_LINK_RATE },
+    },
     async (req: FastifyRequest, reply: FastifyReply) => {
       if (!req.authUser)
         return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
@@ -74,6 +85,7 @@ export default async function meYoutubeRoutes(
 
       return reply.code(200).send({
         configured: isYoutubeOauthConfigured(),
+        oauthRedirectUri: youtubeOauthRedirectUriForClient(),
         googleLinked: Boolean(googleRow),
         connectionMode,
         linked: Boolean(row),
@@ -84,9 +96,7 @@ export default async function meYoutubeRoutes(
               channelThumbnailUrl: row.channelThumbnailUrl,
             }
           : null,
-        streamKey: streamKeyRow
-          ? { savedAt: streamKeyRow.updatedAt }
-          : null,
+        streamKey: streamKeyRow ? { savedAt: streamKeyRow.updatedAt } : null,
       });
     },
   );
@@ -114,8 +124,7 @@ export default async function meYoutubeRoutes(
           'ECHO_DISCORD_TOKEN_ENCRYPTION_KEY is required in production to store stream keys.',
         );
       }
-      if (!ensureFederatedOAuthTokenEncryptionReady(reply, fastify.log))
-        return;
+      if (!ensureFederatedOAuthTokenEncryptionReady(reply, fastify.log)) return;
 
       const pool = getPgPool();
       if (!pool)
@@ -163,7 +172,10 @@ export default async function meYoutubeRoutes(
 
   fastify.delete(
     '/me/youtube/stream-key',
-    { preHandler: [requireAuth] },
+    {
+      preHandler: [requireAuth],
+      config: { rateLimit: ME_FEDERATED_LINK_RATE },
+    },
     async (req: FastifyRequest, reply: FastifyReply) => {
       if (!req.authUser)
         return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
@@ -184,12 +196,7 @@ export default async function meYoutubeRoutes(
 
       const deleted = await deleteYoutubeStreamKey(pool, req.authUser.id);
       if (!deleted) {
-        return sendError(
-          reply,
-          404,
-          'NOT_FOUND',
-          'No stream key is saved.',
-        );
+        return sendError(reply, 404, 'NOT_FOUND', 'No stream key is saved.');
       }
       return reply.code(200).send({ ok: true });
     },
@@ -197,7 +204,10 @@ export default async function meYoutubeRoutes(
 
   fastify.delete(
     '/me/youtube',
-    { preHandler: [requireAuth] },
+    {
+      preHandler: [requireAuth],
+      config: { rateLimit: ME_FEDERATED_LINK_RATE },
+    },
     async (req: FastifyRequest, reply: FastifyReply) => {
       if (!req.authUser)
         return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');

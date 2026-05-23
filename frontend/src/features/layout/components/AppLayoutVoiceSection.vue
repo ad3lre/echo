@@ -339,9 +339,7 @@ const stageLobby = useStageVcLobby({
   channelHasActiveVcActivity,
 });
 
-const stageLobbyPlanningEvent = computed(
-  () => stageLobby.planningEvent.value,
-);
+const stageLobbyPlanningEvent = computed(() => stageLobby.planningEvent.value);
 const stageLobbyNowMs = computed(() => stageLobby.nowMs.value);
 const stageLobbyActiveStageEvent = computed(
   () => stageLobby.activeStageEvent.value,
@@ -509,7 +507,11 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
         "
       >
         <button
-          v-if="voiceSideChatCollapsed && !vcActivitySurfaceOpen"
+          v-if="
+            voiceSideChatCollapsed &&
+            !vcActivitySurfaceOpen &&
+            !stageLobby.showLobby
+          "
           type="button"
           class="voice-chat-reopen-action group absolute left-1/2 z-[44] inline-flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-border px-3.5 py-2 text-sm font-semibold text-fg transition-colors"
           :class="
@@ -539,11 +541,12 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
         </button>
         <div
           class="min-w-0 min-h-0"
-          :class="
+          :class="[
             isCompactMobileGuild
               ? 'relative flex min-h-0 min-w-0 flex-1 flex-col'
-              : 'flex min-h-0 min-w-0 flex-1 flex-col'
-          "
+              : 'flex min-h-0 min-w-0 flex-1 flex-col',
+            stageLobby.showLobby ? 'z-[46]' : '',
+          ]"
           @wheel.passive="
             (e: WheelEvent) =>
               isCompactMobileGuild && onCompactVoiceCallWheel(e)
@@ -561,7 +564,8 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
               !isCompactMobileGuild &&
               channelPanelCollapsed &&
               expandChannels &&
-              !vcActivitySurfaceOpen && !stageLobby.showLobby
+              !vcActivitySurfaceOpen &&
+              !stageLobby.showLobby
             "
             type="button"
             class="absolute left-3 top-3 z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
@@ -577,7 +581,11 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             <span>Back</span>
           </button>
           <button
-            v-if="isCompactMobileGuild && !vcActivitySurfaceOpen && !stageLobby.showLobby"
+            v-if="
+              isCompactMobileGuild &&
+              !vcActivitySurfaceOpen &&
+              !stageLobby.showLobby
+            "
             type="button"
             class="absolute left-3 top-[calc(env(safe-area-inset-top,0px)+0.45rem)] z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
             aria-label="Back to channels"

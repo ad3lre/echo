@@ -1406,6 +1406,17 @@ export async function countEchoMessagesInChannel(
   return Number(countRes.rows[0]?.count ?? 0);
 }
 
+export async function listEchoMessageIdsInChannel(
+  pool: pg.Pool,
+  channelId: string,
+): Promise<string[]> {
+  const r = await pool.query<{ id: string }>(
+    `SELECT id FROM echo_messages WHERE channel_id = $1 AND deleted_at IS NULL`,
+    [channelId],
+  );
+  return r.rows.map((row) => row.id);
+}
+
 export async function updateEchoMessageCreatedAtById(
   pool: pg.Pool,
   messageId: string,

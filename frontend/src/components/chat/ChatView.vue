@@ -329,11 +329,18 @@ const othersTypingCount = computed(() => {
   return channelTypingStore.typersFor(cid, props.currentUserId).length;
 });
 
+/** Voice/stage side chat composer (CallView column); not the main text-channel shell. */
+const showVoiceSideChatComposer = computed(() => {
+  const ch = props.activeChannel;
+  if (!ch || !props.showInputForVoiceChannel) return false;
+  return ch.type === 'voice' || ch.type === 'stage';
+});
+
 const showChatTypingIndicatorUi = computed(() => {
   const ch = props.activeChannel;
   if (!ch) return false;
   if (ch.type === 'text') return true;
-  return ch.type === 'voice' && !!props.showInputForVoiceChannel;
+  return showVoiceSideChatComposer.value;
 });
 
 const gifPopoutSeedKeywords = computed(() =>
@@ -822,8 +829,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         v-if="
           activeContentTab === 'messages' &&
           activeChannel &&
-          (activeChannel.type === 'text' ||
-            (activeChannel.type === 'voice' && showInputForVoiceChannel))
+          (activeChannel.type === 'text' || showVoiceSideChatComposer)
         "
         class="flex-shrink-0"
         :channel-id="activeChannel.id"
@@ -834,8 +840,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         v-if="
           activeContentTab === 'messages' &&
           activeChannel &&
-          (activeChannel.type === 'text' ||
-            (activeChannel.type === 'voice' && showInputForVoiceChannel))
+          (activeChannel.type === 'text' || showVoiceSideChatComposer)
         "
         class="flex-shrink-0"
         :channel-name="activeChannel.name"

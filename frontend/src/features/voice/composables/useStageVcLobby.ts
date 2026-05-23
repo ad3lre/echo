@@ -106,7 +106,11 @@ export function useStageVcLobby(opts: UseStageVcLobbyOpts) {
     lobbyDismissed.value = true;
     if (mode === 'planned_event' && event) {
       activeStageEvent.value = event;
-    } else if (mode === 'voice_only' || mode === 'youtube' || mode === 'activity_picker') {
+    } else if (
+      mode === 'voice_only' ||
+      mode === 'youtube' ||
+      mode === 'activity_picker'
+    ) {
       activeStageEvent.value = null;
     }
   }

@@ -129,8 +129,7 @@ export function useEchoGuildRoleUi(deps: {
       if (serverStore.selectedServerId !== fetchSid) return;
       const caps = bundleRes.capabilities;
       echoCanManageRoles.value = caps.canManageRoles;
-      echoCanAssignRoles.value =
-        caps.canAssignRoles ?? caps.canManageRoles;
+      echoCanAssignRoles.value = caps.canAssignRoles ?? caps.canManageRoles;
       echoCanManageServer.value = caps.canManageServer;
       echoCanCreateChannel.value = caps.canCreateChannel;
       const bundle = caps.canModerateMembers ?? false;

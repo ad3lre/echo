@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed, inject, unref } from 'vue';
+import {
+  ref,
+  watch,
+  onMounted,
+  onUnmounted,
+  computed,
+  inject,
+  unref,
+} from 'vue';
 import { useGifSearch, type GifResult } from '@/composables/useGifSearch';
 import { useImageSearch } from '@/composables/useImageSearch';
 import { pickImageSearchSeed } from '@/utils/imageSearchSeedKeywords';
@@ -76,7 +84,11 @@ function setupImageLoadMoreObserver() {
   imageLoadMoreObserver = new IntersectionObserver(
     (entries) => {
       if (!entries.some((e) => e.isIntersecting)) return;
-      if (imageHasMore.value && !imageLoading.value && !imageLoadingMore.value) {
+      if (
+        imageHasMore.value &&
+        !imageLoading.value &&
+        !imageLoadingMore.value
+      ) {
         void loadMoreImages();
       }
     },
@@ -334,9 +346,7 @@ function tabBtnClass(isActive: boolean) {
         <p
           v-if="imageSearchQuotaLabel"
           class="mx-2 -mt-1 mb-1 text-xs"
-          :class="
-            props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'
-          "
+          :class="props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'"
         >
           {{ imageSearchQuotaLabel }}
         </p>
@@ -345,7 +355,10 @@ function tabBtnClass(isActive: boolean) {
           class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
           v-scrollbar-on-scroll
         >
-          <div v-if="imageError" class="py-8 px-3 text-center text-sm text-red-400">
+          <div
+            v-if="imageError"
+            class="py-8 px-3 text-center text-sm text-red-400"
+          >
             <p>{{ imageError }}</p>
             <button
               v-if="imagePlanLimitHit"

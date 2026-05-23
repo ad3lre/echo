@@ -412,6 +412,12 @@ async function bootstrap() {
           } catch {
             /* ignore */
           }
+        } else {
+          try {
+            sessionStorage.setItem('echo_google_oauth_linked', '1');
+          } catch {
+            /* ignore */
+          }
         }
       }
     }

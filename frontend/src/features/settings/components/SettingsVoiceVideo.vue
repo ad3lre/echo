@@ -77,6 +77,7 @@ const uiAudioDevices = useUiAudioDevicesStore();
 const voiceLevels = useVoiceLevelsStore();
 const {
   outputEffectivePercent,
+  inputEffectivePercent,
   outputVolumePercent,
   maxBoostEnabled,
   maxBoostLevel,
@@ -129,7 +130,7 @@ function dbfsToMeterPct(dbfs: number): number {
 const effectiveMicDbfs = computed(() => {
   // Apply manual send gain to the measured signal so the meter reflects what
   // your configured input level is doing.
-  const gainFactor = Math.max(0, voiceLevels.inputSensitivityPercent / 100);
+  const gainFactor = Math.max(0, voiceLevels.inputGain);
   const gainDb = gainFactor > 0 ? 20 * Math.log10(gainFactor) : -100;
   const gainedDb = Math.max(-100, Math.min(0, micDbfs.value + gainDb));
   const gateDb = gateThresholdDbfs.value;
@@ -187,6 +188,7 @@ async function startMicTest() {
       localStream,
       form.outputDevice ?? 'default',
       voiceLevels.outputEffectivePercent,
+      voiceLevels.inputEffectivePercent,
     );
     echoVoiceApi?.setMicTestListenDeafen?.(true);
   } catch {
@@ -376,9 +378,14 @@ watch(
   () => {
     if (!micTestActive.value || !testStream) return;
     void micMonitor.applySink(props.form.outputDevice ?? 'default');
-    micMonitor.setGain(outputEffectivePercent.value);
+    micMonitor.setOutputGain(outputEffectivePercent.value);
   },
 );
+
+watch([inputEffectivePercent, maxBoostEnabled, maxBoostLevel], () => {
+  if (!micTestActive.value || !testStream) return;
+  micMonitor.setInputGain(inputEffectivePercent.value);
+});
 
 watch(
   () => props.form.outputDevice,

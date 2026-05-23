@@ -158,8 +158,8 @@ const props = defineProps<{
       | 'move'
       | 'inviteToSpeak'
       | 'moveToAudience'
-    | 'stopCamera'
-    | 'stopScreenShare',
+      | 'stopCamera'
+      | 'stopScreenShare',
   ) => boolean;
   onModerateUser?: (payload: {
     action: 'kick' | 'ban' | 'timeout';
@@ -966,10 +966,7 @@ const vcMoveTargets = computed(() => {
   const out: Array<{ id: string; name: string; disabled: boolean }> = [];
   for (const cat of cats) {
     for (const ch of cat.channels) {
-      if (
-        (ch.type !== 'voice' && ch.type !== 'stage') ||
-        ch.id === currentId
-      )
+      if ((ch.type !== 'voice' && ch.type !== 'stage') || ch.id === currentId)
         continue;
       const name = getChannelDisplayName(ch.name);
       const disabled = props.canJoinVoice ? !props.canJoinVoice(ch.id) : false;

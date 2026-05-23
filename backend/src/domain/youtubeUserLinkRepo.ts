@@ -24,9 +24,7 @@ function rowFromDb(r: Record<string, unknown>): YoutubeChannelLinkRow {
     scope: String(r.scope ?? ''),
     channelTitle: String(r.channel_title ?? ''),
     channelThumbnailUrl:
-      r.channel_thumbnail_url != null
-        ? String(r.channel_thumbnail_url)
-        : null,
+      r.channel_thumbnail_url != null ? String(r.channel_thumbnail_url) : null,
     updatedAt: String(r.updated_at),
   };
 }

@@ -49,7 +49,11 @@
   --chat-inline-icon-filter: invert(1) saturate(0) brightness(1.9) contrast(1.1);
   /* Alias for non-composer ink icons (toolbars, modals) — light on dark. */
   --echo-ink-icon-filter: var(--chat-inline-icon-filter);
-  /* Composer GIF / emoji triggers: full strength once the dark-theme filter lightens glyphs. */
+  /*
+   * Composer GIF/emoji triggers: brighten default SVGs on dark glass.
+   * Do not use --chat-inline-icon-filter here — invert+saturate flattens glyphs to a blank shape.
+   */
+  --chat-composer-toolbar-icon-filter: brightness(2);
   --chat-composer-toolbar-icon-opacity: 1;
 
   /* Server rail — unread mention dot (hue encodes ping class) */
@@ -1162,6 +1166,18 @@
     color-mix(in srgb, black 55%, transparent) 42%,
     color-mix(in srgb, black 78%, transparent) 100%
   );
+
+  /* GitHub-style markdown alerts (message HTML) */
+  --md-alert-note-border: #4493f8;
+  --md-alert-note-fg: #4493f8;
+  --md-alert-tip-border: #3fb950;
+  --md-alert-tip-fg: #3fb950;
+  --md-alert-important-border: #ab7df8;
+  --md-alert-important-fg: #ab7df8;
+  --md-alert-warning-border: #d29922;
+  --md-alert-warning-fg: #d29922;
+  --md-alert-caution-border: #f85149;
+  --md-alert-caution-fg: #f85149;
 }
 
 /* AMOLED dark variant (runtime) */
@@ -1466,13 +1482,25 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
     color-mix(in srgb, white 58%, var(--surface) 42%) 100%
   );
 
+  /* GitHub-style markdown alerts (message HTML) */
+  --md-alert-note-border: #0969da;
+  --md-alert-note-fg: #0969da;
+  --md-alert-tip-border: #1a7f37;
+  --md-alert-tip-fg: #1a7f37;
+  --md-alert-important-border: #8250df;
+  --md-alert-important-fg: #8250df;
+  --md-alert-warning-border: #9a6700;
+  --md-alert-warning-fg: #9a6700;
+  --md-alert-caution-border: #cf222e;
+  --md-alert-caution-fg: #cf222e;
+
   /* Keep raw SVG colors in light mode (most are dark by default). */
   --chat-inline-icon-filter: none;
   --echo-ink-icon-filter: none;
   /*
-   * Composer GIF/emoji use theme-specific assets (`gifLight` / `emotesLight`);
-   * no extra fade needed on light.
+   * Composer GIF/emoji use theme-specific assets (`gifLight` / `emotesLight`).
    */
+  --chat-composer-toolbar-icon-filter: none;
   --chat-composer-toolbar-icon-opacity: 1;
 
   --server-ping-personal: #e11d48;

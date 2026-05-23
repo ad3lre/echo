@@ -6,17 +6,22 @@ const cat = [
     id: 'everyone',
     position: 0,
     isEveryone: true,
+    roleScope: 'global',
     permissions: ['VIEW_CHANNEL'],
   },
   {
     id: 'low',
     position: 1,
+    rankInCategory: 1,
+    roleScope: 'global',
     permissions: ['SEND_MESSAGES'],
   },
   {
     id: 'high',
     position: 5,
-    permissions: ['MANAGE_ROLES', 'ADMINISTRATOR'],
+    rankInCategory: 5,
+    roleScope: 'global',
+    permissions: ['MANAGE_ROLES', 'ADMINISTRATOR', 'ASSIGN_ROLES'],
   },
 ];
 

@@ -1913,8 +1913,10 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
 
 /** One pinned Global Roles category per server; backfill uncategorized roles. */
 async function migrateEchoGlobalRoleCategories(pool: pg.Pool): Promise<void> {
-  const { ensureGlobalRoleCategoryForServer, backfillUncategorizedRolesToGlobalCategory } =
-    await import('../domain/echoStore/roleCategoryGlobals');
+  const {
+    ensureGlobalRoleCategoryForServer,
+    backfillUncategorizedRolesToGlobalCategory,
+  } = await import('../domain/echoStore/roleCategoryGlobals');
   const servers = await pool.query<{ id: string }>(
     `SELECT id FROM echo_servers`,
   );

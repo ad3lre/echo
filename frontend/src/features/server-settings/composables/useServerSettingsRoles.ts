@@ -107,7 +107,11 @@ export function useServerSettingsRoles(options: {
     roleManagerDirty.value = true;
   }
 
-  function reorderRolesWithinCategory(draggedId: string, targetId: string, after: boolean) {
+  function reorderRolesWithinCategory(
+    draggedId: string,
+    targetId: string,
+    after: boolean,
+  ) {
     const tab = selectedRoleCategoryTabId.value;
     if (tab === 'all') return;
     const inCat = roleManagerRoles.value.filter(
@@ -118,14 +122,18 @@ export function useServerSettingsRoles(options: {
     const to = ids.indexOf(targetId);
     if (from < 0 || to < 0) return;
     ids.splice(from, 1);
-    const insertAt = after ? to + (from < to ? 0 : 1) : to + (from < to ? -1 : 0);
+    const insertAt = after
+      ? to + (from < to ? 0 : 1)
+      : to + (from < to ? -1 : 0);
     ids.splice(insertAt, 0, draggedId);
     const byId = new Map(roleManagerRoles.value.map((r) => [r.id, r]));
     const others = roleManagerRoles.value.filter(
       (r) => r.name === '@everyone' || r.roleCategoryId !== tab,
     );
     const reordered = [
-      ...ids.map((id) => byId.get(id)).filter((r): r is (typeof roleManagerRoles.value)[number] => !!r),
+      ...ids
+        .map((id) => byId.get(id))
+        .filter((r): r is (typeof roleManagerRoles.value)[number] => !!r),
       ...others,
     ];
     roleManagerRoles.value = reordered;
@@ -298,9 +306,7 @@ export function useServerSettingsRoles(options: {
   );
 
   function markRoleCategoryOrderSnapshot() {
-    roleCategoryOrderSnapshot.value = echoRoleCategories.value.map(
-      (c) => c.id,
-    );
+    roleCategoryOrderSnapshot.value = echoRoleCategories.value.map((c) => c.id);
     roleCategoryOrderDirty.value = false;
   }
 

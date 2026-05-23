@@ -64,7 +64,10 @@ function planDecayMultiplier(
   if (opts.blackUnpaused && plan === 'black') {
     return CHAT_MEDIA_RETENTION_BLACK_DECAY_MULTIPLIER;
   }
-  if (plan === 'plus' && byteLength > CHAT_MEDIA_RETENTION_PLUS_PERMANENT_BYTES) {
+  if (
+    plan === 'plus' &&
+    byteLength > CHAT_MEDIA_RETENTION_PLUS_PERMANENT_BYTES
+  ) {
     return CHAT_MEDIA_RETENTION_PLUS_DECAY_MULTIPLIER;
   }
   return 1;
@@ -93,8 +96,7 @@ export function resolveChatUploadRetentionPolicy(
   sourceType: ChatUploadRetentionSourceType,
 ): ChatUploadRetentionPolicy {
   const plan = normalizeEchoPlanId(planSnapshot);
-  const effectivePlan =
-    sourceType === 'webhook' ? ('free' as const) : plan;
+  const effectivePlan = sourceType === 'webhook' ? ('free' as const) : plan;
 
   if (
     effectivePlan === 'plus' &&

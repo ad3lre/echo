@@ -78,6 +78,10 @@ function settingsNavIconUrl(section: SettingsSection): string {
   return SETTINGS_SECTION_NAV_ICON[section] ?? '';
 }
 
+function settingsNavIconIsBrandMark(section: SettingsSection): boolean {
+  return section === 'Google';
+}
+
 const props = defineProps<{
   modelValue: boolean;
   initialSection?: SettingsSection | null;
@@ -555,7 +559,12 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                       v-if="settingsNavIconUrl(item)"
                       :src="settingsNavIconUrl(item)"
                       alt=""
-                      class="settings-nav-item__icon"
+                      :class="[
+                        'settings-nav-item__icon',
+                        settingsNavIconIsBrandMark(item)
+                          ? 'settings-nav-item__icon--brand'
+                          : '',
+                      ]"
                       aria-hidden="true"
                     />
                     <span class="min-w-0 truncate">{{ item }}</span>
@@ -622,7 +631,12 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                         v-if="settingsNavIconUrl(item)"
                         :src="settingsNavIconUrl(item)"
                         alt=""
-                        class="settings-nav-item__icon"
+                        :class="[
+                          'settings-nav-item__icon',
+                          settingsNavIconIsBrandMark(item)
+                            ? 'settings-nav-item__icon--brand'
+                            : '',
+                        ]"
                         aria-hidden="true"
                       />
                       <span class="min-w-0 truncate">{{ item }}</span>

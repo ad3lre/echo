@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { GUEST_MINT_ROUTE_RATE } from '../../meLinkRouteRateLimits';
 import { ipRateLimitKey } from '../../rateLimitKeys';
 import { sendError } from '../../errors';
 import { getAuthStore } from '../../../auth/store';
@@ -52,6 +53,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
   }>(
     '/guest',
     {
+      config: { rateLimit: GUEST_MINT_ROUTE_RATE },
       schema: {
         querystring: {
           type: 'object',

@@ -1,13 +1,14 @@
 import type pg from 'pg';
-import {
-  expandStoredRolePermissionsToCanonSet,
-} from '../echoPermissionPrimitives';
+import { expandStoredRolePermissionsToCanonSet } from '../echoPermissionPrimitives';
 import {
   canAssignEchoMemberRoles,
   canManageEchoRolesCatalog,
 } from './permissions';
 import { isEchoServerOwner } from './access';
-import { normalizeEchoRoleScope, type EchoRoleScope } from '../../../../shared/echoRoleScope';
+import {
+  normalizeEchoRoleScope,
+  type EchoRoleScope,
+} from '../../../../shared/echoRoleScope';
 
 export type EchoRoleCatalogEntry = {
   id: string;

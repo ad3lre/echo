@@ -12,15 +12,15 @@ Echo can send a **room-composite program feed** from a stage voice channel to **
 
 ## Environment
 
-| Variable | Notes |
-| -------- | ----- |
-| `GOOGLE_OAUTH_CLIENT_ID` | Same OAuth client as Google sign-in/link. |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Server-only. |
-| `YOUTUBE_OAUTH_REDIRECT_URI` | e.g. `http://localhost:8080/api/v1/auth/youtube/callback` — register in Google Console. |
-| `YOUTUBE_OAUTH_SCOPES` | Default: `openid email profile https://www.googleapis.com/auth/youtube.force-ssl` |
-| `ECHO_DISCORD_TOKEN_ENCRYPTION_KEY` | Encrypts YouTube OAuth tokens (shared federated key). |
-| `ECHO_APP_PUBLIC_URL` | SPA origin for post-OAuth redirect (`youtube_linked`, `youtube_error`). |
-| `LIVEKIT_EGRESS_ENABLED` | Must be `true` when LiveKit Egress is deployed (defaults to **off**). |
+| Variable                            | Notes                                                                                   |
+| ----------------------------------- | --------------------------------------------------------------------------------------- |
+| `GOOGLE_OAUTH_CLIENT_ID`            | Same OAuth client as Google sign-in/link.                                               |
+| `GOOGLE_OAUTH_CLIENT_SECRET`        | Server-only.                                                                            |
+| `YOUTUBE_OAUTH_REDIRECT_URI`        | e.g. `http://localhost:8080/api/v1/auth/youtube/callback` — register in Google Console. |
+| `YOUTUBE_OAUTH_SCOPES`              | Default: `openid email profile https://www.googleapis.com/auth/youtube.force-ssl`       |
+| `ECHO_DISCORD_TOKEN_ENCRYPTION_KEY` | Encrypts YouTube OAuth tokens (shared federated key).                                   |
+| `ECHO_APP_PUBLIC_URL`               | SPA origin for post-OAuth redirect (`youtube_linked`, `youtube_error`).                 |
+| `LIVEKIT_EGRESS_ENABLED`            | Must be `true` when LiveKit Egress is deployed (defaults to **off**).                   |
 
 ## User flow
 
@@ -43,15 +43,15 @@ Disconnecting Google in Settings also unlinks YouTube OAuth, revokes any saved s
 
 ## API (authenticated)
 
-| Method | Path | Purpose |
-| ------ | ---- | ------- |
-| `GET` | `/api/v1/me/youtube` | Link status, `connectionMode`, stream-key metadata (never the secret) |
-| `PUT` | `/api/v1/me/youtube/stream-key` | Save encrypted RTMP ingest (stream key + optional server URL) |
-| `DELETE` | `/api/v1/me/youtube/stream-key` | Revoke saved stream key |
-| `DELETE` | `/api/v1/me/youtube` | Unlink OAuth channel |
-| `GET` | `/api/v1/echo/servers/:serverId/channels/:channelId/stage/youtube` | Stream status for stage |
-| `POST` | `.../stage/youtube/start` | Start YouTube live + egress |
-| `POST` | `.../stage/youtube/stop` | Stop live |
+| Method   | Path                                                               | Purpose                                                               |
+| -------- | ------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `GET`    | `/api/v1/me/youtube`                                               | Link status, `connectionMode`, stream-key metadata (never the secret) |
+| `PUT`    | `/api/v1/me/youtube/stream-key`                                    | Save encrypted RTMP ingest (stream key + optional server URL)         |
+| `DELETE` | `/api/v1/me/youtube/stream-key`                                    | Revoke saved stream key                                               |
+| `DELETE` | `/api/v1/me/youtube`                                               | Unlink OAuth channel                                                  |
+| `GET`    | `/api/v1/echo/servers/:serverId/channels/:channelId/stage/youtube` | Stream status for stage                                               |
+| `POST`   | `.../stage/youtube/start`                                          | Start YouTube live + egress                                           |
+| `POST`   | `.../stage/youtube/stop`                                           | Stop live                                                             |
 
 ## Limitations
 

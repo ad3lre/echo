@@ -608,7 +608,10 @@ export function useServerVoiceSession(deps: {
   let hangmanSecretShareRound = -1;
 
   function scheduleShareHangmanRoundSecret(roundSeq: number): void {
-    if (hangmanSecretShareRound === roundSeq && hangmanSecretShareTimer != null) {
+    if (
+      hangmanSecretShareRound === roundSeq &&
+      hangmanSecretShareTimer != null
+    ) {
       return;
     }
     hangmanSecretShareRound = roundSeq;
@@ -1715,10 +1718,7 @@ export function useServerVoiceSession(deps: {
   /** Bumped on intentional leave so in-flight auto-reconnect loops exit. */
   let vcAutoReconnectEpoch = 0;
 
-  async function guildVoiceE2eePrepare(
-    serverId: string,
-    channelId: string,
-  ) {
+  async function guildVoiceE2eePrepare(serverId: string, channelId: string) {
     const token = authSession.accessToken?.trim() ?? '';
     const uid = currentUser.value?.id?.trim() ?? '';
     if (!token || !uid) return { mediaKey: null, senderDeviceId: '' };
@@ -1941,7 +1941,10 @@ export function useServerVoiceSession(deps: {
     let ch = activeChannel.value;
     // While browsing text (or another surface), keep the connected VC roster so
     // floating voice chrome and stream PiP still see LiveKit/stream state.
-    if ((!ch || (ch.type !== 'voice' && ch.type !== 'stage')) && currentVoiceId) {
+    if (
+      (!ch || (ch.type !== 'voice' && ch.type !== 'stage')) &&
+      currentVoiceId
+    ) {
       ch = findChannelContextById(currentVoiceId)?.channel ?? null;
     }
     if (!ch || (ch.type !== 'voice' && ch.type !== 'stage')) return [];

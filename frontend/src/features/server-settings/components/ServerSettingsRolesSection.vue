@@ -1182,7 +1182,9 @@ onUnmounted(() => {
                 "
                 class="server-settings-role-field"
               >
-                <label class="inline-flex items-center gap-2 text-xs text-fg-soft">
+                <label
+                  class="inline-flex items-center gap-2 text-xs text-fg-soft"
+                >
                   <input
                     type="checkbox"
                     class="server-toggle"
