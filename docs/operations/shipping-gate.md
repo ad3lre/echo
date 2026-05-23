@@ -41,6 +41,8 @@ Static analysis runs on `release/**` via `.github/workflows/codeql.yml` with `.g
 
 Many **missing rate limiting** findings are false positives: production uses `@fastify/rate-limit` globally (`httpPlugins.ts`), on the Echo API scope (`api/routes/index.ts`), and on sensitive routes (auth, OAuth, uploads, voice). CodeQL does not model the Fastify plugin.
 
+**Insufficient password hash** (`js/insufficient-password-hash`) on `backend/src/auth/oauthCookieIntegrity.ts` is a false positive: that module HMAC-signs short-lived OAuth state cookies (Google, YouTube, Discord link/login flows), not user passwords. Passwords are hashed with **bcrypt** in `backend/src/auth/store/helpers.ts`. The MAC key is scrypt-derived from `JWT_SECRET` for domain separation (same pattern as `totpCrypto.ts` / `discordTokenCrypto.ts`). All federated OAuth cookie/state signing should go through that helper so CodeQL and reviewers see one place.
+
 Link unfurl **SSRF** alerts are mitigated by `canSafelyResolveUrlForOutboundFetch`, manual redirect validation, and `safeFetchAgent` connect-time DNS checks (`backend/src/services/linkUnfurl/`).
 
 ## Related references
