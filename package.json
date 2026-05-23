@@ -182,8 +182,5 @@
   },
   "volta": {
     "node": "22.13.0"
-  },
-  "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "^1.0.2"
   }
 }
