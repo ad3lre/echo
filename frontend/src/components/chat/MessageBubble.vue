@@ -75,6 +75,7 @@ import { defaultQuickReactionFavorites } from '@/composables/useReactionFavorite
 import { useMessageBubbleUi } from '@/features/chat/composables/useMessageBubbleUi';
 import { useMessageKatexScrollbarReveal } from '@/features/chat/composables/useMessageKatexScrollbarReveal';
 import { applyEmbedTitlesToMessageContent } from '@/utils/embedLinkLabels';
+import { mergeEchoJumpEmbedsForMessage } from '@/utils/messageJumpContentParse';
 import {
   COMPOSER_INSERT_USER_MENTION_KEY,
   type InsertUserMentionFn,
@@ -335,6 +336,15 @@ const displayMessageContent = computed(() => {
   if (message.value.mentions?.length) return raw;
   return applyEmbedTitlesToMessageContent(raw, message.value.embeds);
 });
+
+/** Inline message-jump cards: stored unfurl + client-detected Echo message URLs in body text. */
+const contentEmbedsForSegments = computed(() =>
+  mergeEchoJumpEmbedsForMessage(
+    displayMessageContent.value,
+    message.value.contentJson,
+    message.value.embeds,
+  ),
+);
 
 /** Server unfurl + instant client stubs for YouTube/Vimeo when previews are not stored yet. */
 const linkEmbedsForDisplay = computed((): Embed[] | undefined => {
@@ -1417,7 +1427,7 @@ watch(
                 :display-message-content="displayMessageContent"
                 :mentions="message.mentions"
                 :parse-id-resolvers="parseIdResolvers"
-                :embeds="message.embeds"
+                :embeds="contentEmbedsForSegments"
                 :on-jump-to-message="onGoToMessage"
                 :custom-emoji-render-key="customEmojiRenderKey"
                 :message-id="message.id"

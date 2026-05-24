@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  toRef,
+  watch,
+} from 'vue';
 import type { StyleValue } from 'vue';
 import {
   observeChatMediaRetentionVisible,
@@ -30,8 +38,42 @@ const emit = defineEmits<{
 const revealed = ref(!props.spoiler);
 const loadFailed = ref(false);
 const hasRenderableFrame = ref(false);
+const expanded = ref(false);
 const videoRef = ref<HTMLVideoElement | null>(null);
 const shellRef = ref<InstanceType<typeof EchoMediaPlayerShell> | null>(null);
+
+const VIDEO_EXPAND_SCROLL_AFTER_MS = 320;
+const VIDEO_COMPACT_MAX_WIDTH = 'min(100%, 28rem)';
+const VIDEO_EXPANDED_MAX_WIDTH = 'min(100%, min(92vw, 56rem))';
+
+async function toggleExpand(event: MouseEvent) {
+  const next = !expanded.value;
+  expanded.value = next;
+  if (!next) return;
+
+  const root = (event.currentTarget as HTMLElement | null)?.closest(
+    '.echo-video-player',
+  );
+  if (!(root instanceof HTMLElement)) return;
+
+  const scrollIntoView = () => {
+    root.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    });
+  };
+
+  await nextTick();
+  const reducedMotion = window.matchMedia?.(
+    '(prefers-reduced-motion: reduce)',
+  )?.matches;
+  if (reducedMotion) {
+    requestAnimationFrame(() => requestAnimationFrame(scrollIntoView));
+    return;
+  }
+  window.setTimeout(scrollIntoView, VIDEO_EXPAND_SCROLL_AFTER_MS);
+}
 
 const { state: playbackState } = useChatVideoPlayback(toRef(props, 'url'));
 
@@ -78,14 +120,17 @@ function styleRecord(
 const shellStyle = computed((): StyleValue | undefined => {
   const rec = styleRecord(props.mediaStyle);
   const ar = rec?.aspectRatio;
+  const maxWidth = expanded.value
+    ? VIDEO_EXPANDED_MAX_WIDTH
+    : VIDEO_COMPACT_MAX_WIDTH;
   if (typeof ar === 'string' && ar) {
     return {
       aspectRatio: ar,
-      width: 'min(100%, 20rem)',
-      maxWidth: 'min(100%, 28rem)',
+      width: expanded.value ? VIDEO_EXPANDED_MAX_WIDTH : 'min(100%, 20rem)',
+      maxWidth,
     };
   }
-  return { maxWidth: 'min(100%, 28rem)' };
+  return { maxWidth };
 });
 
 watch(
@@ -175,9 +220,11 @@ function onVideoFrameReady(): void {
 <template>
   <div
     ref="rootRef"
-    class="echo-video-player"
+    class="echo-video-player group relative transition-[max-width] duration-300 ease-out"
     :class="{
       'echo-video-player--boxed': !!styleRecord(mediaStyle)?.aspectRatio,
+      'echo-video-player--expanded': expanded,
+      'scroll-my-4': expanded,
     }"
     :style="shellStyle"
   >
@@ -198,6 +245,16 @@ function onVideoFrameReady(): void {
     />
 
     <template v-else>
+      <button
+        type="button"
+        class="absolute right-2 top-2 z-[3] rounded-md bg-overlay-heavy px-2 py-1 text-[11px] font-semibold text-fg shadow-md backdrop-blur-sm ring-1 ring-border transition-opacity duration-150 pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 hover:bg-overlay-heavy focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00a8fc]"
+        :aria-expanded="expanded"
+        :aria-label="expanded ? 'Smaller embed' : 'Larger embed'"
+        :title="expanded ? 'Smaller embed' : 'Larger embed'"
+        @click.stop="toggleExpand($event)"
+      >
+        {{ expanded ? 'Smaller' : 'Larger' }}
+      </button>
       <EchoMediaPlayerShell
         ref="shellRef"
         variant="video"
@@ -286,8 +343,16 @@ function onVideoFrameReady(): void {
   max-width: min(100%, 28rem);
 }
 
+.echo-video-player--expanded {
+  max-width: min(100%, min(92vw, 56rem));
+}
+
 .echo-video-player--boxed {
   width: min(100%, 28rem);
+}
+
+.echo-video-player--boxed.echo-video-player--expanded {
+  width: min(100%, min(92vw, 56rem));
 }
 
 .echo-video-player__media {
@@ -306,6 +371,11 @@ function onVideoFrameReady(): void {
   height: auto;
   max-height: min(80vh, 24rem);
   vertical-align: top;
+}
+
+.echo-video-player--expanded .echo-video-player__video {
+  max-width: min(100%, min(92vw, 56rem));
+  max-height: min(80vh, 36rem);
 }
 
 .echo-video-player--boxed .echo-video-player__video {

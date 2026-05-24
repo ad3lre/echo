@@ -5,25 +5,10 @@
 
 import type pg from 'pg';
 import type { Embed } from '../../../shared/types';
+import { parseEchoMessageJumpPath } from '../../../shared/echoMessageJumpPath';
 import { canUserAccessChannel, getEchoMessageById } from './echoStore';
 
-export function parseEchoMessageJumpPath(
-  urlString: string,
-): { channelId: string; messageId: string } | null {
-  let u: URL;
-  try {
-    u = new URL(urlString);
-  } catch {
-    return null;
-  }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-  const m = u.pathname.match(/^\/channels\/([^/]+)\/([^/?#]+)\/?$/);
-  if (!m) return null;
-  const channelId = m[1];
-  const messageId = m[2];
-  if (!channelId?.trim() || !messageId?.trim()) return null;
-  return { channelId, messageId };
-}
+export { parseEchoMessageJumpPath } from '../../../shared/echoMessageJumpPath';
 
 function truncatePlain(text: string, max: number): string {
   const t = text.replace(/\s+/g, ' ').trim();

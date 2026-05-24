@@ -29,6 +29,20 @@ describe('composer domain transforms', () => {
     expect(res.nextContent).toContain('@Alice');
   });
 
+  it('insertMentionTransform preserves surrounding text when inserting mid-string', () => {
+    const content = 'testing';
+    const res = insertMentionTransform(
+      content,
+      [],
+      4,
+      4,
+      'user',
+      'readadel',
+      'u1',
+    );
+    expect(res.nextContent).toBe('test@readadel ing');
+  });
+
   it('wrapSelectionTransform wraps selection', () => {
     const content = 'bold text';
     const mentions: any[] = [];

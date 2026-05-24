@@ -9,8 +9,13 @@ import {
 
 const active = ref<AppDialogRequest | null>(null);
 const queue = ref<AppDialogRequest[]>([]);
-/** Ignore backdrop dismiss until after the opening pointer/click gesture finishes. */
-const backdropDismissReadyAt = ref(0);
+/**
+ * Ignore the first backdrop click right after open. Dialog requests are deferred
+ * two animation frames ({@link deferDialogDispatch}) so the opening click does not
+ * land on the backdrop; this flag covers the same window without blocking dismiss
+ * for an arbitrary 500ms.
+ */
+const ignoreBackdropDismiss = ref(false);
 
 const modalRef = ref<HTMLElement | null>(null);
 const isOpen = computed(() => !!active.value);
@@ -30,15 +35,24 @@ watch(
   { immediate: true },
 );
 
+function armBackdropDismissGuard() {
+  ignoreBackdropDismiss.value = true;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      ignoreBackdropDismiss.value = false;
+    });
+  });
+}
+
 function setActive(next: AppDialogRequest | null) {
   active.value = next;
   if (next) {
-    backdropDismissReadyAt.value = performance.now() + 500;
+    armBackdropDismissGuard();
   }
 }
 
 function onBackdropClick() {
-  if (performance.now() < backdropDismissReadyAt.value) return;
+  if (ignoreBackdropDismiss.value) return;
   cancel();
 }
 
@@ -98,12 +112,24 @@ function pickTwoChoice(which: 'primary' | 'secondary') {
   maybeDequeue();
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    cancel();
-  }
+function onDocumentEscape(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || !active.value) return;
+  e.preventDefault();
+  cancel();
 }
+
+watch(
+  () => active.value,
+  (next, prev) => {
+    if (next && !prev) {
+      document.addEventListener('keydown', onDocumentEscape, true);
+      return;
+    }
+    if (!next && prev) {
+      document.removeEventListener('keydown', onDocumentEscape, true);
+    }
+  },
+);
 
 const titleId = computed(() => (active.value ? `dlg_${active.value.id}` : ''));
 
@@ -166,6 +192,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  document.removeEventListener('keydown', onDocumentEscape, true);
   unsub?.();
   unsub = null;
 });
@@ -176,7 +203,6 @@ onUnmounted(() => {
     v-if="active"
     class="fixed inset-0 z-[400] flex items-center justify-center modal-overlay-bg px-4"
     @click.self="onBackdropClick"
-    @keydown="onKeydown"
   >
     <div
       ref="modalRef"

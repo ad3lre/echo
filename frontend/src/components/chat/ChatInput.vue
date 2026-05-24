@@ -608,7 +608,7 @@ function toMentionKind(option: MentionOption): MentionKind {
 }
 
 const mentionAutocomplete = useMentionAutocomplete(
-  () => composer.content.value,
+  () => composer.getContent(),
   () => composer.getSelectionStart(),
   (start, end, option) =>
     composer.insertMention(start, end, {
@@ -630,7 +630,7 @@ const mentionAutocomplete = useMentionAutocomplete(
 
 const channelOptions = computed(() => props.channels ?? []);
 const channelAutocomplete = useChannelAutocomplete(
-  () => composer.content.value,
+  () => composer.getContent(),
   () => composer.getSelectionStart(),
   (start, end, option) => composer.insertChannelMention(start, end, option),
   channelOptions,
@@ -823,8 +823,8 @@ function handlePollCreate(poll: PollData) {
 
 function refreshAutocomplete() {
   nextTick(() => {
-    const text = composer.content.value;
-    const cursor = composer.selectionStart.value;
+    const text = composer.getContent();
+    const cursor = composer.getSelectionStart();
     /** Skip autocomplete scans when no trigger character is near the caret. */
     const before = text.slice(Math.max(0, cursor - 48), cursor);
     const mayTrigger =
@@ -865,7 +865,7 @@ function insertUserMentionAtCursor(payload: InsertUserMentionPayload) {
       getSelectionEnd: composer.getSelectionEnd,
       insertText: composer.insertText,
       insertMention: composer.insertMention,
-      getContent: () => composer.content.value,
+      getContent: composer.getContent,
     },
     payload,
     {

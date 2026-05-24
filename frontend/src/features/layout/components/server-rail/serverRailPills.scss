@@ -5,6 +5,11 @@ $server-rail-pill-ease: cubic-bezier(0.33, 1, 0.68, 1);
   z-index: 1;
 }
 
+.server-folder__slot--h {
+  /* Reserve vertical room so top-rail pills stay inside layout flow. */
+  padding-top: 8px;
+}
+
 .server-folder__pill {
   position: absolute;
   z-index: 2;
@@ -48,11 +53,15 @@ $server-rail-pill-ease: cubic-bezier(0.33, 1, 0.68, 1);
 .server-folder__pill--h {
   left: 50%;
   top: 0;
-  width: 28px;
-  height: 5px;
-  border-radius: 6px 6px 0 0;
+  width: 20px;
+  height: 4px;
+  border-radius: 9999px;
   background-color: var(--server-rail-pill-fg);
-  transform: translate(-50%, calc(-100% - 5px));
+  transform: translateX(-50%) scaleX(0.75);
+  transform-origin: center;
+  transition:
+    opacity 0.22s $server-rail-pill-ease,
+    transform 0.22s $server-rail-pill-ease;
 }
 
 .server-folder__slot:hover:not(.server-folder__slot--active)
@@ -60,12 +69,13 @@ $server-rail-pill-ease: cubic-bezier(0.33, 1, 0.68, 1);
   background-color: transparent;
   box-sizing: border-box;
   border: 1px solid var(--server-rail-pill-fg);
-  border-bottom: none;
+  transform: translateX(-50%) scaleX(1);
 }
 
 .server-folder__slot--active .server-folder__pill--h {
   background-color: var(--server-rail-pill-fg);
   border: none;
+  transform: translateX(-50%) scaleX(1);
 }
 
 .server-folder__slot--rail-dnd .server-folder__pill,

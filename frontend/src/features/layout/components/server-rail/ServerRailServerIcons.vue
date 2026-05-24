@@ -217,7 +217,9 @@ function horizontalRingIconCssUrl(server: Server): string {
       :key="server.id"
       class="server-folder__slot relative flex justify-center overflow-visible"
       :class="[
-        horizontal ? 'mr-2 w-auto shrink-0 last:mr-0' : 'mb-2 w-full',
+        horizontal
+          ? 'server-folder__slot--h mr-2 w-auto shrink-0 last:mr-0'
+          : 'mb-2 w-full',
         server.id === selectedServerId ? 'server-folder__slot--active' : '',
         unreadBadgeEnabled &&
         serverUnreadActivityDot?.[server.id] &&
@@ -418,7 +420,7 @@ function horizontalRingIconCssUrl(server: Server): string {
       v-if="horizontal && selectedOverflowServer"
       class="server-folder__slot server-folder__slot--overflow relative flex justify-center overflow-visible"
       :class="[
-        'mr-2 w-auto shrink-0',
+        'server-folder__slot--h mr-2 w-auto shrink-0',
         'server-folder__slot--active',
         railDragSourceIndex !== null ? 'server-folder__slot--rail-dnd' : '',
         railDragSourceIndex !== null &&
@@ -498,7 +500,7 @@ function horizontalRingIconCssUrl(server: Server): string {
       v-if="showExtraServersRailButton"
       class="server-folder__slot server-folder__slot--more flex justify-center"
       :class="[
-        horizontal ? 'w-auto shrink-0' : 'w-full',
+        horizontal ? 'server-folder__slot--h w-auto shrink-0' : 'w-full',
         railDragSourceIndex !== null ? 'server-folder__slot--rail-dnd' : '',
         railDragSourceIndex !== null &&
         railDropLineBefore ===

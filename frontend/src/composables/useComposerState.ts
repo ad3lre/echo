@@ -129,6 +129,22 @@ export function useComposerState(
     }
   }
 
+  /** Read the TipTap doc directly — Vue refs can lag one rAF behind editor input. */
+  function getLiveSerialized(nextEditor = editor.value): SerializedComposer {
+    if (!nextEditor) {
+      return {
+        content: content.value,
+        mentions: mentions.value,
+        selectionStart: selectionStart.value,
+        selectionEnd: selectionEnd.value,
+      };
+    }
+    return serializeComposerDoc(
+      nextEditor.state.doc,
+      nextEditor.state.selection,
+    );
+  }
+
   function syncFromEditor(nextEditor = editor.value) {
     if (!nextEditor) return;
     const serialized = serializeComposerDoc(
@@ -295,15 +311,16 @@ export function useComposerState(
   });
 
   function getSelectionStart(): number {
-    return selectionStart.value;
+    return getLiveSerialized().selectionStart;
   }
 
   function getSelectionEnd(): number {
-    return selectionEnd.value;
+    return getLiveSerialized().selectionEnd;
   }
 
   function setSelection(start: number, end = start) {
-    setSerializedState(content.value, mentions.value, start, end);
+    const live = getLiveSerialized();
+    setSerializedState(live.content, live.mentions, start, end);
   }
 
   function resizeTextarea() {
@@ -323,8 +340,9 @@ export function useComposerState(
   }
 
   function replaceRange(start: number, end: number, text: string) {
+    const live = getLiveSerialized();
     const { nextContent, nextMentions, nextSelectionStart } =
-      replaceRangeTransform(content.value, mentions.value, start, end, text);
+      replaceRangeTransform(live.content, live.mentions, start, end, text);
     setSerializedState(
       nextContent,
       nextMentions,
@@ -342,10 +360,11 @@ export function useComposerState(
     end: number,
     mention: ComposerMentionInsert,
   ) {
+    const live = getLiveSerialized();
     const { nextContent, nextMentions, nextSelectionStart } =
       insertMentionTransform(
-        content.value,
-        mentions.value,
+        live.content,
+        live.mentions,
         start,
         end,
         mention.kind,
@@ -367,10 +386,11 @@ export function useComposerState(
     end: number,
     channel: { id: string; name: string },
   ) {
+    const live = getLiveSerialized();
     const { nextContent, nextMentions, nextSelectionStart } =
       insertChannelMentionTransform(
-        content.value,
-        mentions.value,
+        live.content,
+        live.mentions,
         start,
         end,
         channelMentionRefLabel(channel.name),
@@ -385,11 +405,12 @@ export function useComposerState(
   }
 
   function wrapSelection(prefix: string, suffix = prefix) {
-    const start = getSelectionStart();
-    const end = getSelectionEnd();
+    const live = getLiveSerialized();
+    const start = live.selectionStart;
+    const end = live.selectionEnd;
     const res = wrapSelectionTransform(
-      content.value,
-      mentions.value,
+      live.content,
+      live.mentions,
       start,
       end,
       prefix,
@@ -454,6 +475,10 @@ export function useComposerState(
     return ed.getJSON() as Record<string, unknown>;
   }
 
+  function getContent(): string {
+    return getLiveSerialized().content;
+  }
+
   const overlayHtml = computed(() => '');
   const segments = computed(() => []);
 
@@ -470,6 +495,7 @@ export function useComposerState(
     overlayRef: ref<HTMLDivElement | null>(null),
     getSelectionStart,
     getSelectionEnd,
+    getContent,
     setSelection,
     resizeTextarea,
     syncOverlayScroll,

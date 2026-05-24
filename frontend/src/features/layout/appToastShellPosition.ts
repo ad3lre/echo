@@ -63,8 +63,11 @@ export type AppToastShellPositionInput = {
 };
 
 /**
- * Bottom-anchored toast with `max-height` derived from the same inset values so the shell
- * cannot extend past the viewport (the old `min(90dvh, …)` cap could exceed `bottom + height`).
+ * Build viewport bounds for the toast container.
+ *
+ * The toast viewport is pinned by both `top` and `bottom` so the browser, not custom
+ * geometry math, guarantees in-viewport placement. `max-height` mirrors the same bounds
+ * for older WebViews that are conservative with fixed insets + overflow containers.
  */
 export function buildAppToastShellPositionStyle(
   input: AppToastShellPositionInput,
@@ -77,6 +80,6 @@ export function buildAppToastShellPositionStyle(
     input.visualViewportOffsetTopPx > 0
       ? `max(0.75rem, env(safe-area-inset-top, 0px), ${input.visualViewportOffsetTopPx}px)`
       : `max(0.75rem, env(safe-area-inset-top, 0px))`;
-  const maxHeight = `max(0px, calc(100dvh - (${bottom}) - (${topReserve}) - 0.5rem))`;
-  return { bottom, maxHeight };
+  const maxHeight = `max(0px, calc(min(100dvh, 100vh) - (${bottom}) - (${topReserve})))`;
+  return { top: topReserve, bottom, maxHeight };
 }

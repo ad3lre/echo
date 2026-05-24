@@ -47,7 +47,7 @@ describe('computeVisualViewportToastInsets', () => {
 });
 
 describe('buildAppToastShellPositionStyle', () => {
-  it('derives max-height from the same bottom inset (no loose 90dvh cap)', () => {
+  it('pins toast viewport with top/bottom bounds', () => {
     const bottom =
       'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))';
     const topReserve = 'max(0.75rem, env(safe-area-inset-top, 0px))';
@@ -58,12 +58,13 @@ describe('buildAppToastShellPositionStyle', () => {
         visualViewportOffsetTopPx: 0,
       }),
     ).toEqual({
+      top: topReserve,
       bottom,
-      maxHeight: `max(0px, calc(100dvh - (${bottom}) - (${topReserve}) - 0.5rem))`,
+      maxHeight: `max(0px, calc(min(100dvh, 100vh) - (${bottom}) - (${topReserve})))`,
     });
   });
 
-  it('accounts for visual viewport lift on bottom and top', () => {
+  it('accounts for visual viewport lift on top and bottom', () => {
     const bottomInsetCss =
       'calc(108px + env(safe-area-inset-bottom, 0px) + 1.25rem)';
     const bottom = `calc(${bottomInsetCss} + 120px)`;
@@ -75,8 +76,9 @@ describe('buildAppToastShellPositionStyle', () => {
         visualViewportOffsetTopPx: 32,
       }),
     ).toEqual({
+      top: topReserve,
       bottom,
-      maxHeight: `max(0px, calc(100dvh - (${bottom}) - (${topReserve}) - 0.5rem))`,
+      maxHeight: `max(0px, calc(min(100dvh, 100vh) - (${bottom}) - (${topReserve})))`,
     });
   });
 });

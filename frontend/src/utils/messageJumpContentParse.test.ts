@@ -1,13 +1,60 @@
 import type { Embed } from '@shared/types';
 import { describe, expect, it } from 'vitest';
-import { splitContentByEchoJumpEmbeds } from './messageJumpContentParse';
+import {
+  isEchoMessageJumpEmbedUrl,
+  mergeEchoJumpEmbedsForMessage,
+  splitContentByEchoJumpEmbeds,
+} from './messageJumpContentParse';
+
+const BASE = 'https://chat-echo.com';
 
 function jumpEmbed(url: string): Embed {
   return {
     url,
     echoJump: { channelId: 'ch1', messageId: 'm1' },
+    description: 'from server',
   } as Embed;
 }
+
+describe('isEchoMessageJumpEmbedUrl', () => {
+  it('accepts message jump path on configured origin', () => {
+    expect(
+      isEchoMessageJumpEmbedUrl(`${BASE}/channels/ch-1/msg-2`, [BASE]),
+    ).toBe(true);
+  });
+
+  it('rejects @me routes', () => {
+    expect(
+      isEchoMessageJumpEmbedUrl(`${BASE}/channels/@me/friends`, [BASE]),
+    ).toBe(false);
+  });
+
+  it('rejects foreign origin', () => {
+    expect(
+      isEchoMessageJumpEmbedUrl('https://evil.test/channels/a/b', [BASE]),
+    ).toBe(false);
+  });
+});
+
+describe('mergeEchoJumpEmbedsForMessage', () => {
+  it('adds client stub when URL is in content but not stored', () => {
+    const url = `${BASE}/channels/ch1/m1`;
+    const merged = mergeEchoJumpEmbedsForMessage(`see ${url}`, undefined, []);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.echoJump).toEqual({
+      channelId: 'ch1',
+      messageId: 'm1',
+    });
+  });
+
+  it('does not duplicate server embed for same URL', () => {
+    const url = `${BASE}/channels/ch1/m1`;
+    const stored = [jumpEmbed(url)];
+    const merged = mergeEchoJumpEmbedsForMessage(url, undefined, stored);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.description).toBe('from server');
+  });
+});
 
 describe('splitContentByEchoJumpEmbeds', () => {
   it('returns single empty text segment for empty content', () => {
@@ -16,20 +63,32 @@ describe('splitContentByEchoJumpEmbeds', () => {
     ]);
   });
 
-  it('returns whole content as text when no jump embeds', () => {
+  it('returns whole content as text when no jump URLs', () => {
     expect(splitContentByEchoJumpEmbeds('hello', undefined)).toEqual([
       { type: 'text', text: 'hello' },
     ]);
   });
 
-  it('returns whole content when embeds lack echoJump', () => {
-    const embeds = [{ url: 'https://x.test/j', title: 't' }] as Embed[];
-    expect(
-      splitContentByEchoJumpEmbeds('see https://x.test/j', embeds),
-    ).toEqual([{ type: 'text', text: 'see https://x.test/j' }]);
+  it('splits client-detected jump URL without stored embeds', () => {
+    const url = `${BASE}/channels/ch1/m1`;
+    const parts = splitContentByEchoJumpEmbeds(
+      `before ${url} after`,
+      undefined,
+    );
+    expect(parts).toEqual([
+      { type: 'text', text: 'before ' },
+      {
+        type: 'jump',
+        url,
+        embed: expect.objectContaining({
+          echoJump: { channelId: 'ch1', messageId: 'm1' },
+        }),
+      },
+      { type: 'text', text: ' after' },
+    ]);
   });
 
-  it('splits on verbatim jump URL', () => {
+  it('splits on verbatim jump URL with server embed', () => {
     const url = 'https://echo.test/jump/1';
     const embeds = [jumpEmbed(url)];
     const parts = splitContentByEchoJumpEmbeds(`before ${url} after`, embeds);

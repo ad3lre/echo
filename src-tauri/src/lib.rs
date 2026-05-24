@@ -780,8 +780,15 @@ fn setup_app_shell(app: &tauri::App) {
   }
 }
 
+/// rustls 0.23+ aborts unless a process-wide crypto provider is installed before reqwest
+/// builds a TLS client (Tauri uses reqwest for the custom asset protocol on mobile).
+fn ensure_rustls_crypto_provider() {
+  let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  ensure_rustls_crypto_provider();
   log_argv_boot();
 
   let mut builder = tauri::Builder::default();

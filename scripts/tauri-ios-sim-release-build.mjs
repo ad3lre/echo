@@ -99,8 +99,7 @@ function bootedSimulatorUdid() {
 }
 
 function simDestinationForXcodebuild() {
-  const name =
-    process.env.ECHO_IOS_SIMULATOR?.trim() || 'iPhone SE (3rd generation)';
+  const name = process.env.ECHO_IOS_SIMULATOR?.trim() || 'iPhone 17';
   const ver = process.env.ECHO_IOS_SIMULATOR_OS?.trim();
   return ver
     ? `platform=iOS Simulator,name=${name},OS=${ver}`

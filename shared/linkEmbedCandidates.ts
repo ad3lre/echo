@@ -3,6 +3,7 @@
  * Used for link unfurl (server) and instant video embed previews (client).
  */
 
+import { parseEchoMessageJumpPath } from './echoMessageJumpPath';
 import type { Embed } from './types/message';
 import {
   tryParseYoutubeVideoId,
@@ -157,6 +158,36 @@ export function stubVideoEmbedsFromMessage(
   for (const u of collectLinkEmbedCandidateUrls(plain, contentJson, 12)) {
     if (out.length >= maxEmbeds) break;
     const stub = stubVideoEmbedFromUrl(u);
+    if (stub) out.push(stub);
+  }
+  return out;
+}
+
+/** Inline message-jump card before server unfurl (`message:embeds`) arrives. */
+export function stubEchoJumpEmbedFromUrl(originalUrl: string): Embed | null {
+  const parsed = parseEchoMessageJumpPath(originalUrl);
+  if (!parsed) return null;
+  return {
+    url: originalUrl,
+    provider: 'Echo',
+    title: '#channel',
+    color: 0x5865f2,
+    echoJump: {
+      channelId: parsed.channelId,
+      messageId: parsed.messageId,
+    },
+  };
+}
+
+export function stubEchoJumpEmbedsFromMessage(
+  plain: string,
+  contentJson: unknown | undefined,
+  maxEmbeds = 2,
+): Embed[] {
+  const out: Embed[] = [];
+  for (const u of collectLinkEmbedCandidateUrls(plain, contentJson, 12)) {
+    if (out.length >= maxEmbeds) break;
+    const stub = stubEchoJumpEmbedFromUrl(u);
     if (stub) out.push(stub);
   }
   return out;

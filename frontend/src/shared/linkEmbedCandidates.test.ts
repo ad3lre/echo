@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   collectLinkEmbedCandidateUrls,
   extractHttpUrlsFromContentJson,
+  stubEchoJumpEmbedsFromMessage,
   stubVideoEmbedsFromMessage,
 } from '@shared/linkEmbedCandidates';
 import {
@@ -55,6 +56,20 @@ describe('extractHttpUrlsFromContentJson', () => {
     expect(collectLinkEmbedCandidateUrls('clip', doc, 4)).toContain(
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
+  });
+});
+
+describe('stubEchoJumpEmbedsFromMessage', () => {
+  it('builds echoJump stub from Echo message URL', () => {
+    const embeds = stubEchoJumpEmbedsFromMessage(
+      'https://chat-echo.com/channels/ch-1/msg-2',
+      undefined,
+    );
+    expect(embeds).toHaveLength(1);
+    expect(embeds[0]?.echoJump).toEqual({
+      channelId: 'ch-1',
+      messageId: 'msg-2',
+    });
   });
 });
 
