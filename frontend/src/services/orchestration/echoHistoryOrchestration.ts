@@ -109,6 +109,8 @@ export function createEchoHistoryController(
   let prependLoadToken = 0;
   /** Jump-to-message prefetch (`prefetchUntilMessageVisible`) only. */
   let jumpPrefetchToken = 0;
+  const replyTargetBackfillLastAttemptMs = new Map<string, number>();
+  const REPLY_TARGET_BACKFILL_DEDUP_MS = 30_000;
   /** Background tail sync (reconnect / tab resume / cache hit). */
   let tailSyncToken = 0;
   const tailSyncLastAttemptMsByChannel = new Map<string, number>();
@@ -503,7 +505,9 @@ export function createEchoHistoryController(
         expectation: 'cached bucket seeds active window immediately',
       });
       scheduleAttentionRefresh('history_cache_hit', cid);
-      void syncActiveChannelTailFromApi('history_cache_hit');
+      void syncActiveChannelTailFromApi('history_cache_hit').finally(() => {
+        scheduleMissingReplyTargetBackfill(cid, 'history_cache_hit');
+      });
       return;
     }
     invalidatePrependAndJumpForNewInitialFetch();
@@ -624,6 +628,7 @@ export function createEchoHistoryController(
           'cold load should populate active window and let the history skeleton disappear',
       });
       scheduleAttentionRefresh('history_loaded', cid);
+      scheduleMissingReplyTargetBackfill(cid, 'history_loaded');
     } catch (e) {
       if (seq !== initialLoadToken) return;
       const durationMs = Math.max(
@@ -820,6 +825,7 @@ export function createEchoHistoryController(
         expectation:
           'mergedOlderCount > 0 so MessageList loadOlder can return true and run prepend restore',
       });
+      scheduleMissingReplyTargetBackfill(cid, 'load_older');
       return mergedOlderCount > 0;
     } catch (e) {
       if (seq !== prependLoadToken) return false;
@@ -1026,6 +1032,7 @@ export function createEchoHistoryController(
         refreshedExisting += 1;
       }
       const missing = raw.filter((m) => m.id && !index.byId.has(m.id));
+      scheduleMissingReplyTargetBackfill(cid, reason);
       if (missing.length === 0 && refreshedExisting === 0) return;
 
       const { mergedNewerCount } = applyEchoHistoryLatestPageFromApi(
@@ -1077,6 +1084,44 @@ export function createEchoHistoryController(
       if (activeChannelId.value !== cid) return;
       void syncActiveChannelTailFromApi(reason);
     }, TAIL_SYNC_AFTER_CONNECT_DELAY_MS);
+  }
+
+  /**
+   * After history load / tail sync, quoted originals may still be outside the local bucket
+   * (refresh + cache-only window). Realtime only backfills on inbound `message`; this covers
+   * messages already present in the loaded page.
+   */
+  function scheduleMissingReplyTargetBackfill(
+    channelId: string,
+    reason: string,
+  ): void {
+    const cid = channelId.trim();
+    if (!cid || cid !== activeChannelId.value) return;
+    const list = messageReadFacade.getChannelMessages(cid);
+    if (!list?.length) return;
+    const pending: string[] = [];
+    for (const msg of list) {
+      const rid = msg.replyTo?.messageId?.trim();
+      if (!rid || hasChannelMessageInBucket(cid, rid)) continue;
+      const key = `${cid}\u001f${rid}`;
+      const now = Date.now();
+      const last = replyTargetBackfillLastAttemptMs.get(key) ?? 0;
+      if (now - last < REPLY_TARGET_BACKFILL_DEDUP_MS) continue;
+      replyTargetBackfillLastAttemptMs.set(key, now);
+      pending.push(rid);
+    }
+    if (pending.length === 0) return;
+    logMessageList('history', 'missing_reply_target_backfill', {
+      channelId: cid,
+      reason,
+      targetCount: pending.length,
+      outcomeOk: true,
+      expectation:
+        'prefetch quoted originals missing from bucket so reply rows and targets render after refresh',
+    });
+    for (const rid of pending) {
+      void prefetchUntilMessageVisible(cid, rid);
+    }
   }
 
   async function prefetchUntilMessageVisible(
@@ -1249,7 +1294,7 @@ export function createEchoHistoryController(
     (cid) => {
       messageWindowAuthority.setActiveChannel(cid);
     },
-    { immediate: true },
+    { immediate: true, flush: 'sync' },
   );
 
   return {

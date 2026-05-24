@@ -274,9 +274,10 @@
 
 .message-video-shell {
   position: relative;
-  width: min(100%, 40rem);
+  width: fit-content;
+  max-width: min(100%, 28rem);
   border-radius: 16px;
-  padding: 0.5rem;
+  padding: 0.35rem;
   background: var(--msg-video-shell-bg);
   border: 1px solid var(--border);
   backdrop-filter: blur(20px) saturate(1.15);

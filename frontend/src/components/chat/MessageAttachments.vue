@@ -112,6 +112,7 @@ function mediaAspectStyle(
             :storage-key="att.storageKey"
             :filename="att.filename"
             :spoiler="att.spoiler"
+            :media-style="mediaAspectStyle(att)"
           />
         </div>
         <MessageAudioAttachment
@@ -251,15 +252,19 @@ function mediaAspectStyle(
   // Ensure styles from messageBubble.scss that target these elements work
   :deep(.message-video-shell) {
     position: relative;
-    max-width: 100%;
+    max-width: min(100%, 28rem);
     width: fit-content;
     border-radius: 0.5rem;
     overflow: hidden;
     background: var(--msg-video-inner-bg);
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
   }
   :deep(.message-video) {
-    max-width: 100%;
-    max-height: 80vh;
+    max-width: min(100%, 28rem);
+    max-height: min(80vh, 24rem);
     display: block;
   }
   :deep(.message-image-shell) {

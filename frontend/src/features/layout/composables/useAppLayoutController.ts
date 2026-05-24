@@ -107,6 +107,10 @@ import { createStableGoToMessageDelegate } from '@/features/layout/actions/appAc
 import { createSelectServerFromStore } from '@/features/layout/createSelectServerFromStore';
 import { createChatMessageNavBridge } from '@/features/navigation/createChatMessageNavBridge';
 import { isDmThreadId } from '@/features/layout/mainSurface';
+import {
+  isAppNavPath,
+  parseAppPathname,
+} from '@/features/layout/urlNavigation';
 
 import { getChannelDisplayName, icons } from '@/assets/icons';
 import { useChannelIconResolver } from '@/composables/useChannelIconResolver';
@@ -1460,7 +1464,18 @@ export function useAppLayoutController() {
     // DM surfaces can briefly precede thread hydration (especially on mobile).
     // Never rewrite active DM targets to a guild fallback during that window.
     if (isDmUiContext.value || isInDMModeComputed.value) return true;
-    return isKnownDmChannelId(channelId);
+    if (isKnownDmChannelId(channelId)) return true;
+    /** Preserve guild deep-link targets until the channel tree confirms the id (hydrate race). */
+    if (typeof window !== 'undefined') {
+      const base = import.meta.env.BASE_URL;
+      if (isAppNavPath(window.location.pathname, base)) {
+        const parsed = parseAppPathname(window.location.pathname, base);
+        if (parsed.kind === 'guild' && parsed.channelId === channelId) {
+          return true;
+        }
+      }
+    }
+    return false;
   });
 
   const handleEchoDmActivity = createEchoDmActivityHandler({

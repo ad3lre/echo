@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { MessageWithAuthor } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
-import { buildMessageListRowPresentations } from './messageListRowPresentation';
+import {
+  buildMessageListRowPresentationAtIndex,
+  buildMessageListRowPresentations,
+} from './messageListRowPresentation';
 
 function row(
   partial: Partial<MessageWithAuthor> &
@@ -151,5 +154,26 @@ describe('buildMessageListRowPresentations', () => {
     expect(rows[0]?.readState).toBe('read');
     expect(rows[1]?.readState).toBe('unread');
     expect(rows[2]?.readState).toBe('unread');
+  });
+
+  it('builds a row from the entity when the author map has not caught up yet', () => {
+    const msg = row({
+      id: '1492135200000000009',
+      authorId: 'a',
+      content: 'hello',
+      timestamp: '2026-04-10T12:00:00.000Z',
+    });
+    const entitiesById = new Map<string, RawMessage>([[msg.id!, toRaw(msg)]]);
+    const presentation = buildMessageListRowPresentationAtIndex(
+      [msg.id!],
+      new Map(),
+      entitiesById,
+      false,
+      null,
+      null,
+      0,
+    );
+    expect(presentation.message.id).toBe(msg.id);
+    expect(presentation.message.content).toBe('hello');
   });
 });

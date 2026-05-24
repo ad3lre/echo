@@ -97,7 +97,7 @@ describe('useChatMessages', () => {
     });
   });
 
-  it('uses workspace user status over presence overlay when row is non-empty and non-offline', () => {
+  it('prefers live presence overlay over stale non-offline workspace row', () => {
     const messages = ref<Record<string, RawMessage[]>>({
       c1: [{ id: 'm1', authorId: 'u1', timestamp: 't', content: 'hi' }],
     });
@@ -113,7 +113,7 @@ describe('useChatMessages', () => {
       ]),
       presenceByUserId,
     );
-    expect(activeChannelMessages.value[0]!.author.status).toBe('online');
+    expect(activeChannelMessages.value[0]!.author.status).toBe('offline');
   });
 
   it('prefers presence overlay when the workspace row is placeholder offline', () => {

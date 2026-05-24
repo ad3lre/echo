@@ -168,9 +168,8 @@ export function resolveMessageAuthorPresenceStatus(input: {
   rowStatus?: string | null | undefined;
   overlayStatus?: string | null | undefined;
 }): EchoPresenceStatus | undefined {
-  const row = normalizeCanonicalPresenceStatus(input.rowStatus);
-  const overlay = normalizeCanonicalPresenceStatus(input.overlayStatus);
-  if (row && row !== 'offline') return row;
-  if (row === 'offline' && overlay && overlay !== 'offline') return overlay;
-  return row ?? overlay;
+  return selectPresence({
+    authoritativeStatus: input.overlayStatus,
+    rowStatus: input.rowStatus,
+  }).status;
 }

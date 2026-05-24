@@ -89,4 +89,21 @@ describe('useGuildChannelTree watchActiveChannelWithServerChange', () => {
     await nextTick();
     expect(activeChannelId.value).toBe('');
   });
+
+  it('does not rewrite when active channel exists in raw tree but is filtered from sidebar', async () => {
+    const { tree } = buildHarness([
+      {
+        id: 'cat-1',
+        name: 'Hidden',
+        channels: [
+          { id: 'ch-hidden', type: 'text', canViewChannel: false },
+          { id: 'ch-visible', type: 'text' },
+        ],
+      },
+    ]);
+    const activeChannelId = ref('ch-hidden');
+    tree.watchActiveChannelWithServerChange(activeChannelId);
+    await nextTick();
+    expect(activeChannelId.value).toBe('ch-hidden');
+  });
 });

@@ -4,7 +4,10 @@ import {
   extractHttpUrlsFromContentJson,
   stubVideoEmbedsFromMessage,
 } from '@shared/linkEmbedCandidates';
-import { tryParseYoutubeVideoId } from '@shared/videoEmbedIds';
+import {
+  tryParseYoutubeVideoId,
+  videoEmbedPosterUrl,
+} from '@shared/videoEmbedIds';
 
 describe('tryParseYoutubeVideoId', () => {
   it('parses watch, shorts, live, nocookie embed, and youtu.be', () => {
@@ -63,5 +66,6 @@ describe('stubVideoEmbedsFromMessage', () => {
     );
     expect(embeds).toHaveLength(1);
     expect(embeds[0]?.video?.kind).toBe('youtube');
+    expect(videoEmbedPosterUrl(embeds[0]!)).toContain('i.ytimg.com');
   });
 });

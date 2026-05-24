@@ -97,6 +97,32 @@ export function playableIframeSrc(ref: PlayableVideoRef): string {
   }
 }
 
+/**
+ * Best-effort poster for in-chat video embeds (YouTube thumb, unfurl image, oEmbed thumbnail).
+ */
+export function videoEmbedPosterUrl(embed: {
+  url?: string;
+  image?: { url?: string };
+  thumbnail?: { url?: string };
+  video?: { kind?: PlayableVideoKind; embedUrl?: string };
+}): string | null {
+  const image = embed.image?.url?.trim();
+  if (image) return image;
+  const thumb = embed.thumbnail?.url?.trim();
+  if (thumb) return thumb;
+  const page = embed.url?.trim();
+  if (page) {
+    const yt = tryParseYoutubeVideoId(page);
+    if (yt) return `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`;
+  }
+  const ref = resolvePlayableVideoEmbed(embed);
+  if (ref?.kind === 'youtube') {
+    const m = ref.embedUrl.match(/\/embed\/([\w-]{10,12})/);
+    if (m?.[1]) return `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
+  }
+  return null;
+}
+
 export function resolvePlayableVideoEmbed(embed: {
   url?: string;
   video?: { kind?: PlayableVideoKind; embedUrl?: string };

@@ -9,6 +9,13 @@ import {
 } from 'vue';
 import { mediaBufferedPercent } from './mediaPlayerFormat';
 import {
+  elementSupportsFullscreen,
+  exitDocumentFullscreen,
+  getFullscreenElement,
+  isElementFullscreen,
+  requestElementFullscreen,
+} from '@/utils/domFullscreen';
+import {
   normalizePlaybackRate,
   readStoredPlaybackRate,
   writeStoredPlaybackRate,
@@ -52,10 +59,8 @@ export function useMediaElementPlayback(
   const playbackRate = ref(readStoredPlaybackRate());
   const isFullscreen = ref(false);
 
-  const canFullscreen = computed(
-    () =>
-      typeof document !== 'undefined' &&
-      typeof document.documentElement?.requestFullscreen === 'function',
+  const canFullscreen = computed(() =>
+    elementSupportsFullscreen(fullscreenEl() ?? undefined),
   );
 
   function syncFromElement(): void {
@@ -195,11 +200,13 @@ export function useMediaElementPlayback(
 
   onMounted(() => {
     document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
     onFullscreenChange();
   });
 
   onUnmounted(() => {
     document.removeEventListener('fullscreenchange', onFullscreenChange);
+    document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
     const el = mediaRef.value;
     if (el) unbind(el);
   });

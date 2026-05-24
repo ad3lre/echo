@@ -3,6 +3,7 @@ import {
   buildMessageListRowFactsAtIndex,
   type MessageWithAuthorRow,
 } from '@/features/chat/presentation/messageListRowFacts';
+import { buildMessageWithAuthor } from '@/features/chat/viewModel/messageWithAuthor';
 import {
   isEchoMessageRead,
   resolveEchoMessageReadStateForMessageList,
@@ -61,10 +62,9 @@ export function buildMessageListRowPresentationAtIndex(
     index,
   );
   const id = orderedIds[index];
-  const message = id ? messagesMap.get(id) : undefined;
-  if (!message) {
+  if (!id) {
     throw new Error(
-      `buildMessageListRowPresentationAtIndex: missing message for id at index ${index}`,
+      `buildMessageListRowPresentationAtIndex: missing id at index ${index}`,
     );
   }
   const entity = entitiesById.get(id);
@@ -72,6 +72,15 @@ export function buildMessageListRowPresentationAtIndex(
     throw new Error(
       `buildMessageListRowPresentationAtIndex: missing entity for id at index ${index}`,
     );
+  }
+  let message = messagesMap.get(id);
+  if (!message) {
+    // Authority can expose entities before the author map catches up on channel switch / refresh.
+    message = buildMessageWithAuthor(
+      entity,
+      new Map(),
+      {},
+    ) as MessageWithAuthorRow;
   }
   const n = orderedIds.length;
   const lr = lastReadMessageId?.trim() ?? '';

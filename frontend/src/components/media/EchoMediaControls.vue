@@ -21,6 +21,9 @@ const props = withDefaults(
     showFullscreen?: boolean;
     isFullscreen?: boolean;
     canFullscreen?: boolean;
+    showDownload?: boolean;
+    downloadHref?: string;
+    downloadName?: string;
     compact?: boolean;
     showSeek?: boolean;
   }>(),
@@ -30,6 +33,9 @@ const props = withDefaults(
     showFullscreen: false,
     isFullscreen: false,
     canFullscreen: false,
+    showDownload: false,
+    downloadHref: '',
+    downloadName: 'video',
     compact: false,
     showSeek: true,
   },
@@ -199,6 +205,31 @@ function onVolumeInput(ev: Event): void {
         </div>
       </div>
 
+      <a
+        v-if="showDownload && downloadHref"
+        :href="downloadHref"
+        :download="downloadName || undefined"
+        class="echo-media-controls__btn echo-media-controls__btn--download chat-focus-ring"
+        aria-label="Download original video"
+        rel="noopener noreferrer"
+        @click.stop
+      >
+        <svg
+          class="echo-media-controls__icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 3v12" />
+          <path d="m7 10 5 5 5-5" />
+          <path d="M5 21h14" />
+        </svg>
+      </a>
+
       <button
         v-if="showFullscreen && canFullscreen"
         type="button"
@@ -280,10 +311,15 @@ function onVolumeInput(ev: Event): void {
   color: inherit;
   cursor: pointer;
   transition: background-color 0.15s;
+  text-decoration: none;
 
   &:hover {
     background: var(--vc-ctrl-bg-hover, rgb(255 255 255 / 0.14));
   }
+}
+
+.echo-media-controls__btn--download {
+  color: inherit;
 }
 
 .echo-media-controls__icon {

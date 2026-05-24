@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { StyleValue } from 'vue';
 import EchoVideoPlayer from '@/components/media/EchoVideoPlayer.vue';
 
 defineProps<{
@@ -6,6 +7,7 @@ defineProps<{
   storageKey?: string;
   filename?: string;
   spoiler?: boolean;
+  mediaStyle?: StyleValue;
 }>();
 </script>
 
@@ -15,5 +17,6 @@ defineProps<{
     :storage-key="storageKey"
     :filename="filename"
     :spoiler="spoiler"
+    :media-style="mediaStyle"
   />
 </template>

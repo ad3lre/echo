@@ -429,6 +429,57 @@ export function useUrlNavigationSync(opts: UseUrlNavigationSyncOptions) {
     { flush: 'post' },
   );
 
+  function browserGuildChannelFromLocation(): {
+    serverId: string;
+    channelId: string;
+  } | null {
+    if (typeof window === 'undefined') return null;
+    if (!isAppNavPath(window.location.pathname, opts.base)) return null;
+    const parsed = parseAppPathname(window.location.pathname, opts.base);
+    if (parsed.kind !== 'guild') return null;
+    const channelId = parsed.channelId?.trim() ?? '';
+    if (!channelId) return null;
+    return { serverId: parsed.serverId, channelId };
+  }
+
+  /**
+   * `watchActiveChannelWithServerChange` can run before the channel tree is present and rewrite
+   * the active id to the first text channel. Re-apply the browser URL once the tree loads when
+   * the shell drifted away from the persisted guild path.
+   */
+  watch(
+    [
+      opts.workspaceReady,
+      () => opts.workspace.categoriesByServer.value,
+      opts.activeChannelId,
+      () => opts.serverStore.selectedServerId,
+    ],
+    () => {
+      if (!opts.workspaceReady.value || !initialNavigationApplied.value) return;
+      if (applyingFromUrl.value) return;
+      const urlGuild = browserGuildChannelFromLocation();
+      if (!urlGuild) return;
+      if (opts.activeChannelId.value === urlGuild.channelId) return;
+      if (opts.serverStore.selectedServerId !== urlGuild.serverId) return;
+      const cats = opts.workspace.categoriesByServer.value[urlGuild.serverId];
+      if (!cats?.length) return;
+      const inRawTree = cats.some((c) =>
+        c.channels?.some((ch) => ch.id === urlGuild.channelId),
+      );
+      if (!inRawTree && !isEchoGraphId(urlGuild.channelId)) return;
+      logShellNav(
+        'useUrlNavigationSync',
+        'reapply_guild_path_after_tree_load',
+        {
+          urlChannelId: urlGuild.channelId,
+          activeChannelId: opts.activeChannelId.value,
+        },
+      );
+      applyFromBrowserLocation();
+    },
+    { flush: 'post', deep: true },
+  );
+
   /**
    * After logout, `activeRailTab` may be moved to explore in workspace lifecycle, but the browser
    * can still be on `/channels/...`. The URL→nav watcher only runs on load/popstate, so the shell

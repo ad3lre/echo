@@ -12,14 +12,14 @@ import {
 } from './messageWithAuthor';
 
 describe('resolveAuthorStatus', () => {
-  it('keeps non-offline workspace row over a conflicting presence overlay', () => {
+  it('prefers live presence overlay over stale non-offline workspace row', () => {
     const user: UserForAuthor = {
       id: 'u1',
       name: 'Ada',
       pfp: '',
       status: 'online',
     };
-    expect(resolveAuthorStatus(user, 'u1', { u1: 'offline' })).toBe('online');
+    expect(resolveAuthorStatus(user, 'u1', { u1: 'offline' })).toBe('offline');
   });
 
   it('prefers overlay when row is offline', () => {

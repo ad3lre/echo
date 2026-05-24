@@ -124,7 +124,8 @@ export function useGuildChannelTree(deps: {
           channels: { id: string; type: string }[];
         }[];
         const firstId = getFirstTextChannelId(list);
-        const inTree = list.some((c) =>
+        /** Match URL resolution / deep links: existence in the raw server tree, not the filtered sidebar. */
+        const inTree = rawCategoriesForServer.value.some((c) =>
           c.channels.some((ch) => ch.id === activeChannelId.value),
         );
         if (!inTree && firstId) {

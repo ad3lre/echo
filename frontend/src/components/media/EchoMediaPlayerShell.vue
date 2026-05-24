@@ -119,9 +119,48 @@ const emit = defineEmits<{
 
 .echo-media-shell--video .echo-media-shell__media :deep(video) {
   display: block;
-  width: 100%;
+  width: auto;
   max-width: 100%;
+  height: auto;
+  max-height: min(80vh, 24rem);
   vertical-align: top;
+}
+
+.echo-media-shell--video:fullscreen,
+.echo-media-shell--video:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  border-radius: 0;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+}
+
+.echo-media-shell--video:fullscreen .echo-media-shell__media,
+.echo-media-shell--video:-webkit-full-screen .echo-media-shell__media {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  width: 100%;
+}
+
+.echo-media-shell--video:fullscreen .echo-media-shell__media :deep(video),
+.echo-media-shell--video:-webkit-full-screen
+  .echo-media-shell__media
+  :deep(video) {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.echo-media-shell--video:fullscreen .echo-media-shell__controls,
+.echo-media-shell--video:-webkit-full-screen .echo-media-shell__controls {
+  flex-shrink: 0;
 }
 
 .echo-media-shell--audio .echo-media-shell__media :deep(audio) {

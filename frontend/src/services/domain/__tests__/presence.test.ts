@@ -47,7 +47,7 @@ describe('selectPresence', () => {
 });
 
 describe('selectSelfPresence', () => {
-  it('prefers live self presence over stale session status', () => {
+  it('prefers live presence overlay over stale session status', () => {
     expect(
       selectSelfPresence({
         userId: 'u1',
@@ -56,5 +56,17 @@ describe('selectSelfPresence', () => {
         rowStatus: 'offline',
       }).status,
     ).toBe('idle');
+  });
+});
+
+describe('resolveMessageAuthorPresenceStatus', () => {
+  it('prefers live overlay over stale workspace row', async () => {
+    const { resolveMessageAuthorPresenceStatus } = await import('../presence');
+    expect(
+      resolveMessageAuthorPresenceStatus({
+        rowStatus: 'online',
+        overlayStatus: 'offline',
+      }),
+    ).toBe('offline');
   });
 });
