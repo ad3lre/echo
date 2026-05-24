@@ -183,7 +183,7 @@ export function useDmSocialActions(params: {
       friendIds.value = [...friendIds.value, req.fromUserId];
     }
     friendRequestsIncoming.value = friendRequestsIncoming.value.filter(
-      (r) => r.id !== requestId,
+      (r) => r.id !== req.id,
     );
   }
 
@@ -215,7 +215,7 @@ export function useDmSocialActions(params: {
       return;
     }
     friendRequestsIncoming.value = friendRequestsIncoming.value.filter(
-      (r) => r.id !== requestId,
+      (r) => r.id !== req.id,
     );
   }
 

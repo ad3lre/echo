@@ -15,9 +15,9 @@ import {
 
 export type StageVcLobbyDismissMode =
   | 'voice_only'
-  | 'youtube'
+  | 'youtube_live'
   | 'planned_event'
-  | 'activity_picker';
+  | 'schedule_event';
 
 export type UseStageVcLobbyOpts = {
   isStageChannel: ComputedRef<boolean>;
@@ -108,8 +108,8 @@ export function useStageVcLobby(opts: UseStageVcLobbyOpts) {
       activeStageEvent.value = event;
     } else if (
       mode === 'voice_only' ||
-      mode === 'youtube' ||
-      mode === 'activity_picker'
+      mode === 'youtube_live' ||
+      mode === 'schedule_event'
     ) {
       activeStageEvent.value = null;
     }

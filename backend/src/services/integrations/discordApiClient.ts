@@ -213,6 +213,34 @@ export async function fetchDiscordGuildCount(
   }
 }
 
+/** Paginated GET /users/@me/guilds for the bot — guild IDs the bot user is in. */
+export async function fetchDiscordBotGuildIdsAll(
+  botToken: string,
+  fetchImpl: FetchLike = fetch,
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  const token = botToken.trim();
+  if (!token) return out;
+  let after: string | undefined;
+  for (;;) {
+    const u = new URL(`${DISCORD_API}/users/@me/guilds`);
+    u.searchParams.set('limit', '200');
+    if (after) u.searchParams.set('after', after);
+    const res = await fetchImpl(u.toString(), {
+      headers: { Authorization: `Bot ${token}` },
+    });
+    if (!res.ok) break;
+    const batch = (await res.json()) as { id?: string }[];
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    for (const g of batch) {
+      if (typeof g.id === 'string' && g.id.trim()) out.add(g.id.trim());
+    }
+    after = batch[batch.length - 1]!.id;
+    if (batch.length < 200) break;
+  }
+  return out;
+}
+
 /** Paginated GET /users/@me/guilds (requires `guilds` OAuth scope). */
 export async function fetchDiscordUserGuildsAll(
   accessToken: string,

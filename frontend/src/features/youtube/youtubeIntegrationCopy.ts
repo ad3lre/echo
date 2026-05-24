@@ -53,12 +53,28 @@ export const youtubeStreamKeyNeverShownAgain =
 export const youtubeStreamKeySwitchToNativeHint =
   'You can switch anytime to a full YouTube channel connection above for automatic broadcasts and watch links in Echo.';
 
+export const youtubeStageLiveStreamingUnavailableHint =
+  'Live streaming to YouTube isn’t configured on this Echo server yet (LiveKit egress). Go live from a stage won’t work until an admin enables the egress service and sets LIVEKIT_EGRESS_ENABLED=true.';
+
 export const youtubeStreamKeySavedLabel = 'Stream key saved';
 export const youtubeStreamKeyRevokeCta = 'Revoke stream key';
 export const youtubeStreamKeySaveCta = 'Save stream key';
 
 export const youtubeStageStreamKeyLiveHint =
   'Echo is sending video to your saved stream key. Start or end the broadcast in YouTube Studio — watch links are not created by Echo in this mode.';
+
+export const youtubeGoLiveModalTitle = 'Go live on YouTube';
+export const youtubeGoLiveModalSubtitle =
+  'Echo sends your stage program feed to YouTube over RTMP. Set how the broadcast appears before you start.';
+
+export const youtubeGoLiveThumbnailHint =
+  'Echo does not upload custom thumbnails yet. Your linked channel avatar is shown as a preview — change the thumbnail in YouTube Studio after you go live.';
+
+export const youtubeGoLiveStreamKeyModalHint =
+  'Privacy and watch links are managed in YouTube Studio when using a saved stream key.';
+
+export const youtubeGoLiveDescriptionPlaceholder =
+  'Tell viewers what this stream is about (optional)';
 
 export const STAGE_YOUTUBE_ERROR_MESSAGES: Record<string, string> = {
   GOOGLE_NOT_LINKED:

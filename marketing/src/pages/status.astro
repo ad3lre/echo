@@ -3,9 +3,12 @@ import MarketingShell from '../layouts/MarketingShell.astro';
 import { pageStructuredData } from '../lib/seo';
 import { CHAT_APP_ORIGIN } from '../site';
 
+const healthUrl = `${CHAT_APP_ORIGIN.replace(/\/$/, '')}/api/v1/health`;
+const shortHealthUrl = healthUrl.replace(/^https?:\/\//, '');
+
 const title = 'Status | Echo';
 const description =
-  'Fleet-wide availability for chat-echo.com—the Echo web app, API, database, and real-time layer, with 90-day uptime history.';
+  'Live availability for chat-echo.com from the same health probe Echo’s Discord uptime monitor uses.';
 
 const structuredData = pageStructuredData({
   title,
@@ -32,8 +35,8 @@ const structuredData = pageStructuredData({
             <span class="hero-eyebrow">Systems</span>
             <h1>Echo status</h1>
             <p class="hero-lead">
-              Fleet-wide health for chat-echo.com—updated from Echo’s own monitoring, with 90-day uptime
-              bars per component like Discord’s status page.
+              Live health for chat-echo.com—the same GET probe Echo’s Discord bot uses for{' '}
+              <code class="status-code">e!cho uptime</code>, not a separate fleet dashboard.
             </p>
             <div class="status-hero-actions">
               <a class="btn-primary" href={CHAT_APP_ORIGIN}>Open chat-echo.com</a>
@@ -64,25 +67,25 @@ const structuredData = pageStructuredData({
               </div>
               <div class="status-summary-text">
                 <p class="status-headline" id="status-headline" role="status" aria-live="polite">
-                  Loading fleet status…
+                  Checking chat-echo.com…
                 </p>
                 <p class="status-subline" id="status-subline">
-                  Fetching the latest snapshot from Echo monitoring.
+                  Probing {shortHealthUrl}.
                 </p>
               </div>
             </div>
             <dl class="status-metrics">
               <div>
-                <dt>Median latency</dt>
+                <dt>Latency</dt>
                 <dd id="status-latency">—</dd>
               </div>
               <div>
-                <dt>Fleet probe interval</dt>
-                <dd id="status-probe-interval">—</dd>
+                <dt>Uptime (rolling 12)</dt>
+                <dd id="status-rolling-uptime">—</dd>
               </div>
               <div>
-                <dt>History window</dt>
-                <dd id="status-history-label">90 days</dd>
+                <dt>Uptime (this visit)</dt>
+                <dd id="status-recorded-uptime">—</dd>
               </div>
             </dl>
           </div>
@@ -92,13 +95,13 @@ const structuredData = pageStructuredData({
 
     <section class="status-section">
       <div class="container">
-        <div class="status-panel">
+        <div class="status-panel status-panel--chart">
           <header class="status-panel-head">
             <div>
-              <h2>Services</h2>
+              <h2>Health probe</h2>
               <p class="status-panel-lede">
-                Monitored from Echo infrastructure every few minutes. Green bars are healthy days; yellow is
-                degraded; red is an outage.
+                Each check is a GET to <code class="status-code">{shortHealthUrl}</code> with a 15s
+                timeout—the same logic as the Discord uptime embed.
               </p>
             </div>
             <button type="button" class="btn-status-refresh" id="status-refresh" aria-label="Run check now">
@@ -110,151 +113,39 @@ const structuredData = pageStructuredData({
             </button>
           </header>
 
-          <ul class="status-service-list">
-            <li class="status-service-block" id="status-row-web" data-state="pending">
-              <div class="status-service-row">
-                <div class="status-service-icon" aria-hidden="true">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M3 12h18M12 3a14 14 0 009 9 14 14 0 00-9 9 14 14 0 00-9-9 14 14 0 009-9z" stroke-linecap="round" />
-                  </svg>
-                </div>
-                <div class="status-service-main">
-                  <div class="status-service-title">
-                    <span class="status-service-name">Echo web app</span>
-                    <span class="status-pill" id="status-pill-web" data-state="pending">Checking</span>
-                  </div>
-                  <p class="status-service-desc" id="status-desc-web">
-                    Primary SPA and static assets—chat, voice, and community UI.
-                  </p>
-                </div>
-                <div class="status-service-meta">
-                  <span class="status-service-latency-label">Latency</span>
-                  <span class="status-service-latency" id="status-latency-web">…</span>
-                  <a class="status-service-link" href={CHAT_APP_ORIGIN} target="_blank" rel="noopener noreferrer">
-                    chat-echo.com
-                  </a>
-                </div>
-              </div>
-              <div class="status-service-chart">
-                <div class="status-spark status-spark--inline" id="status-spark-web" aria-label="Web app uptime history"></div>
-                <p class="status-service-uptime" id="status-uptime-web"></p>
-              </div>
-            </li>
-
-            <li class="status-service-block" id="status-row-api" data-state="pending">
-              <div class="status-service-row">
-                <div class="status-service-icon" aria-hidden="true">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 7h16M4 12h10M4 17h16" stroke-linecap="round" />
-                  </svg>
-                </div>
-                <div class="status-service-main">
-                  <div class="status-service-title">
-                    <span class="status-service-name">Echo API</span>
-                    <span class="status-pill" id="status-pill-api" data-state="pending">Checking</span>
-                  </div>
-                  <p class="status-service-desc" id="status-desc-api">
-                    REST API for messages, auth, uploads, and server configuration.
-                  </p>
-                </div>
-                <div class="status-service-meta">
-                  <span class="status-service-latency-label">Latency</span>
-                  <span class="status-service-latency" id="status-latency-api">…</span>
-                  <a class="status-service-link" href={`${CHAT_APP_ORIGIN}/api/v1/health`} target="_blank" rel="noopener noreferrer">
-                    /api/v1/health
-                  </a>
-                </div>
-              </div>
-              <div class="status-service-chart">
-                <div class="status-spark status-spark--inline" id="status-spark-api" aria-label="API uptime history"></div>
-                <p class="status-service-uptime" id="status-uptime-api"></p>
-              </div>
-            </li>
-
-            <li class="status-service-block" id="status-row-database" data-state="pending">
-              <div class="status-service-row">
-                <div class="status-service-icon" aria-hidden="true">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <ellipse cx="12" cy="6" rx="8" ry="3" />
-                    <path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" stroke-linecap="round" />
-                  </svg>
-                </div>
-                <div class="status-service-main">
-                  <div class="status-service-title">
-                    <span class="status-service-name">Database</span>
-                    <span class="status-pill" id="status-pill-database" data-state="pending">Checking</span>
-                  </div>
-                  <p class="status-service-desc" id="status-desc-database">
-                    PostgreSQL backing Echo persistence.
-                  </p>
-                </div>
-                <div class="status-service-meta">
-                  <span class="status-service-latency-label">Latency</span>
-                  <span class="status-service-latency" id="status-latency-database">…</span>
-                </div>
-              </div>
-              <div class="status-service-chart">
-                <div class="status-spark status-spark--inline" id="status-spark-database" aria-label="Database uptime history"></div>
-                <p class="status-service-uptime" id="status-uptime-database"></p>
-              </div>
-            </li>
-
-            <li class="status-service-block" id="status-row-realtime" data-state="pending">
-              <div class="status-service-row">
-                <div class="status-service-icon" aria-hidden="true">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M13 3L5 12h6l-1 9 9-12h-6l1-6z" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </div>
-                <div class="status-service-main">
-                  <div class="status-service-title">
-                    <span class="status-service-name">Real-time messaging</span>
-                    <span class="status-pill" id="status-pill-realtime" data-state="pending">Checking</span>
-                  </div>
-                  <p class="status-service-desc" id="status-desc-realtime">
-                    NATS-backed fan-out for live updates across API nodes.
-                  </p>
-                </div>
-                <div class="status-service-meta">
-                  <span class="status-service-latency-label">Latency</span>
-                  <span class="status-service-latency" id="status-latency-realtime">…</span>
-                </div>
-              </div>
-              <div class="status-service-chart">
-                <div class="status-spark status-spark--inline" id="status-spark-realtime" aria-label="Real-time uptime history"></div>
-                <p class="status-service-uptime" id="status-uptime-realtime"></p>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <div class="status-panel">
-          <header class="status-panel-head">
-            <div>
-              <h2>Incidents</h2>
-              <p class="status-panel-lede">Planned and unplanned events that affect availability.</p>
-            </div>
-          </header>
-          <div class="status-incidents-empty">
-            <div class="status-incidents-icon" aria-hidden="true">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linejoin="round" />
-                <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </div>
-            <h3>No active incidents</h3>
-            <p>
-              When something impacts chat-echo.com, we will post details here. For urgent help, email{' '}
-              <a href="mailto:support@app-echo.net">support@app-echo.net</a> or visit{' '}
-              <a href="/support">Support</a>.
+          <div class="status-spark-wrap">
+            <p class="status-spark-legend">
+              <span><span class="status-dot status-dot--ok" aria-hidden="true"></span> faster</span>
+              <span><span class="status-dot status-dot--bad" aria-hidden="true"></span> failed check</span>
+            </p>
+            <p
+              id="status-sparkline"
+              class="status-code status-sparkline"
+              aria-label="Latency sparkline for the last twelve checks"
+            >
+              —
             </p>
           </div>
+
+          <p id="status-latency-bar" class="status-code status-latency-bar">░░░░░░░░░░ —</p>
+          <p id="status-error" class="status-probe-error" hidden></p>
+
+          <dl class="status-metrics status-metrics--probe">
+            <div>
+              <dt>HTTP</dt>
+              <dd id="status-http">—</dd>
+            </div>
+            <div>
+              <dt>Endpoint</dt>
+              <dd><code class="status-code" id="status-endpoint">{shortHealthUrl}</code></dd>
+            </div>
+          </dl>
         </div>
 
         <p class="status-page-footnote">
-          Uptime history reflects probes from Echo’s monitoring fleet, aggregated into UTC days. The page refreshes
-          every 30 seconds; infrastructure probes run on a slower interval (shown above).
+          This page polls every 30 seconds while open. The Echo bot’s scheduled uptime posts use the
+          same endpoint with a longer interval (default 5 minutes). Rolling uptime covers the last 12
+          checks; visit uptime resets when you reload.
         </p>
       </div>
     </section>

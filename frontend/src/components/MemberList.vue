@@ -41,13 +41,13 @@ const devSettings = useDevSettingsStore();
 const { devModeIdsEnabled } = storeToRefs(devSettings);
 
 const MENU_ITEM =
-  'chat-focus-ring flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-muted hover:bg-glass-tint';
+  'chat-focus-ring echo-menu-item flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm';
 const MENU_ITEM_KICK =
-  'chat-focus-ring w-full px-3 py-2 text-left text-sm text-orange-200 hover:bg-orange-500/15 flex items-center gap-2 rounded-sm';
+  'chat-focus-ring echo-menu-item echo-menu-item--warning flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm';
 const MENU_ITEM_BAN =
-  'chat-focus-ring w-full px-3 py-2 text-left text-sm text-red-300 hover:bg-red-500/15 flex items-center gap-2 rounded-sm';
+  'chat-focus-ring echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm';
 const MENU_ITEM_TIMEOUT =
-  'chat-focus-ring flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-amber-200/95 hover:bg-glass-tint';
+  'chat-focus-ring echo-menu-item echo-menu-item--warning flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm';
 
 export type MemberRoleManagementSpec = {
   enabled: boolean;
@@ -504,104 +504,108 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
   >
     <div
       v-show="!collapsed"
-      class="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain bg-transparent px-4 pt-14 custom-scrollbar"
-      v-scrollbar-on-scroll
+      class="flex min-h-0 min-w-0 flex-1 touch-pan-y flex-col bg-transparent"
     >
       <div
-        v-if="loadingRoleHierarchy"
-        class="px-1 py-2 text-xs font-medium uppercase tracking-wide text-muted"
-      >
-        Loading role hierarchy...
-      </div>
-      <div
-        v-for="section in loadingRoleHierarchy ? [] : roleSections"
-        :key="section.role.id"
-        class="mb-4"
+        class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-14 custom-scrollbar"
+        v-scrollbar-on-scroll
       >
         <div
-          class="font-semibold text-xs uppercase tracking-wider mb-2 flex items-center gap-2"
-          :style="{ color: section.role.color }"
+          v-if="loadingRoleHierarchy"
+          class="px-1 py-2 text-xs font-medium uppercase tracking-wide text-muted"
         >
-          <span
-            class="h-2 w-2 shrink-0 rounded-full"
-            :style="{ backgroundColor: section.role.color }"
-            title="Role color"
-            aria-hidden="true"
-          />
-          <PausedGifAvatar
-            v-if="sectionRoleIconSrc(section.role)"
-            :src="sectionRoleIconSrc(section.role)"
-            alt=""
-            :session-key="`ml-hdr-${section.role.id}`"
-            wrapper-class="relative h-3.5 w-3.5 shrink-0 overflow-hidden"
-            img-class="h-3.5 w-3.5 shrink-0 rounded object-cover ring-1 ring-white/10"
-          />
-          {{ section.role.name }} — {{ section.members.length }}
+          Loading role hierarchy...
         </div>
-        <div class="flex flex-col gap-1">
+        <div
+          v-for="section in loadingRoleHierarchy ? [] : roleSections"
+          :key="section.role.id"
+          class="mb-4"
+        >
           <div
-            v-for="user in section.members"
-            :key="user.id"
-            :data-member-id="user.id"
-            :class="[
-              'flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-glass-tint',
-              memberRowClass(user.status),
-            ]"
-            @click="handleOpenProfile(user.id, $event)"
-            @contextmenu="handleMemberContextMenu(user, $event)"
+            class="font-semibold text-xs uppercase tracking-wider mb-2 flex items-center gap-2"
+            :style="{ color: section.role.color }"
           >
-            <div class="avatar-wrap relative h-8 w-8 shrink-0">
-              <div
-                class="member-pfp-clip h-full w-full overflow-hidden rounded-full"
-              >
-                <PausedGifAvatar
-                  :src="safeImageUrl(user.pfp)"
-                  :alt="user.name"
-                  :session-key="user.id"
-                  img-class="member-pfp block rounded-full object-cover"
-                />
-              </div>
-              <StatusIndicator
-                v-if="
-                  presenceForUser(user).indicatorStatus ||
-                  presenceForUser(user).indicatorDiscordOnline
-                "
-                :status="presenceForUser(user).indicatorStatus"
-                :mobile-surface="presenceForUser(user).indicatorMobileSurface"
-                :discord-online="presenceForUser(user).indicatorDiscordOnline"
-                size="sm"
-              />
-            </div>
-            <div class="min-w-0 flex-1 truncate">
-              <div class="flex items-center gap-2 min-w-0">
+            <span
+              class="h-2 w-2 shrink-0 rounded-full"
+              :style="{ backgroundColor: section.role.color }"
+              title="Role color"
+              aria-hidden="true"
+            />
+            <PausedGifAvatar
+              v-if="sectionRoleIconSrc(section.role)"
+              :src="sectionRoleIconSrc(section.role)"
+              alt=""
+              :session-key="`ml-hdr-${section.role.id}`"
+              wrapper-class="relative h-3.5 w-3.5 shrink-0 overflow-hidden"
+              img-class="h-3.5 w-3.5 shrink-0 rounded object-cover ring-1 ring-white/10"
+            />
+            {{ section.role.name }} — {{ section.members.length }}
+          </div>
+          <div class="flex flex-col gap-1">
+            <div
+              v-for="user in section.members"
+              :key="user.id"
+              :data-member-id="user.id"
+              :class="[
+                'flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-glass-tint',
+                memberRowClass(user.status),
+              ]"
+              @click="handleOpenProfile(user.id, $event)"
+              @contextmenu="handleMemberContextMenu(user, $event)"
+            >
+              <div class="avatar-wrap relative h-8 w-8 shrink-0">
                 <div
-                  class="font-semibold truncate flex min-w-0 flex-1 items-center gap-1"
-                  :class="[
-                    presenceForUser(user).isOffline ? 'text-muted' : '',
-                    presenceForUser(user).discordOnline
-                      ? 'discord-active-user'
-                      : '',
-                  ]"
-                  :style="
-                    presenceForUser(user).isOffline
-                      ? {}
-                      : { color: section.role.color }
-                  "
+                  class="member-pfp-clip h-full w-full overflow-hidden rounded-full"
                 >
-                  <span class="truncate">{{ user.name }}</span>
-                  <ServerOwnerCrownIcon
-                    v-if="serverOwnerId && user.id === serverOwnerId.trim()"
+                  <PausedGifAvatar
+                    :src="safeImageUrl(user.pfp)"
+                    :alt="user.name"
+                    :session-key="user.id"
+                    img-class="member-pfp block rounded-full object-cover"
                   />
                 </div>
-                <span
-                  v-if="isUserCommunicationTimedOut(user.id)"
-                  class="inline-flex shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-400/20"
-                >
-                  Timed out
-                </span>
+                <StatusIndicator
+                  v-if="
+                    presenceForUser(user).indicatorStatus ||
+                    presenceForUser(user).indicatorDiscordOnline
+                  "
+                  :status="presenceForUser(user).indicatorStatus"
+                  :mobile-surface="presenceForUser(user).indicatorMobileSurface"
+                  :discord-online="presenceForUser(user).indicatorDiscordOnline"
+                  size="sm"
+                />
               </div>
-              <div class="text-xs text-muted truncate">
-                {{ subtitleTextWithTimeout(user) }}
+              <div class="min-w-0 flex-1 truncate">
+                <div class="flex items-center gap-2 min-w-0">
+                  <div
+                    class="font-semibold truncate flex min-w-0 flex-1 items-center gap-1"
+                    :class="[
+                      presenceForUser(user).isOffline ? 'text-muted' : '',
+                      presenceForUser(user).discordOnline
+                        ? 'discord-active-user'
+                        : '',
+                    ]"
+                    :style="
+                      presenceForUser(user).isOffline
+                        ? {}
+                        : { color: section.role.color }
+                    "
+                  >
+                    <span class="truncate">{{ user.name }}</span>
+                    <ServerOwnerCrownIcon
+                      v-if="serverOwnerId && user.id === serverOwnerId.trim()"
+                    />
+                  </div>
+                  <span
+                    v-if="isUserCommunicationTimedOut(user.id)"
+                    class="inline-flex shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-400/20"
+                  >
+                    Timed out
+                  </span>
+                </div>
+                <div class="text-xs text-muted truncate">
+                  {{ subtitleTextWithTimeout(user) }}
+                </div>
               </div>
             </div>
           </div>
@@ -609,7 +613,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
       </div>
       <div
         v-if="showGuestsToggleVisible"
-        class="member-list-guest-toggle sticky bottom-0 z-[1] -mx-4 mt-2 border-t border-glass-tint bg-[color-mix(in_srgb,var(--surface-0)_92%,transparent)] px-4 py-2"
+        class="member-list-guest-toggle shrink-0 border-t border-glass-tint bg-[color-mix(in_srgb,var(--surface-0)_92%,transparent)] px-4 py-2"
       >
         <button
           type="button"

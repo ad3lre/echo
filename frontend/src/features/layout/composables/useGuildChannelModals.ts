@@ -204,7 +204,7 @@ export function useGuildChannelModals(deps: {
 
   async function handleCreateChannelSubmit(payload: {
     name: string;
-    type: 'text' | 'voice' | 'forum' | 'stage';
+    type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
     categoryId: string;
     iconKey: string;
   }) {
@@ -435,7 +435,7 @@ export function useGuildChannelModals(deps: {
 
   async function handleChannelSettingsSave(payload: {
     channelId: string;
-    channelType: 'text' | 'voice' | 'forum' | 'stage';
+    channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
     serverId: string;
     name: string;
     categoryId: string;
@@ -453,6 +453,8 @@ export function useGuildChannelModals(deps: {
     autoDeleteSyncedToCategory?: boolean;
     messageFormatTemplate?: string;
     messageFormatHard?: boolean;
+    paperCommentsEnabled?: boolean;
+    paperShowAuthorGutter?: boolean;
   }) {
     const sid = payload.serverId;
     if (!sid) return;
@@ -481,6 +483,12 @@ export function useGuildChannelModals(deps: {
           ...(payload.channelType === 'forum' &&
           payload.forumCreatorDefaultPerms
             ? { forumCreatorDefaultPerms: payload.forumCreatorDefaultPerms }
+            : {}),
+          ...(payload.channelType === 'paper'
+            ? {
+                paperCommentsEnabled: payload.paperCommentsEnabled !== false,
+                paperShowAuthorGutter: payload.paperShowAuthorGutter !== false,
+              }
             : {}),
           ...(payload.channelType === 'text' || payload.channelType === 'forum'
             ? {

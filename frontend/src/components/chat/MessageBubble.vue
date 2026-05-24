@@ -15,7 +15,12 @@ import type {
   MessageWithAuthor,
 } from '@shared/types';
 import { stubVideoEmbedsFromMessage } from '@shared/linkEmbedCandidates';
+import {
+  isInlineGifHostEmbed,
+  linkEmbedsExcludingInlineGifs,
+} from '@shared/gifHostLinks';
 import { mentionsUser, type IdTokenResolvers } from '@/composables/useMarkdown';
+import { messageRepliesToUser } from '@shared/attentionPing';
 import { isEmojiOnlyUpTo12 } from '@/utils/emojiUtils';
 import { parseSingleEmoji } from '@/utils/twemoji';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
@@ -41,6 +46,7 @@ import {
   validateEchoContentJsonForRender,
 } from '@/features/chat/editor/echoContentJsonForRender';
 import MessageLinkEmbeds from './MessageLinkEmbeds.vue';
+import MessageInlineGifEmbeds from './MessageInlineGifEmbeds.vue';
 import MessageAttachments from './MessageAttachments.vue';
 import MessageReactions from './MessageReactions.vue';
 import MessageHeader from './MessageHeader.vue';
@@ -59,6 +65,7 @@ import { copyImageFromUrl } from '@/utils/copyToClipboard';
 import { plainTextFromEchoContentJson } from '@/features/chat/editor/echoContentJsonPlainText';
 import { markdownFromEchoContentJson } from '@/features/chat/editor/echoContentJsonMarkdown';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
+import { openReportModal } from '@/features/safety/reportModal';
 import { linkTokenMessage } from '@/utils/idTokens';
 import { useContextMenuPosition } from '@/features/chat/composables/useContextMenuPosition';
 import { useMessageEditState } from '@/features/chat/composables/useMessageEditState';
@@ -358,6 +365,16 @@ const linkEmbedsForDisplay = computed((): Embed[] | undefined => {
   return stubs.length ? stubs : stored;
 });
 
+const linkEmbedsForLinkCards = computed((): Embed[] | undefined => {
+  const embeds = linkEmbedsForDisplay.value;
+  if (!embeds?.length) return embeds;
+  return linkEmbedsExcludingInlineGifs(embeds);
+});
+
+const hasInlineGifEmbeds = computed(() =>
+  (linkEmbedsForDisplay.value ?? []).some(isInlineGifHostEmbed),
+);
+
 /** Message body root (markdown / JSON caption) — wires KaTeX overflow scrollbars. */
 const messageContentRef = ref<HTMLElement | null>(null);
 
@@ -487,6 +504,14 @@ const authorLooksOffline = computed(() =>
   isMessageAuthorOffline(message.value.author.status),
 );
 
+const isRepliedTo = computed(() =>
+  messageRepliesToUser(
+    message.value.replyTo,
+    props.row.replyPreview?.authorId,
+    props.currentUserId,
+  ),
+);
+
 const isMentioned = computed(() =>
   mentionsUser(
     message.value.content,
@@ -497,6 +522,7 @@ const isMentioned = computed(() =>
 );
 
 const shouldHighlightMention = computed(() => {
+  if (isRepliedTo.value) return true;
   if (!isMentioned.value) return false;
   if (!notificationPreferences.settings.mentionHighlights) {
     return (
@@ -975,6 +1001,33 @@ function openAuthorProfileFromMenu() {
   menuOpen.value = false;
 }
 
+function messagePreviewForReport(): string {
+  const m = message.value;
+  if (m.contentJson != null) {
+    try {
+      return plainTextFromEchoContentJson(m.contentJson).trim();
+    } catch {
+      /* fall through */
+    }
+  }
+  return (m.content ?? '').trim();
+}
+
+function openReportMessageFromMenu() {
+  const channelId = props.channelId?.trim();
+  const messageId = message.value.id?.trim();
+  if (!channelId || !messageId || isOwnMessage.value) return;
+  openReportModal({
+    kind: 'message',
+    messageId,
+    channelId,
+    authorId: message.value.authorId,
+    authorDisplayName: authorLabel.value,
+    preview: messagePreviewForReport(),
+  });
+  menuOpen.value = false;
+}
+
 async function copyAuthorUsername() {
   const name = authorLabel.value.trim();
   if (!name) {
@@ -1121,6 +1174,7 @@ watch(
       :show-mod-actions="showModActions"
       :show-expanded-developer-ids="showExpandedDeveloperIds"
       :show-open-profile="!!onOpenProfile"
+      :show-report-message="!isOwnMessage && !!channelId?.trim()"
       :channel-id="channelId"
       :is-pinned="isPinned"
       :menu-position="menuPosition"
@@ -1145,6 +1199,7 @@ watch(
       @copy-quoted-reply-message-id="copyQuotedReplyMessageId"
       @copy-channel-id="copyChannelIdFromMessage"
       @open-author-profile="openAuthorProfileFromMenu"
+      @report-message="openReportMessageFromMenu"
       @copy-author-username="copyAuthorUsername"
       @pin="onPin?.()"
       @unpin="onUnpin?.()"
@@ -1383,10 +1438,16 @@ watch(
               :open-image-viewer="openImageViewer"
               :open-document-viewer="openDocumentViewer"
             />
+            <MessageInlineGifEmbeds
+              v-if="hasInlineGifEmbeds"
+              :embeds="linkEmbedsForDisplay ?? []"
+              :open-image-viewer="openImageViewer"
+              :alt="message.content || 'GIF'"
+            />
             <MessageLinkEmbeds
-              v-if="linkEmbedsForDisplay?.some((e) => !e.echoJump)"
+              v-if="linkEmbedsForLinkCards?.some((e) => !e.echoJump)"
               class="mt-2"
-              :embeds="linkEmbedsForDisplay"
+              :embeds="linkEmbedsForLinkCards"
             />
             <div
               v-if="

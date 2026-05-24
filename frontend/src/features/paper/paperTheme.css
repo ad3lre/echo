@@ -1,0 +1,355 @@
+/* Paper channel editor + workspace — uses tokens from themes.css */
+
+/* In-house SVG <img> icons on dark paper chrome (matches themes.css dark). */
+.paper-root {
+  --paper-ink-icon-filter-dark: invert(1) saturate(0) brightness(1.9)
+    contrast(1.1);
+}
+
+/*
+ * Paper preview theme is independent of the app [data-theme].
+ * Remap global semantic tokens inside .paper-root so chrome, menus, and
+ * ink icons follow data-paper-appearance, not the site theme.
+ */
+.paper-root[data-paper-appearance='light'] {
+  --paper-workspace-bg: #eceef2;
+  --paper-surface-bg: #ffffff;
+  --paper-surface-fg: rgba(15, 23, 42, 0.94);
+  --paper-surface-muted: rgba(51, 65, 85, 0.72);
+  --paper-surface-border: rgba(15, 23, 42, 0.1);
+  --paper-surface-shadow:
+    0 4px 20px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --paper-prose-link: #4f46e5;
+  --paper-table-border: rgba(15, 23, 42, 0.12);
+  --paper-table-header-bg: rgba(15, 23, 42, 0.04);
+  --paper-block-flash: rgba(79, 70, 229, 0.45);
+  --paper-format-bar-bg: color-mix(in srgb, var(--elevated) 94%, transparent);
+  --paper-comment-card-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --paper-selection-bg: color-mix(in srgb, var(--accent) 28%, transparent);
+  --paper-chrome-bg: rgba(244, 245, 247, 0.97);
+
+  --echo-ink-icon-filter: none;
+  --text: var(--paper-surface-fg);
+  --muted: var(--paper-surface-muted);
+  --ui-fg: var(--paper-surface-fg);
+  --ui-fg-soft: color-mix(in srgb, var(--paper-surface-fg) 82%, transparent);
+  --ui-fg-subtle: var(--paper-surface-muted);
+  --border: var(--paper-surface-border);
+  --elevated: var(--paper-surface-bg);
+  --bg: var(--paper-chrome-bg);
+  --ui-glass-2: var(--paper-surface-bg);
+  --ui-glass-hover: color-mix(in srgb, var(--paper-surface-fg) 8%, transparent);
+}
+
+.paper-root[data-paper-appearance='dark'] {
+  --paper-workspace-bg: #1a1522;
+  --paper-surface-bg: #16161c;
+  --paper-surface-fg: rgba(255, 255, 255, 0.93);
+  --paper-surface-muted: rgba(255, 255, 255, 0.56);
+  --paper-surface-border: rgba(255, 255, 255, 0.09);
+  --paper-surface-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.42), 0 1px 2px rgba(0, 0, 0, 0.28);
+  --paper-prose-link: #818cf8;
+  --paper-table-border: rgba(255, 255, 255, 0.12);
+  --paper-table-header-bg: rgba(255, 255, 255, 0.06);
+  --paper-block-flash: rgba(99, 102, 241, 0.55);
+  --paper-format-bar-bg: color-mix(in srgb, var(--elevated) 88%, transparent);
+  --paper-comment-card-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  --paper-selection-bg: color-mix(in srgb, var(--accent) 35%, transparent);
+  --paper-chrome-bg: color-mix(in srgb, #1a1522 94%, #16161c);
+
+  --echo-ink-icon-filter: var(--paper-ink-icon-filter-dark);
+  --text: var(--paper-surface-fg);
+  --muted: var(--paper-surface-muted);
+  --ui-fg: var(--paper-surface-fg);
+  --ui-fg-soft: color-mix(in srgb, var(--paper-surface-fg) 82%, transparent);
+  --ui-fg-subtle: var(--paper-surface-muted);
+  --border: var(--paper-surface-border);
+  --elevated: var(--paper-surface-bg);
+  --bg: var(--paper-chrome-bg);
+  --ui-glass-2: color-mix(
+    in srgb,
+    var(--paper-surface-bg) 88%,
+    var(--paper-chrome-bg)
+  );
+  --ui-glass-hover: color-mix(
+    in srgb,
+    var(--paper-surface-fg) 10%,
+    transparent
+  );
+}
+
+.paper-workspace {
+  background: var(--paper-workspace-bg);
+}
+
+.paper-page {
+  min-height: 11in;
+  background: var(--paper-surface-bg);
+  color: var(--paper-surface-fg);
+  font-family: var(--paper-doc-font, 'Inter', system-ui, sans-serif);
+  border-radius: 8px;
+  border: 1px solid var(--paper-surface-border);
+  box-shadow: var(--paper-surface-shadow);
+  transition: box-shadow 0.15s ease;
+}
+
+.paper-page:focus-within {
+  box-shadow:
+    var(--paper-surface-shadow),
+    0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.paper-editor-surface {
+  outline: none;
+  min-height: 11in;
+  color: var(--paper-surface-fg);
+  font-size: 11pt;
+  line-height: 1.65;
+  caret-color: var(--accent);
+}
+
+.paper-editor-surface ::selection {
+  background: var(--paper-selection-bg);
+}
+
+.paper-editor-surface :is(p, li) {
+  margin: 0.5em 0;
+}
+
+.paper-editor-surface h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin: 0 0 0.65em;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.paper-editor-surface h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 1.1em 0 0.45em;
+  line-height: 1.25;
+}
+
+.paper-editor-surface h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0.9em 0 0.35em;
+  line-height: 1.3;
+}
+
+.paper-editor-surface mark {
+  border-radius: 2px;
+  padding: 0.05em 0.1em;
+}
+
+.paper-editor-surface [style*='text-align: center'] {
+  text-align: center;
+}
+
+.paper-editor-surface [style*='text-align: right'] {
+  text-align: right;
+}
+
+.paper-editor-surface [style*='text-align: justify'] {
+  text-align: justify;
+}
+
+.paper-editor-surface a {
+  color: var(--paper-prose-link);
+  text-decoration: underline;
+}
+
+.paper-editor-surface th {
+  background: var(--paper-table-header-bg);
+  font-weight: 600;
+}
+
+.paper-editor-surface th,
+.paper-editor-surface td {
+  border: 1px solid var(--paper-table-border);
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+}
+
+.paper-editor-surface table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.paper-editor-surface blockquote {
+  border-left: 3px solid var(--paper-surface-border);
+  padding-left: 1rem;
+  color: var(--paper-surface-muted);
+}
+
+.paper-editor-surface code {
+  background: color-mix(in srgb, var(--paper-surface-fg) 8%, transparent);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+
+.paper-editor-surface pre {
+  background: color-mix(in srgb, var(--paper-surface-fg) 6%, transparent);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+}
+
+.paper-block-flash {
+  outline: 2px solid var(--paper-block-flash);
+  outline-offset: 2px;
+  border-radius: 2px;
+  transition: outline-color 0.35s ease;
+}
+
+/* Shared interactive controls (chrome, format bar, comments) */
+.paper-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.paper-icon-btn:focus {
+  outline: none;
+}
+
+.paper-icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.paper-chrome-btn {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.paper-chrome-btn:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}
+
+.paper-chrome-btn:focus {
+  outline: none;
+}
+
+.paper-chrome-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.paper-chrome-btn--active {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+}
+
+.paper-chrome-icon,
+.paper-chrome-menu-icon-img {
+  filter: var(--echo-ink-icon-filter, none);
+}
+
+.paper-bubble-menu {
+  z-index: 35;
+}
+
+.paper-comment-card-enter-active,
+.paper-comment-composer-enter-active {
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.paper-comment-card-enter-from,
+.paper-comment-composer-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+@media print {
+  @page {
+    margin: 1.2cm;
+  }
+
+  .paper-doc-chrome,
+  .paper-floating-format-bar,
+  .paper-bubble-menu {
+    display: none !important;
+  }
+
+  .paper-workspace {
+    background: #fff !important;
+  }
+
+  .paper-page {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-comment-card-enter-active,
+  .paper-comment-composer-enter-active,
+  .paper-page {
+    transition: none;
+  }
+
+  .paper-comment-card-enter-from,
+  .paper-comment-composer-enter-from {
+    transform: none;
+  }
+}
+
+.paper-remote-cursor {
+  display: inline-block;
+  width: 0;
+  border-left: 2px solid #6366f1;
+  margin-left: -1px;
+  pointer-events: none;
+  position: relative;
+}
+
+.paper-remote-cursor::after {
+  content: attr(data-name);
+  position: absolute;
+  top: -1.25rem;
+  left: -2px;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: #6366f1;
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.paper-remote-selection {
+  border-radius: 2px;
+}
+
+.paper-editor-surface.paper-block-locked-remote {
+  cursor: not-allowed;
+}
+
+.paper-bubble-lock-hint {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

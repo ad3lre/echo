@@ -10,12 +10,14 @@ export function useDmAttentionUnreadMapForPanelComputed(deps: {
   >;
   readStateByChannelId: Ref<Readonly<Record<string, string | null>>>;
   selfUserId: Ref<string | undefined>;
+  isDmChannelId?: (channelId: string) => boolean;
 }) {
   return computed(() =>
     buildDmAttentionUnreadCountByChannel(deps.dmAttentionByChannelId.value, {
       messagesByChannelId: deps.messagesByChannelId.value,
       readStateByChannelId: deps.readStateByChannelId.value,
       selfUserId: deps.selfUserId.value ?? null,
+      isDmChannelId: deps.isDmChannelId,
     }),
   );
 }

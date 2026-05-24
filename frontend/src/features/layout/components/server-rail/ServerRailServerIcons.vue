@@ -215,7 +215,7 @@ function horizontalRingIconCssUrl(server: Server): string {
     <div
       v-for="(server, serverIndex) in visibleServers"
       :key="server.id"
-      class="server-folder__slot flex justify-center overflow-visible"
+      class="server-folder__slot relative flex justify-center overflow-visible"
       :class="[
         horizontal ? 'mr-2 w-auto shrink-0 last:mr-0' : 'mb-2 w-full',
         server.id === selectedServerId ? 'server-folder__slot--active' : '',
@@ -243,6 +243,14 @@ function horizontalRingIconCssUrl(server: Server): string {
           : '',
       ]"
     >
+      <span
+        v-if="railDragSourceIndex !== serverIndex"
+        class="server-folder__pill"
+        :class="
+          horizontal ? 'server-folder__pill--h' : 'server-folder__pill--v'
+        "
+        aria-hidden="true"
+      />
       <span
         v-if="
           railDragSourceIndex !== serverIndex &&
@@ -408,7 +416,7 @@ function horizontalRingIconCssUrl(server: Server): string {
     </div>
     <div
       v-if="horizontal && selectedOverflowServer"
-      class="server-folder__slot server-folder__slot--overflow flex justify-center overflow-visible"
+      class="server-folder__slot server-folder__slot--overflow relative flex justify-center overflow-visible"
       :class="[
         'mr-2 w-auto shrink-0',
         'server-folder__slot--active',
@@ -424,6 +432,11 @@ function horizontalRingIconCssUrl(server: Server): string {
           : '',
       ]"
     >
+      <span
+        v-if="railDragSourceIndex !== overflowServerIndex"
+        class="server-folder__pill server-folder__pill--h"
+        aria-hidden="true"
+      />
       <button
         type="button"
         data-cy="server-rail-overflow-icon"
@@ -545,6 +558,10 @@ function horizontalRingIconCssUrl(server: Server): string {
     </Teleport>
   </div>
 </template>
+
+<style lang="scss">
+@import './serverRailPills.scss';
+</style>
 
 <style scoped>
 .server-folder__voice-badge {

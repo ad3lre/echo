@@ -13,6 +13,8 @@ export type OutboundMail = {
   subject: string;
   text: string;
   html: string;
+  /** Overrides config.echoEmailFrom when set (e.g. bug reports). */
+  from?: string;
   /** Optional Reply-To header (e.g. for support form so we can reply to the user). */
   replyTo?: string;
   attachments?: MailAttachment[];
@@ -58,7 +60,7 @@ export async function sendTransactionalEmail(
   });
 
   await transport.sendMail({
-    from: config.echoEmailFrom,
+    from: mail.from?.trim() || config.echoEmailFrom,
     to: mail.to,
     subject: mail.subject,
     text: mail.text,

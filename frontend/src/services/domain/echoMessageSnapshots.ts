@@ -25,6 +25,7 @@ export function mapEchoMessageToRaw(m: EchoApiMessage): RawMessage {
     m.authorDiscordUserId.trim()
       ? { authorDiscordUserId: m.authorDiscordUserId.trim() }
       : {}),
+    ...(m.bridgeFromDiscord === true ? { bridgeFromDiscord: true } : {}),
     timestamp: toStoredMessageTimestamp(m.timestamp),
     content: plain,
     ...(m.contentText !== undefined ? { contentText: m.contentText } : {}),

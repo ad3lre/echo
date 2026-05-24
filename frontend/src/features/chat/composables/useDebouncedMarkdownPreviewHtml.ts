@@ -8,14 +8,15 @@ import {
 } from 'vue';
 import type { MentionEntity } from '@shared/types';
 import {
+  mightHaveMarkdownSyntax,
   parseMessageContent,
   type IdTokenResolvers,
 } from '@/composables/useMarkdown';
 
 /** Composer preview only — avoids multi‑second main-thread stalls on huge pastes. */
 const PREVIEW_CHAR_CAP = 14_000;
-/** Snappy updates while typing (single-character deltas stay on this delay). */
-const DEBOUNCE_MS_TYPING = 0;
+/** Typing debounce — long enough to skip parse storms, short enough for live preview. */
+const DEBOUNCE_MS_TYPING = 72;
 /**
  * When many characters change in one update (paste, select-all delete, etc.), wait longer
  * before running the heavy parse so the main thread stays responsive.
@@ -81,6 +82,20 @@ export function useDebouncedMarkdownPreviewHtml(options: {
     const slice =
       raw.length > PREVIEW_CHAR_CAP ? raw.slice(0, PREVIEW_CHAR_CAP) : raw;
     const mentions = mentionsForSlice(raw.length, options.mentions.value);
+    if (
+      !mightHaveMarkdownSyntax(slice) &&
+      mentions.length === 0 &&
+      !/<a?:\w+:\d+>/.test(slice) &&
+      !/<icon:[^>]+>/.test(slice)
+    ) {
+      const escaped = slice
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+      if (raw.length <= PREVIEW_CHAR_CAP) return escaped;
+      return `${escaped}<p class="text-xs opacity-70 mt-2">Preview truncated (${PREVIEW_CHAR_CAP.toLocaleString()} of ${raw.length.toLocaleString()} characters).</p>`;
+    }
     const base = parseMessageContent(
       slice,
       mentions,
@@ -90,6 +105,10 @@ export function useDebouncedMarkdownPreviewHtml(options: {
     return `${base}<p class="text-xs opacity-70 mt-2">Preview truncated (${PREVIEW_CHAR_CAP.toLocaleString()} of ${raw.length.toLocaleString()} characters).</p>`;
   }
 
+  function commitHtml(next: string) {
+    if (html.value !== next) html.value = next;
+  }
+
   function flush() {
     clearScheduledWork();
     if (!surfaceActive.value) {
@@ -97,7 +116,7 @@ export function useDebouncedMarkdownPreviewHtml(options: {
       lastParsedContentLen = 0;
       return;
     }
-    html.value = buildHtml();
+    commitHtml(buildHtml());
     lastParsedContentLen = options.content.value.length;
   }
 
@@ -116,14 +135,14 @@ export function useDebouncedMarkdownPreviewHtml(options: {
     if (delay <= 0) {
       rafId = requestAnimationFrame(() => {
         rafId = null;
-        html.value = buildHtml();
+        commitHtml(buildHtml());
         lastParsedContentLen = options.content.value.length;
       });
       return;
     }
     timer = setTimeout(() => {
       timer = null;
-      html.value = buildHtml();
+      commitHtml(buildHtml());
       lastParsedContentLen = options.content.value.length;
     }, delay);
   }

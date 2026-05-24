@@ -57,3 +57,22 @@ export async function stopStageYoutubeStream(
     { method: 'POST' },
   );
 }
+
+export type StageYoutubeEgressLayout = 'grid' | 'spotlight' | 'screen';
+
+export async function updateStageYoutubeStreamLayout(
+  token: string,
+  serverId: string,
+  channelId: string,
+  layout: StageYoutubeEgressLayout,
+): Promise<void> {
+  await echoFetch(
+    token,
+    `/servers/${encodeURIComponent(serverId)}/channels/${encodeURIComponent(channelId)}/stage/youtube/layout`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layout }),
+    },
+  );
+}

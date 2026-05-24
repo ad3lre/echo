@@ -15,6 +15,11 @@ import {
   timeLanguagePrefsEpoch,
 } from '@/features/settings/timeLanguagePreferences';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
+import {
+  isInlineGifHostEmbed,
+  gifDisplayUrlFromEmbed,
+} from '@shared/gifHostLinks';
 import LimitedGifImg from '@/components/LimitedGifImg.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { formatTimestamp } from '@/utils/formatTimestamp';
@@ -70,16 +75,34 @@ function handleClick() {
 }
 
 function isLikelyGifUrl(url: string | undefined): boolean {
-  if (!url) return false;
-  const u = url.toLowerCase();
-  return u.includes('giphy') || u.includes('.gif') || u.includes('media.giphy');
+  return isLikelyGifImageUrl(url);
 }
 
+const inlineGifPreviewUrl = computed(() => {
+  for (const embed of props.message.embeds ?? []) {
+    if (!isInlineGifHostEmbed(embed)) continue;
+    const url = gifDisplayUrlFromEmbed(embed);
+    if (url) return url;
+  }
+  return undefined;
+});
+
 const hasImage = computed(
-  () => !!(props.message.imageUrl || props.message.gif),
+  () =>
+    !!(
+      props.message.imageUrl ||
+      props.message.gif ||
+      inlineGifPreviewUrl.value
+    ),
 );
 const isGif = computed(
-  () => props.message.gif || isLikelyGifUrl(props.message.imageUrl),
+  () =>
+    props.message.gif ||
+    isLikelyGifUrl(props.message.imageUrl) ||
+    !!inlineGifPreviewUrl.value,
+);
+const previewImageUrl = computed(
+  () => props.message.imageUrl ?? inlineGifPreviewUrl.value,
 );
 const firstRenderableSticker = computed(() =>
   props.message.stickers?.find((sticker) => sticker.format !== 'lottie'),
@@ -173,8 +196,8 @@ const timestampLabel = computed(() => formatTimestamp(props.message.timestamp));
         />
         <LimitedGifImg
           v-else-if="isGif"
-          :src="safeImageUrl(message.imageUrl)"
-          :session-key="`${message.id ?? ''}-${message.imageUrl}`"
+          :src="safeImageUrl(previewImageUrl)"
+          :session-key="`${message.id ?? ''}-${previewImageUrl}`"
           :alt="message.content || 'GIF'"
           wrapper-class="flex h-full w-full items-center justify-center"
           img-class="max-h-full max-w-full object-contain"
@@ -182,7 +205,7 @@ const timestampLabel = computed(() => formatTimestamp(props.message.timestamp));
         />
         <img
           v-else
-          :src="safeImageUrl(message.imageUrl)"
+          :src="safeImageUrl(previewImageUrl)"
           :alt="message.content || 'Image'"
           class="max-h-full max-w-full object-contain"
         />

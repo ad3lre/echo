@@ -1,5 +1,4 @@
 import type pg from 'pg';
-import { nextEchoSnowflakeId } from '../echoSnowflake';
 
 export async function isEchoPairBlocked(
   pool: pg.Pool,
@@ -83,19 +82,4 @@ export async function unblockEchoUser(
   );
   if (r.rowCount == null || r.rowCount < 1) return 'not_blocked';
   return 'unblocked';
-}
-
-export async function insertEchoUserReport(
-  pool: pg.Pool,
-  reporterId: string,
-  targetId: string,
-  reason: string,
-): Promise<void> {
-  if (reporterId === targetId) return;
-  const id = nextEchoSnowflakeId();
-  const trimmed = reason.trim().slice(0, 2000);
-  await pool.query(
-    `INSERT INTO echo_user_reports (id, reporter_id, target_id, reason) VALUES ($1, $2, $3, $4)`,
-    [id, reporterId, targetId, trimmed || '(no details)'],
-  );
 }

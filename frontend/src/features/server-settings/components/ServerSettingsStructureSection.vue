@@ -300,7 +300,7 @@ function channelEmoji(ch: ChannelSummary): string | null {
 }
 
 function channelIconUsesInvert(ch: ChannelSummary): boolean {
-  return channelIconResolver.usesSvgInvert(ch.iconKey);
+  return channelIconResolver.usesSvgInvert(ch);
 }
 
 // ----- category DnD -----

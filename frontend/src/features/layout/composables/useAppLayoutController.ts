@@ -28,6 +28,7 @@ import { useLayout } from '@/composables/useLayout';
 import { useCompactShell } from '@/composables/useCompactShell';
 // Sub-composables
 import { useAppLayoutRealtimeSocketBinding } from './useAppLayoutRealtimeSocketBinding';
+import { useStageVcActivityBlock } from '@/features/voice/composables/useStageVcActivityBlock';
 import { useAppLayoutUiState } from './useAppLayoutUiState';
 import { useAppLayoutShellNavigation } from './useAppLayoutShellNavigation';
 import { useImmediateShellSwitchPending } from './useImmediateShellSwitchPending';
@@ -833,6 +834,75 @@ export function useAppLayoutController() {
     groupDMs,
   });
 
+  const { guardOpen: guardVcActivityOpen } = useStageVcActivityBlock({
+    isViewingVoiceChannel,
+    effectiveActiveChannel,
+    vcActivityUi,
+    closeVcActivity,
+  });
+
+  watch(currentVoiceChannelId, (vc) => {
+    const id = vc?.trim();
+    if (!id) return;
+    if (!isViewingVoiceChannel.value) return;
+    const active = effectiveActiveChannel.value;
+    if (active?.type !== 'voice' && active?.type !== 'stage') return;
+    if (active.id === id) return;
+    activeChannelId.value = id;
+  });
+
+  const openVcActivityPickerOnVoice = guardVcActivityOpen(openVcActivityPicker);
+  const openVcActivityYoutubeBrowseOnVoice = guardVcActivityOpen(
+    openVcActivityYoutubeBrowse,
+  );
+  const openVcActivityWordleOnVoice = guardVcActivityOpen(openVcActivityWordle);
+  const openVcActivityHangmanOnVoice = guardVcActivityOpen(
+    openVcActivityHangman,
+  );
+  const openVcActivityTicTacToeOnVoice = guardVcActivityOpen(
+    openVcActivityTicTacToe,
+  );
+  const openVcActivityOpenGuessrOnVoice = guardVcActivityOpen(
+    openVcActivityOpenGuessr,
+  );
+  const openVcActivitySkribblIoOnVoice = guardVcActivityOpen(
+    openVcActivitySkribblIo,
+  );
+  const openVcActivityGarticPhoneOnVoice = guardVcActivityOpen(
+    openVcActivityGarticPhone,
+  );
+  const openVcActivityKrunkerOnVoice = guardVcActivityOpen(
+    openVcActivityKrunker,
+  );
+  const openVcActivityCodenamesOnVoice = guardVcActivityOpen(
+    openVcActivityCodenames,
+  );
+  const openVcActivityRichupOnVoice = guardVcActivityOpen(openVcActivityRichup);
+  const openVcActivityGooberDashOnVoice = guardVcActivityOpen(
+    openVcActivityGooberDash,
+  );
+  const openVcActivitySmashKartsOnVoice = guardVcActivityOpen(
+    openVcActivitySmashKarts,
+  );
+  const openVcActivityBasketballStars2026OnVoice = guardVcActivityOpen(
+    openVcActivityBasketballStars2026,
+  );
+  const openVcActivityClusterRushOnVoice = guardVcActivityOpen(
+    openVcActivityClusterRush,
+  );
+
+  function applyVcYoutubeWatchTogetherRemoteOnVoice(
+    ...args: Parameters<typeof applyVcYoutubeWatchTogetherRemote>
+  ) {
+    if (
+      isViewingVoiceChannel.value &&
+      effectiveActiveChannel.value?.type === 'stage'
+    ) {
+      return;
+    }
+    applyVcYoutubeWatchTogetherRemote(...args);
+  }
+
   const { handleActiveChannelChangeNavigation } =
     useAppLayoutActiveChannelNavigation({
       activeChannelId,
@@ -1042,7 +1112,7 @@ export function useAppLayoutController() {
     isCompactShell,
     hasGuildChannelChrome,
     vcActivityUi,
-    applyVcYoutubeWatchTogetherRemote,
+    applyVcYoutubeWatchTogetherRemote: applyVcYoutubeWatchTogetherRemoteOnVoice,
     closeVcActivity,
   });
 
@@ -1495,6 +1565,7 @@ export function useAppLayoutController() {
     messagesByChannelId: workspace.messages,
     readStateByChannelId,
     selfUserId: currentUserIdForSocket,
+    isDmChannelId: (channelId) => isKnownDmChannelId(channelId),
   });
 
   getLatestDmInboxTargetForRailRef.value =
@@ -1520,6 +1591,7 @@ export function useAppLayoutController() {
     dmAttentionByChannelId,
     dmUnreadCountByChannelId: dmUnreadByChannelIdForPanel,
     lastActivityAtMsByChannelId: echoDmLastActivityAtMsByChannelId,
+    echoDmPeerByChannelId,
     groupDMs,
     isDmChannelId: (channelId) => isKnownDmChannelId(channelId),
     isHiddenDmUser: (userId) => hiddenDmInboxStore.isUserHidden(userId),
@@ -1835,6 +1907,9 @@ export function useAppLayoutController() {
     getDmPeerUserId: (cid: string) => echoDmPeerByChannelId.value.get(cid),
     getAccessToken: () => authSession.accessToken,
     ensureReplyTargetMessage,
+    onTabResumeWhileConnected: () => {
+      void echoChannelHistory.syncActiveChannelTailFromApi('tab_resume');
+    },
   });
 
   registerEchoToastQuickReplySender((channelId, text) => {
@@ -2527,6 +2602,8 @@ export function useAppLayoutController() {
     workspace: {
       ...workspace,
       refreshEchoSocialFromApi,
+      acceptFriendRequest,
+      declineFriendRequest,
       cancelFriendRequest,
     },
     authSession,
@@ -3561,21 +3638,21 @@ export function useAppLayoutController() {
     desktopStreamingPreferences,
     fullscreenStreamParticipantId,
     vcActivityUi,
-    openVcActivityPicker,
-    openVcActivityYoutubeBrowse,
-    openVcActivityWordle,
-    openVcActivityHangman,
-    openVcActivityTicTacToe,
-    openVcActivityOpenGuessr,
-    openVcActivitySkribblIo,
-    openVcActivityGarticPhone,
-    openVcActivityKrunker,
-    openVcActivityCodenames,
-    openVcActivityRichup,
-    openVcActivityGooberDash,
-    openVcActivitySmashKarts,
-    openVcActivityBasketballStars2026,
-    openVcActivityClusterRush,
+    openVcActivityPicker: openVcActivityPickerOnVoice,
+    openVcActivityYoutubeBrowse: openVcActivityYoutubeBrowseOnVoice,
+    openVcActivityWordle: openVcActivityWordleOnVoice,
+    openVcActivityHangman: openVcActivityHangmanOnVoice,
+    openVcActivityTicTacToe: openVcActivityTicTacToeOnVoice,
+    openVcActivityOpenGuessr: openVcActivityOpenGuessrOnVoice,
+    openVcActivitySkribblIo: openVcActivitySkribblIoOnVoice,
+    openVcActivityGarticPhone: openVcActivityGarticPhoneOnVoice,
+    openVcActivityKrunker: openVcActivityKrunkerOnVoice,
+    openVcActivityCodenames: openVcActivityCodenamesOnVoice,
+    openVcActivityRichup: openVcActivityRichupOnVoice,
+    openVcActivityGooberDash: openVcActivityGooberDashOnVoice,
+    openVcActivitySmashKarts: openVcActivitySmashKartsOnVoice,
+    openVcActivityBasketballStars2026: openVcActivityBasketballStars2026OnVoice,
+    openVcActivityClusterRush: openVcActivityClusterRushOnVoice,
     setVcActivityYoutubeVideo,
     setVcYoutubeBrowseOpen,
     addVcYoutubeToQueue,

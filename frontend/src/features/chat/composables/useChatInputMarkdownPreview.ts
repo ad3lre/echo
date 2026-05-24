@@ -93,8 +93,9 @@ export function useChatInputMarkdownPreview(
   watch(
     markdownPreviewHtml,
     (html) => {
-      if (markdownPreviewState)
+      if (markdownPreviewState && markdownPreviewState.value.html !== html) {
         markdownPreviewState.value = { ...markdownPreviewState.value, html };
+      }
       void nextTick(() => {
         syncPreviewScrollWithTextarea();
         scheduleKeepMessagesVisibleFromPreview(false);

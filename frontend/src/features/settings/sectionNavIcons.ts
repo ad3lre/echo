@@ -7,6 +7,7 @@ export const SETTINGS_SECTION_NAV_ICON: Record<SettingsSection, string> = {
   Account: icons.shield,
   Friends: icons.friendAdd,
   'Terms & policies': icons.globe,
+  'Report abuse': icons.shield,
   'Formatting guide': icons.messageAlt,
   Discord: icons.community,
   Google: icons.google,

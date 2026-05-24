@@ -44,7 +44,7 @@ export const googleReconnectCta = 'Reconnect Google';
 export const googleDisconnectCta = 'Disconnect Google';
 
 export const googleOAuthCallbackUrlIntro =
-  'Echo opens Google’s consent screen. After you approve, your Google account is linked to Echo for sign-in and YouTube.';
+  'Echo opens Google’s consent screen. After you approve, your Google account is linked to Echo for sign-in and YouTube. See Settings → Legal → Privacy policy (Section 14) for how we use Google user data.';
 
 export const googleMergeHintFull =
   'Echo can use your Google name and photo where your profile allows it.';

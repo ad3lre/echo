@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
-import type { EchoPlanId } from '@shared/echoPlanLimits';
+import {
+  ECHO_PLAN_MAX_CUSTOM_RINGTONES,
+  ECHO_RINGTONE_UPLOAD_MAX_BYTES,
+  normalizeEchoPlanId,
+  type EchoPlanId,
+} from '@shared/echoPlanLimits';
 import {
   CALL_RINGTONE_DEFAULT_BUILTIN_ID,
   CALL_RINGTONE_ENTRIES,
@@ -9,12 +14,21 @@ import {
   type CallRingtonePackLabel,
 } from '@/audio/callRingtoneAssets';
 import {
+  deleteEchoUserRingtone,
+  fetchEchoUserRingtones,
+  registerEchoUserRingtone,
+  type EchoUserRingtoneDto,
+} from '@/api/echo/ringtones';
+import { uploadUserRingtoneFile } from '@/api/echo/uploads';
+import {
   audioRecordingFileExtensionForMimeType,
   pickSupportedAudioRecordingMimeType,
 } from '@/platform/browserCompatibility';
+import { isChatAudioUpload } from '@/utils/chatUploadMediaTypes';
+import { useAuthSessionStore } from '@/stores/authSession';
 
 const STORAGE_KEY = 'echo-call-ringtone-ui-v1';
-export const CALL_RINGTONE_UPLOAD_MAX_BYTES = 6 * 1024 * 1024;
+export const CALL_RINGTONE_UPLOAD_MAX_BYTES = ECHO_RINGTONE_UPLOAD_MAX_BYTES;
 const CALL_RINGTONE_COMPRESS_TRIGGER_BYTES = 2 * 1024 * 1024;
 
 function hasLocalStorage(): boolean {
@@ -23,33 +37,39 @@ function hasLocalStorage(): boolean {
   );
 }
 
-type PersistedCustom = {
-  id: string;
-  label: string;
-  mimeType: string;
-  sizeBytes: number;
-  dataUrl: string;
-};
-
-type Persisted = {
+type PersistedUi = {
   selectedId: string;
   volumePercent: number;
   muted: boolean;
-  custom: PersistedCustom[];
 };
 
-function load(): Partial<Persisted> {
+type ServerCustom = {
+  id: string;
+  label: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
+function loadUi(): Partial<PersistedUi> {
   if (!hasLocalStorage()) return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as Partial<Persisted>;
+    const parsed = JSON.parse(raw) as Partial<
+      PersistedUi & { custom?: unknown }
+    >;
+    return {
+      selectedId: parsed.selectedId,
+      volumePercent: parsed.volumePercent,
+      muted: parsed.muted,
+    };
   } catch {
     return {};
   }
 }
 
-function persist(v: Persisted): boolean {
+function persistUi(v: PersistedUi): boolean {
   if (!hasLocalStorage()) return false;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
@@ -64,7 +84,6 @@ export type CallRingtoneLibraryEntry = {
   label: string;
   url: string;
   source: 'built-in' | 'custom';
-  /** Present for built-in ringtones from pack folders. */
   packLabel?: CallRingtonePackLabel;
 };
 
@@ -76,9 +95,7 @@ export type CallRingtoneOptionGroup = {
 export function maxCustomRingtonesForPlan(
   plan: EchoPlanId | null | undefined,
 ): number {
-  if (plan === 'black') return 256;
-  if (plan === 'plus') return 16;
-  return 1;
+  return ECHO_PLAN_MAX_CUSTOM_RINGTONES[normalizeEchoPlanId(plan)];
 }
 
 function toBuiltInId(id: string): string {
@@ -106,21 +123,18 @@ function normalizePersistedSelectedId(raw: string | undefined): string {
   return t;
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read file.'));
-    reader.onload = () => {
-      const out = typeof reader.result === 'string' ? reader.result : '';
-      if (!out) reject(new Error('Failed to read file.'));
-      else resolve(out);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 function extlessName(name: string): string {
   return name.replace(/\.[^/.]+$/, '') || 'Custom ringtone';
+}
+
+function mapServerCustom(r: EchoUserRingtoneDto): ServerCustom {
+  return {
+    id: r.id,
+    label: r.label,
+    url: r.url,
+    mimeType: r.mimeType,
+    sizeBytes: r.sizeBytes,
+  };
 }
 
 async function compressAudioFileIfNeeded(file: File): Promise<File> {
@@ -194,12 +208,12 @@ async function compressAudioFileIfNeeded(file: File): Promise<File> {
   }
 }
 
-/** In-call ringtone library + default selection + volume + mute (persisted in browser storage). */
+/** In-call ringtone library + default selection + volume + mute. Custom clips live on the server. */
 export const useCallRingtoneStore = defineStore('callRingtone', () => {
-  const saved = load();
-  const custom = ref<PersistedCustom[]>(
-    Array.isArray(saved.custom) ? saved.custom : [],
-  );
+  const saved = loadUi();
+  const custom = ref<ServerCustom[]>([]);
+  const customLoading = ref(false);
+  const serverMaxCustom = ref<number | null>(null);
   const selectedId = ref(normalizePersistedSelectedId(saved.selectedId));
   const volumePercent = ref(
     typeof saved.volumePercent === 'number'
@@ -207,6 +221,8 @@ export const useCallRingtoneStore = defineStore('callRingtone', () => {
       : 42,
   );
   const muted = ref(saved.muted === true);
+
+  const authSession = useAuthSessionStore();
 
   const entries = computed<CallRingtoneLibraryEntry[]>(() => {
     const builtIn = CALL_RINGTONE_ENTRIES.map((e) => ({
@@ -219,7 +235,7 @@ export const useCallRingtoneStore = defineStore('callRingtone', () => {
     const uploaded = custom.value.map((e) => ({
       id: e.id,
       label: e.label,
-      url: e.dataUrl,
+      url: e.url,
       source: 'custom' as const,
     }));
     return [...builtIn, ...uploaded];
@@ -275,29 +291,55 @@ export const useCallRingtoneStore = defineStore('callRingtone', () => {
     }
   });
 
-  // Debounced persistence to avoid excessive localStorage writes (e.g. volume slider).
   let persistTimeout: number | undefined;
-  function schedulePersist(state: Persisted, delay = 300) {
+  function schedulePersistUi(state: PersistedUi, delay = 300) {
     if (!hasLocalStorage()) return;
     if (persistTimeout) window.clearTimeout(persistTimeout);
     persistTimeout = window.setTimeout(() => {
-      const ok = persist(state);
-      if (!ok) console.warn('Failed to persist call ringtone state');
+      const ok = persistUi(state);
+      if (!ok) console.warn('Failed to persist call ringtone UI state');
       persistTimeout = undefined;
     }, delay) as unknown as number;
   }
 
+  watch([selectedId, volumePercent, muted], () => {
+    schedulePersistUi({
+      selectedId: selectedId.value,
+      volumePercent: volumePercent.value,
+      muted: muted.value,
+    });
+  });
+
+  let refreshSeq = 0;
+  async function refreshCustomFromServer(): Promise<void> {
+    const user = authSession.backendUser;
+    if (!user || user.isGuest) {
+      custom.value = [];
+      serverMaxCustom.value = 0;
+      return;
+    }
+    const seq = ++refreshSeq;
+    customLoading.value = true;
+    try {
+      const res = await fetchEchoUserRingtones(null);
+      if (seq !== refreshSeq) return;
+      serverMaxCustom.value = res.maxCustom;
+      custom.value = res.ringtones.map(mapServerCustom);
+    } catch {
+      if (seq === refreshSeq) {
+        custom.value = [];
+      }
+    } finally {
+      if (seq === refreshSeq) customLoading.value = false;
+    }
+  }
+
   watch(
-    [selectedId, volumePercent, muted, custom],
+    () => authSession.backendUser?.id,
     () => {
-      schedulePersist({
-        selectedId: selectedId.value,
-        volumePercent: volumePercent.value,
-        muted: muted.value,
-        custom: custom.value,
-      });
+      void refreshCustomFromServer();
     },
-    { deep: true },
+    { immediate: true },
   );
 
   function stepRingtone(delta: number) {
@@ -330,21 +372,34 @@ export const useCallRingtoneStore = defineStore('callRingtone', () => {
     volumePercent.value = Math.min(100, Math.max(0, Math.round(p)));
   }
 
+  function resolveMaxCustomCount(explicit?: number): number {
+    if (typeof explicit === 'number' && explicit >= 0) return explicit;
+    if (serverMaxCustom.value != null) return serverMaxCustom.value;
+    return maxCustomRingtonesForPlan(authSession.planLimits?.plan);
+  }
+
   async function addCustomRingtone(
     file: File,
-    maxCustomCount: number,
+    maxCustomCount?: number,
   ): Promise<{ ok: true } | { ok: false; reason: string }> {
     if (!(file instanceof File)) {
       return { ok: false, reason: 'Choose an audio file first.' };
     }
-    if (custom.value.length >= Math.max(0, maxCustomCount)) {
+    const user = authSession.backendUser;
+    if (!user || user.isGuest) {
       return {
         ok: false,
-        reason: `You reached your custom ringtone limit (${maxCustomCount}).`,
+        reason: 'Sign in with a full account to save custom ringtones.',
       };
     }
-    const mime = (file.type || '').toLowerCase();
-    if (mime && !mime.startsWith('audio/')) {
+    const limit = resolveMaxCustomCount(maxCustomCount);
+    if (custom.value.length >= Math.max(0, limit)) {
+      return {
+        ok: false,
+        reason: `You reached your custom ringtone limit (${limit}).`,
+      };
+    }
+    if (!isChatAudioUpload(file)) {
       return {
         ok: false,
         reason: 'Unsupported file type. Upload an audio file.',
@@ -354,36 +409,39 @@ export const useCallRingtoneStore = defineStore('callRingtone', () => {
     if (prepared.size > CALL_RINGTONE_UPLOAD_MAX_BYTES) {
       return { ok: false, reason: 'File too large. Max size is 6MB.' };
     }
-    const dataUrl = await readFileAsDataUrl(prepared);
-    const item: PersistedCustom = {
-      id: `custom:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
-      label: extlessName(file.name),
-      mimeType: prepared.type || mime || 'audio/mpeg',
-      sizeBytes: prepared.size,
-      dataUrl,
-    };
-    const next = [...custom.value, item];
-    const savedOk = persist({
-      selectedId: selectedId.value,
-      volumePercent: volumePercent.value,
-      muted: muted.value,
-      custom: next,
-    });
-    if (!savedOk) {
-      return {
-        ok: false,
-        reason:
-          'Could not save ringtone in this browser (storage limit reached).',
-      };
+    try {
+      const uploaded = await uploadUserRingtoneFile(null, prepared);
+      const registered = await registerEchoUserRingtone(null, {
+        label: extlessName(file.name),
+        storageKey: uploaded.storageKey,
+        publicUrl: uploaded.url,
+        mimeType: prepared.type || file.type || 'audio/mpeg',
+        sizeBytes: prepared.size,
+      });
+      const item = mapServerCustom(registered);
+      custom.value = [...custom.value, item];
+      selectedId.value = item.id;
+      return { ok: true };
+    } catch (e) {
+      const msg =
+        e instanceof Error && e.message.trim()
+          ? e.message.trim()
+          : 'Upload failed. Try again or pick another file.';
+      return { ok: false, reason: msg };
     }
-    custom.value = next;
-    selectedId.value = item.id;
-    return { ok: true };
   }
 
-  function removeCustomRingtone(id: string) {
+  async function removeCustomRingtone(id: string): Promise<void> {
     const idx = custom.value.findIndex((x) => x.id === id);
     if (idx < 0) return;
+    const user = authSession.backendUser;
+    if (user && !user.isGuest) {
+      try {
+        await deleteEchoUserRingtone(null, id);
+      } catch {
+        return;
+      }
+    }
     custom.value = custom.value.filter((x) => x.id !== id);
     if (selectedId.value === id) {
       selectedId.value = firstBuiltInId();
@@ -399,6 +457,7 @@ export const useCallRingtoneStore = defineStore('callRingtone', () => {
     ringtoneCanStepBack,
     ringtoneCanStepForward,
     custom,
+    customLoading,
     volumePercent,
     muted,
     stepRingtone,
@@ -408,5 +467,6 @@ export const useCallRingtoneStore = defineStore('callRingtone', () => {
     setVolumePercent,
     addCustomRingtone,
     removeCustomRingtone,
+    refreshCustomFromServer,
   };
 });

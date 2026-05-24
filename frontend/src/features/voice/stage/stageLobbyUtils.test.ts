@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 import {
-  formatVcActivityDisplayTitle,
+  formatStageModeLabel,
   isStageEventWithinPlanningWindow,
-  parsePlannedActivityKeyFromDescription,
+  parseStageModeFromDescription,
   pickNearestStagePlanningEvent,
+  withStageModeInDescription,
 } from '@/features/voice/stage/stageLobbyUtils';
 
 function ev(
@@ -31,17 +32,27 @@ function ev(
 }
 
 describe('stageLobbyUtils', () => {
-  it('parses activity tag from description', () => {
+  it('parses stage mode from description', () => {
     expect(
-      parsePlannedActivityKeyFromDescription(
-        'Join us [activity:youtube] tonight',
-      ),
-    ).toBe('youtube');
+      parseStageModeFromDescription('Join us [stage:youtube_live] tonight'),
+    ).toBe('youtube_live');
   });
 
-  it('formats activity keys for display', () => {
-    expect(formatVcActivityDisplayTitle('youtube')).toBe('YouTube');
-    expect(formatVcActivityDisplayTitle('tic_tac_toe')).toBe('Tic-Tac-Toe');
+  it('maps legacy activity youtube tag to youtube live', () => {
+    expect(parseStageModeFromDescription('Old [activity:youtube] tag')).toBe(
+      'youtube_live',
+    );
+  });
+
+  it('formats stage mode labels', () => {
+    expect(formatStageModeLabel('youtube_live')).toBe('YouTube live');
+  });
+
+  it('appends stage mode tag to description', () => {
+    expect(withStageModeInDescription('Hello', true)).toContain(
+      '[stage:youtube_live]',
+    );
+    expect(withStageModeInDescription('[stage:youtube_live]', false)).toBe('');
   });
 
   it('picks stage event within one hour', () => {

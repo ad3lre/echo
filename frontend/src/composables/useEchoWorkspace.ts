@@ -22,6 +22,7 @@ import {
   readWorkspaceSessionCache,
   writeWorkspaceSessionCache,
 } from '@/utils/workspaceSessionCache';
+import { clearEchoWorkspaceCache } from '@/utils/workspacePersistence';
 import { dbgMemberList } from '@/utils/echoMemberListDebug';
 import type { MemberRole } from '@/utils/memberProfiles';
 import { hasPriorRegistration } from '@/utils/priorRegistration';
@@ -184,8 +185,11 @@ export function createWorkspaceState(): WorkspaceStateApi {
     await seedPublicExploreDirectory();
   }
 
-  function applyWorkspaceStateToRefs(state: EchoWorkspaceState) {
-    echoSession.applyWorkspaceSnapshot(state);
+  function applyWorkspaceStateToRefs(
+    state: EchoWorkspaceState,
+    opts?: { authoritative?: boolean },
+  ) {
+    echoSession.applyWorkspaceSnapshot(state, opts);
     serverMemberNicknames.value =
       buildServerMemberNicknameMapFromMembersByServer(state.membersByServer);
     applyTimeoutUntilFromWorkspaceSnapshot(state, timeoutUntilByServerUser, {
@@ -355,7 +359,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
           restoredUserId: user.id,
         },
       );
-      applyWorkspaceStateToRefs(state);
+      applyWorkspaceStateToRefs(state, { authoritative: true });
       users.value = applyWorkspaceRosterUsersPipeline([], {
         membersByServer: state.membersByServer ?? {},
         authUser: user,

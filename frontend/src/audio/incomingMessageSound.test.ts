@@ -119,6 +119,28 @@ describe('playIncomingChatMessageSound', () => {
     expect(playEchoSoundMock).toHaveBeenLastCalledWith('pingEveryone');
   });
 
+  it('plays reply-to-self sound as a personal ping', () => {
+    const played = playIncomingChatMessageSound({
+      channelId: 'server-channel-1',
+      authorId: 'u2',
+      activeChannelId: 'server-channel-1',
+      currentUserId: 'u1',
+      currentUsername: 'ada',
+      isDmChannel: false,
+      serverNotificationLevel: 'mentions_direct',
+      memberRoleIds: new Set<string>(),
+      replyTo: {
+        messageId: 'm0',
+        authorId: 'u1',
+        authorName: 'Ada',
+        content: 'hey',
+      },
+    });
+
+    expect(played).toBe(true);
+    expect(playEchoSoundMock).toHaveBeenCalledWith('pingDirectMention');
+  });
+
   it('respects mentions_direct by suppressing non-personal server pings', () => {
     const played = playIncomingChatMessageSound({
       channelId: 'server-channel-1',

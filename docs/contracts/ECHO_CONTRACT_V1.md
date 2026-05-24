@@ -82,7 +82,9 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
 - `GET` `/friends`; `GET` `/friends/requests` (pending incoming/outgoing); `POST` `/friends/request`, `/friends/accept`, `/friends/decline`, `/friends/cancel` (body: `peerId` where applicable)
 - `GET/POST` `/presence`
 - `GET` `/blocks`, `POST` `/blocks` (body: `targetUserId`), `DELETE` `/blocks/:targetUserId`
-- `POST` `/reports/user` (body: `targetUserId`, optional `reason`)
+- `POST` `/reports/user` (body: `targetUserId`, optional `reason`, optional `category`, optional `messageId` + `channelId` for message context). **429** rate limit: 10 submissions per hour per user (IP fallback when unauthenticated bearer parsing fails). Duplicate reports for the same target within 24h succeed with **204** without creating a second row.
+- `POST` `/reports/message` (body: `messageId`, `channelId`, optional `reason`, optional `category`). Caller must have channel access; cannot report own messages. Same rate limit and 24h duplicate suppression per message as user reports. **404** if message missing; **403** if channel inaccessible.
+- Report `category` (optional, default `other`): `spam` | `harassment` | `hate` | `sexual` | `violence` | `impersonation` | `other`.
 - **DMs (Echo graph, `echo_dm_realm`):**
   - `POST` `/dm/open` (body: `peerUserId`) — returns `{ channelId, peerUserId }` for a **1:1** thread; **403** when blocked or policy denies (non-friends without guest/shared-server carve-out); idempotent on pair.
   - `POST` `/dm/group/open` (body: `memberUserIds` — unique list including the caller, **3–10** users, `name` optional) — creates a **group** DM channel and membership rows; **403** when any pair is ineligible or blocked.
@@ -95,10 +97,15 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
   - **`serverId`** without `purpose`, or `purpose: legacy_server`: member-only (`isMemberOfServer`) and suppressed by active guild communication timeout; key `echo/{serverId}/{userId}/…` (legacy).
     - **`purpose: server_emoji`** + **`serverId`**: user may manage server custom emojis; key `echo/emoji/{serverId}/{userId}/…`.
     - **`purpose: user_avatar`** or **`user_banner`**: authenticated user only; must **not** send `channelId` or `serverId`; keys `echo/avatars/{userId}/…` / `echo/banners/{userId}/…`.
+    - **`purpose: user_ringtone`**: custom call ringtone audio (≤6 MiB); authenticated user only; keys `echo/ringtones/{userId}/…`. Register with `POST` `/ringtones` after upload.
     - **`purpose: server_icon`** or **`server_banner`** + **`serverId`**: requires `MANAGE_GUILD`; keys `echo/server-icons/{serverId}/{userId}/…` / `echo/server-banners/…`.
   - **200 response:** `uploadUrl`, `publicUrl`, `key`, `headers` (include `Content-Type` for the `PUT`), `publicUrlPrefixes` (for clients).
   - **Errors:** **400** `INVALID_BODY`, **403** `FORBIDDEN`, **503** `UPLOADS_NOT_CONFIGURED`.
 - `POST` `/uploads/retention/touch` — authenticated; body `{ storageKeys: string[] }` (max 20). Resets **abandonment** timers for chat media the caller can read. Server ignores touches when `last_seen_at >= now() - 24h` per key.
+- **Chat video HLS (background packaging):**
+  - `POST` `/uploads/register` with `kind: video` and `channelId` enqueues background HLS packaging after CSAM scan passes. Requires `ffmpeg` + `ffprobe` on the API host (see [`docs/operations/chat-video-hls.md`](../operations/chat-video-hls.md)).
+  - `GET` `/uploads/video-playback?url=` — authenticated; caller must have read access to the source upload. Returns `{ status: 'ready' | 'pending' | 'failed', format: 'hls' | 'progressive', playbackUrl?, sourceUrl, sourceEtag, sourceSize, renditions? }`. When `status` is `ready` and `format` is `hls`, `playbackUrl` is the master `.m3u8`. The original progressive source remains playable at `sourceUrl`; HLS is a best-effort optimization.
+  - Client polls `video-playback` while `status` is `pending` and switches to HLS when ready.
 - **Chat media abandonment** (user-sent channel/legacy/webhook-inbound keys only; not avatars, banners, emoji, etc.):
   - Timers start at upload (`expires_at = created_at + abandon_ms`); first UI visibility touch sets `last_seen_at` and recomputes `expires_at`.
   - Free tiers by size: ≤10 MB → 6y; ≤100 MB → 3y; &gt;100 MB → 12mo. Echo+: ≤15 MB permanent (snapshot); &gt;15 MB ×1.25. Echo Black: ≤100 MB permanent; &gt;100 MB paused until downgrade (then ×1.30). Webhook inbound uses free rules.

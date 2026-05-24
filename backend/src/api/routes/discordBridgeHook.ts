@@ -108,6 +108,7 @@ export default async function discordBridgeHookRoutes(
         attachments: b.attachments,
         stickers: b.stickers,
         embeds: b.embeds,
+        messageReference: b.messageReference,
         webhookId,
       });
 

@@ -71,6 +71,7 @@ async function resolveSafeReplyTo(
 
   return {
     messageId: row.id,
+    authorId: row.authorId,
     authorName: row.authorDisplayName || 'Unknown',
     authorAvatar: row.authorAvatar,
     content: preview || '(no text)',

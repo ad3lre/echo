@@ -38,7 +38,7 @@ function handleClick(option: ChannelOption) {
 }
 
 function channelSecondaryText(option: {
-  type?: 'text' | 'voice' | 'forum' | 'stage';
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
 }): string {
   if (option.type === 'voice') return 'Voice channel';
   if (option.type === 'forum') return 'Forum channel';
@@ -47,7 +47,7 @@ function channelSecondaryText(option: {
 
 function getOptionEmojiOrNull(option: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage';
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
   iconKey?: string;
 }): string | null {
   const v = channelIconResolver.getVisual(option);
@@ -56,7 +56,7 @@ function getOptionEmojiOrNull(option: {
 
 function getOptionIconUrlOrFallback(option: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage';
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
   iconKey?: string;
 }): string {
   const v = channelIconResolver.getVisual(option);
@@ -64,8 +64,12 @@ function getOptionIconUrlOrFallback(option: {
   return channelIconResolver.getIconUrl(option);
 }
 
-function optionIconUsesInvert(option: { iconKey?: string }): boolean {
-  return channelIconResolver.usesSvgInvert(option.iconKey);
+function optionIconUsesInvert(option: {
+  name: string;
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  iconKey?: string;
+}): boolean {
+  return channelIconResolver.usesSvgInvert(option);
 }
 </script>
 

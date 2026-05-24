@@ -118,7 +118,7 @@ const props = defineProps<
     channels?: {
       id: string;
       name: string;
-      type?: 'text' | 'voice' | 'forum' | 'stage';
+      type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
       iconKey?: string;
     }[];
     sendMessage?: (
@@ -625,6 +625,7 @@ const mentionAutocomplete = useMentionAutocomplete(
         context: composerSource,
       }).allowed,
   ),
+  () => composer.mentions.value,
 );
 
 const channelOptions = computed(() => props.channels ?? []);
@@ -821,6 +822,21 @@ function handlePollCreate(poll: PollData) {
 
 function refreshAutocomplete() {
   nextTick(() => {
+    const text = composer.content.value;
+    const cursor = composer.selectionStart.value;
+    /** Skip autocomplete scans when no trigger character is near the caret. */
+    const before = text.slice(Math.max(0, cursor - 48), cursor);
+    const mayTrigger =
+      /[@#:]/.test(before) ||
+      emojiAutocomplete.showPopup.value ||
+      mentionAutocomplete.showPopup.value ||
+      channelAutocomplete.showPopup.value;
+    if (!mayTrigger) {
+      if (emojiAutocomplete.showPopup.value) emojiAutocomplete.close();
+      if (mentionAutocomplete.showPopup.value) mentionAutocomplete.close();
+      if (channelAutocomplete.showPopup.value) channelAutocomplete.close();
+      return;
+    }
     emojiAutocomplete.updateFromInput();
     mentionAutocomplete.updateFromInput();
     channelAutocomplete.updateFromInput();
@@ -986,7 +1002,10 @@ function handleEmojiAutocompleteSelect(emoji: string) {
 
 function handleMentionAutocompleteSelect(option: MentionOption) {
   mentionAutocomplete.select(option);
-  nextTick(() => composer.focus());
+  void nextTick(() => {
+    refreshAutocomplete();
+    composer.focus();
+  });
 }
 
 function handleChannelAutocompleteSelect(option: { id: string; name: string }) {
@@ -996,6 +1015,7 @@ function handleChannelAutocompleteSelect(option: { id: string; name: string }) {
 
 async function handleSubmit() {
   if (!props.sendMessage) return;
+  composer.flushComposerSync();
   ensureComposerHardFormatPrefix();
   const content = composer.content.value.trim();
   const hasContent = content.length > 0;
@@ -1162,10 +1182,27 @@ watch(activePopout, () => {
   channelAutocomplete.close();
 });
 
-watch([composer.content, composer.selectionStart], () => {
-  refreshAutocomplete();
-  schedulePersistComposerDraft();
-});
+watch(
+  () => composer.content.value,
+  () => {
+    refreshAutocomplete();
+    schedulePersistComposerDraft();
+  },
+);
+
+watch(
+  () => composer.selectionStart.value,
+  () => {
+    if (
+      !emojiAutocomplete.showPopup.value &&
+      !mentionAutocomplete.showPopup.value &&
+      !channelAutocomplete.showPopup.value
+    ) {
+      return;
+    }
+    refreshAutocomplete();
+  },
+);
 
 watch(
   () =>

@@ -3,6 +3,7 @@ import { ECHO_CHANNEL_MESSAGE_PAGE_SIZE } from '@/constants/echoHistoryPageSize'
 import { messageWindowAuthority } from '@/services/realtime/messageWindowAuthority';
 import {
   applyEchoChannelClientCap as applyEchoChannelClientCapFromAuthority,
+  appendChannelMessagesFromHistory,
   prependChannelMessagesFromHistory,
   replaceChannelMessagesFromHistory,
 } from '@/services/realtime/channelMessageAuthority';
@@ -55,6 +56,25 @@ export function applyEchoHistoryInitialPageFromApi(
   );
   applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap);
   return synced;
+}
+
+/** Newer rows from API tail sync (socket reconnect / tab resume / cache hit). */
+export function applyEchoHistoryLatestPageFromApi(
+  channelId: string,
+  rawNewer: RawMessage[],
+  activeChannelIdForCap: string,
+): { mergedNewerCount: number } {
+  if (rawNewer.length === 0) {
+    return { mergedNewerCount: 0 };
+  }
+  const { mergedNewerCount } = appendChannelMessagesFromHistory(
+    channelId,
+    rawNewer,
+  );
+  if (mergedNewerCount > 0) {
+    applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap);
+  }
+  return { mergedNewerCount };
 }
 
 /** Older page from API (scroll prepend, jump prefetch). */

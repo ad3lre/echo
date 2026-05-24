@@ -170,6 +170,7 @@ async function run(): Promise<void> {
     assert.equal(limitRes.statusCode, 429);
     const limitJson = JSON.parse(limitRes.body) as { code?: string };
     assert.equal(limitJson.code, 'PLAN_LIMIT');
+    assert.equal(limitRes.headers['x-echo-image-search-daily-remaining'], '0');
     assert.equal(fetchCalls, 0);
     await limitApp.close();
 
@@ -196,6 +197,8 @@ async function run(): Promise<void> {
     });
     assert.equal(missRes.statusCode, 200);
     assert.equal(missRes.headers['x-echo-image-search-cache'], 'MISS');
+    assert.equal(missRes.headers['x-echo-image-search-daily-limit'], '10');
+    assert.equal(missRes.headers['x-echo-image-search-daily-remaining'], '9');
     assert.equal(fetchCalls, 1);
     const missBody = JSON.parse(missRes.body) as { results: { url: string }[] };
     assert.equal(missBody.results[0]?.url, 'https://example.com/miss.jpg');

@@ -27,6 +27,7 @@ function cloneRawMessageLooseFallback(raw: RawMessage): RawMessage {
     authorAvatar: raw.authorAvatar,
     authorIsDiscordShadow: raw.authorIsDiscordShadow,
     authorDiscordUserId: raw.authorDiscordUserId,
+    bridgeFromDiscord: raw.bridgeFromDiscord,
     timestamp: raw.timestamp,
     content: raw.content,
     contentText: raw.contentText,

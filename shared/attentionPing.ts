@@ -3,6 +3,7 @@ import type {
   EchoAttentionPingKind,
   EchoServerNotificationLevel,
   MentionEntity,
+  ReplyTo,
 } from './types';
 
 const PING_RANK: Record<EchoAttentionPingKind, number> = {
@@ -18,6 +19,20 @@ export function mergeAttentionPingKinds(
   if (!a) return b;
   if (!b) return a;
   return PING_RANK[a] >= PING_RANK[b] ? a : b;
+}
+
+/** True when this message is a reply to the given user (Discord-style reply ping). */
+export function messageRepliesToUser(
+  replyTo: ReplyTo | undefined,
+  replyTargetAuthorId: string | undefined,
+  userId: string | undefined,
+): boolean {
+  const uid = userId?.trim();
+  if (!uid || !replyTo?.messageId?.trim()) return false;
+  const fromSnapshot = replyTo.authorId?.trim();
+  if (fromSnapshot) return fromSnapshot === uid;
+  const fromTarget = replyTargetAuthorId?.trim();
+  return fromTarget === uid;
 }
 
 export function classifyAttentionPingKind(

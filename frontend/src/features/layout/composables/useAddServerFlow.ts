@@ -20,6 +20,7 @@ import {
   postEchoJoinWithInviteToken,
   uploadServerBrandingFile,
 } from '@/api/echoClient';
+import { uploadBrandingAssetWithInlineFallback } from '@/services/orchestration/brandingUploadFallback';
 import {
   fetchEchoDirectoryServerMemberHighlights,
   fetchEchoInvitePreview,
@@ -480,16 +481,19 @@ export function useAddServerFlow(deps: {
         serverId = created.serverId;
         defaultChannelId = created.defaultChannelId;
         try {
-          const url = await uploadServerBrandingFile(
-            token,
-            serverId,
-            'server_icon',
-            nativeIconFile,
-          );
+          const url = await uploadBrandingAssetWithInlineFallback({
+            file: nativeIconFile,
+            upload: () =>
+              uploadServerBrandingFile(
+                token,
+                serverId,
+                'server_icon',
+                nativeIconFile,
+              ),
+          });
           await patchEchoServerPreferences(token, serverId, { iconUrl: url });
           uploadedServerIconPublicUrl = url;
         } catch (e) {
-          /** Usually `POST /uploads/presign` 503 when S3/R2 is not configured (`UPLOADS_NOT_CONFIGURED`). */
           const fromApi =
             e instanceof Error && e.message.trim() ? e.message.trim() : '';
           dispatchAppToast(
@@ -606,9 +610,8 @@ export function useAddServerFlow(deps: {
       await hydrateWorkspace();
       if (uploadedServerIconPublicUrl) {
         /**
-         * Second fetch: `hydrateEchoFromApi` dedupes concurrent calls. Server create emits
-         * `workspace_invalidated` while icon upload + PATCH are still running, so the first
-         * awaited hydrate can resolve a snapshot taken before `icon_url` was updated.
+         * Second fetch: create/import may coalesce with a pre-PATCH hydrate; re-fetch after
+         * icon is persisted. `updateServerImageUrl` covers the gap until a fresh snapshot lands.
          */
         await hydrateWorkspace();
         serverStore.updateServerImageUrl(serverId, uploadedServerIconPublicUrl);
@@ -706,12 +709,24 @@ export function useAddServerFlow(deps: {
       if (graphId && authSession.isAuthenticated) {
         const already = serverStore.servers.some((s) => s.id === graphId);
         if (already) {
-          isAddServerModalOpen.value = false;
-          focusJoinedServerInShell(graphId);
-          if (!isMoreServersPinned.value) {
-            isMoreServersPanelOpen.value = false;
+          try {
+            const { serverId } = await postEchoJoinDirectoryServer(
+              token,
+              graphId,
+            );
+            await hydrateWorkspace();
+            isAddServerModalOpen.value = false;
+            focusJoinedServerInShell(serverId);
+            if (!isMoreServersPinned.value) {
+              isMoreServersPanelOpen.value = false;
+            }
+            return;
+          } catch {
+            serverStore.leaveServer(graphId, currentUser.value?.id, {
+              afterApiLeave: true,
+            });
+            await hydrateWorkspace().catch(() => undefined);
           }
-          return;
         }
       }
 

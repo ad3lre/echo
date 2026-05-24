@@ -8,6 +8,7 @@ import {
 } from '@/services/orchestration/appEchoRealtimeHost';
 import { useChannelTypingStore } from '@/stores/channelTyping';
 import type { LocalAuthorEchoSnapshot } from '@/services/realtime/socketOutbound';
+import { registerEchoSocketWarmConnect } from '@/services/realtime/echoSocketWarmConnect';
 
 export type AppLayoutEchoRealtimeHostCallbacks = Omit<
   AppLayoutEchoRealtimeHostInput,
@@ -33,26 +34,29 @@ export function useAppLayoutRealtimeSocketBinding(deps: {
   getDmPeerUserId?: (channelId: string) => string | undefined;
   getAccessToken?: () => string | null | undefined;
   ensureReplyTargetMessage?: (channelId: string, messageId: string) => void;
+  /** When the tab returns while Socket.IO is still up, merge missed channel tail rows. */
+  onTabResumeWhileConnected?: () => void;
 }) {
   const channelTyping = useChannelTypingStore();
   const host = createAppLayoutEchoRealtimeHost({
     ...deps.hostCallbacks,
     applyChannelTyping: (p) => channelTyping.ingestRemote(p),
   });
-  return useSocket(
-    createAppEchoRealtimeSocketBinding({
-      messages: deps.messages,
-      activeChannelId: deps.activeChannelId,
-      currentUserId: deps.currentUserId,
-      host,
-      getAuthKey: deps.getAuthKey,
-      platformSession: deps.platformSession,
-      getBackendUserStatus: deps.getBackendUserStatus,
-      restoreSessionFromApi: deps.restoreSessionFromApi,
-      getLocalAuthorEcho: deps.getLocalAuthorEcho,
-      getDmPeerUserId: deps.getDmPeerUserId,
-      getAccessToken: deps.getAccessToken,
-      ensureReplyTargetMessage: deps.ensureReplyTargetMessage,
-    }),
-  );
+  const binding = createAppEchoRealtimeSocketBinding({
+    messages: deps.messages,
+    activeChannelId: deps.activeChannelId,
+    currentUserId: deps.currentUserId,
+    host,
+    getAuthKey: deps.getAuthKey,
+    platformSession: deps.platformSession,
+    getBackendUserStatus: deps.getBackendUserStatus,
+    restoreSessionFromApi: deps.restoreSessionFromApi,
+    getLocalAuthorEcho: deps.getLocalAuthorEcho,
+    getDmPeerUserId: deps.getDmPeerUserId,
+    getAccessToken: deps.getAccessToken,
+    ensureReplyTargetMessage: deps.ensureReplyTargetMessage,
+    onTabResumeWhileConnected: deps.onTabResumeWhileConnected,
+  });
+  registerEchoSocketWarmConnect(() => binding.wiring.connectSocket());
+  return useSocket(binding);
 }

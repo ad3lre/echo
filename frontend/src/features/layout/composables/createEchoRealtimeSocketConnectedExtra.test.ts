@@ -13,4 +13,17 @@ describe('createEchoRealtimeSocketConnectedExtra', () => {
     expect(syncEchoPresenceFromApi).toHaveBeenCalledTimes(1);
     expect(hydrateAttentionSnapshot).toHaveBeenCalledTimes(1);
   });
+
+  it('schedules tail sync after connect when provided', () => {
+    const scheduleActiveChannelTailSyncAfterConnect = vi.fn();
+    const extra = createEchoRealtimeSocketConnectedExtra({
+      syncEchoPresenceFromApi: vi.fn(),
+      hydrateAttentionSnapshot: vi.fn(),
+      scheduleActiveChannelTailSyncAfterConnect,
+    });
+    extra();
+    expect(scheduleActiveChannelTailSyncAfterConnect).toHaveBeenCalledWith(
+      'socket_connected',
+    );
+  });
 });

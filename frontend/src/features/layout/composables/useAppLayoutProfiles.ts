@@ -15,6 +15,11 @@ import {
   persistProfileNotesMap,
 } from '@/utils/profileNotesPersistence';
 import { useEchoSessionStore } from '@/stores/echoSession';
+import {
+  consumeProfileUiInteractionSuppressed,
+  deferAfterProfilePointerAction,
+  suppressProfileUiInteraction,
+} from '@/utils/profileUiPointerGuard';
 
 type User = {
   id: string;
@@ -171,6 +176,7 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     userId: string,
     anchorRect: PopoutAnchorRect | null = null,
   ) {
+    if (consumeProfileUiInteractionSuppressed()) return;
     const user = users.value.find((entry) => entry.id === userId);
     if (!user) return;
     const base = buildMemberProfile(
@@ -230,9 +236,11 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
       cur.id,
       expandedProfileInputs(),
     );
-    isMemberPopoutOpen.value = false;
     isExpandedProfileModalOpen.value = true;
     isExpandedProfileSidePanel.value = false;
+    deferAfterProfilePointerAction(() => {
+      isMemberPopoutOpen.value = false;
+    });
   }
 
   function openExpandedProfileFromSelfPopout() {
@@ -245,9 +253,11 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
       cur.id,
       expandedProfileInputs(),
     );
-    isSelfProfilePopoutOpen.value = false;
     isExpandedProfileModalOpen.value = true;
     isExpandedProfileSidePanel.value = false;
+    deferAfterProfilePointerAction(() => {
+      isSelfProfilePopoutOpen.value = false;
+    });
   }
 
   function onExpandedProfileModalUpdate(open: boolean) {
@@ -260,6 +270,7 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
 
   function openExpandedProfilePanelForUserId(userId: string) {
     if (!isInDMChat.value) return;
+    if (consumeProfileUiInteractionSuppressed()) return;
     if (!currentUser.value) return;
     const trimmed = userId.trim();
     if (!trimmed) return;
@@ -268,6 +279,11 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
       expandedProfile.value?.id === trimmed &&
       !expandedProfileLoading.value
     ) {
+      if (isExpandedProfileSidePanel.value) {
+        suppressProfileUiInteraction();
+        isExpandedProfileSidePanel.value = false;
+        return;
+      }
       closeExpandedProfileShell();
       return;
     }
@@ -283,6 +299,7 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
   function expandDmProfileToFullModal() {
     if (!expandedProfileTargetUserId.value && !expandedProfile.value) return;
     if (!isExpandedProfileModalOpen.value) return;
+    suppressProfileUiInteraction();
     isExpandedProfileSidePanel.value = false;
   }
 

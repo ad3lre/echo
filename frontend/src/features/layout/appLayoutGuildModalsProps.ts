@@ -17,7 +17,7 @@ import type {
 
 export type AppLayoutGuildModalsChannelSettingsSavePayload = {
   channelId: string;
-  channelType: 'text' | 'voice' | 'forum' | 'stage';
+  channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
   serverId: string;
   name: string;
   categoryId: string;

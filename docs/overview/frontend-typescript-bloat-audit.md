@@ -22,7 +22,7 @@ Systematic audit of `frontend/src` (TypeScript and Vue SFC scripts) per the agre
 
 - Thresholds: **soft 400** lines, **hard 700** lines (Vue/TS/JS under `frontend/src`).
 - **130** files ≥ 400 lines; **59** files ≥ 700 lines (**CI fails** today).
-- Largest (lines): `AppLayout.vue` (4488), `useAppLayoutController.ts` (3926), `FounderDashboardView.vue` (3250), `useLiveKitVoiceRoom.ts` (2959), `VcActivityStage.vue` (2941), `MessageList.vue` (2517), `ChannelPanelList.vue` (2394), `ServerSettingsRolesSection.vue` (2340), `AppLayoutChatHeader.vue` (2290), `useAppLayoutDmCalls.ts` (2143), …
+- Largest (lines): `AppLayout.vue` (4488), `useAppLayoutController.ts` (3926), `useLiveKitVoiceRoom.ts` (2959), `VcActivityStage.vue` (2941), `MessageList.vue` (2517), `ChannelPanelList.vue` (2394), `ServerSettingsRolesSection.vue` (2340), `AppLayoutChatHeader.vue` (2290), `useAppLayoutDmCalls.ts` (2143), …
 
 ### 1.2 LOC by area (`cloc` on `frontend/src`, excluding `json` / `md` / `lock`)
 

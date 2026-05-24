@@ -1,0 +1,78 @@
+$server-rail-pill-ease: cubic-bezier(0.33, 1, 0.68, 1);
+
+.server-folder__slot > .server-folder__item {
+  position: relative;
+  z-index: 1;
+}
+
+.server-folder__pill {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.22s $server-rail-pill-ease;
+}
+
+.server-folder__slot:hover .server-folder__pill,
+.server-folder__slot--active .server-folder__pill {
+  opacity: 1;
+}
+
+/** Left-edge vertical strip (sidebar / “normal” rail). */
+.server-folder__pill--v {
+  left: 0;
+  top: 50%;
+  width: 5px;
+  height: 28px;
+  border-radius: 0 6px 6px 0;
+  background-color: var(--server-rail-pill-fg);
+  transform: translateY(-50%);
+}
+
+.server-folder__slot:hover:not(.server-folder__slot--active)
+  .server-folder__pill--v {
+  background-color: transparent;
+  box-sizing: border-box;
+  border: 1px solid var(--server-rail-pill-fg);
+  border-left: none;
+}
+
+.server-folder__slot--active .server-folder__pill--v {
+  background-color: var(--server-rail-pill-fg);
+  border: none;
+}
+
+/**
+ * Top horizontal rail: pill reads from the window edge above (top → down).
+ */
+.server-folder__pill--h {
+  left: 50%;
+  top: 0;
+  width: 28px;
+  height: 5px;
+  border-radius: 6px 6px 0 0;
+  background-color: var(--server-rail-pill-fg);
+  transform: translate(-50%, calc(-100% - 5px));
+}
+
+.server-folder__slot:hover:not(.server-folder__slot--active)
+  .server-folder__pill--h {
+  background-color: transparent;
+  box-sizing: border-box;
+  border: 1px solid var(--server-rail-pill-fg);
+  border-bottom: none;
+}
+
+.server-folder__slot--active .server-folder__pill--h {
+  background-color: var(--server-rail-pill-fg);
+  border: none;
+}
+
+.server-folder__slot--rail-dnd .server-folder__pill,
+.server-folder__slot--rail-dnd:hover .server-folder__pill {
+  opacity: 0 !important;
+}
+
+.servers-folder--horizontal .server-folder__item--idle:hover {
+  transform: none;
+}

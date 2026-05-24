@@ -49,6 +49,11 @@ export type ExportedForwardedFrom = {
   contentPreview: string;
 };
 
+export type ExportedMessageReference = {
+  messageId: string;
+  channelId: string;
+};
+
 export type ExportedMessage = {
   id: string;
   content: string;
@@ -60,6 +65,7 @@ export type ExportedMessage = {
   stickers: ExportedMessageSticker[];
   poll?: ExportedPoll;
   forwardedFrom?: ExportedForwardedFrom;
+  messageReference?: ExportedMessageReference;
 };
 
 export type ExportedMessageSticker = {
@@ -241,6 +247,7 @@ export async function fetchChannelMessages(
     const exportedPoll =
       m.poll && !m.poll.partial ? mapDiscordPollToExported(m.poll) : undefined;
     const forwardedFrom = buildExportedForwardedFrom(m);
+    const ref = m.reference;
 
     out.push({
       id: m.id,
@@ -248,6 +255,14 @@ export async function fetchChannelMessages(
       timestamp: m.createdAt.toISOString(),
       author,
       ...(embeds ? { embeds } : {}),
+      ...(ref?.messageId
+        ? {
+            messageReference: {
+              messageId: ref.messageId,
+              channelId: ref.channelId ?? m.channelId,
+            },
+          }
+        : {}),
       attachments: m.attachments.map((a: Attachment) => ({
         id: a.id,
         url: (a.url || a.proxyURL || '').trim(),

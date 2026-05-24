@@ -51,7 +51,7 @@ export function useWorkspaceServerActions(refs: WorkspaceStateRefs) {
     categoryId: string,
     channel: {
       name: string;
-      type: 'text' | 'voice' | 'forum' | 'stage';
+      type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
       iconKey?: string;
     },
   ): Promise<string | null> {

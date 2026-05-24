@@ -39,3 +39,11 @@ This document is the runtime contract for RBAC merge behavior. Implementation mu
   - `MANAGE_ROLES` — create/edit/delete roles, reorder roles/categories (within scope).
   - `ASSIGN_ROLES` — assign/remove member roles (within scope); `MANAGE_ROLES` implies assign.
 - Scope checks compare the actor’s top `position` among assigned roles in the same category (or globally when a global-scope granting role is present).
+
+## Paper channel extension (`COMMENT_ON_PAPER`)
+
+- **Echo extended permission** `COMMENT_ON_PAPER` (UI key `commentOnPaper`) gates margin comments on `type === 'paper'` channels when `paper_comments_enabled` is true.
+- **Authoring** the document body uses existing `SEND_MESSAGES` (UI: “Author in paper”); it does not imply comment permission.
+- **Comment moderation** uses `MANAGE_MESSAGES` on paper channels (UI: “Manage comments”).
+- **Download / export** (PDF, JSON, copy plain text in the File menu) uses `READ_MESSAGE_HISTORY` (UI key `readMessageHistory`, label “Download / export paper” in paper channel settings). UI gating only; document GET still returns full JSON to viewers with `VIEW_CHANNEL`.
+- Channel overwrites and role defaults follow the same last-write-wins fold as other Echo bits; see `shared/rolePermissionBridge.ts` for the bridge mapping.

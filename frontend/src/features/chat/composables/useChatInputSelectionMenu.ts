@@ -7,6 +7,7 @@ import {
   watch,
   type Ref,
 } from 'vue';
+import { isComposerContentEffectivelyEmpty } from '@/features/chat/editor/composerModel';
 
 interface UseChatInputSelectionMenuOptions {
   chatInputFocused: Ref<boolean>;
@@ -37,7 +38,7 @@ export function useChatInputSelectionMenu(
     () =>
       chatInputFocused.value &&
       selectionEnd.value > selectionStart.value &&
-      composerContent.value.length > 0,
+      !isComposerContentEffectivelyEmpty(composerContent.value),
   );
 
   function updateSelectionFromTextarea() {

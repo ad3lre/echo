@@ -61,6 +61,65 @@ function nvmNodeBinDir() {
   }
 }
 
+const DEPLOY_ANNOUNCEMENT_MAX_LENGTH = 500;
+
+function normalizeDeployAnnouncement(raw) {
+  if (raw == null) return null;
+  const t = String(raw).trim();
+  if (!t) return null;
+  if (t.length > DEPLOY_ANNOUNCEMENT_MAX_LENGTH) {
+    throw new Error(
+      `Deploy announcement must be at most ${DEPLOY_ANNOUNCEMENT_MAX_LENGTH} characters (got ${t.length})`,
+    );
+  }
+  return t;
+}
+
+function resolveDeployAnnouncement(opts) {
+  if (opts.announcement != null) {
+    return normalizeDeployAnnouncement(opts.announcement);
+  }
+  const env = process.env.VPS_DEPLOY_ANNOUNCEMENT?.trim();
+  return env ? normalizeDeployAnnouncement(env) : null;
+}
+
+function requireDeployAnnouncement(opts, context) {
+  try {
+    const msg = resolveDeployAnnouncement(opts);
+    if (!msg) {
+      console.error(
+        `[vps-serve] Deploy announcement required for ${context} (max ${DEPLOY_ANNOUNCEMENT_MAX_LENGTH} chars).`,
+      );
+      console.error(
+        '  Pass --announce="Why we are restarting and what is coming" or set VPS_DEPLOY_ANNOUNCEMENT.',
+      );
+      process.exit(1);
+    }
+    return msg;
+  } catch (e) {
+    console.error(`[vps-serve] ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+}
+
+function writeDeployAnnouncementFiles(message, logDir) {
+  const payload = JSON.stringify({ message, writtenAt: Date.now() }, null, 2);
+  fs.mkdirSync(logDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(logDir, 'deploy-announcement.json'),
+    payload,
+    'utf8',
+  );
+  const distDir = path.join(repoRoot, 'frontend/dist');
+  if (fs.existsSync(distDir)) {
+    fs.writeFileSync(
+      path.join(distDir, 'echo-deploy-announcement.json'),
+      payload,
+      'utf8',
+    );
+  }
+}
+
 function printHelp() {
   console.error(`
 Usage: node scripts/vps-serve.mjs <dev|prod> [options]
@@ -70,12 +129,14 @@ Options:
   --daemon          With --git-watch: detach the launcher itself and exit (survives SSH disconnect)
   --foreground      Do not detach: stay attached (non-watch: wait with inherited stdio)
   --stop            Stop the running stack / watcher (uses pid files under --log-dir)
+  --announce=TEXT   Required when stopping/restarting a running stack (max 500 chars; or VPS_DEPLOY_ANNOUNCEMENT)
   --watch-branch=B  With --git-watch: watch/pull this branch (default: current branch; error if detached HEAD)
   --log-dir=DIR     Log directory (default: <repo>/logs/vps)
   --poll-ms=N       Git poll interval in ms (default: 60000 or VPS_GIT_POLL_MS; min 5000)
 
 Examples:
-  npm run vps -- prod
+  VPS_DEPLOY_ANNOUNCEMENT="Paper channels + bug fixes" npm run vps:prod
+  npm run vps -- prod --stop --announce="Restarting for security patches"
   npm run vps -- dev --foreground
   npm run vps -- prod --git-watch
   npm run vps -- dev --git-watch --daemon
@@ -91,6 +152,7 @@ function parseArgs(argv) {
     foreground: false,
     stop: false,
     watchBranch: null,
+    announcement: null,
     logDir: path.join(repoRoot, 'logs', 'vps'),
     pollMs: parseInt(process.env.VPS_GIT_POLL_MS || '60000', 10) || 60_000,
   };
@@ -103,6 +165,8 @@ function parseArgs(argv) {
     else if (a === '--daemon') out.daemon = true;
     else if (a === '--foreground') out.foreground = true;
     else if (a === '--stop') out.stop = true;
+    else if (a.startsWith('--announce='))
+      out.announcement = a.slice('--announce='.length);
     else if (a.startsWith('--watch-branch='))
       out.watchBranch = a.slice('--watch-branch='.length);
     else if (a.startsWith('--log-dir='))
@@ -121,6 +185,9 @@ function parseArgs(argv) {
   if (out.daemon && !out.gitWatch) {
     console.error('[vps-serve] --daemon requires --git-watch');
     process.exit(1);
+  }
+  if (!out.announcement && process.env.VPS_DEPLOY_ANNOUNCEMENT?.trim()) {
+    out.announcement = process.env.VPS_DEPLOY_ANNOUNCEMENT.trim();
   }
   return out;
 }
@@ -378,7 +445,11 @@ const VPS_DEPLOY_COUNTDOWN_SECONDS = 6;
 async function notifyDeployCountdownAndWait(
   metaPath,
   seconds = VPS_DEPLOY_COUNTDOWN_SECONDS,
+  message,
 ) {
+  if (message) {
+    writeDeployAnnouncementFiles(message, path.dirname(metaPath));
+  }
   const origin = process.env.VPS_DEPLOY_NOTIFY_ORIGIN?.trim();
   const secret = process.env.ECHO_DEPLOY_NOTIFY_SECRET?.trim();
   if (!origin || !secret) {
@@ -399,7 +470,7 @@ async function notifyDeployCountdownAndWait(
         'Content-Type': 'application/json',
         'X-Echo-Deploy-Notify-Secret': secret,
       },
-      body: JSON.stringify({ seconds }),
+      body: JSON.stringify({ seconds, message: message ?? undefined }),
       signal: ac.signal,
     });
     clearTimeout(to);
@@ -517,7 +588,11 @@ async function watchLoop(opts, treeKill) {
         }
       }
 
-      await notifyDeployCountdownAndWait(logs.metaPath);
+      await notifyDeployCountdownAndWait(
+        logs.metaPath,
+        VPS_DEPLOY_COUNTDOWN_SECONDS,
+        requireDeployAnnouncement(opts, 'git-watch restart'),
+      );
       await stopChild();
       appendMeta(logs.metaPath, 'restarting stack after successful preverify');
       start();
@@ -581,11 +656,17 @@ async function stopRunning(opts, treeKill) {
   }
 
   if (stackPid) {
+    const announcement = requireDeployAnnouncement(opts, 'stack stop');
+    writeDeployAnnouncementFiles(announcement, logDir);
     appendMeta(
       logs.metaPath,
       'stop: notifying connected clients before stack shutdown',
     );
-    await notifyDeployCountdownAndWait(logs.metaPath);
+    await notifyDeployCountdownAndWait(
+      logs.metaPath,
+      VPS_DEPLOY_COUNTDOWN_SECONDS,
+      announcement,
+    );
     appendMeta(logs.metaPath, `stop: killing stack pid=${stackPid}`);
     await killTree(stackPid, treeKill);
     clearPid(logDir, mode);
@@ -648,6 +729,23 @@ async function main() {
 
   const logs = openLogs(opts.logDir, opts.mode);
   if (opts.mode === 'prod') {
+    const stackPidFile = path.join(opts.logDir, `echo-vps-${opts.mode}.pid`);
+    const existingStackPid = readPidFile(stackPidFile);
+    if (existingStackPid) {
+      const announcement = requireDeployAnnouncement(opts, 'prod redeploy');
+      writeDeployAnnouncementFiles(announcement, opts.logDir);
+      await notifyDeployCountdownAndWait(
+        logs.metaPath,
+        VPS_DEPLOY_COUNTDOWN_SECONDS,
+        announcement,
+      );
+      appendMeta(
+        logs.metaPath,
+        `prod redeploy: stopping existing stack pid=${existingStackPid}`,
+      );
+      await killTree(existingStackPid, treeKill);
+      clearPid(opts.logDir, opts.mode);
+    }
     try {
       await runProdTypecheckPreverify(logs.metaPath);
     } catch {

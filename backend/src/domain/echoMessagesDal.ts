@@ -17,7 +17,10 @@ import {
   mergePollVotesIntoDefinition,
 } from './echoPollVotesDal';
 import { resolveDiscordAvatarForStorage } from './discordNormalized';
-import { echoMessageIdPgGreaterThan } from './echoMessageIdPgCompare';
+import {
+  ECHO_MESSAGE_TIMELINE_ORDER_DESC,
+  echoMessageIdPgGreaterThan,
+} from './echoMessageIdPgCompare';
 import { ECHO_WEBHOOK_BRIDGE_SOURCE } from './echoChannelWebhookConstants';
 
 export type EchoMessageRow = {
@@ -821,7 +824,7 @@ export async function listEchoMessages(
           WHERE anchor.id = $2 AND anchor.channel_id = $1 AND anchor.deleted_at IS NULL
         )
         AND (${echoMessageIdPgGreaterThan('$2', 'id')})
-      ORDER BY id DESC
+      ORDER BY ${ECHO_MESSAGE_TIMELINE_ORDER_DESC}
       LIMIT $3
       `,
       [channelId, opts.before, limit],
@@ -925,10 +928,17 @@ function sqlFragmentForHasType(hasType: EchoMessageSearchHasType): string {
       return `(m.audio_url IS NOT NULL AND TRIM(COALESCE(m.audio_url, '')) <> '')`;
     case 'gif':
       return `(m.gif = true
-        OR (m.image_url IS NOT NULL AND (LOWER(m.image_url) LIKE '%giphy%' OR LOWER(m.image_url) LIKE '%.gif%' OR LOWER(m.image_url) LIKE '%media.giphy%'))
+        OR (m.image_url IS NOT NULL AND (LOWER(m.image_url) LIKE '%giphy%' OR LOWER(m.image_url) LIKE '%tenor%' OR LOWER(m.image_url) LIKE '%.gif%' OR LOWER(m.image_url) LIKE '%media.giphy%'))
         OR (m.stickers IS NOT NULL AND jsonb_typeof(m.stickers) = 'array' AND EXISTS (
           SELECT 1 FROM jsonb_array_elements(m.stickers) sticker
           WHERE sticker->>'format' = 'gif'
+        ))
+        OR (m.embeds IS NOT NULL AND jsonb_typeof(m.embeds) = 'array' AND EXISTS (
+          SELECT 1 FROM jsonb_array_elements(m.embeds) embed
+          WHERE COALESCE(embed->'image'->>'url', '') ILIKE '%media.tenor.%'
+             OR COALESCE(embed->'image'->>'url', '') ILIKE '%media.giphy.%'
+             OR COALESCE(embed->>'url', '') ILIKE '%tenor.com/view/%'
+             OR COALESCE(embed->>'url', '') ILIKE '%giphy.com/gifs/%'
         )))`;
     case 'image':
       return `(
@@ -1030,7 +1040,7 @@ export async function searchEchoMessagesInChannels(
   }
 
   if (opts.before) {
-    conditions.push(`m.id < $${pi}`);
+    conditions.push(`(${echoMessageIdPgGreaterThan(`$${pi}`, 'm.id')})`);
     params.push(opts.before);
     pi += 1;
   }
@@ -1273,7 +1283,7 @@ export async function selectLastAuthorMessageCreatedAtForSlowmode(
     `
     SELECT created_at FROM echo_messages
     WHERE channel_id = $1 AND author_id = $2 AND deleted_at IS NULL
-    ORDER BY id DESC LIMIT 1
+    ORDER BY ${ECHO_MESSAGE_TIMELINE_ORDER_DESC} LIMIT 1
     `,
     [channelId, authorId],
   );
@@ -1415,6 +1425,45 @@ export async function listEchoMessageIdsInChannel(
     [channelId],
   );
   return r.rows.map((row) => row.id);
+}
+
+export type EchoMessageSafetySnapshotRow = {
+  authorId: string;
+  content: string | null;
+  searchIndexText: string | null;
+  attachments: unknown;
+  deletedAt: Date | null;
+};
+
+/** Minimal row for abuse reports (includes soft-deleted messages). */
+export async function selectEchoMessageSafetySnapshotByChannel(
+  pool: pg.Pool,
+  channelId: string,
+  messageId: string,
+): Promise<EchoMessageSafetySnapshotRow | null> {
+  const q = await pool.query<{
+    author_id: string;
+    content: string | null;
+    search_index_text: string | null;
+    attachments: unknown;
+    deleted_at: Date | null;
+  }>(
+    `
+    SELECT author_id, content, search_index_text, attachments, deleted_at
+    FROM echo_messages
+    WHERE id = $1 AND channel_id = $2
+    `,
+    [messageId, channelId],
+  );
+  const row = q.rows[0];
+  if (!row) return null;
+  return {
+    authorId: String(row.author_id),
+    content: row.content,
+    searchIndexText: row.search_index_text,
+    attachments: row.attachments,
+    deletedAt: row.deleted_at,
+  };
 }
 
 export async function updateEchoMessageCreatedAtById(
@@ -1809,6 +1858,59 @@ export async function selectUnreadMentionRowsForAttention(
   return r.rows.map((row: any) => ({
     channel_id: String(row.channel_id),
     mentions: row.mentions,
+  }));
+}
+
+/**
+ * Bounded scan for unread replies to the viewer (personal ping tier).
+ * Joins quoted parent when `reply_to.authorId` is absent (legacy rows).
+ */
+export async function selectUnreadReplyToSelfRowsForAttention(
+  pool: pg.Pool,
+  userId: string,
+  channelIds: string[],
+): Promise<{ channel_id: string }[]> {
+  if (channelIds.length === 0) return [];
+  const mIdAfterReadTieBreak = echoMessageIdPgGreaterThan(
+    'm.id',
+    'rs.last_read_message_id',
+  );
+  const mAfterRead = `(
+    lr.id IS NULL
+    OR m.created_at > lr.created_at
+    OR (m.created_at = lr.created_at AND ${mIdAfterReadTieBreak})
+  )`;
+  const r = await pool.query(
+    `
+    SELECT DISTINCT m.channel_id
+    FROM echo_messages m
+    LEFT JOIN echo_channel_read_state rs
+      ON rs.user_id = $1
+     AND rs.channel_id = m.channel_id
+    LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
+    LEFT JOIN echo_messages parent
+      ON parent.id = NULLIF(m.reply_to->>'messageId', '')
+     AND parent.deleted_at IS NULL
+    WHERE m.channel_id = ANY($2::text[])
+      AND m.deleted_at IS NULL
+      AND m.author_id <> $1
+      AND m.reply_to IS NOT NULL
+      AND m.reply_to <> 'null'::jsonb
+      AND (
+        NULLIF(m.reply_to->>'authorId', '') = $1
+        OR parent.author_id = $1
+      )
+      AND (
+        rs.last_read_message_id IS NULL
+        OR ${mAfterRead}
+      )
+    ORDER BY m.channel_id
+    LIMIT ${MENTION_SCAN_LIMIT}
+    `,
+    [userId, channelIds],
+  );
+  return r.rows.map((row: any) => ({
+    channel_id: String(row.channel_id),
   }));
 }
 

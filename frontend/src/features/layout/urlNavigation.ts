@@ -96,6 +96,12 @@ export function parsedPathFromMainSurface(
         ? { kind: 'guild', serverId: sid, channelId }
         : { kind: 'root' };
     }
+    case 'serverPaper': {
+      const sid = nav.selectedServerId ?? '';
+      return sid
+        ? { kind: 'guild', serverId: sid, channelId: surface.channelId }
+        : { kind: 'root' };
+    }
     case 'serverEmptyOnboarding': {
       const sid = nav.selectedServerId ?? '';
       if (sid && sid !== 'echo') {
@@ -136,6 +142,7 @@ export type EchoParsedPath =
   | { kind: 'dm_notifications' }
   | { kind: 'dm_thread'; channelId: string }
   | { kind: 'guild'; serverId: string; channelId: string }
+  | { kind: 'paper_public'; token: string }
   | { kind: 'unknown'; raw: string };
 
 export const ECHO_URL_QUERY = {
@@ -152,7 +159,7 @@ export const RESERVED_TOP_LEVEL_PATH_SLUGS = new Set(
   [
     'explore',
     'channels',
-    'founder',
+    'paper',
     'reset-password',
     'forgot-password',
     'legal',
@@ -234,6 +241,11 @@ export function parseAppPathname(
   const p = normalizePathname(stripBasePath(pathname, base));
   if (p === '/') return { kind: 'root' };
   if (p === '/explore') return { kind: 'explore' };
+  if (p.startsWith('/paper/s/')) {
+    const token = decodePathSegment(p.slice('/paper/s/'.length));
+    if (token) return { kind: 'paper_public', token };
+    return { kind: 'unknown', raw: p };
+  }
   if (!p.startsWith('/channels/')) {
     if (/^\/[^/]+$/.test(p)) {
       const slug = decodePathSegment(p.slice(1));
@@ -306,6 +318,9 @@ export function formatAppPathname(
       break;
     case 'guild':
       rel = `/channels/${encodeURIComponent(parsed.serverId)}/${encodeURIComponent(parsed.channelId)}`;
+      break;
+    case 'paper_public':
+      rel = `/paper/s/${encodeURIComponent(parsed.token)}`;
       break;
     case 'unknown':
       rel = parsed.raw.startsWith('/') ? parsed.raw : `/${parsed.raw}`;

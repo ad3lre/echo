@@ -17,6 +17,7 @@ import {
   COMPOSER_INSERT_USER_MENTION_KEY,
   type InsertUserMentionFn,
 } from '@/features/chat/chatComposerContext';
+import { openReportModal } from '@/features/safety/reportModal';
 
 const props = withDefaults(
   defineProps<{
@@ -58,8 +59,6 @@ const emit = defineEmits<{
   unblock: [];
   'remove-friend': [];
   'send-friend-request': [];
-  /** reason may be empty */
-  report: [payload: { reason: string }];
   /** Open DM with this user (parent closes surfaces). */
   message: [];
 }>();
@@ -77,8 +76,6 @@ const quickMentionEnabled = computed(
 );
 
 const menuOpen = ref(false);
-const reportOpen = ref(false);
-const reportReason = ref('');
 const moreBtnRef = ref<HTMLElement | null>(null);
 /** While the menu is open, prefer this element for positioning (e.g. compact-shell full-width trigger). */
 const menuPositionAnchorRef = ref<HTMLElement | null>(null);
@@ -153,19 +150,14 @@ function onSendFriendRequestClick() {
 }
 
 function onReportClick() {
+  const userId = props.userId.trim();
+  if (!userId) return;
   closeMenu();
-  reportReason.value = '';
-  reportOpen.value = true;
-}
-
-function closeReport() {
-  reportOpen.value = false;
-}
-
-function submitReport() {
-  emit('report', { reason: reportReason.value.trim() });
-  reportOpen.value = false;
-  reportReason.value = '';
+  openReportModal({
+    kind: 'user',
+    targetUserId: userId,
+    displayName: props.mentionDisplayName?.trim() || undefined,
+  });
 }
 
 function onCopyIdClick() {
@@ -382,51 +374,6 @@ defineExpose({ closeMenu, toggleMenu, openMenu });
           />
           Unblock user
         </button>
-      </div>
-    </Teleport>
-    <Teleport to="body">
-      <div
-        v-if="reportOpen"
-        class="fixed inset-0 z-[390] flex items-center justify-center bg-scrim-2 px-4"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="report-user-title"
-        @click.self="closeReport"
-      >
-        <div
-          class="w-full max-w-md rounded-xl border border-border bg-[var(--echo-modal-bg)] p-5 text-white shadow-xl"
-          @click.stop
-        >
-          <h2 id="report-user-title" class="text-lg font-semibold">
-            Report user
-          </h2>
-          <p class="mt-1 text-sm text-fg-soft">
-            Tell us what happened. Trust and safety reviews these reports.
-          </p>
-          <textarea
-            v-model="reportReason"
-            class="mt-3 w-full resize-y rounded-lg border border-border bg-scrim-2 px-3 py-2 text-sm text-white placeholder:text-fg-subtle focus:border-white/25 focus:outline-none"
-            rows="4"
-            maxlength="2000"
-            placeholder="Optional details…"
-          />
-          <div class="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft hover:bg-glass-hover"
-              @click="closeReport"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="rounded-lg bg-rose-600/90 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600"
-              @click="submitReport"
-            >
-              Submit report
-            </button>
-          </div>
-        </div>
       </div>
     </Teleport>
   </div>

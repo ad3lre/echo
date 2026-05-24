@@ -10,10 +10,14 @@ import {
 const props = defineProps<{
   event: EchoWorkspaceEventSummary;
   nowMs: number;
+  startedFromLobby?: boolean;
+  promptYoutubeLive?: boolean;
+  canManageYoutube?: boolean;
 }>();
 
 const emit = defineEmits<{
   dismiss: [];
+  dismissYoutubePrompt: [];
 }>();
 
 const isLive = computed(() => isStageEventLive(props.event, props.nowMs));
@@ -24,7 +28,7 @@ const countdown = computed(() =>
 
 <template>
   <div
-    class="stage-event-banner flex flex-wrap items-center gap-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2.5"
+    class="stage-event-banner flex flex-col gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center"
   >
     <div
       v-if="event.imageUrl?.trim()"
@@ -40,7 +44,13 @@ const countdown = computed(() =>
       <p
         class="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-300/90"
       >
-        {{ isLive ? 'Scheduled event · live' : 'Scheduled event' }}
+        {{
+          startedFromLobby
+            ? 'Event in progress'
+            : isLive
+              ? 'Scheduled event · live'
+              : 'Scheduled event'
+        }}
       </p>
       <p class="truncate text-sm font-semibold text-foreground">
         {{ event.title }}
@@ -49,12 +59,29 @@ const countdown = computed(() =>
         {{ countdown }} · {{ event.goingCount }} going
       </p>
     </div>
-    <button
-      type="button"
-      class="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-fg-soft hover:bg-glass-hover"
-      @click="emit('dismiss')"
-    >
-      Dismiss
-    </button>
+    <div class="flex shrink-0 flex-wrap items-center gap-2">
+      <p
+        v-if="promptYoutubeLive && canManageYoutube"
+        class="text-xs text-indigo-100/90"
+      >
+        This event is tagged for YouTube live — use the controls above to go
+        live.
+      </p>
+      <button
+        v-if="promptYoutubeLive"
+        type="button"
+        class="rounded-lg border border-indigo-400/40 px-2.5 py-1 text-xs font-semibold text-indigo-100 hover:bg-indigo-500/15"
+        @click="emit('dismissYoutubePrompt')"
+      >
+        Dismiss tip
+      </button>
+      <button
+        type="button"
+        class="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-fg-soft hover:bg-glass-hover"
+        @click="emit('dismiss')"
+      >
+        Dismiss
+      </button>
+    </div>
   </div>
 </template>

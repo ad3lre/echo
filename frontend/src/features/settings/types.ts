@@ -27,6 +27,10 @@ export const SECTION_COPY: Record<SettingsSection, { blurb: string }> = {
     blurb:
       'Read Echo’s privacy policy, terms of service, and community guidelines.',
   },
+  'Report abuse': {
+    blurb:
+      'Report a user or message for spam, harassment, or other policy violations.',
+  },
   'Formatting guide': {
     blurb:
       'How Markdown and math in chat messages are parsed, styled, and limited.',

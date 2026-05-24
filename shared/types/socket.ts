@@ -38,6 +38,8 @@ export type MessageFailedCode =
   | 'GUEST_LIMIT'
   | 'GUEST_ABUSE_COOLDOWN';
 
+import type { PaperCommentPayload, PaperDocumentPayload } from './paper';
+
 export type EchoWorkspaceEventKind =
   | 'workspace_invalidated'
   | 'membership_changed'
@@ -68,7 +70,9 @@ export type EchoWorkspaceEventKind =
    * Applied as an in-place patch to `voiceParticipantIds` / mute-deaf maps;
    * `workspace_invalidated` + hydrate remain as eventual-correctness fallback.
    */
-  | 'voice_roster_delta';
+  | 'voice_roster_delta'
+  | 'paper_document_updated'
+  | 'paper_comment_updated';
 
 export type DiscordVoiceMirrorRosterMemberPayload = {
   discordUserId: string;
@@ -131,6 +135,14 @@ export type EchoWorkspaceEvent = {
     workspaceVersion: string;
     /** ISO timestamp of when the mutation occurred, for ordering and debug. */
     occurredAt: string;
+  };
+  /** Present when kind === 'paper_document_updated'. */
+  paperDocument?: PaperDocumentPayload;
+  /** Present when kind === 'paper_comment_updated'. */
+  paperComment?: {
+    action: 'created' | 'updated' | 'deleted';
+    channelId: string;
+    comment: PaperCommentPayload | { id: string; channelId: string };
   };
 };
 
@@ -379,6 +391,45 @@ export interface ClientToServerEvents {
    * with display name + avatar before fan-out to peers (sender excluded).
    */
   'channel:typing': (payload: { channelId: string }) => void;
+
+  /** Join the paper presence room for a channel (all viewers). Set authoring when in edit mode. */
+  'paper:watch': (payload: { channelId: string; authoring?: boolean }) => void;
+
+  /** Toggle authoring without re-joining the watch room. */
+  'paper:authoring': (payload: {
+    channelId: string;
+    authoring: boolean;
+  }) => void;
+
+  /** Leave the paper presence room for a channel. */
+  'paper:unwatch': (payload: { channelId: string }) => void;
+
+  /** Claim block ownership (line lock) while collab is active. */
+  'paper:claim': (payload: {
+    channelId: string;
+    blockId: string;
+    displayName?: string;
+  }) => void;
+
+  /** Release block ownership (specific block or all held by this user). */
+  'paper:release': (payload: { channelId: string; blockId?: string }) => void;
+
+  /** Remote cursor within a block (collab active only). */
+  'paper:cursor': (payload: {
+    channelId: string;
+    blockId: string;
+    anchor: number;
+    head: number;
+    displayName?: string;
+    color?: string;
+  }) => void;
+
+  /** Ask the current block owner to release the lock. */
+  'paper:lock-request': (payload: {
+    channelId: string;
+    blockId: string;
+    displayName?: string;
+  }) => void;
 }
 
 /**
@@ -499,6 +550,51 @@ export interface ServerToClientEvents {
     userId: string;
     displayName: string;
     avatarUrl: string;
+  }) => void;
+
+  /** Current watchers on a paper channel (socket presence lane). */
+  'paper:watchers': (payload: {
+    channelId: string;
+    watchers: {
+      userId: string;
+      displayName: string;
+      avatarUrl?: string;
+      authoring?: boolean;
+    }[];
+    authorCount: number;
+    collabEnabled: boolean;
+  }) => void;
+
+  /** Block ownership locks for a paper channel. */
+  'paper:locks': (payload: {
+    channelId: string;
+    locks: {
+      blockId: string;
+      userId: string;
+      displayName: string;
+    }[];
+  }) => void;
+
+  /** Remote collaborator cursors within blocks. */
+  'paper:cursors': (payload: {
+    channelId: string;
+    cursors: {
+      userId: string;
+      displayName: string;
+      color: string;
+      blockId: string;
+      anchor: number;
+      head: number;
+    }[];
+  }) => void;
+
+  /** Someone requested access to a block you own. */
+  'paper:lock-requested': (payload: {
+    channelId: string;
+    blockId: string;
+    fromUserId: string;
+    fromDisplayName: string;
+    toUserId: string;
   }) => void;
 
   /**

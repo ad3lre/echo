@@ -726,6 +726,10 @@ function closePopout() {
   emit('update:modelValue', false);
 }
 
+function onOpenFullProfile() {
+  emit('open-full-profile');
+}
+
 function handleOpenDm() {
   const p = props.profile;
   if (!p) return;
@@ -846,7 +850,7 @@ function handleViewportUpdate() {
           class="shrink-0"
           :profile="profile"
           :banner-refraction-style="bannerRefractionStyle"
-          @open-full-profile="emit('open-full-profile')"
+          @open-full-profile="onOpenFullProfile"
         >
           <template #banner-actions>
             <div
@@ -890,7 +894,6 @@ function handleViewportUpdate() {
                 @unblock="emitPopoutProfileUnblock"
                 @remove-friend="emit('remove-friend', profile.id)"
                 @send-friend-request="emit('send-friend-request', profile.id)"
-                @report="emitPopoutProfileReport"
                 @message="handleOpenDm"
               />
             </div>
@@ -946,7 +949,6 @@ function handleViewportUpdate() {
             @block="emitPopoutProfileBlock"
             @unblock="emitPopoutProfileUnblock"
             @remove-friend="emit('remove-friend', profile.id)"
-            @report="emitPopoutProfileReport"
             @open-dm="handleOpenDm"
           />
         </div>

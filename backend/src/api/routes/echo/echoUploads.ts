@@ -1,8 +1,11 @@
-﻿import path from 'path';
-import type { Readable } from 'stream';
-import { createReadStream } from 'fs';
+﻿import type { Readable } from 'stream';
 import { stat } from 'fs/promises';
-import { FastifyInstance, FastifyPluginOptions, FastifyRequest } from 'fastify';
+import {
+  FastifyInstance,
+  FastifyPluginOptions,
+  FastifyRequest,
+  FastifyReply,
+} from 'fastify';
 import { requireAuth } from '../../../auth/middleware';
 import { config } from '../../../config';
 import {
@@ -11,8 +14,9 @@ import {
 } from '../../../domain/echoPermissions';
 import { echoUsersShareAnyServer } from '../../../domain/echoStore/social';
 import { getEchoEntitlements } from '../../../domain/echoPlanEntitlements';
+import { ECHO_RINGTONE_UPLOAD_MAX_BYTES } from '../../../../../shared/echoPlanLimits';
 import { sendError } from '../../errors';
-import { GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import {
   findEchoUploadDedupeMatch,
   registerEchoUploadDedupe,
@@ -38,7 +42,18 @@ import {
 } from '../../../services/localUploadToken';
 import { consumeLocalUploadTokenOnce } from '../../../services/localUploadTokenReplay';
 import { getPgPool } from '../../../db/pg';
-import { enqueueEchoChatVideoOptimize } from '../../../services/echoVideoOptimizeQueue';
+import { enqueueEchoChatVideoHls } from '../../../services/echoVideoOptimizeQueue';
+import { readEchoUploadSourceMetadata } from '../../../services/echoUploadSourceMetadata';
+import { extractStorageKeyFromEchoMediaUrl } from '../../../services/echoEmojiAsset';
+import {
+  getEchoVideoPlaybackBySourceKey,
+  type EchoVideoPlaybackRendition,
+} from '../../../services/echoVideoPlayback';
+import {
+  guessEchoUploadContentTypeFromKey,
+  sendLocalEchoUploadFile,
+  sendS3EchoUploadObject,
+} from '../../../services/echoUploadServe';
 import {
   purgeEchoUploadObject,
   runEchoImageUploadSafetyRegisterStep,
@@ -46,6 +61,7 @@ import {
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { echoPool, requireEchoStore } from './echoRouteUtils';
 import { isEchoChatUserMediaStorageKey } from '../../../../../shared/chatMediaRetention';
+import { isEchoPublicServerBrandingStorageKey } from '../../../../../shared/echoUploadStorageKey';
 import {
   getChatUploadRetentionByStorageKey,
   isChatUploadRetentionExpired,
@@ -66,6 +82,7 @@ export type EchoPresignBody = {
    * - `server_event_cover`: guild scheduled event hero image; needs `serverId` + `MANAGE_GUILD` (or owner).
    * - `server_application_attachment`: join-application file; needs `serverId`; authenticated non-member while applications are enabled.
    * - `bug_report`: screenshots for in-app bug reports; no `channelId` or `serverId`.
+   * - `user_ringtone`: custom call ringtone audio; no `channelId` or `serverId`.
    */
   purpose?:
     | 'channel_media'
@@ -77,7 +94,8 @@ export type EchoPresignBody = {
     | 'server_banner'
     | 'server_event_cover'
     | 'server_application_attachment'
-    | 'bug_report';
+    | 'bug_report'
+    | 'user_ringtone';
   key?: string;
   contentType?: string;
   contentLength?: number;
@@ -103,22 +121,7 @@ function localPublicUrlForStorageKey(storageKey: string): string {
 }
 
 function guessContentTypeFromPath(absPath: string): string {
-  const ext = path.extname(absPath).toLowerCase();
-  const m: Record<string, string> = {
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.webp': 'image/webp',
-    '.mp4': 'video/mp4',
-    '.webm': 'video/webm',
-    '.mov': 'video/quicktime',
-    '.pdf': 'application/pdf',
-    '.doc': 'application/msword',
-    '.docx':
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  };
-  return m[ext] ?? 'application/octet-stream';
+  return guessEchoUploadContentTypeFromKey(absPath);
 }
 
 async function assertChatUploadNotRetentionExpired(
@@ -148,14 +151,30 @@ function dedupeScopePrefixFromStorageKey(storageKey: string): string {
   return trimmed.slice(0, slash + 1);
 }
 
+function decodeUploadFilesRouteStorageKey(req: FastifyRequest): string | null {
+  const star = (req.params as { '*': string })['*'];
+  if (typeof star !== 'string' || !star) return null;
+  return decodeURIComponent(star.replace(/\+/g, ' ')).trim() || null;
+}
+
+async function requireAuthUnlessPublicServerBrandingUpload(
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const key = decodeUploadFilesRouteStorageKey(req);
+  if (key && isEchoPublicServerBrandingStorageKey(key)) return;
+  await requireAuth(req, reply);
+}
+
 async function canUserReadLocalUploadStorageKey(
   req: FastifyRequest,
   storageKey: string,
 ): Promise<boolean> {
-  const userId = req.authUser?.id?.trim();
-  if (!userId) return false;
   const key = storageKey.trim();
   if (!key) return false;
+  if (isEchoPublicServerBrandingStorageKey(key)) return true;
+  const userId = req.authUser?.id?.trim();
+  if (!userId) return false;
   const pool = getPgPool();
   if (!pool) return false;
   if (key.startsWith('echo/channels/')) {
@@ -169,21 +188,17 @@ async function canUserReadLocalUploadStorageKey(
     const ownerId = parts[2]?.trim();
     return ownerId === userId;
   }
+  if (key.startsWith('echo/ringtones/')) {
+    const parts = key.split('/');
+    const ownerId = parts[2]?.trim();
+    return ownerId === userId;
+  }
   if (key.startsWith('echo/avatars/') || key.startsWith('echo/banners/')) {
     const parts = key.split('/');
     const ownerId = parts[2]?.trim();
     if (!ownerId) return false;
     if (ownerId === userId) return true;
     return echoUsersShareAnyServer(pool, userId, ownerId);
-  }
-  if (
-    key.startsWith('echo/server-icons/') ||
-    key.startsWith('echo/server-banners/')
-  ) {
-    const parts = key.split('/');
-    const serverId = parts[2]?.trim();
-    if (!serverId) return false;
-    return isMemberOfServer(pool, serverId, userId);
   }
   if (key.startsWith('echo/emoji/')) {
     const parts = key.split('/');
@@ -219,7 +234,7 @@ export default async function echoUploadsRoutes(
   fastify.get(
     '/uploads/files/*',
     {
-      preHandler: [requireAuth],
+      preHandler: [requireAuthUnlessPublicServerBrandingUpload],
       config: {
         rateLimit: {
           max: 120,
@@ -232,11 +247,10 @@ export default async function echoUploadsRoutes(
       if (!config.echoLocalUploadDir) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
-      const star = (req.params as { '*': string })['*'];
-      if (typeof star !== 'string' || !star) {
+      const key = decodeUploadFilesRouteStorageKey(req);
+      if (!key) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
-      const key = decodeURIComponent(star.replace(/\+/g, ' '));
       const canRead = await canUserReadLocalUploadStorageKey(req, key);
       if (!canRead) {
         return sendError(
@@ -258,8 +272,7 @@ export default async function echoUploadsRoutes(
       } catch {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
-      const stream = createReadStream(abs);
-      let ct = guessContentTypeFromPath(abs);
+      let ct = guessEchoUploadContentTypeFromKey(key);
       const pgPool = getPgPool();
       if (pgPool) {
         try {
@@ -275,11 +288,14 @@ export default async function echoUploadsRoutes(
           /* use extension-based guess */
         }
       }
-      return reply
-        .header('Cache-Control', 'private, no-store')
-        .header('Vary', 'X-Forwarded-Proto, X-Forwarded-Host')
-        .type(ct)
-        .send(stream);
+      const publicBranding = isEchoPublicServerBrandingStorageKey(key);
+      reply
+        .header(
+          'Cache-Control',
+          publicBranding ? 'public, max-age=86400' : 'private, no-store',
+        )
+        .header('Vary', 'X-Forwarded-Proto, X-Forwarded-Host');
+      return sendLocalEchoUploadFile(reply, req, abs, ct);
     },
   );
 
@@ -334,17 +350,7 @@ export default async function echoUploadsRoutes(
         );
       }
       try {
-        const obj = await client.send(
-          new GetObjectCommand({ Bucket: bucket, Key: key }),
-        );
-        const body = obj.Body;
-        if (!body || typeof body !== 'object' || !('pipe' in body)) {
-          return sendError(reply, 404, 'NOT_FOUND', 'Not found');
-        }
-        const ct =
-          (typeof obj.ContentType === 'string' && obj.ContentType.trim()) ||
-          guessContentTypeFromPath(key);
-        let servedCt = ct;
+        let servedCt = guessEchoUploadContentTypeFromKey(key);
         const pgPool = getPgPool();
         if (pgPool) {
           try {
@@ -357,14 +363,41 @@ export default async function echoUploadsRoutes(
               servedCt = rowCt.trim();
             }
           } catch {
-            /* use S3 / extension guess */
+            /* use extension guess */
           }
         }
-        return reply
-          .header('Cache-Control', 'private, max-age=300')
-          .header('Vary', 'Cookie, Authorization')
-          .type(servedCt)
-          .send(body as import('stream').Readable);
+        let totalSize: number | undefined;
+        try {
+          const head = await client.send(
+            new HeadObjectCommand({ Bucket: bucket, Key: key }),
+          );
+          if (typeof head.ContentLength === 'number') {
+            totalSize = head.ContentLength;
+          }
+        } catch {
+          /* optional for ranged GET */
+        }
+        const publicBranding = isEchoPublicServerBrandingStorageKey(key);
+        reply
+          .header(
+            'Cache-Control',
+            publicBranding ? 'public, max-age=86400' : 'private, max-age=300',
+          )
+          .header(
+            'Vary',
+            publicBranding
+              ? 'X-Forwarded-Proto, X-Forwarded-Host'
+              : 'Cookie, Authorization',
+          );
+        return sendS3EchoUploadObject(
+          reply,
+          req,
+          client,
+          bucket,
+          key,
+          servedCt,
+          totalSize,
+        );
       } catch (e) {
         const status = (e as { $metadata?: { httpStatusCode?: number } })
           ?.$metadata?.httpStatusCode;
@@ -532,11 +565,15 @@ export default async function echoUploadsRoutes(
       }
 
       const ent = await getEchoEntitlements(pool, userId);
+      const purpose = req.body?.purpose;
       const useLocalDisk =
         !isEchoS3UploadConfigured() && Boolean(config.echoLocalUploadDir);
-      const effectiveCap = useLocalDisk
+      let effectiveCap = useLocalDisk
         ? Math.min(ent.uploadMaxBytes, config.echoLocalUploadBodyMaxBytes)
         : ent.uploadMaxBytes;
+      if (purpose === 'user_ringtone') {
+        effectiveCap = Math.min(effectiveCap, ECHO_RINGTONE_UPLOAD_MAX_BYTES);
+      }
 
       if (
         !Number.isFinite(contentLength) ||
@@ -562,7 +599,6 @@ export default async function echoUploadsRoutes(
           : '';
       const serverId =
         typeof req.body?.serverId === 'string' ? req.body.serverId.trim() : '';
-      const purpose = req.body?.purpose;
 
       const dest = await resolveEchoUploadStorageKey(pool, userId, {
         channelId,
@@ -995,14 +1031,109 @@ export default async function echoUploadsRoutes(
       });
 
       if (kind === 'video' && channelIdReg) {
-        await enqueueEchoChatVideoOptimize(pool, {
+        const sourceMeta = (await readEchoUploadSourceMetadata(
+          storageKeyClient,
+        )) ?? {
+          size: byteLength,
+          etag: `${byteLength}`,
+        };
+        await enqueueEchoChatVideoHls(pool, {
           storageKey: storageKeyClient,
           publicUrl,
           sourceContentType: contentType,
+          sourceSize: sourceMeta.size,
+          sourceEtag: sourceMeta.etag,
         });
       }
 
       return reply.code(204).send();
+    },
+  );
+
+  type EchoVideoPlaybackQuery = { url?: string };
+
+  fastify.get<{ Querystring: EchoVideoPlaybackQuery }>(
+    '/uploads/video-playback',
+    {
+      preHandler: [requireAuth],
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const rawUrl = req.query.url?.trim();
+      if (!rawUrl) {
+        return sendError(reply, 400, 'INVALID_BODY', 'url query required');
+      }
+      const sourceKey = extractStorageKeyFromEchoMediaUrl(rawUrl);
+      if (!sourceKey) {
+        return sendError(reply, 400, 'INVALID_BODY', 'Invalid media url');
+      }
+      const canRead = await canUserReadLocalUploadStorageKey(req, sourceKey);
+      if (!canRead) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Not allowed to read this upload',
+        );
+      }
+      if (!(await assertChatUploadNotRetentionExpired(req, sourceKey))) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Not found');
+      }
+      const pool = getPgPool();
+      const sourceUrl =
+        buildEchoUploadPublicUrlForStorageKey(sourceKey) ?? rawUrl;
+      const base = {
+        sourceUrl,
+        sourceSize: 0,
+        sourceEtag: null as string | null,
+      };
+      if (!pool) {
+        return reply
+          .code(200)
+          .header('Cache-Control', 'private, no-store')
+          .send({ status: 'pending', format: 'progressive', ...base });
+      }
+      const row = await getEchoVideoPlaybackBySourceKey(pool, sourceKey);
+      if (!row) {
+        return reply
+          .code(200)
+          .header('Cache-Control', 'private, no-store')
+          .send({ status: 'pending', format: 'progressive', ...base });
+      }
+      base.sourceSize = Number(row.source_size) || 0;
+      base.sourceEtag = row.source_etag;
+      const renditions = (row.renditions ?? []) as EchoVideoPlaybackRendition[];
+      if (row.status === 'ready' && row.manifest_storage_key) {
+        const playbackUrl =
+          buildEchoUploadPublicUrlForStorageKey(row.manifest_storage_key) ??
+          null;
+        if (playbackUrl) {
+          return reply
+            .code(200)
+            .header('Cache-Control', 'private, max-age=30')
+            .send({
+              status: 'ready',
+              format: 'hls',
+              playbackUrl,
+              renditions,
+              ...base,
+            });
+        }
+      }
+      return reply
+        .code(200)
+        .header('Cache-Control', 'private, max-age=15')
+        .send({
+          status: row.status === 'failed' ? 'failed' : 'pending',
+          format: 'progressive',
+          ...base,
+        });
     },
   );
 

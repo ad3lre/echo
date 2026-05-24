@@ -3,26 +3,45 @@ import { stripEphemeralVoiceFromWorkspaceSnapshot } from '@/services/domain/work
 
 const WORKSPACE_CACHE_KEY = 'echo-workspace-v1';
 
-export function saveEchoWorkspaceToCache(state: EchoWorkspaceState): void {
+type PersistedWorkspaceCachePayload = {
+  userId: string;
+  state: EchoWorkspaceState;
+};
+
+function stripForCache(state: EchoWorkspaceState): EchoWorkspaceState {
+  return stripEphemeralVoiceFromWorkspaceSnapshot(
+    JSON.parse(JSON.stringify(state)) as EchoWorkspaceState,
+  );
+}
+
+export function saveEchoWorkspaceToCache(
+  userId: string,
+  state: EchoWorkspaceState,
+): void {
+  const uid = userId.trim();
   if (
+    !uid ||
     typeof localStorage === 'undefined' ||
     typeof localStorage.setItem !== 'function'
   )
     return;
   try {
-    // Only cache critical parts to keep it under 5MB (localStorage limit).
-    // membersByServer is large, but with lazy loading it will be small or empty initially.
-    const cached: EchoWorkspaceState = stripEphemeralVoiceFromWorkspaceSnapshot(
-      JSON.parse(JSON.stringify(state)) as EchoWorkspaceState,
-    );
-    localStorage.setItem(WORKSPACE_CACHE_KEY, JSON.stringify(cached));
+    const payload: PersistedWorkspaceCachePayload = {
+      userId: uid,
+      state: stripForCache(state),
+    };
+    localStorage.setItem(WORKSPACE_CACHE_KEY, JSON.stringify(payload));
   } catch (err) {
     console.warn('Failed to cache echo workspace', err);
   }
 }
 
-export function loadEchoWorkspaceFromCache(): EchoWorkspaceState | null {
+export function loadEchoWorkspaceFromCache(
+  userId: string,
+): EchoWorkspaceState | null {
+  const uid = userId.trim();
   if (
+    !uid ||
     typeof localStorage === 'undefined' ||
     typeof localStorage.getItem !== 'function'
   )
@@ -30,8 +49,16 @@ export function loadEchoWorkspaceFromCache(): EchoWorkspaceState | null {
   try {
     const raw = localStorage.getItem(WORKSPACE_CACHE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as EchoWorkspaceState;
-    return stripEphemeralVoiceFromWorkspaceSnapshot(parsed);
+    const parsed = JSON.parse(raw) as
+      | PersistedWorkspaceCachePayload
+      | EchoWorkspaceState;
+    if (parsed && typeof parsed === 'object' && 'userId' in parsed) {
+      const payload = parsed as PersistedWorkspaceCachePayload;
+      if (payload.userId !== uid || !payload.state?.servers) return null;
+      return stripForCache(payload.state);
+    }
+    // Legacy unscoped cache — ignore to avoid cross-account ghost guilds.
+    return null;
   } catch {
     return null;
   }

@@ -29,6 +29,7 @@ import {
   discordBotFetchGuildChannels,
   discordBotFetchGuildName,
   discordBotIsMemberOfGuild,
+  fetchDiscordBotGuildIdsAll,
   fetchDiscordUserGuildsAll,
 } from '../../../services/integrations/discordApiClient';
 import {
@@ -220,7 +221,16 @@ export default async function echoDiscordBridgeSettingsRoutes(
 
       try {
         const accessToken = await getDiscordUserAccessTokenForApi(pool, userId);
-        const all = await fetchDiscordUserGuildsAll(accessToken);
+        const [all, botGuildIds, stateGuild] = await Promise.all([
+          fetchDiscordUserGuildsAll(accessToken),
+          botTok
+            ? fetchDiscordBotGuildIdsAll(botTok)
+            : Promise.resolve(new Set<string>()),
+          pool.query(
+            `SELECT discord_guild_id FROM echo_discord_import_states WHERE server_id = $1 LIMIT 1`,
+            [serverId],
+          ),
+        ]);
         const manageable = all.filter((g) => discordUserCanImportFromGuild(g));
         const out: {
           id: string;
@@ -228,24 +238,14 @@ export default async function echoDiscordBridgeSettingsRoutes(
           iconUrl: string | null;
           botInGuild: boolean;
           botInviteUrl: string;
-        }[] = [];
-        for (const g of manageable) {
-          const botInGuild = botTok
-            ? await discordBotIsMemberOfGuild(botTok, g.id)
-            : false;
-          out.push({
-            id: g.id,
-            name: g.name,
-            iconUrl: discordGuildIconUrl(g.id, g.icon),
-            botInGuild,
-            botInviteUrl: buildDiscordBotInstallUrl(g.id) ?? '',
-          });
-        }
+        }[] = manageable.map((g) => ({
+          id: g.id,
+          name: g.name,
+          iconUrl: discordGuildIconUrl(g.id, g.icon),
+          botInGuild: botTok ? botGuildIds.has(g.id) : false,
+          botInviteUrl: buildDiscordBotInstallUrl(g.id) ?? '',
+        }));
 
-        const stateGuild = await pool.query(
-          `SELECT discord_guild_id FROM echo_discord_import_states WHERE server_id = $1 LIMIT 1`,
-          [serverId],
-        );
         const importG =
           stateGuild.rows[0]?.discord_guild_id != null &&
           String(stateGuild.rows[0].discord_guild_id).trim()
@@ -254,7 +254,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
         if (
           importG &&
           botTok &&
-          (await discordBotIsMemberOfGuild(botTok, importG)) &&
+          botGuildIds.has(importG) &&
           !out.some((x) => x.id === importG)
         ) {
           const name = await discordBotFetchGuildName(botTok, importG);

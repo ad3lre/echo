@@ -46,6 +46,8 @@ export type MeYoutubeResponse = {
   linked: boolean;
   profile: MeYoutubeProfile | null;
   streamKey: MeYoutubeStreamKeyMeta | null;
+  /** Echo can start LiveKit RTMP egress for stage → YouTube. */
+  stageLiveStreamingConfigured?: boolean;
 };
 
 export async function fetchMeYoutube(): Promise<MeYoutubeResponse> {

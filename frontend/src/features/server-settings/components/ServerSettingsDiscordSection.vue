@@ -122,12 +122,15 @@ async function saveBridgeSettings() {
   bridgeError.value = '';
   try {
     const url = bridgeWebhookDraft.value.trim();
-    await putEchoDiscordBridge(token, props.serverId, cid, {
+    const saved = await putEchoDiscordBridge(token, props.serverId, cid, {
       inboundEnabled: bridgeInbound.value,
       outboundEnabled: bridgeOutbound.value,
       ...(url ? { discordWebhookUrl: url } : {}),
     });
-    await loadBridgeSettings();
+    bridgeInbound.value = saved.inboundEnabled;
+    bridgeOutbound.value = saved.outboundEnabled;
+    bridgeHasWebhook.value = saved.hasWebhook;
+    bridgeWebhookDraft.value = '';
     await props.onWorkspaceRefresh?.();
   } catch (e) {
     bridgeError.value =

@@ -15,6 +15,7 @@ import {
 import { compressFileForEchoUpload } from '@/utils/uploadCompression';
 import {
   ECHO_PLAN_UPLOAD_CAP_BYTES,
+  ECHO_RINGTONE_UPLOAD_MAX_BYTES,
   ECHO_UPLOAD_ABS_MAX_BYTES,
 } from '@shared/echoPlanLimits';
 import { echoFetch } from './transport';
@@ -203,7 +204,8 @@ export async function postEchoUploadPresign(
       | 'server_banner'
       | 'server_event_cover'
       | 'server_application_attachment'
-      | 'bug_report';
+      | 'bug_report'
+      | 'user_ringtone';
     key: string;
     contentType: string;
     contentLength: number;
@@ -228,7 +230,8 @@ type EchoDedupeDestBody = {
     | 'server_banner'
     | 'server_event_cover'
     | 'server_application_attachment'
-    | 'bug_report';
+    | 'bug_report'
+    | 'user_ringtone';
 };
 
 export type EchoDedupeMatchResponse = { reusePublicUrl: string | null };
@@ -511,6 +514,28 @@ export async function uploadChatAttachmentFile(
 }
 
 /** Reset abandonment timers when chat attachments become visible (debounced client-side). */
+export type EchoVideoPlaybackResponse = {
+  status: 'ready' | 'pending' | 'failed';
+  format: 'hls' | 'progressive';
+  playbackUrl?: string;
+  sourceUrl: string;
+  sourceEtag: string | null;
+  sourceSize: number;
+  renditions?: { height: number; bandwidth: number; hasAudio: boolean }[];
+};
+
+export async function fetchEchoVideoPlayback(
+  token: string | null,
+  sourceUrl: string,
+): Promise<EchoVideoPlaybackResponse> {
+  const q = new URLSearchParams({ url: sourceUrl.trim() });
+  return echoFetch<EchoVideoPlaybackResponse>(
+    token,
+    `/uploads/video-playback?${q.toString()}`,
+    { method: 'GET' },
+  );
+}
+
 export async function touchChatUploadRetentionKeys(
   token: string | null,
   storageKeys: string[],
@@ -646,6 +671,32 @@ export async function uploadUserProfileBrandingFile(
     );
   }
   return (await uploadPreparedFileWithDedupe(token, { purpose }, prepared)).url;
+}
+
+/** Presign + PUT for custom call ringtones (`purpose: user_ringtone`). */
+export async function uploadUserRingtoneFile(
+  token: string | null,
+  file: File,
+): Promise<{ url: string; storageKey: string }> {
+  if (!isChatAudioUpload(file)) {
+    throw new Error('Unsupported file type. Upload an audio file.');
+  }
+  if (file.size > ECHO_RINGTONE_UPLOAD_MAX_BYTES) {
+    throw new Error('File too large. Max size is 6MB.');
+  }
+  const contentType = file.type?.trim() || chatAudioContentTypeForPresign(file);
+  const key = `${randomUuidV4()}-${sanitizeUploadKeyFilename(file.name)}`;
+  const [presign, bodySha256Hex] = await Promise.all([
+    postEchoUploadPresign(token, {
+      purpose: 'user_ringtone',
+      key,
+      contentType,
+      contentLength: file.size,
+    }),
+    sha256HexOfBlob(file),
+  ]);
+  await putEchoUploadBody(presign, file, contentType, bodySha256Hex);
+  return { url: presign.publicUrl, storageKey: presign.key };
 }
 
 /** Presign + PUT for Bug Hunter report screenshots (authenticated; no channel). */

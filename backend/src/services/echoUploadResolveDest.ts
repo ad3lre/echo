@@ -14,6 +14,7 @@ import {
   isAllowedBrandingUploadContentType,
   isAllowedChatUploadContentType,
   isAllowedEmojiUploadContentType,
+  isAllowedRingtoneUploadContentType,
 } from './s3UploadPresign';
 import { sanitizeEchoUploadObjectKeyFragment } from './echoUploadKeyUtils';
 
@@ -27,7 +28,8 @@ export type EchoUploadPurpose =
   | 'server_banner'
   | 'server_event_cover'
   | 'server_application_attachment'
-  | 'bug_report';
+  | 'bug_report'
+  | 'user_ringtone';
 
 export type EchoUploadDestInput = {
   channelId?: string;
@@ -81,8 +83,32 @@ export async function resolveEchoUploadStorageKey(
   const isServerBranding =
     purpose === 'server_icon' || purpose === 'server_banner';
   const isBugReport = purpose === 'bug_report';
+  const isUserRingtone = purpose === 'user_ringtone';
 
-  if (isBugReport) {
+  if (isUserRingtone) {
+    if (channelId || serverId) {
+      return {
+        ok: false,
+        error: {
+          status: 400,
+          code: 'INVALID_BODY',
+          message:
+            'user_ringtone presign must not include channelId or serverId',
+        },
+      };
+    }
+    if (!isAllowedRingtoneUploadContentType(contentType)) {
+      return {
+        ok: false,
+        error: {
+          status: 400,
+          code: 'INVALID_BODY',
+          message: 'Unsupported content type for ringtone upload',
+        },
+      };
+    }
+    storageKey = `echo/ringtones/${userId}/${objectKey}`;
+  } else if (isBugReport) {
     if (channelId || serverId) {
       return {
         ok: false,
@@ -420,7 +446,7 @@ export async function resolveEchoUploadStorageKey(
         status: 400,
         code: 'INVALID_BODY',
         message:
-          'channelId (preferred), serverId (legacy / emoji / server branding), or user_avatar/user_banner purpose',
+          'channelId (preferred), serverId (legacy / emoji / server branding), user_avatar/user_banner, user_ringtone, or bug_report purpose',
       },
     };
   }

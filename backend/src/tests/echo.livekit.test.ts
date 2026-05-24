@@ -43,6 +43,15 @@ function jwtSourcesIncludeMicrophone(jwt: string): boolean {
   });
 }
 
+function jwtSourcesIncludeCamera(jwt: string): boolean {
+  return canPublishSourcesFromJwt(jwt).some((s) => {
+    if (s === TrackSource.CAMERA || s === 1) return true;
+    if (typeof s === 'string')
+      return s.toLowerCase() === 'camera' || s === 'CAMERA';
+    return false;
+  });
+}
+
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
   const passwordHash = await bcrypt.hash('pw', 4);
   const username = `lk_${id.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 48)}`;
@@ -146,6 +155,21 @@ async function run(): Promise<void> {
     assert.ok(
       !jwtSourcesIncludeMicrophone(tokenNoMic),
       'canPublishMicrophone:false omits microphone from grant',
+    );
+
+    const tokenNoVideo = await mintJoinToken({
+      identity: 'user_123',
+      name: 'TestUser',
+      roomName: 'srv:ch',
+      canPublishVideo: false,
+    });
+    assert.ok(
+      !jwtSourcesIncludeCamera(tokenNoVideo),
+      'canPublishVideo:false omits camera from grant',
+    );
+    assert.ok(
+      jwtSourcesIncludeMicrophone(tokenNoVideo),
+      'canPublishVideo:false still allows microphone when not blocked',
     );
     console.log('  mint token: OK');
   } else {

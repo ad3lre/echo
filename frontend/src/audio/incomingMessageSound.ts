@@ -1,7 +1,8 @@
-import type { MentionEntity } from '@shared/types';
+import type { MentionEntity, ReplyTo } from '@shared/types';
 import {
   applyAttentionNotificationLevel,
   classifyAttentionPingKind,
+  messageRepliesToUser,
 } from '@shared/attentionPing';
 import { useNotificationPreferencesStore } from '@/stores/notificationPreferences';
 import type { ServerNotificationLevel } from '@/features/server-notifications/types';
@@ -45,6 +46,7 @@ export function playIncomingChatMessageSound(opts: {
   channelId: string;
   authorId: string;
   mentions?: MentionEntity[];
+  replyTo?: ReplyTo;
   activeChannelId: string;
   currentUserId: string | undefined;
   /** Login — matched when mention labels use handle-style names. */
@@ -65,6 +67,21 @@ export function playIncomingChatMessageSound(opts: {
     return true;
   }
   if (opts.channelId !== opts.activeChannelId) return false;
+
+  if (
+    messageRepliesToUser(
+      opts.replyTo,
+      opts.replyTo?.authorId,
+      opts.currentUserId,
+    )
+  ) {
+    const level = opts.serverNotificationLevel ?? 'all';
+    const ping = applyAttentionNotificationLevel(level, 'personal');
+    if (ping === 'personal') {
+      playEchoSound('pingDirectMention');
+      return true;
+    }
+  }
 
   const soundId = echoSoundIdForMentionPing(
     opts.mentions,

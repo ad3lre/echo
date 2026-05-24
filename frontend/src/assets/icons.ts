@@ -54,6 +54,7 @@ import iconPuzzle from './icons/puzzle.svg?url';
 import iconGlobe from './icons/globe.svg?url';
 import iconLeaf from './icons/leaf.svg?url';
 import iconImageGallery from './icons/image gallery.svg?url';
+import iconFolder from './icons/folder.svg?url';
 import iconThumbtack from './icons/thumbtack.svg?url';
 import iconProfileView from './icons/USER-AVATAR-IDENTIFY.svg?url';
 import iconSun from './icons/sun.svg?url';
@@ -72,6 +73,7 @@ import iconImageRemove from './icons/IMAGE-REMOVE.svg?url';
 import iconDiscordStage from './icons/discord-stage.svg?url';
 import iconDiscordMark from './icons/discord-mark.svg?url';
 import iconChatLock from './icons/chat-lock.svg?url';
+import iconFile from './icons/file.svg?url';
 import { getIconUrlByFilename } from './iconCatalog';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import {
@@ -144,6 +146,8 @@ export const icons = {
   chatLock: iconChatLock ?? '',
   leaf: iconLeaf ?? '',
   imageGallery: iconImageGallery ?? '',
+  /** Saved media / favorites folder (GIF & image popout). */
+  folder: iconFolder ?? '',
   thumbtack: iconThumbtack ?? '',
   profileView: iconProfileView ?? '',
   sun: iconSun ?? '',
@@ -164,6 +168,8 @@ export const icons = {
   discordStage: iconDiscordStage ?? '',
   /** Legacy “Clyde” mark — OAuth / Discord sync (distinct from stage-channel glyph). */
   discordMark: iconDiscordMark ?? '',
+  /** Paper channel default glyph. */
+  file: iconFile ?? '',
 };
 
 export type AppIconKey = keyof typeof icons;
@@ -173,14 +179,17 @@ export const channelIcons = {
   voice: iconVolumeUp,
   /** Forum hub / threaded listing (distinct from plain # text). */
   forum: iconMessageAlt,
+  /** Collaborative document channel. */
+  paper: iconFile,
 } as const;
 
 function defaultChannelGlyphUrl(
-  type?: 'text' | 'voice' | 'forum' | 'stage',
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper',
 ): string {
   if (type === 'voice') return channelIcons.voice;
   if (type === 'stage') return icons.sofa;
   if (type === 'forum') return channelIcons.forum;
+  if (type === 'paper') return channelIcons.paper;
   return channelIcons.text;
 }
 
@@ -390,7 +399,7 @@ export function getChannelIconVisual(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage';
+        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
         iconKey?: string;
       }
     | null
@@ -415,6 +424,8 @@ export function getChannelIconVisual(
     if (channel.type === 'stage') return { kind: 'svg', url: icons.sofa };
     if (channel.type === 'forum')
       return { kind: 'svg', url: channelIcons.forum };
+    if (channel.type === 'paper')
+      return { kind: 'svg', url: channelIcons.paper };
   }
   const name = stripLeadingChannelEmojiForMatching(channel.name).toLowerCase();
   const match = channelIconMatchers.find(({ patterns }) =>
@@ -438,7 +449,7 @@ export function getChannelIconKeyForEdit(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage';
+        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
         iconKey?: string;
       }
     | null
@@ -457,6 +468,7 @@ export function getChannelIconKeyForEdit(
   if (channel.type === 'voice') return 'volumeUp';
   if (channel.type === 'stage') return 'sofa';
   if (channel.type === 'forum') return 'messageAlt';
+  if (channel.type === 'paper') return 'file';
   return 'message';
 }
 
@@ -464,7 +476,7 @@ export function getChannelIcon(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage';
+        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
         iconKey?: string;
       }
     | null
@@ -488,6 +500,7 @@ export function getChannelIcon(
     if (channel.type === 'voice') return channelIcons.voice;
     if (channel.type === 'stage') return icons.sofa;
     if (channel.type === 'forum') return channelIcons.forum;
+    if (channel.type === 'paper') return channelIcons.paper;
   }
   const name = stripLeadingChannelEmojiForMatching(channel.name).toLowerCase();
   const match = channelIconMatchers.find(({ patterns }) =>

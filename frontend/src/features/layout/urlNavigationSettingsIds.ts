@@ -3,6 +3,7 @@ export type UserSettingsSection =
   | 'Account'
   | 'Friends'
   | 'Terms & policies'
+  | 'Report abuse'
   | 'Formatting guide'
   | 'Discord'
   | 'Google'
@@ -60,6 +61,9 @@ export const USER_SETTINGS_SECTION_GROUPS: UserSettingsSectionGroup[] = [
     ],
   },
   { label: 'Payment', items: ['Echo+', 'Subscriptions'] },
-  { label: 'Legal', items: ['Terms & policies', 'Formatting guide'] },
+  {
+    label: 'Legal',
+    items: ['Terms & policies', 'Report abuse', 'Formatting guide'],
+  },
   { label: 'Session', items: ['Log out'] },
 ];

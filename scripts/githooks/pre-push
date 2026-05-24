@@ -1,28 +1,47 @@
 #!/usr/bin/env bash
-# Validate pushes to github.com (never create/update main there).
-# Mirror release/1.0.0 to GitHub only when ECHO_RELEASE_MIRROR_NOW=1; otherwise the
-# daily cron (23:00, see install-release-mirror-cron.sh) batches all GitLab pushes.
+# 1) Block GitHub pushes that leak GitLab main history (github-push-guard.sh).
+# 2) CI precheck before pushes to non-GitHub remotes (scripts/ci-precheck.sh).
+# 3) Mirror release/1.0.0 to GitHub only when ECHO_RELEASE_MIRROR_NOW=1; otherwise daily cron.
 #
 # See docs/operations/github-release-mirror.md.
 set -euo pipefail
 
+remote_name="${1:-}"
 push_url="${2:-}"
 zero=0000000000000000000000000000000000000000
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 MIRROR_HOUR="${ECHO_RELEASE_MIRROR_HOUR:-23}"
 MIRROR_TZ="${ECHO_RELEASE_MIRROR_TZ:-Europe/Berlin}"
+GUARD="$ROOT/scripts/githooks/github-push-guard.sh"
 
 ref_updates=$(cat || true)
 
-if [[ "$push_url" == *github.com* ]]; then
+if [[ ! -f "$GUARD" ]]; then
+  echo "pre-push: missing $GUARD — run ./scripts/setup-githooks.sh" >&2
+  exit 1
+fi
+# shellcheck source=scripts/githooks/github-push-guard.sh
+source "$GUARD"
+
+check_branch_upstream_policy "$ROOT"
+github_push_guard "$remote_name" "$push_url" "$ref_updates" "$ROOT"
+
+# --- CI precheck (GitLab / other remotes; skip GitHub mirror pushes) ---
+if [[ -z "${ECHO_SKIP_CI_PRECHECK:-}" ]] && ! is_github_push_remote "$remote_name" "$push_url"; then
+  has_branch_push=0
   while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
     [[ -z "${local_ref:-}" ]] && continue
-    if [[ "$remote_ref" == "refs/heads/main" && "$local_sha" != "$zero" ]]; then
-      echo "pre-push: refusing to push or update branch 'main' on GitHub (mirror is release/1.0.0 only)." >&2
-      echo "  To remove a mistaken main: git push github --delete main" >&2
-      exit 1
-    fi
+    [[ "$local_sha" == "$zero" ]] && continue
+    has_branch_push=1
+    break
   done <<<"$ref_updates"
+  if [[ "$has_branch_push" -eq 1 ]]; then
+    echo "pre-push: running CI precheck (skip with ECHO_SKIP_CI_PRECHECK=1) …" >&2
+    bash "$ROOT/scripts/ci-precheck.sh"
+  fi
+fi
+
+if is_github_push_remote "$remote_name" "$push_url"; then
   exit 0
 fi
 

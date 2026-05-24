@@ -41,6 +41,7 @@ export function createEchoSocketSessionLifecycle(opts: {
   getInboundListeners: () => EchoSocketInboundListeners;
   tryEmitRealtime: EchoSocketTryEmitRealtime;
   activeChannelId: import('vue').Ref<string>;
+  onTabResumeWhileConnected?: () => void;
   onBeforeTeardown?: () => void;
   onAfterConnected?: (ctx: {
     activeChannelId: string | undefined;
@@ -133,6 +134,7 @@ export function createEchoSocketSessionLifecycle(opts: {
       socketOff: opts.socketOff,
       getConnected: () => Boolean(io.socket?.connected),
       ensureConnect: () => connectSocket(),
+      onConnectedResume: opts.onTabResumeWhileConnected,
     });
   }
 

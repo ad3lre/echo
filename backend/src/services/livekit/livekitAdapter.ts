@@ -56,6 +56,22 @@ export function pfpForLiveKitParticipantMetadata(
   return undefined;
 }
 
+export function liveKitPublishSourcesForGrants(opts: {
+  canPublishMicrophone: boolean;
+  canPublishVideo: boolean;
+}): TrackSource[] {
+  const sources: TrackSource[] = [];
+  if (opts.canPublishMicrophone) sources.push(TrackSource.MICROPHONE);
+  if (opts.canPublishVideo) {
+    sources.push(
+      TrackSource.CAMERA,
+      TrackSource.SCREEN_SHARE,
+      TrackSource.SCREEN_SHARE_AUDIO,
+    );
+  }
+  return sources;
+}
+
 export async function mintJoinToken(opts: {
   identity: string;
   name: string;
@@ -84,16 +100,10 @@ export async function mintJoinToken(opts: {
   });
   const mic = opts.canPublishMicrophone !== false;
   const video = opts.canPublishVideo !== false;
-  const sources: TrackSource[] = [];
-  if (mic) sources.push(TrackSource.MICROPHONE);
-  if (video) {
-    // Screen share with system audio publishes SCREEN_SHARE_AUDIO; grant must allow it or publish fails.
-    sources.push(
-      TrackSource.CAMERA,
-      TrackSource.SCREEN_SHARE,
-      TrackSource.SCREEN_SHARE_AUDIO,
-    );
-  }
+  const sources = liveKitPublishSourcesForGrants({
+    canPublishMicrophone: mic,
+    canPublishVideo: video,
+  });
   const canPublish = sources.length > 0;
   at.addGrant({
     room: opts.roomName,
@@ -339,6 +349,65 @@ export async function stopLiveKitParticipantScreenShare(opts: {
     identity: opts.identity,
     sources: [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO],
   });
+}
+
+/** Updates publish grants for an in-room participant (e.g. stage promote/demote). */
+export async function syncLiveKitParticipantPublishPermissions(opts: {
+  roomName: string;
+  identity: string;
+  canPublishMicrophone: boolean;
+  canPublishVideo: boolean;
+}): Promise<void> {
+  const c = createLiveKitRoomServiceClient();
+  if (!c) return;
+  const sources = liveKitPublishSourcesForGrants({
+    canPublishMicrophone: opts.canPublishMicrophone,
+    canPublishVideo: opts.canPublishVideo,
+  });
+  vcTrace(undefined, 'syncLiveKitParticipantPublishPermissions', {
+    roomName: opts.roomName,
+    identity: opts.identity,
+    canPublishMicrophone: opts.canPublishMicrophone,
+    canPublishVideo: opts.canPublishVideo,
+    publishSourceCount: sources.length,
+  });
+  try {
+    await c.updateParticipant(opts.roomName, opts.identity, {
+      permission: {
+        canPublish: sources.length > 0,
+        canPublishSources: sources,
+        canSubscribe: true,
+      },
+    });
+  } catch (err) {
+    vcTrace(undefined, 'syncLiveKitParticipantPublishPermissions:error', {
+      roomName: opts.roomName,
+      identity: opts.identity,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+export async function updateLiveKitRoomMetadata(
+  roomName: string,
+  metadata: string,
+): Promise<void> {
+  const c = createLiveKitRoomServiceClient();
+  if (!c) return;
+  try {
+    await c.updateRoomMetadata(roomName, metadata);
+    vcTrace(undefined, 'updateLiveKitRoomMetadata:ok', {
+      roomName,
+      byteLength: metadata.length,
+    });
+  } catch (err) {
+    vcTrace(undefined, 'updateLiveKitRoomMetadata:error', {
+      roomName,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 }
 
 export async function deleteLiveKitRoom(roomName: string): Promise<void> {

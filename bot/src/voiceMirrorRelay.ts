@@ -43,13 +43,18 @@ async function refreshWatchlist(client: Client): Promise<void> {
         next.add(id.trim());
       }
     }
+    const previous = cachedWatchGuildIds;
     cachedWatchGuildIds = next;
     /**
      * Snapshots were only sent on `voiceStateUpdate`. After enabling mirror or
      * restarting the bot, Echo stayed empty until someone joined/left Discord VC.
+     * Only bootstrap newly watched guilds — not the full watchlist every poll tick.
      */
-    for (const guildId of cachedWatchGuildIds) {
-      scheduleGuildFlush(client, guildId);
+    const bootstrapAll = previous.size === 0 && next.size > 0;
+    for (const guildId of next) {
+      if (bootstrapAll || !previous.has(guildId)) {
+        scheduleGuildFlush(client, guildId);
+      }
     }
   } catch {
     /* ignore */

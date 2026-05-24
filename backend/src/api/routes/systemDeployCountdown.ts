@@ -1,8 +1,10 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { config } from '../../config';
+import { normalizeDeployAnnouncement } from '../../../../shared/deployAnnouncement';
 
 type DeployCountdownBody = {
   seconds?: number;
+  message?: string;
 };
 
 function readNotifySecret(req: FastifyRequest): string | null {
@@ -49,11 +51,26 @@ export default async function systemDeployCountdownRoutes(
         seconds = Math.min(120, Math.max(1, Math.floor(body.seconds)));
       }
 
+      let message =
+        'Echo is restarting for an update. Expect a short downtime; the app will reconnect automatically.';
+      if (body.message != null) {
+        try {
+          const normalized = normalizeDeployAnnouncement(body.message);
+          if (normalized) message = normalized;
+        } catch (err) {
+          const detail =
+            err instanceof Error ? err.message : 'Invalid deploy announcement';
+          return reply.code(400).send({
+            code: 'INVALID_ANNOUNCEMENT',
+            message: detail,
+          });
+        }
+      }
+
       const endsAt = Date.now() + seconds * 1000;
       fastify.io.emit('app:deploy_countdown', {
         reason: 'vps_restart',
-        message:
-          'Echo is restarting for an update. Expect a short downtime; the app will reconnect automatically.',
+        message,
         endsAt,
         secondsTotal: seconds,
       });

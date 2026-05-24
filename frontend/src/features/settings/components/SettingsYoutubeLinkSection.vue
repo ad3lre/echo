@@ -18,9 +18,11 @@ import {
   youtubeStreamKeySaveCta,
   youtubeStreamKeySavedLabel,
   youtubeStreamKeySwitchToNativeHint,
+  youtubeStageLiveStreamingUnavailableHint,
   youtubeStreamKeyTitle,
 } from '@/features/youtube/youtubeIntegrationCopy';
 import { useYoutubeLinkSettings } from '@/features/settings/composables/useYoutubeLinkSettings';
+import SettingsIntegrationPrivacyNotice from '@/features/settings/components/SettingsIntegrationPrivacyNotice.vue';
 import type { SettingsSection } from '@/features/settings/types';
 
 const props = defineProps<{
@@ -50,6 +52,9 @@ const hasOAuthLink = computed(() => state.value?.linked === true);
 const hasStreamKey = computed(() => !!state.value?.streamKey);
 const oauthConfigured = computed(() => state.value?.configured === true);
 const activeMode = computed(() => state.value?.connectionMode ?? 'none');
+const stageLiveStreamingConfigured = computed(
+  () => state.value?.stageLiveStreamingConfigured !== false,
+);
 
 const displayInitial = computed(() => {
   if (state.value?.linked !== true) return '?';
@@ -67,8 +72,17 @@ const displayInitial = computed(() => {
     <div v-else-if="loading" class="text-sm text-muted">Loading…</div>
 
     <div v-else class="flex flex-col gap-6">
+      <SettingsIntegrationPrivacyNotice />
+
       <p v-if="actionError" class="text-sm text-red-400/90">
         {{ actionError }}
+      </p>
+
+      <p
+        v-if="state && !stageLiveStreamingConfigured"
+        class="max-w-2xl rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm leading-relaxed text-amber-100/90"
+      >
+        {{ youtubeStageLiveStreamingUnavailableHint }}
       </p>
 
       <p
@@ -141,10 +155,18 @@ const displayInitial = computed(() => {
                 {{ state.profile.channelTitle }}
               </p>
               <p
-                v-if="activeMode === 'oauth'"
+                v-if="activeMode === 'oauth' && stageLiveStreamingConfigured"
                 class="mt-1 text-xs text-[color:var(--set-positive-label-fg)]"
               >
                 Used for stage go-live
+              </p>
+              <p
+                v-else-if="
+                  activeMode === 'oauth' && !stageLiveStreamingConfigured
+                "
+                class="mt-1 text-xs text-amber-200/80"
+              >
+                Linked, but stage go-live needs LiveKit egress on this server
               </p>
             </div>
           </div>
@@ -220,10 +242,18 @@ const displayInitial = computed(() => {
               }}. Echo cannot display the key again.
             </p>
             <p
-              v-if="activeMode === 'stream_key'"
+              v-if="activeMode === 'stream_key' && stageLiveStreamingConfigured"
               class="mt-2 text-xs text-[color:var(--set-positive-label-fg)]"
             >
               Used for stage go-live
+            </p>
+            <p
+              v-else-if="
+                activeMode === 'stream_key' && !stageLiveStreamingConfigured
+              "
+              class="mt-2 text-xs text-amber-200/80"
+            >
+              Saved, but stage go-live needs LiveKit egress on this server
             </p>
             <p v-else-if="hasOAuthLink" class="mt-2 text-xs text-muted">
               Channel link takes priority for go-live. Revoke the channel link

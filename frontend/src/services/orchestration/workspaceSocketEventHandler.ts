@@ -43,6 +43,18 @@ export function createWorkspaceSocketEventHandler(
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   return (payload: EchoWorkspaceEvent) => {
+    if (payload.kind === 'paper_document_updated' && payload.paperDocument) {
+      void import('@/features/paper/paperRealtimeBus').then((m) =>
+        m.emitPaperDocumentUpdated(payload.paperDocument!),
+      );
+      return;
+    }
+    if (payload.kind === 'paper_comment_updated' && payload.paperComment) {
+      void import('@/features/paper/paperRealtimeBus').then((m) =>
+        m.emitPaperCommentUpdated(payload.paperComment!),
+      );
+      return;
+    }
     if (payload.kind === 'friend_requests_changed') {
       void deps.refreshEchoSocialFromApi();
       return;

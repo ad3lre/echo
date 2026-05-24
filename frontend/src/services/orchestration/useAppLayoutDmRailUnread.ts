@@ -94,6 +94,8 @@ export function useAppLayoutDmRailUnread(deps: {
   activeCallGroupIds?: Ref<ReadonlySet<string>>;
   /** Authoritative ms-epoch activity timestamps per channel id; matches the DM panel sort. */
   lastActivityAtMsByChannelId?: Ref<ReadonlyMap<string, number>>;
+  /** Persisted 1:1 DM channel id → peer user id (for threads missing from attention snapshots). */
+  echoDmPeerByChannelId?: Ref<ReadonlyMap<string, string>>;
 }) {
   const {
     authSession,
@@ -120,6 +122,7 @@ export function useAppLayoutDmRailUnread(deps: {
     const active = activeChannelId.value;
     const activePeer = activeDmPeerUserId?.value?.trim() || '';
     const unreadAttentionChannelIds = new Set<string>();
+    const railChannelIds = new Set<string>();
 
     const byUser = new Map<string, UserRow>();
     const groupRows = new Map<string, GroupRow>();
@@ -161,6 +164,7 @@ export function useAppLayoutDmRailUnread(deps: {
         const inCall = deps.activeCallGroupIds?.value.has(channelId) ?? false;
         if (channelId === active && !inCall) continue;
         unreadAttentionChannelIds.add(channelId);
+        railChannelIds.add(channelId);
         groupRows.set(channelId, {
           channelId,
           name: groupMeta.name?.trim() || 'Group',
@@ -183,6 +187,7 @@ export function useAppLayoutDmRailUnread(deps: {
       if (activePeer && peer === activePeer && !inCall) continue;
       if (channelId === active && !inCall) continue;
       unreadAttentionChannelIds.add(channelId);
+      railChannelIds.add(channelId);
 
       const u = workspace.users.value.find((x) => x.id === peer);
       upsertRow({
@@ -197,6 +202,69 @@ export function useAppLayoutDmRailUnread(deps: {
         unreadCount: effectiveUnreadCount,
         inCall,
       });
+    }
+
+    function rankForLocalUnreadRailRow(channelId: string) {
+      const r = rankForRail(
+        channelId,
+        deps.lastActivityAtMsByChannelId?.value,
+        undefined,
+      );
+      return r.ms > 0 ? r : { ms: Date.now() };
+    }
+
+    function mergeLocalUnreadRailRow(
+      channelId: string,
+      effectiveUnreadCount: number,
+    ) {
+      if (effectiveUnreadCount < 1) return;
+      if (
+        deps.isDmChannelId &&
+        !deps.isDmChannelId(channelId, {} as EchoAttentionDmSummary)
+      ) {
+        return;
+      }
+
+      const groupMeta = deps.groupDMs?.value[channelId];
+      if (groupMeta) {
+        const inCall = deps.activeCallGroupIds?.value.has(channelId) ?? false;
+        if (channelId === active && !inCall) return;
+        railChannelIds.add(channelId);
+        groupRows.set(channelId, {
+          channelId,
+          name: groupMeta.name?.trim() || 'Group',
+          pfp: groupMeta.pfp ?? '',
+          rank: rankForLocalUnreadRailRow(channelId),
+          unreadCount: effectiveUnreadCount,
+          inCall,
+        });
+        return;
+      }
+
+      const peer =
+        deps.echoDmPeerByChannelId?.value.get(channelId)?.trim() ?? null;
+      if (!peer || peer === selfId) return;
+      const inCall = deps.activeCallUserIds?.value.has(peer) ?? false;
+      if (deps.isHiddenDmUser?.(peer)) return;
+      if (activePeer && peer === activePeer && !inCall) return;
+      if (channelId === active && !inCall) return;
+
+      railChannelIds.add(channelId);
+      const u = workspace.users.value.find((x) => x.id === peer);
+      upsertRow({
+        userId: peer,
+        name: u?.name ?? 'User',
+        pfp: u?.pfp ?? '',
+        rank: rankForLocalUnreadRailRow(channelId),
+        unreadCount: effectiveUnreadCount,
+        inCall,
+      });
+    }
+
+    for (const [channelId, unreadCount] of deps.dmUnreadCountByChannelId
+      ?.value ?? []) {
+      if (railChannelIds.has(channelId)) continue;
+      mergeLocalUnreadRailRow(channelId, unreadCount);
     }
 
     // Pending incoming message requests can surface on the rail as inbox

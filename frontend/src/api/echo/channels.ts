@@ -18,7 +18,7 @@ export async function postEchoServerChannel(
   serverId: string,
   body: {
     name: string;
-    type: 'text' | 'voice' | 'forum' | 'stage';
+    type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
     categoryId: string;
     iconKey?: string;
   },

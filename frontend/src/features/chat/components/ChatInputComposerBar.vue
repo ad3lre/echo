@@ -10,6 +10,7 @@ import {
   INLINE_MARKDOWN_PREVIEW_UI_ENABLED,
   type MarkdownPreviewMenuMode,
 } from '@/features/chat/composables/markdownPreviewModePreference';
+import { isComposerContentEffectivelyEmpty } from '@/features/chat/editor/composerModel';
 
 const props = defineProps<{
   popoutDirection?: 'up' | 'down';
@@ -133,6 +134,10 @@ const showInlineMobileSend = computed(
 /** Compact shell: Send in the toolbar (forum uses Post instead). */
 const showMobileSendInToolbar = computed(
   () => showInlineMobileSend.value && props.popoutTheme !== 'forum',
+);
+
+const showComposerPlaceholder = computed(() =>
+  isComposerContentEffectivelyEmpty(props.composerContent),
 );
 
 function toggleMarkdownMenu() {
@@ -365,7 +370,10 @@ function bindRef<E extends HTMLElement>(
           class="chat-input-surface-wrap chat-focus-ring custom-scrollbar relative z-10 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain py-2 outline-none touch-pan-y"
           :class="[
             surfaceSizingClass,
-            { 'chat-input-surface-wrap--disabled': composerDisabled },
+            {
+              'chat-input-surface-wrap--disabled': composerDisabled,
+              'chat-input-surface-wrap--empty': showComposerPlaceholder,
+            },
           ]"
           :title="composerDisabled ? composerDisabledReason : undefined"
           @mousedown="handleComposerPointerDown($event)"
@@ -375,7 +383,7 @@ function bindRef<E extends HTMLElement>(
           @paste="handlePaste"
         >
           <div
-            v-if="!composerContent"
+            v-if="showComposerPlaceholder"
             aria-hidden="true"
             class="chat-input-placeholder pointer-events-none absolute inset-x-0 top-2 z-[2] truncate pr-1 text-left text-muted"
             :title="composerPlaceholder"
@@ -756,6 +764,22 @@ function bindRef<E extends HTMLElement>(
 .chat-input-surface-wrap--disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/*
+ * Empty TipTap docs still expose a focusable <br> in the DOM. After select-all + delete,
+ * Ctrl+A can highlight that "invisible" node while our placeholder overlay is shown.
+ */
+.chat-input-surface-wrap--empty .chat-input-surface :deep(.tiptap) {
+  user-select: none;
+}
+
+.chat-input-surface-wrap--empty .chat-input-surface :deep(.tiptap::selection),
+.chat-input-surface-wrap--empty
+  .chat-input-surface
+  :deep(.tiptap *::selection) {
+  background: transparent;
+  color: inherit;
 }
 
 .chat-input-surface {

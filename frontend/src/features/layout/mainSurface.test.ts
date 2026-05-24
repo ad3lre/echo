@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   deriveHasGuildChannelChrome,
+  deriveHasPaperDocumentChrome,
   deriveMainSurface,
   type DeriveContext,
   type MainSurface,
@@ -277,6 +278,7 @@ describe('deriveHasGuildChannelChrome', () => {
     t({ type: 'serverText', channelId: 'c1' }, true);
     t({ type: 'serverVoice', channelId: 'c1' }, true);
     t({ type: 'serverForum', forumChannelId: 'c1' }, true);
+    t({ type: 'serverPaper', channelId: 'c1' }, false);
   });
 
   it('false for non-guild main surfaces', () => {
@@ -288,5 +290,33 @@ describe('deriveHasGuildChannelChrome', () => {
     t({ type: 'dmThread', threadId: 'dm-x' }, false);
     t({ type: 'unknown', reason: 'x', channelId: '' }, false);
     t({ type: 'serverEmptyOnboarding' }, false);
+  });
+});
+
+describe('deriveHasPaperDocumentChrome', () => {
+  it('true only for serverPaper', () => {
+    expect(
+      deriveHasPaperDocumentChrome({ type: 'serverPaper', channelId: 'p1' }),
+    ).toBe(true);
+    expect(
+      deriveHasPaperDocumentChrome({ type: 'serverText', channelId: 'c1' }),
+    ).toBe(false);
+  });
+});
+
+describe('deriveMainSurface paper channel', () => {
+  it('maps paper channel type to serverPaper', () => {
+    const nav: NavState = {
+      rail: 'servers',
+      dmSubView: 'messages',
+      activeChannelId: 'paper-1',
+      selectedServerId: 'srv-1',
+    };
+    expect(
+      deriveMainSurface(
+        nav,
+        ctxNoOnboarding(() => ({ type: 'paper' })),
+      ),
+    ).toEqual({ type: 'serverPaper', channelId: 'paper-1' });
   });
 });

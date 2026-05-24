@@ -1003,7 +1003,7 @@ function onMoreServersPinServer(payload: {
     <!-- ServerList root is `w-full`; without a fixed-width wrapper it consumes the entire row in flex-row. -->
     <div
       v-if="!lc.hideServerRail"
-      class="flex h-full min-h-0 w-24 max-w-24 shrink-0 flex-col overflow-hidden border-r border-border"
+      class="flex h-full min-h-0 w-24 max-w-24 shrink-0 flex-col overflow-x-visible overflow-y-hidden border-r border-border"
     >
       <ServerList
         :authenticated="lc.isAuthenticated"

@@ -29,9 +29,13 @@ import {
   type YoutubeLivePrivacy,
 } from '../integrations/youtubeApiClient';
 import {
+  isStageEgressLayout,
   startStageRoomCompositeRtmpEgress,
   stopLiveKitEgress,
+  updateStageRoomCompositeEgressLayout,
+  type StageEgressLayout,
 } from '../livekit/livekitEgress';
+import { syncStageProgramRoomMetadata } from './stageProgramRoom';
 
 export type StageYoutubeStreamPublic = {
   active: boolean;
@@ -291,12 +295,22 @@ async function startStageYoutubeStreamWithStreamKey(
     errorCode: null,
   });
 
+  const egressLayout: StageEgressLayout = 'grid';
+  try {
+    await syncStageProgramRoomMetadata(pool, opts.serverId, opts.channelId, {
+      layout: egressLayout,
+    });
+  } catch {
+    /* room may not exist until first participant joins */
+  }
+
   let egressId: string;
   try {
     egressId = await startStageRoomCompositeRtmpEgress({
       serverId: opts.serverId,
       channelId: opts.channelId,
       rtmpUrl,
+      layout: egressLayout,
     });
   } catch (e) {
     const code =
@@ -421,12 +435,22 @@ async function startStageYoutubeStreamOauth(
   });
 
   const rtmpUrl = youtubeLiveRtmpIngestUrl(session);
+  const egressLayout: StageEgressLayout = 'grid';
+  try {
+    await syncStageProgramRoomMetadata(pool, opts.serverId, opts.channelId, {
+      layout: egressLayout,
+    });
+  } catch {
+    /* room may not exist until first participant joins */
+  }
+
   let egressId: string;
   try {
     egressId = await startStageRoomCompositeRtmpEgress({
       serverId: opts.serverId,
       channelId: opts.channelId,
       rtmpUrl,
+      layout: egressLayout,
     });
   } catch (e) {
     const code =
@@ -618,5 +642,79 @@ export async function stopStageYoutubeStream(
   }
 
   await forceStopStageYoutubeBroadcastRow(pool, row);
+  return { ok: true };
+}
+
+export type UpdateStageYoutubeLayoutResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code:
+        | 'FORBIDDEN'
+        | 'NOT_LIVE'
+        | 'INVALID_LAYOUT'
+        | 'LIVEKIT_EGRESS_FAILED';
+      message: string;
+    };
+
+export async function updateStageYoutubeStreamLayout(
+  pool: Pool,
+  opts: {
+    serverId: string;
+    channelId: string;
+    actorUserId: string;
+    layout: string;
+  },
+): Promise<UpdateStageYoutubeLayoutResult> {
+  if (
+    !(await canUserManageStageYoutubeStream(
+      pool,
+      opts.serverId,
+      opts.channelId,
+      opts.actorUserId,
+    ))
+  ) {
+    return {
+      ok: false,
+      code: 'FORBIDDEN',
+      message: 'Manage Channels permission required to change stream layout.',
+    };
+  }
+  const layout = opts.layout.trim();
+  if (!isStageEgressLayout(layout)) {
+    return {
+      ok: false,
+      code: 'INVALID_LAYOUT',
+      message: 'Invalid stream layout.',
+    };
+  }
+  const row = await getStageYoutubeBroadcast(
+    pool,
+    opts.serverId,
+    opts.channelId,
+  );
+  if (
+    !row ||
+    !row.livekitEgressId?.trim() ||
+    (row.status !== 'starting' && row.status !== 'live')
+  ) {
+    return {
+      ok: false,
+      code: 'NOT_LIVE',
+      message: 'This stage is not streaming to YouTube.',
+    };
+  }
+  try {
+    await updateStageRoomCompositeEgressLayout(row.livekitEgressId, layout);
+    await syncStageProgramRoomMetadata(pool, opts.serverId, opts.channelId, {
+      layout,
+    });
+  } catch {
+    return {
+      ok: false,
+      code: 'LIVEKIT_EGRESS_FAILED',
+      message: 'Could not update the stream layout.',
+    };
+  }
   return { ok: true };
 }

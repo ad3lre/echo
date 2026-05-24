@@ -20,6 +20,8 @@ defineProps<{
   showExpandedDeveloperIds?: boolean;
   /** When true, show “View profile” in the User section (parent wires `onOpenProfile`). */
   showOpenProfile?: boolean;
+  /** When true, show “Report message” in the User section. */
+  showReportMessage?: boolean;
   channelId?: string;
   isPinned?: boolean;
   menuPosition: { left: number; top: number };
@@ -35,6 +37,15 @@ defineProps<{
   timeoutActive?: boolean;
 }>();
 
+const menuItemClass =
+  'chat-focus-ring echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm rounded-sm';
+const menuItemDestructiveClass =
+  'chat-focus-ring echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm rounded-sm';
+const menuItemWarningClass =
+  'chat-focus-ring echo-menu-item echo-menu-item--warning flex w-full items-center gap-2 px-3 py-2 text-left text-sm rounded-sm';
+const menuSectionLabelClass =
+  'px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle';
+
 defineEmits<{
   enterEditMode: [];
   handleDelete: [];
@@ -49,6 +60,7 @@ defineEmits<{
   copyQuotedReplyMessageId: [];
   copyChannelId: [];
   openAuthorProfile: [];
+  reportMessage: [];
   copyAuthorUsername: [];
   pin: [];
   unpin: [];
@@ -72,7 +84,7 @@ defineEmits<{
       <button
         v-if="isOwnMessage"
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('enterEditMode')"
       >
         <svg
@@ -93,7 +105,7 @@ defineEmits<{
       <button
         v-if="isOwnMessage"
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/20 flex items-center gap-2 rounded-sm"
+        :class="menuItemDestructiveClass"
         @click="$emit('handleDelete')"
       >
         <svg
@@ -113,7 +125,7 @@ defineEmits<{
       </button>
       <button
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('copyMessage')"
       >
         <svg
@@ -134,7 +146,7 @@ defineEmits<{
       <button
         v-if="showCopyImage"
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('copyImage')"
       >
         <svg
@@ -154,7 +166,7 @@ defineEmits<{
       </button>
       <button
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('copyRawMessage')"
       >
         <svg
@@ -174,7 +186,7 @@ defineEmits<{
       </button>
       <button
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('copyMessageLink')"
       >
         <svg
@@ -193,17 +205,40 @@ defineEmits<{
         Copy message link
       </button>
 
-      <template v-if="showOpenProfile || (message.author?.name ?? '').trim()">
+      <template
+        v-if="
+          showOpenProfile ||
+          showReportMessage ||
+          (message.author?.name ?? '').trim()
+        "
+      >
         <div class="my-1 border-t border-border" role="separator" />
-        <div
-          class="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
+        <div :class="menuSectionLabelClass">User</div>
+        <button
+          v-if="showReportMessage"
+          type="button"
+          :class="menuItemDestructiveClass"
+          @click="$emit('reportMessage')"
         >
-          User
-        </div>
+          <svg
+            class="w-4 h-4 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
+            />
+          </svg>
+          Report message
+        </button>
         <button
           v-if="showOpenProfile"
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+          :class="menuItemClass"
           @click="$emit('openAuthorProfile')"
         >
           <svg
@@ -224,7 +259,7 @@ defineEmits<{
         <button
           v-if="(message.author?.name ?? '').trim()"
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+          :class="menuItemClass"
           @click="$emit('copyAuthorUsername')"
         >
           <svg
@@ -247,7 +282,7 @@ defineEmits<{
       <button
         v-if="showViewReactions"
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('viewReactions')"
       >
         <svg
@@ -268,7 +303,7 @@ defineEmits<{
       <button
         v-if="showForward"
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('forwardMessage')"
       >
         <svg
@@ -289,7 +324,7 @@ defineEmits<{
       <button
         v-if="showMentionAuthorInComposer"
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('mentionAuthor')"
       >
         <span
@@ -301,15 +336,11 @@ defineEmits<{
       </button>
       <template v-if="showExpandedDeveloperIds">
         <div class="my-1 border-t border-border" role="separator" />
-        <div
-          class="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle"
-        >
-          Developer
-        </div>
+        <div :class="menuSectionLabelClass">Developer</div>
         <button
           v-if="message.authorId"
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+          :class="menuItemClass"
           @click="$emit('copyAuthorId')"
         >
           <svg
@@ -330,7 +361,7 @@ defineEmits<{
         <button
           v-if="message.id"
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+          :class="menuItemClass"
           @click="$emit('copyMessageId')"
         >
           <svg
@@ -351,7 +382,7 @@ defineEmits<{
         <button
           v-if="message.replyTo?.messageId"
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+          :class="menuItemClass"
           @click="$emit('copyQuotedReplyMessageId')"
         >
           <svg
@@ -372,7 +403,7 @@ defineEmits<{
         <button
           v-if="channelId"
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+          :class="menuItemClass"
           @click="$emit('copyChannelId')"
         >
           <svg
@@ -394,7 +425,7 @@ defineEmits<{
       <button
         v-if="canPin && !isPinned"
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('pin')"
       >
         <img
@@ -407,7 +438,7 @@ defineEmits<{
       <button
         v-if="canUnpin && isPinned"
         type="button"
-        class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover flex items-center gap-2 rounded-sm"
+        :class="menuItemClass"
         @click="$emit('unpin')"
       >
         <img
@@ -420,14 +451,10 @@ defineEmits<{
 
       <template v-if="showModActions">
         <div class="my-1 border-t border-border" role="separator" />
-        <div
-          class="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-200/90"
-        >
-          Moderation
-        </div>
+        <div :class="menuSectionLabelClass">Moderation</div>
         <button
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/20 flex items-center gap-2 rounded-sm"
+          :class="menuItemDestructiveClass"
           @click="$emit('confirmModDelete')"
         >
           <svg
@@ -447,7 +474,7 @@ defineEmits<{
         </button>
         <button
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-amber-200/95 hover:bg-amber-500/15 flex items-center gap-2 rounded-sm"
+          :class="menuItemWarningClass"
           @click="$emit('moderate', 'timeout', 60)"
         >
           <svg
@@ -467,7 +494,7 @@ defineEmits<{
         </button>
         <button
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-orange-200 hover:bg-orange-500/15 flex items-center gap-2 rounded-sm"
+          :class="menuItemWarningClass"
           @click="$emit('moderate', 'kick')"
         >
           <svg
@@ -487,7 +514,7 @@ defineEmits<{
         </button>
         <button
           type="button"
-          class="chat-focus-ring w-full px-3 py-2 text-left text-sm text-red-300 hover:bg-red-500/20 flex items-center gap-2 rounded-sm"
+          :class="menuItemDestructiveClass"
           @click="$emit('moderate', 'ban')"
         >
           <svg

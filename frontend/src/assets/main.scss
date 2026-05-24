@@ -317,21 +317,6 @@ html {
   background-color: var(--bg);
 }
 
-/* Founder dashboard at /founder: allow normal window scroll (global rule above hides overflow). */
-html.echo-founder-page-scroll,
-html.echo-founder-page-scroll body {
-  overflow-x: hidden;
-  overflow-y: auto;
-  height: auto;
-  min-height: 100dvh;
-}
-
-html.echo-founder-page-scroll #app {
-  overflow: visible;
-  height: auto;
-  min-height: 100dvh;
-}
-
 /* iOS-style activity indicator: thin arc, smooth rotation */
 .echo-app-splash {
   display: flex;

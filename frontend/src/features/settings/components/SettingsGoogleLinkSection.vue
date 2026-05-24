@@ -14,6 +14,7 @@ import {
   googleYoutubeRequiresLinkHint,
 } from '@/features/google/googleIntegrationCopy';
 import { useGoogleLinkSettings } from '@/features/settings/composables/useGoogleLinkSettings';
+import SettingsIntegrationPrivacyNotice from '@/features/settings/components/SettingsIntegrationPrivacyNotice.vue';
 
 const {
   state,
@@ -45,6 +46,8 @@ const displayInitial = computed(() => {
     <div v-else-if="loading" class="text-sm text-muted">Loading…</div>
 
     <div v-else class="flex flex-col gap-6">
+      <SettingsIntegrationPrivacyNotice />
+
       <p v-if="actionError" class="text-sm text-red-400/90">
         {{ actionError }}
       </p>

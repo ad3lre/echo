@@ -10,6 +10,8 @@ type BuildDmAttentionUnreadCountByChannelOpts = {
   readStateByChannelId?: Readonly<Record<string, string | null>>;
   /** Current user id; own messages do not count toward unread badges. */
   selfUserId?: string | null;
+  /** When set, also counts unread from loaded messages for DM threads missing from attention. */
+  isDmChannelId?: (channelId: string) => boolean;
 };
 
 function countUnreadFromLocalMessages(params: {
@@ -89,22 +91,48 @@ export function buildDmAttentionUnreadCountByChannel(
   const messagesByChannelId = opts.messagesByChannelId ?? {};
   const readStateByChannelId = opts.readStateByChannelId ?? {};
   const selfUserId = opts.selfUserId?.trim() ?? null;
+  const isDmChannelId = opts.isDmChannelId;
+  const seen = new Set<string>();
+
   for (const [ch, s] of Object.entries(dmAttentionByChannelId)) {
-    if (!s?.unread) continue;
     const local = countUnreadFromLocalMessages({
       messages: messagesByChannelId[ch],
       lastReadMessageId: readStateByChannelId[ch] ?? null,
       selfUserId,
     });
     if (local.hasLocalEvidence) {
-      m.set(ch, local.unreadCount);
+      if (local.unreadCount > 0) m.set(ch, local.unreadCount);
+      seen.add(ch);
       continue;
     }
+    if (!s?.unread) continue;
     const n =
       typeof s.unreadCount === 'number' && s.unreadCount > 0
         ? s.unreadCount
         : 1;
     m.set(ch, n);
+    seen.add(ch);
   }
+
+  if (!isDmChannelId) return m;
+
+  const scanLocalDmUnread = (channelId: string) => {
+    if (seen.has(channelId)) return;
+    if (!isDmChannelId(channelId)) return;
+    const local = countUnreadFromLocalMessages({
+      messages: messagesByChannelId[channelId],
+      lastReadMessageId: readStateByChannelId[channelId] ?? null,
+      selfUserId,
+    });
+    if (local.unreadCount > 0) {
+      m.set(channelId, local.unreadCount);
+      seen.add(channelId);
+    }
+  };
+
+  for (const channelId of Object.keys(messagesByChannelId)) {
+    scanLocalDmUnread(channelId);
+  }
+
   return m;
 }

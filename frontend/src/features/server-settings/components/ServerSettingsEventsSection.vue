@@ -80,7 +80,8 @@ const flatChannels = computed((): ChannelSummary[] => {
   const out: ChannelSummary[] = [];
   for (const c of cats) {
     for (const ch of c.channels ?? []) {
-      if (ch.type === 'text' || ch.type === 'voice') out.push(ch);
+      if (ch.type === 'text' || ch.type === 'voice' || ch.type === 'stage')
+        out.push(ch);
     }
   }
   return out;
@@ -102,13 +103,13 @@ const voiceLocationOptions = computed(() => {
     iconMono?: boolean;
   }[] = [{ value: '', label: 'No voice channel' }];
   for (const ch of flatChannels.value) {
-    if (ch.type !== 'voice') continue;
+    if (ch.type !== 'voice' && ch.type !== 'stage') continue;
     const iconSrc = channelIconResolver.getIconUrl(ch);
     opts.push({
       value: ch.id,
       label: ch.name,
       iconSrc: iconSrc || undefined,
-      iconMono: channelIconResolver.usesSvgInvert(ch.iconKey),
+      iconMono: channelIconResolver.usesSvgInvert(ch),
     });
   }
   return opts;
@@ -128,7 +129,7 @@ const textLocationOptions = computed(() => {
       value: ch.id,
       label: `#${ch.name}`,
       iconSrc: iconSrc || undefined,
-      iconMono: channelIconResolver.usesSvgInvert(ch.iconKey),
+      iconMono: channelIconResolver.usesSvgInvert(ch),
     });
   }
   return opts;
@@ -648,7 +649,7 @@ function clearCover() {
               <EchoDropdown
                 v-if="locationTab === 'voice'"
                 v-model="draftChannelId"
-                label="Voice channel"
+                label="Voice or stage channel"
                 :options="voiceLocationOptions"
                 surface="server"
                 teleport-menu
@@ -763,19 +764,19 @@ function clearCover() {
               >
               <span
                 v-if="ev.status === 'cancelled'"
-                class="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-300"
+                class="echo-status-pill echo-status-pill--danger shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
               >
                 Cancelled
               </span>
               <span
                 v-else
-                class="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300"
+                class="echo-status-pill echo-status-pill--success shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
               >
                 Scheduled
               </span>
               <span
                 v-if="ev.discordScheduledEventId?.trim()"
-                class="shrink-0 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-200"
+                class="shrink-0 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-500/25 dark:text-indigo-200"
               >
                 Discord
               </span>

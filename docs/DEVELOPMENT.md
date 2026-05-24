@@ -38,8 +38,17 @@ npm run dev
 From the repo root (see also [`CONTRIBUTING.md`](../CONTRIBUTING.md)):
 
 ```bash
+npm run ci:precheck
+```
+
+That runs `test:ci` plus the frontend lint/stylelint jobs from GitHub Actions. After `./scripts/setup-githooks.sh`, the same suite runs automatically on **`git push`** to non-GitHub remotes (skip with `ECHO_SKIP_CI_PRECHECK=1`). The hook activates Node from **`.nvmrc`** via nvm when your shell default is older than 22.13.
+
+Equivalent manual steps:
+
+```bash
 npm run format:check
 npm run test:ci
+npm run lint -w frontend && npm run lint:theme -w frontend && npm run lint:style -w frontend
 ```
 
 Targeted tests (examples):

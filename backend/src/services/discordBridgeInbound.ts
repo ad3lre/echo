@@ -16,7 +16,6 @@ import {
   insertEchoMessage,
   updateEchoMessageCreatedAtById,
 } from '../domain/echoMessagesDal';
-import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
 import { echoMessagesPersistedTotal } from '../observability/echoMetrics';
 import {
@@ -27,6 +26,10 @@ import {
 import { maybeEnqueueDiscordImportMediaMirror } from './discordImportMediaMirrorQueue';
 import { resolveDiscordSyncedContentMentions } from './translateDiscordSyncedMentions';
 import { filterMentionsForChannelContext } from '../domain/echoStore/mentionContext';
+import {
+  buildEchoReplyToSnapshot,
+  parseDiscordMessageReference,
+} from './discordReplySnapshot';
 
 export type DiscordInboundPayload = {
   discordGuildId: string;
@@ -39,6 +42,8 @@ export type DiscordInboundPayload = {
   attachments?: unknown;
   stickers?: unknown;
   embeds?: unknown;
+  /** Discord `message_reference` — quoted parent message id (same channel). */
+  messageReference?: unknown;
   /** When set, ignore (our outbound webhook echo). */
   webhookId?: string | null;
 };
@@ -65,6 +70,40 @@ function authorSnapshotFromRow(
       ? { authorDiscordUserId: row.authorDiscordUserId }
       : {}),
   };
+}
+
+function messageFromEchoRow(
+  row: NonNullable<Awaited<ReturnType<typeof getEchoMessageById>>>,
+  viewerAuthorId: string,
+): Message {
+  const authorSnap = authorSnapshotFromRow(row);
+  const mf = row.messageFormatVersion ?? 1;
+  const cs = row.contentSchemaVersion ?? 1;
+  const plain = row.searchIndexText ?? row.content;
+  const message: Message = {
+    id: row.id,
+    channelId: row.channelId,
+    authorId: row.authorId,
+    content: row.content,
+    ...(plain ? { contentText: plain } : {}),
+    ...(row.mentions && Array.isArray(row.mentions)
+      ? { mentions: row.mentions as Message['mentions'] }
+      : {}),
+    messageFormatVersion: mf,
+    contentSchemaVersion: cs,
+    timestamp: row.timestamp,
+    bridgeFromDiscord: true,
+    ...authorSnap,
+    ...(row.replyTo && typeof row.replyTo === 'object'
+      ? { replyTo: row.replyTo as Message['replyTo'] }
+      : {}),
+    ...(row.attachments?.length ? { attachments: row.attachments } : {}),
+    ...(row.stickers?.length ? { stickers: row.stickers } : {}),
+    ...(Array.isArray(row.embeds) && row.embeds.length
+      ? { embeds: row.embeds as Message['embeds'] }
+      : {}),
+  };
+  return redactPollOnMessage(message, viewerAuthorId);
 }
 
 /**
@@ -159,7 +198,19 @@ export async function ingestDiscordBridgeMessage(
   }
   const content = translated.content;
 
-  const messageId = nextEchoSnowflakeId();
+  const messageRef = parseDiscordMessageReference(payload.messageReference);
+  const replyTo =
+    messageRef?.messageId != null
+      ? await buildEchoReplyToSnapshot(
+          pool,
+          resolved.echoChannelId,
+          messageRef.messageId,
+          messageRef.channelId ?? dChannelId,
+        )
+      : undefined;
+
+  // Same id as Discord import (`discordMessageId`) so bulk import + live bridge never duplicate.
+  const messageId = dMsgId;
   let ins: 'inserted' | 'duplicate';
   try {
     ins = await insertEchoMessage(pool, {
@@ -168,6 +219,7 @@ export async function ingestDiscordBridgeMessage(
       authorId: authorUserId,
       content,
       ...(mentions?.length ? { mentions } : {}),
+      ...(replyTo ? { replyTo } : {}),
       ...(attachments ? { attachments } : {}),
       ...(stickers ? { stickers } : {}),
       ...(embeds ? { embeds } : {}),
@@ -186,11 +238,15 @@ export async function ingestDiscordBridgeMessage(
   }
 
   if (ins !== 'inserted') {
-    await pool.query(
-      `DELETE FROM echo_discord_bridge_ingested WHERE discord_channel_id = $1 AND discord_message_id = $2`,
-      [dChannelId, dMsgId],
-    );
-    return { ok: false, reason: 'insert_failed', statusCode: 500 };
+    const existing = await getEchoMessageById(pool, messageId);
+    if (!existing || existing.channelId !== resolved.echoChannelId) {
+      await pool.query(
+        `DELETE FROM echo_discord_bridge_ingested WHERE discord_channel_id = $1 AND discord_message_id = $2`,
+        [dChannelId, dMsgId],
+      );
+      return { ok: false, reason: 'insert_failed', statusCode: 500 };
+    }
+    return { ok: true, message: messageFromEchoRow(existing, authorUserId) };
   }
 
   const ts =
@@ -215,30 +271,7 @@ export async function ingestDiscordBridgeMessage(
     return { ok: false, reason: 'load_failed', statusCode: 500 };
   }
 
-  const authorSnap = authorSnapshotFromRow(row);
-  const mf = row.messageFormatVersion ?? 1;
-  const cs = row.contentSchemaVersion ?? 1;
-  const plain = row.searchIndexText ?? row.content;
-  const message: Message = {
-    id: row.id,
-    channelId: row.channelId,
-    authorId: row.authorId,
-    content: row.content,
-    ...(plain ? { contentText: plain } : {}),
-    ...(row.mentions && Array.isArray(row.mentions)
-      ? { mentions: row.mentions as Message['mentions'] }
-      : {}),
-    messageFormatVersion: mf,
-    contentSchemaVersion: cs,
-    timestamp: row.timestamp,
-    bridgeFromDiscord: true,
-    ...authorSnap,
-    ...(row.attachments?.length ? { attachments: row.attachments } : {}),
-    ...(row.stickers?.length ? { stickers: row.stickers } : {}),
-    ...(Array.isArray(row.embeds) && row.embeds.length
-      ? { embeds: row.embeds as Message['embeds'] }
-      : {}),
-  };
+  const message = messageFromEchoRow(row, authorUserId);
 
   if (io) {
     log.info(
@@ -254,6 +287,6 @@ export async function ingestDiscordBridgeMessage(
 
   return {
     ok: true,
-    message: redactPollOnMessage(message, authorUserId),
+    message,
   };
 }

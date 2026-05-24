@@ -4,7 +4,7 @@ import { stat } from 'fs/promises';
 import type { FastifyReply } from 'fastify';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import pg from 'pg';
-import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '../../../shared/echoS3ReadThrough';
+import { extractStorageKeyFromEchoMediaUrl as extractStorageKeyShared } from '../../../shared/echoUploadStorageKey';
 import { config } from '../config';
 import { sendError } from '../api/errors';
 import {
@@ -26,71 +26,15 @@ export function buildEchoCustomEmojiAssetPath(emojiId: string): string {
   return `${ECHO_CUSTOM_EMOJI_ASSET_PATH_PREFIX}${encodeURIComponent(id)}/asset`;
 }
 
-function decodeStorageKeyPath(encodedPath: string): string | null {
-  try {
-    const segments = encodedPath.split('/').filter((s) => s.length > 0);
-    if (!segments.length) return null;
-    return segments.map((seg) => decodeURIComponent(seg)).join('/');
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Recover S3/local storage key from a persisted custom-emoji `image_url`.
  */
 export function extractStorageKeyFromEchoMediaUrl(url: string): string | null {
-  const t = url.trim();
-  if (!t) return null;
-
-  if (t.startsWith('echo/') && !/^https?:\/\//i.test(t)) {
-    return t.replace(/^\/+/, '');
-  }
-
-  const tryPathSuffix = (pathname: string, prefix: string): string | null => {
-    if (!pathname.startsWith(prefix)) return null;
-    return decodeStorageKeyPath(pathname.slice(prefix.length));
-  };
-
-  if (t.startsWith(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX)) {
-    return decodeStorageKeyPath(
-      t.slice(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX.length),
-    );
-  }
-  if (t.startsWith(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX)) {
-    return decodeStorageKeyPath(
-      t.slice(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX.length),
-    );
-  }
-
-  if (/^https?:\/\//i.test(t)) {
-    try {
-      const u = new URL(t);
-      const fromReadThrough = tryPathSuffix(
-        u.pathname,
-        ECHO_S3_PUBLIC_READ_THROUGH_PREFIX,
-      );
-      if (fromReadThrough) return fromReadThrough;
-
-      const barePath = u.pathname.replace(/^\/+/, '');
-      if (barePath.startsWith('echo/')) return barePath;
-
-      if (u.hostname.toLowerCase().endsWith('.r2.dev')) {
-        if (barePath.startsWith('echo/')) return barePath;
-      }
-
-      for (const prefix of getEchoUploadPublicUrlPrefixes()) {
-        if (!prefix.startsWith('http')) continue;
-        if (t.startsWith(prefix)) {
-          return decodeStorageKeyPath(t.slice(prefix.length));
-        }
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
+  return extractStorageKeyShared(url, {
+    httpPublicUrlPrefixes: getEchoUploadPublicUrlPrefixes().filter((p) =>
+      p.startsWith('http'),
+    ),
+  });
 }
 
 /** True when bytes are stored under server-scoped emoji upload ACL. */

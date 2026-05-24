@@ -25,8 +25,6 @@ const CSRF_EXEMPT_EXACT = new Set([
   '/api/v1/auth/google/login/start',
   /** Desktop Discord OAuth handoff redeem (one-time code from system browser). */
   '/api/v1/auth/desktop/redeem-handoff',
-  '/api/v1/founder/login',
-  '/api/v1/founder/logout',
   /**
    * Public marketing-site support form (`marketing/src/pages/support.astro`).
    * Honeypot + IP rate-limit + Reply-To, no session yet — no CSRF cookie to compare against.

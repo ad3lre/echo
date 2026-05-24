@@ -7,6 +7,7 @@ import type { ServerSettingsSection } from '@/features/server-settings/types';
 import type { ChannelSummary } from '@shared/types';
 import {
   deriveHasGuildChannelChrome,
+  deriveHasPaperDocumentChrome,
   deriveMainSurface,
   isDmThreadId,
   type NavState,
@@ -360,6 +361,7 @@ export function useAppLayoutShellNavigation(
     const surface = mainSurface.value;
     const shouldClose =
       deriveHasGuildChannelChrome(surface) ||
+      deriveHasPaperDocumentChrome(surface) ||
       surface.type === 'serverEmptyOnboarding';
     if (!shouldClose) return;
     if (opts.isDMPanelOpen.value) {

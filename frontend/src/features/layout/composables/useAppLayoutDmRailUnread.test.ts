@@ -384,4 +384,36 @@ describe('useAppLayoutDmRailUnread', () => {
       ),
     ).toEqual(['u2', 'u1']);
   });
+
+  it('shows avatars from local unread when attention snapshot has not arrived yet', () => {
+    const chan = '9000000000000000001';
+    const { dmIncomingRailCluster } = useAppLayoutDmRailUnread({
+      authSession: {
+        isAuthenticated: true,
+        backendUser: { id: 'self' },
+      } as never,
+      workspace: {
+        users: ref([
+          { id: 'u1', name: 'Alice', pfp: 'a.png', status: 'online' },
+        ]),
+      } as never,
+      activeChannelId: ref('other-channel'),
+      activeDmPeerUserId: ref(null),
+      dmAttentionByChannelId: ref({}),
+      dmUnreadCountByChannelId: ref(new Map([[chan, 2]])),
+      echoDmPeerByChannelId: ref(new Map([[chan, 'u1']])),
+      isDmChannelId: (channelId) => channelId === chan,
+    });
+
+    expect(dmIncomingRailCluster.value.avatars).toEqual([
+      {
+        kind: 'user',
+        userId: 'u1',
+        name: 'Alice',
+        pfp: 'a.png',
+        unreadCount: 2,
+      },
+    ]);
+    expect(dmIncomingRailCluster.value.totalUnreadCount).toBe(2);
+  });
 });

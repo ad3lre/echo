@@ -152,11 +152,21 @@ watch(
           <button
             type="button"
             class="vc-ctrl-btn"
-            :class="{
-              'vc-ctrl-btn--active': vcScreenshare,
-              'vc-ctrl-btn--screenshare-on': vcScreenshare,
-            }"
-            :title="vcScreenshare ? 'Stop share' : 'Share screen'"
+            :class="[
+              {
+                'vc-ctrl-btn--active': vcScreenshare,
+                'vc-ctrl-btn--screenshare-on': vcScreenshare,
+              },
+              canUseVideo === false ? 'pointer-events-none opacity-30' : '',
+            ]"
+            :title="
+              canUseVideo === false
+                ? 'Only speakers on stage can share screen'
+                : vcScreenshare
+                  ? 'Stop share'
+                  : 'Share screen'
+            "
+            :disabled="canUseVideo === false"
             @click="props.onToggleScreenshare(!props.vcScreenshare)"
           >
             <img

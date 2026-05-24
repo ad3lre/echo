@@ -1,0 +1,166 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0b0a10;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+
+.stage-program {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #0b0a10;
+  color: #f4f4f5;
+}
+
+.stage-program__primary {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #0b0a10;
+}
+
+.stage-program__sidebar {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 22%;
+  min-width: 11rem;
+  max-width: 20rem;
+  display: none;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.55));
+}
+
+.stage-program__grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  align-content: center;
+  justify-content: center;
+}
+
+.stage-program[data-layout='grid'] .stage-program__grid {
+  display: grid;
+}
+
+.stage-program[data-layout='spotlight'] .stage-program__primary,
+.stage-program[data-layout='screen'] .stage-program__primary {
+  display: flex;
+}
+
+.stage-program[data-layout='spotlight'] .stage-program__sidebar,
+.stage-program[data-layout='screen'] .stage-program__sidebar {
+  display: flex;
+}
+
+.stage-program[data-has-primary='true'] .stage-program__grid {
+  display: none;
+}
+
+.stage-program__tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: #14121a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 0;
+  aspect-ratio: 16 / 10;
+}
+
+.stage-program__tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #14121a;
+}
+
+.stage-program__media {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #14121a;
+}
+
+.stage-program__tile--avatar .stage-program__media {
+  display: none;
+}
+
+.stage-program__tile:not(.stage-program__tile--avatar) .stage-program__avatar,
+.stage-program__tile:not(.stage-program__tile--avatar) .stage-program__name {
+  display: none;
+}
+
+.stage-program__tile--avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 1rem;
+  min-height: 8rem;
+}
+
+.stage-program__avatar {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 9999px;
+  object-fit: cover;
+  background: #27242f;
+}
+
+.stage-program__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage-program__primary .stage-program__tile {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  border: none;
+}
+
+.stage-program__sidebar .stage-program__tile {
+  aspect-ratio: 16 / 10;
+  flex: 0 0 auto;
+}
+
+.stage-program__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 1.1rem;
+  color: rgba(244, 244, 245, 0.55);
+}

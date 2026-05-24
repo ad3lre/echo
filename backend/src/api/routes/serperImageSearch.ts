@@ -268,6 +268,15 @@ function setQuotaHeaders(
   reply.header('X-Echo-Image-Search-Daily-Remaining', Math.max(0, remaining));
 }
 
+async function applyFreshQuotaHeaders(
+  reply: { header: (k: string, v: string | number) => void },
+  userId: string,
+  dailyLimit: number,
+): Promise<void> {
+  const usage = await readUserImageSearchUsage(userId, dailyLimit);
+  setQuotaHeaders(reply, usage.limit, usage.remaining);
+}
+
 async function scheduleStaleRefresh(
   cacheKey: string,
   queryText: string,
@@ -434,13 +443,12 @@ export default async function serperImageSearchRoutes(
           ? await getEchoEntitlements(pool, userId)
           : { plan: 'free' as const };
         const dailyLimit = imageSearchDailyLimitForPlan(ent.plan);
-        const usage = await readUserImageSearchUsage(userId, dailyLimit);
-        setQuotaHeaders(reply, usage.limit, usage.remaining);
 
         const l1 = l1Get(cacheKey);
         if (l1) {
           reply.header('Cache-Control', 'private, max-age=120');
           reply.header('X-Echo-Image-Search-Cache', 'HIT');
+          await applyFreshQuotaHeaders(reply, userId, dailyLimit);
           return reply.send(buildPagePayload(l1, page));
         }
 
@@ -450,6 +458,7 @@ export default async function serperImageSearchRoutes(
           if (isCacheFresh(l2.refreshedAt)) {
             reply.header('Cache-Control', 'private, max-age=120');
             reply.header('X-Echo-Image-Search-Cache', 'HIT');
+            await applyFreshQuotaHeaders(reply, userId, dailyLimit);
             return reply.send(buildPagePayload(l2.results, page));
           }
 
@@ -467,6 +476,7 @@ export default async function serperImageSearchRoutes(
           } else {
             reply.header('X-Echo-Image-Search-Cache', 'STALE_NO_REFRESH');
           }
+          await applyFreshQuotaHeaders(reply, userId, dailyLimit);
           return reply.send(buildPagePayload(l2.results, page));
         }
 
@@ -492,6 +502,7 @@ export default async function serperImageSearchRoutes(
           const diag = fetched.diag ?? '';
           if (diag.startsWith('PLAN_LIMIT:')) {
             const plan = ent.plan;
+            await applyFreshQuotaHeaders(reply, userId, dailyLimit);
             return sendError(
               reply,
               429,
@@ -533,6 +544,7 @@ export default async function serperImageSearchRoutes(
 
         reply.header('Cache-Control', 'private, max-age=120');
         reply.header('X-Echo-Image-Search-Cache', 'MISS');
+        await applyFreshQuotaHeaders(reply, userId, dailyLimit);
         return reply.send(buildPagePayload(fetched.data, page));
       },
     );

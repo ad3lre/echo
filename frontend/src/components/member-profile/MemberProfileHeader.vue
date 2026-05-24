@@ -65,7 +65,7 @@ defineEmits<{
           type="button"
           class="member-popout__avatar relative h-16 w-16 shrink-0 cursor-pointer overflow-visible rounded-full border-0 p-0 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[var(--echo-channel-panel-bg)]"
           aria-label="Open full profile"
-          @click="$emit('open-full-profile')"
+          @click.stop="$emit('open-full-profile')"
         >
           <PausedGifAvatar
             :src="safeImageUrl(profile.pfp)"

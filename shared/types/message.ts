@@ -1,6 +1,8 @@
 /** Reference to the message being replied to */
 export interface ReplyTo {
   messageId: string;
+  /** Author of the quoted message — used for reply-to-self ping/highlight. */
+  authorId?: string;
   authorName: string;
   authorAvatar?: string;
   content: string;
@@ -189,6 +191,7 @@ export interface MessageWithAuthor extends Pick<
   | 'contentSchemaVersion'
   | 'authorIsDiscordShadow'
   | 'authorDiscordUserId'
+  | 'bridgeFromDiscord'
 > {
   id?: string;
   channelId?: string;

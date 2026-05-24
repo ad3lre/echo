@@ -500,11 +500,6 @@ $reactive-decay-ease: cubic-bezier(0.33, 1, 0.68, 1);
   position: relative;
 }
 
-.server-folder__slot > .server-folder__item {
-  position: relative;
-  z-index: 1;
-}
-
 /**
  * Drop indicators: use slot ::after (not a child div) so HTML5 drag never hits a
  * separate box on the line — even with pointer-events:none, extra nodes can still
@@ -588,63 +583,8 @@ $reactive-decay-ease: cubic-bezier(0.33, 1, 0.68, 1);
   transform: none !important;
 }
 
-.server-folder__slot--rail-dnd::before,
-.server-folder__slot--rail-dnd:hover::before,
-.server-folder__slot--rail-dnd.server-folder__slot--active::before {
-  opacity: 0 !important;
-  transform: translateY(-50%) !important;
-}
-
-.server-folder__slot::before {
-  content: '';
-  position: absolute;
-  z-index: 2;
-  left: 0;
-  top: 50%;
-  width: 5px;
-  height: 28px;
-  border-radius: 0 6px 6px 0;
-  background-color: var(--server-rail-pill-fg);
-  transform: translateY(-50%);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.22s $reactive-decay-ease;
-}
-
-.server-folder__slot:hover::before,
-.server-folder__slot--active::before {
-  opacity: 1;
-}
-
-/** Hover (not selected): same pill size as active, outlined only. */
-.server-folder__slot:hover:not(.server-folder__slot--active)::before {
-  background-color: transparent;
-  box-sizing: border-box;
-  border: 1px solid var(--server-rail-pill-fg);
-  border-left: none;
-}
-
-.server-folder__slot--active::before {
-  background-color: var(--server-rail-pill-fg);
-  border: none;
-}
-
-/* Top horizontal rail: icon uses an image-sampled arc ring (ServerRailServerIcons). */
-.servers-folder--horizontal .server-folder__slot::before {
-  display: none;
-}
-
-/* Top bar: selection ring sits on the icon — do not lift icons upward on hover. */
-.servers-folder--horizontal .server-folder__item--idle:hover {
-  transform: none;
-}
-
 .server-folder__slot--more {
   margin-bottom: 0.125rem;
-}
-
-.server-folder__slot--more::before {
-  display: none;
 }
 
 .server-folder__item {

@@ -86,13 +86,32 @@ const props = withDefaults(
     compactLayout?: boolean;
     activeStageEvent?: EchoWorkspaceEventSummary | null;
     stageEventNowMs?: number;
+    canManageStageYoutube?: boolean;
+    promptYoutubeLiveForEvent?: boolean;
+    stageEventStartedFromLobby?: boolean;
   }>(),
-  { compactLayout: false, stageSpeakerByUserId: () => ({}) },
+  {
+    compactLayout: false,
+    stageSpeakerByUserId: () => ({}),
+    canManageStageYoutube: false,
+    promptYoutubeLiveForEvent: false,
+    stageEventStartedFromLobby: false,
+  },
 );
 
 const emit = defineEmits<{
   dismissStageEvent: [];
+  dismissYoutubeLivePrompt: [];
 }>();
+
+const showYoutubeLivePrompt = ref(props.promptYoutubeLiveForEvent);
+
+watch(
+  () => props.promptYoutubeLiveForEvent,
+  (next) => {
+    if (next) showYoutubeLivePrompt.value = true;
+  },
+);
 
 const authSession = useAuthSessionStore();
 
@@ -456,6 +475,16 @@ watch(
     </div>
 
     <div
+      class="stage-call-youtube-header shrink-0 border-b border-border bg-[#0b0a10]/80 px-3 py-2 md:px-4"
+    >
+      <StageYoutubeLiveBar
+        :echo-server-id="echoServerId"
+        :stage-channel-id="stageChannelId"
+        :can-manage="canManageStageYoutube"
+      />
+    </div>
+
+    <div
       class="stage-call-body custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto"
       :class="
         compactLayout ? 'gap-2 px-2 pb-2 pt-1' : 'gap-3 px-3 pb-3 pt-2 md:px-4'
@@ -540,13 +569,18 @@ watch(
         class="mb-3 shrink-0"
         :event="activeStageEvent"
         :now-ms="stageEventNowMs ?? Date.now()"
+        :started-from-lobby="stageEventStartedFromLobby"
+        :prompt-youtube-live="
+          showYoutubeLivePrompt && promptYoutubeLiveForEvent
+        "
+        :can-manage-youtube="canManageStageYoutube"
         @dismiss="emit('dismissStageEvent')"
-      />
-
-      <StageYoutubeLiveBar
-        :echo-server-id="echoServerId"
-        :stage-channel-id="stageChannelId"
-        :can-manage="canModerateStage"
+        @dismiss-youtube-prompt="
+          () => {
+            showYoutubeLivePrompt = false;
+            emit('dismissYoutubeLivePrompt');
+          }
+        "
       />
 
       <div
@@ -558,7 +592,9 @@ watch(
         >
           <img :src="icons.sofa" alt="" class="h-10 w-10 opacity-40" />
           <p class="text-sm">Stage is empty</p>
-          <p class="text-xs">Be the first to join</p>
+          <p class="text-xs">
+            Be the first to join — moderators can go live on YouTube above.
+          </p>
         </div>
 
         <template v-else-if="speakerParticipants.length === 0">
@@ -567,8 +603,8 @@ watch(
           >
             <p class="text-sm font-medium text-fg">No speakers yet</p>
             <p class="max-w-xs text-xs">
-              Moderators can invite audience members to speak. Audience can
-              request the mic with Raise hand.
+              Moderators can invite audience members to speak or start a YouTube
+              live stream from the bar above.
             </p>
           </div>
         </template>

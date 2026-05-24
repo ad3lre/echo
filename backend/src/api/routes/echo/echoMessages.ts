@@ -730,6 +730,8 @@ export default async function echoMessagesRoutes(
           dm_not_allowed:
             'You can only message accepted friends, users you share a server with, or conversations from your message requests.',
           group_dm_not_member: 'You are not a member of this group DM.',
+          paper_channel:
+            'Paper channels use the document editor; chat messages are not supported here.',
         };
         restMessageFailed('FORBIDDEN');
         return sendError(

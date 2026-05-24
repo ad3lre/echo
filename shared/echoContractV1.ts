@@ -25,6 +25,13 @@ export const ECHO_V1_CLIENT_SOCKET_EVENTS = [
   'dm_call:accept',
   'dm_call:end',
   'channel:typing',
+  'paper:watch',
+  'paper:authoring',
+  'paper:unwatch',
+  'paper:claim',
+  'paper:release',
+  'paper:cursor',
+  'paper:lock-request',
 ] as const satisfies readonly (keyof ClientToServerEvents)[];
 
 /** All server → client event names (must match `ServerToClientEvents` keys). */
@@ -47,6 +54,10 @@ export const ECHO_V1_SERVER_SOCKET_EVENTS = [
   'poll:updated',
   'poll:vote_failed',
   'channel:typing',
+  'paper:watchers',
+  'paper:locks',
+  'paper:cursors',
+  'paper:lock-requested',
   'app:deploy_countdown',
 ] as const satisfies readonly (keyof ServerToClientEvents)[];
 

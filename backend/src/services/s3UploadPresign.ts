@@ -33,6 +33,7 @@ const CHAT_UPLOAD_CONTENT_TYPES = new Set([
   'audio/aac',
   /** Common for `.m4a` / Voice Memos on iOS Safari. */
   'audio/x-m4a',
+  'audio/flac',
   'video/mp4',
   'video/webm',
   'video/quicktime',
@@ -162,6 +163,15 @@ export function isAllowedBrandingUploadContentType(
 ): boolean {
   const t = contentType.trim().toLowerCase();
   return BRANDING_UPLOAD_CONTENT_TYPES.has(t);
+}
+
+/** Custom call ringtone uploads (audio only). */
+export function isAllowedRingtoneUploadContentType(
+  contentType: string,
+): boolean {
+  const t = contentType.trim().toLowerCase();
+  if (!t.startsWith('audio/')) return false;
+  return CHAT_UPLOAD_CONTENT_TYPES.has(t);
 }
 
 export type PresignResult =

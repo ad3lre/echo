@@ -98,6 +98,7 @@ export async function sendBugReportSupportEmail(
   try {
     await sendTransactionalEmail(log, {
       to: config.echoSupportEmail,
+      from: config.echoBugReportEmailFrom,
       subject: mail.subject,
       text: mail.text,
       html: mail.html,

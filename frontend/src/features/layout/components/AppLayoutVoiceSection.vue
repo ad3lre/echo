@@ -2,8 +2,10 @@
 import {
   computed,
   defineAsyncComponent,
+  ref,
   toRef,
   unref,
+  watch,
   watchEffect,
   type ComputedRef,
   type MaybeRef,
@@ -42,9 +44,9 @@ import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/
 import { storeToRefs } from 'pinia';
 import { useEchoSessionStore } from '@/stores/echoSession';
 import { useStageVcLobby } from '@/features/voice/composables/useStageVcLobby';
-import { openVcActivityByKey } from '@/features/voice/stage/openVcActivityByKey';
+import { parseStageModeFromDescription } from '@/features/voice/stage/stageLobbyUtils';
+import { resolveVoiceChannelForParticipants } from '@/features/layout/resolveVoiceChannelForParticipants';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
-import type { EchoVcActivityKey } from '@shared/vcActivityCatalog';
 
 const CallView = defineAsyncComponent(
   () => import('@/components/CallView.vue'),
@@ -55,18 +57,16 @@ const StageCallView = defineAsyncComponent(
 const StageVcLobby = defineAsyncComponent(
   () => import('@/features/voice/components/StageVcLobby.vue'),
 );
+const StageEventScheduleModal = defineAsyncComponent(
+  () => import('@/features/voice/components/StageEventScheduleModal.vue'),
+);
 
 const liveKitConnected = computed(() => !!props.lkRoom);
 
-const isStageChannel = computed(
-  () => props.effectiveActiveChannel?.type === 'stage',
-);
-const stageSpeakerByUserId = computed(
-  () => props.effectiveActiveChannel?.voiceStageSpeakerByUserId ?? {},
-);
-
 const props = defineProps<{
   isViewingVoiceChannel: boolean;
+  /** Connected guild voice/stage channel (LiveKit session), if any. */
+  currentVoiceChannelId?: string | null;
   effectiveActiveChannel: ChannelSummary | null;
   getChannelDisplayName: (name?: string) => string;
   activeVoiceChannelParticipants: Array<{
@@ -87,6 +87,8 @@ const props = defineProps<{
   currentUserName?: string;
   currentUserPfp?: string;
   selectedServerId: string;
+  /** Manage Channels on the active stage channel (YouTube live, schedule event). */
+  canManageStageChannel?: boolean;
   users: { id: string; name: string; pfp: string }[];
   mentionUsers?: { id: string; name: string; pfp: string; status?: string }[];
   allChannels: ChannelSummary[];
@@ -271,6 +273,23 @@ const props = defineProps<{
   focusGuildVoiceChannelInSidebar?: () => void;
 }>();
 
+/** Stage vs VC chrome follows the connected channel when in a voice session. */
+const voiceUiChannel = computed(() =>
+  resolveVoiceChannelForParticipants({
+    currentVoiceChannelId: props.currentVoiceChannelId,
+    findChannelContextById: (id) => {
+      const ch = props.allChannels.find((c) => c.id === id);
+      return ch ? { channel: ch } : null;
+    },
+    effectiveActiveChannel: props.effectiveActiveChannel,
+  }),
+);
+
+const isStageChannel = computed(() => voiceUiChannel.value?.type === 'stage');
+const stageSpeakerByUserId = computed(
+  () => voiceUiChannel.value?.voiceStageSpeakerByUserId ?? {},
+);
+
 // Warm voice call chunks only when voice UI is active (keeps startup tests/paths light).
 watchEffect(() => {
   if (!props.isViewingVoiceChannel) return;
@@ -318,7 +337,7 @@ const vcActivitySurfaceOpen = computed(
 const echoSession = useEchoSessionStore();
 const { upcomingEventsByServerId } = storeToRefs(echoSession);
 
-const stageChannelId = computed(() => props.effectiveActiveChannel?.id ?? '');
+const stageChannelId = computed(() => voiceUiChannel.value?.id ?? '');
 const stageUpcomingEvents = computed(
   () => upcomingEventsByServerId.value[props.selectedServerId] ?? [],
 );
@@ -330,7 +349,13 @@ const channelHasActiveVcActivity = computed(() => {
   );
 });
 
-const stageLobby = useStageVcLobby({
+const {
+  showLobby: stageShowLobby,
+  planningEvent: stagePlanningEvent,
+  activeStageEvent: stageActiveStageEvent,
+  nowMs: stageLobbyNowMs,
+  dismissLobby: dismissStageLobby,
+} = useStageVcLobby({
   isStageChannel,
   channelId: stageChannelId,
   serverId: computed(() => props.selectedServerId),
@@ -339,59 +364,49 @@ const stageLobby = useStageVcLobby({
   channelHasActiveVcActivity,
 });
 
-const stageLobbyPlanningEvent = computed(() => stageLobby.planningEvent.value);
-const stageLobbyNowMs = computed(() => stageLobby.nowMs.value);
-const stageLobbyActiveStageEvent = computed(
-  () => stageLobby.activeStageEvent.value,
-);
-
-function vcActivityHandlers() {
-  return {
-    youtube: () => props.openVcActivityYoutubeBrowse(),
-    wordle: () => props.openVcActivityWordle(),
-    hangman: () => props.openVcActivityHangman(),
-    tic_tac_toe: () => props.openVcActivityTicTacToe(),
-    openguessr: () => props.openVcActivityOpenGuessr(),
-    skribbl_io: () => props.openVcActivitySkribblIo(),
-    gartic_phone: () => props.openVcActivityGarticPhone(),
-    krunker: () => props.openVcActivityKrunker(),
-    codenames: () => props.openVcActivityCodenames(),
-    richup: () => props.openVcActivityRichup(),
-    goober_dash: () => props.openVcActivityGooberDash(),
-    smash_karts: () => props.openVcActivitySmashKarts(),
-    basketball_stars_2026: () => props.openVcActivityBasketballStars2026(),
-    cluster_rush: () => props.openVcActivityClusterRush(),
-    picker: () => props.openVcActivityPicker(),
-  };
-}
-
-function onStageLobbyYoutube() {
-  stageLobby.dismissLobby('youtube');
-  props.openVcActivityYoutubeBrowse();
-}
+const canManageStage = computed(() => props.canManageStageChannel === true);
+const stageScheduleModalOpen = ref(false);
+const stageEventPromptYoutubeLive = ref(false);
+const stageEventStartedFromLobby = ref(false);
 
 function onStageLobbyVoiceOnly() {
-  stageLobby.dismissLobby('voice_only');
+  dismissStageLobby('voice_only');
 }
 
-function onStageLobbyPicker() {
-  stageLobby.dismissLobby('activity_picker');
-  props.openVcActivityPicker();
+function onStageLobbyYoutubeLiveStarted() {
+  dismissStageLobby('youtube_live');
 }
 
-function onStageLobbyPlanned(
-  event: EchoWorkspaceEventSummary,
-  activityKey: EchoVcActivityKey | null,
-) {
-  stageLobby.dismissLobby('planned_event', event);
-  if (activityKey) {
-    openVcActivityByKey(activityKey, vcActivityHandlers());
-  }
+function onStageLobbySchedule() {
+  stageScheduleModalOpen.value = true;
+}
+
+function onStageLobbyPlanned(event: EchoWorkspaceEventSummary) {
+  dismissStageLobby('planned_event', event);
+  stageEventStartedFromLobby.value = true;
+  stageEventPromptYoutubeLive.value =
+    parseStageModeFromDescription(event.description ?? '') === 'youtube_live';
 }
 
 function onDismissStageEventBanner() {
-  stageLobby.activeStageEvent.value = null;
+  stageActiveStageEvent.value = null;
+  stageEventPromptYoutubeLive.value = false;
+  stageEventStartedFromLobby.value = false;
 }
+
+function onDismissYoutubeLivePrompt() {
+  stageEventPromptYoutubeLive.value = false;
+}
+
+watch(
+  () => voiceUiChannel.value?.id,
+  (next, prev) => {
+    if (next === prev) return;
+    stageScheduleModalOpen.value = false;
+    stageEventPromptYoutubeLive.value = false;
+    stageEventStartedFromLobby.value = false;
+  },
+);
 
 const dockReservePx = computed(() => props.voiceMobileDockReservePx ?? 0);
 
@@ -508,9 +523,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
       >
         <button
           v-if="
-            voiceSideChatCollapsed &&
-            !vcActivitySurfaceOpen &&
-            !stageLobby.showLobby
+            voiceSideChatCollapsed && !vcActivitySurfaceOpen && !stageShowLobby
           "
           type="button"
           class="voice-chat-reopen-action group absolute left-1/2 z-[44] inline-flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-border px-3.5 py-2 text-sm font-semibold text-fg transition-colors"
@@ -545,7 +558,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             isCompactMobileGuild
               ? 'relative flex min-h-0 min-w-0 flex-1 flex-col'
               : 'flex min-h-0 min-w-0 flex-1 flex-col',
-            stageLobby.showLobby ? 'z-[46]' : '',
+            stageShowLobby ? 'z-[46]' : '',
           ]"
           @wheel.passive="
             (e: WheelEvent) =>
@@ -565,7 +578,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
               channelPanelCollapsed &&
               expandChannels &&
               !vcActivitySurfaceOpen &&
-              !stageLobby.showLobby
+              !stageShowLobby
             "
             type="button"
             class="absolute left-3 top-3 z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
@@ -582,9 +595,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
           </button>
           <button
             v-if="
-              isCompactMobileGuild &&
-              !vcActivitySurfaceOpen &&
-              !stageLobby.showLobby
+              isCompactMobileGuild && !vcActivitySurfaceOpen && !stageShowLobby
             "
             type="button"
             class="absolute left-3 top-[calc(env(safe-area-inset-top,0px)+0.45rem)] z-[45] inline-flex h-9 items-center gap-1.5 rounded-xl bg-scrim-2 px-2.5 text-xs font-semibold text-fg-soft backdrop-blur-sm transition hover:bg-scrim-2"
@@ -599,18 +610,24 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             <span>Back</span>
           </button>
           <StageVcLobby
-            v-if="stageLobby.showLobby && effectiveActiveChannel"
+            v-if="stageShowLobby && voiceUiChannel"
+            :key="`stage-lobby:${voiceUiChannel.id}`"
             class="min-w-0 min-h-0 flex-1"
-            :channel-name="getChannelDisplayName(effectiveActiveChannel.name)"
-            :planning-event="stageLobbyPlanningEvent"
+            :channel-name="getChannelDisplayName(voiceUiChannel.name)"
+            :stage-channel-id="voiceUiChannel.id"
+            :echo-server-id="selectedServerId"
+            :can-manage-stage="canManageStage"
+            :planning-event="stagePlanningEvent"
+            :upcoming-events="stageUpcomingEvents"
             :now-ms="stageLobbyNowMs"
-            @start-youtube="onStageLobbyYoutube"
             @start-voice-only="onStageLobbyVoiceOnly"
             @start-planned-event="onStageLobbyPlanned"
-            @open-activity-picker="onStageLobbyPicker"
+            @schedule-event="onStageLobbySchedule"
+            @youtube-live-started="onStageLobbyYoutubeLiveStarted"
           />
           <VcActivityStage
-            v-else-if="vcActivitySurfaceOpen"
+            v-else-if="vcActivitySurfaceOpen && !isStageChannel"
+            :key="`vc-activity:${voiceUiChannel?.id ?? 'none'}`"
             class="min-w-0 min-h-0 flex-1"
             :state="vcActivityUi"
             :voice-channel-label="voiceChannelActivityLabel"
@@ -685,15 +702,20 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             "
           />
           <StageCallView
-            v-else-if="isStageChannel && effectiveActiveChannel"
+            v-else-if="isStageChannel && voiceUiChannel"
+            :key="`stage-call:${voiceUiChannel.id}`"
             class="min-w-0 min-h-0 flex-1"
             :compact-layout="isCompactMobileGuild"
-            :channel-name="getChannelDisplayName(effectiveActiveChannel.name)"
-            :stage-channel-id="effectiveActiveChannel.id"
+            :channel-name="getChannelDisplayName(voiceUiChannel.name)"
+            :stage-channel-id="voiceUiChannel.id"
             :echo-server-id="selectedServerId"
-            :active-stage-event="stageLobbyActiveStageEvent"
+            :active-stage-event="stageActiveStageEvent"
             :stage-event-now-ms="stageLobbyNowMs"
+            :prompt-youtube-live-for-event="stageEventPromptYoutubeLive"
+            :stage-event-started-from-lobby="stageEventStartedFromLobby"
+            :can-manage-stage-youtube="canManageStage"
             @dismiss-stage-event="onDismissStageEventBanner"
+            @dismiss-youtube-live-prompt="onDismissYoutubeLivePrompt"
             :participants="activeVoiceChannelParticipants"
             :stage-speaker-by-user-id="stageSpeakerByUserId"
             :current-user-id="currentUserId"
@@ -707,16 +729,15 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :get-local-screen-track="getLocalScreenTrack"
             :get-local-camera-track="getLocalCameraTrack"
             :on-go-to-voice-channel-in-sidebar="focusGuildVoiceChannelInSidebar"
-            :voice-channel-user-limit="effectiveActiveChannel.userLimit"
+            :voice-channel-user-limit="voiceUiChannel.userLimit"
           />
           <CallView
             v-else
+            :key="`call:${voiceUiChannel?.id ?? 'none'}`"
             class="min-w-0 min-h-0 flex-1"
             :compact-layout="isCompactMobileGuild"
             :channel-name="
-              effectiveActiveChannel
-                ? getChannelDisplayName(effectiveActiveChannel.name)
-                : ''
+              voiceUiChannel ? getChannelDisplayName(voiceUiChannel.name) : ''
             "
             :participants="activeVoiceChannelParticipants"
             :current-user-id="currentUserId"
@@ -733,23 +754,24 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :set-remote-participant-volume="setRemoteParticipantVolume"
             :on-request-fullscreen-stream="onRequestFullscreenStream"
             :voice-moderation-channel-id="
-              effectiveActiveChannel?.type === 'voice' ||
-              effectiveActiveChannel?.type === 'stage'
-                ? effectiveActiveChannel.id
+              voiceUiChannel?.type === 'voice' ||
+              voiceUiChannel?.type === 'stage'
+                ? voiceUiChannel.id
                 : null
             "
             :on-go-to-voice-channel-in-sidebar="focusGuildVoiceChannelInSidebar"
             :voice-channel-user-limit="
-              effectiveActiveChannel?.type === 'voice' ||
-              effectiveActiveChannel?.type === 'stage'
-                ? effectiveActiveChannel.userLimit
+              voiceUiChannel?.type === 'voice' ||
+              voiceUiChannel?.type === 'stage'
+                ? voiceUiChannel.userLimit
                 : undefined
             "
           />
         </div>
         <template v-if="!isCompactMobileGuild">
+          <!-- v-show (not v-if): toggling voice side chat must not destroy ChatView/MessageList — remount was a major jank spike. -->
           <div
-            v-if="!voiceSideChatCollapsed"
+            v-show="!voiceSideChatCollapsed"
             class="voice-side-chat-column relative flex min-h-0 min-w-0 shrink-0 flex-col items-stretch self-stretch bg-surface"
             :style="{ width: voiceSideChatWidth + 8 + 'px' }"
           >
@@ -843,9 +865,10 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
           </div>
         </template>
 
-        <!-- Mobile: bottom chat sheet — hidden until scroll-up on call; half then full height. -->
+        <!-- Mobile: bottom chat sheet — v-show keeps ChatView mounted when collapsed (see desktop comment). -->
         <div
-          v-else-if="!voiceSideChatCollapsed"
+          v-else
+          v-show="!voiceSideChatCollapsed"
           class="voice-mobile-chat-sheet pointer-events-none absolute inset-x-0 z-[35] flex flex-col items-stretch justify-end"
           :style="voiceMobileSheetBottomStyle"
         >
@@ -942,6 +965,15 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
         </div>
       </div>
     </div>
+    <StageEventScheduleModal
+      v-if="isStageChannel && voiceUiChannel"
+      :open="stageScheduleModalOpen"
+      :server-id="selectedServerId"
+      :stage-channel-id="voiceUiChannel.id"
+      :stage-channel-name="getChannelDisplayName(voiceUiChannel.name)"
+      @close="stageScheduleModalOpen = false"
+      @created="stageScheduleModalOpen = false"
+    />
   </template>
 </template>
 

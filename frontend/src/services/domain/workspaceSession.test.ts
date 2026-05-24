@@ -152,4 +152,35 @@ describe('workspaceSession domain', () => {
     expect(applyWorkspaceSnapshotToEchoSession(refs, staleState)).toBe(false);
     expect(refs.workspaceVersion.value).toBe('14');
   });
+
+  it('applies authoritative workspace snapshots even when version is older than cache', () => {
+    const refs = createSessionRefs();
+    refs.lastWorkspaceEventVersion.value = '20';
+    refs.workspaceVersion.value = '20';
+    refs.servers.value = [
+      {
+        id: 'ghost',
+        name: 'Ghost Guild',
+        imageUrl: '',
+        ownerId: 'u1',
+      },
+    ] as EchoWorkspaceState['servers'];
+
+    const authoritativeState = {
+      servers: [],
+      categoriesByServer: {},
+      serverMemberIds: {},
+      workspaceVersion: '5',
+      upcomingEventsByServerId: {},
+      myEventRsvps: [],
+    } as EchoWorkspaceState;
+
+    expect(
+      applyWorkspaceSnapshotToEchoSession(refs, authoritativeState, {
+        authoritative: true,
+      }),
+    ).toBe(true);
+    expect(refs.workspaceVersion.value).toBe('5');
+    expect(refs.servers.value).toEqual([]);
+  });
 });

@@ -46,6 +46,7 @@ export function useAppLayoutChatSound(deps: {
         channelId: d.channelId,
         authorId: d.authorId,
         mentions: d.mentions,
+        replyTo: d.replyTo,
         activeChannelId: deps.activeChannelId.value,
         currentUserId: currentUser?.id,
         currentUsername: currentUser?.username,

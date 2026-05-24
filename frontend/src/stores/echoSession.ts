@@ -114,8 +114,11 @@ export const useEchoSessionStore = defineStore('echoSession', () => {
     mergeMembersByServerInEchoSession(sessionApplyRefs, membersByServer);
   }
 
-  function applyWorkspaceSnapshot(state: EchoWorkspaceState): boolean {
-    return applyWorkspaceSnapshotToEchoSession(sessionApplyRefs, state);
+  function applyWorkspaceSnapshot(
+    state: EchoWorkspaceState,
+    opts?: { authoritative?: boolean },
+  ): boolean {
+    return applyWorkspaceSnapshotToEchoSession(sessionApplyRefs, state, opts);
   }
 
   function noteWorkspaceEventVersion(version: string | undefined): boolean {

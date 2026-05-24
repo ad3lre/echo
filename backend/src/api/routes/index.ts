@@ -22,7 +22,6 @@ import livekitWebhookRoutes from './livekitWebhook';
 import echoChannelWebhookHookRoutes from './echoChannelWebhookHook';
 import analyticsRoutes from './analytics';
 import devDiagnosticsRoutes from './devDiagnostics';
-import founderRoutes from './founder';
 import agentNetworkDiagnosticsRoutes from './agentNetworkDiagnostics';
 import echoRoutes from './echo';
 import systemDeployCountdownRoutes from './systemDeployCountdown';
@@ -67,7 +66,6 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(echoChannelWebhookHookRoutes, { prefix: '/api/v1' });
   await fastify.register(analyticsRoutes, { prefix: '/api/v1' });
   await fastify.register(devDiagnosticsRoutes, { prefix: '/api/v1/dev' });
-  await fastify.register(founderRoutes, { prefix: '/api/v1/founder' });
   await fastify.register(agentNetworkDiagnosticsRoutes, {
     prefix: '/api/v1/agent',
   });

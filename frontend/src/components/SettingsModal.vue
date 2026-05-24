@@ -71,6 +71,7 @@ import SettingsVoiceVideo from '@/features/settings/components/SettingsVoiceVide
 import SettingsAccessibility from '@/features/settings/components/SettingsAccessibility.vue';
 import SettingsSupplementarySections from '@/features/settings/components/SettingsSupplementarySections.vue';
 import SettingsLegal from '@/features/settings/components/SettingsLegal.vue';
+import SettingsReportAbuse from '@/features/settings/components/SettingsReportAbuse.vue';
 import SettingsFormattingGuide from '@/features/settings/components/SettingsFormattingGuide.vue';
 import GuestAccountUpgradePanel from '@/features/settings/components/GuestAccountUpgradePanel.vue';
 
@@ -79,7 +80,7 @@ function settingsNavIconUrl(section: SettingsSection): string {
 }
 
 function settingsNavIconIsBrandMark(section: SettingsSection): boolean {
-  return section === 'Google';
+  return section === 'Google' || section === 'YouTube';
 }
 
 const props = defineProps<{
@@ -670,6 +671,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                   activeSection === 'Log out'
                     ? 'text-red-400/85'
                     : activeSection === 'Terms & policies' ||
+                        activeSection === 'Report abuse' ||
                         activeSection === 'Formatting guide'
                       ? 'text-[var(--set-legal-label)]'
                       : 'text-indigo-300/80'
@@ -683,6 +685,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                   activeSection === 'Log out'
                     ? 'text-red-100'
                     : activeSection === 'Terms & policies' ||
+                        activeSection === 'Report abuse' ||
                         activeSection === 'Formatting guide'
                       ? 'text-[var(--set-legal-heading)]'
                       : ''
@@ -776,6 +779,10 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
               />
 
               <SettingsLegal v-else-if="activeSection === 'Terms & policies'" />
+
+              <SettingsReportAbuse
+                v-else-if="activeSection === 'Report abuse'"
+              />
 
               <SettingsFormattingGuide
                 v-else-if="activeSection === 'Formatting guide'"

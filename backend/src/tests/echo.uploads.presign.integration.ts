@@ -218,6 +218,43 @@ async function run(): Promise<void> {
       serverIconOwner.status === 503 || serverIconOwner.status === 200,
       `server_icon owner: expected 503 or 200, got ${serverIconOwner.status}`,
     );
+    if (
+      serverIconOwner.status === 200 &&
+      String(serverIconOwner.json.uploadMode ?? '') === 'local'
+    ) {
+      const uploadUrl = String(serverIconOwner.json.uploadUrl ?? '');
+      const brandingKey = String(serverIconOwner.json.key ?? '');
+      const headers =
+        serverIconOwner.json.headers &&
+        typeof serverIconOwner.json.headers === 'object' &&
+        !Array.isArray(serverIconOwner.json.headers)
+          ? (serverIconOwner.json.headers as Record<string, unknown>)
+          : {};
+      const auth = String(headers.Authorization ?? '');
+      const blob = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      const putRes = await fetch(`${baseUrl}${uploadUrl}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: auth,
+          'Content-Type': 'image/png',
+          cookie: `echo_sid=${t1Sid}`,
+        },
+        body: blob,
+      });
+      assert.equal(putRes.status, 204, await putRes.text());
+
+      const encodedKey = encodeURIComponent(brandingKey).replace(/%2F/g, '/');
+      const asStranger = await fetch(
+        `${baseUrl}/api/v1/echo/uploads/files/${encodedKey}`,
+        { headers: { cookie: `echo_sid=${t2Sid}` } },
+      );
+      assert.equal(asStranger.status, 200, await asStranger.text());
+
+      const anonymous = await fetch(
+        `${baseUrl}/api/v1/echo/uploads/files/${encodedKey}`,
+      );
+      assert.equal(anonymous.status, 200, await anonymous.text());
+    }
 
     const eventCoverBadCombo = await postPresign(baseUrl, t1Sid, t1.csrfToken, {
       channelId: defaultChannelId,

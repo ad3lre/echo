@@ -109,7 +109,8 @@ export type ChannelPermissionGroup =
   | 'General permissions'
   | 'Text channel'
   | 'Threads'
-  | 'Voice channel';
+  | 'Voice channel'
+  | 'Paper channel';
 
 export interface ChannelPermissionDef {
   key: ChannelPermissionKey;
@@ -249,6 +250,18 @@ export const CHANNEL_PERMISSION_DEFS_VOICE: ChannelPermissionDef[] = [
   ...CHANNEL_VOICE_ONLY_DEFS,
 ];
 
+export const CHANNEL_PERMISSION_DEFS_PAPER: ChannelPermissionDef[] = [
+  ...CHANNEL_GENERAL_PERMISSION_DEFS,
+  { key: 'sendMessages', label: 'Author in paper', group: 'Paper channel' },
+  { key: 'commentOnPaper', label: 'Comment on paper', group: 'Paper channel' },
+  { key: 'manageMessages', label: 'Manage comments', group: 'Paper channel' },
+  {
+    key: 'readMessageHistory',
+    label: 'Download / export paper',
+    group: 'Paper channel',
+  },
+];
+
 /** Category-level: union of text + voice (deduped by key). */
 export const CHANNEL_PERMISSION_DEFS_CATEGORY: ChannelPermissionDef[] = (() => {
   const seen = new Set<ChannelPermissionKey>();
@@ -256,6 +269,7 @@ export const CHANNEL_PERMISSION_DEFS_CATEGORY: ChannelPermissionDef[] = (() => {
   for (const d of [
     ...CHANNEL_PERMISSION_DEFS_TEXT,
     ...CHANNEL_PERMISSION_DEFS_VOICE,
+    ...CHANNEL_PERMISSION_DEFS_PAPER,
   ]) {
     if (seen.has(d.key)) continue;
     seen.add(d.key);
@@ -270,8 +284,9 @@ export const CHANNEL_PERMISSION_DEFS_CATEGORY: ChannelPermissionDef[] = (() => {
  * present for voice in the same order as category defaults.
  */
 export function getChannelPermissionDefsForChannelType(
-  channelType: 'text' | 'voice' | 'forum' | 'stage',
+  channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper',
 ): ChannelPermissionDef[] {
+  if (channelType === 'paper') return CHANNEL_PERMISSION_DEFS_PAPER;
   if (channelType === 'text' || channelType === 'forum')
     return CHANNEL_PERMISSION_DEFS_TEXT;
   return CHANNEL_PERMISSION_DEFS_CATEGORY.filter(

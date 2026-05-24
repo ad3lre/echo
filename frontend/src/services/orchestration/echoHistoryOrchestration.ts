@@ -26,6 +26,7 @@ import { messageWindowAuthority } from '@/features/chat/domain/messageWindowAuth
 import {
   applyEchoHistoryChannelClientCap,
   applyEchoHistoryInitialPageFromApi,
+  applyEchoHistoryLatestPageFromApi,
   applyEchoHistoryOlderPageFromApi,
   applyEchoHistorySeedFromCachedMessages,
 } from '@/features/chat/domain/echoHistoryChannelApply';
@@ -103,6 +104,11 @@ export function createEchoHistoryController(
   let prependLoadToken = 0;
   /** Jump-to-message prefetch (`prefetchUntilMessageVisible`) only. */
   let jumpPrefetchToken = 0;
+  /** Background tail sync (reconnect / tab resume / cache hit). */
+  let tailSyncToken = 0;
+  const tailSyncLastAttemptMsByChannel = new Map<string, number>();
+  const TAIL_SYNC_MIN_INTERVAL_MS = 2_000;
+  const TAIL_SYNC_AFTER_CONNECT_DELAY_MS = 400;
 
   function bumpAllHistoryLoadTokensOnActiveChannelChange(): void {
     initialLoadToken += 1;
@@ -492,6 +498,7 @@ export function createEchoHistoryController(
         expectation: 'cached bucket seeds active window immediately',
       });
       scheduleAttentionRefresh('history_cache_hit', cid);
+      void syncActiveChannelTailFromApi('history_cache_hit');
       return;
     }
     invalidatePrependAndJumpForNewInitialFetch();
@@ -970,6 +977,87 @@ export function createEchoHistoryController(
     loadingOlder.value = false;
   });
 
+  /**
+   * Merge any messages from the latest REST page that are missing locally.
+   * Covers socket disconnects, channel-room join lag, and cache-only channel switches.
+   */
+  async function syncActiveChannelTailFromApi(reason: string): Promise<void> {
+    const cid = activeChannelId.value;
+    const token = auth.accessToken?.trim() ?? '';
+    if (!cid || !auth.isAuthenticated || !canLoadHistoryForChannelId(cid)) {
+      return;
+    }
+    const local = messageReadFacade.getChannelMessages(cid);
+    if (!local?.length) return;
+
+    const now = Date.now();
+    const last = tailSyncLastAttemptMsByChannel.get(cid) ?? 0;
+    if (now - last < TAIL_SYNC_MIN_INTERVAL_MS) return;
+    tailSyncLastAttemptMsByChannel.set(cid, now);
+
+    const seq = ++tailSyncToken;
+    try {
+      const { messages: apiMsgs } = await withTransientFetchRetries(() =>
+        fetchEchoChannelMessages(token, cid, {
+          limit: ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+        }),
+      );
+      if (seq !== tailSyncToken || cid !== activeChannelId.value) return;
+
+      const raw = mapEchoMessagesToRaw(apiMsgs);
+      const index = messageWindowAuthority.getIndex(cid);
+      const missing = raw.filter((m) => m.id && !index.byId.has(m.id));
+      if (missing.length === 0) return;
+
+      const { mergedNewerCount } = applyEchoHistoryLatestPageFromApi(
+        cid,
+        missing,
+        activeChannelId.value,
+      );
+      if (mergedNewerCount === 0) return;
+
+      logMessageList('history', 'syncActiveChannelTailFromApi', {
+        channelId: cid,
+        reason,
+        apiMessageCount: apiMsgs.length,
+        mergedNewerCount,
+        outcomeOk: true,
+        expectation:
+          'background tail sync fills gaps after missed realtime or stale cache',
+      });
+      emitDiagnostic({
+        level: 'info',
+        domain: 'api',
+        event: 'echo_history_tail_sync',
+        stage: 'success',
+        context: {
+          channelId: cid,
+          reason,
+          apiMessageCount: apiMsgs.length,
+          mergedNewerCount,
+        },
+      });
+    } catch (e) {
+      if (seq !== tailSyncToken) return;
+      logMessageList('history', 'syncActiveChannelTailFromApi_fail', {
+        channelId: cid,
+        reason,
+        outcomeOk: false,
+        expectation: 'tail sync is best-effort; realtime + scroll still work',
+        detail: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  function scheduleActiveChannelTailSyncAfterConnect(reason: string): void {
+    const cid = activeChannelId.value;
+    if (!cid) return;
+    setTimeout(() => {
+      if (activeChannelId.value !== cid) return;
+      void syncActiveChannelTailFromApi(reason);
+    }, TAIL_SYNC_AFTER_CONNECT_DELAY_MS);
+  }
+
   async function prefetchUntilMessageVisible(
     channelId: string,
     messageId: string,
@@ -1152,6 +1240,8 @@ export function createEchoHistoryController(
     reload: loadHistory,
     hydrateAttentionSnapshot,
     prefetchUntilMessageVisible,
+    syncActiveChannelTailFromApi,
+    scheduleActiveChannelTailSyncAfterConnect,
     lastReadMessageIdByChannel,
     applyEchoChannelClientCap,
     reportSeenMessageId,

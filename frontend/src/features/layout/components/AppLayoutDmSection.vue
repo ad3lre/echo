@@ -608,8 +608,9 @@ async function handleDmCallLeave() {
 
   <ChatView
     v-else-if="
-      mainSurface.type === 'serverText' ||
-      mainSurface.type === 'serverEmptyOnboarding'
+      (mainSurface.type === 'serverText' ||
+        mainSurface.type === 'serverEmptyOnboarding') &&
+      effectiveActiveChannel?.type !== 'paper'
     "
     class="min-h-0 min-w-0 flex-1"
     :active-channel="effectiveActiveChannel"

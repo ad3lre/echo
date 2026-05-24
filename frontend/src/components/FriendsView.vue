@@ -437,13 +437,92 @@ function sendFriendRequestTo(userId: string) {
                       </div>
                     </div>
 
-                    <button
+                    <div
                       v-for="user in friendUsersFiltered"
                       :key="user.id"
-                      type="button"
                       class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
                       :class="selectedUserId === user.id ? 'bg-glass-2' : ''"
-                      @click="emit('select-dm', user.id)"
+                    >
+                      <button
+                        type="button"
+                        class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+                        :aria-label="`View profile for ${user.name}`"
+                        @click="emit('open-expanded-profile', user.id)"
+                      >
+                        <div class="relative h-12 w-12 shrink-0">
+                          <div
+                            class="h-full w-full overflow-hidden rounded-full"
+                          >
+                            <PausedGifAvatar
+                              :src="safeImageUrl(user.pfp)"
+                              :alt="user.name"
+                              :session-key="user.id"
+                              :img-class="
+                                selectPresence({ rowStatus: user.status })
+                                  .isOffline
+                                  ? 'rounded-full object-cover grayscale'
+                                  : 'rounded-full object-cover'
+                              "
+                            />
+                          </div>
+                          <span
+                            v-if="
+                              selectPresence({ rowStatus: user.status })
+                                .status === 'online'
+                            "
+                            class="pointer-events-none absolute bottom-0 right-0 z-[1] h-3 w-3 rounded-full border-2 border-[var(--echo-dm-chrome-bg)] bg-green-500"
+                          />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <span
+                            class="text-sm font-medium"
+                            :class="
+                              selectPresence({ rowStatus: user.status })
+                                .isOffline
+                                ? 'text-fg-subtle'
+                                : 'text-foreground'
+                            "
+                            >{{ user.name }}</span
+                          >
+                          <div class="text-xs text-fg-soft">
+                            {{ statusLabel(user.status) }}
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        class="shrink-0 rounded-lg p-2 transition-colors hover:bg-glass-3 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+                        :aria-label="`Message ${user.name}`"
+                        @click="emit('select-dm', user.id)"
+                      >
+                        <img
+                          :src="icons.message"
+                          alt=""
+                          class="h-5 w-5 filter invert opacity-50"
+                        />
+                      </button>
+                    </div>
+                  </template>
+                </template>
+
+                <template v-else-if="activeTab === 'online'">
+                  <div
+                    v-if="onlineFriendsFiltered.length === 0"
+                    class="py-10 text-center text-xs text-fg-soft"
+                  >
+                    No online friends match your search.
+                  </div>
+                  <div
+                    v-for="user in onlineFriendsFiltered"
+                    :key="user.id"
+                    class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
+                    :class="selectedUserId === user.id ? 'bg-glass-2' : ''"
+                  >
+                    <button
+                      type="button"
+                      class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+                      :aria-label="`View profile for ${user.name}`"
+                      @click="emit('open-expanded-profile', user.id)"
                     >
                       <div class="relative h-12 w-12 shrink-0">
                         <div class="h-full w-full overflow-hidden rounded-full">
@@ -451,12 +530,7 @@ function sendFriendRequestTo(userId: string) {
                             :src="safeImageUrl(user.pfp)"
                             :alt="user.name"
                             :session-key="user.id"
-                            :img-class="
-                              selectPresence({ rowStatus: user.status })
-                                .isOffline
-                                ? 'rounded-full object-cover grayscale'
-                                : 'rounded-full object-cover'
-                            "
+                            img-class="rounded-full object-cover"
                           />
                         </div>
                         <span
@@ -468,74 +542,27 @@ function sendFriendRequestTo(userId: string) {
                         />
                       </div>
                       <div class="min-w-0 flex-1">
-                        <span
-                          class="text-sm font-medium"
-                          :class="
-                            selectPresence({ rowStatus: user.status }).isOffline
-                              ? 'text-fg-subtle'
-                              : 'text-foreground'
-                          "
-                          >{{ user.name }}</span
-                        >
+                        <span class="text-sm font-medium text-white">{{
+                          user.name
+                        }}</span>
                         <div class="text-xs text-fg-soft">
                           {{ statusLabel(user.status) }}
                         </div>
                       </div>
+                    </button>
+                    <button
+                      type="button"
+                      class="shrink-0 rounded-lg p-2 transition-colors hover:bg-glass-3 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+                      :aria-label="`Message ${user.name}`"
+                      @click="emit('select-dm', user.id)"
+                    >
                       <img
                         :src="icons.message"
                         alt=""
-                        class="h-5 w-5 shrink-0 filter invert opacity-50"
+                        class="h-5 w-5 filter invert opacity-50"
                       />
                     </button>
-                  </template>
-                </template>
-
-                <template v-else-if="activeTab === 'online'">
-                  <div
-                    v-if="onlineFriendsFiltered.length === 0"
-                    class="py-10 text-center text-xs text-fg-soft"
-                  >
-                    No online friends match your search.
                   </div>
-                  <button
-                    v-for="user in onlineFriendsFiltered"
-                    :key="user.id"
-                    type="button"
-                    class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
-                    :class="selectedUserId === user.id ? 'bg-glass-2' : ''"
-                    @click="emit('select-dm', user.id)"
-                  >
-                    <div class="relative h-12 w-12 shrink-0">
-                      <div class="h-full w-full overflow-hidden rounded-full">
-                        <PausedGifAvatar
-                          :src="safeImageUrl(user.pfp)"
-                          :alt="user.name"
-                          :session-key="user.id"
-                          img-class="rounded-full object-cover"
-                        />
-                      </div>
-                      <span
-                        v-if="
-                          selectPresence({ rowStatus: user.status }).status ===
-                          'online'
-                        "
-                        class="pointer-events-none absolute bottom-0 right-0 z-[1] h-3 w-3 rounded-full border-2 border-[var(--echo-dm-chrome-bg)] bg-green-500"
-                      />
-                    </div>
-                    <div class="min-w-0 flex-1">
-                      <span class="text-sm font-medium text-white">{{
-                        user.name
-                      }}</span>
-                      <div class="text-xs text-fg-soft">
-                        {{ statusLabel(user.status) }}
-                      </div>
-                    </div>
-                    <img
-                      :src="icons.message"
-                      alt=""
-                      class="h-5 w-5 shrink-0 filter invert opacity-50"
-                    />
-                  </button>
                 </template>
 
                 <template v-else-if="activeTab === 'pending'">
@@ -704,9 +731,14 @@ function sendFriendRequestTo(userId: string) {
                       <div
                         v-for="user in addableUsers"
                         :key="user.id"
-                        class="flex items-center justify-between gap-4 rounded-xl bg-scrim-1 px-4 py-3"
+                        class="friend-row flex items-center justify-between gap-4 rounded-xl bg-scrim-1 px-4 py-3"
                       >
-                        <div class="flex min-w-0 flex-1 items-center gap-4">
+                        <button
+                          type="button"
+                          class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+                          :aria-label="`View profile for ${user.name}`"
+                          @click="emit('open-expanded-profile', user.id)"
+                        >
                           <div
                             class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-glass-1"
                           >
@@ -740,7 +772,7 @@ function sendFriendRequestTo(userId: string) {
                               </span>
                             </div>
                           </div>
-                        </div>
+                        </button>
 
                         <button
                           type="button"

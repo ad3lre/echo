@@ -8,6 +8,7 @@ import {
   markdownWrapDelimiters,
   resolveMarkdownComposerKeybind,
 } from '@/features/chat/composables/markdownComposerKeybinds';
+import { editableTextFromMessage } from '@/features/chat/editor/messageEditDraft';
 
 const EDIT_TEXTAREA_MAX_VH = 0.5;
 
@@ -110,7 +111,7 @@ export function useMessageEditState(options: UseMessageEditStateOptions) {
   function enterEditMode() {
     if (!message.value.id || !isOwnMessage.value) return;
     editTextareaMinHeightPx.value = measureMessageContentHeight();
-    editDraft.value = message.value.content ?? '';
+    editDraft.value = editableTextFromMessage(message.value);
     editAttachments.value = [...(message.value.attachments ?? [])];
     isEditing.value = true;
     menuOpen.value = false;

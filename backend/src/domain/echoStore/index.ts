@@ -51,6 +51,8 @@ export {
   type EchoChannelAccessDenialCode,
   type EchoChannelAccessDiagnosis,
   type EchoChannelCapabilities,
+  type EchoPaperCapabilities,
+  getPaperCapabilitiesForUser,
   type EchoCommunicationTimeoutState,
   type EchoPostMessageDenialReason,
   type EchoServerCapabilities,
@@ -366,7 +368,6 @@ export {
 
 export {
   blockEchoUser,
-  insertEchoUserReport,
   isEchoPairBlocked,
   listEchoBlockedUserIds,
   unblockEchoUser,
@@ -374,7 +375,27 @@ export {
   type UnblockEchoUserResult,
 } from './blocks';
 
+export {
+  insertEchoMessageReport,
+  insertEchoUserReport,
+  type EchoMessageReportInput,
+  type EchoSafetyReportInsertResult,
+  type EchoUserReportInput,
+  type InsertEchoMessageReportResult,
+} from './safetyReports';
+
 export { insertEchoBugReport } from './bugHunterReports';
+
+export {
+  countEchoUserRingtones,
+  deleteEchoUserRingtone,
+  echoUserRingtoneStorageKeyPrefix,
+  getEchoUserRingtoneById,
+  insertEchoUserRingtone,
+  isEchoUserRingtoneStorageKeyForUser,
+  listEchoUserRingtones,
+  type EchoUserRingtoneRow,
+} from './userRingtones';
 
 export {
   addEchoServerMember,
@@ -472,3 +493,22 @@ export {
   type EchoEmojiTokenResolveDto,
   type DiscordImportedEmojiInput,
 } from './emojiLibrary';
+
+export {
+  assertEchoPaperChannelAccess,
+  bootstrapEchoPaperDocument,
+  getEchoPaperChannelSettings,
+  getEchoPaperDocument,
+  patchEchoPaperDocument,
+  type EchoPaperDocumentRow,
+  type PatchEchoPaperDocumentResult,
+} from './paper';
+
+export {
+  createEchoPaperComment,
+  deleteEchoPaperComment,
+  echoPaperCommentToPayload,
+  listEchoPaperComments,
+  patchEchoPaperComment,
+  type EchoPaperCommentRow,
+} from './paperComments';

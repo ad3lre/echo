@@ -123,7 +123,7 @@ const props = defineProps<{
   discordChannelId?: string;
   channelName?: string;
   /** When `voice`, Discord message import is not offered (voice side chat / voice channels). */
-  channelType?: 'text' | 'voice' | 'forum' | 'stage';
+  channelType?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
   /** True when viewing a forum post channel (child thread channel under a forum). */
   isForumPostChannel?: boolean;
   /** Server owner / manage-server only — empty-channel Discord import CTA. */
@@ -1257,11 +1257,48 @@ function jumpToLatestMessages() {
 
 const containerRef = ref<HTMLElement | null>(null);
 
+let scrollViewportResizeObserver: ResizeObserver | null = null;
+let lastScrollViewportClientHeight = 0;
+
 /** Max scrollTop for the list container (actual DOM; aligns with virtualizer total height). */
 function snapContainerScrollToBottom() {
   const el = containerRef.value;
   if (!el) return;
   el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+}
+
+function disconnectScrollViewportResizeObserver(): void {
+  scrollViewportResizeObserver?.disconnect();
+  scrollViewportResizeObserver = null;
+  lastScrollViewportClientHeight = 0;
+}
+
+function shouldFollowViewportShrink(): boolean {
+  if (prependTransactionActive.value) return false;
+  if (suppressListUntilInitialAnchor.value) return false;
+  const now =
+    typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (now < userScrollActiveUntilMs) return false;
+  if (messageScrollAnchorResolved.value !== 'bottom') return false;
+  return followNewMessagesToBottom.value || isNearBottom(FOLLOW_NEW_ATTACH_PX);
+}
+
+/** When the composer / bottom chrome grows, the list viewport shrinks — stay pinned to latest. */
+function attachScrollViewportResizeObserver(el: HTMLElement): void {
+  disconnectScrollViewportResizeObserver();
+  lastScrollViewportClientHeight = el.clientHeight;
+  if (typeof ResizeObserver === 'undefined') return;
+  scrollViewportResizeObserver = new ResizeObserver(() => {
+    const container = containerRef.value;
+    if (!container) return;
+    const h = container.clientHeight;
+    const prev = lastScrollViewportClientHeight;
+    lastScrollViewportClientHeight = h;
+    if (h >= prev - 0.5) return;
+    if (!shouldFollowViewportShrink()) return;
+    scrollToBottom(false);
+  });
+  scrollViewportResizeObserver.observe(el);
 }
 
 function beginPrependTransaction(
@@ -1934,6 +1971,7 @@ onMounted(() => {
     if (el) {
       lastObservedScrollTop = el.scrollTop;
       el.addEventListener('scroll', onScrollCombined, { passive: true });
+      attachScrollViewportResizeObserver(el);
       emitSeenMessageId(resolveSeenMessageId());
       logMessageList('scroll', 'scroll_listener_attached', {
         passive: true,
@@ -1961,6 +1999,7 @@ onUnmounted(() => {
     cancelAnimationFrame(viewportMemoryRaf);
     viewportMemoryRaf = null;
   }
+  disconnectScrollViewportResizeObserver();
   const el = containerRef.value;
   if (el) {
     el.removeEventListener('scroll', onScrollCombined);

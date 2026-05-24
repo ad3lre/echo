@@ -381,7 +381,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
             type="button"
             class="chat-focus-ring relative block h-full w-full shrink-0 overflow-hidden rounded-full outline-none"
             :aria-label="`Open full profile for ${profile.displayName}`"
-            @click="emit('expand-to-full-modal')"
+            @click.stop="emit('expand-to-full-modal')"
           >
             <PausedGifAvatar
               :src="safeImageUrl(profile.pfp)"
@@ -517,7 +517,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                   @unblock="emitProfileUnblock"
                   @remove-friend="emit('remove-friend', profile.id)"
                   @send-friend-request="emit('send-friend-request', profile.id)"
-                  @report="emitProfileReport"
                 />
               </div>
             </div>

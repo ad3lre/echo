@@ -25,11 +25,17 @@ vi.mock(
   },
 );
 
+vi.mock('@/utils/workspacePersistence', () => ({
+  saveEchoWorkspaceToCache: vi.fn(),
+  loadEchoWorkspaceFromCache: vi.fn(() => null),
+}));
+
 import { fetchEchoWorkspaceState } from '@/api/echoClient';
 import {
   fetchWorkspaceSocialForHydrate,
   fetchWorkspaceSocialForRefresh,
 } from '@/services/orchestration/workspaceSocialHydrate';
+import { saveEchoWorkspaceToCache } from '@/utils/workspacePersistence';
 import {
   runEchoWorkspaceHydrateFromApi,
   runEchoWorkspaceSocialRefreshFromApi,
@@ -49,6 +55,7 @@ describe('runEchoWorkspaceHydrateFromApi', () => {
     vi.mocked(fetchEchoWorkspaceState).mockReset();
     vi.mocked(fetchWorkspaceSocialForHydrate).mockReset();
     vi.mocked(fetchWorkspaceSocialForRefresh).mockReset();
+    vi.mocked(saveEchoWorkspaceToCache).mockReset();
   });
 
   it('skips workspace fetch when consumeSkip returns true but still loads social', async () => {
@@ -94,6 +101,61 @@ describe('runEchoWorkspaceHydrateFromApi', () => {
     expect(fetchEchoWorkspaceState).not.toHaveBeenCalled();
     expect(fetchWorkspaceSocialForHydrate).toHaveBeenCalledWith('t', false);
     expect(friendIds.value).toEqual(['u1']);
+  });
+
+  it('does not update server store or cache when applyWorkspaceSnapshot rejects stale snapshot', async () => {
+    vi.mocked(fetchEchoWorkspaceState).mockResolvedValue({
+      servers: [{ id: 's1', name: 'Guild', imageUrl: '', ownerId: 'o1' }],
+      categoriesByServer: {},
+      serverMemberIds: {},
+      workspaceVersion: '10',
+      upcomingEventsByServerId: {},
+      myEventRsvps: [],
+    } as Awaited<ReturnType<typeof fetchEchoWorkspaceState>>);
+    vi.mocked(fetchWorkspaceSocialForHydrate).mockResolvedValue(emptySocial);
+
+    const setServers = vi.fn();
+    const applyWorkspaceSnapshot = vi.fn(() => false);
+
+    const result = await runEchoWorkspaceHydrateFromApi({
+      token: 't',
+      userId: 'me',
+      isGuest: false,
+      workspace: {
+        consumeSkipEchoWorkspaceHydrate: () => false,
+        users: ref([]),
+        serverMemberNicknames: ref({}),
+        timeoutUntilByServerUser: ref({}),
+        lastTimeoutWorkspaceVersion: ref('0'),
+        lastTimeoutServerCount: ref(0),
+        lastTimeoutMemberKeyCount: ref(0),
+        friendIds: ref([]),
+        friendRequestsIncoming: ref([]),
+        friendRequestsOutgoing: ref([]),
+        messageRequests: ref([]),
+        socialGraphStatus: ref<'idle' | 'loading' | 'ready' | 'error'>('idle'),
+      },
+      echoSession: { applyWorkspaceSnapshot },
+      serverStore: {
+        selectedServerId: null,
+        setServers,
+        selectServer: vi.fn(),
+        pickPreferredGuildServerId: vi.fn(() => null),
+      },
+      activeChannelId: ref(''),
+      activeRailTab: ref<RailTab>('explore'),
+      getFirstTextChannelId: () => '',
+      refreshEchoRoleData: vi.fn(() => Promise.resolve()),
+      ensureAuthUserInMockUsers: vi.fn(),
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(applyWorkspaceSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceVersion: '10' }),
+      { authoritative: true },
+    );
+    expect(setServers).not.toHaveBeenCalled();
+    expect(saveEchoWorkspaceToCache).not.toHaveBeenCalled();
   });
 
   it('returns ok:false when workspace fetch throws', async () => {

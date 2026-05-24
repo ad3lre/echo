@@ -14,6 +14,7 @@ import type {
   SearchFilters,
 } from '@/features/chat/messageSearchTypes';
 import type { ChannelCategory } from '@/composables/useChannels';
+import { isGifHostLinkUrl, isInlineGifHostEmbed } from '@shared/gifHostLinks';
 
 export const MESSAGES_PER_PAGE = 16;
 export const API_BATCH_LIMIT = 24;
@@ -36,8 +37,15 @@ export type MessageWithOrder = MessageWithAuthor & {
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
 
 function isGifUrl(url: string): boolean {
-  const u = url.toLowerCase();
-  return u.includes('giphy') || u.includes('.gif') || u.includes('media.giphy');
+  return isGifHostLinkUrl(url);
+}
+
+function messageHasInlineGifEmbed(
+  m: MessageWithAuthor & {
+    embeds?: { url?: string; image?: { url?: string } }[];
+  },
+): boolean {
+  return m.embeds?.some(isInlineGifHostEmbed) ?? false;
 }
 
 function hasNonGifLink(content: string | undefined): boolean {
@@ -59,7 +67,11 @@ export function messageMatchesHasType(
     case 'image':
       return !!(m.imageUrl && !m.gif && !isGifUrl(m.imageUrl));
     case 'gif':
-      return !!(m.gif || (m.imageUrl && isGifUrl(m.imageUrl)));
+      return !!(
+        m.gif ||
+        (m.imageUrl && isGifUrl(m.imageUrl)) ||
+        messageHasInlineGifEmbed(m)
+      );
     case 'link':
       return hasNonGifLink(m.content);
     case 'video':

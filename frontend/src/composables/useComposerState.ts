@@ -19,8 +19,10 @@ import {
   ChannelMentionNode,
   CustomEmojiNode,
   MentionEntityNode,
+  isComposerContentEffectivelyEmpty,
   rawOffsetToEditorPos,
   serializeComposerDoc,
+  composerSelectionToRawOffsets,
 } from '@/features/chat/editor/composerModel';
 import {
   ComposerBold,
@@ -40,6 +42,7 @@ import {
 } from '@/services/domain/composer';
 import { channelMentionRefLabel } from '@/utils/channelMentionLabel';
 import { ECHO_COMPOSER_MAX_INPUT_CHARS } from '@shared/messageChunkLimits';
+import { createRafCoalescer } from '@/utils/rafCoalesce';
 
 export interface ComposerMentionInsert {
   kind: MentionKind;
@@ -57,6 +60,34 @@ export type ComposerSnapshot = {
 
 type KeydownHandler = (event: KeyboardEvent) => boolean;
 
+type SerializedComposer = {
+  content: string;
+  mentions: MentionEntity[];
+  selectionStart: number;
+  selectionEnd: number;
+};
+
+function mentionsEqual(a: MentionEntity[], b: MentionEntity[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]!;
+    const y = b[i]!;
+    if (
+      x.id !== y.id ||
+      x.kind !== y.kind ||
+      x.label !== y.label ||
+      x.start !== y.start ||
+      x.end !== y.end ||
+      x.userId !== y.userId ||
+      x.channelId !== y.channelId ||
+      x.roleId !== y.roleId
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function useComposerState(
   overlayIdTokenResolvers?:
     | Ref<IdTokenResolvers | undefined>
@@ -69,9 +100,33 @@ export function useComposerState(
   const editor = shallowRef<Editor | null>(null);
   const surfaceRef = ref<HTMLElement | null>(null);
   const keydownHandler = ref<KeydownHandler | null>(null);
+  let pendingSerialized: SerializedComposer | null = null;
+  let scheduleVueSync: (() => void) | null = null;
 
   function getResolvers(): IdTokenResolvers | undefined {
     return overlayIdTokenResolvers ? unref(overlayIdTokenResolvers) : undefined;
+  }
+
+  function applySerialized(serialized: SerializedComposer) {
+    if (content.value !== serialized.content) {
+      content.value = serialized.content;
+    }
+    if (!mentionsEqual(mentions.value, serialized.mentions)) {
+      mentions.value = serialized.mentions;
+    }
+    if (selectionStart.value !== serialized.selectionStart) {
+      selectionStart.value = serialized.selectionStart;
+    }
+    if (selectionEnd.value !== serialized.selectionEnd) {
+      selectionEnd.value = serialized.selectionEnd;
+    }
+  }
+
+  function flushVueSync() {
+    if (pendingSerialized) {
+      applySerialized(pendingSerialized);
+      pendingSerialized = null;
+    }
   }
 
   function syncFromEditor(nextEditor = editor.value) {
@@ -80,10 +135,76 @@ export function useComposerState(
       nextEditor.state.doc,
       nextEditor.state.selection,
     );
-    content.value = serialized.content;
-    mentions.value = serialized.mentions;
-    selectionStart.value = serialized.selectionStart;
-    selectionEnd.value = serialized.selectionEnd;
+    applySerialized(serialized);
+  }
+
+  function scheduleSyncFromEditor(nextEditor = editor.value) {
+    if (!nextEditor) return;
+    pendingSerialized = serializeComposerDoc(
+      nextEditor.state.doc,
+      nextEditor.state.selection,
+    );
+    scheduleVueSync?.();
+  }
+
+  /** Selection-only sync — avoids re-walking the doc for content/mentions on caret moves. */
+  function syncSelectionFromEditor(nextEditor = editor.value) {
+    if (!nextEditor) return;
+    const { from, to } = nextEditor.state.selection;
+    const raw = composerSelectionToRawOffsets(nextEditor.state.doc, {
+      from,
+      to,
+    });
+    if (
+      raw.selectionStart === selectionStart.value &&
+      raw.selectionEnd === selectionEnd.value
+    ) {
+      return;
+    }
+    selectionStart.value = raw.selectionStart;
+    selectionEnd.value = raw.selectionEnd;
+  }
+
+  function handleEditorTransaction(
+    updatedEditor: Editor,
+    docChanged: boolean,
+    selectionSet: boolean,
+  ) {
+    if (docChanged) {
+      const serialized = serializeComposerDoc(
+        updatedEditor.state.doc,
+        updatedEditor.state.selection,
+      );
+      if (isComposerContentEffectivelyEmpty(serialized.content)) {
+        const canonicalJson = JSON.stringify(
+          buildComposerDoc('', [], getResolvers()),
+        );
+        const currentJson = JSON.stringify(updatedEditor.getJSON());
+        const needsReset =
+          serialized.content.length > 0 ||
+          serialized.mentions.length > 0 ||
+          currentJson !== canonicalJson;
+        if (needsReset) {
+          flushVueSync();
+          setSerializedState('', [], 0, 0);
+          return;
+        }
+      }
+      if (serialized.content.length > ECHO_COMPOSER_MAX_INPUT_CHARS) {
+        flushVueSync();
+        const cut = serialized.content.slice(0, ECHO_COMPOSER_MAX_INPUT_CHARS);
+        const kept = serialized.mentions.filter((m) => m.end <= cut.length);
+        const end = cut.length;
+        setSerializedState(cut, kept, end, end);
+        return;
+      }
+      pendingSerialized = serialized;
+      scheduleVueSync?.();
+      return;
+    }
+    if (selectionSet) {
+      syncSelectionFromEditor(updatedEditor);
+    }
   }
 
   function setSerializedState(
@@ -101,6 +222,8 @@ export function useComposerState(
     nextEditor.commands.setTextSelection({ from, to });
     syncFromEditor(nextEditor);
   }
+
+  scheduleVueSync = createRafCoalescer(flushVueSync);
 
   const initialEditor = new Editor({
     extensions: [
@@ -141,17 +264,12 @@ export function useComposerState(
       editor.value = createdEditor;
       syncFromEditor(createdEditor);
     },
-    onUpdate: ({ editor: updatedEditor }) => {
-      syncFromEditor(updatedEditor);
-      if (content.value.length > ECHO_COMPOSER_MAX_INPUT_CHARS) {
-        const cut = content.value.slice(0, ECHO_COMPOSER_MAX_INPUT_CHARS);
-        const kept = mentions.value.filter((m) => m.end <= cut.length);
-        const end = cut.length;
-        setSerializedState(cut, kept, end, end);
-      }
-    },
-    onSelectionUpdate: ({ editor: updatedEditor }) => {
-      syncFromEditor(updatedEditor);
+    onTransaction: ({ editor: updatedEditor, transaction }) => {
+      handleEditorTransaction(
+        updatedEditor,
+        transaction.docChanged,
+        transaction.selectionSet,
+      );
     },
   });
 
@@ -171,6 +289,7 @@ export function useComposerState(
   );
 
   onUnmounted(() => {
+    flushVueSync();
     editor.value?.destroy();
     editor.value = null;
   });
@@ -298,10 +417,10 @@ export function useComposerState(
   }
 
   function captureSnapshot(): ComposerSnapshot {
+    flushVueSync();
     return {
       content: content.value,
       mentions: mentions.value.map((m) => ({ ...m })),
-      contentJson: getContentJson(),
     };
   }
 
@@ -370,5 +489,7 @@ export function useComposerState(
     getContentJson,
     setMarkdownDecorationsEnabled,
     setSerializedState,
+    /** Apply any pending rAF content sync before send/draft reads. */
+    flushComposerSync: flushVueSync,
   };
 }

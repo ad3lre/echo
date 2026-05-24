@@ -12,15 +12,16 @@ Echo can send a **room-composite program feed** from a stage voice channel to **
 
 ## Environment
 
-| Variable                            | Notes                                                                                   |
-| ----------------------------------- | --------------------------------------------------------------------------------------- |
-| `GOOGLE_OAUTH_CLIENT_ID`            | Same OAuth client as Google sign-in/link.                                               |
-| `GOOGLE_OAUTH_CLIENT_SECRET`        | Server-only.                                                                            |
-| `YOUTUBE_OAUTH_REDIRECT_URI`        | e.g. `http://localhost:8080/api/v1/auth/youtube/callback` — register in Google Console. |
-| `YOUTUBE_OAUTH_SCOPES`              | Default: `openid email profile https://www.googleapis.com/auth/youtube.force-ssl`       |
-| `ECHO_DISCORD_TOKEN_ENCRYPTION_KEY` | Encrypts YouTube OAuth tokens (shared federated key).                                   |
-| `ECHO_APP_PUBLIC_URL`               | SPA origin for post-OAuth redirect (`youtube_linked`, `youtube_error`).                 |
-| `LIVEKIT_EGRESS_ENABLED`            | Must be `true` when LiveKit Egress is deployed (defaults to **off**).                   |
+| Variable                            | Notes                                                                                                                                                             |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_OAUTH_CLIENT_ID`            | Same OAuth client as Google sign-in/link.                                                                                                                         |
+| `GOOGLE_OAUTH_CLIENT_SECRET`        | Server-only.                                                                                                                                                      |
+| `YOUTUBE_OAUTH_REDIRECT_URI`        | e.g. `http://localhost:8080/api/v1/auth/youtube/callback` — register in Google Console.                                                                           |
+| `YOUTUBE_OAUTH_SCOPES`              | Default: `openid email profile https://www.googleapis.com/auth/youtube.force-ssl`                                                                                 |
+| `ECHO_DISCORD_TOKEN_ENCRYPTION_KEY` | Encrypts YouTube OAuth tokens (shared federated key).                                                                                                             |
+| `ECHO_APP_PUBLIC_URL`               | SPA origin for post-OAuth redirect (`youtube_linked`, `youtube_error`).                                                                                           |
+| `LIVEKIT_EGRESS_ENABLED`            | Defaults to **on** when `LIVEKIT_*` is set; set `false` to disable. Requires the [LiveKit Egress](https://docs.livekit.io/home/egress/overview/) service running. |
+| `LIVEKIT_STAGE_EGRESS_TEMPLATE_URL` | Optional override for the stage program template (default: `{ECHO_APP_PUBLIC_URL}/egress/stage-program/`).                                                        |
 
 ## User flow
 
@@ -28,7 +29,7 @@ Echo can send a **room-composite program feed** from a stage voice channel to **
 
 1. **Settings → Google → Connect Google account** (required before YouTube OAuth; same Google account must be used for YouTube OAuth).
 2. **Settings → YouTube → Connect YouTube channel** (`POST /api/v1/auth/youtube/start` → Google consent with YouTube scopes).
-3. In a **stage** channel, users with **Manage Channels** see **Go live on YouTube** (title + privacy).
+3. In a **stage** channel, users with **Manage Channels** see **Go live on YouTube** in the stage lobby and call view (title + privacy). This starts a **YouTube Live RTMP stream** — not the in-channel **YouTube watch together** VC activity (voice channels only).
 4. Echo creates a YouTube `liveBroadcast` + `liveStream`, binds them, starts **LiveKit room composite RTMP egress** to the ingest URL, then transitions the broadcast to **live**.
 5. **End live** stops egress and completes the YouTube broadcast.
 
@@ -43,15 +44,16 @@ Disconnecting Google in Settings also unlinks YouTube OAuth, revokes any saved s
 
 ## API (authenticated)
 
-| Method   | Path                                                               | Purpose                                                               |
-| -------- | ------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `GET`    | `/api/v1/me/youtube`                                               | Link status, `connectionMode`, stream-key metadata (never the secret) |
-| `PUT`    | `/api/v1/me/youtube/stream-key`                                    | Save encrypted RTMP ingest (stream key + optional server URL)         |
-| `DELETE` | `/api/v1/me/youtube/stream-key`                                    | Revoke saved stream key                                               |
-| `DELETE` | `/api/v1/me/youtube`                                               | Unlink OAuth channel                                                  |
-| `GET`    | `/api/v1/echo/servers/:serverId/channels/:channelId/stage/youtube` | Stream status for stage                                               |
-| `POST`   | `.../stage/youtube/start`                                          | Start YouTube live + egress                                           |
-| `POST`   | `.../stage/youtube/stop`                                           | Stop live                                                             |
+| Method   | Path                                                               | Purpose                                                                                               |
+| -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `GET`    | `/api/v1/me/youtube`                                               | Link status, `connectionMode`, `stageLiveStreamingConfigured`, stream-key metadata (never the secret) |
+| `PUT`    | `/api/v1/me/youtube/stream-key`                                    | Save encrypted RTMP ingest (stream key + optional server URL)                                         |
+| `DELETE` | `/api/v1/me/youtube/stream-key`                                    | Revoke saved stream key                                                                               |
+| `DELETE` | `/api/v1/me/youtube`                                               | Unlink OAuth channel                                                                                  |
+| `GET`    | `/api/v1/echo/servers/:serverId/channels/:channelId/stage/youtube` | Stream status for stage                                                                               |
+| `POST`   | `.../stage/youtube/start`                                          | Start YouTube live + egress                                                                           |
+| `POST`   | `.../stage/youtube/stop`                                           | Stop live                                                                                             |
+| `POST`   | `.../stage/youtube/layout`                                         | Change program layout while live (`grid`, `spotlight`, `screen`)                                      |
 
 ## Limitations
 
@@ -59,7 +61,9 @@ Disconnecting Google in Settings also unlinks YouTube OAuth, revokes any saved s
 - **One active YouTube stream per stage channel** at a time.
 - **Watch URL visibility:** `public` streams expose the YouTube link to all server members; `unlisted` / `private` show a live badge to members but only moderators get the link.
 - Unlinking YouTube in Settings **stops** any active stage streams tied to your account first.
-- Layout is LiveKit **`speaker`** composite (not a full custom multiview editor yet).
+- Program feed uses Echo’s **stage program template** when `ECHO_APP_PUBLIC_URL` (or `LIVEKIT_STAGE_EGRESS_TEMPLATE_URL`) is reachable from the egress worker. It shows **stage speakers only** (cameras, screen shares, avatar fallbacks)—not the in-app StageCallView chrome.
+- Fallback without a custom template URL: LiveKit built-in **`grid`** layout at **1080p30** (all publishers in the room; keep audience off-stage via speaker publish rules).
+- Moderators can switch layout while live (`grid` / `spotlight` / `screen first`).
 - Egress must be operated and scaled like any LiveKit sidecar (CPU for compositing + RTMP).
 
 ## Operations

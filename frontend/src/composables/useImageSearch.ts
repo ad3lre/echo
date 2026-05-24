@@ -4,7 +4,9 @@
  */
 
 import { ref, onUnmounted } from 'vue';
-import { ApiError, apiGet } from '@/api/client';
+import { API_BASE } from '@/config';
+import { ApiError } from '@/api/client';
+import { useAuthSessionStore } from '@/stores/authSession';
 
 export interface ImageSearchResult {
   id: string;
@@ -74,6 +76,59 @@ function imageSearchUrl(q: string, page: number): string {
   return `${base}${sep}page=${page}`;
 }
 
+function applyImageSearchQuotaFromHeaders(res: Response) {
+  const limitRaw = res.headers.get('X-Echo-Image-Search-Daily-Limit');
+  const remainingRaw = res.headers.get('X-Echo-Image-Search-Daily-Remaining');
+  if (limitRaw == null || remainingRaw == null) return;
+  const limit = Number(limitRaw);
+  const remaining = Number(remainingRaw);
+  if (!Number.isFinite(limit) || !Number.isFinite(remaining)) return;
+  useAuthSessionStore().patchImageSearchQuota({
+    used: Math.max(0, limit - remaining),
+    limit,
+  });
+}
+
+async function parseErrorBody(
+  res: Response,
+): Promise<{ code: string; message: string } | null> {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'code' in parsed &&
+      'message' in parsed
+    ) {
+      return {
+        code: String((parsed as { code: string }).code),
+        message: String((parsed as { message: string }).message),
+      };
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null;
+}
+
+async function fetchImageSearchPage(
+  q: string,
+  page: number,
+  signal?: AbortSignal,
+): Promise<ImageSearchPageResponse> {
+  const res = await fetch(`${API_BASE}${imageSearchUrl(q, page)}`, { signal });
+  applyImageSearchQuotaFromHeaders(res);
+  if (!res.ok) {
+    const body = await parseErrorBody(res);
+    const message = body?.message ?? `${res.status} ${res.statusText}`;
+    const code = body?.code ?? 'UNKNOWN';
+    throw new ApiError(message, res.status, code);
+  }
+  return (await res.json()) as ImageSearchPageResponse;
+}
+
 export function useImageSearch() {
   const query = ref('');
   const images = ref<ImageSearchResult[]>([]);
@@ -117,12 +172,7 @@ export function useImageSearch() {
       applyPageResponse(q, cached, append);
       return;
     }
-    const data = await apiGet<ImageSearchPageResponse>(
-      imageSearchUrl(q, page),
-      {
-        signal: abortController?.signal,
-      },
-    );
+    const data = await fetchImageSearchPage(q, page, abortController?.signal);
     if (!data) return;
     setCachedSearch(q, page, data);
     applyPageResponse(q, data, append);

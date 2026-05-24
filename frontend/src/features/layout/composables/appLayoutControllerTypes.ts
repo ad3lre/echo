@@ -912,9 +912,10 @@ export interface AppLayoutControllerContext {
   icons: any;
   getChannelIcon: any;
   getChannelDisplayName: any;
-  getServerChannelInfoForMainSurface: (
-    channelId: string,
-  ) => { type: 'text' | 'voice' | 'forum'; parentChannelId?: string } | null;
+  getServerChannelInfoForMainSurface: (channelId: string) => {
+    type: 'text' | 'voice' | 'forum' | 'paper';
+    parentChannelId?: string;
+  } | null;
   showApiFetchErrorBanner: Ref<boolean>;
   isChannelPanelSwitchLoading: ComputedRef<boolean>;
   isMessageSurfaceSwitchLoading: ComputedRef<boolean>;

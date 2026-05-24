@@ -1,18 +1,38 @@
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
-import {
-  isEchoVcActivityKey,
-  type EchoVcActivityKey,
-} from '@shared/vcActivityCatalog';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
-/** Optional tag in event description: `[activity:youtube]` */
-export function parsePlannedActivityKeyFromDescription(
+export type StageMode = 'youtube_live';
+
+/** Optional tag in event description: `[stage:youtube_live]` */
+export function parseStageModeFromDescription(
   description: string,
-): EchoVcActivityKey | null {
-  const m = description.match(/\[activity:([a-z0-9_]+)\]/i);
-  if (!m?.[1] || !isEchoVcActivityKey(m[1])) return null;
-  return m[1];
+): StageMode | null {
+  const m = description.match(/\[stage:([a-z_]+)\]/i);
+  if (m?.[1] === 'youtube_live') return 'youtube_live';
+  /** Legacy VC watch-together tag — treat as YouTube live for stage events. */
+  if (/\[activity:youtube\]/i.test(description)) return 'youtube_live';
+  return null;
+}
+
+export function formatStageModeLabel(mode: StageMode): string {
+  if (mode === 'youtube_live') return 'YouTube live';
+  return '';
+}
+
+/** Append or strip `[stage:youtube_live]` in event description. */
+export function withStageModeInDescription(
+  description: string,
+  youtubeLive: boolean,
+): string {
+  let d = description
+    .replace(/\[stage:[^\]]+\]/gi, '')
+    .replace(/\[activity:youtube\]/gi, '')
+    .trim();
+  if (youtubeLive) {
+    d = d ? `${d}\n\n[stage:youtube_live]` : '[stage:youtube_live]';
+  }
+  return d;
 }
 
 export function isStageEventLive(
@@ -57,25 +77,22 @@ export function pickNearestStagePlanningEvent(
   return matches[0] ?? null;
 }
 
-const VC_ACTIVITY_DISPLAY_TITLES: Record<EchoVcActivityKey, string> = {
-  youtube: 'YouTube',
-  wordle: 'Wordle',
-  hangman: 'Hangman',
-  openguessr: 'OpenGuessr',
-  skribbl_io: 'skribbl.io',
-  gartic_phone: 'Gartic Phone',
-  krunker: 'Krunker',
-  codenames: 'Echoed Names',
-  richup: 'Richup.io',
-  goober_dash: 'Goober Dash',
-  smash_karts: 'Smash Karts',
-  basketball_stars_2026: 'Basketball Stars 2026',
-  cluster_rush: 'Cluster Rush',
-  tic_tac_toe: 'Tic-Tac-Toe',
-};
-
-export function formatVcActivityDisplayTitle(key: EchoVcActivityKey): string {
-  return VC_ACTIVITY_DISPLAY_TITLES[key];
+export function listUpcomingStageEvents(
+  events: readonly EchoWorkspaceEventSummary[],
+  channelId: string,
+  nowMs: number,
+): EchoWorkspaceEventSummary[] {
+  const cid = channelId.trim();
+  if (!cid) return [];
+  return events
+    .filter((ev) => {
+      if (ev.channelId?.trim() !== cid) return false;
+      const end = new Date(ev.endsAt).getTime();
+      return !Number.isNaN(end) && end > nowMs;
+    })
+    .sort(
+      (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+    );
 }
 
 export function formatStageEventCountdown(

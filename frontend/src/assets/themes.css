@@ -34,6 +34,28 @@
   /* Text on solid --accent fills (primary buttons, badges) */
   --accent-contrast-fg: #ffffff;
 
+  /* Paper channel — Echo blue workspace, professional charcoal page */
+  --paper-workspace-bg: var(--echo-chat-view-bg);
+  --paper-surface-bg: #1e1e24;
+  --paper-surface-fg: rgba(255, 255, 255, 0.94);
+  --paper-surface-muted: rgba(255, 255, 255, 0.58);
+  --paper-surface-border: rgba(255, 255, 255, 0.09);
+  --paper-surface-shadow:
+    0 4px 22px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --paper-prose-link: #818cf8;
+  --paper-table-border: rgba(255, 255, 255, 0.12);
+  --paper-table-header-bg: rgba(255, 255, 255, 0.06);
+  --paper-block-flash: rgba(99, 102, 241, 0.55);
+  --paper-format-bar-bg: color-mix(in srgb, var(--elevated) 88%, transparent);
+  --paper-comment-card-bg: var(--elevated);
+  --paper-comment-card-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --paper-selection-bg: color-mix(in srgb, var(--accent) 35%, transparent);
+  --paper-status-synced: #22c55e;
+  --paper-status-pending: #f59e0b;
+  --paper-status-offline: rgba(255, 255, 255, 0.35);
+  --paper-status-error: #ef4444;
+  --paper-pin-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+
   /* Presence ring behind status glyph (avatar corner) */
   --status-indicator-ring-bg: #110b19;
   /* Member list / profile role chips (see memberPopoutRoleChipStyle.ts) */
@@ -202,6 +224,7 @@
   --vc-slider-track: rgba(0, 0, 0, 0.45);
   --vc-slider-thumb-bg: #ffffff;
   --vc-slider-thumb-shadow: rgba(0, 0, 0, 0.35);
+  --media-player-accent: var(--vc-slider-fill);
   --vc-row-btn-hover: rgba(255, 255, 255, 0.12);
   --vc-ctrl-bg: rgba(255, 255, 255, 0.06);
   --vc-ctrl-bg-hover: rgba(255, 255, 255, 0.12);
@@ -1289,6 +1312,17 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
   --vc-ctrl-bg-active: rgba(255, 255, 255, 0.12);
   --vc-indicator-pill-bg: color-mix(in srgb, var(--elevated) 94%, transparent);
   --vc-indicator-badge-bg: rgba(37, 99, 235, 0.82);
+
+  /* Paper — soft professional dark (not ink-black) */
+  --paper-workspace-bg: #1a1522;
+  --paper-surface-bg: #16161c;
+  --paper-surface-fg: rgba(255, 255, 255, 0.93);
+  --paper-surface-muted: rgba(255, 255, 255, 0.56);
+  --paper-surface-border: rgba(255, 255, 255, 0.09);
+  --paper-surface-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --paper-comment-card-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  --paper-pin-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1305,6 +1339,27 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
   --border: rgba(15, 10, 25, 0.12);
   --accent: #4f46e5;
   --accent-contrast-fg: #ffffff;
+
+  --paper-workspace-bg: #eceef2;
+  --paper-surface-bg: #ffffff;
+  --paper-surface-fg: rgba(15, 23, 42, 0.94);
+  --paper-surface-muted: rgba(51, 65, 85, 0.72);
+  --paper-surface-border: rgba(15, 23, 42, 0.1);
+  --paper-surface-shadow:
+    0 4px 20px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.06);
+  --paper-prose-link: #4f46e5;
+  --paper-table-border: rgba(15, 23, 42, 0.12);
+  --paper-table-header-bg: rgba(15, 23, 42, 0.04);
+  --paper-block-flash: rgba(79, 70, 229, 0.45);
+  --paper-format-bar-bg: color-mix(in srgb, var(--elevated) 94%, transparent);
+  --paper-comment-card-bg: var(--elevated);
+  --paper-comment-card-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --paper-selection-bg: color-mix(in srgb, var(--accent) 28%, transparent);
+  --paper-status-synced: #16a34a;
+  --paper-status-pending: #d97706;
+  --paper-status-offline: rgba(51, 65, 85, 0.45);
+  --paper-status-error: #dc2626;
+  --paper-pin-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
 
   --echo-server-rail-bg: color-mix(in srgb, var(--surface) 42%, var(--bg) 58%);
   --echo-channel-panel-bg: color-mix(
@@ -2781,6 +2836,18 @@ html[data-theme='light'][data-echo-light-variant='sunny'] {
   --vc-meter-track-bg: rgba(120, 80, 30, 0.14);
   --vc-strike-red: rgb(185 28 28);
   --vc-server-mute-fg: rgb(220 38 38);
+
+  /* Paper — warm cream workspace */
+  --paper-workspace-bg: var(--bg);
+  --paper-surface-bg: var(--elevated);
+  --paper-surface-fg: rgba(48, 28, 8, 0.92);
+  --paper-surface-muted: rgba(90, 62, 38, 0.65);
+  --paper-surface-border: rgba(120, 80, 30, 0.12);
+  --paper-surface-shadow:
+    0 4px 18px rgba(120, 80, 30, 0.1), 0 0 0 1px rgba(120, 80, 30, 0.08);
+  --paper-prose-link: #b45309;
+  --paper-comment-card-shadow: 0 8px 22px rgba(120, 80, 30, 0.14);
+  --paper-pin-shadow: 0 2px 8px rgba(120, 80, 30, 0.18);
 }
 
 /* ------------------------------------------------------------------ */

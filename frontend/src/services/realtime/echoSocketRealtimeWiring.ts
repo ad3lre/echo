@@ -33,6 +33,8 @@ export type EchoSocketDomainWiring = {
 
 export type EchoSocketRealtimeWiringDeps = {
   activeChannelId: Ref<string>;
+  /** Runs when the tab/network resumes while Socket.IO is already connected. */
+  onTabResumeWhileConnected?: () => void;
   createDomain: (
     transport: EchoSocketTransportSurface,
   ) => EchoSocketDomainWiring;
@@ -85,6 +87,7 @@ export function createEchoSocketRealtimeWiring(
     getInboundListeners: () => domain.inboundListeners,
     tryEmitRealtime,
     activeChannelId: deps.activeChannelId,
+    onTabResumeWhileConnected: deps.onTabResumeWhileConnected,
     onBeforeTeardown: domain.onBeforeTeardown,
     onAfterConnected: domain.onAfterConnected,
     onAfterDisconnect: domain.onAfterDisconnect,

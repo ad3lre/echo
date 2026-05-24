@@ -9,6 +9,7 @@ import AppLayoutVoiceSection from '@/features/layout/components/AppLayoutVoiceSe
 import GuildVoiceFloatingSpeakerPill from '@/features/layout/components/GuildVoiceFloatingSpeakerPill.vue';
 import GuildVoiceStreamPip from '@/features/layout/components/GuildVoiceStreamPip.vue';
 import AppLayoutForumSection from '@/features/layout/components/AppLayoutForumSection.vue';
+import AppLayoutPaperSection from '@/features/layout/components/AppLayoutPaperSection.vue';
 import AppLayoutDmSection from '@/features/layout/components/AppLayoutDmSection.vue';
 import AppLayoutDmSidePanel from '@/features/layout/components/AppLayoutDmSidePanel.vue';
 import { APP_LAYOUT_SEARCH_PANEL_KEY } from '@/features/layout/chatSurfaceContext';
@@ -349,10 +350,14 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         @dblclick="chatCtx.resetMemberWidth"
       />
       <AppLayoutChatHeader
+        v-if="chatCtx.mainSurface.type !== 'serverPaper'"
         :chat-header-model="chatCtx.chatHeaderAdapter?.model?.value"
         :chat-header-intents="chatCtx.chatHeaderAdapter?.intents"
         :main-surface="chatCtx.mainSurface"
         :effective-active-channel="chatCtx.effectiveActiveChannel"
+        :can-manage-stage-channel="
+          !!chatCtx.liveChannelCapabilities?.canManageChannel
+        "
         :is-viewing-voice-channel="chatCtx.isViewingVoiceChannel"
         :isInDMMode="chatCtx.isInDMMode"
         :isInDMChat="chatCtx.isInDMChat"
@@ -460,7 +465,11 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
           chatCtx.mainSurface.type === 'serverVoice'
         "
         :is-viewing-voice-channel="chatCtx.isViewingVoiceChannel"
+        :current-voice-channel-id="chatCtx.currentVoiceChannelId"
         :effective-active-channel="chatCtx.effectiveActiveChannel"
+        :can-manage-stage-channel="
+          !!chatCtx.liveChannelCapabilities?.canManageChannel
+        "
         :get-channel-display-name="chatCtx.getChannelDisplayName"
         :active-voice-channel-participants="
           chatCtx.activeVoiceChannelParticipants
@@ -595,6 +604,13 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :focus-guild-voice-channel-in-sidebar="
           chatCtx.focusGuildVoiceChannelInSidebar
         "
+      />
+      <AppLayoutPaperSection
+        v-else-if="chatCtx.mainSurface.type === 'serverPaper'"
+        :main-surface="chatCtx.mainSurface"
+        :selected-server-id="chatCtx.selectedServerId"
+        :users="chatCtx.users"
+        :effective-active-channel="chatCtx.effectiveActiveChannel"
       />
       <AppLayoutForumSection
         v-else-if="chatCtx.mainSurface.type === 'serverForum'"

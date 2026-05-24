@@ -13,6 +13,7 @@ import type {
   ProfileSurfaceAdapter,
 } from '@/features/layout/regionAdapters';
 import type { ChannelCategory } from '@/composables/useChannels';
+import type { EchoChannelCapabilitiesDto } from '@/api/echo/types';
 import type { ComputedRef, ShallowRef } from 'vue';
 import type {
   VcActivityUiState,
@@ -65,6 +66,7 @@ export type AppLayoutChatSurfaceProps = {
   startMemberResize: (e: MouseEvent) => void;
   resetMemberWidth: () => void;
   effectiveActiveChannel: ChannelSummary | null;
+  liveChannelCapabilities?: EchoChannelCapabilitiesDto | null;
   isInDMChat: boolean;
   activeDmThreadCallUi: ActiveDmThreadCallUi | null;
   /** Kept for DM section/body flow; header ownership now uses `activeDmThreadCallUi`. */
@@ -378,6 +380,14 @@ export type AppLayoutChatSurfaceProps = {
   }) => void | Promise<void>;
   /** MANAGE_CHANNELS (or equivalent) on the parent forum channel — lock/archive forum posts. */
   canManageForumPosts: boolean;
+  openChannelSettings?: (payload: {
+    channel: ChannelSummary;
+    categoryId: string;
+  }) => void;
+  findChannelContextById?: (channelId: string) => {
+    channel: ChannelSummary;
+    categoryId: string;
+  } | null;
 };
 
 /** Keys merged in `AppLayoutChatSurface` inject-or-props `chatCtx` (search UI still prefers `APP_LAYOUT_SEARCH_PANEL_KEY`). */
@@ -401,6 +411,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'startMemberResize',
   'resetMemberWidth',
   'effectiveActiveChannel',
+  'liveChannelCapabilities',
   'isInDMChat',
   'activeDmThreadCallUi',
   'dmCallMatchesActiveChannel',
@@ -649,4 +660,6 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'createForumPost',
   'patchForumPost',
   'canManageForumPosts',
+  'openChannelSettings',
+  'findChannelContextById',
 ] as const satisfies ReadonlyArray<keyof AppLayoutChatSurfaceProps>;

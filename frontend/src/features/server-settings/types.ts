@@ -65,6 +65,7 @@ export type RolePermissionKey =
   | 'manageMessages'
   | 'readMessageHistory'
   | 'createPolls'
+  | 'commentOnPaper'
   | 'connectToVoice'
   | 'video'
   | 'muteDeafenMembers'
@@ -114,6 +115,7 @@ export const ROLE_PERMISSION_DEFS: Array<{
     | 'Profile'
     | 'Moderation'
     | 'Text'
+    | 'Paper'
     | 'Voice'
     | 'Advanced';
 }> = [
@@ -148,6 +150,11 @@ export const ROLE_PERMISSION_DEFS: Array<{
   { key: 'manageMessages', label: 'Manage Messages', group: 'Text' },
   { key: 'readMessageHistory', label: 'Read Message History', group: 'Text' },
   { key: 'createPolls', label: 'Create Polls', group: 'Text' },
+  {
+    key: 'commentOnPaper',
+    label: 'Comment on paper',
+    group: 'Paper',
+  },
   { key: 'connectToVoice', label: 'Connect to Voice', group: 'Voice' },
   { key: 'video', label: 'Video', group: 'Voice' },
   { key: 'muteDeafenMembers', label: 'Mute & Deafen Members', group: 'Voice' },
@@ -172,6 +179,7 @@ export const ECHO_SERVER_SETTINGS_ROLE_PERMISSION_KEYS: RolePermissionKey[] = [
   'assignRoles',
   'createInvite',
   'sendMessages',
+  'commentOnPaper',
   'mentionEveryone',
   'manageMessages',
   'manageServer',
@@ -196,6 +204,7 @@ export const ROLE_PERMISSION_GROUPS: Array<
   | 'Profile'
   | 'Moderation'
   | 'Text'
+  | 'Paper'
   | 'Voice'
   | 'Advanced'
 > = [
@@ -205,6 +214,7 @@ export const ROLE_PERMISSION_GROUPS: Array<
   'Profile',
   'Moderation',
   'Text',
+  'Paper',
   'Voice',
   'Advanced',
 ];

@@ -39,7 +39,6 @@ describe('useDmAttentionUnreadMapForPanelComputed', () => {
       readStateByChannelId: ref({ c1: '11' }),
       selfUserId: ref('me'),
     });
-    expect(c.value.has('c1')).toBe(true);
-    expect(c.value.get('c1')).toBe(0);
+    expect(c.value.has('c1')).toBe(false);
   });
 });

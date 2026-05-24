@@ -1,4 +1,5 @@
 import type { MentionEntity, MentionKind } from '@shared/types';
+import { messageRepliesToUser } from '@shared/attentionPing';
 import type { RawMessage } from '@/services/realtime/chatMessageTypes';
 
 export type DmMentionNotificationRow = {
@@ -20,6 +21,9 @@ function mentionPingsSelf(m: MentionEntity, selfId: string): boolean {
 }
 
 function messagePingsSelf(msg: RawMessage, selfId: string): boolean {
+  if (messageRepliesToUser(msg.replyTo, msg.replyTo?.authorId, selfId)) {
+    return true;
+  }
   const list = msg.mentions;
   if (!list?.length) return false;
   return list.some((x) => mentionPingsSelf(x, selfId));
@@ -62,6 +66,12 @@ export function collectDmMentionNotifications(input: {
         .filter((m) => mentionPingsSelf(m, selfId))
         .map((m) => m.kind);
       const uniqKinds = [...new Set(kinds)];
+      if (
+        uniqKinds.length === 0 &&
+        messageRepliesToUser(msg.replyTo, msg.replyTo?.authorId, selfId)
+      ) {
+        uniqKinds.push('user');
+      }
 
       rows.push({
         key: dedupe,

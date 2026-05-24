@@ -129,6 +129,16 @@ async function loadGuilds() {
   }
 }
 
+function applyBridgeState(s: Awaited<ReturnType<typeof getEchoDiscordBridge>>) {
+  selectedGuildId.value = (s.discordGuildId ?? '').trim();
+  selectedChannelId.value = (s.discordChannelId ?? '').trim();
+  inboundEnabled.value = s.inboundEnabled === true;
+  outboundEnabled.value = s.outboundEnabled === true;
+  hasWebhook.value = s.hasWebhook === true;
+  webhookOverride.value = '';
+  clearWebhook.value = false;
+}
+
 async function loadChannels(guildId: string) {
   if (!canUse.value || !guildId.trim()) {
     channels.value = [];
@@ -161,31 +171,22 @@ async function load() {
   syncingFromBridgeLoad.value = true;
   error.value = '';
   try {
-    const s = await getEchoDiscordBridge(
+    const bridgePromise = getEchoDiscordBridge(
       token,
       props.serverId,
       props.channelId,
     );
-    selectedGuildId.value = (s.discordGuildId ?? '').trim();
-    selectedChannelId.value = (s.discordChannelId ?? '').trim();
-    inboundEnabled.value = s.inboundEnabled === true;
-    outboundEnabled.value = s.outboundEnabled === true;
-    hasWebhook.value = s.hasWebhook === true;
-    webhookOverride.value = '';
-    clearWebhook.value = false;
+    const guildsPromise = loadGuilds();
+    const bridgeState = await bridgePromise;
+    applyBridgeState(bridgeState);
 
-    await loadGuilds();
+    let channelsPromise: Promise<void> | undefined;
     if (selectedGuildId.value) {
-      await loadChannels(selectedGuildId.value);
-      const stillValid =
-        selectedChannelId.value &&
-        channels.value.some((c) => c.id === selectedChannelId.value);
-      if (!stillValid && selectedChannelId.value) {
-        /* Bridge pointed at a channel not returned (e.g. thread); keep id for save. */
-      }
+      channelsPromise = loadChannels(selectedGuildId.value);
     } else {
       channels.value = [];
     }
+    await Promise.all([guildsPromise, channelsPromise ?? Promise.resolve()]);
   } catch (e) {
     error.value =
       e instanceof Error ? e.message : 'Could not load Discord sync settings.';
@@ -223,18 +224,23 @@ async function save() {
     const guild = selectedGuildId.value.trim();
     const chan = selectedChannelId.value.trim();
     const override = webhookOverride.value.trim();
-    await putEchoDiscordBridge(token, props.serverId, props.channelId, {
-      inboundEnabled: inboundEnabled.value,
-      outboundEnabled: outboundEnabled.value,
-      ...(guild ? { discordGuildId: guild } : {}),
-      ...(chan ? { discordChannelId: chan } : {}),
-      ...(clearWebhook.value
-        ? { discordWebhookUrl: null }
-        : override
-          ? { discordWebhookUrl: override }
-          : {}),
-    });
-    await load();
+    const saved = await putEchoDiscordBridge(
+      token,
+      props.serverId,
+      props.channelId,
+      {
+        inboundEnabled: inboundEnabled.value,
+        outboundEnabled: outboundEnabled.value,
+        ...(guild ? { discordGuildId: guild } : {}),
+        ...(chan ? { discordChannelId: chan } : {}),
+        ...(clearWebhook.value
+          ? { discordWebhookUrl: null }
+          : override
+            ? { discordWebhookUrl: override }
+            : {}),
+      },
+    );
+    applyBridgeState(saved);
   } catch (e) {
     error.value =
       e instanceof Error ? e.message : 'Could not save Discord sync settings.';
@@ -326,7 +332,7 @@ async function save() {
             label="Discord server"
             surface="server"
             teleport-menu
-            :disabled="loading || saving || guildsLoading || !guildsMeta.linked"
+            :disabled="saving || guildsLoading || !guildsMeta.linked"
           />
           <p class="mt-1 text-[11px] text-fg-subtle">
             Servers where you can manage and where the Echo bot is installed.
@@ -340,9 +346,7 @@ async function save() {
             label="Discord channel"
             surface="server"
             teleport-menu
-            :disabled="
-              loading || saving || channelsLoading || !selectedGuildId.trim()
-            "
+            :disabled="saving || channelsLoading || !selectedGuildId.trim()"
           />
           <p class="mt-1 text-[11px] text-fg-subtle">
             Text, announcement, and forum channels only.
@@ -357,7 +361,7 @@ async function save() {
               v-model="inboundEnabled"
               type="checkbox"
               class="rounded border-border"
-              :disabled="loading || saving"
+              :disabled="saving"
             />
             Discord → Echo (live)
           </label>
@@ -368,7 +372,7 @@ async function save() {
               v-model="outboundEnabled"
               type="checkbox"
               class="rounded border-border"
-              :disabled="loading || saving"
+              :disabled="saving"
             />
             Echo → Discord
           </label>
@@ -390,14 +394,14 @@ async function save() {
             class="server-input mt-2 w-full max-w-2xl"
             placeholder="https://discord.com/api/webhooks/…"
             autocomplete="off"
-            :disabled="loading || saving || clearWebhook"
+            :disabled="saving || clearWebhook"
           />
           <div class="mt-2 flex items-center gap-2 text-sm text-fg-soft">
             <input
               v-model="clearWebhook"
               type="checkbox"
               class="rounded border-border"
-              :disabled="loading || saving || !hasWebhook"
+              :disabled="saving || !hasWebhook"
             />
             Clear stored webhook (next save regenerates if Echo → Discord stays
             on)
@@ -407,13 +411,25 @@ async function save() {
         <div v-if="error" class="text-sm echo-destructive-text">
           {{ error }}
         </div>
-        <div v-if="loading || guildsLoading" class="text-sm text-fg-subtle">
-          Loading…
+        <div v-if="loading" class="text-sm text-fg-subtle">
+          Loading sync settings…
+        </div>
+        <div
+          v-else-if="guildsLoading && !guilds.length"
+          class="text-sm text-fg-subtle"
+        >
+          Loading Discord servers…
+        </div>
+        <div
+          v-else-if="channelsLoading && selectedGuildId.trim()"
+          class="text-sm text-fg-subtle"
+        >
+          Loading Discord channels…
         </div>
         <button
           type="button"
           class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
-          :disabled="loading || saving || guildsLoading || channelsLoading"
+          :disabled="loading || saving"
           @click="save"
         >
           {{ saving ? 'Saving…' : 'Save sync' }}

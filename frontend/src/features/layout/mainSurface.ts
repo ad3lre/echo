@@ -17,9 +17,10 @@ export type DeriveContext = {
   /** Full-width empty server onboarding (from workspace + channel list heuristics). */
   isServerEmptyOnboarding: boolean;
   /** Server-scoped channel only; returns null for unknown / DM ids. */
-  getServerChannelInfo: (
-    channelId: string,
-  ) => { type: 'text' | 'voice' | 'forum'; parentChannelId?: string } | null;
+  getServerChannelInfo: (channelId: string) => {
+    type: 'text' | 'voice' | 'forum' | 'paper';
+    parentChannelId?: string;
+  } | null;
   /** Persisted Echo 1:1 DM (snowflake channel id), not the legacy `dm-{userId}` shell id. */
   isPersistedEchoDmThread?: (channelId: string) => boolean;
   /**
@@ -40,6 +41,7 @@ export type MainSurface =
   | { type: 'serverText'; channelId: string }
   | { type: 'serverVoice'; channelId: string }
   | { type: 'serverForum'; forumChannelId: string; postChannelId?: string }
+  | { type: 'serverPaper'; channelId: string }
   | { type: 'serverEmptyOnboarding' }
   | { type: 'unknown'; reason: string; channelId: string };
 
@@ -95,6 +97,9 @@ export function deriveMainSurface(
   if (info?.type === 'forum') {
     return { type: 'serverForum', forumChannelId: nav.activeChannelId };
   }
+  if (info?.type === 'paper') {
+    return { type: 'serverPaper', channelId: nav.activeChannelId };
+  }
   if (info?.type === 'text') {
     if (info.parentChannelId) {
       return {
@@ -118,13 +123,18 @@ export function deriveMainSurface(
   };
 }
 
-/** Guild channel header / chrome (text or voice thread), not explore/DM/onboarding. */
+/** Guild channel header / chrome (text, voice, forum), not paper or explore/DM. */
 export function deriveHasGuildChannelChrome(surface: MainSurface): boolean {
   return (
     surface.type === 'serverText' ||
     surface.type === 'serverVoice' ||
     surface.type === 'serverForum'
   );
+}
+
+/** Paper channel uses document-native chrome instead of chat header. */
+export function deriveHasPaperDocumentChrome(surface: MainSurface): boolean {
+  return surface.type === 'serverPaper';
 }
 
 /** Dev-only exhaustiveness helper for switch (mainSurface.type). */

@@ -23,6 +23,11 @@ import { sanitizePollForStorage } from '../sockets/messageValidation';
 import { maybeEnqueueDiscordImportMediaMirror } from './discordImportMediaMirrorQueue';
 import { resolveDiscordSyncedContentMentions } from './translateDiscordSyncedMentions';
 import { filterMentionsForChannelContext } from '../domain/echoStore/mentionContext';
+import { tryInsertBridgeIngested } from '../domain/discordBridgeRepo';
+import {
+  buildEchoReplyToSnapshot,
+  parseDiscordMessageReference,
+} from './discordReplySnapshot';
 
 export type DiscordImportMessagesOptions = {
   limit?: number;
@@ -371,6 +376,16 @@ export async function runDiscordMessageImport(
       m.forwardedFrom,
       state.channelIdMap,
     );
+    const messageRef = parseDiscordMessageReference(m.messageReference);
+    const replyTo =
+      messageRef?.messageId != null
+        ? await buildEchoReplyToSnapshot(
+            pool,
+            echoChannelId,
+            messageRef.messageId,
+            messageRef.channelId ?? discordChannelId,
+          )
+        : undefined;
 
     const rawContent = typeof m.content === 'string' ? m.content : '';
     const translated = await resolveDiscordSyncedContentMentions(
@@ -395,12 +410,15 @@ export async function runDiscordMessageImport(
       authorId: authorUserId,
       content: translated.content,
       ...(mentions?.length ? { mentions } : {}),
+      ...(replyTo ? { replyTo } : {}),
       ...(attachments ? { attachments } : {}),
       ...(stickers ? { stickers } : {}),
       ...(embeds ? { embeds } : {}),
       ...(poll ? { poll } : {}),
       ...(forwardedFrom ? { forwardedFrom } : {}),
     });
+
+    await tryInsertBridgeIngested(pool, discordChannelId, String(m.id));
 
     await maybeEnqueueDiscordImportMediaMirror(pool, {
       messageId: String(m.id),

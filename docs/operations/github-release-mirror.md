@@ -12,13 +12,15 @@
 
    Skip this step if `git remote get-url github` already works.
 
-2. **Use the repo’s `pre-push` hook** (mirrors only when the push target is not GitHub):
+2. **Use the repo’s `pre-push` hook** (CI precheck + mirror policy):
 
    ```bash
    ./scripts/setup-githooks.sh
    ```
 
    This sets `core.hooksPath` to `scripts/githooks` for this repository only.
+
+   On every push to a **non-GitHub** remote (e.g. GitLab `origin`), the hook runs **`npm run ci:precheck`** before the push proceeds (`format:check`, repo guards, frontend/backend builds, frontend unit tests, backend contract tests, frontend ESLint + stylelint). Pushes to `github.com` skip the precheck (mirror-only). Emergency bypass: `ECHO_SKIP_CI_PRECHECK=1 git push …`. Manual run: `npm run ci:precheck`.
 
 ## Behavior
 
@@ -122,7 +124,24 @@ Pipeline pushes must **not** set `release/1.0.0` to the same commit as `origin/m
 
 GitHub is a **public mirror** for `release/1.0.0` only. The branch **`main` must not exist** on GitHub: it duplicates GitLab’s long `main` history and is easy to push by mistake.
 
-1. **Delete it if it appears:** `git push github --delete main`
-2. **Default branch:** In GitHub → **Settings → General → Default branch**, set **`release/1.0.0`** (not `main`).
-3. **Block recreation (server-side):** In **Settings → Rules → Rulesets** (or classic branch protection), add a rule for branches matching **`main`** that **restricts creation** and **blocks pushes** for everyone (or only allow deletes via admin if GitHub supports that pattern). Rulesets are the reliable way to stop `main` from coming back without relying on local hooks.
-4. **Local hook:** `scripts/githooks/pre-push` refuses any push that would **create or update** `main` on a `github.com` remote. GitLab `release/1.0.0` pushes are not mirrored until the daily job (unless `ECHO_RELEASE_MIRROR_NOW=1`).
+### How leaks happen (avoid these)
+
+1. **`git push github main`** or **`git push github HEAD:main`** — blocked by `github-push-guard.sh` when hooks are installed.
+2. **`release/1.0.0` tracking `github`** — a plain `git push` on that branch skips GitLab and `publish-public-release`. Run `./scripts/setup-githooks.sh` to reset upstream to **`origin/release/1.0.0`**.
+3. **Fast-forwarding `release/1.0.0` to `origin/main`** — mirror and pre-push refuse when tips match (unless `ECHO_RELEASE_MIRROR_ALLOW_MAIN_TIP=1`).
+4. **`git push --no-verify`** — bypasses all local hooks; do not use for GitHub pushes.
+5. **GitHub default branch still `main`** — invites accidental pushes and confused clones.
+
+### Recovery and prevention
+
+1. **Delete `main` on GitHub if it appears:** `git push github --delete main`
+2. **Default branch:** GitHub → **Settings → General → Default branch** → **`release/1.0.0`** (not `main`).
+3. **Block recreation (server-side):** **Settings → Rules → Rulesets** — rule on branch **`main`**: block creation and pushes for everyone.
+4. **Local hooks (required):** `./scripts/setup-githooks.sh` — `pre-push` runs `github-push-guard.sh` before any push:
+   - Refuses **create/update `main` or `master`** on the `github` remote (by remote name or `github.com` URL).
+   - Refuses pushing **local `main`/`master`** to GitHub at all.
+   - Refuses **`release/1.0.0` → GitHub** when the tip equals **`origin/main`**.
+   - Refuses if **`main` or `release/1.0.0` track `github`** as upstream.
+5. **CI guard:** `node scripts/check-github-remote-policy.mjs` (in `npm run test:ci:guards`) ensures hook wiring is not removed.
+
+GitLab `release/1.0.0` pushes are not mirrored until the daily job (unless `ECHO_RELEASE_MIRROR_NOW=1`).

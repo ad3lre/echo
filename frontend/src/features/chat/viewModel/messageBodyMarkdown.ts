@@ -618,6 +618,15 @@ const SANITIZE_OPTS = {
 
 const MARKDOWN_SYNTAX =
   /(^|\n)(#{1,6}\s|>\s|[-*+]\s|\d+\.\s|```|~~~|\|.*\||\s*[-*_]{3,}\s*$)|(\*\*[^*\n]*\*\*|\*[^*\n]+\*|__[^_\n]*__|_[^_\n]+_|`[^`\n]+`|~~[^~\n]+~~|\[[^\]]+\]\([^)]+\)|!\[[^\]]*\]\([^)]+\)|==[^=\n]+==|\|\|[^|]+\|\|)|(\*\*|\*\s|\*\S|`|~~|==|\|\|)/m;
+
+/** Cheap gate before `MARKDOWN_SYNTAX` / math scans (composer toolbar, decorations). */
+const MARKDOWN_SYNTAX_HINT =
+  /[#>*`~=[\]|]|!\[|\\\(|\\\[|\$\$?|\*\*|__|~~|\|\||==|(^|\n)(#{1,6}\s|>\s|[-*+]\s|\d+\.\s|```|~~~)/m;
+
+export function mightHaveMarkdownSyntax(text: string | undefined): boolean {
+  if (!text?.trim()) return false;
+  return MARKDOWN_SYNTAX_HINT.test(text);
+}
 /** Footnote refs (`[^label]`) are handled by marked-footnote; do not bypass marked when present. */
 const FOOTNOTE_REF_SYNTAX = /\[\^[^\]\n]+\]/;
 
@@ -1303,5 +1312,8 @@ export const markdownMentionPassTestOnly = {
 
 export function hasMarkdownSyntax(text: string | undefined): boolean {
   if (!text?.trim()) return false;
+  if (!mightHaveMarkdownSyntax(text)) {
+    return hasMarkdownMathRegions(text);
+  }
   return MARKDOWN_SYNTAX.test(text) || hasMarkdownMathRegions(text);
 }

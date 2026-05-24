@@ -7,8 +7,11 @@ import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 /**
  * Echo domain tables (servers, channels, messages, social, minimal RBAC).
  * Applied when PostgreSQL is available (same pool as auth).
+ * Runs once per process; background jobs must not replay hundreds of DDL checks every tick.
  */
-export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
+let echoTablesEnsureInflight: Promise<void> | null = null;
+
+async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_servers (
       id TEXT PRIMARY KEY,
@@ -337,6 +340,42 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
     `CREATE INDEX IF NOT EXISTS echo_user_reports_target_idx ON echo_user_reports(target_id);`,
   );
   await pool.query(`
+    ALTER TABLE echo_user_reports ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'other';
+  `);
+  await pool.query(`
+    ALTER TABLE echo_user_reports ADD COLUMN IF NOT EXISTS message_id TEXT;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_user_reports ADD COLUMN IF NOT EXISTS channel_id TEXT;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_user_reports ADD COLUMN IF NOT EXISTS server_id TEXT;
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_message_reports (
+      id TEXT PRIMARY KEY,
+      reporter_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      message_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      server_id TEXT,
+      author_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      category TEXT NOT NULL DEFAULT 'other',
+      reason TEXT NOT NULL DEFAULT '',
+      content_snapshot TEXT NOT NULL DEFAULT '',
+      attachments_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS echo_message_reports_message_idx ON echo_message_reports(message_id);`,
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS echo_message_reports_author_idx ON echo_message_reports(author_id);`,
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS echo_message_reports_created_idx ON echo_message_reports(created_at DESC);`,
+  );
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_bug_reports (
       id TEXT PRIMARY KEY,
       reporter_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
@@ -349,6 +388,21 @@ export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
   `);
   await pool.query(
     `CREATE INDEX IF NOT EXISTS echo_bug_reports_reporter_idx ON echo_bug_reports(reporter_id);`,
+  );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_user_ringtones (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      label TEXT NOT NULL DEFAULT '',
+      storage_key TEXT NOT NULL,
+      public_url TEXT NOT NULL,
+      mime_type TEXT NOT NULL DEFAULT 'audio/mpeg',
+      size_bytes BIGINT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS echo_user_ringtones_user_idx ON echo_user_ringtones(user_id);`,
   );
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_presence (
@@ -1493,22 +1547,54 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS echo_video_optimize_queue (
+    DO $$ BEGIN
+      ALTER TABLE echo_video_optimize_queue RENAME TO echo_video_hls_queue;
+    EXCEPTION WHEN undefined_table THEN NULL;
+             WHEN duplicate_table THEN NULL; END $$
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_video_hls_queue (
       id BIGSERIAL PRIMARY KEY,
       storage_key TEXT NOT NULL UNIQUE,
       public_url TEXT NOT NULL,
       source_content_type TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending', 'processing', 'done', 'failed')),
+      attempts INT NOT NULL DEFAULT 0,
       last_error TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
   await pool.query(`
-    CREATE INDEX IF NOT EXISTS echo_video_optimize_pending
-    ON echo_video_optimize_queue (status, id)
+    DO $$ BEGIN
+      ALTER TABLE echo_video_hls_queue
+      ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0;
+    EXCEPTION WHEN duplicate_column THEN NULL; END $$
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_video_hls_pending
+    ON echo_video_hls_queue (status, id)
     WHERE status = 'pending';
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_video_playback (
+      source_storage_key TEXT PRIMARY KEY,
+      manifest_storage_key TEXT,
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'processing', 'ready', 'failed')),
+      source_size BIGINT NOT NULL DEFAULT 0,
+      source_etag TEXT,
+      renditions JSONB,
+      last_error TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_video_playback_status
+    ON echo_video_playback (status, updated_at DESC);
   `);
 
   await pool.query(`
@@ -1679,6 +1765,62 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
 
   await pool.query(`
     ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS discord_voice_mirror_only BOOLEAN NOT NULL DEFAULT false;
+  `);
+
+  await pool.query(`
+    ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS paper_comments_enabled BOOLEAN NOT NULL DEFAULT true;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS paper_show_author_gutter BOOLEAN NOT NULL DEFAULT true;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS paper_share_visibility TEXT NOT NULL DEFAULT 'server';
+  `);
+  await pool.query(`
+    ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS paper_share_token TEXT NULL UNIQUE;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_channels DROP CONSTRAINT IF EXISTS echo_channels_paper_share_visibility_check;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_channels ADD CONSTRAINT echo_channels_paper_share_visibility_check
+      CHECK (paper_share_visibility IN ('server', 'private', 'global'));
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_paper_documents (
+      channel_id TEXT PRIMARY KEY REFERENCES echo_channels(id) ON DELETE CASCADE,
+      content_json JSONB NOT NULL,
+      content_schema_version INT NOT NULL DEFAULT 1,
+      revision BIGINT NOT NULL DEFAULT 1,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by_user_id TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL
+    );
+  `);
+  await pool.query(`
+    ALTER TABLE echo_paper_documents DROP COLUMN IF EXISTS yjs_state;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_paper_comments (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
+      anchor_block_id TEXT NOT NULL,
+      anchor_from INT NULL,
+      anchor_to INT NULL,
+      anchor_quote TEXT NOT NULL DEFAULT '',
+      author_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      parent_comment_id TEXT NULL REFERENCES echo_paper_comments(id) ON DELETE CASCADE,
+      resolved_at TIMESTAMPTZ NULL,
+      resolved_by_user_id TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_paper_comments_channel_anchor_idx
+    ON echo_paper_comments (channel_id, anchor_block_id);
   `);
 
   await pool.query(`
@@ -1953,4 +2095,14 @@ async function migrateEchoChannelCategoryNullable(
       WHEN duplicate_object THEN NULL;
     END $$
   `);
+}
+
+export async function ensureEchoTables(pool: pg.Pool): Promise<void> {
+  if (!echoTablesEnsureInflight) {
+    echoTablesEnsureInflight = runEnsureEchoTables(pool).catch((err) => {
+      echoTablesEnsureInflight = null;
+      throw err;
+    });
+  }
+  await echoTablesEnsureInflight;
 }

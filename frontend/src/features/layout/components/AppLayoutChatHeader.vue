@@ -604,7 +604,9 @@ function isForumPostChannelOption(ch: any): boolean {
 
 const searchFilterChannels = computed(() => {
   const p = props as { allChannels?: any[] };
-  return (p.allChannels ?? []).filter((ch) => !isForumPostChannelOption(ch));
+  return (p.allChannels ?? []).filter(
+    (ch) => !isForumPostChannelOption(ch) && ch?.type !== 'paper',
+  );
 });
 
 function isActiveGroupMemberSpeaking(memberId: string): boolean {

@@ -183,14 +183,6 @@ async function run(): Promise<void> {
     { ECHO_GUEST_BINDING_SECRET: 'short' },
     'short guest binding secret',
   );
-  assertProdGateFails(
-    {
-      founder_name: 'founder',
-      founder_pass: 'correct horse battery staple',
-      ECHO_FOUNDER_SESSION_SECRET: 'short',
-    },
-    'short founder session secret',
-  );
 
   {
     const restore = setEnv({

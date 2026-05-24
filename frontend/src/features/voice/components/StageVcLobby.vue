@@ -3,52 +3,62 @@ import { computed } from 'vue';
 import { withBasePath } from '@/features/layout/urlNavigation';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import StageYoutubeGoLiveControls from '@/features/voice/components/StageYoutubeGoLiveControls.vue';
 import {
   formatStageEventCountdown,
-  formatVcActivityDisplayTitle,
-  parsePlannedActivityKeyFromDescription,
+  formatStageModeLabel,
+  listUpcomingStageEvents,
+  parseStageModeFromDescription,
 } from '@/features/voice/stage/stageLobbyUtils';
-import type { EchoVcActivityKey } from '@shared/vcActivityCatalog';
 
 const appBase = import.meta.env.BASE_URL || '/';
 
 const vcActivityArt = {
   youtube: withBasePath('/vc-activities/youtube-hero.svg', appBase),
-  stage: withBasePath('/vc-activities/echoed-names-hero.svg', appBase),
 } as const;
 
 const props = defineProps<{
   channelName: string;
+  stageChannelId: string;
+  echoServerId: string;
+  canManageStage: boolean;
   planningEvent: EchoWorkspaceEventSummary | null;
+  upcomingEvents: readonly EchoWorkspaceEventSummary[];
   nowMs: number;
 }>();
 
 const emit = defineEmits<{
-  startYoutube: [];
   startVoiceOnly: [];
-  startPlannedEvent: [
-    event: EchoWorkspaceEventSummary,
-    activityKey: EchoVcActivityKey | null,
-  ];
-  openActivityPicker: [];
+  startPlannedEvent: [event: EchoWorkspaceEventSummary];
+  scheduleEvent: [];
+  youtubeLiveStarted: [];
 }>();
 
-const plannedActivityKey = computed(() => {
+const plannedStageMode = computed(() => {
   const ev = props.planningEvent;
   if (!ev?.description) return null;
-  return parsePlannedActivityKeyFromDescription(ev.description);
+  return parseStageModeFromDescription(ev.description);
 });
 
-const plannedActivityLabel = computed(() => {
-  const key = plannedActivityKey.value;
-  if (!key) return '';
-  return formatVcActivityDisplayTitle(key);
+const plannedModeLabel = computed(() => {
+  const mode = plannedStageMode.value;
+  return mode ? formatStageModeLabel(mode) : '';
 });
 
 const eventCountdown = computed(() => {
   const ev = props.planningEvent;
   if (!ev) return '';
   return formatStageEventCountdown(ev, props.nowMs);
+});
+
+const otherUpcomingEvents = computed(() => {
+  const all = listUpcomingStageEvents(
+    props.upcomingEvents,
+    props.stageChannelId,
+    props.nowMs,
+  );
+  const planningId = props.planningEvent?.id;
+  return planningId ? all.filter((ev) => ev.id !== planningId) : all;
 });
 </script>
 
@@ -69,8 +79,8 @@ const eventCountdown = computed(() => {
           {{ channelName }}
         </h1>
         <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
-          Plan what happens next — pick an activity, start voice-only, or join a
-          scheduled event before you go live.
+          Start a scheduled event, go live on YouTube, or enter the stage with
+          voice only.
         </p>
       </header>
 
@@ -102,10 +112,10 @@ const eventCountdown = computed(() => {
               {{ eventCountdown }} · {{ planningEvent.goingCount }}
               {{ planningEvent.goingCount === 1 ? 'person' : 'people' }} going
             </p>
-            <p v-if="plannedActivityLabel" class="mt-2 text-xs text-fg-soft">
-              Includes activity:
+            <p v-if="plannedModeLabel" class="mt-2 text-xs text-fg-soft">
+              Planned format:
               <span class="font-semibold text-foreground">{{
-                plannedActivityLabel
+                plannedModeLabel
               }}</span>
             </p>
           </div>
@@ -113,24 +123,18 @@ const eventCountdown = computed(() => {
         <button
           type="button"
           class="mt-5 w-full rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white shadow-md shadow-indigo-900/40 hover:bg-indigo-400 sm:w-auto"
-          @click="emit('startPlannedEvent', planningEvent, plannedActivityKey)"
+          @click="emit('startPlannedEvent', planningEvent)"
         >
-          Start {{ planningEvent.title }}
+          Start event
         </button>
       </section>
 
-      <div
-        class="stage-vc-lobby__grid grid gap-3 sm:grid-cols-2"
-        :class="planningEvent ? 'sm:grid-cols-2' : ''"
+      <section
+        class="stage-vc-lobby__youtube mb-6 overflow-hidden rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-950/40 via-[#12101a] to-[#0b0a10] p-5 sm:p-6"
       >
-        <button
-          type="button"
-          class="stage-vc-lobby__plain-card stage-vc-lobby__youtube-card group flex flex-col rounded-2xl border border-border bg-glass-1 p-5 text-left transition hover:border-red-500/35 hover:bg-glass-hover sm:col-span-2"
-          aria-label="Start YouTube watch together"
-          @click="emit('startYoutube')"
-        >
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start">
           <div
-            class="mb-4 h-28 w-full overflow-hidden rounded-xl border border-border/60 sm:h-32"
+            class="h-20 w-full shrink-0 overflow-hidden rounded-xl border border-border/60 sm:h-24 sm:w-36"
           >
             <img
               :src="vcActivityArt.youtube"
@@ -139,19 +143,64 @@ const eventCountdown = computed(() => {
               loading="lazy"
             />
           </div>
-          <h3 class="text-base font-bold text-foreground">YouTube activity</h3>
+          <div class="min-w-0 flex-1">
+            <h3 class="text-base font-bold text-foreground">
+              Go live on YouTube
+            </h3>
+            <p class="mt-1 text-sm leading-relaxed text-muted">
+              Stream the stage program feed to YouTube Live. Connect YouTube in
+              Settings before you start.
+            </p>
+          </div>
+        </div>
+        <StageYoutubeGoLiveControls
+          :echo-server-id="echoServerId"
+          :stage-channel-id="stageChannelId"
+          :can-manage="canManageStage"
+          compact
+          @live-started="emit('youtubeLiveStarted')"
+        />
+      </section>
+
+      <div class="stage-vc-lobby__grid grid gap-3 sm:grid-cols-2">
+        <button
+          v-if="canManageStage"
+          type="button"
+          class="stage-vc-lobby__plain-card group flex flex-col rounded-2xl border border-border bg-glass-1 p-5 text-left transition hover:border-indigo-500/35 hover:bg-glass-hover"
+          @click="emit('scheduleEvent')"
+        >
+          <div
+            class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-200"
+            aria-hidden="true"
+          >
+            <svg
+              class="h-6 w-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+          <h3 class="text-base font-bold text-foreground">Schedule event</h3>
           <p class="mt-1.5 flex-1 text-sm leading-relaxed text-muted">
-            Shared queue with sync — great for stages before you stream out.
+            Create a scheduled stage event with RSVPs for this channel.
           </p>
           <span
             class="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle group-hover:text-foreground"
-            >Start watch together</span
+            >New event</span
           >
         </button>
 
         <button
           type="button"
           class="stage-vc-lobby__plain-card group flex flex-col rounded-2xl border border-border bg-glass-1 p-5 text-left transition hover:border-amber-500/35 hover:bg-glass-hover"
+          :class="canManageStage ? '' : 'sm:col-span-2'"
           @click="emit('startVoiceOnly')"
         >
           <div
@@ -172,38 +221,40 @@ const eventCountdown = computed(() => {
               />
             </svg>
           </div>
-          <h3 class="text-base font-bold text-foreground">Voice only</h3>
+          <h3 class="text-base font-bold text-foreground">Enter stage</h3>
           <p class="mt-1.5 flex-1 text-sm leading-relaxed text-muted">
-            Open the stage with speakers and audience — no activity panel.
+            Open the stage with speakers and audience — no stream or event
+            setup.
           </p>
           <span
             class="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle group-hover:text-foreground"
-            >Enter stage</span
-          >
-        </button>
-
-        <button
-          type="button"
-          class="stage-vc-lobby__plain-card group flex flex-col rounded-2xl border border-border bg-glass-1 p-5 text-left transition hover:border-accent/40 hover:bg-glass-hover"
-          @click="emit('openActivityPicker')"
-        >
-          <div
-            class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent/15"
-            aria-hidden="true"
-          >
-            <img :src="vcActivityArt.stage" alt="" class="h-7 w-7 opacity-90" />
-          </div>
-          <h3 class="text-base font-bold text-foreground">More activities</h3>
-          <p class="mt-1.5 flex-1 text-sm leading-relaxed text-muted">
-            Wordle, games, and the full activity library — same as voice
-            channels.
-          </p>
-          <span
-            class="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle group-hover:text-foreground"
-            >Browse library</span
+            >Voice only</span
           >
         </button>
       </div>
+
+      <section
+        v-if="otherUpcomingEvents.length > 0"
+        class="mt-6 rounded-2xl border border-border bg-glass-1 p-4 sm:p-5"
+      >
+        <h3 class="text-sm font-bold text-foreground">
+          Upcoming on this stage
+        </h3>
+        <ul class="mt-3 space-y-2">
+          <li
+            v-for="ev in otherUpcomingEvents.slice(0, 4)"
+            :key="ev.id"
+            class="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg/40 px-3 py-2 text-sm"
+          >
+            <span class="min-w-0 truncate font-medium text-foreground">{{
+              ev.title
+            }}</span>
+            <span class="shrink-0 text-xs text-muted">{{
+              formatStageEventCountdown(ev, nowMs)
+            }}</span>
+          </li>
+        </ul>
+      </section>
     </div>
   </div>
 </template>

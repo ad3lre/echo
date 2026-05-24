@@ -31,8 +31,6 @@ Exact paths (from [`csrf.ts`](../../backend/src/auth/csrf.ts)):
 | `/api/v1/auth/discord/login/start`    | OAuth start from login modal               |
 | `/api/v1/auth/google/login/start`     | OAuth start from login modal               |
 | `/api/v1/auth/desktop/redeem-handoff` | Desktop one-time code                      |
-| `/api/v1/founder/login`               | Founder HttpOnly cookie flow               |
-| `/api/v1/founder/logout`              | Founder cookie clear                       |
 | `/api/v1/echo/support/contact`        | Public support form (honeypot + scoped RL) |
 | `/api/v1/hooks/livekit`               | Webhook secret (not browser CSRF)          |
 | `/api/v1/dev/diagnostics/ingest`      | Dev diagnostics                            |
@@ -67,7 +65,6 @@ All other **`/api/v1` mutating** routes require matching `X-CSRF-Token` and `ech
 | `livekitWebhook`                                                                             | POST `/hooks/livekit`                      | webhook auth                        | **exempt**                                                        | yes                                                          | —                                                          |
 | `analytics`                                                                                  | POST `/analytics/events`                   | none (optional JWT for attribution) | non-exempt (body-only; browser should still send CSRF if cookies) | yes                                                          | **120/min** `analytics:uid:*` or `analytics:ip:*` (plugin) |
 | `devDiagnostics`                                                                             | POST `/dev/diagnostics/ingest`             | dev-only gates in handler           | **exempt** exact in csrf                                          | yes                                                          | —                                                          |
-| `founder`                                                                                    | `/founder/*`                               | founder cookie / login              | login/logout exempt                                               | yes                                                          | —                                                          |
 | `agentNetworkDiagnostics`                                                                    | `/agent/*`                                 | Bearer + env                        | non-exempt                                                        | yes                                                          | —                                                          |
 | `echo` (see below)                                                                           | `/echo/*`                                  | **secured subtree: session**        | non-exempt for mutations                                          | Echo GETs allow-listed; **500/min** on subtree for non-reads | per-route (e.g. uploads, support)                          |
 
@@ -89,7 +86,6 @@ Guest write guard and other hooks apply inside this subtree per feature modules.
 
 ## Client / SPA notes
 
-- **Founder API** types and URLs live in [`frontend/src/api/founderClient.ts`](../../frontend/src/api/founderClient.ts), which is only imported from lazily loaded [`frontend/src/views/FounderDashboardView.vue`](../../frontend/src/views/FounderDashboardView.vue) (see [`frontend/src/App.vue`](../../frontend/src/App.vue)).
 - **Vite production** builds set `sourcemap: false` explicitly; CI fails if `frontend/dist/**/*.map` appears ([`.github/workflows/echo-frontend-ci.yml`](../../.github/workflows/echo-frontend-ci.yml)).
 
 ---

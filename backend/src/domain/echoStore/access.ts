@@ -248,7 +248,9 @@ export type EchoPostMessageDenialReason =
   /** DM realm: no friendship / mutual server / eligible message-request access. */
   | 'dm_not_allowed'
   /** DM realm: not a member of this group DM. */
-  | 'group_dm_not_member';
+  | 'group_dm_not_member'
+  /** Paper channels do not accept chat messages. */
+  | 'paper_channel';
 
 export type EchoServerCapabilities = {
   canManageRoles: boolean;
@@ -290,6 +292,15 @@ export type EchoChannelCapabilities = {
   communicationTimeoutActive: boolean;
   communicationTimeoutUntil: string | null;
   communicationTimeoutUntilEpochMs: number | null;
+};
+
+export type EchoPaperCapabilities = {
+  canAuthorPaper: boolean;
+  canCommentOnPaper: boolean;
+  canManagePaperComments: boolean;
+  canDownloadPaper: boolean;
+  paperCommentsEnabled: boolean;
+  paperShowAuthorGutter: boolean;
 };
 
 export function messageContainsMassMention(
@@ -585,13 +596,16 @@ export async function diagnoseEchoPostMessageDenial(
     return { ok: false, reason: 'timeout' };
   if (!perms.has('SEND_MESSAGES')) return { ok: false, reason: 'no_send' };
   const ch = await pool.query(
-    `SELECT forum_post_locked, forum_post_archived_at
+    `SELECT type, forum_post_locked, forum_post_archived_at
      FROM echo_channels
      WHERE id = $1 AND server_id = $2
      LIMIT 1`,
     [channelId, sid],
   );
   const row = ch.rows[0];
+  if (String(row?.type ?? '') === 'paper') {
+    return { ok: false, reason: 'paper_channel' };
+  }
   if (row?.forum_post_locked === true) return { ok: false, reason: 'locked' };
   if (row?.forum_post_archived_at != null)
     return { ok: false, reason: 'archived' };
@@ -762,6 +776,47 @@ export async function getEchoChannelCapabilitiesForUser(
     communicationTimeoutActive: timeoutState.active,
     communicationTimeoutUntil: timeoutState.timeoutUntil,
     communicationTimeoutUntilEpochMs: timeoutState.timeoutUntilEpochMs,
+  };
+}
+
+export async function getPaperCapabilitiesForUser(
+  pool: pg.Pool,
+  channelId: string,
+  userId: string,
+): Promise<EchoPaperCapabilities> {
+  const base = await getEchoChannelCapabilitiesForUser(pool, channelId, userId);
+  const ch = await pool.query(
+    `SELECT paper_comments_enabled, paper_show_author_gutter
+     FROM echo_channels WHERE id = $1 LIMIT 1`,
+    [channelId],
+  );
+  const row = ch.rows[0];
+  const paperCommentsEnabled = row?.paper_comments_enabled !== false;
+  const paperShowAuthorGutter = row?.paper_show_author_gutter !== false;
+  const sid = await getEchoChannelServerId(pool, channelId);
+  let canCommentOnPaper = false;
+  let canManagePaperComments = false;
+  let canDownloadPaper = false;
+  if (sid && sid !== ECHO_DM_REALM_SERVER_ID && base.canViewChannel) {
+    const perms = await getEffectiveChannelPermissions(
+      pool,
+      sid,
+      userId,
+      channelId,
+    );
+    const timeoutAllows = !base.communicationTimeoutActive;
+    canCommentOnPaper =
+      timeoutAllows && paperCommentsEnabled && perms.has('COMMENT_ON_PAPER');
+    canManagePaperComments = perms.has('MANAGE_MESSAGES');
+    canDownloadPaper = perms.has('READ_MESSAGE_HISTORY');
+  }
+  return {
+    canAuthorPaper: base.canSendMessages,
+    canCommentOnPaper,
+    canManagePaperComments,
+    canDownloadPaper,
+    paperCommentsEnabled,
+    paperShowAuthorGutter,
   };
 }
 

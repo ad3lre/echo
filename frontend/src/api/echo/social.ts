@@ -200,15 +200,12 @@ export async function deleteEchoUnblockUser(
   );
 }
 
-export async function postEchoReportUser(
-  token: string,
-  body: { targetUserId: string; reason?: string },
-): Promise<void> {
-  await echoFetch<Record<string, unknown>>(token, '/reports/user', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-}
+export {
+  postEchoReportMessage,
+  postEchoReportUser,
+  type EchoReportMessageBody,
+  type EchoReportUserBody,
+} from './safetyReports';
 
 export async function fetchEchoFriends(
   token: string,

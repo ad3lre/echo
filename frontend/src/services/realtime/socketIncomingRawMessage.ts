@@ -19,6 +19,7 @@ export type SocketChatFieldsForRaw = {
   authorAvatar?: string;
   authorIsDiscordShadow?: boolean;
   authorDiscordUserId?: string;
+  bridgeFromDiscord?: boolean;
   content: string;
   contentText?: string;
   contentJson?: unknown;
@@ -64,6 +65,7 @@ export function rawMessageFromSocketChatFields(
     fields.authorDiscordUserId.trim()
       ? { authorDiscordUserId: fields.authorDiscordUserId.trim() }
       : {}),
+    ...(fields.bridgeFromDiscord === true ? { bridgeFromDiscord: true } : {}),
     timestamp: toStoredMessageTimestamp(fields.timestamp),
     content: isE2ee && !plain.trim() ? '[Encrypted message]' : plain,
     ...(fields.contentText !== undefined
@@ -101,6 +103,7 @@ export type EchoRealtimeIncomingChatPayload = {
   authorAvatar?: string;
   authorIsDiscordShadow?: boolean;
   authorDiscordUserId?: string;
+  bridgeFromDiscord?: boolean;
   content: string;
   contentText?: string;
   contentJson?: unknown;
@@ -132,6 +135,7 @@ export function rawMessageFromEchoRealtimeIncomingPayload(
     authorAvatar: payload.authorAvatar,
     authorIsDiscordShadow: payload.authorIsDiscordShadow,
     authorDiscordUserId: payload.authorDiscordUserId,
+    bridgeFromDiscord: payload.bridgeFromDiscord,
     content: payload.content,
     contentText: payload.contentText,
     contentJson: payload.contentJson,
@@ -162,6 +166,7 @@ export function rawMessageFromEchoAckMessage(m: Message): RawMessage {
     authorAvatar: m.authorAvatar,
     authorIsDiscordShadow: m.authorIsDiscordShadow,
     authorDiscordUserId: m.authorDiscordUserId,
+    bridgeFromDiscord: m.bridgeFromDiscord,
     content: m.content,
     contentText: m.contentText,
     contentJson: m.contentJson,

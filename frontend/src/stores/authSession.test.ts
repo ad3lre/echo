@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   mergeLocalProfileIntoUser: vi.fn((user: AuthUserPublic) => user),
   overwriteLocalProfileFromAuthUser: vi.fn(),
   clearWorkspaceSessionCache: vi.fn(),
+  clearEchoWorkspaceCache: vi.fn(),
   markPriorRegistered: vi.fn(),
   setSkipAutoGuestAfterLogout: vi.fn(),
   clearSkipAutoGuestAfterLogout: vi.fn(),
@@ -49,6 +50,10 @@ vi.mock('@/utils/localProfilePersistence', () => ({
 
 vi.mock('@/utils/workspaceSessionCache', () => ({
   clearWorkspaceSessionCache: mocks.clearWorkspaceSessionCache,
+}));
+
+vi.mock('@/utils/workspacePersistence', () => ({
+  clearEchoWorkspaceCache: mocks.clearEchoWorkspaceCache,
 }));
 
 vi.mock('@/utils/priorRegistration', () => ({
@@ -169,5 +174,6 @@ describe('useAuthSessionStore', () => {
     store.clearLocalTokens();
 
     expect(mocks.clearWorkspaceSessionCache).toHaveBeenCalledTimes(1);
+    expect(mocks.clearEchoWorkspaceCache).toHaveBeenCalledTimes(1);
   });
 });

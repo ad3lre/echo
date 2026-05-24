@@ -10,6 +10,8 @@ import type { AppLayoutEchoRealtimeHostCallbacks } from './useAppLayoutRealtimeS
 type EchoHistoryHydrate = {
   hydrateAttentionSnapshot: () => void | Promise<void>;
   applyEchoChannelClientCap: (channelId: string) => void;
+  scheduleActiveChannelTailSyncAfterConnect?: (reason: string) => void;
+  syncActiveChannelTailFromApi?: (reason: string) => void | Promise<void>;
 };
 
 /**
@@ -73,6 +75,8 @@ export function useAppLayoutRealtimeHostWiring(deps: {
     syncEchoPresenceFromApi: deps.syncEchoPresenceFromApi,
     hydrateAttentionSnapshot: () =>
       void deps.echoChannelHistory.hydrateAttentionSnapshot(),
+    scheduleActiveChannelTailSyncAfterConnect:
+      deps.echoChannelHistory.scheduleActiveChannelTailSyncAfterConnect,
   });
 
   const hostCallbacks = createAppLayoutRealtimeSocketHostCallbacks({

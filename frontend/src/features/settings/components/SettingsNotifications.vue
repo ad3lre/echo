@@ -20,6 +20,7 @@ const authSession = useAuthSessionStore();
 const ringtoneStore = useCallRingtoneStore();
 const { ringtoneOptionGroups, selectedId, custom } = storeToRefs(ringtoneStore);
 const uploadInputRef = ref<HTMLInputElement | null>(null);
+const ringtoneUploading = ref(false);
 
 const maxCustomRingtones = computed(() =>
   maxCustomRingtonesForPlan(authSession.planLimits?.plan),
@@ -109,24 +110,34 @@ async function onUploadCustomRingtone(e: Event) {
   const input = e.target as HTMLInputElement | null;
   const file = input?.files?.[0];
   if (!file) return;
-  const out = await ringtoneStore.addCustomRingtone(
-    file,
-    maxCustomRingtones.value,
-  );
-  if (out.ok) {
-    dispatchAppToast(`Added "${file.name}" as a custom ringtone.`, 'info');
-  } else {
-    dispatchAppToast(out.reason, 'warning');
+  ringtoneUploading.value = true;
+  try {
+    const out = await ringtoneStore.addCustomRingtone(
+      file,
+      maxCustomRingtones.value,
+    );
+    if (out.ok) {
+      dispatchAppToast(`Added "${file.name}" as a custom ringtone.`, 'info');
+    } else {
+      dispatchAppToast(out.reason, 'warning');
+    }
+  } catch {
+    dispatchAppToast(
+      'Could not read that audio file. Try another format.',
+      'warning',
+    );
+  } finally {
+    ringtoneUploading.value = false;
+    if (input) input.value = '';
   }
-  if (input) input.value = '';
 }
 
 function browseRingtoneUpload() {
   uploadInputRef.value?.click();
 }
 
-function removeCustomRingtone(id: string, label: string) {
-  ringtoneStore.removeCustomRingtone(id);
+async function removeCustomRingtone(id: string, label: string) {
+  await ringtoneStore.removeCustomRingtone(id);
   dispatchAppToast(`Removed "${label}".`, 'info');
 }
 </script>
@@ -306,10 +317,10 @@ function removeCustomRingtone(id: string, label: string) {
           <button
             type="button"
             class="settings-action rounded-xl px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="!canUploadMore"
+            :disabled="!canUploadMore || ringtoneUploading"
             @click="browseRingtoneUpload"
           >
-            Upload custom ringtone
+            {{ ringtoneUploading ? 'Uploading…' : 'Upload custom ringtone' }}
           </button>
           <p class="text-[11px] text-fg-subtle">
             Max {{ uploadLimitMb }}MB per file. Free: 1 custom ringtone, Echo+:

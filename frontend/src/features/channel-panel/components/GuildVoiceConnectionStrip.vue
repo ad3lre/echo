@@ -23,6 +23,7 @@ import {
 import { useAuthSessionStore } from '@/stores/authSession';
 import { requestEchoStageSpeak } from '@/services/voice/requestStageSpeak';
 import { isEchoGraphId } from '@/utils/echoIds';
+import { canPublishStageMedia } from '@/features/voice/stage/stagePublishMedia';
 
 const workspace = useEchoWorkspace();
 const authSession = useAuthSessionStore();
@@ -293,6 +294,10 @@ async function handleSelectCameraDevice(id: string) {
 
 function toggleVcVideo() {
   if (props.canUseVideo === false) return;
+  if (!canPublishStageMediaForSelf.value) {
+    stageAudienceMediaToast();
+    return;
+  }
   if (props.vcVideo) {
     emit('update:vcVideo', false);
     return;
@@ -313,6 +318,10 @@ function confirmCameraSetup() {
 }
 
 function toggleVcScreenshare() {
+  if (!canPublishStageMediaForSelf.value) {
+    stageAudienceMediaToast();
+    return;
+  }
   emit('update:vcScreenshare', !(props.vcScreenshare ?? false));
 }
 
@@ -324,6 +333,22 @@ const currentVoiceChannelLimitUi = computed(() => {
   const count = voiceChannelParticipantCount(row.voiceParticipantIds);
   return getVoiceChannelUserLimitUi(count, row.userLimit);
 });
+
+const currentVoiceChannelRow = computed(() => {
+  const vcId = props.currentVoiceChannelId?.trim();
+  return vcId ? findVoiceChannelById(vcId) : null;
+});
+
+const canPublishStageMediaForSelf = computed(() =>
+  canPublishStageMedia(currentVoiceChannelRow.value, props.currentUserId),
+);
+
+function stageAudienceMediaToast() {
+  dispatchAppToast(
+    'Only speakers on stage can use camera or screen share. Request to speak first.',
+    'info',
+  );
+}
 </script>
 
 <template>
@@ -367,7 +392,7 @@ const currentVoiceChannelLimitUi = computed(() => {
       :vc-mic-input-level="vcMicInputLevel"
       :voice-slider-max="vcVoiceSliderMax"
       :vc-video="vcVideo ?? false"
-      :can-use-video="canUseVideo !== false"
+      :can-use-video="canUseVideo !== false && canPublishStageMediaForSelf"
       :vc-screenshare="vcScreenshare ?? false"
       :is-vc-mic-off="isVcMicOffForPanel"
       :is-vc-headphones-off="isVcHeadphonesOffForPanel"

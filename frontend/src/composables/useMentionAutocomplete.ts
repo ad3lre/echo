@@ -4,7 +4,7 @@
  */
 
 import type { MentionKind } from '@shared/types';
-import { ref, computed, type Ref } from 'vue';
+import { ref, computed, watch, type Ref } from 'vue';
 import { isMessageAuthorOffline } from '@/utils/isOfflinePresence';
 
 export interface MentionOption {
@@ -19,7 +19,8 @@ export interface MentionOption {
   kind?: MentionKind;
 }
 
-const TRIGGER = /(?:^|\s)@([a-zA-Z0-9_]*)$/;
+export type MentionTriggerSpan = { start: number; end: number };
+
 const SUGGESTION_LIMIT = 6;
 const QUERY_TAIL = /[a-zA-Z0-9_]/;
 
@@ -42,18 +43,49 @@ function optionMatchesQuery(option: MentionOption, queryRaw: string): boolean {
   );
 }
 
+/**
+ * Locate an active `@query` mention trigger before the caret.
+ * Ignores `@` inside existing mention entities (prevents a stuck menu after pick).
+ */
+export function findMentionTrigger(
+  text: string,
+  cursor: number,
+  mentions: readonly MentionTriggerSpan[] = [],
+): { start: number; query: string } | null {
+  if (cursor < 0 || cursor > text.length) return null;
+  const before = text.slice(0, cursor);
+  const at = before.lastIndexOf('@');
+  if (at < 0) return null;
+
+  const query = before.slice(at + 1);
+  if (!/^[a-zA-Z0-9_]*$/.test(query)) return null;
+
+  for (const m of mentions) {
+    if (at >= m.start && at < m.end) return null;
+    if (cursor > m.start && cursor <= m.end && at <= m.start) return null;
+  }
+
+  if (at === 0) return { start: at, query };
+
+  const prev = before[at - 1]!;
+  if (/\s/.test(prev)) return { start: at, query };
+
+  if (mentions.some((m) => m.end === at)) return { start: at, query };
+
+  return null;
+}
+
 export function useMentionAutocomplete(
   getText: () => string,
   getCursorOffset: () => number,
   insertMention: (start: number, end: number, option: MentionOption) => void,
   users: Ref<MentionOption[]>,
   allowBroadcastMentions?: Ref<boolean>,
+  getMentions?: () => readonly MentionTriggerSpan[],
 ) {
   const triggerStart = ref<number | null>(null);
   const query = ref('');
   const selectedIndex = ref(0);
-  /** Prevent immediate popup re-open at the same caret after selecting a mention. */
-  const suppressUntilCursorMovesFrom = ref<number | null>(null);
 
   const specialOptions: MentionOption[] = [
     { id: '__everyone__', name: 'Everyone', special: true, kind: 'everyone' },
@@ -81,24 +113,21 @@ export function useMentionAutocomplete(
     return triggerStart.value !== null && suggestions.value.length > 0;
   });
 
+  watch([query, suggestions], () => {
+    if (triggerStart.value !== null) selectedIndex.value = 0;
+  });
+
   function updateFromInput() {
-    const offset = getCursorOffset();
-    if (suppressUntilCursorMovesFrom.value !== null) {
-      if (offset === suppressUntilCursorMovesFrom.value) {
-        triggerStart.value = null;
-        query.value = '';
-        return;
-      }
-      suppressUntilCursorMovesFrom.value = null;
-    }
     const text = getText();
-    const before = text.slice(0, offset);
-    const match = before.match(TRIGGER);
-    if (match) {
-      const leadingWhitespaceLength = match[0].startsWith('@') ? 0 : 1;
-      triggerStart.value = offset - match[0].length + leadingWhitespaceLength;
-      query.value = match[1] ?? '';
-      selectedIndex.value = 0;
+    const offset = getCursorOffset();
+    const mentions = getMentions?.() ?? [];
+    const trigger = findMentionTrigger(text, offset, mentions);
+    if (trigger) {
+      const changed =
+        triggerStart.value !== trigger.start || query.value !== trigger.query;
+      triggerStart.value = trigger.start;
+      query.value = trigger.query;
+      if (changed) selectedIndex.value = 0;
     } else {
       triggerStart.value = null;
       query.value = '';
@@ -120,7 +149,6 @@ export function useMentionAutocomplete(
     while (end < text.length && QUERY_TAIL.test(text[end] ?? '')) end += 1;
     insertMention(start, end, option);
     close();
-    suppressUntilCursorMovesFrom.value = getCursorOffset();
   }
 
   function selectCurrent() {
@@ -131,6 +159,7 @@ export function useMentionAutocomplete(
   }
 
   function handleKeydown(e: KeyboardEvent): boolean {
+    updateFromInput();
     if (!showPopup.value) return false;
 
     if (e.key === 'Escape') {

@@ -166,9 +166,18 @@ export function mergeMembersByServerInEchoSession(
   });
 }
 
+export type ApplyWorkspaceSnapshotOptions = {
+  /**
+   * GET `/workspace` is membership-authoritative: always apply even when the
+   * monotonic version is lower than a cached snapshot that still listed ghost guilds.
+   */
+  authoritative?: boolean;
+};
+
 export function applyWorkspaceSnapshotToEchoSession(
   refs: EchoWorkspaceSessionApplyRefs,
   state: EchoWorkspaceState,
+  opts?: ApplyWorkspaceSnapshotOptions,
 ): boolean {
   const shouldLog = isEchoMemberListDebugEnabled();
   const t0 = shouldLog ? performance.now() : 0;
@@ -176,7 +185,10 @@ export function applyWorkspaceSnapshotToEchoSession(
   const lastEvt = refs.lastWorkspaceEventVersion.value;
   const storedV = refs.workspaceVersion.value;
 
-  if (!sessionAcceptsIncomingVersion(incomingV, lastEvt, storedV)) {
+  if (
+    !opts?.authoritative &&
+    !sessionAcceptsIncomingVersion(incomingV, lastEvt, storedV)
+  ) {
     dbgMemberList('applyWorkspaceSnapshot REJECTED (version)', {
       incomingWorkspaceVersion: incomingV,
       effectiveVersion: getEffectiveWorkspaceVersion(lastEvt, storedV),

@@ -9,7 +9,7 @@ import { channelMentionRefLabel } from '@/utils/channelMentionLabel';
 export interface ChannelOption {
   id: string;
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage';
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
   iconKey?: string;
 }
 

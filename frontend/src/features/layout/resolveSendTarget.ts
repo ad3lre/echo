@@ -32,6 +32,8 @@ export function resolveSendTarget(
       return surface.postChannelId
         ? { type: 'channel', channelId: surface.postChannelId }
         : { type: 'none', reason: 'serverForum_no_post_selected' };
+    case 'serverPaper':
+      return { type: 'none', reason: 'serverPaper' };
     case 'serverEmptyOnboarding':
       if (isDmThreadId(nav.activeChannelId)) {
         return {

@@ -69,24 +69,17 @@ To remove guesswork, desktop auth and upload requests now emit a **trace id** on
 - `/api/v1/echo/uploads/*`
 - `OPTIONS` preflights that reach the backend for those paths
 
-The backend view is exposed behind the existing **founder** credential:
-
-- `GET /api/v1/founder/network-diagnostics`
-- Optional filters:
-  - `?traceId=<trace_id>`
-  - `?limit=50`
-
-The same payload is also available for **Bearer-token automation** (operators, CI, or a Cursor agent that can call your public API with server-side secrets), without founder UI login:
+The backend view is exposed via **Bearer-token automation** (operators, CI, or a Cursor agent that can call your public API with server-side secrets):
 
 - Set `ECHO_AGENT_NETWORK_DIAG_ENABLED=true` and `ECHO_AGENT_NETWORK_DIAG_TOKEN` on the API (see root `.env.example`).
-- `GET /api/v1/agent/network-diagnostics` with header `Authorization: Bearer <ECHO_AGENT_NETWORK_DIAG_TOKEN>` and the same `traceId` / `limit` query parameters.
+- `GET /api/v1/agent/network-diagnostics` with header `Authorization: Bearer <ECHO_AGENT_NETWORK_DIAG_TOKEN>` and optional `traceId` / `limit` query parameters.
 - When the feature is off, that path returns **404** so scanners do not get a trivial probe surface.
 
 What to do when a user reproduces:
 
 1. Reproduce once in the packaged desktop app.
 2. Open the local desktop log and copy the `**traceId`\*\* from the relevant `[echo][auth][network]` or `[echo][api][network]` line.
-3. Query `GET /api/v1/founder/network-diagnostics?traceId=<trace_id>` (founder session), or the Bearer `GET /api/v1/agent/network-diagnostics` endpoint if you enabled it for tooling.
+3. Query `GET /api/v1/agent/network-diagnostics?traceId=<trace_id>` if you enabled the Bearer endpoint for tooling.
 
 Interpretation:
 

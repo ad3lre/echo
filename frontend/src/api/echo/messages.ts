@@ -96,6 +96,7 @@ export type EchoApiMessage = {
   authorAvatar?: string;
   authorIsDiscordShadow?: boolean;
   authorDiscordUserId?: string;
+  bridgeFromDiscord?: boolean;
   content: string;
   contentText?: string;
   contentJson?: unknown;

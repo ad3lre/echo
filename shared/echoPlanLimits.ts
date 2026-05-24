@@ -78,6 +78,16 @@ export const ECHO_PLAN_THEME_TIER: Record<EchoPlanId, EchoThemeTier> = {
 /** Largest single-file upload any tier may request (S3 presign validation). */
 export const ECHO_UPLOAD_ABS_MAX_BYTES = ECHO_PLAN_UPLOAD_CAP_BYTES.black;
 
+/** Max stored custom call ringtones per plan (server-enforced). */
+export const ECHO_PLAN_MAX_CUSTOM_RINGTONES: Record<EchoPlanId, number> = {
+  free: 1,
+  plus: 16,
+  black: 256,
+};
+
+/** Per-file cap for custom ringtone uploads (presign + registration). */
+export const ECHO_RINGTONE_UPLOAD_MAX_BYTES = 6 * 1024 * 1024;
+
 export type EchoPlanFeatureFlags = {
   lowCompression: boolean;
   rawCompression: boolean;

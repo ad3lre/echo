@@ -104,6 +104,7 @@ async function forwardToEcho(m: Message): Promise<void> {
     url: s.url,
     format: mapStickerFormat(s.format),
   }));
+  const ref = m.reference;
   const body = {
     discordGuildId: guildId,
     discordChannelId: m.channelId,
@@ -114,6 +115,14 @@ async function forwardToEcho(m: Message): Promise<void> {
     attachments: serializeAttachments(m),
     ...(stickerPayload.length ? { stickers: stickerPayload } : {}),
     embeds: m.embeds.slice(0, 8).map((e) => e.toJSON()),
+    ...(ref?.messageId
+      ? {
+          messageReference: {
+            messageId: ref.messageId,
+            channelId: ref.channelId ?? m.channelId,
+          },
+        }
+      : {}),
     webhookId: m.webhookId,
   };
   const res = await fetchEchoWebhook(url, {

@@ -117,7 +117,7 @@ const channelIconResolver = useChannelIconResolver(
 
 function getChannelEmojiOrNull(channel: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage';
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
   iconKey?: string;
 }): string | null {
   const v = channelIconResolver.getVisual(channel);
@@ -126,7 +126,7 @@ function getChannelEmojiOrNull(channel: {
 
 function getChannelIconUrlOrFallback(channel: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage';
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
   iconKey?: string;
 }): string {
   const v = channelIconResolver.getVisual(channel);
@@ -134,8 +134,12 @@ function getChannelIconUrlOrFallback(channel: {
   return channelIconResolver.getIconUrl(channel);
 }
 
-function channelIconUsesInvert(channel: { iconKey?: string }): boolean {
-  return channelIconResolver.usesSvgInvert(channel.iconKey);
+function channelIconUsesInvert(channel: {
+  name: string;
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  iconKey?: string;
+}): boolean {
+  return channelIconResolver.usesSvgInvert(channel);
 }
 
 function channelRowMissedActivity(channelId: string): boolean {
@@ -667,7 +671,13 @@ function onChannelRowActivate(channel: ChannelWithParticipants) {
   emit('channel-click', channel);
 }
 
-type QuickCreateType = 'text' | 'voice' | 'stage' | 'forum' | 'category';
+type QuickCreateType =
+  | 'text'
+  | 'voice'
+  | 'stage'
+  | 'forum'
+  | 'paper'
+  | 'category';
 
 function partitionStageParticipants(channel: ChannelWithParticipants) {
   const ids = channel.voiceParticipantIds ?? [];
@@ -835,6 +845,7 @@ function defaultIconKeyForQuickCreateType(type: QuickCreateType): string {
   if (type === 'voice') return 'volumeUp';
   if (type === 'stage') return 'sofa';
   if (type === 'forum') return 'messageAlt';
+  if (type === 'paper') return 'file';
   return 'message';
 }
 
@@ -924,7 +935,8 @@ async function selectQuickCreateType(type: QuickCreateType) {
     (type === 'text' ||
       type === 'voice' ||
       type === 'stage' ||
-      type === 'forum') &&
+      type === 'forum' ||
+      type === 'paper') &&
     !quickCreateCanUseChannels.value
   ) {
     return;
@@ -1974,6 +1986,33 @@ watch(
                       </div>
                       <div class="channel-quick-create__widget-subtitle">
                         Create a forum channel
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="channel-quick-create__widget channel-quick-create__widget--choice"
+                  :class="{
+                    'channel-quick-create__widget--disabled':
+                      !quickCreateCanUseChannels,
+                  }"
+                  :disabled="!quickCreateCanUseChannels"
+                  @click="selectQuickCreateType('paper')"
+                >
+                  <div class="channel-quick-create__widget-left">
+                    <img
+                      :src="icons.file"
+                      alt=""
+                      class="channel-quick-create__widget-icon"
+                    />
+                    <div class="channel-quick-create__widget-copy">
+                      <div class="channel-quick-create__widget-title">
+                        Paper channel
+                      </div>
+                      <div class="channel-quick-create__widget-subtitle">
+                        Shared vertical document
                       </div>
                     </div>
                   </div>

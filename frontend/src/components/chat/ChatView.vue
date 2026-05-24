@@ -51,9 +51,12 @@ import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { peerDisplayNamePlaceholder } from '@/features/dm/peerDisplayPlaceholder';
 import { useChannelTypingStore } from '@/stores/channelTyping';
 import { extractChatImageSearchSeeds } from '@/utils/imageSearchSeedKeywords';
+import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
+import { useEchoChatBottomChromeReporter } from '@/features/layout/composables/useEchoChatBottomChromeReporter';
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 const chatColumnRef = ref<HTMLElement | null>(null);
+const chatBottomChromeRef = ref<HTMLElement | null>(null);
 
 const chatMessageNavBridge = inject(CHAT_MESSAGE_NAV_BRIDGE_KEY, null);
 const chatNavBridgeId = getCurrentInstance()?.uid ?? 0;
@@ -230,7 +233,7 @@ const props = defineProps<{
   channels?: {
     id: string;
     name: string;
-    type?: 'text' | 'voice' | 'forum' | 'stage';
+    type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
     iconKey?: string;
   }[];
   sendMessage?: (
@@ -360,6 +363,14 @@ watch(othersTypingCount, (n, prev) => {
   });
 });
 
+useEchoChatBottomChromeReporter(chatBottomChromeRef, {
+  onLayoutGrowth: () => {
+    if (activeContentTab.value !== 'messages') return;
+    if (markdownPreviewState.value.expanded) return;
+    keepLatestMessageVisible(false, false);
+  },
+});
+
 const activeChannelFirstUnreadMessageId = computed(() => {
   const channelId = props.activeChannel?.id?.trim();
   if (!channelId) return null;
@@ -426,9 +437,7 @@ function registerComposerInsertUserMention(fn: InsertUserMentionFn | null) {
 }
 
 function isLikelyGifUrl(url: string | undefined): boolean {
-  if (!url) return false;
-  const u = url.toLowerCase();
-  return u.includes('giphy') || u.includes('.gif') || u.includes('media.giphy');
+  return isLikelyGifImageUrl(url);
 }
 
 const imageViewerOpen = ref(false);
@@ -618,6 +627,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
   if (!msg.id) return;
   replyingTo.value = {
     messageId: msg.id,
+    authorId: msg.authorId,
     authorName: msg.author.name,
     authorAvatar: msg.author.avatar,
     content:
@@ -825,45 +835,47 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         </div>
       </div>
 
-      <ChatTypingIndicator
+      <div
         v-if="
           activeContentTab === 'messages' &&
           activeChannel &&
           (activeChannel.type === 'text' || showVoiceSideChatComposer)
         "
-        class="flex-shrink-0"
-        :channel-id="activeChannel.id"
-        :server-id="serverId"
-        :exclude-user-id="currentUserId"
-      />
-      <ChatInput
-        v-if="
-          activeContentTab === 'messages' &&
-          activeChannel &&
-          (activeChannel.type === 'text' || showVoiceSideChatComposer)
-        "
-        class="flex-shrink-0"
-        :channel-name="activeChannel.name"
-        :channel-id="activeChannel.id"
-        :server-id="serverId"
-        :users="users"
-        :mention-users="mentionUsers"
-        :channels="channels"
-        :send-message="sendMessage"
-        :replying-to="replyingTo"
-        :slowmode-interval="activeChannel?.slowModeSeconds ?? 0"
-        :last-own-message-at="lastOwnMessageAt"
-        :request-edit-last-message="requestEditLastOwnMessage"
-        :register-insert-user-mention="
-          composerInsertUserMention
-            ? registerComposerInsertUserMention
-            : undefined
-        "
-        :gif-popout-seed-keywords="gifPopoutSeedKeywords"
-        :message-format-template="activeChannel.messageFormatTemplate"
-        :message-format-hard="activeChannel.messageFormatHard === true"
-        @clear-reply="replyingTo = null"
-      />
+        ref="chatBottomChromeRef"
+        data-echo-chat-bottom-chrome
+        class="chat-bottom-chrome-stack flex-shrink-0"
+      >
+        <ChatTypingIndicator
+          v-if="showChatTypingIndicatorUi"
+          class="flex-shrink-0"
+          :channel-id="activeChannel.id"
+          :server-id="serverId"
+          :exclude-user-id="currentUserId"
+        />
+        <ChatInput
+          class="flex-shrink-0"
+          :channel-name="activeChannel.name"
+          :channel-id="activeChannel.id"
+          :server-id="serverId"
+          :users="users"
+          :mention-users="mentionUsers"
+          :channels="channels"
+          :send-message="sendMessage"
+          :replying-to="replyingTo"
+          :slowmode-interval="activeChannel?.slowModeSeconds ?? 0"
+          :last-own-message-at="lastOwnMessageAt"
+          :request-edit-last-message="requestEditLastOwnMessage"
+          :register-insert-user-mention="
+            composerInsertUserMention
+              ? registerComposerInsertUserMention
+              : undefined
+          "
+          :gif-popout-seed-keywords="gifPopoutSeedKeywords"
+          :message-format-template="activeChannel.messageFormatTemplate"
+          :message-format-hard="activeChannel.messageFormatHard === true"
+          @clear-reply="replyingTo = null"
+        />
+      </div>
 
       <div
         v-if="

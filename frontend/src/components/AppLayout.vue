@@ -42,6 +42,9 @@ const GuestCaptchaModal = defineAsyncComponent(
 const BugReportModal = defineAsyncComponent(
   () => import('@/components/BugReportModal.vue'),
 );
+const ReportModal = defineAsyncComponent(
+  () => import('@/components/ReportModal.vue'),
+);
 
 const ScreenSharePickerModal = defineAsyncComponent(
   () => import('@/components/ScreenSharePickerModal.vue'),
@@ -92,6 +95,12 @@ import {
   getEchoOutageRecoveryEstimate,
   recordEchoOutageRecoveryDuration,
 } from '@/utils/echoOutageRecoveryStats';
+import {
+  fetchPublicDeployAnnouncement,
+  markDeployWelcomeBackPending,
+  readDeployAnnouncement,
+} from '@/utils/deployAnnouncement';
+import { deployCountdownActive } from '@/utils/deployCountdownOverlay';
 import { CHAT_MESSAGE_NAV_BRIDGE_KEY } from '@/features/navigation/chatMessageNavBridge';
 import { subscribeUIErrors, type UIErrorSeverity } from '@/utils/uiErrorBus';
 import {
@@ -107,6 +116,7 @@ import {
   registerEchoToastQuickReplySender,
   sendEchoToastQuickReply,
 } from '@/features/layout/echoToastQuickReplyBridge';
+import { echoChatBottomChromeInsetPx } from '@/features/layout/echoChatBottomChromeInset';
 import {
   EMAIL_VERIFICATION_DOWNTIME,
   EMAIL_VERIFICATION_DOWNTIME_TOAST,
@@ -867,7 +877,8 @@ const membersColumnVisible = computed(
     !unref(isDmUiContext) &&
     !unref(isServerEmptyOnboarding) &&
     !unref(isViewingVoiceChannel) &&
-    unref(callOverlay).type !== 'dmCall',
+    unref(callOverlay).type !== 'dmCall' &&
+    unref(mainSurface).type !== 'serverPaper',
 );
 
 const membersColumnEchoSectionOrdering = computed(
@@ -1156,9 +1167,17 @@ function handleGuildMobileVcLobbyOpenAudioSettings() {
   openUserSettingsModal('Voice & Video');
 }
 
-const guildMobileVoiceDockCanUseVideo = computed(
-  () => !isRolePreviewActiveForServer.value || previewHasUiPermission('video'),
-);
+const guildMobileVoiceDockCanUseVideo = computed(() => {
+  if (isRolePreviewActiveForServer.value && !previewHasUiPermission('video')) {
+    return false;
+  }
+  const ch = effectiveActiveChannel.value;
+  const uid = currentUser.value?.id;
+  if (ch?.type === 'stage' && uid) {
+    return !!ch.voiceStageSpeakerByUserId?.[uid];
+  }
+  return true;
+});
 
 provide(LAYOUT_MEMBERS_COLUMN_KEY, {
   isVisible: membersColumnVisible,
@@ -1643,6 +1662,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   startMemberResize,
   resetMemberWidth,
   effectiveActiveChannel,
+  liveChannelCapabilities,
   isInDMChat,
   dmCallMatchesActiveChannel,
   activeDmThreadCallUi,
@@ -1923,6 +1943,10 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   createForumPost,
   patchForumPost,
   canManageForumPosts,
+  openChannelSettings,
+  findChannelContextById: _findChannelContextById as (
+    channelId: string,
+  ) => { channel: ChannelSummary; categoryId: string } | null,
 });
 
 const modalsGroupSettingsName = computed(() => {
@@ -2183,7 +2207,8 @@ const compactMembersSurfaceVisible = computed(
     !unref(isDmUiContext) &&
     !unref(isServerEmptyOnboarding) &&
     !unref(isViewingVoiceChannel) &&
-    unref(callOverlay).type !== 'dmCall',
+    unref(callOverlay).type !== 'dmCall' &&
+    unref(mainSurface).type !== 'serverPaper',
 );
 
 const mainContentGridTemplateRows = computed(() =>
@@ -2580,11 +2605,24 @@ const serverDownGateDetail = computed(() => {
   return u || `Primary flow error — ${d.flow}: ${d.message}`;
 });
 
+const deployOutageAnnouncement = ref<string | null>(readDeployAnnouncement());
+
+watch(
+  deployCountdownActive,
+  (payload) => {
+    if (payload?.message?.trim()) {
+      deployOutageAnnouncement.value = payload.message.trim();
+    }
+  },
+  { immediate: true },
+);
+
 const serverDownGateBind = computed(() => ({
   checking: serverHealthChecking.value,
   outageSinceMs: serverHealthOutageSinceMs.value,
   lastCheckedAtMs: serverHealthLastCheckedAtMs.value,
   detail: serverDownGateDetail.value,
+  announcement: deployOutageAnnouncement.value,
   averageRecoverySeconds: serverHealthAvgRecoveryEstimateSec.value,
   recoverySampleCount: serverHealthAvgRecoverySampleCount.value,
 }));
@@ -2600,9 +2638,17 @@ const showServerDownGate = computed(
     serverHealthDown.value,
 );
 
+watch(showServerDownGate, (on) => {
+  if (!on || deployOutageAnnouncement.value) return;
+  void fetchPublicDeployAnnouncement().then((msg) => {
+    if (msg) deployOutageAnnouncement.value = msg;
+  });
+});
+
 function triggerServerRecoveryReload() {
   if (serverHealthRecoveringReload.value) return;
   serverHealthRecoveringReload.value = true;
+  markDeployWelcomeBackPending();
   // Throttle reloads to once per 30 s to avoid a reload loop when the service is flapping.
   try {
     const now = Date.now();
@@ -2760,13 +2806,17 @@ const hasAppToastPrimaryContextAction = computed(() => {
   return resolveToastMessagePrimaryAction(toast.actions) != null;
 });
 
-function openMessageChannelFromToastContextMenu() {
+function openMessageChannelFromToast() {
   const toast = appToast.value;
   if (!toast) return;
   const action = resolveToastMessagePrimaryAction(toast.actions);
   if (!action) return;
   closeAppToastContextMenu();
   onAppToastAction(action);
+}
+
+function openMessageChannelFromToastContextMenu() {
+  openMessageChannelFromToast();
 }
 
 function dismissToastFromContextMenu() {
@@ -2830,31 +2880,79 @@ function onAppToastVisualViewportChanged() {
   scheduleAppToastVisualViewportBottomExtra();
 }
 
+const APP_TOAST_SAFE_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
+/** Minimum breathing room between the toast shell and the layout viewport bottom. */
+const APP_TOAST_VIEWPORT_FLOOR = '1.25rem';
+/** Gap between the measured chat bottom stack and the toast shell. */
+const APP_TOAST_CHROME_GAP_PX = 12;
+
+function appToastBottomInsetCss(elevated: boolean): string {
+  const safe = APP_TOAST_SAFE_BOTTOM;
+  const floor = APP_TOAST_VIEWPORT_FLOOR;
+  if (!elevated) {
+    return `max(1.5rem, calc(${safe} + ${floor}))`;
+  }
+  const measured = echoChatBottomChromeInsetPx.value;
+  if (measured > 0) {
+    return `calc(${measured + APP_TOAST_CHROME_GAP_PX}px + ${safe} + ${floor})`;
+  }
+  return `max(8rem, calc(${safe} + 6rem + ${floor}))`;
+}
+
+const appToastHasQuickReplyFooter = computed(
+  () =>
+    appToast.value?.variant === 'incoming_chat_message' &&
+    !!appToast.value.quickReplyChannelId?.trim(),
+);
+
+/** When the quick-reply field is empty, offer Open instead of a disabled Send. */
+const showToastQuickReplyOpenButton = computed(
+  () =>
+    appToastHasQuickReplyFooter.value &&
+    !toastQuickReplyText.value.trim() &&
+    hasAppToastPrimaryContextAction.value,
+);
+
+const appToastShellGridRowsClass = computed(() => {
+  const rows = ['minmax(0,1fr)'];
+  if (appToastHasQuickReplyFooter.value) rows.push('auto');
+  if (appToastProgressVisible.value) rows.push('auto');
+  return `grid-rows-[${rows.join('_')}]`;
+});
+
+const appToastProgressGridRowClass = computed(() => {
+  if (!appToastProgressVisible.value) return '';
+  return appToastHasQuickReplyFooter.value ? '[grid-row:3]' : '[grid-row:2]';
+});
+
 const appToastShellPositionStyle = computed(() => {
   const elevated = appToastClearsBottomChrome.value;
-  const baseBottomCss = elevated
-    ? 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))'
-    : 'max(1rem, env(safe-area-inset-bottom, 0px))';
+  let bottomInset = appToastBottomInsetCss(elevated);
+  if (appToast.value?.variant === 'incoming_chat_message') {
+    bottomInset = `calc(${bottomInset} + 0.75rem)`;
+  }
   const extra = visualViewportToastBottomExtraPx.value;
-  const bottom =
-    extra > 0 ? `calc(${baseBottomCss} + ${extra}px)` : baseBottomCss;
+  const bottom = extra > 0 ? `calc(${bottomInset} + ${extra}px)` : bottomInset;
   /* Use dvh (not svh) so max-height tracks the same dynamic viewport that `position: fixed`
    * + `bottom` use on most engines; svh/dvh mismatch was letting the toast extend past the
    * visible fold while still honoring max-height math in the “wrong” viewport. */
-  const maxH = elevated
-    ? `min(90dvh, calc(100dvh - max(8rem, calc(env(safe-area-inset-bottom, 0px) + 6rem)) - ${extra}px - 1rem))`
-    : `min(90dvh, calc(100dvh - max(1rem, env(safe-area-inset-bottom, 0px)) - ${extra}px - 1rem))`;
+  const maxH = `min(90dvh, calc(100dvh - (${bottomInset}) - ${extra}px - 1rem))`;
   return { bottom, maxHeight: maxH };
 });
 
 const appToastShellClass = computed(() => {
   /* Grid + minmax(0,1fr) guarantees the scroll row gets a definite bounded height under
    * max-height (flex-1 + h-0 alone could leave the scroll region at intrinsic height and
-   * clip the quick-reply strip at the shell’s overflow:hidden edge). */
-  const shell =
-    'box-border grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden overscroll-contain';
+   * clip footer chrome at the shell’s overflow:hidden edge). */
+  const shell = `box-border grid min-h-0 ${appToastShellGridRowsClass.value} overflow-hidden overscroll-contain`;
+  const richPadding =
+    appToast.value?.variant === 'incoming_chat_message'
+      ? appToastHasQuickReplyFooter.value
+        ? 'px-3 pt-2.5 pb-0'
+        : 'px-3 pt-2.5 pb-3.5'
+      : 'px-3 py-2.5';
   return appToastIsRich.value
-    ? `pointer-events-auto fixed left-1/2 z-[500] w-[min(26rem,calc(100vw-1rem))] -translate-x-1/2 rounded-xl px-3 py-2.5 text-[13px] shadow-2xl ${shell}`
+    ? `pointer-events-auto fixed left-1/2 z-[500] w-[min(26rem,calc(100vw-1rem))] -translate-x-1/2 rounded-xl ${richPadding} text-[13px] shadow-2xl ${shell}`
     : `pointer-events-auto fixed left-1/2 z-[500] w-[min(24rem,calc(100vw-1rem))] -translate-x-1/2 rounded-xl px-2.5 py-2 text-[13px] shadow-2xl ${shell}`;
 });
 
@@ -3999,28 +4097,6 @@ watch(
                 >
                   {{ appToast.message }}
                 </p>
-                <div
-                  v-if="appToast.quickReplyChannelId?.trim()"
-                  class="mt-2.5 flex w-full min-w-0 flex-nowrap items-stretch gap-1.5"
-                >
-                  <input
-                    v-model="toastQuickReplyText"
-                    type="text"
-                    class="chat-focus-ring min-w-0 flex-1 rounded-md border border-border bg-scrim-1 px-2.5 py-1.5 text-[13px] text-fg placeholder:text-fg-subtle"
-                    placeholder="Quick reply…"
-                    maxlength="2000"
-                    aria-label="Quick reply"
-                    @keydown.enter.prevent="submitToastQuickReply"
-                  />
-                  <button
-                    type="button"
-                    class="chat-focus-ring shrink-0 rounded-md bg-emerald-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400/95 disabled:cursor-not-allowed disabled:opacity-40"
-                    :disabled="!toastQuickReplyText.trim()"
-                    @click="submitToastQuickReply"
-                  >
-                    Send
-                  </button>
-                </div>
               </template>
               <template v-else>
                 <div
@@ -4168,8 +4244,42 @@ watch(
           </div>
         </div>
         <div
+          v-if="appToastHasQuickReplyFooter"
+          class="app-toast-quick-reply-footer flex w-full min-w-0 flex-nowrap items-stretch gap-1.5 border-t border-border/35 pb-3.5 pt-2.5 [grid-row:2]"
+        >
+          <input
+            v-model="toastQuickReplyText"
+            type="text"
+            class="chat-focus-ring min-w-0 flex-1 rounded-md border border-border bg-scrim-1 px-2.5 py-1.5 text-[13px] text-fg placeholder:text-fg-subtle"
+            placeholder="Quick reply…"
+            maxlength="2000"
+            aria-label="Quick reply"
+            @keydown.enter.prevent="submitToastQuickReply"
+          />
+          <button
+            v-if="showToastQuickReplyOpenButton"
+            type="button"
+            class="chat-focus-ring shrink-0 rounded-md bg-glass-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-glass-hover"
+            @click="openMessageChannelFromToast"
+          >
+            Open
+          </button>
+          <button
+            v-else
+            type="button"
+            class="chat-focus-ring shrink-0 rounded-md bg-emerald-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400/95 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="!toastQuickReplyText.trim()"
+            @click="submitToastQuickReply"
+          >
+            Send
+          </button>
+        </div>
+        <div
           v-if="appToastProgressVisible"
-          class="pointer-events-none mx-3 mb-1.5 mt-0.5 h-[3px] shrink-0 overflow-hidden rounded-full bg-glass-2/90 [grid-row:2]"
+          :class="[
+            'pointer-events-none mx-3 mb-1.5 mt-0.5 h-[3px] shrink-0 overflow-hidden rounded-full bg-glass-2/90',
+            appToastProgressGridRowClass,
+          ]"
           aria-hidden="true"
         >
           <div
@@ -4742,6 +4852,7 @@ watch(
       v-if="isBugReportModalOpen"
       v-model="isBugReportModalOpen"
     />
+    <ReportModal />
 
     <GuestDisplayNameModal
       v-if="isGuestDisplayNameModalOpen"

@@ -6,6 +6,7 @@ import type {
 } from '@shared/types';
 import { openExternal } from '@/platform/desktopBridge';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
 import GifImage from './GifImage.vue';
 import MessageAudioAttachment from './MessageAudioAttachment.vue';
 import MessageChatStillImage from './MessageChatStillImage.vue';
@@ -38,9 +39,7 @@ function isRenderableSticker(
 }
 
 function isLikelyGifUrl(url: string | undefined): boolean {
-  if (!url) return false;
-  const u = url.toLowerCase();
-  return u.includes('giphy') || u.includes('.gif') || u.includes('media.giphy');
+  return isLikelyGifImageUrl(url);
 }
 
 function mediaAspectStyle(
@@ -108,7 +107,12 @@ function mediaAspectStyle(
         :key="`${message.id ?? 'm'}-att-${attIdx}`"
       >
         <div v-if="att.kind === 'video'" class="message-video-shell">
-          <MessageChatVideo :url="att.url" :storage-key="att.storageKey" />
+          <MessageChatVideo
+            :url="att.url"
+            :storage-key="att.storageKey"
+            :filename="att.filename"
+            :spoiler="att.spoiler"
+          />
         </div>
         <MessageAudioAttachment
           v-else-if="att.kind === 'audio'"

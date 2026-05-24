@@ -7,6 +7,8 @@ import {
   fetchStageYoutubeStream,
   startStageYoutubeStream,
   stopStageYoutubeStream,
+  updateStageYoutubeStreamLayout,
+  type StageYoutubeEgressLayout,
   type StageYoutubeStreamStatus,
 } from '@/api/echo/stageYoutube';
 import { messageForStageYoutubeError } from '@/features/youtube/youtubeIntegrationCopy';
@@ -29,8 +31,12 @@ export function useStageYoutubeLive(opts: {
   const loading = ref(false);
   const actionBusy = ref(false);
   const goLiveTitle = ref('');
+  const goLiveDescription = ref('');
   const privacyStatus = ref<'public' | 'unlisted' | 'private'>('unlisted');
+  const egressLayout = ref<StageYoutubeEgressLayout>('grid');
   const connectionMode = ref<YoutubeConnectionMode>('none');
+  const youtubeChannelTitle = ref<string | null>(null);
+  const youtubeChannelThumbnailUrl = ref<string | null>(null);
 
   const usesStreamKeyDelivery = computed(
     () => connectionMode.value === 'stream_key',
@@ -44,13 +50,20 @@ export function useStageYoutubeLive(opts: {
   async function loadConnectionMode() {
     if (!isAuthenticated.value) {
       connectionMode.value = 'none';
+      youtubeChannelTitle.value = null;
+      youtubeChannelThumbnailUrl.value = null;
       return;
     }
     try {
       const me = await fetchMeYoutube();
       connectionMode.value = me.connectionMode;
+      youtubeChannelTitle.value = me.profile?.channelTitle?.trim() || null;
+      youtubeChannelThumbnailUrl.value =
+        me.profile?.channelThumbnailUrl?.trim() || null;
     } catch {
       connectionMode.value = 'none';
+      youtubeChannelTitle.value = null;
+      youtubeChannelThumbnailUrl.value = null;
     }
   }
 
@@ -93,10 +106,33 @@ export function useStageYoutubeLive(opts: {
         channelId,
         {
           title: goLiveTitle.value.trim() || undefined,
+          description: goLiveDescription.value.trim() || undefined,
           privacyStatus: privacyStatus.value,
         },
       );
       dispatchAppToast('Stage is going live on YouTube.', 'info');
+    } catch (e) {
+      const code = e instanceof EchoApiError ? e.body.code : null;
+      dispatchAppToast(messageForStageYoutubeError(code), 'error');
+    } finally {
+      actionBusy.value = false;
+    }
+  }
+
+  async function setEgressLayout(layout: StageYoutubeEgressLayout) {
+    const serverId = opts.echoServerId().trim();
+    const channelId = opts.stageChannelId().trim();
+    if (!canPoll()) return;
+    actionBusy.value = true;
+    try {
+      await updateStageYoutubeStreamLayout(
+        ECHO_API_TOKEN,
+        serverId,
+        channelId,
+        layout,
+      );
+      egressLayout.value = layout;
+      dispatchAppToast('Stream layout updated.', 'info');
     } catch (e) {
       const code = e instanceof EchoApiError ? e.body.code : null;
       dispatchAppToast(messageForStageYoutubeError(code), 'error');
@@ -165,7 +201,12 @@ export function useStageYoutubeLive(opts: {
     loading,
     actionBusy,
     goLiveTitle,
+    goLiveDescription,
     privacyStatus,
+    youtubeChannelTitle,
+    youtubeChannelThumbnailUrl,
+    egressLayout,
+    setEgressLayout,
     usesStreamKeyDelivery,
     isStreamKeyLive,
     refresh,

@@ -1,4 +1,5 @@
 import type { FastifyBaseLogger } from 'fastify';
+import type pg from 'pg';
 import { getEchoStore } from '../../domain/echoStore/bootstrap';
 import { joinNewAccountToOfficialEchoServer } from '../../domain/echoStore/officialServerOnboarding';
 
@@ -23,4 +24,16 @@ export async function tryJoinOfficialEchoServerOnSignup(
   } catch (err) {
     log.warn({ err, userId }, 'official_echo_server_auto_join_failed');
   }
+}
+
+/**
+ * Idempotent backfill for accounts that missed signup auto-join (server limit at
+ * signup, transient failure, or accounts created before onboarding existed).
+ */
+export async function ensureOfficialEchoServerMembership(
+  pool: pg.Pool,
+  userId: string,
+): Promise<{ joined: boolean; serverId: string | null }> {
+  const result = await joinNewAccountToOfficialEchoServer(pool, userId);
+  return { joined: result.joined, serverId: result.serverId };
 }

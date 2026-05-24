@@ -2,10 +2,18 @@ import { describe, expect, it } from 'vitest';
 import type { MentionEntity } from '@shared/types';
 import {
   buildComposerDoc,
+  isComposerContentEffectivelyEmpty,
   shiftMentionsForReplacement,
 } from '@/features/chat/editor/composerModel';
 
 describe('composerModel', () => {
+  it('isComposerContentEffectivelyEmpty treats whitespace-only as empty', () => {
+    expect(isComposerContentEffectivelyEmpty('')).toBe(true);
+    expect(isComposerContentEffectivelyEmpty('   ')).toBe(true);
+    expect(isComposerContentEffectivelyEmpty('\n')).toBe(true);
+    expect(isComposerContentEffectivelyEmpty('hi')).toBe(false);
+  });
+
   it('builds inline nodes for mentions, custom emoji, and channel mentions', () => {
     const content = '@Alice <:wave:123> #general';
     const mentions: MentionEntity[] = [

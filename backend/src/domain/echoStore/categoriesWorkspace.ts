@@ -33,6 +33,7 @@ import {
   getForumPostCreatorAccess,
 } from './forumCreatorAccess';
 import { parseAutoDeleteAfterSecondsPatch } from './messageAutoDelete';
+import { bootstrapEchoPaperDocument } from './paper';
 
 export async function listEchoChannels(
   pool: pg.Pool,
@@ -71,6 +72,7 @@ export async function listEchoChannels(
            ch.parent_channel_id, ch.forum_available_tags, ch.forum_post_tag_ids,
            ch.forum_post_pinned, ch.forum_post_locked, ch.forum_post_archived_at,
            ch.forum_post_creator_user_id, ch.forum_creator_default_perms,
+           ch.paper_comments_enabled, ch.paper_show_author_gutter,
            cat.id AS category_id, cat.name AS category_name, cat.position AS category_position,
            cat.auto_delete_after_seconds AS category_auto_delete_after_seconds,
            ow.partial AS everyone_channel_partial,
@@ -194,6 +196,8 @@ type EchoChannelRowInternal = {
   forumPostArchivedAt?: Date | null;
   forumPostCreatorUserId?: string;
   forumCreatorDefaultPerms?: unknown;
+  paperCommentsEnabled?: boolean;
+  paperShowAuthorGutter?: boolean;
 };
 
 function mapWorkspaceChannelQueryRow(row: any): EchoChannelRowInternal {
@@ -257,6 +261,8 @@ function mapWorkspaceChannelQueryRow(row: any): EchoChannelRowInternal {
         ? String(row.forum_post_creator_user_id)
         : undefined,
     forumCreatorDefaultPerms: row.forum_creator_default_perms ?? null,
+    paperCommentsEnabled: row.paper_comments_enabled !== false,
+    paperShowAuthorGutter: row.paper_show_author_gutter !== false,
   };
 }
 
@@ -275,7 +281,9 @@ function echoChannelRowInternalToUiChannel(
           ? 'stage'
           : c.type === 'forum'
             ? 'forum'
-            : 'text',
+            : c.type === 'paper'
+              ? 'paper'
+              : 'text',
     serverId,
     ...(c.parentChannelId ? { parentChannelId: c.parentChannelId } : {}),
     createdAt: ts,
@@ -328,6 +336,12 @@ function echoChannelRowInternalToUiChannel(
     ...(typeof c.forumPostCreatorUserId === 'string' &&
     c.forumPostCreatorUserId.trim()
       ? { forumPostCreatorUserId: c.forumPostCreatorUserId.trim() }
+      : {}),
+    ...(c.type === 'paper'
+      ? {
+          paperCommentsEnabled: c.paperCommentsEnabled !== false,
+          paperShowAuthorGutter: c.paperShowAuthorGutter !== false,
+        }
       : {}),
   };
   const ov = c.permissionOverrides;
@@ -1598,7 +1612,7 @@ export async function createEchoChannel(
   pool: pg.Pool,
   serverId: string,
   name: string,
-  type: 'text' | 'voice' | 'forum' | 'stage',
+  type: 'text' | 'voice' | 'forum' | 'stage' | 'paper',
   categoryId: string | null,
   iconKey?: string,
   opts?: {
@@ -1683,6 +1697,9 @@ export async function createEchoChannel(
         JSON.stringify({ CONNECT: true, SPEAK: false }),
       ],
     );
+  }
+  if (type === 'paper') {
+    await bootstrapEchoPaperDocument(pool, id, null);
   }
   invalidateEchoPermissionCacheForServer(serverId);
   return id;

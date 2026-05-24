@@ -105,6 +105,7 @@ export function ingestEchoRealtimeIncomingChatMessage(
     channelId,
     authorId: resolvedAuthorId,
     mentions: payload.mentions,
+    replyTo: payload.replyTo,
     authorDisplayName: payload.authorDisplayName,
     authorAvatar: payload.authorAvatar,
     contentPreview: e2eeRedacted ? '[e2ee]' : plain.trim() || undefined,

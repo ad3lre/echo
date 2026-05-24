@@ -24,9 +24,14 @@ export function tryResumeEchoSocketConnection(opts: {
   socketOff: () => boolean;
   getConnected: () => boolean;
   ensureConnect: () => void | Promise<void>;
+  /** Tab/network resume while Socket.IO is still connected (merge missed channel tail). */
+  onConnectedResume?: () => void;
 }): void {
   if (opts.socketOff()) return;
-  if (opts.getConnected()) return;
+  if (opts.getConnected()) {
+    opts.onConnectedResume?.();
+    return;
+  }
   if (!echoNavigatorAppearsOnline()) return;
   void opts.ensureConnect();
 }

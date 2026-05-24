@@ -11,9 +11,9 @@ import { authPatchMe } from '@/api/authClient';
 import {
   postEchoBlockUser,
   deleteEchoUnblockUser,
-  postEchoReportUser,
   patchEchoMemberNickname,
 } from '@/api/echoClient';
+import { openReportModal } from '@/features/safety/reportModal';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { requestAppPrompt } from '@/utils/appDialogs';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
@@ -155,22 +155,15 @@ export function useAppLayoutProfileSafety(deps: {
 
   async function handleProfileReportUser(payload: {
     userId: string;
-    reason: string;
+    reason?: string;
   }) {
     if (!payload.userId) return;
-    const token = authSession.accessToken?.trim() ?? '';
-    if (authSession.isAuthenticated) {
-      try {
-        await postEchoReportUser(token, {
-          targetUserId: payload.userId,
-          reason: payload.reason.trim() || undefined,
-        });
-      } catch (e) {
-        window.alert(
-          e instanceof Error ? e.message : 'Could not submit report',
-        );
-      }
-    }
+    const u = workspace.users.value.find((x) => x.id === payload.userId);
+    openReportModal({
+      kind: 'user',
+      targetUserId: payload.userId,
+      displayName: u?.name?.trim() || undefined,
+    });
   }
 
   const isExpandedProfileTargetBlocked = computed(() => {

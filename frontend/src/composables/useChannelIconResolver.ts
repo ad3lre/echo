@@ -22,7 +22,7 @@ import {
 
 type ChannelLike = {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage';
+  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
   iconKey?: string;
 };
 
@@ -86,8 +86,19 @@ export function useChannelIconResolver(
     return resolveChannelIconRasterUrl(iconKey, lookupCustomEmojiUrl);
   }
 
-  function usesSvgInvert(iconKey: string | undefined | null): boolean {
-    return channelIconKeyUsesSvgInvertFilter(iconKey);
+  function usesSvgInvert(
+    channelOrIconKey: ChannelLike | string | null | undefined,
+  ): boolean {
+    if (
+      channelOrIconKey &&
+      typeof channelOrIconKey === 'object' &&
+      'name' in channelOrIconKey
+    ) {
+      return getVisual(channelOrIconKey).kind === 'svg';
+    }
+    return channelIconKeyUsesSvgInvertFilter(
+      typeof channelOrIconKey === 'string' ? channelOrIconKey : null,
+    );
   }
 
   return {

@@ -50,6 +50,7 @@ const UI_TO_ECHO: Record<string, EchoApiPermission | EchoApiPermission[]> = {
   sendMedia: 'ATTACH_FILES',
   readMessageHistory: 'READ_MESSAGE_HISTORY',
   createPolls: 'SEND_POLLS',
+  commentOnPaper: 'COMMENT_ON_PAPER',
 };
 
 function addUiEchoKeys(
@@ -134,6 +135,7 @@ export function roleUiPermissionsFromEchoStrings(
     sendMedia: has('ATTACH_FILES'),
     readMessageHistory: has('READ_MESSAGE_HISTORY'),
     createPolls: has('SEND_POLLS'),
+    commentOnPaper: has('COMMENT_ON_PAPER'),
     administrator: false,
   };
 }
@@ -186,6 +188,7 @@ const CH_TO_ECHO: Record<
   createEvents: 'CREATE_EVENTS',
   useSoundboard: 'USE_SOUNDBOARD',
   useExternalSounds: 'USE_EXTERNAL_SOUNDS',
+  commentOnPaper: 'COMMENT_ON_PAPER',
 };
 
 export function channelOverridesToEchoPartial(

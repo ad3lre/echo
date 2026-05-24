@@ -45,6 +45,11 @@ import {
   normalizeForumCreatorDefaultPerms,
   type ForumCreatorDefaultPerms,
 } from '@shared/types';
+import type { PaperShareVisibility } from '@shared/types/paperShare';
+import {
+  fetchPaperShareSettings,
+  patchPaperShareVisibility,
+} from '@/features/paper/api/paper';
 import {
   ECHO_VOICE_BITRATE_MAX_KBPS,
   ECHO_VOICE_BITRATE_MIN_KBPS,
@@ -91,7 +96,7 @@ const emit = defineEmits<{
   save: [
     payload: {
       channelId: string;
-      channelType: 'text' | 'voice' | 'forum' | 'stage';
+      channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
       serverId: string;
       name: string;
       categoryId: string;
@@ -109,6 +114,8 @@ const emit = defineEmits<{
       autoDeleteSyncedToCategory?: boolean;
       messageFormatTemplate?: string;
       messageFormatHard?: boolean;
+      paperCommentsEnabled?: boolean;
+      paperShowAuthorGutter?: boolean;
     },
   ];
   delete: [];
@@ -163,6 +170,33 @@ const autoDeleteAfterSecondsStr = ref('0');
 
 const messageFormatTemplate = ref('');
 const messageFormatHard = ref(false);
+const paperCommentsEnabled = ref(true);
+const paperShowAuthorGutter = ref(true);
+const paperShareVisibility = ref<PaperShareVisibility>('server');
+const paperShareCanManage = ref(false);
+const paperShareSaving = ref(false);
+
+async function loadPaperShareSettings(channelId: string) {
+  try {
+    const s = await fetchPaperShareSettings(channelId);
+    paperShareVisibility.value = s.visibility;
+    paperShareCanManage.value = s.canManageShare;
+  } catch {
+    paperShareCanManage.value = false;
+  }
+}
+
+async function onPaperShareVisibilityChange(visibility: PaperShareVisibility) {
+  const cs = props.channelSettings;
+  if (!cs || !paperShareCanManage.value) return;
+  paperShareSaving.value = true;
+  try {
+    const s = await patchPaperShareVisibility(cs.channel.id, visibility);
+    paperShareVisibility.value = s.visibility;
+  } finally {
+    paperShareSaving.value = false;
+  }
+}
 
 const categoryDropdownOptions = computed(() =>
   props.categoryOptions.map((o) => ({ label: o.label, value: o.id })),
@@ -206,7 +240,7 @@ const channelSettingsTabs = computed((): ChannelSettingsTab[] => {
 const settingsChannelIconModel = computed(
   (): {
     name: string;
-    type: 'text' | 'voice' | 'forum' | 'stage';
+    type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
     iconKey?: string;
   } | null => {
     const cs = props.channelSettings;
@@ -308,6 +342,11 @@ function syncFromProps() {
   messageFormatHard.value =
     messageFormatTemplate.value.trim().length > 0 &&
     ch.messageFormatHard === true;
+  paperCommentsEnabled.value = ch.paperCommentsEnabled !== false;
+  paperShowAuthorGutter.value = ch.paperShowAuthorGutter !== false;
+  if (ch.type === 'paper') {
+    void loadPaperShareSettings(ch.id);
+  }
 }
 
 const effectiveCategoryAutoDeleteStr = computed(() =>
@@ -637,6 +676,12 @@ function save() {
             ).trim().length > 0 && messageFormatHard.value === true,
         }
       : {}),
+    ...(channelType.value === 'paper'
+      ? {
+          paperCommentsEnabled: paperCommentsEnabled.value,
+          paperShowAuthorGutter: paperShowAuthorGutter.value,
+        }
+      : {}),
   });
 }
 
@@ -891,6 +936,87 @@ async function confirmDeleteChannel() {
                       Categories group channels in the sidebar so members can
                       find conversations faster.
                     </p>
+                  </div>
+
+                  <div
+                    v-if="channelType === 'paper'"
+                    class="w-full min-w-0 space-y-3"
+                  >
+                    <div class="channel-settings-section-label">Paper</div>
+                    <p class="channel-settings-hint w-full min-w-0">
+                      Paper channels are shared documents with live co-editing
+                      and margin comments — not message history.
+                    </p>
+                    <label
+                      class="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <input
+                        v-model="paperCommentsEnabled"
+                        type="checkbox"
+                        class="rounded border-border"
+                      />
+                      Allow margin comments
+                    </label>
+                    <label
+                      class="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <input
+                        v-model="paperShowAuthorGutter"
+                        type="checkbox"
+                        class="rounded border-border"
+                      />
+                      Show author names in margin
+                    </label>
+                    <div v-if="paperShareCanManage" class="space-y-2">
+                      <div class="text-sm font-medium text-fg">
+                        Share visibility
+                      </div>
+                      <p class="channel-settings-hint">
+                        Who can open this paper when using a share link.
+                      </p>
+                      <label
+                        class="flex cursor-pointer items-start gap-2 text-sm"
+                      >
+                        <input
+                          type="radio"
+                          name="paper-share-vis-settings"
+                          class="mt-0.5"
+                          value="server"
+                          :checked="paperShareVisibility === 'server'"
+                          :disabled="paperShareSaving"
+                          @change="onPaperShareVisibilityChange('server')"
+                        />
+                        Server members (RBAC)
+                      </label>
+                      <label
+                        class="flex cursor-pointer items-start gap-2 text-sm"
+                      >
+                        <input
+                          type="radio"
+                          name="paper-share-vis-settings"
+                          class="mt-0.5"
+                          value="private"
+                          :checked="paperShareVisibility === 'private'"
+                          :disabled="paperShareSaving"
+                          @change="onPaperShareVisibilityChange('private')"
+                        />
+                        Authors only
+                      </label>
+                      <label
+                        class="flex cursor-pointer items-start gap-2 text-sm"
+                      >
+                        <input
+                          type="radio"
+                          name="paper-share-vis-settings"
+                          class="mt-0.5"
+                          value="global"
+                          :checked="paperShareVisibility === 'global'"
+                          :disabled="paperShareSaving"
+                          @change="onPaperShareVisibilityChange('global')"
+                        />
+                        Anyone with link
+                      </label>
+                    </div>
                   </div>
 
                   <div v-if="channelType === 'text'" class="w-full min-w-0">

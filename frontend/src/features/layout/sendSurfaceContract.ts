@@ -66,6 +66,8 @@ export function isSendChannelShapeConsistentWithSurface(
         !isDmThreadId(channelId) &&
         channelId === surface.postChannelId
       );
+    case 'serverPaper':
+      return false;
     case 'serverEmptyOnboarding':
       return !isDmThreadId(channelId);
     default:

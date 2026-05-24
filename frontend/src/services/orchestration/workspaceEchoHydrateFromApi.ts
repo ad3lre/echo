@@ -63,7 +63,10 @@ export type EchoWorkspaceHydrateParams = {
     | 'socialGraphStatus'
   >;
   echoSession: {
-    applyWorkspaceSnapshot: (state: EchoWorkspaceState) => boolean;
+    applyWorkspaceSnapshot: (
+      state: EchoWorkspaceState,
+      opts?: { authoritative?: boolean },
+    ) => boolean;
     refreshDiscordVoiceMirrorRosters?: (
       token: string,
       serverIds: string[],
@@ -93,7 +96,7 @@ export async function runEchoWorkspaceHydrateFromApi(
 
     // 1. Initial render from cache for "blazing fast" start
     if (!skipWorkspace) {
-      const cached = loadEchoWorkspaceFromCache();
+      const cached = loadEchoWorkspaceFromCache(p.userId);
       if (cached) {
         p.echoSession.applyWorkspaceSnapshot(cached);
         p.workspace.serverMemberNicknames.value =
@@ -105,6 +108,7 @@ export async function runEchoWorkspaceHydrateFromApi(
     }
 
     let fetchedWorkspace: EchoWorkspaceState | null = null;
+    let workspaceSnapshotApplied = false;
     if (!skipWorkspace) {
       fetchedWorkspace = await withTransientFetchRetries(() =>
         fetchEchoWorkspaceState(p.token, p.userId, {
@@ -116,12 +120,10 @@ export async function runEchoWorkspaceHydrateFromApi(
         }),
       );
       const state = fetchedWorkspace;
-      const applied = p.echoSession.applyWorkspaceSnapshot(state);
-      p.workspace.serverMemberNicknames.value =
-        buildServerMemberNicknameMapFromMembersByServer(state.membersByServer);
-
-      // Save to cache for next time
-      saveEchoWorkspaceToCache(state);
+      const applied = p.echoSession.applyWorkspaceSnapshot(state, {
+        authoritative: true,
+      });
+      workspaceSnapshotApplied = applied;
 
       dbgMemberList('hydrateEchoFromApi (workspace path)', {
         skipWorkspace: false,
@@ -131,26 +133,38 @@ export async function runEchoWorkspaceHydrateFromApi(
         serverCount: state.servers.length,
         hasMembersByServerPayload: state.membersByServer != null,
       });
-      if (
-        p.echoSession.refreshDiscordVoiceMirrorRosters &&
-        state.servers.length > 0
-      ) {
-        await p.echoSession.refreshDiscordVoiceMirrorRosters(
-          p.token,
-          state.servers.map((s) => s.id),
+
+      /** Stale in-flight hydrates must not overwrite the rail or localStorage when version-gated. */
+      if (applied) {
+        p.workspace.serverMemberNicknames.value =
+          buildServerMemberNicknameMapFromMembersByServer(
+            state.membersByServer,
+          );
+
+        saveEchoWorkspaceToCache(p.userId, state);
+
+        if (
+          p.echoSession.refreshDiscordVoiceMirrorRosters &&
+          state.servers.length > 0
+        ) {
+          await p.echoSession.refreshDiscordVoiceMirrorRosters(
+            p.token,
+            state.servers.map((s) => s.id),
+          );
+        }
+        applyTimeoutUntilFromWorkspaceSnapshot(
+          state,
+          p.workspace.timeoutUntilByServerUser,
+          {
+            lastTimeoutWorkspaceVersion:
+              p.workspace.lastTimeoutWorkspaceVersion,
+            lastTimeoutServerCount: p.workspace.lastTimeoutServerCount,
+            lastTimeoutMemberKeyCount: p.workspace.lastTimeoutMemberKeyCount,
+          },
         );
+        p.ensureAuthUserInMockUsers();
+        p.serverStore.setServers(state.servers);
       }
-      applyTimeoutUntilFromWorkspaceSnapshot(
-        state,
-        p.workspace.timeoutUntilByServerUser,
-        {
-          lastTimeoutWorkspaceVersion: p.workspace.lastTimeoutWorkspaceVersion,
-          lastTimeoutServerCount: p.workspace.lastTimeoutServerCount,
-          lastTimeoutMemberKeyCount: p.workspace.lastTimeoutMemberKeyCount,
-        },
-      );
-      p.ensureAuthUserInMockUsers();
-      p.serverStore.setServers(state.servers);
     } else {
       dbgMemberList('hydrateEchoFromApi (workspace path)', {
         skipWorkspace: true,
@@ -175,7 +189,7 @@ export async function runEchoWorkspaceHydrateFromApi(
       p.mergeEchoDmThreadsFromApi?.(social.dmThreads);
       p.mergeEchoBlockedFromApi?.(social.blockedUserIds);
     }
-    if (fetchedWorkspace?.servers.length) {
+    if (workspaceSnapshotApplied && fetchedWorkspace?.servers.length) {
       const state = fetchedWorkspace;
       const hadNoServer =
         !p.serverStore.selectedServerId ||

@@ -10,13 +10,17 @@ export type ServerChannelContextForMainSurface = {
 export function resolveServerChannelInfoForMainSurface(
   channelId: string,
   findChannelContextById: (id: string) => ServerChannelContextForMainSurface,
-): { type: 'voice' | 'text' | 'forum'; parentChannelId?: string } | null {
+): {
+  type: 'voice' | 'text' | 'forum' | 'paper';
+  parentChannelId?: string;
+} | null {
   if (isDmThreadId(channelId)) return null;
   const ctx = findChannelContextById(channelId);
   if (!ctx?.channel) return null;
   const t = ctx.channel.type;
   if (t === 'voice' || t === 'stage') return { type: 'voice' };
   if (t === 'forum') return { type: 'forum' };
+  if (t === 'paper') return { type: 'paper' };
   return {
     type: 'text',
     ...(typeof ctx.channel.parentChannelId === 'string' &&

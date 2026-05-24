@@ -17,7 +17,9 @@ import {
   getStageYoutubeStreamStatus,
   startStageYoutubeStream,
   stopStageYoutubeStream,
+  updateStageYoutubeStreamLayout,
 } from '../../../services/stage/stageYoutubeStream';
+import { STAGE_EGRESS_LAYOUTS } from '../../../services/livekit/livekitEgress';
 import type { YoutubeLivePrivacy } from '../../../services/integrations/youtubeApiClient';
 
 type StartBody = {
@@ -152,6 +154,55 @@ export default async function echoStageYoutubeRoutes(
         return sendError(reply, status, r.code, r.message);
       }
       return reply.code(204).send();
+    },
+  );
+
+  fastify.post<{
+    Params: { serverId: string; channelId: string };
+    Body?: { layout?: string };
+  }>(
+    '/servers/:serverId/channels/:channelId/stage/youtube/layout',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: STAGE_YOUTUBE_MUTATE_RATE },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      if (!okMem) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          ECHO_MSG_NOT_SERVER_MEMBER,
+          'NOT_SERVER_MEMBER',
+        );
+      }
+      const layout =
+        typeof req.body?.layout === 'string' ? req.body.layout.trim() : '';
+      if (!layout) {
+        return sendError(reply, 400, 'INVALID_LAYOUT', 'layout is required');
+      }
+      const r = await updateStageYoutubeStreamLayout(pool, {
+        serverId,
+        channelId,
+        actorUserId: req.authUser!.id,
+        layout,
+      });
+      if (!r.ok) {
+        const status =
+          r.code === 'FORBIDDEN'
+            ? 403
+            : r.code === 'NOT_LIVE'
+              ? 404
+              : r.code === 'INVALID_LAYOUT'
+                ? 400
+                : 503;
+        return sendError(reply, status, r.code, r.message);
+      }
+      return reply.code(200).send({ layouts: [...STAGE_EGRESS_LAYOUTS] });
     },
   );
 }

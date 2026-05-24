@@ -26,7 +26,7 @@ export type CreateChannelModalSubmitPayload =
   | {
       kind: 'channel';
       name: string;
-      type: 'text' | 'voice' | 'stage' | 'forum';
+      type: 'text' | 'voice' | 'stage' | 'forum' | 'paper';
       categoryId: string;
       iconKey: string;
     }
@@ -37,45 +37,48 @@ const emit = defineEmits<{
   submit: [payload: CreateChannelModalSubmitPayload];
 }>();
 
-type CreationMode = 'text' | 'voice' | 'stage' | 'forum' | 'category';
+type CreationMode = 'text' | 'voice' | 'stage' | 'forum' | 'paper' | 'category';
 
 const CHANNEL_TYPE_OPTIONS: {
   id: CreationMode;
   label: string;
-  description: string;
+  subtitle: string;
   icon: string;
-  iconClass?: string;
 }[] = [
   {
     id: 'text',
     label: 'Text',
-    description: 'Send messages, images, GIFs, emoji, opinions, and puns.',
+    subtitle: 'Send messages',
     icon: icons.hashtag,
-    iconClass: 'create-channel-type-icon--hash',
-  },
-  {
-    id: 'voice',
-    label: 'Voice',
-    description: 'Hang out together with voice, video, and screen share.',
-    icon: icons.volumeUp,
   },
   {
     id: 'forum',
     label: 'Forum',
-    description: 'Create a space for organized discussions.',
+    subtitle: 'Organized threads',
     icon: icons.messageAlt,
+  },
+  {
+    id: 'paper',
+    label: 'Paper',
+    subtitle: 'Collaborative document',
+    icon: icons.file,
+  },
+  {
+    id: 'voice',
+    label: 'Voice',
+    subtitle: 'Voice, video, screen share',
+    icon: icons.volumeUp,
   },
   {
     id: 'stage',
     label: 'Stage',
-    description: 'Host events, panels, and Q&As for an audience.',
-    icon: icons.discordStage,
-    iconClass: 'create-channel-type-icon--native',
+    subtitle: 'Events and panels',
+    icon: icons.sofa,
   },
   {
     id: 'category',
     label: 'Category',
-    description: 'Group text and voice channels under a collapsible header.',
+    subtitle: 'Group channels',
     icon: icons.list,
   },
 ];
@@ -100,14 +103,19 @@ const isCategoryMode = computed(() => creationMode.value === 'category');
 const channelNamePrefixIcon = computed(() => {
   if (isCategoryMode.value) return null;
   if (creationMode.value === 'voice') return icons.volumeUp;
-  if (creationMode.value === 'stage') return icons.discordStage;
+  if (creationMode.value === 'stage') return icons.sofa;
+  if (creationMode.value === 'paper') return icons.file;
+  if (creationMode.value === 'forum') return icons.messageAlt;
   return icons.hashtag;
 });
 
-function defaultIconForType(t: 'text' | 'voice' | 'stage' | 'forum'): string {
+function defaultIconForType(
+  t: 'text' | 'voice' | 'stage' | 'forum' | 'paper',
+): string {
   if (t === 'voice') return 'volumeUp';
   if (t === 'stage') return 'sofa';
   if (t === 'forum') return 'messageAlt';
+  if (t === 'paper') return 'file';
   return 'message';
 }
 
@@ -121,6 +129,10 @@ const canSubmit = computed(() => {
   if (creationMode.value === 'category') return !categoryNameIsDuplicate.value;
   return !!selectedCategory.value;
 });
+
+const submitLabel = computed(() =>
+  isCategoryMode.value ? 'Create category' : 'Create channel',
+);
 
 watch(
   () => props.modelValue,
@@ -154,7 +166,8 @@ watch(creationMode, (mode) => {
     mode === 'text' ||
     mode === 'voice' ||
     mode === 'stage' ||
-    mode === 'forum'
+    mode === 'forum' ||
+    mode === 'paper'
   ) {
     selectedIconKey.value = defaultIconForType(mode);
   }
@@ -186,7 +199,7 @@ function submit() {
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 z-[150] flex items-center justify-center modal-overlay-bg px-4"
+    class="fixed inset-0 z-[150] flex items-center justify-center modal-overlay-bg px-4 py-6"
     @click.self="close"
   >
     <div
@@ -194,113 +207,56 @@ function submit() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-channel-title"
-      class="create-channel-modal real-glass-modal relative w-full max-w-[440px] rounded-xl p-6 text-foreground"
+      class="create-channel-modal real-glass-modal relative w-full max-w-[400px] rounded-2xl p-4 text-foreground sm:p-5"
+      @click.stop
     >
-      <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0">
-          <h2 id="create-channel-title" class="text-xl font-bold leading-tight">
-            {{ isCategoryMode ? 'Create category' : 'Create channel' }}
-          </h2>
-          <p
-            class="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-fg-soft"
-          >
-            <span>in</span>
-            <span class="truncate font-medium text-fg">{{ serverName }}</span>
-          </p>
-        </div>
-        <button
-          type="button"
-          class="create-channel-close shrink-0 rounded-md p-1.5 text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg"
-          aria-label="Close"
-          @click="close"
-        >
-          <svg
-            class="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <div class="mt-5 space-y-5">
-        <fieldset class="min-w-0 border-0 p-0">
-          <legend class="settings-label mb-2">Channel type</legend>
-          <div
-            class="create-channel-type-list"
-            role="radiogroup"
-            aria-label="Channel type"
-          >
-            <label
-              v-for="opt in CHANNEL_TYPE_OPTIONS"
-              :key="opt.id"
-              class="create-channel-type-option"
-              :class="{
-                'create-channel-type-option--selected': creationMode === opt.id,
-              }"
+      <div class="create-channel-stack">
+        <div class="cc-widget cc-widget--toolbar">
+          <div class="cc-widget-header">
+            <div class="min-w-0 flex-1">
+              <h2
+                id="create-channel-title"
+                class="cc-widget-title cc-widget-title--header"
+              >
+                {{ isCategoryMode ? 'Create category' : 'Create channel' }}
+              </h2>
+              <p class="cc-widget-subtitle">
+                in
+                <span class="font-medium text-foreground">{{
+                  serverName
+                }}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              class="cc-widget-close chat-focus-ring"
+              aria-label="Close"
+              @click="close"
             >
-              <input
-                v-model="creationMode"
-                class="create-channel-type-input"
-                type="radio"
-                name="create-channel-type"
-                :value="opt.id"
-              />
-              <span class="create-channel-type-radio" aria-hidden="true" />
-              <img
-                :src="opt.icon"
-                alt=""
-                class="create-channel-type-icon shrink-0"
-                :class="opt.iconClass"
-              />
-              <span class="min-w-0 flex-1">
-                <span class="block text-base font-semibold text-fg">
-                  {{ opt.label }}
-                </span>
-                <span class="mt-0.5 block text-sm leading-snug text-fg-subtle">
-                  {{ opt.description }}
-                </span>
-              </span>
-            </label>
+              <span class="cc-widget-close-glyph" aria-hidden="true">×</span>
+            </button>
           </div>
-        </fieldset>
+        </div>
 
-        <div>
+        <div class="cc-widget cc-widget--form">
           <label
-            class="settings-label"
+            class="cc-field-label"
             :for="
               isCategoryMode ? 'create-category-name' : 'create-channel-name'
             "
           >
-            {{ isCategoryMode ? 'Category name' : 'Channel name' }}
+            {{ isCategoryMode ? 'Name' : 'Channel name' }}
           </label>
-          <div
-            class="create-channel-name-row mt-2 flex min-h-[44px] items-stretch overflow-hidden rounded-lg"
-          >
+          <div class="cc-name-row chat-focus-ring">
             <span
               v-if="channelNamePrefixIcon && !isCategoryMode"
-              class="create-channel-name-prefix flex shrink-0 items-center justify-center px-3"
+              class="cc-name-prefix"
               aria-hidden="true"
             >
               <img
                 :src="channelNamePrefixIcon"
                 alt=""
-                class="h-[18px] w-[18px] object-contain opacity-70"
-                :class="
-                  creationMode === 'text' || creationMode === 'forum'
-                    ? 'create-channel-prefix-hash'
-                    : creationMode === 'stage'
-                      ? 'create-channel-prefix-stage opacity-80'
-                      : 'filter invert opacity-60'
-                "
+                class="cc-widget-icon echo-ink-icon"
               />
             </span>
             <input
@@ -310,7 +266,7 @@ function submit() {
               ref="channelNameInputRef"
               v-model="channelName"
               type="text"
-              class="create-channel-name-input min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-fg outline-none placeholder:text-fg-subtle"
+              class="cc-name-input"
               :placeholder="isCategoryMode ? 'new-category' : 'new-channel'"
               :maxlength="isCategoryMode ? 100 : ECHO_CHANNEL_NAME_MAX_LENGTH"
               @keydown.enter.prevent="submit"
@@ -329,37 +285,76 @@ function submit() {
           </div>
           <p
             v-if="isCategoryMode && trimmedName && categoryNameIsDuplicate"
-            class="mt-2 text-xs text-rose-300/90"
+            class="cc-widget-note cc-widget-note--warning"
           >
             A category with this name already exists.
           </p>
         </div>
 
-        <div v-if="!isCategoryMode" class="create-channel-dropdowns">
+        <div
+          v-if="!isCategoryMode"
+          class="cc-widget cc-widget--field create-channel-dropdowns"
+        >
           <EchoDropdown
             v-model="selectedCategory"
             :options="categoryDropdownOptions"
             label="Category"
+            class="create-channel-category-dropdown"
           />
         </div>
-      </div>
 
-      <div class="mt-6 flex justify-end gap-3">
-        <button
-          type="button"
-          class="create-channel-btn-cancel rounded-[3px] px-4 py-2 text-sm font-medium text-fg transition-colors"
-          @click="close"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          class="create-channel-btn-submit rounded-[3px] px-4 py-2 text-sm font-medium transition-[filter,opacity] hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
-          :disabled="!canSubmit"
-          @click="submit"
-        >
-          {{ isCategoryMode ? 'Create category' : 'Create channel' }}
-        </button>
+        <fieldset class="cc-widget cc-widget--types">
+          <legend class="cc-field-label">Type</legend>
+          <div
+            class="cc-type-grid"
+            role="radiogroup"
+            :aria-label="isCategoryMode ? 'Creation type' : 'Channel type'"
+          >
+            <label
+              v-for="opt in CHANNEL_TYPE_OPTIONS"
+              :key="opt.id"
+              class="cc-type-choice chat-focus-ring"
+              :class="{
+                'cc-type-choice--selected': creationMode === opt.id,
+              }"
+            >
+              <input
+                v-model="creationMode"
+                class="sr-only"
+                type="radio"
+                name="create-channel-type"
+                :value="opt.id"
+              />
+              <img
+                :src="opt.icon"
+                alt=""
+                class="cc-widget-icon cc-type-choice-icon echo-ink-icon"
+              />
+              <span class="cc-type-choice-copy">
+                <span class="cc-type-choice-title">{{ opt.label }}</span>
+                <span class="cc-type-choice-subtitle">{{ opt.subtitle }}</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="cc-widget cc-widget--actions">
+          <button
+            type="button"
+            class="cc-btn cc-btn--ghost chat-focus-ring"
+            @click="close"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="cc-btn cc-btn--primary chat-focus-ring"
+            :disabled="!canSubmit"
+            @click="submit"
+          >
+            {{ submitLabel }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -367,152 +362,303 @@ function submit() {
 
 <style scoped lang="scss">
 .modal-overlay-bg {
-  background-color: var(--vue-auto-011);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background-color: color-mix(in srgb, var(--bg) 35%, rgba(0, 0, 0, 0.92));
+  backdrop-filter: blur(10px) saturate(1);
+  -webkit-backdrop-filter: blur(10px) saturate(1);
 }
 
 .real-glass-modal {
-  background: var(--echo-modal-bg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-3);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  background: var(--echo-modal-bg-heavy);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.78),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(18px) saturate(1.05);
+  -webkit-backdrop-filter: blur(18px) saturate(1.05);
 }
 
-.settings-label {
-  display: block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.create-channel-type-list {
+.create-channel-stack {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.create-channel-type-option {
+.cc-widget {
+  width: 100%;
+  border-radius: 0.9rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--glass-tint);
+  color: var(--text);
+}
+
+.cc-widget--toolbar {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  background: transparent;
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
+}
+
+.cc-widget-header {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.5rem 0.625rem;
-  margin: 0 -0.625rem;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
+  gap: 0.5rem;
 }
 
-.create-channel-type-option:hover {
-  background: color-mix(in srgb, var(--elevated) 65%, transparent);
+.cc-widget-title {
+  font-size: 0.95rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  line-height: 1.25;
 }
 
-.create-channel-type-option--selected {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+.cc-widget-title--header {
+  font-size: 1.05rem;
 }
 
-.create-channel-type-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+.cc-widget-subtitle {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  color: var(--muted);
 }
 
-.create-channel-type-radio {
+.cc-widget-close {
+  display: inline-flex;
   flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
-  margin-top: 0.125rem;
-  border-radius: 50%;
-  border: 2px solid var(--muted);
-  background: transparent;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 999px;
+  color: var(--muted);
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease;
+}
+
+.cc-widget-close:hover {
+  background: color-mix(in srgb, var(--glass-tint) 75%, transparent);
+  color: var(--text);
+}
+
+.cc-widget-close-glyph {
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.cc-field-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cc-widget--form {
+  padding-top: 0.65rem;
+}
+
+.cc-name-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  border-radius: 0.75rem;
+  padding: 0.2rem 0.45rem;
+  background: color-mix(in srgb, var(--elevated) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   transition:
     border-color 0.15s ease,
-    background-color 0.15s ease,
     box-shadow 0.15s ease;
-  position: relative;
 }
 
-.create-channel-type-option--selected .create-channel-type-radio {
-  border-color: var(--accent);
-  background: var(--accent);
-  box-shadow: inset 0 0 0 3px var(--accent-contrast-fg);
+.cc-name-row:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.create-channel-type-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  margin-top: 0.125rem;
+.cc-name-prefix {
+  display: flex;
+  align-items: center;
+  padding-left: 0.35rem;
+  opacity: 0.78;
+}
+
+.cc-name-input {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.9rem;
+  outline: none;
+  padding: 0.55rem 0.2rem;
+}
+
+.cc-name-input::placeholder {
+  color: color-mix(in srgb, var(--muted) 75%, transparent);
+}
+
+.cc-name-row :deep(.channel-icon-trigger) {
+  border-left: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+
+.cc-widget-note {
+  margin-top: 0.45rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.cc-widget-note--warning {
+  color: var(--server-ping-broadcast, #f87171);
+}
+
+.cc-widget--types {
+  border: 0;
+  min-width: 0;
+  padding-top: 0.65rem;
+}
+
+.cc-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.cc-type-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--elevated) 35%, transparent);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.14s ease,
+    background-color 0.14s ease;
+}
+
+.cc-type-choice:hover {
+  background: color-mix(in srgb, var(--elevated) 55%, transparent);
+  border-color: color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.cc-type-choice--selected {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--elevated) 40%);
+}
+
+.cc-type-choice-icon {
+  margin-top: 0.05rem;
+}
+
+.cc-type-choice-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.cc-type-choice-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.cc-type-choice-subtitle {
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+.cc-widget-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
   object-fit: contain;
-  opacity: 0.88;
+  opacity: 0.85;
+}
+
+[data-theme='dark'] .cc-widget-icon {
   filter: invert(1);
 }
 
-.create-channel-type-icon--hash,
-.create-channel-prefix-hash {
-  filter: none;
-  opacity: 0.55;
-}
-
-.create-channel-type-icon--native,
-.create-channel-prefix-stage {
-  filter: none;
-}
-
-.create-channel-name-row {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.create-channel-name-row:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-
-.create-channel-name-prefix {
-  color: var(--muted);
-  border-right: 1px solid var(--border);
-}
-
-.create-channel-name-row :deep(.channel-icon-trigger) {
-  border-left: 1px solid var(--border);
-}
-
-.create-channel-btn-cancel {
+.cc-widget--actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
   background: transparent;
+  padding-left: 0.1rem;
+  padding-right: 0.1rem;
 }
 
-.create-channel-btn-cancel:hover {
-  text-decoration: underline;
+.cc-btn {
+  border-radius: 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease,
+    opacity 0.14s ease;
 }
 
-.create-channel-btn-submit {
-  background: var(--accent);
-  color: var(--accent-contrast-fg);
+.cc-btn--ghost {
+  padding: 0.45rem 0.35rem;
+  color: var(--muted);
+}
+
+.cc-btn--ghost:hover {
+  color: var(--text);
+}
+
+.cc-btn--primary {
+  padding: 0.5rem 1rem;
+  color: var(--text);
+  background: var(--echo-control-bg);
+  border: 1px solid var(--echo-control-border);
+}
+
+.cc-btn--primary:hover:not(:disabled) {
+  background: var(--echo-control-bg-hover);
+  border-color: var(--echo-control-border-hover);
+}
+
+.cc-btn--primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .create-channel-dropdowns {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+
   :deep(.echo-dropdown-trigger) {
-    background: var(--surface);
-    border: 1px solid var(--border);
+    min-height: 40px;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--elevated) 42%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
     box-shadow: none;
   }
   :deep(.echo-dropdown-trigger:hover) {
-    background: var(--elevated);
+    background: var(--echo-control-bg-hover);
+    border-color: color-mix(in srgb, var(--border) 88%, transparent);
   }
   :deep(.echo-dropdown-trigger--open) {
-    background: var(--elevated);
+    background: var(--echo-control-bg-hover);
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
   }
   :deep(.echo-dropdown-trigger-text) {
     color: var(--text);
@@ -521,11 +667,12 @@ function submit() {
     color: var(--muted);
   }
   :deep(.echo-dropdown-menu) {
-    background: var(--surface);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: var(--shadow-3);
-    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--echo-modal-bg-heavy);
+    box-shadow:
+      0 20px 60px rgba(0, 0, 0, 0.72),
+      inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   }
   :deep(.echo-dropdown-menu::before) {
     display: none;
@@ -534,14 +681,31 @@ function submit() {
     color: var(--text);
   }
   :deep(.echo-dropdown-menu .echo-dropdown-option:hover) {
-    background: var(--elevated);
+    background: var(--echo-control-bg-hover);
   }
   :deep(
     .echo-dropdown-menu .echo-dropdown-option.echo-dropdown-option--selected
   ) {
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    font-weight: 700;
+    color: var(--text);
+    background: color-mix(
+      in srgb,
+      var(--echo-modal-bg-muted) 55%,
+      var(--elevated) 45%
+    );
+    font-weight: 600;
   }
+}
+
+:deep(.create-channel-category-dropdown .echo-dropdown-container) {
+  gap: 0;
+}
+
+:deep(.create-channel-category-dropdown .settings-label) {
+  margin-bottom: 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 </style>

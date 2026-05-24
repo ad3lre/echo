@@ -2445,6 +2445,14 @@ export function useServerVoiceSession(deps: {
           void lkRoom.stopScreenShare();
         }
         dispatchAppToast('A moderator stopped your screen share.', 'info');
+      } else if (delta.action === 'demote_speaker') {
+        vcVideo.value = false;
+        vcScreenshare.value = false;
+        if (lkRoom && liveKitState.value === 'connected') {
+          void lkRoom.setCameraEnabled(false);
+          void lkRoom.stopScreenShare();
+        }
+        dispatchAppToast('You were moved to the audience.', 'info');
       }
     },
   };

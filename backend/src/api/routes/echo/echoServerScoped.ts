@@ -402,7 +402,9 @@ export default async function echoServerScopedRoutes(
             ? 'stage'
             : req.body?.type === 'forum'
               ? 'forum'
-              : 'text';
+              : req.body?.type === 'paper'
+                ? 'paper'
+                : 'text';
       let categoryId =
         typeof req.body?.categoryId === 'string'
           ? req.body.categoryId.trim()

@@ -20,6 +20,7 @@ import {
   listEchoVoiceParticipants,
   requestEchoStageSpeak,
   resolveEchoStageSpeakRequest,
+  getEchoChannelType,
   type EchoVoiceModerationAction,
 } from '../../../domain/echoStore';
 import { isMemberOfServer } from '../../../domain/echoPermissions';
@@ -36,7 +37,9 @@ import {
   setLiveKitParticipantMicrophoneMuted,
   stopLiveKitParticipantCamera,
   stopLiveKitParticipantScreenShare,
+  syncLiveKitParticipantPublishPermissions,
 } from '../../../services/livekit/livekitAdapter';
+import { syncStageProgramRoomMetadata } from '../../../services/stage/stageProgramRoom';
 import { echoVoiceModerateTotal } from '../../../observability/echoMetrics';
 import { vcTrace } from '../../../observability/voiceTraceLog';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
@@ -69,6 +72,73 @@ function parseEchoVoiceModerateAction(
   return ECHO_VOICE_MODERATE_ACTIONS.has(raw)
     ? (raw as EchoVoiceModerationAction)
     : null;
+}
+
+/** Refresh stage speaker roster in LiveKit room metadata (egress program template). */
+async function trySyncStageProgramRoomMetadata(
+  pool: pg.Pool,
+  serverId: string,
+  channelId: string,
+  log?: { warn: (obj: unknown, msg?: string) => void },
+): Promise<void> {
+  if (!config.liveKitEnabled || !channelId.trim()) return;
+  try {
+    const channelType = await getEchoChannelType(pool, serverId, channelId);
+    if (channelType !== 'stage') return;
+    await syncStageProgramRoomMetadata(pool, serverId, channelId);
+  } catch (e) {
+    log?.warn(
+      { err: e, serverId, channelId },
+      '[LiveKit] sync stage program room metadata failed',
+    );
+  }
+}
+
+async function syncLiveKitStageSpeakerMedia(
+  pool: pg.Pool,
+  serverId: string,
+  channelId: string,
+  targetUserId: string,
+  action: 'invite_to_speak' | 'move_to_audience',
+  log: {
+    warn: (obj: unknown, msg?: string) => void;
+    info: (obj: object, msg?: string) => void;
+  },
+): Promise<void> {
+  if (!config.liveKitEnabled) return;
+  const channelType = await getEchoChannelType(pool, serverId, channelId);
+  if (channelType !== 'stage') return;
+  const roomName = liveKitRoomName(serverId, channelId);
+  const speakAllowed = action === 'invite_to_speak';
+  try {
+    if (!speakAllowed) {
+      await stopLiveKitParticipantCamera({ roomName, identity: targetUserId });
+      await stopLiveKitParticipantScreenShare({
+        roomName,
+        identity: targetUserId,
+      });
+    }
+    const modRow = await pool.query(
+      `SELECT server_muted, server_deafened FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+      [serverId, targetUserId],
+    );
+    const moderationMute =
+      modRow.rows[0] != null &&
+      (Boolean(modRow.rows[0].server_muted) ||
+        Boolean(modRow.rows[0].server_deafened));
+    await syncLiveKitParticipantPublishPermissions({
+      roomName,
+      identity: targetUserId,
+      canPublishMicrophone: speakAllowed && !moderationMute,
+      canPublishVideo: speakAllowed,
+    });
+    await syncStageProgramRoomMetadata(pool, serverId, channelId);
+  } catch (e) {
+    log.warn(
+      { err: e, action, targetUserId, channelId },
+      '[LiveKit] sync stage speaker media failed',
+    );
+  }
 }
 
 async function syncLiveKitMicAfterServerModeration(
@@ -218,6 +288,14 @@ export default async function echoVoiceRoutes(
         },
         auditId,
       );
+      if (r.stageSpeaker !== undefined) {
+        await trySyncStageProgramRoomMetadata(
+          pool,
+          serverId,
+          channelId,
+          req.log,
+        );
+      }
       return reply.code(204).send();
     },
   );
@@ -374,6 +452,7 @@ export default async function echoVoiceRoutes(
         name: req.authUser!.username ?? req.authUser!.id,
         roomName,
         canPublishMicrophone: !blockMic,
+        canPublishVideo: stageSpeakAllowed,
         ...(pfpMeta ? { metadata: JSON.stringify({ pfp: pfpMeta }) } : {}),
       });
 
@@ -500,6 +579,14 @@ export default async function echoVoiceRoutes(
         },
         auditId,
       );
+      if (leaveChannelId) {
+        await trySyncStageProgramRoomMetadata(
+          pool,
+          sid,
+          leaveChannelId,
+          req.log,
+        );
+      }
       return reply.code(204).send();
     },
   );
@@ -708,6 +795,12 @@ export default async function echoVoiceRoutes(
             '[LiveKit] removeParticipant after voice moderate disconnect failed',
           );
         }
+        await trySyncStageProgramRoomMetadata(
+          pool,
+          sid,
+          liveKitChannelIdForKick,
+          req.log,
+        );
       }
       if (
         r === 'ok' &&
@@ -726,6 +819,21 @@ export default async function echoVoiceRoutes(
           pool,
           sid,
           targetUserId,
+          req.log,
+        );
+      }
+      if (
+        r === 'ok' &&
+        config.liveKitEnabled &&
+        modCurrentChannelId &&
+        (action === 'invite_to_speak' || action === 'move_to_audience')
+      ) {
+        await syncLiveKitStageSpeakerMedia(
+          pool,
+          sid,
+          modCurrentChannelId,
+          targetUserId,
+          action,
           req.log,
         );
       }
@@ -1036,6 +1144,22 @@ export default async function echoVoiceRoutes(
             },
             auditId,
           );
+          if (config.liveKitEnabled) {
+            await syncLiveKitMicAfterServerModeration(
+              pool,
+              serverId,
+              targetUserId,
+              req.log,
+            );
+            await syncLiveKitStageSpeakerMedia(
+              pool,
+              serverId,
+              channelId,
+              targetUserId,
+              'invite_to_speak',
+              req.log,
+            );
+          }
         }
         return reply.code(204).send();
       }

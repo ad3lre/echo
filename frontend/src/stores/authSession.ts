@@ -16,6 +16,7 @@ import {
   overwriteLocalProfileFromAuthUser,
 } from '@/utils/localProfilePersistence';
 import { clearWorkspaceSessionCache } from '@/utils/workspaceSessionCache';
+import { clearEchoWorkspaceCache } from '@/utils/workspacePersistence';
 import { markPriorRegistered } from '@/utils/priorRegistration';
 import {
   setSkipAutoGuestAfterLogout,
@@ -130,6 +131,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     backendUser.value = null;
     planLimits.value = null;
     clearWorkspaceSessionCache();
+    clearEchoWorkspaceCache();
     if (
       typeof localStorage !== 'undefined' &&
       typeof localStorage.removeItem === 'function'
@@ -257,6 +259,17 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     sessionEndedMessage.value = null;
   }
 
+  function patchImageSearchQuota(input: { used: number; limit: number }) {
+    const used = Math.max(0, Math.floor(input.used));
+    const limit = Math.max(0, Math.floor(input.limit));
+    if (!planLimits.value) return;
+    planLimits.value = {
+      ...planLimits.value,
+      imageSearchesPerDay: limit,
+      imageSearchesUsedToday: Math.min(used, limit),
+    };
+  }
+
   return {
     authStateGeneration,
     accessToken,
@@ -277,5 +290,6 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     applyRestoredProfile,
     logout,
     logoutEverywhere,
+    patchImageSearchQuota,
   };
 });

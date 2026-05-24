@@ -395,6 +395,10 @@ export type PatchEchoChannelInput = {
   messageFormatTemplate?: string;
   /** Text/forum: when true with non-empty template, prefix cannot be removed (enforced server-side on send). */
   messageFormatHard?: boolean;
+  /** Paper channels: margin comments enabled. */
+  paperCommentsEnabled?: boolean;
+  /** Paper channels: show author gutter. */
+  paperShowAuthorGutter?: boolean;
 };
 
 function patchEchoChannelHasAnyField(p: PatchEchoChannelInput): boolean {
@@ -415,7 +419,9 @@ function patchEchoChannelHasAnyField(p: PatchEchoChannelInput): boolean {
     p.autoDeleteAfterSeconds !== undefined ||
     p.autoDeleteSyncedToCategory !== undefined ||
     p.messageFormatTemplate !== undefined ||
-    p.messageFormatHard !== undefined
+    p.messageFormatHard !== undefined ||
+    p.paperCommentsEnabled !== undefined ||
+    p.paperShowAuthorGutter !== undefined
   );
 }
 
@@ -579,6 +585,14 @@ export async function patchEchoChannel(
     typeof patch.messageFormatHard !== 'boolean'
   )
     return 'invalid_body';
+  if (patch.paperCommentsEnabled !== undefined) {
+    if (chType !== 'paper') return 'invalid_body';
+    if (typeof patch.paperCommentsEnabled !== 'boolean') return 'invalid_body';
+  }
+  if (patch.paperShowAuthorGutter !== undefined) {
+    if (chType !== 'paper') return 'invalid_body';
+    if (typeof patch.paperShowAuthorGutter !== 'boolean') return 'invalid_body';
+  }
 
   const wantsPlacement =
     patch.siblingIndex !== undefined ||
@@ -656,6 +670,14 @@ export async function patchEchoChannel(
   if (patch.autoDeleteSyncedToCategory !== undefined) {
     sets.push(`auto_delete_synced_to_category = $${vals.length + 1}`);
     vals.push(patch.autoDeleteSyncedToCategory);
+  }
+  if (patch.paperCommentsEnabled !== undefined) {
+    sets.push(`paper_comments_enabled = $${vals.length + 1}`);
+    vals.push(patch.paperCommentsEnabled);
+  }
+  if (patch.paperShowAuthorGutter !== undefined) {
+    sets.push(`paper_show_author_gutter = $${vals.length + 1}`);
+    vals.push(patch.paperShowAuthorGutter);
   }
 
   if (formatPatchRequested) {

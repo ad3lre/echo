@@ -126,7 +126,8 @@ function toInlineContent(
   resolvers?: IdTokenResolvers,
 ): JSONContent[] {
   const validMentions = normalizeMentions(content, mentions);
-  const emojiEvents: MergeEvent[] = findAllIdTokenMatches(content)
+  const idTokenMatches = findAllIdTokenMatches(content);
+  const emojiEvents: MergeEvent[] = idTokenMatches
     .flatMap((match) => {
       if (match.token.kind !== 'emoji') return [];
       return [
@@ -153,7 +154,7 @@ function toInlineContent(
       end: match.end,
       token: match.token,
     }));
-  const iconEvents: MergeEvent[] = findAllIdTokenMatches(content)
+  const iconEvents: MergeEvent[] = idTokenMatches
     .filter(
       (match) =>
         match.token.kind === 'appIcon' &&
@@ -236,6 +237,11 @@ function toInlineContent(
     out.push(...textSegmentToContent(content.slice(cursor)));
   }
   return out;
+}
+
+/** True when the composer has no user-visible text (whitespace-only counts as empty). */
+export function isComposerContentEffectivelyEmpty(content: string): boolean {
+  return content.trim().length === 0;
 }
 
 export function buildComposerDoc(
@@ -511,6 +517,16 @@ export function serializeComposerDoc(
     mentions: normalizeMentions(content, mentions),
     selectionStart,
     selectionEnd,
+  };
+}
+
+export function composerSelectionToRawOffsets(
+  doc: ProseMirrorNode,
+  selection: { from: number; to: number },
+): { selectionStart: number; selectionEnd: number } {
+  return {
+    selectionStart: mapSelectionToRawOffset(doc, selection.from),
+    selectionEnd: mapSelectionToRawOffset(doc, selection.to),
   };
 }
 

@@ -202,11 +202,12 @@ export function useServerSettingsRoles(options: {
       (a, b) => a.position - b.position || a.id.localeCompare(b.id),
     );
     const globalId = globalRoleCategoryId.value;
+    const tab = selectedRoleCategoryTabId.value;
     if (
       roleCategoryUiEnabled.value &&
       globalId &&
-      (selectedRoleCategoryTabId.value === 'all' ||
-        !categories.some((c) => c.id === selectedRoleCategoryTabId.value))
+      tab !== 'all' &&
+      !categories.some((c) => c.id === tab)
     ) {
       selectedRoleCategoryTabId.value = globalId;
     }

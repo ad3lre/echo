@@ -2347,6 +2347,41 @@ button {
   background: #d1d3db;
 }
 
+.status-sparkline {
+  display: block;
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.85rem;
+  font-size: 1.125rem;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: linear-gradient(
+    180deg,
+    rgba(88, 66, 244, 0.04) 0%,
+    rgba(15, 15, 22, 0.03) 100%
+  );
+}
+
+.status-latency-bar {
+  display: block;
+  margin: 0.85rem 0 0;
+  font-size: 0.9375rem;
+  letter-spacing: 0.04em;
+}
+
+.status-probe-error {
+  margin: 0.65rem 0 0;
+  font-size: 0.875rem;
+  color: #b91c1c;
+  line-height: 1.5;
+}
+
+.status-metrics--probe {
+  margin-top: 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .status-footnote {
   margin: 1rem 0 0;
   font-size: 0.875rem;

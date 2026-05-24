@@ -245,6 +245,8 @@ export function useUrlNavigationSync(opts: UseUrlNavigationSyncOptions) {
         });
         return resolved;
       }
+      case 'paper_public':
+        return parsed;
       case 'unknown': {
         const fb = pickFallbackParsedPath(rctx);
         return applyParsedPath(fb);

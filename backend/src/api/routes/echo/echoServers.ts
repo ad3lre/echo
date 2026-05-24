@@ -28,6 +28,7 @@ import {
   removeLiveKitParticipant,
 } from '../../../services/livekit/livekitAdapter';
 import { validateEchoStoredBrandingUrl } from '../../../services/storedMediaUrl';
+import { ensureOfficialEchoServerMembership } from '../../../services/auth/officialEchoServerOnSignup';
 import {
   echoPool,
   requireEchoStore,
@@ -84,6 +85,15 @@ export default async function echoServersRoutes(
     },
     async (req, reply) => {
       const pool = echoPool(req);
+      const userId = req.authUser!.id;
+      try {
+        await ensureOfficialEchoServerMembership(pool, userId);
+      } catch (err) {
+        req.log.warn(
+          { err, userId },
+          'official_echo_server_workspace_backfill_failed',
+        );
+      }
       const {
         servers,
         categoriesByServer,
@@ -91,7 +101,7 @@ export default async function echoServersRoutes(
         workspaceVersion,
         upcomingEventsByServerId,
         myEventRsvps,
-      } = await listEchoWorkspaceForUser(pool, req.authUser!.id);
+      } = await listEchoWorkspaceForUser(pool, userId);
       return reply.code(200).send({
         servers,
         categoriesByServer,

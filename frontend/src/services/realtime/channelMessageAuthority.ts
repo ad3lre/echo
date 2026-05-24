@@ -57,6 +57,18 @@ export function prependChannelMessagesFromHistory(
   return { mergedOlderCount: synced.length - beforeCount, messages: synced };
 }
 
+export function appendChannelMessagesFromHistory(
+  channelId: string,
+  newer: RawMessage[],
+): { mergedNewerCount: number; messages: RawMessage[] } {
+  ensureChannelBucket(channelId);
+  const index = messageWindowAuthority.getIndex(channelId);
+  const beforeCount = index.sorted.value.length;
+  index.mergeBatch(newer, 'append');
+  const synced = syncChannelMessages(channelId, index);
+  return { mergedNewerCount: synced.length - beforeCount, messages: synced };
+}
+
 export function insertChannelMessageFromHistory(
   channelId: string,
   raw: RawMessage,

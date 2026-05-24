@@ -1,22 +1,12 @@
+import { isLikelyGifMediaUrl } from '@shared/gifHostLinks';
 import { urlHostnameMatchesSuffix } from './hostMatches';
 
-/** Whether a URL likely points to an animated GIF (or GIF host) used for server/user media. */
+/** Whether a URL likely points to an animated GIF (or GIF host media) used for server/user media. */
 export function isLikelyGifImageUrl(url: string | undefined | null): boolean {
   if (!url || typeof url !== 'string') return false;
-  const t = url.trim().toLowerCase();
-  if (t.startsWith('data:image/gif')) return true;
-  if (/\.gif(\?|#|$)/i.test(t)) return true;
-  if (/(^|[?&])format=gif([&#]|$)/i.test(t)) return true;
+  if (isLikelyGifMediaUrl(url)) return true;
 
-  const gifHosts = [
-    'giphy.com',
-    'media.giphy.com',
-    'tenor.com',
-    'tenor.co',
-  ] as const;
-  if (gifHosts.some((host) => urlHostnameMatchesSuffix(t, host))) {
-    return true;
-  }
+  const t = url.trim().toLowerCase();
 
   /**
    * Discord animated avatars, banners, and icons use an asset id starting with `a_`
@@ -29,6 +19,17 @@ export function isLikelyGifImageUrl(url: string | undefined | null): boolean {
     /\/a_/i.test(t)
   ) {
     return true;
+  }
+
+  /** Legacy: any Giphy/Tenor host (excluding viewer pages handled above). */
+  const gifHosts = [
+    'giphy.com',
+    'media.giphy.com',
+    'tenor.com',
+    'tenor.co',
+  ] as const;
+  if (gifHosts.some((host) => urlHostnameMatchesSuffix(t, host))) {
+    return !/\/view\/|\/gifs\/|\/gif\//i.test(t);
   }
 
   return false;

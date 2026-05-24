@@ -139,6 +139,7 @@ export function messageWithAuthorCacheKey(
     msg.systemMessage ? '1' : '0',
     msg.authorIsDiscordShadow ? '1' : '0',
     msg.authorDiscordUserId ?? '',
+    msg.bridgeFromDiscord ? '1' : '0',
     msg.timestamp,
     msg.content,
     msg.contentText ?? '',

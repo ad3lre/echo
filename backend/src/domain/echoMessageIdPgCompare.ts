@@ -13,3 +13,15 @@ export function echoMessageIdPgGreaterThan(a: string, b: string): string {
     OR (NOT (${a} ~ '^[0-9]+$' AND ${b} ~ '^[0-9]+$') AND ${a} > ${b})
   )`;
 }
+
+/** True when `a` is strictly less than `b`. */
+export function echoMessageIdPgLessThan(a: string, b: string): string {
+  return echoMessageIdPgGreaterThan(b, a);
+}
+
+/**
+ * Newest-first ordering for channel message pages. Uses wall-clock `created_at` so
+ * optimistic client UUID ids (legacy) are not dropped from the latest page when
+ * snowflake ids sort later under raw `ORDER BY id DESC`.
+ */
+export const ECHO_MESSAGE_TIMELINE_ORDER_DESC = 'created_at DESC, id DESC';

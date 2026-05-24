@@ -9,6 +9,7 @@ import {
   type EchoSocketInboundListeners,
 } from './socketInbound';
 import type { SocketAdapterInstance } from './socketOutbound';
+import { bindPaperWatchSocket } from './paperWatchSocketBridge';
 
 /** Socket.IO manager options shared by `useSocket` `connectSocket`. */
 export function echoSocketIoManagerOptions(): {
@@ -63,6 +64,7 @@ export function teardownEchoSocketClientSession(opts: {
   afterDisconnect: () => void;
 }): void {
   detachEchoSocketInbound(opts.socket, opts.inboundListeners);
+  bindPaperWatchSocket(null);
   opts.beforeDisconnect();
   opts.socket.disconnect();
   opts.afterDisconnect();

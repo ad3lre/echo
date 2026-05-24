@@ -7,6 +7,7 @@ import {
   serializeComposerDoc,
 } from '@/features/chat/editor/composerModel';
 import { findRawDiscordSpoilerRegions } from '@/utils/discordSpoilerMarkdown';
+import { mightHaveMarkdownSyntax } from '@/features/chat/viewModel/messageBodyMarkdown';
 
 /** Toggle live delimiter styling via transaction meta. */
 export const composerMarkdownDecoKey = new PluginKey(
@@ -128,12 +129,13 @@ export function findComposerMarkdownStyleRanges(
     m.start,
     m.end,
   ]);
+  let mergedOccupied = mergeBlocks(occupied);
 
-  const isFree = (s: number, e: number) =>
-    !overlapsAny(s, e, mergeBlocks(occupied));
+  const isFree = (s: number, e: number) => !overlapsAny(s, e, mergedOccupied);
 
   const occupy = (s: number, e: number) => {
     occupied.push([s, e]);
+    mergedOccupied = mergeBlocks(occupied);
   };
 
   const fenceRanges = findFencedCodeBlockRanges(content);
@@ -516,6 +518,9 @@ export function findComposerMarkdownStyleRanges(
 function buildDecorationSet(doc: PMNode): DecorationSet {
   const { content, mentions } = serializeComposerDoc(doc);
   if (!content) return DecorationSet.empty;
+  if (!mightHaveMarkdownSyntax(content) && mentions.length === 0) {
+    return DecorationSet.empty;
+  }
 
   const segs = findComposerMarkdownStyleRanges(
     content,

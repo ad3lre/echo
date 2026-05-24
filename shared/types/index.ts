@@ -2,6 +2,7 @@ export * from '../echoContractV1';
 export * from './automod';
 export * from './api';
 export * from './channel';
+export * from './paper';
 export * from './discordImport';
 export * from './forumCreator';
 export * from './message';

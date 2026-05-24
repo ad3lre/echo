@@ -1,5 +1,8 @@
 /** Echo-only permission strings (not in Discord's bitfield). */
-export const ECHO_EXTENDED_PERMISSION_STRINGS = ['ASSIGN_ROLES'] as const;
+export const ECHO_EXTENDED_PERMISSION_STRINGS = [
+  'ASSIGN_ROLES',
+  'COMMENT_ON_PAPER',
+] as const;
 
 export type EchoExtendedPermissionString =
   (typeof ECHO_EXTENDED_PERMISSION_STRINGS)[number];

@@ -39,7 +39,7 @@ describe('buildDmAttentionUnreadCountByChannel', () => {
         selfUserId: 'u1',
       },
     );
-    expect(m.get('c')).toBe(0);
+    expect(m.has('c')).toBe(false);
   });
 
   it('returns 0 when cursor is ahead of all locally loaded messages (not found by exact match)', () => {
@@ -63,7 +63,39 @@ describe('buildDmAttentionUnreadCountByChannel', () => {
         selfUserId: 'u1',
       },
     );
-    expect(m.get('c')).toBe(0);
+    expect(m.has('c')).toBe(false);
+  });
+
+  it('counts unread from local messages when the thread is missing from attention', () => {
+    const m = buildDmAttentionUnreadCountByChannel(
+      {},
+      {
+        messagesByChannelId: {
+          dmchan: [{ id: '10', authorId: 'peer', timestamp: '', content: '' }],
+        },
+        readStateByChannelId: {},
+        selfUserId: 'me',
+        isDmChannelId: (id) => id === 'dmchan',
+      },
+    );
+    expect(m.get('dmchan')).toBe(1);
+  });
+
+  it('clears stale attention unread when local read cursor caught up', () => {
+    const m = buildDmAttentionUnreadCountByChannel(
+      {
+        c: { channelId: 'c', unread: true, unreadCount: 4 },
+      },
+      {
+        messagesByChannelId: {
+          c: [{ id: '5', authorId: 'peer', timestamp: '', content: '' }],
+        },
+        readStateByChannelId: { c: '5' },
+        selfUserId: 'me',
+        isDmChannelId: (id) => id === 'c',
+      },
+    );
+    expect(m.has('c')).toBe(false);
   });
 
   it('counts only messages newer than the cursor when cursor is not in local window', () => {

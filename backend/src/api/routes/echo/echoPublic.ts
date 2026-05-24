@@ -13,6 +13,7 @@ import {
   trimEchoPathParam,
 } from './echoRouteUtils';
 import { sendError } from '../../errors';
+import { getPublicPaperDocumentByToken } from '../../../domain/echoStore/paperShare';
 
 const SUPPORT_TOPIC_VALUES = ['Account', 'Bug', 'Safety', 'Other'] as const;
 type SupportTopic = (typeof SUPPORT_TOPIC_VALUES)[number];
@@ -171,6 +172,42 @@ export default async function echoPublicRoutes(
         }
 
         return reply.code(200).send({ ok: true });
+      },
+    );
+  });
+
+  /** Global paper share links (no auth; read-only). */
+  await fastify.register(async (scope) => {
+    await scope.register(rateLimit, {
+      max: 60,
+      timeWindow: '1 minute',
+      keyGenerator: (req) => `public-paper:ip:${req.ip}`,
+      addHeaders: { 'retry-after': true },
+    });
+
+    scope.get<{ Params: { token: string } }>(
+      '/public/paper/:token',
+      { preHandler: [requireEchoStore] },
+      async (req, reply) => {
+        const pool = echoPool(req);
+        const token = trimEchoPathParam(req.params.token);
+        const doc = await getPublicPaperDocumentByToken(pool, token);
+        if (!doc) {
+          return sendError(
+            reply,
+            404,
+            'NOT_FOUND',
+            'Paper not found or link is not public',
+          );
+        }
+        return reply.code(200).send({
+          channelId: doc.channelId,
+          channelName: doc.channelName,
+          contentJson: doc.contentJson,
+          contentSchemaVersion: doc.contentSchemaVersion,
+          revision: doc.revision,
+          updatedAt: doc.updatedAt.toISOString(),
+        });
       },
     );
   });

@@ -146,10 +146,6 @@ describe('parseAppPathname / formatAppPathname round-trip', () => {
   });
 
   it('parses reserved single-segment paths as unknown', () => {
-    expect(parseAppPathname('/founder', base)).toEqual({
-      kind: 'unknown',
-      raw: '/founder',
-    });
     expect(parseAppPathname('/legal', base)).toEqual({
       kind: 'unknown',
       raw: '/legal',
@@ -211,7 +207,6 @@ describe('isResetPasswordPath / isForgotPasswordPath / isAppNavPath', () => {
   it('excludes reserved top-level slugs from vanity short paths', () => {
     expect(isAppNavPath('/reset-password', '/')).toBe(false);
     expect(isAppNavPath('/forgot-password', '/')).toBe(false);
-    expect(isAppNavPath('/founder', '/')).toBe(false);
     expect(isAppNavPath('/channels', '/')).toBe(false);
     expect(isAppNavPath('/assets', '/')).toBe(false);
   });

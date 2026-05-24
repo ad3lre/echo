@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import { getChannelIcon, getChannelDisplayName, icons } from '@/assets/icons';
 import { formatTimestamp } from '@/utils/formatTimestamp';
+import DiscordSyncedMessageBadge from '@/features/chat/components/DiscordSyncedMessageBadge.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -43,6 +44,7 @@ defineEmits<{
     >
       {{ authorLabel ?? message.author.name }}
     </button>
+    <DiscordSyncedMessageBadge v-if="message.bridgeFromDiscord" />
     <span
       v-if="showTimestamp"
       class="text-[10px] tabular-nums leading-tight text-muted whitespace-nowrap shrink-0"

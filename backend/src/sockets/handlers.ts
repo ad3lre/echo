@@ -28,6 +28,8 @@ import {
 } from './userSocketIndex';
 import { registerPollVoteHandler } from './pollVoteHandler';
 import { registerTypingHandler } from './typingHandler';
+import { registerPaperWatchHandler } from './paperWatchHandler';
+import { registerPaperCollabHandler } from './paperCollabHandler';
 import { appendBackendDiagnostic } from '../observability/sessionDiagnostics';
 import { touchAuthUserLastSeenIp } from '../auth/authUserLastSeenIp';
 import { clientIpFromSocketHandshake } from '../net/clientIp';
@@ -233,6 +235,12 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
       authenticated,
     });
     registerTypingHandler(socket, io, log, socket.data.userId, {
+      authenticated,
+    });
+    registerPaperWatchHandler(socket, io, log, socket.data.userId, {
+      authenticated,
+    });
+    registerPaperCollabHandler(socket, io, log, socket.data.userId, {
       authenticated,
     });
 

@@ -1,9 +1,11 @@
 ## Privacy Policy — Echo App
 
-**Last updated:** 23 March 2026  
-**Effective date:** 23 March 2026
+**Last updated:** 23 May 2026  
+**Effective date:** 23 May 2026
 
-This Privacy Policy explains, in plain language, what data Echo (“we”, “us”, “our”) collects, why we collect it, what is optional, and what choices you have when using the Echo mobile and web app (the “Service”).
+This Privacy Policy explains, in plain language, what data **Echo** (“we”, “us”, “our”) collects, why we collect it, what is optional, and what choices you have when using the Echo mobile and web app (the “Service”).
+
+**Echo** is operated by the team behind [app-echo.net](https://app-echo.net) (marketing and legal pages) and [chat-echo.com](https://chat-echo.com) (the live app). This policy applies to Echo only—not to unrelated sites or apps.
 
 We operate as a registered business in Germany (Kleingewerbe) and comply with applicable data protection laws, including the EU General Data Protection Regulation (“GDPR”), where applicable.
 
@@ -209,7 +211,9 @@ For questions or requests about privacy, contact us through in-app support or at
 
 ## 12) Changes to This Policy
 
-We update this Privacy Policy when practices or legal requirements change. If changes are material, we publish the updated version in the Service.
+We update this Privacy Policy when practices or legal requirements change. If changes are material, we publish the updated version in the Service (including **Settings → Legal → Privacy policy** and [app-echo.net/privacy](https://app-echo.net/privacy)).
+
+If we materially change how Echo **accesses, uses, stores, or shares Google user data**, we will also provide reasonable in-app notice (for example before you next connect Google or YouTube, or via a notice in Settings) in addition to updating this policy.
 
 Continued use of the Service after the effective date means the updated Privacy Policy applies.
 
@@ -223,51 +227,94 @@ Some features of the Service rely on third-party libraries and components. Any p
 
 ## 14) Google API Services and YouTube Data
 
-Echo offers optional features that use **Google OAuth** and the **YouTube Data API**. This section describes how Echo accesses, uses, stores, and shares information received from Google APIs. Echo’s use and transfer of information received from Google APIs adheres to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the **Limited Use** requirements.
+Echo offers optional features that use **Google OAuth** and the **YouTube Data API**. This section comprehensively describes how Echo **accesses, uses, stores, retains, protects, and shares** information received from Google APIs (collectively, **“Google user data”**).
 
-### 14.1 Sign-in and account linking (Google OAuth)
+Echo’s use and transfer of Google user data adheres to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the **Limited Use** requirements. We use Google user data **only** to provide or improve Echo features you choose—not for unrelated advertising, resale, or third-party marketing.
 
-When you choose **Sign in with Google** or **Link Google account** in Echo, you are redirected to Google’s consent screen. After you grant access, Echo receives data permitted by the scopes you approve (typically **OpenID**, **email**, and **profile**).
+### 14.1 Google user data Echo collects
 
-We use this Google user data only to:
+The exact fields depend on the scopes you approve on Google’s consent screen. Echo may collect and store:
+
+**Sign-in and Google account linking** (typically scopes `openid`, `email`, `profile`):
+
+- Google account subject identifier (`sub`)
+- Email address and whether Google marks it verified (when in granted scopes)
+- Display name, given name, and profile photo URL (when in granted scopes)
+- OAuth **access** and **refresh** tokens, granted **scope** list, and token expiry time
+- A small normalized profile snapshot we store with your link (for example display name, photo URL, and whether an email was present—not a duplicate full Google profile export)
+
+**YouTube channel linking and live streaming** (additional scopes such as `https://www.googleapis.com/auth/youtube.force-ssl`, as shown on the consent screen):
+
+- YouTube **channel ID**, **channel title**, and **channel thumbnail** URL
+- YouTube OAuth access and refresh tokens, scopes, and expiry (stored separately from the Google sign-in link when you connect YouTube)
+- While you run a stage live session: live **broadcast** and **stream** identifiers, live **title**, **privacy status** you choose (`public`, `unlisted`, or `private`), and a **watch URL** when the broadcast is public
+
+**Stream key mode (optional, not from Google APIs):** If you paste a YouTube **stream key** and RTMP server URL from YouTube Studio instead of using channel linking, Echo stores an **encrypted** RTMP ingest URL you provide. That credential is **not** collected from Google APIs; it is used only to send your stage program feed to YouTube when you start a live session.
+
+Echo does **not** request Google user data beyond what these optional features require.
+
+### 14.2 How Echo uses Google user data
+
+We use Google user data **only** for the following purposes:
+
+**Sign-in and account linking:**
 
 - Authenticate you and establish or maintain your Echo session
 - Create a new Echo account when you sign up with Google (if no linked account exists)
 - Link your Google identity to an existing Echo account when you connect Google in Settings
-- Display basic account information you expect (for example name or email where shown in the app)
+- Show link status and basic profile information you expect in Settings (for example name or photo)
 
-We **do not** use Google sign-in data for advertising, interest-based profiling, credit decisions, or resale to data brokers.
-
-### 14.2 YouTube channel connection and live streaming (optional)
-
-If you connect a **YouTube channel** in Settings or use **Go live on YouTube** from a stage voice channel, Echo requests additional YouTube API scopes (for example `https://www.googleapis.com/auth/youtube.force-ssl`) shown on Google’s consent screen.
-
-We use YouTube-related Google user data only to:
+**YouTube channel connection and live streaming:**
 
 - Confirm which YouTube channel you connected and show link status in Settings
 - Create, bind, start, and stop **YouTube live broadcasts and streams** when you explicitly start or end a stage live session
-- Deliver the program feed from your Echo stage to YouTube via our streaming infrastructure
+- Deliver the program feed from your Echo stage to YouTube via our streaming infrastructure (including LiveKit egress when enabled)
 
-We **do not** use YouTube data to read your private messages, modify unrelated videos, or train generalized advertising models.
+We **do not** use Google or YouTube user data for:
 
-### 14.3 What we store and how long
+- Serving or measuring third-party ads, retargeting, or interest-based profiling
+- Selling or licensing data to data brokers
+- Determining creditworthiness or lending
+- Training generalized advertising models unrelated to the feature you requested
+- Reading your private Google or YouTube messages, or modifying videos you did not start through Echo’s live feature
 
-- **Account identifiers** from Google (for example Google subject ID, email, and profile fields permitted by scopes) are stored with your Echo account while the link is active.
-- **OAuth access and refresh tokens** for Google and YouTube are stored **encrypted** on our servers and used only to perform the features above on your behalf.
-- When you **unlink Google or YouTube** in Settings, we revoke active tokens where possible and delete stored OAuth tokens for that integration.
-- When you **delete your Echo account**, we delete or anonymize linked Google/YouTube association data according to our retention rules, subject to limited backup and legal-retention exceptions described in Section 6.
+### 14.3 Retention and deletion of Google user data
 
-### 14.4 Sharing of Google user data
+- **While linked:** Google and YouTube link data, encrypted OAuth tokens, and operational live-session metadata are kept while your Echo account is active and the integration remains connected.
+- **When you unlink:** Disconnecting Google or YouTube in Settings revokes tokens where possible and **deletes** stored OAuth tokens and link records for that integration. Disconnecting Google also removes your YouTube link and any saved stream key on our servers.
+- **When you delete your Echo account:** We delete or anonymize linked Google/YouTube data according to Section 6, subject to limited backup and legal-retention exceptions.
+- **Backups and logs:** Limited residual copies may remain in encrypted backups or security logs for a bounded period consistent with Section 6, then are removed on schedule.
 
-We **do not sell** Google user data. We **do not** share Google user data with third parties for their independent advertising or data-broker purposes.
+You can request erasure under GDPR as described in Section 7.
 
-We may share Google user data only:
+### 14.4 Sharing, transfer, and disclosure of Google user data
 
-- **With Google** as necessary to operate the Google/YouTube APIs you authorized
-- **With infrastructure providers** that host or operate Echo under strict confidentiality and data-processing terms, solely to provide the Service
-- **For security or legal reasons** as described in Section 4.2 (for example investigating abuse or complying with lawful requests)
+We **do not sell** Google user data.
 
-### 14.5 Limited Use (Google API Services User Data Policy)
+We **do not** share, transfer, or disclose Google user data to third parties for their **independent** advertising, data-broker, or marketing purposes.
+
+We may share or transfer Google user data only in these situations:
+
+- **To Google** — as necessary to complete OAuth, refresh tokens, and call the YouTube Data API on your behalf for features you authorized
+- **To service providers** — hosting, database, and streaming infrastructure vendors that process data **only** under contract to operate Echo (for example cloud hosting and LiveKit egress). They may not use Google user data for their own products or ads
+- **For security or legal reasons** — as described in Section 4.2 (for example abuse investigation or lawful requests)
+- **Business transfers** — only if permitted by applicable law and the Google API Services User Data Policy, with protections consistent with this Policy
+
+We do **not** transfer Google user data to third parties for reasons other than providing or improving Echo’s user-facing functionality, security, legal compliance, or the limited cases above.
+
+### 14.5 Protection of Google user data
+
+We apply technical and organizational safeguards appropriate for OAuth credentials and account data, including:
+
+- **Encryption in transit** (HTTPS/TLS) for all client and API communication
+- **Encryption at rest** for Google and YouTube OAuth access and refresh tokens before database storage
+- **Access controls** limiting production access to authorized personnel on a need-to-know basis
+- **Short-lived OAuth state cookies** signed server-side during connect flows; tokens are not exposed to the browser
+- **Monitoring and abuse detection** consistent with Section 8
+
+No system is perfectly secure; if we learn of a breach affecting Google user data, we will notify users and regulators as required by law.
+
+### 14.6 Limited Use (Google API Services User Data Policy)
 
 Echo limits use of Google user data to practices disclosed in this Privacy Policy. In particular:
 
@@ -276,7 +323,7 @@ Echo limits use of Google user data to practices disclosed in this Privacy Polic
 - Our personnel do not read Google user data except when you give **affirmative agreement** for specific support, when necessary for **security** (for example investigating abuse), when necessary to comply with **law**, or when data is **aggregated and de-identified** for internal operations consistent with applicable law.
 - We do not use Google user data for serving ads, retargeting, personalized advertising, determining creditworthiness, or lending.
 
-### 14.6 Your controls
+### 14.7 Your controls
 
 You can:
 
@@ -285,6 +332,12 @@ You can:
 - **Revoke** Echo’s access anytime in your [Google Account permissions](https://myaccount.google.com/permissions)
 
 If you revoke access outside Echo, linked features may stop working until you reconnect.
+
+### 14.8 Where to read this policy in Echo
+
+- **Web app:** [chat-echo.com](https://chat-echo.com) → **Settings → Legal → Privacy policy** (Section 14), or `/legal/privacy`
+- **Marketing / verification URL:** [app-echo.net/privacy](https://app-echo.net/privacy) (same text as in the app)
+- **Sign-in and welcome flows** link to this Privacy Policy before you use Google sign-in
 
 ---
 

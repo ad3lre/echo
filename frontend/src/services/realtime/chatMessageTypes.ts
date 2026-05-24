@@ -20,6 +20,7 @@ export interface RawMessage {
   authorAvatar?: string;
   authorIsDiscordShadow?: boolean;
   authorDiscordUserId?: string;
+  bridgeFromDiscord?: boolean;
   /** ISO 8601 — use `formatTimestamp` in UI for display. */
   timestamp: string;
   content: string;

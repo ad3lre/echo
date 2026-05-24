@@ -16,12 +16,13 @@ Echo is open source under the **GNU Affero General Public License v3** — see t
 
 Before requesting review:
 
-1. **Format:** `npm run format:check` from the repo root (or explain if your change is outside Prettier coverage).
-2. **Tests:** For most changes run `npm run test:ci`. For tight scopes you may run a subset, for example:
+1. **CI precheck:** `npm run ci:precheck` from the repo root (or enable `./scripts/setup-githooks.sh` so `git push` runs it automatically on non-GitHub remotes).
+2. **Format:** covered by `ci:precheck` / `format:check` (or explain if your change is outside Prettier coverage).
+3. **Tests:** For tight scopes you may run a subset instead of full `ci:precheck`, for example:
    - `npm run test -w frontend -- --run <path-to-test>.ts`
    - `npm run test:storage-mode -w backend` and other `npm run test:* -w backend` scripts used in `package.json` `test:ci:backend`.
-3. **Contracts:** If you change REST or Socket.IO behavior, update or verify [`docs/contracts/`](./docs/contracts/) and linked specs.
-4. **UI:** Describe how to verify in the PR (screenshots optional; keep images small and in-repo only when necessary).
+4. **Contracts:** If you change REST or Socket.IO behavior, update or verify [`docs/contracts/`](./docs/contracts/) and linked specs.
+5. **UI:** Describe how to verify in the PR (screenshots optional; keep images small and in-repo only when necessary).
 
 Prefer **small, focused PRs** with a clear intent line in the description.
 

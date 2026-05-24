@@ -9,11 +9,12 @@ import {
   fetchEchoMutualFriends,
   postEchoRemoveFriend,
 } from '@/api/echo/social';
-import {
-  deleteEchoUnblockUser,
-  postEchoBlockUser,
-  postEchoReportUser,
-} from '@/api/echoClient';
+import { deleteEchoUnblockUser, postEchoBlockUser } from '@/api/echoClient';
+import { openReportModal } from '@/features/safety/reportModal';
+
+vi.mock('@/features/safety/reportModal', () => ({
+  openReportModal: vi.fn(),
+}));
 
 vi.mock('@/api/echo/social', async (importOriginal) => {
   const actual = await importOriginal<typeof EchoSocialApi>();
@@ -30,7 +31,6 @@ vi.mock('@/api/echoClient', async (importOriginal) => {
     ...actual,
     postEchoBlockUser: vi.fn(),
     deleteEchoUnblockUser: vi.fn(),
-    postEchoReportUser: vi.fn(),
     patchEchoMemberNickname: vi.fn(),
   };
 });
@@ -74,11 +74,16 @@ function createDomain() {
     }),
     friendIdsByUserId: ref<Record<string, string[]>>({}),
     friendIds: ref<string[]>(['u1']),
+    friendRequestsIncoming: ref<Array<{ id: string; fromUserId: string }>>([
+      { id: 'req-in-1', fromUserId: 'u3' },
+    ]),
     friendRequestsOutgoing: ref<Array<{ id: string; toUserId: string }>>([
       { id: 'req-1', toUserId: 'u1' },
     ]),
     blockedUserIds: ref<string[]>([]),
     refreshEchoSocialFromApi: vi.fn(async () => undefined),
+    acceptFriendRequest: vi.fn(),
+    declineFriendRequest: vi.fn(),
     cancelFriendRequest: vi.fn(),
   };
 
@@ -168,7 +173,7 @@ describe('useAppLayoutProfilesDomain', () => {
     vi.mocked(postEchoRemoveFriend).mockReset();
     vi.mocked(postEchoBlockUser).mockReset();
     vi.mocked(deleteEchoUnblockUser).mockReset();
-    vi.mocked(postEchoReportUser).mockReset();
+    vi.mocked(openReportModal).mockReset();
     vi.stubGlobal('window', {
       confirm: vi.fn(() => true),
       alert: vi.fn(),
@@ -199,6 +204,16 @@ describe('useAppLayoutProfilesDomain', () => {
     });
   });
 
+  it('accepts and declines incoming friend requests by request id', () => {
+    const { domain, deps } = createDomain();
+    domain.handleExpandedProfileAcceptIncomingFriendRequest('u3');
+    expect(deps.workspace.acceptFriendRequest).toHaveBeenCalledWith('req-in-1');
+    domain.handleExpandedProfileDeclineIncomingFriendRequest('u3');
+    expect(deps.workspace.declineFriendRequest).toHaveBeenCalledWith(
+      'req-in-1',
+    );
+  });
+
   it('routes block/unblock/report safety actions through APIs', async () => {
     const { domain, deps } = createDomain();
     await domain.handleProfileBlockUser('u1');
@@ -208,9 +223,10 @@ describe('useAppLayoutProfilesDomain', () => {
     await domain.handleProfileReportUser({ userId: 'u1', reason: 'spam' });
     expect(postEchoBlockUser).toHaveBeenCalledWith('token', 'u1');
     expect(deleteEchoUnblockUser).toHaveBeenCalledWith('token', 'u1');
-    expect(postEchoReportUser).toHaveBeenCalledWith('token', {
+    expect(openReportModal).toHaveBeenCalledWith({
+      kind: 'user',
       targetUserId: 'u1',
-      reason: 'spam',
+      displayName: 'Alpha',
     });
   });
 

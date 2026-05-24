@@ -57,7 +57,9 @@ export type ChannelPermissionKey =
   /** V */
   | 'useSoundboard'
   /** V */
-  | 'useExternalSounds';
+  | 'useExternalSounds'
+  /** Paper channels — margin comments (independent of author / SEND_MESSAGES). */
+  | 'commentOnPaper';
 
 export interface ChannelPermissionsState {
   /** When true, category defaults apply; overrides are ignored. */
@@ -77,7 +79,7 @@ export interface Channel {
   id: string;
   name: string;
   serverId: string;
-  type: 'text' | 'voice' | 'forum' | 'stage';
+  type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
   parentChannelId?: string;
   createdAt: string;
   updatedAt: string;
@@ -154,6 +156,10 @@ export interface Channel {
    * Omitted on non-stage channels.
    */
   voiceStageSpeakerByUserId?: Record<string, boolean>;
+  /** Paper channel: margin comments enabled. */
+  paperCommentsEnabled?: boolean;
+  /** Paper channel: show author names in left gutter. */
+  paperShowAuthorGutter?: boolean;
 }
 
 /** Minimal channel info for UI display (e.g. channel list, chat header). */
@@ -193,4 +199,6 @@ export type ChannelSummary = Pick<
   | 'voiceServerMuteByUserId'
   | 'voiceServerDeafenByUserId'
   | 'voiceStageSpeakerByUserId'
+  | 'paperCommentsEnabled'
+  | 'paperShowAuthorGutter'
 >;

@@ -12,7 +12,7 @@ const CHAT_VIDEO_MIME = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
 /** When `type` is missing, infer from extension (iOS Safari). */
 const VIDEO_EXT_RE = /\.(mp4|webm|mov)$/i;
 
-const AUDIO_EXT_RE = /\.(mp3|m4a|aac|wav|ogg|opus)$/i;
+const AUDIO_EXT_RE = /\.(mp3|m4a|aac|wav|ogg|opus|flac)$/i;
 
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|heic|heif|bmp|tif|tiff)$/i;
 
@@ -107,6 +107,7 @@ export function chatAudioContentTypeForPresign(file: File): string {
   if (/\.aac$/i.test(name)) return 'audio/aac';
   if (/\.wav$/i.test(name)) return 'audio/wav';
   if (/\.ogg$/i.test(name) || /\.opus$/i.test(name)) return 'audio/ogg';
+  if (/\.flac$/i.test(name)) return 'audio/flac';
   return 'audio/mpeg';
 }
 

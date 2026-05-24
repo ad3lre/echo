@@ -25,14 +25,17 @@ describe('tryResumeEchoSocketConnection', () => {
     expect(ensureConnect).not.toHaveBeenCalled();
   });
 
-  it('no-ops when already connected', () => {
+  it('invokes onConnectedResume when already connected', () => {
     const ensureConnect = vi.fn();
+    const onConnectedResume = vi.fn();
     tryResumeEchoSocketConnection({
       socketOff: () => false,
       getConnected: () => true,
       ensureConnect,
+      onConnectedResume,
     });
     expect(ensureConnect).not.toHaveBeenCalled();
+    expect(onConnectedResume).toHaveBeenCalledTimes(1);
   });
 
   it('no-ops when navigator reports offline', () => {

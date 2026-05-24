@@ -51,6 +51,7 @@ export type AppEchoRealtimeSocketBindingInput = {
   getAccessToken?: () => string | null | undefined;
   /** Backfill missing reply targets discovered during inbound `message` ingest (deduped at the call site). */
   ensureReplyTargetMessage?: (channelId: string, messageId: string) => void;
+  onTabResumeWhileConnected?: () => void;
 };
 
 const SOCKET_CONNECT_ERROR_PRIMARY_FLOW_COOLDOWN_MS = 20_000;
@@ -72,6 +73,7 @@ export function createAppEchoRealtimeSocketBinding(
     getAuthKey: input.getAuthKey,
     wiring: createEchoSocketRealtimeWiring({
       activeChannelId: input.activeChannelId,
+      onTabResumeWhileConnected: input.onTabResumeWhileConnected,
       createDomain: (transport) => {
         let lastDisconnectUiAt = 0;
         let lastConnectErrorPrimaryFlowAt = 0;

@@ -5,6 +5,8 @@ import { useEchoSessionStore } from '@/stores/echoSession';
 import { authPatchMe } from '@/api/authClient';
 import { postEchoPresenceHttp } from '@/api/echoClient';
 import { buildComposerDoc } from '@/features/chat/editor/composerModel';
+import { relocateMentionsInEditableText } from '@/features/chat/editor/messageEditDraft';
+import { writeSortedMessagesForChannel } from '@/features/chat/viewModel/channelMessageBucket';
 import {
   overwriteLocalProfileFromAuthUser,
   saveLocalProfile,
@@ -19,7 +21,6 @@ import type { ActiveChatMessageNavApi } from '@/features/navigation/chatMessageN
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { getChannelIndex } from '@/features/chat/domain/channelMessageIndex';
 import { messageWindowAuthority } from '@/features/chat/domain/messageWindowAuthority';
-import { writeSortedMessagesForChannel } from '@/features/chat/viewModel/channelMessageBucket';
 import { getLatestDmPeerUserId } from '@/features/dm/buildDmPanelUserList';
 import {
   newUiCorrelationId,
@@ -440,7 +441,17 @@ export function useAppLayoutMessageActions(
       });
       return false;
     }
-    const list = messages.value[cid];
+    let list = messages.value[cid];
+    if (!list?.length && cid === messageWindowAuthority.getActiveChannelId()) {
+      try {
+        if (messageWindowAuthority.entitiesById.value.has(messageId)) {
+          messageWindowAuthority.ensureChannelBucket(cid);
+          list = messages.value[cid];
+        }
+      } catch {
+        /* messageWindowAuthority not bound (e.g. isolated unit tests) */
+      }
+    }
     if (!list?.length) {
       emitDiagnostic({
         level: 'warn',
@@ -457,7 +468,11 @@ export function useAppLayoutMessageActions(
       return false;
     }
     const index = getChannelIndex(cid, list);
-    const m = index.byId.get(messageId);
+    const m =
+      index.byId.get(messageId) ??
+      (cid === messageWindowAuthority.getActiveChannelId()
+        ? messageWindowAuthority.entitiesById.value.get(messageId)
+        : undefined);
     if (!m) {
       emitDiagnostic({
         level: 'warn',
@@ -477,13 +492,21 @@ export function useAppLayoutMessageActions(
 
     const trimmed = newContent.trim();
     const mf = m.messageFormatVersion ?? 1;
+    const relocatedMentions = relocateMentionsInEditableText(
+      trimmed,
+      m.mentions,
+    );
     const docForV2 =
-      mf >= 2 ? buildComposerDoc(trimmed, [], undefined) : undefined;
+      mf >= 2
+        ? buildComposerDoc(trimmed, relocatedMentions, undefined)
+        : undefined;
     const patch: Partial<RawMessage> = {
       content: trimmed,
-      mentions: undefined,
       editedAt: new Date().toISOString(),
     };
+    if (relocatedMentions.length > 0) {
+      patch.mentions = relocatedMentions;
+    }
     if (docForV2 !== undefined) {
       patch.contentJson = docForV2;
       patch.contentSchemaVersion = ECHO_CONTENT_SCHEMA_VERSION;

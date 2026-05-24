@@ -83,6 +83,9 @@ export default async function meYoutubeRoutes(
         req.authUser.id,
       );
 
+      const stageLiveStreamingConfigured =
+        config.liveKitEnabled && config.liveKitEgressEnabled;
+
       return reply.code(200).send({
         configured: isYoutubeOauthConfigured(),
         oauthRedirectUri: youtubeOauthRedirectUriForClient(),
@@ -97,6 +100,7 @@ export default async function meYoutubeRoutes(
             }
           : null,
         streamKey: streamKeyRow ? { savedAt: streamKeyRow.updatedAt } : null,
+        stageLiveStreamingConfigured,
       });
     },
   );

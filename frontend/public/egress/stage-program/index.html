@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Echo stage program</title>
+    <link rel="stylesheet" href="./stage-program.css" />
+  </head>
+  <body>
+    <div id="stage-program" class="stage-program" data-layout="grid">
+      <div id="stage-program-primary" class="stage-program__primary"></div>
+      <div id="stage-program-sidebar" class="stage-program__sidebar"></div>
+      <div id="stage-program-grid" class="stage-program__grid"></div>
+      <p id="stage-program-empty" class="stage-program__empty" hidden>
+        Waiting for stage speakers…
+      </p>
+    </div>
+    <script src="https://unpkg.com/livekit-client@2.15.7/dist/livekit-client.umd.js"></script>
+    <script src="./stage-program.js"></script>
+  </body>
+</html>

@@ -16,6 +16,7 @@ import {
   queryEchoDmThreadsForUser,
   selectUnreadAttentionAggregatesByChannel,
   selectUnreadMentionRowsForAttention,
+  selectUnreadReplyToSelfRowsForAttention,
   type UnreadAttentionAggregate,
 } from '../echoMessagesDal';
 import { listEchoWorkspaceForUser } from './categoriesWorkspace';
@@ -127,13 +128,14 @@ export async function buildEchoAttentionSnapshot(
     selfRoleIdsByServer.set(serverId, new Set(byUser[userId] ?? []));
   }
 
-  const [aggregates, mentionRows] =
+  const [aggregates, mentionRows, replyToSelfRows] =
     channelIds.length > 0
       ? await Promise.all([
           selectUnreadAttentionAggregatesByChannel(pool, userId, channelIds),
           selectUnreadMentionRowsForAttention(pool, userId, channelIds),
+          selectUnreadReplyToSelfRowsForAttention(pool, userId, channelIds),
         ])
-      : [[], []];
+      : [[], [], []];
 
   for (const [channelId, lastReadMessageId] of Object.entries(
     readStateByChannelId,
@@ -160,6 +162,21 @@ export async function buildEchoAttentionSnapshot(
         memberRoleIds: selfRoleIdsByServer.get(serverId),
       }),
     );
+    pingKindByChannel.set(
+      channelId,
+      mergeAttentionPingKinds(
+        pingKindByChannel.get(channelId) ?? null,
+        classified,
+      ),
+    );
+  }
+
+  for (const row of replyToSelfRows) {
+    const channelId = row.channel_id;
+    const serverId = serverChannelToServerId.get(channelId);
+    if (!serverId) continue;
+    const level = serverNotificationLevelByServerId[serverId] ?? 'mentions';
+    const classified = applyAttentionNotificationLevel(level, 'personal');
     pingKindByChannel.set(
       channelId,
       mergeAttentionPingKinds(
@@ -243,9 +260,10 @@ export async function buildEchoSingleChannelAttention(
     unreadCount: 0,
   };
 
-  const [aggregates, mentionRows] = await Promise.all([
+  const [aggregates, mentionRows, replyToSelfRows] = await Promise.all([
     selectUnreadAttentionAggregatesByChannel(pool, userId, [channelId]),
     selectUnreadMentionRowsForAttention(pool, userId, [channelId]),
+    selectUnreadReplyToSelfRowsForAttention(pool, userId, [channelId]),
   ]);
 
   const agg: UnreadAttentionAggregate | undefined = aggregates[0];
@@ -271,6 +289,12 @@ export async function buildEchoSingleChannelAttention(
             classifyViewer,
           ),
         ),
+      );
+    }
+    if (replyToSelfRows.length > 0) {
+      pingKind = mergeAttentionPingKinds(
+        pingKind,
+        applyAttentionNotificationLevel(level, 'personal'),
       );
     }
   }

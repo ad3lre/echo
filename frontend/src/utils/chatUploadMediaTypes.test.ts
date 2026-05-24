@@ -14,6 +14,15 @@ function file(name: string, type: string): File {
 }
 
 describe('chatUploadMediaTypes', () => {
+  it('accepts Windows-style application/octet-stream when extension is audio', () => {
+    expect(
+      isChatAudioUpload(file('ringtone.mp3', 'application/octet-stream')),
+    ).toBe(true);
+    expect(
+      isChatAudioUpload(file('alert.wav', 'application/octet-stream')),
+    ).toBe(true);
+  });
+
   it('classifies iOS-style empty MIME + extension', () => {
     expect(isChatVideoUpload(file('clip.mov', ''))).toBe(true);
     expect(isChatVideoUpload(file('clip.mp4', ''))).toBe(true);

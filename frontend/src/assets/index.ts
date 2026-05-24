@@ -329,7 +329,7 @@ export function getChannelIconVisual(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage';
+        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
         iconKey?: string;
       }
     | null
@@ -364,7 +364,7 @@ export function getChannelIcon(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage';
+        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
         iconKey?: string;
       }
     | null

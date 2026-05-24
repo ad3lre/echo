@@ -479,6 +479,28 @@ async function run(): Promise<void> {
     );
     assert.equal(postDup.status, 200, await postDup.text());
 
+    const listLatest = await fetch(
+      `${baseUrl}/api/v1/echo/channels/${encodeURIComponent(defaultChannelId)}/messages?limit=50`,
+      { headers: { cookie: `echo_sid=${t1Sid}` } },
+    );
+    const listLatestBody = await listLatest.text();
+    assert.equal(listLatest.status, 200, listLatestBody);
+    const listLatestJson = JSON.parse(listLatestBody) as {
+      messages: { id: string }[];
+    };
+    const latestIds = listLatestJson.messages.map((m) => m.id);
+    assert.ok(
+      latestIds.includes(savedMsgId!),
+      'latest page must include client UUID id (not only id DESC snowflakes)',
+    );
+    assert.ok(latestIds.includes(restCreated.message.id));
+    const restIdx = latestIds.indexOf(restCreated.message.id);
+    const savedIdx = latestIds.indexOf(savedMsgId!);
+    assert.ok(
+      restIdx >= 0 && savedIdx >= 0 && restIdx < savedIdx,
+      'latest page should be created_at DESC (newer REST UUID before older socket UUID)',
+    );
+
     const listPaddedBefore = await fetch(
       `${baseUrl}/api/v1/echo/channels/${encodeURIComponent(defaultChannelId)}/messages?before=${encodeURIComponent(` ${restCreated.message.id} `)}&limit=50`,
       { headers: { cookie: `echo_sid=${t1Sid}` } },

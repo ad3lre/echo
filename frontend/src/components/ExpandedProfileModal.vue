@@ -639,7 +639,6 @@ function onOverlayClick() {
                         @send-friend-request="
                           emit('send-friend-request', profile.id)
                         "
-                        @report="emitProfileReport"
                         @message="handleMessageClick"
                       />
                     </div>

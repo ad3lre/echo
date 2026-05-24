@@ -350,6 +350,16 @@ interface AppConfig {
    * Requires `ffmpeg` on the API host (or `FFMPEG_PATH`).
    */
   readonly echoVideoOptimizeIntervalMs: number;
+  /** Max chat video duration (seconds) for HLS transcode. */
+  readonly echoVideoHlsMaxDurationS: number;
+  /** Max source bytes for HLS transcode. */
+  readonly echoVideoHlsMaxInputBytes: number;
+  /** ffmpeg thread cap per transcode job. */
+  readonly echoFfmpegThreads: number;
+  /** Per-job ffmpeg timeout (ms). */
+  readonly echoVideoHlsTimeoutMs: number;
+  /** Max transcode attempts before marking playback failed. */
+  readonly echoVideoHlsMaxAttempts: number;
   /**
    * Poll interval for background mirroring of Discord CDN URLs on imported/synced messages (ms). 0 disables.
    * Requires local upload dir or S3 upload configuration.
@@ -472,6 +482,8 @@ interface AppConfig {
   readonly echoSmtpPassword: string | null;
   /** From header for transactional mail (e.g. Echo <auth@chat-echo.com>). */
   readonly echoEmailFrom: string;
+  /** From header for in-app bug report notifications (separate from auth mail). */
+  readonly echoBugReportEmailFrom: string;
   /** Inbox that receives support-form submissions from the marketing site (default public support address). */
   readonly echoSupportEmail: string;
   readonly echoEmailVerificationTokenHours: number;
@@ -557,20 +569,11 @@ interface AppConfig {
   /**
    * When true, `GET /api/v1/agent/network-diagnostics` is served (Bearer token auth).
    * Off by default; intended for operator/automation access to the in-memory auth/upload
-   * diagnostics ring buffer (same payload as founder network-diagnostics).
+   * diagnostics ring buffer.
    */
   readonly echoAgentNetworkDiagnosticsEnabled: boolean;
   /** Bearer token for `GET /api/v1/agent/network-diagnostics` when enabled (`ECHO_AGENT_NETWORK_DIAG_TOKEN`). */
   readonly echoAgentNetworkDiagnosticsToken: string | null;
-  /** Founder dashboard username from env `founder_name`; empty disables the route login. */
-  readonly founderName: string | null;
-  /** Founder dashboard password from env `founder_pass`; empty disables the route login. */
-  readonly founderPass: string | null;
-  /**
-   * HMAC secret for founder session cookies. Must be independent from JWT_SECRET in production.
-   * Set `ECHO_FOUNDER_SESSION_SECRET`; in non-production, falls back to a JWT-derived value.
-   */
-  readonly founderSessionSecret: string;
   /**
    * When true, `GET /api/v1/health` omits fields useful for recon (`backendStorageMode`, `useMockDb`).
    * Defaults to true in production.
@@ -923,28 +926,7 @@ function resolveEchoGuestBindingSecret(
   return '';
 }
 
-function resolveFounderSessionSecret(
-  prod: boolean,
-  jwtSecret: string,
-  founderEnabledByEnv: boolean,
-): string {
-  const raw = process.env.ECHO_FOUNDER_SESSION_SECRET?.trim() ?? '';
-  if (raw) return raw;
-  if (!prod) {
-    return createHmac('sha256', jwtSecret)
-      .update('echo_founder_session_derived_v1')
-      .digest('hex');
-  }
-  if (!founderEnabledByEnv) {
-    // Founder feature disabled; no secret required.
-    return '';
-  }
-  return '';
-}
-
 const resolvedJwtSecret = process.env.JWT_SECRET ?? 'dev-insecure-secret';
-const founderNameRaw = process.env.founder_name?.trim() || null;
-const founderPassRaw = process.env.founder_pass ?? null;
 const echoRequireGuestBindingSecretInProduction = parseBoolean(
   process.env.ECHO_REQUIRE_GUEST_BINDING_SECRET_IN_PRODUCTION,
   isProduction,
@@ -1201,6 +1183,37 @@ export const config: AppConfig = {
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 15000;
   })(),
+  echoVideoHlsMaxDurationS: (() => {
+    const raw = process.env.ECHO_VIDEO_HLS_MAX_DURATION_S;
+    if (raw === undefined) return 600;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 ? n : 600;
+  })(),
+  echoVideoHlsMaxInputBytes: (() => {
+    const raw = process.env.ECHO_VIDEO_HLS_MAX_INPUT_BYTES;
+    const fallback = 120 * 1024 * 1024;
+    if (raw === undefined || raw === '') return fallback;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 ? n : fallback;
+  })(),
+  echoFfmpegThreads: (() => {
+    const raw = process.env.ECHO_FFMPEG_THREADS;
+    if (raw === undefined) return 2;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 ? n : 2;
+  })(),
+  echoVideoHlsTimeoutMs: (() => {
+    const raw = process.env.ECHO_VIDEO_HLS_TIMEOUT_MS;
+    if (raw === undefined) return 900_000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 ? n : 900_000;
+  })(),
+  echoVideoHlsMaxAttempts: (() => {
+    const raw = process.env.ECHO_VIDEO_HLS_MAX_ATTEMPTS;
+    if (raw === undefined) return 3;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 ? n : 3;
+  })(),
   echoDiscordImportMediaMirrorIntervalMs: (() => {
     const raw = process.env.ECHO_DISCORD_IMPORT_MEDIA_MIRROR_MS;
     if (raw === undefined) return 2000;
@@ -1425,6 +1438,9 @@ export const config: AppConfig = {
   echoSmtpPassword: process.env.ECHO_SMTP_PASSWORD ?? null,
   echoEmailFrom:
     process.env.ECHO_EMAIL_FROM?.trim() || 'Echo <noreply@localhost>',
+  echoBugReportEmailFrom:
+    process.env.ECHO_BUG_REPORT_EMAIL_FROM?.trim() ||
+    'Echo Bugs <bugs@chat-echo.com>',
   echoSupportEmail:
     process.env.ECHO_SUPPORT_EMAIL?.trim() || 'support@app-echo.net',
   echoEmailVerificationTokenHours: (() => {
@@ -1576,13 +1592,6 @@ export const config: AppConfig = {
   ),
   echoAgentNetworkDiagnosticsToken:
     process.env.ECHO_AGENT_NETWORK_DIAG_TOKEN?.trim() || null,
-  founderName: founderNameRaw,
-  founderPass: founderPassRaw,
-  founderSessionSecret: resolveFounderSessionSecret(
-    isProduction,
-    resolvedJwtSecret,
-    Boolean(founderNameRaw?.trim() && founderPassRaw?.trim()),
-  ),
   echoHealthRedact: parseBoolean(process.env.ECHO_HEALTH_REDACT, isProduction),
   echoRequireRedisInProduction: parseBoolean(
     process.env.ECHO_REQUIRE_REDIS_IN_PRODUCTION,
@@ -1625,8 +1634,12 @@ export const config: AppConfig = {
     process.env.LIVEKIT_PUBLIC_URL?.trim()
   ),
   liveKitEgressEnabled: (() => {
-    const raw = process.env.LIVEKIT_EGRESS_ENABLED?.trim().toLowerCase();
-    return raw === 'true' || raw === '1' || raw === 'yes';
+    const liveKitOn = !!(
+      process.env.LIVEKIT_API_KEY?.trim() &&
+      process.env.LIVEKIT_API_SECRET?.trim() &&
+      process.env.LIVEKIT_PUBLIC_URL?.trim()
+    );
+    return parseBoolean(process.env.LIVEKIT_EGRESS_ENABLED, liveKitOn);
   })(),
   voiceSidecarEnabled: parseBoolean(process.env.VOICE_SIDECAR_ENABLED, false),
   voiceSidecarForwardUrl: process.env.VOICE_SIDECAR_FORWARD_URL?.trim() || null,
@@ -1756,16 +1769,6 @@ if (config.isProduction) {
   ) {
     configStderr(
       `ECHO_DISCORD_BOT_WEBHOOK_SECRET must be at least ${MIN_PRODUCTION_SECRET_LENGTH} random characters in production, or left unset to disable the hook.`,
-    );
-    process.exit(1);
-  }
-  if (
-    config.founderName?.trim() &&
-    config.founderPass?.trim() &&
-    !isStrongProductionSecret(config.founderSessionSecret)
-  ) {
-    configStderr(
-      `ECHO_FOUNDER_SESSION_SECRET is required in production when founder_name/founder_pass are set. Use at least ${MIN_PRODUCTION_SECRET_LENGTH} random characters independent of JWT_SECRET.`,
     );
     process.exit(1);
   }

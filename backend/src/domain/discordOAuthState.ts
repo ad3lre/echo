@@ -1,4 +1,8 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { randomBytes } from 'crypto';
+import {
+  oauthCookieIntegrityTag,
+  oauthCookieIntegrityTagsEqual,
+} from '../auth/oauthCookieIntegrity';
 import { config } from '../config';
 const COOKIE_NAME = 'echo_discord_oauth';
 const MAX_AGE_SEC = 600;
@@ -28,7 +32,7 @@ export type DecodedDiscordOAuthCookie =
 /** Legacy HMAC: `${userId}\n${state}\n${exp}` */
 function signPayloadLegacy(userId: string, state: string, exp: number): string {
   const payload = `${userId}\n${state}\n${exp}`;
-  return createHmac('sha256', config.jwtSecret).update(payload).digest('hex');
+  return oauthCookieIntegrityTag(config.jwtSecret, payload);
 }
 
 /** Current HMAC: `${mode}\n${userId}\n${state}\n${exp}` (userId empty for login). */
@@ -39,7 +43,7 @@ function signPayloadV2(
   exp: number,
 ): string {
   const payload = `${mode}\n${userId}\n${state}\n${exp}`;
-  return createHmac('sha256', config.jwtSecret).update(payload).digest('hex');
+  return oauthCookieIntegrityTag(config.jwtSecret, payload);
 }
 
 /** Link Discord to the signed-in Echo account (Settings flow). */
@@ -102,9 +106,10 @@ export type DiscordLoginSignedState = {
 };
 
 function signDiscordLoginStateV1(bodyB64url: string): string {
-  return createHmac('sha256', config.jwtSecret)
-    .update(`discord_login_oauth_state_v1|${bodyB64url}`)
-    .digest('hex');
+  return oauthCookieIntegrityTag(
+    config.jwtSecret,
+    `discord_login_oauth_state_v1|${bodyB64url}`,
+  );
 }
 
 export function decodeDiscordLoginSignedState(
@@ -117,15 +122,7 @@ export function decodeDiscordLoginSignedState(
   const sig = trimmed.slice(dot + 1);
   if (!bodyB64 || !sig) return null;
   const expect = signDiscordLoginStateV1(bodyB64);
-  try {
-    if (
-      expect.length !== sig.length ||
-      !timingSafeEqual(Buffer.from(expect), Buffer.from(sig))
-    )
-      return null;
-  } catch {
-    return null;
-  }
+  if (!oauthCookieIntegrityTagsEqual(expect, sig)) return null;
   let parsed: { n?: string; e?: number; dh?: boolean; nh?: string };
   try {
     parsed = JSON.parse(Buffer.from(bodyB64, 'base64url').toString('utf8')) as {
@@ -190,15 +187,7 @@ export function decodeDiscordOAuthCookieValue(
 
   if (parsed.m === 'login') {
     const expect = signPayloadV2('login', '', state, exp);
-    try {
-      if (
-        expect.length !== sig.length ||
-        !timingSafeEqual(Buffer.from(expect), Buffer.from(sig))
-      )
-        return null;
-    } catch {
-      return null;
-    }
+    if (!oauthCookieIntegrityTagsEqual(expect, sig)) return null;
     return { flow: 'login', state, exp };
   }
 
@@ -206,15 +195,7 @@ export function decodeDiscordOAuthCookieValue(
     const userId = typeof parsed.u === 'string' ? parsed.u : '';
     if (!userId) return null;
     const expect = signPayloadV2('link', userId, state, exp);
-    try {
-      if (
-        expect.length !== sig.length ||
-        !timingSafeEqual(Buffer.from(expect), Buffer.from(sig))
-      )
-        return null;
-    } catch {
-      return null;
-    }
+    if (!oauthCookieIntegrityTagsEqual(expect, sig)) return null;
     return { flow: 'link', userId, state, exp };
   }
 
@@ -222,15 +203,7 @@ export function decodeDiscordOAuthCookieValue(
   const userId = typeof parsed.u === 'string' ? parsed.u : '';
   if (!userId) return null;
   const expect = signPayloadLegacy(userId, state, exp);
-  try {
-    if (
-      expect.length !== sig.length ||
-      !timingSafeEqual(Buffer.from(expect), Buffer.from(sig))
-    )
-      return null;
-  } catch {
-    return null;
-  }
+  if (!oauthCookieIntegrityTagsEqual(expect, sig)) return null;
   return { flow: 'link', userId, state, exp };
 }
 
