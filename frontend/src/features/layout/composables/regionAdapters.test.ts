@@ -7,7 +7,7 @@ import { useChatHeaderAdapter } from './useChatHeaderAdapter';
 describe('region adapters', () => {
   it('derives chat header state from dm/profile adapters through one canonical path', () => {
     const openExpandedProfilePanelForUserId = vi.fn();
-    const openProfileModal = vi.fn();
+    const openExtendedProfileModalForUserId = vi.fn();
     const openGroupOverviewPanel = vi.fn();
     const openGroupSettingsFromHeader = vi.fn();
 
@@ -28,7 +28,7 @@ describe('region adapters', () => {
       presenceMobileByUserId: computed(() => ({ u1: true })),
       activeGroupCallMembers: computed(() => []),
       openExpandedProfilePanelForUserId,
-      handleExpandedProfileOpenProfile: openProfileModal,
+      openExtendedProfileModalForUserId,
       openGroupOverviewPanel,
       openGroupSettingsFromHeader,
     });
@@ -80,7 +80,7 @@ describe('region adapters', () => {
     chatHeader.intents.openProfileModal('u1');
 
     expect(openExpandedProfilePanelForUserId).toHaveBeenCalledWith('u1');
-    expect(openProfileModal).toHaveBeenCalledWith('u1');
+    expect(openExtendedProfileModalForUserId).toHaveBeenCalledWith('u1');
   });
 
   it('keeps profile surface friend state and intents in one adapter contract', () => {

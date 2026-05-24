@@ -1,0 +1,15 @@
+{
+  "common": {
+    "appName": "Echo",
+    "loading": "Loading Echo",
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "refreshPage": "Refresh page",
+    "requestFailed": "Request failed",
+    "somethingWentWrong": "Something went wrong. Please try again.",
+    "notAvailableNow": "That isn't available right now. Try again later.",
+    "skipToContent": "Skip to content"
+  }
+}

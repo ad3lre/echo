@@ -20,8 +20,15 @@ const props = withDefaults(
     enabled?: boolean;
     /** Hide entirely for audience when not live (call view header). */
     hideWhenIdleForAudience?: boolean;
+    /** Wrap in stage call view header chrome (border + padding). */
+    callViewHeader?: boolean;
   }>(),
-  { compact: false, enabled: true, hideWhenIdleForAudience: false },
+  {
+    compact: false,
+    enabled: true,
+    hideWhenIdleForAudience: false,
+    callViewHeader: false,
+  },
 );
 
 const emit = defineEmits<{
@@ -87,7 +94,12 @@ const shouldRender = computed(
   <div
     v-if="shouldRender"
     class="stage-youtube-go-live flex flex-col gap-2"
-    :class="compact ? 'stage-youtube-go-live--compact' : ''"
+    :class="[
+      compact ? 'stage-youtube-go-live--compact' : '',
+      callViewHeader
+        ? 'stage-call-youtube-header shrink-0 border-b border-border bg-[var(--surface)] px-3 py-2 md:px-4'
+        : '',
+    ]"
   >
     <div class="flex flex-wrap items-center gap-2">
       <img :src="icons.youtube" alt="" class="h-5 w-5 shrink-0 opacity-90" />
@@ -112,7 +124,7 @@ const shouldRender = computed(
           v-else-if="isStreamKeyLive && canManage"
           class="max-w-md text-xs text-fg-subtle"
         >
-          {{ youtubeStageStreamKeyLiveHint }}
+          {{ youtubeStageStreamKeyLiveHint() }}
         </span>
       </template>
 

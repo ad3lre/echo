@@ -212,6 +212,8 @@ export type EchoChannelRow = {
   categoryAutoDeleteAfterSeconds?: number | null;
   messageFormatTemplate?: string;
   messageFormatHard?: boolean;
+  paperCommentsEnabled?: boolean;
+  paperShowAuthorGutter?: boolean;
 };
 
 export type EchoCategoryDto = {
@@ -239,6 +241,8 @@ export type EchoChannelPatch = {
   autoDeleteSyncedToCategory?: boolean;
   messageFormatTemplate?: string;
   messageFormatHard?: boolean;
+  paperCommentsEnabled?: boolean;
+  paperShowAuthorGutter?: boolean;
 };
 
 export type EchoDiscordImportState = {

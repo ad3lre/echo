@@ -89,9 +89,27 @@ const emit = defineEmits<{
   }
 }
 
+.echo-media-shell--video {
+  --media-player-controls-fg: rgb(255 255 255 / 0.95);
+  --media-player-controls-fg-muted: rgb(255 255 255 / 0.82);
+  --media-player-icon-filter: brightness(0) invert(1);
+}
+
 .echo-media-shell--audio {
   background: var(--elevated);
   border: 1px solid var(--border);
+  --media-player-controls-fg: var(--text);
+  --media-player-controls-fg-muted: var(--muted);
+  --media-player-icon-filter: var(--echo-ink-icon-filter, none);
+}
+
+[data-theme='light'] .echo-media-shell--audio {
+  --vc-ctrl-bg: color-mix(in srgb, var(--surface) 68%, var(--elevated) 32%);
+  --vc-ctrl-bg-hover: color-mix(
+    in srgb,
+    var(--border) 45%,
+    var(--elevated) 55%
+  );
 }
 
 .echo-media-shell__media {

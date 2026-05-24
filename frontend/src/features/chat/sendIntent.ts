@@ -10,8 +10,6 @@ import type {
   ReplyTo,
 } from '@shared/types';
 import type { OutgoingContentType } from '@/composables/useChatPermissions';
-import type { E2eeOutboundEncryption } from '@/services/e2ee/e2eeTypes';
-
 export type ShellSendPayload = {
   content: string;
   mentions?: MentionEntity[];
@@ -25,8 +23,6 @@ export type ShellSendPayload = {
   /** TipTap doc for text-only v2 sends (no poll / no media). */
   contentJson?: unknown;
   contentSchemaVersion?: number;
-  /** When set, the realtime layer sends this encrypted wire instead of deriving it from `content`. */
-  preEncryptedE2ee?: E2eeOutboundEncryption;
 };
 
 export type SendIntent = {
@@ -78,7 +74,6 @@ export type SocketSendFn = (
   attachments?: MessageAttachmentPayload[],
   contentJson?: unknown,
   contentSchemaVersion?: number,
-  preEncryptedE2ee?: E2eeOutboundEncryption,
 ) => void;
 
 /**
@@ -110,6 +105,5 @@ export function executeShellSend(
     p.attachments,
     p.contentJson,
     p.contentSchemaVersion,
-    p.preEncryptedE2ee,
   );
 }

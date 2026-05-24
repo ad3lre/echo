@@ -50,6 +50,16 @@ const paperCategoryId = computed(() => {
   return findChannelContextById.value(id)?.categoryId ?? '';
 });
 
+/** Server roster (not global workspace.users) so gutter/comments resolve author names. */
+const paperMembers = computed(() => {
+  const roster = layoutChat?.usersForMentionAutocomplete;
+  const resolved = roster ? unref(roster) : [];
+  if (Array.isArray(resolved) && resolved.length > 0) {
+    return resolved as { id: string; name: string; pfp?: string }[];
+  }
+  return props.users;
+});
+
 onMounted(() => {
   warmEchoSocketConnect();
 });
@@ -61,7 +71,7 @@ onMounted(() => {
     :channel-id="channelId"
     :channel-name="effectiveActiveChannel.name"
     :server-id="selectedServerId"
-    :members="users"
+    :members="paperMembers"
     :channel="effectiveActiveChannel"
     :category-id="paperCategoryId"
     :on-open-channel-settings="openChannelSettings"

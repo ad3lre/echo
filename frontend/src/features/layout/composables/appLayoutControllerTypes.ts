@@ -802,14 +802,19 @@ export interface AppLayoutControllerContext {
     opts?: { rolesPanel?: boolean },
   ) => void;
   openMemberProfileFromMemberColumn: (payload: any) => void;
+  openProfileFromContextMenu: (userId: string) => void;
   openSelfProfile: (anchorRect?: PopoutAnchorRect | null) => void;
   openExpandedProfileFromMemberPopout: () => void;
   openExpandedProfileFromSelfPopout: () => void;
   onExpandedProfileModalUpdate: (next: boolean) => void;
   openExpandedProfilePanelForUserId: (userId: string) => void;
+  openExtendedProfileModalForUserId: (userId: string) => void;
   /** Switches DM inline profile panel to the large `ExpandedProfileModal` for the same user. */
   expandDmProfileToFullModal: () => void;
-  handleExpandedProfileOpenProfile: (userId: string) => void;
+  handleExpandedProfileOpenProfile: (
+    userId: string,
+    opts?: { skipInteractionGuard?: boolean },
+  ) => void;
   openExpandedProfileDmFromComposable: (
     userId: string,
     onSelectDM: (id: string) => void | Promise<any>,

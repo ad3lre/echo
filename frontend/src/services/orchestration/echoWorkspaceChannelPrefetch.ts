@@ -3,7 +3,11 @@ import type { EchoWorkspaceState } from '@/api/echoClient';
 import { firstTextChannelIdFromCategories } from '@/composables/workspace/utils';
 import { isEchoGraphId } from '@/utils/echoIds';
 import { sortRawMessagesInPlace } from '@/services/realtime/channelMessageOrder';
-import { applyEchoHistoryInitialPageFromApi } from '@/services/realtime/echoHistoryChannelApply';
+import {
+  applyEchoHistoryInitialPageFromApi,
+  applyEchoHistoryLatestPageFromApi,
+} from '@/services/realtime/echoHistoryChannelApply';
+import { ensureChannelBucket } from '@/services/realtime/channelMessageAuthority';
 import { messageWindowAuthority } from '@/services/realtime/messageWindowAuthority';
 import { mapEchoMessagesToRaw } from '@/services/domain/echoMessageSnapshots';
 
@@ -35,16 +39,34 @@ export function resolveWorkspaceBootstrapTextChannelIds(
   return out;
 }
 
+/**
+ * Apply bootstrap prefetch for a channel. Empty buckets get a full first page;
+ * non-empty buckets only gain rows missing locally so a slow/stale prefetch cannot
+ * replace fresher history from `loadHistory` or realtime (messages vanishing on refresh).
+ */
 export function applyPrefetchedWorkspaceChannelMessages(
   channelId: string,
   apiMessages: EchoApiMessage[],
 ): void {
   const raw = mapEchoMessagesToRaw(apiMessages);
   sortRawMessagesInPlace(raw);
-  applyEchoHistoryInitialPageFromApi(
-    channelId,
-    raw,
-    apiMessages.length,
-    messageWindowAuthority.getActiveChannelId() ?? '',
-  );
+  const activeChannelId = messageWindowAuthority.getActiveChannelId() ?? '';
+  ensureChannelBucket(channelId);
+  const index = messageWindowAuthority.getIndex(channelId);
+  if (index.sorted.value.length === 0) {
+    applyEchoHistoryInitialPageFromApi(
+      channelId,
+      raw,
+      apiMessages.length,
+      activeChannelId,
+    );
+    return;
+  }
+  const missing = raw.filter((m) => {
+    const id = m.id?.trim();
+    return !!id && !index.byId.has(id);
+  });
+  if (missing.length > 0) {
+    applyEchoHistoryLatestPageFromApi(channelId, missing, activeChannelId);
+  }
 }

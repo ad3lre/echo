@@ -231,6 +231,8 @@ export type AppLayoutLeftChromeProps = {
     userId: string,
     anchorRect: PopoutAnchorRect | null,
   ) => void;
+  /** Right-click “Profile” — always opens expanded profile modal/panel. */
+  openProfileFromContextMenu?: (userId: string) => void;
   activeMemberProfileId: string | null;
   guildVcMuted: boolean;
   guildVcDeafened: boolean;

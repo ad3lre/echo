@@ -22,6 +22,46 @@ import {
   echoMessageIdPgGreaterThan,
 } from './echoMessageIdPgCompare';
 import { ECHO_WEBHOOK_BRIDGE_SOURCE } from './echoChannelWebhookConstants';
+import {
+  CHAT_E2EE_REMOVED_DETAIL,
+  contentForLegacyEncryptedChatRow,
+  rowHasLegacyChatE2eeCiphertext,
+} from '../../../shared/chatE2eePolicy';
+
+export { CHAT_E2EE_REMOVED_DETAIL };
+
+/** Strip chat E2EE wire fields from REST/socket rows; legacy ciphertext → placeholder text. */
+export function stripChatE2eeFromEchoMessageRow(
+  row: EchoMessageRow,
+): EchoMessageRow {
+  const hasE2ee = rowHasLegacyChatE2eeCiphertext(row.e2eeCiphertext);
+  if (!hasE2ee) {
+    const {
+      e2eeEnvelope: _e,
+      e2eeCiphertext: _c,
+      e2eeSenderDeviceId: _s,
+      ...rest
+    } = row;
+    return rest;
+  }
+  const content = contentForLegacyEncryptedChatRow(
+    row.content,
+    row.e2eeCiphertext,
+  );
+  const {
+    e2eeEnvelope: _env,
+    e2eeCiphertext: _ct,
+    e2eeSenderDeviceId: _dev,
+    ...rest
+  } = row;
+  return { ...rest, content };
+}
+
+export function stripChatE2eeFromEchoMessageRows(
+  rows: EchoMessageRow[],
+): EchoMessageRow[] {
+  return rows.map(stripChatE2eeFromEchoMessageRow);
+}
 
 export type EchoMessageRow = {
   id: string;
@@ -56,6 +96,8 @@ export type EchoMessageRow = {
   authorIsDiscordShadow?: boolean;
   /** Discord snowflake for import shadow authors (for twin ownership on clients). */
   authorDiscordUserId?: string;
+  /** Persisted system event row (centered muted UI; not a normal chat bubble). */
+  systemMessage?: boolean;
   /** When set, message was mirrored from Discord inbound bridge. */
   bridgeSource?: string;
   /** Derived for clients when `bridgeSource` is discord inbound. */
@@ -253,6 +295,7 @@ function mapMsgRowsDraft(rows: { [k: string]: unknown }[]): MsgRowDraft[] {
       ...(attachments ? { attachments } : {}),
       ...(stickers ? { stickers } : {}),
       ...(forwardedFrom ? { forwardedFrom } : {}),
+      ...(row.system_message === true ? { systemMessage: true } : {}),
       ...(row.bridge_source != null && String(row.bridge_source).trim() !== ''
         ? { bridgeSource: String(row.bridge_source).trim() }
         : {}),
@@ -365,7 +408,10 @@ export async function attachAuthorLabelsToEchoMessageRows(
   return rows.map((row) => {
     const a = byId.get(row.authorId);
     if (!a) {
-      return { ...row, authorDisplayName: 'Unknown' };
+      return stripChatE2eeFromEchoMessageRow({
+        ...row,
+        authorDisplayName: 'Unknown',
+      });
     }
     const baseLabeled = {
       ...row,
@@ -383,14 +429,14 @@ export async function attachAuthorLabelsToEchoMessageRows(
       const wname = row.webhookUsername?.trim();
       const wav = row.webhookAvatarUrl?.trim();
       const { authorAvatar: _ignoredAvatar, ...restLabeled } = baseLabeled;
-      return {
+      return stripChatE2eeFromEchoMessageRow({
         ...restLabeled,
         authorDisplayName:
           wname && wname.length > 0 ? wname.slice(0, 80) : 'Webhook',
         ...(wav && wav.length > 0 ? { authorAvatar: wav.slice(0, 2048) } : {}),
-      };
+      });
     }
-    return baseLabeled;
+    return stripChatE2eeFromEchoMessageRow(baseLabeled);
   });
 }
 
@@ -421,7 +467,7 @@ const SELECT_MSG_FIELDS_BASE = `
   image_url, video_url, audio_url, gif, image_spoiler, attachments, stickers,
   created_at, edited_at,
   content_json, search_index_text, message_format_version, content_schema_version,
-  bridge_source, source_webhook_id, webhook_username, webhook_avatar_url,
+  bridge_source, system_message, source_webhook_id, webhook_username, webhook_avatar_url,
   tts, message_flags, components`;
 
 /** Cached after first Postgres probe; false when migration for E2EE columns has not been applied. */
@@ -601,6 +647,7 @@ export async function insertEchoMessage(
     e2eeSenderDeviceId?: string;
     /** e.g. `discord_inbound` for bridge — skips Echo→Discord mirror. */
     bridgeSource?: string;
+    systemMessage?: boolean;
     sourceWebhookId?: string;
     webhookUsername?: string | null;
     webhookAvatarUrl?: string | null;
@@ -647,6 +694,7 @@ export async function insertEchoMessage(
     typeof row.bridgeSource === 'string' && row.bridgeSource.trim()
       ? row.bridgeSource.trim().slice(0, 64)
       : null;
+  const systemMessage = row.systemMessage === true;
   const sourceWebhookId =
     typeof row.sourceWebhookId === 'string' && row.sourceWebhookId.trim()
       ? row.sourceWebhookId.trim()
@@ -709,13 +757,13 @@ export async function insertEchoMessage(
       e2ee_envelope, e2ee_ciphertext, e2ee_sender_device_id,
       source_webhook_id, webhook_username, webhook_avatar_url,
       tts, message_flags, components,
-      bridge_source
+      bridge_source, system_message
     )
     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15::jsonb, NULL, NULL,
       $16::jsonb, $17, $18, $19,
       $20::jsonb,
       $21::jsonb, $22, $23,
-      $24, $25, $26, $27, $28, $29::jsonb, $30)
+      $24, $25, $26, $27, $28, $29::jsonb, $30, $31)
     ON CONFLICT (id) DO NOTHING
     RETURNING id
     `,
@@ -731,6 +779,7 @@ export async function insertEchoMessage(
           messageFlags,
           componentsJson,
           bridgeSrc,
+          systemMessage,
         ],
       )
     : await pool.query(
@@ -743,12 +792,12 @@ export async function insertEchoMessage(
       embeds,
       source_webhook_id, webhook_username, webhook_avatar_url,
       tts, message_flags, components,
-      bridge_source
+      bridge_source, system_message
     )
     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15::jsonb, NULL, NULL,
       $16::jsonb, $17, $18, $19,
       $20::jsonb,
-      $21, $22, $23, $24, $25, $26::jsonb, $27)
+      $21, $22, $23, $24, $25, $26::jsonb, $27, $28)
     ON CONFLICT (id) DO NOTHING
     RETURNING id
     `,
@@ -761,6 +810,7 @@ export async function insertEchoMessage(
           messageFlags,
           componentsJson,
           bridgeSrc,
+          systemMessage,
         ],
       );
   return ins.rows.length > 0 ? 'inserted' : 'duplicate';

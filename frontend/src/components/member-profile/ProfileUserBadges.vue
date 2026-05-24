@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import {
-  ECHO_OG_BADGE_MAX_SIGNUP_ORDINAL,
+  echoPublicBadgeTitle,
   isEchoPublicBadgeId,
   type EchoPublicBadgeId,
 } from '@shared/echoAccountBadges';
+import { echoPlanBadgeUrl } from '@/assets/subscriptionTierIcons';
 
 const props = defineProps<{
-  /** Stable ids from API / workspace (e.g. `og`). */
+  /** Stable ids from API / workspace (e.g. `og`, `plus`, `black`). */
   badges: readonly string[];
   /** Visual size for icon row. */
   size?: 'sm' | 'md';
@@ -22,10 +23,7 @@ const normalized = computed((): EchoPublicBadgeId[] =>
 );
 
 function titleFor(id: EchoPublicBadgeId): string {
-  if (id === 'og') {
-    return `Original Echo member — among the first ${ECHO_OG_BADGE_MAX_SIGNUP_ORDINAL} accounts`;
-  }
-  return id;
+  return echoPublicBadgeTitle(id);
 }
 </script>
 
@@ -36,8 +34,24 @@ function titleFor(id: EchoPublicBadgeId): string {
     aria-label="Profile badges"
   >
     <li v-for="id in normalized" :key="id">
+      <img
+        v-if="id === 'plus' || id === 'black'"
+        class="profile-user-badges__tier"
+        :class="
+          id === 'plus'
+            ? 'profile-user-badges__tier--plus'
+            : 'profile-user-badges__tier--black'
+        "
+        :src="echoPlanBadgeUrl(id)"
+        :alt="titleFor(id)"
+        :title="titleFor(id)"
+        width="20"
+        height="20"
+        decoding="async"
+        draggable="false"
+      />
       <span
-        v-if="id === 'og'"
+        v-else-if="id === 'og'"
         class="profile-user-badges__og"
         :title="titleFor(id)"
         role="img"
@@ -57,6 +71,37 @@ function titleFor(id: EchoPublicBadgeId): string {
 }
 .profile-user-badges--md {
   gap: 0.4rem;
+}
+
+.profile-user-badges__tier {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease;
+}
+
+.profile-user-badges--sm .profile-user-badges__tier {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.profile-user-badges--md .profile-user-badges__tier {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.profile-user-badges__tier:hover {
+  transform: translateY(-1px) scale(1.06);
+}
+
+.profile-user-badges__tier--plus:hover {
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.55));
+}
+
+.profile-user-badges__tier--black:hover {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.28));
 }
 
 /* Echo blue (915b563a): cobalt rim → vivid core — same structure as friend heart. */
@@ -157,10 +202,12 @@ function titleFor(id: EchoPublicBadgeId): string {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .profile-user-badges__og {
+  .profile-user-badges__og,
+  .profile-user-badges__tier {
     transition: none;
   }
-  .profile-user-badges__og:hover {
+  .profile-user-badges__og:hover,
+  .profile-user-badges__tier:hover {
     transform: none;
   }
 }

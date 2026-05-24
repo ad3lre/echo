@@ -13,8 +13,6 @@ import type {
   PollData,
   ReplyTo,
 } from '@shared/types';
-import type { E2eeOutboundEncryption } from '@/services/e2ee/e2eeTypes';
-
 /** Restore local pin list after a failed optimistic `message:pin` / `message:unpin`. */
 export type EchoPinRollbackSync = {
   restorePinnedIds: (channelId: string, messageIds: string[]) => void;
@@ -128,7 +126,6 @@ export interface EchoRealtimePort {
     contentSchemaVersion?: number,
     forwardMessageId?: string,
     forwardPreview?: ForwardedFrom,
-    preEncryptedE2ee?: E2eeOutboundEncryption,
   ) => void;
   submitPollVote: (
     channelId: string,

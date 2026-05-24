@@ -780,23 +780,7 @@ export default async function echoMessagesRoutes(
         messageFormatVersion,
         contentSchemaVersion,
         forwardMessageId,
-        e2eeEnvelope,
-        e2eeCiphertext,
-        e2eeSenderDeviceId,
-        e2eeEncryptionVersion,
       } = parsed.value;
-
-      const payloadIsE2ee =
-        typeof e2eeCiphertext === 'string' && e2eeCiphertext.trim().length > 0;
-      if (payloadIsE2ee) {
-        restMessageFailed('VALIDATION');
-        return sendError(
-          reply,
-          400,
-          'INVALID_BODY',
-          'Encrypted chat messages are no longer supported. Voice uses end-to-end encryption by default.',
-        );
-      }
 
       if (
         !(await canUserSendMassMentionInChannel(
@@ -927,14 +911,6 @@ export default async function echoMessagesRoutes(
           messageFormatVersion,
           contentSchemaVersion,
           ...(forwardedFrom ? { forwardedFrom } : {}),
-          ...(payloadIsE2ee
-            ? {
-                e2eeEnvelope,
-                e2eeCiphertext,
-                e2eeSenderDeviceId,
-                e2eeEncryptionVersion,
-              }
-            : {}),
         },
       );
 

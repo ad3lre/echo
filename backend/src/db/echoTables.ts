@@ -1762,6 +1762,9 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   await pool.query(`
     ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS bridge_source TEXT NULL;
   `);
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS system_message BOOLEAN NOT NULL DEFAULT false;
+  `);
 
   await pool.query(`
     ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS discord_voice_mirror_only BOOLEAN NOT NULL DEFAULT false;
@@ -2047,6 +2050,20 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
            false
     WHERE NOT EXISTS (
       SELECT 1 FROM auth_users WHERE id = 'echo_internal_webhook_actor_v1'
+    );
+  `);
+
+  /** System user: author_id for bridge sync and other Echo system notices. */
+  await pool.query(`
+    INSERT INTO auth_users (id, username, display_name, pfp, password_hash, is_guest)
+    SELECT 'echo_internal_system_actor_v1',
+           'echo_internal_system_actor_v1',
+           'Echo',
+           '',
+           NULL,
+           false
+    WHERE NOT EXISTS (
+      SELECT 1 FROM auth_users WHERE id = 'echo_internal_system_actor_v1'
     );
   `);
 

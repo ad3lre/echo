@@ -8,14 +8,21 @@ import {
 } from 'vue';
 import type { Editor } from '@tiptap/core';
 import { createRafCoalescer } from '@/utils/rafCoalesce';
+import {
+  computePaperAuthorSegments,
+  type PaperAuthorSegment,
+} from '@/features/paper/composables/computePaperAuthorSegments';
 
 export type PaperGutterRow = {
   paperBlockId: string;
   authorId: string;
+  coAuthorIds?: string[];
   lastEditedAt?: string;
   top: number;
   height: number;
 };
+
+export type { PaperAuthorSegment };
 
 const BLOCK_TYPES = new Set([
   'paragraph',
@@ -53,9 +60,17 @@ export function usePaperAuthorGutter(opts: {
       const dom = ed.view.nodeDOM(offset);
       if (!(dom instanceof HTMLElement)) return;
       const rect = dom.getBoundingClientRect();
+      const rawCo = node.attrs.coAuthorIds;
+      const coAuthorIds = Array.isArray(rawCo)
+        ? rawCo
+            .map((v) => (typeof v === 'string' ? v.trim() : ''))
+            .filter(Boolean)
+            .slice(0, 2)
+        : undefined;
       next.push({
         paperBlockId: id,
         authorId: String(node.attrs.authorId ?? ''),
+        ...(coAuthorIds && coAuthorIds.length >= 2 ? { coAuthorIds } : {}),
         lastEditedAt:
           typeof node.attrs.lastEditedAt === 'string'
             ? node.attrs.lastEditedAt
@@ -90,7 +105,9 @@ export function usePaperAuthorGutter(opts: {
     return m;
   });
 
-  return { rows, rowsByBlockId, measure };
+  const segments = computed(() => computePaperAuthorSegments(rows.value));
+
+  return { rows, segments, rowsByBlockId, measure };
 }
 
 export function paperAuthorColor(userId: string): string {

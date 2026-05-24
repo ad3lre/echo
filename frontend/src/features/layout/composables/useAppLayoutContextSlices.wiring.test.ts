@@ -24,6 +24,7 @@ describe('app layout context slices wiring', () => {
       openExpandedProfileFromMemberPopout: vi.fn(),
       openExpandedProfileFromSelfPopout: vi.fn(),
       openExpandedProfilePanelForUserId: vi.fn(),
+      openExtendedProfileModalForUserId: vi.fn(),
       expandDmProfileToFullModal: vi.fn(),
       handleExpandedProfileOpenProfile: vi.fn(),
       handleExpandedProfileOpenDM,

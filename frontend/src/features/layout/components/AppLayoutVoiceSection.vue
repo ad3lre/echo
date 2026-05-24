@@ -271,6 +271,8 @@ const props = defineProps<{
   onMobileBackToChannels?: () => void;
   /** Jump to owning guild and highlight this VC in the channel list. */
   focusGuildVoiceChannelInSidebar?: () => void;
+  /** Join the guild voice/stage channel (used when entering stage from the lobby). */
+  joinVoiceChannel?: (channelId: string) => void;
 }>();
 
 /** Stage vs VC chrome follows the connected channel when in a voice session. */
@@ -338,6 +340,11 @@ const echoSession = useEchoSessionStore();
 const { upcomingEventsByServerId } = storeToRefs(echoSession);
 
 const stageChannelId = computed(() => voiceUiChannel.value?.id ?? '');
+const voiceConnectedToStageChannel = computed(() => {
+  const connected = props.currentVoiceChannelId?.trim();
+  const stageId = stageChannelId.value.trim();
+  return !!connected && !!stageId && connected === stageId;
+});
 const stageUpcomingEvents = computed(
   () => upcomingEventsByServerId.value[props.selectedServerId] ?? [],
 );
@@ -362,6 +369,7 @@ const {
   upcomingEvents: stageUpcomingEvents,
   vcActivityUi: props.vcActivityUi,
   channelHasActiveVcActivity,
+  voiceConnectedToChannel: voiceConnectedToStageChannel,
 });
 
 const canManageStage = computed(() => props.canManageStageChannel === true);
@@ -371,6 +379,14 @@ const stageEventStartedFromLobby = ref(false);
 
 function onStageLobbyVoiceOnly() {
   dismissStageLobby('voice_only');
+  const stageId = stageChannelId.value.trim();
+  if (
+    stageId &&
+    props.joinVoiceChannel &&
+    !voiceConnectedToStageChannel.value
+  ) {
+    props.joinVoiceChannel(stageId);
+  }
 }
 
 function onStageLobbyYoutubeLiveStarted() {

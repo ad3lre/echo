@@ -82,7 +82,7 @@ const displayInitial = computed(() => {
         v-if="state && !stageLiveStreamingConfigured"
         class="max-w-2xl rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm leading-relaxed text-amber-100/90"
       >
-        {{ youtubeStageLiveStreamingUnavailableHint }}
+        {{ youtubeStageLiveStreamingUnavailableHint() }}
       </p>
 
       <p
@@ -104,7 +104,7 @@ const displayInitial = computed(() => {
         class="max-w-3xl space-y-2 text-sm text-muted"
       >
         <p class="leading-relaxed">
-          {{ youtubeOAuthCallbackUrlIntro }}
+          {{ youtubeOAuthCallbackUrlIntro() }}
           <code
             class="mt-2 block break-all rounded-xl bg-scrim-1 px-3 py-2.5 font-mono text-[11px] leading-snug text-foreground/90"
             >{{ lastOAuthRedirectUri }}</code
@@ -118,10 +118,10 @@ const displayInitial = computed(() => {
           <img :src="icons.youtube" alt="" class="h-8 w-8 opacity-90" />
           <div>
             <h4 class="text-lg font-bold text-foreground">
-              {{ youtubeNativeConnectionTitle }}
+              {{ youtubeNativeConnectionTitle() }}
             </h4>
             <p class="mt-1 max-w-xl text-sm text-muted">
-              {{ youtubeNativeConnectionBlurb }}
+              {{ youtubeNativeConnectionBlurb() }}
             </p>
           </div>
         </div>
@@ -149,7 +149,7 @@ const displayInitial = computed(() => {
               <span
                 class="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/85"
               >
-                {{ youtubeSettingsSectionTitle }}
+                {{ youtubeSettingsSectionTitle() }}
               </span>
               <p class="font-semibold text-foreground">
                 {{ state.profile.channelTitle }}
@@ -177,7 +177,7 @@ const displayInitial = computed(() => {
               :disabled="connectBusy"
               @click="onConnect"
             >
-              {{ youtubeReconnectCta }}
+              {{ youtubeReconnectCta() }}
             </button>
             <button
               type="button"
@@ -192,7 +192,7 @@ const displayInitial = computed(() => {
 
         <template v-else-if="oauthConfigured && !state?.googleLinked">
           <p class="mt-6 max-w-xl text-sm text-muted">
-            {{ youtubeRequiresGoogleLinkHint }}
+            {{ youtubeRequiresGoogleLinkHint() }}
           </p>
           <button
             v-if="props.navigateToSection"
@@ -211,7 +211,7 @@ const displayInitial = computed(() => {
             :disabled="connectBusy"
             @click="onConnect"
           >
-            {{ connectBusy ? 'Opening Google…' : youtubeConnectCta }}
+            {{ connectBusy ? 'Opening Google…' : youtubeConnectCta() }}
           </button>
         </template>
       </div>
@@ -219,10 +219,10 @@ const displayInitial = computed(() => {
       <!-- Stream key path -->
       <div class="settings-card rounded-2xl px-6 py-8 sm:px-8">
         <h4 class="text-lg font-bold text-foreground">
-          {{ youtubeStreamKeyTitle }}
+          {{ youtubeStreamKeyTitle() }}
         </h4>
         <p class="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-          {{ youtubeStreamKeyBlurb }}
+          {{ youtubeStreamKeyBlurb() }}
         </p>
 
         <template v-if="hasStreamKey && state?.streamKey">
@@ -230,7 +230,7 @@ const displayInitial = computed(() => {
             class="mt-6 rounded-xl border border-border bg-scrim-1/60 px-4 py-4"
           >
             <p class="text-sm font-semibold text-foreground">
-              {{ youtubeStreamKeySavedLabel }}
+              {{ youtubeStreamKeySavedLabel() }}
             </p>
             <p class="mt-1 text-xs text-muted">
               Saved
@@ -261,7 +261,7 @@ const displayInitial = computed(() => {
             </p>
           </div>
           <p class="mt-4 max-w-xl text-sm text-muted">
-            {{ youtubeStreamKeySwitchToNativeHint }}
+            {{ youtubeStreamKeySwitchToNativeHint() }}
           </p>
           <button
             type="button"
@@ -269,13 +269,15 @@ const displayInitial = computed(() => {
             :disabled="streamKeyRevokeBusy"
             @click="onRevokeStreamKey"
           >
-            {{ streamKeyRevokeBusy ? 'Revoking…' : youtubeStreamKeyRevokeCta }}
+            {{
+              streamKeyRevokeBusy ? 'Revoking…' : youtubeStreamKeyRevokeCta()
+            }}
           </button>
         </template>
 
         <template v-else>
           <p class="mt-4 text-sm text-muted">
-            {{ youtubeStreamKeyNeverShownAgain }}
+            {{ youtubeStreamKeyNeverShownAgain() }}
           </p>
           <label
             class="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted"
@@ -316,7 +318,7 @@ const displayInitial = computed(() => {
             :disabled="streamKeyBusy"
             @click="onSaveStreamKey"
           >
-            {{ streamKeyBusy ? 'Saving…' : youtubeStreamKeySaveCta }}
+            {{ streamKeyBusy ? 'Saving…' : youtubeStreamKeySaveCta() }}
           </button>
         </template>
       </div>

@@ -2,6 +2,7 @@ import type {
   MentionEntity,
   MessageAttachmentPayload,
 } from '../../../shared/types';
+import { CHAT_E2EE_REMOVED_DETAIL } from '../../../shared/chatE2eePolicy';
 import { ECHO_CONTENT_SCHEMA_VERSION } from '../../../shared/echoMessageFormatV2';
 import { isEchoPublicId } from '../../../shared/snowflakeIds';
 import { validateContentJsonForWrite } from '../domain/contentJsonValidation';
@@ -433,10 +434,6 @@ export function validateMessagePayload(payload: unknown):
         messageFormatVersion: number;
         contentSchemaVersion: number;
         forwardMessageId?: string;
-        e2eeEnvelope?: unknown;
-        e2eeCiphertext?: string;
-        e2eeSenderDeviceId?: string;
-        e2eeEncryptionVersion?: 1 | 2;
       };
     }
   | {
@@ -535,81 +532,8 @@ export function validateMessagePayload(payload: unknown):
     return { ok: false, error: 'Invalid message: content must be string' };
   }
 
-  const MAX_E2EE_CIPHERTEXT_LEN = 1_000_000;
-  let e2eeEnvelope: unknown | undefined;
-  let e2eeCiphertext: string | undefined;
-  let e2eeSenderDeviceId: string | undefined;
-  let e2eeEncryptionVersion: 1 | 2 | undefined;
   if (rawEncryption !== undefined && rawEncryption !== null) {
-    if (typeof rawEncryption !== 'object' || Array.isArray(rawEncryption)) {
-      return rejectE2eeWire(
-        'encryption_not_object',
-        'Invalid message: encryption must be an object',
-      );
-    }
-    const e = rawEncryption as Record<string, unknown>;
-    if (e.kind !== 'e2ee') {
-      return rejectE2eeWire(
-        'encryption_kind',
-        'Invalid message: encryption.kind not supported',
-      );
-    }
-    if (e.version !== 1 && e.version !== 2) {
-      return rejectE2eeWire(
-        'encryption_version',
-        'Invalid message: encryption.version not supported',
-      );
-    }
-    e2eeEncryptionVersion = e.version === 2 ? 2 : 1;
-    const senderDeviceId =
-      typeof e.senderDeviceId === 'string' ? e.senderDeviceId.trim() : '';
-    const ciphertext = typeof e.ciphertext === 'string' ? e.ciphertext : '';
-    if (!senderDeviceId) {
-      return rejectE2eeWire(
-        'encryption_sender_device_id',
-        'Invalid message: encryption.senderDeviceId required',
-      );
-    }
-    if (senderDeviceId.length > 96) {
-      return rejectE2eeWire(
-        'encryption_sender_device_id_too_long',
-        'Invalid message: encryption.senderDeviceId too long',
-      );
-    }
-    if (!ciphertext.trim()) {
-      return rejectE2eeWire(
-        'encryption_ciphertext',
-        'Invalid message: encryption.ciphertext required',
-      );
-    }
-    if (ciphertext.length > MAX_E2EE_CIPHERTEXT_LEN) {
-      return rejectE2eeWire(
-        'encryption_ciphertext_too_large',
-        'Invalid message: encryption.ciphertext too large',
-      );
-    }
-    if (e2eeEncryptionVersion === 2) {
-      const v2 = validateE2eeV2CiphertextWire(ciphertext);
-      if (!v2.ok) {
-        echoE2eeEnvelopeRejectedTotal.labels(v2.reason).inc();
-        return { ok: false, error: v2.error };
-      }
-    }
-    // Envelope may be any JSON-like object; store as-is (server never decrypts).
-    if (e.envelope === undefined) {
-      return rejectE2eeWire(
-        'encryption_envelope_missing',
-        'Invalid message: encryption.envelope required',
-      );
-    }
-    const envWire = validateE2eeEnvelopeWire(e.envelope);
-    if (!envWire.ok) {
-      echoE2eeEnvelopeRejectedTotal.labels(envWire.reason).inc();
-      return { ok: false, error: envWire.error };
-    }
-    e2eeEnvelope = e.envelope;
-    e2eeCiphertext = ciphertext;
-    e2eeSenderDeviceId = senderDeviceId;
+    return rejectE2eeWire('chat_e2ee_removed', CHAT_E2EE_REMOVED_DETAIL);
   }
 
   let contentSchemaVersion = ECHO_CONTENT_SCHEMA_VERSION;
@@ -744,55 +668,6 @@ export function validateMessagePayload(payload: unknown):
       };
     }
     clientMessageId = id;
-  }
-
-  if (e2eeCiphertext) {
-    if (hasMedia) {
-      return rejectE2eeWire(
-        'encryption_with_media',
-        'Invalid message: attachments and legacy media fields are not allowed with end-to-end encryption',
-      );
-    }
-    if (hasContentJson) {
-      return {
-        ok: false,
-        error: 'Invalid message: cannot combine encryption with contentJson',
-      };
-    }
-    if (mentions !== undefined && mentions !== null) {
-      return {
-        ok: false,
-        error: 'Invalid message: mentions are not allowed with encryption',
-      };
-    }
-    if (pollDef) {
-      return {
-        ok: false,
-        error: 'Invalid message: poll is not supported with encryption',
-      };
-    }
-    if (forwardMessageId) {
-      return {
-        ok: false,
-        error: 'Invalid message: forward is not supported with encryption',
-      };
-    }
-    return {
-      ok: true,
-      value: {
-        channelId,
-        content: '',
-        messageFormatVersion: 3,
-        contentSchemaVersion: 1,
-        replyTo,
-        ...(clientMessageId ? { clientMessageId } : {}),
-        ...(correlationId ? { correlationId } : {}),
-        e2eeEnvelope,
-        e2eeCiphertext,
-        e2eeSenderDeviceId,
-        e2eeEncryptionVersion: e2eeEncryptionVersion ?? 1,
-      },
-    };
   }
 
   if (hasContentJson) {

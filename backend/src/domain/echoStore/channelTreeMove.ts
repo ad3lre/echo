@@ -63,6 +63,23 @@ async function writeBucketPositions(
   }
 }
 
+/** Clear channel-owned overwrites so the channel inherits live from its category. */
+async function clearChannelPermissionOverwritesForCategorySync(
+  client: pg.PoolClient,
+  serverId: string,
+  channelId: string,
+): Promise<void> {
+  await client.query(
+    `DELETE FROM echo_channel_permission_overwrite_rows WHERE server_id = $1 AND channel_id = $2`,
+    [serverId, channelId],
+  );
+  await client.query(
+    `UPDATE echo_channels SET permission_overrides = NULL WHERE id = $1 AND server_id = $2`,
+    [channelId, serverId],
+  );
+}
+
+/** Snapshot category overwrites onto the channel (used when leaving a category). */
 async function copyCategoryOverwriteRowsToChannel(
   client: pg.PoolClient,
   serverId: string,
@@ -111,8 +128,9 @@ export type ApplyEchoChannelPlacementInput = {
   siblingIndex?: number;
   /**
    * Required when moving from a category to uncategorized (null category).
-   * Optional when moving between categories: `sync` copies the destination category’s permission
-   * overwrite rows onto the channel; omitted/`keep` leaves channel rows unchanged.
+   * When moving between categories: `sync` clears channel overwrite rows so the channel
+   * inherits from the destination category; omitted/`keep` leaves channel rows unchanged.
+   * When moving to uncategorized: `sync` snapshots the source category’s rows onto the channel.
    */
   moveOutOfCategoryPermission?: MoveOutOfCategoryPermissionMode;
 };
@@ -238,18 +256,17 @@ export async function applyEchoChannelPlacement(
         );
       }
 
-      /** Moving between two categories: `sync` replaces channel overwrite rows with the new category's. */
+      /** Moving between two categories: `sync` clears channel rows to inherit from the new category. */
       if (
         oldCat !== null &&
         newCat !== null &&
         !categoryIdsEqual(oldCat, newCat) &&
         input.moveOutOfCategoryPermission === 'sync'
       ) {
-        await copyCategoryOverwriteRowsToChannel(
+        await clearChannelPermissionOverwritesForCategorySync(
           client,
           serverId,
           channelId,
-          newCat,
         );
       }
     }

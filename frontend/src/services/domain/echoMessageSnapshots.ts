@@ -1,6 +1,7 @@
 import type { EchoApiMessage } from '@/api/echo/messages';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { toStoredMessageTimestamp } from '@/utils/storedMessageTimestamp';
+import { plainTextForEchoApiMessage } from '@/services/domain/messageDisplayPlain';
 
 export function mapEchoMessageToRaw(m: EchoApiMessage): RawMessage {
   const embeds = Array.isArray(m.embeds)
@@ -8,7 +9,7 @@ export function mapEchoMessageToRaw(m: EchoApiMessage): RawMessage {
     : undefined;
   const mf = m.messageFormatVersion ?? 1;
   const cs = m.contentSchemaVersion ?? 1;
-  const plain = m.contentText ?? m.content;
+  const plain = plainTextForEchoApiMessage(m);
   return {
     id: m.id,
     authorId: m.authorId,
@@ -28,7 +29,7 @@ export function mapEchoMessageToRaw(m: EchoApiMessage): RawMessage {
     ...(m.bridgeFromDiscord === true ? { bridgeFromDiscord: true } : {}),
     timestamp: toStoredMessageTimestamp(m.timestamp),
     content: plain,
-    ...(m.contentText !== undefined ? { contentText: m.contentText } : {}),
+    ...(plain ? { contentText: plain } : {}),
     ...(mf >= 2 && m.contentJson !== undefined
       ? { contentJson: m.contentJson }
       : {}),

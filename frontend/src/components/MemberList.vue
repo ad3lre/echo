@@ -138,6 +138,7 @@ const emit = defineEmits<{
       userId: string;
       anchorRect: ReturnType<typeof getPopoutAnchorRect>;
       rolesPanel?: boolean;
+      fromContextMenu?: boolean;
     },
   ];
 }>();
@@ -425,6 +426,7 @@ function openProfileFromContext() {
   emit('open-profile', {
     userId: u.id,
     anchorRect: anchorRectForContextUser(),
+    fromContextMenu: true,
   });
 }
 

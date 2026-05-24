@@ -146,17 +146,9 @@ export function registerMessageHandler(
           messageFormatVersion,
           contentSchemaVersion,
           forwardMessageId,
-          e2eeEnvelope,
-          e2eeCiphertext,
-          e2eeSenderDeviceId,
-          e2eeEncryptionVersion,
         } = parsed.value;
         const correlationId =
           correlationIdFromPayload ?? options.handshakeCorrelationId;
-
-        const payloadIsE2ee =
-          typeof e2eeCiphertext === 'string' &&
-          e2eeCiphertext.trim().length > 0;
 
         if (!checkMessageRate(userId, channelId)) {
           log.warn({
@@ -280,17 +272,6 @@ export function registerMessageHandler(
             channelId,
             clientMessageId,
             detail: 'Channel is not a persisted Echo channel',
-          });
-          return;
-        }
-
-        if (enabled && pool && payloadIsE2ee) {
-          emitMessageFailed(socket, {
-            code: 'VALIDATION',
-            channelId: rawChannelId,
-            clientMessageId: rawClientId,
-            detail:
-              'Encrypted chat messages are no longer supported. Voice uses end-to-end encryption by default.',
           });
           return;
         }
@@ -615,14 +596,6 @@ export function registerMessageHandler(
               messageFormatVersion,
               contentSchemaVersion,
               ...(forwardedFrom ? { forwardedFrom } : {}),
-              ...(payloadIsE2ee
-                ? {
-                    e2eeEnvelope,
-                    e2eeCiphertext,
-                    e2eeSenderDeviceId,
-                    e2eeEncryptionVersion,
-                  }
-                : {}),
             },
           );
           if (!persistRes.ok) {

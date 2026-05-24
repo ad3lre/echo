@@ -123,6 +123,32 @@ export async function discordBotCreateWebhook(
   return null;
 }
 
+/**
+ * @see https://discord.com/developers/docs/resources/channel#create-message
+ */
+export async function discordBotPostChannelMessage(
+  botToken: string,
+  channelId: string,
+  content: string,
+  fetchImpl: FetchLike = fetch,
+): Promise<boolean> {
+  const token = botToken.trim();
+  const text = content.trim().slice(0, 2000);
+  if (!token || !channelId.trim() || !text) return false;
+  const res = await fetchImpl(
+    `${DISCORD_API}/channels/${encodeURIComponent(channelId.trim())}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bot ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: text }),
+    },
+  );
+  return res.ok;
+}
+
 export type DiscordTokenResponse = {
   access_token: string;
   refresh_token?: string;

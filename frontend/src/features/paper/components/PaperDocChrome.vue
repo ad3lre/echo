@@ -48,8 +48,6 @@ const props = defineProps<{
   commentCount?: number;
   commentsVisible?: boolean;
   canToggleComments?: boolean;
-  canManageComments?: boolean;
-  showResolvedComments?: boolean;
   canReconnect?: boolean;
   floating?: boolean;
 }>();
@@ -57,7 +55,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   openSettings: [];
   toggleComments: [];
-  toggleShowResolved: [];
   reconnect: [];
   documentFontChange: [fontId: string];
   setUiMode: [mode: PaperUiMode];
@@ -156,6 +153,20 @@ function onRedo() {
     :class="{ 'paper-doc-chrome--floating': floating !== false }"
   >
     <div class="paper-doc-chrome__left">
+      <button
+        type="button"
+        class="paper-chrome-btn"
+        :title="appearanceTitle"
+        :aria-label="appearanceTitle"
+        @click="emit('togglePaperAppearance')"
+      >
+        <img
+          :src="paperAppearance === 'dark' ? icons.sun : icons.moon"
+          alt=""
+          class="h-4 w-4 opacity-85 paper-chrome-icon"
+        />
+      </button>
+
       <PaperChromeDropdown label="File" title="File actions" align="left">
         <template #icon>
           <img
@@ -311,6 +322,8 @@ function onRedo() {
                 v-for="font in PAPER_FONT_CATALOG"
                 :key="font.id"
                 :value="font.id"
+                v-bind="font.attributes"
+                :style="{ fontFamily: font.family }"
               >
                 {{ font.label }}
               </option>
@@ -369,6 +382,36 @@ function onRedo() {
     </div>
 
     <div class="paper-doc-chrome__right">
+      <button
+        v-if="canToggleComments"
+        type="button"
+        class="paper-chrome-btn paper-chrome-btn--comments"
+        :class="{ 'paper-chrome-btn--active': commentsVisible }"
+        :title="commentsVisible ? 'Hide comments' : 'Show comments'"
+        :aria-pressed="commentsVisible"
+        @click="emit('toggleComments')"
+      >
+        <span class="paper-chrome-btn__glyph" aria-hidden="true">
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+            />
+          </svg>
+        </span>
+        <span
+          v-if="commentCount && commentCount > 0"
+          class="paper-chrome-btn__badge"
+        >
+          {{ commentCount > 9 ? '9+' : commentCount }}
+        </span>
+      </button>
+
       <div
         v-if="watchingPeers.length"
         class="paper-doc-chrome__presence hidden lg:flex"
@@ -554,64 +597,6 @@ function onRedo() {
           </div>
         </template>
       </PaperChromeDropdown>
-
-      <button
-        v-if="canToggleComments"
-        type="button"
-        class="paper-chrome-btn relative"
-        :class="{ 'paper-chrome-btn--active': commentsVisible }"
-        :title="commentsVisible ? 'Hide comments' : 'Show comments'"
-        :aria-pressed="commentsVisible"
-        @click="emit('toggleComments')"
-      >
-        <svg
-          class="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path
-            d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-          />
-        </svg>
-        <span
-          v-if="commentCount && commentCount > 0"
-          class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white"
-        >
-          {{ commentCount > 9 ? '9+' : commentCount }}
-        </span>
-      </button>
-
-      <button
-        v-if="canManageComments"
-        type="button"
-        class="paper-chrome-btn hidden text-[10px] font-medium sm:inline-flex sm:w-auto sm:px-2"
-        :class="{ 'paper-chrome-btn--active': showResolvedComments }"
-        :title="
-          showResolvedComments
-            ? 'Hide resolved comments'
-            : 'Show resolved comments'
-        "
-        :aria-pressed="showResolvedComments"
-        @click="emit('toggleShowResolved')"
-      >
-        Resolved
-      </button>
-
-      <button
-        type="button"
-        class="paper-chrome-btn"
-        :title="appearanceTitle"
-        :aria-label="appearanceTitle"
-        @click="emit('togglePaperAppearance')"
-      >
-        <img
-          :src="paperAppearance === 'dark' ? icons.sun : icons.moon"
-          alt=""
-          class="h-4 w-4 opacity-85 paper-chrome-icon"
-        />
-      </button>
 
       <PaperChromeDropdown
         class="md:hidden"
@@ -965,6 +950,48 @@ function onRedo() {
 .paper-chrome-btn--active {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent);
+}
+
+.paper-chrome-btn--comments {
+  position: relative;
+  overflow: visible;
+}
+
+.paper-chrome-btn--comments.paper-chrome-btn--active {
+  background: color-mix(
+    in srgb,
+    var(--accent) 24%,
+    var(--paper-chrome-bg, var(--bg))
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.paper-chrome-btn__glyph {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.paper-chrome-btn__badge {
+  position: absolute;
+  right: -0.2rem;
+  top: -0.2rem;
+  z-index: 2;
+  display: flex;
+  height: 1rem;
+  min-width: 1rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--accent);
+  padding: 0 0.2rem;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  pointer-events: none;
 }
 
 .paper-status-dot {

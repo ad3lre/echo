@@ -12,7 +12,10 @@ import {
   getDiscordBridgeForEchoChannelInServer,
 } from '../../../domain/discordBridgeRepo';
 import type { DiscordBridgeApplyResult } from '../../../services/discordBridgeApply';
-import { applyDiscordBridgePut } from '../../../services/discordBridgeApply';
+import {
+  applyDiscordBridgeClear,
+  applyDiscordBridgePut,
+} from '../../../services/discordBridgeApply';
 import {
   buildDiscordBotInstallUrl,
   discordGuildIconUrl,
@@ -162,6 +165,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
         inboundEnabled: row?.inboundEnabled ?? false,
         outboundEnabled: row?.outboundEnabled ?? false,
         hasWebhook: Boolean(row?.discordWebhookUrl?.trim()),
+        hasBridge: Boolean(row),
       });
     },
   );
@@ -472,13 +476,40 @@ export default async function echoDiscordBridgeSettingsRoutes(
       const channelId = trimEchoPathParam(req.params.channelId);
       const userId = req.authUser!.id;
       const body = req.body ?? {};
-      const r = await applyDiscordBridgePut(pool, serverId, channelId, userId, {
-        inboundEnabled: body.inboundEnabled === true,
-        outboundEnabled: body.outboundEnabled === true,
-        discordWebhookUrl: body.discordWebhookUrl,
-        discordGuildId: body.discordGuildId,
-        discordChannelId: body.discordChannelId,
-      });
+      const r = await applyDiscordBridgePut(
+        pool,
+        serverId,
+        channelId,
+        userId,
+        {
+          inboundEnabled: body.inboundEnabled === true,
+          outboundEnabled: body.outboundEnabled === true,
+          discordWebhookUrl: body.discordWebhookUrl,
+          discordGuildId: body.discordGuildId,
+          discordChannelId: body.discordChannelId,
+        },
+        { io: fastify.io, log: req.log },
+      );
+      return sendDiscordBridgeApplyResponse(reply, r);
+    },
+  );
+
+  fastify.delete<{
+    Params: { serverId: string; channelId: string };
+  }>(
+    '/servers/:serverId/channels/:channelId/discord-bridge',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const userId = req.authUser!.id;
+      const r = await applyDiscordBridgeClear(
+        pool,
+        serverId,
+        channelId,
+        userId,
+      );
       return sendDiscordBridgeApplyResponse(reply, r);
     },
   );
@@ -542,6 +573,77 @@ export default async function echoDiscordBridgeSettingsRoutes(
             inboundEnabled,
             outboundEnabled,
           },
+          { io: fastify.io, log: req.log },
+        );
+        if (r.ok) {
+          applied += 1;
+          continue;
+        }
+        if (r.error.code === 'FORBIDDEN') {
+          skipped += 1;
+          continue;
+        }
+        failed += 1;
+        failures.push({
+          channelId,
+          message: r.error.message,
+        });
+      }
+
+      return reply.code(200).send({ applied, failed, skipped, failures });
+    },
+  );
+
+  fastify.post<{
+    Params: { serverId: string; categoryId: string };
+  }>(
+    '/servers/:serverId/categories/:categoryId/discord-bridge/bulk-clear',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const categoryId = trimEchoPathParam(req.params.categoryId);
+      const userId = req.authUser!.id;
+      const okMem = await isMemberOfServer(pool, serverId, userId);
+      if (!okMem) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          ECHO_MSG_NOT_SERVER_MEMBER,
+          'NOT_SERVER_MEMBER',
+        );
+      }
+      const cat = await pool.query(
+        `SELECT 1 FROM echo_categories WHERE id = $1 AND server_id = $2 LIMIT 1`,
+        [categoryId, serverId],
+      );
+      if (!cat.rows.length) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Category not found.');
+      }
+
+      const chRows = await pool.query<{ id: string }>(
+        `
+        SELECT id FROM echo_channels
+        WHERE server_id = $1 AND category_id = $2
+          AND LOWER(type) IN ('text', 'forum')
+        ORDER BY position ASC, name ASC
+        `,
+        [serverId, categoryId],
+      );
+
+      let applied = 0;
+      let failed = 0;
+      let skipped = 0;
+      const failures: { channelId: string; message: string }[] = [];
+
+      for (const row of chRows.rows) {
+        const channelId = String(row.id);
+        const r = await applyDiscordBridgeClear(
+          pool,
+          serverId,
+          channelId,
+          userId,
         );
         if (r.ok) {
           applied += 1;

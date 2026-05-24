@@ -1,4 +1,5 @@
 import { icons } from '@/assets/icons';
+import { ECHO_PLAN_MARK_URL } from '@/assets/subscriptionTierIcons';
 import type { SettingsSection } from '@/features/settings/types';
 
 /** Sidebar tab icons (SVG asset URLs). Kept separate from `types.ts` to avoid pulling assets into pure types. */
@@ -22,7 +23,7 @@ export const SETTINGS_SECTION_NAV_ICON: Record<SettingsSection, string> = {
   Sounds: icons.volumeUp,
   Keybinds: icons.laptopCode,
   'Time & Language': icons.globe,
-  'Echo+': icons.crown,
+  'Echo+': ECHO_PLAN_MARK_URL.plus,
   Subscriptions: icons.creditCard,
   Advanced: icons.puzzle,
 };

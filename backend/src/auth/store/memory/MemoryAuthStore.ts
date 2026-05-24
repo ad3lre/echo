@@ -3,6 +3,7 @@ import { randomBytes, randomInt } from 'crypto';
 import { config } from '../../../config';
 import { validateEchoStoredBrandingUrl } from '../../../services/storedMediaUrl';
 import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
+import { assertEchoAuthLocale } from '../../../../../shared/echoLocale';
 import { normalizeEmail } from '../../email';
 import { normalizeInputToE164 } from '../../phoneE164';
 import { smsOtpHmacHex, smsOtpVerifyTimingSafe } from '../../smsOtpHmac';
@@ -317,6 +318,13 @@ export class MemoryAuthStore implements AuthStore {
           throw new Error('INVALID_TIME_ZONE');
         }
         (u as { timeZone?: string }).timeZone = tz;
+      }
+    }
+    if (patch.locale !== undefined) {
+      if (patch.locale === null || String(patch.locale).trim() === '') {
+        delete (u as { locale?: string | null }).locale;
+      } else {
+        (u as { locale?: string }).locale = assertEchoAuthLocale(patch.locale);
       }
     }
     u.updatedAt = new Date().toISOString();

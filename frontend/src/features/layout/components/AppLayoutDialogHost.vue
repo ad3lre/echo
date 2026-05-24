@@ -194,12 +194,15 @@ onUnmounted(() => {
         "
       />
       <div class="relative">
-        <h2 :id="titleId" class="text-lg font-bold leading-tight text-white">
+        <h2
+          :id="titleId"
+          class="text-lg font-bold leading-tight text-foreground"
+        >
           {{ active.title }}
         </h2>
         <p
           v-if="active.message"
-          class="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-fg-soft"
+          class="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-muted"
         >
           {{ active.message }}
         </p>
@@ -208,7 +211,7 @@ onUnmounted(() => {
           <input
             v-model="promptValue"
             type="text"
-            class="w-full rounded-lg border border-border bg-glass-2 px-3 py-2 text-sm text-white outline-none focus:border-border"
+            class="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none transition-[box-shadow,border-color] focus-visible:border-border focus-visible:ring-2 focus-visible:ring-accent/30"
             :placeholder="active.placeholder ?? ''"
             @keydown.enter.prevent="confirm"
           />
@@ -220,14 +223,14 @@ onUnmounted(() => {
         >
           <button
             type="button"
-            class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-white"
+            class="rounded-lg px-4 py-2 text-sm font-semibold text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
             @click="cancel"
           >
             {{ cancelLabel }}
           </button>
           <button
             type="button"
-            class="rounded-lg border border-border bg-glass-2 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-glass-hover"
+            class="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover"
             @click="pickTwoChoice('primary')"
           >
             {{ active.primaryLabel }}
@@ -248,7 +251,7 @@ onUnmounted(() => {
           <button
             v-if="active.kind !== 'alert'"
             type="button"
-            class="rounded-lg px-4 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-white"
+            class="rounded-lg px-4 py-2 text-sm font-semibold text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
             @click="cancel"
           >
             {{ cancelLabel }}

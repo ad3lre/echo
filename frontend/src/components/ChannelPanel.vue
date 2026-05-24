@@ -58,6 +58,8 @@ import ChannelPanelHeader from '@/features/channel-panel/components/ChannelPanel
 import ChannelPanelList from '@/features/channel-panel/components/ChannelPanelList.vue';
 import ChannelPanelContextMenu from '@/features/channel-panel/components/ChannelPanelContextMenu.vue';
 import ServerEventsCarousel from '@/features/channel-panel/components/ServerEventsCarousel.vue';
+import PaperEditorPanel from '@/features/paper/components/PaperEditorPanel.vue';
+import { usePaperEditorPanelBridge } from '@/features/paper/composables/paperEditorPanelBridge';
 
 /** Quick self-dismissing shell toasts for channel panel context menu actions. */
 const PANEL_MENU_ACTION_TOAST_MS = 2400;
@@ -111,6 +113,8 @@ const props = defineProps<{
   /** Jump to owning guild and highlight this VC in the channel list. */
   focusGuildVoiceChannelInSidebar?: () => void;
   onOpenProfile?: (userId: string, anchorRect: PopoutAnchorRect | null) => void;
+  /** VC participant context menu → full expanded profile (not quick popout). */
+  onOpenProfileFromContextMenu?: (userId: string) => void;
   openProfileUserId?: string | null;
   /** VC control state (controlled from parent so CallView can show same state). */
   vcMuted?: boolean;
@@ -387,6 +391,41 @@ function findVoiceChannelById(
   }
   return null;
 }
+
+function findChannelById(channelId: string) {
+  for (const cat of effectiveCategories.value) {
+    const ch = cat.channels.find((c) => c.id === channelId);
+    if (ch) return ch;
+  }
+  return null;
+}
+
+const paperPanelBridge = usePaperEditorPanelBridge();
+
+const activePaperChannel = computed(() => {
+  const ch = findChannelById(props.activeChannelId);
+  return ch?.type === 'paper' ? ch : null;
+});
+
+const paperEditorReady = computed(
+  () =>
+    !!activePaperChannel.value &&
+    paperPanelBridge.registeredContext.value?.channelId ===
+      props.activeChannelId,
+);
+
+const showPaperEditorPanel = computed(
+  () => paperEditorReady.value && paperPanelBridge.panelOpen.value,
+);
+
+function togglePaperEditorPanel() {
+  if (!paperEditorReady.value) return;
+  paperPanelBridge.togglePanel();
+}
+
+watch(paperEditorReady, (ready) => {
+  if (!ready) paperPanelBridge.closePanel();
+});
 
 function countChannelsInCategories(cats: ChannelCategory[]) {
   let n = 0;
@@ -833,6 +872,10 @@ function openVcProfileFromMenu() {
   const c = panelContext.value;
   if (!c || c.type !== 'vc') return;
   closeMenu();
+  if (props.onOpenProfileFromContextMenu) {
+    props.onOpenProfileFromContextMenu(c.userId);
+    return;
+  }
   const row = document.querySelector(
     `[data-vc-user-id="${c.userId}"]`,
   ) as HTMLElement | null;
@@ -1105,50 +1148,108 @@ function forwardInvite(payload?: {
         </svg>
       </div>
       <template v-else>
-        <ChannelPanelList
-          :effective-categories="effectiveCategories"
-          :active-channel-id="activeChannelId"
-          :server-owner-id="selectedServer?.ownerId ?? null"
-          :voice-lobby-channel-id="voiceLobbyChannelId ?? null"
-          :current-voice-channel-id="currentVoiceChannelId ?? null"
-          :hovered-channel-id="hoveredChannelId"
-          :channel-missed-activity-by-channel-id="
-            channelMissedActivityByChannelId
-          "
-          :selected-server-id="selectedServer?.id ?? null"
-          :can-create-channels="!!canCreateChannels"
-          :can-reorder-channels="canReorderChannels"
-          :can-reorder-categories="canReorderCategories"
-          :can-invite="canInvite"
-          :side-chat-collapsed="!!sideChatCollapsed"
-          :open-profile-user-id="openProfileUserId ?? null"
-          :get-user-by-id="getUserById"
-          :voice-participant-label="voiceParticipantLabel"
-          :participant-voice-ui="participantVoiceUi"
-          :get-vc-activity-presence="getVcActivityPresence"
-          :vc-activity-king-user-id="vcActivityKingUserId ?? null"
-          :row-can-manage-channel="rowCanManageChannel"
-          :bubble-mode="bubbleMode"
-          @open-create-channel="(id) => emit('open-create-channel', id)"
-          @open-create-category="emit('open-create-category')"
-          @open-category-settings="(id) => emit('open-category-settings', id)"
-          @open-channel-settings="
-            (payload) => emit('open-channel-settings', payload)
-          "
-          @category-contextmenu="onCategoryRowContextMenu"
-          @channel-click="onChannelRowClick"
-          @channel-contextmenu="onChannelRowContextMenu"
-          @vc-participant-click="handleOpenVcProfile"
-          @vc-participant-contextmenu="onVcParticipantContextMenu"
-          @invite="forwardInvite"
-          @toggle-side-chat="emit('toggle-side-chat')"
-          @set-hovered-channel="(id) => (hoveredChannelId = id)"
-          @quick-create-submit="
-            (payload) => emit('quick-create-submit', payload)
-          "
-          @channel-reorder="onChannelReorder"
-          @category-reorder="onCategoryReorder"
-        />
+        <div class="paper-editor-panel-stage">
+          <Transition name="paper-editor-panel-fade">
+            <PaperEditorPanel
+              v-if="
+                showPaperEditorPanel && paperPanelBridge.registeredContext.value
+              "
+              key="editor"
+              class="paper-editor-panel-stage__panel"
+              :context="paperPanelBridge.registeredContext.value"
+            />
+            <div
+              v-else
+              key="channels"
+              class="paper-editor-panel-stage__channels min-h-0 flex-1 flex flex-col overflow-hidden"
+            >
+              <ChannelPanelList
+                :effective-categories="effectiveCategories"
+                :active-channel-id="activeChannelId"
+                :server-owner-id="selectedServer?.ownerId ?? null"
+                :voice-lobby-channel-id="voiceLobbyChannelId ?? null"
+                :current-voice-channel-id="currentVoiceChannelId ?? null"
+                :hovered-channel-id="hoveredChannelId"
+                :channel-missed-activity-by-channel-id="
+                  channelMissedActivityByChannelId
+                "
+                :selected-server-id="selectedServer?.id ?? null"
+                :can-create-channels="!!canCreateChannels"
+                :can-reorder-channels="canReorderChannels"
+                :can-reorder-categories="canReorderCategories"
+                :can-invite="canInvite"
+                :side-chat-collapsed="!!sideChatCollapsed"
+                :open-profile-user-id="openProfileUserId ?? null"
+                :get-user-by-id="getUserById"
+                :voice-participant-label="voiceParticipantLabel"
+                :participant-voice-ui="participantVoiceUi"
+                :get-vc-activity-presence="getVcActivityPresence"
+                :vc-activity-king-user-id="vcActivityKingUserId ?? null"
+                :row-can-manage-channel="rowCanManageChannel"
+                :bubble-mode="bubbleMode"
+                @open-create-channel="(id) => emit('open-create-channel', id)"
+                @open-create-category="emit('open-create-category')"
+                @open-category-settings="
+                  (id) => emit('open-category-settings', id)
+                "
+                @open-channel-settings="
+                  (payload) => emit('open-channel-settings', payload)
+                "
+                @category-contextmenu="onCategoryRowContextMenu"
+                @channel-click="onChannelRowClick"
+                @channel-contextmenu="onChannelRowContextMenu"
+                @vc-participant-click="handleOpenVcProfile"
+                @vc-participant-contextmenu="onVcParticipantContextMenu"
+                @invite="forwardInvite"
+                @toggle-side-chat="emit('toggle-side-chat')"
+                @set-hovered-channel="(id) => (hoveredChannelId = id)"
+                @quick-create-submit="
+                  (payload) => emit('quick-create-submit', payload)
+                "
+                @channel-reorder="onChannelReorder"
+                @category-reorder="onCategoryReorder"
+              />
+            </div>
+          </Transition>
+        </div>
+
+        <div
+          v-if="paperEditorReady"
+          class="paper-editor-panel-dock"
+          :class="{ 'paper-editor-panel-dock--open': showPaperEditorPanel }"
+        >
+          <button
+            type="button"
+            class="paper-editor-panel-dock__btn"
+            :class="{
+              'paper-editor-panel-dock__btn--active': showPaperEditorPanel,
+            }"
+            :title="
+              showPaperEditorPanel ? 'Close editor tools' : 'Open editor tools'
+            "
+            :aria-label="
+              showPaperEditorPanel ? 'Close editor tools' : 'Open editor tools'
+            "
+            :aria-pressed="showPaperEditorPanel"
+            @click="togglePaperEditorPanel"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+            <span class="paper-editor-panel-dock__label">{{
+              showPaperEditorPanel ? 'Close' : 'Editor'
+            }}</span>
+          </button>
+        </div>
 
         <GuildVoiceConnectionStrip
           v-if="

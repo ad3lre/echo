@@ -22,6 +22,8 @@ interface Props {
   structuredData?: unknown;
   robots?: string;
   noindex?: boolean;
+  locale?: string;
+  hreflangAlternates?: { locale: string; path: string }[];
 }
 
 const {
@@ -33,11 +35,14 @@ const {
   structuredData,
   robots = 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
   noindex = false,
+  locale = 'en',
+  hreflangAlternates = [],
 } = Astro.props;
 
 const pageUrl = new URL(canonicalPath, Astro.site);
 const ogImageUrl = new URL(ogImagePath, Astro.site);
 const robotsContent = noindex ? 'noindex,follow' : robots;
+const ogLocale = locale === 'en' ? 'en_US' : `${locale}_${locale.toUpperCase()}`;
 const ogImageType = ogImagePath.endsWith('.svg')
   ? 'image/svg+xml'
   : ogImagePath.endsWith('.png')
@@ -46,7 +51,7 @@ const ogImageType = ogImagePath.endsWith('.svg')
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={locale}>
   <head>
     <meta charset="utf-8" />
     <meta
@@ -61,6 +66,15 @@ const ogImageType = ogImagePath.endsWith('.svg')
     <meta name="format-detection" content="telephone=no" />
     <meta name="robots" content={robotsContent} />
     <link rel="canonical" href={pageUrl.toString()} />
+    {
+      hreflangAlternates.map((alt) => (
+        <link
+          rel="alternate"
+          hreflang={alt.locale}
+          href={new URL(alt.path, Astro.site).toString()}
+        />
+      ))
+    }
     <link rel="sitemap" type="application/xml" href="/sitemap-index.xml" />
 
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
@@ -73,7 +87,7 @@ const ogImageType = ogImagePath.endsWith('.svg')
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Echo" />
-    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale" content={ogLocale} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={pageUrl.toString()} />
@@ -100,7 +114,7 @@ const ogImageType = ogImagePath.endsWith('.svg')
     }
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to content</a>
+    <a class="skip-link" href="#main">{locale === 'en' ? 'Skip to content' : 'Skip to content'}</a>
     <slot />
   </body>
 </html>

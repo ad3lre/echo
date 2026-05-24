@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" role="img" aria-label="Echo+">
+  <defs>
+    <linearGradient id="echo-plus-badge-body" x1="2" y1="2" x2="18" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a5b4fc"/>
+      <stop offset="0.5" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#4338ca"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#echo-plus-badge-body)" d="M10 1.2c.75 0 1.3 1.2 1.6 2.3.3 1.1 1.2 2 2.3 2.3 1.1.3 2.3.8 2.3 1.6s-1.2 1.3-2.3 1.6c-1.1.3-2 1.2-2.3 2.3-.3 1.1-.8 2.3-1.6 2.3s-1.3-1.2-1.6-2.3c-.3-1.1-1.2-2-2.3-2.3-1.1-.3-2.3-.8-2.3-1.6s1.2-1.3 2.3-1.6c1.1-.3 2-1.2 2.3-2.3.3-1.1.8-2.3 1.6-2.3Z"/>
+  <line x1="10" y1="7" x2="10" y2="13" stroke="#eef2ff" stroke-width="1.35" stroke-linecap="round"/>
+  <line x1="7" y1="10" x2="13" y2="10" stroke="#eef2ff" stroke-width="1.35" stroke-linecap="round"/>
+</svg>

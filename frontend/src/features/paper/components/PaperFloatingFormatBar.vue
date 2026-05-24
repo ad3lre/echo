@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import type { Editor } from '@tiptap/core';
-import { safeImageUrl } from '@/utils/safeImageUrl';
 import type { usePaperImageUpload } from '@/features/paper/composables/usePaperImageUpload';
 import { usePaperSelectionFormat } from '@/features/paper/composables/usePaperSelectionFormat';
+import { usePaperFormatActions } from '@/features/paper/composables/usePaperFormatActions';
 import type { TriState } from '@/features/paper/editor/paperSelectionFormat';
 import {
   PAPER_FONT_CATALOG,
@@ -17,13 +17,21 @@ import PaperPromptDialog from '@/features/paper/components/PaperPromptDialog.vue
 import PaperColorControl from '@/features/paper/components/PaperColorControl.vue';
 import PaperFontPicker from '@/features/paper/components/PaperFontPicker.vue';
 import type { PaperPageLayout } from '@/features/paper/composables/usePaperPageLayout';
+import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
 import { readPaperDefaultFont } from '@/features/paper/editor/paperDocumentAttributes';
+import {
+  onPaperFormatBarMouseDown,
+  runPaperFormatCommand,
+  snapshotPaperEditorSelection,
+  syncStoredPaperEditorSelection,
+} from '@/features/paper/editor/paperFormatSelection';
 
 const props = defineProps<{
   editor: Editor | null;
   imageUpload: ReturnType<typeof usePaperImageUpload>;
   visible?: boolean;
   pageLayout?: PaperPageLayout;
+  paperAppearance?: PaperAppearanceMode;
 }>();
 
 const ed = computed(() => props.editor);
@@ -34,8 +42,10 @@ const imageUrlDialogOpen = ref(false);
 const imageUrlError = ref<string | null>(null);
 const moreMenuOpen = ref(false);
 const moreMenuRef = ref<HTMLElement | null>(null);
+const moreMenuPanelStyle = ref<Record<string, string> | null>(null);
 
 const { format: fmt, colors: fmtColors } = usePaperSelectionFormat(ed);
+const formatActions = usePaperFormatActions(ed);
 
 const barStyle = computed(() => {
   const layout = props.pageLayout;
@@ -57,13 +67,13 @@ const fontSizeDisplay = computed(() => {
 });
 
 const fontSizeTitle = computed(() => {
-  if (fmt.value.fontSizeMixed) return 'Font size: mixed';
+  if (fmt.value.fontSizeMixed) return 'Font size: mixed · Shift+↑↓';
   const hint = fmt.value.fontSizeDefaultHint;
   const px = fmt.value.fontSizePx;
   if (hint && fmt.value.fontSizeUsesDefault) {
-    return `Font size: ${px}px (${hint} default)`;
+    return `Font size: ${px}px (${hint} default) · Shift+↑↓`;
   }
-  return px != null ? `Font size: ${px}px` : 'Font size';
+  return px != null ? `Font size: ${px}px · Shift+↑↓` : 'Font size · Shift+↑↓';
 });
 
 const docDefaultFont = computed(() =>
@@ -74,24 +84,71 @@ function closeMoreMenu() {
   moreMenuOpen.value = false;
 }
 
+async function positionMoreMenuPanel() {
+  await nextTick();
+  const root = moreMenuRef.value;
+  if (!root) {
+    moreMenuPanelStyle.value = null;
+    return;
+  }
+  const rect = root.getBoundingClientRect();
+  moreMenuPanelStyle.value = {
+    position: 'fixed',
+    left: `${Math.max(8, rect.right - 140)}px`,
+    bottom: `${window.innerHeight - rect.top + 8}px`,
+    minWidth: '140px',
+    zIndex: '100',
+  };
+}
+
 function onDocumentPointerDown(ev: PointerEvent) {
   if (!moreMenuOpen.value) return;
+  const target = ev.target as Node;
   const root = moreMenuRef.value;
-  if (root && !root.contains(ev.target as Node)) {
-    closeMoreMenu();
-  }
+  if (root?.contains(target)) return;
+  const panel = document.getElementById('paper-format-more-menu-panel');
+  if (panel?.contains(target)) return;
+  closeMoreMenu();
 }
 
 watch(moreMenuOpen, (open) => {
   if (open) {
+    void positionMoreMenuPanel();
     document.addEventListener('pointerdown', onDocumentPointerDown);
+    window.addEventListener('resize', positionMoreMenuPanel);
+    window.addEventListener('scroll', positionMoreMenuPanel, true);
   } else {
     document.removeEventListener('pointerdown', onDocumentPointerDown);
+    window.removeEventListener('resize', positionMoreMenuPanel);
+    window.removeEventListener('scroll', positionMoreMenuPanel, true);
+    moreMenuPanelStyle.value = null;
   }
 });
 
+function onEditorSelectionUpdate() {
+  const editor = ed.value;
+  if (!editor) return;
+  syncStoredPaperEditorSelection(editor);
+}
+
+function onFormatBarMouseDown(ev: MouseEvent) {
+  onPaperFormatBarMouseDown(ed.value, ev);
+}
+
+watch(
+  ed,
+  (editor, prev) => {
+    prev?.off('selectionUpdate', onEditorSelectionUpdate);
+    editor?.on('selectionUpdate', onEditorSelectionUpdate);
+  },
+  { immediate: true },
+);
+
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown);
+  window.removeEventListener('resize', positionMoreMenuPanel);
+  window.removeEventListener('scroll', positionMoreMenuPanel, true);
+  ed.value?.off('selectionUpdate', onEditorSelectionUpdate);
 });
 
 async function onPickImage() {
@@ -112,34 +169,29 @@ function onLinkConfirm(href: string) {
   const editor = ed.value;
   if (!editor) return;
   if (!href) {
-    editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    runPaperFormatCommand(editor, (chain) =>
+      chain.extendMarkRange('link').unsetLink(),
+    );
     return;
   }
-  editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+  runPaperFormatCommand(editor, (chain) =>
+    chain.extendMarkRange('link').setLink({ href }),
+  );
 }
 
 function onImageUrlConfirm(src: string) {
   imageUrlDialogOpen.value = false;
   const editor = ed.value;
   if (!editor || !src) return;
-  const safe = safeImageUrl(src);
-  if (!safe) {
+  imageUrlError.value = null;
+  if (!props.imageUpload.insertImageUrl(editor, src)) {
     imageUrlError.value = 'That URL is not allowed for images.';
     imageUrlDialogOpen.value = true;
-    return;
   }
-  imageUrlError.value = null;
-  editor.chain().focus().setImage({ src: safe }).run();
 }
 
 function setHeading(level: 0 | 1 | 2 | 3) {
-  const editor = ed.value;
-  if (!editor) return;
-  if (level === 0) {
-    editor.chain().focus().setParagraph().run();
-  } else {
-    editor.chain().focus().toggleHeading({ level }).run();
-  }
+  formatActions.setHeading(level);
 }
 
 function headingBtnClass(level: 1 | 2 | 3) {
@@ -170,58 +222,70 @@ function btnActive(active: boolean) {
 
 async function onFontPick(fontId: string) {
   const font = PAPER_FONT_CATALOG.find((f) => f.id === fontId);
-  if (!font || !ed.value) return;
+  const editor = ed.value;
+  if (!font || !editor) return;
+  snapshotPaperEditorSelection(editor);
   await ensurePaperFontLoaded(font.id);
-  ed.value.chain().focus().setFontFamily(font.family).run();
+  runPaperFormatCommand(editor, (chain) =>
+    chain.extendMarkRange('textStyle').setFontFamily(font.family),
+  );
 }
 
 function onFontClear() {
-  ed.value?.chain().focus().unsetFontFamily().run();
+  const editor = ed.value;
+  if (!editor) return;
+  runPaperFormatCommand(editor, (chain) =>
+    chain.extendMarkRange('textStyle').unsetFontFamily(),
+  );
 }
 
 function onFontSizeInput(ev: Event) {
   const raw = (ev.target as HTMLInputElement).value.trim();
-  if (!ed.value) return;
+  const editor = ed.value;
+  if (!editor) return;
   if (!raw) {
-    ed.value.chain().focus().unsetFontSize().run();
+    runPaperFormatCommand(editor, (chain) =>
+      chain.extendMarkRange('textStyle').unsetFontSize(),
+    );
     return;
   }
   const n = Number.parseInt(raw, 10);
   if (!Number.isFinite(n) || n < 6 || n > 400) return;
-  ed.value.chain().focus().setFontSize(`${n}px`).run();
+  runPaperFormatCommand(editor, (chain) =>
+    chain.extendMarkRange('textStyle').setFontSize(`${n}px`),
+  );
 }
 
 function onFontSizePreset(px: number) {
-  ed.value?.chain().focus().setFontSize(`${px}px`).run();
+  const editor = ed.value;
+  if (!editor) return;
+  runPaperFormatCommand(editor, (chain) =>
+    chain.extendMarkRange('textStyle').setFontSize(`${px}px`),
+  );
 }
 
 function setTextColor(color: string) {
-  const editor = ed.value;
-  if (!editor) return;
-  if (!color) {
-    editor.chain().focus().extendMarkRange('textStyle').unsetColor().run();
-  } else {
-    editor.chain().focus().extendMarkRange('textStyle').setColor(color).run();
-  }
+  formatActions.setTextColor(color);
 }
 
 function setHighlight(color: string | null) {
-  const editor = ed.value;
-  if (!editor) return;
-  if (!color) {
-    editor.chain().focus().extendMarkRange('highlight').unsetHighlight().run();
-  } else {
-    editor
-      .chain()
-      .focus()
-      .extendMarkRange('highlight')
-      .setHighlight({ color })
-      .run();
-  }
+  formatActions.setHighlight(color);
 }
 
 function setAlign(align: 'left' | 'center' | 'right' | 'justify') {
-  ed.value?.chain().focus().setTextAlign(align).run();
+  formatActions.setAlign(align);
+}
+
+function runMarkToggle(cmd: 'toggleBold' | 'toggleItalic' | 'toggleStrike') {
+  formatActions.toggleMark(cmd);
+}
+
+function runListToggle(cmd: 'toggleBulletList') {
+  formatActions.toggleList(cmd);
+}
+
+function runUndo() {
+  runPaperFormatCommand(ed.value, (chain) => chain.undo());
 }
 
 function alignBtnClass(align: 'left' | 'center' | 'right') {
@@ -244,6 +308,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
     <div
       class="pointer-events-auto flex max-w-[min(100vw-1.5rem,56rem)] items-center gap-0.5 overflow-x-auto overflow-y-visible rounded-full border border-border px-1.5 py-1 shadow-lg backdrop-blur-md"
       style="background: var(--paper-format-bar-bg)"
+      @mousedown.capture="onFormatBarMouseDown"
     >
       <div
         class="paper-format-heading-group"
@@ -282,6 +347,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         :model-value="fmt.fontFamilyMixed ? '' : fmt.fontFamily"
         :mixed="fmt.fontFamilyMixed"
         :document-default-family="docDefaultFont"
+        :paper-appearance="paperAppearance ?? 'light'"
         @update:model-value="onFontPick"
         @clear="onFontClear"
       />
@@ -326,6 +392,9 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         :color="fmtColors.textColor"
         :mixed="fmtColors.textMixed"
         :is-default="fmtColors.textIsDefault"
+        :palette="PAPER_TEXT_COLORS"
+        :page-layout="pageLayout"
+        :paper-appearance="paperAppearance"
         @input="setTextColor"
         @clear="setTextColor('')"
       />
@@ -336,6 +405,9 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         :color="fmtColors.highlightColor"
         :mixed="fmtColors.highlightMixed"
         :is-default="!fmtColors.hasHighlight && !fmtColors.highlightMixed"
+        :palette="PAPER_HIGHLIGHT_COLORS"
+        :page-layout="pageLayout"
+        :paper-appearance="paperAppearance"
         @input="(v) => setHighlight(v)"
         @clear="setHighlight(null)"
       />
@@ -407,7 +479,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         :class="triBtnClass(fmt.bold)"
         :title="`Bold${fmt.bold === 'mixed' ? ': mixed' : ''}`"
         aria-label="Bold"
-        @click="ed?.chain().focus().toggleBold().run()"
+        @click="runMarkToggle('toggleBold')"
       >
         <svg
           class="paper-format-icon"
@@ -425,7 +497,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         :class="triBtnClass(fmt.italic)"
         :title="`Italic${fmt.italic === 'mixed' ? ': mixed' : ''}`"
         aria-label="Italic"
-        @click="ed?.chain().focus().toggleItalic().run()"
+        @click="runMarkToggle('toggleItalic')"
       >
         <svg
           class="paper-format-icon"
@@ -444,7 +516,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         :class="triBtnClass(fmt.strike)"
         :title="`Strikethrough${fmt.strike === 'mixed' ? ': mixed' : ''}`"
         aria-label="Strikethrough"
-        @click="ed?.chain().focus().toggleStrike().run()"
+        @click="runMarkToggle('toggleStrike')"
       >
         <svg
           class="paper-format-icon"
@@ -466,13 +538,34 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
 
       <button
         type="button"
+        class="paper-format-btn paper-format-divider--hide-sm"
+        title="Insert image"
+        aria-label="Insert image"
+        :disabled="imageUpload.uploading.value"
+        @click="onPickImage()"
+      >
+        <svg
+          class="paper-format-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+          <path d="M21 15l-5-5L5 21" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
         :class="[
           btnActive(!!ed?.isActive('bulletList')),
           'paper-format-divider--hide-sm',
         ]"
         title="Bullet list"
         aria-label="Bullet list"
-        @click="ed?.chain().focus().toggleBulletList().run()"
+        @click="runListToggle('toggleBulletList')"
       >
         <svg
           class="paper-format-icon"
@@ -497,6 +590,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
           title="More"
           aria-label="More formatting"
           :aria-expanded="moreMenuOpen"
+          @mousedown.prevent
           @click="moreMenuOpen = !moreMenuOpen"
         >
           <svg
@@ -509,86 +603,91 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
             <circle cx="19" cy="12" r="2" />
           </svg>
         </button>
-        <div
-          v-if="moreMenuOpen"
-          class="absolute bottom-full right-0 mb-2 flex min-w-[140px] flex-col rounded-xl border border-border bg-elevated py-1 shadow-xl"
-        >
-          <button
-            v-for="swatch in PAPER_TEXT_COLORS.filter((c) => c.value)"
-            :key="swatch.value"
-            type="button"
-            class="paper-heading-item flex items-center gap-2"
-            @click="
-              setTextColor(swatch.value);
-              closeMoreMenu();
-            "
+        <Teleport to="body">
+          <div
+            v-if="moreMenuOpen && moreMenuPanelStyle"
+            id="paper-format-more-menu-panel"
+            class="paper-format-more-menu paper-teleport-surface flex flex-col rounded-xl border border-border py-1"
+            :data-paper-appearance="paperAppearance ?? 'light'"
+            :style="moreMenuPanelStyle"
+            @click.stop
+            @mousedown.prevent
           >
-            <span
-              class="h-3 w-3 rounded-full border border-border"
-              :style="{ background: swatch.value }"
-            />
-            {{ swatch.label }}
-          </button>
-          <button
-            type="button"
-            class="paper-heading-item"
-            @click="
-              setTextColor('');
-              closeMoreMenu();
-            "
-          >
-            Default text color
-          </button>
-          <div class="my-1 border-t border-border" aria-hidden="true" />
-          <button
-            v-for="swatch in PAPER_HIGHLIGHT_COLORS.filter((c) => c.value)"
-            :key="`hl-${swatch.value}`"
-            type="button"
-            class="paper-heading-item flex items-center gap-2"
-            @click="
-              setHighlight(swatch.value);
-              closeMoreMenu();
-            "
-          >
-            <span
-              class="h-3 w-3 rounded-sm border border-border"
-              :style="{ background: swatch.value }"
-            />
-            {{ swatch.label }}
-          </button>
-          <button
-            type="button"
-            class="paper-heading-item"
-            @click="
-              setHighlight(null);
-              closeMoreMenu();
-            "
-          >
-            Remove highlight
-          </button>
-          <div class="my-1 border-t border-border" aria-hidden="true" />
-          <button
-            type="button"
-            class="paper-heading-item"
-            @click="
-              linkDialogOpen = true;
-              closeMoreMenu();
-            "
-          >
-            Link…
-          </button>
-          <button
-            type="button"
-            class="paper-heading-item"
-            :disabled="imageUpload.uploading.value"
-            @click="
-              onPickImage();
-              closeMoreMenu();
-            "
-          >
-            Upload image
-          </button>
-        </div>
+            <button
+              v-for="swatch in PAPER_TEXT_COLORS.filter((c) => c.value)"
+              :key="swatch.value"
+              type="button"
+              class="paper-heading-item flex items-center gap-2"
+              @click="setTextColor(swatch.value)"
+            >
+              <span
+                class="h-3 w-3 rounded-full border border-border"
+                :style="{ background: swatch.value }"
+              />
+              {{ swatch.label }}
+            </button>
+            <button
+              type="button"
+              class="paper-heading-item"
+              @click="setTextColor('')"
+            >
+              Default text color
+            </button>
+            <div class="my-1 border-t border-border" aria-hidden="true" />
+            <button
+              v-for="swatch in PAPER_HIGHLIGHT_COLORS.filter((c) => c.value)"
+              :key="`hl-${swatch.value}`"
+              type="button"
+              class="paper-heading-item flex items-center gap-2"
+              @click="setHighlight(swatch.value)"
+            >
+              <span
+                class="h-3 w-3 rounded-sm border border-border"
+                :style="{ background: swatch.value }"
+              />
+              {{ swatch.label }}
+            </button>
+            <button
+              type="button"
+              class="paper-heading-item"
+              @click="setHighlight(null)"
+            >
+              Remove highlight
+            </button>
+            <div class="my-1 border-t border-border" aria-hidden="true" />
+            <button
+              type="button"
+              class="paper-heading-item"
+              @click="
+                linkDialogOpen = true;
+                closeMoreMenu();
+              "
+            >
+              Link…
+            </button>
+            <button
+              type="button"
+              class="paper-heading-item"
+              :disabled="imageUpload.uploading.value"
+              @click="
+                onPickImage();
+                closeMoreMenu();
+              "
+            >
+              Upload image
+            </button>
+            <button
+              type="button"
+              class="paper-heading-item"
+              @click="
+                imageUrlDialogOpen = true;
+                closeMoreMenu();
+              "
+            >
+              Image from URL…
+            </button>
+          </div>
+        </Teleport>
       </div>
 
       <span
@@ -601,7 +700,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         title="Undo"
         aria-label="Undo"
         :disabled="!ed?.can().undo()"
-        @click="ed?.chain().focus().undo().run()"
+        @click="runUndo()"
       >
         <svg
           class="paper-format-icon"
@@ -852,7 +951,13 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
 }
 
 .paper-heading-item:hover {
-  background: var(--vue-auto-003, rgba(255, 255, 255, 0.06));
+  background: var(--ui-glass-hover);
+}
+
+.paper-format-more-menu {
+  background: var(--elevated);
+  color: var(--text);
+  box-shadow: var(--paper-dropdown-shadow);
 }
 
 @media (max-width: 640px) {

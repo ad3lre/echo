@@ -4,6 +4,7 @@ import EchoDropdown from '@/components/EchoDropdown.vue';
 import { icons } from '@/assets/icons';
 import { useAuthSessionStore } from '@/stores/authSession';
 import {
+  deleteEchoDiscordBridge,
   getEchoDiscordBridge,
   getEchoDiscordBridgeChannels,
   getEchoDiscordBridgeGuilds,
@@ -22,6 +23,7 @@ const authSession = useAuthSessionStore();
 
 const loading = ref(false);
 const saving = ref(false);
+const clearing = ref(false);
 const error = ref('');
 
 const guildsLoading = ref(false);
@@ -42,6 +44,7 @@ const selectedChannelId = ref('');
 const inboundEnabled = ref(false);
 const outboundEnabled = ref(false);
 const hasWebhook = ref(false);
+const hasBridge = ref(false);
 /** Suppress guild→channel reset while bridge state is loaded from the API. */
 const syncingFromBridgeLoad = ref(false);
 /** Optional manual webhook override (advanced). */
@@ -135,6 +138,7 @@ function applyBridgeState(s: Awaited<ReturnType<typeof getEchoDiscordBridge>>) {
   inboundEnabled.value = s.inboundEnabled === true;
   outboundEnabled.value = s.outboundEnabled === true;
   hasWebhook.value = s.hasWebhook === true;
+  hasBridge.value = s.hasBridge === true;
   webhookOverride.value = '';
   clearWebhook.value = false;
 }
@@ -246,6 +250,37 @@ async function save() {
       e instanceof Error ? e.message : 'Could not save Discord sync settings.';
   } finally {
     saving.value = false;
+  }
+}
+
+async function clearSync() {
+  if (
+    !canUse.value ||
+    !props.serverId ||
+    !props.channelId ||
+    !hasBridge.value
+  ) {
+    return;
+  }
+  const ok = window.confirm(
+    'Clear Discord sync for this channel? Live mirroring stops and any stored webhook mapping is removed.',
+  );
+  if (!ok) return;
+  const token = authSession.accessToken?.trim() ?? '';
+  clearing.value = true;
+  error.value = '';
+  try {
+    const cleared = await deleteEchoDiscordBridge(
+      token,
+      props.serverId,
+      props.channelId,
+    );
+    applyBridgeState(cleared);
+  } catch (e) {
+    error.value =
+      e instanceof Error ? e.message : 'Could not clear Discord sync.';
+  } finally {
+    clearing.value = false;
   }
 }
 </script>
@@ -426,14 +461,25 @@ async function save() {
         >
           Loading Discord channels…
         </div>
-        <button
-          type="button"
-          class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
-          :disabled="loading || saving"
-          @click="save"
-        >
-          {{ saving ? 'Saving…' : 'Save sync' }}
-        </button>
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+            :disabled="loading || saving || clearing"
+            @click="save"
+          >
+            {{ saving ? 'Saving…' : 'Save sync' }}
+          </button>
+          <button
+            v-if="hasBridge"
+            type="button"
+            class="echo-destructive-action rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
+            :disabled="loading || saving || clearing"
+            @click="clearSync"
+          >
+            {{ clearing ? 'Clearing…' : 'Clear sync' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>

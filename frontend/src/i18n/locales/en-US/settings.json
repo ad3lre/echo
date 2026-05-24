@@ -1,0 +1,79 @@
+{
+  "sections": {
+    "profile": {
+      "blurb": "Shape how people see you across Echo with profile, status, and identity details."
+    },
+    "account": {
+      "blurb": "Control sign-in details, security, and session management from one place.",
+      "guestBlurb": "Guest sessions are temporary. Add email and a password to keep your account and unlock the full app."
+    },
+    "friends": {
+      "blurb": "Choose who can add you as a friend and how strangers can start direct or message requests."
+    },
+    "termsAndPolicies": {
+      "blurb": "Read Echo's privacy policy, terms of service, and community guidelines."
+    },
+    "reportAbuse": {
+      "blurb": "Report a user or message for spam, harassment, or other policy violations."
+    },
+    "formattingGuide": {
+      "blurb": "How Markdown and math in chat messages are parsed, styled, and limited."
+    },
+    "discord": {
+      "blurb": "Link your Discord account to Echo for profile import and a consistent identity across apps."
+    },
+    "google": {
+      "blurb": "Link your Google account for sign-in and as the identity YouTube live streaming uses on Echo."
+    },
+    "youtube": {
+      "blurb": "Connect your YouTube channel to broadcast stage channels live (StreamYard-style RTMP from Echo)."
+    },
+    "logOut": {
+      "blurb": "End this session on this device. You can sign in again anytime."
+    },
+    "dataAndPrivacy": {
+      "blurb": "Export your account data and manage removal. Friend and DM request preferences are under Friends."
+    },
+    "style": {
+      "blurb": "Tune the app look, spacing, and visual treatment to match your setup."
+    },
+    "desktop": {
+      "blurb": "Tauri shell: tray, close-to-tray, launch at login, and in-app update checks."
+    },
+    "accessibility": {
+      "blurb": "Adjust readability, motion, and interaction behavior for comfort and clarity."
+    },
+    "voiceAndVideo": {
+      "blurb": "Choose devices and call behavior for voice chats, recordings, and camera use."
+    },
+    "notifications": {
+      "blurb": "Personal defaults for this browser: desktop alerts, sounds, badges, and mentions. Combine with per-server overrides in the server menu."
+    },
+    "sounds": {
+      "blurb": "Control all app sounds in one place: master on/off, per-sound toggles, preview, and volume sliders."
+    },
+    "keybinds": {
+      "blurb": "Review shortcuts and customize the actions you use most often."
+    },
+    "timeAndLanguage": {
+      "blurb": "Set language, region, timezone, and timestamp formatting preferences."
+    },
+    "echoPlus": {
+      "blurb": "Unlock bigger uploads, higher quality streaming, and exclusive perks with Echo+ and Echo Black."
+    },
+    "subscriptions": {
+      "blurb": "Track plan status, renewals, payment methods, invoices, and what is included in your subscription."
+    },
+    "advanced": {
+      "blurb": "Optional developer shortcuts for this browser."
+    }
+  },
+  "subscription": {
+    "currentPlan": "Current plan",
+    "renewal": "Renewal",
+    "includedSeats": "Included seats",
+    "perksUnlocked": "Perks unlocked",
+    "upgrade": "Upgrade",
+    "paid": "Paid"
+  }
+}

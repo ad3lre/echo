@@ -74,6 +74,20 @@ describe('channelMessageAuthority', () => {
     expect(missing.messages.map((message) => message.id)).toEqual(['m1']);
   });
 
+  it('replaceChannelMessagesFromHistory does not drop rows when the channel is already populated', () => {
+    replaceChannelMessagesFromHistory('ch-merge', [
+      makeMessage('m1', 'u1', '2026-04-10T12:01:00.000Z'),
+      makeMessage('m2', 'u2', '2026-04-10T12:02:00.000Z'),
+      makeMessage('m3', 'u3', '2026-04-10T12:03:00.000Z'),
+    ]);
+    replaceChannelMessagesFromHistory('ch-merge', [
+      makeMessage('m1', 'u1', '2026-04-10T12:01:00.000Z'),
+      makeMessage('m2', 'u2', '2026-04-10T12:02:00.000Z'),
+    ]);
+    const list = hasChannelMessageInBucket('ch-merge', 'm3');
+    expect(list).toBe(true);
+  });
+
   it('restoreChannelMessageReactions clones rollback payloads and exposes presence checks', () => {
     replaceChannelMessagesFromHistory('ch-3', [
       makeMessage('m1', 'u1', '2026-04-10T12:01:00.000Z'),

@@ -14,6 +14,7 @@ export function mergeEchoResolvedPeersIntoWorkspaceUsers(
     name: string;
     pfp: string;
     username?: string;
+    badges?: string[];
   }[],
 ): WorkspaceRosterUserRow[] {
   if (!resolved.length) return [...users];
@@ -23,6 +24,7 @@ export function mergeEchoResolvedPeersIntoWorkspaceUsers(
     accountDisplayName: r.name,
     pfp: r.pfp ?? '',
     ...(r.username ? { username: r.username } : {}),
+    ...(Array.isArray(r.badges) && r.badges.length ? { badges: r.badges } : {}),
   }));
   return applyWorkspaceRosterUsersPipeline(users, {
     membersByServer: { [ECHO_PEER_HYDRATE_SERVER_KEY]: members },

@@ -1,0 +1,10 @@
+{
+  "todayAt": "Today at {time}",
+  "yesterdayAt": "Yesterday {time}",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "languages": {
+    "en-US": "English (US)",
+    "en-GB": "English (UK)"
+  }
+}

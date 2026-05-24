@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { CHAT_E2EE_REMOVED_DETAIL } from '../../../shared/chatE2eePolicy';
 import { validateMessagePayload } from '../sockets/messageValidation';
 
 async function run(): Promise<void> {
@@ -23,7 +24,9 @@ async function run(): Promise<void> {
     typeof bad === 'object' &&
       bad &&
       'error' in bad &&
-      String((bad as { error: string }).error).includes('media'),
+      String((bad as { error: string }).error).includes(
+        CHAT_E2EE_REMOVED_DETAIL,
+      ),
   );
 
   const v2parts = {
@@ -50,10 +53,7 @@ async function run(): Promise<void> {
       ciphertext: JSON.stringify(v2parts),
     },
   });
-  assert.equal(v2.ok, true);
-  if (v2.ok) {
-    assert.equal(v2.value.e2eeEncryptionVersion, 2);
-  }
+  assert.equal(v2.ok, false);
 
   const v2bad = validateMessagePayload({
     channelId: 'ch1',

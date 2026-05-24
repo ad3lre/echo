@@ -248,35 +248,73 @@ fn bring_main_window_to_front(app: &tauri::AppHandle) {
   let _ = app;
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TrayMenuLabelsPayload {
+  show: String,
+  open_messages: String,
+  toggle_desktop_alerts: String,
+  notification_settings: String,
+  quit: String,
+  tooltip: Option<String>,
+}
+
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
-fn setup_desktop_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-  let show = MenuItem::with_id(app, "echo_tray_show", "Show Echo", true, None::<&str>)?;
-  let messages =
-    MenuItem::with_id(app, "echo_tray_messages", "Open Messages", true, None::<&str>)?;
+fn build_echo_tray_menu(
+  app: &tauri::AppHandle,
+  labels: &TrayMenuLabelsPayload,
+) -> Result<Menu<tauri::Wry>, String> {
+  let show = MenuItem::with_id(app, "echo_tray_show", labels.show.as_str(), true, None::<&str>)
+    .map_err(|e| e.to_string())?;
+  let messages = MenuItem::with_id(
+    app,
+    "echo_tray_messages",
+    labels.open_messages.as_str(),
+    true,
+    None::<&str>,
+  )
+  .map_err(|e| e.to_string())?;
   let toggle_alerts = MenuItem::with_id(
     app,
     "echo_tray_toggle_alerts",
-    "Toggle desktop alerts",
+    labels.toggle_desktop_alerts.as_str(),
     true,
     None::<&str>,
-  )?;
+  )
+  .map_err(|e| e.to_string())?;
   let notif = MenuItem::with_id(
     app,
     "echo_tray_notifications",
-    "Notification settings…",
+    labels.notification_settings.as_str(),
     true,
     None::<&str>,
-  )?;
-  let quit = MenuItem::with_id(app, "echo_tray_quit", "Quit Echo", true, None::<&str>)?;
-  let menu = Menu::with_items(
+  )
+  .map_err(|e| e.to_string())?;
+  let quit = MenuItem::with_id(app, "echo_tray_quit", labels.quit.as_str(), true, None::<&str>)
+    .map_err(|e| e.to_string())?;
+  Menu::with_items(
     app,
     &[&show, &messages, &toggle_alerts, &notif, &quit],
-  )?;
+  )
+  .map_err(|e| e.to_string())
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn setup_desktop_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+  let default_labels = TrayMenuLabelsPayload {
+    show: "Show Echo".into(),
+    open_messages: "Open Messages".into(),
+    toggle_desktop_alerts: "Toggle desktop alerts".into(),
+    notification_settings: "Notification settings…".into(),
+    quit: "Quit Echo".into(),
+    tooltip: Some("Echo".into()),
+  };
+  let menu = build_echo_tray_menu(app.handle(), &default_labels)?;
 
   let mut builder = TrayIconBuilder::with_id("echo-main-tray")
     .menu(&menu)
     .show_menu_on_left_click(true)
-    .tooltip("Echo");
+    .tooltip(default_labels.tooltip.as_deref().unwrap_or("Echo"));
 
   if let Some(icon) = app.default_window_icon() {
     builder = builder.icon(icon.clone());
@@ -543,6 +581,31 @@ fn desktop_shell_save_file(
 }
 
 #[tauri::command]
+fn desktop_shell_set_tray_menu_labels(
+  app: tauri::AppHandle,
+  labels: TrayMenuLabelsPayload,
+) -> Result<(), String> {
+  #[cfg(any(target_os = "android", target_os = "ios"))]
+  {
+    let _ = (app, labels);
+    return Ok(());
+  }
+  #[cfg(not(any(target_os = "android", target_os = "ios")))]
+  {
+    let menu = build_echo_tray_menu(&app, &labels)?;
+    let id = TrayIconId::new("echo-main-tray");
+    let Some(tray) = app.tray_by_id(&id) else {
+      return Ok(());
+    };
+    tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    if let Some(tip) = labels.tooltip {
+      desktop_shell_set_tray_tooltip(app, Some(tip))?;
+    }
+    Ok(())
+  }
+}
+
+#[tauri::command]
 fn desktop_shell_set_tray_tooltip(
   app: tauri::AppHandle,
   text: Option<String>,
@@ -784,6 +847,7 @@ pub fn run() {
       desktop_shell_set_close_to_tray,
       desktop_shell_get_close_to_tray,
       desktop_shell_set_tray_tooltip,
+      desktop_shell_set_tray_menu_labels,
       desktop_shell_set_unread_indicator,
       desktop_shell_save_file,
       desktop_audio_init,

@@ -57,6 +57,7 @@ export type AuthProfilePatch = {
   showLastOnline?: boolean;
   /** IANA timezone id; empty string clears stored value. */
   timeZone?: string | null;
+  locale?: string | null;
 };
 
 export interface UserStore {

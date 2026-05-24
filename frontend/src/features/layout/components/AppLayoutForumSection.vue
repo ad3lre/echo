@@ -78,6 +78,7 @@ const props = defineProps<{
   onGoToChannel?: (channelId: string) => void;
   onGoToMessage?: (channelId: string, messageId: string) => void;
   onOpenProfile?: (userId: string, anchorRect: any) => void;
+  onOpenProfileFromContextMenu?: (userId: string) => void;
   canModerateAuthor?: (authorId: string) => boolean;
   onModerateUser?: (payload: any) => void;
   resolveAuthorRole?: (userId: string) => any;
@@ -1008,6 +1009,7 @@ watch(
           :on-go-to-channel="onGoToChannel"
           :on-go-to-message="onGoToMessage"
           :on-open-profile="onOpenProfile"
+          :on-open-profile-from-context-menu="onOpenProfileFromContextMenu"
           :can-moderate-author="canModerateAuthor"
           :on-moderate-user="onModerateUser"
           :show-nsfw-gate="showNsfwGate"

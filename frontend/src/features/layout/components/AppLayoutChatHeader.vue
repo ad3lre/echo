@@ -56,6 +56,7 @@ const props = defineProps([
   'presenceByUserId',
   'presenceMobileByUserId',
   'openExpandedProfilePanelForUserId',
+  'openExtendedProfileModalForUserId',
   'handleExpandedProfileOpenProfile',
   'isGroupDM',
   'activeGroupDM',
@@ -215,8 +216,11 @@ const isExpandedProfileModalOpen = computed(() => {
 const hasProfileOverviewAction = computed(() => {
   return !!(
     headerIntents.value?.openProfilePanelForUserId ||
+    headerIntents.value?.openProfileModal ||
     (props as { openExpandedProfilePanelForUserId?: (userId: string) => void })
-      .openExpandedProfilePanelForUserId
+      .openExpandedProfilePanelForUserId ||
+    (props as { openExtendedProfileModalForUserId?: (userId: string) => void })
+      .openExtendedProfileModalForUserId
   );
 });
 
@@ -233,6 +237,21 @@ function callOpenExpandedProfilePanelForUserId(
   (
     props as { openExpandedProfilePanelForUserId?: (userId: string) => void }
   ).openExpandedProfilePanelForUserId?.(id);
+}
+
+function callOpenExtendedProfileModalForUserId(
+  userId: string | undefined | null,
+) {
+  const id = userId?.trim();
+  if (!id) return;
+  const fn = headerIntents.value?.openProfileModal;
+  if (fn) {
+    fn(id);
+    return;
+  }
+  (
+    props as { openExtendedProfileModalForUserId?: (userId: string) => void }
+  ).openExtendedProfileModalForUserId?.(id);
 }
 
 function callOpenGroupOverviewPanel() {
@@ -1147,7 +1166,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         class="shrink-0 rounded-full focus:outline-none"
         title="Open profile"
         aria-label="Open profile"
-        @click="callOpenExpandedProfilePanelForUserId(dmPartnerUser.id)"
+        @click="callOpenExtendedProfileModalForUserId(dmPartnerUser.id)"
       >
         <div class="relative h-8 w-8 flex-shrink-0">
           <!-- Clip only the image; status sits in this box above the ring (not inside overflow-hidden). -->
@@ -1236,7 +1255,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             :class="dmPartnerPresence.isOffline ? 'text-fg-subtle' : ''"
             title="Open profile"
             aria-label="Open profile"
-            @click="callOpenExpandedProfilePanelForUserId(dmPartnerUser.id)"
+            @click="callOpenExtendedProfileModalForUserId(dmPartnerUser.id)"
           >
             {{
               isInDMMode && dmActiveTab === 'friends'

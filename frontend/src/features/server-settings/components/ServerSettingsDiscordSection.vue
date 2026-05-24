@@ -239,7 +239,7 @@ async function saveBridgeSettings() {
     <div class="server-settings-panel rounded-2xl p-5">
       <div class="settings-subtitle mb-4">Discord Import</div>
       <p class="mb-4 text-xs leading-relaxed text-fg-subtle">
-        {{ discordServerImportSeparateFromAccountLink }}
+        {{ discordServerImportSeparateFromAccountLink() }}
       </p>
       <div v-if="!canManageServer" class="text-sm text-fg-soft">
         You need permission to manage this server to run Discord import.

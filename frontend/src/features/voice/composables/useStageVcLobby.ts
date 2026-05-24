@@ -27,6 +27,8 @@ export type UseStageVcLobbyOpts = {
   vcActivityUi: MaybeRef<VcActivityUiState>;
   /** Any participant already running a VC activity in this channel. */
   channelHasActiveVcActivity: ComputedRef<boolean>;
+  /** LiveKit session is active in this stage channel — skip pre-join lobby. */
+  voiceConnectedToChannel: ComputedRef<boolean>;
 };
 
 export function useStageVcLobby(opts: UseStageVcLobbyOpts) {
@@ -93,6 +95,7 @@ export function useStageVcLobby(opts: UseStageVcLobbyOpts) {
   const showLobby = computed(() => {
     if (!opts.isStageChannel.value) return false;
     if (!opts.channelId.value.trim()) return false;
+    if (opts.voiceConnectedToChannel.value) return false;
     if (lobbyDismissed.value) return false;
     if (unref(opts.vcActivityUi).phase !== 'closed') return false;
     if (opts.channelHasActiveVcActivity.value) return false;

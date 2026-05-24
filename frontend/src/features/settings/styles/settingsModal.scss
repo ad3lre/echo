@@ -646,3 +646,64 @@
     background: var(--set-premium-why-hover);
   }
 }
+
+.premium-hero__mark {
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(99, 102, 241, 0.22));
+  transition:
+    transform 0.2s ease,
+    filter 0.2s ease;
+}
+
+.premium-hero__mark--active {
+  filter: drop-shadow(0 10px 22px rgba(99, 102, 241, 0.32));
+}
+
+.premium-hero__mark-duo .premium-hero__mark:last-child {
+  filter: drop-shadow(0 8px 18px rgba(255, 255, 255, 0.12));
+}
+
+.premium-card__mark {
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(99, 102, 241, 0.18));
+}
+
+.premium-card--black .premium-card__mark {
+  filter: drop-shadow(0 4px 10px rgba(255, 255, 255, 0.1));
+}
+
+.premium-card--current {
+  box-shadow:
+    inset 0 0 0 2px var(--set-premium-plus-ring),
+    0 0 0 1px rgba(129, 140, 248, 0.08);
+
+  &::after {
+    content: 'Your plan';
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    border-radius: 9999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.5625rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: rgba(99, 102, 241, 0.18);
+    color: var(--set-premium-badge-plus-fg);
+    box-shadow: inset 0 0 0 1px var(--set-premium-badge-plus-ring);
+  }
+}
+
+.premium-card--black.premium-card--current::after {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.premium-card--free.premium-card--current::after {
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+}

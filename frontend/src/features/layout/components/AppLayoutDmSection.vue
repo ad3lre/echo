@@ -221,8 +221,9 @@ const props = defineProps<{
     userId: string,
     anchorRect: PopoutAnchorRect | null,
   ) => void;
-  /** Friends pending rows — full expanded profile panel / modal. */
-  openExpandedProfilePanelForUserId?: (userId: string) => void;
+  openProfileFromContextMenu?: (userId: string) => void;
+  /** Friends pending rows — full expanded profile modal. */
+  openExtendedProfileModalForUserId?: (userId: string) => void;
   canModerateAuthor?: (authorId: string) => boolean;
   handleModerateUser?: (payload: {
     action: 'kick' | 'ban' | 'timeout';
@@ -365,7 +366,7 @@ async function handleDmCallLeave() {
       @cancel-friend-request="cancelFriendRequest"
       @send-friend-request="sendFriendRequest"
       @open-expanded-profile="
-        (userId) => openExpandedProfilePanelForUserId?.(userId)
+        (userId) => openExtendedProfileModalForUserId?.(userId)
       "
       @back-to-messages="returnFromMessageRequests"
     />
@@ -463,6 +464,7 @@ async function handleDmCallLeave() {
         :set-remote-participant-volume="setRemoteParticipantVolume"
         :on-request-fullscreen-stream="onRequestDmCallFullscreenStream"
         :on-open-profile="openMemberProfile"
+        :on-open-profile-from-context-menu="openProfileFromContextMenu"
         :can-answer-incoming-call="dmCallCanAnswerIncoming !== false"
         :on-open-voice-audio-settings="onOpenVoiceAudioSettings"
         @leave="handleDmCallLeave"
@@ -515,6 +517,7 @@ async function handleDmCallLeave() {
           :set-remote-participant-volume="setRemoteParticipantVolume"
           :on-request-fullscreen-stream="onRequestDmCallFullscreenStream"
           :on-open-profile="openMemberProfile"
+          :on-open-profile-from-context-menu="openProfileFromContextMenu"
           :can-answer-incoming-call="dmCallCanAnswerIncoming !== false"
           :suppress-quarter-glass-call-chrome="suppressEmbeddedDuplicateCallUi"
           :on-open-voice-audio-settings="onOpenVoiceAudioSettings"
@@ -555,6 +558,7 @@ async function handleDmCallLeave() {
           :on-go-to-channel="handleGoToChannel"
           :on-go-to-message="handleGoToMessage"
           :on-open-profile="openMemberProfile"
+          :on-open-profile-from-context-menu="openProfileFromContextMenu"
           :can-moderate-author="canModerateAuthor"
           :on-moderate-user="handleModerateUser"
           :show-nsfw-gate="showNsfwChatGate"
@@ -596,6 +600,7 @@ async function handleDmCallLeave() {
     :on-go-to-channel="handleGoToChannel"
     :on-go-to-message="handleGoToMessage"
     :on-open-profile="openMemberProfile"
+    :on-open-profile-from-context-menu="openProfileFromContextMenu"
     :can-moderate-author="canModerateAuthor"
     :on-moderate-user="handleModerateUser"
     :show-nsfw-gate="showNsfwChatGate"
@@ -636,6 +641,7 @@ async function handleDmCallLeave() {
     :on-go-to-channel="handleGoToChannel"
     :on-go-to-message="handleGoToMessage"
     :on-open-profile="openMemberProfile"
+    :on-open-profile-from-context-menu="openProfileFromContextMenu"
     :can-moderate-author="canModerateAuthor"
     :on-moderate-user="handleModerateUser"
     :show-nsfw-gate="showNsfwChatGate"

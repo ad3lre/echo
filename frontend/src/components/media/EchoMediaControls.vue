@@ -22,6 +22,7 @@ const props = withDefaults(
     isFullscreen?: boolean;
     canFullscreen?: boolean;
     compact?: boolean;
+    showSeek?: boolean;
   }>(),
   {
     playbackRate: 1,
@@ -30,6 +31,7 @@ const props = withDefaults(
     isFullscreen: false,
     canFullscreen: false,
     compact: false,
+    showSeek: true,
   },
 );
 
@@ -86,6 +88,7 @@ function onVolumeInput(ev: Event): void {
     @click.stop
   >
     <EchoMediaSeekBar
+      v-if="showSeek"
       class="echo-media-controls__seek"
       :current-time="currentTime"
       :duration="duration"
@@ -246,7 +249,7 @@ function onVolumeInput(ev: Event): void {
   flex-direction: column;
   gap: 0.35rem;
   padding: 0.5rem 0.65rem 0.55rem;
-  color: rgb(255 255 255 / 0.95);
+  color: var(--media-player-controls-fg, var(--text));
 }
 
 .echo-media-controls--compact {
@@ -291,14 +294,14 @@ function onVolumeInput(ev: Event): void {
 .echo-media-controls__icon-img {
   width: 1rem;
   height: 1rem;
-  filter: brightness(0) invert(1);
+  filter: var(--media-player-icon-filter, var(--echo-ink-icon-filter, none));
   opacity: 0.95;
 }
 
 .echo-media-controls__time {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  color: rgb(255 255 255 / 0.82);
+  color: var(--media-player-controls-fg-muted, var(--muted));
   white-space: nowrap;
   user-select: none;
 }
@@ -335,7 +338,8 @@ function onVolumeInput(ev: Event): void {
   border-radius: 0.5rem;
   background: var(--echo-menu-bg, rgb(20 20 28 / 0.96));
   border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  box-shadow: var(--echo-menu-shadow, 0 8px 24px rgb(0 0 0 / 0.35));
+  color: var(--text);
 }
 
 .echo-media-controls__speed-option {
@@ -345,7 +349,7 @@ function onVolumeInput(ev: Event): void {
   border: none;
   border-radius: 0.35rem;
   background: transparent;
-  color: rgb(255 255 255 / 0.88);
+  color: var(--text);
   font-size: 12px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -375,7 +379,8 @@ function onVolumeInput(ev: Event): void {
   border-radius: 0.5rem;
   background: var(--echo-menu-bg, rgb(20 20 28 / 0.96));
   border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  box-shadow: var(--echo-menu-shadow, 0 8px 24px rgb(0 0 0 / 0.35));
+  color: var(--text);
 }
 
 .echo-media-controls__volume-slider {

@@ -233,7 +233,7 @@ function mergeChannelAttentionByChannelId(params: {
               currentReadState,
               incomingSummary.lastReadMessageId,
             ) > 0;
-          const effectivelyRead = !isServerChannelUnreadForPingBubble(
+          const effectivelyRead = isEchoChannelEffectivelyRead(
             effectiveSummary,
             currentReadState,
           );

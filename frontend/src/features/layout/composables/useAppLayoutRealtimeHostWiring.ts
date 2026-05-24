@@ -23,8 +23,6 @@ export function useAppLayoutRealtimeHostWiring(deps: {
   liveChannelCapabilitiesRefreshKey: Ref<number>;
   hydrateEchoFromApi: () => void | Promise<unknown>;
   refreshEchoSocialFromApi: () => void | Promise<unknown>;
-  /** Refreshes cached E2EE thread state for the active DM after `workspace_invalidated`. */
-  refreshActiveDmE2eeThreadState?: () => void | Promise<unknown>;
   syncEchoPresenceFromApi: () => void | Promise<unknown>;
   echoChannelHistory: EchoHistoryHydrate;
   applyEchoPresenceFromSocket: AppLayoutEchoRealtimeHostCallbacks['onPresenceUpdate'];
@@ -54,9 +52,6 @@ export function useAppLayoutRealtimeHostWiring(deps: {
     refreshEchoSocialFromApi: async () => {
       await deps.refreshEchoSocialFromApi();
     },
-    onWorkspaceInvalidated: deps.refreshActiveDmE2eeThreadState
-      ? () => void deps.refreshActiveDmE2eeThreadState?.()
-      : undefined,
     onDiscordVoiceMirrorRoster: (payload) => {
       if (payload.discordVoiceMirror) {
         deps.echoSession.mergeDiscordVoiceMirrorFromSocket(

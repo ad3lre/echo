@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ServerSettingsSection } from '@/features/server-settings/types';
-import { SECTION_COPY } from '@/features/server-settings/types';
+import { serverSettingsSectionCopy } from '@/i18n/labels';
 
 withDefaults(
   defineProps<{
@@ -61,13 +61,13 @@ const emit = defineEmits<{
         </h3>
       </div>
       <p v-if="!compact" class="mt-2 max-w-2xl text-sm text-fg-soft">
-        {{ SECTION_COPY[activeSection] }}
+        {{ serverSettingsSectionCopy(activeSection) }}
       </p>
       <p
         v-else
         class="mt-1.5 max-w-2xl text-xs leading-snug text-fg-soft line-clamp-2"
       >
-        {{ SECTION_COPY[activeSection] }}
+        {{ serverSettingsSectionCopy(activeSection) }}
       </p>
     </div>
 

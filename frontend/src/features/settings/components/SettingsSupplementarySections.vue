@@ -5,7 +5,17 @@ import SettingsDiscordLinkSection from '@/features/settings/components/SettingsD
 import SettingsGoogleLinkSection from '@/features/settings/components/SettingsGoogleLinkSection.vue';
 import SettingsYoutubeLinkSection from '@/features/settings/components/SettingsYoutubeLinkSection.vue';
 import type { SettingsSection } from '@/features/settings/types';
-import { ECHO_PLUS_COMING_SOON, PLAN_TIERS } from '@/features/settings/data';
+import {
+  ECHO_PLUS_COMING_SOON,
+  PLAN_TIERS,
+  subscriptionInvoicesForPlan,
+  subscriptionTimelineForPlan,
+} from '@/features/settings/data';
+import type { EchoPlanId } from '@shared/echoPlanLimits';
+import {
+  ECHO_PLAN_MARK_URL,
+  echoPlanMarkUrl,
+} from '@/assets/subscriptionTierIcons';
 import { storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import { useBugHunterStore } from '@/stores/bugHunter';
@@ -37,6 +47,7 @@ const props = defineProps<{
   timezoneOptions: any[];
   subscriptionTimeline: any[];
   invoices: any[];
+  echoPlan?: EchoPlanId;
 }>();
 
 const planTiers = PLAN_TIERS;
@@ -45,6 +56,20 @@ const plusTier = planTiers.find((t) => t.id === 'plus')!;
 const blackTier = planTiers.find((t) => t.id === 'black')!;
 const billingCycle = ref<'monthly' | 'yearly'>('monthly');
 const echoPlusLocked = computed(() => ECHO_PLUS_COMING_SOON);
+const currentPlan = computed(() => props.echoPlan ?? 'free');
+const activeSubscriptionTimeline = computed(() =>
+  props.subscriptionTimeline.length
+    ? props.subscriptionTimeline
+    : subscriptionTimelineForPlan(currentPlan.value),
+);
+const activeInvoices = computed(() =>
+  props.invoices.length
+    ? props.invoices
+    : subscriptionInvoicesForPlan(currentPlan.value),
+);
+const plusMarkUrl = ECHO_PLAN_MARK_URL.plus;
+const blackMarkUrl = ECHO_PLAN_MARK_URL.black;
+const heroMarkUrl = computed(() => echoPlanMarkUrl(currentPlan.value));
 const editingActionId = ref<KeybindActionId | null>(null);
 const keybindError = ref('');
 const keybindMap = ref(loadKeybindMap());
@@ -347,6 +372,42 @@ function resetDefaults() {
     >
       <div class="premium-hero__bg" aria-hidden="true" />
       <div class="relative z-10">
+        <div class="premium-hero__mark-row mx-auto mb-4 flex justify-center">
+          <img
+            v-if="heroMarkUrl"
+            :src="heroMarkUrl"
+            class="premium-hero__mark premium-hero__mark--active h-14 w-14 sm:h-16 sm:w-16"
+            :alt="currentPlan === 'black' ? 'Echo Black' : 'Echo+'"
+            width="64"
+            height="64"
+            decoding="async"
+            draggable="false"
+          />
+          <div
+            v-else
+            class="premium-hero__mark-duo flex items-center gap-3"
+            aria-hidden="true"
+          >
+            <img
+              :src="plusMarkUrl"
+              class="premium-hero__mark h-12 w-12 sm:h-14 sm:w-14"
+              alt=""
+              width="56"
+              height="56"
+              decoding="async"
+              draggable="false"
+            />
+            <img
+              :src="blackMarkUrl"
+              class="premium-hero__mark h-12 w-12 sm:h-14 sm:w-14"
+              alt=""
+              width="56"
+              height="56"
+              decoding="async"
+              draggable="false"
+            />
+          </div>
+        </div>
         <h2
           class="premium-hero__title text-3xl font-extrabold tracking-tight sm:text-4xl"
         >
@@ -405,8 +466,9 @@ function resetDefaults() {
       <!-- Free -->
       <div
         class="premium-card premium-card--free relative flex flex-col rounded-2xl p-6"
+        :class="{ 'premium-card--current': currentPlan === 'free' }"
       >
-        <div>
+        <div class="premium-card__head">
           <div class="text-xs font-bold uppercase tracking-[0.2em] text-muted">
             {{ freeTier.name }}
           </div>
@@ -444,24 +506,45 @@ function resetDefaults() {
         <button
           type="button"
           disabled
-          class="mt-8 w-full cursor-default rounded-xl bg-glass-1 py-3 text-sm font-bold uppercase tracking-wider text-fg-subtle"
+          class="mt-8 w-full rounded-xl py-3 text-sm font-bold uppercase tracking-wider"
+          :class="
+            currentPlan === 'free'
+              ? 'cursor-default bg-glass-1 text-fg-subtle'
+              : 'cursor-default bg-glass-1 text-fg-subtle opacity-60'
+          "
         >
-          Current Plan
+          {{ currentPlan === 'free' ? 'Current Plan' : 'Included' }}
         </button>
       </div>
 
       <!-- Echo+ -->
       <div
         class="premium-card premium-card--plus relative flex flex-col rounded-2xl p-6"
+        :class="{ 'premium-card--current': currentPlan === 'plus' }"
       >
-        <div v-if="plusTier.badge" class="premium-badge premium-badge--plus">
+        <div
+          v-if="plusTier.badge && currentPlan !== 'plus'"
+          class="premium-badge premium-badge--plus"
+        >
           {{ plusTier.badge }}
         </div>
-        <div>
-          <div
-            class="text-xs font-bold uppercase tracking-[0.2em] text-[color:var(--vc-settings-accent-fg)]"
-          >
-            {{ plusTier.name }}
+        <div class="premium-card__head">
+          <div class="flex items-center gap-3">
+            <img
+              :src="plusMarkUrl"
+              class="premium-card__mark h-10 w-10 shrink-0"
+              alt=""
+              width="40"
+              height="40"
+              decoding="async"
+              draggable="false"
+              aria-hidden="true"
+            />
+            <div
+              class="text-xs font-bold uppercase tracking-[0.2em] text-[color:var(--vc-settings-accent-fg)]"
+            >
+              {{ plusTier.name }}
+            </div>
           </div>
           <div class="mt-3 flex items-baseline gap-1">
             <span class="text-3xl font-extrabold text-foreground">
@@ -509,23 +592,48 @@ function resetDefaults() {
 
         <button
           type="button"
-          :disabled="echoPlusLocked"
-          class="premium-cta premium-cta--plus mt-8 w-full rounded-xl py-3 text-sm font-bold uppercase tracking-wider text-white"
-          :class="{ 'cursor-not-allowed opacity-55': echoPlusLocked }"
+          :disabled="echoPlusLocked || currentPlan === 'plus'"
+          class="mt-8 w-full rounded-xl py-3 text-sm font-bold uppercase tracking-wider"
+          :class="
+            currentPlan === 'plus'
+              ? 'cursor-default bg-glass-1 text-fg-subtle'
+              : echoPlusLocked
+                ? 'premium-cta premium-cta--plus cursor-not-allowed text-white opacity-55'
+                : 'premium-cta premium-cta--plus text-white'
+          "
         >
-          {{ echoPlusLocked ? 'Coming soon' : 'Upgrade to Echo+' }}
+          {{
+            currentPlan === 'plus'
+              ? 'Current Plan'
+              : echoPlusLocked
+                ? 'Coming soon'
+                : 'Upgrade to Echo+'
+          }}
         </button>
       </div>
 
       <!-- Echo Black -->
       <div
         class="premium-card premium-card--black relative flex flex-col rounded-2xl p-6"
+        :class="{ 'premium-card--current': currentPlan === 'black' }"
       >
-        <div>
-          <div
-            class="text-xs font-bold uppercase tracking-[0.2em] text-fg-soft"
-          >
-            {{ blackTier.name }}
+        <div class="premium-card__head">
+          <div class="flex items-center gap-3">
+            <img
+              :src="blackMarkUrl"
+              class="premium-card__mark h-10 w-10 shrink-0"
+              alt=""
+              width="40"
+              height="40"
+              decoding="async"
+              draggable="false"
+              aria-hidden="true"
+            />
+            <div
+              class="text-xs font-bold uppercase tracking-[0.2em] text-fg-soft"
+            >
+              {{ blackTier.name }}
+            </div>
           </div>
           <div class="mt-3 flex items-baseline gap-1">
             <span class="text-3xl font-extrabold text-foreground">
@@ -575,11 +683,23 @@ function resetDefaults() {
 
         <button
           type="button"
-          :disabled="echoPlusLocked"
-          class="premium-cta premium-cta--black mt-8 w-full rounded-xl py-3 text-sm font-bold uppercase tracking-wider text-black"
-          :class="{ 'cursor-not-allowed opacity-55': echoPlusLocked }"
+          :disabled="echoPlusLocked || currentPlan === 'black'"
+          class="mt-8 w-full rounded-xl py-3 text-sm font-bold uppercase tracking-wider"
+          :class="
+            currentPlan === 'black'
+              ? 'cursor-default bg-glass-1 text-fg-subtle'
+              : echoPlusLocked
+                ? 'premium-cta premium-cta--black cursor-not-allowed text-black opacity-55'
+                : 'premium-cta premium-cta--black text-black'
+          "
         >
-          {{ echoPlusLocked ? 'Coming soon' : 'Go Black' }}
+          {{
+            currentPlan === 'black'
+              ? 'Current Plan'
+              : echoPlusLocked
+                ? 'Coming soon'
+                : 'Go Black'
+          }}
         </button>
       </div>
     </div>
@@ -759,12 +879,34 @@ function resetDefaults() {
     v-else-if="activeSection === 'Subscriptions'"
     class="flex flex-col gap-4"
   >
+    <div
+      v-if="heroMarkUrl"
+      class="settings-card flex items-center gap-4 rounded-2xl p-5"
+    >
+      <img
+        :src="heroMarkUrl"
+        class="premium-hero__mark premium-hero__mark--active h-12 w-12 shrink-0"
+        :alt="currentPlan === 'black' ? 'Echo Black' : 'Echo+'"
+        width="48"
+        height="48"
+        decoding="async"
+        draggable="false"
+      />
+      <div>
+        <div class="settings-label">
+          {{ currentPlan === 'black' ? 'Echo Black' : 'Echo+' }}
+        </div>
+        <p class="mt-1 text-sm text-fg-soft">
+          Your subscription perks are active on this account.
+        </p>
+      </div>
+    </div>
     <div class="grid gap-4 lg:grid-cols-2">
       <div class="settings-card rounded-2xl p-5">
         <div class="settings-label">Subscription Timeline</div>
         <div class="mt-4 flex flex-col gap-3">
           <div
-            v-for="item in subscriptionTimeline"
+            v-for="item in activeSubscriptionTimeline"
             :key="item.label"
             class="settings-panel rounded-xl p-4"
           >
@@ -778,11 +920,11 @@ function resetDefaults() {
         </div>
       </div>
     </div>
-    <div class="settings-card rounded-2xl p-5">
+    <div v-if="activeInvoices.length" class="settings-card rounded-2xl p-5">
       <div class="settings-label">Invoices</div>
       <div class="mt-4 overflow-hidden rounded-xl border border-border">
         <div
-          v-for="invoice in invoices"
+          v-for="invoice in activeInvoices"
           :key="invoice.id"
           class="invoice-row grid grid-cols-[1.1fr_1fr_0.8fr_0.7fr] items-center gap-4 px-4 py-3 text-sm"
         >

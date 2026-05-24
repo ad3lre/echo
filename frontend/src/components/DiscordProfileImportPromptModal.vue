@@ -53,10 +53,10 @@ async function onImport() {
       class="w-full max-w-md rounded-2xl border border-border bg-[var(--echo-modal-bg)] p-6 text-white shadow-xl"
     >
       <h2 id="discord-import-prompt-title" class="text-lg font-semibold">
-        {{ discordProfileImportPromptTitle }}
+        {{ discordProfileImportPromptTitle() }}
       </h2>
       <p class="mt-2 text-sm leading-relaxed text-fg-soft">
-        {{ discordProfileImportPromptBody }}
+        {{ discordProfileImportPromptBody() }}
       </p>
       <p v-if="error" class="mt-3 text-sm text-red-400/90">{{ error }}</p>
       <div class="mt-6 flex flex-wrap justify-end gap-2">
@@ -66,7 +66,7 @@ async function onImport() {
           :disabled="busy"
           @click="dismiss"
         >
-          {{ discordProfileImportPromptNotNowCta }}
+          {{ discordProfileImportPromptNotNowCta() }}
         </button>
         <button
           type="button"
@@ -74,7 +74,7 @@ async function onImport() {
           :disabled="busy"
           @click="onImport"
         >
-          {{ busy ? 'Importing…' : discordProfileImportPromptImportCta }}
+          {{ busy ? 'Importing…' : discordProfileImportPromptImportCta() }}
         </button>
       </div>
     </div>

@@ -31,9 +31,11 @@ type ProfileSliceKeys =
   | 'openExpandedProfileFromMemberPopout'
   | 'openExpandedProfileFromSelfPopout'
   | 'openExpandedProfilePanelForUserId'
+  | 'openExtendedProfileModalForUserId'
   | 'expandDmProfileToFullModal'
   | 'openMemberProfile'
   | 'openMemberProfileFromMemberColumn'
+  | 'openProfileFromContextMenu'
   | 'openSelfProfile'
   | 'updateProfileNote'
   | 'isSystemSettingsOpen'
@@ -53,6 +55,7 @@ export function useAppLayoutContextProfileSlice(deps: {
   openExpandedProfileFromMemberPopout: AppLayoutControllerContext['openExpandedProfileFromMemberPopout'];
   openExpandedProfileFromSelfPopout: AppLayoutControllerContext['openExpandedProfileFromSelfPopout'];
   openExpandedProfilePanelForUserId: AppLayoutControllerContext['openExpandedProfilePanelForUserId'];
+  openExtendedProfileModalForUserId: AppLayoutControllerContext['openExtendedProfileModalForUserId'];
   expandDmProfileToFullModal: AppLayoutControllerContext['expandDmProfileToFullModal'];
   handleExpandedProfileOpenProfile: AppLayoutControllerContext['handleExpandedProfileOpenProfile'];
   handleExpandedProfileOpenDM: (
@@ -104,6 +107,7 @@ export function useAppLayoutContextProfileSlice(deps: {
       deps.openExpandedProfileFromMemberPopout,
     openExpandedProfileFromSelfPopout: deps.openExpandedProfileFromSelfPopout,
     openExpandedProfilePanelForUserId: deps.openExpandedProfilePanelForUserId,
+    openExtendedProfileModalForUserId: deps.openExtendedProfileModalForUserId,
     expandDmProfileToFullModal: deps.expandDmProfileToFullModal,
     handleExpandedProfileOpenProfile: deps.handleExpandedProfileOpenProfile,
     handleExpandedProfileOpenDM: (uid: string) => {
@@ -149,13 +153,33 @@ export function useAppLayoutContextProfileSlice(deps: {
       deps.memberPopoutOpenRolesPanel.value = false;
       deps.openMemberProfile(userId, anchorRect);
     },
+    openProfileFromContextMenu: (userId: string) => {
+      if (!userId?.trim()) return;
+      deps.memberPopoutOpenRolesPanel.value = false;
+      deps.handleExpandedProfileOpenProfile(userId, {
+        skipInteractionGuard: true,
+      });
+    },
     openMemberProfileFromMemberColumn: (p: {
       userId: string;
       anchorRect?: PopoutAnchorRect | null;
       rolesPanel?: boolean;
+      fromContextMenu?: boolean;
     }) => {
       if (!p?.userId) return;
-      deps.memberPopoutOpenRolesPanel.value = !!p.rolesPanel;
+      if (p.rolesPanel) {
+        deps.memberPopoutOpenRolesPanel.value = true;
+        deps.openMemberProfile(p.userId, p.anchorRect ?? null);
+        return;
+      }
+      if (p.fromContextMenu) {
+        deps.memberPopoutOpenRolesPanel.value = false;
+        deps.handleExpandedProfileOpenProfile(p.userId, {
+          skipInteractionGuard: true,
+        });
+        return;
+      }
+      deps.memberPopoutOpenRolesPanel.value = false;
       deps.openMemberProfile(p.userId, p.anchorRect ?? null);
     },
     handleExpandedProfileNoteFromLayout: (n: string) => {

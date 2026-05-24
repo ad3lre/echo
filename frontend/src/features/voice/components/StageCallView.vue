@@ -444,7 +444,7 @@ watch(
       <button
         v-if="onGoToVoiceChannelInSidebar"
         type="button"
-        class="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-[15px] font-semibold text-white transition hover:underline"
+        class="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-[15px] font-semibold text-foreground transition hover:underline"
         :title="`${channelName} — Go to channel`"
         @click="onGoToVoiceChannelInSidebar()"
       >
@@ -452,7 +452,7 @@ watch(
       </button>
       <span
         v-else
-        class="min-w-0 flex-1 truncate text-[15px] font-semibold text-white"
+        class="min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground"
         >{{ channelName }}</span
       >
       <span
@@ -474,15 +474,12 @@ watch(
       </span>
     </div>
 
-    <div
-      class="stage-call-youtube-header shrink-0 border-b border-border bg-[#0b0a10]/80 px-3 py-2 md:px-4"
-    >
-      <StageYoutubeLiveBar
-        :echo-server-id="echoServerId"
-        :stage-channel-id="stageChannelId"
-        :can-manage="canManageStageYoutube"
-      />
-    </div>
+    <StageYoutubeLiveBar
+      :echo-server-id="echoServerId"
+      :stage-channel-id="stageChannelId"
+      :can-manage="canManageStageYoutube"
+      call-view-header
+    />
 
     <div
       class="stage-call-body custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto"
@@ -525,7 +522,7 @@ watch(
         class="stage-requests-queue shrink-0 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2"
       >
         <p
-          class="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-200/90"
+          class="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-200/90"
         >
           Requests to speak
         </p>
@@ -584,7 +581,7 @@ watch(
       />
 
       <div
-        class="stage-broadcast flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-[#0b0a10]"
+        class="stage-broadcast flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-[var(--surface)]"
       >
         <div
           v-if="participants.length === 0"
@@ -803,7 +800,7 @@ watch(
               >
               <span
                 v-if="p.muted"
-                class="absolute -bottom-0.5 -right-0.5 rounded-full bg-black/70 p-0.5"
+                class="absolute -bottom-0.5 -right-0.5 rounded-full bg-scrim-2 p-0.5"
               >
                 <img :src="icons.mic" alt="" class="h-2.5 w-2.5 opacity-70" />
               </span>
@@ -858,7 +855,7 @@ watch(
         <button
           v-if="vcModAllowed(vcModerationTarget.id, 'serverMute')"
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-200 hover:bg-red-500/15"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-500/15 dark:text-red-200"
           @click="emitVcModerate('serverMute', vcModerationTarget.id)"
         >
           {{ vcModerationTarget.serverMuted ? 'Unmute' : 'Mute' }}
@@ -869,7 +866,7 @@ watch(
             vcModAllowed(vcModerationTarget.id, 'stopCamera')
           "
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-200 hover:bg-red-500/15"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-500/15 dark:text-red-200"
           @click="emitVcModerate('stopCamera', vcModerationTarget.id)"
         >
           Turn off camera
@@ -880,7 +877,7 @@ watch(
             vcModAllowed(vcModerationTarget.id, 'stopScreenShare')
           "
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-200 hover:bg-red-500/15"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-500/15 dark:text-red-200"
           @click="emitVcModerate('stopScreenShare', vcModerationTarget.id)"
         >
           Stop screen share
@@ -888,7 +885,7 @@ watch(
         <button
           v-if="vcModAllowed(vcModerationTarget.id, 'disconnect')"
           type="button"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-200 hover:bg-red-500/15"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-500/15 dark:text-red-200"
           @click="emitVcModerate('disconnect', vcModerationTarget.id)"
         >
           Disconnect
@@ -907,6 +904,7 @@ watch(
 
 .stage-broadcast {
   min-height: min(42dvh, 360px);
+  background: color-mix(in srgb, var(--surface) 88%, #0b0a10);
 }
 
 .stage-speaker-grid {
@@ -1117,10 +1115,48 @@ watch(
 }
 
 [data-theme='light'] .stage-broadcast {
-  background: color-mix(in srgb, var(--surface) 92%, #0b0a10);
+  background: color-mix(in srgb, var(--surface) 96%, #dce3ef);
 }
 
 [data-theme='light'] .stage-tile {
   border-color: color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--elevated) 90%, transparent);
+}
+
+[data-theme='light'] .stage-tile::after {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.12) 40%,
+    rgba(0, 0, 0, 0.5) 75%,
+    rgba(0, 0, 0, 0.72) 100%
+  );
+}
+
+[data-theme='light'] .stage-tile-badge--you {
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+[data-theme='light'] .stage-tile-badge--speaker {
+  color: #047857;
+  background: color-mix(in srgb, #10b981 18%, transparent);
+}
+
+[data-theme='light'] .stage-avatar-speaking-ring {
+  --ring-color: #248045;
+  box-shadow:
+    0 0 0 3px
+      color-mix(
+        in srgb,
+        #248045 calc(var(--speak-strength, 0.4) * 100%),
+        transparent
+      ),
+    0 0 calc(8px + var(--speak-strength, 0.4) * 14px) rgba(36, 128, 69, 0.4);
+}
+
+[data-theme='light'] .stage-requests-queue {
+  border-color: color-mix(in srgb, #d97706 35%, transparent);
+  background: color-mix(in srgb, #fbbf24 12%, transparent);
 }
 </style>

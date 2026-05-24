@@ -4,6 +4,7 @@ import { messageWindowAuthority } from '@/services/realtime/messageWindowAuthori
 import {
   applyEchoChannelClientCap as applyEchoChannelClientCapFromAuthority,
   appendChannelMessagesFromHistory,
+  ensureChannelBucket,
   prependChannelMessagesFromHistory,
   replaceChannelMessagesFromHistory,
 } from '@/services/realtime/channelMessageAuthority';
@@ -27,13 +28,18 @@ export function applyEchoHistoryChannelClientCap(
   return r.applied;
 }
 
-/** Session-cached messages for instant channel switch — same cap / hasMoreOlder rules as history load. */
+/**
+ * Channel switch with messages already in memory — refresh the active window and caps
+ * without replacing history (replace would risk dropping rows newer than the bucket copy).
+ */
 export function applyEchoHistorySeedFromCachedMessages(
   channelId: string,
-  cached: RawMessage[],
+  _cached: RawMessage[],
   activeChannelIdForCap: string,
 ): void {
-  replaceChannelMessagesFromHistory(channelId, cached);
+  ensureChannelBucket(channelId);
+  messageWindowAuthority.getIndex(channelId);
+  messageWindowAuthority.refreshActiveWindow();
   if (!applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap)) {
     // Partial buckets (e.g. only messages received over the socket) are often
     // shorter than one history page; we must not set `hasMoreOlder` false or

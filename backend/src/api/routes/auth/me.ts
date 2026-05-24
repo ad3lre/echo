@@ -19,6 +19,24 @@ import { buildEchoPlanLimitsPublic } from '../../../domain/echoPlanEntitlements'
 import { validateEchoStoredBrandingUrl } from '../../../services/storedMediaUrl';
 import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSessionRevocation';
 import { normalizeProfileBannerColor } from '../../../../../shared/profileBannerColor';
+import { publicBadgesFromAccount } from '../../../../../shared/echoAccountBadges';
+import type { AuthUser } from '../../../auth/types';
+
+function mergeMeBadgesForPlan(
+  user: AuthUser,
+  echoPlan: AuthUser['echoPlan'],
+): AuthUser['badges'] | undefined {
+  const hadOg = user.badges?.includes('og');
+  const merged = publicBadgesFromAccount(
+    hadOg ? 1 : null,
+    {
+      isGuest: user.isGuest,
+      isDiscordShadow: user.isDiscordShadow,
+    },
+    echoPlan,
+  );
+  return merged.length ? merged : undefined;
+}
 
 export default async function meRoutes(fastify: FastifyInstance) {
   await fastify.register(async (smsScope) => {
@@ -224,12 +242,15 @@ export default async function meRoutes(fastify: FastifyInstance) {
       if (pool) {
         try {
           planLimits = await buildEchoPlanLimitsPublic(pool, req.authUser.id);
+          const badges = mergeMeBadgesForPlan(req.authUser, planLimits.plan);
           userOut = {
             ...req.authUser,
             echoPlan: planLimits.plan,
             hasActiveSubscription:
               planLimits.plan === 'plus' || planLimits.plan === 'black',
+            ...(badges?.length ? { badges } : {}),
           };
+          if (!badges?.length) delete userOut.badges;
         } catch (err) {
           fastify.log.warn({ err }, 'echo_plan_limits_me_failed');
         }
@@ -274,6 +295,12 @@ export default async function meRoutes(fastify: FastifyInstance) {
             timeZone: {
               anyOf: [
                 { type: 'string', minLength: 1, maxLength: 64 },
+                { type: 'null' },
+              ],
+            },
+            locale: {
+              anyOf: [
+                { type: 'string', minLength: 2, maxLength: 16 },
                 { type: 'null' },
               ],
             },
@@ -375,6 +402,10 @@ export default async function meRoutes(fastify: FastifyInstance) {
       if (req.body.timeZone !== undefined) {
         patch.timeZone =
           req.body.timeZone === null ? null : String(req.body.timeZone).trim();
+      }
+      if (req.body.locale !== undefined) {
+        patch.locale =
+          req.body.locale === null ? null : String(req.body.locale).trim();
       }
 
       if (patch.displayName !== undefined && !patch.displayName) {

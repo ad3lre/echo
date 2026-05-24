@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { _resetAllIndexesForTesting } from '@/features/chat/domain/channelMessageIndex';
 import { ingestEchoRealtimeIncomingChatMessage } from '../socketIncomingLiveMessage';
 
 describe('ingestEchoRealtimeIncomingChatMessage', () => {
+  beforeEach(() => {
+    _resetAllIndexesForTesting();
+  });
   it('appends mapped message and dispatches notify when id is new', () => {
     const notifyIncomingChatMessage = vi.fn();
     const applyAuthorHint = vi.fn();

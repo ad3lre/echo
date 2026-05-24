@@ -1,4 +1,5 @@
 import type { ApiErrorBody } from '@shared/types/api';
+import { translateApiErrorBody } from '@/i18n/apiErrors';
 import type { EchoPlanLimitsPublic } from '@shared/echoPlanLimits';
 import { API_BASE, IS_ECHO_TAURI_SHELL } from '@/config';
 import {
@@ -71,6 +72,8 @@ export type AuthUserPublic = {
   showLastOnline?: boolean;
   /** IANA timezone id (server-persisted; used for Magic Time). */
   timeZone?: string | null;
+  /** BCP-47 UI locale (server-persisted). */
+  locale?: string | null;
 };
 
 export class AuthApiError extends Error {
@@ -79,8 +82,8 @@ export class AuthApiError extends Error {
     public readonly body: ApiErrorBody,
   ) {
     const msg = body.detail
-      ? `${body.message || body.code || 'Request failed'} (${body.detail})`
-      : body.message || body.code || 'Request failed';
+      ? `${translateApiErrorBody(body)} (${body.detail})`
+      : translateApiErrorBody(body);
     super(msg);
     this.name = 'AuthApiError';
   }
@@ -1307,6 +1310,8 @@ export type AuthPatchMeBody = Partial<{
   showLastOnline: boolean;
   /** IANA timezone id for Magic Time. */
   timeZone: string | null;
+  /** BCP-47 UI locale. */
+  locale: string | null;
 }>;
 
 export async function authPatchMe(

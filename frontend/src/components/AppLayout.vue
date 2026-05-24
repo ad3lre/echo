@@ -95,12 +95,6 @@ import {
   getEchoOutageRecoveryEstimate,
   recordEchoOutageRecoveryDuration,
 } from '@/utils/echoOutageRecoveryStats';
-import {
-  fetchPublicDeployAnnouncement,
-  markDeployWelcomeBackPending,
-  readDeployAnnouncement,
-} from '@/utils/deployAnnouncement';
-import { deployCountdownActive } from '@/utils/deployCountdownOverlay';
 import { CHAT_MESSAGE_NAV_BRIDGE_KEY } from '@/features/navigation/chatMessageNavBridge';
 import { subscribeUIErrors, type UIErrorSeverity } from '@/utils/uiErrorBus';
 import {
@@ -594,6 +588,7 @@ const {
   openExpandedProfileFromMemberPopout,
   openExpandedProfileFromSelfPopout,
   openExpandedProfilePanelForUserId,
+  openExtendedProfileModalForUserId,
   openGroupDMModal,
   openGroupOverviewPanel,
   openDmInboxFromRailOverflow,
@@ -601,6 +596,7 @@ const {
   openGroupSettingsFromHeader,
   openMemberProfile,
   openMemberProfileFromMemberColumn,
+  openProfileFromContextMenu,
   openSelfProfile,
   openServerFromMore,
   openServerSurface,
@@ -1671,6 +1667,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   isGroupOverviewOpen,
   dmPartnerUser,
   openExpandedProfilePanelForUserId,
+  openExtendedProfileModalForUserId,
   handleExpandedProfileOpenProfile,
   isGroupDM,
   activeGroupDM,
@@ -1805,6 +1802,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   },
   focusGuildVoiceChannelInSidebar,
   openMemberProfile,
+  openProfileFromContextMenu,
   canModerateAuthor: canModerateMessageAuthor,
   handleModerateUser,
   isDMPanelOpen,
@@ -2605,24 +2603,11 @@ const serverDownGateDetail = computed(() => {
   return u || `Primary flow error — ${d.flow}: ${d.message}`;
 });
 
-const deployOutageAnnouncement = ref<string | null>(readDeployAnnouncement());
-
-watch(
-  deployCountdownActive,
-  (payload) => {
-    if (payload?.message?.trim()) {
-      deployOutageAnnouncement.value = payload.message.trim();
-    }
-  },
-  { immediate: true },
-);
-
 const serverDownGateBind = computed(() => ({
   checking: serverHealthChecking.value,
   outageSinceMs: serverHealthOutageSinceMs.value,
   lastCheckedAtMs: serverHealthLastCheckedAtMs.value,
   detail: serverDownGateDetail.value,
-  announcement: deployOutageAnnouncement.value,
   averageRecoverySeconds: serverHealthAvgRecoveryEstimateSec.value,
   recoverySampleCount: serverHealthAvgRecoverySampleCount.value,
 }));
@@ -2638,17 +2623,9 @@ const showServerDownGate = computed(
     serverHealthDown.value,
 );
 
-watch(showServerDownGate, (on) => {
-  if (!on || deployOutageAnnouncement.value) return;
-  void fetchPublicDeployAnnouncement().then((msg) => {
-    if (msg) deployOutageAnnouncement.value = msg;
-  });
-});
-
 function triggerServerRecoveryReload() {
   if (serverHealthRecoveringReload.value) return;
   serverHealthRecoveringReload.value = true;
-  markDeployWelcomeBackPending();
   // Throttle reloads to once per 30 s to avoid a reload loop when the service is flapping.
   try {
     const now = Date.now();
@@ -3568,6 +3545,7 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   getVcChannelActivityPresence: getVcChannelActivityPresenceForChannel,
   vcActivityKingUserId: effectiveVcActivityKingUserId,
   openMemberProfile,
+  openProfileFromContextMenu,
   activeMemberProfileId: computed(() => activeMemberProfile.value?.id ?? null),
   guildVcMuted: channelPanelVcMutedEffective,
   guildVcDeafened: channelPanelVcDeafenedEffective,

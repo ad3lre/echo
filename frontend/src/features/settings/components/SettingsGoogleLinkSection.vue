@@ -68,7 +68,7 @@ const displayInitial = computed(() => {
         class="max-w-3xl space-y-2 text-sm text-muted"
       >
         <p class="leading-relaxed">
-          {{ googleOAuthCallbackUrlIntro }}
+          {{ googleOAuthCallbackUrlIntro() }}
           <code
             class="mt-2 block break-all rounded-xl bg-scrim-1 px-3 py-2.5 font-mono text-[11px] leading-snug text-foreground/90"
             >{{ lastOAuthRedirectUri }}</code
@@ -101,7 +101,7 @@ const displayInitial = computed(() => {
                 <span
                   class="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/85"
                 >
-                  {{ googleSettingsSectionTitle }}
+                  {{ googleSettingsSectionTitle() }}
                 </span>
                 <h4 class="mt-1 text-2xl font-bold text-foreground">
                   {{ state.profile.name || 'Google account' }}
@@ -144,7 +144,7 @@ const displayInitial = computed(() => {
             }}
           </p>
           <p class="mt-4 max-w-2xl text-sm leading-relaxed text-muted">
-            {{ googleYoutubeRequiresLinkHint }}
+            {{ googleYoutubeRequiresLinkHint() }}
           </p>
 
           <div class="mt-8 flex flex-wrap gap-3">
@@ -154,7 +154,7 @@ const displayInitial = computed(() => {
               :disabled="connectBusy"
               @click="onConnect"
             >
-              {{ googleReconnectCta }}
+              {{ googleReconnectCta() }}
             </button>
             <button
               type="button"
@@ -162,7 +162,7 @@ const displayInitial = computed(() => {
               :disabled="disconnectBusy"
               @click="onDisconnect"
             >
-              {{ googleDisconnectCta }}
+              {{ googleDisconnectCta() }}
             </button>
           </div>
         </div>
@@ -210,7 +210,7 @@ const displayInitial = computed(() => {
             :disabled="connectBusy"
             @click="onConnect"
           >
-            {{ connectBusy ? 'Opening Google…' : googleConnectCta }}
+            {{ connectBusy ? 'Opening Google…' : googleConnectCta() }}
           </button>
         </div>
       </template>

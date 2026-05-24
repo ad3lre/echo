@@ -6,6 +6,7 @@ export type EchoDiscordBridgeState = {
   inboundEnabled: boolean;
   outboundEnabled: boolean;
   hasWebhook: boolean;
+  hasBridge?: boolean;
 };
 
 export type EchoDiscordBridgeGuildOption = {
@@ -72,6 +73,20 @@ export async function putEchoDiscordBridge(
   );
 }
 
+export async function deleteEchoDiscordBridge(
+  token: string,
+  serverId: string,
+  channelId: string,
+): Promise<EchoDiscordBridgeState> {
+  return echoFetch(
+    token,
+    `/servers/${encodeURIComponent(serverId)}/channels/${encodeURIComponent(channelId)}/discord-bridge`,
+    {
+      method: 'DELETE',
+    },
+  );
+}
+
 export async function getEchoDiscordBridgeGuilds(
   token: string,
   serverId: string,
@@ -116,6 +131,21 @@ export async function postEchoDiscordBridgeCategoryBulkApply(
     {
       method: 'POST',
       body: JSON.stringify(body),
+    },
+  );
+}
+
+/** Remove Discord bridge rows for every text/forum channel in a category. */
+export async function postEchoDiscordBridgeCategoryBulkClear(
+  token: string,
+  serverId: string,
+  categoryId: string,
+): Promise<EchoDiscordBridgeCategoryBulkResult> {
+  return echoFetch(
+    token,
+    `/servers/${encodeURIComponent(serverId)}/categories/${encodeURIComponent(categoryId)}/discord-bridge/bulk-clear`,
+    {
+      method: 'POST',
     },
   );
 }

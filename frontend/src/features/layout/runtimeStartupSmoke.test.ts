@@ -122,6 +122,7 @@ describe('runtime startup smoke', () => {
       dmPartnerUser: null,
       presenceByUserId: {},
       openExpandedProfilePanelForUserId: () => {},
+      openExtendedProfileModalForUserId: () => {},
       isGroupDM: false,
       activeGroupDM: null,
       icons: {},

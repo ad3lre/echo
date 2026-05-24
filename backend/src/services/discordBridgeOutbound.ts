@@ -1,6 +1,7 @@
 import type pg from 'pg';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Message } from '../../../shared/types';
+import { ECHO_DISCORD_BRIDGE_SYNC_NOTICE_BRIDGE_SOURCE } from '../domain/echoChannelWebhookConstants';
 import {
   getDiscordBridgeForEchoChannel,
   normalizeDiscordWebhookUrl,
@@ -20,6 +21,9 @@ export async function mirrorEchoMessageToDiscordIfConfigured(
   const bridge = await getDiscordBridgeForEchoChannel(pool, channelId);
   if (!bridge?.outboundEnabled || !bridge.discordWebhookUrl) return;
   if (message.bridgeSource === 'echo_webhook') return;
+  if (message.bridgeSource === ECHO_DISCORD_BRIDGE_SYNC_NOTICE_BRIDGE_SOURCE) {
+    return;
+  }
 
   const url = normalizeDiscordWebhookUrl(bridge.discordWebhookUrl);
   if (!url) {

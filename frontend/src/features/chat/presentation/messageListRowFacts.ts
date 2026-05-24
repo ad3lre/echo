@@ -1,3 +1,5 @@
+import { echoT } from '@/i18n';
+import { loadTimeLanguagePreferences } from '@/features/settings/timeLanguagePreferences';
 import type { MessageWithAuthor } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { fingerprintMessageReactions } from '@/features/chat/viewModel/messageWithAuthor';
@@ -86,17 +88,17 @@ export function formatMessageListDaySeparatorLabel(
   if (!msgKey) return '';
   const now = new Date();
   const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-  if (msgKey === todayKey) return 'Today';
+  if (msgKey === todayKey) return echoT('time.today');
   const y = new Date(now.getTime() - 864e5);
   const yesterdayKey = `${y.getFullYear()}-${y.getMonth()}-${y.getDate()}`;
-  if (msgKey === yesterdayKey) return 'Yesterday';
+  if (msgKey === yesterdayKey) return echoT('time.yesterday');
   const hit = daySeparatorLongLabelByDayKey.get(msgKey);
   if (hit !== undefined) return hit;
   if (daySeparatorLongLabelByDayKey.size >= DAY_SEPARATOR_LONG_LABEL_MAX) {
     const oldest = daySeparatorLongLabelByDayKey.keys().next().value;
     if (oldest !== undefined) daySeparatorLongLabelByDayKey.delete(oldest);
   }
-  const formatted = d.toLocaleDateString(undefined, {
+  const formatted = d.toLocaleDateString(loadTimeLanguagePreferences().locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',

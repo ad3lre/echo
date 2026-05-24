@@ -2,7 +2,10 @@
 import { computed, ref } from 'vue';
 import { icons } from '@/assets/icons';
 import { useAuthSessionStore } from '@/stores/authSession';
-import { postEchoDiscordBridgeCategoryBulkApply } from '@/api/echo/discordBridge';
+import {
+  postEchoDiscordBridgeCategoryBulkApply,
+  postEchoDiscordBridgeCategoryBulkClear,
+} from '@/api/echo/discordBridge';
 
 const props = defineProps<{
   serverId: string;
@@ -16,6 +19,7 @@ const authSession = useAuthSessionStore();
 const inboundEnabled = ref(false);
 const outboundEnabled = ref(false);
 const applying = ref(false);
+const clearing = ref(false);
 const error = ref('');
 const lastSummary = ref('');
 
@@ -76,6 +80,58 @@ async function applyToCategory() {
       e instanceof Error ? e.message : 'Could not apply Discord sync.';
   } finally {
     applying.value = false;
+  }
+}
+
+async function clearCategorySync() {
+  if (!canUse.value || !props.serverId || !props.categoryId) return;
+  if (bridgeableCount.value === 0) return;
+  const ok = window.confirm(
+    `Clear Discord sync for all ${bridgeableCount.value} text/forum channel${bridgeableCount.value === 1 ? '' : 's'} in this category?`,
+  );
+  if (!ok) return;
+  const token = authSession.accessToken?.trim() ?? '';
+  clearing.value = true;
+  error.value = '';
+  lastSummary.value = '';
+  try {
+    const res = await postEchoDiscordBridgeCategoryBulkClear(
+      token,
+      props.serverId,
+      props.categoryId,
+    );
+    const parts: string[] = [];
+    if (res.applied > 0) {
+      parts.push(
+        `${res.applied} channel${res.applied === 1 ? '' : 's'} cleared`,
+      );
+    }
+    if (res.skipped > 0) {
+      parts.push(`${res.skipped} skipped (no permission on those channels)`);
+    }
+    if (res.failed > 0) {
+      parts.push(`${res.failed} failed`);
+    }
+    lastSummary.value =
+      parts.join(' · ') ||
+      (bridgeableCount.value === 0
+        ? 'No text or forum channels in this category.'
+        : 'Nothing to clear.');
+    if (res.failures.length > 0) {
+      const detail = res.failures
+        .slice(0, 4)
+        .map((f) => f.message)
+        .join('; ');
+      error.value =
+        res.failures.length > 4
+          ? `${detail}; …`
+          : detail || 'Some channels could not be cleared.';
+    }
+  } catch (e) {
+    error.value =
+      e instanceof Error ? e.message : 'Could not clear Discord sync.';
+  } finally {
+    clearing.value = false;
   }
 }
 </script>
@@ -142,18 +198,31 @@ async function applyToCategory() {
         </div>
 
         <p class="text-[11px] text-fg-subtle">
-          Turning both off clears bridge rows only when no webhook is stored
-          (same as single-channel sync). Channels you cannot manage are skipped.
+          Turning both off and saving clears sync only when no webhook is
+          stored. Use
+          <strong class="font-semibold text-fg-soft">Clear sync</strong> to
+          remove bridge rows and webhooks. Channels you cannot manage are
+          skipped.
         </p>
 
-        <button
-          type="button"
-          class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
-          :disabled="applying || bridgeableCount === 0"
-          @click="applyToCategory"
-        >
-          {{ applying ? 'Applying…' : 'Sync all channels in category' }}
-        </button>
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+            :disabled="applying || clearing || bridgeableCount === 0"
+            @click="applyToCategory"
+          >
+            {{ applying ? 'Applying…' : 'Sync all channels in category' }}
+          </button>
+          <button
+            type="button"
+            class="echo-destructive-action rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
+            :disabled="applying || clearing || bridgeableCount === 0"
+            @click="clearCategorySync"
+          >
+            {{ clearing ? 'Clearing…' : 'Clear sync in category' }}
+          </button>
+        </div>
 
         <div v-if="lastSummary" class="text-sm text-fg-soft">
           {{ lastSummary }}

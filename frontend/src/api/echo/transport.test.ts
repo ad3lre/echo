@@ -1,4 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
+import { echoT, initEchoI18n } from '@/i18n';
 import * as echoMode from '@/echoMode';
 import * as authClient from '@/api/authClient';
 import * as authSessionStore from '@/stores/authSession';
@@ -16,6 +25,10 @@ describe('trimEchoPathSegment', () => {
 });
 
 describe('EchoApiError message fallback', () => {
+  beforeAll(async () => {
+    await initEchoI18n('en-US');
+  });
+
   it('uses HTTP status when body has no message/code (HTTP/2 statusText empty)', () => {
     const err = new EchoApiError(503, { code: 'UNKNOWN', message: '' });
     expect(err.message).toBe('HTTP 503');
@@ -37,9 +50,9 @@ describe('EchoApiError message fallback', () => {
     expect(err.message).toBe('Slow down');
   });
 
-  it('prefers a real (non-UNKNOWN) code over the HTTP fallback', () => {
+  it('falls back to generic copy when code has no i18n entry', () => {
     const err = new EchoApiError(403, { code: 'CSRF_REQUIRED', message: '' });
-    expect(err.message).toBe('CSRF_REQUIRED');
+    expect(err.message).toBe(echoT('errors.api.unknown'));
   });
 
   it('appends detail when present', () => {
@@ -48,7 +61,7 @@ describe('EchoApiError message fallback', () => {
       message: 'Bad input',
       detail: 'peerUserId required',
     });
-    expect(err.message).toBe('Bad input (peerUserId required)');
+    expect(err.message).toBe('Invalid request. (peerUserId required)');
   });
 });
 

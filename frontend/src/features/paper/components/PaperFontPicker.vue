@@ -3,15 +3,18 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import {
   PAPER_FONT_CATALOG,
   paperFontFamilyCss,
+  paperFontHolderBindings,
   paperFontIdFromFamily,
   type PaperFontDefinition,
 } from '@/features/paper/editor/paperTypography';
 import { ensurePaperFontLoaded } from '@/features/paper/editor/paperFontLoader';
+import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
 
 const props = defineProps<{
   modelValue: string;
   mixed?: boolean;
   documentDefaultFamily?: string;
+  paperAppearance?: PaperAppearanceMode;
 }>();
 
 const emit = defineEmits<{
@@ -28,15 +31,43 @@ const selectedId = computed(() =>
   props.mixed ? '' : paperFontIdFromFamily(props.modelValue),
 );
 
+const triggerFont = computed(() =>
+  props.mixed
+    ? null
+    : (PAPER_FONT_CATALOG.find((f) => f.id === selectedId.value) ?? null),
+);
+
+const triggerBindings = computed(() => {
+  if (props.mixed) {
+    return {
+      attributes: { 'data-font-mixed': 'true' as const },
+      style: { fontFamily: paperFontFamilyCss(props.modelValue) },
+    };
+  }
+  if (triggerFont.value) return paperFontHolderBindings(triggerFont.value);
+  return {
+    attributes: {
+      'data-font-family': props.modelValue,
+    },
+    style: { fontFamily: paperFontFamilyCss(props.modelValue) },
+  };
+});
+
+function preloadFilteredFonts() {
+  for (const font of filtered.value) {
+    void ensurePaperFontLoaded(font.id);
+  }
+}
+
 const triggerLabel = computed(() => {
   if (props.mixed) return 'Mixed';
-  const hit = PAPER_FONT_CATALOG.find((f) => f.id === selectedId.value);
-  return hit?.label ?? 'Font';
+  return triggerFont.value?.label ?? 'Font';
 });
 
 const categories: { id: PaperFontDefinition['category']; label: string }[] = [
   { id: 'sans', label: 'Sans serif' },
   { id: 'serif', label: 'Serif' },
+  { id: 'devanagari', label: 'Devanagari' },
   { id: 'display', label: 'Display' },
   { id: 'script', label: 'Script' },
   { id: 'mono', label: 'Mono' },
@@ -87,16 +118,19 @@ function onDocumentPointerDown(ev: PointerEvent) {
 function pick(font: PaperFontDefinition) {
   void ensurePaperFontLoaded(font.id);
   emit('update:modelValue', font.id);
-  close();
 }
 
 function useDocumentDefault() {
   emit('clear');
-  close();
 }
+
+watch(query, () => {
+  if (open.value) preloadFilteredFonts();
+});
 
 watch(open, (isOpen) => {
   if (isOpen) {
+    preloadFilteredFonts();
     void positionPanel();
     document.addEventListener('pointerdown', onDocumentPointerDown);
     window.addEventListener('resize', positionPanel);
@@ -122,7 +156,7 @@ onUnmounted(() => {
     <button
       type="button"
       class="paper-font-picker-trigger"
-      :title="`Font: ${triggerLabel}`"
+      :title="`Font: ${triggerLabel} · Shift+←→`"
       aria-haspopup="listbox"
       :aria-expanded="open"
       @mousedown.prevent
@@ -130,7 +164,8 @@ onUnmounted(() => {
     >
       <span
         class="max-w-[5.5rem] truncate"
-        :style="{ fontFamily: paperFontFamilyCss(modelValue) }"
+        v-bind="triggerBindings.attributes"
+        :style="triggerBindings.style"
       >
         {{ triggerLabel }}
       </span>
@@ -148,7 +183,8 @@ onUnmounted(() => {
       <div
         v-if="open && panelStyle"
         id="paper-font-picker-panel"
-        class="paper-font-picker-panel paper-font-picker-panel--teleport"
+        class="paper-font-picker-panel paper-font-picker-panel--teleport paper-teleport-surface"
+        :data-paper-appearance="paperAppearance ?? 'light'"
         :style="panelStyle"
         role="listbox"
         @click.stop
@@ -179,7 +215,10 @@ onUnmounted(() => {
               :class="{
                 'paper-font-picker-row--active': font.id === selectedId,
               }"
+              v-bind="font.attributes"
               :style="{ fontFamily: font.family }"
+              role="option"
+              :aria-selected="font.id === selectedId"
               @click.stop="pick(font)"
             >
               {{ font.label }}
@@ -209,13 +248,14 @@ onUnmounted(() => {
 }
 
 .paper-font-picker-panel {
-  max-height: 16rem;
+  max-height: min(24rem, 70vh);
   overflow-y: auto;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: var(--bg-elevated, var(--bg));
+  background: var(--elevated);
+  color: var(--text);
   padding: 0.35rem 0;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--paper-dropdown-shadow);
 }
 
 .paper-font-picker-search {
@@ -223,9 +263,14 @@ onUnmounted(() => {
   width: calc(100% - 1rem);
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--ui-glass-2);
+  color: var(--text);
   padding: 0.35rem 0.5rem;
   font-size: 0.75rem;
+}
+
+.paper-font-picker-search::placeholder {
+  color: var(--muted);
 }
 
 .paper-font-picker-cat {
@@ -243,6 +288,7 @@ onUnmounted(() => {
   padding: 0.35rem 0.75rem;
   text-align: left;
   font-size: 0.8125rem;
+  color: var(--text);
 }
 
 .paper-font-picker-row:hover {

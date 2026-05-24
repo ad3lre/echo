@@ -12,9 +12,6 @@ import { ENABLE_NUMBERED_ICON_RENAME_TOOL } from '@/dev/echoDevTools';
 import AppLayoutLoadError from '@/components/AppLayoutLoadError.vue';
 import AppLayoutSplash from '@/components/AppLayoutSplash.vue';
 import EchoHoverHintsHost from '@/components/EchoHoverHintsHost.vue';
-import DeployCountdownOverlay from '@/components/DeployCountdownOverlay.vue';
-import DeployWelcomeBackBanner from '@/components/DeployWelcomeBackBanner.vue';
-import { consumeDeployWelcomeBack } from '@/utils/deployAnnouncement';
 import { APP_LAYOUT_LOAD_TIMEOUT_MS } from '@/config/appLoadUi';
 import {
   normalizePathname,
@@ -86,7 +83,6 @@ const PaperPublicShareView = defineAsyncComponent({
 const authShell = ref<null | 'reset' | 'forgot'>(null);
 const legalDocId = ref<LegalDocTabId | null>(null);
 const paperPublicToken = ref<string | null>(null);
-const deployWelcomeBackMessage = ref<string | null>(null);
 
 function authShellFromLocation(): null | 'reset' | 'forgot' {
   if (typeof window === 'undefined') return null;
@@ -126,7 +122,6 @@ function syncShellRoute() {
 }
 
 onMounted(() => {
-  deployWelcomeBackMessage.value = consumeDeployWelcomeBack();
   syncShellRoute();
   window.addEventListener('popstate', syncShellRoute);
 });
@@ -144,12 +139,6 @@ function onAuthShellDone() {
 </script>
 
 <template>
-  <DeployCountdownOverlay />
-  <DeployWelcomeBackBanner
-    v-if="deployWelcomeBackMessage"
-    :message="deployWelcomeBackMessage"
-    @dismiss="deployWelcomeBackMessage = null"
-  />
   <EchoHoverHintsHost />
   <ResetPasswordView v-if="authShell === 'reset'" @done="onAuthShellDone" />
   <ForgotPasswordView

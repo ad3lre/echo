@@ -1,9 +1,3 @@
-export type E2eeMode = 'e2ee_v1';
-
-export type E2eeThreadState =
-  | { enabled: false }
-  | { enabled: true; mode: string; keyEpoch: number; enabledAt: string };
-
 export type E2eeOutboundEncryption = {
   kind: 'e2ee';
   version: 1 | 2;

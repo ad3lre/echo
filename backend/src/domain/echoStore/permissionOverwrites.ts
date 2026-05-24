@@ -368,10 +368,10 @@ export type PatchEchoChannelInput = {
   /** 0-based index within the target category bucket (or root) after the move / reorder. */
   siblingIndex?: number;
   /**
-   * When moving from a category to uncategorized: `sync` copies category permission overwrite rows
-   * onto the channel; `keep` leaves channel overwrites unchanged.
-   * When moving between two categories: `sync` replaces channel overwrite rows with copies of the
-   * destination category’s rows; `keep` leaves channel overwrite rows unchanged.
+   * When moving from a category to uncategorized: `sync` snapshots the source category’s
+   * permission overwrite rows onto the channel; `keep` leaves channel overwrites unchanged.
+   * When moving between two categories: `sync` clears channel overwrite rows so the channel
+   * inherits from the destination category; `keep` leaves channel overwrite rows unchanged.
    */
   moveOutOfCategoryPermission?: 'sync' | 'keep';
   slowmodeSeconds?: number;

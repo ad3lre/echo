@@ -323,11 +323,17 @@ export default async function echoDiscordImportRoutes(
       }
 
       try {
-        const result = await runDiscordImportPostSetup(pool, sid, actorId, {
-          syncAllChannels,
-          importRecentMessages,
-          ...(messageLimit != null ? { messageLimit } : {}),
-        });
+        const result = await runDiscordImportPostSetup(
+          pool,
+          sid,
+          actorId,
+          {
+            syncAllChannels,
+            importRecentMessages,
+            ...(messageLimit != null ? { messageLimit } : {}),
+          },
+          { io: fastify.io, log: req.log },
+        );
         await insertEchoAudit(
           pool,
           sid,

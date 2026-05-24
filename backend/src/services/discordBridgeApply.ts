@@ -1,4 +1,6 @@
+import type { FastifyBaseLogger } from 'fastify';
 import type { Pool } from 'pg';
+import type { Server } from 'socket.io';
 import { ECHO_MSG_NOT_SERVER_MEMBER } from '../api/errors';
 import {
   assertChannelImportedFromDiscord,
@@ -13,6 +15,15 @@ import {
 } from '../domain/echoStore';
 import { isMemberOfServer } from '../domain/echoPermissions';
 import { ensureDiscordOutboundWebhookUrl } from './discordBridgeWebhookEnsure';
+import {
+  postDiscordBridgeSyncNotice,
+  shouldPostDiscordBridgeSyncNotice,
+} from './discordBridgeSyncNotice';
+
+export type DiscordBridgeApplyContext = {
+  io?: Server;
+  log?: FastifyBaseLogger;
+};
 
 export type DiscordBridgeApplyPayload = {
   inboundEnabled: boolean;
@@ -28,6 +39,8 @@ export type DiscordBridgeApplySuccess = {
   inboundEnabled: boolean;
   outboundEnabled: boolean;
   hasWebhook: boolean;
+  /** True when a row exists in `echo_discord_channel_bridges`. */
+  hasBridge: boolean;
 };
 
 export type DiscordBridgeApplyFailure =
@@ -43,17 +56,14 @@ export type DiscordBridgeApplyResult =
   | { ok: true; result: DiscordBridgeApplySuccess }
   | { ok: false; error: DiscordBridgeApplyFailure };
 
-/**
- * Same behavior as PUT `/servers/:serverId/channels/:channelId/discord-bridge`
- * (minus HTTP mapping). Used by the route and category bulk sync.
- */
-export async function applyDiscordBridgePut(
+export type DiscordBridgeClearContext = DiscordBridgeApplyContext;
+
+async function resolveDiscordBridgeChannelAccess(
   pool: Pool,
   serverId: string,
   channelId: string,
   userId: string,
-  body: DiscordBridgeApplyPayload,
-): Promise<DiscordBridgeApplyResult> {
+): Promise<{ ok: true } | { ok: false; error: DiscordBridgeApplyFailure }> {
   const okMem = await isMemberOfServer(pool, serverId, userId);
   if (!okMem) {
     return {
@@ -98,6 +108,91 @@ export async function applyDiscordBridgePut(
         message: 'Manage server or manage channel required.',
       },
     };
+  }
+
+  return { ok: true };
+}
+
+async function clearedDiscordBridgeStateForChannel(
+  pool: Pool,
+  serverId: string,
+  channelId: string,
+): Promise<DiscordBridgeApplySuccess> {
+  const stateGuild = await pool.query(
+    `SELECT discord_guild_id FROM echo_discord_import_states WHERE server_id = $1 LIMIT 1`,
+    [serverId],
+  );
+  const importGuildId =
+    stateGuild.rows[0]?.discord_guild_id != null &&
+    String(stateGuild.rows[0].discord_guild_id).trim()
+      ? String(stateGuild.rows[0].discord_guild_id).trim()
+      : '';
+  const importChannelId = await assertChannelImportedFromDiscord(
+    pool,
+    serverId,
+    channelId,
+  );
+  return {
+    discordGuildId: importGuildId,
+    discordChannelId: importChannelId ?? '',
+    inboundEnabled: false,
+    outboundEnabled: false,
+    hasWebhook: false,
+    hasBridge: false,
+  };
+}
+
+/**
+ * Remove the Discord bridge row for a channel (sync off, webhook cleared).
+ * Same behavior as DELETE `/servers/:serverId/channels/:channelId/discord-bridge`.
+ */
+export async function applyDiscordBridgeClear(
+  pool: Pool,
+  serverId: string,
+  channelId: string,
+  userId: string,
+): Promise<DiscordBridgeApplyResult> {
+  const access = await resolveDiscordBridgeChannelAccess(
+    pool,
+    serverId,
+    channelId,
+    userId,
+  );
+  if (!access.ok) {
+    return access;
+  }
+
+  await deleteDiscordChannelBridge(pool, channelId);
+  return {
+    ok: true,
+    result: await clearedDiscordBridgeStateForChannel(
+      pool,
+      serverId,
+      channelId,
+    ),
+  };
+}
+
+/**
+ * Same behavior as PUT `/servers/:serverId/channels/:channelId/discord-bridge`
+ * (minus HTTP mapping). Used by the route and category bulk sync.
+ */
+export async function applyDiscordBridgePut(
+  pool: Pool,
+  serverId: string,
+  channelId: string,
+  userId: string,
+  body: DiscordBridgeApplyPayload,
+  ctx?: DiscordBridgeApplyContext,
+): Promise<DiscordBridgeApplyResult> {
+  const access = await resolveDiscordBridgeChannelAccess(
+    pool,
+    serverId,
+    channelId,
+    userId,
+  );
+  if (!access.ok) {
+    return access;
   }
 
   const inboundEnabled = body.inboundEnabled === true;
@@ -197,16 +292,26 @@ export async function applyDiscordBridgePut(
     discordWebhookUrl = ensured.url;
   }
 
+  const bridgeBeforeUpsert = await getDiscordBridgeForEchoChannelInServer(
+    pool,
+    serverId,
+    channelId,
+  );
+  const prevInbound = bridgeBeforeUpsert?.inboundEnabled === true;
+  const prevOutbound = bridgeBeforeUpsert?.outboundEnabled === true;
+
   if (!inboundEnabled && !outboundEnabled && !discordWebhookUrl) {
     await deleteDiscordChannelBridge(pool, channelId);
     return {
       ok: true,
       result: {
+        ...(await clearedDiscordBridgeStateForChannel(
+          pool,
+          serverId,
+          channelId,
+        )),
         discordGuildId: discordGuildId ?? '',
         discordChannelId: discordChannelId ?? '',
-        inboundEnabled: false,
-        outboundEnabled: false,
-        hasWebhook: false,
       },
     };
   }
@@ -241,14 +346,40 @@ export async function applyDiscordBridgePut(
     };
   }
 
-  return {
-    ok: true,
-    result: {
-      discordGuildId: discordGuildId ?? '',
-      discordChannelId: discordChannelId ?? '',
+  const result = {
+    discordGuildId: discordGuildId ?? '',
+    discordChannelId: discordChannelId ?? '',
+    inboundEnabled,
+    outboundEnabled,
+    hasWebhook: Boolean(discordWebhookUrl),
+    hasBridge: true,
+  };
+
+  if (
+    ctx?.log &&
+    shouldPostDiscordBridgeSyncNotice(
+      prevInbound,
+      prevOutbound,
       inboundEnabled,
       outboundEnabled,
-      hasWebhook: Boolean(discordWebhookUrl),
-    },
-  };
+    )
+  ) {
+    const dChan = (discordChannelId ?? '').trim();
+    if (dChan) {
+      void postDiscordBridgeSyncNotice(pool, ctx.io, ctx.log, {
+        echoChannelId: channelId,
+        discordChannelId: dChan,
+        inboundEnabled,
+        outboundEnabled,
+        discordWebhookUrl,
+      }).catch((e) => {
+        ctx.log!.warn(
+          { err: e, msg: 'discord_bridge.sync_notice_failed', channelId },
+          'Discord bridge sync notice failed',
+        );
+      });
+    }
+  }
+
+  return { ok: true, result };
 }

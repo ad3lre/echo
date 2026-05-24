@@ -155,6 +155,35 @@ describe('useEchoAttentionStore', () => {
     expect(store.readStateByChannelId[channelId]).toBe('1492135200000000005');
   });
 
+  it('preserves DM unread when a second attention snapshot merges with existing read cursors', () => {
+    const store = useEchoAttentionStore();
+    const channelId = '1492135186257805312';
+    const latestUnreadMessageId = '1492135200000000005';
+    const snapshot = {
+      channelAttentionByChannelId: {
+        [channelId]: {
+          channelId,
+          kind: 'dm' as const,
+          lastReadMessageId: '1492135200000000001',
+          unreadCount: 2,
+          firstUnreadMessageId: '1492135200000000002',
+          latestUnreadMessageId,
+        },
+      },
+      serverAttentionByServerId: {},
+      serverNotificationLevelByServerId: {},
+    };
+
+    store.replaceSnapshot(snapshot);
+    expect(store.dmAttentionByChannelId[channelId]?.unreadCount).toBe(2);
+
+    // Socket refresh / attention_update — read cursors already hydrated from first snapshot.
+    store.replaceSnapshot(snapshot);
+
+    expect(store.dmAttentionByChannelId[channelId]?.unreadCount).toBe(2);
+    expect(store.channelAttentionByChannelId[channelId]?.unreadCount).toBe(2);
+  });
+
   it('mergeReadStateUpdate applies read cursor and channel attention in one call', () => {
     const store = useEchoAttentionStore();
     const channelId = '1492135186257805312';

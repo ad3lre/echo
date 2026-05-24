@@ -1,5 +1,8 @@
 import type { Pool } from 'pg';
-import { applyDiscordBridgePut } from './discordBridgeApply';
+import {
+  applyDiscordBridgePut,
+  type DiscordBridgeApplyContext,
+} from './discordBridgeApply';
 import { getDiscordImportState } from './discordImport';
 import { runDiscordMessageImport } from './discordMessageImport';
 import {
@@ -70,6 +73,7 @@ export async function runDiscordImportPostSetup(
   serverId: string,
   actorId: string,
   body: DiscordImportPostSetupBody,
+  bridgeCtx?: DiscordBridgeApplyContext,
 ): Promise<DiscordImportPostSetupResult> {
   const syncAll = body.syncAllChannels === true;
   const importMsgs = body.importRecentMessages === true;
@@ -187,6 +191,7 @@ export async function runDiscordImportPostSetup(
             discordGuildId: guildId,
             discordChannelId,
           },
+          bridgeCtx,
         );
         if (r.ok) {
           bridges.applied += 1;

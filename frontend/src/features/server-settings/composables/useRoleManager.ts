@@ -5,6 +5,7 @@ import type {
 } from '@/features/server-settings/types';
 import type { EchoRoleType } from '@shared/echoRoleTypes';
 import { ROLE_PERMISSION_DEFS } from '@/features/server-settings/types';
+import { rolePermissionLabel } from '@/i18n/labels';
 import {
   cloneRoleManagerState,
   buildInitialManagedRoles,
@@ -44,7 +45,12 @@ export function useRoleManager(roleCards: Ref<RoleCard[]>) {
       role.name.toLowerCase().includes(query),
     );
   });
-  const visibleRolePermissionDefs = computed(() => ROLE_PERMISSION_DEFS);
+  const visibleRolePermissionDefs = computed(() =>
+    ROLE_PERMISSION_DEFS.map((def) => ({
+      ...def,
+      label: rolePermissionLabel(def.key),
+    })),
+  );
 
   function resetRoleManagerUi() {
     newRoleName.value = '';

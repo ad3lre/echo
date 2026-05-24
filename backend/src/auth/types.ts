@@ -68,6 +68,8 @@ export interface AuthUser {
    * Omitted when unset.
    */
   timeZone?: string | null;
+  /** BCP-47 UI locale (e.g. en-US, en-GB). Omitted when unset. */
+  locale?: string | null;
 }
 
 /** Second step after password when `totpEnabled` (see login response union). */
@@ -127,6 +129,8 @@ export interface AuthProfileUpdateBody {
   showLastOnline?: boolean;
   /** IANA timezone id; empty string clears. Omit to leave unchanged. */
   timeZone?: string | null;
+  /** BCP-47 UI locale; empty string clears. Omit to leave unchanged. */
+  locale?: string | null;
 }
 
 export type AuthUpgradeGuestBody = {

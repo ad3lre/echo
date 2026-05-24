@@ -1,0 +1,8 @@
+/* Lohit Devanagari — SIL Open Font License 1.1 (see OFL.txt). */
+@font-face {
+  font-family: 'Lohit Devanagari';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./lohit-devanagari/Lohit-Devanagari.ttf') format('truetype');
+}

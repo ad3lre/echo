@@ -12,7 +12,12 @@ import type {
   MessageStickerPayload,
   ReplyTo,
 } from '../../../shared/types';
+import {
+  CHAT_E2EE_REMOVED_DETAIL,
+  contentForLegacyEncryptedChatRow,
+} from '../../../shared/chatE2eePolicy';
 import { redactPollOnMessage } from '../../../shared/types';
+import { stripChatE2eeFromEchoMessageRow } from '../domain/echoMessagesDal';
 import { getAuthStore } from '../auth/store';
 import { config } from '../config';
 import type { EchoMessageRow } from '../domain/echoMessagesDal';
@@ -102,96 +107,62 @@ export type EchoPersistedMessageInput = {
   e2eeEncryptionVersion?: 1 | 2;
 };
 
-function inferE2eeMessageVersionFromCiphertext(
-  ciphertext: string | undefined,
-): 1 | 2 {
-  if (!ciphertext?.trim()) return 1;
-  try {
-    const o = JSON.parse(ciphertext) as { kind?: unknown };
-    if (o?.kind === 'echo-e2ee-v2') return 2;
-  } catch {
-    /* ignore */
-  }
-  return 1;
-}
-
 export function echoRowToMessage(existing: EchoMessageRow): Message {
-  const mf = existing.messageFormatVersion ?? 1;
-  const cs = existing.contentSchemaVersion ?? 1;
-  const plain = existing.searchIndexText ?? existing.content;
-  const e2eeCiphertext =
-    typeof existing.e2eeCiphertext === 'string' &&
-    existing.e2eeCiphertext.trim()
-      ? existing.e2eeCiphertext
-      : undefined;
+  const row = stripChatE2eeFromEchoMessageRow(existing);
+  const mf = row.messageFormatVersion ?? 1;
+  const cs = row.contentSchemaVersion ?? 1;
+  const plain =
+    row.searchIndexText ??
+    contentForLegacyEncryptedChatRow(row.content, existing.e2eeCiphertext);
   return {
-    id: existing.id,
-    channelId: existing.channelId,
-    authorId: existing.authorId,
-    ...(existing.authorDisplayName !== undefined
-      ? { authorDisplayName: existing.authorDisplayName }
+    id: row.id,
+    channelId: row.channelId,
+    authorId: row.authorId,
+    ...(row.authorDisplayName !== undefined
+      ? { authorDisplayName: row.authorDisplayName }
       : {}),
-    ...(existing.authorAvatar ? { authorAvatar: existing.authorAvatar } : {}),
-    ...(existing.authorIsDiscordShadow === true
+    ...(row.authorAvatar ? { authorAvatar: row.authorAvatar } : {}),
+    ...(row.authorIsDiscordShadow === true
       ? { authorIsDiscordShadow: true }
       : {}),
-    ...(existing.authorDiscordUserId
-      ? { authorDiscordUserId: existing.authorDiscordUserId }
+    ...(row.authorDiscordUserId
+      ? { authorDiscordUserId: row.authorDiscordUserId }
       : {}),
-    content: existing.content,
+    content: row.content,
     contentText: plain,
-    ...(mf >= 2 && existing.contentJson !== undefined
-      ? { contentJson: existing.contentJson }
+    ...(mf >= 2 && row.contentJson !== undefined
+      ? { contentJson: row.contentJson }
       : {}),
     messageFormatVersion: mf,
     contentSchemaVersion: cs,
-    ...(existing.mentions !== undefined
-      ? { mentions: existing.mentions as Message['mentions'] }
+    ...(row.mentions !== undefined
+      ? { mentions: row.mentions as Message['mentions'] }
       : {}),
-    timestamp: existing.timestamp,
-    ...(existing.replyTo !== undefined
-      ? { replyTo: existing.replyTo as ReplyTo }
+    timestamp: row.timestamp,
+    ...(row.replyTo !== undefined ? { replyTo: row.replyTo as ReplyTo } : {}),
+    ...(row.editedAt ? { editedAt: row.editedAt } : {}),
+    ...(Array.isArray(row.embeds) && row.embeds.length
+      ? { embeds: row.embeds as Message['embeds'] }
       : {}),
-    ...(existing.editedAt ? { editedAt: existing.editedAt } : {}),
-    ...(Array.isArray(existing.embeds) && existing.embeds.length
-      ? { embeds: existing.embeds as Message['embeds'] }
+    ...(row.tts === true ? { tts: true } : {}),
+    ...(row.messageFlags != null && Number.isFinite(Number(row.messageFlags))
+      ? { messageFlags: Number(row.messageFlags) }
       : {}),
-    ...(existing.tts === true ? { tts: true } : {}),
-    ...(existing.messageFlags != null &&
-    Number.isFinite(Number(existing.messageFlags))
-      ? { messageFlags: Number(existing.messageFlags) }
-      : {}),
-    ...(existing.components !== undefined
-      ? { components: existing.components }
-      : {}),
-    ...(existing.imageUrl ? { imageUrl: existing.imageUrl } : {}),
-    ...(existing.videoUrl ? { videoUrl: existing.videoUrl } : {}),
-    ...(existing.audioUrl ? { audioUrl: existing.audioUrl } : {}),
-    ...(existing.gif ? { gif: true } : {}),
-    ...(existing.imageSpoiler ? { imageSpoiler: true } : {}),
-    ...(existing.poll ? { poll: existing.poll as Message['poll'] } : {}),
-    ...(existing.attachments?.length
-      ? { attachments: existing.attachments }
-      : {}),
-    ...(existing.stickers?.length ? { stickers: existing.stickers } : {}),
-    ...(existing.forwardedFrom
-      ? { forwardedFrom: existing.forwardedFrom }
-      : {}),
-    ...(existing.bridgeSource === 'discord_inbound'
+    ...(row.components !== undefined ? { components: row.components } : {}),
+    ...(row.imageUrl ? { imageUrl: row.imageUrl } : {}),
+    ...(row.videoUrl ? { videoUrl: row.videoUrl } : {}),
+    ...(row.audioUrl ? { audioUrl: row.audioUrl } : {}),
+    ...(row.gif ? { gif: true } : {}),
+    ...(row.imageSpoiler ? { imageSpoiler: true } : {}),
+    ...(row.poll ? { poll: row.poll as Message['poll'] } : {}),
+    ...(row.attachments?.length ? { attachments: row.attachments } : {}),
+    ...(row.stickers?.length ? { stickers: row.stickers } : {}),
+    ...(row.forwardedFrom ? { forwardedFrom: row.forwardedFrom } : {}),
+    ...(row.systemMessage === true ? { systemMessage: true } : {}),
+    ...(row.bridgeSource === 'discord_inbound'
       ? { bridgeFromDiscord: true }
       : {}),
-    ...(existing.bridgeSource ? { bridgeSource: existing.bridgeSource } : {}),
-    ...(e2eeCiphertext && existing.e2eeEnvelope
-      ? {
-          encryption: {
-            kind: 'e2ee' as const,
-            version: inferE2eeMessageVersionFromCiphertext(e2eeCiphertext),
-            senderDeviceId: existing.e2eeSenderDeviceId ?? '',
-            envelope: existing.e2eeEnvelope,
-            ciphertext: e2eeCiphertext,
-          },
-        }
-      : {}),
+    ...(row.bridgeSource ? { bridgeSource: row.bridgeSource } : {}),
   };
 }
 
@@ -328,16 +299,12 @@ export async function echoPersistedMessageCreateAndBroadcast(
     sourceType: 'user',
   });
 
-  const isE2ee =
-    typeof e2eeCiphertext === 'string' && e2eeCiphertext.trim().length > 0;
-
-  if (isE2ee) {
+  if (typeof e2eeCiphertext === 'string' && e2eeCiphertext.trim().length > 0) {
     return {
       ok: false,
       code: 'VALIDATION',
       clientMessageId,
-      detail:
-        'Encrypted chat messages are no longer supported. Voice uses end-to-end encryption by default.',
+      detail: CHAT_E2EE_REMOVED_DETAIL,
     };
   }
 
@@ -352,13 +319,12 @@ export async function echoPersistedMessageCreateAndBroadcast(
   const pollForClients = pollDef
     ? mergePollVotesIntoDefinition(pollDef, [])
     : undefined;
-  const searchIndexText = isE2ee ? null : content;
   const message: Message = {
     id: messageId,
     channelId,
     authorId: userId,
     content,
-    ...(searchIndexText !== null ? { contentText: searchIndexText } : {}),
+    contentText: content,
     ...(messageFormatVersion >= 2 && contentJson !== undefined
       ? { contentJson }
       : {}),
@@ -375,17 +341,6 @@ export async function echoPersistedMessageCreateAndBroadcast(
     ...(attachments && attachments.length > 0 ? { attachments } : {}),
     ...(stickers && stickers.length > 0 ? { stickers } : {}),
     ...(forwardedFrom ? { forwardedFrom } : {}),
-    ...(isE2ee
-      ? {
-          encryption: {
-            kind: 'e2ee' as const,
-            version: (e2eeEncryptionVersion === 2 ? 2 : 1) as 1 | 2,
-            senderDeviceId: e2eeSenderDeviceId ?? '',
-            envelope: e2eeEnvelope,
-            ciphertext: e2eeCiphertext!,
-          },
-        }
-      : {}),
   };
 
   let persistResult: 'inserted' | 'duplicate';
@@ -405,17 +360,10 @@ export async function echoPersistedMessageCreateAndBroadcast(
       ...(attachments && attachments.length > 0 ? { attachments } : {}),
       ...(stickers && stickers.length > 0 ? { stickers } : {}),
       ...(contentJson !== undefined ? { contentJson } : {}),
-      searchIndexText,
+      searchIndexText: content,
       messageFormatVersion,
       contentSchemaVersion,
       ...(forwardedFrom ? { forwardedFrom } : {}),
-      ...(isE2ee
-        ? {
-            e2eeEnvelope,
-            e2eeCiphertext,
-            ...(e2eeSenderDeviceId ? { e2eeSenderDeviceId } : {}),
-          }
-        : {}),
     });
   } catch (e) {
     if (e instanceof Error && e.message === 'E2EE_STORAGE_UNAVAILABLE') {
@@ -549,14 +497,12 @@ export async function echoPersistedMessageCreateAndBroadcast(
         serverId,
         message: messageForClients,
       });
-      if (!isE2ee) {
-        void mirrorEchoMessageToDiscordIfConfigured(
-          pool,
-          log,
-          channelId,
-          messageForClients,
-        );
-      }
+      void mirrorEchoMessageToDiscordIfConfigured(
+        pool,
+        log,
+        channelId,
+        messageForClients,
+      );
     }
   }
   log.info(
@@ -568,49 +514,46 @@ export async function echoPersistedMessageCreateAndBroadcast(
     },
     'Completed channel message broadcast',
   );
-  if (!isE2ee) {
-    void resolveAndBroadcastLinkEmbeds(pool, io, log, {
-      channelId,
-      messageId: message.id,
-      authorId: userId,
-      content,
-      ...(messageFormatVersion >= 2 && contentJson !== undefined
-        ? { contentJson }
-        : {}),
-      correlationId,
-    });
-  }
+  void resolveAndBroadcastLinkEmbeds(pool, io, log, {
+    channelId,
+    messageId: message.id,
+    authorId: userId,
+    content,
+    ...(messageFormatVersion >= 2 && contentJson !== undefined
+      ? { contentJson }
+      : {}),
+    correlationId,
+  });
 
   // Background: increment usage for any custom emojis found in the message
-  if (!isE2ee)
-    void (async () => {
-      try {
-        const serverId = await pool
-          .query<{
-            server_id: string;
-          }>(`SELECT server_id FROM echo_channels WHERE id = $1`, [channelId])
-          .then((r) => r.rows[0]?.server_id);
+  void (async () => {
+    try {
+      const serverId = await pool
+        .query<{
+          server_id: string;
+        }>(`SELECT server_id FROM echo_channels WHERE id = $1`, [channelId])
+        .then((r) => r.rows[0]?.server_id);
 
-        if (serverId) {
-          const tokens = findAllIdTokenMatches(content);
-          for (const match of tokens) {
-            if (match.token.kind === 'emoji') {
-              await incrementEchoEmojiUsage(
-                pool,
-                serverId,
-                userId,
-                match.token.id,
-              );
-            }
+      if (serverId) {
+        const tokens = findAllIdTokenMatches(content);
+        for (const match of tokens) {
+          if (match.token.kind === 'emoji') {
+            await incrementEchoEmojiUsage(
+              pool,
+              serverId,
+              userId,
+              match.token.id,
+            );
           }
         }
-      } catch (e) {
-        log.error(
-          { err: e, channelId, messageId: message.id },
-          'Failed to increment emoji usage for message',
-        );
       }
-    })();
+    } catch (e) {
+      log.error(
+        { err: e, channelId, messageId: message.id },
+        'Failed to increment emoji usage for message',
+      );
+    }
+  })();
 
   return {
     ok: true,

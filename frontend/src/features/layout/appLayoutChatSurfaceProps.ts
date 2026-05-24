@@ -79,6 +79,7 @@ export type AppLayoutChatSurfaceProps = {
   presenceByUserId: Record<string, string | undefined>;
   presenceMobileByUserId?: Record<string, true>;
   openExpandedProfilePanelForUserId: (userId: string) => void;
+  openExtendedProfileModalForUserId: (userId: string) => void;
   /** Opens centered expanded profile (not DM rail side panel). */
   handleExpandedProfileOpenProfile: (userId: string) => void;
   isGroupDM: boolean;
@@ -205,6 +206,7 @@ export type AppLayoutChatSurfaceProps = {
   acknowledgeNsfwChannel: unknown;
   declineNsfwGate: unknown;
   openMemberProfile: unknown;
+  openProfileFromContextMenu?: (userId: string) => void;
   canModerateAuthor: unknown;
   handleModerateUser: unknown;
   isDMPanelOpen: boolean;
@@ -422,6 +424,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'presenceByUserId',
   'presenceMobileByUserId',
   'openExpandedProfilePanelForUserId',
+  'openExtendedProfileModalForUserId',
   'handleExpandedProfileOpenProfile',
   'isGroupDM',
   'activeGroupDM',
@@ -535,6 +538,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'acknowledgeNsfwChannel',
   'declineNsfwGate',
   'openMemberProfile',
+  'openProfileFromContextMenu',
   'canModerateAuthor',
   'handleModerateUser',
   'isDMPanelOpen',

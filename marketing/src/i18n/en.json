@@ -1,0 +1,51 @@
+{
+  "siteName": "Echo",
+  "home": {
+    "title": "Echo | Where communities come to life",
+    "description": "Echo is an open source (GNU AGPL v3) community platform for connection, conversation, and collaboration. Voice, chat, and privacy-minded design—try Echo at chat-echo.com.",
+    "heroLabel": "Echo",
+    "heroTitle": "Where communities come to life.",
+    "heroLede": "Echo is a modern community platform built for connection, conversation, and collaboration.",
+    "featureCards": {
+      "privacy": {
+        "title": "We don't ask for your ID",
+        "body": "Join freely and stay anonymous. No ID verification, ever."
+      },
+      "share": {
+        "title": "Share your screen",
+        "body": "Show, explain, and collaborate in real time."
+      },
+      "voice": {
+        "title": "Voice chats that connect",
+        "body": "Crystal-clear voice chats built for real conversations."
+      }
+    },
+    "faqs": [
+      {
+        "question": "What is Echo?",
+        "answer": "Echo is an open source, privacy-focused communication platform with real-time chat, voice, and community features."
+      },
+      {
+        "question": "Is Echo a Discord alternative?",
+        "answer": "Yes. Echo is built for people who want a modern Discord alternative for communities, group chat, and voice conversations."
+      },
+      {
+        "question": "Where can I try Echo?",
+        "answer": "Open the live app at chat-echo.com. This site (app-echo.net) is the marketing home for discovery and SEO."
+      },
+      {
+        "question": "Who is Echo for?",
+        "answer": "Echo is for communities, friend groups, and teams who want voice, text, and media in one focused place."
+      },
+      {
+        "question": "Is Echo open source?",
+        "answer": "Yes. Echo is released under the GNU Affero General Public License v3.0 (AGPL). You can read the source, self-host, and contribute on GitHub at https://github.com/ad3lre/echo."
+      }
+    ]
+  },
+  "legal": {
+    "lastUpdatedLabel": "Last updated:",
+    "relatedNavLabel": "Related legal documents",
+    "notYetTranslated": "This document is not yet available in your language. Showing the English version."
+  }
+}

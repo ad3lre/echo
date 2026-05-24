@@ -35,11 +35,27 @@ function walkTopLevelBlocks(
   return content.filter(isPlainObject);
 }
 
+function parseCoAuthorIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((id) => (typeof id === 'string' ? id.trim() : ''))
+    .filter(Boolean)
+    .slice(0, 2);
+}
+
+function sharedCoAuthorIds(prevAuthorId: string, userId: string): string[] {
+  const a = prevAuthorId.trim();
+  const b = userId.trim();
+  if (!a || !b || a === b) return [];
+  return [a, b];
+}
+
 function stampBlock(
   node: Record<string, unknown>,
   userId: string,
   nowIso: string,
   preserveId: string | undefined,
+  coAuthorIds?: string[],
 ): Record<string, unknown> {
   const attrs = isPlainObject(node.attrs)
     ? { ...node.attrs }
@@ -51,15 +67,39 @@ function stampBlock(
           String(attrs.paperBlockId).trim()
         ? String(attrs.paperBlockId).trim()
         : randomUUID();
+  const nextAttrs: Record<string, unknown> = {
+    ...attrs,
+    paperBlockId,
+    authorId: userId,
+    lastEditedAt: nowIso,
+  };
+  delete nextAttrs.coAuthorIds;
+  const co = coAuthorIds?.filter(Boolean).slice(0, 2) ?? [];
+  if (co.length >= 2) {
+    nextAttrs.coAuthorIds = co;
+  }
   return {
     ...node,
-    attrs: {
-      ...attrs,
-      paperBlockId,
-      authorId: userId,
-      lastEditedAt: nowIso,
-    },
+    attrs: nextAttrs,
   };
+}
+
+function copyPrevAttributionAttrs(
+  node: Record<string, unknown>,
+  existingId: string,
+  prevAttrs: Record<string, unknown>,
+): Record<string, unknown> {
+  const co = parseCoAuthorIds(prevAttrs.coAuthorIds);
+  const next: Record<string, unknown> = {
+    ...(isPlainObject(node.attrs) ? node.attrs : {}),
+    paperBlockId: existingId,
+    authorId: prevAttrs.authorId,
+    lastEditedAt: prevAttrs.lastEditedAt,
+  };
+  if (co.length >= 2) {
+    next.coAuthorIds = co;
+  }
+  return { ...node, attrs: next };
 }
 
 /**
@@ -77,6 +117,7 @@ export function stripPaperAttributionFromDoc(
     const attrs = isPlainObject(node.attrs) ? { ...node.attrs } : {};
     delete attrs.authorId;
     delete attrs.lastEditedAt;
+    delete attrs.coAuthorIds;
     const paperBlockId = attrs.paperBlockId;
     const nextAttrs: Record<string, unknown> = {};
     if (typeof paperBlockId === 'string' && paperBlockId.trim()) {
@@ -126,18 +167,32 @@ export function applyPaperAttributionStamp(
         return String(a.paperBlockId ?? '').trim() === existingId;
       });
       if (prevNode && isPlainObject(prevNode.attrs)) {
-        return {
-          ...node,
-          attrs: {
-            ...(isPlainObject(node.attrs) ? node.attrs : {}),
-            paperBlockId: existingId,
-            authorId: prevNode.attrs.authorId,
-            lastEditedAt: prevNode.attrs.lastEditedAt,
-          },
-        };
+        return copyPrevAttributionAttrs(node, existingId, prevNode.attrs);
       }
     }
-    return stampBlock(node, userId, nowIso, existingId || undefined);
+    let coAuthorIds: string[] | undefined;
+    if (previousDoc && existingId) {
+      const prevNode = walkTopLevelBlocks(previousDoc).find((n) => {
+        const a = isPlainObject(n.attrs) ? n.attrs : {};
+        return String(a.paperBlockId ?? '').trim() === existingId;
+      });
+      if (prevNode && isPlainObject(prevNode.attrs)) {
+        const prevAuthorId = String(prevNode.attrs.authorId ?? '').trim();
+        const prevCo = parseCoAuthorIds(prevNode.attrs.coAuthorIds);
+        if (prevAuthorId === userId || prevCo.includes(userId)) {
+          coAuthorIds = undefined;
+        } else if (prevAuthorId) {
+          coAuthorIds = sharedCoAuthorIds(prevAuthorId, userId);
+        }
+      }
+    }
+    return stampBlock(
+      node,
+      userId,
+      nowIso,
+      existingId || undefined,
+      coAuthorIds,
+    );
   });
 
   return { ...incomingDoc, content: stamped };

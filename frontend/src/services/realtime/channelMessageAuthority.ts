@@ -8,7 +8,9 @@ import { messageWindowAuthority } from '@/services/realtime/messageWindowAuthori
 /**
  * Single client-side write surface for channel message lists:
  * mutate `ChannelMessageIndex` for ordering/identity, then call `syncChannelMessages`
- * (or use `replaceChannelMessagesFromHistory` / `prependChannelMessagesFromHistory`).
+ * (or use `replaceChannelMessagesFromHistory` / `mergeMissingChannelMessagesFromHistory` /
+ * `prependChannelMessagesFromHistory`). Replace is empty-index only; see
+ * `docs/architecture/channel-history-merge-invariants.md`.
  * Do not assign `messages[channelId]` directly outside this module’s helpers.
  *
  * Ordering truth flows here → `messageWindowAuthority`; see
@@ -35,14 +37,42 @@ export function syncChannelMessages(
 /** Alias: materialize `messages[channelId]` from the index after in-place index mutations. */
 export const materializeChannelMessagesFromIndex = syncChannelMessages;
 
+/**
+ * Append rows from a REST/history page that are not already in the channel index.
+ * Safe when another writer (realtime, prefetch, tail sync) already added newer rows.
+ */
+export function mergeMissingChannelMessagesFromHistory(
+  channelId: string,
+  raw: RawMessage[],
+): RawMessage[] {
+  ensureChannelBucket(channelId);
+  const index = messageWindowAuthority.getIndex(channelId);
+  const missing = raw.filter((m) => {
+    const id = m.id?.trim();
+    return !!id && !index.byId.has(id);
+  });
+  if (missing.length === 0) {
+    return syncChannelMessages(channelId, index);
+  }
+  index.mergeBatch(missing, 'append');
+  return syncChannelMessages(channelId, index);
+}
+
+/**
+ * Set channel history from a page. **Empty index only** — full replace. If the channel
+ * already has rows, merges by id instead (Discord-style: no stale HTTP snapshot wins).
+ */
 export function replaceChannelMessagesFromHistory(
   channelId: string,
   raw: RawMessage[],
 ): RawMessage[] {
   ensureChannelBucket(channelId);
   const index = messageWindowAuthority.getIndex(channelId);
-  index.mergeBatch(raw, 'replace');
-  return syncChannelMessages(channelId, index);
+  if (index.sorted.value.length === 0) {
+    index.mergeBatch(raw, 'replace');
+    return syncChannelMessages(channelId, index);
+  }
+  return mergeMissingChannelMessagesFromHistory(channelId, raw);
 }
 
 export function prependChannelMessagesFromHistory(
@@ -182,6 +212,7 @@ export const channelMessagesOwner = {
   syncChannelMessages,
   materializeChannelMessagesFromIndex,
   replaceChannelMessagesFromHistory,
+  mergeMissingChannelMessagesFromHistory,
   prependChannelMessagesFromHistory,
   insertChannelMessageFromHistory,
   updateChannelMessageInBucket,

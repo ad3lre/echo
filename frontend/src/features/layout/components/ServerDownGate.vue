@@ -7,8 +7,6 @@ const props = withDefaults(
     outageSinceMs?: number | null;
     lastCheckedAtMs?: number | null;
     detail?: string | null;
-    /** Why the server is restarting (from deploy countdown / static JSON). */
-    announcement?: string | null;
     /** Expected recovery length (seconds); from local past recoveries or a default. */
     averageRecoverySeconds?: number;
     /** How many completed recoveries shaped the average (0 = default only). */
@@ -19,7 +17,6 @@ const props = withDefaults(
     outageSinceMs: null,
     lastCheckedAtMs: null,
     detail: null,
-    announcement: null,
     averageRecoverySeconds: 60,
     recoverySampleCount: 0,
   },
@@ -155,20 +152,6 @@ const progressAriaLabel = computed(
         We are retrying in real time and will reconnect automatically once
         service is healthy again.
       </p>
-
-      <div
-        v-if="announcement"
-        class="server-down-announcement mt-4 rounded-2xl px-4 py-3 text-left"
-      >
-        <p
-          class="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
-        >
-          Update in progress
-        </p>
-        <p class="mt-1.5 text-sm leading-relaxed text-fg">
-          {{ announcement }}
-        </p>
-      </div>
 
       <div class="mt-5 grid gap-3 sm:grid-cols-3">
         <div class="rounded-2xl bg-glass-1 px-4 py-3">
@@ -409,16 +392,6 @@ const progressAriaLabel = computed(
 }
 
 /* Technical detail ------------------------------------------------------- */
-.server-down-announcement {
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface) 90%);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border) 76%);
-}
-
-:global(html[data-theme='dark']) .server-down-announcement {
-  background: rgba(129, 140, 248, 0.1);
-  border-color: rgba(129, 140, 248, 0.22);
-}
-
 .server-down-detail {
   font-family:
     ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;

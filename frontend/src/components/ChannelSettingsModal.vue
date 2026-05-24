@@ -32,11 +32,11 @@ import type {
 } from '@/features/channel-settings/types';
 import { canonicalizeEchoPermissionRowsForSave } from '@/features/channel-settings/domain/echoPermissionRows';
 import {
-  CHANNEL_TAB_COPY,
   getChannelPermissionDefsForChannelType,
   SLOW_MODE_OPTIONS,
   MESSAGE_AUTO_DELETE_OPTIONS,
 } from '@/features/channel-settings/types';
+import { channelTabCopy } from '@/i18n/labels';
 import {
   messageAutoDeleteOptionValueToSeconds,
   messageAutoDeleteSecondsToOptionValue,
@@ -825,9 +825,7 @@ async function confirmDeleteChannel() {
                     alt=""
                     class="h-4 w-4 shrink-0 object-contain server-settings-inline-icon"
                   />
-                  <span class="truncate">{{
-                    CHANNEL_TAB_COPY[tab].title
-                  }}</span>
+                  <span class="truncate">{{ channelTabCopy(tab).title }}</span>
                 </div>
               </button>
             </div>
@@ -866,11 +864,11 @@ async function confirmDeleteChannel() {
                   class="h-6 w-6 shrink-0 object-contain server-settings-inline-icon"
                 />
                 <h3 class="text-3xl font-bold text-foreground">
-                  {{ CHANNEL_TAB_COPY[activeTab].title }}
+                  {{ channelTabCopy(activeTab).title }}
                 </h3>
               </div>
               <p class="mt-2 max-w-2xl text-sm text-muted">
-                {{ CHANNEL_TAB_COPY[activeTab].description }}
+                {{ channelTabCopy(activeTab).description }}
               </p>
             </div>
 

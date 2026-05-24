@@ -100,6 +100,7 @@ const props = defineProps<{
   onGoToChannel?: (channelId: string) => void;
   onGoToMessage?: (channelId: string, messageId: string) => void;
   onOpenProfile?: (userId: string, anchorRect: PopoutAnchorRect | null) => void;
+  onOpenProfileFromContextMenu?: (userId: string) => void;
   pinnedMessageIds?: string[];
   onPin?: (messageId: string) => void;
   onUnpin?: (messageId: string) => void;
@@ -2526,6 +2527,9 @@ defineExpose({
                 :on-go-to-channel="onGoToChannel"
                 :on-go-to-message="onGoToMessage"
                 :on-open-profile="onOpenProfile"
+                :on-open-profile-from-context-menu="
+                  onOpenProfileFromContextMenu
+                "
                 @delete="forwardBubbleDelete"
                 @reply="forwardBubbleReply"
                 @expand-dm-call-roll="handleExpandDmCallRollFromBubble"

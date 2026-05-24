@@ -2,7 +2,7 @@
 import { ref, watch, toRef } from 'vue';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 import {
-  SERVER_NOTIFICATION_OPTIONS,
+  getServerNotificationOptions,
   type ServerNotificationLevel,
 } from '@/features/server-notifications/types';
 import { icons } from '@/assets/icons';
@@ -76,7 +76,7 @@ function selectLevel(level: ServerNotificationLevel) {
         role="radiogroup"
         aria-labelledby="server-notif-title"
       >
-        <li v-for="opt in SERVER_NOTIFICATION_OPTIONS" :key="opt.value">
+        <li v-for="opt in getServerNotificationOptions()" :key="opt.value">
           <button
             type="button"
             class="notif-option flex w-full items-start gap-3 rounded-xl px-4 py-3 text-left transition-colors"

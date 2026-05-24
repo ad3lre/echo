@@ -37,6 +37,54 @@ export const PaperBlockIdExtension = Extension.create({
               return { 'data-paper-block-id': id };
             },
           },
+          authorId: {
+            default: null,
+            parseHTML: (element) =>
+              element.getAttribute('data-paper-author-id'),
+            renderHTML: (attributes) => {
+              const id = attributes.authorId;
+              if (!id) return {};
+              return { 'data-paper-author-id': id };
+            },
+          },
+          lastEditedAt: {
+            default: null,
+            parseHTML: (element) =>
+              element.getAttribute('data-paper-last-edited-at'),
+            renderHTML: (attributes) => {
+              const at = attributes.lastEditedAt;
+              if (!at) return {};
+              return { 'data-paper-last-edited-at': at };
+            },
+          },
+          coAuthorIds: {
+            default: null,
+            parseHTML: (element) => {
+              const raw = element.getAttribute('data-paper-co-author-ids');
+              if (!raw) return null;
+              try {
+                const parsed = JSON.parse(raw) as unknown;
+                if (!Array.isArray(parsed)) return null;
+                return parsed
+                  .map((id) => (typeof id === 'string' ? id.trim() : ''))
+                  .filter(Boolean)
+                  .slice(0, 2);
+              } catch {
+                return raw
+                  .split(',')
+                  .map((id) => id.trim())
+                  .filter(Boolean)
+                  .slice(0, 2);
+              }
+            },
+            renderHTML: (attributes) => {
+              const ids = attributes.coAuthorIds;
+              if (!Array.isArray(ids) || ids.length < 2) return {};
+              return {
+                'data-paper-co-author-ids': JSON.stringify(ids.slice(0, 2)),
+              };
+            },
+          },
         },
       },
     ];

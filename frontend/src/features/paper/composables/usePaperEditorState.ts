@@ -1,5 +1,5 @@
 import { onUnmounted, shallowRef, watch, type Ref } from 'vue';
-import { Editor } from '@tiptap/vue-3';
+import { Editor, type EditorOptions } from '@tiptap/vue-3';
 import { buildPaperEditorExtensions } from '@/features/paper/editor/paperEditorExtensions';
 import type { PaperRemoteCursor } from '@shared/types/paperCollab';
 import { createEmptyPaperContentJson } from '@shared/types/paperEmptyDocument';
@@ -28,6 +28,7 @@ export function usePaperEditorState(opts: {
   collab?: Ref<PaperEditorCollabOpts | null>;
   onUpdate?: (contentJson: Record<string, unknown>) => void;
   onEditorActivity?: () => void;
+  getEditorProps?: () => Partial<EditorOptions['editorProps']>;
 }) {
   const editor = shallowRef<Editor | null>(null);
   let instance: Editor | null = null;
@@ -65,6 +66,7 @@ export function usePaperEditorState(opts: {
           class:
             'paper-editor-surface max-w-none px-6 py-8 md:px-10 md:py-12 focus:outline-none',
         },
+        ...(opts.getEditorProps?.() ?? {}),
       },
       onUpdate: ({ editor: ed }) => {
         opts.onEditorActivity?.();
@@ -101,14 +103,6 @@ export function usePaperEditorState(opts: {
       if (loaded) bootstrapFromServer();
     },
     { immediate: true },
-  );
-
-  watch(
-    () => opts.contentJson.value,
-    (json) => {
-      if (!json || !opts.documentLoaded.value) return;
-      bootstrapFromServer();
-    },
   );
 
   watch(opts.editable, (v) => {

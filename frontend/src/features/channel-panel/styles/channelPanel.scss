@@ -839,3 +839,79 @@ html[data-theme='light'][data-echo-light-variant='sunny']
     transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
   }
 }
+
+.paper-editor-panel-rail {
+  position: absolute;
+  top: 3.5rem;
+  right: 0;
+  bottom: 3rem;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  pointer-events: auto;
+}
+
+/* Canva-style dock tab on channel panel (paper channels) */
+.channel-panel-wrapper:has(.paper-editor-panel-dock) {
+  position: relative;
+}
+
+.paper-editor-panel-dock {
+  position: absolute;
+  left: 0;
+  top: 3.25rem;
+  bottom: 2.5rem;
+  z-index: 36;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.paper-editor-panel-dock__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.3rem;
+  margin-left: 0.15rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+  background: color-mix(in srgb, var(--elevated) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-left: none;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.06);
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.paper-editor-panel-dock__btn:hover,
+.paper-editor-panel-dock__btn--active {
+  background: color-mix(in srgb, var(--accent) 18%, var(--elevated));
+  color: var(--text);
+  transform: translateX(2px);
+}
+
+.paper-editor-panel-dock__label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+@media (pointer: coarse) {
+  .paper-editor-panel-dock__label {
+    opacity: 1;
+  }
+
+  .paper-editor-panel__tab-label {
+    opacity: 1;
+    max-height: 2rem;
+  }
+}

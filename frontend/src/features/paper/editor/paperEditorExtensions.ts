@@ -22,6 +22,7 @@ import { PaperBlockIdExtension } from '@/features/paper/editor/paperBlockIdExten
 import { PaperMarkdownMathDecorations } from '@/features/paper/editor/paperMarkdownMathDecorations';
 import { PaperBlockHighlight } from '@/features/paper/editor/paperBlockHighlight';
 import { PaperFontSize } from '@/features/paper/editor/paperFontSizeExtension';
+import { PaperKeyboardShortcuts } from '@/features/paper/editor/paperKeyboardShortcutsExtension';
 import { PaperDocumentAttributes } from '@/features/paper/editor/paperDocumentAttributes';
 import {
   PaperBlockLockExtension,
@@ -96,6 +97,7 @@ export function buildPaperEditorExtensions(
     PaperBlockIdExtension,
     PaperMarkdownMathDecorations,
     PaperBlockHighlight,
+    PaperKeyboardShortcuts,
   ];
 
   if (opts.blockLock) {

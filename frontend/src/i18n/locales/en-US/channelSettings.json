@@ -1,0 +1,55 @@
+{
+  "tabs": {
+    "overview": {
+      "title": "Overview",
+      "description": "Set the channel name, category, slowmode, and other channel options."
+    },
+    "permissions": {
+      "title": "Permissions",
+      "description": "Control who can see this channel and what they can do here."
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "description": "Create secret URLs that external services can use to post messages into this channel."
+    },
+    "discord_sync": {
+      "title": "Discord Sync",
+      "description": "Mirror messages between this Echo channel and a Discord channel."
+    },
+    "discord_voice_mirror": {
+      "title": "Discord voice mirror",
+      "description": "Show Discord voice activity in this Echo voice channel (join happens in Discord)."
+    },
+    "forum_creator": {
+      "title": "Forum defaults",
+      "description": "Default sort, tags, and posting rules for new forum threads."
+    },
+    "format": {
+      "title": "Format",
+      "description": "Slowmode, auto-delete, and other channel formatting options."
+    },
+    "delete_channel": {
+      "title": "Delete channel",
+      "description": "Permanently remove this channel and its messages."
+    },
+    "discord_chat_sync": {
+      "title": "Discord chat sync",
+      "description": "Apply the same live message mirroring to every text and forum channel in a category."
+    }
+  },
+  "permissions": {
+    "viewChannel": "View channel",
+    "manageChannel": "Manage channel",
+    "managePermissions": "Manage permissions",
+    "manageWebhooks": "Manage webhooks",
+    "createInvite": "Create invite",
+    "connect": "Connect",
+    "speak": "Speak",
+    "useVoiceActivity": "Use Voice Activity",
+    "video": "Video",
+    "sendMessages": "Send messages",
+    "readMessageHistory": "Read message history",
+    "manageMessages": "Manage messages",
+    "mentionEveryone": "Mention @everyone, @here, and all roles"
+  }
+}

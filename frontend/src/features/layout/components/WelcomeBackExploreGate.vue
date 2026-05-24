@@ -19,6 +19,8 @@ import {
   createPendingDesktopOAuthHandoffNonce,
   setPendingDesktopOAuthReturnPath,
 } from '@/platform/desktopOAuthHandoff';
+import { translateApiErrorBody } from '@/i18n/apiErrors';
+import { echoT } from '@/i18n';
 import { messageForDiscordOAuthError } from '@/features/discord/discordIntegrationCopy';
 import { messageForGoogleOAuthError } from '@/features/google/googleIntegrationCopy';
 import { GOOGLE_SSO_SIGNIN_UI_ENABLED } from '@/features/google/googleSsoUiEnabled';
@@ -123,10 +125,10 @@ function mapOauthError(err: unknown): string {
       return (
         err.body.message || 'That isn’t available right now. Try again later.'
       );
-    return err.body.message || 'Something went wrong. Please try again.';
+    return translateApiErrorBody(err.body);
   }
   if (err instanceof Error) return err.message;
-  return 'Something went wrong. Please try again.';
+  return echoT('common.somethingWentWrong');
 }
 
 function readOauthReturnError() {

@@ -1,8 +1,5 @@
 import { echoFetch } from '@/api/echo/transport';
-import type {
-  E2eeDeviceRegistration,
-  E2eeThreadState,
-} from '@/services/e2ee/e2eeTypes';
+import type { E2eeDeviceRegistration } from '@/services/e2ee/e2eeTypes';
 
 export type EchoE2eeDeviceListRow = {
   deviceId: string;
@@ -28,26 +25,6 @@ export async function postEchoE2eePrekeysRefresh(
   await echoFetch(token, `/e2ee/prekeys/refresh`, {
     method: 'POST',
     body: JSON.stringify(body),
-  });
-}
-
-export async function getEchoE2eeThreadState(
-  token: string | null | undefined,
-  channelId: string,
-): Promise<E2eeThreadState> {
-  return await echoFetch(
-    token,
-    `/e2ee/thread/${encodeURIComponent(channelId)}/state`,
-    { method: 'GET' },
-  );
-}
-
-export async function postEchoEnableThreadE2ee(
-  token: string | null | undefined,
-  channelId: string,
-): Promise<void> {
-  await echoFetch(token, `/dm/${encodeURIComponent(channelId)}/e2ee/enable`, {
-    method: 'POST',
   });
 }
 

@@ -1,111 +1,17 @@
 /** Canva-style font catalog and typography presets for Paper. */
 
 import { PAPER_DEFAULT_FONT_FAMILY } from '@shared/types/paperEmptyDocument';
+import { PAPER_FONT_CATALOG } from '@/features/paper/editor/paperFontCatalog';
 
-export type PaperFontDefinition = {
-  id: string;
-  label: string;
-  family: string;
-  category: 'sans' | 'serif' | 'display' | 'script' | 'mono';
-};
-
-/** Curated fonts similar to Canva’s default library. */
-export const PAPER_FONT_CATALOG: readonly PaperFontDefinition[] = [
-  { id: 'inter', label: 'Inter', family: 'Inter', category: 'sans' },
-  {
-    id: 'open-sans',
-    label: 'Open Sans',
-    family: 'Open Sans',
-    category: 'sans',
-  },
-  { id: 'lato', label: 'Lato', family: 'Lato', category: 'sans' },
-  {
-    id: 'montserrat',
-    label: 'Montserrat',
-    family: 'Montserrat',
-    category: 'sans',
-  },
-  { id: 'poppins', label: 'Poppins', family: 'Poppins', category: 'sans' },
-  { id: 'roboto', label: 'Roboto', family: 'Roboto', category: 'sans' },
-  { id: 'nunito', label: 'Nunito', family: 'Nunito', category: 'sans' },
-  { id: 'raleway', label: 'Raleway', family: 'Raleway', category: 'sans' },
-  {
-    id: 'work-sans',
-    label: 'Work Sans',
-    family: 'Work Sans',
-    category: 'sans',
-  },
-  { id: 'dm-sans', label: 'DM Sans', family: 'DM Sans', category: 'sans' },
-  {
-    id: 'source-sans-3',
-    label: 'Source Sans 3',
-    family: 'Source Sans 3',
-    category: 'sans',
-  },
-  { id: 'rubik', label: 'Rubik', family: 'Rubik', category: 'sans' },
-  {
-    id: 'playfair',
-    label: 'Playfair Display',
-    family: 'Playfair Display',
-    category: 'serif',
-  },
-  {
-    id: 'merriweather',
-    label: 'Merriweather',
-    family: 'Merriweather',
-    category: 'serif',
-  },
-  { id: 'lora', label: 'Lora', family: 'Lora', category: 'serif' },
-  {
-    id: 'libre-baskerville',
-    label: 'Libre Baskerville',
-    family: 'Libre Baskerville',
-    category: 'serif',
-  },
-  {
-    id: 'source-serif-4',
-    label: 'Source Serif 4',
-    family: 'Source Serif 4',
-    category: 'serif',
-  },
-  { id: 'oswald', label: 'Oswald', family: 'Oswald', category: 'display' },
-  {
-    id: 'bebas-neue',
-    label: 'Bebas Neue',
-    family: 'Bebas Neue',
-    category: 'display',
-  },
-  {
-    id: 'pacifico',
-    label: 'Pacifico',
-    family: 'Pacifico',
-    category: 'script',
-  },
-  {
-    id: 'dancing-script',
-    label: 'Dancing Script',
-    family: 'Dancing Script',
-    category: 'script',
-  },
-  {
-    id: 'jetbrains-mono',
-    label: 'JetBrains Mono',
-    family: 'JetBrains Mono',
-    category: 'mono',
-  },
-  {
-    id: 'source-code-pro',
-    label: 'Source Code Pro',
-    family: 'Source Code Pro',
-    category: 'mono',
-  },
-  {
-    id: 'noto-sans',
-    label: 'Noto Sans',
-    family: 'Noto Sans',
-    category: 'sans',
-  },
-] as const;
+export type {
+  PaperFontCategory,
+  PaperFontDefinition,
+  PaperFontHolderAttributes,
+} from '@/features/paper/editor/paperFontCatalog';
+export {
+  PAPER_FONT_CATALOG,
+  paperFontHolderBindings,
+} from '@/features/paper/editor/paperFontCatalog';
 
 export const PAPER_FONT_SIZE_PRESETS = [
   10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72,
@@ -125,6 +31,9 @@ export const PAPER_HIGHLIGHT_COLORS = [
   { label: 'Cyan', value: '#a5f3fc' },
   { label: 'Pink', value: '#fbcfe8' },
   { label: 'Orange', value: '#fed7aa' },
+  { label: 'Lavender', value: '#e9d5ff' },
+  { label: 'Lime', value: '#d9f99d' },
+  { label: 'Coral', value: '#fecdd3' },
 ] as const;
 
 export const PAPER_TEXT_COLORS = [
@@ -133,9 +42,12 @@ export const PAPER_TEXT_COLORS = [
   { label: 'Gray', value: '#6b7280' },
   { label: 'Red', value: '#dc2626' },
   { label: 'Orange', value: '#ea580c' },
+  { label: 'Amber', value: '#d97706' },
   { label: 'Green', value: '#16a34a' },
+  { label: 'Teal', value: '#0d9488' },
   { label: 'Blue', value: '#2563eb' },
   { label: 'Purple', value: '#7c3aed' },
+  { label: 'Pink', value: '#db2777' },
   { label: 'White', value: '#f8fafc' },
 ] as const;
 

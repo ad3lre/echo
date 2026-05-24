@@ -63,6 +63,7 @@ import {
 } from '@/features/chat/composables/useMessageLinkActions';
 import { copyImageFromUrl } from '@/utils/copyToClipboard';
 import { plainTextFromEchoContentJson } from '@/features/chat/editor/echoContentJsonPlainText';
+import { plainTextForRawMessage } from '@/services/domain/messageDisplayPlain';
 import { markdownFromEchoContentJson } from '@/features/chat/editor/echoContentJsonMarkdown';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { openReportModal } from '@/features/safety/reportModal';
@@ -116,6 +117,8 @@ const props = defineProps<{
   /** In-app navigation for pasted message links (`echoJump` embeds). */
   onGoToMessage?: (channelId: string, messageId: string) => void;
   onOpenProfile?: (userId: string, anchorRect: PopoutAnchorRect | null) => void;
+  /** Message context menu “View profile” → expanded profile modal/panel. */
+  onOpenProfileFromContextMenu?: (userId: string) => void;
   isPinned?: boolean;
   onPin?: () => void;
   onUnpin?: () => void;
@@ -347,7 +350,7 @@ const showMentionAuthorInComposer = computed(
  * Skipped when `mentions` exist — offsets are tied to raw `content`.
  */
 const displayMessageContent = computed(() => {
-  const raw = message.value.content ?? '';
+  const raw = plainTextForRawMessage(message.value);
   if (message.value.mentions?.length) return raw;
   return applyEmbedTitlesToMessageContent(raw, message.value.embeds);
 });
@@ -997,7 +1000,12 @@ function mentionAuthorFromMenu() {
 }
 
 function openAuthorProfileFromMenu() {
-  props.onOpenProfile?.(message.value.authorId, null);
+  const authorId = message.value.authorId;
+  if (props.onOpenProfileFromContextMenu) {
+    props.onOpenProfileFromContextMenu(authorId);
+  } else {
+    props.onOpenProfile?.(authorId, null);
+  }
   menuOpen.value = false;
 }
 

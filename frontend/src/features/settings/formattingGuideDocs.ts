@@ -1,5 +1,5 @@
-import messageLatexMd from '../../../../terms/message-latex.md?raw';
-import messageMarkdownMd from '../../../../terms/message-markdown.md?raw';
+import messageLatexMd from '../../../../terms/en-US/message-latex.md?raw';
+import messageMarkdownMd from '../../../../terms/en-US/message-markdown.md?raw';
 
 export type FormattingGuideTabId = 'markdown' | 'latex';
 

@@ -1,5 +1,4 @@
 import { ref } from 'vue';
-import { persistDeployAnnouncement } from '@/utils/deployAnnouncement';
 
 export type DeployCountdownPayload = {
   endsAt: number;
@@ -33,7 +32,6 @@ export function applyDeployCountdownSocketPayload(raw: unknown): void {
         ? secondsTotal
         : Math.max(1, Math.ceil((endsAt - Date.now()) / 1000)),
   };
-  persistDeployAnnouncement(resolvedMessage);
 }
 
 export function clearDeployCountdown(): void {

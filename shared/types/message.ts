@@ -122,8 +122,8 @@ export interface Message {
   /** Present when this message forwards another (see `ForwardedFrom`). */
   forwardedFrom?: ForwardedFrom;
   /**
-   * Optional end-to-end encrypted payload for DM/group threads with E2EE enabled.
-   * Server does not decrypt; clients may decrypt and render plaintext locally.
+   * Legacy chat E2EE wire shape (removed). API/history strip this; voice uses separate
+   * device bundles + LiveKit E2EE. Do not send on new messages.
    */
   encryption?: {
     kind: 'e2ee';

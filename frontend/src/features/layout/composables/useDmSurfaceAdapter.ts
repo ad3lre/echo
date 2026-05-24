@@ -23,7 +23,7 @@ export function useDmSurfaceAdapter(deps: {
     { id: string; name: string; pfp: string; status?: string }[]
   >;
   openExpandedProfilePanelForUserId: (userId: string) => void;
-  handleExpandedProfileOpenProfile: (userId: string) => void;
+  openExtendedProfileModalForUserId: (userId: string) => void;
   openGroupOverviewPanel: (groupId?: string) => void;
   openGroupSettingsFromHeader: (focus?: 'name' | 'icon') => void;
 }): DmSurfaceAdapter {
@@ -42,7 +42,7 @@ export function useDmSurfaceAdapter(deps: {
 
   const intents: DmSurfaceIntents = {
     openProfilePanelForUserId: deps.openExpandedProfilePanelForUserId,
-    openProfileModal: deps.handleExpandedProfileOpenProfile,
+    openProfileModal: deps.openExtendedProfileModalForUserId,
     openGroupOverviewPanel: deps.openGroupOverviewPanel,
     openGroupSettingsFromHeader: deps.openGroupSettingsFromHeader,
   };

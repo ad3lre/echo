@@ -52,20 +52,25 @@ This repo includes a small VPS-oriented runner: [`scripts/vps-serve.mjs`](../../
 Before **`npm run prod`** stops API/frontend ports or rebuilds, the repo runs **`npm run preverify:prod`** (`scripts/preverify-prod-typecheck.mjs`): `vue-tsc` on the frontend workspace and `tsc` on backend + bot. If it fails, deploy aborts and the **currently running** stack stays up.
 
 - **`npm run vps:prod`** runs the same check **before** spawning `npm run prod` (logged in `logs/vps/prod.launcher.log`).
-- **`npm run vps:prod:watch`** pulls first, then preverifies, then shows the countdown and restarts (failed typecheck skips restart).
+- **`npm run vps:prod:watch`** pulls first, then preverifies, then restarts immediately (failed typecheck skips restart).
 - **`preprod`** no longer runs `kill-port` on `:3000` / `:4173`; ports are freed only after a successful **`npm run build`**, in **`prod:serve`**.
 - Emergency skip: **`VPS_SKIP_PROD_TYPECHECK=1`** (not recommended on production).
 
-### In-app 6s restart notice (optional)
+### Rolling redeploy (short downtime, single checkout)
 
-Before the runner **stops the stack** (git-watch pull restart or `vps:prod:stop`), it can call the live API to broadcast a **Socket.IO** countdown to every connected client, then **wait 6 seconds** so users see a full-screen “restarting for an update” message.
+**`npm run vps:prod:rolling`** keeps the live stack on **:3000 / :4173** while it:
 
-1. On the **API** host, set a shared secret: **`ECHO_DEPLOY_NOTIFY_SECRET`** (any long random string). The route stays disabled until this is set.
-2. On the **machine that runs** `vps-serve.mjs` (same host or your deploy box), set:
-   - **`VPS_DEPLOY_NOTIFY_ORIGIN`** — public base URL of the API (e.g. `https://echo.example.com`, no trailing slash). Must be reachable from that machine.
-   - **`ECHO_DEPLOY_NOTIFY_SECRET`** — **identical** to the API’s `ECHO_DEPLOY_NOTIFY_SECRET`.
+1. Runs **`preverify:prod`**
+2. Runs **`npm run build`** (no port kill)
+3. Starts a **staging** stack on **:3001 / :4174** (override with `ECHO_STAGING_API_PORT` / `ECHO_STAGING_FRONTEND_PORT`)
+4. Health-checks staging
+5. Stops live + staging, then **`prod:serve`** on main ports
 
-If these are unset, the launcher logs a skip line and continues **without** extra delay. Countdown length defaults to **6** seconds and matches `POST /api/v1/system/deploy-countdown`’s `seconds` field.
+User-visible downtime is roughly the **cutover** (~seconds), not the full build. Logs: `logs/vps/prod.rolling.log`.
+
+Manual staging only: **`npm run prod:staging:serve`** (optional `--api-port=3001 --frontend-port=4174`).
+
+For dual checkouts + Caddy snippet flip, see **[blue-green-deployment.md](./blue-green-deployment.md)**.
 
 ## Reverse proxy (recommended on a VPS)
 

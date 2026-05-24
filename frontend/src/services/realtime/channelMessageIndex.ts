@@ -77,18 +77,6 @@ function buildOrderKey(sorted: readonly RawMessage[]): string {
   return key;
 }
 
-function hasSameMessageSnapshot(
-  a: readonly RawMessage[],
-  b: readonly RawMessage[],
-): boolean {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-}
-
 export function createChannelMessageIndex(
   initial: RawMessage[],
   onAuthorsChanged?: (
@@ -403,8 +391,13 @@ export function getChannelIndex(
     addIndexAuthorsToGlobal(index.authorIds);
   } else if (
     initialMessages &&
-    !hasSameMessageSnapshot(index.sorted.value, initialMessages)
+    initialMessages.length > 0 &&
+    index.sorted.value.length === 0
   ) {
+    // Hydrate an empty index from the materialized bucket only. Never replace a
+    // populated index from `messages[channelId]` — that array can lag behind the
+    // canonical index after realtime/history writes and would drop rows (ADR:
+    // client message authority).
     index.mergeBatch(initialMessages, 'replace');
   }
   return index;

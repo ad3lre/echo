@@ -26,6 +26,7 @@ Readers included layout/DM rail (`useAppLayoutDmPanelInboxComputed`, `useAppLayo
 
 - Remote patch and ack sinks should not assign `messages.value[channelId] = sorted` directly; they delegate to `syncChannelMessages` so materialization stays one implementation.
 - After index mutations, materialization must call `getChannelIndex(channelId)` **without** passing the previous bucket array: passing a stale `messages[channelId]` snapshot can trigger `mergeBatch(..., 'replace')` and undo in-memory edits.
+- **`replaceChannelMessagesFromHistory` is merge-safe:** it full-replaces only when the channel index is empty; otherwise it appends missing ids only. See [channel-history-merge-invariants.md](./channel-history-merge-invariants.md).
 - Future work may migrate more readers to index-only APIs; until then, materialization keeps legacy subscribers consistent without a second manual array copy path.
 
 ## Inventory (verified grep, 2026-04-11)

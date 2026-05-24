@@ -21,7 +21,12 @@ import { emitDiagnostic } from '@/observability/sessionDiagnostics';
 import {
   hasChannelMessageInBucket,
   insertChannelMessageFromHistory,
+  updateChannelMessageInBucket,
 } from '@/services/realtime/channelMessageAuthority';
+import {
+  rawMessageBodyPatchFromApi,
+  shouldRefreshRawMessageBodyFromApi,
+} from '@/services/domain/messageDisplayPlain';
 import { messageWindowAuthority } from '@/features/chat/domain/messageWindowAuthority';
 import {
   applyEchoHistoryChannelClientCap,
@@ -1006,24 +1011,39 @@ export function createEchoHistoryController(
 
       const raw = mapEchoMessagesToRaw(apiMsgs);
       const index = messageWindowAuthority.getIndex(cid);
+      let refreshedExisting = 0;
+      for (const apiRow of raw) {
+        const id = apiRow.id?.trim();
+        if (!id) continue;
+        const local = index.byId.get(id);
+        if (!local) continue;
+        if (!shouldRefreshRawMessageBodyFromApi(local, apiRow)) continue;
+        updateChannelMessageInBucket(
+          cid,
+          id,
+          rawMessageBodyPatchFromApi(apiRow),
+        );
+        refreshedExisting += 1;
+      }
       const missing = raw.filter((m) => m.id && !index.byId.has(m.id));
-      if (missing.length === 0) return;
+      if (missing.length === 0 && refreshedExisting === 0) return;
 
       const { mergedNewerCount } = applyEchoHistoryLatestPageFromApi(
         cid,
         missing,
         activeChannelId.value,
       );
-      if (mergedNewerCount === 0) return;
+      if (mergedNewerCount === 0 && refreshedExisting === 0) return;
 
       logMessageList('history', 'syncActiveChannelTailFromApi', {
         channelId: cid,
         reason,
         apiMessageCount: apiMsgs.length,
         mergedNewerCount,
+        refreshedExisting,
         outcomeOk: true,
         expectation:
-          'background tail sync fills gaps after missed realtime or stale cache',
+          'background tail sync fills gaps and refreshes stale bodies after missed realtime or partial optimistic rows',
       });
       emitDiagnostic({
         level: 'info',
@@ -1035,6 +1055,7 @@ export function createEchoHistoryController(
           reason,
           apiMessageCount: apiMsgs.length,
           mergedNewerCount,
+          refreshedExisting,
         },
       });
     } catch (e) {

@@ -225,6 +225,8 @@
   --vc-slider-thumb-bg: #ffffff;
   --vc-slider-thumb-shadow: rgba(0, 0, 0, 0.35);
   --media-player-accent: var(--vc-slider-fill);
+  --media-player-wave-bass: rgb(79 70 229);
+  --media-player-wave-treble: rgb(129 140 248);
   --vc-row-btn-hover: rgba(255, 255, 255, 0.12);
   --vc-ctrl-bg: rgba(255, 255, 255, 0.06);
   --vc-ctrl-bg-hover: rgba(255, 255, 255, 0.12);
@@ -1702,6 +1704,9 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
   --vc-slider-track: rgba(0, 0, 0, 0.12);
   --vc-slider-thumb-bg: #ffffff;
   --vc-slider-thumb-shadow: rgba(0, 0, 0, 0.2);
+  --media-player-accent: var(--vc-slider-fill);
+  --media-player-wave-bass: rgb(67 56 202);
+  --media-player-wave-treble: rgb(99 102 241);
   --vc-row-btn-hover: rgba(0, 0, 0, 0.06);
   /* Voice dock: white pills (not dark “darkout” circles on light panel) */
   --vc-ctrl-bg: #ffffff;

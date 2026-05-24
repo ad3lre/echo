@@ -98,6 +98,8 @@ export type EchoApiMessage = {
   authorDiscordUserId?: string;
   bridgeFromDiscord?: boolean;
   content: string;
+  /** REST rows may expose DB `search_index_text` under this name. */
+  searchIndexText?: string;
   contentText?: string;
   contentJson?: unknown;
   messageFormatVersion?: number;

@@ -722,8 +722,9 @@ onBeforeUnmount(() => {
           <span>
             <span class="font-medium text-fg">Sync with new category</span>
             <span class="mt-0.5 block text-xs text-fg-subtle">
-              Replace the channel’s permission overwrites with copies of the
-              destination category’s overwrites.
+              Clear the channel’s permission overwrites so it inherits from the
+              destination category (same as “Sync permissions with category” in
+              channel settings).
             </span>
           </span>
         </label>

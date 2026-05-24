@@ -64,12 +64,12 @@ const otherUpcomingEvents = computed(() => {
 
 <template>
   <div
-    class="stage-vc-lobby custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[#0b0a10] px-4 py-6 sm:px-8 sm:py-8"
+    class="stage-vc-lobby custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--bg)] px-4 py-6 sm:px-8 sm:py-8"
   >
     <div class="mx-auto w-full max-w-3xl">
       <header class="mb-6 text-center sm:mb-8">
         <p
-          class="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-200/80"
+          class="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-200/80"
         >
           Stage
         </p>
@@ -86,7 +86,7 @@ const otherUpcomingEvents = computed(() => {
 
       <section
         v-if="planningEvent"
-        class="stage-vc-lobby__planned mb-6 overflow-hidden rounded-2xl border border-indigo-400/35 bg-gradient-to-br from-indigo-950/80 via-[#12101a] to-[#0b0a10] p-5 shadow-lg shadow-indigo-950/40 sm:p-6"
+        class="stage-vc-lobby__planned mb-6 overflow-hidden rounded-2xl border border-indigo-400/35 bg-gradient-to-br from-indigo-100 via-[var(--elevated)] to-[var(--bg)] p-5 shadow-lg shadow-indigo-950/10 dark:from-indigo-950/80 dark:via-[#12101a] dark:to-[#0b0a10] dark:shadow-indigo-950/40 sm:p-6"
       >
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
           <div
@@ -101,7 +101,7 @@ const otherUpcomingEvents = computed(() => {
           </div>
           <div class="min-w-0 flex-1">
             <p
-              class="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300/90"
+              class="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-300/90"
             >
               Starting within the hour
             </p>
@@ -130,7 +130,7 @@ const otherUpcomingEvents = computed(() => {
       </section>
 
       <section
-        class="stage-vc-lobby__youtube mb-6 overflow-hidden rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-950/40 via-[#12101a] to-[#0b0a10] p-5 sm:p-6"
+        class="stage-vc-lobby__youtube mb-6 overflow-hidden rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-100 via-[var(--elevated)] to-[var(--bg)] p-5 dark:from-red-950/40 dark:via-[#12101a] dark:to-[#0b0a10] sm:p-6"
       >
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start">
           <div
@@ -170,7 +170,7 @@ const otherUpcomingEvents = computed(() => {
           @click="emit('scheduleEvent')"
         >
           <div
-            class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-200"
+            class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-700 dark:text-indigo-200"
             aria-hidden="true"
           >
             <svg
@@ -204,7 +204,7 @@ const otherUpcomingEvents = computed(() => {
           @click="emit('startVoiceOnly')"
         >
           <div
-            class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-200"
+            class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-200"
             aria-hidden="true"
           >
             <svg

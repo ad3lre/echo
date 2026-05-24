@@ -177,6 +177,10 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     anchorRect: PopoutAnchorRect | null = null,
   ) {
     if (consumeProfileUiInteractionSuppressed()) return;
+    if (isInDMChat.value) {
+      openExtendedProfileModalForUserId(userId);
+      return;
+    }
     const user = users.value.find((entry) => entry.id === userId);
     if (!user) return;
     const base = buildMemberProfile(
@@ -268,9 +272,15 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     }
   }
 
-  function openExpandedProfilePanelForUserId(userId: string) {
+  type ProfileOpenOpts = { skipInteractionGuard?: boolean };
+
+  function openExpandedProfilePanelForUserId(
+    userId: string,
+    opts?: ProfileOpenOpts,
+  ) {
     if (!isInDMChat.value) return;
-    if (consumeProfileUiInteractionSuppressed()) return;
+    if (!opts?.skipInteractionGuard && consumeProfileUiInteractionSuppressed())
+      return;
     if (!currentUser.value) return;
     const trimmed = userId.trim();
     if (!trimmed) return;
@@ -295,6 +305,38 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     rehydrateExpandedProfileForUserId(trimmed);
   }
 
+  /** DM avatar/name clicks: always open full `ExpandedProfileModal`, never side overview. */
+  function openExtendedProfileModalForUserId(
+    userId: string,
+    opts?: ProfileOpenOpts,
+  ) {
+    if (!isInDMChat.value) return;
+    if (!opts?.skipInteractionGuard && consumeProfileUiInteractionSuppressed())
+      return;
+    if (!currentUser.value) return;
+    const trimmed = userId.trim();
+    if (!trimmed) return;
+    if (
+      isExpandedProfileModalOpen.value &&
+      expandedProfile.value?.id === trimmed &&
+      !expandedProfileLoading.value
+    ) {
+      if (isExpandedProfileSidePanel.value) {
+        suppressProfileUiInteraction();
+        isExpandedProfileSidePanel.value = false;
+        return;
+      }
+      closeExpandedProfileShell();
+      return;
+    }
+    isMemberPopoutOpen.value = false;
+    isSelfProfilePopoutOpen.value = false;
+    isExpandedProfileSidePanel.value = false;
+    isExpandedProfileModalOpen.value = true;
+    isGroupOverviewOpen.value = false;
+    rehydrateExpandedProfileForUserId(trimmed);
+  }
+
   /** DM side profile overview → full-screen `ExpandedProfileModal` (same peer, richer layout). */
   function expandDmProfileToFullModal() {
     if (!expandedProfileTargetUserId.value && !expandedProfile.value) return;
@@ -303,9 +345,12 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     isExpandedProfileSidePanel.value = false;
   }
 
-  function handleExpandedProfileOpenProfile(userId: string) {
+  function handleExpandedProfileOpenProfile(
+    userId: string,
+    opts?: ProfileOpenOpts,
+  ) {
     if (isInDMChat.value) {
-      openExpandedProfilePanelForUserId(userId);
+      openExtendedProfileModalForUserId(userId, opts);
       return;
     }
     const cur = currentUser.value;
@@ -374,6 +419,7 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     openExpandedProfileFromMemberPopout,
     openExpandedProfileFromSelfPopout,
     openExpandedProfilePanelForUserId,
+    openExtendedProfileModalForUserId,
     expandDmProfileToFullModal,
     handleExpandedProfileOpenProfile,
     handleExpandedProfileOpenDM,

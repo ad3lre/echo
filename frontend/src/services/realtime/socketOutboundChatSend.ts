@@ -6,7 +6,6 @@ import type {
   MessageAttachmentPayload,
   ReplyTo,
 } from '@shared/types';
-import type { E2eeOutboundEncryption } from '@/services/e2ee/e2eeTypes';
 import {
   optimisticAuthorEchoPatch,
   type LocalAuthorEchoSnapshot,
@@ -27,7 +26,6 @@ export function sendOneOutboundChatMessage(opts: {
   wireReplyTo?: ReplyTo;
   wireContentJson?: unknown;
   wireContentSchemaVersion?: number;
-  wireEncryption?: E2eeOutboundEncryption;
   imageUrl?: string;
   videoUrl?: string;
   gif?: boolean;
@@ -70,7 +68,6 @@ export function sendOneOutboundChatMessage(opts: {
     opts.wireContentJson !== null &&
     typeof opts.wireContentJson === 'object';
   const csVer = opts.wireContentSchemaVersion ?? ECHO_CONTENT_SCHEMA_VERSION;
-  const useE2ee = !!opts.wireEncryption;
 
   if (opts.isSocketConnected) {
     opts.socketDiagInfo('sendMessage_standard_connected', {
@@ -115,11 +112,11 @@ export function sendOneOutboundChatMessage(opts: {
           : {}),
         ...(opts.wireMentions?.length ? { mentions: opts.wireMentions } : {}),
         ...(opts.wireReplyTo ? { replyTo: opts.wireReplyTo } : {}),
-        ...(!useE2ee && opts.imageUrl ? { imageUrl: opts.imageUrl } : {}),
-        ...(!useE2ee && opts.videoUrl ? { videoUrl: opts.videoUrl } : {}),
-        ...(!useE2ee && opts.gif ? { gif: true } : {}),
-        ...(!useE2ee && opts.imageSpoiler ? { imageSpoiler: true } : {}),
-        ...(!useE2ee && opts.attachments && opts.attachments.length
+        ...(opts.imageUrl ? { imageUrl: opts.imageUrl } : {}),
+        ...(opts.videoUrl ? { videoUrl: opts.videoUrl } : {}),
+        ...(opts.gif ? { gif: true } : {}),
+        ...(opts.imageSpoiler ? { imageSpoiler: true } : {}),
+        ...(opts.attachments && opts.attachments.length
           ? { attachments: opts.attachments }
           : {}),
         ...(wireForwardPreview ? { forwardedFrom: wireForwardPreview } : {}),
@@ -146,11 +143,11 @@ export function sendOneOutboundChatMessage(opts: {
         replyTo: opts.wireReplyTo,
         ...(clientMessageId ? { id: clientMessageId } : {}),
         correlationId: opts.newCorrelationId(),
-        ...(!useE2ee && opts.imageUrl ? { imageUrl: opts.imageUrl } : {}),
-        ...(!useE2ee && opts.videoUrl ? { videoUrl: opts.videoUrl } : {}),
-        ...(!useE2ee && opts.gif ? { gif: true } : {}),
-        ...(!useE2ee && opts.imageSpoiler ? { imageSpoiler: true } : {}),
-        ...(!useE2ee && opts.attachments && opts.attachments.length
+        ...(opts.imageUrl ? { imageUrl: opts.imageUrl } : {}),
+        ...(opts.videoUrl ? { videoUrl: opts.videoUrl } : {}),
+        ...(opts.gif ? { gif: true } : {}),
+        ...(opts.imageSpoiler ? { imageSpoiler: true } : {}),
+        ...(opts.attachments && opts.attachments.length
           ? { attachments: opts.attachments }
           : {}),
         ...(useJsonBody
@@ -159,7 +156,6 @@ export function sendOneOutboundChatMessage(opts: {
               contentSchemaVersion: csVer,
             }
           : {}),
-        ...(useE2ee ? { encryption: opts.wireEncryption } : {}),
         ...(wireForwardId ? { forwardMessageId: wireForwardId } : {}),
       });
     } catch (e) {
@@ -184,11 +180,11 @@ export function sendOneOutboundChatMessage(opts: {
         : {}),
       ...(opts.wireMentions?.length ? { mentions: opts.wireMentions } : {}),
       replyTo: opts.wireReplyTo,
-      ...(!useE2ee && opts.imageUrl ? { imageUrl: opts.imageUrl } : {}),
-      ...(!useE2ee && opts.videoUrl ? { videoUrl: opts.videoUrl } : {}),
-      ...(!useE2ee && opts.gif ? { gif: true } : {}),
-      ...(!useE2ee && opts.imageSpoiler ? { imageSpoiler: true } : {}),
-      ...(!useE2ee && opts.attachments && opts.attachments.length
+      ...(opts.imageUrl ? { imageUrl: opts.imageUrl } : {}),
+      ...(opts.videoUrl ? { videoUrl: opts.videoUrl } : {}),
+      ...(opts.gif ? { gif: true } : {}),
+      ...(opts.imageSpoiler ? { imageSpoiler: true } : {}),
+      ...(opts.attachments && opts.attachments.length
         ? { attachments: opts.attachments }
         : {}),
       ...(opts.forwardPreview ? { forwardedFrom: opts.forwardPreview } : {}),

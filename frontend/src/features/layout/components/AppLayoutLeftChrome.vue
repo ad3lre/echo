@@ -141,6 +141,7 @@ const lc = computed((): AppLayoutLeftChromeProps => {
     setRemoteParticipantVolume: g('setRemoteParticipantVolume'),
     vcMicInputLevel: g('vcMicInputLevel'),
     openMemberProfile: g('openMemberProfile') ?? noopProfile,
+    openProfileFromContextMenu: g('openProfileFromContextMenu'),
     activeMemberProfileId: g('activeMemberProfileId') ?? null,
     guildVcMuted: g('guildVcMuted') ?? false,
     guildVcDeafened: g('guildVcDeafened') ?? false,
@@ -436,7 +437,11 @@ function vcStripMenuProfile() {
   const ctx = vcStripContext.value;
   if (!ctx) return;
   vcStripCloseMenu();
-  lc.value.openMemberProfile(ctx.userId, null);
+  if (lc.value.openProfileFromContextMenu) {
+    lc.value.openProfileFromContextMenu(ctx.userId);
+  } else {
+    lc.value.openMemberProfile(ctx.userId, null);
+  }
 }
 
 function vcStripMenuCopyUserId() {
@@ -681,6 +686,14 @@ function fireMoreServersTogglePinned() {
   if (h?.onMoreServersTogglePinned) h.onMoreServersTogglePinned();
   else emit('more-servers-toggle-pinned');
 }
+function fireDmOpenProfile(userId: string) {
+  if (lc.value.openProfileFromContextMenu) {
+    lc.value.openProfileFromContextMenu(userId);
+  } else {
+    lc.value.openMemberProfile(userId, null);
+  }
+}
+
 function fireDmClose() {
   const h = host();
   if (h?.onDmClose) h.onDmClose();
@@ -1113,6 +1126,7 @@ function onMoreServersPinServer(payload: {
         :get-vc-activity-presence="lc.getVcActivityPresence"
         :vc-activity-king-user-id="lc.vcActivityKingUserId"
         :on-open-profile="lc.openMemberProfile"
+        :on-open-profile-from-context-menu="lc.openProfileFromContextMenu"
         :open-profile-user-id="lc.activeMemberProfileId"
         :vc-muted="lc.guildVcMuted"
         :vc-deafened="lc.guildVcDeafened"
@@ -1237,6 +1251,7 @@ function onMoreServersPinServer(payload: {
           @select-dm="fireDmSelectDm($event)"
           @select-dm-group="fireDmSelectGroup($event)"
           @select-message-request="fireDmSelectMessageRequest($event)"
+          @open-profile="fireDmOpenProfile($event)"
           @mark-read="fireDmMarkRead($event)"
           @hide-from-dm-list="fireDmHideFromInbox($event)"
           @toggle-favorite-dm-inbox="fireDmToggleFavoriteInbox($event)"
@@ -1416,6 +1431,7 @@ function onMoreServersPinServer(payload: {
           @select-dm="fireDmSelectDm($event)"
           @select-dm-group="fireDmSelectGroup($event)"
           @select-message-request="fireDmSelectMessageRequest($event)"
+          @open-profile="fireDmOpenProfile($event)"
           @mark-read="fireDmMarkRead($event)"
           @hide-from-dm-list="fireDmHideFromInbox($event)"
           @toggle-favorite-dm-inbox="fireDmToggleFavoriteInbox($event)"
@@ -1497,6 +1513,7 @@ function onMoreServersPinServer(payload: {
         :get-vc-activity-presence="lc.getVcActivityPresence"
         :vc-activity-king-user-id="lc.vcActivityKingUserId"
         :on-open-profile="lc.openMemberProfile"
+        :on-open-profile-from-context-menu="lc.openProfileFromContextMenu"
         :open-profile-user-id="lc.activeMemberProfileId"
         :vc-muted="lc.guildVcMuted"
         :vc-deafened="lc.guildVcDeafened"

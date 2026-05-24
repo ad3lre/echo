@@ -3,6 +3,8 @@ import {
   timeZoneOptions,
 } from '@/features/settings/timeLanguagePreferences';
 
+import type { EchoPlanId } from '@shared/echoPlanLimits';
+
 export const INVOICES = [
   { id: 'INV-2407', date: 'Mar 1, 2026', amount: '$9.99', status: 'Paid' },
   { id: 'INV-2386', date: 'Feb 1, 2026', amount: '$9.99', status: 'Paid' },
@@ -18,6 +20,53 @@ export const SUBSCRIPTION_TIMELINE = [
     value: 'Custom themes, profile effects, HD streaming',
   },
 ];
+
+const PLAN_PRODUCT_NAME: Record<EchoPlanId, string> = {
+  free: 'Echo',
+  plus: 'Echo+',
+  black: 'Echo Black',
+};
+
+const PLAN_MONTHLY_PRICE: Record<'plus' | 'black', string> = {
+  plus: '$9.99',
+  black: '$19.99',
+};
+
+const PLAN_PERKS: Record<'plus' | 'black', string> = {
+  plus: 'Echo+ badge, premium themes, 2 GB uploads, HD streaming',
+  black: 'Echo Black badge, true custom mode, 8 GB uploads, 4K streaming',
+};
+
+export function subscriptionTimelineForPlan(plan: EchoPlanId) {
+  if (plan === 'free') {
+    return [
+      { label: 'Current plan', value: 'Echo (Free)' },
+      { label: 'Upgrade', value: 'Echo+ or Echo Black in Settings → Echo+' },
+    ];
+  }
+  return [
+    {
+      label: 'Current plan',
+      value: `${PLAN_PRODUCT_NAME[plan]} Monthly`,
+    },
+    { label: 'Renewal', value: 'Apr 1, 2026' },
+    { label: 'Included seats', value: '1 active seat' },
+    {
+      label: 'Perks unlocked',
+      value: PLAN_PERKS[plan],
+    },
+  ];
+}
+
+export function subscriptionInvoicesForPlan(plan: EchoPlanId) {
+  if (plan === 'free') return [];
+  const amount = PLAN_MONTHLY_PRICE[plan];
+  return [
+    { id: 'INV-2407', date: 'Mar 1, 2026', amount, status: 'Paid' },
+    { id: 'INV-2386', date: 'Feb 1, 2026', amount, status: 'Paid' },
+    { id: 'INV-2328', date: 'Jan 1, 2026', amount, status: 'Paid' },
+  ];
+}
 
 /** When true, theme swatches and sync-with-system are read-only; UI shows a coming-soon callout. */
 export const THEMES_SELECTION_COMING_SOON = false;

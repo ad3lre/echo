@@ -42,7 +42,7 @@ const countdown = computed(() =>
     </div>
     <div class="min-w-0 flex-1">
       <p
-        class="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-300/90"
+        class="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-700 dark:text-indigo-300/90"
       >
         {{
           startedFromLobby
@@ -62,7 +62,7 @@ const countdown = computed(() =>
     <div class="flex shrink-0 flex-wrap items-center gap-2">
       <p
         v-if="promptYoutubeLive && canManageYoutube"
-        class="text-xs text-indigo-100/90"
+        class="text-xs text-indigo-800 dark:text-indigo-100/90"
       >
         This event is tagged for YouTube live — use the controls above to go
         live.
@@ -70,7 +70,7 @@ const countdown = computed(() =>
       <button
         v-if="promptYoutubeLive"
         type="button"
-        class="rounded-lg border border-indigo-400/40 px-2.5 py-1 text-xs font-semibold text-indigo-100 hover:bg-indigo-500/15"
+        class="rounded-lg border border-indigo-400/40 px-2.5 py-1 text-xs font-semibold text-indigo-800 hover:bg-indigo-500/15 dark:text-indigo-100"
         @click="emit('dismissYoutubePrompt')"
       >
         Dismiss tip

@@ -48,6 +48,7 @@ export type AppLayoutMembersColumnProps = {
     userId: string;
     anchorRect: PopoutAnchorRect | null;
     rolesPanel?: boolean;
+    fromContextMenu?: boolean;
   }) => void;
   currentUserId?: string;
   canModerateMemberUser?: (userId: string) => boolean;

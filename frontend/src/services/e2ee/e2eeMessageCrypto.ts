@@ -126,51 +126,6 @@ async function resolveSenderProtocolDeviceId(
   return pid;
 }
 
-/** Demo AES-GCM per-thread key (legacy); only used when envelope.alg === 'AES-GCM'. */
-async function decryptLegacyDemoAesGcm(
-  channelId: string,
-  envelope: unknown,
-  ciphertext: string,
-): Promise<string> {
-  const subtle = globalThis.crypto?.subtle;
-  if (!subtle) throw new Error('WebCrypto unavailable');
-  const THREAD_KEY_PREFIX = 'echo_e2ee_thread_key_demo_v1:';
-  const raw =
-    sessionStorage.getItem(`${THREAD_KEY_PREFIX}${channelId.trim()}`) ?? '';
-  if (!raw) throw new Error('Missing legacy thread key');
-  const keyBytes = base64ToBytes(raw);
-  const key = await subtle.importKey(
-    'raw',
-    keyBytes.buffer.slice(
-      keyBytes.byteOffset,
-      keyBytes.byteOffset + keyBytes.byteLength,
-    ) as ArrayBuffer,
-    { name: 'AES-GCM' },
-    false,
-    ['decrypt'],
-  );
-  const o = envelope as { iv?: unknown };
-  const ivB64 = typeof o?.iv === 'string' ? o.iv : '';
-  if (!ivB64) throw new Error('Missing iv');
-  const iv = base64ToBytes(ivB64);
-  const ct = base64ToBytes(ciphertext);
-  const ptBuf = await subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv.buffer.slice(
-        iv.byteOffset,
-        iv.byteOffset + iv.byteLength,
-      ) as ArrayBuffer,
-    },
-    key,
-    ct.buffer.slice(
-      ct.byteOffset,
-      ct.byteOffset + ct.byteLength,
-    ) as ArrayBuffer,
-  );
-  return new TextDecoder().decode(new Uint8Array(ptBuf));
-}
-
 function senderPidFromEnvelope(envelope: unknown): number {
   const env = envelope as { senderProtocolDeviceId?: unknown } | null;
   const n = env?.senderProtocolDeviceId;
@@ -196,23 +151,6 @@ async function decryptLibsignalPayload(
     return await cipher.decryptPreKeyWhisperMessage(parsed.body, 'base64');
   }
   return await cipher.decryptWhisperMessage(parsed.body, 'base64');
-}
-
-export async function e2eeEncryptDmPlaintext(opts: {
-  viewerUserId: string;
-  peerUserId: string;
-  plaintext: string;
-  senderDeviceId: string;
-  authToken: string | null | undefined;
-}): Promise<E2eeOutboundEncryption> {
-  const pt = new TextEncoder().encode(opts.plaintext);
-  return e2eeEncryptDmBytes({
-    viewerUserId: opts.viewerUserId,
-    peerUserId: opts.peerUserId,
-    plaintextBytes: pt,
-    senderDeviceId: opts.senderDeviceId,
-    authToken: opts.authToken,
-  });
 }
 
 /** Binary payload (e.g. voice media seed) wrapped for a peer device via LibSignal. */
@@ -309,35 +247,6 @@ export async function e2eeEncryptDmBytes(opts: {
     },
     ciphertext: JSON.stringify(wire),
   };
-}
-
-export async function e2eeDecryptIncomingDm(opts: {
-  viewerUserId: string;
-  authorUserId: string;
-  channelId: string;
-  envelope: unknown;
-  ciphertext: string;
-}): Promise<string> {
-  const env = opts.envelope as { alg?: string } | null;
-  if (env && env.alg === 'AES-GCM') {
-    if (import.meta.env.PROD) {
-      throw new Error(
-        'Legacy AES-GCM demo messages are disabled in production builds',
-      );
-    }
-    return decryptLegacyDemoAesGcm(
-      opts.channelId,
-      opts.envelope,
-      opts.ciphertext,
-    );
-  }
-  const bytes = await e2eeDecryptIncomingDmBytes({
-    viewerUserId: opts.viewerUserId,
-    authorUserId: opts.authorUserId,
-    envelope: opts.envelope,
-    ciphertext: opts.ciphertext,
-  });
-  return new TextDecoder().decode(bytes);
 }
 
 export async function e2eeDecryptIncomingDmBytes(opts: {

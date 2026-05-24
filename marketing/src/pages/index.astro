@@ -8,6 +8,10 @@ import PrivacyIdWidget from '../components/PrivacyIdWidget.astro';
 import ShareScreenWidget from '../components/ShareScreenWidget.astro';
 import VoiceCallWidget from '../components/VoiceCallWidget.astro';
 
+import { getMarketingStrings } from '../lib/i18n';
+
+const m = getMarketingStrings('en');
+
 /** IHDR width/height so the hero phone frame always matches `public/mobile-screenshot.png` at build time. */
 function readPngIhdrSize(absPath: string): { w: number; h: number } {
   const buf = fs.readFileSync(absPath);
@@ -29,56 +33,14 @@ if (!mobileShotPath) {
 }
 const mobileShot = readPngIhdrSize(mobileShotPath);
 
-const title = 'Echo | Where communities come to life';
-const description =
-  'Echo is an open source (GNU AGPL v3) community platform for connection, conversation, and collaboration. Voice, chat, and privacy-minded design—try Echo at chat-echo.com.';
-
-const faqs = [
-  {
-    question: 'What is Echo?',
-    answer:
-      'Echo is an open source, privacy-focused communication platform with real-time chat, voice, and community features.',
-  },
-  {
-    question: 'Is Echo a Discord alternative?',
-    answer:
-      'Yes. Echo is built for people who want a modern Discord alternative for communities, group chat, and voice conversations.',
-  },
-  {
-    question: 'Where can I try Echo?',
-    answer:
-      'Open the live app at chat-echo.com. This site (app-echo.net) is the marketing home for discovery and SEO.',
-  },
-  {
-    question: 'Who is Echo for?',
-    answer:
-      'Echo is for communities, friend groups, and teams who want voice, text, and media in one focused place.',
-  },
-  {
-    question: 'Is Echo open source?',
-    answer:
-      'Yes. Echo is released under the GNU Affero General Public License v3.0 (AGPL). You can read the source, self-host, and contribute on GitHub at https://github.com/ad3lre/echo.',
-  },
-];
-
+const title = m.home.title;
+const description = m.home.description;
+const faqs = m.home.faqs;
 const structuredData = homeStructuredData({ description, faqs });
-
 const featureCards = [
-  {
-    id: 'privacy',
-    title: "We don't ask for your ID",
-    body: 'Join freely and stay anonymous. No ID verification, ever.',
-  },
-  {
-    id: 'share',
-    title: 'Share your screen',
-    body: 'Show, explain, and collaborate in real time.',
-  },
-  {
-    id: 'voice',
-    title: 'Voice chats that connect',
-    body: 'Crystal-clear voice chats built for real conversations.',
-  },
+  { id: 'privacy', ...m.home.featureCards.privacy },
+  { id: 'share', ...m.home.featureCards.share },
+  { id: 'voice', ...m.home.featureCards.voice },
 ];
 ---
 
@@ -93,10 +55,10 @@ const featureCards = [
       <section class="hero">
         <div class="container hero-grid">
           <div>
-            <p class="hero-label">Echo</p>
-            <h1 class="hero-title">Where communities come to life.</h1>
+            <p class="hero-label">{m.home.heroLabel}</p>
+            <h1 class="hero-title">{m.home.heroTitle}</h1>
             <p class="hero-lede">
-              Echo is a modern community platform built for connection, conversation, and collaboration.
+              {m.home.heroLede}
             </p>
             <p class="hero-oss">
               <strong>Open source</strong> under the{' '}

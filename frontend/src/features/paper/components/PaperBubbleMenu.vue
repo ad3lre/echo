@@ -60,6 +60,7 @@ function onLinkConfirm(href: string) {
     <div
       class="flex items-center gap-0.5 rounded-full border border-border px-1 py-0.5 shadow-lg backdrop-blur-md"
       style="background: var(--paper-format-bar-bg)"
+      @mousedown.prevent
     >
       <template v-if="lockedBlock">
         <span class="paper-bubble-lock-hint px-2 text-xs text-muted">

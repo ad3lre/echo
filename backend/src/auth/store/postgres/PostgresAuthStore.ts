@@ -3,7 +3,7 @@ import { randomBytes, randomInt } from 'crypto';
 import type pg from 'pg';
 import * as authEmail from '../../email';
 import { config } from '../../../config';
-import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
+import { assertEchoAuthLocale } from '../../../../../shared/echoLocale';
 import { isPostgresUndefinedColumnError } from '../../../db/pgErrors';
 import { maskE164, normalizeInputToE164 } from '../../phoneE164';
 import { smsOtpHmacHex, smsOtpVerifyTimingSafe } from '../../smsOtpHmac';
@@ -23,6 +23,7 @@ import {
   verifyTotpCode,
 } from '../../totpVerify';
 import { checkAndMarkTotpUsed } from '../../totpReplayCache';
+import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
 import type {
   AuthUser,
   AuthRegisterBody,
@@ -48,7 +49,7 @@ import type {
   PasswordResetConsumeResult,
 } from '../types';
 import { validateEchoStoredBrandingUrl } from '../../../services/storedMediaUrl';
-import { publicBadgesFromSignupOrdinal } from '../../../../../shared/echoAccountBadges';
+import { publicBadgesFromAccount } from '../../../../../shared/echoAccountBadges';
 import { normalizeEchoPlanId } from '../../../../../shared/echoPlanLimits';
 import { normalizeUsername, makeHash } from '../helpers';
 
@@ -143,15 +144,19 @@ export class PostgresAuthStore implements AuthStore {
     if (row.time_zone != null && String(row.time_zone).trim()) {
       u.timeZone = String(row.time_zone).trim().slice(0, 64);
     }
+    if (row.locale != null && String(row.locale).trim()) {
+      u.locale = String(row.locale).trim().slice(0, 16);
+    }
     const ordRaw = row.signup_ordinal;
     const signupOrdinal =
       ordRaw != null && ordRaw !== '' ? Number(ordRaw) : Number.NaN;
-    const badgeFlags = publicBadgesFromSignupOrdinal(
+    const badgeFlags = publicBadgesFromAccount(
       Number.isFinite(signupOrdinal) ? signupOrdinal : null,
       {
         isGuest: u.isGuest,
         isDiscordShadow: u.isDiscordShadow,
       },
+      u.echoPlan,
     );
     if (badgeFlags.length) u.badges = badgeFlags;
     return u;
@@ -518,6 +523,16 @@ export class PostgresAuthStore implements AuthStore {
         }
         values.push(tz);
         sets.push(`time_zone = $${values.length}`);
+      }
+    }
+    if (patch.locale !== undefined) {
+      if (patch.locale === null || String(patch.locale).trim() === '') {
+        values.push(null);
+        sets.push(`locale = $${values.length}`);
+      } else {
+        const loc = assertEchoAuthLocale(patch.locale);
+        values.push(loc);
+        sets.push(`locale = $${values.length}`);
       }
     }
     if (patch.email !== undefined) {

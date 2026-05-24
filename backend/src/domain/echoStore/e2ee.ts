@@ -475,34 +475,12 @@ export type EchoE2eeThreadState =
   | { enabled: false }
   | { enabled: true; mode: string; keyEpoch: number; enabledAt: string };
 
+/** Chat thread E2EE was removed; voice uses device bundles + LiveKit instead. */
 export async function getEchoE2eeThreadState(
-  pool: pg.Pool,
-  channelId: string,
+  _pool: pg.Pool,
+  _channelId: string,
 ): Promise<EchoE2eeThreadState> {
-  const cid = channelId.trim();
-  if (!cid) return { enabled: false };
-  try {
-    const r = await pool.query(
-      `
-    SELECT mode, key_epoch, enabled_at
-    FROM echo_e2ee_threads
-    WHERE channel_id = $1
-    LIMIT 1
-    `,
-      [cid],
-    );
-    const row = r.rows[0];
-    if (!row) return { enabled: false };
-    return {
-      enabled: true,
-      mode: String(row.mode),
-      keyEpoch: Number(row.key_epoch ?? 1),
-      enabledAt: new Date(row.enabled_at as string | Date).toISOString(),
-    };
-  } catch (e) {
-    if (isPostgresUndefinedRelationError(e)) return { enabled: false };
-    throw e;
-  }
+  return { enabled: false };
 }
 
 /** Device bundles for LibSignal voice key distribution (not chat). */

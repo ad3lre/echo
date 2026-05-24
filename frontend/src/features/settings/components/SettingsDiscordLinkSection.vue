@@ -162,7 +162,7 @@ function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
               <span
                 class="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent/85"
               >
-                {{ discordSettingsSectionTitle }}
+                {{ discordSettingsSectionTitle() }}
               </span>
               <h4 class="text-2xl font-bold text-foreground">
                 {{ state.profile.globalName || state.profile.username }}
@@ -225,7 +225,7 @@ function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
                 {{
                   profileImportBusy
                     ? 'Importing…'
-                    : discordImportProfileIntoEchoCta
+                    : discordImportProfileIntoEchoCta()
                 }}
               </button>
             </div>
@@ -241,7 +241,7 @@ function detailRows(profile: MeDiscordLinkedProfile): DiscordDetailRow[] {
             :disabled="connectBusy"
             @click="onConnect"
           >
-            {{ connectBusy ? 'Opening Discord…' : discordConnectCta }}
+            {{ connectBusy ? 'Opening Discord…' : discordConnectCta() }}
           </button>
         </div>
       </template>

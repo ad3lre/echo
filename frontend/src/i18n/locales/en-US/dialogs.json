@@ -1,0 +1,21 @@
+{
+  "voiceJoin": {
+    "titleFull": "Voice channel full",
+    "titleNoConnect": "Cannot connect to voice",
+    "titleNoView": "Channel not available",
+    "titleTimeout": "Communication timeout",
+    "titleBanned": "Cannot use voice",
+    "titleNotMember": "Not a member",
+    "titleNotFound": "Voice channel unavailable",
+    "titleE2eeFailed": "Voice encryption setup failed",
+    "titleDefault": "Could not join voice",
+    "noPermissionMessage": "You do not have permission to connect to this voice channel.",
+    "joinInDiscordTitle": "Join in Discord",
+    "joinInDiscordMessage": "This channel mirrors Discord voice activity only — join voice in Discord."
+  },
+  "guestExploreJoin": {
+    "title": "Can't join from Explore with this account",
+    "messageDefault": "This account type can't join servers from the public Explore directory. Create a free Echo account with email to join listed communities, or use an invite link from a member.",
+    "messageWithHint": "{hint}\n\nTo join listed servers from the directory, create a free Echo account with email (upgrade from your profile or the guest banner). You can still join a community if someone sends you an invite link."
+  }
+}

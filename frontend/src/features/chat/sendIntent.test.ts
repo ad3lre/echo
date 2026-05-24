@@ -36,7 +36,6 @@ describe('executeShellSend', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
     );
   });
 });

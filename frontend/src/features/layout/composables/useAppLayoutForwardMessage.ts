@@ -5,6 +5,7 @@ import type {
   Message,
   MessageWithAuthor,
 } from '@shared/types';
+import { LEGACY_ENCRYPTED_CHAT_MESSAGE_PLACEHOLDER } from '@shared/chatE2eePolicy';
 import { plainTextFromEchoContentJson } from '@/features/chat/editor/echoContentJsonPlainText';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { safeImageUrl } from '@/utils/safeImageUrl';
@@ -26,7 +27,7 @@ export function buildForwardContentPreview(
 ): string {
   const enc = (src as Message & MessageWithAuthor).encryption;
   if (enc?.kind === 'e2ee') {
-    return '(encrypted message)';
+    return LEGACY_ENCRYPTED_CHAT_MESSAGE_PLACEHOLDER;
   }
   if (src.poll?.question?.trim()) {
     return `[Poll] ${src.poll.question.trim()}`;

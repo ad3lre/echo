@@ -25,6 +25,7 @@ import { useChatMessages } from '@/composables/useChatMessages';
 import { useMessageReactions } from '@/composables/useMessageReactions';
 import { useReactionFavorites } from '@/composables/useReactionFavorites';
 import { useLayout } from '@/composables/useLayout';
+import { bindPaperEditorChannelPanelWidth } from '@/features/paper/composables/paperEditorPanelBridge';
 import { useCompactShell } from '@/composables/useCompactShell';
 // Sub-composables
 import { useAppLayoutRealtimeSocketBinding } from './useAppLayoutRealtimeSocketBinding';
@@ -389,6 +390,8 @@ export function useAppLayoutController() {
     beginVcActivitySessionChannelLayout,
     endVcActivitySessionChannelLayout,
   } = layoutDims;
+
+  bindPaperEditorChannelPanelWidth(channelPanelWidth);
 
   const { isCompactShell } = useCompactShell();
   const themeStore = useThemeStore();
@@ -2575,6 +2578,7 @@ export function useAppLayoutController() {
     openExpandedProfileFromMemberPopout,
     openExpandedProfileFromSelfPopout,
     openExpandedProfilePanelForUserId,
+    openExtendedProfileModalForUserId,
     expandDmProfileToFullModal,
     handleExpandedProfileOpenProfile,
     handleExpandedProfileOpenDM,
@@ -3479,6 +3483,7 @@ export function useAppLayoutController() {
     openExpandedProfileFromMemberPopout,
     openExpandedProfileFromSelfPopout,
     openExpandedProfilePanelForUserId,
+    openExtendedProfileModalForUserId,
     expandDmProfileToFullModal,
     handleExpandedProfileOpenProfile,
     handleExpandedProfileOpenDM,
@@ -3922,7 +3927,7 @@ export function useAppLayoutController() {
     presenceMobileByUserId: useComputedOptionalRefAlias(presenceMobileByUserId),
     activeGroupCallMembers: activeGroupCallMembersVisible,
     openExpandedProfilePanelForUserId,
-    handleExpandedProfileOpenProfile,
+    openExtendedProfileModalForUserId,
     openGroupOverviewPanel: groupDmActions.openGroupOverviewPanel,
     openGroupSettingsFromHeader: groupDmActions.openGroupSettingsFromHeader,
   });

@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import { useForgotPasswordFlow } from '@/composables/useAuthPasswordFlow';
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   done: [];
@@ -12,15 +15,16 @@ const { email, busy, errorMessage, successMessage, canSubmit, submit, goHome } =
 <template>
   <div class="forgot-page">
     <div class="forgot-card">
-      <h1 class="forgot-title">Forgot password</h1>
+      <h1 class="forgot-title">{{ t('auth.forgotPasswordTitle') }}</h1>
       <p class="forgot-lead">
-        Enter the email on your Echo account. If we find a match, we will send a
-        link to choose a new password.
+        {{ t('auth.forgotPasswordLead') }}
       </p>
 
       <form class="forgot-form" @submit.prevent="submit">
         <div class="forgot-field">
-          <label class="forgot-label" for="fp-email">Email</label>
+          <label class="forgot-label" for="fp-email">{{
+            t('auth.email')
+          }}</label>
           <input
             id="fp-email"
             v-model="email"

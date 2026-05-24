@@ -13,6 +13,8 @@ export type EchoUserPublicProfileFromApi = {
   name: string;
   pfp: string;
   username?: string;
+  /** Profile badges (Echo+ / Echo Black / OG) when present. */
+  badges?: string[];
 };
 
 /** Minimal profile for DM/group peers not yet present in workspace snapshots. */

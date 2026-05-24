@@ -20,6 +20,13 @@ export default defineConfig({
   site: SITE,
   trailingSlash: 'always',
   compressHTML: true,
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en'],
+    routing: {
+      prefixDefaultLocale: false,
+    },
+  },
   integrations: [
     sitemap({
       changefreq: 'weekly',

@@ -18,6 +18,8 @@ import {
   authUpgradeGuest,
   isAuthLoginMfaChallenge,
 } from '@/api/authClient';
+import { translateApiErrorBody } from '@/i18n/apiErrors';
+import { echoT } from '@/i18n';
 import { messageForDiscordOAuthError } from '@/features/discord/discordIntegrationCopy';
 import { messageForGoogleOAuthError } from '@/features/google/googleIntegrationCopy';
 import { GOOGLE_SSO_SIGNIN_UI_ENABLED } from '@/features/google/googleSsoUiEnabled';
@@ -277,10 +279,10 @@ function mapError(err: unknown): string {
       return 'That sign-in step expired. Try passkey again.';
     if (err.body.code === 'VERIFICATION_FAILED')
       return 'Passkey verification failed. Try again.';
-    return err.body.message || 'Something went wrong. Please try again.';
+    return translateApiErrorBody(err.body);
   }
   if (err instanceof Error) return err.message;
-  return 'Something went wrong. Please try again.';
+  return echoT('common.somethingWentWrong');
 }
 
 async function submitLogin() {

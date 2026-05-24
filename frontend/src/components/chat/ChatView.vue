@@ -271,6 +271,7 @@ const props = defineProps<{
   onGoToChannel?: (channelId: string) => void;
   onGoToMessage?: (channelId: string, messageId: string) => void;
   onOpenProfile?: (userId: string, anchorRect: PopoutAnchorRect | null) => void;
+  onOpenProfileFromContextMenu?: (userId: string) => void;
   /**
    * Local-only pins (DM / non-server chat). Omit for **server channels** — pinned messages are not a product feature there.
    */
@@ -730,6 +731,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         :on-go-to-channel="onGoToChannel"
         :on-go-to-message="onGoToMessage"
         :on-open-profile="onOpenProfile"
+        :on-open-profile-from-context-menu="onOpenProfileFromContextMenu"
         :pinned-message-ids="pinnedMessageIds"
         :on-pin="onPin"
         :on-unpin="onUnpin"

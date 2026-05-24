@@ -2,6 +2,12 @@ import { API_BASE } from '@/config';
 import { createApp } from 'vue';
 import App from './App.vue';
 import { createPinia } from 'pinia';
+import { i18n, initEchoI18n } from '@/i18n';
+import {
+  applyEchoLocaleFromPreferences,
+  loadTimeLanguagePreferences,
+} from '@/features/settings/timeLanguagePreferences';
+import { echoT } from '@/i18n';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useBugHunterStore } from '@/stores/bugHunter';
 import {
@@ -213,7 +219,10 @@ async function bootstrap() {
     }
   }
 
+  await initEchoI18n(loadTimeLanguagePreferences().locale);
+
   const app = createApp(App);
+  app.use(i18n);
   app.directive('scrollbar-on-scroll', scrollbarOnScroll);
   app.directive('spoiler-reveal', spoilerReveal);
   const pinia = createPinia();
@@ -231,6 +240,9 @@ async function bootstrap() {
 
   const authSessionStore = useAuthSessionStore();
   authSessionStore.hydrateFromStorage();
+  await applyEchoLocaleFromPreferences(
+    authSessionStore.backendUser?.locale ?? null,
+  );
   useBugHunterStore();
 
   /**
@@ -246,7 +258,7 @@ async function bootstrap() {
       params.delete('emailVerified');
       shouldStrip = true;
       authSessionStore.setEmailVerificationFlash(
-        'Your email address is verified.',
+        echoT('bootstrap.emailVerifiedFlash'),
       );
     }
     if (isDesktop()) {
@@ -384,7 +396,7 @@ async function bootstrap() {
       params.delete('discord_verify_email_sent');
       shouldStrip = true;
       authSessionStore.setEmailVerificationFlash(
-        'Check your email for a link to verify your address.',
+        echoT('bootstrap.emailVerifiedFlash'),
       );
     }
     const googleErr = params.get('google_error')?.trim();
@@ -535,17 +547,21 @@ function renderBootstrapFatalFallback(error: unknown) {
   const shell = document.createElement('div');
   shell.className = 'echo-app-splash h-full w-full min-h-0 bg-bg';
   shell.setAttribute('role', 'alert');
-  shell.innerHTML = `
-    <div class="echo-app-load-error__inner">
-      <p class="echo-app-load-error__title">Couldn’t start Echo</p>
-      <p class="echo-app-load-error__detail">
-        Something went wrong while starting the app. Try refreshing the page.
-      </p>
-      <button type="button" class="echo-app-load-error__retry">Refresh page</button>
-    </div>
-  `;
-  const retryButton = shell.querySelector('button');
-  retryButton?.addEventListener('click', () => window.location.reload());
+  const inner = document.createElement('div');
+  inner.className = 'echo-app-load-error__inner';
+  const title = document.createElement('p');
+  title.className = 'echo-app-load-error__title';
+  title.textContent = echoT('bootstrap.fatalTitle');
+  const detail = document.createElement('p');
+  detail.className = 'echo-app-load-error__detail';
+  detail.textContent = echoT('bootstrap.fatalDetail');
+  const retryButton = document.createElement('button');
+  retryButton.type = 'button';
+  retryButton.className = 'echo-app-load-error__retry';
+  retryButton.textContent = echoT('common.refreshPage');
+  retryButton.addEventListener('click', () => window.location.reload());
+  inner.append(title, detail, retryButton);
+  shell.appendChild(inner);
   mount.appendChild(shell);
 }
 

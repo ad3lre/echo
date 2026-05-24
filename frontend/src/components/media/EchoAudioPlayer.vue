@@ -11,6 +11,8 @@ import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
 import MediaUnavailablePanel from '@/components/chat/MediaUnavailablePanel.vue';
 import EchoMediaPlayerShell from './EchoMediaPlayerShell.vue';
 import EchoMediaControls from './EchoMediaControls.vue';
+import EchoAudioWaveform from './EchoAudioWaveform.vue';
+import { useAudioWaveformPeaks } from '@/composables/media/useAudioWaveformPeaks';
 
 const props = defineProps<{
   url: string;
@@ -30,6 +32,12 @@ const audioRef = ref<HTMLAudioElement | null>(null);
 const shellRef = ref<HTMLElement | null>(null);
 
 const playUrl = computed(() => safeImageUrl(props.url));
+
+const {
+  peaks,
+  loading: waveformLoading,
+  failed: waveformFailed,
+} = useAudioWaveformPeaks(playUrl);
 
 const showUnavailable = computed(
   () => !isTrustedMediaUrl(props.url) || loadFailed.value,
@@ -140,17 +148,19 @@ function onAudioError(): void {
             @play="onPlay"
             @error="onAudioError"
           />
-          <div class="echo-audio-player__wave" aria-hidden="true">
-            <span
-              v-for="i in 24"
-              :key="i"
-              class="echo-audio-player__bar"
-              :style="{ '--h': `${20 + ((i * 7) % 60)}%` }"
-            />
-          </div>
+          <EchoAudioWaveform
+            :bars="peaks?.bars ?? null"
+            :loading="waveformLoading"
+            :failed="waveformFailed"
+            :current-time="currentTime"
+            :duration="duration"
+            :is-playing="isPlaying"
+            @seek="seek($event)"
+          />
           <template #controls>
             <EchoMediaControls
               compact
+              :show-seek="false"
               :is-playing="isPlaying"
               :current-time="currentTime"
               :duration="duration"
@@ -189,25 +199,6 @@ function onAudioError(): void {
 
 .echo-audio-player__inner {
   width: 100%;
-}
-
-.echo-audio-player__wave {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 2.5rem;
-  padding: 0.5rem 0.65rem 0;
-  opacity: 0.35;
-  pointer-events: none;
-}
-
-.echo-audio-player__bar {
-  flex: 1 1 0;
-  min-width: 2px;
-  max-width: 6px;
-  height: var(--h, 40%);
-  border-radius: 9999px;
-  background: var(--media-player-accent, var(--accent));
 }
 
 .echo-audio-player__filename {

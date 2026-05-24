@@ -4,6 +4,8 @@ import { useAuthSessionStore } from '@/stores/authSession';
 import { assertEchoApiAllowed } from '@/echoMode';
 import { echoCsrfHeaders } from '@/utils/echoCsrf';
 import type { ApiErrorBody } from '@shared/types/api';
+import { translateApiErrorBody } from '@/i18n/apiErrors';
+import { echoT } from '@/i18n';
 import {
   isBugHunterRecordingEnabled,
   pushBugHunterEntry,
@@ -28,15 +30,16 @@ export class EchoApiError extends Error {
     /* Avoid surfacing the bare placeholder `UNKNOWN` (sentinel used when the response body has
      * no `code`/`message` and HTTP/2 omits `statusText`) — fall back to the HTTP status so the
      * primary-flow banner says e.g. `HTTP 503` instead of `UNKNOWN`. */
+    let baseMessage = translateApiErrorBody(body);
     const placeholderCode = body.code === 'UNKNOWN' || !body.code;
-    const baseMessage =
-      body.message ||
-      (placeholderCode
-        ? status > 0
-          ? `HTTP ${status}`
-          : 'Request failed'
-        : body.code) ||
-      'Request failed';
+    if (
+      placeholderCode &&
+      !body.message?.trim() &&
+      baseMessage === echoT('errors.api.unknown') &&
+      status > 0
+    ) {
+      baseMessage = `HTTP ${status}`;
+    }
     const msg = body.detail ? `${baseMessage} (${body.detail})` : baseMessage;
     super(msg);
     this.name = 'EchoApiError';

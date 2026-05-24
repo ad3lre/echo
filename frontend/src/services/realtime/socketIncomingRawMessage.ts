@@ -9,6 +9,7 @@ import type {
   PollData,
   ReplyTo,
 } from '@shared/types';
+import { LEGACY_ENCRYPTED_CHAT_MESSAGE_PLACEHOLDER } from '@shared/chatE2eePolicy';
 import { toStoredMessageTimestamp } from '@/utils/storedMessageTimestamp';
 
 /** Normalized chat fields shared by realtime `message` events and `message:ack` payloads. */
@@ -47,7 +48,7 @@ export function rawMessageFromSocketChatFields(
   const mf = fields.messageFormatVersion ?? 1;
   const cs = fields.contentSchemaVersion ?? 1;
   const plain = fields.contentText ?? fields.content;
-  const isE2ee = !!fields.encryption;
+  const isLegacyEncryptedChat = !!fields.encryption;
   return {
     id: fields.id,
     authorId: fields.authorId,
@@ -67,7 +68,10 @@ export function rawMessageFromSocketChatFields(
       : {}),
     ...(fields.bridgeFromDiscord === true ? { bridgeFromDiscord: true } : {}),
     timestamp: toStoredMessageTimestamp(fields.timestamp),
-    content: isE2ee && !plain.trim() ? '[Encrypted message]' : plain,
+    content:
+      isLegacyEncryptedChat && !plain.trim()
+        ? LEGACY_ENCRYPTED_CHAT_MESSAGE_PLACEHOLDER
+        : plain,
     ...(fields.contentText !== undefined
       ? { contentText: fields.contentText }
       : {}),
@@ -90,7 +94,6 @@ export function rawMessageFromSocketChatFields(
     ...(fields.poll ? { poll: fields.poll } : {}),
     ...(fields.attachments?.length ? { attachments: fields.attachments } : {}),
     ...(fields.stickers?.length ? { stickers: fields.stickers } : {}),
-    ...(fields.encryption ? { encryption: fields.encryption } : {}),
   };
 }
 

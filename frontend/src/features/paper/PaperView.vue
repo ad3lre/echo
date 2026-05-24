@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, watchEffect } from 'vue';
 import PaperAuthorGutter from '@/features/paper/components/PaperAuthorGutter.vue';
 import PaperBubbleMenu from '@/features/paper/components/PaperBubbleMenu.vue';
 import PaperConnectionBanner from '@/features/paper/components/PaperConnectionBanner.vue';
@@ -23,6 +23,8 @@ import { usePaperAutosave } from '@/features/paper/composables/usePaperAutosave'
 import { usePaperComments } from '@/features/paper/composables/usePaperComments';
 import { usePaperAuthorGutter } from '@/features/paper/composables/usePaperAuthorGutter';
 import { usePaperImageUpload } from '@/features/paper/composables/usePaperImageUpload';
+import { usePaperEditorPanelBridge } from '@/features/paper/composables/paperEditorPanelBridge';
+import { usePaperEditorPanelPreferences } from '@/features/paper/composables/usePaperEditorPanelPreferences';
 import { usePaperPageLayout } from '@/features/paper/composables/usePaperPageLayout';
 import { usePaperCommentLayout } from '@/features/paper/composables/usePaperCommentLayout';
 import { usePaperWatchers } from '@/features/paper/composables/usePaperWatchers';
@@ -39,7 +41,13 @@ import {
 import { copyToClipboard } from '@/features/chat/composables/useMessageLinkActions';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { getPaperSelectionAnchor } from '@/features/paper/editor/paperSelectionAnchor';
-import { flashPaperBlockHighlight } from '@/features/paper/editor/paperBlockHighlight';
+import {
+  clearPaperAuthorSegmentHighlight,
+  flashPaperBlockHighlight,
+  setPaperAuthorSegmentHighlight,
+} from '@/features/paper/editor/paperBlockHighlight';
+import type { PaperAuthorSegment } from '@/features/paper/composables/computePaperAuthorSegments';
+import { syncPaperBlockAttributionFromJson } from '@/features/paper/editor/syncPaperBlockAttribution';
 import { readPaperDefaultFont } from '@/features/paper/editor/paperDocumentAttributes';
 import { readPaperPageColors } from '@/features/paper/editor/paperPageAppearance';
 import {
@@ -79,8 +87,15 @@ const pageRef = (el: unknown) => {
   pageEl.value = el instanceof HTMLElement ? el : null;
 };
 
-const { doc, loading, error, conflict, save, load, saving } =
-  usePaperDocument(channelIdRef);
+const {
+  doc,
+  loading,
+  error,
+  conflict,
+  save: saveDocument,
+  load,
+  saving,
+} = usePaperDocument(channelIdRef);
 
 const canAuthor = computed(() => doc.value?.canAuthorPaper === true);
 const canComment = computed(() => doc.value?.canCommentOnPaper === true);
@@ -148,7 +163,16 @@ const { watchers: socketWatchers } = usePaperWatchers(
 );
 
 const imageUpload = usePaperImageUpload(props.channelId);
+const paperEditorPanelBridge = usePaperEditorPanelBridge();
+const { hideFormatBarWhenEditorPinned } = usePaperEditorPanelPreferences();
 const contentJsonRef = computed(() => doc.value?.contentJson ?? null);
+
+const canCustomizeTypography = computed(
+  () =>
+    canAuthor.value &&
+    documentLoaded.value &&
+    paperUi.effectiveMode.value === 'edit',
+);
 
 const collabBridge = {
   collabEnabled: ref(false),
@@ -177,6 +201,18 @@ const { editor, setContentFromServer, getContentJson, bootstrapFromServer } =
     onUpdate: () => {
       editorDocVersion.value += 1;
     },
+    getEditorProps: () => ({
+      handlePaste: (_view, event) => {
+        const ed = editor.value;
+        if (!ed) return false;
+        return imageUpload.handlePaste(ed, event);
+      },
+      handleDrop: (_view, event) => {
+        const ed = editor.value;
+        if (!ed) return false;
+        return imageUpload.handleDrop(ed, event);
+      },
+    }),
   });
 
 const paperCollab = usePaperCollab({
@@ -241,6 +277,8 @@ const showResolvedComments = ref(false);
 const connectionBannerDismissed = ref(false);
 const lockRequestDismissed = ref(false);
 const editorDirty = ref(false);
+/** Revision echoed from our own save — skip resetting the editor from server JSON. */
+const skipBootstrapRevision = ref<number | null>(null);
 
 const connectionBannerMessage = computed(() => {
   if (!canAuthor.value) return null;
@@ -302,11 +340,39 @@ const measureBlockLayout = computed(
   () => showGutter.value || (commentsEnabled.value && commentsVisible.value),
 );
 
-const { rows, measure } = usePaperAuthorGutter({
+const { rows, segments, measure } = usePaperAuthorGutter({
   editor,
   scrollRoot,
   enabled: measureBlockLayout,
 });
+
+const selectedAuthorSegmentId = ref<string | null>(null);
+
+watch(
+  () => props.channelId,
+  () => {
+    selectedAuthorSegmentId.value = null;
+    const ed = editor.value;
+    if (ed) clearPaperAuthorSegmentHighlight(ed);
+  },
+);
+
+function applyServerAttributionToEditor() {
+  const ed = editor.value;
+  const json = doc.value?.contentJson;
+  if (!ed || !json || typeof json !== 'object' || Array.isArray(json)) return;
+  syncPaperBlockAttributionFromJson(ed, json as Record<string, unknown>);
+  measure();
+}
+
+async function save(contentJson: Record<string, unknown>) {
+  const ok = await saveDocument(contentJson);
+  if (ok && doc.value) {
+    skipBootstrapRevision.value = doc.value.revision;
+  }
+  if (ok) applyServerAttributionToEditor();
+  return ok;
+}
 
 const { layout: pageLayout, measure: measurePage } = usePaperPageLayout(
   scrollRoot,
@@ -392,14 +458,6 @@ watch(
       if (session.autosaveEnabled.value) autosave.schedule();
     };
     ed.on('update', onDocUpdate);
-    ed.setOptions({
-      editorProps: {
-        handlePaste: (_view, event) =>
-          imageUpload.handlePaste(ed, event) ? true : false,
-        handleDrop: (_view, event) =>
-          imageUpload.handleDrop(ed, event) ? true : false,
-      },
-    });
     onCleanup(() => {
       ed.off('update', onDocUpdate);
     });
@@ -407,12 +465,26 @@ watch(
 );
 
 watch(
-  () => doc.value?.contentJson,
-  (json) => {
-    if (!json) return;
-    if (!documentLoaded.value) return;
+  () => props.channelId,
+  () => {
+    editorDirty.value = false;
+    skipBootstrapRevision.value = null;
+  },
+);
+
+watch(
+  () => doc.value?.revision,
+  (revision) => {
+    if (revision == null || !documentLoaded.value) return;
+    if (editorDirty.value) return;
+    if (skipBootstrapRevision.value === revision) {
+      skipBootstrapRevision.value = null;
+      applyServerAttributionToEditor();
+      measurePage();
+      return;
+    }
     bootstrapFromServer();
-    measure();
+    applyServerAttributionToEditor();
     measurePage();
   },
 );
@@ -497,16 +569,35 @@ const chromeViewHint = computed(() => {
   return undefined;
 });
 
-function toggleShowResolved() {
-  showResolvedComments.value = !showResolvedComments.value;
-}
+const userNameById = computed(() => {
+  const map = new Map<string, string>();
+  for (const member of props.members) {
+    const id = member.id?.trim();
+    const name = member.name?.trim();
+    if (id && name) map.set(id, name);
+  }
+  for (const peer of watchingPeers.value) {
+    const id = peer.userId?.trim();
+    const name = peer.name?.trim();
+    if (id && name) map.set(id, name);
+  }
+  const me = currentUserId.value.trim();
+  if (me && displayName.value.trim()) {
+    map.set(me, displayName.value.trim());
+  }
+  return map;
+});
 
 function resolveUserName(userId: string) {
-  return props.members.find((m) => m.id === userId)?.name ?? userId.slice(0, 8);
+  const id = userId.trim();
+  if (!id) return '';
+  return userNameById.value.get(id) ?? id.slice(0, 8);
 }
 
 function resolveUserAvatar(userId: string) {
-  return props.members.find((m) => m.id === userId)?.pfp;
+  const id = userId.trim();
+  if (!id) return undefined;
+  return props.members.find((m) => m.id === id)?.pfp;
 }
 
 function openCommentComposer(anchor?: {
@@ -595,6 +686,25 @@ function onReply(parentId: string) {
   commentsVisible.value = true;
 }
 
+function scrollDomBlockIntoView(
+  ed: NonNullable<typeof editor.value>,
+  paperBlockId: string,
+) {
+  let targetPos: number | null = null;
+  ed.state.doc.descendants((node, pos) => {
+    if (targetPos != null) return false;
+    if (String(node.attrs.paperBlockId ?? '').trim() === paperBlockId.trim()) {
+      targetPos = pos;
+      return false;
+    }
+  });
+  if (targetPos == null) return;
+  const dom = ed.view.nodeDOM(targetPos);
+  if (dom instanceof HTMLElement) {
+    dom.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
 function scrollToBlock(paperBlockId: string) {
   const ed = editor.value;
   if (!ed) return;
@@ -611,11 +721,22 @@ function scrollToBlock(paperBlockId: string) {
     .focus()
     .setTextSelection(targetPos + 1)
     .run();
-  const dom = ed.view.nodeDOM(targetPos);
-  if (dom instanceof HTMLElement) {
-    dom.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
+  scrollDomBlockIntoView(ed, paperBlockId);
   flashPaperBlockHighlight(ed, paperBlockId);
+}
+
+function onSelectAuthorSegment(segment: PaperAuthorSegment) {
+  const ed = editor.value;
+  if (!ed) return;
+  if (selectedAuthorSegmentId.value === segment.segmentId) {
+    selectedAuthorSegmentId.value = null;
+    clearPaperAuthorSegmentHighlight(ed);
+    return;
+  }
+  selectedAuthorSegmentId.value = segment.segmentId;
+  const firstId = segment.paperBlockIds[0];
+  if (firstId) scrollDomBlockIntoView(ed, firstId);
+  setPaperAuthorSegmentHighlight(ed, segment.paperBlockIds);
 }
 
 function openChannelSettings() {
@@ -628,6 +749,45 @@ function openChannelSettings() {
 function toggleCommentsVisible() {
   commentsVisible.value = !commentsVisible.value;
 }
+
+const bridgeContentJson = computed(() => {
+  void editorDocVersion.value;
+  const fromEditor = editor.value?.getJSON() as
+    | Record<string, unknown>
+    | undefined;
+  return (fromEditor ?? doc.value?.contentJson ?? null) as
+    | Record<string, unknown>
+    | null
+    | undefined;
+});
+
+const bridgePageColorLight = computed(() => paperPageColors.value.light);
+const bridgePageColorDark = computed(() => paperPageColors.value.dark);
+
+watchEffect((onCleanup) => {
+  if (!documentLoaded.value) return;
+  paperEditorPanelBridge.register({
+    channelId: props.channelId,
+    channelName: props.channelName,
+    editor,
+    appearance: paperAppearance.appearance,
+    canCustomize: canCustomizeTypography,
+    editorEditable,
+    paperPageColorLight: bridgePageColorLight,
+    paperPageColorDark: bridgePageColorDark,
+    documentFontFamily: paperPageFontFamily,
+    contentJson: bridgeContentJson,
+    imageUpload,
+    onPageColorLight: onPaperPageColorLight,
+    onPageColorDark: onPaperPageColorDark,
+    onDocumentFontChange,
+    toggleAppearance: () => paperAppearance.toggleAppearance(),
+    onScrollToBlock: scrollToBlock,
+  });
+  onCleanup(() => {
+    paperEditorPanelBridge.unregister(props.channelId);
+  });
+});
 
 let unsubDoc: (() => void) | null = null;
 let unsubComment: (() => void) | null = null;
@@ -646,7 +806,7 @@ onMounted(() => {
       !editorDirty.value
     ) {
       setContentFromServer(remote.contentJson as Record<string, unknown>);
-      measure();
+      applyServerAttributionToEditor();
       measurePage();
     }
   });
@@ -738,13 +898,10 @@ onUnmounted(() => {
             :comment-count="openCommentCount"
             :comments-visible="commentsVisible"
             :can-toggle-comments="commentsEnabled"
-            :can-manage-comments="doc?.canManagePaperComments === true"
-            :show-resolved-comments="showResolvedComments"
             :can-reconnect="conflict"
             :show-connection-status="showConnectionStatus"
             @open-settings="openChannelSettings"
             @toggle-comments="toggleCommentsVisible"
-            @toggle-show-resolved="toggleShowResolved"
             @reconnect="onReloadAfterConflict"
             @document-font-change="onDocumentFontChange"
             @set-ui-mode="paperUi.setMode"
@@ -809,8 +966,9 @@ onUnmounted(() => {
 
           <PaperAuthorGutter
             v-if="showGutter && !loading"
-            class="paper-gutter-overlay pointer-events-none absolute left-0 top-0 z-10"
-            :rows="rows"
+            class="paper-gutter-overlay absolute left-0 top-0 z-10"
+            :segments="segments"
+            :selected-segment-id="selectedAuthorSegmentId"
             :resolve-user-name="resolveUserName"
             :resolve-user-avatar="resolveUserAvatar"
             :lock-owner-name="
@@ -818,6 +976,7 @@ onUnmounted(() => {
                 ? (id) => paperCollab.lockOwnerName(id)
                 : undefined
             "
+            @select-segment="onSelectAuthorSegment"
           />
         </div>
 
@@ -851,11 +1010,18 @@ onUnmounted(() => {
       </div>
 
       <PaperFloatingFormatBar
-        v-if="editorEditable"
+        v-if="
+          editorEditable &&
+          !(
+            hideFormatBarWhenEditorPinned &&
+            paperEditorPanelBridge.panelPinned.value
+          )
+        "
         :editor="editor"
         :image-upload="imageUpload"
         :visible="!!editor"
         :page-layout="pageLayout"
+        :paper-appearance="paperAppearance.appearance.value"
       />
     </template>
   </div>

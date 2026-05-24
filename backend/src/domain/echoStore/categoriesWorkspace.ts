@@ -1,5 +1,6 @@
 import type pg from 'pg';
-import { publicBadgesFromSignupOrdinal } from '../../../../shared/echoAccountBadges';
+import { publicBadgesFromAccount } from '../../../../shared/echoAccountBadges';
+import { normalizeEchoPlanId } from '../../../../shared/echoPlanLimits';
 import { config } from '../../config';
 import {
   liveKitRoomName,
@@ -601,6 +602,7 @@ export async function listEchoWorkspaceForUser(
              u.is_discord_shadow,
              d.discord_user_id AS shadow_discord_user_id,
              COALESCE(u.is_guest, false) AS is_guest,
+             COALESCE(NULLIF(TRIM(u.echo_plan), ''), 'free') AS echo_plan,
              u.signup_ordinal,
              COALESCE(u.bio, '') AS account_bio,
              COALESCE(u.banner_image, '') AS banner_image,
@@ -661,12 +663,13 @@ export async function listEchoWorkspaceForUser(
     const ordRaw = (row as { signup_ordinal?: unknown }).signup_ordinal;
     const signupOrdinal =
       ordRaw != null && ordRaw !== '' ? Number(ordRaw) : Number.NaN;
-    const badges = publicBadgesFromSignupOrdinal(
+    const badges = publicBadgesFromAccount(
       Number.isFinite(signupOrdinal) ? signupOrdinal : null,
       {
         isGuest: row.is_guest === true,
         isDiscordShadow: row.is_discord_shadow === true,
       },
+      normalizeEchoPlanId(row.echo_plan),
     );
     const serverNickRaw = row.server_nickname;
     const serverNickname =

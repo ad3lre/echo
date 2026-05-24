@@ -6,8 +6,6 @@ import {
   type EchoRealtimeIncomingChatPayload,
   rawMessageFromEchoRealtimeIncomingPayload,
 } from './socketIncomingRawMessage';
-import { updateChannelMessageInBucket } from '@/services/realtime/channelMessageAuthority';
-import { e2eeDecryptIncomingDm } from '@/services/e2ee/e2eeMessageCrypto';
 
 export type IngestEchoRealtimeIncomingChatSink = {
   ensureChannelMessagesList: (channelId: string) => RawMessage[];
@@ -36,14 +34,11 @@ export function ingestEchoRealtimeIncomingChatMessage(
   payload: EchoRealtimeIncomingChatPayload,
   sink: IngestEchoRealtimeIncomingChatSink,
 ): void {
-  const e2eeRedacted = !!payload.encryption;
   socketDiagInfo('onMessage', {
     channelId: payload.channelId,
     id: payload.id,
     authorId: payload.authorId,
-    ...(e2eeRedacted
-      ? { contentPreview: '[e2ee]' as const }
-      : { contentPreview: payload.content?.slice(0, 40) }),
+    contentPreview: payload.content?.slice(0, 40),
     hasMentions: !!payload.mentions?.length,
     hasReplyTo: !!payload.replyTo,
     hasPoll: !!payload.poll,
@@ -75,28 +70,6 @@ export function ingestEchoRealtimeIncomingChatMessage(
   ) {
     sink.ensureReplyTargetMessage(channelId, replyTargetId);
   }
-  if (payload.encryption && raw.id) {
-    const enc = payload.encryption;
-    void (async () => {
-      try {
-        const viewer = sink.getViewerUserId?.()?.trim();
-        if (!viewer) return;
-        const decrypted = await e2eeDecryptIncomingDm({
-          viewerUserId: viewer,
-          authorUserId: resolvedAuthorId,
-          channelId,
-          envelope: enc.envelope,
-          ciphertext: enc.ciphertext,
-        });
-        updateChannelMessageInBucket(channelId, raw.id!, {
-          content: decrypted,
-          contentText: decrypted,
-        });
-      } catch {
-        // Keep placeholder content if decryption fails.
-      }
-    })();
-  }
   const plain =
     (typeof payload.contentText === 'string' && payload.contentText.trim()
       ? payload.contentText
@@ -108,6 +81,6 @@ export function ingestEchoRealtimeIncomingChatMessage(
     replyTo: payload.replyTo,
     authorDisplayName: payload.authorDisplayName,
     authorAvatar: payload.authorAvatar,
-    contentPreview: e2eeRedacted ? '[e2ee]' : plain.trim() || undefined,
+    contentPreview: plain.trim() || undefined,
   });
 }

@@ -90,6 +90,12 @@ export async function patchEchoChannel(
   if (patch.messageFormatHard !== undefined) {
     body.messageFormatHard = patch.messageFormatHard;
   }
+  if (patch.paperCommentsEnabled !== undefined) {
+    body.paperCommentsEnabled = patch.paperCommentsEnabled;
+  }
+  if (patch.paperShowAuthorGutter !== undefined) {
+    body.paperShowAuthorGutter = patch.paperShowAuthorGutter;
+  }
   await echoFetch<Record<string, unknown>>(
     token,
     `/channels/${encodeURIComponent(channelId)}`,
@@ -131,7 +137,9 @@ export function echoChannelRowToChannelSummary(
         ? 'stage'
         : c.type === 'forum'
           ? 'forum'
-          : 'text';
+          : c.type === 'paper'
+            ? 'paper'
+            : 'text';
   const base: ChannelSummary = {
     id: c.id,
     name: c.name,
@@ -188,6 +196,12 @@ export function echoChannelRowToChannelSummary(
                 messageFormatHard: c.messageFormatHard === true,
               }
             : {}),
+        }
+      : {}),
+    ...(channelType === 'paper'
+      ? {
+          paperCommentsEnabled: c.paperCommentsEnabled !== false,
+          paperShowAuthorGutter: c.paperShowAuthorGutter !== false,
         }
       : {}),
   };

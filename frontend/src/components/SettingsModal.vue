@@ -23,7 +23,9 @@ import type {
   SettingsGroupLabel,
   SettingsSection,
 } from '@/features/settings/types';
-import { SECTION_GROUPS, SECTION_COPY } from '@/features/settings/types';
+import { SECTION_GROUPS } from '@/features/settings/types';
+import { settingsSectionBlurb } from '@/i18n/labels';
+import { echoT } from '@/i18n';
 import { isSettingsSectionVisibleForUser } from '@/features/settings/settingsSectionVisibility';
 import { SETTINGS_SECTION_NAV_ICON } from '@/features/settings/sectionNavIcons';
 import { useSettingsForm } from '@/features/settings/composables/useSettingsForm';
@@ -175,7 +177,7 @@ watch(
   async ([locale, timeZone]) => {
     if (!props.modelValue) return;
     const persisted = saveTimeLanguagePreferences({
-      locale: locale as 'en-US' | 'en-GB',
+      locale,
       timeZone,
     });
     form.uiLanguage = persisted.locale;
@@ -187,7 +189,10 @@ watch(
       !echoSyncCapabilities.isMockDataMode
     ) {
       try {
-        const { user } = await authPatchMe({ timeZone: persisted.timeZone });
+        const { user } = await authPatchMe({
+          timeZone: persisted.timeZone,
+          locale: persisted.locale,
+        });
         if (authSession.backendUser)
           Object.assign(authSession.backendUser, user);
       } catch {
@@ -270,14 +275,10 @@ const isLiveGuest = computed(
 );
 
 const activeContent = computed(() => {
-  const base = SECTION_COPY[activeSection.value];
   if (activeSection.value === 'Account' && isLiveGuest.value) {
-    return {
-      blurb:
-        'Guest sessions are temporary. Add email and a password to keep your account and unlock the full app.',
-    };
+    return { blurb: echoT('settings.sections.account.guestBlurb') };
   }
-  return base;
+  return { blurb: settingsSectionBlurb(activeSection.value) };
 });
 
 const activeGroup = computed<SettingsGroupLabel>(() => {
@@ -828,6 +829,7 @@ const { onModalPointerDown, onModalPointerUp, onModalPointerCancel } =
                 :timezone-options="TIMEZONE_OPTIONS"
                 :subscription-timeline="SUBSCRIPTION_TIMELINE"
                 :invoices="INVOICES"
+                :echo-plan="effectiveEchoPlan"
               />
             </div>
           </Transition>

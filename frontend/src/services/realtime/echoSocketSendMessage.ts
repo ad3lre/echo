@@ -24,7 +24,6 @@ import type {
   PollData,
   ReplyTo,
 } from '@shared/types';
-import type { E2eeOutboundEncryption } from '@/services/e2ee/e2eeTypes';
 
 export function createEchoSocketSendMessage(opts: {
   getAuthorId: () => string | undefined;
@@ -58,7 +57,6 @@ export function createEchoSocketSendMessage(opts: {
     contentSchemaVersion?: number,
     forwardMessageId?: string,
     forwardPreview?: ForwardedFrom,
-    preEncryptedE2ee?: E2eeOutboundEncryption,
   ): void {
     const authorId = opts.getAuthorId();
     const addLocal = (msg: RawMessage) => {
@@ -103,55 +101,6 @@ export function createEchoSocketSendMessage(opts: {
       (attachments && attachments.length > 0)
     );
 
-    function emitOutboundChatPayload(
-      wireContent: string,
-      wireMentions: MentionEntity[] | undefined,
-      wireReplyTo: ReplyTo | undefined,
-      wireContentJson: unknown | undefined,
-      wireContentSchemaVersion: number | undefined,
-      wireEncryption: E2eeOutboundEncryption | undefined,
-    ): void {
-      emitOneOutboundChatPayload({
-        channelId,
-        authorId,
-        wireContent,
-        wireMentions,
-        wireReplyTo,
-        wireContentJson,
-        wireContentSchemaVersion,
-        wireEncryption,
-        imageUrl,
-        videoUrl,
-        gif,
-        imageSpoiler,
-        attachments,
-        forwardMessageId,
-        forwardPreview,
-        isSocketConnected: opts.isSocketConnected(),
-        adapter: opts.getAdapter(),
-        newClientMessageId,
-        newCorrelationId,
-        rememberPendingSentMessage: opts.rememberPendingSentMessage,
-        addLocal,
-        uiTx: opts.uiTx,
-        reportPrimaryFlowFailure,
-        socketDiagInfo,
-        socketDiagError,
-        getLocalAuthorEcho: opts.getLocalAuthorEcho,
-      });
-    }
-
-    if (preEncryptedE2ee) {
-      reportPrimaryFlowFailure(
-        'e2ee.chat_removed',
-        new Error('Encrypted chat messages are no longer supported.'),
-        { channelId },
-      );
-      throw new Error(
-        'Encrypted chat messages are no longer supported. Voice uses end-to-end encryption by default.',
-      );
-    }
-
     runChunkedOrSingleOutboundChatSend({
       content,
       mentions,
@@ -160,14 +109,33 @@ export function createEchoSocketSendMessage(opts: {
       contentJson,
       contentSchemaVersion,
       emit: (w) =>
-        emitOutboundChatPayload(
-          w.wireContent,
-          w.wireMentions,
-          w.wireReplyTo,
-          w.wireContentJson,
-          w.wireContentSchemaVersion,
-          undefined,
-        ),
+        emitOneOutboundChatPayload({
+          channelId,
+          authorId,
+          wireContent: w.wireContent,
+          wireMentions: w.wireMentions,
+          wireReplyTo: w.wireReplyTo,
+          wireContentJson: w.wireContentJson,
+          wireContentSchemaVersion: w.wireContentSchemaVersion,
+          imageUrl,
+          videoUrl,
+          gif,
+          imageSpoiler,
+          attachments,
+          forwardMessageId,
+          forwardPreview,
+          isSocketConnected: opts.isSocketConnected(),
+          adapter: opts.getAdapter(),
+          newClientMessageId,
+          newCorrelationId,
+          rememberPendingSentMessage: opts.rememberPendingSentMessage,
+          addLocal,
+          uiTx: opts.uiTx,
+          reportPrimaryFlowFailure,
+          socketDiagInfo,
+          socketDiagError,
+          getLocalAuthorEcho: opts.getLocalAuthorEcho,
+        }),
     });
   };
 }
