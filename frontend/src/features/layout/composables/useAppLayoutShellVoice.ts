@@ -28,17 +28,13 @@ import { useServerVoiceSession } from './useServerVoiceSession';
 import { logShellNav } from '@/features/layout/shellNavDebugLog';
 import { isEchoGraphId } from '@/utils/echoIds';
 import type { AppLayoutDmCallsVoiceBinding } from './useAppLayoutDmCalls';
-import {
-  assertVoiceJoinMediaReady,
-  VoiceJoinMediaPreflightError,
-} from '@/features/voice/voiceJoinMediaPreflight';
+import { runVoiceJoinMediaPreflightInteractive } from '@/features/voice/voiceJoinMediaPreflightFlow';
 import { EchoApiError } from '@/api/echo/transport';
 import {
   requestGuildVoiceDiscordMirrorModal,
   requestGuildVoiceJoinApiDeniedModal,
   requestGuildVoiceJoinNoPermissionModal,
 } from '@/utils/guildVoiceJoinBlockedDialog';
-import { requestAppConfirm } from '@/utils/appDialogs';
 import { UIErrorBus } from '@/utils/uiErrorBus';
 import { isDesktop } from '@/platform/desktopBridge';
 import type {
@@ -258,6 +254,10 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     (s) => {
       if (s === 'connected') {
         syncLiveKitAudioFromUiStores();
+        void liveKitVoiceApi?.recoverVoiceMediaSession({
+          muted: vcMuted.value,
+          deafened: vcDeafened.value || micTestListenDeafenActive.value,
+        });
       }
     },
   );
@@ -504,25 +504,14 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
       return;
     }
     let joinWithoutMic = false;
-    try {
-      await assertVoiceJoinMediaReady();
-    } catch (e) {
-      const msg =
-        e instanceof VoiceJoinMediaPreflightError
-          ? e.message
-          : e instanceof Error && e.message.trim()
-            ? e.message.trim()
-            : 'Microphone or audio output check failed.';
-      const proceed = await requestAppConfirm({
-        title: 'Join without microphone?',
-        message: `${msg}\n\nYou can still join this voice channel in listen-only mode. You can unmute later after fixing microphone permissions or devices.`,
-        confirmLabel: 'Join muted',
-        cancelLabel: 'Cancel',
-      });
-      if (!proceed) return;
-      joinWithoutMic = true;
+    if (!vcMuted.value) {
+      const preflight = await runVoiceJoinMediaPreflightInteractive();
+      if (preflight === 'cancelled') return;
+      if (preflight === 'join_muted') {
+        onChannelPanelVcMuted(true);
+        joinWithoutMic = true;
+      }
     }
-    if (joinWithoutMic) onChannelPanelVcMuted(true);
     if (dmCallWithUserId.value) {
       await endDmCall();
     }

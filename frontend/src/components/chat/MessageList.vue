@@ -19,6 +19,7 @@ import {
   MESSAGE_LIST_JUMP_UI_KEY,
 } from '@/features/chat/viewModel/messageListJumpUi';
 import type { MemberRole, PopoutAnchorRect } from '@/utils/memberProfiles';
+import { isClientOnlyDmOpenShellChannelId } from '@/features/dm/dmOpenShellChannelId';
 import { isEchoGraphId } from '@/utils/echoIds';
 import DiscordChannelImportWidget from '@/features/chat/components/DiscordChannelImportWidget.vue';
 import { icons } from '@/assets/icons';
@@ -1011,8 +1012,8 @@ const virtualizerOptions = computed(() => ({
    * pinned-to-newest and visibly yank the list up/down repeatedly.
    */
   shouldAdjustScrollPositionOnItemSizeChange: (
-    _item: unknown,
-    _delta: number,
+    item: { index: number },
+    delta: number,
     instance: {
       scrollDirection: 'forward' | 'backward' | null;
       getTotalSize: () => number;
@@ -1028,8 +1029,20 @@ const virtualizerOptions = computed(() => ({
     if (messageScrollAnchorResolved.value === 'top') {
       return el.scrollTop > NEAR_TOP_PX;
     }
+    const len = displayOrderedIds.value.length;
     const total = instance.getTotalSize();
     const dist = total - el.scrollTop - el.clientHeight;
+    /**
+     * Near-bottom suppression avoids yank when older rows resize (embeds/GIFs above).
+     * Tail-row growth after send/receive must still compensate or images extend below fold.
+     */
+    if (
+      delta > 0 &&
+      item.index === len - 1 &&
+      (followNewMessagesToBottom.value || dist < FOLLOW_NEW_DETACH_PX)
+    ) {
+      return true;
+    }
     return dist > NEAR_BOTTOM_PX + 120;
   },
 }));
@@ -1059,6 +1072,7 @@ function persistViewportMemoryForChannel(
   channelId: string | null | undefined = props.channelId,
 ): void {
   const cid = channelId?.trim();
+  if (cid && isClientOnlyDmOpenShellChannelId(cid)) return;
   const el = containerRef.value;
   const virtualItems = virtualizer.value?.getVirtualItems() ?? [];
   if (
@@ -1109,6 +1123,7 @@ function schedulePersistViewportMemory(): void {
 }
 
 function restoreViewportMemoryForChannel(channelId: string): boolean {
+  if (isClientOnlyDmOpenShellChannelId(channelId)) return false;
   const entry = channelViewportMemory.get(channelId);
   const el = containerRef.value;
   if (!entry || !el || displayOrderedIds.value.length === 0) return false;
@@ -1938,6 +1953,7 @@ watch(
     if (props.initialHistoryLoading) return;
     if (displayOrderedIds.value.length === 0) return;
     if (!pendingInitialScroll.value) return;
+    if (isClientOnlyDmOpenShellChannelId(props.channelId)) return;
     pendingInitialScroll.value = false;
     applyInitialScrollAnchor();
   },
@@ -2263,6 +2279,26 @@ function flashMessageHighlight(messageId: string): void {
   });
 }
 
+/** After tail-row media decode grows the row, re-pin when user is following the latest. */
+function maybeSnapToBottomAfterTailRowGrow(element: Element): void {
+  if (prependTransactionActive.value) return;
+  if (suppressListUntilInitialAnchor.value) return;
+  if (messageScrollAnchorResolved.value === 'top') return;
+  const idxAttr = element.getAttribute('data-index');
+  const idx = idxAttr != null ? Number(idxAttr) : NaN;
+  const len = displayOrderedIds.value.length;
+  if (!Number.isFinite(idx) || idx !== len - 1) return;
+  if (!followNewMessagesToBottom.value && !isNearBottom(FOLLOW_NEW_DETACH_PX)) {
+    return;
+  }
+  requestAnimationFrame(() => {
+    snapContainerScrollToBottom();
+    requestAnimationFrame(() => {
+      snapContainerScrollToBottom();
+    });
+  });
+}
+
 function measureRowRef(el: Element | ComponentPublicInstance | null) {
   const node =
     el && typeof el === 'object' && '$el' in el
@@ -2290,15 +2326,26 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
     requestAnimationFrame(() => {
       if (deferKey) measureRowPendingKeys.delete(deferKey);
       if (!element.isConnected) return;
+      let tailRowGrew = false;
       if (deferKey) {
         const h = element.getBoundingClientRect().height;
         const prev = measureRowLastHeightByKey.get(deferKey);
         if (prev !== undefined && Math.abs(prev - h) < 0.5) {
           return;
         }
+        const idxAttr = element.getAttribute('data-index');
+        const idx = idxAttr != null ? Number(idxAttr) : NaN;
+        tailRowGrew =
+          prev !== undefined &&
+          h > prev + 0.5 &&
+          Number.isFinite(idx) &&
+          idx === displayOrderedIds.value.length - 1;
         measureRowLastHeightByKey.set(deferKey, h);
       }
       virtualizer.value.measureElement(element);
+      if (tailRowGrew) {
+        maybeSnapToBottomAfterTailRowGrow(element);
+      }
     });
   });
 }

@@ -353,7 +353,7 @@ function youtubeListingFetchErrorMessage(e: unknown): string {
       'YouTube watch together daily budget reached. Try again tomorrow (UTC).'
     );
   }
-  return e instanceof Error ? e.message : 'Request failed.';
+  return e instanceof Error ? e.message : "Something didn't work. Try again.";
 }
 
 /** Bill wall time while the YouTube activity is open (server daily caps, UTC day). */

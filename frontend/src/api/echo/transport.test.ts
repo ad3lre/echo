@@ -29,17 +29,17 @@ describe('EchoApiError message fallback', () => {
     await initEchoI18n('en-US');
   });
 
-  it('uses HTTP status when body has no message/code (HTTP/2 statusText empty)', () => {
+  it('uses friendly server copy when body has no message/code (5xx)', () => {
     const err = new EchoApiError(503, { code: 'UNKNOWN', message: '' });
-    expect(err.message).toBe('HTTP 503');
+    expect(err.message).toBe(echoT('errors.api.serverUnavailable'));
   });
 
-  it('uses HTTP status when code is missing entirely', () => {
+  it('uses friendly request copy when code is missing (non-5xx)', () => {
     const err = new EchoApiError(502, {
       code: '',
       message: '',
     } as unknown as { code: string; message: string });
-    expect(err.message).toBe('HTTP 502');
+    expect(err.message).toBe(echoT('errors.api.serverUnavailable'));
   });
 
   it('prefers explicit message over the HTTP fallback', () => {
@@ -55,13 +55,22 @@ describe('EchoApiError message fallback', () => {
     expect(err.message).toBe(echoT('errors.api.unknown'));
   });
 
-  it('appends detail when present', () => {
+  it('prefers translated detail over base message when present', () => {
+    const err = new EchoApiError(400, {
+      code: 'INVALID_BODY',
+      message: 'Bad input',
+      detail: 'NOT_FOUND',
+    });
+    expect(err.message).toBe(echoT('errors.api.NOT_FOUND'));
+  });
+
+  it('does not append raw technical detail tokens', () => {
     const err = new EchoApiError(400, {
       code: 'INVALID_BODY',
       message: 'Bad input',
       detail: 'peerUserId required',
     });
-    expect(err.message).toBe('Invalid request. (peerUserId required)');
+    expect(err.message).toBe(echoT('errors.api.INVALID_BODY'));
   });
 });
 
@@ -123,7 +132,9 @@ describe('echoFetch', () => {
     }
     expect(captured).toBeInstanceOf(EchoApiError);
     expect((captured as EchoApiError).status).toBe(503);
-    expect((captured as Error).message).toBe('HTTP 503');
+    expect((captured as Error).message).toBe(
+      echoT('errors.api.serverUnavailable'),
+    );
   });
 
   it('re-derives CSRF header on the post-401-refresh retry (token rotation)', async () => {

@@ -309,7 +309,8 @@ async function requestToSpeak() {
       'success',
     );
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Request failed';
+    const msg =
+      e instanceof Error ? e.message : "Something didn't work. Try again.";
     dispatchAppToast(`Could not request to speak: ${msg}`, 'warning');
   } finally {
     requestSpeakBusy.value = false;
@@ -1063,13 +1064,14 @@ watch(
 
 .stage-avatar-speaking-ring {
   box-shadow:
-    0 0 0 3px
+    inset 0 0 0 3px
       color-mix(
         in srgb,
         #3ba55d calc(var(--speak-strength, 0.4) * 100%),
         transparent
       ),
-    0 0 calc(8px + var(--speak-strength, 0.4) * 14px) rgba(59, 165, 93, 0.45);
+    inset 0 0 calc(6px + var(--speak-strength, 0.4) * 10px)
+      rgba(59, 165, 93, 0.4);
 }
 
 .stage-avatar-badge {
@@ -1146,13 +1148,14 @@ watch(
 [data-theme='light'] .stage-avatar-speaking-ring {
   --ring-color: #248045;
   box-shadow:
-    0 0 0 3px
+    inset 0 0 0 3px
       color-mix(
         in srgb,
         #248045 calc(var(--speak-strength, 0.4) * 100%),
         transparent
       ),
-    0 0 calc(8px + var(--speak-strength, 0.4) * 14px) rgba(36, 128, 69, 0.4);
+    inset 0 0 calc(6px + var(--speak-strength, 0.4) * 10px)
+      rgba(36, 128, 69, 0.38);
 }
 
 [data-theme='light'] .stage-requests-queue {

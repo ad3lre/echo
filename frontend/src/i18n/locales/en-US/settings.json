@@ -17,7 +17,7 @@
       "blurb": "Report a user or message for spam, harassment, or other policy violations."
     },
     "formattingGuide": {
-      "blurb": "How Markdown and math in chat messages are parsed, styled, and limited."
+      "blurb": "Learn how to format chat messages with bold, lists, links, and math."
     },
     "discord": {
       "blurb": "Link your Discord account to Echo for profile import and a consistent identity across apps."
@@ -26,7 +26,7 @@
       "blurb": "Link your Google account for sign-in and as the identity YouTube live streaming uses on Echo."
     },
     "youtube": {
-      "blurb": "Connect your YouTube channel to broadcast stage channels live (StreamYard-style RTMP from Echo)."
+      "blurb": "Connect your YouTube channel to go live from Echo stage channels."
     },
     "logOut": {
       "blurb": "End this session on this device. You can sign in again anytime."
@@ -38,7 +38,7 @@
       "blurb": "Tune the app look, spacing, and visual treatment to match your setup."
     },
     "desktop": {
-      "blurb": "Tauri shell: tray, close-to-tray, launch at login, and in-app update checks."
+      "blurb": "Desktop app options: menu bar icon, close to tray, open at login, and update checks."
     },
     "accessibility": {
       "blurb": "Adjust readability, motion, and interaction behavior for comfort and clarity."
@@ -65,7 +65,7 @@
       "blurb": "Track plan status, renewals, payment methods, invoices, and what is included in your subscription."
     },
     "advanced": {
-      "blurb": "Optional developer shortcuts for this browser."
+      "blurb": "Optional power-user shortcuts for this browser."
     }
   },
   "subscription": {

@@ -399,8 +399,11 @@ export {
 
 export {
   addEchoServerMember,
+  checkEchoVanityAvailability,
   createEchoServer,
   getEchoServerVanityCode,
+  type CheckEchoVanityAvailabilityResult,
+  type EchoVanityAvailabilityStatus,
   isEchoRaidJoinBlocked,
   joinEchoServerFromInvite,
   joinEchoServerFromDirectory,

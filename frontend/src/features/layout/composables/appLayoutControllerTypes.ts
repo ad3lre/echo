@@ -747,8 +747,13 @@ export interface AppLayoutControllerContext {
   inviteableFriends: ComputedRef<any[]>;
   addServerJoinError: Ref<string>;
   addServerCreateBusy: Ref<boolean>;
+  addServerJoinBusy: ComputedRef<boolean>;
+  addServerJoinInvitePrefill: Ref<string>;
   exploreDirectoryJoinBusy: Ref<boolean>;
-  openAddServerModal: (view?: any) => void;
+  openAddServerModal: (
+    view?: 'initial' | 'create' | 'join',
+    invitePrefill?: string,
+  ) => void;
   openInviteModal: (serverId: string) => void;
   openServerSettings: (
     serverId: string,

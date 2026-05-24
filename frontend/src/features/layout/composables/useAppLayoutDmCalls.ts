@@ -48,11 +48,7 @@ import type {
 import { emitDiagnostic, newTraceId } from '@/observability/sessionDiagnostics';
 import { getChannelIndex } from '@/features/chat/domain/channelMessageIndex';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
-import {
-  assertVoiceJoinMediaReady,
-  VoiceJoinMediaPreflightError,
-} from '@/features/voice/voiceJoinMediaPreflight';
-import { requestAppConfirm } from '@/utils/appDialogs';
+import { runVoiceJoinMediaPreflightInteractive } from '@/features/voice/voiceJoinMediaPreflightFlow';
 import { openEchoDirectDmChannel } from '@/features/dm/echoDmCommandFacade';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
 import { formatTimestamp } from '@/utils/formatTimestamp';
@@ -911,40 +907,27 @@ export function useAppLayoutDmCalls(deps: {
   async function assertDmCallMediaPreflightOk(
     retry?: () => void | Promise<void>,
   ): Promise<boolean> {
-    try {
-      await assertVoiceJoinMediaReady();
-      return true;
-    } catch (e) {
-      const msg =
-        e instanceof VoiceJoinMediaPreflightError
-          ? e.message
-          : e instanceof Error && e.message.trim()
-            ? e.message.trim()
-            : 'Microphone or audio output check failed.';
-      const proceed = await requestAppConfirm({
-        title: 'Join call without microphone?',
-        message: `${msg}\n\nYou can still join in listen-only mode. You can unmute after fixing microphone permissions or devices.`,
-        confirmLabel: 'Join muted',
-        cancelLabel: 'Cancel',
-      });
-      if (!proceed) {
-        UIErrorBus.emit({
-          context: 'voice.dm_preflight',
-          severity: 'warning',
-          userMessage: `${msg} Tap Retry after you fix permissions or plug in a device.`,
-          ...(retry
-            ? {
-                retryAction: () => {
-                  void Promise.resolve(retry());
-                },
-              }
-            : {}),
-        });
-        return false;
-      }
+    if (dmCallMuted.value) return true;
+    const outcome = await runVoiceJoinMediaPreflightInteractive();
+    if (outcome === 'ready') return true;
+    if (outcome === 'join_muted') {
       dmCallMuted.value = true;
       return true;
     }
+    UIErrorBus.emit({
+      context: 'voice.dm_preflight',
+      severity: 'warning',
+      userMessage:
+        'Microphone check cancelled. Tap Retry after you allow the mic or connect a device.',
+      ...(retry
+        ? {
+            retryAction: () => {
+              void Promise.resolve(retry());
+            },
+          }
+        : {}),
+    });
+    return false;
   }
 
   function startDmCall() {

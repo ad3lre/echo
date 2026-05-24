@@ -5,14 +5,14 @@ const STORAGE_KEY = 'echo.channelMoveCrossCategoryPermission';
 export type ChannelMoveCrossCategoryPermission = 'sync' | 'keep' | 'ask';
 
 export function getChannelMoveCrossCategoryPermission(): ChannelMoveCrossCategoryPermission {
-  if (typeof window === 'undefined') return 'keep';
+  if (typeof window === 'undefined') return 'ask';
   try {
     const v = window.localStorage.getItem(STORAGE_KEY)?.trim();
     if (v === 'sync' || v === 'keep' || v === 'ask') return v;
   } catch {
     /* ignore */
   }
-  return 'keep';
+  return 'ask';
 }
 
 export function setChannelMoveCrossCategoryPermission(

@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { createGuildEvent } from '@/services/http/echoServerEventsHttp';
+import EchoDateTimePicker from '@/components/EchoDateTimePicker.vue';
 import {
+  isDateTimeLocalInPast,
   parseDateTimeLocalToUtcIso,
   utcIsoToDateTimeLocalValue,
 } from '@/features/server-settings/utils/serverEventFormDateTime';
+import { parseDateTimeLocal } from '@/utils/calendarDate';
 import { withStageModeInDescription } from '@/features/voice/stage/stageLobbyUtils';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
@@ -26,6 +29,14 @@ const draftStarts = ref('');
 const draftEnds = ref('');
 const youtubeLive = ref(false);
 const saving = ref(false);
+const startsError = ref('');
+const endsError = ref('');
+
+const minEndDateTime = computed((): Date | undefined => {
+  const start = parseDateTimeLocal(draftStarts.value);
+  if (!start) return undefined;
+  return new Date(start.getTime() + 60_000);
+});
 
 function resetDraft() {
   draftTitle.value = '';
@@ -36,6 +47,8 @@ function resetDraft() {
   draftStarts.value = utcIsoToDateTimeLocalValue(start.toISOString());
   draftEnds.value = utcIsoToDateTimeLocalValue(end.toISOString());
   youtubeLive.value = false;
+  startsError.value = '';
+  endsError.value = '';
 }
 
 watch(
@@ -46,6 +59,8 @@ watch(
 );
 
 async function submit() {
+  startsError.value = '';
+  endsError.value = '';
   const title = draftTitle.value.trim();
   if (!title) {
     dispatchAppToast('Event title is required.', 'warning');
@@ -53,11 +68,23 @@ async function submit() {
   }
   const startsIso = parseDateTimeLocalToUtcIso(draftStarts.value);
   const endsIso = parseDateTimeLocalToUtcIso(draftEnds.value);
-  if (!startsIso || !endsIso) {
+  if (!startsIso) {
+    startsError.value = 'Pick a valid start date and time.';
+    dispatchAppToast('Pick valid start and end times.', 'warning');
+    return;
+  }
+  if (isDateTimeLocalInPast(draftStarts.value)) {
+    startsError.value = 'Start cannot be in the past.';
+    dispatchAppToast('Start cannot be in the past.', 'warning');
+    return;
+  }
+  if (!endsIso) {
+    endsError.value = 'Pick a valid end date and time.';
     dispatchAppToast('Pick valid start and end times.', 'warning');
     return;
   }
   if (new Date(endsIso) <= new Date(startsIso)) {
+    endsError.value = 'End must be after start.';
     dispatchAppToast('End time must be after start.', 'warning');
     return;
   }
@@ -137,19 +164,28 @@ async function submit() {
           <div class="grid gap-3 sm:grid-cols-2">
             <div>
               <label class="text-xs font-semibold text-fg-soft">Starts</label>
-              <input
+              <EchoDateTimePicker
                 v-model="draftStarts"
-                type="datetime-local"
-                class="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg"
+                class="mt-1"
+                min-date-time="now"
+                :invalid="!!startsError"
               />
+              <p v-if="startsError" class="mt-1 text-xs text-red-400">
+                {{ startsError }}
+              </p>
             </div>
             <div>
               <label class="text-xs font-semibold text-fg-soft">Ends</label>
-              <input
+              <EchoDateTimePicker
                 v-model="draftEnds"
-                type="datetime-local"
-                class="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg"
+                class="mt-1"
+                :min-date-time="minEndDateTime"
+                min-error-message="End must be after start."
+                :invalid="!!endsError"
               />
+              <p v-if="endsError" class="mt-1 text-xs text-red-400">
+                {{ endsError }}
+              </p>
             </div>
           </div>
           <div>

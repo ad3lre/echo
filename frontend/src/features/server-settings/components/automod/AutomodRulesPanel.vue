@@ -119,7 +119,7 @@ async function onDropOn(targetId: string) {
 </script>
 
 <template>
-  <div class="automod-rules-v2 space-y-4">
+  <div class="automod-rules-v2 server-settings-sections--flat space-y-4">
     <AutomodRuleEditorPanel
       v-if="editorActive"
       :mode="editorMode"
@@ -136,7 +136,7 @@ async function onDropOn(targetId: string) {
     />
 
     <template v-else>
-      <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
+      <section class="settings-section-stack">
         <div
           class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
         >
@@ -179,14 +179,11 @@ async function onDropOn(targetId: string) {
             New rule
           </button>
         </div>
-      </div>
+      </section>
 
-      <div
-        v-if="!canManage"
-        class="server-settings-panel rounded-2xl border border-border/60 px-4 py-3 text-sm text-fg-subtle"
-      >
+      <p v-if="!canManage" class="text-sm text-fg-subtle">
         You need Manage Server to edit AutoMod rules.
-      </div>
+      </p>
 
       <p v-if="store.lastError" class="text-sm text-red-400">
         {{ store.lastError }}
@@ -213,7 +210,7 @@ async function onDropOn(targetId: string) {
         />
         <div
           v-if="!rules.length"
-          class="server-settings-panel rounded-2xl border border-dashed border-border/70 px-6 py-10 text-center"
+          class="settings-section-stack py-10 text-center"
         >
           <p class="text-sm font-medium text-foreground">No custom rules yet</p>
           <p class="mx-auto mt-2 max-w-md text-sm text-fg-subtle">

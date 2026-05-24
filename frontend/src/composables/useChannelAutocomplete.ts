@@ -3,7 +3,7 @@
  * Detects #query pattern, shows channel suggestions, replaces on select.
  */
 
-import { ref, computed, type Ref } from 'vue';
+import { ref, computed, watch, type Ref } from 'vue';
 import { channelMentionRefLabel } from '@/utils/channelMentionLabel';
 
 export interface ChannelOption {
@@ -13,12 +13,15 @@ export interface ChannelOption {
   iconKey?: string;
 }
 
+export type ChannelTriggerSpan = { start: number; end: number };
+
 /**
  * Channel mention trigger: require at least one non-space character after `#`
  * (so bare `#` / `# ` do not open the menu; `#1` / `#general` do). Query is
  * dash-safe alphanumerics after the first character.
  */
-const TRIGGER = /(?:^|\s)#([a-zA-Z0-9][a-zA-Z0-9_-]*)$/;
+const CHANNEL_TRIGGER = /(?:^|\s)#([a-zA-Z0-9][a-zA-Z0-9_-]*)$/;
+const QUERY_TAIL = /[a-zA-Z0-9_-]/;
 const SUGGESTION_LIMIT = 6;
 
 function channelMatchesQuery(ch: ChannelOption, qLower: string): boolean {
@@ -31,6 +34,40 @@ function channelMatchesQuery(ch: ChannelOption, qLower: string): boolean {
   );
 }
 
+/**
+ * Locate an active `#query` channel trigger before the caret.
+ * Ignores `#` inside existing mention entities (prevents a stuck menu after pick).
+ */
+export function findChannelTrigger(
+  text: string,
+  cursor: number,
+  mentions: readonly ChannelTriggerSpan[] = [],
+): { start: number; query: string } | null {
+  if (cursor < 0 || cursor > text.length) return null;
+  const before = text.slice(0, cursor);
+  const match = before.match(CHANNEL_TRIGGER);
+  if (!match) return null;
+
+  const leadingWhitespaceLength = match[0].startsWith('#') ? 0 : 1;
+  const start = cursor - match[0].length + leadingWhitespaceLength;
+  const query = match[1] ?? '';
+  const hashPos = start;
+
+  for (const m of mentions) {
+    if (hashPos >= m.start && hashPos < m.end) return null;
+    if (cursor > m.start && cursor <= m.end && hashPos <= m.start) return null;
+  }
+
+  if (hashPos === 0) return { start, query };
+
+  const prev = before[hashPos - 1]!;
+  if (/\s/.test(prev)) return { start, query };
+
+  if (mentions.some((m) => m.end === hashPos)) return { start, query };
+
+  return null;
+}
+
 export function useChannelAutocomplete(
   getText: () => string,
   getCursorOffset: () => number,
@@ -40,6 +77,7 @@ export function useChannelAutocomplete(
     option: ChannelOption,
   ) => void,
   channels: Ref<ChannelOption[]>,
+  getMentions?: () => readonly ChannelTriggerSpan[],
 ) {
   const triggerStart = ref<number | null>(null);
   const query = ref('');
@@ -56,16 +94,21 @@ export function useChannelAutocomplete(
     return triggerStart.value !== null && suggestions.value.length > 0;
   });
 
+  watch([query, suggestions], () => {
+    if (triggerStart.value !== null) selectedIndex.value = 0;
+  });
+
   function updateFromInput() {
     const text = getText();
     const offset = getCursorOffset();
-    const before = text.slice(0, offset);
-    const match = before.match(TRIGGER);
-    if (match) {
-      const leadingWhitespaceLength = match[0].startsWith('#') ? 0 : 1;
-      triggerStart.value = offset - match[0].length + leadingWhitespaceLength;
-      query.value = match[1] ?? '';
-      selectedIndex.value = 0;
+    const mentions = getMentions?.() ?? [];
+    const trigger = findChannelTrigger(text, offset, mentions);
+    if (trigger) {
+      const changed =
+        triggerStart.value !== trigger.start || query.value !== trigger.query;
+      triggerStart.value = trigger.start;
+      query.value = trigger.query;
+      if (changed) selectedIndex.value = 0;
     } else {
       triggerStart.value = null;
       query.value = '';
@@ -80,8 +123,12 @@ export function useChannelAutocomplete(
   function replaceWith(option: ChannelOption) {
     const start = triggerStart.value;
     if (start === null) return;
-    const offset = getCursorOffset();
-    insertChannelMention(start, offset, option);
+    const text = getText();
+    let end = getCursorOffset();
+    // Defensive: when caret state lags by one tick, consume any remaining
+    // query-tail chars so selection cannot leave a stray fragment.
+    while (end < text.length && QUERY_TAIL.test(text[end] ?? '')) end += 1;
+    insertChannelMention(start, end, option);
     close();
   }
 
@@ -93,6 +140,7 @@ export function useChannelAutocomplete(
   }
 
   function handleKeydown(e: KeyboardEvent): boolean {
+    updateFromInput();
     if (!showPopup.value) return false;
 
     if (e.key === 'Escape') {

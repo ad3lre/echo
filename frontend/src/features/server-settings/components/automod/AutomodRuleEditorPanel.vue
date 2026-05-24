@@ -241,7 +241,7 @@ async function save() {
 
 <template>
   <div
-    class="automod-rule-editor-v2 overflow-hidden rounded-2xl border border-border/90 bg-glass-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+    class="automod-rule-editor-v2 server-settings-sections--flat overflow-hidden"
   >
     <header
       class="sticky top-0 z-[2] flex flex-col gap-3 border-b border-border/80 bg-glass-2/95 px-4 py-3 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:gap-4"
@@ -249,7 +249,7 @@ async function save() {
       <div class="flex min-w-0 flex-1 items-start gap-3">
         <button
           type="button"
-          class="mt-1 shrink-0 rounded-lg border border-border/80 px-2.5 py-1.5 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
+          class="mt-1 shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
           @click="close"
         >
           ← Rules
@@ -313,7 +313,7 @@ async function save() {
       <div class="flex shrink-0 flex-wrap justify-end gap-2 sm:pt-1">
         <button
           type="button"
-          class="rounded-xl border border-border px-4 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover"
+          class="rounded-xl px-4 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover"
           :disabled="saving"
           @click="close"
         >
@@ -360,7 +360,7 @@ async function save() {
             </p>
           </div>
           <p
-            class="shrink-0 rounded-lg border border-border/60 bg-glass-2 px-2 py-1 font-mono text-[11px] text-fg-subtle"
+            class="shrink-0 rounded-lg bg-glass-2 px-2 py-1 font-mono text-[11px] text-fg-subtle"
           >
             {{ statsLine }}
           </p>
@@ -414,7 +414,7 @@ async function save() {
               autocomplete="off"
             />
             <div
-              class="mt-2 max-h-52 overflow-y-auto rounded-xl border border-border/80 bg-glass-2/50 p-2 custom-scrollbar"
+              class="mt-2 max-h-52 overflow-y-auto rounded-xl bg-glass-2/50 p-2 custom-scrollbar ring-1 ring-border/40"
             >
               <label
                 v-for="ro in filteredExemptRoles"
@@ -454,7 +454,7 @@ async function save() {
               autocomplete="off"
             />
             <div
-              class="mt-2 max-h-52 overflow-y-auto rounded-xl border border-border/80 bg-glass-2/50 p-2 custom-scrollbar"
+              class="mt-2 max-h-52 overflow-y-auto rounded-xl bg-glass-2/50 p-2 custom-scrollbar ring-1 ring-border/40"
             >
               <label
                 v-for="ch in filteredExemptChannels"
@@ -527,7 +527,7 @@ async function save() {
         />
         <p
           v-else
-          class="rounded-xl border border-dashed border-border/80 bg-glass-2/30 px-4 py-5 text-sm text-fg-soft"
+          class="rounded-xl bg-glass-2/30 px-4 py-5 text-sm text-fg-soft"
         >
           Save the rule to unlock the simulator against a stable rule id.
         </p>
@@ -543,7 +543,7 @@ async function save() {
     >
       <button
         type="button"
-        class="rounded-xl border border-border px-4 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover"
+        class="rounded-xl px-4 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover"
         :disabled="saving"
         @click="close"
       >

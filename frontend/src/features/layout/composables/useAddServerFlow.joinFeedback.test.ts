@@ -180,6 +180,37 @@ describe('useAddServerFlow join feedback', () => {
     expect(dispatchAppToastDetail).not.toHaveBeenCalled();
   });
 
+  it('shows feedback when invite link field is empty', async () => {
+    const flow = buildFlow(true);
+
+    await flow.handleJoinWithInviteLink('   ');
+
+    expect(flow.addServerJoinError.value).toBe('Enter an invite link.');
+    expect(dispatchAppToastDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Enter an invite link.',
+        severity: 'warning',
+      }),
+    );
+    expect(postEchoJoinWithInviteToken).not.toHaveBeenCalled();
+  });
+
+  it('shows feedback for invite URL with no token before confirm', async () => {
+    const flow = buildFlow(true);
+
+    await flow.handleJoinWithInviteLink('https://example.com/');
+
+    expect(flow.addServerJoinError.value).toBe('That invite link is invalid.');
+    expect(postEchoJoinWithInviteToken).not.toHaveBeenCalled();
+  });
+
+  it('ignores invite join while already in flight', async () => {
+    const flow = buildFlow(true);
+    flow.addServerInviteJoinBusy.value = true;
+    await flow.handleJoinWithInviteLink('abc');
+    expect(postEchoJoinWithInviteToken).not.toHaveBeenCalled();
+  });
+
   it('shows banned feedback for explore rejoins using API detail', async () => {
     vi.mocked(postEchoJoinDirectoryServer).mockRejectedValueOnce(
       new EchoApiError(403, {

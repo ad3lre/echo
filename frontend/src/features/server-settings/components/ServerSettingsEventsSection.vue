@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, toRef, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue';
 import type { ChannelSummary } from '@shared/types';
 import { useChannelIconResolver } from '@/composables/useChannelIconResolver';
 import { useEchoWorkspace } from '@/composables/useEchoWorkspace';
@@ -13,6 +13,7 @@ import {
   type EchoServerEventManagementRow,
 } from '@/services/http/echoServerEventsHttp';
 import EchoDropdown from '@/components/EchoDropdown.vue';
+import EchoDateTimePicker from '@/components/EchoDateTimePicker.vue';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
@@ -25,9 +26,12 @@ import {
   uploadBrandingAssetWithInlineFallback,
 } from '@/services/orchestration/brandingUploadFallback';
 import {
+  isDateTimeLocalInPast,
   parseDateTimeLocalToUtcIso,
   utcIsoToDateTimeLocalValue,
 } from '@/features/server-settings/utils/serverEventFormDateTime';
+import { parseDateTimeLocal } from '@/utils/calendarDate';
+import { toggleExpandedEventId } from '@/features/server-settings/utils/serverSettingsEventExpand';
 
 const props = defineProps<{
   serverId: string;
@@ -51,6 +55,9 @@ const saving = ref(false);
 const cancellingId = ref<string | null>(null);
 const coverUploading = ref(false);
 const coverFileInputRef = ref<HTMLInputElement | null>(null);
+const expandedEventId = ref<string | null>(null);
+const nowMs = ref(Date.now());
+let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
 const showDiscordMirrorUi = computed(
   () => props.isDiscordImportedServer === true,
@@ -135,6 +142,12 @@ const textLocationOptions = computed(() => {
   return opts;
 });
 
+const minEndDateTime = computed((): Date | undefined => {
+  const start = parseDateTimeLocal(draftStarts.value);
+  if (!start) return undefined;
+  return new Date(start.getTime() + 60_000);
+});
+
 watch(locationTab, (tab) => {
   if (tab !== 'voice' && tab !== 'text') return;
   const id = draftChannelId.value.trim();
@@ -156,14 +169,41 @@ async function load() {
     error.value = e instanceof Error ? e.message : 'Failed to load events';
   } finally {
     loading.value = false;
+    syncCountdownTimer();
+  }
+}
+
+function syncCountdownTimer() {
+  if (events.value.length > 0) {
+    if (countdownTimer == null) {
+      countdownTimer = setInterval(() => {
+        nowMs.value = Date.now();
+      }, 1000);
+    }
+  } else if (countdownTimer != null) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
   }
 }
 
 onMounted(load);
+onBeforeUnmount(() => {
+  if (countdownTimer != null) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+});
 watch(
   () => props.serverId,
   () => {
+    expandedEventId.value = null;
     void load();
+  },
+);
+watch(
+  () => events.value.length,
+  () => {
+    syncCountdownTimer();
   },
 );
 
@@ -191,12 +231,24 @@ function resetDraft() {
 }
 
 function openCreate() {
+  expandedEventId.value = null;
   resetDraft();
+  const now = new Date();
+  const start = new Date(now.getTime() + 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+  draftStarts.value = utcIsoToDateTimeLocalValue(start.toISOString());
+  draftEnds.value = utcIsoToDateTimeLocalValue(end.toISOString());
   showEditor.value = true;
+}
+
+/** Expand inline details in settings — never guild shell navigation. */
+function selectEvent(id: string) {
+  expandedEventId.value = toggleExpandedEventId(expandedEventId.value, id);
 }
 
 function openEdit(ev: EchoServerEventManagementRow) {
   clearFieldErrors();
+  expandedEventId.value = null;
   editingEventId.value = ev.id;
   draftTitle.value = ev.title;
   draftDescription.value = ev.description ?? '';
@@ -234,6 +286,9 @@ function validateForm(): boolean {
   const endsIso = parseDateTimeLocalToUtcIso(draftEnds.value);
   if (!startsIso) {
     fieldErrors.value.starts = 'Pick a valid start date and time.';
+    ok = false;
+  } else if (isDateTimeLocalInPast(draftStarts.value)) {
+    fieldErrors.value.starts = 'Start cannot be in the past.';
     ok = false;
   }
   if (!endsIso) {
@@ -323,6 +378,7 @@ async function submitSave() {
       }
     }
     emit('echo-workspace-refresh');
+    expandedEventId.value = null;
     closeEditor();
     await load();
   } catch (e) {
@@ -348,17 +404,57 @@ async function onCancelEvent(id: string) {
   }
 }
 
-function formatWhen(row: EchoServerEventManagementRow): string {
+function formatExactStart(iso: string): string {
   try {
-    const a = new Date(row.startsAt);
-    return a.toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-      timeZoneName: 'short',
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
     });
   } catch {
-    return row.startsAt;
+    return '';
   }
+}
+
+function countdownLabel(startsAtIso: string): string {
+  const t = new Date(startsAtIso).getTime();
+  if (Number.isNaN(t)) return '';
+  const diff = t - nowMs.value;
+  if (diff <= 0) return 'Started';
+  const sec = Math.floor(diff / 1000);
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (d > 0) return `Starts in ${d}d ${h}h`;
+  if (h > 0) return `Starts in ${h}h ${m}m`;
+  if (m > 0) return `Starts in ${m}m ${s}s`;
+  return 'Starting soon';
+}
+
+function eventTimingLabel(row: EchoServerEventManagementRow): string {
+  if (row.status === 'cancelled') return 'Cancelled';
+  const start = new Date(row.startsAt).getTime();
+  const end = new Date(row.endsAt).getTime();
+  const n = nowMs.value;
+  if (!Number.isNaN(start) && !Number.isNaN(end) && n >= start && n <= end) {
+    return 'Happening now';
+  }
+  if (!Number.isNaN(end) && n > end) return 'Ended';
+  return countdownLabel(row.startsAt);
+}
+
+function toggleExpandedEvent(id: string) {
+  selectEvent(id);
+}
+
+function formatWhen(row: EchoServerEventManagementRow): string {
+  return formatExactStart(row.startsAt) || row.startsAt;
 }
 
 function formatRange(row: EchoServerEventManagementRow): string {
@@ -434,8 +530,8 @@ function clearCover() {
 </script>
 
 <template>
-  <div class="server-settings-panel-root space-y-4 pb-8">
-    <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
+  <div class="server-settings-sections--flat server-settings-panel-root pb-8">
+    <section class="settings-section-stack">
       <div
         class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
       >
@@ -458,12 +554,12 @@ function clearCover() {
           New event
         </button>
       </div>
-    </div>
+    </section>
 
-    <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
-    <p v-if="loading" class="text-sm text-fg-soft">Loading events…</p>
+    <p v-if="error" class="mt-4 text-sm text-red-400">{{ error }}</p>
+    <p v-if="loading" class="mt-4 text-sm text-fg-soft">Loading events…</p>
 
-    <div v-if="showEditor" class="server-settings-panel rounded-2xl p-4 sm:p-5">
+    <section v-if="showEditor" class="settings-section-stack">
       <div class="mb-3 flex items-center justify-between gap-2">
         <h4 class="text-base font-semibold text-foreground">
           {{ editingEventId ? 'Edit event' : 'Create event' }}
@@ -478,212 +574,232 @@ function clearCover() {
         </button>
       </div>
 
-      <div class="space-y-4 lg:grid lg:grid-cols-12 lg:gap-5 lg:space-y-0">
-        <div class="lg:col-span-5">
-          <label class="settings-label">Cover image</label>
-          <p class="mt-1 text-xs text-fg-soft">
-            16:9 works best. Upload only — stored like server branding.
-          </p>
-          <div
-            class="relative mt-3 overflow-hidden rounded-2xl border border-border bg-glass-2"
-            :class="
-              draftImageUrl.trim()
-                ? 'aspect-[16/9] max-h-48'
-                : 'aspect-[16/9] max-h-36'
-            "
-          >
-            <img
-              v-if="draftImageUrl.trim()"
-              :src="safeImageUrl(draftImageUrl.trim())"
-              alt=""
-              class="h-full w-full object-cover"
-            />
-            <div
-              v-else
-              class="flex h-full min-h-[120px] w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-glass-2 to-glass-3 p-4 text-center"
-            >
-              <span class="text-sm text-fg-soft">No cover yet</span>
-            </div>
-            <div
-              class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end gap-2 bg-gradient-to-t from-black/50 to-transparent p-3"
-            >
-              <span class="pointer-events-auto flex gap-2">
-                <button
-                  type="button"
-                  class="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/25 disabled:opacity-50"
-                  :disabled="coverUploading || saving"
-                  @click="triggerCoverPicker"
-                >
-                  {{ coverUploading ? 'Uploading…' : 'Upload' }}
-                </button>
-                <button
-                  v-if="draftImageUrl.trim()"
-                  type="button"
-                  class="rounded-lg border border-white/30 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/10"
-                  :disabled="saving"
-                  @click="clearCover"
-                >
-                  Remove
-                </button>
-              </span>
-            </div>
-          </div>
-          <input
-            ref="coverFileInputRef"
-            type="file"
-            accept="image/*"
-            class="sr-only"
-            @change="onCoverFileChange"
-          />
-        </div>
-
-        <div class="space-y-4 lg:col-span-7">
-          <div>
-            <label class="settings-label">Title</label>
-            <input
-              v-model="draftTitle"
-              type="text"
-              maxlength="200"
-              class="server-input mt-2 w-full"
-              :class="{ 'ring-1 ring-red-400/60': fieldErrors.title }"
-            />
-            <p v-if="fieldErrors.title" class="mt-1 text-xs text-red-400">
-              {{ fieldErrors.title }}
+      <div class="space-y-8">
+        <section class="min-w-0">
+          <div class="mb-4 border-b border-border/60 pb-3">
+            <h5 class="settings-subtitle">Event details</h5>
+            <p class="mt-1 text-xs leading-relaxed text-fg-soft">
+              Title and description shown in the sidebar carousel and event
+              cards.
             </p>
           </div>
-
-          <div>
-            <label class="settings-label">Description (optional)</label>
-            <textarea
-              v-model="draftDescription"
-              rows="3"
-              maxlength="4000"
-              class="server-input mt-2 min-h-[88px] w-full resize-y"
-            />
-          </div>
-
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label class="settings-label">Starts</label>
+          <div
+            class="grid min-w-0 gap-5 lg:grid-cols-12 lg:items-start lg:gap-6"
+          >
+            <div class="flex min-w-0 flex-col gap-4 lg:col-span-7">
+              <div>
+                <label class="settings-label">Title</label>
+                <input
+                  v-model="draftTitle"
+                  type="text"
+                  maxlength="200"
+                  class="server-input mt-2 w-full"
+                  :class="{ 'ring-1 ring-red-400/60': fieldErrors.title }"
+                />
+                <p v-if="fieldErrors.title" class="mt-1 text-xs text-red-400">
+                  {{ fieldErrors.title }}
+                </p>
+              </div>
+              <div>
+                <label class="settings-label">Description (optional)</label>
+                <textarea
+                  v-model="draftDescription"
+                  rows="4"
+                  maxlength="4000"
+                  class="server-input mt-2 min-h-[100px] w-full resize-y"
+                />
+              </div>
+            </div>
+            <div class="min-w-0 lg:col-span-5">
+              <label class="settings-label">Cover image</label>
+              <p class="mt-1 text-xs text-fg-soft">
+                16:9 works best. Upload only — stored like server branding.
+              </p>
+              <div
+                class="relative mt-3 aspect-[16/9] w-full overflow-hidden rounded-2xl bg-glass-2 ring-1 ring-border/50"
+              >
+                <img
+                  v-if="draftImageUrl.trim()"
+                  :src="safeImageUrl(draftImageUrl.trim())"
+                  alt=""
+                  class="h-full w-full object-cover"
+                />
+                <div
+                  v-else
+                  class="flex h-full min-h-[7.5rem] w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-glass-2 to-glass-3 p-4 text-center"
+                >
+                  <span class="text-sm text-fg-soft">No cover yet</span>
+                </div>
+                <div
+                  class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end gap-2 bg-gradient-to-t from-black/50 to-transparent p-3"
+                >
+                  <span
+                    class="pointer-events-auto flex flex-wrap justify-end gap-2"
+                  >
+                    <button
+                      type="button"
+                      class="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/25 disabled:opacity-50"
+                      :disabled="coverUploading || saving"
+                      @click="triggerCoverPicker"
+                    >
+                      {{ coverUploading ? 'Uploading…' : 'Upload' }}
+                    </button>
+                    <button
+                      v-if="draftImageUrl.trim()"
+                      type="button"
+                      class="rounded-lg border border-white/30 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/10"
+                      :disabled="saving"
+                      @click="clearCover"
+                    >
+                      Remove
+                    </button>
+                  </span>
+                </div>
+              </div>
               <input
+                ref="coverFileInputRef"
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                @change="onCoverFileChange"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section class="min-w-0">
+          <div class="mb-4 border-b border-border/60 pb-3">
+            <h5 class="settings-subtitle">Schedule</h5>
+            <p class="mt-1 text-xs leading-relaxed text-fg-soft">
+              Times use your device timezone; members see the event in their own
+              local time.
+            </p>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="min-w-0">
+              <label class="settings-label">Starts</label>
+              <EchoDateTimePicker
                 v-model="draftStarts"
-                type="datetime-local"
-                class="server-input mt-2 w-full"
-                :class="{ 'ring-1 ring-red-400/60': fieldErrors.starts }"
+                class="mt-2"
+                surface="server"
+                min-date-time="now"
+                :invalid="!!fieldErrors.starts"
               />
               <p v-if="fieldErrors.starts" class="mt-1 text-xs text-red-400">
                 {{ fieldErrors.starts }}
               </p>
-              <p v-else class="mt-1 text-[11px] text-fg-soft">
-                In your device timezone; everyone sees this event in their own
-                local time.
-              </p>
             </div>
-            <div>
+            <div class="min-w-0">
               <label class="settings-label">Ends</label>
-              <input
+              <EchoDateTimePicker
                 v-model="draftEnds"
-                type="datetime-local"
-                class="server-input mt-2 w-full"
-                :class="{ 'ring-1 ring-red-400/60': fieldErrors.ends }"
+                class="mt-2"
+                surface="server"
+                :min-date-time="minEndDateTime"
+                min-error-message="End must be after start."
+                :invalid="!!fieldErrors.ends"
               />
               <p v-if="fieldErrors.ends" class="mt-1 text-xs text-red-400">
                 {{ fieldErrors.ends }}
               </p>
             </div>
           </div>
+        </section>
 
-          <div>
-            <label class="settings-label">Location</label>
-            <p class="mt-1 text-xs text-fg-soft">
+        <section class="min-w-0">
+          <div class="mb-4 border-b border-border/60 pb-3">
+            <h5 class="settings-subtitle">Location</h5>
+            <p class="mt-1 text-xs leading-relaxed text-fg-soft">
               Pick a voice or text channel on this server, or describe anywhere
               else (address, link, invite, or an Echo path like
               <code class="rounded bg-glass-2 px-1">/channels/…</code>).
             </p>
-            <div
-              class="mt-2 inline-flex rounded-xl border border-border bg-glass-1 p-0.5 text-xs font-semibold"
-              role="tablist"
-              aria-label="Event location type"
+          </div>
+          <div
+            class="inline-flex max-w-full flex-wrap rounded-xl border border-border bg-glass-1 p-0.5 text-xs font-semibold"
+            role="tablist"
+            aria-label="Event location type"
+          >
+            <button
+              type="button"
+              class="rounded-lg px-3 py-1.5 transition-colors"
+              :class="
+                locationTab === 'voice'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-fg-soft hover:text-foreground'
+              "
+              :disabled="saving"
+              @click="locationTab = 'voice'"
             >
-              <button
-                type="button"
-                class="rounded-lg px-3 py-1.5 transition-colors"
-                :class="
-                  locationTab === 'voice'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-fg-soft hover:text-foreground'
-                "
-                :disabled="saving"
-                @click="locationTab = 'voice'"
-              >
-                Voice
-              </button>
-              <button
-                type="button"
-                class="rounded-lg px-3 py-1.5 transition-colors"
-                :class="
-                  locationTab === 'text'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-fg-soft hover:text-foreground'
-                "
-                :disabled="saving"
-                @click="locationTab = 'text'"
-              >
-                Text
-              </button>
-              <button
-                type="button"
-                class="rounded-lg px-3 py-1.5 transition-colors"
-                :class="
-                  locationTab === 'custom'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-fg-soft hover:text-foreground'
-                "
-                :disabled="saving"
-                @click="locationTab = 'custom'"
-              >
-                Custom
-              </button>
-            </div>
-            <div class="mt-3">
-              <EchoDropdown
-                v-if="locationTab === 'voice'"
-                v-model="draftChannelId"
-                label="Voice or stage channel"
-                :options="voiceLocationOptions"
-                surface="server"
-                teleport-menu
-                searchable
+              Voice
+            </button>
+            <button
+              type="button"
+              class="rounded-lg px-3 py-1.5 transition-colors"
+              :class="
+                locationTab === 'text'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-fg-soft hover:text-foreground'
+              "
+              :disabled="saving"
+              @click="locationTab = 'text'"
+            >
+              Text
+            </button>
+            <button
+              type="button"
+              class="rounded-lg px-3 py-1.5 transition-colors"
+              :class="
+                locationTab === 'custom'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-fg-soft hover:text-foreground'
+              "
+              :disabled="saving"
+              @click="locationTab = 'custom'"
+            >
+              Custom
+            </button>
+          </div>
+          <div class="mt-4 min-w-0">
+            <EchoDropdown
+              v-if="locationTab === 'voice'"
+              v-model="draftChannelId"
+              label="Voice or stage channel"
+              :options="voiceLocationOptions"
+              surface="server"
+              teleport-menu
+              searchable
+              :disabled="saving"
+            />
+            <EchoDropdown
+              v-else-if="locationTab === 'text'"
+              v-model="draftChannelId"
+              label="Text channel"
+              :options="textLocationOptions"
+              surface="server"
+              teleport-menu
+              searchable
+              :disabled="saving"
+            />
+            <div v-else>
+              <label class="settings-label">Custom venue</label>
+              <textarea
+                v-model="draftCustomLocation"
+                rows="3"
+                maxlength="2000"
+                class="server-input mt-2 min-h-[88px] w-full resize-y"
+                placeholder="Physical address, another site, Discord/Echo invite, or paste an Echo path (/channels/…)"
                 :disabled="saving"
               />
-              <EchoDropdown
-                v-else-if="locationTab === 'text'"
-                v-model="draftChannelId"
-                label="Text channel"
-                :options="textLocationOptions"
-                surface="server"
-                teleport-menu
-                searchable
-                :disabled="saving"
-              />
-              <div v-else>
-                <textarea
-                  v-model="draftCustomLocation"
-                  rows="3"
-                  maxlength="2000"
-                  class="server-input mt-2 min-h-[88px] w-full resize-y"
-                  placeholder="Physical address, another site, Discord/Echo invite, or paste an Echo path (/channels/…)"
-                  :disabled="saving"
-                />
-              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div
+        <section
           v-if="showDiscordMirrorUi"
-          class="rounded-xl border border-border/90 bg-glass-1 p-3 lg:col-span-12"
+          class="min-w-0 rounded-xl bg-glass-1/80 p-4"
         >
+          <h5 class="settings-subtitle mb-3">Discord</h5>
           <p
             v-if="editingHadDiscordMirror"
             class="text-sm leading-snug text-fg-subtle"
@@ -710,11 +826,9 @@ function clearCover() {
               </span>
             </span>
           </label>
-        </div>
+        </section>
 
-        <div
-          class="flex flex-wrap gap-2 border-t border-border/80 pt-3 lg:col-span-12"
-        >
+        <div class="flex flex-wrap gap-2 border-t border-border/80 pt-4">
           <button
             type="button"
             class="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -725,7 +839,7 @@ function clearCover() {
           </button>
           <button
             type="button"
-            class="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover"
+            class="rounded-xl px-4 py-2.5 text-sm font-medium text-fg-soft transition-colors hover:bg-glass-hover"
             :disabled="saving"
             @click="closeEditor"
           >
@@ -733,101 +847,134 @@ function clearCover() {
           </button>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div
-      v-if="!loading && events.length"
-      class="server-settings-panel rounded-2xl p-4 sm:p-5"
-    >
+    <section v-if="!loading && events.length" class="settings-section-stack">
       <div class="settings-subtitle mb-3">Scheduled &amp; past</div>
       <ul class="flex flex-col gap-3">
-        <li
-          v-for="ev in events"
-          :key="ev.id"
-          class="flex flex-col gap-3 rounded-2xl border border-border/90 bg-glass-1 p-3 sm:flex-row sm:items-stretch"
-        >
-          <div
-            v-if="ev.imageUrl?.trim()"
-            class="relative h-28 w-full shrink-0 overflow-hidden rounded-xl border border-border/80 bg-surface sm:h-auto sm:w-40"
+        <li v-for="ev in events" :key="ev.id" class="events-list-row">
+          <button
+            type="button"
+            class="events-collapsed-card group relative flex min-h-[7.75rem] w-full flex-col justify-end overflow-hidden rounded-2xl text-left transition-[transform,box-shadow] duration-200 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            :aria-expanded="expandedEventId === ev.id"
+            :aria-label="`${ev.title}. ${eventTimingLabel(ev)}. ${expandedEventId === ev.id ? 'Collapse' : 'Show'} details`"
+            @click="toggleExpandedEvent(ev.id)"
           >
             <img
+              v-if="ev.imageUrl?.trim()"
               :src="safeImageUrl(ev.imageUrl.trim())"
               alt=""
-              class="h-full w-full object-cover"
+              class="pointer-events-none absolute inset-0 h-full w-full object-cover"
             />
-          </div>
-          <div class="flex min-w-0 flex-1 flex-col justify-center gap-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <span
-                class="truncate text-[15px] font-semibold text-foreground"
-                >{{ ev.title }}</span
+            <div
+              v-else
+              class="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-600/55 via-violet-700/45 to-slate-900/70"
+              aria-hidden="true"
+            />
+            <div
+              class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/45 to-black/20"
+              aria-hidden="true"
+            />
+            <div class="relative z-[1] flex w-full flex-col gap-2 p-4 sm:p-5">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span
+                  v-if="ev.status === 'cancelled'"
+                  class="echo-status-pill echo-status-pill--danger shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                >
+                  Cancelled
+                </span>
+                <span
+                  v-else
+                  class="echo-status-pill echo-status-pill--success shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ring-1 ring-white/25"
+                >
+                  Scheduled
+                </span>
+                <span
+                  v-if="ev.discordScheduledEventId?.trim()"
+                  class="shrink-0 rounded-full bg-indigo-400/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-100 ring-1 ring-indigo-300/30"
+                >
+                  Discord
+                </span>
+              </div>
+              <h3
+                class="line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl"
               >
-              <span
-                v-if="ev.status === 'cancelled'"
-                class="echo-status-pill echo-status-pill--danger shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-              >
-                Cancelled
-              </span>
-              <span
-                v-else
-                class="echo-status-pill echo-status-pill--success shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-              >
-                Scheduled
-              </span>
-              <span
-                v-if="ev.discordScheduledEventId?.trim()"
-                class="shrink-0 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-500/25 dark:text-indigo-200"
-              >
-                Discord
-              </span>
+                {{ ev.title }}
+              </h3>
+              <div class="events-collapsed-card__when min-w-0">
+                <p
+                  class="text-sm font-semibold text-white/95 drop-shadow-sm"
+                  :title="formatExactStart(ev.startsAt)"
+                >
+                  {{ eventTimingLabel(ev) }}
+                </p>
+                <p
+                  class="events-collapsed-card__when-exact mt-0.5 truncate text-xs text-white/75 drop-shadow-sm"
+                  aria-hidden="true"
+                >
+                  {{ formatExactStart(ev.startsAt) }}
+                </p>
+              </div>
             </div>
-            <p class="text-xs text-fg-subtle">{{ formatRange(ev) }}</p>
+          </button>
+
+          <div
+            v-if="expandedEventId === ev.id"
+            class="events-expanded-panel mt-3 space-y-3 pl-0.5"
+            data-echo-hint-off
+          >
+            <p class="text-sm text-fg-subtle">{{ formatRange(ev) }}</p>
             <p
               v-if="formatLocationSummary(ev)"
-              class="line-clamp-2 text-xs text-fg-soft"
+              class="line-clamp-3 text-sm text-fg-soft"
             >
               {{ formatLocationSummary(ev) }}
             </p>
-            <p class="text-xs text-fg-soft">
+            <p
+              v-if="ev.description?.trim()"
+              class="line-clamp-4 text-sm leading-relaxed text-fg-soft"
+            >
+              {{ ev.description.trim() }}
+            </p>
+            <p class="text-sm text-fg-soft">
               <span class="font-semibold text-foreground">{{
                 ev.goingCount
               }}</span>
               going
             </p>
-          </div>
-          <div
-            class="flex shrink-0 flex-row gap-2 sm:flex-col sm:justify-center"
-          >
-            <button
+            <div
               v-if="ev.status === 'scheduled'"
-              type="button"
-              class="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-glass-hover"
-              :disabled="saving || !!cancellingId"
-              @click="openEdit(ev)"
+              class="flex flex-wrap gap-2 pt-1"
             >
-              Edit
-            </button>
-            <button
-              v-if="ev.status === 'scheduled'"
-              type="button"
-              class="rounded-xl border border-red-400/40 px-3 py-2 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/10"
-              :disabled="!!cancellingId"
-              @click="onCancelEvent(ev.id)"
-            >
-              {{ cancellingId === ev.id ? '…' : 'Cancel' }}
-            </button>
+              <button
+                type="button"
+                class="rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+                :disabled="saving || !!cancellingId"
+                @click.stop="openEdit(ev)"
+              >
+                Edit event
+              </button>
+              <button
+                type="button"
+                class="rounded-xl px-4 py-2 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/10"
+                :disabled="!!cancellingId"
+                @click.stop="onCancelEvent(ev.id)"
+              >
+                {{ cancellingId === ev.id ? '…' : 'Cancel event' }}
+              </button>
+            </div>
           </div>
         </li>
       </ul>
-    </div>
+    </section>
 
-    <div
+    <section
       v-else-if="!loading && !error"
-      class="server-settings-panel rounded-2xl p-6 text-center"
+      class="settings-section-stack py-6 text-center"
     >
       <p class="text-sm text-fg-soft">
         No events yet. Create one to surface it in the channel sidebar carousel.
       </p>
-    </div>
+    </section>
   </div>
 </template>

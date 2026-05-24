@@ -8,6 +8,14 @@ export function normalizeVanity(raw: string): string {
   return trimmed === '' ? '' : slugifyServerName(trimmed);
 }
 
+/** Matches backend `normalizeEchoVanityCode` (null = invalid). */
+export function validateEchoVanityFormat(raw: string): boolean | 'empty' {
+  const t = raw.trim().toLowerCase();
+  if (t === '') return 'empty';
+  if (t.length < 3 || t.length > 32) return false;
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(t);
+}
+
 export function normalizeServerTags(
   raw: Iterable<string> | null | undefined,
 ): string[] {

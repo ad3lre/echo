@@ -43,6 +43,8 @@ import {
   setAudioTrackVolumeIfSupported,
   type SenderStatsLike,
 } from '@/services/livekit/livekitTrackAdapter';
+import { isSafariLikeBrowser } from '@/platform/browserCompatibility';
+import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 import {
   echoPlaybackCleanupForRemoteTrack,
   echoPlaybackEnsureAudioContextRunning,
@@ -754,6 +756,11 @@ export type LiveKitVoiceRoomApi = {
   getRemoteParticipantVolume: (userId: string) => number;
   setRemoteParticipantVolume: (userId: string, volumePercent: number) => void;
   reapplyVoiceProcessing: () => Promise<void>;
+  /** Re-sync mic monitor, playback context, and publish state after focus / device changes. */
+  recoverVoiceMediaSession: (opts: {
+    muted: boolean;
+    deafened: boolean;
+  }) => Promise<void>;
   /** Publish guild VC YouTube activity state to peers (reliable data channel). */
   publishYoutubeActivity: (payload: EchoYoutubeActivityV1) => void;
   publishVcActivityPresence: (payload: EchoVcActivityPresenceV1) => void;
@@ -1159,11 +1166,15 @@ export function useLiveKitVoiceRoom(
   /** Clears `unhandledrejection` watch after Krisp `setProcessor` (async publish can throw). */
   let krispAsyncRejectionCleanup: (() => void) | null = null;
   let tabCleanup: (() => void) | null = null;
+  let mediaRecoveryCleanup: (() => void) | null = null;
   let activeSpeakerCleanup: (() => void) | null = null;
+  /** Set while connected; drives speaking rings when LiveKit events lag. */
+  let syncSpeakingLevelsFromRoom: (() => void) | null = null;
   let audioHealthInterval: ReturnType<typeof setInterval> | null = null;
 
   /** Serializes mute/deafen + mic republish so concurrent calls do not race LiveKit. */
   let applyVcAudioQueued: Promise<void> = Promise.resolve();
+  let lastVcAudioOpts = { muted: false, deafened: false };
 
   let micAttachDiagLogs = 0;
   const MIC_ATTACH_LOG_MAX = 6;
@@ -1355,6 +1366,56 @@ export function useLiveKitVoiceRoom(
     tabCleanup = null;
   }
 
+  function clearMediaRecovery() {
+    mediaRecoveryCleanup?.();
+    mediaRecoveryCleanup = null;
+  }
+
+  function registerMediaRecovery(room: LKRoom) {
+    clearMediaRecovery();
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    let lastRecoveryAt = 0;
+    const RECOVERY_DEBOUNCE_MS = 400;
+
+    const scheduleRecovery = (reason: string) => {
+      const now = Date.now();
+      if (now - lastRecoveryAt < RECOVERY_DEBOUNCE_MS) return;
+      lastRecoveryAt = now;
+      voiceClientTrace('voice.client:media_recovery_scheduled', { reason });
+      void recoverVoiceMediaSession({ ...lastVcAudioOpts });
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (lkRoom.value !== room || roomState.value !== 'connected') return;
+      scheduleRecovery('visibility');
+    };
+    const onFocus = () => {
+      if (lkRoom.value !== room || roomState.value !== 'connected') return;
+      scheduleRecovery('focus');
+    };
+    const onDeviceChange = () => {
+      if (lkRoom.value !== room || roomState.value !== 'connected') return;
+      scheduleRecovery('devicechange');
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    navigator.mediaDevices?.addEventListener?.('devicechange', onDeviceChange);
+
+    mediaRecoveryCleanup = () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+      navigator.mediaDevices?.removeEventListener?.(
+        'devicechange',
+        onDeviceChange,
+      );
+    };
+  }
+
   function registerTabCleanup() {
     clearTabCleanup();
     const onLeave = () => {
@@ -1372,6 +1433,7 @@ export function useLiveKitVoiceRoom(
   function _teardownSpeakerTracking() {
     activeSpeakerCleanup?.();
     activeSpeakerCleanup = null;
+    syncSpeakingLevelsFromRoom = null;
     localMicMonitor.stop();
     speakingMap.value = {};
     localSpeaking.value = false;
@@ -1565,7 +1627,16 @@ export function useLiveKitVoiceRoom(
       attachRemoteSpeakingWatch(p);
     }
 
+    syncSpeakingLevelsFromRoom = syncSpeakingMapFromRoom;
+
+    const SPEAKING_POLL_MS = 120;
+    const speakingPoll = setInterval(() => {
+      if (lkRoom.value !== room || roomState.value !== 'connected') return;
+      syncSpeakingMapFromRoom();
+    }, SPEAKING_POLL_MS);
+
     activeSpeakerCleanup = () => {
+      clearInterval(speakingPoll);
       room.off(RoomEvent.ActiveSpeakersChanged, onActiveSpeakersChanged);
       room.off(RoomEvent.ParticipantConnected, onParticipantConnectedSpeaking);
       room.off(
@@ -1576,6 +1647,7 @@ export function useLiveKitVoiceRoom(
         off();
       }
       remoteSpeakingUnsubs.clear();
+      syncSpeakingLevelsFromRoom = null;
     };
 
     syncSpeakingMapFromRoom();
@@ -1612,6 +1684,7 @@ export function useLiveKitVoiceRoom(
   /** Clears tab listeners, stats, speaker UI, moderation/camera flags, and remote map (no Room SDK). */
   function clearLocalVoiceUiState() {
     clearTabCleanup();
+    clearMediaRecovery();
     clearKrispAsyncRejectionWatch();
     stopStatsPolling();
     stopAudioHealthPolling();
@@ -1742,12 +1815,72 @@ export function useLiveKitVoiceRoom(
     return applyVcAudioQueued;
   }
 
+  async function recoverVoiceMediaSession(opts: {
+    muted: boolean;
+    deafened: boolean;
+  }) {
+    const room = lkRoom.value;
+    if (!room || roomState.value !== 'connected') return;
+    lastVcAudioOpts = { ...opts };
+    void echoPlaybackEnsureAudioContextRunning();
+    await localMicMonitor.ensureAudioContextRunning();
+
+    const pub = room.localParticipant.getTrackPublication(LK_SOURCE_MICROPHONE);
+    const track = pub?.track as LocalAudioTrack | undefined;
+    const mst = track?.mediaStreamTrack;
+    const shouldMicLive = !opts.deafened && !opts.muted;
+    const trackEnded = !mst || mst.readyState === 'ended';
+    const hardwareMuted = mst
+      ? (mst as unknown as { muted?: boolean }).muted === true
+      : false;
+    const pubMuted = pub?.isMuted === true;
+    const needsRepublish =
+      shouldMicLive && (trackEnded || hardwareMuted || pubMuted || !track);
+
+    voiceClientTrace('voice.client:recoverVoiceMediaSession', {
+      shouldMicLive,
+      trackEnded,
+      hardwareMuted,
+      pubMuted,
+      needsRepublish,
+    });
+
+    if (needsRepublish) {
+      try {
+        await runApplyVcAudioState(opts);
+      } catch (e) {
+        voiceClientDiag(
+          'warn',
+          'voice.client:recoverVoiceMediaSession_failed',
+          {
+            err: formatVoiceClientError(e),
+          },
+        );
+        if (isSafariLikeBrowser()) {
+          dispatchAppToastDetail({
+            message: 'Microphone may need attention',
+            subtitle:
+              'Safari sometimes pauses or blocks the mic after a tab switch. Check the address-bar mic icon or Voice settings, then unmute again.',
+            severity: 'warning',
+            durationMs: 8000,
+          });
+        }
+        return;
+      }
+    } else {
+      refreshLocalMicLevelMonitor(room);
+      applyLocalMicGain(room);
+    }
+    syncSpeakingLevelsFromRoom?.();
+  }
+
   async function runApplyVcAudioState(opts: {
     muted: boolean;
     deafened: boolean;
   }) {
     const room = lkRoom.value;
     if (!room || roomState.value !== 'connected') return;
+    lastVcAudioOpts = { ...opts };
     voiceClientTrace('voice.client:applyVcAudioState', {
       roomName: room.name,
       ...opts,
@@ -2701,6 +2834,7 @@ export function useLiveKitVoiceRoom(
       refreshLocalMicLevelMonitor(room);
       _syncRemoteParticipants(room);
       registerTabCleanup();
+      registerMediaRecovery(room);
       startStatsPolling();
       dumpRemoteAudioTrackState(room, 'post_connect');
       dumpLiveKitDomAudioElements();
@@ -3299,6 +3433,7 @@ export function useLiveKitVoiceRoom(
     getRemoteParticipantVolume,
     setRemoteParticipantVolume,
     reapplyVoiceProcessing,
+    recoverVoiceMediaSession,
     publishYoutubeActivity,
     publishVcActivityPresence,
     publishHangmanActivity,

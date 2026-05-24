@@ -38,9 +38,18 @@ export class EchoApiError extends Error {
       baseMessage === echoT('errors.api.unknown') &&
       status > 0
     ) {
-      baseMessage = `HTTP ${status}`;
+      baseMessage =
+        status >= 500
+          ? echoT('errors.api.serverUnavailable')
+          : echoT('errors.api.requestFailed');
     }
-    const msg = body.detail ? `${baseMessage} (${body.detail})` : baseMessage;
+    const detailKey = body.detail?.trim()
+      ? `errors.api.${body.detail.trim()}`
+      : '';
+    const detailMsg =
+      detailKey && echoT(detailKey) !== detailKey ? echoT(detailKey) : '';
+    const msg =
+      detailMsg && detailMsg !== baseMessage ? detailMsg : baseMessage;
     super(msg);
     this.name = 'EchoApiError';
   }

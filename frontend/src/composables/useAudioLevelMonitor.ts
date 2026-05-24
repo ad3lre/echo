@@ -43,8 +43,23 @@ export function useAudioLevelMonitor() {
     return Math.sqrt(sum / buf.length);
   }
 
+  async function ensureAudioContextRunning(): Promise<void> {
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {
+        /* gesture / autoplay policy */
+      }
+    }
+    audioContextState.value = ctx.state;
+  }
+
   function tick() {
     if (!analyser || !dataArray) return;
+    if (ctx?.state === 'suspended') {
+      void ensureAudioContextRunning();
+    }
     analyser.getFloatTimeDomainData(dataArray);
     const rms = computeRms(dataArray);
     const db = rms > 1e-7 ? 20 * Math.log10(rms) : -100;
@@ -83,6 +98,8 @@ export function useAudioLevelMonitor() {
 
     source = ctx.createMediaStreamSource(stream);
     source.connect(analyser);
+
+    void ensureAudioContextRunning();
 
     if (ctx.state !== 'running') {
       voiceClientDiag('warn', 'voice.client:audio_ctx_not_running', {
@@ -146,6 +163,7 @@ export function useAudioLevelMonitor() {
     attachStream,
     stop,
     setSpeakingThreshold,
+    ensureAudioContextRunning,
   };
 }
 

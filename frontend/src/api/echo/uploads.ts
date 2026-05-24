@@ -156,12 +156,12 @@ function putEchoUploadBodyWithProgress(
         return;
       }
       const t = xhr.responseText?.trim() ?? '';
-      reject(new Error(t || `Upload failed (${xhr.status})`));
+      reject(new Error(t || "Couldn't upload that file. Try again."));
     };
     xhr.onerror = () =>
       reject(
         new Error(
-          'Upload failed before HTTP response (CORS/preflight, connection drop, or blocked request)',
+          "Couldn't reach the server to upload. Check your connection and try again.",
         ),
       );
     xhr.onabort = () => reject(new Error('Upload was cancelled'));

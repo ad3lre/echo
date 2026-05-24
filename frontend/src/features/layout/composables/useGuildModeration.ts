@@ -397,7 +397,8 @@ export function useGuildModeration(deps: {
         });
         await hydrateWorkspace?.();
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Request failed';
+        const msg =
+          e instanceof Error ? e.message : "Something didn't work. Try again.";
         dispatchAppToast(`Could not complete moderation: ${msg}`, 'warning');
       }
       return;
@@ -476,7 +477,8 @@ export function useGuildModeration(deps: {
         });
         await hydrateWorkspace?.();
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Request failed';
+        const msg =
+          e instanceof Error ? e.message : "Something didn't work. Try again.";
         dispatchAppToast(`Could not invite to speak: ${msg}`, 'warning');
       }
     } else if (payload.action === 'moveToAudience') {
@@ -488,7 +490,8 @@ export function useGuildModeration(deps: {
         });
         await hydrateWorkspace?.();
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Request failed';
+        const msg =
+          e instanceof Error ? e.message : "Something didn't work. Try again.";
         dispatchAppToast(`Could not move to audience: ${msg}`, 'warning');
       }
     } else if (payload.action === 'serverMute') {
@@ -501,7 +504,10 @@ export function useGuildModeration(deps: {
           });
           await hydrateWorkspace?.();
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Request failed';
+          const msg =
+            e instanceof Error
+              ? e.message
+              : "Something didn't work. Try again.";
           dispatchAppToast(`Could not update server mute: ${msg}`, 'warning');
         }
       } else {
@@ -517,7 +523,10 @@ export function useGuildModeration(deps: {
           });
           await hydrateWorkspace?.();
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Request failed';
+          const msg =
+            e instanceof Error
+              ? e.message
+              : "Something didn't work. Try again.";
           dispatchAppToast(`Could not update server deafen: ${msg}`, 'warning');
         }
       } else {
@@ -538,7 +547,8 @@ export function useGuildModeration(deps: {
       } catch (e) {
         const label =
           payload.action === 'stopCamera' ? 'camera' : 'screen share';
-        const msg = e instanceof Error ? e.message : 'Request failed';
+        const msg =
+          e instanceof Error ? e.message : "Something didn't work. Try again.";
         dispatchAppToast(`Could not stop ${label}: ${msg}`, 'warning');
       }
     } else if (payload.action === 'move') {
@@ -553,7 +563,10 @@ export function useGuildModeration(deps: {
           });
           await hydrateWorkspace?.();
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Request failed';
+          const msg =
+            e instanceof Error
+              ? e.message
+              : "Something didn't work. Try again.";
           dispatchAppToast(`Could not move member: ${msg}`, 'warning');
         }
       } else {
@@ -580,7 +593,10 @@ export function useGuildModeration(deps: {
           });
           await hydrateWorkspace?.();
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Request failed';
+          const msg =
+            e instanceof Error
+              ? e.message
+              : "Something didn't work. Try again.";
           dispatchAppToast(`Could not disconnect user: ${msg}`, 'warning');
         }
       } else {

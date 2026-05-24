@@ -17,3 +17,13 @@ export function utcIsoToDateTimeLocalValue(iso: string): string {
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+/** True when the datetime-local value parses to a moment strictly before `now`. */
+export function isDateTimeLocalInPast(
+  value: string,
+  now: Date = new Date(),
+): boolean {
+  const d = parseDateTimeLocalToUtcIso(value);
+  if (!d) return false;
+  return new Date(d).getTime() < now.getTime();
+}

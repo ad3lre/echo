@@ -59,8 +59,8 @@ function selectMode(id: ServerAccessMode) {
 </script>
 
 <template>
-  <div class="server-settings-panel-root space-y-5 pb-8">
-    <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
+  <div class="server-settings-sections--flat server-settings-panel-root pb-8">
+    <section class="settings-section-stack">
       <div class="settings-subtitle mb-1">Who can join</div>
       <p class="mb-4 text-sm text-fg-subtle">
         Choose how new members discover and enter this server.
@@ -68,14 +68,14 @@ function selectMode(id: ServerAccessMode) {
 
       <div
         v-if="!canManageServer"
-        class="rounded-xl border border-[var(--border)] bg-[var(--set-card-bg)] px-4 py-3 text-sm text-muted"
+        class="rounded-xl bg-glass-2/60 px-4 py-3 text-sm text-muted"
       >
         You don’t have permission to change access settings.
       </div>
 
       <template v-else>
         <div
-          class="relative grid grid-cols-3 gap-1 rounded-2xl border border-[var(--border)] bg-[var(--set-card-bg)] p-1"
+          class="access-mode-segmented relative grid grid-cols-3 gap-1 rounded-2xl p-1"
           role="radiogroup"
           aria-label="Server access level"
         >
@@ -107,9 +107,9 @@ function selectMode(id: ServerAccessMode) {
           {{ modes.find((x) => x.id === accessMode)?.hint }}
         </p>
       </template>
-    </div>
+    </section>
 
-    <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
+    <section class="settings-section-stack">
       <div class="settings-subtitle mb-1">Join applications</div>
       <p class="mb-4 text-sm text-fg-subtle">
         Optional waitlist and questionnaire for people joining your server.
@@ -120,8 +120,9 @@ function selectMode(id: ServerAccessMode) {
         :access-token="accessToken"
         :workspace-servers="workspaceServers"
         omit-outer-root
+        flat-sections
         @echo-workspace-refresh="emit('echo-workspace-refresh')"
       />
-    </div>
+    </section>
   </div>
 </template>

@@ -190,6 +190,8 @@ onMounted(() => {
     :discoverable-servers="m.discoverableServers"
     :join-error="m.addServerJoinError ?? ''"
     :create-busy="m.addServerCreateBusy ?? false"
+    :join-busy="m.addServerJoinBusy ?? false"
+    :initial-join-invite="m.addServerJoinInvitePrefill ?? ''"
     @update:model-value="m.onUpdateAddServerModal"
     @request-discord-link="() => void m.onRequestDiscordLinkFromAddServer?.()"
     @server-created="m.onCreateServer"

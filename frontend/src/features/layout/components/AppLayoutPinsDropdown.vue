@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
+import MessagePreviewSnippet from '@/components/chat/MessagePreviewSnippet.vue';
+import { messagePreviewPlainText } from '@/services/domain/messagePreviewPlain';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { useCompactShell } from '@/composables/useCompactShell';
 import { computed } from 'vue';
@@ -9,6 +10,11 @@ const props = defineProps<{
   rect: { left: number; bottom: number } | null;
   pinnedMessages: Array<{
     id?: string;
+    content?: string;
+    contentText?: string;
+    contentJson?: unknown;
+    messageFormatVersion?: number;
+    mentions?: import('@shared/types').MentionEntity[];
     author?: { avatar?: string; name?: string };
   }>;
   pinPreview: (msg: unknown) => string;
@@ -94,7 +100,12 @@ const anchoredDropdownStyle = computed(() => {
                 <p
                   class="mt-0.5 text-sm leading-snug text-fg line-clamp-4 break-words"
                 >
-                  {{ pinPreview(msg) }}
+                  <MessagePreviewSnippet
+                    v-if="messagePreviewPlainText(msg, 1)"
+                    v-bind="msg"
+                    :max-len="160"
+                  />
+                  <template v-else>{{ pinPreview(msg) }}</template>
                 </p>
               </div>
             </button>
@@ -154,7 +165,12 @@ const anchoredDropdownStyle = computed(() => {
                   {{ msg.author?.name }}
                 </p>
                 <p class="text-sm text-fg line-clamp-2 break-words">
-                  {{ pinPreview(msg) }}
+                  <MessagePreviewSnippet
+                    v-if="messagePreviewPlainText(msg, 1)"
+                    v-bind="msg"
+                    :max-len="120"
+                  />
+                  <template v-else>{{ pinPreview(msg) }}</template>
                 </p>
               </div>
             </button>

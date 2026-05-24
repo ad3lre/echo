@@ -1409,24 +1409,23 @@ onUnmounted(() => {
   --call-avatar-size: clamp(48px, 16cqw, 96px);
 }
 
-/* compact speaking ring with glow */
+/* compact speaking ring — inset so call-tile overflow-hidden does not clip */
 .call-avatar-speaking-ring {
   --speak-strength: 0.4;
   --ring-color: #3ba55d;
   --glow-color: rgba(59, 165, 93, 0.5);
 
   box-shadow:
-    0 0 0 3px
+    inset 0 0 0 3px
       color-mix(
         in srgb,
         var(--ring-color) calc(var(--speak-strength) * 100%),
         transparent
       ),
-    0 0 calc(8px + var(--speak-strength) * 16px) var(--glow-color),
-    0 0 calc(16px + var(--speak-strength) * 24px)
+    inset 0 0 calc(6px + var(--speak-strength) * 10px)
       color-mix(
         in srgb,
-        var(--glow-color) calc(var(--speak-strength) * 60%),
+        var(--glow-color) calc(var(--speak-strength) * 55%),
         transparent
       );
 }
@@ -1436,20 +1435,19 @@ onUnmounted(() => {
   --glow-color: rgba(36, 128, 69, 0.4);
 }
 
-/* Stronger glow for solo view */
+/* Stronger ring for solo view */
 .call-audio-only-gallery--solo .call-avatar-speaking-ring {
   box-shadow:
-    0 0 0 4px
+    inset 0 0 0 4px
       color-mix(
         in srgb,
         var(--ring-color) calc(var(--speak-strength) * 100%),
         transparent
       ),
-    0 0 calc(12px + var(--speak-strength) * 24px) var(--glow-color),
-    0 0 calc(24px + var(--speak-strength) * 36px)
+    inset 0 0 calc(8px + var(--speak-strength) * 14px)
       color-mix(
         in srgb,
-        var(--glow-color) calc(var(--speak-strength) * 70%),
+        var(--glow-color) calc(var(--speak-strength) * 65%),
         transparent
       );
 }

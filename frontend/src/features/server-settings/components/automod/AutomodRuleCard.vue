@@ -73,13 +73,13 @@ function onDrop() {
 
 <template>
   <div
-    class="flex items-stretch gap-0 overflow-hidden rounded-2xl border border-border/90 bg-glass-1 transition hover:border-border"
+    class="automod-rule-row flex items-stretch gap-0 overflow-hidden"
     @dragover="onDragOver"
     @drop="onDrop"
   >
     <button
       type="button"
-      class="flex w-9 shrink-0 flex-col items-center justify-center border-r border-border/60 bg-glass-2/50 text-fg-subtle transition-colors hover:bg-glass-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      class="automod-rule-row__grip flex w-9 shrink-0 flex-col items-center justify-center text-fg-subtle transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
       :disabled="!canManage"
       draggable="true"
       aria-label="Drag to reorder rule"
@@ -96,7 +96,7 @@ function onDrop() {
     <div class="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 sm:px-4">
       <div
         v-if="ruleIconImgSrc"
-        class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-surface p-0.5"
+        class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface ring-1 ring-border/40 p-0.5"
       >
         <img
           :src="ruleIconImgSrc"
@@ -106,7 +106,7 @@ function onDrop() {
       </div>
       <div
         v-else
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-indigo-500/15 text-lg leading-none"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-lg leading-none ring-1 ring-border/40"
         aria-hidden="true"
       >
         {{ ruleIconGlyph }}
@@ -146,7 +146,7 @@ function onDrop() {
       </label>
 
       <div
-        class="flex shrink-0 items-center gap-1 border-l border-border/50 pl-2 sm:pl-3"
+        class="automod-rule-row__actions flex shrink-0 items-center gap-1 pl-2 sm:pl-3"
       >
         <button
           type="button"

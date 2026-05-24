@@ -7,7 +7,7 @@
     "save": "Save",
     "close": "Close",
     "refreshPage": "Refresh page",
-    "requestFailed": "Request failed",
+    "requestFailed": "Something didn't work. Try again.",
     "somethingWentWrong": "Something went wrong. Please try again.",
     "notAvailableNow": "That isn't available right now. Try again later.",
     "skipToContent": "Skip to content"

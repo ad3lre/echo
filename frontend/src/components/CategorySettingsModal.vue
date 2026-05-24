@@ -106,6 +106,24 @@ watch(
 );
 
 watch(
+  () => props.categorySettings?.categoryId,
+  (categoryId, prevId) => {
+    if (categoryId && categoryId !== prevId) {
+      permissionSelectedRowKey.value = null;
+    }
+  },
+);
+
+watch(
+  () => props.echoPermissionEditor?.loading,
+  (loading, wasLoading) => {
+    if (wasLoading && loading === false && props.modelValue) {
+      permissionSelectedRowKey.value = null;
+    }
+  },
+);
+
+watch(
   () => [props.categorySettings, props.echoPermissionEditor] as const,
   () => {
     if (props.modelValue) syncFromProps();

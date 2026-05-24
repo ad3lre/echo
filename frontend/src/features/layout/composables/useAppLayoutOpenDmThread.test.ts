@@ -187,6 +187,48 @@ describe('useAppLayoutOpenDmThread', () => {
     ]);
   });
 
+  it('activates persisted peer channel instead of dm shell while open resolves', async () => {
+    vi.mocked(openEchoDirectDmChannel).mockImplementation(
+      () =>
+        new Promise(() => {
+          /* never settles */
+        }),
+    );
+
+    const selectedDMUserId = ref<string | null>(null);
+    const dmActiveTab = ref<DmSubView>('messages');
+    const selectedMessageRequestId = ref<string | null>(null);
+    const pfpBarExpanded = ref(false);
+    const activeChannelId = ref('start');
+    const echoDmPeerByChannelId = ref(
+      new Map<string, string>([['existing-ch', userA]]),
+    );
+    const echoDmThreadIds = ref(new Set<string>(['existing-ch']));
+
+    const serverStore = { selectServer: vi.fn() };
+    const authSession = {
+      accessToken: 'token',
+      isAuthenticated: true,
+    };
+
+    const { onSelectDmUser } = useAppLayoutOpenDmThread({
+      selectedDMUserId,
+      dmActiveTab,
+      selectedMessageRequestId,
+      serverStore: serverStore as never,
+      pfpBarExpanded,
+      authSession: authSession as never,
+      activeChannelId,
+      echoDmPeerByChannelId,
+      echoDmThreadIds,
+    });
+
+    void onSelectDmUser(userA);
+    await nextTick();
+
+    expect(activeChannelId.value).toBe('existing-ch');
+  });
+
   it('tracks in-flight dm thread opening for loading UX', async () => {
     let finish!: (value: string) => void;
     vi.mocked(openEchoDirectDmChannel).mockImplementation(

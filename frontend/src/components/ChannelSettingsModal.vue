@@ -380,6 +380,24 @@ watch(
 );
 
 watch(
+  () => props.channelSettings?.channel.id,
+  (channelId, prevId) => {
+    if (channelId && channelId !== prevId) {
+      permissionSelectedRowKey.value = null;
+    }
+  },
+);
+
+watch(
+  () => props.echoPermissionEditor?.loading,
+  (loading, wasLoading) => {
+    if (wasLoading && loading === false && props.modelValue) {
+      permissionSelectedRowKey.value = null;
+    }
+  },
+);
+
+watch(
   () => [props.channelSettings, props.echoPermissionEditor] as const,
   () => {
     if (props.modelValue) syncFromProps();

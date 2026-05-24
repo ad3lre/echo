@@ -77,7 +77,9 @@ async function applyToCategory() {
     }
   } catch (e) {
     error.value =
-      e instanceof Error ? e.message : 'Could not apply Discord sync.';
+      e instanceof Error
+        ? e.message
+        : 'Could not update Discord message linking.';
   } finally {
     applying.value = false;
   }
@@ -87,7 +89,7 @@ async function clearCategorySync() {
   if (!canUse.value || !props.serverId || !props.categoryId) return;
   if (bridgeableCount.value === 0) return;
   const ok = window.confirm(
-    `Clear Discord sync for all ${bridgeableCount.value} text/forum channel${bridgeableCount.value === 1 ? '' : 's'} in this category?`,
+    `Stop linking messages with Discord for all ${bridgeableCount.value} text/forum channel${bridgeableCount.value === 1 ? '' : 's'} in this category?`,
   );
   if (!ok) return;
   const token = authSession.accessToken?.trim() ?? '';
@@ -129,7 +131,9 @@ async function clearCategorySync() {
     }
   } catch (e) {
     error.value =
-      e instanceof Error ? e.message : 'Could not clear Discord sync.';
+      e instanceof Error
+        ? e.message
+        : 'Could not turn off Discord message linking.';
   } finally {
     clearing.value = false;
   }
@@ -145,18 +149,18 @@ async function clearCategorySync() {
           alt=""
           class="h-5 w-5 shrink-0 opacity-90 filter invert"
         />
-        <div class="settings-subtitle">Discord chat sync (bulk)</div>
+        <div class="settings-subtitle">Discord messages (category)</div>
       </div>
       <p class="mb-4 text-xs leading-relaxed text-fg-subtle">
-        Applies the same Discord ↔ Echo mirroring toggles to every
+        Turn the same Discord ↔ Echo message options on or off for every
         <strong class="font-semibold text-fg-soft">text</strong> and
         <strong class="font-semibold text-fg-soft">forum</strong>
-        channel in this category. Each channel uses its own Discord mapping from
-        server import (same as per-channel Discord sync in channel settings).
+        channel in this category. Each channel still uses its own linked Discord
+        channel from import (you can fine-tune one channel in channel settings).
       </p>
 
       <div v-if="!authSession.isAuthenticated" class="text-sm text-fg-soft">
-        Sign in to configure Discord sync.
+        Sign in to link messages with Discord.
       </div>
       <div
         v-else-if="authSession.backendUser?.isGuest"
@@ -169,7 +173,7 @@ async function clearCategorySync() {
           v-if="bridgeableCount === 0"
           class="rounded-lg bg-glass-2 px-3 py-2 text-sm text-fg-soft"
         >
-          This category has no text or forum channels — nothing to sync.
+          This category has no text or forum channels — nothing to link.
         </div>
 
         <div class="flex flex-wrap gap-6">
@@ -198,11 +202,12 @@ async function clearCategorySync() {
         </div>
 
         <p class="text-[11px] text-fg-subtle">
-          Turning both off and saving clears sync only when no webhook is
-          stored. Use
-          <strong class="font-semibold text-fg-soft">Clear sync</strong> to
-          remove bridge rows and webhooks. Channels you cannot manage are
-          skipped.
+          Turning both off and saving only stops linking when no custom posting
+          link is saved. Use
+          <strong class="font-semibold text-fg-soft"
+            >Stop linking in category</strong
+          >
+          to fully remove links. Channels you cannot manage are skipped.
         </p>
 
         <div class="flex flex-wrap items-center gap-3">
@@ -220,7 +225,7 @@ async function clearCategorySync() {
             :disabled="applying || clearing || bridgeableCount === 0"
             @click="clearCategorySync"
           >
-            {{ clearing ? 'Clearing…' : 'Clear sync in category' }}
+            {{ clearing ? 'Turning off…' : 'Stop linking in category' }}
           </button>
         </div>
 

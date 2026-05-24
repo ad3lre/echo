@@ -55,6 +55,14 @@ import {
 } from '@/features/layout/navigationReducer';
 import type { RailTab } from '@/features/layout/mainSurface';
 import type { DmSubView } from '@/features/layout/mainSurface';
+import { iconEchoRounded } from '@/assets/branding';
+import { ensureChannelBucket } from '@/services/realtime/channelMessageAuthority';
+import {
+  addSingleMemberToServerMemberIds,
+  appendCreatedServerRow,
+  bootstrapCategoriesForNewServer,
+  setCategoriesForServerId,
+} from '@/services/domain/workspaceLocalServerGraphApply';
 
 export type JoinEchoInviteFromChatResult =
   | {
@@ -134,6 +142,11 @@ export function useAddServerFlow(deps: {
 
   const addServerJoinError = ref('');
   const exploreDirectoryJoinBusy = ref(false);
+  /** True while invite-link join runs (preview, confirm modal, API). */
+  const addServerInviteJoinBusy = ref(false);
+  const addServerJoinBusy = computed(
+    () => addServerInviteJoinBusy.value || exploreDirectoryJoinBusy.value,
+  );
   /** True while create/import API work runs after the user submits Add Server (modal stays open). */
   const addServerCreateBusy = ref(false);
   const delay = (ms: number) =>
@@ -245,6 +258,93 @@ export function useAddServerFlow(deps: {
     return getFirstTextChannelId(cats);
   }
 
+  function applyLocalCreatedServerGraph(opts: {
+    serverId: string;
+    name: string;
+    defaultChannelId: string;
+    imageUrl: string;
+  }) {
+    const ownerId =
+      currentUser.value?.id?.trim() ||
+      authSession.backendUser?.id?.trim() ||
+      '';
+    workspace.servers.value = appendCreatedServerRow(workspace.servers.value, {
+      id: opts.serverId,
+      name: opts.name,
+      imageUrl: opts.imageUrl,
+      ...(ownerId ? { ownerId } : {}),
+    });
+    workspace.categoriesByServer.value = setCategoriesForServerId(
+      workspace.categoriesByServer.value,
+      opts.serverId,
+      bootstrapCategoriesForNewServer(opts.serverId, opts.defaultChannelId),
+    );
+    ensureChannelBucket(opts.defaultChannelId);
+    if (ownerId) {
+      workspace.serverMemberIds.value = addSingleMemberToServerMemberIds(
+        workspace.serverMemberIds.value,
+        opts.serverId,
+        ownerId,
+      );
+    }
+  }
+
+  function finishCreateServerShellTransition(
+    serverId: string,
+    defaultChannelId: string,
+  ) {
+    isAddServerModalOpen.value = false;
+    serverStore.selectServer(serverId);
+    activeChannelId.value = defaultChannelId;
+    activeRailTab.value = 'servers';
+    newlyCreatedServerId.value = serverId;
+    if (!isMoreServersPinned.value) {
+      isMoreServersPanelOpen.value = false;
+    }
+  }
+
+  async function refreshWorkspaceAfterCreate(
+    serverId: string,
+    uploadedServerIconPublicUrl?: string | null,
+  ) {
+    try {
+      await hydrateWorkspace();
+      await ensureJoinedServerVisibleInRail(serverId);
+      if (uploadedServerIconPublicUrl) {
+        serverStore.updateServerImageUrl(serverId, uploadedServerIconPublicUrl);
+      }
+    } catch {
+      /* Server exists; snapshot refresh is best-effort. */
+    }
+  }
+
+  async function uploadCreatedServerIconAfterShell(opts: {
+    token: string;
+    serverId: string;
+    iconFile: File;
+  }) {
+    const { token, serverId, iconFile } = opts;
+    try {
+      const url = await uploadBrandingAssetWithInlineFallback({
+        file: iconFile,
+        upload: () =>
+          uploadServerBrandingFile(token, serverId, 'server_icon', iconFile),
+      });
+      await patchEchoServerPreferences(token, serverId, { iconUrl: url });
+      serverStore.updateServerImageUrl(serverId, url);
+      await refreshWorkspaceAfterCreate(serverId, url);
+    } catch (e) {
+      const fromApi =
+        e instanceof Error && e.message.trim() ? e.message.trim() : '';
+      dispatchAppToast(
+        fromApi
+          ? `Server created, but the icon was not saved: ${fromApi}`
+          : 'Server created, but the icon could not be uploaded. You can add one in server settings.',
+        'warning',
+      );
+    }
+  }
+
   function focusJoinedServerInShell(
     serverId: string,
     preferredChannelId?: string | null,
@@ -295,6 +395,20 @@ export function useAddServerFlow(deps: {
     return false;
   }
 
+  async function ensureJoinedServerVisibleInRail(serverId: string) {
+    const id = serverId.trim();
+    if (!id) return;
+    if (serverStore.servers.some((s) => s.id === id)) return;
+    await delay(320);
+    await hydrateWorkspace();
+    if (!serverStore.servers.some((s) => s.id === id)) {
+      dispatchAppToast(
+        'Your server list may be out of date. Refresh the page if the server does not appear.',
+        'warning',
+      );
+    }
+  }
+
   async function hydrateDiscordImportUntilReady(opts: {
     serverId: string;
     nextFromFull: string;
@@ -332,13 +446,17 @@ export function useAddServerFlow(deps: {
     },
   );
 
+  const addServerJoinInvitePrefill = ref('');
+
   function openAddServerModal(
     initialView: 'initial' | 'create' | 'join' = 'initial',
+    invitePrefill?: string,
   ) {
     if (!authSession.isAuthenticated) {
       onPromptSignIn?.();
       return;
     }
+    addServerJoinInvitePrefill.value = invitePrefill?.trim() ?? '';
     addServerInitialView.value = initialView;
     /** Open after the requested step is committed so `AddServerModal` (async) never mounts with a stale `initialView`. */
     void nextTick(() => {
@@ -367,6 +485,8 @@ export function useAddServerFlow(deps: {
         tok,
       );
       await hydrateWorkspace();
+      await ensureJoinedServerVisibleInRail(serverId);
+      void workspace.refreshExploreDirectory();
       focusJoinedServerInShell(serverId, voiceHint);
       return { ok: true, serverId, alreadyMember };
     } catch (e) {
@@ -421,24 +541,53 @@ export function useAddServerFlow(deps: {
   }
 
   async function handleJoinWithInviteLink(raw: string) {
-    addServerJoinError.value = '';
-    const r = await joinEchoServerWithInviteRaw(raw);
-    if (!r.ok) {
-      if (r.cancelled) return;
-      surfaceAddServerFlowFeedback(r.error, 'error', 'invite_join');
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      surfaceAddServerFlowFeedback(
+        'Enter an invite link.',
+        'warning',
+        'invite_join',
+      );
       return;
     }
-    if (r.applicationSubmitted) {
-      addServerJoinError.value =
-        'Your application was submitted. You’ll get access if a moderator approves it.';
+    if (addServerInviteJoinBusy.value) return;
+    if (!extractInviteTokenFromUserInput(trimmed)) {
+      surfaceAddServerFlowFeedback(
+        'That invite link is invalid.',
+        'error',
+        'invite_join',
+      );
+      return;
+    }
+    addServerInviteJoinBusy.value = true;
+    try {
+      addServerJoinError.value = '';
+      const r = await joinEchoServerWithInviteRaw(trimmed);
+      if (!r.ok) {
+        if (r.cancelled) return;
+        surfaceAddServerFlowFeedback(r.error, 'error', 'invite_join');
+        return;
+      }
+      if (r.applicationSubmitted) {
+        addServerJoinError.value =
+          'Your application was submitted. You’ll get access if a moderator approves it.';
+        isAddServerModalOpen.value = false;
+        return;
+      }
+      if (r.alreadyMember) {
+        addServerJoinError.value =
+          'You’re already in that server — opened it for you.';
+      }
       isAddServerModalOpen.value = false;
-      return;
+    } catch (e) {
+      surfaceAddServerFlowFeedback(
+        getJoinFeedbackMessage(e, 'Could not join this server.'),
+        'error',
+        'invite_join',
+      );
+    } finally {
+      addServerInviteJoinBusy.value = false;
     }
-    if (r.alreadyMember) {
-      addServerJoinError.value =
-        'You’re already in that server — opened it for you.';
-    }
-    isAddServerModalOpen.value = false;
   }
 
   async function handleCreateServer(payload: {
@@ -472,45 +621,19 @@ export function useAddServerFlow(deps: {
 
     try {
       addServerJoinError.value = '';
-      let serverId: string;
-      let defaultChannelId: string;
-      /** When set, branding was saved after create; workspace hydrate may have been coalesced with an in-flight fetch from `workspace_invalidated` before the PATCH. */
-      let uploadedServerIconPublicUrl: string | null = null;
-      if (nativeIconFile) {
-        const created = await createEchoServer(token, { name: payload.name });
-        serverId = created.serverId;
-        defaultChannelId = created.defaultChannelId;
-        try {
-          const url = await uploadBrandingAssetWithInlineFallback({
-            file: nativeIconFile,
-            upload: () =>
-              uploadServerBrandingFile(
-                token,
-                serverId,
-                'server_icon',
-                nativeIconFile,
-              ),
-          });
-          await patchEchoServerPreferences(token, serverId, { iconUrl: url });
-          uploadedServerIconPublicUrl = url;
-        } catch (e) {
-          const fromApi =
-            e instanceof Error && e.message.trim() ? e.message.trim() : '';
-          dispatchAppToast(
-            fromApi
-              ? `Server created, but the icon was not saved: ${fromApi}`
-              : 'Server created, but the icon could not be uploaded. You can add one in server settings.',
-            'warning',
-          );
-        }
-      } else {
-        const created = await createEchoServer(token, {
-          name: payload.name,
-          ...(nativeIconDataUrl ? { iconUrl: nativeIconDataUrl } : {}),
-        });
-        serverId = created.serverId;
-        defaultChannelId = created.defaultChannelId;
-      }
+      const { serverId, defaultChannelId } = await createEchoServer(token, {
+        name: payload.name,
+        ...(!nativeIconFile && nativeIconDataUrl
+          ? { iconUrl: nativeIconDataUrl }
+          : {}),
+      });
+      const optimisticImageUrl = nativeIconDataUrl || iconEchoRounded;
+      applyLocalCreatedServerGraph({
+        serverId,
+        name: payload.name,
+        defaultChannelId,
+        imageUrl: optimisticImageUrl,
+      });
       if (payload.importFromDiscord) {
         const dg = payload.discordGuildId?.trim();
         let nextFromFull = '';
@@ -540,7 +663,7 @@ export function useAddServerFlow(deps: {
               const vf = post.sync?.voice.failures?.length ?? 0;
               if (mf + bf + vf > 0) {
                 dispatchAppToast(
-                  `Discord setup finished with some issues (${mf + bf + vf} channel(s)). Check Server Settings → Discord or channel settings.`,
+                  `Discord setup finished, but ${mf + bf + vf} channel(s) need attention. Open Server Settings → Discord or each channel's settings.`,
                   'warning',
                 );
               } else {
@@ -552,7 +675,7 @@ export function useAddServerFlow(deps: {
                 }
                 if (wantSync && post.sync) {
                   parts.push(
-                    `${post.sync.bridges.applied} bridge(s), ${post.sync.voice.enabled} voice mirror(s)`,
+                    `${post.sync.bridges.applied} message link(s), ${post.sync.voice.enabled} voice activit${post.sync.voice.enabled === 1 ? 'y' : 'ies'} linked`,
                   );
                 }
                 if (parts.length) {
@@ -565,7 +688,7 @@ export function useAddServerFlow(deps: {
                 'Optional Discord setup did not finish.',
               );
               dispatchAppToast(
-                `${postDetail} You can enable bridges or import messages from Server Settings → Discord and each channel.`,
+                `${postDetail} You can link messages or import history from Server Settings → Discord and each channel.`,
                 'warning',
               );
             }
@@ -577,7 +700,7 @@ export function useAddServerFlow(deps: {
             e,
             'Discord import did not finish.',
           );
-          const msg = `${detail} The server was created without the Discord layout — open Server Settings → Discord and run the import steps or refresh from export.`;
+          const msg = `${detail} The server was created without channels from Discord — open Server Settings → Discord to import or refresh your layout.`;
           surfaceAddServerFlowFeedback(msg, 'warning', 'discord_import');
           dispatchAppToast(msg, 'warning');
         }
@@ -595,7 +718,7 @@ export function useAddServerFlow(deps: {
         activeChannelId.value = nextFromFull || firstLive || defaultChannelId;
         if (!firstLive && !nextFromFull) {
           dispatchAppToast(
-            'Discord import is still syncing channels. If they do not appear in a few seconds, refresh.',
+            'Channels from Discord are still loading. If they do not appear soon, refresh the page.',
             'info',
           );
         }
@@ -607,23 +730,18 @@ export function useAddServerFlow(deps: {
         isAddServerModalOpen.value = false;
         return;
       }
-      await hydrateWorkspace();
-      if (uploadedServerIconPublicUrl) {
-        /**
-         * Second fetch: create/import may coalesce with a pre-PATCH hydrate; re-fetch after
-         * icon is persisted. `updateServerImageUrl` covers the gap until a fresh snapshot lands.
-         */
-        await hydrateWorkspace();
-        serverStore.updateServerImageUrl(serverId, uploadedServerIconPublicUrl);
+      finishCreateServerShellTransition(serverId, defaultChannelId);
+      addServerCreateBusy.value = false;
+      if (nativeIconFile) {
+        void uploadCreatedServerIconAfterShell({
+          token,
+          serverId,
+          iconFile: nativeIconFile,
+        });
+      } else {
+        void refreshWorkspaceAfterCreate(serverId);
       }
-      isAddServerModalOpen.value = false;
-      serverStore.selectServer(serverId);
-      activeChannelId.value = defaultChannelId;
-      activeRailTab.value = 'servers';
-      newlyCreatedServerId.value = serverId;
-      if (!isMoreServersPinned.value) {
-        isMoreServersPanelOpen.value = false;
-      }
+      return;
     } catch (e) {
       const msg =
         e instanceof Error
@@ -788,6 +906,8 @@ export function useAddServerFlow(deps: {
             resolvedGraphId,
           );
           await hydrateWorkspace();
+          await ensureJoinedServerVisibleInRail(serverId);
+          void workspace.refreshExploreDirectory();
           const wasAddServerModalOpen = isAddServerModalOpen.value;
           isAddServerModalOpen.value = false;
           focusJoinedServerInShell(serverId);
@@ -937,6 +1057,9 @@ export function useAddServerFlow(deps: {
   return {
     addServerJoinError,
     addServerCreateBusy,
+    addServerInviteJoinBusy,
+    addServerJoinBusy,
+    addServerJoinInvitePrefill,
     exploreDirectoryJoinBusy,
     openAddServerModal,
     joinEchoServerWithInviteRaw,

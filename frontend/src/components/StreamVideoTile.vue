@@ -363,6 +363,12 @@ function onStreamVolumeRangeInput(e: Event) {
   emit('remoteStreamVolumeChange', v);
 }
 
+function resetStreamVolumeToDefault() {
+  if (!props.remoteStreamVolumeControl) return;
+  lastNonZeroStreamVolume.value = 100;
+  emit('remoteStreamVolumeChange', 100);
+}
+
 const pfpOutputMenuOpen = ref(false);
 const pfpOutputMenuPos = ref({ left: 0, top: 0 });
 const pfpOutputMenuRef = ref<HTMLElement | null>(null);
@@ -705,7 +711,18 @@ onUnmounted(() => {
             >{{ Math.round(streamVolumeSliderValue / 2) }}%</span
           >
         </div>
-        <div class="mt-2 flex justify-end border-t border-border pt-2">
+        <div
+          class="mt-2 flex flex-wrap items-center justify-end gap-1 border-t border-border pt-2"
+        >
+          <button
+            v-if="streamVolumeSliderValue !== 100"
+            type="button"
+            class="rounded-md px-2 py-1 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
+            aria-label="Reset stream volume to default"
+            @click.stop="resetStreamVolumeToDefault"
+          >
+            Reset
+          </button>
           <button
             type="button"
             class="rounded-md px-2 py-1 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
@@ -816,6 +833,18 @@ onUnmounted(() => {
               class="w-10 shrink-0 text-right text-[11px] tabular-nums text-fg-soft"
               >{{ Math.round(streamVolumeSliderValue / 2) }}%</span
             >
+          </div>
+          <div
+            v-if="streamVolumeSliderValue !== 100"
+            class="mt-2 flex justify-end"
+          >
+            <button
+              type="button"
+              class="rounded-md px-2 py-0.5 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg"
+              @click.stop="resetStreamVolumeToDefault"
+            >
+              Reset to default
+            </button>
           </div>
         </div>
         <div

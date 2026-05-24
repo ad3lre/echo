@@ -26,6 +26,24 @@ export async function patchEchoServerPreferences(
   );
 }
 
+export type EchoVanityAvailabilityStatus =
+  | 'available'
+  | 'taken'
+  | 'invalid'
+  | 'current';
+
+export async function fetchEchoVanityAvailability(
+  token: string,
+  serverId: string,
+  code: string,
+): Promise<{ status: EchoVanityAvailabilityStatus }> {
+  const qs = new URLSearchParams({ code });
+  return echoFetch(
+    token,
+    `/servers/${encodeURIComponent(serverId.trim())}/vanity-availability?${qs}`,
+  );
+}
+
 export async function fetchEchoServers(token: string): Promise<{
   servers: {
     id: string;

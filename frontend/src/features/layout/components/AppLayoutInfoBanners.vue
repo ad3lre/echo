@@ -366,9 +366,9 @@ const hasVisibleInfoBanner = computed(() => {
     >
       <p
         class="text-center text-[11px] leading-snug text-amber-100/95 line-clamp-2 break-words"
-        :title="`${apiErrorText} (using local data)`"
+        :title="`${apiErrorText} Showing saved copy from this device.`"
       >
-        {{ apiErrorText }} (using local data)
+        {{ apiErrorText }} Showing saved copy from this device.
       </p>
     </div>
     <div

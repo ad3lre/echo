@@ -37,17 +37,17 @@ export function realtimeMessageFailedUserMessage(
     case 'E2EE_STORAGE_UNAVAILABLE':
       return (
         d ||
-        'This server has not enabled encrypted message storage yet. Plain messages still work.'
+        'Private message storage is not available on this server yet. Regular messages still work.'
       );
     case 'E2EE_UNKNOWN_DEVICE':
       return (
         d ||
-        'This device is not registered for encryption. Re-register in settings.'
+        'This device is not set up for private messages. Check Settings → Account.'
       );
     case 'E2EE_DEVICE_REVOKED':
-      return d || 'This encryption device was revoked.';
+      return d || 'This device was removed from private messaging.';
     case 'E2EE_ENVELOPE_TOO_LARGE':
-      return d || 'Encrypted message metadata was rejected by the server.';
+      return d || 'That private message was too large to send.';
     case 'VALIDATION':
       return d || 'That change was rejected.';
     case 'UNKNOWN_CHANNEL':
@@ -58,6 +58,6 @@ export function realtimeMessageFailedUserMessage(
     case 'GUEST_ABUSE_COOLDOWN':
       return d || 'Action temporarily blocked. Try again later.';
     default:
-      return d || 'Request failed.';
+      return d || "Something didn't work. Try again.";
   }
 }

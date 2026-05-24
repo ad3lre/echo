@@ -6,7 +6,7 @@ import type {
   MessageWithAuthor,
 } from '@shared/types';
 import { LEGACY_ENCRYPTED_CHAT_MESSAGE_PLACEHOLDER } from '@shared/chatE2eePolicy';
-import { plainTextFromEchoContentJson } from '@/features/chat/editor/echoContentJsonPlainText';
+import { messagePreviewPlainText } from '@/services/domain/messagePreviewPlain';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 
@@ -32,21 +32,8 @@ export function buildForwardContentPreview(
   if (src.poll?.question?.trim()) {
     return `[Poll] ${src.poll.question.trim()}`;
   }
-  const rawText = (src.contentText ?? src.content ?? '').trim();
-  if (rawText) {
-    return rawText.length > PREVIEW_MAX
-      ? `${rawText.slice(0, PREVIEW_MAX - 1)}…`
-      : rawText;
-  }
-  const mf = src.messageFormatVersion ?? 1;
-  if (mf >= 2 && src.contentJson) {
-    const fromJson = plainTextFromEchoContentJson(src.contentJson).trim();
-    if (fromJson) {
-      return fromJson.length > PREVIEW_MAX
-        ? `${fromJson.slice(0, PREVIEW_MAX - 1)}…`
-        : fromJson;
-    }
-  }
+  const preview = messagePreviewPlainText(src, PREVIEW_MAX);
+  if (preview) return preview;
   const n = src.attachments?.length ?? 0;
   if (n > 0) {
     const fn = src.attachments![0]!.filename?.trim();

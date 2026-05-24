@@ -18,9 +18,9 @@ withDefaults(
         ? 'px-1 py-px text-[8px] leading-none'
         : 'px-1.5 py-0.5 text-[9px] leading-none'
     "
-    title="Synced from Discord"
-    data-echo-hint="Synced from Discord"
-    aria-label="Synced from Discord"
+    title="From Discord"
+    data-echo-hint="From Discord"
+    aria-label="From Discord"
   >
     <img
       :src="icons.discordMark"

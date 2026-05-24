@@ -1,0 +1,82 @@
+import { describe, expect, it } from 'vitest';
+import {
+  appToastBottomInsetCss,
+  buildAppToastShellPositionStyle,
+  computeVisualViewportToastInsets,
+} from './appToastShellPosition';
+
+describe('appToastBottomInsetCss', () => {
+  it('uses a modest floor when not clearing bottom chrome', () => {
+    expect(
+      appToastBottomInsetCss({ elevated: false, measuredChromeInsetPx: 0 }),
+    ).toBe('max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))');
+  });
+
+  it('prefers measured chrome inset when elevated', () => {
+    expect(
+      appToastBottomInsetCss({ elevated: true, measuredChromeInsetPx: 96 }),
+    ).toBe('calc(108px + env(safe-area-inset-bottom, 0px) + 1.25rem)');
+  });
+});
+
+describe('computeVisualViewportToastInsets', () => {
+  it('returns zero when visualViewport is missing', () => {
+    expect(computeVisualViewportToastInsets(800, null)).toEqual({
+      bottomExtraPx: 0,
+      offsetTopPx: 0,
+    });
+  });
+
+  it('lifts the toast by layout/visual gap and tracks offsetTop', () => {
+    expect(
+      computeVisualViewportToastInsets(800, { height: 520, offsetTop: 40 }),
+    ).toEqual({
+      bottomExtraPx: 240,
+      offsetTopPx: 40,
+    });
+  });
+
+  it('caps runaway bottom gaps from buggy metrics', () => {
+    expect(
+      computeVisualViewportToastInsets(800, { height: 100, offsetTop: 0 }),
+    ).toEqual({
+      bottomExtraPx: 440,
+      offsetTopPx: 0,
+    });
+  });
+});
+
+describe('buildAppToastShellPositionStyle', () => {
+  it('derives max-height from the same bottom inset (no loose 90dvh cap)', () => {
+    const bottom =
+      'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))';
+    const topReserve = 'max(0.75rem, env(safe-area-inset-top, 0px))';
+    expect(
+      buildAppToastShellPositionStyle({
+        bottomInsetCss: bottom,
+        bottomExtraPx: 0,
+        visualViewportOffsetTopPx: 0,
+      }),
+    ).toEqual({
+      bottom,
+      maxHeight: `max(0px, calc(100dvh - (${bottom}) - (${topReserve}) - 0.5rem))`,
+    });
+  });
+
+  it('accounts for visual viewport lift on bottom and top', () => {
+    const bottomInsetCss =
+      'calc(108px + env(safe-area-inset-bottom, 0px) + 1.25rem)';
+    const bottom = `calc(${bottomInsetCss} + 120px)`;
+    const topReserve = 'max(0.75rem, env(safe-area-inset-top, 0px), 32px)';
+    expect(
+      buildAppToastShellPositionStyle({
+        bottomInsetCss,
+        bottomExtraPx: 120,
+        visualViewportOffsetTopPx: 32,
+      }),
+    ).toEqual({
+      bottom,
+      maxHeight: `max(0px, calc(100dvh - (${bottom}) - (${topReserve}) - 0.5rem))`,
+    });
+  });
+});

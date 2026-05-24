@@ -184,9 +184,12 @@ const selectedRow = computed(() => {
 watch(
   () => [props.rows, props.loading] as const,
   () => {
-    ensureDefaultSelection();
+    if (props.loading) return;
+    if (!selectionKeyValidForTab(selectedRowKey.value, targetTab.value)) {
+      ensureDefaultSelection();
+    }
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 );
 
 watch(targetTab, (tab) => {

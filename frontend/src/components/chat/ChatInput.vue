@@ -634,6 +634,7 @@ const channelAutocomplete = useChannelAutocomplete(
   () => composer.getSelectionStart(),
   (start, end, option) => composer.insertChannelMention(start, end, option),
   channelOptions,
+  () => composer.mentions.value,
 );
 
 const showMentionAutocomplete = computed(
@@ -1010,7 +1011,10 @@ function handleMentionAutocompleteSelect(option: MentionOption) {
 
 function handleChannelAutocompleteSelect(option: { id: string; name: string }) {
   channelAutocomplete.select(option);
-  nextTick(() => composer.focus());
+  void nextTick(() => {
+    refreshAutocomplete();
+    composer.focus();
+  });
 }
 
 async function handleSubmit() {

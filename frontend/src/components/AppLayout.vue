@@ -112,6 +112,11 @@ import {
 } from '@/features/layout/echoToastQuickReplyBridge';
 import { echoChatBottomChromeInsetPx } from '@/features/layout/echoChatBottomChromeInset';
 import {
+  appToastBottomInsetCss,
+  buildAppToastShellPositionStyle,
+  computeVisualViewportToastInsets,
+} from '@/features/layout/appToastShellPosition';
+import {
   EMAIL_VERIFICATION_DOWNTIME,
   EMAIL_VERIFICATION_DOWNTIME_TOAST,
 } from '@/config/emailVerificationDowntime';
@@ -235,6 +240,9 @@ const {
   addFilter,
   addServerInitialView,
   addServerCreateBusy,
+  addServerJoinBusy,
+  addServerJoinInvitePrefill,
+  exploreDirectoryJoinBusy,
   addServerJoinError,
   allChannels,
   appGridTemplateColumns,
@@ -778,6 +786,10 @@ const {
   welcomeBackExploreGate,
   welcomeBackExploreMemberEmptyDirectory,
 } = useAppLayoutController();
+
+function onJoinServerFromShell(inviteLink?: string) {
+  openAddServerModal('join', inviteLink);
+}
 
 const themeStore = useThemeStore();
 
@@ -1997,6 +2009,9 @@ provide(LAYOUT_MODALS_KEY, {
   onJoinWithInviteLink: handleJoinWithInviteLink,
   addServerJoinError,
   addServerCreateBusy,
+  addServerJoinBusy,
+  addServerJoinInvitePrefill,
+  exploreDirectoryJoinBusy,
   isInviteModalOpen,
   selectedServerName: computed(
     () => unref(selectedServer)?.name ?? 'this server',
@@ -2825,23 +2840,23 @@ const appToastClearsBottomChrome = computed(() => {
   return unref(isDmUiContext) && surface?.type === 'dmThread';
 });
 
-/** Pixels of layout viewport below the visual viewport (iOS keyboard / chrome). */
+/** Layout/visual viewport mismatch — lifts bottom and pins top on iOS keyboard / chrome. */
 const visualViewportToastBottomExtraPx = ref(0);
+const visualViewportToastOffsetTopPx = ref(0);
 let appToastViewportMetricsRaf = 0;
 
-function syncAppToastVisualViewportBottomExtraNow() {
-  if (typeof window === 'undefined' || !window.visualViewport) {
+function syncAppToastVisualViewportInsetsNow() {
+  if (typeof window === 'undefined') {
     visualViewportToastBottomExtraPx.value = 0;
+    visualViewportToastOffsetTopPx.value = 0;
     return;
   }
-  const vv = window.visualViewport;
-  const innerH = window.innerHeight;
-  const gap = innerH - vv.offsetTop - vv.height;
-  const raw = Math.max(0, Math.round(gap));
-  /* Buggy `visualViewport` metrics (some WebViews / split layouts) can report a huge gap,
-   * which blows up `bottom` + `max-height` and effectively hides the toast off-screen. */
-  const cap = Math.min(Math.round(innerH * 0.55), 520);
-  visualViewportToastBottomExtraPx.value = Math.min(raw, cap);
+  const insets = computeVisualViewportToastInsets(
+    window.innerHeight,
+    window.visualViewport,
+  );
+  visualViewportToastBottomExtraPx.value = insets.bottomExtraPx;
+  visualViewportToastOffsetTopPx.value = insets.offsetTopPx;
 }
 
 function scheduleAppToastVisualViewportBottomExtra() {
@@ -2849,31 +2864,12 @@ function scheduleAppToastVisualViewportBottomExtra() {
   if (appToastViewportMetricsRaf !== 0) return;
   appToastViewportMetricsRaf = window.requestAnimationFrame(() => {
     appToastViewportMetricsRaf = 0;
-    syncAppToastVisualViewportBottomExtraNow();
+    syncAppToastVisualViewportInsetsNow();
   });
 }
 
 function onAppToastVisualViewportChanged() {
   scheduleAppToastVisualViewportBottomExtra();
-}
-
-const APP_TOAST_SAFE_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
-/** Minimum breathing room between the toast shell and the layout viewport bottom. */
-const APP_TOAST_VIEWPORT_FLOOR = '1.25rem';
-/** Gap between the measured chat bottom stack and the toast shell. */
-const APP_TOAST_CHROME_GAP_PX = 12;
-
-function appToastBottomInsetCss(elevated: boolean): string {
-  const safe = APP_TOAST_SAFE_BOTTOM;
-  const floor = APP_TOAST_VIEWPORT_FLOOR;
-  if (!elevated) {
-    return `max(1.5rem, calc(${safe} + ${floor}))`;
-  }
-  const measured = echoChatBottomChromeInsetPx.value;
-  if (measured > 0) {
-    return `calc(${measured + APP_TOAST_CHROME_GAP_PX}px + ${safe} + ${floor})`;
-  }
-  return `max(8rem, calc(${safe} + 6rem + ${floor}))`;
 }
 
 const appToastHasQuickReplyFooter = computed(
@@ -2904,17 +2900,18 @@ const appToastProgressGridRowClass = computed(() => {
 
 const appToastShellPositionStyle = computed(() => {
   const elevated = appToastClearsBottomChrome.value;
-  let bottomInset = appToastBottomInsetCss(elevated);
+  let bottomInset = appToastBottomInsetCss({
+    elevated,
+    measuredChromeInsetPx: echoChatBottomChromeInsetPx.value,
+  });
   if (appToast.value?.variant === 'incoming_chat_message') {
     bottomInset = `calc(${bottomInset} + 0.75rem)`;
   }
-  const extra = visualViewportToastBottomExtraPx.value;
-  const bottom = extra > 0 ? `calc(${bottomInset} + ${extra}px)` : bottomInset;
-  /* Use dvh (not svh) so max-height tracks the same dynamic viewport that `position: fixed`
-   * + `bottom` use on most engines; svh/dvh mismatch was letting the toast extend past the
-   * visible fold while still honoring max-height math in the “wrong” viewport. */
-  const maxH = `min(90dvh, calc(100dvh - (${bottomInset}) - ${extra}px - 1rem))`;
-  return { bottom, maxHeight: maxH };
+  return buildAppToastShellPositionStyle({
+    bottomInsetCss: bottomInset,
+    bottomExtraPx: visualViewportToastBottomExtraPx.value,
+    visualViewportOffsetTopPx: visualViewportToastOffsetTopPx.value,
+  });
 });
 
 const appToastShellClass = computed(() => {
@@ -3166,7 +3163,7 @@ onMounted(() => {
 
   installExternalLinkClickGate();
 
-  syncAppToastVisualViewportBottomExtraNow();
+  syncAppToastVisualViewportInsetsNow();
   window.addEventListener('resize', onAppToastVisualViewportChanged);
   if (window.visualViewport) {
     const vv = window.visualViewport;
@@ -4031,7 +4028,7 @@ watch(
                 >{{ appToast.badge }}</span
               >
             </div>
-            <div class="min-w-0 flex-1">
+            <div class="min-h-0 min-w-0 flex-1">
               <p
                 v-if="appToast.variant === 'incoming_call'"
                 class="flex min-w-0 flex-wrap items-center gap-2 leading-snug text-lg font-semibold tracking-tight text-white"
@@ -4071,7 +4068,7 @@ watch(
                   {{ appToast.subtitle }}
                 </p>
                 <p
-                  class="mt-2 line-clamp-3 text-sm leading-snug text-fg-soft [overflow-wrap:anywhere] max-sm:line-clamp-none max-sm:max-h-[min(12rem,42svh)] max-sm:overflow-y-auto max-sm:overscroll-y-contain"
+                  class="mt-2 line-clamp-3 text-sm leading-snug text-fg-soft [overflow-wrap:anywhere] max-sm:line-clamp-none"
                 >
                   {{ appToast.message }}
                 </p>
@@ -4360,16 +4357,17 @@ watch(
                       openAuthModal({ entry: 'social', passkey: true })
                     "
                     @create-server="openAddServerModal('create')"
-                    @join-server="openAddServerModal('join')"
+                    @join-server="onJoinServerFromShell"
                   />
                   <ExploreView
                     v-else
                     class="w-full min-w-0"
                     :discoverable-servers="exploreDiscoverableServers"
+                    :directory-join-busy="exploreDirectoryJoinBusy"
                     :show-mobile-back="isCompactShell"
                     @back="mobileShellGoBack"
                     @create-server="openAddServerModal('create')"
-                    @join-server="openAddServerModal('join')"
+                    @join-server="onJoinServerFromShell"
                     @join-suggested="handleJoinDiscoverableServer"
                   />
                 </div>
@@ -4395,7 +4393,7 @@ watch(
                   openAuthModal({ entry: 'social', passkey: true })
                 "
                 @create-server="openAddServerModal('create')"
-                @join-server="openAddServerModal('join')"
+                @join-server="onJoinServerFromShell"
               />
               <AppLayoutChatSurface v-else />
             </template>
@@ -4451,16 +4449,17 @@ watch(
                     openAuthModal({ entry: 'social', passkey: true })
                   "
                   @create-server="openAddServerModal('create')"
-                  @join-server="openAddServerModal('join')"
+                  @join-server="onJoinServerFromShell"
                 />
                 <ExploreView
                   v-else
                   class="w-full min-w-0"
                   :discoverable-servers="exploreDiscoverableServers"
+                  :directory-join-busy="exploreDirectoryJoinBusy"
                   :show-mobile-back="isCompactShell"
                   @back="mobileShellGoBack"
                   @create-server="openAddServerModal('create')"
-                  @join-server="openAddServerModal('join')"
+                  @join-server="onJoinServerFromShell"
                   @join-suggested="handleJoinDiscoverableServer"
                 />
               </div>
@@ -4528,16 +4527,17 @@ watch(
                       openAuthModal({ entry: 'social', passkey: true })
                     "
                     @create-server="openAddServerModal('create')"
-                    @join-server="openAddServerModal('join')"
+                    @join-server="onJoinServerFromShell"
                   />
                   <ExploreView
                     v-else
                     class="w-full min-w-0"
                     :discoverable-servers="exploreDiscoverableServers"
+                    :directory-join-busy="exploreDirectoryJoinBusy"
                     :show-mobile-back="isCompactShell"
                     @back="mobileShellGoBack"
                     @create-server="openAddServerModal('create')"
-                    @join-server="openAddServerModal('join')"
+                    @join-server="onJoinServerFromShell"
                     @join-suggested="handleJoinDiscoverableServer"
                   />
                 </div>
@@ -4563,7 +4563,7 @@ watch(
                   openAuthModal({ entry: 'social', passkey: true })
                 "
                 @create-server="openAddServerModal('create')"
-                @join-server="openAddServerModal('join')"
+                @join-server="onJoinServerFromShell"
               />
               <AppLayoutChatSurface v-else />
               <AppLayoutMembersColumn />
@@ -4634,16 +4634,17 @@ watch(
                     openAuthModal({ entry: 'social', passkey: true })
                   "
                   @create-server="openAddServerModal('create')"
-                  @join-server="openAddServerModal('join')"
+                  @join-server="onJoinServerFromShell"
                 />
                 <ExploreView
                   v-else
                   class="w-full min-w-0"
                   :discoverable-servers="exploreDiscoverableServers"
+                  :directory-join-busy="exploreDirectoryJoinBusy"
                   :show-mobile-back="isCompactShell"
                   @back="mobileShellGoBack"
                   @create-server="openAddServerModal('create')"
-                  @join-server="openAddServerModal('join')"
+                  @join-server="onJoinServerFromShell"
                   @join-suggested="handleJoinDiscoverableServer"
                 />
               </div>
@@ -4669,7 +4670,7 @@ watch(
                 openAuthModal({ entry: 'social', passkey: true })
               "
               @create-server="openAddServerModal('create')"
-              @join-server="openAddServerModal('join')"
+              @join-server="onJoinServerFromShell"
             />
             <AppLayoutChatSurface v-else />
             <AppLayoutMembersColumn />
@@ -4739,16 +4740,17 @@ watch(
                   openAuthModal({ entry: 'social', passkey: true })
                 "
                 @create-server="openAddServerModal('create')"
-                @join-server="openAddServerModal('join')"
+                @join-server="onJoinServerFromShell"
               />
               <ExploreView
                 v-else
                 class="w-full min-w-0"
                 :discoverable-servers="exploreDiscoverableServers"
+                :directory-join-busy="exploreDirectoryJoinBusy"
                 :show-mobile-back="isCompactShell"
                 @back="mobileShellGoBack"
                 @create-server="openAddServerModal('create')"
-                @join-server="openAddServerModal('join')"
+                @join-server="onJoinServerFromShell"
                 @join-suggested="handleJoinDiscoverableServer"
               />
             </div>
@@ -4772,7 +4774,7 @@ watch(
             @create-account="openAuthModal({ tab: 'register' })"
             @sign-in-passkey="openAuthModal({ entry: 'social', passkey: true })"
             @create-server="openAddServerModal('create')"
-            @join-server="openAddServerModal('join')"
+            @join-server="onJoinServerFromShell"
           />
           <AppLayoutChatSurface v-else />
           <AppLayoutMembersColumn />

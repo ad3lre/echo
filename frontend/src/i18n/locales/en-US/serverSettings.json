@@ -2,11 +2,11 @@
   "sections": {
     "overview": "Manage branding and the core information members see first.",
     "events": "Create scheduled events with RSVPs. Upcoming events appear in the channel sidebar for members.",
-    "structure": "Reorder categories and channels in a simple list. This mirrors the sidebar drag order and is handy on touch devices.",
+    "structure": "Reorder categories and channels in a simple list. Matches the order you see in the sidebar — handy on touch devices.",
     "members": "Members, import placeholders, moderation.",
     "roles": "Review the role ladder, member distribution, and default permissions at a glance.",
     "emoji": "Manage emoji slots and server visual identity.",
-    "discord": "Discord import status, refresh from the latest export, and optional realtime bridge.",
+    "discord": "Import channels and roles from Discord, refresh your layout, and optionally link live messages and voice activity.",
     "security": "Configure verification gates and guest access for who can participate.",
     "access": "Control who can discover and join this server, plus optional join applications and waitlist.",
     "automod": "Define custom AutoMod rules—conditions and actions—that run in order after the built-in spam filter.",

@@ -3,6 +3,7 @@ import type { MessageAuthor, MessageWithAuthor } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { normalizeMessageAttachments } from '@/utils/normalizeMessageAttachments';
 import { getChannelIndex } from '@/features/chat/domain/channelMessageIndex';
+import { messagePreviewPlainText } from '@/services/domain/messagePreviewPlain';
 
 type PinnedMessage = {
   id?: string;
@@ -139,7 +140,8 @@ export function usePinnedMessages(
   }
 
   function pinPreview(msg: PinnedMessage): string {
-    if (msg.content?.trim()) return msg.content.trim();
+    const preview = messagePreviewPlainText(msg, 220);
+    if (preview) return preview;
     if (msg.imageUrl) return '[Image]';
     if (msg.videoUrl) return '[Video]';
     if (msg.stickers?.length) return '[Sticker]';

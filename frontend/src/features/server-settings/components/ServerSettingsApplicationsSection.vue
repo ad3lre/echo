@@ -28,8 +28,10 @@ const props = withDefaults(
     workspaceServers: Ref<unknown[]>;
     /** Nested under Server Settings → Access: avoid duplicate scroll/root wrapper. */
     omitOuterRoot?: boolean;
+    /** Borderless stacks when nested under Access (no inset panels / question cards). */
+    flatSections?: boolean;
   }>(),
-  { omitOuterRoot: false },
+  { omitOuterRoot: false, flatSections: false },
 );
 
 const emit = defineEmits<{ 'echo-workspace-refresh': [] }>();
@@ -328,28 +330,45 @@ function waitlistAnswerRows(
 
 <template>
   <div
-    :class="
+    :class="[
       props.omitOuterRoot
-        ? 'space-y-5'
-        : 'server-settings-panel-root space-y-5 pb-8'
-    "
+        ? props.flatSections
+          ? 'applications-flat space-y-0'
+          : 'space-y-5'
+        : 'server-settings-panel-root space-y-5 pb-8',
+    ]"
   >
-    <div v-if="!canManageServer" class="server-settings-panel rounded-2xl p-5">
+    <div
+      v-if="!canManageServer"
+      :class="
+        flatSections
+          ? 'text-sm text-muted'
+          : 'server-settings-panel rounded-2xl p-5'
+      "
+    >
       <p class="text-sm text-muted">
         You don’t have permission to manage applications for this server.
       </p>
     </div>
 
     <template v-else>
-      <div class="server-settings-panel rounded-2xl p-5">
-        <div class="settings-subtitle mb-1">Join applications</div>
-        <p class="mb-4 text-sm text-fg-subtle">
-          When enabled, new members must complete your form and wait for
-          approval before they can join (Explore joins and normal invite links).
-          Create a
-          <strong class="font-semibold text-fg">direct invite</strong> from the
-          invite panel to share a link that skips this step.
-        </p>
+      <div
+        :class="
+          flatSections
+            ? 'settings-section-stack'
+            : 'server-settings-panel rounded-2xl p-5'
+        "
+      >
+        <template v-if="!flatSections">
+          <div class="settings-subtitle mb-1">Join applications</div>
+          <p class="mb-4 text-sm text-fg-subtle">
+            When enabled, new members must complete your form and wait for
+            approval before they can join (Explore joins and normal invite
+            links). Create a
+            <strong class="font-semibold text-fg">direct invite</strong> from
+            the invite panel to share a link that skips this step.
+          </p>
+        </template>
         <div v-if="loading" class="text-sm text-muted">Loading…</div>
         <div v-else class="server-toggle-row">
           <div>
@@ -380,7 +399,13 @@ function waitlistAnswerRows(
         </div>
       </div>
 
-      <div class="server-settings-panel rounded-2xl p-5">
+      <div
+        :class="
+          flatSections
+            ? 'settings-section-stack'
+            : 'server-settings-panel rounded-2xl p-5'
+        "
+      >
         <div class="settings-subtitle mb-3">Form builder</div>
         <p class="mb-4 text-sm text-fg-subtle">
           Build your questionnaire: joiners see questions in order. Choice
@@ -434,7 +459,12 @@ function waitlistAnswerRows(
 
         <div
           v-if="!applicationForm.questions.length"
-          class="rounded-xl border border-dashed border-[var(--border)] bg-[var(--set-card-bg)] p-8 text-center text-sm text-muted"
+          class="p-8 text-center text-sm text-muted"
+          :class="
+            flatSections
+              ? 'rounded-xl bg-glass-2/40'
+              : 'rounded-xl border border-dashed border-[var(--border)] bg-[var(--set-card-bg)]'
+          "
         >
           No questions yet. Add at least one to collect meaningful responses.
         </div>
@@ -443,10 +473,20 @@ function waitlistAnswerRows(
           <div
             v-for="(q, i) in applicationForm.questions"
             :key="q.id"
-            class="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--set-card-bg)] shadow-sm"
+            class="applications-question-row overflow-hidden"
+            :class="
+              flatSections
+                ? 'rounded-none'
+                : 'rounded-2xl border border-[var(--border)] bg-[var(--set-card-bg)] shadow-sm'
+            "
           >
             <div
-              class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--bg)] px-4 py-3"
+              class="applications-question-row__head flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              :class="
+                flatSections
+                  ? 'px-0'
+                  : 'border-b border-[var(--border)] bg-[var(--bg)]'
+              "
             >
               <div class="flex min-w-0 flex-wrap items-center gap-2">
                 <span
@@ -623,7 +663,13 @@ function waitlistAnswerRows(
         </div>
       </div>
 
-      <div class="server-settings-panel rounded-2xl p-5">
+      <div
+        :class="
+          flatSections
+            ? 'settings-section-stack'
+            : 'server-settings-panel rounded-2xl p-5'
+        "
+      >
         <div class="settings-subtitle mb-3">Waitlist</div>
         <p class="mb-4 text-sm text-fg-subtle">
           Pending applications. Approve to add the member; reject to dismiss.
@@ -638,7 +684,12 @@ function waitlistAnswerRows(
           <li
             v-for="row in pending"
             :key="row.id"
-            class="rounded-xl border border-[var(--border)] bg-[var(--set-card-bg)] p-4"
+            class="p-4"
+            :class="
+              flatSections
+                ? 'rounded-xl bg-glass-2/40'
+                : 'rounded-xl border border-[var(--border)] bg-[var(--set-card-bg)]'
+            "
           >
             <div class="flex flex-wrap items-start justify-between gap-2">
               <div>

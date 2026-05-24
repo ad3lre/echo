@@ -220,112 +220,116 @@ export function useSettingsProfileEditor(
     { immediate: true },
   );
 
-  async function persistProfileToServer(): Promise<boolean> {
-    const u = currentUser.value;
-    if (!u?.id) return false;
+  /** Serializes PATCH /me so rapid banner effect toggles cannot apply stale responses. */
+  let profilePersistTail: Promise<boolean> = Promise.resolve(true);
+  const bannerEffectsPersisting = ref(false);
+  let bannerEffectsPersistInFlight = 0;
 
-    const usernameTrim = form.username.trim();
-    let normalizedUsername: string | undefined;
-    if (usernameTrim.length > 0) {
-      const vr = validateRegistrationUsername(form.username);
-      if (!vr.ok) {
-        const msg =
-          describeEchoUsernameFieldIssue(form.username) ??
-          'Username is not valid. Fix it before saving.';
-        UIErrorBus.emit({
-          context: 'settings.profile_username',
-          severity: 'error',
-          userMessage: msg,
-        });
-        dispatchAppToast(msg, 'warning');
-        return false;
-      }
-      normalizedUsername = vr.normalizedUsername;
-    }
-
-    const patch: AuthPatchMeBody = {};
-
-    const displayTrim = form.displayName.trim();
-    if (displayTrim.length > 0) {
-      patch.displayName = displayTrim;
-    }
-    if (normalizedUsername !== undefined) {
-      patch.username = normalizedUsername;
-    }
-    patch.customStatus = form.customStatus.trim().slice(0, 140);
-    patch.bio = form.bio.trim().slice(0, 280);
-
-    patch.bannerColor = form.bannerColor;
-    patch.bannerRefractionEnabled = form.bannerRefractionEnabled;
-    patch.bannerBlurEnabled = form.bannerBlurEnabled;
-    patch.bannerBlackoutEnabled = form.bannerBlackoutEnabled;
-    patch.bannerPositionY = form.bannerPositionY;
-
-    const authId = authSession.backendUser?.id;
-    const auth = authSession.backendUser;
-    const useBrandingDiff =
-      authSession.isAuthenticated &&
-      authId &&
-      authId === u.id &&
-      auth &&
-      !echoSyncCapabilities.isMockDataMode;
-
-    if (useBrandingDiff) {
-      if (trimBranding(form.pfp) !== trimBranding(serverBaselinePfp.value)) {
-        const t = trimBranding(form.pfp);
-        patch.pfp = t.length === 0 ? '' : form.pfp;
-      }
-      if (
-        trimBranding(form.bannerImage) !==
-        trimBranding(serverBaselineBannerImage.value)
-      ) {
-        const t = trimBranding(form.bannerImage);
-        patch.bannerImage = t.length === 0 ? '' : form.bannerImage;
-      }
-    } else {
-      patch.pfp = form.pfp || undefined;
-      patch.bannerImage = form.bannerImage || undefined;
-    }
-
-    /** Only PATCH when the row being edited is the logged-in account (avoid saving mock u1 onto a real user). */
-    if (
-      authSession.isAuthenticated &&
-      authId &&
-      authId === u.id &&
-      !echoSyncCapabilities.isMockDataMode
-    ) {
-      try {
-        const { user } = await authPatchMe(patch);
-        if (authSession.backendUser)
-          Object.assign(authSession.backendUser, user);
-        overwriteLocalProfileFromAuthUser(user);
-        syncWorkspaceFromAuthUser(user);
-        syncBioToLocalAndWorkspace();
-        serverBaselinePfp.value = user.pfp ?? '';
-        serverBaselineBannerImage.value = user.bannerImage ?? '';
-        applyAuthUserToForm(user);
-        syncCurrentUserFromAuthUser(user);
-        return true;
-      } catch (e) {
-        emitProfileSaveFailure(
-          e,
-          'Could not save profile. Your changes may not sync to other devices.',
-        );
-        return false;
-      }
-    }
-    saveLocalProfile(u.id, {
-      pfp: patch.pfp,
-      bio: patch.bio,
-      bannerImage: patch.bannerImage,
-      bannerColor: patch.bannerColor,
-      bannerRefractionEnabled: patch.bannerRefractionEnabled,
-      bannerBlurEnabled: patch.bannerBlurEnabled,
-      bannerBlackoutEnabled: patch.bannerBlackoutEnabled,
-      bannerPositionY: patch.bannerPositionY,
+  function trackBannerEffectsPersist<T>(promise: Promise<T>): Promise<T> {
+    bannerEffectsPersistInFlight++;
+    bannerEffectsPersisting.value = true;
+    return promise.finally(() => {
+      bannerEffectsPersistInFlight--;
+      bannerEffectsPersisting.value = bannerEffectsPersistInFlight > 0;
     });
-    const rowPatch = Object.fromEntries(
-      Object.entries({
+  }
+
+  async function persistProfileToServer(): Promise<boolean> {
+    const execute = async (): Promise<boolean> => {
+      const u = currentUser.value;
+      if (!u?.id) return false;
+
+      const usernameTrim = form.username.trim();
+      let normalizedUsername: string | undefined;
+      if (usernameTrim.length > 0) {
+        const vr = validateRegistrationUsername(form.username);
+        if (!vr.ok) {
+          const msg =
+            describeEchoUsernameFieldIssue(form.username) ??
+            'Username is not valid. Fix it before saving.';
+          UIErrorBus.emit({
+            context: 'settings.profile_username',
+            severity: 'error',
+            userMessage: msg,
+          });
+          dispatchAppToast(msg, 'warning');
+          return false;
+        }
+        normalizedUsername = vr.normalizedUsername;
+      }
+
+      const patch: AuthPatchMeBody = {};
+
+      const displayTrim = form.displayName.trim();
+      if (displayTrim.length > 0) {
+        patch.displayName = displayTrim;
+      }
+      if (normalizedUsername !== undefined) {
+        patch.username = normalizedUsername;
+      }
+      patch.customStatus = form.customStatus.trim().slice(0, 140);
+      patch.bio = form.bio.trim().slice(0, 280);
+
+      patch.bannerColor = form.bannerColor;
+      patch.bannerRefractionEnabled = form.bannerRefractionEnabled;
+      patch.bannerBlurEnabled = form.bannerBlurEnabled;
+      patch.bannerBlackoutEnabled = form.bannerBlackoutEnabled;
+      patch.bannerPositionY = form.bannerPositionY;
+
+      const authId = authSession.backendUser?.id;
+      const auth = authSession.backendUser;
+      const useBrandingDiff =
+        authSession.isAuthenticated &&
+        authId &&
+        authId === u.id &&
+        auth &&
+        !echoSyncCapabilities.isMockDataMode;
+
+      if (useBrandingDiff) {
+        if (trimBranding(form.pfp) !== trimBranding(serverBaselinePfp.value)) {
+          const t = trimBranding(form.pfp);
+          patch.pfp = t.length === 0 ? '' : form.pfp;
+        }
+        if (
+          trimBranding(form.bannerImage) !==
+          trimBranding(serverBaselineBannerImage.value)
+        ) {
+          const t = trimBranding(form.bannerImage);
+          patch.bannerImage = t.length === 0 ? '' : form.bannerImage;
+        }
+      } else {
+        patch.pfp = form.pfp || undefined;
+        patch.bannerImage = form.bannerImage || undefined;
+      }
+
+      /** Only PATCH when the row being edited is the logged-in account (avoid saving mock u1 onto a real user). */
+      if (
+        authSession.isAuthenticated &&
+        authId &&
+        authId === u.id &&
+        !echoSyncCapabilities.isMockDataMode
+      ) {
+        try {
+          const { user } = await authPatchMe(patch);
+          if (authSession.backendUser)
+            Object.assign(authSession.backendUser, user);
+          overwriteLocalProfileFromAuthUser(user);
+          syncWorkspaceFromAuthUser(user);
+          syncBioToLocalAndWorkspace();
+          serverBaselinePfp.value = user.pfp ?? '';
+          serverBaselineBannerImage.value = user.bannerImage ?? '';
+          applyAuthUserToForm(user);
+          syncCurrentUserFromAuthUser(user);
+          return true;
+        } catch (e) {
+          emitProfileSaveFailure(
+            e,
+            'Could not save profile. Your changes may not sync to other devices.',
+          );
+          return false;
+        }
+      }
+      saveLocalProfile(u.id, {
         pfp: patch.pfp,
         bio: patch.bio,
         bannerImage: patch.bannerImage,
@@ -334,11 +338,30 @@ export function useSettingsProfileEditor(
         bannerBlurEnabled: patch.bannerBlurEnabled,
         bannerBlackoutEnabled: patch.bannerBlackoutEnabled,
         bannerPositionY: patch.bannerPositionY,
-      }).filter(([, v]) => v !== undefined),
-    ) as LocalProfilePatch;
-    if (Object.keys(rowPatch).length > 0) patchWorkspaceUser(rowPatch);
-    syncBioToLocalAndWorkspace();
-    return true;
+      });
+      const rowPatch = Object.fromEntries(
+        Object.entries({
+          pfp: patch.pfp,
+          bio: patch.bio,
+          bannerImage: patch.bannerImage,
+          bannerColor: patch.bannerColor,
+          bannerRefractionEnabled: patch.bannerRefractionEnabled,
+          bannerBlurEnabled: patch.bannerBlurEnabled,
+          bannerBlackoutEnabled: patch.bannerBlackoutEnabled,
+          bannerPositionY: patch.bannerPositionY,
+        }).filter(([, v]) => v !== undefined),
+      ) as LocalProfilePatch;
+      if (Object.keys(rowPatch).length > 0) patchWorkspaceUser(rowPatch);
+      syncBioToLocalAndWorkspace();
+      return true;
+    };
+
+    const result = profilePersistTail.then(execute, execute);
+    profilePersistTail = result.then(
+      () => true,
+      () => false,
+    );
+    return result;
   }
 
   function syncBioToLocalAndWorkspace() {
@@ -736,21 +759,21 @@ export function useSettingsProfileEditor(
     form.bannerRefractionEnabled = !form.bannerRefractionEnabled;
     if (!currentUser.value) return;
     syncBannerToAuthBackend();
-    void persistProfileToServer();
+    void trackBannerEffectsPersist(persistProfileToServer());
   }
 
   function toggleAndPersistBannerBlur() {
     form.bannerBlurEnabled = !form.bannerBlurEnabled;
     if (!currentUser.value) return;
     syncBannerToAuthBackend();
-    void persistProfileToServer();
+    void trackBannerEffectsPersist(persistProfileToServer());
   }
 
   function toggleAndPersistBannerBlackout() {
     form.bannerBlackoutEnabled = !form.bannerBlackoutEnabled;
     if (!currentUser.value) return;
     syncBannerToAuthBackend();
-    void persistProfileToServer();
+    void trackBannerEffectsPersist(persistProfileToServer());
   }
 
   function onDocumentPointerDown(e: PointerEvent) {
@@ -831,6 +854,7 @@ export function useSettingsProfileEditor(
     removeBannerImage,
     onAvatarFileChange,
     onDocumentPointerDown,
+    bannerEffectsPersisting,
     toggleAndPersistBannerRefraction,
     toggleAndPersistBannerBlur,
     toggleAndPersistBannerBlackout,

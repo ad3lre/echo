@@ -185,7 +185,7 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
       required when this rule includes “Log channel alert”.
     </p>
     <p
-      class="rounded-lg border border-border/60 bg-glass-2/40 px-3 py-2 text-[11px] leading-relaxed text-fg-subtle"
+      class="rounded-lg bg-glass-2/40 px-3 py-2 text-[11px] leading-relaxed text-fg-subtle"
     >
       Message templates support placeholders:
       <code class="font-mono text-fg-soft">{ruleName}</code>,
@@ -208,7 +208,7 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
     <div
       v-for="(action, i) in modelValue"
       :key="i"
-      class="rounded-xl border border-border bg-scrim-2/50 p-3"
+      class="automod-action-row py-3"
     >
       <div class="mb-2 flex items-start justify-between gap-2">
         <div class="text-sm font-semibold text-fg">{{ labelFor(action) }}</div>
@@ -398,7 +398,7 @@ const addOptions: Array<{ value: string; label: string; phase: string }> = [
       </label>
       <button
         type="button"
-        class="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-glass-1"
+        class="rounded-lg px-3 py-1.5 text-sm font-medium text-fg hover:bg-glass-1"
         :disabled="!addKind"
         @click="addSelected"
       >

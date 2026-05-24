@@ -261,7 +261,8 @@ async function toggleVcMute() {
           'success',
         );
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Request failed';
+        const msg =
+          e instanceof Error ? e.message : "Something didn't work. Try again.";
         dispatchAppToast(`Could not request to speak: ${msg}`, 'warning');
       }
     }

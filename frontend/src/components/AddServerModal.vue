@@ -25,8 +25,12 @@ const props = withDefaults(
     joinError?: string;
     /** Parent sets this while the server is being created or Discord import runs. */
     createBusy?: boolean;
+    /** Parent sets this while invite or directory join is in flight. */
+    joinBusy?: boolean;
+    /** Prefill invite input when opening the join step (e.g. from Explore). */
+    initialJoinInvite?: string;
   }>(),
-  { joinError: '', createBusy: false },
+  { joinError: '', createBusy: false, joinBusy: false, initialJoinInvite: '' },
 );
 
 const discoverableList = computed(() => unref(props.discoverableServers));
@@ -117,20 +121,25 @@ function applyOpenStateFromProps() {
   view.value = initial === 'create' || initial === 'join' ? initial : 'initial';
   newServerName.value = '';
   revokeServerIconPreview();
-  joinInviteRaw.value = '';
+  joinInviteRaw.value = props.initialJoinInvite?.trim() ?? '';
   discordPostImportSyncAllChannels.value = false;
   discordPostImportRecentMessages.value = false;
   resetForModalOpen();
 }
 
 watch(
-  () => [props.modelValue, props.initialView ?? 'initial'] as const,
+  () =>
+    [
+      props.modelValue,
+      props.initialView ?? 'initial',
+      props.initialJoinInvite ?? '',
+    ] as const,
   ([open]) => {
     if (!open) return;
     applyOpenStateFromProps();
   },
   // Parent uses v-if; on first mount modelValue is already true, so a non-immediate watch would skip this.
-  // Watch `initialView` too so create/join entry points win over async mount / prop timing races.
+  // Watch `initialView` / `initialJoinInvite` so entry points win over async mount / prop timing races.
   { immediate: true },
 );
 
@@ -202,9 +211,8 @@ function submitCreate() {
 }
 
 function submitJoinWithLink() {
-  const raw = joinInviteRaw.value.trim();
-  if (!raw) return;
-  emit('join-with-invite-link', raw);
+  if (props.joinBusy) return;
+  emit('join-with-invite-link', joinInviteRaw.value);
 }
 
 const modalRef = ref<HTMLElement | null>(null);
@@ -993,10 +1001,11 @@ const discordBotWaitStatusLine = computed(() => {
               </div>
               <button
                 type="button"
-                class="add-server-join-row-btn shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover"
+                class="add-server-join-row-btn shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover disabled:pointer-events-none disabled:opacity-40"
+                :disabled="joinBusy"
                 @click="emit('join-discoverable', server)"
               >
-                Join
+                {{ joinBusy ? 'Joining…' : 'Join' }}
               </button>
             </div>
           </div>
@@ -1035,10 +1044,12 @@ const discordBotWaitStatusLine = computed(() => {
           </button>
           <button
             type="button"
-            class="add-server-primary-btn w-full rounded-xl px-7 py-3.5 text-sm font-semibold sm:w-auto"
+            class="add-server-primary-btn w-full rounded-xl px-7 py-3.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-40 sm:w-auto"
+            :disabled="joinBusy"
+            :aria-busy="joinBusy"
             @click="submitJoinWithLink"
           >
-            Join Server
+            {{ joinBusy ? 'Joining…' : 'Join Server' }}
           </button>
         </div>
       </template>

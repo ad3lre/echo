@@ -22,11 +22,9 @@ import {
 import { mentionsUser, type IdTokenResolvers } from '@/composables/useMarkdown';
 import { messageRepliesToUser } from '@shared/attentionPing';
 import { isEmojiOnlyUpTo12 } from '@/utils/emojiUtils';
-import { parseSingleEmoji } from '@/utils/twemoji';
-import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
-import { safeImageUrl } from '@/utils/safeImageUrl';
-import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
+import { renderSingleEmojiHtml } from '@/utils/customEmojiDisplay';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
+import { safeImageUrl } from '@/utils/safeImageUrl';
 import { useCustomEmojiImgLoadRecovery } from '@/composables/useCustomEmojiImgLoadRecovery';
 import { requestAppConfirmFromContextMenu } from '@/utils/appDialogs';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -51,6 +49,7 @@ import MessageAttachments from './MessageAttachments.vue';
 import MessageReactions from './MessageReactions.vue';
 import MessageHeader from './MessageHeader.vue';
 import MessageReplyPreview from './MessageReplyPreview.vue';
+import MessagePreviewSnippet from './MessagePreviewSnippet.vue';
 import MessageContextMenu from './MessageContextMenu.vue';
 import MessageReactionsVotersModal from './MessageReactionsVotersModal.vue';
 import MessageActionBar from './MessageActionBar.vue';
@@ -287,31 +286,13 @@ const customEmojiRenderKey = computed(
 
 const displayAttachments = computed(() => message.value.attachments ?? []);
 
-const REACTION_CUSTOM_EMOJI = /^<a?:([^:>]+):([\w.-]{1,128})>$/;
-
-function escReactionAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-}
-
 function parseSingleEmojiForReactions(emoji: string): string {
-  const m = emoji.trim().match(REACTION_CUSTOM_EMOJI);
-  if (m) {
-    const emojiId = m[2]!;
-    const animated = m[0].startsWith('<a:');
-    const url = resolveCustomEmojiImageUrlForDisplay(
-      emojiId,
-      animated,
-      customEmojiUrlById?.value,
-      isEchoEmojiTokenResolveMiss(emojiId),
-      { allowDiscordCdnGuess: isEchoEmojiTokenResolveMiss(emojiId) },
-    );
-    if (url) {
-      const raw = `<img class="emoji custom-emoji" draggable="false" alt="${escReactionAttr(`:${m[1]}:`)}" src="${escReactionAttr(url)}"/>`;
-      return sanitizeEmojiImgHtmlForVHtml(raw);
-    }
-    ensureCustomEmojiId?.(emojiId);
-  }
-  return parseSingleEmoji(emoji);
+  return renderSingleEmojiHtml(emoji, {
+    cachedById: customEmojiUrlById?.value,
+    echoResolveMissed: isEchoEmojiTokenResolveMiss,
+    ensureEmojiId: ensureCustomEmojiId,
+    allowDiscordCdnGuess: true,
+  });
 }
 
 /**
@@ -1310,7 +1291,10 @@ watch(
           <p
             class="mt-1 line-clamp-4 whitespace-pre-wrap text-[13px] leading-snug text-muted"
           >
-            {{ message.forwardedFrom.contentPreview }}
+            <MessagePreviewSnippet
+              :content="message.forwardedFrom.contentPreview"
+              :max-len="400"
+            />
           </p>
         </div>
 

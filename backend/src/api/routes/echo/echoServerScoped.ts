@@ -14,6 +14,7 @@ import {
   transferEchoServerOwnership,
   upsertEchoServerNotificationLevel,
   updateEchoServerPreferences,
+  checkEchoVanityAvailability,
   createEchoServerEvent,
   updateEchoServerEvent,
   cancelEchoServerEvent,
@@ -111,6 +112,47 @@ export default async function echoServerScopedRoutes(
       }
       void emitEchoAttentionSnapshotForUser(pool, fastify.io, req.authUser!.id);
       return reply.code(204).send();
+    },
+  );
+
+  fastify.get<{
+    Params: { serverId: string };
+    Querystring: { code?: string };
+  }>(
+    '/servers/:serverId/vanity-availability',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const sid = trimEchoPathParam(req.params.serverId);
+      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      if (!okMem) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          ECHO_MSG_NOT_SERVER_MEMBER,
+          'NOT_SERVER_MEMBER',
+        );
+      }
+      const code = typeof req.query?.code === 'string' ? req.query.code : '';
+      const status = await checkEchoVanityAvailability(
+        pool,
+        sid,
+        req.authUser!.id,
+        code,
+      );
+      if (status === 'not_found') {
+        return sendError(reply, 404, 'NOT_FOUND', 'Server not found');
+      }
+      if (status === 'forbidden') {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Not allowed to check vanity URL',
+        );
+      }
+      return reply.code(200).send({ status });
     },
   );
 

@@ -1141,6 +1141,9 @@
   --echo-control-option-hover-bg: rgba(255, 255, 255, 0.08);
   --echo-control-option-selected-bg: rgba(255, 255, 255, 0.1);
   --echo-control-option-selected-fg: rgba(255, 255, 255, 0.92);
+  --echo-control-disabled-bg: rgba(0, 0, 0, 0.14);
+  --echo-control-disabled-fg: rgba(255, 255, 255, 0.42);
+  --echo-control-disabled-border: rgba(255, 255, 255, 0.05);
   /* Shared menu items (default/hover/disabled/destructive/selected) */
   --menu-item-fg: rgba(255, 255, 255, 0.9);
   --menu-item-fg-hover: rgba(255, 255, 255, 0.98);
@@ -1475,6 +1478,13 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
     var(--elevated) 86%
   );
   --echo-control-option-selected-fg: var(--accent);
+  --echo-control-disabled-bg: #ffffff;
+  --echo-control-disabled-fg: rgba(100, 95, 110, 0.58);
+  --echo-control-disabled-border: color-mix(
+    in srgb,
+    var(--border) 55%,
+    transparent
+  );
   /* Shared menu items (default/hover/disabled/destructive/selected) */
   --menu-item-fg: rgba(15, 10, 25, 0.9);
   --menu-item-fg-hover: rgba(15, 10, 25, 0.98);

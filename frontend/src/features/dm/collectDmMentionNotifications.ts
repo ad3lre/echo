@@ -1,6 +1,7 @@
 import type { MentionEntity, MentionKind } from '@shared/types';
 import { messageRepliesToUser } from '@shared/attentionPing';
 import type { RawMessage } from '@/services/realtime/chatMessageTypes';
+import { messagePreviewPlainText } from '@/services/domain/messagePreviewPlain';
 
 export type DmMentionNotificationRow = {
   key: string;
@@ -80,8 +81,7 @@ export function collectDmMentionNotifications(input: {
         messageId: mid,
         authorId: msg.authorId,
         authorName: input.resolveUserName(msg.authorId),
-        preview:
-          (msg.contentText ?? msg.content ?? '').trim().slice(0, 220) || '…',
+        preview: messagePreviewPlainText(msg, 220) || '…',
         timestamp: msg.timestamp,
         mentionKinds: uniqKinds,
       });

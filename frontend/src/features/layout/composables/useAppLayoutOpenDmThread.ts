@@ -5,6 +5,8 @@ import type { useAuthSessionStore } from '@/stores/authSession';
 import type { useServerStore } from '@/stores/server';
 import type { DmSubView } from '@/features/layout/mainSurface';
 import { isEchoAuthUserId } from '@/utils/echoIds';
+import { echoDmChannelIdForPeerUser } from '@/features/dm/buildDmPanelUserList';
+import { clientOnlyDmOpenShellIdForPeerUser } from '@/features/dm/dmOpenShellChannelId';
 import { openEchoDirectDmChannel } from '@/features/dm/echoDmCommandFacade';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 
@@ -110,10 +112,15 @@ export function useAppLayoutOpenDmThread(deps: {
     }
     const token = authSession.accessToken?.trim() ?? '';
     const previousChannelId = activeChannelId.value;
-    const dmShellId = `dm-${userId}`;
+    const dmShellId = clientOnlyDmOpenShellIdForPeerUser(userId);
+    const persistedPeerChannelId = echoDmChannelIdForPeerUser(
+      userId,
+      echoDmPeerByChannelId.value,
+    );
     dbgReadState('dm_select', {
       userId,
       dmShellId,
+      persistedPeerChannelId: persistedPeerChannelId ?? null,
       previousChannelId,
       isAuthenticated: authSession.isAuthenticated,
       isMockDataMode: echoSyncCapabilities.isMockDataMode,
@@ -128,8 +135,15 @@ export function useAppLayoutOpenDmThread(deps: {
       // `deriveMainSurface` only treats `dm-*` / persisted thread ids as an open DM; without this,
       // `activeChannelId` stays on the prior channel until `/dm/open` returns and the main pane
       // incorrectly shows `dmMessagesIdle` for the whole request.
-      activeChannelId.value = dmShellId;
-      dbgReadState('dm_optimistic_shell_active', { dmShellId });
+      activeChannelId.value = persistedPeerChannelId ?? dmShellId;
+      dbgReadState(
+        persistedPeerChannelId
+          ? 'dm_persisted_channel_active'
+          : 'dm_optimistic_shell_active',
+        persistedPeerChannelId
+          ? { channelId: persistedPeerChannelId }
+          : { dmShellId },
+      );
       openDmInFlightCount += 1;
       isOpeningDmThread.value = openDmInFlightCount > 0;
       try {
@@ -142,6 +156,9 @@ export function useAppLayoutOpenDmThread(deps: {
           return null;
         }
         if (channelId) {
+          // Switch to the resolved thread before relocating buckets so the active
+          // window never briefly reads an emptied optimistic `dm-{userId}` shell.
+          activeChannelId.value = channelId;
           if (messages) {
             relocateChannelMessages(messages, dmShellId, channelId);
             const requestChannelId = messageRequests?.value.find(
@@ -163,7 +180,6 @@ export function useAppLayoutOpenDmThread(deps: {
               );
             }
           }
-          activeChannelId.value = channelId;
           dbgReadState('dm_real_channel_active', { channelId });
           const m = new Map(echoDmPeerByChannelId.value);
           m.set(channelId, userId);

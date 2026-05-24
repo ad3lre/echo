@@ -50,6 +50,12 @@ const twemojiSrc = computed(() =>
 );
 
 const displaySrc = computed(() => customSrc.value || twemojiSrc.value);
+
+const displayLabel = computed(() => {
+  const token = customToken.value;
+  if (token) return `:${token.name}:`;
+  return props.emoji;
+});
 </script>
 
 <template>
@@ -67,7 +73,7 @@ const displaySrc = computed(() => customSrc.value || twemojiSrc.value);
     <span
       v-else
       class="poll-opt-emoji__native text-[1.1em] leading-none select-none"
-      >{{ emoji }}</span
+      >{{ displayLabel }}</span
     >
   </span>
 </template>

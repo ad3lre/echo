@@ -7,6 +7,7 @@ import type {
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { isMessageAuthorOffline } from '@/utils/isOfflinePresence';
+import { messagePreviewPlainText } from '@/services/domain/messagePreviewPlain';
 
 const props = defineProps<{
   message: MessageWithAuthor;
@@ -38,8 +39,7 @@ defineEmits<{
 }>();
 
 function truncateForReply(text: string, maxLen = 60): string {
-  const t = text.replace(/\s+/g, ' ').trim();
-  return t.length <= maxLen ? t : t.slice(0, maxLen) + '…';
+  return messagePreviewPlainText({ content: text }, maxLen);
 }
 </script>
 

@@ -815,7 +815,7 @@ onBeforeUnmount(() => {
             <div class="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                class="rounded-md border border-border bg-scrim-2 px-1.5 py-1 text-[10px] font-semibold text-fg-soft transition hover:border-border hover:text-fg disabled:opacity-40"
+                class="echo-settings-field-btn rounded-md px-1.5 py-1 text-[10px] font-semibold transition hover:border-[var(--echo-control-border-hover)] hover:text-fg"
                 :disabled="busy || categoryPosition(cat.id) <= 1"
                 title="Move category up"
                 @click.stop="nudgeCategory(cat.id, -1)"
@@ -824,7 +824,7 @@ onBeforeUnmount(() => {
               </button>
               <button
                 type="button"
-                class="rounded-md border border-border bg-scrim-2 px-1.5 py-1 text-[10px] font-semibold text-fg-soft transition hover:border-border hover:text-fg disabled:opacity-40"
+                class="echo-settings-field-btn rounded-md px-1.5 py-1 text-[10px] font-semibold transition hover:border-[var(--echo-control-border-hover)] hover:text-fg"
                 :disabled="
                   busy || categoryPosition(cat.id) >= realCategoryIds.length
                 "
@@ -834,7 +834,7 @@ onBeforeUnmount(() => {
                 ↓
               </button>
               <input
-                class="w-11 rounded-md border border-border bg-scrim-2 px-1.5 py-1 text-center text-[11px] font-semibold text-fg-soft outline-none"
+                class="echo-settings-field w-11 rounded-md px-1.5 py-1 text-center text-[11px] font-semibold outline-none"
                 type="number"
                 min="1"
                 :max="realCategoryIds.length"
@@ -992,7 +992,7 @@ onBeforeUnmount(() => {
             <div class="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                class="rounded-md border border-border bg-scrim-2 px-1.5 py-1 text-[10px] font-semibold text-fg-soft transition hover:border-border hover:text-fg disabled:opacity-40"
+                class="echo-settings-field-btn rounded-md px-1.5 py-1 text-[10px] font-semibold transition hover:border-[var(--echo-control-border-hover)] hover:text-fg"
                 :disabled="
                   busy ||
                   channelPosition(
@@ -1009,7 +1009,7 @@ onBeforeUnmount(() => {
               </button>
               <button
                 type="button"
-                class="rounded-md border border-border bg-scrim-2 px-1.5 py-1 text-[10px] font-semibold text-fg-soft transition hover:border-border hover:text-fg disabled:opacity-40"
+                class="echo-settings-field-btn rounded-md px-1.5 py-1 text-[10px] font-semibold transition hover:border-[var(--echo-control-border-hover)] hover:text-fg"
                 :disabled="
                   busy ||
                   channelPosition(
@@ -1025,7 +1025,7 @@ onBeforeUnmount(() => {
                 ↓
               </button>
               <input
-                class="w-11 rounded-md border border-border bg-scrim-2 px-1.5 py-1 text-center text-[11px] font-semibold text-fg-soft outline-none"
+                class="echo-settings-field w-11 rounded-md px-1.5 py-1 text-center text-[11px] font-semibold outline-none"
                 type="number"
                 min="1"
                 :max="topLevelChannels(cat.channels).length"
@@ -1208,7 +1208,7 @@ onBeforeUnmount(() => {
             <div class="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                class="rounded-md border border-border bg-scrim-2 px-1.5 py-1 text-[10px] font-semibold text-fg-soft transition hover:border-border hover:text-fg disabled:opacity-40"
+                class="echo-settings-field-btn rounded-md px-1.5 py-1 text-[10px] font-semibold transition hover:border-[var(--echo-control-border-hover)] hover:text-fg"
                 :disabled="
                   busy ||
                   channelPosition(
@@ -1227,7 +1227,7 @@ onBeforeUnmount(() => {
               </button>
               <button
                 type="button"
-                class="rounded-md border border-border bg-scrim-2 px-1.5 py-1 text-[10px] font-semibold text-fg-soft transition hover:border-border hover:text-fg disabled:opacity-40"
+                class="echo-settings-field-btn rounded-md px-1.5 py-1 text-[10px] font-semibold transition hover:border-[var(--echo-control-border-hover)] hover:text-fg"
                 :disabled="
                   busy ||
                   channelPosition(
@@ -1245,7 +1245,7 @@ onBeforeUnmount(() => {
                 ↓
               </button>
               <input
-                class="w-11 rounded-md border border-border bg-scrim-2 px-1.5 py-1 text-center text-[11px] font-semibold text-fg-soft outline-none"
+                class="echo-settings-field w-11 rounded-md px-1.5 py-1 text-center text-[11px] font-semibold outline-none"
                 type="number"
                 min="1"
                 :max="mergedHideTopLevel.length"

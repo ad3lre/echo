@@ -1919,7 +1919,10 @@ export function useAppLayoutController() {
     const trimmed = text.trim();
     if (!trimmed) return;
     if (!isLiveSocketReady()) {
-      dispatchAppToast('Reconnect to send a message.', 'warning');
+      dispatchAppToast(
+        'You are offline. Reconnect to send a message.',
+        'warning',
+      );
       return;
     }
     try {
@@ -2472,13 +2475,16 @@ export function useAppLayoutController() {
     }
     if (!authSession.isAuthenticated) {
       if (!opts?.silent) {
-        dispatchAppToast('Sign in to update read state.', 'info');
+        dispatchAppToast('Sign in to mark channels as read.', 'info');
       }
       return;
     }
     if (!isEchoGraphId(cid)) {
       if (!opts?.silent) {
-        dispatchAppToast('Read state is only synced for Echo threads.', 'info');
+        dispatchAppToast(
+          'Mark as read only works in Echo channels and DMs.',
+          'info',
+        );
       }
       return;
     }
@@ -2866,6 +2872,8 @@ export function useAppLayoutController() {
   const {
     addServerJoinError,
     addServerCreateBusy,
+    addServerJoinBusy,
+    addServerJoinInvitePrefill,
     exploreDirectoryJoinBusy,
     openAddServerModal,
     joinEchoServerWithInviteRaw,
@@ -3884,6 +3892,8 @@ export function useAppLayoutController() {
     addServerInitialView,
     addServerJoinError,
     addServerCreateBusy,
+    addServerJoinBusy,
+    addServerJoinInvitePrefill,
     exploreDirectoryJoinBusy,
     joinEchoServerWithInviteRaw,
     handleJoinWithInviteLink,

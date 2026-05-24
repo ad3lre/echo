@@ -7,7 +7,7 @@
     "titleBanned": "Cannot use voice",
     "titleNotMember": "Not a member",
     "titleNotFound": "Voice channel unavailable",
-    "titleE2eeFailed": "Voice encryption setup failed",
+    "titleE2eeFailed": "Voice privacy setup failed",
     "titleDefault": "Could not join voice",
     "noPermissionMessage": "You do not have permission to connect to this voice channel.",
     "joinInDiscordTitle": "Join in Discord",

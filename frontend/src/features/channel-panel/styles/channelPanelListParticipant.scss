@@ -176,37 +176,43 @@
   color: var(--vc-participant-name-dim);
 }
 
-/* ── compact green speaking ring ── */
+/* ── compact green speaking ring (inset so channel-list overflow does not clip) ── */
+.vc-participant-avatar-wrap {
+  overflow: visible;
+}
+
 .vc-speaking-ring {
   --speak-strength: 0.4;
+  --vc-speak-ring: mediumspringgreen;
   box-shadow:
-    0 0 0 2px
+    inset 0 0 0 2px
       color-mix(
         in srgb,
-        mediumspringgreen calc(var(--speak-strength) * 100%),
+        var(--vc-speak-ring) calc(var(--speak-strength) * 100%),
         transparent
       ),
-    0 0 calc(var(--speak-strength) * 8px)
+    inset 0 0 calc(4px + var(--speak-strength) * 4px)
       color-mix(
         in srgb,
-        mediumspringgreen calc(var(--speak-strength) * 50%),
+        var(--vc-speak-ring) calc(var(--speak-strength) * 45%),
         transparent
       );
   transition: box-shadow 0.1s ease-out;
 }
 
 [data-theme='light'] .vc-speaking-ring {
+  --vc-speak-ring: rgb(4 130 92);
   box-shadow:
-    0 0 0 3px
+    inset 0 0 0 2px
       color-mix(
         in srgb,
-        rgb(4 130 92) calc(var(--speak-strength) * 100%),
+        var(--vc-speak-ring) calc(var(--speak-strength) * 100%),
         transparent
       ),
-    0 0 calc(var(--speak-strength) * 11px)
+    inset 0 0 calc(5px + var(--speak-strength) * 5px)
       color-mix(
         in srgb,
-        rgb(4 130 92) calc(var(--speak-strength) * 58%),
+        var(--vc-speak-ring) calc(var(--speak-strength) * 50%),
         transparent
       );
 }

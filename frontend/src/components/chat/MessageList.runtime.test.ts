@@ -169,6 +169,54 @@ describe('MessageList runtime row synchronization', () => {
     expect(consoleError).not.toHaveBeenCalled();
   });
 
+  it('defers initial scroll anchor on optimistic dm open shell ids', async () => {
+    const peerId = '11111111-1111-4111-8111-111111111111';
+    const shellId = `dm-${peerId}`;
+    const realChannelId = '1492135186257805999';
+    const channelId = ref(shellId);
+    const initialHistoryLoading = ref(false);
+    const ids = ['m1', 'm2'];
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    const Wrapper = defineComponent({
+      name: 'MessageListDmShellHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: channelId.value,
+            messages: messages.value,
+            messageScrollAnchor: 'bottom',
+            initialHistoryLoading: initialHistoryLoading.value,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+    await nextTick();
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
+
+    channelId.value = realChannelId;
+    await nextTick();
+    await nextTick();
+
+    expect(scrollToIndexMock).toHaveBeenCalledWith(1, {
+      align: 'end',
+      behavior: 'auto',
+    });
+  });
+
   it('does not paint a blocking busy mask during a DM-to-server switch', async () => {
     const queuedRafs: FrameRequestCallback[] = [];
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {

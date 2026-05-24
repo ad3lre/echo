@@ -141,6 +141,49 @@ describe('StreamVideoTile runtime context menu', () => {
     expect(slider?.value).toBe('80');
   });
 
+  it('resets stream volume to 100 from the volume popover', async () => {
+    const seen: number[] = [];
+
+    const Host = defineComponent({
+      setup() {
+        const volume = ref(60);
+        return () =>
+          h(StreamVideoTile, {
+            track: null,
+            participantName: 'Ada',
+            participantId: 'u1',
+            remoteStreamVolumeControl: true,
+            remoteStreamVolumePercent: volume.value,
+            onRemoteStreamVolumeChange: (v: number) => {
+              seen.push(v);
+              volume.value = v;
+            },
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Host);
+    app.mount(container);
+    await nextTick();
+
+    const volBtn = container.querySelector(
+      'button[aria-label="Stream volume"]',
+    ) as HTMLButtonElement;
+    volBtn.click();
+    await nextTick();
+
+    const resetBtn = document.body.querySelector(
+      '.stream-tile-volume-popover button[aria-label="Reset stream volume to default"]',
+    ) as HTMLButtonElement;
+    expect(resetBtn).not.toBeNull();
+    resetBtn.click();
+    await nextTick();
+
+    expect(seen.at(-1)).toBe(100);
+  });
+
   it('shows avatar fallback when track exists but media stream is unavailable', async () => {
     const Host = defineComponent({
       setup() {

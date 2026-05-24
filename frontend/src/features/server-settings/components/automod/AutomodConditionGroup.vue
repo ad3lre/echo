@@ -80,8 +80,11 @@ function addSubgroup() {
 
 <template>
   <div
-    class="rounded-xl border border-border bg-scrim-2/40 p-3"
-    :class="depth > 1 ? 'mt-2' : ''"
+    :class="[
+      depth > 1
+        ? 'mt-2 rounded-xl bg-glass-2/30 p-3 pl-4 ring-1 ring-border/30'
+        : 'automod-condition-group--root',
+    ]"
   >
     <div
       v-if="depth > 1 && !showNestedControls"
@@ -94,7 +97,7 @@ function addSubgroup() {
     <div v-if="showCombinator" class="mb-3 flex flex-wrap items-center gap-2">
       <span class="text-xs text-fg-subtle">Match</span>
       <select
-        class="rounded-lg border border-border bg-scrim-2 px-2 py-1 text-sm text-fg"
+        class="server-input rounded-lg px-2 py-1 text-sm"
         :value="modelValue.combinator"
         @change="
           patchGroup({
@@ -114,7 +117,8 @@ function addSubgroup() {
       <div
         v-for="(child, i) in modelValue.children"
         :key="child.id"
-        class="flex gap-2 rounded-lg border border-border/60 bg-scrim-2/30 p-2"
+        class="flex gap-2 rounded-lg bg-glass-2/25 py-2"
+        :class="depth > 1 ? 'px-2' : 'px-0'"
       >
         <div class="min-w-0 flex-1">
           <AutomodConditionGroup
@@ -152,7 +156,7 @@ function addSubgroup() {
     <div class="mt-3 flex flex-wrap gap-2">
       <button
         type="button"
-        class="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-fg hover:bg-glass-1"
+        class="rounded-lg px-3 py-1.5 text-xs font-medium text-fg hover:bg-glass-1"
         @click="addCondition"
       >
         + Condition
@@ -160,7 +164,7 @@ function addSubgroup() {
       <button
         v-if="depth < AUTOMOD_MAX_TREE_DEPTH"
         type="button"
-        class="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-fg hover:bg-glass-1"
+        class="rounded-lg px-3 py-1.5 text-xs font-medium text-fg hover:bg-glass-1"
         @click="addSubgroup"
       >
         + Group

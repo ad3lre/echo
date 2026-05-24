@@ -95,6 +95,10 @@ export type AppLayoutModalsProps = {
   addServerJoinError?: string;
   /** True while the server is being created / Discord import is running after submit. */
   addServerCreateBusy?: boolean;
+  /** True while invite-link or directory join is in flight in Add Server. */
+  addServerJoinBusy?: boolean;
+  exploreDirectoryJoinBusy?: boolean;
+  addServerJoinInvitePrefill?: string;
   isInviteModalOpen: boolean;
   selectedServerName: string;
   inviteLink: string;
@@ -343,6 +347,9 @@ export const MODALS_INJECT_KEYS = [
   'onJoinWithInviteLink',
   'addServerJoinError',
   'addServerCreateBusy',
+  'addServerJoinBusy',
+  'exploreDirectoryJoinBusy',
+  'addServerJoinInvitePrefill',
   'isInviteModalOpen',
   'selectedServerName',
   'inviteLink',

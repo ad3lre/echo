@@ -301,22 +301,22 @@ export const CATEGORY_TAB_COPY: Record<
   overview: {
     title: 'Overview',
     description:
-      'Rename this category. Channels that sync permissions inherit from the Permissions tab.',
+      'Rename this category. Channels that match category permissions use the Permissions tab.',
   },
   permissions: {
     title: 'Permissions',
     description:
-      'Set default permissions for this category. Channels with “sync with category” use these rules.',
+      'Set default permissions for this category. Channels that match the category use these rules.',
   },
   discord_chat_sync: {
-    title: 'Discord chat sync',
+    title: 'Discord messages (category)',
     description:
-      'Apply the same live message mirroring (Discord ↔ Echo) to every text and forum channel in this category, using each channel’s import mapping.',
+      'Turn on the same Discord message linking for every text and forum channel in this category.',
   },
   discord_voice_mirror: {
-    title: 'Discord voice mirror',
+    title: 'Discord voice activity',
     description:
-      'Mirror live Discord voice activity for channels in this category. Echo shows roster only.',
+      'Show who is in voice on Discord for channels in this category. Join voice in Discord to participate.',
   },
 };
 

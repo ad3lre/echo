@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { echoT } from '@/i18n';
 import { EchoApiError } from '@/api/echo/transport';
 import * as echoSocialApi from '@/api/echo/social';
 import {
@@ -106,7 +107,7 @@ describe('openEchoDirectDmChannel', () => {
     ).rejects.toBe(second);
     expect(spy).toHaveBeenCalledTimes(2);
     /* The improved error message should not be the bare `UNKNOWN` placeholder. */
-    expect(second.message).toBe('HTTP 503');
+    expect(second.message).toBe(echoT('errors.api.serverUnavailable'));
   });
 });
 

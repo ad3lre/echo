@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, toRef } from 'vue';
 import { PUBLIC_INVITE_BASE } from '@/config';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -7,16 +7,20 @@ import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
 import ServerBannerLimitedGif from '@/components/ServerBannerLimitedGif.vue';
 import BannerRepositionModal from '@/components/BannerRepositionModal.vue';
 import EmojiPackTagsField from '@/features/server-settings/components/EmojiPackTagsField.vue';
+import { useVanityAvailabilityCheck } from '@/features/server-settings/composables/useVanityAvailabilityCheck';
 
 const props = withDefaults(
   defineProps<{
-    server: { name: string } | null;
+    server: { id: string; name: string; vanityCode?: string } | null;
     form: {
       name: string;
       description: string;
       vanityCode: string;
       tags: string[];
     };
+    accessToken?: string;
+    canManageServer?: boolean;
+    popularTagSuggestions?: string[];
     serverBannerUrl: string;
     bannerPositionY: number;
     serverIconUrl: string;
@@ -24,6 +28,8 @@ const props = withDefaults(
     bannerBlurEnabled: boolean;
     /** When true, preview shows the same dark overlay as the channel header. */
     bannerBlackoutEnabled: boolean;
+    /** Disables blur/blackout toggles while preference PATCHes are in flight. */
+    bannerChannelPrefsPersisting?: boolean;
     onServerBannerFileChange: (event: Event) => void;
     /** Clear banner image (persisted for Echo guilds). */
     onRemoveServerBanner: () => void | Promise<void>;
@@ -31,7 +37,13 @@ const props = withDefaults(
     onServerIconFileChange: (event: Event) => void;
     onBannerPositionYSave?: (nextY: number) => void;
   }>(),
-  { canManageBanner: false },
+  {
+    accessToken: '',
+    canManageServer: false,
+    canManageBanner: false,
+    bannerChannelPrefsPersisting: false,
+    popularTagSuggestions: () => [],
+  },
 );
 
 const emit = defineEmits<{
@@ -46,6 +58,28 @@ const emit = defineEmits<{
 const inviteHostPrefix = computed(
   () => `${PUBLIC_INVITE_BASE.replace(/^https?:\/\//, '').replace(/\/$/, '')}/`,
 );
+
+const serverIdRef = toRef(() => props.server?.id);
+const accessTokenRef = toRef(() => props.accessToken ?? '');
+const vanityCodeRef = toRef(() => props.form.vanityCode);
+const savedVanityRef = toRef(() =>
+  (props.server?.vanityCode ?? '').trim().toLowerCase(),
+);
+const vanityCheckEnabled = toRef(
+  () => props.canManageServer && Boolean(props.server?.id),
+);
+
+const {
+  uiState: vanityUiState,
+  statusMessage: vanityStatusMessage,
+  statusTone: vanityStatusTone,
+} = useVanityAvailabilityCheck({
+  serverId: serverIdRef,
+  accessToken: accessTokenRef,
+  vanityCode: vanityCodeRef,
+  savedVanityCode: savedVanityRef,
+  enabled: vanityCheckEnabled,
+});
 
 function onBannerBlurInput(e: Event) {
   const el = e.target as HTMLInputElement;
@@ -104,30 +138,53 @@ function saveReposition(nextY: number) {
           v-model="props.form.tags"
           label="Server Tags"
           hint="Used in Explore for quick filters when this server is listed publicly."
+          :popular-tags="props.popularTagSuggestions"
           @blur="emit('tags-blur')"
         />
         <div class="grid min-w-0 gap-4 md:grid-cols-2">
-          <div class="min-w-0">
-            <label class="settings-label">Vanity URL</label>
-            <!-- Prefix is long; don't let it starve the input (flex shrink-0 caused ~0 width input). -->
+          <div class="min-w-0 md:col-span-2">
+            <label class="settings-label" for="server-settings-vanity-code"
+              >Vanity URL</label
+            >
             <div
-              class="mt-2 grid w-full min-w-0 grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,2fr)] sm:items-center"
+              class="server-vanity-input mt-2 flex w-full min-w-0 items-stretch overflow-hidden rounded-[0.9rem] bg-[var(--srv-input-bg)] shadow-[inset_0_0_0_1px_var(--srv-input-ring)] focus-within:shadow-[inset_0_0_0_1px_var(--srv-input-focus-ring)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--accent)]"
             >
               <span
-                class="min-w-0 truncate text-sm text-fg-subtle"
+                class="server-vanity-input__prefix shrink-0 self-center border-r border-[color-mix(in_srgb,var(--srv-input-ring)_72%,transparent)] px-3 py-[0.85rem] text-sm text-fg-subtle"
                 :title="inviteHostPrefix"
               >
                 {{ inviteHostPrefix }}
               </span>
               <input
+                id="server-settings-vanity-code"
                 v-model="props.form.vanityCode"
-                class="server-input w-full min-w-0"
+                class="min-w-0 flex-1 border-0 bg-transparent px-3 py-[0.85rem] text-[var(--srv-input-fg)] outline-none"
                 type="text"
                 autocomplete="off"
                 spellcheck="false"
+                :aria-describedby="
+                  vanityStatusMessage
+                    ? 'server-settings-vanity-status'
+                    : undefined
+                "
                 @blur="emit('vanity-blur')"
               />
             </div>
+            <p
+              v-if="vanityStatusMessage"
+              id="server-settings-vanity-status"
+              class="mt-1.5 text-xs"
+              :class="{
+                'text-fg-subtle': vanityStatusTone === 'neutral',
+                'text-fg-soft': vanityStatusTone === 'pending',
+                'text-[var(--vc-status-connected-fg)]':
+                  vanityStatusTone === 'ok',
+                'text-[var(--vc-status-error-fg)]': vanityStatusTone === 'bad',
+              }"
+              :aria-live="vanityUiState === 'checking' ? 'polite' : undefined"
+            >
+              {{ vanityStatusMessage }}
+            </p>
           </div>
         </div>
       </div>
@@ -180,7 +237,7 @@ function saveReposition(nextY: number) {
                 class="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100 pointer-coarse:opacity-100"
               >
                 <span
-                  class="inline-flex items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm backdrop-blur-sm [html[data-theme='light']_&]:bg-black/65"
+                  class="echo-dark-chrome inline-flex items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm backdrop-blur-sm [html[data-theme='light']_&]:bg-black/65"
                 >
                   <img
                     :src="icons.sliders"
@@ -199,14 +256,14 @@ function saveReposition(nextY: number) {
               <button
                 v-if="props.canManageBanner"
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-red-600 [html[data-theme='light']_&]:ring-1 [html[data-theme='light']_&]:ring-red-900/25"
+                class="echo-dark-chrome inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-red-600 [html[data-theme='light']_&]:ring-1 [html[data-theme='light']_&]:ring-red-900/25"
                 @click="props.onRemoveServerBanner()"
               >
                 Remove
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm backdrop-blur-sm ring-1 ring-white/15 transition-colors hover:bg-black/65 [html[data-theme='light']_&]:ring-black/20"
+                class="echo-dark-chrome inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm backdrop-blur-sm ring-1 ring-white/15 transition-colors hover:bg-black/65 [html[data-theme='light']_&]:ring-black/20"
                 @click="openReposition"
               >
                 <img
@@ -222,13 +279,13 @@ function saveReposition(nextY: number) {
           <!-- Icon: left, straddling banner/card edge; size aligned with typical server icon scale -->
           <div class="relative min-h-[3.25rem] px-5 pb-5 pt-0 sm:px-6">
             <label
-              class="group/icon absolute left-5 top-0 z-10 -translate-y-1/2 cursor-pointer sm:left-6"
+              class="group/icon server-settings-icon-picker absolute left-5 top-0 z-10 -translate-y-1/2 cursor-pointer sm:left-6"
               title="Change server icon"
               @mouseenter="serverIconHover = true"
               @mouseleave="serverIconHover = false"
             >
               <div
-                class="relative h-16 w-16 overflow-hidden rounded-xl bg-scrim-2 shadow-2"
+                class="relative h-16 w-16 overflow-hidden rounded-xl border border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-scrim-2 shadow-2"
               >
                 <PausedGifAvatar
                   :src="serverGuildIconDisplayUrl(props.serverIconUrl)"
@@ -237,19 +294,20 @@ function saveReposition(nextY: number) {
                   :force-active="serverIconHover"
                 />
                 <div
-                  class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20"
+                  class="server-settings-icon-picker__shade pointer-events-none absolute inset-0"
+                  aria-hidden="true"
                 />
                 <div
-                  class="pointer-events-none absolute inset-0 flex items-center justify-center bg-transparent opacity-0 transition-[background-color,opacity] group-hover/icon:bg-scrim-2 group-hover/icon:opacity-100 pointer-coarse:bg-scrim-2 pointer-coarse:opacity-100"
+                  class="server-settings-icon-picker__overlay pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-[background-color,opacity] group-hover/icon:opacity-100 pointer-coarse:opacity-100"
                 >
                   <div
-                    class="flex h-8 w-8 items-center justify-center rounded-full bg-scrim-2 shadow-2"
+                    class="flex h-8 w-8 items-center justify-center rounded-full bg-scrim-2 shadow-2 ring-1 ring-[color-mix(in_srgb,var(--border)_70%,transparent)]"
                     aria-hidden="true"
                   >
                     <img
                       :src="icons.pen"
                       alt=""
-                      class="h-4 w-4 opacity-95 filter invert"
+                      class="server-settings-icon-picker__glyph h-4 w-4 opacity-90 echo-ink-icon"
                     />
                   </div>
                 </div>
@@ -301,6 +359,7 @@ function saveReposition(nextY: number) {
               type="checkbox"
               class="server-toggle shrink-0"
               :checked="props.bannerBlurEnabled"
+              :disabled="props.bannerChannelPrefsPersisting"
               aria-label="Blur server banner in channel header"
               @change="onBannerBlurInput"
             />
@@ -316,6 +375,7 @@ function saveReposition(nextY: number) {
               type="checkbox"
               class="server-toggle shrink-0"
               :checked="props.bannerBlackoutEnabled"
+              :disabled="props.bannerChannelPrefsPersisting"
               aria-label="Dark overlay on server banner in channel header"
               @change="onBannerBlackoutInput"
             />

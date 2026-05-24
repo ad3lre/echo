@@ -17,7 +17,10 @@ import {
 } from '@/utils/memberProfiles';
 import { normalizedStatus } from '../overview';
 import type { RolePermissionKey, ServerSettingsSection } from '../types';
-import { topEchoRoleIdForUserServerSettings } from '@/features/server-settings/domain/roleManagerState';
+import {
+  reconcileSelectedRoleIdForCategoryTab,
+  topEchoRoleIdForUserServerSettings,
+} from '@/features/server-settings/domain/roleManagerState';
 import { uploadServerBrandingFile } from '@/api/echo/uploads';
 import type { EmojiEntry } from '@/composables/useEmojiData';
 import type { AppIconEntry } from '@/composables/useAppIconSearch';
@@ -342,12 +345,13 @@ export function useServerSettingsRoles(options: {
     categorySettingsError.value = '';
   }
 
-  watch(selectedRoleCategoryTabId, () => {
-    if (selectedRoleCategoryTabId.value === 'all') {
-      roleCategoryListExtra.value = null;
-      return;
-    }
-    selectRoleCategorySettingsRow();
+  watch(selectedRoleCategoryTabId, (tab) => {
+    roleCategoryListExtra.value = null;
+    selectedRoleId.value = reconcileSelectedRoleIdForCategoryTab(
+      tab,
+      selectedRoleId.value,
+      displayedRoleManagerRoles.value,
+    );
   });
 
   async function saveRoleCategorySettings() {

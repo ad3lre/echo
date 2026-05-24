@@ -817,6 +817,50 @@ export async function isEchoRaidJoinBlocked(
   };
 }
 
+export type EchoVanityAvailabilityStatus =
+  | 'available'
+  | 'taken'
+  | 'invalid'
+  | 'current';
+
+export type CheckEchoVanityAvailabilityResult =
+  | EchoVanityAvailabilityStatus
+  | 'forbidden'
+  | 'not_found';
+
+/** Read-only vanity slug check for server settings UI (owner or MANAGE_GUILD). */
+export async function checkEchoVanityAvailability(
+  pool: pg.Pool,
+  serverId: string,
+  actorId: string,
+  rawCode: string,
+): Promise<CheckEchoVanityAvailabilityResult> {
+  const srvQ = await pool.query(
+    `SELECT owner_id, vanity_code FROM echo_servers WHERE id = $1 LIMIT 1`,
+    [serverId],
+  );
+  if (!srvQ.rows[0]) return 'not_found';
+  const ownerId = String(srvQ.rows[0].owner_id);
+  if (ownerId !== actorId) {
+    const perms = await getMergedRolePermissions(pool, serverId, actorId);
+    if (!perms.has('MANAGE_GUILD')) return 'forbidden';
+  }
+  const normalized = normalizeEchoVanityCode(
+    typeof rawCode === 'string' ? rawCode : '',
+  );
+  if (normalized === null) return 'invalid';
+  const current = String(srvQ.rows[0].vanity_code ?? '')
+    .trim()
+    .toLowerCase();
+  if (normalized === '') return 'available';
+  if (current === normalized) return 'current';
+  const clash = await pool.query(
+    `SELECT 1 FROM echo_servers WHERE id <> $1 AND LOWER(vanity_code) = $2 AND vanity_code <> '' LIMIT 1`,
+    [serverId, normalized],
+  );
+  return clash.rows.length > 0 ? 'taken' : 'available';
+}
+
 export async function getEchoServerVanityCode(
   pool: pg.Pool,
   serverId: string,

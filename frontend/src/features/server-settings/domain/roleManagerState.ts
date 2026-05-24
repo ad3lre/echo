@@ -427,3 +427,16 @@ export function calculateRoleOrderDiff(
   if (a.length === b.length && a.every((id, i) => id === b[i])) return null;
   return b;
 }
+
+/** Keep selection when the role is still listed on the active category tab. */
+export function reconcileSelectedRoleIdForCategoryTab(
+  tab: 'all' | string,
+  currentSelectedRoleId: string,
+  rolesInTab: ReadonlyArray<{ id: string }>,
+): string {
+  if (tab === 'all') return currentSelectedRoleId;
+  if (rolesInTab.some((r) => r.id === currentSelectedRoleId)) {
+    return currentSelectedRoleId;
+  }
+  return rolesInTab[0]?.id ?? '';
+}

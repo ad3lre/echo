@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref, inject, onBeforeUnmount, type ComputedRef } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
-import { parseSingleEmoji } from '@/utils/twemoji';
-import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
-import { resolveCustomEmojiImageUrlForDisplay } from '@/utils/customEmojiUrl';
+import { renderSingleEmojiHtml } from '@/utils/customEmojiDisplay';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import MessageReactionsRow from '@/features/chat/components/MessageReactionsRow.vue';
 import MessageReactionEmojiPopover from './MessageReactionEmojiPopover.vue';
@@ -43,31 +41,13 @@ const ensureCustomEmojiId = inject<((id: string) => void) | undefined>(
   undefined,
 );
 
-const REACTION_CUSTOM_EMOJI = /^<a?:([^:>]+):([\w.-]{1,128})>$/;
-
-function escReactionAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-}
-
 function parseSingleEmojiForReactions(emoji: string): string {
-  const m = emoji.trim().match(REACTION_CUSTOM_EMOJI);
-  if (m) {
-    const emojiId = m[2]!;
-    const animated = m[0].startsWith('<a:');
-    const url = resolveCustomEmojiImageUrlForDisplay(
-      emojiId,
-      animated,
-      customEmojiUrlById?.value,
-      isEchoEmojiTokenResolveMiss(emojiId),
-      { allowDiscordCdnGuess: isEchoEmojiTokenResolveMiss(emojiId) },
-    );
-    if (url) {
-      const raw = `<img class="emoji custom-emoji" draggable="false" alt="${escReactionAttr(`:${m[1]}:`)}" src="${escReactionAttr(url)}"/>`;
-      return sanitizeEmojiImgHtmlForVHtml(raw);
-    }
-    ensureCustomEmojiId?.(emojiId);
-  }
-  return parseSingleEmoji(emoji);
+  return renderSingleEmojiHtml(emoji, {
+    cachedById: customEmojiUrlById?.value,
+    echoResolveMissed: isEchoEmojiTokenResolveMiss,
+    ensureEmojiId: ensureCustomEmojiId,
+    allowDiscordCdnGuess: true,
+  });
 }
 
 function handleReactionClick(emoji: string) {

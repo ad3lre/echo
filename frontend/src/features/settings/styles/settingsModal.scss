@@ -445,6 +445,12 @@
   outline-offset: 2px;
 }
 
+.banner-effect-widget:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
 .banner-effect-widget__head {
   display: flex;
   align-items: center;

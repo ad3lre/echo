@@ -93,8 +93,45 @@ export function useServerSettingsOverviewState(
   const listedInDirectoryEnabled = ref(true);
   const inviteJoinEnabled = ref(true);
   const bannerPositionY = ref(50);
+  /** True while blur/blackout preference PATCH requests are queued or in flight. */
+  const bannerChannelPrefsPersisting = ref(false);
 
   const serverSettingsService = createServerSettingsService();
+
+  /** Serializes banner blur/blackout PATCHes so out-of-order responses cannot revert toggles. */
+  let bannerChannelPrefsPersistTail: Promise<void> = Promise.resolve();
+  let bannerChannelPrefsPersistInFlight = 0;
+
+  function enqueueBannerChannelPrefsPersist(
+    task: () => Promise<void>,
+  ): Promise<void> {
+    bannerChannelPrefsPersistInFlight++;
+    bannerChannelPrefsPersisting.value = true;
+    const run = bannerChannelPrefsPersistTail.then(task, task);
+    bannerChannelPrefsPersistTail = run.then(
+      () => {},
+      () => {},
+    );
+    return run.finally(() => {
+      bannerChannelPrefsPersistInFlight--;
+      bannerChannelPrefsPersisting.value =
+        bannerChannelPrefsPersistInFlight > 0;
+    });
+  }
+
+  function rollbackBannerBlurIfStill(sid: string, attempted: boolean) {
+    if (bannerBlurEnabled.value !== attempted) return;
+    const reverted = !attempted;
+    bannerBlurEnabled.value = reverted;
+    serverStore.updateServerBannerBlurEnabled(sid, reverted);
+  }
+
+  function rollbackBannerBlackoutIfStill(sid: string, attempted: boolean) {
+    if (bannerBlackoutEnabled.value !== attempted) return;
+    const reverted = !attempted;
+    bannerBlackoutEnabled.value = reverted;
+    serverStore.updateServerBannerBlackoutEnabled(sid, reverted);
+  }
 
   function onBannerBlurEnabledChange(v: boolean) {
     bannerBlurEnabled.value = v;
@@ -102,7 +139,7 @@ export function useServerSettingsOverviewState(
     if (sid) {
       serverStore.updateServerBannerBlurEnabled(sid, v);
       const token = opts.accessToken.value;
-      void (async () => {
+      void enqueueBannerChannelPrefsPersist(async () => {
         try {
           await serverSettingsService.persistPreferences({
             token,
@@ -113,10 +150,9 @@ export function useServerSettingsOverviewState(
             refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
           });
         } catch {
-          serverStore.updateServerBannerBlurEnabled(sid, !v);
-          bannerBlurEnabled.value = !v;
+          rollbackBannerBlurIfStill(sid, v);
         }
-      })();
+      });
     }
   }
 
@@ -126,7 +162,7 @@ export function useServerSettingsOverviewState(
     if (sid) {
       serverStore.updateServerBannerBlackoutEnabled(sid, v);
       const token = opts.accessToken.value;
-      void (async () => {
+      void enqueueBannerChannelPrefsPersist(async () => {
         try {
           await serverSettingsService.persistPreferences({
             token,
@@ -137,10 +173,9 @@ export function useServerSettingsOverviewState(
             refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
           });
         } catch {
-          serverStore.updateServerBannerBlackoutEnabled(sid, !v);
-          bannerBlackoutEnabled.value = !v;
+          rollbackBannerBlackoutIfStill(sid, v);
         }
-      })();
+      });
     }
   }
 
@@ -554,6 +589,7 @@ export function useServerSettingsOverviewState(
     serverBannerUrl,
     bannerBlurEnabled,
     bannerBlackoutEnabled,
+    bannerChannelPrefsPersisting,
     listedInDirectoryEnabled,
     inviteJoinEnabled,
     bannerPositionY,

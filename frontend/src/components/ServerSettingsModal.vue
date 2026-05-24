@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, toRef, watch } from 'vue';
+import { collectExploreQuickFilters } from '@/services/domain/exploreDirectoryRows';
 import { storeToRefs } from 'pinia';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 import { useCompactShell } from '@/composables/useCompactShell';
@@ -224,11 +225,25 @@ watch(
   { flush: 'post' },
 );
 
+const overviewPopularTags = computed(() =>
+  collectExploreQuickFilters(workspace.discoverableServers.value, 48).map(
+    (f) => f.tag,
+  ),
+);
+
+watch(
+  () => props.modelValue && activeSection.value === 'Overview',
+  (open) => {
+    if (open) void workspace.refreshExploreDirectory();
+  },
+);
+
 const {
   form,
   serverBannerUrl,
   bannerBlurEnabled,
   bannerBlackoutEnabled,
+  bannerChannelPrefsPersisting,
   listedInDirectoryEnabled,
   inviteJoinEnabled,
   bannerPositionY,
@@ -781,10 +796,16 @@ async function onModerationPatch(patch: {
                   <ServerSettingsOverviewSection
                     :server="server"
                     :form="form"
+                    :access-token="accessToken ?? ''"
+                    :can-manage-server="!!props.canManageServer"
+                    :popular-tag-suggestions="overviewPopularTags"
                     :server-banner-url="serverBannerUrl"
                     :server-icon-url="serverIconUrl"
                     :banner-blur-enabled="bannerBlurEnabled"
                     :banner-blackout-enabled="bannerBlackoutEnabled"
+                    :banner-channel-prefs-persisting="
+                      bannerChannelPrefsPersisting
+                    "
                     :banner-position-y="bannerPositionY"
                     :on-server-banner-file-change="onServerBannerFileChange"
                     :on-remove-server-banner="removeServerBanner"

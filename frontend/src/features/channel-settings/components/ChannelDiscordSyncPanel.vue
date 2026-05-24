@@ -193,7 +193,9 @@ async function load() {
     await Promise.all([guildsPromise, channelsPromise ?? Promise.resolve()]);
   } catch (e) {
     error.value =
-      e instanceof Error ? e.message : 'Could not load Discord sync settings.';
+      e instanceof Error
+        ? e.message
+        : 'Could not load Discord message settings.';
   } finally {
     loading.value = false;
     syncingFromBridgeLoad.value = false;
@@ -247,7 +249,9 @@ async function save() {
     applyBridgeState(saved);
   } catch (e) {
     error.value =
-      e instanceof Error ? e.message : 'Could not save Discord sync settings.';
+      e instanceof Error
+        ? e.message
+        : 'Could not save Discord message settings.';
   } finally {
     saving.value = false;
   }
@@ -263,7 +267,7 @@ async function clearSync() {
     return;
   }
   const ok = window.confirm(
-    'Clear Discord sync for this channel? Live mirroring stops and any stored webhook mapping is removed.',
+    'Stop linking messages with Discord for this channel? Live mirroring will turn off.',
   );
   if (!ok) return;
   const token = authSession.accessToken?.trim() ?? '';
@@ -278,7 +282,9 @@ async function clearSync() {
     applyBridgeState(cleared);
   } catch (e) {
     error.value =
-      e instanceof Error ? e.message : 'Could not clear Discord sync.';
+      e instanceof Error
+        ? e.message
+        : 'Could not turn off Discord message linking.';
   } finally {
     clearing.value = false;
   }
@@ -294,24 +300,24 @@ async function clearSync() {
           alt=""
           class="server-settings-inline-icon h-5 w-5 shrink-0"
         />
-        <div class="settings-subtitle">Discord sync</div>
+        <div class="settings-subtitle">Discord messages</div>
       </div>
       <p class="mb-4 text-xs leading-relaxed text-fg-subtle">
-        Mirror messages between this Echo channel and a Discord channel. Inbound
-        requires the Echo Discord bot online with Message Content intent. Echo →
-        Discord uses an incoming webhook — Echo creates one automatically when
-        you enable outbound (bot needs Manage Webhooks).
+        Keep messages in step between this Echo channel and a Discord channel.
+        Messages from Discord need the Echo bot online in that server. Messages
+        from Echo to Discord are set up automatically when you turn on Echo →
+        Discord.
       </p>
 
       <div v-if="!authSession.isAuthenticated" class="text-sm text-fg-soft">
-        Sign in to configure Discord sync.
+        Sign in to link messages with Discord.
       </div>
       <div
         v-else-if="authSession.backendUser?.isGuest"
         class="text-sm text-fg-soft"
       >
-        Discord sync isn’t available for guest sessions. Create an account or
-        sign in with a full Echo profile to continue.
+        Linking with Discord isn’t available for guest sessions. Create an
+        account or sign in with a full Echo profile to continue.
       </div>
       <div
         v-else-if="
@@ -319,7 +325,7 @@ async function clearSync() {
         "
         class="text-sm text-fg-soft"
       >
-        Discord sync is only available for text and forum channels.
+        Discord message linking is only available for text and forum channels.
       </div>
       <div v-else class="space-y-4">
         <div
@@ -340,8 +346,8 @@ async function clearSync() {
           v-else-if="guildsMeta.missingGuildsScope"
           class="echo-warn-banner rounded-lg px-3 py-2 text-sm"
         >
-          Discord needs the “guilds” permission for server pickers. Re-link
-          Discord with the updated scopes.
+          Discord needs permission to list your servers. Reconnect Discord in
+          Settings and allow access to your servers.
         </div>
         <div
           v-else-if="
@@ -350,13 +356,13 @@ async function clearSync() {
           class="rounded-lg bg-glass-2 px-3 py-2 text-sm text-fg-soft"
         >
           <span v-if="!guildsMeta.botConfigured">
-            This Echo deployment has no Discord bot token — ask your admin to
-            set DISCORD_BOT_TOKEN.
+            This Echo server isn’t set up with a Discord bot yet. Ask whoever
+            runs it to enable Discord integration.
           </span>
           <template v-else>
             The Echo bot isn’t in any Discord server you can manage, or it
-            hasn’t been invited yet. Open your server in Discord → Server
-            Settings → Integrations → add the Echo bot with webhook permissions.
+            hasn’t been invited yet. In Discord, open your server → Server
+            Settings → Integrations → add the Echo bot.
           </template>
         </div>
 
@@ -417,11 +423,11 @@ async function clearSync() {
           class="rounded-lg border border-border/50 bg-glass-1/40 px-3 py-2"
         >
           <summary class="cursor-pointer text-xs font-medium text-fg-soft">
-            Advanced: webhook URL override
+            Advanced: custom posting link
           </summary>
           <p class="mt-2 text-[11px] text-fg-subtle">
-            Leave blank to let Echo create or reuse an “Echo bridge” webhook.
-            Paste a URL only if you must replace it manually.
+            Leave blank and Echo will set up posting to Discord for you. Paste a
+            link only if your admin gave you one to use instead.
           </p>
           <input
             v-model="webhookOverride"
@@ -438,8 +444,8 @@ async function clearSync() {
               class="rounded border-border"
               :disabled="saving || !hasWebhook"
             />
-            Clear stored webhook (next save regenerates if Echo → Discord stays
-            on)
+            Remove saved posting link (Echo creates a new one on the next save
+            if Echo → Discord stays on)
           </div>
         </details>
 
@@ -447,7 +453,7 @@ async function clearSync() {
           {{ error }}
         </div>
         <div v-if="loading" class="text-sm text-fg-subtle">
-          Loading sync settings…
+          Loading message link settings…
         </div>
         <div
           v-else-if="guildsLoading && !guilds.length"
@@ -468,7 +474,7 @@ async function clearSync() {
             :disabled="loading || saving || clearing"
             @click="save"
           >
-            {{ saving ? 'Saving…' : 'Save sync' }}
+            {{ saving ? 'Saving…' : 'Save' }}
           </button>
           <button
             v-if="hasBridge"
@@ -477,7 +483,7 @@ async function clearSync() {
             :disabled="loading || saving || clearing"
             @click="clearSync"
           >
-            {{ clearing ? 'Clearing…' : 'Clear sync' }}
+            {{ clearing ? 'Turning off…' : 'Stop linking' }}
           </button>
         </div>
       </div>

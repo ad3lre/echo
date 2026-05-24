@@ -9,16 +9,16 @@
       "description": "Control who can see this channel and what they can do here."
     },
     "webhooks": {
-      "title": "Webhooks",
-      "description": "Create secret URLs that external services can use to post messages into this channel."
+      "title": "Incoming links",
+      "description": "Let approved apps post messages in this channel using a private link you create here."
     },
     "discord_sync": {
-      "title": "Discord Sync",
-      "description": "Mirror messages between this Echo channel and a Discord channel."
+      "title": "Discord messages",
+      "description": "Keep messages in sync between this Echo channel and a linked Discord channel."
     },
     "discord_voice_mirror": {
-      "title": "Discord voice mirror",
-      "description": "Show Discord voice activity in this Echo voice channel (join happens in Discord)."
+      "title": "Discord voice activity",
+      "description": "Show who's in voice on Discord in this Echo channel. Join voice in Discord to participate."
     },
     "forum_creator": {
       "title": "Forum defaults",
@@ -33,15 +33,15 @@
       "description": "Permanently remove this channel and its messages."
     },
     "discord_chat_sync": {
-      "title": "Discord chat sync",
-      "description": "Apply the same live message mirroring to every text and forum channel in a category."
+      "title": "Discord messages (category)",
+      "description": "Turn on the same Discord message linking for every text and forum channel in this category."
     }
   },
   "permissions": {
     "viewChannel": "View channel",
     "manageChannel": "Manage channel",
     "managePermissions": "Manage permissions",
-    "manageWebhooks": "Manage webhooks",
+    "manageWebhooks": "Manage incoming links",
     "createInvite": "Create invite",
     "connect": "Connect",
     "speak": "Speak",

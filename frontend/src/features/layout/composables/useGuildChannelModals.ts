@@ -35,10 +35,7 @@ import type {
 } from '@shared/types';
 import type { CreateChannelModalSubmitPayload } from '@/components/CreateChannelModal.vue';
 import { requestAppTwoChoice } from '@/utils/appDialogs';
-import {
-  getChannelMoveCrossCategoryPermission,
-  setChannelMoveCrossCategoryPermission,
-} from '@/features/channel-settings/composables/useChannelMoveCrossCategoryPreference';
+import { getChannelMoveCrossCategoryPermission } from '@/features/channel-settings/composables/useChannelMoveCrossCategoryPreference';
 import type { Server } from '@shared/types/server';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { EchoChannelPatch } from '@/api/echo/types';
@@ -377,16 +374,14 @@ export function useGuildChannelModals(deps: {
         const picked = await requestAppTwoChoice({
           title: 'Move channel to another category',
           message:
-            'Choose how to handle channel permission overwrites for this move.',
-          primaryLabel: 'Keep channel overrides',
-          secondaryLabel: 'Sync with new category',
+            'This channel has custom permissions. Keep them, or match the new category?',
+          primaryLabel: 'Keep channel permissions',
+          secondaryLabel: 'Match new category',
           dismissLabel: 'Cancel',
         });
         if (picked === null) return;
         mode = picked === 'primary' ? 'keep' : 'sync';
       }
-      // Persist explicit choices for keep/sync defaults when set from older flows.
-      setChannelMoveCrossCategoryPermission(mode);
       patch.moveOutOfCategoryPermission = mode;
     }
 
