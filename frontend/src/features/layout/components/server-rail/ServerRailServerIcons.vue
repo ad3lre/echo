@@ -200,9 +200,13 @@ function horizontalRingIconCssUrl(server: Server): string {
     data-cy="server-rail-reorder-root"
     class="servers-folder custom-scrollbar flex items-center transition-all duration-300 ease-out"
     :class="[
-      horizontal
+      horizontal && areServersExpanded
         ? 'servers-folder--horizontal mt-0 min-h-10 w-auto min-w-0 flex-row flex-nowrap items-center overflow-x-auto overflow-y-visible opacity-100'
-        : 'w-full flex-col',
+        : '',
+      horizontal && !areServersExpanded
+        ? 'servers-folder--horizontal flex-row flex-nowrap max-w-0 overflow-hidden opacity-0'
+        : '',
+      !horizontal ? 'w-full flex-col' : '',
       !horizontal && areServersExpanded
         ? 'mt-2 max-h-[min(70vh,28rem)] overflow-y-auto opacity-100'
         : '',
