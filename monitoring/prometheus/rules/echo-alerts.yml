@@ -96,3 +96,15 @@ groups:
           description: |
             Moderation POSTs return forbidden much more often than ok — possible RBAC drift, client bug, or abuse.
             Tune or silence if expected for your moderation workflow.
+
+      - alert: EchoVoiceReconcileDeletesSpike
+        expr: |
+          sum(rate(echo_voice_reconcile_deleted_total[15m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Voice roster reconcile deleting stale participants frequently
+          description: |
+            echo_voice_reconcile_deleted_total is elevated — missed LiveKit webhooks, SFU restarts, or network flaps.
+            Check hooks_livekit 2xx, LiveKit uptime, and client reconnect rates.

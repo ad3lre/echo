@@ -31,7 +31,7 @@
     "test:echo:safetyReports": "ts-node src/tests/echo.safetyReports.integration.ts",
     "test:echo:uploads": "ts-node src/tests/echo.uploads.presign.integration.ts && node --import tsx src/tests/echoVideoOptimizeQueue.test.ts",
     "test:echo:rbac": "ts-node src/tests/echo.rbac.perms.test.ts && ts-node src/tests/echo.rbac.goldens.test.ts && ts-node src/tests/echo.rbac.reactionEveryone.test.ts",
-    "test:echo:channelSettings": "ts-node src/tests/echo.channelSettings.test.ts && ts-node src/tests/echo.channelTreeMove.test.ts",
+    "test:echo:channelSettings": "ts-node src/tests/echo.channelSettings.test.ts && ts-node src/tests/echo.channelTreeMove.test.ts && ts-node src/tests/echo.voiceChannelMigrationRepair.test.ts",
     "test:echo:messageAutoDelete": "ts-node src/tests/echo.messageAutoDelete.test.ts",
     "test:echo:livekit": "ts-node src/tests/echo.livekit.test.ts",
     "test:echo:voiceE2ee": "ts-node src/tests/echo.voiceE2ee.test.ts",

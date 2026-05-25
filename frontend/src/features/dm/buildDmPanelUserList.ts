@@ -85,7 +85,7 @@ export function activityRankForChannel(input: {
   return ms > 0 ? { ms } : ZERO_RANK;
 }
 
-function latestTimeForPeerMessage(
+export function activityRankForPeerUser(
   peerId: string,
   messageKeys: readonly string[],
   echoPeerByChannelId: ReadonlyMap<string, string>,
@@ -205,7 +205,7 @@ export function buildDmPanelUserList(input: {
   for (const id of peerIds) {
     ranks.set(
       id,
-      latestTimeForPeerMessage(
+      activityRankForPeerUser(
         id,
         messageKeys,
         echoPeerByChannelId,
@@ -307,7 +307,7 @@ export function buildDmPanelInboxList(input: {
   }
 
   for (const row of userRows) {
-    const liveRank = latestTimeForPeerMessage(
+    const liveRank = activityRankForPeerUser(
       row.id,
       input.messageKeys,
       input.echoPeerByChannelId,

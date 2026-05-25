@@ -10,6 +10,13 @@ describe('vcActivityJoin', () => {
     expect(
       primaryVcActivityPresenceKind(['youtube', 'hangman', 'activities']),
     ).toBe('hangman');
+    expect(
+      primaryVcActivityPresenceKind(['youtube', 'skriggles', 'skribbl_io']),
+    ).toBe('skriggles');
+  });
+
+  it('maps skriggles presence to phase', () => {
+    expect(vcActivityPresenceKindToPhase('skriggles')).toBe('skriggles');
   });
 
   it('maps presence kinds to UI phases', () => {
@@ -18,7 +25,9 @@ describe('vcActivityJoin', () => {
   });
 
   it('labels join copy for native games', () => {
+    expect(vcActivityJoinLabel('wordle')).toBe('Wordline');
     expect(vcActivityJoinLabel('hangman')).toBe('Hangman');
+    expect(vcActivityJoinLabel('skriggles')).toBe('Skriggles');
     expect(vcActivityJoinLabel('tic_tac_toe')).toBe('Tic Tac Echo');
   });
 });

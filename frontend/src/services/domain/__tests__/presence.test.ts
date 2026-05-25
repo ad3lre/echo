@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyPresenceUpdate,
+  presenceIndicatorTitle,
   selectPresence,
   selectSelfPresence,
 } from '../presence';
@@ -25,6 +26,24 @@ describe('applyPresenceUpdate', () => {
       status: 'unknown',
     });
     expect(out[0].status).toBe('online');
+  });
+});
+
+describe('presenceIndicatorTitle', () => {
+  it('labels canonical statuses', () => {
+    expect(presenceIndicatorTitle({ status: 'idle' })).toBe('Idle');
+    expect(presenceIndicatorTitle({ status: 'do_not_disturb' })).toBe(
+      'Do Not Disturb',
+    );
+  });
+
+  it('notes mobile and Discord activity', () => {
+    expect(
+      presenceIndicatorTitle({ status: 'online', mobileSurface: true }),
+    ).toBe('Online · Mobile');
+    expect(
+      presenceIndicatorTitle({ status: 'online', discordOnline: true }),
+    ).toBe('Active on Discord');
   });
 });
 

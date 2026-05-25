@@ -24,8 +24,8 @@ export type PaperEditorPanelBridgeContext = {
   documentFontFamily: Readonly<{ value: string | undefined }>;
   contentJson: Readonly<{ value: Record<string, unknown> | null | undefined }>;
   imageUpload: ReturnType<typeof usePaperImageUpload>;
-  onPageColorLight: (hex: string) => void;
-  onPageColorDark: (hex: string) => void;
+  onPageColorLight: (hex: string | null) => void;
+  onPageColorDark: (hex: string | null) => void;
   onDocumentFontChange: (fontId: string) => void;
   toggleAppearance: () => void;
   onScrollToBlock?: (blockId: string) => void;

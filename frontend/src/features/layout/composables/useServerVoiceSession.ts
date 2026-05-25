@@ -11,6 +11,7 @@ import {
 import type { useAuthSessionStore } from '@/stores/authSession';
 import type { WorkspaceStateApi } from '@/composables/workspace/types';
 import { createVoiceService } from '@/services/orchestration/voice';
+import { postEchoVoiceQosSample } from '@/api/echo/voice';
 import {
   useLiveKitVoiceRoom,
   type DesktopStreamingPreferences,
@@ -104,6 +105,11 @@ import {
   type CodenamesTick,
 } from '@/features/voice/vcCodenamesReducer';
 import { VC_CODENAMES_WORD_BANK } from '@/features/voice/vcCodenamesWordBank';
+import {
+  createSkrigglesVoiceSession,
+  type SkrigglesVoiceSession,
+} from '@/features/voice/skriggles/skrigglesVoiceSession';
+import type { LiveKitVoiceRoomApi } from '@/composables/useLiveKitVoiceRoom';
 
 /** Workspace row can lag; LiveKit `Participant.metadata` may carry a URL or JSON `{ pfp }`. */
 function resolveParticipantPfpFromWorkspaceAndLiveKit(
@@ -933,9 +939,36 @@ export function useServerVoiceSession(deps: {
     }, 220);
   }
 
+  let skrigglesLkApi: LiveKitVoiceRoomApi | null = null;
+  const skrigglesSession: SkrigglesVoiceSession = createSkrigglesVoiceSession({
+    currentUserId: () => currentUser.value?.id,
+    vcActivityUi,
+    vcActivityPresenceByUserId,
+    isDmVoiceCallUi,
+    getLkRoom: () => skrigglesLkApi,
+  });
+
+  let lastVoiceQosReportAt = 0;
+
   const lkRoom = useLiveKitVoiceRoom({
     getUserWantsLocalCamera: () =>
       isDmVoiceCallUi.value ? dmCallVideo.value : vcVideo.value,
+    onNetworkStatsSample: (stats: LiveKitNetworkStats) => {
+      if (isDmVoiceCallUi.value) return;
+      const token = authSession.accessToken?.trim() ?? '';
+      const channelId = currentVoiceChannelId.value?.trim() ?? '';
+      if (!token || !channelId) return;
+      const now = Date.now();
+      if (now - lastVoiceQosReportAt < VOICE_QOS_REPORT_INTERVAL_MS) return;
+      lastVoiceQosReportAt = now;
+      const serverId = resolveGuildVoiceServerId(channelId);
+      if (!serverId?.trim()) return;
+      postEchoVoiceQosSample(token, serverId, channelId, {
+        latencyMs: stats.latencyMs,
+        jitterMs: stats.jitterMs,
+        packetLossPct: stats.packetLossPct,
+      });
+    },
     onYoutubeActivity: (msg, senderIdentity) => {
       void drainIncomingYoutubeActivities(msg, senderIdentity);
     },
@@ -957,6 +990,16 @@ export function useServerVoiceSession(deps: {
     onCodenamesEndTurnIntent: processCodenamesEndTurnIntent,
     onCodenamesSetupIntent: processCodenamesSetupIntent,
     onCodenamesNewGameIntent: processCodenamesNewGameIntent,
+    onSkrigglesActivity: skrigglesSession.tryApplySkrigglesRemote,
+    onSkrigglesGuessIntent: skrigglesSession.onSkrigglesGuessIntent,
+    onSkrigglesWordChoiceIntent: skrigglesSession.onSkrigglesWordChoiceIntent,
+    onSkrigglesSettingsIntent: skrigglesSession.onSkrigglesSettingsIntent,
+    onSkrigglesStartIntent: skrigglesSession.onSkrigglesStartIntent,
+    onSkrigglesNextRoundIntent: skrigglesSession.onSkrigglesNextRoundIntent,
+    onSkrigglesRoundSecret: skrigglesSession.receiveSkrigglesRoundSecret,
+    onSkrigglesStrokeBatch: skrigglesSession.onSkrigglesStrokeBatch,
+    onSkrigglesCanvasCmd: skrigglesSession.onSkrigglesCanvasCmd,
+    onSkrigglesCanvasSnapshot: skrigglesSession.onSkrigglesCanvasSnapshot,
     onRemoteParticipantDisconnected: (identity) => {
       dropPresenceForRemote(identity);
       const id = identity.trim();
@@ -971,6 +1014,8 @@ export function useServerVoiceSession(deps: {
       }
     },
   });
+
+  skrigglesLkApi = lkRoom;
 
   publishCodenamesActivityLocal = (next: EchoCodenamesActivityV1): void => {
     const tick: CodenamesTick = {
@@ -1546,6 +1591,7 @@ export function useServerVoiceSession(deps: {
         vcHangmanSecretByRound.value = new Map();
         vcHangmanPendingSecretByRound.value = new Map();
       }
+      skrigglesSession.resetSkrigglesIfLeavingPhase(phase);
       if (phase !== 'codenames') {
         vcCodenamesPublic.value = null;
         vcCodenamesLastTick.value = null;
@@ -1583,6 +1629,18 @@ export function useServerVoiceSession(deps: {
     }),
     () => {
       scheduleCodenamesBootstrap();
+    },
+    { flush: 'post' },
+  );
+
+  watch(
+    () => ({
+      conn: liveKitState.value,
+      phase: vcActivityUi.value.phase,
+      rosterSig: skrigglesSession.skrigglesRosterUserIds.value.join(','),
+    }),
+    () => {
+      skrigglesSession.scheduleSkrigglesBootstrap();
     },
     { flush: 'post' },
   );
@@ -1822,6 +1880,8 @@ export function useServerVoiceSession(deps: {
   }
 
   const VC_AUTO_RECONNECT_MAX_ATTEMPTS = 8;
+  /** Throttle client QoS telemetry POSTs (stats UI still polls every 2s). */
+  const VOICE_QOS_REPORT_INTERVAL_MS = 30_000;
 
   watch(
     () => liveKitState.value,
@@ -1860,15 +1920,7 @@ export function useServerVoiceSession(deps: {
           uid,
           workspace.categoriesByServer.value,
         );
-        if (!authoritative) {
-          voiceClientTrace('voice.client:vc_auto_reconnect_no_roster_row', {
-            channelId,
-            serverId: sid,
-          });
-          onLeaveVoiceUi();
-          return;
-        }
-        if (authoritative !== channelId) {
+        if (authoritative && authoritative !== channelId) {
           voiceClientTrace('voice.client:vc_auto_reconnect_authoritative', {
             from: channelId,
             to: authoritative,
@@ -1877,6 +1929,13 @@ export function useServerVoiceSession(deps: {
           currentVoiceChannelName.value =
             resolveReconnectChannelName(authoritative);
           channelId = authoritative;
+        } else if (!authoritative) {
+          // Workspace roster can lag briefly after reconnect, especially on stage channels.
+          // Keep retrying transport instead of force-leaving immediately.
+          voiceClientTrace('voice.client:vc_auto_reconnect_no_roster_row', {
+            channelId,
+            serverId: sid,
+          });
         }
       }
 
@@ -2358,6 +2417,19 @@ export function useServerVoiceSession(deps: {
     commitVcHangmanWord,
     requestVcHangmanGuessLetter,
     requestVcHangmanNextRound,
+    vcSkrigglesActivity: skrigglesSession.vcSkrigglesActivity,
+    skrigglesRosterUserIds: skrigglesSession.skrigglesRosterUserIds,
+    skrigglesCanvasEvents: skrigglesSession.skrigglesCanvasEvents,
+    commitSkrigglesWordChoice: skrigglesSession.commitSkrigglesWordChoice,
+    submitSkrigglesGuess: skrigglesSession.submitSkrigglesGuess,
+    updateSkrigglesSettings: skrigglesSession.updateSkrigglesSettings,
+    startSkrigglesGame: skrigglesSession.startSkrigglesGame,
+    advanceSkrigglesRound: skrigglesSession.advanceSkrigglesRound,
+    publishSkrigglesStrokeBatch: skrigglesSession.publishSkrigglesStrokeBatch,
+    publishSkrigglesCanvasCmd: skrigglesSession.publishSkrigglesCanvasCmd,
+    publishSkrigglesCanvasSnapshot:
+      skrigglesSession.publishSkrigglesCanvasSnapshot,
+    tickSkrigglesTimers: skrigglesSession.tickSkrigglesTimers,
     vcTicTacToeActivity,
     vcTicTacToePendingInvite,
     sendVcTicTacToeChallenge,

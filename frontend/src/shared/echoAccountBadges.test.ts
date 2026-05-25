@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  echoPublicBadgeLabel,
   publicBadgesFromAccount,
   publicBadgesFromEchoPlan,
   publicBadgesFromSignupOrdinal,
 } from '@shared/echoAccountBadges';
+
+describe('echoPublicBadgeLabel', () => {
+  it('spells out tier names on profile pills', () => {
+    expect(echoPublicBadgeLabel('plus')).toBe('Plus');
+    expect(echoPublicBadgeLabel('black')).toBe('Black');
+    expect(echoPublicBadgeLabel('og')).toBe('OG');
+  });
+});
 
 describe('publicBadgesFromEchoPlan', () => {
   it('returns plus for Echo+ subscribers', () => {

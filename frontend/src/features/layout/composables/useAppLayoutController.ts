@@ -490,6 +490,7 @@ export function useAppLayoutController() {
     openVcActivityYoutubeBrowse,
     openVcActivityWordle,
     openVcActivityHangman,
+    openVcActivitySkriggles,
     openVcActivityTicTacToe,
     openVcActivityOpenGuessr,
     openVcActivitySkribblIo,
@@ -499,7 +500,6 @@ export function useAppLayoutController() {
     openVcActivityRichup,
     openVcActivityGooberDash,
     openVcActivitySmashKarts,
-    openVcActivityBasketballStars2026,
     openVcActivityClusterRush,
     setVcActivityYoutubeVideo,
     applyVcYoutubeWatchTogetherRemote,
@@ -866,6 +866,9 @@ export function useAppLayoutController() {
   const openVcActivityHangmanOnVoice = guardVcActivityOpen(
     openVcActivityHangman,
   );
+  const openVcActivitySkrigglesOnVoice = guardVcActivityOpen(
+    openVcActivitySkriggles,
+  );
   const openVcActivityTicTacToeOnVoice = guardVcActivityOpen(
     openVcActivityTicTacToe,
   );
@@ -890,9 +893,6 @@ export function useAppLayoutController() {
   );
   const openVcActivitySmashKartsOnVoice = guardVcActivityOpen(
     openVcActivitySmashKarts,
-  );
-  const openVcActivityBasketballStars2026OnVoice = guardVcActivityOpen(
-    openVcActivityBasketballStars2026,
   );
   const openVcActivityClusterRushOnVoice = guardVcActivityOpen(
     openVcActivityClusterRush,
@@ -1174,12 +1174,24 @@ export function useAppLayoutController() {
     getVcChannelActivityPresenceForChannel,
     vcHangmanActivity,
     hangmanRosterUserIds,
+    vcSkrigglesActivity,
+    skrigglesRosterUserIds,
+    skrigglesCanvasEvents,
     vcCodenamesActivity,
     codenamesRosterUserIds,
     vcCodenamesSpymasterKey,
     commitVcHangmanWord,
     requestVcHangmanGuessLetter,
     requestVcHangmanNextRound,
+    commitSkrigglesWordChoice,
+    submitSkrigglesGuess,
+    updateSkrigglesSettings,
+    startSkrigglesGame,
+    advanceSkrigglesRound,
+    publishSkrigglesStrokeBatch,
+    publishSkrigglesCanvasCmd,
+    publishSkrigglesCanvasSnapshot,
+    tickSkrigglesTimers,
     vcTicTacToeActivity,
     vcTicTacToePendingInvite,
     sendVcTicTacToeChallenge,
@@ -2883,6 +2895,8 @@ export function useAppLayoutController() {
     finishJoinServerConfirmModal,
     requestServerApplicationModal,
     finishServerApplicationModal,
+    echoDmPeerByChannelId,
+    echoDmLastActivityAtMsByChannelId,
   });
   const {
     addServerJoinError,
@@ -3564,12 +3578,24 @@ export function useAppLayoutController() {
     effectiveVcActivityKingUserId,
     vcHangmanActivity,
     hangmanRosterUserIds,
+    vcSkrigglesActivity,
+    skrigglesRosterUserIds,
+    skrigglesCanvasEvents,
     vcCodenamesActivity,
     codenamesRosterUserIds,
     vcCodenamesSpymasterKey,
     commitVcHangmanWord,
     requestVcHangmanGuessLetter,
     requestVcHangmanNextRound,
+    commitSkrigglesWordChoice,
+    submitSkrigglesGuess,
+    updateSkrigglesSettings,
+    startSkrigglesGame,
+    advanceSkrigglesRound,
+    publishSkrigglesStrokeBatch,
+    publishSkrigglesCanvasCmd,
+    publishSkrigglesCanvasSnapshot,
+    tickSkrigglesTimers,
     vcTicTacToeActivity,
     vcTicTacToePendingInvite,
     sendVcTicTacToeChallenge,
@@ -3670,6 +3696,7 @@ export function useAppLayoutController() {
     openVcActivityYoutubeBrowse: openVcActivityYoutubeBrowseOnVoice,
     openVcActivityWordle: openVcActivityWordleOnVoice,
     openVcActivityHangman: openVcActivityHangmanOnVoice,
+    openVcActivitySkriggles: openVcActivitySkrigglesOnVoice,
     openVcActivityTicTacToe: openVcActivityTicTacToeOnVoice,
     openVcActivityOpenGuessr: openVcActivityOpenGuessrOnVoice,
     openVcActivitySkribblIo: openVcActivitySkribblIoOnVoice,
@@ -3679,7 +3706,6 @@ export function useAppLayoutController() {
     openVcActivityRichup: openVcActivityRichupOnVoice,
     openVcActivityGooberDash: openVcActivityGooberDashOnVoice,
     openVcActivitySmashKarts: openVcActivitySmashKartsOnVoice,
-    openVcActivityBasketballStars2026: openVcActivityBasketballStars2026OnVoice,
     openVcActivityClusterRush: openVcActivityClusterRushOnVoice,
     setVcActivityYoutubeVideo,
     setVcYoutubeBrowseOpen,

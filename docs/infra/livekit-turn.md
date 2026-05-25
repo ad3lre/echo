@@ -13,7 +13,8 @@ LiveKit does not expand environment variables inside YAML; if you change the cot
 ## Firewall / ports
 
 - **3478** UDP (and TCP for some clients) — TURN signaling.
-- **57000–57100** UDP — WebRTC media (LiveKit `rtc.port_range_*`), published on the `livekit` service in Compose. (Echo avoids **50000–50100** by default because Windows Hyper-V / excluded UDP ranges often overlap that band and Docker cannot bind.)
+- **57000–57100** UDP — WebRTC media in **local Compose** (LiveKit `rtc.port_range_*`). (Echo avoids **50000–50100** by default because Windows Hyper-V / excluded UDP ranges often overlap that band and Docker cannot bind.)
+- **57000–60000** UDP — **production** SFU range in [`livekit.production.example.yaml`](../../infra/livekit/livekit.production.example.yaml); open the full range on VPS/cloud firewalls.
 
 On a VPS or cloud host, open these in the security group / firewall. Docker Desktop on Windows maps published ports to localhost.
 

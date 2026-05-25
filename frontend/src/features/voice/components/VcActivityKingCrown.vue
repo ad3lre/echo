@@ -13,6 +13,7 @@ defineProps<{
     viewBox="0 0 24 24"
     role="img"
     aria-label="Voice activity host"
+    title="Voice activity host"
     focusable="false"
   >
     <path :d="iconCrownSvgPath" fill="currentColor" />

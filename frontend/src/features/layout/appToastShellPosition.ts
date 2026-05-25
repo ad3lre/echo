@@ -1,10 +1,16 @@
 /** Minimum breathing room between the toast shell and the layout viewport bottom. */
-export const APP_TOAST_VIEWPORT_FLOOR = '1.25rem';
+export const APP_TOAST_VIEWPORT_FLOOR = '1rem';
 
 export const APP_TOAST_SAFE_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
 
+/** Minimum distance from the layout viewport bottom when not clearing chrome. */
+export const APP_TOAST_VIEWPORT_BOTTOM_MIN = '1.25rem';
+
+/** Top breathing room for the toast viewport (safe-area is layered via max()). */
+export const APP_TOAST_TOP_RESERVE = '0.5rem';
+
 /** Gap between the measured chat bottom stack and the toast shell. */
-export const APP_TOAST_CHROME_GAP_PX = 12;
+export const APP_TOAST_CHROME_GAP_PX = 10;
 
 export type AppToastBottomInsetOptions = {
   elevated: boolean;
@@ -17,7 +23,7 @@ export function appToastBottomInsetCss(
   const safe = APP_TOAST_SAFE_BOTTOM;
   const floor = APP_TOAST_VIEWPORT_FLOOR;
   if (!options.elevated) {
-    return `max(1.5rem, calc(${safe} + ${floor}))`;
+    return `max(${APP_TOAST_VIEWPORT_BOTTOM_MIN}, calc(${safe} + ${floor}))`;
   }
   const measured = options.measuredChromeInsetPx;
   if (measured > 0) {
@@ -78,8 +84,8 @@ export function buildAppToastShellPositionStyle(
       : input.bottomInsetCss;
   const topReserve =
     input.visualViewportOffsetTopPx > 0
-      ? `max(0.75rem, env(safe-area-inset-top, 0px), ${input.visualViewportOffsetTopPx}px)`
-      : `max(0.75rem, env(safe-area-inset-top, 0px))`;
+      ? `max(${APP_TOAST_TOP_RESERVE}, env(safe-area-inset-top, 0px), ${input.visualViewportOffsetTopPx}px)`
+      : `max(${APP_TOAST_TOP_RESERVE}, env(safe-area-inset-top, 0px))`;
   const maxHeight = `max(0px, calc(min(100dvh, 100vh) - (${bottom}) - (${topReserve})))`;
   return { top: topReserve, bottom, maxHeight };
 }

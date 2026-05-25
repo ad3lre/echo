@@ -39,6 +39,14 @@ const svRef = ref<HTMLElement | null>(null);
 const hueRef = ref<HTMLElement | null>(null);
 let dragTarget: 'sv' | 'hue' | null = null;
 
+const clearLabel = computed(() => {
+  if (props.kind === 'text') return 'Use default text color';
+  if (props.kind === 'highlight') return 'Remove highlight';
+  if (props.kind === 'pageLight') return 'Use default light page color';
+  if (props.kind === 'pageDark') return 'Use default dark page color';
+  return 'Reset';
+});
+
 const previewHex = computed(() =>
   hsvToHex(pickerH.value, pickerS.value, pickerV.value).toLowerCase(),
 );
@@ -283,7 +291,7 @@ onUnmounted(() => {
         emit('close');
       "
     >
-      {{ kind === 'text' ? 'Use default text color' : 'Remove highlight' }}
+      {{ clearLabel }}
     </button>
   </div>
 </template>

@@ -140,3 +140,60 @@ export function bestMoveForAi(
   }
   return bestI;
 }
+
+export type TttCpuDifficulty = 'easy' | 'medium' | 'hard';
+
+export const TTT_CPU_DIFFICULTIES: readonly TttCpuDifficulty[] = [
+  'easy',
+  'medium',
+  'hard',
+];
+
+export function pickRandomCpuDifficulty(
+  rng: () => number = Math.random,
+): TttCpuDifficulty {
+  const i = Math.floor(rng() * TTT_CPU_DIFFICULTIES.length);
+  return TTT_CPU_DIFFICULTIES[i] ?? 'medium';
+}
+
+export function cpuDifficultyLabel(d: TttCpuDifficulty): string {
+  switch (d) {
+    case 'easy':
+      return 'casual';
+    case 'medium':
+      return 'tricky';
+    case 'hard':
+      return 'sharp';
+  }
+}
+
+export function legalMoveIndices(board: TttBoard): number[] {
+  const moves: number[] = [];
+  for (let i = 0; i < 9; i++) {
+    if (board[i] === '') moves.push(i);
+  }
+  return moves;
+}
+
+/** CPU move for the given per-game difficulty tier. */
+export function moveForAi(
+  board: TttBoard,
+  aiMark: 'X' | 'O',
+  difficulty: TttCpuDifficulty,
+  rng: () => number = Math.random,
+): number | null {
+  const legal = legalMoveIndices(board);
+  if (legal.length === 0) return null;
+
+  if (difficulty === 'hard') return bestMoveForAi(board, aiMark);
+
+  if (difficulty === 'easy') {
+    return legal[Math.floor(rng() * legal.length)] ?? null;
+  }
+
+  const optimal = bestMoveForAi(board, aiMark);
+  if (rng() < 0.65 && optimal != null) return optimal;
+  const suboptimal = legal.filter((i) => i !== optimal);
+  const pool = suboptimal.length > 0 ? suboptimal : legal;
+  return pool[Math.floor(rng() * pool.length)] ?? null;
+}

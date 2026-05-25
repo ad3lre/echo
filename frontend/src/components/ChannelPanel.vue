@@ -787,7 +787,10 @@ function channelMenuChannelSettings() {
 function channelMenuInvite() {
   const c = panelContext.value;
   closeMenu();
-  if (c?.type === 'channel' && c.channel.type === 'voice') {
+  if (
+    c?.type === 'channel' &&
+    (c.channel.type === 'voice' || c.channel.type === 'stage')
+  ) {
     toastPanelMenuAction(
       `Opening invite for “${getChannelDisplayName(c.channel.name)}”.`,
     );

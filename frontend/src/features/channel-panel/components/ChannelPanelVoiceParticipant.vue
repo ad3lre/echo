@@ -5,6 +5,11 @@ import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import ServerOwnerCrownIcon from '@/components/ServerOwnerCrownIcon.vue';
 import VcActivityKingCrown from '@/features/voice/components/VcActivityKingCrown.vue';
 import VcActivityPresenceBadges from '@/features/voice/components/VcActivityPresenceBadges.vue';
+import {
+  VOICE_CAMERA_ON_HOVER_TITLE,
+  VOICE_STREAMING_HOVER_TITLE,
+  voiceMuteDeafenHoverTitle,
+} from '@/features/voice/voiceIndicatorHints';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
 
 defineProps<{
@@ -50,7 +55,7 @@ const emit = defineEmits<{
       :style="
         vc.speaking
           ? ({
-              '--speak-strength': Math.min(1, (vc.audioLevel ?? 0) * 3 + 0.4),
+              '--speak-strength': Math.min(1, (vc.audioLevel ?? 0) * 3 + 0.5),
             } as any)
           : undefined
       "
@@ -65,6 +70,12 @@ const emit = defineEmits<{
         v-if="vc.deafened"
         class="vc-avatar-badge"
         :class="{ 'vc-avatar-badge--server': vc.serverDeafened }"
+        :title="
+          voiceMuteDeafenHoverTitle({
+            deafened: vc.deafened,
+            serverDeafened: vc.serverDeafened,
+          })
+        "
       >
         <div class="vc-avatar-badge-bg" />
         <img
@@ -88,10 +99,15 @@ const emit = defineEmits<{
       <span
         v-if="vc.streaming"
         class="vc-indicator-badge vc-indicator-badge--stream"
+        :title="VOICE_STREAMING_HOVER_TITLE"
       >
         <img :src="icons.stream" alt="" class="vc-indicator-icon" />
       </span>
-      <span v-if="vc.video" class="vc-indicator-pill">
+      <span
+        v-if="vc.video"
+        class="vc-indicator-pill"
+        :title="VOICE_CAMERA_ON_HOVER_TITLE"
+      >
         <img :src="icons.cameraOn" alt="" class="vc-indicator-icon" />
       </span>
       <VcActivityPresenceBadges
@@ -138,7 +154,16 @@ const emit = defineEmits<{
         <img :src="icons.mic" alt="" class="vc-indicator-icon" />
         <span class="vc-indicator-strike" aria-hidden="true" />
       </span>
-      <span v-else-if="vc.muted" class="vc-indicator-icon-wrap">
+      <span
+        v-else-if="vc.muted"
+        class="vc-indicator-icon-wrap"
+        :title="
+          voiceMuteDeafenHoverTitle({
+            muted: vc.muted,
+            serverMuted: vc.serverMuted,
+          })
+        "
+      >
         <img :src="icons.mic" alt="" class="vc-indicator-icon" />
         <span class="vc-indicator-strike" aria-hidden="true" />
       </span>

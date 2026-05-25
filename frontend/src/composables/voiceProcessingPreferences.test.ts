@@ -82,6 +82,23 @@ describe('voiceProcessingPreferences', () => {
     expect(o.echoCancellation).toBe(true);
   });
 
+  it('persists disabled browser DSP toggles', () => {
+    saveVoiceProcessingPreferences({
+      v: 2,
+      mode: 'browser',
+      browser: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        automaticGainControl: false,
+      },
+      krisp: DEFAULT_VOICE_PROCESSING.krisp,
+    });
+    const loaded = loadVoiceProcessingPreferences();
+    expect(loaded.browser.echoCancellation).toBe(false);
+    expect(loaded.browser.noiseSuppression).toBe(false);
+    expect(loaded.browser.automaticGainControl).toBe(false);
+  });
+
   it('round-trips localStorage', () => {
     saveVoiceProcessingPreferences({
       v: 2,

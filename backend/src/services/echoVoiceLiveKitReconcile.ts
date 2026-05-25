@@ -11,6 +11,7 @@ import {
   listLiveKitParticipants,
   listLiveKitRooms,
 } from './livekit/livekitAdapter';
+import { echoVoiceReconcileDeletedTotal } from '../observability/echoMetrics';
 import { vcTrace } from '../observability/voiceTraceLog';
 
 /**
@@ -244,6 +245,9 @@ export async function reconcileEchoVoiceParticipantsAgainstLiveKit(opts: {
       deletedRows: deleted.length,
       affectedServers: new Set(deleted.map((d) => d.serverId)).size,
     });
+    if (deleted.length > 0) {
+      echoVoiceReconcileDeletedTotal.labels(reason).inc(deleted.length);
+    }
     return {
       deletedRows: deleted.length,
       affectedServers: new Set(deleted.map((d) => d.serverId)).size,
@@ -319,6 +323,10 @@ export async function reconcileEchoVoiceParticipantsAgainstLiveKit(opts: {
     affectedServers,
     checkedGroups: groups.length,
   });
+
+  if (deleted.length > 0) {
+    echoVoiceReconcileDeletedTotal.labels(reason).inc(deleted.length);
+  }
 
   return {
     deletedRows: deleted.length,
@@ -455,6 +463,10 @@ export async function reconcileEchoVoiceParticipantsForUserAgainstLiveKit(opts: 
     affectedServers,
     checkedGroups: pairs.length,
   });
+
+  if (deleted.length > 0) {
+    echoVoiceReconcileDeletedTotal.labels(reason).inc(deleted.length);
+  }
 
   return {
     deletedRows: deleted.length,

@@ -39,7 +39,7 @@ export function findEchoVoiceChannelIdContainingUserOnServer(
   if (!cats?.length) return null;
   for (const cat of cats) {
     for (const ch of cat.channels ?? []) {
-      if (ch.type !== 'voice') continue;
+      if (ch.type !== 'voice' && ch.type !== 'stage') continue;
       const ids =
         (ch as { voiceParticipantIds?: string[] }).voiceParticipantIds ?? [];
       if (ids.includes(uid)) return ch.id;

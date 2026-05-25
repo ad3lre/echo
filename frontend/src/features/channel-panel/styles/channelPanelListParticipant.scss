@@ -182,37 +182,40 @@
 }
 
 .vc-speaking-ring {
-  --speak-strength: 0.4;
-  --vc-speak-ring: mediumspringgreen;
+  --speak-strength: 0.5;
+  --vc-speak-ring: #3ba55d;
+  --vc-speak-glow: rgba(59, 165, 93, 0.55);
+  /* 3px inset ring on 24px avatars — matches call/stage stroke, scaled for compact rows */
   box-shadow:
-    inset 0 0 0 2px
+    inset 0 0 0 3px
       color-mix(
         in srgb,
-        var(--vc-speak-ring) calc(var(--speak-strength) * 100%),
+        var(--vc-speak-ring) calc(max(var(--speak-strength), 0.55) * 100%),
         transparent
       ),
-    inset 0 0 calc(4px + var(--speak-strength) * 4px)
+    inset 0 0 calc(5px + var(--speak-strength) * 5px)
       color-mix(
         in srgb,
-        var(--vc-speak-ring) calc(var(--speak-strength) * 45%),
+        var(--vc-speak-glow) calc(var(--speak-strength) * 60%),
         transparent
       );
   transition: box-shadow 0.1s ease-out;
 }
 
 [data-theme='light'] .vc-speaking-ring {
-  --vc-speak-ring: rgb(4 130 92);
+  --vc-speak-ring: #248045;
+  --vc-speak-glow: rgba(36, 128, 69, 0.45);
   box-shadow:
-    inset 0 0 0 2px
+    inset 0 0 0 3px
       color-mix(
         in srgb,
-        var(--vc-speak-ring) calc(var(--speak-strength) * 100%),
+        var(--vc-speak-ring) calc(max(var(--speak-strength), 0.55) * 100%),
         transparent
       ),
-    inset 0 0 calc(5px + var(--speak-strength) * 5px)
+    inset 0 0 calc(6px + var(--speak-strength) * 6px)
       color-mix(
         in srgb,
-        var(--vc-speak-ring) calc(var(--speak-strength) * 50%),
+        var(--vc-speak-glow) calc(var(--speak-strength) * 65%),
         transparent
       );
 }

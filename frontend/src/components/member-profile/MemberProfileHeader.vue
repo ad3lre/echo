@@ -79,6 +79,8 @@ defineEmits<{
         <div
           v-if="profile.isDiscordShadow"
           class="flex w-fit items-center gap-1 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-indigo-400 ring-1 ring-indigo-500/25"
+          title="Discord profile (not on Echo)"
+          aria-label="Discord profile (not on Echo)"
         >
           <img :src="icons.explore" alt="" class="h-2.5 w-2.5 filter invert" />
           Discord

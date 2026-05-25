@@ -293,12 +293,39 @@ export type AppLayoutChatSurfaceProps = {
   openVcActivityYoutubeBrowse: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
+  openVcActivitySkriggles: () => void;
   openVcActivityTicTacToe: () => void;
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  vcSkrigglesActivity: ComputedRef<
+    import('@/audio/voiceEchoLiveKitData').EchoSkrigglesActivityV1 | null
+  >;
+  skrigglesRosterUserIds: ComputedRef<string[]>;
+  skrigglesCanvasEvents: ShallowRef<
+    import('@/features/voice/skriggles/skrigglesVoiceSession').SkrigglesCanvasEvent[]
+  >;
+  commitSkrigglesWordChoice: (word: string) => void;
+  submitSkrigglesGuess: (guess: string) => void;
+  updateSkrigglesSettings: (
+    settings: Partial<
+      import('@/audio/voiceEchoLiveKitData').EchoSkrigglesSettingsV1
+    >,
+  ) => void;
+  startSkrigglesGame: () => void;
+  advanceSkrigglesRound: () => void;
+  publishSkrigglesStrokeBatch: (
+    batch: import('@/audio/voiceEchoLiveKitData').EchoSkrigglesStrokeBatchV1,
+  ) => void;
+  publishSkrigglesCanvasCmd: (
+    cmd: import('@/audio/voiceEchoLiveKitData').EchoSkrigglesCanvasCmdV1,
+  ) => void;
+  publishSkrigglesCanvasSnapshot: (
+    snapshot: import('@/audio/voiceEchoLiveKitData').EchoSkrigglesCanvasSnapshotV1,
+  ) => void;
+  tickSkrigglesTimers: () => void;
   vcTicTacToeActivity: ComputedRef<EchoTicTacToeActivityV1 | null>;
   vcTicTacToePendingInvite: ComputedRef<EchoTicTacToeInviteV1 | null>;
   sendVcTicTacToeChallenge: (toUserId: string) => void;
@@ -326,7 +353,6 @@ export type AppLayoutChatSurfaceProps = {
   openVcActivityRichup: () => void;
   openVcActivityGooberDash: () => void;
   openVcActivitySmashKarts: () => void;
-  openVcActivityBasketballStars2026: () => void;
   openVcActivityClusterRush: () => void;
   setVcActivityYoutubeVideo: (
     videoId: string,
@@ -611,12 +637,25 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'openVcActivityYoutubeBrowse',
   'openVcActivityWordle',
   'openVcActivityHangman',
+  'openVcActivitySkriggles',
   'openVcActivityTicTacToe',
   'vcHangmanActivity',
   'hangmanRosterUserIds',
   'commitVcHangmanWord',
   'requestVcHangmanGuessLetter',
   'requestVcHangmanNextRound',
+  'vcSkrigglesActivity',
+  'skrigglesRosterUserIds',
+  'skrigglesCanvasEvents',
+  'commitSkrigglesWordChoice',
+  'submitSkrigglesGuess',
+  'updateSkrigglesSettings',
+  'startSkrigglesGame',
+  'advanceSkrigglesRound',
+  'publishSkrigglesStrokeBatch',
+  'publishSkrigglesCanvasCmd',
+  'publishSkrigglesCanvasSnapshot',
+  'tickSkrigglesTimers',
   'vcTicTacToeActivity',
   'vcTicTacToePendingInvite',
   'sendVcTicTacToeChallenge',
@@ -642,7 +681,6 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'openVcActivityRichup',
   'openVcActivityGooberDash',
   'openVcActivitySmashKarts',
-  'openVcActivityBasketballStars2026',
   'openVcActivityClusterRush',
   'setVcActivityYoutubeVideo',
   'setVcYoutubeBrowseOpen',

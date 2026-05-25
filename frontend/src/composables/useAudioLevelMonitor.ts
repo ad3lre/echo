@@ -1,5 +1,11 @@
 import { ref, readonly, onUnmounted } from 'vue';
 import {
+  indicatorReleaseRmsFromOn,
+  indicatorRmsFromGatePercent,
+  SPEAKING_INDICATOR_RMS_FLOOR,
+  SPEAKING_INDICATOR_SILENCE_HOLD_MS,
+} from '@/composables/voiceGate';
+import {
   isVoiceClientVerbose,
   voiceClientDiag,
 } from '@/observability/voiceClientTrace';
@@ -13,8 +19,10 @@ export interface AudioLevelState {
   speaking: boolean;
 }
 
-const DEFAULT_SPEAKING_THRESHOLD = 0.015;
-const SILENCE_HOLD_MS = 250;
+/** Default matches ~24% gate slider via {@link indicatorRmsFromGatePercent}. */
+const DEFAULT_SPEAKING_THRESHOLD = indicatorRmsFromGatePercent(24);
+/** Scale quiet speech into a visible ring strength (lower divisor = more sensitive UI). */
+const LEVEL_NORMALIZE_RMS = 0.18;
 
 /**
  * Monitors audio levels from a MediaStream via a Web Audio AnalyserNode.
@@ -34,6 +42,9 @@ export function useAudioLevelMonitor() {
   let silenceTimer: ReturnType<typeof setTimeout> | null = null;
   let dataArray: Float32Array<ArrayBuffer> | null = null;
   let speakingThreshold = DEFAULT_SPEAKING_THRESHOLD;
+  let speakingReleaseThreshold = indicatorReleaseRmsFromOn(
+    DEFAULT_SPEAKING_THRESHOLD,
+  );
 
   function computeRms(buf: Float32Array<ArrayBuffer>): number {
     let sum = 0;
@@ -64,20 +75,31 @@ export function useAudioLevelMonitor() {
     const rms = computeRms(dataArray);
     const db = rms > 1e-7 ? 20 * Math.log10(rms) : -100;
 
-    level.value = Math.min(1, rms / 0.3);
+    level.value = Math.min(1, rms / LEVEL_NORMALIZE_RMS);
     dbfs.value = Math.max(-100, Math.min(0, db));
 
-    if (rms > speakingThreshold) {
+    if (rms >= speakingThreshold) {
       if (silenceTimer) {
         clearTimeout(silenceTimer);
         silenceTimer = null;
       }
       speaking.value = true;
-    } else if (speaking.value && !silenceTimer) {
+    } else if (
+      speaking.value &&
+      rms < speakingReleaseThreshold &&
+      !silenceTimer
+    ) {
       silenceTimer = setTimeout(() => {
         speaking.value = false;
         silenceTimer = null;
-      }, SILENCE_HOLD_MS);
+      }, SPEAKING_INDICATOR_SILENCE_HOLD_MS);
+    } else if (
+      speaking.value &&
+      rms >= speakingReleaseThreshold &&
+      silenceTimer
+    ) {
+      clearTimeout(silenceTimer);
+      silenceTimer = null;
     }
 
     rafId = requestAnimationFrame(tick);
@@ -148,8 +170,12 @@ export function useAudioLevelMonitor() {
   }
 
   function setSpeakingThreshold(next: number) {
-    // RMS threshold in normalized domain (0..1).
-    speakingThreshold = Math.max(0, Math.min(1, next));
+    // RMS threshold in normalized domain (0..1) for the UI speaking ring.
+    speakingThreshold = Math.max(
+      SPEAKING_INDICATOR_RMS_FLOOR,
+      Math.min(1, next),
+    );
+    speakingReleaseThreshold = indicatorReleaseRmsFromOn(speakingThreshold);
   }
 
   onUnmounted(stop);

@@ -37,7 +37,12 @@ const display = computed(() => {
     };
   }
   if (count < 1) return null;
-  return { kind: 'count' as const, count };
+  const n = count === 1 ? '1 user' : `${count} users`;
+  return {
+    kind: 'count' as const,
+    count,
+    title: `${n} in voice`,
+  };
 });
 </script>
 
@@ -51,6 +56,7 @@ const display = computed(() => {
   <span
     v-else-if="display?.kind === 'count'"
     class="text-[11px] text-emerald-400 tabular-nums"
+    :title="display.title"
   >
     {{ display.count }}
   </span>

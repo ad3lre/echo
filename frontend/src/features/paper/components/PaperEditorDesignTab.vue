@@ -93,6 +93,7 @@ function applyPreset(light: string, dark: string) {
         :palette="pagePalette"
         :color="pageLight"
         @pick="context.onPageColorLight"
+        @clear="context.onPageColorLight(null)"
       />
     </section>
 
@@ -104,6 +105,7 @@ function applyPreset(light: string, dark: string) {
         :palette="pagePalette"
         :color="pageDark"
         @pick="context.onPageColorDark"
+        @clear="context.onPageColorDark(null)"
       />
     </section>
   </div>

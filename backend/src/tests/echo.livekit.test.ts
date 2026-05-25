@@ -16,6 +16,8 @@ import {
   mintJoinToken,
   pfpForLiveKitParticipantMetadata,
 } from '../services/livekit/livekitAdapter';
+import { normalizeVoiceQosSample } from '../../../shared/voiceQosSample';
+import { config } from '../config';
 
 function decodeJwtPayloadJson(jwt: string): Record<string, unknown> {
   const part = jwt.split('.')[1];
@@ -131,6 +133,27 @@ async function run(): Promise<void> {
   );
   assert.equal(pfpForLiveKitParticipantMetadata('not-a-url'), undefined);
 
+  const qosOk = normalizeVoiceQosSample({
+    latencyMs: 42,
+    jitterMs: 3,
+    packetLossPct: 0.5,
+  });
+  assert.deepEqual(qosOk, {
+    latencyMs: 42,
+    jitterMs: 3,
+    packetLossPct: 0.5,
+  });
+  assert.equal(normalizeVoiceQosSample({ latencyMs: 'x' }), null);
+  const qosClamped = normalizeVoiceQosSample({
+    latencyMs: 99_999,
+    jitterMs: -1,
+    packetLossPct: 200,
+  });
+  assert.ok(qosClamped);
+  assert.equal(qosClamped!.latencyMs, 10_000);
+  assert.equal(qosClamped!.jitterMs, 0);
+  assert.equal(qosClamped!.packetLossPct, 100);
+
   // Token minting (requires LIVEKIT_API_KEY + LIVEKIT_API_SECRET env)
   if (process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET) {
     const token = await mintJoinToken({
@@ -170,6 +193,15 @@ async function run(): Promise<void> {
     assert.ok(
       jwtSourcesIncludeMicrophone(tokenNoVideo),
       'canPublishVideo:false still allows microphone when not blocked',
+    );
+
+    const payload = decodeJwtPayloadJson(token);
+    const exp = typeof payload.exp === 'number' ? payload.exp : 0;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const ttl = config.liveKitJoinTokenTtlSec;
+    assert.ok(
+      exp > nowSec + ttl - 30 && exp <= nowSec + ttl + 30,
+      `JWT exp should be ~now+${ttl}s (got exp=${exp}, now=${nowSec})`,
     );
     console.log('  mint token: OK');
   } else {

@@ -127,6 +127,42 @@ export const echoLivekitWebhookEventTotal = new Counter({
   registers: [registry],
 });
 
+/** Rows removed when DB roster disagrees with LiveKit (stale webhook / crash). */
+export const echoVoiceReconcileDeletedTotal = new Counter({
+  name: 'echo_voice_reconcile_deleted_total',
+  help: 'echo_voice_participants rows deleted by LiveKit reconcile',
+  labelNames: ['reason'],
+  registers: [registry],
+});
+
+/** Browser RTC stats samples (RTT/jitter/loss); not one-way mouth-to-ear latency. */
+export const echoVoiceClientQosLatencyMs = new Histogram({
+  name: 'echo_voice_client_qos_latency_ms',
+  help: 'Client-reported WebRTC RTT estimate while in voice (milliseconds)',
+  buckets: [20, 50, 80, 100, 150, 200, 300, 500, 1000, 2000, 5000],
+  registers: [registry],
+});
+
+export const echoVoiceClientQosJitterMs = new Histogram({
+  name: 'echo_voice_client_qos_jitter_ms',
+  help: 'Client-reported inbound jitter while in voice (milliseconds)',
+  buckets: [1, 5, 10, 20, 30, 50, 80, 120, 200, 500],
+  registers: [registry],
+});
+
+export const echoVoiceClientQosPacketLossPct = new Histogram({
+  name: 'echo_voice_client_qos_packet_loss_pct',
+  help: 'Client-reported packet loss percentage while in voice',
+  buckets: [0, 0.5, 1, 2, 5, 10, 20, 50, 100],
+  registers: [registry],
+});
+
+export const echoVoiceClientQosSamplesTotal = new Counter({
+  name: 'echo_voice_client_qos_samples_total',
+  help: 'Accepted client VC QoS sample POSTs',
+  registers: [registry],
+});
+
 /** E2EE device pairing REST outcomes (bounded `result` labels). */
 export const echoE2eePairingTotal = new Counter({
   name: 'echo_e2ee_pairing_total',

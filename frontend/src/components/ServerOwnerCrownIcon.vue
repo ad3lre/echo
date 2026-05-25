@@ -14,6 +14,7 @@ defineProps<{
     viewBox="0 0 24 24"
     role="img"
     aria-label="Server owner"
+    title="Server owner"
     focusable="false"
   >
     <path :d="iconCrownSvgPath" fill="currentColor" />

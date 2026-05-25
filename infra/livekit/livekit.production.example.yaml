@@ -27,6 +27,9 @@ rtc:
   #     credential: "${RENDERED_FROM_SECRETS}"
 
 room:
+  # Seconds: keep room open with no joiners / after last participant leaves.
+  empty_timeout: 300
+  departure_timeout: 30
   enabled_codecs:
     - mime: audio/opus
     - mime: video/vp8

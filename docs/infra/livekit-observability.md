@@ -6,10 +6,15 @@ Echo exposes **Prometheus** metrics via `**GET /api/v1/metrics`\*\* (optional be
 
 ## Counters to watch
 
-| Metric                                 | Labels             | Use                                                                                                                                                                                 |
-| -------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `**echo_voice_moderate_total**`        | `action`, `result` | Volume and failure modes for `**POST …/voice/moderate**` (`result`: `ok`, `forbidden`, `not_found`, `invalid_body`, `invalid_action`, etc.).                                        |
-| `**echo_livekit_webhook_event_total**` | `event`            | Webhook branches: `participant_joined`, `participant_left`, `track_published`, `track_unpublished`, `active_speakers_changed`, `track_ignored`, `room_unparseable`, `no_handler`, … |
+| Metric                                      | Labels             | Use                                                                                                                                                                                 |
+| ------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `**echo_voice_moderate_total**`             | `action`, `result` | Volume and failure modes for `**POST …/voice/moderate**` (`result`: `ok`, `forbidden`, `not_found`, `invalid_body`, `invalid_action`, etc.).                                        |
+| `**echo_livekit_webhook_event_total**`      | `event`            | Webhook branches: `participant_joined`, `participant_left`, `track_published`, `track_unpublished`, `active_speakers_changed`, `track_ignored`, `room_unparseable`, `no_handler`, … |
+| `**echo_voice_reconcile_deleted_total**`    | `reason`           | Rows removed when DB roster disagrees with LiveKit (`boot`, `periodic`, `socket_follow_up`, …).                                                                                     |
+| `**echo_voice_client_qos_latency_ms**`      | (histogram)        | Browser RTC RTT samples (POST …/voice/qos-sample, ~30s throttle per client).                                                                                                        |
+| `**echo_voice_client_qos_jitter_ms**`       | (histogram)        | Inbound jitter (ms) from client samples.                                                                                                                                            |
+| `**echo_voice_client_qos_packet_loss_pct**` | (histogram)        | Packet loss % from client samples.                                                                                                                                                  |
+| `**echo_voice_client_qos_samples_total**`   | —                  | Accepted QoS sample POST count.                                                                                                                                                     |
 
 Low-cardinality labels only — do not add raw room names or user ids.
 

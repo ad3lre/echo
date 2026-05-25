@@ -2,14 +2,15 @@ import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
-export type StageMode = 'youtube_live';
+export type StageMode = 'youtube_live' | 'voice_only';
 
-/** Optional tag in event description: `[stage:youtube_live]` */
+/** Optional tags in event description: `[stage:youtube_live]` or `[stage:voice_only]`. */
 export function parseStageModeFromDescription(
   description: string,
 ): StageMode | null {
   const m = description.match(/\[stage:([a-z_]+)\]/i);
   if (m?.[1] === 'youtube_live') return 'youtube_live';
+  if (m?.[1] === 'voice_only' || m?.[1] === 'vc_only') return 'voice_only';
   /** Legacy VC watch-together tag — treat as YouTube live for stage events. */
   if (/\[activity:youtube\]/i.test(description)) return 'youtube_live';
   return null;
@@ -17,20 +18,25 @@ export function parseStageModeFromDescription(
 
 export function formatStageModeLabel(mode: StageMode): string {
   if (mode === 'youtube_live') return 'YouTube live';
+  if (mode === 'voice_only') return 'Voice only';
   return '';
 }
 
-/** Append or strip `[stage:youtube_live]` in event description. */
+/** Append or strip stage mode tags in event description. */
 export function withStageModeInDescription(
   description: string,
-  youtubeLive: boolean,
+  mode: StageMode | boolean | null,
 ): string {
   let d = description
     .replace(/\[stage:[^\]]+\]/gi, '')
     .replace(/\[activity:youtube\]/gi, '')
     .trim();
-  if (youtubeLive) {
+  const resolvedMode =
+    mode === true ? 'youtube_live' : mode === false ? null : mode;
+  if (resolvedMode === 'youtube_live') {
     d = d ? `${d}\n\n[stage:youtube_live]` : '[stage:youtube_live]';
+  } else if (resolvedMode === 'voice_only') {
+    d = d ? `${d}\n\n[stage:voice_only]` : '[stage:voice_only]';
   }
   return d;
 }

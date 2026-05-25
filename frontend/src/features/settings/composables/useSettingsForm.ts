@@ -1,7 +1,8 @@
 import { reactive } from 'vue';
-import type {
-  VoiceKrispProcessingToggles,
-  VoiceProcessingMode,
+import {
+  loadVoiceProcessingPreferences,
+  type VoiceKrispProcessingToggles,
+  type VoiceProcessingMode,
 } from '@/composables/voiceProcessingPreferences';
 import type { VideoQualityPreset } from '@/composables/useLiveKitVoiceRoom';
 import {
@@ -11,6 +12,7 @@ import {
 
 export function useSettingsForm() {
   const timeLanguagePrefs = loadTimeLanguagePreferences();
+  const voiceProcessingPrefs = loadVoiceProcessingPreferences();
   return reactive({
     displayName: '',
     username: '',
@@ -61,15 +63,16 @@ export function useSettingsForm() {
       dyslexiaFriendlyFont: false,
     },
     /** Krisp | browser DSP toggles (default) | native minimal request */
-    voiceProcessingMode: 'browser' as VoiceProcessingMode,
+    voiceProcessingMode: voiceProcessingPrefs.mode as VoiceProcessingMode,
     voiceSettings: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      automaticGainControl: true,
+      echoCancellation: voiceProcessingPrefs.browser.echoCancellation,
+      noiseSuppression: voiceProcessingPrefs.browser.noiseSuppression,
+      automaticGainControl: voiceProcessingPrefs.browser.automaticGainControl,
     },
     voiceKrispSettings: {
-      useBVC: false,
-      quality: 'medium' as VoiceKrispProcessingToggles['quality'],
+      useBVC: voiceProcessingPrefs.krisp.useBVC,
+      quality: voiceProcessingPrefs.krisp
+        .quality as VoiceKrispProcessingToggles['quality'],
     },
     /** Outgoing VC camera encode / capture preset (Voice & Video settings). */
     videoQuality: '720p' as VideoQualityPreset,

@@ -36,6 +36,7 @@ import type {
 import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRoom';
 import StreamVideoTile from '@/components/StreamVideoTile.vue';
 import QuarterCallMediaBadges from '@/features/layout/components/QuarterCallMediaBadges.vue';
+import { quarterCallMediaBadgesTitle } from '@/features/voice/voiceIndicatorHints';
 import {
   COMPOSER_INSERT_USER_MENTION_KEY,
   type InsertUserMentionFn,
@@ -569,6 +570,19 @@ const quarterPeerMediaBadges = computed(() =>
 
 const quarterSelfMediaBadges = computed(() =>
   quarterMediaBadgesForUser(null, true),
+);
+
+function quarterAvatarMediaTitle(
+  userId: string | null | undefined,
+  isLocalSelf: boolean,
+): string | undefined {
+  return quarterCallMediaBadgesTitle(
+    quarterMediaBadgesForUser(userId, isLocalSelf),
+  );
+}
+
+const quarterGlanceMediaTitle = computed(() =>
+  quarterCallMediaBadgesTitle(quarterGlanceMediaBadges.value),
 );
 
 function isDmCallParticipantSpeaking(
@@ -1798,6 +1812,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         <div
           v-if="dmCallQuarterGlance"
           class="dm-call-quarter-glance relative h-16 w-28 max-w-full shrink-0 overflow-hidden rounded-xl border border-border"
+          :title="quarterGlanceMediaTitle"
           @contextmenu="onQuarterGlanceContextMenu"
         >
           <StreamVideoTile
@@ -1836,6 +1851,12 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             v-for="member in activeGroupCallMembers"
             :key="member.id"
             class="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-border"
+            :title="
+              quarterAvatarMediaTitle(
+                member.id,
+                member.id === (currentUser?.id ?? ''),
+              )
+            "
             :class="{
               'ring-emerald-500/70 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]':
                 isActiveGroupMemberSpeaking(member.id),
@@ -1877,6 +1898,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         <div
           v-if="quarterGlanceReplacesPeer && dmCallQuarterGlance"
           class="dm-call-quarter-glance relative h-14 w-24 min-h-[3.5rem] shrink-0 overflow-hidden rounded-xl border border-border"
+          :title="quarterGlanceMediaTitle"
           @contextmenu="onQuarterGlanceContextMenu"
         >
           <StreamVideoTile
@@ -1911,6 +1933,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         <div
           v-else
           class="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-border"
+          :title="quarterAvatarMediaTitle(quarterOneToOnePeerId, false)"
           :class="{
             'ring-emerald-500/70 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]':
               dmCallQuarterPeerSpeaking,
@@ -1980,6 +2003,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         <div
           v-if="quarterGlanceReplacesSelf && dmCallQuarterGlance"
           class="dm-call-quarter-glance relative h-14 w-24 min-h-[3.5rem] shrink-0 overflow-hidden rounded-xl border border-border"
+          :title="quarterGlanceMediaTitle"
           @contextmenu="onQuarterGlanceContextMenu"
         >
           <StreamVideoTile
@@ -2014,6 +2038,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         <div
           v-else
           class="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-border"
+          :title="quarterAvatarMediaTitle(null, true)"
           :class="{
             'ring-emerald-500/70 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]':
               dmCallQuarterSelfSpeaking,

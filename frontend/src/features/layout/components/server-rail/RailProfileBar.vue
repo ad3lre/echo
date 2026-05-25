@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import StatusIndicator from '@/components/StatusIndicator.vue';
+import { presenceIndicatorTitle } from '@/services/domain/presence';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 
-defineProps<{
+const props = defineProps<{
   currentUser: { id: string; name: string; pfp: string; status?: string };
   /** Self-user on mobile-class Echo Web — handset status glyph. */
   mobileSurface?: boolean;
@@ -21,6 +23,16 @@ const emit = defineEmits<{
   'open-self-profile': [event: MouseEvent];
   'open-bug-report': [];
 }>();
+
+const profileHoverTitle = computed(() => {
+  const name = props.currentUser.name?.trim() || 'Your profile';
+  if (!props.currentUser.status) return name;
+  const status = presenceIndicatorTitle({
+    status: props.currentUser.status,
+    mobileSurface: props.mobileSurface,
+  });
+  return `${name} — ${status}`;
+});
 </script>
 
 <template>
@@ -45,7 +57,7 @@ const emit = defineEmits<{
     <div
       class="rail-profile__avatar pointer-events-auto relative h-10 w-10 shrink-0"
       :class="{ 'rail-profile__avatar--away-speaking': awaySelfSpeaking }"
-      :title="currentUser.name"
+      :title="profileHoverTitle"
       aria-label="Current profile"
       @click="emit('open-self-profile', $event)"
     >

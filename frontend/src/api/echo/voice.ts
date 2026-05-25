@@ -92,6 +92,31 @@ export function parseEchoLiveKitSessionResponse(
   };
 }
 
+export type EchoVoiceQosSample = {
+  latencyMs: number;
+  jitterMs: number;
+  packetLossPct: number;
+};
+
+/** Fire-and-forget client RTC QoS sample for Prometheus (rate-limited server-side). */
+export function postEchoVoiceQosSample(
+  token: string,
+  serverId: string,
+  channelId: string,
+  sample: EchoVoiceQosSample,
+): void {
+  void echoFetch<Record<string, unknown>>(
+    token,
+    `/servers/${encodeURIComponent(serverId)}/channels/${encodeURIComponent(channelId)}/voice/qos-sample`,
+    {
+      method: 'POST',
+      body: JSON.stringify(sample),
+    },
+  ).catch(() => {
+    /* telemetry must not affect voice transport */
+  });
+}
+
 export async function postEchoVoiceLivekitSession(
   token: string,
   serverId: string,

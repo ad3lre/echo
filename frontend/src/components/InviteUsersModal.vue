@@ -9,7 +9,6 @@ import { copyToClipboard } from '@/utils/copyToClipboard';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { extractInviteTokenFromUserInput } from '@/utils/inviteLinkParse';
 import { useEchoInvitePreview } from '@/features/chat/composables/useEchoInvitePreview';
-import { icons } from '@/assets/icons';
 
 const props = withDefaults(
   defineProps<{
@@ -160,21 +159,18 @@ const voiceIdForPreview = computed(
   () => (props.inviteVoiceChannelId ?? '').trim() || null,
 );
 
-const { preview, loading: previewLoading } = useEchoInvitePreview(
-  previewToken,
-  voiceIdForPreview,
-);
+const { preview } = useEchoInvitePreview(previewToken, voiceIdForPreview);
 
 const resolvedServerName = computed(
   () => preview.value?.name?.trim() || props.serverName.trim() || 'this server',
 );
 
-const voiceInviteLabel = computed(() => {
+const voiceChannelName = computed(() => {
   const fromPreview = preview.value?.voiceChannel?.name?.trim();
   if (fromPreview) return fromPreview;
   const fromProp = (props.inviteVoiceChannelName ?? '').trim();
   if (fromProp) return fromProp;
-  return 'Voice channel';
+  return null;
 });
 
 const isVoiceInvite = computed(
@@ -189,7 +185,9 @@ const modalTitle = computed(() =>
 
 const modalSubtitle = computed(() =>
   isVoiceInvite.value
-    ? `Share a link so people can join ${resolvedServerName.value} in this voice channel.`
+    ? voiceChannelName.value
+      ? `Invite friends to ${voiceChannelName.value} in ${resolvedServerName.value}.`
+      : `Share a link so people can join ${resolvedServerName.value} in this voice channel.`
     : `Invite friends to ${resolvedServerName.value}.`,
 );
 
@@ -214,55 +212,23 @@ const showDirectInviteSection = computed(
       role="dialog"
       aria-modal="true"
       aria-labelledby="invite-modal-title"
-      class="invite-users-modal real-glass-modal custom-scrollbar relative flex w-full max-w-xl flex-col overflow-y-auto overscroll-contain rounded-2xl p-7 text-foreground max-h-[min(92dvh,calc(100dvh-3rem))] sm:p-8"
+      class="invite-users-modal real-glass-modal custom-scrollbar relative flex w-full max-w-xl flex-col overflow-y-auto overscroll-contain rounded-2xl p-5 text-foreground max-h-[min(92dvh,calc(100dvh-3rem))] sm:p-6"
       @click.stop
     >
       <header class="shrink-0 text-center">
-        <h2 id="invite-modal-title" class="text-2xl font-bold tracking-tight">
+        <h2 id="invite-modal-title" class="text-xl font-bold tracking-tight">
           {{ modalTitle }}
         </h2>
-        <p class="mt-2 text-sm leading-relaxed text-muted">
+        <p class="mt-1.5 text-sm leading-snug text-muted">
           {{ modalSubtitle }}
         </p>
       </header>
 
       <section
-        v-if="isVoiceInvite"
-        class="invite-voice-card mt-7 shrink-0 rounded-xl border p-4 sm:p-5"
-        :class="{ 'opacity-90': previewLoading }"
-        aria-label="Voice channel"
-      >
-        <div class="flex gap-4">
-          <div
-            class="invite-voice-card__icon-wrap flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-          >
-            <img
-              :src="icons.headphones"
-              alt=""
-              class="invite-voice-card__icon h-6 w-6 opacity-90 filter invert"
-            />
-          </div>
-          <div class="min-w-0 flex-1">
-            <p
-              class="invite-voice-card__eyebrow text-[11px] font-semibold uppercase tracking-wider"
-            >
-              Voice invite
-            </p>
-            <p class="mt-1 truncate text-base font-semibold text-foreground">
-              {{ voiceInviteLabel }}
-            </p>
-            <p class="mt-1 truncate text-sm text-muted">
-              in {{ resolvedServerName }}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section
         v-if="hasFriendsSection"
-        class="mt-7 flex min-h-0 flex-1 flex-col"
+        class="mt-5 flex min-h-0 flex-1 flex-col"
       >
-        <div class="mb-3 flex items-center justify-between gap-3">
+        <div class="mb-2 flex items-center justify-between gap-3">
           <span class="invite-section-label">Friends</span>
           <span class="text-xs text-muted">
             {{ filteredFriendsList.length }}
@@ -277,21 +243,21 @@ const showDirectInviteSection = computed(
           type="search"
           autocomplete="off"
           placeholder="Search friends"
-          class="invite-input chat-focus-ring min-h-[44px] w-full rounded-lg border border-border bg-elevated px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-fg-subtle focus:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))]"
+          class="invite-input chat-focus-ring min-h-[40px] w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-fg-subtle focus:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))]"
         />
 
         <div
-          class="custom-scrollbar invite-friends-list mt-3 min-h-[12rem] max-h-[min(44vh,22rem)] flex-1 space-y-1.5 overflow-y-auto overscroll-contain sm:min-h-[14rem] sm:max-h-[min(52vh,28rem)]"
+          class="custom-scrollbar invite-friends-list mt-2 min-h-[10rem] max-h-[min(40vh,18rem)] flex-1 space-y-1 overflow-y-auto overscroll-contain sm:max-h-[min(48vh,24rem)]"
           v-scrollbar-on-scroll
         >
           <div
             v-for="friend in filteredFriendsList"
             :key="friend.id"
-            class="invite-friend-row flex items-center justify-between gap-3 rounded-xl border border-transparent bg-glass-1 px-3.5 py-3"
+            class="invite-friend-row flex items-center justify-between gap-2 rounded-lg border border-transparent bg-glass-1 px-3 py-2"
           >
             <div class="flex min-w-0 items-center gap-3">
               <div
-                class="relative h-10 w-10 shrink-0 overflow-hidden rounded-full"
+                class="relative h-9 w-9 shrink-0 overflow-hidden rounded-full"
               >
                 <PausedGifAvatar
                   :src="safeImageUrl(friend.pfp)"
@@ -306,7 +272,7 @@ const showDirectInviteSection = computed(
             </div>
             <button
               type="button"
-              class="invite-friend-btn chat-focus-ring shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-default"
+              class="invite-friend-btn chat-focus-ring shrink-0 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-default"
               :class="
                 invitedUserIds.has(friend.id)
                   ? 'invite-friend-btn--invited'
@@ -329,7 +295,7 @@ const showDirectInviteSection = computed(
 
       <div
         v-if="hasFriendsSection"
-        class="invite-section-divider my-7 flex shrink-0 items-center gap-4"
+        class="invite-section-divider my-5 flex shrink-0 items-center gap-3"
       >
         <div class="h-px flex-1 bg-border" />
         <span
@@ -340,7 +306,7 @@ const showDirectInviteSection = computed(
         <div class="h-px flex-1 bg-border" />
       </div>
 
-      <section class="shrink-0" :class="hasFriendsSection ? '' : 'mt-7'">
+      <section class="shrink-0" :class="hasFriendsSection ? '' : 'mt-5'">
         <label for="invite-link-input" class="invite-section-label block">
           Invite link
         </label>
@@ -396,41 +362,46 @@ const showDirectInviteSection = computed(
 
       <section
         v-if="showDirectInviteSection"
-        class="mt-7 shrink-0 rounded-xl border border-border bg-elevated px-4 py-4 sm:px-5 sm:py-5"
+        class="invite-direct-section mt-5 shrink-0"
       >
-        <span class="invite-section-label block">Direct invite</span>
-        <p class="mt-2 text-sm leading-relaxed text-muted">
-          Create a one-time link that adds people immediately — they skip the
-          application form. Share only with people you trust.
-        </p>
-        <button
-          type="button"
-          class="invite-direct-btn chat-focus-ring mt-4 w-full rounded-lg border border-border bg-glass-2 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover disabled:cursor-wait disabled:opacity-70 sm:w-auto"
-          :disabled="directInviteBusy"
-          @click="requestDirectInvite"
+        <div
+          class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
         >
-          {{
-            directInviteBusy
-              ? 'Creating…'
-              : (directInviteLink ?? '').trim()
-                ? 'Regenerate direct link'
-                : 'Create direct invite link'
-          }}
-        </button>
+          <div class="min-w-0">
+            <span class="invite-section-label block">Direct invite</span>
+            <p class="mt-1 text-xs leading-snug text-muted">
+              One-time link — skips the application form.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="invite-direct-btn chat-focus-ring shrink-0 rounded-md border border-border bg-glass-2 px-3 py-1.5 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover disabled:cursor-wait disabled:opacity-70"
+            :disabled="directInviteBusy"
+            @click="requestDirectInvite"
+          >
+            {{
+              directInviteBusy
+                ? 'Creating…'
+                : (directInviteLink ?? '').trim()
+                  ? 'Regenerate'
+                  : 'Create link'
+            }}
+          </button>
+        </div>
         <div
           v-if="(directInviteLink ?? '').trim()"
-          class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-stretch"
+          class="mt-2 flex flex-col gap-1.5 sm:flex-row sm:items-stretch"
         >
           <input
             :value="directInviteLink"
             type="text"
             readonly
             aria-label="Direct invite link"
-            class="invite-input invite-link-field chat-focus-ring min-h-[44px] min-w-0 flex-1 rounded-lg border border-border bg-surface px-3.5 py-2.5 font-mono text-sm text-foreground outline-none"
+            class="invite-input invite-link-field chat-focus-ring min-h-[36px] min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 font-mono text-xs text-foreground outline-none"
           />
           <button
             type="button"
-            class="invite-copy-btn chat-focus-ring shrink-0 rounded-lg border border-border bg-glass-2 px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover sm:min-w-[5.5rem]"
+            class="invite-copy-btn chat-focus-ring shrink-0 rounded-md border border-border bg-glass-2 px-4 py-1.5 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover sm:min-w-[4.5rem]"
             @click="copyDirectInviteLink"
           >
             {{ directCopied ? 'Copied!' : 'Copy' }}
@@ -465,20 +436,6 @@ const showDirectInviteSection = computed(
   color: var(--muted);
 }
 
-.invite-voice-card {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-  background: color-mix(in srgb, var(--accent) 10%, var(--elevated));
-}
-
-.invite-voice-card__icon-wrap {
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-}
-
-.invite-voice-card__eyebrow {
-  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
-}
-
 .invite-friend-btn--default {
   color: var(--text);
   background: var(--surface);
@@ -501,10 +458,5 @@ html[data-theme='light'] .invite-friend-btn--invited {
   color: rgb(5 150 105);
   background: color-mix(in srgb, rgb(16 185 129) 12%, var(--elevated));
   border-color: color-mix(in srgb, rgb(16 185 129) 28%, var(--border));
-}
-
-html[data-theme='light'] .invite-voice-card__icon {
-  filter: none !important;
-  opacity: 0.72;
 }
 </style>

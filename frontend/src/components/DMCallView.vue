@@ -16,6 +16,7 @@ import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import CallRingtoneControls from '@/components/CallRingtoneControls.vue';
 import QuarterCallMediaBadges from '@/features/layout/components/QuarterCallMediaBadges.vue';
+import { quarterCallMediaBadgesTitle } from '@/features/voice/voiceIndicatorHints';
 import { useCallRingtoneStore } from '@/stores/callRingtone';
 import { clampMenuToViewport } from '@/features/chat/composables/useContextMenuPosition';
 import type { PopoutAnchorRect } from '@/utils/memberProfiles';
@@ -154,6 +155,15 @@ function dmCallQuarterBadgesForUser(
 const dmQuarterPeerBadges = computed(() =>
   dmCallQuarterBadgesForUser(props.partnerId, false),
 );
+
+function dmQuarterAvatarMediaTitle(
+  userId: string,
+  isLocalSelf: boolean,
+): string | undefined {
+  return quarterCallMediaBadgesTitle(
+    dmCallQuarterBadgesForUser(userId, isLocalSelf),
+  );
+}
 
 const dmQuarterMediaBadgeDensity = computed(() =>
   props.fullscreen ? ('default' as const) : ('comfortable' as const),
@@ -784,6 +794,12 @@ onUnmounted(() => {
               v-for="member in groupMembers"
               :key="member.id"
               class="relative aspect-square overflow-hidden rounded-xl border border-border bg-glass-tint"
+              :title="
+                dmQuarterAvatarMediaTitle(
+                  member.id,
+                  member.id === currentUserId,
+                )
+              "
               @contextmenu="onGroupMemberPfpContextMenu(member, $event)"
             >
               <div
@@ -849,6 +865,7 @@ onUnmounted(() => {
         <div class="relative flex flex-col items-center justify-center gap-2">
           <div
             class="dm-call-avatar relative overflow-hidden rounded-full ring-4 ring-border"
+            :title="dmQuarterAvatarMediaTitle(partnerId, false)"
             @contextmenu="onPartnerPfpContextMenu"
           >
             <div
@@ -900,6 +917,7 @@ onUnmounted(() => {
       >
         <div
           class="dm-call-self-avatar relative overflow-hidden rounded-xl ring-2 ring-border"
+          :title="dmQuarterAvatarMediaTitle(currentUserId, true)"
           @contextmenu.prevent
         >
           <PausedGifAvatar

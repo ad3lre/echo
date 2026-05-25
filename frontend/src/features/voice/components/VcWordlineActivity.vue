@@ -21,87 +21,106 @@ const g = useWordlineGame({
     @keydown.stop
   >
     <main class="shell">
-      <header class="topbar">
-        <div class="topbar__brand">
-          <p class="eyebrow">{{ g.modeEyebrow }}</p>
-          <h1>Wordline</h1>
+      <header class="wordline-hero" aria-label="Wordline">
+        <div class="wordline-hero__brand">
+          <div class="wordline-hero__tiles" aria-hidden="true">
+            <span class="wordline-hero__tile wordline-hero__tile--correct" />
+            <span class="wordline-hero__tile wordline-hero__tile--present" />
+            <span class="wordline-hero__tile wordline-hero__tile--absent" />
+            <span class="wordline-hero__tile wordline-hero__tile--empty" />
+            <span class="wordline-hero__tile wordline-hero__tile--correct" />
+          </div>
+          <div class="wordline-hero__copy">
+            <p class="wordline-hero__eyebrow">Voice activity</p>
+            <h1 class="wordline-hero__title">Wordline</h1>
+            <p class="wordline-hero__sub">
+              Five-letter puzzles while you hang in voice — one daily word or a
+              level run, just for you in this panel.
+            </p>
+          </div>
         </div>
-        <div class="topbar__actions actions">
-          <button
-            class="icon-button"
-            type="button"
-            :aria-label="
-              g.theme === 'dark'
-                ? 'Switch to light theme'
-                : 'Switch to dark theme'
-            "
-            title="Theme"
-            @click="g.toggleTheme()"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.4-6.4L17 7m-10 10-1.4 1.4m0-12.8L7 7m10 10 1.4 1.4"
-              />
-              <circle cx="12" cy="12" r="4" />
-            </svg>
-          </button>
-          <button
-            class="icon-button mode-button"
-            type="button"
-            :class="
-              g.state.mode === 'daily'
-                ? 'mode-button--daily'
-                : 'mode-button--levels'
-            "
-            :aria-label="
-              g.state.mode === 'daily'
-                ? 'Daily puzzle. Switch to level practice.'
-                : 'Level practice. Switch to daily puzzle.'
-            "
-            :title="
-              g.state.mode === 'daily'
-                ? 'Switch to level practice'
-                : 'Switch to daily puzzle'
-            "
-            @click="g.toggleMode()"
-          >
-            <span class="mode-button__inner">
-              <svg
-                v-if="g.state.mode === 'daily'"
-                class="mode-button__icon"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <rect
-                  x="3.5"
-                  y="5.5"
-                  width="17"
-                  height="15"
-                  rx="1.5"
-                  fill="none"
+        <div class="wordline-hero__aside">
+          <div class="wordline-hero__meta">
+            <span class="wordline-hero__mode-pill">{{ g.modeEyebrow }}</span>
+            <span class="wordline-hero__round-pill">{{ g.roundLabel }}</span>
+          </div>
+          <div class="wordline-hero__actions actions">
+            <button
+              class="icon-button"
+              type="button"
+              :aria-label="
+                g.theme === 'dark'
+                  ? 'Switch to light theme'
+                  : 'Switch to dark theme'
+              "
+              title="Theme"
+              @click="g.toggleTheme()"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.4-6.4L17 7m-10 10-1.4 1.4m0-12.8L7 7m10 10 1.4 1.4"
                 />
-                <path d="M3.5 11h17" />
-                <path d="M8 3.5v4M16 3.5v4" />
+                <circle cx="12" cy="12" r="4" />
               </svg>
-              <svg
-                v-else
-                class="mode-button__icon"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path d="M3 19.5h18" />
-                <path d="M5.5 19.5V13h13v6.5" />
-                <path d="M8 13V7.5h8V13" />
-              </svg>
-              <span class="mode-button__label">{{
-                g.state.mode === 'daily' ? 'Daily' : 'Levels'
-              }}</span>
-            </span>
-          </button>
+            </button>
+            <button
+              class="icon-button mode-button"
+              type="button"
+              :class="
+                g.state.mode === 'daily'
+                  ? 'mode-button--daily'
+                  : 'mode-button--levels'
+              "
+              :aria-label="
+                g.state.mode === 'daily'
+                  ? 'Daily puzzle. Switch to level practice.'
+                  : 'Level practice. Switch to daily puzzle.'
+              "
+              :title="
+                g.state.mode === 'daily'
+                  ? 'Switch to level practice'
+                  : 'Switch to daily puzzle'
+              "
+              @click="g.toggleMode()"
+            >
+              <span class="mode-button__inner">
+                <svg
+                  v-if="g.state.mode === 'daily'"
+                  class="mode-button__icon"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="3.5"
+                    y="5.5"
+                    width="17"
+                    height="15"
+                    rx="1.5"
+                    fill="none"
+                  />
+                  <path d="M3.5 11h17" />
+                  <path d="M8 3.5v4M16 3.5v4" />
+                </svg>
+                <svg
+                  v-else
+                  class="mode-button__icon"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M3 19.5h18" />
+                  <path d="M5.5 19.5V13h13v6.5" />
+                  <path d="M8 13V7.5h8V13" />
+                </svg>
+                <span class="mode-button__label">{{
+                  g.state.mode === 'daily' ? 'Daily' : 'Levels'
+                }}</span>
+              </span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <section class="game" aria-label="Word puzzle">
+      <section class="game" aria-label="Wordline puzzle">
         <div class="meta">
           <span class="meta__round">{{ g.roundLabel }}</span>
           <span class="meta__progress">{{ g.progressLabel }}</span>

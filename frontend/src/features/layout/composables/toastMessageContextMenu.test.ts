@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canOpenToastMessageContextMenu,
   resolveToastMessagePrimaryAction,
+  shouldHideToastPrimaryActionForQuickReply,
   shouldOpenToastMessageContextMenu,
 } from '@/features/layout/composables/toastMessageContextMenu';
 import type { AppToastAction } from '@/utils/controllerMissingAction';
@@ -65,5 +66,49 @@ describe('toastMessageContextMenu', () => {
     expect(resolveToastMessagePrimaryAction([fallback, open])).toBe(open);
     expect(resolveToastMessagePrimaryAction([fallback])).toBe(fallback);
     expect(resolveToastMessagePrimaryAction([])).toBeNull();
+  });
+
+  it('hides primary action when quick-reply fallback shows Open', () => {
+    expect(
+      shouldHideToastPrimaryActionForQuickReply(
+        {
+          message: 'x',
+          variant: 'incoming_chat_message',
+          quickReplyChannelId: 'dm-1',
+        },
+        '',
+      ),
+    ).toBe(true);
+    expect(
+      shouldHideToastPrimaryActionForQuickReply(
+        {
+          message: 'x',
+          variant: 'incoming_chat_message',
+          quickReplyChannelId: 'dm-1',
+        },
+        'hello',
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps primary action for non-quick-reply toasts', () => {
+    expect(
+      shouldHideToastPrimaryActionForQuickReply(
+        {
+          message: 'x',
+          variant: 'incoming_chat_message',
+        },
+        '',
+      ),
+    ).toBe(false);
+    expect(
+      shouldHideToastPrimaryActionForQuickReply(
+        {
+          message: 'x',
+          variant: 'default',
+        },
+        '',
+      ),
+    ).toBe(false);
   });
 });

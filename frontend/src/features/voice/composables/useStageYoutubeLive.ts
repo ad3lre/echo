@@ -18,6 +18,15 @@ const POLL_MS = 12_000;
 /** Cookie session auth; echoFetch ignores bearer and uses credentials. */
 const ECHO_API_TOKEN = '';
 
+function isActiveStageYoutubeStream(
+  value: StageYoutubeStreamStatus | null,
+): boolean {
+  return !!(
+    value?.active &&
+    (value.status === 'live' || value.status === 'starting')
+  );
+}
+
 export function useStageYoutubeLive(opts: {
   echoServerId: () => string;
   stageChannelId: () => string;
@@ -81,6 +90,7 @@ export function useStageYoutubeLive(opts: {
       return;
     }
     loading.value = true;
+    const previous = stream.value;
     try {
       stream.value = await fetchStageYoutubeStream(
         ECHO_API_TOKEN,
@@ -88,7 +98,10 @@ export function useStageYoutubeLive(opts: {
         channelId,
       );
     } catch {
-      stream.value = null;
+      // Keep an already-live status visible across transient poll failures.
+      if (!isActiveStageYoutubeStream(previous)) {
+        stream.value = null;
+      }
     } finally {
       loading.value = false;
     }

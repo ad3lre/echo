@@ -17,7 +17,7 @@
       "file": "wordle-hero.png",
       "kind": "official_og",
       "sourceUrl": "https://www.nytimes.com/games-assets/v2/assets/wordle/wordle_og_1200x630.png",
-      "license": "Hosted by NYT for Wordle sharing; trademark to respective owners."
+      "license": "Hosted by NYT for Wordle-style sharing reference; Echo product name is Wordline."
     },
     {
       "file": "hangman-hero.svg",
@@ -60,12 +60,6 @@
       "kind": "official_client_asset",
       "sourceUrl": "https://smashkarts.io/images/smashkarts.png",
       "license": "Tall Team official web client asset from smashkarts.io."
-    },
-    {
-      "file": "basketball-stars-2026-hero.jpg",
-      "kind": "official_og",
-      "sourceUrl": "https://img.gamedistribution.com/516d6908fbc848bdb89e65a58a43a7dc-512x512.jpg",
-      "license": "GameDistribution og:image for the MadPuffers title (same game id as Echo embed URL)."
     },
     {
       "file": "cluster-rush-hero.jpg",

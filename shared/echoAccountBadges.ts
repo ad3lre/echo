@@ -68,6 +68,20 @@ export function isEchoPublicBadgeId(id: string): id is EchoPublicBadgeId {
   return id === OG || id === PLUS || id === BLACK;
 }
 
+/** Short label shown on profile badge pills. */
+export function echoPublicBadgeLabel(id: EchoPublicBadgeId): string {
+  switch (id) {
+    case 'plus':
+      return 'Plus';
+    case 'black':
+      return 'Black';
+    case 'og':
+      return 'OG';
+    default:
+      return id;
+  }
+}
+
 export function echoPublicBadgeTitle(id: EchoPublicBadgeId): string {
   switch (id) {
     case 'plus':

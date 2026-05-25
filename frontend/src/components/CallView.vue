@@ -25,6 +25,7 @@ import {
 } from '@/features/chat/chatComposerContext';
 import VcActivityPresenceBadges from '@/features/voice/components/VcActivityPresenceBadges.vue';
 import VcActivityKingCrown from '@/features/voice/components/VcActivityKingCrown.vue';
+import { voiceMuteDeafenHoverTitle } from '@/features/voice/voiceIndicatorHints';
 import VoiceChannelUserLimitBadge from '@/features/voice/components/VoiceChannelUserLimitBadge.vue';
 import { getVoiceChannelUserLimitUi } from '@/features/voice/domain/voiceChannelUserLimit';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
@@ -759,6 +760,7 @@ onUnmounted(() => {
             <div
               v-if="dmCallPresenceLabel(p.dmCallPresence)"
               class="call-tile-dm-pill"
+              :title="dmCallPresenceLabel(p.dmCallPresence)"
             >
               {{ dmCallPresenceLabel(p.dmCallPresence) }}
             </div>
@@ -826,6 +828,12 @@ onUnmounted(() => {
                   v-if="p.deafened"
                   class="call-avatar-badge pointer-events-none"
                   :class="{ 'call-avatar-badge--server': p.serverDeafened }"
+                  :title="
+                    voiceMuteDeafenHoverTitle({
+                      deafened: p.deafened,
+                      serverDeafened: p.serverDeafened,
+                    })
+                  "
                 >
                   <div class="call-avatar-badge-bg" />
                   <img

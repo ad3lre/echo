@@ -13,6 +13,11 @@ import {
 } from 'vue';
 import type {
   EchoHangmanActivityV1,
+  EchoSkrigglesActivityV1,
+  EchoSkrigglesCanvasCmdV1,
+  EchoSkrigglesCanvasSnapshotV1,
+  EchoSkrigglesSettingsV1,
+  EchoSkrigglesStrokeBatchV1,
   EchoCodenamesActivityV1,
   EchoCodenamesAffiliationV1,
   EchoCodenamesRoleAssignmentV1,
@@ -195,12 +200,29 @@ const props = defineProps<{
   openVcActivityYoutubeBrowse: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
+  openVcActivitySkriggles: () => void;
   openVcActivityTicTacToe: () => void;
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  vcSkrigglesActivity: ComputedRef<EchoSkrigglesActivityV1 | null>;
+  skrigglesRosterUserIds: ComputedRef<string[]>;
+  skrigglesCanvasEvents: ShallowRef<
+    import('@/features/voice/skriggles/skrigglesVoiceSession').SkrigglesCanvasEvent[]
+  >;
+  commitSkrigglesWordChoice: (word: string) => void;
+  submitSkrigglesGuess: (guess: string) => void;
+  updateSkrigglesSettings: (settings: Partial<EchoSkrigglesSettingsV1>) => void;
+  startSkrigglesGame: () => void;
+  advanceSkrigglesRound: () => void;
+  publishSkrigglesStrokeBatch: (batch: EchoSkrigglesStrokeBatchV1) => void;
+  publishSkrigglesCanvasCmd: (cmd: EchoSkrigglesCanvasCmdV1) => void;
+  publishSkrigglesCanvasSnapshot: (
+    snapshot: EchoSkrigglesCanvasSnapshotV1,
+  ) => void;
+  tickSkrigglesTimers: () => void;
   vcTicTacToeActivity: ComputedRef<EchoTicTacToeActivityV1 | null>;
   vcTicTacToePendingInvite: ComputedRef<EchoTicTacToeInviteV1 | null>;
   sendVcTicTacToeChallenge: (toUserId: string) => void;
@@ -228,7 +250,6 @@ const props = defineProps<{
   openVcActivityRichup: () => void;
   openVcActivityGooberDash: () => void;
   openVcActivitySmashKarts: () => void;
-  openVcActivityBasketballStars2026: () => void;
   openVcActivityClusterRush: () => void;
   setVcActivityYoutubeVideo: (
     videoId: string,
@@ -660,6 +681,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :open-vc-activity-youtube-browse="openVcActivityYoutubeBrowse"
             :open-vc-activity-wordle="openVcActivityWordle"
             :open-vc-activity-hangman="openVcActivityHangman"
+            :open-vc-activity-skriggles="openVcActivitySkriggles"
             :open-vc-activity-tic-tac-toe="openVcActivityTicTacToe"
             :open-vc-activity-open-guessr="openVcActivityOpenGuessr"
             :open-vc-activity-skribbl-io="openVcActivitySkribblIo"
@@ -669,9 +691,6 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :open-vc-activity-richup="openVcActivityRichup"
             :open-vc-activity-goober-dash="openVcActivityGooberDash"
             :open-vc-activity-smash-karts="openVcActivitySmashKarts"
-            :open-vc-activity-basketball-stars2026="
-              openVcActivityBasketballStars2026
-            "
             :open-vc-activity-cluster-rush="openVcActivityClusterRush"
             :open-vc-activity-picker="openVcActivityPicker"
             :set-vc-activity-youtube-video="setVcActivityYoutubeVideo"
@@ -691,6 +710,18 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
             :commit-vc-hangman-word="commitVcHangmanWord"
             :request-vc-hangman-guess-letter="requestVcHangmanGuessLetter"
             :request-vc-hangman-next-round="requestVcHangmanNextRound"
+            :vc-skriggles-activity="vcSkrigglesActivity"
+            :skriggles-roster-user-ids="skrigglesRosterUserIds"
+            :skriggles-canvas-events="skrigglesCanvasEvents"
+            :commit-skriggles-word-choice="commitSkrigglesWordChoice"
+            :submit-skriggles-guess="submitSkrigglesGuess"
+            :update-skriggles-settings="updateSkrigglesSettings"
+            :start-skriggles-game="startSkrigglesGame"
+            :advance-skriggles-round="advanceSkrigglesRound"
+            :publish-skriggles-stroke-batch="publishSkrigglesStrokeBatch"
+            :publish-skriggles-canvas-cmd="publishSkrigglesCanvasCmd"
+            :publish-skriggles-canvas-snapshot="publishSkrigglesCanvasSnapshot"
+            :tick-skriggles-timers="tickSkrigglesTimers"
             :vc-tic-tac-toe-activity="vcTicTacToeActivity"
             :vc-tic-tac-toe-pending-invite="vcTicTacToePendingInvite"
             :send-vc-tic-tac-toe-challenge="sendVcTicTacToeChallenge"

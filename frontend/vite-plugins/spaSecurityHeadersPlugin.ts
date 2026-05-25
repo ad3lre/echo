@@ -8,7 +8,7 @@ export const SPA_STRICT_TRANSPORT_SECURITY =
 
 /** `frame-src`: third-party iframes used by chat link embeds + VC activities (align with `src-tauri/tauri.conf.json`). */
 export const SPA_CONTENT_SECURITY_POLICY =
-  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://openguessr.com https://skribbl.io https://garticphone.com https://www.garticphone.com https://krunker.io https://codenames.game https://richup.io https://gooberdash.winterpixel.io https://smashkarts.io https://www.y8.com https://html5.gamedistribution.com https://clusterrush.io; upgrade-insecure-requests";
+  "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://openguessr.com https://skribbl.io https://garticphone.com https://www.garticphone.com https://krunker.io https://codenames.game https://richup.io https://gooberdash.winterpixel.io https://smashkarts.io https://www.y8.com https://clusterrush.io; upgrade-insecure-requests";
 
 const BLOCKED_DEPLOY_PATHS = new Set([
   '/_headers',

@@ -40,7 +40,14 @@ import {
   syncLiveKitParticipantPublishPermissions,
 } from '../../../services/livekit/livekitAdapter';
 import { syncStageProgramRoomMetadata } from '../../../services/stage/stageProgramRoom';
-import { echoVoiceModerateTotal } from '../../../observability/echoMetrics';
+import {
+  echoVoiceClientQosJitterMs,
+  echoVoiceClientQosLatencyMs,
+  echoVoiceClientQosPacketLossPct,
+  echoVoiceClientQosSamplesTotal,
+  echoVoiceModerateTotal,
+} from '../../../observability/echoMetrics';
+import { normalizeVoiceQosSample } from '../../../../../shared/voiceQosSample';
 import { vcTrace } from '../../../observability/voiceTraceLog';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import {
@@ -504,6 +511,58 @@ export default async function echoVoiceRoutes(
           epochId: voiceE2eeRequired ? (activeEpoch?.id ?? null) : null,
         },
       });
+    },
+  );
+
+  fastify.post<{
+    Params: { serverId: string; channelId: string };
+    Body: { latencyMs?: number; jitterMs?: number; packetLossPct?: number };
+  }>(
+    '/servers/:serverId/channels/:channelId/voice/qos-sample',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 4,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!config.liveKitEnabled) {
+        return reply.code(204).send();
+      }
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const okMem = await isMemberOfServer(
+        echoPool(req),
+        serverId,
+        req.authUser!.id,
+      );
+      if (!okMem) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          ECHO_MSG_NOT_SERVER_MEMBER,
+          'NOT_SERVER_MEMBER',
+        );
+      }
+      const sample = normalizeVoiceQosSample(req.body);
+      if (!sample) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'Expected latencyMs, jitterMs, and packetLossPct numbers.',
+        );
+      }
+      echoVoiceClientQosLatencyMs.observe(sample.latencyMs);
+      echoVoiceClientQosJitterMs.observe(sample.jitterMs);
+      echoVoiceClientQosPacketLossPct.observe(sample.packetLossPct);
+      echoVoiceClientQosSamplesTotal.inc();
+      return reply.code(204).send();
     },
   );
 

@@ -530,7 +530,7 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
             <span
               class="h-2 w-2 shrink-0 rounded-full"
               :style="{ backgroundColor: section.role.color }"
-              title="Role color"
+              :title="`${section.role.name} role color`"
               aria-hidden="true"
             />
             <PausedGifAvatar
@@ -601,6 +601,8 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
                   <span
                     v-if="isUserCommunicationTimedOut(user.id)"
                     class="inline-flex shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-400/20"
+                    title="Communication timeout"
+                    aria-label="Communication timeout"
                   >
                     Timed out
                   </span>

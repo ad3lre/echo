@@ -75,6 +75,7 @@
     "db:down": "node scripts/compose.mjs down",
     "db:logs": "node scripts/compose.mjs logs -f postgres",
     "livekit:logs": "node scripts/compose.mjs logs -f livekit",
+    "verify:livekit-prod": "node scripts/verify-livekit-production-env.mjs",
     "seed:dev": "node scripts/seed-dev-echo.mjs",
     "bot:export": "node --env-file=.env node_modules/tsx/dist/cli.mjs bot/src/index.ts",
     "bot:serve": "node --env-file=.env node_modules/tsx/dist/cli.mjs bot/src/index.ts --serve",

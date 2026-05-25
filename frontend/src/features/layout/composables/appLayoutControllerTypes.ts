@@ -39,6 +39,11 @@ import type {
   EchoCodenamesAffiliationV1,
   EchoCodenamesRoleAssignmentV1,
   EchoHangmanActivityV1,
+  EchoSkrigglesActivityV1,
+  EchoSkrigglesCanvasCmdV1,
+  EchoSkrigglesCanvasSnapshotV1,
+  EchoSkrigglesSettingsV1,
+  EchoSkrigglesStrokeBatchV1,
   EchoTicTacToeActivityV1,
   EchoTicTacToeInviteV1,
   EchoYoutubePlaybackSyncV1,
@@ -123,9 +128,26 @@ export interface AppLayoutControllerContext {
   openVcActivityYoutubeBrowse: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
+  openVcActivitySkriggles: () => void;
   openVcActivityTicTacToe: () => void;
   vcHangmanActivity: ComputedRef<EchoHangmanActivityV1 | null>;
   hangmanRosterUserIds: ComputedRef<string[]>;
+  vcSkrigglesActivity: ComputedRef<EchoSkrigglesActivityV1 | null>;
+  skrigglesRosterUserIds: ComputedRef<string[]>;
+  skrigglesCanvasEvents: ShallowRef<
+    import('@/features/voice/skriggles/skrigglesVoiceSession').SkrigglesCanvasEvent[]
+  >;
+  commitSkrigglesWordChoice: (word: string) => void;
+  submitSkrigglesGuess: (guess: string) => void;
+  updateSkrigglesSettings: (settings: Partial<EchoSkrigglesSettingsV1>) => void;
+  startSkrigglesGame: () => void;
+  advanceSkrigglesRound: () => void;
+  publishSkrigglesStrokeBatch: (batch: EchoSkrigglesStrokeBatchV1) => void;
+  publishSkrigglesCanvasCmd: (cmd: EchoSkrigglesCanvasCmdV1) => void;
+  publishSkrigglesCanvasSnapshot: (
+    snapshot: EchoSkrigglesCanvasSnapshotV1,
+  ) => void;
+  tickSkrigglesTimers: () => void;
   vcTicTacToeActivity: ComputedRef<EchoTicTacToeActivityV1 | null>;
   vcTicTacToePendingInvite: ComputedRef<EchoTicTacToeInviteV1 | null>;
   commitVcHangmanWord: (raw: string) => string | null;
@@ -156,7 +178,6 @@ export interface AppLayoutControllerContext {
   openVcActivityRichup: () => void;
   openVcActivityGooberDash: () => void;
   openVcActivitySmashKarts: () => void;
-  openVcActivityBasketballStars2026: () => void;
   openVcActivityClusterRush: () => void;
   setVcActivityYoutubeVideo: (
     videoId: string,

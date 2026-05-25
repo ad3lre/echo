@@ -54,7 +54,8 @@ services:
       start_period: 5s
 
   livekit:
-    image: livekit/livekit-server:latest
+    # Pin digest (npm run db:up / dev:lan recreate livekit to pick up bumps).
+    image: livekit/livekit-server@sha256:b617bb3363f13e880a82164692d842681276bc6eed7da46092f9ddb22017b927
     container_name: echo-livekit
     depends_on:
       - coturn

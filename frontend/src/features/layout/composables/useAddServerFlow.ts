@@ -63,6 +63,11 @@ import {
   bootstrapCategoriesForNewServer,
   setCategoriesForServerId,
 } from '@/services/domain/workspaceLocalServerGraphApply';
+import { buildSortedInviteableFriendsList } from '@/features/dm/buildSortedInviteableFriendsList';
+import {
+  getActiveIndexMap,
+  getChannelIndex,
+} from '@/features/chat/domain/channelMessageIndex';
 
 export type JoinEchoInviteFromChatResult =
   | {
@@ -111,6 +116,9 @@ export function useAddServerFlow(deps: {
     payload: ServerApplicationModalPayload,
   ) => Promise<'submitted' | 'cancelled'>;
   finishServerApplicationModal: () => void;
+  /** DM maps for invite-modal friend ordering (recent activity first). */
+  echoDmPeerByChannelId?: Ref<Map<string, string>>;
+  echoDmLastActivityAtMsByChannelId?: Ref<Map<string, number>>;
 }) {
   const {
     serverStore,
@@ -138,6 +146,8 @@ export function useAddServerFlow(deps: {
     finishJoinServerConfirmModal,
     requestServerApplicationModal,
     finishServerApplicationModal,
+    echoDmPeerByChannelId,
+    echoDmLastActivityAtMsByChannelId,
   } = deps;
 
   const addServerJoinError = ref('');
@@ -1045,6 +1055,23 @@ export function useAddServerFlow(deps: {
     const curId = currentUser.value?.id;
     if (!curId) return [];
     const friendIds = workspace.friendIds.value ?? [];
+    const peerMap = echoDmPeerByChannelId?.value;
+    if (peerMap) {
+      const indexedMessageKeys = new Set<string>([
+        ...Object.keys(workspace.messages.value),
+        ...getActiveIndexMap().keys(),
+      ]);
+      return buildSortedInviteableFriendsList({
+        currentUserId: curId,
+        users: workspace.users.value,
+        friendIds,
+        echoPeerByChannelId: peerMap,
+        lastActivityAtMsByChannelId: echoDmLastActivityAtMsByChannelId?.value,
+        messageKeys: [...indexedMessageKeys],
+        getMessages: (ch) =>
+          getChannelIndex(ch, workspace.messages.value[ch] ?? []).sorted.value,
+      });
+    }
     return workspace.users.value
       .filter((u) => u.id !== curId && friendIds.includes(u.id))
       .map((u) => ({

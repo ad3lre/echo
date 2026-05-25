@@ -19,6 +19,7 @@ import { useDevSettingsStore } from '@/stores/devSettings';
 import type { VideoQualityPreset } from '@/composables/useLiveKitVoiceRoom';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { isIosLikeBrowser } from '@/platform/browserCompatibility';
+import { rmsToDbfs, thresholdPercentToRms } from '@/composables/voiceGate';
 
 const videoQualityOptions: { value: VideoQualityPreset; label: string }[] = [
   { value: '720p', label: '720p (HD)' },
@@ -108,18 +109,6 @@ function settingsSliderFillPct(vol: number): string {
   return `${(vol / m) * 100}%`;
 }
 
-function speakingThresholdFromPercent(percent: number): number {
-  // Map 0..100 UI to a practical RMS gate range.
-  const tMin = 0.005;
-  const tMax = 0.06;
-  return tMin + (Math.max(0, Math.min(100, percent)) / 100) * (tMax - tMin);
-}
-
-function rmsToDbfs(rms: number): number {
-  if (rms <= 1e-7) return -100;
-  return Math.max(-100, Math.min(0, 20 * Math.log10(rms)));
-}
-
 function dbfsToMeterPct(dbfs: number): number {
   const floor = -60;
   if (dbfs <= floor) return 0;
@@ -141,9 +130,7 @@ const micMeterWidth = computed(
   () => `${dbfsToMeterPct(effectiveMicDbfs.value)}%`,
 );
 const gateThresholdDbfs = computed(() =>
-  rmsToDbfs(
-    speakingThresholdFromPercent(voiceLevels.voiceActivationThresholdPercent),
-  ),
+  rmsToDbfs(thresholdPercentToRms(voiceLevels.voiceActivationThresholdPercent)),
 );
 const micGateOpen = computed(() => effectiveMicDbfs.value > -99);
 
@@ -350,7 +337,7 @@ watch(
 watch(
   () => voiceLevels.voiceActivationThresholdPercent,
   (pct) => {
-    setSpeakingThreshold(speakingThresholdFromPercent(pct));
+    setSpeakingThreshold(thresholdPercentToRms(pct));
   },
   { immediate: true },
 );

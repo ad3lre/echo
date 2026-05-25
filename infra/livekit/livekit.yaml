@@ -26,6 +26,9 @@ rtc:
     enabled: true
 
 room:
+  # Close ghost rooms faster between webhook/reconcile cycles (seconds).
+  empty_timeout: 300
+  departure_timeout: 30
   enabled_codecs:
     - mime: audio/opus
     - mime: video/vp8

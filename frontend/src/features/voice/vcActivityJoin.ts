@@ -1,4 +1,5 @@
 import { watch, type Ref } from 'vue';
+import { ECHOED_NAMES_VC_ACTIVITY_ENABLED } from '@shared/vcActivityCatalog';
 import type {
   VcActivityPresenceKind,
   VcActivityUiPhase,
@@ -9,6 +10,7 @@ import { vcIframeEmbedTitle } from '@/features/voice/vcActivityTypes';
 const PRESENCE_KIND_PRIORITY: readonly VcActivityPresenceKind[] = [
   'codenames',
   'hangman',
+  'skriggles',
   'tic_tac_toe',
   'wordle',
   'skribbl_io',
@@ -18,7 +20,6 @@ const PRESENCE_KIND_PRIORITY: readonly VcActivityPresenceKind[] = [
   'richup',
   'goober_dash',
   'smash_karts',
-  'basketball_stars_2026',
   'cluster_rush',
   'youtube',
   'activities',
@@ -48,9 +49,11 @@ export function vcActivityJoinLabel(kind: VcActivityPresenceKind): string {
     case 'activities':
       return 'Activities';
     case 'wordle':
-      return 'Wordle';
+      return 'Wordline';
     case 'hangman':
       return 'Hangman';
+    case 'skriggles':
+      return 'Skriggles';
     case 'tic_tac_toe':
       return 'Tic Tac Echo';
     case 'codenames':
@@ -62,7 +65,6 @@ export function vcActivityJoinLabel(kind: VcActivityPresenceKind): string {
     case 'richup':
     case 'goober_dash':
     case 'smash_karts':
-    case 'basketball_stars_2026':
     case 'cluster_rush':
       return vcIframeEmbedTitle(kind);
     default: {
@@ -77,6 +79,7 @@ export type VcActivityPhaseOpeners = {
   openVcActivityYoutubeBrowse: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
+  openVcActivitySkriggles: () => void;
   openVcActivityTicTacToe: () => void;
   openVcActivityOpenGuessr: () => void;
   openVcActivitySkribblIo: () => void;
@@ -86,7 +89,6 @@ export type VcActivityPhaseOpeners = {
   openVcActivityRichup: () => void;
   openVcActivityGooberDash: () => void;
   openVcActivitySmashKarts: () => void;
-  openVcActivityBasketballStars2026: () => void;
   openVcActivityClusterRush: () => void;
   closeVcActivity: () => void;
 };
@@ -112,6 +114,9 @@ export function applyVcActivityUiPhase(
     case 'hangman':
       openers.openVcActivityHangman();
       return;
+    case 'skriggles':
+      openers.openVcActivitySkriggles();
+      return;
     case 'tic_tac_toe':
       openers.openVcActivityTicTacToe();
       return;
@@ -128,7 +133,11 @@ export function applyVcActivityUiPhase(
       openers.openVcActivityKrunker();
       return;
     case 'codenames':
-      openers.openVcActivityCodenames();
+      if (ECHOED_NAMES_VC_ACTIVITY_ENABLED) {
+        openers.openVcActivityCodenames();
+      } else {
+        openers.openVcActivityPicker();
+      }
       return;
     case 'richup':
       openers.openVcActivityRichup();
@@ -138,9 +147,6 @@ export function applyVcActivityUiPhase(
       return;
     case 'smash_karts':
       openers.openVcActivitySmashKarts();
-      return;
-    case 'basketball_stars_2026':
-      openers.openVcActivityBasketballStars2026();
       return;
     case 'cluster_rush':
       openers.openVcActivityClusterRush();

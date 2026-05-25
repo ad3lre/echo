@@ -24,6 +24,7 @@ import {
 } from '@/features/chat/chatComposerContext';
 import { clampMenuToViewport } from '@/features/chat/composables/useContextMenuPosition';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
+import { voiceMuteDeafenHoverTitle } from '@/features/voice/voiceIndicatorHints';
 import {
   getPopoutAnchorRect,
   type PopoutAnchorRect,
@@ -740,6 +741,14 @@ watch(
                       'stage-avatar-badge--server':
                         p.serverMuted || p.serverDeafened,
                     }"
+                    :title="
+                      voiceMuteDeafenHoverTitle({
+                        muted: p.muted,
+                        deafened: p.deafened,
+                        serverMuted: p.serverMuted,
+                        serverDeafened: p.serverDeafened,
+                      })
+                    "
                   >
                     <img
                       :src="p.deafened ? icons.headphones : icons.mic"
@@ -1125,6 +1134,10 @@ watch(
   background: color-mix(in srgb, var(--elevated) 90%, transparent);
 }
 
+[data-theme='light'] .stage-tile-backdrop {
+  filter: blur(22px) saturate(1.08) brightness(0.76);
+}
+
 [data-theme='light'] .stage-tile::after {
   background: linear-gradient(
     to bottom,
@@ -1156,6 +1169,10 @@ watch(
       ),
     inset 0 0 calc(6px + var(--speak-strength, 0.4) * 10px)
       rgba(36, 128, 69, 0.38);
+}
+
+[data-theme='light'] .stage-avatar-badge {
+  background: color-mix(in srgb, #0f172a 40%, transparent);
 }
 
 [data-theme='light'] .stage-requests-queue {

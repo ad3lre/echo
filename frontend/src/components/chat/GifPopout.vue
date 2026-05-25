@@ -17,6 +17,7 @@ import {
   type MediaFavorite,
 } from '@/composables/useMediaFavorites';
 import { pickImageSearchSeed } from '@/utils/imageSearchSeedKeywords';
+import { mediaFavoriteStarBtnClass } from '@/utils/mediaFavoriteStarBtnClass';
 import LimitedGifImg from '@/components/LimitedGifImg.vue';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { LAYOUT_MODALS_KEY } from '@/features/layout/layoutInjectionKeys';
@@ -124,6 +125,7 @@ const prefersReducedMotion = computed(
 );
 
 const hoveredGifId = ref<string | null>(null);
+const hoveredImageId = ref<string | null>(null);
 
 let gifDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 watch(
@@ -209,6 +211,14 @@ function onGifLeave() {
   hoveredGifId.value = null;
 }
 
+function onImageHover(img: { id: string }) {
+  hoveredImageId.value = img.id;
+}
+
+function onImageLeave() {
+  hoveredImageId.value = null;
+}
+
 function isGifFavorited(gif: GifResult): boolean {
   return isFavorite(gifToMediaFavorite(gif).id);
 }
@@ -252,6 +262,16 @@ function onFavoriteGifHover(fav: MediaFavorite) {
   if (fav.kind !== 'gif') return;
   hoveredGifId.value = fav.id;
   if (fav.previewUrl) prefetchFullUrl(fav.previewUrl);
+}
+
+function onFavoriteTileEnter(fav: MediaFavorite) {
+  if (fav.kind === 'gif') onFavoriteGifHover(fav);
+  else hoveredImageId.value = fav.id;
+}
+
+function onFavoriteTileLeave(fav: MediaFavorite) {
+  if (fav.kind === 'gif') onGifLeave();
+  else onImageLeave();
 }
 
 function favoriteGifDisplayUrl(fav: MediaFavorite): string {
@@ -385,16 +405,16 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               :key="fav.id"
               class="group relative aspect-video overflow-hidden rounded-lg bg-scrim-1"
               :class="fav.kind === 'image' ? 'aspect-square' : ''"
+              @mouseenter="onFavoriteTileEnter(fav)"
+              @mouseleave="onFavoriteTileLeave(fav)"
+              @focusin="onFavoriteTileEnter(fav)"
+              @focusout="onFavoriteTileLeave(fav)"
             >
               <button
                 type="button"
                 role="menuitem"
                 class="h-full w-full transition-colors hover:bg-glass-hover"
                 :title="fav.title"
-                @mouseenter="onFavoriteGifHover(fav)"
-                @mouseleave="onGifLeave"
-                @focus="onFavoriteGifHover(fav)"
-                @blur="onGifLeave"
                 @click="insertFavorite(fav)"
               >
                 <template v-if="fav.kind === 'gif'">
@@ -411,6 +431,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                     wrapper-class="h-full w-full"
                     img-class="h-full w-full object-cover"
                     :respect-reduced-motion="false"
+                    :force-active="hoveredGifId === fav.id"
                   />
                   <img
                     v-else
@@ -430,7 +451,13 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               </button>
               <button
                 type="button"
-                class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-md bg-overlay-heavy text-amber-300 opacity-100 shadow-sm transition-opacity hover:bg-overlay-heavy sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                :class="
+                  mediaFavoriteStarBtnClass(
+                    true,
+                    (fav.kind === 'gif' && hoveredGifId === fav.id) ||
+                      (fav.kind === 'image' && hoveredImageId === fav.id),
+                  )
+                "
                 aria-label="Remove from favorites"
                 @click="toggleSavedFavorite(fav, $event)"
               >
@@ -498,16 +525,16 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               v-for="gif in gifResults"
               :key="gif.id"
               class="group relative aspect-video overflow-hidden rounded-lg bg-scrim-1"
+              @mouseenter="onGifHover(gif)"
+              @mouseleave="onGifLeave"
+              @focusin="onGifHover(gif)"
+              @focusout="onGifLeave"
             >
               <button
                 type="button"
                 role="menuitem"
                 class="h-full w-full transition-colors hover:bg-glass-hover"
                 :title="gif.title"
-                @mouseenter="onGifHover(gif)"
-                @mouseleave="onGifLeave"
-                @focus="onGifHover(gif)"
-                @blur="onGifLeave"
                 @click="emit('insertGif', gif.url)"
               >
                 <LimitedGifImg
@@ -522,6 +549,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                   wrapper-class="h-full w-full"
                   img-class="h-full w-full object-cover"
                   :respect-reduced-motion="false"
+                  :force-active="hoveredGifId === gif.id"
                 />
                 <img
                   v-else
@@ -533,11 +561,11 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               </button>
               <button
                 type="button"
-                class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-md bg-overlay-heavy shadow-sm transition-opacity hover:bg-overlay-heavy"
                 :class="
-                  isGifFavorited(gif)
-                    ? 'text-amber-300 opacity-100'
-                    : 'text-foreground/90 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
+                  mediaFavoriteStarBtnClass(
+                    isGifFavorited(gif),
+                    hoveredGifId === gif.id,
+                  )
                 "
                 :aria-label="
                   isGifFavorited(gif)
@@ -631,6 +659,10 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               v-for="img in imageResults"
               :key="img.id"
               class="group relative aspect-square overflow-hidden rounded-lg bg-scrim-1"
+              @mouseenter="onImageHover(img)"
+              @mouseleave="onImageLeave"
+              @focusin="onImageHover(img)"
+              @focusout="onImageLeave"
             >
               <button
                 type="button"
@@ -648,11 +680,11 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               </button>
               <button
                 type="button"
-                class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-md bg-overlay-heavy shadow-sm transition-opacity hover:bg-overlay-heavy"
                 :class="
-                  isImageFavorited(img)
-                    ? 'text-amber-300 opacity-100'
-                    : 'text-foreground/90 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
+                  mediaFavoriteStarBtnClass(
+                    isImageFavorited(img),
+                    hoveredImageId === img.id,
+                  )
                 "
                 :aria-label="
                   isImageFavorited(img)

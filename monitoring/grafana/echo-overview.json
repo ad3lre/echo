@@ -134,6 +134,38 @@
       ],
       "title": "LiveKit webhook REST /s by status_class",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "id": 9,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(echo_voice_client_qos_latency_ms_bucket[5m])) by (le))",
+          "legendFormat": "p95 RTT ms",
+          "refId": "A"
+        }
+      ],
+      "title": "Voice client QoS RTT p95 (ms)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "id": 10,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum(rate(echo_voice_reconcile_deleted_total[5m])) by (reason)",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Voice reconcile deletes/s by reason",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
@@ -146,6 +178,6 @@
   "timezone": "browser",
   "title": "Echo overview",
   "uid": "echo-overview",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }

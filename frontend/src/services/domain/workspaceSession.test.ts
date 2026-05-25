@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ref } from 'vue';
 import type { EchoWorkspaceState } from '@/api/echoClient';
 import {
+  applyVoiceRosterDeltaToEchoSession,
   applyWorkspaceSnapshotToEchoSession,
   patchPresenceBatchOnEchoSession,
   patchPresenceOnEchoSession,
@@ -182,5 +183,50 @@ describe('workspaceSession domain', () => {
     ).toBe(true);
     expect(refs.workspaceVersion.value).toBe('5');
     expect(refs.servers.value).toEqual([]);
+  });
+
+  it('keeps stage speaker hint when moving into stage', () => {
+    const serverId = '123456789012345678';
+    const refs = createSessionRefs();
+    refs.categoriesByServer.value = {
+      [serverId]: [
+        {
+          id: 'cat',
+          name: 'Voice',
+          channels: [
+            {
+              id: 'voice-1',
+              name: 'Voice',
+              type: 'voice',
+              voiceParticipantIds: ['u1'],
+            },
+            {
+              id: 'stage-1',
+              name: 'Stage',
+              type: 'stage',
+              voiceParticipantIds: [],
+              voiceStageSpeakerByUserId: {},
+            },
+          ],
+        },
+      ],
+    };
+
+    applyVoiceRosterDeltaToEchoSession(refs, {
+      action: 'move',
+      serverId,
+      channelId: 'stage-1',
+      fromChannelId: 'voice-1',
+      userId: 'u1',
+      stageSpeaker: true,
+      workspaceVersion: '2',
+      occurredAt: new Date().toISOString(),
+    });
+
+    const stage = refs.categoriesByServer.value[serverId]?.[0]?.channels.find(
+      (c) => c.id === 'stage-1',
+    );
+    expect(stage?.voiceParticipantIds).toEqual(['u1']);
+    expect(stage?.voiceStageSpeakerByUserId).toEqual({ u1: true });
   });
 });

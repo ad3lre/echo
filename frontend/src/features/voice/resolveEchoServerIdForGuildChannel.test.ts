@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveEchoServerIdContainingChannel } from './resolveEchoServerIdForGuildChannel';
+import {
+  findEchoVoiceChannelIdContainingUserOnServer,
+  resolveEchoServerIdContainingChannel,
+} from './resolveEchoServerIdForGuildChannel';
 
 const SERVER_A = '550e8400-e29b-41d4-a716-446655440000';
 const SERVER_B = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
@@ -44,5 +47,28 @@ describe('resolveEchoServerIdContainingChannel', () => {
         ],
       }),
     ).toBe('');
+  });
+});
+
+describe('findEchoVoiceChannelIdContainingUserOnServer', () => {
+  it('resolves stage channel membership', () => {
+    expect(
+      findEchoVoiceChannelIdContainingUserOnServer(SERVER_A, 'u1', {
+        [SERVER_A]: [
+          {
+            id: 'cat-a',
+            name: 'c',
+            channels: [
+              {
+                id: 'stage-1',
+                name: 'Town Hall',
+                type: 'stage' as const,
+                voiceParticipantIds: ['u1'],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe('stage-1');
   });
 });

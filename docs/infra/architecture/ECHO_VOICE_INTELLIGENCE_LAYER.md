@@ -1,8 +1,10 @@
 # Echo Voice Intelligence Layer (Layer 2) — Architecture Plan
 
-**Status:** Plan (not implemented)
+**Status:** Plan (not implemented) — **paused until Layer 1 production edge SLOs are met**
 **Date:** 2026-04-04 (updated: three-job sidecar, three health states, diff rate limits, L0–L3 authority, backoff, recovery asymmetry)
 **Prerequisite reading:** `[LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md](./LIVEKIT_VC_INFRASTRUCTURE_LAYER_1.md)` (Layer 1 - Voice Substrate), `[STACK.md](./STACK.md)` (Voice / Video, Scale strategy), `[STATUS_AND_PRODUCTION_READINESS.md](../STATUS_AND_PRODUCTION_READINESS.md)` (Pillar 12 — Voice / SFU at 8%).
+
+**Gate (do not enable Layer 2 in production yet):** Ship **`wss://`**, **TLS TURN**, pinned SFU image, UDP **57000–60000**, and stable webhook/reconcile metrics first ([`../operations/livekit-production.md`](../operations/livekit-production.md)). Keep `VOICE_SIDECAR_ENABLED=false` (default) and avoid adaptive policy loops until those checks pass.
 
 ---
 

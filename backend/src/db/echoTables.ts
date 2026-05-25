@@ -3,6 +3,8 @@ import { config } from '../config';
 import { DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS } from '../domain/echoStore/constants';
 import { migrateEveryoneRoleHierarchyPositions } from '../domain/echoStore/roles';
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
+import { normalizePermissionOverwritePartial } from '../domain/echoPermissionPrimitives';
+import { repairEchoVoiceChannelMigrationDamage } from './repairEchoVoiceChannelMigration';
 
 /**
  * Echo domain tables (servers, channels, messages, social, minimal RBAC).
@@ -1208,6 +1210,7 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await migrateEchoChannelCategoryNullable(pool);
   await ensureEchoPermissionOverwriteTables(pool);
   await migrateEchoPermissionOverwriteRows(pool);
+  await repairEchoVoiceChannelMigrationDamage(pool);
 }
 
 /** Per-target channel/category permission partials (everyone / role / member). */
@@ -1289,6 +1292,10 @@ async function migrateEchoPermissionOverwriteRows(
       )
   `);
   for (const row of chRows.rows) {
+    const normalized = normalizePermissionOverwritePartial(
+      row.permission_overrides as Record<string, unknown>,
+    );
+    if (!normalized || Object.keys(normalized).length === 0) continue;
     await pool.query(
       `INSERT INTO echo_channel_permission_overwrite_rows (id, server_id, channel_id, target_type, target_id, partial)
        VALUES ($1, $2, $3, 'everyone', NULL, $4::jsonb)`,
@@ -1296,7 +1303,7 @@ async function migrateEchoPermissionOverwriteRows(
         nextEchoSnowflakeId(),
         String(row.server_id),
         String(row.channel_id),
-        row.permission_overrides,
+        JSON.stringify(normalized),
       ],
     );
   }
@@ -1318,6 +1325,10 @@ async function migrateEchoPermissionOverwriteRows(
       )
   `);
   for (const row of catRows.rows) {
+    const normalized = normalizePermissionOverwritePartial(
+      row.permission_overrides as Record<string, unknown>,
+    );
+    if (!normalized || Object.keys(normalized).length === 0) continue;
     await pool.query(
       `INSERT INTO echo_category_permission_overwrite_rows (id, server_id, category_id, target_type, target_id, partial)
        VALUES ($1, $2, $3, 'everyone', NULL, $4::jsonb)`,
@@ -1325,7 +1336,7 @@ async function migrateEchoPermissionOverwriteRows(
         nextEchoSnowflakeId(),
         String(row.server_id),
         String(row.category_id),
-        row.permission_overrides,
+        JSON.stringify(normalized),
       ],
     );
   }
@@ -1356,11 +1367,18 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
     const groups = await pool.query(
       `
       SELECT server_id,
-        COALESCE(NULLIF(TRIM(category_name), ''), 'Text Channels') AS norm_name,
+        COALESCE(
+          NULLIF(TRIM(category_name), ''),
+          CASE WHEN type IN ('voice', 'stage') THEN 'Voice Channels' ELSE 'Text Channels' END
+        ) AS norm_name,
         MIN(created_at) AS first_seen
       FROM echo_channels
       WHERE category_id IS NULL
-      GROUP BY server_id, COALESCE(NULLIF(TRIM(category_name), ''), 'Text Channels')
+      GROUP BY server_id,
+        COALESCE(
+          NULLIF(TRIM(category_name), ''),
+          CASE WHEN type IN ('voice', 'stage') THEN 'Voice Channels' ELSE 'Text Channels' END
+        )
       ORDER BY server_id, MIN(created_at) ASC
       `,
     );
@@ -1378,7 +1396,10 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
       await pool.query(
         `UPDATE echo_channels SET category_id = $1
          WHERE server_id = $2 AND category_id IS NULL
-         AND COALESCE(NULLIF(TRIM(category_name), ''), 'Text Channels') = $3`,
+         AND COALESCE(
+           NULLIF(TRIM(category_name), ''),
+           CASE WHEN type IN ('voice', 'stage') THEN 'Voice Channels' ELSE 'Text Channels' END
+         ) = $3`,
         [catId, serverId, normName],
       );
     }

@@ -1,4 +1,4 @@
-import { Extension } from '@tiptap/core';
+import { Extension, type Command } from '@tiptap/core';
 import { PAPER_DEFAULT_FONT_FAMILY } from '@shared/types/paperEmptyDocument';
 
 declare module '@tiptap/core' {
@@ -55,25 +55,31 @@ export const PaperDocumentAttributes = Extension.create({
   },
 
   addCommands() {
+    const setDocAttrs =
+      (patch: Record<string, unknown>): Command =>
+      ({ tr, dispatch }) => {
+        if (dispatch) {
+          for (const [key, value] of Object.entries(patch)) {
+            tr.setDocAttribute(key, value);
+          }
+          dispatch(tr);
+        }
+        return true;
+      };
+
     return {
-      setPaperDefaultFont:
-        (family: string) =>
-        ({ commands }) =>
-          commands.updateAttributes('doc', {
-            defaultFontFamily: family.trim() || PAPER_DEFAULT_FONT_FAMILY,
-          }),
-      setPaperPageColorLight:
-        (hex: string | null) =>
-        ({ commands }) =>
-          commands.updateAttributes('doc', {
-            paperPageColorLight: hex?.trim() || null,
-          }),
-      setPaperPageColorDark:
-        (hex: string | null) =>
-        ({ commands }) =>
-          commands.updateAttributes('doc', {
-            paperPageColorDark: hex?.trim() || null,
-          }),
+      setPaperDefaultFont: (family: string) =>
+        setDocAttrs({
+          defaultFontFamily: family.trim() || PAPER_DEFAULT_FONT_FAMILY,
+        }),
+      setPaperPageColorLight: (hex: string | null) =>
+        setDocAttrs({
+          paperPageColorLight: hex?.trim() || null,
+        }),
+      setPaperPageColorDark: (hex: string | null) =>
+        setDocAttrs({
+          paperPageColorDark: hex?.trim() || null,
+        }),
     };
   },
 });

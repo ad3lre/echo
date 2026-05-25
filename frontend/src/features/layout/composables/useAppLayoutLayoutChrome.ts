@@ -5,6 +5,7 @@ import type {
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
 import { syncYoutubeVideoIdFromPlaylist } from '@/features/voice/vcActivityTypes';
+import { ECHOED_NAMES_VC_ACTIVITY_ENABLED } from '@shared/vcActivityCatalog';
 
 const MORE_SERVERS_PINNED_STORAGE_KEY = 'echo-more-servers-panel-pinned-v1';
 
@@ -244,6 +245,17 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
     };
   }
 
+  function openVcActivitySkriggles() {
+    fullscreenStreamParticipantId.value = null;
+    vcActivityUi.value = {
+      phase: 'skriggles',
+      youtubeVideoId: null,
+      youtubeBrowseOpen: false,
+      playlist: [],
+      currentIndex: 0,
+    };
+  }
+
   function openVcActivityTicTacToe() {
     fullscreenStreamParticipantId.value = null;
     vcActivityUi.value = {
@@ -300,6 +312,10 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
   }
 
   function openVcActivityCodenames() {
+    if (!ECHOED_NAMES_VC_ACTIVITY_ENABLED) {
+      openVcActivityPicker();
+      return;
+    }
     fullscreenStreamParticipantId.value = null;
     vcActivityUi.value = {
       phase: 'codenames',
@@ -336,17 +352,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
     fullscreenStreamParticipantId.value = null;
     vcActivityUi.value = {
       phase: 'smash_karts',
-      youtubeVideoId: null,
-      youtubeBrowseOpen: false,
-      playlist: [],
-      currentIndex: 0,
-    };
-  }
-
-  function openVcActivityBasketballStars2026() {
-    fullscreenStreamParticipantId.value = null;
-    vcActivityUi.value = {
-      phase: 'basketball_stars_2026',
       youtubeVideoId: null,
       youtubeBrowseOpen: false,
       playlist: [],
@@ -545,6 +550,10 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       return;
     }
     if (ap === 'codenames') {
+      if (!ECHOED_NAMES_VC_ACTIVITY_ENABLED) {
+        openVcActivityPicker();
+        return;
+      }
       vcActivityUi.value = {
         phase: 'codenames',
         youtubeVideoId: null,
@@ -562,7 +571,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       ap === 'richup' ||
       ap === 'goober_dash' ||
       ap === 'smash_karts' ||
-      ap === 'basketball_stars_2026' ||
       ap === 'cluster_rush'
     ) {
       vcActivityUi.value = {
@@ -734,6 +742,7 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
     openVcActivityYoutubeBrowse,
     openVcActivityWordle,
     openVcActivityHangman,
+    openVcActivitySkriggles,
     openVcActivityTicTacToe,
     openVcActivityOpenGuessr,
     openVcActivitySkribblIo,
@@ -743,7 +752,6 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
     openVcActivityRichup,
     openVcActivityGooberDash,
     openVcActivitySmashKarts,
-    openVcActivityBasketballStars2026,
     openVcActivityClusterRush,
     setVcActivityYoutubeVideo,
     setVcYoutubeBrowseOpen,

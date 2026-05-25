@@ -554,8 +554,16 @@ export function applyVoiceRosterDeltaToEchoSession(
     nextCats = mapVoiceChannels(afterRemove, (ch) => {
       if (ch.id !== channelId) return ch;
       const ids = ch.voiceParticipantIds ?? [];
-      if (ids.includes(userId)) return ch;
-      return { ...ch, voiceParticipantIds: [...ids, userId] };
+      const next: import('@shared/types').ChannelSummary = ids.includes(userId)
+        ? ch
+        : { ...ch, voiceParticipantIds: [...ids, userId] };
+      if (ch.type === 'stage' && stageSpeakerHint !== undefined) {
+        const spk = { ...(ch.voiceStageSpeakerByUserId ?? {}) };
+        if (stageSpeakerHint) spk[userId] = true;
+        else delete spk[userId];
+        return { ...next, voiceStageSpeakerByUserId: spk };
+      }
+      return next;
     });
   } else if (action === 'mute' || action === 'unmute') {
     const muted = action === 'mute';

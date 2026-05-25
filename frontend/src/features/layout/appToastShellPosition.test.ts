@@ -9,13 +9,13 @@ describe('appToastBottomInsetCss', () => {
   it('uses a modest floor when not clearing bottom chrome', () => {
     expect(
       appToastBottomInsetCss({ elevated: false, measuredChromeInsetPx: 0 }),
-    ).toBe('max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))');
+    ).toBe('max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1rem))');
   });
 
   it('prefers measured chrome inset when elevated', () => {
     expect(
       appToastBottomInsetCss({ elevated: true, measuredChromeInsetPx: 96 }),
-    ).toBe('calc(108px + env(safe-area-inset-bottom, 0px) + 1.25rem)');
+    ).toBe('calc(106px + env(safe-area-inset-bottom, 0px) + 1rem)');
   });
 });
 
@@ -49,8 +49,8 @@ describe('computeVisualViewportToastInsets', () => {
 describe('buildAppToastShellPositionStyle', () => {
   it('pins toast viewport with top/bottom bounds', () => {
     const bottom =
-      'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))';
-    const topReserve = 'max(0.75rem, env(safe-area-inset-top, 0px))';
+      'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1rem))';
+    const topReserve = 'max(0.5rem, env(safe-area-inset-top, 0px))';
     expect(
       buildAppToastShellPositionStyle({
         bottomInsetCss: bottom,
@@ -66,9 +66,9 @@ describe('buildAppToastShellPositionStyle', () => {
 
   it('accounts for visual viewport lift on top and bottom', () => {
     const bottomInsetCss =
-      'calc(108px + env(safe-area-inset-bottom, 0px) + 1.25rem)';
+      'calc(106px + env(safe-area-inset-bottom, 0px) + 1rem)';
     const bottom = `calc(${bottomInsetCss} + 120px)`;
-    const topReserve = 'max(0.75rem, env(safe-area-inset-top, 0px), 32px)';
+    const topReserve = 'max(0.5rem, env(safe-area-inset-top, 0px), 32px)';
     expect(
       buildAppToastShellPositionStyle({
         bottomInsetCss,

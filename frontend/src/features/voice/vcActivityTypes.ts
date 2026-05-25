@@ -4,6 +4,7 @@ export type VcActivityUiPhase =
   | 'youtube'
   | 'wordle'
   | 'hangman'
+  | 'skriggles'
   | 'openguessr'
   | 'skribbl_io'
   | 'gartic_phone'
@@ -12,7 +13,6 @@ export type VcActivityUiPhase =
   | 'richup'
   | 'goober_dash'
   | 'smash_karts'
-  | 'basketball_stars_2026'
   | 'cluster_rush'
   | 'tic_tac_toe';
 
@@ -22,6 +22,7 @@ export type VcActivityPresenceKind =
   | 'activities'
   | 'wordle'
   | 'hangman'
+  | 'skriggles'
   | 'openguessr'
   | 'skribbl_io'
   | 'gartic_phone'
@@ -30,7 +31,6 @@ export type VcActivityPresenceKind =
   | 'richup'
   | 'goober_dash'
   | 'smash_karts'
-  | 'basketball_stars_2026'
   | 'cluster_rush'
   | 'tic_tac_toe';
 
@@ -53,13 +53,6 @@ export const VC_GOOBER_DASH_EMBED_URL = 'https://gooberdash.winterpixel.io/';
 export const VC_SMASH_KARTS_EMBED_URL = 'https://smashkarts.io/';
 
 /**
- * GameDistribution HTML5 player for MadPuffers' title (same id as OnlineGames.io embed).
- * `curl -sI` shows no X-Frame-Options / CSP frame-ancestors / COEP / CORP on this URL as of 2026-05-13.
- */
-export const VC_BASKETBALL_STARS_2026_EMBED_URL =
-  'https://html5.gamedistribution.com/516d6908fbc848bdb89e65a58a43a7dc/?gd_sdk_referrer_url=https://www.onlinegames.io/basketball-stars-2026/';
-
-/**
  * Unity WebGL player path on clusterrush.io (not clusterrush.com — that host returns 403 + `X-Frame-Options: SAMEORIGIN`).
  * `curl -sSIL` (Chrome UA) on this URL: HTTP 200, no `X-Frame-Options`, CSP is only `upgrade-insecure-requests` as of 2026-05-13.
  */
@@ -75,7 +68,6 @@ export type VcIframeEmbedPhase =
   | 'richup'
   | 'goober_dash'
   | 'smash_karts'
-  | 'basketball_stars_2026'
   | 'cluster_rush';
 
 export function isVcIframeEmbedPhase(
@@ -89,7 +81,6 @@ export function isVcIframeEmbedPhase(
     p === 'richup' ||
     p === 'goober_dash' ||
     p === 'smash_karts' ||
-    p === 'basketball_stars_2026' ||
     p === 'cluster_rush'
   );
 }
@@ -110,8 +101,6 @@ export function vcIframeEmbedUrl(p: VcIframeEmbedPhase): string {
       return VC_GOOBER_DASH_EMBED_URL;
     case 'smash_karts':
       return VC_SMASH_KARTS_EMBED_URL;
-    case 'basketball_stars_2026':
-      return VC_BASKETBALL_STARS_2026_EMBED_URL;
     case 'cluster_rush':
       return VC_CLUSTER_RUSH_EMBED_URL;
     default: {
@@ -137,8 +126,6 @@ export function vcIframeEmbedTitle(p: VcIframeEmbedPhase): string {
       return 'Goober Dash';
     case 'smash_karts':
       return 'Smash Karts';
-    case 'basketball_stars_2026':
-      return 'Basketball Stars 2026';
     case 'cluster_rush':
       return 'Cluster Rush';
     default: {
@@ -194,6 +181,7 @@ export function vcActivityPresenceKindsFromUi(
   if (s.phase === 'pick') return ['activities'];
   if (s.phase === 'wordle') return ['wordle'];
   if (s.phase === 'hangman') return ['hangman'];
+  if (s.phase === 'skriggles') return ['skriggles'];
   if (s.phase === 'openguessr') return ['openguessr'];
   if (s.phase === 'skribbl_io') return ['skribbl_io'];
   if (s.phase === 'gartic_phone') return ['gartic_phone'];
@@ -202,7 +190,6 @@ export function vcActivityPresenceKindsFromUi(
   if (s.phase === 'richup') return ['richup'];
   if (s.phase === 'goober_dash') return ['goober_dash'];
   if (s.phase === 'smash_karts') return ['smash_karts'];
-  if (s.phase === 'basketball_stars_2026') return ['basketball_stars_2026'];
   if (s.phase === 'cluster_rush') return ['cluster_rush'];
   if (s.phase === 'tic_tac_toe') return ['tic_tac_toe'];
   return ['youtube'];

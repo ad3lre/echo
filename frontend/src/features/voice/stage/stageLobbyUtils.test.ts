@@ -44,13 +44,26 @@ describe('stageLobbyUtils', () => {
     );
   });
 
+  it('parses voice-only stage mode tags', () => {
+    expect(parseStageModeFromDescription('Audio only [stage:voice_only]')).toBe(
+      'voice_only',
+    );
+    expect(parseStageModeFromDescription('Legacy [stage:vc_only]')).toBe(
+      'voice_only',
+    );
+  });
+
   it('formats stage mode labels', () => {
     expect(formatStageModeLabel('youtube_live')).toBe('YouTube live');
+    expect(formatStageModeLabel('voice_only')).toBe('Voice only');
   });
 
   it('appends stage mode tag to description', () => {
     expect(withStageModeInDescription('Hello', true)).toContain(
       '[stage:youtube_live]',
+    );
+    expect(withStageModeInDescription('Hello', 'voice_only')).toContain(
+      '[stage:voice_only]',
     );
     expect(withStageModeInDescription('[stage:youtube_live]', false)).toBe('');
   });

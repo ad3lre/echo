@@ -5,6 +5,14 @@ import {
   type MemberProfile,
   type PopoutAnchorRect,
 } from '@/utils/memberProfiles';
+import {
+  computeFittedPopoutTop,
+  computePopoutPanelHeight,
+  computePopoutViewportMaxHeight,
+  measurePopoutContentHeight,
+  popoutCardNeedsFixedHeight,
+  resolveMemberPopoutTop,
+} from '@/utils/memberPopoutPlacement';
 import { profileBannerRefractionBackdropStyle } from '@/utils/profileBannerGradientFromImage';
 import MemberProfileHeader from './member-profile/MemberProfileHeader.vue';
 import MemberProfileContent from './member-profile/MemberProfileContent.vue';
@@ -174,52 +182,6 @@ const canSendFriendRequestInEllipsisMenu = computed(
 function disconnectPopoutResizeObserver() {
   popoutResizeObserver?.disconnect();
   popoutResizeObserver = null;
-}
-
-/** Keep the quick profile card inside the viewport (chat anchors flip above when needed). */
-function resolveMemberPopoutTop(params: {
-  desiredTop: number;
-  panelHeight: number;
-  viewportHeight: number;
-  padding: number;
-  anchor: PopoutAnchorRect;
-  source: PopoutAnchorRect['source'];
-  gap: number;
-}): number {
-  const {
-    desiredTop,
-    panelHeight,
-    viewportHeight,
-    padding,
-    anchor,
-    source,
-    gap,
-  } = params;
-  const maxTop = Math.max(padding, viewportHeight - panelHeight - padding);
-  const clampTop = (value: number) =>
-    Math.min(Math.max(value, padding), maxTop);
-
-  const isChatSource = source === 'chat-avatar' || source === 'chat-name';
-  if (!isChatSource) {
-    return clampTop(desiredTop);
-  }
-
-  const spaceBelow = viewportHeight - anchor.bottom - padding;
-  const spaceAbove = anchor.top - padding;
-  const preferredBelowTop =
-    source === 'chat-avatar' ? anchor.top - 24 : anchor.top - 42;
-  const preferredAboveTop = anchor.bottom - panelHeight - gap;
-
-  if (spaceBelow >= panelHeight + gap) {
-    return clampTop(preferredBelowTop);
-  }
-  if (spaceAbove >= panelHeight + gap) {
-    return Math.max(preferredAboveTop, padding);
-  }
-  if (spaceBelow >= spaceAbove) {
-    return clampTop(preferredBelowTop);
-  }
-  return Math.max(Math.min(preferredAboveTop, maxTop), padding);
 }
 
 const assignedRoleIds = computed(() => {
@@ -497,17 +459,20 @@ watch(
     void nextTick(() => {
       const el = popoutArticleRef.value;
       if (!el) return;
-      const apply = (h: number) => {
-        if (h > 0) {
-          popoutMeasuredHeight.value = h;
+      const apply = () => {
+        const natural = measurePopoutContentHeight(el, popoutScrollRef.value);
+        if (natural > 0) {
+          popoutMeasuredHeight.value = natural;
           popoutLayoutTick.value += 1;
         }
       };
-      apply(el.getBoundingClientRect().height);
-      const ro = new ResizeObserver((entries) => {
-        for (const e of entries) apply(e.contentRect.height);
+      apply();
+      const ro = new ResizeObserver(() => {
+        apply();
       });
       ro.observe(el);
+      const scrollEl = popoutScrollRef.value;
+      if (scrollEl) ro.observe(scrollEl);
       popoutHeightResizeObserver = ro;
       const roDisplay = new ResizeObserver(() => {
         updateDisplayNameOverflowMeasure();
@@ -536,11 +501,16 @@ const placement = computed(() => {
   const maxPanelHeight = viewportHeight - padding * 2;
   /** Height for layout until ResizeObserver reports the real popout size (avoids a huge first-frame `top` for self-bar). */
   const layoutHeightEstimate = 400;
-  const effectivePopoutHeight =
+  const popoutNaturalHeight =
     popoutMeasuredHeight.value > 0
-      ? Math.min(popoutMeasuredHeight.value, maxPanelHeight)
-      : Math.min(layoutHeightEstimate, maxPanelHeight);
-  const panelHeight = effectivePopoutHeight;
+      ? popoutMeasuredHeight.value
+      : layoutHeightEstimate;
+  const panelHeight = computePopoutPanelHeight(
+    popoutMeasuredHeight.value,
+    layoutHeightEstimate,
+    maxPanelHeight,
+  );
+  const effectivePopoutHeight = panelHeight;
   const compactViewport = viewportWidth < 760 || viewportHeight < 560;
 
   if (isCompactShell.value && !rolesStandaloneUi.value) {
@@ -645,11 +615,6 @@ const placement = computed(() => {
 
   if (source === 'member-list') {
     desiredTop = props.anchor.top - 44;
-    // Keep the full card on-screen when opened from the lower member list.
-    const bottomAlignedTop = viewportHeight - panelHeight - padding;
-    if (desiredTop > bottomAlignedTop) {
-      desiredTop = bottomAlignedTop;
-    }
   } else if (source === 'chat-avatar') {
     desiredTop = props.anchor.top - 24;
   } else if (source === 'chat-name') {
@@ -681,18 +646,29 @@ const placement = computed(() => {
         viewportHeight - panelHeight - padding,
       );
 
-  const viewportFitMaxHeight = Math.max(200, viewportHeight - top - padding);
-  const panelMaxHeight = Math.min(maxPanelHeight, viewportFitMaxHeight);
+  const panelMaxHeight = computePopoutViewportMaxHeight(
+    viewportHeight,
+    top,
+    padding,
+    maxPanelHeight,
+  );
 
   // Re-fit top when rounding or a late height measure would push the card past the viewport.
-  const fittedTop = Math.max(
+  const fittedTop = computeFittedPopoutTop(
+    top,
+    panelMaxHeight,
+    viewportHeight,
     padding,
-    Math.min(top, viewportHeight - panelMaxHeight - padding),
+  );
+
+  const needsFixedHeight = popoutCardNeedsFixedHeight(
+    popoutNaturalHeight,
+    panelMaxHeight,
   );
 
   const arrowCenter = Math.min(
     Math.max(anchorCenterY - fittedTop, arrowInset),
-    Math.min(panelHeight, panelMaxHeight) - arrowInset,
+    panelMaxHeight - arrowInset,
   );
 
   return {
@@ -703,6 +679,7 @@ const placement = computed(() => {
       left: `${snapPx(left)}px`,
       top: `${snapPx(fittedTop)}px`,
       maxHeight: `${panelMaxHeight}px`,
+      ...(needsFixedHeight ? { height: `${panelMaxHeight}px` } : {}),
     },
     arrowStyle: {
       top: `${arrowCenter}px`,

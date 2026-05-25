@@ -32,12 +32,21 @@ import type {
   EchoCodenamesAffiliationV1,
   EchoCodenamesRoleAssignmentV1,
   EchoHangmanActivityV1,
+  EchoSkrigglesActivityV1,
+  EchoSkrigglesCanvasCmdV1,
+  EchoSkrigglesCanvasSnapshotV1,
+  EchoSkrigglesSettingsV1,
+  EchoSkrigglesStrokeBatchV1,
   EchoTicTacToeActivityV1,
   EchoTicTacToeInviteV1,
   EchoYoutubePlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import { useAuthSessionStore } from '@/stores/authSession';
-import type { EchoVcActivityKey } from '@shared/vcActivityCatalog';
+import {
+  ECHOED_NAMES_VC_ACTIVITY_ENABLED,
+  isEchoVcActivityLibraryVisible,
+  type EchoVcActivityKey,
+} from '@shared/vcActivityCatalog';
 import type {
   VcActivityUiState,
   YoutubePlaylistEntry,
@@ -50,12 +59,14 @@ import {
 } from '@/features/voice/vcActivityTypes';
 import VcWordlineActivity from '@/features/voice/components/VcWordlineActivity.vue';
 import VcHangmanGame from '@/features/voice/components/VcHangmanGame.vue';
+import VcSkrigglesGame from '@/features/voice/skriggles/components/VcSkrigglesGame.vue';
 import VcTicTacToeActivity from '@/features/voice/components/VcTicTacToeActivity.vue';
 import VcCodenamesGame from '@/features/voice/components/VcCodenamesGame.vue';
 import {
   useVcYoutubeWatchTogetherPlayer,
   type VcYoutubeRemotePlaybackState,
 } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
+import { compareVcActivityLibraryCards } from '@/features/voice/stage/vcActivityLibrarySort';
 
 const appBase = import.meta.env.BASE_URL || '/';
 /**
@@ -66,6 +77,7 @@ const vcActivityArt = {
   youtube: withBasePath('/vc-activities/youtube-hero.svg', appBase),
   wordle: withBasePath('/vc-activities/wordle-hero.png', appBase),
   hangman: withBasePath('/vc-activities/hangman-hero.svg', appBase),
+  skriggles: withBasePath('/vc-activities/skriggles-hero.svg', appBase),
   openguessr: withBasePath('/vc-activities/openguessr-hero.jpg', appBase),
   skribblIo: withBasePath('/vc-activities/skribbl-hero.png', appBase),
   garticPhone: withBasePath('/vc-activities/gartic-phone-hero.png', appBase),
@@ -74,10 +86,6 @@ const vcActivityArt = {
   richup: withBasePath('/vc-activities/richup-hero.png', appBase),
   gooberDash: withBasePath('/vc-activities/goober-dash-hero.png', appBase),
   smashKarts: withBasePath('/vc-activities/smash-karts-hero.png', appBase),
-  basketballStars2026: withBasePath(
-    '/vc-activities/basketball-stars-2026-hero.jpg',
-    appBase,
-  ),
   clusterRush: withBasePath('/vc-activities/cluster-rush-hero.jpg', appBase),
   ticTacToe: withBasePath('/vc-activities/tic-tac-toe-hero.svg', appBase),
 } as const;
@@ -102,10 +110,11 @@ const VC_ACTIVITY_LIBRARY_CARDS: readonly {
   {
     key: 'wordle',
     artKey: 'wordle',
-    widgetClass: 'vc-act-widget--wordle',
-    title: 'Wordle',
-    description: 'Daily puzzle · private to you in this activity',
-    ariaLabel: 'Open Wordle activity',
+    widgetClass: 'vc-act-widget--wordline',
+    title: 'Wordline',
+    description:
+      'Five-letter puzzles · daily challenge or level practice, private to you in voice',
+    ariaLabel: 'Open Wordline activity',
   },
   {
     key: 'hangman',
@@ -115,6 +124,15 @@ const VC_ACTIVITY_LIBRARY_CARDS: readonly {
     description:
       'Echo voice classic · shared board, one puzzle master per round, guesses over the voice channel',
     ariaLabel: 'Open Hangman activity',
+  },
+  {
+    key: 'skriggles',
+    artKey: 'skriggles',
+    widgetClass: 'vc-act-widget--skriggles',
+    title: 'Skriggles',
+    description:
+      'Draw & guess party game · native Echo voice sync, no external tab',
+    ariaLabel: 'Open Skriggles activity',
   },
   {
     key: 'tic_tac_toe',
@@ -176,15 +194,6 @@ const VC_ACTIVITY_LIBRARY_CARDS: readonly {
     ariaLabel: 'Open Smash Karts activity',
   },
   {
-    key: 'basketball_stars_2026',
-    artKey: 'basketballStars2026',
-    widgetClass: 'vc-act-widget--basketballstars2026',
-    title: 'Basketball Stars 2026',
-    description:
-      '2v2 and tournament basketball by MadPuffers · GameDistribution embed in this activity',
-    ariaLabel: 'Open Basketball Stars 2026 activity',
-  },
-  {
     key: 'cluster_rush',
     artKey: 'clusterRush',
     widgetClass: 'vc-act-widget--clusterrush',
@@ -231,7 +240,6 @@ const props = withDefaults(
     openVcActivityRichup: () => void;
     openVcActivityGooberDash: () => void;
     openVcActivitySmashKarts: () => void;
-    openVcActivityBasketballStars2026: () => void;
     openVcActivityClusterRush: () => void;
     openVcActivityPicker: () => void;
     setVcActivityYoutubeVideo: (
@@ -253,6 +261,25 @@ const props = withDefaults(
     commitVcHangmanWord: (raw: string) => string | null;
     requestVcHangmanGuessLetter: (letter: string) => void;
     requestVcHangmanNextRound: () => void;
+    vcSkrigglesActivity: MaybeRef<EchoSkrigglesActivityV1 | null>;
+    skrigglesRosterUserIds: MaybeRef<readonly string[]>;
+    skrigglesCanvasEvents: MaybeRef<
+      readonly import('@/features/voice/skriggles/skrigglesVoiceSession').SkrigglesCanvasEvent[]
+    >;
+    commitSkrigglesWordChoice: (word: string) => void;
+    submitSkrigglesGuess: (guess: string) => void;
+    updateSkrigglesSettings: (
+      settings: Partial<EchoSkrigglesSettingsV1>,
+    ) => void;
+    startSkrigglesGame: () => void;
+    advanceSkrigglesRound: () => void;
+    publishSkrigglesStrokeBatch: (batch: EchoSkrigglesStrokeBatchV1) => void;
+    publishSkrigglesCanvasCmd: (cmd: EchoSkrigglesCanvasCmdV1) => void;
+    publishSkrigglesCanvasSnapshot: (
+      snapshot: EchoSkrigglesCanvasSnapshotV1,
+    ) => void;
+    tickSkrigglesTimers: () => void;
+    openVcActivitySkriggles: () => void;
     vcTicTacToeActivity: MaybeRef<EchoTicTacToeActivityV1 | null>;
     vcTicTacToePendingInvite: MaybeRef<EchoTicTacToeInviteV1 | null>;
     sendVcTicTacToeChallenge: (toUserId: string) => void;
@@ -313,6 +340,13 @@ const tttLiveKitConnected = computed(() => !!unref(props.liveKitConnected));
 
 const hmActivity = computed(() => unref(props.vcHangmanActivity));
 const hmRoster = computed(() => [...(unref(props.hangmanRosterUserIds) ?? [])]);
+const skActivity = computed(() => unref(props.vcSkrigglesActivity));
+const skRoster = computed(() => [
+  ...(unref(props.skrigglesRosterUserIds) ?? []),
+]);
+const skCanvasEvents = computed(() => [
+  ...(unref(props.skrigglesCanvasEvents) ?? []),
+]);
 const hangmanVoiceParticipants = computed(() => {
   const rows = unref(props.activeVoiceChannelParticipants) ?? [];
   return rows.map((p) => ({
@@ -387,16 +421,9 @@ const vcActivityPopularityByKey = ref(
 
 const sortedVcActivityLibraryCards = computed(() => {
   const pop = vcActivityPopularityByKey.value;
-  return [...VC_ACTIVITY_LIBRARY_CARDS].sort((a, b) => {
-    const ca = pop[a.key] ?? 0;
-    const cb = pop[b.key] ?? 0;
-    if (cb !== ca) return cb - ca;
-    const t = a.title.localeCompare(b.title, undefined, {
-      sensitivity: 'base',
-    });
-    if (t !== 0) return t;
-    return a.key.localeCompare(b.key);
-  });
+  return [...VC_ACTIVITY_LIBRARY_CARDS]
+    .filter((c) => isEchoVcActivityLibraryVisible(c.key))
+    .sort((a, b) => compareVcActivityLibraryCards(a, b, pop));
 });
 
 async function refreshVcActivityLibraryPopularity(): Promise<void> {
@@ -437,6 +464,9 @@ function openActivityFromLibrary(key: VcActivityLibraryCardKey): void {
     case 'hangman':
       props.openVcActivityHangman();
       break;
+    case 'skriggles':
+      props.openVcActivitySkriggles();
+      break;
     case 'tic_tac_toe':
       props.openVcActivityTicTacToe();
       break;
@@ -453,7 +483,8 @@ function openActivityFromLibrary(key: VcActivityLibraryCardKey): void {
       props.openVcActivityKrunker();
       break;
     case 'codenames':
-      props.openVcActivityCodenames();
+      if (ECHOED_NAMES_VC_ACTIVITY_ENABLED) props.openVcActivityCodenames();
+      else props.openVcActivityPicker();
       break;
     case 'richup':
       props.openVcActivityRichup();
@@ -463,9 +494,6 @@ function openActivityFromLibrary(key: VcActivityLibraryCardKey): void {
       break;
     case 'smash_karts':
       props.openVcActivitySmashKarts();
-      break;
-    case 'basketball_stars_2026':
-      props.openVcActivityBasketballStars2026();
       break;
     case 'cluster_rush':
       props.openVcActivityClusterRush();
@@ -561,8 +589,9 @@ const iframeEmbedTitle = computed(() =>
 const activityRegionLabel = computed(() => {
   const p = st.value.phase;
   if (p === 'pick') return 'Voice activities';
-  if (p === 'wordle') return 'Wordle';
+  if (p === 'wordle') return 'Wordline';
   if (p === 'hangman') return 'Hangman';
+  if (p === 'skriggles') return 'Skriggles';
   if (p === 'tic_tac_toe') return 'Tic Tac Echo';
   if (p === 'codenames') return 'Echoed Names';
   if (isVcIframeEmbedPhase(p)) return vcIframeEmbedTitle(p);
@@ -574,6 +603,7 @@ const showVcFullscreenControl = computed(
     st.value.phase === 'youtube' ||
     st.value.phase === 'wordle' ||
     st.value.phase === 'hangman' ||
+    st.value.phase === 'skriggles' ||
     st.value.phase === 'tic_tac_toe' ||
     st.value.phase === 'codenames' ||
     isVcIframeEmbedPhase(st.value.phase),
@@ -913,6 +943,7 @@ function onKeydownRoot(e: KeyboardEvent) {
   } else if (
     st.value.phase === 'wordle' ||
     st.value.phase === 'hangman' ||
+    st.value.phase === 'skriggles' ||
     st.value.phase === 'tic_tac_toe'
   ) {
     props.openVcActivityPicker();
@@ -928,6 +959,7 @@ function headerBack() {
     st.value.phase === 'youtube' ||
     st.value.phase === 'wordle' ||
     st.value.phase === 'hangman' ||
+    st.value.phase === 'skriggles' ||
     st.value.phase === 'tic_tac_toe' ||
     isVcIframeEmbedPhase(st.value.phase)
   ) {
@@ -1051,6 +1083,7 @@ watch(
       class="vc-act-header flex h-11 min-h-11 w-full min-w-0 shrink-0 items-center gap-1.5 border-b border-border bg-elevated px-2 sm:px-3"
       :class="{
         'vc-act-header--youtube': st.phase === 'youtube',
+        'vc-act-header--wordline': st.phase === 'wordle',
         'vc-act-header--echoed-names': st.phase === 'codenames',
       }"
     >
@@ -1938,10 +1971,10 @@ watch(
       </div>
     </div>
 
-    <!-- Wordline (Echo's in-client Wordle) -->
+    <!-- Wordline -->
     <div
       v-else-if="st.phase === 'wordle'"
-      class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      class="vc-act-wordline-stage custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
     >
       <VcWordlineActivity
         class="min-h-0 min-w-0 flex-1"
@@ -1967,6 +2000,30 @@ watch(
       />
     </div>
 
+    <!-- Skriggles (voice-synced draw & guess) -->
+    <div
+      v-else-if="st.phase === 'skriggles'"
+      class="custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
+    >
+      <VcSkrigglesGame
+        class="min-h-0 min-w-0 flex-1"
+        :current-user-id="currentUserId ?? undefined"
+        :skriggles-activity="skActivity"
+        :skriggles-roster-user-ids="skRoster"
+        :voice-participants="hangmanVoiceParticipants"
+        :canvas-events="skCanvasEvents"
+        :commit-word-choice="props.commitSkrigglesWordChoice"
+        :submit-guess="props.submitSkrigglesGuess"
+        :update-settings="props.updateSkrigglesSettings"
+        :start-game="props.startSkrigglesGame"
+        :advance-round="props.advanceSkrigglesRound"
+        :publish-stroke-batch="props.publishSkrigglesStrokeBatch"
+        :publish-canvas-cmd="props.publishSkrigglesCanvasCmd"
+        :publish-canvas-snapshot="props.publishSkrigglesCanvasSnapshot"
+        :tick-timers="props.tickSkrigglesTimers"
+      />
+    </div>
+
     <!-- Tic Tac Echo (CPU + voice PvP) -->
     <div
       v-else-if="st.phase === 'tic_tac_toe'"
@@ -1989,7 +2046,7 @@ watch(
 
     <!-- Echoed Names (voice-synced Codenames-style game) -->
     <div
-      v-else-if="st.phase === 'codenames'"
+      v-else-if="st.phase === 'codenames' && ECHOED_NAMES_VC_ACTIVITY_ENABLED"
       class="custom-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
     >
       <VcCodenamesGame
@@ -2011,7 +2068,7 @@ watch(
       />
     </div>
 
-    <!-- Third-party iframe games (OpenGuessr, skribbl.io, Gartic Phone, Krunker, Richup, Goober Dash, Smash Karts, Basketball Stars 2026, Cluster Rush) -->
+    <!-- Third-party iframe games (OpenGuessr, skribbl.io, Gartic Phone, Krunker, Richup, Goober Dash, Smash Karts, Cluster Rush) -->
     <div
       v-else-if="iframeEmbedPhase"
       class="relative min-h-0 min-w-0 flex-1 bg-black"
@@ -2155,7 +2212,7 @@ watch(
   color: color-mix(in srgb, var(--fg-soft) 78%, var(--vc-act-a1) 22%);
 }
 
-.vc-act-widget--wordle {
+.vc-act-widget--wordline {
   --vc-act-a1: #6aaa64;
   --vc-act-a2: #2f4d2c;
   background:
@@ -2176,22 +2233,22 @@ watch(
     );
   border-color: color-mix(in srgb, var(--vc-act-a1) 22%, var(--border));
 }
-.vc-act-widget--wordle .vc-act-widget__media {
+.vc-act-widget--wordline .vc-act-widget__media {
   background: linear-gradient(155deg, #050806 0%, #0c120c 50%, #0a1410 100%);
 }
-.vc-act-widget--wordle:hover {
+.vc-act-widget--wordline:hover {
   border-color: color-mix(in srgb, var(--vc-act-a1) 42%, var(--border));
   box-shadow:
     0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
     0 24px 52px color-mix(in srgb, var(--vc-act-a1) 14%, black 26%);
 }
-.vc-act-widget--wordle:focus-visible {
+.vc-act-widget--wordline:focus-visible {
   border-color: color-mix(in srgb, var(--vc-act-a1) 50%, var(--border));
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 35%, transparent),
     0 20px 44px color-mix(in srgb, black 28%, transparent);
 }
-.vc-act-widget--wordle .vc-act-widget__cta {
+.vc-act-widget--wordline .vc-act-widget__cta {
   color: color-mix(in srgb, var(--fg-soft) 75%, var(--vc-act-a1) 25%);
 }
 
@@ -2232,6 +2289,46 @@ watch(
     0 20px 44px color-mix(in srgb, black 28%, transparent);
 }
 .vc-act-widget--hangman .vc-act-widget__cta {
+  color: color-mix(in srgb, var(--fg-soft) 74%, var(--vc-act-a1) 26%);
+}
+
+.vc-act-widget--skriggles {
+  --vc-act-a1: #f59e0b;
+  --vc-act-a2: #ec4899;
+  background:
+    radial-gradient(
+      115% 100% at 10% -5%,
+      color-mix(in srgb, var(--vc-act-a1) 34%, transparent) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      100% 95% at 100% 100%,
+      color-mix(in srgb, var(--vc-act-a2) 30%, transparent) 0%,
+      transparent 48%
+    ),
+    linear-gradient(
+      172deg,
+      color-mix(in srgb, var(--elevated) 90%, #140a06) 0%,
+      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
+    );
+  border-color: color-mix(in srgb, var(--vc-act-a1) 24%, var(--border));
+}
+.vc-act-widget--skriggles .vc-act-widget__media {
+  background: linear-gradient(150deg, #1a0f06 0%, #201208 48%, #120818 100%);
+}
+.vc-act-widget--skriggles:hover {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 42%, var(--border));
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
+    0 24px 52px color-mix(in srgb, var(--vc-act-a1) 14%, black 26%);
+}
+.vc-act-widget--skriggles:focus-visible {
+  border-color: color-mix(in srgb, var(--vc-act-a1) 50%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 35%, transparent),
+    0 20px 44px color-mix(in srgb, black 28%, transparent);
+}
+.vc-act-widget--skriggles .vc-act-widget__cta {
   color: color-mix(in srgb, var(--fg-soft) 74%, var(--vc-act-a1) 26%);
 }
 
@@ -2515,46 +2612,6 @@ watch(
   color: color-mix(in srgb, var(--fg-soft) 70%, var(--vc-act-a1) 30%);
 }
 
-.vc-act-widget--basketballstars2026 {
-  --vc-act-a1: #ea580c;
-  --vc-act-a2: #1d4ed8;
-  background:
-    radial-gradient(
-      100% 90% at 12% 8%,
-      color-mix(in srgb, var(--vc-act-a1) 34%, transparent) 0%,
-      transparent 46%
-    ),
-    radial-gradient(
-      95% 90% at 88% 92%,
-      color-mix(in srgb, var(--vc-act-a2) 30%, transparent) 0%,
-      transparent 50%
-    ),
-    linear-gradient(
-      168deg,
-      color-mix(in srgb, var(--elevated) 90%, #120804) 0%,
-      color-mix(in srgb, var(--elevated) 98%, var(--bg)) 100%
-    );
-  border-color: color-mix(in srgb, var(--vc-act-a1) 24%, var(--border));
-}
-.vc-act-widget--basketballstars2026 .vc-act-widget__media {
-  background: linear-gradient(152deg, #1a0a04 0%, #0f172a 48%, #0c1a3a 100%);
-}
-.vc-act-widget--basketballstars2026:hover {
-  border-color: color-mix(in srgb, var(--vc-act-a1) 42%, var(--border));
-  box-shadow:
-    0 1px 0 color-mix(in srgb, white 8%, transparent) inset,
-    0 24px 54px color-mix(in srgb, var(--vc-act-a1) 14%, black 26%);
-}
-.vc-act-widget--basketballstars2026:focus-visible {
-  border-color: color-mix(in srgb, var(--vc-act-a1) 50%, var(--border));
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--vc-act-a1) 36%, transparent),
-    0 20px 46px color-mix(in srgb, black 28%, transparent);
-}
-.vc-act-widget--basketballstars2026 .vc-act-widget__cta {
-  color: color-mix(in srgb, var(--fg-soft) 70%, var(--vc-act-a1) 30%);
-}
-
 .vc-act-widget--clusterrush {
   --vc-act-a1: #ff3814;
   --vc-act-a2: #003afa;
@@ -2700,7 +2757,7 @@ watch(
   background: linear-gradient(150deg, #fff1f3 0%, #ffe8ec 40%, #f0f4ff 100%);
 }
 
-:global(html[data-theme='light']) .vc-act-widget--wordle {
+:global(html[data-theme='light']) .vc-act-widget--wordline {
   background:
     radial-gradient(
       110% 95% at 10% 0%,
@@ -2713,7 +2770,9 @@ watch(
       var(--elevated) 100%
     );
 }
-:global(html[data-theme='light']) .vc-act-widget--wordle .vc-act-widget__media {
+:global(html[data-theme='light'])
+  .vc-act-widget--wordline
+  .vc-act-widget__media {
   background: linear-gradient(155deg, #ecfdf3 0%, #e7f6ec 55%, #f0fdf4 100%);
 }
 
@@ -2955,30 +3014,6 @@ watch(
   background: linear-gradient(150deg, #fff7ed 0%, #e0f2fe 52%, #ffedd5 100%);
 }
 
-:global(html[data-theme='light']) .vc-act-widget--basketballstars2026 {
-  background:
-    radial-gradient(
-      100% 90% at 12% 8%,
-      color-mix(in srgb, #fdba74 36%, transparent) 0%,
-      transparent 46%
-    ),
-    radial-gradient(
-      95% 90% at 88% 92%,
-      color-mix(in srgb, #93c5fd 32%, transparent) 0%,
-      transparent 50%
-    ),
-    linear-gradient(
-      175deg,
-      color-mix(in srgb, var(--elevated) 95%, #fff7ed) 0%,
-      var(--elevated) 100%
-    );
-}
-:global(html[data-theme='light'])
-  .vc-act-widget--basketballstars2026
-  .vc-act-widget__media {
-  background: linear-gradient(152deg, #fff7ed 0%, #eff6ff 48%, #dbeafe 100%);
-}
-
 :global(html[data-theme='light']) .vc-act-widget--clusterrush {
   background:
     radial-gradient(
@@ -3008,7 +3043,7 @@ watch(
   border-color: color-mix(in srgb, #fb7185 38%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--wordle:hover {
+  .vc-act-widget.vc-act-widget--wordline:hover {
   border-color: color-mix(in srgb, #4ade80 36%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
@@ -3050,10 +3085,6 @@ watch(
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--smashkarts:hover {
   border-color: color-mix(in srgb, #fb923c 38%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--basketballstars2026:hover {
-  border-color: color-mix(in srgb, #fb923c 36%, #d97706 22%, var(--border));
 }
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
   .vc-act-widget.vc-act-widget--clusterrush:hover {
@@ -3216,6 +3247,37 @@ watch(
   );
 }
 
+/* —— Wordline: green puzzle chrome —— */
+.vc-act-wordline-stage {
+  --vc-wordline-brand: #6aaa64;
+  --vc-wordline-brand-dim: #2f4d2c;
+  background:
+    radial-gradient(
+      120% 70% at 50% -15%,
+      color-mix(in srgb, var(--vc-wordline-brand) 14%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      90% 55% at 100% 100%,
+      color-mix(in srgb, var(--vc-wordline-brand-dim) 10%, transparent) 0%,
+      transparent 50%
+    ),
+    var(--bg);
+}
+
+.vc-act-header--wordline {
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--vc-wordline-brand) 26%,
+    var(--border)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 88%, #060806) 0%,
+    var(--elevated) 100%
+  );
+}
+
 .vc-act-browse-drawer {
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
@@ -3328,6 +3390,29 @@ watch(
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--elevated) 96%, #fef2f2) 0%,
+    var(--elevated) 100%
+  );
+}
+
+[data-theme='light'] .vc-act-wordline-stage {
+  background:
+    radial-gradient(
+      120% 65% at 50% -12%,
+      color-mix(in srgb, var(--vc-wordline-brand) 10%, transparent) 0%,
+      transparent 52%
+    ),
+    var(--bg);
+}
+
+[data-theme='light'] .vc-act-header--wordline {
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--vc-wordline-brand) 22%,
+    var(--border)
+  );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 96%, #f4faf4) 0%,
     var(--elevated) 100%
   );
 }

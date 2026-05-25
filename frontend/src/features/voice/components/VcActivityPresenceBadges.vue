@@ -16,7 +16,7 @@ function titleFor(k: VcActivityPresenceKind): string {
     case 'youtube':
       return 'In YouTube activity';
     case 'wordle':
-      return 'In Wordle activity';
+      return 'In Wordline activity';
     case 'hangman':
       return 'In Hangman activity';
     case 'openguessr':
@@ -35,8 +35,6 @@ function titleFor(k: VcActivityPresenceKind): string {
       return 'In Goober Dash activity';
     case 'smash_karts':
       return 'In Smash Karts activity';
-    case 'basketball_stars_2026':
-      return 'In Basketball Stars 2026 activity';
     case 'cluster_rush':
       return 'In Cluster Rush activity';
     case 'activities':
@@ -50,9 +48,9 @@ function titleFor(k: VcActivityPresenceKind): string {
 <template>
   <div
     v-if="kinds.length"
-    class="vc-act-pres-badges pointer-events-none inline-flex items-center"
+    class="vc-act-pres-badges inline-flex items-center"
     :class="size === 'md' ? 'gap-0.5' : 'gap-px'"
-    aria-hidden="true"
+    aria-label="Voice activity"
   >
     <span
       v-for="k in kinds"
@@ -76,9 +74,9 @@ function titleFor(k: VcActivityPresenceKind): string {
       <span
         v-else-if="k === 'wordle'"
         class="font-bold leading-none text-[#538d4e]"
-        :class="size === 'md' ? 'text-[11px]' : 'text-[9px]'"
+        :class="size === 'md' ? 'text-[9px]' : 'text-[8px]'"
         aria-hidden="true"
-        >W</span
+        >WL</span
       >
       <img
         v-else-if="k === 'hangman'"
@@ -142,13 +140,6 @@ function titleFor(k: VcActivityPresenceKind): string {
         :class="size === 'md' ? 'text-[10px]' : 'text-[8px]'"
         aria-hidden="true"
         >SK</span
-      >
-      <span
-        v-else-if="k === 'basketball_stars_2026'"
-        class="font-bold leading-none text-orange-400"
-        :class="size === 'md' ? 'text-[10px]' : 'text-[8px]'"
-        aria-hidden="true"
-        >BS</span
       >
       <span
         v-else-if="k === 'cluster_rush'"

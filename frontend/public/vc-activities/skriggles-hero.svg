@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="sk-sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#05030e"/>
+      <stop offset="50%" stop-color="#0c0920"/>
+      <stop offset="100%" stop-color="#120e28"/>
+    </linearGradient>
+    <radialGradient id="sk-glow-a" cx="20%" cy="25%" r="50%">
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sk-glow-b" cx="85%" cy="80%" r="48%">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sk-canvas" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f3f0ff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="480" height="200" fill="url(#sk-sky)"/>
+  <rect width="480" height="200" fill="url(#sk-glow-a)"/>
+  <rect width="480" height="200" fill="url(#sk-glow-b)"/>
+
+  <!-- Canvas board -->
+  <rect x="72" y="36" width="220" height="128" rx="10" fill="url(#sk-canvas)" stroke="#c4b5fd" stroke-width="2"/>
+  <rect x="72" y="36" width="220" height="128" rx="10" fill="none" stroke="white" stroke-opacity="0.12" stroke-width="1"/>
+
+  <!-- Colorful doodle strokes -->
+  <path d="M96 118 Q120 72 148 98 T196 86" fill="none" stroke="#ef4444" stroke-width="5" stroke-linecap="round"/>
+  <path d="M108 132 Q138 108 168 130" fill="none" stroke="#3b82f6" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="188" cy="72" r="14" fill="none" stroke="#eab308" stroke-width="4"/>
+  <path d="M124 92 L156 92" stroke="#22c55e" stroke-width="4" stroke-linecap="round"/>
+  <path d="M170 118 L210 146" stroke="#ec4899" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Pencil -->
+  <g transform="translate(248 118) rotate(-28)">
+    <rect x="0" y="0" width="72" height="14" rx="3" fill="#fcd34d"/>
+    <polygon points="72,0 88,7 72,14" fill="#fde68a"/>
+    <rect x="0" y="0" width="10" height="14" rx="2" fill="#fca5a5"/>
+    <rect x="10" y="3" width="8" height="8" fill="#1a1630"/>
+  </g>
+
+  <!-- Palette dots -->
+  <g>
+    <circle cx="360" cy="58" r="11" fill="#ef4444"/>
+    <circle cx="392" cy="58" r="11" fill="#3b82f6"/>
+    <circle cx="424" cy="58" r="11" fill="#22c55e"/>
+    <circle cx="376" cy="88" r="11" fill="#eab308"/>
+    <circle cx="408" cy="88" r="11" fill="#ec4899"/>
+    <circle cx="392" cy="118" r="11" fill="#a78bfa"/>
+  </g>
+
+  <!-- Speech bubble hint -->
+  <rect x="318" y="138" width="128" height="34" rx="8" fill="#1a1730" stroke="#7c3aed" stroke-width="1.5" stroke-opacity="0.55"/>
+  <path d="M334 172 L342 164 L350 172" fill="#1a1730"/>
+  <text x="334" y="160" fill="#ede8ff" font-family="ui-monospace, monospace" font-size="13" font-weight="700" letter-spacing="3">_ _ _ _ _</text>
+</svg>

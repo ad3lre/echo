@@ -503,14 +503,14 @@ function onReloadAfterConflict() {
   void load();
 }
 
-function onPaperPageColorLight(hex: string) {
+function onPaperPageColorLight(hex: string | null) {
   const ed = editor.value;
   if (!ed) return;
   ed.commands.setPaperPageColorLight(hex);
   autosave.schedule();
 }
 
-function onPaperPageColorDark(hex: string) {
+function onPaperPageColorDark(hex: string | null) {
   const ed = editor.value;
   if (!ed) return;
   ed.commands.setPaperPageColorDark(hex);

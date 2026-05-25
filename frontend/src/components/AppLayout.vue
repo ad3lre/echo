@@ -165,6 +165,7 @@ import { findActionForKeyboardEvent } from '@/features/settings/keybindPreferenc
 import {
   canOpenToastMessageContextMenu,
   resolveToastMessagePrimaryAction,
+  shouldHideToastPrimaryActionForQuickReply,
   shouldOpenToastMessageContextMenu,
 } from '@/features/layout/composables/toastMessageContextMenu';
 import {
@@ -726,12 +727,25 @@ const {
   openVcActivityYoutubeBrowse,
   openVcActivityWordle,
   openVcActivityHangman,
+  openVcActivitySkriggles,
   openVcActivityTicTacToe,
   vcHangmanActivity,
   hangmanRosterUserIds,
   commitVcHangmanWord,
   requestVcHangmanGuessLetter,
   requestVcHangmanNextRound,
+  vcSkrigglesActivity,
+  skrigglesRosterUserIds,
+  skrigglesCanvasEvents,
+  commitSkrigglesWordChoice,
+  submitSkrigglesGuess,
+  updateSkrigglesSettings,
+  startSkrigglesGame,
+  advanceSkrigglesRound,
+  publishSkrigglesStrokeBatch,
+  publishSkrigglesCanvasCmd,
+  publishSkrigglesCanvasSnapshot,
+  tickSkrigglesTimers,
   vcTicTacToeActivity,
   vcTicTacToePendingInvite,
   sendVcTicTacToeChallenge,
@@ -757,7 +771,6 @@ const {
   openVcActivityRichup,
   openVcActivityGooberDash,
   openVcActivitySmashKarts,
-  openVcActivityBasketballStars2026,
   openVcActivityClusterRush,
   setVcActivityYoutubeVideo,
   setVcYoutubeBrowseOpen,
@@ -1045,6 +1058,7 @@ const vcActivityPhaseOpeners = {
   openVcActivityYoutubeBrowse,
   openVcActivityWordle,
   openVcActivityHangman,
+  openVcActivitySkriggles,
   openVcActivityTicTacToe,
   openVcActivityOpenGuessr,
   openVcActivitySkribblIo,
@@ -1054,7 +1068,6 @@ const vcActivityPhaseOpeners = {
   openVcActivityRichup,
   openVcActivityGooberDash,
   openVcActivitySmashKarts,
-  openVcActivityBasketballStars2026,
   openVcActivityClusterRush,
   closeVcActivity,
 };
@@ -1900,12 +1913,25 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   openVcActivityYoutubeBrowse,
   openVcActivityWordle,
   openVcActivityHangman,
+  openVcActivitySkriggles,
   openVcActivityTicTacToe,
   vcHangmanActivity,
   hangmanRosterUserIds,
   commitVcHangmanWord,
   requestVcHangmanGuessLetter,
   requestVcHangmanNextRound,
+  vcSkrigglesActivity,
+  skrigglesRosterUserIds,
+  skrigglesCanvasEvents,
+  commitSkrigglesWordChoice,
+  submitSkrigglesGuess,
+  updateSkrigglesSettings,
+  startSkrigglesGame,
+  advanceSkrigglesRound,
+  publishSkrigglesStrokeBatch,
+  publishSkrigglesCanvasCmd,
+  publishSkrigglesCanvasSnapshot,
+  tickSkrigglesTimers,
   vcTicTacToeActivity,
   vcTicTacToePendingInvite,
   sendVcTicTacToeChallenge,
@@ -1931,7 +1957,6 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   openVcActivityRichup,
   openVcActivityGooberDash,
   openVcActivitySmashKarts,
-  openVcActivityBasketballStars2026,
   openVcActivityClusterRush,
   setVcActivityYoutubeVideo,
   setVcYoutubeBrowseOpen,
@@ -2886,6 +2911,19 @@ const showToastQuickReplyOpenButton = computed(
     hasAppToastPrimaryContextAction.value,
 );
 
+const appToastVisibleActions = computed(() => {
+  const toast = appToast.value;
+  if (!toast?.actions.length) return [];
+  if (
+    !shouldHideToastPrimaryActionForQuickReply(toast, toastQuickReplyText.value)
+  ) {
+    return toast.actions;
+  }
+  const primaryAction = resolveToastMessagePrimaryAction(toast.actions);
+  if (!primaryAction) return toast.actions;
+  return toast.actions.filter((action) => action.id !== primaryAction.id);
+});
+
 const appToastShellGridRowsClass = computed(() => {
   const rows = ['minmax(0,1fr)'];
   if (appToastHasQuickReplyFooter.value) rows.push('auto');
@@ -3436,8 +3474,9 @@ function handleChannelInviteRequest(payload?: {
   const vid = payload?.voiceChannelId?.trim();
   if (vid) {
     inviteModalVoiceChannelId.value = vid;
+    const providedName = payload?.voiceChannelName?.trim() ?? '';
     inviteModalVoiceChannelName.value =
-      payload?.voiceChannelName?.trim() ?? null;
+      providedName || inviteModalVoiceChannelName.value;
   } else {
     inviteModalVoiceChannelId.value = null;
     inviteModalVoiceChannelName.value = null;
@@ -4139,7 +4178,7 @@ watch(
                     </div>
                   </template>
                   <div
-                    v-if="appToast.actions.length"
+                    v-if="appToastVisibleActions.length"
                     :class="
                       appToastIsRich
                         ? 'app-toast-incoming-call__actions mt-3 flex w-full min-w-0 flex-nowrap items-stretch gap-1.5'
@@ -4147,7 +4186,7 @@ watch(
                     "
                   >
                     <button
-                      v-for="action in appToast.actions"
+                      v-for="action in appToastVisibleActions"
                       :key="
                         action.id === 'mute_ringtone'
                           ? `${action.id}:${ringtoneMuted ? '1' : '0'}`

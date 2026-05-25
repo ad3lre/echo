@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { normalizeCanonicalPresenceStatus } from '@/services/domain/presence';
+import {
+  normalizeCanonicalPresenceStatus,
+  presenceIndicatorTitle,
+} from '@/services/domain/presence';
 
 /** Unique status indicators: online, idle, busy (DND), offline. */
 
@@ -33,13 +36,15 @@ const showDiscordIndicator = computed(() => {
 
 const sizeClasses = computed(() => `status-indicator--${props.size}`);
 
-const ariaLabel = computed(() => {
-  const base = normalizedStatus.value;
-  if (showDiscordIndicator.value) {
-    return `Status: ${base} (active on Discord)`;
-  }
-  return showPhoneGlyph.value ? `Status: ${base} (mobile)` : `Status: ${base}`;
-});
+const hoverTitle = computed(() =>
+  presenceIndicatorTitle({
+    status: props.status,
+    mobileSurface: props.mobileSurface,
+    discordOnline: props.discordOnline,
+  }),
+);
+
+const ariaLabel = computed(() => `Status: ${hoverTitle.value}`);
 </script>
 
 <template>
@@ -47,6 +52,7 @@ const ariaLabel = computed(() => {
     class="status-indicator"
     :class="[sizeClasses, `status-indicator--${normalizedStatus}`]"
     :aria-label="ariaLabel"
+    :title="hoverTitle"
     role="img"
   >
     <svg

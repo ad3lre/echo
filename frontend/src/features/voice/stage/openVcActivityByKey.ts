@@ -1,9 +1,13 @@
-import type { EchoVcActivityKey } from '@shared/vcActivityCatalog';
+import {
+  ECHOED_NAMES_VC_ACTIVITY_ENABLED,
+  type EchoVcActivityKey,
+} from '@shared/vcActivityCatalog';
 
 export type VcActivityOpenHandlers = {
   youtube: () => void;
   wordle: () => void;
   hangman: () => void;
+  skriggles: () => void;
   tic_tac_toe: () => void;
   openguessr: () => void;
   skribbl_io: () => void;
@@ -13,7 +17,6 @@ export type VcActivityOpenHandlers = {
   richup: () => void;
   goober_dash: () => void;
   smash_karts: () => void;
-  basketball_stars_2026: () => void;
   cluster_rush: () => void;
   picker: () => void;
 };
@@ -32,6 +35,9 @@ export function openVcActivityByKey(
     case 'hangman':
       handlers.hangman();
       break;
+    case 'skriggles':
+      handlers.skriggles();
+      break;
     case 'tic_tac_toe':
       handlers.tic_tac_toe();
       break;
@@ -48,7 +54,8 @@ export function openVcActivityByKey(
       handlers.krunker();
       break;
     case 'codenames':
-      handlers.codenames();
+      if (ECHOED_NAMES_VC_ACTIVITY_ENABLED) handlers.codenames();
+      else handlers.picker();
       break;
     case 'richup':
       handlers.richup();
@@ -58,9 +65,6 @@ export function openVcActivityByKey(
       break;
     case 'smash_karts':
       handlers.smash_karts();
-      break;
-    case 'basketball_stars_2026':
-      handlers.basketball_stars_2026();
       break;
     case 'cluster_rush':
       handlers.cluster_rush();

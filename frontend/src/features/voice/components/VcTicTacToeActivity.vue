@@ -8,10 +8,13 @@ import type {
 import {
   EMPTY_BOARD,
   applyMoveIfLegal,
-  bestMoveForAi,
+  cpuDifficultyLabel,
+  moveForAi,
+  pickRandomCpuDifficulty,
   terminalFromBoard,
   winningLineIndices,
   type TttCell,
+  type TttCpuDifficulty,
 } from '@/features/voice/ticTacToe/ticTacToeCore';
 import {
   playTicTacToeSfx,
@@ -44,6 +47,7 @@ const cpuBoard = ref<TttCell[]>([...EMPTY_BOARD]);
 const cpuTurn = ref<'X' | 'O'>('X');
 const cpuStatus = ref<'playing' | 'draw' | 'x_wins' | 'o_wins'>('playing');
 const cpuRoundId = ref(0);
+const cpuDifficulty = ref<TttCpuDifficulty>(pickRandomCpuDifficulty());
 
 /** Board snapshot for move detection (SFX / haptics / land VFX). */
 const prevCells = ref<TttCell[]>([...EMPTY_BOARD]);
@@ -90,6 +94,7 @@ function resetCpuGame(): void {
   cpuBoard.value = [...EMPTY_BOARD];
   cpuTurn.value = 'X';
   cpuStatus.value = 'playing';
+  cpuDifficulty.value = pickRandomCpuDifficulty();
 }
 
 watch(surfaceMode, (m, prevM) => {
@@ -326,7 +331,7 @@ function onCpuCell(i: number): void {
 }
 
 function playCpuReply(): void {
-  const pick = bestMoveForAi(cpuBoard.value, aiMark);
+  const pick = moveForAi(cpuBoard.value, aiMark, cpuDifficulty.value);
   if (pick == null) return;
   const next = applyMoveIfLegal(cpuBoard.value, pick, aiMark);
   if (!next) return;
@@ -468,8 +473,8 @@ const inviteFromName = computed(() =>
           >
             <h3>Play Echo</h3>
             <p>
-              Practice against a perfect engine — private to you in this
-              activity.
+              Practice against Echo — difficulty shifts each round, private to
+              you in this activity.
             </p>
           </button>
           <button
@@ -494,7 +499,9 @@ const inviteFromName = computed(() =>
         <div class="ttt-meta">
           <span>
             <template v-if="surfaceMode === 'cpu'">
-              You · <b>X</b> vs Echo · <b>O</b>
+              You · <b>X</b> vs Echo · <b>O</b> ({{
+                cpuDifficultyLabel(cpuDifficulty)
+              }})
             </template>
             <template v-else-if="pvpActivity">
               <b>{{ nameFor(pvpActivity.xUserId) }}</b> (X) vs

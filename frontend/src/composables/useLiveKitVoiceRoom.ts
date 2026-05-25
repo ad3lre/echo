@@ -72,6 +72,11 @@ import {
 import { useAudioLevelMonitor } from '@/composables/useAudioLevelMonitor';
 import {
   gateMultiplierForDbfs,
+  createRemoteSpeakingTracker,
+  indicatorReleaseRmsFromOn,
+  indicatorRmsFromGatePercent,
+  mergeSpeakingMapIfChanged,
+  SPEAKING_INDICATOR_REMOTE_POLL_MS,
   thresholdPercentToRms,
 } from '@/composables/voiceGate';
 import { useVoiceLevelsStore } from '@/stores/voiceLevels';
@@ -93,6 +98,16 @@ import {
   decodeEchoCodenamesSetupIntent,
   decodeEchoCodenamesDealIntent,
   decodeEchoCodenamesNewGameIntent,
+  decodeEchoSkrigglesActivity,
+  decodeEchoSkrigglesGuessIntent,
+  decodeEchoSkrigglesWordChoiceIntent,
+  decodeEchoSkrigglesSettingsIntent,
+  decodeEchoSkrigglesStartIntent,
+  decodeEchoSkrigglesNextRoundIntent,
+  decodeEchoSkrigglesRoundSecret,
+  decodeEchoSkrigglesStrokeBatch,
+  decodeEchoSkrigglesCanvasCmd,
+  decodeEchoSkrigglesCanvasSnapshot,
   encodeEchoVcData,
   encodeEchoVcPrivateViewer,
   encodeEchoYoutubeActivity,
@@ -110,6 +125,16 @@ import {
   encodeEchoCodenamesSetupIntent,
   encodeEchoCodenamesDealIntent,
   encodeEchoCodenamesNewGameIntent,
+  encodeEchoSkrigglesActivity,
+  encodeEchoSkrigglesGuessIntent,
+  encodeEchoSkrigglesWordChoiceIntent,
+  encodeEchoSkrigglesSettingsIntent,
+  encodeEchoSkrigglesStartIntent,
+  encodeEchoSkrigglesNextRoundIntent,
+  encodeEchoSkrigglesRoundSecret,
+  encodeEchoSkrigglesStrokeBatch,
+  encodeEchoSkrigglesCanvasCmd,
+  encodeEchoSkrigglesCanvasSnapshot,
   type EchoVcDataV1,
   type EchoVcPrivateViewerV1,
   type EchoYoutubeActivityV1,
@@ -127,6 +152,16 @@ import {
   type EchoCodenamesSetupIntentV1,
   type EchoCodenamesDealIntentV1,
   type EchoCodenamesNewGameIntentV1,
+  type EchoSkrigglesActivityV1,
+  type EchoSkrigglesGuessIntentV1,
+  type EchoSkrigglesWordChoiceIntentV1,
+  type EchoSkrigglesSettingsIntentV1,
+  type EchoSkrigglesStartIntentV1,
+  type EchoSkrigglesNextRoundIntentV1,
+  type EchoSkrigglesRoundSecretV1,
+  type EchoSkrigglesStrokeBatchV1,
+  type EchoSkrigglesCanvasCmdV1,
+  type EchoSkrigglesCanvasSnapshotV1,
 } from '@/audio/voiceEchoLiveKitData';
 import {
   announceVoiceChannelPublic,
@@ -635,6 +670,8 @@ export type UseLiveKitVoiceRoomOptions = {
    * so we never re-acquire the camera (laptop LED) after the user turned video off.
    */
   getUserWantsLocalCamera?: () => boolean;
+  /** Optional: aggregate RTC QoS to Echo API (caller should throttle, e.g. 30s). */
+  onNetworkStatsSample?: (stats: LiveKitNetworkStats) => void;
   /** Guild VC YouTube “watch together” — incoming playlist snapshots from peers. */
   onYoutubeActivity?: (
     msg: EchoYoutubeActivityV1,
@@ -692,6 +729,46 @@ export type UseLiveKitVoiceRoomOptions = {
   ) => void;
   onCodenamesNewGameIntent?: (
     msg: EchoCodenamesNewGameIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesActivity?: (
+    msg: EchoSkrigglesActivityV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesGuessIntent?: (
+    msg: EchoSkrigglesGuessIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesWordChoiceIntent?: (
+    msg: EchoSkrigglesWordChoiceIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesSettingsIntent?: (
+    msg: EchoSkrigglesSettingsIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesStartIntent?: (
+    msg: EchoSkrigglesStartIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesNextRoundIntent?: (
+    msg: EchoSkrigglesNextRoundIntentV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesRoundSecret?: (
+    msg: EchoSkrigglesRoundSecretV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesStrokeBatch?: (
+    msg: EchoSkrigglesStrokeBatchV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesCanvasCmd?: (
+    msg: EchoSkrigglesCanvasCmdV1,
+    fromIdentity: string,
+  ) => void;
+  onSkrigglesCanvasSnapshot?: (
+    msg: EchoSkrigglesCanvasSnapshotV1,
     fromIdentity: string,
   ) => void;
   /** Guild VC activity picker / YouTube — who has which activity open. */
@@ -790,12 +867,34 @@ export type LiveKitVoiceRoomApi = {
   publishCodenamesNewGameIntent: (
     payload: EchoCodenamesNewGameIntentV1,
   ) => void;
+  publishSkrigglesActivity: (payload: EchoSkrigglesActivityV1) => void;
+  publishSkrigglesGuessIntent: (payload: EchoSkrigglesGuessIntentV1) => void;
+  publishSkrigglesWordChoiceIntent: (
+    payload: EchoSkrigglesWordChoiceIntentV1,
+  ) => void;
+  publishSkrigglesSettingsIntent: (
+    payload: EchoSkrigglesSettingsIntentV1,
+  ) => void;
+  publishSkrigglesStartIntent: (payload: EchoSkrigglesStartIntentV1) => void;
+  publishSkrigglesNextRoundIntent: (
+    payload: EchoSkrigglesNextRoundIntentV1,
+  ) => void;
+  publishSkrigglesRoundSecret: (
+    payload: EchoSkrigglesRoundSecretV1,
+    destinationIdentities: string[],
+  ) => void;
+  publishSkrigglesStrokeBatch: (payload: EchoSkrigglesStrokeBatchV1) => void;
+  publishSkrigglesCanvasCmd: (payload: EchoSkrigglesCanvasCmdV1) => void;
+  publishSkrigglesCanvasSnapshot: (
+    payload: EchoSkrigglesCanvasSnapshotV1,
+  ) => void;
 };
 
 export function useLiveKitVoiceRoom(
   opts?: UseLiveKitVoiceRoomOptions,
 ): LiveKitVoiceRoomApi {
   const getUserWantsLocalCamera = opts?.getUserWantsLocalCamera ?? (() => true);
+  const onNetworkStatsSample = opts?.onNetworkStatsSample;
   const onYoutubeActivity = opts?.onYoutubeActivity;
   const onHangmanActivity = opts?.onHangmanActivity;
   const onHangmanGuessIntent = opts?.onHangmanGuessIntent;
@@ -810,6 +909,16 @@ export function useLiveKitVoiceRoom(
   const onCodenamesSetupIntent = opts?.onCodenamesSetupIntent;
   const onCodenamesDealIntent = opts?.onCodenamesDealIntent;
   const onCodenamesNewGameIntent = opts?.onCodenamesNewGameIntent;
+  const onSkrigglesActivity = opts?.onSkrigglesActivity;
+  const onSkrigglesGuessIntent = opts?.onSkrigglesGuessIntent;
+  const onSkrigglesWordChoiceIntent = opts?.onSkrigglesWordChoiceIntent;
+  const onSkrigglesSettingsIntent = opts?.onSkrigglesSettingsIntent;
+  const onSkrigglesStartIntent = opts?.onSkrigglesStartIntent;
+  const onSkrigglesNextRoundIntent = opts?.onSkrigglesNextRoundIntent;
+  const onSkrigglesRoundSecret = opts?.onSkrigglesRoundSecret;
+  const onSkrigglesStrokeBatch = opts?.onSkrigglesStrokeBatch;
+  const onSkrigglesCanvasCmd = opts?.onSkrigglesCanvasCmd;
+  const onSkrigglesCanvasSnapshot = opts?.onSkrigglesCanvasSnapshot;
   const onVcActivityPresence = opts?.onVcActivityPresence;
   const onRemoteParticipantDisconnected = opts?.onRemoteParticipantDisconnected;
   const viewerLeaveSoundAt = new Map<string, number>();
@@ -1099,7 +1208,7 @@ export function useLiveKitVoiceRoom(
   watch(
     () => voiceLevels.voiceActivationThresholdPercent,
     (pct) => {
-      localMicMonitor.setSpeakingThreshold(thresholdPercentToRms(pct));
+      localMicMonitor.setSpeakingThreshold(indicatorRmsFromGatePercent(pct));
     },
     { immediate: true },
   );
@@ -1112,10 +1221,11 @@ export function useLiveKitVoiceRoom(
       const room = lkRoom.value;
       if (room && roomState.value === 'connected') {
         const localId = room.localParticipant.identity;
-        speakingMap.value = {
+        const next = {
           ...speakingMap.value,
           [localId]: { level: lvl, speaking: spk },
         };
+        speakingMap.value = mergeSpeakingMapIfChanged(speakingMap.value, next);
       }
     },
   );
@@ -1573,22 +1683,33 @@ export function useLiveKitVoiceRoom(
      * is not guaranteed to fire on every speaking edge (e.g. ordering-only server updates).
      */
     const remoteSpeakingUnsubs = new Map<RemoteParticipant, () => void>();
+    const remoteSpeakingTracker = createRemoteSpeakingTracker();
 
     function syncSpeakingMapFromRoom() {
       if (lkRoom.value !== room || roomState.value !== 'connected') return;
+      const indicatorOn = indicatorRmsFromGatePercent(
+        voiceLevels.voiceActivationThresholdPercent,
+      );
+      const indicatorOff = indicatorReleaseRmsFromOn(indicatorOn);
       const newMap: Record<string, ParticipantAudioLevel> = {};
       const localId = room.localParticipant.identity;
       for (const p of room.remoteParticipants.values()) {
         const id = p.identity;
         const lvl = p.audioLevel ?? 0;
-        const isSpeaking = p.isSpeaking || lvl > 0.01;
+        const isSpeaking = remoteSpeakingTracker.speakingFor(
+          id,
+          lvl,
+          p.isSpeaking,
+          indicatorOn,
+          indicatorOff,
+        );
         newMap[id] = { level: lvl, speaking: isSpeaking };
       }
       newMap[localId] = {
         level: localAudioLevel.value,
         speaking: localSpeaking.value,
       };
-      speakingMap.value = newMap;
+      speakingMap.value = mergeSpeakingMapIfChanged(speakingMap.value, newMap);
     }
 
     function attachRemoteSpeakingWatch(p: RemoteParticipant) {
@@ -1603,6 +1724,7 @@ export function useLiveKitVoiceRoom(
     function detachRemoteSpeakingWatch(p: RemoteParticipant) {
       remoteSpeakingUnsubs.get(p)?.();
       remoteSpeakingUnsubs.delete(p);
+      remoteSpeakingTracker.remove(p.identity);
     }
 
     const onActiveSpeakersChanged = () => syncSpeakingMapFromRoom();
@@ -1629,11 +1751,10 @@ export function useLiveKitVoiceRoom(
 
     syncSpeakingLevelsFromRoom = syncSpeakingMapFromRoom;
 
-    const SPEAKING_POLL_MS = 120;
     const speakingPoll = setInterval(() => {
       if (lkRoom.value !== room || roomState.value !== 'connected') return;
       syncSpeakingMapFromRoom();
-    }, SPEAKING_POLL_MS);
+    }, SPEAKING_INDICATOR_REMOTE_POLL_MS);
 
     activeSpeakerCleanup = () => {
       clearInterval(speakingPoll);
@@ -1647,6 +1768,7 @@ export function useLiveKitVoiceRoom(
         off();
       }
       remoteSpeakingUnsubs.clear();
+      remoteSpeakingTracker.clear();
       syncSpeakingLevelsFromRoom = null;
     };
 
@@ -2036,6 +2158,9 @@ export function useLiveKitVoiceRoom(
         max: STATS_FAILURE_LOG_MAX,
       });
     }
+    if (gotStatsThisTick && networkStats.value && onNetworkStatsSample) {
+      onNetworkStatsSample(networkStats.value);
+    }
     return gotStatsThisTick;
   }
 
@@ -2308,6 +2433,66 @@ export function useLiveKitVoiceRoom(
       const cnNg = decodeEchoCodenamesNewGameIntent(ytPayload);
       if (cnNg) {
         onCodenamesNewGameIntent?.(cnNg, participant.identity);
+        return;
+      }
+
+      const skSecret = decodeEchoSkrigglesRoundSecret(ytPayload);
+      if (skSecret) {
+        onSkrigglesRoundSecret?.(skSecret, participant.identity);
+        return;
+      }
+
+      const sk = decodeEchoSkrigglesActivity(ytPayload);
+      if (sk) {
+        onSkrigglesActivity?.(sk, participant.identity);
+        return;
+      }
+
+      const skGuess = decodeEchoSkrigglesGuessIntent(ytPayload);
+      if (skGuess) {
+        onSkrigglesGuessIntent?.(skGuess, participant.identity);
+        return;
+      }
+
+      const skWord = decodeEchoSkrigglesWordChoiceIntent(ytPayload);
+      if (skWord) {
+        onSkrigglesWordChoiceIntent?.(skWord, participant.identity);
+        return;
+      }
+
+      const skSettings = decodeEchoSkrigglesSettingsIntent(ytPayload);
+      if (skSettings) {
+        onSkrigglesSettingsIntent?.(skSettings, participant.identity);
+        return;
+      }
+
+      const skStart = decodeEchoSkrigglesStartIntent(ytPayload);
+      if (skStart) {
+        onSkrigglesStartIntent?.(skStart, participant.identity);
+        return;
+      }
+
+      const skNext = decodeEchoSkrigglesNextRoundIntent(ytPayload);
+      if (skNext) {
+        onSkrigglesNextRoundIntent?.(skNext, participant.identity);
+        return;
+      }
+
+      const skStroke = decodeEchoSkrigglesStrokeBatch(ytPayload);
+      if (skStroke) {
+        onSkrigglesStrokeBatch?.(skStroke, participant.identity);
+        return;
+      }
+
+      const skCmd = decodeEchoSkrigglesCanvasCmd(ytPayload);
+      if (skCmd) {
+        onSkrigglesCanvasCmd?.(skCmd, participant.identity);
+        return;
+      }
+
+      const skSnap = decodeEchoSkrigglesCanvasSnapshot(ytPayload);
+      if (skSnap) {
+        onSkrigglesCanvasSnapshot?.(skSnap, participant.identity);
         return;
       }
 
@@ -3399,6 +3584,111 @@ export function useLiveKitVoiceRoom(
     );
   }
 
+  function publishSkrigglesActivity(payload: EchoSkrigglesActivityV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesActivity(payload),
+      {
+        reliable: true,
+      },
+    );
+  }
+
+  function publishSkrigglesGuessIntent(payload: EchoSkrigglesGuessIntentV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesGuessIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishSkrigglesWordChoiceIntent(
+    payload: EchoSkrigglesWordChoiceIntentV1,
+  ) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesWordChoiceIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishSkrigglesSettingsIntent(
+    payload: EchoSkrigglesSettingsIntentV1,
+  ) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesSettingsIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishSkrigglesStartIntent(payload: EchoSkrigglesStartIntentV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesStartIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishSkrigglesNextRoundIntent(
+    payload: EchoSkrigglesNextRoundIntentV1,
+  ) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesNextRoundIntent(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishSkrigglesRoundSecret(
+    payload: EchoSkrigglesRoundSecretV1,
+    destinationIdentities: string[],
+  ) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    const dest = destinationIdentities.map((x) => x.trim()).filter(Boolean);
+    if (!dest.length) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesRoundSecret(payload),
+      { reliable: true, destinationIdentities: dest },
+    );
+  }
+
+  function publishSkrigglesStrokeBatch(payload: EchoSkrigglesStrokeBatchV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesStrokeBatch(payload),
+      { reliable: false },
+    );
+  }
+
+  function publishSkrigglesCanvasCmd(payload: EchoSkrigglesCanvasCmdV1) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesCanvasCmd(payload),
+      { reliable: true },
+    );
+  }
+
+  function publishSkrigglesCanvasSnapshot(
+    payload: EchoSkrigglesCanvasSnapshotV1,
+  ) {
+    const room = lkRoom.value;
+    if (!room || room.state !== ConnectionState.Connected) return;
+    void room.localParticipant.publishData(
+      encodeEchoSkrigglesCanvasSnapshot(payload),
+      { reliable: true },
+    );
+  }
+
   const api: LiveKitVoiceRoomApi = {
     roomState,
     lkRoom,
@@ -3449,6 +3739,16 @@ export function useLiveKitVoiceRoom(
     publishCodenamesSetupIntent,
     publishCodenamesDealIntent,
     publishCodenamesNewGameIntent,
+    publishSkrigglesActivity,
+    publishSkrigglesGuessIntent,
+    publishSkrigglesWordChoiceIntent,
+    publishSkrigglesSettingsIntent,
+    publishSkrigglesStartIntent,
+    publishSkrigglesNextRoundIntent,
+    publishSkrigglesRoundSecret,
+    publishSkrigglesStrokeBatch,
+    publishSkrigglesCanvasCmd,
+    publishSkrigglesCanvasSnapshot,
   };
   return api;
 }

@@ -159,6 +159,8 @@ watch(
       voicePrefsHydrated.value = false;
     }
   },
+  /** AppLayout mounts this modal with v-if while modelValue is already true; without immediate, prefs never hydrate and toggles cannot persist. */
+  { immediate: true },
 );
 
 watch(

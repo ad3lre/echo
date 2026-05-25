@@ -37,6 +37,24 @@ function warnPresenceOnce(key: string, message: string, data: unknown): void {
   console.warn(message, data);
 }
 
+/** Hover / native title for {@link StatusIndicator} and similar presence dots. */
+export function presenceIndicatorTitle(input: {
+  status?: string | null;
+  mobileSurface?: boolean;
+  /** Blue Discord dot when active on Discord but not Echo. */
+  discordOnline?: boolean;
+}): string {
+  if (input.discordOnline) {
+    return 'Active on Discord';
+  }
+  const status = normalizeCanonicalPresenceStatus(input.status) ?? 'offline';
+  const label = PRESENCE_LABELS[status];
+  if (input.mobileSurface && status !== 'offline') {
+    return `${label} · Mobile`;
+  }
+  return label;
+}
+
 export function normalizeCanonicalPresenceStatus(
   status: string | undefined | null,
 ): EchoPresenceStatus | undefined {

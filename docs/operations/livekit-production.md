@@ -39,11 +39,20 @@ Echo **does not** terminate WebRTC media; it only issues tokens and syncs DB sta
 
 ---
 
-## 4. TLS TURN and firewall
+## 4. TLS TURN, ICE, and firewall
 
 - Dev uses coturn on **UDP 3478** ([`docker-compose.yml`](../../docker-compose.yml)); production should use **TLS TURN** (e.g. **5349**) or a managed TURN / LiveKit Cloud relay.
-- Open SFU **UDP port range** for WebRTC (see [livekit-turn.md](../infra/livekit-turn.md)).
+- Open SFU **UDP port range** for WebRTC: **57000–60000** on the SFU host and security group (see [livekit-turn.md](../infra/livekit-turn.md); dev Compose uses a smaller range).
+- Set **`rtc.use_external_ip: true`** on cloud hosts (or a fixed **`rtc.node_ip`** public IPv4). Dev uses `127.0.0.1` / `lan:sync` — do not copy dev ICE settings to production.
 - Align **username/credential** between coturn/LiveKit **`rtc.turn_servers`** and your secrets manager; LiveKit YAML does **not** expand `${ENV}` — render from templates in CI/CD.
+
+| Port / setting   | Production                                                |
+| ---------------- | --------------------------------------------------------- |
+| Signaling        | **7880** (often behind TLS proxy → **443** / `wss://`)    |
+| RTC TCP fallback | **7881**                                                  |
+| TURN             | **5349** TLS (or provider relay) — not dev UDP 3478 alone |
+| WebRTC media UDP | **57000–60000** (match `rtc.port_range_*` in SFU YAML)    |
+| Echo API webhook | **HTTPS** only, reachable from SFU network                |
 
 ---
 
@@ -68,3 +77,19 @@ Echo **does not** terminate WebRTC media; it only issues tokens and syncs DB sta
 1. From a browser, connect to a voice channel; confirm signaling uses **`wss://`** in DevTools.
 2. In Prometheus/Grafana, confirm **`echo_livekit_webhook_event_total`** increases on join/leave.
 3. Intentionally mis-sign a webhook (or use wrong secret in a staging env) and confirm **4xx** on `hooks_livekit` + alert tuning if needed.
+4. Run **`node scripts/verify-livekit-production-env.mjs`** against production `.env` (checks `wss://`, documents firewall/TURN expectations).
+5. **Reconnect vs token TTL:** With default `LIVEKIT_JOIN_TOKEN_TTL_SEC=300`, toggle network offline ~30s — expect SDK `Reconnecting`/`Reconnected` without re-mint. Offline **> 5 min** or `Disconnected` → guild client runs up to **8** full re-joins (fresh JWT each). Staging: set `LIVEKIT_JOIN_TOKEN_TTL_SEC=120` to exercise expiry sooner.
+
+## 8. Production edge checklist (sign-off)
+
+Use this table before declaring voice production-ready:
+
+| Item                      | Pass when                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| `LIVEKIT_PUBLIC_URL`      | Starts with **`wss://`**; API startup rejects `ws://` in production            |
+| SFU `rtc.use_external_ip` | **`true`** on cloud (or correct static `node_ip`)                              |
+| SFU UDP range             | **`57000–60000`** opened on host + cloud SG/firewall                           |
+| TURN                      | **TLS 5349** (or managed relay); credentials match rendered `rtc.turn_servers` |
+| Webhook                   | **`https://…/api/v1/hooks/livekit`** reachable from SFU                        |
+| Room timeouts             | `empty_timeout` / `departure_timeout` set in SFU YAML (see production example) |
+| Image pin                 | `livekit-server` image digest pinned in deploy (not floating `latest`)         |
