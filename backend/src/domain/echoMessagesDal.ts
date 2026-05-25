@@ -910,7 +910,7 @@ export async function listEchoMessages(
     SELECT ${selectFields}
     FROM echo_messages
     WHERE channel_id = $1 AND deleted_at IS NULL
-    ORDER BY id DESC
+    ORDER BY ${ECHO_MESSAGE_TIMELINE_ORDER_DESC}
     LIMIT $2
     `,
     [channelId, limit],

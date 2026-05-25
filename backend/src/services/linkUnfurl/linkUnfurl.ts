@@ -16,9 +16,9 @@ import {
   parseEchoMessageJumpPath,
 } from '../../domain/echoMessageLinkEmbed';
 import {
-  canSafelyResolveUrlForOutboundFetch,
   fetchJsonWithTimeout,
   isUrlSafeForOutboundFetch,
+  ssrfSafeFetch,
 } from './linkUnfurlFetch';
 import { tryOembedEmbed } from './linkUnfurlOembed';
 import { safeFetchAgent } from './safeFetchAgent';
@@ -227,12 +227,11 @@ async function fetchHtmlWithRedirects(
 ): Promise<{ finalUrl: string; html: string; contentType: string } | null> {
   let current = startUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    if (!(await canSafelyResolveUrlForOutboundFetch(current))) return null;
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
     let res: Response;
     try {
-      res = await fetch(current, {
+      res = await ssrfSafeFetch(current, {
         method: 'GET',
         redirect: 'manual',
         signal: ac.signal,

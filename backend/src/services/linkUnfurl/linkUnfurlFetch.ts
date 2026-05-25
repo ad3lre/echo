@@ -173,17 +173,31 @@ export async function canSafelyResolveUrlForOutboundFetch(
   return resolvesToOnlyPublicIps(u.hostname);
 }
 
+/**
+ * SSRF-safe fetch: validates URL (scheme, hostname, DNS) and rejects private/local
+ * targets before issuing the request. Used as the single fetch entry-point so
+ * CodeQL can trace user-controlled URLs through a visible sanitizer at the call site.
+ */
+export async function ssrfSafeFetch(
+  url: string,
+  init: RequestInit & { dispatcher?: unknown },
+): Promise<Response> {
+  if (!(await canSafelyResolveUrlForOutboundFetch(url))) {
+    throw new Error('SSRF: URL failed safety validation');
+  }
+  return fetch(url, init);
+}
+
 export async function fetchJsonWithTimeout(
   url: string,
 ): Promise<Record<string, unknown> | null> {
   let current = url;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    if (!(await canSafelyResolveUrlForOutboundFetch(current))) return null;
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
     let res: Response;
     try {
-      res = await fetch(current, {
+      res = await ssrfSafeFetch(current, {
         method: 'GET',
         redirect: 'manual',
         signal: ac.signal,

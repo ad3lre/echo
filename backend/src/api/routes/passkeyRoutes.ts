@@ -319,6 +319,16 @@ export default async function passkeyRoutes(
       '/passkey/credentials/rename',
       {
         preHandler: [requireAuth],
+        config: {
+          rateLimit: {
+            max: 10,
+            timeWindow: '1 minute',
+            keyGenerator: (req) =>
+              req.authUser?.id
+                ? `pk_rename:${req.authUser.id}`
+                : `pk_rename:${req.ip}`,
+          },
+        },
         schema: {
           body: {
             type: 'object',
