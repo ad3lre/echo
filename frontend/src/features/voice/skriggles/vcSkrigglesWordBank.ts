@@ -113,16 +113,22 @@ function filterByMinLen(
   return words.filter((w) => w.replace(/ /g, '').length >= minWordLen);
 }
 
+function cryptoRandomIndex(len: number): number {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return arr[0]! % len;
+}
+
 function pickRandom<T>(arr: readonly T[]): T | null {
   if (!arr.length) return null;
-  return arr[Math.floor(Math.random() * arr.length)] ?? null;
+  return arr[cryptoRandomIndex(arr.length)] ?? null;
 }
 
 function pickUniqueWords(pool: string[], count: number): string[] {
   const copy = [...pool];
   const out: string[] = [];
   while (out.length < count && copy.length) {
-    const idx = Math.floor(Math.random() * copy.length);
+    const idx = cryptoRandomIndex(copy.length);
     const word = copy.splice(idx, 1)[0];
     if (word) out.push(word);
   }

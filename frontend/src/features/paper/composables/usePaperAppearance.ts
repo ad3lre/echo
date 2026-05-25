@@ -26,17 +26,23 @@ function store(channelId: string, mode: PaperAppearanceMode) {
   }
 }
 
+/** Read the global app theme from the DOM so paper inherits it on first open. */
+export function detectGlobalAppearance(): PaperAppearanceMode {
+  if (typeof document === 'undefined') return 'dark';
+  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+}
+
 export function usePaperAppearance(opts: {
   channelId: Ref<string>;
   contentJson: Ref<Record<string, unknown> | null | undefined>;
 }) {
-  const appearance = ref<PaperAppearanceMode>('light');
+  const appearance = ref<PaperAppearanceMode>(detectGlobalAppearance());
 
   watch(
     () => opts.channelId.value,
     (id) => {
       if (!id.trim()) return;
-      appearance.value = loadStored(id) ?? 'light';
+      appearance.value = loadStored(id) ?? detectGlobalAppearance();
     },
     { immediate: true },
   );

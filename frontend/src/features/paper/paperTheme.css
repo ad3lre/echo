@@ -7,11 +7,15 @@
 }
 
 /*
- * Paper preview theme is independent of the app [data-theme].
- * Remap global semantic tokens inside .paper-root (and teleported menus) so
- * chrome, menus, and ink icons follow data-paper-appearance, not the site theme.
+ * Paper preview theme is fully independent of the app [data-theme].
+ * Remap ALL global semantic tokens inside .paper-root (and teleported menus)
+ * so chrome, menus, icons, dropdowns, comments, and every child element
+ * follow data-paper-appearance rather than the site theme.
  */
 :is(.paper-root, .paper-teleport-surface)[data-paper-appearance='light'] {
+  color-scheme: light;
+
+  /* ---- Paper surface ---- */
   --paper-workspace-bg: #eceef2;
   --paper-surface-bg: #ffffff;
   --paper-surface-fg: rgba(15, 23, 42, 0.94);
@@ -26,23 +30,49 @@
   --paper-format-bar-bg: color-mix(in srgb, var(--elevated) 94%, transparent);
   --paper-dropdown-shadow: 0 12px 40px rgba(15, 23, 42, 0.14);
   --paper-comment-card-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --paper-comment-card-bg: var(--paper-surface-bg);
   --paper-selection-bg: color-mix(in srgb, var(--accent) 28%, transparent);
   --paper-chrome-bg: rgba(244, 245, 247, 0.97);
+  --paper-pin-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
 
+  /* ---- Status indicators ---- */
+  --paper-status-synced: #16a34a;
+  --paper-status-pending: #d97706;
+  --paper-status-offline: rgba(51, 65, 85, 0.45);
+  --paper-status-error: #dc2626;
+
+  /* ---- Global semantic tokens (override app theme) ---- */
+  --accent: #4f46e5;
+  --accent-contrast-fg: #ffffff;
   --echo-ink-icon-filter: none;
   --text: var(--paper-surface-fg);
   --muted: var(--paper-surface-muted);
+  --surface: #f5f7fb;
   --ui-fg: var(--paper-surface-fg);
   --ui-fg-soft: color-mix(in srgb, var(--paper-surface-fg) 82%, transparent);
   --ui-fg-subtle: var(--paper-surface-muted);
   --border: var(--paper-surface-border);
   --elevated: var(--paper-surface-bg);
   --bg: var(--paper-chrome-bg);
+  --bg-elevated: var(--paper-surface-bg);
+  --ui-glass-1: rgba(255, 255, 255, 0.55);
   --ui-glass-2: var(--paper-surface-bg);
   --ui-glass-hover: color-mix(in srgb, var(--paper-surface-fg) 8%, transparent);
+  --ui-glass-active: color-mix(
+    in srgb,
+    var(--paper-surface-fg) 12%,
+    transparent
+  );
+  --overlay-dim: rgba(15, 23, 42, 0.34);
+  --overlay-heavy: rgba(15, 23, 42, 0.52);
+  --glass-tint: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(15, 23, 42, 0.1);
 }
 
 :is(.paper-root, .paper-teleport-surface)[data-paper-appearance='dark'] {
+  color-scheme: dark;
+
+  /* ---- Paper surface ---- */
   --paper-workspace-bg: #1a1522;
   --paper-surface-bg: #16161c;
   --paper-surface-fg: rgba(255, 255, 255, 0.93);
@@ -57,18 +87,32 @@
   --paper-format-bar-bg: color-mix(in srgb, var(--elevated) 88%, transparent);
   --paper-dropdown-shadow: 0 12px 40px rgba(0, 0, 0, 0.42);
   --paper-comment-card-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  --paper-comment-card-bg: var(--paper-surface-bg);
   --paper-selection-bg: color-mix(in srgb, var(--accent) 35%, transparent);
   --paper-chrome-bg: color-mix(in srgb, #1a1522 94%, #16161c);
+  --paper-pin-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 
+  /* ---- Status indicators ---- */
+  --paper-status-synced: #22c55e;
+  --paper-status-pending: #f59e0b;
+  --paper-status-offline: rgba(255, 255, 255, 0.35);
+  --paper-status-error: #ef4444;
+
+  /* ---- Global semantic tokens (override app theme) ---- */
+  --accent: #6366f1;
+  --accent-contrast-fg: #ffffff;
   --echo-ink-icon-filter: var(--paper-ink-icon-filter-dark);
   --text: var(--paper-surface-fg);
   --muted: var(--paper-surface-muted);
+  --surface: #130c1b;
   --ui-fg: var(--paper-surface-fg);
   --ui-fg-soft: color-mix(in srgb, var(--paper-surface-fg) 82%, transparent);
   --ui-fg-subtle: var(--paper-surface-muted);
   --border: var(--paper-surface-border);
   --elevated: var(--paper-surface-bg);
   --bg: var(--paper-chrome-bg);
+  --bg-elevated: var(--paper-surface-bg);
+  --ui-glass-1: rgba(255, 255, 255, 0.06);
   --ui-glass-2: color-mix(
     in srgb,
     var(--paper-surface-bg) 88%,
@@ -79,6 +123,15 @@
     var(--paper-surface-fg) 10%,
     transparent
   );
+  --ui-glass-active: color-mix(
+    in srgb,
+    var(--paper-surface-fg) 14%,
+    transparent
+  );
+  --overlay-dim: rgba(0, 0, 0, 0.45);
+  --overlay-heavy: rgba(0, 0, 0, 0.62);
+  --glass-tint: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.08);
 }
 
 .paper-workspace {

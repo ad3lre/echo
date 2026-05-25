@@ -28,6 +28,7 @@ import {
 } from '../../../domain/echoStore';
 import { isMemberOfServer } from '../../../domain/echoPermissions';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
+import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import {
   discordBotFetchGuildChannels,
   discordBotFetchGuildName,
@@ -519,7 +520,16 @@ export default async function echoDiscordBridgeSettingsRoutes(
     Body: { inboundEnabled?: unknown; outboundEnabled?: unknown };
   }>(
     '/servers/:serverId/categories/:categoryId/discord-bridge/bulk-apply',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
@@ -598,7 +608,16 @@ export default async function echoDiscordBridgeSettingsRoutes(
     Params: { serverId: string; categoryId: string };
   }>(
     '/servers/:serverId/categories/:categoryId/discord-bridge/bulk-clear',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);

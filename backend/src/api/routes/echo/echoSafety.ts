@@ -128,7 +128,15 @@ export default async function echoSafetyRoutes(
       };
     }>(
       '/reports/user',
-      { preHandler: [requireAuth, requireEchoStore] },
+      {
+        preHandler: [requireAuth, requireEchoStore],
+        config: {
+          rateLimit: {
+            max: 10,
+            timeWindow: '1 hour',
+          },
+        },
+      },
       async (req, reply) => {
         const pool = echoPool(req);
         const target =
@@ -237,7 +245,15 @@ export default async function echoSafetyRoutes(
       };
     }>(
       '/reports/message',
-      { preHandler: [requireAuth, requireEchoStore] },
+      {
+        preHandler: [requireAuth, requireEchoStore],
+        config: {
+          rateLimit: {
+            max: 10,
+            timeWindow: '1 hour',
+          },
+        },
+      },
       async (req, reply) => {
         const pool = echoPool(req);
         const messageId =

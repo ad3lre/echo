@@ -191,7 +191,7 @@ function labelHue(label: string): number {
             role="dialog"
             aria-modal="true"
             aria-labelledby="forward-modal-title"
-            class="fwd-card relative flex w-full max-w-[480px] max-h-[min(36rem,90vh)] flex-col overflow-hidden rounded-3xl text-white"
+            class="fwd-card relative flex w-full max-w-[480px] max-h-[min(36rem,90vh)] flex-col overflow-hidden rounded-3xl text-foreground"
             @click.stop
             @keydown="onKeydown"
           >
@@ -202,10 +202,10 @@ function labelHue(label: string): number {
                 class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-3xl bg-overlay-heavy backdrop-blur-sm"
               >
                 <div
-                  class="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 ring-1 ring-emerald-400/30"
+                  class="fwd-sent-ring flex h-16 w-16 items-center justify-center rounded-full"
                 >
                   <svg
-                    class="h-8 w-8 text-emerald-400"
+                    class="fwd-sent-check h-8 w-8"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -223,14 +223,14 @@ function labelHue(label: string): number {
 
             <!-- top gradient accent -->
             <div
-              class="pointer-events-none absolute inset-x-0 top-0 h-28 rounded-t-3xl bg-gradient-to-b from-indigo-500/15 to-transparent"
+              class="fwd-top-accent pointer-events-none absolute inset-x-0 top-0 h-28 rounded-t-3xl"
               aria-hidden="true"
             />
 
             <!-- close button -->
             <button
               type="button"
-              class="fwd-close-btn chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-glass-hover hover:text-white"
+              class="fwd-close-btn chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-fg-subtle transition-colors hover:bg-glass-hover hover:text-foreground"
               aria-label="Close"
               @click="emit('close')"
             >
@@ -249,12 +249,10 @@ function labelHue(label: string): number {
             </button>
 
             <!-- header -->
-            <div
-              class="relative border-b border-white/[0.07] px-5 pb-4 pt-5 pr-12"
-            >
+            <div class="relative border-b border-border px-5 pb-4 pt-5 pr-12">
               <h2
                 id="forward-modal-title"
-                class="text-lg font-bold leading-tight tracking-tight text-white"
+                class="text-lg font-bold leading-tight tracking-tight text-foreground"
               >
                 Forward message
               </h2>
@@ -297,7 +295,7 @@ function labelHue(label: string): number {
                 <img
                   :src="icons.search"
                   alt=""
-                  class="fwd-search-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-40"
+                  class="fwd-search-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
                   aria-hidden="true"
                 />
                 <input
@@ -305,7 +303,7 @@ function labelHue(label: string): number {
                   v-model="q"
                   type="search"
                   placeholder="Search people, servers, channels…"
-                  class="w-full rounded-xl border border-border bg-glass-2 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-fg-subtle outline-none transition-colors focus:border-border focus:bg-glass-2"
+                  class="w-full rounded-xl border border-border bg-glass-2 py-2.5 pl-10 pr-3 text-sm text-foreground placeholder:text-fg-subtle outline-none transition-colors focus:border-border focus:bg-glass-2"
                   aria-label="Search destinations"
                   autocomplete="off"
                 />
@@ -409,8 +407,8 @@ function labelHue(label: string): number {
                       </div>
                       <div
                         v-else
-                        class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-fg-soft"
-                        :style="`background: hsl(${labelHue(d.label)},35%,28%)`"
+                        class="fwd-avatar-initial flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                        :style="`--_hue: ${labelHue(d.label)}`"
                       >
                         {{ initial(d.label) }}
                       </div>
@@ -462,7 +460,7 @@ function labelHue(label: string): number {
                     </button>
                     <div
                       v-if="expandedServerIds.has(s.id)"
-                      class="ml-2 mt-0.5 border-l border-white/[0.07] pl-3"
+                      class="ml-2 mt-0.5 border-l border-border pl-3"
                     >
                       <button
                         v-for="ch in s.textChannels"
@@ -493,7 +491,7 @@ function labelHue(label: string): number {
             </div>
 
             <!-- footer hint -->
-            <div class="border-t border-white/[0.07] px-5 py-3 text-center">
+            <div class="border-t border-border px-5 py-3 text-center">
               <span class="text-[11px] text-fg-subtle"
                 >Press Esc to cancel</span
               >
@@ -507,35 +505,54 @@ function labelHue(label: string): number {
 
 <style scoped lang="scss">
 .fwd-card {
-  background: linear-gradient(
-    180deg,
-    rgba(18, 14, 32, 0.97) 0%,
-    rgba(11, 9, 22, 0.99) 100%
-  );
+  background: var(--echo-modal-bg);
   backdrop-filter: blur(24px) saturate(1.3);
   -webkit-backdrop-filter: blur(24px) saturate(1.3);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 8px 48px rgba(0, 0, 0, 0.6),
-    0 -1px 0 rgba(255, 255, 255, 0.06) inset;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-4);
 }
 
 .fwd-row-icon {
-  filter: invert(1);
+  filter: var(--echo-ink-icon-filter);
   opacity: 0.6;
 }
 
-[data-theme='light'] .fwd-row-icon {
-  filter: none;
+.fwd-search-icon {
+  filter: var(--echo-ink-icon-filter);
   opacity: 0.55;
 }
 
-.fwd-search-icon {
-  filter: invert(1);
+.fwd-top-accent {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--accent) 15%, transparent) 0%,
+    transparent 100%
+  );
 }
 
-[data-theme='light'] .fwd-search-icon {
-  filter: none;
+.fwd-avatar-initial {
+  background: hsl(var(--_hue), 35%, 28%);
+  color: var(--ui-fg-soft);
+}
+[data-theme='light'] .fwd-avatar-initial {
+  background: hsl(var(--_hue), 42%, 88%);
+  color: hsl(var(--_hue), 40%, 32%);
+}
+
+.fwd-sent-ring {
+  background: rgba(16, 185, 129, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.3);
+}
+[data-theme='light'] .fwd-sent-ring {
+  background: rgba(16, 185, 129, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.25);
+}
+
+.fwd-sent-check {
+  color: #34d399;
+}
+[data-theme='light'] .fwd-sent-check {
+  color: #059669;
 }
 
 /* Overlay fade */

@@ -6,6 +6,7 @@ import {
   isEchoPublicBadgeId,
   type EchoPublicBadgeId,
 } from '@shared/echoAccountBadges';
+import { echoPlanBadgeUrl } from '@/assets/subscriptionTierIcons';
 
 const props = defineProps<{
   /** Stable ids from API / workspace (e.g. `og`, `plus`, `black`). */
@@ -29,6 +30,11 @@ function titleFor(id: EchoPublicBadgeId): string {
 function labelFor(id: EchoPublicBadgeId): string {
   return echoPublicBadgeLabel(id);
 }
+
+function badgeIconUrl(id: EchoPublicBadgeId): string | null {
+  if (id === 'plus' || id === 'black') return echoPlanBadgeUrl(id);
+  return null;
+}
 </script>
 
 <template>
@@ -47,6 +53,13 @@ function labelFor(id: EchoPublicBadgeId): string {
       >
         <span class="profile-user-badges__pill-glint" aria-hidden="true" />
         <span class="profile-user-badges__pill-rim" aria-hidden="true" />
+        <img
+          v-if="badgeIconUrl(id)"
+          :src="badgeIconUrl(id)!"
+          class="profile-user-badges__pill-icon"
+          aria-hidden="true"
+          alt=""
+        />
         <span class="profile-user-badges__pill-inner" aria-hidden="true">{{
           labelFor(id)
         }}</span>
@@ -91,6 +104,22 @@ function labelFor(id: EchoPublicBadgeId): string {
   padding: 0.15rem 0.62rem 0.17rem;
 }
 
+.profile-user-badges__pill-icon {
+  position: relative;
+  z-index: 1;
+  width: 0.72rem;
+  height: 0.72rem;
+  margin-right: 0.22rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+.profile-user-badges--md .profile-user-badges__pill-icon {
+  width: 0.82rem;
+  height: 0.82rem;
+  margin-right: 0.25rem;
+}
+
 .profile-user-badges__pill-glint {
   position: absolute;
   inset: 1px;
@@ -123,46 +152,51 @@ function labelFor(id: EchoPublicBadgeId): string {
   letter-spacing: 0.05em;
 }
 
-/* Echo+ — indigo gem gradient */
+/* Echo+ — indigo/violet gem with subtle purple glow */
 .profile-user-badges__pill--plus {
   background: linear-gradient(
     145deg,
     #1e1b4b 0%,
-    #3730a3 22%,
-    #6366f1 48%,
+    #312e81 18%,
+    #4f46e5 38%,
+    #818cf8 50%,
     #a5b4fc 56%,
-    #4f46e5 74%,
+    #6366f1 68%,
+    #3730a3 82%,
     #1e1b4b 100%
   );
   box-shadow:
-    inset 0 1px 0 rgba(224, 231, 255, 0.42),
+    inset 0 1px 0 rgba(224, 231, 255, 0.45),
     inset 0 -2px 4px rgba(0, 0, 0, 0.24),
     0 0 0 1px rgba(30, 27, 75, 0.75),
     0 2px 6px rgba(2, 6, 23, 0.38),
-    0 0 14px rgba(99, 102, 241, 0.28);
+    0 0 10px rgba(99, 102, 241, 0.32),
+    0 0 20px rgba(139, 92, 246, 0.15);
 }
 
 .profile-user-badges__pill--plus:hover {
   box-shadow:
-    inset 0 1px 0 rgba(237, 242, 255, 0.52),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(237, 242, 255, 0.55),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.18),
     0 0 0 1px rgba(30, 27, 75, 0.68),
     0 3px 10px rgba(0, 0, 0, 0.38),
-    0 0 22px rgba(129, 140, 248, 0.42);
+    0 0 18px rgba(129, 140, 248, 0.45),
+    0 0 30px rgba(139, 92, 246, 0.22);
 }
 
 .profile-user-badges__pill--plus .profile-user-badges__pill-glint {
   background: linear-gradient(
-    180deg,
-    rgba(237, 242, 255, 0.56) 0%,
-    rgba(199, 210, 254, 0.18) 38%,
-    rgba(255, 255, 255, 0) 58%
+    175deg,
+    rgba(237, 242, 255, 0.62) 0%,
+    rgba(199, 210, 254, 0.24) 32%,
+    rgba(167, 139, 250, 0.08) 52%,
+    rgba(255, 255, 255, 0) 62%
   );
 }
 
 .profile-user-badges__pill--plus .profile-user-badges__pill-rim {
   box-shadow:
-    inset 0 0 0 1px rgba(224, 231, 255, 0.22),
+    inset 0 0 0 1px rgba(224, 231, 255, 0.24),
     inset 0 -1px 2px rgba(15, 10, 45, 0.42);
 }
 
@@ -173,54 +207,71 @@ function labelFor(id: EchoPublicBadgeId): string {
     0 0 10px rgba(165, 180, 252, 0.4);
 }
 
-/* Echo Black — zinc / obsidian gradient */
+.profile-user-badges__pill--plus .profile-user-badges__pill-icon {
+  filter: drop-shadow(0 0 3px rgba(165, 180, 252, 0.5))
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+/* Echo Black — obsidian with silver/platinum accents */
 .profile-user-badges__pill--black {
   background: linear-gradient(
     145deg,
-    #09090b 0%,
-    #18181b 28%,
-    #3f3f46 48%,
-    #71717a 56%,
-    #27272a 74%,
+    #0a0a0b 0%,
+    #18181b 20%,
+    #27272a 36%,
+    #52525b 48%,
+    #a1a1aa 54%,
+    #52525b 60%,
+    #27272a 72%,
+    #18181b 86%,
     #09090b 100%
   );
   box-shadow:
-    inset 0 1px 0 rgba(250, 250, 250, 0.28),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.32),
-    0 0 0 1px rgba(9, 9, 11, 0.85),
-    0 2px 6px rgba(0, 0, 0, 0.42),
-    0 0 12px rgba(255, 255, 255, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.36),
+    0 0 0 1px rgba(9, 9, 11, 0.9),
+    0 0 0 2px rgba(161, 161, 170, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.48),
+    0 0 12px rgba(161, 161, 170, 0.1);
 }
 
 .profile-user-badges__pill--black:hover {
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.36),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.26),
-    0 0 0 1px rgba(9, 9, 11, 0.78),
-    0 3px 10px rgba(0, 0, 0, 0.44),
-    0 0 20px rgba(255, 255, 255, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(9, 9, 11, 0.82),
+    0 0 0 2px rgba(161, 161, 170, 0.22),
+    0 3px 10px rgba(0, 0, 0, 0.48),
+    0 0 18px rgba(212, 212, 216, 0.16);
 }
 
 .profile-user-badges__pill--black .profile-user-badges__pill-glint {
   background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.34) 0%,
-    rgba(212, 212, 216, 0.12) 38%,
-    rgba(255, 255, 255, 0) 58%
+    175deg,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(228, 228, 231, 0.16) 30%,
+    rgba(161, 161, 170, 0.06) 50%,
+    rgba(255, 255, 255, 0) 62%
   );
 }
 
 .profile-user-badges__pill--black .profile-user-badges__pill-rim {
   box-shadow:
-    inset 0 0 0 1px rgba(228, 228, 231, 0.18),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.48);
+    inset 0 0 0 1px rgba(228, 228, 231, 0.2),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.52);
 }
 
 .profile-user-badges__pill--black .profile-user-badges__pill-inner {
   color: #fafafa;
   text-shadow:
-    0 1px 0 rgba(0, 0, 0, 0.72),
-    0 0 8px rgba(212, 212, 216, 0.28);
+    0 1px 0 rgba(0, 0, 0, 0.76),
+    0 0 8px rgba(228, 228, 231, 0.2);
+  letter-spacing: 0.06em;
+}
+
+.profile-user-badges__pill--black .profile-user-badges__pill-icon {
+  filter: drop-shadow(0 0 2px rgba(228, 228, 231, 0.35))
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
 }
 
 /* Echo blue (915b563a): cobalt rim → vivid core — same structure as friend heart. */

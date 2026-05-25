@@ -149,6 +149,7 @@
      averaged ambient hot-spots upward into glare. Keep enough translucency so
      the surface still reflects what's behind it. */
   --chat-glass-header-bg: rgba(8, 6, 14, 0.62);
+  --chat-glass-header-bg-fallback: rgba(8, 6, 14, 0.92);
   --chat-glass-header-backdrop: blur(28px);
   --chat-accent: rgba(99, 102, 241, 0.4);
   --chat-accent-muted: rgba(99, 102, 241, 0.25);
@@ -1219,6 +1220,7 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
   --chat-glass-bg: rgba(2, 2, 4, 0.48);
   --chat-glass-bg-strong: rgba(2, 2, 4, 0.8);
   --chat-glass-header-bg: rgba(0, 0, 0, 0.62);
+  --chat-glass-header-bg-fallback: rgba(0, 0, 0, 0.94);
   --chat-glass-header-backdrop: blur(28px);
   --set-sidebar-bg: rgba(255, 255, 255, 0.015);
   --set-card-bg: rgba(255, 255, 255, 0.022);
@@ -1632,6 +1634,7 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
    * on some Chromium/WebView compositors.
    */
   --chat-glass-header-bg: rgba(255, 255, 255, 0.05);
+  --chat-glass-header-bg-fallback: rgba(245, 245, 248, 0.97);
   --chat-glass-header-backdrop: blur(30px);
   --chat-accent: rgba(79, 70, 229, 0.3);
   --chat-accent-muted: rgba(79, 70, 229, 0.15);
@@ -2632,6 +2635,7 @@ html[data-theme='light'][data-echo-light-variant='sunny'] {
     transparent
   );
   --chat-glass-header-bg: rgba(255, 252, 244, 0.42);
+  --chat-glass-header-bg-fallback: rgba(252, 248, 238, 0.96);
   --chat-glass-header-backdrop: blur(30px);
   --set-sidebar-bg: rgba(120, 80, 30, 0.028);
   --set-card-bg: rgba(120, 80, 30, 0.038);

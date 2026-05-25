@@ -1031,12 +1031,21 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  background-color: var(--chat-glass-header-bg);
-  backdrop-filter: var(--chat-glass-header-backdrop);
-  -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  background-color: var(
+    --chat-glass-header-bg-fallback,
+    var(--chat-glass-header-bg)
+  );
   isolation: isolate;
   border-bottom: 1px solid color-mix(in srgb, white 10%, transparent);
   box-shadow: none;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .voice-side-chat-header {
+    background-color: var(--chat-glass-header-bg);
+    backdrop-filter: var(--chat-glass-header-backdrop);
+    -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  }
 }
 
 :global([data-theme='light'] .voice-side-chat-header) {

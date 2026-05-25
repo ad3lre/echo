@@ -642,8 +642,18 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
 }
 
 @media (max-width: 799px) {
+  /*
+   * On phones the gate lives inside a compact-shell pager cell whose height is
+   * already bounded by the visual viewport.  The Tailwind `min-h-[100dvh]` on
+   * the gate root forces it taller than the cell, creating a scrollable blank
+   * area above the auth content.  Cancel it here so the gate sizes to its parent.
+   */
+  .welcome-back-explore-gate {
+    min-height: 0;
+  }
+
   .welcome-back-explore-gate > .flex {
-    min-height: 100%;
+    min-height: 0;
   }
 
   .welcome-back-explore-gate > .flex > .welcome-back-hero {
@@ -655,7 +665,8 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
     z-index: auto;
     width: 100%;
     max-width: none;
-    min-height: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
     justify-content: flex-start;
     border-left: 0;
   }

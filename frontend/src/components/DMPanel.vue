@@ -1810,8 +1810,17 @@ watch(
   border: none;
   border-radius: 14px;
   overflow: hidden;
-  background-color: var(--chat-glass-header-bg);
-  backdrop-filter: var(--chat-glass-header-backdrop);
-  -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  background-color: var(
+    --chat-glass-header-bg-fallback,
+    var(--chat-glass-header-bg)
+  );
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .dm-panel__ringtone-sticky {
+    background-color: var(--chat-glass-header-bg);
+    backdrop-filter: var(--chat-glass-header-backdrop);
+    -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  }
 }
 </style>

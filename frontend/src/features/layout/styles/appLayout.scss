@@ -57,12 +57,23 @@
 }
 
 .chat-header-glass {
-  /* Same recipe as `.pins-dropdown`: token tint + backdrop blur, no extra shade or hover gloss. */
-  background-color: var(--chat-glass-header-bg);
+  /* Solid fallback for browsers/systems that do not support backdrop-filter
+     (common on some Linux/Electron compositors). Without this, the header is
+     nearly invisible in light themes (5 % opacity) yet still captures pointer events. */
+  background-color: var(
+    --chat-glass-header-bg-fallback,
+    var(--chat-glass-header-bg)
+  );
   border-bottom: none;
-  backdrop-filter: var(--chat-glass-header-backdrop);
-  -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
   isolation: isolate;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .chat-header-glass {
+    background-color: var(--chat-glass-header-bg);
+    backdrop-filter: var(--chat-glass-header-backdrop);
+    -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  }
 }
 
 /* Call controls on liquid glass (quarter view) */
@@ -156,11 +167,20 @@
 
 /* Pins dropdown: same glass as header / menus */
 .pins-dropdown {
-  background-color: var(--chat-glass-header-bg);
-  backdrop-filter: var(--chat-glass-header-backdrop);
-  -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  background-color: var(
+    --chat-glass-header-bg-fallback,
+    var(--chat-glass-header-bg)
+  );
   border-radius: 12px;
   overflow: hidden;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .pins-dropdown {
+    background-color: var(--chat-glass-header-bg);
+    backdrop-filter: var(--chat-glass-header-backdrop);
+    -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  }
 }
 .pins-dropdown-item {
   transition: background 0.1s ease;

@@ -149,7 +149,8 @@ const emit = defineEmits<{
           />
         </div>
         <div
-          class="flex min-h-0 min-w-0 max-w-[min(760px,58vw)] flex-row items-center gap-2 overflow-x-auto overflow-y-visible [scrollbar-width:thin]"
+          class="flex min-h-0 min-w-0 max-w-[min(760px,58vw)] flex-row items-center overflow-x-auto overflow-y-visible [scrollbar-width:thin]"
+          :class="areServersExpanded ? 'gap-2' : ''"
         >
           <button
             type="button"

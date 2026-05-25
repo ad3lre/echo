@@ -19,9 +19,19 @@
   .chat-liquid-glass-menu {
     overflow: hidden;
     border-radius: 16px;
-    background-color: var(--chat-glass-header-bg);
-    backdrop-filter: var(--chat-glass-header-backdrop);
-    -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+    background-color: var(
+      --chat-glass-header-bg-fallback,
+      var(--chat-glass-header-bg)
+    );
+  }
+
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .ellipsis-menu,
+    .chat-liquid-glass-menu {
+      background-color: var(--chat-glass-header-bg);
+      backdrop-filter: var(--chat-glass-header-backdrop);
+      -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+    }
   }
 
   /* Variant for emoji/icon pickers (and similar popovers) teleported over

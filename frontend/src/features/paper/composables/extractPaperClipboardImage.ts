@@ -7,14 +7,15 @@ export type PaperClipboardImagePayload =
   | { kind: 'dataUrl'; dataUrl: string }
   | { kind: 'url'; url: string };
 
-/** First `<img src>` in pasted HTML, if any. */
+/** First `<img src>` in pasted HTML, if any (regex to avoid DOMParser XSS surface). */
 export function extractImageSrcFromClipboardHtml(html: string): string | null {
   const trimmed = html.trim();
   if (!trimmed) return null;
-  const doc = new DOMParser().parseFromString(trimmed, 'text/html');
-  const img = doc.querySelector('img[src]');
-  const src = img?.getAttribute('src')?.trim();
-  return src || null;
+  const match = /<img\s[^>]*?\bsrc\s*=\s*"([^"]+)"/i.exec(trimmed);
+  if (match?.[1]) return match[1].trim() || null;
+  const matchSingle = /<img\s[^>]*?\bsrc\s*=\s*'([^']+)'/i.exec(trimmed);
+  if (matchSingle?.[1]) return matchSingle[1].trim() || null;
+  return null;
 }
 
 /** Decode a raster `data:image/...;base64,...` URL into a File for upload. */

@@ -74,6 +74,9 @@ async function postDiscordBridgeSyncNoticeToDiscord(
   const text = content.slice(0, 2000);
   const url = webhookUrl ? normalizeDiscordWebhookUrl(webhookUrl) : null;
   if (url) {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (host !== 'discord.com' && host !== 'canary.discord.com') return;
     try {
       const res = await fetch(`${url}?wait=true`, {
         method: 'POST',
