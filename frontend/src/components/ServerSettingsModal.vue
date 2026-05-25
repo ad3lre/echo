@@ -35,8 +35,9 @@ import ServerSettingsRolesSection from '@/features/server-settings/components/Se
 import ServerSettingsEmojiSection from '@/features/server-settings/components/ServerSettingsEmojiSection.vue';
 import ServerSettingsSecuritySection from '@/features/server-settings/components/ServerSettingsSecuritySection.vue';
 import ServerSettingsAccessSection from '@/features/server-settings/components/ServerSettingsAccessSection.vue';
+import ServerSettingsTicketsSection from '@/features/server-settings/components/ServerSettingsTicketsSection.vue';
 import ServerSettingsModerationSection from '@/features/server-settings/components/ServerSettingsModerationSection.vue';
-import AutomodRulesPanel from '@/features/server-settings/components/automod/AutomodRulesPanel.vue';
+import BannedWordsPanel from '@/features/server-settings/components/banned-words/BannedWordsPanel.vue';
 import ServerSettingsAuditLogSection from '@/features/server-settings/components/ServerSettingsAuditLogSection.vue';
 import ServerSettingsBansSection from '@/features/server-settings/components/ServerSettingsBansSection.vue';
 import ServerSettingsDangerZoneSection from '@/features/server-settings/components/ServerSettingsDangerZoneSection.vue';
@@ -1069,16 +1070,20 @@ async function onModerationPatch(patch: {
                   @echo-workspace-refresh="emit('echo-workspace-refresh')"
                 />
 
+                <ServerSettingsTicketsSection
+                  v-else-if="activeSection === 'Tickets'"
+                  :server-id="server?.id ?? ''"
+                  :access-token="accessToken"
+                />
+
                 <div
-                  v-else-if="activeSection === 'Automod'"
+                  v-else-if="activeSection === 'Banned Words'"
                   class="server-settings-panel-root"
                 >
-                  <AutomodRulesPanel
+                  <BannedWordsPanel
                     v-if="isEchoGraphIdLocal(server?.id ?? '')"
                     :server-id="server?.id ?? ''"
-                    :access-token="accessToken"
                     :can-manage="!!props.canManageServer"
-                    :structure-categories="props.structureCategories ?? []"
                     :echo-roles="
                       roleManagerRoles.map((r) => ({
                         id: r.id,
@@ -1090,7 +1095,7 @@ async function onModerationPatch(patch: {
                     v-else
                     class="server-settings-panel rounded-2xl p-5 text-sm text-fg-soft"
                   >
-                    Custom AutoMod rules are unavailable for this server id.
+                    Banned words filter is unavailable for this server.
                   </div>
                 </div>
 

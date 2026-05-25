@@ -4,7 +4,7 @@ import type {
   FastifyPluginOptions,
   FastifyRequest,
 } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import { getAccessUserIdFromAuthHeader } from '../../../auth/token';
 import {
   countEchoUserRingtones,
@@ -67,7 +67,7 @@ export default async function echoUserRingtonesRoutes(
           return reply.send({ ringtones: [], maxCustom: 0 });
         }
         const pool = echoPool(req);
-        const userId = req.authUser!.id;
+        const userId = getAuthUser(req).id;
         const ent = await getEchoEntitlements(pool, userId);
         const rows = await listEchoUserRingtones(pool, userId);
         return reply.send({
@@ -114,7 +114,7 @@ export default async function echoUserRingtonesRoutes(
           );
         }
         const pool = echoPool(req);
-        const userId = req.authUser!.id;
+        const userId = getAuthUser(req).id;
         const ent = await getEchoEntitlements(pool, userId);
         const maxCustom = maxCustomRingtonesForPlan(ent.plan);
         const count = await countEchoUserRingtones(pool, userId);
@@ -223,7 +223,7 @@ export default async function echoUserRingtonesRoutes(
           return sendError(reply, 400, 'INVALID_BODY', 'ringtoneId required');
         }
         const pool = echoPool(req);
-        const userId = req.authUser!.id;
+        const userId = getAuthUser(req).id;
         const deleted = await deleteEchoUserRingtone(pool, userId, ringtoneId);
         if (!deleted) {
           return sendError(reply, 404, 'NOT_FOUND', 'Ringtone not found');

@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import {
   getDiscordVoiceMirrorCategory,
   getDiscordVoiceMirrorVoiceChannel,
@@ -31,7 +31,7 @@ export default async function echoDiscordVoiceMirrorSettingsRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, serverId, userId);
       if (!okMem) {
         return sendError(
@@ -62,7 +62,7 @@ export default async function echoDiscordVoiceMirrorSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, serverId, userId);
       if (!okMem) {
         return sendError(
@@ -111,7 +111,7 @@ export default async function echoDiscordVoiceMirrorSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, serverId, userId);
       if (!okMem) {
         return sendError(
@@ -186,7 +186,7 @@ export default async function echoDiscordVoiceMirrorSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, serverId, userId);
       if (!okMem) {
         return sendError(
@@ -245,7 +245,7 @@ export default async function echoDiscordVoiceMirrorSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, serverId, userId);
       if (!okMem) {
         return sendError(

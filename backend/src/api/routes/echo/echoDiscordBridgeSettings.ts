@@ -4,7 +4,7 @@ import type {
   FastifyReply,
 } from 'fastify';
 import type { Pool } from 'pg';
-import { requireAuth } from '../../../auth/middleware';
+import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import { getAuthStore } from '../../../auth/store';
 import { config } from '../../../config';
 import {
@@ -106,7 +106,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, serverId, userId);
       if (!okMem) {
         return sendError(
@@ -180,7 +180,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, serverId, userId);
       if (!okMem) {
         return sendError(
@@ -336,7 +336,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const discordGuildIdRaw =
         typeof req.query.discordGuildId === 'string'
           ? req.query.discordGuildId.trim()
@@ -475,7 +475,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const body = req.body ?? {};
       const r = await applyDiscordBridgePut(
         pool,
@@ -504,7 +504,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const r = await applyDiscordBridgeClear(
         pool,
         serverId,
@@ -534,7 +534,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, serverId, userId);
       if (!okMem) {
         return sendError(
@@ -622,7 +622,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, serverId, userId);
       if (!okMem) {
         return sendError(

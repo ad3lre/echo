@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useId } from 'vue';
 import SettingsPillSwitch from './SettingsPillSwitch.vue';
+import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
 const props = defineProps<{
-  form: any;
+  form: SettingsForm;
 }>();
 
 const fontScaleId = useId();

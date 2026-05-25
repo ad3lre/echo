@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { sendError } from '../../errors';
 import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
 import {
@@ -57,7 +57,7 @@ export default async function echoSocialRoutes(
       if (!target) {
         return sendError(reply, 400, 'INVALID_BODY', 'userId required');
       }
-      const viewerId = req.authUser!.id;
+      const viewerId = getAuthUser(req).id;
       const allowed = await echoPeerProfileVisibleToViewer(
         pool,
         viewerId,
@@ -80,7 +80,7 @@ export default async function echoSocialRoutes(
     async (req, reply) => {
       if (req.authUser?.isGuest) return guestFriendsForbidden(reply);
       const pool = echoPool(req);
-      const friends = await listEchoFriends(pool, req.authUser!.id);
+      const friends = await listEchoFriends(pool, getAuthUser(req).id);
       return reply.code(200).send({ friends });
     },
   );
@@ -95,7 +95,7 @@ export default async function echoSocialRoutes(
         typeof req.body?.peerId === 'string' ? req.body.peerId.trim() : '';
       if (!peerId)
         return sendError(reply, 400, 'INVALID_BODY', 'peerId required');
-      if (peerId === req.authUser!.id)
+      if (peerId === getAuthUser(req).id)
         return sendError(
           reply,
           400,
@@ -120,7 +120,7 @@ export default async function echoSocialRoutes(
       const fr = await addEchoFriendRequestAndBroadcast(
         fastify,
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         peerId,
       );
       if (fr === 'blocked')
@@ -154,7 +154,7 @@ export default async function echoSocialRoutes(
       const ok = await acceptEchoFriendshipAndBroadcast(
         fastify,
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         peerId,
       );
       if (!ok)
@@ -174,7 +174,7 @@ export default async function echoSocialRoutes(
     async (req, reply) => {
       if (req.authUser?.isGuest) return guestFriendsForbidden(reply);
       const pool = echoPool(req);
-      const uid = req.authUser!.id;
+      const uid = getAuthUser(req).id;
       const [incoming, outgoing] = await Promise.all([
         listEchoPendingFriendRequestsIncoming(pool, uid),
         listEchoPendingFriendRequestsOutgoing(pool, uid),
@@ -199,7 +199,7 @@ export default async function echoSocialRoutes(
       const ok = await declineEchoFriendRequestAndBroadcast(
         fastify,
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         peerId,
       );
       if (!ok)
@@ -226,7 +226,7 @@ export default async function echoSocialRoutes(
       const ok = await cancelEchoFriendRequestAndBroadcast(
         fastify,
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         peerId,
       );
       if (!ok)
@@ -250,7 +250,7 @@ export default async function echoSocialRoutes(
         typeof req.body?.peerId === 'string' ? req.body.peerId.trim() : '';
       if (!peerId)
         return sendError(reply, 400, 'INVALID_BODY', 'peerId required');
-      if (peerId === req.authUser!.id)
+      if (peerId === getAuthUser(req).id)
         return sendError(
           reply,
           400,
@@ -260,7 +260,7 @@ export default async function echoSocialRoutes(
       const ok = await removeEchoFriendshipAndBroadcast(
         fastify,
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         peerId,
       );
       if (!ok)
@@ -284,11 +284,11 @@ export default async function echoSocialRoutes(
         typeof req.query.peerId === 'string' ? req.query.peerId.trim() : '';
       if (!peerId)
         return sendError(reply, 400, 'INVALID_QUERY', 'peerId required');
-      if (peerId === req.authUser!.id)
+      if (peerId === getAuthUser(req).id)
         return reply.code(200).send({ userIds: [] as string[] });
       const canView = await canViewEchoPeerSocialGraph(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         peerId,
       );
       if (!canView) {
@@ -301,7 +301,7 @@ export default async function echoSocialRoutes(
       }
       const userIds = await listEchoMutualFriendPeerIds(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         peerId,
       );
       return reply.code(200).send({ userIds });
@@ -324,7 +324,7 @@ export default async function echoSocialRoutes(
       await updateEchoPresenceAndBroadcast(
         fastify,
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         next.status,
         activeClient,
       );
@@ -356,7 +356,7 @@ export default async function echoSocialRoutes(
       }
       const visibleUserIds = await filterVisibleEchoUserIds(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         userIds,
       );
       const rows = await getEchoPresenceWithLastOnline(pool, visibleUserIds);

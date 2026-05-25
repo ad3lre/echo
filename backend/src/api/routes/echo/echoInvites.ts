@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { config } from '../../../config';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
@@ -44,7 +44,7 @@ export default async function echoInvitesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -73,7 +73,7 @@ export default async function echoInvitesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okInv = await canUserCreateInvite(pool, sid, req.authUser!.id);
+      const okInv = await canUserCreateInvite(pool, sid, getAuthUser(req).id);
       if (!okInv)
         return sendError(
           reply,
@@ -95,7 +95,7 @@ export default async function echoInvitesRoutes(
         const perms = await getMergedRolePermissions(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
         );
         if (!perms.has('MANAGE_GUILD'))
           return sendError(
@@ -105,7 +105,7 @@ export default async function echoInvitesRoutes(
             'Only admins can create direct invites that skip applications',
           );
       }
-      const code = await createEchoInvite(pool, sid, req.authUser!.id, {
+      const code = await createEchoInvite(pool, sid, getAuthUser(req).id, {
         skipsApplication: skips,
       });
       const appBase = config.echoAppPublicUrl.replace(/\/$/, '');
@@ -120,7 +120,7 @@ export default async function echoInvitesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okInv = await canUserCreateInvite(pool, sid, req.authUser!.id);
+      const okInv = await canUserCreateInvite(pool, sid, getAuthUser(req).id);
       if (!okInv)
         return sendError(
           reply,
@@ -265,7 +265,7 @@ export default async function echoInvitesRoutes(
       const block = await shouldBlockEchoJoinForPendingApplication(
         pool,
         joinCtx.serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         joinCtx.skipsApplication,
       );
       if (block) {
@@ -281,7 +281,7 @@ export default async function echoInvitesRoutes(
       const r = await joinEchoServerFromInvite(
         pool,
         joinCtx.serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         clientIpFromFastifyRequest(req),
         { isGuest: Boolean(req.authUser?.isGuest) },
       );
@@ -336,9 +336,9 @@ export default async function echoInvitesRoutes(
             kind: 'membership_changed',
             version: r.joinAuditId,
             serverId: joinCtx.serverId,
-            userId: req.authUser!.id,
+            userId: getAuthUser(req).id,
           },
-          { serverId: joinCtx.serverId, userId: req.authUser!.id },
+          { serverId: joinCtx.serverId, userId: getAuthUser(req).id },
         );
       }
       return reply

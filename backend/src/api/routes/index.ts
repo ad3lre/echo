@@ -29,7 +29,6 @@ import discordApiRoutes from './discordApi';
 import discordGatewayRoutes from './discordApi/gateway';
 import { getAccessUserIdFromAuthHeader } from '../../auth/token';
 import { isEchoApiReadRequest } from '../../bootstrap/echoReadRateLimitPaths';
-import { config } from '../../config';
 
 /**
  * Registers all REST API routes under /api/v1.
@@ -49,9 +48,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(giphyRoutes, { prefix: '/api/v1' });
   await fastify.register(serperImageSearchRoutes, { prefix: '/api/v1' });
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
-  if (config.echoPasskeysEnabled) {
-    await fastify.register(passkeyRoutes, { prefix: '/api/v1/auth' });
-  }
+  await fastify.register(passkeyRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(discordOAuthRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(googleOAuthRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(youtubeOAuthRoutes, { prefix: '/api/v1/auth' });

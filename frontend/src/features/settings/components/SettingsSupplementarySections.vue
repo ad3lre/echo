@@ -33,6 +33,24 @@ import {
   type KeybindActionId,
 } from '@/features/settings/keybindPreferences';
 import { useSettingsDataRights } from '@/features/settings/composables/useSettingsDataRights';
+import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
+
+interface DropdownOption {
+  label: string;
+  value: string;
+}
+
+interface SubscriptionTimelineItem {
+  label: string;
+  value: string;
+}
+
+interface InvoiceItem {
+  id: string;
+  date: string;
+  amount: string;
+  status: string;
+}
 
 const devSettings = useDevSettingsStore();
 const { devModeIdsEnabled } = storeToRefs(devSettings);
@@ -42,11 +60,11 @@ const { bugHunterEnabled } = storeToRefs(bugHunter);
 const props = defineProps<{
   activeSection: SettingsSection;
   navigateToSection?: (section: SettingsSection) => void;
-  form: any;
-  languageOptions: any[];
-  timezoneOptions: any[];
-  subscriptionTimeline: any[];
-  invoices: any[];
+  form: SettingsForm;
+  languageOptions: DropdownOption[];
+  timezoneOptions: DropdownOption[];
+  subscriptionTimeline: SubscriptionTimelineItem[];
+  invoices: InvoiceItem[];
   echoPlan?: EchoPlanId;
 }>();
 

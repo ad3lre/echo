@@ -30,8 +30,10 @@ export const SECTION_COPY: Record<ServerSettingsSection, string> = {
     'Configure verification gates and guest access for who can participate.',
   Access:
     'Control who can discover and join this server, plus optional join applications and waitlist.',
-  Automod:
-    'Define custom AutoMod rules—conditions and actions—that run in order after the built-in spam filter.',
+  Tickets:
+    'Set up a ticket system so members can submit private reports and inquiries visible only to them and designated handlers.',
+  'Banned Words':
+    'Choose a filter level to automatically block, delete, or warn when members use inappropriate language.',
   Moderation:
     'Tune anti-raid protection, content filters, and built-in moderation defaults (spam filter, mentions).',
   'Audit Log':
@@ -66,6 +68,7 @@ export type RolePermissionKey =
   | 'readMessageHistory'
   | 'createPolls'
   | 'commentOnPaper'
+  | 'manageTickets'
   | 'connectToVoice'
   | 'video'
   | 'muteDeafenMembers'
@@ -155,6 +158,7 @@ export const ROLE_PERMISSION_DEFS: Array<{
     label: 'Comment on paper',
     group: 'Paper',
   },
+  { key: 'manageTickets', label: 'Manage Tickets', group: 'Moderation' },
   { key: 'connectToVoice', label: 'Connect to Voice', group: 'Voice' },
   { key: 'video', label: 'Video', group: 'Voice' },
   { key: 'muteDeafenMembers', label: 'Mute & Deafen Members', group: 'Voice' },
@@ -191,6 +195,7 @@ export const ECHO_SERVER_SETTINGS_ROLE_PERMISSION_KEYS: RolePermissionKey[] = [
   'manageNicknames',
   'addExpressions',
   'manageExpressions',
+  'manageTickets',
   'connectToVoice',
   'video',
   'muteDeafenMembers',

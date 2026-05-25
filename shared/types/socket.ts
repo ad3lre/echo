@@ -24,6 +24,7 @@ export type MessageFailedCode =
   | 'SLOWMODE'
   | 'SPAM_FILTER'
   | 'AUTOMOD_BLOCKED'
+  | 'BANNED_WORDS_BLOCKED'
   | 'VALIDATION'
   | 'FORBIDDEN'
   | 'PERSIST_FAILED'
@@ -72,7 +73,9 @@ export type EchoWorkspaceEventKind =
    */
   | 'voice_roster_delta'
   | 'paper_document_updated'
-  | 'paper_comment_updated';
+  | 'paper_comment_updated'
+  | 'ticket_created'
+  | 'ticket_updated';
 
 export type DiscordVoiceMirrorRosterMemberPayload = {
   discordUserId: string;
@@ -143,6 +146,15 @@ export type EchoWorkspaceEvent = {
     action: 'created' | 'updated' | 'deleted';
     channelId: string;
     comment: PaperCommentPayload | { id: string; channelId: string };
+  };
+  /** Present when kind === 'ticket_created' | 'ticket_updated'. */
+  ticketEvent?: {
+    ticketId: string;
+    channelId: string;
+    authorId: string;
+    subject: string;
+    status: 'open' | 'in_progress' | 'resolved' | 'closed';
+    assignedTo?: string | null;
   };
 };
 

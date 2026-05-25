@@ -4,7 +4,7 @@ import type {
   FastifyPluginOptions,
   FastifyRequest,
 } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import { getAccessUserIdFromAuthHeader } from '../../../auth/token';
 import {
   blockEchoUser,
@@ -31,7 +31,7 @@ function safetyReportReporter(req: FastifyRequest): {
   displayName: string;
   email?: string;
 } {
-  const user = req.authUser!;
+  const user = getAuthUser(req);
   return {
     id: user.id,
     username: user.username,
@@ -53,7 +53,7 @@ export default async function echoSafetyRoutes(
       const pool = echoPool(req);
       const blockedUserIds = await listEchoBlockedUserIds(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       return reply.code(200).send({ blockedUserIds });
     },
@@ -70,9 +70,9 @@ export default async function echoSafetyRoutes(
           : '';
       if (!target)
         return sendError(reply, 400, 'INVALID_BODY', 'targetUserId required');
-      if (target === req.authUser!.id)
+      if (target === getAuthUser(req).id)
         return sendError(reply, 400, 'INVALID_BODY', 'Cannot block yourself');
-      const br = await blockEchoUser(pool, req.authUser!.id, target);
+      const br = await blockEchoUser(pool, getAuthUser(req).id, target);
       if (br === 'user_not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'User not found');
       if (br === 'already_blocked')
@@ -89,9 +89,9 @@ export default async function echoSafetyRoutes(
       const target = trimEchoPathParam(req.params.targetUserId);
       if (!target)
         return sendError(reply, 400, 'INVALID_BODY', 'targetUserId required');
-      if (target === req.authUser!.id)
+      if (target === getAuthUser(req).id)
         return sendError(reply, 400, 'INVALID_BODY', 'Cannot unblock yourself');
-      const ub = await unblockEchoUser(pool, req.authUser!.id, target);
+      const ub = await unblockEchoUser(pool, getAuthUser(req).id, target);
       if (ub === 'target_not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'User not found');
       if (ub === 'not_blocked')
@@ -145,7 +145,7 @@ export default async function echoSafetyRoutes(
             : '';
         if (!target)
           return sendError(reply, 400, 'INVALID_BODY', 'targetUserId required');
-        if (target === req.authUser!.id)
+        if (target === getAuthUser(req).id)
           return sendError(reply, 400, 'INVALID_BODY', 'Invalid target');
         const reason =
           typeof req.body?.reason === 'string' ? req.body.reason : '';
@@ -176,7 +176,7 @@ export default async function echoSafetyRoutes(
             );
           }
           if (
-            !(await canUserAccessChannel(pool, req.authUser!.id, channelId))
+            !(await canUserAccessChannel(pool, getAuthUser(req).id, channelId))
           ) {
             return sendError(reply, 403, 'FORBIDDEN', 'Cannot access channel');
           }
@@ -201,7 +201,7 @@ export default async function echoSafetyRoutes(
           ? await getEchoChannelServerId(pool, channelId)
           : null;
 
-        const result = await insertEchoUserReport(pool, req.authUser!.id, {
+        const result = await insertEchoUserReport(pool, getAuthUser(req).id, {
           targetId: target,
           reason,
           category,
@@ -214,7 +214,7 @@ export default async function echoSafetyRoutes(
           req.log.info(
             {
               echoUserReportId: result.id,
-              reporterId: req.authUser!.id,
+              reporterId: getAuthUser(req).id,
               targetUserId: target,
             },
             'echo_user_report_submitted',
@@ -276,12 +276,16 @@ export default async function echoSafetyRoutes(
           typeof req.body?.reason === 'string' ? req.body.reason : '';
         const category = normalizeEchoReportCategory(req.body?.category);
 
-        const result = await insertEchoMessageReport(pool, req.authUser!.id, {
-          messageId,
-          channelId,
-          reason,
-          category,
-        });
+        const result = await insertEchoMessageReport(
+          pool,
+          getAuthUser(req).id,
+          {
+            messageId,
+            channelId,
+            reason,
+            category,
+          },
+        );
 
         if ('error' in result) {
           if (result.error === 'not_found')
@@ -316,7 +320,7 @@ export default async function echoSafetyRoutes(
           req.log.info(
             {
               echoMessageReportId: result.id,
-              reporterId: req.authUser!.id,
+              reporterId: getAuthUser(req).id,
               messageId,
               channelId,
             },

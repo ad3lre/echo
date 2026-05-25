@@ -751,7 +751,7 @@ export async function listEchoWorkspaceForUser(
       autoDeleteAfterSeconds: number | null;
     }[]
   >();
-  for (const row of catRes.rows as any[]) {
+  for (const row of catRes.rows as Record<string, unknown>[]) {
     const sid = String(row.server_id);
     if (!categoriesByServerId.has(sid)) categoriesByServerId.set(sid, []);
     categoriesByServerId.get(sid)!.push({
@@ -766,7 +766,7 @@ export async function listEchoWorkspaceForUser(
   }
 
   const channelsByServerId = new Map<string, EchoChannelRowInternal[]>();
-  for (const row of chRes.rows as any[]) {
+  for (const row of chRes.rows as Record<string, unknown>[]) {
     const sid = String(row.server_id);
     if (!channelsByServerId.has(sid)) channelsByServerId.set(sid, []);
     channelsByServerId.get(sid)!.push(mapWorkspaceChannelQueryRow(row));

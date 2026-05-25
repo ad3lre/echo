@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, toRef } from 'vue';
+import { onMounted, ref, toRef } from 'vue';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { useSettingsAccountSecurity } from '@/features/settings/composables/useSettingsAccountSecurity';
@@ -9,10 +9,14 @@ import {
   PHONE_VERIFICATION_COMING_SOON,
   TWO_FACTOR_AUTH_COMING_SOON,
 } from '@/features/settings/data';
+import type {
+  SettingsForm,
+  SettingsCurrentUser,
+} from '@/features/settings/composables/useSettingsForm';
 
 const props = defineProps<{
-  form: any;
-  currentUser: any;
+  form: SettingsForm;
+  currentUser: SettingsCurrentUser;
 }>();
 
 const emit = defineEmits<{
@@ -62,8 +66,10 @@ const {
   passkeysLoading,
   passkeysError,
   passkeyRevokingId,
+  passkeyRenamingId,
   loadPasskeys,
   revokePasskey,
+  renamePasskey,
   showTwoFactorSetupModal,
   twoFactorStep,
   twoFactorSecret,
@@ -130,10 +136,37 @@ onMounted(() => {
   if (ECHO_PASSKEYS_ENABLED) void loadPasskeys();
 });
 
+const passkeyNewLabel = ref('');
+const passkeyEditingLabelId = ref<string | null>(null);
+const passkeyEditingLabelValue = ref('');
+
 async function handleAddPasskey() {
   if (!ECHO_PASSKEYS_ENABLED) return;
-  await registerPasskey();
-  if (!passkeyRegisterError.value) await loadPasskeys();
+  await registerPasskey(passkeyNewLabel.value.trim() || undefined);
+  if (!passkeyRegisterError.value) {
+    passkeyNewLabel.value = '';
+    await loadPasskeys();
+  }
+}
+
+function startRenamePasskey(id: string, currentLabel: string) {
+  passkeyEditingLabelId.value = id;
+  passkeyEditingLabelValue.value = currentLabel;
+}
+
+async function confirmRenamePasskey() {
+  if (!passkeyEditingLabelId.value) return;
+  await renamePasskey(
+    passkeyEditingLabelId.value,
+    passkeyEditingLabelValue.value,
+  );
+  passkeyEditingLabelId.value = null;
+  passkeyEditingLabelValue.value = '';
+}
+
+function cancelRenamePasskey() {
+  passkeyEditingLabelId.value = null;
+  passkeyEditingLabelValue.value = '';
 }
 
 async function onConfirmDisableAccount() {
@@ -1391,29 +1424,83 @@ defineExpose({
             :key="p.id"
             class="settings-panel flex items-center justify-between gap-3 rounded-xl p-3"
           >
-            <div class="min-w-0 text-xs text-fg-subtle">
-              <span class="font-medium text-foreground">Passkey</span>
-              <span class="mx-1">·</span>
-              Added {{ formatSessionDate(p.createdAt) }}
-            </div>
-            <button
-              type="button"
-              class="shrink-0 text-xs font-bold text-muted hover:text-foreground uppercase tracking-widest disabled:opacity-40"
-              :disabled="passkeyRevokingId === p.id || isAccountLocked"
-              @click="revokePasskey(p.id)"
+            <div
+              v-if="passkeyEditingLabelId === p.id"
+              class="flex min-w-0 flex-1 items-center gap-2"
             >
-              {{ passkeyRevokingId === p.id ? '…' : 'Remove' }}
-            </button>
+              <input
+                v-model="passkeyEditingLabelValue"
+                type="text"
+                maxlength="64"
+                placeholder="Passkey name"
+                class="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-1 text-xs text-foreground outline-none focus:border-accent"
+                @keyup.enter="confirmRenamePasskey"
+                @keyup.escape="cancelRenamePasskey"
+              />
+              <button
+                type="button"
+                class="shrink-0 text-xs font-bold text-accent hover:text-foreground uppercase tracking-widest disabled:opacity-40"
+                :disabled="passkeyRenamingId === p.id"
+                @click="confirmRenamePasskey"
+              >
+                {{ passkeyRenamingId === p.id ? '…' : 'Save' }}
+              </button>
+              <button
+                type="button"
+                class="shrink-0 text-xs font-bold text-muted hover:text-foreground uppercase tracking-widest"
+                @click="cancelRenamePasskey"
+              >
+                Cancel
+              </button>
+            </div>
+            <template v-else>
+              <div class="min-w-0 text-xs text-fg-subtle">
+                <span class="font-medium text-foreground">{{
+                  p.label || 'Passkey'
+                }}</span>
+                <span class="mx-1">·</span>
+                Added {{ formatSessionDate(p.createdAt) }}
+              </div>
+              <div class="flex shrink-0 items-center gap-3">
+                <button
+                  type="button"
+                  class="text-xs font-bold text-muted hover:text-foreground uppercase tracking-widest disabled:opacity-40"
+                  :disabled="isAccountLocked"
+                  @click="startRenamePasskey(p.id, p.label)"
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  class="text-xs font-bold text-muted hover:text-foreground uppercase tracking-widest disabled:opacity-40"
+                  :disabled="passkeyRevokingId === p.id || isAccountLocked"
+                  @click="revokePasskey(p.id)"
+                >
+                  {{ passkeyRevokingId === p.id ? '…' : 'Remove' }}
+                </button>
+              </div>
+            </template>
           </div>
         </div>
-        <button
-          type="button"
-          class="settings-action rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider"
-          :disabled="isAccountLocked || passkeyRegisterBusy"
-          @click="handleAddPasskey"
-        >
-          {{ passkeyRegisterBusy ? 'Working…' : 'Add passkey' }}
-        </button>
+        <div class="flex items-center gap-3">
+          <input
+            v-model="passkeyNewLabel"
+            type="text"
+            maxlength="64"
+            placeholder="Label (e.g. MacBook, iPhone)"
+            class="min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 py-2.5 text-xs text-foreground placeholder:text-muted outline-none focus:border-accent"
+            :disabled="isAccountLocked || passkeyRegisterBusy"
+            @keyup.enter="handleAddPasskey"
+          />
+          <button
+            type="button"
+            class="settings-action shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider"
+            :disabled="isAccountLocked || passkeyRegisterBusy"
+            @click="handleAddPasskey"
+          >
+            {{ passkeyRegisterBusy ? 'Working…' : 'Add passkey' }}
+          </button>
+        </div>
       </div>
 
       <div

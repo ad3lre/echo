@@ -1,6 +1,8 @@
-﻿import type { ComputedRef, Ref, ShallowRef } from 'vue';
+﻿import type { Component, ComputedRef, Ref, ShallowRef } from 'vue';
+import type { Room as LKRoom } from 'livekit-client';
 import type { SettingsSection } from '@/features/settings/types';
 import type { ServerSettingsSection } from '@/features/server-settings/types';
+import type { RolePreviewState } from '@/features/server-settings/composables/useRolePreview';
 import type { useServerStore } from '@/stores/server';
 import type { useEchoWorkspace } from '@/composables/useEchoWorkspace';
 import type { useAuthSessionStore } from '@/stores/authSession';
@@ -13,7 +15,15 @@ import type {
 import type { NavAction } from '@/features/layout/navigationReducer';
 import type { AppActionRegistrySealed } from '@/features/layout/actions/appActionRegistry.types';
 import type { ChatMessageNavBridge } from '@/features/navigation/chatMessageNavBridge';
-import type { ChannelSummary, MessageWithAuthor } from '@shared/types';
+import type {
+  ChannelPermissionKey,
+  ChannelPermissionsState,
+  ChannelSummary,
+  EchoServerNotificationLevel,
+  ForumCreatorDefaultPerms,
+  MessageWithAuthor,
+} from '@shared/types';
+import type { Server } from '@shared/types/server';
 import type {
   PopoutAnchorRect,
   MemberProfile,
@@ -23,12 +33,19 @@ import type { useEchoHistory } from '@/composables/useEchoHistory';
 import type { ActionResult } from '@/types/actionResult';
 import type { ReactionFavorite } from '@/composables/useReactionFavorites';
 import type { ActiveDmThreadCallUi } from '@/features/layout/dmThreadCallUi';
+import type { CallOverlayState } from '@/features/layout/callOverlay';
 import type { ServerPingBubbleDisplay } from '@shared/attentionPing';
 import type {
   ServerPingChannelDotsForServerRail,
   ServerPingKind,
 } from '@/features/server-notifications/serverPing';
-import type { DesktopStreamingPreferences } from '@/composables/useLiveKitVoiceRoom';
+import type {
+  DesktopStreamingPreferences,
+  LiveKitNetworkStats,
+  ParticipantAudioLevel,
+  RemoteParticipantTrackInfo,
+  VideoQualityPreset,
+} from '@/composables/useLiveKitVoiceRoom';
 import type {
   VcActivityPresenceKind,
   VcActivityUiState,
@@ -52,6 +69,24 @@ import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
+import type { EchoServerRoleDto } from '@/api/echo/types';
+import type {
+  CategorySettingsSnapshot,
+  EchoPermissionEditorState,
+  PermissionOverwriteRowDraft,
+} from '@/features/channel-settings/types';
+import type { EchoRealtimePort } from '@/services/realtime/echoRealtimePort';
+import type { PreviewChannelPermission } from '@/domain/chatRolePreviewPermissions';
+/** Payload emitted by the CreateChannelModal when the user confirms. */
+export type CreateChannelModalSubmitPayload =
+  | {
+      kind: 'channel';
+      name: string;
+      type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+      categoryId: string;
+      iconKey: string;
+    }
+  | { kind: 'category'; name: string };
 
 /** Namespaced controller actions (stable surface for wiring tests and dev asserts). */
 export type AppLayoutControllerActions = {
@@ -59,7 +94,7 @@ export type AppLayoutControllerActions = {
     goToMessage: (channelId: string, messageId: string) => void;
   };
   navigation: {
-    openDm: (userId: string) => void | Promise<any>;
+    openDm: (userId: string) => void | Promise<void>;
   };
 };
 
@@ -209,8 +244,8 @@ export interface AppLayoutControllerContext {
     mode: 'screen' | 'camera';
     settings: DesktopStreamingPreferences;
   }) => void;
-  getLocalScreenTrack: () => any;
-  getLocalCameraTrack: () => any;
+  getLocalScreenTrack: () => unknown;
+  getLocalCameraTrack: () => unknown;
   getRemoteParticipantVolume: (userId: string) => number;
   setRemoteParticipantVolume: (userId: string, volumePercent: number) => void;
   groupDMs: Ref<
@@ -234,7 +269,9 @@ export interface AppLayoutControllerContext {
   workspace: ReturnType<typeof useEchoWorkspace>;
   authSession: ReturnType<typeof useAuthSessionStore>;
   isAuthenticated: ComputedRef<boolean>;
-  currentUser: ComputedRef<any>;
+  currentUser: ComputedRef<
+    { id: string; name?: string; pfp?: string; status?: string } | undefined
+  >;
   workspaceReady: ComputedRef<boolean>;
   sessionEndedMessage: Ref<string | null>;
   discordBotExportReadyBanner: Ref<{ guildName: string } | null>;
@@ -243,25 +280,48 @@ export interface AppLayoutControllerContext {
   welcomeBackExploreGate: ComputedRef<boolean>;
   /** Signed-in non-guest + empty public directory (Welcome back shows server CTAs instead of auth). */
   welcomeBackExploreMemberEmptyDirectory: ComputedRef<boolean>;
+  /** Branded invite landing is active (unauthenticated + invite URL detected). */
+  inviteLandingActive: ComputedRef<boolean>;
+  inviteLandingPreview: Ref<
+    import('@/api/echo/types').EchoInvitePreviewDto | null
+  >;
+  inviteLandingLoading: Ref<boolean>;
+  inviteLandingError: Ref<string | null>;
+  inviteLandingPersistBeforeOAuth: () => void;
 
   // Navigation / Surface
   mainSurface: ComputedRef<MainSurface>;
   activeChannelId: Ref<string>;
   activeChannel: ComputedRef<ChannelSummary | null>;
-  activeChannelContext: ComputedRef<any>;
-  effectiveActiveChannel: ComputedRef<any>;
+  activeChannelContext: ComputedRef<{
+    channel: ChannelSummary;
+    category: ChannelCategory;
+  } | null>;
+  effectiveActiveChannel: ComputedRef<ChannelSummary | null>;
   isExploreView: ComputedRef<boolean>;
   isInDMMode: ComputedRef<boolean>;
   isDmUiContext: ComputedRef<boolean>;
   isGroupDM: ComputedRef<boolean>;
   isInDMChat: ComputedRef<boolean>;
-  dmPartnerUser: ComputedRef<any>;
+  dmPartnerUser: ComputedRef<{
+    id: string;
+    name: string;
+    pfp: string;
+    status?: string;
+  } | null>;
   /** Live presence from socket + `/presence` batch; merge with row status in UI (see `selectPresence`). */
   presenceByUserId: Ref<Record<string, string>>;
   /** True when the user is currently on a mobile presence surface (wired from session store). */
   presenceMobileByUserId: Ref<Record<string, true>>;
-  activeGroupDM: ComputedRef<any>;
-  activeGroupCallMembers: ComputedRef<any[]>;
+  activeGroupDM: ComputedRef<{
+    id: string;
+    name: string;
+    pfp: string;
+    memberIds: string[];
+  } | null>;
+  activeGroupCallMembers: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
   shellNavState: () => NavState;
   dispatchNav: (action: NavAction) => void;
   openServerSurface: (serverId: string, channelId?: string | null) => void;
@@ -281,11 +341,21 @@ export interface AppLayoutControllerContext {
   chatMessageNavBridge: ChatMessageNavBridge;
 
   // Channel Tree / Modals
-  rawCategoriesForServer: ComputedRef<any[]>;
-  categoriesForServer: ComputedRef<any[]>;
-  resolvePreviewChannelPermission: any;
-  findChannelContextById: (channelId: string | null | undefined) => any;
-  getFirstTextChannelId: (cats: any[]) => string;
+  rawCategoriesForServer: ComputedRef<ChannelCategory[]>;
+  categoriesForServer: ComputedRef<ChannelCategory[]>;
+  resolvePreviewChannelPermission: (
+    channel: ChannelSummary | null | undefined,
+    categoryDefaults:
+      | Partial<Record<ChannelPermissionKey, boolean>>
+      | undefined,
+    permission: PreviewChannelPermission,
+  ) => boolean;
+  findChannelContextById: (
+    channelId: string | null | undefined,
+  ) => { channel: ChannelSummary; category: ChannelCategory } | null;
+  getFirstTextChannelId: (
+    cats: { name: string; channels: { id: string; type: string }[] }[],
+  ) => string;
   watchActiveChannelWithServerChange: (
     id: Ref<string>,
     shouldPreserveChannel?: (channelId: string) => boolean,
@@ -293,30 +363,65 @@ export interface AppLayoutControllerContext {
   isCreateChannelModalOpen: Ref<boolean>;
   createChannelInitialCategoryId: Ref<string | null>;
   isCreateCategoryModalOpen: Ref<boolean>;
-  channelSettingsTarget: Ref<any>;
-  categorySettingsTarget: Ref<any>;
-  channelSettingsEchoPermissionEditor: Ref<any>;
-  categorySettingsEchoPermissionEditor: Ref<any>;
+  channelSettingsTarget: Ref<{
+    serverId: string;
+    channel: ChannelSummary;
+    categoryId: string;
+  } | null>;
+  categorySettingsTarget: Ref<CategorySettingsSnapshot | null>;
+  channelSettingsEchoPermissionEditor: Ref<EchoPermissionEditorState | null>;
+  categorySettingsEchoPermissionEditor: Ref<EchoPermissionEditorState | null>;
   createChannelCategoryNames: ComputedRef<string[]>;
-  createChannelCategoryOptions: ComputedRef<any[]>;
+  createChannelCategoryOptions: ComputedRef<{ id: string; label: string }[]>;
   openCreateChannelModal: (categoryId: string | null) => void;
   openCreateCategoryModal: () => void;
-  handleCreateChannelModalSubmit: (payload: any) => void;
-  handleCreateChannelSubmit: (payload: any) => void;
-  handleCreateCategorySubmit: (payload: any) => void;
+  handleCreateChannelModalSubmit: (
+    payload: CreateChannelModalSubmitPayload,
+  ) => void;
+  handleCreateChannelSubmit: (payload: {
+    name: string;
+    type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+    categoryId: string;
+    iconKey: string;
+  }) => void;
+  handleCreateCategorySubmit: (payload: { name: string }) => void;
   openChannelSettings: (payload: {
     channel: ChannelSummary;
     categoryId: string;
   }) => void;
   onChannelSettingsModalOpenUpdate: (next: boolean) => void;
-  handleChannelSettingsSave: (payload: any) => void;
-  channelSettingsCategoryPermissionDefaults: ComputedRef<any>;
+  handleChannelSettingsSave: (payload: {
+    channelId: string;
+    channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+    serverId: string;
+    name: string;
+    categoryId: string;
+    iconKey: string;
+    slowModeSeconds: number;
+    userLimit: number;
+    nsfw: boolean;
+    messageHistoryAnchor: 'top' | 'bottom';
+    bitrateBps?: number | null;
+    voiceE2eeEnabled?: boolean;
+    channelPermissions: ChannelPermissionsState;
+    echoPermissionRows?: PermissionOverwriteRowDraft[];
+    forumCreatorDefaultPerms?: ForumCreatorDefaultPerms;
+    autoDeleteAfterSeconds?: number | null;
+    autoDeleteSyncedToCategory?: boolean;
+    messageFormatTemplate?: string;
+    messageFormatHard?: boolean;
+    paperCommentsEnabled?: boolean;
+    paperShowAuthorGutter?: boolean;
+  }) => void;
+  channelSettingsCategoryPermissionDefaults: ComputedRef<Partial<
+    Record<ChannelPermissionKey, boolean>
+  > | null>;
   channelSettingsCategoryAutoDeleteAfterSeconds: ComputedRef<
     number | null | undefined
   >;
   openCategorySettings: (categoryId: string) => void;
   onCategorySettingsModalOpenUpdate: (next: boolean) => void;
-  handleCategorySettingsSave: (payload: any) => void;
+  handleCategorySettingsSave: (payload: CategorySettingsSnapshot) => void;
   handleChannelDelete: () => void | Promise<void>;
   handleChannelReorder: (payload: {
     channelId: string;
@@ -336,7 +441,14 @@ export interface AppLayoutControllerContext {
   echoDmThreadIds: Ref<Set<string>>;
   echoBlockedUserIds: Ref<Set<string>>;
   dmIncomingRailCluster: ComputedRef<{
-    avatars: any[];
+    avatars: {
+      kind: string;
+      name: string;
+      pfp: string;
+      unreadCount: number;
+      inCall?: boolean;
+      [key: string]: unknown;
+    }[];
     overflowCount: number;
     totalUnreadCount: number;
   }>;
@@ -388,24 +500,64 @@ export interface AppLayoutControllerContext {
       | { kind: 'group'; channelId: string },
   ) => void;
   handleAcceptMessageRequest: (requestId: string) => void;
-  dmGroupFriends: ComputedRef<any[]>;
-  dmInboxEntriesForPanel: ComputedRef<any[]>;
+  dmGroupFriends: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
+  dmInboxEntriesForPanel: ComputedRef<
+    { id: string; name: string; pfp: string; [key: string]: unknown }[]
+  >;
   /** Subset of inbox rows (user kind only); prefer {@link dmInboxEntriesForPanel} for the Messages list. */
-  dmUsersForDmPanel: ComputedRef<any[]>;
-  groupDMListForPanel: ComputedRef<any[]>;
+  dmUsersForDmPanel: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
+  groupDMListForPanel: ComputedRef<{ id: string; name: string; pfp: string }[]>;
 
   // RBAC / Caps
-  echoRoleCatalog: Ref<any[]>;
-  rolePreview: Ref<any>;
-  startRolePreview: (payload: any) => void;
-  handleStartRolePreview: (payload: any) => void;
+  echoRoleCatalog: Ref<EchoServerRoleDto[]>;
+  rolePreview: Ref<RolePreviewState | null>;
+  startRolePreview: (payload: RolePreviewState) => void;
+  handleStartRolePreview: (payload: RolePreviewState) => void;
   clearRolePreview: () => void;
   refreshEchoRoleData: () => void;
   isRolePreviewActiveForServer: ComputedRef<boolean>;
   previewHasUiPermission: (permission: string) => boolean;
   previewCanModerateMembers: ComputedRef<boolean>;
-  memberListResolveHighestRole: (userId: string) => any;
-  memberListRoleManagement: ComputedRef<any>;
+  memberListResolveHighestRole: (
+    userId: string,
+  ) => { id: string; name: string; color: string } | undefined;
+  memberListRoleManagement: ComputedRef<
+    | {
+        enabled: boolean;
+        assignableRoles: {
+          id: string;
+          name: string;
+          color: string;
+          darkColor: string;
+          lightColor: string;
+          separateThemeColors: boolean;
+          roleIconUrl: string | null;
+          roleIconEmojiId: string | null;
+          isEveryone: boolean;
+          position: number;
+          roleCategoryId: string | null;
+          roleScope: string | undefined;
+        }[];
+        roleCategories: { id: string; name: string }[];
+        canMutateMemberRole: (
+          targetUserId: string,
+          roleId: string,
+          assign: boolean,
+        ) => boolean;
+        busy: boolean;
+        resolveAssignedRoleIds: (userId: string) => string[];
+        onToggleRole: (p: {
+          targetUserId: string;
+          roleId: string;
+          assign: boolean;
+        }) => void;
+      }
+    | undefined
+  >;
   serverSettingsCanManageRoles: ComputedRef<boolean>;
   serverSettingsCanManageServer: ComputedRef<boolean>;
   canOpenServerSettings: ComputedRef<boolean>;
@@ -423,7 +575,7 @@ export interface AppLayoutControllerContext {
   echoCanCreateInvite: ComputedRef<boolean>;
   echoCapabilitiesForServerId: Ref<string | null>;
   isEchoRoleBootstrapLoading: ComputedRef<boolean>;
-  liveChannelCapabilities: Ref<any>;
+  liveChannelCapabilities: Ref<Record<string, unknown> | null>;
 
   // Lifecycle / Guest
   echoWorkspaceError: Ref<string | null>;
@@ -507,7 +659,7 @@ export interface AppLayoutControllerContext {
     ReturnType<typeof import('@/api/meClient').fetchMeDiscord>
   > | null>;
   echoChannelHistory: ReturnType<typeof useEchoHistory>;
-  sendMessage: any;
+  sendMessage: EchoRealtimePort['sendMessage'];
   forwardModalOpen: Ref<boolean>;
   forwardPickerDestinations: ComputedRef<{
     dms: { channelId: string; label: string }[];
@@ -523,7 +675,7 @@ export interface AppLayoutControllerContext {
   ) => void;
   closeForwardMessagePicker: () => void;
   submitForwardedMessage: (targetChannelId: string) => void;
-  socketSendMessage: any;
+  socketSendMessage: EchoRealtimePort['sendMessage'];
   submitPollVote: (
     channelId: string,
     messageId: string,
@@ -551,7 +703,7 @@ export interface AppLayoutControllerContext {
     messageId: string,
     body: {
       content: string;
-      contentJson?: any;
+      contentJson?: unknown;
       contentSchemaVersion?: number;
     },
     correlationId?: string,
@@ -590,17 +742,31 @@ export interface AppLayoutControllerContext {
   handleUnpinMessage: (messageId: string) => void;
   pinMessage: (channelId: string, messageId: string) => void;
   unpinMessage: (channelId: string, messageId: string) => void;
-  pinPreview: (msg: any) => string;
+  pinPreview: (msg: MessageWithAuthor) => string;
   pinnedMessageIdsForCurrentChannel: ComputedRef<string[]>;
-  pinnedMessagesForDropdown: ComputedRef<any[]>;
+  pinnedMessagesForDropdown: ComputedRef<
+    {
+      id?: string;
+      content?: string;
+      imageUrl?: string;
+      videoUrl?: string;
+      author?: { avatar?: string; name?: string };
+    }[]
+  >;
 
   // Voice / Calls
   onVcChatButtonClick: () => void;
-  handleJoinVoice: (payload: any) => void;
+  handleJoinVoice: (payload: {
+    channelId: string;
+    channelName: string;
+  }) => void;
   handleLeaveVoice: () => void;
   handleChannelVoicePanelLeave: () => void | Promise<void>;
   handleActiveChannelChange: (channelId: string) => void;
-  handleJoinVoiceIfAllowed: (payload: any) => void;
+  handleJoinVoiceIfAllowed: (payload: {
+    channelId: string;
+    channelName: string;
+  }) => void;
   updateVcVideoIfAllowed: (enabled: boolean) => void;
   canJoinPreviewVoiceChannel: (channelId: string) => boolean;
   dmCallWithUserId: Ref<string | null>;
@@ -622,7 +788,9 @@ export interface AppLayoutControllerContext {
   toggleDmCallMuted: () => void;
   dmCallVideo: Ref<boolean>;
   dmCallScreenshare: Ref<boolean>;
-  dmCallCallViewParticipants: ComputedRef<any[]>;
+  dmCallCallViewParticipants: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
   dmCallFullscreen: Ref<boolean>;
   dmCallQuarterView: Ref<boolean>;
   dmCallMatchesActiveChannel: ComputedRef<boolean>;
@@ -663,7 +831,7 @@ export interface AppLayoutControllerContext {
   onDmCallVcDeafened: (next: boolean) => void;
   onDmCallVcVideo: (next: boolean) => void;
   onDmCallVcScreenshare: (next: boolean) => void;
-  callOverlay: ComputedRef<any>;
+  callOverlay: ComputedRef<CallOverlayState>;
 
   // Moderation / Safety
   canModerateMemberInServer: (userId: string) => boolean;
@@ -684,19 +852,31 @@ export interface AppLayoutControllerContext {
     action: 'kick' | 'ban' | 'timeout',
   ) => boolean;
   canChangeMemberNicknameInServer: (targetUserId: string) => boolean;
-  canModerateMessageAuthor: (message: any) => boolean;
+  canModerateMessageAuthor: (message: MessageWithAuthor) => boolean;
   canOpenInviteForServer: (serverId: string) => boolean;
   canInviteToCurrentServer: ComputedRef<boolean>;
   moderationModalOpen: Ref<boolean>;
-  moderationAction: Ref<any>;
+  moderationAction: Ref<'kick' | 'ban' | 'timeout' | 'untimeout' | null>;
   moderationTargetUserId: Ref<string | null>;
-  moderationTargetUser: ComputedRef<any>;
+  moderationTargetUser: ComputedRef<{
+    id: string;
+    name: string;
+    pfp: string;
+  } | null>;
   handleModerateUser: (payload: {
     action: 'kick' | 'ban' | 'timeout';
     targetUserId: string;
     timeoutMinutes?: number;
   }) => void;
-  onModerationModalConfirm: (payload: any) => void;
+  onModerationModalConfirm: (
+    payload?:
+      | { timeoutMinutes: number }
+      | {
+          banDurationMinutes: number | null;
+          reason: string;
+          deleteRecentMessagesHours?: number;
+        },
+  ) => void;
   handleVcModerate: (payload: {
     action:
       | 'disconnect'
@@ -714,7 +894,10 @@ export interface AppLayoutControllerContext {
   handleUpdateCustomStatus: (next: string) => void;
   handleProfileBlockUser: (userId: string) => Promise<void>;
   handleProfileUnblockUser: (userId: string) => Promise<void>;
-  handleProfileReportUser: (payload: any) => Promise<void>;
+  handleProfileReportUser: (payload: {
+    userId: string;
+    reason?: string;
+  }) => Promise<void>;
   isExpandedProfileTargetBlocked: ComputedRef<boolean>;
   isMemberPopoutTargetBlocked: ComputedRef<boolean>;
   handleChangeMemberNicknameFromMemberList: (
@@ -727,16 +910,19 @@ export interface AppLayoutControllerContext {
 
   // Search
   searchText: Ref<string>;
-  filterChips: Ref<any[]>;
-  allChannels: ComputedRef<any[]>;
+  filterChips: Ref<{ key: string; value: string; label?: string }[]>;
+  allChannels: ComputedRef<{ id: string; name: string }[]>;
   isSearchActive: ComputedRef<boolean>;
-  paginatedSearchResults: ComputedRef<any[]>;
-  searchResultMessages: ComputedRef<any[]>;
+  paginatedSearchResults: ComputedRef<MessageWithAuthor[]>;
+  searchResultMessages: ComputedRef<MessageWithAuthor[]>;
   searchResultPage: Ref<number>;
   totalPages: ComputedRef<number>;
   goToSearchPage: (page: number) => void;
-  addFilter: (key: any, value: any) => void;
-  removeFilter: (filter: any) => void;
+  addFilter: (
+    key: 'in' | 'from' | 'mentions' | 'hasType',
+    value: string | boolean,
+  ) => void;
+  removeFilter: (key: 'in' | 'from' | 'mentions' | 'hasType') => void;
   clearSearch: () => void;
   searchLoading: Ref<boolean>;
   searchError: Ref<string | null>;
@@ -744,7 +930,7 @@ export interface AppLayoutControllerContext {
   onSearchInput: (v: string) => void;
 
   // Invites / Servers
-  selectedServer: ComputedRef<any>;
+  selectedServer: ComputedRef<Server | null | undefined>;
   inviteLinkFromSelectedServer: ComputedRef<string>;
   inviteLinkFromApi: Ref<string>;
   inviteLinkLookupPending: Ref<boolean>;
@@ -757,15 +943,30 @@ export interface AppLayoutControllerContext {
   createDirectHexInvite: () => Promise<void>;
   syncVanityAcrossServerLists: (serverId: string, vanityCode: string) => void;
   newlyCreatedServerId: Ref<string | null>;
-  handleCreateServer: (payload: any) => void;
-  handleJoinDiscoverableServer: (payload: any) => void;
+  handleCreateServer: (payload: {
+    name: string;
+    importFromDiscord?: boolean;
+    discordGuildId?: string;
+    discordPostImportSyncAllChannels?: boolean;
+    discordPostImportRecentMessages?: boolean;
+    iconUrl?: string;
+    iconFile?: File;
+  }) => void;
+  handleJoinDiscoverableServer: (payload: {
+    id?: string;
+    name: string;
+    pfp: string;
+    memberCount?: number;
+  }) => void;
   handleJoinWithInviteLink: (raw: string) => void;
   handleInviteFriend: (
     userId: string,
     voiceChannelId?: string | null,
     voiceChannelName?: string | null,
   ) => void;
-  inviteableFriends: ComputedRef<any[]>;
+  inviteableFriends: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
   addServerJoinError: Ref<string>;
   addServerCreateBusy: Ref<boolean>;
   addServerJoinBusy: ComputedRef<boolean>;
@@ -827,7 +1028,10 @@ export interface AppLayoutControllerContext {
     anchorRect?: PopoutAnchorRect | null,
     opts?: { rolesPanel?: boolean },
   ) => void;
-  openMemberProfileFromMemberColumn: (payload: any) => void;
+  openMemberProfileFromMemberColumn: (payload: {
+    userId: string;
+    anchorRect?: PopoutAnchorRect | null;
+  }) => void;
   openProfileFromContextMenu: (userId: string) => void;
   openSelfProfile: (anchorRect?: PopoutAnchorRect | null) => void;
   openExpandedProfileFromMemberPopout: () => void;
@@ -843,7 +1047,7 @@ export interface AppLayoutControllerContext {
   ) => void;
   openExpandedProfileDmFromComposable: (
     userId: string,
-    onSelectDM: (id: string) => void | Promise<any>,
+    onSelectDM: (id: string) => void | Promise<void>,
     onSetDmRail: () => void,
   ) => void;
   handleExpandedProfileOpenDM: (userId: string) => void;
@@ -861,14 +1065,22 @@ export interface AppLayoutControllerContext {
   expandedProfileNote: ComputedRef<string>;
   updateProfileNote: (userId: string | null, note: string) => void;
   handleExpandedProfileNoteFromLayout: (note: string) => void;
-  memberListUsers: ComputedRef<any[]>;
+  memberListUsers: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
   /** Full server roster for Server Settings → Members (includes Discord import placeholders). */
-  serverSettingsMemberUsers: ComputedRef<any[]>;
+  serverSettingsMemberUsers: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
   /** User directory for server channel list + VC participant rows (not DM panel list). */
-  usersForChannelPanel: ComputedRef<any[]>;
+  usersForChannelPanel: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
   /** `@` mention autocomplete: channel/DM participants only (not full workspace directory). */
-  usersForMentionAutocomplete: ComputedRef<any[]>;
-  selfProfile: ComputedRef<any>;
+  usersForMentionAutocomplete: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
+  selfProfile: ComputedRef<MemberProfile | null>;
   memberPopoutOpenRolesPanel: Ref<boolean>;
   onMemberPopoutOpenUpdate: (next: boolean) => void;
   handleCallViewOpenProfile: (
@@ -876,7 +1088,26 @@ export interface AppLayoutControllerContext {
     anchorRect: PopoutAnchorRect | null,
   ) => void;
   activeMemberNote: ComputedRef<string>;
-  activeVoiceChannelParticipants: Ref<any>;
+  activeVoiceChannelParticipants: ComputedRef<
+    {
+      id: string;
+      name: string;
+      pfp: string;
+      muted: boolean;
+      deafened: boolean;
+      streaming: boolean;
+      video: boolean;
+      serverMuted: boolean;
+      serverDeafened: boolean;
+      speaking: boolean;
+      audioLevel: number;
+      activityPresence: VcActivityPresenceKind[];
+      isVcActivityKing: boolean;
+      cameraTrack?: unknown;
+      screenTrack?: unknown;
+      screenAudioTrack?: unknown;
+    }[]
+  >;
   getVcActivityPresenceForUser: (userId: string) => VcActivityPresenceKind[];
   getVcChannelActivityPresenceForChannel: (
     channelId: string,
@@ -884,9 +1115,9 @@ export interface AppLayoutControllerContext {
   /** Echo user id hosting synced VC activity (YouTube / embeds); empty when idle. */
   effectiveVcActivityKingUserId: ComputedRef<string>;
   liveKitState: ComputedRef<'idle' | 'connecting' | 'connected' | 'error'>;
-  liveKitNetworkStats: ComputedRef<any>;
-  liveKitRoom: any;
-  speakingMap: ComputedRef<Record<string, any>>;
+  liveKitNetworkStats: ComputedRef<LiveKitNetworkStats | null>;
+  liveKitRoom: Ref<LKRoom | null>;
+  speakingMap: ComputedRef<Record<string, ParticipantAudioLevel>>;
   localSpeaking: ComputedRef<boolean>;
   localAudioLevel: ComputedRef<number>;
   switchMicDevice: (deviceId: string) => void;
@@ -895,16 +1126,31 @@ export interface AppLayoutControllerContext {
   reapplyVoiceProcessing: () => Promise<void>;
   /** Settings mic listen-back: temporarily force LiveKit effective deafen. */
   setMicTestListenDeafen: (active: boolean) => void;
-  vcRemoteParticipants: any;
-  vcMirrorCamera: any;
+  vcRemoteParticipants: ComputedRef<Map<string, RemoteParticipantTrackInfo>>;
+  vcMirrorCamera: Ref<boolean>;
   switchVcCamera: (deviceId: string) => void;
-  setVcVideoQuality: (preset: any) => void;
+  setVcVideoQuality: (preset: VideoQualityPreset) => void;
   applyEchoPresenceFromSocket: (p: { userId: string; status: string }) => void;
   closePinsDropdown: () => void;
-  exploreDiscoverableServers: Ref<any[]>;
+  exploreDiscoverableServers: Ref<
+    {
+      id?: string;
+      name: string;
+      pfp: string;
+      banner?: string;
+      description?: string;
+      memberCount?: number;
+      voiceParticipantCount?: number;
+      createdAt?: string;
+      allowGlobalGuests?: boolean;
+    }[]
+  >;
   getLatestDMUserId: () => string | null;
   goToPinnedMessage: (messageId: string) => void;
-  handleCreateGroupDM: (payload: any) => Promise<void>;
+  handleCreateGroupDM: (payload: {
+    name: string;
+    memberIds: string[];
+  }) => Promise<void>;
   handleKickGroupDmMember: (payload: {
     groupId: string;
     userId: string;
@@ -923,7 +1169,11 @@ export interface AppLayoutControllerContext {
   >;
   groupSettingsId: ComputedRef<string>;
   isViewingVoiceChannel: ComputedRef<boolean>;
-  openGroupDMModal: (payload?: any) => void;
+  openGroupDMModal: (payload?: {
+    targetGroupId?: string;
+    preselectedIds?: string[];
+    lockedIds?: string[];
+  }) => void;
   openGroupOverviewPanel: (groupId: string) => void;
   openGroupSettingsFromHeader: (focus?: 'name' | 'icon') => void;
   togglePinsDropdown: () => void;
@@ -939,10 +1189,10 @@ export interface AppLayoutControllerContext {
   ) => void;
 
   // Misc
-  ExploreView: any;
-  icons: any;
-  getChannelIcon: any;
-  getChannelDisplayName: any;
+  ExploreView: Component;
+  icons: Record<string, string>;
+  getChannelIcon: (channel: ChannelSummary | null | undefined) => string;
+  getChannelDisplayName: (name: string) => string;
   getServerChannelInfoForMainSurface: (channelId: string) => {
     type: 'text' | 'voice' | 'forum' | 'paper';
     parentChannelId?: string;
@@ -952,10 +1202,12 @@ export interface AppLayoutControllerContext {
   isMessageSurfaceSwitchLoading: ComputedRef<boolean>;
   isMemberSurfaceSwitchLoading: ComputedRef<boolean>;
   isServerNotificationSettingsOpen: Ref<boolean>;
-  currentServerNotificationLevel: ComputedRef<any>;
+  currentServerNotificationLevel: ComputedRef<EchoServerNotificationLevel | null>;
   openServerNotificationSettings: () => void;
-  handleServerNotificationSave: (level: any) => void;
-  serverNotificationLevelsMap: ComputedRef<any>;
+  handleServerNotificationSave: (level: EchoServerNotificationLevel) => void;
+  serverNotificationLevelsMap: ComputedRef<
+    Record<string, EchoServerNotificationLevel>
+  >;
   serverPingKindByServerId: ComputedRef<Record<string, ServerPingKind>>;
   serverPingBubbleByServerId: ComputedRef<
     Record<string, ServerPingBubbleDisplay>
@@ -973,9 +1225,9 @@ export interface AppLayoutControllerContext {
   isEchoGraphId: (id: string) => boolean;
   isPersistedEchoDmThread: (cid: string) => boolean;
   isPinsDropdownOpen: Ref<boolean>;
-  pinsButtonRefDm: Ref<any>;
-  pinsButtonRefServer: Ref<any>;
-  pinsDropdownRect: Ref<any>;
+  pinsButtonRefDm: Ref<HTMLElement | null>;
+  pinsButtonRefServer: Ref<HTMLElement | null>;
+  pinsDropdownRect: Ref<DOMRect | null>;
   isServerUnread: (serverId: string) => boolean;
   isChannelActive: (channelId: string) => boolean;
   isMemberProfileOpen: ComputedRef<boolean>;
@@ -986,14 +1238,18 @@ export interface AppLayoutControllerContext {
   memberListCollapsed: Ref<boolean>;
   memberListWidth: Ref<number>;
   memberProfileUserId: Ref<string | null>;
-  membersForMemberList: ComputedRef<any[]>;
+  membersForMemberList: ComputedRef<
+    { id: string; name: string; pfp: string; status?: string }[]
+  >;
   searchActiveTab: Ref<string>;
-  searchFilter: Ref<any>;
+  searchFilter: Ref<Record<string, unknown>>;
   searchIsLoading: Ref<boolean>;
-  searchResults: Ref<any[]>;
+  searchResults: Ref<unknown[]>;
   searchStatus: Ref<string>;
   selectedServerId: ComputedRef<string | null>;
-  servers: ComputedRef<any[]>;
+  servers: ComputedRef<
+    { id: string; name: string; imageUrl: string; ownerId?: string }[]
+  >;
   isSystemSettingsOpen: Ref<boolean>;
   isUserSettingsOpen: Ref<boolean>;
   isVcActive: ComputedRef<boolean>;

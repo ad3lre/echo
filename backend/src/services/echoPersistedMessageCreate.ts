@@ -60,7 +60,9 @@ async function resolveSafeReplyTo(
   ) {
     return undefined;
   }
-  const mid = String((rawReplyTo as any).messageId ?? '').trim();
+  const mid = String(
+    (rawReplyTo as Record<string, unknown>).messageId ?? '',
+  ).trim();
   if (!mid) return undefined;
 
   const row = await getEchoMessageById(pool, mid);

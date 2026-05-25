@@ -67,9 +67,11 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
       async (req, reply) => {
         try {
           const { store } = await getAuthStore();
+          const cookies = req.cookies as
+            | Record<string, string | undefined>
+            | undefined;
           const refreshToken =
-            (req.cookies as any)?.[REFRESH_COOKIE] ||
-            (req.cookies as any)?.[LEGACY_REFRESH_COOKIE];
+            cookies?.[REFRESH_COOKIE] || cookies?.[LEGACY_REFRESH_COOKIE];
           if (!refreshToken) {
             return sendError(
               reply,

@@ -22,10 +22,9 @@ export default defineConfig({
         'src/vite-env.d.ts',
         'src/dev/**',
       ],
-      // Ratchet upward as suites grow (see docs/plans/test-coverage-plan.md).
       thresholds: {
-        lines: 10,
-        statements: 10,
+        lines: 30,
+        statements: 30,
         functions: 60,
         branches: 65,
       },

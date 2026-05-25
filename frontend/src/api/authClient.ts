@@ -1518,6 +1518,7 @@ export async function authPasskeyRegisterOptions(): Promise<{
 export async function authPasskeyRegisterVerify(body: {
   challengeId: string;
   credential: Record<string, unknown>;
+  label?: string;
 }): Promise<void> {
   assertAuthDomainNetworkAllowed();
   const res = await fetch(`${AUTH_BASE}/passkey/register/verify`, {
@@ -1533,6 +1534,7 @@ export async function authPasskeyRegisterVerify(body: {
 export type AuthPasskeyCredential = {
   id: string;
   credentialIdB64: string;
+  label: string;
   createdAt: string;
 };
 
@@ -1559,6 +1561,21 @@ export async function authRevokePasskey(id: string): Promise<void> {
   });
   const parsed = await parseJson(res);
   throwIfError(res, parsed, 'POST /auth/passkey/credentials/revoke');
+}
+
+export async function authRenamePasskey(
+  id: string,
+  label: string,
+): Promise<void> {
+  assertAuthDomainNetworkAllowed();
+  const res = await fetch(`${AUTH_BASE}/passkey/credentials/rename`, {
+    method: 'POST',
+    headers: echoCsrfJsonHeaders(),
+    credentials: 'include',
+    body: JSON.stringify({ id: id.trim(), label: label.trim() }),
+  });
+  const parsed = await parseJson(res);
+  throwIfError(res, parsed, 'POST /auth/passkey/credentials/rename');
 }
 
 export async function authPasskeyLoginOptions(body: {

@@ -4,7 +4,7 @@ import type {
   FastifyPluginOptions,
   FastifyRequest,
 } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { getAccessUserIdFromAuthHeader } from '../../../auth/token';
 import { insertEchoBugReport } from '../../../domain/echoStore';
 import { sendBugReportSupportEmail } from '../../../services/email/echoBugReportEmail';
@@ -102,7 +102,7 @@ export default async function echoBugReportsRoutes(
         }
 
         const pool = echoPool(req);
-        const id = await insertEchoBugReport(pool, req.authUser!.id, {
+        const id = await insertEchoBugReport(pool, getAuthUser(req).id, {
           body: raw,
           clientMeta: req.body?.client ?? {},
           traceJson,
@@ -110,11 +110,11 @@ export default async function echoBugReportsRoutes(
         });
 
         req.log.info(
-          { echoBugReportId: id, reporterId: req.authUser!.id },
+          { echoBugReportId: id, reporterId: getAuthUser(req).id },
           'echo_bug_report_submitted',
         );
 
-        const user = req.authUser!;
+        const user = getAuthUser(req);
         void sendBugReportSupportEmail(req.log, {
           id,
           body: raw,

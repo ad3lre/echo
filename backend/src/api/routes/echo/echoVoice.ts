@@ -1,6 +1,6 @@
 import type pg from 'pg';
 import { FastifyInstance, FastifyPluginOptions, FastifyRequest } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import {
   ECHO_MSG_NOT_SERVER_MEMBER,
   sendEchoVoiceJoinDenied,
@@ -231,9 +231,9 @@ export default async function echoVoiceRoutes(
       vcTrace(req.log, 'voice.join:request', {
         serverId,
         channelId,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
       });
-      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!okMem) {
         vcTrace(req.log, 'voice.join:forbidden_not_member', { serverId });
         return sendError(
@@ -248,7 +248,7 @@ export default async function echoVoiceRoutes(
         pool,
         serverId,
         channelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!r.ok) {
         if (r.reason === 'not_found')
@@ -267,7 +267,7 @@ export default async function echoVoiceRoutes(
       const auditId = await insertEchoAudit(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'voice.join',
         'channel',
         channelId,
@@ -287,7 +287,7 @@ export default async function echoVoiceRoutes(
         serverId,
         {
           channelId,
-          userId: req.authUser!.id,
+          userId: getAuthUser(req).id,
           action: 'join',
           ...(r.stageSpeaker !== undefined
             ? { stageSpeaker: r.stageSpeaker }
@@ -329,7 +329,7 @@ export default async function echoVoiceRoutes(
       vcTrace(req.log, 'voice.livekit_session:request', {
         serverId,
         channelId,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
         liveKitEnabled: config.liveKitEnabled,
       });
       if (!config.liveKitEnabled) {
@@ -345,9 +345,9 @@ export default async function echoVoiceRoutes(
         );
       }
       req.log.info(
-        `[LiveKit] session request — user=${req.authUser!.id} server=${serverId} channel=${channelId}`,
+        `[LiveKit] session request — user=${getAuthUser(req).id} server=${serverId} channel=${channelId}`,
       );
-      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!okMem) {
         vcTrace(req.log, 'voice.livekit_session:forbidden_not_member', {
           serverId,
@@ -364,7 +364,7 @@ export default async function echoVoiceRoutes(
         pool,
         serverId,
         channelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!r.ok) {
         if (r.reason === 'not_found')
@@ -388,7 +388,7 @@ export default async function echoVoiceRoutes(
       const roomName = liveKitRoomName(serverId, channelId);
       const modRow = await pool.query(
         `SELECT server_muted, server_deafened FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
-        [serverId, req.authUser!.id],
+        [serverId, getAuthUser(req).id],
       );
       const moderationMute =
         modRow.rows[0] != null &&
@@ -398,7 +398,7 @@ export default async function echoVoiceRoutes(
         pool,
         serverId,
         channelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       const blockMic = moderationMute || !stageSpeakAllowed;
       vcTrace(req.log, 'voice.livekit_session:moderation_row', {
@@ -429,7 +429,7 @@ export default async function echoVoiceRoutes(
             'End-to-end encrypted voice requires a call key. Create an epoch before connecting.',
           );
         }
-        const uid = req.authUser!.id;
+        const uid = getAuthUser(req).id;
         const isCreator = activeEpoch.createdByUserId === uid;
         if (!isCreator) {
           const e2eeDeviceId =
@@ -453,10 +453,12 @@ export default async function echoVoiceRoutes(
         }
       }
 
-      const pfpMeta = pfpForLiveKitParticipantMetadata(req.authUser!.pfp ?? '');
+      const pfpMeta = pfpForLiveKitParticipantMetadata(
+        getAuthUser(req).pfp ?? '',
+      );
       const token = await mintJoinToken({
-        identity: req.authUser!.id,
-        name: req.authUser!.username ?? req.authUser!.id,
+        identity: getAuthUser(req).id,
+        name: getAuthUser(req).username ?? getAuthUser(req).id,
         roomName,
         canPublishMicrophone: !blockMic,
         canPublishVideo: stageSpeakAllowed,
@@ -480,7 +482,7 @@ export default async function echoVoiceRoutes(
       const auditId = await insertEchoAudit(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'voice.join',
         'channel',
         channelId,
@@ -498,7 +500,7 @@ export default async function echoVoiceRoutes(
       publishVoiceRosterDelta(
         fastify,
         serverId,
-        { channelId, userId: req.authUser!.id, action: 'join' },
+        { channelId, userId: getAuthUser(req).id, action: 'join' },
         auditId,
       );
       return reply.code(200).send({
@@ -538,7 +540,7 @@ export default async function echoVoiceRoutes(
       const okMem = await isMemberOfServer(
         echoPool(req),
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!okMem) {
         return sendError(
@@ -583,9 +585,9 @@ export default async function echoVoiceRoutes(
       const sid = trimEchoPathParam(req.params.serverId);
       vcTrace(req.log, 'voice.leave:request', {
         serverId: sid,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
       });
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         vcTrace(req.log, 'voice.leave:forbidden', { serverId: sid });
         return sendError(
@@ -599,24 +601,24 @@ export default async function echoVoiceRoutes(
       // Capture current channel before the delete so the roster delta can reference it.
       const leaveChannelRow = await pool.query(
         `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
-        [sid, req.authUser!.id],
+        [sid, getAuthUser(req).id],
       );
       const leaveChannelId = leaveChannelRow.rows[0]?.channel_id
         ? String(leaveChannelRow.rows[0].channel_id)
         : '';
 
-      await leaveEchoVoiceChannel(pool, sid, req.authUser!.id);
+      await leaveEchoVoiceChannel(pool, sid, getAuthUser(req).id);
       vcTrace(req.log, 'voice.leave:ok', {
         serverId: sid,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
       });
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'voice.leave',
         'user',
-        req.authUser!.id,
+        getAuthUser(req).id,
         {},
       );
       publishEchoWorkspaceEvent(
@@ -633,7 +635,7 @@ export default async function echoVoiceRoutes(
         sid,
         {
           channelId: leaveChannelId,
-          userId: req.authUser!.id,
+          userId: getAuthUser(req).id,
           action: 'leave',
         },
         auditId,
@@ -667,7 +669,7 @@ export default async function echoVoiceRoutes(
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
       vcTrace(req.log, 'voice.participants:request', { serverId, channelId });
-      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!okMem) {
         vcTrace(req.log, 'voice.participants:forbidden', { serverId });
         return sendError(
@@ -712,7 +714,7 @@ export default async function echoVoiceRoutes(
       const sid = trimEchoPathParam(req.params.serverId);
       vcTrace(req.log, 'voice.moderate:request', {
         serverId: sid,
-        moderatorId: req.authUser!.id,
+        moderatorId: getAuthUser(req).id,
         actionRaw:
           typeof req.body?.action === 'string' ? req.body.action.trim() : '',
         hasTargetUserId:
@@ -720,7 +722,7 @@ export default async function echoVoiceRoutes(
           !!req.body.targetUserId.trim(),
         hasTargetChannelId: typeof req.body?.targetChannelId === 'string',
       });
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         vcTrace(req.log, 'voice.moderate:forbidden_not_member', {
           serverId: sid,
@@ -783,7 +785,7 @@ export default async function echoVoiceRoutes(
       const r = await applyEchoVoiceModerationAction(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         action,
         targetUserId,
         targetChannelId,
@@ -935,7 +937,7 @@ export default async function echoVoiceRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         `voice.${action}`,
         'user',
         targetUserId,
@@ -1085,7 +1087,7 @@ export default async function echoVoiceRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -1099,7 +1101,7 @@ export default async function echoVoiceRoutes(
         pool,
         serverId,
         channelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (r === 'ok') return reply.code(204).send();
       if (r === 'forbidden')
@@ -1138,7 +1140,7 @@ export default async function echoVoiceRoutes(
         pool,
         serverId,
         channelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (r === 'ok') return reply.code(204).send();
       return sendError(reply, 404, 'NOT_FOUND', 'No pending request');
@@ -1177,7 +1179,7 @@ export default async function echoVoiceRoutes(
         pool,
         serverId,
         channelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         targetUserId,
         approve,
       );
@@ -1186,7 +1188,7 @@ export default async function echoVoiceRoutes(
           const auditId = await insertEchoAudit(
             pool,
             serverId,
-            req.authUser!.id,
+            getAuthUser(req).id,
             'stage.approve_speak_request',
             'user',
             targetUserId,

@@ -20,6 +20,7 @@ import type { VideoQualityPreset } from '@/composables/useLiveKitVoiceRoom';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { isIosLikeBrowser } from '@/platform/browserCompatibility';
 import { rmsToDbfs, thresholdPercentToRms } from '@/composables/voiceGate';
+import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
 const videoQualityOptions: { value: VideoQualityPreset; label: string }[] = [
   { value: '720p', label: '720p (HD)' },
@@ -51,11 +52,16 @@ const echoVoiceApi = inject<EchoVoiceProcessingApi | null>(
   null,
 );
 
+interface MediaDeviceOption {
+  label: string;
+  value: string;
+}
+
 const props = defineProps<{
-  form: any;
-  inputDeviceOptions?: any[];
-  outputDeviceOptions?: any[];
-  cameraDeviceOptions?: any[];
+  form: SettingsForm;
+  inputDeviceOptions?: MediaDeviceOption[];
+  outputDeviceOptions?: MediaDeviceOption[];
+  cameraDeviceOptions?: MediaDeviceOption[];
 }>();
 
 const {

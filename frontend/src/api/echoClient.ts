@@ -17,3 +17,4 @@ export * from './echo/discordImport';
 export * from './echo/voice';
 export * from './echo/moderation';
 export * from './echo/serverEvents';
+export * from './echo/tickets';

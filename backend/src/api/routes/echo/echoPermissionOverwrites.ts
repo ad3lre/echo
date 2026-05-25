@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions, FastifyRequest } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
   getEchoChannelServerId,
@@ -36,7 +36,7 @@ export default async function echoPermissionOverwritesRoutes(
       const channelId = trimEchoPathParam(req.params.channelId);
       const sid = await getEchoChannelServerId(pool, channelId);
       if (!sid) return sendError(reply, 404, 'NOT_FOUND', 'Channel not found');
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -45,7 +45,11 @@ export default async function echoPermissionOverwritesRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const gate = await getMergedRolePermissions(pool, sid, req.authUser!.id);
+      const gate = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
       if (!gate.has('MANAGE_ROLES') && !gate.has('MANAGE_GUILD')) {
         return sendError(
           reply,
@@ -71,7 +75,7 @@ export default async function echoPermissionOverwritesRoutes(
       const channelId = trimEchoPathParam(req.params.channelId);
       const sid = await getEchoChannelServerId(pool, channelId);
       if (!sid) return sendError(reply, 404, 'NOT_FOUND', 'Channel not found');
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -88,7 +92,7 @@ export default async function echoPermissionOverwritesRoutes(
         r = await replaceEchoChannelPermissionOverwrites(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
           channelId,
           parsed,
         );
@@ -115,7 +119,7 @@ export default async function echoPermissionOverwritesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'channel.permission_overwrites',
         'channel',
         channelId,
@@ -154,7 +158,7 @@ export default async function echoPermissionOverwritesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -163,7 +167,11 @@ export default async function echoPermissionOverwritesRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const gate = await getMergedRolePermissions(pool, sid, req.authUser!.id);
+      const gate = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
       if (!gate.has('MANAGE_ROLES') && !gate.has('MANAGE_GUILD')) {
         return sendError(
           reply,
@@ -182,7 +190,7 @@ export default async function echoPermissionOverwritesRoutes(
       const targetUserId =
         typeof targetUserRaw === 'string' && targetUserRaw.trim()
           ? targetUserRaw.trim()
-          : req.authUser!.id;
+          : getAuthUser(req).id;
       const { effective, ownerBypass, traces } = await evaluatePermissionSet(
         pool,
         sid,

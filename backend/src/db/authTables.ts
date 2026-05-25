@@ -329,6 +329,9 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS auth_webauthn_credentials_user_id_idx ON auth_webauthn_credentials (user_id);
   `);
+  await pool.query(
+    `ALTER TABLE auth_webauthn_credentials ADD COLUMN IF NOT EXISTS label TEXT NOT NULL DEFAULT '';`,
+  );
   await pool.query(`
     CREATE TABLE IF NOT EXISTS auth_desktop_oauth_handoffs (
       id TEXT PRIMARY KEY,

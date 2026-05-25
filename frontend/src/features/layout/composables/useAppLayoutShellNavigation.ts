@@ -1,4 +1,12 @@
-import { computed, nextTick, watch, ref, type Ref, type ShallowRef } from 'vue';
+import {
+  computed,
+  nextTick,
+  watch,
+  ref,
+  type ComputedRef,
+  type Ref,
+  type ShallowRef,
+} from 'vue';
 import type { useServerStore } from '@/stores/server';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { useAuthSessionStore } from '@/stores/authSession';
@@ -122,6 +130,8 @@ export interface UseAppLayoutShellNavigationOptions {
   isGuestUser?: () => boolean;
   onGuestDmBlocked?: () => void;
   isCompactShell: Ref<boolean>;
+  /** When true, unresolved guild slugs are preserved for the invite landing view. */
+  inviteLandingActive?: ComputedRef<boolean>;
 }
 
 export function useAppLayoutShellNavigation(
@@ -451,6 +461,7 @@ export function useAppLayoutShellNavigation(
     getFirstTextChannelId: opts.getFirstTextChannelId,
     canOpenServerSettingsForServer: opts.canOpenServerSettingsForServer,
     openServerSettingsFromUrl,
+    inviteLandingActive: opts.inviteLandingActive,
   });
 
   registerEchoProductDeepLinkNavigator({

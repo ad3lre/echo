@@ -1662,20 +1662,24 @@ export class PostgresAuthStore implements AuthStore {
 
   async listWebAuthnCredentialsForUser(
     userId: string,
-  ): Promise<{ id: string; credentialIdB64: string; createdAt: string }[]> {
+  ): Promise<
+    { id: string; credentialIdB64: string; label: string; createdAt: string }[]
+  > {
     const r = await this.pool.query(
-      `SELECT id, credential_id_b64, created_at FROM auth_webauthn_credentials WHERE user_id = $1 ORDER BY created_at ASC`,
+      `SELECT id, credential_id_b64, COALESCE(label, '') AS label, created_at FROM auth_webauthn_credentials WHERE user_id = $1 ORDER BY created_at ASC`,
       [userId],
     );
     return (
       r.rows as {
         id: string;
         credential_id_b64: string;
+        label: string;
         created_at: Date;
       }[]
     ).map((x) => ({
       id: String(x.id),
       credentialIdB64: String(x.credential_id_b64),
+      label: String(x.label || ''),
       createdAt: new Date(x.created_at).toISOString(),
     }));
   }
@@ -1687,6 +1691,7 @@ export class PostgresAuthStore implements AuthStore {
       publicKey: Buffer;
       counter: number;
       transports?: string[];
+      label?: string;
     },
   ): Promise<void> {
     const id = nextEchoSnowflakeId();
@@ -1695,8 +1700,8 @@ export class PostgresAuthStore implements AuthStore {
       : null;
     await this.pool.query(
       `
-      INSERT INTO auth_webauthn_credentials (id, user_id, credential_id_b64, public_key, counter, transports)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO auth_webauthn_credentials (id, user_id, credential_id_b64, public_key, counter, transports, label)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,
       [
         id,
@@ -1705,6 +1710,7 @@ export class PostgresAuthStore implements AuthStore {
         cred.publicKey,
         cred.counter,
         transports,
+        (cred.label || '').trim().slice(0, 64),
       ],
     );
   }
@@ -1737,6 +1743,18 @@ export class PostgresAuthStore implements AuthStore {
       `UPDATE auth_webauthn_credentials SET counter = $2 WHERE credential_id_b64 = $1`,
       [credentialIdB64, counter],
     );
+  }
+
+  async renameWebAuthnCredential(
+    userId: string,
+    credentialRowId: string,
+    label: string,
+  ): Promise<boolean> {
+    const r = await this.pool.query(
+      `UPDATE auth_webauthn_credentials SET label = $3 WHERE id = $1 AND user_id = $2`,
+      [credentialRowId.trim(), userId, label.trim().slice(0, 64)],
+    );
+    return (r.rowCount ?? 0) > 0;
   }
 
   async revokeWebAuthnCredentialForUser(

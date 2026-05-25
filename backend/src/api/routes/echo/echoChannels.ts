@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { sendEchoChannelAccessDenied, sendError } from '../../errors';
 import {
   diagnoseEchoChannelAccess,
@@ -69,7 +69,7 @@ export default async function echoChannelsRoutes(
       if (!sid) return sendError(reply, 404, 'NOT_FOUND', 'Channel not found');
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         forumChannelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
@@ -130,7 +130,7 @@ export default async function echoChannelsRoutes(
 
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         forumChannelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
@@ -138,7 +138,7 @@ export default async function echoChannelsRoutes(
       const caps = await getEchoChannelCapabilitiesForUser(
         pool,
         forumChannelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!caps.canSendMessages) {
         return sendError(
@@ -166,7 +166,7 @@ export default async function echoChannelsRoutes(
       if (!pollCheck.ok) {
         req.log.info(
           {
-            userId: req.authUser!.id,
+            userId: getAuthUser(req).id,
             forumChannelId,
           },
           'forum.post.create.reject_poll_first_message',
@@ -204,7 +204,7 @@ export default async function echoChannelsRoutes(
           forumPostPinned: false,
           forumPostLocked: false,
           forumPostArchivedAt: null,
-          forumPostCreatorUserId: req.authUser!.id,
+          forumPostCreatorUserId: getAuthUser(req).id,
         },
       );
       if (postChannelId === 'invalid_category') {
@@ -253,7 +253,7 @@ export default async function echoChannelsRoutes(
         pool,
         fastify.io,
         fastify.log,
-        req.authUser!.id,
+        getAuthUser(req).id,
         {
           ...validated.value,
         },
@@ -313,7 +313,7 @@ export default async function echoChannelsRoutes(
 
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         postChannelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
@@ -321,12 +321,12 @@ export default async function echoChannelsRoutes(
       const caps = await getEchoChannelCapabilitiesForUser(
         pool,
         postChannelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       const postAccess = await getForumPostCreatorAccess(pool, postChannelId);
       const creatorManage =
         postAccess &&
-        forumCreatorCanManagePostFlags(postAccess, req.authUser!.id);
+        forumCreatorCanManagePostFlags(postAccess, getAuthUser(req).id);
       if (!caps.canManageChannel && !creatorManage) {
         return sendError(
           reply,
@@ -366,7 +366,7 @@ export default async function echoChannelsRoutes(
       // DM / group-DM channels use `echo_dm_realm`; users are not `echo_server_members` there.
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
@@ -376,7 +376,7 @@ export default async function echoChannelsRoutes(
           await getEchoChannelCapabilitiesForUser(
             pool,
             channelId,
-            req.authUser!.id,
+            getAuthUser(req).id,
           ),
         );
     },
@@ -412,7 +412,7 @@ export default async function echoChannelsRoutes(
       const channelId = trimEchoPathParam(req.params.channelId);
       const sid = await getEchoChannelServerId(pool, channelId);
       if (!sid) return sendError(reply, 404, 'NOT_FOUND', 'Channel not found');
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -493,7 +493,7 @@ export default async function echoChannelsRoutes(
       const r = await patchEchoChannel(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
         patch,
       );
@@ -513,7 +513,7 @@ export default async function echoChannelsRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'channel.patch',
         'channel',
         channelId,
@@ -546,7 +546,7 @@ export default async function echoChannelsRoutes(
       const channelId = trimEchoPathParam(req.params.channelId);
       const sid = await getEchoChannelServerId(pool, channelId);
       if (!sid) return sendError(reply, 404, 'NOT_FOUND', 'Channel not found');
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -564,7 +564,12 @@ export default async function echoChannelsRoutes(
         return sendError(reply, 404, 'NOT_FOUND', 'Channel not found');
       const chType = String(row.rows[0].type);
 
-      const r = await deleteEchoChannel(pool, sid, req.authUser!.id, channelId);
+      const r = await deleteEchoChannel(
+        pool,
+        sid,
+        getAuthUser(req).id,
+        channelId,
+      );
       if (r === 'forbidden')
         return sendError(
           reply,
@@ -599,7 +604,7 @@ export default async function echoChannelsRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'channel.delete',
         'channel',
         channelId,

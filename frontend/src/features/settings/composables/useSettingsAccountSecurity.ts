@@ -9,7 +9,6 @@ import { useAccountActions } from './useAccountActions';
 type UserLike =
   | {
       id: string;
-      username: string;
       twoFactorEnabled?: boolean;
     }
   | null

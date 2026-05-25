@@ -4,7 +4,7 @@ import type {
   FastifyPluginOptions,
   FastifyRequest,
 } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { getAccessUserIdFromAuthHeader } from '../../../auth/token';
 import { isMemberOfServer } from '../../../domain/echoPermissions';
 import { redactAnonymousPollsInEchoMessageRows } from '../../../domain/echoMessagePollRedaction';
@@ -151,7 +151,7 @@ export default async function echoMessageSearchRoutes(
       async (req, reply) => {
         const pool = echoPool(req);
         const serverId = trimEchoPathParam(req.params.serverId);
-        const userId = req.authUser!.id;
+        const userId = getAuthUser(req).id;
         const v = validateSearchCriteria(req.query);
         if (!v.ok) return v.reply(reply);
 
@@ -254,7 +254,7 @@ export default async function echoMessageSearchRoutes(
       async (req, reply) => {
         const pool = echoPool(req);
         const channelId = trimEchoPathParam(req.params.channelId);
-        const userId = req.authUser!.id;
+        const userId = getAuthUser(req).id;
         const v = validateSearchCriteria(req.query);
         if (!v.ok) return v.reply(reply);
 

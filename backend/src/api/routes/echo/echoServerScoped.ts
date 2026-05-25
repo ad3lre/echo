@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
   createEchoChannel,
@@ -51,7 +51,7 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -63,7 +63,7 @@ export default async function echoServerScopedRoutes(
       }
       const levels = await listEchoServerNotificationLevelsForUser(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         [sid],
       );
       return reply.code(200).send({
@@ -81,7 +81,7 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -98,7 +98,7 @@ export default async function echoServerScopedRoutes(
       }
       const result = await upsertEchoServerNotificationLevel(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         sid,
         level,
       );
@@ -110,7 +110,11 @@ export default async function echoServerScopedRoutes(
           'Invalid notification level',
         );
       }
-      void emitEchoAttentionSnapshotForUser(pool, fastify.io, req.authUser!.id);
+      void emitEchoAttentionSnapshotForUser(
+        pool,
+        fastify.io,
+        getAuthUser(req).id,
+      );
       return reply.code(204).send();
     },
   );
@@ -124,7 +128,7 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -138,7 +142,7 @@ export default async function echoServerScopedRoutes(
       const status = await checkEchoVanityAvailability(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         code,
       );
       if (status === 'not_found') {
@@ -184,7 +188,7 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -264,7 +268,7 @@ export default async function echoServerScopedRoutes(
       const r = await updateEchoServerPreferences(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         body,
       );
       if (r === 'forbidden')
@@ -293,7 +297,7 @@ export default async function echoServerScopedRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'server.update_preferences',
         'server',
         sid,
@@ -343,7 +347,7 @@ export default async function echoServerScopedRoutes(
       const r = await setEchoMemberNickname(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         targetUserId,
         nickname,
       );
@@ -366,7 +370,7 @@ export default async function echoServerScopedRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'member.nickname',
         'user',
         targetUserId,
@@ -389,7 +393,7 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -401,7 +405,7 @@ export default async function echoServerScopedRoutes(
       const channels = await listEchoChannelsForUser(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       return reply.code(200).send({ channels });
     },
@@ -424,7 +428,7 @@ export default async function echoServerScopedRoutes(
       const allowed = await canUserCreateEchoChannel(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!allowed)
         return sendError(
@@ -474,7 +478,7 @@ export default async function echoServerScopedRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'channel.create',
         'channel',
         channelId,
@@ -506,7 +510,7 @@ export default async function echoServerScopedRoutes(
       const r = await transferEchoServerOwnership(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         newOwnerId,
       );
       if (r === 'not_found')
@@ -538,12 +542,12 @@ export default async function echoServerScopedRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'server.transfer_ownership',
         'server',
         sid,
         {
-          previousOwnerId: req.authUser!.id,
+          previousOwnerId: getAuthUser(req).id,
           newOwnerId,
         },
       );
@@ -567,7 +571,7 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const r = await deleteEchoServerByOwner(pool, sid, req.authUser!.id);
+      const r = await deleteEchoServerByOwner(pool, sid, getAuthUser(req).id);
       if (r === 'not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'Server not found');
       if (r === 'forbidden') {
@@ -584,9 +588,9 @@ export default async function echoServerScopedRoutes(
           kind: 'workspace_invalidated',
           version: Date.now().toString(),
           serverId: sid,
-          userId: req.authUser!.id,
+          userId: getAuthUser(req).id,
         },
-        { serverId: sid, userId: req.authUser!.id },
+        { serverId: sid, userId: getAuthUser(req).id },
       );
       return reply.code(204).send();
     },
@@ -598,7 +602,7 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -611,7 +615,7 @@ export default async function echoServerScopedRoutes(
       const caps = await getEchoServerCapabilitiesForUser(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!caps.canManageServer) {
         return sendError(
@@ -646,7 +650,7 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -659,7 +663,7 @@ export default async function echoServerScopedRoutes(
       const caps = await getEchoServerCapabilitiesForUser(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!caps.canManageServer) {
         return sendError(reply, 403, 'FORBIDDEN', 'Manage Server is required.');
@@ -690,7 +694,7 @@ export default async function echoServerScopedRoutes(
       const mirrorToDiscord = req.body?.mirrorToDiscord === true;
       const created = await createEchoServerEvent(pool, {
         serverId: sid,
-        creatorUserId: req.authUser!.id,
+        creatorUserId: getAuthUser(req).id,
         title,
         description:
           typeof req.body?.description === 'string' ? req.body.description : '',
@@ -722,7 +726,7 @@ export default async function echoServerScopedRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'echo.event_created',
         'event',
         created.id,
@@ -777,7 +781,7 @@ export default async function echoServerScopedRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const eventId = trimEchoPathParam(req.params.eventId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -790,7 +794,7 @@ export default async function echoServerScopedRoutes(
       const caps = await getEchoServerCapabilitiesForUser(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!caps.canManageServer) {
         return sendError(reply, 403, 'FORBIDDEN', 'Manage Server is required.');
@@ -849,7 +853,7 @@ export default async function echoServerScopedRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'echo.event_updated',
         'event',
         eventId,
@@ -891,7 +895,7 @@ export default async function echoServerScopedRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const eventId = trimEchoPathParam(req.params.eventId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -904,7 +908,7 @@ export default async function echoServerScopedRoutes(
       const caps = await getEchoServerCapabilitiesForUser(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!caps.canManageServer) {
         return sendError(reply, 403, 'FORBIDDEN', 'Manage Server is required.');
@@ -927,7 +931,7 @@ export default async function echoServerScopedRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'echo.event_cancelled',
         'event',
         eventId,
@@ -956,7 +960,7 @@ export default async function echoServerScopedRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const eventId = trimEchoPathParam(req.params.eventId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -979,7 +983,7 @@ export default async function echoServerScopedRoutes(
         pool,
         sid,
         eventId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         st,
       );
       if (r === 'not_found') {
@@ -1017,11 +1021,11 @@ export default async function echoServerScopedRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'echo.event_rsvp',
         'event',
         eventId,
-        { status: st, userId: req.authUser!.id },
+        { status: st, userId: getAuthUser(req).id },
       );
       publishEchoWorkspaceEvent(
         fastify,
@@ -1030,7 +1034,7 @@ export default async function echoServerScopedRoutes(
           version: auditId,
           serverId: sid,
         },
-        { serverId: sid, userId: req.authUser!.id },
+        { serverId: sid, userId: getAuthUser(req).id },
       );
       return reply.code(204).send();
     },
@@ -1042,7 +1046,7 @@ export default async function echoServerScopedRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -1054,7 +1058,11 @@ export default async function echoServerScopedRoutes(
       return reply
         .code(200)
         .send(
-          await getEchoServerCapabilitiesForUser(pool, sid, req.authUser!.id),
+          await getEchoServerCapabilitiesForUser(
+            pool,
+            sid,
+            getAuthUser(req).id,
+          ),
         );
     },
   );

@@ -552,11 +552,6 @@ interface AppConfig {
   /** WebAuthn allowed origin (SPA `origin`). */
   readonly echoWebAuthnOrigin: string;
   /**
-   * When true, `/api/v1/auth/passkey/*` is registered and passkey login/registration is allowed.
-   * **Off by default.** Set `ECHO_PASSKEYS_ENABLED=1` to enable.
-   */
-  readonly echoPasskeysEnabled: boolean;
-  /**
    * When true, `POST /api/v1/auth/guest` may mint or resume guest sessions.
    * **Off by default.** Set `ECHO_GUEST_ACCOUNTS_ENABLED=1` to enable.
    */
@@ -1580,7 +1575,6 @@ export const config: AppConfig = {
       return 'http://localhost:8080';
     }
   })(),
-  echoPasskeysEnabled: parseBoolean(process.env.ECHO_PASSKEYS_ENABLED, false),
   guestAccountsEnabled: parseBoolean(
     process.env.ECHO_GUEST_ACCOUNTS_ENABLED,
     false,

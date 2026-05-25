@@ -11,9 +11,10 @@ import {
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import EchoDropdown from '@/components/EchoDropdown.vue';
+import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
 const props = defineProps<{
-  form: any;
+  form: SettingsForm;
 }>();
 
 const authSession = useAuthSessionStore();

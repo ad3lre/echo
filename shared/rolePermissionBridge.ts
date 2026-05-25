@@ -51,6 +51,7 @@ const UI_TO_ECHO: Record<string, EchoApiPermission | EchoApiPermission[]> = {
   readMessageHistory: 'READ_MESSAGE_HISTORY',
   createPolls: 'SEND_POLLS',
   commentOnPaper: 'COMMENT_ON_PAPER',
+  manageTickets: 'MANAGE_TICKETS',
 };
 
 function addUiEchoKeys(
@@ -136,6 +137,7 @@ export function roleUiPermissionsFromEchoStrings(
     readMessageHistory: has('READ_MESSAGE_HISTORY'),
     createPolls: has('SEND_POLLS'),
     commentOnPaper: has('COMMENT_ON_PAPER'),
+    manageTickets: has('MANAGE_TICKETS'),
     administrator: false,
   };
 }

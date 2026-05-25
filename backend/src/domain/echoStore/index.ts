@@ -515,3 +515,20 @@ export {
   patchEchoPaperComment,
   type EchoPaperCommentRow,
 } from './paperComments';
+
+export {
+  assignEchoTicket,
+  canManageTickets,
+  createEchoTicket,
+  deleteEchoTicket,
+  getEchoTicketByChannelId,
+  getEchoTicketById,
+  getEchoTicketConfig,
+  isTicketHandler,
+  listEchoTicketsForServer,
+  updateEchoTicketConfig,
+  updateEchoTicketStatus,
+  type CreateEchoTicketResult,
+  type UpdateEchoTicketConfigInput,
+  type UpdateEchoTicketResult,
+} from './tickets';

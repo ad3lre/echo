@@ -5,9 +5,10 @@ import { playEchoSound } from '@/composables/useEchoSounds';
 import { ECHO_SOUND_IDS, type EchoSoundId } from '@/audio/echoSoundAssets';
 import SettingsPillSwitch from '@/features/settings/components/SettingsPillSwitch.vue';
 import SettingsSettingRow from '@/features/settings/components/SettingsSettingRow.vue';
+import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
 const props = defineProps<{
-  form: any;
+  form: SettingsForm;
 }>();
 
 const volumeExpandedFor = ref<EchoSoundId | null>(null);

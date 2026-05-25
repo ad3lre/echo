@@ -635,6 +635,11 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     welcomeBackExploreGate: ctx.welcomeBackExploreGate,
     welcomeBackExploreMemberEmptyDirectory:
       ctx.welcomeBackExploreMemberEmptyDirectory,
+    inviteLandingActive: ctx.inviteLandingActive,
+    inviteLandingPreview: ctx.inviteLandingPreview,
+    inviteLandingLoading: ctx.inviteLandingLoading,
+    inviteLandingError: ctx.inviteLandingError,
+    inviteLandingPersistBeforeOAuth: ctx.inviteLandingPersistBeforeOAuth,
     watchActiveChannelWithServerChange: ctx.watchActiveChannelWithServerChange,
     isEchoUserBlocked: ctx.isEchoUserBlocked,
     isPersistedEchoDmThread: ctx.isPersistedEchoDmThread,

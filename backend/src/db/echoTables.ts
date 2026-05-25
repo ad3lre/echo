@@ -1966,55 +1966,14 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS echo_server_automod_rules (
-      id TEXT PRIMARY KEY,
-      server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      icon TEXT NOT NULL DEFAULT 'shield',
-      enabled BOOLEAN NOT NULL DEFAULT true,
-      position INT NOT NULL DEFAULT 0,
-      trigger_type TEXT NOT NULL DEFAULT 'message.create',
-      condition_tree JSONB NOT NULL,
-      actions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    CREATE TABLE IF NOT EXISTS echo_server_banned_words_config (
+      server_id TEXT PRIMARY KEY REFERENCES echo_servers(id) ON DELETE CASCADE,
+      preset_level TEXT NOT NULL DEFAULT 'off',
+      categories JSONB NOT NULL DEFAULT '{}'::jsonb,
+      custom_words JSONB NOT NULL DEFAULT '[]'::jsonb,
       exempt_role_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-      exempt_channel_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-      log_channel_id TEXT NULL REFERENCES echo_channels(id) ON DELETE SET NULL,
-      created_by_user_id TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  `);
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS echo_server_automod_rules_server_position_idx
-    ON echo_server_automod_rules(server_id, position ASC);
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS echo_server_automod_rule_hits (
-      id TEXT PRIMARY KEY,
-      rule_id TEXT NOT NULL REFERENCES echo_server_automod_rules(id) ON DELETE CASCADE,
-      server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
-      channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
-      message_id TEXT NULL,
-      correlation_id TEXT NOT NULL,
-      outcome TEXT NOT NULL,
-      actions_applied JSONB NOT NULL DEFAULT '{}'::jsonb,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      CONSTRAINT echo_server_automod_rule_hits_outcome_chk
-        CHECK (outcome IN ('blocked', 'applied', 'partial_failed'))
-    );
-  `);
-  await pool.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS echo_server_automod_rule_hits_rule_corr_unique
-    ON echo_server_automod_rule_hits(rule_id, correlation_id);
-  `);
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS echo_server_automod_rule_hits_prior_idx
-    ON echo_server_automod_rule_hits(server_id, rule_id, user_id, created_at DESC);
-  `);
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS echo_server_automod_rule_hits_server_created_idx
-    ON echo_server_automod_rule_hits(server_id, created_at DESC);
   `);
 
   await pool.query(`
@@ -2058,6 +2017,48 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   `);
   await pool.query(`
     ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS components JSONB NULL;
+  `);
+
+  // ─── Ticket system ───────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_server_ticket_config (
+      server_id TEXT PRIMARY KEY REFERENCES echo_servers(id) ON DELETE CASCADE,
+      enabled BOOLEAN NOT NULL DEFAULT false,
+      panel_channel_id TEXT NULL,
+      ticket_category_id TEXT NULL,
+      handler_role_ids TEXT[] NOT NULL DEFAULT '{}',
+      log_channel_id TEXT NULL,
+      form_fields JSONB NOT NULL DEFAULT '[]',
+      max_open_per_user INT NOT NULL DEFAULT 3,
+      greeting_message TEXT NOT NULL DEFAULT '',
+      require_category BOOLEAN NOT NULL DEFAULT false,
+      ticket_categories JSONB NOT NULL DEFAULT '[]'
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_tickets (
+      id TEXT PRIMARY KEY,
+      server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
+      channel_id TEXT NOT NULL,
+      author_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      subject TEXT NOT NULL,
+      category TEXT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      assigned_to TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      closed_at TIMESTAMPTZ NULL,
+      closed_by TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_echo_tickets_server_id ON echo_tickets(server_id);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_echo_tickets_author_id ON echo_tickets(author_id);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_echo_tickets_channel_id ON echo_tickets(channel_id);
   `);
 
   /** System user: author_id for all channel-webhook-delivered messages (login disabled). */

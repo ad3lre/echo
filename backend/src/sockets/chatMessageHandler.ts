@@ -34,12 +34,8 @@ import {
   blockGuestWritesForIpGuest,
   isGuestWriteComboBlocked,
 } from '../services/auth/guestAbuseLimiter';
-import { evaluateAutomodOnMessageSend } from '../domain/echoStore/automod/messageEval';
-import {
-  applyAutomodAfterMessagePersisted,
-  applyAutomodBlockDeliveries,
-  recordAutomodBlockHits,
-} from '../services/echoAutomodApply';
+import { evaluateBannedWordsOnMessageSend } from '../domain/echoStore/bannedWords/messageEval';
+import { applyBannedWordsAfterMessagePersisted } from '../services/echoBannedWordsApply';
 import { clientIpFromSocketHandshake } from '../net/clientIp';
 
 function clientIpFromSocket(socket: Socket): string {
@@ -432,8 +428,8 @@ export function registerMessageHandler(
             return;
           }
           const sidForSpam = await getEchoChannelServerId(pool, channelId);
-          let automodEval: Awaited<
-            ReturnType<typeof evaluateAutomodOnMessageSend>
+          let bannedWordsEval: Awaited<
+            ReturnType<typeof evaluateBannedWordsOnMessageSend>
           > | null = null;
           if (sidForSpam) {
             const spamCheck = await checkEchoServerSpamFilter(pool, {
@@ -460,55 +456,26 @@ export function registerMessageHandler(
               });
               return;
             }
-            automodEval = await evaluateAutomodOnMessageSend(pool, {
+            bannedWordsEval = await evaluateBannedWordsOnMessageSend(pool, {
               serverId: sidForSpam,
-              channelId,
               userId,
               content,
-              mentionCount: sanitizedMentions?.length ?? 0,
-              correlationId,
             });
-            if (automodEval.shouldBlock) {
-              const own = await pool.query(
-                `SELECT owner_id::text AS owner_id FROM echo_servers WHERE id = $1 LIMIT 1`,
-                [sidForSpam],
-              );
-              const ownerActorId = own.rows[0]
-                ? String(own.rows[0].owner_id)
-                : '';
-              if (ownerActorId) {
-                await recordAutomodBlockHits(pool, {
-                  serverId: sidForSpam,
-                  ownerActorId,
-                  channelId,
-                  userId,
-                  correlationId: automodEval.correlationId,
-                  firedRules: automodEval.firedRules,
-                  log,
-                });
-                await applyAutomodBlockDeliveries(fastify, pool, {
-                  serverId: sidForSpam,
-                  ownerActorId,
-                  channelId,
-                  userId,
-                  correlationId: automodEval.correlationId,
-                  firedRules: automodEval.firedRules,
-                  log,
-                });
-              }
+            if (bannedWordsEval.shouldBlock) {
               log.warn({
                 msg: 'echo.socket.message_failed',
-                code: 'AUTOMOD_BLOCKED',
+                code: 'BANNED_WORDS_BLOCKED',
                 correlationId,
                 channelId,
                 userId,
                 socketId: socket.id,
               });
               emitMessageFailed(socket, {
-                code: 'AUTOMOD_BLOCKED',
+                code: 'BANNED_WORDS_BLOCKED',
                 channelId,
                 clientMessageId,
-                detail: automodEval.blockUserDetail ?? 'Blocked by AutoMod',
+                detail:
+                  bannedWordsEval.blockUserDetail ?? 'Blocked by word filter',
               });
               return;
             }
@@ -622,8 +589,9 @@ export function registerMessageHandler(
           if (
             persistRes.kind !== 'duplicate_ack' &&
             sidForSpam &&
-            automodEval &&
-            automodEval.firedRules.length > 0
+            bannedWordsEval &&
+            bannedWordsEval.matches.length > 0 &&
+            bannedWordsEval.action
           ) {
             const own = await pool.query(
               `SELECT owner_id::text AS owner_id FROM echo_servers WHERE id = $1 LIMIT 1`,
@@ -633,14 +601,14 @@ export function registerMessageHandler(
               ? String(own.rows[0].owner_id)
               : '';
             if (ownerActorId) {
-              await applyAutomodAfterMessagePersisted(fastify, pool, {
+              await applyBannedWordsAfterMessagePersisted(fastify, pool, {
                 serverId: sidForSpam,
                 ownerActorId,
                 channelId,
                 userId,
                 messageId: persistRes.message.id,
-                correlationId: automodEval.correlationId,
-                firedRules: automodEval.firedRules,
+                matches: bannedWordsEval.matches,
+                action: bannedWordsEval.action,
                 log,
               });
             }

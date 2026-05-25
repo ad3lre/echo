@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { sendEchoCustomEmojiAsset } from '../../../services/echoEmojiAsset';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
@@ -32,7 +32,7 @@ export default async function echoEmojiLibraryRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
-      const ok = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const ok = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!ok)
         return sendError(
           reply,
@@ -90,7 +90,11 @@ export default async function echoEmojiLibraryRoutes(
         return sendError(reply, 400, 'INVALID_BODY', 'Too many ids');
       const ids = idsRaw.filter((v) => typeof v === 'string') as string[];
       const pool = echoPool(req);
-      const emojis = await resolveEchoEmojiTokens(pool, req.authUser!.id, ids);
+      const emojis = await resolveEchoEmojiTokens(
+        pool,
+        getAuthUser(req).id,
+        ids,
+      );
       return reply.code(200).send({ emojis });
     },
   );
@@ -104,7 +108,7 @@ export default async function echoEmojiLibraryRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
-      const ok = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const ok = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!ok)
         return sendError(
           reply,
@@ -122,7 +126,7 @@ export default async function echoEmojiLibraryRoutes(
       const r = await importEchoMarketEmojiPack(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         marketPackId,
       );
       if (r === 'forbidden')
@@ -156,7 +160,7 @@ export default async function echoEmojiLibraryRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
-      const ok = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const ok = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!ok)
         return sendError(
           reply,
@@ -172,7 +176,7 @@ export default async function echoEmojiLibraryRoutes(
       const r = await createEchoCustomEmojiPack(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         name,
         description,
         req.body?.marketSettings,
@@ -224,7 +228,7 @@ export default async function echoEmojiLibraryRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const packId = trimEchoPathParam(req.params.packId);
-      const ok = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const ok = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!ok)
         return sendError(
           reply,
@@ -236,7 +240,7 @@ export default async function echoEmojiLibraryRoutes(
       const r = await updateEchoCustomEmojiPackMeta(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         packId,
         {
           ...(typeof req.body?.name === 'string'
@@ -288,7 +292,7 @@ export default async function echoEmojiLibraryRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const packId = trimEchoPathParam(req.params.packId);
-      const ok = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const ok = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!ok)
         return sendError(
           reply,
@@ -319,7 +323,7 @@ export default async function echoEmojiLibraryRoutes(
       const r = await addEchoServerCustomEmoji(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         packId,
         name,
         animated,
@@ -367,7 +371,7 @@ export default async function echoEmojiLibraryRoutes(
       const serverId = trimEchoPathParam(req.params.serverId);
       const packId = trimEchoPathParam(req.params.packId);
       const emojiId = trimEchoPathParam(req.params.emojiId);
-      const ok = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const ok = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!ok)
         return sendError(
           reply,
@@ -379,7 +383,7 @@ export default async function echoEmojiLibraryRoutes(
       const r = await removeEchoServerCustomEmoji(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         packId,
         emojiId,
       );
@@ -409,7 +413,7 @@ export default async function echoEmojiLibraryRoutes(
       const serverId = trimEchoPathParam(req.params.serverId);
       const packId = trimEchoPathParam(req.params.packId);
       const emojiId = trimEchoPathParam(req.params.emojiId);
-      const ok = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const ok = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!ok)
         return sendError(
           reply,
@@ -423,7 +427,7 @@ export default async function echoEmojiLibraryRoutes(
       const r = await renameEchoServerCustomEmoji(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         packId,
         emojiId,
         name,
@@ -465,7 +469,7 @@ export default async function echoEmojiLibraryRoutes(
       const ok = await incrementEchoEmojiUsage(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         emojiId,
       );
       if (!ok) return sendError(reply, 403, 'FORBIDDEN', 'Not allowed');

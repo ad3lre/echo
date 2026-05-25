@@ -5,7 +5,7 @@ export type RolePreviewState = {
   roleId: string;
   roleName: string;
   roleColor: string;
-  uiPermissions: string[];
+  uiPermissions: readonly string[] | string[];
 };
 
 const rolePreviewState = ref<RolePreviewState | null>(null);

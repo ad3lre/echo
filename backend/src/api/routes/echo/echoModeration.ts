@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions, FastifyRequest } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
   getMergedRolePermissions,
@@ -85,8 +85,13 @@ export default async function echoModerationRoutes(
             : 'MODERATE_MEMBERS';
 
       const mayMod =
-        (await isEchoServerOwner(pool, sid, req.authUser!.id)) ||
-        (await hasServerPermission(pool, req.authUser!.id, sid, requiredPerm));
+        (await isEchoServerOwner(pool, sid, getAuthUser(req).id)) ||
+        (await hasServerPermission(
+          pool,
+          getAuthUser(req).id,
+          sid,
+          requiredPerm,
+        ));
 
       if (!mayMod)
         return sendError(
@@ -118,10 +123,10 @@ export default async function echoModerationRoutes(
         const purgeH = parseDeleteRecentMessagesHours(meta);
         if (purgeH > 0) {
           const canPurge =
-            (await isEchoServerOwner(pool, sid, req.authUser!.id)) ||
+            (await isEchoServerOwner(pool, sid, getAuthUser(req).id)) ||
             (await hasServerPermission(
               pool,
-              req.authUser!.id,
+              getAuthUser(req).id,
               sid,
               'MANAGE_MESSAGES',
             ));
@@ -139,7 +144,7 @@ export default async function echoModerationRoutes(
         fastify,
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         action,
         targetUserId,
         meta,
@@ -196,7 +201,7 @@ export default async function echoModerationRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okAudit = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okAudit = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okAudit)
         return sendError(
           reply,
@@ -205,8 +210,12 @@ export default async function echoModerationRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const perms = await getMergedRolePermissions(pool, sid, req.authUser!.id);
-      const isOwner = await isEchoServerOwner(pool, sid, req.authUser!.id);
+      const perms = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
+      const isOwner = await isEchoServerOwner(pool, sid, getAuthUser(req).id);
       const maySee =
         isOwner || perms.has('VIEW_AUDIT_LOG') || perms.has('MANAGE_GUILD');
 
@@ -249,8 +258,12 @@ export default async function echoModerationRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const perms = await getMergedRolePermissions(pool, sid, req.authUser!.id);
-      const isOwner = await isEchoServerOwner(pool, sid, req.authUser!.id);
+      const perms = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
+      const isOwner = await isEchoServerOwner(pool, sid, getAuthUser(req).id);
       const maySee =
         isOwner || perms.has('BAN_MEMBERS') || perms.has('MANAGE_GUILD');
 
@@ -284,7 +297,7 @@ export default async function echoModerationRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -293,8 +306,12 @@ export default async function echoModerationRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const perms = await getMergedRolePermissions(pool, sid, req.authUser!.id);
-      const isOwner = await isEchoServerOwner(pool, sid, req.authUser!.id);
+      const perms = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
+      const isOwner = await isEchoServerOwner(pool, sid, getAuthUser(req).id);
       const mayView =
         isOwner ||
         perms.has('VIEW_AUDIT_LOG') ||

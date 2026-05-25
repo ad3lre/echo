@@ -26,10 +26,14 @@ import BannerRepositionModal from '@/components/BannerRepositionModal.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import ProfileBioText from '@/components/member-profile/ProfileBioText.vue';
+import type {
+  SettingsForm,
+  SettingsCurrentUser,
+} from '@/features/settings/composables/useSettingsForm';
 
 const props = defineProps<{
-  form: any;
-  currentUser: any;
+  form: SettingsForm;
+  currentUser: SettingsCurrentUser;
 }>();
 
 const authSession = useAuthSessionStore();

@@ -245,7 +245,7 @@ export function useTwoFactorAuth(
     await copyToClipboard(text);
   }
 
-  async function registerPasskey() {
+  async function registerPasskey(label?: string) {
     if (!ECHO_PASSKEYS_ENABLED) {
       passkeyRegisterError.value = 'Passkeys are disabled for this deployment.';
       return;
@@ -267,6 +267,7 @@ export function useTwoFactorAuth(
       await authPasskeyRegisterVerify({
         challengeId: opt.challengeId,
         credential: credential as unknown as Record<string, unknown>,
+        label: label || undefined,
       });
     } catch (e) {
       if (e instanceof AuthApiError) {

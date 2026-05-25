@@ -503,6 +503,9 @@ async function bootstrap() {
     }
   }
 
+  const appEl = document.getElementById('app');
+  if (appEl) appEl.setAttribute('data-echo-mounted', '');
+
   app.mount('#app');
 
   if (typeof requestAnimationFrame !== 'undefined') {

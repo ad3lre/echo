@@ -17,6 +17,10 @@ import { ECHO_SCREEN_SHARE_USE_CONFIG_MODAL } from '@/config/screenShareUi';
 const WelcomeBackExploreGate = defineAsyncComponent(
   () => import('@/features/layout/components/WelcomeBackExploreGate.vue'),
 );
+/** Lazy: branded invite landing for unauthenticated users arriving via invite URL. */
+const InviteLandingView = defineAsyncComponent(
+  () => import('@/features/layout/components/InviteLandingView.vue'),
+);
 /** Lazy: outage UI; rarely shown vs main chat chrome. */
 const ServerDownGate = defineAsyncComponent(
   () => import('@/features/layout/components/ServerDownGate.vue'),
@@ -798,6 +802,11 @@ const {
   _watchActiveChannelWithServerChange,
   welcomeBackExploreGate,
   welcomeBackExploreMemberEmptyDirectory,
+  inviteLandingActive,
+  inviteLandingPreview,
+  inviteLandingLoading,
+  inviteLandingError,
+  inviteLandingPersistBeforeOAuth,
 } = useAppLayoutController();
 
 function onJoinServerFromShell(inviteLink?: string) {
@@ -831,9 +840,12 @@ const actionRailTopLayout = computed(
   () => themeStore.actionRailPlacement === 'top' && !isCompactShell.value,
 );
 
-/** Two-row grid only when the horizontal strip is mounted (welcome-back omits it — see AppLayoutLeftChrome). */
+/** Two-row grid only when the horizontal strip is mounted (welcome-back / invite landing omits it). */
 const actionRailTopLayoutGrid = computed(
-  () => actionRailTopLayout.value && !welcomeBackExploreGate.value,
+  () =>
+    actionRailTopLayout.value &&
+    !welcomeBackExploreGate.value &&
+    !inviteLandingActive.value,
 );
 
 const topRailSelectedOverflowServer = computed(() => {
@@ -1204,7 +1216,7 @@ provide(LAYOUT_MEMBERS_COLUMN_KEY, {
   isVisible: membersColumnVisible,
   effectiveActiveChannel,
   searchText,
-  filterChips,
+  filterChips: filterChips as any,
   allChannels,
   users: computed(() => workspace.users.value),
   paginatedSearchResults,
@@ -1267,8 +1279,8 @@ provide(LAYOUT_MEMBERS_COLUMN_KEY, {
   canChangeMemberNickname: canChangeMemberNicknameInServer,
   onChangeMemberNickname: handleChangeMemberNicknameFromMemberList,
   onMessageMemberUser: selectDM,
-  resolveHighestRole: memberListResolveHighestRoleResolved,
-  roleManagement: memberListRoleManagement,
+  resolveHighestRole: memberListResolveHighestRoleResolved as any,
+  roleManagement: memberListRoleManagement as any,
   memberListLoading: membersColumnListLoading,
   echoMemberSectionOrdering: membersColumnEchoSectionOrdering,
 });
@@ -1683,7 +1695,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   startMemberResize,
   resetMemberWidth,
   effectiveActiveChannel,
-  liveChannelCapabilities,
+  liveChannelCapabilities: liveChannelCapabilities as any,
   isInDMChat,
   dmCallMatchesActiveChannel,
   activeDmThreadCallUi,
@@ -1699,7 +1711,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   icons,
   dmActiveTab,
   getChannelIcon,
-  getChannelDisplayName,
+  getChannelDisplayName: getChannelDisplayName as any,
   togglePinsDropdown,
   expandChannels: openChannelPaneFromHeader,
   collapseMembers,
@@ -1709,10 +1721,10 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   clearRolePreview,
   memberPanelWidth,
   searchText,
-  filterChips,
+  filterChips: filterChips as any,
   allChannels,
   users: computed(() => workspace.users.value),
-  usersForMentionAutocomplete,
+  usersForMentionAutocomplete: usersForMentionAutocomplete as any,
   paginatedSearchResults,
   searchResultMessagesCount: computed(() => searchResultMessages.value.length),
   searchResultPage,
@@ -1748,7 +1760,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   openGroupOverviewPanel: ((gid?: string) =>
     openGroupOverviewPanel(gid ?? '')) as (groupId?: string) => void,
   activeGroupCallMembers,
-  currentUser,
+  currentUser: currentUser as any,
   linkedDiscordUserId,
   dmCallVideo,
   dmCallScreenshare,
@@ -2011,7 +2023,7 @@ provide(LAYOUT_MODALS_KEY, {
   profileSurfaceAdapter,
   currentUser: computed(() =>
     isAuthenticated.value ? (unref(currentUser) ?? null) : null,
-  ),
+  ) as any,
   onOpenSettingsFromProfileBar: openUserSettingsModal,
   isAuthModalOpen,
   authModalInitialLoginEntry,
@@ -2121,7 +2133,7 @@ provide(LAYOUT_MODALS_KEY, {
   activeMemberProfile,
   memberPopoutAnchor,
   activeMemberNote,
-  memberListRoleManagement,
+  memberListRoleManagement: memberListRoleManagement as any,
   memberPopoutOpenRolesPanel,
   onUpdateMemberPopoutOpen: onMemberPopoutOpenUpdate,
   onUpdateMemberNote: (note: string) =>
@@ -2270,8 +2282,8 @@ const fullscreenStreamTrack = computed(() => {
   }
   const p = voiceParticipantsForFullscreenStream.value?.find(
     (participant: { id?: string }) => participant.id === pid,
-  );
-  return p?.screenTrack ?? p?.cameraTrack ?? null;
+  ) as Record<string, any> | undefined;
+  return (p?.screenTrack ?? p?.cameraTrack ?? null) as any;
 });
 
 const fullscreenStreamAudioTrack = computed(() => {
@@ -2279,8 +2291,8 @@ const fullscreenStreamAudioTrack = computed(() => {
   if (!pid || pid === currentUser.value?.id) return null;
   const p = voiceParticipantsForFullscreenStream.value?.find(
     (participant: { id?: string }) => participant.id === pid,
-  );
-  return p?.screenAudioTrack ?? null;
+  ) as Record<string, any> | undefined;
+  return (p?.screenAudioTrack ?? null) as any;
 });
 
 const fullscreenStreamName = computed(() => {
@@ -2310,7 +2322,7 @@ const fullscreenStreamIsScreenShare = computed(() => {
   const p = voiceParticipantsForFullscreenStream.value?.find(
     (participant: { id?: string }) => participant.id === pid,
   );
-  return !!p?.screenTrack;
+  return !!(p as { screenTrack?: unknown } | undefined)?.screenTrack;
 });
 
 const FULLSCREEN_STREAM_LOST_CLEAR_MS = 160;
@@ -2360,7 +2372,7 @@ provideChatPermissions(
     isRolePreviewActiveForServer,
     isInDMMode,
     isGroupDM,
-    liveChannelCapabilities,
+    liveChannelCapabilities: liveChannelCapabilities as any,
   }),
 );
 
@@ -3419,7 +3431,7 @@ provide(LAYOUT_GUILD_MODALS_KEY, {
   channelSettingsCategoryAutoDeleteAfterSeconds,
   channelSettingsEchoPermissionEditor,
   categorySettingsEchoPermissionEditor,
-  currentServerNotificationLevel,
+  currentServerNotificationLevel: currentServerNotificationLevel as any,
   isDiscordImportedServer: computed(() => {
     const s = selectedServer.value as { discordGuildId?: string } | undefined;
     return !!s?.discordGuildId?.trim();
@@ -3498,7 +3510,9 @@ function onChannelPanelDeleteCategory(payload: { categoryId: string }) {
  * Keep prop names stable — changes here require matching updates in appLayoutLeftChromeProps.ts.
  */
 provide(LAYOUT_LEFT_CHROME_KEY, {
-  hideServerRail: welcomeBackExploreGate,
+  hideServerRail: computed(
+    () => welcomeBackExploreGate.value || inviteLandingActive.value,
+  ),
   isAuthenticated,
   guestFriendsLocked,
   activeRailTab,
@@ -3526,10 +3540,10 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   channelPanelLoading: isChannelPanelSwitchLoading,
   currentUserForServerList: computed(() =>
     isAuthenticated.value ? (currentUser.value ?? null) : null,
-  ),
+  ) as any,
   presenceByUserId,
   presenceMobileByUserId,
-  serverNotificationLevelsMap,
+  serverNotificationLevelsMap: serverNotificationLevelsMap as any,
   serverPingKindsMap: serverPingKindByServerId,
   serverPingBubblesMap: serverPingBubbleByServerId,
   serverPingChannelDotsMap: serverPingChannelDotsByServerId,
@@ -3546,8 +3560,8 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   isMoreServersCompact,
   isMoreServersPinned,
   dmActiveTab,
-  dmIncomingRailCluster,
-  dmInboxEntries: dmInboxEntriesForPanel,
+  dmIncomingRailCluster: dmIncomingRailCluster as any,
+  dmInboxEntries: dmInboxEntriesForPanel as any,
   usersForChannelPanel,
   currentUserId: computed(() => currentUser.value?.id ?? ''),
   selectedDmUserId: selectedDMUserId,
@@ -3575,7 +3589,7 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   selectedServer: computed(() => selectedServer.value ?? null),
   categoriesForServer,
   activeChannelId,
-  currentUser: computed(() => currentUser.value ?? undefined),
+  currentUser: computed(() => currentUser.value ?? undefined) as any,
   guildVoiceChannelId: channelPanelVoiceChannelId,
   guildVoiceChannelName: channelPanelVoiceChannelName,
   focusGuildVoiceChannelInSidebar,
@@ -4402,6 +4416,21 @@ watch(
                     v-bind="serverDownGateBind"
                     @retry="checkServerHealthNow"
                   />
+                  <InviteLandingView
+                    v-else-if="inviteLandingActive"
+                    class="col-span-full min-h-full min-w-0 self-stretch"
+                    :preview="inviteLandingPreview"
+                    :loading="inviteLandingLoading"
+                    :error="inviteLandingError"
+                    :show-mobile-back="isCompactShell"
+                    @back="mobileShellGoBack"
+                    @log-in-echo="openAuthModal({ entry: 'echo' })"
+                    @create-account="openAuthModal({ tab: 'register' })"
+                    @sign-in-passkey="
+                      openAuthModal({ entry: 'social', passkey: true })
+                    "
+                    @persist-before-oauth="inviteLandingPersistBeforeOAuth"
+                  />
                   <WelcomeBackExploreGate
                     v-else-if="welcomeBackExploreGate"
                     class="col-span-full min-h-full min-w-0 self-stretch"
@@ -4439,6 +4468,21 @@ watch(
                 class="col-span-full min-h-full min-w-0 self-stretch"
                 v-bind="serverDownGateBind"
                 @retry="checkServerHealthNow"
+              />
+              <InviteLandingView
+                v-else-if="inviteLandingActive"
+                class="col-span-full min-h-full min-w-0 self-stretch"
+                :preview="inviteLandingPreview"
+                :loading="inviteLandingLoading"
+                :error="inviteLandingError"
+                :show-mobile-back="isCompactShell"
+                @back="mobileShellGoBack"
+                @log-in-echo="openAuthModal({ entry: 'echo' })"
+                @create-account="openAuthModal({ tab: 'register' })"
+                @sign-in-passkey="
+                  openAuthModal({ entry: 'social', passkey: true })
+                "
+                @persist-before-oauth="inviteLandingPersistBeforeOAuth"
               />
               <WelcomeBackExploreGate
                 v-else-if="welcomeBackExploreGate"
@@ -4493,6 +4537,21 @@ watch(
                   class="col-span-full min-h-full min-w-0 self-stretch"
                   v-bind="serverDownGateBind"
                   @retry="checkServerHealthNow"
+                />
+                <InviteLandingView
+                  v-else-if="inviteLandingActive"
+                  class="col-span-full min-h-full min-w-0 self-stretch"
+                  :preview="inviteLandingPreview"
+                  :loading="inviteLandingLoading"
+                  :error="inviteLandingError"
+                  :show-mobile-back="isCompactShell"
+                  @back="mobileShellGoBack"
+                  @log-in-echo="openAuthModal({ entry: 'echo' })"
+                  @create-account="openAuthModal({ tab: 'register' })"
+                  @sign-in-passkey="
+                    openAuthModal({ entry: 'social', passkey: true })
+                  "
+                  @persist-before-oauth="inviteLandingPersistBeforeOAuth"
                 />
                 <WelcomeBackExploreGate
                   v-else-if="welcomeBackExploreGate"
@@ -4572,6 +4631,21 @@ watch(
                     v-bind="serverDownGateBind"
                     @retry="checkServerHealthNow"
                   />
+                  <InviteLandingView
+                    v-else-if="inviteLandingActive"
+                    class="col-span-full min-h-full min-w-0 self-stretch"
+                    :preview="inviteLandingPreview"
+                    :loading="inviteLandingLoading"
+                    :error="inviteLandingError"
+                    :show-mobile-back="isCompactShell"
+                    @back="mobileShellGoBack"
+                    @log-in-echo="openAuthModal({ entry: 'echo' })"
+                    @create-account="openAuthModal({ tab: 'register' })"
+                    @sign-in-passkey="
+                      openAuthModal({ entry: 'social', passkey: true })
+                    "
+                    @persist-before-oauth="inviteLandingPersistBeforeOAuth"
+                  />
                   <WelcomeBackExploreGate
                     v-else-if="welcomeBackExploreGate"
                     class="col-span-full min-h-full min-w-0 self-stretch"
@@ -4609,6 +4683,21 @@ watch(
                 class="col-span-full min-h-full min-w-0 self-stretch"
                 v-bind="serverDownGateBind"
                 @retry="checkServerHealthNow"
+              />
+              <InviteLandingView
+                v-else-if="inviteLandingActive"
+                class="col-span-full min-h-full min-w-0 self-stretch"
+                :preview="inviteLandingPreview"
+                :loading="inviteLandingLoading"
+                :error="inviteLandingError"
+                :show-mobile-back="isCompactShell"
+                @back="mobileShellGoBack"
+                @log-in-echo="openAuthModal({ entry: 'echo' })"
+                @create-account="openAuthModal({ tab: 'register' })"
+                @sign-in-passkey="
+                  openAuthModal({ entry: 'social', passkey: true })
+                "
+                @persist-before-oauth="inviteLandingPersistBeforeOAuth"
               />
               <WelcomeBackExploreGate
                 v-else-if="welcomeBackExploreGate"
@@ -4679,6 +4768,21 @@ watch(
                   v-bind="serverDownGateBind"
                   @retry="checkServerHealthNow"
                 />
+                <InviteLandingView
+                  v-else-if="inviteLandingActive"
+                  class="col-span-full min-h-full min-w-0 self-stretch"
+                  :preview="inviteLandingPreview"
+                  :loading="inviteLandingLoading"
+                  :error="inviteLandingError"
+                  :show-mobile-back="isCompactShell"
+                  @back="mobileShellGoBack"
+                  @log-in-echo="openAuthModal({ entry: 'echo' })"
+                  @create-account="openAuthModal({ tab: 'register' })"
+                  @sign-in-passkey="
+                    openAuthModal({ entry: 'social', passkey: true })
+                  "
+                  @persist-before-oauth="inviteLandingPersistBeforeOAuth"
+                />
                 <WelcomeBackExploreGate
                   v-else-if="welcomeBackExploreGate"
                   class="col-span-full min-h-full min-w-0 self-stretch"
@@ -4716,6 +4820,21 @@ watch(
               class="col-span-full min-h-full min-w-0 self-stretch"
               v-bind="serverDownGateBind"
               @retry="checkServerHealthNow"
+            />
+            <InviteLandingView
+              v-else-if="inviteLandingActive"
+              class="col-span-full min-h-full min-w-0 self-stretch"
+              :preview="inviteLandingPreview"
+              :loading="inviteLandingLoading"
+              :error="inviteLandingError"
+              :show-mobile-back="isCompactShell"
+              @back="mobileShellGoBack"
+              @log-in-echo="openAuthModal({ entry: 'echo' })"
+              @create-account="openAuthModal({ tab: 'register' })"
+              @sign-in-passkey="
+                openAuthModal({ entry: 'social', passkey: true })
+              "
+              @persist-before-oauth="inviteLandingPersistBeforeOAuth"
             />
             <WelcomeBackExploreGate
               v-else-if="welcomeBackExploreGate"
@@ -4787,6 +4906,21 @@ watch(
                 v-bind="serverDownGateBind"
                 @retry="checkServerHealthNow"
               />
+              <InviteLandingView
+                v-else-if="inviteLandingActive"
+                class="col-span-full min-h-full min-w-0 self-stretch"
+                :preview="inviteLandingPreview"
+                :loading="inviteLandingLoading"
+                :error="inviteLandingError"
+                :show-mobile-back="isCompactShell"
+                @back="mobileShellGoBack"
+                @log-in-echo="openAuthModal({ entry: 'echo' })"
+                @create-account="openAuthModal({ tab: 'register' })"
+                @sign-in-passkey="
+                  openAuthModal({ entry: 'social', passkey: true })
+                "
+                @persist-before-oauth="inviteLandingPersistBeforeOAuth"
+              />
               <WelcomeBackExploreGate
                 v-else-if="welcomeBackExploreGate"
                 class="col-span-full min-h-full min-w-0 self-stretch"
@@ -4822,6 +4956,19 @@ watch(
             class="col-span-full min-h-full min-w-0 self-stretch"
             v-bind="serverDownGateBind"
             @retry="checkServerHealthNow"
+          />
+          <InviteLandingView
+            v-else-if="inviteLandingActive"
+            class="col-span-full min-h-full min-w-0 self-stretch"
+            :preview="inviteLandingPreview"
+            :loading="inviteLandingLoading"
+            :error="inviteLandingError"
+            :show-mobile-back="isCompactShell"
+            @back="mobileShellGoBack"
+            @log-in-echo="openAuthModal({ entry: 'echo' })"
+            @create-account="openAuthModal({ tab: 'register' })"
+            @sign-in-passkey="openAuthModal({ entry: 'social', passkey: true })"
+            @persist-before-oauth="inviteLandingPersistBeforeOAuth"
           />
           <WelcomeBackExploreGate
             v-else-if="welcomeBackExploreGate"

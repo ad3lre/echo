@@ -65,11 +65,16 @@ export function resolveGuildPath(
   ctx: UrlNavigationResolveContext,
   serverId: string,
   channelId: string,
+  opts?: { preserveUnresolved?: boolean },
 ): EchoParsedPath {
   const resolvedServerId = resolveGuildServerIdFromPathSegment(ctx, serverId);
   const exists = ctx.servers.some((s) => s.id === resolvedServerId);
-  if (!exists || resolvedServerId === 'echo')
+  if (!exists || resolvedServerId === 'echo') {
+    if (opts?.preserveUnresolved) {
+      return { kind: 'guild', serverId, channelId };
+    }
     return pickFallbackParsedPath(ctx);
+  }
 
   const effectiveChannelId = channelId.trim();
   if (

@@ -229,7 +229,7 @@ export default themeStrict
 
       {
         rules: {
-          '@typescript-eslint/no-explicit-any': lintStrict ? 'warn' : 'off',
+          '@typescript-eslint/no-explicit-any': 'warn',
         },
       },
 

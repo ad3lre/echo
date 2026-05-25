@@ -1,6 +1,5 @@
 import { createPublicKey } from 'crypto';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const jwt = require('jsonwebtoken') as any;
+import jwt from 'jsonwebtoken';
 import { OAUTH_UPSTREAM_FETCH_MS } from '../../constants/outboundHttp';
 import { config } from '../../config';
 import type {
@@ -111,7 +110,7 @@ function verifyWithJwk(
   const decoded = jwt.verify(idToken, keyObject, {
     algorithms: ['RS256'],
     audience: clientId,
-    issuer: [...GOOGLE_ISSUERS],
+    issuer: [...GOOGLE_ISSUERS] as [string, ...string[]],
     clockTolerance: ID_TOKEN_CLOCK_TOLERANCE_SEC,
   }) as GoogleIdTokenClaims & Record<string, unknown>;
   if (typeof decoded.sub !== 'string' || !decoded.sub.trim()) {

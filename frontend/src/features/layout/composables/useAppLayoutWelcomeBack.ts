@@ -12,6 +12,8 @@ export function useAppLayoutWelcomeBack(deps: {
   isGuestUser: ComputedRef<boolean>;
   /** Skip empty-directory gate for full members only while workspace is still loading. */
   workspaceLoading: ComputedRef<boolean>;
+  /** When true, the invite landing view takes over instead of the generic gate. */
+  inviteLandingActive?: ComputedRef<boolean>;
 }) {
   /** Logged-out welcome surface (Explore hero + slim banner on other rails). */
   const loggedOutWelcomeSurfaceVisible = computed(
@@ -24,10 +26,12 @@ export function useAppLayoutWelcomeBack(deps: {
   const showWelcomeBackSlimBanner = computed(
     () =>
       loggedOutWelcomeSurfaceVisible.value &&
-      deps.activeRailTab.value !== 'explore',
+      deps.activeRailTab.value !== 'explore' &&
+      !deps.inviteLandingActive?.value,
   );
 
   const welcomeBackExploreGate = computed(() => {
+    if (deps.inviteLandingActive?.value) return false;
     if (deps.activeRailTab.value !== 'explore') return false;
     if (deps.isMockDataMode.value) return false;
     if (deps.sessionEndedMessage.value) return false;

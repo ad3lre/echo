@@ -4,7 +4,7 @@ import type {
   FastifyPluginOptions,
   FastifyRequest,
 } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import { getAuthStore } from '../../../auth/store';
 import { config } from '../../../config';
 import { sendEchoChannelAccessDenied, sendError } from '../../errors';
@@ -40,12 +40,8 @@ import {
   echoSendPlainTextViolatesHardFormat,
   selectEchoChannelMessageFormat,
 } from '../../../domain/echoStore';
-import { evaluateAutomodOnMessageSend } from '../../../domain/echoStore/automod/messageEval';
-import {
-  applyAutomodAfterMessagePersisted,
-  applyAutomodBlockDeliveries,
-  recordAutomodBlockHits,
-} from '../../../services/echoAutomodApply';
+import { evaluateBannedWordsOnMessageSend } from '../../../domain/echoStore/bannedWords/messageEval';
+import { applyBannedWordsAfterMessagePersisted } from '../../../services/echoBannedWordsApply';
 import {
   editEchoMessageAndBroadcast,
   deleteEchoMessageAndBroadcast,
@@ -112,7 +108,7 @@ export default async function echoMessagesRoutes(
       const pool = echoPool(req);
       const workspace = await buildEchoAttentionSnapshot(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       const readStateByChannelId = Object.fromEntries(
         Object.entries(workspace.channelAttentionByChannelId).map(
@@ -130,7 +126,10 @@ export default async function echoMessagesRoutes(
     { preHandler: [requireAuth, requireEchoStore] },
     async (req, reply) => {
       const pool = echoPool(req);
-      const snapshot = await buildEchoAttentionSnapshot(pool, req.authUser!.id);
+      const snapshot = await buildEchoAttentionSnapshot(
+        pool,
+        getAuthUser(req).id,
+      );
       return reply.code(200).send(snapshot);
     },
   );
@@ -143,19 +142,19 @@ export default async function echoMessagesRoutes(
       const channelId = trimEchoPathParam(req.params.channelId);
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
       const lastReadMessageId = await getEchoChannelReadState(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
       );
       req.log.info({
         msg: 'echo.debug.read_state.get',
         requestId: req.id,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
         channelId,
         lastReadMessageId,
       });
@@ -174,7 +173,7 @@ export default async function echoMessagesRoutes(
       const channelId = trimEchoPathParam(req.params.channelId);
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
@@ -191,14 +190,14 @@ export default async function echoMessagesRoutes(
         );
       const r = await upsertEchoChannelReadState(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
         mid,
       );
       req.log.info({
         msg: 'echo.debug.read_state.put_attempt',
         requestId: req.id,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
         channelId,
         submittedLastReadMessageId: mid,
         upsertResult: r,
@@ -217,7 +216,7 @@ export default async function echoMessagesRoutes(
           'INVALID_BODY',
           'Invalid lastReadMessageId',
         );
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const nextReadState = await getEchoChannelReadState(
         pool,
         userId,
@@ -266,7 +265,7 @@ export default async function echoMessagesRoutes(
       const t0 = process.hrtime.bigint();
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
@@ -288,7 +287,7 @@ export default async function echoMessagesRoutes(
       req.log.info({
         msg: 'echo.debug.messages.list_pre',
         requestId: req.id,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
         channelId,
         before: beforeRaw || null,
         limit,
@@ -375,7 +374,7 @@ export default async function echoMessagesRoutes(
       req.log.info({
         msg: 'echo.debug.messages.list_post',
         requestId: req.id,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
         channelId,
         before: beforeRaw || null,
         limit,
@@ -384,7 +383,10 @@ export default async function echoMessagesRoutes(
         lastResultMessageId: msgs[msgs.length - 1]?.id ?? null,
       });
       return reply.code(200).send({
-        messages: redactAnonymousPollsInEchoMessageRows(msgs, req.authUser!.id),
+        messages: redactAnonymousPollsInEchoMessageRows(
+          msgs,
+          getAuthUser(req).id,
+        ),
       });
     },
   );
@@ -398,7 +400,7 @@ export default async function echoMessagesRoutes(
       const messageId = trimEchoPathParam(req.params.messageId);
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
@@ -408,7 +410,7 @@ export default async function echoMessagesRoutes(
       }
       const [redacted] = redactAnonymousPollsInEchoMessageRows(
         [row],
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       return reply.code(200).send({ message: redacted });
     },
@@ -432,7 +434,7 @@ export default async function echoMessagesRoutes(
       const r = await addEchoMessageReactionAndBroadcast(
         pool,
         fastify.io,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
         messageId,
         emoji,
@@ -471,7 +473,7 @@ export default async function echoMessagesRoutes(
       const r = await removeEchoMessageReactionAndBroadcast(
         pool,
         fastify.io,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
         messageId,
         emoji,
@@ -500,7 +502,7 @@ export default async function echoMessagesRoutes(
       const channelId = trimEchoPathParam(req.params.channelId);
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
@@ -524,7 +526,7 @@ export default async function echoMessagesRoutes(
       const r = await addEchoChannelPinAndBroadcast(
         pool,
         fastify.io,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
         messageId,
       );
@@ -555,7 +557,7 @@ export default async function echoMessagesRoutes(
       const r = await removeEchoChannelPinAndBroadcast(
         pool,
         fastify.io,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
         messageId,
       );
@@ -593,7 +595,7 @@ export default async function echoMessagesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const correlationId = typeof req.id === 'string' ? req.id : randomUUID();
       const ip = clientIpFromRequest(req);
 
@@ -799,8 +801,8 @@ export default async function echoMessagesRoutes(
         );
       }
 
-      let automodEval: Awaited<
-        ReturnType<typeof evaluateAutomodOnMessageSend>
+      let bannedWordsEval: Awaited<
+        ReturnType<typeof evaluateBannedWordsOnMessageSend>
       > | null = null;
       if (sidForSlow) {
         const spamCheck = await checkEchoServerSpamFilter(pool, {
@@ -813,46 +815,18 @@ export default async function echoMessagesRoutes(
           restMessageFailed('SPAM_FILTER');
           return sendError(reply, 429, 'SPAM_FILTER', spamCheck.detail);
         }
-        automodEval = await evaluateAutomodOnMessageSend(pool, {
+        bannedWordsEval = await evaluateBannedWordsOnMessageSend(pool, {
           serverId: sidForSlow,
-          channelId,
           userId,
           content,
-          mentionCount: sanitizedMentions?.length ?? 0,
-          correlationId: corrFromBody ?? correlationId,
         });
-        if (automodEval.shouldBlock) {
-          const own = await pool.query(
-            `SELECT owner_id::text AS owner_id FROM echo_servers WHERE id = $1 LIMIT 1`,
-            [sidForSlow],
-          );
-          const ownerActorId = own.rows[0] ? String(own.rows[0].owner_id) : '';
-          if (ownerActorId) {
-            await recordAutomodBlockHits(pool, {
-              serverId: sidForSlow,
-              ownerActorId,
-              channelId,
-              userId,
-              correlationId: automodEval.correlationId,
-              firedRules: automodEval.firedRules,
-              log: req.log,
-            });
-            await applyAutomodBlockDeliveries(fastify, pool, {
-              serverId: sidForSlow,
-              ownerActorId,
-              channelId,
-              userId,
-              correlationId: automodEval.correlationId,
-              firedRules: automodEval.firedRules,
-              log: req.log,
-            });
-          }
-          restMessageFailed('AUTOMOD_BLOCKED');
+        if (bannedWordsEval.shouldBlock) {
+          restMessageFailed('BANNED_WORDS_BLOCKED');
           return sendError(
             reply,
             403,
-            'AUTOMOD_BLOCKED',
-            automodEval.blockUserDetail ?? 'Blocked by AutoMod',
+            'BANNED_WORDS_BLOCKED',
+            bannedWordsEval.blockUserDetail ?? 'Blocked by word filter',
           );
         }
       }
@@ -960,8 +934,9 @@ export default async function echoMessagesRoutes(
       if (
         persistRes.kind !== 'duplicate_ack' &&
         sidForSlow &&
-        automodEval &&
-        automodEval.firedRules.length > 0
+        bannedWordsEval &&
+        bannedWordsEval.matches.length > 0 &&
+        bannedWordsEval.action
       ) {
         const own = await pool.query(
           `SELECT owner_id::text AS owner_id FROM echo_servers WHERE id = $1 LIMIT 1`,
@@ -969,14 +944,14 @@ export default async function echoMessagesRoutes(
         );
         const ownerActorId = own.rows[0] ? String(own.rows[0].owner_id) : '';
         if (ownerActorId) {
-          await applyAutomodAfterMessagePersisted(fastify, pool, {
+          await applyBannedWordsAfterMessagePersisted(fastify, pool, {
             serverId: sidForSlow,
             ownerActorId,
             channelId,
             userId,
             messageId: persistRes.message.id,
-            correlationId: automodEval.correlationId,
-            firedRules: automodEval.firedRules,
+            matches: bannedWordsEval.matches,
+            action: bannedWordsEval.action,
             log: req.log,
           });
         }
@@ -1006,7 +981,7 @@ export default async function echoMessagesRoutes(
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
       const messageId = trimEchoPathParam(req.params.messageId);
-      const ok = await canUserPostMessage(pool, req.authUser!.id, channelId);
+      const ok = await canUserPostMessage(pool, getAuthUser(req).id, channelId);
       if (!ok)
         return sendError(
           reply,
@@ -1022,7 +997,7 @@ export default async function echoMessagesRoutes(
       if (!meta) return sendError(reply, 404, 'NOT_FOUND', 'Message not found');
       if (meta.deleted)
         return sendError(reply, 403, 'FORBIDDEN', 'Cannot edit this message');
-      const uid = req.authUser!.id;
+      const uid = getAuthUser(req).id;
       if (
         meta.authorId !== uid &&
         !(await isEchoMessageAuthorOrLinkedTwin(pool, uid, meta.authorId))
@@ -1040,7 +1015,7 @@ export default async function echoMessagesRoutes(
         v.editKind === 'json' &&
         !(await canUserSendMassMentionInChannel(
           pool,
-          req.authUser!.id,
+          getAuthUser(req).id,
           channelId,
           v.mentions,
         ))
@@ -1078,7 +1053,7 @@ export default async function echoMessagesRoutes(
         fastify.log,
         channelId,
         messageId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         editBody,
       );
       if (r === 'not_found')
@@ -1090,7 +1065,7 @@ export default async function echoMessagesRoutes(
         requestId: req.id,
         channelId,
         messageId,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
       });
       return reply.code(204).send();
     },
@@ -1105,7 +1080,7 @@ export default async function echoMessagesRoutes(
       const messageId = trimEchoPathParam(req.params.messageId);
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
       );
       if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
@@ -1113,7 +1088,7 @@ export default async function echoMessagesRoutes(
       if (!sid) return sendError(reply, 404, 'NOT_FOUND', 'Channel not found');
       const canDeleteOthers = await canDeleteOthersMessagesInChannel(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         sid,
         channelId,
       );
@@ -1122,7 +1097,7 @@ export default async function echoMessagesRoutes(
         fastify.io,
         channelId,
         messageId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         canDeleteOthers,
       );
       if (r === 'not_found')
@@ -1134,7 +1109,7 @@ export default async function echoMessagesRoutes(
         requestId: req.id,
         channelId,
         messageId,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
       });
       return reply.code(204).send();
     },

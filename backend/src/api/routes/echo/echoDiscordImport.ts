@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import {
   getEchoServerCapabilitiesForUser,
   insertEchoAudit,
@@ -46,7 +46,7 @@ export default async function echoDiscordImportRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -60,7 +60,7 @@ export default async function echoDiscordImportRoutes(
       const caps = await getEchoServerCapabilitiesForUser(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!caps.canManageServer) {
         return reply.code(200).send({
@@ -84,7 +84,7 @@ export default async function echoDiscordImportRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const actorId = req.authUser!.id;
+      const actorId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, sid, actorId);
       if (!okMem)
         return sendError(
@@ -139,7 +139,7 @@ export default async function echoDiscordImportRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const actorId = req.authUser!.id;
+      const actorId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, sid, actorId);
       if (!okMem)
         return sendError(
@@ -281,7 +281,7 @@ export default async function echoDiscordImportRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const actorId = req.authUser!.id;
+      const actorId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, sid, actorId);
       if (!okMem)
         return sendError(
@@ -379,7 +379,7 @@ export default async function echoDiscordImportRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const actorId = req.authUser!.id;
+      const actorId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, sid, actorId);
       if (!okMem)
         return sendError(
@@ -455,7 +455,7 @@ export default async function echoDiscordImportRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const actorId = req.authUser!.id;
+      const actorId = getAuthUser(req).id;
 
       // Verify membership and permission (manage server / owner-equivalent via caps)
       const okMem = await isMemberOfServer(pool, serverId, actorId);
@@ -547,7 +547,7 @@ export default async function echoDiscordImportRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const actorId = req.authUser!.id;
+      const actorId = getAuthUser(req).id;
       const okMem = await isMemberOfServer(pool, sid, actorId);
       if (!okMem)
         return sendError(
@@ -588,7 +588,7 @@ export default async function echoDiscordImportRoutes(
         const result = await runDiscordImportStep(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
           step,
           { force },
         );
@@ -599,7 +599,7 @@ export default async function echoDiscordImportRoutes(
         await insertEchoAudit(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
           `discord_import.${step}`,
           'server',
           sid,

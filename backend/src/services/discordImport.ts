@@ -49,6 +49,46 @@ import { resolveEchoUploadStorageKey } from './echoUploadResolveDest';
 
 type JsonObject = Record<string, unknown>;
 
+/**
+ * Raw Discord channel shape from export JSON.
+ * Properties may appear as API snake_case or Discord.js camelCase.
+ */
+type DiscordRawChannel = {
+  id?: unknown;
+  name?: unknown;
+  type?: unknown;
+  parent_id?: unknown;
+  parentId?: unknown;
+  position?: unknown;
+  rawPosition?: unknown;
+  available_tags?: unknown;
+  availableTags?: unknown;
+  rate_limit_per_user?: unknown;
+  user_limit?: unknown;
+  bitrate?: unknown;
+  nsfw?: unknown;
+  [key: string]: unknown;
+};
+
+/**
+ * Raw Discord forum post / thread shape from export JSON.
+ * Properties may appear as API snake_case or Discord.js camelCase.
+ */
+type DiscordRawForumPost = {
+  id?: unknown;
+  name?: unknown;
+  parent_id?: unknown;
+  parentId?: unknown;
+  applied_tags?: unknown;
+  appliedTags?: unknown;
+  thread_metadata?: unknown;
+  threadMetadata?: unknown;
+  pinned?: unknown;
+  created_at?: unknown;
+  createdAt?: unknown;
+  [key: string]: unknown;
+};
+
 type DiscordImportStep = 'metadata' | 'roles' | 'members' | 'channels';
 
 const DISCORD_ROLE_IMPORT_ISSUE_CODES = new Set<string>([
@@ -153,10 +193,10 @@ type LoadedBundle = {
   manifest: JsonObject;
   guild: JsonObject;
   roles: JsonObject[];
-  channels: JsonObject[];
+  channels: DiscordRawChannel[];
   /** Text / announcement channel threads (see exporter `channel_threads.json`). */
-  channelThreads: JsonObject[];
-  forumPosts: JsonObject[];
+  channelThreads: DiscordRawChannel[];
+  forumPosts: DiscordRawForumPost[];
   emojis: JsonObject[];
   overwrites: JsonObject[];
   assetManifest: JsonObject | null;
@@ -323,13 +363,13 @@ function normalizeDiscordForumAvailableTags(
 }
 
 function normalizeDiscordForumPosts(
-  posts: JsonObject[],
+  posts: DiscordRawForumPost[],
 ): NormalizedDiscordForumPost[] {
   const out: NormalizedDiscordForumPost[] = [];
   for (const post of posts) {
     const id = post.id != null ? String(post.id).trim() : '';
     if (!id) continue;
-    const parentRaw = (post as any).parent_id ?? (post as any).parentId;
+    const parentRaw = post.parent_id ?? post.parentId;
     const parent = normalizeDiscordParentId(parentRaw);
     if (!parent) continue;
     const title =
@@ -337,8 +377,7 @@ function normalizeDiscordForumPosts(
         ? post.name.trim()
         : 'Imported Post';
 
-    const appliedTagIdsRaw =
-      (post as any).applied_tags ?? (post as any).appliedTags;
+    const appliedTagIdsRaw = post.applied_tags ?? post.appliedTags;
     const appliedTagIds = Array.isArray(appliedTagIdsRaw)
       ? appliedTagIdsRaw
           .filter((x): x is string => typeof x === 'string')
@@ -346,22 +385,20 @@ function normalizeDiscordForumPosts(
           .filter(Boolean)
       : [];
 
-    const threadMeta = asObject(
-      (post as any).thread_metadata ?? (post as any).threadMetadata,
-    );
+    const threadMeta = asObject(post.thread_metadata ?? post.threadMetadata);
     const locked = threadMeta?.locked === true;
-    const pinned = threadMeta?.pinned === true || (post as any).pinned === true;
+    const pinned = threadMeta?.pinned === true || post.pinned === true;
     const isArchived = threadMeta?.archived === true;
     const archiveTs =
-      safeParseIsoDate((threadMeta as any)?.archive_timestamp) ??
-      safeParseIsoDate((threadMeta as any)?.archiveTimestamp);
+      safeParseIsoDate(threadMeta?.archive_timestamp) ??
+      safeParseIsoDate(threadMeta?.archiveTimestamp);
     const archivedAt = isArchived ? (archiveTs ?? new Date()) : null;
 
     const createdAt =
-      safeParseIsoDate((threadMeta as any)?.create_timestamp) ??
-      safeParseIsoDate((threadMeta as any)?.createTimestamp) ??
-      safeParseIsoDate((post as any).created_at) ??
-      safeParseIsoDate((post as any).createdAt);
+      safeParseIsoDate(threadMeta?.create_timestamp) ??
+      safeParseIsoDate(threadMeta?.createTimestamp) ??
+      safeParseIsoDate(post.created_at) ??
+      safeParseIsoDate(post.createdAt);
 
     out.push({
       discordId: id,
@@ -1621,7 +1658,7 @@ function normalizeDiscordParentId(raw: unknown): string | null {
   return s;
 }
 
-function mergeBundleChannelRows(bundle: LoadedBundle): JsonObject[] {
+function mergeBundleChannelRows(bundle: LoadedBundle): DiscordRawChannel[] {
   return [...bundle.channels, ...bundle.channelThreads];
 }
 
@@ -1665,7 +1702,7 @@ function buildChannelDiscordIdToCategoryId(
  * Channels **under** a category use Discord’s per-parent `position` only (different namespace).
  */
 function buildDiscordTopLevelSidebarOrder(
-  channels: JsonObject[],
+  channels: DiscordRawChannel[],
 ): Map<string, number> {
   type Row = {
     discordId: string;
@@ -1678,13 +1715,13 @@ function buildDiscordTopLevelSidebarOrder(
     const tk = channelTypeKey(channel.type);
     const id = channel.id != null ? String(channel.id).trim() : '';
     if (!id) continue;
-    const parentRaw = (channel as any).parent_id ?? (channel as any).parentId;
+    const parentRaw = channel.parent_id ?? channel.parentId;
     const parent = normalizeDiscordParentId(parentRaw);
     if (tk === 'category') {
       rows.push({
         discordId: id,
         discordPos: safeImportPosition(
-          (channel as any).position ?? (channel as any).rawPosition,
+          channel.position ?? channel.rawPosition,
           fileOrder,
         ),
         fileOrder,
@@ -1696,7 +1733,7 @@ function buildDiscordTopLevelSidebarOrder(
       rows.push({
         discordId: id,
         discordPos: safeImportPosition(
-          (channel as any).position ?? (channel as any).rawPosition,
+          channel.position ?? channel.rawPosition,
           fileOrder,
         ),
         fileOrder,
@@ -1707,7 +1744,7 @@ function buildDiscordTopLevelSidebarOrder(
       rows.push({
         discordId: id,
         discordPos: safeImportPosition(
-          (channel as any).position ?? (channel as any).rawPosition,
+          channel.position ?? channel.rawPosition,
           fileOrder,
         ),
         fileOrder,
@@ -1792,7 +1829,7 @@ function makeUniqueImportedRoleName(
 }
 
 function normalizeDiscordCategories(
-  channels: JsonObject[],
+  channels: DiscordRawChannel[],
 ): NormalizedDiscordCategory[] {
   return channels
     .map((channel, index) => ({ channel, index }))
@@ -1803,9 +1840,8 @@ function normalizeDiscordCategories(
         typeof channel.name === 'string' && channel.name.trim()
           ? channel.name.trim()
           : 'Imported Category',
-      // Accept either snake_case `position` or camelCase `rawPosition` depending on export variant
       position: safeImportPosition(
-        (channel as any).position ?? (channel as any).rawPosition,
+        channel.position ?? channel.rawPosition,
         index,
       ),
     }))
@@ -1819,7 +1855,7 @@ function normalizeDiscordCategories(
 }
 
 function normalizeDiscordChannels(
-  channels: JsonObject[],
+  channels: DiscordRawChannel[],
 ): NormalizedDiscordChannel[] {
   return channels
     .map((channel, index) => ({ channel, index }))
@@ -1851,11 +1887,10 @@ function normalizeDiscordChannels(
             ? channel.name.trim()
             : 'imported-channel',
         parentDiscordId: normalizeDiscordParentId(
-          (channel as any).parent_id ?? (channel as any).parentId,
+          channel.parent_id ?? channel.parentId,
         ),
-        // Accept either snake_case `position` or camelCase `rawPosition`.
         position: safeImportPosition(
-          (channel as any).position ?? (channel as any).rawPosition,
+          channel.position ?? channel.rawPosition,
           index,
         ),
       };
@@ -1873,8 +1908,7 @@ function normalizeDiscordChannels(
         normalized.bitrateBps = Math.max(8_000, Math.floor(channel.bitrate));
       if (typeof channel.nsfw === 'boolean') normalized.nsfw = channel.nsfw;
       if (typeKey === 'forum') {
-        const tagsRaw =
-          (channel as any).available_tags ?? (channel as any).availableTags;
+        const tagsRaw = channel.available_tags ?? channel.availableTags;
         const tags = normalizeDiscordForumAvailableTags(tagsRaw);
         if (tags) normalized.forumAvailableTags = tags;
       }

@@ -97,7 +97,11 @@ export default async function passkeyRoutes(
     );
 
     regScope.post<{
-      Body: { challengeId: string; credential: RegistrationResponseJSON };
+      Body: {
+        challengeId: string;
+        credential: RegistrationResponseJSON;
+        label?: string;
+      };
     }>(
       '/passkey/register/verify',
       {
@@ -109,6 +113,7 @@ export default async function passkeyRoutes(
             properties: {
               challengeId: { type: 'string', minLength: 8 },
               credential: { type: 'object', additionalProperties: true },
+              label: { type: 'string', maxLength: 64 },
             },
             additionalProperties: false,
           },
@@ -180,6 +185,7 @@ export default async function passkeyRoutes(
             publicKey: Buffer.from(credential.publicKey),
             counter: credential.counter,
             transports: credential.transports,
+            label: req.body.label,
           });
           void store.recordLoginEvent({
             userId: req.authUser.id,
@@ -239,6 +245,7 @@ export default async function passkeyRoutes(
             passkeys: rows.map((r) => ({
               id: r.id,
               credentialIdB64: r.credentialIdB64,
+              label: r.label,
               createdAt: r.createdAt,
             })),
           });
@@ -298,6 +305,64 @@ export default async function passkeyRoutes(
           return reply.code(200).send({ ok: true });
         } catch (err) {
           fastify.log.error(err, 'passkey_revoke_credential_failed');
+          return sendError(
+            reply,
+            500,
+            'INTERNAL_ERROR',
+            'Internal Server Error',
+          );
+        }
+      },
+    );
+
+    credScope.post<{ Body: { id: string; label: string } }>(
+      '/passkey/credentials/rename',
+      {
+        preHandler: [requireAuth],
+        schema: {
+          body: {
+            type: 'object',
+            required: ['id', 'label'],
+            properties: {
+              id: { type: 'string', minLength: 4 },
+              label: { type: 'string', maxLength: 64 },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      async (req, reply) => {
+        if (!req.authUser)
+          return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+        if (req.authUser.isGuest) {
+          return sendError(
+            reply,
+            403,
+            'GUEST',
+            'Guest accounts cannot manage passkeys.',
+          );
+        }
+        try {
+          const { store, mode } = await getAuthStore();
+          if (mode !== 'postgres') {
+            return sendError(
+              reply,
+              503,
+              'NOT_AVAILABLE',
+              'Passkeys require a database.',
+            );
+          }
+          const ok = await store.renameWebAuthnCredential(
+            req.authUser.id,
+            req.body.id.trim(),
+            req.body.label,
+          );
+          if (!ok) {
+            return sendError(reply, 404, 'NOT_FOUND', 'Passkey not found.');
+          }
+          return reply.code(200).send({ ok: true });
+        } catch (err) {
+          fastify.log.error(err, 'passkey_rename_credential_failed');
           return sendError(
             reply,
             500,

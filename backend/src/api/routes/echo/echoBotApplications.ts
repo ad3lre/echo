@@ -5,7 +5,7 @@ import type {
   FastifyRequest,
   FastifyReply,
 } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { sendError } from '../../errors';
 import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
 import {
@@ -46,7 +46,7 @@ export default async function echoBotApplicationsRoutes(
       const botId = nextEchoSnowflakeId();
       const token = generateBotToken(botId);
       const tokenHash = hashBotToken(token);
-      const ownerId = req.authUser!.id;
+      const ownerId = getAuthUser(req).id;
 
       await pool.query(
         `INSERT INTO echo_bot_applications (id, owner_user_id, name, token_hash) VALUES ($1, $2, $3, $4)`,
@@ -70,7 +70,7 @@ export default async function echoBotApplicationsRoutes(
       const pool = echoPool(req);
       const r = await pool.query(
         `SELECT id, name, created_at FROM echo_bot_applications WHERE owner_user_id = $1 ORDER BY created_at ASC`,
-        [req.authUser!.id],
+        [getAuthUser(req).id],
       );
       return reply.code(200).send({
         bots: r.rows.map((row: Record<string, unknown>) => ({
@@ -91,7 +91,7 @@ export default async function echoBotApplicationsRoutes(
       const botId = trimEchoPathParam(req.params.botId);
       const r = await pool.query(
         `DELETE FROM echo_bot_applications WHERE id = $1 AND owner_user_id = $2`,
-        [botId, req.authUser!.id],
+        [botId, getAuthUser(req).id],
       );
       if ((r.rowCount ?? 0) === 0) {
         return sendError(reply, 404, 'NOT_FOUND', 'Bot application not found');
@@ -108,7 +108,7 @@ export default async function echoBotApplicationsRoutes(
       const pool = echoPool(req);
       const botId = trimEchoPathParam(req.params.botId);
       const guildId = trimEchoPathParam(req.params.guildId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
 
       const botRow = await pool.query(
         `SELECT id, name FROM echo_bot_applications WHERE id = $1`,
@@ -160,7 +160,7 @@ export default async function echoBotApplicationsRoutes(
       const pool = echoPool(req);
       const botId = trimEchoPathParam(req.params.botId);
       const guildId = trimEchoPathParam(req.params.guildId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
 
       const botRow = await pool.query(
         `SELECT owner_user_id FROM echo_bot_applications WHERE id = $1`,

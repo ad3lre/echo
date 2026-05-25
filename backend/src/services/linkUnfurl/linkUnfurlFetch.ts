@@ -187,7 +187,7 @@ export async function fetchJsonWithTimeout(
         method: 'GET',
         redirect: 'manual',
         signal: ac.signal,
-        // @ts-ignore Node 18+ undici dispatcher
+        // @ts-expect-error Node 18+ undici dispatcher
         dispatcher: safeFetchAgent,
         headers: {
           Accept: 'application/json',

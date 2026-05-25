@@ -86,6 +86,7 @@ export class MemoryAuthStore implements AuthStore {
       publicKey: Buffer;
       counter: number;
       transports?: string[];
+      label: string;
       createdAt: number;
     }
   >();
@@ -888,14 +889,21 @@ export class MemoryAuthStore implements AuthStore {
 
   async listWebAuthnCredentialsForUser(
     userId: string,
-  ): Promise<{ id: string; credentialIdB64: string; createdAt: string }[]> {
-    const out: { id: string; credentialIdB64: string; createdAt: string }[] =
-      [];
+  ): Promise<
+    { id: string; credentialIdB64: string; label: string; createdAt: string }[]
+  > {
+    const out: {
+      id: string;
+      credentialIdB64: string;
+      label: string;
+      createdAt: string;
+    }[] = [];
     for (const [cid, c] of this.webauthnCredentials.entries()) {
       if (c.userId === userId)
         out.push({
           id: cid,
           credentialIdB64: cid,
+          label: c.label || '',
           createdAt: new Date(c.createdAt).toISOString(),
         });
     }
@@ -909,6 +917,7 @@ export class MemoryAuthStore implements AuthStore {
       publicKey: Buffer;
       counter: number;
       transports?: string[];
+      label?: string;
     },
   ): Promise<void> {
     this.webauthnCredentials.set(cred.credentialIdB64, {
@@ -916,6 +925,7 @@ export class MemoryAuthStore implements AuthStore {
       publicKey: cred.publicKey,
       counter: cred.counter,
       transports: cred.transports,
+      label: (cred.label || '').trim().slice(0, 64),
       createdAt: Date.now(),
     });
   }
@@ -933,6 +943,17 @@ export class MemoryAuthStore implements AuthStore {
   ): Promise<void> {
     const c = this.webauthnCredentials.get(credentialIdB64);
     if (c) c.counter = counter;
+  }
+
+  async renameWebAuthnCredential(
+    userId: string,
+    credentialRowId: string,
+    label: string,
+  ): Promise<boolean> {
+    const c = this.webauthnCredentials.get(credentialRowId.trim());
+    if (!c || c.userId !== userId) return false;
+    c.label = label.trim().slice(0, 64);
+    return true;
   }
 
   async revokeWebAuthnCredentialForUser(

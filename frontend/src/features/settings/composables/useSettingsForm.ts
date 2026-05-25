@@ -1,4 +1,4 @@
-import { reactive } from 'vue';
+import { reactive, type UnwrapRef } from 'vue';
 import {
   loadVoiceProcessingPreferences,
   type VoiceKrispProcessingToggles,
@@ -9,6 +9,28 @@ import {
   formatDateTimeWithPreferences,
   loadTimeLanguagePreferences,
 } from '@/features/settings/timeLanguagePreferences';
+import type { EchoThemeId } from '@/utils/theme';
+
+export type SettingsForm = UnwrapRef<ReturnType<typeof useSettingsForm>>;
+
+export type SettingsCurrentUser =
+  | {
+      id: string;
+      name: string;
+      username: string;
+      pfp?: string;
+      bio?: string;
+      customStatus?: string;
+      bannerImage?: string;
+      bannerColor?: string;
+      bannerRefractionEnabled?: boolean;
+      bannerBlurEnabled?: boolean;
+      bannerBlackoutEnabled?: boolean;
+      bannerPositionY?: number;
+      twoFactorEnabled?: boolean;
+    }
+  | null
+  | undefined;
 
 export function useSettingsForm() {
   const timeLanguagePrefs = loadTimeLanguagePreferences();
@@ -30,7 +52,7 @@ export function useSettingsForm() {
     phone: '',
     passwordMask: '••••••••••••',
     twoFactorEnabled: false,
-    theme: 'Dark',
+    theme: 'Dark' as EchoThemeId,
     density: 'Comfortable',
     /** Desktop sidebar vs top strip — see theme store `actionRailPlacement`. */
     actionRailPlacement: 'left' as 'left' | 'top',

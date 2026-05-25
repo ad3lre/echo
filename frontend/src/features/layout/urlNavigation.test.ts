@@ -275,7 +275,9 @@ describe('parseUserSettingsSectionFromQuery / parseGuildSettingsSectionFromQuery
     expect(parseGuildSettingsSectionFromQuery('Applications')).toBe('Access');
     expect(parseGuildSettingsSectionFromQuery('Access')).toBe('Access');
     expect(parseGuildSettingsSectionFromQuery('Discord')).toBe('Discord');
-    expect(parseGuildSettingsSectionFromQuery('Automod')).toBe('Automod');
+    expect(parseGuildSettingsSectionFromQuery('Banned%20Words')).toBe(
+      'Banned Words',
+    );
     expect(parseGuildSettingsSectionFromQuery('Audit%20Log')).toBe('Audit Log');
     expect(parseGuildSettingsSectionFromQuery('Nope')).toBeNull();
     expect(parseGuildSettingsSectionFromQuery('%')).toBeNull();

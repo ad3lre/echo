@@ -28,7 +28,10 @@ import { settingsSectionBlurb } from '@/i18n/labels';
 import { echoT } from '@/i18n';
 import { isSettingsSectionVisibleForUser } from '@/features/settings/settingsSectionVisibility';
 import { SETTINGS_SECTION_NAV_ICON } from '@/features/settings/sectionNavIcons';
-import { useSettingsForm } from '@/features/settings/composables/useSettingsForm';
+import {
+  useSettingsForm,
+  type SettingsCurrentUser,
+} from '@/features/settings/composables/useSettingsForm';
 import {
   loadVoiceProcessingPreferences,
   saveVoiceProcessingPreferences,
@@ -88,7 +91,7 @@ function settingsNavIconIsBrandMark(section: SettingsSection): boolean {
 const props = defineProps<{
   modelValue: boolean;
   initialSection?: SettingsSection | null;
-  currentUser?: any;
+  currentUser?: SettingsCurrentUser;
 }>();
 
 const emit = defineEmits<{

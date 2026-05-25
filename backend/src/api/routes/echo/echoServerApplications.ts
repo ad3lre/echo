@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
   approveEchoServerApplication,
@@ -32,7 +32,7 @@ export default async function echoServerApplicationsRoutes(
       }
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (okMem) {
         return sendError(
           reply,
@@ -62,7 +62,7 @@ export default async function echoServerApplicationsRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -71,7 +71,11 @@ export default async function echoServerApplicationsRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const perms = await getMergedRolePermissions(pool, sid, req.authUser!.id);
+      const perms = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
       if (!perms.has('MANAGE_GUILD'))
         return sendError(
           reply,
@@ -97,7 +101,7 @@ export default async function echoServerApplicationsRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -106,7 +110,11 @@ export default async function echoServerApplicationsRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const perms = await getMergedRolePermissions(pool, sid, req.authUser!.id);
+      const perms = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
       if (!perms.has('MANAGE_GUILD'))
         return sendError(
           reply,
@@ -150,11 +158,16 @@ export default async function echoServerApplicationsRoutes(
           'INVALID_BODY',
           'source must be invite or directory',
         );
-      const r = await submitEchoServerApplication(pool, sid, req.authUser!.id, {
-        source: src,
-        inviteToken: req.body?.inviteToken,
-        answers: req.body?.answers ?? {},
-      });
+      const r = await submitEchoServerApplication(
+        pool,
+        sid,
+        getAuthUser(req).id,
+        {
+          source: src,
+          inviteToken: req.body?.inviteToken,
+          answers: req.body?.answers ?? {},
+        },
+      );
       if (!r.ok) {
         if (r.reason === 'not_found')
           return sendError(reply, 404, 'NOT_FOUND', 'Server not found');
@@ -212,7 +225,7 @@ export default async function echoServerApplicationsRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const aid = trimEchoPathParam(req.params.applicationId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -221,7 +234,11 @@ export default async function echoServerApplicationsRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const perms = await getMergedRolePermissions(pool, sid, req.authUser!.id);
+      const perms = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
       if (!perms.has('MANAGE_GUILD'))
         return sendError(
           reply,
@@ -233,7 +250,7 @@ export default async function echoServerApplicationsRoutes(
         pool,
         sid,
         aid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         clientIpFromFastifyRequest(req),
       );
       if (!r.ok) {
@@ -287,7 +304,7 @@ export default async function echoServerApplicationsRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const aid = trimEchoPathParam(req.params.applicationId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -296,7 +313,11 @@ export default async function echoServerApplicationsRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const perms = await getMergedRolePermissions(pool, sid, req.authUser!.id);
+      const perms = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
       if (!perms.has('MANAGE_GUILD'))
         return sendError(
           reply,
@@ -308,7 +329,7 @@ export default async function echoServerApplicationsRoutes(
         pool,
         sid,
         aid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         req.body?.note,
       );
       if (r === 'not_found')

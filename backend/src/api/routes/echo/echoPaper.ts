@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import { sendEchoChannelAccessDenied, sendError } from '../../errors';
 import {
   assertEchoPaperChannelAccess,
@@ -71,7 +71,7 @@ export default async function echoPaperRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const access = await assertEchoPaperChannelAccess(
         pool,
         userId,
@@ -116,7 +116,7 @@ export default async function echoPaperRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const access = await assertEchoPaperChannelAccess(
         pool,
         userId,
@@ -177,7 +177,7 @@ export default async function echoPaperRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const visibility = req.body?.visibility;
       if (
         visibility !== 'server' &&
@@ -251,7 +251,7 @@ export default async function echoPaperRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const expectedRevision = Number(req.body?.expectedRevision);
       if (!Number.isFinite(expectedRevision) || expectedRevision < 1) {
         return sendError(
@@ -317,7 +317,7 @@ export default async function echoPaperRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const access = await assertEchoPaperChannelAccess(
         pool,
         userId,
@@ -370,7 +370,7 @@ export default async function echoPaperRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const result = await createEchoPaperComment(pool, channelId, userId, {
         anchorBlockId: String(req.body?.anchorBlockId ?? ''),
         anchorFrom: req.body?.anchorFrom ?? null,
@@ -415,7 +415,7 @@ export default async function echoPaperRoutes(
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
       const commentId = trimEchoPathParam(req.params.commentId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const visPatch = await assertPaperContentVisibleToUser(
         pool,
         channelId,
@@ -466,7 +466,7 @@ export default async function echoPaperRoutes(
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
       const commentId = trimEchoPathParam(req.params.commentId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const visDel = await assertPaperContentVisibleToUser(
         pool,
         channelId,

@@ -53,6 +53,7 @@ import { useAppLayoutPinsIntegration } from './useAppLayoutPinsIntegration';
 import { useAppLayoutBootstrap } from './useAppLayoutBootstrap';
 import { useAppLayoutGridChrome } from './useAppLayoutGridChrome';
 import { useAppLayoutWelcomeBack } from './useAppLayoutWelcomeBack';
+import { useInviteLandingFlow } from './useInviteLandingFlow';
 import { useAppLayoutServerNotifications } from './useAppLayoutServerNotifications';
 import { useAppLayoutServerPingIndicators } from './useAppLayoutServerPingIndicators';
 import { useAppLayoutServerRailActions } from './useAppLayoutServerRailActions';
@@ -401,6 +402,12 @@ export function useAppLayoutController() {
   const themeStore = useThemeStore();
   const actionRailTopLayout = computed(
     () => themeStore.actionRailPlacement === 'top' && !isCompactShell.value,
+  );
+
+  /** Forward-declared; set by `useInviteLandingFlow` after shell nav is wired. */
+  const inviteLandingActiveRef = ref(false);
+  const inviteLandingActiveComputed = computed(
+    () => inviteLandingActiveRef.value,
   );
   const compactPagerPane = ref<0 | 1 | 2>(1);
   /** Guild tri-pane: stack column visibility for compactTriPaneGuildNav (also tied to pager pane — see watch below). */
@@ -1034,6 +1041,7 @@ export function useAppLayoutController() {
     isGuestUser: () => authSession.backendUser?.isGuest === true,
     onGuestDmBlocked: () => openGuestUpgradeForDmRef.value?.(),
     isCompactShell,
+    inviteLandingActive: inviteLandingActiveComputed,
   });
 
   const hasGuildChannelChrome = useHasGuildChannelChromeComputed(mainSurface);
@@ -1687,6 +1695,33 @@ export function useAppLayoutController() {
         .length === 0,
   );
 
+  const inviteLanding = useInviteLandingFlow({
+    base: import.meta.env.BASE_URL,
+    isAuthenticated: isAuthenticatedComputed,
+    workspaceReady: computed(() => !workspace.loading.value),
+    activeRailTab,
+    joinedServerIds: computed(() => serverStore.servers.map((s) => s.id)),
+    joinedServerSlugs: computed(() =>
+      serverStore.servers.map((s) => ({
+        id: s.id,
+        vanityCode: (s as { vanityCode?: string }).vanityCode,
+      })),
+    ),
+    openServerSurface,
+    selectExploreTab,
+    refreshWorkspace: () => hydrateEchoFromApi(),
+  });
+
+  inviteLanding.initFromUrl();
+
+  watch(
+    inviteLanding.inviteLandingActive,
+    (active) => {
+      inviteLandingActiveRef.value = active;
+    },
+    { immediate: true },
+  );
+
   const { showWelcomeBackSlimBanner, welcomeBackExploreGate } =
     useAppLayoutWelcomeBack({
       activeRailTab,
@@ -1696,6 +1731,7 @@ export function useAppLayoutController() {
       explorePublicDirectoryEmpty,
       isGuestUser: isGuestComputed,
       workspaceLoading: computed(() => workspace.loading.value),
+      inviteLandingActive: inviteLanding.inviteLandingActive,
     });
 
   const welcomeBackExploreMemberEmptyDirectory = computed(
@@ -1719,7 +1755,10 @@ export function useAppLayoutController() {
     pfpBarExpanded,
     isServerEmptyOnboarding,
     isDmUiContext,
-    collapseServerRail: welcomeBackExploreGate,
+    collapseServerRail: computed(
+      () =>
+        welcomeBackExploreGate.value || inviteLanding.inviteLandingActive.value,
+    ),
     isCompactShell,
     actionRailTop: actionRailTopLayout,
   });
@@ -3925,6 +3964,11 @@ export function useAppLayoutController() {
     welcomeBackExploreGate,
     welcomeBackExploreMemberEmptyDirectory,
     showWelcomeBackSlimBanner,
+    inviteLandingActive: inviteLanding.inviteLandingActive,
+    inviteLandingPreview: inviteLanding.invitePreview,
+    inviteLandingLoading: inviteLanding.isLoading,
+    inviteLandingError: inviteLanding.previewError,
+    inviteLandingPersistBeforeOAuth: inviteLanding.persistInviteBeforeOAuth,
     showNsfwChatGate,
     acknowledgeNsfwChannel,
     declineNsfwGate,

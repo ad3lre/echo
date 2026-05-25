@@ -25,11 +25,7 @@ import { echoRowToMessage } from './echoPersistedMessageCreate';
 import { filterMentionsForChannelContext } from '../domain/echoStore/mentionContext';
 import { canUserSendMassMentionInChannel } from '../domain/echoStore/access';
 import { checkEchoServerSpamFilter } from '../domain/echoStore/serverSpamFilter';
-import { evaluateAutomodOnMessageSend } from '../domain/echoStore/automod/messageEval';
-import {
-  applyAutomodBlockDeliveries,
-  recordAutomodBlockHits,
-} from './echoAutomodApply';
+import { evaluateBannedWordsOnMessageSend } from '../domain/echoStore/bannedWords/messageEval';
 import { validateEchoForumPostCreateFirstMessagePoll } from '../domain/echoStore/forums';
 import { buildMentionEntitiesFromDiscordWebhookContent } from './echoChannelWebhookAllowedMentions';
 import { normalizeWebhookExecutePoll } from './echoChannelWebhookPollDiscord';
@@ -353,46 +349,17 @@ export async function executeEchoChannelWebhook(
     };
   }
 
-  const automodEval = await evaluateAutomodOnMessageSend(pool, {
+  const bannedWordsEval = await evaluateBannedWordsOnMessageSend(pool, {
     serverId: row.serverId,
-    channelId: targetChannelId,
     userId: ECHO_INTERNAL_WEBHOOK_ACTOR_USER_ID,
     content: contentTrim,
-    mentionCount: mentions?.length ?? 0,
   });
-  if (automodEval.shouldBlock) {
-    const own = await pool.query(
-      `SELECT owner_id::text AS owner_id FROM echo_servers WHERE id = $1 LIMIT 1`,
-      [row.serverId],
-    );
-    const ownerActorId = own.rows[0] ? String(own.rows[0].owner_id) : '';
-    if (ownerActorId) {
-      await recordAutomodBlockHits(pool, {
-        serverId: row.serverId,
-        ownerActorId,
-        channelId: targetChannelId,
-        userId: ECHO_INTERNAL_WEBHOOK_ACTOR_USER_ID,
-        correlationId: automodEval.correlationId,
-        firedRules: automodEval.firedRules,
-        log,
-      });
-      if (opts.fastify) {
-        await applyAutomodBlockDeliveries(opts.fastify, pool, {
-          serverId: row.serverId,
-          ownerActorId,
-          channelId: targetChannelId,
-          userId: ECHO_INTERNAL_WEBHOOK_ACTOR_USER_ID,
-          correlationId: automodEval.correlationId,
-          firedRules: automodEval.firedRules,
-          log,
-        });
-      }
-    }
+  if (bannedWordsEval.shouldBlock) {
     return {
       ok: false,
       status: 403,
-      code: 'AUTOMOD_BLOCKED',
-      message: automodEval.blockUserDetail ?? 'Blocked by AutoMod',
+      code: 'BANNED_WORDS_BLOCKED',
+      message: bannedWordsEval.blockUserDetail ?? 'Blocked by word filter',
     };
   }
 

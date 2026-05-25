@@ -2,6 +2,7 @@
 export const ECHO_EXTENDED_PERMISSION_STRINGS = [
   'ASSIGN_ROLES',
   'COMMENT_ON_PAPER',
+  'MANAGE_TICKETS',
 ] as const;
 
 export type EchoExtendedPermissionString =

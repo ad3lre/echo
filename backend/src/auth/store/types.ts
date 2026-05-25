@@ -176,7 +176,9 @@ export interface AuditStore {
 export interface WebAuthnStore {
   listWebAuthnCredentialsForUser(
     userId: string,
-  ): Promise<{ id: string; credentialIdB64: string; createdAt: string }[]>;
+  ): Promise<
+    { id: string; credentialIdB64: string; label: string; createdAt: string }[]
+  >;
   saveWebAuthnCredential(
     userId: string,
     cred: {
@@ -184,6 +186,7 @@ export interface WebAuthnStore {
       publicKey: Buffer;
       counter: number;
       transports?: string[];
+      label?: string;
     },
   ): Promise<void>;
   findWebAuthnCredential(
@@ -193,6 +196,11 @@ export interface WebAuthnStore {
     credentialIdB64: string,
     counter: number,
   ): Promise<void>;
+  renameWebAuthnCredential(
+    userId: string,
+    credentialRowId: string,
+    label: string,
+  ): Promise<boolean>;
   /** Removes a stored passkey row; returns true if a row was deleted. */
   revokeWebAuthnCredentialForUser(
     userId: string,

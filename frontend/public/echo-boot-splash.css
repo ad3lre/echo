@@ -69,3 +69,15 @@ body {
 .echo-boot-splash__hint[hidden] {
   display: none !important;
 }
+
+/* Fade-out when Vue mounts: the app shell adds `data-echo-mounted` to #app, which
+ * triggers a gentle crossfade so the spinner doesn't hard-cut to content.
+ * The boot splash is removed from the DOM after the transition by Vue's mount. */
+.echo-boot-splash {
+  transition: opacity 180ms ease-out;
+}
+
+#app[data-echo-mounted] > .echo-boot-splash {
+  opacity: 0;
+  pointer-events: none;
+}

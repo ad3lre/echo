@@ -819,7 +819,7 @@ const BOTTOM_JUMP_SHOW_MESSAGES = 30;
  * Deliberately high: retain more DOM, fewer mount/unmount cycles and measurement races.
  * Trade memory for scroll stability — do not tune this like a mobile list from 2012.
  */
-const MESSAGE_LIST_OVERSCAN = 120;
+const MESSAGE_LIST_OVERSCAN = 100;
 /** Fewer off-screen rows on touch devices (GPU / layout budget on WebKit mobile). */
 const MESSAGE_LIST_OVERSCAN_COARSE = 56;
 /**

@@ -1,6 +1,4 @@
-// Use `require` to avoid depending on @types/jsonwebtoken mismatches in this repo.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const jwt = require('jsonwebtoken') as any;
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import { createHash, randomBytes } from 'crypto';
 import { config } from '../config';
 
@@ -12,7 +10,7 @@ export type AccessTokenPayload = {
 export function signAccessToken(payload: AccessTokenPayload): string {
   return jwt.sign(payload, config.jwtSecret, {
     algorithm: 'HS256',
-    expiresIn: config.jwtExpiresIn,
+    expiresIn: config.jwtExpiresIn as SignOptions['expiresIn'],
   });
 }
 
@@ -56,7 +54,9 @@ export function signMfaPendingToken(userId: string): string {
   return jwt.sign(
     { sub: userId, typ: 'mfa_pending' } satisfies MfaPendingTokenPayload,
     config.jwtSecret,
-    { expiresIn: config.echoMfaPendingJwtExpiresIn },
+    {
+      expiresIn: config.echoMfaPendingJwtExpiresIn as SignOptions['expiresIn'],
+    },
   );
 }
 

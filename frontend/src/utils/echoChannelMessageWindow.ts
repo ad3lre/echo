@@ -4,7 +4,7 @@ import type { RawMessage } from '@/features/chat/chatMessageTypes';
  * Max messages kept for the **active** channel (the one open in the UI).
  * Prefer a large cap: fewer trims, refetches, and index churn — trade RAM for stability.
  */
-export const ECHO_CHANNEL_MESSAGES_CLIENT_CAP_ACTIVE = 6000;
+export const ECHO_CHANNEL_MESSAGES_CLIENT_CAP_ACTIVE = 3000;
 
 /**
  * Max messages for **other** channels still held in the workspace record.

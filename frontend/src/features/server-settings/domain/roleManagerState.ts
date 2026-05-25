@@ -44,6 +44,7 @@ export function defaultRolePermissions(): RolePermissions {
     readMessageHistory: true,
     createPolls: true,
     commentOnPaper: true,
+    manageTickets: false,
     connectToVoice: true,
     video: true,
     muteDeafenMembers: false,

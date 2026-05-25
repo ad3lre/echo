@@ -1,5 +1,5 @@
 export * from '../echoContractV1';
-export * from './automod';
+export * from './bannedWords';
 export * from './api';
 export * from './channel';
 export * from './paper';
@@ -12,6 +12,7 @@ export * from './presence';
 export * from './user';
 export * from './server';
 export * from './socket';
+export * from './ticket';
 // Domain entry points for feature-scoped imports during modularization.
 export * as apiTypes from './domains/api';
 export * as authTypes from './domains/auth';

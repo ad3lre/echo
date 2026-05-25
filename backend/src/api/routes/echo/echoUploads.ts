@@ -6,7 +6,7 @@ import {
   FastifyRequest,
   FastifyReply,
 } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import { config } from '../../../config';
 import {
   canUserAccessChannel,
@@ -452,7 +452,7 @@ export default async function echoUploadsRoutes(
           if (!payload) {
             return sendError(reply, 403, 'FORBIDDEN', 'Invalid upload token');
           }
-          const userId = req.authUser!.id;
+          const userId = getAuthUser(req).id;
           if (payload.userId !== userId) {
             return sendError(reply, 403, 'FORBIDDEN', 'Upload token mismatch');
           }
@@ -540,7 +540,7 @@ export default async function echoUploadsRoutes(
     },
     async (req, reply) => {
       const pool = echoPool(req);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
 
       const objectKeyRaw =
         typeof req.body?.key === 'string' ? req.body.key : '';
@@ -703,7 +703,7 @@ export default async function echoUploadsRoutes(
     },
     async (req, reply) => {
       const pool = echoPool(req);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const body = req.body;
 
       const sha256Hex =
@@ -810,7 +810,7 @@ export default async function echoUploadsRoutes(
     },
     async (req, reply) => {
       const pool = echoPool(req);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const body = req.body;
 
       const objectKeyRaw =

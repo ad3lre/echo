@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
   applyEchoCategoryPlacement,
@@ -36,7 +36,7 @@ export default async function echoCategoriesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -74,7 +74,7 @@ export default async function echoCategoriesRoutes(
       const r = await updateEchoCategoryPermissionOverrides(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         categoryId,
         permissionOverrides,
       );
@@ -102,7 +102,7 @@ export default async function echoCategoriesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'category.permission_overrides',
         'category',
         categoryId,
@@ -126,7 +126,7 @@ export default async function echoCategoriesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -149,7 +149,7 @@ export default async function echoCategoriesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -158,7 +158,7 @@ export default async function echoCategoriesRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const r = await createEchoCategory(pool, sid, req.authUser!.id, {
+      const r = await createEchoCategory(pool, sid, getAuthUser(req).id, {
         name: typeof req.body?.name === 'string' ? req.body.name : '',
         position: req.body?.position,
       });
@@ -181,7 +181,7 @@ export default async function echoCategoriesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'category.create',
         'category',
         r.categoryId,
@@ -211,7 +211,7 @@ export default async function echoCategoriesRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -228,7 +228,7 @@ export default async function echoCategoriesRoutes(
         const sr = await applyEchoCategoryPlacement(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
           categoryId,
           Math.floor(b.siblingIndex as number),
         );
@@ -262,7 +262,7 @@ export default async function echoCategoriesRoutes(
         const r = await updateEchoCategory(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
           categoryId,
           {
             name: namePatch,
@@ -294,7 +294,7 @@ export default async function echoCategoriesRoutes(
         const r = await updateEchoCategory(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
           categoryId,
           {},
         );
@@ -321,7 +321,7 @@ export default async function echoCategoriesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'category.update',
         'category',
         categoryId,
@@ -343,7 +343,7 @@ export default async function echoCategoriesRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -355,7 +355,7 @@ export default async function echoCategoriesRoutes(
       const r = await deleteEchoCategory(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         categoryId,
       );
       if (r === 'forbidden')
@@ -370,7 +370,7 @@ export default async function echoCategoriesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'category.delete',
         'category',
         categoryId,
@@ -392,7 +392,7 @@ export default async function echoCategoriesRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -401,7 +401,11 @@ export default async function echoCategoriesRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
-      const gate = await getMergedRolePermissions(pool, sid, req.authUser!.id);
+      const gate = await getMergedRolePermissions(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
       if (!gate.has('MANAGE_ROLES') && !gate.has('MANAGE_GUILD')) {
         return sendError(
           reply,
@@ -429,7 +433,7 @@ export default async function echoCategoriesRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -448,7 +452,7 @@ export default async function echoCategoriesRoutes(
         r = await replaceEchoCategoryPermissionOverwrites(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
           categoryId,
           parsed,
         );
@@ -474,7 +478,7 @@ export default async function echoCategoriesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'category.permission_overwrites',
         'category',
         categoryId,

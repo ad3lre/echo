@@ -8,11 +8,22 @@ import {
   type EchoThemeId,
 } from '@/utils/theme';
 import ActionRailPlacementVisualPicker from '@/components/ActionRailPlacementVisualPicker.vue';
+import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
+
+interface ThemeOption {
+  id: string;
+  disabled?: boolean;
+}
+
+interface DensityOption {
+  id: string;
+  desc: string;
+}
 
 const props = defineProps<{
-  form: any;
-  themeOptions: any[];
-  densityOptions: any[];
+  form: SettingsForm;
+  themeOptions: ThemeOption[];
+  densityOptions: DensityOption[];
   echoPlan?: 'free' | 'plus' | 'black';
 }>();
 
@@ -29,11 +40,11 @@ const syncWithSystemShownOn = computed(
 
 /** The theme currently shown as selected in the UI. When syncing with system, this reflects the resolved theme. */
 const visuallySelectedTheme = computed<EchoThemeId>(() => {
-  if (styleSettingsLocked.value) return props.form.theme;
+  if (styleSettingsLocked.value) return props.form.theme as EchoThemeId;
   if (props.form.styleSettings.syncThemeWithSystem) {
     return themeStore.resolvedTheme;
   }
-  return props.form.theme;
+  return props.form.theme as EchoThemeId;
 });
 
 function themeOptionDisabled(t: { id?: string; disabled?: boolean }): boolean {

@@ -4,6 +4,7 @@ import {
   AuthApiError,
   authFetchPasskeys,
   authRevokePasskey,
+  authRenamePasskey,
   type AuthPasskeyCredential,
 } from '@/api/authClient';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -15,6 +16,7 @@ export function usePasskeyCredentials() {
   const passkeysLoading = ref(false);
   const passkeysError = ref<string | null>(null);
   const passkeyRevokingId = ref<string | null>(null);
+  const passkeyRenamingId = ref<string | null>(null);
 
   async function loadPasskeys() {
     passkeysError.value = null;
@@ -60,12 +62,31 @@ export function usePasskeyCredentials() {
     }
   }
 
+  async function renamePasskey(id: string, label: string) {
+    if (!ECHO_PASSKEYS_ENABLED) return;
+    if (!authSession.isAuthenticated || echoSyncCapabilities.isMockDataMode)
+      return;
+    passkeyRenamingId.value = id;
+    passkeysError.value = null;
+    try {
+      await authRenamePasskey(id, label);
+      await loadPasskeys();
+    } catch (e) {
+      passkeysError.value =
+        e instanceof AuthApiError ? e.message : 'Could not rename passkey.';
+    } finally {
+      passkeyRenamingId.value = null;
+    }
+  }
+
   return {
     passkeys,
     passkeysLoading,
     passkeysError,
     passkeyRevokingId,
+    passkeyRenamingId,
     loadPasskeys,
     revokePasskey,
+    renamePasskey,
   };
 }

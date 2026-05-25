@@ -4,7 +4,7 @@ import type {
   FastifyPluginOptions,
   FastifyReply,
 } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { sendError } from '../../errors';
 import {
   createVoiceE2eeEpochWithEnvelopes,
@@ -186,7 +186,7 @@ export default async function echoVoiceE2eeRoutes(
       const r = await listVoiceE2eeEnvelopesForUser(pool, {
         serverId: ECHO_DM_REALM_SERVER_ID,
         channelId,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
       });
       if (!r.ok) {
         return sendError(
@@ -229,7 +229,7 @@ export default async function echoVoiceE2eeRoutes(
       const result = await createVoiceE2eeEpochWithEnvelopes(pool, {
         serverId: ECHO_DM_REALM_SERVER_ID,
         channelId,
-        actorUserId: req.authUser!.id,
+        actorUserId: getAuthUser(req).id,
         epochId,
         envelopes,
       });
@@ -240,7 +240,7 @@ export default async function echoVoiceE2eeRoutes(
         pool,
         ECHO_DM_REALM_SERVER_ID,
         channelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       return reply.code(204).send();
     },
@@ -258,7 +258,7 @@ export default async function echoVoiceE2eeRoutes(
       const r = await listVoiceE2eeEnvelopesForUser(pool, {
         serverId,
         channelId,
-        userId: req.authUser!.id,
+        userId: getAuthUser(req).id,
       });
       if (!r.ok) {
         return sendError(
@@ -304,7 +304,7 @@ export default async function echoVoiceE2eeRoutes(
       const result = await createVoiceE2eeEpochWithEnvelopes(pool, {
         serverId,
         channelId,
-        actorUserId: req.authUser!.id,
+        actorUserId: getAuthUser(req).id,
         epochId,
         envelopes,
       });
@@ -315,7 +315,7 @@ export default async function echoVoiceE2eeRoutes(
         pool,
         serverId,
         channelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       return reply.code(204).send();
     },

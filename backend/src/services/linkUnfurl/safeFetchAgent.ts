@@ -9,7 +9,7 @@ export const safeFetchAgent = new Agent({
     if (!opts.host) {
       return callback(new Error('No host provided'), null);
     }
-    lookup(opts.host, { all: true, verbatim: true } as any)
+    lookup(opts.host, { all: true, verbatim: true })
       .then((res) => {
         const results = res as unknown as { address: string; family: number }[];
         if (!results || !results.length) {

@@ -51,6 +51,17 @@ function checkGuestGates(
   return null;
 }
 
+/**
+ * Returns the authenticated user from a request that has passed `requireAuth`.
+ * Prefer this over `req.authUser!` — it centralises the assertion and gives
+ * a non-optional return type so call-sites don't need `!`.
+ */
+export function getAuthUser(req: FastifyRequest): AuthUser {
+  const user = req.authUser;
+  if (!user) throw new Error('getAuthUser called on unauthenticated request');
+  return user;
+}
+
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   const debugAuth = process.env.ECHO_DEBUG_AUTH === '1';
   const cookies = req.cookies as Record<string, string | undefined> | undefined;

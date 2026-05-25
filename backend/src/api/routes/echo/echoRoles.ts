@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions, FastifyRequest } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
   assignEchoMemberRole,
@@ -63,7 +63,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -75,7 +75,7 @@ export default async function echoRolesRoutes(
       const capabilities = await getEchoServerCapabilitiesForUser(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       const canReadGlobalRoleGraph =
         capabilities.canManageRoles || capabilities.canManageServer;
@@ -114,7 +114,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -134,7 +134,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -146,7 +146,7 @@ export default async function echoRolesRoutes(
       const caps = await getEchoServerCapabilitiesForUser(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       const roles = await listEchoRolesForServer(pool, sid, {
         includeAuthorityRoles: caps.canManageRoles,
@@ -161,7 +161,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -181,7 +181,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -193,7 +193,7 @@ export default async function echoRolesRoutes(
       const r = await createEchoRoleCategory(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         req.body?.name,
       );
       if (r === 'forbidden')
@@ -224,7 +224,7 @@ export default async function echoRolesRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -236,7 +236,7 @@ export default async function echoRolesRoutes(
       const r = await updateEchoRoleCategory(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         categoryId,
         {
           name: req.body?.name,
@@ -264,7 +264,7 @@ export default async function echoRolesRoutes(
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
       const categoryId = trimEchoPathParam(req.params.categoryId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -276,7 +276,7 @@ export default async function echoRolesRoutes(
       const r = await deleteEchoRoleCategory(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         categoryId,
       );
       if (r === 'forbidden')
@@ -308,7 +308,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -330,7 +330,7 @@ export default async function echoRolesRoutes(
       const r = await replaceEchoRoleCategoryOrder(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         categoryIds,
       );
       if (r === 'forbidden')
@@ -370,7 +370,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -380,7 +380,7 @@ export default async function echoRolesRoutes(
           'NOT_SERVER_MEMBER',
         );
       const body = req.body ?? {};
-      const r = await createEchoRole(pool, sid, req.authUser!.id, {
+      const r = await createEchoRole(pool, sid, getAuthUser(req).id, {
         name: typeof body.name === 'string' ? body.name.trim() : '',
         color: typeof body.color === 'string' ? body.color : undefined,
         darkColor:
@@ -447,7 +447,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -468,14 +468,14 @@ export default async function echoRolesRoutes(
         ? await replaceEchoRoleOrderInCategory(
             pool,
             sid,
-            req.authUser!.id,
+            getAuthUser(req).id,
             categoryId,
             roleIds,
           )
         : await replaceEchoServerRoleOrder(
             pool,
             sid,
-            req.authUser!.id,
+            getAuthUser(req).id,
             roleIds,
           );
       if (r === 'forbidden')
@@ -495,7 +495,7 @@ export default async function echoRolesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'role.order_update',
         'server',
         sid,
@@ -654,7 +654,7 @@ export default async function echoRolesRoutes(
       const r = await updateEchoRole(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         roleId,
         patch,
       );
@@ -688,7 +688,7 @@ export default async function echoRolesRoutes(
         const auditId = await insertEchoAudit(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
           'role.permissions_update',
           'role',
           roleId,
@@ -709,7 +709,7 @@ export default async function echoRolesRoutes(
         await insertEchoAudit(
           pool,
           sid,
-          req.authUser!.id,
+          getAuthUser(req).id,
           'role.metadata_update',
           'role',
           roleId,
@@ -743,7 +743,7 @@ export default async function echoRolesRoutes(
       const roleId = trimEchoPathParam(req.params.roleId);
       const prevRow = await getEchoRoleAuditMeta(pool, sid, roleId);
       if (!prevRow) return sendError(reply, 404, 'NOT_FOUND', 'Role not found');
-      const r = await deleteEchoRole(pool, sid, req.authUser!.id, roleId);
+      const r = await deleteEchoRole(pool, sid, getAuthUser(req).id, roleId);
       if (r === 'forbidden')
         return sendError(
           reply,
@@ -763,7 +763,7 @@ export default async function echoRolesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'role.delete',
         'role',
         roleId,
@@ -816,7 +816,7 @@ export default async function echoRolesRoutes(
       const r = await replaceEchoRoleLinksFromAnchor(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         roleId,
         links,
       );
@@ -834,7 +834,7 @@ export default async function echoRolesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'role.links_update',
         'role',
         roleId,
@@ -864,7 +864,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -893,7 +893,7 @@ export default async function echoRolesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const okMem = await isMemberOfServer(pool, sid, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, sid, getAuthUser(req).id);
       if (!okMem)
         return sendError(
           reply,
@@ -905,7 +905,7 @@ export default async function echoRolesRoutes(
       const caps = await getEchoServerCapabilitiesForUser(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       const raw = await listEchoMemberRoleAssignmentsByUser(pool, sid);
       let assignments = raw;
@@ -934,7 +934,7 @@ export default async function echoRolesRoutes(
       const r = await assignEchoMemberRole(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         targetUserId,
         roleId,
       );
@@ -962,7 +962,7 @@ export default async function echoRolesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'member.role_add',
         'user',
         targetUserId,
@@ -995,7 +995,7 @@ export default async function echoRolesRoutes(
       const r = await removeEchoMemberRole(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         targetUserId,
         roleId,
       );
@@ -1031,7 +1031,7 @@ export default async function echoRolesRoutes(
       const auditId = await insertEchoAudit(
         pool,
         sid,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'member.role_remove',
         'user',
         targetUserId,

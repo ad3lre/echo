@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { sendError } from '../../errors';
 import {
   acceptEchoDmMessageRequest,
@@ -56,7 +56,7 @@ export default async function echoDmRoutes(
     { preHandler: [requireAuth, requireEchoStore] },
     async (req, reply) => {
       const pool = echoPool(req);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
       if (!q)
         return sendError(reply, 400, 'SEARCH_QUERY_REQUIRED', 'Provide q');
@@ -113,7 +113,7 @@ export default async function echoDmRoutes(
           : '';
       if (!peer)
         return sendError(reply, 400, 'INVALID_BODY', 'peerUserId required');
-      const r = await getOrCreateEchoDmThread(pool, req.authUser!.id, peer);
+      const r = await getOrCreateEchoDmThread(pool, getAuthUser(req).id, peer);
       if (!r.ok) {
         if (r.reason === 'unknown_peer') {
           echoDmOpenTotal.inc({ outcome: 'unknown_peer' });
@@ -179,7 +179,7 @@ export default async function echoDmRoutes(
       const name = typeof req.body?.name === 'string' ? req.body.name : '';
       const r = await createEchoGroupDmThread(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         raw.map((x) => String(x)),
         name,
       );
@@ -200,7 +200,7 @@ export default async function echoDmRoutes(
             'Group DM requires at least 3 members',
           );
         if (r.reason === 'too_many') {
-          const ent = await getEchoEntitlements(pool, req.authUser!.id);
+          const ent = await getEchoEntitlements(pool, getAuthUser(req).id);
           return sendError(
             reply,
             400,
@@ -238,7 +238,7 @@ export default async function echoDmRoutes(
     { preHandler: [requireAuth, requireEchoStore] },
     async (req, reply) => {
       const pool = echoPool(req);
-      const threads = await listEchoDmThreadsForUser(pool, req.authUser!.id);
+      const threads = await listEchoDmThreadsForUser(pool, getAuthUser(req).id);
       const activeVoiceParticipantUserIdsByChannelId =
         await listEchoDmActiveVoiceParticipantUserIdsByChannelId(
           pool,
@@ -288,7 +288,7 @@ export default async function echoDmRoutes(
       const pool = echoPool(req);
       const requests = await listEchoDmMessageRequestsForUser(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       return reply.code(200).send({
         requests,
@@ -316,7 +316,7 @@ export default async function echoDmRoutes(
       const out = await acceptEchoDmMessageRequest(
         pool,
         requestId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!out.ok) {
         if (out.reason === 'forbidden') {
@@ -356,7 +356,7 @@ export default async function echoDmRoutes(
       const out = await ignoreEchoDmMessageRequest(
         pool,
         requestId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (out === 'forbidden') {
         return sendError(
@@ -390,7 +390,7 @@ export default async function echoDmRoutes(
       }
       const r = await removeEchoGroupDmMember(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
         targetUserId,
       );
@@ -426,7 +426,7 @@ export default async function echoDmRoutes(
       if (!channelId) {
         return sendError(reply, 400, 'INVALID_BODY', 'channelId required');
       }
-      const r = await leaveEchoGroupDm(pool, req.authUser!.id, channelId);
+      const r = await leaveEchoGroupDm(pool, getAuthUser(req).id, channelId);
       if (r === 'forbidden') {
         return sendError(
           reply,
@@ -462,7 +462,7 @@ export default async function echoDmRoutes(
       }
       const r = await addEchoGroupDmMembers(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
         raw.map((x) => String(x)),
       );
@@ -479,7 +479,7 @@ export default async function echoDmRoutes(
           return sendError(reply, 404, 'NOT_FOUND', 'Group not found');
         }
         if (r.reason === 'too_many') {
-          const ent = await getEchoEntitlements(pool, req.authUser!.id);
+          const ent = await getEchoEntitlements(pool, getAuthUser(req).id);
           return sendError(
             reply,
             400,
@@ -530,7 +530,7 @@ export default async function echoDmRoutes(
         );
       }
 
-      const r = await updateEchoGroupDm(pool, req.authUser!.id, channelId, {
+      const r = await updateEchoGroupDm(pool, getAuthUser(req).id, channelId, {
         ...(name !== undefined ? { name } : {}),
         ...(pfp !== undefined ? { pfp } : {}),
       });
@@ -591,7 +591,7 @@ export default async function echoDmRoutes(
       }
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const uid = req.authUser!.id;
+      const uid = getAuthUser(req).id;
       vcTrace(req.log, 'voice.dm_livekit_session:request', {
         channelId,
         userId: uid,
@@ -643,10 +643,12 @@ export default async function echoDmRoutes(
         }
       }
       const roomName = liveKitRoomName(ECHO_DM_REALM_SERVER_ID, channelId);
-      const pfpMeta = pfpForLiveKitParticipantMetadata(req.authUser!.pfp ?? '');
+      const pfpMeta = pfpForLiveKitParticipantMetadata(
+        getAuthUser(req).pfp ?? '',
+      );
       const token = await mintJoinToken({
         identity: uid,
-        name: req.authUser!.username ?? uid,
+        name: getAuthUser(req).username ?? uid,
         roomName,
         canPublishMicrophone: true,
         ...(pfpMeta ? { metadata: JSON.stringify({ pfp: pfpMeta }) } : {}),

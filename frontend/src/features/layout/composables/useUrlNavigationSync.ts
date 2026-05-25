@@ -64,6 +64,8 @@ export interface UseUrlNavigationSyncOptions {
   selectExploreTab: () => void;
   selectServersTab: () => void;
   openServerSurface: (serverId: string, channelId?: string | null) => void;
+  /** When true, unresolved guild slugs are preserved (invite landing handles them). */
+  inviteLandingActive?: ComputedRef<boolean>;
   getFirstTextChannelId: (
     cats: { name: string; channels: { id: string; type: string }[] }[],
   ) => string;
@@ -232,11 +234,21 @@ export function useUrlNavigationSync(opts: UseUrlNavigationSyncOptions) {
           rctx,
           parsed.serverId,
           parsed.channelId,
+          {
+            preserveUnresolved: opts.inviteLandingActive?.value,
+          },
         );
         if (resolved.kind !== 'guild') {
           if (resolved.kind === 'explore') opts.selectExploreTab();
           else applyParsedPath(resolved);
           return resolved;
+        }
+        if (
+          opts.inviteLandingActive?.value &&
+          !rctx.servers.some((s) => s.id === resolved.serverId)
+        ) {
+          opts.selectExploreTab();
+          return parsed;
         }
         opts.openServerSurface(resolved.serverId, resolved.channelId);
         logShellNav('useUrlNavigationSync', 'guild_path', {

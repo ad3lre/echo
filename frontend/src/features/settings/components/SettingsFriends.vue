@@ -3,9 +3,10 @@ import { watch } from 'vue';
 import SettingsPillSwitch from '@/features/settings/components/SettingsPillSwitch.vue';
 import SettingsSettingRow from '@/features/settings/components/SettingsSettingRow.vue';
 import { authPatchMe } from '@/api/authClient';
+import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
 const props = defineProps<{
-  form: any;
+  form: SettingsForm;
 }>();
 
 // Persist showLastOnline changes to backend

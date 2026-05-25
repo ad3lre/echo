@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const jwt = require('jsonwebtoken') as any;
+import jwt from 'jsonwebtoken';
 import {
   __resetGoogleJwksCacheForTests,
   googleIdTokenClaimsToUserInfo,

@@ -23,8 +23,8 @@ export function useServerSettingsNavigation() {
         return icons.settings;
       case 'Access':
         return icons.chatLock;
-      case 'Automod':
-        return icons.stopwatch;
+      case 'Banned Words':
+        return icons.shield;
       case 'Moderation':
         return icons.shield;
       case 'Audit Log':

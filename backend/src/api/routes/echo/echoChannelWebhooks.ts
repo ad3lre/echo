@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import { getAuthUser } from '../../../auth/middleware';
 import {
   buildEchoChannelWebhookExecuteUrl,
   createEchoChannelWebhook,
@@ -63,7 +64,7 @@ export default async function echoChannelWebhooksRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       if (
         !(await requireWebhookManage(reply, pool, serverId, channelId, userId))
       )
@@ -83,7 +84,7 @@ export default async function echoChannelWebhooksRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       if (
         !(await requireWebhookManage(reply, pool, serverId, channelId, userId))
       )
@@ -129,7 +130,7 @@ export default async function echoChannelWebhooksRoutes(
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
       const webhookId = trimEchoPathParam(req.params.webhookId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       if (
         !(await requireWebhookManage(reply, pool, serverId, channelId, userId))
       )
@@ -157,7 +158,7 @@ export default async function echoChannelWebhooksRoutes(
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
       const webhookId = trimEchoPathParam(req.params.webhookId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       if (
         !(await requireWebhookManage(reply, pool, serverId, channelId, userId))
       )

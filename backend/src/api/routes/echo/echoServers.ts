@@ -5,7 +5,7 @@ import {
   type FastifyRequest,
 } from 'fastify';
 import { sendError } from '../../errors';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import {
   LEGACY_SESSION_COOKIE,
   SESSION_COOKIE,
@@ -64,7 +64,7 @@ export default async function echoServersRoutes(
     { preHandler: [requireAuth, requireEchoStore] },
     async (req, reply) => {
       const pool = echoPool(req);
-      const servers = await listEchoServersForUser(pool, req.authUser!.id);
+      const servers = await listEchoServersForUser(pool, getAuthUser(req).id);
       return reply.code(200).send({ servers });
     },
   );
@@ -85,7 +85,7 @@ export default async function echoServersRoutes(
     },
     async (req, reply) => {
       const pool = echoPool(req);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
       try {
         await ensureOfficialEchoServerMembership(pool, userId);
       } catch (err) {
@@ -137,7 +137,7 @@ export default async function echoServersRoutes(
       }
       const slot = await assertEchoUserHasServerMembershipSlot(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       if (!slot.ok) {
         return sendError(
@@ -150,14 +150,14 @@ export default async function echoServersRoutes(
       }
       const { serverId, defaultChannelId } = await createEchoServer(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         name,
         iconUrl,
       );
       const auditId = await insertEchoAudit(
         pool,
         serverId,
-        req.authUser!.id,
+        getAuthUser(req).id,
         'server.create',
         'server',
         serverId,
@@ -169,9 +169,9 @@ export default async function echoServersRoutes(
           kind: 'workspace_invalidated',
           version: auditId,
           serverId,
-          userId: req.authUser!.id,
+          userId: getAuthUser(req).id,
         },
-        { serverId, userId: req.authUser!.id },
+        { serverId, userId: getAuthUser(req).id },
       );
       return reply.code(201).send({ serverId, defaultChannelId });
     },
@@ -187,7 +187,7 @@ export default async function echoServersRoutes(
     const block = await shouldBlockEchoJoinForPendingApplication(
       pool,
       sid,
-      req.authUser!.id,
+      getAuthUser(req).id,
       false,
     );
     if (block) {
@@ -203,7 +203,7 @@ export default async function echoServersRoutes(
     const r = await joinEchoServerFromDirectory(
       pool,
       sid,
-      req.authUser!.id,
+      getAuthUser(req).id,
       clientIpFromFastifyRequest(req),
       { isGuest: Boolean(req.authUser?.isGuest) },
     );
@@ -260,9 +260,9 @@ export default async function echoServersRoutes(
           kind: 'membership_changed',
           version: r.joinAuditId,
           serverId: sid,
-          userId: req.authUser!.id,
+          userId: getAuthUser(req).id,
         },
-        { serverId: sid, userId: req.authUser!.id },
+        { serverId: sid, userId: getAuthUser(req).id },
       );
     }
     return reply
@@ -289,7 +289,7 @@ export default async function echoServersRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
-      const userId = req.authUser!.id;
+      const userId = getAuthUser(req).id;
 
       const server = await pool.query(
         `SELECT id, owner_id FROM echo_servers WHERE id = $1`,

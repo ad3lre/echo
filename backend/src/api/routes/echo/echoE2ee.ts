@@ -5,7 +5,7 @@ import {
   FastifyReply,
   FastifyRequest,
 } from 'fastify';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { getAccessUserIdFromAuthHeader } from '../../../auth/token';
 import { isPostgresUndefinedRelationError } from '../../../db/pgErrors';
 import { sendError } from '../../errors';
@@ -55,7 +55,7 @@ export default async function echoE2eeRoutes(
         return sendError(reply, 400, 'INVALID_BODY', parsed.error);
       }
       try {
-        await upsertEchoE2eeDevice(pool, req.authUser!.id, parsed.value);
+        await upsertEchoE2eeDevice(pool, getAuthUser(req).id, parsed.value);
       } catch (e) {
         if (isPostgresUndefinedRelationError(e))
           return replyE2eeInfraMissing(reply);
@@ -67,9 +67,9 @@ export default async function echoE2eeRoutes(
         {
           kind: 'workspace_invalidated',
           version: nextEchoSnowflakeId(),
-          userId: req.authUser!.id,
+          userId: getAuthUser(req).id,
         },
-        { userId: req.authUser!.id },
+        { userId: getAuthUser(req).id },
       );
       return reply.code(204).send();
     },
@@ -80,7 +80,10 @@ export default async function echoE2eeRoutes(
     { preHandler: [requireAuth, requireEchoStore] },
     async (req, reply) => {
       const pool = echoPool(req);
-      const devices = await listEchoE2eeDevicesForUser(pool, req.authUser!.id);
+      const devices = await listEchoE2eeDevicesForUser(
+        pool,
+        getAuthUser(req).id,
+      );
       return reply.code(200).send({ devices });
     },
   );
@@ -96,7 +99,7 @@ export default async function echoE2eeRoutes(
       }
       let out: Awaited<ReturnType<typeof revokeEchoE2eeDevice>>;
       try {
-        out = await revokeEchoE2eeDevice(pool, req.authUser!.id, deviceId);
+        out = await revokeEchoE2eeDevice(pool, getAuthUser(req).id, deviceId);
       } catch (e) {
         if (isPostgresUndefinedRelationError(e))
           return replyE2eeInfraMissing(reply);
@@ -110,9 +113,9 @@ export default async function echoE2eeRoutes(
         {
           kind: 'workspace_invalidated',
           version: nextEchoSnowflakeId(),
-          userId: req.authUser!.id,
+          userId: getAuthUser(req).id,
         },
-        { userId: req.authUser!.id },
+        { userId: getAuthUser(req).id },
       );
       return reply.code(204).send();
     },
@@ -132,7 +135,7 @@ export default async function echoE2eeRoutes(
       try {
         r = await refreshEchoE2eeOneTimePrekeys(
           pool,
-          req.authUser!.id,
+          getAuthUser(req).id,
           deviceId,
           req.body?.oneTimePrekeys,
         );
@@ -159,7 +162,7 @@ export default async function echoE2eeRoutes(
       }
       const access = await diagnoseEchoChannelAccess(
         pool,
-        req.authUser!.id,
+        getAuthUser(req).id,
         channelId,
       );
       if (!access.ok) {
@@ -198,7 +201,7 @@ export default async function echoE2eeRoutes(
       if (!target) {
         return sendError(reply, 400, 'INVALID_BODY', 'targetUserId required');
       }
-      const me = req.authUser!.id;
+      const me = getAuthUser(req).id;
       if (target === me) {
         return sendError(reply, 400, 'INVALID_BODY', 'targetUserId invalid');
       }
@@ -261,7 +264,11 @@ export default async function echoE2eeRoutes(
         const pool = echoPool(req);
         const pairingId = nextEchoSnowflakeId();
         try {
-          await createEchoE2eePairingSession(pool, req.authUser!.id, pairingId);
+          await createEchoE2eePairingSession(
+            pool,
+            getAuthUser(req).id,
+            pairingId,
+          );
         } catch (e) {
           if (isPostgresUndefinedRelationError(e)) {
             echoE2eePairingTotal.labels('start_infra_missing').inc();
@@ -288,7 +295,7 @@ export default async function echoE2eeRoutes(
         try {
           st = await getEchoE2eePairingStateForUser(
             pool,
-            req.authUser!.id,
+            getAuthUser(req).id,
             pairingId,
           );
         } catch (e) {
@@ -351,7 +358,7 @@ export default async function echoE2eeRoutes(
         try {
           out = await respondEchoE2eePairing(
             pool,
-            req.authUser!.id,
+            getAuthUser(req).id,
             pairingId,
             ciphertext,
           );

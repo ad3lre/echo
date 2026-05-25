@@ -5,7 +5,7 @@ import type {
   FastifyRequest,
 } from 'fastify';
 import { sendError, ECHO_MSG_NOT_SERVER_MEMBER } from '../../errors';
-import { requireAuth } from '../../../auth/middleware';
+import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import {
   echoPool,
   requireEchoStore,
@@ -54,7 +54,7 @@ export default async function echoStageYoutubeRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -68,7 +68,7 @@ export default async function echoStageYoutubeRoutes(
         pool,
         serverId,
         channelId,
-        req.authUser!.id,
+        getAuthUser(req).id,
       );
       return reply.code(200).send({ stream });
     },
@@ -87,7 +87,7 @@ export default async function echoStageYoutubeRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -101,7 +101,7 @@ export default async function echoStageYoutubeRoutes(
       const r = await startStageYoutubeStream(pool, {
         serverId,
         channelId,
-        actorUserId: req.authUser!.id,
+        actorUserId: getAuthUser(req).id,
         title: body.title,
         description: body.description,
         privacyStatus: body.privacyStatus,
@@ -133,7 +133,7 @@ export default async function echoStageYoutubeRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -146,7 +146,7 @@ export default async function echoStageYoutubeRoutes(
       const r = await stopStageYoutubeStream(pool, {
         serverId,
         channelId,
-        actorUserId: req.authUser!.id,
+        actorUserId: getAuthUser(req).id,
       });
       if (!r.ok) {
         const status =
@@ -170,7 +170,7 @@ export default async function echoStageYoutubeRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
-      const okMem = await isMemberOfServer(pool, serverId, req.authUser!.id);
+      const okMem = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
       if (!okMem) {
         return sendError(
           reply,
@@ -188,7 +188,7 @@ export default async function echoStageYoutubeRoutes(
       const r = await updateStageYoutubeStreamLayout(pool, {
         serverId,
         channelId,
-        actorUserId: req.authUser!.id,
+        actorUserId: getAuthUser(req).id,
         layout,
       });
       if (!r.ok) {
