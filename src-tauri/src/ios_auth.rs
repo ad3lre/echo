@@ -226,8 +226,12 @@ pub fn ios_auth_clear_session(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub fn ios_auth_get_session(app: tauri::AppHandle) -> Option<StoredSessionMemory> {
-    let state = app.state::<IosAuthState>();
-    state.session.lock().unwrap().clone()
+    let guard = app
+        .state::<IosAuthState>()
+        .session
+        .lock()
+        .unwrap();
+    guard.clone()
 }
 
 #[tauri::command]
@@ -251,8 +255,12 @@ pub fn ios_auth_session_restore_failed(app: tauri::AppHandle) -> Result<(), Stri
 
 #[tauri::command]
 pub fn ios_auth_should_show_login(app: tauri::AppHandle) -> bool {
-    let state = app.state::<IosAuthState>();
-    *state.show_native_login.lock().unwrap()
+    let guard = app
+        .state::<IosAuthState>()
+        .show_native_login
+        .lock()
+        .unwrap();
+    *guard
 }
 
 #[tauri::command]

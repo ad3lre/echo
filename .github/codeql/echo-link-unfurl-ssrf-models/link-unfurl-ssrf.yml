@@ -8,6 +8,12 @@ extensions:
           'Member[toValidatedOutboundFetchUrl].ReturnValue',
           'request-forgery',
         ]
+      - [
+          'linkUnfurlFetch',
+          'Member[ssrfSafeFetch].Argument[0]',
+          'true',
+          'request-forgery',
+        ]
   - addsTo:
       pack: codeql/javascript-all
       extensible: barrierGuardModel

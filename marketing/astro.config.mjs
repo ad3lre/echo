@@ -18,7 +18,11 @@ const SITEMAP_PRIORITY = {
 
 export default defineConfig({
   site: SITE,
-  trailingSlash: 'always',
+  // Legal URLs are registered without a trailing slash (Google OAuth, privacy.md, footers).
+  trailingSlash: 'never',
+  build: {
+    format: 'file',
+  },
   compressHTML: true,
   i18n: {
     defaultLocale: 'en',

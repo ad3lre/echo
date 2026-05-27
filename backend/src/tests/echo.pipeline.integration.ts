@@ -441,6 +441,10 @@ async function run(): Promise<void> {
     const getMsgJson = JSON.parse(getMsgBody) as { message: { id: string } };
     assert.equal(getMsgJson.message.id, savedMsgId);
 
+    // REST must land in a later timeline second than the socket message so
+    // created_at DESC (then id DESC) lists the REST row before the socket row.
+    await new Promise<void>((resolve) => setTimeout(resolve, 1100));
+
     const postRest = await fetch(
       `${baseUrl}/api/v1/echo/channels/${encodeURIComponent(defaultChannelId)}/messages`,
       {
