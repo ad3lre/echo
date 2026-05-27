@@ -153,6 +153,11 @@ export function isServerChannelUnreadForPingBubble(
   if (summary.unreadCount <= 0) return false;
   const boundary = resolveEchoUnreadUpperBoundMessageId(summary);
   if (!boundary) {
+    const lr = String(lastReadMessageId ?? '').trim();
+    const stored = String(summary.lastReadMessageId ?? '').trim();
+    if (lr && stored && compareEchoTimelineIds(lr, stored) >= 0) {
+      return false;
+    }
     // No id to compare against the cursor — treat as unread if volume says so.
     return summary.unreadCount > 0;
   }

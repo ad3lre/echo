@@ -1,0 +1,26 @@
+extensions:
+  - addsTo:
+      pack: codeql/javascript-all
+      extensible: barrierModel
+    data:
+      - [
+          'linkUnfurlFetch',
+          'Member[toValidatedOutboundFetchUrl].ReturnValue',
+          'request-forgery',
+        ]
+  - addsTo:
+      pack: codeql/javascript-all
+      extensible: barrierGuardModel
+    data:
+      - [
+          'linkUnfurlFetch',
+          'Member[canSafelyResolveUrlForOutboundFetch].Argument[0]',
+          'true',
+          'request-forgery',
+        ]
+      - [
+          'linkUnfurlFetch',
+          'Member[isUrlSafeForOutboundFetch].Argument[0]',
+          'true',
+          'request-forgery',
+        ]

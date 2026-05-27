@@ -356,6 +356,38 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
   await pool.query(
     `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS locale TEXT NULL;`,
   );
+  await pool.query(
+    `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS awarded_badges TEXT[] NOT NULL DEFAULT '{}';`,
+  );
+  await pool.query(`
+    UPDATE auth_users
+    SET awarded_badges = awarded_badges || ARRAY['bug_hunter']::TEXT[]
+    WHERE username IN ('bb', 'lesbian', 'm4')
+      AND NOT ('bug_hunter' = ANY(awarded_badges))
+  `);
+  await pool.query(`
+    UPDATE auth_users
+    SET awarded_badges = awarded_badges || ARRAY['og']::TEXT[]
+    WHERE username IN ('m4')
+      AND NOT ('og' = ANY(awarded_badges))
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_echo_plus_interest (
+      user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
+      tier TEXT NOT NULL DEFAULT 'any',
+      billing_cycle TEXT NOT NULL DEFAULT 'monthly',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT auth_echo_plus_interest_tier_chk
+        CHECK (tier IN ('plus', 'black', 'any')),
+      CONSTRAINT auth_echo_plus_interest_billing_cycle_chk
+        CHECK (billing_cycle IN ('monthly', 'yearly'))
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS auth_echo_plus_interest_created_idx
+    ON auth_echo_plus_interest (created_at DESC);
+  `);
   /**
    * One-time for existing deployments (run manually after deploy if you must not force re-verify):
    * UPDATE auth_users SET email_verified_at = created_at WHERE email_verified_at IS NULL AND email IS NOT NULL AND TRIM(email) <> '';

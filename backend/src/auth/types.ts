@@ -56,6 +56,13 @@ export interface AuthUser {
   echoPlan?: 'free' | 'plus' | 'black';
   /** When true, client shows billing history / subscription management (set when a paid plan exists). */
   hasActiveSubscription?: boolean;
+  /** Pre-launch Echo+ interest signup (Postgres `auth_echo_plus_interest`). */
+  echoPlusInterest?: {
+    tier: 'plus' | 'black' | 'any';
+    billingCycle: 'monthly' | 'yearly';
+    createdAt: string;
+    updatedAt: string;
+  };
   /**
    * Profile badges, e.g. `og` for the first {@link ../../shared/echoAccountBadges.ECHO_OG_BADGE_MAX_SIGNUP_ORDINAL} full accounts.
    * Omitted when the user has none.

@@ -204,14 +204,14 @@ function horizontalRingIconCssUrl(server: Server): string {
         ? 'servers-folder--horizontal mt-0 min-h-10 w-auto min-w-0 flex-row flex-nowrap items-center overflow-x-auto overflow-y-visible opacity-100'
         : '',
       horizontal && !areServersExpanded
-        ? 'servers-folder--horizontal flex-row flex-nowrap max-w-0 overflow-hidden opacity-0'
+        ? 'servers-folder--horizontal pointer-events-none flex-row flex-nowrap max-w-0 min-w-0 w-0 overflow-hidden opacity-0'
         : '',
       !horizontal ? 'w-full flex-col' : '',
       !horizontal && areServersExpanded
         ? 'mt-2 max-h-[min(70vh,28rem)] overflow-y-auto opacity-100'
         : '',
       !horizontal && !areServersExpanded
-        ? 'max-h-0 overflow-hidden opacity-0'
+        ? 'pointer-events-none max-h-0 min-h-0 h-0 overflow-hidden opacity-0'
         : '',
       railDragSourceIndex !== null ? 'servers-folder--rail-dnd' : '',
     ]"

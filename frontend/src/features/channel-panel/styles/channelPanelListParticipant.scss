@@ -168,6 +168,28 @@
   }
 }
 
+.vc-participant-row--draggable {
+  cursor: grab;
+  user-select: none;
+}
+
+.vc-participant-row--draggable:active {
+  cursor: grabbing;
+}
+
+.vc-participant-row--drag-source {
+  opacity: 0.45;
+}
+
+.channel-row--vc-participant-drop-target {
+  border-radius: 0.5rem;
+  outline: 2px solid var(--vue-auto-012);
+  outline-offset: -1px;
+  box-shadow:
+    0 0 0 1px var(--vue-auto-007),
+    0 0 14px var(--vue-auto-089);
+}
+
 .vc-participant-row:hover .vc-participant-name:not(.vc-participant-name--dim) {
   color: var(--vc-participant-name-hover);
 }

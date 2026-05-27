@@ -99,7 +99,7 @@ const emit = defineEmits<{
       class="pointer-events-auto"
       :class="
         props.horizontal
-          ? 'flex min-h-0 w-auto max-w-full min-w-0 flex-row flex-nowrap items-center justify-center gap-3 overflow-x-auto overflow-y-visible px-3 pb-2 pt-3 sm:gap-4 md:px-6'
+          ? 'flex min-h-0 w-auto max-w-full min-w-0 flex-row flex-nowrap items-center justify-center gap-2 overflow-x-auto overflow-y-visible px-3 pb-2 pt-3 md:px-6'
           : 'flex w-full flex-col items-center justify-center gap-2'
       "
     >
@@ -149,8 +149,12 @@ const emit = defineEmits<{
           />
         </div>
         <div
-          class="flex min-h-0 min-w-0 max-w-[min(760px,58vw)] flex-row items-center overflow-x-auto overflow-y-visible [scrollbar-width:thin]"
-          :class="areServersExpanded ? 'gap-2' : ''"
+          class="flex min-h-0 min-w-0 flex-row items-center [scrollbar-width:thin]"
+          :class="
+            areServersExpanded
+              ? 'max-w-[min(760px,58vw)] gap-2 overflow-x-auto overflow-y-visible'
+              : 'w-fit max-w-none shrink-0 overflow-hidden'
+          "
         >
           <button
             type="button"

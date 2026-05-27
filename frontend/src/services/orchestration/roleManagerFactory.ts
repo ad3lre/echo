@@ -3,7 +3,10 @@ import type {
   ManagedRole,
   RolePermissions,
 } from '@/features/server-settings/types';
-import { roleUiPermissionsFromEchoStrings } from '@shared/rolePermissionBridge';
+import {
+  roleUiPermissionsFromEchoStrings,
+  roleUiPermissionsToEchoStrings,
+} from '@shared/rolePermissionBridge';
 
 type RoleCard = { id: string; name: string; color: string; count: number };
 
@@ -119,6 +122,9 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
         roleCategoryId: null,
         roleScope: 'category',
         permissions: permissionsFromName('member'),
+        storedEchoPermissions: roleUiPermissionsToEchoStrings(
+          permissionsFromName('member') as Record<string, boolean>,
+        ),
         roleType: 'mixed',
       },
     ];
@@ -143,6 +149,9 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
       roleCategoryId: null,
       roleScope: 'category',
       permissions: perms,
+      storedEchoPermissions: roleUiPermissionsToEchoStrings(
+        perms as Record<string, boolean>,
+      ),
       roleType: 'mixed',
     };
   });
@@ -232,6 +241,7 @@ export function buildManagedRolesFromEcho(
       roleCategoryId,
       roleScope: r.roleScope === 'global' ? 'global' : 'category',
       permissions: full,
+      storedEchoPermissions: [...r.permissions],
       roleType: 'mixed',
     };
   });
@@ -258,6 +268,9 @@ export function createManagedRole(
     roleCategoryId: null,
     roleScope: 'category',
     permissions: defaultRolePermissions(),
+    storedEchoPermissions: roleUiPermissionsToEchoStrings(
+      defaultRolePermissions() as Record<string, boolean>,
+    ),
     roleType: 'mixed',
   };
 }

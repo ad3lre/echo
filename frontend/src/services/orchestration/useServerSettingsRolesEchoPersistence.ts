@@ -9,7 +9,7 @@ import {
   type EchoRolePatch,
 } from '@/api/echoClient';
 import { isEchoGraphId } from '@/utils/echoIds';
-import { roleUiPermissionsToEchoStrings } from '@shared/rolePermissionBridge';
+import { mergeRoleUiPermissionsWithStoredEcho } from '@shared/rolePermissionBridge';
 import {
   ROLE_PERMISSION_DEFS,
   ECHO_SERVER_SETTINGS_ROLE_PERMISSION_KEYS,
@@ -198,11 +198,14 @@ export function useServerSettingsRolesEchoPersistence(
             (r) => r.id === role.id,
           );
           if (!initial) continue;
-          const nextEcho = roleUiPermissionsToEchoStrings(
+          const storedEcho = initial.storedEchoPermissions ?? [];
+          const nextEcho = mergeRoleUiPermissionsWithStoredEcho(
             role.permissions as Record<string, boolean>,
+            storedEcho,
           );
-          const prevEcho = roleUiPermissionsToEchoStrings(
+          const prevEcho = mergeRoleUiPermissionsWithStoredEcho(
             initial.permissions as Record<string, boolean>,
+            storedEcho,
           );
           const permsChanged =
             JSON.stringify([...nextEcho].sort()) !==

@@ -20,31 +20,14 @@ import {
 /** Show the “extra servers” rail control when joined count exceeds {@link VISIBLE_SERVER_RAIL_SLOT_COUNT}. */
 export const EXTRA_SERVERS_RAIL_MIN_JOINED = VISIBLE_SERVER_RAIL_SLOT_COUNT + 1;
 
-const LAST_VISITED_GUILD_STORAGE_KEY = 'echo-last-visited-guild-v1';
+import {
+  readLastVisitedGuildId,
+  writeLastVisitedGuildId,
+} from '@/utils/lastVisitedNavigationPersistence';
+
 const PINNED_MORE_SERVERS_STORAGE_KEY = 'echo-pinned-more-servers-v1';
 const SERVER_RAIL_MRU_STORAGE_KEY = 'echo-server-rail-mru-v1';
 const ECHO_SERVER_ID = 'echo';
-
-function readLastVisitedGuildId(): string | null {
-  if (typeof localStorage === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(LAST_VISITED_GUILD_STORAGE_KEY)?.trim();
-    if (!raw || raw === ECHO_SERVER_ID) return null;
-    return raw;
-  } catch {
-    return null;
-  }
-}
-
-function writeLastVisitedGuildId(serverId: string | null): void {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    if (!serverId || serverId === ECHO_SERVER_ID) return;
-    localStorage.setItem(LAST_VISITED_GUILD_STORAGE_KEY, serverId);
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
 
 function readPinnedMoreServerIds(): string[] {
   if (typeof localStorage === 'undefined') return [];

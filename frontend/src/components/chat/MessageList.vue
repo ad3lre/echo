@@ -240,18 +240,6 @@ const mergedMessagesForList = computed(
   () => dmCallPresentation.value.mergedMessages,
 );
 
-/** When the last message’s reactions change (no new row), re-measure can push the tail past the fold — snap if the user was following the end. */
-const TAIL_REACTIONS_SEP = '\u001f';
-const tailMessageReactionsSignature = computed(() => {
-  const ids = displayOrderedIds.value;
-  if (ids.length === 0) return '';
-  const tailId = ids[ids.length - 1]!;
-  const msg =
-    props.messages.get(tailId) ?? mergedMessagesForList.value.get(tailId);
-  const parts = msg?.reactions?.map((r) => `${r.emoji}:${r.count}`) ?? [];
-  return `${tailId}${TAIL_REACTIONS_SEP}${parts.join('\u0001')}`;
-});
-
 type MessageBubbleApi = {
   enterEditMode?: () => void;
 };
@@ -831,6 +819,21 @@ const MESSAGE_LIST_ACTION_BAR_GUTTER_PX = 14;
 const MESSAGE_LIST_DEFAULT_ESTIMATE = 88;
 const USER_SCROLL_SETTLE_MS = 180;
 
+function nowMs(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+/**
+ * Hard invariant: while the user is actively scrolling (or within the post-scroll
+ * settle window), no code path may programmatically correct scroll position.
+ */
+function isUserScrollProtected(
+  scrollDirection: 'forward' | 'backward' | null = null,
+): boolean {
+  if (scrollDirection !== null) return true;
+  return nowMs() < userScrollActiveUntilMs;
+}
+
 /** Whether new messages should pull the viewport to the latest (bottom-anchored channels). */
 const followNewMessagesToBottom = ref(true);
 
@@ -1006,45 +1009,8 @@ const virtualizerOptions = computed(() => ({
     }
     return Math.max(0, estimated - viewport);
   },
-  /**
-   * GIF/media decode changes row height after mount. TanStack Virtual's default scroll
-   * compensation while `scrollDirection` is null (not user-scrolling) can fight
-   * pinned-to-newest and visibly yank the list up/down repeatedly.
-   */
-  shouldAdjustScrollPositionOnItemSizeChange: (
-    item: { index: number },
-    delta: number,
-    instance: {
-      scrollDirection: 'forward' | 'backward' | null;
-      getTotalSize: () => number;
-    },
-  ) => {
-    if (prependTransactionActive.value) return false;
-    if (instance.scrollDirection !== null) return true;
-    const el = containerRef.value;
-    if (!el || displayOrderedIds.value.length === 0) return true;
-    const now =
-      typeof performance !== 'undefined' ? performance.now() : Date.now();
-    if (now < userScrollActiveUntilMs) return false;
-    if (messageScrollAnchorResolved.value === 'top') {
-      return el.scrollTop > NEAR_TOP_PX;
-    }
-    const len = displayOrderedIds.value.length;
-    const total = instance.getTotalSize();
-    const dist = total - el.scrollTop - el.clientHeight;
-    /**
-     * Near-bottom suppression avoids yank when older rows resize (embeds/GIFs above).
-     * Tail-row growth after send/receive must still compensate or images extend below fold.
-     */
-    if (
-      delta > 0 &&
-      item.index === len - 1 &&
-      (followNewMessagesToBottom.value || dist < FOLLOW_NEW_DETACH_PX)
-    ) {
-      return true;
-    }
-    return dist > NEAR_BOTTOM_PX + 120;
-  },
+  /** Never compensate on row measure — first-load anchor only; post-load yanks feel worse than drift. */
+  shouldAdjustScrollPositionOnItemSizeChange: () => false,
 }));
 
 function distanceFromBottomPx(): number {
@@ -1256,9 +1222,7 @@ function onScrollCombined() {
   );
   lastObservedScrollTop = nextScrollTop;
   if (prependTransactionActive.value) return;
-  userScrollActiveUntilMs =
-    (typeof performance !== 'undefined' ? performance.now() : Date.now()) +
-    USER_SCROLL_SETTLE_MS;
+  userScrollActiveUntilMs = nowMs() + USER_SCROLL_SETTLE_MS;
   scheduleScrollIdleWork();
 }
 
@@ -1292,9 +1256,9 @@ function disconnectScrollViewportResizeObserver(): void {
 function shouldFollowViewportShrink(): boolean {
   if (prependTransactionActive.value) return false;
   if (suppressListUntilInitialAnchor.value) return false;
-  const now =
-    typeof performance !== 'undefined' ? performance.now() : Date.now();
-  if (now < userScrollActiveUntilMs) return false;
+  if (isUserScrollProtected(virtualizer.value?.scrollDirection ?? null)) {
+    return false;
+  }
   if (messageScrollAnchorResolved.value !== 'bottom') return false;
   return followNewMessagesToBottom.value || isNearBottom(FOLLOW_NEW_ATTACH_PX);
 }
@@ -1704,8 +1668,10 @@ if (import.meta.env.DEV) {
  * “pinned to newest” and visibly yank the list up/down repeatedly.
  */
 function scrollToBottom(smooth = false) {
+  if (suppressListUntilInitialAnchor.value) return;
   nextTick(() => {
     requestAnimationFrame(() => {
+      if (suppressListUntilInitialAnchor.value) return;
       const v = virtualizer.value;
       if (!v || displayOrderedIds.value.length === 0) return;
       v.scrollToIndex(displayOrderedIds.value.length - 1, {
@@ -1815,22 +1781,32 @@ function applyInitialScrollAnchor() {
         finish('skipped_empty');
         return;
       }
+      const settleThenFinish = (
+        anchor: 'top' | 'bottom' | 'restored_memory',
+      ) => {
+        requestAnimationFrame(() => {
+          if (scheduleId !== initialAnchorScheduleGeneration) return;
+          if (anchor === 'bottom') {
+            snapContainerScrollToBottom();
+          }
+          persistViewportMemoryForChannel(channelId);
+          finish(anchor);
+        });
+      };
       if (channelId && restoreViewportMemoryForChannel(channelId)) {
-        finish('restored_memory');
+        settleThenFinish('restored_memory');
         return;
       }
       if (messageScrollAnchorResolved.value === 'top') {
         v.scrollToIndex(0, { align: 'start', behavior: 'auto' });
-        persistViewportMemoryForChannel(channelId);
-        finish('top');
+        settleThenFinish('top');
         return;
       }
 
       const lastIdx = displayOrderedIds.value.length - 1;
       v.scrollToIndex(lastIdx, { align: 'end', behavior: 'auto' });
       snapContainerScrollToBottom();
-      persistViewportMemoryForChannel(channelId);
-      finish('bottom');
+      settleThenFinish('bottom');
     });
   });
 }
@@ -1865,6 +1841,7 @@ watch(
     messageBubbleRefBinderByMessageId.clear();
     lastObservedScrollTop = 0;
     lastObservedScrollDirection = 'still';
+    userScrollActiveUntilMs = 0;
     suppressLoadOlderUntilLeaveTopZone = false;
     prependTransactionActive.value = false;
     activePrependChannelId.value = null;
@@ -2035,6 +2012,7 @@ watch(
       );
     }
     if (prependTransactionActive.value) return;
+    if (suppressListUntilInitialAnchor.value) return;
     if (len <= (prevLen ?? 0)) return;
     if ((prevLen ?? 0) === 0) {
       nextTick(() => {
@@ -2072,6 +2050,12 @@ watch(
         const shouldFollow =
           sentByCurrentUser || followNewMessagesToBottom.value || near;
         if (!shouldFollow) return;
+        if (
+          !sentByCurrentUser &&
+          isUserScrollProtected(v.scrollDirection ?? null)
+        ) {
+          return;
+        }
         /**
          * Always use instant scroll here + DOM snap. Smooth `scrollToIndex` skipped
          * `snapContainerScrollToBottom`, so the viewport often stopped short of the true
@@ -2082,50 +2066,12 @@ watch(
           behavior: 'auto',
         });
         snapContainerScrollToBottom();
-        requestAnimationFrame(() => {
-          snapContainerScrollToBottom();
-        });
         followNewMessagesToBottom.value = true;
         emitSeenMessageId(resolveSeenMessageId());
       });
     });
   },
 );
-
-watch(tailMessageReactionsSignature, (sig, prev) => {
-  if (!sig || prev === undefined) return;
-  const i = sig.indexOf(TAIL_REACTIONS_SEP);
-  const pi = prev.indexOf(TAIL_REACTIONS_SEP);
-  const tailId = i < 0 ? sig : sig.slice(0, i);
-  const prevTailId = pi < 0 ? prev : prev.slice(0, pi);
-  if (tailId !== prevTailId) return;
-  if (sig === prev) return;
-  if (prependTransactionActive.value) return;
-  if (suppressListUntilInitialAnchor.value) return;
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      const el = containerRef.value;
-      const v = virtualizer.value;
-      if (!el || !v) return;
-      const len = displayOrderedIds.value.length;
-      if (len === 0) return;
-      const total = v.getTotalSize();
-      const distanceFromBottom = total - el.scrollTop - el.clientHeight;
-      const near = distanceFromBottom < FOLLOW_NEW_DETACH_PX;
-      if (!near && !followNewMessagesToBottom.value) return;
-      v.scrollToIndex(len - 1, {
-        align: 'end',
-        behavior: 'auto',
-      });
-      snapContainerScrollToBottom();
-      requestAnimationFrame(() => {
-        snapContainerScrollToBottom();
-      });
-      followNewMessagesToBottom.value = true;
-      emitSeenMessageId(resolveSeenMessageId());
-    });
-  });
-});
 
 function getVoteHandler(messageId: string | undefined) {
   if (
@@ -2279,26 +2225,6 @@ function flashMessageHighlight(messageId: string): void {
   });
 }
 
-/** After tail-row media decode grows the row, re-pin when user is following the latest. */
-function maybeSnapToBottomAfterTailRowGrow(element: Element): void {
-  if (prependTransactionActive.value) return;
-  if (suppressListUntilInitialAnchor.value) return;
-  if (messageScrollAnchorResolved.value === 'top') return;
-  const idxAttr = element.getAttribute('data-index');
-  const idx = idxAttr != null ? Number(idxAttr) : NaN;
-  const len = displayOrderedIds.value.length;
-  if (!Number.isFinite(idx) || idx !== len - 1) return;
-  if (!followNewMessagesToBottom.value && !isNearBottom(FOLLOW_NEW_DETACH_PX)) {
-    return;
-  }
-  requestAnimationFrame(() => {
-    snapContainerScrollToBottom();
-    requestAnimationFrame(() => {
-      snapContainerScrollToBottom();
-    });
-  });
-}
-
 function measureRowRef(el: Element | ComponentPublicInstance | null) {
   const node =
     el && typeof el === 'object' && '$el' in el
@@ -2335,17 +2261,38 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
         }
         const idxAttr = element.getAttribute('data-index');
         const idx = idxAttr != null ? Number(idxAttr) : NaN;
-        tailRowGrew =
-          prev !== undefined &&
-          h > prev + 0.5 &&
-          Number.isFinite(idx) &&
-          idx === displayOrderedIds.value.length - 1;
+        if (messageListDebugEnabled()) {
+          const rowVm = Number.isFinite(idx)
+            ? (messageListRowPresentations.value[idx] ?? null)
+            : null;
+          const est =
+            Number.isFinite(idx) &&
+            idx >= 0 &&
+            idx < displayOrderedIds.value.length
+              ? estimateMessageRowSize(idx)
+              : null;
+          if (est != null && Math.abs(est - h) >= 24) {
+            const msgId = Number.isFinite(idx)
+              ? (displayOrderedIds.value[idx] ?? null)
+              : null;
+            logMessageList('measure', 'row_height_est_mismatch', {
+              channelId: props.channelId ?? null,
+              messageId: msgId,
+              index: Number.isFinite(idx) ? idx : null,
+              measuredPx: Math.round(h),
+              estimatePx: Math.round(est),
+              deltaPx: Math.round(h - est),
+              groupedWithPrevious: rowVm?.layout.groupedWithPrevious ?? null,
+              showDaySeparatorBefore: rowVm?.showDaySeparatorBefore ?? null,
+              showUnreadSeparatorBefore:
+                rowVm?.showUnreadSeparatorBefore ?? null,
+              compactTop: rowVm?.isCompact ?? null,
+            });
+          }
+        }
         measureRowLastHeightByKey.set(deferKey, h);
       }
       virtualizer.value.measureElement(element);
-      if (tailRowGrew) {
-        maybeSnapToBottomAfterTailRowGrow(element);
-      }
     });
   });
 }

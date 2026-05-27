@@ -245,6 +245,7 @@ describe('useEchoAttentionStore', () => {
       kind: 'server',
       lastReadMessageId: '100',
       unreadCount: 1,
+      firstUnreadMessageId: '101',
     });
 
     expect(store.channelAttentionByChannelId[channelId]?.serverId).toBe(
@@ -426,5 +427,87 @@ describe('useEchoAttentionStore', () => {
 
     expect(store.readStateByChannelId[channelId]).toBe('50');
     expect(store.channelAttentionByChannelId[channelId]?.unreadCount).toBe(2);
+  });
+
+  it('mergeReadStateUpdate without channelAttention clears anchorless stale volume', () => {
+    const store = useEchoAttentionStore();
+    const channelId = 'ch-voice-stale';
+    const serverId = 'srv-voice-stale';
+    const markId = '1492135200000000099';
+
+    store.replaceSnapshot({
+      channelAttentionByChannelId: {
+        [channelId]: {
+          channelId,
+          kind: 'server',
+          serverId,
+          lastReadMessageId: markId,
+          unreadCount: 3,
+          pingKind: 'personal',
+        },
+      },
+      serverAttentionByServerId: {
+        [serverId]: { unread: true, pingKind: 'personal' },
+      },
+      serverNotificationLevelByServerId: {},
+    });
+
+    store.mergeReadStateUpdate(channelId, markId);
+
+    expect(store.channelAttentionByChannelId[channelId]?.unreadCount).toBe(0);
+    expect(
+      store.channelAttentionByChannelId[channelId]?.pingKind,
+    ).toBeUndefined();
+    expect(store.serverAttentionByServerId[serverId]).toBeUndefined();
+  });
+
+  it('replaceSnapshot clears anchorless stale volume after mark read', () => {
+    const store = useEchoAttentionStore();
+    const channelId = 'ch-mark-read';
+    const serverId = 'srv-mark-read';
+    const markId = '1492135200000000088';
+
+    store.replaceSnapshot({
+      channelAttentionByChannelId: {
+        [channelId]: {
+          channelId,
+          kind: 'server',
+          serverId,
+          lastReadMessageId: null,
+          unreadCount: 4,
+          pingKind: 'role',
+        },
+      },
+      serverAttentionByServerId: {
+        [serverId]: { unread: true, pingKind: 'role' },
+      },
+      serverNotificationLevelByServerId: {},
+    });
+
+    store.applyServerChannelMarkRead(channelId, markId);
+
+    store.replaceSnapshot({
+      channelAttentionByChannelId: {
+        [channelId]: {
+          channelId,
+          kind: 'server',
+          serverId,
+          lastReadMessageId: markId,
+          unreadCount: 4,
+          pingKind: 'role',
+        },
+      },
+      serverAttentionByServerId: {
+        [serverId]: { unread: true, pingKind: 'role' },
+      },
+      serverNotificationLevelByServerId: {},
+    });
+
+    expect(store.readStateByChannelId[channelId]).toBe(markId);
+    expect(store.channelAttentionByChannelId[channelId]?.unreadCount).toBe(0);
+    expect(
+      store.channelAttentionByChannelId[channelId]?.pingKind,
+    ).toBeUndefined();
+    expect(store.serverAttentionByServerId[serverId]).toBeUndefined();
   });
 });

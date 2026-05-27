@@ -1,10 +1,7 @@
 import { inject, ref, type Ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { PLATFORM_KEY, type EchoPlatform } from '@/platform/keys';
-import {
-  fetchEchoWorkspaceState,
-  fetchEchoChannelMessages,
-} from '@/api/echoClient';
+import { fetchEchoWorkspaceState } from '@/api/echoClient';
 import { createWorkspaceHydrateSkipLatch } from '@/services/domain/workspaceHydrateSkipLatch';
 import type { AuthUserPublic } from '@/api/authClient';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -30,14 +27,10 @@ import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
 import { shouldSkipAutoGuestAfterLogout } from '@/utils/autoGuestLogoutSuppress';
 import { consumeSkipAutoGuestOnce } from '@/utils/autoGuestOAuthReturn';
 import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
-import { ECHO_CHANNEL_MESSAGE_PAGE_SIZE } from '@/constants/echoHistoryPageSize';
 import { bindChannelMessageBuckets } from '@/services/realtime/channelMessageAuthority';
 import { applyTimeoutUntilFromWorkspaceSnapshot } from '@/features/layout/viewModel/workspaceTimeoutApplyFromSnapshot';
 import { buildServerMemberNicknameMapFromMembersByServer } from '@/services/domain/workspaceEchoApiSnapshot';
-import {
-  applyPrefetchedWorkspaceChannelMessages,
-  resolveWorkspaceBootstrapTextChannelIds,
-} from '@/services/orchestration/echoWorkspaceChannelPrefetch';
+import { prefetchWorkspaceBootstrapTextChannelsNonBlocking } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 
 import type {
   MockData,
@@ -197,44 +190,6 @@ export function createWorkspaceState(): WorkspaceStateApi {
       lastTimeoutServerCount,
       lastTimeoutMemberKeyCount,
     });
-  }
-
-  function prefetchWorkspaceBootstrapTextChannelsNonBlocking(
-    token: string,
-    state: EchoWorkspaceState,
-  ) {
-    const channelIds = resolveWorkspaceBootstrapTextChannelIds(state);
-    if (!channelIds.length) return;
-    void (async () => {
-      for (const channelId of channelIds) {
-        try {
-          const { messages: apiMsgs } = await fetchEchoChannelMessages(
-            token,
-            channelId,
-            {
-              limit: ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
-            },
-          );
-          applyPrefetchedWorkspaceChannelMessages(channelId, apiMsgs);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          /** Early tree-order channels may deny VIEW_CHANNEL — not a bootstrap failure. */
-          if (
-            msg.includes('View Channel') ||
-            msg.includes('VIEW_CHANNEL') ||
-            msg.includes('permission overwrite')
-          ) {
-            continue;
-          }
-          reportPrimaryFlowFailure(
-            'prefetchWorkspaceBootstrapTextChannels',
-            e,
-            { channelId },
-            { showBanner: false },
-          );
-        }
-      }
-    })();
   }
 
   async function startInitialLoad() {

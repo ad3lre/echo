@@ -150,6 +150,9 @@ export class PostgresAuthStore implements AuthStore {
     const ordRaw = row.signup_ordinal;
     const signupOrdinal =
       ordRaw != null && ordRaw !== '' ? Number(ordRaw) : Number.NaN;
+    const awarded: string[] | null = Array.isArray(row.awarded_badges)
+      ? row.awarded_badges
+      : null;
     const badgeFlags = publicBadgesFromAccount(
       Number.isFinite(signupOrdinal) ? signupOrdinal : null,
       {
@@ -157,6 +160,7 @@ export class PostgresAuthStore implements AuthStore {
         isDiscordShadow: u.isDiscordShadow,
       },
       u.echoPlan,
+      awarded,
     );
     if (badgeFlags.length) u.badges = badgeFlags;
     return u;
@@ -328,7 +332,8 @@ export class PostgresAuthStore implements AuthStore {
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
         COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
         time_zone,
-        signup_ordinal
+        signup_ordinal,
+        awarded_badges
       FROM auth_users WHERE username = $1`;
     const sqlLegacy = `SELECT id, username, display_name, pfp, status, custom_status, bio, banner_image, banner_color, banner_refraction_enabled, banner_blur_enabled, banner_blackout_enabled, banner_position_y, password_hash, created_at, updated_at FROM auth_users WHERE username = $1`;
 
@@ -370,7 +375,8 @@ export class PostgresAuthStore implements AuthStore {
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
         COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
         time_zone,
-        signup_ordinal
+        signup_ordinal,
+        awarded_badges
       FROM auth_users WHERE id = $1
       `,
       [id],
@@ -395,7 +401,8 @@ export class PostgresAuthStore implements AuthStore {
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
         COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
         time_zone,
-        signup_ordinal
+        signup_ordinal,
+        awarded_badges
       FROM auth_users
       ORDER BY created_at DESC
       `,
@@ -741,7 +748,8 @@ export class PostgresAuthStore implements AuthStore {
         COALESCE(totp_enabled, false) AS totp_enabled,
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
         time_zone,
-        signup_ordinal
+        signup_ordinal,
+        awarded_badges
       FROM auth_users WHERE LOWER(TRIM(email)) = $1 LIMIT 1
       `,
       [norm],

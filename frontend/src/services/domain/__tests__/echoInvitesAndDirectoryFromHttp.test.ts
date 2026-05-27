@@ -103,4 +103,23 @@ describe('normalizeEchoDirectoryServersPayload', () => {
     });
     expect(out.servers[0]?.allowGlobalGuests).toBe(false);
   });
+
+  it('maps activity timestamps from camelCase or snake_case', () => {
+    const out = normalizeEchoDirectoryServersPayload({
+      servers: [
+        {
+          id: 'a',
+          name: 'A',
+          iconUrl: '',
+          bannerUrl: '',
+          lastVoiceActivityAt: '2026-05-01T12:00:00.000Z',
+          last_chat_activity_at: '2026-05-02T08:00:00.000Z',
+        },
+      ],
+    });
+    expect(out.servers[0]?.lastVoiceActivityAt).toBe(
+      '2026-05-01T12:00:00.000Z',
+    );
+    expect(out.servers[0]?.lastChatActivityAt).toBe('2026-05-02T08:00:00.000Z');
+  });
 });

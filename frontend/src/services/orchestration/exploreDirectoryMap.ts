@@ -42,6 +42,10 @@ export function mapEchoDirectoryServersToExploreRows(
           Math.floor(server.voiceParticipantCount),
         );
       }
+      const lastVoiceActivityAt = server.lastVoiceActivityAt?.trim();
+      if (lastVoiceActivityAt) row.lastVoiceActivityAt = lastVoiceActivityAt;
+      const lastChatActivityAt = server.lastChatActivityAt?.trim();
+      if (lastChatActivityAt) row.lastChatActivityAt = lastChatActivityAt;
       const createdAt = server.createdAt?.trim();
       if (createdAt) row.createdAt = createdAt;
       if (typeof server.allowGlobalGuests === 'boolean') {

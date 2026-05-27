@@ -32,6 +32,11 @@ const SHELL_SOURCE = 'useEchoWorkspaceLifecycle';
  */
 let echoWorkspaceSocialRefreshSeq = 0;
 
+/** Drop in-flight social hydrate/refresh results (e.g. before unfriend optimistic UI). */
+export function invalidateInFlightEchoWorkspaceSocialRefresh(): void {
+  echoWorkspaceSocialRefreshSeq++;
+}
+
 export type EchoWorkspaceHydrateResult =
   | { ok: true }
   | { ok: false; error: unknown; userMessage: string };

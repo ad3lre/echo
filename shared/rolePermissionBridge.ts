@@ -69,6 +69,19 @@ function addUiEchoKeys(
   }
 }
 
+/** Echo permission bits controlled by the server settings role UI matrix. */
+export function echoPermissionsManagedByRoleUi(): ReadonlySet<string> {
+  const set = new Set<string>();
+  for (const echo of Object.values(UI_TO_ECHO)) {
+    if (Array.isArray(echo)) {
+      for (const k of echo) set.add(k);
+    } else {
+      set.add(echo);
+    }
+  }
+  return set;
+}
+
 /** Build Echo `permissions` array from UI role matrix (Discord/Echo API keys only). */
 export function roleUiPermissionsToEchoStrings(
   perms: Record<string, boolean>,
@@ -84,6 +97,23 @@ export function roleUiPermissionsToEchoStrings(
   }
   return [...ECHO_API_PERMISSIONS].filter(
     (k) => set.has(k) && !THREAD_PERMISSION_NAMES.has(k),
+  );
+}
+
+/**
+ * Merge UI-edited role permissions with stored Echo strings, preserving bits
+ * that are not exposed in the server settings role editor (e.g. EMBED_LINKS).
+ */
+export function mergeRoleUiPermissionsWithStoredEcho(
+  uiPerms: Record<string, boolean>,
+  storedEcho: readonly string[],
+): string[] {
+  const uiManaged = echoPermissionsManagedByRoleUi();
+  const fromUi = new Set(roleUiPermissionsToEchoStrings(uiPerms));
+  const preserved = storedEcho.filter((p) => !uiManaged.has(p));
+  const merged = new Set([...preserved, ...fromUi]);
+  return [...ECHO_API_PERMISSIONS].filter(
+    (k) => merged.has(k) && !THREAD_PERMISSION_NAMES.has(k),
   );
 }
 

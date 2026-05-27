@@ -505,7 +505,7 @@ export function useGuildChannelModals(deps: {
               }
             : {}),
         });
-        if (payload.echoPermissionRows) {
+        if (payload.echoPermissionRows !== undefined) {
           await putEchoChannelPermissionOverwriteRows(
             token,
             chId,
@@ -685,14 +685,14 @@ export function useGuildChannelModals(deps: {
             categoryPatch,
           );
         }
-        if (payload.echoPermissionRows) {
+        if (payload.echoPermissionRows !== undefined) {
           await putEchoCategoryPermissionOverwriteRows(
             token,
             sid,
             payload.categoryId,
             payload.echoPermissionRows,
           );
-        } else {
+        } else if (!categorySettingsEchoPermissionEditor.value) {
           const echoPartial = channelOverridesToEchoPartial(
             payload.channelPermissionDefaults,
           );

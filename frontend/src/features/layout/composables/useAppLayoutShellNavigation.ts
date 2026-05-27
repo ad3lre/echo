@@ -35,53 +35,17 @@ import { emitActiveChannelNavDiagnostic } from '@/features/layout/emitActiveChan
 import { beginChatSwitch } from '@/features/layout/chatSwitchPerfTrace';
 import { isServerEmptyOnboarding as isServerEmptyOnboardingDomain } from '@/services/domain/workspaceShellSelection';
 import { isEchoGraphId } from '@/utils/echoIds';
+import {
+  readLastVisitedServerChannelMap,
+  writeLastVisitedServerChannelMap,
+} from '@/utils/lastVisitedNavigationPersistence';
+import { prefetchChannelMessagesFirstPage } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 import { resolveServerChannelInfoForMainSurface } from '@/features/layout/resolveServerChannelTypeForMainSurface';
 
 type CategoryRow = {
   name: string;
   channels: { id: string; type: string }[];
 };
-
-const LAST_VISITED_SERVER_CHANNEL_STORAGE_KEY =
-  'echo-last-visited-server-channel-v1';
-
-function readLastVisitedServerChannelMap(): Record<string, string> {
-  if (typeof localStorage === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(LAST_VISITED_SERVER_CHANNEL_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return {};
-    }
-    const out: Record<string, string> = {};
-    for (const [serverId, channelId] of Object.entries(parsed)) {
-      if (
-        typeof serverId === 'string' &&
-        serverId.trim() &&
-        typeof channelId === 'string' &&
-        channelId.trim()
-      ) {
-        out[serverId.trim()] = channelId.trim();
-      }
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-function writeLastVisitedServerChannelMap(map: Record<string, string>): void {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(
-      LAST_VISITED_SERVER_CHANNEL_STORAGE_KEY,
-      JSON.stringify(map),
-    );
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
 
 export interface UseAppLayoutShellNavigationOptions {
   base: string;
@@ -231,6 +195,12 @@ export function useAppLayoutShellNavigation(
     opts.serverStore.selectServer(serverId);
     selectServersTabRaw();
     opts.activeChannelId.value = nextChannelId;
+    const token = opts.authSession.accessToken?.trim() ?? '';
+    if (token && opts.authSession.isAuthenticated && nextChannelId) {
+      void prefetchChannelMessagesFirstPage(token, nextChannelId, {
+        flow: 'prefetchServerSwitchChannel',
+      });
+    }
   }
 
   function rememberLastChannelForServer(

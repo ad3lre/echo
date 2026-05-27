@@ -4,7 +4,7 @@ import type { MessageRequestEntry } from '@/composables/workspace/types';
 import type { useAuthSessionStore } from '@/stores/authSession';
 import type { useServerStore } from '@/stores/server';
 import type { DmSubView } from '@/features/layout/mainSurface';
-import { isEchoAuthUserId } from '@/utils/echoIds';
+import { isEchoAuthUserId, isEchoGraphId } from '@/utils/echoIds';
 import { echoDmChannelIdForPeerUser } from '@/features/dm/buildDmPanelUserList';
 import { clientOnlyDmOpenShellIdForPeerUser } from '@/features/dm/dmOpenShellChannelId';
 import { openEchoDirectDmChannel } from '@/features/dm/echoDmCommandFacade';
@@ -52,6 +52,27 @@ function relocateChannelMessages(
   delete rec[fromKey];
 }
 
+/** True when the local bucket has a persisted anchor suitable for instant render. */
+function channelHasTrustedMessageCache(
+  messages: Ref<Record<string, RawMessage[]>> | undefined,
+  channelId: string,
+): boolean {
+  const cid = channelId.trim();
+  if (!messages || !cid) return false;
+  const slice = messages.value[cid];
+  if (!slice?.length) return false;
+  const headId = slice[0]?.id?.trim() ?? '';
+  return isEchoGraphId(headId);
+}
+
+function isKnownPersistedDirectDmThread(
+  channelId: string | null | undefined,
+  echoDmThreadIds: ReadonlySet<string>,
+): boolean {
+  const cid = channelId?.trim() ?? '';
+  return !!cid && isEchoGraphId(cid) && echoDmThreadIds.has(cid);
+}
+
 export function useAppLayoutOpenDmThread(deps: {
   selectedDMUserId: Ref<string | null>;
   dmActiveTab: Ref<DmSubView>;
@@ -94,6 +115,39 @@ export function useAppLayoutOpenDmThread(deps: {
   let openDmInFlightCount = 0;
   /** True while `/dm/open` is resolving so UI can show loading instead of empty-state copy. */
   const isOpeningDmThread = ref(false);
+
+  function applyResolvedDirectDmChannel(
+    userId: string,
+    channelId: string,
+    dmShellId: string,
+  ): string {
+    activeChannelId.value = channelId;
+    if (messages) {
+      relocateChannelMessages(messages, dmShellId, channelId);
+      const requestChannelId = messageRequests?.value.find(
+        (r) => r.fromUserId === userId,
+      )?.channelId;
+      if (requestChannelId?.trim()) {
+        relocateChannelMessages(messages, requestChannelId, channelId);
+      }
+      const previousPeerChannelId = Array.from(
+        echoDmPeerByChannelId.value.entries(),
+      ).find(([knownChannelId, knownPeerUserId]) => {
+        return knownPeerUserId === userId && knownChannelId !== channelId;
+      })?.[0];
+      if (previousPeerChannelId?.trim()) {
+        relocateChannelMessages(messages, previousPeerChannelId, channelId);
+      }
+    }
+    dbgReadState('dm_real_channel_active', { channelId });
+    const m = new Map(echoDmPeerByChannelId.value);
+    m.set(channelId, userId);
+    echoDmPeerByChannelId.value = m;
+    const s = new Set(echoDmThreadIds.value);
+    s.add(channelId);
+    echoDmThreadIds.value = s;
+    return channelId;
+  }
 
   /** Resolves the DM channel id used for messaging, or `null` if superseded / aborted. */
   async function onSelectDmUser(userId: string): Promise<string | null> {
@@ -144,8 +198,36 @@ export function useAppLayoutOpenDmThread(deps: {
           ? { channelId: persistedPeerChannelId }
           : { dmShellId },
       );
-      openDmInFlightCount += 1;
-      isOpeningDmThread.value = openDmInFlightCount > 0;
+
+      if (
+        persistedPeerChannelId &&
+        isKnownPersistedDirectDmThread(
+          persistedPeerChannelId,
+          echoDmThreadIds.value,
+        )
+      ) {
+        dbgReadState('dm_open_skip_hydrated', {
+          userId,
+          channelId: persistedPeerChannelId,
+        });
+        if (seq !== openDmSeq || selectedDMUserId.value !== userId) {
+          return null;
+        }
+        return applyResolvedDirectDmChannel(
+          userId,
+          persistedPeerChannelId,
+          dmShellId,
+        );
+      }
+
+      const showOpenLoading = !channelHasTrustedMessageCache(
+        messages,
+        persistedPeerChannelId ?? dmShellId,
+      );
+      if (showOpenLoading) {
+        openDmInFlightCount += 1;
+        isOpeningDmThread.value = openDmInFlightCount > 0;
+      }
       try {
         const channelId = await openEchoDirectDmChannel(token, userId);
         dbgReadState('dm_open_result', {
@@ -156,38 +238,7 @@ export function useAppLayoutOpenDmThread(deps: {
           return null;
         }
         if (channelId) {
-          // Switch to the resolved thread before relocating buckets so the active
-          // window never briefly reads an emptied optimistic `dm-{userId}` shell.
-          activeChannelId.value = channelId;
-          if (messages) {
-            relocateChannelMessages(messages, dmShellId, channelId);
-            const requestChannelId = messageRequests?.value.find(
-              (r) => r.fromUserId === userId,
-            )?.channelId;
-            if (requestChannelId?.trim()) {
-              relocateChannelMessages(messages, requestChannelId, channelId);
-            }
-            const previousPeerChannelId = Array.from(
-              echoDmPeerByChannelId.value.entries(),
-            ).find(([knownChannelId, knownPeerUserId]) => {
-              return knownPeerUserId === userId && knownChannelId !== channelId;
-            })?.[0];
-            if (previousPeerChannelId?.trim()) {
-              relocateChannelMessages(
-                messages,
-                previousPeerChannelId,
-                channelId,
-              );
-            }
-          }
-          dbgReadState('dm_real_channel_active', { channelId });
-          const m = new Map(echoDmPeerByChannelId.value);
-          m.set(channelId, userId);
-          echoDmPeerByChannelId.value = m;
-          const s = new Set(echoDmThreadIds.value);
-          s.add(channelId);
-          echoDmThreadIds.value = s;
-          return channelId;
+          return applyResolvedDirectDmChannel(userId, channelId, dmShellId);
         }
         // Keep the optimistic DM shell selected so the user does not snap back
         // to an unrelated server channel when `/dm/open` returns no channel id.
@@ -228,8 +279,10 @@ export function useAppLayoutOpenDmThread(deps: {
         }
         return null;
       } finally {
-        openDmInFlightCount = Math.max(0, openDmInFlightCount - 1);
-        isOpeningDmThread.value = openDmInFlightCount > 0;
+        if (showOpenLoading) {
+          openDmInFlightCount = Math.max(0, openDmInFlightCount - 1);
+          isOpeningDmThread.value = openDmInFlightCount > 0;
+        }
       }
     }
 

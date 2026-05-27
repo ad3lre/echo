@@ -555,7 +555,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-modal-title"
-        class="auth-modal-panel relative my-auto w-full max-w-[460px] rounded-2xl px-7 py-8 text-white outline-none sm:px-9 sm:py-9"
+        class="auth-modal-panel relative my-auto w-full max-w-[460px] rounded-2xl px-7 py-8 text-foreground outline-none sm:px-9 sm:py-9"
       >
         <div class="auth-modal-accent" aria-hidden="true" />
 
@@ -563,7 +563,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
           <div class="min-w-0">
             <h2
               id="auth-modal-title"
-              class="text-[1.5rem] font-bold leading-snug tracking-tight text-white"
+              class="text-[1.5rem] font-bold leading-snug tracking-tight text-foreground"
             >
               <template v-if="signedInFullAccount">Account</template>
               <template v-else-if="showMfaStep"
@@ -582,7 +582,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 isMockDataMode &&
                 tab === 'login'
               "
-              class="mt-3 text-[0.9375rem] leading-relaxed text-amber-100/75"
+              class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
               Preview mode: connect the full app to sign in with a saved
               account.
@@ -648,24 +648,24 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               v-else-if="
                 showAuthForms && !authSession.isAuthenticated && isMockDataMode
               "
-              class="mt-3 text-[0.9375rem] leading-relaxed text-amber-100/75"
+              class="mt-3 text-[0.9375rem] leading-relaxed text-fg-subtle"
             >
               You’re viewing Echo in preview mode. Connect the full app to
               create an account or sign in.
             </p>
             <p
               v-else-if="signedInFullAccount"
-              class="mt-3 text-sm text-emerald-200/90"
+              class="auth-signed-in-hint mt-3 text-sm"
             >
               Signed in as
-              <span class="font-semibold text-white">{{
+              <span class="font-semibold text-foreground">{{
                 signedInAccountLabel
               }}</span>
             </p>
           </div>
           <button
             type="button"
-            class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-white"
+            class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground"
             aria-label="Close"
             @click="close"
           >
@@ -688,7 +688,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
         <template v-if="showAuthForms">
           <div
             v-if="isMockDataMode"
-            class="mt-8 rounded-xl bg-amber-500/[0.1] px-5 py-3.5 text-sm leading-relaxed text-amber-50/90"
+            class="auth-alert-warning mt-8 rounded-xl px-5 py-3.5 text-sm leading-relaxed"
           >
             Account actions are turned off in preview mode so sample data stays
             local.
@@ -705,7 +705,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 class="flex-1 rounded-lg py-2 text-xs font-semibold transition"
                 :class="
                   mfaFactor === 'totp'
-                    ? 'bg-glass-3 text-white'
+                    ? 'bg-glass-3 text-foreground'
                     : 'text-fg-subtle hover:text-fg-soft'
                 "
                 @click="mfaFactor = 'totp'"
@@ -717,7 +717,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 class="flex-1 rounded-lg py-2 text-xs font-semibold transition"
                 :class="
                   mfaFactor === 'recovery'
-                    ? 'bg-glass-3 text-white'
+                    ? 'bg-glass-3 text-foreground'
                     : 'text-fg-subtle hover:text-fg-soft'
                 "
                 @click="mfaFactor = 'recovery'"
@@ -754,7 +754,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             </div>
             <div
               v-if="errorMessage"
-              class="rounded-xl bg-rose-500/[0.14] px-4 py-3 text-sm leading-snug text-rose-100/95"
+              class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
               {{ errorMessage }}
@@ -800,14 +800,14 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             </div>
             <div
               v-if="errorMessage"
-              class="rounded-xl bg-rose-500/[0.14] px-4 py-3 text-sm leading-snug text-rose-100/95"
+              class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
               {{ errorMessage }}
             </div>
             <div
               v-if="forgotMessage"
-              class="rounded-xl bg-emerald-500/[0.14] px-4 py-3 text-sm leading-snug text-emerald-100/95"
+              class="auth-alert-success rounded-xl px-4 py-3 text-sm leading-snug"
               role="status"
             >
               {{ forgotMessage }}
@@ -905,14 +905,14 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                   <span
                     class="font-medium"
                     :class="{
-                      'text-rose-200/90': passwordStrength.fillPct < 36,
-                      'text-amber-200/90':
+                      'auth-strength-weak': passwordStrength.fillPct < 36,
+                      'auth-strength-fair':
                         passwordStrength.fillPct >= 36 &&
                         passwordStrength.fillPct < 58,
-                      'text-emerald-200/90':
+                      'auth-strength-good':
                         passwordStrength.fillPct >= 58 &&
                         passwordStrength.fillPct < 82,
-                      'text-emerald-100': passwordStrength.fillPct >= 82,
+                      'auth-strength-strong': passwordStrength.fillPct >= 82,
                     }"
                   >
                     {{ passwordStrength.label }}
@@ -923,7 +923,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
 
             <div
               v-if="errorMessage"
-              class="rounded-xl bg-rose-500/[0.14] px-4 py-3 text-sm leading-snug text-rose-100/95"
+              class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
               {{ errorMessage }}
@@ -1058,7 +1058,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
 
             <div
               v-if="errorMessage"
-              class="rounded-xl bg-rose-500/[0.14] px-4 py-3 text-sm leading-snug text-rose-100/95"
+              class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
               {{ errorMessage }}
@@ -1126,7 +1126,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
 
             <div
               v-if="errorMessage"
-              class="rounded-xl bg-rose-500/[0.14] px-4 py-3 text-sm leading-snug text-rose-100/95"
+              class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
               {{ errorMessage }}
@@ -1148,7 +1148,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             <button
               v-if="tab === 'login' && !isMockDataMode && ECHO_PASSKEYS_ENABLED"
               type="button"
-              class="auth-submit-secondary mt-1 flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+              class="auth-submit-secondary mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-45"
               :disabled="submitting"
               @click="submitPasskeyLogin()"
             >
@@ -1428,6 +1428,98 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
     outline: 2px solid var(--vue-auto-173);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+}
+
+.auth-signed-in-hint {
+  color: rgba(167, 243, 208, 0.9);
+}
+
+.auth-alert-error {
+  background: rgba(244, 63, 94, 0.14);
+  color: rgba(255, 228, 230, 0.95);
+}
+
+.auth-alert-success {
+  background: rgba(16, 185, 129, 0.14);
+  color: rgba(209, 250, 229, 0.95);
+}
+
+.auth-alert-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: rgba(255, 251, 235, 0.9);
+}
+
+.auth-strength-weak {
+  color: rgba(254, 205, 211, 0.9);
+}
+
+.auth-strength-fair {
+  color: rgba(253, 230, 138, 0.9);
+}
+
+.auth-strength-good {
+  color: rgba(167, 243, 208, 0.9);
+}
+
+.auth-strength-strong {
+  color: rgba(209, 250, 229, 1);
+}
+
+.auth-submit-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+:global([data-theme='light']) {
+  .auth-signed-in-hint {
+    color: rgb(22, 101, 52);
+  }
+
+  .auth-alert-error {
+    background: rgba(220, 38, 38, 0.1);
+    color: rgb(153, 27, 27);
+  }
+
+  .auth-alert-success {
+    background: rgba(22, 163, 74, 0.1);
+    color: rgb(22, 101, 52);
+  }
+
+  .auth-alert-warning {
+    background: rgba(217, 119, 6, 0.08);
+    color: rgb(146, 64, 14);
+  }
+
+  .auth-strength-weak {
+    color: rgb(190, 18, 60);
+  }
+
+  .auth-strength-fair {
+    color: rgb(180, 83, 9);
+  }
+
+  .auth-strength-good {
+    color: rgb(21, 128, 61);
+  }
+
+  .auth-strength-strong {
+    color: rgb(22, 101, 52);
+  }
+
+  .auth-submit-secondary {
+    border-color: var(--border);
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--text);
+
+    &:hover:not(:disabled) {
+      background: rgba(0, 0, 0, 0.08);
+    }
   }
 }
 

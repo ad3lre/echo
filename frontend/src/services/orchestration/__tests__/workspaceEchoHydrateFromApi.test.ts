@@ -37,6 +37,7 @@ import {
 } from '@/services/orchestration/workspaceSocialHydrate';
 import { saveEchoWorkspaceToCache } from '@/utils/workspacePersistence';
 import {
+  invalidateInFlightEchoWorkspaceSocialRefresh,
   runEchoWorkspaceHydrateFromApi,
   runEchoWorkspaceSocialRefreshFromApi,
 } from '../workspaceEchoHydrateFromApi';
@@ -286,6 +287,50 @@ describe('runEchoWorkspaceHydrateFromApi', () => {
     expect(result).toEqual({ ok: true });
     expect(friendIds.value).toEqual([]);
     expect(mergeDm).not.toHaveBeenCalled();
+  });
+
+  it('drops in-flight social refresh after invalidate (unfriend optimistic path)', async () => {
+    const staleSocial: SocialApi.WorkspaceSocialSnapshot = {
+      friendIds: ['peer-1'],
+      friendRequestsIncoming: [],
+      friendRequestsOutgoing: [],
+      messageRequests: [],
+      dmThreads: [],
+      blockedUserIds: [],
+    };
+
+    let slowResolve!: (v: SocialApi.WorkspaceSocialSnapshot) => void;
+    const slowPromise = new Promise<SocialApi.WorkspaceSocialSnapshot>((r) => {
+      slowResolve = r;
+    });
+
+    vi.mocked(fetchWorkspaceSocialForRefresh).mockReturnValueOnce(slowPromise);
+
+    const friendIds = ref<string[]>(['peer-1']);
+    const socialGraphStatus = ref<'idle' | 'loading' | 'ready' | 'error'>(
+      'ready',
+    );
+
+    const refreshPromise = runEchoWorkspaceSocialRefreshFromApi({
+      token: 't',
+      isGuest: false,
+      workspace: {
+        friendIds,
+        blockedUserIds: ref([]),
+        friendRequestsIncoming: ref([]),
+        friendRequestsOutgoing: ref([]),
+        messageRequests: ref([]),
+        socialGraphStatus,
+      },
+    });
+
+    invalidateInFlightEchoWorkspaceSocialRefresh();
+    friendIds.value = [];
+
+    slowResolve(staleSocial);
+    await refreshPromise;
+
+    expect(friendIds.value).toEqual([]);
   });
 });
 

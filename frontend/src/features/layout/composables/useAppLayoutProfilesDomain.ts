@@ -13,6 +13,7 @@ import {
   removeEchoFriend,
   shouldUseEchoProfileSocialApi,
 } from '@/services/orchestration/profileSocial';
+import { invalidateInFlightEchoWorkspaceSocialRefresh } from '@/services/orchestration/workspaceEchoHydrateFromApi';
 import type { EchoServerMemberDto } from '@/api/echo/types';
 import { memberPanelDiag } from '@/utils/memberPanelDiag';
 import { isEchoPublicBadgeId } from '@shared/echoAccountBadges';
@@ -149,6 +150,7 @@ export function useAppLayoutProfilesDomain(deps: {
   async function removeEchoFriendOnServer(peerId: string) {
     const token = authSession.accessToken?.trim() ?? '';
     if (!peerId.trim()) return;
+    invalidateInFlightEchoWorkspaceSocialRefresh();
     workspace.friendIds.value = workspace.friendIds.value.filter(
       (id: string) => id !== peerId,
     );

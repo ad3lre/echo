@@ -420,7 +420,7 @@ export function validateMessagePayload(payload: unknown):
         content: string;
         mentions?: MentionEntity[];
         replyTo?: unknown;
-        /** Client-generated UUID for idempotent send / optimistic UI reconciliation */
+        /** Client-generated snowflake (or legacy UUID) for idempotent send / optimistic UI reconciliation */
         clientMessageId?: string;
         correlationId?: string;
         imageUrl?: string;

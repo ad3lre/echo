@@ -2,6 +2,7 @@ import {
   fetchEchoMutualFriends,
   postEchoRemoveFriend,
 } from '@/api/echo/social';
+import { EchoApiError } from '@/api/echo/transport';
 import { toUsername } from '@/utils/memberProfiles';
 import { selectPresence } from '@/services/domain/presence';
 
@@ -57,6 +58,16 @@ export async function fetchProfileMutualFriends(opts: {
     }));
 }
 
+function isRemoveFriendBenignError(error: unknown): boolean {
+  if (error instanceof EchoApiError) {
+    if (error.status === 404 && error.body.code === 'NOT_FOUND') return true;
+    const raw = error.body.message?.trim() ?? '';
+    if (raw.includes('No accepted friendship')) return true;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('No accepted friendship');
+}
+
 export async function removeEchoFriend(opts: {
   token: string;
   peerId: string;
@@ -65,10 +76,10 @@ export async function removeEchoFriend(opts: {
     await postEchoRemoveFriend(opts.token, opts.peerId);
     return { benign: false };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes('No accepted friendship')) {
+    if (isRemoveFriendBenignError(error)) {
       return { benign: true };
     }
+    const message = error instanceof Error ? error.message : String(error);
     const wrapped = new Error(message.trim() || 'Could not remove friend.');
     if (error instanceof Error) wrapped.cause = error;
     throw wrapped;

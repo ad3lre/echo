@@ -179,6 +179,7 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     dmPartnerUser: ctx.dmPartnerUser,
     presenceByUserId: ctx.presenceByUserId,
     dmInboxEntriesForPanel: ctx.dmInboxEntriesForPanel,
+    echoDmPeerByChannelId: ctx.echoDmPeerByChannelId,
     dmUsersForDmPanel: ctx.dmUsersForDmPanel,
     echoCanBanMembers: ctx.echoCanBanMembers,
     echoCanChangeNicknames: ctx.echoCanChangeNicknames,

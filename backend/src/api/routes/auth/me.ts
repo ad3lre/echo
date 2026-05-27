@@ -16,10 +16,15 @@ import { sendPhoneVerificationSms } from '../../../services/auth/phoneVerificati
 import { getPgPool } from '../../../db/pg';
 import { fanoutUserProfileChangeToEchoServers } from '../../../services/echoUserProfileWorkspaceFanout';
 import { buildEchoPlanLimitsPublic } from '../../../domain/echoPlanEntitlements';
+import { getEchoPlusInterestForUser } from '../../../domain/echoPlusInterest';
 import { validateEchoStoredBrandingUrl } from '../../../services/storedMediaUrl';
 import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSessionRevocation';
 import { normalizeProfileBannerColor } from '../../../../../shared/profileBannerColor';
 import { publicBadgesFromAccount } from '../../../../../shared/echoAccountBadges';
+import {
+  MAX_REGISTER_USERNAME_LENGTH,
+  MIN_REGISTER_USERNAME_LENGTH,
+} from '../../../../../shared/usernamePolicy';
 import type { AuthUser } from '../../../auth/types';
 
 function mergeMeBadgesForPlan(
@@ -34,6 +39,7 @@ function mergeMeBadgesForPlan(
       isDiscordShadow: user.isDiscordShadow,
     },
     echoPlan,
+    user.badges,
   );
   return merged.length ? merged : undefined;
 }
@@ -251,6 +257,27 @@ export default async function meRoutes(fastify: FastifyInstance) {
             ...(badges?.length ? { badges } : {}),
           };
           if (!badges?.length) delete userOut.badges;
+          try {
+            const interest = await getEchoPlusInterestForUser(
+              pool,
+              req.authUser.id,
+            );
+            if (interest) {
+              userOut = {
+                ...userOut,
+                echoPlusInterest: {
+                  tier: interest.tier,
+                  billingCycle: interest.billingCycle,
+                  createdAt: interest.createdAt,
+                  updatedAt: interest.updatedAt,
+                },
+              };
+            } else {
+              delete userOut.echoPlusInterest;
+            }
+          } catch (err) {
+            fastify.log.warn({ err }, 'echo_plus_interest_me_failed');
+          }
         } catch (err) {
           fastify.log.warn({ err }, 'echo_plan_limits_me_failed');
         }
@@ -287,7 +314,11 @@ export default async function meRoutes(fastify: FastifyInstance) {
             bannerBlurEnabled: { type: 'boolean' },
             bannerBlackoutEnabled: { type: 'boolean' },
             bannerPositionY: { type: 'number', minimum: 0, maximum: 100 },
-            username: { type: 'string', minLength: 2, maxLength: 32 },
+            username: {
+              type: 'string',
+              minLength: MIN_REGISTER_USERNAME_LENGTH,
+              maxLength: MAX_REGISTER_USERNAME_LENGTH,
+            },
             phone: {
               anyOf: [{ type: 'string', maxLength: 32 }, { type: 'null' }],
             },

@@ -98,6 +98,7 @@ const props = defineProps<{
   }[];
   selectedMessageRequestId: string | null;
   messages: Record<string, DmMessageRow[]>;
+  echoPeerByChannelId?: ReadonlyMap<string, string>;
   sendMessage: (
     channelId: string,
     content: string,
@@ -360,6 +361,8 @@ async function handleDmCallLeave() {
       :friend-requests-incoming="friendRequestsIncoming"
       :friend-requests-outgoing="friendRequestsOutgoing"
       :selected-user-id="selectedDmUserId"
+      :echo-peer-by-channel-id="echoPeerByChannelId"
+      :messages="messages"
       @select-dm="selectDm"
       @accept-friend-request="acceptFriendRequest"
       @decline-friend-request="declineFriendRequest"

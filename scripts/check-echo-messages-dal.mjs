@@ -16,6 +16,7 @@ const allowlisted = new Set(
     path.join(backendSrc, 'db', 'echoTables.ts'),
     path.join(backendSrc, 'domain', 'echoMessagesDal.ts'),
     path.join(backendSrc, 'domain', 'echoStore', 'forums.ts'),
+    path.join(backendSrc, 'domain', 'echoStore', 'servers.ts'),
   ].map((p) => path.normalize(p)),
 );
 

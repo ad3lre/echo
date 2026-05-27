@@ -1,7 +1,7 @@
 /**
  * Placeholder rows for Echo channel history load — mirrors MessageBubble grouping:
  * `grouped: false` → avatar + name row + body lines; `true` → gutter + body only.
- * Length ~ first history page density (see `ECHO_CHANNEL_MESSAGE_PAGE_SIZE` in `features/chat/constants/echoHistoryPageSize.ts`).
+ * Length ~ first history page density (see `ECHO_CHANNEL_MESSAGE_PAGE_SIZE` in `constants/echoHistoryPageSize.ts`).
  */
 export type HistorySkeletonRow = {
   grouped: boolean;

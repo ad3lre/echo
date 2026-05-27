@@ -106,6 +106,39 @@ describe('ServerRailServerIcons runtime', () => {
     expect(container.querySelector('.server-folder__slot--h')).toBeNull();
   });
 
+  it('collapses to zero width in horizontal mode when servers are not expanded', async () => {
+    const Host = defineComponent({
+      setup() {
+        return () =>
+          h(ServerRailServerIcons, {
+            visibleServers: [mkServer('s1'), mkServer('s2')],
+            selectedServerId: null,
+            areServersExpanded: false,
+            reorderEnabled: false,
+            railDragSourceIndex: null,
+            railDropLineBefore: null,
+            railGhostPosition: null,
+            railDragGhostServer: null,
+            showExtraServersRailButton: false,
+            moreServersCount: 0,
+            selectedOverflowServer: null,
+            unreadBadgeEnabled: true,
+            horizontal: true,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Host);
+    app.mount(container);
+    await nextTick();
+
+    const folder = container.querySelector('.servers-folder') as HTMLElement;
+    expect(folder).not.toBeNull();
+    expect(folder.getBoundingClientRect().width).toBe(0);
+  });
+
   it('emits select-server in horizontal mode when selection is allowed', async () => {
     const onSelectServer = vi.fn();
     const allowSelect = ref(true);

@@ -89,9 +89,12 @@ function onSuggestionContextMenu(ev: MouseEvent, entry: EmojiEntry) {
 <style scoped>
 /* Glass surface: .chat-liquid-glass-menu in main.scss */
 
-.emoji-autocomplete-item:hover,
-.emoji-autocomplete-item--selected {
+.emoji-autocomplete-item:hover {
   background: var(--vue-auto-019);
+}
+
+.emoji-autocomplete-item--selected {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .emoji-wrap :deep(.emoji) {

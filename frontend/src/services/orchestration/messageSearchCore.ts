@@ -55,7 +55,7 @@ function hasNonGifLink(content: string | undefined): boolean {
   return matches.some((url) => !isGifUrl(url));
 }
 
-export function messageMatchesHasType(
+function messageMatchesHasType(
   m: MessageWithAuthor & {
     videoUrl?: string;
     audioUrl?: string;
@@ -97,9 +97,7 @@ export function messageMatchesHasType(
   }
 }
 
-export function buildUserLookup(
-  users: UserForAuthor[],
-): Map<string, UserForAuthor> {
+function buildUserLookup(users: UserForAuthor[]): Map<string, UserForAuthor> {
   const m = new Map<string, UserForAuthor>();
   for (const u of users) {
     m.set(u.id, u);
@@ -107,7 +105,7 @@ export function buildUserLookup(
   return m;
 }
 
-export function rawToSearchRow(
+function rawToSearchRow(
   msg: RawMessage,
   lookup: Map<string, UserForAuthor>,
   channelId: string,
@@ -260,7 +258,7 @@ export function resolveFilterChannelEchoId(
   return hit?.id;
 }
 
-export function resolveAuthorIdFilter(
+function resolveAuthorIdFilter(
   filters: SearchFilters,
   users: UserForAuthor[],
 ): string | undefined {

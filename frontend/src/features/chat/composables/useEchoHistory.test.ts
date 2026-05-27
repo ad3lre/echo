@@ -13,7 +13,6 @@ import { recordPendingClientMessage } from '@/services/realtime/socketPendingCli
 import {
   fetchEchoAttentionSummary,
   fetchEchoChannelMessages,
-  fetchEchoChannelReadState,
   putEchoChannelReadState,
 } from '@/api/echoClient';
 import { ECHO_HISTORY_INITIAL_FETCH_TIMEOUT_MS } from '@/features/chat/constants/echoHistoryFetchTimeouts';
@@ -34,7 +33,6 @@ vi.mock('@/api/echoClient', async (importOriginal) => {
   return {
     ...actual,
     fetchEchoChannelMessages: vi.fn(),
-    fetchEchoChannelReadState: vi.fn(),
     fetchEchoAttentionSummary: vi.fn(),
     putEchoChannelReadState: vi.fn(),
   };
@@ -52,7 +50,6 @@ describe('useEchoHistory', () => {
     messageWindowAuthority._resetForTesting();
     vi.useFakeTimers();
     vi.mocked(fetchEchoChannelMessages).mockReset();
-    vi.mocked(fetchEchoChannelReadState).mockReset();
     vi.mocked(fetchEchoAttentionSummary).mockReset();
     vi.mocked(putEchoChannelReadState).mockReset();
     registerEchoPendingClientMessageList([]);

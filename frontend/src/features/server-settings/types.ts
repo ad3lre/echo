@@ -104,6 +104,8 @@ export interface ManagedRole {
   /** When true, manage/assign on this role applies to all categories. */
   roleScope: EchoRoleScope;
   permissions: RolePermissions;
+  /** Raw Echo API permission strings last loaded from the server (preserves non-UI bits on save). */
+  storedEchoPermissions: string[];
   /** Echo-only: mixed (default), authority (hidden from non–Manage Roles), or visual (no permission bits). */
   roleType: EchoRoleType;
 }

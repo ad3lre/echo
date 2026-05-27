@@ -11,9 +11,14 @@ import {
 } from '@/api/echo/social';
 import { deleteEchoUnblockUser, postEchoBlockUser } from '@/api/echoClient';
 import { openReportModal } from '@/features/safety/reportModal';
+import { invalidateInFlightEchoWorkspaceSocialRefresh } from '@/services/orchestration/workspaceEchoHydrateFromApi';
 
 vi.mock('@/features/safety/reportModal', () => ({
   openReportModal: vi.fn(),
+}));
+
+vi.mock('@/services/orchestration/workspaceEchoHydrateFromApi', () => ({
+  invalidateInFlightEchoWorkspaceSocialRefresh: vi.fn(),
 }));
 
 vi.mock('@/api/echo/social', async (importOriginal) => {
@@ -237,6 +242,7 @@ describe('useAppLayoutProfilesDomain', () => {
     deps.workspace.friendIds.value = ['u1', 'u3'];
 
     const task = domain.removeFriend('u1');
+    expect(invalidateInFlightEchoWorkspaceSocialRefresh).toHaveBeenCalled();
     expect(deps.workspace.friendIds.value).toEqual(['u3']);
     pending.resolve();
     await task;

@@ -13,6 +13,29 @@ import { repairEchoVoiceChannelMigrationDamage } from './repairEchoVoiceChannelM
  */
 let echoTablesEnsureInflight: Promise<void> | null = null;
 
+async function runEchoSchemaMigrationOnce(
+  pool: pg.Pool,
+  migrationId: string,
+  run: () => Promise<void>,
+): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_schema_migrations (
+      id TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  const existing = await pool.query(
+    `SELECT 1 FROM echo_schema_migrations WHERE id = $1 LIMIT 1`,
+    [migrationId],
+  );
+  if (existing.rows.length > 0) return;
+  await run();
+  await pool.query(
+    `INSERT INTO echo_schema_migrations (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`,
+    [migrationId],
+  );
+}
+
 async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_servers (
@@ -57,6 +80,9 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   `);
   await pool.query(`
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS last_voice_activity_at TIMESTAMPTZ NULL;
   `);
   await pool.query(`
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS raid_protection_enabled BOOLEAN NOT NULL DEFAULT true;
@@ -1181,30 +1207,48 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       latency_ms INT
     );
   `);
-  await pool.query(
-    `UPDATE echo_roles SET permissions = $1::jsonb WHERE name = '@everyone'`,
-    [everyonePermsJson],
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'everyone_role_default_permissions_v1',
+    async () => {
+      await pool.query(
+        `UPDATE echo_roles SET permissions = $1::jsonb WHERE name = '@everyone'`,
+        [everyonePermsJson],
+      );
+    },
   );
-  await pool.query(`
-    UPDATE echo_roles
-    SET permissions = permissions || '["EMBED_LINKS"]'::jsonb
-    WHERE NOT (permissions @> '["EMBED_LINKS"]'::jsonb);
-  `);
-  await pool.query(`
-    UPDATE echo_roles
-    SET permissions = permissions || '["ADD_REACTIONS"]'::jsonb
-    WHERE name = '@everyone' AND NOT (permissions @> '["ADD_REACTIONS"]'::jsonb);
-  `);
-  await pool.query(`
-    UPDATE echo_roles
-    SET permissions = permissions || '["CONNECT"]'::jsonb
-    WHERE name = '@everyone' AND NOT (permissions @> '["CONNECT"]'::jsonb);
-  `);
-  await pool.query(`
-    UPDATE echo_roles
-    SET permissions = permissions || '["STREAM"]'::jsonb
-    WHERE name = '@everyone' AND NOT (permissions @> '["STREAM"]'::jsonb);
-  `);
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'role_embed_links_backfill_v1',
+    async () => {
+      await pool.query(`
+      UPDATE echo_roles
+      SET permissions = permissions || '["EMBED_LINKS"]'::jsonb
+      WHERE NOT (permissions @> '["EMBED_LINKS"]'::jsonb);
+    `);
+    },
+  );
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'everyone_voice_reactions_backfill_v1',
+    async () => {
+      await pool.query(`
+        UPDATE echo_roles
+        SET permissions = permissions || '["ADD_REACTIONS"]'::jsonb
+        WHERE name = '@everyone' AND NOT (permissions @> '["ADD_REACTIONS"]'::jsonb);
+      `);
+      await pool.query(`
+        UPDATE echo_roles
+        SET permissions = permissions || '["CONNECT"]'::jsonb
+        WHERE name = '@everyone' AND NOT (permissions @> '["CONNECT"]'::jsonb);
+      `);
+      await pool.query(`
+        UPDATE echo_roles
+        SET permissions = permissions || '["STREAM"]'::jsonb
+        WHERE name = '@everyone' AND NOT (permissions @> '["STREAM"]'::jsonb);
+      `);
+    },
+  );
   await migrateEveryoneRoleHierarchyPositions(pool);
   await migrateEchoCategorySchema(pool);
   await migrateEchoChannelCategoryNullable(pool);

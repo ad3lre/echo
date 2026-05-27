@@ -67,6 +67,12 @@ import {
   applyAccessibilityPreferences,
 } from '@/features/settings/accessibilityPreferences';
 import { ensureEchoBrandFavicon } from '@/utils/ensureEchoBrandFavicon';
+import {
+  runIosBootCheck,
+  hasStoredSessionToRestore,
+  notifyAppAuthenticated,
+  startSessionHeartbeat,
+} from '@/services/auth/iosBootOrchestrator';
 
 ensureEchoBrandFavicon();
 registerEchoServiceWorker();
@@ -114,6 +120,8 @@ function loadDeferredInterWeights() {
 }
 
 async function bootstrap() {
+  const iosBootDecision = await runIosBootCheck();
+
   if (isDesktop()) {
     /** Attach before mount so cold-start launches from `echo://…` do not miss `getCurrent()`. */
     void initDesktopDeepLinks();
@@ -240,6 +248,15 @@ async function bootstrap() {
 
   const authSessionStore = useAuthSessionStore();
   authSessionStore.hydrateFromStorage();
+
+  if (hasStoredSessionToRestore()) {
+    const restored = await authSessionStore.restoreSessionFromApi();
+    if (restored) {
+      await notifyAppAuthenticated();
+      startSessionHeartbeat();
+    }
+  }
+
   await applyEchoLocaleFromPreferences(
     authSessionStore.backendUser?.locale ?? null,
   );
@@ -516,6 +533,11 @@ async function bootstrap() {
 
   const workspace = getEchoPlatform().workspace as WorkspaceStateApi;
   void workspace.startInitialLoad();
+
+  if (iosBootDecision && authSessionStore.isAuthenticated) {
+    void notifyAppAuthenticated();
+    startSessionHeartbeat();
+  }
 
   /** Warm icon catalog shortly after first paint. */
   enqueueStartupTask('icon-catalog-preload', 'high', () => {

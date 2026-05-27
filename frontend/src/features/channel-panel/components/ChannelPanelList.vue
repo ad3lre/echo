@@ -109,6 +109,8 @@ const props = defineProps<{
   vcActivityKingUserId?: string | null;
   /** When true, show icon-only bubble view for narrow panels */
   bubbleMode?: boolean;
+  /** MOVE_MEMBERS — enable drag-move on voice participant rows. */
+  canMoveVcParticipant?: (userId: string) => boolean;
 }>();
 
 const channelIconResolver = useChannelIconResolver(
@@ -183,6 +185,13 @@ const emit = defineEmits<{
     },
   ];
   'category-reorder': [payload: { categoryId: string; siblingIndex: number }];
+  'vc-participant-move': [
+    payload: {
+      userId: string;
+      fromChannelId: string;
+      targetChannelId: string;
+    },
+  ];
 }>();
 
 function categoryIdForApi(category: ChannelCategory): string {
@@ -213,6 +222,129 @@ function voiceParticipantName(channelId: string, userId: string) {
   );
 }
 
+function canDragMoveVcParticipant(userId: string): boolean {
+  return !!props.canMoveVcParticipant?.(userId);
+}
+
+function readVcParticipantDragPayload(
+  e?: DragEvent,
+): { userId: string; fromChannelId: string } | null {
+  if (vcParticipantDrag.value) return vcParticipantDrag.value;
+  const raw = e?.dataTransfer?.getData(VC_PARTICIPANT_DRAG_MIME)?.trim();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as {
+      userId?: unknown;
+      fromChannelId?: unknown;
+    };
+    if (
+      typeof parsed.userId === 'string' &&
+      typeof parsed.fromChannelId === 'string'
+    ) {
+      return { userId: parsed.userId, fromChannelId: parsed.fromChannelId };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function isValidVcParticipantDropTarget(
+  channel: ChannelWithParticipants,
+  fromChannelId: string,
+): boolean {
+  if (channel.id === fromChannelId) return false;
+  if (!isVoiceLikeChannelType(channel.type)) return false;
+  if (channel.discordVoiceMirrorOnly) return false;
+  if (props.canJoinVoice && !props.canJoinVoice(channel.id)) return false;
+  return true;
+}
+
+function onVcParticipantDragStart(
+  userId: string,
+  fromChannelId: string,
+  e: DragEvent,
+) {
+  if (!canDragMoveVcParticipant(userId)) {
+    e.preventDefault();
+    return;
+  }
+  reorderDragChannelId.value = null;
+  reorderDragCategoryId.value = null;
+  channelDropLine.value = null;
+  categoryDropLineBefore.value = null;
+  vcParticipantDrag.value = { userId, fromChannelId };
+  vcParticipantDropTargetId.value = null;
+  const dt = e.dataTransfer;
+  if (dt) {
+    dt.setData(
+      VC_PARTICIPANT_DRAG_MIME,
+      JSON.stringify({ userId, fromChannelId }),
+    );
+    dt.setData('text/plain', '');
+    dt.effectAllowed = 'move';
+  }
+}
+
+function onVcParticipantDragEnd() {
+  vcParticipantDrag.value = null;
+  vcParticipantDropTargetId.value = null;
+  if (suppressParticipantClickAfterDrag.value) {
+    window.setTimeout(() => {
+      suppressParticipantClickAfterDrag.value = false;
+    }, 50);
+  }
+}
+
+function onVcParticipantClick(userId: string, event: MouseEvent | HTMLElement) {
+  if (suppressParticipantClickAfterDrag.value) {
+    suppressParticipantClickAfterDrag.value = false;
+    return;
+  }
+  emit('vc-participant-click', userId, event);
+}
+
+function onVoiceChannelParticipantDragOver(
+  channel: ChannelWithParticipants,
+  e: DragEvent,
+) {
+  const drag = readVcParticipantDragPayload(e);
+  if (!drag) return;
+  if (!canDragMoveVcParticipant(drag.userId)) return;
+  if (!isValidVcParticipantDropTarget(channel, drag.fromChannelId)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  vcParticipantDropTargetId.value = channel.id;
+}
+
+function onVoiceChannelParticipantDrop(
+  channel: ChannelWithParticipants,
+  e: DragEvent,
+) {
+  const drag = readVcParticipantDragPayload(e);
+  if (!drag) return;
+  if (!canDragMoveVcParticipant(drag.userId)) return;
+  if (!isValidVcParticipantDropTarget(channel, drag.fromChannelId)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  emit('vc-participant-move', {
+    userId: drag.userId,
+    fromChannelId: drag.fromChannelId,
+    targetChannelId: channel.id,
+  });
+  suppressParticipantClickAfterDrag.value = true;
+  vcParticipantDrag.value = null;
+  vcParticipantDropTargetId.value = null;
+}
+
+function showVcParticipantDropTarget(channelId: string): boolean {
+  return (
+    vcParticipantDrag.value !== null &&
+    vcParticipantDropTargetId.value === channelId
+  );
+}
+
 const reorderEnabled = computed(
   () => !!props.canReorderChannels && props.selectedServerId !== 'echo',
 );
@@ -231,6 +363,14 @@ const realCategoryCount = computed(() => realCategoryIds.value.length);
 
 const reorderDragChannelId = ref<string | null>(null);
 const reorderDragCategoryId = ref<string | null>(null);
+const VC_PARTICIPANT_DRAG_MIME = 'application/x-echo-vc-participant';
+const vcParticipantDrag = ref<{
+  userId: string;
+  fromChannelId: string;
+} | null>(null);
+const vcParticipantDropTargetId = ref<string | null>(null);
+/** After a successful participant drop, suppress the row click that follows dragend. */
+const suppressParticipantClickAfterDrag = ref(false);
 /** After a successful drop, suppress the row click that follows dragend (HTML5 DnD quirk). */
 const suppressChannelClickAfterReorder = ref(false);
 /** After category drag ends, suppress stray click on the category header (caret lives in the toggle button). */
@@ -508,6 +648,10 @@ function onReorderDragStart(channelId: string, e: DragEvent) {
     e.preventDefault();
     return;
   }
+  if (t instanceof Element && t.closest('.vc-participant-row')) {
+    e.preventDefault();
+    return;
+  }
   reorderDragChannelId.value = channelId;
   reorderDragCategoryId.value = null;
   categoryDropLineBefore.value = null;
@@ -535,6 +679,11 @@ function onReorderDragEnd() {
  * so the whole list accepts the drag while a channel reorder is in progress.
  */
 function onChannelListDragOverCapture(e: DragEvent) {
+  if (readVcParticipantDragPayload(e)) {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    return;
+  }
   if (!reorderEnabled.value && !categoryReorderEnabled.value) return;
   if (!reorderDragChannelId.value && !reorderDragCategoryId.value) return;
   e.preventDefault();
@@ -544,8 +693,22 @@ function onChannelListDragOverCapture(e: DragEvent) {
 function onChannelRowDragOver(
   category: ChannelCategory,
   channelIndex: number,
+  channel: ChannelWithParticipants,
   e: DragEvent,
 ) {
+  const participantDrag = readVcParticipantDragPayload(e);
+  if (participantDrag) {
+    if (
+      isValidVcParticipantDropTarget(channel, participantDrag.fromChannelId)
+    ) {
+      onVoiceChannelParticipantDragOver(channel, e);
+    } else {
+      vcParticipantDropTargetId.value = null;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+    }
+    return;
+  }
   if (reorderDragCategoryId.value) return;
   if (!reorderEnabled.value || reorderDragChannelId.value === null) return;
   e.preventDefault();
@@ -627,8 +790,13 @@ function resolveInsertBeforeIdForRowDrop(
 function onReorderDropOnRow(
   category: ChannelCategory,
   channelIndex: number,
+  channel: ChannelWithParticipants,
   e: DragEvent,
 ) {
+  if (readVcParticipantDragPayload(e)) {
+    onVoiceChannelParticipantDrop(channel, e);
+    return;
+  }
   const insertBeforeId = resolveInsertBeforeIdForRowDrop(
     category,
     channelIndex,
@@ -1318,7 +1486,9 @@ watch(
                     !canJoinVoice(channel.id),
                   'channel-row--drag-source':
                     reorderDragChannelId === channel.id,
-                  'select-none': reorderEnabled,
+                  'channel-row--vc-participant-drop-target':
+                    showVcParticipantDropTarget(channel.id),
+                  'select-none': reorderEnabled || !!vcParticipantDrag,
                   'cursor-grab active:cursor-grabbing':
                     reorderEnabled &&
                     !(
@@ -1352,10 +1522,10 @@ watch(
                 @mouseenter="emit('set-hovered-channel', channel.id)"
                 @mouseleave="emit('set-hovered-channel', null)"
                 @dragover.prevent="
-                  onChannelRowDragOver(category, channelIndex, $event)
+                  onChannelRowDragOver(category, channelIndex, channel, $event)
                 "
                 @drop.prevent="
-                  onReorderDropOnRow(category, channelIndex, $event)
+                  onReorderDropOnRow(category, channelIndex, channel, $event)
                 "
               >
                 <div
@@ -1562,6 +1732,10 @@ watch(
                     channel.voiceParticipantIds?.length
                   "
                   class="vc-participants mt-2.5 pl-6 flex flex-col gap-1.5"
+                  @dragover.prevent="
+                    onVoiceChannelParticipantDragOver(channel, $event)
+                  "
+                  @drop.prevent="onVoiceChannelParticipantDrop(channel, $event)"
                 >
                   <ChannelPanelVoiceParticipant
                     v-for="userId in channel.voiceParticipantIds"
@@ -1569,6 +1743,11 @@ watch(
                     :user-id="userId"
                     :name="voiceParticipantName(channel.id, userId)"
                     :pfp="getUserById(userId)?.pfp"
+                    :draggable="canDragMoveVcParticipant(userId)"
+                    :is-drag-source="
+                      vcParticipantDrag?.userId === userId &&
+                      vcParticipantDrag?.fromChannelId === channel.id
+                    "
                     :is-server-owner="
                       !!serverOwnerId?.trim() && userId === serverOwnerId.trim()
                     "
@@ -1580,7 +1759,7 @@ watch(
                       userId === vcActivityKingUserId.trim()
                     "
                     :is-active="openProfileUserId === userId"
-                    @click="emit('vc-participant-click', userId, $event)"
+                    @click="onVcParticipantClick(userId, $event)"
                     @contextmenu="
                       emit(
                         'vc-participant-contextmenu',
@@ -1591,6 +1770,10 @@ watch(
                         $event,
                       )
                     "
+                    @dragstart="
+                      onVcParticipantDragStart(userId, channel.id, $event)
+                    "
+                    @dragend="onVcParticipantDragEnd()"
                   />
                 </div>
                 <div
@@ -1599,6 +1782,10 @@ watch(
                     channel.voiceParticipantIds?.length
                   "
                   class="vc-participants mt-2.5 pl-6 flex flex-col gap-2"
+                  @dragover.prevent="
+                    onVoiceChannelParticipantDragOver(channel, $event)
+                  "
+                  @drop.prevent="onVoiceChannelParticipantDrop(channel, $event)"
                 >
                   <template
                     v-if="partitionStageParticipants(channel).speakers.length"
@@ -1615,13 +1802,18 @@ watch(
                       :user-id="userId"
                       :name="voiceParticipantName(channel.id, userId)"
                       :pfp="getUserById(userId)?.pfp"
+                      :draggable="canDragMoveVcParticipant(userId)"
+                      :is-drag-source="
+                        vcParticipantDrag?.userId === userId &&
+                        vcParticipantDrag?.fromChannelId === channel.id
+                      "
                       :is-server-owner="
                         !!serverOwnerId?.trim() &&
                         userId === serverOwnerId.trim()
                       "
                       :vc="participantVoiceUi(channel.id, userId)"
                       :is-active="openProfileUserId === userId"
-                      @click="emit('vc-participant-click', userId, $event)"
+                      @click="onVcParticipantClick(userId, $event)"
                       @contextmenu="
                         emit(
                           'vc-participant-contextmenu',
@@ -1632,6 +1824,10 @@ watch(
                           $event,
                         )
                       "
+                      @dragstart="
+                        onVcParticipantDragStart(userId, channel.id, $event)
+                      "
+                      @dragend="onVcParticipantDragEnd()"
                     />
                   </template>
                   <template
@@ -1649,13 +1845,18 @@ watch(
                       :user-id="userId"
                       :name="voiceParticipantName(channel.id, userId)"
                       :pfp="getUserById(userId)?.pfp"
+                      :draggable="canDragMoveVcParticipant(userId)"
+                      :is-drag-source="
+                        vcParticipantDrag?.userId === userId &&
+                        vcParticipantDrag?.fromChannelId === channel.id
+                      "
                       :is-server-owner="
                         !!serverOwnerId?.trim() &&
                         userId === serverOwnerId.trim()
                       "
                       :vc="participantVoiceUi(channel.id, userId)"
                       :is-active="openProfileUserId === userId"
-                      @click="emit('vc-participant-click', userId, $event)"
+                      @click="onVcParticipantClick(userId, $event)"
                       @contextmenu="
                         emit(
                           'vc-participant-contextmenu',
@@ -1666,6 +1867,10 @@ watch(
                           $event,
                         )
                       "
+                      @dragstart="
+                        onVcParticipantDragStart(userId, channel.id, $event)
+                      "
+                      @dragend="onVcParticipantDragEnd()"
                     />
                   </template>
                 </div>

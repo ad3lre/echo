@@ -21,7 +21,7 @@ const RESERVED_USERNAMES = new Set<string>([
 const USERNAME_RE = /^[a-z0-9](?:[a-z0-9._-]{0,30}[a-z0-9])?$/;
 const REPEATED_SEPARATOR_RE = /[._-]{2,}/;
 
-export const MIN_REGISTER_USERNAME_LENGTH = 2;
+export const MIN_REGISTER_USERNAME_LENGTH = 4;
 export const MAX_REGISTER_USERNAME_LENGTH = 32;
 
 export function normalizeUsername(username: string): string {

@@ -10,17 +10,6 @@ export async function fetchEchoAttentionSummary(
   return echoFetch(token, '/attention/summary');
 }
 
-export async function fetchEchoServerNotificationPreference(
-  token: string,
-  serverId: string,
-): Promise<{ level: EchoServerNotificationLevel }> {
-  const sid = trimEchoPathSegment(serverId);
-  return echoFetch(
-    token,
-    `/servers/${encodeURIComponent(sid)}/notification-preferences`,
-  );
-}
-
 export async function putEchoServerNotificationPreference(
   token: string,
   serverId: string,

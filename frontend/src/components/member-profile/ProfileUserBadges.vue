@@ -33,6 +33,7 @@ function labelFor(id: EchoPublicBadgeId): string {
 
 function badgeIconUrl(id: EchoPublicBadgeId): string | null {
   if (id === 'plus' || id === 'black') return echoPlanBadgeUrl(id);
+  if (id === 'bug_hunter') return null;
   return null;
 }
 </script>
@@ -338,6 +339,59 @@ function badgeIconUrl(id: EchoPublicBadgeId): string | null {
   letter-spacing: 0.16em;
 }
 
+/* Bug Hunter — emerald green with a warm amber accent */
+.profile-user-badges__pill--bug_hunter {
+  background: linear-gradient(
+    145deg,
+    #052e16 0%,
+    #14532d 20%,
+    #16a34a 42%,
+    #4ade80 54%,
+    #22c55e 64%,
+    #15803d 78%,
+    #052e16 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(187, 247, 208, 0.42),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.24),
+    0 0 0 1px rgba(5, 46, 22, 0.75),
+    0 2px 6px rgba(2, 18, 8, 0.38),
+    0 0 12px rgba(34, 197, 94, 0.3);
+}
+
+.profile-user-badges__pill--bug_hunter:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(220, 252, 231, 0.52),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(5, 46, 22, 0.68),
+    0 3px 10px rgba(0, 0, 0, 0.38),
+    0 0 18px rgba(74, 222, 128, 0.45),
+    0 0 30px rgba(34, 197, 94, 0.2);
+}
+
+.profile-user-badges__pill--bug_hunter .profile-user-badges__pill-glint {
+  background: linear-gradient(
+    175deg,
+    rgba(220, 252, 231, 0.56) 0%,
+    rgba(134, 239, 172, 0.2) 32%,
+    rgba(74, 222, 128, 0.08) 52%,
+    rgba(255, 255, 255, 0) 62%
+  );
+}
+
+.profile-user-badges__pill--bug_hunter .profile-user-badges__pill-rim {
+  box-shadow:
+    inset 0 0 0 1px rgba(187, 247, 208, 0.22),
+    inset 0 -1px 2px rgba(5, 30, 14, 0.42);
+}
+
+.profile-user-badges__pill--bug_hunter .profile-user-badges__pill-inner {
+  color: #f0fdf4;
+  text-shadow:
+    0 1px 0 rgba(5, 30, 14, 0.62),
+    0 0 10px rgba(134, 239, 172, 0.4);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .profile-user-badges__pill {
     transition: none;
@@ -384,5 +438,12 @@ function badgeIconUrl(id: EchoPublicBadgeId): string | null {
   .profile-user-badges__pill-inner {
   text-shadow: none;
   color: #f0f7ff;
+}
+
+[data-theme='light']
+  .profile-user-badges__pill--bug_hunter
+  .profile-user-badges__pill-inner {
+  text-shadow: none;
+  color: #f0fdf4;
 }
 </style>

@@ -75,6 +75,71 @@ function isEchoChannelEffectivelyRead(
   return false;
 }
 
+/**
+ * Volume-only unread with no `latestUnreadMessageId` / `firstUnreadMessageId`
+ * (voice channels, partial snapshots). When the read cursor already matches the
+ * channel summary, treat the volume as stale so rail + sidebar pills can clear.
+ */
+function shouldClearStaleUnreadVolume(
+  summary: EchoAttentionChannelSummary,
+  cursor: string | null | undefined,
+): boolean {
+  if (summary.unreadCount <= 0) return false;
+  if (resolveEchoUnreadUpperBoundMessageId(summary)) return false;
+  const c = String(cursor ?? '').trim();
+  if (!c) return false;
+  const lr = String(summary.lastReadMessageId ?? '').trim();
+  if (!lr) return false;
+  return compareEchoTimelineIds(c, lr) >= 0;
+}
+
+/** Zero unread/ping fields and align anchors when the cursor has caught up. */
+function finalizeChannelAttentionWhenEffectivelyRead(
+  summary: EchoAttentionChannelSummary,
+  cursor: string | null | undefined,
+): EchoAttentionChannelSummary {
+  if (!isEchoChannelEffectivelyRead(summary, cursor)) return summary;
+  const c =
+    String(cursor ?? '').trim() || summary.lastReadMessageId?.trim() || '';
+  const next: EchoAttentionChannelSummary = {
+    ...summary,
+    unreadCount: 0,
+    ...(c
+      ? {
+          lastReadMessageId: c,
+          latestUnreadMessageId: c,
+          firstUnreadMessageId: c,
+        }
+      : {}),
+  };
+  delete (next as Partial<EchoAttentionChannelSummary>).pingKind;
+  return next;
+}
+
+function finalizeChannelAttentionForReadCursor(
+  summary: EchoAttentionChannelSummary,
+  cursor: string | null | undefined,
+): EchoAttentionChannelSummary {
+  if (shouldClearStaleUnreadVolume(summary, cursor)) {
+    const c =
+      String(cursor ?? '').trim() || summary.lastReadMessageId?.trim() || '';
+    const next: EchoAttentionChannelSummary = {
+      ...summary,
+      unreadCount: 0,
+      ...(c
+        ? {
+            lastReadMessageId: c,
+            latestUnreadMessageId: c,
+            firstUnreadMessageId: c,
+          }
+        : {}),
+    };
+    delete (next as Partial<EchoAttentionChannelSummary>).pingKind;
+    return next;
+  }
+  return finalizeChannelAttentionWhenEffectivelyRead(summary, cursor);
+}
+
 function isServerChannelEffectivelyUnread(params: {
   summary: EchoAttentionChannelSummary;
   lastReadMessageId: string | null;
@@ -233,19 +298,26 @@ function mergeChannelAttentionByChannelId(params: {
               currentReadState,
               incomingSummary.lastReadMessageId,
             ) > 0;
+          let merged: EchoAttentionChannelSummary = {
+            ...effectiveSummary,
+            lastReadMessageId: currentReadState,
+          };
           const effectivelyRead = isEchoChannelEffectivelyRead(
-            effectiveSummary,
+            merged,
             currentReadState,
           );
-          if (cursorAheadOfIncoming || effectivelyRead) {
-            return [
-              channelId,
-              {
-                ...effectiveSummary,
-                lastReadMessageId: currentReadState,
-                ...(effectivelyRead ? { unreadCount: 0 } : {}),
-              },
-            ];
+          const staleVolumeRead = shouldClearStaleUnreadVolume(
+            merged,
+            currentReadState,
+          );
+          if (cursorAheadOfIncoming || effectivelyRead || staleVolumeRead) {
+            if (effectivelyRead || staleVolumeRead) {
+              merged = finalizeChannelAttentionForReadCursor(
+                merged,
+                currentReadState,
+              );
+            }
+            return [channelId, merged];
           }
         }
         return [channelId, incomingSummary];
@@ -422,15 +494,32 @@ export const useEchoAttentionStore = defineStore('echoAttention', () => {
       patchReadState(channelId, markId);
       return;
     }
-    const { pingKind: _ping, unreadCount: _unread, ...rest } = existing;
     mergeReadStateUpdate(channelId, markId, {
-      ...rest,
       channelId,
       kind: existing.kind,
+      ...(existing.serverId ? { serverId: existing.serverId } : {}),
+      ...(existing.peerUserId ? { peerUserId: existing.peerUserId } : {}),
       lastReadMessageId: markId,
       latestUnreadMessageId: markId,
+      firstUnreadMessageId: markId,
       unreadCount: 0,
     });
+  }
+
+  function recomputeServerAttentionForServerId(serverId: string): void {
+    const sid = serverId.trim();
+    if (!sid) return;
+    const prev = serverAttentionByServerId.value[sid];
+    const next = computeServerAttentionForServer({
+      serverId: sid,
+      channelAttentionByChannelId: channelAttentionByChannelId.value,
+      readStateByChannelId: readStateByChannelId.value,
+    });
+    if (isSameServerAttentionSummary(prev, next)) return;
+    const nextMap = { ...serverAttentionByServerId.value };
+    if (next) nextMap[sid] = next;
+    else delete nextMap[sid];
+    serverAttentionByServerId.value = nextMap;
   }
 
   function mergeReadStateUpdate(
@@ -440,13 +529,27 @@ export const useEchoAttentionStore = defineStore('echoAttention', () => {
   ): void {
     patchReadState(channelId, lastReadMessageId);
 
-    if (!channelAttention) return;
+    const cursor =
+      readStateByChannelId.value[channelId] ?? lastReadMessageId ?? null;
+
+    if (!channelAttention) {
+      const existing = channelAttentionByChannelId.value[channelId];
+      if (!existing) return;
+      const finalized = finalizeChannelAttentionForReadCursor(existing, cursor);
+      if (finalized === existing) return;
+      channelAttentionByChannelId.value = {
+        ...channelAttentionByChannelId.value,
+        [channelId]: finalized,
+      };
+      recomputeServerAttentionForServerId(
+        existing.kind === 'server' ? (existing.serverId?.trim() ?? '') : '',
+      );
+      return;
+    }
 
     const existing = channelAttentionByChannelId.value[channelId];
     const previousServerId =
       existing?.kind === 'server' ? (existing.serverId?.trim() ?? '') : '';
-    const cursor =
-      readStateByChannelId.value[channelId] ?? lastReadMessageId ?? null;
     let merged: EchoAttentionChannelSummary = {
       ...(existing ?? {}),
       ...channelAttention,
@@ -463,12 +566,7 @@ export const useEchoAttentionStore = defineStore('echoAttention', () => {
         channelAttention.lastReadMessageId ??
         existing?.lastReadMessageId,
     };
-    if (isEchoChannelEffectivelyRead(merged, cursor)) {
-      merged = { ...merged, unreadCount: 0 };
-    }
-    if (merged.unreadCount <= 0) {
-      delete (merged as Partial<EchoAttentionChannelSummary>).pingKind;
-    }
+    merged = finalizeChannelAttentionWhenEffectivelyRead(merged, cursor);
 
     channelAttentionByChannelId.value = {
       ...channelAttentionByChannelId.value,
@@ -478,28 +576,11 @@ export const useEchoAttentionStore = defineStore('echoAttention', () => {
     const nextServerId =
       merged.kind === 'server' ? (merged.serverId?.trim() ?? '') : '';
 
-    // Only recompute the affected server(s) instead of rebuilding the entire map.
-    const recompute = (serverId: string) => {
-      const sid = serverId.trim();
-      if (!sid) return;
-      const prev = serverAttentionByServerId.value[sid];
-      const next = computeServerAttentionForServer({
-        serverId: sid,
-        channelAttentionByChannelId: channelAttentionByChannelId.value,
-        readStateByChannelId: readStateByChannelId.value,
-      });
-      if (isSameServerAttentionSummary(prev, next)) return;
-      const nextMap = { ...serverAttentionByServerId.value };
-      if (next) nextMap[sid] = next;
-      else delete nextMap[sid];
-      serverAttentionByServerId.value = nextMap;
-    };
-
     if (previousServerId && previousServerId !== nextServerId) {
-      recompute(previousServerId);
+      recomputeServerAttentionForServerId(previousServerId);
     }
     if (nextServerId) {
-      recompute(nextServerId);
+      recomputeServerAttentionForServerId(nextServerId);
     }
   }
 

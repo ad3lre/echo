@@ -58,7 +58,8 @@ export async function getEchoUserPublicProfileRow(
             COALESCE(is_guest, false) AS is_guest,
             COALESCE(is_discord_shadow, false) AS is_discord_shadow,
             COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
-            signup_ordinal
+            signup_ordinal,
+            awarded_badges
        FROM auth_users
       WHERE id = $1
       LIMIT 1`,
@@ -74,6 +75,7 @@ export async function getEchoUserPublicProfileRow(
         is_discord_shadow: boolean;
         echo_plan: string;
         signup_ordinal: unknown;
+        awarded_badges: string[] | null;
       }
     | undefined;
   if (!row) return null;
@@ -84,6 +86,9 @@ export async function getEchoUserPublicProfileRow(
   const ordRaw = row.signup_ordinal;
   const signupOrdinal =
     ordRaw != null && ordRaw !== '' ? Number(ordRaw) : Number.NaN;
+  const awarded: string[] | null = Array.isArray(row.awarded_badges)
+    ? row.awarded_badges
+    : null;
   const badges = publicBadgesFromAccount(
     Number.isFinite(signupOrdinal) ? signupOrdinal : null,
     {
@@ -91,6 +96,7 @@ export async function getEchoUserPublicProfileRow(
       isDiscordShadow: row.is_discord_shadow === true,
     },
     normalizeEchoPlanId(row.echo_plan),
+    awarded,
   );
   return {
     id: String(row.id),

@@ -236,4 +236,34 @@ describe('useAppLayoutServerPingIndicators', () => {
 
     expect(serverUnreadActivityDotByServerId.value).toEqual({});
   });
+
+  it('clears rail indicators when cursor matches lastRead but unread anchors are missing', () => {
+    const markId = '1492135200000000099';
+    const {
+      serverPingBubbleByServerId,
+      serverUnreadActivityDotByServerId,
+      channelMissedActivityByChannelId,
+    } = useAppLayoutServerPingIndicators({
+      serverAttentionByServerId: ref({
+        srv: { unread: true, pingKind: 'personal' },
+      }),
+      channelAttentionByChannelId: ref({
+        c1: {
+          channelId: 'c1',
+          kind: 'server',
+          serverId: 'srv',
+          unreadCount: 3,
+          lastReadMessageId: markId,
+          pingKind: 'personal',
+        },
+      }),
+      readStateByChannelId: ref({ c1: markId }),
+      serverNotificationLevelByServerId: ref({ srv: 'mentions' }),
+      channelDisplayNameByChannelId: emptyLabels,
+    });
+
+    expect(serverPingBubbleByServerId.value.srv).toBeUndefined();
+    expect(serverUnreadActivityDotByServerId.value).toEqual({});
+    expect(channelMissedActivityByChannelId.value).toEqual({});
+  });
 });

@@ -11,10 +11,12 @@ import { selectSelfPresence } from '@/services/domain/presence';
 describe('useEchoAfkPresence', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    localStorage.clear();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    localStorage.clear();
   });
 
   it('sets idle after AFK window when status was online', async () => {
@@ -185,6 +187,40 @@ describe('useEchoAfkPresence', () => {
     });
 
     const scope = effectScope();
+    let noteUserPresenceChoice: (
+      s: 'online' | 'idle' | 'do_not_disturb' | 'offline',
+    ) => void = () => {};
+    scope.run(() => {
+      ({ noteUserPresenceChoice } = useEchoAfkPresence({
+        enabled: computed(() => enabled.value),
+        getStatus: () => status.value,
+        setStatus: setStatus as (
+          s: 'online' | 'idle' | 'do_not_disturb' | 'offline',
+        ) => void,
+      }));
+    });
+
+    await nextTick();
+    noteUserPresenceChoice('idle');
+    setStatus.mockClear();
+    window.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await nextTick();
+
+    expect(setStatus).not.toHaveBeenCalled();
+
+    scope.stop();
+  });
+
+  it('returns to online after auto-idle when AFK ownership was lost but status is still idle', async () => {
+    const enabled = ref(true);
+    const status = ref<'online' | 'idle' | 'do_not_disturb' | 'offline'>(
+      'online',
+    );
+    const setStatus = vi.fn((s: string) => {
+      status.value = s as typeof status.value;
+    });
+
+    const scope = effectScope();
     scope.run(() => {
       useEchoAfkPresence({
         enabled: computed(() => enabled.value),
@@ -196,11 +232,20 @@ describe('useEchoAfkPresence', () => {
     });
 
     await nextTick();
+    vi.advanceTimersByTime(ECHO_AFK_IDLE_AFTER_MS + 10);
+    await nextTick();
+    expect(status.value).toBe('idle');
+
+    enabled.value = false;
+    await nextTick();
+    enabled.value = true;
+    await nextTick();
+
     setStatus.mockClear();
     window.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     await nextTick();
 
-    expect(setStatus).not.toHaveBeenCalled();
+    expect(setStatus).toHaveBeenCalledWith('online');
 
     scope.stop();
   });

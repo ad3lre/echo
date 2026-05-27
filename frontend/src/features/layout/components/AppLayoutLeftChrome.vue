@@ -104,6 +104,7 @@ const lc = computed((): AppLayoutLeftChromeProps => {
       totalUnreadCount: 0,
     },
     dmInboxEntries: g('dmInboxEntries') ?? [],
+    echoPeerByChannelId: g('echoPeerByChannelId') ?? new Map<string, string>(),
     isDmInboxUserFavorite: g('isDmInboxUserFavorite') ?? (() => false),
     isDmInboxGroupFavorite: g('isDmInboxGroupFavorite') ?? (() => false),
     usersForChannelPanel: g('usersForChannelPanel') ?? [],

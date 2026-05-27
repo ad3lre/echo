@@ -8,6 +8,7 @@ import { useNotificationPreferencesStore } from '@/stores/notificationPreference
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { avatarUrlForCallDisplay } from '@/utils/avatarDisplay';
+import { isEchoAppActivelyFocused } from '@/utils/isEchoAppActivelyFocused';
 
 const PREVIEW_MAX = 140;
 
@@ -30,8 +31,10 @@ export function useAppLayoutChatSound(deps: {
   resolveChannelToastLabel: (channelId: string) => string;
   /** Resolve author display when the payload omitted `authorDisplayName`. */
   resolveAuthorToastTitle: (authorId: string) => string;
-  /** Whether the user is already focused on this conversation (skip toast). */
+  /** Whether this conversation is open in the main column (paired with window focus to suppress alerts). */
   isViewingConversationChannel: (channelId: string) => boolean;
+  /** DM rail selected — suppress DM toasts while browsing DMs (sound still plays). */
+  isInDmUiContext: () => boolean;
   /** Same navigation as picking a channel in the sidebar. */
   openConversationChannel: (channelId: string, authorId: string) => void;
 }) {
@@ -39,6 +42,13 @@ export function useAppLayoutChatSound(deps: {
     if (typeof window === 'undefined') return;
     const handler = (ev: Event) => {
       const d = (ev as CustomEvent<IncomingChatMessageNotifyDetail>).detail;
+      if (
+        deps.isViewingConversationChannel(d.channelId) &&
+        isEchoAppActivelyFocused()
+      ) {
+        return;
+      }
+
       const isDm = deps.isDmChannel(d.channelId);
       const sid = deps.selectedServerId.value;
       const currentUser = deps.currentUser.value;
@@ -61,7 +71,9 @@ export function useAppLayoutChatSound(deps: {
       if (!played) return;
       const prefs = useNotificationPreferencesStore();
       if (!prefs.allowDesktopAlerts()) return;
-      if (deps.isViewingConversationChannel(d.channelId)) return;
+      if (isDm && deps.isInDmUiContext() && isEchoAppActivelyFocused()) {
+        return;
+      }
 
       const title =
         d.authorDisplayName?.trim() || deps.resolveAuthorToastTitle(d.authorId);

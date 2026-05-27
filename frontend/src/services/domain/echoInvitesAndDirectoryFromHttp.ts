@@ -132,6 +132,10 @@ export type EchoDirectoryServerEntry = {
   memberCount?: number;
   /** Users currently in a voice channel on this server (from `echo_voice_participants`). */
   voiceParticipantCount?: number;
+  /** Latest voice join on this guild (directory API). */
+  lastVoiceActivityAt?: string;
+  /** Latest guild channel message (directory API). */
+  lastChatActivityAt?: string;
   allowGlobalGuests?: boolean;
 };
 
@@ -188,6 +192,18 @@ export function normalizeEchoDirectoryServersPayload(
     } else if (typeof row.allow_global_guests === 'boolean') {
       allowGlobalGuests = row.allow_global_guests;
     }
+    const lastVoiceActivityAt =
+      typeof row.lastVoiceActivityAt === 'string'
+        ? row.lastVoiceActivityAt.trim()
+        : typeof row.last_voice_activity_at === 'string'
+          ? row.last_voice_activity_at.trim()
+          : '';
+    const lastChatActivityAt =
+      typeof row.lastChatActivityAt === 'string'
+        ? row.lastChatActivityAt.trim()
+        : typeof row.last_chat_activity_at === 'string'
+          ? row.last_chat_activity_at.trim()
+          : '';
     servers.push({
       id,
       name,
@@ -198,6 +214,8 @@ export function normalizeEchoDirectoryServersPayload(
       ...(createdAt ? { createdAt } : {}),
       ...(memberCount !== undefined ? { memberCount } : {}),
       ...(voiceParticipantCount !== undefined ? { voiceParticipantCount } : {}),
+      ...(lastVoiceActivityAt ? { lastVoiceActivityAt } : {}),
+      ...(lastChatActivityAt ? { lastChatActivityAt } : {}),
       ...(allowGlobalGuests !== undefined ? { allowGlobalGuests } : {}),
     });
   }

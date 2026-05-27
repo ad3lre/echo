@@ -75,5 +75,14 @@
     "perksUnlocked": "Perks unlocked",
     "upgrade": "Upgrade",
     "paid": "Paid"
+  },
+  "echoPlusInterest": {
+    "comingSoonLead": "Echo+ upgrades are coming soon for everyone.",
+    "notifyCta": "Notify me when subscriptions open",
+    "interestedCta": "I'm interested",
+    "onList": "You're on the list — we'll notify you when subscriptions open.",
+    "removeInterest": "Remove me from the list",
+    "guestBlocked": "Create an account to register interest in Echo+.",
+    "errorGeneric": "Could not save your interest. Try again in a moment."
   }
 }

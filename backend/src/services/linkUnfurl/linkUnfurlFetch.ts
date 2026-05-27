@@ -174,18 +174,28 @@ export async function canSafelyResolveUrlForOutboundFetch(
 }
 
 /**
- * SSRF-safe fetch: validates URL (scheme, hostname, DNS) and rejects private/local
- * targets before issuing the request. Used as the single fetch entry-point so
- * CodeQL can trace user-controlled URLs through a visible sanitizer at the call site.
+ * Validates scheme, hostname, and DNS before outbound fetch. Throws when unsafe.
+ * Return value is the approved fetch URL (modeled as a CodeQL request-forgery barrier).
+ */
+export async function toValidatedOutboundFetchUrl(
+  url: string,
+): Promise<string> {
+  if (!(await canSafelyResolveUrlForOutboundFetch(url))) {
+    throw new Error('SSRF: URL failed safety validation');
+  }
+  return url;
+}
+
+/**
+ * SSRF-safe fetch: single entry point for unfurl/oEmbed HTTP. All user-controlled
+ * URLs must pass `toValidatedOutboundFetchUrl` before reaching `fetch`.
  */
 export async function ssrfSafeFetch(
   url: string,
   init: RequestInit & { dispatcher?: unknown },
 ): Promise<Response> {
-  if (!(await canSafelyResolveUrlForOutboundFetch(url))) {
-    throw new Error('SSRF: URL failed safety validation');
-  }
-  return fetch(url, init);
+  const safeUrl = await toValidatedOutboundFetchUrl(url);
+  return fetch(safeUrl, init);
 }
 
 export async function fetchJsonWithTimeout(

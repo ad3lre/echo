@@ -6,6 +6,7 @@ import {
   onMounted,
   provide,
   ref,
+  toRef,
   unref,
   watch,
   type Ref,
@@ -60,6 +61,7 @@ import ChannelPanelContextMenu from '@/features/channel-panel/components/Channel
 import ServerEventsCarousel from '@/features/channel-panel/components/ServerEventsCarousel.vue';
 import PaperEditorPanel from '@/features/paper/components/PaperEditorPanel.vue';
 import { usePaperEditorPanelBridge } from '@/features/paper/composables/paperEditorPanelBridge';
+import { useChannelHoverMessagePrefetch } from '@/services/orchestration/useChannelHoverMessagePrefetch';
 
 /** Quick self-dismissing shell toasts for channel panel context menu actions. */
 const PANEL_MENU_ACTION_TOAST_MS = 2400;
@@ -399,6 +401,13 @@ function findChannelById(channelId: string) {
   }
   return null;
 }
+
+useChannelHoverMessagePrefetch({
+  hoveredChannelId,
+  activeChannelId: toRef(props, 'activeChannelId'),
+  isPrefetchableTextChannel: (channelId) =>
+    findChannelById(channelId)?.type === 'text',
+});
 
 const paperPanelBridge = usePaperEditorPanelBridge();
 
@@ -949,6 +958,24 @@ function vcMenuMovePick(targetChannelId: string) {
   });
 }
 
+function onVcParticipantDragMove(payload: {
+  userId: string;
+  fromChannelId: string;
+  targetChannelId: string;
+}) {
+  if (!props.onVcModerate) return;
+  props.onVcModerate({
+    action: 'move',
+    targetUserId: payload.userId,
+    targetChannelId: payload.targetChannelId,
+    contextVoiceChannelId: payload.fromChannelId,
+  });
+}
+
+function canMoveVcParticipant(userId: string): boolean {
+  return vcModAllowed(userId, 'move');
+}
+
 function vcModerateServerFromMenu(action: 'kick' | 'ban' | 'timeout') {
   const c = panelContext.value;
   if (!c || c.type !== 'vc' || !props.onModerateUser) return;
@@ -1189,6 +1216,7 @@ function forwardInvite(payload?: {
                 :get-vc-activity-presence="getVcActivityPresence"
                 :vc-activity-king-user-id="vcActivityKingUserId ?? null"
                 :row-can-manage-channel="rowCanManageChannel"
+                :can-move-vc-participant="canMoveVcParticipant"
                 :bubble-mode="bubbleMode"
                 @open-create-channel="(id) => emit('open-create-channel', id)"
                 @open-create-category="emit('open-create-category')"
@@ -1203,6 +1231,7 @@ function forwardInvite(payload?: {
                 @channel-contextmenu="onChannelRowContextMenu"
                 @vc-participant-click="handleOpenVcProfile"
                 @vc-participant-contextmenu="onVcParticipantContextMenu"
+                @vc-participant-move="onVcParticipantDragMove"
                 @invite="forwardInvite"
                 @toggle-side-chat="emit('toggle-side-chat')"
                 @set-hovered-channel="(id) => (hoveredChannelId = id)"

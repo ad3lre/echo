@@ -386,18 +386,29 @@ function emitProfileReport(payload: { reason: string }) {
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     close();
-    return;
   }
-  if (!props.profile) return;
+}
+
+const tabBarRef = ref<HTMLElement | null>(null);
+
+function onTabBarKeydown(e: KeyboardEvent) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
   const idx = tabs.findIndex((t) => t.id === activeTab.value);
-  if (e.key === 'ArrowLeft' && idx > 0) {
-    activeTab.value = tabs[idx - 1]!.id;
-    e.preventDefault();
-  }
-  if (e.key === 'ArrowRight' && idx < tabs.length - 1) {
-    activeTab.value = tabs[idx + 1]!.id;
-    e.preventDefault();
-  }
+  const nextIdx =
+    e.key === 'ArrowLeft'
+      ? idx > 0
+        ? idx - 1
+        : idx
+      : idx < tabs.length - 1
+        ? idx + 1
+        : idx;
+  if (nextIdx === idx) return;
+  e.preventDefault();
+  activeTab.value = tabs[nextIdx]!.id;
+  void nextTick(() => {
+    const tabs = tabBarRef.value?.querySelectorAll<HTMLElement>('[role="tab"]');
+    tabs?.[nextIdx]?.focus();
+  });
 }
 
 onMounted(() => window.addEventListener('keydown', onKeydown));
@@ -725,7 +736,12 @@ function onOverlayClick() {
           <!-- RIGHT COLUMN: mutual servers/friends tabs -->
           <div class="ep-right">
             <div class="ep-right-body">
-              <div class="ep-tab-bar ep-tab-bar--right">
+              <div
+                ref="tabBarRef"
+                class="ep-tab-bar ep-tab-bar--right"
+                role="tablist"
+                @keydown="onTabBarKeydown"
+              >
                 <button
                   v-for="(t, idx) in tabs"
                   :key="t.id"

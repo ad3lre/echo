@@ -5,6 +5,9 @@ import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { selectPresence } from '@/services/domain/presence';
 import { selectFriendshipUiState } from '@/services/domain/friendshipUi';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import { echoUserMatchesSearchQuery } from '@/utils/echoUserSearch';
+import type { RawMessage } from '@/features/chat/chatMessageTypes';
+import { useDmConversationSubtitle } from '@/features/dm/composables/useDmConversationSubtitle';
 
 type FriendsTab = 'all' | 'online' | 'pending' | 'add';
 
@@ -12,6 +15,7 @@ const props = defineProps<{
   users: {
     id: string;
     name: string;
+    username?: string;
     pfp: string;
     status: string;
     customStatus?: string;
@@ -25,6 +29,8 @@ const props = defineProps<{
   friendRequestsIncoming: { id: string; fromUserId: string }[];
   friendRequestsOutgoing: { id: string; toUserId: string }[];
   selectedUserId: string | null;
+  echoPeerByChannelId?: ReadonlyMap<string, string>;
+  messages?: Record<string, RawMessage[]>;
 }>();
 
 const emit = defineEmits<{
@@ -42,6 +48,25 @@ const emit = defineEmits<{
 const activeTab = ref<FriendsTab>('all');
 const friendSearchQuery = ref('');
 const addFriendQuery = ref('');
+
+const echoPeerByChannelId = computed(
+  () => props.echoPeerByChannelId ?? new Map<string, string>(),
+);
+const { peerUserSubtitle } = useDmConversationSubtitle({
+  currentUserId: () => props.currentUserId,
+  echoPeerByChannelId,
+  messages: () => props.messages ?? {},
+  resolveAuthorName: (userId) =>
+    props.users.find((u) => u.id === userId)?.name ?? 'Someone',
+});
+
+function friendRowSubtitleText(user: { id: string }): string {
+  return peerUserSubtitle(user.id).text;
+}
+
+function friendRowSubtitleIsTyping(user: { id: string }): boolean {
+  return peerUserSubtitle(user.id).isTyping;
+}
 
 const friendSearchQueryNormalized = computed(() =>
   friendSearchQuery.value.trim().toLowerCase(),
@@ -90,7 +115,7 @@ const addableUsers = computed(() => {
       if (u.id === props.currentUserId) return false;
       if (u.isGuest) return false;
       if (u.isDiscordShadow) return false;
-      if (q && !u.name.toLowerCase().includes(q)) return false;
+      if (q && !echoUserMatchesSearchQuery(u, q)) return false;
       const ui = selectFriendshipUiState({
         viewerUserId: props.currentUserId,
         targetUserId: u.id,
@@ -139,14 +164,14 @@ const onlineFriendCount = computed(
 const friendUsersFiltered = computed(() => {
   const q = friendSearchQueryNormalized.value;
   if (!q) return friendUsers.value;
-  return friendUsers.value.filter((u) => u.name.toLowerCase().includes(q));
+  return friendUsers.value.filter((u) => echoUserMatchesSearchQuery(u, q));
 });
 
 const incomingFiltered = computed(() => {
   const q = friendSearchQueryNormalized.value;
   if (!q) return incomingWithUser.value;
   return incomingWithUser.value.filter((r) =>
-    r.user.name.toLowerCase().includes(q),
+    echoUserMatchesSearchQuery(r.user, q),
   );
 });
 
@@ -154,7 +179,7 @@ const outgoingFiltered = computed(() => {
   const q = friendSearchQueryNormalized.value;
   if (!q) return outgoingWithUser.value;
   return outgoingWithUser.value.filter((r) =>
-    r.user.name.toLowerCase().includes(q),
+    echoUserMatchesSearchQuery(r.user, q),
   );
 });
 
@@ -167,10 +192,6 @@ const onlineFriendsFiltered = computed(() =>
       }).status === 'online',
   ),
 );
-
-function statusLabel(status: string): string {
-  return selectPresence({ rowStatus: status }).label;
-}
 
 function hasProfilePicture(pfp: string | undefined): boolean {
   return typeof pfp === 'string' && pfp.trim().length > 0;
@@ -484,8 +505,15 @@ function sendFriendRequestTo(userId: string) {
                             "
                             >{{ user.name }}</span
                           >
-                          <div class="text-xs text-fg-soft">
-                            {{ statusLabel(user.status) }}
+                          <div
+                            v-if="friendRowSubtitleText(user)"
+                            class="truncate text-xs text-fg-soft"
+                            :class="{
+                              'italic text-[color-mix(in_srgb,var(--accent)_72%,var(--fg-soft))]':
+                                friendRowSubtitleIsTyping(user),
+                            }"
+                          >
+                            {{ friendRowSubtitleText(user) }}
                           </div>
                         </div>
                       </button>
@@ -545,8 +573,15 @@ function sendFriendRequestTo(userId: string) {
                         <span class="text-sm font-medium text-white">{{
                           user.name
                         }}</span>
-                        <div class="text-xs text-fg-soft">
-                          {{ statusLabel(user.status) }}
+                        <div
+                          v-if="friendRowSubtitleText(user)"
+                          class="truncate text-xs text-fg-soft"
+                          :class="{
+                            'italic text-[color-mix(in_srgb,var(--accent)_72%,var(--fg-soft))]':
+                              friendRowSubtitleIsTyping(user),
+                          }"
+                        >
+                          {{ friendRowSubtitleText(user) }}
                         </div>
                       </div>
                     </button>
@@ -699,7 +734,7 @@ function sendFriendRequestTo(userId: string) {
                         </h2>
                         <p class="mt-1 text-sm leading-relaxed text-fg-soft">
                           Suggestions are the newest Echo sign-ups. Search by
-                          name to find someone specific.
+                          display name or username to find someone specific.
                         </p>
                       </div>
 
@@ -714,7 +749,7 @@ function sendFriendRequestTo(userId: string) {
                         <input
                           v-model="addFriendQuery"
                           type="text"
-                          placeholder="Search Echo users"
+                          placeholder="Search by name or username"
                           class="w-full rounded-lg border border-border bg-glass-1 py-2 pl-9 pr-3 text-sm text-fg placeholder:text-fg-subtle outline-none transition-colors"
                         />
                       </div>

@@ -30,7 +30,10 @@ import type {
   EchoPermissionEditorState,
   PermissionOverwriteRowDraft,
 } from '@/features/channel-settings/types';
-import { canonicalizeEchoPermissionRowsForSave } from '@/features/channel-settings/domain/echoPermissionRows';
+import {
+  canonicalizeEchoPermissionRowsForSave,
+  echoPermissionOverwriteStateChanged,
+} from '@/features/channel-settings/domain/echoPermissionRows';
 import {
   getChannelPermissionDefsForChannelType,
   SLOW_MODE_OPTIONS,
@@ -314,17 +317,25 @@ function syncFromProps() {
         overrides: { ...ch.channelPermissions.overrides },
       }
     : { syncWithCategory: true, overrides: {} };
-  echoPermissionRows.value = (props.echoPermissionEditor?.rows ?? []).map(
-    (row) => ({
+  const editor = props.echoPermissionEditor;
+  if (editor?.loading) {
+    echoPermissionRows.value = (editor.rows ?? []).map((row) => ({
       targetType: row.targetType,
       ...(row.targetType === 'everyone'
         ? {}
         : { targetId: row.targetId ?? null }),
       partial: { ...(row.partial ?? {}) },
-    }),
-  );
-  echoSyncWithCategory.value =
-    (props.echoPermissionEditor?.rows?.length ?? 0) === 0;
+    }));
+  } else if (editor) {
+    echoPermissionRows.value = (editor.rows ?? []).map((row) => ({
+      targetType: row.targetType,
+      ...(row.targetType === 'everyone'
+        ? {}
+        : { targetId: row.targetId ?? null }),
+      partial: { ...(row.partial ?? {}) },
+    }));
+    echoSyncWithCategory.value = (editor.rows?.length ?? 0) === 0;
+  }
   void refreshSidebarChannelIcon();
   const fc = normalizeForumCreatorDefaultPerms(
     ch.type === 'forum' ? ch.forumCreatorDefaultPerms : undefined,
@@ -452,11 +463,15 @@ function togglePermission(key: ChannelPermissionKey) {
 }
 
 const trimmedName = computed(() => channelName.value.trim());
+const echoPermissionsReady = computed(
+  () => !props.echoPermissionEditor || !props.echoPermissionEditor.loading,
+);
 const canSave = computed(
   () =>
     !!trimmedName.value &&
     !!selectedCategory.value &&
     !!props.channelSettings &&
+    echoPermissionsReady.value &&
     props.categoryOptions.some((o) => o.id === selectedCategory.value),
 );
 
@@ -514,9 +529,20 @@ const initialSnapshot = computed(() => {
           overrides: { ...ch.channelPermissions.overrides },
         }
       : { syncWithCategory: true, overrides: {} },
-    echoPermissionRows: canonicalizeEchoPermissionRowsForSave(
-      props.echoPermissionEditor?.rows ?? [],
-    ),
+    echoPermissionRows:
+      props.echoPermissionEditor && !props.echoPermissionEditor.loading
+        ? (props.echoPermissionEditor.rows ?? []).map((row) => ({
+            targetType: row.targetType,
+            ...(row.targetType === 'everyone'
+              ? {}
+              : { targetId: row.targetId ?? null }),
+            partial: { ...(row.partial ?? {}) },
+          }))
+        : null,
+    echoSyncWithCategory:
+      props.echoPermissionEditor && !props.echoPermissionEditor.loading
+        ? (props.echoPermissionEditor.rows?.length ?? 0) === 0
+        : null,
     forumCreator: normalizeForumCreatorDefaultPerms(
       ch.type === 'forum' ? ch.forumCreatorDefaultPerms : undefined,
     ),
@@ -534,6 +560,22 @@ const initialSnapshot = computed(() => {
         : ''
       ).trim().length > 0 && ch.messageFormatHard === true,
   };
+});
+
+const echoPermissionOverwriteDirty = computed(() => {
+  const snap = initialSnapshot.value;
+  if (!snap || !props.echoPermissionEditor || !echoPermissionsReady.value)
+    return false;
+  const snapSync = snap.echoSyncWithCategory;
+  const snapRows = snap.echoPermissionRows;
+  if (snapSync == null || snapRows == null) return false;
+  return echoPermissionOverwriteStateChanged(
+    { syncWithCategory: snapSync, rows: snapRows },
+    {
+      syncWithCategory: echoSyncWithCategory.value,
+      rows: echoPermissionRows.value,
+    },
+  );
 });
 
 const channelDirty = computed(() => {
@@ -561,16 +603,9 @@ const channelDirty = computed(() => {
     (voiceE2eeEnabled.value === true) !== (snap.voiceE2eeEnabled === true)
   )
     return true;
-  if (props.echoPermissionEditor) {
-    const currentRows = echoSyncWithCategory.value
-      ? []
-      : canonicalizeEchoPermissionRowsForSave(echoPermissionRows.value);
-    if (
-      JSON.stringify(currentRows) !==
-      JSON.stringify(snap.echoPermissionRows ?? [])
-    )
-      return true;
-  } else {
+  if (props.echoPermissionEditor && echoPermissionsReady.value) {
+    if (echoPermissionOverwriteDirty.value) return true;
+  } else if (!props.echoPermissionEditor) {
     if (
       channelPermissions.value.syncWithCategory !==
       snap.channelPermissions.syncWithCategory
@@ -661,7 +696,7 @@ function save() {
       syncWithCategory: channelPermissions.value.syncWithCategory,
       overrides: { ...channelPermissions.value.overrides },
     },
-    ...(props.echoPermissionEditor
+    ...(props.echoPermissionEditor && echoPermissionOverwriteDirty.value
       ? {
           echoPermissionRows: echoSyncWithCategory.value
             ? []

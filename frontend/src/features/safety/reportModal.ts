@@ -44,12 +44,7 @@ export function closeReportModal(): void {
   context.value = null;
 }
 
-export const REPORT_CATEGORY_LABELS: Record<EchoReportCategory, string> = {
-  spam: 'Spam',
-  harassment: 'Harassment or bullying',
-  hate: 'Hate speech',
-  sexual: 'Sexual content',
-  violence: 'Violence or threats',
-  impersonation: 'Impersonation',
-  other: 'Other',
-};
+export {
+  REPORT_CATEGORY_HINTS,
+  REPORT_CATEGORY_LABELS,
+} from '@/features/safety/reportModalCategories';

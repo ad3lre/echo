@@ -126,6 +126,7 @@
     "tauri:ios:sim:debug": "npm run tauri:ios:sim:vite",
     "verify:android-version": "node scripts/verify-android-version.mjs",
     "verify:ios-version": "node scripts/verify-ios-version.mjs",
+    "verify:aasa": "node scripts/verify-apple-app-site-association.mjs",
     "android:play-whatsnew": "node scripts/android-play-whatsnew.mjs",
     "tauri:icon": "tauri icon frontend/public/icons/pwa-512.png && node scripts/sync-tauri-ios-icons.mjs && node scripts/sync-tauri-ios-launch-logo.mjs"
   },

@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   collectExploreQuickFilters,
+  compareExploreRecommendedServers,
   compareExploreServersWithVoicePriority,
+  exploreDirectoryProfileCompletenessScore,
   exploreTagDisplayLabel,
   filterExploreDirectoryRowsByTags,
   isExploreDirectoryJoinLockedForGuest,
   normalizeExploreDirectoryTags,
+  sortExploreRecommendedServers,
   sortExploreServersWithVoicePriority,
 } from '../exploreDirectoryRows';
 
@@ -75,5 +78,50 @@ describe('exploreDirectoryRows', () => {
       rows[0],
       rows[1],
     ]);
+  });
+
+  it('sorts recommended rows by voice activity, then chat, then profile', () => {
+    const rows = [
+      {
+        name: 'Quiet complete',
+        pfp: '',
+        order: 0,
+        lastVoiceActivityAt: '2026-01-01T00:00:00.000Z',
+        lastChatActivityAt: '2026-05-01T00:00:00.000Z',
+        hasRealBanner: true,
+        hasDescription: true,
+      },
+      {
+        name: 'Live VC',
+        pfp: '',
+        order: 1,
+        lastVoiceActivityAt: '2026-05-20T00:00:00.000Z',
+        lastChatActivityAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        name: 'Chatty bare',
+        pfp: '',
+        order: 2,
+        lastChatActivityAt: '2026-05-22T00:00:00.000Z',
+      },
+      {
+        name: 'Same chat fuller',
+        pfp: '',
+        order: 3,
+        lastChatActivityAt: '2026-05-22T00:00:00.000Z',
+        hasRealBanner: true,
+        hasDescription: true,
+      },
+    ];
+    expect(sortExploreRecommendedServers(rows).map((r) => r.name)).toEqual([
+      'Live VC',
+      'Quiet complete',
+      'Same chat fuller',
+      'Chatty bare',
+    ]);
+    expect(exploreDirectoryProfileCompletenessScore(rows[3]!)).toBe(2);
+    expect(
+      compareExploreRecommendedServers(rows[2]!, rows[3]!),
+    ).toBeGreaterThan(0);
   });
 });

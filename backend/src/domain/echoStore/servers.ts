@@ -262,15 +262,45 @@ export async function listEchoDirectoryServers(
     createdAt: string;
     memberCount: number;
     voiceParticipantCount: number;
+    /** Latest voice join on this guild (persisted + live participants). */
+    lastVoiceActivityAt?: string;
+    /** Latest non-deleted guild channel message. */
+    lastChatActivityAt?: string;
     /** When false, guest accounts may not join from Explore directory. */
     allowGlobalGuests: boolean;
   }[]
 > {
   const limit = Math.min(500, Math.max(1, opts?.limit ?? 200));
   const exclude = echoDirectoryExcludedNamesSql();
+  const directoryActivityCtes = `
+    voice_activity AS (
+      SELECT vp.server_id, MAX(vp.joined_at) AS last_at
+      FROM echo_voice_participants vp
+      WHERE vp.server_id = ANY(SELECT id FROM srv)
+      GROUP BY vp.server_id
+    ),
+    chat_activity AS (
+      SELECT c.server_id, MAX(m.created_at) AS last_at
+      FROM echo_messages m
+      INNER JOIN echo_channels c ON c.id = m.channel_id
+      WHERE c.server_id = ANY(SELECT id FROM srv) AND m.deleted_at IS NULL
+      GROUP BY c.server_id
+    )`;
+  const directoryActivitySelect = `
+      CASE
+        WHEN srv.last_voice_activity_at IS NULL AND voice_activity.last_at IS NULL THEN NULL
+        ELSE GREATEST(
+          COALESCE(srv.last_voice_activity_at, '-infinity'::timestamptz),
+          COALESCE(voice_activity.last_at, '-infinity'::timestamptz)
+        )
+      END AS last_voice_activity_at,
+      chat_activity.last_at AS last_chat_activity_at`;
+  const directoryActivityJoins = `
+    LEFT JOIN voice_activity ON voice_activity.server_id = srv.id
+    LEFT JOIN chat_activity ON chat_activity.server_id = srv.id`;
   const sqlFull = `
     WITH srv AS (
-      SELECT id, name, icon_url, banner_url, banner_position_y, description, tags, created_at, allow_global_guests
+      SELECT id, name, icon_url, banner_url, banner_position_y, description, tags, created_at, allow_global_guests, last_voice_activity_at
       FROM echo_servers
       WHERE listed_in_directory = true AND ${exclude}
       ORDER BY name ASC
@@ -287,16 +317,54 @@ export async function listEchoDirectoryServers(
       FROM echo_voice_participants vp
       WHERE vp.server_id = ANY(SELECT id FROM srv)
       GROUP BY vp.server_id
-    )
+    ),
+    ${directoryActivityCtes}
     SELECT srv.id, srv.name, srv.icon_url, srv.banner_url, srv.banner_position_y, srv.description, srv.tags, srv.created_at, srv.allow_global_guests,
       COALESCE(counts.member_count, 0) AS member_count,
-      COALESCE(voice_counts.voice_participant_count, 0) AS voice_participant_count
+      COALESCE(voice_counts.voice_participant_count, 0) AS voice_participant_count,
+      ${directoryActivitySelect}
     FROM srv
     LEFT JOIN counts ON counts.server_id = srv.id
     LEFT JOIN voice_counts ON voice_counts.server_id = srv.id
+    ${directoryActivityJoins}
     ORDER BY srv.name ASC
   `;
   const sqlNoDescription = `
+    WITH srv AS (
+      SELECT id, name, icon_url, banner_url, banner_position_y, tags, created_at, allow_global_guests, last_voice_activity_at
+      FROM echo_servers
+      WHERE listed_in_directory = true AND ${exclude}
+      ORDER BY name ASC
+      LIMIT $1
+    ),
+    counts AS (
+      SELECT m.server_id, COUNT(*)::int AS member_count
+      FROM echo_server_members m
+      WHERE m.server_id = ANY(SELECT id FROM srv)
+      GROUP BY m.server_id
+    ),
+    voice_counts AS (
+      SELECT vp.server_id, COUNT(*)::int AS voice_participant_count
+      FROM echo_voice_participants vp
+      WHERE vp.server_id = ANY(SELECT id FROM srv)
+      GROUP BY vp.server_id
+    ),
+    ${directoryActivityCtes}
+    SELECT srv.id, srv.name, srv.icon_url, srv.banner_url, srv.banner_position_y, srv.tags, srv.created_at, srv.allow_global_guests,
+      COALESCE(counts.member_count, 0) AS member_count,
+      COALESCE(voice_counts.voice_participant_count, 0) AS voice_participant_count,
+      ${directoryActivitySelect}
+    FROM srv
+    LEFT JOIN counts ON counts.server_id = srv.id
+    LEFT JOIN voice_counts ON voice_counts.server_id = srv.id
+    ${directoryActivityJoins}
+    ORDER BY srv.name ASC
+  `;
+
+  const directoryActivitySelectLiveOnly = `
+      voice_activity.last_at AS last_voice_activity_at,
+      chat_activity.last_at AS last_chat_activity_at`;
+  const sqlNoDescriptionLegacy = `
     WITH srv AS (
       SELECT id, name, icon_url, banner_url, banner_position_y, tags, created_at, allow_global_guests
       FROM echo_servers
@@ -315,13 +383,16 @@ export async function listEchoDirectoryServers(
       FROM echo_voice_participants vp
       WHERE vp.server_id = ANY(SELECT id FROM srv)
       GROUP BY vp.server_id
-    )
+    ),
+    ${directoryActivityCtes}
     SELECT srv.id, srv.name, srv.icon_url, srv.banner_url, srv.banner_position_y, srv.tags, srv.created_at, srv.allow_global_guests,
       COALESCE(counts.member_count, 0) AS member_count,
-      COALESCE(voice_counts.voice_participant_count, 0) AS voice_participant_count
+      COALESCE(voice_counts.voice_participant_count, 0) AS voice_participant_count,
+      ${directoryActivitySelectLiveOnly}
     FROM srv
     LEFT JOIN counts ON counts.server_id = srv.id
     LEFT JOIN voice_counts ON voice_counts.server_id = srv.id
+    ${directoryActivityJoins}
     ORDER BY srv.name ASC
   `;
 
@@ -329,12 +400,29 @@ export async function listEchoDirectoryServers(
   try {
     r = await pool.query(sqlFull, [limit]);
   } catch (e) {
-    if (
-      !isPostgresUndefinedColumnError(e) ||
-      !/\bdescription\b/i.test(String((e as Error).message))
-    )
+    const msg = String((e as Error).message);
+    if (!isPostgresUndefinedColumnError(e)) throw e;
+    if (/\bdescription\b/i.test(msg)) {
+      try {
+        r = await pool.query(sqlNoDescription, [limit]);
+      } catch (e2) {
+        if (
+          !isPostgresUndefinedColumnError(e2) ||
+          !/\blast_voice_activity_at\b/i.test(String((e2 as Error).message))
+        )
+          throw e2;
+        r = await pool.query(sqlNoDescriptionLegacy, [limit]);
+      }
+    } else if (/\blast_voice_activity_at\b/i.test(msg)) {
+      r = await pool.query(
+        sqlFull
+          .replace(/,\s*last_voice_activity_at/g, '')
+          .replace(directoryActivitySelect, directoryActivitySelectLiveOnly),
+        [limit],
+      );
+    } else {
       throw e;
-    r = await pool.query(sqlNoDescription, [limit]);
+    }
   }
 
   return r.rows.map((row) => {
@@ -364,6 +452,12 @@ export async function listEchoDirectoryServers(
       .filter((tag): tag is string => typeof tag === 'string')
       .map((tag) => tag.trim())
       .filter(Boolean);
+    const lastVoiceActivityAt = isoFromDirectoryActivityAt(
+      row.last_voice_activity_at,
+    );
+    const lastChatActivityAt = isoFromDirectoryActivityAt(
+      row.last_chat_activity_at,
+    );
     return {
       id: String(row.id),
       name: String(row.name),
@@ -382,9 +476,20 @@ export async function listEchoDirectoryServers(
       createdAt,
       memberCount,
       voiceParticipantCount,
+      ...(lastVoiceActivityAt ? { lastVoiceActivityAt } : {}),
+      ...(lastChatActivityAt ? { lastChatActivityAt } : {}),
       allowGlobalGuests: Boolean(row.allow_global_guests),
     };
   });
+}
+
+function isoFromDirectoryActivityAt(raw: unknown): string {
+  if (raw == null) return '';
+  if (raw instanceof Date) return raw.toISOString();
+  const s = String(raw).trim();
+  if (!s || s === '-infinity' || s === 'infinity') return '';
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? new Date(t).toISOString() : '';
 }
 
 /** Directory-listed server ids ordered by member count (desc) for guest auto-join sampling. */

@@ -3,7 +3,46 @@ import { onScopeDispose, watch, type ComputedRef } from 'vue';
 /** No keyboard/pointer/scroll activity for this long → auto-set profile to `idle` (compact). */
 export const ECHO_AFK_IDLE_AFTER_MS = 10 * 60 * 1000;
 
+/**
+ * Persists the user's explicitly chosen presence status across browser restarts.
+ * Uses `localStorage` (not `sessionStorage`) so the choice survives a full
+ * browser close—`sessionStorage` was cleared on close, causing idle/DnD
+ * to auto-recover to online on the next visit.
+ */
+const USER_STATUS_CHOICE_KEY = 'echo_user_status_choice_v1';
+
 type EchoProfilePresence = 'online' | 'idle' | 'do_not_disturb' | 'offline';
+
+const STICKY_STATUSES = new Set<EchoProfilePresence>([
+  'idle',
+  'do_not_disturb',
+]);
+
+function readUserStatusChoice(): EchoProfilePresence | null {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(USER_STATUS_CHOICE_KEY);
+    if (raw && STICKY_STATUSES.has(raw as EchoProfilePresence)) {
+      return raw as EchoProfilePresence;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeUserStatusChoice(status: EchoProfilePresence | null): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (status && STICKY_STATUSES.has(status)) {
+      localStorage.setItem(USER_STATUS_CHOICE_KEY, status);
+    } else {
+      localStorage.removeItem(USER_STATUS_CHOICE_KEY);
+    }
+  } catch {
+    /* ignore private mode / quota */
+  }
+}
 
 /**
  * When the signed-in user stays on `online` without interaction, set them to `idle`.
@@ -15,16 +54,34 @@ export function useEchoAfkPresence(deps: {
   /** Effective profile status (should match self UI presence, e.g. {@link selectSelfPresence}). */
   getStatus: () => EchoProfilePresence | undefined;
   setStatus: (s: EchoProfilePresence) => void;
-}): void {
+}): {
+  /** Call when the user explicitly picks a presence status in profile UI. */
+  noteUserPresenceChoice: (status: EchoProfilePresence) => void;
+} {
   let lastInputAt = Date.now();
   /** True only when `idle` was applied by this composable (not manual status). */
   let idleFromAfkDetector = false;
+  /** The user's explicit status choice from the profile UI (survives browser restart via localStorage). */
+  let userStatusChoice: EchoProfilePresence | null = readUserStatusChoice();
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let lastMoveHandledAt = 0;
   let lastScrollHandledAt = 0;
 
   const mouseMoveThrottleMs = 900;
   const scrollThrottleMs = 500;
+
+  function noteUserPresenceChoice(status: EchoProfilePresence): void {
+    if (STICKY_STATUSES.has(status)) {
+      userStatusChoice = status;
+      writeUserStatusChoice(status);
+      idleFromAfkDetector = false;
+      return;
+    }
+    if (status === 'online') {
+      userStatusChoice = null;
+      writeUserStatusChoice(null);
+    }
+  }
 
   function clearIdleTimer() {
     if (idleTimer) {
@@ -62,10 +119,19 @@ export function useEchoAfkPresence(deps: {
     armIdleTimer();
   }
 
+  function shouldRecoverAutoIdleToOnline(): boolean {
+    if (idleFromAfkDetector) return true;
+    const current = deps.getStatus();
+    if (userStatusChoice && current === userStatusChoice) return false;
+    return current === 'idle';
+  }
+
   function markUserActivity() {
     lastInputAt = Date.now();
-    if (idleFromAfkDetector) {
+    if (shouldRecoverAutoIdleToOnline()) {
       idleFromAfkDetector = false;
+      userStatusChoice = null;
+      writeUserStatusChoice(null);
       deps.setStatus('online');
     }
     armIdleTimer();
@@ -136,6 +202,7 @@ export function useEchoAfkPresence(deps: {
       if (on) {
         lastInputAt = Date.now();
         idleFromAfkDetector = false;
+        userStatusChoice = readUserStatusChoice();
         attachGlobalListeners();
         armIdleTimer();
       } else {
@@ -151,4 +218,6 @@ export function useEchoAfkPresence(deps: {
     clearIdleTimer();
     detachGlobalListeners();
   });
+
+  return { noteUserPresenceChoice };
 }

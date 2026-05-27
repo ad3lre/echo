@@ -688,6 +688,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
           :message-requests="chatCtx.messageRequests"
           :selected-message-request-id="chatCtx.selectedMessageRequestId"
           :messages="chatCtx.messages"
+          :echo-peer-by-channel-id="chatCtx.echoDmPeerByChannelId"
           :send-message="chatCtx.sendMessage"
           :on-request-forward="chatCtx.onRequestForward"
           :select-dm="chatCtx.selectDM"

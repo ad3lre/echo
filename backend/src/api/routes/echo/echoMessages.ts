@@ -276,33 +276,35 @@ export default async function echoMessagesRoutes(
       );
       const beforeRaw =
         typeof req.query.before === 'string' ? req.query.before.trim() : '';
-      const debugPre = await selectEchoMessagesChannelListDebugStats(
-        pool,
-        channelId,
-      );
-      const beforeAnchorRow =
-        beforeRaw.length > 0
-          ? await selectEchoMessageAnchorRowForListDebug(pool, beforeRaw)
-          : null;
-      req.log.info({
-        msg: 'echo.debug.messages.list_pre',
-        requestId: req.id,
-        userId: getAuthUser(req).id,
-        channelId,
-        before: beforeRaw || null,
-        limit,
-        totalCountAllRows: debugPre.totalCount,
-        liveCountNotDeleted: debugPre.liveCount,
-        newestMessageId: debugPre.newestId,
-        oldestMessageId: debugPre.oldestId,
-        beforeAnchor: beforeAnchorRow
-          ? {
-              id: beforeAnchorRow.id,
-              channelId: beforeAnchorRow.channelId,
-              deleted: beforeAnchorRow.deleted,
-            }
-          : null,
-      });
+      if (config.echoMessagesListDebugStats) {
+        const debugPre = await selectEchoMessagesChannelListDebugStats(
+          pool,
+          channelId,
+        );
+        const beforeAnchorRow =
+          beforeRaw.length > 0
+            ? await selectEchoMessageAnchorRowForListDebug(pool, beforeRaw)
+            : null;
+        req.log.info({
+          msg: 'echo.debug.messages.list_pre',
+          requestId: req.id,
+          userId: getAuthUser(req).id,
+          channelId,
+          before: beforeRaw || null,
+          limit,
+          totalCountAllRows: debugPre.totalCount,
+          liveCountNotDeleted: debugPre.liveCount,
+          newestMessageId: debugPre.newestId,
+          oldestMessageId: debugPre.oldestId,
+          beforeAnchor: beforeAnchorRow
+            ? {
+                id: beforeAnchorRow.id,
+                channelId: beforeAnchorRow.channelId,
+                deleted: beforeAnchorRow.deleted,
+              }
+            : null,
+        });
+      }
       const msgs = await listEchoMessages(
         pool,
         channelId,

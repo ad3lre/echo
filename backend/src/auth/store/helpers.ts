@@ -24,6 +24,7 @@ export function publicUser(user: PasswordRecord): AuthUser {
       isDiscordShadow: out.isDiscordShadow,
     },
     out.echoPlan,
+    user.badges,
   );
   if (memBadges.length) out.badges = memBadges;
   else delete out.badges;

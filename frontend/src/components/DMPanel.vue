@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, inject, nextTick, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
+import { LAYOUT_LEFT_CHROME_KEY } from '@/features/layout/layoutInjectionKeys';
+import {
+  echoPeerMapFromInject,
+  useDmConversationSubtitle,
+} from '@/features/dm/composables/useDmConversationSubtitle';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import StatusIndicator from '@/components/StatusIndicator.vue';
 import CallRingtoneInlinePlayer from '@/components/CallRingtoneInlinePlayer.vue';
@@ -37,6 +42,7 @@ import {
   type NotificationReadPreset,
 } from '@/features/dm/filterDmMentionNotificationRows';
 import { useCompactShell } from '@/composables/useCompactShell';
+import { echoUserMatchesSearchQuery } from '@/utils/echoUserSearch';
 
 defineOptions({ inheritAttrs: false });
 
@@ -68,6 +74,31 @@ const messageRequestsPopoutOpen = ref(false);
 const devSettings = useDevSettingsStore();
 const { devModeIdsEnabled } = storeToRefs(devSettings);
 
+const layoutLeft = inject(LAYOUT_LEFT_CHROME_KEY, null);
+const echoPeerByChannelId = computed(() => echoPeerMapFromInject(layoutLeft));
+const { inboxEntrySubtitle, peerUserSubtitle } = useDmConversationSubtitle({
+  currentUserId: () => props.currentUserId,
+  echoPeerByChannelId,
+  resolveAuthorName: (userId) =>
+    props.users.find((u) => u.id === userId)?.name ?? 'Someone',
+});
+
+function dmInboxEntrySubtitleText(entry: DmPanelInboxEntry): string {
+  return inboxEntrySubtitle(entry).text;
+}
+
+function dmInboxEntrySubtitleIsTyping(entry: DmPanelInboxEntry): boolean {
+  return inboxEntrySubtitle(entry).isTyping;
+}
+
+function friendRowSubtitleText(user: { id: string }): string {
+  return peerUserSubtitle(user.id).text;
+}
+
+function friendRowSubtitleIsTyping(user: { id: string }): boolean {
+  return peerUserSubtitle(user.id).isTyping;
+}
+
 const props = defineProps<{
   open: boolean;
   /** Controlled from parent; main content switches by this tab. */
@@ -76,6 +107,7 @@ const props = defineProps<{
   users: {
     id: string;
     name: string;
+    username?: string;
     pfp: string;
     status?: string;
     customStatus?: string;
@@ -633,7 +665,7 @@ const friendUsers = computed(() => {
 const friendUsersFiltered = computed(() => {
   const q = friendListSearch.value.trim().toLowerCase();
   if (!q) return friendUsers.value;
-  return friendUsers.value.filter((u) => u.name.toLowerCase().includes(q));
+  return friendUsers.value.filter((u) => echoUserMatchesSearchQuery(u, q));
 });
 
 const requestsWithUser = computed(() =>
@@ -649,7 +681,7 @@ const requestsWithUserFiltered = computed(() => {
   const q = requestListSearch.value.trim().toLowerCase();
   if (!q) return requestsWithUser.value;
   return requestsWithUser.value.filter((r) =>
-    r.user.name.toLowerCase().includes(q),
+    echoUserMatchesSearchQuery(r.user, q),
   );
 });
 
@@ -1110,12 +1142,15 @@ watch(
                     />
                   </div>
                   <div
-                    v-if="entry.kind === 'user'"
-                    class="text-xs text-fg-soft"
+                    v-if="dmInboxEntrySubtitleText(entry)"
+                    class="truncate text-xs text-fg-soft"
+                    :class="{
+                      'italic text-[color-mix(in_srgb,var(--accent)_72%,var(--fg-soft))]':
+                        dmInboxEntrySubtitleIsTyping(entry),
+                    }"
                   >
-                    {{ dmInboxUserPresence(entry).label }}
+                    {{ dmInboxEntrySubtitleText(entry) }}
                   </div>
-                  <div v-else class="text-xs text-fg-soft">Group DM</div>
                 </div>
               </button>
               <div
@@ -1217,8 +1252,15 @@ watch(
                       "
                       >{{ user.name }}</span
                     >
-                    <div class="text-xs text-fg-soft">
-                      {{ friendRowPresence(user).label }}
+                    <div
+                      v-if="friendRowSubtitleText(user)"
+                      class="truncate text-xs text-fg-soft"
+                      :class="{
+                        'italic text-[color-mix(in_srgb,var(--accent)_72%,var(--fg-soft))]':
+                          friendRowSubtitleIsTyping(user),
+                      }"
+                    >
+                      {{ friendRowSubtitleText(user) }}
                     </div>
                   </div>
                 </button>

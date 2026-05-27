@@ -2,8 +2,9 @@ import { storeToRefs } from 'pinia';
 import type { Ref, ShallowRef } from 'vue';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useEchoAttentionStore } from '@/stores/echoAttention';
+import { useEchoSessionStore } from '@/stores/echoSession';
 import { createEchoHistoryController } from '@/services/orchestration/echoHistoryOrchestration';
-import { ECHO_CHANNEL_MESSAGE_PAGE_SIZE } from '@/features/chat/constants/echoHistoryPageSize';
+import { ECHO_CHANNEL_MESSAGE_PAGE_SIZE } from '@/constants/echoHistoryPageSize';
 
 export { ECHO_CHANNEL_MESSAGE_PAGE_SIZE };
 
@@ -24,6 +25,7 @@ export function useEchoHistory(
 ) {
   const auth = useAuthSessionStore();
   const echoAttention = useEchoAttentionStore();
+  const echoSession = useEchoSessionStore();
   const { readStateByChannelId: lastReadMessageIdByChannel } =
     storeToRefs(echoAttention);
 
@@ -32,6 +34,7 @@ export function useEchoHistory(
     auth,
     lastReadMessageIdByChannel,
     echoAttention,
+    isRealtimeConnected: () => echoSession.liveSyncConnected,
     ...(dmRegistry
       ? {
           echoDmThreadIds: dmRegistry.echoDmThreadIds,

@@ -335,6 +335,11 @@ interface AppConfig {
    * Default false to avoid background diagnostics I/O overhead unless actively debugging.
    */
   readonly echoSessionDiagnostics: boolean;
+  /**
+   * When true, GET /channels/:id/messages runs extra debug COUNT queries before listing.
+   * Default false — enable with `ECHO_MESSAGES_LIST_DEBUG_STATS=1` when investigating history gaps.
+   */
+  readonly echoMessagesListDebugStats: boolean;
   /** Mark presence offline when `updated_at` is older than this many minutes (sweep job). */
   readonly presenceStaleAfterMinutes: number;
   /** Interval for presence stale sweep (ms). 0 disables. */
@@ -556,6 +561,12 @@ interface AppConfig {
    * **Off by default.** Set `ECHO_GUEST_ACCOUNTS_ENABLED=1` to enable.
    */
   readonly guestAccountsEnabled: boolean;
+  /**
+   * Auth user ids allowed to list Echo+ pre-launch interest signups
+   * (`GET /api/v1/auth/echo-plus-interest/list`). Comma-separated in
+   * `ECHO_PLUS_INTEREST_ADMIN_USER_IDS`.
+   */
+  readonly echoPlusInterestAdminUserIds: readonly string[];
   /**
    * When non-empty, `GET /api/v1/metrics` requires `Authorization: Bearer <token>`.
    * Required in `NODE_ENV=production` (startup fails if unset). Prefer also restricting scrape at the reverse proxy.
@@ -1154,6 +1165,10 @@ export const config: AppConfig = {
     process.env.ECHO_SESSION_DIAGNOSTICS,
     false,
   ),
+  echoMessagesListDebugStats: parseBoolean(
+    process.env.ECHO_MESSAGES_LIST_DEBUG_STATS,
+    false,
+  ),
   presenceStaleAfterMinutes: (() => {
     const raw = process.env.ECHO_PRESENCE_STALE_MINUTES;
     if (raw === undefined) return 5;
@@ -1579,6 +1594,12 @@ export const config: AppConfig = {
     process.env.ECHO_GUEST_ACCOUNTS_ENABLED,
     false,
   ),
+  echoPlusInterestAdminUserIds: (
+    process.env.ECHO_PLUS_INTEREST_ADMIN_USER_IDS ?? ''
+  )
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean),
   echoMetricsScrapeToken: process.env.ECHO_METRICS_SCRAPE_TOKEN?.trim() || null,
   echoAgentNetworkDiagnosticsEnabled: parseBoolean(
     process.env.ECHO_AGENT_NETWORK_DIAG_ENABLED,

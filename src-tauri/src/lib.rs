@@ -30,6 +30,8 @@ mod desktop_audio;
 
 use desktop_audio::{DesktopAudioDevice, DesktopAudioState};
 
+mod ios_auth;
+
 /// Persisted preference mirrored from the SPA (close hides to tray vs exit).
 #[derive(Clone)]
 pub struct ShellPrefs {
@@ -846,6 +848,7 @@ pub fn run() {
   builder
     .manage(ShellPrefs::new_with_platform_defaults())
     .manage(DesktopAudioState::default())
+    .manage(ios_auth::IosAuthState::default())
     .invoke_handler(tauri::generate_handler![
       desktop_log_path,
       log_frontend_event,
@@ -866,6 +869,15 @@ pub fn run() {
       desktop_audio_set_output_volume,
       desktop_audio_play_ringtone,
       desktop_audio_stop_ringtone,
+      ios_auth::ios_auth_boot_check,
+      ios_auth::ios_auth_store_session,
+      ios_auth::ios_auth_update_session,
+      ios_auth::ios_auth_clear_session,
+      ios_auth::ios_auth_get_session,
+      ios_auth::ios_auth_session_restored,
+      ios_auth::ios_auth_session_restore_failed,
+      ios_auth::ios_auth_should_show_login,
+      ios_auth::ios_auth_mark_verified,
     ])
     .setup(|app| {
       setup_app_shell(app);

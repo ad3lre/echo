@@ -38,6 +38,7 @@ import {
 import { echoMessagesTableHasE2eeColumns } from '../domain/echoMessagesDal';
 import { filterMentionsForChannelContext } from '../domain/echoStore/mentionContext';
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
+import { isEchoPublicId } from '../../../shared/snowflakeIds';
 import { echoMessagesPersistedTotal } from '../observability/echoMetrics';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
 import { resolveAndBroadcastLinkEmbeds } from '../sockets/echoLinkEmbeds';
@@ -317,7 +318,10 @@ export async function echoPersistedMessageCreateAndBroadcast(
   );
 
   const safeReplyTo = await resolveSafeReplyTo(pool, channelId, replyTo);
-  const messageId = clientMessageId ?? nextEchoSnowflakeId();
+  const messageId =
+    clientMessageId && isEchoPublicId(clientMessageId)
+      ? clientMessageId
+      : nextEchoSnowflakeId();
   const pollForClients = pollDef
     ? mergePollVotesIntoDefinition(pollDef, [])
     : undefined;

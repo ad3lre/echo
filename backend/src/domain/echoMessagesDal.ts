@@ -578,6 +578,60 @@ async function attachReactionsToRows(
   });
 }
 
+function mergeParallelEnrichedEchoMessageRows(
+  finalized: EchoMessageRow[],
+  withRx: EchoMessageRow[],
+  labeled: EchoMessageRow[],
+): EchoMessageRow[] {
+  return finalized.map((fin, i) => {
+    const lab = labeled[i]!;
+    const rx = withRx[i]!;
+    return {
+      ...lab,
+      poll: fin.poll,
+      ...(rx.reactions?.length ? { reactions: rx.reactions } : {}),
+    };
+  });
+}
+
+async function timedEnrichmentMs<T>(fn: () => Promise<T>): Promise<{
+  result: T;
+  ms: number;
+}> {
+  const t0 = process.hrtime.bigint();
+  const result = await fn();
+  return { result, ms: Number(process.hrtime.bigint() - t0) / 1e6 };
+}
+
+async function enrichEchoMessageDraftsParallel(
+  pool: pg.Pool,
+  drafts: MsgRowDraft[],
+): Promise<{
+  rows: EchoMessageRow[];
+  pollMs: number;
+  reactionsMs: number;
+  authorsMs: number;
+}> {
+  const baseRows = drafts as EchoMessageRow[];
+  const [poll, reactions, authors] = await Promise.all([
+    timedEnrichmentMs(() => finalizePollRows(pool, drafts)),
+    timedEnrichmentMs(() => attachReactionsToRows(pool, baseRows)),
+    timedEnrichmentMs(() =>
+      attachAuthorLabelsToEchoMessageRows(pool, baseRows),
+    ),
+  ]);
+  return {
+    rows: mergeParallelEnrichedEchoMessageRows(
+      poll.result,
+      reactions.result,
+      authors.result,
+    ),
+    pollMs: poll.ms,
+    reactionsMs: reactions.ms,
+    authorsMs: authors.ms,
+  };
+}
+
 export async function userHasEchoMessageReaction(
   pool: pg.Pool,
   messageId: string,
@@ -830,14 +884,8 @@ export async function getEchoMessageById(
   );
   if (!q.rows.length) return null;
   const drafts = mapMsgRowsDraft(q.rows);
-  const finalized = await finalizePollRows(pool, drafts);
-  const row = finalized[0];
-  if (!row) return null;
-  const withRx = await attachReactionsToRows(pool, [row]);
-  const rx0 = withRx[0];
-  if (!rx0) return null;
-  const labeled = await attachAuthorLabelsToEchoMessageRows(pool, [rx0]);
-  return labeled[0] ?? null;
+  const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
+  return enriched.rows[0] ?? null;
 }
 
 export async function listEchoMessages(
@@ -881,15 +929,8 @@ export async function listEchoMessages(
     );
     const tq1 = process.hrtime.bigint();
     const drafts = mapMsgRowsDraft(r.rows).reverse();
-    const tp0 = process.hrtime.bigint();
-    const finalized = await finalizePollRows(pool, drafts);
-    const tp1 = process.hrtime.bigint();
-    const tr0 = process.hrtime.bigint();
-    const withRx = await attachReactionsToRows(pool, finalized);
-    const tr1 = process.hrtime.bigint();
-    const ta0 = process.hrtime.bigint();
-    const labeled = await attachAuthorLabelsToEchoMessageRows(pool, withRx);
-    const ta1 = process.hrtime.bigint();
+    const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
+    const labeled = enriched.rows;
     const t1 = process.hrtime.bigint();
     diag?.onTiming?.({
       channelId,
@@ -897,9 +938,9 @@ export async function listEchoMessages(
       limit,
       messageCount: labeled.length,
       queryMs: Number(tq1 - tq0) / 1e6,
-      pollMs: Number(tp1 - tp0) / 1e6,
-      reactionsMs: Number(tr1 - tr0) / 1e6,
-      authorsMs: Number(ta1 - ta0) / 1e6,
+      pollMs: enriched.pollMs,
+      reactionsMs: enriched.reactionsMs,
+      authorsMs: enriched.authorsMs,
       totalMs: Number(t1 - t0) / 1e6,
     });
     return labeled;
@@ -917,15 +958,8 @@ export async function listEchoMessages(
   );
   const tq1 = process.hrtime.bigint();
   const drafts = mapMsgRowsDraft(r.rows).reverse();
-  const tp0 = process.hrtime.bigint();
-  const finalized = await finalizePollRows(pool, drafts);
-  const tp1 = process.hrtime.bigint();
-  const tr0 = process.hrtime.bigint();
-  const withRx = await attachReactionsToRows(pool, finalized);
-  const tr1 = process.hrtime.bigint();
-  const ta0 = process.hrtime.bigint();
-  const labeled = await attachAuthorLabelsToEchoMessageRows(pool, withRx);
-  const ta1 = process.hrtime.bigint();
+  const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
+  const labeled = enriched.rows;
   const t1 = process.hrtime.bigint();
   diag?.onTiming?.({
     channelId,
@@ -933,9 +967,9 @@ export async function listEchoMessages(
     limit,
     messageCount: labeled.length,
     queryMs: Number(tq1 - tq0) / 1e6,
-    pollMs: Number(tp1 - tp0) / 1e6,
-    reactionsMs: Number(tr1 - tr0) / 1e6,
-    authorsMs: Number(ta1 - ta0) / 1e6,
+    pollMs: enriched.pollMs,
+    reactionsMs: enriched.reactionsMs,
+    authorsMs: enriched.authorsMs,
     totalMs: Number(t1 - t0) / 1e6,
   });
   return labeled;
@@ -1109,9 +1143,8 @@ export async function searchEchoMessagesInChannels(
 
   const r = await pool.query(sql, params);
   const drafts = mapMsgRowsDraft(r.rows).reverse();
-  const finalized = await finalizePollRows(pool, drafts);
-  const withRx = await attachReactionsToRows(pool, finalized);
-  return attachAuthorLabelsToEchoMessageRows(pool, withRx);
+  const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
+  return enriched.rows;
 }
 
 export async function selectEchoMessageAuthorDeleted(
@@ -1556,11 +1589,27 @@ export async function queryEchoDmThreadsForUser(
 ): Promise<EchoDmThreadListRow[]> {
   const r = await pool.query(
     `
-    WITH last_msg AS (
-      SELECT channel_id, MAX(id) AS mid
-      FROM echo_messages
-      WHERE deleted_at IS NULL
-      GROUP BY channel_id
+    WITH scoped_channels AS (
+      SELECT d.channel_id
+      FROM echo_dm_threads d
+      LEFT JOIN echo_dm_message_requests mr ON mr.channel_id = d.channel_id
+      WHERE (d.user_low = $1 OR d.user_high = $1)
+        AND (
+          mr.channel_id IS NULL
+          OR mr.status = 'accepted'
+          OR (mr.status = 'pending' AND mr.requester_user_id = $1)
+        )
+      UNION
+      SELECT g.channel_id
+      FROM echo_group_dm_members g
+      WHERE g.user_id = $1
+    ),
+    last_msg AS (
+      SELECT m.channel_id, MAX(m.id) AS mid
+      FROM echo_messages m
+      WHERE m.deleted_at IS NULL
+        AND m.channel_id IN (SELECT channel_id FROM scoped_channels)
+      GROUP BY m.channel_id
     ),
     direct AS (
       SELECT

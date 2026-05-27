@@ -356,6 +356,7 @@ const {
   _dmPanelWidth,
   dmPartnerUser,
   dmInboxEntriesForPanel,
+  echoDmPeerByChannelId,
   _echoCanCreateChannel,
   _echoCanCreateInvite,
   _echoCanManageMessages,
@@ -1510,7 +1511,11 @@ const useCompactTriPaneShell = computed(
 );
 
 const useCompactExploreShell = computed(
-  () => unref(isCompactShell) && explorePageUnifiedScroll.value,
+  () =>
+    unref(isCompactShell) &&
+    explorePageUnifiedScroll.value &&
+    !welcomeBackExploreGate.value &&
+    !inviteLandingActive.value,
 );
 
 /** Compact non–guild-chrome surfaces (explore, DM, onboarding, welcome gate). */
@@ -1856,6 +1861,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   messageRequests: computed(() => workspace.messageRequests.value),
   selectedMessageRequestId,
   messages: computed(() => workspace.messages.value),
+  echoDmPeerByChannelId: computed(() => echoDmPeerByChannelId.value),
   selectDM,
   acceptFriendRequest,
   declineFriendRequest,
@@ -3238,12 +3244,10 @@ onMounted(() => {
     memberPanelMainWidthObserver = new ResizeObserver(() => {
       maybeAutoCollapseMemberPanelForMainWidth();
       maybeAutoCollapseDmProfilePanelForMainWidth();
-      maybeAutoOpenDmProfilePanel();
     });
     memberPanelMainWidthObserver.observe(el);
     maybeAutoCollapseMemberPanelForMainWidth();
     maybeAutoCollapseDmProfilePanelForMainWidth();
-    maybeAutoOpenDmProfilePanel();
   });
 
   void nextTick(() => {
@@ -3562,6 +3566,7 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   dmActiveTab,
   dmIncomingRailCluster: dmIncomingRailCluster as any,
   dmInboxEntries: dmInboxEntriesForPanel as any,
+  echoPeerByChannelId: computed(() => echoDmPeerByChannelId.value),
   usersForChannelPanel,
   currentUserId: computed(() => currentUser.value?.id ?? ''),
   selectedDmUserId: selectedDMUserId,
@@ -3938,23 +3943,6 @@ function maybeAutoCollapseDmProfilePanelForMainWidth() {
   expandedProfile.value = null;
 }
 
-const lastAutoOpenedDmProfileUserId = ref<string | null>(null);
-
-function maybeAutoOpenDmProfilePanel() {
-  if (!isInDMChat.value) {
-    lastAutoOpenedDmProfileUserId.value = null;
-    return;
-  }
-  if (dmCallFullscreen.value) return;
-  if (isGroupDM.value) return;
-  const userId = selectedDMUserId.value?.trim();
-  if (!userId) return;
-  if (lastAutoOpenedDmProfileUserId.value === userId) return;
-  if (!canShowDmProfilePanelForWidth()) return;
-  openExpandedProfilePanelForUserId(userId);
-  lastAutoOpenedDmProfileUserId.value = userId;
-}
-
 function collapseDmProfileOverviewForDmCallFullscreen() {
   if (!isExpandedProfileModalOpen.value && !isGroupOverviewOpen.value) return;
   isExpandedProfileModalOpen.value = false;
@@ -3977,20 +3965,12 @@ watch(
   () =>
     [
       isInDMChat.value,
-      selectedDMUserId.value,
       isExpandedProfileModalOpen.value,
       isExpandedProfileSidePanel.value,
       isGroupOverviewOpen.value,
-      isGroupDM.value,
     ] as const,
   () => {
-    void nextTick(() => {
-      if (isGroupDM.value) {
-        lastAutoOpenedDmProfileUserId.value = null;
-      }
-      maybeAutoOpenDmProfilePanel();
-      maybeAutoCollapseDmProfilePanelForMainWidth();
-    });
+    void nextTick(maybeAutoCollapseDmProfilePanelForMainWidth);
   },
   { flush: 'post' },
 );
@@ -4437,8 +4417,6 @@ watch(
                     :member-empty-directory="
                       welcomeBackExploreMemberEmptyDirectory
                     "
-                    :show-mobile-back="isCompactShell"
-                    @back="mobileShellGoBack"
                     @log-in-echo="openAuthModal({ entry: 'echo' })"
                     @create-account="openAuthModal({ tab: 'register' })"
                     @sign-in-passkey="
@@ -4488,8 +4466,6 @@ watch(
                 v-else-if="welcomeBackExploreGate"
                 class="col-span-full min-h-full min-w-0 self-stretch"
                 :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-                :show-mobile-back="isCompactShell"
-                @back="mobileShellGoBack"
                 @log-in-echo="openAuthModal({ entry: 'echo' })"
                 @create-account="openAuthModal({ tab: 'register' })"
                 @sign-in-passkey="
@@ -4559,8 +4535,6 @@ watch(
                   :member-empty-directory="
                     welcomeBackExploreMemberEmptyDirectory
                   "
-                  :show-mobile-back="isCompactShell"
-                  @back="mobileShellGoBack"
                   @log-in-echo="openAuthModal({ entry: 'echo' })"
                   @create-account="openAuthModal({ tab: 'register' })"
                   @sign-in-passkey="
@@ -4652,8 +4626,6 @@ watch(
                     :member-empty-directory="
                       welcomeBackExploreMemberEmptyDirectory
                     "
-                    :show-mobile-back="isCompactShell"
-                    @back="mobileShellGoBack"
                     @log-in-echo="openAuthModal({ entry: 'echo' })"
                     @create-account="openAuthModal({ tab: 'register' })"
                     @sign-in-passkey="
@@ -4703,8 +4675,6 @@ watch(
                 v-else-if="welcomeBackExploreGate"
                 class="col-span-full min-h-full min-w-0 self-stretch"
                 :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-                :show-mobile-back="isCompactShell"
-                @back="mobileShellGoBack"
                 @log-in-echo="openAuthModal({ entry: 'echo' })"
                 @create-account="openAuthModal({ tab: 'register' })"
                 @sign-in-passkey="
@@ -4789,8 +4759,6 @@ watch(
                   :member-empty-directory="
                     welcomeBackExploreMemberEmptyDirectory
                   "
-                  :show-mobile-back="isCompactShell"
-                  @back="mobileShellGoBack"
                   @log-in-echo="openAuthModal({ entry: 'echo' })"
                   @create-account="openAuthModal({ tab: 'register' })"
                   @sign-in-passkey="
@@ -4840,8 +4808,6 @@ watch(
               v-else-if="welcomeBackExploreGate"
               class="col-span-full min-h-full min-w-0 self-stretch"
               :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-              :show-mobile-back="isCompactShell"
-              @back="mobileShellGoBack"
               @log-in-echo="openAuthModal({ entry: 'echo' })"
               @create-account="openAuthModal({ tab: 'register' })"
               @sign-in-passkey="
@@ -4925,8 +4891,6 @@ watch(
                 v-else-if="welcomeBackExploreGate"
                 class="col-span-full min-h-full min-w-0 self-stretch"
                 :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-                :show-mobile-back="isCompactShell"
-                @back="mobileShellGoBack"
                 @log-in-echo="openAuthModal({ entry: 'echo' })"
                 @create-account="openAuthModal({ tab: 'register' })"
                 @sign-in-passkey="
@@ -4974,8 +4938,6 @@ watch(
             v-else-if="welcomeBackExploreGate"
             class="col-span-full min-h-full min-w-0 self-stretch"
             :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-            :show-mobile-back="isCompactShell"
-            @back="mobileShellGoBack"
             @log-in-echo="openAuthModal({ entry: 'echo' })"
             @create-account="openAuthModal({ tab: 'register' })"
             @sign-in-passkey="openAuthModal({ entry: 'social', passkey: true })"

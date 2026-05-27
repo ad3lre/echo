@@ -13,6 +13,7 @@ import {
   filterExploreDirectoryRowsByTags,
   isExploreDirectoryJoinLockedForGuest,
   normalizeExploreDirectoryTags,
+  sortExploreRecommendedServers,
   sortExploreServersWithVoicePriority,
 } from '@/services/domain/exploreDirectoryRows';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -29,6 +30,8 @@ type DiscoverableServer = {
   tags?: string[];
   memberCount?: number;
   voiceParticipantCount?: number;
+  lastVoiceActivityAt?: string;
+  lastChatActivityAt?: string;
   createdAt?: string;
   allowGlobalGuests?: boolean;
 };
@@ -47,12 +50,14 @@ type ListedServer = {
   /** True when the server has an explicit banner URL (not the pfp fallback used for display). */
   hasRealBanner: boolean;
   order: number;
-  featured: boolean;
   descriptionRaw: string;
   blurb: string;
   tags: string[];
   memberCount: number;
   voiceParticipantCount: number;
+  lastVoiceActivityAt?: string;
+  lastChatActivityAt?: string;
+  hasDescription: boolean;
   createdAtMs: number | null;
   allowGlobalGuests?: boolean;
   joinLocked: boolean;
@@ -181,6 +186,7 @@ function bannerFor(server: DiscoverableServer): string {
 const listedServers = computed<ListedServer[]>(() =>
   discoverableList.value.map((server, index) => {
     const descriptionRaw = server.description?.trim() ?? '';
+    const hasDescription = descriptionRaw.length > 0;
     const mc = server.memberCount;
     const memberCount =
       typeof mc === 'number' && Number.isFinite(mc) && mc >= 0
@@ -201,12 +207,18 @@ const listedServers = computed<ListedServer[]>(() =>
       hasCustomIcon: pfp.trim() !== '' && pfp !== iconEchoRounded,
       hasRealBanner: Boolean(server.banner?.trim()),
       order: index,
-      featured: index < 6,
       descriptionRaw,
       blurb: exploreDirectoryBlurb(server.description),
       tags: normalizeExploreDirectoryTags(server.tags),
       memberCount,
       voiceParticipantCount,
+      ...(server.lastVoiceActivityAt?.trim()
+        ? { lastVoiceActivityAt: server.lastVoiceActivityAt.trim() }
+        : {}),
+      ...(server.lastChatActivityAt?.trim()
+        ? { lastChatActivityAt: server.lastChatActivityAt.trim() }
+        : {}),
+      hasDescription,
       createdAtMs: parseCreatedAtMs(server.createdAt),
       allowGlobalGuests: server.allowGlobalGuests,
       joinLocked: isExploreDirectoryJoinLockedForGuest(
@@ -271,7 +283,7 @@ const hiddenQuickFiltersBatchB = computed(() => {
 });
 
 const featuredServers = computed(() =>
-  listedServers.value.filter((s) => s.featured),
+  sortExploreRecommendedServers(listedServers.value).slice(0, 6),
 );
 
 const filteredServers = computed(() => {
@@ -299,32 +311,6 @@ function ageDaysForTrendy(s: ListedServer, listLen: number): number {
 
 function trendyScore(s: ListedServer, listLen: number): number {
   return s.memberCount / Math.sqrt(ageDaysForTrendy(s, listLen));
-}
-
-function recommendedScore(s: ListedServer, listLen: number): number {
-  const ageDays = ageDaysForTrendy(s, listLen);
-  const pop = Math.log1p(Math.max(0, s.memberCount));
-  const momentum = s.memberCount / ageDays;
-  const descBoost = s.descriptionRaw.trim().length >= 12 ? 0.08 : 0;
-  const featuredBoost = s.featured ? 0.1 : 0;
-
-  // ~28d half-life: strongly favors newly listed servers without ignoring older ones entirely.
-  const newness = Math.exp(-ageDays / 28);
-  const newnessBoost = 0.55 * newness;
-
-  let brandingBoost = 0;
-  if (s.hasCustomIcon) brandingBoost += 0.1;
-  if (s.hasRealBanner) brandingBoost += 0.1;
-  if (s.hasCustomIcon && s.hasRealBanner) brandingBoost += 0.14;
-
-  // Member growth proxy: no time-series in the directory payload, so weight members/day
-  // more heavily while `newness` is high (young + rising count reads as "trending up").
-  const momentumWeight = 0.3 + 0.45 * newness;
-  const growthScore = momentumWeight * Math.log1p(momentum);
-
-  return (
-    pop + growthScore + newnessBoost + brandingBoost + descBoost + featuredBoost
-  );
 }
 
 const sortedServers = computed(() => {
@@ -365,10 +351,7 @@ const sortedServers = computed(() => {
     );
   }
 
-  return sortExploreServersWithVoicePriority(
-    list,
-    (a, b) => recommendedScore(b, listLen) - recommendedScore(a, listLen),
-  );
+  return sortExploreRecommendedServers(list);
 });
 
 const exploreTotalPages = computed(() => {

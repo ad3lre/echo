@@ -1,5 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import {
+  AuthApiError,
+  authFetchMe,
+  invalidateAuthFetchMeCache,
+  registerEchoPlusInterest,
+  removeEchoPlusInterest,
+  type EchoPlusInterestTier,
+} from '@/api/authClient';
+import { echoT } from '@/i18n';
+import { useAuthSessionStore } from '@/stores/authSession';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import SettingsDiscordLinkSection from '@/features/settings/components/SettingsDiscordLinkSection.vue';
 import SettingsGoogleLinkSection from '@/features/settings/components/SettingsGoogleLinkSection.vue';
@@ -56,6 +66,7 @@ const devSettings = useDevSettingsStore();
 const { devModeIdsEnabled } = storeToRefs(devSettings);
 const bugHunter = useBugHunterStore();
 const { bugHunterEnabled } = storeToRefs(bugHunter);
+const authSession = useAuthSessionStore();
 
 const props = defineProps<{
   activeSection: SettingsSection;
@@ -75,6 +86,92 @@ const blackTier = planTiers.find((t) => t.id === 'black')!;
 const billingCycle = ref<'monthly' | 'yearly'>('monthly');
 const echoPlusLocked = computed(() => ECHO_PLUS_COMING_SOON);
 const currentPlan = computed(() => props.echoPlan ?? 'free');
+const echoPlusInterest = computed(
+  () => authSession.backendUser?.echoPlusInterest ?? null,
+);
+const echoPlusInterestSubmitting = ref(false);
+const echoPlusInterestError = ref('');
+const echoPlusInterestGuest = computed(
+  () => authSession.backendUser?.isGuest === true,
+);
+const echoPlusOnInterestList = computed(() => !!echoPlusInterest.value);
+
+function tierMatchesInterest(
+  tier: 'plus' | 'black',
+  interest: NonNullable<typeof echoPlusInterest.value>,
+): boolean {
+  return interest.tier === tier || interest.tier === 'any';
+}
+
+function isInterestedInTier(tier: 'plus' | 'black'): boolean {
+  const interest = echoPlusInterest.value;
+  if (!interest) return false;
+  return tierMatchesInterest(tier, interest);
+}
+
+async function refreshEchoPlusInterestOnUser(): Promise<void> {
+  invalidateAuthFetchMeCache();
+  const { user } = await authFetchMe();
+  if (authSession.backendUser?.id === user.id) {
+    authSession.backendUser = user;
+  }
+}
+
+async function markEchoPlusInterested(
+  tier: EchoPlusInterestTier,
+): Promise<void> {
+  if (echoPlusInterestSubmitting.value || !echoPlusLocked.value) return;
+  if (echoPlusInterestGuest.value) {
+    echoPlusInterestError.value = echoT(
+      'settings.echoPlusInterest.guestBlocked',
+    );
+    return;
+  }
+  echoPlusInterestSubmitting.value = true;
+  echoPlusInterestError.value = '';
+  try {
+    const { interest } = await registerEchoPlusInterest({
+      tier,
+      billingCycle: billingCycle.value,
+    });
+    if (authSession.backendUser) {
+      authSession.backendUser = {
+        ...authSession.backendUser,
+        echoPlusInterest: interest,
+      };
+    }
+    void refreshEchoPlusInterestOnUser();
+  } catch (e) {
+    echoPlusInterestError.value =
+      e instanceof AuthApiError
+        ? e.message
+        : echoT('settings.echoPlusInterest.errorGeneric');
+  } finally {
+    echoPlusInterestSubmitting.value = false;
+  }
+}
+
+async function clearEchoPlusInterest(): Promise<void> {
+  if (echoPlusInterestSubmitting.value) return;
+  echoPlusInterestSubmitting.value = true;
+  echoPlusInterestError.value = '';
+  try {
+    await removeEchoPlusInterest();
+    if (authSession.backendUser) {
+      const next = { ...authSession.backendUser };
+      delete next.echoPlusInterest;
+      authSession.backendUser = next;
+    }
+    void refreshEchoPlusInterestOnUser();
+  } catch (e) {
+    echoPlusInterestError.value =
+      e instanceof AuthApiError
+        ? e.message
+        : echoT('settings.echoPlusInterest.errorGeneric');
+  } finally {
+    echoPlusInterestSubmitting.value = false;
+  }
+}
 const activeSubscriptionTimeline = computed(() =>
   props.subscriptionTimeline.length
     ? props.subscriptionTimeline
@@ -374,13 +471,44 @@ function resetDefaults() {
   <div v-else-if="activeSection === 'Echo+'" class="flex flex-col gap-6 -mt-2">
     <div
       v-if="echoPlusLocked"
-      class="rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-4 py-3 text-sm text-foreground"
+      class="rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-4 py-4 text-sm text-foreground"
     >
-      Echo+ upgrades are
-      <span class="font-semibold text-[color:var(--vc-settings-accent-fg)]"
-        >coming soon</span
+      <p>
+        {{ echoT('settings.echoPlusInterest.comingSoonLead') }}
+      </p>
+      <p
+        v-if="echoPlusOnInterestList"
+        class="mt-2 text-[color:var(--set-positive-label-fg)]"
       >
-      for everyone.
+        {{ echoT('settings.echoPlusInterest.onList') }}
+      </p>
+      <p v-if="echoPlusInterestError" class="mt-2 text-red-600">
+        {{ echoPlusInterestError }}
+      </p>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          v-if="!echoPlusOnInterestList"
+          type="button"
+          class="premium-cta premium-cta--plus rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-55"
+          :disabled="echoPlusInterestSubmitting || echoPlusInterestGuest"
+          @click="markEchoPlusInterested('any')"
+        >
+          {{
+            echoPlusInterestSubmitting
+              ? 'Saving…'
+              : echoT('settings.echoPlusInterest.notifyCta')
+          }}
+        </button>
+        <button
+          v-else
+          type="button"
+          class="rounded-lg border border-glass-2 bg-glass-1 px-4 py-2 text-xs font-semibold text-fg-soft transition-colors hover:text-foreground disabled:opacity-55"
+          :disabled="echoPlusInterestSubmitting"
+          @click="clearEchoPlusInterest"
+        >
+          {{ echoT('settings.echoPlusInterest.removeInterest') }}
+        </button>
+      </div>
     </div>
 
     <!-- Hero -->
@@ -610,21 +738,37 @@ function resetDefaults() {
 
         <button
           type="button"
-          :disabled="echoPlusLocked || currentPlan === 'plus'"
+          :disabled="
+            currentPlan === 'plus' ||
+            (echoPlusLocked
+              ? isInterestedInTier('plus') || echoPlusInterestSubmitting
+              : false)
+          "
           class="mt-8 w-full rounded-xl py-3 text-sm font-bold uppercase tracking-wider"
           :class="
             currentPlan === 'plus'
               ? 'cursor-default bg-glass-1 text-fg-subtle'
               : echoPlusLocked
-                ? 'premium-cta premium-cta--plus cursor-not-allowed text-white opacity-55'
+                ? isInterestedInTier('plus')
+                  ? 'cursor-default bg-glass-1 text-fg-subtle'
+                  : 'premium-cta premium-cta--plus text-white disabled:opacity-55'
                 : 'premium-cta premium-cta--plus text-white'
+          "
+          @click="
+            echoPlusLocked && currentPlan !== 'plus'
+              ? markEchoPlusInterested('plus')
+              : undefined
           "
         >
           {{
             currentPlan === 'plus'
               ? 'Current Plan'
               : echoPlusLocked
-                ? 'Coming soon'
+                ? isInterestedInTier('plus')
+                  ? "You're on the list"
+                  : echoPlusInterestSubmitting
+                    ? 'Saving…'
+                    : echoT('settings.echoPlusInterest.interestedCta')
                 : 'Upgrade to Echo+'
           }}
         </button>
@@ -701,21 +845,37 @@ function resetDefaults() {
 
         <button
           type="button"
-          :disabled="echoPlusLocked || currentPlan === 'black'"
+          :disabled="
+            currentPlan === 'black' ||
+            (echoPlusLocked
+              ? isInterestedInTier('black') || echoPlusInterestSubmitting
+              : false)
+          "
           class="mt-8 w-full rounded-xl py-3 text-sm font-bold uppercase tracking-wider"
           :class="
             currentPlan === 'black'
               ? 'cursor-default bg-glass-1 text-fg-subtle'
               : echoPlusLocked
-                ? 'premium-cta premium-cta--black cursor-not-allowed text-black opacity-55'
+                ? isInterestedInTier('black')
+                  ? 'cursor-default bg-glass-1 text-fg-subtle'
+                  : 'premium-cta premium-cta--black text-black disabled:opacity-55'
                 : 'premium-cta premium-cta--black text-black'
+          "
+          @click="
+            echoPlusLocked && currentPlan !== 'black'
+              ? markEchoPlusInterested('black')
+              : undefined
           "
         >
           {{
             currentPlan === 'black'
               ? 'Current Plan'
               : echoPlusLocked
-                ? 'Coming soon'
+                ? isInterestedInTier('black')
+                  ? "You're on the list"
+                  : echoPlusInterestSubmitting
+                    ? 'Saving…'
+                    : echoT('settings.echoPlusInterest.interestedCta')
                 : 'Go Black'
           }}
         </button>

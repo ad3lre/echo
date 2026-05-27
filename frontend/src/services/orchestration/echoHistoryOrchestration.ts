@@ -35,7 +35,7 @@ import {
   applyEchoHistoryOlderPageFromApi,
   applyEchoHistorySeedFromCachedMessages,
 } from '@/features/chat/domain/echoHistoryChannelApply';
-import { ECHO_CHANNEL_MESSAGE_PAGE_SIZE } from '@/features/chat/constants/echoHistoryPageSize';
+import { ECHO_CHANNEL_MESSAGE_PAGE_SIZE } from '@/constants/echoHistoryPageSize';
 import {
   mapEchoMessageToRaw,
   mapEchoMessagesToRaw,
@@ -81,6 +81,8 @@ export type CreateEchoHistoryControllerDeps = {
   echoDmPeerByChannelId?:
     | ShallowRef<Map<string, string>>
     | Ref<ReadonlyMap<string, string>>;
+  /** When true, cache-hit reopen skips tail sync and deferred attention refresh. */
+  isRealtimeConnected?: () => boolean;
 };
 
 /** Controller owns history IO/timing; message bucket writes delegate to `channelMessageAuthority`. */
@@ -94,6 +96,7 @@ export function createEchoHistoryController(
     echoAttention,
     echoDmThreadIds,
     echoDmPeerByChannelId,
+    isRealtimeConnected,
   } = deps;
 
   const initialLoading = ref(false);
@@ -504,10 +507,15 @@ export function createEchoHistoryController(
         outcomeOk: true,
         expectation: 'cached bucket seeds active window immediately',
       });
-      scheduleAttentionRefresh('history_cache_hit', cid);
-      void syncActiveChannelTailFromApi('history_cache_hit').finally(() => {
+      const realtimeConnected = isRealtimeConnected?.() ?? false;
+      if (!realtimeConnected) {
+        scheduleAttentionRefresh('history_cache_hit', cid);
+        void syncActiveChannelTailFromApi('history_cache_hit').finally(() => {
+          scheduleMissingReplyTargetBackfill(cid, 'history_cache_hit');
+        });
+      } else {
         scheduleMissingReplyTargetBackfill(cid, 'history_cache_hit');
-      });
+      }
       return;
     }
     invalidatePrependAndJumpForNewInitialFetch();

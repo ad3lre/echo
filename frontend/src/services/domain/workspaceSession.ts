@@ -34,6 +34,8 @@ export type EchoWorkspaceDiscoverableServer = {
   description?: string;
   memberCount?: number;
   voiceParticipantCount?: number;
+  lastVoiceActivityAt?: string;
+  lastChatActivityAt?: string;
   createdAt?: string;
   allowGlobalGuests?: boolean;
 };

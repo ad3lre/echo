@@ -11,6 +11,7 @@ describe('echoPublicBadgeLabel', () => {
     expect(echoPublicBadgeLabel('plus')).toBe('Plus');
     expect(echoPublicBadgeLabel('black')).toBe('Black');
     expect(echoPublicBadgeLabel('og')).toBe('OG');
+    expect(echoPublicBadgeLabel('bug_hunter')).toBe('Bug Hunter');
   });
 });
 
@@ -43,5 +44,19 @@ describe('publicBadgesFromAccount', () => {
   it('falls back to signup-only badges for free users', () => {
     expect(publicBadgesFromAccount(10, {}, 'free')).toEqual(['og']);
     expect(publicBadgesFromSignupOrdinal(500, {})).toEqual([]);
+  });
+
+  it('appends awarded badges after computed ones', () => {
+    expect(publicBadgesFromAccount(10, {}, 'free', ['bug_hunter'])).toEqual([
+      'og',
+      'bug_hunter',
+    ]);
+  });
+
+  it('does not duplicate awarded badges already present', () => {
+    expect(publicBadgesFromAccount(10, {}, 'plus', ['og'])).toEqual([
+      'plus',
+      'og',
+    ]);
   });
 });

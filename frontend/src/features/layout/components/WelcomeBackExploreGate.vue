@@ -35,23 +35,11 @@ const props = withDefaults(
   defineProps<{
     /** Signed-in Echo user: empty public directory — show create/join instead of auth CTAs. */
     memberEmptyDirectory?: boolean;
-    /** Compact shell: show a back control above the gate (same as Explore). */
-    showMobileBack?: boolean;
   }>(),
-  { memberEmptyDirectory: false, showMobileBack: false },
-);
-
-const welcomeTitle = computed(() =>
-  props.memberEmptyDirectory ? 'Create or join a server' : 'Welcome back',
-);
-const welcomeSubtitle = computed(() =>
-  props.memberEmptyDirectory
-    ? "The public directory isn't listing any servers right now. Create one or join with an invite."
-    : 'Pick up where you left off.',
+  { memberEmptyDirectory: false },
 );
 
 defineEmits<{
-  back: [];
   'log-in-echo': [];
   'sign-in-passkey': [];
   'create-account': [];
@@ -223,21 +211,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
     role="region"
     :aria-label="memberEmptyDirectory ? 'Create or join a server' : 'Sign in'"
   >
-    <div v-if="showMobileBack" class="flex shrink-0 px-4 pt-3">
-      <button
-        type="button"
-        class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
-        aria-label="Back"
-        @click="$emit('back')"
-      >
-        <img
-          :src="icons.arrowLeft"
-          alt=""
-          class="h-4 w-4 shrink-0 opacity-90 brightness-0 invert"
-        />
-        <span>Back</span>
-      </button>
-    </div>
     <div class="flex min-h-0 flex-1 flex-col lg:flex-row lg:min-h-0">
       <!-- Hero: full-height fluid + oversized logo (same language as Echo rail corner) -->
       <div

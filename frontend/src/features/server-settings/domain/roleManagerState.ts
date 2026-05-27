@@ -4,6 +4,7 @@ import type {
   RolePermissions,
 } from '@/features/server-settings/types';
 import {
+  mergeRoleUiPermissionsWithStoredEcho,
   roleUiPermissionsFromEchoStrings,
   roleUiPermissionsToEchoStrings,
 } from '@shared/rolePermissionBridge';
@@ -131,6 +132,9 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
         roleCategoryId: null,
         roleScope: 'category',
         permissions: permissionsFromName('member'),
+        storedEchoPermissions: roleUiPermissionsToEchoStrings(
+          permissionsFromName('member') as Record<string, boolean>,
+        ),
         roleType: 'mixed',
       },
     ];
@@ -155,6 +159,9 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
       roleCategoryId: null,
       roleScope: 'category',
       permissions: perms,
+      storedEchoPermissions: roleUiPermissionsToEchoStrings(
+        perms as Record<string, boolean>,
+      ),
       roleType: 'mixed',
     };
   });
@@ -266,6 +273,7 @@ export function buildManagedRolesFromEcho(
       roleCategoryId,
       roleScope: normalizeEchoRoleScope(r.roleScope),
       permissions: full,
+      storedEchoPermissions: [...r.permissions],
       roleType,
     };
   });
@@ -327,6 +335,9 @@ export function createManagedRole(
     roleCategoryId: null,
     roleScope: 'category',
     permissions: defaultRolePermissions(),
+    storedEchoPermissions: roleUiPermissionsToEchoStrings(
+      defaultRolePermissions() as Record<string, boolean>,
+    ),
     roleType: 'mixed',
   };
 }
@@ -351,9 +362,13 @@ export function mergeEchoRoleListPreservingLocalEdits(opts: {
   return { merged, nextSnapshot };
 }
 
-function normalizedEchoPermsForRole(role: ManagedRole): string[] {
-  return roleUiPermissionsToEchoStrings(
+function normalizedEchoPermsForRole(
+  role: ManagedRole,
+  storedEcho: readonly string[],
+): string[] {
+  return mergeRoleUiPermissionsWithStoredEcho(
     role.permissions as Record<string, boolean>,
+    storedEcho,
   );
 }
 
@@ -396,8 +411,13 @@ export function calculateRoleDiff(
   }
   if (initial.roleType !== current.roleType) patch.roleType = current.roleType;
 
-  const initialPerms = normalizedEchoPermsForRole(initial);
-  const currentPerms = normalizedEchoPermsForRole(current);
+  const storedEcho =
+    initial.storedEchoPermissions ??
+    roleUiPermissionsToEchoStrings(
+      initial.permissions as Record<string, boolean>,
+    );
+  const initialPerms = normalizedEchoPermsForRole(initial, storedEcho);
+  const currentPerms = normalizedEchoPermsForRole(current, storedEcho);
   if (stableJson(initialPerms) !== stableJson(currentPerms)) {
     patch.permissions = currentPerms;
   }

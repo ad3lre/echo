@@ -28,6 +28,16 @@ const SAFE_CORS_HEADERS = new Set([
   'content-type',
 ]);
 
+export type EchoPlusInterestTier = 'plus' | 'black' | 'any';
+export type EchoPlusInterestBillingCycle = 'monthly' | 'yearly';
+
+export type EchoPlusInterestPublic = {
+  tier: EchoPlusInterestTier;
+  billingCycle: EchoPlusInterestBillingCycle;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AuthUserPublic = {
   id: string;
   username: string;
@@ -66,6 +76,8 @@ export type AuthUserPublic = {
   hasActiveSubscription?: boolean;
   /** Postgres `auth_users.echo_plan`; aligned with `planLimits.plan` when present. */
   echoPlan?: 'free' | 'plus' | 'black';
+  /** Pre-launch Echo+ interest signup (`auth_echo_plus_interest`). */
+  echoPlusInterest?: EchoPlusInterestPublic;
   /** Profile badges (e.g. `og` for early accounts). */
   badges?: string[];
   /** Whether to show "last online" timestamp to other users. Defaults to true. */
@@ -1355,6 +1367,34 @@ export async function authPatchMe(
   }
   throwIfError(res, data, 'PATCH /auth/me');
   return data as { user: AuthUserPublic };
+}
+
+export async function registerEchoPlusInterest(body: {
+  tier?: EchoPlusInterestTier;
+  billingCycle?: EchoPlusInterestBillingCycle;
+}): Promise<{ interest: EchoPlusInterestPublic }> {
+  assertAuthDomainNetworkAllowed();
+  const res = await fetch(`${AUTH_BASE}/echo-plus-interest`, {
+    method: 'PUT',
+    headers: echoCsrfJsonHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  const data = (await parseJson(res)) as Record<string, unknown>;
+  throwIfError(res, data, 'PUT /auth/echo-plus-interest');
+  return data as { interest: EchoPlusInterestPublic };
+}
+
+export async function removeEchoPlusInterest(): Promise<void> {
+  assertAuthDomainNetworkAllowed();
+  const res = await fetch(`${AUTH_BASE}/echo-plus-interest`, {
+    method: 'DELETE',
+    headers: echoCsrfHeaders(),
+    credentials: 'include',
+  });
+  if (res.status === 204) return;
+  const data = (await parseJson(res)) as Record<string, unknown>;
+  throwIfError(res, data, 'DELETE /auth/echo-plus-interest');
 }
 
 export async function authVerifyPassword(password: string): Promise<void> {

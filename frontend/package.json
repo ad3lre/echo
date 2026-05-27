@@ -8,9 +8,9 @@
     "dev": "vite",
     "dev:low-mem": "cross-env ECHO_VITE_LOW_MEM=1 vite",
     "dev:e2e": "vite --port 8080 --strictPort",
-    "prebuild": "node ../scripts/generate-pwa-icons.mjs && node ../scripts/copy-oauth-bridge-fonts.mjs",
+    "prebuild": "node ../scripts/generate-pwa-icons.mjs && node ../scripts/copy-oauth-bridge-fonts.mjs && node ../scripts/generate-apple-app-site-association.mjs",
     "build": "vue-tsc && vite build",
-    "build:no-typecheck": "node ../scripts/generate-pwa-icons.mjs && node ../scripts/copy-oauth-bridge-fonts.mjs && vite build",
+    "build:no-typecheck": "node ../scripts/generate-pwa-icons.mjs && node ../scripts/copy-oauth-bridge-fonts.mjs && node ../scripts/generate-apple-app-site-association.mjs && vite build",
     "preview": "vite preview --host --port 4173 --strictPort",
     "lint": "cross-env ESLINT_STRICT=1 eslint src --quiet",
     "lint:relaxed": "eslint src --quiet",
@@ -185,7 +185,8 @@
     "twemoji": "^14.0.2",
     "unicode-emoji-json": "^0.9.0",
     "vite-plugin-compression2": "^2.5.3",
-    "vue": "^3.5.33"
+    "vue": "^3.5.33",
+    "vue-i18n": "^11.4.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

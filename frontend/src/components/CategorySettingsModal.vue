@@ -81,15 +81,24 @@ function syncFromProps() {
     cs.autoDeleteAfterSeconds,
   );
   permissionOverrides.value = { ...cs.channelPermissionDefaults };
-  echoPermissionRows.value = (props.echoPermissionEditor?.rows ?? []).map(
-    (row) => ({
+  const editor = props.echoPermissionEditor;
+  if (editor?.loading) {
+    echoPermissionRows.value = (editor.rows ?? []).map((row) => ({
       targetType: row.targetType,
       ...(row.targetType === 'everyone'
         ? {}
         : { targetId: row.targetId ?? null }),
       partial: { ...(row.partial ?? {}) },
-    }),
-  );
+    }));
+  } else if (editor) {
+    echoPermissionRows.value = (editor.rows ?? []).map((row) => ({
+      targetType: row.targetType,
+      ...(row.targetType === 'everyone'
+        ? {}
+        : { targetId: row.targetId ?? null }),
+      partial: { ...(row.partial ?? {}) },
+    }));
+  }
 }
 
 watch(
@@ -146,7 +155,15 @@ function togglePermission(key: ChannelPermissionKey) {
 }
 
 const trimmedName = computed(() => categoryName.value.trim());
-const canSave = computed(() => !!trimmedName.value && !!props.categorySettings);
+const echoPermissionsReady = computed(
+  () => !props.echoPermissionEditor || !props.echoPermissionEditor.loading,
+);
+const canSave = computed(
+  () =>
+    !!trimmedName.value &&
+    !!props.categorySettings &&
+    echoPermissionsReady.value,
+);
 const channelCount = computed(() => props.categorySettings?.channelCount ?? 0);
 const initialCategorySnapshot = computed(() => {
   const cs = props.categorySettings;
@@ -155,9 +172,15 @@ const initialCategorySnapshot = computed(() => {
     name: cs.name ?? '',
     autoDeleteAfterSeconds: cs.autoDeleteAfterSeconds ?? null,
     channelPermissionDefaults: { ...(cs.channelPermissionDefaults ?? {}) },
-    echoPermissionRows: canonicalizeEchoPermissionRowsForSave(
-      props.echoPermissionEditor?.rows ?? [],
-    ),
+    echoPermissionRows: props.echoPermissionEditor?.loading
+      ? null
+      : (props.echoPermissionEditor?.rows ?? []).map((row) => ({
+          targetType: row.targetType,
+          ...(row.targetType === 'everyone'
+            ? {}
+            : { targetId: row.targetId ?? null }),
+          partial: { ...(row.partial ?? {}) },
+        })),
   };
 });
 
@@ -170,13 +193,16 @@ const categoryDirty = computed(() => {
     (snap.autoDeleteAfterSeconds ?? null)
   )
     return true;
-  if (props.echoPermissionEditor) {
-    if (
-      JSON.stringify(
-        canonicalizeEchoPermissionRowsForSave(echoPermissionRows.value),
-      ) !== JSON.stringify(snap.echoPermissionRows ?? [])
-    )
-      return true;
+  if (props.echoPermissionEditor && echoPermissionsReady.value) {
+    const snapRows = snap.echoPermissionRows;
+    if (snapRows != null) {
+      if (
+        JSON.stringify(
+          canonicalizeEchoPermissionRowsForSave(echoPermissionRows.value),
+        ) !== JSON.stringify(canonicalizeEchoPermissionRowsForSave(snapRows))
+      )
+        return true;
+    }
   } else if (
     JSON.stringify(permissionOverrides.value ?? {}) !==
     JSON.stringify(snap.channelPermissionDefaults ?? {})
@@ -204,6 +230,17 @@ function onCategorySettingsNavClick(tab: CategorySettingsTab, e: MouseEvent) {
 
 function save() {
   if (!canSave.value || !props.categorySettings) return;
+  const snap = initialCategorySnapshot.value;
+  const permissionRowsDirty =
+    props.echoPermissionEditor &&
+    echoPermissionsReady.value &&
+    snap?.echoPermissionRows != null &&
+    JSON.stringify(
+      canonicalizeEchoPermissionRowsForSave(echoPermissionRows.value),
+    ) !==
+      JSON.stringify(
+        canonicalizeEchoPermissionRowsForSave(snap.echoPermissionRows),
+      );
   emit('save', {
     categoryId: props.categorySettings.categoryId,
     originalName: props.categorySettings.originalName,
@@ -213,7 +250,7 @@ function save() {
       autoDeleteAfterSecondsStr.value,
     ),
     channelPermissionDefaults: { ...permissionOverrides.value },
-    ...(props.echoPermissionEditor
+    ...(permissionRowsDirty
       ? {
           echoPermissionRows: canonicalizeEchoPermissionRowsForSave(
             echoPermissionRows.value,

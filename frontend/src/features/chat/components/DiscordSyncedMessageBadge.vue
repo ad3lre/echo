@@ -25,7 +25,7 @@ withDefaults(
     <img
       :src="icons.discordMark"
       alt=""
-      class="shrink-0 opacity-90"
+      class="shrink-0 opacity-90 filter invert"
       :class="compact ? 'h-2.5 w-2.5' : 'h-3 w-3'"
       aria-hidden="true"
     />

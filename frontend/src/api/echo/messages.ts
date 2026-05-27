@@ -73,21 +73,6 @@ function parseEchoChannelPinsPayload(
   return { messageIds };
 }
 
-function parseEchoChannelReadStatePayload(
-  data: unknown,
-  context: string,
-): { lastReadMessageId: string | null } {
-  const o = assertEchoJsonObject(data, context);
-  const v = o.lastReadMessageId;
-  if (v == null) {
-    return { lastReadMessageId: null };
-  }
-  if (typeof v !== 'string') {
-    throw new Error(`${context}: "lastReadMessageId" must be string or null`);
-  }
-  return { lastReadMessageId: v };
-}
-
 export type EchoApiMessage = {
   id: string;
   channelId: string;
@@ -165,18 +150,6 @@ export async function fetchEchoChannelPins(
     `/channels/${encodeURIComponent(ch)}/pins`,
   );
   return parseEchoChannelPinsPayload(raw, 'GET /channels/.../pins');
-}
-
-export async function fetchEchoChannelReadState(
-  token: string,
-  channelId: string,
-): Promise<{ lastReadMessageId: string | null }> {
-  const ch = trimEchoPathSegment(channelId);
-  const raw = await echoFetch<unknown>(
-    token,
-    `/channels/${encodeURIComponent(ch)}/read-state`,
-  );
-  return parseEchoChannelReadStatePayload(raw, 'GET /channels/.../read-state');
 }
 
 export async function putEchoChannelReadState(

@@ -175,6 +175,18 @@ export async function joinEchoVoiceChannel(
     [serverId, channelId, userId, stageSpeaker],
   );
 
+  await pool.query(
+    `
+    UPDATE echo_servers
+    SET last_voice_activity_at = GREATEST(
+      COALESCE(last_voice_activity_at, '-infinity'::timestamptz),
+      NOW()
+    )
+    WHERE id = $1
+    `,
+    [serverId],
+  );
+
   return isStage ? { ok: true, stageSpeaker } : { ok: true };
 }
 

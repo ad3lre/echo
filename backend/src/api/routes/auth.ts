@@ -6,6 +6,7 @@ import twoFactorRoutes from './auth/2fa';
 import sessionRoutes from './auth/session';
 import guestRoutes from './auth/guest';
 import meRoutes from './auth/me';
+import echoPlusInterestRoutes from './auth/echoPlusInterest';
 import desktopHandoffRoutes from './auth/desktop-handoff';
 
 /**
@@ -23,4 +24,5 @@ export default async function authRoutes(
   await fastify.register(guestRoutes);
   await fastify.register(desktopHandoffRoutes);
   await fastify.register(meRoutes);
+  await fastify.register(echoPlusInterestRoutes);
 }

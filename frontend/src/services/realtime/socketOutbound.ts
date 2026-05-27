@@ -1,6 +1,6 @@
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { createSocketAdapter } from '@/services/adapters/socketAdapter';
-import { randomUuidV4 } from '@/utils/randomUuid';
+import { nextEchoClientSnowflakeId } from '@/utils/echoClientSnowflake';
 import { okResult, failResult, type ActionResult } from '@/types/actionResult';
 
 /** Labels optimistic outbound rows before server ack (avoids "Unknown" author in the gutter). */
@@ -31,7 +31,7 @@ export function newCorrelationId(): string {
 }
 
 export function newClientMessageId(): string {
-  return randomUuidV4();
+  return nextEchoClientSnowflakeId();
 }
 
 export function createTryEmitRealtime(opts: {

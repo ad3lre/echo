@@ -19,6 +19,13 @@ import { clearWorkspaceSessionCache } from '@/utils/workspaceSessionCache';
 import { clearEchoWorkspaceCache } from '@/utils/workspacePersistence';
 import { markPriorRegistered } from '@/utils/priorRegistration';
 import {
+  iosAuthStoreSession,
+  iosAuthClearSession,
+  iosAuthSessionRestored,
+  iosAuthSessionRestoreFailed,
+  iosAuthMarkVerified,
+} from '@/services/auth/iosNativeAuth';
+import {
   setSkipAutoGuestAfterLogout,
   clearSkipAutoGuestAfterLogout,
 } from '@/utils/autoGuestLogoutSuppress';
@@ -120,6 +127,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
       markPriorRegistered();
       clearSkipAutoGuestAfterLogout();
     }
+    void iosAuthStoreSession(payload.user);
   }
 
   function clearLocalTokens() {
@@ -139,6 +147,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
       localStorage.removeItem(ACCESS_KEY);
       localStorage.removeItem(REFRESH_KEY);
     }
+    void iosAuthClearSession();
   }
 
   function hydrateFromStorage() {
@@ -201,12 +210,15 @@ export const useAuthSessionStore = defineStore('authSession', () => {
       ) {
         return null;
       }
+      void iosAuthSessionRestored();
+      void iosAuthMarkVerified();
       return user;
     } catch (e) {
       if (e instanceof AuthApiError) {
         const benignNoSession = e.status === 401 || e.status === 403;
         if (benignNoSession) {
           clearLocalTokens();
+          void iosAuthSessionRestoreFailed();
         }
         if (!benignNoSession) {
           reportPrimaryFlowFailure('restoreSessionFromApi', e, {
@@ -227,6 +239,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
       reportPrimaryFlowFailure('restoreSessionFromApi', e, {
         unexpected: true,
       });
+      void iosAuthSessionRestoreFailed();
       if (authDebugEnabled()) {
         echoAuthDebugLog('restoreSessionFromApi: unexpected error', {
           name: e instanceof Error ? e.name : 'unknown',

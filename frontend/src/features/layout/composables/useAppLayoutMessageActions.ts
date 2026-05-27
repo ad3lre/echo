@@ -277,11 +277,14 @@ export function useAppLayoutMessageActions(
     })();
   }
 
+  let statusPatchSeq = 0;
+
   function updateCurrentUserStatus(
     status: 'online' | 'idle' | 'do_not_disturb' | 'offline',
   ) {
     const curId = currentUser.value?.id;
     if (!curId) return;
+    const patchSeq = ++statusPatchSeq;
     users.value = users.value.map((user) =>
       user.id === curId ? { ...user, status } : user,
     );
@@ -298,6 +301,7 @@ export function useAppLayoutMessageActions(
     ) {
       void authPatchMe({ status })
         .then(({ user }) => {
+          if (patchSeq !== statusPatchSeq) return;
           if (authSession.backendUser?.id === user.id) {
             Object.assign(authSession.backendUser, user);
             overwriteLocalProfileFromAuthUser(user);

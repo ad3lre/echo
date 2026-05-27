@@ -604,6 +604,7 @@ export async function listEchoWorkspaceForUser(
              COALESCE(u.is_guest, false) AS is_guest,
              COALESCE(NULLIF(TRIM(u.echo_plan), ''), 'free') AS echo_plan,
              u.signup_ordinal,
+             u.awarded_badges,
              COALESCE(u.bio, '') AS account_bio,
              COALESCE(u.banner_image, '') AS banner_image,
              COALESCE(u.banner_color, '') AS banner_color,
@@ -663,6 +664,10 @@ export async function listEchoWorkspaceForUser(
     const ordRaw = (row as { signup_ordinal?: unknown }).signup_ordinal;
     const signupOrdinal =
       ordRaw != null && ordRaw !== '' ? Number(ordRaw) : Number.NaN;
+    const awardedRaw = (row as { awarded_badges?: unknown }).awarded_badges;
+    const awarded: string[] | null = Array.isArray(awardedRaw)
+      ? awardedRaw
+      : null;
     const badges = publicBadgesFromAccount(
       Number.isFinite(signupOrdinal) ? signupOrdinal : null,
       {
@@ -670,6 +675,7 @@ export async function listEchoWorkspaceForUser(
         isDiscordShadow: row.is_discord_shadow === true,
       },
       normalizeEchoPlanId(row.echo_plan),
+      awarded,
     );
     const serverNickRaw = row.server_nickname;
     const serverNickname =

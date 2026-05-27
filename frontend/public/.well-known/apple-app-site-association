@@ -1,0 +1,46 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "7HBQV8236H.com.echo.tauri.ios.dev"
+        ],
+        "components": [
+          {
+            "/": "/channels/*",
+            "comment": "Server and channel navigation"
+          },
+          {
+            "/": "/explore",
+            "comment": "Explore landing"
+          },
+          {
+            "/": "/legal/*",
+            "exclude": true
+          },
+          {
+            "/": "/reset-password",
+            "exclude": true
+          },
+          {
+            "/": "/forgot-password",
+            "exclude": true
+          },
+          {
+            "/": "/paper/*",
+            "exclude": true
+          },
+          {
+            "/": "/oauth-desktop-bridge.html",
+            "exclude": true
+          },
+          {
+            "/": "/*",
+            "comment": "Public invite vanity URLs (single path segment)"
+          }
+        ]
+      }
+    ]
+  }
+}

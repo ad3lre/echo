@@ -162,6 +162,8 @@ export type AppLayoutLeftChromeProps = {
         unreadDmCount?: number;
       }
   >;
+  /** Echo DM channel id → peer user id (DM inbox last-message subtitles). */
+  echoPeerByChannelId?: ReadonlyMap<string, string>;
   /** Server channel list + VC participant name/avatar resolution (member roster). */
   usersForChannelPanel: {
     id: string;

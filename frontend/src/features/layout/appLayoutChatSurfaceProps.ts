@@ -219,6 +219,7 @@ export type AppLayoutChatSurfaceProps = {
   messageRequests: unknown[];
   selectedMessageRequestId: string | null;
   messages: Record<string, unknown>;
+  echoDmPeerByChannelId?: ReadonlyMap<string, string>;
   selectDM: unknown;
   acceptFriendRequest: unknown;
   declineFriendRequest: unknown;
@@ -577,6 +578,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'messageRequests',
   'selectedMessageRequestId',
   'messages',
+  'echoDmPeerByChannelId',
   'selectDM',
   'acceptFriendRequest',
   'declineFriendRequest',

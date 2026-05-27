@@ -154,7 +154,6 @@ import { createBeforeOpenGroupDmModal } from './createBeforeOpenGroupDmModal';
 import { createPromptSignInHandler } from './createPromptSignInHandler';
 import { createResolveEchoDmPeerFromMap } from './createResolveEchoDmPeerFromMap';
 import { openEchoDirectDmChannel } from '@/features/dm/echoDmCommandFacade';
-import { createUpdateCurrentUserStatusCaster } from './createUpdateCurrentUserStatusCaster';
 import { createVoidingInvoker } from './createVoidingInvoker';
 import { createIsChannelActive } from './createIsChannelActive';
 import { createNavigateToChannelActiveOnly } from './createNavigateToChannelActiveOnly';
@@ -205,9 +204,13 @@ import { postEchoOpenDm } from '@/api/echo/social';
 import { putEchoChannelReadState } from '@/api/echo/messages';
 import { compareEchoTimelineIds } from '@/services/domain/echoMessageReadState';
 import { resolveEchoDmWireChannelId } from '@/features/layout/resolveEchoDmWireChannelId';
+import { isViewingEchoConversationChannel } from '@/features/layout/isViewingEchoConversationChannel';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { useEchoAfkPresence } from '@/composables/useEchoAfkPresence';
-import { selectSelfPresence } from '@/services/domain/presence';
+import {
+  selectSelfPresence,
+  normalizeCanonicalPresenceStatus,
+} from '@/services/domain/presence';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import {
   dispatchAppToast,
@@ -2243,7 +2246,11 @@ export function useAppLayoutController() {
       return u?.name?.trim() || 'Someone';
     },
     isViewingConversationChannel: (channelId: string) =>
-      activeChannelId.value.trim() === channelId.trim(),
+      isViewingEchoConversationChannel(channelId, activeChannelId.value, {
+        echoDmPeerByChannelId: echoDmPeerByChannelId.value,
+        groupDMs: groupDMs.value,
+      }),
+    isInDmUiContext: () => isDmUiContext.value,
     openConversationChannel: (channelId: string, authorId: string) => {
       const cid = channelId.trim();
       if (!cid) return;
@@ -3059,17 +3066,13 @@ export function useAppLayoutController() {
     });
   }
 
-  const updateStatusCast = createUpdateCurrentUserStatusCaster(
-    messageActions.updateCurrentUserStatus,
-  );
-
   const afkPresenceEnabled = computed(
     () =>
       authSession.isAuthenticated &&
       !echoSyncCapabilities.isMockDataMode &&
       !!authSession.backendUser?.id,
   );
-  useEchoAfkPresence({
+  const { noteUserPresenceChoice } = useEchoAfkPresence({
     enabled: afkPresenceEnabled,
     /** Match shell avatar: Echo presence map wins over `backendUser.status` (avoids losing AFK recovery when auth PATCH returns a stale session status). */
     getStatus: () => {
@@ -3084,6 +3087,13 @@ export function useAppLayoutController() {
     },
     setStatus: messageActions.updateCurrentUserStatus,
   });
+
+  const updateStatusCast = (status: string) => {
+    const canonical = normalizeCanonicalPresenceStatus(status);
+    if (!canonical) return;
+    noteUserPresenceChoice(canonical);
+    messageActions.updateCurrentUserStatus(canonical);
+  };
 
   const dmInboxEntriesForPanelUnfiltered = useAppLayoutDmPanelInboxComputed({
     activeRailTab,

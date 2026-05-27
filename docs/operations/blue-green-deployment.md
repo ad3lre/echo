@@ -96,6 +96,10 @@ Copied invite links look like `https://chat.example.com/{vanity}` (SPA). Crawler
 
 Optional Caddy fragment (import **after** `/api/*` + `/socket.io`, **before** the SPA `try_files` catch-all): [`scripts/deploy/templates/caddy-echo-social-preview.caddyfile.snippet`](../../scripts/deploy/templates/caddy-echo-social-preview.caddyfile.snippet) — substitute `{{API_PORT}}`, then `import` it from your site block. It forwards known social crawlers on single-segment paths to `GET /api/v1/echo/invites/{segment}/share`, which returns OG meta + redirect.
 
+### iOS Universal Links (AASA)
+
+The frontend build emits `.well-known/apple-app-site-association` into `frontend/dist` (Team ID + bundle id from [`src-tauri/tauri.ios.conf.json`](../../src-tauri/tauri.ios.conf.json)). Caddy must serve it as **JSON**, not SPA `index.html` — see the `@aasa` block in [`scripts/deploy/templates/caddy-spa-security-headers.Caddyfile.snippet`](../../scripts/deploy/templates/caddy-spa-security-headers.Caddyfile.snippet). After deploy: `ECHO_AASA_VERIFY_URL=https://chat-echo.com npm run verify:aasa`. Details: [ios-tauri.md](./ios-tauri.md).
+
 ## Commands (production)
 
 Run on the **Linux** host from **any** directory (for example `~/prod/echo`); the script does **not** use your current working tree as a release slot unless you point **`ECHO_DEPLOY_RELEASE_BLUE` / `ECHO_DEPLOY_RELEASE_GREEN`** there (you still need **two** separate clones for safe blue-green). Set **`ECHO_DEPLOY_ROOT`** where `state.json` and `proxy/` should live (e.g. `/opt/echo`).

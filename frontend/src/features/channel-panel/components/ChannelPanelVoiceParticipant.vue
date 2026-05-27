@@ -16,6 +16,10 @@ defineProps<{
   userId: string;
   name?: string;
   pfp?: string;
+  /** Moderator drag-move between voice channels (MOVE_MEMBERS). */
+  draggable?: boolean;
+  /** While dragging this row (visual feedback). */
+  isDragSource?: boolean;
   /** Guild owner — small crown beside display name. */
   isServerOwner?: boolean;
   vc: {
@@ -38,6 +42,8 @@ defineProps<{
 const emit = defineEmits<{
   click: [event: MouseEvent | HTMLElement];
   contextmenu: [event: MouseEvent];
+  dragstart: [event: DragEvent];
+  dragend: [event: DragEvent];
 }>();
 </script>
 
@@ -45,9 +51,19 @@ const emit = defineEmits<{
   <div
     :data-vc-user-id="userId"
     class="vc-participant-row flex items-center gap-2 py-0.5 px-1 rounded-md cursor-pointer"
-    :class="isActive ? 'bg-glass-2' : 'hover:bg-glass-1'"
+    :class="[
+      isActive ? 'bg-glass-2' : 'hover:bg-glass-1',
+      {
+        'vc-participant-row--draggable': draggable,
+        'vc-participant-row--drag-source': isDragSource,
+      },
+    ]"
+    :draggable="draggable"
+    :title="draggable ? 'Drag to move to another voice channel' : undefined"
     @click.stop="emit('click', $event)"
     @contextmenu.stop.prevent="emit('contextmenu', $event)"
+    @dragstart.stop="emit('dragstart', $event)"
+    @dragend.stop="emit('dragend', $event)"
   >
     <div
       class="vc-participant-avatar-wrap relative h-6 w-6 flex-shrink-0 rounded-full"
