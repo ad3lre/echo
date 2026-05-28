@@ -186,7 +186,8 @@
     "vite": "8.0.14",
     "@tailwindcss/vite": {
       "vite": "8.0.14"
-    }
+    },
+    "tmp": "0.2.7"
   },
   "volta": {
     "node": "22.13.0"
