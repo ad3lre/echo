@@ -73,7 +73,9 @@ export function publishVoiceMlsMessage(
       seq: args.seq,
       epoch: args.epoch,
       msgType: args.msgType,
-      ...(args.recipientUserId ? { recipientUserId: args.recipientUserId } : {}),
+      ...(args.recipientUserId
+        ? { recipientUserId: args.recipientUserId }
+        : {}),
       ...(args.recipientDeviceId
         ? { recipientDeviceId: args.recipientDeviceId }
         : {}),

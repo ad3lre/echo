@@ -100,7 +100,10 @@ export async function postMlsProposal(
 
 export async function publishMlsKeyPackages(
   token: string,
-  body: { deviceId: string; packages: Array<{ ref: string; keyPackage: string }> },
+  body: {
+    deviceId: string;
+    packages: Array<{ ref: string; keyPackage: string }>;
+  },
 ): Promise<void> {
   await echoFetch(token, `/e2ee/mls/key-packages`, {
     method: 'POST',

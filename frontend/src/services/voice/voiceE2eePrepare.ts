@@ -443,7 +443,11 @@ export async function prepareGuildVoiceE2eeMediaKey(opts: {
 
   if (VOICE_E2EE_V2_ENABLED) {
     return prepareVoiceMls({
-      scope: { kind: 'guild', serverId: opts.serverId, channelId: opts.channelId },
+      scope: {
+        kind: 'guild',
+        serverId: opts.serverId,
+        channelId: opts.channelId,
+      },
       viewerUserId: opts.viewerUserId,
       token: opts.token,
       authorizedUserIds: memberUserIds,

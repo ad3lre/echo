@@ -28,11 +28,7 @@ export function shouldUseEchoProfileSocialApi(opts: {
   isGuest: boolean;
   token?: string | null | undefined;
 }): boolean {
-  return (
-    !opts.isMockDataMode &&
-    opts.isAuthenticated &&
-    !opts.isGuest
-  );
+  return !opts.isMockDataMode && opts.isAuthenticated && !opts.isGuest;
 }
 
 export async function fetchProfileMutualFriends(opts: {

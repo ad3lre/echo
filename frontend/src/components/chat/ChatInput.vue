@@ -2120,10 +2120,7 @@ onMounted(() => {
   gap: 2px;
   padding: 4px 6px;
   border-radius: 10px;
-  background-color: var(
-    --echo-menu-surface-bg-fallback,
-    var(--vue-auto-099)
-  );
+  background-color: var(--echo-menu-surface-bg-fallback, var(--vue-auto-099));
   box-shadow:
     var(--echo-menu-surface-shadow, 0 4px 24px var(--vue-auto-011)),
     0 0 0 1px var(--echo-menu-surface-border, var(--vue-auto-002));

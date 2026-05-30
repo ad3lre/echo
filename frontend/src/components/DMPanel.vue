@@ -1208,7 +1208,6 @@ watch(
               }}
             </p>
           </div>
-
         </div>
 
         <GuildVoiceConnectionStrip

@@ -74,8 +74,7 @@ import {
  * We allow image/*, video/*, audio/*, application/pdf, application/octet-stream,
  * and a few document types.  Anything else falls back to application/octet-stream.
  */
-const SAFE_CONTENT_TYPE_RE =
-  /^(image|video|audio)\//i;
+const SAFE_CONTENT_TYPE_RE = /^(image|video|audio)\//i;
 const SAFE_CONTENT_TYPE_EXACT = new Set([
   'application/octet-stream',
   'application/pdf',
@@ -84,7 +83,10 @@ const SAFE_CONTENT_TYPE_EXACT = new Set([
   'application/vnd.apple.mpegurl',
   'video/iso.segment',
 ]);
-function sanitizeUploadContentType(raw: string, fallback = 'application/octet-stream'): string {
+function sanitizeUploadContentType(
+  raw: string,
+  fallback = 'application/octet-stream',
+): string {
   const ct = raw.trim().toLowerCase();
   if (!ct) return fallback;
   if (SAFE_CONTENT_TYPE_RE.test(ct)) return ct;
@@ -569,9 +571,7 @@ export default async function echoUploadsRoutes(
         typeof req.body?.key === 'string' ? req.body.key : '';
       const objectKey = sanitizeEchoUploadObjectKeyFragment(objectKeyRaw);
       const contentType = sanitizeUploadContentType(
-        typeof req.body?.contentType === 'string'
-          ? req.body.contentType
-          : '',
+        typeof req.body?.contentType === 'string' ? req.body.contentType : '',
       );
       const contentLength =
         typeof req.body?.contentLength === 'number' &&

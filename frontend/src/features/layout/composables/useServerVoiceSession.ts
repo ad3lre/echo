@@ -1830,9 +1830,8 @@ export function useServerVoiceSession(deps: {
     ];
     // Dynamic import keeps the libsignal + MLS crypto stack off the first-paint
     // AppLayout chunk; it loads only when a guild voice call is actually started.
-    const { prepareGuildVoiceE2eeMediaKey } = await import(
-      '@/services/voice/voiceE2eePrepare'
-    );
+    const { prepareGuildVoiceE2eeMediaKey } =
+      await import('@/services/voice/voiceE2eePrepare');
     return prepareGuildVoiceE2eeMediaKey({
       serverId,
       channelId,

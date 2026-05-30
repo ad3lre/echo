@@ -1946,8 +1946,11 @@ export function useAppLayoutController() {
       const dmVc = _dmLiveKitJoinChannelId.value?.trim();
       if (guildVc !== cid && dmVc !== cid) return;
       void (async () => {
-        const { activeVoiceMlsChannelKey, reconcileVoiceMlsSession, syncVoiceMlsSession } =
-          await import('@/services/voice/mls/voiceMlsSession');
+        const {
+          activeVoiceMlsChannelKey,
+          reconcileVoiceMlsSession,
+          syncVoiceMlsSession,
+        } = await import('@/services/voice/mls/voiceMlsSession');
         const key = activeVoiceMlsChannelKey();
         if (!key) return;
         try {
@@ -1956,7 +1959,10 @@ export function useAppLayoutController() {
           // member has left, commit their removal for forward secrecy.
           const applied = await syncVoiceMlsSession(key);
           if (applied) {
-            await _liveKitVoiceApi?.rotateEpochKey(applied.raw, applied.keyIndex);
+            await _liveKitVoiceApi?.rotateEpochKey(
+              applied.raw,
+              applied.keyIndex,
+            );
           }
           const reconciled = await reconcileVoiceMlsSession(key);
           if (reconciled) {
@@ -2600,7 +2606,9 @@ export function useAppLayoutController() {
     // then to the newest locally-loaded message.
     const firstFromAttention = summary?.firstUnreadMessageId?.trim() ?? '';
     const firstFallback =
-      !latestFromAttention && summary?.unreadCount === 1 ? firstFromAttention : '';
+      !latestFromAttention && summary?.unreadCount === 1
+        ? firstFromAttention
+        : '';
     const msgs = workspace.messages.value[cid] ?? [];
     const lastMsgId =
       msgs.length > 0 ? String(msgs[msgs.length - 1]?.id ?? '').trim() : '';

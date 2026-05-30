@@ -32,11 +32,7 @@ const appleProject = path.join(
 const appleDir = path.join(repoRoot, 'src-tauri', 'gen', 'apple');
 const appleProjectYaml = path.join(appleDir, 'project.yml');
 const applePbxproj = path.join(appleProject, 'project.pbxproj');
-const appleInfoPlist = path.join(
-  appleDir,
-  'echo-desktop_iOS',
-  'Info.plist',
-);
+const appleInfoPlist = path.join(appleDir, 'echo-desktop_iOS', 'Info.plist');
 const appleEntitlements = path.join(
   appleDir,
   'echo-desktop_iOS',
@@ -127,7 +123,10 @@ function assertGeneratedIosProjectHealth(problems, hints) {
 
   const projectYaml = readTextIfExists(appleProjectYaml);
   const pbxproj = readTextIfExists(applePbxproj);
-  if (projectYaml.includes('${FORCE_COLOR}') || pbxproj.includes(' 0 ${ARCHS')) {
+  if (
+    projectYaml.includes('${FORCE_COLOR}') ||
+    pbxproj.includes(' 0 ${ARCHS')
+  ) {
     problems.push(
       'Generated iOS Xcode Rust build script still passes the stale FORCE_COLOR/0 architecture argument.',
     );

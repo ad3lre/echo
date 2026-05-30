@@ -110,7 +110,7 @@ function loadAuthUserCache(): CachedAuthUserEnvelope | null {
   ) {
     return null;
   }
-  let raw: string | null = null;
+  let raw: string | null;
   try {
     raw = localStorage.getItem(USER_CACHE_KEY);
   } catch {

@@ -1,9 +1,6 @@
 import { getOrCreateLocalE2eeDevice } from '@/services/e2ee/e2eeDeviceStore';
 import { ECHO_MLS_KEYRING_SIZE } from './echoMlsKeyProvider';
-import {
-  EchoMlsGroupClient,
-  type EchoMlsEpochKey,
-} from './mlsGroupClient';
+import { EchoMlsGroupClient, type EchoMlsEpochKey } from './mlsGroupClient';
 import type { MlsScope } from './mlsDeliveryClient';
 import type { EchoCredentialIdentity } from './mlsCredential';
 
@@ -47,7 +44,9 @@ export function setVoiceMlsAuthorizedUserIds(
   ids: string[],
 ): void {
   if (active && active.channelKey === channelKey) {
-    active.authorizedUserIds = [...new Set(ids.map((s) => s.trim()).filter(Boolean))];
+    active.authorizedUserIds = [
+      ...new Set(ids.map((s) => s.trim()).filter(Boolean)),
+    ];
   }
 }
 

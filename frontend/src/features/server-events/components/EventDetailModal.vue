@@ -39,7 +39,8 @@ const locationKind = computed<'channel' | 'custom' | 'none'>(() => {
 const locationLabel = computed(() => {
   const e = ev.value;
   if (!e) return '';
-  if (e.channelId) return e.channelName ? `#${e.channelName}` : 'Linked channel';
+  if (e.channelId)
+    return e.channelName ? `#${e.channelName}` : 'Linked channel';
   if (e.customLocation) return e.customLocation;
   return 'No location set';
 });

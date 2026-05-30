@@ -89,9 +89,8 @@ export function useAppLayoutCallVoiceBridge(
         ...(peer && peer !== uid ? [peer] : []),
         ...activeCall,
       ];
-      const { prepareDmVoiceE2eeMediaKey } = await import(
-        '@/services/voice/voiceE2eePrepare'
-      );
+      const { prepareDmVoiceE2eeMediaKey } =
+        await import('@/services/voice/voiceE2eePrepare');
       return prepareDmVoiceE2eeMediaKey({
         channelId,
         token,

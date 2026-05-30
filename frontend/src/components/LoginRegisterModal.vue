@@ -173,7 +173,12 @@ watch(
     } catch {
       /* ignore */
     }
-    if (props.passkeyOnOpen && !isMockDataMode && ECHO_PASSKEYS_ENABLED && !isDesktop()) {
+    if (
+      props.passkeyOnOpen &&
+      !isMockDataMode &&
+      ECHO_PASSKEYS_ENABLED &&
+      !isDesktop()
+    ) {
       nextTick(() => void submitPasskeyLogin());
     }
   },

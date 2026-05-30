@@ -33,7 +33,10 @@ async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
   );
 }
 
-async function grantEveryoneForTests(pool: pg.Pool, serverId: string): Promise<void> {
+async function grantEveryoneForTests(
+  pool: pg.Pool,
+  serverId: string,
+): Promise<void> {
   await pool.query(
     `UPDATE echo_roles SET permissions = permissions | (1::BIGINT << 0) | (1::BIGINT << 20) | (1::BIGINT << 10) WHERE server_id = $1`,
     [serverId],
@@ -66,7 +69,13 @@ async function main(): Promise<void> {
     [serverId],
   );
   const categoryId = String(cat.rows[0]!.id);
-  const channelId = await createEchoChannel(pool, serverId, 'mls-vc', 'voice', categoryId);
+  const channelId = await createEchoChannel(
+    pool,
+    serverId,
+    'mls-vc',
+    'voice',
+    categoryId,
+  );
   assert.notEqual(channelId, 'invalid_category');
   await pool.query(
     `UPDATE echo_channels SET voice_e2ee_enabled = TRUE WHERE id = $1`,
@@ -80,8 +89,16 @@ async function main(): Promise<void> {
   // --- Key packages ---
   const devOwner = `dev-${ownerId}`;
   const devPeer = `dev-${peerId}`;
-  await upsertEchoE2eeDevice(pool, ownerId, { deviceId: devOwner, identityKey: 'ik-o', registrationId: 1 });
-  await upsertEchoE2eeDevice(pool, peerId, { deviceId: devPeer, identityKey: 'ik-p', registrationId: 1 });
+  await upsertEchoE2eeDevice(pool, ownerId, {
+    deviceId: devOwner,
+    identityKey: 'ik-o',
+    registrationId: 1,
+  });
+  await upsertEchoE2eeDevice(pool, peerId, {
+    deviceId: devPeer,
+    identityKey: 'ik-p',
+    registrationId: 1,
+  });
 
   const pubResult = await publishMlsKeyPackages(pool, {
     userId: ownerId,
@@ -154,7 +171,10 @@ async function main(): Promise<void> {
     commit: 'stale-commit',
     groupInfo: 'stale-gi',
   });
-  assert.ok(!stale.ok && stale.reason === 'epoch_conflict', 'stale epoch should conflict');
+  assert.ok(
+    !stale.ok && stale.reason === 'epoch_conflict',
+    'stale epoch should conflict',
+  );
 
   // Verify group info updated
   const info = await getMlsGroupInfo(pool, serverId, channelId);
@@ -181,7 +201,10 @@ async function main(): Promise<void> {
     sinceSeq: '0',
   });
   assert.ok(fetched.ok, 'fetch should succeed');
-  assert.ok(fetched.ok && fetched.messages.length === 2, 'should have commit + proposal');
+  assert.ok(
+    fetched.ok && fetched.messages.length === 2,
+    'should have commit + proposal',
+  );
   const [msg1, msg2] = fetched.ok ? fetched.messages : [];
   assert.equal(msg1!.msgType, 'commit');
   assert.equal(msg1!.payload, 'opaque-commit-0');
@@ -196,7 +219,10 @@ async function main(): Promise<void> {
     sinceSeq: msg1!.seq,
   });
   assert.ok(fetchPartial.ok && fetchPartial.messages.length === 1);
-  assert.equal(fetchPartial.ok && fetchPartial.messages[0]!.msgType, 'proposal');
+  assert.equal(
+    fetchPartial.ok && fetchPartial.messages[0]!.msgType,
+    'proposal',
+  );
 
   // --- Non-member forbidden ---
   const outsiderId = `mls_outsider_${Date.now().toString(36)}`;
@@ -219,7 +245,10 @@ async function main(): Promise<void> {
     commit: 'peer-commit',
     groupInfo: 'peer-gi',
   });
-  assert.ok(!notInVoice.ok && notInVoice.reason === 'not_in_voice', 'peer not in voice');
+  assert.ok(
+    !notInVoice.ok && notInVoice.reason === 'not_in_voice',
+    'peer not in voice',
+  );
 
   // Put peer in voice and try again — should work
   await pool.query(

@@ -1864,12 +1864,17 @@ export function useLiveKitVoiceRoom(
     liveKitE2eeWorker = null;
   }
 
-  async function rotateEpochKey(raw: ArrayBuffer, keyIndex: number): Promise<void> {
+  async function rotateEpochKey(
+    raw: ArrayBuffer,
+    keyIndex: number,
+  ): Promise<void> {
     const provider = liveKitMlsKeyProvider;
     if (!provider) return;
     try {
       await provider.setEpochKey(raw, keyIndex);
-      voiceClientDiag('info', 'voice.client:lk_e2ee_epoch_rotated', { keyIndex });
+      voiceClientDiag('info', 'voice.client:lk_e2ee_epoch_rotated', {
+        keyIndex,
+      });
     } catch (e) {
       voiceClientDiag('error', 'voice.client:lk_e2ee_rotate_failed', {
         err: e instanceof Error ? e.message : String(e),
@@ -2906,7 +2911,10 @@ export function useLiveKitVoiceRoom(
         simulcast: true,
       }) as TrackPublishDefaults;
       let encryption:
-        | { keyProvider: ExternalE2EEKeyProvider | EchoMlsKeyProvider; worker: Worker }
+        | {
+            keyProvider: ExternalE2EEKeyProvider | EchoMlsKeyProvider;
+            worker: Worker;
+          }
         | undefined;
       // v2 (MLS): rich input with an explicit keyring index for in-band rotation.
       const mlsInput =
@@ -2916,9 +2924,8 @@ export function useLiveKitVoiceRoom(
       const legacyKey =
         e2eeMediaKey instanceof ArrayBuffer ? e2eeMediaKey : null;
       if (mlsInput && mlsInput.initialKey.byteLength > 0) {
-        const { EchoMlsKeyProvider } = await import(
-          '@/services/voice/mls/echoMlsKeyProvider'
-        );
+        const { EchoMlsKeyProvider } =
+          await import('@/services/voice/mls/echoMlsKeyProvider');
         const keyProvider = new EchoMlsKeyProvider();
         await keyProvider.setEpochKey(mlsInput.initialKey, mlsInput.keyIndex);
         const worker = new Worker(
@@ -2941,7 +2948,9 @@ export function useLiveKitVoiceRoom(
         );
         liveKitE2eeWorker = worker;
         encryption = { keyProvider, worker };
-        voiceClientDiag('info', 'voice.client:lk_e2ee_enabled', { version: 'v1' });
+        voiceClientDiag('info', 'voice.client:lk_e2ee_enabled', {
+          version: 'v1',
+        });
       }
       const room = new Room({
         /**

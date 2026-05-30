@@ -81,7 +81,8 @@ async function parseMultipartWebhookExecute(req: FastifyRequest): Promise<
             };
           }
           for (const [k, v] of Object.entries(j as Record<string, unknown>)) {
-            if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+            if (k === '__proto__' || k === 'constructor' || k === 'prototype')
+              continue;
             body[k] = v;
           }
         }

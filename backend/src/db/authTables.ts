@@ -368,7 +368,7 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
   await pool.query(`
     UPDATE auth_users
     SET awarded_badges = awarded_badges || ARRAY['og']::TEXT[]
-    WHERE username IN ('m4')
+    WHERE username IN ('m4', 'blawh')
       AND NOT ('og' = ANY(awarded_badges))
   `);
   await pool.query(`

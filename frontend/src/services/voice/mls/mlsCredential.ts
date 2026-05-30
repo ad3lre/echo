@@ -1,4 +1,8 @@
-import type { AuthenticationService, Credential, CiphersuiteImpl } from 'ts-mls';
+import type {
+  AuthenticationService,
+  Credential,
+  CiphersuiteImpl,
+} from 'ts-mls';
 import { bytesToBase64, base64ToBytes } from '@/services/e2ee/e2eeBase64';
 import {
   echoSignalPersistenceGet,

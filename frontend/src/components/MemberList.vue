@@ -214,7 +214,11 @@ const showMemberSkeleton = computed(
 );
 /** Static placeholder layout — fixed keys/widths so the skeleton never reshuffles. */
 const skeletonSections = [
-  { key: 'sk-1', headerWidth: '40%', rowWidths: ['62%', '48%', '70%', '55%', '44%'] },
+  {
+    key: 'sk-1',
+    headerWidth: '40%',
+    rowWidths: ['62%', '48%', '70%', '55%', '44%'],
+  },
   { key: 'sk-2', headerWidth: '30%', rowWidths: ['58%', '66%', '50%', '72%'] },
 ];
 

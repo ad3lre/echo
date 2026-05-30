@@ -108,10 +108,7 @@ function onOpen() {
       <div class="message-link-hover-preview__copy">
         <div class="message-link-hover-preview__provider">{{ provider }}</div>
         <div class="message-link-hover-preview__title">{{ title }}</div>
-        <div
-          v-if="description"
-          class="message-link-hover-preview__description"
-        >
+        <div v-if="description" class="message-link-hover-preview__description">
           {{ description }}
         </div>
         <div class="message-link-hover-preview__url">{{ displayUrl }}</div>

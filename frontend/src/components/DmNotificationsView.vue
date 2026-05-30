@@ -455,7 +455,9 @@ function formatKinds(kinds: readonly string[]): string {
                 <span class="opacity-70">#</span>
                 <span class="truncate">{{ item.row.channelLabel }}</span>
               </span>
-              <p class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-fg-soft">
+              <p
+                class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-fg-soft"
+              >
                 {{ item.row.preview }}
               </p>
             </div>

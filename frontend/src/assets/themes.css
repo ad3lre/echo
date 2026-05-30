@@ -1650,8 +1650,7 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
   --echo-menu-surface-bg-fallback: var(--echo-menu-bg);
   --echo-menu-surface-border: color-mix(in srgb, var(--border) 88%, white 12%);
   --echo-menu-surface-shadow:
-    0 18px 46px rgba(15, 23, 42, 0.18),
-    0 2px 10px rgba(15, 23, 42, 0.1);
+    0 18px 46px rgba(15, 23, 42, 0.18), 0 2px 10px rgba(15, 23, 42, 0.1);
   --chat-accent: rgba(79, 70, 229, 0.3);
   --chat-accent-muted: rgba(79, 70, 229, 0.15);
   --chat-permission-lock-bg: color-mix(

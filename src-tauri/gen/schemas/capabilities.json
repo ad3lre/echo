@@ -1,1 +1,59 @@
-{"android":{"identifier":"android","description":"Echo Android WebView — desktop-only permissions omitted","local":true,"windows":["main"],"permissions":["core:default","deep-link:default","dialog:allow-save","notification:default","opener:default","process:default"],"platforms":["android"]},"default":{"identifier":"default","description":"Echo desktop main window","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-close","core:window:allow-minimize","core:window:allow-start-dragging","core:window:allow-toggle-maximize","core:window:allow-set-progress-bar","core:window:allow-set-badge-count","autostart:default","deep-link:default","dialog:allow-save","global-shortcut:allow-is-registered","global-shortcut:allow-register","global-shortcut:allow-unregister","global-shortcut:allow-unregister-all","notification:default","opener:default","process:default","updater:default","window-state:default"],"platforms":["linux","macOS","windows"]},"ios":{"identifier":"ios","description":"Echo iOS WebView — desktop-only permissions omitted","local":true,"windows":["main"],"permissions":["core:default","deep-link:default","dialog:allow-save","notification:default","opener:default"],"platforms":["iOS"]}}
+{
+  "android": {
+    "identifier": "android",
+    "description": "Echo Android WebView — desktop-only permissions omitted",
+    "local": true,
+    "windows": ["main"],
+    "permissions": [
+      "core:default",
+      "deep-link:default",
+      "dialog:allow-save",
+      "notification:default",
+      "opener:default",
+      "process:default"
+    ],
+    "platforms": ["android"]
+  },
+  "default": {
+    "identifier": "default",
+    "description": "Echo desktop main window",
+    "local": true,
+    "windows": ["main"],
+    "permissions": [
+      "core:default",
+      "core:window:allow-close",
+      "core:window:allow-minimize",
+      "core:window:allow-start-dragging",
+      "core:window:allow-toggle-maximize",
+      "core:window:allow-set-progress-bar",
+      "core:window:allow-set-badge-count",
+      "autostart:default",
+      "deep-link:default",
+      "dialog:allow-save",
+      "global-shortcut:allow-is-registered",
+      "global-shortcut:allow-register",
+      "global-shortcut:allow-unregister",
+      "global-shortcut:allow-unregister-all",
+      "notification:default",
+      "opener:default",
+      "process:default",
+      "updater:default",
+      "window-state:default"
+    ],
+    "platforms": ["linux", "macOS", "windows"]
+  },
+  "ios": {
+    "identifier": "ios",
+    "description": "Echo iOS WebView — desktop-only permissions omitted",
+    "local": true,
+    "windows": ["main"],
+    "permissions": [
+      "core:default",
+      "deep-link:default",
+      "dialog:allow-save",
+      "notification:default",
+      "opener:default"
+    ],
+    "platforms": ["iOS"]
+  }
+}

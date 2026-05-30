@@ -88,12 +88,18 @@ function decodeGroupInfoWire(b64: string): GroupInfo {
 }
 
 function groupIdBytes(scope: MlsScope): Uint8Array {
-  const key = scope.kind === 'dm' ? `dm:${scope.channelId}` : `${scope.serverId}:${scope.channelId}`;
+  const key =
+    scope.kind === 'dm'
+      ? `dm:${scope.channelId}`
+      : `${scope.serverId}:${scope.channelId}`;
   return enc.encode(`echo-voice-mls:${key}`);
 }
 
 function stateStoreKey(viewerUserId: string, scope: MlsScope): string {
-  const key = scope.kind === 'dm' ? `dm:${scope.channelId}` : `${scope.serverId}:${scope.channelId}`;
+  const key =
+    scope.kind === 'dm'
+      ? `dm:${scope.channelId}`
+      : `${scope.serverId}:${scope.channelId}`;
   return `echo_mls_v1:${viewerUserId}:groupstate:${key}`;
 }
 
@@ -124,7 +130,10 @@ export class EchoMlsGroupClient {
   private async ensureInit(): Promise<CiphersuiteImpl> {
     if (this.cs && this.keyPackage && this.clientConfig) return this.cs;
     const cs = await echoMlsCiphersuite();
-    const sig = await getOrCreateMlsSignatureKeyPair(this.opts.viewerUserId, cs);
+    const sig = await getOrCreateMlsSignatureKeyPair(
+      this.opts.viewerUserId,
+      cs,
+    );
     this.keyPackage = await generateEchoKeyPackage(
       this.opts.viewerUserId,
       this.opts.deviceId,
@@ -161,7 +170,9 @@ export class EchoMlsGroupClient {
     return this.externalJoin(cs, info.groupInfo, info.currentEpoch);
   }
 
-  private async createFreshGroup(cs: CiphersuiteImpl): Promise<EchoMlsEpochKey> {
+  private async createFreshGroup(
+    cs: CiphersuiteImpl,
+  ): Promise<EchoMlsEpochKey> {
     const kp = this.keyPackage!;
     const state = await createGroup(
       groupIdBytes(this.opts.scope),
@@ -226,7 +237,12 @@ export class EchoMlsGroupClient {
       if (isEpochConflict(e) && attempt < MAX_COMMIT_RETRIES) {
         const info = await fetchMlsGroupInfo(this.opts.token, this.opts.scope);
         if (info.groupInfo && info.currentEpoch !== null) {
-          return this.externalJoin(cs, info.groupInfo, info.currentEpoch, attempt + 1);
+          return this.externalJoin(
+            cs,
+            info.groupInfo,
+            info.currentEpoch,
+            attempt + 1,
+          );
         }
       }
       throw e;
@@ -274,7 +290,10 @@ export class EchoMlsGroupClient {
     return null;
   }
 
-  private async applyWireMessage(payloadB64: string, cs: CiphersuiteImpl): Promise<void> {
+  private async applyWireMessage(
+    payloadB64: string,
+    cs: CiphersuiteImpl,
+  ): Promise<void> {
     const decoded = decodeMlsMessage(base64ToBytes(payloadB64), 0);
     if (!decoded) throw new Error('Invalid MLS wire message.');
     const msg = decoded[0];
@@ -322,7 +341,11 @@ export class EchoMlsGroupClient {
       { state: this.state, cipherSuite: cs, pskIndex: emptyPskIndex },
       { extraProposals: proposals, wireAsPublicMessage: true },
     );
-    const newGroupInfo = await createGroupInfoWithExternalPub(res.newState, [], cs);
+    const newGroupInfo = await createGroupInfoWithExternalPub(
+      res.newState,
+      [],
+      cs,
+    );
     try {
       const posted = await postMlsCommit(this.opts.token, this.opts.scope, {
         expectedEpoch,
@@ -374,7 +397,8 @@ export class EchoMlsGroupClient {
 
   private isLocalCommitter(present: TreeMember[]): boolean {
     if (present.length === 0) return false;
-    const sortKey = (m: TreeMember) => `${m.identity.userId} ${m.identity.deviceId}`;
+    const sortKey = (m: TreeMember) =>
+      `${m.identity.userId} ${m.identity.deviceId}`;
     let min = present[0];
     for (const m of present) if (sortKey(m) < sortKey(min)) min = m;
     return (
@@ -399,7 +423,10 @@ export class EchoMlsGroupClient {
       const bytes = encodeGroupState(this.state);
       await echoSignalPersistenceSet(
         stateStoreKey(this.opts.viewerUserId, this.opts.scope),
-        JSON.stringify({ seq: this.lastSeq.toString(), state: bytesToBase64(bytes) }),
+        JSON.stringify({
+          seq: this.lastSeq.toString(),
+          state: bytesToBase64(bytes),
+        }),
       );
     } catch {
       /* persistence is best-effort; in-memory state is authoritative */

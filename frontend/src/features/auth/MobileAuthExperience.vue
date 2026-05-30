@@ -114,7 +114,7 @@ async function detectBiometric(): Promise<BiometricKind> {
   ) {
     return 'passkey';
   }
-  let hasPlatformAuth = false;
+  let hasPlatformAuth: boolean;
   try {
     hasPlatformAuth =
       await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();

@@ -6,7 +6,10 @@ import {
   type KeyPackage,
   type PrivateKeyPackage,
 } from 'ts-mls';
-import { buildEchoCredential, type EchoMlsSignatureKeyPair } from './mlsCredential';
+import {
+  buildEchoCredential,
+  type EchoMlsSignatureKeyPair,
+} from './mlsCredential';
 
 export type EchoKeyPackage = {
   publicPackage: KeyPackage;
