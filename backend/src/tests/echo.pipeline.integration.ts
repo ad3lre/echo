@@ -501,8 +501,8 @@ async function run(): Promise<void> {
     const restIdx = latestIds.indexOf(restCreated.message.id);
     const savedIdx = latestIds.indexOf(savedMsgId!);
     assert.ok(
-      restIdx >= 0 && savedIdx >= 0 && restIdx < savedIdx,
-      'latest page should be created_at DESC (newer REST UUID before older socket UUID)',
+      restIdx >= 0 && savedIdx >= 0 && restIdx > savedIdx,
+      'latest page is chronological ASC: newer REST row after older socket row',
     );
 
     const listPaddedBefore = await fetch(

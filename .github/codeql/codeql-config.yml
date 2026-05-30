@@ -1,9 +1,5 @@
 name: Echo CodeQL config
 
-# Teach CodeQL that link-unfurl URL validators are SSRF barriers.
-packs:
-  - local:echo-link-unfurl-ssrf-models
-
 # Dev/operator scripts and tests are not production attack surface.
 paths-ignore:
   - '**/tests/**'
