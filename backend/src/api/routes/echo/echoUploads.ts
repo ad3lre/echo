@@ -69,6 +69,29 @@ import {
   touchChatUploadRetention,
 } from '../../../services/chatUploadRetention';
 
+/**
+ * Reject content types that could execute code when served directly from S3/CDN.
+ * We allow image/*, video/*, audio/*, application/pdf, application/octet-stream,
+ * and a few document types.  Anything else falls back to application/octet-stream.
+ */
+const SAFE_CONTENT_TYPE_RE =
+  /^(image|video|audio)\//i;
+const SAFE_CONTENT_TYPE_EXACT = new Set([
+  'application/octet-stream',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.apple.mpegurl',
+  'video/iso.segment',
+]);
+function sanitizeUploadContentType(raw: string, fallback = 'application/octet-stream'): string {
+  const ct = raw.trim().toLowerCase();
+  if (!ct) return fallback;
+  if (SAFE_CONTENT_TYPE_RE.test(ct)) return ct;
+  if (SAFE_CONTENT_TYPE_EXACT.has(ct)) return ct;
+  return 'application/octet-stream';
+}
+
 export type EchoPresignBody = {
   /** Preferred: authorize with canUserPostMessage (guild + DM channels). */
   channelId?: string;
@@ -545,10 +568,11 @@ export default async function echoUploadsRoutes(
       const objectKeyRaw =
         typeof req.body?.key === 'string' ? req.body.key : '';
       const objectKey = sanitizeEchoUploadObjectKeyFragment(objectKeyRaw);
-      const contentType =
-        typeof req.body?.contentType === 'string' && req.body.contentType.trim()
-          ? req.body.contentType.trim()
-          : 'application/octet-stream';
+      const contentType = sanitizeUploadContentType(
+        typeof req.body?.contentType === 'string'
+          ? req.body.contentType
+          : '',
+      );
       const contentLength =
         typeof req.body?.contentLength === 'number' &&
         Number.isFinite(req.body.contentLength)
@@ -711,10 +735,10 @@ export default async function echoUploadsRoutes(
       const phashHex =
         typeof body?.phashHex === 'string' ? body.phashHex.trim() : '';
       const kind = body?.kind;
-      const contentType =
-        typeof body?.contentType === 'string' && body.contentType.trim()
-          ? body.contentType.trim()
-          : '';
+      const contentType = sanitizeUploadContentType(
+        typeof body?.contentType === 'string' ? body.contentType : '',
+        '',
+      );
 
       if (
         !sha256Hex ||
@@ -823,10 +847,10 @@ export default async function echoUploadsRoutes(
       const phashHex =
         typeof body?.phashHex === 'string' ? body.phashHex.trim() : '';
       const kind = body?.kind;
-      const contentType =
-        typeof body?.contentType === 'string' && body.contentType.trim()
-          ? body.contentType.trim()
-          : '';
+      const contentType = sanitizeUploadContentType(
+        typeof body?.contentType === 'string' ? body.contentType : '',
+        '',
+      );
       const byteLength =
         typeof body?.byteLength === 'number' && Number.isFinite(body.byteLength)
           ? body.byteLength

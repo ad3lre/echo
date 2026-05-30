@@ -37,6 +37,8 @@ import { useAppLayoutActiveChannelNavigation } from './useAppLayoutActiveChannel
 import { useAppLayoutRailLoadingDerived } from './useAppLayoutRailLoadingDerived';
 import { useAppLayoutChannelManageCapabilities } from './useAppLayoutChannelManageCapabilities';
 import { useGuildChannelTree } from '@/services/orchestration/useGuildChannelTree';
+// `voiceMlsSession` pulls in the ts-mls crypto stack; it is dynamically imported
+// at the voice-event handler below so it stays off the first-paint AppLayout chunk.
 import { useGuildChannelModals } from './useGuildChannelModals';
 import { useEchoGuildRoleUi } from './useEchoGuildRoleUi';
 import { useEchoWorkspaceLifecycle } from './useEchoWorkspaceLifecycle';
@@ -1937,6 +1939,37 @@ export function useAppLayoutController() {
         }
       })();
     },
+    onVoiceMlsMessage: (payload) => {
+      const cid = payload.voiceChannelId?.trim();
+      if (!cid) return;
+      const guildVc = currentVoiceChannelId.value?.trim();
+      const dmVc = _dmLiveKitJoinChannelId.value?.trim();
+      if (guildVc !== cid && dmVc !== cid) return;
+      void (async () => {
+        const { activeVoiceMlsChannelKey, reconcileVoiceMlsSession, syncVoiceMlsSession } =
+          await import('@/services/voice/mls/voiceMlsSession');
+        const key = activeVoiceMlsChannelKey();
+        if (!key) return;
+        try {
+          // Apply the new handshake message(s) and rotate the media key in-band
+          // (no reconnect). Then, if we are the deterministic committer and a
+          // member has left, commit their removal for forward secrecy.
+          const applied = await syncVoiceMlsSession(key);
+          if (applied) {
+            await _liveKitVoiceApi?.rotateEpochKey(applied.raw, applied.keyIndex);
+          }
+          const reconciled = await reconcileVoiceMlsSession(key);
+          if (reconciled) {
+            await _liveKitVoiceApi?.rotateEpochKey(
+              reconciled.raw,
+              reconciled.keyIndex,
+            );
+          }
+        } catch {
+          /* transient; next event or reconnect recovers */
+        }
+      })();
+    },
     applyVoiceMediaModerationFromSocket: (payload) => {
       callVoice.applyVoiceMediaModerationFromSocket?.(payload);
     },
@@ -2371,7 +2404,6 @@ export function useAppLayoutController() {
       return { status: 'empty' };
     }
     const token = authSession.accessToken?.trim() ?? '';
-    if (!token) return { status: 'unauthenticated' };
 
     if (opts?.applyOptimistic) {
       for (const target of plan.targets) {
@@ -2455,7 +2487,7 @@ export function useAppLayoutController() {
       if (result.status === 'failed') failed += 1;
     }
     const token = authSession.accessToken?.trim() ?? '';
-    if (failed === 0 && token) {
+    if (failed === 0) {
       try {
         echoAttention.replaceSnapshot(await fetchEchoAttentionSummary(token));
       } catch {
@@ -2563,10 +2595,16 @@ export function useAppLayoutController() {
     }
     const summary = echoAttention.getChannelAttention(cid);
     const latestFromAttention = summary?.latestUnreadMessageId?.trim() ?? '';
+    // When latestUnreadMessageId is absent (common for channels never opened or
+    // voice channels), fall back to firstUnreadMessageId (valid when unreadCount=1)
+    // then to the newest locally-loaded message.
+    const firstFromAttention = summary?.firstUnreadMessageId?.trim() ?? '';
+    const firstFallback =
+      !latestFromAttention && summary?.unreadCount === 1 ? firstFromAttention : '';
     const msgs = workspace.messages.value[cid] ?? [];
     const lastMsgId =
       msgs.length > 0 ? String(msgs[msgs.length - 1]?.id ?? '').trim() : '';
-    const targetId = latestFromAttention || lastMsgId;
+    const targetId = latestFromAttention || firstFallback || lastMsgId;
     if (!targetId) {
       if (!opts?.silent) {
         dispatchAppToast(opts?.emptyMessage ?? 'Nothing to mark read.', 'info');

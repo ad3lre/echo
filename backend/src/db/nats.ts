@@ -27,10 +27,15 @@ export async function connectNats(): Promise<NatsConnection | null> {
   connection
     .closed()
     .then((err) => {
-      void err;
+      if (err) {
+        console.error('[nats] connection closed with error:', err);
+      } else {
+        console.warn('[nats] connection closed');
+      }
       connection = null;
     })
-    .catch(() => {
+    .catch((err) => {
+      console.error('[nats] connection closed unexpectedly:', err);
       connection = null;
     });
   return connection;

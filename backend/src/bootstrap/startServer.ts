@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { config } from '../config';
 import { isDiscordOauthConfigured } from '../domain/discordOAuthRedirect';
 import { getEchoStore } from '../domain/echoStore/bootstrap';
+import { initCacheInvalidationBus } from '../domain/cacheInvalidationBus';
 import { registerRoutes } from '../api/routes';
 import {
   registerHttpPlugins,
@@ -54,6 +55,7 @@ export async function startServer(
       'echo.csam.scanners_active',
     );
   }
+  initCacheInvalidationBus();
   await attachSocketAdapterIfConfigured(fastify, io);
   await registerHttpPlugins(fastify);
   registerHttpsEnforcementIfConfigured(fastify);

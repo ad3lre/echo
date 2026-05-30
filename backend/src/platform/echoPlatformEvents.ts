@@ -39,6 +39,55 @@ export function publishEchoWorkspaceEvent(
  * workspace refetch. `workspace_invalidated` is still emitted separately as the
  * eventual-correctness fallback.
  */
+/**
+ * Notify call participants that a new MLS handshake message (voice E2EE v2) was
+ * appended to a channel's delivery log. Guild channels fan out to the server
+ * room; DM/group-DM calls fan out to each member's user room (no server room).
+ * The payload carries only routing metadata — never key material.
+ */
+export function publishVoiceMlsMessage(
+  fastify: FastifyInstance,
+  args: {
+    version: string;
+    serverId: string;
+    channelId: string;
+    groupId: string;
+    seq: string;
+    epoch: string;
+    msgType: 'commit' | 'proposal' | 'welcome';
+    recipientUserId?: string;
+    recipientDeviceId?: string;
+    /** When set (DM/group-DM), fan out to these user rooms instead of a server room. */
+    dmMemberUserIds?: string[];
+  },
+): void {
+  const event: EchoWorkspaceEvent = {
+    kind: 'voice_mls_message',
+    version: args.version,
+    serverId: args.serverId,
+    voiceChannelId: args.channelId,
+    voiceMls: {
+      serverId: args.serverId,
+      channelId: args.channelId,
+      groupId: args.groupId,
+      seq: args.seq,
+      epoch: args.epoch,
+      msgType: args.msgType,
+      ...(args.recipientUserId ? { recipientUserId: args.recipientUserId } : {}),
+      ...(args.recipientDeviceId
+        ? { recipientDeviceId: args.recipientDeviceId }
+        : {}),
+    },
+  };
+  if (args.dmMemberUserIds && args.dmMemberUserIds.length > 0) {
+    for (const uid of args.dmMemberUserIds) {
+      publishEchoWorkspaceEvent(fastify, event, { userId: uid });
+    }
+    return;
+  }
+  publishEchoWorkspaceEvent(fastify, event, { serverId: args.serverId });
+}
+
 export function publishVoiceRosterDelta(
   fastify: FastifyInstance,
   serverId: string,

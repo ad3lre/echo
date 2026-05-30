@@ -302,21 +302,40 @@ function formatKinds(kinds: readonly string[]): string {
           <span>Messages</span>
         </button>
       </div>
-      <div class="flex flex-col gap-0.5">
-        <p
-          class="dm-notifications__kicker text-[11px] font-bold uppercase tracking-[0.18em] text-fg-subtle"
+      <div class="flex items-center gap-3">
+        <div
+          class="dm-notifications__avatar flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
         >
-          Notifications
-        </p>
-        <h1
-          class="dm-notifications__title text-lg font-semibold text-fg-strong"
-        >
-          Mentions & pings
-        </h1>
-        <p class="text-xs text-fg-subtle">
-          @{{ usersById.get(currentUserId)?.name?.trim() || 'you' }}
-          in channels you’ve loaded — older threads appear after you visit them.
-        </p>
+          <svg
+            class="h-6 w-6 text-white"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+        </div>
+        <div class="flex min-w-0 flex-col gap-0.5">
+          <p
+            class="dm-notifications__kicker text-[11px] font-bold uppercase tracking-[0.18em] text-fg-subtle"
+          >
+            Notifications
+          </p>
+          <h1
+            class="dm-notifications__title text-lg font-semibold text-fg-strong"
+          >
+            Mentions & pings
+          </h1>
+          <p class="truncate text-xs text-fg-subtle">
+            @{{ usersById.get(currentUserId)?.name?.trim() || 'you' }} in
+            channels you’ve loaded
+          </p>
+        </div>
       </div>
 
       <div
@@ -379,7 +398,7 @@ function formatKinds(kinds: readonly string[]): string {
       >
         {{ listEmptyMessage }}
       </div>
-      <div v-else class="flex flex-col gap-1">
+      <div v-else class="flex flex-col gap-2">
         <template v-for="item in notificationListItems" :key="item.key">
           <div
             v-if="item.type === 'header'"
@@ -403,7 +422,7 @@ function formatKinds(kinds: readonly string[]): string {
           <button
             v-else
             type="button"
-            class="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-glass-2"
+            class="dm-notification-card group flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left"
             @click="emit('open-row', item.row)"
             @contextmenu.prevent="openRowContextMenu(item.row, $event)"
           >
@@ -430,18 +449,23 @@ function formatKinds(kinds: readonly string[]): string {
                   formatShortTime(item.row.timestamp)
                 }}</span>
               </div>
-              <p class="mt-0.5 truncate text-xs font-medium text-fg-soft">
-                # {{ item.row.channelLabel }}
-              </p>
-              <p class="mt-1 line-clamp-2 text-xs text-fg-soft">
+              <span
+                class="dm-notification-card__chip mt-1 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+              >
+                <span class="opacity-70">#</span>
+                <span class="truncate">{{ item.row.channelLabel }}</span>
+              </span>
+              <p class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-fg-soft">
                 {{ item.row.preview }}
               </p>
             </div>
             <span
-              class="mt-3 shrink-0 text-sm font-medium text-fg-subtle"
+              class="dm-notification-card__jump mt-2 hidden shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold sm:inline-flex"
               aria-hidden="true"
-              >›</span
             >
+              Jump
+              <span>›</span>
+            </span>
           </button>
         </template>
       </div>
@@ -611,6 +635,78 @@ function formatKinds(kinds: readonly string[]): string {
 
 .dm-notifications__mention-kind {
   color: color-mix(in srgb, #a5b4fc 92%, white 8%);
+}
+
+.dm-notifications__avatar {
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--accent) 92%, white 8%) 0%,
+    color-mix(in srgb, var(--accent) 62%, black 12%) 100%
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 16%, transparent);
+}
+
+/* Smart notification card — reads as an embed/widget rather than a flat list row. */
+.dm-notification-card {
+  border: 1px solid color-mix(in srgb, white 8%, transparent);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, white 5%, transparent) 0%,
+    color-mix(in srgb, white 2.5%, transparent) 100%
+  );
+  transition:
+    background-color 130ms ease,
+    border-color 130ms ease,
+    transform 130ms ease;
+}
+
+.dm-notification-card:hover,
+.dm-notification-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--accent) 12%, transparent) 0%,
+    color-mix(in srgb, white 4%, transparent) 100%
+  );
+  outline: none;
+}
+
+.dm-notification-card__chip {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: color-mix(in srgb, var(--accent) 30%, white 70%);
+}
+
+.dm-notification-card__jump {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: color-mix(in srgb, var(--accent) 24%, white 76%);
+  opacity: 0;
+  transition: opacity 130ms ease;
+}
+
+.dm-notification-card:hover .dm-notification-card__jump,
+.dm-notification-card:focus-visible .dm-notification-card__jump {
+  opacity: 1;
+}
+
+:global([data-theme='light'] .dm-notification-card) {
+  border-color: color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
+  background: color-mix(in srgb, var(--elevated) 92%, var(--accent) 8%);
+}
+
+:global([data-theme='light'] .dm-notification-card:hover),
+:global([data-theme='light'] .dm-notification-card:focus-visible) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border) 55%);
+  background: color-mix(in srgb, var(--elevated) 82%, var(--accent) 18%);
+}
+
+:global([data-theme='light'] .dm-notification-card__chip) {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: color-mix(in srgb, var(--accent) 72%, var(--text) 28%);
+}
+
+:global([data-theme='light'] .dm-notification-card__jump) {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: color-mix(in srgb, var(--accent) 70%, var(--text) 30%);
 }
 
 /* Light: notification chrome — ink-forward labels, accent-tinted structure, crisp filters */

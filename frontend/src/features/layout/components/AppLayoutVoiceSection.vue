@@ -40,7 +40,6 @@ import type { Room as LKRoom } from 'livekit-client';
 import { icons } from '@/assets/icons';
 import { useChannelIconResolver } from '@/composables/useChannelIconResolver';
 import { useCoarsePointer } from '@/composables/useCoarsePointer';
-import VcActivityStage from '@/features/voice/components/VcActivityStage.vue';
 import type {
   VcActivityPresenceKind,
   VcActivityUiState,
@@ -64,6 +63,15 @@ const StageVcLobby = defineAsyncComponent(
 );
 const StageEventScheduleModal = defineAsyncComponent(
   () => import('@/features/voice/components/StageEventScheduleModal.vue'),
+);
+/**
+ * Hosts the in-call activity mini-games (Hangman, Codenames, Skriggles, TicTacToe,
+ * Wordline — ~220 KB together). Only renders when the VC activity surface is open
+ * (`vcActivitySurfaceOpen`), so load it lazily to keep that bundle off the
+ * first-paint AppLayout chunk; it downloads the first time a user opens an activity.
+ */
+const VcActivityStage = defineAsyncComponent(
+  () => import('@/features/voice/components/VcActivityStage.vue'),
 );
 
 const liveKitConnected = computed(() => !!props.lkRoom);

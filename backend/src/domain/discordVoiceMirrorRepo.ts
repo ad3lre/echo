@@ -1,6 +1,7 @@
 import type pg from 'pg';
 import { nextEchoSnowflakeId } from './echoSnowflake';
 import { invalidateEchoPermissionCacheForServer } from './echoPermissionCache';
+import { invalidateChannelServerId } from './echoChannelServerCache';
 
 export type DiscordVoiceMirrorCategoryRow = {
   serverId: string;
@@ -463,5 +464,6 @@ export async function systemDeleteEchoChannel(
   );
   if (del.rows.length === 0) return false;
   invalidateEchoPermissionCacheForServer(serverId);
+  invalidateChannelServerId(channelId);
   return true;
 }

@@ -31,8 +31,7 @@ export function shouldUseEchoProfileSocialApi(opts: {
   return (
     !opts.isMockDataMode &&
     opts.isAuthenticated &&
-    !opts.isGuest &&
-    !!opts.token?.trim()
+    !opts.isGuest
   );
 }
 

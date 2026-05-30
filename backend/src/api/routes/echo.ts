@@ -11,6 +11,7 @@ import echoCategories from './echo/echoCategories';
 import echoVoice from './echo/echoVoice';
 import echoStageYoutube from './echo/echoStageYoutube';
 import echoVoiceE2ee from './echo/echoVoiceE2ee';
+import echoMls from './echo/echoMls';
 import echoE2ee from './echo/echoE2ee';
 import echoVcActivities from './echo/echoVcActivities';
 import echoRoles from './echo/echoRoles';
@@ -72,6 +73,7 @@ export default async function echoRoutes(
     await secured.register(echoVoice);
     await secured.register(echoStageYoutube);
     await secured.register(echoVoiceE2ee);
+    await secured.register(echoMls);
     await secured.register(echoE2ee);
     await secured.register(echoVcActivities);
     await secured.register(echoRoles);

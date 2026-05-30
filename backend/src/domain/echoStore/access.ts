@@ -2,6 +2,10 @@ import type pg from 'pg';
 import type { MentionEntity } from '../../../../shared/types';
 import { evaluatePermissionSet } from '../echoPermissionEvaluate';
 import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
+import {
+  getCachedChannelServerId,
+  setCachedChannelServerId,
+} from '../echoChannelServerCache';
 import type { ServerAggregationTrace } from '../echoPermissionTrace';
 import { composePermissionExplanation } from '../permissionExplanation';
 import {
@@ -26,12 +30,17 @@ export async function getEchoChannelServerId(
   pool: pg.Pool,
   channelId: string,
 ): Promise<string | null> {
+  const cached = getCachedChannelServerId(channelId);
+  if (cached) return cached;
   const ch = await pool.query(
     `SELECT server_id FROM echo_channels WHERE id = $1`,
     [channelId],
   );
   const row = ch.rows[0];
-  return row ? String(row.server_id) : null;
+  if (!row) return null;
+  const serverId = String(row.server_id);
+  setCachedChannelServerId(channelId, serverId);
+  return serverId;
 }
 
 /** Existence check for Socket.IO branch + join gate (no permission — caller checks). */
@@ -187,11 +196,21 @@ export async function diagnoseEchoChannelAccess(
       message: 'You are not a member of this group DM.',
     };
   }
-  const mem = await pool.query(
-    `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
+  // Membership and ban are both single-row existence checks against the same
+  // (server, user) — fold them into one round-trip instead of two sequential queries.
+  const access = await pool.query<{ is_member: boolean; is_banned: boolean }>(
+    `SELECT
+       EXISTS(
+         SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2
+       ) AS is_member,
+       EXISTS(
+         SELECT 1 FROM echo_server_bans
+         WHERE server_id = $1 AND user_id = $2
+           AND (expires_at IS NULL OR expires_at > NOW())
+       ) AS is_banned`,
     [sid, userId],
   );
-  if (mem.rows.length === 0) {
+  if (!access.rows[0]?.is_member) {
     return {
       ok: false,
       code: 'NOT_SERVER_MEMBER',
@@ -199,7 +218,7 @@ export async function diagnoseEchoChannelAccess(
         'You are not a member of this server. Ask an admin for an invite or join from Explore if the server is listed.',
     };
   }
-  if (await isUserBannedFromServer(pool, sid, userId)) {
+  if (access.rows[0]?.is_banned) {
     return {
       ok: false,
       code: 'BANNED_FROM_SERVER',

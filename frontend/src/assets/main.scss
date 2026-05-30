@@ -4,6 +4,34 @@
  * themes.css defines them per [data-theme].
  */
 
+html.echo-shell-ios {
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+html.echo-shell-ios body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.echo-shell-ios button,
+html.echo-shell-ios [role='button'],
+html.echo-shell-ios a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.echo-shell-ios button,
+html.echo-shell-ios [role='button'] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html.echo-shell-ios input,
+html.echo-shell-ios textarea,
+html.echo-shell-ios select {
+  font-size: max(16px, 1rem);
+}
+
 /**
  * Menus & popovers: match chat header glass exactly.
  * `@layer components` so Tailwind `fixed` / `absolute` / `relative` still override `position`.
@@ -20,15 +48,20 @@
     overflow: hidden;
     border-radius: 16px;
     background-color: var(
-      --chat-glass-header-bg-fallback,
-      var(--chat-glass-header-bg)
+      --echo-menu-surface-bg-fallback,
+      var(--chat-glass-header-bg-fallback, var(--chat-glass-header-bg))
     );
+    border: 1px solid var(--echo-menu-surface-border, transparent);
+    box-shadow: var(--echo-menu-surface-shadow, none);
   }
 
   @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
     .ellipsis-menu,
     .chat-liquid-glass-menu {
-      background-color: var(--chat-glass-header-bg);
+      background-color: var(
+        --echo-menu-surface-bg,
+        var(--chat-glass-header-bg)
+      );
       backdrop-filter: var(--chat-glass-header-backdrop);
       -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
     }

@@ -182,6 +182,7 @@
     "pinia": "^3.0.4",
     "qrcode": "^1.5.4",
     "socket.io-client": "^4.8.3",
+    "ts-mls": "^1.6.2",
     "twemoji": "^14.0.2",
     "unicode-emoji-json": "^0.9.0",
     "vite-plugin-compression2": "^2.5.3",

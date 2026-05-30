@@ -211,14 +211,16 @@ export function fingerprintMessageListRowFactsInputs(
     raw?.timestamp ?? '',
     raw?.systemMessage ? '1' : '0',
     raw?.replyTo?.messageId ?? '',
-    raw?.content?.length ?? 0,
+    raw?.content ?? '',
+    raw?.editedAt ?? '',
     pollFingerprint(raw?.poll),
     fingerprintMessageReactions(raw?.reactions),
     m?.author?.name ?? '',
     rid ?? '',
     targetRaw?.id ?? '',
     targetRaw?.authorId ?? '',
-    targetRaw?.content?.length ?? 0,
+    targetRaw?.content ?? '',
+    targetRaw?.editedAt ?? '',
     targetVis?.author?.name ?? '',
   ].join('\x1e');
 }

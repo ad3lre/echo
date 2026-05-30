@@ -25,6 +25,8 @@ export interface Server {
    * Full members are unaffected.
    */
   allowGlobalGuests?: boolean;
+  /** Echo: when true, unverified-email accounts cannot newly join this server. */
+  verificationRequireEmail?: boolean;
   /** Echo: when false, vanity and token invites cannot add new members (closed server). */
   inviteJoinEnabled?: boolean;
   /** Echo: join requests require completing the application form when enabled. */

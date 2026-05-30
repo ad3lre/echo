@@ -50,7 +50,7 @@ async function onImport() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="discord-import-prompt-title"
-      class="w-full max-w-md rounded-2xl border border-border bg-[var(--echo-modal-bg)] p-6 text-white shadow-xl"
+      class="w-full max-w-md rounded-2xl border border-border bg-[var(--echo-modal-bg)] p-6 text-foreground shadow-xl"
     >
       <h2 id="discord-import-prompt-title" class="text-lg font-semibold">
         {{ discordProfileImportPromptTitle() }}

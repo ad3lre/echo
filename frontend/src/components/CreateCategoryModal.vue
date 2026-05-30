@@ -84,7 +84,7 @@ function submit() {
             ref="categoryNameInputRef"
             v-model="categoryName"
             type="text"
-            class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-white outline-none placeholder:text-fg-subtle"
+            class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-fg-subtle"
             placeholder="New category"
             maxlength="100"
             @keydown.enter.prevent="submit"

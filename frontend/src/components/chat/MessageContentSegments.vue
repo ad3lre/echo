@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import type { Embed, MentionEntity } from '@shared/types';
 import type { IdTokenResolvers } from '@/composables/useMarkdown';
 import {
@@ -8,8 +8,10 @@ import {
   type EchoRenderedMessageRow,
   type MagicTimeRenderContext,
 } from '@/features/chat/viewModel/messageContentSegments';
+import { normalizeExternalUrlForOpen } from '@/platform/desktopBridge';
 import ChatInviteEmbed from './ChatInviteEmbed.vue';
 import MessageJumpEmbed from './MessageJumpEmbed.vue';
+import MessageLinkHoverPreview from './MessageLinkHoverPreview.vue';
 
 const props = defineProps<{
   content: string;
@@ -30,6 +32,90 @@ const renderedRows = computed(() =>
   ),
 );
 
+const activeLink = ref<{
+  href: string;
+  anchorRect: DOMRect;
+  embed?: Embed;
+} | null>(null);
+let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+const linkPreviewEmbeds = computed(() =>
+  (props.embeds ?? []).filter((e) => e.url?.trim() && !e.echoJump),
+);
+
+function clearHideTimer() {
+  if (hideTimer === null) return;
+  clearTimeout(hideTimer);
+  hideTimer = null;
+}
+
+function scheduleHideLinkPreview(delay = 140) {
+  clearHideTimer();
+  hideTimer = setTimeout(() => {
+    activeLink.value = null;
+    hideTimer = null;
+  }, delay);
+}
+
+function findPreviewEmbed(href: string): Embed | undefined {
+  const normalized = normalizeExternalUrlForOpen(href);
+  if (!normalized) return undefined;
+  return linkPreviewEmbeds.value.find((embed) => {
+    const raw = embed.url?.trim();
+    if (!raw) return false;
+    return normalizeExternalUrlForOpen(raw) === normalized;
+  });
+}
+
+function anchorFromEventTarget(
+  target: EventTarget | null,
+): HTMLAnchorElement | null {
+  if (!(target instanceof Element)) return null;
+  const anchor = target.closest('a[href^="http://"], a[href^="https://"]');
+  return anchor instanceof HTMLAnchorElement ? anchor : null;
+}
+
+function showLinkPreview(anchor: HTMLAnchorElement) {
+  const href = normalizeExternalUrlForOpen(anchor.href);
+  if (!href) return;
+  clearHideTimer();
+  activeLink.value = {
+    href,
+    anchorRect: anchor.getBoundingClientRect(),
+    embed: findPreviewEmbed(href),
+  };
+}
+
+function onSegmentPointerOver(event: PointerEvent) {
+  if (event.pointerType === 'touch') return;
+  const anchor = anchorFromEventTarget(event.target);
+  if (!anchor) return;
+  const related = event.relatedTarget;
+  if (related instanceof Node && anchor.contains(related)) return;
+  showLinkPreview(anchor);
+}
+
+function onSegmentPointerOut(event: PointerEvent) {
+  const anchor = anchorFromEventTarget(event.target);
+  if (!anchor) return;
+  const related = event.relatedTarget;
+  if (related instanceof Node && anchor.contains(related)) return;
+  scheduleHideLinkPreview();
+}
+
+function onSegmentFocusIn(event: FocusEvent) {
+  const anchor = anchorFromEventTarget(event.target);
+  if (anchor) showLinkPreview(anchor);
+}
+
+function onSegmentFocusOut() {
+  scheduleHideLinkPreview();
+}
+
+onBeforeUnmount(() => {
+  clearHideTimer();
+});
+
 function embedMarginClass(i: number): string {
   if (i === 0) return '';
   return 'mt-2';
@@ -47,6 +133,10 @@ function rowKey(row: EchoRenderedMessageRow, i: number): string {
       v-if="row.type === 'text' && row.text"
       class="message-content-segment min-w-0"
       v-html="row.html"
+      @pointerover="onSegmentPointerOver"
+      @pointerout="onSegmentPointerOut"
+      @focusin="onSegmentFocusIn"
+      @focusout="onSegmentFocusOut"
     />
     <ChatInviteEmbed
       v-else-if="row.type === 'invite'"
@@ -60,4 +150,14 @@ function rowKey(row: EchoRenderedMessageRow, i: number): string {
       :class="embedMarginClass(i)"
     />
   </template>
+  <Teleport to="body">
+    <MessageLinkHoverPreview
+      v-if="activeLink"
+      :href="activeLink.href"
+      :embed="activeLink.embed"
+      :anchor-rect="activeLink.anchorRect"
+      @pointerenter="clearHideTimer"
+      @pointerleave="() => scheduleHideLinkPreview()"
+    />
+  </Teleport>
 </template>

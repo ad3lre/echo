@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { config } from '../../config';
 import { normalizeDeployAnnouncement } from '../../../../shared/deployAnnouncement';
+import { safeCompare } from '../../shared/safeCompare';
 
 type DeployCountdownBody = {
   seconds?: number;
@@ -34,7 +35,7 @@ export default async function systemDeployCountdownRoutes(
         });
       }
       const provided = readNotifySecret(req);
-      if (!provided || provided !== config.echoDeployNotifySecret) {
+      if (!provided || !safeCompare(provided, config.echoDeployNotifySecret)) {
         return reply.code(401).send({
           code: 'UNAUTHORIZED',
           message: 'Invalid or missing deploy notify secret.',

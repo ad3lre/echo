@@ -42,7 +42,9 @@ impl Default for IosAuthState {
     }
 }
 
+#[cfg(target_os = "ios")]
 const KEYCHAIN_SERVICE: &str = "com.echo.ios.auth";
+#[cfg(target_os = "ios")]
 const KEYCHAIN_ACCOUNT: &str = "session_memory";
 
 // ── Keychain: iOS uses security-framework, other platforms use temp file ──

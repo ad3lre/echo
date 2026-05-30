@@ -14,7 +14,6 @@ import type { AppLayoutLeftChromeProps } from '@/features/layout/appLayoutLeftCh
 import type { PopoutAnchorRect } from '@/utils/memberProfiles';
 import type { DmSubView } from '@/features/layout/mainSurface';
 import type { ChannelSummary } from '@shared/types';
-import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
 
 type DmMarkReadPayload =
   | { kind: 'user'; userId: string }
@@ -192,8 +191,6 @@ export type LayoutLeftChromeHostHandlers = {
       | null;
   }) => void;
   onDmRequestUpgrade: () => void;
-  onDmUpdateNotificationsReadPreset?: (preset: NotificationReadPreset) => void;
-  onDmUpdateNotificationsSourceKey?: (key: string) => void;
   onDmPanelResizeStart: (e: MouseEvent) => void;
   onDmPanelResizeReset: () => void;
   onChannelUpdateActiveId: (id: string) => void;
@@ -246,6 +243,10 @@ export type LayoutLeftChromeHostHandlers = {
     channelId?: string | null;
     customLocation?: string | null;
     eventId?: string;
+  }) => void;
+  onOpenGuildEventDetail?: (payload: {
+    serverId: string;
+    eventId: string;
   }) => void;
 };
 

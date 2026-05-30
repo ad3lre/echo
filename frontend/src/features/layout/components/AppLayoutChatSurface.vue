@@ -1,6 +1,17 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, provide, unref, watch } from 'vue';
+import {
+  computed,
+  defineAsyncComponent,
+  inject,
+  nextTick,
+  provide,
+  unref,
+  watch,
+} from 'vue';
 import type { MaybeRef } from 'vue';
+import AppLayoutSplash from '@/components/AppLayoutSplash.vue';
+import AppLayoutLoadError from '@/components/AppLayoutLoadError.vue';
+import { APP_LAYOUT_LOAD_TIMEOUT_MS } from '@/config/appLoadUi';
 import { getActivePinia, storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import AppLayoutChatHeader from '@/features/layout/components/AppLayoutChatHeader.vue';
@@ -9,7 +20,19 @@ import AppLayoutVoiceSection from '@/features/layout/components/AppLayoutVoiceSe
 import GuildVoiceFloatingSpeakerPill from '@/features/layout/components/GuildVoiceFloatingSpeakerPill.vue';
 import GuildVoiceStreamPip from '@/features/layout/components/GuildVoiceStreamPip.vue';
 import AppLayoutForumSection from '@/features/layout/components/AppLayoutForumSection.vue';
-import AppLayoutPaperSection from '@/features/layout/components/AppLayoutPaperSection.vue';
+/**
+ * The paper/document editor (PaperView + tiptap editor stack, ~220 KB) only renders
+ * for the `serverPaper` surface. Loading it lazily keeps it off the first-paint
+ * AppLayout chunk; it downloads the first time a user opens a document.
+ */
+const AppLayoutPaperSection = defineAsyncComponent({
+  loader: () =>
+    import('@/features/layout/components/AppLayoutPaperSection.vue'),
+  loadingComponent: AppLayoutSplash,
+  errorComponent: AppLayoutLoadError,
+  delay: 200,
+  timeout: APP_LAYOUT_LOAD_TIMEOUT_MS,
+});
 import AppLayoutDmSection from '@/features/layout/components/AppLayoutDmSection.vue';
 import AppLayoutDmSidePanel from '@/features/layout/components/AppLayoutDmSidePanel.vue';
 import { APP_LAYOUT_SEARCH_PANEL_KEY } from '@/features/layout/chatSurfaceContext';

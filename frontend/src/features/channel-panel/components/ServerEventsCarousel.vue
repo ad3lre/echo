@@ -24,6 +24,7 @@ const emit = defineEmits<{
       customLocation?: string | null;
     },
   ];
+  'open-detail': [payload: { eventId: string }];
 }>();
 
 /** Hide events the user explicitly declined; keep “going” + “needs RSVP”. */
@@ -242,6 +243,10 @@ function onOpenChannel(ev: EchoWorkspaceEventSummary) {
   });
 }
 
+function onOpenDetail(ev: EchoWorkspaceEventSummary) {
+  emit('open-detail', { eventId: ev.id });
+}
+
 const hasAny = computed(
   () => goingEvents.value.length > 0 || pendingRsvpEvents.value.length > 0,
 );
@@ -258,7 +263,13 @@ const hasAny = computed(
       <div
         v-for="ev in goingEvents"
         :key="`going-${ev.id}`"
-        class="flex min-h-0 items-stretch gap-2 rounded-lg border border-border/70 bg-glass-1/90 pl-2 pr-2 py-1.5 shadow-[inset_3px_0_0_rgba(99,102,241,0.45)]"
+        role="button"
+        tabindex="0"
+        :aria-label="`Open event ${ev.title}`"
+        class="flex min-h-0 cursor-pointer items-stretch gap-2 rounded-lg border border-border/70 bg-glass-1/90 pl-2 pr-2 py-1.5 shadow-[inset_3px_0_0_rgba(99,102,241,0.45)] transition-colors hover:bg-glass-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+        @click="onOpenDetail(ev)"
+        @keydown.enter.prevent="onOpenDetail(ev)"
+        @keydown.space.prevent="onOpenDetail(ev)"
       >
         <div
           class="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-border/60 bg-surface/80"
@@ -293,7 +304,7 @@ const hasAny = computed(
             v-if="hasEventLocation(ev)"
             type="button"
             class="mt-0.5 w-fit rounded border border-border/80 bg-transparent px-1.5 py-0.5 text-[10px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
-            @click="onOpenChannel(ev)"
+            @click.stop="onOpenChannel(ev)"
           >
             {{ locationCtaLabel(ev) }}
           </button>
@@ -324,13 +335,19 @@ const hasAny = computed(
           v-for="ev in pendingRsvpEvents"
           :key="ev.id"
           data-event-slide
-          class="server-events-carousel__slide flex min-w-0 flex-col gap-2 rounded-2xl border border-border bg-glass-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm"
+          role="button"
+          tabindex="0"
+          :aria-label="`Open event ${ev.title}`"
+          class="server-events-carousel__slide flex min-w-0 cursor-pointer flex-col gap-2 rounded-2xl border border-border bg-glass-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm transition-colors hover:border-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
           :class="[
             layoutSingle
               ? 'w-full shrink-0 snap-none'
               : 'w-[min(100%,22rem)] shrink-0 snap-start sm:w-[min(100%,26rem)]',
             ev.imageUrl?.trim() ? 'overflow-hidden p-0' : 'min-h-[88px] p-2.5',
           ]"
+          @click="onOpenDetail(ev)"
+          @keydown.enter.prevent="onOpenDetail(ev)"
+          @keydown.space.prevent="onOpenDetail(ev)"
         >
           <div
             v-if="ev.imageUrl?.trim()"
@@ -375,7 +392,7 @@ const hasAny = computed(
                 v-if="hasEventLocation(ev)"
                 type="button"
                 class="rounded-lg border border-border bg-glass-2 px-2 py-1 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
-                @click="onOpenChannel(ev)"
+                @click.stop="onOpenChannel(ev)"
               >
                 {{ locationCtaLabel(ev) }}
               </button>
@@ -387,7 +404,7 @@ const hasAny = computed(
                     ? 'bg-emerald-600/90 text-white'
                     : 'border border-border bg-glass-2 text-fg-soft hover:bg-glass-hover'
                 "
-                @click="onRsvp(ev, 'going')"
+                @click.stop="onRsvp(ev, 'going')"
               >
                 Going
               </button>
@@ -397,7 +414,7 @@ const hasAny = computed(
                 :class="
                   ev.userRsvp === 'declined' ? 'ring-1 ring-accent/40' : ''
                 "
-                @click="onRsvp(ev, 'declined')"
+                @click.stop="onRsvp(ev, 'declined')"
               >
                 Not going
               </button>
@@ -427,7 +444,7 @@ const hasAny = computed(
                 v-if="hasEventLocation(ev)"
                 type="button"
                 class="rounded-lg border border-border bg-glass-2 px-2 py-1 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover hover:text-foreground"
-                @click="onOpenChannel(ev)"
+                @click.stop="onOpenChannel(ev)"
               >
                 {{ locationCtaLabel(ev) }}
               </button>
@@ -439,7 +456,7 @@ const hasAny = computed(
                     ? 'bg-emerald-600/90 text-white'
                     : 'border border-border bg-glass-2 text-fg-soft hover:bg-glass-hover'
                 "
-                @click="onRsvp(ev, 'going')"
+                @click.stop="onRsvp(ev, 'going')"
               >
                 Going
               </button>
@@ -449,7 +466,7 @@ const hasAny = computed(
                 :class="
                   ev.userRsvp === 'declined' ? 'ring-1 ring-accent/40' : ''
                 "
-                @click="onRsvp(ev, 'declined')"
+                @click.stop="onRsvp(ev, 'declined')"
               >
                 Not going
               </button>

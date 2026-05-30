@@ -37,6 +37,7 @@ export type OverviewServer = {
   description?: string;
   tags?: string[];
   allowGlobalGuests?: boolean;
+  verificationRequireEmail?: boolean;
 } | null;
 
 export type UseServerSettingsOverviewStateOptions = {
@@ -319,6 +320,7 @@ export function useServerSettingsOverviewState(
       form.raidJoinThresholdCount = Math.max(2, s.raidJoinThresholdCount ?? 10);
       form.raidJoinWindowSeconds = Math.max(10, s.raidJoinWindowSeconds ?? 60);
       form.allowGlobalGuests = s.allowGlobalGuests !== false;
+      form.verificationRequireEmail = s.verificationRequireEmail === true;
       const y = (s as { bannerPositionY?: unknown }).bannerPositionY;
       bannerPositionY.value =
         typeof y === 'number' && Number.isFinite(y)
@@ -335,6 +337,7 @@ export function useServerSettingsOverviewState(
       form.raidJoinThresholdCount = 10;
       form.raidJoinWindowSeconds = 60;
       form.allowGlobalGuests = true;
+      form.verificationRequireEmail = false;
       bannerPositionY.value = 50;
     }
   }
@@ -401,6 +404,22 @@ export function useServerSettingsOverviewState(
       token,
       serverId: sid,
       patch: { allowGlobalGuests: next },
+      serverStore,
+      workspaceServers: opts.workspace.servers,
+      refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+    });
+  }
+
+  async function persistVerificationRequireEmailSetting(
+    next: boolean,
+  ): Promise<void> {
+    const sid = opts.server.value?.id;
+    const token = opts.accessToken.value;
+    if (!opts.canManageServer.value || !sid || !isEchoGraphId(sid)) return;
+    await serverSettingsService.persistPreferences({
+      token,
+      serverId: sid,
+      patch: { verificationRequireEmail: next },
       serverStore,
       workspaceServers: opts.workspace.servers,
       refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
@@ -609,6 +628,7 @@ export function useServerSettingsOverviewState(
     onOverviewTagsBlur,
     persistModerationSettings,
     persistAllowGlobalGuestsSetting,
+    persistVerificationRequireEmailSetting,
     persistBannerPositionY,
   };
 }

@@ -1,7 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { EchoApiError } from '@/api/echo/transport';
 import { postEchoRemoveFriend } from '@/api/echo/social';
-import { removeEchoFriend } from '@/services/orchestration/profileSocial';
+import {
+  removeEchoFriend,
+  shouldUseEchoProfileSocialApi,
+} from '@/services/orchestration/profileSocial';
 
 vi.mock('@/api/echo/social', () => ({
   postEchoRemoveFriend: vi.fn(),
@@ -41,5 +44,18 @@ describe('removeEchoFriend', () => {
     await expect(
       removeEchoFriend({ token: 't', peerId: 'peer-1' }),
     ).rejects.toThrow('Could not remove friend right now');
+  });
+});
+
+describe('shouldUseEchoProfileSocialApi', () => {
+  it('allows cookie-authenticated sessions without a bearer token', () => {
+    expect(
+      shouldUseEchoProfileSocialApi({
+        isMockDataMode: false,
+        isAuthenticated: true,
+        isGuest: false,
+        token: '',
+      }),
+    ).toBe(true);
   });
 });

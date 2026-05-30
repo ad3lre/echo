@@ -13,6 +13,10 @@ export function registerEchoServiceWorker(): void {
       .register(`${import.meta.env.BASE_URL}sw.js`, {
         scope: import.meta.env.BASE_URL,
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (import.meta.env.DEV) {
+          console.warn('[sw] registration failed:', err);
+        }
+      });
   });
 }

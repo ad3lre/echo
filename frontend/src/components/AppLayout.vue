@@ -88,6 +88,15 @@ import {
 import { AuthApiError, authResendVerification } from '@/api/authClient';
 import { putGuildEventRsvp } from '@/services/http/echoServerEventsHttp';
 import { resolveGuildEventLocation } from '@/features/server-events/resolveGuildEventLocation';
+import {
+  eventDetailViewFromRsvp,
+  eventDetailViewFromSummary,
+  type EventDetailView,
+} from '@/features/server-events/eventDetailView';
+import {
+  mergeModalSearchParams,
+  parseModalQueries,
+} from '@/features/layout/urlNavigation';
 import { applyEchoShellPath } from '@/platform/desktopProductDeepLink';
 import { hasPriorRegistration } from '@/utils/priorRegistration';
 import {
@@ -972,12 +981,185 @@ const guildVoiceActivityCards = computed<GuildVoiceActivityCard[]>(() =>
 );
 
 const echoSessionStore = useEchoSessionStore();
-const { myEventRsvps } = storeToRefs(echoSessionStore);
+const { myEventRsvps, upcomingEventsByServerId } =
+  storeToRefs(echoSessionStore);
 const guildEventActivityCards = computed<GuildEventActivityCard[]>(() =>
   buildGuildEventActivityCardsFromMyRsvps({
     rsvps: myEventRsvps.value,
     getChannelDisplayName,
   }),
+);
+
+/* ===== Event detail modal ===== */
+const isEventDetailModalOpen = ref(false);
+const eventDetailView = ref<EventDetailView | null>(null);
+const applyingEventDetailFromUrl = ref(false);
+
+type GuildEventDetailTarget = { serverId: string; eventId: string };
+
+/** Re-resolve the open event from the freshest workspace data (e.g. after an RSVP hydrate). */
+function resolveEventDetailView(
+  serverId: string,
+  eventId: string,
+): EventDetailView | null {
+  const rsvp = myEventRsvps.value.find((r) => r.id === eventId);
+  if (rsvp) return eventDetailViewFromRsvp(rsvp);
+  const summary = (upcomingEventsByServerId.value[serverId] ?? []).find(
+    (e) => e.id === eventId,
+  );
+  if (summary) {
+    const srv = serverStore.servers.find((s) => s.id === serverId);
+    return eventDetailViewFromSummary(summary, {
+      name: srv?.name ?? null,
+      imageUrl: srv?.imageUrl ?? null,
+    });
+  }
+  return null;
+}
+
+function guildEventDetailTargetFromLocation(): GuildEventDetailTarget | null {
+  if (typeof window === 'undefined') return null;
+  const mq = parseModalQueries(window.location.search);
+  const serverId = mq.guildEventServerId?.trim();
+  const eventId = mq.guildEventId?.trim();
+  return serverId && eventId ? { serverId, eventId } : null;
+}
+
+function setGuildEventDetailUrl(
+  payload: GuildEventDetailTarget | null,
+  mode: 'push' | 'replace',
+) {
+  if (typeof window === 'undefined') return;
+  const search = mergeModalSearchParams(
+    window.location.search,
+    payload
+      ? {
+          guild_event_server: payload.serverId,
+          guild_event: payload.eventId,
+        }
+      : {
+          guild_event_server: null,
+          guild_event: null,
+        },
+  );
+  const next = `${window.location.pathname}${search}${window.location.hash}`;
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (next === current) return;
+  if (mode === 'replace') window.history.replaceState(null, '', next);
+  else window.history.pushState(null, '', next);
+}
+
+function closeGuildEventDetailModal(opts?: { syncUrl?: boolean }) {
+  isEventDetailModalOpen.value = false;
+  eventDetailView.value = null;
+  if (opts?.syncUrl !== false && !applyingEventDetailFromUrl.value) {
+    setGuildEventDetailUrl(null, 'replace');
+  }
+}
+
+function openGuildEventDetail(
+  payload: GuildEventDetailTarget,
+  opts?: { syncUrl?: boolean },
+) {
+  const view = resolveEventDetailView(payload.serverId, payload.eventId);
+  if (!view) {
+    // Fall back to plain navigation if we can't resolve event details.
+    isDMPanelOpen.value = false;
+    navigateGuildEventOpenPayload({ serverId: payload.serverId });
+    return;
+  }
+  eventDetailView.value = view;
+  isEventDetailModalOpen.value = true;
+  if (opts?.syncUrl !== false && !applyingEventDetailFromUrl.value) {
+    setGuildEventDetailUrl(payload, 'push');
+  }
+}
+
+function applyGuildEventDetailQueryFromLocation() {
+  const target = guildEventDetailTargetFromLocation();
+  applyingEventDetailFromUrl.value = true;
+  try {
+    if (!target) {
+      closeGuildEventDetailModal({ syncUrl: false });
+      return;
+    }
+    const view = resolveEventDetailView(target.serverId, target.eventId);
+    if (!view) return;
+    eventDetailView.value = view;
+    isEventDetailModalOpen.value = true;
+  } finally {
+    applyingEventDetailFromUrl.value = false;
+  }
+}
+
+async function submitGuildEventRsvp(payload: {
+  serverId: string;
+  eventId: string;
+  status: 'going' | 'declined';
+  closeDetailOnDecline?: boolean;
+}) {
+  try {
+    /* Cookie session: bearer token is unused by `echoFetch` (see `transport.ts`). */
+    await putGuildEventRsvp(
+      '',
+      payload.serverId,
+      payload.eventId,
+      payload.status,
+    );
+    await hydrateEchoFromApi();
+    if (payload.status === 'declined' && payload.closeDetailOnDecline) {
+      closeGuildEventDetailModal();
+      return;
+    }
+    // Keep an open detail modal in sync with the refreshed counts/RSVP state.
+    if (isEventDetailModalOpen.value && eventDetailView.value) {
+      const refreshed = resolveEventDetailView(
+        payload.serverId,
+        payload.eventId,
+      );
+      if (refreshed) {
+        eventDetailView.value = refreshed;
+      } else if (payload.status === 'declined') {
+        // Declining drops the event out of myEventRsvps; reflect locally.
+        eventDetailView.value = {
+          ...eventDetailView.value,
+          userRsvp: 'declined',
+        };
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    dispatchAppToastDetail({
+      message: msg.includes('EVENT_FULL')
+        ? 'This event is at capacity.'
+        : 'Could not update RSVP. Try again.',
+      durationMs: 4000,
+    });
+  }
+}
+
+function onEventDetailPopState() {
+  applyGuildEventDetailQueryFromLocation();
+}
+
+onMounted(() => {
+  if (typeof window === 'undefined') return;
+  window.addEventListener('popstate', onEventDetailPopState);
+  applyGuildEventDetailQueryFromLocation();
+});
+
+watch(
+  [
+    myEventRsvps,
+    upcomingEventsByServerId,
+    () => serverStore.servers.length,
+    () => workspace.loading.value,
+  ],
+  () => {
+    if (!guildEventDetailTargetFromLocation()) return;
+    applyGuildEventDetailQueryFromLocation();
+  },
+  { deep: true, flush: 'post' },
 );
 
 function toastPlainGuildEventLocation(text: string, urls: readonly string[]) {
@@ -1876,6 +2058,12 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   mentionNotificationServers,
   dmNotificationsReadPreset,
   dmNotificationsSourceKey,
+  onUpdateDmNotificationsReadPreset: (preset: 'all' | 'unread' | 'read') => {
+    dmNotificationsReadPreset.value = preset;
+  },
+  onUpdateDmNotificationsSourceKey: (key: string) => {
+    dmNotificationsSourceKey.value = key;
+  },
   onOpenMentionNotification,
   onMarkMentionNotificationRead,
   isPersistedEchoDmThread,
@@ -2231,6 +2419,36 @@ provide(LAYOUT_MODALS_KEY, {
   serverApplicationBusy,
   onUpdateServerApplicationModal: onServerApplicationModalUpdate,
   onServerApplicationModalSubmitted: confirmServerApplicationSubmittedFromModal,
+  isEventDetailModalOpen,
+  eventDetailView,
+  onUpdateEventDetailModal: (next: boolean) => {
+    if (next) {
+      isEventDetailModalOpen.value = true;
+      return;
+    }
+    closeGuildEventDetailModal();
+  },
+  onEventDetailRsvp: (payload: { status: 'going' | 'declined' }) => {
+    const ev = eventDetailView.value;
+    if (!ev) return;
+    void submitGuildEventRsvp({
+      serverId: ev.serverId,
+      eventId: ev.eventId,
+      status: payload.status,
+      closeDetailOnDecline: payload.status === 'declined',
+    });
+  },
+  onEventDetailOpenLocation: () => {
+    const ev = eventDetailView.value;
+    if (!ev) return;
+    closeGuildEventDetailModal();
+    isDMPanelOpen.value = false;
+    navigateGuildEventOpenPayload({
+      serverId: ev.serverId,
+      channelId: ev.channelId,
+      customLocation: ev.customLocation,
+    });
+  },
 });
 
 provide(CALL_VIEW_FULLSCREEN_STREAM_ID_KEY, fullscreenStreamParticipantId);
@@ -3264,6 +3482,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('popstate', onEventDetailPopState);
+  }
   clearServerHealthPolling();
   disposeAppLayoutSideEffects();
 });
@@ -3583,10 +3804,7 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   dmMentionNotifications,
   dmNotificationReadStateByChannelId,
   mentionNotificationCategoriesByServer,
-  mentionNotificationServers,
   isPersistedEchoDmThread,
-  dmNotificationsReadPreset,
-  dmNotificationsSourceKey,
   dmCallWithUserId,
   dmCallRinging,
   dmCallRingRemoteVanishing,
@@ -3696,12 +3914,6 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   isDmInboxGroupFavorite,
   onDmToggleFavoriteInbox: toggleFavoriteDmInbox,
   onDmRequestUpgrade: openGuestUpgradeModal,
-  onDmUpdateNotificationsReadPreset: (preset) => {
-    dmNotificationsReadPreset.value = preset;
-  },
-  onDmUpdateNotificationsSourceKey: (key) => {
-    dmNotificationsSourceKey.value = key;
-  },
   onDmPanelResizeStart: startDmPanelResize,
   onDmPanelResizeReset: resetDmPanelWidth,
   onChannelUpdateActiveId: (channelId: string) => {
@@ -3742,27 +3954,14 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   onChannelMarkRead: (channelId: string) => {
     void handleChannelMarkRead(channelId);
   },
-  onGuildEventRsvp: async (payload) => {
-    try {
-      /* Cookie session: bearer token is unused by `echoFetch` (see `transport.ts`). */
-      await putGuildEventRsvp(
-        '',
-        payload.serverId,
-        payload.eventId,
-        payload.status,
-      );
-      await hydrateEchoFromApi();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      dispatchAppToastDetail({
-        message: msg.includes('EVENT_FULL')
-          ? 'This event is at capacity.'
-          : 'Could not update RSVP. Try again.',
-        durationMs: 4000,
-      });
-    }
-  },
+  onGuildEventRsvp: submitGuildEventRsvp,
+  onOpenGuildEventDetail: openGuildEventDetail,
   onOpenGuildEventChannel: (payload) => {
+    // Clicking an event card from the DM list navigates the server surface
+    // underneath; close the DM panel so the destination is actually visible
+    // (parity with handleDmPanelJoinGuildVoiceActivity). No-op when the panel
+    // is already closed, e.g. the in-server events carousel.
+    isDMPanelOpen.value = false;
     navigateGuildEventOpenPayload({
       serverId: payload.serverId,
       channelId: payload.channelId,
@@ -4063,7 +4262,7 @@ watch(
                   />
                   <div
                     v-else
-                    class="app-toast-incoming-call__avatar-fallback relative z-[2] flex h-full w-full items-center justify-center rounded-full bg-glass-2 text-base font-semibold text-white shadow-md ring-1 ring-border"
+                    class="app-toast-incoming-call__avatar-fallback relative z-[2] flex h-full w-full items-center justify-center rounded-full bg-glass-2 text-base font-semibold text-foreground shadow-md ring-1 ring-border"
                   >
                     {{
                       (appToast.title || appToast.message || '?')
@@ -4080,7 +4279,7 @@ watch(
                 <div class="min-h-0 min-w-0 flex-1">
                   <p
                     v-if="appToast.variant === 'incoming_call'"
-                    class="flex min-w-0 flex-wrap items-center gap-2 leading-snug text-lg font-semibold tracking-tight text-white"
+                    class="flex min-w-0 flex-wrap items-center gap-2 leading-snug text-lg font-semibold tracking-tight text-foreground"
                   >
                     <span
                       class="app-toast-incoming-call__waves shrink-0"
@@ -4106,7 +4305,7 @@ watch(
                     v-else-if="appToast.variant === 'incoming_chat_message'"
                   >
                     <p
-                      class="min-w-0 truncate text-lg font-semibold leading-snug tracking-tight text-white max-sm:overflow-visible max-sm:whitespace-normal max-sm:break-words"
+                      class="min-w-0 truncate text-lg font-semibold leading-snug tracking-tight text-foreground max-sm:overflow-visible max-sm:whitespace-normal max-sm:break-words"
                     >
                       {{ appToast.title }}
                     </p>
@@ -5217,10 +5416,6 @@ watch(
   background: color-mix(in srgb, white 42%, transparent);
   transform-origin: center bottom;
   animation: app-toast-incoming-wave 0.85s ease-in-out infinite;
-}
-
-[data-theme='light'] .app-toast-incoming-call .text-white {
-  color: var(--text);
 }
 
 [data-theme='light'] .app-toast-incoming-call .app-toast-incoming-call__wave {

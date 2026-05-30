@@ -25,9 +25,11 @@ export type EchoWorkspaceMyEventRsvp = {
   serverName: string;
   serverImageUrl: string;
   title: string;
+  description: string;
   imageUrl: string;
   startsAt: string;
   endsAt: string;
+  timezoneLabel: string | null;
   channelId: string | null;
   channelName: string | null;
   customLocation: string | null;
@@ -124,8 +126,8 @@ export async function loadEchoWorkspaceEventPayload(
     ),
     pool.query(
       `
-      SELECT e.id, e.server_id, e.title, e.image_url, e.starts_at, e.ends_at, e.channel_id,
-             e.custom_location, e.max_attendees,
+      SELECT e.id, e.server_id, e.title, e.description, e.image_url, e.starts_at, e.ends_at,
+             e.timezone_label, e.channel_id, e.custom_location, e.max_attendees,
              ch.name AS channel_name,
              s.name AS server_name, s.icon_url AS server_icon_url,
              (SELECT COUNT(*)::int FROM echo_server_event_rsvps r2
@@ -201,9 +203,14 @@ export async function loadEchoWorkspaceEventPayload(
       serverName: String(row.server_name ?? '').trim() || 'Server',
       serverImageUrl: String(row.server_icon_url ?? '').trim(),
       title: String(row.title ?? '').trim() || 'Event',
+      description: String(row.description ?? ''),
       imageUrl: String(row.image_url ?? '').trim(),
       startsAt: iso(row.starts_at),
       endsAt: iso(row.ends_at),
+      timezoneLabel:
+        row.timezone_label != null && String(row.timezone_label).trim()
+          ? String(row.timezone_label).trim()
+          : null,
       channelId:
         row.channel_id != null && String(row.channel_id).trim()
           ? String(row.channel_id).trim()

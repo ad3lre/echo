@@ -61,6 +61,9 @@ const JoinServerConfirmModal = defineAsyncComponent(
 const ServerApplicationModal = defineAsyncComponent(
   () => import('@/components/ServerApplicationModal.vue'),
 );
+const EventDetailModal = defineAsyncComponent(
+  () => import('@/features/server-events/components/EventDetailModal.vue'),
+);
 
 const props = defineProps<Partial<AppLayoutModalsProps>>();
 
@@ -409,5 +412,13 @@ onMounted(() => {
     :busy="m.serverApplicationBusy === true"
     @update:model-value="m.onUpdateServerApplicationModal"
     @submitted="m.onServerApplicationModalSubmitted"
+  />
+  <EventDetailModal
+    v-if="m.isEventDetailModalOpen"
+    :model-value="m.isEventDetailModalOpen"
+    :event="m.eventDetailView ?? null"
+    @update:model-value="m.onUpdateEventDetailModal"
+    @rsvp="m.onEventDetailRsvp"
+    @open-location="m.onEventDetailOpenLocation"
   />
 </template>

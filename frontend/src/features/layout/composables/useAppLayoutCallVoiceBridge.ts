@@ -15,7 +15,9 @@ import {
   type DmCallSocketSubmitters,
 } from './useAppLayoutDmCalls';
 import { useAppLayoutShellVoice } from './useAppLayoutShellVoice';
-import { prepareDmVoiceE2eeMediaKey } from '@/services/voice/voiceE2eePrepare';
+// `voiceE2eePrepare` pulls in the libsignal crypto stack (~780 KB raw); it is
+// dynamically imported at the call site below so that stack stays off the
+// first-paint AppLayout chunk and only loads when an encrypted DM call starts.
 
 export type UseAppLayoutCallVoiceBridgeDeps = {
   workspace: WorkspaceStateApi;
@@ -87,6 +89,9 @@ export function useAppLayoutCallVoiceBridge(
         ...(peer && peer !== uid ? [peer] : []),
         ...activeCall,
       ];
+      const { prepareDmVoiceE2eeMediaKey } = await import(
+        '@/services/voice/voiceE2eePrepare'
+      );
       return prepareDmVoiceE2eeMediaKey({
         channelId,
         token,

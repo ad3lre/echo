@@ -31,6 +31,7 @@ mod desktop_audio;
 use desktop_audio::{DesktopAudioDevice, DesktopAudioState};
 
 mod ios_auth;
+mod ios_native;
 
 /// Persisted preference mirrored from the SPA (close hides to tray vs exit).
 #[derive(Clone)]
@@ -252,6 +253,7 @@ fn bring_main_window_to_front(app: &tauri::AppHandle) {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(any(target_os = "android", target_os = "ios"), allow(dead_code))]
 struct TrayMenuLabelsPayload {
   show: String,
   open_messages: String,
@@ -836,11 +838,10 @@ pub fn run() {
     ));
   }
 
-  builder = builder.plugin(tauri_plugin_process::init());
-
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
   {
     builder = builder
+      .plugin(tauri_plugin_process::init())
       .plugin(tauri_plugin_updater::Builder::new().build())
       .plugin(tauri_plugin_window_state::Builder::default().build());
   }
@@ -878,6 +879,7 @@ pub fn run() {
       ios_auth::ios_auth_session_restore_failed,
       ios_auth::ios_auth_should_show_login,
       ios_auth::ios_auth_mark_verified,
+      ios_native::ios_native_haptic,
     ])
     .setup(|app| {
       setup_app_shell(app);

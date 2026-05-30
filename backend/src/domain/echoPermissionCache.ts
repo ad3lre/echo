@@ -12,6 +12,11 @@
  * for observability (metrics/tests). Cache correctness relies on prefix deletion, not generation.
  */
 
+import {
+  publishCacheInvalidation,
+  registerCacheInvalidationHandler,
+} from './cacheInvalidationBus';
+
 type CacheEntry = {
   value: Set<string>;
   expiresAt: number;
@@ -53,7 +58,7 @@ export function cacheKey(
     : `${serverId}\0${userId}\0`;
 }
 
-export function invalidateEchoPermissionCacheForServer(serverId: string): void {
+function localInvalidateForServer(serverId: string): void {
   bumpEchoPermissionCacheGeneration(serverId);
   const prefix = `${serverId}\0`;
   for (const k of [...cache.keys()]) {
@@ -61,10 +66,7 @@ export function invalidateEchoPermissionCacheForServer(serverId: string): void {
   }
 }
 
-export function invalidateEchoPermissionCacheForUser(
-  serverId: string,
-  userId: string,
-): void {
+function localInvalidateForUser(serverId: string, userId: string): void {
   bumpEchoPermissionCacheGeneration(serverId);
   const keyPrefix = `${serverId}\0${userId}\0`;
   for (const k of [...cache.keys()]) {
@@ -72,10 +74,7 @@ export function invalidateEchoPermissionCacheForUser(
   }
 }
 
-export function invalidateEchoPermissionCacheForChannel(
-  serverId: string,
-  channelId: string,
-): void {
+function localInvalidateForChannel(serverId: string, channelId: string): void {
   bumpEchoPermissionCacheGeneration(serverId);
   const prefix = `${serverId}\0`;
   for (const k of [...cache.keys()]) {
@@ -85,6 +84,40 @@ export function invalidateEchoPermissionCacheForChannel(
     if (parts[2] === channelId) cache.delete(k);
   }
 }
+
+export function invalidateEchoPermissionCacheForServer(serverId: string): void {
+  localInvalidateForServer(serverId);
+  publishCacheInvalidation({ kind: 'perm:server', serverId });
+}
+
+export function invalidateEchoPermissionCacheForUser(
+  serverId: string,
+  userId: string,
+): void {
+  localInvalidateForUser(serverId, userId);
+  publishCacheInvalidation({ kind: 'perm:user', serverId, userId });
+}
+
+export function invalidateEchoPermissionCacheForChannel(
+  serverId: string,
+  channelId: string,
+): void {
+  localInvalidateForChannel(serverId, channelId);
+  publishCacheInvalidation({ kind: 'perm:channel', serverId, channelId });
+}
+
+// Apply invalidations broadcast by other instances to this process's local cache only
+// (never re-publish — that would loop between nodes).
+registerCacheInvalidationHandler('perm:server', (m) => {
+  if (m.serverId) localInvalidateForServer(m.serverId);
+});
+registerCacheInvalidationHandler('perm:user', (m) => {
+  if (m.serverId && m.userId) localInvalidateForUser(m.serverId, m.userId);
+});
+registerCacheInvalidationHandler('perm:channel', (m) => {
+  if (m.serverId && m.channelId)
+    localInvalidateForChannel(m.serverId, m.channelId);
+});
 
 const PERMISSION_CACHE_COMPUTE_MAX_RETRIES = 4;
 

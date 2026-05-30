@@ -194,7 +194,7 @@ async function finishNewDeviceImport(): Promise<void> {
   >
     <div class="absolute inset-0 bg-overlay-dim" @click="close" />
     <div
-      class="relative w-[min(560px,92vw)] rounded-xl border border-border bg-neutral-950 p-4 text-white shadow-2xl"
+      class="relative w-[min(560px,92vw)] rounded-xl border border-border bg-[var(--echo-modal-bg)] p-4 text-foreground shadow-2xl"
     >
       <div class="flex items-center justify-between gap-3">
         <div class="text-sm font-semibold">Encryption devices</div>

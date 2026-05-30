@@ -68,7 +68,7 @@ final class EchoKeychain {
             let vc = EchoLoginViewController()
             loginVC = vc
 
-            if let existing = overlayWindow?.rootViewController {
+            if overlayWindow?.rootViewController != nil {
                 UIView.transition(with: overlayWindow!, duration: 0.3, options: .transitionCrossDissolve) {
                     self.overlayWindow?.rootViewController = vc
                 }
@@ -166,6 +166,7 @@ final class EchoLoginViewController: UIViewController {
     private let registerButton = EchoPrimaryButton(title: "Create Account")
     private let discordButton = EchoOAuthButton(provider: .discord)
     private let googleButton = EchoOAuthButton(provider: .google)
+    private let passkeyButton = EchoPrimaryButton(title: "Sign in with Face ID / Touch ID")
     private let guestButton = UIButton(type: .system)
     private let errorLabel = UILabel()
     private let forgotPasswordButton = UIButton(type: .system)
@@ -236,6 +237,12 @@ final class EchoLoginViewController: UIViewController {
         googleButton.translatesAutoresizingMaskIntoConstraints = false
         googleButton.addTarget(self, action: #selector(googleTapped), for: .touchUpInside)
         contentView.addSubview(googleButton)
+
+        // Passkey
+        passkeyButton.translatesAutoresizingMaskIntoConstraints = false
+        passkeyButton.setStyle(.secondary)
+        passkeyButton.addTarget(self, action: #selector(passkeyTapped), for: .touchUpInside)
+        contentView.addSubview(passkeyButton)
 
         // Divider
         dividerView.translatesAutoresizingMaskIntoConstraints = false
@@ -329,7 +336,12 @@ final class EchoLoginViewController: UIViewController {
             googleButton.widthAnchor.constraint(equalToConstant: fieldWidth),
             googleButton.heightAnchor.constraint(equalToConstant: 48),
 
-            dividerView.topAnchor.constraint(equalTo: googleButton.bottomAnchor, constant: 20),
+            passkeyButton.topAnchor.constraint(equalTo: googleButton.bottomAnchor, constant: 12),
+            passkeyButton.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            passkeyButton.widthAnchor.constraint(equalToConstant: fieldWidth),
+            passkeyButton.heightAnchor.constraint(equalToConstant: 48),
+
+            dividerView.topAnchor.constraint(equalTo: passkeyButton.bottomAnchor, constant: 20),
             dividerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: padding),
             dividerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -padding),
 
@@ -389,6 +401,7 @@ final class EchoLoginViewController: UIViewController {
         registerButton.isEnabled = !isLoading
         discordButton.isEnabled = !isLoading
         googleButton.isEnabled = !isLoading
+        passkeyButton.isEnabled = !isLoading
         guestButton.isEnabled = !isLoading
         emailField.textField.isEnabled = !isLoading
 
@@ -508,6 +521,29 @@ final class EchoLoginViewController: UIViewController {
                 switch result {
                 case .success:
                     break
+                case .failure(let error):
+                    self?.showError(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    @objc private func passkeyTapped() {
+        clearError()
+        isLoading = true
+        dismissKeyboard()
+        let raw = emailField.textField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        EchoNativeAuthBridge.shared.performPasskeyLogin(
+            username: raw.isEmpty ? nil : raw,
+            anchor: view.window ?? (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.windows.first ?? UIWindow()
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                switch result {
+                case .success(let userData):
+                    self?.onLoginComplete?(userData)
+                    EchoNativeAuthOverlay.dismissOverlay()
                 case .failure(let error):
                     self?.showError(error.localizedDescription)
                 }

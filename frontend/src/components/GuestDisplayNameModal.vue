@@ -62,7 +62,7 @@ async function submit() {
       ref="modalRef"
       role="dialog"
       aria-modal="true"
-      class="w-full max-w-md rounded-2xl border border-border bg-[var(--echo-modal-bg)] p-6 text-white shadow-xl"
+      class="w-full max-w-md rounded-2xl border border-border bg-[var(--echo-modal-bg)] p-6 text-foreground shadow-xl"
     >
       <h2 class="text-lg font-semibold">Choose your display name</h2>
       <p class="mt-1 text-sm text-fg-soft">

@@ -31,7 +31,7 @@ const props = defineProps<{
         />
       </div>
       <div class="min-w-0 flex-1">
-        <h2 class="truncate text-base font-semibold text-white">
+        <h2 class="truncate text-base font-semibold text-foreground">
           {{ props.title }}
         </h2>
         <p class="mt-0.5 text-xs text-fg-soft">

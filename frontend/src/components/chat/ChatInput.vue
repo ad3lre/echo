@@ -2120,13 +2120,22 @@ onMounted(() => {
   gap: 2px;
   padding: 4px 6px;
   border-radius: 10px;
-  background-color: var(--vue-auto-099);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  background-color: var(
+    --echo-menu-surface-bg-fallback,
+    var(--vue-auto-099)
+  );
   box-shadow:
-    0 4px 24px var(--vue-auto-011),
-    0 0 0 1px var(--vue-auto-002);
-  border: 1px solid var(--vue-auto-001);
+    var(--echo-menu-surface-shadow, 0 4px 24px var(--vue-auto-011)),
+    0 0 0 1px var(--echo-menu-surface-border, var(--vue-auto-002));
+  border: 1px solid var(--echo-menu-surface-border, var(--vue-auto-001));
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .selection-menu-inner {
+    background-color: var(--echo-menu-surface-bg, var(--vue-auto-099));
+    backdrop-filter: var(--chat-glass-header-backdrop);
+    -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
+  }
 }
 
 .selection-menu-btn {
@@ -2137,7 +2146,7 @@ onMounted(() => {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  color: var(--vue-auto-020);
+  color: var(--menu-item-icon);
   background: transparent;
   transition:
     background 0.15s,
@@ -2145,14 +2154,14 @@ onMounted(() => {
 }
 
 .selection-menu-btn:hover {
-  background: var(--vue-auto-003);
-  color: var(--vue-auto-006);
+  background: var(--menu-item-bg-hover);
+  color: var(--menu-item-icon-hover);
 }
 
 .selection-menu-divider {
   width: 1px;
   height: 20px;
-  background: var(--vue-auto-004);
+  background: color-mix(in srgb, var(--menu-item-icon) 34%, transparent);
   margin: 0 2px;
 }
 

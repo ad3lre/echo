@@ -143,7 +143,7 @@ export async function getEchoInvitePreview(
     `
     SELECT s.id, s.name, s.icon_url, s.banner_url, s.description,
            s.applications_enabled, s.application_form,
-           (SELECT COUNT(*)::int FROM echo_server_members m WHERE m.server_id = s.id) AS member_count
+           s.member_count AS member_count
     FROM echo_servers s
     WHERE s.id = $1
     LIMIT 1

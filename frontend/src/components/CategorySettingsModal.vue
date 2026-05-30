@@ -565,7 +565,7 @@ async function confirmDeleteCategory() {
               </button>
               <button
                 type="button"
-                class="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-glass-active disabled:cursor-not-allowed disabled:opacity-40"
+                class="rounded-lg px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-glass-active disabled:cursor-not-allowed disabled:opacity-40"
                 :disabled="!canSave"
                 @click="save"
               >

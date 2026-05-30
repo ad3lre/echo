@@ -367,6 +367,26 @@ export {
 } from './voiceE2ee';
 
 export {
+  mlsGroupIdHex,
+  authorizeVoiceMlsAccess,
+  publishMlsKeyPackages,
+  claimMlsKeyPackage,
+  getMlsGroupInfo,
+  initMlsGroupIfAbsent,
+  appendMlsCommit,
+  appendMlsProposal,
+  fetchMlsMessagesSince,
+  type MlsMsgType,
+  type MlsAccessResult,
+  type MlsGroupInfo,
+  type MlsLogMessage,
+  type PublishKeyPackagesResult,
+  type InitMlsGroupResult,
+  type AppendCommitResult,
+  type AppendProposalResult,
+} from './mlsDelivery';
+
+export {
   blockEchoUser,
   isEchoPairBlocked,
   listEchoBlockedUserIds,

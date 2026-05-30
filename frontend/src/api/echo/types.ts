@@ -360,6 +360,8 @@ export type PatchEchoServerPreferencesBody = {
   raidJoinWindowSeconds?: number;
   /** When false, guest accounts cannot use Explore or invite join for this server. */
   allowGlobalGuests?: boolean;
+  /** When true, new joins require an account with a verified email address. */
+  verificationRequireEmail?: boolean;
   applicationsEnabled?: boolean;
   applicationForm?: EchoApplicationFormDto;
 };

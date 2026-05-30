@@ -485,7 +485,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
           class="m-2 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
           :class="
             props.theme === 'forum'
-              ? 'text-white placeholder:text-fg-subtle'
+              ? 'text-foreground placeholder:text-fg-subtle'
               : 'text-foreground placeholder:text-muted'
           "
         />
@@ -600,7 +600,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
           class="m-2 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
           :class="
             props.theme === 'forum'
-              ? 'text-white placeholder:text-fg-subtle'
+              ? 'text-foreground placeholder:text-fg-subtle'
               : 'text-foreground placeholder:text-muted'
           "
         />

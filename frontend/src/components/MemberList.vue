@@ -202,6 +202,21 @@ const isSelf = computed(() => {
 });
 
 const usersList = computed(() => unref(props.users));
+const hasMembers = computed(() => usersList.value.length > 0);
+/**
+ * Discord/YouTube-style: skeletons appear instantly on the *first* load (no data yet)
+ * and are replaced in place once members arrive. We never blank an already-populated
+ * list — subsequent role-hierarchy refreshes keep the existing rows visible (no gap,
+ * no "Loading…" flash, no full reload).
+ */
+const showMemberSkeleton = computed(
+  () => !!props.loadingRoleHierarchy && !hasMembers.value,
+);
+/** Static placeholder layout — fixed keys/widths so the skeleton never reshuffles. */
+const skeletonSections = [
+  { key: 'sk-1', headerWidth: '40%', rowWidths: ['62%', '48%', '70%', '55%', '44%'] },
+  { key: 'sk-2', headerWidth: '30%', rowWidths: ['58%', '66%', '50%', '72%'] },
+];
 
 const roleManagementUiVisible = computed(() => {
   const rm = props.roleManagement;
@@ -512,14 +527,41 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
         class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-4 pt-14 custom-scrollbar"
         v-scrollbar-on-scroll
       >
+        <template v-if="showMemberSkeleton">
+          <div
+            v-for="sk in skeletonSections"
+            :key="sk.key"
+            class="mb-4"
+            aria-hidden="true"
+          >
+            <div
+              class="member-skeleton member-skeleton-pulse mb-2 h-3 rounded"
+              :style="{ width: sk.headerWidth }"
+            />
+            <div class="flex flex-col gap-1">
+              <div
+                v-for="(w, i) in sk.rowWidths"
+                :key="i"
+                class="flex items-center gap-3 p-2"
+              >
+                <div
+                  class="member-skeleton member-skeleton-pulse h-8 w-8 shrink-0 rounded-full"
+                />
+                <div class="min-w-0 flex-1">
+                  <div
+                    class="member-skeleton member-skeleton-pulse h-3 rounded"
+                    :style="{ width: w }"
+                  />
+                  <div
+                    class="member-skeleton member-skeleton-pulse mt-1.5 h-2 w-1/3 rounded"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
         <div
-          v-if="loadingRoleHierarchy"
-          class="px-1 py-2 text-xs font-medium uppercase tracking-wide text-muted"
-        >
-          Loading role hierarchy...
-        </div>
-        <div
-          v-for="section in loadingRoleHierarchy ? [] : roleSections"
+          v-for="section in roleSections"
           :key="section.role.id"
           class="mb-4"
         >
@@ -860,5 +902,31 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
 /* Discord active users get a subtle blue tint on their name */
 .discord-active-user {
   text-shadow: 0 0 8px rgba(88, 101, 242, 0.4);
+}
+
+/* First-load placeholder blocks (pfp circles + name/subtitle bars). */
+.member-skeleton {
+  background: color-mix(in srgb, var(--text) 11%, transparent);
+}
+
+.member-skeleton-pulse {
+  animation: member-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes member-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .member-skeleton-pulse {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 </style>

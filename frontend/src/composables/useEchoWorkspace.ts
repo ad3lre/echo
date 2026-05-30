@@ -199,6 +199,32 @@ export function createWorkspaceState(): WorkspaceStateApi {
     try {
       workspaceHydrateSkipLatch.armSkipNext();
 
+      /**
+       * Warm paint: if we already hold a session token from local storage
+       * (returning user), apply the cached workspace snapshot *before* the
+       * `/auth/me` + workspace round-trips so the shell renders servers /
+       * channels / members instantly instead of holding a spinner on the
+       * network. `loading` is cleared so dependent UI shows content; the fetch
+       * below still reconciles authoritatively, and an expired session
+       * self-corrects via the unauthenticated fallback / reactive auth gate.
+       */
+      const preRestoreToken = auth.accessToken?.trim() || '';
+      const warmCacheSub = preRestoreToken ? readJwtSub(preRestoreToken) : null;
+      let warmCacheApplied = false;
+      if (preRestoreToken) {
+        const warmCache = readWorkspaceSessionCache(warmCacheSub);
+        if (warmCache) {
+          dbgMemberList('startInitialLoad warm cache paint (pre-/auth/me)', {
+            cacheKeySub: warmCacheSub,
+          });
+          applyWorkspaceStateToRefs(warmCache as EchoWorkspaceState);
+          fromApi.value = true;
+          apiError.value = null;
+          warmCacheApplied = true;
+          loading.value = false;
+        }
+      }
+
       const restoredUser = await auth.restoreSessionFromApi();
       let sessionUser: AuthUserPublic | null = restoredUser;
       if (!sessionUser || !auth.isAuthenticated) {
@@ -246,7 +272,10 @@ export function createWorkspaceState(): WorkspaceStateApi {
       const subGuess: string | null = token
         ? readJwtSub(token)
         : (sessionUser.id ?? null);
-      const cachedRaw = readWorkspaceSessionCache(subGuess);
+      const alreadyWarmApplied = warmCacheApplied && warmCacheSub === subGuess;
+      const cachedRaw = alreadyWarmApplied
+        ? null
+        : readWorkspaceSessionCache(subGuess);
       if (cachedRaw) {
         dbgMemberList('startInitialLoad sessionStorage cache hit', {
           cacheKeySub: subGuess,

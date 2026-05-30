@@ -27,11 +27,8 @@ app.post('/ingest/livekit-webhook', async (req, reply) => {
   const event = String(envelope.event ?? 'unknown');
   voiceSidecarIngestTotal.inc({ source: 'livekit_webhook', event });
 
-  const snapshot = pipeline.ingestLiveKitWebhook(envelope);
-  return reply.code(204).send({
-    accepted: true,
-    roomName: snapshot?.roomName,
-  });
+  pipeline.ingestLiveKitWebhook(envelope);
+  return reply.code(204).send();
 });
 
 async function main() {

@@ -1076,8 +1076,11 @@ name = "echo-desktop"
 version = "1.0.0"
 dependencies = [
  "cpal",
+ "objc2",
+ "objc2-ui-kit",
  "rodio",
  "rustls",
+ "security-framework",
  "serde",
  "serde_json",
  "tauri",

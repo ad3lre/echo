@@ -181,6 +181,20 @@ import {
   setDesktopAudioOutputVolume,
 } from '@/platform/desktopBridge';
 import { UIErrorBus } from '@/utils/uiErrorBus';
+// Type-only import: the concrete class (and its ts-mls crypto dependency) is
+// dynamically imported at call time so it stays off the first-paint chunk.
+import type { EchoMlsKeyProvider } from '@/services/voice/mls/echoMlsKeyProvider';
+
+/**
+ * Voice E2EE v2 connect input: the initial MLS epoch media key plus the keyring
+ * index it must be installed at (`epoch % keyringSize`). Subsequent epochs are
+ * rotated in-band via {@link LiveKitVoiceRoomApi.rotateEpochKey} without a
+ * reconnect. A bare `ArrayBuffer` is the legacy v1 static-key form (index 0).
+ */
+export type EchoVoiceE2eeConnectInput = {
+  initialKey: ArrayBuffer;
+  keyIndex: number;
+};
 
 const LK_KIND_AUDIO = 'audio';
 const LK_KIND_VIDEO = 'video';
@@ -788,9 +802,14 @@ export type LiveKitVoiceRoomApi = {
     url: string,
     token: string,
     bitrateBps?: number | null,
-    e2eeMediaKey?: ArrayBuffer | null,
+    e2eeMediaKey?: ArrayBuffer | EchoVoiceE2eeConnectInput | null,
   ) => Promise<void>;
   disconnect: () => void;
+  /**
+   * Voice E2EE v2: install a new MLS-derived epoch key at its keyring index
+   * without reconnecting. No-op if the room is not E2EE-enabled.
+   */
+  rotateEpochKey: (raw: ArrayBuffer, keyIndex: number) => Promise<void>;
   applyVcAudioState: (opts: {
     muted: boolean;
     deafened: boolean;
@@ -1262,6 +1281,8 @@ export function useLiveKitVoiceRoom(
   /** `Room` instance created during connect but not yet assigned to `lkRoom` (await in progress). */
   let connectAbortTarget: LKRoom | null = null;
   let liveKitE2eeWorker: Worker | null = null;
+  /** v2 MLS shared-key provider, retained for in-band epoch rotation. */
+  let liveKitMlsKeyProvider: EchoMlsKeyProvider | null = null;
 
   let statsInterval: ReturnType<typeof setInterval> | null = null;
   let prevBytesSent = 0;
@@ -1837,9 +1858,23 @@ export function useLiveKitVoiceRoom(
   }
 
   function releaseLiveKitE2eeWorker(): void {
+    liveKitMlsKeyProvider = null;
     if (!liveKitE2eeWorker) return;
     liveKitE2eeWorker.terminate();
     liveKitE2eeWorker = null;
+  }
+
+  async function rotateEpochKey(raw: ArrayBuffer, keyIndex: number): Promise<void> {
+    const provider = liveKitMlsKeyProvider;
+    if (!provider) return;
+    try {
+      await provider.setEpochKey(raw, keyIndex);
+      voiceClientDiag('info', 'voice.client:lk_e2ee_epoch_rotated', { keyIndex });
+    } catch (e) {
+      voiceClientDiag('error', 'voice.client:lk_e2ee_rotate_failed', {
+        err: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   function disconnect() {
@@ -2809,7 +2844,7 @@ export function useLiveKitVoiceRoom(
     url: string,
     token: string,
     bitrateBps?: number | null,
-    e2eeMediaKey?: ArrayBuffer | null,
+    e2eeMediaKey?: ArrayBuffer | EchoVoiceE2eeConnectInput | null,
   ) {
     const urlForLog = (() => {
       try {
@@ -2871,18 +2906,42 @@ export function useLiveKitVoiceRoom(
         simulcast: true,
       }) as TrackPublishDefaults;
       let encryption:
-        | { keyProvider: ExternalE2EEKeyProvider; worker: Worker }
+        | { keyProvider: ExternalE2EEKeyProvider | EchoMlsKeyProvider; worker: Worker }
         | undefined;
-      if (e2eeMediaKey && e2eeMediaKey.byteLength > 0) {
+      // v2 (MLS): rich input with an explicit keyring index for in-band rotation.
+      const mlsInput =
+        e2eeMediaKey && !(e2eeMediaKey instanceof ArrayBuffer)
+          ? (e2eeMediaKey as EchoVoiceE2eeConnectInput)
+          : null;
+      const legacyKey =
+        e2eeMediaKey instanceof ArrayBuffer ? e2eeMediaKey : null;
+      if (mlsInput && mlsInput.initialKey.byteLength > 0) {
+        const { EchoMlsKeyProvider } = await import(
+          '@/services/voice/mls/echoMlsKeyProvider'
+        );
+        const keyProvider = new EchoMlsKeyProvider();
+        await keyProvider.setEpochKey(mlsInput.initialKey, mlsInput.keyIndex);
+        const worker = new Worker(
+          new URL('livekit-client/e2ee-worker', import.meta.url),
+          { type: 'module' },
+        );
+        liveKitE2eeWorker = worker;
+        liveKitMlsKeyProvider = keyProvider;
+        encryption = { keyProvider, worker };
+        voiceClientDiag('info', 'voice.client:lk_e2ee_enabled', {
+          version: 'mls',
+          keyIndex: mlsInput.keyIndex,
+        });
+      } else if (legacyKey && legacyKey.byteLength > 0) {
         const keyProvider = new ExternalE2EEKeyProvider();
-        await keyProvider.setKey(e2eeMediaKey);
+        await keyProvider.setKey(legacyKey);
         const worker = new Worker(
           new URL('livekit-client/e2ee-worker', import.meta.url),
           { type: 'module' },
         );
         liveKitE2eeWorker = worker;
         encryption = { keyProvider, worker };
-        voiceClientDiag('info', 'voice.client:lk_e2ee_enabled', {});
+        voiceClientDiag('info', 'voice.client:lk_e2ee_enabled', { version: 'v1' });
       }
       const room = new Room({
         /**
@@ -3695,6 +3754,7 @@ export function useLiveKitVoiceRoom(
     networkStats,
     connect,
     disconnect,
+    rotateEpochKey,
     applyVcAudioState,
     isCameraEnabled,
     isScreenShareEnabled,

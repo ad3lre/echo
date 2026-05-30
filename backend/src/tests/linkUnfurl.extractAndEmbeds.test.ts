@@ -42,12 +42,24 @@ async function main() {
   );
 
   await run(
-    'Canva stub embed is shown even when EMBED_LINKS is denied (no HTTP)',
+    'Canva stub embed is suppressed when EMBED_LINKS is denied',
     async () => {
       const content =
         '## [latest](https://www.canva.com/design/DAGEXlD0X3I/edit?utm_content=x) <<';
       const embeds = await buildLinkEmbedsFromPlainText(content, {
         allow: false,
+      });
+      assert.equal(embeds.length, 0);
+    },
+  );
+
+  await run(
+    'Canva stub embed is shown when EMBED_LINKS is allowed (no HTTP)',
+    async () => {
+      const content =
+        '## [latest](https://www.canva.com/design/DAGEXlD0X3I/edit?utm_content=x) <<';
+      const embeds = await buildLinkEmbedsFromPlainText(content, {
+        allow: true,
       });
       assert.equal(embeds.length, 1);
       assert.equal(embeds[0]?.provider, 'Canva');

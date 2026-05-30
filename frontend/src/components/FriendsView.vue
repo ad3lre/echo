@@ -570,7 +570,7 @@ function sendFriendRequestTo(userId: string) {
                         />
                       </div>
                       <div class="min-w-0 flex-1">
-                        <span class="text-sm font-medium text-white">{{
+                        <span class="text-sm font-medium text-foreground">{{
                           user.name
                         }}</span>
                         <div

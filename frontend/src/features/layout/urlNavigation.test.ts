@@ -218,13 +218,19 @@ describe('modal queries', () => {
       settings: 'Discord',
       guildSettingsServerId: null,
       guildSection: null,
+      guildEventServerId: null,
+      guildEventId: null,
     });
     expect(
-      parseModalQueries('?guild_settings=s1&guild_section=Overview'),
+      parseModalQueries(
+        '?guild_settings=s1&guild_section=Overview&guild_event_server=s1&guild_event=e1',
+      ),
     ).toEqual({
       settings: null,
       guildSettingsServerId: 's1',
       guildSection: 'Overview',
+      guildEventServerId: 's1',
+      guildEventId: 'e1',
     });
   });
 
@@ -244,6 +250,17 @@ describe('modal queries', () => {
     const sp = new URLSearchParams(s.replace(/^\?/, ''));
     expect(sp.has('settings')).toBe(false);
     expect(sp.get('x')).toBe('1');
+  });
+
+  it('mergeModalSearchParams supports guild event deep-link keys', () => {
+    const s = mergeModalSearchParams('?x=1', {
+      guild_event_server: 'srv1',
+      guild_event: 'event1',
+    });
+    const sp = new URLSearchParams(s.replace(/^\?/, ''));
+    expect(sp.get('x')).toBe('1');
+    expect(sp.get('guild_event_server')).toBe('srv1');
+    expect(sp.get('guild_event')).toBe('event1');
   });
 });
 

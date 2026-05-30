@@ -389,7 +389,7 @@ async function handleDmCallLeave() {
       :mention-servers="mentionNotificationServers"
       :read-preset="dmNotificationsReadPreset"
       :source-key="dmNotificationsSourceKey"
-      :show-filters="false"
+      :show-filters="true"
       :is-persisted-echo-dm-thread="isPersistedEchoDmThread"
       @open-row="onOpenMentionNotification"
       @mark-row-read="onMarkMentionNotificationRead"

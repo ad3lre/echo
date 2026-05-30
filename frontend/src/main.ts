@@ -73,8 +73,10 @@ import {
   notifyAppAuthenticated,
   startSessionHeartbeat,
 } from '@/services/auth/iosBootOrchestrator';
+import { markIosNativeShell } from '@/platform/iosNativeFeedback';
 
 ensureEchoBrandFavicon();
+markIosNativeShell();
 registerEchoServiceWorker();
 applyGpuTierToDocument(detectGpuTier());
 installDevConsoleLogRecorder();
@@ -247,15 +249,11 @@ async function bootstrap() {
   });
 
   const authSessionStore = useAuthSessionStore();
+  /* Synchronous: rehydrates `backendUser` from the local identity cache (if any)
+   * so Vue can mount straight into the app shell instead of flashing the auth
+   * gate while `/auth/me` is in flight. The session is validated below, after
+   * `app.mount()`, so first paint is never blocked on a network round-trip. */
   authSessionStore.hydrateFromStorage();
-
-  if (hasStoredSessionToRestore()) {
-    const restored = await authSessionStore.restoreSessionFromApi();
-    if (restored) {
-      await notifyAppAuthenticated();
-      startSessionHeartbeat();
-    }
-  }
 
   await applyEchoLocaleFromPreferences(
     authSessionStore.backendUser?.locale ?? null,
@@ -534,7 +532,36 @@ async function bootstrap() {
   const workspace = getEchoPlatform().workspace as WorkspaceStateApi;
   void workspace.startInitialLoad();
 
-  if (iosBootDecision && authSessionStore.isAuthenticated) {
+  /**
+   * Background session validation.
+   *
+   * On cold start `hydrateFromStorage()` may have populated `backendUser` from the
+   * local identity cache so the app shell could paint instantly. We now reconcile
+   * with the server in a fire-and-forget task:
+   *
+   *   - Success → `restoreSessionFromApi` refreshes the user / planLimits and
+   *     clears `isSessionUnverified`. UI updates reactively if any field changed.
+   *   - 401 / 403 → `restoreSessionFromApi`'s benign-401 branch calls
+   *     `clearLocalTokens`, which wipes the identity cache and `backendUser`, so
+   *     the auth gate appears via the same reactive path users see after logout.
+   *
+   * Two cases trigger this:
+   *   1. Native iOS boot orchestrator detected a Keychain-stored session
+   *      (`hasStoredSessionToRestore()`).
+   *   2. We hydrated from cache and now hold an unverified identity that needs
+   *      a server check.
+   */
+  const needsServerValidation =
+    hasStoredSessionToRestore() || authSessionStore.isSessionUnverified;
+  if (needsServerValidation) {
+    void (async () => {
+      const restored = await authSessionStore.restoreSessionFromApi();
+      if (restored) {
+        await notifyAppAuthenticated();
+        startSessionHeartbeat();
+      }
+    })();
+  } else if (iosBootDecision && authSessionStore.isAuthenticated) {
     void notifyAppAuthenticated();
     startSessionHeartbeat();
   }

@@ -54,7 +54,9 @@ import type {
 } from '@/features/voice/vcActivityTypes';
 import { vcActivityPresenceKindsFromUi } from '@/features/voice/vcActivityTypes';
 import { primaryVcActivityPresenceKind } from '@/features/voice/vcActivityJoin';
-import { prepareGuildVoiceE2eeMediaKey } from '@/services/voice/voiceE2eePrepare';
+import { VOICE_E2EE_V2_ENABLED } from '@/config';
+// `voiceMlsSession` pulls in the ts-mls crypto stack; dynamically imported at the
+// voice-reconcile handler below so it stays off the first-paint AppLayout chunk.
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
 import type {
   EchoCodenamesActivityV1,
@@ -1002,6 +1004,7 @@ export function useServerVoiceSession(deps: {
     onSkrigglesCanvasSnapshot: skrigglesSession.onSkrigglesCanvasSnapshot,
     onRemoteParticipantDisconnected: (identity) => {
       dropPresenceForRemote(identity);
+      maybeReconcileVoiceMlsAfterLeave(identity);
       const id = identity.trim();
       const king = vcActivitySyncKingUserId.value?.trim();
       if (king && id === king) {
@@ -1016,6 +1019,41 @@ export function useServerVoiceSession(deps: {
   });
 
   skrigglesLkApi = lkRoom;
+
+  /**
+   * Voice E2EE v2: when a participant leaves the SFU, update the MLS authorized
+   * roster and — if this client is the deterministic committer — remove the
+   * departed member, rotating the media key in-band for forward secrecy.
+   */
+  function maybeReconcileVoiceMlsAfterLeave(departedIdentity: string): void {
+    if (!VOICE_E2EE_V2_ENABLED) return;
+    void (async () => {
+      const {
+        activeVoiceMlsChannelKey,
+        reconcileVoiceMlsSession,
+        setVoiceMlsAuthorizedUserIds,
+      } = await import('@/services/voice/mls/voiceMlsSession');
+      const key = activeVoiceMlsChannelKey();
+      if (!key) return;
+      const departed = departedIdentity.trim();
+      const ids = new Set<string>();
+      const self = currentUser.value?.id?.trim();
+      if (self) ids.add(self);
+      for (const pid of lkRoom.remoteParticipants.value.keys()) {
+        const t = pid.trim();
+        if (t && t !== departed) ids.add(t);
+      }
+      setVoiceMlsAuthorizedUserIds(key, [...ids]);
+      try {
+        const reconciled = await reconcileVoiceMlsSession(key);
+        if (reconciled) {
+          await lkRoom.rotateEpochKey(reconciled.raw, reconciled.keyIndex);
+        }
+      } catch {
+        /* another member may commit instead; next event recovers */
+      }
+    })();
+  }
 
   publishCodenamesActivityLocal = (next: EchoCodenamesActivityV1): void => {
     const tick: CodenamesTick = {
@@ -1790,6 +1828,11 @@ export function useServerVoiceSession(deps: {
       uid,
       ...roster.map((id) => id.trim()).filter((id) => id && id !== uid),
     ];
+    // Dynamic import keeps the libsignal + MLS crypto stack off the first-paint
+    // AppLayout chunk; it loads only when a guild voice call is actually started.
+    const { prepareGuildVoiceE2eeMediaKey } = await import(
+      '@/services/voice/voiceE2eePrepare'
+    );
     return prepareGuildVoiceE2eeMediaKey({
       serverId,
       channelId,

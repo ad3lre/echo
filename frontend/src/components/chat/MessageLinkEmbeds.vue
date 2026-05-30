@@ -228,7 +228,7 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
 
           <div
             v-if="playableVideo(embed)"
-            class="group relative -mx-px -mb-px mt-0 aspect-video w-full overflow-hidden border-t border-white/[0.06] bg-black"
+            class="group relative -mx-px -mb-px mt-0 aspect-video w-full overflow-hidden border-t border-border bg-black"
           >
             <button
               type="button"

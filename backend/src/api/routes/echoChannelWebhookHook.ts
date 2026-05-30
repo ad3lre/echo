@@ -80,7 +80,10 @@ async function parseMultipartWebhookExecute(req: FastifyRequest): Promise<
               message: 'payload_json must be a JSON object.',
             };
           }
-          Object.assign(body, j as Record<string, unknown>);
+          for (const [k, v] of Object.entries(j as Record<string, unknown>)) {
+            if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+            body[k] = v;
+          }
         }
       } else if (part.type === 'file') {
         if (files.length >= MULTIPART_MAX_FILES) {

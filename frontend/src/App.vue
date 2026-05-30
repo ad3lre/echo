@@ -57,10 +57,6 @@ const NumberedIconRenameDevModal =
       )
     : null;
 
-const ThemeLab = import.meta.env.DEV
-  ? defineAsyncComponent(() => import('@/features/dev/ThemeLab.vue'))
-  : null;
-
 const echoPlatform = getEchoPlatform();
 provide(PLATFORM_KEY, echoPlatform);
 
@@ -155,5 +151,4 @@ function onAuthShellDone() {
     :is="NumberedIconRenameDevModal"
     v-if="NumberedIconRenameDevModal"
   />
-  <component :is="ThemeLab" v-if="ThemeLab" />
 </template>

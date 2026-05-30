@@ -213,6 +213,14 @@ export default async function echoServersRoutes(
       if (r.reason === 'guest_join_forbidden') {
         return guestServerExploreForbidden(reply);
       }
+      if (r.reason === 'email_verification_required') {
+        return sendError(
+          reply,
+          403,
+          'EMAIL_VERIFICATION_REQUIRED',
+          'Verify your email before joining this server.',
+        );
+      }
       if (r.reason === 'not_listed') {
         return sendError(
           reply,

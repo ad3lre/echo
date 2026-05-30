@@ -179,6 +179,7 @@ export default async function echoServerScopedRoutes(
       raidJoinThresholdCount?: number;
       raidJoinWindowSeconds?: number;
       allowGlobalGuests?: boolean;
+      verificationRequireEmail?: boolean;
       applicationsEnabled?: boolean;
       applicationForm?: unknown;
     };
@@ -259,6 +260,10 @@ export default async function echoServerScopedRoutes(
           typeof req.body?.allowGlobalGuests === 'boolean'
             ? req.body.allowGlobalGuests
             : undefined,
+        verificationRequireEmail:
+          typeof req.body?.verificationRequireEmail === 'boolean'
+            ? req.body.verificationRequireEmail
+            : undefined,
         applicationsEnabled:
           typeof req.body?.applicationsEnabled === 'boolean'
             ? req.body.applicationsEnabled
@@ -316,6 +321,7 @@ export default async function echoServerScopedRoutes(
           raidJoinThresholdCount: body.raidJoinThresholdCount,
           raidJoinWindowSeconds: body.raidJoinWindowSeconds,
           allowGlobalGuests: body.allowGlobalGuests,
+          verificationRequireEmail: body.verificationRequireEmail,
           applicationsEnabled: body.applicationsEnabled,
           applicationFormUpdated: body.applicationForm !== undefined,
         },

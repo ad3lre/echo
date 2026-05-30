@@ -6,6 +6,9 @@ import {
   e2eeDecryptIncomingDmBytes,
   e2eeEncryptDmBytes,
 } from '@/services/e2ee/e2eeMessageCrypto';
+import { VOICE_E2EE_V2_ENABLED } from '@/config';
+import { startVoiceMlsSession } from '@/services/voice/mls/voiceMlsSession';
+import type { MlsScope } from '@/services/voice/mls/mlsDeliveryClient';
 
 export type EchoVoiceE2eeEnvelopeWire = {
   recipientUserId: string;
@@ -25,7 +28,32 @@ export type EchoVoiceE2eeEnvelopesResponse = {
 export type VoiceE2eePrepareResult = {
   mediaKey: ArrayBuffer | null;
   senderDeviceId: string;
+  /**
+   * v2 (MLS) only: keyring index the `mediaKey` must be installed at
+   * (`epoch % keyringSize`). Absent for legacy v1 (static key at index 0).
+   */
+  keyIndex?: number;
 };
+
+/** v2: join the channel's MLS group and return the initial epoch key + index. */
+async function prepareVoiceMls(opts: {
+  scope: MlsScope;
+  viewerUserId: string;
+  token: string;
+  authorizedUserIds: string[];
+}): Promise<VoiceE2eePrepareResult> {
+  const { epochKey, senderDeviceId } = await startVoiceMlsSession({
+    scope: opts.scope,
+    viewerUserId: opts.viewerUserId,
+    token: opts.token,
+    authorizedUserIds: opts.authorizedUserIds,
+  });
+  return {
+    mediaKey: epochKey.raw,
+    senderDeviceId,
+    keyIndex: epochKey.keyIndex,
+  };
+}
 
 /** Thrown when an active epoch exists but this client must not rotate it. */
 export class VoiceE2eeEnvelopeMissingError extends Error {
@@ -315,6 +343,14 @@ export async function prepareDmVoiceE2eeMediaKey(opts: {
   memberUserIds: string[];
 }): Promise<VoiceE2eePrepareResult> {
   const memberUserIds = await resolveDmVoiceMemberUserIds(opts);
+  if (VOICE_E2EE_V2_ENABLED) {
+    return prepareVoiceMls({
+      scope: { kind: 'dm', channelId: opts.channelId },
+      viewerUserId: opts.viewerUserId,
+      token: opts.token,
+      authorizedUserIds: memberUserIds,
+    });
+  }
   const dev = await getOrCreateLocalE2eeDevice(opts.viewerUserId, opts.token);
   const senderDeviceId = dev.deviceId;
 
@@ -403,6 +439,15 @@ export async function prepareGuildVoiceE2eeMediaKey(opts: {
     }
   } catch {
     /* fall back to workspace roster passed in */
+  }
+
+  if (VOICE_E2EE_V2_ENABLED) {
+    return prepareVoiceMls({
+      scope: { kind: 'guild', serverId: opts.serverId, channelId: opts.channelId },
+      viewerUserId: opts.viewerUserId,
+      token: opts.token,
+      authorizedUserIds: memberUserIds,
+    });
   }
 
   const dev = await getOrCreateLocalE2eeDevice(opts.viewerUserId, opts.token);

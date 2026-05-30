@@ -35,12 +35,7 @@ import type {
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { ChannelCategory as GuildVoiceStripCategory } from '@/features/channel-panel/composables/useChannelPanelVoiceState';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
-import {
-  buildMentionNotificationSourceChips,
-  filterDmMentionNotificationRows,
-  type MentionNotificationSourceChip,
-  type NotificationReadPreset,
-} from '@/features/dm/filterDmMentionNotificationRows';
+import { filterDmMentionNotificationRows } from '@/features/dm/filterDmMentionNotificationRows';
 import { useCompactShell } from '@/composables/useCompactShell';
 import { echoUserMatchesSearchQuery } from '@/utils/echoUserSearch';
 
@@ -158,14 +153,7 @@ const props = defineProps<{
   mentionNotificationCategoriesByServer?: Readonly<
     Record<string, ChannelCategory[]>
   >;
-  mentionNotificationServers?: ReadonlyArray<{
-    id: string;
-    name: string;
-    imageUrl?: string;
-  }>;
   isPersistedEchoDmThread?: (channelId: string) => boolean;
-  dmNotificationsReadPreset?: NotificationReadPreset;
-  dmNotificationsSourceKey?: string;
   /** Called when a participant avatar in the guild VC activity strip is right-clicked. */
   onGuildVcStripParticipantContextMenu?: (payload: {
     userId: string;
@@ -244,8 +232,6 @@ const emit = defineEmits<{
       eventId: string;
     },
   ];
-  'update:dm-notifications-read-preset': [preset: NotificationReadPreset];
-  'update:dm-notifications-source-key': [key: string];
   'update:guild-vc-muted': [value: boolean];
   'update:guild-vc-deafened': [value: boolean];
   'update:guild-vc-video': [value: boolean];
@@ -446,103 +432,33 @@ function toggleFavoriteContextDm() {
 // Alias to keep template reads consistent with the rest of the component.
 const dmEntries = computed(() => props.dmInboxEntries);
 
-// --- Notifications tab filter state ---
-// Controlled/uncontrolled: parent may pass dmNotificationsReadPreset /
-// dmNotificationsSourceKey to hoist state across tab switches. When not
-// provided, the panel manages local defaults.
-const localDmNotificationsReadPreset = ref<NotificationReadPreset>('all');
-const localDmNotificationsSourceKey = ref('all');
-
-const dmNotificationsReadPreset = computed<NotificationReadPreset>({
-  get: () =>
-    props.dmNotificationsReadPreset ?? localDmNotificationsReadPreset.value,
-  set: (next) => {
-    localDmNotificationsReadPreset.value = next;
-    emit('update:dm-notifications-read-preset', next);
-  },
-});
-
-const dmNotificationsSourceKey = computed<string>({
-  get: () =>
-    props.dmNotificationsSourceKey ?? localDmNotificationsSourceKey.value,
-  set: (next) => {
-    localDmNotificationsSourceKey.value = next;
-    emit('update:dm-notifications-source-key', next);
-  },
-});
-
-const mentionServerById = computed(() => {
-  const m = new Map<string, { id: string; name: string; imageUrl?: string }>();
-  for (const s of props.mentionNotificationServers ?? []) {
-    m.set(s.id, s);
-  }
-  return m;
-});
-
-/** Source chips for the notifications filter bar — one chip per server + "All" + "DMs". */
-const mentionSourceChips = computed((): MentionNotificationSourceChip[] => {
-  const rows = props.dmMentionNotifications ?? [];
-  return buildMentionNotificationSourceChips({
-    rows,
-    categoriesByServer: props.mentionNotificationCategoriesByServer ?? {},
-    serverNameById: Object.fromEntries(
-      (props.mentionNotificationServers ?? []).map((s) => [s.id, s.name]),
-    ),
-    isPersistedEchoDmThread: props.isPersistedEchoDmThread ?? (() => false),
-  });
-});
-
-/** Stacked “place” widgets: counts respect read preset + place filter semantics. */
-const mentionNotificationPlaceRows = computed(() => {
-  const rows = props.dmMentionNotifications ?? [];
-  const readState = props.dmNotificationReadStateByChannelId ?? {};
-  const cats = props.mentionNotificationCategoriesByServer ?? {};
-  const isDm = props.isPersistedEchoDmThread ?? (() => false);
-  const preset = dmNotificationsReadPreset.value;
-  return mentionSourceChips.value.map((chip) => ({
-    chip,
-    count: filterDmMentionNotificationRows({
-      rows,
-      preset,
-      source: chip.selection,
-      readStateByChannelId: readState,
-      categoriesByServer: cats,
-      isPersistedEchoDmThread: isDm,
+// --- Notifications conversation row (synthetic DM entry) ---
+// The Notifications "person" pins to the top of the Messages list; its unread
+// badge and subtitle preview derive from the same mention-notification feed the
+// full conversation view renders. Filter state now lives in DmNotificationsView.
+const notificationUnreadCount = computed(
+  () =>
+    filterDmMentionNotificationRows({
+      rows: props.dmMentionNotifications ?? [],
+      preset: 'unread',
+      source: { kind: 'all' },
+      readStateByChannelId: props.dmNotificationReadStateByChannelId ?? {},
+      categoriesByServer: props.mentionNotificationCategoriesByServer ?? {},
+      isPersistedEchoDmThread: props.isPersistedEchoDmThread ?? (() => false),
     }).length,
-  }));
-});
-
-/**
- * PLACES sidebar follows All / Unread / Read: for Unread and Read, only list places that
- * still have matching rows (omit zero-count chips — empty when nothing matches).
- */
-const visibleMentionNotificationPlaceRows = computed(() => {
-  const preset = dmNotificationsReadPreset.value;
-  const rows = mentionNotificationPlaceRows.value;
-  if (preset === 'all') return rows;
-  return rows.filter(({ count }) => count > 0);
-});
-
-// Reset source selection when its chip is removed (e.g. last notification from that server is dismissed).
-watch(
-  mentionSourceChips,
-  (chips) => {
-    if (!chips.some((c) => c.key === dmNotificationsSourceKey.value)) {
-      dmNotificationsSourceKey.value = 'all';
-    }
-  },
-  { deep: true },
 );
 
-// When Unread/Read hides a place (zero matches), fall back to “all places” filter.
-watch(
-  visibleMentionNotificationPlaceRows,
-  (placeRows) => {
-    if (!placeRows.some((r) => r.chip.key === dmNotificationsSourceKey.value)) {
-      dmNotificationsSourceKey.value = 'all';
-    }
-  },
-  { deep: true },
+/** Subtitle preview for the pinned row — newest mention first (rows are sorted desc). */
+const notificationLatestPreview = computed(() => {
+  const latest = (props.dmMentionNotifications ?? [])[0];
+  if (!latest) return 'No mentions yet';
+  const who = latest.authorName?.trim() || 'Someone';
+  const body = latest.preview?.trim();
+  return body ? `${who}: ${body}` : `${who} mentioned you`;
+});
+
+const notificationsRowSelected = computed(
+  () => props.activeTab === 'notifications',
 );
 
 const dmUsersFiltered = computed(() => {
@@ -709,23 +625,6 @@ function setActiveTab(tab: DMPanelTab) {
   emit('update:active-tab', tab);
 }
 
-function dmNotificationPresetClass(active: boolean): string {
-  return active
-    ? 'dm-panel-notifs-preset dm-panel-notifs-preset--active'
-    : 'dm-panel-notifs-preset dm-panel-notifs-preset--inactive';
-}
-
-function dmNotificationSourceChipAvatarLabel(
-  chip: MentionNotificationSourceChip,
-): string {
-  if (chip.key === 'all') return 'All';
-  if (chip.key === 'dms') return 'DM';
-  if (chip.key.startsWith('server:')) {
-    return chip.label.trim().slice(0, 2).toUpperCase();
-  }
-  return '#';
-}
-
 function selectRequest(requestId: string | null) {
   emit('select-message-request', requestId);
 }
@@ -847,32 +746,16 @@ watch(
             }}
           </span>
         </button>
-        <button
-          type="button"
-          class="dm-tab rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="
-            activeTab === 'notifications'
-              ? 'dm-tab--active'
-              : 'dm-tab--inactive'
-          "
-          :title="
-            guestFriendsLocked
-              ? 'Create an account to use Notifications'
-              : undefined
-          "
-          @click="setActiveTab('notifications')"
-        >
-          Notifications
-        </button>
       </div>
 
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
           class="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 py-2.5"
         >
-          <!-- Messages tab: search + DM list -->
+          <!-- Messages tab: search + DM list (also shown while the Notifications
+               conversation is open, so the pinned row stays visible). -->
           <div
-            v-if="activeTab === 'messages'"
+            v-if="activeTab === 'messages' || activeTab === 'notifications'"
             class="relative flex flex-col gap-2"
           >
             <div class="dm-list-search-wrap relative shrink-0">
@@ -897,6 +780,57 @@ watch(
                 <path d="m21 21-4.35-4.35" />
               </svg>
             </div>
+
+            <!-- Pinned Notifications "person": behaves like a system DM that
+                 opens the mentions conversation in the main column. -->
+            <button
+              type="button"
+              class="dm-user-row relative flex w-full shrink-0 items-center gap-3 rounded-xl text-left transition-colors"
+              :class="
+                notificationsRowSelected
+                  ? 'dm-user-row--selected'
+                  : 'dm-user-row--idle'
+              "
+              aria-label="Notifications"
+              @click="setActiveTab('notifications')"
+            >
+              <div class="relative h-10 w-10 shrink-0">
+                <div
+                  class="dm-notifications-avatar flex h-10 w-10 items-center justify-center overflow-hidden rounded-full"
+                >
+                  <svg
+                    class="h-5 w-5 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                </div>
+                <span
+                  v-if="notificationUnreadCount > 0"
+                  class="dm-unread-badge pointer-events-none absolute -right-1 -top-1 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full border-[2.5px] border-[var(--echo-dm-chrome-bg)] bg-[#f23f42] px-[5px] text-[10px] font-bold leading-none text-white shadow-sm"
+                  :title="`${notificationUnreadCount} unread`"
+                >
+                  {{ formatDmUnreadBadgeLabel(notificationUnreadCount) }}
+                </span>
+              </div>
+              <div class="min-w-0 flex-1 truncate">
+                <div class="flex min-w-0 items-center gap-2">
+                  <span class="truncate text-sm font-medium text-foreground"
+                    >Notifications</span
+                  >
+                </div>
+                <div class="truncate text-xs text-fg-soft">
+                  {{ notificationLatestPreview }}
+                </div>
+              </div>
+            </button>
 
             <GuildVoiceActivityStrip
               v-if="(guildVoiceActivityCards?.length ?? 0) > 0"
@@ -1275,104 +1209,6 @@ watch(
             </p>
           </div>
 
-          <div
-            v-else-if="activeTab === 'notifications'"
-            class="flex flex-col gap-3"
-          >
-            <div
-              class="dm-panel-notifs-read-group flex min-w-0 flex-wrap items-center gap-1 rounded-xl bg-glass-1 p-1"
-              role="group"
-              aria-label="Notification read filters"
-            >
-              <button
-                type="button"
-                class="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors"
-                :class="
-                  dmNotificationPresetClass(dmNotificationsReadPreset === 'all')
-                "
-                @click="dmNotificationsReadPreset = 'all'"
-              >
-                All
-              </button>
-              <button
-                type="button"
-                class="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors"
-                :class="
-                  dmNotificationPresetClass(
-                    dmNotificationsReadPreset === 'unread',
-                  )
-                "
-                @click="dmNotificationsReadPreset = 'unread'"
-              >
-                Unread
-              </button>
-              <button
-                type="button"
-                class="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors"
-                :class="
-                  dmNotificationPresetClass(
-                    dmNotificationsReadPreset === 'read',
-                  )
-                "
-                @click="dmNotificationsReadPreset = 'read'"
-              >
-                Read
-              </button>
-            </div>
-
-            <div class="flex flex-col gap-1.5">
-              <p
-                class="dm-panel-notifs-section-title px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-subtle"
-              >
-                Places
-              </p>
-              <div class="flex flex-col gap-2">
-                <button
-                  v-for="{ chip, count } in visibleMentionNotificationPlaceRows"
-                  :key="chip.key"
-                  type="button"
-                  class="dm-notification-place-widget"
-                  :class="{
-                    'dm-notification-place-widget--selected':
-                      dmNotificationsSourceKey === chip.key,
-                  }"
-                  @click="dmNotificationsSourceKey = chip.key"
-                >
-                  <span
-                    class="dm-notification-place-widget__avatar inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-glass-2 text-[10px] font-bold uppercase text-fg-soft"
-                  >
-                    <PausedGifAvatar
-                      v-if="
-                        chip.key.startsWith('server:') &&
-                        mentionServerById.get(chip.key.slice(7))?.imageUrl
-                      "
-                      :src="
-                        safeImageUrl(
-                          mentionServerById.get(chip.key.slice(7))?.imageUrl,
-                        )
-                      "
-                      :alt="chip.label"
-                      :session-key="chip.key"
-                      img-class="h-full w-full rounded-full object-cover"
-                    />
-                    <span v-else>{{
-                      dmNotificationSourceChipAvatarLabel(chip)
-                    }}</span>
-                  </span>
-                  <span class="min-w-0 flex-1 text-left">
-                    <span class="block truncate text-[13px] font-semibold">{{
-                      chip.label
-                    }}</span>
-                  </span>
-                  <span
-                    v-if="count > 0"
-                    class="dm-notification-place-widget__count tabular-nums"
-                    >{{ count > 99 ? '99+' : count }}</span
-                  >
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
 
         <GuildVoiceConnectionStrip
@@ -1652,156 +1488,13 @@ watch(
   align-items: center;
 }
 
-.dm-notification-place-widget {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 0.65rem;
-  border: none;
-  border-radius: 0.85rem;
-  background: var(--vue-auto-002);
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background-color 140ms ease,
-    transform 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.dm-notification-place-widget:hover {
-  background: var(--vue-auto-014);
-}
-
-.dm-notification-place-widget--selected {
-  background: var(--vue-auto-003);
-  color: var(--vue-auto-025);
+.dm-notifications-avatar {
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--accent) 92%, white 8%) 0%,
+    color-mix(in srgb, var(--accent) 62%, black 12%) 100%
+  );
   box-shadow: inset 0 0 0 1px color-mix(in srgb, white 14%, transparent);
-}
-
-.dm-notification-place-widget--selected .dm-notification-place-widget__avatar {
-  background: color-mix(in srgb, white 12%, transparent);
-  color: color-mix(in srgb, white 88%, transparent);
-}
-
-.dm-notification-place-widget__count {
-  flex-shrink: 0;
-  min-width: 1.5rem;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-align: center;
-  background: color-mix(in srgb, black 22%, transparent);
-  color: color-mix(in srgb, white 90%, transparent);
-}
-
-.dm-notification-place-widget--selected .dm-notification-place-widget__count {
-  background: color-mix(in srgb, white 18%, transparent);
-  color: var(--vue-auto-025);
-}
-
-:global([data-theme='light'] .dm-notification-place-widget) {
-  background: color-mix(in srgb, var(--surface) 88%, var(--border) 12%);
-}
-
-:global([data-theme='light'] .dm-notification-place-widget:hover) {
-  background: color-mix(in srgb, var(--surface) 76%, var(--accent) 8%);
-}
-
-:global([data-theme='light'] .dm-notification-place-widget--selected) {
-  background: var(--accent);
-  color: var(--accent-contrast-fg);
-  box-shadow: none;
-}
-
-:global(
-  [data-theme='light']
-    .dm-notification-place-widget--selected
-    .dm-notification-place-widget__avatar
-) {
-  background: color-mix(in srgb, var(--accent-contrast-fg) 16%, transparent);
-  color: var(--accent-contrast-fg);
-}
-
-:global(
-  [data-theme='light']
-    .dm-notification-place-widget--selected
-    .dm-notification-place-widget__count
-) {
-  background: color-mix(in srgb, var(--accent-contrast-fg) 22%, transparent);
-  color: var(--accent-contrast-fg);
-}
-
-.dm-panel-notifs-read-group {
-  border: 1px solid transparent;
-}
-
-.dm-panel-notifs-preset {
-  border: none;
-  border-radius: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  font-size: 0.6875rem;
-  font-weight: 650;
-  cursor: pointer;
-  transition:
-    background-color 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.dm-panel-notifs-preset--inactive {
-  color: var(--color-muted);
-}
-
-.dm-panel-notifs-preset--inactive:hover {
-  background: var(--color-surface);
-  color: var(--color-foreground);
-}
-
-.dm-panel-notifs-preset--active {
-  background: var(--color-surface);
-  color: var(--color-foreground);
-}
-
-:global([data-theme='light'] .dm-panel-notifs-read-group) {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--elevated) 94%, var(--accent) 6%),
-    color-mix(in srgb, var(--surface) 90%, var(--accent) 10%)
-  );
-  border-color: color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.85) inset,
-    0 1px 2px rgba(15, 10, 25, 0.04);
-}
-
-:global([data-theme='light'] .dm-panel-notifs-section-title) {
-  color: color-mix(in srgb, var(--text) 35%, var(--accent) 65%);
-  font-weight: 700;
-  letter-spacing: 0.16em;
-}
-
-:global([data-theme='light'] .dm-panel-notifs-preset--inactive) {
-  color: color-mix(in srgb, var(--text) 48%, transparent);
-}
-
-:global([data-theme='light'] .dm-panel-notifs-preset--inactive:hover) {
-  background: color-mix(in srgb, var(--elevated) 90%, var(--accent) 10%);
-  color: var(--text);
-}
-
-:global([data-theme='light'] .dm-panel-notifs-preset--active) {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent) 22%, var(--elevated) 78%),
-    color-mix(in srgb, var(--accent) 12%, var(--surface) 88%)
-  );
-  color: var(--text);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent),
-    0 1px 0 rgba(255, 255, 255, 0.78) inset;
 }
 
 .dm-user-row {

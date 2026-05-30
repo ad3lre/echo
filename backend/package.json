@@ -36,6 +36,7 @@
     "test:echo:messageAutoDelete": "ts-node src/tests/echo.messageAutoDelete.test.ts",
     "test:echo:livekit": "ts-node src/tests/echo.livekit.test.ts",
     "test:echo:voiceE2ee": "ts-node src/tests/echo.voiceE2ee.test.ts",
+    "test:echo:mlsDelivery": "ts-node src/tests/echo.mlsDelivery.test.ts",
     "test:echo:join-security": "ts-node src/tests/echo.joinSecurity.enforcement.test.ts",
     "test:echo:discordImport": "ts-node src/tests/echo.discordImport.test.ts",
     "test:echo:multinode": "ts-node src/tests/echo.multinode.integration.ts",

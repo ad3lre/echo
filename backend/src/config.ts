@@ -1097,12 +1097,18 @@ export const config: AppConfig = {
   ),
   echoRequireGuestBindingSecretInProduction,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
-  bcryptSaltRounds: process.env.BCRYPT_SALT_ROUNDS
-    ? parseInt(process.env.BCRYPT_SALT_ROUNDS, 10)
-    : 10,
-  refreshTokenTtlDays: process.env.REFRESH_TOKEN_TTL_DAYS
-    ? parseInt(process.env.REFRESH_TOKEN_TTL_DAYS, 10)
-    : 30,
+  bcryptSaltRounds: (() => {
+    const n = process.env.BCRYPT_SALT_ROUNDS
+      ? parseInt(process.env.BCRYPT_SALT_ROUNDS, 10)
+      : 10;
+    return Number.isFinite(n) && n >= 1 && n <= 20 ? n : 10;
+  })(),
+  refreshTokenTtlDays: (() => {
+    const n = process.env.REFRESH_TOKEN_TTL_DAYS
+      ? parseInt(process.env.REFRESH_TOKEN_TTL_DAYS, 10)
+      : 30;
+    return Number.isFinite(n) && n >= 1 && n <= 365 ? n : 30;
+  })(),
   authRequireSocketToken: parseBoolean(
     process.env.AUTH_REQUIRE_SOCKET_TOKEN,
     false,

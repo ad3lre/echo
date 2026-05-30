@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		002367069738BB389339340B /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 12B0F221B255ED042D8A929A /* LaunchScreen.storyboard */; };
 		0B8D53F17B04AE9DF144F970 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E0E5F851183646E4B02DD7C /* libapp.a */; };
+		17E6D0C9A2E34C7C94C5E001 /* EchoNativeAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E6D0C7A2E34C7C94C5E001 /* EchoNativeAuth.swift */; };
+		17E6D0CAA2E34C7C94C5E001 /* EchoNativeAuthBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17E6D0C8A2E34C7C94C5E001 /* EchoNativeAuthBridge.swift */; };
+		17E6D0CDA2E34C7C94C5E001 /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17E6D0CCA2E34C7C94C5E001 /* AuthenticationServices.framework */; };
 		2B44B2131D7CAEBFC01BA0D2 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = C87B0DB52DF1E6EE49B72662 /* assets */; };
 		3AF7E6FB9A1D2CE2E0A9EB55 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 07688B52CA0A8E2ED383B510 /* Security.framework */; };
 		41C583042411BBC29B0C6C4A /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = D824D31EA131CC1174A2B7CB /* libapp.a */; };
@@ -26,6 +29,9 @@
 		07688B52CA0A8E2ED383B510 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		0B149918DC05548543093A1D /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		12B0F221B255ED042D8A929A /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		17E6D0C7A2E34C7C94C5E001 /* EchoNativeAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoNativeAuth.swift; sourceTree = "<group>"; };
+		17E6D0C8A2E34C7C94C5E001 /* EchoNativeAuthBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EchoNativeAuthBridge.swift; sourceTree = "<group>"; };
+		17E6D0CCA2E34C7C94C5E001 /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 		1E0E5F851183646E4B02DD7C /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		2C27B60B3C8B2399A64B8452 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		3475892B49F139701124AAD9 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
@@ -52,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0B8D53F17B04AE9DF144F970 /* libapp.a in Frameworks */,
+				17E6D0CDA2E34C7C94C5E001 /* AuthenticationServices.framework in Frameworks */,
 				D774F142DAF84C0DA3C6FAB1 /* CoreGraphics.framework in Frameworks */,
 				7F4E10DEABD83B3F9F8B7F9D /* Metal.framework in Frameworks */,
 				5A733ABD8D2CC1D5EE2AE712 /* MetalKit.framework in Frameworks */,
@@ -122,6 +129,7 @@
 				7265FE4F1A73B8F776E93AF6 /* MetalKit.framework */,
 				0B149918DC05548543093A1D /* QuartzCore.framework */,
 				07688B52CA0A8E2ED383B510 /* Security.framework */,
+				17E6D0CCA2E34C7C94C5E001 /* AuthenticationServices.framework */,
 				3475892B49F139701124AAD9 /* UIKit.framework */,
 				A774B53CDE6057C35C0C68B0 /* WebKit.framework */,
 			);
@@ -152,6 +160,8 @@
 			isa = PBXGroup;
 			children = (
 				E5B5B8A073791396F1437990 /* main.mm */,
+				17E6D0C7A2E34C7C94C5E001 /* EchoNativeAuth.swift */,
+				17E6D0C8A2E34C7C94C5E001 /* EchoNativeAuthBridge.swift */,
 				3DF48B7E218E8911D82F44DE /* bindings */,
 			);
 			path = "echo-desktop";
@@ -263,7 +273,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} 0 ${ARCHS:?}";
+			shellScript = "npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${ARCHS:?}";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -273,6 +283,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				CC97803D4DBA3D527A7B5AFC /* main.mm in Sources */,
+				17E6D0C9A2E34C7C94C5E001 /* EchoNativeAuth.swift in Sources */,
+				17E6D0CAA2E34C7C94C5E001 /* EchoNativeAuthBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -303,6 +315,7 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.echo.tauri.ios.dev;
 				PRODUCT_NAME = "Echo";
 				SDKROOT = iphoneos;
@@ -336,6 +349,7 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.echo.tauri.ios.dev;
 				PRODUCT_NAME = "Echo";
 				SDKROOT = iphoneos;

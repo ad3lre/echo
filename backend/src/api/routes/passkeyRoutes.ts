@@ -77,8 +77,8 @@ export default async function passkeyRoutes(
               type: 'public-key' as const,
             })),
             authenticatorSelection: {
-              residentKey: 'preferred',
-              userVerification: 'preferred',
+              residentKey: 'required',
+              userVerification: 'required',
             },
           });
           const challengeId = newWebAuthnChallengeHandle();
@@ -440,7 +440,7 @@ export default async function passkeyRoutes(
           const options = await generateAuthenticationOptions({
             rpID: config.echoWebAuthnRpId,
             allowCredentials,
-            userVerification: 'preferred',
+            userVerification: 'required',
           });
           const challengeId = newWebAuthnChallengeHandle();
           putWebAuthnChallenge(challengeId, options.challenge, 10 * 60 * 1000);

@@ -416,7 +416,7 @@ onUnmounted(() => {
               :placeholder="
                 activeTab === 'emoji' ? 'Search emoji…' : 'Search icons…'
               "
-              class="min-w-0 flex-1 border-0 bg-transparent py-1 text-sm text-white outline-none placeholder:text-fg-subtle"
+              class="min-w-0 flex-1 border-0 bg-transparent py-1 text-sm text-foreground outline-none placeholder:text-fg-subtle"
               @keydown="handleSearchInputKeydown"
               @keydown.escape.prevent="close"
             />
@@ -428,7 +428,7 @@ onUnmounted(() => {
               class="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors"
               :class="
                 activeTab === 'icons'
-                  ? 'bg-glass-2 text-white ring-1 ring-border'
+                  ? 'bg-glass-2 text-foreground ring-1 ring-border'
                   : 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
               "
               @click="activeTab = 'icons'"
@@ -440,7 +440,7 @@ onUnmounted(() => {
               class="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors"
               :class="
                 activeTab === 'emoji'
-                  ? 'bg-glass-2 text-white ring-1 ring-border'
+                  ? 'bg-glass-2 text-foreground ring-1 ring-border'
                   : 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
               "
               @click="activeTab = 'emoji'"

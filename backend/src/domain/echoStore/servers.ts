@@ -246,31 +246,61 @@ export async function listEchoServerMembers(
   }));
 }
 
+type EchoDirectoryServerRow = {
+  id: string;
+  name: string;
+  iconUrl: string;
+  bannerUrl: string;
+  bannerPositionY?: number;
+  description: string;
+  tags: string[];
+  createdAt: string;
+  memberCount: number;
+  voiceParticipantCount: number;
+  lastVoiceActivityAt?: string;
+  lastChatActivityAt?: string;
+  allowGlobalGuests: boolean;
+};
+
+// The directory payload is identical for every (unauthenticated) visitor and is rebuilt
+// from heavy COUNT/MAX aggregations across all listed servers. Cache it briefly so a burst
+// of Explore loads collapses to one query; member/voice counts being a few seconds stale is
+// acceptable for a directory. Keyed by limit; the stored promise also dedupes concurrent
+// fills (thundering-herd guard).
+const ECHO_DIRECTORY_CACHE_TTL_MS = 20_000;
+const echoDirectoryCache = new Map<
+  number,
+  { promise: Promise<EchoDirectoryServerRow[]>; expiresAt: number }
+>();
+
 /** Public directory rows for Explore (no auth). Only servers with `listed_in_directory`. */
-export async function listEchoDirectoryServers(
+export function listEchoDirectoryServers(
   pool: pg.Pool,
   opts?: { limit?: number },
-): Promise<
-  {
-    id: string;
-    name: string;
-    iconUrl: string;
-    bannerUrl: string;
-    bannerPositionY?: number;
-    description: string;
-    tags: string[];
-    createdAt: string;
-    memberCount: number;
-    voiceParticipantCount: number;
-    /** Latest voice join on this guild (persisted + live participants). */
-    lastVoiceActivityAt?: string;
-    /** Latest non-deleted guild channel message. */
-    lastChatActivityAt?: string;
-    /** When false, guest accounts may not join from Explore directory. */
-    allowGlobalGuests: boolean;
-  }[]
-> {
+): Promise<EchoDirectoryServerRow[]> {
   const limit = Math.min(500, Math.max(1, opts?.limit ?? 200));
+  const now = Date.now();
+  const hit = echoDirectoryCache.get(limit);
+  if (hit && hit.expiresAt > now) return hit.promise;
+  const promise = computeEchoDirectoryServers(pool, limit).catch((e) => {
+    // Don't cache failures: drop the entry so the next call retries against the DB.
+    if (echoDirectoryCache.get(limit)?.promise === promise) {
+      echoDirectoryCache.delete(limit);
+    }
+    throw e;
+  });
+  echoDirectoryCache.set(limit, {
+    promise,
+    expiresAt: now + ECHO_DIRECTORY_CACHE_TTL_MS,
+  });
+  return promise;
+}
+
+async function computeEchoDirectoryServers(
+  pool: pg.Pool,
+  limitArg: number,
+): Promise<EchoDirectoryServerRow[]> {
+  const limit = limitArg;
   const exclude = echoDirectoryExcludedNamesSql();
   const directoryActivityCtes = `
     voice_activity AS (
@@ -504,8 +534,7 @@ export async function listTopDirectoryServerIdsByMemberCount(
     ? 'AND s.allow_global_guests = true'
     : '';
   const sql = `
-    SELECT s.id::text AS id,
-      (SELECT COUNT(*)::int FROM echo_server_members m WHERE m.server_id = s.id) AS mc
+    SELECT s.id::text AS id, s.member_count AS mc
     FROM echo_servers s
     WHERE s.listed_in_directory = true AND ${exclude} ${guestOnly}
     ORDER BY mc DESC, id ASC
@@ -554,13 +583,14 @@ export async function listEchoServersForUser(
     applicationsEnabled?: boolean;
     discordGuildId?: string;
     allowGlobalGuests?: boolean;
+    verificationRequireEmail?: boolean;
   }[]
 > {
   const r = await pool.query(
     `
     SELECT s.id, s.name, s.icon_url, s.banner_url, s.banner_position_y, s.owner_id, s.listed_in_directory, s.invite_join_enabled, s.banner_blur_enabled, s.banner_blackout_enabled,
            s.automod_spam_enabled, s.raid_protection_enabled, s.raid_join_threshold_count, s.raid_join_window_seconds,
-           s.vanity_code, s.description, s.tags, s.applications_enabled, s.allow_global_guests, ist.discord_guild_id
+           s.vanity_code, s.description, s.tags, s.applications_enabled, s.allow_global_guests, s.verification_require_email, ist.discord_guild_id
     FROM echo_servers s
     INNER JOIN echo_server_members m ON m.server_id = s.id AND m.user_id = $1
     LEFT JOIN echo_discord_import_states ist ON ist.server_id = s.id
@@ -627,6 +657,10 @@ export async function listEchoServersForUser(
       row.allow_global_guests === null
         ? undefined
         : Boolean(row.allow_global_guests),
+    verificationRequireEmail:
+      row.verification_require_email === null
+        ? undefined
+        : Boolean(row.verification_require_email),
     discordGuildId:
       row.discord_guild_id != null
         ? String(row.discord_guild_id).trim()
@@ -674,6 +708,8 @@ export async function updateEchoServerPreferences(
     raidJoinWindowSeconds?: number;
     /** When false, guest sessions cannot join from Explore or invite flows. */
     allowGlobalGuests?: boolean;
+    /** When true, newly joining accounts must have a verified email. */
+    verificationRequireEmail?: boolean;
     applicationsEnabled?: boolean;
     applicationForm?: unknown;
   },
@@ -850,6 +886,12 @@ export async function updateEchoServerPreferences(
     updates.push(`allow_global_guests = $${idx++}`);
     params.push(body.allowGlobalGuests);
   }
+  if (body.verificationRequireEmail !== undefined) {
+    if (typeof body.verificationRequireEmail !== 'boolean')
+      return 'invalid_body';
+    updates.push(`verification_require_email = $${idx++}`);
+    params.push(body.verificationRequireEmail);
+  }
   if (body.applicationsEnabled !== undefined) {
     if (typeof body.applicationsEnabled !== 'boolean') return 'invalid_body';
     updates.push(`applications_enabled = $${idx++}`);
@@ -992,7 +1034,8 @@ export type JoinEchoDirectoryResult =
         | 'banned'
         | 'server_limit'
         | 'raid_protection'
-        | 'guest_join_forbidden';
+        | 'guest_join_forbidden'
+        | 'email_verification_required';
     };
 
 export type JoinEchoInviteResult =
@@ -1010,7 +1053,8 @@ export type JoinEchoInviteResult =
         | 'server_limit'
         | 'raid_protection'
         | 'invites_disabled'
-        | 'guest_join_forbidden';
+        | 'guest_join_forbidden'
+        | 'email_verification_required';
     };
 
 /**
@@ -1036,7 +1080,7 @@ export async function joinEchoServerFromInvite(
     await client.query(`BEGIN`);
     try {
       const locked = await client.query(
-        `SELECT invite_join_enabled, allow_global_guests FROM echo_servers WHERE id = $1 FOR UPDATE`,
+        `SELECT invite_join_enabled, allow_global_guests, verification_require_email FROM echo_servers WHERE id = $1 FOR UPDATE`,
         [serverId],
       );
       if (!locked.rows[0]) {
@@ -1048,12 +1092,25 @@ export async function joinEchoServerFromInvite(
         await client.query(`ROLLBACK`);
         return { ok: false, reason: 'guest_join_forbidden' };
       }
+      const requireVerifiedEmail = Boolean(
+        locked.rows[0].verification_require_email,
+      );
       const inviteJoinEnabled = locked.rows[0].invite_join_enabled !== false;
       const mem = await client.query(
         `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
         [serverId, userId],
       );
       alreadyMember = mem.rows.length > 0;
+      if (!alreadyMember && requireVerifiedEmail) {
+        const verified = await client.query(
+          `SELECT email_verified_at FROM auth_users WHERE id = $1 LIMIT 1`,
+          [userId],
+        );
+        if (!verified.rows[0]?.email_verified_at) {
+          await client.query(`ROLLBACK`);
+          return { ok: false, reason: 'email_verification_required' };
+        }
+      }
       if (!alreadyMember && !inviteJoinEnabled && !opts?.skipInviteJoinGate) {
         await client.query(`ROLLBACK`);
         return { ok: false, reason: 'invites_disabled' };
@@ -1107,7 +1164,7 @@ export async function joinEchoServerFromDirectory(
 ): Promise<JoinEchoDirectoryResult> {
   const exclude = echoDirectoryExcludedNamesSql();
   const listed = await pool.query(
-    `SELECT id, allow_global_guests FROM echo_servers WHERE id = $1 AND listed_in_directory = true AND ${exclude} LIMIT 1`,
+    `SELECT id, allow_global_guests, verification_require_email FROM echo_servers WHERE id = $1 AND listed_in_directory = true AND ${exclude} LIMIT 1`,
     [serverId],
   );
   if (!listed.rows[0]) {
@@ -1122,6 +1179,18 @@ export async function joinEchoServerFromDirectory(
   const allowGlobalGuests = Boolean(listed.rows[0].allow_global_guests);
   if (opts?.isGuest && !allowGlobalGuests) {
     return { ok: false, reason: 'guest_join_forbidden' };
+  }
+  const requireVerifiedEmail = Boolean(
+    listed.rows[0].verification_require_email,
+  );
+  if (requireVerifiedEmail) {
+    const verified = await pool.query(
+      `SELECT email_verified_at FROM auth_users WHERE id = $1 LIMIT 1`,
+      [userId],
+    );
+    if (!verified.rows[0]?.email_verified_at) {
+      return { ok: false, reason: 'email_verification_required' };
+    }
   }
   if (await isUserBannedFromServer(pool, serverId, userId)) {
     return { ok: false, reason: 'banned' };

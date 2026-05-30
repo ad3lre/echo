@@ -66,6 +66,14 @@ export type EchoWorkspaceEventKind =
    */
   | 'voice_e2ee_epoch_superseded'
   /**
+   * Voice E2EE v2 (MLS / RFC 9420): a new handshake message (commit / proposal /
+   * welcome) was appended to a voice channel's MLS delivery log. This is a
+   * notify-to-pull signal — clients in the call fetch
+   * `/voice/mls/messages?since=<seq>` and apply messages in `seq` order, then
+   * rotate the LiveKit media key in-band (no reconnect).
+   */
+  | 'voice_mls_message'
+  /**
    * Immediate voice channel roster mutation pushed to all guild members on the
    * persistent socket connection (Discord-Gateway-style VOICE_STATE_UPDATE).
    * Applied as an in-place patch to `voiceParticipantIds` / mute-deaf maps;
@@ -138,6 +146,25 @@ export type EchoWorkspaceEvent = {
     workspaceVersion: string;
     /** ISO timestamp of when the mutation occurred, for ordering and debug. */
     occurredAt: string;
+  };
+  /**
+   * Present when kind === 'voice_mls_message'. Describes the newly-appended MLS
+   * delivery-log entry so clients can decide whether to pull. The payload never
+   * contains key material — the server is a zero-knowledge delivery service.
+   */
+  voiceMls?: {
+    serverId: string;
+    channelId: string;
+    /** Opaque MLS group id (hex of H(serverId||channelId)); for client routing. */
+    groupId: string;
+    /** Monotonic per-group delivery-log sequence of the appended message. */
+    seq: string;
+    msgType: 'commit' | 'proposal' | 'welcome';
+    /** MLS epoch the message was created against (string-encoded bigint). */
+    epoch: string;
+    /** Set for `welcome` (and other addressed) messages — the intended recipient. */
+    recipientUserId?: string;
+    recipientDeviceId?: string;
   };
   /** Present when kind === 'paper_document_updated'. */
   paperDocument?: PaperDocumentPayload;

@@ -99,6 +99,18 @@ function resolveSocketIoBase(): string {
 export const SOCKET_IO_BASE = resolveSocketIoBase();
 
 /**
+ * Voice E2EE v2 (MLS / RFC 9420). When on, voice calls use the MLS group-key
+ * protocol with in-band epoch rotation instead of the legacy static-seed +
+ * per-device envelope scheme. Off by default until rollout validation completes.
+ */
+export const VOICE_E2EE_V2_ENABLED: boolean = (() => {
+  const raw = (import.meta.env.VITE_VOICE_E2EE_V2 as string | undefined)
+    ?.trim()
+    .toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+})();
+
+/**
  * Enables desktop-native audio routing/playback path. Keep off by default until
  * rollout validation is complete.
  */

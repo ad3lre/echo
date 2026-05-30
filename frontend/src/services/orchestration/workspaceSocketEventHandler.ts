@@ -23,6 +23,8 @@ export type WorkspaceSocketEventHandlerDeps = {
   onDiscordVoiceMirrorRoster?: (payload: EchoWorkspaceEvent) => void;
   /** LiveKit voice E2EE epoch invalidated — disconnect / prompt rejoin. */
   onVoiceE2eeEpochSuperseded?: (payload: EchoWorkspaceEvent) => void;
+  /** Voice E2EE v2 (MLS): new handshake message appended — pull, apply, rotate key in-band. */
+  onVoiceMlsMessage?: (payload: EchoWorkspaceEvent) => void;
   /**
    * Voice roster delta — apply in-place to cached workspace without a full hydrate.
    * Not called if the payload has no `voiceRosterDelta` field.
@@ -74,6 +76,11 @@ export function createWorkspaceSocketEventHandler(
     if (payload.kind === 'voice_e2ee_epoch_superseded') {
       deps.noteWorkspaceEventVersion(payload.version);
       deps.onVoiceE2eeEpochSuperseded?.(payload);
+      return;
+    }
+    if (payload.kind === 'voice_mls_message') {
+      deps.noteWorkspaceEventVersion(payload.version);
+      deps.onVoiceMlsMessage?.(payload);
       return;
     }
     if (!deps.noteWorkspaceEventVersion(payload.version)) return;

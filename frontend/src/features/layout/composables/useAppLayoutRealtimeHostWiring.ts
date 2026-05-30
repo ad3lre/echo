@@ -35,6 +35,7 @@ export function useAppLayoutRealtimeHostWiring(deps: {
   restorePinnedIds: (channelId: string, ids: string[]) => void;
   applyRealtimeAuthorHint: AppLayoutEchoRealtimeHostCallbacks['applyRealtimeAuthorHint'];
   onVoiceE2eeEpochSuperseded?: (payload: EchoWorkspaceEvent) => void;
+  onVoiceMlsMessage?: (payload: EchoWorkspaceEvent) => void;
   /** Guild VC: stop local camera/screen when a mod targets this client via roster delta. */
   applyVoiceMediaModerationFromSocket?: (payload: EchoWorkspaceEvent) => void;
 }): { hostCallbacks: AppLayoutEchoRealtimeHostCallbacks } {
@@ -64,6 +65,7 @@ export function useAppLayoutRealtimeHostWiring(deps: {
       deps.applyVoiceMediaModerationFromSocket?.(payload);
     },
     onVoiceE2eeEpochSuperseded: deps.onVoiceE2eeEpochSuperseded,
+    onVoiceMlsMessage: deps.onVoiceMlsMessage,
   });
 
   const onSocketConnectedExtra = createEchoRealtimeSocketConnectedExtra({

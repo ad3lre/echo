@@ -173,7 +173,7 @@ watch(
     } catch {
       /* ignore */
     }
-    if (props.passkeyOnOpen && !isMockDataMode && ECHO_PASSKEYS_ENABLED) {
+    if (props.passkeyOnOpen && !isMockDataMode && ECHO_PASSKEYS_ENABLED && !isDesktop()) {
       nextTick(() => void submitPasskeyLogin());
     }
   },
@@ -501,7 +501,9 @@ async function startGoogleLogin() {
 }
 
 async function submitPasskeyLogin() {
-  if (isMockDataMode || !ECHO_PASSKEYS_ENABLED) return;
+  // In Tauri the WKWebView origin doesn't match the RP ID so WebAuthn always
+  // fails. The native Swift overlay handles passkeys on iOS; skip here.
+  if (isMockDataMode || !ECHO_PASSKEYS_ENABLED || isDesktop()) return;
   submitting.value = true;
   errorMessage.value = '';
   try {

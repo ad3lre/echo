@@ -70,6 +70,9 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS allow_global_guests BOOLEAN NOT NULL DEFAULT true;
   `);
   await pool.query(`
+    ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS verification_require_email BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS invite_join_enabled BOOLEAN NOT NULL DEFAULT true;
   `);
   await pool.query(`
@@ -121,6 +124,79 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   `);
   await pool.query(`
     ALTER TABLE echo_server_members ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT '';
+  `);
+  // Denormalized echo_servers.member_count so directory/invite/server reads never re-run
+  // COUNT(*) over echo_server_members. Add + backfill exactly once (the backfill is heavy;
+  // guard it to the boot where the column is first created). Defined here — after the
+  // members table exists — because the backfill reads from it.
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'echo_servers' AND column_name = 'member_count'
+      ) THEN
+        ALTER TABLE echo_servers ADD COLUMN member_count INT NOT NULL DEFAULT 0;
+        UPDATE echo_servers s
+        SET member_count = COALESCE(c.cnt, 0)
+        FROM (
+          SELECT server_id, COUNT(*)::int AS cnt
+          FROM echo_server_members GROUP BY server_id
+        ) c
+        WHERE c.server_id = s.id;
+      END IF;
+    END $$;
+  `);
+  // Statement-level triggers (transition tables) keep member_count in sync. Statement-level
+  // — not row-level — so a server delete that cascade-removes N members produces ONE
+  // aggregated UPDATE per server instead of N updates to the same row (which row-level
+  // triggers would fail on with "tuple already modified"). On a server delete the parent row
+  // is already gone when the AFTER trigger fires, so the decrement simply matches zero rows.
+  // ON CONFLICT DO NOTHING inserts that conflict never enter the NEW transition table, so the
+  // count stays accurate.
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION echo_server_member_count_ins() RETURNS trigger AS $fn$
+    BEGIN
+      UPDATE echo_servers s
+      SET member_count = member_count + d.cnt
+      FROM (
+        SELECT server_id, COUNT(*)::int AS cnt FROM new_members GROUP BY server_id
+      ) d
+      WHERE s.id = d.server_id;
+      RETURN NULL;
+    END;
+    $fn$ LANGUAGE plpgsql;
+  `);
+  await pool.query(`
+    CREATE OR REPLACE FUNCTION echo_server_member_count_del() RETURNS trigger AS $fn$
+    BEGIN
+      UPDATE echo_servers s
+      SET member_count = GREATEST(0, member_count - d.cnt)
+      FROM (
+        SELECT server_id, COUNT(*)::int AS cnt FROM old_members GROUP BY server_id
+      ) d
+      WHERE s.id = d.server_id;
+      RETURN NULL;
+    END;
+    $fn$ LANGUAGE plpgsql;
+  `);
+  await pool.query(
+    `DROP TRIGGER IF EXISTS echo_server_member_count_ins_trg ON echo_server_members;`,
+  );
+  await pool.query(`
+    CREATE TRIGGER echo_server_member_count_ins_trg
+    AFTER INSERT ON echo_server_members
+    REFERENCING NEW TABLE AS new_members
+    FOR EACH STATEMENT EXECUTE PROCEDURE echo_server_member_count_ins();
+  `);
+  await pool.query(
+    `DROP TRIGGER IF EXISTS echo_server_member_count_del_trg ON echo_server_members;`,
+  );
+  await pool.query(`
+    CREATE TRIGGER echo_server_member_count_del_trg
+    AFTER DELETE ON echo_server_members
+    REFERENCING OLD TABLE AS old_members
+    FOR EACH STATEMENT EXECUTE PROCEDURE echo_server_member_count_del();
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_channels (
@@ -1011,6 +1087,65 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_voice_e2ee_envelopes_epoch_idx
     ON echo_voice_e2ee_envelopes (epoch_id);
+  `);
+  // ---- Voice E2EE v2: MLS (RFC 9420) delivery service ----
+  // The server is a zero-knowledge delivery service: it stores opaque MLS
+  // handshake messages and key packages (base64 TEXT) and enforces ordering and
+  // single-commit-per-epoch. It never holds key material; the per-call media key
+  // is derived locally by each member from the MLS exporter secret.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_mls_key_packages (
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      device_id TEXT NOT NULL,
+      key_package_ref TEXT NOT NULL,
+      key_package TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      consumed_at TIMESTAMPTZ NULL,
+      PRIMARY KEY (user_id, device_id, key_package_ref)
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_mls_key_packages_unconsumed_idx
+    ON echo_mls_key_packages (user_id, device_id)
+    WHERE consumed_at IS NULL;
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_mls_groups (
+      server_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
+      group_id TEXT NOT NULL,
+      current_epoch BIGINT NOT NULL DEFAULT 0,
+      group_info TEXT NULL,
+      created_by_user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (server_id, channel_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_mls_messages (
+      seq BIGSERIAL PRIMARY KEY,
+      server_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
+      group_id TEXT NOT NULL,
+      epoch BIGINT NOT NULL,
+      msg_type TEXT NOT NULL CHECK (msg_type IN ('commit', 'proposal', 'welcome')),
+      sender_user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      sender_device_id TEXT NOT NULL,
+      recipient_user_id TEXT NULL,
+      recipient_device_id TEXT NULL,
+      payload TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_mls_messages_channel_seq_idx
+    ON echo_mls_messages (server_id, channel_id, seq);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_mls_messages_recipient_idx
+    ON echo_mls_messages (server_id, channel_id, recipient_user_id, seq)
+    WHERE recipient_user_id IS NOT NULL;
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_vc_activity_opens (

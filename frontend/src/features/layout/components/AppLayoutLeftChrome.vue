@@ -21,7 +21,6 @@ import type { AppLayoutLeftChromeProps } from '@/features/layout/appLayoutLeftCh
 import type { PopoutAnchorRect } from '@/utils/memberProfiles';
 import type { ChannelSummary } from '@shared/types';
 import type { DmSubView } from '@/features/layout/mainSurface';
-import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
 import type { CreateChannelModalSubmitPayload } from '@/components/CreateChannelModal.vue';
 import { channelPanelDiag } from '@/utils/channelPanelDiag';
 import { getChannelDisplayName } from '@/assets/icons';
@@ -120,10 +119,7 @@ const lc = computed((): AppLayoutLeftChromeProps => {
       g('dmNotificationReadStateByChannelId') ?? {},
     mentionNotificationCategoriesByServer:
       g('mentionNotificationCategoriesByServer') ?? {},
-    mentionNotificationServers: g('mentionNotificationServers') ?? [],
     isPersistedEchoDmThread: g('isPersistedEchoDmThread') ?? (() => false),
-    dmNotificationsReadPreset: g('dmNotificationsReadPreset') ?? 'all',
-    dmNotificationsSourceKey: g('dmNotificationsSourceKey') ?? 'all',
     selectedGroupDmChannelId: g('selectedGroupDmChannelId'),
     dmCallWithUserId: g('dmCallWithUserId'),
     dmCallRinging: g('dmCallRinging'),
@@ -551,8 +547,6 @@ const emit = defineEmits<{
     payload: { serverId: string; channelId: string; channelName: string },
   ];
   'dm-request-upgrade': [];
-  'dm-update-notifications-read-preset': [preset: NotificationReadPreset];
-  'dm-update-notifications-source-key': [key: string];
   'dm-panel-resize-start': [e: MouseEvent];
   'dm-panel-resize-reset': [];
   'channel-update-active-id': [id: string];
@@ -758,18 +752,6 @@ function fireDmRequestUpgrade() {
   if (h?.onDmRequestUpgrade) h.onDmRequestUpgrade();
   else emit('dm-request-upgrade');
 }
-function fireDmUpdateNotificationsReadPreset(preset: NotificationReadPreset) {
-  const h = host();
-  if (h?.onDmUpdateNotificationsReadPreset)
-    h.onDmUpdateNotificationsReadPreset(preset);
-  else emit('dm-update-notifications-read-preset', preset);
-}
-function fireDmUpdateNotificationsSourceKey(key: string) {
-  const h = host();
-  if (h?.onDmUpdateNotificationsSourceKey)
-    h.onDmUpdateNotificationsSourceKey(key);
-  else emit('dm-update-notifications-source-key', key);
-}
 function fireDmPanelResizeStart(e: MouseEvent) {
   const h = host();
   if (h?.onDmPanelResizeStart) h.onDmPanelResizeStart(e);
@@ -947,16 +929,30 @@ function fireOpenGuildEventChannel(payload: {
   else emit('open-guild-event-channel', payload);
 }
 
+function fireOpenGuildEventDetail(payload: {
+  serverId: string;
+  eventId: string;
+}) {
+  const h = host();
+  if (h?.onOpenGuildEventDetail) {
+    h.onOpenGuildEventDetail(payload);
+    return;
+  }
+  // Fallback: open the event location directly when no detail host is wired.
+  fireOpenGuildEventChannel({
+    serverId: payload.serverId,
+    eventId: payload.eventId,
+  });
+}
+
 function fireDmOpenGuildEvent(payload: {
   serverId: string;
   channelId: string | null;
   customLocation?: string | null;
   eventId: string;
 }) {
-  fireOpenGuildEventChannel({
+  fireOpenGuildEventDetail({
     serverId: payload.serverId,
-    channelId: payload.channelId,
-    customLocation: payload.customLocation,
     eventId: payload.eventId,
   });
 }
@@ -1183,6 +1179,7 @@ function onMoreServersPinServer(payload: {
         @mark-read="fireChannelMarkRead($event)"
         @guild-event-rsvp="fireGuildEventRsvp($event)"
         @open-guild-event-channel="fireOpenGuildEventChannel($event)"
+        @open-guild-event-detail="fireOpenGuildEventDetail($event)"
       />
       <div
         class="pointer-events-none absolute inset-0 z-[35] min-h-0 min-w-0 overflow-hidden"
@@ -1231,10 +1228,7 @@ function onMoreServersPinServer(payload: {
           :mention-notification-categories-by-server="
             lc.mentionNotificationCategoriesByServer
           "
-          :mention-notification-servers="lc.mentionNotificationServers"
           :is-persisted-echo-dm-thread="lc.isPersistedEchoDmThread"
-          :dm-notifications-read-preset="lc.dmNotificationsReadPreset"
-          :dm-notifications-source-key="lc.dmNotificationsSourceKey"
           :dm-call-with-user-id="lc.dmCallWithUserId ?? null"
           :dm-call-ringing="lc.dmCallRinging ?? false"
           :dm-call-ring-remote-vanishing="lc.dmCallRingRemoteVanishing ?? false"
@@ -1259,12 +1253,6 @@ function onMoreServersPinServer(payload: {
           @join-guild-voice-activity="fireDmJoinGuildVoiceActivity($event)"
           @open-guild-event-activity="fireDmOpenGuildEvent($event)"
           @request-upgrade="fireDmRequestUpgrade"
-          @update:dm-notifications-read-preset="
-            fireDmUpdateNotificationsReadPreset($event)
-          "
-          @update:dm-notifications-source-key="
-            fireDmUpdateNotificationsSourceKey($event)
-          "
           :show-guild-voice-connection-strip="
             lc.hideChannelPanelVoiceChrome !== true
           "
@@ -1411,10 +1399,7 @@ function onMoreServersPinServer(payload: {
           :mention-notification-categories-by-server="
             lc.mentionNotificationCategoriesByServer
           "
-          :mention-notification-servers="lc.mentionNotificationServers"
           :is-persisted-echo-dm-thread="lc.isPersistedEchoDmThread"
-          :dm-notifications-read-preset="lc.dmNotificationsReadPreset"
-          :dm-notifications-source-key="lc.dmNotificationsSourceKey"
           :dm-call-with-user-id="lc.dmCallWithUserId ?? null"
           :dm-call-ringing="lc.dmCallRinging ?? false"
           :dm-call-ring-remote-vanishing="lc.dmCallRingRemoteVanishing ?? false"
@@ -1439,12 +1424,6 @@ function onMoreServersPinServer(payload: {
           @join-guild-voice-activity="fireDmJoinGuildVoiceActivity($event)"
           @open-guild-event-activity="fireDmOpenGuildEvent($event)"
           @request-upgrade="fireDmRequestUpgrade"
-          @update:dm-notifications-read-preset="
-            fireDmUpdateNotificationsReadPreset($event)
-          "
-          @update:dm-notifications-source-key="
-            fireDmUpdateNotificationsSourceKey($event)
-          "
           :show-guild-voice-connection-strip="
             lc.hideChannelPanelVoiceChrome !== true
           "
@@ -1570,6 +1549,7 @@ function onMoreServersPinServer(payload: {
         @mark-read="fireChannelMarkRead($event)"
         @guild-event-rsvp="fireGuildEventRsvp($event)"
         @open-guild-event-channel="fireOpenGuildEventChannel($event)"
+        @open-guild-event-detail="fireOpenGuildEventDetail($event)"
       />
     </div>
   </template>

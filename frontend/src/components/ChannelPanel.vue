@@ -603,6 +603,12 @@ const emit = defineEmits<{
       eventId?: string;
     },
   ];
+  'open-guild-event-detail': [
+    payload: {
+      serverId: string;
+      eventId: string;
+    },
+  ];
 }>();
 
 function onChannelRowClick(channel: ChannelWithParticipants) {
@@ -629,12 +635,11 @@ function onChannelRowClick(channel: ChannelWithParticipants) {
       });
       return;
     }
-    if (
-      props.currentVoiceChannelId &&
-      props.currentVoiceChannelId !== channel.id
-    ) {
-      emit('leave-voice');
-    }
+    // Do NOT emit 'leave-voice' here. handleJoinVoiceNavigation already tears
+    // down the old LiveKit room inside liveKit.connect(). Emitting leave-voice
+    // first fires an async voiceService.onLeaveVoice() that calls
+    // liveKit.disconnect() → increments connectGeneration, which silently
+    // aborts the new channel's connection mid-flight (stale-gen check).
     emit('join-voice', {
       channelId: channel.id,
       channelName: getChannelDisplayName(channel.name),
@@ -1149,6 +1154,12 @@ function forwardInvite(payload?: {
             eventId: $event.eventId,
             channelId: $event.channelId,
             customLocation: $event.customLocation,
+          })
+        "
+        @open-detail="
+          emit('open-guild-event-detail', {
+            serverId: selectedServer.id,
+            eventId: $event.eventId,
           })
         "
       />

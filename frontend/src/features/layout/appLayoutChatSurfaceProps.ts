@@ -241,6 +241,8 @@ export type AppLayoutChatSurfaceProps = {
   }>;
   dmNotificationsReadPreset: 'all' | 'unread' | 'read';
   dmNotificationsSourceKey: string;
+  onUpdateDmNotificationsReadPreset: unknown;
+  onUpdateDmNotificationsSourceKey: unknown;
   isPersistedEchoDmThread: (channelId: string) => boolean;
   onOpenMentionNotification: unknown;
   onMarkMentionNotificationRead: unknown;
@@ -593,6 +595,8 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'mentionNotificationServers',
   'dmNotificationsReadPreset',
   'dmNotificationsSourceKey',
+  'onUpdateDmNotificationsReadPreset',
+  'onUpdateDmNotificationsSourceKey',
   'isPersistedEchoDmThread',
   'onOpenMentionNotification',
   'onMarkMentionNotificationRead',

@@ -263,6 +263,7 @@ const {
   onOverviewTagsBlur,
   persistModerationSettings,
   persistAllowGlobalGuestsSetting,
+  persistVerificationRequireEmailSetting,
   persistBannerPositionY,
 } = useServerSettingsOverviewState({
   server: serverRef,
@@ -568,14 +569,22 @@ async function onSecurityPatch(patch: {
   allowGlobalGuests?: boolean;
 }) {
   const prevGuests = form.allowGlobalGuests;
+  const prevRequireEmail = form.verificationRequireEmail;
   Object.assign(form, patch);
-  if (typeof patch.allowGlobalGuests !== 'boolean') return;
   if (!props.canManageServer || !props.server?.id) return;
   if (!isEchoGraphIdLocal(props.server.id)) return;
   try {
-    await persistAllowGlobalGuestsSetting(patch.allowGlobalGuests);
+    if (typeof patch.allowGlobalGuests === 'boolean') {
+      await persistAllowGlobalGuestsSetting(patch.allowGlobalGuests);
+    }
+    if (typeof patch.verificationRequireEmail === 'boolean') {
+      await persistVerificationRequireEmailSetting(
+        patch.verificationRequireEmail,
+      );
+    }
   } catch {
     form.allowGlobalGuests = prevGuests;
+    form.verificationRequireEmail = prevRequireEmail;
   }
 }
 

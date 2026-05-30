@@ -297,6 +297,14 @@ export default async function echoInvitesRoutes(
             'Create an account with email to join this server.',
           );
         }
+        if (r.reason === 'email_verification_required') {
+          return sendError(
+            reply,
+            403,
+            'EMAIL_VERIFICATION_REQUIRED',
+            'Verify your email before joining this server.',
+          );
+        }
         if (r.reason === 'invites_disabled') {
           return sendError(
             reply,

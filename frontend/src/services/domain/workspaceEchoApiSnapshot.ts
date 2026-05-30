@@ -24,6 +24,7 @@ export type EchoWorkspaceState = {
     discordGuildId?: string;
     applicationsEnabled?: boolean;
     allowGlobalGuests?: boolean;
+    verificationRequireEmail?: boolean;
   }[];
   categoriesByServer: Record<string, ChannelCategory[]>;
   serverMemberIds: Record<string, string[]>;
@@ -62,9 +63,11 @@ export type EchoWorkspaceMyEventRsvp = {
   serverName: string;
   serverImageUrl: string;
   title: string;
+  description: string;
   imageUrl: string;
   startsAt: string;
   endsAt: string;
+  timezoneLabel: string | null;
   channelId: string | null;
   channelName: string | null;
   customLocation: string | null;
@@ -94,6 +97,7 @@ export type EchoWorkspaceRawServer = {
   discordGuildId?: string;
   applicationsEnabled?: boolean;
   allowGlobalGuests?: boolean;
+  verificationRequireEmail?: boolean;
 };
 
 /** `/workspace` JSON after transport-level structural validation (servers + categories). */
@@ -565,6 +569,9 @@ export function normalizeEchoWorkspaceServerRow(
     ...(typeof s.allowGlobalGuests === 'boolean'
       ? { allowGlobalGuests: s.allowGlobalGuests }
       : {}),
+    ...(typeof s.verificationRequireEmail === 'boolean'
+      ? { verificationRequireEmail: s.verificationRequireEmail }
+      : {}),
   };
 }
 
@@ -675,9 +682,14 @@ function normalizeEchoWorkspaceMyEventRsvp(
     serverName: evStr(rec, 'serverName', 'server_name') || 'Server',
     serverImageUrl: evStr(rec, 'serverImageUrl', 'server_image_url'),
     title: evStr(rec, 'title', 'title') || 'Event',
+    description: evStr(rec, 'description', 'description'),
     imageUrl: evStr(rec, 'imageUrl', 'image_url'),
     startsAt,
     endsAt,
+    timezoneLabel: (() => {
+      const c = evStr(rec, 'timezoneLabel', 'timezone_label');
+      return c || null;
+    })(),
     channelId: (() => {
       const c = evStr(rec, 'channelId', 'channel_id');
       return c || null;

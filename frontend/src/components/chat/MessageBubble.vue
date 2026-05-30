@@ -1028,7 +1028,7 @@ function openReportMessageFromMenu() {
 }
 
 async function copyAuthorUsername() {
-  const name = authorLabel.value.trim();
+  const name = message.value.author?.name?.trim() || authorLabel.value.trim();
   if (!name) {
     dispatchAppToast('Nothing to copy', 'info');
     menuOpen.value = false;

@@ -52,7 +52,7 @@ function onConfirmLeave() {
       <div class="relative">
         <h2
           id="leave-server-title"
-          class="text-lg font-bold leading-tight text-white"
+          class="text-lg font-bold leading-tight text-foreground"
         >
           <template v-if="variant === 'confirm'">Leave server?</template>
           <template v-else>Can't leave this server</template>

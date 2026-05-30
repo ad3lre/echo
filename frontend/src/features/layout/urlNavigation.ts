@@ -149,6 +149,8 @@ export const ECHO_URL_QUERY = {
   settings: 'settings',
   guildSettings: 'guild_settings',
   guildSection: 'guild_section',
+  guildEventServer: 'guild_event_server',
+  guildEvent: 'guild_event',
 } as const;
 
 /**
@@ -354,6 +356,8 @@ export type EchoModalQueries = {
   settings: string | null;
   guildSettingsServerId: string | null;
   guildSection: string | null;
+  guildEventServerId: string | null;
+  guildEventId: string | null;
 };
 
 export function parseModalQueries(
@@ -367,6 +371,8 @@ export function parseModalQueries(
     settings: sp.get(ECHO_URL_QUERY.settings),
     guildSettingsServerId: sp.get(ECHO_URL_QUERY.guildSettings),
     guildSection: sp.get(ECHO_URL_QUERY.guildSection),
+    guildEventServerId: sp.get(ECHO_URL_QUERY.guildEventServer),
+    guildEventId: sp.get(ECHO_URL_QUERY.guildEvent),
   };
 }
 
@@ -380,6 +386,8 @@ export function mergeModalSearchParams(
     settings: string | null;
     guild_settings: string | null;
     guild_section: string | null;
+    guild_event_server: string | null;
+    guild_event: string | null;
   }>,
 ): string {
   const sp =
@@ -398,6 +406,10 @@ export function mergeModalSearchParams(
     apply(ECHO_URL_QUERY.guildSettings, patch.guild_settings ?? null);
   if ('guild_section' in patch)
     apply(ECHO_URL_QUERY.guildSection, patch.guild_section ?? null);
+  if ('guild_event_server' in patch)
+    apply(ECHO_URL_QUERY.guildEventServer, patch.guild_event_server ?? null);
+  if ('guild_event' in patch)
+    apply(ECHO_URL_QUERY.guildEvent, patch.guild_event ?? null);
 
   const s = sp.toString();
   return s ? `?${s}` : '';

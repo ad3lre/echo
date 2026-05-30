@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import {
+  channelOverridesToEchoPartial,
+  echoPartialToChannelOverrides,
   mergeRoleUiPermissionsWithStoredEcho,
   roleUiPermissionsToEchoStrings,
 } from '../../../shared/rolePermissionBridge';
@@ -70,6 +72,17 @@ async function run(): Promise<void> {
     adminMerged.includes('EMBED_LINKS'),
     true,
     'administrator UI grant should not drop preserved non-UI bits',
+  );
+
+  assert.deepEqual(
+    channelOverridesToEchoPartial({ embedLinks: false }),
+    { EMBED_LINKS: false },
+    'channel overwrite UI key should save as the canonical Echo permission',
+  );
+  assert.deepEqual(
+    echoPartialToChannelOverrides({ EMBED_LINKS: false }),
+    { embedLinks: false },
+    'canonical Echo embed overwrite should render back into the channel UI',
   );
 
   console.log('echo.rolePermissionMerge: ok');

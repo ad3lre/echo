@@ -231,7 +231,7 @@ function onConfirm() {
           <div class="min-w-0 flex-1">
             <h2
               id="mod-action-title"
-              class="text-lg font-bold leading-tight text-white"
+              class="text-lg font-bold leading-tight text-foreground"
             >
               {{ title }}
             </h2>
@@ -258,7 +258,7 @@ function onConfirm() {
               class="rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
               :class="
                 !timeoutUseCustom && selectedTimeoutMinutes === preset.minutes
-                  ? 'bg-indigo-500/35 text-white ring-1 ring-indigo-400/50'
+                  ? 'bg-indigo-500/35 text-foreground ring-1 ring-indigo-400/50'
                   : 'bg-glass-1 text-fg-soft hover:bg-glass-2'
               "
               @click="selectTimeoutPreset(preset.minutes)"
@@ -270,7 +270,7 @@ function onConfirm() {
               class="rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
               :class="
                 timeoutUseCustom
-                  ? 'bg-indigo-500/35 text-white ring-1 ring-indigo-400/50'
+                  ? 'bg-indigo-500/35 text-foreground ring-1 ring-indigo-400/50'
                   : 'bg-glass-1 text-fg-soft hover:bg-glass-2'
               "
               @click="timeoutUseCustom = true"
@@ -294,7 +294,8 @@ function onConfirm() {
               type="number"
               min="1"
               :max="MAX_TIMEOUT_MINUTES"
-              class="mt-2 w-full rounded-md border border-border bg-scrim-2 px-3 py-2 text-sm text-white tabular-nums outline-none focus:border-indigo-400/40"
+              class="mt-2 w-full rounded-md border border-border bg-scrim-2 px-3 py-2 text-sm text-foreground tabular-nums outline-none focus:border-indigo-400/40"
+              @keydown.enter.prevent="onConfirm"
             />
           </div>
         </div>
@@ -312,7 +313,7 @@ function onConfirm() {
                 class="rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
                 :class="
                   banPermanent
-                    ? 'bg-rose-500/35 text-white ring-1 ring-rose-400/45'
+                    ? 'bg-rose-500/35 text-foreground ring-1 ring-rose-400/45'
                     : 'bg-glass-1 text-fg-soft hover:bg-glass-2'
                 "
                 @click="
@@ -331,7 +332,7 @@ function onConfirm() {
                   !banPermanent &&
                   !banUseCustom &&
                   selectedBanMinutes === preset.minutes
-                    ? 'bg-rose-500/35 text-white ring-1 ring-rose-400/45'
+                    ? 'bg-rose-500/35 text-foreground ring-1 ring-rose-400/45'
                     : 'bg-glass-1 text-fg-soft hover:bg-glass-2'
                 "
                 @click="selectBanPreset(preset.minutes)"
@@ -343,7 +344,7 @@ function onConfirm() {
                 class="rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
                 :class="
                   !banPermanent && banUseCustom
-                    ? 'bg-rose-500/35 text-white ring-1 ring-rose-400/45'
+                    ? 'bg-rose-500/35 text-foreground ring-1 ring-rose-400/45'
                     : 'bg-glass-1 text-fg-soft hover:bg-glass-2'
                 "
                 @click="
@@ -370,7 +371,8 @@ function onConfirm() {
                 type="number"
                 min="1"
                 :max="MAX_ECHO_BAN_DURATION_MINUTES"
-                class="mt-2 w-full rounded-md border border-border bg-scrim-2 px-3 py-2 text-sm text-white tabular-nums outline-none focus:border-rose-400/40"
+                class="mt-2 w-full rounded-md border border-border bg-scrim-2 px-3 py-2 text-sm text-foreground tabular-nums outline-none focus:border-rose-400/40"
+                @keydown.enter.prevent="onConfirm"
               />
             </div>
           </div>
@@ -387,7 +389,7 @@ function onConfirm() {
               v-model="banReason"
               rows="3"
               maxlength="500"
-              class="mt-2 w-full resize-y rounded-lg border border-border bg-scrim-1 px-3 py-2 text-sm text-white placeholder:text-fg-subtle focus:border-rose-400/40 focus:outline-none focus:ring-1 focus:ring-rose-400/30"
+              class="mt-2 w-full resize-y rounded-lg border border-border bg-scrim-1 px-3 py-2 text-sm text-foreground placeholder:text-fg-subtle focus:border-rose-400/40 focus:outline-none focus:ring-1 focus:ring-rose-400/30"
               placeholder="Shown in audit and server ban list"
             />
             <div class="mt-1 text-right text-[11px] text-fg-subtle">

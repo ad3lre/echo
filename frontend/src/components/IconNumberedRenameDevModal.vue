@@ -303,7 +303,7 @@ onUnmounted(() => {
               type="text"
               autocomplete="off"
               placeholder="e.g. voice tab"
-              class="mt-1.5 w-full rounded-xl border border-border bg-scrim-2 px-3 py-2.5 text-sm text-white outline-none ring-violet-500/40 placeholder:text-fg-subtle focus:border-violet-500/50 focus:ring-2"
+              class="mt-1.5 w-full rounded-xl border border-border bg-scrim-2 px-3 py-2.5 text-sm text-foreground outline-none ring-violet-500/40 placeholder:text-fg-subtle focus:border-violet-500/50 focus:ring-2"
               @input="onExtraInput"
               @keydown.enter.prevent="addToBatch"
             />

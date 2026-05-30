@@ -132,4 +132,35 @@ describe('fingerprintMessageListRowFactsInputs', () => {
 
     expect(after).not.toBe(before);
   });
+
+  it('changes when message content is edited to same-length text', () => {
+    const messageId = 'm2';
+    const messagesMap = new Map([
+      [
+        messageId,
+        {
+          id: messageId,
+          authorId: 'u1',
+          timestamp: '2026-01-01T00:00:00.000Z',
+          content: 'hello',
+          author: { id: 'u1', name: 'User', avatar: '' },
+        } as any,
+      ],
+    ]);
+    const before = fingerprintMessageListRowFactsInputs(
+      messageId,
+      messagesMap as any,
+      new Map([
+        [messageId, { id: messageId, authorId: 'u1', timestamp: '2026-01-01T00:00:00.000Z', content: 'hello' } as any],
+      ]) as any,
+    );
+    const after = fingerprintMessageListRowFactsInputs(
+      messageId,
+      messagesMap as any,
+      new Map([
+        [messageId, { id: messageId, authorId: 'u1', timestamp: '2026-01-01T00:00:00.000Z', content: 'world', editedAt: '2026-01-01T00:00:01.000Z' } as any],
+      ]) as any,
+    );
+    expect(after).not.toBe(before);
+  });
 });

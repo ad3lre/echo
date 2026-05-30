@@ -81,3 +81,15 @@ body {
   opacity: 0;
   pointer-events: none;
 }
+
+/* When running inside the Tauri shell (iOS / desktop native), the native LaunchScreen
+ * already covered the WebView-creation gap with the same background color. Showing a
+ * spinner + "still loading" copy on top of that just adds a second "loading" phase
+ * the user reads as the app being slow. Keep the background so it visually continues
+ * the LaunchScreen, but hide the spinner / hint so the auth page appears to paint
+ * straight onto the launch background. The `echo-shell-tauri` class is set by an
+ * inline detector in index.html. */
+html.echo-shell-tauri .echo-boot-splash > .echo-boot-spinner,
+html.echo-shell-tauri .echo-boot-splash__hint {
+  display: none !important;
+}

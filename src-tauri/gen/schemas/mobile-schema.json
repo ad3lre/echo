@@ -21,7 +21,9 @@
     {
       "description": "A list of capabilities.",
       "type": "object",
-      "required": ["capabilities"],
+      "required": [
+        "capabilities"
+      ],
       "properties": {
         "capabilities": {
           "description": "The list of capabilities.",
@@ -37,7 +39,10 @@
     "Capability": {
       "description": "A grouping and boundary mechanism developers can use to isolate access to the IPC layer.\n\nIt controls application windows' and webviews' fine grained access to the Tauri core, application, or plugin commands. If a webview or its window is not matching any capability then it has no access to the IPC layer at all.\n\nThis can be done to create groups of windows, based on their required system access, which can reduce impact of frontend vulnerabilities in less privileged windows. Windows can be added to a capability by exact name (e.g. `main-window`) or glob patterns like `*` or `admin-*`. A Window can have none, one, or multiple associated capabilities.\n\n## Example\n\n```json { \"identifier\": \"main-user-files-write\", \"description\": \"This capability allows the `main` window on macOS and Windows access to `filesystem` write related commands and `dialog` commands to enable programmatic access to files selected by the user.\", \"windows\": [ \"main\" ], \"permissions\": [ \"core:default\", \"dialog:open\", { \"identifier\": \"fs:allow-write-text-file\", \"allow\": [{ \"path\": \"$HOME/test.txt\" }] }, ], \"platforms\": [\"macOS\",\"windows\"] } ```",
       "type": "object",
-      "required": ["identifier", "permissions"],
+      "required": [
+        "identifier",
+        "permissions"
+      ],
       "properties": {
         "identifier": {
           "description": "Identifier of the capability.\n\n## Example\n\n`main-user-files-write`",
@@ -88,7 +93,10 @@
         },
         "platforms": {
           "description": "Limit which target platforms this capability applies to.\n\nBy default all platforms are targeted.\n\n## Example\n\n`[\"macOS\",\"windows\"]`",
-          "type": ["array", "null"],
+          "type": [
+            "array",
+            "null"
+          ],
           "items": {
             "$ref": "#/definitions/Target"
           }
@@ -98,7 +106,9 @@
     "CapabilityRemote": {
       "description": "Configuration for remote URLs that are associated with the capability.",
       "type": "object",
-      "required": ["urls"],
+      "required": [
+        "urls"
+      ],
       "properties": {
         "urls": {
           "description": "Remote domains this capability refers to using the [URLPattern standard](https://urlpattern.spec.whatwg.org/).\n\n## Examples\n\n- \"https://*.mydomain.dev\": allows subdomains of mydomain.dev - \"https://mydomain.dev/api/*\": allows any subpath of mydomain.dev/api",
@@ -190,7 +200,9 @@
                       "anyOf": [
                         {
                           "type": "object",
-                          "required": ["url"],
+                          "required": [
+                            "url"
+                          ],
                           "properties": {
                             "app": {
                               "description": "An application to open this url with, for example: firefox.",
@@ -208,7 +220,9 @@
                         },
                         {
                           "type": "object",
-                          "required": ["path"],
+                          "required": [
+                            "path"
+                          ],
                           "properties": {
                             "app": {
                               "description": "An application to open this path with, for example: xdg-open.",
@@ -234,7 +248,9 @@
                       "anyOf": [
                         {
                           "type": "object",
-                          "required": ["url"],
+                          "required": [
+                            "url"
+                          ],
                           "properties": {
                             "app": {
                               "description": "An application to open this url with, for example: firefox.",
@@ -252,7 +268,9 @@
                         },
                         {
                           "type": "object",
-                          "required": ["path"],
+                          "required": [
+                            "path"
+                          ],
                           "properties": {
                             "app": {
                               "description": "An application to open this path with, for example: xdg-open.",
@@ -296,14 +314,20 @@
                 },
                 "allow": {
                   "description": "Data that defines what is allowed by the scope.",
-                  "type": ["array", "null"],
+                  "type": [
+                    "array",
+                    "null"
+                  ],
                   "items": {
                     "$ref": "#/definitions/Value"
                   }
                 },
                 "deny": {
                   "description": "Data that defines what is denied by the scope. This should be prioritized by validation logic.",
-                  "type": ["array", "null"],
+                  "type": [
+                    "array",
+                    "null"
+                  ],
                   "items": {
                     "$ref": "#/definitions/Value"
                   }
@@ -311,55 +335,15 @@
               }
             }
           ],
-          "required": ["identifier"]
+          "required": [
+            "identifier"
+          ]
         }
       ]
     },
     "Identifier": {
       "description": "Permission identifier",
       "oneOf": [
-        {
-          "description": "This permission set configures if your\napplication can enable or disable auto\nstarting the application on boot.\n\n#### Granted Permissions\n\nIt allows all to check, enable and\ndisable the automatic start on boot.\n\n\n#### This default permission set includes:\n\n- `allow-enable`\n- `allow-disable`\n- `allow-is-enabled`",
-          "type": "string",
-          "const": "autostart:default",
-          "markdownDescription": "This permission set configures if your\napplication can enable or disable auto\nstarting the application on boot.\n\n#### Granted Permissions\n\nIt allows all to check, enable and\ndisable the automatic start on boot.\n\n\n#### This default permission set includes:\n\n- `allow-enable`\n- `allow-disable`\n- `allow-is-enabled`"
-        },
-        {
-          "description": "Enables the disable command without any pre-configured scope.",
-          "type": "string",
-          "const": "autostart:allow-disable",
-          "markdownDescription": "Enables the disable command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the enable command without any pre-configured scope.",
-          "type": "string",
-          "const": "autostart:allow-enable",
-          "markdownDescription": "Enables the enable command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the is_enabled command without any pre-configured scope.",
-          "type": "string",
-          "const": "autostart:allow-is-enabled",
-          "markdownDescription": "Enables the is_enabled command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the disable command without any pre-configured scope.",
-          "type": "string",
-          "const": "autostart:deny-disable",
-          "markdownDescription": "Denies the disable command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the enable command without any pre-configured scope.",
-          "type": "string",
-          "const": "autostart:deny-enable",
-          "markdownDescription": "Denies the enable command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the is_enabled command without any pre-configured scope.",
-          "type": "string",
-          "const": "autostart:deny-is-enabled",
-          "markdownDescription": "Denies the is_enabled command without any pre-configured scope."
-        },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
@@ -2497,72 +2481,6 @@
           "markdownDescription": "Denies the save command without any pre-configured scope."
         },
         {
-          "description": "No features are enabled by default, as we believe\nthe shortcuts can be inherently dangerous and it is\napplication specific if specific shortcuts should be\nregistered or unregistered.\n",
-          "type": "string",
-          "const": "global-shortcut:default",
-          "markdownDescription": "No features are enabled by default, as we believe\nthe shortcuts can be inherently dangerous and it is\napplication specific if specific shortcuts should be\nregistered or unregistered.\n"
-        },
-        {
-          "description": "Enables the is_registered command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:allow-is-registered",
-          "markdownDescription": "Enables the is_registered command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the register command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:allow-register",
-          "markdownDescription": "Enables the register command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the register_all command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:allow-register-all",
-          "markdownDescription": "Enables the register_all command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the unregister command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:allow-unregister",
-          "markdownDescription": "Enables the unregister command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the unregister_all command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:allow-unregister-all",
-          "markdownDescription": "Enables the unregister_all command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the is_registered command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:deny-is-registered",
-          "markdownDescription": "Denies the is_registered command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the register command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:deny-register",
-          "markdownDescription": "Denies the register command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the register_all command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:deny-register-all",
-          "markdownDescription": "Denies the register_all command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the unregister command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:deny-unregister",
-          "markdownDescription": "Denies the unregister command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the unregister_all command without any pre-configured scope.",
-          "type": "string",
-          "const": "global-shortcut:deny-unregister-all",
-          "markdownDescription": "Denies the unregister_all command without any pre-configured scope."
-        },
-        {
           "description": "This permission set configures which\nnotification features are by default exposed.\n\n#### Granted Permissions\n\nIt allows all notification related features.\n\n\n#### This default permission set includes:\n\n- `allow-is-permission-granted`\n- `allow-request-permission`\n- `allow-notify`\n- `allow-register-action-types`\n- `allow-register-listener`\n- `allow-cancel`\n- `allow-get-pending`\n- `allow-remove-active`\n- `allow-get-active`\n- `allow-check-permissions`\n- `allow-show`\n- `allow-batch`\n- `allow-list-channels`\n- `allow-delete-channel`\n- `allow-create-channel`\n- `allow-permission-state`",
           "type": "string",
           "const": "notification:default",
@@ -2807,132 +2725,6 @@
           "type": "string",
           "const": "opener:deny-reveal-item-in-dir",
           "markdownDescription": "Denies the reveal_item_in_dir command without any pre-configured scope."
-        },
-        {
-          "description": "This permission set configures which\nprocess features are by default exposed.\n\n#### Granted Permissions\n\nThis enables to quit via `allow-exit` and restart via `allow-restart`\nthe application.\n\n#### This default permission set includes:\n\n- `allow-exit`\n- `allow-restart`",
-          "type": "string",
-          "const": "process:default",
-          "markdownDescription": "This permission set configures which\nprocess features are by default exposed.\n\n#### Granted Permissions\n\nThis enables to quit via `allow-exit` and restart via `allow-restart`\nthe application.\n\n#### This default permission set includes:\n\n- `allow-exit`\n- `allow-restart`"
-        },
-        {
-          "description": "Enables the exit command without any pre-configured scope.",
-          "type": "string",
-          "const": "process:allow-exit",
-          "markdownDescription": "Enables the exit command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the restart command without any pre-configured scope.",
-          "type": "string",
-          "const": "process:allow-restart",
-          "markdownDescription": "Enables the restart command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the exit command without any pre-configured scope.",
-          "type": "string",
-          "const": "process:deny-exit",
-          "markdownDescription": "Denies the exit command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the restart command without any pre-configured scope.",
-          "type": "string",
-          "const": "process:deny-restart",
-          "markdownDescription": "Denies the restart command without any pre-configured scope."
-        },
-        {
-          "description": "This permission set configures which kind of\nupdater functions are exposed to the frontend.\n\n#### Granted Permissions\n\nThe full workflow from checking for updates to installing them\nis enabled.\n\n\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-download-and-install`",
-          "type": "string",
-          "const": "updater:default",
-          "markdownDescription": "This permission set configures which kind of\nupdater functions are exposed to the frontend.\n\n#### Granted Permissions\n\nThe full workflow from checking for updates to installing them\nis enabled.\n\n\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-download-and-install`"
-        },
-        {
-          "description": "Enables the check command without any pre-configured scope.",
-          "type": "string",
-          "const": "updater:allow-check",
-          "markdownDescription": "Enables the check command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the download command without any pre-configured scope.",
-          "type": "string",
-          "const": "updater:allow-download",
-          "markdownDescription": "Enables the download command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the download_and_install command without any pre-configured scope.",
-          "type": "string",
-          "const": "updater:allow-download-and-install",
-          "markdownDescription": "Enables the download_and_install command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the install command without any pre-configured scope.",
-          "type": "string",
-          "const": "updater:allow-install",
-          "markdownDescription": "Enables the install command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the check command without any pre-configured scope.",
-          "type": "string",
-          "const": "updater:deny-check",
-          "markdownDescription": "Denies the check command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the download command without any pre-configured scope.",
-          "type": "string",
-          "const": "updater:deny-download",
-          "markdownDescription": "Denies the download command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the download_and_install command without any pre-configured scope.",
-          "type": "string",
-          "const": "updater:deny-download-and-install",
-          "markdownDescription": "Denies the download_and_install command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the install command without any pre-configured scope.",
-          "type": "string",
-          "const": "updater:deny-install",
-          "markdownDescription": "Denies the install command without any pre-configured scope."
-        },
-        {
-          "description": "This permission set configures what kind of\noperations are available from the window state plugin.\n\n#### Granted Permissions\n\nAll operations are enabled by default.\n\n\n#### This default permission set includes:\n\n- `allow-filename`\n- `allow-restore-state`\n- `allow-save-window-state`",
-          "type": "string",
-          "const": "window-state:default",
-          "markdownDescription": "This permission set configures what kind of\noperations are available from the window state plugin.\n\n#### Granted Permissions\n\nAll operations are enabled by default.\n\n\n#### This default permission set includes:\n\n- `allow-filename`\n- `allow-restore-state`\n- `allow-save-window-state`"
-        },
-        {
-          "description": "Enables the filename command without any pre-configured scope.",
-          "type": "string",
-          "const": "window-state:allow-filename",
-          "markdownDescription": "Enables the filename command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the restore_state command without any pre-configured scope.",
-          "type": "string",
-          "const": "window-state:allow-restore-state",
-          "markdownDescription": "Enables the restore_state command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the save_window_state command without any pre-configured scope.",
-          "type": "string",
-          "const": "window-state:allow-save-window-state",
-          "markdownDescription": "Enables the save_window_state command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the filename command without any pre-configured scope.",
-          "type": "string",
-          "const": "window-state:deny-filename",
-          "markdownDescription": "Denies the filename command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the restore_state command without any pre-configured scope.",
-          "type": "string",
-          "const": "window-state:deny-restore-state",
-          "markdownDescription": "Denies the restore_state command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the save_window_state command without any pre-configured scope.",
-          "type": "string",
-          "const": "window-state:deny-save-window-state",
-          "markdownDescription": "Denies the save_window_state command without any pre-configured scope."
         }
       ]
     },
@@ -2996,27 +2788,37 @@
         {
           "description": "MacOS.",
           "type": "string",
-          "enum": ["macOS"]
+          "enum": [
+            "macOS"
+          ]
         },
         {
           "description": "Windows.",
           "type": "string",
-          "enum": ["windows"]
+          "enum": [
+            "windows"
+          ]
         },
         {
           "description": "Linux.",
           "type": "string",
-          "enum": ["linux"]
+          "enum": [
+            "linux"
+          ]
         },
         {
           "description": "Android.",
           "type": "string",
-          "enum": ["android"]
+          "enum": [
+            "android"
+          ]
         },
         {
           "description": "iOS.",
           "type": "string",
-          "enum": ["iOS"]
+          "enum": [
+            "iOS"
+          ]
         }
       ]
     },

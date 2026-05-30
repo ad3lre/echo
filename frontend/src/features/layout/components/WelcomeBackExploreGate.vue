@@ -30,6 +30,7 @@ import {
   echoPublicSupportMailtoHref,
 } from '@/config/echoPublicSupportContact';
 import LegalDocsModal from '@/components/LegalDocsModal.vue';
+import MobileAuthExperience from '@/features/auth/MobileAuthExperience.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -53,18 +54,24 @@ const oauthError = ref('');
 const heroVisible = ref(true);
 const heroRef = ref<HTMLElement | null>(null);
 const gateRootRef = ref<HTMLElement | null>(null);
-const isNarrowViewport = ref(false);
 const legalModalOpen = ref(false);
 const legalModalTab = ref<'terms' | 'privacy'>('terms');
 
 let io: IntersectionObserver | undefined;
 let onViewportResize: (() => void) | undefined;
 
+function readIsNarrowViewport(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 800;
+}
+
+const isNarrowViewport = ref(readIsNarrowViewport());
+
 onMounted(() => {
   readOauthReturnError();
   if (typeof window !== 'undefined') {
     const updateViewportFlag = () => {
-      isNarrowViewport.value = window.innerWidth < 800;
+      isNarrowViewport.value = readIsNarrowViewport();
     };
     updateViewportFlag();
     onViewportResize = updateViewportFlag;
@@ -211,7 +218,17 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
     role="region"
     :aria-label="memberEmptyDirectory ? 'Create or join a server' : 'Sign in'"
   >
-    <div class="flex min-h-0 flex-1 flex-col lg:flex-row lg:min-h-0">
+    <!--
+      Mobile / narrow path: replace the modal-driven welcome+OAuth stack with
+      a page-based, mobile-native experience. This intentionally does NOT emit
+      `log-in-echo` / `create-account` / `sign-in-passkey` so the desktop
+      modal (LoginRegisterModal) never opens on top of a phone-shaped screen.
+    -->
+    <MobileAuthExperience
+      v-if="isNarrowViewport && !memberEmptyDirectory"
+      :is-mock-data-mode="isMockDataMode"
+    />
+    <div v-else class="flex min-h-0 flex-1 flex-col lg:flex-row lg:min-h-0">
       <!-- Hero: full-height fluid + oversized logo (same language as Echo rail corner) -->
       <div
         v-if="!isNarrowViewport"

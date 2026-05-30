@@ -94,7 +94,7 @@ function joinViaInvite() {
               <img :src="icons.plus" alt="" class="h-4 w-4 filter invert" />
             </div>
             <div class="min-w-0 flex-1">
-              <h3 class="text-xs font-semibold text-white">
+              <h3 class="text-xs font-semibold text-foreground">
                 Create your own server
               </h3>
               <p class="mt-0.5 text-[11px] leading-snug text-fg-soft">
@@ -118,7 +118,7 @@ function joinViaInvite() {
               <img :src="icons.logIn" alt="" class="h-4 w-4 filter invert" />
             </div>
             <div class="min-w-0 flex-1">
-              <h3 class="text-xs font-semibold text-white">
+              <h3 class="text-xs font-semibold text-foreground">
                 Join with an invite
               </h3>
               <p class="mt-0.5 text-[11px] leading-snug text-fg-soft">
@@ -156,7 +156,7 @@ function joinViaInvite() {
               >
                 Suggested
               </div>
-              <h3 class="mt-0.5 text-xs font-semibold text-white">
+              <h3 class="mt-0.5 text-xs font-semibold text-foreground">
                 Communities to browse
               </h3>
             </div>
@@ -205,7 +205,7 @@ function joinViaInvite() {
                   />
                 </div>
                 <div class="min-w-0 flex-1">
-                  <div class="truncate text-sm font-semibold text-white">
+                  <div class="truncate text-sm font-semibold text-foreground">
                     {{ server.name }}
                   </div>
                   <p

@@ -208,8 +208,8 @@ function pickRingtone(id: string) {
                     class="call-ringtone-inline-sheet-item flex w-full items-center rounded-lg px-2.5 py-2.5 text-left text-[13px] leading-snug transition-colors"
                     :class="
                       entry.id === selectedId
-                        ? 'bg-glass-active font-medium text-white'
-                        : 'text-fg-soft hover:bg-glass-hover hover:text-white'
+                        ? 'bg-glass-active font-medium text-foreground'
+                        : 'text-fg-soft hover:bg-glass-hover hover:text-foreground'
                     "
                     :aria-selected="entry.id === selectedId"
                     @click="pickRingtone(entry.id)"

@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { sendError } from '../api/errors';
+import { safeCompare } from '../shared/safeCompare';
 import {
   CSRF_COOKIE,
   LEGACY_CSRF_COOKIE,
@@ -77,7 +78,7 @@ export async function enforceApiCsrf(
   const cookieTok =
     (cookies?.[CSRF_COOKIE] ?? cookies?.[LEGACY_CSRF_COOKIE])?.trim() ?? '';
 
-  if (!header || !cookieTok || header !== cookieTok) {
+  if (!header || !cookieTok || !safeCompare(header, cookieTok)) {
     await sendError(
       reply,
       403,
@@ -98,7 +99,7 @@ export async function enforceApiCsrf(
       await sendError(reply, 401, 'UNAUTHORIZED', 'Missing or invalid session');
       return false;
     }
-    if (sess.csrfSecret !== header) {
+    if (!safeCompare(sess.csrfSecret, header)) {
       await sendError(
         reply,
         403,

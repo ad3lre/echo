@@ -11,6 +11,7 @@ import { resolveDiscordAvatarForStorage } from '../discordNormalized';
 import { echoPartialToChannelOverrides } from '../../../../shared/rolePermissionBridge';
 import { executeEvaluationPlan } from '../echoPermissionEvaluate';
 import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
+import { invalidateChannelServerId } from '../echoChannelServerCache';
 import { clampEchoChannelName } from '../../../../shared/echoChannelLimits';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
 import {
@@ -1553,6 +1554,7 @@ export async function deleteEchoChannel(
     );
     if (del.rows.length === 0) return 'not_found';
     invalidateEchoPermissionCacheForServer(serverId);
+    invalidateChannelServerId(channelId);
     return 'ok';
   }
 
@@ -1565,6 +1567,7 @@ export async function deleteEchoChannel(
   );
   if (del.rows.length === 0) return 'not_found';
   invalidateEchoPermissionCacheForServer(serverId);
+  invalidateChannelServerId(channelId);
   return 'ok';
 }
 
@@ -1590,8 +1593,8 @@ export async function deleteEchoCategory(
       await client.query('ROLLBACK');
       return 'not_found';
     }
-    await client.query(
-      `DELETE FROM echo_channels WHERE server_id = $1 AND category_id = $2`,
+    const deletedChannels = await client.query(
+      `DELETE FROM echo_channels WHERE server_id = $1 AND category_id = $2 RETURNING id`,
       [serverId, categoryId],
     );
     const del = await client.query(
@@ -1604,6 +1607,9 @@ export async function deleteEchoCategory(
     }
     await client.query('COMMIT');
     invalidateEchoPermissionCacheForServer(serverId);
+    for (const row of deletedChannels.rows) {
+      invalidateChannelServerId(String(row.id));
+    }
     return 'ok';
   } catch (e) {
     try {

@@ -53,7 +53,7 @@ function mergeNonOverlapping(
   matches: { start: number; end: number; url: string }[],
 ): { start: number; end: number; url: string }[] {
   const s = [...matches].sort(
-    (a, b) => a.start - b.start || b.end - a.end - (a.end - b.end),
+    (a, b) => a.start - b.start || b.end - a.end,
   );
   const out: typeof matches = [];
   for (const cur of s) {

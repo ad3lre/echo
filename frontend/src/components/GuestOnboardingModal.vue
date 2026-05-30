@@ -267,13 +267,13 @@ function onSignInExisting() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="guest-onboarding-title"
-      class="guest-onboarding-panel relative w-full max-w-[680px] rounded-[28px] px-7 py-7 text-white outline-none sm:px-10 sm:py-10"
+      class="guest-onboarding-panel relative w-full max-w-[680px] rounded-[28px] px-7 py-7 text-foreground outline-none sm:px-10 sm:py-10"
     >
       <div class="flex items-start justify-between gap-5">
         <div class="min-w-0">
           <h2
             id="guest-onboarding-title"
-            class="text-[1.65rem] font-bold leading-snug tracking-tight text-white sm:text-[1.8rem]"
+            class="text-[1.65rem] font-bold leading-snug tracking-tight text-foreground sm:text-[1.8rem]"
           >
             Create your profile
           </h2>

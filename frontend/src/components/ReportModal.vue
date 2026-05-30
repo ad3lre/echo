@@ -242,8 +242,10 @@ function labelHue(label: string): number {
 async function handleSubmit() {
   const ctx = context.value;
   if (!ctx || submitting.value || !canSubmit.value) return;
+  // The app uses cookie-based (BFF) auth — accessToken is always null for
+  // normal sessions and the transport ignores it. Trust isAuthenticated alone.
   const token = authSession.accessToken?.trim() ?? '';
-  if (!authSession.isAuthenticated || !token) {
+  if (!authSession.isAuthenticated) {
     errorMessage.value = 'Sign in to submit a report.';
     return;
   }

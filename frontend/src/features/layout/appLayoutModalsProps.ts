@@ -11,6 +11,7 @@ import type { ProfileSurfaceAdapter } from '@/features/layout/regionAdapters';
 import type { EchoRoleCategoryDto } from '@/api/echo/types';
 import type { JoinServerConfirmPreview } from '@/features/layout/composables/useJoinServerConfirmModal';
 import type { ServerApplicationModalPayload } from '@/features/layout/composables/useServerApplicationModal';
+import type { EventDetailView } from '@/features/server-events/eventDetailView';
 
 export type AppLayoutDiscoverableServer = {
   id?: string;
@@ -323,6 +324,11 @@ export type AppLayoutModalsProps = {
   serverApplicationBusy: boolean;
   onUpdateServerApplicationModal: (next: boolean) => void;
   onServerApplicationModalSubmitted: () => void;
+  isEventDetailModalOpen: boolean;
+  eventDetailView: EventDetailView | null;
+  onUpdateEventDetailModal: (next: boolean) => void;
+  onEventDetailRsvp: (payload: { status: 'going' | 'declined' }) => void;
+  onEventDetailOpenLocation: () => void;
 };
 
 export const MODALS_INJECT_KEYS = [
@@ -489,4 +495,9 @@ export const MODALS_INJECT_KEYS = [
   'serverApplicationBusy',
   'onUpdateServerApplicationModal',
   'onServerApplicationModalSubmitted',
+  'isEventDetailModalOpen',
+  'eventDetailView',
+  'onUpdateEventDetailModal',
+  'onEventDetailRsvp',
+  'onEventDetailOpenLocation',
 ] as const satisfies ReadonlyArray<keyof AppLayoutModalsProps>;

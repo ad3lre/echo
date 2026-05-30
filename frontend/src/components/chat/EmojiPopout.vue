@@ -300,7 +300,7 @@ function handleInsert(entry: EmojiEntry) {
         class="mx-2 mt-2 mb-1.5 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
         :class="
           props.theme === 'forum'
-            ? 'text-white placeholder:text-fg-subtle disabled:text-fg-subtle'
+            ? 'text-foreground placeholder:text-fg-subtle disabled:text-fg-subtle'
             : 'text-foreground placeholder:text-muted disabled:opacity-50'
         "
         @keydown="handleSearchInputKeydown"
@@ -318,7 +318,7 @@ function handleInsert(entry: EmojiEntry) {
           :class="
             pickerTab === 'emoji'
               ? props.theme === 'forum'
-                ? 'bg-glass-2 text-white ring-1 ring-border'
+                ? 'bg-glass-2 text-foreground ring-1 ring-border'
                 : 'bg-[var(--vue-auto-003)] text-foreground ring-1 ring-border'
               : props.theme === 'forum'
                 ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
@@ -336,7 +336,7 @@ function handleInsert(entry: EmojiEntry) {
           :class="
             pickerTab === 'icons'
               ? props.theme === 'forum'
-                ? 'bg-glass-2 text-white ring-1 ring-border'
+                ? 'bg-glass-2 text-foreground ring-1 ring-border'
                 : 'bg-[var(--vue-auto-003)] text-foreground ring-1 ring-border'
               : props.theme === 'forum'
                 ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
@@ -354,7 +354,7 @@ function handleInsert(entry: EmojiEntry) {
           :class="
             pickerTab === 'stickers'
               ? props.theme === 'forum'
-                ? 'bg-glass-2 text-white ring-1 ring-border'
+                ? 'bg-glass-2 text-foreground ring-1 ring-border'
                 : 'bg-[var(--vue-auto-003)] text-foreground ring-1 ring-border'
               : props.theme === 'forum'
                 ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'

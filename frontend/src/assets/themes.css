@@ -151,6 +151,10 @@
   --chat-glass-header-bg: rgba(8, 6, 14, 0.62);
   --chat-glass-header-bg-fallback: rgba(8, 6, 14, 0.92);
   --chat-glass-header-backdrop: blur(28px);
+  --echo-menu-surface-bg: var(--chat-glass-header-bg);
+  --echo-menu-surface-bg-fallback: var(--chat-glass-header-bg-fallback);
+  --echo-menu-surface-border: transparent;
+  --echo-menu-surface-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
   --chat-accent: rgba(99, 102, 241, 0.4);
   --chat-accent-muted: rgba(99, 102, 241, 0.25);
   /* Composer permission / communication-timeout lock (replaces input bar) */
@@ -1222,6 +1226,8 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
   --chat-glass-header-bg: rgba(0, 0, 0, 0.62);
   --chat-glass-header-bg-fallback: rgba(0, 0, 0, 0.94);
   --chat-glass-header-backdrop: blur(28px);
+  --echo-menu-surface-bg: var(--chat-glass-header-bg);
+  --echo-menu-surface-bg-fallback: var(--chat-glass-header-bg-fallback);
   --set-sidebar-bg: rgba(255, 255, 255, 0.015);
   --set-card-bg: rgba(255, 255, 255, 0.022);
   --set-card-ring: rgba(255, 255, 255, 0.042);
@@ -1636,6 +1642,16 @@ html[data-theme='dark'][data-echo-dark-variant='amoled'] {
   --chat-glass-header-bg: rgba(255, 255, 255, 0.05);
   --chat-glass-header-bg-fallback: rgba(245, 245, 248, 0.97);
   --chat-glass-header-backdrop: blur(30px);
+  --echo-menu-surface-bg: color-mix(
+    in srgb,
+    var(--echo-menu-bg) 94%,
+    transparent
+  );
+  --echo-menu-surface-bg-fallback: var(--echo-menu-bg);
+  --echo-menu-surface-border: color-mix(in srgb, var(--border) 88%, white 12%);
+  --echo-menu-surface-shadow:
+    0 18px 46px rgba(15, 23, 42, 0.18),
+    0 2px 10px rgba(15, 23, 42, 0.1);
   --chat-accent: rgba(79, 70, 229, 0.3);
   --chat-accent-muted: rgba(79, 70, 229, 0.15);
   --chat-permission-lock-bg: color-mix(

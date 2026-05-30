@@ -101,7 +101,7 @@ function onSegmentKeydown(e: KeyboardEvent, i: number) {
       class="echo-segmented__btn flex min-h-[2.75rem] min-w-0 flex-1 basis-0 flex-row items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-center transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
       :class="
         modelValue === opt.value
-          ? 'bg-glass-3 text-white shadow-sm'
+          ? 'bg-glass-3 text-foreground shadow-sm'
           : 'text-fg-soft hover:bg-glass-hover hover:text-fg'
       "
       :aria-checked="modelValue === opt.value"

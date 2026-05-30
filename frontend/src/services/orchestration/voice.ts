@@ -18,6 +18,12 @@ import type { VoiceE2eePrepareResult } from '@/services/voice/voiceE2eePrepare';
 
 type VoiceE2eePrepareFnResult = VoiceE2eePrepareResult | ArrayBuffer | null;
 
+/** What `liveKit.connect` accepts: v1 raw key, v2 MLS {key, index}, or none. */
+export type VoiceConnectE2eeInput =
+  | ArrayBuffer
+  | { initialKey: ArrayBuffer; keyIndex: number }
+  | null;
+
 function normalizeVoiceE2eePrepare(
   raw: VoiceE2eePrepareFnResult,
 ): VoiceE2eePrepareResult {
@@ -26,6 +32,15 @@ function normalizeVoiceE2eePrepare(
     return { mediaKey: raw, senderDeviceId: '' };
   }
   return raw;
+}
+
+/** Build the connect input: v2 carries a keyIndex for in-band rotation. */
+function toConnectE2eeInput(p: VoiceE2eePrepareResult): VoiceConnectE2eeInput {
+  if (!p.mediaKey) return null;
+  if (typeof p.keyIndex === 'number') {
+    return { initialKey: p.mediaKey, keyIndex: p.keyIndex };
+  }
+  return p.mediaKey;
 }
 
 export type VoiceServiceDeps = {
@@ -48,7 +63,7 @@ export type VoiceServiceDeps = {
       url: string,
       token: string,
       bitrateBps?: number | null,
-      e2eeMediaKey?: ArrayBuffer | null,
+      e2eeMediaKey?: VoiceConnectE2eeInput,
     ) => Promise<void>;
     disconnect: () => void;
   };
@@ -92,7 +107,7 @@ export function createVoiceService({
     ) => Promise<VoiceE2eePrepareFnResult>,
   ): Promise<{
     session: EchoLiveKitSessionResponse;
-    e2eeKey: ArrayBuffer | null;
+    e2eeKey: VoiceConnectE2eeInput;
   }> {
     let prepared = normalizeVoiceE2eePrepare(null);
     if (e2eePrepare) {
@@ -110,7 +125,7 @@ export function createVoiceService({
         channelId,
         sessionOpts,
       );
-      return { session, e2eeKey: prepared.mediaKey };
+      return { session, e2eeKey: toConnectE2eeInput(prepared) };
     } catch (e) {
       if (
         e instanceof EchoApiError &&
@@ -136,7 +151,7 @@ export function createVoiceService({
           channelId,
           retryOpts,
         );
-        return { session, e2eeKey: prepared.mediaKey };
+        return { session, e2eeKey: toConnectE2eeInput(prepared) };
       }
       throw e;
     }
@@ -148,7 +163,7 @@ export function createVoiceService({
     e2eePrepare?: (channelId: string) => Promise<VoiceE2eePrepareFnResult>,
   ): Promise<{
     session: EchoLiveKitSessionResponse;
-    e2eeKey: ArrayBuffer | null;
+    e2eeKey: VoiceConnectE2eeInput;
   }> {
     let prepared = normalizeVoiceE2eePrepare(null);
     if (e2eePrepare) {
@@ -163,7 +178,7 @@ export function createVoiceService({
         channelId,
         sessionOpts,
       );
-      return { session, e2eeKey: prepared.mediaKey };
+      return { session, e2eeKey: toConnectE2eeInput(prepared) };
     } catch (e) {
       if (
         e instanceof EchoApiError &&
@@ -185,7 +200,7 @@ export function createVoiceService({
           channelId,
           retryOpts,
         );
-        return { session, e2eeKey: prepared.mediaKey };
+        return { session, e2eeKey: toConnectE2eeInput(prepared) };
       }
       throw e;
     }
@@ -222,7 +237,7 @@ export function createVoiceService({
               channelId,
             });
             let session: EchoLiveKitSessionResponse;
-            let e2eeKey: ArrayBuffer | null = null;
+            let e2eeKey: VoiceConnectE2eeInput = null;
             try {
               const minted = await mintGuildLiveKitSession(
                 token,
@@ -351,7 +366,7 @@ export function createVoiceService({
       let attemptedRecoveryRefresh = false;
       try {
         let session: EchoLiveKitSessionResponse;
-        let e2eeKey: ArrayBuffer | null = null;
+        let e2eeKey: VoiceConnectE2eeInput = null;
         try {
           const minted = await mintDmLiveKitSession(
             token,

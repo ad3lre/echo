@@ -1,6 +1,7 @@
 import type pg from 'pg';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
 import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
+import { invalidateChannelServerId } from '../echoChannelServerCache';
 import { createEchoChannel } from './categoriesWorkspace';
 import { getMergedRolePermissions } from './permissions';
 import { isEchoServerOwner } from './access';
@@ -351,6 +352,7 @@ export async function deleteEchoTicket(
     `DELETE FROM echo_channels WHERE id = $1 AND server_id = $2`,
     [ticket.channelId, serverId],
   );
+  invalidateChannelServerId(ticket.channelId);
   return true;
 }
 

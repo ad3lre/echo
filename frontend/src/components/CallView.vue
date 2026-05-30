@@ -565,7 +565,7 @@ onUnmounted(() => {
       <button
         v-if="onGoToVoiceChannelInSidebar"
         type="button"
-        class="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-[15px] font-semibold text-white transition hover:underline"
+        class="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-[15px] font-semibold text-foreground transition hover:underline"
         :title="`${channelName} — Go to channel`"
         @click="onGoToVoiceChannelInSidebar()"
       >
@@ -573,7 +573,7 @@ onUnmounted(() => {
       </button>
       <span
         v-else
-        class="min-w-0 flex-1 truncate text-[15px] font-semibold text-white"
+        class="min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground"
         >{{ channelName }}</span
       >
       <span

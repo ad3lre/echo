@@ -413,6 +413,8 @@ export async function buildLinkEmbedsFromPlainText(
       continue;
     }
 
+    if (!allow) continue;
+
     /** Hosts that never get an HTTP fetch (e.g. 403 from datacenter) — card is URL-shape only, no network. */
     if (shouldSkipHttpUnfurlForUrl(u)) {
       const stub = stubEmbedFromUrlWhenUnfurlFails(u);
@@ -421,8 +423,6 @@ export async function buildLinkEmbedsFromPlainText(
         continue;
       }
     }
-
-    if (!allow) continue;
 
     const e = await unfurlUrlToEmbed(u);
     if (e) out.push(e);
