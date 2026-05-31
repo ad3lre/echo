@@ -228,6 +228,10 @@ const foldersWithServers = computed(() =>
   })),
 );
 
+const foldersWithServersMap = computed(
+  () => new Map(foldersWithServers.value.map((x) => [x.folder.id, x] as const)),
+);
+
 const FOLDER_ICON_PEEK_MAX = 3;
 
 function folderPeekServers(
@@ -939,11 +943,35 @@ function compactFolderDropRing(
               <div class="widget-folder-card-rail__shine" aria-hidden="true" />
               <div class="widget-folder-card-rail__accent" aria-hidden="true" />
               <div
-                class="widget-folder-card-rail__inner flex min-h-[2.85rem] flex-wrap items-center gap-2 px-2.5 py-2"
+                class="widget-folder-card-rail__inner flex min-h-[2.5rem] items-center gap-1.5 px-2.5 py-1.5"
               >
+                <!-- drag handle — visible only on group hover -->
+                <span
+                  class="widget-folder-drag-handle inline-flex shrink-0 cursor-grab items-center text-fg-subtle opacity-0 transition-opacity duration-150 group-hover:opacity-50 active:cursor-grabbing"
+                  title="Drag to reorder folders"
+                  draggable="true"
+                  @dragstart="onFolderDragStart(item.folder.id, $event)"
+                  @dragend="onDragEnd"
+                  @click.stop
+                >
+                  <svg
+                    class="h-3.5 w-3.5"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <circle cx="9" cy="6" r="1.5" />
+                    <circle cx="15" cy="6" r="1.5" />
+                    <circle cx="9" cy="12" r="1.5" />
+                    <circle cx="15" cy="12" r="1.5" />
+                    <circle cx="9" cy="18" r="1.5" />
+                    <circle cx="15" cy="18" r="1.5" />
+                  </svg>
+                </span>
+                <!-- collapse / expand chevron -->
                 <button
                   type="button"
-                  class="widget-folder-chevron"
+                  class="widget-folder-chevron shrink-0"
                   :title="
                     isFolderCollapsedInCard(item.folder.id)
                       ? 'Show servers in folder'
@@ -974,133 +1002,85 @@ function compactFolderDropRing(
                     />
                   </svg>
                 </button>
-                <span
-                  class="widget-folder-drag-handle inline-flex cursor-grab items-center text-fg-subtle active:cursor-grabbing"
-                  title="Drag to reorder folders"
-                  draggable="true"
-                  @dragstart="onFolderDragStart(item.folder.id, $event)"
-                  @dragend="onDragEnd"
-                  @click.stop
+                <!-- folder name -->
+                <p
+                  class="widget-folder-card-rail__name min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight text-fg"
+                >
+                  {{ item.folder.name }}
+                </p>
+                <!-- peek avatars when collapsed -->
+                <div
+                  v-if="
+                    isFolderCollapsedInCard(item.folder.id) &&
+                    (foldersWithServersMap.get(item.folder.id)?.servers
+                      .length ?? 0) > 0
+                  "
+                  class="folder-peek-avatars shrink-0"
+                  aria-hidden="true"
+                >
+                  <span
+                    v-for="(peek, pi) in folderPeekServers(
+                      foldersWithServersMap.get(item.folder.id)?.servers ?? [],
+                    )"
+                    :key="peek.id"
+                    class="folder-peek-avatar"
+                    :style="{ '--pi': String(pi) }"
+                  >
+                    <PausedGifAvatar
+                      :src="serverGuildIconDisplayUrl(peek.icon)"
+                      :alt="''"
+                      img-class="h-full w-full object-cover pointer-events-none"
+                    />
+                  </span>
+                </div>
+                <!-- count pill -->
+                <span class="widget-folder-card-rail__count shrink-0">{{
+                  item.folder.serverIds.length
+                }}</span>
+                <!-- more options — visible only on group hover -->
+                <button
+                  type="button"
+                  class="widget-folder-icon-btn shrink-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                  title="Folder options"
+                  @click.stop="openFolderContextMenu(item.folder.id, $event)"
                 >
                   <svg
-                    class="h-4 w-4 opacity-60"
+                    class="h-3.5 w-3.5"
                     viewBox="0 0 24 24"
                     fill="currentColor"
                     aria-hidden="true"
                   >
-                    <circle cx="9" cy="6" r="1.5" />
-                    <circle cx="15" cy="6" r="1.5" />
-                    <circle cx="9" cy="12" r="1.5" />
-                    <circle cx="15" cy="12" r="1.5" />
-                    <circle cx="9" cy="18" r="1.5" />
-                    <circle cx="15" cy="18" r="1.5" />
+                    <circle cx="5" cy="12" r="1.75" />
+                    <circle cx="12" cy="12" r="1.75" />
+                    <circle cx="19" cy="12" r="1.75" />
                   </svg>
-                </span>
-                <div class="widget-folder-card-rail__icon" aria-hidden="true">
-                  <img :src="iconFolder" alt="" class="h-4 w-4 opacity-90" />
-                </div>
-                <div class="min-w-0 flex-1">
-                  <p
-                    class="widget-folder-card-rail__name truncate text-[13px] font-semibold leading-tight text-fg"
-                  >
-                    {{ item.folder.name }}
-                  </p>
-                  <p
-                    class="widget-folder-card-rail__meta truncate text-[10px] font-medium text-fg-subtle"
-                  >
-                    {{
-                      item.folder.serverIds.length === 1
-                        ? '1 server'
-                        : `${item.folder.serverIds.length} servers`
-                    }}
-                  </p>
-                </div>
-                <span class="widget-folder-card-rail__count">{{
-                  item.folder.serverIds.length
-                }}</span>
-                <div class="flex shrink-0 items-center gap-0.5">
-                  <button
-                    type="button"
-                    class="widget-folder-icon-btn"
-                    title="Edit folder"
-                    @click.stop="openEditFolderModal(item.folder.id)"
-                  >
-                    <svg
-                      class="h-3.5 w-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      aria-hidden="true"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
-                      />
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    class="widget-folder-icon-btn widget-folder-icon-btn--danger"
-                    title="Delete folder…"
-                    @click.stop="openEditFolderModal(item.folder.id)"
-                  >
-                    <svg
-                      class="h-3.5 w-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      aria-hidden="true"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M3 6h18M8 6V4h8v2m-1 0v14a2 2 0 01-2 2H9a2 2 0 01-2-2V6h10z"
-                      />
-                    </svg>
-                  </button>
-                </div>
+                </button>
               </div>
             </div>
             <div
               v-else-if="item.type === 'ungroupedLabel'"
               data-ms-drop="ungrouped"
               data-ms-drop-index="0"
-              class="mt-3 flex flex-col gap-2 rounded-lg border border-dashed px-2 py-1.5 transition-colors"
+              class="ungrouped-section mt-4 transition-all"
               :class="
                 isDropTargetActive({ kind: 'ungrouped', index: 0 })
-                  ? 'border-sky-400/60 bg-sky-500/8'
-                  : 'border-[color-mix(in_srgb,var(--border)_40%,transparent)]'
+                  ? 'ungrouped-section--drop'
+                  : ''
               "
               @dragover.prevent="onUngroupedDragOver(0, $event)"
               @drop.prevent="onDrop"
             >
-              <div class="flex min-w-0 items-center gap-2">
-                <span
-                  class="text-[10px] font-bold uppercase tracking-wider text-fg-subtle"
-                  >Other servers</span
-                >
-                <span
-                  v-if="!draggingServerId"
-                  class="min-w-0 flex-1 truncate text-[10px] text-fg-subtle"
-                  >Drop here to remove from folders</span
-                >
+              <div class="ungrouped-section__rule">
+                <span class="ungrouped-section__label">Other servers</span>
               </div>
               <div
                 v-if="draggingServerId && folders.length > 0"
-                class="flex flex-wrap items-center gap-1.5"
+                class="mt-2 flex flex-wrap items-center gap-1.5 px-1"
                 role="group"
                 aria-label="Drop into widget folder"
               >
                 <span class="w-full text-[10px] font-medium text-fg-subtle"
-                  >Drop into folder:</span
+                  >Move into folder:</span
                 >
                 <button
                   v-for="f in folders"
@@ -1130,7 +1110,7 @@ function compactFolderDropRing(
                   normalizedOtherServersSearch &&
                   filteredUngroupedServers.length === 0
                 "
-                class="text-[10px] text-fg-subtle"
+                class="mt-2 px-1 text-[10px] text-fg-subtle"
               >
                 No other servers match “{{ otherServersSearchQuery.trim() }}”.
               </p>
@@ -1368,19 +1348,16 @@ function compactFolderDropRing(
               v-if="row.kind === 'ungroupedLabel'"
               data-ms-drop="ungrouped"
               data-ms-drop-index="0"
-              class="mt-2 w-full rounded-md border border-dashed px-1.5 py-1.5 transition-colors"
+              class="compact-ungrouped mt-2 w-full px-1 transition-all"
               :class="
                 isDropTargetActive({ kind: 'ungrouped', index: 0 })
-                  ? 'border-sky-400/60 bg-sky-500/8'
-                  : 'border-[color-mix(in_srgb,var(--border)_35%,transparent)]'
+                  ? 'compact-ungrouped--drop'
+                  : ''
               "
               @dragover.prevent="onUngroupedDragOver(0, $event)"
               @drop.prevent="onDrop"
             >
-              <span
-                class="text-[9px] font-bold uppercase tracking-wide text-fg-subtle"
-                >Other</span
-              >
+              <div class="compact-ungrouped-rule" />
               <div
                 v-if="draggingServerId && folders.length > 0"
                 class="mt-1.5 flex flex-wrap justify-center gap-1"
@@ -1574,59 +1551,12 @@ function compactFolderDropRing(
                 "
               >
                 <div class="widget-folder-blob__glow" aria-hidden="true" />
-                <div class="widget-folder-blob__header">
-                  <span
-                    class="widget-folder-drag-handle cursor-grab text-fg-subtle active:cursor-grabbing"
-                    title="Drag to reorder folders"
-                    draggable="true"
-                    @dragstart="onFolderDragStart(row.folder.id, $event)"
-                    @dragend="onDragEnd"
-                    @click.stop
-                  >
-                    <svg
-                      class="h-3 w-3 opacity-60"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <circle cx="9" cy="8" r="1.5" />
-                      <circle cx="15" cy="8" r="1.5" />
-                      <circle cx="9" cy="16" r="1.5" />
-                      <circle cx="15" cy="16" r="1.5" />
-                    </svg>
-                  </span>
-                  <button
-                    type="button"
-                    class="widget-folder-blob__collapse compact-circle shrink-0"
-                    :aria-expanded="true"
-                    :title="row.folder.name + ' — click to collapse'"
-                    @click="toggleFolderExpandedInCompact(row.folder.id)"
-                  >
-                    <div
-                      v-if="row.servers.length"
-                      class="widget-folder-compact-stack widget-folder-compact-stack--sm"
-                      aria-hidden="true"
-                    >
-                      <span
-                        v-for="(peek, si) in folderPeekServers(row.servers)"
-                        :key="'blob-' + peek.id"
-                        class="widget-folder-compact-peek"
-                        :style="{ '--wf-peek': String(si) }"
-                      >
-                        <PausedGifAvatar
-                          :src="serverGuildIconDisplayUrl(peek.icon)"
-                          :alt="''"
-                          img-class="h-full w-full object-cover pointer-events-none"
-                        />
-                      </span>
-                    </div>
-                    <img
-                      v-else
-                      :src="iconFolder"
-                      alt=""
-                      class="h-4 w-4 opacity-80"
-                    />
-                  </button>
+                <div
+                  class="widget-folder-blob__header cursor-grab active:cursor-grabbing"
+                  draggable="true"
+                  @dragstart="onFolderDragStart(row.folder.id, $event)"
+                  @dragend="onDragEnd"
+                >
                   <p
                     class="widget-folder-blob__name min-w-0 flex-1 truncate text-center text-[10px] font-semibold tracking-wide text-fg"
                     :title="row.folder.name"
@@ -1636,6 +1566,28 @@ function compactFolderDropRing(
                   <span class="widget-folder-blob__count">{{
                     row.servers.length
                   }}</span>
+                  <button
+                    type="button"
+                    class="widget-folder-blob__collapse-btn"
+                    :aria-expanded="true"
+                    :title="row.folder.name + ' — click to collapse'"
+                    @click.stop="toggleFolderExpandedInCompact(row.folder.id)"
+                  >
+                    <svg
+                      class="h-3 w-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      aria-hidden="true"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M5 15l7-7 7 7"
+                      />
+                    </svg>
+                  </button>
                 </div>
                 <p
                   v-if="!row.servers.length"
@@ -2189,29 +2141,31 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   z-index: 1;
 }
-.widget-folder-card-rail__icon {
-  display: inline-flex;
+
+/* peek avatars strip for collapsed folder in card view */
+.folder-peek-avatars {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 10px;
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--accent) 22%, transparent),
-    color-mix(in srgb, var(--bg) 70%, transparent)
-  );
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
-    0 4px 12px rgb(0 0 0 / 18%);
+  height: 1.35rem;
+  position: relative;
+  width: calc(1.1rem + (var(--peek-count, 3) - 1) * 0.55rem);
+  width: 2.1rem; /* fixed: up to 3 icons at 5px nudge each */
 }
+.folder-peek-avatar {
+  --pi: 0;
+  position: absolute;
+  left: calc(var(--pi) * 0.55rem);
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1.5px solid color-mix(in srgb, var(--bg) 90%, transparent);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 22%);
+  z-index: calc(3 - var(--pi));
+}
+
 .widget-folder-card-rail__name {
   letter-spacing: 0.01em;
-}
-.widget-folder-card-rail__meta {
-  margin-top: 0.1rem;
-  opacity: 0.85;
 }
 .widget-folder-card-rail__count {
   display: inline-flex;
@@ -2273,13 +2227,42 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
     border-color: var(--vue-auto-002);
   }
 }
-.widget-folder-icon-btn--danger {
-  color: var(--vue-auto-210);
-  &:hover {
-    background: var(--vue-auto-211);
-    color: var(--vue-auto-068);
-    border-color: color-mix(in srgb, var(--vue-auto-210) 35%, transparent);
+
+/* ── "Other servers" ungrouped section divider ── */
+.ungrouped-section {
+  padding: 0 0.25rem;
+}
+.ungrouped-section__rule {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: color-mix(in srgb, var(--border) 35%, transparent);
+    transition: background 0.2s;
   }
+}
+.ungrouped-section--drop .ungrouped-section__rule {
+  &::before,
+  &::after {
+    background: rgb(56 189 248 / 45%);
+  }
+}
+.ungrouped-section__label {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--vue-auto-087);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.ungrouped-section--drop .ungrouped-section__label {
+  color: rgb(56 189 248 / 70%);
 }
 
 /* ── compact ── */
@@ -2367,8 +2350,8 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
 .widget-folder-compact-trigger {
   position: relative;
-  width: 2.85rem;
-  height: 2.85rem;
+  width: 2.65rem;
+  height: 2.65rem;
   padding: 0;
   overflow: visible;
   background: linear-gradient(
@@ -2502,26 +2485,30 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.15rem 0.2rem 0.1rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.4rem;
   border-radius: 0.65rem;
   background: color-mix(in srgb, var(--bg) 35%, transparent);
   border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  user-select: none;
 }
-.widget-folder-blob__collapse {
-  position: relative;
+.widget-folder-blob__collapse-btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.15rem;
-  height: 2.15rem;
-  padding: 0;
-  overflow: hidden;
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--accent) 20%, transparent),
-    color-mix(in srgb, var(--bg) 75%, transparent)
-  );
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 6px;
+  color: var(--vue-auto-049);
+  transition:
+    background-color 0.12s ease-out,
+    color 0.12s ease-out;
+  cursor: pointer;
+  &:hover {
+    background: var(--vue-auto-001);
+    color: var(--vue-auto-025);
+  }
 }
 .widget-folder-blob__name {
   text-shadow: 0 1px 2px rgb(0 0 0 / 25%);
@@ -2558,9 +2545,6 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: none;
   border-color: color-mix(in srgb, var(--text) 12%, transparent);
 }
-[data-theme='light'] .widget-folder-card-rail__icon {
-  box-shadow: none;
-}
 [data-theme='light'] .widget-folder-compact-trigger {
   box-shadow: none;
   border-color: color-mix(in srgb, var(--text) 14%, transparent);
@@ -2576,5 +2560,24 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 [data-theme='light'] .widget-folder-blob {
   box-shadow: none;
   border-color: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+/* ── compact ungrouped divider ── */
+.compact-ungrouped-rule {
+  height: 1px;
+  margin: 0.15rem 0.25rem 0.25rem;
+  background: color-mix(in srgb, var(--border) 35%, transparent);
+  border-radius: 1px;
+  transition: background 0.2s;
+}
+.compact-ungrouped--drop .compact-ungrouped-rule {
+  background: rgb(56 189 248 / 45%);
+  box-shadow: 0 0 6px rgb(56 189 248 / 18%);
+}
+
+/* ── folder peek avatar overrides for light theme ── */
+[data-theme='light'] .folder-peek-avatar {
+  border-color: color-mix(in srgb, var(--text) 8%, transparent);
+  box-shadow: none;
 }
 </style>

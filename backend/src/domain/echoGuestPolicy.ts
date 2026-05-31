@@ -18,6 +18,7 @@ const GUEST_ALLOWED_MUTATIONS: ReadonlyArray<{
   { method: 'POST', pattern: '/uploads/presign' },
   { method: 'PUT', pattern: '/uploads/local/put' },
   { method: 'POST', pattern: '/uploads/dedupe/register' },
+  { method: 'POST', pattern: '/uploads/register' },
 ];
 
 function patternMatch(routeUrl: string, pattern: string): boolean {

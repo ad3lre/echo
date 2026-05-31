@@ -617,6 +617,29 @@ const SANITIZE_OPTS = {
   ALLOW_UNKNOWN_PROTOCOLS: false,
 };
 
+let katexOnlyStyleSanitizerHookInstalled = false;
+
+/** Strip user inline `style` while preserving KaTeX layout styles inside `.katex`. */
+function ensureKatexOnlyStyleSanitizerHook(): void {
+  if (katexOnlyStyleSanitizerHookInstalled) return;
+  katexOnlyStyleSanitizerHookInstalled = true;
+  DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+    if (data.attrName !== 'style') return;
+    let el = node as Element | null;
+    let allowed = false;
+    while (el) {
+      if (el.classList?.contains('katex')) {
+        allowed = true;
+        break;
+      }
+      el = el.parentElement;
+    }
+    if (!allowed) {
+      data.keepAttr = false;
+    }
+  });
+}
+
 const MARKDOWN_SYNTAX =
   /(^|\n)(#{1,6}\s|>\s|[-*+]\s|\d+\.\s|```|~~~|\|.*\||\s*[-*_]{3,}\s*$)|(\*\*[^*\n]*\*\*|\*[^*\n]+\*|__[^_\n]*__|_[^_\n]+_|`[^`\n]+`|~~[^~\n]+~~|\[[^\]]+\]\([^)]+\)|!\[[^\]]*\]\([^)]+\)|==[^=\n]+==|\|\|[^|]+\|\|)|(\*\*|\*\s|\*\S|`|~~|==|\|\|)/m;
 
@@ -710,7 +733,7 @@ const PARSE_CACHE = new Map<string, string>();
 const PARSE_CACHE_MAX = 2000;
 const HTML_STAGE_CACHE_MAX = 2000;
 const MARKDOWN_PIPELINE_VERSION =
-  'mdp1_math3_dollar_inline_latex_text1_sanitize3_katex_svg_twemoji1_alerts1_extlinkfav1';
+  'mdp1_math3_dollar_inline_latex_text1_sanitize4_katex_style_gate_twemoji1_alerts1_extlinkfav1';
 const EMOJI_CANDIDATE_RE = /[\u{2600}-\u{27BF}\u{1F000}-\u{1FAFF}]/u;
 const RESOLVER_CACHE_VERSION = new WeakMap<object, number>();
 const HEADING_HTML_CACHE = new Map<string, string>();
@@ -1271,6 +1294,7 @@ export function parseMessageContent(
   let sanitized = useMarkedBypass
     ? withExternalLinks
     : (() => {
+        ensureKatexOnlyStyleSanitizerHook();
         const cached = getCachedString(SANITIZE_HTML_CACHE, withExternalLinks);
         if (cached !== undefined) return cached;
         return setCachedString(
@@ -1286,6 +1310,7 @@ export function parseMessageContent(
     .replace(/&amp;apos;/gi, "'");
   sanitized = applyMessageExternalLinkBioPresentation(sanitized);
   const twemojified = applyTwemojiOutsideKatex(sanitized);
+  ensureKatexOnlyStyleSanitizerHook();
   const out = DOMPurify.sanitize(twemojified, SANITIZE_OPTS);
   if (useCache) {
     const cacheKey = parseMessageCacheKey(

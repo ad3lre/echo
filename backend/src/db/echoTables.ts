@@ -1245,6 +1245,14 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     WHERE discord_source_emoji_id IS NOT NULL;
   `);
   await pool.query(`
+    ALTER TABLE echo_server_custom_emojis
+      ADD COLUMN IF NOT EXISTS public_cdn_url TEXT NULL;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_server_custom_emojis
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_server_emoji_usage (
       server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
       emoji_id TEXT NOT NULL REFERENCES echo_server_custom_emojis(id) ON DELETE CASCADE,
@@ -1755,6 +1763,28 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   }
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_upload_intent (
+      storage_key TEXT PRIMARY KEY,
+      uploader_id TEXT NOT NULL,
+      channel_id TEXT NULL,
+      server_id TEXT NULL,
+      purpose TEXT NULL,
+      content_type TEXT NOT NULL,
+      declared_byte_length BIGINT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'registered', 'expired')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      registered_at TIMESTAMPTZ NULL
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_upload_intent_pending_expires
+    ON echo_upload_intent (expires_at)
+    WHERE status = 'pending';
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_upload_dedupe (
       sha256_hex CHAR(64) PRIMARY KEY,
       kind TEXT NOT NULL CHECK (kind IN ('image', 'video')),
@@ -1774,6 +1804,10 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_upload_dedupe_kind_created
     ON echo_upload_dedupe (kind, created_at DESC);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_upload_dedupe_storage_key
+    ON echo_upload_dedupe (storage_key);
   `);
 
   await pool.query(`

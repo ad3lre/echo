@@ -74,7 +74,8 @@ export function renderCustomEmojiHtml(
 
 /**
  * Discord serves custom emoji assets at predictable URLs (same id format as Echo public ids).
- * Only use after Echo’s `/emoji/resolve` has confirmed the emoji is not in the DB, otherwise
+ * Only use after Echo’s `/emoji/resolve` has confirmed the emoji is not in the DB; prefer
+ * `/api/v1/echo/public/emojis/{id}` from resolve for Echo-hosted emojis. Otherwise
  * we could briefly point at a non-existent Discord asset for an unloaded Echo emoji.
  */
 const DISCORD_EMOJI_CDN_HOSTS = [

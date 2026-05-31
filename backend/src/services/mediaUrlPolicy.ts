@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from './localUploadDisk';
 
 /** Aligned with `MAX_HTTPS_MEDIA_URL_LENGTH` in `messageValidation.ts`. */
@@ -17,11 +18,17 @@ export function mediaUrlPassesEchoPolicy(url: string): boolean {
   ) {
     return t.length <= MAX_LOCAL_PATH_MEDIA_LEN;
   }
+  if (extractEchoStorageKeyFromPublicUrl(t)) {
+    return true;
+  }
   if (config.echoMediaUrlRequireHttps && !t.startsWith('https://')) {
     return false;
   }
   const hosts = config.echoMediaUrlAllowedHosts;
-  if (hosts.length === 0) return true;
+  if (hosts.length === 0) {
+    if (/^https?:\/\//i.test(t)) return false;
+    return true;
+  }
   try {
     const u = new URL(t);
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;

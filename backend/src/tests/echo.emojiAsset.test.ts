@@ -3,14 +3,14 @@ import bcrypt from 'bcrypt';
 import pg from 'pg';
 import { ensureEchoTables } from '../db/echoTables';
 import {
-  addEchoServerCustomEmoji,
   createEchoCustomEmojiPack,
   createEchoServer,
   resolveEchoEmojiTokens,
 } from '../domain/echoStore';
+import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from '../services/localUploadDisk';
 import {
-  buildEchoCustomEmojiAssetPath,
+  buildEchoPublicEmojiCdnPath,
   clientImageUrlForResolvedEmoji,
   customEmojiStoredUrlNeedsAssetProxy,
   extractStorageKeyFromEchoMediaUrl,
@@ -49,10 +49,26 @@ async function run(): Promise<void> {
   );
 
   const emojiId = '304238867010606080';
-  const storedR2 = 'https://test.r2.dev/echo/emoji/srv/u1/e.webp';
-  const client = clientImageUrlForResolvedEmoji(emojiId, storedR2);
-  assert.equal(client.assetUrl, buildEchoCustomEmojiAssetPath(emojiId));
+  const storedProxy = `${ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX}echo%2Femoji%2Fsrv%2Fu1%2Fe.webp`;
+  const client = clientImageUrlForResolvedEmoji(emojiId, storedProxy);
+  assert.ok(
+    client.assetUrl?.includes(buildEchoPublicEmojiCdnPath(emojiId)),
+    'assetUrl should use public emoji CDN path',
+  );
   assert.equal(client.imageUrl, client.assetUrl);
+  const allowedPublishedPath = `${buildEchoPublicEmojiCdnPath(emojiId)}.webp`;
+  const published = clientImageUrlForResolvedEmoji(emojiId, storedProxy, {
+    publicCdnUrl: allowedPublishedPath,
+  });
+  assert.equal(published.imageUrl, allowedPublishedPath);
+
+  const poisoned = clientImageUrlForResolvedEmoji(emojiId, storedProxy, {
+    publicCdnUrl: 'https://evil.example/echo/public-emojis/x.webp',
+  });
+  assert.ok(
+    poisoned.imageUrl.includes(buildEchoPublicEmojiCdnPath(emojiId)),
+    'rejects disallowed public_cdn_url',
+  );
 
   const databaseUrl = process.env.PG_TEST_URL ?? process.env.DATABASE_URL;
   if (!databaseUrl) {
@@ -92,27 +108,25 @@ async function run(): Promise<void> {
     assert.equal(pack.ok, true);
     if (!pack.ok) return;
 
-    const added = await addEchoServerCustomEmoji(
-      pool,
-      serverA,
-      ownerA,
-      pack.packId,
-      'wave',
-      false,
-      storedR2,
+    emojiRowId = nextEchoSnowflakeId();
+    await pool.query(
+      `INSERT INTO echo_server_custom_emojis (
+         id, server_id, pack_id, name, animated, image_url, expression_kind
+       ) VALUES ($1, $2, $3, 'wave', false, $4, 'emoji')`,
+      [emojiRowId, serverA, pack.packId, storedProxy],
     );
-    assert.equal(added.ok, true);
-    if (!added.ok) return;
-    emojiRowId = added.emojiId;
 
     const resolved = await resolveEchoEmojiTokens(pool, viewerB, [emojiRowId]);
     assert.equal(resolved.length, 1);
     assert.equal(resolved[0]!.id, emojiRowId);
-    assert.equal(
-      resolved[0]!.assetUrl,
-      buildEchoCustomEmojiAssetPath(emojiRowId),
+    assert.ok(
+      resolved[0]!.assetUrl?.includes(buildEchoPublicEmojiCdnPath(emojiRowId)),
+      'resolve assetUrl should use public emoji CDN path',
     );
-    assert.equal(resolved[0]!.imageUrl, resolved[0]!.assetUrl);
+    assert.ok(
+      resolved[0]!.imageUrl.includes(emojiRowId),
+      'resolve imageUrl should reference emoji id',
+    );
 
     const unrelated = await resolveEchoEmojiTokens(pool, viewerB, [
       '999999999999999999',
@@ -132,7 +146,10 @@ async function run(): Promise<void> {
 }
 
 run()
-  .then(() => console.log('echo.emojiAsset tests passed'))
+  .then(() => {
+    console.log('echo.emojiAsset tests passed');
+    process.exit(0);
+  })
   .catch((e) => {
     console.error(e);
     process.exit(1);

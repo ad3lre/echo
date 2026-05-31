@@ -6,8 +6,8 @@
 #     handle { ... root ... try_files ... file_server }
 #   }
 #
-# Static SPA — use the same release directory as the API on 127.0.0.1:{{API_PORT}}:
-#   root * {{RELEASE_ROOT}}/frontend/dist
+# Static SPA — active release (Caddy `root` for HTML + assets with CSP/HSTS):
+#   {{SPA_ROOT}}
 
 handle /api/* {
 	reverse_proxy 127.0.0.1:{{API_PORT}}

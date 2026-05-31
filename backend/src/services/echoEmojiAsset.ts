@@ -1,29 +1,50 @@
 import path from 'path';
 import { createReadStream } from 'fs';
-import { stat } from 'fs/promises';
+import { stat, copyFile, mkdir } from 'fs/promises';
 import type { FastifyReply } from 'fastify';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import pg from 'pg';
+import { ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX } from '../../../shared/echoEmojiCdn';
 import { extractStorageKeyFromEchoMediaUrl as extractStorageKeyShared } from '../../../shared/echoUploadStorageKey';
 import { config } from '../config';
 import { sendError } from '../api/errors';
+import { sanitizePublicCdnUrlForClient } from './echoEmojiCdnUrlPolicy';
 import {
   createEchoS3UploadClient,
   getEchoS3UploadBucket,
   getEchoUploadPublicUrlPrefixes,
   isEchoS3UploadConfigured,
 } from './s3UploadPresign';
-import {
-  ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX,
-  resolveLocalUploadFilePath,
-} from './localUploadDisk';
+import { resolveLocalUploadFilePath } from './localUploadDisk';
 
-/** Same-origin path clients use for cross-guild custom emoji bytes. */
+/** @deprecated Prefer {@link ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX} for resolve/display URLs. */
 export const ECHO_CUSTOM_EMOJI_ASSET_PATH_PREFIX = '/api/v1/echo/emoji/';
 
 export function buildEchoCustomEmojiAssetPath(emojiId: string): string {
   const id = emojiId.trim();
   return `${ECHO_CUSTOM_EMOJI_ASSET_PATH_PREFIX}${encodeURIComponent(id)}/asset`;
+}
+
+export function buildEchoPublicEmojiCdnPath(emojiId: string): string {
+  const id = emojiId.trim();
+  return `${ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX}${encodeURIComponent(id)}`;
+}
+
+/** Absolute URL for clients when `ECHO_EMOJI_PUBLIC_BASE_URL` / `ECHO_API_PUBLIC_URL` is configured. */
+export function buildEchoPublicEmojiCdnUrl(
+  emojiId: string,
+  cacheVersion?: string | number | null,
+): string {
+  const rel = buildEchoPublicEmojiCdnPath(emojiId);
+  const base = (
+    config.echoEmojiPublicBaseUrl?.trim() || config.echoApiPublicUrl?.trim()
+  ).replace(/\/$/, '');
+  if (!base) return rel;
+  const url = new URL(rel, `${base}/`);
+  if (cacheVersion != null && String(cacheVersion).trim() !== '') {
+    url.searchParams.set('v', String(cacheVersion).trim());
+  }
+  return url.href;
 }
 
 /**
@@ -46,9 +67,17 @@ export function customEmojiStoredUrlNeedsAssetProxy(imageUrl: string): boolean {
 export function clientImageUrlForResolvedEmoji(
   emojiId: string,
   storedImageUrl: string,
+  options?: {
+    publicCdnUrl?: string | null;
+    cacheVersion?: string | number | null;
+  },
 ): { imageUrl: string; assetUrl?: string } {
+  const published = sanitizePublicCdnUrlForClient(options?.publicCdnUrl);
+  if (published) {
+    return { imageUrl: published, assetUrl: published };
+  }
   if (customEmojiStoredUrlNeedsAssetProxy(storedImageUrl)) {
-    const assetUrl = buildEchoCustomEmojiAssetPath(emojiId);
+    const assetUrl = buildEchoPublicEmojiCdnUrl(emojiId, options?.cacheVersion);
     return { imageUrl: assetUrl, assetUrl };
   }
   return { imageUrl: storedImageUrl };
@@ -61,6 +90,9 @@ export type EchoCustomEmojiRow = {
   animated: boolean;
   image_url: string;
   discord_source_emoji_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+  public_cdn_url: string | null;
 };
 
 export async function getEchoCustomEmojiById(
@@ -70,9 +102,27 @@ export async function getEchoCustomEmojiById(
   const id = emojiId.trim();
   if (!id || !/^\d+$/.test(id) || id.length > 64) return null;
   const res = await pool.query<EchoCustomEmojiRow>(
-    `SELECT id, server_id, name, animated, image_url, discord_source_emoji_id
+    `SELECT id, server_id, name, animated, image_url, discord_source_emoji_id,
+            created_at, updated_at, public_cdn_url
      FROM echo_server_custom_emojis
      WHERE id = $1`,
+    [id],
+  );
+  return res.rows[0] ?? null;
+}
+
+/** Emoji asset routes: emoji rows only (not stickers). */
+export async function getEchoPublicCustomEmojiById(
+  pool: pg.Pool,
+  emojiId: string,
+): Promise<EchoCustomEmojiRow | null> {
+  const id = emojiId.trim();
+  if (!id || !/^\d+$/.test(id) || id.length > 64) return null;
+  const res = await pool.query<EchoCustomEmojiRow>(
+    `SELECT id, server_id, name, animated, image_url, discord_source_emoji_id,
+            created_at, updated_at, public_cdn_url
+     FROM echo_server_custom_emojis
+     WHERE id = $1 AND COALESCE(expression_kind, 'emoji') = 'emoji'`,
     [id],
   );
   return res.rows[0] ?? null;
@@ -108,31 +158,87 @@ async function servedContentTypeForStorageKey(
   return fallback;
 }
 
-/**
- * Stream custom emoji bytes for any authenticated Echo user (cross-guild).
- * Does not require membership in the emoji's home server.
- */
-export async function sendEchoCustomEmojiAsset(
+export function emojiCacheVersion(row: EchoCustomEmojiRow): number | undefined {
+  const raw = row.updated_at ?? row.created_at;
+  const ts = raw instanceof Date ? raw.getTime() : new Date(raw).getTime();
+  return Number.isFinite(ts) ? ts : undefined;
+}
+
+export function emojiEtag(row: EchoCustomEmojiRow): string {
+  const v = emojiCacheVersion(row) ?? 0;
+  return `"${row.id}-${v}"`;
+}
+
+type EmojiAssetCacheMode = 'public' | 'private';
+
+function applyEmojiAssetCacheHeaders(
+  reply: FastifyReply,
+  mode: EmojiAssetCacheMode,
+  statusOk: boolean,
+  etag?: string,
+): void {
+  if (mode === 'public') {
+    if (statusOk) {
+      reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+      if (etag) reply.header('ETag', etag);
+    } else {
+      reply.header('Cache-Control', 'public, max-age=60');
+    }
+    return;
+  }
+  reply
+    .header('Cache-Control', 'private, max-age=300')
+    .header('Vary', 'Cookie, Authorization');
+}
+
+function ifNoneMatchMatches(
+  ifNoneMatch: string | undefined,
+  etag: string,
+): boolean {
+  if (!ifNoneMatch?.trim()) return false;
+  const tags = ifNoneMatch.split(',').map((t) => t.trim());
+  return tags.some((t) => t === etag || t === '*');
+}
+
+async function streamEchoCustomEmojiBytes(
   pool: pg.Pool,
   reply: FastifyReply,
-  emojiId: string,
+  row: EchoCustomEmojiRow,
+  mode: EmojiAssetCacheMode,
+  opts?: { ifNoneMatch?: string },
 ): Promise<void> {
-  const row = await getEchoCustomEmojiById(pool, emojiId);
-  if (!row) return sendError(reply, 404, 'NOT_FOUND', 'Emoji not found');
-
   const stored = row.image_url?.trim() ?? '';
-  if (!stored) return sendError(reply, 404, 'NOT_FOUND', 'Emoji has no image');
+  if (!stored) {
+    applyEmojiAssetCacheHeaders(reply, mode, false);
+    return sendError(reply, 404, 'NOT_FOUND', 'Emoji has no image');
+  }
 
   const storageKey = extractStorageKeyFromEchoMediaUrl(stored);
-  if (!storageKey)
+  if (!storageKey) {
+    applyEmojiAssetCacheHeaders(reply, mode, false);
     return sendError(reply, 404, 'NOT_FOUND', 'Emoji asset not available');
+  }
+
+  const etag = mode === 'public' ? emojiEtag(row) : undefined;
+  if (
+    mode === 'public' &&
+    etag &&
+    ifNoneMatchMatches(opts?.ifNoneMatch, etag)
+  ) {
+    applyEmojiAssetCacheHeaders(reply, mode, true, etag);
+    return reply.code(304).send();
+  }
 
   if (config.echoLocalUploadDir) {
     const abs = resolveLocalUploadFilePath(storageKey);
-    if (!abs) return sendError(reply, 404, 'NOT_FOUND', 'Not found');
+    if (!abs) {
+      applyEmojiAssetCacheHeaders(reply, mode, false);
+      return sendError(reply, 404, 'NOT_FOUND', 'Not found');
+    }
     try {
       await stat(abs);
     } catch {
+      applyEmojiAssetCacheHeaders(reply, mode, false);
       return sendError(reply, 404, 'NOT_FOUND', 'Not found');
     }
     const ct = await servedContentTypeForStorageKey(
@@ -141,14 +247,12 @@ export async function sendEchoCustomEmojiAsset(
       guessContentTypeFromPath(abs),
     );
     const stream = createReadStream(abs);
-    return reply
-      .header('Cache-Control', 'private, max-age=300')
-      .header('Vary', 'Cookie, Authorization')
-      .type(ct)
-      .send(stream);
+    applyEmojiAssetCacheHeaders(reply, mode, true, etag);
+    return reply.type(ct).send(stream);
   }
 
-  if (!config.echoS3PublicReadThroughApi || !isEchoS3UploadConfigured()) {
+  if (!isEchoS3UploadConfigured()) {
+    applyEmojiAssetCacheHeaders(reply, mode, false);
     return sendError(reply, 404, 'NOT_FOUND', 'Not found');
   }
 
@@ -164,21 +268,80 @@ export async function sendEchoCustomEmojiAsset(
     );
     const body = obj.Body;
     if (!body || typeof body !== 'object' || !('pipe' in body)) {
+      applyEmojiAssetCacheHeaders(reply, mode, false);
       return sendError(reply, 404, 'NOT_FOUND', 'Not found');
     }
     const ct =
       (typeof obj.ContentType === 'string' && obj.ContentType.trim()) ||
       guessContentTypeFromPath(storageKey);
     const servedCt = await servedContentTypeForStorageKey(pool, storageKey, ct);
-    return reply
-      .header('Cache-Control', 'private, max-age=300')
-      .header('Vary', 'Cookie, Authorization')
-      .type(servedCt)
-      .send(body as import('stream').Readable);
+    applyEmojiAssetCacheHeaders(reply, mode, true, etag);
+    return reply.type(servedCt).send(body as import('stream').Readable);
   } catch (e) {
     const status = (e as { $metadata?: { httpStatusCode?: number } })?.$metadata
       ?.httpStatusCode;
+    applyEmojiAssetCacheHeaders(reply, mode, false);
     if (status === 404) return sendError(reply, 404, 'NOT_FOUND', 'Not found');
     return sendError(reply, 500, 'INTERNAL', 'Failed to read object');
   }
+}
+
+/**
+ * Stream custom emoji bytes for any authenticated Echo user (cross-guild).
+ * Does not require membership in the emoji's home server.
+ */
+export async function sendEchoCustomEmojiAsset(
+  pool: pg.Pool,
+  reply: FastifyReply,
+  emojiId: string,
+): Promise<void> {
+  const row = await getEchoPublicCustomEmojiById(pool, emojiId);
+  if (!row) return sendError(reply, 404, 'NOT_FOUND', 'Emoji not found');
+  return streamEchoCustomEmojiBytes(pool, reply, row, 'private');
+}
+
+/**
+ * Public cacheable emoji bytes for cross-guild `<img src>` (no auth).
+ */
+export async function sendEchoPublicCustomEmojiAsset(
+  pool: pg.Pool,
+  reply: FastifyReply,
+  emojiId: string,
+  opts?: { ifNoneMatch?: string },
+): Promise<void> {
+  const row = await getEchoPublicCustomEmojiById(pool, emojiId);
+  if (!row) {
+    applyEmojiAssetCacheHeaders(reply, 'public', false);
+    return sendError(reply, 404, 'NOT_FOUND', 'Emoji not found');
+  }
+
+  const published = sanitizePublicCdnUrlForClient(row.public_cdn_url);
+  const cdnBase = (
+    config.echoEmojiCdnBaseUrl?.trim() || config.s3UploadPublicBaseUrl?.trim()
+  )?.replace(/\/$/, '');
+  if (published && cdnBase && published.startsWith(cdnBase)) {
+    const etag = emojiEtag(row);
+    if (ifNoneMatchMatches(opts?.ifNoneMatch, etag)) {
+      applyEmojiAssetCacheHeaders(reply, 'public', true, etag);
+      return reply.code(304).send();
+    }
+    applyEmojiAssetCacheHeaders(reply, 'public', true, etag);
+    return reply.code(302).header('Location', published).send();
+  }
+
+  return streamEchoCustomEmojiBytes(pool, reply, row, 'public', opts);
+}
+
+/** Copy published emoji object on local disk (dev fallback when S3 CDN is off). */
+export async function copyLocalPublishedEmojiObject(
+  sourceStorageKey: string,
+  destStorageKey: string,
+): Promise<void> {
+  const root = config.echoLocalUploadDir;
+  if (!root) return;
+  const srcAbs = resolveLocalUploadFilePath(sourceStorageKey);
+  const destAbs = resolveLocalUploadFilePath(destStorageKey);
+  if (!srcAbs || !destAbs) return;
+  await mkdir(path.dirname(destAbs), { recursive: true });
+  await copyFile(srcAbs, destAbs);
 }

@@ -2,7 +2,10 @@
 # `handle /socket.io*` routes so JSON and Engine.IO responses still use Helmet only, while HTML
 # and static assets get CSP + HSTS here (Mozilla HTTP Observatory grades `GET /`).
 #
-# Adjust `root` to your active `frontend/dist` path (same release as the API upstream).
+# On VPS hosts using `npm run deploy`, this block is appended automatically to
+# `$ECHO_DEPLOY_ROOT/proxy/echo-generated-routes.caddyfile` via
+# `scripts/deploy/templates/caddy-echo-spa-static.caddyfile.template`.
+# Manual paste: adjust `root` to your active `frontend/dist` path.
 
 route {
 	# iOS Universal Links — must be JSON, not SPA index.html (Apple rejects HTML fallbacks).

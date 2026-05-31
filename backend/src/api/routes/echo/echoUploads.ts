@@ -70,13 +70,21 @@ import {
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { echoPool, requireEchoStore } from './echoRouteUtils';
 import { isEchoChatUserMediaStorageKey } from '../../../../../shared/chatMediaRetention';
-import { isEchoPublicServerBrandingStorageKey } from '../../../../../shared/echoUploadStorageKey';
+import {
+  isEchoPublicEmojiCdnStorageKey,
+  isEchoPublicServerBrandingStorageKey,
+} from '../../../../../shared/echoUploadStorageKey';
 import {
   getChatUploadRetentionByStorageKey,
   isChatUploadRetentionExpired,
   registerChatUploadRetention,
   touchChatUploadRetention,
 } from '../../../services/chatUploadRetention';
+import {
+  insertEchoUploadIntent,
+  markEchoUploadIntentRegistered,
+} from '../../../services/echoUploadIntent';
+import { verifyEchoUploadReadyToRegister } from '../../../services/echoUploadRegister';
 
 function sanitizeUploadContentType(
   raw: string,
@@ -179,7 +187,12 @@ async function requireAuthUnlessUploadReadGranted(
   storageKey: string | null,
 ): Promise<void> {
   const key = storageKey?.trim() ?? '';
-  if (key && isEchoPublicServerBrandingStorageKey(key)) return;
+  if (
+    key &&
+    (isEchoPublicServerBrandingStorageKey(key) ||
+      isEchoPublicEmojiCdnStorageKey(key))
+  )
+    return;
   const readQuery =
     typeof (req.query as { read?: unknown })?.read === 'string'
       ? (req.query as { read: string }).read.trim()
@@ -223,7 +236,11 @@ async function canAccessUploadStorageKey(
 ): Promise<boolean> {
   const key = storageKey.trim();
   if (!key) return false;
-  if (isEchoPublicServerBrandingStorageKey(key)) return true;
+  if (
+    isEchoPublicServerBrandingStorageKey(key) ||
+    isEchoPublicEmojiCdnStorageKey(key)
+  )
+    return true;
   const readQuery =
     typeof (req.query as { read?: unknown })?.read === 'string'
       ? (req.query as { read: string }).read.trim()
@@ -407,11 +424,15 @@ export default async function echoUploadsRoutes(
         }
       }
       const serveMeta = sanitizeEchoUploadServeContentType(ct, key);
-      const publicBranding = isEchoPublicServerBrandingStorageKey(key);
+      const publicRead =
+        isEchoPublicServerBrandingStorageKey(key) ||
+        isEchoPublicEmojiCdnStorageKey(key);
       reply
         .header(
           'Cache-Control',
-          publicBranding ? 'public, max-age=86400' : 'private, no-store',
+          publicRead
+            ? 'public, max-age=31536000, immutable'
+            : 'private, no-store',
         )
         .header('Vary', 'X-Forwarded-Proto, X-Forwarded-Host');
       return sendLocalEchoUploadFile(
@@ -498,15 +519,19 @@ export default async function echoUploadsRoutes(
         } catch {
           /* optional for ranged GET */
         }
-        const publicBranding = isEchoPublicServerBrandingStorageKey(key);
+        const publicRead =
+          isEchoPublicServerBrandingStorageKey(key) ||
+          isEchoPublicEmojiCdnStorageKey(key);
         reply
           .header(
             'Cache-Control',
-            publicBranding ? 'public, max-age=86400' : 'private, max-age=300',
+            publicRead
+              ? 'public, max-age=31536000, immutable'
+              : 'private, max-age=300',
           )
           .header(
             'Vary',
-            publicBranding
+            publicRead
               ? 'X-Forwarded-Proto, X-Forwarded-Host'
               : 'Cookie, Authorization',
           );
@@ -738,6 +763,16 @@ export default async function echoUploadsRoutes(
         );
       }
       const storageKey = dest.storageKey;
+
+      await insertEchoUploadIntent(pool, {
+        storageKey,
+        uploaderId: userId,
+        channelId: channelId || undefined,
+        serverId: serverId || undefined,
+        purpose: purpose ?? undefined,
+        contentType,
+        declaredByteLength: contentLength,
+      });
 
       const signed = await presignEchoUpload({
         key: storageKey,
@@ -1026,76 +1061,20 @@ export default async function echoUploadsRoutes(
           'Upload public URL is not configured for this storage destination',
         );
       }
-      if (config.echoLocalUploadDir) {
-        const abs = resolveLocalUploadFilePath(storageKeyClient);
-        if (!abs) {
-          return sendError(
-            reply,
-            400,
-            'INVALID_BODY',
-            'storageKey resolves outside local upload root',
-          );
-        }
-        const info = await stat(abs).catch(() => null);
-        if (!info || !info.isFile()) {
-          return sendError(
-            reply,
-            404,
-            'NOT_FOUND',
-            'Uploaded object not found',
-          );
-        }
-        if (info.size !== byteLength) {
-          return sendError(
-            reply,
-            400,
-            'INVALID_BODY',
-            'Uploaded object size does not match declared byteLength',
-          );
-        }
-      } else {
-        const bucket = getEchoS3UploadBucket();
-        const s3 = createEchoS3UploadClient();
-        if (!bucket || !s3) {
-          return sendError(
-            reply,
-            503,
-            'UPLOADS_NOT_CONFIGURED',
-            'Upload object verification unavailable',
-          );
-        }
-        let head;
-        try {
-          head = await s3.send(
-            new HeadObjectCommand({ Bucket: bucket, Key: storageKeyClient }),
-          );
-        } catch {
-          return sendError(
-            reply,
-            404,
-            'NOT_FOUND',
-            'Uploaded object not found',
-          );
-        }
-        if (Number(head.ContentLength ?? -1) !== byteLength) {
-          return sendError(
-            reply,
-            400,
-            'INVALID_BODY',
-            'Uploaded object size does not match declared byteLength',
-          );
-        }
-        const headType = String(head.ContentType ?? '')
-          .trim()
-          .toLowerCase();
-        if (!headType || headType !== ct) {
-          return sendError(
-            reply,
-            400,
-            'INVALID_BODY',
-            'Uploaded object content type mismatch',
-          );
-        }
+
+      const registrationGate = await verifyEchoUploadReadyToRegister(pool, {
+        storageKey: storageKeyClient,
+        uploaderId: userId,
+        contentType,
+        byteLength,
+      });
+      if (!registrationGate.ok) {
+        return sendError(
+          reply,
+          registrationGate.httpStatus,
+          registrationGate.code,
+          registrationGate.message,
+        );
       }
 
       const safetyLog = {
@@ -1144,6 +1123,12 @@ export default async function echoUploadsRoutes(
         uploaderId: userId,
       });
 
+      await markEchoUploadIntentRegistered(
+        pool,
+        storageKeyClient,
+        registrationGate.declaredByteLength,
+      );
+
       await registerChatUploadRetention(pool, {
         storageKey: storageKeyClient,
         byteLength,
@@ -1167,6 +1152,115 @@ export default async function echoUploadsRoutes(
         });
         kickVideoUploadOptimizeJob();
       }
+
+      return reply.code(204).send();
+    },
+  );
+
+  type EchoUploadRegisterBody = {
+    channelId?: string;
+    serverId?: string;
+    purpose?: EchoPresignBody['purpose'];
+    contentType?: string;
+    objectKey?: string;
+    storageKey?: string;
+    byteLength?: number;
+  };
+
+  fastify.post<{ Body: EchoUploadRegisterBody }>(
+    '/uploads/register',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      bodyLimit: 8192,
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const userId = getAuthUser(req).id;
+      const body = req.body;
+
+      const objectKeyRaw =
+        typeof body?.objectKey === 'string' ? body.objectKey : '';
+      const objectKey = sanitizeEchoUploadObjectKeyFragment(objectKeyRaw);
+      const storageKeyClient =
+        typeof body?.storageKey === 'string' ? body.storageKey.trim() : '';
+      const contentType = sanitizeUploadContentType(
+        typeof body?.contentType === 'string' ? body.contentType : '',
+        '',
+      );
+      const byteLength =
+        typeof body?.byteLength === 'number' && Number.isFinite(body.byteLength)
+          ? body.byteLength
+          : 0;
+
+      if (!objectKey || !storageKeyClient || !contentType || byteLength < 1) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'objectKey, storageKey, contentType, and byteLength are required',
+        );
+      }
+
+      const dest = await resolveEchoUploadStorageKey(pool, userId, {
+        channelId:
+          typeof body.channelId === 'string' ? body.channelId.trim() : '',
+        serverId: typeof body.serverId === 'string' ? body.serverId.trim() : '',
+        purpose: body.purpose,
+        contentType,
+        objectKey,
+      });
+      if (!dest.ok) {
+        return sendError(
+          reply,
+          dest.error.status,
+          dest.error.code,
+          dest.error.message,
+          dest.error.detail,
+        );
+      }
+      if (dest.storageKey !== storageKeyClient) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'storageKey does not match upload destination',
+        );
+      }
+
+      const registrationGate = await verifyEchoUploadReadyToRegister(pool, {
+        storageKey: storageKeyClient,
+        uploaderId: userId,
+        contentType,
+        byteLength,
+      });
+      if (!registrationGate.ok) {
+        return sendError(
+          reply,
+          registrationGate.httpStatus,
+          registrationGate.code,
+          registrationGate.message,
+        );
+      }
+
+      await markEchoUploadIntentRegistered(
+        pool,
+        storageKeyClient,
+        registrationGate.declaredByteLength,
+      );
+
+      await registerChatUploadRetention(pool, {
+        storageKey: storageKeyClient,
+        byteLength: registrationGate.declaredByteLength,
+        sourceType: 'user',
+        uploaderId: userId,
+      });
 
       return reply.code(204).send();
     },

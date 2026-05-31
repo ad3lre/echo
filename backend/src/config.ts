@@ -290,6 +290,17 @@ interface AppConfig {
    */
   readonly echoS3PublicReadThroughApi: boolean;
   /**
+   * Absolute base for resolved custom-emoji display URLs (defaults to {@link echoApiPublicUrl}).
+   * Used with `/api/v1/echo/public/emojis/{id}`.
+   */
+  readonly echoEmojiPublicBaseUrl: string;
+  /**
+   * Direct object CDN host for published emojis (defaults to {@link s3UploadPublicBaseUrl}).
+   */
+  readonly echoEmojiCdnBaseUrl: string | null;
+  /** When true, copy new emoji uploads to `echo/public-emojis/{id}.{ext}` and set `public_cdn_url`. */
+  readonly echoEmojiPublishToCdn: boolean;
+  /**
    * When S3 is not configured: store uploads on local disk (default `data/echo-local-uploads`).
    * Set `ECHO_LOCAL_UPLOADS=false` to disable and keep presign `503` until S3 is configured.
    */
@@ -1131,6 +1142,24 @@ export const config: AppConfig = {
   s3UploadPublicBaseUrl: process.env.ECHO_S3_PUBLIC_BASE_URL?.trim() || null,
   echoS3PublicReadThroughApi: parseBoolean(
     process.env.ECHO_S3_PUBLIC_READ_THROUGH_API,
+    false,
+  ),
+  echoEmojiPublicBaseUrl: (() => {
+    const raw = process.env.ECHO_EMOJI_PUBLIC_BASE_URL?.trim();
+    if (raw) return raw.replace(/\/$/, '');
+    return (
+      process.env.ECHO_API_PUBLIC_URL?.trim() || 'http://localhost:3000'
+    ).replace(/\/$/, '');
+  })(),
+  echoEmojiCdnBaseUrl: (() => {
+    const raw = process.env.ECHO_EMOJI_CDN_BASE_URL?.trim();
+    if (raw) return raw.replace(/\/$/, '');
+    return (
+      process.env.ECHO_S3_PUBLIC_BASE_URL?.trim()?.replace(/\/$/, '') || null
+    );
+  })(),
+  echoEmojiPublishToCdn: parseBoolean(
+    process.env.ECHO_EMOJI_PUBLISH_TO_CDN,
     false,
   ),
   echoLocalUploadDir: resolveEchoLocalUploadDir(),

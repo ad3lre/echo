@@ -9,6 +9,12 @@ function isPgUniqueViolation(err: unknown): boolean {
 }
 import { nextEchoSnowflakeId } from '../echoSnowflake';
 import { clientImageUrlForResolvedEmoji } from '../../services/echoEmojiAsset';
+import { emojiCacheVersion } from '../../services/echoEmojiAsset';
+import {
+  tryPublishEchoCustomEmojiAfterInsert,
+  tryPublishEchoCustomEmojisAfterBulkInsert,
+  unpublishEchoCustomEmojiFromCdn,
+} from '../../services/echoEmojiCdnPublish';
 import { mediaUrlPassesEchoPolicy } from '../../services/mediaUrlPolicy';
 import { twemoji72UrlForGlyph } from '../../services/twemojiAssetUrl';
 import { getMergedRolePermissions } from './permissions';
@@ -353,8 +359,12 @@ export async function resolveEchoEmojiTokens(
     animated: boolean;
     image_url: string;
     discord_source_emoji_id: string | null;
+    created_at: Date;
+    updated_at: Date;
+    public_cdn_url: string | null;
   }>(
-    `SELECT e.id, e.server_id, e.name, e.animated, e.image_url, e.discord_source_emoji_id
+    `SELECT e.id, e.server_id, e.name, e.animated, e.image_url, e.discord_source_emoji_id,
+            e.created_at, e.updated_at, e.public_cdn_url
      FROM echo_server_custom_emojis e
      WHERE COALESCE(e.expression_kind, 'emoji') = 'emoji'
        AND (e.id = ANY($1::text[]) OR e.discord_source_emoji_id = ANY($1::text[]))`,
@@ -371,6 +381,10 @@ export async function resolveEchoEmojiTokens(
     const { imageUrl, assetUrl } = clientImageUrlForResolvedEmoji(
       row.id,
       stored,
+      {
+        publicCdnUrl: row.public_cdn_url,
+        cacheVersion: emojiCacheVersion(row),
+      },
     );
     const discordSource = row.discord_source_emoji_id?.trim() ?? '';
     out.push({
@@ -704,6 +718,7 @@ export async function importEchoMarketEmojiPack(
   try {
     await client.query(`BEGIN`);
     try {
+      const bulkPublish: { id: string; imageUrl: string }[] = [];
       await client.query(
         `INSERT INTO echo_server_emoji_packs (id, server_id, name, source, market_pack_id, position, description, listed_in_market, market_settings)
        VALUES ($1, $2, $3, 'market', $4, $5, $6, false, '{}'::jsonb)`,
@@ -723,6 +738,7 @@ export async function importEchoMarketEmojiPack(
           const eid = nextEchoSnowflakeId();
           const url =
             em.previewUrl?.trim() || twemoji72UrlForGlyph(em.char ?? '❓');
+          bulkPublish.push({ id: eid, imageUrl: url });
           emojiValues.push(
             eid,
             serverId,
@@ -743,6 +759,9 @@ export async function importEchoMarketEmojiPack(
         );
       }
       await client.query(`COMMIT`);
+      if (bulkPublish.length > 0) {
+        await tryPublishEchoCustomEmojisAfterBulkInsert(pool, bulkPublish);
+      }
     } catch (e) {
       await client.query(`ROLLBACK`);
       throw e;
@@ -940,6 +959,7 @@ export async function replaceDiscordImportedEmojiPack(
 
         const emojiValues: unknown[] = [];
         const tuples: string[] = [];
+        const bulkPublish: { id: string; imageUrl: string }[] = [];
         input.emojis.forEach((emoji, index) => {
           const emojiId = nextEchoSnowflakeId();
           const name = nextUniqueEmojiName(emoji.name, takenLower, index + 1);
@@ -947,6 +967,7 @@ export async function replaceDiscordImportedEmojiPack(
             typeof emoji.discordEmojiId === 'string'
               ? emoji.discordEmojiId.trim() || null
               : null;
+          bulkPublish.push({ id: emojiId, imageUrl: emoji.imageUrl });
           emojiValues.push(
             emojiId,
             serverId,
@@ -968,9 +989,12 @@ export async function replaceDiscordImportedEmojiPack(
          VALUES ${tuples.join(', ')}`,
           emojiValues,
         );
+        await client.query(`COMMIT`);
+        await tryPublishEchoCustomEmojisAfterBulkInsert(pool, bulkPublish);
+      } else {
+        await client.query(`COMMIT`);
       }
 
-      await client.query(`COMMIT`);
       return { packId, importedCount: input.emojis.length };
     } catch (error) {
       await client.query(`ROLLBACK`);
@@ -1299,6 +1323,7 @@ export async function addEchoServerCustomEmoji(
     if (isPgUniqueViolation(e)) return { ok: false, reason: 'duplicate_name' };
     throw e;
   }
+  await tryPublishEchoCustomEmojiAfterInsert(pool, eid, url, expressionKind);
   return { ok: true, emojiId: eid };
 }
 
@@ -1324,6 +1349,11 @@ export async function removeEchoServerCustomEmoji(
   if (!pack.rows[0]) return 'not_found';
   if (pack.rows[0].source !== 'custom') return 'not_custom_pack';
 
+  try {
+    await unpublishEchoCustomEmojiFromCdn(pool, emojiId);
+  } catch {
+    /* best-effort */
+  }
   const r = await pool.query(
     `DELETE FROM echo_server_custom_emojis WHERE id = $1 AND server_id = $2 AND pack_id = $3`,
     [emojiId, serverId, packId],

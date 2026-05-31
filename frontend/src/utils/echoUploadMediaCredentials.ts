@@ -1,4 +1,5 @@
 import { API_BASE } from '@/config';
+import { ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX } from '@shared/echoEmojiCdn';
 import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '@shared/echoS3ReadThrough';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from '@shared/echoUploadStorageKey';
 
@@ -30,6 +31,7 @@ export function isEchoAuthenticatedUploadMediaUrl(
   }
   const path = pathnameOf(t);
   if (!path) return false;
+  if (path.startsWith(ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX)) return false;
   return (
     path.startsWith(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX) ||
     path.startsWith(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX)

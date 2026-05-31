@@ -21,6 +21,11 @@ export function isEchoPublicServerBrandingStorageKey(
   return Boolean(parts[2]?.trim());
 }
 
+/** Published custom emoji objects (world-readable when served via upload GET or direct CDN). */
+export function isEchoPublicEmojiCdnStorageKey(storageKey: string): boolean {
+  return storageKey.trim().startsWith('echo/public-emojis/');
+}
+
 const VIDEO_EXTENSIONS = new Set([
   '.mp4',
   '.webm',

@@ -260,11 +260,12 @@ export async function presignEchoUpload(opts: {
     return { ok: false, reason: 'NOT_CONFIGURED' };
   }
 
-  /** Keep PutObject signing minimal for browser uploads (credentials + UNSIGNED-PAYLOAD). */
+  /** Bind declared size in the signature so clients cannot PUT a mismatched Content-Length. */
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: key,
     ContentType: contentType,
+    ContentLength: Math.floor(opts.contentLength),
   });
 
   const uploadUrl = await getSignedUrl(client, command, { expiresIn: 900 });

@@ -8,6 +8,7 @@ import {
   resolveCustomEmojiImageUrlForDisplay,
   safeCustomEmojiUrl,
 } from './customEmojiUrl';
+import { rewriteR2EchoUploadUrlForReadThrough } from './rewriteR2EchoUploadUrlForReadThrough';
 
 describe('customEmojiUrl', () => {
   it('accepts normal custom emoji image URLs', () => {
@@ -88,10 +89,16 @@ describe('customEmojiUrl', () => {
     expect(out).not.toContain('.r2.dev');
   });
 
-  it('accepts cross-guild emoji asset API paths', () => {
-    const asset = '/api/v1/echo/emoji/304238867010606080/asset';
+  it('accepts cross-guild public emoji CDN paths', () => {
+    const asset = '/api/v1/echo/public/emojis/304238867010606080';
     const out = safeCustomEmojiUrl(asset);
-    expect(out === asset || out?.endsWith('/asset')).toBe(true);
+    expect(out === asset || out?.endsWith('/304238867010606080')).toBe(true);
+  });
+
+  it('does not rewrite public emoji CDN URLs through authenticated upload read-through', () => {
+    const url =
+      'https://api.echo.test/api/v1/echo/public/emojis/304238867010606080?v=1';
+    expect(rewriteR2EchoUploadUrlForReadThrough(url)).toBe(url);
   });
 
   it('resolveCustomEmojiImageUrlForDisplay prefers map then Discord after Echo miss', () => {

@@ -27,7 +27,7 @@
     "test:stage-youtube": "ts-node src/tests/stageYoutubeBroadcast.claim.test.ts",
     "test:oauth-origin": "ts-node src/tests/oauthLoginOrigin.test.ts",
     "test:echo": "ts-node src/tests/echo.messaging.integration.ts",
-    "test:echo:contract": "ts-node src/tests/echoContractV1.surfaces.test.ts && ts-node src/tests/echo.routeUtils.test.ts",
+    "test:echo:contract": "ts-node src/tests/echoContractV1.surfaces.test.ts && ts-node src/tests/echo.routeUtils.test.ts && node --import tsx src/tests/echo.emojiAsset.test.ts && node --import tsx src/tests/echoEmojiCdnUrlPolicy.test.ts && node --import tsx src/tests/echo.publicEmojiRoute.test.ts",
     "test:echo:messageValidation": "ts-node src/tests/echo.messageValidation.test.ts && ts-node src/tests/echo.e2eeWire.validation.test.ts",
     "test:echo:pipeline": "ts-node src/tests/echo.pipeline.integration.ts",
     "test:echo:safetyReports": "ts-node src/tests/echo.safetyReports.integration.ts",
@@ -48,7 +48,9 @@
     "migrate:echo-snowflake": "ts-node src/scripts/migrateEchoIdsToSnowflake.ts",
     "backfill:default-pfp": "ts-node src/scripts/backfillDefaultAvatarPfp.ts",
     "backfill:discord-import-cdn": "ts-node src/scripts/backfillDiscordImportCdnUrls.ts",
+    "backfill:emoji-cdn": "node --import tsx ../scripts/backfill-echo-emoji-cdn.mjs",
     "guest:soft-delete-stale": "ts-node src/scripts/softDeleteStaleGuests.ts",
+    "guest:purge-inactive": "ts-node src/scripts/purgeInactiveGuests.ts",
     "db:wipe": "ts-node src/scripts/wipeAppDatabase.ts"
   },
   "keywords": [],

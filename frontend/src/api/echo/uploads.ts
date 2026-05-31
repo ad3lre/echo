@@ -270,6 +270,21 @@ export async function postEchoUploadDedupeRegister(
   });
 }
 
+export async function postEchoUploadRegister(
+  token: string | null,
+  body: EchoDedupeDestBody & {
+    contentType: string;
+    objectKey: string;
+    storageKey: string;
+    byteLength: number;
+  },
+): Promise<void> {
+  await echoFetch<Record<string, never>>(token, '/uploads/register', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 /** Phases surfaced to chat upload UI (compress happens before dedupe path). */
 export type ChatMediaUploadPhase =
   | 'preparing'
@@ -368,7 +383,7 @@ async function uploadPreparedFileWithDedupe(
     phashHex,
     kind: dedupeKind,
     byteLength: prepared.size,
-  }).catch(() => {});
+  });
   emit?.('done', null);
   return { url: presign.publicUrl, storageKey: presign.key };
 }
@@ -504,6 +519,15 @@ export async function uploadChatAttachmentFile(
     },
     bodySha256Hex,
   );
+  emitIf('finishing', null);
+  await postEchoUploadRegister(token, {
+    channelId,
+    purpose: 'channel_media',
+    objectKey: key,
+    storageKey: presign.key,
+    contentType,
+    byteLength: file.size,
+  });
   emitIf('done', null);
   return {
     url: presign.publicUrl,

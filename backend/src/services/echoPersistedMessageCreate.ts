@@ -48,6 +48,8 @@ import { findAllIdTokenMatches } from '../shared/idTokens';
 import { mirrorEchoMessageToDiscordIfConfigured } from './discordBridgeOutbound';
 import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
 import { registerChatUploadRetentionFromMessageUrls } from './chatUploadRetention';
+import { isEchoChatUserMediaStorageKey } from '../../../shared/chatMediaRetention';
+import { isEchoChatUploadAttachmentRegistered } from './echoUploadIntent';
 
 async function resolveSafeReplyTo(
   pool: pg.Pool,
@@ -237,6 +239,19 @@ async function validateEchoUploadAttachmentOwnership(opts: {
         ok: false,
         detail: 'Attachment URL is not owned by sender for this channel scope',
       };
+    }
+    if (isEchoChatUserMediaStorageKey(storageKey)) {
+      const registered = await isEchoChatUploadAttachmentRegistered(
+        opts.pool,
+        storageKey,
+        opts.userId,
+      );
+      if (!registered) {
+        return {
+          ok: false,
+          detail: 'Attachment upload is not registered for this channel',
+        };
+      }
     }
   }
   return { ok: true };

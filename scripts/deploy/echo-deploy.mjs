@@ -519,16 +519,35 @@ async function waitForHealth(port) {
   throw new Error(`Health check failed: ${url}`);
 }
 
+function spaStaticRootForRelease(releaseRoot) {
+  const link = publicRootSymlink();
+  if (link) {
+    return path
+      .join(path.resolve(link), 'frontend', 'dist')
+      .replace(/\\/g, '/');
+  }
+  return path
+    .join(path.resolve(releaseRoot), 'frontend', 'dist')
+    .replace(/\\/g, '/');
+}
+
 function renderProxySnippet(port, releaseRoot) {
-  const tplPath = path.join(
-    __dirname,
-    'templates',
-    'caddy-echo-routes.caddyfile.template',
+  const tplDir = path.join(__dirname, 'templates');
+  const routesTpl = fs.readFileSync(
+    path.join(tplDir, 'caddy-echo-routes.caddyfile.template'),
+    'utf8',
   );
-  const tpl = fs.readFileSync(tplPath, 'utf8');
-  return tpl
-    .replace(/\{\{API_PORT\}\}/g, String(port))
-    .replace(/\{\{RELEASE_ROOT\}\}/g, releaseRoot.replace(/\\/g, '/'));
+  const spaTpl = fs.readFileSync(
+    path.join(tplDir, 'caddy-echo-spa-static.caddyfile.template'),
+    'utf8',
+  );
+  const spaRoot = spaStaticRootForRelease(releaseRoot);
+  const apply = (body) =>
+    body
+      .replace(/\{\{API_PORT\}\}/g, String(port))
+      .replace(/\{\{RELEASE_ROOT\}\}/g, releaseRoot.replace(/\\/g, '/'))
+      .replace(/\{\{SPA_ROOT\}\}/g, spaRoot);
+  return `${apply(routesTpl)}\n${apply(spaTpl)}`;
 }
 
 function writeProxySnippetAndReload(port, releaseRoot) {

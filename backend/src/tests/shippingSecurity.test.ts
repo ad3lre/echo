@@ -892,6 +892,40 @@ async function run(): Promise<void> {
   {
     const restore = setEnv({
       NODE_ENV: 'test',
+      ECHO_MEDIA_URL_REQUIRE_HTTPS: 'true',
+      ECHO_MEDIA_URL_ALLOWED_HOSTS: '',
+      ECHO_BACKEND_STORAGE: 'memory',
+      DATABASE_URL: '',
+      USE_MOCK_DB: 'true',
+    });
+    try {
+      process.env.DATABASE_URL = '';
+      process.env.USE_MOCK_DB = 'true';
+      clearConfigAndRoutes();
+      const { validateMessagePayload } =
+        await import('../sockets/messageValidation');
+      const arbitraryHost = validateMessagePayload({
+        channelId: 'ch1',
+        content: 'x',
+        messageFormatVersion: 1,
+        contentSchemaVersion: 1,
+        attachments: [
+          {
+            url: 'https://example.invalid/x.png',
+            kind: 'image',
+          },
+        ],
+      });
+      assert.equal(arbitraryHost.ok, false);
+    } finally {
+      restore();
+      clearConfigAndRoutes();
+    }
+  }
+
+  {
+    const restore = setEnv({
+      NODE_ENV: 'test',
       ECHO_MEDIA_URL_ALLOWED_HOSTS: 'cdn.example.com',
       ECHO_BACKEND_STORAGE: 'memory',
       DATABASE_URL: '',

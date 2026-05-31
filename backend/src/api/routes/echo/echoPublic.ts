@@ -14,6 +14,7 @@ import {
 } from './echoRouteUtils';
 import { sendError } from '../../errors';
 import { getPublicPaperDocumentByToken } from '../../../domain/echoStore/paperShare';
+import { sendEchoPublicCustomEmojiAsset } from '../../../services/echoEmojiAsset';
 
 const SUPPORT_TOPIC_VALUES = ['Account', 'Bug', 'Safety', 'Other'] as const;
 type SupportTopic = (typeof SUPPORT_TOPIC_VALUES)[number];
@@ -92,6 +93,23 @@ export default async function echoPublicRoutes(
           typeof req.query.q === 'string' ? req.query.q.slice(0, 64) : '';
         const packs = await listEchoEmojiMarketPacks(pool, q);
         return reply.code(200).send({ packs });
+      },
+    );
+
+    /** Cross-guild custom emoji bytes (cacheable; no auth). */
+    publicReadScope.get<{ Params: { emojiId: string } }>(
+      '/public/emojis/:emojiId',
+      { preHandler: [requireEchoStore] },
+      async (req, reply) => {
+        const emojiId = trimEchoPathParam(req.params.emojiId);
+        if (!emojiId || !/^\d+$/.test(emojiId)) {
+          return sendError(reply, 400, 'INVALID_BODY', 'Invalid emoji id');
+        }
+        const pool = echoPool(req);
+        const inm = req.headers['if-none-match'];
+        await sendEchoPublicCustomEmojiAsset(pool, reply, emojiId, {
+          ifNoneMatch: typeof inm === 'string' ? inm : undefined,
+        });
       },
     );
   });

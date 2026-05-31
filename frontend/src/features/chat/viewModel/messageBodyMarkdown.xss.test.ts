@@ -34,4 +34,12 @@ describe('messageBodyMarkdown XSS corpus', () => {
   it('rejects script tags in username policy', () => {
     expect(validateRegistrationUsername('<script></script>').ok).toBe(false);
   });
+
+  it('strips arbitrary inline style from user HTML', () => {
+    const payload =
+      '<a href="https://example.com" style="position:fixed;inset:0;z-index:2147483647">overlay</a>';
+    const out = parseMessageContent(payload);
+    expect(out.toLowerCase()).not.toMatch(/\bstyle\s*=/);
+    expect(out).toContain('href="https://example.com"');
+  });
 });
