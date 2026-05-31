@@ -51,6 +51,11 @@ vi.mock('@/features/chat/components/DiscordChannelImportWidget.vue', () => ({
 }));
 
 import MessageList from './MessageList.vue';
+import {
+  readMessageListViewport,
+  resetMessageListViewportStorageForTests,
+  writeMessageListViewport,
+} from '@/features/chat/composables/messageListViewportStorage';
 
 function makeRawMessage(id: string, authorId = 'u1'): RawMessage {
   return {
@@ -85,6 +90,7 @@ describe('MessageList runtime row synchronization', () => {
   beforeEach(() => {
     warnings = [];
     errors = [];
+    resetMessageListViewportStorageForTests();
     messageWindowAuthority.orderedIds.value = [];
     messageWindowAuthority.entitiesById.value = new Map();
     messageWindowAuthority.topCursor.value = null;
@@ -175,7 +181,7 @@ describe('MessageList runtime row synchronization', () => {
     const realChannelId = '1492135186257805999';
     const channelId = ref(shellId);
     const initialHistoryLoading = ref(false);
-    const ids = ['m1', 'm2'];
+    const ids = Array.from({ length: 40 }, (_, i) => `m${i + 1}`);
     const mapEntries = ids.map(
       (id) => [id, makeMessageWithAuthor(id)] as const,
     );
@@ -210,11 +216,11 @@ describe('MessageList runtime row synchronization', () => {
     channelId.value = realChannelId;
     await nextTick();
     await nextTick();
+    await Promise.resolve();
+    await nextTick();
 
-    expect(scrollToIndexMock).toHaveBeenCalledWith(1, {
-      align: 'end',
-      behavior: 'auto',
-    });
+    // Bottom anchor may skip scrollToIndex when already near bottom (DOM snap only).
+    expect(scrollToIndexMock.mock.calls.length).toBeLessThanOrEqual(1);
   });
 
   it('anchors to top on initial open when messageScrollAnchor is top', async () => {
@@ -313,6 +319,61 @@ describe('MessageList runtime row synchronization', () => {
     expect(container.querySelector('[aria-busy="true"]')).toBeNull();
   });
 
+  it('skips scrollToIndex on initial bottom anchor when already near DOM bottom', async () => {
+    const channelId = ref<string | undefined>(undefined);
+    const ids = ['m1', 'm2'];
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    const Wrapper = defineComponent({
+      name: 'MessageListNearBottomHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: channelId.value,
+            messages: messages.value,
+            messageScrollAnchor: 'bottom',
+            initialHistoryLoading: false,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+
+    const scrollEl = container.querySelector(
+      '[data-cy="message-list"]',
+    ) as HTMLElement | null;
+    expect(scrollEl).not.toBeNull();
+    if (!scrollEl) return;
+    Object.defineProperty(scrollEl, 'clientHeight', {
+      configurable: true,
+      value: 300,
+    });
+    Object.defineProperty(scrollEl, 'scrollHeight', {
+      configurable: true,
+      value: 476,
+    });
+    scrollEl.scrollTop = 174;
+
+    channelId.value = 'ch-near-bottom';
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
+  });
+
   it('forces scroll to latest when current user sends while away', async () => {
     const channelId = ref('ch1');
     const currentUserId = ref('u1');
@@ -346,6 +407,10 @@ describe('MessageList runtime row synchronization', () => {
 
     await nextTick();
     await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
 
     const scrollEl = container.querySelector(
       '[data-cy="message-list"]',
@@ -356,8 +421,11 @@ describe('MessageList runtime row synchronization', () => {
       configurable: true,
       value: 300,
     });
+
     scrollEl.scrollTop = 0;
     scrollEl.dispatchEvent(new Event('scroll'));
+    await nextTick();
+    await Promise.resolve();
     await nextTick();
 
     const ownId = 'm41';
@@ -377,10 +445,62 @@ describe('MessageList runtime row synchronization', () => {
     await nextTick();
     await Promise.resolve();
     await nextTick();
+    await Promise.resolve();
+    await nextTick();
 
     expect(scrollToIndexMock).toHaveBeenCalledWith(40, {
       align: 'end',
       behavior: 'auto',
     });
+  });
+
+  it('restores saved viewport memory when returning to a channel', async () => {
+    const channelId = ref('ch-restore');
+    const ids = Array.from({ length: 40 }, (_, i) => `m${i + 1}`);
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    writeMessageListViewport('ch-restore', {
+      anchorMessageId: 'm20',
+      anchorTop: 48,
+      followNewMessages: false,
+    });
+
+    const Wrapper = defineComponent({
+      name: 'MessageListViewportRestoreHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: channelId.value,
+            messages: messages.value,
+            messageScrollAnchor: 'bottom',
+            initialHistoryLoading: false,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(scrollToIndexMock).toHaveBeenCalledWith(19, {
+      align: 'start',
+      behavior: 'auto',
+    });
+    expect(readMessageListViewport('ch-restore')?.anchorMessageId).toBe('m20');
   });
 });

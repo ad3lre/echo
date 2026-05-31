@@ -33,6 +33,7 @@ import {
   evictAllUsersFromEchoServerChannelRealtimeScopes,
   evictUserFromEchoServerRealtimeScopes,
 } from '../../../platform/echoRealtimeMembership';
+import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './echoMutationRateLimits';
 import {
   echoPool,
   requireEchoStore,
@@ -43,6 +44,10 @@ export default async function echoRolesRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
+  const roleMutationOpts = {
+    config: { rateLimit: ECHO_ADMIN_MUTATION_RATE_LIMIT },
+  } as const;
+
   function rolesReadRateLimitKey(req: FastifyRequest): string {
     return req.authUser?.id ? `uid:${req.authUser.id}` : `ip:${req.ip}`;
   }
@@ -177,7 +182,7 @@ export default async function echoRolesRoutes(
 
   fastify.post<{ Params: { serverId: string }; Body: { name?: unknown } }>(
     '/servers/:serverId/role-categories',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -227,7 +232,7 @@ export default async function echoRolesRoutes(
     };
   }>(
     '/servers/:serverId/role-categories/:categoryId',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -273,7 +278,7 @@ export default async function echoRolesRoutes(
 
   fastify.delete<{ Params: { serverId: string; categoryId: string } }>(
     '/servers/:serverId/role-categories/:categoryId',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -318,7 +323,7 @@ export default async function echoRolesRoutes(
     Body: { categoryIds?: unknown };
   }>(
     '/servers/:serverId/role-categories/order',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -381,7 +386,7 @@ export default async function echoRolesRoutes(
     };
   }>(
     '/servers/:serverId/roles',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -462,7 +467,7 @@ export default async function echoRolesRoutes(
     Body: { roleIds?: unknown; categoryId?: unknown };
   }>(
     '/servers/:serverId/roles/order',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -549,7 +554,7 @@ export default async function echoRolesRoutes(
     };
   }>(
     '/servers/:serverId/roles/:roleId',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -772,7 +777,7 @@ export default async function echoRolesRoutes(
 
   fastify.delete<{ Params: { serverId: string; roleId: string } }>(
     '/servers/:serverId/roles/:roleId',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -819,7 +824,7 @@ export default async function echoRolesRoutes(
     Body: { links?: unknown };
   }>(
     '/servers/:serverId/roles/:roleId/links',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -958,7 +963,7 @@ export default async function echoRolesRoutes(
     Body: { roleId?: string };
   }>(
     '/servers/:serverId/members/:userId/roles',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -1022,7 +1027,7 @@ export default async function echoRolesRoutes(
     Params: { serverId: string; userId: string; roleId: string };
   }>(
     '/servers/:serverId/members/:userId/roles/:roleId',
-    { preHandler: [requireAuth, requireEchoStore] },
+    { preHandler: [requireAuth, requireEchoStore], ...roleMutationOpts },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);

@@ -7,6 +7,12 @@ import {
   getEchoStore,
 } from '../domain/echoStore';
 
+export type JoinChannelErrorCode =
+  | 'UNAUTHENTICATED'
+  | 'UNAVAILABLE'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND';
+
 function isAnonymousSocketUser(userId: string): boolean {
   return userId.startsWith('user_');
 }
@@ -14,10 +20,55 @@ function isAnonymousSocketUser(userId: string): boolean {
 function emitJoinChannelError(
   socket: Socket,
   channelId: string,
-  code: 'UNAUTHENTICATED' | 'UNAVAILABLE',
+  code: JoinChannelErrorCode,
   detail: string,
 ): void {
   socket.emit('error', { code, channelId, detail });
+}
+
+/**
+ * After Socket.IO connection state recovery, re-check channel room membership so
+ * restored joins cannot bypass permission changes during the disconnect window.
+ */
+export async function revalidateRecoveredChannelRooms(
+  socket: Socket,
+  log: FastifyBaseLogger,
+  userId: string,
+  options: { authenticated: boolean },
+): Promise<void> {
+  if (!socket.recovered) return;
+  if (!options.authenticated || isAnonymousSocketUser(userId)) return;
+
+  const { enabled, pool } = await getEchoStore();
+  if (!enabled || !pool) return;
+
+  const rooms = socket.rooms;
+  for (const room of rooms) {
+    if (room === socket.id) continue;
+    if (room.startsWith('echo:')) continue;
+
+    const channelId = room.trim();
+    if (!channelId) continue;
+
+    const exists = await echoChannelExistsInDb(pool, channelId);
+    if (!exists) {
+      socket.leave(channelId);
+      log.info(
+        { socketId: socket.id, channelId, userId },
+        'Recovered join evicted: unknown Echo channel',
+      );
+      continue;
+    }
+
+    const ok = await canUserAccessChannel(pool, userId, channelId);
+    if (!ok) {
+      socket.leave(channelId);
+      log.info(
+        { socketId: socket.id, channelId, userId },
+        'Recovered join evicted: permission denied',
+      );
+    }
+  }
 }
 
 export function registerChannelHandlers(
@@ -27,6 +78,8 @@ export function registerChannelHandlers(
   options: { authenticated: boolean },
 ): void {
   const { authenticated } = options;
+
+  void revalidateRecoveredChannelRooms(socket, log, userId, options);
 
   socket.on('joinChannel', (channelId) => {
     void (async () => {
@@ -71,6 +124,12 @@ export function registerChannelHandlers(
             { socketId: socket.id, channelId, userId },
             'joinChannel denied: unknown Echo channel',
           );
+          emitJoinChannelError(
+            socket,
+            channelId,
+            'NOT_FOUND',
+            'Channel not found.',
+          );
           return;
         }
         const ok = await canUserAccessChannel(pool, userId, channelId);
@@ -78,6 +137,12 @@ export function registerChannelHandlers(
           log.warn(
             { socketId: socket.id, channelId, userId },
             'joinChannel denied: not a member',
+          );
+          emitJoinChannelError(
+            socket,
+            channelId,
+            'FORBIDDEN',
+            'You do not have access to this channel.',
           );
           return;
         }

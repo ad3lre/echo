@@ -1,4 +1,3 @@
-import mammoth from 'mammoth';
 import DOMPurify from 'dompurify';
 import { attachmentUrlNeedsCredentials } from '@/features/attachments/resolveAttachmentFetchCredentials';
 import { withTimeout } from '@/features/pdf/withTimeout';
@@ -37,6 +36,7 @@ async function fetchDocxArrayBuffer(url: string): Promise<ArrayBuffer> {
  */
 export async function loadDocxHtmlFromUrl(url: string): Promise<string> {
   const buffer = await fetchDocxArrayBuffer(url);
+  const { default: mammoth } = await import('mammoth');
   const result = await withTimeout(
     mammoth.convertToHtml({ arrayBuffer: buffer }),
     DOCX_CONVERT_TIMEOUT_MS,

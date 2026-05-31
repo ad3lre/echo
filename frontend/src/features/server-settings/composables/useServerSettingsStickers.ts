@@ -176,8 +176,7 @@ export function useServerSettingsStickers(serverId: Ref<string | undefined>) {
         sid,
         {
           name: 'Sticker pack',
-          description:
-            'Custom server stickers for the composer sticker picker.',
+          description: 'Custom server stickers for the composer emoji picker.',
           marketSettings: { tags: ['stickers'] },
           listedInMarket: false,
         },

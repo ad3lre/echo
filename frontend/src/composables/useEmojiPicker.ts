@@ -25,7 +25,7 @@ function searchCustomByName(
   if (tokens.length === 0) return [];
   const out: EmojiEntry[] = [];
   for (const e of list) {
-    if (e.kind !== 'custom') continue;
+    if (e.kind !== 'custom' && e.kind !== 'sticker') continue;
     const exact = new Set(
       `${e.name} ${e.slug}`
         .toLowerCase()
@@ -44,6 +44,7 @@ function searchCustomByName(
 export type UseEmojiPickerOptions = {
   serverId?: Ref<string | undefined>;
   serverPackCategories?: Ref<EmojiCategory[]>;
+  stickerPackCategories?: Ref<EmojiCategory[]>;
   customEmojiSearchList?: Ref<EmojiEntry[]>;
   /** Non-empty when the user has personal emoji packs (API phase 2). */
   userPackCategories?: Ref<EmojiCategory[]>;
@@ -55,6 +56,8 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
   const serverIdRef = opts?.serverId ?? ref<string | undefined>(undefined);
   const serverPackCategoriesRef =
     opts?.serverPackCategories ?? ref<EmojiCategory[]>([]);
+  const stickerPackCategoriesRef =
+    opts?.stickerPackCategories ?? ref<EmojiCategory[]>([]);
   const customEmojiSearchListRef =
     opts?.customEmojiSearchList ?? ref<EmojiEntry[]>([]);
   const userPackCategoriesRef =
@@ -95,6 +98,9 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
     const server = allowCustomEmojiRef.value
       ? serverPackCategoriesRef.value
       : [];
+    const stickers = allowCustomEmojiRef.value
+      ? stickerPackCategoriesRef.value
+      : [];
     const userCats = allowCustomEmojiRef.value
       ? userPackCategoriesRef.value
       : [];
@@ -104,6 +110,7 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
     const parts: EmojiCategory[] = [];
     if (recent) parts.push(recent);
     parts.push(...server);
+    parts.push(...stickers);
     if (allowCustomEmojiRef.value) parts.push(...personal);
     parts.push(...unicode);
     return parts;
@@ -157,7 +164,11 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
       slug === 'search'
     )
       return false;
-    if (slug.startsWith('server-emoji-') || slug.startsWith('user-emoji-'))
+    if (
+      slug.startsWith('server-emoji-') ||
+      slug.startsWith('server-sticker-') ||
+      slug.startsWith('user-emoji-')
+    )
       return false;
     return true;
   }

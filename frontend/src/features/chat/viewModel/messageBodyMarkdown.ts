@@ -561,6 +561,8 @@ const SANITIZE_OPTS = {
     'id',
     'align',
     'type',
+    /** GFM/marked emit `<ol start="N">` when the source list does not begin at 1. */
+    'start',
     'checked',
     'disabled',
     'data-footnote-ref',

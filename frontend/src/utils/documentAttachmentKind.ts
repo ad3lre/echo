@@ -10,7 +10,7 @@ function mime(att: MessageAttachmentPayload): string {
 
 export function isPdfAttachment(att: MessageAttachmentPayload): boolean {
   const m = mime(att);
-  if (m === 'application/pdf') return true;
+  if (m === 'application/pdf' || m === 'application/x-pdf') return true;
   return filename(att).endsWith('.pdf');
 }
 
@@ -18,7 +18,8 @@ export function isDocxAttachment(att: MessageAttachmentPayload): boolean {
   const m = mime(att);
   if (
     m ===
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    (m === 'application/zip' && filename(att).endsWith('.docx'))
   ) {
     return true;
   }

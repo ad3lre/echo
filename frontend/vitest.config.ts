@@ -6,7 +6,10 @@ export default defineConfig({
   plugins: [vue()],
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: [
+      'src/**/*.test.ts',
+      '../backend/src/tests/channelHandlers*.test.ts',
+    ],
     setupFiles: ['./src/test/vitestSetup.ts'],
     coverage: {
       provider: 'v8',

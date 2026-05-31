@@ -1,6 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { probeVideoBlobUrl } from './captureVideoFrame';
+import {
+  probeVideoBlobUrl,
+  probeVideoDimensionsOnly,
+} from './captureVideoFrame';
 
 describe('probeVideoBlobUrl', () => {
   afterEach(() => {
@@ -21,6 +24,38 @@ describe('probeVideoBlobUrl', () => {
 
     const result = await probeVideoBlobUrl(blobUrl, 1);
     expect(result).toBeNull();
+  });
+
+  it('returns dimensions without capturing a frame', async () => {
+    const blobUrl = 'blob:dims-only';
+    const videoProto = HTMLVideoElement.prototype;
+
+    vi.spyOn(videoProto, 'addEventListener').mockImplementation(function (
+      this: HTMLVideoElement,
+      type,
+      listener,
+    ) {
+      if (type === 'loadedmetadata') {
+        Object.defineProperty(this, 'videoWidth', {
+          configurable: true,
+          value: 1280,
+        });
+        Object.defineProperty(this, 'videoHeight', {
+          configurable: true,
+          value: 720,
+        });
+        queueMicrotask(() => {
+          (listener as EventListener).call(this, new Event('loadedmetadata'));
+        });
+      }
+    });
+
+    const result = await probeVideoDimensionsOnly(blobUrl);
+    expect(result).toEqual({
+      width: 1280,
+      height: 720,
+      aspectRatio: '1280 / 720',
+    });
   });
 
   it('captures dimensions and a data-url frame when metadata and seek succeed', async () => {

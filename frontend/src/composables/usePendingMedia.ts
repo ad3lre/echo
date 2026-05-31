@@ -4,7 +4,22 @@
 
 import { ref, computed } from 'vue';
 import { inferChatPendingMediaKind } from '@/utils/chatUploadMediaTypes';
-import { probeVideoBlobUrl } from '@/utils/captureVideoFrame';
+import {
+  probeVideoBlobUrl,
+  probeVideoDimensionsOnly,
+} from '@/utils/captureVideoFrame';
+import { sha256HexOfBlob } from '@/utils/uploadFingerprint';
+
+const pendingVideoSha256Jobs = new WeakMap<File, Promise<string>>();
+
+function startPendingVideoSha256(file: File): Promise<string> {
+  let job = pendingVideoSha256Jobs.get(file);
+  if (!job) {
+    job = sha256HexOfBlob(file);
+    pendingVideoSha256Jobs.set(file, job);
+  }
+  return job;
+}
 
 export interface PendingImage {
   url: string;
@@ -39,6 +54,8 @@ export interface PendingVideo {
   height?: number;
   uploadStatus?: PendingVideoUploadStatus;
   uploadPercent?: number | null;
+  /** Precomputed while attached — skips re-hash at upload time. */
+  sha256Hex?: string;
   uploadUrl?: string;
   uploadStorageKey?: string;
 }
@@ -91,6 +108,9 @@ export function usePendingMedia() {
     }));
     for (const entry of newPendingVideos) {
       void enrichPendingVideoPreview(entry);
+      void startPendingVideoSha256(entry.file).then((sha256Hex) => {
+        entry.sha256Hex = sha256Hex;
+      });
     }
     const newPendingAudios = audioFiles.map((file) => ({
       url: URL.createObjectURL(file),
@@ -222,7 +242,13 @@ export function usePendingMedia() {
   }
 
   async function enrichPendingVideoPreview(entry: PendingVideo): Promise<void> {
-    const probe = await probeVideoBlobUrl(entry.url, 1);
+    const dims = await probeVideoDimensionsOnly(entry.url);
+    if (dims) {
+      entry.aspectRatio = dims.aspectRatio;
+      entry.width = dims.width;
+      entry.height = dims.height;
+    }
+    const probe = await probeVideoBlobUrl(entry.url);
     if (!probe) return;
     entry.previewFrameUrl = probe.frameUrl;
     entry.aspectRatio = probe.aspectRatio;

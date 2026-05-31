@@ -31,6 +31,64 @@ export type MentionNotificationPrefetchTarget = {
   anchorMessageId?: string;
 };
 
+function cachedMessagesIncludeId(
+  cached: readonly unknown[] | undefined,
+  messageId: string,
+): boolean {
+  if (!cached?.length || !messageId) return false;
+  return cached.some((row) => {
+    const id = (row as { id?: string }).id?.trim();
+    return !!id && id === messageId;
+  });
+}
+
+function mentionPrefetchSummaryPriority(input: {
+  summary: EchoAttentionChannelSummary;
+  readStateByChannelId: Readonly<Record<string, string | null | undefined>>;
+  serverNotificationLevelByServerId: Readonly<
+    Record<string, ServerNotificationLevel | undefined>
+  >;
+  messagesByChannelId: Readonly<Record<string, readonly unknown[] | undefined>>;
+  prioritizeChannelIds: ReadonlySet<string>;
+}): number | null {
+  const channelId = input.summary.channelId.trim();
+  if (!channelId) return null;
+
+  const effectivePing =
+    input.summary.kind === 'server'
+      ? applyAttentionNotificationLevel(
+          input.serverNotificationLevelByServerId[
+            input.summary.serverId ?? ''
+          ] ?? 'mentions',
+          input.summary.pingKind ?? null,
+        )
+      : (input.summary.pingKind ?? null);
+  if (!effectivePing) return null;
+
+  const effectiveRead =
+    input.readStateByChannelId[channelId] ?? input.summary.lastReadMessageId;
+  const unreadPing =
+    input.summary.kind === 'server'
+      ? isServerChannelUnreadForPingBubble(input.summary, effectiveRead ?? null)
+      : isDmChannelMentionUnread(input.summary, effectiveRead ?? null);
+  if (!unreadPing) return null;
+
+  const anchor = resolveEchoUnreadUpperBoundMessageId(input.summary);
+  const anchorMissing =
+    !!anchor &&
+    !cachedMessagesIncludeId(input.messagesByChannelId[channelId], anchor);
+  const prioritized = input.prioritizeChannelIds.has(channelId);
+  const at = Date.parse(input.summary.latestUnreadMessageAt?.trim() ?? '');
+  const recency = Number.isFinite(at) ? at : 0;
+
+  // Higher priority first: visible stubs, then missing anchors, then recency.
+  return (
+    (prioritized ? 1_000_000_000_000 : 0) +
+    (anchorMissing ? 100_000_000_000 : 0) +
+    recency
+  );
+}
+
 export function resolveMentionNotificationPrefetchTargets(input: {
   channelAttentionByChannelId: Readonly<
     Record<string, EchoAttentionChannelSummary>
@@ -40,13 +98,37 @@ export function resolveMentionNotificationPrefetchTargets(input: {
     Record<string, ServerNotificationLevel | undefined>
   >;
   messagesByChannelId: Readonly<Record<string, readonly unknown[] | undefined>>;
+  prioritizeChannelIds?: readonly string[];
   limit?: number;
 }): MentionNotificationPrefetchTarget[] {
   const limit = Math.min(Math.max(input.limit ?? 24, 1), 48);
   const targets: MentionNotificationPrefetchTarget[] = [];
   const seen = new Set<string>();
+  const prioritizeChannelIds = new Set(
+    (input.prioritizeChannelIds ?? []).map((id) => id.trim()).filter(Boolean),
+  );
 
-  for (const summary of Object.values(input.channelAttentionByChannelId)) {
+  const summaries = Object.values(input.channelAttentionByChannelId)
+    .map((summary) => ({
+      summary,
+      priority: mentionPrefetchSummaryPriority({
+        summary,
+        readStateByChannelId: input.readStateByChannelId,
+        serverNotificationLevelByServerId:
+          input.serverNotificationLevelByServerId,
+        messagesByChannelId: input.messagesByChannelId,
+        prioritizeChannelIds,
+      }),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is { summary: EchoAttentionChannelSummary; priority: number } =>
+        entry.priority != null,
+    )
+    .sort((a, b) => b.priority - a.priority);
+
+  for (const { summary } of summaries) {
     const channelId = summary.channelId.trim();
     if (!channelId || seen.has(channelId)) continue;
 

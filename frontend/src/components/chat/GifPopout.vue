@@ -7,6 +7,7 @@ import {
   computed,
   inject,
   unref,
+  nextTick,
 } from 'vue';
 import {
   useGifSearch,
@@ -14,12 +15,14 @@ import {
   warmGifCategoryLibrary,
   getGifCategoryPreviewUrls,
   getCachedGifCategoryResults,
+  gifCategoryLibraryRevision,
 } from '@/composables/useGifSearch';
 import {
   useImageSearch,
   warmImageCategoryLibrary,
   getImageCategoryPreviewUrls,
   getCachedImageCategoryResults,
+  imageCategoryLibraryRevision,
 } from '@/composables/useImageSearch';
 import {
   GIF_BROWSE_CATEGORIES,
@@ -47,6 +50,8 @@ const props = defineProps<{
   theme?: 'default' | 'forum';
   /** Keywords from recent chat (plus random fallbacks inside picker) to seed image search. */
   seedKeywords?: string[];
+  /** GIF toolbar button — used to position the teleported popout above overflow clips. */
+  anchorEl?: HTMLElement | null;
 }>();
 
 const emit = defineEmits<{
@@ -226,11 +231,64 @@ function openImageCategory(cat: MediaBrowseCategory) {
 }
 
 function gifCategoryPreviewUrls(slug: string): string[] {
+  void gifCategoryLibraryRevision.value;
   return getGifCategoryPreviewUrls(slug);
 }
 
 function imageCategoryPreviewUrls(slug: string): string[] {
+  void imageCategoryLibraryRevision.value;
   return getImageCategoryPreviewUrls(slug);
+}
+
+const popoutRef = ref<HTMLElement | null>(null);
+const popoutStyle = ref<Record<string, string>>({
+  position: 'fixed',
+  left: '0px',
+  top: '0px',
+  zIndex: '120',
+});
+
+function updatePopoutPosition() {
+  const anchor = props.anchorEl;
+  if (!anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  const pad = 8;
+  const gap = 8;
+  const width = Math.min(400, window.innerWidth - pad * 2);
+  const height =
+    popoutRef.value?.getBoundingClientRect().height ??
+    Math.min(window.innerHeight * 0.55, 416);
+  let left = rect.right - width;
+  left = Math.max(pad, Math.min(left, window.innerWidth - width - pad));
+  const placement = props.placement ?? 'up';
+  let top = placement === 'down' ? rect.bottom + gap : rect.top - height - gap;
+  if (placement === 'up' && top < pad) {
+    top = Math.min(rect.bottom + gap, window.innerHeight - height - pad);
+  } else if (placement === 'down' && top + height > window.innerHeight - pad) {
+    top = Math.max(pad, rect.top - height - gap);
+  }
+  top = Math.max(pad, Math.min(top, window.innerHeight - height - pad));
+  popoutStyle.value = {
+    position: 'fixed',
+    left: `${Math.round(left)}px`,
+    top: `${Math.round(top)}px`,
+    width: `${Math.round(width)}px`,
+    zIndex: '120',
+  };
+}
+
+function bindPopoutViewportListeners() {
+  window.addEventListener('resize', updatePopoutPosition);
+  window.addEventListener('scroll', updatePopoutPosition, true);
+  window.visualViewport?.addEventListener('resize', updatePopoutPosition);
+  window.visualViewport?.addEventListener('scroll', updatePopoutPosition);
+}
+
+function unbindPopoutViewportListeners() {
+  window.removeEventListener('resize', updatePopoutPosition);
+  window.removeEventListener('scroll', updatePopoutPosition, true);
+  window.visualViewport?.removeEventListener('resize', updatePopoutPosition);
+  window.visualViewport?.removeEventListener('scroll', updatePopoutPosition);
 }
 
 function backToGifCategories() {
@@ -263,9 +321,15 @@ onMounted(() => {
   void warmGifCategoryLibrary();
   const trending = getCachedGifCategoryResults('trending');
   if (trending?.length) gifResults.value = trending;
+  bindPopoutViewportListeners();
+  void nextTick(() => {
+    updatePopoutPosition();
+    requestAnimationFrame(updatePopoutPosition);
+  });
 });
 
 onUnmounted(() => {
+  unbindPopoutViewportListeners();
   imageLoadMoreObserver?.disconnect();
   if (gifDebounceTimer) {
     clearTimeout(gifDebounceTimer);
@@ -353,9 +417,33 @@ function toggleSavedFavorite(fav: MediaFavorite, event: Event) {
   toggleFavorite(fav);
 }
 
-function insertFavorite(fav: MediaFavorite) {
+function insertFavorite(fav: MediaFavorite, event: MouseEvent) {
+  event.stopPropagation();
   if (fav.kind === 'gif') emit('insertGif', fav.url);
   else emit('insertImage', fav.url);
+}
+
+function selectGif(url: string, event: MouseEvent) {
+  event.stopPropagation();
+  emit('insertGif', url);
+}
+
+function selectImage(url: string, event: MouseEvent) {
+  event.stopPropagation();
+  emit('insertImage', url);
+}
+
+function openGifCategoryFromClick(cat: MediaBrowseCategory, event: MouseEvent) {
+  event.stopPropagation();
+  openGifCategory(cat);
+}
+
+function openImageCategoryFromClick(
+  cat: MediaBrowseCategory,
+  event: MouseEvent,
+) {
+  event.stopPropagation();
+  openImageCategory(cat);
 }
 
 function onFavoriteGifHover(fav: MediaFavorite) {
@@ -387,6 +475,29 @@ function favoriteGifDisplayUrl(fav: MediaFavorite): string {
   return fav.thumbUrl;
 }
 
+watch(
+  () => props.anchorEl,
+  () => {
+    void nextTick(() => updatePopoutPosition());
+  },
+);
+
+watch(
+  [
+    () => props.placement,
+    activeTab,
+    gifBrowseView,
+    imageBrowseView,
+    gifResults,
+    imageResults,
+    () => gifCategoryLibraryRevision.value,
+    () => imageCategoryLibraryRevision.value,
+  ],
+  () => {
+    void nextTick(() => updatePopoutPosition());
+  },
+);
+
 function displayUrl(gif: GifResult): string {
   if (prefersReducedMotion.value) return gif.thumbnailUrl;
   if (hoveredGifId.value === gif.id && gif.previewUrl !== gif.thumbnailUrl) {
@@ -417,202 +528,408 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
 </script>
 
 <template>
-  <div
-    class="chat-popout chat-liquid-glass-menu absolute right-4 w-[min(400px,calc(100%-2rem))] overflow-hidden"
-    :class="props.placement === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'"
-    role="menu"
-  >
+  <Teleport to="body">
     <div
-      class="chat-popout-inner relative z-[1] max-h-[26rem] flex flex-col overflow-hidden"
+      ref="popoutRef"
+      data-chat-insert-popout
+      class="chat-popout chat-liquid-glass-menu overflow-hidden"
+      :style="popoutStyle"
+      role="menu"
+      @mousedown.stop
     >
       <div
-        v-if="SHOW_IMAGES_TAB"
-        class="mx-2 mt-2 flex gap-1 rounded-lg p-0.5"
-        :class="props.theme === 'forum' ? 'bg-white/10' : 'bg-scrim-2'"
-        role="tablist"
-        aria-label="Media type"
+        class="chat-popout-inner relative z-[1] max-h-[26rem] flex flex-col overflow-hidden"
       >
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === 'gif'"
-          :class="tabBtnClass(activeTab === 'gif')"
-          @click="setTab('gif')"
-        >
-          GIFs
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === 'image'"
-          :class="tabBtnClass(activeTab === 'image')"
-          @click="setTab('image')"
-        >
-          Images
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === 'favorites'"
-          :class="tabBtnClass(activeTab === 'favorites', true)"
-          aria-label="Favorites"
-          :title="browseKind === 'gif' ? 'Favorite GIFs' : 'Favorite images'"
-          @click="setTab('favorites')"
-        >
-          <img
-            :src="icons.folder"
-            alt=""
-            class="h-4 w-4 opacity-90"
-            :class="activeTab === 'favorites' ? 'opacity-100' : ''"
-            aria-hidden="true"
-          />
-        </button>
-      </div>
-
-      <template v-if="activeTab === 'favorites'">
         <div
-          class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
-          v-scrollbar-on-scroll
+          v-if="SHOW_IMAGES_TAB"
+          class="mx-2 mt-2 flex gap-1 rounded-lg p-0.5"
+          :class="props.theme === 'forum' ? 'bg-white/10' : 'bg-scrim-2'"
+          role="tablist"
+          aria-label="Media type"
         >
-          <div
-            v-if="favoritesForBrowseKind.length === 0"
-            class="flex min-h-[10rem] flex-col items-center justify-center gap-2 px-4 py-8 text-center"
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'gif'"
+            :class="tabBtnClass(activeTab === 'gif')"
+            @click="setTab('gif')"
+          >
+            GIFs
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'image'"
+            :class="tabBtnClass(activeTab === 'image')"
+            @click="setTab('image')"
+          >
+            Images
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'favorites'"
+            :class="tabBtnClass(activeTab === 'favorites', true)"
+            aria-label="Favorites"
+            :title="browseKind === 'gif' ? 'Favorite GIFs' : 'Favorite images'"
+            @click="setTab('favorites')"
           >
             <img
               :src="icons.folder"
               alt=""
-              class="h-10 w-10 opacity-40"
+              class="h-4 w-4 opacity-90"
+              :class="activeTab === 'favorites' ? 'opacity-100' : ''"
               aria-hidden="true"
             />
-            <p
-              class="text-sm font-medium"
-              :class="
-                props.theme === 'forum' ? 'text-foreground' : 'text-foreground'
-              "
-            >
-              No favorites yet
-            </p>
-            <p
-              class="text-xs leading-snug"
-              :class="props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'"
-            >
-              {{ favoritesEmptyLabel }}
-            </p>
-          </div>
-          <div v-else class="grid grid-cols-2 gap-2">
+          </button>
+        </div>
+
+        <template v-if="activeTab === 'favorites'">
+          <div
+            class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
+            v-scrollbar-on-scroll
+          >
             <div
-              v-for="fav in favoritesForBrowseKind"
-              :key="fav.id"
-              class="group relative aspect-video overflow-hidden rounded-lg bg-scrim-1"
-              :class="fav.kind === 'image' ? 'aspect-square' : ''"
-              @mouseenter="onFavoriteTileEnter(fav)"
-              @mouseleave="onFavoriteTileLeave(fav)"
-              @focusin="onFavoriteTileEnter(fav)"
-              @focusout="onFavoriteTileLeave(fav)"
+              v-if="favoritesForBrowseKind.length === 0"
+              class="flex min-h-[10rem] flex-col items-center justify-center gap-2 px-4 py-8 text-center"
             >
-              <button
-                type="button"
-                role="menuitem"
-                class="h-full w-full transition-colors hover:bg-glass-hover"
-                :title="fav.title"
-                @click="insertFavorite(fav)"
+              <img
+                :src="icons.folder"
+                alt=""
+                class="h-10 w-10 opacity-40"
+                aria-hidden="true"
+              />
+              <p
+                class="text-sm font-medium"
+                :class="
+                  props.theme === 'forum'
+                    ? 'text-foreground'
+                    : 'text-foreground'
+                "
               >
-                <template v-if="fav.kind === 'gif'">
-                  <LimitedGifImg
-                    v-if="
-                      !prefersReducedMotion &&
-                      hoveredGifId === fav.id &&
-                      fav.previewUrl &&
-                      fav.previewUrl !== fav.thumbUrl
-                    "
-                    :src="fav.previewUrl"
-                    :session-key="fav.id"
-                    :alt="fav.title"
-                    wrapper-class="h-full w-full"
-                    img-class="h-full w-full object-cover"
-                    :respect-reduced-motion="false"
-                    :force-active="hoveredGifId === fav.id"
-                  />
+                No favorites yet
+              </p>
+              <p
+                class="text-xs leading-snug"
+                :class="
+                  props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'
+                "
+              >
+                {{ favoritesEmptyLabel }}
+              </p>
+            </div>
+            <div v-else class="grid grid-cols-2 gap-2">
+              <div
+                v-for="fav in favoritesForBrowseKind"
+                :key="fav.id"
+                class="group relative aspect-video overflow-hidden rounded-lg bg-scrim-1"
+                :class="fav.kind === 'image' ? 'aspect-square' : ''"
+                @mouseenter="onFavoriteTileEnter(fav)"
+                @mouseleave="onFavoriteTileLeave(fav)"
+                @focusin="onFavoriteTileEnter(fav)"
+                @focusout="onFavoriteTileLeave(fav)"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="h-full w-full transition-colors hover:bg-glass-hover"
+                  :title="fav.title"
+                  @click="insertFavorite(fav, $event)"
+                >
+                  <template v-if="fav.kind === 'gif'">
+                    <LimitedGifImg
+                      v-if="
+                        !prefersReducedMotion &&
+                        hoveredGifId === fav.id &&
+                        fav.previewUrl &&
+                        fav.previewUrl !== fav.thumbUrl
+                      "
+                      :src="fav.previewUrl"
+                      :session-key="fav.id"
+                      :alt="fav.title"
+                      wrapper-class="h-full w-full"
+                      img-class="h-full w-full object-cover"
+                      :respect-reduced-motion="false"
+                      :force-active="hoveredGifId === fav.id"
+                    />
+                    <img
+                      v-else
+                      :src="favoriteGifDisplayUrl(fav)"
+                      :alt="fav.title"
+                      class="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </template>
                   <img
                     v-else
-                    :src="favoriteGifDisplayUrl(fav)"
+                    :src="fav.thumbUrl"
                     :alt="fav.title"
                     class="h-full w-full object-cover"
                     loading="lazy"
                   />
-                </template>
-                <img
-                  v-else
-                  :src="fav.thumbUrl"
-                  :alt="fav.title"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              </button>
-              <button
-                type="button"
-                :class="
-                  mediaFavoriteStarBtnClass(
-                    true,
-                    (fav.kind === 'gif' && hoveredGifId === fav.id) ||
-                      (fav.kind === 'image' && hoveredImageId === fav.id),
-                  )
-                "
-                aria-label="Remove from favorites"
-                @click="toggleSavedFavorite(fav, $event)"
-              >
-                <svg
-                  class="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
+                </button>
+                <button
+                  type="button"
+                  :class="
+                    mediaFavoriteStarBtnClass(
+                      true,
+                      (fav.kind === 'gif' && hoveredGifId === fav.id) ||
+                        (fav.kind === 'image' && hoveredImageId === fav.id),
+                    )
+                  "
+                  aria-label="Remove from favorites"
+                  @click="toggleSavedFavorite(fav, $event)"
                 >
-                  <path
-                    d="M12 2l2.39 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-5.18 3.25L8 14.14 3 9.27l6.61-1.01L12 2z"
-                  />
-                </svg>
+                  <svg
+                    class="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 2l2.39 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-5.18 3.25L8 14.14 3 9.27l6.61-1.01L12 2z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template v-else-if="!SHOW_IMAGES_TAB || activeTab === 'gif'">
+          <input
+            v-model="gifSearchQuery"
+            type="text"
+            placeholder="Search GIFs..."
+            class="m-2 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
+            :class="
+              props.theme === 'forum'
+                ? 'text-foreground placeholder:text-fg-subtle'
+                : 'text-foreground placeholder:text-muted'
+            "
+          />
+          <div
+            v-if="gifBrowseView === 'categories' && !gifSearchQuery.trim()"
+            class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
+            v-scrollbar-on-scroll
+          >
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                v-for="cat in GIF_BROWSE_CATEGORIES"
+                :key="cat.slug"
+                type="button"
+                class="group relative flex aspect-[4/3] flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
+                @click="openGifCategoryFromClick(cat, $event)"
+              >
+                <div class="relative min-h-0 flex-1 overflow-hidden">
+                  <template v-if="gifCategoryPreviewUrls(cat.slug).length">
+                    <img
+                      v-for="(previewUrl, pi) in gifCategoryPreviewUrls(
+                        cat.slug,
+                      )"
+                      :key="`${cat.slug}-${pi}`"
+                      :src="previewUrl"
+                      alt=""
+                      class="absolute inset-0 h-full w-full object-cover"
+                      :class="
+                        pi === 1 ? 'opacity-80 mix-blend-lighten scale-105' : ''
+                      "
+                      loading="eager"
+                      fetchpriority="high"
+                      draggable="false"
+                    />
+                  </template>
+                  <div
+                    v-else
+                    class="flex h-full items-center justify-center text-2xl opacity-60"
+                    aria-hidden="true"
+                  >
+                    {{ cat.navEmoji }}
+                  </div>
+                  <div
+                    class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6"
+                  >
+                    <span class="text-xs font-semibold text-white">{{
+                      cat.name
+                    }}</span>
+                  </div>
+                </div>
               </button>
             </div>
           </div>
-        </div>
-      </template>
-
-      <template v-else-if="!SHOW_IMAGES_TAB || activeTab === 'gif'">
-        <input
-          v-model="gifSearchQuery"
-          type="text"
-          placeholder="Search GIFs..."
-          class="m-2 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
-          :class="
-            props.theme === 'forum'
-              ? 'text-foreground placeholder:text-fg-subtle'
-              : 'text-foreground placeholder:text-muted'
-          "
-        />
-        <div
-          v-if="gifBrowseView === 'categories' && !gifSearchQuery.trim()"
-          class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
-          v-scrollbar-on-scroll
-        >
-          <div class="grid grid-cols-2 gap-2">
+          <div
+            v-else
+            class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
+            v-scrollbar-on-scroll
+          >
             <button
-              v-for="cat in GIF_BROWSE_CATEGORIES"
-              :key="cat.slug"
+              v-if="activeGifCategorySlug && !gifSearchQuery.trim()"
               type="button"
-              class="group relative flex aspect-[4/3] flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
-              @click="openGifCategory(cat)"
+              class="mb-2 text-xs font-medium text-muted hover:text-foreground"
+              @click="backToGifCategories"
             >
-              <div class="relative min-h-0 flex-1 overflow-hidden">
-                <template v-if="gifCategoryPreviewUrls(cat.slug).length">
-                  <img
-                    v-for="(previewUrl, pi) in gifCategoryPreviewUrls(cat.slug)"
-                    :key="`${cat.slug}-${pi}`"
-                    :src="previewUrl"
-                    alt=""
-                    class="absolute inset-0 h-full w-full object-cover"
-                    :class="
-                      pi === 1 ? 'opacity-80 mix-blend-lighten scale-105' : ''
+              ← Categories
+            </button>
+            <div v-if="gifError" class="py-8 text-center text-sm text-red-400">
+              {{ gifError }}
+            </div>
+            <div
+              v-else-if="gifLoading && gifResults.length === 0"
+              class="flex min-h-[10rem] items-center justify-center"
+              role="status"
+              aria-live="polite"
+              aria-label="Loading GIFs"
+            >
+              <svg
+                class="echo-ios-spinner"
+                viewBox="0 0 44 44"
+                width="34"
+                height="34"
+                aria-hidden="true"
+              >
+                <circle
+                  class="echo-ios-spinner__track"
+                  cx="22"
+                  cy="22"
+                  r="18"
+                />
+                <circle
+                  class="echo-ios-spinner__arc"
+                  cx="22"
+                  cy="22"
+                  r="18"
+                  transform="rotate(-90 22 22)"
+                />
+              </svg>
+            </div>
+            <div v-else class="grid grid-cols-2 gap-2">
+              <div
+                v-for="gif in gifResults"
+                :key="gif.id"
+                class="group relative aspect-video overflow-hidden rounded-lg bg-scrim-1"
+                @mouseenter="onGifHover(gif)"
+                @mouseleave="onGifLeave"
+                @focusin="onGifHover(gif)"
+                @focusout="onGifLeave"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="h-full w-full transition-colors hover:bg-glass-hover"
+                  :title="gif.title"
+                  @click="selectGif(gif.url, $event)"
+                >
+                  <LimitedGifImg
+                    v-if="
+                      !prefersReducedMotion &&
+                      hoveredGifId === gif.id &&
+                      gif.previewUrl !== gif.thumbnailUrl
                     "
+                    :src="gif.previewUrl"
+                    :session-key="gif.id"
+                    :alt="gif.title || 'GIF'"
+                    wrapper-class="h-full w-full"
+                    img-class="h-full w-full object-cover"
+                    :respect-reduced-motion="false"
+                    :force-active="hoveredGifId === gif.id"
+                  />
+                  <img
+                    v-else
+                    :src="displayUrl(gif)"
+                    :alt="gif.title || 'GIF'"
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </button>
+                <button
+                  type="button"
+                  :class="
+                    mediaFavoriteStarBtnClass(
+                      isGifFavorited(gif),
+                      hoveredGifId === gif.id,
+                    )
+                  "
+                  :aria-label="
+                    isGifFavorited(gif)
+                      ? 'Remove from favorites'
+                      : 'Add to favorites'
+                  "
+                  @click="toggleGifFavorite(gif, $event)"
+                >
+                  <svg
+                    class="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    :fill="isGifFavorited(gif) ? 'currentColor' : 'none'"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 2l2.39 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-5.18 3.25L8 14.14 3 9.27l6.61-1.01L12 2z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template v-else-if="SHOW_IMAGES_TAB && activeTab === 'image'">
+          <input
+            v-model="imageSearchQuery"
+            type="text"
+            placeholder="Search images..."
+            class="m-2 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
+            :class="
+              props.theme === 'forum'
+                ? 'text-foreground placeholder:text-fg-subtle'
+                : 'text-foreground placeholder:text-muted'
+            "
+          />
+          <p
+            v-if="imageSearchQuotaLabel"
+            class="mx-2 -mt-1 mb-1 text-xs"
+            :class="props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'"
+          >
+            {{ imageSearchQuotaLabel }}
+          </p>
+          <div
+            v-if="imageBrowseView === 'categories' && !imageSearchQuery.trim()"
+            class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
+            v-scrollbar-on-scroll
+          >
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class="group relative flex aspect-square flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
+                @click="setTab('favorites')"
+              >
+                <div
+                  class="flex h-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-indigo-500/20 to-purple-500/10"
+                >
+                  <img
+                    :src="icons.folder"
+                    alt=""
+                    class="h-8 w-8 opacity-80"
+                    aria-hidden="true"
+                  />
+                  <span class="text-xs font-semibold text-foreground"
+                    >Favorites</span
+                  >
+                </div>
+              </button>
+              <button
+                v-for="cat in IMAGE_BROWSE_CATEGORIES"
+                :key="cat.slug"
+                type="button"
+                class="group relative flex aspect-square flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
+                @click="openImageCategoryFromClick(cat, $event)"
+              >
+                <template v-if="imageCategoryPreviewUrls(cat.slug).length">
+                  <img
+                    :src="imageCategoryPreviewUrls(cat.slug)[0]"
+                    alt=""
+                    class="h-full w-full object-cover"
                     loading="eager"
                     fetchpriority="high"
                     draggable="false"
@@ -632,371 +949,177 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                     cat.name
                   }}</span>
                 </div>
-              </div>
-            </button>
-          </div>
-        </div>
-        <div
-          v-else
-          class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
-          v-scrollbar-on-scroll
-        >
-          <button
-            v-if="activeGifCategorySlug && !gifSearchQuery.trim()"
-            type="button"
-            class="mb-2 text-xs font-medium text-muted hover:text-foreground"
-            @click="backToGifCategories"
-          >
-            ← Categories
-          </button>
-          <div v-if="gifError" class="py-8 text-center text-sm text-red-400">
-            {{ gifError }}
-          </div>
-          <div
-            v-else-if="gifLoading && gifResults.length === 0"
-            class="flex min-h-[10rem] items-center justify-center"
-            role="status"
-            aria-live="polite"
-            aria-label="Loading GIFs"
-          >
-            <svg
-              class="echo-ios-spinner"
-              viewBox="0 0 44 44"
-              width="34"
-              height="34"
-              aria-hidden="true"
-            >
-              <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
-              <circle
-                class="echo-ios-spinner__arc"
-                cx="22"
-                cy="22"
-                r="18"
-                transform="rotate(-90 22 22)"
-              />
-            </svg>
-          </div>
-          <div v-else class="grid grid-cols-2 gap-2">
-            <div
-              v-for="gif in gifResults"
-              :key="gif.id"
-              class="group relative aspect-video overflow-hidden rounded-lg bg-scrim-1"
-              @mouseenter="onGifHover(gif)"
-              @mouseleave="onGifLeave"
-              @focusin="onGifHover(gif)"
-              @focusout="onGifLeave"
-            >
-              <button
-                type="button"
-                role="menuitem"
-                class="h-full w-full transition-colors hover:bg-glass-hover"
-                :title="gif.title"
-                @click="emit('insertGif', gif.url)"
-              >
-                <LimitedGifImg
-                  v-if="
-                    !prefersReducedMotion &&
-                    hoveredGifId === gif.id &&
-                    gif.previewUrl !== gif.thumbnailUrl
-                  "
-                  :src="gif.previewUrl"
-                  :session-key="gif.id"
-                  :alt="gif.title || 'GIF'"
-                  wrapper-class="h-full w-full"
-                  img-class="h-full w-full object-cover"
-                  :respect-reduced-motion="false"
-                  :force-active="hoveredGifId === gif.id"
-                />
-                <img
-                  v-else
-                  :src="displayUrl(gif)"
-                  :alt="gif.title || 'GIF'"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              </button>
-              <button
-                type="button"
-                :class="
-                  mediaFavoriteStarBtnClass(
-                    isGifFavorited(gif),
-                    hoveredGifId === gif.id,
-                  )
-                "
-                :aria-label="
-                  isGifFavorited(gif)
-                    ? 'Remove from favorites'
-                    : 'Add to favorites'
-                "
-                @click="toggleGifFavorite(gif, $event)"
-              >
-                <svg
-                  class="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  :fill="isGifFavorited(gif) ? 'currentColor' : 'none'"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 2l2.39 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-5.18 3.25L8 14.14 3 9.27l6.61-1.01L12 2z"
-                  />
-                </svg>
               </button>
             </div>
           </div>
-        </div>
-      </template>
-
-      <template v-else-if="SHOW_IMAGES_TAB && activeTab === 'image'">
-        <input
-          v-model="imageSearchQuery"
-          type="text"
-          placeholder="Search images..."
-          class="m-2 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
-          :class="
-            props.theme === 'forum'
-              ? 'text-foreground placeholder:text-fg-subtle'
-              : 'text-foreground placeholder:text-muted'
-          "
-        />
-        <p
-          v-if="imageSearchQuotaLabel"
-          class="mx-2 -mt-1 mb-1 text-xs"
-          :class="props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'"
-        >
-          {{ imageSearchQuotaLabel }}
-        </p>
-        <div
-          v-if="imageBrowseView === 'categories' && !imageSearchQuery.trim()"
-          class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
-          v-scrollbar-on-scroll
-        >
-          <div class="grid grid-cols-2 gap-2">
+          <div
+            v-else
+            ref="imageScrollRoot"
+            class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
+            v-scrollbar-on-scroll
+          >
             <button
+              v-if="activeImageCategorySlug && !imageSearchQuery.trim()"
               type="button"
-              class="group relative flex aspect-square flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
-              @click="setTab('favorites')"
+              class="mb-2 text-xs font-medium text-muted hover:text-foreground"
+              @click="backToImageCategories"
             >
-              <div
-                class="flex h-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-indigo-500/20 to-purple-500/10"
-              >
-                <img
-                  :src="icons.folder"
-                  alt=""
-                  class="h-8 w-8 opacity-80"
-                  aria-hidden="true"
-                />
-                <span class="text-xs font-semibold text-foreground"
-                  >Favorites</span
-                >
-              </div>
+              ← Categories
             </button>
-            <button
-              v-for="cat in IMAGE_BROWSE_CATEGORIES"
-              :key="cat.slug"
-              type="button"
-              class="group relative flex aspect-square flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
-              @click="openImageCategory(cat)"
+            <div
+              v-if="imageError"
+              class="py-8 px-3 text-center text-sm text-red-400"
             >
-              <template v-if="imageCategoryPreviewUrls(cat.slug).length">
-                <img
-                  :src="imageCategoryPreviewUrls(cat.slug)[0]"
-                  alt=""
-                  class="h-full w-full object-cover"
-                  loading="eager"
-                  fetchpriority="high"
-                  draggable="false"
-                />
-              </template>
-              <div
-                v-else
-                class="flex h-full items-center justify-center text-2xl opacity-60"
+              <p>{{ imageError }}</p>
+              <button
+                v-if="imagePlanLimitHit"
+                type="button"
+                class="mt-3 rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+                @click="openEchoPlusSettings"
+              >
+                View Echo+ plans
+              </button>
+            </div>
+            <div
+              v-else-if="imageLoading && imageResults.length === 0"
+              class="flex min-h-[10rem] items-center justify-center"
+              role="status"
+              aria-live="polite"
+              aria-label="Loading images"
+            >
+              <svg
+                class="echo-ios-spinner"
+                viewBox="0 0 44 44"
+                width="34"
+                height="34"
                 aria-hidden="true"
               >
-                {{ cat.navEmoji }}
-              </div>
-              <div
-                class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6"
-              >
-                <span class="text-xs font-semibold text-white">{{
-                  cat.name
-                }}</span>
-              </div>
-            </button>
-          </div>
-        </div>
-        <div
-          v-else
-          ref="imageScrollRoot"
-          class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
-          v-scrollbar-on-scroll
-        >
-          <button
-            v-if="activeImageCategorySlug && !imageSearchQuery.trim()"
-            type="button"
-            class="mb-2 text-xs font-medium text-muted hover:text-foreground"
-            @click="backToImageCategories"
-          >
-            ← Categories
-          </button>
-          <div
-            v-if="imageError"
-            class="py-8 px-3 text-center text-sm text-red-400"
-          >
-            <p>{{ imageError }}</p>
-            <button
-              v-if="imagePlanLimitHit"
-              type="button"
-              class="mt-3 rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
-              @click="openEchoPlusSettings"
-            >
-              View Echo+ plans
-            </button>
-          </div>
-          <div
-            v-else-if="imageLoading && imageResults.length === 0"
-            class="flex min-h-[10rem] items-center justify-center"
-            role="status"
-            aria-live="polite"
-            aria-label="Loading images"
-          >
-            <svg
-              class="echo-ios-spinner"
-              viewBox="0 0 44 44"
-              width="34"
-              height="34"
-              aria-hidden="true"
-            >
-              <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
-              <circle
-                class="echo-ios-spinner__arc"
-                cx="22"
-                cy="22"
-                r="18"
-                transform="rotate(-90 22 22)"
-              />
-            </svg>
-          </div>
-          <div v-else class="grid grid-cols-2 gap-2">
-            <div
-              v-for="img in imageResults"
-              :key="img.id"
-              class="group relative aspect-square overflow-hidden rounded-lg bg-scrim-1"
-              @mouseenter="onImageHover(img)"
-              @mouseleave="onImageLeave"
-              @focusin="onImageHover(img)"
-              @focusout="onImageLeave"
-            >
-              <button
-                type="button"
-                role="menuitem"
-                class="h-full w-full transition-colors hover:bg-glass-hover"
-                :title="img.alt"
-                @click="emit('insertImage', img.url)"
-              >
-                <img
-                  :src="img.thumbUrl"
-                  :alt="img.alt"
-                  class="h-full w-full object-cover"
-                  loading="lazy"
+                <circle
+                  class="echo-ios-spinner__track"
+                  cx="22"
+                  cy="22"
+                  r="18"
                 />
-              </button>
-              <button
-                type="button"
-                :class="
-                  mediaFavoriteStarBtnClass(
-                    isImageFavorited(img),
-                    hoveredImageId === img.id,
-                  )
-                "
-                :aria-label="
-                  isImageFavorited(img)
-                    ? 'Remove from favorites'
-                    : 'Add to favorites'
-                "
-                @click="toggleImageFavorite(img, $event)"
-              >
-                <svg
-                  class="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  :fill="isImageFavorited(img) ? 'currentColor' : 'none'"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 2l2.39 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-5.18 3.25L8 14.14 3 9.27l6.61-1.01L12 2z"
-                  />
-                </svg>
-              </button>
+                <circle
+                  class="echo-ios-spinner__arc"
+                  cx="22"
+                  cy="22"
+                  r="18"
+                  transform="rotate(-90 22 22)"
+                />
+              </svg>
             </div>
-          </div>
-          <div
-            v-if="imageResults.length > 0 && imageHasMore"
-            ref="imageLoadMoreSentinel"
-            class="flex min-h-10 items-center justify-center py-2"
-            aria-hidden="true"
-          >
-            <svg
-              v-if="imageLoadingMore"
-              class="echo-ios-spinner"
-              viewBox="0 0 44 44"
-              width="24"
-              height="24"
+            <div v-else class="grid grid-cols-2 gap-2">
+              <div
+                v-for="img in imageResults"
+                :key="img.id"
+                class="group relative aspect-square overflow-hidden rounded-lg bg-scrim-1"
+                @mouseenter="onImageHover(img)"
+                @mouseleave="onImageLeave"
+                @focusin="onImageHover(img)"
+                @focusout="onImageLeave"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="h-full w-full transition-colors hover:bg-glass-hover"
+                  :title="img.alt"
+                  @click="selectImage(img.url, $event)"
+                >
+                  <img
+                    :src="img.thumbUrl"
+                    :alt="img.alt"
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </button>
+                <button
+                  type="button"
+                  :class="
+                    mediaFavoriteStarBtnClass(
+                      isImageFavorited(img),
+                      hoveredImageId === img.id,
+                    )
+                  "
+                  :aria-label="
+                    isImageFavorited(img)
+                      ? 'Remove from favorites'
+                      : 'Add to favorites'
+                  "
+                  @click="toggleImageFavorite(img, $event)"
+                >
+                  <svg
+                    class="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    :fill="isImageFavorited(img) ? 'currentColor' : 'none'"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 2l2.39 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-5.18 3.25L8 14.14 3 9.27l6.61-1.01L12 2z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div
+              v-if="imageResults.length > 0 && imageHasMore"
+              ref="imageLoadMoreSentinel"
+              class="flex min-h-10 items-center justify-center py-2"
               aria-hidden="true"
             >
-              <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
-              <circle
-                class="echo-ios-spinner__arc"
-                cx="22"
-                cy="22"
-                r="18"
-                transform="rotate(-90 22 22)"
-              />
-            </svg>
-          </div>
-          <p
-            v-if="imageResults.length > 0 && !imageError"
-            class="mt-2 px-0.5 text-center text-[10px] leading-snug opacity-70"
-            :class="props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'"
-          >
-            Image results via
-            <a
-              href="https://serper.dev"
-              target="_blank"
-              rel="noreferrer noopener"
-              class="underline hover:opacity-100"
-              @click.stop
-              >Serper</a
+              <svg
+                v-if="imageLoadingMore"
+                class="echo-ios-spinner"
+                viewBox="0 0 44 44"
+                width="24"
+                height="24"
+                aria-hidden="true"
+              >
+                <circle
+                  class="echo-ios-spinner__track"
+                  cx="22"
+                  cy="22"
+                  r="18"
+                />
+                <circle
+                  class="echo-ios-spinner__arc"
+                  cx="22"
+                  cy="22"
+                  r="18"
+                  transform="rotate(-90 22 22)"
+                />
+              </svg>
+            </div>
+            <p
+              v-if="imageResults.length > 0 && !imageError"
+              class="mt-2 px-0.5 text-center text-[10px] leading-snug opacity-70"
+              :class="props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted'"
             >
-          </p>
-        </div>
-      </template>
+              Image results via
+              <a
+                href="https://serper.dev"
+                target="_blank"
+                rel="noreferrer noopener"
+                class="underline hover:opacity-100"
+                @click.stop
+                >Serper</a
+              >
+            </p>
+          </div>
+        </template>
+      </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped lang="scss">
 .chat-popout {
-  z-index: 30;
-
   /* Glass from .chat-liquid-glass-menu on root; inner is transparent for content */
   .chat-popout-inner {
     position: relative;
     background-color: transparent;
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -6px;
-    right: 1.5rem;
-    width: 0;
-    height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-top: 6px solid var(--vue-auto-040);
   }
 }
 </style>

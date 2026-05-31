@@ -16,6 +16,8 @@ import {
 } from '../../../domain/echoStore';
 import { isMemberOfServer } from '../../../domain/echoPermissions';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
+import { evictAllUsersFromEchoCategoryChannelRealtimeScopes } from '../../../platform/echoRealtimeMembership';
+import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './echoMutationRateLimits';
 import {
   echoPool,
   parsePermissionOverwriteRowsBody,
@@ -32,7 +34,10 @@ export default async function echoCategoriesRoutes(
     Body: { categoryId?: string; permissionOverrides?: unknown };
   }>(
     '/servers/:serverId/category-permission-overrides',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_ADMIN_MUTATION_RATE_LIMIT },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -115,6 +120,11 @@ export default async function echoCategoriesRoutes(
         fastify,
         { kind: 'permission_invalidated', version: auditId, serverId: sid },
         { serverId: sid },
+      );
+      await evictAllUsersFromEchoCategoryChannelRealtimeScopes(
+        fastify,
+        pool,
+        categoryId,
       );
       return reply.code(204).send();
     },
@@ -428,7 +438,10 @@ export default async function echoCategoriesRoutes(
     Body: { rows?: unknown };
   }>(
     '/servers/:serverId/categories/:categoryId/permission-overwrites',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_ADMIN_MUTATION_RATE_LIMIT },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -490,6 +503,11 @@ export default async function echoCategoriesRoutes(
         fastify,
         { kind: 'permission_invalidated', version: auditId, serverId: sid },
         { serverId: sid },
+      );
+      await evictAllUsersFromEchoCategoryChannelRealtimeScopes(
+        fastify,
+        pool,
+        categoryId,
       );
       return reply.code(204).send();
     },

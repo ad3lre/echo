@@ -99,29 +99,17 @@ import {
 } from '@/features/layout/urlNavigation';
 import { applyEchoShellPath } from '@/platform/desktopProductDeepLink';
 import { hasPriorRegistration } from '@/utils/priorRegistration';
-import {
-  subscribePrimaryFlowFailures,
-  primaryFlowFailureSuggestsBackendUnreachable,
-  type PrimaryFlowFailureDetail,
-} from '@/utils/primaryFlowFailure';
-import {
-  getEchoOutageRecoveryEstimate,
-  recordEchoOutageRecoveryDuration,
-} from '@/utils/echoOutageRecoveryStats';
 import { CHAT_MESSAGE_NAV_BRIDGE_KEY } from '@/features/navigation/chatMessageNavBridge';
-import { subscribeUIErrors, type UIErrorSeverity } from '@/utils/uiErrorBus';
 import {
   dispatchAppToast,
   dispatchAppToastDetail,
   type AppToastAction,
 } from '@/utils/controllerMissingAction';
-import { registerEchoToastQuickReplySender } from '@/features/layout/echoToastQuickReplyBridge';
 import { echoChatBottomChromeInsetPx } from '@/features/layout/echoChatBottomChromeInset';
 import {
   EMAIL_VERIFICATION_DOWNTIME,
   EMAIL_VERIFICATION_DOWNTIME_TOAST,
 } from '@/config/emailVerificationDowntime';
-import { API_BASE } from '@/config';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
 import { memberPanelDiag } from '@/utils/memberPanelDiag';
 import { channelPanelDiag } from '@/utils/channelPanelDiag';
@@ -132,22 +120,7 @@ import {
   shouldOfferDiscordProfileImport,
 } from '@/features/discord/discordProfileImportFlow';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
-import {
-  bringMainWindowToForeground,
-  downloadAndRelaunchDesktopUpdate,
-  isDesktop,
-  openExternal,
-} from '@/platform/desktopBridge';
-import {
-  installExternalLinkClickGate,
-  uninstallExternalLinkClickGate,
-} from '@/utils/externalLinkClickGate';
-import { useDesktopNativeAttention } from '@/composables/useDesktopNativeAttention';
-import { useDesktopGlobalShortcutBringFront } from '@/platform/desktopGlobalShortcutBringFront';
-import { useDesktopUpdateMonitor } from '@/composables/useDesktopUpdateMonitor';
-import { useDesktopIncomingCallAttention } from '@/composables/useDesktopIncomingCallAttention';
-import { useDesktopUpdateStore } from '@/stores/desktopUpdate';
-import { useNotificationPreferencesStore } from '@/stores/notificationPreferences';
+import { isDesktop, openExternal } from '@/platform/desktopBridge';
 import { provideSpeakingState } from '@/composables/useSpeakingState';
 import { ECHO_VOICE_PROCESSING_KEY } from '@/composables/voiceProcessingInjection';
 import { watchBugHunterAppContext } from '@/composables/useBugHunterAppTrace';
@@ -189,6 +162,8 @@ import {
   COMPOSER_INSERT_USER_MENTION_KEY,
   type InsertUserMentionFn,
 } from '@/features/chat/chatComposerContext';
+import { useAppLayoutShellNavigationChrome } from '@/features/layout/composables/useAppLayoutShellNavigationChrome';
+import { useAppLayoutPlatformLifecycle } from '@/features/layout/composables/useAppLayoutPlatformLifecycle';
 
 /** Shared ref: ChatInput registers; CallView / channel VC menus / bubbles inject. */
 const composerInsertUserMention = ref<InsertUserMentionFn | null>(null);
@@ -808,26 +783,6 @@ function onJoinServerFromShell(inviteLink?: string) {
 
 const themeStore = useThemeStore();
 
-// ─── Navigation announcer ────────────────────────────────────────────────────
-// A single visually-hidden aria-live="polite" region that announces the active
-// channel/server context whenever navigation changes.  Screen readers read it
-// once focus moves naturally; it never steals focus.
-const navAnnouncerText = ref('');
-watch(
-  [activeChannelId, selectedServer] as const,
-  ([chanId, server]) => {
-    const ch = (_activeChannel as ComputedRef<ChannelSummary | null>).value;
-    const chanName = ch?.name ?? '';
-    const serverName = server?.name ?? '';
-    if (!chanId || !chanName) return;
-    navAnnouncerText.value = serverName
-      ? `${serverName}, ${chanName}`
-      : chanName;
-  },
-  { flush: 'post' },
-);
-// ─────────────────────────────────────────────────────────────────────────────
-
 /** Desktop-only: server/action rail along the top instead of the left column (settings preference). */
 const actionRailTopLayout = computed(
   () => themeStore.actionRailPlacement === 'top' && !isCompactShell.value,
@@ -841,25 +796,15 @@ const actionRailTopLayoutGrid = computed(
     !inviteLandingActive.value,
 );
 
-const topRailSelectedOverflowServer = computed(() => {
-  if (!actionRailTopLayout.value) return false;
-  const selectedId = serverStore.selectedServerId?.trim() ?? '';
-  if (!selectedId || selectedId === 'echo') return false;
-  const visible = serverStore.visibleServers;
-  return (
-    !visible.some((s) => s.id === selectedId) &&
-    serverStore.servers.some((s) => s.id === selectedId)
-  );
-});
-
-watch(
-  topRailSelectedOverflowServer,
-  (isOverflowSelected) => {
-    if (!isOverflowSelected) return;
-    isMoreServersPanelOpen.value = true;
-  },
-  { immediate: true },
-);
+const { navAnnouncerText, topRailSelectedOverflowServer } =
+  useAppLayoutShellNavigationChrome({
+    activeChannelId,
+    selectedServer,
+    activeChannel: _activeChannel as ComputedRef<ChannelSummary | null>,
+    isMoreServersPanelOpen,
+    actionRailTopLayout,
+    serverStore,
+  });
 
 /** Echo: Server Settings → Structure (same gate as sidebar channel/category drag). */
 const serverSettingsGuildStructureEnabled = computed(() => {
@@ -2743,231 +2688,25 @@ const discordBotExportReadyGuildNameForBanner = computed(() => {
   return n ? n : null;
 });
 
-if (isDesktop()) {
-  useDesktopNativeAttention();
-  useDesktopGlobalShortcutBringFront();
-  useDesktopUpdateMonitor();
-  useDesktopIncomingCallAttention(dmCallRingUi);
-}
-
-const desktopUpdateStore = useDesktopUpdateStore();
-const desktopUpdateBannerVisible = computed(
-  () => isDesktop() && Boolean(desktopUpdateStore.pendingVersion),
-);
-
-async function onDesktopUpdateBannerInstall() {
-  if (!isDesktop()) return;
-  try {
-    await downloadAndRelaunchDesktopUpdate();
-  } catch (e) {
-    dispatchAppToast(
-      e instanceof Error ? e.message : 'Update install failed.',
-      'warning',
-    );
-  }
-}
-
-function onDesktopUpdateBannerDismiss() {
-  desktopUpdateStore.clearPending();
-}
-
-/** Any HTTP response counts as reachable; probes use cookies like the rest of the app. */
-async function verifyEchoApiReachableAfterHealthOk(): Promise<boolean> {
-  try {
-    const ts = Date.now();
-    await fetch(
-      `${API_BASE.replace(/\/$/, '')}/api/v1/auth/me?recoverProbe=${ts}`,
-      {
-        method: 'GET',
-        credentials: 'include',
-        cache: 'no-store',
-      },
-    );
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function checkServerHealthNow() {
-  serverHealthChecking.value = true;
-  const wasDown = serverHealthDown.value;
-  const checkedAt = Date.now();
-  try {
-    const res = await fetch(
-      `${API_BASE.replace(/\/$/, '')}/api/v1/health?ts=${checkedAt}`,
-      {
-        method: 'GET',
-        cache: 'no-store',
-      },
-    );
-    serverHealthLastCheckedAtMs.value = checkedAt;
-    if (res.ok) {
-      const apiReachable = await verifyEchoApiReachableAfterHealthOk();
-      if (!apiReachable) {
-        serverHealthDown.value = true;
-        if (!serverHealthOutageSinceMs.value) {
-          serverHealthOutageSinceMs.value = checkedAt;
-        }
-        return;
-      }
-      if (wasDown) {
-        const since = serverHealthOutageSinceMs.value;
-        if (since != null) {
-          recordEchoOutageRecoveryDuration(Date.now() - since);
-          const next = getEchoOutageRecoveryEstimate();
-          serverHealthAvgRecoveryEstimateSec.value = next.estimateSeconds;
-          serverHealthAvgRecoverySampleCount.value = next.sampleCount;
-        }
-      }
-      serverHealthDown.value = false;
-      serverHealthOutageSinceMs.value = null;
-      primaryFlowFailureDetail.value = null;
-      primaryFlowFailureBanner.value = null;
-      if (wasDown) {
-        triggerServerRecoveryReload();
-      }
-    } else {
-      serverHealthDown.value = true;
-      if (!serverHealthOutageSinceMs.value) {
-        serverHealthOutageSinceMs.value = checkedAt;
-      }
-    }
-  } catch {
-    serverHealthLastCheckedAtMs.value = checkedAt;
-    serverHealthDown.value = true;
-    if (!serverHealthOutageSinceMs.value) {
-      serverHealthOutageSinceMs.value = checkedAt;
-    }
-  } finally {
-    serverHealthChecking.value = false;
-  }
-}
-
-function clearServerHealthPolling() {
-  if (serverHealthPollTimer != null) {
-    clearInterval(serverHealthPollTimer);
-    serverHealthPollTimer = null;
-  }
-}
-
-const primaryFlowFailureBanner = ref<string | null>(null);
-const primaryFlowFailureDetail = ref<PrimaryFlowFailureDetail | null>(null);
-let unsubscribePrimaryFlowFailures: (() => void) | null = null;
-let unsubscribeDesktopTray: (() => void) | undefined;
-
-// --- Server health polling ---
-// Activated when a primary-flow failure suggests the API is unreachable (session restore,
-// realtime connect, workspace hydrate, etc.). The gate is shown once `/health` confirms down;
-// recovery requires `/health` plus a reachable `/auth/me` before clearing signals / reload.
-const serverHealthChecking = ref(false);
-const serverHealthDown = ref(false);
-/** Timestamp when the outage was first detected — drives the "downtime" counter in ServerDownGate. */
-const serverHealthOutageSinceMs = ref<number | null>(null);
-const serverHealthLastCheckedAtMs = ref<number | null>(null);
-/** Prevents triggering a second reload if the health check races back while a reload is in flight. */
-const serverHealthRecoveringReload = ref(false);
-let serverHealthPollTimer: ReturnType<typeof setInterval> | null = null;
-
-const _initialRecovery = getEchoOutageRecoveryEstimate();
-const serverHealthAvgRecoveryEstimateSec = ref(
-  _initialRecovery.estimateSeconds,
-);
-const serverHealthAvgRecoverySampleCount = ref(_initialRecovery.sampleCount);
-
-/** True when the latest primary-flow failure looks like backend/API unreachability. */
-const likelyBackendDownPrimaryFlow = computed(() => {
-  const d = primaryFlowFailureDetail.value;
-  return d ? primaryFlowFailureSuggestsBackendUnreachable(d) : false;
+const {
+  desktopUpdateBannerVisible,
+  desktopUpdatePendingVersion,
+  onDesktopUpdateBannerInstall,
+  onDesktopUpdateBannerDismiss,
+  primaryFlowFailureBanner,
+  showServerDownGate,
+  serverDownGateBind,
+  uiErrorBanner,
+  uiErrorRetryBusy,
+  dismissPrimaryFlowFailureBanner,
+  dismissUiErrorBanner,
+  onUiErrorRetry,
+  checkServerHealthNow,
+} = useAppLayoutPlatformLifecycle({
+  dmCallRingUi,
+  openDmInboxFromRailOverflow,
+  openUserSettingsModal,
 });
-
-const serverDownGateDetail = computed(() => {
-  const b = primaryFlowFailureBanner.value?.trim();
-  if (b) return b;
-  const d = primaryFlowFailureDetail.value;
-  if (!d) return null;
-  const u = d.userMessage?.trim();
-  return u || `Primary flow error — ${d.flow}: ${d.message}`;
-});
-
-const serverDownGateBind = computed(() => ({
-  checking: serverHealthChecking.value,
-  outageSinceMs: serverHealthOutageSinceMs.value,
-  lastCheckedAtMs: serverHealthLastCheckedAtMs.value,
-  detail: serverDownGateDetail.value,
-  averageRecoverySeconds: serverHealthAvgRecoveryEstimateSec.value,
-  recoverySampleCount: serverHealthAvgRecoverySampleCount.value,
-}));
-
-/**
- * Full-screen downtime gate: confirmed `/health` outage plus a strong unreachability signal.
- * Not limited to the welcome-back explore surface (signed-in explore also used to hide the gate).
- */
-const showServerDownGate = computed(
-  () =>
-    !echoSyncCapabilities.isMockDataMode &&
-    likelyBackendDownPrimaryFlow.value &&
-    serverHealthDown.value,
-);
-
-function triggerServerRecoveryReload() {
-  if (serverHealthRecoveringReload.value) return;
-  serverHealthRecoveringReload.value = true;
-  // Throttle reloads to once per 30 s to avoid a reload loop when the service is flapping.
-  try {
-    const now = Date.now();
-    const key = 'echo_server_recovery_reload_at';
-    const prev = Number(window.sessionStorage.getItem(key) || '0');
-    if (Number.isFinite(prev) && prev > 0 && now - prev < 30_000) {
-      // Reload throttled — allow polling to continue so recovery can be detected later.
-      serverHealthRecoveringReload.value = false;
-      return;
-    }
-    window.sessionStorage.setItem(key, String(now));
-  } catch {
-    /* ignore storage availability issues */
-  }
-  clearServerHealthPolling();
-  // Brief delay lets any in-flight Vue updates settle before the page reloads.
-  window.setTimeout(() => {
-    window.location.reload();
-  }, 450);
-}
-
-watch(
-  likelyBackendDownPrimaryFlow,
-  (on) => {
-    clearServerHealthPolling();
-    if (!on) {
-      // Primary flow recovered — reset all health state.
-      serverHealthChecking.value = false;
-      serverHealthDown.value = false;
-      serverHealthOutageSinceMs.value = null;
-      serverHealthLastCheckedAtMs.value = null;
-      return;
-    }
-    // Poll every 5s; first check fires immediately.
-    void checkServerHealthNow();
-    serverHealthPollTimer = setInterval(() => {
-      void checkServerHealthNow();
-    }, 5000);
-  },
-  { immediate: true },
-);
-
-type UiErrorBannerState = {
-  message: string;
-  severity: UIErrorSeverity;
-  retryAction?: () => void;
-  /** Echo API error code when surfaced via `UIErrorBus` (e.g. `GUEST_FORBIDDEN`). */
-  code?: string;
-};
-
-const uiErrorBanner = ref<UiErrorBannerState | null>(null);
-const uiErrorRetryBusy = ref(false);
-let uiErrorAutoDismissTimer: ReturnType<typeof setTimeout> | null = null;
-const HEADER_INFO_AUTO_DISMISS_MS = 15_000;
-let unsubscribeUiErrors: (() => void) | null = null;
 
 /** Debounce closing fullscreen when the media track drops (avoid flicker on quick swaps). */
 let fullscreenStreamLostDefer: ReturnType<typeof setTimeout> | null = null;
@@ -3031,53 +2770,7 @@ function onGlobalShortcutKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
-  if (isDesktop()) {
-    void import('@tauri-apps/api/event').then(({ listen }) => {
-      void listen<{ action?: string }>('echo-desktop-tray', async (event) => {
-        const action = event.payload?.action;
-        await bringMainWindowToForeground();
-        if (action === 'open-messages') {
-          openDmInboxFromRailOverflow();
-        } else if (action === 'open-notification-settings') {
-          openUserSettingsModal('Notifications');
-        } else if (action === 'toggle-desktop-alerts') {
-          const np = useNotificationPreferencesStore();
-          np.patch({ desktopAlerts: !np.settings.desktopAlerts });
-        }
-      }).then((unlisten) => {
-        unsubscribeDesktopTray = unlisten;
-      });
-    });
-  }
-
-  unsubscribePrimaryFlowFailures = subscribePrimaryFlowFailures((d) => {
-    primaryFlowFailureDetail.value = d;
-    if (!d.suppressBanner) {
-      const friendly = d.userMessage?.trim();
-      primaryFlowFailureBanner.value = friendly
-        ? friendly
-        : `Primary flow error — ${d.flow}: ${d.message}`;
-    }
-  });
-  unsubscribeUiErrors = subscribeUIErrors((d) => {
-    if (uiErrorAutoDismissTimer != null) {
-      clearTimeout(uiErrorAutoDismissTimer);
-      uiErrorAutoDismissTimer = null;
-    }
-    uiErrorBanner.value = {
-      message: d.userMessage,
-      severity: d.severity,
-      retryAction: d.retryAction,
-      code: d.code,
-    };
-    uiErrorAutoDismissTimer = setTimeout(() => {
-      uiErrorAutoDismissTimer = null;
-      uiErrorBanner.value = null;
-    }, HEADER_INFO_AUTO_DISMISS_MS);
-  });
   window.addEventListener('keydown', onGlobalShortcutKeydown);
-
-  installExternalLinkClickGate();
 
   void nextTick(() => {
     if (typeof ResizeObserver === 'undefined') return;
@@ -3109,37 +2802,8 @@ onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('popstate', onEventDetailPopState);
   }
-  clearServerHealthPolling();
   disposeAppLayoutSideEffects();
 });
-
-function dismissPrimaryFlowFailureBanner() {
-  primaryFlowFailureBanner.value = null;
-  primaryFlowFailureDetail.value = null;
-}
-
-function dismissUiErrorBanner() {
-  if (uiErrorAutoDismissTimer != null) {
-    clearTimeout(uiErrorAutoDismissTimer);
-    uiErrorAutoDismissTimer = null;
-  }
-  uiErrorBanner.value = null;
-}
-
-async function onUiErrorRetry() {
-  const act = uiErrorBanner.value?.retryAction;
-  if (!act || uiErrorRetryBusy.value) return;
-  if (uiErrorAutoDismissTimer != null) {
-    clearTimeout(uiErrorAutoDismissTimer);
-    uiErrorAutoDismissTimer = null;
-  }
-  uiErrorRetryBusy.value = true;
-  try {
-    await Promise.resolve(act());
-  } finally {
-    uiErrorRetryBusy.value = false;
-  }
-}
 
 function onUiErrorCreateAccount() {
   openAuthModal({ tab: 'register' });
@@ -3669,17 +3333,6 @@ watch(
 
 /** Canonical teardown for bus subscriptions and member panel width observer. */
 function disposeAppLayoutSideEffects() {
-  unsubscribeDesktopTray?.();
-  unsubscribeDesktopTray = undefined;
-  registerEchoToastQuickReplySender(null);
-  unsubscribePrimaryFlowFailures?.();
-  unsubscribePrimaryFlowFailures = null;
-  unsubscribeUiErrors?.();
-  unsubscribeUiErrors = null;
-  if (uiErrorAutoDismissTimer != null) {
-    clearTimeout(uiErrorAutoDismissTimer);
-    uiErrorAutoDismissTimer = null;
-  }
   if (fullscreenStreamLostDefer != null) {
     clearTimeout(fullscreenStreamLostDefer);
     fullscreenStreamLostDefer = null;
@@ -3687,7 +3340,6 @@ function disposeAppLayoutSideEffects() {
   memberPanelMainWidthObserver?.disconnect();
   memberPanelMainWidthObserver = null;
   window.removeEventListener('keydown', onGlobalShortcutKeydown);
-  uninstallExternalLinkClickGate();
 }
 
 function maybeAutoCollapseMemberPanelForMainWidth() {
@@ -3807,7 +3459,7 @@ watch(
     >
       <span class="min-w-0 font-medium">
         Echo update available:
-        <span class="text-fg">{{ desktopUpdateStore.pendingVersion }}</span>
+        <span class="text-fg">{{ desktopUpdatePendingVersion }}</span>
       </span>
       <span class="flex shrink-0 items-center gap-2">
         <button

@@ -254,6 +254,7 @@ function mediaAspectStyle(
     position: relative;
     max-width: min(100%, 28rem);
     width: fit-content;
+    min-width: 0;
     border-radius: 0.5rem;
     overflow: hidden;
     background: var(--msg-video-inner-bg);

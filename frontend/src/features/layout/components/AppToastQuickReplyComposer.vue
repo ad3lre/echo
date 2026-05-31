@@ -10,7 +10,10 @@ import {
   stripLeadingDuplicateHardFormatTemplate,
 } from '@shared/messageChunkLimits';
 import type { MentionEntity } from '@shared/types';
-import { shiftMentionsForReplacement } from '@/features/chat/editor/composerModel';
+import {
+  isComposerContentEffectivelyEmpty,
+  shiftMentionsForReplacement,
+} from '@/features/chat/editor/composerModel';
 
 const props = defineProps<{
   channelId: string;
@@ -26,6 +29,12 @@ const emit = defineEmits<{
 
 const composer = useComposerState();
 const composerEditor = computed((): any => composer.editor.value);
+
+const TOAST_QUICK_REPLY_PLACEHOLDER = 'Write a reply…';
+
+const showComposerPlaceholder = computed(() =>
+  isComposerContentEffectivelyEmpty(composer.content.value),
+);
 
 const messageFormatNormalized = computed(() =>
   typeof props.messageFormatTemplate === 'string'
@@ -210,18 +219,30 @@ defineExpose({
 
 <template>
   <div class="app-toast-quick-reply-composer min-w-0 flex-1">
-    <ComposerChannelFormatBanner
-      :message-format-template="messageFormatTemplate"
-      :message-format-hard="messageFormatHard === true"
-    />
-    <div
-      class="chat-input-surface app-toast-quick-reply-composer__surface min-h-[32px] max-h-[120px] overflow-y-auto rounded-md border border-border bg-scrim-1 px-2.5 py-1.5"
-      @pointerdown="composer.focus()"
-    >
-      <EditorContent
-        v-if="composerEditor"
-        :editor="composerEditor"
-        class="text-[13px] leading-relaxed text-fg"
+    <div class="flex min-w-0 items-start gap-1">
+      <div
+        class="chat-input-surface app-toast-quick-reply-composer__surface relative min-h-[32px] max-h-[120px] min-w-0 flex-1 overflow-y-auto rounded-md border border-border bg-scrim-1 px-2.5 py-1.5"
+        @pointerdown="composer.focus()"
+      >
+        <div
+          v-if="showComposerPlaceholder"
+          aria-hidden="true"
+          class="chat-input-placeholder pointer-events-none absolute inset-x-2.5 top-1.5 z-[2] truncate text-left text-[13px] text-muted"
+          :title="TOAST_QUICK_REPLY_PLACEHOLDER"
+        >
+          {{ TOAST_QUICK_REPLY_PLACEHOLDER }}
+        </div>
+        <EditorContent
+          v-if="composerEditor"
+          :editor="composerEditor"
+          class="text-[13px] leading-relaxed text-fg"
+        />
+      </div>
+      <ComposerChannelFormatBanner
+        class="mt-0.5 shrink-0"
+        :message-format-template="messageFormatTemplate"
+        :message-format-hard="messageFormatHard === true"
+        popout-direction="down"
       />
     </div>
   </div>

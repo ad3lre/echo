@@ -74,6 +74,9 @@ export type EchoRealtimeErrorRecoveryPort = {
   onConnectError: (err: Error) => void;
   onUnexpectedDisconnect: (reason: string) => void;
   onMessageFailed: (detail: unknown) => void;
+  onJoinChannelDenied: (
+    payload: import('@shared/types').JoinChannelErrorPayload,
+  ) => void;
 };
 
 export type EchoRealtimeTypingPort = {

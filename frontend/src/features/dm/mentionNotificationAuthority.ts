@@ -14,6 +14,38 @@ import {
   type DmMentionNotificationRow,
 } from '@/features/dm/collectDmMentionNotifications';
 
+/** Preview text for inbox rows waiting on background message hydrate. */
+export const MENTION_NOTIFICATION_STUB_PREVIEW = 'Loading mention…';
+
+/** Preview text when background hydrate could not load the mention body. */
+export const MENTION_NOTIFICATION_FAILED_PREVIEW =
+  'Could not load this mention — open the channel to view it.';
+
+export function mentionNotificationRowsHaveLoadingStubs(
+  rows: readonly Pick<DmMentionNotificationRow, 'preview'>[],
+): boolean {
+  return rows.some((row) => row.preview === MENTION_NOTIFICATION_STUB_PREVIEW);
+}
+
+export function applyMentionNotificationHydrationFailures(
+  rows: readonly DmMentionNotificationRow[],
+  failedChannelIds: ReadonlySet<string>,
+): DmMentionNotificationRow[] {
+  if (failedChannelIds.size === 0) return [...rows];
+  return rows.map((row) => {
+    if (
+      row.preview !== MENTION_NOTIFICATION_STUB_PREVIEW ||
+      !failedChannelIds.has(row.channelId.trim())
+    ) {
+      return row;
+    }
+    return {
+      ...row,
+      preview: MENTION_NOTIFICATION_FAILED_PREVIEW,
+    };
+  });
+}
+
 function pingKindToMentionKinds(
   pingKind: NonNullable<EchoAttentionChannelSummary['pingKind']>,
 ): MentionKind[] {
@@ -129,7 +161,7 @@ export function buildAttentionStubMentionRows(input: {
       messageId,
       authorId: '',
       authorName: '…',
-      preview: 'Loading mention…',
+      preview: MENTION_NOTIFICATION_STUB_PREVIEW,
       timestamp:
         summary.latestUnreadMessageAt?.trim() || new Date(0).toISOString(),
       mentionKinds: pingKindToMentionKinds(effectivePing),

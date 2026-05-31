@@ -6,6 +6,7 @@ import {
   toRef,
   onMounted,
   onUnmounted,
+  onErrorCaptured,
   defineAsyncComponent,
 } from 'vue';
 import type { MessageAttachmentPayload } from '@shared/types';
@@ -18,16 +19,31 @@ import {
   isPdfAttachment,
 } from '@/utils/documentAttachmentKind';
 
-const PdfDocumentViewer = defineAsyncComponent(
-  () => import('./PdfDocumentViewer.vue'),
-);
-const DocxDocumentViewer = defineAsyncComponent(
-  () => import('./DocxDocumentViewer.vue'),
-);
+const PdfDocumentViewer = defineAsyncComponent({
+  loader: () => import('./PdfDocumentViewer.vue'),
+  onError(error, retry, fail, attempts) {
+    if (import.meta.env.DEV) {
+      console.error('[DocumentViewerModal] PDF viewer failed to load', error);
+    }
+    if (attempts <= 1) retry();
+    else fail();
+  },
+});
+const DocxDocumentViewer = defineAsyncComponent({
+  loader: () => import('./DocxDocumentViewer.vue'),
+  onError(error, retry, fail, attempts) {
+    if (import.meta.env.DEV) {
+      console.error('[DocumentViewerModal] DOCX viewer failed to load', error);
+    }
+    if (attempts <= 1) retry();
+    else fail();
+  },
+});
 
 const props = defineProps<{
   modelValue: boolean;
-  document: MessageAttachmentPayload | null;
+  /** Attachment being previewed (not named `document` — avoids shadowing `window.document` in templates). */
+  attachment: MessageAttachmentPayload | null;
 }>();
 
 const emit = defineEmits<{
@@ -42,29 +58,29 @@ const iframeError = ref<string | null>(null);
 let iframeLoadTimer: ReturnType<typeof setTimeout> | undefined;
 
 const useNativePdf = computed(
-  () => !!props.document?.url?.trim() && isPdfAttachment(props.document),
+  () => !!props.attachment?.url?.trim() && isPdfAttachment(props.attachment),
 );
 
 const useNativeDocx = computed(
-  () => !!props.document?.url?.trim() && isDocxAttachment(props.document),
+  () => !!props.attachment?.url?.trim() && isDocxAttachment(props.attachment),
 );
 
 const useOfficeIframe = computed(() => {
-  const att = props.document;
+  const att = props.attachment;
   if (!att?.url?.trim()) return false;
   if (useNativePdf.value || useNativeDocx.value) return false;
   return isLegacyDocAttachment(att);
 });
 
 const iframeSrc = computed(() => {
-  const att = props.document;
+  const att = props.attachment;
   if (!att?.url?.trim() || !useOfficeIframe.value) return '';
   const url = att.url.trim();
   return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
 });
 
 const title = computed(() => {
-  const att = props.document;
+  const att = props.attachment;
   if (!att) return 'Document';
   return (
     att.filename?.trim() ||
@@ -76,7 +92,7 @@ const title = computed(() => {
   );
 });
 
-const documentUrl = computed(() => props.document?.url?.trim() ?? '');
+const documentUrl = computed(() => props.attachment?.url?.trim() ?? '');
 
 const saveLinkAttrs = computed(() =>
   attachmentSaveLinkAttrs(documentUrl.value, title.value),
@@ -99,7 +115,7 @@ watch(
   () =>
     [
       props.modelValue,
-      props.document?.url,
+      props.attachment?.url,
       useNativePdf.value,
       useNativeDocx.value,
       useOfficeIframe.value,
@@ -107,7 +123,7 @@ watch(
   () => {
     clearIframeLoadTimer();
     iframeError.value = null;
-    if (!props.modelValue || !props.document?.url) {
+    if (!props.modelValue || !props.attachment?.url) {
       iframeLoading.value = false;
       return;
     }
@@ -163,12 +179,15 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onDocKeydown);
   resetIframeState();
 });
+
+/** Keep viewer failures inside the modal instead of ChatView's error boundary. */
+onErrorCaptured(() => false);
 </script>
 
 <template>
   <Teleport to="body">
     <div
-      v-if="modelValue && document"
+      v-if="modelValue && attachment"
       ref="modalRef"
       class="document-viewer-modal fixed inset-0 z-[70] flex flex-col bg-overlay-ink"
       role="dialog"
@@ -178,7 +197,7 @@ onUnmounted(() => {
     >
       <PdfDocumentViewer
         v-if="useNativePdf"
-        :key="document.url"
+        :key="attachment.url"
         class="min-h-0 flex-1"
         :url="documentUrl"
         :document-label="title"
@@ -188,7 +207,7 @@ onUnmounted(() => {
       />
       <DocxDocumentViewer
         v-else-if="useNativeDocx"
-        :key="document.url"
+        :key="attachment.url"
         class="min-h-0 flex-1"
         :url="documentUrl"
         :document-label="title"
@@ -309,6 +328,21 @@ onUnmounted(() => {
           />
         </div>
       </template>
+      <div
+        v-else
+        class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
+      >
+        <p class="max-w-md text-sm text-fg-soft">
+          This document type cannot be previewed in Echo. Try Download or Open.
+        </p>
+        <button
+          type="button"
+          class="viewer-icon-btn rounded-lg px-3 py-2 text-sm"
+          @click="openInBrowser"
+        >
+          Open in browser
+        </button>
+      </div>
     </div>
   </Teleport>
 </template>

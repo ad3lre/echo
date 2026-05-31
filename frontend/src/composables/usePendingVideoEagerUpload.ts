@@ -2,6 +2,7 @@ import { watch, type Ref } from 'vue';
 import { uploadChatAttachmentFile } from '@/api/echoClient';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
+import { sha256HexOfBlob } from '@/utils/uploadFingerprint';
 import type { PendingVideo } from './usePendingMedia';
 
 type InFlightJob = {
@@ -48,9 +49,14 @@ async function uploadPendingVideo(
   if (!isVideoStillAttached(pendingVideos.value, video, channel)) return;
 
   video.uploadStatus = 'uploading';
-  video.uploadPercent = 0;
+  video.uploadPercent = null;
 
   try {
+    const cachedSha256Hex =
+      video.sha256Hex?.trim() || (await sha256HexOfBlob(video.file));
+    if (!isVideoStillAttached(pendingVideos.value, video, channel)) return;
+    video.sha256Hex = cachedSha256Hex;
+
     const uploaded = await uploadChatAttachmentFile(
       token,
       channel,
@@ -58,12 +64,19 @@ async function uploadPendingVideo(
       {
         fileIndex: 0,
         fileTotal: 1,
+        cachedSha256Hex,
         onProgress: (e) => {
           if (e.kind !== 'video') return;
           if (!isVideoStillAttached(pendingVideos.value, video, channel))
             return;
           if (e.phase === 'uploading' && e.uploadPercent != null) {
             video.uploadPercent = e.uploadPercent;
+          } else if (
+            e.phase === 'checking' ||
+            e.phase === 'finishing' ||
+            e.phase === 'preparing'
+          ) {
+            video.uploadPercent = null;
           }
         },
       },

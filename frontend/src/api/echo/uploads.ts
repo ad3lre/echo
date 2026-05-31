@@ -306,6 +306,8 @@ export type ChatMediaUploadProgressEvent = {
 export type ChatMediaUploadFileOptions = {
   fileIndex: number;
   fileTotal: number;
+  /** When set (e.g. eager composer upload), skips re-hashing large video files. */
+  cachedSha256Hex?: string;
   onProgress?: (e: ChatMediaUploadProgressEvent) => void;
 };
 
@@ -315,6 +317,7 @@ async function uploadPreparedFileWithDedupe(
   prepared: File,
   options?: {
     videoDedupeFastPath?: boolean;
+    cachedSha256Hex?: string;
     emit?: (phase: ChatMediaUploadPhase, uploadPercent: number | null) => void;
   },
 ): Promise<{ url: string; storageKey?: string }> {
@@ -330,10 +333,11 @@ async function uploadPreparedFileWithDedupe(
     ECHO_CHAT_VIDEO_DEDUPE_PHASH_FAST,
   } = await import('@/utils/uploadFingerprint');
   const dedupeKind: 'image' | 'video' = kind;
+  const cachedSha = options?.cachedSha256Hex?.trim();
   const { sha256Hex, phashHex } =
     dedupeKind === 'video' && options?.videoDedupeFastPath
       ? {
-          sha256Hex: await sha256HexOfBlob(prepared),
+          sha256Hex: cachedSha || (await sha256HexOfBlob(prepared)),
           phashHex: ECHO_CHAT_VIDEO_DEDUPE_PHASH_FAST,
         }
       : dedupeKind === 'video'
@@ -425,6 +429,7 @@ export async function uploadChatMediaFile(
   }
   return uploadPreparedFileWithDedupe(token, { channelId }, prepared, {
     videoDedupeFastPath: isVideo,
+    cachedSha256Hex: fileOptions?.cachedSha256Hex,
     emit: fileOptions?.onProgress ? emitIf : undefined,
   });
 }

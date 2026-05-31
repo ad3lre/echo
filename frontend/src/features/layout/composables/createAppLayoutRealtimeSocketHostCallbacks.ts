@@ -33,6 +33,7 @@ export function createAppLayoutRealtimeSocketHostCallbacks(deps: {
     onConnectError: () => {},
     onUnexpectedDisconnect: () => {},
     onMessageFailed: () => {},
+    onJoinChannelDenied: () => {},
     applyRealtimeAuthorHint: deps.applyRealtimeAuthorHint,
   };
 }

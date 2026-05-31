@@ -30,7 +30,7 @@ const SANITIZE = {
     'th',
     'td',
   ],
-  ALLOWED_ATTR: ['href', 'rel', 'target'],
+  ALLOWED_ATTR: ['href', 'rel', 'target', 'start'],
   ALLOW_DATA_ATTR: false,
 };
 

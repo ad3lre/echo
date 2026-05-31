@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useServerTicketsStore } from '@/stores/serverTickets';
 import type {
   EchoTicketConfig,
@@ -22,6 +22,7 @@ const props = defineProps<{
 const ticketStore = useServerTicketsStore();
 
 const loading = ref(true);
+const loadError = ref<string | null>(null);
 const saving = ref(false);
 
 const enabled = ref(false);
@@ -34,6 +35,12 @@ const greetingMessage = ref('');
 const requireCategory = ref(false);
 const ticketCategories = ref<EchoTicketCategory[]>([]);
 const formFields = ref<EchoTicketFormField[]>([]);
+
+const assignableRoles = computed(() =>
+  (props.roles ?? []).filter((r) => r.name !== '@everyone'),
+);
+
+const textChannels = computed(() => allChannels());
 
 function allChannels(): Array<{ id: string; name: string }> {
   const all: Array<{ id: string; name: string }> = [];
@@ -58,20 +65,37 @@ function syncFromConfig(config: EchoTicketConfig) {
   formFields.value = [...config.formFields];
 }
 
-onMounted(async () => {
-  if (!props.accessToken) return;
-  await ticketStore.loadConfig(props.serverId, props.accessToken);
-  const cfg = ticketStore.configFor(props.serverId);
-  if (cfg) syncFromConfig(cfg);
-  loading.value = false;
-});
+async function loadSettings() {
+  if (!props.serverId) {
+    loading.value = false;
+    return;
+  }
+  loading.value = true;
+  loadError.value = null;
+  try {
+    /* Cookie session auth; bearer token is legacy only (see echoFetch). */
+    await ticketStore.loadConfig(props.serverId, props.accessToken ?? '');
+    const cfg = ticketStore.configFor(props.serverId);
+    if (cfg) syncFromConfig(cfg);
+    loadError.value = ticketStore.lastError;
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(() => void loadSettings());
+
+watch(
+  () => props.serverId,
+  () => void loadSettings(),
+);
 
 async function save() {
-  if (!props.accessToken) return;
+  if (!props.serverId) return;
   saving.value = true;
   const result = await ticketStore.saveConfig(
     props.serverId,
-    props.accessToken,
+    props.accessToken ?? '',
     {
       enabled: enabled.value,
       panelChannelId: panelChannelId.value,
@@ -85,10 +109,13 @@ async function save() {
       formFields: formFields.value,
     },
   );
-  if (result) {
-    dispatchAppToast('Ticket settings saved');
-  }
   saving.value = false;
+  if (result) {
+    syncFromConfig(result);
+    dispatchAppToast('Ticket settings saved');
+  } else if (ticketStore.lastError) {
+    dispatchAppToast(ticketStore.lastError, 'warning');
+  }
 }
 
 function addCategory() {
@@ -131,6 +158,17 @@ function toggleHandlerRole(roleId: string) {
       Loading ticket settings...
     </div>
     <template v-else>
+      <div v-if="loadError" class="server-settings-tickets__error" role="alert">
+        <p>{{ loadError }}</p>
+        <button
+          type="button"
+          class="server-settings-tickets__btn"
+          @click="loadSettings"
+        >
+          Retry
+        </button>
+      </div>
+
       <section class="server-settings-tickets__section">
         <h3 class="server-settings-tickets__heading">Ticket System</h3>
         <p class="server-settings-tickets__desc">
@@ -178,10 +216,16 @@ function toggleHandlerRole(roleId: string) {
             class="server-settings-tickets__select"
           >
             <option :value="null">-- Select a channel --</option>
-            <option v-for="ch in allChannels()" :key="ch.id" :value="ch.id">
+            <option v-for="ch in textChannels" :key="ch.id" :value="ch.id">
               #{{ ch.name }}
             </option>
           </select>
+          <p
+            v-if="!textChannels.length"
+            class="server-settings-tickets__empty-note"
+          >
+            No text channels available. Create a channel under Structure first.
+          </p>
         </section>
 
         <section class="server-settings-tickets__section">
@@ -191,7 +235,7 @@ function toggleHandlerRole(roleId: string) {
           </p>
           <div class="server-settings-tickets__role-list">
             <label
-              v-for="role in props.roles ?? []"
+              v-for="role in assignableRoles"
               :key="role.id"
               class="server-settings-tickets__role-item"
             >
@@ -202,6 +246,13 @@ function toggleHandlerRole(roleId: string) {
               />
               <span>{{ role.name }}</span>
             </label>
+            <p
+              v-if="!assignableRoles.length"
+              class="server-settings-tickets__empty-note"
+            >
+              No roles available yet. Create roles under Server Settings →
+              Roles.
+            </p>
           </div>
         </section>
 
@@ -215,7 +266,7 @@ function toggleHandlerRole(roleId: string) {
             class="server-settings-tickets__select"
           >
             <option :value="null">-- None --</option>
-            <option v-for="ch in allChannels()" :key="ch.id" :value="ch.id">
+            <option v-for="ch in textChannels" :key="ch.id" :value="ch.id">
               #{{ ch.name }}
             </option>
           </select>
@@ -354,6 +405,27 @@ function toggleHandlerRole(roleId: string) {
   &__loading {
     color: var(--color-fg-muted);
     padding: 2rem 0;
+  }
+
+  &__error {
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-danger, #e55);
+    background: color-mix(in srgb, var(--color-danger, #e55) 12%, transparent);
+    color: var(--color-fg);
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  &__empty-note {
+    font-size: 0.8125rem;
+    color: var(--color-fg-muted);
+    font-style: italic;
+    margin-top: 0.35rem;
   }
 
   &__section {

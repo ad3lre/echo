@@ -772,6 +772,31 @@ async function run(): Promise<void> {
       /if \(!pool\)[\s\S]*'UNAVAILABLE'/,
       'joinChannel must fail closed when Echo pool is unavailable (no arbitrary room join)',
     );
+    assert.match(
+      channelHandlersSource,
+      /revalidateRecoveredChannelRooms/,
+      'socket recovery must re-check channel room membership after connectionStateRecovery',
+    );
+    assert.match(
+      channelHandlersSource,
+      /emitJoinChannelError\([\s\S]*'FORBIDDEN'/,
+      'joinChannel must emit structured FORBIDDEN errors instead of silent deny',
+    );
+
+    const middlewareSource = await readFile(
+      path.join(process.cwd(), 'backend', 'src', 'auth', 'middleware.ts'),
+      'utf8',
+    );
+    assert.doesNotMatch(
+      middlewareSource,
+      /sess\.cachedUser\s*\?\?/,
+      'requireAuth must load user from auth store on each request (no cachedUser authorization shortcut)',
+    );
+    assert.match(
+      middlewareSource,
+      /store\.getUserById\(sess\.userId\)/,
+      'requireAuth must load user from auth store on each request',
+    );
 
     const localUploadDiskSource = await readFile(
       path.join(

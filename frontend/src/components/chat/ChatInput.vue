@@ -31,7 +31,6 @@ import type { ImageItem } from '@/components/chat/ImageViewerModal.vue';
 import ChatMediaUploadOverlay from '@/components/chat/ChatMediaUploadOverlay.vue';
 import PollCreateModal from '@/components/chat/PollCreateModal.vue';
 import ChatInputComposerBar from '@/features/chat/components/ChatInputComposerBar.vue';
-import ComposerChannelFormatBanner from '@/features/chat/components/ComposerChannelFormatBanner.vue';
 import { applyComposerOrderedListEnter } from '@/features/chat/editor/composerMarkdownListEnter';
 import { useComposerState } from '@/composables/useComposerState';
 import {
@@ -571,6 +570,13 @@ const {
   close: closePopout,
 } = usePopoutStack();
 
+const composerBarRef = ref<InstanceType<typeof ChatInputComposerBar> | null>(
+  null,
+);
+const gifPopoutAnchorEl = computed(
+  () => composerBarRef.value?.gifPopoutAnchorRef ?? null,
+);
+
 const serverEmojiLibrary = useServerEmojiLibrary(
   computed(() => props.serverId),
 );
@@ -940,8 +946,12 @@ function handleInputFocus() {
 
 function handleInputBlur(e: FocusEvent) {
   const root = composerSurfaceRef.value;
+  const menu = selectionMenuRef.value;
   const next = e.relatedTarget;
   if (root && next instanceof Node && root.contains(next)) {
+    return;
+  }
+  if (menu && next instanceof Node && menu.contains(next)) {
     return;
   }
   chatInputFocused.value = false;
@@ -1498,6 +1508,7 @@ onMounted(() => {
       :placement="props.popoutDirection ?? 'up'"
       :theme="props.popoutTheme ?? 'default'"
       :seed-keywords="props.gifPopoutSeedKeywords"
+      :anchor-el="gifPopoutAnchorEl"
       @insert-gif="insertGif"
       @insert-image="insertImageFromSearch"
     />
@@ -1741,13 +1752,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <ComposerChannelFormatBanner
-      v-if="!showSlowmodeOverlay && !showPermissionLockOverlay"
-      :message-format-template="props.messageFormatTemplate"
-      :message-format-hard="props.messageFormatHard === true"
-    />
-
     <ChatInputComposerBar
+      ref="composerBarRef"
       v-if="!showSlowmodeOverlay && !showPermissionLockOverlay"
       :server-id="props.serverId"
       :popout-direction="props.popoutDirection ?? 'up'"
@@ -1810,6 +1816,8 @@ onMounted(() => {
       :handle-attach-upload="handleUploadClick"
       :handle-attach-create-poll="handleCreatePoll"
       :close-other-popouts="closePopout"
+      :message-format-template="props.messageFormatTemplate"
+      :message-format-hard="props.messageFormatHard === true"
       @set-markdown-preview-mode="setMarkdownPreviewMode"
     />
   </div>

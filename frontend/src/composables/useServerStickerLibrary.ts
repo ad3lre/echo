@@ -4,6 +4,9 @@ import { useAuthSessionStore } from '@/stores/authSession';
 import { echoFetch } from '@/api/echo/transport';
 import { scheduleDeferredTask } from '@/utils/scheduleDeferredTask';
 import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
+import type { EmojiCategory, EmojiEntry } from '@/composables/emojiTypes';
+import { parseTwemoji } from '@/utils/twemoji';
+import { customEmojiPickerHtml } from '@/composables/useServerEmojiLibrary';
 import type {
   MessageStickerFormat,
   MessageStickerPayload,
@@ -74,6 +77,25 @@ export function invalidateServerStickerLibraryCache(serverId?: string) {
   }
   stickerPackCache.clear();
   stickerPackInflight.clear();
+}
+
+export function libraryStickerToEntry(
+  serverId: string,
+  sticker: EchoStickerLibraryStickerApi,
+): EmojiEntry {
+  const imageUrl = safeCustomEmojiUrl(sticker.imageUrl) ?? '';
+  return {
+    kind: 'sticker',
+    id: sticker.id,
+    serverId: sticker.serverId ?? serverId,
+    name: sticker.name,
+    slug: `cs-${sticker.id}`,
+    stickerFormat: sticker.format,
+    imageUrl,
+    emoji: `:${sticker.name}:`,
+    html: customEmojiPickerHtml(imageUrl, sticker.name),
+    skin_tone_support: false,
+  };
 }
 
 export function stickerToPayload(
@@ -179,13 +201,41 @@ export function useServerStickerLibrary(
     return m;
   });
 
+  const flatStickerEntries = computed(() => {
+    const sid = serverId.value ?? 'global';
+    return flatStickers.value.map((s) => libraryStickerToEntry(sid, s));
+  });
+
+  function pickerPackCategories(): EmojiCategory[] {
+    const sid = serverId.value ?? 'global';
+    if (!packs.value.length) return [];
+    return packs.value
+      .filter((p) => p.stickers.some((s) => s.format !== 'lottie'))
+      .map((p) => {
+        const stickers = p.stickers.filter((s) => s.format !== 'lottie');
+        const first = stickers[0];
+        return {
+          name: p.name,
+          slug: `server-sticker-${p.id}`,
+          navIconImageUrl: first
+            ? (safeCustomEmojiUrl(first.imageUrl) ?? undefined)
+            : undefined,
+          navIconImageAlt: first ? `:${first.name}:` : undefined,
+          navIconHtml: parseTwemoji('🏷️'),
+          emojis: stickers.map((s) => libraryStickerToEntry(sid, s)),
+        };
+      });
+  }
+
   return {
     packs,
     loading,
     error,
     refresh,
     flatStickers,
+    flatStickerEntries,
     stickerById,
+    pickerPackCategories,
     stickerToPayload,
   };
 }

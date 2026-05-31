@@ -1180,6 +1180,10 @@ watch(
       continuationLayout ? 'msg-continuation' : 'msg-header',
       {
         'msg-header--first': showAvatarResolved && row.layout.isFirstInList,
+        'msg-header--clustered':
+          showAvatarResolved && row.layout.groupedWithNext,
+        'msg-continuation--followed':
+          continuationLayout && row.layout.groupedWithNext,
         'msg-bubble--last': row.layout.isLastInList,
         'message-bubble--compact-top': row.isCompact,
         'bg-glass-1': menuOpen,
@@ -1469,8 +1473,9 @@ watch(
               v-if="showTextCaption"
               ref="messageContentRef"
               v-spoiler-reveal
-              class="message-text message-content mb-1 max-w-3xl text-fg"
+              class="message-text message-content max-w-3xl text-fg"
               :class="{
+                'mb-1': !row.layout.groupedWithNext,
                 'message-text--emoji-only': isEmojiOnlyUpTo12(
                   message.content ?? '',
                 ),

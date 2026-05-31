@@ -1,0 +1,30 @@
+name: Echo E2E smoke
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/echo-e2e-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13.1'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Cypress smoke (memory stack)
+        run: npm run test:e2e

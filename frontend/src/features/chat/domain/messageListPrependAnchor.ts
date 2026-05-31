@@ -115,6 +115,16 @@ export function getScrollDirection(
   return 'still';
 }
 
+/** Physical scroll ceiling — wheel-up cannot reduce scrollTop further. */
+export const SCROLL_TOP_CEILING_PX = 1;
+
+export function isAtScrollTopCeiling(
+  scrollTop: number,
+  ceilingPx = SCROLL_TOP_CEILING_PX,
+): boolean {
+  return scrollTop <= ceilingPx;
+}
+
 /**
  * Single commit for scroll after prepend (one call site).
  * (1) `scrollTop += scrollHeight - scrollHeightBefore` (height growth from merge),

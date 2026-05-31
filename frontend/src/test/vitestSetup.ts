@@ -1,5 +1,8 @@
 import { beforeEach, vi } from 'vitest';
+import { ensurePdfEnvironmentPolyfills } from '@/features/pdf/ensurePdfEnvironment';
 import { registerAuthSessionApiBridge } from '@/api/authSessionBridge';
+
+ensurePdfEnvironmentPolyfills();
 
 /**
  * `authClient` calls into the session store via this bridge (avoids a store↔client import cycle).

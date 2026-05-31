@@ -21,6 +21,7 @@ describe('createAppLayoutEchoRealtimeHost', () => {
       onConnectError: vi.fn(),
       onUnexpectedDisconnect: vi.fn(),
       onMessageFailed: vi.fn(),
+      onJoinChannelDenied: vi.fn(),
       applyChannelTyping: vi.fn(),
       applyRealtimeAuthorHint: vi.fn(),
     });

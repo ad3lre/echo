@@ -5,6 +5,7 @@ import {
   getAnchorMessageIdFromViewport,
   getMessageElementById,
   getScrollDirection,
+  isAtScrollTopCeiling,
   isAnchorDriftBeyondThreshold,
   measureMessageTopInContainer,
   restoreAnchorByPixelDelta,
@@ -211,5 +212,11 @@ describe('messageListPrependAnchor', () => {
     expect(getScrollDirection(120, 80)).toBe('up');
     expect(getScrollDirection(80, 120)).toBe('down');
     expect(getScrollDirection(80, 80)).toBe('still');
+  });
+
+  it('detects the physical scroll-top ceiling for wheel-up pagination', () => {
+    expect(isAtScrollTopCeiling(0)).toBe(true);
+    expect(isAtScrollTopCeiling(1)).toBe(true);
+    expect(isAtScrollTopCeiling(2)).toBe(false);
   });
 });

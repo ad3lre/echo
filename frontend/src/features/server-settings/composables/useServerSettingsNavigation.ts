@@ -17,12 +17,18 @@ export function useServerSettingsNavigation() {
         return icons.crown;
       case 'Emoji':
         return icons.emotesServerNav;
+      case 'Stickers':
+        return icons.sparkle;
       case 'Discord':
         return icons.discordMark;
       case 'Security':
         return icons.settings;
       case 'Access':
         return icons.chatLock;
+      case 'Tickets':
+        return icons.lifeRing;
+      case 'Self-assignable Roles':
+        return icons.userTag;
       case 'Banned Words':
         return icons.shield;
       case 'Moderation':

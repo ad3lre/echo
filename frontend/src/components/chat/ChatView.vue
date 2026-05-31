@@ -632,6 +632,16 @@ function resolvePollVoterAvatar(userId: string): string | undefined {
   return undefined;
 }
 
+async function ensureMessageInWindowForActiveChannel(
+  messageId: string,
+): Promise<boolean> {
+  const cid = props.activeChannel?.id?.trim();
+  const prefetch = echoChannelHistory?.prefetchUntilMessageVisible;
+  if (!cid || !prefetch || !messageId.trim()) return false;
+  await prefetch(cid, messageId.trim());
+  return true;
+}
+
 function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
   if (!msg.id) return;
   replyingTo.value = {
@@ -669,7 +679,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
     />
     <DocumentViewerModal
       v-model="documentViewerOpen"
-      :document="documentViewerDocument"
+      :attachment="documentViewerDocument"
     />
     <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div
@@ -756,6 +766,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         :can-moderate-author="canModerateAuthor"
         :on-moderate-user="onModerateUser"
         :load-older="echoChannelHistory?.loadOlder"
+        :ensure-message-in-window="ensureMessageInWindowForActiveChannel"
         :loading-older="echoLoadingOlder"
         :initial-history-loading="echoInitialHistoryLoading"
         :transition-loading="transitionLoading"

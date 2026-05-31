@@ -12,7 +12,7 @@
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "execa": "^9.6.1",
-    "pg": "^8.20.0"
+    "pg": "^8.21.0"
   },
   "devDependencies": {
     "@types/node": "^25.8.0",

@@ -39,6 +39,19 @@ export type MessageFailedCode =
   | 'GUEST_LIMIT'
   | 'GUEST_ABUSE_COOLDOWN';
 
+/** Server → client when `joinChannel` is rejected after auth. */
+export type JoinChannelErrorCode =
+  | 'UNAUTHENTICATED'
+  | 'UNAVAILABLE'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND';
+
+export type JoinChannelErrorPayload = {
+  code: JoinChannelErrorCode;
+  channelId: string;
+  detail: string;
+};
+
 import type { PaperCommentPayload, PaperDocumentPayload } from './paper';
 
 export type EchoWorkspaceEventKind =

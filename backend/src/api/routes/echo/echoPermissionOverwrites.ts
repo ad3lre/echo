@@ -13,6 +13,7 @@ import { composePermissionExplanation } from '../../../domain/permissionExplanat
 import { isMemberOfServer } from '../../../domain/echoPermissions';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
 import { evictAllUsersFromEchoChannelRealtimeScope } from '../../../platform/echoRealtimeMembership';
+import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './echoMutationRateLimits';
 import {
   echoPool,
   parsePermissionOverwriteRowsBody,
@@ -69,7 +70,10 @@ export default async function echoPermissionOverwritesRoutes(
 
   fastify.put<{ Params: { channelId: string }; Body: { rows?: unknown } }>(
     '/channels/:channelId/permission-overwrites',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_ADMIN_MUTATION_RATE_LIMIT },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);

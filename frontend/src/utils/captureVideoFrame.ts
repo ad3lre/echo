@@ -1,9 +1,12 @@
 /** Client-side video probe: dimensions + still frame near `seekSec` (default 1s). */
 
-export type VideoProbeResult = {
+export type VideoDimensions = {
   width: number;
   height: number;
   aspectRatio: string;
+};
+
+export type VideoProbeResult = VideoDimensions & {
   frameUrl: string;
 };
 
@@ -81,16 +84,38 @@ function frameFromVideo(video: HTMLVideoElement): string | null {
   return blob.startsWith('data:') ? blob : null;
 }
 
+/** Fast metadata-only probe — sets aspect ratio before a frame decode finishes. */
+export async function probeVideoDimensionsOnly(
+  blobUrl: string,
+): Promise<VideoDimensions | null> {
+  let video: HTMLVideoElement | null = null;
+  try {
+    const loaded = await loadVideoMetadata(blobUrl);
+    video = loaded.video;
+    const { width, height } = loaded;
+    return {
+      width,
+      height,
+      aspectRatio: `${width} / ${height}`,
+    };
+  } catch {
+    return null;
+  } finally {
+    if (video) disposeVideoElement(video);
+  }
+}
+
 /** Returns a data URL frame and locked aspect ratio, or null when probing fails. */
 export async function probeVideoBlobUrl(
   blobUrl: string,
-  seekSec = 1,
+  seekSec = 0.5,
 ): Promise<VideoProbeResult | null> {
   let video: HTMLVideoElement | null = null;
   try {
     const loaded = await loadVideoMetadata(blobUrl);
     video = loaded.video;
     const { width, height } = loaded;
+    const aspectRatio = `${width} / ${height}`;
     try {
       await seekVideo(video, seekSec);
     } catch {
@@ -102,7 +127,7 @@ export async function probeVideoBlobUrl(
     return {
       width,
       height,
-      aspectRatio: `${width} / ${height}`,
+      aspectRatio,
       frameUrl,
     };
   } catch {

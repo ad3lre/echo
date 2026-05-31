@@ -40,6 +40,7 @@ function createHostPorts(
       onConnectError: vi.fn(),
       onUnexpectedDisconnect: vi.fn(),
       onMessageFailed: vi.fn(),
+      onJoinChannelDenied: vi.fn(),
     },
     typing: { applyChannelTyping: vi.fn() },
     authorHints: { applyAuthorHint: vi.fn() },

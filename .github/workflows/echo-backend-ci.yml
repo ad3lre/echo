@@ -64,6 +64,7 @@ jobs:
           npm run test:linkUnfurlStubs -w backend
           npm run test:linkUnfurlExtract -w backend
           npm run test:shipping-security -w backend
+          npm run test:security -w backend
           npm run test:echo:contract -w backend
           npm run check:echo-channels
           npm run check:echo-snowflake
@@ -71,6 +72,9 @@ jobs:
           npm run check:echo-rbac
           npm run check:channel-message-writes
           node scripts/check-echo-no-sql-in-routes.mjs
+
+      - name: Socket handler unit tests
+        run: npx vitest run --config frontend/vitest.config.ts backend/src/tests/channelHandlers.joinChannel.test.ts
 
       - name: Pipeline integration (Postgres)
         env:

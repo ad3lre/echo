@@ -111,6 +111,28 @@ This file tracks concrete security issues patched in the repo so we can avoid re
   - `frontend/src/api/echo/discordBridge.ts` — compatible with `bridgeConfigured` response
 - Ledger: all **103** findings marked closed in `docs/security/vulnerability-ranking.md` (Fixed / Mitigated / Accepted).
 
+### 9. Realtime channel access hardening (2026-05-31 follow-up)
+
+- Severity: Medium (defense-in-depth on #10 recovery path)
+- Area: Socket.IO `joinChannel`, connection recovery, permission mutation side effects
+- Fixed in:
+  - `backend/src/sockets/channelHandlers.ts` — `revalidateRecoveredChannelRooms`, structured `JoinChannelErrorCode` payloads
+  - `backend/src/platform/echoRealtimeMembership.ts` — category/channel realtime scope eviction on permission graph changes
+  - `backend/src/auth/middleware.ts` — always `store.getUserById` (no `cachedUser` auth shortcut)
+  - `backend/src/api/routes/echo/echoMutationRateLimits.ts` — shared admin mutation rate limit
+  - `backend/src/api/routes/echo/echo{Categories,Channels,PermissionOverwrites,Roles,ServerScoped}.ts`
+  - `backend/src/services/echoModerationOps.ts` — timeout evicts voice + realtime like ban/kick
+  - `frontend/src/services/realtime/socketJoinChannelErrorIngest.ts` — client toast + workspace invalidation on denied join
+- Patch summary:
+  - Recovered socket sessions re-check channel room membership; denied joins emit structured errors.
+  - Permission overwrite / role mutations evict affected channel rooms so clients must re-join under fresh checks.
+  - Admin settings mutations share per-user/IP rate limits (`ECHO_ADMIN_MUTATION_RATE_LIMIT`).
+- Regression tests:
+  - `backend/src/tests/channelHandlers.joinChannel.test.ts` (Vitest, also in backend CI)
+  - `frontend/src/services/realtime/__tests__/socketJoinChannelErrorIngest.test.ts`
+  - Static guards in `backend/src/tests/shippingSecurity.test.ts`
+  - `npm run test:security` wired into `test:ci:backend` and `.github/workflows/echo-backend-ci.yml`
+
 ## 2026-04-23
 
 ### 1. AWS XML builder transitive CVE in S3 upload path (CVE-2026-41650)

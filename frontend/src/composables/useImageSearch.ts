@@ -3,7 +3,7 @@
  * Credentials stay server-side: SERPER_API_KEY.
  */
 
-import { ref, onUnmounted } from 'vue';
+import { ref, onUnmounted, type Ref } from 'vue';
 import { API_BASE } from '@/config';
 import { ApiError } from '@/api/client';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -135,6 +135,9 @@ async function fetchImageSearchPage(
 
 let imageLibraryWarmInflight: Promise<void> | null = null;
 
+/** Bumps when category warmup fills the in-memory cache (picker previews react to this). */
+export const imageCategoryLibraryRevision: Ref<number> = ref(0);
+
 /** Warm curated image category first pages for instant picker landing. */
 export function warmImageCategoryLibrary(): Promise<void> {
   if (imageLibraryWarmInflight) return imageLibraryWarmInflight;
@@ -149,6 +152,7 @@ export function warmImageCategoryLibrary(): Promise<void> {
         });
     });
     await Promise.all(jobs);
+    imageCategoryLibraryRevision.value += 1;
   })().finally(() => {
     imageLibraryWarmInflight = null;
   });

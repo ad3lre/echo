@@ -417,6 +417,7 @@ export async function uploadPendingMediaAsAttachments(
         {
           fileIndex: imageCount + j,
           fileTotal: uploadFileCount,
+          cachedSha256Hex: p.sha256Hex,
           ...fileOpts,
         },
       );

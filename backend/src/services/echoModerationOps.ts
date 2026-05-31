@@ -47,7 +47,10 @@ export async function runEchoModerationActionAndBroadcast(
   meta: Record<string, unknown>,
 ): Promise<EchoModerationResult> {
   let liveKitVoiceChannelId: string | null = null;
-  if (config.liveKitEnabled && (action === 'ban' || action === 'kick')) {
+  if (
+    config.liveKitEnabled &&
+    (action === 'ban' || action === 'kick' || action === 'timeout')
+  ) {
     const vp = await pool.query(
       `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
       [serverId, targetUserId],
@@ -78,7 +81,7 @@ export async function runEchoModerationActionAndBroadcast(
     throw e;
   }
 
-  if (action === 'ban' || action === 'kick') {
+  if (action === 'ban' || action === 'kick' || action === 'timeout') {
     await evictUserFromEchoServerRealtimeScopes(fastify, pool, {
       serverId,
       userId: targetUserId,

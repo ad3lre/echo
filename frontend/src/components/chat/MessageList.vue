@@ -41,17 +41,34 @@ import {
   type MessageListRowPresentation,
 } from '@/features/chat/presentation/messageListRowPresentation';
 import {
+  MESSAGE_LIST_DEFAULT_ROW_ESTIMATE_PX,
+  estimateMessageListRowSizePx,
+} from '@/features/chat/domain/messageListRowEstimate';
+import {
   ANCHOR_DRIFT_THRESHOLD_PX,
   getAnchorMessageIdFromViewport,
   getScrollDirection,
+  isAtScrollTopCeiling,
   measureMessageTopInContainer,
   restorePrependScroll,
   type PrependSnapshot,
 } from '@/features/chat/domain/messageListPrependAnchor';
+import {
+  restoreViewportAnchorInContainer,
+  VIEWPORT_RESTORE_DOM_RETRY,
+} from '@/features/chat/domain/messageListViewportRestore';
+import {
+  clearMessageListViewport,
+  flushMessageListViewportStorage,
+  hasMessageListViewport,
+  readMessageListViewport,
+  writeMessageListViewport,
+} from '@/features/chat/composables/messageListViewportStorage';
 import { messageWindowAuthority } from '@/features/chat/domain/messageWindowAuthority';
 import {
   downwardOnlySnapScrollTop,
   isScrollNearBottom,
+  shouldSkipScrollToIndexForLatest,
 } from '@/features/chat/domain/messageListScrollSnap';
 import {
   logMessageList,
@@ -118,6 +135,10 @@ const props = defineProps<{
   }) => void;
   /** Echo history: load older messages when user scrolls near the top (anchored scroll). */
   loadOlder?: () => Promise<boolean>;
+  /**
+   * Ensure a message id is present in the loaded window (e.g. prefetch for saved scroll restore).
+   */
+  ensureMessageInWindow?: (messageId: string) => Promise<boolean>;
   loadingOlder?: boolean;
   /** Echo: while first page of history loads for an empty UUID channel, show message-shaped skeletons. */
   initialHistoryLoading?: boolean;
@@ -167,18 +188,6 @@ const emit = defineEmits<{
   (e: 'imported'): void;
   (e: 'seen-message-id-changed', messageId: string | null): void;
 }>();
-
-type ChannelViewportMemoryEntry = {
-  anchorMessageId: string;
-  anchorTop: number;
-  savedAtMs: number;
-};
-
-/**
- * Temporary per-channel viewport memory for this client session only.
- * This is UI state, not domain truth.
- */
-const channelViewportMemory = new Map<string, ChannelViewportMemoryEntry>();
 
 /** Isolated from list row render: scroll handlers mutate; only MessageListJumpFab reads. */
 const jumpUi = createMessageListJumpUi();
@@ -820,8 +829,9 @@ const MESSAGE_LIST_OVERSCAN_COARSE = 56;
  * `virtualizerScrollPaddingStart` when messages are present.
  */
 const MESSAGE_LIST_ACTION_BAR_GUTTER_PX = 14;
-const MESSAGE_LIST_DEFAULT_ESTIMATE = 88;
 const USER_SCROLL_SETTLE_MS = 180;
+/** After initial anchor, block follow scrollToIndex while row heights settle. */
+const INITIAL_ANCHOR_FOLLOW_COOLDOWN_MS = 400;
 
 function nowMs(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -851,6 +861,8 @@ let lastObservedScrollDirection: 'up' | 'down' | 'still' = 'still';
 let suppressLoadOlderUntilLeaveTopZone = false;
 /** Bumps on channel change and each `applyInitialScrollAnchor` call — stale rAF work bails (max one commit pass wins). */
 let initialAnchorScheduleGeneration = 0;
+/** Set when initial anchor finishes — length watcher uses snap-only during cooldown. */
+let initialAnchorSettledAtMs = 0;
 /** De-dupe deferred row measurement: at most one pending measure per row key. */
 const measureRowPendingKeys = new Set<string>();
 /** Skip re-measure for stable rows whose rendered height did not change. */
@@ -897,11 +909,11 @@ function emitSeenMessageId(next: string | null): void {
 function estimateMessageRowSize(index: number): number {
   const msgId = displayOrderedIds.value[index];
   const message = msgId ? mergedMessagesForList.value.get(msgId) : undefined;
-  if (!message) return MESSAGE_LIST_DEFAULT_ESTIMATE;
+  if (!message) return MESSAGE_LIST_DEFAULT_ROW_ESTIMATE_PX;
 
   const rowVm = messageListRowPresentations.value[index];
-  const grouped = rowVm?.layout.groupedWithPrevious ?? false;
-  const daySep =
+  const groupedWithPrevious = rowVm?.layout.groupedWithPrevious ?? false;
+  const showDaySeparatorBefore =
     rowVm?.showDaySeparatorBefore ??
     shouldShowDaySeparatorBefore(
       displayOrderedIds.value,
@@ -909,52 +921,11 @@ function estimateMessageRowSize(index: number): number {
       index,
     );
 
-  let size = grouped ? 56 : 78;
-  if (daySep) size += 32;
-  const body = message.contentText ?? message.content ?? '';
-  const lineCount = Math.max(1, body.split('\n').length);
-  size += Math.min(5, lineCount) * 18;
-  size += Math.min(120, Math.ceil(body.length / 90) * 18);
-
-  if (message.replyTo) size += 28;
-  if (message.forwardedFrom) size += 24;
-  if (message.poll) {
-    size += 128 + Math.min(120, (message.poll.options?.length ?? 0) * 24);
-  }
-
-  const attachments = message.attachments ?? [];
-  if (
-    message.videoUrl ||
-    attachments.some((attachment) => attachment.kind === 'video')
-  ) {
-    size += 280;
-  } else if (attachments.some((attachment) => attachment.kind === 'document')) {
-    size += 120;
-  } else if (
-    message.imageUrl ||
-    message.gif ||
-    (message.stickers?.length ?? 0) > 0 ||
-    attachments.some(
-      (attachment) => attachment.kind === 'image' || attachment.kind === 'gif',
-    )
-  ) {
-    size += 240;
-  }
-
-  const embeds = message.embeds ?? [];
-  if (embeds.some((embed) => embed.video != null)) {
-    size += 240;
-  } else if (embeds.some((embed) => !!embed.image?.url?.trim())) {
-    size += 180;
-  } else if (embeds.length > 0) {
-    size += 96;
-  }
-
-  if ((message.reactions?.length ?? 0) > 0) {
-    size += 36;
-  }
-
-  return Math.max(64, Math.min(520, size));
+  return estimateMessageListRowSizePx({
+    groupedWithPrevious,
+    showDaySeparatorBefore,
+    message,
+  });
 }
 
 const virtualizerScrollPaddingStart = computed(
@@ -998,6 +969,22 @@ const virtualizerOptions = computed(() => ({
    * the top of a long thread and scroll down on the following frame.
    */
   initialOffset: () => {
+    const cid = props.channelId?.trim();
+    if (cid) {
+      const saved = readMessageListViewport(cid);
+      if (saved) {
+        const anchorIndex = displayOrderedIds.value.indexOf(
+          saved.anchorMessageId,
+        );
+        if (anchorIndex >= 0) {
+          let offset = 0;
+          for (let i = 0; i < anchorIndex; i++) {
+            offset += estimateMessageRowSize(i);
+          }
+          return Math.max(0, offset - saved.anchorTop);
+        }
+      }
+    }
     if (messageScrollAnchorResolved.value !== 'bottom') return 0;
     const n = displayOrderedIds.value.length;
     if (n === 0) return 0;
@@ -1024,18 +1011,11 @@ function distanceFromBottomPx(): number {
   return Math.max(0, v.getTotalSize() - el.scrollTop - el.clientHeight);
 }
 
-function clampScrollTop(container: HTMLElement, scrollTop: number): number {
-  return Math.max(
-    0,
-    Math.min(scrollTop, container.scrollHeight - container.clientHeight),
-  );
-}
-
 function hasChannelViewportMemory(
   channelId: string | null | undefined,
 ): boolean {
   const cid = channelId?.trim();
-  return !!cid && channelViewportMemory.has(cid);
+  return !!cid && hasMessageListViewport(cid);
 }
 
 function persistViewportMemoryForChannel(
@@ -1064,11 +1044,10 @@ function persistViewportMemoryForChannel(
   const anchorTop = measureMessageTopInContainer(el, anchor.anchorMessageId);
   if (anchorTop == null) return;
 
-  channelViewportMemory.set(cid, {
+  writeMessageListViewport(cid, {
     anchorMessageId: anchor.anchorMessageId,
     anchorTop,
-    savedAtMs:
-      typeof performance !== 'undefined' ? performance.now() : Date.now(),
+    followNewMessages: followNewMessagesToBottom.value,
   });
 
   if (messageListDebugEnabled()) {
@@ -1076,6 +1055,7 @@ function persistViewportMemoryForChannel(
       channelId: cid,
       anchorMessageId: anchor.anchorMessageId,
       anchorTop,
+      followNewMessages: followNewMessagesToBottom.value,
       messageCount: displayOrderedIds.value.length,
       outcomeOk: true,
       expectation:
@@ -1092,23 +1072,71 @@ function schedulePersistViewportMemory(): void {
   });
 }
 
-function restoreViewportMemoryForChannel(channelId: string): boolean {
+async function ensureAnchorMessageInWindow(
+  channelId: string,
+  anchorMessageId: string,
+): Promise<boolean> {
+  if (displayOrderedIds.value.includes(anchorMessageId)) return true;
+  const ensure = props.ensureMessageInWindow;
+  if (!ensure) return false;
+  try {
+    const ok = await ensure(anchorMessageId);
+    if (props.channelId?.trim() !== channelId) return false;
+    return ok && displayOrderedIds.value.includes(anchorMessageId);
+  } catch {
+    return false;
+  }
+}
+
+async function restoreViewportMemoryForChannel(
+  channelId: string,
+): Promise<boolean> {
   if (isClientOnlyDmOpenShellChannelId(channelId)) return false;
-  const entry = channelViewportMemory.get(channelId);
-  const el = containerRef.value;
-  if (!entry || !el || displayOrderedIds.value.length === 0) return false;
-  if (!displayOrderedIds.value.includes(entry.anchorMessageId)) {
-    channelViewportMemory.delete(channelId);
+  const entry = readMessageListViewport(channelId);
+  if (!entry || displayOrderedIds.value.length === 0) return false;
+
+  followNewMessagesToBottom.value = entry.followNewMessages;
+
+  if (
+    entry.followNewMessages &&
+    messageScrollAnchorResolved.value === 'bottom'
+  ) {
     return false;
   }
 
-  const anchorTopAfter = measureMessageTopInContainer(
-    el,
-    entry.anchorMessageId,
-  );
-  if (anchorTopAfter == null) return false;
-  const delta = anchorTopAfter - entry.anchorTop;
-  el.scrollTop = clampScrollTop(el, el.scrollTop + delta);
+  if (!displayOrderedIds.value.includes(entry.anchorMessageId)) {
+    const loaded = await ensureAnchorMessageInWindow(
+      channelId,
+      entry.anchorMessageId,
+    );
+    if (!loaded || !displayOrderedIds.value.includes(entry.anchorMessageId)) {
+      clearMessageListViewport(channelId);
+      return false;
+    }
+  }
+
+  let restored = false;
+  for (let attempt = 0; attempt < VIEWPORT_RESTORE_DOM_RETRY; attempt++) {
+    await nextTick();
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
+    const el = containerRef.value;
+    const v = virtualizer.value;
+    if (!el || !v) continue;
+    restored = restoreViewportAnchorInContainer(
+      el,
+      displayOrderedIds.value,
+      v,
+      {
+        anchorMessageId: entry.anchorMessageId,
+        anchorTop: entry.anchorTop,
+      },
+    );
+    if (restored) break;
+  }
+  if (!restored) return false;
+
   persistViewportMemoryForChannel(channelId);
 
   if (messageListDebugEnabled()) {
@@ -1116,8 +1144,7 @@ function restoreViewportMemoryForChannel(channelId: string): boolean {
       channelId,
       anchorMessageId: entry.anchorMessageId,
       anchorTopBefore: entry.anchorTop,
-      anchorTopAfter,
-      deltaApplied: delta,
+      followNewMessages: entry.followNewMessages,
       messageCount: displayOrderedIds.value.length,
       outcomeOk: true,
       expectation:
@@ -1230,6 +1257,17 @@ function onScrollCombined() {
   scheduleScrollIdleWork();
 }
 
+/** Wheel at scrollTop≈0 does not emit scroll events — treat as upward pagination intent. */
+function onWheelNearTopForLoadOlder(event: WheelEvent) {
+  const el = containerRef.value;
+  if (!el || prependTransactionActive.value) return;
+  if (event.deltaY >= 0) return;
+  if (el.scrollTop > NEAR_TOP_PX) return;
+  lastObservedScrollDirection = 'up';
+  userScrollActiveUntilMs = nowMs() + USER_SCROLL_SETTLE_MS;
+  scheduleScrollIdleWork();
+}
+
 function jumpToLatestMessages() {
   followNewMessagesToBottom.value = true;
   jumpUi.pendingNewWhileAway.value = 0;
@@ -1337,12 +1375,18 @@ function finalizePrependTransaction(channelId: string, txId: number): void {
   prependTransactionActive.value = false;
   activePrependChannelId.value = null;
   activePrependTxId.value = 0;
-  suppressLoadOlderUntilLeaveTopZone = true;
+  const scrollTopAfterRestore = containerRef.value?.scrollTop ?? 0;
+  // Only suppress when still pinned near the top after restore — prevents an
+  // immediate second fetch when scrollTop stayed at 0; successful restore moves
+  // scrollTop down so the next upward scroll can paginate without leaving first.
+  suppressLoadOlderUntilLeaveTopZone = scrollTopAfterRestore <= NEAR_TOP_PX;
   logMessageList('prepend', 'prepend_tx_finalized', {
     channelId,
     txId,
+    scrollTopAfterRestore,
+    suppressLoadOlderUntilLeaveTopZone,
     expectation:
-      'prepend flag cleared; load-older suppressed until user leaves top zone',
+      'suppress only when still near top after restore; otherwise next upward scroll can paginate',
     outcomeOk: true,
   });
   requestAnimationFrame(() => {
@@ -1511,10 +1555,14 @@ async function loadOlderWithTransaction() {
       return;
     }
     await nextTick();
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
     if (performance.mark)
       performance.mark(`messagelist-prepend-nexttick-${txId}`);
     restoreRan = true;
     const restore = restorePrependScroll(el, snapshot);
+    lastObservedScrollTop = el.scrollTop;
     const anchorAfter = measureMessageTopInContainer(
       el,
       snapshot.anchorMessageId,
@@ -1600,10 +1648,13 @@ function runLoadOlderIfEligible() {
     return;
   }
   if (suppressLoadOlderUntilLeaveTopZone) {
-    if (el.scrollTop > NEAR_TOP_PX) {
+    const leavingTopZone = el.scrollTop > NEAR_TOP_PX;
+    const userScrollingUpForMore = lastObservedScrollDirection === 'up';
+    if (leavingTopZone || userScrollingUpForMore) {
       suppressLoadOlderUntilLeaveTopZone = false;
       logMessageList('scroll', 'suppress_top_zone_cleared', {
         scrollTop: el.scrollTop,
+        reason: leavingTopZone ? 'left_top_zone' : 'upward_scroll',
       });
     } else {
       logMessageListThrottled(
@@ -1637,10 +1688,13 @@ function runLoadOlderIfEligible() {
     return;
   }
   const atNearTop = el.scrollTop <= NEAR_TOP_PX;
-  // Top-anchored channels open at scrollTop≈0; wheel-up cannot move further, so allow
-  // pagination when already at the top without requiring upward scroll direction.
+  const atScrollTopCeiling = isAtScrollTopCeiling(el.scrollTop);
+  // Top-anchored channels open at scrollTop≈0; at the physical ceiling wheel-up
+  // cannot move scrollTop further — allow pagination without a scroll delta (same
+  // for bottom-anchored channels once the user has scrolled all the way up).
   const allowWithoutUpScroll =
-    messageScrollAnchorResolved.value === 'top' && atNearTop;
+    (messageScrollAnchorResolved.value === 'top' && atNearTop) ||
+    (atNearTop && atScrollTopCeiling);
   if (!allowWithoutUpScroll && lastObservedScrollDirection !== 'up') {
     logMessageListThrottled(
       'scroll_not_up',
@@ -1663,7 +1717,11 @@ function runLoadOlderIfEligible() {
   void loadOlderWithTransaction();
 }
 
-const virtualizer = useVirtualizer(virtualizerOptions);
+const virtualizer = useVirtualizer(
+  virtualizerOptions as Parameters<typeof useVirtualizer>[0],
+);
+const virtualizerTotalSize = computed(() => virtualizer.value.getTotalSize());
+const virtualizerItems = computed(() => virtualizer.value.getVirtualItems());
 
 if (import.meta.env.DEV) {
   watch(
@@ -1694,34 +1752,58 @@ if (import.meta.env.DEV) {
  * compensation while `scrollDirection` is null (not user-scrolling) can fight
  * “pinned to newest” and visibly yank the list up/down repeatedly.
  */
+function commitScrollToLatest(
+  options: {
+    smooth?: boolean;
+    forceScrollToIndex?: boolean;
+  } = {},
+): void {
+  const el = containerRef.value;
+  const v = virtualizer.value;
+  if (!v || displayOrderedIds.value.length === 0) return;
+  const smooth = options.smooth ?? false;
+  const lastIdx = displayOrderedIds.value.length - 1;
+
+  if (el) {
+    const virtualDist = v.getTotalSize() - el.scrollTop - el.clientHeight;
+    if (
+      shouldSkipScrollToIndexForLatest({
+        smooth,
+        forceScrollToIndex: options.forceScrollToIndex,
+        virtualDistFromBottomPx: virtualDist,
+        scrollTop: el.scrollTop,
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        nearBottomAttachPx: FOLLOW_NEW_ATTACH_PX,
+      })
+    ) {
+      snapContainerScrollToBottom();
+      return;
+    }
+  }
+
+  v.scrollToIndex(lastIdx, {
+    align: 'end',
+    behavior: smooth ? 'smooth' : 'auto',
+  });
+  if (!smooth) {
+    snapContainerScrollToBottom();
+    requestAnimationFrame(() => {
+      snapContainerScrollToBottom();
+    });
+  } else {
+    window.setTimeout(() => {
+      snapContainerScrollToBottom();
+    }, 400);
+  }
+}
+
 function scrollToBottom(smooth = false) {
   if (suppressListUntilInitialAnchor.value) return;
   nextTick(() => {
     requestAnimationFrame(() => {
       if (suppressListUntilInitialAnchor.value) return;
-      const el = containerRef.value;
-      const v = virtualizer.value;
-      if (!v || displayOrderedIds.value.length === 0) return;
-      if (!smooth && el) {
-        const dist = v.getTotalSize() - el.scrollTop - el.clientHeight;
-        // Already flush with the bottom — skip scrollToIndex + snap that can yank upward on stale measures.
-        if (dist <= 2) return;
-      }
-      v.scrollToIndex(displayOrderedIds.value.length - 1, {
-        align: 'end',
-        behavior: smooth ? 'smooth' : 'auto',
-      });
-      if (!smooth) {
-        snapContainerScrollToBottom();
-        requestAnimationFrame(() => {
-          snapContainerScrollToBottom();
-        });
-      } else {
-        /** After smooth scroll, align to true `scrollHeight` (virtual row measure can lag). */
-        window.setTimeout(() => {
-          snapContainerScrollToBottom();
-        }, 400);
-      }
+      commitScrollToLatest({ smooth });
     });
   });
 }
@@ -1761,6 +1843,7 @@ function applyInitialScrollAnchor() {
       const finish = (
         anchor: 'top' | 'bottom' | 'restored_memory' | 'skipped_empty',
       ) => {
+        initialAnchorSettledAtMs = nowMs();
         suppressListUntilInitialAnchor.value = false;
         emitSeenMessageId(resolveSeenMessageId());
         const el = containerRef.value;
@@ -1826,8 +1909,26 @@ function applyInitialScrollAnchor() {
           finish(anchor);
         });
       };
-      if (channelId && restoreViewportMemoryForChannel(channelId)) {
-        settleThenFinish('restored_memory');
+      if (channelId) {
+        void restoreViewportMemoryForChannel(channelId).then((restored) => {
+          if (scheduleId !== initialAnchorScheduleGeneration) return;
+          if (restored) {
+            settleThenFinish('restored_memory');
+            return;
+          }
+          if (messageScrollAnchorResolved.value === 'top') {
+            v!.scrollToIndex(0, { align: 'start', behavior: 'auto' });
+            settleThenFinish('top');
+            requestAnimationFrame(() => {
+              if (scheduleId !== initialAnchorScheduleGeneration) return;
+              runLoadOlderIfEligible();
+            });
+            return;
+          }
+
+          commitScrollToLatest();
+          settleThenFinish('bottom');
+        });
         return;
       }
       if (messageScrollAnchorResolved.value === 'top') {
@@ -1840,9 +1941,7 @@ function applyInitialScrollAnchor() {
         return;
       }
 
-      const lastIdx = displayOrderedIds.value.length - 1;
-      v.scrollToIndex(lastIdx, { align: 'end', behavior: 'auto' });
-      snapContainerScrollToBottom();
+      commitScrollToLatest();
       settleThenFinish('bottom');
     });
   });
@@ -1867,6 +1966,7 @@ watch(
       );
     }
     initialAnchorScheduleGeneration++;
+    initialAnchorSettledAtMs = 0;
     logMessageList('lifecycle', 'channel_changed', {
       channelId: cid ?? null,
       initialAnchorScheduleGeneration,
@@ -1971,6 +2071,7 @@ watch(
     pendingInitialScroll.value = false;
     applyInitialScrollAnchor();
   },
+  { immediate: true },
 );
 
 function isNearBottom(threshold = NEAR_BOTTOM_PX) {
@@ -1995,6 +2096,7 @@ onMounted(() => {
     () => {
       const leaving = messageWindowAuthority.getActiveChannelId();
       if (leaving) persistViewportMemoryForChannel(leaving);
+      flushMessageListViewportStorage();
     },
   );
   nextTick(() => {
@@ -2002,6 +2104,9 @@ onMounted(() => {
     if (el) {
       lastObservedScrollTop = el.scrollTop;
       el.addEventListener('scroll', onScrollCombined, { passive: true });
+      el.addEventListener('wheel', onWheelNearTopForLoadOlder, {
+        passive: true,
+      });
       attachScrollViewportResizeObserver(el);
       emitSeenMessageId(resolveSeenMessageId());
       logMessageList('scroll', 'scroll_listener_attached', {
@@ -2018,6 +2123,7 @@ onUnmounted(() => {
   offBeforeChannelChange = null;
   emitSeenMessageId(null);
   persistViewportMemoryForChannel();
+  flushMessageListViewportStorage();
   if (scrollJumpRaf != null) {
     cancelAnimationFrame(scrollJumpRaf);
     scrollJumpRaf = null;
@@ -2034,6 +2140,7 @@ onUnmounted(() => {
   const el = containerRef.value;
   if (el) {
     el.removeEventListener('scroll', onScrollCombined);
+    el.removeEventListener('wheel', onWheelNearTopForLoadOlder);
   }
 });
 
@@ -2093,7 +2200,18 @@ watch(
         ) {
           return;
         }
+        if (
+          !sentByCurrentUser &&
+          initialAnchorSettledAtMs > 0 &&
+          nowMs() - initialAnchorSettledAtMs < INITIAL_ANCHOR_FOLLOW_COOLDOWN_MS
+        ) {
+          snapContainerScrollToBottom();
+          followNewMessagesToBottom.value = true;
+          emitSeenMessageId(resolveSeenMessageId());
+          return;
+        }
         if (!sentByCurrentUser && distanceFromBottom <= 2) {
+          snapContainerScrollToBottom();
           emitSeenMessageId(resolveSeenMessageId());
           return;
         }
@@ -2102,11 +2220,7 @@ watch(
          * `snapContainerScrollToBottom`, so the viewport often stopped short of the true
          * bottom after a new row measured (virtualizer total height updates one frame late).
          */
-        v.scrollToIndex(len - 1, {
-          align: 'end',
-          behavior: 'auto',
-        });
-        snapContainerScrollToBottom();
+        commitScrollToLatest({ forceScrollToIndex: sentByCurrentUser });
         followNewMessagesToBottom.value = true;
         emitSeenMessageId(resolveSeenMessageId());
       });
@@ -2519,10 +2633,10 @@ defineExpose({
         />
         <div
           class="relative w-full min-h-0"
-          :style="{ height: `${virtualizer.getTotalSize()}px` }"
+          :style="{ height: `${virtualizerTotalSize}px` }"
         >
           <div
-            v-for="virtualRow in virtualizer.getVirtualItems()"
+            v-for="virtualRow in virtualizerItems"
             :key="displayOrderedIds[virtualRow.index] ?? ''"
             :data-index="virtualRow.index"
             :ref="measureRowRef"

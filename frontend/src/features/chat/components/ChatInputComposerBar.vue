@@ -6,6 +6,7 @@ import { EditorContent } from '@tiptap/vue-3';
 import EmojiAutocompletePopover from '@/components/chat/EmojiAutocompletePopover.vue';
 import MentionAutocompletePopover from '@/components/chat/MentionAutocompletePopover.vue';
 import ChannelAutocompletePopover from '@/components/chat/ChannelAutocompletePopover.vue';
+import ComposerChannelFormatBanner from '@/features/chat/components/ComposerChannelFormatBanner.vue';
 import {
   INLINE_MARKDOWN_PREVIEW_UI_ENABLED,
   type MarkdownPreviewMenuMode,
@@ -82,6 +83,8 @@ const props = defineProps<{
   compactInlineSendLayout?: boolean;
   hasComposerPayload?: boolean;
   requestSend?: () => void | Promise<void>;
+  messageFormatTemplate?: string;
+  messageFormatHard?: boolean;
 }>();
 
 export type { MarkdownPreviewMenuMode };
@@ -92,6 +95,9 @@ const emit = defineEmits<{
 
 const markdownMenuOpen = ref(false);
 const markdownMenuRootRef = ref<HTMLElement | null>(null);
+const formatInfoRef = ref<InstanceType<
+  typeof ComposerChannelFormatBanner
+> | null>(null);
 
 const surfaceSizingClass = computed(() =>
   props.popoutTheme === 'forum'
@@ -143,7 +149,10 @@ const showComposerPlaceholder = computed(() =>
 
 function toggleMarkdownMenu() {
   const next = !markdownMenuOpen.value;
-  if (next) props.closeOtherPopouts?.();
+  if (next) {
+    props.closeOtherPopouts?.();
+    formatInfoRef.value?.close?.();
+  }
   markdownMenuOpen.value = next;
 }
 
@@ -201,6 +210,12 @@ function bindRef<E extends HTMLElement>(
 ) {
   r.value = (el as E | null) ?? null;
 }
+
+const gifPopoutAnchorRef = ref<HTMLElement | null>(null);
+
+defineExpose({
+  gifPopoutAnchorRef,
+});
 </script>
 
 <template>
@@ -495,6 +510,18 @@ function bindRef<E extends HTMLElement>(
             <line x1="1" y1="1" x2="23" y2="23" />
           </svg>
         </button>
+        <ComposerChannelFormatBanner
+          ref="formatInfoRef"
+          :message-format-template="props.messageFormatTemplate"
+          :message-format-hard="props.messageFormatHard === true"
+          :popout-direction="props.popoutDirection ?? 'up'"
+          :close-other-popouts="
+            () => {
+              closeMarkdownMenu();
+              props.closeOtherPopouts?.();
+            }
+          "
+        />
         <div
           v-if="showMarkdownPreviewToggle"
           ref="markdownMenuRootRef"
@@ -636,6 +663,7 @@ function bindRef<E extends HTMLElement>(
           </div>
         </div>
         <button
+          ref="gifPopoutAnchorRef"
           type="button"
           aria-haspopup="menu"
           :aria-expanded="activePopout === 'gif'"

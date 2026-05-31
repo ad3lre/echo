@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import type { EmojiCategory, EmojiEntry } from '@/composables/useEmojiData';
+import GifImage from '@/components/chat/GifImage.vue';
+import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
 
 const props = defineProps<{
   category: EmojiCategory;
@@ -142,6 +144,12 @@ onUnmounted(() => {
   scrollCleanup?.();
   if (fallbackTimer) clearTimeout(fallbackTimer);
 });
+function isStickerGif(entry: EmojiEntry): boolean {
+  return (
+    entry.kind === 'sticker' &&
+    (entry.stickerFormat === 'gif' || isLikelyGifImageUrl(entry.imageUrl))
+  );
+}
 </script>
 
 <template>
@@ -162,12 +170,24 @@ onUnmounted(() => {
         :data-search-index="
           props.activeEmojiIndex !== undefined ? String(i) : undefined
         "
-        :title="entry.name"
+        :title="entry.kind === 'sticker' ? `:${entry.name}:` : entry.name"
         @click="emit('insertEmoji', entry)"
         @contextmenu="onEmojiCellContextMenu($event, entry)"
       >
+        <GifImage
+          v-if="
+            entry.kind === 'sticker' && entry.imageUrl && isStickerGif(entry)
+          "
+          :src="entry.imageUrl"
+          :alt="`:${entry.name}:`"
+          wrapper-class="h-[1.35rem] w-[1.35rem] flex items-center justify-center"
+          img-class="h-[1.35rem] w-[1.35rem] object-contain"
+        />
         <img
-          v-if="entry.kind === 'custom' && entry.imageUrl"
+          v-else-if="
+            (entry.kind === 'custom' || entry.kind === 'sticker') &&
+            entry.imageUrl
+          "
           class="emoji custom-emoji h-[1.35rem] w-[1.35rem] object-contain"
           :src="entry.imageUrl"
           :alt="`:${entry.name}:`"

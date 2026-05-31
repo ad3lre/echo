@@ -4,8 +4,11 @@ import type { EchoAttentionChannelSummary } from '@shared/types';
 import { bindChannelMessageBuckets } from '@/services/realtime/channelMessageAuthority';
 import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
 import {
+  applyMentionNotificationHydrationFailures,
   buildAttentionStubMentionRows,
   collectMentionNotificationsFromAuthority,
+  MENTION_NOTIFICATION_FAILED_PREVIEW,
+  MENTION_NOTIFICATION_STUB_PREVIEW,
   resolveMentionNotificationScanChannelIds,
 } from './mentionNotificationAuthority';
 
@@ -80,9 +83,28 @@ describe('mentionNotificationAuthority', () => {
         channelId,
         messageId: 'msg-100',
         channelLabel: 'general',
-        preview: 'Loading mention…',
+        preview: MENTION_NOTIFICATION_STUB_PREVIEW,
       }),
     ]);
+  });
+
+  it('applyMentionNotificationHydrationFailures replaces unresolved stub previews', () => {
+    const channelId = '00000000-0000-4000-8000-000000000012';
+    const rows = buildAttentionStubMentionRows({
+      channelAttentionByChannelId: {
+        [channelId]: serverSummary({ channelId }),
+      },
+      readStateByChannelId: {},
+      serverNotificationLevelByServerId: { 'server-1': 'mentions' },
+      resolveChannelLabel: () => 'general',
+    });
+
+    const failed = applyMentionNotificationHydrationFailures(
+      rows,
+      new Set([channelId]),
+    );
+
+    expect(failed[0]?.preview).toBe(MENTION_NOTIFICATION_FAILED_PREVIEW);
   });
 
   it('collectMentionNotificationsFromAuthority merges stubs with cached mention rows', () => {

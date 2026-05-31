@@ -28,6 +28,24 @@ interface UseChatInputSelectionMenuOptions {
   wrapSelection: (prefix: string, suffix?: string) => void;
 }
 
+function nodeInRoot(root: HTMLElement, node: Node | null): boolean {
+  if (!node) return false;
+  const el =
+    node.nodeType === Node.ELEMENT_NODE
+      ? (node as Element)
+      : node.parentElement;
+  return !!el && root.contains(el);
+}
+
+function domSelectionInSurface(root: HTMLElement): boolean {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    return false;
+  }
+  const range = selection.getRangeAt(0);
+  return nodeInRoot(root, range.commonAncestorContainer);
+}
+
 export function useChatInputSelectionMenu(
   options: UseChatInputSelectionMenuOptions,
 ) {
@@ -47,19 +65,33 @@ export function useChatInputSelectionMenu(
 
   const selectionMenuPosition = ref({ top: 0, left: 0 });
 
+  function liveSelectionRange(): { start: number; end: number } {
+    return { start: getSelectionStart(), end: getSelectionEnd() };
+  }
+
+  function liveHasTextSelection(): boolean {
+    const { start, end } = liveSelectionRange();
+    return end > start;
+  }
+
+  function composerInteractionActive(): boolean {
+    if (chatInputFocused.value) return true;
+    const root = composerSurfaceRef.value;
+    return !!root && domSelectionInSurface(root);
+  }
+
   function syncSelectionFromComposer() {
-    if (!chatInputFocused.value) return;
+    if (!composerInteractionActive()) return;
     flushComposerSync();
-    const start = getSelectionStart();
-    const end = getSelectionEnd();
+    const { start, end } = liveSelectionRange();
     if (selectionStart.value !== start) selectionStart.value = start;
     if (selectionEnd.value !== end) selectionEnd.value = end;
   }
 
   const showSelectionMenu = computed(
     () =>
-      chatInputFocused.value &&
-      selectionEnd.value > selectionStart.value &&
+      composerInteractionActive() &&
+      liveHasTextSelection() &&
       !isComposerContentEffectivelyEmpty(composerContent.value),
   );
 
@@ -75,27 +107,31 @@ export function useChatInputSelectionMenu(
     const editor = composerEditor.value;
     if (!editor || end <= start) return false;
 
-    const view = editor.view;
-    const fromPos = rawOffsetToEditorPos(view.state.doc, start);
-    const toPos = rawOffsetToEditorPos(view.state.doc, end);
-    const fromCoords = view.coordsAtPos(fromPos);
-    const toCoords = view.coordsAtPos(toPos);
-    const leftEdge = Math.min(fromCoords.left, toCoords.left);
-    const rightEdge = Math.max(fromCoords.right, toCoords.right);
-    const topEdge = Math.min(fromCoords.top, toCoords.top);
+    try {
+      const view = editor.view;
+      const fromPos = rawOffsetToEditorPos(view.state.doc, start);
+      const toPos = rawOffsetToEditorPos(view.state.doc, end);
+      const fromCoords = view.coordsAtPos(fromPos);
+      const toCoords = view.coordsAtPos(toPos);
+      const leftEdge = Math.min(fromCoords.left, toCoords.left);
+      const rightEdge = Math.max(fromCoords.right, toCoords.right);
+      const topEdge = Math.min(fromCoords.top, toCoords.top);
 
-    const menuHeight = menu.offsetHeight || 44;
-    const menuWidth = menu.offsetWidth || 200;
-    const gap = 10;
-    const padding = 12;
-    let top = topEdge - menuHeight - gap;
-    let left = leftEdge + (rightEdge - leftEdge) / 2;
-    const minLeft = padding + menuWidth / 2;
-    const maxLeft = window.innerWidth - padding - menuWidth / 2;
-    left = Math.max(minLeft, Math.min(maxLeft, left));
-    top = Math.max(padding, top);
-    selectionMenuPosition.value = { top, left };
-    return true;
+      const menuHeight = menu.offsetHeight || 44;
+      const menuWidth = menu.offsetWidth || 200;
+      const gap = 10;
+      const padding = 12;
+      let top = topEdge - menuHeight - gap;
+      let left = leftEdge + (rightEdge - leftEdge) / 2;
+      const minLeft = padding + menuWidth / 2;
+      const maxLeft = window.innerWidth - padding - menuWidth / 2;
+      left = Math.max(minLeft, Math.min(maxLeft, left));
+      top = Math.max(padding, top);
+      selectionMenuPosition.value = { top, left };
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function positionMenuFromDomSelection(
@@ -107,12 +143,7 @@ export function useChatInputSelectionMenu(
       return false;
     }
     const range = selection.getRangeAt(0);
-    const common = range.commonAncestorContainer;
-    if (
-      !root.contains(
-        common.nodeType === Node.ELEMENT_NODE ? common : common.parentElement,
-      )
-    ) {
+    if (!nodeInRoot(root, range.commonAncestorContainer)) {
       return false;
     }
     const rect = range.getBoundingClientRect();
@@ -135,18 +166,13 @@ export function useChatInputSelectionMenu(
   function updateSelectionMenuPosition() {
     const root = composerSurfaceRef.value;
     const menu = selectionMenuRef.value;
-    if (
-      !root ||
-      !menu ||
-      !showSelectionMenu.value ||
-      selectionEnd.value <= selectionStart.value
-    ) {
+    if (!root || !menu || !showSelectionMenu.value) {
       return;
     }
 
-    flushComposerSync();
-    const start = getSelectionStart();
-    const end = getSelectionEnd();
+    const { start, end } = liveSelectionRange();
+    if (end <= start) return;
+
     if (
       positionMenuFromEditorSelection(start, end, menu) ||
       positionMenuFromDomSelection(root, menu)
@@ -168,7 +194,7 @@ export function useChatInputSelectionMenu(
     suffix?: string;
   }) {
     syncSelectionFromComposer();
-    if (selectionStart.value === selectionEnd.value) return;
+    if (!liveHasTextSelection()) return;
     wrapSelection(wrapper.prefix, wrapper.suffix);
     scheduleSelectionMenuSync();
   }
@@ -198,7 +224,6 @@ export function useChatInputSelectionMenu(
   });
 
   const handleSelectionChange = () => {
-    if (!chatInputFocused.value) return;
     syncSelectionFromComposer();
     if (showSelectionMenu.value) scheduleSelectionMenuSync();
   };

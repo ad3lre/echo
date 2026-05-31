@@ -81,10 +81,9 @@ async function loadPreview() {
   loading.value = true;
   error.value = null;
 
-  const { task, promise } = startPdfUrlLoad(url);
-  activeTask = task;
-
   try {
+    const { task, promise } = startPdfUrlLoad(url);
+    activeTask = task;
     const pdf = await promise;
     if (gen !== loadGeneration) {
       await destroyPdfLoad(task, pdf);
@@ -106,7 +105,7 @@ async function loadPreview() {
     activeRender = null;
     activeDoc = undefined;
     activeTask = null;
-    await destroyPdfLoad(task, undefined).catch(() => {});
+    await destroyPdfLoad(activeTask, undefined).catch(() => {});
     error.value = pdfLoadErrorMessage(e);
     loading.value = false;
   }

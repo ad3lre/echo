@@ -139,6 +139,24 @@ html.echo-shell-ios select {
     }
   }
 
+  /* Server/emoji-pack tag suggestions inside settings modals — same legibility
+   * fix as `.chat-liquid-glass-menu--over-modal`; beats the translucent
+   * `.echo-autocomplete-menu.chat-liquid-glass-menu` rule above. */
+  .echo-autocomplete-menu.chat-liquid-glass-menu--over-modal {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: color-mix(
+      in srgb,
+      var(--echo-modal-bg-heavy) 95%,
+      var(--accent) 5%
+    );
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    box-shadow:
+      var(--shadow-4),
+      0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+    isolation: isolate;
+  }
+
   .echo-autocomplete-item {
     color: var(--menu-item-fg);
     transition:

@@ -185,10 +185,9 @@ async function loadDocument() {
   fitMode.value = 'width';
   outlineOpen.value = false;
 
-  const { task, promise } = startPdfUrlLoad(url);
-  activeTask = task;
-
   try {
+    const { task, promise } = startPdfUrlLoad(url);
+    activeTask = task;
     const pdf = await promise;
     if (gen !== loadGeneration) {
       await destroyPdfLoad(task, pdf);
@@ -209,7 +208,7 @@ async function loadDocument() {
     await ensurePageRendered();
   } catch (e) {
     if (gen !== loadGeneration) return;
-    await destroyPdfLoad(task, undefined).catch(() => {});
+    await destroyPdfLoad(activeTask, undefined).catch(() => {});
     activeTask = null;
     loadError.value = pdfLoadErrorMessage(e);
     loading.value = false;

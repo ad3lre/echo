@@ -11,6 +11,10 @@ import {
   type NotificationReadPreset,
   type NotificationSourceSelection,
 } from '@/features/dm/filterDmMentionNotificationRows';
+import {
+  MENTION_NOTIFICATION_FAILED_PREVIEW,
+  MENTION_NOTIFICATION_STUB_PREVIEW,
+} from '@/features/dm/mentionNotificationAuthority';
 import { formatMessageListDaySeparatorLabel } from '@/features/chat/presentation/messageListRowFacts';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import {
@@ -239,14 +243,23 @@ const notificationListItems = computed((): DmNotificationListItem[] => {
 });
 
 const listEmptyMessage = computed(() => {
-  if (props.hydrationLoading && props.rows.length === 0) {
-    return 'Loading mentions from your channels…';
-  }
   if (props.rows.length === 0) {
     return "You're all caught up — no mentions yet.";
   }
   return 'No mentions match these filters.';
 });
+
+function isLoadingStubRow(row: DmMentionNotificationRow): boolean {
+  return row.preview === MENTION_NOTIFICATION_STUB_PREVIEW;
+}
+
+function isFailedStubRow(row: DmMentionNotificationRow): boolean {
+  return row.preview === MENTION_NOTIFICATION_FAILED_PREVIEW;
+}
+
+function rowPreviewText(row: DmMentionNotificationRow): string {
+  return row.preview;
+}
 
 watch(menuOpen, async (open) => {
   if (!open) return;
@@ -377,7 +390,9 @@ function formatKinds(kinds: readonly string[]): string {
       </div>
     </div>
 
-    <div class="dm-notifications__body flex min-h-0 min-w-0 flex-1">
+    <div
+      class="dm-notifications__body flex min-h-0 min-w-0 flex-1 flex-col md:flex-row"
+    >
       <aside
         v-if="props.showFilters !== false && sourceWidgets.length > 1"
         class="dm-notifications__places flex min-h-0 shrink-0 flex-col border-r border-border px-3 py-3"
@@ -417,9 +432,12 @@ function formatKinds(kinds: readonly string[]): string {
         <div
           v-if="filteredRows.length === 0"
           class="px-3 py-16 text-center text-sm text-fg-subtle"
-          :aria-busy="props.hydrationLoading"
+          :aria-busy="props.hydrationLoading && props.rows.length === 0"
         >
-          {{ listEmptyMessage }}
+          <p v-if="props.hydrationLoading && props.rows.length === 0">
+            Loading mentions from your channels…
+          </p>
+          <p v-else>{{ listEmptyMessage }}</p>
         </div>
         <div v-else class="flex flex-col gap-2">
           <template v-for="item in notificationListItems" :key="item.key">
@@ -445,7 +463,7 @@ function formatKinds(kinds: readonly string[]): string {
             <button
               v-else
               type="button"
-              class="dm-notification-card group flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left"
+              class="dm-notification-card group flex w-full touch-manipulation items-start gap-3 rounded-2xl px-3 py-3.5 text-left sm:py-3"
               @click="emit('open-row', item.row)"
               @contextmenu.prevent="openRowContextMenu(item.row, $event)"
             >
@@ -479,9 +497,19 @@ function formatKinds(kinds: readonly string[]): string {
                   <span class="truncate">{{ item.row.channelLabel }}</span>
                 </span>
                 <p
-                  class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-fg-soft"
+                  class="mt-1.5 line-clamp-3 text-xs leading-relaxed"
+                  :class="{
+                    'dm-notification-card__preview--failed': isFailedStubRow(
+                      item.row,
+                    ),
+                    'dm-notification-card__preview--loading': isLoadingStubRow(
+                      item.row,
+                    ),
+                    'text-fg-soft':
+                      !isFailedStubRow(item.row) && !isLoadingStubRow(item.row),
+                  }"
                 >
-                  {{ item.row.preview }}
+                  {{ rowPreviewText(item.row) }}
                 </p>
               </div>
               <span
@@ -552,6 +580,47 @@ function formatKinds(kinds: readonly string[]): string {
   min-width: 10.5rem;
 }
 
+@media (max-width: 767px) {
+  .dm-notifications__header {
+    padding-inline: 1rem;
+  }
+
+  .dm-notifications__preset-bar {
+    padding-inline: 1rem;
+  }
+
+  .dm-notifications__places {
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding-inline: 1rem;
+  }
+
+  .dm-notifications__places-list {
+    flex-direction: row;
+    gap: 0.5rem;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.2rem;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dm-filter-widget--place {
+    width: auto;
+    min-width: min(12.5rem, calc(100vw - 3.5rem));
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .dm-notifications__list {
+    padding-inline: 0.75rem;
+  }
+}
+
 .dm-notifications__places-list {
   display: flex;
   flex-direction: column;
@@ -581,6 +650,7 @@ function formatKinds(kinds: readonly string[]): string {
   row-gap: 0.1rem;
   min-width: 12rem;
   max-width: 18rem;
+  min-height: 2.75rem;
   padding: 0.55rem 0.7rem;
   border-radius: 0.75rem;
   background: linear-gradient(
@@ -724,6 +794,15 @@ function formatKinds(kinds: readonly string[]): string {
   color: color-mix(in srgb, var(--accent) 30%, white 70%);
 }
 
+.dm-notification-card__preview--loading {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  color: var(--text-muted, color-mix(in srgb, white 55%, transparent));
+}
+
+.dm-notification-card__preview--failed {
+  color: color-mix(in srgb, #fbbf24 88%, white 12%);
+}
+
 .dm-notification-card__jump {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: color-mix(in srgb, var(--accent) 24%, white 76%);
@@ -821,6 +900,10 @@ function formatKinds(kinds: readonly string[]): string {
 
 :global([data-theme='light'] .dm-notifications__mention-kind) {
   color: color-mix(in srgb, var(--accent) 88%, var(--text) 12%);
+}
+
+:global([data-theme='light'] .dm-notification-card__preview--failed) {
+  color: color-mix(in srgb, #b45309 82%, var(--text) 18%);
 }
 
 :global([data-theme='light'] .dm-filter-widget) {

@@ -10,13 +10,12 @@ import { useEmojiPicker } from '@/composables/useEmojiPicker';
 import { preloadEmojiImagesOnce } from '@/composables/useEmojiPreload';
 import { ensureEmojiSearchPrebuildLoaded } from '@/composables/useEmojiSearchIndex';
 import { useServerEmojiLibrary } from '@/composables/useServerEmojiLibrary';
+import { useServerStickerLibrary } from '@/composables/useServerStickerLibrary';
 import { useUserEmojiLibrary } from '@/composables/useUserEmojiLibrary';
 import { useChannelCustomEmojiPickerAllowed } from '@/composables/useChannelCustomEmojiPickerAllowed';
 import { useSimpleContextMenu } from '@/composables/useSimpleContextMenu';
 import { UIErrorBus } from '@/utils/uiErrorBus';
-import StickerPickerPanel from '@/components/chat/StickerPickerPanel.vue';
 import { stickerToPayload } from '@/composables/useServerStickerLibrary';
-import type { EchoStickerLibraryStickerApi } from '@/composables/useServerStickerLibrary';
 
 const props = defineProps<{
   serverId?: string;
@@ -38,10 +37,15 @@ const serverIdRef = toRef(() => props.serverId);
 const channelIdRef = toRef(() => props.channelId);
 const allowCustomEmoji = useChannelCustomEmojiPickerAllowed(channelIdRef);
 const library = useServerEmojiLibrary(serverIdRef);
+const stickerLibrary = useServerStickerLibrary(serverIdRef);
 const userLibrary = useUserEmojiLibrary();
 const serverPackCategories = computed(() => library.pickerPackCategories());
+const stickerPackCategories = computed(() =>
+  stickerLibrary.pickerPackCategories(),
+);
 const customEmojiSearchList = computed(() => [
   ...library.flatCustomEmojis.value,
+  ...stickerLibrary.flatStickerEntries.value,
   ...userLibrary.savedEntries.value,
 ]);
 const userPackCategories = computed(
@@ -175,17 +179,13 @@ const {
 } = useEmojiPicker({
   serverId: serverIdRef,
   serverPackCategories,
+  stickerPackCategories,
   customEmojiSearchList,
   userPackCategories,
   allowCustomEmoji,
 });
 
-const pickerTab = ref<'emoji' | 'icons' | 'stickers'>('emoji');
-
-function handleStickerSend(sticker: EchoStickerLibraryStickerApi) {
-  emit('sendSticker', sticker.id, stickerToPayload(sticker));
-  emit('close');
-}
+const pickerTab = ref<'emoji' | 'icons'>('emoji');
 
 const emojiSearchSelectedIndex = ref(0);
 
@@ -217,9 +217,9 @@ const searchInputModel = computed({
 });
 
 const searchPlaceholder = computed(() => {
-  if (pickerTab.value === 'emoji') return 'Search emoji...';
+  if (pickerTab.value === 'emoji') return 'Search emoji and stickers...';
   if (pickerTab.value === 'icons') return 'Search icons...';
-  return 'Stickers (coming soon)';
+  return 'Search...';
 });
 
 const emojiSearchResults = computed<EmojiEntry[]>(() => {
@@ -292,6 +292,14 @@ onMounted(async () => {
 });
 
 function handleInsert(entry: EmojiEntry) {
+  if (entry.kind === 'sticker' && entry.id) {
+    const sticker = stickerLibrary.stickerById.value.get(entry.id);
+    if (sticker) {
+      emit('sendSticker', sticker.id, stickerToPayload(sticker));
+      emit('close');
+      return;
+    }
+  }
   addRecentlyUsed(entry);
   if (entry.kind === 'custom' && entry.id) void library.recordUsage(entry.id);
   emit('insert', entry.emoji);
@@ -309,7 +317,6 @@ function handleInsert(entry: EmojiEntry) {
         v-model="searchInputModel"
         type="text"
         :placeholder="searchPlaceholder"
-        :disabled="pickerTab === 'stickers'"
         class="mx-2 mt-2 mb-1.5 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
         :class="
           props.theme === 'forum'
@@ -358,25 +365,6 @@ function handleInsert(entry: EmojiEntry) {
           @click="pickerTab = 'icons'"
         >
           Icons
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="pickerTab === 'stickers'"
-          class="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors"
-          :class="
-            pickerTab === 'stickers'
-              ? props.theme === 'forum'
-                ? 'bg-glass-2 text-foreground ring-1 ring-border'
-                : 'bg-[var(--vue-auto-003)] text-foreground ring-1 ring-border'
-              : props.theme === 'forum'
-                ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
-                : 'text-muted hover:bg-glass-hover hover:text-foreground'
-          "
-          title="Coming soon"
-          @click="pickerTab = 'stickers'"
-        >
-          Stickers
         </button>
       </div>
       <div v-if="pickerTab === 'emoji'" class="flex flex-1 min-h-0">
@@ -428,23 +416,16 @@ function handleInsert(entry: EmojiEntry) {
             v-if="searchQuery.trim() && renderedCategories.length === 0"
             class="py-8 text-center text-sm text-muted"
           >
-            No emojis match "{{ searchQuery.trim() }}"
+            No emojis or stickers match "{{ searchQuery.trim() }}"
           </div>
         </div>
       </div>
       <AppIconPickerPanel
-        v-else-if="pickerTab === 'icons'"
+        v-else
         :filter-query="iconFilterDebounced"
         channel-type="text"
         class="min-h-0 flex-1"
         @select="handleIconInsert"
-      />
-      <StickerPickerPanel
-        v-else
-        :server-id="props.serverId"
-        :theme="props.theme"
-        class="min-h-0 flex-1"
-        @send="handleStickerSend"
       />
     </div>
   </div>

@@ -32,6 +32,34 @@ describe('resolveMentionNotificationPrefetchTargets', () => {
     expect(targets).toEqual([{ channelId, anchorMessageId: 'msg-100' }]);
   });
 
+  it('prioritizes channels that still have loading stub rows', () => {
+    const lowPriority = '00000000-0000-4000-8000-000000000020';
+    const highPriority = '00000000-0000-4000-8000-000000000021';
+    const targets = resolveMentionNotificationPrefetchTargets({
+      channelAttentionByChannelId: {
+        [lowPriority]: serverSummary({
+          channelId: lowPriority,
+          latestUnreadMessageId: 'msg-low',
+          latestUnreadMessageAt: '2026-05-31T14:00:00.000Z',
+        }),
+        [highPriority]: serverSummary({
+          channelId: highPriority,
+          latestUnreadMessageId: 'msg-high',
+          latestUnreadMessageAt: '2026-05-31T10:00:00.000Z',
+        }),
+      },
+      readStateByChannelId: {},
+      serverNotificationLevelByServerId: { 'server-1': 'mentions' },
+      messagesByChannelId: {},
+      prioritizeChannelIds: [highPriority],
+      limit: 1,
+    });
+
+    expect(targets).toEqual([
+      { channelId: highPriority, anchorMessageId: 'msg-high' },
+    ]);
+  });
+
   it('skips channels that already have cached messages and no unread ping', () => {
     const channelId = '00000000-0000-4000-8000-000000000011';
     const targets = resolveMentionNotificationPrefetchTargets({

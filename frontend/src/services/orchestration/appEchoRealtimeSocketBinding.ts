@@ -30,6 +30,7 @@ import {
 import { defaultEchoRealtimeBrowserEvents } from '@/services/orchestration/echoRealtimeBrowserEvents';
 import { createEchoRealtimePlatformSessionSync } from '@/services/orchestration/echoRealtimePlatformSessionSync';
 import { ingestEchoSocketConnectError } from '@/services/realtime/socketConnectErrorIngest';
+import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 import { maybeEmitEchoSocketUnexpectedDisconnectUi } from '@/services/realtime/socketUnexpectedDisconnectUi';
 import { devEchoBackendPort } from '@/config';
 import type { LocalAuthorEchoSnapshot } from '@/services/realtime/socketOutbound';
@@ -119,6 +120,22 @@ export function createAppEchoRealtimeSocketBinding(
             },
             onMessageFailed: (detail) => {
               browserEvents.dispatchEchoMessageFailed(detail);
+            },
+            onJoinChannelDenied: (payload) => {
+              input.host.workspace.applyWorkspaceEvent({
+                kind: 'permission_invalidated',
+                version: `join-denied-${Date.now()}`,
+              });
+              const message =
+                payload.code === 'NOT_FOUND'
+                  ? 'This channel no longer exists.'
+                  : 'You no longer have access to this channel.';
+              dispatchAppToastDetail({
+                title: 'Channel unavailable',
+                message,
+                severity: 'warning',
+                durationMs: 6000,
+              });
             },
           },
         };
@@ -233,6 +250,7 @@ export function createAppEchoRealtimeSocketBinding(
           chat,
           typing,
           inboundRuntime,
+          activeChannelId: () => input.activeChannelId.value,
         });
 
         return {

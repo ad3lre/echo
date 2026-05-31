@@ -48,6 +48,7 @@ const {
   incomingCallToastActionIconSrc,
   incomingCallToastActionLabel,
   incomingCallToastActionTitle,
+  onAppToastInteractionExtend,
 } = useAppToastController(props.layoutContext, quickReplyComposerRef);
 </script>
 
@@ -62,6 +63,7 @@ const {
         <div
           :class="[appToastShellClass, appToastContainerClass]"
           role="status"
+          @click="onAppToastInteractionExtend"
           @contextmenu="onAppToastContextMenu"
           @auxclick="onAppToastContextMenu"
         >

@@ -98,7 +98,10 @@ import { maxIncomingPeerMessageMs } from '@/features/dm/hiddenDmInboxUtils';
 import { sortFavoriteDmInboxFirst } from '@/features/dm/sortFavoriteDmInboxFirst';
 import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
-import { collectMentionNotificationsFromAuthority } from '@/features/dm/mentionNotificationAuthority';
+import {
+  collectMentionNotificationsFromAuthority,
+  applyMentionNotificationHydrationFailures,
+} from '@/features/dm/mentionNotificationAuthority';
 import { useMentionNotificationHydration } from '@/features/dm/useMentionNotificationHydration';
 import { useHiddenDmInboxStore } from '@/stores/hiddenDmInbox';
 import { useFavoriteDmInboxStore } from '@/stores/favoriteDmInbox';
@@ -3111,7 +3114,7 @@ export function useAppLayoutController() {
     });
   }
 
-  const dmMentionNotifications = computed(() =>
+  const dmMentionNotificationsBase = computed(() =>
     collectMentionNotificationsFromAuthority({
       channelAttentionByChannelId: channelAttentionByChannelId.value,
       readStateByChannelId: readStateByChannelId.value,
@@ -3131,11 +3134,20 @@ export function useAppLayoutController() {
     }),
   );
 
-  const { loading: mentionNotificationHydrationLoading } =
-    useMentionNotificationHydration({
-      rows: dmMentionNotifications,
-      activeChannelId,
-    });
+  const {
+    loading: mentionNotificationHydrationLoading,
+    failedChannelIds: mentionNotificationFailedChannelIds,
+  } = useMentionNotificationHydration({
+    rows: dmMentionNotificationsBase,
+    activeChannelId,
+  });
+
+  const dmMentionNotifications = computed(() =>
+    applyMentionNotificationHydrationFailures(
+      dmMentionNotificationsBase.value,
+      mentionNotificationFailedChannelIds.value,
+    ),
+  );
 
   /** Proxies the attention store's read-state map for the notifications panel. */
   const dmNotificationReadStateByChannelId = computed(

@@ -32,6 +32,7 @@ import {
 } from '../../../domain/echoPermissions';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
 import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
+import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './echoMutationRateLimits';
 import {
   echoPool,
   requireEchoStore,
@@ -51,6 +52,10 @@ export default async function echoServerScopedRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
+  const mutationRouteConfig = {
+    config: { rateLimit: ECHO_ADMIN_MUTATION_RATE_LIMIT },
+  } as const;
+
   fastify.get<{ Params: { serverId: string } }>(
     '/servers/:serverId/notification-preferences',
     { preHandler: [requireAuth, requireEchoStore] },
@@ -83,7 +88,10 @@ export default async function echoServerScopedRoutes(
     Body: { level?: EchoServerNotificationLevel };
   }>(
     '/servers/:serverId/notification-preferences',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -191,7 +199,10 @@ export default async function echoServerScopedRoutes(
     };
   }>(
     '/servers/:serverId/preferences',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -349,7 +360,10 @@ export default async function echoServerScopedRoutes(
     Body: { nickname?: string };
   }>(
     '/servers/:serverId/members/:userId/nickname',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -436,7 +450,10 @@ export default async function echoServerScopedRoutes(
     };
   }>(
     '/servers/:serverId/channels',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -515,7 +532,10 @@ export default async function echoServerScopedRoutes(
     Body: { newOwnerId?: string; totpCode?: string };
   }>(
     '/servers/:serverId/transfer-ownership',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -592,7 +612,10 @@ export default async function echoServerScopedRoutes(
 
   fastify.delete<{ Params: { serverId: string } }>(
     '/servers/:serverId',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -671,7 +694,10 @@ export default async function echoServerScopedRoutes(
     };
   }>(
     '/servers/:serverId/events',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -801,7 +827,10 @@ export default async function echoServerScopedRoutes(
     };
   }>(
     '/servers/:serverId/events/:eventId',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -915,7 +944,10 @@ export default async function echoServerScopedRoutes(
 
   fastify.post<{ Params: { serverId: string; eventId: string } }>(
     '/servers/:serverId/events/:eventId/cancel',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -980,7 +1012,10 @@ export default async function echoServerScopedRoutes(
     Body: { status?: 'going' | 'declined' };
   }>(
     '/servers/:serverId/events/:eventId/rsvp',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      ...mutationRouteConfig,
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);

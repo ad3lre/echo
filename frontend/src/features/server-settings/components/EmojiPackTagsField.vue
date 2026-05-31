@@ -219,7 +219,7 @@ function onFocusout(event: FocusEvent) {
     </div>
     <div
       v-if="showSuggestions"
-      class="echo-autocomplete-menu chat-liquid-glass-menu absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto rounded-xl py-1 shadow-lg"
+      class="echo-autocomplete-menu chat-liquid-glass-menu chat-liquid-glass-menu--over-modal absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto rounded-xl py-1 shadow-lg"
       role="listbox"
     >
       <button
@@ -230,7 +230,7 @@ function onFocusout(event: FocusEvent) {
         :aria-selected="i === selectedSuggestionIndex"
         class="echo-autocomplete-item chat-focus-ring flex w-full items-center px-3 py-2 text-left text-sm text-foreground"
         :class="{
-          'mention-autocomplete-item--selected': i === selectedSuggestionIndex,
+          'echo-autocomplete-item--selected': i === selectedSuggestionIndex,
         }"
         @mousedown.prevent
         @click="pickSuggestion(tag)"

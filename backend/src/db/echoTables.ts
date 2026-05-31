@@ -5,6 +5,7 @@ import { migrateEveryoneRoleHierarchyPositions } from '../domain/echoStore/roles
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { normalizePermissionOverwritePartial } from '../domain/echoPermissionPrimitives';
 import { repairEchoVoiceChannelMigrationDamage } from './repairEchoVoiceChannelMigration';
+import { runEchoSchemaMigrationOnce } from './echoSchemaMigration';
 
 /**
  * Echo domain tables (servers, channels, messages, social, minimal RBAC).
@@ -12,29 +13,6 @@ import { repairEchoVoiceChannelMigrationDamage } from './repairEchoVoiceChannelM
  * Runs once per process; background jobs must not replay hundreds of DDL checks every tick.
  */
 let echoTablesEnsureInflight: Promise<void> | null = null;
-
-async function runEchoSchemaMigrationOnce(
-  pool: pg.Pool,
-  migrationId: string,
-  run: () => Promise<void>,
-): Promise<void> {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS echo_schema_migrations (
-      id TEXT PRIMARY KEY,
-      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  const existing = await pool.query(
-    `SELECT 1 FROM echo_schema_migrations WHERE id = $1 LIMIT 1`,
-    [migrationId],
-  );
-  if (existing.rows.length > 0) return;
-  await run();
-  await pool.query(
-    `INSERT INTO echo_schema_migrations (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`,
-    [migrationId],
-  );
-}
 
 async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`

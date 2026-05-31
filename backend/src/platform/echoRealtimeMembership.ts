@@ -68,6 +68,37 @@ export function evictAllUsersFromEchoChannelRealtimeScope(
 }
 
 /**
+ * Best-effort channel room reset for every channel in a category after category-level
+ * permission graph changes. Forces clients to re-join under fresh permission checks.
+ */
+export async function evictAllUsersFromEchoCategoryChannelRealtimeScopes(
+  fastify: FastifyInstance,
+  pool: pg.Pool,
+  categoryId: string,
+): Promise<void> {
+  const io = getIo(fastify);
+  if (!io) return;
+  const cid = categoryId.trim();
+  if (!cid) return;
+  try {
+    const channels = await pool.query(
+      `SELECT id FROM echo_channels WHERE category_id = $1`,
+      [cid],
+    );
+    for (const row of channels.rows as { id: unknown }[]) {
+      const channelId = String(row.id ?? '').trim();
+      if (!channelId) continue;
+      io.in(channelId).socketsLeave(channelId);
+    }
+  } catch (err) {
+    fastify.log.warn(
+      { err, categoryId: cid },
+      'Failed to evict category channel realtime scopes',
+    );
+  }
+}
+
+/**
  * Best-effort server-wide channel room reset.
  */
 export async function evictAllUsersFromEchoServerChannelRealtimeScopes(

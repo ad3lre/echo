@@ -84,15 +84,10 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
         );
       }
       /* Session existence is authoritative: it is deleted on logout, token
-       * revocation, password change, and account deletion. The cached user
-       * avoids a DB round-trip on every request. Fall back to DB for
-       * sessions created before the cache was introduced. */
-      const user =
-        sess.cachedUser ??
-        (await (async () => {
-          const { store } = await getAuthStore();
-          return store.getUserById(sess.userId);
-        })());
+       * revocation, password change, and account deletion. Always load the user
+       * from the auth store on each request so suspension/guest gates cannot lag
+       * behind `cachedUser` (used only to warm Redis on profile updates). */
+      const user = await store.getUserById(sess.userId);
       if (!user) {
         await deleteServerSession(sid, sess.userId);
         return sendError(reply, 401, 'UNAUTHORIZED', 'User not found');

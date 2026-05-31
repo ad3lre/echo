@@ -24,6 +24,10 @@
   padding-top: var(--echo-density-msg-header-py, 0.25rem);
   padding-bottom: var(--echo-density-msg-header-py, 0.25rem);
 }
+/* First row in a same-minute cluster: keep header chrome, tighten gap to the next row. */
+.msg-header--clustered {
+  padding-bottom: var(--echo-density-msg-continuation-py, 0.0625rem);
+}
 /* List position is set on the bubble (MessageList); :first-child broke when each row was wrapped for virtualization. */
 .msg-header--first {
   margin-top: var(--echo-density-msg-header-first-mt, 1.5rem);
@@ -47,6 +51,10 @@
 .msg-continuation {
   padding-top: var(--echo-density-msg-continuation-py, 0.0625rem);
   padding-bottom: var(--echo-density-msg-continuation-py, 0.0625rem);
+}
+/* Mid-cluster continuation rows: drop trailing padding; the next row supplies top inset. */
+.msg-continuation--followed {
+  padding-bottom: 0;
 }
 .msg-bubble--last {
   margin-bottom: var(--echo-density-msg-last-mb, 1rem);

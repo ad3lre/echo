@@ -284,7 +284,46 @@ function onVolumeInput(ev: Event): void {
 }
 
 .echo-media-controls--compact {
-  padding: 0.45rem 0.55rem;
+  gap: 0.25rem;
+  padding: 0.35rem 0.45rem 0.4rem;
+}
+
+.echo-media-controls--compact .echo-media-controls__row {
+  gap: 0.25rem;
+  min-height: 1.75rem;
+}
+
+.echo-media-controls--compact .echo-media-controls__time {
+  display: none;
+}
+
+.echo-media-controls--compact .echo-media-controls__btn {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.echo-media-controls--compact .echo-media-controls__btn--speed {
+  min-width: 2rem;
+  padding: 0 0.25rem;
+}
+
+.echo-media-controls--compact .echo-media-controls__speed-label {
+  font-size: 10px;
+}
+
+@container (max-width: 15rem) {
+  .echo-media-controls__time {
+    display: none;
+  }
+
+  .echo-media-controls__row {
+    gap: 0.25rem;
+  }
+
+  .echo-media-controls__btn {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
 }
 
 .echo-media-controls__row {

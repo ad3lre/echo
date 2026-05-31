@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useServerSelfRolesStore } from '@/stores/serverSelfRoles';
 import type {
   EchoSelfRolesConfig,
@@ -26,6 +26,7 @@ const props = defineProps<{
 const selfRolesStore = useServerSelfRolesStore();
 
 const loading = ref(true);
+const loadError = ref<string | null>(null);
 const saving = ref(false);
 const enabled = ref(false);
 const panelChannelId = ref<string | null>(null);
@@ -43,6 +44,8 @@ const derivedCategories = computed(() =>
   (props.roleCategories ?? []).filter((c) => c.selfAssignableDefaults),
 );
 
+const textChannels = computed(() => allChannels());
+
 function allChannels(): Array<{ id: string; name: string }> {
   const all: Array<{ id: string; name: string }> = [];
   for (const cat of props.categories ?? []) {
@@ -59,13 +62,30 @@ function syncFromConfig(config: EchoSelfRolesConfig) {
   customCategories.value = config.customCategories.map((c) => ({ ...c }));
 }
 
-onMounted(async () => {
-  if (!props.accessToken) return;
-  await selfRolesStore.loadConfig(props.serverId, props.accessToken);
-  const cfg = selfRolesStore.configFor(props.serverId);
-  if (cfg) syncFromConfig(cfg);
-  loading.value = false;
-});
+async function loadSettings() {
+  if (!props.serverId) {
+    loading.value = false;
+    return;
+  }
+  loading.value = true;
+  loadError.value = null;
+  try {
+    /* Cookie session auth; bearer token is legacy only (see echoFetch). */
+    await selfRolesStore.loadConfig(props.serverId, props.accessToken ?? '');
+    const cfg = selfRolesStore.configFor(props.serverId);
+    if (cfg) syncFromConfig(cfg);
+    loadError.value = selfRolesStore.lastError;
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(() => void loadSettings());
+
+watch(
+  () => props.serverId,
+  () => void loadSettings(),
+);
 
 function addCustomCategory() {
   const n = customCategories.value.length + 1;
@@ -99,11 +119,11 @@ function toggleRoleInCategory(catId: string, roleId: string) {
 }
 
 async function save() {
-  if (!props.accessToken) return;
+  if (!props.serverId) return;
   saving.value = true;
   const result = await selfRolesStore.saveConfig(
     props.serverId,
-    props.accessToken,
+    props.accessToken ?? '',
     {
       enabled: enabled.value,
       panelChannelId: panelChannelId.value,
@@ -129,6 +149,21 @@ async function save() {
       Loading self-assignable roles settings…
     </div>
     <template v-else>
+      <div
+        v-if="loadError"
+        class="server-settings-self-roles__error"
+        role="alert"
+      >
+        <p>{{ loadError }}</p>
+        <button
+          type="button"
+          class="server-settings-self-roles__add-btn chat-focus-ring"
+          @click="loadSettings"
+        >
+          Retry
+        </button>
+      </div>
+
       <section class="server-settings-self-roles__section">
         <h3 class="server-settings-self-roles__heading">
           Self-assignable roles channel
@@ -155,10 +190,16 @@ async function save() {
             class="server-settings-self-roles__select"
           >
             <option :value="null">— Select a channel —</option>
-            <option v-for="ch in allChannels()" :key="ch.id" :value="ch.id">
+            <option v-for="ch in textChannels" :key="ch.id" :value="ch.id">
               #{{ ch.name }}
             </option>
           </select>
+          <p
+            v-if="!textChannels.length"
+            class="server-settings-self-roles__empty-note"
+          >
+            No text channels available. Create a channel under Structure first.
+          </p>
         </section>
 
         <section class="server-settings-self-roles__section">
@@ -284,6 +325,20 @@ async function save() {
     padding: 1rem 0;
     color: var(--fg-subtle);
     font-size: 0.875rem;
+  }
+
+  &__error {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.65rem;
+    border: 1px solid var(--destructive, #e55);
+    background: color-mix(in srgb, var(--destructive, #e55) 12%, transparent);
+    color: var(--fg);
+    font-size: 0.8125rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
   }
 
   &__section {

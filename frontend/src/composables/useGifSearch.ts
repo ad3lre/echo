@@ -3,7 +3,7 @@
  * API key stays server-side (GIPHY_API_KEY in backend .env).
  */
 
-import { ref, onUnmounted } from 'vue';
+import { ref, onUnmounted, type Ref } from 'vue';
 import { apiGet } from '@/api/client';
 import {
   GIF_BROWSE_CATEGORIES,
@@ -135,10 +135,14 @@ const PREVIEW_PER_CATEGORY = 2;
 
 let libraryWarmInflight: Promise<void> | null = null;
 
+/** Bumps when category warmup fills the in-memory cache (picker previews react to this). */
+export const gifCategoryLibraryRevision: Ref<number> = ref(0);
+
 /** Test helper — clears in-memory GIF search cache. */
 export function __clearGifSearchCacheForTests(): void {
   searchCache.clear();
   libraryWarmInflight = null;
+  gifCategoryLibraryRevision.value = 0;
 }
 
 /**
@@ -163,6 +167,7 @@ export function warmGifCategoryLibrary(): Promise<void> {
       );
     }
     await Promise.all(jobs);
+    gifCategoryLibraryRevision.value += 1;
   })().finally(() => {
     libraryWarmInflight = null;
   });
@@ -177,7 +182,7 @@ export function getGifCategoryPreviewUrls(slug: string): string[] {
   if (!rows?.length) return [];
   return rows
     .slice(0, PREVIEW_PER_CATEGORY)
-    .map((g) => g.thumbnailUrl || g.previewUrl || g.url)
+    .map((g) => g.previewUrl || g.thumbnailUrl || g.url)
     .filter(Boolean);
 }
 

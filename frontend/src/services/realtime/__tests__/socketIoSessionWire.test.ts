@@ -63,6 +63,7 @@ describe('bootstrapEchoSocketAdapterSession', () => {
         onSocketConnected: vi.fn(),
         onDisconnectIo: vi.fn(),
         onConnectError: vi.fn(),
+        onSocketError: vi.fn(),
         onDmActivityIo: vi.fn(),
         onDmCallIo: vi.fn(),
         onDmThreadActivityIo: vi.fn(),

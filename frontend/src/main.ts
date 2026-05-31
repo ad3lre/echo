@@ -1,5 +1,9 @@
+import { ensurePdfEnvironmentPolyfills } from '@/features/pdf/ensurePdfEnvironment';
+
+ensurePdfEnvironmentPolyfills();
+
 import { API_BASE } from '@/config';
-import { createApp } from 'vue';
+import { createApp, type Plugin } from 'vue';
 import App from './App.vue';
 import { createPinia } from 'pinia';
 import { i18n, initEchoI18n } from '@/i18n';
@@ -236,7 +240,7 @@ async function bootstrap() {
   await initEchoI18n(loadTimeLanguagePreferences().locale);
 
   const app = createApp(App);
-  app.use(i18n);
+  app.use(i18n as Plugin);
   app.directive('scrollbar-on-scroll', scrollbarOnScroll);
   app.directive('spoiler-reveal', spoilerReveal);
   const pinia = createPinia();

@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed, ref, toRef } from 'vue';
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  toRef,
+  watch,
+} from 'vue';
+import { clampMenuToViewport } from '@/features/chat/composables/useContextMenuPosition';
 import { PUBLIC_INVITE_BASE } from '@/config';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -97,10 +106,93 @@ const serverIconHover = ref(false);
 const serverBannerHover = ref(false);
 
 const repositionOpen = ref(false);
+const hasServerBanner = computed(() => !!props.serverBannerUrl?.trim());
+
+const bannerMenuOpen = ref(false);
+const bannerMenuRef = ref<HTMLElement | null>(null);
+const bannerMenuTriggerRef = ref<HTMLElement | null>(null);
+const bannerFileInputRef = ref<HTMLInputElement | null>(null);
+const bannerMenuPosition = ref({ left: 0, top: 0 });
+
+const bannerMenuStyle = computed(() => ({
+  left: `${bannerMenuPosition.value.left}px`,
+  top: `${bannerMenuPosition.value.top}px`,
+}));
+
+watch(bannerMenuOpen, (open) => {
+  if (!open) return;
+  void nextTick().then(() => {
+    const rect = bannerMenuTriggerRef.value?.getBoundingClientRect();
+    if (!rect) return;
+    const estW = 200;
+    const estH = 132;
+    const left = rect.right - estW;
+    const top = rect.bottom + 8;
+    bannerMenuPosition.value = clampMenuToViewport(left, top, estW, estH);
+    void nextTick().then(() => {
+      requestAnimationFrame(() => {
+        const el = bannerMenuRef.value;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        bannerMenuPosition.value = clampMenuToViewport(
+          r.left,
+          r.top,
+          r.width,
+          r.height,
+        );
+      });
+    });
+  });
+});
+
+function closeBannerMenu() {
+  bannerMenuOpen.value = false;
+}
+
+function toggleBannerMenu() {
+  bannerMenuOpen.value = !bannerMenuOpen.value;
+}
+
+function onBannerMenuDocMouseDown(ev: MouseEvent) {
+  const target = ev.target;
+  if (!(target instanceof Node)) return;
+  if (bannerMenuRef.value?.contains(target)) return;
+  if (bannerMenuTriggerRef.value?.contains(target)) return;
+  closeBannerMenu();
+}
+
+function onBannerMenuKeydown(ev: KeyboardEvent) {
+  if (ev.key === 'Escape') closeBannerMenu();
+}
+
+onMounted(() => {
+  document.addEventListener('mousedown', onBannerMenuDocMouseDown);
+  document.addEventListener('keydown', onBannerMenuKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onBannerMenuDocMouseDown);
+  document.removeEventListener('keydown', onBannerMenuKeydown);
+});
 
 function openReposition() {
-  if (!props.serverBannerUrl?.trim()) return;
+  if (!hasServerBanner.value) return;
   repositionOpen.value = true;
+}
+
+function openBannerRepositionFromMenu() {
+  closeBannerMenu();
+  openReposition();
+}
+
+function pickBannerImage() {
+  closeBannerMenu();
+  bannerFileInputRef.value?.click();
+}
+
+async function removeBannerFromMenu() {
+  closeBannerMenu();
+  await props.onRemoveServerBanner();
 }
 
 function saveReposition(nextY: number) {
@@ -219,60 +311,86 @@ function saveReposition(nextY: number) {
               class="pointer-events-none absolute -inset-px z-[3] server-settings-banner-preview-shadow"
               aria-hidden="true"
             />
-            <label
-              class="absolute inset-0 z-[4] cursor-pointer"
-              title="Change banner"
+            <!-- Div (not button): nested <label>/<input> is invalid inside <button> and breaks file pick on Safari. -->
+            <div
+              class="banner-hover-overlay pointer-coarse:opacity-100 absolute inset-0 z-[6] flex items-start justify-end bg-transparent p-3 opacity-0 transition-opacity duration-200 pointer-fine:group-hover:opacity-100"
             >
               <input
+                ref="bannerFileInputRef"
                 type="file"
                 accept="image/*"
                 class="sr-only"
                 @change="props.onServerBannerFileChange"
               />
-              <span
-                class="absolute inset-0 bg-transparent transition-[background-color] duration-200 group-hover:bg-scrim-2 pointer-coarse:bg-scrim-2"
-                aria-hidden="true"
-              />
-              <span
-                class="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100 pointer-coarse:opacity-100"
-              >
-                <span
-                  class="echo-dark-chrome inline-flex items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm backdrop-blur-sm [html[data-theme='light']_&]:bg-black/65"
-                >
-                  <img
-                    :src="icons.sliders"
-                    alt=""
-                    class="h-3.5 w-3.5 opacity-95 brightness-0 invert"
-                  />
-                  Change banner
-                </span>
-              </span>
-            </label>
-
-            <div
-              v-if="props.serverBannerUrl?.trim()"
-              class="absolute right-3 top-3 z-[6] flex flex-wrap items-center justify-end gap-2"
-            >
               <button
-                v-if="props.canManageBanner"
+                ref="bannerMenuTriggerRef"
                 type="button"
-                class="echo-dark-chrome inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-red-600 [html[data-theme='light']_&]:ring-1 [html[data-theme='light']_&]:ring-red-900/25"
-                @click="props.onRemoveServerBanner()"
-              >
-                Remove
-              </button>
-              <button
-                type="button"
-                class="echo-dark-chrome inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm backdrop-blur-sm ring-1 ring-white/15 transition-colors hover:bg-black/65 [html[data-theme='light']_&]:ring-black/20"
-                @click="openReposition"
+                class="echo-dark-chrome inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white shadow-sm backdrop-blur-sm ring-1 ring-white/15 transition-colors hover:bg-black/65 [html[data-theme='light']_&]:ring-black/20"
+                title="Banner options"
+                aria-label="Banner options"
+                aria-haspopup="menu"
+                :aria-expanded="bannerMenuOpen"
+                @click.stop="toggleBannerMenu"
               >
                 <img
-                  :src="icons.sliders"
+                  :src="icons.moreVertical"
                   alt=""
-                  class="h-3.5 w-3.5 opacity-95 brightness-0 invert"
+                  class="h-4 w-4 brightness-0 invert opacity-95"
                 />
-                Reposition
               </button>
+              <Teleport to="body">
+                <div
+                  v-if="bannerMenuOpen"
+                  ref="bannerMenuRef"
+                  role="menu"
+                  aria-label="Banner options"
+                  class="ellipsis-menu chat-liquid-glass-menu--over-modal fixed z-[200] min-w-[180px] py-1"
+                  :style="bannerMenuStyle"
+                  @click.stop
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="chat-focus-ring echo-menu-item flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground"
+                    @click="pickBannerImage"
+                  >
+                    <img
+                      :src="icons.imageGallery"
+                      alt=""
+                      class="echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-90"
+                    />
+                    Change banner
+                  </button>
+                  <button
+                    v-if="hasServerBanner"
+                    type="button"
+                    role="menuitem"
+                    class="chat-focus-ring echo-menu-item flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground"
+                    @click="openBannerRepositionFromMenu"
+                  >
+                    <img
+                      :src="icons.sliders"
+                      alt=""
+                      class="echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-90"
+                    />
+                    Reposition
+                  </button>
+                  <button
+                    v-if="hasServerBanner && props.canManageBanner"
+                    type="button"
+                    role="menuitem"
+                    class="chat-focus-ring echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm"
+                    @click="removeBannerFromMenu"
+                  >
+                    <img
+                      :src="icons.trash"
+                      alt=""
+                      class="echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-90"
+                    />
+                    Remove
+                  </button>
+                </div>
+              </Teleport>
             </div>
           </div>
 

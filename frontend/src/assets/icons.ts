@@ -74,6 +74,9 @@ import iconDiscordStage from './icons/discord-stage.svg?url';
 import iconDiscordMark from './icons/discord-mark.svg?url';
 import iconChatLock from './icons/chat-lock.svg?url';
 import iconFile from './icons/file.svg?url';
+import iconLifeRing from './icons/life ring.svg?url';
+import iconUserTag from './icons/USER-AVATAR-TAG.svg?url';
+import iconSparkle from './icons/sparkle.svg?url';
 import { getIconUrlByFilename } from './iconCatalog';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import {
@@ -170,6 +173,12 @@ export const icons = {
   discordMark: iconDiscordMark ?? '',
   /** Paper channel default glyph. */
   file: iconFile ?? '',
+  /** Support / ticket system (server settings). */
+  lifeRing: iconLifeRing ?? '',
+  /** Self-assignable roles (server settings). */
+  userTag: iconUserTag ?? '',
+  /** Sticker packs (server settings). */
+  sparkle: iconSparkle ?? '',
 };
 
 export type AppIconKey = keyof typeof icons;

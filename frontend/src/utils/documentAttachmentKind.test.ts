@@ -19,6 +19,7 @@ function att(
 describe('documentAttachmentKind', () => {
   it('detects PDF by mime and extension', () => {
     expect(isPdfAttachment(att({ mimeType: 'application/pdf' }))).toBe(true);
+    expect(isPdfAttachment(att({ mimeType: 'application/x-pdf' }))).toBe(true);
     expect(isPdfAttachment(att({ filename: 'report.pdf' }))).toBe(true);
     expect(isPdfAttachment(att({ filename: 'notes.docx' }))).toBe(false);
   });
@@ -33,6 +34,16 @@ describe('documentAttachmentKind', () => {
       ),
     ).toBe(true);
     expect(isDocxAttachment(att({ filename: 'draft.docx' }))).toBe(true);
+    expect(
+      isDocxAttachment(
+        att({ mimeType: 'application/zip', filename: 'draft.docx' }),
+      ),
+    ).toBe(true);
+    expect(
+      isDocxAttachment(
+        att({ mimeType: 'application/zip', filename: 'archive.zip' }),
+      ),
+    ).toBe(false);
     expect(isDocxAttachment(att({ filename: 'legacy.doc' }))).toBe(false);
   });
 

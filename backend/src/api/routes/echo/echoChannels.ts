@@ -21,6 +21,8 @@ import {
 } from '../../../domain/echoStore';
 import { isMemberOfServer } from '../../../domain/echoPermissions';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
+import { evictAllUsersFromEchoChannelRealtimeScope } from '../../../platform/echoRealtimeMembership';
+import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './echoMutationRateLimits';
 import { config } from '../../../config';
 import {
   deleteLiveKitRoom,
@@ -406,7 +408,10 @@ export default async function echoChannelsRoutes(
     };
   }>(
     '/channels/:channelId',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_ADMIN_MUTATION_RATE_LIMIT },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
@@ -522,6 +527,9 @@ export default async function echoChannelsRoutes(
           after: after ?? null,
         },
       );
+      if (patch.permissionOverrides !== undefined) {
+        evictAllUsersFromEchoChannelRealtimeScope(fastify, channelId);
+      }
       publishEchoWorkspaceEvent(
         fastify,
         {

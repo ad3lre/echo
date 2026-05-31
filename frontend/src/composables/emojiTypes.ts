@@ -1,3 +1,5 @@
+import type { MessageStickerFormat } from '@shared/types';
+
 /**
  * Shared emoji picker types (kept separate from `useEmojiData` so search index state
  * does not create a module cycle with emoji loading).
@@ -9,7 +11,9 @@ export interface EmojiEntry {
   slug: string;
   html: string;
   /** Server (or personal) custom emoji — insert token is `emoji`. */
-  kind?: 'custom' | 'appIcon';
+  kind?: 'custom' | 'appIcon' | 'sticker';
+  /** Present when `kind === 'sticker'`. */
+  stickerFormat?: MessageStickerFormat;
   /** Catalog filename when `kind === 'appIcon'`. */
   iconFilename?: string;
   id?: string;

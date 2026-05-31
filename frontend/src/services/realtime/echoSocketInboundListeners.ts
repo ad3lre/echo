@@ -16,6 +16,7 @@ import {
   applyDeployCountdownSocketPayload,
   clearDeployCountdown,
 } from '@/utils/deployCountdownOverlay';
+import { ingestEchoSocketJoinChannelError } from '@/services/realtime/socketJoinChannelErrorIngest';
 
 export type EchoSocketInboundRuntime = {
   connectErrorLogged: boolean;
@@ -26,6 +27,7 @@ export function createEchoSocketInboundListeners(opts: {
   chat: EchoRealtimeChatIngestPort;
   typing: EchoRealtimeTypingIngestPort;
   inboundRuntime: EchoSocketInboundRuntime;
+  activeChannelId?: () => string | undefined;
 }): EchoSocketInboundListeners {
   const onMessage = (...args: unknown[]) => {
     opts.chat.onMessage(args[0]);
@@ -148,6 +150,15 @@ export function createEchoSocketInboundListeners(opts: {
     opts.host.errors.onConnectError(args[0] as Error);
   };
 
+  const onSocketError = (...args: unknown[]) => {
+    ingestEchoSocketJoinChannelError(args[0], {
+      activeChannelId: opts.activeChannelId ?? (() => undefined),
+      onPermissionDenied: (payload) => {
+        opts.host.errors.onJoinChannelDenied(payload);
+      },
+    });
+  };
+
   const onChannelTypingIo: EchoSocketInboundListeners['onChannelTypingIo'] = (
     ...args
   ) => {
@@ -167,6 +178,7 @@ export function createEchoSocketInboundListeners(opts: {
     onSocketConnected,
     onDisconnectIo,
     onConnectError,
+    onSocketError,
     onDmActivityIo,
     onDmCallIo,
     onDmThreadActivityIo,

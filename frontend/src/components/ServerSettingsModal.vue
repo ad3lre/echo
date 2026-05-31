@@ -1137,6 +1137,13 @@ async function onModerationPatch(patch: {
                   v-else-if="activeSection === 'Tickets'"
                   :server-id="server?.id ?? ''"
                   :access-token="accessToken"
+                  :categories="structureCategories"
+                  :roles="
+                    roleManagerRoles.map((r) => ({
+                      id: r.id,
+                      name: r.name,
+                    }))
+                  "
                 />
 
                 <ServerSettingsSelfRolesSection

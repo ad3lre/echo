@@ -28,6 +28,7 @@ export type AppLayoutEchoRealtimeHostInput = {
   onConnectError: EchoRealtimeHostPorts['errors']['onConnectError'];
   onUnexpectedDisconnect: EchoRealtimeHostPorts['errors']['onUnexpectedDisconnect'];
   onMessageFailed: EchoRealtimeHostPorts['errors']['onMessageFailed'];
+  onJoinChannelDenied: EchoRealtimeHostPorts['errors']['onJoinChannelDenied'];
   applyChannelTyping: EchoRealtimeHostPorts['typing']['applyChannelTyping'];
   applyRealtimeAuthorHint: EchoRealtimeHostPorts['authorHints']['applyAuthorHint'];
 };
@@ -67,6 +68,7 @@ export function createAppLayoutEchoRealtimeHost(
       onConnectError: input.onConnectError,
       onUnexpectedDisconnect: input.onUnexpectedDisconnect,
       onMessageFailed: input.onMessageFailed,
+      onJoinChannelDenied: input.onJoinChannelDenied,
     },
     typing: { applyChannelTyping: input.applyChannelTyping },
     authorHints: { applyAuthorHint: input.applyRealtimeAuthorHint },

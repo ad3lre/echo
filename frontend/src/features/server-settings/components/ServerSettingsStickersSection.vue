@@ -51,8 +51,9 @@ function openStickerFilePicker() {
     <div>
       <h3 class="text-lg font-semibold text-fg">Stickers</h3>
       <p class="mt-1 text-sm text-fg-subtle">
-        Server stickers appear in the composer sticker picker. Upload PNG, APNG,
-        or GIF into a custom pack, or import from Discord metadata refresh.
+        Server stickers appear in the composer emoji picker alongside custom
+        emoji. Upload PNG, APNG, or GIF into a custom pack, or import from
+        Discord metadata refresh.
       </p>
     </div>
 

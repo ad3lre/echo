@@ -22,6 +22,13 @@ import { extractStorageKeyFromEchoMediaUrl } from '@shared/echoUploadStorageKey'
 import MediaUnavailablePanel from '@/components/chat/MediaUnavailablePanel.vue';
 import EchoMediaPlayerShell from './EchoMediaPlayerShell.vue';
 import EchoMediaControls from './EchoMediaControls.vue';
+import {
+  VIDEO_COMPACT_MAX_HEIGHT,
+  VIDEO_COMPACT_MAX_WIDTH,
+  VIDEO_EXPANDED_MAX_HEIGHT,
+  VIDEO_EXPANDED_MAX_WIDTH,
+  isPortraitAspectRatio,
+} from './echoVideoPlayerSizing';
 
 const props = defineProps<{
   url: string;
@@ -39,15 +46,22 @@ const emit = defineEmits<{
 const revealed = ref(!props.spoiler);
 const loadFailed = ref(false);
 const hasRenderableFrame = ref(false);
+const shouldLoadMedia = ref(false);
 const expanded = ref(false);
 const videoRef = ref<HTMLVideoElement | null>(null);
 const shellRef = ref<InstanceType<typeof EchoMediaPlayerShell> | null>(null);
 
 const VIDEO_EXPAND_SCROLL_AFTER_MS = 320;
-const VIDEO_COMPACT_MAX_WIDTH = 'min(100%, 28rem)';
-const VIDEO_EXPANDED_MAX_WIDTH = 'min(100%, min(92vw, 56rem))';
 
 const lockedAspectRatio = ref<string | null>(null);
+
+const activeAspectRatio = computed(
+  () => lockedAspectRatio.value ?? readAspectRatioFromStyle(props.mediaStyle),
+);
+
+const isPortrait = computed(() =>
+  isPortraitAspectRatio(activeAspectRatio.value),
+);
 
 function readAspectRatioFromStyle(s: StyleValue | undefined): string | null {
   const rec = styleRecord(s);
@@ -94,6 +108,7 @@ async function toggleExpand(event: MouseEvent) {
 const { state: playbackState } = useChatVideoPlayback(toRef(props, 'url'));
 
 const videoSrc = computed(() => {
+  if (!shouldLoadMedia.value) return undefined;
   if (
     playbackState.value.mode === 'hls' &&
     playbackState.value.status === 'ready'
@@ -102,6 +117,13 @@ const videoSrc = computed(() => {
   }
   return playbackState.value.playbackUrl;
 });
+
+const videoPreload = computed(() => (shouldLoadMedia.value ? 'auto' : 'none'));
+
+const hasKnownLayout = computed(
+  () =>
+    !!(lockedAspectRatio.value ?? readAspectRatioFromStyle(props.mediaStyle)),
+);
 
 const videoCrossOrigin = computed(() =>
   echoUploadMediaCrossOrigin(playbackState.value.playbackUrl),
@@ -138,37 +160,47 @@ function styleRecord(
 }
 
 const shellStyle = computed((): StyleValue | undefined => {
-  const ar =
-    lockedAspectRatio.value ?? readAspectRatioFromStyle(props.mediaStyle);
+  const ar = activeAspectRatio.value;
   const maxWidth = expanded.value
     ? VIDEO_EXPANDED_MAX_WIDTH
     : VIDEO_COMPACT_MAX_WIDTH;
+  const maxHeight = expanded.value
+    ? VIDEO_EXPANDED_MAX_HEIGHT
+    : VIDEO_COMPACT_MAX_HEIGHT;
   if (ar) {
+    if (isPortrait.value) {
+      return {
+        aspectRatio: ar,
+        width: 'auto',
+        maxWidth,
+        maxHeight,
+      };
+    }
     return {
       aspectRatio: ar,
-      width: expanded.value
-        ? VIDEO_EXPANDED_MAX_WIDTH
-        : VIDEO_COMPACT_MAX_WIDTH,
+      width: maxWidth,
       maxWidth,
     };
   }
   return {
     maxWidth,
+    maxHeight,
     width: expanded.value ? VIDEO_EXPANDED_MAX_WIDTH : '100%',
   };
 });
 
-const isBoxed = computed(
-  () =>
-    !!(lockedAspectRatio.value ?? readAspectRatioFromStyle(props.mediaStyle)),
-);
+const isBoxed = computed(() => !!activeAspectRatio.value);
 
 watch(
   () => props.url,
   () => {
     loadFailed.value = false;
     hasRenderableFrame.value = false;
+    shouldLoadMedia.value = false;
     lockedAspectRatio.value = readAspectRatioFromStyle(props.mediaStyle);
+    if (revealed.value && !showUnavailable.value) {
+      startMediaLoadObserver();
+    }
   },
 );
 
@@ -193,7 +225,7 @@ const {
   playbackRate,
   isFullscreen,
   canFullscreen,
-  togglePlay,
+  togglePlay: shellTogglePlay,
   seek,
   setVolume,
   toggleMute,
@@ -214,28 +246,73 @@ const {
 );
 
 useHlsPlayback(videoRef, playbackState, {
-  disabled: showUnavailable,
+  disabled: computed(() => showUnavailable.value || !shouldLoadMedia.value),
   progressiveSrc: videoSrc,
 });
 
 const showLoadingOverlay = computed(
-  () => !showUnavailable.value && !hasRenderableFrame.value,
+  () =>
+    !showUnavailable.value &&
+    !hasRenderableFrame.value &&
+    !hasKnownLayout.value,
+);
+
+const showLayoutSkeleton = computed(
+  () =>
+    !showUnavailable.value && !hasRenderableFrame.value && hasKnownLayout.value,
 );
 
 const loadingLabel = 'Loading video…';
 
 const rootRef = ref<HTMLElement | null>(null);
 let stopObserve: (() => void) | undefined;
+let stopLoadObserve: (() => void) | undefined;
+
+function startMediaLoadObserver(): void {
+  stopLoadObserve?.();
+  if (shouldLoadMedia.value || showUnavailable.value) return;
+  const el = rootRef.value;
+  if (!el || typeof IntersectionObserver === 'undefined') {
+    shouldLoadMedia.value = true;
+    return;
+  }
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        shouldLoadMedia.value = true;
+        stopLoadObserve?.();
+        stopLoadObserve = undefined;
+      }
+    },
+    { rootMargin: '240px 0px', threshold: 0.01 },
+  );
+  observer.observe(el);
+  stopLoadObserve = () => observer.disconnect();
+}
+
+watch(
+  [revealed, showUnavailable],
+  () => {
+    if (revealed.value && !showUnavailable.value) {
+      startMediaLoadObserver();
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   stopObserve = observeChatMediaRetentionVisible(
     rootRef.value,
     retentionStorageKey.value,
   );
+  if (revealed.value && !showUnavailable.value) {
+    startMediaLoadObserver();
+  }
 });
 
 onUnmounted(() => {
   stopObserve?.();
+  stopLoadObserve?.();
 });
 
 function onPlay(): void {
@@ -276,6 +353,18 @@ watch(
 
 watch(videoRef, () => syncRenderableFrameFromElement());
 
+function ensureMediaLoaded(): void {
+  if (shouldLoadMedia.value) return;
+  shouldLoadMedia.value = true;
+  stopLoadObserve?.();
+  stopLoadObserve = undefined;
+}
+
+function togglePlay(): void {
+  ensureMediaLoaded();
+  shellTogglePlay();
+}
+
 function onVideoMetadata(): void {
   lockAspectRatioFromVideoEl();
 }
@@ -284,9 +373,10 @@ function onVideoMetadata(): void {
 <template>
   <div
     ref="rootRef"
-    class="echo-video-player group relative transition-[max-width] duration-300 ease-out"
+    class="echo-video-player group relative transition-[max-width,max-height] duration-300 ease-out"
     :class="{
       'echo-video-player--boxed': isBoxed,
+      'echo-video-player--portrait': isPortrait,
       'echo-video-player--expanded': expanded,
       'scroll-my-4': expanded,
     }"
@@ -332,6 +422,11 @@ function onVideoMetadata(): void {
       >
         <div class="echo-video-player__media">
           <div
+            v-if="showLayoutSkeleton"
+            class="echo-video-player__layout-skeleton"
+            aria-hidden="true"
+          />
+          <div
             v-if="showLoadingOverlay"
             class="echo-video-player__loading"
             role="status"
@@ -362,10 +457,11 @@ function onVideoMetadata(): void {
             :src="videoSrc"
             :crossorigin="videoCrossOrigin ?? undefined"
             playsinline
-            preload="auto"
+            :preload="videoPreload"
             class="echo-video-player__video"
             :class="{
-              'echo-video-player__video--hidden': showLoadingOverlay,
+              'echo-video-player__video--hidden':
+                showLoadingOverlay || showLayoutSkeleton,
             }"
             @play="onPlay"
             @playing="onVideoFrameReady"
@@ -392,6 +488,7 @@ function onVideoMetadata(): void {
             :volume="volume"
             :muted="muted"
             :playback-rate="playbackRate"
+            :compact="isPortrait"
             show-fullscreen
             :is-fullscreen="isFullscreen"
             :can-fullscreen="canFullscreen"
@@ -415,18 +512,66 @@ function onVideoMetadata(): void {
 .echo-video-player {
   width: 100%;
   max-width: min(100%, 28rem);
+  min-width: 0;
+}
+
+.echo-video-player--boxed {
+  overflow: hidden;
+}
+
+.echo-video-player--boxed :deep(.echo-media-shell--video) {
+  height: 100%;
+  min-height: 0;
 }
 
 .echo-video-player--expanded {
   max-width: min(100%, min(92vw, 56rem));
 }
 
-.echo-video-player--boxed {
+.echo-video-player--boxed:not(.echo-video-player--portrait) {
   width: min(100%, 28rem);
 }
 
-.echo-video-player--boxed.echo-video-player--expanded {
+.echo-video-player--boxed:not(
+    .echo-video-player--portrait
+  ).echo-video-player--expanded {
   width: min(100%, min(92vw, 56rem));
+}
+
+.echo-video-player--boxed.echo-video-player--portrait {
+  width: auto;
+  max-width: min(100%, 28rem);
+}
+
+.echo-video-player--boxed.echo-video-player--portrait.echo-video-player--expanded {
+  max-width: min(100%, min(92vw, 56rem));
+}
+
+.echo-video-player--boxed.echo-video-player--portrait:not(
+    .echo-video-player--expanded
+  ) {
+  max-height: min(80vh, 24rem);
+}
+
+.echo-video-player--boxed.echo-video-player--portrait.echo-video-player--expanded {
+  max-height: min(80vh, 36rem);
+}
+
+.echo-video-player
+  :deep(.echo-media-shell--video .echo-media-shell__media video) {
+  max-height: min(80vh, 24rem);
+}
+
+.echo-video-player--expanded
+  :deep(.echo-media-shell--video .echo-media-shell__media video) {
+  max-height: min(80vh, 36rem);
+}
+
+.echo-video-player--boxed
+  :deep(.echo-media-shell--video .echo-media-shell__media video),
+.echo-video-player--boxed .echo-video-player__video {
+  height: 100%;
+  max-height: 100%;
 }
 
 .echo-video-player__media {
@@ -469,6 +614,30 @@ function onVideoMetadata(): void {
 .echo-video-player__video--hidden {
   opacity: 0;
   pointer-events: none;
+}
+
+.echo-video-player__layout-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    110deg,
+    rgb(255 255 255 / 0.04) 8%,
+    rgb(255 255 255 / 0.1) 18%,
+    rgb(255 255 255 / 0.04) 33%
+  );
+  background-size: 200% 100%;
+  animation: echo-video-layout-shimmer 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes echo-video-layout-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .echo-video-player__loading {

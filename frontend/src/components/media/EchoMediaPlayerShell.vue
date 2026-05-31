@@ -93,9 +93,11 @@ const emit = defineEmits<{
   --media-player-controls-fg: rgb(255 255 255 / 0.95);
   --media-player-controls-fg-muted: rgb(255 255 255 / 0.82);
   --media-player-icon-filter: brightness(0) invert(1);
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   width: 100%;
+  height: 100%;
   min-height: 0;
 }
 
@@ -222,6 +224,9 @@ const emit = defineEmits<{
   right: 0;
   bottom: 0;
   z-index: 3;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
   flex-shrink: 0;
   background: linear-gradient(transparent, rgb(0 0 0 / 0.55));
   transition: opacity 0.25s ease;

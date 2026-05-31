@@ -27,6 +27,7 @@ export interface EchoSocketInboundListeners {
   onPollUpdated: (...args: unknown[]) => void;
   onPollVoteFailed: (...args: unknown[]) => void;
   onChannelTypingIo: (...args: unknown[]) => void;
+  onSocketError: (...args: unknown[]) => void;
   onDeployCountdownIo: (...args: unknown[]) => void;
 }
 
@@ -46,6 +47,7 @@ export function attachEchoSocketInbound(
   socket.on('connect', L.onSocketConnected);
   socket.on('disconnect', L.onDisconnectIo);
   socket.on('connect_error', L.onConnectError);
+  socket.on('error', L.onSocketError);
   socket.on('dm:activity', L.onDmActivityIo);
   socket.on('dm:call', L.onDmCallIo);
   socket.on('dm:thread:activity', L.onDmThreadActivityIo);
@@ -75,6 +77,7 @@ export function detachEchoSocketInbound(
   socket.off('connect', L.onSocketConnected);
   socket.off('disconnect', L.onDisconnectIo);
   socket.off('connect_error', L.onConnectError);
+  socket.off('error', L.onSocketError);
   socket.off('dm:activity', L.onDmActivityIo);
   socket.off('dm:call', L.onDmCallIo);
   socket.off('dm:thread:activity', L.onDmThreadActivityIo);

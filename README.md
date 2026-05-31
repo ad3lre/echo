@@ -31,7 +31,7 @@ Release and signing workflows may need **repository secrets** on the canonical f
 
 ## Project structure
 
-- **`frontend/`** — Vue 3 + Vite SPA (Pinia, Vue Router, TypeScript).
+- **`frontend/`** — Vue 3 + Vite SPA (Pinia, TypeScript). Client navigation uses the History API ([`frontend/src/features/layout/urlNavigation.ts`](./frontend/src/features/layout/urlNavigation.ts)), not vue-router.
 - **`backend/`** — Fastify REST API, Socket.IO, Postgres integration, auth and Echo domain logic.
 - **`shared/`** — Shared TypeScript types and constants across client and server.
 - **`scripts/`** — Migrations, seeds, deploy helpers, asset pipelines.
@@ -42,7 +42,7 @@ Release and signing workflows may need **repository secrets** on the canonical f
 
 | Layer    | Choices                                                                                                                                                                                              |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend | Vue 3, Vite, Pinia, Vue Router, TypeScript                                                                                                                                                           |
+| Frontend | Vue 3, Vite, Pinia, TypeScript (History API client navigation)                                                                                                                                       |
 | Backend  | Node.js, Fastify, Socket.IO, TypeScript                                                                                                                                                              |
 | Data     | PostgreSQL; optional **NATS** for Socket.IO adapter when **`NATS_URL`** is set ([realtime scaling](./docs/infra/realtime-scaling.md); broader JetStream stance in [STACK](./docs/overview/STACK.md)) |
 | Voice    | LiveKit (session + webhooks + client); ops in [`docs/operations/livekit-production.md`](./docs/operations/livekit-production.md)                                                                     |

@@ -7,6 +7,7 @@ import type {
   PendingAudio,
   PendingDocument,
 } from '@/composables/usePendingMedia';
+import { isPortraitAspectRatio } from '@/components/media/echoVideoPlayerSizing';
 import PdfFirstPagePreview from './PdfFirstPagePreview.vue';
 
 defineProps<{
@@ -34,14 +35,45 @@ function isPdfPending(doc: PendingDocument): boolean {
 }
 
 function pendingVideoShellStyle(video: PendingVideo) {
+  const height = '4rem';
   if (video.aspectRatio) {
+    if (isPortraitAspectRatio(video.aspectRatio)) {
+      return {
+        aspectRatio: video.aspectRatio,
+        height,
+        width: 'auto',
+        maxWidth: '6rem',
+      };
+    }
     return {
       aspectRatio: video.aspectRatio,
-      width: '4rem',
-      maxWidth: '6rem',
+      height,
+      width: 'auto',
+      minWidth: '4rem',
+      maxWidth: '8rem',
     };
   }
-  return undefined;
+  return {
+    height,
+    width: '5rem',
+    maxWidth: '8rem',
+  };
+}
+
+function pendingVideoIsUploading(video: PendingVideo): boolean {
+  return video.uploadStatus === 'uploading';
+}
+
+function pendingVideoUploadBarWidth(video: PendingVideo): number {
+  if (video.uploadPercent == null) return 0;
+  return Math.max(0, Math.min(100, video.uploadPercent));
+}
+
+function pendingVideoShowUploadBar(video: PendingVideo): boolean {
+  return (
+    pendingVideoIsUploading(video) &&
+    (video.uploadPercent != null || video.uploadStatus === 'uploading')
+  );
 }
 </script>
 
@@ -120,10 +152,15 @@ function pendingVideoShellStyle(video: PendingVideo) {
     <div
       v-for="(video, i) in videos"
       :key="'video-' + video.url"
-      class="group relative flex h-16 max-w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-glass-1"
+      class="group relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-glass-1"
       :class="{ 'ring-2 ring-amber-500/70': video.spoiler }"
       :style="pendingVideoShellStyle(video)"
     >
+      <div
+        v-if="!video.previewFrameUrl"
+        class="absolute inset-0 animate-pulse bg-glass-2"
+        aria-hidden="true"
+      />
       <img
         v-if="video.previewFrameUrl"
         :src="video.previewFrameUrl"
@@ -131,28 +168,83 @@ function pendingVideoShellStyle(video: PendingVideo) {
         :class="video.spoiler ? 'blur-md' : ''"
         class="h-full w-full object-cover"
       />
-      <video
-        v-else
-        :src="video.url"
-        muted
-        playsinline
-        preload="metadata"
-        :class="video.spoiler ? 'blur-md' : ''"
-        class="max-h-16 max-w-full object-contain"
-      />
       <div
-        v-if="video.uploadStatus === 'uploading'"
-        class="pointer-events-none absolute inset-x-0 top-0 bg-black/55 px-1 py-0.5 text-center text-[8px] font-semibold uppercase tracking-wide text-white"
+        v-if="video.previewFrameUrl || video.aspectRatio"
+        class="pointer-events-none absolute inset-0 flex items-center justify-center"
+        aria-hidden="true"
       >
-        {{
-          video.uploadPercent != null ? `${video.uploadPercent}%` : 'Uploading'
-        }}
+        <span
+          class="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white shadow-md ring-1 ring-white/20"
+        >
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </span>
+      </div>
+      <div
+        v-if="video.uploadStatus === 'done'"
+        class="pointer-events-none absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/95 text-white shadow"
+        title="Uploaded"
+        aria-label="Uploaded"
+      >
+        <svg
+          class="h-3 w-3"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="3"
+            d="M5 13l4 4L19 7"
+          />
+        </svg>
+      </div>
+      <div
+        v-else-if="video.uploadStatus === 'error'"
+        class="pointer-events-none absolute inset-x-0 top-0 bg-red-600/85 px-1 py-0.5 text-center text-[8px] font-semibold uppercase tracking-wide text-white"
+      >
+        Upload failed
+      </div>
+      <div
+        v-if="pendingVideoShowUploadBar(video)"
+        class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-1.5 pb-1 pt-4"
+      >
+        <div
+          class="relative h-1 overflow-hidden rounded-full bg-white/25"
+          role="progressbar"
+          :aria-valuenow="
+            video.uploadPercent != null
+              ? pendingVideoUploadBarWidth(video)
+              : undefined
+          "
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-label="
+            video.uploadPercent != null
+              ? `Uploading ${pendingVideoUploadBarWidth(video)}%`
+              : 'Uploading'
+          "
+        >
+          <div
+            v-if="video.uploadPercent != null"
+            class="absolute inset-y-0 left-0 rounded-full bg-sky-400 transition-[width] duration-150 ease-out"
+            :style="{ width: `${pendingVideoUploadBarWidth(video)}%` }"
+          />
+          <div
+            v-else
+            class="pending-video-upload-indeterminate absolute inset-y-0 w-1/3 rounded-full bg-sky-400/90"
+          />
+        </div>
       </div>
       <div
         class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1 pb-1 pt-3"
+        :class="{ 'pb-2.5': pendingVideoShowUploadBar(video) }"
       >
         <div
-          class="rounded bg-scrim-2 px-1 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-fg-soft"
+          class="truncate rounded bg-scrim-2 px-1 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-fg-soft"
+          :title="video.file.name"
         >
           Video
         </div>
@@ -380,3 +472,23 @@ function pendingVideoShellStyle(video: PendingVideo) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.pending-video-upload-indeterminate {
+  animation: pending-video-upload-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes pending-video-upload-slide {
+  0% {
+    left: -35%;
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0.85;
+  }
+}
+</style>

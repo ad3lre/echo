@@ -22,10 +22,13 @@ export function usePopoutStack() {
     activePopout.value = null;
   }
 
-  function handleClickOutside(e: MouseEvent) {
-    if (wrapperRef.value && !wrapperRef.value.contains(e.target as Node)) {
-      close();
-    }
+  function handlePointerDownOutside(e: MouseEvent) {
+    const target = e.target;
+    const el = target instanceof Element ? target : null;
+    // Teleported chat popouts (GIF/image picker) are outside `wrapperRef`.
+    if (el?.closest?.('[data-chat-insert-popout]')) return;
+    if (wrapperRef.value?.contains(target as Node)) return;
+    close();
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -35,12 +38,12 @@ export function usePopoutStack() {
   }
 
   onMounted(() => {
-    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('mousedown', handlePointerDownOutside);
     document.addEventListener('keydown', handleKeydown);
   });
 
   onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside);
+    document.removeEventListener('mousedown', handlePointerDownOutside);
     document.removeEventListener('keydown', handleKeydown);
   });
 

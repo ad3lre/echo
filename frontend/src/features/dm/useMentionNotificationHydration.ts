@@ -3,6 +3,8 @@ import { storeToRefs } from 'pinia';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import {
   buildCachedMessagesMapForPrefetch,
+  mentionNotificationRowsHaveLoadingStubs,
+  MENTION_NOTIFICATION_STUB_PREVIEW,
   resolveMentionNotificationScanChannelIds,
 } from '@/features/dm/mentionNotificationAuthority';
 import {
@@ -14,6 +16,31 @@ import { hasChannelMessageInBucket } from '@/services/realtime/channelMessageAut
 import { shouldSkipChannelMessagePrefetch } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useEchoAttentionStore } from '@/stores/echoAttention';
+
+function resolveStubChannelIds(
+  rows: readonly DmMentionNotificationRow[],
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    if (row.preview !== MENTION_NOTIFICATION_STUB_PREVIEW) continue;
+    const channelId = row.channelId.trim();
+    if (!channelId || seen.has(channelId)) continue;
+    seen.add(channelId);
+    out.push(channelId);
+  }
+  return out;
+}
+
+function filterHydrationTargets(
+  targets: readonly MentionNotificationPrefetchTarget[],
+  failedChannelIds: ReadonlySet<string>,
+): MentionNotificationPrefetchTarget[] {
+  if (failedChannelIds.size === 0) return [...targets];
+  return targets.filter(
+    (target) => !failedChannelIds.has(target.channelId.trim()),
+  );
+}
 
 /**
  * Background hydrate for mention notification rows: uses the attention snapshot
@@ -33,16 +60,40 @@ export function useMentionNotificationHydration(input: {
   } = storeToRefs(echoAttention);
 
   const loading = ref(false);
-  let hydrateSeq = 0;
+  const failedChannelIds = ref<ReadonlySet<string>>(new Set());
+
+  let hydrateInFlight: Promise<void> | null = null;
+  let hydrateQueued = false;
 
   function targetsNeedHydration(
     targets: readonly MentionNotificationPrefetchTarget[],
   ): boolean {
     return targets.some((target) => {
-      if (!shouldSkipChannelMessagePrefetch(target.channelId)) return true;
+      const channelId = target.channelId.trim();
       const anchor = target.anchorMessageId?.trim();
-      return !!anchor && !hasChannelMessageInBucket(target.channelId, anchor);
+      if (anchor && hasChannelMessageInBucket(channelId, anchor)) {
+        return false;
+      }
+      if (!shouldSkipChannelMessagePrefetch(channelId)) return true;
+      return !!anchor;
     });
+  }
+
+  function markHydrationFailures(
+    targets: readonly MentionNotificationPrefetchTarget[],
+  ): void {
+    const next = new Set(failedChannelIds.value);
+    for (const target of targets) {
+      const channelId = target.channelId.trim();
+      const anchor = target.anchorMessageId?.trim();
+      if (!channelId || !anchor) continue;
+      if (!hasChannelMessageInBucket(channelId, anchor)) {
+        next.add(channelId);
+      } else {
+        next.delete(channelId);
+      }
+    }
+    failedChannelIds.value = next;
   }
 
   async function hydrateMentionChannels(): Promise<void> {
@@ -59,25 +110,36 @@ export function useMentionNotificationHydration(input: {
         serverNotificationLevelByServerId.value,
     });
 
-    const targets = resolveMentionNotificationPrefetchTargets({
+    const allTargets = resolveMentionNotificationPrefetchTargets({
       channelAttentionByChannelId: channelAttentionByChannelId.value,
       readStateByChannelId: readStateByChannelId.value,
       serverNotificationLevelByServerId:
         serverNotificationLevelByServerId.value,
       messagesByChannelId: buildCachedMessagesMapForPrefetch(scanChannelIds),
+      prioritizeChannelIds: resolveStubChannelIds(input.rows.value),
     });
 
-    if (targets.length === 0 || !targetsNeedHydration(targets)) {
+    const targets = filterHydrationTargets(allTargets, failedChannelIds.value);
+
+    const hasLoadingStubs = mentionNotificationRowsHaveLoadingStubs(
+      input.rows.value,
+    );
+
+    if (targets.length === 0) {
       loading.value = false;
       return;
     }
 
-    const expectRowsSoon =
+    if (!targetsNeedHydration(targets) && !hasLoadingStubs) {
+      loading.value = false;
+      return;
+    }
+
+    const expectInitialLoad =
       input.rows.value.length === 0 &&
       targets.some((target) => !!target.anchorMessageId);
 
-    const seq = ++hydrateSeq;
-    if (expectRowsSoon) loading.value = true;
+    if (expectInitialLoad) loading.value = true;
 
     try {
       await prefetchMentionNotificationChannels({
@@ -86,8 +148,28 @@ export function useMentionNotificationHydration(input: {
         activeChannelId: input.activeChannelId?.value?.trim() || undefined,
       });
     } finally {
-      if (seq === hydrateSeq) loading.value = false;
+      loading.value = false;
+      markHydrationFailures(targets);
     }
+  }
+
+  function scheduleHydrate(): void {
+    if (hydrateInFlight) {
+      hydrateQueued = true;
+      return;
+    }
+
+    hydrateInFlight = hydrateMentionChannels()
+      .catch(() => {
+        // Prefetch is best-effort; failures surface via failedChannelIds.
+      })
+      .finally(() => {
+        hydrateInFlight = null;
+        if (hydrateQueued) {
+          hydrateQueued = false;
+          scheduleHydrate();
+        }
+      });
   }
 
   watch(
@@ -95,13 +177,14 @@ export function useMentionNotificationHydration(input: {
       channelAttentionByChannelId,
       readStateByChannelId,
       serverNotificationLevelByServerId,
-      () => input.rows.value.length,
+      () =>
+        input.rows.value.map((row) => `${row.key}:${row.preview}`).join('|'),
     ],
     () => {
-      void hydrateMentionChannels();
+      scheduleHydrate();
     },
     { immediate: true, deep: true },
   );
 
-  return { loading };
+  return { loading, failedChannelIds };
 }

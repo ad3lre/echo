@@ -18,6 +18,10 @@ vi.mock('@/platform/syncCapabilities', () => ({
   echoSyncCapabilities: { isMockDataMode: false },
 }));
 
+vi.mock('@/utils/uploadFingerprint', () => ({
+  sha256HexOfBlob: vi.fn(async () => 'abc123'),
+}));
+
 import { uploadChatAttachmentFile } from '@/api/echoClient';
 
 function makePendingVideo(channelId: string, name = 'clip.mp4'): PendingVideo {
@@ -82,6 +86,24 @@ describe('usePendingVideoEagerUpload', () => {
 
     expect(uploadChatAttachmentFile).not.toHaveBeenCalled();
     expect(pendingVideos.value[0]?.uploadStatus).toBe('idle');
+    scope.stop();
+  });
+
+  it('passes cached sha256 to upload when already computed', async () => {
+    const channelId = ref('channel-a');
+    const video = makePendingVideo('channel-a');
+    video.sha256Hex = 'precached-hash';
+    const pendingVideos = ref<PendingVideo[]>([video]);
+    const scope = runWithUploadWatcher(channelId, pendingVideos);
+
+    await vi.waitFor(() =>
+      expect(uploadChatAttachmentFile).toHaveBeenCalledWith(
+        'token',
+        'channel-a',
+        video.file,
+        expect.objectContaining({ cachedSha256Hex: 'precached-hash' }),
+      ),
+    );
     scope.stop();
   });
 
