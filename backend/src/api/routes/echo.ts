@@ -33,6 +33,7 @@ import echoBotApplications from './echo/echoBotApplications';
 import echoYoutubeSearch from './echo/echoYoutubeSearch';
 import echoChannelWebhooks from './echo/echoChannelWebhooks';
 import echoTickets from './echo/echoTickets';
+import echoSelfAssignableRoles from './echo/echoSelfAssignableRoles';
 import { registerEchoGuestWriteGuard } from './echo/echoGuestWriteHook';
 import { sendError } from '../errors';
 import { requireAuth } from '../../auth/middleware';
@@ -91,6 +92,7 @@ export default async function echoRoutes(
     await secured.register(echoDiscordVoiceMirrorSettings);
     await secured.register(echoChannelWebhooks);
     await secured.register(echoTickets);
+    await secured.register(echoSelfAssignableRoles);
     await secured.register(echoBugReports);
     await secured.register(echoUserRingtones);
     await secured.register(echoBotApplications);

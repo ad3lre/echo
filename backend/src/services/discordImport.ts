@@ -17,6 +17,7 @@ import {
   replaceEchoChannelPermissionOverwrites,
   replaceEchoServerRoleOrder,
   replaceDiscordImportedEmojiPack,
+  replaceDiscordImportedStickerPack,
   updateEchoRole,
   updateEchoServerPreferences,
   type EchoPermissionOverwriteRowInput,
@@ -1130,6 +1131,92 @@ async function importDiscordGuildEmojiPack(
   return { importedCount: result.importedCount };
 }
 
+async function importDiscordGuildStickerPack(
+  pool: pg.Pool,
+  serverId: string,
+  bundle: LoadedBundle,
+): Promise<{ importedCount: number }> {
+  const assetManifest = asObject(bundle.assetManifest);
+  const stickerAssetMap = asObject(assetManifest?.stickers);
+  if (!stickerAssetMap || Object.keys(stickerAssetMap).length === 0) {
+    return { importedCount: 0 };
+  }
+
+  const stickerMetaById = new Map<string, JsonObject>();
+  const guildStickers = (bundle.guild as { stickers?: unknown }).stickers;
+  if (Array.isArray(guildStickers)) {
+    for (const entry of guildStickers) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const id = (entry as { id?: unknown }).id;
+      if (id == null) continue;
+      stickerMetaById.set(String(id).trim(), entry as JsonObject);
+    }
+  }
+  try {
+    const rows = await readJsonArrayFile(
+      path.join(bundle.sourceDir, 'stickers.json'),
+      'stickers.json',
+    );
+    for (const row of rows) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+      const id = (row as { id?: unknown }).id;
+      if (id == null) continue;
+      stickerMetaById.set(String(id).trim(), row as JsonObject);
+    }
+  } catch {
+    /* optional stickers.json */
+  }
+
+  const imported: Array<{
+    name: string;
+    imageUrl: string;
+    format?: string;
+    discordStickerId: string;
+  }> = [];
+  let fallbackIndex = 1;
+  for (const [stickerId, relPathRaw] of Object.entries(stickerAssetMap)) {
+    const relPath = typeof relPathRaw === 'string' ? relPathRaw.trim() : '';
+    if (!stickerId.trim() || !relPath) continue;
+    const meta = stickerMetaById.get(stickerId.trim());
+    const inlineUrl = await assetPathToDataUrl(bundle.sourceDir, relPath, {
+      maxBytes: null,
+    });
+    const remoteUrl =
+      typeof meta?.imageURL === 'string' ? meta.imageURL.trim() : '';
+    const imageUrl = inlineUrl || remoteUrl;
+    if (!imageUrl) continue;
+    const name =
+      typeof meta?.name === 'string' && meta.name.trim()
+        ? meta.name.trim()
+        : fallbackImportedEmojiName(stickerId.trim(), relPath, fallbackIndex);
+    const formatType = meta?.format_type;
+    let format = 'png';
+    if (formatType === 2) format = 'apng';
+    else if (formatType === 3) format = 'lottie';
+    else if (formatType === 4) format = 'gif';
+    imported.push({
+      name,
+      imageUrl,
+      format,
+      discordStickerId: stickerId.trim(),
+    });
+    fallbackIndex += 1;
+  }
+
+  if (imported.length === 0) return { importedCount: 0 };
+
+  const guildName =
+    typeof bundle.guild.name === 'string' ? bundle.guild.name.trim() : '';
+  const discordGuildId =
+    bundle.guild.id != null ? String(bundle.guild.id).trim() : '';
+  const result = await replaceDiscordImportedStickerPack(pool, serverId, {
+    guildName,
+    discordGuildId,
+    stickers: imported,
+  });
+  return { importedCount: result.importedCount };
+}
+
 async function importMetadataStep(
   pool: pg.Pool,
   serverId: string,
@@ -1208,6 +1295,20 @@ async function importMetadataStep(
   ) {
     warnings.push(
       'Discord export contained emoji assets, but none could be imported into an Echo emoji pack.',
+    );
+  }
+  const stickerImport = await importDiscordGuildStickerPack(
+    pool,
+    serverId,
+    bundle,
+  );
+  if (
+    stickerImport.importedCount === 0 &&
+    asObject(bundle.assetManifest?.stickers) &&
+    Object.keys(asObject(bundle.assetManifest?.stickers) ?? {}).length > 0
+  ) {
+    warnings.push(
+      'Discord export contained sticker assets, but none could be imported into an Echo sticker pack.',
     );
   }
   const state = await saveImportState(pool, serverId, {

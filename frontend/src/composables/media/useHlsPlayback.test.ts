@@ -81,8 +81,10 @@ describe('useHlsPlayback', () => {
     const playbackState = ref<ChatVideoPlaybackState>({
       status: 'ready',
       mode: 'hls',
-      playbackUrl: 'https://example.com/master.m3u8',
-      sourceUrl: 'https://example.com/a.mp4',
+      playbackUrl:
+        'https://example.com/api/v1/echo/uploads/s3/echo/ch/h/u/clip/hls/master.m3u8',
+      sourceUrl:
+        'https://example.com/api/v1/echo/uploads/s3/echo/ch/h/u/clip.mp4',
       sourceEtag: 'x',
       sourceSize: 1,
     });
@@ -90,9 +92,36 @@ describe('useHlsPlayback', () => {
     mountHls(videoRef, playbackState, ref(undefined));
     await nextTick();
     await vi.waitFor(() => expect(mockLoadSource).toHaveBeenCalled());
+    expect(el.crossOrigin).toBe('use-credentials');
     expect(mockLoadSource).toHaveBeenCalledWith(
-      'https://example.com/master.m3u8',
+      'https://example.com/api/v1/echo/uploads/s3/echo/ch/h/u/clip/hls/master.m3u8',
     );
     expect(mockAttachMedia).toHaveBeenCalledWith(el);
+  });
+
+  it('sets use-credentials crossOrigin for authenticated progressive src', async () => {
+    const videoRef = ref<HTMLVideoElement | null>(null);
+    const el = document.createElement('video');
+    videoRef.value = el;
+
+    const playbackState = ref<ChatVideoPlaybackState>({
+      status: 'pending',
+      mode: 'progressive',
+      playbackUrl:
+        'https://example.com/api/v1/echo/uploads/s3/echo/ch/h/u/clip.mp4',
+      sourceUrl:
+        'https://example.com/api/v1/echo/uploads/s3/echo/ch/h/u/clip.mp4',
+      sourceEtag: null,
+      sourceSize: 0,
+    });
+
+    mountHls(
+      videoRef,
+      playbackState,
+      ref('https://example.com/api/v1/echo/uploads/s3/echo/ch/h/u/clip.mp4'),
+    );
+    await nextTick();
+    expect(el.crossOrigin).toBe('use-credentials');
+    expect(el.src).toContain('clip.mp4');
   });
 });

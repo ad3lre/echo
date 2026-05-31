@@ -52,6 +52,9 @@ export function rewriteR2EchoUploadUrlForReadThrough(url: string): string {
   if (t.startsWith('/api/v1/echo/uploads/files/')) {
     return absolutizeApiPath(t);
   }
+  if (t.startsWith('/api/v1/echo/emoji/')) {
+    return absolutizeApiPath(t);
+  }
 
   if (!/^https?:\/\//i.test(t)) {
     return t.startsWith('/') ? absolutizeApiPath(t) : t;

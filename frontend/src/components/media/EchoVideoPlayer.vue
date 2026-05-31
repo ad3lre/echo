@@ -17,6 +17,7 @@ import { useChatVideoPlayback } from '@/composables/useChatVideoPlayback';
 import { useHlsPlayback } from '@/composables/media/useHlsPlayback';
 import { useEchoMediaPlayerShell } from '@/composables/media/useEchoMediaPlayerShell';
 import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
+import { echoUploadMediaCrossOrigin } from '@/utils/echoUploadMediaCredentials';
 import { extractStorageKeyFromEchoMediaUrl } from '@shared/echoUploadStorageKey';
 import MediaUnavailablePanel from '@/components/chat/MediaUnavailablePanel.vue';
 import EchoMediaPlayerShell from './EchoMediaPlayerShell.vue';
@@ -45,6 +46,21 @@ const shellRef = ref<InstanceType<typeof EchoMediaPlayerShell> | null>(null);
 const VIDEO_EXPAND_SCROLL_AFTER_MS = 320;
 const VIDEO_COMPACT_MAX_WIDTH = 'min(100%, 28rem)';
 const VIDEO_EXPANDED_MAX_WIDTH = 'min(100%, min(92vw, 56rem))';
+
+const lockedAspectRatio = ref<string | null>(null);
+
+function readAspectRatioFromStyle(s: StyleValue | undefined): string | null {
+  const rec = styleRecord(s);
+  const ar = rec?.aspectRatio;
+  return typeof ar === 'string' && ar ? ar : null;
+}
+
+function lockAspectRatioFromVideoEl(): void {
+  if (lockedAspectRatio.value) return;
+  const el = videoRef.value;
+  if (!el || el.videoWidth < 1 || el.videoHeight < 1) return;
+  lockedAspectRatio.value = `${el.videoWidth} / ${el.videoHeight}`;
+}
 
 async function toggleExpand(event: MouseEvent) {
   const next = !expanded.value;
@@ -87,6 +103,10 @@ const videoSrc = computed(() => {
   return playbackState.value.playbackUrl;
 });
 
+const videoCrossOrigin = computed(() =>
+  echoUploadMediaCrossOrigin(playbackState.value.playbackUrl),
+);
+
 const downloadHref = computed(() => playbackState.value.sourceUrl);
 const downloadName = computed(() => props.filename?.trim() || 'video');
 const canDownload = computed(
@@ -104,10 +124,10 @@ const showUnavailable = computed(
   () => !isTrustedMediaUrl(props.url) || loadFailed.value,
 );
 
-const showProcessing = computed(
+const upgradingToHls = computed(
   () =>
-    playbackState.value.status === 'pending' ||
-    playbackState.value.status === 'loading',
+    playbackState.value.status === 'pending' &&
+    playbackState.value.mode === 'progressive',
 );
 
 function styleRecord(
@@ -118,32 +138,52 @@ function styleRecord(
 }
 
 const shellStyle = computed((): StyleValue | undefined => {
-  const rec = styleRecord(props.mediaStyle);
-  const ar = rec?.aspectRatio;
+  const ar =
+    lockedAspectRatio.value ?? readAspectRatioFromStyle(props.mediaStyle);
   const maxWidth = expanded.value
     ? VIDEO_EXPANDED_MAX_WIDTH
     : VIDEO_COMPACT_MAX_WIDTH;
-  if (typeof ar === 'string' && ar) {
+  if (ar) {
     return {
       aspectRatio: ar,
-      width: expanded.value ? VIDEO_EXPANDED_MAX_WIDTH : 'min(100%, 20rem)',
+      width: expanded.value
+        ? VIDEO_EXPANDED_MAX_WIDTH
+        : VIDEO_COMPACT_MAX_WIDTH,
       maxWidth,
     };
   }
-  return { maxWidth };
+  return {
+    maxWidth,
+    width: expanded.value ? VIDEO_EXPANDED_MAX_WIDTH : '100%',
+  };
 });
+
+const isBoxed = computed(
+  () =>
+    !!(lockedAspectRatio.value ?? readAspectRatioFromStyle(props.mediaStyle)),
+);
 
 watch(
   () => props.url,
   () => {
     loadFailed.value = false;
     hasRenderableFrame.value = false;
+    lockedAspectRatio.value = readAspectRatioFromStyle(props.mediaStyle);
   },
+);
+
+watch(
+  () => props.mediaStyle,
+  () => {
+    if (!lockedAspectRatio.value) {
+      lockedAspectRatio.value = readAspectRatioFromStyle(props.mediaStyle);
+    }
+  },
+  { immediate: true },
 );
 
 const {
   isPlaying,
-  isWaiting,
   controlsVisible,
   currentTime,
   duration,
@@ -179,14 +219,10 @@ useHlsPlayback(videoRef, playbackState, {
 });
 
 const showLoadingOverlay = computed(
-  () =>
-    !showUnavailable.value &&
-    (showProcessing.value || isWaiting.value || !hasRenderableFrame.value),
+  () => !showUnavailable.value && !hasRenderableFrame.value,
 );
 
-const loadingLabel = computed(() =>
-  showProcessing.value ? 'Processing video…' : 'Loading video…',
-);
+const loadingLabel = 'Loading video…';
 
 const rootRef = ref<HTMLElement | null>(null);
 let stopObserve: (() => void) | undefined;
@@ -214,6 +250,34 @@ function onVideoError(): void {
 
 function onVideoFrameReady(): void {
   hasRenderableFrame.value = true;
+  lockAspectRatioFromVideoEl();
+}
+
+function syncRenderableFrameFromElement(): void {
+  const el = videoRef.value;
+  if (!el || hasRenderableFrame.value) return;
+  if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    hasRenderableFrame.value = true;
+    lockAspectRatioFromVideoEl();
+  }
+}
+
+watch(
+  () =>
+    [
+      playbackState.value.playbackUrl,
+      playbackState.value.mode,
+      playbackState.value.status,
+    ] as const,
+  () => {
+    queueMicrotask(() => syncRenderableFrameFromElement());
+  },
+);
+
+watch(videoRef, () => syncRenderableFrameFromElement());
+
+function onVideoMetadata(): void {
+  lockAspectRatioFromVideoEl();
 }
 </script>
 
@@ -222,7 +286,7 @@ function onVideoFrameReady(): void {
     ref="rootRef"
     class="echo-video-player group relative transition-[max-width] duration-300 ease-out"
     :class="{
-      'echo-video-player--boxed': !!styleRecord(mediaStyle)?.aspectRatio,
+      'echo-video-player--boxed': isBoxed,
       'echo-video-player--expanded': expanded,
       'scroll-my-4': expanded,
     }"
@@ -296,6 +360,7 @@ function onVideoFrameReady(): void {
           <video
             ref="videoRef"
             :src="videoSrc"
+            :crossorigin="videoCrossOrigin ?? undefined"
             playsinline
             preload="auto"
             class="echo-video-player__video"
@@ -303,11 +368,20 @@ function onVideoFrameReady(): void {
               'echo-video-player__video--hidden': showLoadingOverlay,
             }"
             @play="onPlay"
+            @playing="onVideoFrameReady"
             @error="onVideoError"
             @loadeddata="onVideoFrameReady"
+            @loadedmetadata="onVideoMetadata"
             @canplay="onVideoFrameReady"
             @click="togglePlay()"
           />
+          <div
+            v-if="upgradingToHls && hasRenderableFrame"
+            class="echo-video-player__upgrade-badge"
+            aria-hidden="true"
+          >
+            HD
+          </div>
         </div>
         <template #controls>
           <EchoMediaControls
@@ -339,7 +413,7 @@ function onVideoFrameReady(): void {
 
 <style scoped lang="scss">
 .echo-video-player {
-  width: fit-content;
+  width: 100%;
   max-width: min(100%, 28rem);
 }
 
@@ -360,29 +434,35 @@ function onVideoFrameReady(): void {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   min-height: 6rem;
   background: rgb(0 0 0 / 0.35);
 }
 
+.echo-video-player--boxed .echo-video-player__media {
+  height: 100%;
+  min-height: 0;
+}
+
 .echo-video-player__video {
   display: block;
-  width: auto;
-  max-width: min(100%, 28rem);
+  width: 100%;
+  max-width: 100%;
   height: auto;
   max-height: min(80vh, 24rem);
   vertical-align: top;
+  object-fit: contain;
 }
 
 .echo-video-player--expanded .echo-video-player__video {
-  max-width: min(100%, min(92vw, 56rem));
   max-height: min(80vh, 36rem);
 }
 
 .echo-video-player--boxed .echo-video-player__video {
   width: 100%;
+  height: 100%;
   max-width: 100%;
-  max-height: none;
-  height: auto;
+  max-height: 100%;
   object-fit: contain;
 }
 
@@ -414,5 +494,20 @@ function onVideoFrameReady(): void {
 
 .echo-video-player__spinner {
   opacity: 0.95;
+}
+
+.echo-video-player__upgrade-badge {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 2;
+  border-radius: 0.25rem;
+  background: rgb(0 0 0 / 0.55);
+  padding: 0.125rem 0.375rem;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgb(255 255 255 / 0.75);
+  pointer-events: none;
 }
 </style>

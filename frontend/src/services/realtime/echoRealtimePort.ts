@@ -10,6 +10,7 @@ import type {
   ForwardedFrom,
   MentionEntity,
   MessageAttachmentPayload,
+  MessageStickerPayload,
   PollData,
   ReplyTo,
 } from '@shared/types';
@@ -126,6 +127,8 @@ export interface EchoRealtimePort {
     contentSchemaVersion?: number,
     forwardMessageId?: string,
     forwardPreview?: ForwardedFrom,
+    stickerIds?: string[],
+    stickerPreview?: MessageStickerPayload,
   ) => void;
   submitPollVote: (
     channelId: string,

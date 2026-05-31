@@ -10,12 +10,34 @@ import {
   isSystemRoleCategory,
 } from './roleCategoryGlobals';
 import { actorMayMutateTargetRoleById } from './roleScope';
+import { normalizePermissionListForStorage } from '../echoPermissionPrimitives';
+import { ALLOWED_PERMS_SET } from './constants';
+import {
+  normalizeEchoRoleScope,
+  type EchoRoleScope,
+} from '../../../../shared/echoRoleScope';
+import {
+  normalizeEchoRoleType,
+  type EchoRoleType,
+} from '../../../../shared/echoRoleTypes';
+import {
+  loadEchoRoleCategoryDefaults,
+  propagateCategoryDefaultsToSyncedRoles,
+  type EchoRoleCategoryDefaults,
+} from './roleCategoryDefaults';
 
 export type EchoRoleCategoryDto = {
   id: string;
   name: string;
   position: number;
   isSystem: boolean;
+  defaultPermissions: string[];
+  defaultHoist: boolean;
+  defaultOnJoin: boolean;
+  defaultRoleScope: EchoRoleScope;
+  defaultRoleType: EchoRoleType;
+  /** When true, self-selectable roles in this category appear in the self-assign channel. */
+  selfAssignableDefaults?: boolean;
 };
 
 const MAX_ROLE_CATEGORIES_PER_SERVER = 32;
@@ -34,7 +56,10 @@ export async function listEchoRoleCategories(
 ): Promise<EchoRoleCategoryDto[]> {
   await ensureGlobalRoleCategoryForServer(pool, serverId);
   const r = await pool.query(
-    `SELECT id, name, position, is_system FROM echo_role_categories WHERE server_id = $1 ORDER BY position ASC, id ASC`,
+    `SELECT id, name, position, is_system, default_permissions, default_hoist,
+            default_on_join, default_role_scope, default_role_type,
+            self_assignable_defaults
+     FROM echo_role_categories WHERE server_id = $1 ORDER BY position ASC, id ASC`,
     [serverId],
   );
   return (
@@ -43,13 +68,30 @@ export async function listEchoRoleCategories(
       name: unknown;
       position: unknown;
       is_system: unknown;
+      default_permissions: unknown;
+      default_hoist: unknown;
+      default_on_join: unknown;
+      default_role_scope: unknown;
+      default_role_type: unknown;
+      self_assignable_defaults: unknown;
     }[]
-  ).map((row) => ({
-    id: String(row.id),
-    name: String(row.name),
-    position: Number(row.position ?? 0),
-    isSystem: Boolean(row.is_system),
-  }));
+  )
+    .map((row) => ({
+      id: String(row.id),
+      name: String(row.name),
+      position: Number(row.position ?? 0),
+      isSystem: Boolean(row.is_system),
+      defaultPermissions: normalizePermissionListForStorage(
+        row.default_permissions,
+        ALLOWED_PERMS_SET,
+      ),
+      defaultHoist: Boolean(row.default_hoist),
+      defaultOnJoin: Boolean(row.default_on_join),
+      defaultRoleScope: normalizeEchoRoleScope(row.default_role_scope),
+      defaultRoleType: normalizeEchoRoleType(row.default_role_type),
+      selfAssignableDefaults: Boolean(row.self_assignable_defaults),
+    }))
+    .filter((row) => !row.isSystem);
 }
 
 export type EchoRoleCategoryMutationResult =
@@ -101,18 +143,95 @@ export async function updateEchoRoleCategory(
   serverId: string,
   actorId: string,
   categoryId: string,
-  patch: { name?: unknown },
+  patch: {
+    name?: unknown;
+    defaultPermissions?: unknown;
+    defaultHoist?: unknown;
+    defaultOnJoin?: unknown;
+    defaultRoleScope?: unknown;
+    defaultRoleType?: unknown;
+    selfAssignableDefaults?: unknown;
+  },
 ): Promise<UpdateEchoRoleCategoryResult> {
-  if (patch.name === undefined) return 'invalid_body';
   const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
   if (!canManageEchoRolesCatalog(actorPerms)) return 'forbidden';
-  const name = normalizeCategoryName(patch.name);
-  if (!name) return 'invalid_body';
+
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  let nextDefaults: EchoRoleCategoryDefaults | null = null;
+
+  if (patch.name !== undefined) {
+    const name = normalizeCategoryName(patch.name);
+    if (!name) return 'invalid_body';
+    sets.push(`name = $${vals.length + 1}`);
+    vals.push(name);
+  }
+  if (patch.defaultPermissions !== undefined) {
+    const perms = normalizePermissionListForStorage(
+      patch.defaultPermissions,
+      ALLOWED_PERMS_SET,
+    );
+    sets.push(`default_permissions = $${vals.length + 1}::jsonb`);
+    vals.push(JSON.stringify(perms));
+  }
+  if (patch.defaultHoist !== undefined) {
+    if (typeof patch.defaultHoist !== 'boolean') return 'invalid_body';
+    sets.push(`default_hoist = $${vals.length + 1}`);
+    vals.push(patch.defaultHoist);
+  }
+  if (patch.defaultOnJoin !== undefined) {
+    if (typeof patch.defaultOnJoin !== 'boolean') return 'invalid_body';
+    sets.push(`default_on_join = $${vals.length + 1}`);
+    vals.push(patch.defaultOnJoin);
+  }
+  if (patch.defaultRoleScope !== undefined) {
+    sets.push(`default_role_scope = $${vals.length + 1}`);
+    vals.push(normalizeEchoRoleScope(patch.defaultRoleScope));
+  }
+  if (patch.defaultRoleType !== undefined) {
+    sets.push(`default_role_type = $${vals.length + 1}`);
+    vals.push(normalizeEchoRoleType(patch.defaultRoleType));
+  }
+  if (patch.selfAssignableDefaults !== undefined) {
+    if (typeof patch.selfAssignableDefaults !== 'boolean') {
+      return 'invalid_body';
+    }
+    sets.push(`self_assignable_defaults = $${vals.length + 1}`);
+    vals.push(patch.selfAssignableDefaults);
+  }
+
+  if (sets.length === 0) return 'invalid_body';
+
+  vals.push(serverId, categoryId);
+  const sidPh = vals.length - 1;
+  const cidPh = vals.length;
   const r = await pool.query(
-    `UPDATE echo_role_categories SET name = $3 WHERE server_id = $1 AND id = $2`,
-    [serverId, categoryId, name],
+    `UPDATE echo_role_categories SET ${sets.join(', ')} WHERE server_id = $${sidPh} AND id = $${cidPh}`,
+    vals,
   );
   if ((r.rowCount ?? 0) < 1) return 'not_found';
+
+  const defaultsPatchProvided =
+    patch.defaultPermissions !== undefined ||
+    patch.defaultHoist !== undefined ||
+    patch.defaultOnJoin !== undefined ||
+    patch.defaultRoleScope !== undefined ||
+    patch.defaultRoleType !== undefined;
+  if (defaultsPatchProvided) {
+    nextDefaults = await loadEchoRoleCategoryDefaults(
+      pool,
+      serverId,
+      categoryId,
+    );
+    if (nextDefaults) {
+      await propagateCategoryDefaultsToSyncedRoles(
+        pool,
+        serverId,
+        categoryId,
+        nextDefaults,
+      );
+    }
+  }
   return 'ok';
 }
 

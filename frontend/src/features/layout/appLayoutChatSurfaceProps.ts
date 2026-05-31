@@ -229,6 +229,8 @@ export type AppLayoutChatSurfaceProps = {
   handleAcceptMessageRequest: unknown;
   returnFromMessageRequests: unknown;
   dmMentionNotifications: unknown[];
+  mentionNotificationHydrationLoading: boolean;
+  resolveDmMentionNotificationChannelLabel: (channelId: string) => string;
   /** Per-channel read cursors (Echo attention) for mention inbox read/unread filters. */
   dmNotificationReadStateByChannelId: Readonly<Record<string, string | null>>;
   mentionNotificationCategoriesByServer: Readonly<
@@ -590,6 +592,8 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'handleAcceptMessageRequest',
   'returnFromMessageRequests',
   'dmMentionNotifications',
+  'mentionNotificationHydrationLoading',
+  'resolveDmMentionNotificationChannelLabel',
   'dmNotificationReadStateByChannelId',
   'mentionNotificationCategoriesByServer',
   'mentionNotificationServers',

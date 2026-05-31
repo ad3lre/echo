@@ -61,6 +61,7 @@ const props = defineProps<{
   formatSpoiler: () => void;
   channelName: string;
   handleComposerPointerDown: (e: MouseEvent) => void;
+  handleComposerSelectionSync?: () => void;
   handleComposerScroll: () => void;
   handleInputFocus: (e: FocusEvent) => void;
   handleInputBlur: (e: FocusEvent) => void;
@@ -377,6 +378,8 @@ function bindRef<E extends HTMLElement>(
           ]"
           :title="composerDisabled ? composerDisabledReason : undefined"
           @mousedown="handleComposerPointerDown($event)"
+          @mouseup="handleComposerSelectionSync?.()"
+          @keyup="handleComposerSelectionSync?.()"
           @scroll="handleComposerScroll"
           @focusin="handleInputFocus($event as FocusEvent)"
           @focusout="handleInputBlur($event as FocusEvent)"

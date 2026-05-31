@@ -50,8 +50,11 @@ export async function consumeLocalUploadTokenOnce(
       );
       return setOk === 'OK';
     } catch {
-      // Fall through to process-local tracking if Redis is unavailable.
+      if (config.isProduction) return false;
+      // Fall through to process-local tracking in non-production dev only.
     }
+  } else if (config.isProduction) {
+    return false;
   }
   pruneMem(now);
   if (memUsedTokenExpMs.has(digest)) return false;

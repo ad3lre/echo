@@ -216,7 +216,15 @@ export default async function echoRolesRoutes(
 
   fastify.patch<{
     Params: { serverId: string; categoryId: string };
-    Body: { name?: unknown };
+    Body: {
+      name?: unknown;
+      defaultPermissions?: unknown;
+      defaultHoist?: unknown;
+      defaultOnJoin?: unknown;
+      defaultRoleScope?: unknown;
+      defaultRoleType?: unknown;
+      selfAssignableDefaults?: unknown;
+    };
   }>(
     '/servers/:serverId/role-categories/:categoryId',
     { preHandler: [requireAuth, requireEchoStore] },
@@ -240,6 +248,12 @@ export default async function echoRolesRoutes(
         categoryId,
         {
           name: req.body?.name,
+          defaultPermissions: req.body?.defaultPermissions,
+          defaultHoist: req.body?.defaultHoist,
+          defaultOnJoin: req.body?.defaultOnJoin,
+          defaultRoleScope: req.body?.defaultRoleScope,
+          defaultRoleType: req.body?.defaultRoleType,
+          selfAssignableDefaults: req.body?.selfAssignableDefaults,
         },
       );
       if (r === 'forbidden')
@@ -363,6 +377,7 @@ export default async function echoRolesRoutes(
       roleIconUrl?: string | null;
       roleIconEmojiId?: string | null;
       roleType?: unknown;
+      syncWithCategoryDefaults?: boolean;
     };
   }>(
     '/servers/:serverId/roles',
@@ -417,6 +432,10 @@ export default async function echoRolesRoutes(
               ? body.insertAfterRoleId
               : undefined,
         roleType: body.roleType,
+        syncWithCategoryDefaults:
+          typeof body.syncWithCategoryDefaults === 'boolean'
+            ? body.syncWithCategoryDefaults
+            : undefined,
       });
       if (r === 'forbidden')
         return sendError(
@@ -526,6 +545,7 @@ export default async function echoRolesRoutes(
       roleIconUrl?: string | null;
       roleIconEmojiId?: string | null;
       roleType?: unknown;
+      syncWithCategoryDefaults?: boolean;
     };
   }>(
     '/servers/:serverId/roles/:roleId',
@@ -557,6 +577,10 @@ export default async function echoRolesRoutes(
       );
       const hasRoleType = Object.prototype.hasOwnProperty.call(b, 'roleType');
       const hasRoleScope = Object.prototype.hasOwnProperty.call(b, 'roleScope');
+      const hasSyncWithCategoryDefaults = Object.prototype.hasOwnProperty.call(
+        b,
+        'syncWithCategoryDefaults',
+      );
       if (
         !hasName &&
         !hasColor &&
@@ -570,13 +594,14 @@ export default async function echoRolesRoutes(
         !hasRoleScope &&
         !hasRoleIconUrl &&
         !hasRoleIconEmojiId &&
-        !hasRoleType
+        !hasRoleType &&
+        !hasSyncWithCategoryDefaults
       ) {
         return sendError(
           reply,
           400,
           'INVALID_BODY',
-          'At least one of name, color, darkColor, lightColor, separateThemeColors, hoist, defaultOnJoin, permissions, roleCategoryId, roleScope, roleIconUrl, roleIconEmojiId, roleType required',
+          'At least one of name, color, darkColor, lightColor, separateThemeColors, hoist, defaultOnJoin, permissions, roleCategoryId, roleScope, roleIconUrl, roleIconEmojiId, roleType, syncWithCategoryDefaults required',
         );
       }
 
@@ -600,6 +625,7 @@ export default async function echoRolesRoutes(
         roleIconUrl?: string | null;
         roleIconEmojiId?: string | null;
         roleType?: unknown;
+        syncWithCategoryDefaults?: boolean;
       } = {};
       if (hasName) patch.name = b.name as string;
       if (hasColor) patch.color = b.color as string;
@@ -649,6 +675,16 @@ export default async function echoRolesRoutes(
       }
       if (hasRoleType) {
         patch.roleType = b.roleType;
+      }
+      if (hasSyncWithCategoryDefaults) {
+        if (typeof b.syncWithCategoryDefaults !== 'boolean')
+          return sendError(
+            reply,
+            400,
+            'INVALID_BODY',
+            'syncWithCategoryDefaults must be boolean',
+          );
+        patch.syncWithCategoryDefaults = b.syncWithCategoryDefaults;
       }
 
       const r = await updateEchoRole(

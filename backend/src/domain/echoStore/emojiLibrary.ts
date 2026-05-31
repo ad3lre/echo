@@ -162,7 +162,8 @@ export async function listEchoServerEmojiLibrary(
      FROM echo_server_custom_emojis e
      LEFT JOIN echo_server_emoji_usage u
        ON u.server_id = e.server_id AND u.emoji_id = e.id
-     WHERE e.server_id = $1`,
+     WHERE e.server_id = $1
+       AND COALESCE(e.expression_kind, 'emoji') = 'emoji'`,
     [serverId],
   );
 
@@ -218,6 +219,104 @@ export async function listEchoServerEmojiLibrary(
   return { packs };
 }
 
+export type EchoStickerLibraryStickerDto = {
+  id: string;
+  serverId: string;
+  name: string;
+  format: 'png' | 'apng' | 'gif' | 'lottie';
+  imageUrl: string;
+  useCount: number;
+  sourceDiscordStickerId?: string | null;
+};
+
+export type EchoStickerLibraryPackDto = {
+  id: string;
+  name: string;
+  position: number;
+  stickers: EchoStickerLibraryStickerDto[];
+};
+
+const VALID_STICKER_FORMATS = new Set<string>(['png', 'apng', 'gif', 'lottie']);
+
+function normalizeStickerFormat(
+  raw: string | null | undefined,
+): EchoStickerLibraryStickerDto['format'] {
+  const fmt = (raw ?? 'png').trim().toLowerCase();
+  return VALID_STICKER_FORMATS.has(fmt)
+    ? (fmt as EchoStickerLibraryStickerDto['format'])
+    : 'png';
+}
+
+/** Server sticker packs for the composer sticker picker (expression_kind = sticker). */
+export async function listEchoServerStickerLibrary(
+  pool: pg.Pool,
+  serverId: string,
+): Promise<{ packs: EchoStickerLibraryPackDto[] }> {
+  const packsRes = await pool.query<{
+    id: string;
+    name: string;
+    position: number;
+  }>(
+    `SELECT id, name, position
+     FROM echo_server_emoji_packs WHERE server_id = $1 ORDER BY position ASC, created_at ASC`,
+    [serverId],
+  );
+
+  const stickerRows = await pool.query<{
+    id: string;
+    pack_id: string;
+    name: string;
+    image_url: string;
+    sticker_format: string | null;
+    use_count: string;
+    discord_source_emoji_id: string | null;
+  }>(
+    `SELECT e.id, e.pack_id, e.name, e.image_url, e.sticker_format,
+            COALESCE(u.use_count, 0)::text AS use_count,
+            e.discord_source_emoji_id
+     FROM echo_server_custom_emojis e
+     LEFT JOIN echo_server_emoji_usage u
+       ON u.server_id = e.server_id AND u.emoji_id = e.id
+     WHERE e.server_id = $1
+       AND COALESCE(e.expression_kind, 'emoji') = 'sticker'`,
+    [serverId],
+  );
+
+  const byPack = new Map<string, EchoStickerLibraryStickerDto[]>();
+  for (const row of stickerRows.rows) {
+    const list = byPack.get(row.pack_id) ?? [];
+    const d = row.discord_source_emoji_id?.trim();
+    list.push({
+      id: row.id,
+      serverId,
+      name: row.name,
+      format: normalizeStickerFormat(row.sticker_format),
+      imageUrl: row.image_url,
+      useCount: Number(row.use_count) || 0,
+      ...(d ? { sourceDiscordStickerId: d } : {}),
+    });
+    byPack.set(row.pack_id, list);
+  }
+
+  for (const [, stickers] of byPack) {
+    stickers.sort((a, b) => {
+      if (b.useCount !== a.useCount) return b.useCount - a.useCount;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  const packs: EchoStickerLibraryPackDto[] = packsRes.rows
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      position: p.position,
+      stickers: byPack.get(p.id) ?? [],
+    }))
+    .filter((p) => p.stickers.length > 0);
+
+  return { packs };
+}
+
 export type EchoEmojiTokenResolveDto = {
   key: string;
   id: string;
@@ -257,7 +356,8 @@ export async function resolveEchoEmojiTokens(
   }>(
     `SELECT e.id, e.server_id, e.name, e.animated, e.image_url, e.discord_source_emoji_id
      FROM echo_server_custom_emojis e
-     WHERE e.id = ANY($1::text[]) OR e.discord_source_emoji_id = ANY($1::text[])`,
+     WHERE COALESCE(e.expression_kind, 'emoji') = 'emoji'
+       AND (e.id = ANY($1::text[]) OR e.discord_source_emoji_id = ANY($1::text[]))`,
     [cleaned],
   );
 
@@ -881,6 +981,136 @@ export async function replaceDiscordImportedEmojiPack(
   }
 }
 
+export type DiscordImportedStickerInput = {
+  name: string;
+  imageUrl: string;
+  format?: string;
+  discordStickerId?: string;
+};
+
+function normalizeImportedStickerFormat(raw: unknown): string {
+  const s = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (s === 'apng' || s === 'gif' || s === 'lottie' || s === 'png') return s;
+  return 'png';
+}
+
+export async function replaceDiscordImportedStickerPack(
+  pool: pg.Pool,
+  serverId: string,
+  input: {
+    guildName: string;
+    discordGuildId?: string | null;
+    stickers: DiscordImportedStickerInput[];
+  },
+): Promise<{ packId: string; importedCount: number }> {
+  const packName = `${
+    input.guildName.trim() || 'Imported Discord Server'
+  } Sticker Pack`;
+  const discordGuildId = input.discordGuildId?.trim() || '';
+  const description = discordGuildId
+    ? `Stickers imported from Discord server ${discordGuildId}.`
+    : 'Stickers imported from Discord server.';
+
+  const client = await pool.connect();
+  try {
+    await client.query(`BEGIN`);
+    try {
+      const existingPack = await client.query<{ id: string }>(
+        `SELECT id FROM echo_server_emoji_packs
+         WHERE server_id = $1 AND source = 'custom'
+           AND (
+             (market_settings->>'importKind' = 'discord-stickers' AND market_settings->>'discordGuildId' = $2)
+             OR description = $3
+           )
+         ORDER BY created_at ASC LIMIT 1`,
+        [serverId, discordGuildId, description],
+      );
+
+      let packId = String(existingPack.rows[0]?.id ?? '');
+      if (!packId) {
+        packId = nextEchoSnowflakeId();
+        const posRow = await client.query<{ p: number }>(
+          `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_server_emoji_packs WHERE server_id = $1`,
+          [serverId],
+        );
+        await client.query(
+          `INSERT INTO echo_server_emoji_packs (
+             id, server_id, name, source, market_pack_id, position,
+             description, listed_in_market, market_settings
+           ) VALUES ($1, $2, $3, 'custom', NULL, $4, $5, false, $6::jsonb)`,
+          [
+            packId,
+            serverId,
+            packName,
+            Number(posRow.rows[0]?.p ?? 0),
+            description,
+            JSON.stringify({
+              tags: [],
+              importKind: 'discord-stickers',
+              ...(discordGuildId ? { discordGuildId } : {}),
+            }),
+          ],
+        );
+      } else {
+        await client.query(
+          `DELETE FROM echo_server_custom_emojis WHERE server_id = $1 AND pack_id = $2`,
+          [serverId, packId],
+        );
+      }
+
+      if (input.stickers.length > 0) {
+        const namesRes = await client.query<{ name: string }>(
+          `SELECT name FROM echo_server_custom_emojis WHERE server_id = $1 AND pack_id <> $2`,
+          [serverId, packId],
+        );
+        const takenLower = new Set(
+          namesRes.rows
+            .map((row) => row.name.trim().toLowerCase())
+            .filter(Boolean),
+        );
+        const values: unknown[] = [];
+        const tuples: string[] = [];
+        input.stickers.forEach((sticker, index) => {
+          const stickerId = nextEchoSnowflakeId();
+          const name = nextUniqueEmojiName(sticker.name, takenLower, index + 1);
+          const fmt = normalizeImportedStickerFormat(sticker.format);
+          const discordSource = sticker.discordStickerId?.trim() || null;
+          values.push(
+            stickerId,
+            serverId,
+            packId,
+            name,
+            false,
+            sticker.imageUrl,
+            discordSource,
+            'sticker',
+            fmt,
+          );
+          const base = index * 9;
+          tuples.push(
+            `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9})`,
+          );
+        });
+        await client.query(
+          `INSERT INTO echo_server_custom_emojis (
+             id, server_id, pack_id, name, animated, image_url,
+             discord_source_emoji_id, expression_kind, sticker_format
+           ) VALUES ${tuples.join(', ')}`,
+          values,
+        );
+      }
+
+      await client.query(`COMMIT`);
+      return { packId, importedCount: input.stickers.length };
+    } catch (error) {
+      await client.query(`ROLLBACK`);
+      throw error;
+    }
+  } finally {
+    client.release();
+  }
+}
+
 export type UpdateCustomPackMetaResult =
   | 'ok'
   | 'forbidden'
@@ -1013,6 +1243,10 @@ export async function addEchoServerCustomEmoji(
   nameRaw: string,
   animated: boolean,
   imageUrl: string,
+  options?: {
+    expressionKind?: 'emoji' | 'sticker';
+    stickerFormat?: string;
+  },
 ): Promise<AddCustomEmojiResult> {
   if (!(await canManageServerEmojis(pool, serverId, userId)))
     return { ok: false, reason: 'forbidden' };
@@ -1039,11 +1273,27 @@ export async function addEchoServerCustomEmoji(
   if (!/^[\w.-]{1,64}$/.test(name)) return { ok: false, reason: 'invalid' };
 
   const eid = nextEchoSnowflakeId();
+  const expressionKind =
+    options?.expressionKind === 'sticker' ? 'sticker' : 'emoji';
+  const stickerFormat =
+    expressionKind === 'sticker'
+      ? normalizeImportedStickerFormat(options?.stickerFormat)
+      : null;
   try {
     await pool.query(
-      `INSERT INTO echo_server_custom_emojis (id, server_id, pack_id, name, animated, image_url)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [eid, serverId, packId, name, animated, url],
+      `INSERT INTO echo_server_custom_emojis (
+         id, server_id, pack_id, name, animated, image_url, expression_kind, sticker_format
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        eid,
+        serverId,
+        packId,
+        name,
+        animated,
+        url,
+        expressionKind,
+        stickerFormat,
+      ],
     );
   } catch (e: unknown) {
     if (isPgUniqueViolation(e)) return { ok: false, reason: 'duplicate_name' };

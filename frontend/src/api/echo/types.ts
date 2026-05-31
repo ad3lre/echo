@@ -27,6 +27,7 @@ export type EchoServerRoleDto = {
   permissions: string[];
   /** Defaults to `mixed` when omitted (legacy API rows). */
   roleType?: EchoRoleType;
+  syncWithCategoryDefaults?: boolean;
 };
 
 export type EchoRoleCategoryDto = {
@@ -34,6 +35,12 @@ export type EchoRoleCategoryDto = {
   name: string;
   position: number;
   isSystem?: boolean;
+  defaultPermissions?: string[];
+  defaultHoist?: boolean;
+  defaultOnJoin?: boolean;
+  defaultRoleScope?: EchoRoleScope;
+  defaultRoleType?: EchoRoleType;
+  selfAssignableDefaults?: boolean;
 };
 
 /** Role A is the anchor (edited in settings); links describe what else to assign when A (or linked, if two-way) is granted. */
@@ -99,6 +106,7 @@ export type EchoRolePatch = {
   roleIconUrl?: string | null;
   roleIconEmojiId?: string | null;
   roleType?: EchoRoleType;
+  syncWithCategoryDefaults?: boolean;
 };
 
 export type EchoServerCapabilitiesDto = {

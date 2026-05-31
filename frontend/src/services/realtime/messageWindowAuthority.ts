@@ -117,6 +117,15 @@ class MessageWindowAuthority {
     return index;
   }
 
+  /** Channel ids with at least one row in the bound workspace message record. */
+  public listCachedChannelIds(): string[] {
+    const rec = this.boundMessages?.value;
+    if (!rec) return [];
+    return Object.keys(rec).filter(
+      (channelId) => (rec[channelId]?.length ?? 0) > 0,
+    );
+  }
+
   public syncChannelMessages(
     channelId: string,
     index: ChannelMessageIndex,

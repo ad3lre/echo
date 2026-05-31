@@ -6,7 +6,10 @@ import {
   FastifyRequest,
 } from 'fastify';
 import { getAuthUser, requireAuth } from '../../../auth/middleware';
-import { getAccessUserIdFromAuthHeader } from '../../../auth/token';
+import {
+  ECHO_E2EE_DEVICE_MUTATION_RATE,
+  e2eePairingRateLimitKey,
+} from '../../sharedMutationRateLimits';
 import { isPostgresUndefinedRelationError } from '../../../db/pgErrors';
 import { sendError } from '../../errors';
 import {
@@ -47,7 +50,10 @@ export default async function echoE2eeRoutes(
 ): Promise<void> {
   fastify.post(
     '/e2ee/devices/register',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_E2EE_DEVICE_MUTATION_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const parsed = normalizeEchoE2eeDeviceUpsertInput(req.body);
@@ -90,7 +96,10 @@ export default async function echoE2eeRoutes(
 
   fastify.post<{ Params: { deviceId: string } }>(
     '/e2ee/devices/:deviceId/revoke',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_E2EE_DEVICE_MUTATION_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const deviceId = trimEchoPathParam(req.params.deviceId);
@@ -123,7 +132,10 @@ export default async function echoE2eeRoutes(
 
   fastify.post<{ Body: { deviceId?: string; oneTimePrekeys?: unknown } }>(
     '/e2ee/prekeys/refresh',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_E2EE_DEVICE_MUTATION_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const deviceId =
@@ -239,12 +251,7 @@ export default async function echoE2eeRoutes(
     await pairingScope.register(rateLimit, {
       max: 30,
       timeWindow: '1 hour',
-      keyGenerator: (req: FastifyRequest) => {
-        const uid = getAccessUserIdFromAuthHeader(req.headers.authorization);
-        return uid
-          ? `echo_e2ee_pairing:${uid}`
-          : `echo_e2ee_pairing:ip:${req.ip}`;
-      },
+      keyGenerator: e2eePairingRateLimitKey,
       addHeaders: { 'retry-after': true },
     });
 

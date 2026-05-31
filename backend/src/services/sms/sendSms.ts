@@ -47,12 +47,10 @@ export async function sendTransactionalSms(
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
     log.error(
       {
         msg: 'telnyx_sms_failed',
         status: res.status,
-        bodyPreview: text.slice(0, 200),
       },
       'Telnyx message send failed',
     );

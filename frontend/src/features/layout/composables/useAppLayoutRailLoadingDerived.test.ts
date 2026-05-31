@@ -8,6 +8,8 @@ describe('useAppLayoutRailLoadingDerived', () => {
       selectedServerId: 'srv1' as string | null,
     });
     const workspace = {
+      loading: ref(false),
+      fromApi: ref(true),
       categoriesByServer: ref<Record<string, unknown[]>>({ srv1: [{}] }),
       messages: ref<Record<string, unknown[]>>({ ch1: [{}] }),
     };
@@ -30,6 +32,8 @@ describe('useAppLayoutRailLoadingDerived', () => {
       selectedServerId: 'srv1' as string | null,
     });
     const workspace = {
+      loading: ref(false),
+      fromApi: ref(true),
       categoriesByServer: ref({ srv1: [{ channels: [{ id: 'ch1' }] }] }),
       messages: ref<Record<string, unknown[]>>({ ch1: [] }),
     };
@@ -44,6 +48,32 @@ describe('useAppLayoutRailLoadingDerived', () => {
       >[0]['workspace'],
       activeChannelId: ref('ch1'),
     });
+    expect(isMessageSurfaceSwitchLoading.value).toBe(true);
+  });
+
+  it('isMessageSurfaceSwitchLoading during cold-start workspace hydrate', () => {
+    const serverStore = reactive({
+      selectedServerId: null as string | null,
+    });
+    const workspace = {
+      loading: ref(true),
+      fromApi: ref(false),
+      categoriesByServer: ref<Record<string, unknown[]>>({}),
+      messages: ref<Record<string, unknown[]>>({}),
+    };
+    const { isMessageSurfaceSwitchLoading, isChannelPanelSwitchLoading } =
+      useAppLayoutRailLoadingDerived({
+        immediateShellSwitchPending: ref(false),
+        activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+        serverStore: serverStore as unknown as Parameters<
+          typeof useAppLayoutRailLoadingDerived
+        >[0]['serverStore'],
+        workspace: workspace as unknown as Parameters<
+          typeof useAppLayoutRailLoadingDerived
+        >[0]['workspace'],
+        activeChannelId: ref(''),
+      });
+    expect(isChannelPanelSwitchLoading.value).toBe(true);
     expect(isMessageSurfaceSwitchLoading.value).toBe(true);
   });
 });

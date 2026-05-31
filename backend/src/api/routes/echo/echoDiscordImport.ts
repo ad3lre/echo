@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import rateLimit from '@fastify/rate-limit';
 import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import {
   getEchoServerCapabilitiesForUser,
@@ -22,6 +23,11 @@ import {
   requireEchoStore,
   trimEchoPathParam,
 } from './echoRouteUtils';
+import {
+  ECHO_DISCORD_IMPORT_BIND_RATE,
+  ECHO_DISCORD_IMPORT_CHANNEL_RATE,
+  ECHO_DISCORD_IMPORT_RUN_FULL_RATE,
+} from '../../sharedMutationRateLimits';
 
 function importStepFromBody(
   raw: unknown,
@@ -80,7 +86,10 @@ export default async function echoDiscordImportRoutes(
     Body: { discordGuildId?: unknown };
   }>(
     '/servers/:serverId/discord-import/bind',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_DISCORD_IMPORT_BIND_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -120,8 +129,13 @@ export default async function echoDiscordImportRoutes(
         await bindDiscordImportGuild(pool, sid, discordGuildId);
         return reply.code(204).send();
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Bind failed';
-        return sendError(reply, 400, 'DISCORD_IMPORT_BIND_FAILED', message);
+        req.log.warn({ err, serverId: sid }, 'discord_import_bind_failed');
+        return sendError(
+          reply,
+          400,
+          'DISCORD_IMPORT_BIND_FAILED',
+          'Could not bind Discord guild to this server.',
+        );
       }
     },
   );
@@ -135,7 +149,10 @@ export default async function echoDiscordImportRoutes(
     Body: { discordGuildId?: unknown };
   }>(
     '/servers/:serverId/discord-import/run-full',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_DISCORD_IMPORT_RUN_FULL_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);
@@ -450,7 +467,10 @@ export default async function echoDiscordImportRoutes(
     Body: { limit?: number };
   }>(
     '/servers/:serverId/channels/:channelId/discord-import-messages',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_DISCORD_IMPORT_CHANNEL_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
@@ -531,9 +551,12 @@ export default async function echoDiscordImportRoutes(
           { err, serverId, channelId },
           'discord_message_import_failed',
         );
-        const message =
-          err instanceof Error ? err.message : 'Message import failed';
-        return sendError(reply, 400, 'DISCORD_MESSAGE_IMPORT_FAILED', message);
+        return sendError(
+          reply,
+          400,
+          'DISCORD_MESSAGE_IMPORT_FAILED',
+          'Discord message import failed.',
+        );
       }
     },
   );

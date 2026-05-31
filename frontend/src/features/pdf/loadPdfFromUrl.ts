@@ -3,7 +3,11 @@ import {
   type PDFDocumentLoadingTask,
   type PDFDocumentProxy,
 } from 'pdfjs-dist';
+import { attachmentUrlNeedsCredentials } from '@/features/attachments/resolveAttachmentFetchCredentials';
 import { ensurePdfWorkerConfigured } from './configurePdfWorker';
+import { withTimeout } from './withTimeout';
+
+const PDF_LOAD_TIMEOUT_MS = 45_000;
 
 export type PdfUrlLoader = {
   task: PDFDocumentLoadingTask;
@@ -18,9 +22,12 @@ export function startPdfUrlLoad(url: string): PdfUrlLoader {
   ensurePdfWorkerConfigured();
   const task = getDocument({
     url,
-    withCredentials: false,
+    withCredentials: attachmentUrlNeedsCredentials(url),
   });
-  return { task, promise: task.promise };
+  return {
+    task,
+    promise: withTimeout(task.promise, PDF_LOAD_TIMEOUT_MS, 'PDF load'),
+  };
 }
 
 /**

@@ -9,8 +9,16 @@ import { GIPHY_FETCH_MS } from '../../constants/outboundHttp';
 import { sendError } from '../errors';
 
 const GIPHY_BASE = 'https://api.giphy.com/v1/gifs';
-const LIMIT = 24;
+const DEFAULT_LIMIT = 24;
+const MAX_LIMIT = 30;
 const RATING = 'g';
+
+function parseLimit(raw: unknown): number {
+  if (raw == null || raw === '') return DEFAULT_LIMIT;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_LIMIT;
+  return Math.min(MAX_LIMIT, Math.floor(n));
+}
 
 export default async function giphyRoutes(
   fastify: FastifyInstance,
@@ -24,9 +32,9 @@ export default async function giphyRoutes(
       addHeaders: { 'retry-after': true },
     });
 
-    scope.get<{ Querystring: { q?: string } }>(
+    scope.get<{ Querystring: { limit?: string } }>(
       '/giphy/trending',
-      async (_request, reply) => {
+      async (request, reply) => {
         if (!config.giphyApiKey) {
           return sendError(
             reply,
@@ -35,7 +43,8 @@ export default async function giphyRoutes(
             'GIPHY_API_KEY not configured',
           );
         }
-        const url = `${GIPHY_BASE}/trending?api_key=${config.giphyApiKey}&limit=${LIMIT}&rating=${RATING}`;
+        const limit = parseLimit(request.query.limit);
+        const url = `${GIPHY_BASE}/trending?api_key=${config.giphyApiKey}&limit=${limit}&rating=${RATING}`;
         const res = await fetch(url, {
           signal: AbortSignal.timeout(GIPHY_FETCH_MS),
         });
@@ -54,7 +63,7 @@ export default async function giphyRoutes(
       },
     );
 
-    scope.get<{ Querystring: { q?: string } }>(
+    scope.get<{ Querystring: { q?: string; limit?: string } }>(
       '/giphy/search',
       async (request, reply) => {
         if (!config.giphyApiKey) {
@@ -66,7 +75,8 @@ export default async function giphyRoutes(
           );
         }
         const q = request.query.q?.trim() ?? '';
-        const url = `${GIPHY_BASE}/search?api_key=${config.giphyApiKey}&q=${encodeURIComponent(q)}&limit=${LIMIT}&rating=${RATING}`;
+        const limit = parseLimit(request.query.limit);
+        const url = `${GIPHY_BASE}/search?api_key=${config.giphyApiKey}&q=${encodeURIComponent(q)}&limit=${limit}&rating=${RATING}`;
         const res = await fetch(url, {
           signal: AbortSignal.timeout(GIPHY_FETCH_MS),
         });

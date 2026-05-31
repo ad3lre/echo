@@ -111,30 +111,17 @@ import {
 import { CHAT_MESSAGE_NAV_BRIDGE_KEY } from '@/features/navigation/chatMessageNavBridge';
 import { subscribeUIErrors, type UIErrorSeverity } from '@/utils/uiErrorBus';
 import {
-  subscribeAppToasts,
   dispatchAppToast,
   dispatchAppToastDetail,
-  ECHO_CHAT_COMPOSER_FOCUS_EVENT,
-  type AppToastSeverity,
   type AppToastAction,
-  type AppToastDetail,
 } from '@/utils/controllerMissingAction';
-import {
-  registerEchoToastQuickReplySender,
-  sendEchoToastQuickReply,
-} from '@/features/layout/echoToastQuickReplyBridge';
+import { registerEchoToastQuickReplySender } from '@/features/layout/echoToastQuickReplyBridge';
 import { echoChatBottomChromeInsetPx } from '@/features/layout/echoChatBottomChromeInset';
-import {
-  appToastBottomInsetCss,
-  buildAppToastShellPositionStyle,
-  computeVisualViewportToastInsets,
-} from '@/features/layout/appToastShellPosition';
 import {
   EMAIL_VERIFICATION_DOWNTIME,
   EMAIL_VERIFICATION_DOWNTIME_TOAST,
 } from '@/config/emailVerificationDowntime';
 import { API_BASE } from '@/config';
-import { safeImageUrl } from '@/utils/safeImageUrl';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
 import { memberPanelDiag } from '@/utils/memberPanelDiag';
 import { channelPanelDiag } from '@/utils/channelPanelDiag';
@@ -159,7 +146,6 @@ import { useDesktopNativeAttention } from '@/composables/useDesktopNativeAttenti
 import { useDesktopGlobalShortcutBringFront } from '@/platform/desktopGlobalShortcutBringFront';
 import { useDesktopUpdateMonitor } from '@/composables/useDesktopUpdateMonitor';
 import { useDesktopIncomingCallAttention } from '@/composables/useDesktopIncomingCallAttention';
-import { useSimpleContextMenu } from '@/composables/useSimpleContextMenu';
 import { useDesktopUpdateStore } from '@/stores/desktopUpdate';
 import { useNotificationPreferencesStore } from '@/stores/notificationPreferences';
 import { provideSpeakingState } from '@/composables/useSpeakingState';
@@ -167,7 +153,6 @@ import { ECHO_VOICE_PROCESSING_KEY } from '@/composables/voiceProcessingInjectio
 import { watchBugHunterAppContext } from '@/composables/useBugHunterAppTrace';
 import { useBugHunterStore } from '@/stores/bugHunter';
 import { useThemeStore } from '@/stores/theme';
-import { useCallRingtoneStore } from '@/stores/callRingtone';
 import { useEchoSessionStore } from '@/stores/echoSession';
 import {
   createForumPost as createForumPostOrchestration,
@@ -175,12 +160,8 @@ import {
   patchForumPost as patchForumPostOrchestration,
 } from '@/services/orchestration/forumPosts';
 import { findActionForKeyboardEvent } from '@/features/settings/keybindPreferences';
-import {
-  canOpenToastMessageContextMenu,
-  resolveToastMessagePrimaryAction,
-  shouldHideToastPrimaryActionForQuickReply,
-  shouldOpenToastMessageContextMenu,
-} from '@/features/layout/composables/toastMessageContextMenu';
+import AppToastShell from '@/features/layout/components/AppToastShell.vue';
+import type { AppToastLayoutContext } from '@/features/layout/composables/useAppToastController';
 import {
   CALL_VIEW_FULLSCREEN_STREAM_ID_KEY,
   LAYOUT_CHAT_SURFACE_KEY,
@@ -654,6 +635,8 @@ const {
   _resolvePreviewChannelPermission,
   returnFromMessageRequests,
   dmMentionNotifications,
+  mentionNotificationHydrationLoading,
+  resolveDmMentionNotificationChannelLabel,
   dmNotificationReadStateByChannelId,
   mentionNotificationCategoriesByServer,
   mentionNotificationServers,
@@ -898,9 +881,8 @@ const isEchoServerRoleHierarchyPending = computed(() => {
     isEchoRoleBootstrapLoading.value
   );
 });
-const memberListUsersResolved = computed(() =>
-  isEchoServerRoleHierarchyPending.value ? [] : memberListUsers.value,
-);
+/** Keep populated rows during role-hierarchy refresh — MemberList shows skeletons only on first load. */
+const memberListUsersResolved = computed(() => memberListUsers.value);
 const serverSettingsMemberUsersResolved = computed(() =>
   isEchoServerRoleHierarchyPending.value ? [] : serverSettingsMemberUsers.value,
 );
@@ -1729,6 +1711,33 @@ watch(useCompactDmShell, (on) => {
   if (!isDMPanelOpen.value) isDMPanelOpen.value = true;
 });
 
+const isDmThreadSurface = computed(
+  () => unref(isDmUiContext) && unref(mainSurface)?.type === 'dmThread',
+);
+
+const appToastLayoutContext: AppToastLayoutContext = {
+  echoChatBottomChromeInsetPx,
+  useCompactTriPaneShell,
+  useCompactDmShell,
+  hasGuildChannelChrome,
+  isDmUiContext,
+  activeChannelId,
+  isDmThreadSurface,
+  findChannelFormat: (channelId) => {
+    const find = _findChannelContextById as (
+      id: string | null | undefined,
+    ) => { channel: ChannelSummary } | null | undefined;
+    const ctx = find(channelId);
+    const ch = ctx?.channel;
+    if (!ch) return null;
+    return {
+      messageFormatTemplate: ch.messageFormatTemplate,
+      messageFormatHard: ch.messageFormatHard === true,
+    };
+  },
+  declineIncomingCall: declineDmCall,
+};
+
 watch(
   () =>
     [
@@ -2053,6 +2062,8 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   handleAcceptMessageRequest,
   returnFromMessageRequests,
   dmMentionNotifications,
+  mentionNotificationHydrationLoading,
+  resolveDmMentionNotificationChannelLabel,
   dmNotificationReadStateByChannelId,
   mentionNotificationCategoriesByServer,
   mentionNotificationServers,
@@ -2958,264 +2969,8 @@ let uiErrorAutoDismissTimer: ReturnType<typeof setTimeout> | null = null;
 const HEADER_INFO_AUTO_DISMISS_MS = 15_000;
 let unsubscribeUiErrors: (() => void) | null = null;
 
-type ActiveAppToast = AppToastDetail & {
-  severity: AppToastSeverity;
-  durationMs: number;
-  actions: AppToastAction[];
-  variant: 'default' | 'incoming_call' | 'incoming_chat_message';
-  showAutoDismissProgress?: boolean;
-};
-
-const appToast = ref<ActiveAppToast | null>(null);
-const toastQuickReplyText = ref('');
-const appToastProgressEpoch = ref(0);
-let appToastClearTimer: ReturnType<typeof setTimeout> | null = null;
-const {
-  menuOpen: appToastContextMenuOpen,
-  menuRef: appToastContextMenuRef,
-  menuPosition: appToastContextMenuPosition,
-  openAtEvent: openAppToastContextMenuAtEvent,
-  closeMenu: closeAppToastContextMenu,
-} = useSimpleContextMenu();
 /** Debounce closing fullscreen when the media track drops (avoid flicker on quick swaps). */
 let fullscreenStreamLostDefer: ReturnType<typeof setTimeout> | null = null;
-let unsubscribeAppToastsFn: (() => void) | null = null;
-
-const appToastIsRich = computed(
-  () =>
-    appToast.value?.variant === 'incoming_call' ||
-    appToast.value?.variant === 'incoming_chat_message',
-);
-
-const appToastProgressVisible = computed(() => {
-  const t = appToast.value;
-  return (
-    !!t &&
-    t.showAutoDismissProgress === true &&
-    t.durationMs > 0 &&
-    t.variant !== 'incoming_call' &&
-    t.variant !== 'incoming_chat_message'
-  );
-});
-
-const appToastContainerClass = computed(() => {
-  const t = appToast.value;
-  if (!t) return 'app-toast-glass';
-  const severityClassByKey: Record<AppToastSeverity, string> = {
-    success: 'app-toast-glass--success',
-    info: 'app-toast-glass--info',
-    warning: 'app-toast-glass--warning',
-    error: 'app-toast-glass--error',
-  };
-  return [
-    'app-toast-glass',
-    'relative',
-    severityClassByKey[t.severity],
-    t.variant === 'incoming_call' ? 'app-toast-incoming-call' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-});
-
-const appToastLeadingIconSrc = computed(() => {
-  const t = appToast.value;
-  if (!t) return icons.more;
-  const custom = t.leadingIconSrc?.trim();
-  if (custom) return custom;
-  if (t.variant === 'incoming_chat_message') return icons.messageFilled;
-  switch (t.severity) {
-    case 'success':
-      return icons.friendAdded;
-    case 'warning':
-      return icons.notificationsOff;
-    case 'error':
-      return icons.banUser;
-    case 'info':
-    default:
-      return icons.more;
-  }
-});
-
-/** When the composer is focused, use a larger bottom inset so the toast clears the bar (still bottom-anchored). */
-const chatComposerFocusedForToast = ref(false);
-
-watch(appToast, (v) => {
-  if (!v) {
-    toastQuickReplyText.value = '';
-    closeAppToastContextMenu();
-  }
-});
-
-function onAppToastContextMenu(ev: MouseEvent) {
-  const toast = appToast.value;
-  if (!canOpenToastMessageContextMenu(toast)) return;
-  if (!shouldOpenToastMessageContextMenu(ev)) return;
-  void openAppToastContextMenuAtEvent(ev);
-}
-
-const hasAppToastPrimaryContextAction = computed(() => {
-  const toast = appToast.value;
-  if (!toast) return false;
-  return resolveToastMessagePrimaryAction(toast.actions) != null;
-});
-
-function openMessageChannelFromToast() {
-  const toast = appToast.value;
-  if (!toast) return;
-  const action = resolveToastMessagePrimaryAction(toast.actions);
-  if (!action) return;
-  closeAppToastContextMenu();
-  onAppToastAction(action);
-}
-
-function openMessageChannelFromToastContextMenu() {
-  openMessageChannelFromToast();
-}
-
-function dismissToastFromContextMenu() {
-  closeAppToastContextMenu();
-  dismissAppToast();
-}
-
-function onChatComposerFocusForToast(e: Event) {
-  const ce = e as CustomEvent<{ focused?: boolean }>;
-  chatComposerFocusedForToast.value = ce.detail?.focused === true;
-}
-
-/**
- * Lift bottom-fixed toasts above the chat composer bar. Focus alone is not enough:
- * message notifications (`incoming_chat_message`) often fire while the composer
- * is visible but unfocused, which previously pinned the toast under the input strip.
- *
- * Any surface that pins a composer / bottom chrome (compact guild tri-pane, compact DMs,
- * desktop guild channel, desktop DM thread) needs the larger inset — otherwise success /
- * error toasts sit under the bar and read as “missing”.
- */
-const appToastClearsBottomChrome = computed(() => {
-  if (chatComposerFocusedForToast.value) return true;
-  if (appToast.value?.variant === 'incoming_chat_message') return true;
-  if (useCompactTriPaneShell.value) return true;
-  if (useCompactDmShell.value) return true;
-  if (unref(hasGuildChannelChrome)) return true;
-  const surface = unref(mainSurface);
-  return unref(isDmUiContext) && surface?.type === 'dmThread';
-});
-
-/** Layout/visual viewport mismatch — lifts bottom and pins top on iOS keyboard / chrome. */
-const visualViewportToastBottomExtraPx = ref(0);
-const visualViewportToastOffsetTopPx = ref(0);
-let appToastViewportMetricsRaf = 0;
-
-function syncAppToastVisualViewportInsetsNow() {
-  if (typeof window === 'undefined') {
-    visualViewportToastBottomExtraPx.value = 0;
-    visualViewportToastOffsetTopPx.value = 0;
-    return;
-  }
-  const insets = computeVisualViewportToastInsets(
-    window.innerHeight,
-    window.visualViewport,
-  );
-  visualViewportToastBottomExtraPx.value = insets.bottomExtraPx;
-  visualViewportToastOffsetTopPx.value = insets.offsetTopPx;
-}
-
-function scheduleAppToastVisualViewportBottomExtra() {
-  if (typeof window === 'undefined') return;
-  if (appToastViewportMetricsRaf !== 0) return;
-  appToastViewportMetricsRaf = window.requestAnimationFrame(() => {
-    appToastViewportMetricsRaf = 0;
-    syncAppToastVisualViewportInsetsNow();
-  });
-}
-
-function onAppToastVisualViewportChanged() {
-  scheduleAppToastVisualViewportBottomExtra();
-}
-
-const appToastHasQuickReplyFooter = computed(
-  () =>
-    appToast.value?.variant === 'incoming_chat_message' &&
-    !!appToast.value.quickReplyChannelId?.trim(),
-);
-
-/** When the quick-reply field is empty, offer Open instead of a disabled Send. */
-const showToastQuickReplyOpenButton = computed(
-  () =>
-    appToastHasQuickReplyFooter.value &&
-    !toastQuickReplyText.value.trim() &&
-    hasAppToastPrimaryContextAction.value,
-);
-
-const appToastVisibleActions = computed(() => {
-  const toast = appToast.value;
-  if (!toast?.actions.length) return [];
-  if (
-    !shouldHideToastPrimaryActionForQuickReply(toast, toastQuickReplyText.value)
-  ) {
-    return toast.actions;
-  }
-  const primaryAction = resolveToastMessagePrimaryAction(toast.actions);
-  if (!primaryAction) return toast.actions;
-  return toast.actions.filter((action) => action.id !== primaryAction.id);
-});
-
-const appToastShellGridRowsClass = computed(() => {
-  const rows = ['minmax(0,1fr)'];
-  if (appToastHasQuickReplyFooter.value) rows.push('auto');
-  if (appToastProgressVisible.value) rows.push('auto');
-  return `grid-rows-[${rows.join('_')}]`;
-});
-
-const appToastProgressGridRowClass = computed(() => {
-  if (!appToastProgressVisible.value) return '';
-  return appToastHasQuickReplyFooter.value ? '[grid-row:3]' : '[grid-row:2]';
-});
-
-const appToastShellPositionStyle = computed(() => {
-  const elevated = appToastClearsBottomChrome.value;
-  let bottomInset = appToastBottomInsetCss({
-    elevated,
-    measuredChromeInsetPx: echoChatBottomChromeInsetPx.value,
-  });
-  if (appToast.value?.variant === 'incoming_chat_message') {
-    bottomInset = `calc(${bottomInset} + 0.75rem)`;
-  }
-  return buildAppToastShellPositionStyle({
-    bottomInsetCss: bottomInset,
-    bottomExtraPx: visualViewportToastBottomExtraPx.value,
-    visualViewportOffsetTopPx: visualViewportToastOffsetTopPx.value,
-  });
-});
-
-const appToastShellClass = computed(() => {
-  /* Grid + minmax(0,1fr) guarantees the scroll row gets a definite bounded height under
-   * max-height (flex-1 + h-0 alone could leave the scroll region at intrinsic height and
-   * clip footer chrome at the shell’s overflow:hidden edge). */
-  const shell = `pointer-events-auto box-border grid min-h-0 ${appToastShellGridRowsClass.value} overflow-hidden`;
-  const richPadding =
-    appToast.value?.variant === 'incoming_chat_message'
-      ? appToastHasQuickReplyFooter.value
-        ? 'px-3 pt-2.5 pb-0'
-        : 'px-3 pt-2.5 pb-3.5'
-      : 'px-3 py-2.5';
-  return appToastIsRich.value
-    ? `rounded-xl ${richPadding} text-[13px] shadow-2xl ${shell}`
-    : `rounded-xl px-2.5 py-2 text-[13px] shadow-2xl ${shell}`;
-});
-
-const appToastViewportClass = computed(() => {
-  const widthClass = appToastIsRich.value
-    ? 'w-[min(26rem,calc(100vw-1rem))]'
-    : 'w-[min(24rem,calc(100vw-1rem))]';
-  return `pointer-events-none fixed left-1/2 z-[500] min-h-0 -translate-x-1/2 ${widthClass}`;
-});
-
-const appToastStackClass =
-  'pointer-events-auto absolute inset-x-0 bottom-0 flex max-h-full min-h-0 flex-col-reverse gap-2.5 overflow-y-auto overscroll-contain';
-
-const callRingtoneStore = useCallRingtoneStore();
-const { muted: ringtoneMuted } = storeToRefs(callRingtoneStore);
 
 function isEditableEventTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -3275,77 +3030,6 @@ function onGlobalShortcutKeydown(e: KeyboardEvent) {
   }
 }
 
-function clearAppToastOnly() {
-  if (appToastClearTimer != null) {
-    clearTimeout(appToastClearTimer);
-    appToastClearTimer = null;
-  }
-  appToast.value = null;
-}
-
-/** Dismiss control (e.g. ×). Incoming call: same as declining. */
-function dismissAppToast() {
-  const incomingCall = appToast.value?.variant === 'incoming_call';
-  clearAppToastOnly();
-  toastQuickReplyText.value = '';
-  if (incomingCall) {
-    void declineDmCall();
-  }
-}
-
-function submitToastQuickReply() {
-  const t = appToast.value;
-  const cid = t?.quickReplyChannelId?.trim();
-  if (!cid || t?.variant !== 'incoming_chat_message') return;
-  const body = toastQuickReplyText.value.trim();
-  if (!body) return;
-  if (!sendEchoToastQuickReply(cid, body)) {
-    dispatchAppToast('Could not send message.', 'warning');
-    return;
-  }
-  toastQuickReplyText.value = '';
-  clearAppToastOnly();
-}
-
-function onAppToastAction(action: AppToastAction) {
-  try {
-    action.run();
-  } finally {
-    if (action.keepOpen !== true) {
-      clearAppToastOnly();
-    }
-  }
-}
-
-function incomingCallToastActionIconSrc(actionId: string): string {
-  switch (actionId) {
-    case 'answer':
-      return icons.phoneCall;
-    case 'decline':
-      return icons.logOut;
-    case 'mute_ringtone':
-      return ringtoneMuted.value ? icons.volumeUp : icons.notificationsOff;
-    default:
-      return '';
-  }
-}
-
-function incomingCallToastActionLabel(action: AppToastAction): string {
-  if (action.id === 'mute_ringtone') {
-    return ringtoneMuted.value ? 'Unmute' : 'Mute';
-  }
-  return action.label;
-}
-
-function incomingCallToastActionTitle(action: AppToastAction): string {
-  if (action.id === 'mute_ringtone') {
-    return ringtoneMuted.value ? 'Unmute ringtone' : 'Mute ringtone';
-  }
-  if (action.id === 'answer') return 'Answer call';
-  if (action.id === 'decline') return 'Decline call';
-  return action.label;
-}
-
 onMounted(() => {
   if (isDesktop()) {
     void import('@tauri-apps/api/event').then(({ listen }) => {
@@ -3391,69 +3075,9 @@ onMounted(() => {
       uiErrorBanner.value = null;
     }, HEADER_INFO_AUTO_DISMISS_MS);
   });
-  unsubscribeAppToastsFn = subscribeAppToasts((d) => {
-    const incomingActions = Array.isArray(d.actions) ? d.actions : [];
-    const currentHasActions = !!appToast.value?.actions.length;
-    const incomingHasActions = incomingActions.length > 0;
-    // Keep the incoming-call toast visible until answered — do not let passive
-    // toasts replace it. Other actionable toasts (e.g. E2EE device) auto-dismiss.
-    if (
-      appToast.value?.variant === 'incoming_call' &&
-      currentHasActions &&
-      !incomingHasActions &&
-      (d.severity ?? 'info') !== 'warning'
-    ) {
-      return;
-    }
-    if (appToastClearTimer != null) clearTimeout(appToastClearTimer);
-    const durationMs =
-      typeof d.durationMs === 'number' && Number.isFinite(d.durationMs)
-        ? Math.max(0, d.durationMs)
-        : 3500;
-    if (d.showAutoDismissProgress === true && durationMs > 0) {
-      appToastProgressEpoch.value += 1;
-    }
-    appToast.value = {
-      message: d.message,
-      severity: d.severity ?? 'info',
-      durationMs,
-      actions: incomingActions,
-      title: d.title,
-      subtitle: d.subtitle,
-      variant:
-        d.variant === 'incoming_call'
-          ? 'incoming_call'
-          : d.variant === 'incoming_chat_message'
-            ? 'incoming_chat_message'
-            : 'default',
-      leadingIconSrc: d.leadingIconSrc,
-      imageUrl: d.imageUrl,
-      badge: d.badge,
-      quickReplyChannelId: d.quickReplyChannelId,
-      showAutoDismissProgress: d.showAutoDismissProgress === true,
-    };
-    if (durationMs > 0) {
-      appToastClearTimer = setTimeout(() => {
-        appToastClearTimer = null;
-        appToast.value = null;
-      }, durationMs);
-    }
-  });
   window.addEventListener('keydown', onGlobalShortcutKeydown);
-  window.addEventListener(
-    ECHO_CHAT_COMPOSER_FOCUS_EVENT,
-    onChatComposerFocusForToast,
-  );
 
   installExternalLinkClickGate();
-
-  syncAppToastVisualViewportInsetsNow();
-  window.addEventListener('resize', onAppToastVisualViewportChanged);
-  if (window.visualViewport) {
-    const vv = window.visualViewport;
-    vv.addEventListener('resize', onAppToastVisualViewportChanged);
-    vv.addEventListener('scroll', onAppToastVisualViewportChanged);
-  }
 
   void nextTick(() => {
     if (typeof ResizeObserver === 'undefined') return;
@@ -4043,7 +3667,7 @@ watch(
   { flush: 'post' },
 );
 
-/** Canonical teardown for bus subscriptions, toast timer, and member panel width observer. */
+/** Canonical teardown for bus subscriptions and member panel width observer. */
 function disposeAppLayoutSideEffects() {
   unsubscribeDesktopTray?.();
   unsubscribeDesktopTray = undefined;
@@ -4056,10 +3680,6 @@ function disposeAppLayoutSideEffects() {
     clearTimeout(uiErrorAutoDismissTimer);
     uiErrorAutoDismissTimer = null;
   }
-  unsubscribeAppToastsFn?.();
-  unsubscribeAppToastsFn = null;
-  if (appToastClearTimer != null) clearTimeout(appToastClearTimer);
-  appToastClearTimer = null;
   if (fullscreenStreamLostDefer != null) {
     clearTimeout(fullscreenStreamLostDefer);
     fullscreenStreamLostDefer = null;
@@ -4067,21 +3687,7 @@ function disposeAppLayoutSideEffects() {
   memberPanelMainWidthObserver?.disconnect();
   memberPanelMainWidthObserver = null;
   window.removeEventListener('keydown', onGlobalShortcutKeydown);
-  window.removeEventListener(
-    ECHO_CHAT_COMPOSER_FOCUS_EVENT,
-    onChatComposerFocusForToast,
-  );
   uninstallExternalLinkClickGate();
-  if (appToastViewportMetricsRaf !== 0) {
-    window.cancelAnimationFrame(appToastViewportMetricsRaf);
-    appToastViewportMetricsRaf = 0;
-  }
-  window.removeEventListener('resize', onAppToastVisualViewportChanged);
-  if (typeof window !== 'undefined' && window.visualViewport) {
-    const vv = window.visualViewport;
-    vv.removeEventListener('resize', onAppToastVisualViewportChanged);
-    vv.removeEventListener('scroll', onAppToastVisualViewportChanged);
-  }
 }
 
 function maybeAutoCollapseMemberPanelForMainWidth() {
@@ -4220,336 +3826,8 @@ watch(
         </button>
       </span>
     </div>
-    <Teleport to="body">
-      <div
-        v-if="appToast"
-        :class="appToastViewportClass"
-        :style="appToastShellPositionStyle"
-      >
-        <div :class="appToastStackClass">
-          <div
-            :class="[appToastShellClass, appToastContainerClass]"
-            role="status"
-            @contextmenu="onAppToastContextMenu"
-            @auxclick="onAppToastContextMenu"
-          >
-            <div
-              class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain [grid-row:1]"
-            >
-              <div
-                class="app-toast-incoming-call__inner flex items-start gap-2.5"
-              >
-                <div
-                  v-if="appToastIsRich"
-                  class="app-toast-incoming-call__avatar-col relative mt-0.5 h-11 w-11 shrink-0"
-                  aria-hidden="true"
-                >
-                  <div
-                    v-if="appToast.imageUrl"
-                    class="app-toast-incoming-call__avatar-aura"
-                    :style="{
-                      backgroundImage: `url(${safeImageUrl(appToast.imageUrl)})`,
-                    }"
-                  />
-                  <span
-                    class="app-toast-incoming-call__pulse pointer-events-none absolute inset-0 rounded-full"
-                  />
-                  <img
-                    v-if="appToast.imageUrl"
-                    class="relative z-[2] h-full w-full rounded-full object-cover shadow-md ring-1 ring-border"
-                    :src="safeImageUrl(appToast.imageUrl)"
-                    alt=""
-                  />
-                  <div
-                    v-else
-                    class="app-toast-incoming-call__avatar-fallback relative z-[2] flex h-full w-full items-center justify-center rounded-full bg-glass-2 text-base font-semibold text-foreground shadow-md ring-1 ring-border"
-                  >
-                    {{
-                      (appToast.title || appToast.message || '?')
-                        .trim()
-                        .charAt(0) || '?'
-                    }}
-                  </div>
-                  <span
-                    v-if="appToast.badge"
-                    class="pointer-events-none absolute -bottom-0.5 -right-0.5 z-[3] flex min-h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full border-2 border-[var(--echo-avatar-ring-bg)] bg-[#f23f42] px-1 text-[10px] font-bold leading-none text-white shadow-sm"
-                    >{{ appToast.badge }}</span
-                  >
-                </div>
-                <div class="min-h-0 min-w-0 flex-1">
-                  <p
-                    v-if="appToast.variant === 'incoming_call'"
-                    class="flex min-w-0 flex-wrap items-center gap-2 leading-snug text-lg font-semibold tracking-tight text-foreground"
-                  >
-                    <span
-                      class="app-toast-incoming-call__waves shrink-0"
-                      :class="{
-                        'app-toast-incoming-call__waves--muted': ringtoneMuted,
-                      }"
-                      aria-hidden="true"
-                    >
-                      <span class="app-toast-incoming-call__wave" />
-                      <span class="app-toast-incoming-call__wave" />
-                      <span class="app-toast-incoming-call__wave" />
-                    </span>
-                    <span
-                      class="min-w-0 break-words text-fg max-sm:[overflow-wrap:anywhere]"
-                    >
-                      {{ appToast.message
-                      }}<template v-if="appToast.subtitle">
-                        {{ ' ' + appToast.subtitle }}</template
-                      >
-                    </span>
-                  </p>
-                  <template
-                    v-else-if="appToast.variant === 'incoming_chat_message'"
-                  >
-                    <p
-                      class="min-w-0 truncate text-lg font-semibold leading-snug tracking-tight text-foreground max-sm:overflow-visible max-sm:whitespace-normal max-sm:break-words"
-                    >
-                      {{ appToast.title }}
-                    </p>
-                    <p
-                      v-if="appToast.subtitle"
-                      class="mt-0.5 truncate text-xs font-medium leading-snug text-fg-soft max-sm:overflow-visible max-sm:whitespace-normal max-sm:break-words"
-                    >
-                      {{ appToast.subtitle }}
-                    </p>
-                    <p
-                      class="mt-2 line-clamp-3 text-sm leading-snug text-fg-soft [overflow-wrap:anywhere] max-sm:line-clamp-none"
-                    >
-                      {{ appToast.message }}
-                    </p>
-                  </template>
-                  <template v-else>
-                    <div
-                      class="app-toast-default-row flex min-w-0 items-start gap-2"
-                    >
-                      <span
-                        class="app-toast-default-row__icon flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-                        aria-hidden="true"
-                      >
-                        <img
-                          :src="appToastLeadingIconSrc"
-                          alt=""
-                          class="h-4 w-4 opacity-95"
-                        />
-                      </span>
-                      <span class="min-w-0 flex-1 pr-1">
-                        <template v-if="appToast.title?.trim()">
-                          <p
-                            class="leading-snug text-[15px] font-semibold tracking-tight text-fg [overflow-wrap:anywhere] max-sm:break-words"
-                          >
-                            {{ appToast.title.trim() }}
-                          </p>
-                          <p
-                            v-if="appToast.subtitle?.trim()"
-                            class="mt-0.5 text-[12px] leading-snug text-fg-soft [overflow-wrap:anywhere] max-sm:break-words"
-                          >
-                            {{ appToast.subtitle.trim() }}
-                          </p>
-                          <p
-                            class="mt-1.5 text-[13px] leading-relaxed text-fg [overflow-wrap:anywhere] max-sm:break-words"
-                          >
-                            {{ appToast.message }}
-                          </p>
-                        </template>
-                        <template v-else>
-                          <p
-                            class="leading-snug font-medium text-fg [overflow-wrap:anywhere] max-sm:break-words"
-                          >
-                            {{ appToast.message }}
-                          </p>
-                          <p
-                            v-if="appToast.subtitle"
-                            class="mt-0.5 text-[11px] leading-snug text-fg-soft [overflow-wrap:anywhere] max-sm:break-words"
-                          >
-                            {{ appToast.subtitle }}
-                          </p>
-                        </template>
-                      </span>
-                    </div>
-                  </template>
-                  <div
-                    v-if="appToastVisibleActions.length"
-                    :class="
-                      appToastIsRich
-                        ? 'app-toast-incoming-call__actions mt-3 flex w-full min-w-0 flex-nowrap items-stretch gap-1.5'
-                        : 'mt-2.5 flex w-full min-w-0 items-stretch gap-1.5 max-sm:mt-3 max-sm:flex-nowrap sm:flex-wrap sm:items-center'
-                    "
-                  >
-                    <button
-                      v-for="action in appToastVisibleActions"
-                      :key="
-                        action.id === 'mute_ringtone'
-                          ? `${action.id}:${ringtoneMuted ? '1' : '0'}`
-                          : action.id
-                      "
-                      type="button"
-                      :class="[
-                        'chat-focus-ring inline-flex items-center justify-center rounded-md font-semibold transition-[transform,background-color,box-shadow] duration-150',
-                        'max-sm:min-w-0 max-sm:flex-1 max-sm:basis-0 max-sm:text-center max-sm:leading-tight max-sm:whitespace-normal',
-                        appToastIsRich
-                          ? 'min-w-0 flex-1 basis-0 gap-1.5 whitespace-nowrap px-2.5 py-2 text-xs leading-tight max-sm:gap-1 max-sm:px-2'
-                          : 'gap-2 px-3.5 py-2 text-sm max-sm:px-2.5 max-sm:py-2 max-sm:text-xs',
-                        appToastIsRich
-                          ? action.kind === 'primary'
-                            ? 'bg-emerald-500/90 text-white shadow-[0_4px_20px_rgba(16,185,129,0.35)] hover:scale-[1.02] hover:bg-emerald-400/95 active:scale-[0.98]'
-                            : 'bg-glass-2 text-fg hover:scale-[1.02] hover:bg-glass-hover active:scale-[0.98]'
-                          : action.kind === 'primary'
-                            ? 'bg-emerald-500/88 text-white hover:bg-emerald-400/92'
-                            : 'bg-glass-2 text-fg hover:bg-glass-hover',
-                      ]"
-                      :title="
-                        appToast.variant === 'incoming_call'
-                          ? incomingCallToastActionTitle(action)
-                          : undefined
-                      "
-                      @click="onAppToastAction(action)"
-                    >
-                      <img
-                        v-if="
-                          appToast.variant === 'incoming_call' &&
-                          incomingCallToastActionIconSrc(action.id)
-                        "
-                        :src="incomingCallToastActionIconSrc(action.id)"
-                        alt=""
-                        :class="[
-                          'shrink-0 brightness-0 invert opacity-90',
-                          appToastIsRich ? 'h-3.5 w-3.5' : 'h-4 w-4',
-                          action.kind === 'primary'
-                            ? 'opacity-95'
-                            : 'opacity-80',
-                        ]"
-                      />
-                      {{
-                        appToast.variant === 'incoming_call'
-                          ? incomingCallToastActionLabel(action)
-                          : action.label
-                      }}
-                    </button>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  class="chat-focus-ring relative z-[2] inline-flex shrink-0 items-center justify-center rounded-md p-1 transition-colors hover:bg-glass-hover"
-                  :class="
-                    appToastIsRich
-                      ? 'text-fg-subtle hover:text-fg-soft'
-                      : 'text-muted hover:bg-overlay-subtle hover:text-foreground'
-                  "
-                  aria-label="Dismiss"
-                  @click="dismissAppToast"
-                >
-                  <svg
-                    v-if="appToastIsRich"
-                    class="h-3.5 w-3.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M18 6 6 18M6 6l12 12" />
-                  </svg>
-                  <svg
-                    v-else
-                    class="h-4 w-4 opacity-80"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M18 6 6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div
-              v-if="appToastHasQuickReplyFooter"
-              class="app-toast-quick-reply-footer flex w-full min-w-0 flex-nowrap items-stretch gap-1.5 border-t border-border/35 pb-3.5 pt-2.5 [grid-row:2]"
-            >
-              <input
-                v-model="toastQuickReplyText"
-                type="text"
-                class="chat-focus-ring min-w-0 flex-1 rounded-md border border-border bg-scrim-1 px-2.5 py-1.5 text-[13px] text-fg placeholder:text-fg-subtle"
-                placeholder="Quick reply…"
-                maxlength="2000"
-                aria-label="Quick reply"
-                @keydown.enter.prevent="submitToastQuickReply"
-              />
-              <button
-                v-if="showToastQuickReplyOpenButton"
-                type="button"
-                class="chat-focus-ring shrink-0 rounded-md bg-glass-2 px-3 py-1.5 text-xs font-semibold text-fg hover:bg-glass-hover"
-                @click="openMessageChannelFromToast"
-              >
-                Open
-              </button>
-              <button
-                v-else
-                type="button"
-                class="chat-focus-ring shrink-0 rounded-md bg-emerald-500/90 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400/95 disabled:cursor-not-allowed disabled:opacity-40"
-                :disabled="!toastQuickReplyText.trim()"
-                @click="submitToastQuickReply"
-              >
-                Send
-              </button>
-            </div>
-            <div
-              v-if="appToastProgressVisible"
-              :class="[
-                'pointer-events-none mx-3 mb-1.5 mt-0.5 h-[3px] shrink-0 overflow-hidden rounded-full bg-glass-2/90',
-                appToastProgressGridRowClass,
-              ]"
-              aria-hidden="true"
-            >
-              <div
-                :key="appToastProgressEpoch"
-                class="app-toast-dismiss-progress-fill h-full w-full rounded-full bg-emerald-400/95"
-                :style="{ animationDuration: `${appToast.durationMs}ms` }"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-    <Teleport to="body">
-      <div
-        v-if="
-          appToast &&
-          appToastContextMenuOpen &&
-          appToast.variant === 'incoming_chat_message'
-        "
-        ref="appToastContextMenuRef"
-        class="ellipsis-menu fixed z-[120] min-w-[180px] py-1"
-        :style="{
-          left: `${appToastContextMenuPosition.left}px`,
-          top: `${appToastContextMenuPosition.top}px`,
-        }"
-        @mousedown.stop
-        @contextmenu.prevent
-      >
-        <button
-          v-if="hasAppToastPrimaryContextAction"
-          type="button"
-          class="chat-focus-ring flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground hover:bg-glass-hover"
-          @click="openMessageChannelFromToastContextMenu"
-        >
-          Open conversation
-        </button>
-        <button
-          type="button"
-          class="chat-focus-ring flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-fg-soft hover:bg-glass-hover"
-          @click="dismissToastFromContextMenu"
-        >
-          Dismiss notification
-        </button>
-      </div>
-    </Teleport>
+    <AppToastShell :layout-context="appToastLayoutContext" />
+
     <template v-if="useCompactTriPaneShell">
       <CompactTriPaneShell
         v-model="compactPagerPane"
@@ -5275,278 +4553,4 @@ watch(
 
 <style lang="scss">
 @use '@/features/layout/styles/appLayout.scss';
-
-.app-toast-incoming-call {
-  color: color-mix(in srgb, white 96%, black 4%);
-}
-
-.app-toast-glass {
-  border: 1px solid transparent;
-  background: linear-gradient(
-    165deg,
-    color-mix(in srgb, white 9%, transparent) 0%,
-    color-mix(in srgb, black 60%, transparent) 46%,
-    color-mix(in srgb, black 80%, transparent) 100%
-  );
-  backdrop-filter: blur(20px) saturate(1.15);
-  -webkit-backdrop-filter: blur(20px) saturate(1.15);
-  box-shadow:
-    0 12px 28px color-mix(in srgb, black 48%, transparent),
-    0 0 0 1px color-mix(in srgb, white 5%, transparent);
-}
-
-.app-toast-glass--warning {
-  border-color: transparent;
-  background: linear-gradient(
-    168deg,
-    color-mix(in srgb, salmon 20%, transparent) 0%,
-    color-mix(in srgb, black 58%, transparent) 52%,
-    color-mix(in srgb, black 80%, transparent) 100%
-  );
-  box-shadow:
-    0 12px 30px color-mix(in srgb, black 52%, transparent),
-    0 0 0 1px color-mix(in srgb, salmon 24%, transparent);
-}
-
-.app-toast-glass--success {
-  border-color: transparent;
-  background: linear-gradient(
-    168deg,
-    color-mix(in srgb, #34d399 22%, transparent) 0%,
-    color-mix(in srgb, black 56%, transparent) 50%,
-    color-mix(in srgb, black 80%, transparent) 100%
-  );
-  box-shadow:
-    0 12px 30px color-mix(in srgb, black 50%, transparent),
-    0 0 0 1px color-mix(in srgb, #34d399 28%, transparent);
-}
-
-.app-toast-dismiss-progress-fill {
-  transform-origin: left center;
-  animation-name: app-toast-dismiss-progress;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-
-@keyframes app-toast-dismiss-progress {
-  from {
-    transform: scaleX(1);
-  }
-  to {
-    transform: scaleX(0);
-  }
-}
-
-.app-toast-default-row__icon {
-  background: color-mix(in srgb, white 8%, transparent);
-  box-shadow: none;
-}
-
-.app-toast-default-row__icon img {
-  filter: var(--app-toast-icon-filter, invert(1));
-}
-
-.app-toast-incoming-call__avatar-col {
-  width: 2.5rem;
-  height: 2.5rem;
-}
-
-.app-toast-incoming-call {
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, white 10%, transparent) 0%,
-    color-mix(in srgb, black 54%, transparent) 44%,
-    color-mix(in srgb, black 76%, transparent) 100%
-  );
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  box-shadow:
-    0 14px 34px color-mix(in srgb, black 48%, transparent),
-    0 0 0 1px color-mix(in srgb, white 5%, transparent);
-}
-
-.app-toast-incoming-call__inner {
-  position: relative;
-}
-
-.app-toast-incoming-call__avatar-aura {
-  position: absolute;
-  inset: -4px;
-  z-index: 0;
-  border-radius: 9999px;
-  background-size: cover;
-  background-position: center;
-  filter: blur(8px) saturate(1.25);
-  opacity: 0.5;
-  pointer-events: none;
-  mask-image: radial-gradient(
-    circle closest-side at 50% 50%,
-    transparent 52%,
-    black 78%
-  );
-  -webkit-mask-image: radial-gradient(
-    circle closest-side at 50% 50%,
-    transparent 52%,
-    black 78%
-  );
-}
-
-.app-toast-incoming-call__pulse {
-  z-index: 1;
-  animation: app-toast-incoming-ring 1.8s ease-out infinite;
-}
-
-.app-toast-incoming-call__waves {
-  display: inline-flex;
-  height: 12px;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.app-toast-incoming-call__waves--muted .app-toast-incoming-call__wave {
-  animation: none;
-  opacity: 0.28;
-  transform: scaleY(0.35);
-}
-
-.app-toast-incoming-call__wave {
-  display: block;
-  width: 2px;
-  border-radius: 999px;
-  background: color-mix(in srgb, white 42%, transparent);
-  transform-origin: center bottom;
-  animation: app-toast-incoming-wave 0.85s ease-in-out infinite;
-}
-
-[data-theme='light'] .app-toast-incoming-call .app-toast-incoming-call__wave {
-  background: color-mix(in srgb, var(--accent) 55%, transparent);
-}
-
-[data-theme='light'] .app-toast-incoming-call input {
-  background: color-mix(in srgb, white 88%, transparent);
-  border-color: color-mix(in srgb, var(--border) 86%, white 14%);
-  color: var(--text);
-}
-
-[data-theme='light'] .app-toast-incoming-call input::placeholder {
-  color: var(--muted);
-}
-
-[data-theme='light'] .app-toast-incoming-call__actions button {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 84%, white 16%);
-}
-
-.app-toast-incoming-call__wave:nth-child(1) {
-  height: 5px;
-  animation-delay: 0ms;
-}
-
-.app-toast-incoming-call__wave:nth-child(2) {
-  height: 8px;
-  animation-delay: 120ms;
-}
-
-.app-toast-incoming-call__wave:nth-child(3) {
-  height: 12px;
-  animation-delay: 240ms;
-}
-
-[data-theme='light'] .app-toast-glass {
-  border: 1px solid transparent;
-  background: linear-gradient(
-    165deg,
-    color-mix(in srgb, white 94%, var(--surface) 6%) 0%,
-    color-mix(in srgb, white 88%, var(--surface) 12%) 48%,
-    color-mix(in srgb, white 84%, var(--surface) 16%) 100%
-  );
-  box-shadow:
-    0 10px 24px color-mix(in srgb, black 10%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--border) 42%, transparent);
-}
-
-[data-theme='light'] .app-toast-glass--warning {
-  background: linear-gradient(
-    166deg,
-    color-mix(in srgb, #ffb07a 28%, white 72%) 0%,
-    color-mix(in srgb, #ffa86f 14%, white 86%) 100%
-  );
-  box-shadow:
-    0 10px 24px color-mix(in srgb, black 11%, transparent),
-    0 0 0 1px color-mix(in srgb, #f28b5f 38%, transparent);
-}
-
-[data-theme='light'] .app-toast-glass--success {
-  background: linear-gradient(
-    166deg,
-    color-mix(in srgb, #6ee7b7 22%, white 78%) 0%,
-    color-mix(in srgb, #d1fae5 12%, white 88%) 100%
-  );
-  box-shadow:
-    0 10px 24px color-mix(in srgb, black 10%, transparent),
-    0 0 0 1px color-mix(in srgb, #34d399 42%, transparent);
-}
-
-[data-theme='light'] .app-toast-incoming-call {
-  color: var(--text);
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, white 94%, var(--surface) 6%) 0%,
-    color-mix(in srgb, white 86%, var(--surface) 14%) 100%
-  );
-}
-
-[data-theme='light'] .app-toast-default-row__icon {
-  background: color-mix(in srgb, var(--surface) 92%, var(--text) 8%);
-  box-shadow: none;
-}
-
-[data-theme='light'] .app-toast-default-row__icon img {
-  filter: none;
-}
-
-[data-theme='light'] .app-toast-incoming-call input[aria-label='Quick reply'] {
-  border-color: color-mix(in srgb, var(--border) 85%, transparent);
-  background: color-mix(in srgb, white 92%, var(--surface) 8%);
-  color: var(--text);
-}
-
-[data-theme='light']
-  .app-toast-incoming-call
-  input[aria-label='Quick reply']::placeholder {
-  color: var(--text-muted);
-}
-
-[data-theme='light'] .app-toast-incoming-call button {
-  box-shadow: none;
-}
-
-@keyframes app-toast-incoming-ring {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, mediumseagreen 28%, transparent);
-    opacity: 0.75;
-  }
-  70% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 5px color-mix(in srgb, mediumseagreen 0%, transparent);
-    opacity: 0.28;
-  }
-  100% {
-    transform: scale(1.06);
-    box-shadow: 0 0 0 0 color-mix(in srgb, mediumseagreen 0%, transparent);
-    opacity: 0;
-  }
-}
-
-@keyframes app-toast-incoming-wave {
-  0%,
-  100% {
-    transform: scaleY(0.35);
-    opacity: 0.55;
-  }
-  50% {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-}
 </style>

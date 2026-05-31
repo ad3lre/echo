@@ -43,6 +43,7 @@ async function forwardLiveKitWebhookToSidecar(opts: {
         'x-echo-signature': signature,
       },
       body,
+      signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) {
       vcTrace(opts.reqLog, 'livekit.webhook:sidecar_forward_non_2xx', {
@@ -474,7 +475,7 @@ export default async function livekitWebhookRoutes(
           ids.length > 0 && config.liveKitEmitActiveSpeakersWebhook,
       });
       req.log.info(
-        `[LiveKit:Webhook] active_speakers_changed — speakers=${ids.length} ids=[${ids.join(', ')}] room=${event.room?.name ?? '?'}`,
+        `[LiveKit:Webhook] active_speakers_changed — speakerCount=${ids.length} room=${event.room?.name ?? '?'}`,
       );
       if (ids.length > 0 && config.liveKitEmitActiveSpeakersWebhook) {
         publishEchoWorkspaceEvent(
@@ -484,7 +485,7 @@ export default async function livekitWebhookRoutes(
             version: `${Date.now()}`,
             serverId,
             voiceChannelId: channelId,
-            activeSpeakerIds: ids,
+            activeSpeakerCount: ids.length,
           },
           { serverId },
         );

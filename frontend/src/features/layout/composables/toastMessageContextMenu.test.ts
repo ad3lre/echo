@@ -68,47 +68,28 @@ describe('toastMessageContextMenu', () => {
     expect(resolveToastMessagePrimaryAction([])).toBeNull();
   });
 
-  it('hides primary action when quick-reply fallback shows Open', () => {
+  it('hides primary Open while quick-reply composer is shown', () => {
     expect(
-      shouldHideToastPrimaryActionForQuickReply(
-        {
-          message: 'x',
-          variant: 'incoming_chat_message',
-          quickReplyChannelId: 'dm-1',
-        },
-        '',
-      ),
+      shouldHideToastPrimaryActionForQuickReply({
+        message: 'x',
+        variant: 'incoming_chat_message',
+        quickReplyChannelId: 'dm-1',
+      }),
     ).toBe(true);
-    expect(
-      shouldHideToastPrimaryActionForQuickReply(
-        {
-          message: 'x',
-          variant: 'incoming_chat_message',
-          quickReplyChannelId: 'dm-1',
-        },
-        'hello',
-      ),
-    ).toBe(false);
   });
 
   it('keeps primary action for non-quick-reply toasts', () => {
     expect(
-      shouldHideToastPrimaryActionForQuickReply(
-        {
-          message: 'x',
-          variant: 'incoming_chat_message',
-        },
-        '',
-      ),
+      shouldHideToastPrimaryActionForQuickReply({
+        message: 'x',
+        variant: 'incoming_chat_message',
+      }),
     ).toBe(false);
     expect(
-      shouldHideToastPrimaryActionForQuickReply(
-        {
-          message: 'x',
-          variant: 'default',
-        },
-        '',
-      ),
+      shouldHideToastPrimaryActionForQuickReply({
+        message: 'x',
+        variant: 'default',
+      }),
     ).toBe(false);
   });
 });

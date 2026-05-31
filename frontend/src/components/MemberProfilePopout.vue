@@ -13,6 +13,10 @@ import {
   popoutCardNeedsFixedHeight,
   resolveMemberPopoutTop,
 } from '@/utils/memberPopoutPlacement';
+import {
+  clampFixedOverlayBox,
+  readOverlayVisibleViewport,
+} from '@/utils/overlayViewport';
 import { profileBannerRefractionBackdropStyle } from '@/utils/profileBannerGradientFromImage';
 import MemberProfileHeader from './member-profile/MemberProfileHeader.vue';
 import MemberProfileContent from './member-profile/MemberProfileContent.vue';
@@ -279,10 +283,9 @@ const rolePopupStyle = computed(() => {
   void rolePopupLayoutTick.value;
   const trigger = roleTriggerRef.value;
   const panelWidth = 288;
-  const viewportWidth =
-    typeof window !== 'undefined' ? window.innerWidth : 1440;
-  const viewportHeight =
-    typeof window !== 'undefined' ? window.innerHeight : 900;
+  const viewport = readOverlayVisibleViewport();
+  const viewportWidth = viewport.width;
+  const viewportHeight = viewport.height;
   const padding = 12;
   const gap = 10;
   const maxPanelHeight = Math.min(360, viewportHeight - padding * 2);
@@ -294,31 +297,46 @@ const rolePopupStyle = computed(() => {
 
   if (rolesStandaloneUi.value && props.anchor) {
     const rect = props.anchor;
-    const left = Math.min(
-      Math.max(rect.left, padding),
-      Math.max(padding, viewportWidth - panelWidth - padding),
+    let left = Math.min(
+      Math.max(rect.left, viewport.offsetLeft + padding),
+      Math.max(
+        viewport.offsetLeft + padding,
+        viewport.offsetLeft + viewportWidth - panelWidth - padding,
+      ),
     );
-    const spaceBelow = viewportHeight - rect.bottom - padding;
-    const spaceAbove = rect.top - padding;
+    const visibleBottom = viewport.offsetTop + viewportHeight;
+    const spaceBelow = visibleBottom - rect.bottom - padding;
+    const spaceAbove = rect.top - viewport.offsetTop - padding;
     let top: number;
     if (spaceBelow >= panelHeight + gap) {
-      top = Math.min(rect.bottom + gap, viewportHeight - panelHeight - padding);
+      top = Math.min(rect.bottom + gap, visibleBottom - panelHeight - padding);
     } else if (spaceAbove >= panelHeight + gap) {
-      top = Math.max(rect.top - panelHeight - gap, padding);
+      top = Math.max(
+        rect.top - panelHeight - gap,
+        viewport.offsetTop + padding,
+      );
     } else if (spaceBelow >= spaceAbove) {
       top = Math.min(
-        Math.max(rect.bottom + gap, padding),
-        viewportHeight - panelHeight - padding,
+        Math.max(rect.bottom + gap, viewport.offsetTop + padding),
+        visibleBottom - panelHeight - padding,
       );
     } else {
       top = Math.max(
         Math.min(
           rect.top - panelHeight - gap,
-          viewportHeight - panelHeight - padding,
+          visibleBottom - panelHeight - padding,
         ),
-        padding,
+        viewport.offsetTop + padding,
       );
     }
+    ({ left, top } = clampFixedOverlayBox(
+      left,
+      top,
+      panelWidth,
+      panelHeight,
+      viewport,
+      padding,
+    ));
     return {
       left: `${left}px`,
       top: `${top}px`,
@@ -331,15 +349,27 @@ const rolePopupStyle = computed(() => {
   if (articleEl && !rolesStandaloneUi.value) {
     const profileRect = articleEl.getBoundingClientRect();
     const preferredLeft = profileRect.left - panelWidth - gap;
-    const left = Math.min(
-      Math.max(preferredLeft, padding),
-      Math.max(padding, viewportWidth - panelWidth - padding),
+    let left = Math.min(
+      Math.max(preferredLeft, viewport.offsetLeft + padding),
+      Math.max(
+        viewport.offsetLeft + padding,
+        viewport.offsetLeft + viewportWidth - panelWidth - padding,
+      ),
     );
+    const visibleBottom = viewport.offsetTop + viewportHeight;
     let top = profileRect.top;
-    if (top + panelHeight > viewportHeight - padding) {
-      top = viewportHeight - padding - panelHeight;
+    if (top + panelHeight > visibleBottom - padding) {
+      top = visibleBottom - padding - panelHeight;
     }
-    top = Math.max(top, padding);
+    top = Math.max(top, viewport.offsetTop + padding);
+    ({ left, top } = clampFixedOverlayBox(
+      left,
+      top,
+      panelWidth,
+      panelHeight,
+      viewport,
+      padding,
+    ));
     return {
       left: `${left}px`,
       top: `${top}px`,
@@ -347,39 +377,56 @@ const rolePopupStyle = computed(() => {
   }
 
   if (!trigger) {
+    const centeredLeft = Math.max(
+      viewport.offsetLeft + padding,
+      viewport.offsetLeft + viewportWidth / 2 - panelWidth / 2,
+    );
     return {
-      left: `${Math.max(padding, viewportWidth / 2 - panelWidth / 2)}px`,
-      top: `${padding}px`,
+      left: `${centeredLeft}px`,
+      top: `${viewport.offsetTop + padding}px`,
     };
   }
   const rect = trigger.getBoundingClientRect();
   const preferredLeft = rect.right - panelWidth;
-  const left = Math.min(
-    Math.max(preferredLeft, padding),
-    Math.max(padding, viewportWidth - panelWidth - padding),
+  let left = Math.min(
+    Math.max(preferredLeft, viewport.offsetLeft + padding),
+    Math.max(
+      viewport.offsetLeft + padding,
+      viewport.offsetLeft + viewportWidth - panelWidth - padding,
+    ),
   );
-  const spaceBelow = viewportHeight - rect.bottom - padding;
-  const spaceAbove = rect.top - padding;
+  const visibleBottom = viewport.offsetTop + viewportHeight;
+  const spaceBelow = visibleBottom - rect.bottom - padding;
+  const spaceAbove = rect.top - viewport.offsetTop - padding;
 
   let top: number;
   if (spaceBelow >= panelHeight + gap) {
-    top = Math.min(rect.bottom + gap, viewportHeight - panelHeight - padding);
+    top = Math.min(rect.bottom + gap, visibleBottom - panelHeight - padding);
   } else if (spaceAbove >= panelHeight + gap) {
-    top = Math.max(rect.top - panelHeight - gap, padding);
+    top = Math.max(rect.top - panelHeight - gap, viewport.offsetTop + padding);
   } else if (spaceBelow >= spaceAbove) {
     top = Math.min(
-      Math.max(rect.bottom + gap, padding),
-      viewportHeight - panelHeight - padding,
+      Math.max(rect.bottom + gap, viewport.offsetTop + padding),
+      visibleBottom - panelHeight - padding,
     );
   } else {
     top = Math.max(
       Math.min(
         rect.top - panelHeight - gap,
-        viewportHeight - panelHeight - padding,
+        visibleBottom - panelHeight - padding,
       ),
-      padding,
+      viewport.offsetTop + padding,
     );
   }
+
+  ({ left, top } = clampFixedOverlayBox(
+    left,
+    top,
+    panelWidth,
+    panelHeight,
+    viewport,
+    padding,
+  ));
 
   return {
     left: `${left}px`,
@@ -492,13 +539,12 @@ const placement = computed(() => {
   const baseWidth = 308;
   const padding = 16;
   const arrowInset = 24;
-  const viewportWidth =
-    typeof window !== 'undefined' ? window.innerWidth : 1440;
-  const viewportHeight =
-    typeof window !== 'undefined' ? window.innerHeight : 900;
+  const viewport = readOverlayVisibleViewport();
+  const viewportWidth = viewport.width;
+  const viewportHeight = viewport.height;
   const width = Math.min(baseWidth, Math.max(220, viewportWidth - padding * 2));
   const source = props.anchor?.source ?? 'generic';
-  const maxPanelHeight = viewportHeight - padding * 2;
+  const maxPanelHeight = Math.max(200, viewportHeight - padding * 2);
   /** Height for layout until ResizeObserver reports the real popout size (avoids a huge first-frame `top` for self-bar). */
   const layoutHeightEstimate = 400;
   const popoutNaturalHeight =
@@ -548,13 +594,21 @@ const placement = computed(() => {
   const snapPx = (n: number) => Math.round(n);
 
   if (!props.anchor) {
+    const centered = clampFixedOverlayBox(
+      viewport.offsetLeft + viewportWidth / 2 - width / 2,
+      viewport.offsetTop + viewportHeight / 2 - effectivePopoutHeight / 2,
+      width,
+      effectivePopoutHeight,
+      viewport,
+      padding,
+    );
     return {
       side: 'right' as const,
       centered: true,
       sheet: false,
       style: {
-        left: `${snapPx(Math.max(padding, viewportWidth / 2 - width / 2))}px`,
-        top: `${snapPx(Math.max(padding, viewportHeight / 2 - effectivePopoutHeight / 2))}px`,
+        left: `${snapPx(centered.left)}px`,
+        top: `${snapPx(centered.top)}px`,
         maxHeight: `${maxPanelHeight}px`,
       },
       arrowStyle: {
@@ -565,13 +619,21 @@ const placement = computed(() => {
   }
 
   if (compactViewport) {
+    const centered = clampFixedOverlayBox(
+      viewport.offsetLeft + viewportWidth / 2 - width / 2,
+      viewport.offsetTop + viewportHeight / 2 - panelHeight / 2,
+      width,
+      panelHeight,
+      viewport,
+      padding,
+    );
     return {
       side: 'right' as const,
       centered: true,
       sheet: false,
       style: {
-        left: `${snapPx(Math.max(padding, viewportWidth / 2 - width / 2))}px`,
-        top: `${snapPx(Math.max(padding, viewportHeight / 2 - panelHeight / 2))}px`,
+        left: `${snapPx(centered.left)}px`,
+        top: `${snapPx(centered.top)}px`,
         maxHeight: `${maxPanelHeight}px`,
       },
       arrowStyle: {
@@ -581,8 +643,9 @@ const placement = computed(() => {
     };
   }
 
-  const spaceRight = viewportWidth - props.anchor.right - padding;
-  const spaceLeft = props.anchor.left - padding;
+  const visibleRight = viewport.offsetLeft + viewportWidth;
+  const spaceRight = visibleRight - props.anchor.right - padding;
+  const spaceLeft = props.anchor.left - viewport.offsetLeft - padding;
   const canFitRight = spaceRight >= width + gap;
   const canFitLeft = spaceLeft >= width + gap;
 
@@ -596,13 +659,19 @@ const placement = computed(() => {
 
   let left =
     side === 'right'
-      ? Math.min(props.anchor.right + gap, viewportWidth - width - padding)
-      : Math.max(props.anchor.left - width - gap, padding);
+      ? Math.min(props.anchor.right + gap, visibleRight - width - padding)
+      : Math.max(
+          props.anchor.left - width - gap,
+          viewport.offsetLeft + padding,
+        );
 
   const isMobileMemberQuickProfile =
     source === 'member-list' && viewportWidth <= 900;
   if (isMobileMemberQuickProfile && popoutDisplayNameOverflowPx.value > 0) {
-    const maxLeft = Math.max(padding, viewportWidth - width - padding);
+    const maxLeft = Math.max(
+      viewport.offsetLeft + padding,
+      visibleRight - width - padding,
+    );
     const nudgeRightBy = Math.min(
       84,
       Math.ceil(popoutDisplayNameOverflowPx.value + 12),
@@ -635,19 +704,19 @@ const placement = computed(() => {
     ? resolveMemberPopoutTop({
         desiredTop,
         panelHeight,
-        viewportHeight,
+        viewport,
         padding,
         anchor: props.anchor,
         source,
         gap,
       })
     : Math.min(
-        Math.max(desiredTop, padding),
-        viewportHeight - panelHeight - padding,
+        Math.max(desiredTop, viewport.offsetTop + padding),
+        viewport.offsetTop + viewportHeight - panelHeight - padding,
       );
 
   const panelMaxHeight = computePopoutViewportMaxHeight(
-    viewportHeight,
+    viewport,
     top,
     padding,
     maxPanelHeight,
@@ -657,7 +726,7 @@ const placement = computed(() => {
   const fittedTop = computeFittedPopoutTop(
     top,
     panelMaxHeight,
-    viewportHeight,
+    viewport,
     padding,
   );
 
@@ -671,20 +740,29 @@ const placement = computed(() => {
     panelMaxHeight - arrowInset,
   );
 
+  const fittedBox = clampFixedOverlayBox(
+    left,
+    fittedTop,
+    width,
+    panelMaxHeight,
+    viewport,
+    padding,
+  );
+
   return {
     side,
     centered: false,
     sheet: false,
     style: {
-      left: `${snapPx(left)}px`,
-      top: `${snapPx(fittedTop)}px`,
+      left: `${snapPx(fittedBox.left)}px`,
+      top: `${snapPx(fittedBox.top)}px`,
       maxHeight: `${panelMaxHeight}px`,
       ...(needsFixedHeight ? { height: `${panelMaxHeight}px` } : {}),
     },
     arrowStyle: {
       top: `${arrowCenter}px`,
     },
-    offsetY: fittedTop - anchorCenterY,
+    offsetY: fittedBox.top - anchorCenterY,
   };
 });
 
@@ -770,10 +848,23 @@ function toggleRolePanel(ev?: MouseEvent) {
   }
 }
 
-onMounted(() => {
-  window.addEventListener('keydown', onKeydown);
+function bindPopoutViewportListeners() {
   window.addEventListener('resize', handleViewportUpdate);
   window.addEventListener('scroll', handleViewportUpdate, true);
+  window.visualViewport?.addEventListener('resize', handleViewportUpdate);
+  window.visualViewport?.addEventListener('scroll', handleViewportUpdate);
+}
+
+function unbindPopoutViewportListeners() {
+  window.removeEventListener('resize', handleViewportUpdate);
+  window.removeEventListener('scroll', handleViewportUpdate, true);
+  window.visualViewport?.removeEventListener('resize', handleViewportUpdate);
+  window.visualViewport?.removeEventListener('scroll', handleViewportUpdate);
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown);
+  bindPopoutViewportListeners();
   void nextTick(() => updateDisplayNameOverflowMeasure());
 });
 
@@ -782,8 +873,7 @@ onUnmounted(() => {
   disconnectPopoutHeightResizeObserver();
   disconnectPopoutDisplayNameResizeObserver();
   window.removeEventListener('keydown', onKeydown);
-  window.removeEventListener('resize', handleViewportUpdate);
-  window.removeEventListener('scroll', handleViewportUpdate, true);
+  unbindPopoutViewportListeners();
 });
 
 function handleViewportUpdate() {

@@ -134,7 +134,7 @@ export function isPrivateOrLocalIpLiteral(hostnameOrIp: string): boolean {
   return isPrivateOrLocalIpv4Octets(ipv4);
 }
 
-/** True for http(s) public URLs suitable for outbound fetch (aligns with linkUnfurl SSRF checks). */
+/** True for https public URLs suitable for outbound fetch (aligns with linkUnfurl SSRF checks). */
 export function isUrlSafeForOutboundFetch(urlString: string): boolean {
   let u: URL;
   try {
@@ -142,7 +142,7 @@ export function isUrlSafeForOutboundFetch(urlString: string): boolean {
   } catch {
     return false;
   }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  if (u.protocol !== 'https:') return false;
   if (isPrivateOrLocalIpLiteral(u.hostname)) return false;
   if (u.username || u.password) return false;
   return true;

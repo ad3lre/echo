@@ -4,6 +4,7 @@ import type {
   FastifyReply,
 } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { passkeyCeremonyRateLimitKey } from '../sharedMutationRateLimits';
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -36,7 +37,7 @@ export default async function passkeyRoutes(
     await regScope.register(rateLimit, {
       max: 12,
       timeWindow: '15 minutes',
-      keyGenerator: (req) => `passkey_reg:${req.ip}`,
+      keyGenerator: passkeyCeremonyRateLimitKey,
       addHeaders: { 'retry-after': true },
     });
     regScope.post(
@@ -112,7 +113,11 @@ export default async function passkeyRoutes(
             required: ['challengeId', 'credential'],
             properties: {
               challengeId: { type: 'string', minLength: 8 },
-              credential: { type: 'object', additionalProperties: true },
+              credential: {
+                type: 'object',
+                additionalProperties: true,
+                maxProperties: 64,
+              },
               label: { type: 'string', maxLength: 64 },
             },
             additionalProperties: false,
@@ -211,7 +216,7 @@ export default async function passkeyRoutes(
     await credScope.register(rateLimit, {
       max: 60,
       timeWindow: '15 minutes',
-      keyGenerator: (req) => `passkey_cred:${req.ip}`,
+      keyGenerator: passkeyCeremonyRateLimitKey,
       addHeaders: { 'retry-after': true },
     });
     credScope.get(
@@ -388,7 +393,7 @@ export default async function passkeyRoutes(
     await authScope.register(rateLimit, {
       max: 24,
       timeWindow: '15 minutes',
-      keyGenerator: (req) => `passkey_login:${req.ip}`,
+      keyGenerator: passkeyCeremonyRateLimitKey,
       addHeaders: { 'retry-after': true },
     });
     authScope.post<{ Body: { email?: string; username?: string } }>(
@@ -468,7 +473,11 @@ export default async function passkeyRoutes(
             required: ['challengeId', 'credential'],
             properties: {
               challengeId: { type: 'string', minLength: 8 },
-              credential: { type: 'object', additionalProperties: true },
+              credential: {
+                type: 'object',
+                additionalProperties: true,
+                maxProperties: 64,
+              },
             },
             additionalProperties: false,
           },

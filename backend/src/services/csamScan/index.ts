@@ -12,23 +12,19 @@ export type { CsamImagePipelineResult, CsamScanLog } from './types';
 export { purgeEchoUploadObject } from './purgeUploadObject';
 
 /**
- * Server-side image safety step for `dedupe/register`: reads stored bytes, verifies SHA-256,
- * runs configured hash / external scanners. Videos are skipped.
+ * Server-side upload integrity step for `dedupe/register`: reads stored bytes, verifies SHA-256
+ * for images and videos, runs configured hash / external scanners for images only.
  */
-export async function runEchoImageUploadSafetyRegisterStep(opts: {
+export async function runEchoUploadIntegrityRegisterStep(opts: {
   kind: 'image' | 'video';
   storageKey: string;
   byteLength: number;
   sha256HexClient: string;
   log: CsamScanLog;
 }): Promise<CsamImagePipelineResult> {
-  if (opts.kind !== 'image') {
-    return { ok: true };
-  }
-
   const verify = config.echoVerifyImageSha256OnRegister;
   const effective = config.echoCsamImageScanEffective;
-  const needBytes = verify || effective !== 'off';
+  const needBytes = verify || (opts.kind === 'image' && effective !== 'off');
 
   if (!needBytes) {
     return { ok: true };
@@ -50,6 +46,10 @@ export async function runEchoImageUploadSafetyRegisterStep(opts: {
     if (!/^[0-9a-f]{64}$/.test(client) || computed !== client) {
       return { ok: false, reason: 'integrity_sha256_mismatch' };
     }
+  }
+
+  if (opts.kind !== 'image') {
+    return { ok: true };
   }
 
   if (effective === 'off') {
@@ -82,3 +82,7 @@ export async function runEchoImageUploadSafetyRegisterStep(opts: {
   }
   return { ok: true };
 }
+
+/** @deprecated Use {@link runEchoUploadIntegrityRegisterStep}. */
+export const runEchoImageUploadSafetyRegisterStep =
+  runEchoUploadIntegrityRegisterStep;

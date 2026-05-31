@@ -10,6 +10,10 @@ import { loginAuditDigests } from '../../../auth/loginAudit';
 import { sendPasswordResetEmail } from '../../../services/auth/passwordResetActions';
 import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSessionRevocation';
 import { MIN_PASSWORD_LENGTH } from '../../../auth/accountPolicy';
+import {
+  assertStepUpTotpIfEnabled,
+  sendStepUpTotpError,
+} from '../../../auth/stepUpAuth';
 
 export default async function passwordRoutes(fastify: FastifyInstance) {
   await fastify.register(async (forgotScope) => {
@@ -217,7 +221,9 @@ export default async function passwordRoutes(fastify: FastifyInstance) {
     },
   );
 
-  fastify.post<{ Body: { currentPassword: string; newPassword: string } }>(
+  fastify.post<{
+    Body: { currentPassword: string; newPassword: string; totpCode?: string };
+  }>(
     '/change-password',
     {
       preHandler: [requireAuth],
@@ -228,6 +234,7 @@ export default async function passwordRoutes(fastify: FastifyInstance) {
           properties: {
             currentPassword: { type: 'string', minLength: 1 },
             newPassword: { type: 'string', minLength: MIN_PASSWORD_LENGTH },
+            totpCode: { type: 'string', minLength: 6, maxLength: 16 },
           },
           additionalProperties: false,
         },
@@ -252,6 +259,13 @@ export default async function passwordRoutes(fastify: FastifyInstance) {
           'INVALID_CREDENTIALS',
           'Current password is incorrect',
         );
+
+      const stepUp = await assertStepUpTotpIfEnabled(
+        store,
+        req.authUser.id,
+        req.body.totpCode,
+      );
+      if (!stepUp.ok) return sendStepUpTotpError(reply, stepUp.reason);
 
       try {
         await store.updatePassword(req.authUser.id, req.body.newPassword);

@@ -6,8 +6,8 @@ export function getEmailVerifyRedirectUrl(): string {
   return `${base}/login?emailVerified=1`;
 }
 
-/** API link embedded in the signup verification email. */
+/** App page that POSTs the verification token (fragment keeps token off server logs). */
 export function buildSignupVerificationVerifyUrl(plainToken: string): string {
-  const base = config.echoApiPublicUrl.replace(/\/$/, '');
-  return `${base}/api/v1/auth/verify-email?token=${encodeURIComponent(plainToken)}`;
+  const base = config.echoAppPublicUrl.replace(/\/$/, '');
+  return `${base}/verify-email#token=${encodeURIComponent(plainToken)}`;
 }

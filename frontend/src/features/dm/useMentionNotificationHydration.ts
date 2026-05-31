@@ -2,6 +2,10 @@ import { ref, watch, type Ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import {
+  buildCachedMessagesMapForPrefetch,
+  resolveMentionNotificationScanChannelIds,
+} from '@/features/dm/mentionNotificationAuthority';
+import {
   prefetchMentionNotificationChannels,
   resolveMentionNotificationPrefetchTargets,
   type MentionNotificationPrefetchTarget,
@@ -10,20 +14,18 @@ import { hasChannelMessageInBucket } from '@/services/realtime/channelMessageAut
 import { shouldSkipChannelMessagePrefetch } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useEchoAttentionStore } from '@/stores/echoAttention';
-import { useEchoSessionStore } from '@/stores/echoSession';
 
 /**
- * When the notifications view opens, hydrate local message buckets for channels
- * that still have mention-tier unread volume in the attention snapshot.
+ * Background hydrate for mention notification rows: uses the attention snapshot
+ * as the source of unread ping volume and `messageReadFacade` as the message cache.
+ * Runs at app shell level so the inbox is warm before the notifications view opens.
  */
 export function useMentionNotificationHydration(input: {
   rows: Ref<readonly DmMentionNotificationRow[]>;
-  activeChannelId?: Ref<string>;
+  activeChannelId?: Ref<string | null | undefined>;
 }) {
   const auth = useAuthSessionStore();
-  const echoSession = useEchoSessionStore();
   const echoAttention = useEchoAttentionStore();
-  const { messages } = storeToRefs(echoSession);
   const {
     channelAttentionByChannelId,
     readStateByChannelId,
@@ -50,12 +52,19 @@ export function useMentionNotificationHydration(input: {
       return;
     }
 
+    const scanChannelIds = resolveMentionNotificationScanChannelIds({
+      channelAttentionByChannelId: channelAttentionByChannelId.value,
+      readStateByChannelId: readStateByChannelId.value,
+      serverNotificationLevelByServerId:
+        serverNotificationLevelByServerId.value,
+    });
+
     const targets = resolveMentionNotificationPrefetchTargets({
       channelAttentionByChannelId: channelAttentionByChannelId.value,
       readStateByChannelId: readStateByChannelId.value,
       serverNotificationLevelByServerId:
         serverNotificationLevelByServerId.value,
-      messagesByChannelId: messages.value,
+      messagesByChannelId: buildCachedMessagesMapForPrefetch(scanChannelIds),
     });
 
     if (targets.length === 0 || !targetsNeedHydration(targets)) {
@@ -74,7 +83,7 @@ export function useMentionNotificationHydration(input: {
       await prefetchMentionNotificationChannels({
         token,
         targets,
-        activeChannelId: input.activeChannelId?.value,
+        activeChannelId: input.activeChannelId?.value?.trim() || undefined,
       });
     } finally {
       if (seq === hydrateSeq) loading.value = false;
@@ -86,7 +95,6 @@ export function useMentionNotificationHydration(input: {
       channelAttentionByChannelId,
       readStateByChannelId,
       serverNotificationLevelByServerId,
-      messages,
       () => input.rows.value.length,
     ],
     () => {

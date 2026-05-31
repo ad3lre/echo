@@ -11,20 +11,15 @@ import { outlineDestToPageNumber } from '@/features/pdf/outlineDestToPage';
 import { pdfLoadErrorMessage } from '@/features/pdf/isProbablyPdfCorsError';
 import { openExternal } from '@/platform/desktopBridge';
 
-/** Mirrors pdf.js structure tree nodes (not exported from `pdfjs-dist` entry). */
-type StructTreeNode = {
-  role: string;
-  children?: Array<StructTreeNode | StructTreeContent>;
-};
-type StructTreeContent = {
-  type: string;
-  id: string;
-};
-
 const props = defineProps<{
   url: string;
-  /** Accessible label (usually filename). */
   documentLabel: string;
+  downloadUrl?: string;
+  downloadFilename?: string;
+}>();
+
+const emit = defineEmits<{
+  close: [];
 }>();
 
 type OutlineNode = {
@@ -45,6 +40,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null);
 const viewportRef = ref<HTMLElement | null>(null);
 
 const loading = ref(true);
+const pageRendering = ref(false);
 const loadError = ref<string | null>(null);
 
 const pdfRef = shallowRef<PDFDocumentProxy | null>(null);
@@ -52,21 +48,24 @@ const numPages = ref(0);
 const outlineFlat = shallowRef<FlatOutlineRow[]>([]);
 
 const pageNum = ref(1);
-const pageInput = ref('1');
-
-const fitMode = ref<'width' | 'page'>('width');
 const userZoom = ref(1);
+const fitMode = ref<'width' | 'page'>('width');
 
-const sidebarOpen = ref(true);
-const sidebarTab = ref<'outline' | 'structure'>('outline');
-
-const structLoading = ref(false);
-const structError = ref<string | null>(null);
-const structLines = ref<{ text: string; depth: number }[]>([]);
+const outlineOpen = ref(false);
 
 let loadGeneration = 0;
 let activeTask: PDFDocumentLoadingTask | null = null;
 let activeRender: RenderTask | null = null;
+
+const canGoPrev = computed(() => pageNum.value > 1);
+const canGoNext = computed(
+  () => !!pdfRef.value && pageNum.value < numPages.value,
+);
+const zoomPct = computed(() => Math.round(userZoom.value * 100));
+const canvasAriaLabel = computed(
+  () =>
+    `${props.documentLabel}, page ${pageNum.value} of ${numPages.value || '?'}`,
+);
 
 function flattenOutline(items: OutlineNode[], depth = 0): FlatOutlineRow[] {
   const out: FlatOutlineRow[] = [];
@@ -84,29 +83,6 @@ function flattenOutline(items: OutlineNode[], depth = 0): FlatOutlineRow[] {
   return out;
 }
 
-function flattenStructTree(
-  node: StructTreeNode | null,
-  depth: number,
-): { text: string; depth: number }[] {
-  if (!node) return [];
-  const rows: { text: string; depth: number }[] = [
-    { text: node.role || 'Element', depth },
-  ];
-  for (const ch of node.children ?? []) {
-    if ('role' in ch && (ch as StructTreeNode).role != null) {
-      rows.push(...flattenStructTree(ch as StructTreeNode, depth + 1));
-    } else {
-      const c = ch as StructTreeContent;
-      const bit =
-        c.type === 'content' || c.type === 'object'
-          ? `${c.type}${c.id ? ` · ${c.id}` : ''}`
-          : String(c.type ?? 'item');
-      rows.push({ text: bit, depth: depth + 1 });
-    }
-  }
-  return rows;
-}
-
 async function teardownRenderAndDoc() {
   if (activeRender) {
     try {
@@ -121,6 +97,67 @@ async function teardownRenderAndDoc() {
   pdfRef.value = null;
   activeTask = null;
   await destroyPdfLoad(task, pdf ?? undefined);
+}
+
+async function renderCurrentPage(): Promise<boolean> {
+  const pdf = pdfRef.value;
+  const canvas = canvasRef.value;
+  const wrap = viewportRef.value;
+  if (!pdf || !canvas || !wrap) return false;
+
+  const gen = loadGeneration;
+  if (activeRender) {
+    try {
+      activeRender.cancel();
+    } catch {
+      /* ignore */
+    }
+    activeRender = null;
+  }
+
+  const p = Math.min(Math.max(1, pageNum.value), pdf.numPages);
+  pageNum.value = p;
+
+  const pad = 24;
+  const cw = Math.max(80, wrap.clientWidth - pad);
+  const ch = Math.max(80, wrap.clientHeight - pad);
+
+  pageRendering.value = true;
+  try {
+    const page = await pdf.getPage(p);
+    if (gen !== loadGeneration) return false;
+    const base = page.getViewport({ scale: 1 });
+    const fitW = cw / base.width;
+    const fitH = ch / base.height;
+    const baseline = fitMode.value === 'width' ? fitW : Math.min(fitW, fitH);
+    const cssWidth = base.width * baseline * userZoom.value;
+    const { renderTask } = renderPdfPageToCanvas({
+      page,
+      canvas,
+      cssWidth,
+    });
+    activeRender = renderTask;
+    await renderTask.promise;
+    if (gen !== loadGeneration) return false;
+    activeRender = null;
+    return true;
+  } catch (e) {
+    if (gen !== loadGeneration) return false;
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!msg.toLowerCase().includes('rendering cancelled')) {
+      loadError.value = msg || 'Render failed.';
+    }
+    return false;
+  } finally {
+    if (gen === loadGeneration) pageRendering.value = false;
+  }
+}
+
+async function ensurePageRendered(retries = 4): Promise<void> {
+  for (let i = 0; i < retries; i++) {
+    if (await renderCurrentPage()) return;
+    await nextTick();
+  }
 }
 
 async function loadDocument() {
@@ -140,11 +177,13 @@ async function loadDocument() {
   }
 
   loading.value = true;
+  pageRendering.value = false;
   loadError.value = null;
   outlineFlat.value = [];
-  structLines.value = [];
   pageNum.value = 1;
-  pageInput.value = '1';
+  userZoom.value = 1;
+  fitMode.value = 'width';
+  outlineOpen.value = false;
 
   const { task, promise } = startPdfUrlLoad(url);
   activeTask = task;
@@ -167,82 +206,13 @@ async function loadDocument() {
     loading.value = false;
     await nextTick();
     if (gen !== loadGeneration) return;
-    await renderCurrentPage();
+    await ensurePageRendered();
   } catch (e) {
     if (gen !== loadGeneration) return;
     await destroyPdfLoad(task, undefined).catch(() => {});
     activeTask = null;
     loadError.value = pdfLoadErrorMessage(e);
     loading.value = false;
-  }
-}
-
-async function renderCurrentPage() {
-  const pdf = pdfRef.value;
-  const canvas = canvasRef.value;
-  const wrap = viewportRef.value;
-  if (!pdf || !canvas || !wrap) return;
-
-  const gen = loadGeneration;
-  if (activeRender) {
-    try {
-      activeRender.cancel();
-    } catch {
-      /* ignore */
-    }
-    activeRender = null;
-  }
-
-  const p = Math.min(Math.max(1, pageNum.value), pdf.numPages);
-  pageNum.value = p;
-  pageInput.value = String(p);
-
-  const pad = 16;
-  const cw = Math.max(80, wrap.clientWidth - pad);
-  const ch = Math.max(80, wrap.clientHeight - pad);
-
-  try {
-    const page = await pdf.getPage(p);
-    if (gen !== loadGeneration) return;
-    const base = page.getViewport({ scale: 1 });
-    const fitW = cw / base.width;
-    const fitH = ch / base.height;
-    const baseline = fitMode.value === 'width' ? fitW : Math.min(fitW, fitH);
-    const cssWidth = base.width * baseline * userZoom.value;
-    const { renderTask } = renderPdfPageToCanvas({
-      page,
-      canvas,
-      cssWidth,
-    });
-    activeRender = renderTask;
-    await renderTask.promise;
-    if (gen !== loadGeneration) return;
-    activeRender = null;
-  } catch (e) {
-    if (gen !== loadGeneration) return;
-    const msg = e instanceof Error ? e.message : String(e);
-    if (!msg.toLowerCase().includes('rendering cancelled')) {
-      loadError.value = msg || 'Render failed.';
-    }
-  }
-}
-
-async function loadStructForPage() {
-  const pdf = pdfRef.value;
-  if (!pdf) return;
-  structLoading.value = true;
-  structError.value = null;
-  structLines.value = [];
-  try {
-    const p = Math.min(Math.max(1, pageNum.value), pdf.numPages);
-    const page = await pdf.getPage(p);
-    const tree = (await page.getStructTree()) as StructTreeNode | null;
-    structLines.value = flattenStructTree(tree, 0);
-  } catch (e) {
-    structError.value =
-      e instanceof Error ? e.message : 'Could not read structure tree.';
-  } finally {
-    structLoading.value = false;
   }
 }
 
@@ -256,15 +226,7 @@ watch(
 
 watch([pageNum, fitMode, userZoom], () => {
   if (!pdfRef.value || loading.value) return;
-  void nextTick(() => renderCurrentPage());
-});
-
-watch(sidebarTab, (tab) => {
-  if (tab === 'structure') void loadStructForPage();
-});
-
-watch(pageNum, () => {
-  if (sidebarTab.value === 'structure') void loadStructForPage();
+  void nextTick(() => ensurePageRendered());
 });
 
 let ro: ResizeObserver | null = null;
@@ -278,30 +240,13 @@ watch(
     if (!el) return;
     ro = new ResizeObserver(() => {
       if (pdfRef.value && !loading.value) {
-        void renderCurrentPage();
+        void ensurePageRendered();
       }
     });
     ro.observe(el);
   },
   { flush: 'post' },
 );
-
-const canvasAriaLabel = computed(
-  () =>
-    `${props.documentLabel}, page ${pageNum.value} of ${numPages.value || '?'}`,
-);
-
-function clampPageInput() {
-  const pdf = pdfRef.value;
-  if (!pdf) return;
-  const raw = parseInt(pageInput.value, 10);
-  if (!Number.isFinite(raw)) {
-    pageInput.value = String(pageNum.value);
-    return;
-  }
-  pageNum.value = Math.min(Math.max(1, raw), pdf.numPages);
-  pageInput.value = String(pageNum.value);
-}
 
 function goPrev() {
   pageNum.value = Math.max(1, pageNum.value - 1);
@@ -331,6 +276,12 @@ function setFitPage() {
   userZoom.value = 1;
 }
 
+function openInBrowser() {
+  const u = props.downloadUrl?.trim() || props.url?.trim();
+  if (!u) return;
+  void openExternal(u);
+}
+
 async function onOutlineRowClick(row: FlatOutlineRow) {
   const pdf = pdfRef.value;
   if (!pdf) return;
@@ -341,7 +292,7 @@ async function onOutlineRowClick(row: FlatOutlineRow) {
   const destPage = await outlineDestToPageNumber(pdf, row.dest);
   if (destPage != null) {
     pageNum.value = destPage;
-    pageInput.value = String(destPage);
+    outlineOpen.value = false;
   }
 }
 
@@ -356,197 +307,365 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
-    <div class="relative flex min-h-0 min-w-0 flex-1 flex-col bg-[#1e1e22]">
-      <div
-        class="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border bg-glass-1 px-2 py-1.5"
+  <div class="pdf-viewer relative flex min-h-0 min-w-0 flex-1 flex-col">
+    <div
+      class="viewer-btn-group absolute right-4 top-4 z-20 flex items-center gap-0.5 rounded-lg px-1 py-1"
+    >
+      <button
+        v-if="outlineFlat.length > 0"
+        type="button"
+        class="viewer-icon-btn rounded-full p-2 transition-colors"
+        :class="outlineOpen ? 'is-active' : ''"
+        :aria-pressed="outlineOpen"
+        aria-label="Toggle outline"
+        title="Outline"
+        @click="outlineOpen = !outlineOpen"
       >
-        <button
-          type="button"
-          class="chat-focus-ring rounded border border-border bg-glass-2 px-2 py-1 text-xs text-fg-soft hover:bg-glass-hover"
-          :disabled="pageNum <= 1 || !pdfRef"
-          @click="goPrev"
+        <svg
+          class="h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          Prev
-        </button>
-        <button
-          type="button"
-          class="chat-focus-ring rounded border border-border bg-glass-2 px-2 py-1 text-xs text-fg-soft hover:bg-glass-hover"
-          :disabled="!pdfRef || pageNum >= numPages"
-          @click="goNext"
-        >
-          Next
-        </button>
-        <label class="flex items-center gap-1 text-xs text-fg-subtle">
-          Page
-          <input
-            v-model="pageInput"
-            type="text"
-            inputmode="numeric"
-            class="w-12 rounded border border-border bg-glass-2 px-1 py-0.5 text-center text-xs text-fg"
-            @change="clampPageInput"
-            @keydown.enter.prevent="clampPageInput"
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 6h16M4 10h16M4 14h10M4 18h10"
           />
-          <span class="text-fg-subtle">/ {{ numPages || '—' }}</span>
-        </label>
-        <span class="mx-1 h-4 w-px bg-border" aria-hidden="true" />
-        <button
-          type="button"
-          class="chat-focus-ring rounded border border-border bg-glass-2 px-2 py-1 text-xs text-fg-soft hover:bg-glass-hover"
-          :disabled="!pdfRef"
-          @click="zoomOut"
+        </svg>
+      </button>
+      <a
+        v-if="downloadUrl"
+        :href="downloadUrl"
+        class="viewer-icon-btn rounded-full p-2 transition-colors"
+        :download="downloadFilename"
+        :title="`Download ${documentLabel}`"
+        :aria-label="`Download ${documentLabel}`"
+        @click.stop
+      >
+        <svg
+          class="h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          −
-        </button>
-        <button
-          type="button"
-          class="chat-focus-ring rounded border border-border bg-glass-2 px-2 py-1 text-xs text-fg-soft hover:bg-glass-hover"
-          :disabled="!pdfRef"
-          @click="zoomIn"
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+          />
+        </svg>
+      </a>
+      <button
+        type="button"
+        class="viewer-icon-btn rounded-full p-2 transition-colors"
+        title="Open in browser"
+        aria-label="Open in browser"
+        @click="openInBrowser"
+      >
+        <svg
+          class="h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          +
-        </button>
-        <button
-          type="button"
-          class="chat-focus-ring rounded border px-2 py-1 text-xs transition-colors"
-          :class="
-            fitMode === 'width'
-              ? 'border-accent bg-accent/20 text-fg'
-              : 'border-border bg-glass-2 text-fg-soft hover:bg-glass-hover'
-          "
-          @click="setFitWidth"
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+          />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="viewer-icon-btn rounded-full p-2 transition-colors"
+        aria-label="Close"
+        title="Close"
+        @click="emit('close')"
+      >
+        <svg
+          class="h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          Fit width
-        </button>
-        <button
-          type="button"
-          class="chat-focus-ring rounded border px-2 py-1 text-xs transition-colors"
-          :class="
-            fitMode === 'page'
-              ? 'border-accent bg-accent/20 text-fg'
-              : 'border-border bg-glass-2 text-fg-soft hover:bg-glass-hover'
-          "
-          @click="setFitPage"
-        >
-          Fit page
-        </button>
-        <button
-          type="button"
-          class="chat-focus-ring ml-auto rounded border border-border bg-glass-2 px-2 py-1 text-xs text-fg-soft hover:bg-glass-hover md:ml-0"
-          @click="sidebarOpen = !sidebarOpen"
-        >
-          {{ sidebarOpen ? 'Hide' : 'Show' }} panel
-        </button>
-      </div>
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+    </div>
 
-      <div
-        v-if="loading"
-        class="flex flex-1 flex-col items-center justify-center gap-2 p-8"
+    <div
+      class="viewer-counter absolute left-4 top-4 z-20 max-w-[min(50vw,16rem)] truncate px-3 py-1.5 text-sm text-fg"
+      :title="documentLabel"
+    >
+      {{ pageNum }} / {{ numPages || '—' }}
+    </div>
+
+    <button
+      v-if="canGoPrev && !loading && !loadError"
+      type="button"
+      class="viewer-nav-btn absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-lg p-3"
+      aria-label="Previous page"
+      @click="goPrev"
+    >
+      <svg
+        class="h-6 w-6"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
       >
-        <div
-          class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M15 19l-7-7 7-7"
         />
-        <span class="text-xs text-fg-subtle">Loading PDF…</span>
-      </div>
-      <div
-        v-else-if="loadError"
-        class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
+      </svg>
+    </button>
+
+    <button
+      v-if="canGoNext && !loading && !loadError"
+      type="button"
+      class="viewer-nav-btn absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-lg p-3"
+      aria-label="Next page"
+      @click="goNext"
+    >
+      <svg
+        class="h-6 w-6"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
       >
-        <p class="max-w-md text-sm text-fg-soft">{{ loadError }}</p>
-      </div>
-      <div
-        v-else
-        ref="viewportRef"
-        class="flex min-h-0 flex-1 items-start justify-center overflow-auto p-2"
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 5l7 7-7 7"
+        />
+      </svg>
+    </button>
+
+    <div
+      v-if="!loading && !loadError"
+      class="viewer-zoom-bar absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-lg px-2 py-1.5 text-fg"
+    >
+      <button
+        type="button"
+        class="viewer-icon-btn rounded-lg p-2 transition-colors"
+        aria-label="Zoom out"
+        @click="zoomOut"
       >
+        <svg
+          class="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M20 12H4"
+          />
+        </svg>
+      </button>
+      <span class="min-w-[3rem] text-center text-sm text-fg-soft"
+        >{{ zoomPct }}%</span
+      >
+      <button
+        type="button"
+        class="viewer-icon-btn rounded-lg p-2 transition-colors"
+        aria-label="Zoom in"
+        @click="zoomIn"
+      >
+        <svg
+          class="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+      </button>
+      <span class="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
+      <button
+        type="button"
+        class="viewer-fit-btn rounded-md px-2 py-1 text-xs transition-colors"
+        :class="fitMode === 'width' ? 'is-active' : ''"
+        @click="setFitWidth"
+      >
+        Width
+      </button>
+      <button
+        type="button"
+        class="viewer-fit-btn rounded-md px-2 py-1 text-xs transition-colors"
+        :class="fitMode === 'page' ? 'is-active' : ''"
+        @click="setFitPage"
+      >
+        Page
+      </button>
+    </div>
+
+    <div
+      v-if="loading"
+      class="flex flex-1 flex-col items-center justify-center gap-2 p-8"
+    >
+      <div
+        class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"
+      />
+      <span class="text-xs text-fg-subtle">Loading PDF…</span>
+    </div>
+    <div
+      v-else-if="loadError"
+      class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
+    >
+      <p class="max-w-md text-sm text-fg-soft">{{ loadError }}</p>
+      <button
+        type="button"
+        class="viewer-icon-btn rounded-lg px-3 py-2 text-sm"
+        @click="openInBrowser"
+      >
+        Open in browser
+      </button>
+    </div>
+    <div
+      v-show="!loading && !loadError"
+      ref="viewportRef"
+      class="pdf-viewer-viewport min-h-0 flex-1 overflow-auto px-4 pb-20 pt-14 md:px-8 md:pt-16"
+    >
+      <div class="flex min-h-full items-start justify-center">
         <canvas
           ref="canvasRef"
-          class="shadow-lg"
+          class="pdf-viewer-canvas shadow-2xl"
+          :class="{ 'opacity-60': pageRendering }"
           :aria-label="canvasAriaLabel"
+        />
+      </div>
+      <div
+        v-if="pageRendering"
+        class="pointer-events-none absolute inset-0 flex items-center justify-center"
+      >
+        <div
+          class="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent"
         />
       </div>
     </div>
 
     <aside
-      v-if="sidebarOpen"
-      class="flex max-h-[40vh] w-full shrink-0 flex-col border-t border-border bg-glass-1 md:max-h-none md:w-72 md:border-l md:border-t-0"
+      v-if="outlineOpen && outlineFlat.length > 0"
+      class="pdf-viewer-outline absolute bottom-20 right-4 top-16 z-20 flex w-[min(18rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border"
     >
-      <div class="flex shrink-0 border-b border-border">
+      <div
+        class="flex shrink-0 items-center justify-between border-b border-border px-3 py-2"
+      >
+        <span class="text-xs font-semibold uppercase tracking-wide text-fg-soft"
+          >Outline</span
+        >
         <button
           type="button"
-          class="chat-focus-ring flex-1 px-2 py-2 text-xs font-semibold transition-colors"
-          :class="
-            sidebarTab === 'outline'
-              ? 'border-b-2 border-accent text-fg'
-              : 'text-fg-subtle hover:text-fg'
-          "
-          @click="sidebarTab = 'outline'"
+          class="viewer-icon-btn rounded-md p-1"
+          aria-label="Close outline"
+          @click="outlineOpen = false"
         >
-          Outline
-        </button>
-        <button
-          type="button"
-          class="chat-focus-ring flex-1 px-2 py-2 text-xs font-semibold transition-colors"
-          :class="
-            sidebarTab === 'structure'
-              ? 'border-b-2 border-accent text-fg'
-              : 'text-fg-subtle hover:text-fg'
-          "
-          @click="sidebarTab = 'structure'"
-        >
-          Structure
-        </button>
-      </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-2">
-        <template v-if="sidebarTab === 'outline'">
-          <p
-            v-if="outlineFlat.length === 0"
-            class="text-xs leading-relaxed text-fg-subtle"
+          <svg
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            No bookmarks/outline in this file.
-          </p>
-          <ul v-else class="space-y-0.5 text-xs">
-            <li v-for="(row, idx) in outlineFlat" :key="'o-' + idx">
-              <button
-                type="button"
-                class="chat-focus-ring w-full truncate rounded px-1 py-0.5 text-left text-fg hover:bg-glass-hover"
-                :style="{ paddingLeft: `${4 + row.depth * 10}px` }"
-                @click="onOutlineRowClick(row)"
-              >
-                {{ row.title || 'Untitled' }}
-              </button>
-            </li>
-          </ul>
-        </template>
-        <template v-else>
-          <p class="mb-2 text-[10px] uppercase tracking-wide text-fg-subtle">
-            Tagged structure for page {{ pageNum }} (many PDFs have none).
-          </p>
-          <div v-if="structLoading" class="flex justify-center py-4">
-            <div
-              class="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent"
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
             />
-          </div>
-          <p v-else-if="structError" class="text-xs text-red-400/90">
-            {{ structError }}
-          </p>
-          <p
-            v-else-if="structLines.length === 0"
-            class="text-xs text-fg-subtle"
-          >
-            No structure tree for this page.
-          </p>
-          <ul v-else class="space-y-0.5 font-mono text-[11px] text-fg-soft">
-            <li
-              v-for="(row, i) in structLines"
-              :key="'s-' + i"
-              :style="{ paddingLeft: `${row.depth * 10}px` }"
-            >
-              {{ row.text }}
-            </li>
-          </ul>
-        </template>
+          </svg>
+        </button>
       </div>
+      <ul class="min-h-0 flex-1 overflow-y-auto p-2 text-xs">
+        <li v-for="(row, idx) in outlineFlat" :key="'o-' + idx">
+          <button
+            type="button"
+            class="viewer-outline-row w-full truncate rounded px-1.5 py-1 text-left"
+            :style="{ paddingLeft: `${6 + row.depth * 10}px` }"
+            @click="onOutlineRowClick(row)"
+          >
+            {{ row.title || 'Untitled' }}
+          </button>
+        </li>
+      </ul>
     </aside>
   </div>
 </template>
+
+<style scoped>
+.pdf-viewer .viewer-btn-group,
+.pdf-viewer .viewer-zoom-bar,
+.pdf-viewer .viewer-counter,
+.pdf-viewer .viewer-nav-btn,
+.pdf-viewer .viewer-outline {
+  background: var(--vue-auto-069);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: inset 0 1px 0 var(--vue-auto-010);
+}
+
+.pdf-viewer .viewer-icon-btn,
+.pdf-viewer .viewer-fit-btn,
+.pdf-viewer .viewer-outline-row {
+  background: transparent;
+  border: none;
+  color: var(--vue-auto-009);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.pdf-viewer .viewer-icon-btn:hover,
+.pdf-viewer .viewer-fit-btn:hover,
+.pdf-viewer .viewer-outline-row:hover {
+  background: var(--vue-auto-003);
+  color: var(--vue-auto-006);
+}
+
+.pdf-viewer .viewer-icon-btn.is-active,
+.pdf-viewer .viewer-fit-btn.is-active {
+  background: var(--vue-auto-004);
+  color: var(--vue-auto-006);
+}
+
+.pdf-viewer .viewer-nav-btn {
+  border: none;
+  color: var(--vue-auto-009);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.pdf-viewer .viewer-nav-btn:hover {
+  background: var(--vue-auto-004);
+  color: var(--vue-auto-006);
+}
+
+.pdf-viewer-viewport {
+  position: relative;
+}
+
+.pdf-viewer-canvas {
+  display: block;
+  max-width: none;
+}
+</style>

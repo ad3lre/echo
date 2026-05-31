@@ -4,6 +4,7 @@
 
 import { ref, computed } from 'vue';
 import { inferChatPendingMediaKind } from '@/utils/chatUploadMediaTypes';
+import { probeVideoBlobUrl } from '@/utils/captureVideoFrame';
 
 export interface PendingImage {
   url: string;
@@ -22,10 +23,24 @@ export interface PendingExternalImage {
   spoiler: boolean;
 }
 
+export type PendingVideoUploadStatus = 'idle' | 'uploading' | 'done' | 'error';
+
 export interface PendingVideo {
   url: string;
   file: File;
   spoiler: boolean;
+  /** Channel where the file was attached — scopes eager upload. */
+  attachChannelId?: string;
+  /** Still frame (~1s) for instant composer preview. */
+  previewFrameUrl?: string;
+  /** Locked once known — prevents preview aspect-ratio flicker. */
+  aspectRatio?: string;
+  width?: number;
+  height?: number;
+  uploadStatus?: PendingVideoUploadStatus;
+  uploadPercent?: number | null;
+  uploadUrl?: string;
+  uploadStorageKey?: string;
 }
 
 export interface PendingAudio {
@@ -48,7 +63,8 @@ export function usePendingMedia() {
   const pendingGifs = ref<PendingGif[]>([]);
   const pendingExternalImages = ref<PendingExternalImage[]>([]);
 
-  function addFiles(files: File[]) {
+  function addFiles(files: File[], attachChannelId?: string) {
+    const channel = attachChannelId?.trim() || undefined;
     const imageFiles: File[] = [];
     const videoFiles: File[] = [];
     const audioFiles: File[] = [];
@@ -65,11 +81,17 @@ export function usePendingMedia() {
       file,
       spoiler: false,
     }));
-    const newPendingVideos = videoFiles.map((file) => ({
+    const newPendingVideos: PendingVideo[] = videoFiles.map((file) => ({
       url: URL.createObjectURL(file),
       file,
       spoiler: false,
+      attachChannelId: channel,
+      uploadStatus: 'idle' as const,
+      uploadPercent: null,
     }));
+    for (const entry of newPendingVideos) {
+      void enrichPendingVideoPreview(entry);
+    }
     const newPendingAudios = audioFiles.map((file) => ({
       url: URL.createObjectURL(file),
       file,
@@ -190,8 +212,22 @@ export function usePendingMedia() {
 
   function removeVideo(index: number) {
     const item = pendingVideos.value[index];
-    if (item) URL.revokeObjectURL(item.url);
+    if (item) {
+      URL.revokeObjectURL(item.url);
+      if (item.previewFrameUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(item.previewFrameUrl);
+      }
+    }
     pendingVideos.value = pendingVideos.value.filter((_, i) => i !== index);
+  }
+
+  async function enrichPendingVideoPreview(entry: PendingVideo): Promise<void> {
+    const probe = await probeVideoBlobUrl(entry.url, 1);
+    if (!probe) return;
+    entry.previewFrameUrl = probe.frameUrl;
+    entry.aspectRatio = probe.aspectRatio;
+    entry.width = probe.width;
+    entry.height = probe.height;
   }
 
   function removeAudio(index: number) {
@@ -210,7 +246,12 @@ export function usePendingMedia() {
 
   function clearAll() {
     pendingImages.value.forEach((p) => URL.revokeObjectURL(p.url));
-    pendingVideos.value.forEach((p) => URL.revokeObjectURL(p.url));
+    pendingVideos.value.forEach((p) => {
+      URL.revokeObjectURL(p.url);
+      if (p.previewFrameUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(p.previewFrameUrl);
+      }
+    });
     pendingAudios.value.forEach((p) => URL.revokeObjectURL(p.url));
     pendingDocuments.value.forEach((p) => URL.revokeObjectURL(p.url));
     pendingImages.value = [];

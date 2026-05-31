@@ -1,0 +1,47 @@
+/** Admin-defined category in the self-assignable roles channel (not a role-settings organizer tab). */
+export type SelfRolesCustomCategory = {
+  id: string;
+  name: string;
+  position: number;
+  /** Explicit role ids when `randomEligible` is false. */
+  roleIds: string[];
+  /**
+   * When true, include every self-selectable role not explicitly listed in other
+   * custom categories' `roleIds`.
+   */
+  randomEligible?: boolean;
+};
+
+export interface EchoSelfRolesConfig {
+  enabled: boolean;
+  panelChannelId: string | null;
+  customCategories: SelfRolesCustomCategory[];
+}
+
+export type SelfRolesPanelRole = {
+  id: string;
+  name: string;
+  color: string;
+  darkColor: string;
+  lightColor: string;
+  separateThemeColors: boolean;
+  roleIconUrl: string | null;
+  roleIconEmojiId: string | null;
+  position: number;
+};
+
+export type SelfRolesPanelCategory = {
+  id: string;
+  name: string;
+  position: number;
+  source: 'derived' | 'custom';
+  /** Set when `source === 'derived'`. */
+  roleCategoryId?: string | null;
+  randomEligible?: boolean;
+  roles: SelfRolesPanelRole[];
+};
+
+export type EchoSelfRolesPanel = {
+  categories: SelfRolesPanelCategory[];
+  assignedRoleIds: string[];
+};

@@ -164,6 +164,7 @@ export const RESERVED_TOP_LEVEL_PATH_SLUGS = new Set(
     'paper',
     'reset-password',
     'forgot-password',
+    'verify-email',
     'legal',
     'assets',
     'static',
@@ -220,10 +221,16 @@ export function isForgotPasswordPath(pathname: string, base: string): boolean {
   return /\/forgot-password$/i.test(p);
 }
 
+export function isVerifyEmailPath(pathname: string, base: string): boolean {
+  const p = normalizePathname(stripBasePath(pathname, base));
+  return /\/verify-email$/i.test(p);
+}
+
 /** Paths Echo owns for History API sync (excludes auth recovery shells). */
 export function isAppNavPath(pathname: string, base: string): boolean {
   if (isResetPasswordPath(pathname, base)) return false;
   if (isForgotPasswordPath(pathname, base)) return false;
+  if (isVerifyEmailPath(pathname, base)) return false;
   const p = normalizePathname(stripBasePath(pathname, base));
   if (p === '/') return true;
   if (p === '/explore') return true;

@@ -1,5 +1,27 @@
 import type { MessageWithAuthor } from '@shared/types';
 
+type GroupingMessageSource = Pick<
+  MessageWithAuthor,
+  'authorId' | 'timestamp' | 'systemMessage' | 'replyTo'
+>;
+
+/** Prefer the author map; fall back to entity rows when the map lags on channel switch. */
+function resolveGroupingMessageSource(
+  messageId: string,
+  messagesMap: Map<string, MessageWithAuthor>,
+  entitiesById?: ReadonlyMap<string, GroupingMessageSource>,
+): GroupingMessageSource | undefined {
+  const msg = messagesMap.get(messageId);
+  const entity = entitiesById?.get(messageId);
+  if (!msg && !entity) return undefined;
+  return {
+    authorId: msg?.authorId ?? entity?.authorId ?? '',
+    timestamp: msg?.timestamp ?? entity?.timestamp ?? '',
+    systemMessage: msg?.systemMessage ?? entity?.systemMessage,
+    replyTo: msg?.replyTo ?? entity?.replyTo,
+  };
+}
+
 /**
  * **Grouping rules live here** (and in row-facts builders) — not in templates or bubbles.
  * compact: group only when the wall-clock minute matches (each message has its own
@@ -31,13 +53,14 @@ export function isMessageGroupedWithPrevious(
   orderedIds: readonly string[],
   messagesMap: Map<string, MessageWithAuthor>,
   index: number,
+  entitiesById?: ReadonlyMap<string, GroupingMessageSource>,
 ): boolean {
   if (index <= 0 || index >= orderedIds.length) return false;
   const msgId = orderedIds[index];
   const prevId = orderedIds[index - 1];
   if (!msgId || !prevId) return false;
-  const msg = messagesMap.get(msgId);
-  const prev = messagesMap.get(prevId);
+  const msg = resolveGroupingMessageSource(msgId, messagesMap, entitiesById);
+  const prev = resolveGroupingMessageSource(prevId, messagesMap, entitiesById);
   if (!msg || !prev) return false;
   if (msg.systemMessage || prev.systemMessage) return false;
   if (msg.authorId !== prev.authorId) return false;
@@ -53,6 +76,12 @@ export function isMessageGroupedWithNext(
   orderedIds: readonly string[],
   messagesMap: Map<string, MessageWithAuthor>,
   index: number,
+  entitiesById?: ReadonlyMap<string, GroupingMessageSource>,
 ): boolean {
-  return isMessageGroupedWithPrevious(orderedIds, messagesMap, index + 1);
+  return isMessageGroupedWithPrevious(
+    orderedIds,
+    messagesMap,
+    index + 1,
+    entitiesById,
+  );
 }

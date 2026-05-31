@@ -31,6 +31,7 @@ import {
 } from '../../../../services/echoMessageEditDeleteOps';
 import type { Server } from 'socket.io';
 import { getEffectiveChannelPermissions } from '../../../../domain/echoStore/permissions';
+import { loadDiscordApiAuthorsByIds } from './userBatch';
 
 function discordError(reply: FastifyReply, status: number, message: string) {
   return reply.code(status).send({ code: 0, message });
@@ -139,23 +140,11 @@ export default async function discordMessagesRoutes(
       });
 
       const authorIds = [...new Set(messages.map((m) => m.authorId))];
-      const { store } = await getAuthStore();
-      const authorMap: Record<string, ReturnType<typeof serializeUser>> = {};
-      for (const uid of authorIds) {
-        const user = await store.getUserById(uid);
-        if (user) {
-          authorMap[uid] = serializeUser({
-            id: user.id,
-            username: user.username,
-            displayName: user.displayName,
-            pfp: user.pfp,
-          });
-        }
-      }
+      const authorMap = await loadDiscordApiAuthorsByIds(pool, authorIds);
 
       const serialized = messages.map((msg) => {
         const author =
-          authorMap[msg.authorId] ??
+          authorMap.get(msg.authorId) ??
           serializeUser({
             id: msg.authorId,
             username: msg.authorDisplayName ?? 'Unknown',

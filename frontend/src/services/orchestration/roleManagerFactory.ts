@@ -16,6 +16,7 @@ export function defaultRolePermissions(): RolePermissions {
     manageChannels: false,
     manageRoles: false,
     assignRoles: false,
+    selfSelectable: false,
     addExpressions: true,
     manageExpressions: false,
     viewAuditLog: false,
@@ -121,6 +122,7 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
         memberCount: 0,
         roleCategoryId: null,
         roleScope: 'category',
+        syncWithCategoryDefaults: true,
         permissions: permissionsFromName('member'),
         storedEchoPermissions: roleUiPermissionsToEchoStrings(
           permissionsFromName('member') as Record<string, boolean>,
@@ -148,6 +150,7 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
       memberCount: role.count,
       roleCategoryId: null,
       roleScope: 'category',
+      syncWithCategoryDefaults: true,
       permissions: perms,
       storedEchoPermissions: roleUiPermissionsToEchoStrings(
         perms as Record<string, boolean>,
@@ -170,6 +173,7 @@ export type EchoRoleRow = {
   isEveryone: boolean;
   roleCategoryId?: string | null;
   roleScope?: 'global' | 'category';
+  syncWithCategoryDefaults?: boolean;
   permissions: string[];
 };
 
@@ -240,6 +244,7 @@ export function buildManagedRolesFromEcho(
       memberCount: counts.get(r.id) ?? 0,
       roleCategoryId,
       roleScope: r.roleScope === 'global' ? 'global' : 'category',
+      syncWithCategoryDefaults: r.syncWithCategoryDefaults !== false,
       permissions: full,
       storedEchoPermissions: [...r.permissions],
       roleType: 'mixed',
@@ -267,6 +272,7 @@ export function createManagedRole(
     memberCount: 0,
     roleCategoryId: null,
     roleScope: 'category',
+    syncWithCategoryDefaults: true,
     permissions: defaultRolePermissions(),
     storedEchoPermissions: roleUiPermissionsToEchoStrings(
       defaultRolePermissions() as Record<string, boolean>,

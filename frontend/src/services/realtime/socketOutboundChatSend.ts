@@ -4,6 +4,7 @@ import type {
   ForwardedFrom,
   MentionEntity,
   MessageAttachmentPayload,
+  MessageStickerPayload,
   ReplyTo,
 } from '@shared/types';
 import {
@@ -33,6 +34,8 @@ export function sendOneOutboundChatMessage(opts: {
   attachments?: MessageAttachmentPayload[];
   forwardMessageId?: string;
   forwardPreview?: ForwardedFrom;
+  stickerIds?: string[];
+  optimisticStickers?: MessageStickerPayload[];
   isSocketConnected: boolean;
   adapter: SocketAdapterInstance | null;
   newClientMessageId: () => string;
@@ -60,7 +63,8 @@ export function sendOneOutboundChatMessage(opts: {
     opts.imageUrl ||
     opts.videoUrl ||
     opts.gif ||
-    (opts.attachments && opts.attachments.length > 0)
+    (opts.attachments && opts.attachments.length > 0) ||
+    (opts.stickerIds && opts.stickerIds.length > 0)
   );
   const useJsonBody =
     !wireHasMedia &&
@@ -119,6 +123,9 @@ export function sendOneOutboundChatMessage(opts: {
         ...(opts.attachments && opts.attachments.length
           ? { attachments: opts.attachments }
           : {}),
+        ...(opts.optimisticStickers?.length
+          ? { stickers: opts.optimisticStickers }
+          : {}),
         ...(wireForwardPreview ? { forwardedFrom: wireForwardPreview } : {}),
         ...optimisticAuthorEchoPatch(opts.getLocalAuthorEcho),
       });
@@ -149,6 +156,9 @@ export function sendOneOutboundChatMessage(opts: {
         ...(opts.imageSpoiler ? { imageSpoiler: true } : {}),
         ...(opts.attachments && opts.attachments.length
           ? { attachments: opts.attachments }
+          : {}),
+        ...(opts.stickerIds && opts.stickerIds.length
+          ? { stickerIds: opts.stickerIds }
           : {}),
         ...(useJsonBody
           ? {
@@ -186,6 +196,9 @@ export function sendOneOutboundChatMessage(opts: {
       ...(opts.imageSpoiler ? { imageSpoiler: true } : {}),
       ...(opts.attachments && opts.attachments.length
         ? { attachments: opts.attachments }
+        : {}),
+      ...(opts.optimisticStickers?.length
+        ? { stickers: opts.optimisticStickers }
         : {}),
       ...(opts.forwardPreview ? { forwardedFrom: opts.forwardPreview } : {}),
       ...optimisticAuthorEchoPatch(opts.getLocalAuthorEcho),

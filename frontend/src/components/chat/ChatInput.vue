@@ -31,6 +31,8 @@ import type { ImageItem } from '@/components/chat/ImageViewerModal.vue';
 import ChatMediaUploadOverlay from '@/components/chat/ChatMediaUploadOverlay.vue';
 import PollCreateModal from '@/components/chat/PollCreateModal.vue';
 import ChatInputComposerBar from '@/features/chat/components/ChatInputComposerBar.vue';
+import ComposerChannelFormatBanner from '@/features/chat/components/ComposerChannelFormatBanner.vue';
+import { applyComposerOrderedListEnter } from '@/features/chat/editor/composerMarkdownListEnter';
 import { useComposerState } from '@/composables/useComposerState';
 import {
   hasMarkdownSyntax,
@@ -49,6 +51,7 @@ import {
 } from '@/composables/useMentionAutocomplete';
 import { useChannelAutocomplete } from '@/composables/useChannelAutocomplete';
 import { usePendingMedia } from '@/composables/usePendingMedia';
+import { usePendingVideoEagerUpload } from '@/composables/usePendingVideoEagerUpload';
 import { useChatSend } from '@/composables/useChatSend';
 import { usePopoutStack } from '@/composables/usePopoutStack';
 import { truncateForReply } from '@/features/chat/composables/useReplyPreview';
@@ -134,6 +137,10 @@ const props = defineProps<
       attachments?: import('@shared/types').MessageAttachmentPayload[],
       contentJson?: unknown,
       contentSchemaVersion?: number,
+      forwardMessageId?: string,
+      forwardPreview?: import('@shared/types').ForwardedFrom,
+      stickerIds?: string[],
+      stickerPreview?: import('@shared/types').MessageStickerPayload,
     ) => void;
     replyingTo?: ReplyTo | null;
   } & {
@@ -528,6 +535,11 @@ const {
   clearAll: clearPendingMedia,
 } = usePendingMedia();
 
+usePendingVideoEagerUpload(
+  computed(() => props.channelId),
+  pendingVideos,
+);
+
 const pendingImageViewerOpen = ref(false);
 const pendingImageViewerIndex = ref(0);
 
@@ -772,6 +784,46 @@ function insertImageFromSearch(url: string) {
   closePopout();
 }
 
+function sendSticker(
+  stickerId: string,
+  preview?: import('@shared/types').MessageStickerPayload,
+) {
+  if (!props.sendMessage) return;
+  if (isMediaSendBlocked()) return;
+  try {
+    assertCanSend({
+      channelId: props.channelId,
+      contentTypes: ['media'],
+      context: composerSource,
+    });
+  } catch (e) {
+    sendError.value = e instanceof Error ? e.message : 'Send blocked';
+    closePopout();
+    return;
+  }
+  sendError.value = null;
+  props.sendMessage(
+    props.channelId,
+    '',
+    [],
+    undefined,
+    undefined,
+    undefined,
+    props.replyingTo ?? undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    [stickerId],
+    preview,
+  );
+  emit('clear-reply');
+  closePopout();
+}
+
 function handleUploadClick() {
   if (composerBarDisabled.value || isMediaSendBlocked()) return;
   fileInputRef.value?.click();
@@ -789,7 +841,7 @@ function handleFileSelect(e: Event) {
     target.value = '';
     return;
   }
-  addFiles(Array.from(files));
+  addFiles(Array.from(files), props.channelId);
   target.value = '';
 }
 
@@ -798,7 +850,7 @@ function handlePaste(e: ClipboardEvent) {
   if (files.length > 0) {
     if (isMediaSendBlocked()) return;
     e.preventDefault();
-    addFiles(files);
+    addFiles(files, props.channelId);
   }
 }
 
@@ -928,11 +980,18 @@ function handleKeydown(e: KeyboardEvent): boolean {
   if (isImeComposingKeyboardEvent(e)) return false;
   const plen = messageFormatPrefixLen.value;
   if (plen > 0 && (e.key === 'Backspace' || e.key === 'Delete')) {
+    composer.flushComposerSync();
     const a = composer.getSelectionStart();
     const b = composer.getSelectionEnd();
     const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    if (hi <= plen) {
+      e.preventDefault();
+      return true;
+    }
     if (lo < plen) {
       e.preventDefault();
+      composer.replaceRange(plen, hi, '');
       return true;
     }
   }
@@ -983,6 +1042,25 @@ function handleKeydown(e: KeyboardEvent): boolean {
   // Desktop: Enter sends, Shift+Enter newline. Compact shell (typical phones): Enter newline —
   // phone keyboards rarely expose Shift+Enter; sending stays on the Send control.
   if (e.key === 'Enter' && (e.shiftKey || isCompactShell.value)) {
+    if (e.shiftKey && !isCompactShell.value) {
+      const live = composer.getContent();
+      const listEdit = applyComposerOrderedListEnter(
+        live,
+        composer.getSelectionStart(),
+        composer.getSelectionEnd(),
+      );
+      if (listEdit) {
+        e.preventDefault();
+        composer.setSerializedState(
+          listEdit.content,
+          composer.mentions.value,
+          listEdit.selectionStart,
+          listEdit.selectionEnd,
+        );
+        refreshAutocomplete();
+        return true;
+      }
+    }
     e.preventDefault();
     /** TipTap hard break (not `insertText('\\n')` + `setContent`, which could mis-place the caret vs atoms/decoration). */
     tiptapEditor.value?.chain().focus().setHardBreak().run();
@@ -1294,9 +1372,9 @@ watch(
 const {
   selectionMenuPosition,
   showSelectionMenu,
-  updateSelectionFromTextarea: _updateSelectionFromTextareaCore,
   hideSelectionMenu: hideSelectionMenuCore,
   updateSelectionMenuPosition,
+  handleComposerSelectionSync,
   formatBold,
   formatItalic,
   formatCode,
@@ -1305,10 +1383,14 @@ const {
 } = useChatInputSelectionMenu({
   chatInputFocused,
   composerContent: composer.content,
+  composerEditor: tiptapEditor,
   composerSurfaceRef,
   selectionMenuRef,
   selectionStart: composer.selectionStart,
   selectionEnd: composer.selectionEnd,
+  getSelectionStart: composer.getSelectionStart,
+  getSelectionEnd: composer.getSelectionEnd,
+  flushComposerSync: composer.flushComposerSync,
   wrapSelection: composer.wrapSelection,
 });
 
@@ -1398,6 +1480,7 @@ onMounted(() => {
       :placement="props.popoutDirection ?? 'up'"
       :theme="props.popoutTheme ?? 'default'"
       @insert="insertEmoji"
+      @send-sticker="sendSticker"
     />
 
     <AttachPopout
@@ -1658,6 +1741,12 @@ onMounted(() => {
       </div>
     </div>
 
+    <ComposerChannelFormatBanner
+      v-if="!showSlowmodeOverlay && !showPermissionLockOverlay"
+      :message-format-template="props.messageFormatTemplate"
+      :message-format-hard="props.messageFormatHard === true"
+    />
+
     <ChatInputComposerBar
       v-if="!showSlowmodeOverlay && !showPermissionLockOverlay"
       :server-id="props.serverId"
@@ -1704,6 +1793,7 @@ onMounted(() => {
       :format-spoiler="formatSpoiler"
       :channel-name="channelName"
       :handle-composer-pointer-down="handleComposerPointerDown"
+      :handle-composer-selection-sync="handleComposerSelectionSync"
       :handle-composer-scroll="handleComposerScroll"
       :handle-input-focus="handleInputFocus"
       :handle-input-blur="handleInputBlur"

@@ -21,6 +21,7 @@ import type {
   ForwardedFrom,
   MentionEntity,
   MessageAttachmentPayload,
+  MessageStickerPayload,
   PollData,
   ReplyTo,
 } from '@shared/types';
@@ -57,6 +58,8 @@ export function createEchoSocketSendMessage(opts: {
     contentSchemaVersion?: number,
     forwardMessageId?: string,
     forwardPreview?: ForwardedFrom,
+    stickerIds?: string[],
+    stickerPreview?: MessageStickerPayload,
   ): void {
     const authorId = opts.getAuthorId();
     const addLocal = (msg: RawMessage) => {
@@ -98,7 +101,8 @@ export function createEchoSocketSendMessage(opts: {
       imageUrl ||
       videoUrl ||
       gif ||
-      (attachments && attachments.length > 0)
+      (attachments && attachments.length > 0) ||
+      (stickerIds && stickerIds.length > 0)
     );
 
     runChunkedOrSingleOutboundChatSend({
@@ -124,6 +128,8 @@ export function createEchoSocketSendMessage(opts: {
           attachments,
           forwardMessageId,
           forwardPreview,
+          stickerIds,
+          optimisticStickers: stickerPreview ? [stickerPreview] : undefined,
           isSocketConnected: opts.isSocketConnected(),
           adapter: opts.getAdapter(),
           newClientMessageId,

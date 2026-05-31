@@ -145,11 +145,13 @@ export function buildMessageListRowFactsAtIndex(
     orderedIds,
     messagesMap,
     index,
+    entitiesById,
   );
   const groupedWithNext = isMessageGroupedWithNext(
     orderedIds,
     messagesMap,
     index,
+    entitiesById,
   );
   const msg = messagesMap.get(orderedIds[index]!);
   const showDay = shouldShowDaySeparatorBefore(orderedIds, messagesMap, index);

@@ -522,6 +522,10 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     selectedDMUserId: ctx.selectedDMUserId,
     selectedMessageRequestId: ctx.selectedMessageRequestId,
     dmMentionNotifications: ctx.dmMentionNotifications,
+    mentionNotificationHydrationLoading:
+      ctx.mentionNotificationHydrationLoading,
+    resolveDmMentionNotificationChannelLabel:
+      ctx.resolveDmMentionNotificationChannelLabel,
     dmNotificationReadStateByChannelId: ctx.dmNotificationReadStateByChannelId,
     mentionNotificationCategoriesByServer:
       ctx.mentionNotificationCategoriesByServer,

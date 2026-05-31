@@ -3,6 +3,7 @@ import type {
   ManagedRole,
   RolePermissions,
 } from '@/features/server-settings/types';
+import type { EchoRoleCategoryDto } from '@/api/echo/types';
 import {
   mergeRoleUiPermissionsWithStoredEcho,
   roleUiPermissionsFromEchoStrings,
@@ -25,6 +26,7 @@ export function defaultRolePermissions(): RolePermissions {
     manageChannels: false,
     manageRoles: false,
     assignRoles: false,
+    selfSelectable: false,
     addExpressions: true,
     manageExpressions: false,
     viewAuditLog: false,
@@ -131,6 +133,7 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
         memberCount: 0,
         roleCategoryId: null,
         roleScope: 'category',
+        syncWithCategoryDefaults: true,
         permissions: permissionsFromName('member'),
         storedEchoPermissions: roleUiPermissionsToEchoStrings(
           permissionsFromName('member') as Record<string, boolean>,
@@ -158,6 +161,7 @@ export function buildInitialManagedRoles(roleCards: RoleCard[]): ManagedRole[] {
       memberCount: role.count,
       roleCategoryId: null,
       roleScope: 'category',
+      syncWithCategoryDefaults: true,
       permissions: perms,
       storedEchoPermissions: roleUiPermissionsToEchoStrings(
         perms as Record<string, boolean>,
@@ -184,6 +188,7 @@ export type EchoRoleRow = {
   roleIconEmojiId?: string | null;
   permissions: string[];
   roleType?: EchoRoleType;
+  syncWithCategoryDefaults?: boolean;
 };
 
 export function buildManagedRolesFromEcho(
@@ -272,6 +277,7 @@ export function buildManagedRolesFromEcho(
       memberCount: counts.get(r.id) ?? 0,
       roleCategoryId,
       roleScope: normalizeEchoRoleScope(r.roleScope),
+      syncWithCategoryDefaults: r.syncWithCategoryDefaults !== false,
       permissions: full,
       storedEchoPermissions: [...r.permissions],
       roleType,
@@ -314,6 +320,52 @@ export function topEchoRoleIdForUserServerSettings(
   return fallback;
 }
 
+export function categoryDefaultsAreConfigured(
+  cat: Pick<
+    EchoRoleCategoryDto,
+    | 'defaultPermissions'
+    | 'defaultHoist'
+    | 'defaultOnJoin'
+    | 'defaultRoleScope'
+    | 'defaultRoleType'
+  >,
+): boolean {
+  return (
+    (cat.defaultPermissions?.length ?? 0) > 0 ||
+    cat.defaultHoist === true ||
+    cat.defaultOnJoin === true ||
+    (cat.defaultRoleScope != null && cat.defaultRoleScope !== 'category') ||
+    (cat.defaultRoleType != null && cat.defaultRoleType !== 'mixed')
+  );
+}
+
+export function applyCategoryDefaultsToManagedRole(
+  role: ManagedRole,
+  cat: EchoRoleCategoryDto,
+): void {
+  const partial = roleUiPermissionsFromEchoStrings(
+    cat.defaultPermissions ?? [],
+  );
+  const full = {
+    ...defaultRolePermissions(),
+    ...partial,
+  } as RolePermissions;
+  if ((cat.defaultPermissions ?? []).includes('ADMINISTRATOR')) {
+    for (const k of Object.keys(full) as (keyof RolePermissions)[]) {
+      full[k] = true;
+    }
+  }
+  role.permissions = full;
+  role.storedEchoPermissions = roleUiPermissionsToEchoStrings(
+    full as Record<string, boolean>,
+  );
+  role.displaySeparately = cat.defaultHoist === true;
+  role.defaultOnJoin = cat.defaultOnJoin === true;
+  role.roleScope = cat.defaultRoleScope ?? 'category';
+  role.roleType = cat.defaultRoleType ?? 'mixed';
+  role.syncWithCategoryDefaults = true;
+}
+
 export function createManagedRole(
   name: string,
   id = `role-${Date.now()}`,
@@ -334,6 +386,7 @@ export function createManagedRole(
     memberCount: 0,
     roleCategoryId: null,
     roleScope: 'category',
+    syncWithCategoryDefaults: true,
     permissions: defaultRolePermissions(),
     storedEchoPermissions: roleUiPermissionsToEchoStrings(
       defaultRolePermissions() as Record<string, boolean>,

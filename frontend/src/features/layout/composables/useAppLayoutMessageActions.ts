@@ -29,7 +29,11 @@ import {
 import { removeChannelMessageFromBucket } from '@/services/realtime/channelMessageAuthority';
 import { emitDiagnostic } from '@/observability/sessionDiagnostics';
 import { cloneRawMessageForUiTransaction } from '@/utils/cloneRawMessageForUiTransaction';
-import { isDmThreadId } from '@/features/layout/mainSurface';
+import {
+  isDmThreadId,
+  type DmSubView,
+  type RailTab,
+} from '@/features/layout/mainSurface';
 import type { MessageAttachmentPayload } from '@shared/types';
 
 /** After switching channels, ChatView unmount can clear the nav bridge before the next surface registers. */
@@ -125,6 +129,9 @@ interface UseAppLayoutMessageActionsOptions {
   ) => Promise<ActionResult | void>;
   /** Active MessageList scroll API (registered by ChatView). */
   getActiveChatMessageNav: () => ActiveChatMessageNavApi | null;
+  /** When set, jump-to-message leaves the DM notifications column so chat can mount. */
+  dmActiveTab?: Ref<DmSubView>;
+  activeRailTab?: Ref<RailTab>;
 }
 
 export function useAppLayoutMessageActions(
@@ -156,7 +163,19 @@ export function useAppLayoutMessageActions(
     uiTransactions,
     isLiveSocketReady,
     getActiveChatMessageNav,
+    dmActiveTab,
+    activeRailTab,
   } = options;
+
+  function leaveDmNotificationsSubviewForJump(): void {
+    if (
+      dmActiveTab &&
+      activeRailTab?.value === 'dm' &&
+      dmActiveTab.value === 'notifications'
+    ) {
+      dmActiveTab.value = 'messages';
+    }
+  }
 
   function getLatestDMUserId(): string | null {
     const curId = currentUser.value?.id;
@@ -217,6 +236,7 @@ export function useAppLayoutMessageActions(
   }
 
   function handleGoToMessage(channelId: string, messageId: string) {
+    leaveDmNotificationsSubviewForJump();
     handleGoToChannel(channelId);
     clearSearch();
     void (async () => {

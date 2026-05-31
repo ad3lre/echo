@@ -723,6 +723,12 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
           :handle-accept-message-request="chatCtx.handleAcceptMessageRequest"
           :return-from-message-requests="chatCtx.returnFromMessageRequests"
           :dm-mention-notifications="chatCtx.dmMentionNotifications"
+          :mention-notification-hydration-loading="
+            chatCtx.mentionNotificationHydrationLoading
+          "
+          :resolve-dm-mention-notification-channel-label="
+            chatCtx.resolveDmMentionNotificationChannelLabel
+          "
           :dm-notification-read-state-by-channel-id="
             chatCtx.dmNotificationReadStateByChannelId
           "

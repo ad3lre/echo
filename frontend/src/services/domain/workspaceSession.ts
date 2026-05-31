@@ -1,5 +1,6 @@
 import type { Ref } from 'vue';
 import type { EchoWorkspaceState } from '@/api/echoClient';
+import type { EchoServerMemberDto } from '@/api/echo/types';
 import {
   dbgMemberList,
   isEchoMemberListDebugEnabled,
@@ -125,6 +126,88 @@ export function replaceUsersInEchoSession(
   refs.users.value = applyWorkspaceRosterUsersPipeline(nextUsers, {});
 }
 
+function serverMemberIdsMapsEqual(
+  a: Record<string, string[]>,
+  b: Record<string, string[]>,
+): boolean {
+  const aKeys = Object.keys(a).sort();
+  const bKeys = Object.keys(b).sort();
+  if (aKeys.length !== bKeys.length) return false;
+  for (let i = 0; i < aKeys.length; i += 1) {
+    if (aKeys[i] !== bKeys[i]) return false;
+    const av = a[aKeys[i]!] ?? [];
+    const bv = b[bKeys[i]!] ?? [];
+    if (av.length !== bv.length) return false;
+    for (let j = 0; j < av.length; j += 1) {
+      if (av[j] !== bv[j]) return false;
+    }
+  }
+  return true;
+}
+
+function memberDtoPanelSignature(row: EchoServerMemberDto): string {
+  return [
+    row.userId,
+    row.name,
+    row.pfp,
+    row.username ?? '',
+    row.serverNickname ?? '',
+    row.accountDisplayName ?? '',
+    row.isGuest === true ? '1' : '0',
+    row.isDiscordShadow === true ? '1' : '0',
+    row.communicationTimeoutUntil ?? '',
+    row.joinedAt ?? '',
+    row.signupOrdinal ?? '',
+    (row.badges ?? []).join(','),
+    row.bio ?? '',
+  ].join('\x1f');
+}
+
+function membersByServerMapsEqual(
+  a: WorkspaceMembersMap | undefined,
+  b: WorkspaceMembersMap | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return !a && !b;
+  const aKeys = Object.keys(a).sort();
+  const bKeys = Object.keys(b).sort();
+  if (aKeys.length !== bKeys.length) return false;
+  for (let i = 0; i < aKeys.length; i += 1) {
+    if (aKeys[i] !== bKeys[i]) return false;
+    const aRows = a[aKeys[i]!] ?? [];
+    const bRows = b[bKeys[i]!] ?? [];
+    if (aRows.length !== bRows.length) return false;
+    for (let j = 0; j < aRows.length; j += 1) {
+      if (
+        memberDtoPanelSignature(aRows[j]!) !==
+        memberDtoPanelSignature(bRows[j]!)
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+export function workspaceSnapshotMemberDataEqual(
+  stored: {
+    serverMemberIds: Record<string, string[]>;
+    membersByServer: WorkspaceMembersMap | undefined;
+  },
+  incoming: {
+    serverMemberIds: Record<string, string[]>;
+    membersByServer: WorkspaceMembersMap | undefined;
+  },
+): boolean {
+  return (
+    serverMemberIdsMapsEqual(
+      stored.serverMemberIds ?? {},
+      incoming.serverMemberIds ?? {},
+    ) &&
+    membersByServerMapsEqual(stored.membersByServer, incoming.membersByServer)
+  );
+}
+
 export function mergeMembersByServerInEchoSession(
   refs: EchoWorkspaceSessionApplyRefs,
   membersByServer:
@@ -132,6 +215,34 @@ export function mergeMembersByServerInEchoSession(
     | undefined,
 ): void {
   if (!membersByServer) return;
+  if (
+    workspaceSnapshotMemberDataEqual(
+      {
+        serverMemberIds: refs.serverMemberIds.value ?? {},
+        membersByServer: refs.workspaceMembersByServer.value,
+      },
+      {
+        serverMemberIds: {
+          ...(refs.serverMemberIds.value ?? {}),
+          ...Object.fromEntries(
+            Object.entries(membersByServer).map(([serverId, members]) => [
+              serverId,
+              (members ?? []).map((m) => m.userId).filter(Boolean),
+            ]),
+          ),
+        },
+        membersByServer: {
+          ...(refs.workspaceMembersByServer.value ?? {}),
+          ...membersByServer,
+        },
+      },
+    )
+  ) {
+    dbgMemberList('mergeMembersByServer NOOP (unchanged roster)', {
+      serverIds: Object.keys(membersByServer),
+    });
+    return;
+  }
   dbgMemberList('mergeMembersByServer START', {
     serverIds: Object.keys(membersByServer),
     incomingCounts: Object.fromEntries(
@@ -209,18 +320,30 @@ export function applyWorkspaceSnapshotToEchoSession(
 
   const normalizedIncomingV =
     typeof incomingV === 'string' && incomingV.trim() ? incomingV.trim() : '0';
+  const incomingMemberData = {
+    serverMemberIds: state.serverMemberIds ?? {},
+    membersByServer: state.membersByServer,
+  };
+  const storedMemberData = {
+    serverMemberIds: refs.serverMemberIds.value ?? {},
+    membersByServer: refs.workspaceMembersByServer.value,
+  };
+  const memberDataUnchanged = workspaceSnapshotMemberDataEqual(
+    storedMemberData,
+    incomingMemberData,
+  );
+
   if (compareWorkspaceVersion(normalizedIncomingV, storedV) === 0) {
-    const looksSame =
-      state.servers.length === refs.servers.value.length &&
-      Object.keys(state.serverMemberIds ?? {}).length ===
-        Object.keys(refs.serverMemberIds.value ?? {}).length;
-    if (looksSame) {
+    if (memberDataUnchanged) {
       refs.lastSnapshotFetchedAtMs.value = Date.now();
-      dbgMemberList('applyWorkspaceSnapshot NOOP (duplicate version)', {
-        workspaceVersion: normalizedIncomingV,
-        serverCount: state.servers.length,
-        ms: shouldLog ? Math.round(performance.now() - t0) : undefined,
-      });
+      dbgMemberList(
+        'applyWorkspaceSnapshot NOOP (duplicate version + roster)',
+        {
+          workspaceVersion: normalizedIncomingV,
+          serverCount: state.servers.length,
+          ms: shouldLog ? Math.round(performance.now() - t0) : undefined,
+        },
+      );
       return true;
     }
     dbgMemberList('applyWorkspaceSnapshot WARN (same version, shape differs)', {
@@ -237,13 +360,13 @@ export function applyWorkspaceSnapshotToEchoSession(
   refs.categoriesByServer.value = state.categoriesByServer;
   refs.upcomingEventsByServerId.value = state.upcomingEventsByServerId ?? {};
   refs.myEventRsvps.value = state.myEventRsvps ?? [];
-  if (state.membersByServer) {
+  if (state.membersByServer && !memberDataUnchanged) {
     refs.serverMemberIds.value = state.serverMemberIds;
   }
   refs.workspaceVersion.value = state.workspaceVersion;
   refs.lastSnapshotFetchedAtMs.value = Date.now();
-  mergeMembersByServerInEchoSession(refs, state.membersByServer);
-  if (state.membersByServer) {
+  if (state.membersByServer && !memberDataUnchanged) {
+    mergeMembersByServerInEchoSession(refs, state.membersByServer);
     refs.workspaceMembersByServer.value = state.membersByServer;
   }
   dbgMemberList('applyWorkspaceSnapshot OK', {

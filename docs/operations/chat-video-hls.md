@@ -10,21 +10,21 @@ Background transcoding for chat video uploads into adaptive HLS (fMP4 VOD). Prog
 
 ## Environment
 
-| Variable                         | Default                | Purpose                                                            |
-| -------------------------------- | ---------------------- | ------------------------------------------------------------------ |
-| `ECHO_VIDEO_OPTIMIZE_MS`         | `15000`                | Worker poll interval (ms). Set `0` to disable.                     |
-| `ECHO_VIDEO_HLS_MAX_DURATION_S`  | `600`                  | Max source duration (seconds).                                     |
-| `ECHO_VIDEO_HLS_MAX_INPUT_BYTES` | `125829120` (~120 MiB) | Max source file size.                                              |
-| `ECHO_VIDEO_HLS_TIMEOUT_MS`      | `900000` (15 min)      | Per-job ffmpeg timeout; also stale `processing` reclaim threshold. |
-| `ECHO_VIDEO_HLS_MAX_ATTEMPTS`    | `3`                    | Transcode attempts before marking playback `failed`.               |
-| `ECHO_FFMPEG_THREADS`            | `2`                    | ffmpeg thread cap per job.                                         |
+| Variable                         | Default                | Purpose                                                                                                        |
+| -------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `ECHO_VIDEO_OPTIMIZE_MS`         | `15000`                | Fallback worker poll interval (ms). Upload registration also wakes the worker immediately. Set `0` to disable. |
+| `ECHO_VIDEO_HLS_MAX_DURATION_S`  | `600`                  | Max source duration (seconds).                                                                                 |
+| `ECHO_VIDEO_HLS_MAX_INPUT_BYTES` | `125829120` (~120 MiB) | Max source file size.                                                                                          |
+| `ECHO_VIDEO_HLS_TIMEOUT_MS`      | `900000` (15 min)      | Per-job ffmpeg timeout; also stale `processing` reclaim threshold.                                             |
+| `ECHO_VIDEO_HLS_MAX_ATTEMPTS`    | `3`                    | Transcode attempts before marking playback `failed`.                                                           |
+| `ECHO_FFMPEG_THREADS`            | `2`                    | ffmpeg thread cap per job.                                                                                     |
 
 ## Flow
 
 1. Client uploads MP4/WebM/MOV via presign, then `POST /uploads/register` with `kind: video` + `channelId`.
 2. Row inserted into `echo_video_hls_queue` (`pending`) and `echo_video_playback` (`pending`).
-3. Background worker (`startVideoUploadOptimizeJob`) claims one job per tick, runs ffmpeg, publishes `{sourceKey sans ext}/hls/` pack.
-4. Client calls `GET /uploads/video-playback?url=` and polls every ~4s while `pending`; switches to HLS when `ready`.
+3. Background worker (`startVideoUploadOptimizeJob`) wakes immediately after upload registration, drains pending jobs, runs ffmpeg, and publishes `{sourceKey sans ext}/hls/` pack.
+4. Client calls `GET /uploads/video-playback?url=` and polls every ~2s while `pending`; switches to HLS when `ready`.
 
 ## Ladder
 

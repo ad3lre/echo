@@ -429,6 +429,8 @@ export function validateMessagePayload(payload: unknown):
         imageSpoiler?: boolean;
         poll?: EchoPollStoredDefinition;
         attachments?: MessageAttachmentPayload[];
+        /** Client sticker ids — resolved server-side into canonical sticker payloads. */
+        stickerIds?: string[];
         /** TipTap JSON when `messageFormatVersion === 2`. */
         contentJson?: unknown;
         messageFormatVersion: number;
@@ -465,6 +467,7 @@ export function validateMessagePayload(payload: unknown):
     imageSpoiler: rawImageSpoiler,
     poll: rawPoll,
     attachments: rawAttachments,
+    stickerIds: rawStickerIds,
     contentJson: rawContentJson,
     contentSchemaVersion: rawContentSchemaVersion,
     forwardMessageId: rawForwardMessageId,
@@ -482,6 +485,7 @@ export function validateMessagePayload(payload: unknown):
     imageSpoiler?: unknown;
     poll?: unknown;
     attachments?: unknown;
+    stickerIds?: unknown;
     contentJson?: unknown;
     contentSchemaVersion?: unknown;
     forwardMessageId?: unknown;
@@ -574,6 +578,27 @@ export function validateMessagePayload(payload: unknown):
   const gif = rawGif === true;
   const imageSpoiler = rawImageSpoiler === true;
   const attachments = sanitizeAttachments(rawAttachments, blockData);
+  let stickerIds: string[] | undefined;
+  if (rawStickerIds !== undefined && rawStickerIds !== null) {
+    if (!Array.isArray(rawStickerIds)) {
+      return { ok: false, error: 'Invalid message: stickerIds must be array' };
+    }
+    if (rawStickerIds.length > 3) {
+      return { ok: false, error: 'Invalid message: too many stickers' };
+    }
+    const ids: string[] = [];
+    for (const raw of rawStickerIds) {
+      if (typeof raw !== 'string') {
+        return { ok: false, error: 'Invalid message: sticker id invalid' };
+      }
+      const id = raw.trim();
+      if (!id || !isEchoPublicId(id)) {
+        return { ok: false, error: 'Invalid message: sticker id invalid' };
+      }
+      if (!ids.includes(id)) ids.push(id);
+    }
+    if (ids.length > 0) stickerIds = ids;
+  }
   if (
     rawImageUrl !== undefined &&
     rawImageUrl !== null &&
@@ -621,6 +646,13 @@ export function validateMessagePayload(payload: unknown):
     };
   }
 
+  if (pollDef && stickerIds && stickerIds.length > 0) {
+    return {
+      ok: false,
+      error: 'Invalid message: poll cannot be combined with stickers',
+    };
+  }
+
   if (
     pollDef &&
     (imageUrl || videoUrl || gif || (attachments && attachments.length))
@@ -635,7 +667,8 @@ export function validateMessagePayload(payload: unknown):
     imageUrl ||
     videoUrl ||
     gif ||
-    (attachments && attachments.length > 0)
+    (attachments && attachments.length > 0) ||
+    (stickerIds && stickerIds.length > 0)
   );
 
   if (forwardMessageId) {
@@ -705,6 +738,7 @@ export function validateMessagePayload(payload: unknown):
         ...(imageSpoiler ? { imageSpoiler: true } : {}),
         ...(pollDef ? { poll: pollDef } : {}),
         ...(attachments && attachments.length ? { attachments } : {}),
+        ...(stickerIds && stickerIds.length ? { stickerIds } : {}),
         ...(forwardMessageId ? { forwardMessageId } : {}),
       },
     };
@@ -734,6 +768,7 @@ export function validateMessagePayload(payload: unknown):
       ...(imageSpoiler ? { imageSpoiler: true } : {}),
       ...(pollDef ? { poll: pollDef } : {}),
       ...(attachments && attachments.length ? { attachments } : {}),
+      ...(stickerIds && stickerIds.length ? { stickerIds } : {}),
       ...(forwardMessageId ? { forwardMessageId } : {}),
     },
   };

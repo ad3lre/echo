@@ -22,6 +22,10 @@ import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSe
 import { normalizeProfileBannerColor } from '../../../../../shared/profileBannerColor';
 import { publicBadgesFromAccount } from '../../../../../shared/echoAccountBadges';
 import {
+  assertStepUpTotpIfEnabled,
+  sendStepUpTotpError,
+} from '../../../auth/stepUpAuth';
+import {
   MAX_REGISTER_USERNAME_LENGTH,
   MIN_REGISTER_USERNAME_LENGTH,
 } from '../../../../../shared/usernamePolicy';
@@ -610,7 +614,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
     },
   );
 
-  fastify.delete<{ Body: { password: string } }>(
+  fastify.delete<{ Body: { password: string; totpCode?: string } }>(
     '/me',
     {
       preHandler: [requireAuth],
@@ -618,7 +622,10 @@ export default async function meRoutes(fastify: FastifyInstance) {
         body: {
           type: 'object',
           required: ['password'],
-          properties: { password: { type: 'string', minLength: 1 } },
+          properties: {
+            password: { type: 'string', minLength: 1 },
+            totpCode: { type: 'string', minLength: 6, maxLength: 16 },
+          },
           additionalProperties: false,
         },
       },
@@ -633,6 +640,12 @@ export default async function meRoutes(fastify: FastifyInstance) {
       const ok = await store.verifyPassword(userRecord, req.body.password);
       if (!ok)
         return sendError(reply, 401, 'INVALID_CREDENTIALS', 'Invalid password');
+      const stepUp = await assertStepUpTotpIfEnabled(
+        store,
+        req.authUser.id,
+        req.body.totpCode,
+      );
+      if (!stepUp.ok) return sendStepUpTotpError(reply, stepUp.reason);
       await store.deleteUserAccount(req.authUser.id);
       await disconnectAllSocketsForAuthUser(
         fastify,

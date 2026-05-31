@@ -100,8 +100,9 @@ export function useServerSettingsRolesEchoPersistence(
         const { roleId } = await createEchoRoleApi(token ?? '', sid, {
           name: createName,
           color: '',
-          permissions: [],
-          ...(tabCat && tabCat !== 'all' ? { roleCategoryId: tabCat } : {}),
+          ...(tabCat && tabCat !== 'all'
+            ? { roleCategoryId: tabCat, syncWithCategoryDefaults: true }
+            : { permissions: [] }),
         });
         const freshBundle = await fetchManagedRolesFromEcho(
           token ?? '',
@@ -227,6 +228,8 @@ export function useServerSettingsRolesEchoPersistence(
             role.roleIconEmojiId !== initial.roleIconEmojiId;
           const roleTypeChanged = role.roleType !== initial.roleType;
           const roleScopeChanged = role.roleScope !== initial.roleScope;
+          const syncWithCategoryDefaultsChanged =
+            role.syncWithCategoryDefaults !== initial.syncWithCategoryDefaults;
           if (
             !permsChanged &&
             !nameChanged &&
@@ -240,7 +243,8 @@ export function useServerSettingsRolesEchoPersistence(
             !roleScopeChanged &&
             !roleIconUrlChanged &&
             !roleIconEmojiIdChanged &&
-            !roleTypeChanged
+            !roleTypeChanged &&
+            !syncWithCategoryDefaultsChanged
           )
             continue;
 
@@ -256,6 +260,16 @@ export function useServerSettingsRolesEchoPersistence(
           if (permsChanged) patch.permissions = nextEcho;
           if (roleCategoryChanged) patch.roleCategoryId = role.roleCategoryId;
           if (roleScopeChanged) patch.roleScope = role.roleScope;
+          if (syncWithCategoryDefaultsChanged) {
+            patch.syncWithCategoryDefaults = role.syncWithCategoryDefaults;
+          }
+          if (
+            roleCategoryChanged &&
+            role.syncWithCategoryDefaults &&
+            deps.echoRoleCategories?.value
+          ) {
+            patch.syncWithCategoryDefaults = true;
+          }
           if (roleIconUrlChanged || roleIconEmojiIdChanged) {
             patch.roleIconUrl = role.roleIconUrl ?? null;
             patch.roleIconEmojiId = role.roleIconEmojiId ?? null;

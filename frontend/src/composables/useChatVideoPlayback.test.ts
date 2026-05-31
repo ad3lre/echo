@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { effectScope, ref } from 'vue';
-import { useChatVideoPlayback } from './useChatVideoPlayback';
+import {
+  useChatVideoPlayback,
+  __clearChatVideoPlaybackCacheForTests,
+} from './useChatVideoPlayback';
 
 vi.mock('@/api/echo/uploads', () => ({
   fetchEchoVideoPlayback: vi.fn(),
@@ -34,6 +37,7 @@ function runInScope<T>(fn: () => T): T {
 describe('useChatVideoPlayback', () => {
   beforeEach(() => {
     vi.mocked(fetchEchoVideoPlayback).mockReset();
+    __clearChatVideoPlaybackCacheForTests();
   });
 
   afterEach(() => {
@@ -125,5 +129,27 @@ describe('useChatVideoPlayback', () => {
       expect(fetchEchoVideoPlayback).toHaveBeenCalledTimes(2),
     );
     expect(state.value.status).toBe('pending');
+  });
+
+  it('reuses cache on remount without flipping to loading', async () => {
+    vi.mocked(fetchEchoVideoPlayback).mockResolvedValue(readyResponse);
+    const url = ref('https://example.com/clip.mp4');
+
+    const scope1 = effectScope();
+    scope1.run(() => useChatVideoPlayback(url));
+    await vi.waitFor(() =>
+      expect(fetchEchoVideoPlayback).toHaveBeenCalledTimes(1),
+    );
+    scope1.stop();
+
+    const scope2 = effectScope();
+    const { state } = scope2.run(() => useChatVideoPlayback(url))!;
+    expect(state.value.status).toBe('ready');
+    expect(state.value.mode).toBe('hls');
+    await vi.waitFor(() =>
+      expect(fetchEchoVideoPlayback).toHaveBeenCalledTimes(2),
+    );
+    expect(state.value.status).toBe('ready');
+    scope2.stop();
   });
 });

@@ -1111,7 +1111,7 @@ export const config: AppConfig = {
   })(),
   authRequireSocketToken: parseBoolean(
     process.env.AUTH_REQUIRE_SOCKET_TOKEN,
-    false,
+    isProduction || storage.backendStorageMode === 'postgres',
   ),
   enforceHttps: parseBoolean(process.env.ENFORCE_HTTPS, isProduction),
   trustProxy: parseBoolean(process.env.ECHO_TRUST_PROXY, false),
@@ -1166,6 +1166,7 @@ export const config: AppConfig = {
   ),
   echoMessageFailedDiagnosticsToClient:
     !isProduction &&
+    storage.backendStorageMode === 'memory' &&
     parseBoolean(process.env.ECHO_MESSAGE_FAILED_DIAGNOSTICS_TO_CLIENT, true),
   echoSessionDiagnostics: parseBoolean(
     process.env.ECHO_SESSION_DIAGNOSTICS,
@@ -1613,14 +1614,17 @@ export const config: AppConfig = {
   ),
   echoAgentNetworkDiagnosticsToken:
     process.env.ECHO_AGENT_NETWORK_DIAG_TOKEN?.trim() || null,
-  echoHealthRedact: parseBoolean(process.env.ECHO_HEALTH_REDACT, isProduction),
+  echoHealthRedact: parseBoolean(
+    process.env.ECHO_HEALTH_REDACT,
+    isProduction || storage.backendStorageMode === 'postgres',
+  ),
   echoRequireRedisInProduction: parseBoolean(
     process.env.ECHO_REQUIRE_REDIS_IN_PRODUCTION,
     isProduction,
   ),
   echoRequireMetricsScrapeTokenInProduction: parseBoolean(
     process.env.ECHO_REQUIRE_METRICS_SCRAPE_TOKEN_IN_PRODUCTION,
-    isProduction,
+    isProduction || storage.backendStorageMode === 'postgres',
   ),
   echoRequireMediaUrlHardeningInProduction: parseBoolean(
     process.env.ECHO_REQUIRE_MEDIA_URL_HARDENING_IN_PRODUCTION,
@@ -1844,4 +1848,61 @@ if (config.isProduction) {
     );
     process.exit(1);
   }
+}
+
+if (
+  !config.isProduction &&
+  config.backendStorageMode === 'postgres' &&
+  !isStrongProductionSecret(config.jwtSecret)
+) {
+  configStderr(
+    `JWT_SECRET must be a strong random value when ECHO_BACKEND_STORAGE=postgres outside pure in-memory dev (at least ${MIN_PRODUCTION_SECRET_LENGTH} characters; built-in defaults like dev-insecure-secret are not permitted).`,
+  );
+  process.exit(1);
+}
+
+function collectConfiguredOrigins(
+  corsOrigin: typeof config.corsOrigin,
+): Set<string> {
+  if (corsOrigin === true) return new Set();
+  if (typeof corsOrigin === 'string') return new Set([corsOrigin]);
+  return new Set(corsOrigin);
+}
+
+function validateDeployPublicUrlOrigins(): void {
+  const allowed = collectConfiguredOrigins(config.corsOrigin);
+  if (allowed.size === 0) return;
+  const urls = [
+    ['ECHO_APP_PUBLIC_URL', config.echoAppPublicUrl],
+    ['ECHO_API_PUBLIC_URL', config.echoApiPublicUrl],
+  ] as const;
+  for (const [label, raw] of urls) {
+    const trimmed = normalizeEnvValue(raw);
+    if (!trimmed) {
+      exitBadConfig(`${label} must be set to a valid absolute URL.`);
+    }
+    let origin: string;
+    try {
+      origin = new URL(trimmed).origin;
+    } catch {
+      exitBadConfig(`${label} must be a valid absolute URL.`);
+      return;
+    }
+    if (!allowed.has(origin)) {
+      exitBadConfig(
+        `${label} origin ${origin} must be included in CORS_ORIGIN allowlist to prevent open-redirect style OAuth and email flows.`,
+      );
+    }
+  }
+}
+
+if (config.isProduction || config.backendStorageMode === 'postgres') {
+  validateDeployPublicUrlOrigins();
+}
+
+if (config.isProduction && !config.trustProxy) {
+  configStderr(
+    'ECHO_TRUST_PROXY must be true in production when the API sits behind a reverse proxy so rate limits and audit digests use the real client IP.',
+  );
+  process.exit(1);
 }

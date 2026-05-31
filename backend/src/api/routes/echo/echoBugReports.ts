@@ -25,7 +25,7 @@ type BugReportBody = {
 function isHttpsUrl(s: string): boolean {
   try {
     const u = new URL(s);
-    return u.protocol === 'https:' || u.protocol === 'http:';
+    return u.protocol === 'https:';
   } catch {
     return false;
   }

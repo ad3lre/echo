@@ -19,31 +19,33 @@ This document summarizes **who can call what** for **POST / PUT / PATCH / DELETE
 
 Exact paths (from [`csrf.ts`](../../backend/src/auth/csrf.ts)):
 
-| Path                                  | Rationale                                  |
-| ------------------------------------- | ------------------------------------------ |
-| `/api/v1/auth/login`                  | No session / CSRF cookie yet               |
-| `/api/v1/auth/register`               | No session yet                             |
-| `/api/v1/auth/guest`                  | No session yet                             |
-| `/api/v1/auth/refresh`                | Cookie refresh bootstrap                   |
-| `/api/v1/auth/login/mfa`              | MFA step                                   |
-| `/api/v1/auth/forgot-password`        | Unauthenticated recovery                   |
-| `/api/v1/auth/reset-password`         | Token-based reset                          |
-| `/api/v1/auth/discord/login/start`    | OAuth start from login modal               |
-| `/api/v1/auth/google/login/start`     | OAuth start from login modal               |
-| `/api/v1/auth/desktop/redeem-handoff` | Desktop one-time code                      |
-| `/api/v1/echo/support/contact`        | Public support form (honeypot + scoped RL) |
-| `/api/v1/hooks/livekit`               | Webhook secret (not browser CSRF)          |
-| `/api/v1/dev/diagnostics/ingest`      | Dev diagnostics                            |
-| `/api/v1/echo/uploads/local/put`      | Signed upload token flow                   |
+| Path                                  | Rationale                                   |
+| ------------------------------------- | ------------------------------------------- |
+| `/api/v1/auth/login`                  | No session / CSRF cookie yet                |
+| `/api/v1/auth/register`               | No session yet                              |
+| `/api/v1/auth/guest`                  | No session yet                              |
+| `/api/v1/auth/refresh`                | Cookie refresh bootstrap                    |
+| `/api/v1/auth/login/mfa`              | MFA step                                    |
+| `/api/v1/auth/forgot-password`        | Unauthenticated recovery                    |
+| `/api/v1/auth/reset-password`         | Token-based reset                           |
+| `/api/v1/auth/verify-email`           | SPA POST verify (legacy GET redirects only) |
+| `/api/v1/auth/discord/login/start`    | OAuth start from login modal                |
+| `/api/v1/auth/google/login/start`     | OAuth start from login modal                |
+| `/api/v1/auth/desktop/redeem-handoff` | Desktop one-time code                       |
+| `/api/v1/echo/support/contact`        | Public support form (honeypot + scoped RL)  |
+| `/api/v1/hooks/livekit`               | Webhook secret (not browser CSRF)           |
+| `/api/v1/dev/diagnostics/ingest`      | Dev diagnostics                             |
+| `/api/v1/echo/uploads/local/put`      | Signed upload token flow                    |
 
 Prefixes:
 
-| Prefix                                | Rationale                   |
-| ------------------------------------- | --------------------------- |
-| `/api/v1/auth/passkey/`               | WebAuthn ceremony           |
-| `/api/v1/hooks/discord-bot/`          | `x-echo-discord-bot-secret` |
-| `/api/v1/hooks/discord-bridge/`       | Bridge secret               |
-| `/api/v1/hooks/discord-voice-mirror/` | Mirror secret               |
+| Prefix                                 | Rationale                   |
+| -------------------------------------- | --------------------------- |
+| `/api/v1/auth/passkey/`                | WebAuthn ceremony           |
+| `/api/v1/hooks/discord-bot/`           | `x-echo-discord-bot-secret` |
+| `/api/v1/hooks/discord-bridge/`        | Bridge secret               |
+| `/api/v1/hooks/discord-voice-mirror/`  | Mirror secret               |
+| `/api/v1/hooks/echo-channel-webhooks/` | Channel webhook token path  |
 
 All other **`/api/v1` mutating** routes require matching `X-CSRF-Token` and `echo_csrf` cookie (and session-bound secret when session cookie present).
 

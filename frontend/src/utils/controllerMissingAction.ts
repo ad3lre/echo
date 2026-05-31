@@ -27,8 +27,9 @@ export type AppToastDetail = {
   /** Optional leading icon for default (non-rich) toasts — bundled asset URL. */
   leadingIconSrc?: string;
   /**
-   * When true, default toasts show a bottom edge progress bar for the auto-dismiss timer.
-   * Ignored for rich variants (`incoming_call`, `incoming_chat_message`).
+   * When false, suppresses the auto-dismiss progress indicator even when the toast
+   * has a finite duration. Defaults to on for auto-dismissing toasts except
+   * `incoming_call`.
    */
   showAutoDismissProgress?: boolean;
   /** Optional image (e.g. caller avatar for `incoming_call`). */
@@ -75,7 +76,9 @@ export function dispatchAppToastDetail(detail: AppToastDetail): void {
       : {}),
     ...(detail.showAutoDismissProgress === true
       ? { showAutoDismissProgress: true }
-      : {}),
+      : detail.showAutoDismissProgress === false
+        ? { showAutoDismissProgress: false }
+        : {}),
   };
   window.dispatchEvent(
     new CustomEvent<AppToastDetail>(ECHO_APP_TOAST_EVENT, {

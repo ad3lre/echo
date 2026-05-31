@@ -127,6 +127,18 @@ html.echo-shell-ios select {
     box-shadow: var(--shadow-3);
   }
 
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .echo-autocomplete-menu.chat-liquid-glass-menu {
+      background-color: color-mix(
+        in srgb,
+        var(--echo-menu-surface-bg, var(--chat-glass-header-bg)) 88%,
+        transparent
+      );
+      backdrop-filter: blur(28px) saturate(1.35);
+      -webkit-backdrop-filter: blur(28px) saturate(1.35);
+    }
+  }
+
   .echo-autocomplete-item {
     color: var(--menu-item-fg);
     transition:

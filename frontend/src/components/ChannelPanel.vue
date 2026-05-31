@@ -57,6 +57,7 @@ import { layoutHyperLog } from '@/utils/layoutHyperLog';
 
 import ChannelPanelHeader from '@/features/channel-panel/components/ChannelPanelHeader.vue';
 import ChannelPanelList from '@/features/channel-panel/components/ChannelPanelList.vue';
+import { CHANNEL_PANEL_SKELETON_SECTIONS } from '@/features/channel-panel/channelPanelListSkeleton';
 import ChannelPanelContextMenu from '@/features/channel-panel/components/ChannelPanelContextMenu.vue';
 import ServerEventsCarousel from '@/features/channel-panel/components/ServerEventsCarousel.vue';
 import PaperEditorPanel from '@/features/paper/components/PaperEditorPanel.vue';
@@ -1166,27 +1167,37 @@ function forwardInvite(payload?: {
 
       <div
         v-if="loading"
-        class="flex min-h-0 flex-1 items-center justify-center px-3 py-3"
+        class="channel-list custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-2 py-2"
         role="status"
         aria-live="polite"
         aria-label="Loading channel panel"
       >
-        <svg
-          class="echo-ios-spinner"
-          viewBox="0 0 44 44"
-          width="34"
-          height="34"
+        <div
+          v-for="section in CHANNEL_PANEL_SKELETON_SECTIONS"
+          :key="section.key"
+          class="mb-3"
           aria-hidden="true"
         >
-          <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
-          <circle
-            class="echo-ios-spinner__arc"
-            cx="22"
-            cy="22"
-            r="18"
-            transform="rotate(-90 22 22)"
+          <div
+            class="channel-panel-skeleton-pulse mb-1.5 h-2.5 rounded"
+            :style="{ width: section.headerWidth }"
           />
-        </svg>
+          <div class="flex flex-col gap-0.5">
+            <div
+              v-for="(rowWidth, rowIndex) in section.rowWidths"
+              :key="rowIndex"
+              class="flex items-center gap-2 rounded-md px-2 py-1.5"
+            >
+              <div
+                class="channel-panel-skeleton-pulse h-4 w-4 shrink-0 rounded"
+              />
+              <div
+                class="channel-panel-skeleton-pulse h-3 rounded"
+                :style="{ width: rowWidth }"
+              />
+            </div>
+          </div>
+        </div>
       </div>
       <template v-else>
         <div class="paper-editor-panel-stage">
@@ -1390,4 +1401,26 @@ function forwardInvite(payload?: {
 
 <style scoped lang="scss">
 @use '@/features/channel-panel/styles/channelPanel.scss';
+
+.channel-panel-skeleton-pulse {
+  background: var(--overlay-subtle);
+  animation: channel-panel-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes channel-panel-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .channel-panel-skeleton-pulse {
+    animation: none;
+    opacity: 0.6;
+  }
+}
 </style>

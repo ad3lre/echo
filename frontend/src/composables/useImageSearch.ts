@@ -7,6 +7,10 @@ import { ref, onUnmounted } from 'vue';
 import { API_BASE } from '@/config';
 import { ApiError } from '@/api/client';
 import { useAuthSessionStore } from '@/stores/authSession';
+import {
+  IMAGE_BROWSE_CATEGORIES,
+  imageCategoryBySlug,
+} from '@/data/mediaCategoryLibrary';
 
 export interface ImageSearchResult {
   id: string;
@@ -127,6 +131,45 @@ async function fetchImageSearchPage(
     throw new ApiError(message, res.status, code);
   }
   return (await res.json()) as ImageSearchPageResponse;
+}
+
+let imageLibraryWarmInflight: Promise<void> | null = null;
+
+/** Warm curated image category first pages for instant picker landing. */
+export function warmImageCategoryLibrary(): Promise<void> {
+  if (imageLibraryWarmInflight) return imageLibraryWarmInflight;
+  imageLibraryWarmInflight = (async () => {
+    const jobs = IMAGE_BROWSE_CATEGORIES.map((cat) => {
+      if (getCachedSearch(cat.query, 1)?.results.length)
+        return Promise.resolve();
+      return fetchImageSearchPage(cat.query, 1)
+        .then((data) => setCachedSearch(cat.query, 1, data))
+        .catch(() => {
+          /* non-blocking */
+        });
+    });
+    await Promise.all(jobs);
+  })().finally(() => {
+    imageLibraryWarmInflight = null;
+  });
+  return imageLibraryWarmInflight;
+}
+
+export function getCachedImageCategoryResults(
+  slug: string,
+): ImageSearchResult[] | null {
+  const cat = imageCategoryBySlug(slug);
+  if (!cat) return null;
+  return getCachedSearch(cat.query, 1)?.results ?? null;
+}
+
+export function getImageCategoryPreviewUrls(slug: string): string[] {
+  const rows = getCachedImageCategoryResults(slug);
+  if (!rows?.length) return [];
+  return rows
+    .slice(0, 2)
+    .map((r) => r.thumbUrl || r.url)
+    .filter(Boolean);
 }
 
 export function useImageSearch() {
@@ -259,6 +302,19 @@ export function useImageSearch() {
     }
   }
 
+  async function loadCategory(slug: string) {
+    const cat = imageCategoryBySlug(slug);
+    if (!cat) return;
+    query.value = cat.query;
+    const cached = getCachedSearch(cat.query, 1);
+    if (cached?.results.length) {
+      activeQueryKey = cat.query;
+      applyPageResponse(cat.query, cached, false);
+      return;
+    }
+    await search(cat.query);
+  }
+
   return {
     query,
     images,
@@ -271,5 +327,6 @@ export function useImageSearch() {
     fetchCurated,
     search,
     loadMore,
+    loadCategory,
   };
 }

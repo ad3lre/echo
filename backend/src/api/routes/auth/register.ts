@@ -21,8 +21,46 @@ import {
   recordHwidProfileAccountBinding,
 } from '../../../services/auth/hwidAccountProfile';
 import { tryJoinOfficialEchoServerOnSignup } from '../../../services/auth/officialEchoServerOnSignup';
+import { consumeSignupVerificationToken } from '../../../auth/verifyEmailFlow';
 
 export default async function registerRoutes(fastify: FastifyInstance) {
+  async function finishEmailVerification(
+    reply: Parameters<typeof sendError>[0],
+    token: string,
+    opts?: { json?: boolean },
+  ) {
+    const { store } = await getAuthStore();
+    const outcome = await consumeSignupVerificationToken(store, token);
+    if (!outcome.ok) {
+      if (outcome.reason === 'missing') {
+        return sendError(
+          reply,
+          400,
+          'INVALID_TOKEN',
+          'Missing verification token',
+        );
+      }
+      return sendError(
+        reply,
+        400,
+        'INVALID_TOKEN',
+        'Invalid or expired verification link',
+      );
+    }
+    const updated = await store.getUserById(outcome.userId);
+    if (updated) {
+      await updateCachedUserInAllSessions(updated.id, updated);
+    }
+    if (opts?.json) {
+      return reply.code(200).send({ ok: true });
+    }
+    return reply.code(302).redirect(getEmailVerifyRedirectUrl());
+  }
+
+  /**
+   * Legacy email links hit the API with `?token=` (logged by proxies). Redirect to the SPA
+   * fragment handoff without consuming the token; verification happens via POST.
+   */
   fastify.get<{ Querystring: { token?: string; format?: string } }>(
     '/verify-email',
     {
@@ -47,35 +85,64 @@ export default async function registerRoutes(fastify: FastifyInstance) {
           'Missing verification token',
         );
       }
-      try {
-        const { store } = await getAuthStore();
-        const result = await store.consumeEmailVerificationToken(token);
-        if (!result) {
+      if (req.query.format === 'json') {
+        try {
+          return await finishEmailVerification(reply, token, { json: true });
+        } catch (err) {
+          fastify.log.error(err, 'verify_email_failed');
           return sendError(
             reply,
-            400,
-            'INVALID_TOKEN',
-            'Invalid or expired verification link',
+            500,
+            'INTERNAL_ERROR',
+            'Internal Server Error',
           );
         }
-        /** Session cache stores `emailVerified`; without this, verified users still look unverified on `/auth/me`. */
-        const updated = await store.getUserById(result.userId);
-        if (updated) {
-          await updateCachedUserInAllSessions(updated.id, updated);
-        }
-        const wantJson =
-          req.query.format === 'json' ||
-          String(req.headers.accept ?? '').includes('application/json');
-        if (wantJson) {
-          return reply.code(200).send({ ok: true });
-        }
-        return reply.code(302).redirect(getEmailVerifyRedirectUrl());
-      } catch (err) {
-        fastify.log.error(err, 'verify_email_failed');
-        return sendError(reply, 500, 'INTERNAL_ERROR', 'Internal Server Error');
       }
+      const appBase = config.echoAppPublicUrl.replace(/\/$/, '');
+      return reply
+        .code(302)
+        .redirect(`${appBase}/verify-email#token=${encodeURIComponent(token)}`);
     },
   );
+
+  await fastify.register(async (verifyEmailScope) => {
+    await verifyEmailScope.register(rateLimit, {
+      max: 20,
+      timeWindow: '15 minutes',
+      keyGenerator: (req) => `auth_verify_email:${req.ip}`,
+      addHeaders: { 'retry-after': true },
+    });
+    verifyEmailScope.post<{ Body: { token?: string } }>(
+      '/verify-email',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['token'],
+            properties: {
+              token: { type: 'string', minLength: 10 },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      async (req, reply) => {
+        const token =
+          typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+        try {
+          return await finishEmailVerification(reply, token, { json: true });
+        } catch (err) {
+          fastify.log.error(err, 'verify_email_post_failed');
+          return sendError(
+            reply,
+            500,
+            'INTERNAL_ERROR',
+            'Internal Server Error',
+          );
+        }
+      },
+    );
+  });
 
   await fastify.register(async (registerScope) => {
     await registerScope.register(rateLimit, {
@@ -212,16 +279,11 @@ export default async function registerRoutes(fastify: FastifyInstance) {
             );
           }
           fastify.log.error(err, 'Auth register failed');
-          const detail =
-            !config.isProduction && err instanceof Error
-              ? err.message
-              : undefined;
           return sendError(
             reply,
             500,
             'INTERNAL_ERROR',
             'Internal Server Error',
-            detail,
           );
         }
       },

@@ -5,20 +5,18 @@ import {
   type EchoWorkspaceState,
 } from '@/api/echoClient';
 import type { WorkspaceStateApi } from '@/composables/workspace/types';
-import { isDmThreadId, type RailTab } from '@/features/layout/mainSurface';
-import { logShellNav } from '@/features/layout/shellNavDebugLog';
+import type { RailTab } from '@/features/layout/mainSurface';
 import { applyTimeoutUntilFromWorkspaceSnapshot } from '@/features/layout/viewModel/workspaceTimeoutApplyFromSnapshot';
 import {
   fetchWorkspaceSocialForHydrate,
   fetchWorkspaceSocialForRefresh,
 } from '@/services/orchestration/workspaceSocialHydrate';
-import { workspaceFirstGuildBootstrapGuard } from '@/services/orchestration/workspaceFirstGuildBootstrapGuard';
+import { applyWorkspaceBootstrapServerNav } from '@/services/orchestration/workspaceBootstrapServerNav';
 import {
   saveEchoWorkspaceToCache,
   loadEchoWorkspaceFromCache,
 } from '@/utils/workspacePersistence';
 import { dbgMemberList } from '@/utils/echoMemberListDebug';
-import { pickFirstGuildToBootstrap } from '@/services/domain/workspaceShellSelection';
 import { buildServerMemberNicknameMapFromMembersByServer } from '@/services/domain/workspaceEchoApiSnapshot';
 import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
 
@@ -196,42 +194,17 @@ export async function runEchoWorkspaceHydrateFromApi(
     }
     if (workspaceSnapshotApplied && fetchedWorkspace?.servers.length) {
       const state = fetchedWorkspace;
-      const hadNoServer =
-        !p.serverStore.selectedServerId ||
-        p.serverStore.selectedServerId === 'echo';
-      const guard = workspaceFirstGuildBootstrapGuard({
-        activeRailTab: p.activeRailTab.value,
-        activeChannelId: p.activeChannelId.value ?? '',
+      applyWorkspaceBootstrapServerNav({
+        servers: state.servers,
+        serverStore: p.serverStore,
+        activeRailTab: p.activeRailTab,
+        activeChannelId: p.activeChannelId,
+        categoriesByServer: state.categoriesByServer,
+        getFirstTextChannelId: p.getFirstTextChannelId,
         echoDmThreadIds: p.echoDmThreadIds?.value ?? null,
         dmCallWithUserId: p.dmCallWithUserId?.value ?? null,
-        isDmThreadId,
+        logSource: SHELL_SOURCE,
       });
-      if (hadNoServer && !guard.skipFirstGuildBootstrap) {
-        const preferredId = pickFirstGuildToBootstrap(state.servers, () =>
-          p.serverStore.pickPreferredGuildServerId(),
-        );
-        if (preferredId) {
-          p.serverStore.selectServer(preferredId);
-          const cats = state.categoriesByServer[preferredId] ?? [];
-          const first = p.getFirstTextChannelId(cats);
-          if (first) {
-            logShellNav(SHELL_SOURCE, 'hydrate_first_server_first_channel', {
-              first,
-              serverId: preferredId,
-            });
-            p.activeChannelId.value = first;
-          }
-        }
-        p.activeRailTab.value = 'servers';
-      } else if (hadNoServer && guard.skipFirstGuildBootstrap) {
-        logShellNav(SHELL_SOURCE, 'skip_hydrate_first_server_first_channel', {
-          inDmRail: guard.inDmRail,
-          legacyDmShell: guard.legacyDmShell,
-          inEchoDmSet: guard.inEchoDmSet,
-          inDmCall: guard.inDmCall,
-          cid: guard.cid,
-        });
-      }
     }
     void p.refreshEchoRoleData();
     p.syncEchoPresenceFromApi?.();

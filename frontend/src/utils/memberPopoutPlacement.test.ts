@@ -22,8 +22,15 @@ function anchor(
   };
 }
 
+const layoutViewport = (height: number, offsetTop = 0) => ({
+  offsetLeft: 0,
+  offsetTop,
+  width: 1200,
+  height,
+});
+
 describe('resolveMemberPopoutTop', () => {
-  const viewportHeight = 800;
+  const viewport = layoutViewport(800);
   const padding = 16;
   const gap = 8;
 
@@ -33,13 +40,13 @@ describe('resolveMemberPopoutTop', () => {
     const top = resolveMemberPopoutTop({
       desiredTop,
       panelHeight,
-      viewportHeight,
+      viewport,
       padding,
       anchor: anchor({ source: 'member-list' }),
       source: 'member-list',
       gap,
     });
-    expect(top).toBe(viewportHeight - panelHeight - padding);
+    expect(top).toBe(viewport.height - panelHeight - padding);
   });
 
   it('bottom-aligns member-list popout when the card is taller than the viewport', () => {
@@ -47,13 +54,13 @@ describe('resolveMemberPopoutTop', () => {
     const top = resolveMemberPopoutTop({
       desiredTop: 900,
       panelHeight,
-      viewportHeight,
+      viewport,
       padding,
       anchor: anchor({ source: 'member-list' }),
       source: 'member-list',
       gap,
     });
-    expect(top).toBe(viewportHeight - panelHeight - padding);
+    expect(top).toBe(viewport.height - panelHeight - padding);
   });
 
   it('flips chat-name popout above when there is insufficient space below', () => {
@@ -66,13 +73,28 @@ describe('resolveMemberPopoutTop', () => {
     const top = resolveMemberPopoutTop({
       desiredTop: lowAnchor.top - 42,
       panelHeight,
-      viewportHeight,
+      viewport,
       padding,
       anchor: lowAnchor,
       source: 'chat-name',
       gap: 12,
     });
     expect(top).toBe(lowAnchor.bottom - panelHeight - 12);
+  });
+
+  it('respects visual viewport offset when the layout viewport is panned', () => {
+    const panelHeight = 400;
+    const panned = layoutViewport(600, 80);
+    const top = resolveMemberPopoutTop({
+      desiredTop: 900,
+      panelHeight,
+      viewport: panned,
+      padding,
+      anchor: anchor({ source: 'member-list' }),
+      source: 'member-list',
+      gap,
+    });
+    expect(top).toBe(panned.offsetTop + panned.height - panelHeight - padding);
   });
 });
 
@@ -84,11 +106,15 @@ describe('popout sizing helpers', () => {
 
   it('fits top after max-height is known', () => {
     const panelMaxHeight = 520;
-    expect(computeFittedPopoutTop(300, panelMaxHeight, 800, 16)).toBe(264);
+    expect(
+      computeFittedPopoutTop(300, panelMaxHeight, layoutViewport(800), 16),
+    ).toBe(264);
   });
 
   it('limits max height to viewport below top', () => {
-    expect(computePopoutViewportMaxHeight(800, 200, 16, 768)).toBe(584);
+    expect(
+      computePopoutViewportMaxHeight(layoutViewport(800), 200, 16, 768),
+    ).toBe(584);
   });
 
   it('detects when the card needs a fixed height for internal scroll', () => {

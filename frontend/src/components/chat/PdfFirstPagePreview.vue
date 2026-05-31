@@ -25,7 +25,7 @@ let activeTask: PDFDocumentLoadingTask | null = null;
 let activeDoc: PDFDocumentProxy | undefined;
 let activeRender: RenderTask | null = null;
 
-const hasPreview = computed(() => !loading.value && !error.value);
+const showCanvas = computed(() => !loading.value && !error.value);
 
 async function teardown() {
   if (activeRender) {
@@ -41,6 +41,29 @@ async function teardown() {
   activeTask = null;
   activeDoc = undefined;
   await destroyPdfLoad(t, d);
+}
+
+async function renderFirstPage(
+  pdf: PDFDocumentProxy,
+  gen: number,
+): Promise<boolean> {
+  await nextTick();
+  const canvas = canvasRef.value;
+  if (!canvas || gen !== loadGeneration) return false;
+
+  const page = await pdf.getPage(1);
+  if (gen !== loadGeneration) return false;
+
+  const { renderTask } = renderPdfPageToCanvas({
+    page,
+    canvas,
+    cssWidth: THUMB_CSS_WIDTH,
+  });
+  activeRender = renderTask;
+  await renderTask.promise;
+  if (gen !== loadGeneration) return false;
+  activeRender = null;
+  return true;
 }
 
 async function loadPreview() {
@@ -69,22 +92,14 @@ async function loadPreview() {
     }
     activeDoc = pdf;
     activeTask = null;
-    await nextTick();
-    const canvas = canvasRef.value;
-    if (!canvas || gen !== loadGeneration) {
-      await destroyPdfLoad(task, pdf);
-      return;
-    }
-    const page = await pdf.getPage(1);
-    const { renderTask } = renderPdfPageToCanvas({
-      page,
-      canvas,
-      cssWidth: THUMB_CSS_WIDTH,
-    });
-    activeRender = renderTask;
-    await renderTask.promise;
+
+    const rendered = await renderFirstPage(pdf, gen);
     if (gen !== loadGeneration) return;
-    activeRender = null;
+    if (!rendered) {
+      await destroyPdfLoad(null, pdf);
+      activeDoc = undefined;
+      error.value = 'Could not render PDF preview.';
+    }
     loading.value = false;
   } catch (e) {
     if (gen !== loadGeneration) return;
@@ -118,32 +133,34 @@ onUnmounted(() => {
     :style="{ width: `${THUMB_CSS_WIDTH}px`, maxHeight: '120px' }"
   >
     <div
-      v-if="loading"
-      class="flex h-[120px] items-center justify-center bg-glass-2"
-    >
-      <div
-        class="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent"
-        aria-hidden="true"
-      />
-    </div>
-    <div
-      v-else-if="error"
-      class="flex h-[120px] flex-col justify-center gap-1 px-2 py-1.5 text-center"
-    >
-      <span class="text-[10px] leading-snug text-fg-subtle">{{ error }}</span>
-    </div>
-    <div
-      v-else-if="hasPreview"
-      class="relative flex max-h-[120px] justify-center overflow-hidden bg-[#2a2a2e]"
+      class="relative flex max-h-[120px] min-h-[120px] justify-center overflow-hidden bg-[#2a2a2e]"
     >
       <canvas
         ref="canvasRef"
         class="block max-w-full"
-        :class="spoiler ? 'blur-md' : ''"
+        :class="[
+          spoiler && showCanvas ? 'blur-md' : '',
+          showCanvas ? 'opacity-100' : 'invisible',
+        ]"
         aria-hidden="true"
       />
       <div
-        v-if="spoiler"
+        v-if="loading"
+        class="absolute inset-0 flex items-center justify-center bg-glass-2"
+      >
+        <div
+          class="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent"
+          aria-hidden="true"
+        />
+      </div>
+      <div
+        v-else-if="error"
+        class="absolute inset-0 flex flex-col justify-center gap-1 bg-glass-2 px-2 py-1.5 text-center"
+      >
+        <span class="text-[10px] leading-snug text-fg-subtle">{{ error }}</span>
+      </div>
+      <div
+        v-if="spoiler && showCanvas"
         class="pointer-events-none absolute inset-0 bg-scrim-2/40"
         aria-hidden="true"
       />

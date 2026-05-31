@@ -45,46 +45,56 @@ export default async function echoPublicRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
-  /** Public server directory for Explore (no auth; listing is opt-out via `listed_in_directory`). */
-  fastify.get(
-    '/directory/servers',
-    { preHandler: [requireEchoStore] },
-    async (_req, reply) => {
-      const pool = echoPool(_req);
-      const servers = await listEchoDirectoryServers(pool);
-      return reply.code(200).send({ servers });
-    },
-  );
+  await fastify.register(async (publicReadScope) => {
+    await publicReadScope.register(rateLimit, {
+      max: 120,
+      timeWindow: '1 minute',
+      keyGenerator: (req) => `echo_public_read:ip:${req.ip}`,
+      addHeaders: { 'retry-after': true },
+    });
 
-  /** Notable members for a directory-listed server (pre-join join modal). */
-  fastify.get<{ Params: { serverId: string } }>(
-    '/directory/servers/:serverId/member-highlights',
-    { preHandler: [requireEchoStore] },
-    async (req, reply) => {
-      const pool = echoPool(req);
-      const serverId = trimEchoPathParam(req.params.serverId);
-      const members = await listEchoDirectoryServerMemberHighlights(
-        pool,
-        serverId,
-      );
-      if (members === null) {
-        return sendError(reply, 404, 'NOT_FOUND', 'Server not in directory');
-      }
-      return reply.code(200).send({ members });
-    },
-  );
+    /** Public server directory for Explore (no auth; listing is opt-out via `listed_in_directory`). */
+    publicReadScope.get(
+      '/directory/servers',
+      { preHandler: [requireEchoStore] },
+      async (_req, reply) => {
+        const pool = echoPool(_req);
+        const servers = await listEchoDirectoryServers(pool);
+        return reply.code(200).send({ servers });
+      },
+    );
 
-  /** Public emoji market: community packs, sorted by aggregate usage. */
-  fastify.get<{ Querystring: { q?: string } }>(
-    '/emoji-market/packs',
-    { preHandler: [requireEchoStore] },
-    async (req, reply) => {
-      const pool = echoPool(req);
-      const q = typeof req.query.q === 'string' ? req.query.q : '';
-      const packs = await listEchoEmojiMarketPacks(pool, q);
-      return reply.code(200).send({ packs });
-    },
-  );
+    /** Notable members for a directory-listed server (pre-join join modal). */
+    publicReadScope.get<{ Params: { serverId: string } }>(
+      '/directory/servers/:serverId/member-highlights',
+      { preHandler: [requireEchoStore] },
+      async (req, reply) => {
+        const pool = echoPool(req);
+        const serverId = trimEchoPathParam(req.params.serverId);
+        const members = await listEchoDirectoryServerMemberHighlights(
+          pool,
+          serverId,
+        );
+        if (members === null) {
+          return sendError(reply, 404, 'NOT_FOUND', 'Server not in directory');
+        }
+        return reply.code(200).send({ members });
+      },
+    );
+
+    /** Public emoji market: community packs, sorted by aggregate usage. */
+    publicReadScope.get<{ Querystring: { q?: string } }>(
+      '/emoji-market/packs',
+      { preHandler: [requireEchoStore] },
+      async (req, reply) => {
+        const pool = echoPool(req);
+        const q =
+          typeof req.query.q === 'string' ? req.query.q.slice(0, 64) : '';
+        const packs = await listEchoEmojiMarketPacks(pool, q);
+        return reply.code(200).send({ packs });
+      },
+    );
+  });
 
   /**
    * Public support contact form (used by the marketing site at /support).

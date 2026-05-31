@@ -13,6 +13,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual';
 import type { MessageWithAuthor } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import MessageBubble from './MessageBubble.vue';
+import MessageListHistorySkeleton from './MessageListHistorySkeleton.vue';
 import MessageListJumpFab from './MessageListJumpFab.vue';
 import {
   createMessageListJumpUi,
@@ -48,6 +49,10 @@ import {
   type PrependSnapshot,
 } from '@/features/chat/domain/messageListPrependAnchor';
 import { messageWindowAuthority } from '@/features/chat/domain/messageWindowAuthority';
+import {
+  downwardOnlySnapScrollTop,
+  isScrollNearBottom,
+} from '@/features/chat/domain/messageListScrollSnap';
 import {
   logMessageList,
   logMessageListThrottled,
@@ -550,12 +555,12 @@ const showTransitionSkeleton = computed(
     isEmpty.value && !!props.transitionLoading && !showHistorySkeleton.value,
 );
 
+const showLoadingSkeleton = computed(
+  () => showHistorySkeleton.value || showTransitionSkeleton.value,
+);
+
 const showNoServersYet = computed(
-  () =>
-    !!props.noServersYet &&
-    isEmpty.value &&
-    !showHistorySkeleton.value &&
-    !showTransitionSkeleton.value,
+  () => !!props.noServersYet && isEmpty.value && !showLoadingSkeleton.value,
 );
 
 const discordMessageImportEligible = computed(
@@ -571,7 +576,7 @@ const discordMessageImportEligible = computed(
 const showEmptyChannelHint = computed(
   () =>
     isEmpty.value &&
-    !showHistorySkeleton.value &&
+    !showLoadingSkeleton.value &&
     !showNoServersYet.value &&
     !discordMessageImportEligible.value &&
     !props.dmHistoryIntro,
@@ -580,7 +585,7 @@ const showEmptyChannelHint = computed(
 const showDiscordImportWidget = computed(
   () =>
     isEmpty.value &&
-    !showHistorySkeleton.value &&
+    !showLoadingSkeleton.value &&
     !showNoServersYet.value &&
     discordMessageImportEligible.value,
 );
@@ -589,8 +594,7 @@ const showDmHistoryIntro = computed(
   () =>
     isEmpty.value &&
     !!props.dmHistoryIntro &&
-    !showHistorySkeleton.value &&
-    !showTransitionSkeleton.value &&
+    !showLoadingSkeleton.value &&
     !showNoServersYet.value &&
     !showDiscordImportWidget.value,
 );
@@ -756,7 +760,7 @@ if (import.meta.env.DEV) {
 
 /**
  * Channel header is `absolute` over the list (`h-12` = 3rem); top padding must clear it.
- * `52px` (`3.25rem`) keeps a thin gap under the glass header; `compactTop` skips this for voice side chat.
+ * `44px` keeps content just below the glass header; `compactTop` skips this for voice side chat.
  * When messages are shown, add MESSAGE_LIST_ACTION_BAR_GUTTER_PX so hover action bars are not clipped.
  * When totally empty (no skeleton), match bottom padding for vertical centering.
  */
@@ -769,12 +773,12 @@ const scrollContainerPaddingTopPx = computed(() => {
   ) {
     return props.headerOverlayInsetPx + gutter;
   }
-  const base = props.compactTop ? 12 : props.hasChannel ? 52 : 16;
+  const base = props.compactTop ? 12 : props.hasChannel ? 44 : 16;
   return base + gutter;
 });
 
 const scrollContainerPaddingBottomClass = computed(() => {
-  if (!isEmpty.value || showHistorySkeleton.value) return '';
+  if (!isEmpty.value || showLoadingSkeleton.value) return '';
   const bottom = props.compactTop
     ? 'pb-3'
     : props.hasChannel
@@ -1244,7 +1248,25 @@ let lastScrollViewportClientHeight = 0;
 function snapContainerScrollToBottom() {
   const el = containerRef.value;
   if (!el) return;
-  el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+  el.scrollTop = downwardOnlySnapScrollTop(
+    el.scrollTop,
+    el.scrollHeight,
+    el.clientHeight,
+  );
+}
+
+/** When the tail row grows (media decode), re-pin only if the user is following the end. */
+function maybeSnapToBottomAfterTailRowGrow(): void {
+  if (prependTransactionActive.value) return;
+  if (suppressListUntilInitialAnchor.value) return;
+  if (isUserScrollProtected(virtualizer.value?.scrollDirection ?? null)) {
+    return;
+  }
+  if (messageScrollAnchorResolved.value === 'top') return;
+  if (!followNewMessagesToBottom.value && !isNearBottom(FOLLOW_NEW_ATTACH_PX)) {
+    return;
+  }
+  snapContainerScrollToBottom();
 }
 
 function disconnectScrollViewportResizeObserver(): void {
@@ -1614,7 +1636,12 @@ function runLoadOlderIfEligible() {
     );
     return;
   }
-  if (lastObservedScrollDirection !== 'up') {
+  const atNearTop = el.scrollTop <= NEAR_TOP_PX;
+  // Top-anchored channels open at scrollTop≈0; wheel-up cannot move further, so allow
+  // pagination when already at the top without requiring upward scroll direction.
+  const allowWithoutUpScroll =
+    messageScrollAnchorResolved.value === 'top' && atNearTop;
+  if (!allowWithoutUpScroll && lastObservedScrollDirection !== 'up') {
     logMessageListThrottled(
       'scroll_not_up',
       220,
@@ -1672,8 +1699,14 @@ function scrollToBottom(smooth = false) {
   nextTick(() => {
     requestAnimationFrame(() => {
       if (suppressListUntilInitialAnchor.value) return;
+      const el = containerRef.value;
       const v = virtualizer.value;
       if (!v || displayOrderedIds.value.length === 0) return;
+      if (!smooth && el) {
+        const dist = v.getTotalSize() - el.scrollTop - el.clientHeight;
+        // Already flush with the bottom — skip scrollToIndex + snap that can yank upward on stale measures.
+        if (dist <= 2) return;
+      }
       v.scrollToIndex(displayOrderedIds.value.length - 1, {
         align: 'end',
         behavior: smooth ? 'smooth' : 'auto',
@@ -1800,6 +1833,10 @@ function applyInitialScrollAnchor() {
       if (messageScrollAnchorResolved.value === 'top') {
         v.scrollToIndex(0, { align: 'start', behavior: 'auto' });
         settleThenFinish('top');
+        requestAnimationFrame(() => {
+          if (scheduleId !== initialAnchorScheduleGeneration) return;
+          runLoadOlderIfEligible();
+        });
         return;
       }
 
@@ -2056,6 +2093,10 @@ watch(
         ) {
           return;
         }
+        if (!sentByCurrentUser && distanceFromBottom <= 2) {
+          emitSeenMessageId(resolveSeenMessageId());
+          return;
+        }
         /**
          * Always use instant scroll here + DOM snap. Smooth `scrollToIndex` skipped
          * `snapContainerScrollToBottom`, so the viewport often stopped short of the true
@@ -2290,9 +2331,17 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
             });
           }
         }
+        tailRowGrew =
+          prev !== undefined &&
+          h > prev + 0.5 &&
+          Number.isFinite(idx) &&
+          idx === displayOrderedIds.value.length - 1;
         measureRowLastHeightByKey.set(deferKey, h);
       }
       virtualizer.value.measureElement(element);
+      if (tailRowGrew) {
+        maybeSnapToBottomAfterTailRowGrow();
+      }
     });
   });
 }
@@ -2347,54 +2396,12 @@ defineExpose({
       :class="scrollContainerPaddingBottomClass"
       :style="{ paddingTop: `${scrollContainerPaddingTopPx}px` }"
     >
-      <div
-        v-if="showHistorySkeleton"
-        class="flex min-h-0 w-full flex-1 items-center justify-center py-10"
-        role="status"
-        aria-live="polite"
-        aria-label="Loading messages"
-      >
-        <svg
-          class="echo-ios-spinner"
-          viewBox="0 0 44 44"
-          width="34"
-          height="34"
-          aria-hidden="true"
-        >
-          <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
-          <circle
-            class="echo-ios-spinner__arc"
-            cx="22"
-            cy="22"
-            r="18"
-            transform="rotate(-90 22 22)"
-          />
-        </svg>
-      </div>
-      <div
-        v-else-if="showTransitionSkeleton"
-        class="flex min-h-0 w-full flex-1 items-center justify-center py-10"
-        role="status"
-        aria-live="polite"
-        aria-label="Loading conversation"
-      >
-        <svg
-          class="echo-ios-spinner"
-          viewBox="0 0 44 44"
-          width="34"
-          height="34"
-          aria-hidden="true"
-        >
-          <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
-          <circle
-            class="echo-ios-spinner__arc"
-            cx="22"
-            cy="22"
-            r="18"
-            transform="rotate(-90 22 22)"
-          />
-        </svg>
-      </div>
+      <MessageListHistorySkeleton
+        v-if="showLoadingSkeleton"
+        :aria-label="
+          showHistorySkeleton ? 'Loading messages' : 'Loading conversation'
+        "
+      />
       <div
         v-else-if="showNoServersYet"
         class="message-list-empty flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-4 text-center"
@@ -2472,6 +2479,30 @@ defineExpose({
         />
       </div>
       <div v-else class="relative w-full min-h-0">
+        <div
+          v-if="loadingOlder"
+          class="message-list-older-loader sticky top-0 z-10 flex w-full justify-center py-2"
+          role="status"
+          aria-live="polite"
+          aria-label="Loading older messages"
+        >
+          <svg
+            class="echo-ios-spinner"
+            viewBox="0 0 44 44"
+            width="28"
+            height="28"
+            aria-hidden="true"
+          >
+            <circle class="echo-ios-spinner__track" cx="22" cy="22" r="18" />
+            <circle
+              class="echo-ios-spinner__arc"
+              cx="22"
+              cy="22"
+              r="18"
+              transform="rotate(-90 22 22)"
+            />
+          </svg>
+        </div>
         <DmHistoryIntroCard
           v-if="showDmHistoryIntro && props.dmHistoryIntro"
           class="mb-3"
@@ -2547,7 +2578,7 @@ defineExpose({
       :message-scroll-anchor="messageScrollAnchorResolved"
       :message-count="displayOrderedIds.length"
       :list-ui-blocked="
-        showHistorySkeleton ||
+        showLoadingSkeleton ||
         showNoServersYet ||
         showEmptyChannelHint ||
         showDiscordImportWidget

@@ -213,7 +213,7 @@ export default async function echoInvitesRoutes(
           });
           return reply
             .header('content-type', 'text/html; charset=utf-8')
-            .header('cache-control', 'public, max-age=120')
+            .header('cache-control', 'private, no-store')
             .code(404)
             .send(html);
         }
@@ -225,7 +225,7 @@ export default async function echoInvitesRoutes(
           });
           return reply
             .header('content-type', 'text/html; charset=utf-8')
-            .header('cache-control', 'public, max-age=120')
+            .header('cache-control', 'private, no-store')
             .code(404)
             .send(html);
         }
@@ -247,7 +247,7 @@ export default async function echoInvitesRoutes(
         });
         return reply
           .header('content-type', 'text/html; charset=utf-8')
-          .header('cache-control', 'public, max-age=300')
+          .header('cache-control', 'private, no-store')
           .code(200)
           .send(html);
       },

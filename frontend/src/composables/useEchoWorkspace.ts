@@ -18,6 +18,7 @@ import {
   readJwtSub,
   readWorkspaceSessionCache,
   writeWorkspaceSessionCache,
+  type CachedEchoWorkspaceState,
 } from '@/utils/workspaceSessionCache';
 import { clearEchoWorkspaceCache } from '@/utils/workspacePersistence';
 import { dbgMemberList } from '@/utils/echoMemberListDebug';
@@ -155,9 +156,23 @@ export function createWorkspaceState(): WorkspaceStateApi {
 
   const workspaceHydrateSkipLatch = createWorkspaceHydrateSkipLatch();
   let startInitialLoadSeq = 0;
+  /**
+   * Set when {@link preHydrateFromSessionCache} painted the workspace from the
+   * sessionStorage cache before Vue mounted. `startInitialLoad` reads this to keep
+   * the warm paint (no `loading` flip → no spinner) and avoid re-applying the same
+   * user's cache a second time.
+   */
+  let wasPreHydrated = false;
 
   function consumeSkipEchoWorkspaceHydrate(): boolean {
     return workspaceHydrateSkipLatch.consume();
+  }
+
+  function preHydrateFromSessionCache(cache: CachedEchoWorkspaceState): void {
+    applyWorkspaceStateToRefs(cache as unknown as EchoWorkspaceState);
+    fromApi.value = true;
+    apiError.value = null;
+    wasPreHydrated = true;
   }
 
   async function seedPublicExploreDirectory(): Promise<void> {
@@ -193,7 +208,14 @@ export function createWorkspaceState(): WorkspaceStateApi {
   }
 
   async function startInitialLoad() {
-    loading.value = true;
+    // One-shot: consume the pre-hydration flag so a later re-login goes through the
+    // normal spinner path instead of silently reusing the previous warm paint.
+    const preHydrated = wasPreHydrated;
+    wasPreHydrated = false;
+    // When `preHydrateFromSessionCache` already painted the shell before mount,
+    // keep `loading` false so dependent UI stays on the warm content instead of
+    // flipping back to a spinner while we reconcile with the network below.
+    if (!preHydrated) loading.value = true;
     const auth = useAuthSessionStore();
     const seq = ++startInitialLoadSeq;
     try {
@@ -210,8 +232,11 @@ export function createWorkspaceState(): WorkspaceStateApi {
        */
       const preRestoreToken = auth.accessToken?.trim() || '';
       const warmCacheSub = preRestoreToken ? readJwtSub(preRestoreToken) : null;
-      let warmCacheApplied = false;
-      if (preRestoreToken) {
+      // `preHydrateFromSessionCache` (called from main.ts before mount) already
+      // painted the same cache for this token, so treat the warm paint as done and
+      // skip the redundant read + apply here.
+      let warmCacheApplied = preHydrated;
+      if (preRestoreToken && !preHydrated) {
         const warmCache = readWorkspaceSessionCache(warmCacheSub);
         if (warmCache) {
           dbgMemberList('startInitialLoad warm cache paint (pre-/auth/me)', {
@@ -393,6 +418,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
     apiError,
     refreshExploreDirectory,
     startInitialLoad,
+    preHydrateFromSessionCache,
     consumeSkipEchoWorkspaceHydrate,
   };
 }

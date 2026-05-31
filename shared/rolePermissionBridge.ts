@@ -31,6 +31,7 @@ const UI_TO_ECHO: Record<string, EchoApiPermission | EchoApiPermission[]> = {
   manageMessages: 'MANAGE_MESSAGES',
   manageRoles: 'MANAGE_ROLES',
   assignRoles: 'ASSIGN_ROLES',
+  selfSelectable: 'SELF_SELECTABLE',
   manageServer: 'MANAGE_GUILD',
   kickMembers: 'KICK_MEMBERS',
   banMembers: 'BAN_MEMBERS',
@@ -140,6 +141,7 @@ export function roleUiPermissionsFromEchoStrings(
     manageRoles: has('MANAGE_ROLES'),
     assignRoles:
       has('ASSIGN_ROLES') || has('MANAGE_ROLES') || has('ADMINISTRATOR'),
+    selfSelectable: has('SELF_SELECTABLE'),
     manageServer: has('MANAGE_GUILD') || has('MANAGE_SERVER'),
     kickMembers: has('KICK_MEMBERS'),
     banMembers: has('BAN_MEMBERS'),

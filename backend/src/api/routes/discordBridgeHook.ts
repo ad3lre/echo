@@ -11,11 +11,12 @@ import { ingestDiscordBridgeMessage } from '../../services/discordBridgeInbound'
 import { consumeWebhookDeliveryOnce } from '../../services/webhookReplayGuard';
 import { sendError } from '../errors';
 import { safeCompare } from '../../shared/safeCompare';
+import { verifyEchoWebhookHmac } from '../../services/echoWebhookSignature';
 
 function requireBotWebhookSecret(
   req: FastifyRequest,
   reply: FastifyReply,
-): boolean {
+): string | null {
   const secret = config.echoDiscordBotWebhookSecret.trim();
   if (!secret) {
     sendError(
@@ -24,15 +25,27 @@ function requireBotWebhookSecret(
       'NOT_CONFIGURED',
       'Discord bot webhook secret is not configured.',
     );
-    return false;
+    return null;
   }
   const hdr = req.headers['x-echo-discord-bot-secret'];
   const presented = typeof hdr === 'string' ? hdr.trim() : '';
   if (!safeCompare(presented, secret)) {
     sendError(reply, 401, 'UNAUTHORIZED', 'Invalid webhook secret.');
-    return false;
+    return null;
   }
-  return true;
+  return secret;
+}
+
+function requireBotWebhookPostSignature(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  secret: string,
+): boolean {
+  if (!config.isProduction) return true;
+  const rawBody = JSON.stringify(req.body ?? {});
+  if (verifyEchoWebhookHmac(secret, rawBody, req)) return true;
+  sendError(reply, 401, 'UNAUTHORIZED', 'Invalid webhook signature.');
+  return false;
 }
 
 export default async function discordBridgeHookRoutes(
@@ -51,7 +64,9 @@ export default async function discordBridgeHookRoutes(
   fastify.post<{ Body: Record<string, unknown> }>(
     '/hooks/discord-bridge/inbound',
     async (req, reply) => {
-      if (!requireBotWebhookSecret(req, reply)) return;
+      const secret = requireBotWebhookSecret(req, reply);
+      if (!secret) return;
+      if (!requireBotWebhookPostSignature(req, reply, secret)) return;
       const deliveryIdHdr = req.headers['x-echo-delivery-id'];
       const deliveryId =
         typeof deliveryIdHdr === 'string' ? deliveryIdHdr.trim() : '';

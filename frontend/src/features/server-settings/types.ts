@@ -24,6 +24,7 @@ export const SECTION_COPY: Record<ServerSettingsSection, string> = {
   Roles:
     'Review the role ladder, member distribution, and default permissions at a glance.',
   Emoji: 'Manage emoji slots and server visual identity.',
+  Stickers: 'View and manage server sticker packs for the composer picker.',
   Discord:
     'Discord import status, refresh from the latest export, and optional realtime bridge.',
   Security:
@@ -32,6 +33,8 @@ export const SECTION_COPY: Record<ServerSettingsSection, string> = {
     'Control who can discover and join this server, plus optional join applications and waitlist.',
   Tickets:
     'Set up a ticket system so members can submit private reports and inquiries visible only to them and designated handlers.',
+  'Self-assignable Roles':
+    'Enable a widget channel where members can pick up roles marked as self-selectable, organized by role categories or custom groups.',
   'Banned Words':
     'Choose a filter level to automatically block, delete, or warn when members use inappropriate language.',
   Moderation:
@@ -48,6 +51,7 @@ export type RolePermissionKey =
   | 'manageChannels'
   | 'manageRoles'
   | 'assignRoles'
+  | 'selfSelectable'
   | 'addExpressions'
   | 'manageExpressions'
   | 'viewAuditLog'
@@ -103,6 +107,8 @@ export interface ManagedRole {
   roleCategoryId: string | null;
   /** When true, manage/assign on this role applies to all categories. */
   roleScope: EchoRoleScope;
+  /** When true, permissions/hoist/join defaults follow the role category template. */
+  syncWithCategoryDefaults: boolean;
   permissions: RolePermissions;
   /** Raw Echo API permission strings last loaded from the server (preserves non-UI bits on save). */
   storedEchoPermissions: string[];
@@ -128,6 +134,11 @@ export const ROLE_PERMISSION_DEFS: Array<{
   { key: 'manageChannels', label: 'Manage Channels', group: 'General' },
   { key: 'manageRoles', label: 'Manage Roles', group: 'General' },
   { key: 'assignRoles', label: 'Assign Roles', group: 'General' },
+  {
+    key: 'selfSelectable',
+    label: 'Self-selectable',
+    group: 'General',
+  },
   { key: 'viewAuditLog', label: 'View Audit Log', group: 'General' },
   { key: 'viewServerStats', label: 'View Server Stats', group: 'General' },
   {
@@ -183,6 +194,7 @@ export const ECHO_SERVER_SETTINGS_ROLE_PERMISSION_KEYS: RolePermissionKey[] = [
   'manageChannels',
   'manageRoles',
   'assignRoles',
+  'selfSelectable',
   'createInvite',
   'sendMessages',
   'commentOnPaper',

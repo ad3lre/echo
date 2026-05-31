@@ -36,6 +36,35 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function waitForPendingVideoUpload(
+  video: PendingVideo,
+  timeoutMs = 120_000,
+): Promise<void> {
+  if (video.uploadStatus === 'done') return Promise.resolve();
+  if (video.uploadStatus === 'error') {
+    return Promise.reject(new Error(`Failed to upload ${video.file.name}`));
+  }
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const tick = () => {
+      if (video.uploadStatus === 'done') {
+        resolve();
+        return;
+      }
+      if (video.uploadStatus === 'error') {
+        reject(new Error(`Failed to upload ${video.file.name}`));
+        return;
+      }
+      if (Date.now() - started > timeoutMs) {
+        reject(new Error(`Upload timed out: ${video.file.name}`));
+        return;
+      }
+      window.setTimeout(tick, 100);
+    };
+    tick();
+  });
+}
+
 export async function uploadPendingMediaAsAttachments(
   channelId: string,
   pendingImages: PendingImage[],
@@ -366,6 +395,21 @@ export async function uploadPendingMediaAsAttachments(
     const imageCount = pendingImages.length;
     for (let j = 0; j < pendingVideos.length; j++) {
       const p = pendingVideos[j]!;
+      if (p.uploadStatus === 'uploading') {
+        await waitForPendingVideoUpload(p);
+      }
+      if (p.uploadStatus === 'done' && p.uploadUrl) {
+        attachments.push({
+          url: p.uploadUrl,
+          ...(p.uploadStorageKey ? { storageKey: p.uploadStorageKey } : {}),
+          kind: 'video',
+          filename: p.file.name,
+          mimeType: p.file.type || undefined,
+          ...(p.width && p.height ? { width: p.width, height: p.height } : {}),
+          ...(p.spoiler ? { spoiler: true } : {}),
+        });
+        continue;
+      }
       const uploaded = await uploadChatAttachmentFile(
         token,
         channelId,
@@ -382,6 +426,7 @@ export async function uploadPendingMediaAsAttachments(
         kind: 'video',
         filename: p.file.name,
         mimeType: p.file.type || undefined,
+        ...(p.width && p.height ? { width: p.width, height: p.height } : {}),
         ...(p.spoiler ? { spoiler: true } : {}),
       });
     }

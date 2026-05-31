@@ -3,6 +3,7 @@ import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { ServerNotificationLevel } from '@/features/server-notifications/types';
 import type { MemberRole } from '@/utils/memberProfiles';
+import type { CachedEchoWorkspaceState } from '@/utils/workspaceSessionCache';
 
 export type SocialGraphStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -212,6 +213,13 @@ export type WorkspaceStateApi = {
   deleteChannel: (serverId: string, channelId: string) => boolean;
   deleteCategory: (serverId: string, categoryId: string) => boolean;
   startInitialLoad: () => Promise<void>;
+  /**
+   * Synchronously apply a sessionStorage workspace snapshot before Vue mounts so
+   * the shell can paint servers/channels/members on the very first frame. Marks
+   * the state as pre-hydrated so the subsequent {@link startInitialLoad} keeps the
+   * warm paint (no `loading` flip) and skips the duplicate same-user cache apply.
+   */
+  preHydrateFromSessionCache: (cache: CachedEchoWorkspaceState) => void;
   consumeSkipEchoWorkspaceHydrate: () => boolean;
   patchUserRowById: (
     userId: string,

@@ -14,6 +14,7 @@ import { publishEchoWorkspaceEvent } from '../../platform/echoPlatformEvents';
 import { sendError } from '../errors';
 import { safeCompare } from '../../shared/safeCompare';
 import { consumeWebhookDeliveryOnce } from '../../services/webhookReplayGuard';
+import { verifyEchoWebhookHmac } from '../../services/echoWebhookSignature';
 
 function requireBotWebhookSecret(
   req: FastifyRequest,
@@ -38,6 +39,18 @@ function requireBotWebhookSecret(
   return secret;
 }
 
+function requireBotWebhookPostSignature(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  secret: string,
+): boolean {
+  if (!config.isProduction) return true;
+  const rawBody = JSON.stringify(req.body ?? {});
+  if (verifyEchoWebhookHmac(secret, rawBody, req)) return true;
+  sendError(reply, 401, 'UNAUTHORIZED', 'Invalid webhook signature.');
+  return false;
+}
+
 export default async function discordBotHookRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
@@ -57,7 +70,9 @@ export default async function discordBotHookRoutes(
       req: FastifyRequest<{ Body: { discordGuildId?: unknown } }>,
       reply: FastifyReply,
     ) => {
-      if (!requireBotWebhookSecret(req, reply)) return;
+      const secret = requireBotWebhookSecret(req, reply);
+      if (!secret) return;
+      if (!requireBotWebhookPostSignature(req, reply, secret)) return;
       const deliveryIdHdr = req.headers['x-echo-delivery-id'];
       const deliveryId =
         typeof deliveryIdHdr === 'string' ? deliveryIdHdr.trim() : '';

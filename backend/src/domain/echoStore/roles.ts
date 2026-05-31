@@ -25,6 +25,11 @@ import {
   applyRolePositionsFromCategoryBlocks,
   buildCategoryRoleOrderMap,
 } from './roleOrdering';
+import {
+  loadEchoRoleCategoryDefaults,
+  mergeRoleFieldsWithCategoryDefaults,
+  categoryDefaultsAreConfigured,
+} from './roleCategoryDefaults';
 import { actorMayMutateTargetRoleById } from './roleScope';
 import {
   normalizeEchoRoleScope,
@@ -69,6 +74,8 @@ export type EchoRoleDto = {
   roleIconEmojiId: string | null;
   permissions: string[];
   roleType: EchoRoleType;
+  /** When true, permissions/hoist/join defaults follow the role category template. */
+  syncWithCategoryDefaults: boolean;
 };
 
 type EchoRoleRow = {
@@ -88,6 +95,7 @@ type EchoRoleRow = {
   role_icon_url: unknown;
   role_icon_emoji_id: unknown;
   role_type: unknown;
+  sync_with_category_defaults: unknown;
 };
 
 export type ListEchoRolesForServerOptions = {
@@ -244,7 +252,8 @@ export async function listEchoRolesForServer(
     `
     SELECT r.id, r.name, r.color, r.dark_color, r.light_color, r.separate_theme_colors,
            r.position, r.permissions, r.hoist, r.default_on_join, r.role_category_id,
-           r.rank_in_category, r.role_scope, r.role_icon_url, r.role_icon_emoji_id, r.role_type
+           r.rank_in_category, r.role_scope, r.role_icon_url, r.role_icon_emoji_id, r.role_type,
+           r.sync_with_category_defaults
     FROM echo_roles r
     LEFT JOIN echo_role_categories c
       ON c.id = r.role_category_id AND c.server_id = r.server_id
@@ -328,6 +337,7 @@ export async function listEchoRolesForServer(
       roleIconEmojiId,
       permissions,
       roleType,
+      syncWithCategoryDefaults: row.sync_with_category_defaults !== false,
     });
   }
   return out;
@@ -490,6 +500,7 @@ export async function updateEchoRole(
     roleIconUrl?: string | null;
     roleIconEmojiId?: string | null;
     roleType?: unknown;
+    syncWithCategoryDefaults?: boolean;
   },
 ): Promise<UpdateEchoRoleResult> {
   const touched =
@@ -505,14 +516,15 @@ export async function updateEchoRole(
     patch.roleScope !== undefined ||
     patch.roleIconUrl !== undefined ||
     patch.roleIconEmojiId !== undefined ||
-    patch.roleType !== undefined;
+    patch.roleType !== undefined ||
+    patch.syncWithCategoryDefaults !== undefined;
   if (!touched) return 'invalid_body';
 
   const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
   if (!canManageEchoRolesCatalog(actorPerms)) return 'forbidden';
 
   const rowQ = await pool.query(
-    `SELECT name, position, role_type, color, dark_color, light_color, separate_theme_colors, hoist, default_on_join FROM echo_roles WHERE server_id = $1 AND id = $2 LIMIT 1`,
+    `SELECT name, position, role_type, color, dark_color, light_color, separate_theme_colors, hoist, default_on_join, role_category_id, permissions, role_scope, sync_with_category_defaults FROM echo_roles WHERE server_id = $1 AND id = $2 LIMIT 1`,
     [serverId, roleId],
   );
   if (rowQ.rows.length === 0) return 'not_found';
@@ -526,6 +538,10 @@ export async function updateEchoRole(
     separate_theme_colors?: unknown;
     hoist?: unknown;
     default_on_join?: unknown;
+    role_category_id?: unknown;
+    permissions?: unknown;
+    role_scope?: unknown;
+    sync_with_category_defaults?: unknown;
   };
   const currentName = String(row0.name);
   const currentPosition = Number(row0.position ?? 0);
@@ -616,6 +632,51 @@ export async function updateEchoRole(
     if (emoji != null) {
       const ok = await roleIconEmojiBelongsToServer(pool, serverId, emoji);
       if (!ok) return 'invalid_body';
+    }
+  }
+
+  if (patch.syncWithCategoryDefaults !== undefined) {
+    if (typeof patch.syncWithCategoryDefaults !== 'boolean')
+      return 'invalid_body';
+  }
+
+  if (patch.syncWithCategoryDefaults === true && currentName !== '@everyone') {
+    let targetCategoryId: string | null = null;
+    if (patch.roleCategoryId !== undefined) {
+      targetCategoryId = await resolveRoleCategoryIdForAssignment(
+        pool,
+        serverId,
+        patch.roleCategoryId,
+      );
+    } else {
+      const rc = row0.role_category_id;
+      targetCategoryId =
+        rc != null && String(rc).trim() ? String(rc).trim() : null;
+      if (!targetCategoryId) {
+        targetCategoryId = await getGlobalRoleCategoryId(pool, serverId);
+      }
+    }
+    if (targetCategoryId) {
+      const catDefaults = await loadEchoRoleCategoryDefaults(
+        pool,
+        serverId,
+        targetCategoryId,
+      );
+      if (catDefaults && categoryDefaultsAreConfigured(catDefaults)) {
+        const merged = mergeRoleFieldsWithCategoryDefaults(catDefaults, {
+          permissions: [],
+          hoist: false,
+          defaultOnJoin: false,
+          roleScope: 'category',
+          roleType: 'mixed',
+        });
+        patch.permissions = merged.permissions;
+        patch.hoist = merged.hoist;
+        patch.defaultOnJoin = merged.defaultOnJoin;
+        patch.roleScope = merged.roleScope;
+        patch.roleType = merged.roleType;
+        nextType = merged.roleType;
+      }
     }
   }
 
@@ -719,6 +780,11 @@ export async function updateEchoRole(
   if (patch.roleType !== undefined && currentName !== '@everyone') {
     sets.push(`role_type = $${vals.length + 1}`);
     vals.push(nextType);
+  }
+
+  if (patch.syncWithCategoryDefaults !== undefined) {
+    sets.push(`sync_with_category_defaults = $${vals.length + 1}`);
+    vals.push(patch.syncWithCategoryDefaults);
   }
 
   const mergedColor =
@@ -955,6 +1021,7 @@ export async function createEchoRole(
     roleIconUrl?: string | null;
     roleIconEmojiId?: string | null;
     roleType?: unknown;
+    syncWithCategoryDefaults?: boolean;
   },
 ): Promise<
   { roleId: string } | 'forbidden' | 'invalid_body' | 'limit_reached'
@@ -1011,6 +1078,55 @@ export async function createEchoRole(
   }
   const roleScope =
     name === '@everyone' ? 'category' : normalizeEchoRoleScope(body.roleScope);
+  let syncWithCategoryDefaults =
+    body.syncWithCategoryDefaults !== false && name !== '@everyone';
+
+  const categoryDefaults =
+    roleCategoryId && name !== '@everyone'
+      ? await loadEchoRoleCategoryDefaults(pool, serverId, roleCategoryId)
+      : null;
+  const hasCategoryDefaults =
+    !!categoryDefaults && categoryDefaultsAreConfigured(categoryDefaults);
+
+  if (hasCategoryDefaults && categoryDefaults && name !== '@everyone') {
+    const merged = mergeRoleFieldsWithCategoryDefaults(categoryDefaults, {
+      permissions: [],
+      hoist: false,
+      defaultOnJoin: false,
+      roleScope: 'category',
+      roleType: 'mixed',
+    });
+    const permissionsUnspecified =
+      body.permissions === undefined ||
+      (Array.isArray(body.permissions) && body.permissions.length === 0);
+    if (permissionsUnspecified) {
+      body.permissions = merged.permissions;
+    }
+    if (body.hoist === undefined) hoist = merged.hoist;
+    if (body.defaultOnJoin === undefined) defaultOnJoin = merged.defaultOnJoin;
+    if (body.roleScope === undefined) body.roleScope = merged.roleScope;
+    if (body.roleType === undefined) body.roleType = merged.roleType;
+    if (body.syncWithCategoryDefaults === undefined) {
+      syncWithCategoryDefaults = true;
+    }
+  }
+
+  const effectiveRoleScope =
+    name === '@everyone'
+      ? 'category'
+      : normalizeEchoRoleScope(body.roleScope ?? roleScope);
+  let effectiveRoleType = normalizeEchoRoleType(body.roleType ?? roleType);
+  if (effectiveRoleType === 'authority') {
+    hoist = false;
+    separateThemeColors = false;
+    effDark = color;
+    effLight = color;
+  }
+  if (effectiveRoleType === 'visual') {
+    separateThemeColors = false;
+    effDark = color;
+    effLight = color;
+  }
   const roleIconUrl = normalizeRoleIconUrl(body.roleIconUrl);
   if (body.roleIconUrl != null && roleIconUrl == null) return 'invalid_body';
   const roleIconEmojiId = normalizeRoleIconEmojiId(body.roleIconEmojiId);
@@ -1075,7 +1191,7 @@ export async function createEchoRole(
 
   const id = nextEchoSnowflakeId();
   let normalized =
-    roleType === 'visual'
+    effectiveRoleType === 'visual'
       ? normalizeVisualRolePermissionsForStorage(body.permissions)
       : normalizePermissionListForStorage(body.permissions, ALLOWED_PERMS_SET);
   if (
@@ -1088,8 +1204,8 @@ export async function createEchoRole(
     INSERT INTO echo_roles (
       id, server_id, name, color, dark_color, light_color, separate_theme_colors,
       position, permissions, hoist, default_on_join, role_category_id, rank_in_category,
-      role_scope, role_icon_url, role_icon_emoji_id, role_type
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17)
+      role_scope, role_icon_url, role_icon_emoji_id, role_type, sync_with_category_defaults
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17, $18)
     `,
     [
       id,
@@ -1105,10 +1221,11 @@ export async function createEchoRole(
       defaultOnJoin,
       roleCategoryId,
       rankInCategory,
-      roleScope,
+      effectiveRoleScope,
       roleIconUrl,
       roleIconEmojiId,
-      roleType,
+      effectiveRoleType,
+      syncWithCategoryDefaults,
     ],
   );
   const map = await buildCategoryRoleOrderMap(pool, serverId);

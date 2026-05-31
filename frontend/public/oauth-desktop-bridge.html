@@ -204,8 +204,15 @@
     </main>
     <script>
       (function () {
-        var p = new URLSearchParams(window.location.search);
-        var c = p.get('echo_handoff');
+        function readHandoffCode() {
+          var hash = (window.location.hash || '').replace(/^#/, '');
+          if (hash.indexOf('echo_handoff=') === 0) {
+            return decodeURIComponent(hash.slice('echo_handoff='.length));
+          }
+          var p = new URLSearchParams(window.location.search);
+          return p.get('echo_handoff');
+        }
+        var c = readHandoffCode();
         var statusEl = document.getElementById('status');
         var helpEl = document.getElementById('help');
         var linkEl = document.getElementById('openEchoLink');

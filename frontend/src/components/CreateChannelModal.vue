@@ -362,9 +362,9 @@ function submit() {
 
 <style scoped lang="scss">
 .modal-overlay-bg {
-  background-color: color-mix(in srgb, var(--bg) 35%, rgba(0, 0, 0, 0.92));
-  backdrop-filter: blur(10px) saturate(1);
-  -webkit-backdrop-filter: blur(10px) saturate(1);
+  background-color: var(--vue-auto-011);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .real-glass-modal {

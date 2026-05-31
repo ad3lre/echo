@@ -112,7 +112,13 @@ export async function postEchoServerCustomEmoji(
   token: string,
   serverId: string,
   packId: string,
-  body: { name: string; animated: boolean; imageUrl: string },
+  body: {
+    name: string;
+    animated: boolean;
+    imageUrl: string;
+    expressionKind?: 'emoji' | 'sticker';
+    stickerFormat?: string;
+  },
 ): Promise<{ id: string }> {
   return echoFetch(
     token,

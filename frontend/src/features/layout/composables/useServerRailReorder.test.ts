@@ -79,7 +79,7 @@ describe('useServerRailReorder', () => {
       folderRoot: folder,
     });
 
-    vi.advanceTimersByTime(130);
+    vi.advanceTimersByTime(210);
     await nextTick();
 
     window.dispatchEvent(
@@ -104,6 +104,64 @@ describe('useServerRailReorder', () => {
 
     expect(reorder).toHaveBeenCalledWith(0, 1);
     expect(r.consumeRailSelectIntent()).toBe(false);
+    expect(r.consumeRailSelectIntent()).toBe(true);
+  });
+
+  it('allows server select after small pointer jitter without reorder', async () => {
+    document.body.innerHTML = `
+      <div class="servers-folder">
+        <div class="server-folder__slot"><button type="button" id="b0"></button></div>
+        <div class="server-folder__slot"><button type="button" id="b1"></button></div>
+      </div>`;
+    const folder = document.querySelector('.servers-folder') as HTMLElement;
+    const b0 = document.getElementById('b0') as HTMLButtonElement;
+    mockSlotRects(folder, [
+      { top: 0, bottom: 40, left: 0, right: 40 },
+      { top: 60, bottom: 100, left: 0, right: 40 },
+    ]);
+
+    const reorder = vi.fn();
+    const r = useServerRailReorder(
+      ref(true),
+      ref(2),
+      reorder,
+      ref('vertical'),
+      ref(false),
+    );
+
+    r.onRailServerPointerDown({
+      event: pointerDownOn(b0, {
+        pointerId: 8,
+        pointerType: 'mouse',
+        button: 0,
+        clientX: 10,
+        clientY: 10,
+      }),
+      index: 0,
+      folderRoot: folder,
+    });
+
+    window.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        pointerId: 8,
+        clientX: 22,
+        clientY: 12,
+      }),
+    );
+    await nextTick();
+
+    window.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        pointerId: 8,
+        clientX: 22,
+        clientY: 12,
+      }),
+    );
+    await nextTick();
+
+    expect(reorder).not.toHaveBeenCalled();
     expect(r.consumeRailSelectIntent()).toBe(true);
   });
 });

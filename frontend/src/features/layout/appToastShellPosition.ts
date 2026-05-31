@@ -17,6 +17,27 @@ export type AppToastBottomInsetOptions = {
   measuredChromeInsetPx: number;
 };
 
+export type AppToastClearsBottomChromeInput = {
+  chatComposerFocused: boolean;
+  measuredChromeInsetPx: number;
+  useCompactTriPaneShell: boolean;
+  useCompactDmShell: boolean;
+  hasGuildChannelChrome: boolean;
+  isDmThreadSurface: boolean;
+};
+
+/** Whether the toast should lift above the chat composer / bottom chrome stack. */
+export function shouldAppToastClearBottomChrome(
+  input: AppToastClearsBottomChromeInput,
+): boolean {
+  if (input.chatComposerFocused) return true;
+  if (input.measuredChromeInsetPx > 0) return true;
+  if (input.useCompactTriPaneShell) return true;
+  if (input.useCompactDmShell) return true;
+  if (input.hasGuildChannelChrome) return true;
+  return input.isDmThreadSurface;
+}
+
 export function appToastBottomInsetCss(
   options: AppToastBottomInsetOptions,
 ): string {

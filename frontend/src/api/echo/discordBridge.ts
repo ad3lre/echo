@@ -5,7 +5,9 @@ export type EchoDiscordBridgeState = {
   discordChannelId: string;
   inboundEnabled: boolean;
   outboundEnabled: boolean;
-  hasWebhook: boolean;
+  /** GET returns bridgeConfigured; PUT may still return hasWebhook/hasBridge. */
+  bridgeConfigured?: boolean;
+  hasWebhook?: boolean;
   hasBridge?: boolean;
 };
 

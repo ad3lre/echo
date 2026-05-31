@@ -3,6 +3,7 @@ import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { scheduleDeferredTask } from '@/utils/scheduleDeferredTask';
 import { resolveEmojiTokens } from '@/services/orchestration/emojiTokenResolve';
+import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
 
 export type ResolvedCustomEmojiMeta = {
   id: string;
@@ -69,9 +70,10 @@ async function flushQueued(token: string) {
         const url =
           (typeof row.assetUrl === 'string' ? row.assetUrl.trim() : '') ||
           (typeof row.imageUrl === 'string' ? row.imageUrl.trim() : '');
+        const resolvedUrl = url ? (safeCustomEmojiUrl(url) ?? url) : '';
         const id = normalizeEmojiId(row.id);
-        if (!key || !url) continue;
-        urlByIdState.set(key, url);
+        if (!key || !resolvedUrl) continue;
+        urlByIdState.set(key, resolvedUrl);
         hit.add(key);
         const name =
           typeof row.name === 'string' ? row.name.trim().toLowerCase() : '';
@@ -83,12 +85,12 @@ async function flushQueued(token: string) {
           id: id ?? key,
           name: typeof row.name === 'string' ? row.name.trim() : 'emoji',
           animated: row.animated === true,
-          imageUrl: url,
+          imageUrl: resolvedUrl,
           ...(discordSource ? { sourceDiscordEmojiId: discordSource } : {}),
         };
         metaByIdState.set(key, meta);
         if (id && id !== key) {
-          urlByIdState.set(id, url);
+          urlByIdState.set(id, resolvedUrl);
           metaByIdState.set(id, meta);
         }
       }

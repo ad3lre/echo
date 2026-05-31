@@ -115,57 +115,35 @@ export async function createEchoServer(
           JSON.stringify([...DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS]),
         ],
       );
-      // Seed delegated moderation roles in Global Roles category
-      const adminRoleId = nextEchoSnowflakeId();
-      const modRoleId = nextEchoSnowflakeId();
+      // Seed a single global-scope "All" role for server administration
+      const allRoleId = nextEchoSnowflakeId();
       await client.query(
         `
         INSERT INTO echo_roles (
           id, server_id, name, color, position, hoist, permissions,
-          role_category_id, rank_in_category, role_scope
-        ) VALUES ($1, $2, $3, $4, 2, true, $5::jsonb, $6, 1, 'global')
+          role_category_id, rank_in_category, role_scope, sync_with_category_defaults
+        ) VALUES ($1, $2, $3, $4, 1, true, $5::jsonb, $6, 0, 'global', false)
         `,
         [
-          adminRoleId,
+          allRoleId,
           serverId,
-          'Admin',
-          '#e74c3c',
+          'All',
+          '#5865F2',
           JSON.stringify(['ADMINISTRATOR']),
           globalRoleCategoryId,
         ],
       );
-      await client.query(
-        `
-        INSERT INTO echo_roles (
-          id, server_id, name, color, position, hoist, permissions,
-          role_category_id, rank_in_category, role_scope
-        ) VALUES ($1, $2, $3, $4, 1, true, $5::jsonb, $6, 0, 'global')
-        `,
-        [
-          modRoleId,
-          serverId,
-          'Moderator',
-          '#2ecc71',
-          JSON.stringify([
-            'KICK_MEMBERS',
-            'BAN_MEMBERS',
-            'MODERATE_MEMBERS',
-            'MANAGE_MESSAGES',
-          ]),
-          globalRoleCategoryId,
-        ],
-      );
       await assignEveryoneRoleToMember(client, serverId, ownerId);
-      const adminRoleIns = await client.query(
+      const allRoleIns = await client.query(
         `INSERT INTO echo_member_roles (server_id, user_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING role_id`,
-        [serverId, ownerId, adminRoleId],
+        [serverId, ownerId, allRoleId],
       );
-      if ((adminRoleIns.rowCount ?? 0) > 0) {
+      if ((allRoleIns.rowCount ?? 0) > 0) {
         await applyEchoRoleLinksAfterAssignment(
           client,
           serverId,
           ownerId,
-          adminRoleId,
+          allRoleId,
         );
       }
       invalidateEchoPermissionCacheForUser(serverId, ownerId);

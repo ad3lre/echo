@@ -1,5 +1,6 @@
 import { onUnmounted, watch, type Ref } from 'vue';
 import type { ChatVideoPlaybackState } from '@/composables/useChatVideoPlayback';
+import { applyEchoUploadMediaCrossOrigin } from '@/utils/echoUploadMediaCredentials';
 
 export type UseHlsPlaybackOptions = {
   disabled?: Ref<boolean>;
@@ -22,27 +23,40 @@ export function useHlsPlayback(
   }
 
   async function attachPlayback(): Promise<void> {
-    destroyHls();
     const el = videoRef.value;
     if (!el || options.disabled?.value) return;
+
+    const savedTime = el.currentTime;
+    const wasPlaying = !el.paused;
+    destroyHls();
 
     const state = playbackState.value;
     const manifest = state.playbackUrl;
 
     if (state.mode !== 'hls' || state.status !== 'ready') {
       const src = options.progressiveSrc.value;
-      if (src) el.src = src;
+      applyEchoUploadMediaCrossOrigin(el, src);
+      if (src && el.src !== src) el.src = src;
+      if (savedTime > 0) el.currentTime = savedTime;
+      if (wasPlaying) void el.play().catch(() => undefined);
       return;
     }
 
+    applyEchoUploadMediaCrossOrigin(el, manifest);
+
     if (el.canPlayType('application/vnd.apple.mpegurl')) {
       el.src = manifest;
+      if (savedTime > 0) el.currentTime = savedTime;
+      if (wasPlaying) void el.play().catch(() => undefined);
       return;
     }
 
     const { default: Hls } = await import('hls.js');
     if (!Hls.isSupported()) {
+      applyEchoUploadMediaCrossOrigin(el, state.sourceUrl);
       el.src = state.sourceUrl;
+      if (savedTime > 0) el.currentTime = savedTime;
+      if (wasPlaying) void el.play().catch(() => undefined);
       return;
     }
     hlsInstance = new Hls({
@@ -52,10 +66,18 @@ export function useHlsPlayback(
     });
     hlsInstance.loadSource(manifest);
     hlsInstance.attachMedia(el);
+    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+      if (savedTime > 0) el.currentTime = savedTime;
+      if (wasPlaying) void el.play().catch(() => undefined);
+    });
     hlsInstance.on(Hls.Events.ERROR, (_event, data) => {
       if (!data.fatal) return;
       destroyHls();
-      el.src = playbackState.value.sourceUrl;
+      const fallbackSrc = playbackState.value.sourceUrl;
+      applyEchoUploadMediaCrossOrigin(el, fallbackSrc);
+      el.src = fallbackSrc;
+      if (savedTime > 0) el.currentTime = savedTime;
+      if (wasPlaying) void el.play().catch(() => undefined);
     });
   }
 

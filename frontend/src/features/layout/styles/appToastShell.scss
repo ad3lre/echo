@@ -1,0 +1,295 @@
+.app-toast-incoming-call {
+  color: color-mix(in srgb, white 96%, black 4%);
+}
+
+.app-toast-glass {
+  border: 1px solid transparent;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, white 9%, transparent) 0%,
+    color-mix(in srgb, black 60%, transparent) 46%,
+    color-mix(in srgb, black 80%, transparent) 100%
+  );
+  backdrop-filter: blur(20px) saturate(1.15);
+  -webkit-backdrop-filter: blur(20px) saturate(1.15);
+  box-shadow:
+    0 12px 28px color-mix(in srgb, black 48%, transparent),
+    0 0 0 1px color-mix(in srgb, white 5%, transparent);
+}
+
+.app-toast-glass--warning {
+  border-color: transparent;
+  background: linear-gradient(
+    168deg,
+    color-mix(in srgb, salmon 20%, transparent) 0%,
+    color-mix(in srgb, black 58%, transparent) 52%,
+    color-mix(in srgb, black 80%, transparent) 100%
+  );
+  box-shadow:
+    0 12px 30px color-mix(in srgb, black 52%, transparent),
+    0 0 0 1px color-mix(in srgb, salmon 24%, transparent);
+}
+
+.app-toast-glass--success {
+  border-color: transparent;
+  background: linear-gradient(
+    168deg,
+    color-mix(in srgb, mediumseagreen 22%, transparent) 0%,
+    color-mix(in srgb, black 56%, transparent) 50%,
+    color-mix(in srgb, black 80%, transparent) 100%
+  );
+  box-shadow:
+    0 12px 30px color-mix(in srgb, black 50%, transparent),
+    0 0 0 1px color-mix(in srgb, mediumseagreen 28%, transparent);
+}
+
+.app-toast-dismiss-progress-fill {
+  transform-origin: left center;
+  animation-name: app-toast-dismiss-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.app-toast-dismiss-progress-ring {
+  animation-name: app-toast-dismiss-progress-ring;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes app-toast-dismiss-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes app-toast-dismiss-progress-ring {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-toast-dismiss-progress-fill,
+  .app-toast-dismiss-progress-ring {
+    animation: none;
+  }
+}
+
+.app-toast-default-row__icon {
+  background: color-mix(in srgb, white 8%, transparent);
+  box-shadow: none;
+}
+
+.app-toast-default-row__icon img {
+  filter: var(--app-toast-icon-filter, invert(1));
+}
+
+.app-toast-incoming-call__avatar-col {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.app-toast-incoming-call {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, white 10%, transparent) 0%,
+    color-mix(in srgb, black 54%, transparent) 44%,
+    color-mix(in srgb, black 76%, transparent) 100%
+  );
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow:
+    0 14px 34px color-mix(in srgb, black 48%, transparent),
+    0 0 0 1px color-mix(in srgb, white 5%, transparent);
+}
+
+.app-toast-incoming-call__inner {
+  position: relative;
+}
+
+.app-toast-incoming-call__avatar-aura {
+  position: absolute;
+  inset: -4px;
+  z-index: 0;
+  border-radius: 9999px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(8px) saturate(1.25);
+  opacity: 0.5;
+  pointer-events: none;
+  mask-image: radial-gradient(
+    circle closest-side at 50% 50%,
+    transparent 52%,
+    black 78%
+  );
+  -webkit-mask-image: radial-gradient(
+    circle closest-side at 50% 50%,
+    transparent 52%,
+    black 78%
+  );
+}
+
+.app-toast-incoming-call__pulse {
+  z-index: 1;
+  animation: app-toast-incoming-ring 1.8s ease-out infinite;
+}
+
+.app-toast-incoming-call__waves {
+  display: inline-flex;
+  height: 12px;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.app-toast-incoming-call__waves--muted .app-toast-incoming-call__wave {
+  animation: none;
+  opacity: 0.28;
+  transform: scaleY(0.35);
+}
+
+.app-toast-incoming-call__wave {
+  display: block;
+  width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, white 42%, transparent);
+  transform-origin: center bottom;
+  animation: app-toast-incoming-wave 0.85s ease-in-out infinite;
+}
+
+[data-theme='light'] .app-toast-incoming-call .app-toast-incoming-call__wave {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+[data-theme='light'] .app-toast-incoming-call input {
+  background: color-mix(in srgb, white 88%, transparent);
+  border-color: color-mix(in srgb, var(--border) 86%, white 14%);
+  color: var(--text);
+}
+
+[data-theme='light'] .app-toast-incoming-call input::placeholder {
+  color: var(--muted);
+}
+
+[data-theme='light'] .app-toast-incoming-call__actions button {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 84%, white 16%);
+}
+
+.app-toast-incoming-call__wave:nth-child(1) {
+  height: 5px;
+  animation-delay: 0ms;
+}
+
+.app-toast-incoming-call__wave:nth-child(2) {
+  height: 8px;
+  animation-delay: 120ms;
+}
+
+.app-toast-incoming-call__wave:nth-child(3) {
+  height: 12px;
+  animation-delay: 240ms;
+}
+
+[data-theme='light'] .app-toast-glass {
+  border: 1px solid transparent;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, white 94%, var(--surface) 6%) 0%,
+    color-mix(in srgb, white 88%, var(--surface) 12%) 48%,
+    color-mix(in srgb, white 84%, var(--surface) 16%) 100%
+  );
+  box-shadow:
+    0 10px 24px color-mix(in srgb, black 10%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--border) 42%, transparent);
+}
+
+[data-theme='light'] .app-toast-glass--warning {
+  background: linear-gradient(
+    166deg,
+    color-mix(in srgb, lightsalmon 28%, white 72%) 0%,
+    color-mix(in srgb, lightsalmon 14%, white 86%) 100%
+  );
+  box-shadow:
+    0 10px 24px color-mix(in srgb, black 11%, transparent),
+    0 0 0 1px color-mix(in srgb, salmon 38%, transparent);
+}
+
+[data-theme='light'] .app-toast-glass--success {
+  background: linear-gradient(
+    166deg,
+    color-mix(in srgb, mediumspringgreen 22%, white 78%) 0%,
+    color-mix(in srgb, mintcream 12%, white 88%) 100%
+  );
+  box-shadow:
+    0 10px 24px color-mix(in srgb, black 10%, transparent),
+    0 0 0 1px color-mix(in srgb, mediumseagreen 42%, transparent);
+}
+
+[data-theme='light'] .app-toast-incoming-call {
+  color: var(--text);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, white 94%, var(--surface) 6%) 0%,
+    color-mix(in srgb, white 86%, var(--surface) 14%) 100%
+  );
+}
+
+[data-theme='light'] .app-toast-default-row__icon {
+  background: color-mix(in srgb, var(--surface) 92%, var(--text) 8%);
+  box-shadow: none;
+}
+
+[data-theme='light'] .app-toast-default-row__icon img {
+  filter: none;
+}
+
+[data-theme='light'] .app-toast-incoming-call input[aria-label='Quick reply'] {
+  border-color: color-mix(in srgb, var(--border) 85%, transparent);
+  background: color-mix(in srgb, white 92%, var(--surface) 8%);
+  color: var(--text);
+}
+
+[data-theme='light']
+  .app-toast-incoming-call
+  input[aria-label='Quick reply']::placeholder {
+  color: var(--text-muted);
+}
+
+[data-theme='light'] .app-toast-incoming-call button {
+  box-shadow: none;
+}
+
+@keyframes app-toast-incoming-ring {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, mediumseagreen 28%, transparent);
+    opacity: 0.75;
+  }
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 5px color-mix(in srgb, mediumseagreen 0%, transparent);
+    opacity: 0.28;
+  }
+  100% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 0 color-mix(in srgb, mediumseagreen 0%, transparent);
+    opacity: 0;
+  }
+}
+
+@keyframes app-toast-incoming-wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}

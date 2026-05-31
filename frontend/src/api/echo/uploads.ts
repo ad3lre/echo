@@ -532,7 +532,7 @@ export async function fetchEchoVideoPlayback(
   return echoFetch<EchoVideoPlaybackResponse>(
     token,
     `/uploads/video-playback?${q.toString()}`,
-    { method: 'GET' },
+    { method: 'GET', cache: 'no-store' },
   );
 }
 

@@ -96,11 +96,10 @@ import {
 import { filterVisibleDmInboxEntries } from '@/features/dm/filterVisibleDmInbox';
 import { maxIncomingPeerMessageMs } from '@/features/dm/hiddenDmInboxUtils';
 import { sortFavoriteDmInboxFirst } from '@/features/dm/sortFavoriteDmInboxFirst';
-import {
-  collectDmMentionNotifications,
-  type DmMentionNotificationRow,
-} from '@/features/dm/collectDmMentionNotifications';
-import type { RawMessage } from '@/services/realtime/chatMessageTypes';
+import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
+import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
+import { collectMentionNotificationsFromAuthority } from '@/features/dm/mentionNotificationAuthority';
+import { useMentionNotificationHydration } from '@/features/dm/useMentionNotificationHydration';
 import { useHiddenDmInboxStore } from '@/stores/hiddenDmInbox';
 import { useFavoriteDmInboxStore } from '@/stores/favoriteDmInbox';
 import { useDmInboxOrderCacheStore } from '@/stores/dmInboxOrderCache';
@@ -136,6 +135,10 @@ import { useMockDataModeOffComputed } from './useMockDataModeOffComputed';
 import { useAppLayoutDmPanelInboxComputed } from './useAppLayoutDmPanelInboxComputed';
 import { useEchoDmPeerProfileHydration } from './useEchoDmPeerProfileHydration';
 import { peerDisplayNamePlaceholder } from '@/features/dm/peerDisplayPlaceholder';
+import {
+  resolveMentionNotificationAuthorName,
+  resolveMentionNotificationChannelLabel,
+} from '@/features/dm/resolveMentionNotificationDisplay';
 import type { WorkspaceRosterUserRow } from '@/services/domain/workspaceRoster';
 import { useAppLayoutMainSurfaceDmFlags } from './useAppLayoutMainSurfaceDmFlags';
 import { useAppLayoutDmProfileBridge } from './useAppLayoutDmProfileBridge';
@@ -1433,6 +1436,9 @@ export function useAppLayoutController() {
     isMemberPopoutOpen,
     isSelfProfilePopoutOpen,
     activeChannelId,
+    getFirstTextChannelId,
+    echoDmThreadIds,
+    dmCallWithUserId: dmCallWithUserIdForShellLog,
     onEchoMessageFailedGuest,
     openAuthModal,
   });
@@ -1443,6 +1449,7 @@ export function useAppLayoutController() {
     selectedServer: selectedServerEcho,
     categoriesForServer,
     activeChannelId,
+    activeRailTab,
     getFirstTextChannelId,
     hydrateWorkspace: hydrateEchoFromApi,
   });
@@ -1477,6 +1484,39 @@ export function useAppLayoutController() {
     deleteChannelById,
     deleteCategoryById,
   } = channelModals;
+
+  watch(
+    () =>
+      [
+        activeRailTab.value,
+        serverStore.selectedServerId,
+        activeChannelId.value,
+      ] as const,
+    (next, prev) => {
+      if (!prev) return;
+      const [rail, serverId, channelId] = next;
+      const [prevRail, prevServerId, prevChannelId] = prev;
+      if (
+        rail === prevRail &&
+        serverId === prevServerId &&
+        channelId === prevChannelId
+      ) {
+        return;
+      }
+      if (rail !== prevRail) {
+        isSettingsModalOpen.value = false;
+        settingsModalInitialSection.value = null;
+      }
+      if (
+        rail !== prevRail ||
+        serverId !== prevServerId ||
+        channelId !== prevChannelId
+      ) {
+        isServerSettingsModalOpen.value = false;
+        serverSettingsModalInitialSection.value = null;
+      }
+    },
+  );
 
   const { canCreateChannels, canManageThisChannel } =
     useAppLayoutChannelManageCapabilities({
@@ -2023,8 +2063,8 @@ export function useAppLayoutController() {
     },
   });
 
-  registerEchoToastQuickReplySender((channelId, text) => {
-    const trimmed = text.trim();
+  registerEchoToastQuickReplySender((channelId, payload) => {
+    const trimmed = payload.text.trim();
     if (!trimmed) return;
     if (!isLiveSocketReady()) {
       dispatchAppToast(
@@ -2034,7 +2074,20 @@ export function useAppLayoutController() {
       return;
     }
     try {
-      sendMessageViaSocket(channelId, trimmed);
+      sendMessageViaSocket(
+        channelId,
+        trimmed,
+        payload.mentions,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        payload.contentJson,
+        payload.contentSchemaVersion,
+      );
     } catch {
       dispatchAppToast('Could not send message.', 'warning');
     }
@@ -2852,13 +2905,6 @@ export function useAppLayoutController() {
       ms === 'serverForum' ||
       ms === 'serverEmptyOnboarding'
     ) {
-      const sid = serverStore.selectedServer?.id;
-      const guildRolePending =
-        !!sid &&
-        sid !== 'echo' &&
-        isEchoGraphId(sid) &&
-        isEchoRoleBootstrapLoading.value;
-      if (guildRolePending) return [];
       return memberListUsers.value;
     }
 
@@ -3042,6 +3088,8 @@ export function useAppLayoutController() {
     prefetchEchoMessage: echoChannelHistory?.prefetchUntilMessageVisible,
     onAfterDeleteMessage: undefined,
     getActiveChatMessageNav: () => chatMessageNavBridge.getActiveApi(),
+    dmActiveTab,
+    activeRailTab,
   });
 
   wireMessageGoToMessage(messageActions.handleGoToMessage);
@@ -3051,24 +3099,43 @@ export function useAppLayoutController() {
    * derived from the in-memory message cache. Limited to 120 rows to keep
    * rendering snappy; older mentions appear once the user visits the channel.
    */
+  function resolveDmMentionNotificationChannelLabel(channelId: string): string {
+    return resolveMentionNotificationChannelLabel({
+      channelId,
+      findChannelContextById,
+      categoriesByServer: workspace.categoriesByServer.value,
+      echoDmPeerByChannelId: echoDmPeerByChannelId.value,
+      echoDmThreadIds: echoDmThreadIds.value,
+      groupDMs: groupDMs.value,
+      users: workspace.users.value,
+    });
+  }
+
   const dmMentionNotifications = computed(() =>
-    collectDmMentionNotifications({
-      messagesByChannelId: workspace.messages.value as Record<
-        string,
-        readonly RawMessage[] | undefined
-      >,
+    collectMentionNotificationsFromAuthority({
+      channelAttentionByChannelId: channelAttentionByChannelId.value,
+      readStateByChannelId: readStateByChannelId.value,
+      serverNotificationLevelByServerId:
+        serverNotificationLevelByServerId.value,
       selfUserId: currentUserIdForSocket.value ?? '',
-      resolveChannelLabel: (channelId: string) => {
-        const ch = allChannels.value.find((c) => c.id === channelId);
-        return ch?.name?.trim() || channelId;
-      },
-      resolveUserName: (userId: string) => {
-        const u = workspace.users.value.find((x) => x.id === userId);
-        return u?.name?.trim() || peerDisplayNamePlaceholder(userId);
-      },
+      resolveChannelLabel: resolveDmMentionNotificationChannelLabel,
+      resolveUserName: (userId, authorDisplayName) =>
+        resolveMentionNotificationAuthorName({
+          userId,
+          authorDisplayName,
+          users: workspace.users.value,
+          selfUserId: currentUserIdForSocket.value ?? undefined,
+          selfDisplayName: authSession.backendUser?.username?.trim(),
+        }),
       maxItems: 120,
     }),
   );
+
+  const { loading: mentionNotificationHydrationLoading } =
+    useMentionNotificationHydration({
+      rows: dmMentionNotifications,
+      activeChannelId,
+    });
 
   /** Proxies the attention store's read-state map for the notifications panel. */
   const dmNotificationReadStateByChannelId = computed(
@@ -3097,10 +3164,7 @@ export function useAppLayoutController() {
 
   /** Navigates to the channel containing the notification, then scrolls to the specific message. */
   function onOpenMentionNotification(row: DmMentionNotificationRow) {
-    messageActions.handleGoToChannel(row.channelId);
-    void nextTick(() => {
-      messageActions.handleGoToMessage(row.channelId, row.messageId);
-    });
+    messageActions.handleGoToMessage(row.channelId, row.messageId);
   }
 
   async function onMarkMentionNotificationRead(
@@ -4369,6 +4433,8 @@ export function useAppLayoutController() {
       selectedDMUserId,
       selectedMessageRequestId,
       dmMentionNotifications,
+      mentionNotificationHydrationLoading,
+      resolveDmMentionNotificationChannelLabel,
       dmNotificationReadStateByChannelId,
       mentionNotificationCategoriesByServer,
       mentionNotificationServers,

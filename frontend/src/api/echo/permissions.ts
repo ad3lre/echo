@@ -2,6 +2,8 @@ import {
   channelOverridesToEchoPartial,
   echoPartialToChannelOverrides,
 } from '@shared/rolePermissionBridge';
+import type { EchoRoleScope } from '@shared/echoRoleScope';
+import type { EchoRoleType } from '@shared/echoRoleTypes';
 import { echoFetch } from './transport';
 import type {
   EchoChannelCapabilitiesDto,
@@ -324,6 +326,7 @@ export async function createEchoRoleApi(
     roleIconUrl?: string | null;
     roleIconEmojiId?: string | null;
     roleType?: string;
+    syncWithCategoryDefaults?: boolean;
   },
 ): Promise<{ roleId: string }> {
   return echoFetch(token, `/servers/${encodeURIComponent(serverId)}/roles`, {
@@ -401,12 +404,20 @@ export async function patchEchoRoleCategory(
   token: string,
   serverId: string,
   categoryId: string,
-  name: string,
+  patch: {
+    name?: string;
+    defaultPermissions?: string[];
+    defaultHoist?: boolean;
+    defaultOnJoin?: boolean;
+    defaultRoleScope?: EchoRoleScope;
+    defaultRoleType?: EchoRoleType;
+    selfAssignableDefaults?: boolean;
+  },
 ): Promise<void> {
   await echoFetch<Record<string, unknown>>(
     token,
     `/servers/${encodeURIComponent(serverId)}/role-categories/${encodeURIComponent(categoryId)}`,
-    { method: 'PATCH', body: JSON.stringify({ name }) },
+    { method: 'PATCH', body: JSON.stringify(patch) },
   );
 }
 

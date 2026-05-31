@@ -137,8 +137,12 @@ function applyBridgeState(s: Awaited<ReturnType<typeof getEchoDiscordBridge>>) {
   selectedChannelId.value = (s.discordChannelId ?? '').trim();
   inboundEnabled.value = s.inboundEnabled === true;
   outboundEnabled.value = s.outboundEnabled === true;
-  hasWebhook.value = s.hasWebhook === true;
-  hasBridge.value = s.hasBridge === true;
+  const configured =
+    s.bridgeConfigured === true ||
+    s.hasBridge === true ||
+    s.hasWebhook === true;
+  hasBridge.value = configured;
+  hasWebhook.value = s.hasWebhook === true || s.bridgeConfigured === true;
   webhookOverride.value = '';
   clearWebhook.value = false;
 }

@@ -5,6 +5,18 @@ import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import { resolveLocalUploadFilePath } from './localUploadDisk';
+import type { EchoUploadContentTypeSanitizeResult } from './echoUploadContentTypePolicy';
+
+export function applyEchoUploadServeSecurityHeaders(
+  reply: FastifyReply,
+  serve: EchoUploadContentTypeSanitizeResult,
+): FastifyReply {
+  reply.header('X-Content-Type-Options', 'nosniff');
+  if (serve.coerced || serve.contentType === 'application/octet-stream') {
+    reply.header('Content-Disposition', 'attachment');
+  }
+  return reply;
+}
 
 export function guessEchoUploadContentTypeFromKey(storageKey: string): string {
   const ext = path.extname(storageKey).toLowerCase();
@@ -57,7 +69,9 @@ export async function sendLocalEchoUploadFile(
   req: FastifyRequest,
   absPath: string,
   contentType: string,
+  serveMeta?: EchoUploadContentTypeSanitizeResult,
 ): Promise<void> {
+  if (serveMeta) applyEchoUploadServeSecurityHeaders(reply, serveMeta);
   const st = await stat(absPath);
   const size = st.size;
   const range = parseRangeHeader(
@@ -92,7 +106,9 @@ export async function sendS3EchoUploadObject(
   key: string,
   contentType: string,
   totalSize?: number,
+  serveMeta?: EchoUploadContentTypeSanitizeResult,
 ): Promise<void> {
+  if (serveMeta) applyEchoUploadServeSecurityHeaders(reply, serveMeta);
   const rangeHeader =
     typeof req.headers.range === 'string' ? req.headers.range : undefined;
   const obj = await client.send(

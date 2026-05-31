@@ -32,9 +32,7 @@ export function resolveToastMessagePrimaryAction(
 
 export function shouldHideToastPrimaryActionForQuickReply(
   toast: AppToastDetail | null | undefined,
-  quickReplyText: string,
 ): boolean {
   if (toast?.variant !== 'incoming_chat_message') return false;
-  if (!toast.quickReplyChannelId?.trim()) return false;
-  return !quickReplyText.trim();
+  return !!toast.quickReplyChannelId?.trim();
 }

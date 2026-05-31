@@ -62,14 +62,9 @@ async function run(): Promise<void> {
     let roles = await listEchoRolesForServer(pool, serverId);
     const everyone = roles.find((r) => r.isEveryone);
     assert.ok(everyone);
-    const defaultAdmin = roles.find((r) => r.name === 'Admin');
-    const defaultMod = roles.find((r) => r.name === 'Moderator');
-    assert.ok(
-      defaultAdmin && defaultMod,
-      'Should have seeded Admin and Moderator roles',
-    );
-    assert.equal(defaultAdmin.position, 2);
-    assert.equal(defaultMod.position, 1);
+    const defaultAll = roles.find((r) => r.name === 'All');
+    assert.ok(defaultAll, 'Should have seeded All role');
+    assert.equal(defaultAll!.position, 1);
     assert.equal(everyone.position, 0);
 
     const mod = await createEchoRole(pool, serverId, ownerId, {
@@ -113,7 +108,7 @@ async function run(): Promise<void> {
       .sort((a, b) => b.position - a.position || a.id.localeCompare(b.id))
       .map((r) => r.id);
     const managerIdx = ownerOrdered.indexOf(managerRoleRow!.id);
-    const adminIdx = ownerOrdered.indexOf(defaultAdmin.id);
+    const adminIdx = ownerOrdered.indexOf(defaultAll!.id);
     assert.ok(managerIdx >= 0 && adminIdx >= 0, 'expected role ids must exist');
     const managerEscalationOrder = ownerOrdered.slice();
     managerEscalationOrder.splice(managerIdx, 1);
@@ -134,8 +129,7 @@ async function run(): Promise<void> {
       modRow!.id,
       vipRow!.id,
       managerRoleRow!.id,
-      defaultAdmin.id,
-      defaultMod.id,
+      defaultAll!.id,
       everyone!.id,
     ];
     const rOrder = await replaceEchoServerRoleOrder(
@@ -150,8 +144,7 @@ async function run(): Promise<void> {
     const byId = new Map(roles.map((r) => [r.id, r]));
     assert.equal(byId.get(modRow!.id)!.position, 4);
     assert.equal(byId.get(vipRow!.id)!.position, 3);
-    assert.equal(byId.get(defaultAdmin.id)!.position, 2);
-    assert.equal(byId.get(defaultMod.id)!.position, 1);
+    assert.equal(byId.get(defaultAll!.id)!.position, 1);
     assert.equal(byId.get(everyone!.id)!.position, 0);
 
     await pool.query(

@@ -1,4 +1,4 @@
-import { computed, ref, type ComputedRef } from 'vue';
+import { computed, ref, watch, type ComputedRef } from 'vue';
 import type { useAuthSessionStore } from '@/stores/authSession';
 import type { WorkspaceStateApi } from '@/composables/workspace/types';
 import {
@@ -39,6 +39,7 @@ import { getChannelMoveCrossCategoryPermission } from '@/features/channel-settin
 import type { Server } from '@shared/types/server';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { EchoChannelPatch } from '@/api/echo/types';
+import type { RailTab } from '@/features/layout/mainSurface';
 import { getChannelDisplayName } from '@/assets/icons';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 
@@ -126,6 +127,7 @@ export function useGuildChannelModals(deps: {
   selectedServer: ComputedRef<Server | undefined>;
   categoriesForServer: ComputedRef<ChannelCategory[]>;
   activeChannelId: { value: string };
+  activeRailTab: { value: RailTab };
   getFirstTextChannelId: (
     cats: { name: string; channels: { id: string; type: string }[] }[],
   ) => string;
@@ -137,6 +139,7 @@ export function useGuildChannelModals(deps: {
     selectedServer,
     categoriesForServer,
     activeChannelId,
+    activeRailTab,
     getFirstTextChannelId,
     hydrateWorkspace,
   } = deps;
@@ -857,6 +860,59 @@ export function useGuildChannelModals(deps: {
     const ok = await deleteCategoryById(id);
     if (ok) categorySettingsTarget.value = null;
   }
+
+  function closeGuildChannelModalsForNavigation() {
+    if (
+      isCreateChannelModalOpen.value ||
+      isCreateCategoryModalOpen.value ||
+      channelSettingsTarget.value ||
+      categorySettingsTarget.value
+    ) {
+      isCreateChannelModalOpen.value = false;
+      isCreateCategoryModalOpen.value = false;
+      createChannelInitialCategoryId.value = null;
+      onChannelSettingsModalOpenUpdate(false);
+      onCategorySettingsModalOpenUpdate(false);
+    }
+  }
+
+  watch(
+    () => selectedServer.value?.id ?? null,
+    (next, prev) => {
+      if (prev == null && next == null) return;
+      if (next === prev) return;
+      closeGuildChannelModalsForNavigation();
+    },
+  );
+
+  watch(
+    () => activeChannelId.value,
+    (next, prev) => {
+      if (!prev || next === prev) return;
+      const openChannelSettings = channelSettingsTarget.value;
+      if (
+        openChannelSettings &&
+        openChannelSettings.channel.id !== next.trim()
+      ) {
+        onChannelSettingsModalOpenUpdate(false);
+      }
+      if (
+        isCreateChannelModalOpen.value ||
+        isCreateCategoryModalOpen.value ||
+        categorySettingsTarget.value
+      ) {
+        closeGuildChannelModalsForNavigation();
+      }
+    },
+  );
+
+  watch(
+    () => activeRailTab.value,
+    (next, prev) => {
+      if (next === prev) return;
+      closeGuildChannelModalsForNavigation();
+    },
+  );
 
   return {
     isCreateChannelModalOpen,

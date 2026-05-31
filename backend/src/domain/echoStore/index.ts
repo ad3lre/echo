@@ -495,11 +495,13 @@ export {
   addEchoServerCustomEmoji,
   createEchoCustomEmojiPack,
   replaceDiscordImportedEmojiPack,
+  replaceDiscordImportedStickerPack,
   getEchoEmojiMarketPackById,
   importEchoMarketEmojiPack,
   incrementEchoEmojiUsage,
   listEchoEmojiMarketPacks,
   listEchoServerEmojiLibrary,
+  listEchoServerStickerLibrary,
   listEchoUserEmojiLibrary,
   removeEchoServerCustomEmoji,
   renameEchoServerCustomEmoji,
@@ -510,6 +512,8 @@ export {
   MIN_EMOJI_PACK_DESCRIPTION_LEN,
   type EchoEmojiLibraryEmojiDto,
   type EchoEmojiLibraryPackDto,
+  type EchoStickerLibraryPackDto,
+  type EchoStickerLibraryStickerDto,
   type EchoEmojiMarketEmojiDto,
   type EchoEmojiMarketPackDto,
   type EchoEmojiPackMarketSettingsDto,
@@ -552,3 +556,14 @@ export {
   type UpdateEchoTicketConfigInput,
   type UpdateEchoTicketResult,
 } from './tickets';
+
+export {
+  canManageSelfRolesConfig,
+  getEchoSelfRolesConfig,
+  newSelfRolesCustomCategoryId,
+  resolveEchoSelfRolesPanel,
+  toggleSelfAssignableMemberRole,
+  updateEchoSelfRolesConfig,
+  type ToggleSelfAssignableRoleResult,
+  type UpdateEchoSelfRolesConfigInput,
+} from './selfAssignableRoles';

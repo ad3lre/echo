@@ -3,6 +3,7 @@ import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { sendEchoCustomEmojiAsset } from '../../../services/echoEmojiAsset';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
+import { ECHO_EMOJI_USAGE_RATE } from '../../sharedMutationRateLimits';
 import {
   addEchoServerCustomEmoji,
   createEchoCustomEmojiPack,
@@ -10,6 +11,7 @@ import {
   incrementEchoEmojiUsage,
   listEchoServerEmojiLibrary,
   listEchoUserEmojiLibrary,
+  listEchoServerStickerLibrary,
   removeEchoServerCustomEmoji,
   renameEchoServerCustomEmoji,
   resolveEchoEmojiTokens,
@@ -26,6 +28,26 @@ export default async function echoEmojiLibraryRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
+  fastify.get<{ Params: { serverId: string } }>(
+    '/servers/:serverId/sticker-library',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const serverId = trimEchoPathParam(req.params.serverId);
+      const ok = await isMemberOfServer(pool, serverId, getAuthUser(req).id);
+      if (!ok)
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          ECHO_MSG_NOT_SERVER_MEMBER,
+          'NOT_SERVER_MEMBER',
+        );
+      const lib = await listEchoServerStickerLibrary(pool, serverId);
+      return reply.code(200).send(lib);
+    },
+  );
+
   fastify.get<{ Params: { serverId: string } }>(
     '/servers/:serverId/emoji-library',
     { preHandler: [requireAuth, requireEchoStore] },
@@ -81,7 +103,23 @@ export default async function echoEmojiLibraryRoutes(
     Body: { ids?: unknown };
   }>(
     '/emoji/resolve',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['ids'],
+          properties: {
+            ids: {
+              type: 'array',
+              maxItems: 200,
+              items: { type: 'string', maxLength: 64 },
+            },
+          },
+        },
+      },
+    },
     async (req, reply) => {
       const idsRaw = req.body?.ids;
       if (!Array.isArray(idsRaw))
@@ -284,7 +322,13 @@ export default async function echoEmojiLibraryRoutes(
 
   fastify.post<{
     Params: { serverId: string; packId: string };
-    Body: { name?: string; animated?: boolean; imageUrl?: string };
+    Body: {
+      name?: string;
+      animated?: boolean;
+      imageUrl?: string;
+      expressionKind?: 'emoji' | 'sticker';
+      stickerFormat?: string;
+    };
   }>(
     '/servers/:serverId/emoji-packs/:packId/emojis',
     { preHandler: [requireAuth, requireEchoStore] },
@@ -305,6 +349,12 @@ export default async function echoEmojiLibraryRoutes(
       const imageUrl =
         typeof req.body?.imageUrl === 'string' ? req.body.imageUrl : '';
       const animated = req.body?.animated === true;
+      const expressionKind =
+        req.body?.expressionKind === 'sticker' ? 'sticker' : 'emoji';
+      const stickerFormat =
+        typeof req.body?.stickerFormat === 'string'
+          ? req.body.stickerFormat
+          : undefined;
       if (!name || !imageUrl)
         return sendError(
           reply,
@@ -328,6 +378,7 @@ export default async function echoEmojiLibraryRoutes(
         name,
         animated,
         imageUrl,
+        { expressionKind, stickerFormat },
       );
       if (!r.ok) {
         if (r.reason === 'forbidden')
@@ -458,7 +509,10 @@ export default async function echoEmojiLibraryRoutes(
 
   fastify.post<{ Params: { serverId: string }; Body: { emojiId?: string } }>(
     '/servers/:serverId/emoji-usage',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_EMOJI_USAGE_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);

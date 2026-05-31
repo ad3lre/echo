@@ -1,5 +1,14 @@
 name: Echo CodeQL config
 
+# MLS routes register per-handler `config.rateLimit` (MLS_WRITE_RATE) plus global
+# @fastify/rate-limit on the Echo API scope — CodeQL does not model the plugin.
+query-filters:
+  - exclude:
+      id: js/missing-rate-limiting
+      problem:
+        path:
+          - backend/src/api/routes/echo/echoMls.ts
+
 # Dev/operator scripts and tests are not production attack surface.
 paths-ignore:
   - '**/tests/**'

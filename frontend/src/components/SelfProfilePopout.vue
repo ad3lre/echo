@@ -3,6 +3,10 @@ import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import StatusIndicator from '@/components/StatusIndicator.vue';
 import { icons } from '@/assets/icons';
 import type { MemberProfile, PopoutAnchorRect } from '@/utils/memberProfiles';
+import {
+  clampFixedOverlayBox,
+  readOverlayVisibleViewport,
+} from '@/utils/overlayViewport';
 
 type PresenceStatus = 'online' | 'idle' | 'do_not_disturb' | 'offline';
 
@@ -28,6 +32,7 @@ const CUSTOM_STATUS_MAX_LINES = 8;
 const draftStatus = ref('');
 const isEditingCustomStatus = ref(false);
 const statusInputRef = ref<HTMLTextAreaElement | null>(null);
+const popoutLayoutTick = ref(0);
 
 watch(
   () => props.customStatus,
@@ -58,51 +63,81 @@ function openSettingsFromStatusTray() {
 }
 
 const placement = computed(() => {
+  void popoutLayoutTick.value;
   const width = 340;
   const padding = 16;
-  const viewportWidth =
-    typeof window !== 'undefined' ? window.innerWidth : 1440;
-  const viewportHeight =
-    typeof window !== 'undefined' ? window.innerHeight : 900;
+  const viewport = readOverlayVisibleViewport();
+  const viewportWidth = viewport.width;
+  const viewportHeight = viewport.height;
   const popoutHeight = Math.min(320, viewportHeight - padding * 2);
   const gap = 12;
+  const visibleRight = viewport.offsetLeft + viewportWidth;
+  const visibleBottom = viewport.offsetTop + viewportHeight;
 
   if (!props.anchor) {
+    const centered = clampFixedOverlayBox(
+      viewport.offsetLeft + viewportWidth / 2 - width / 2,
+      viewport.offsetTop + viewportHeight / 2 - popoutHeight / 2,
+      width,
+      popoutHeight,
+      viewport,
+      padding,
+    );
     return {
       side: 'right' as const,
       style: {
-        left: `${Math.max(padding, viewportWidth / 2 - width / 2)}px`,
-        top: `${Math.max(padding, viewportHeight / 2 - popoutHeight / 2)}px`,
+        left: `${centered.left}px`,
+        top: `${centered.top}px`,
       },
     };
   }
 
   const side =
-    viewportWidth - props.anchor.right - padding >= width + gap
+    visibleRight - props.anchor.right - padding >= width + gap
       ? 'right'
       : 'left';
-  const left =
+  let left =
     side === 'right'
-      ? Math.min(props.anchor.right + gap, viewportWidth - width - padding)
-      : Math.max(props.anchor.left - width - gap, padding);
+      ? Math.min(props.anchor.right + gap, visibleRight - width - padding)
+      : Math.max(
+          props.anchor.left - width - gap,
+          viewport.offsetLeft + padding,
+        );
 
   /** Top action rail / window edge: anchor sits high — open below the avatar instead of pinning with `bottom` (avoids clipping). */
-  const anchorHigh = props.anchor.top < 100;
+  const anchorHigh = props.anchor.top < viewport.offsetTop + 100;
   if (anchorHigh) {
     const topPx = props.anchor.bottom + gap;
-    const maxHeightPx = Math.max(280, viewportHeight - topPx - padding * 2);
+    const maxHeightPx = Math.max(280, visibleBottom - topPx - padding);
+    const fitted = clampFixedOverlayBox(
+      left,
+      topPx,
+      width,
+      Math.min(popoutHeight, maxHeightPx),
+      viewport,
+      padding,
+    );
     return {
       side,
       style: {
-        left: `${left}px`,
-        top: `${topPx}px`,
+        left: `${fitted.left}px`,
+        top: `${fitted.top}px`,
         maxHeight: `${maxHeightPx}px`,
       },
     };
   }
 
-  const bottomPx = viewportHeight - props.anchor.top + 8;
-  const maxHeightPx = Math.max(120, props.anchor.top - padding - 8);
+  const layoutHeight =
+    typeof window !== 'undefined' ? window.innerHeight : viewportHeight;
+  const bottomPx = layoutHeight - props.anchor.top + 8;
+  const maxHeightPx = Math.max(
+    120,
+    props.anchor.top - viewport.offsetTop - padding - 8,
+  );
+  left = Math.min(
+    Math.max(left, viewport.offsetLeft + padding),
+    Math.max(viewport.offsetLeft + padding, visibleRight - width - padding),
+  );
 
   return {
     side,
@@ -160,12 +195,22 @@ function onStatusInput(event: Event) {
   resizeStatusInput(event.target as HTMLTextAreaElement);
 }
 
+function handleViewportUpdate() {
+  popoutLayoutTick.value += 1;
+}
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown);
+  window.addEventListener('resize', handleViewportUpdate);
+  window.visualViewport?.addEventListener('resize', handleViewportUpdate);
+  window.visualViewport?.addEventListener('scroll', handleViewportUpdate);
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
+  window.removeEventListener('resize', handleViewportUpdate);
+  window.visualViewport?.removeEventListener('resize', handleViewportUpdate);
+  window.visualViewport?.removeEventListener('scroll', handleViewportUpdate);
 });
 </script>
 

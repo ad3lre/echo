@@ -8,6 +8,7 @@ import {
   patchPresenceOnEchoSession,
   replaceUsersInEchoSession,
   sessionAcceptsIncomingVersion,
+  workspaceSnapshotMemberDataEqual,
   type EchoWorkspaceSessionApplyRefs,
 } from '@/services/domain/workspaceSession';
 
@@ -102,6 +103,86 @@ describe('workspaceSession domain', () => {
       u1: 'idle',
       u2: 'offline',
     });
+  });
+
+  it('workspaceSnapshotMemberDataEqual compares roster payloads', () => {
+    expect(
+      workspaceSnapshotMemberDataEqual(
+        {
+          serverMemberIds: { s1: ['u1', 'u2'] },
+          membersByServer: {
+            s1: [
+              { userId: 'u1', name: 'Ada', pfp: '' },
+              { userId: 'u2', name: 'Ben', pfp: '' },
+            ],
+          },
+        },
+        {
+          serverMemberIds: { s1: ['u1', 'u2'] },
+          membersByServer: {
+            s1: [
+              { userId: 'u1', name: 'Ada', pfp: '' },
+              { userId: 'u2', name: 'Ben', pfp: '' },
+            ],
+          },
+        },
+      ),
+    ).toBe(true);
+    expect(
+      workspaceSnapshotMemberDataEqual(
+        {
+          serverMemberIds: { s1: ['u1'] },
+          membersByServer: { s1: [{ userId: 'u1', name: 'Ada', pfp: '' }] },
+        },
+        {
+          serverMemberIds: { s1: ['u1', 'u2'] },
+          membersByServer: {
+            s1: [
+              { userId: 'u1', name: 'Ada', pfp: '' },
+              { userId: 'u2', name: 'Ben', pfp: '' },
+            ],
+          },
+        },
+      ),
+    ).toBe(false);
+  });
+
+  it('skips member roster writes when duplicate snapshot roster is unchanged', () => {
+    const refs = createSessionRefs();
+    refs.workspaceVersion.value = '11';
+    refs.lastWorkspaceEventVersion.value = '11';
+    refs.serverMemberIds.value = { s1: ['u1'] };
+    const membersByServer = {
+      s1: [{ userId: 'u1', name: 'Ada', pfp: '' }],
+    };
+    refs.workspaceMembersByServer.value = membersByServer;
+    const membersRefBefore = refs.workspaceMembersByServer.value;
+    const memberIdsRefBefore = refs.serverMemberIds.value;
+
+    const duplicateState = {
+      servers: [
+        {
+          id: 's1',
+          name: 'Guild',
+          imageUrl: '',
+          ownerId: 'u1',
+        },
+      ],
+      categoriesByServer: { s1: [] },
+      serverMemberIds: { s1: ['u1'] },
+      workspaceVersion: '11',
+      upcomingEventsByServerId: {},
+      myEventRsvps: [],
+      membersByServer,
+    } as EchoWorkspaceState;
+
+    expect(applyWorkspaceSnapshotToEchoSession(refs, duplicateState)).toBe(
+      true,
+    );
+    expect(refs.workspaceMembersByServer.value).toStrictEqual(membersByServer);
+    expect(refs.workspaceMembersByServer.value).toBe(membersRefBefore);
+    expect(refs.serverMemberIds.value).toBe(memberIdsRefBefore);
+    expect(refs.serverMemberIds.value).toEqual({ s1: ['u1'] });
   });
 
   it('patchPresenceOnEchoSession updates the overlay and row cache together', () => {

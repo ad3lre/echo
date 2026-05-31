@@ -21,6 +21,9 @@ export function pdfLoadErrorMessage(err: unknown): string {
   if (isProbablyPdfCorsError(err)) {
     return 'This PDF is hosted on a different domain that does not allow your browser to read it (missing CORS on GET). Ask the admin to add your app origin to the file bucket’s CORS policy, or use Download / Open.';
   }
+  if (err instanceof Error && err.name === 'LoadTimeoutError') {
+    return `${err.message}. Try Download or Open.`;
+  }
   if (err instanceof Error && err.message.trim()) return err.message.trim();
   return 'Could not load this PDF.';
 }

@@ -10,10 +10,37 @@ export {
 
 const RESERVED_DISPLAY_NAMES = new Set<string>(['@everyone', '@here']);
 const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f]/;
+/** Strip angle-bracket markup so profile text cannot become HTML when rendered elsewhere. */
+const HTML_TAG_RE = /<[^>]*>/g;
+
 /** Minimum password length for registration, password change, and guest upgrade. */
 export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_REGISTER_DISPLAY_NAME_LENGTH = 64;
+export const MAX_PROFILE_CUSTOM_STATUS_LENGTH = 140;
+export const MAX_PROFILE_BIO_LENGTH = 280;
 export const ECHO_SERVER_ROLE_LIMIT = 512;
+
+export function stripProfileHtmlMarkup(raw: string): string {
+  return raw
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(HTML_TAG_RE, '');
+}
+
+export function sanitizeProfilePlainText(raw: string, maxLen: number): string {
+  return stripProfileHtmlMarkup(raw)
+    .replace(CONTROL_CHARS_RE, '')
+    .trim()
+    .slice(0, maxLen);
+}
+
+export function sanitizeProfileCustomStatus(raw: string): string {
+  return sanitizeProfilePlainText(raw, MAX_PROFILE_CUSTOM_STATUS_LENGTH);
+}
+
+export function sanitizeProfileBio(raw: string): string {
+  return sanitizeProfilePlainText(raw, MAX_PROFILE_BIO_LENGTH);
+}
 
 function registrationEmailHost(normalizedEmail: string): string | null {
   const at = normalizedEmail.lastIndexOf('@');
@@ -41,10 +68,11 @@ export function validateDisplayName(
   raw: string | undefined,
   fallback: string,
 ): { ok: true; displayName: string } | { ok: false } {
-  const trimmed = raw?.trim() || fallback.trim();
+  const trimmed = stripProfileHtmlMarkup(raw?.trim() || fallback.trim())
+    .replace(CONTROL_CHARS_RE, '')
+    .trim();
   if (!trimmed) return { ok: false };
   if (trimmed.length > MAX_REGISTER_DISPLAY_NAME_LENGTH) return { ok: false };
-  if (CONTROL_CHARS_RE.test(trimmed)) return { ok: false };
   if (RESERVED_DISPLAY_NAMES.has(trimmed.toLowerCase())) return { ok: false };
   return { ok: true, displayName: trimmed };
 }

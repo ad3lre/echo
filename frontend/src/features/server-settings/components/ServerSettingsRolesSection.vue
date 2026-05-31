@@ -118,7 +118,6 @@ const props = withDefaults(
     setSelectedRoleLinkTwoWay: (index: number, twoWay: boolean) => void;
     setSelectedRoleMentionable: (value: boolean) => void;
     setSelectedRoleScope?: (globalScope: boolean) => void;
-    globalRoleCategoryId?: string | null;
     reorderRoleCategoriesLocally?: (categoryIds: string[]) => void;
     onRolePermissionCheckboxChange: (
       key: RolePermissionKey,
@@ -162,10 +161,21 @@ const props = withDefaults(
     roleCategoryUiEnabled?: boolean;
     rolesDragReorderEnabled?: boolean;
     assignRoleToCategory?: (roleId: string, categoryId: string | null) => void;
+    roleCategorySyncPrompt?: { roleId: string; categoryId: string } | null;
+    confirmRoleCategorySync?: (sync: boolean) => void;
+    cancelRoleCategorySync?: () => void;
     createRoleCategory?: () => void | Promise<void>;
     deleteActiveRoleCategory?: () => void | Promise<void>;
     roleCategoryListExtra?: 'settings' | null;
     categorySettingsNameDraft?: string;
+    categorySettingsDefaultsDraft?: {
+      permissions: Record<string, boolean>;
+      defaultHoist: boolean;
+      defaultOnJoin: boolean;
+      defaultRoleScope: 'category' | 'global';
+      defaultRoleType: EchoRoleType;
+    };
+    categorySettingsSelfAssignableDraft?: boolean;
     categorySettingsSaving?: boolean;
     categorySettingsError?: string | null;
     selectRoleCategorySettingsRow?: () => void;
@@ -188,6 +198,14 @@ const props = withDefaults(
     deleteActiveRoleCategory: () => {},
     roleCategoryListExtra: null,
     categorySettingsNameDraft: '',
+    categorySettingsDefaultsDraft: () => ({
+      permissions: {},
+      defaultHoist: false,
+      defaultOnJoin: false,
+      defaultRoleScope: 'category' as const,
+      defaultRoleType: 'mixed' as EchoRoleType,
+    }),
+    categorySettingsSelfAssignableDraft: false,
     categorySettingsSaving: false,
     categorySettingsError: null,
     selectRoleCategorySettingsRow: () => {},
@@ -221,6 +239,16 @@ const emit = defineEmits<{
   'preview-selected-role': [];
   'update:selectedRoleCategoryTabId': [value: 'all' | string];
   'update:categorySettingsNameDraft': [value: string];
+  'update:categorySettingsDefaultsDraft': [
+    value: {
+      permissions: Record<string, boolean>;
+      defaultHoist: boolean;
+      defaultOnJoin: boolean;
+      defaultRoleScope: 'category' | 'global';
+      defaultRoleType: EchoRoleType;
+    },
+  ];
+  'update:categorySettingsSelfAssignableDraft': [value: boolean];
 }>();
 
 watch(
@@ -508,6 +536,36 @@ watch(defaultOnJoinWarningOpen, (open) => {
 
 watch(devModeIdsEnabled, (enabled) => {
   if (!enabled) permissionPreviewModalOpen.value = false;
+});
+
+const categoryDefaultsModel = computed({
+  get: () => props.categorySettingsDefaultsDraft,
+  set: (v) => {
+    if (v) emit('update:categorySettingsDefaultsDraft', v);
+  },
+});
+
+function onCategoryDefaultPermissionChange(
+  key: RolePermissionKey,
+  event: Event,
+) {
+  const input = event.target as HTMLInputElement;
+  const next = {
+    ...categoryDefaultsModel.value,
+    permissions: {
+      ...categoryDefaultsModel.value.permissions,
+      [key]: input.checked,
+    },
+  };
+  emit('update:categorySettingsDefaultsDraft', next);
+}
+
+const roleCategorySyncCategoryName = computed(() => {
+  const ctx = props.roleCategorySyncPrompt;
+  if (!ctx) return '';
+  return (
+    props.echoRoleCategories.find((c) => c.id === ctx.categoryId)?.name ?? ''
+  );
 });
 
 const showCategorySettingsPanel = computed(
@@ -935,6 +993,114 @@ onUnmounted(() => {
                     )
                   "
                 />
+              </div>
+              <label class="role-permission-row roles-display-option">
+                <div>
+                  <div class="font-medium text-fg">
+                    Expose in self-assign channel
+                  </div>
+                  <div class="text-xs text-fg-subtle">
+                    Self-selectable roles in this category appear automatically
+                    in the self-assignable roles widget when enabled.
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  class="server-toggle"
+                  :checked="props.categorySettingsSelfAssignableDraft"
+                  :disabled="props.categorySettingsSaving"
+                  @change="
+                    $emit(
+                      'update:categorySettingsSelfAssignableDraft',
+                      ($event.target as HTMLInputElement).checked,
+                    )
+                  "
+                />
+              </label>
+              <div class="server-settings-role-field">
+                <label class="settings-label">Default role template</label>
+                <p class="mb-2 text-[11px] leading-snug text-fg-subtle">
+                  New roles and synced roles in this category inherit these
+                  settings (permissions, display, scope, and type).
+                </p>
+                <div class="space-y-2 rounded-xl bg-glass-1 p-3">
+                  <label
+                    class="inline-flex items-center gap-2 text-xs text-fg-soft"
+                  >
+                    <input
+                      type="checkbox"
+                      class="server-toggle"
+                      :checked="categoryDefaultsModel.defaultHoist"
+                      :disabled="props.categorySettingsSaving"
+                      @change="
+                        $emit('update:categorySettingsDefaultsDraft', {
+                          ...categoryDefaultsModel,
+                          defaultHoist: ($event.target as HTMLInputElement)
+                            .checked,
+                        })
+                      "
+                    />
+                    Display separately (hoist)
+                  </label>
+                  <label
+                    class="inline-flex items-center gap-2 text-xs text-fg-soft"
+                  >
+                    <input
+                      type="checkbox"
+                      class="server-toggle"
+                      :checked="categoryDefaultsModel.defaultOnJoin"
+                      :disabled="props.categorySettingsSaving"
+                      @change="
+                        $emit('update:categorySettingsDefaultsDraft', {
+                          ...categoryDefaultsModel,
+                          defaultOnJoin: ($event.target as HTMLInputElement)
+                            .checked,
+                        })
+                      "
+                    />
+                    Default on join
+                  </label>
+                  <label
+                    class="inline-flex items-center gap-2 text-xs text-fg-soft"
+                  >
+                    <input
+                      type="checkbox"
+                      class="server-toggle"
+                      :checked="
+                        categoryDefaultsModel.defaultRoleScope === 'global'
+                      "
+                      :disabled="props.categorySettingsSaving"
+                      @change="
+                        $emit('update:categorySettingsDefaultsDraft', {
+                          ...categoryDefaultsModel,
+                          defaultRoleScope: ($event.target as HTMLInputElement)
+                            .checked
+                            ? 'global'
+                            : 'category',
+                        })
+                      "
+                    />
+                    Global manage/assign scope
+                  </label>
+                </div>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                  <label
+                    v-for="def in props.visibleRolePermissionDefs"
+                    :key="`cat-default-${def.key}`"
+                    class="inline-flex items-center gap-2 text-xs text-fg-soft"
+                  >
+                    <input
+                      type="checkbox"
+                      class="server-toggle"
+                      :checked="!!categoryDefaultsModel.permissions[def.key]"
+                      :disabled="props.categorySettingsSaving"
+                      @change="
+                        onCategoryDefaultPermissionChange(def.key, $event)
+                      "
+                    />
+                    {{ def.label }}
+                  </label>
+                </div>
               </div>
               <div
                 v-if="props.categorySettingsError"
@@ -2358,6 +2524,60 @@ onUnmounted(() => {
             <p v-else class="px-2 py-8 text-center text-sm text-muted">
               No members match your search.
             </p>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div
+        v-if="props.roleCategorySyncPrompt"
+        class="fixed inset-0 z-[320] flex items-center justify-center bg-black/50 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="role-category-sync-title"
+        @mousedown.self="props.cancelRoleCategorySync?.()"
+      >
+        <div
+          class="w-full max-w-md rounded-2xl bg-glass-2 p-5 shadow-xl ring-1 ring-border"
+          @mousedown.stop
+        >
+          <h3
+            id="role-category-sync-title"
+            class="text-lg font-bold text-fg-strong"
+          >
+            Sync with category defaults?
+          </h3>
+          <p class="mt-2 text-sm text-fg-subtle">
+            Move this role into
+            <span class="font-semibold text-fg">{{
+              roleCategorySyncCategoryName
+            }}</span>
+            and apply that category’s default permissions and display settings,
+            or keep the role’s current configuration.
+          </p>
+          <div class="mt-5 flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg px-3 py-2 text-xs font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
+              @click="props.cancelRoleCategorySync?.()"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-glass-2 px-3 py-2 text-xs font-semibold text-fg transition-colors hover:bg-glass-active"
+              @click="props.confirmRoleCategorySync?.(false)"
+            >
+              Keep current settings
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition hover:brightness-110"
+              @click="props.confirmRoleCategorySync?.(true)"
+            >
+              Sync with defaults
+            </button>
           </div>
         </div>
       </div>

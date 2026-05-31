@@ -30,6 +30,8 @@ import type {
 } from '../../types';
 import {
   MIN_PASSWORD_LENGTH,
+  sanitizeProfileBio,
+  sanitizeProfileCustomStatus,
   validateDisplayName,
   validateRegistrationEmail,
   validateRegistrationUsername,
@@ -248,8 +250,9 @@ export class MemoryAuthStore implements AuthStore {
     if (!u) return null;
     if (patch.pfp !== undefined) u.pfp = patch.pfp;
     if (patch.status !== undefined) u.status = patch.status;
-    if (patch.customStatus !== undefined) u.customStatus = patch.customStatus;
-    if (patch.bio !== undefined) u.bio = String(patch.bio).trim().slice(0, 280);
+    if (patch.customStatus !== undefined)
+      u.customStatus = sanitizeProfileCustomStatus(patch.customStatus);
+    if (patch.bio !== undefined) u.bio = sanitizeProfileBio(String(patch.bio));
     if (patch.bannerImage !== undefined) u.bannerImage = patch.bannerImage;
     if (patch.bannerColor !== undefined) u.bannerColor = patch.bannerColor;
     if (patch.bannerRefractionEnabled !== undefined)
@@ -738,7 +741,7 @@ export class MemoryAuthStore implements AuthStore {
       throw new Error('TOTP_STATE');
     if (
       !verifyTotpCode(u._memPendingTotpSecret, code) ||
-      checkAndMarkTotpUsed(userId, code)
+      (await checkAndMarkTotpUsed(userId, code))
     )
       throw new Error('INVALID_TOTP');
 
@@ -774,7 +777,7 @@ export class MemoryAuthStore implements AuthStore {
       if (
         !u._memTotpSecret ||
         !verifyTotpCode(u._memTotpSecret, factor.totpCode) ||
-        checkAndMarkTotpUsed(userId, factor.totpCode)
+        (await checkAndMarkTotpUsed(userId, factor.totpCode))
       ) {
         throw new Error('INVALID_TOTP');
       }
@@ -800,7 +803,7 @@ export class MemoryAuthStore implements AuthStore {
     if (!u?.totpEnabled || !u._memTotpSecret) return false;
     return (
       verifyTotpCode(u._memTotpSecret, code) &&
-      !checkAndMarkTotpUsed(userId, code)
+      !(await checkAndMarkTotpUsed(userId, code))
     );
   }
 
@@ -848,7 +851,7 @@ export class MemoryAuthStore implements AuthStore {
         !options?.totpCode ||
         !u._memTotpSecret ||
         !verifyTotpCode(u._memTotpSecret, options.totpCode) ||
-        checkAndMarkTotpUsed(u.id, options.totpCode)
+        (await checkAndMarkTotpUsed(u.id, options.totpCode))
       ) {
         return {
           ok: false,

@@ -18,7 +18,9 @@ const props = defineProps<{
   onReact?: (emoji: string) => void;
 }>();
 
-const reactionPopoverOpen = ref(false);
+const reactionPopoverOpen = defineModel<boolean>('reactionPopoverOpen', {
+  default: false,
+});
 const reactionTriggerRect = ref<DOMRect | null>(null);
 const poppingEmojiKey = ref<string | null>(null);
 const hoverReaction = ref<{
@@ -119,7 +121,6 @@ onBeforeUnmount(() => {
 });
 
 defineExpose({
-  reactionPopoverOpen,
   openReactionPopover: (rect: DOMRect | null) => {
     reactionTriggerRect.value = rect;
     reactionPopoverOpen.value = true;

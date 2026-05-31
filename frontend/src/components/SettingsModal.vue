@@ -312,6 +312,12 @@ const visibleSettingsSectionsFlat = computed(() =>
   visibleSidebarGroups.value.flatMap((g) => g.items),
 );
 
+function clampBannerPositionY(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(100, value))
+    : 50;
+}
+
 function applyAuthUserToSettingsForm() {
   const auth = authSession.backendUser;
   if (auth) {
@@ -327,6 +333,7 @@ function applyAuthUserToSettingsForm() {
     form.bannerRefractionEnabled = auth.bannerRefractionEnabled ?? false;
     form.bannerBlurEnabled = auth.bannerBlurEnabled ?? false;
     form.bannerBlackoutEnabled = auth.bannerBlackoutEnabled ?? false;
+    form.bannerPositionY = clampBannerPositionY(auth.bannerPositionY);
     form.twoFactorEnabled =
       auth.totpEnabled ?? props.currentUser?.twoFactorEnabled ?? false;
   } else if (props.currentUser) {
@@ -346,6 +353,9 @@ function applyAuthUserToSettingsForm() {
     form.bannerBlurEnabled = props.currentUser.bannerBlurEnabled ?? false;
     form.bannerBlackoutEnabled =
       props.currentUser.bannerBlackoutEnabled ?? false;
+    form.bannerPositionY = clampBannerPositionY(
+      props.currentUser.bannerPositionY,
+    );
     form.twoFactorEnabled = props.currentUser.twoFactorEnabled ?? false;
   }
 }

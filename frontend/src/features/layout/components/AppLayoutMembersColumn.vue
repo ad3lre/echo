@@ -259,11 +259,11 @@ const resolvedSearchScopeHint = computed(() => {
     class="members-column relative flex min-w-0 flex-col overflow-hidden"
   >
     <div
-      class="chat-header-glass pointer-events-auto absolute top-0 left-0 right-0 z-20 flex h-12 flex-shrink-0 items-center px-4"
+      class="chat-header-glass pointer-events-auto absolute top-0 left-0 right-0 z-20 flex h-12 min-w-0 flex-shrink-0 items-center gap-2 px-4"
     >
       <button
         type="button"
-        class="members-column-collapse-btn pointer-events-auto absolute left-4 top-1/2 z-10 -translate-y-1/2"
+        class="members-column-collapse-btn pointer-events-auto shrink-0"
         title="Hide members"
         aria-label="Hide members"
         @click="collapseMemberPanel"
@@ -283,7 +283,7 @@ const resolvedSearchScopeHint = computed(() => {
       </button>
       <div
         v-if="effectiveActiveChannel"
-        class="search-input-wrapper relative flex h-full min-w-0 w-full items-end pl-8"
+        class="search-input-wrapper relative flex h-full min-w-0 flex-1 items-end"
       >
         <SearchBar
           :model-value="resolvedSearchText ?? ''"

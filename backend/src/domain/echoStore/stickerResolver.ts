@@ -43,7 +43,7 @@ export async function resolveStickerIdsForChannel(
     `SELECT id, name, image_url, sticker_format
      FROM echo_server_custom_emojis
      WHERE server_id = $1
-       AND expression_kind = 'sticker'
+       AND COALESCE(expression_kind, 'emoji') = 'sticker'
        AND id = ANY($2::text[])`,
     [serverId, stickerIds],
   );

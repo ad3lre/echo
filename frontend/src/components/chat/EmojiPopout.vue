@@ -14,6 +14,9 @@ import { useUserEmojiLibrary } from '@/composables/useUserEmojiLibrary';
 import { useChannelCustomEmojiPickerAllowed } from '@/composables/useChannelCustomEmojiPickerAllowed';
 import { useSimpleContextMenu } from '@/composables/useSimpleContextMenu';
 import { UIErrorBus } from '@/utils/uiErrorBus';
+import StickerPickerPanel from '@/components/chat/StickerPickerPanel.vue';
+import { stickerToPayload } from '@/composables/useServerStickerLibrary';
+import type { EchoStickerLibraryStickerApi } from '@/composables/useServerStickerLibrary';
 
 const props = defineProps<{
   serverId?: string;
@@ -24,6 +27,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   insert: [emoji: string];
+  sendSticker: [
+    stickerId: string,
+    preview?: import('@shared/types').MessageStickerPayload,
+  ];
   close: [];
 }>();
 
@@ -174,6 +181,12 @@ const {
 });
 
 const pickerTab = ref<'emoji' | 'icons' | 'stickers'>('emoji');
+
+function handleStickerSend(sticker: EchoStickerLibraryStickerApi) {
+  emit('sendSticker', sticker.id, stickerToPayload(sticker));
+  emit('close');
+}
+
 const emojiSearchSelectedIndex = ref(0);
 
 const iconSearchQuery = ref('');
@@ -426,23 +439,13 @@ function handleInsert(entry: EmojiEntry) {
         class="min-h-0 flex-1"
         @select="handleIconInsert"
       />
-      <div
+      <StickerPickerPanel
         v-else
-        class="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-4 py-8 text-center"
-      >
-        <p
-          class="text-sm"
-          :class="props.theme === 'forum' ? 'text-fg-soft' : 'text-muted'"
-        >
-          Stickers are not available yet.
-        </p>
-        <p
-          class="text-[11px] leading-snug"
-          :class="props.theme === 'forum' ? 'text-fg-subtle' : 'text-muted/80'"
-        >
-          You'll be able to send sticker packs here in a future update.
-        </p>
-      </div>
+        :server-id="props.serverId"
+        :theme="props.theme"
+        class="min-h-0 flex-1"
+        @send="handleStickerSend"
+      />
     </div>
   </div>
 

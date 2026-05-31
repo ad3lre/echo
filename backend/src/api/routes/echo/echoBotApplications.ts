@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'crypto';
+import { randomBytes } from 'crypto';
 import type {
   FastifyInstance,
   FastifyPluginOptions,
@@ -14,10 +14,8 @@ import {
   trimEchoPathParam,
 } from './echoRouteUtils';
 import { getMergedRolePermissions } from '../../../domain/echoStore';
-
-function hashBotToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
+import { hashBotTokenForStorage } from '../../../services/botTokenHash';
+import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 
 function generateBotToken(botId: string): string {
   const idPart = Buffer.from(botId).toString('base64url');
@@ -32,7 +30,16 @@ export default async function echoBotApplicationsRoutes(
   /** Create a new bot application. Token is returned only once. */
   fastify.post<{ Body: { name?: string } }>(
     '/bot-applications',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '1 hour',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const name =
@@ -45,7 +52,7 @@ export default async function echoBotApplicationsRoutes(
 
       const botId = nextEchoSnowflakeId();
       const token = generateBotToken(botId);
-      const tokenHash = hashBotToken(token);
+      const tokenHash = await hashBotTokenForStorage(token);
       const ownerId = getAuthUser(req).id;
 
       await pool.query(
@@ -111,11 +118,20 @@ export default async function echoBotApplicationsRoutes(
       const userId = getAuthUser(req).id;
 
       const botRow = await pool.query(
-        `SELECT id, name FROM echo_bot_applications WHERE id = $1`,
+        `SELECT id, name, owner_user_id FROM echo_bot_applications WHERE id = $1`,
         [botId],
       );
       if (botRow.rows.length === 0) {
         return sendError(reply, 404, 'NOT_FOUND', 'Bot application not found');
+      }
+
+      if (String(botRow.rows[0].owner_user_id) !== userId) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Only the bot owner can install this bot',
+        );
       }
 
       const memberRow = await pool.query(

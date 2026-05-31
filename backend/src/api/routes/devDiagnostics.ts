@@ -53,6 +53,9 @@ const devDiagnosticsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const events = Array.isArray(req.body?.events) ? req.body?.events : [];
+      if (events.length > 100) {
+        return reply.code(400).send({ error: 'Too many events (max 100)' });
+      }
       if (events.length > 0) {
         await appendFrontendDiagnosticBatch(events);
       }

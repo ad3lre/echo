@@ -1,5 +1,10 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { requireAuth, getAuthUser } from '../../../auth/middleware';
+import { getAuthStore } from '../../../auth/store';
+import {
+  assertStepUpTotpIfEnabled,
+  sendStepUpTotpError,
+} from '../../../auth/stepUpAuth';
 import { ECHO_MSG_NOT_SERVER_MEMBER, sendError } from '../../errors';
 import {
   createEchoChannel,
@@ -26,6 +31,7 @@ import {
   isMemberOfServer,
 } from '../../../domain/echoPermissions';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
+import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
 import {
   echoPool,
   requireEchoStore,
@@ -240,9 +246,12 @@ export default async function echoServerScopedRoutes(
             ? req.body.description
             : undefined,
         tags: Array.isArray(req.body?.tags)
-          ? req.body.tags.filter(
-              (tag): tag is string => typeof tag === 'string',
-            )
+          ? req.body.tags
+              .filter((tag): tag is string => typeof tag === 'string')
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+              .slice(0, 12)
+              .map((tag) => tag.slice(0, 32))
           : undefined,
         raidProtectionEnabled:
           typeof req.body?.raidProtectionEnabled === 'boolean'
@@ -501,7 +510,10 @@ export default async function echoServerScopedRoutes(
     },
   );
 
-  fastify.post<{ Params: { serverId: string }; Body: { newOwnerId?: string } }>(
+  fastify.post<{
+    Params: { serverId: string };
+    Body: { newOwnerId?: string; totpCode?: string };
+  }>(
     '/servers/:serverId/transfer-ownership',
     { preHandler: [requireAuth, requireEchoStore] },
     async (req, reply) => {
@@ -513,6 +525,13 @@ export default async function echoServerScopedRoutes(
           : '';
       if (!newOwnerId)
         return sendError(reply, 400, 'INVALID_BODY', 'newOwnerId required');
+      const { store } = await getAuthStore();
+      const stepUp = await assertStepUpTotpIfEnabled(
+        store,
+        getAuthUser(req).id,
+        req.body?.totpCode,
+      );
+      if (!stepUp.ok) return sendStepUpTotpError(reply, stepUp.reason);
       const r = await transferEchoServerOwnership(
         pool,
         sid,
@@ -592,7 +611,7 @@ export default async function echoServerScopedRoutes(
         fastify,
         {
           kind: 'workspace_invalidated',
-          version: Date.now().toString(),
+          version: nextEchoSnowflakeId(),
           serverId: sid,
           userId: getAuthUser(req).id,
         },

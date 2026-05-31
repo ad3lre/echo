@@ -28,6 +28,7 @@ import {
   removeLiveKitParticipant,
 } from '../../../services/livekit/livekitAdapter';
 import { validateEchoStoredBrandingUrl } from '../../../services/storedMediaUrl';
+import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { ensureOfficialEchoServerMembership } from '../../../services/auth/officialEchoServerOnSignup';
 import {
   echoPool,
@@ -115,7 +116,16 @@ export default async function echoServersRoutes(
 
   fastify.post<{ Body: { name?: string; iconUrl?: string } }>(
     '/servers',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 8,
+          timeWindow: '1 hour',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const name =

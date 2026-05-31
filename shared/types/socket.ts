@@ -103,6 +103,9 @@ export type EchoWorkspaceEvent = {
   guildName?: string;
   /** Present when kind === 'voice_active_speakers'. */
   voiceChannelId?: string;
+  /** Redacted fan-out: count only (no participant IDs in workspace events). */
+  activeSpeakerCount?: number;
+  /** @deprecated Prefer activeSpeakerCount; IDs are no longer emitted for privacy. */
   activeSpeakerIds?: string[];
   /** Present when kind === 'discord_voice_mirror_roster`. */
   discordVoiceMirror?: {
@@ -313,6 +316,8 @@ export interface ClientToServerEvents {
     poll?: PollData;
     /** Multi-file media (mutually exclusive with legacy imageUrl/videoUrl/gif on the server). */
     attachments?: MessageAttachmentPayload[];
+    /** Sticker ids from the server sticker library — resolved server-side. */
+    stickerIds?: string[];
     /** TipTap doc JSON — when set, message is stored as format v2. */
     contentJson?: unknown;
     /** Client hint; server rejects unsupported values. */

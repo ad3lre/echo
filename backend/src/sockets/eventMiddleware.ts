@@ -16,6 +16,15 @@ const RATE_LIMITED_EVENTS = new Set([
   'leaveChannel',
 ]);
 
+/** High-frequency events: sample info logs to reduce log-amplification abuse. */
+const HIGH_FREQUENCY_EVENTS = new Set([
+  'presence:heartbeat',
+  'presence:set',
+  'message:reaction_toggle',
+]);
+
+const HIGH_FREQUENCY_LOG_SAMPLE_RATE = 0.02;
+
 export function attachSocketEventLogger(
   socket: Socket,
   log: FastifyBaseLogger,
@@ -42,10 +51,21 @@ export function attachSocketEventLogger(
       timestamps.push(now);
     }
 
-    log.info(
-      { socketId: socket.id, event, msg: 'echo.socket.packet' },
-      'Socket event received',
-    );
+    const shouldLogInfo =
+      typeof event !== 'string' ||
+      !HIGH_FREQUENCY_EVENTS.has(event) ||
+      Math.random() < HIGH_FREQUENCY_LOG_SAMPLE_RATE;
+    if (shouldLogInfo) {
+      log.info(
+        { socketId: socket.id, event, msg: 'echo.socket.packet' },
+        'Socket event received',
+      );
+    } else {
+      log.debug(
+        { socketId: socket.id, event, msg: 'echo.socket.packet' },
+        'Socket event received (sampled)',
+      );
+    }
     next();
   });
 }

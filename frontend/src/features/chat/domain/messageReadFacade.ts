@@ -81,6 +81,11 @@ export const messageReadFacade = {
     return messageWindowAuthority.getIndex(channelId).sorted.value;
   },
 
+  /** Channel ids that currently have at least one cached message row. */
+  listCachedChannelIds(): readonly string[] {
+    return messageWindowAuthority.listCachedChannelIds();
+  },
+
   /**
    * Global version bumped when any channel index changes its authors/image URLs.
    * Useful for triggering search corpus rebuilds.

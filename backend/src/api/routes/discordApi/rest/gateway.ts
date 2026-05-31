@@ -1,3 +1,4 @@
+import rateLimit from '@fastify/rate-limit';
 import type {
   FastifyInstance,
   FastifyPluginOptions,
@@ -6,6 +7,7 @@ import type {
 } from 'fastify';
 import { requireBotAuth } from '../botAuth';
 import { config } from '../../../../config';
+import { ipRateLimitKey } from '../../../rateLimitKeys';
 
 function buildPublicDiscordGatewayUrl(): string {
   const base = new URL(config.echoApiPublicUrl);
@@ -17,9 +19,17 @@ export default async function discordGatewayInfoRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
-  fastify.get('/gateway', async (req: FastifyRequest, reply: FastifyReply) => {
-    return reply.code(200).send({
-      url: buildPublicDiscordGatewayUrl(),
+  await fastify.register(async (scope) => {
+    await scope.register(rateLimit, {
+      max: 60,
+      timeWindow: '1 minute',
+      keyGenerator: ipRateLimitKey,
+      addHeaders: { 'retry-after': true },
+    });
+    scope.get('/gateway', async (_req: FastifyRequest, reply: FastifyReply) => {
+      return reply.code(200).send({
+        url: buildPublicDiscordGatewayUrl(),
+      });
     });
   });
 

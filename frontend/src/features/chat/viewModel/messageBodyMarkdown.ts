@@ -614,6 +614,7 @@ const SANITIZE_OPTS = {
     'focusable',
   ],
   ADD_ATTR: ['target'],
+  ALLOW_UNKNOWN_PROTOCOLS: false,
 };
 
 const MARKDOWN_SYNTAX =

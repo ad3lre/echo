@@ -11,6 +11,8 @@ export function oauthDesktopBridgeHandoffRedirect(handoffCode: string): string {
   }
   const path = u.pathname.replace(/\/$/, '');
   u.pathname = `${path}/oauth-desktop-bridge.html`.replace(/\/+/g, '/');
-  u.searchParams.set('echo_handoff', handoffCode);
+  u.search = '';
+  // Fragment avoids query-string leakage via Referer, proxy logs, and browser history.
+  u.hash = `echo_handoff=${encodeURIComponent(handoffCode)}`;
   return u.toString();
 }

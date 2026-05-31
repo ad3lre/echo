@@ -41,6 +41,13 @@ const ForgotPasswordView = defineAsyncComponent({
   delay: 200,
   timeout: APP_LAYOUT_LOAD_TIMEOUT_MS,
 });
+const VerifyEmailView = defineAsyncComponent({
+  loader: () => import('@/views/VerifyEmailView.vue'),
+  loadingComponent: AppLayoutSplash,
+  errorComponent: AppLayoutLoadError,
+  delay: 200,
+  timeout: APP_LAYOUT_LOAD_TIMEOUT_MS,
+});
 const LegalDocStandaloneView = defineAsyncComponent({
   loader: () => import('@/views/LegalDocStandaloneView.vue'),
   loadingComponent: AppLayoutSplash,
@@ -76,16 +83,17 @@ const PaperPublicShareView = defineAsyncComponent({
   timeout: APP_LAYOUT_LOAD_TIMEOUT_MS,
 });
 
-const authShell = ref<null | 'reset' | 'forgot'>(null);
+const authShell = ref<null | 'reset' | 'forgot' | 'verify-email'>(null);
 const legalDocId = ref<LegalDocTabId | null>(null);
 const paperPublicToken = ref<string | null>(null);
 
-function authShellFromLocation(): null | 'reset' | 'forgot' {
+function authShellFromLocation(): null | 'reset' | 'forgot' | 'verify-email' {
   if (typeof window === 'undefined') return null;
   const base = import.meta.env.BASE_URL || '/';
   const p = normalizePathname(stripBasePath(window.location.pathname, base));
   if (/\/reset-password$/i.test(p)) return 'reset';
   if (/\/forgot-password$/i.test(p)) return 'forgot';
+  if (/\/verify-email$/i.test(p)) return 'verify-email';
   return null;
 }
 
@@ -139,6 +147,10 @@ function onAuthShellDone() {
   <ResetPasswordView v-if="authShell === 'reset'" @done="onAuthShellDone" />
   <ForgotPasswordView
     v-else-if="authShell === 'forgot'"
+    @done="onAuthShellDone"
+  />
+  <VerifyEmailView
+    v-else-if="authShell === 'verify-email'"
     @done="onAuthShellDone"
   />
   <LegalDocStandaloneView v-else-if="legalDocId" :doc-id="legalDocId" />

@@ -217,6 +217,51 @@ describe('MessageList runtime row synchronization', () => {
     });
   });
 
+  it('anchors to top on initial open when messageScrollAnchor is top', async () => {
+    const channelId = ref<string | undefined>(undefined);
+    const ids = ['m1', 'm2', 'm3'];
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    const Wrapper = defineComponent({
+      name: 'MessageListTopAnchorHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: channelId.value,
+            messages: messages.value,
+            messageScrollAnchor: 'top',
+            initialHistoryLoading: false,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
+
+    channelId.value = 'ch-top';
+    await nextTick();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(scrollToIndexMock).toHaveBeenCalledWith(0, {
+      align: 'start',
+      behavior: 'auto',
+    });
+  });
+
   it('does not paint a blocking busy mask during a DM-to-server switch', async () => {
     const queuedRafs: FrameRequestCallback[] = [];
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {

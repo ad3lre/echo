@@ -110,4 +110,28 @@ describe('isMessageGroupedWithPrevious', () => {
     const map = new Map(messages.map((m) => [m.id!, m]));
     expect(isMessageGroupedWithPrevious(orderedIds, map, 1)).toBe(false);
   });
+
+  it('groups using entity fallback when the author map lags', () => {
+    const orderedIds = ['1', '2'];
+    const map = new Map<string, MessageWithAuthor>();
+    const entities = new Map([
+      [
+        '1',
+        {
+          authorId: 'a',
+          timestamp: '2026-04-10T12:00:00.000Z',
+        },
+      ],
+      [
+        '2',
+        {
+          authorId: 'a',
+          timestamp: '2026-04-10T12:00:30.000Z',
+        },
+      ],
+    ]);
+    expect(isMessageGroupedWithPrevious(orderedIds, map, 1, entities)).toBe(
+      true,
+    );
+  });
 });

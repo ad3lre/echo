@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { getAuthUser, requireAuth } from '../../../auth/middleware';
 import { sendError } from '../../errors';
+import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
 import {
   applyPresenceSignal,
@@ -43,6 +44,12 @@ function guestFriendsForbidden(reply: Parameters<typeof sendError>[0]) {
     'Add an email and password to use Friends and social features.',
   );
 }
+
+const SOCIAL_MUTATION_RATE = {
+  max: 40,
+  timeWindow: '15 minutes' as const,
+  keyGenerator: authUserOrIpRateLimitKey,
+};
 
 export default async function echoSocialRoutes(
   fastify: FastifyInstance,
@@ -87,7 +94,10 @@ export default async function echoSocialRoutes(
 
   fastify.post<{ Body: { peerId?: string } }>(
     '/friends/request',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: SOCIAL_MUTATION_RATE },
+    },
     async (req, reply) => {
       if (req.authUser?.isGuest) return guestFriendsForbidden(reply);
       const pool = echoPool(req);
@@ -143,7 +153,10 @@ export default async function echoSocialRoutes(
 
   fastify.post<{ Body: { peerId?: string } }>(
     '/friends/accept',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: SOCIAL_MUTATION_RATE },
+    },
     async (req, reply) => {
       if (req.authUser?.isGuest) return guestFriendsForbidden(reply);
       const pool = echoPool(req);
@@ -188,7 +201,10 @@ export default async function echoSocialRoutes(
 
   fastify.post<{ Body: { peerId?: string } }>(
     '/friends/decline',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: SOCIAL_MUTATION_RATE },
+    },
     async (req, reply) => {
       if (req.authUser?.isGuest) return guestFriendsForbidden(reply);
       const pool = echoPool(req);
@@ -215,7 +231,10 @@ export default async function echoSocialRoutes(
 
   fastify.post<{ Body: { peerId?: string } }>(
     '/friends/cancel',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: SOCIAL_MUTATION_RATE },
+    },
     async (req, reply) => {
       if (req.authUser?.isGuest) return guestFriendsForbidden(reply);
       const pool = echoPool(req);
@@ -242,7 +261,10 @@ export default async function echoSocialRoutes(
 
   fastify.post<{ Body: { peerId?: string } }>(
     '/friends/remove',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: SOCIAL_MUTATION_RATE },
+    },
     async (req, reply) => {
       if (req.authUser?.isGuest) return guestFriendsForbidden(reply);
       const pool = echoPool(req);

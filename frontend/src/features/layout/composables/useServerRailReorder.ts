@@ -7,9 +7,10 @@ import {
   type RailSlotRect,
 } from '@/utils/serverRailReorder';
 
-/** Desktop rail: short hold or small move starts reorder (ms / px). */
-const HOLD_MS = 120;
-const MOVE_THRESHOLD_PX = 6;
+/** Desktop rail: hold or deliberate move starts reorder (ms / px). */
+const HOLD_MS = 200;
+/** Movement from pointerdown before drag mode engages (trackpad clicks often jitter <10px). */
+const DRAG_ACTIVATE_MOVE_PX = 10;
 const HYSTERESIS_PX = 4;
 
 function railFinalIndexAfterMove(n: number, from: number, to: number): number {
@@ -47,6 +48,8 @@ type Active = {
   fromIndex: number;
   folderRoot: HTMLElement;
   captureEl: HTMLElement;
+  /** True when drag mode started from the hold timer (not pointer jitter). */
+  activatedViaHold: boolean;
 };
 
 export function useServerRailReorder(
@@ -133,8 +136,8 @@ export function useServerRailReorder(
     railGhostPosition.value = { x: clientX, y: clientY };
   }
 
-  function commitReorder(fromIndex: number, lineBefore: number) {
-    if (!reorderVisibleServers) return;
+  function commitReorder(fromIndex: number, lineBefore: number): boolean {
+    if (!reorderVisibleServers) return false;
     const n = visibleServersCount.value;
     const to = railToIndexForLineBefore(fromIndex, lineBefore, n);
     echoDevTrace('server_rail_dnd.pointer_commit_resolve', {
@@ -143,13 +146,19 @@ export function useServerRailReorder(
       to: to ?? -1,
       n,
     });
-    if (to === null) return;
-    if (railFinalIndexAfterMove(n, fromIndex, to) === fromIndex) return;
+    if (to === null) return false;
+    if (railFinalIndexAfterMove(n, fromIndex, to) === fromIndex) return false;
     echoDevTrace('server_rail_dnd.reorder', { fromIndex, to });
     reorderVisibleServers(fromIndex, to);
+    return true;
   }
 
-  function tryActivate(fromPending: Pending, clientX: number, clientY: number) {
+  function tryActivate(
+    fromPending: Pending,
+    clientX: number,
+    clientY: number,
+    activatedViaHold: boolean,
+  ) {
     clearPending();
     if (!reorderEnabled.value || !reorderVisibleServers) return;
     const fromIndex = fromPending.index;
@@ -159,6 +168,7 @@ export function useServerRailReorder(
       fromIndex,
       folderRoot: fromPending.folderRoot,
       captureEl: capEl,
+      activatedViaHold,
     };
     railDragSourceIndex.value = fromIndex;
     railDropLineBefore.value = null;
@@ -178,11 +188,11 @@ export function useServerRailReorder(
     if (pending && e.pointerId === pending.pointerId) {
       const dx = e.clientX - pending.startX;
       const dy = e.clientY - pending.startY;
-      if (dx * dx + dy * dy >= MOVE_THRESHOLD_PX * MOVE_THRESHOLD_PX) {
+      if (dx * dx + dy * dy >= DRAG_ACTIVATE_MOVE_PX * DRAG_ACTIVATE_MOVE_PX) {
         clearTimeout(pending.timer);
         const p = pending;
         pending = null;
-        tryActivate(p, e.clientX, e.clientY);
+        tryActivate(p, e.clientX, e.clientY, false);
       }
       return;
     }
@@ -207,9 +217,10 @@ export function useServerRailReorder(
       } catch {
         /* ignore */
       }
+      const activatedViaHold = active.activatedViaHold;
       active = null;
       detachWindowDragListeners();
-      suppressNextServerRailClick.value = true;
+      let didReorder = false;
       if (reorderEnabled.value && reorderVisibleServers) {
         const boundaries = measureBoundaries(folderRoot);
         if (boundaries) {
@@ -220,9 +231,12 @@ export function useServerRailReorder(
             railDropLineBefore.value,
             HYSTERESIS_PX,
           );
-          commitReorder(fromIndex, lineBefore);
+          didReorder = commitReorder(fromIndex, lineBefore);
         }
       }
+      // Trackpad/laptop clicks often jitter into drag mode; still switch server
+      // unless the user held to reorder or actually changed rail order.
+      suppressNextServerRailClick.value = activatedViaHold || didReorder;
       resetDragUi();
       echoDevTrace('server_rail_dnd.pointer_up', { fromIndex });
     }
@@ -244,7 +258,6 @@ export function useServerRailReorder(
       }
       active = null;
       detachWindowDragListeners();
-      suppressNextServerRailClick.value = true;
       resetDragUi();
       echoDevTrace('server_rail_dnd.pointer_cancel', {});
     }
@@ -267,7 +280,7 @@ export function useServerRailReorder(
       if (!pending || pending.pointerId !== e.pointerId) return;
       const p = pending;
       pending = null;
-      tryActivate(p, e.clientX, e.clientY);
+      tryActivate(p, e.clientX, e.clientY, true);
     }, HOLD_MS);
     pending = {
       pointerId: e.pointerId,

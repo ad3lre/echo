@@ -14,10 +14,27 @@ export type ChatVideoPlaybackState = {
   sourceSize: number;
 };
 
-const DEFAULT_POLL_MS = 4000;
+const DEFAULT_POLL_MS = 2000;
+
+/** Module cache so remounting the player does not re-enter loading/processing. */
+const playbackCache = new Map<string, ChatVideoPlaybackState>();
+
+function cacheKey(url: string): string {
+  return url.trim();
+}
 
 function shouldPoll(status: ChatVideoPlaybackState['status']): boolean {
   return status === 'pending' || status === 'loading';
+}
+
+function rememberPlayback(url: string, state: ChatVideoPlaybackState): void {
+  const key = cacheKey(url);
+  if (!key) return;
+  playbackCache.set(key, state);
+}
+
+function resolveEchoUploadPlaybackUrl(raw: string): string {
+  return rewriteR2EchoUploadUrlForReadThrough(safeImageUrl(raw));
 }
 
 export function useChatVideoPlayback(
@@ -28,14 +45,20 @@ export function useChatVideoPlayback(
   refresh: () => void;
 } {
   const pollMs = opts?.pollMs ?? DEFAULT_POLL_MS;
-  const state = ref<ChatVideoPlaybackState>({
-    status: 'loading',
-    mode: 'progressive',
-    playbackUrl: safeImageUrl(sourceUrl.value),
-    sourceUrl: safeImageUrl(sourceUrl.value),
-    sourceEtag: null,
-    sourceSize: 0,
-  });
+  const initialUrl = sourceUrl.value.trim();
+  const cached = initialUrl
+    ? playbackCache.get(cacheKey(initialUrl))
+    : undefined;
+  const state = ref<ChatVideoPlaybackState>(
+    cached ?? {
+      status: 'loading',
+      mode: 'progressive',
+      playbackUrl: resolveEchoUploadPlaybackUrl(sourceUrl.value),
+      sourceUrl: resolveEchoUploadPlaybackUrl(sourceUrl.value),
+      sourceEtag: null,
+      sourceSize: 0,
+    },
+  );
 
   let requestId = 0;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -63,7 +86,7 @@ export function useChatVideoPlayback(
   async function load(options?: { silent?: boolean }): Promise<void> {
     const url = sourceUrl.value.trim();
     const id = ++requestId;
-    const fallbackSource = safeImageUrl(url);
+    const fallbackSource = resolveEchoUploadPlaybackUrl(url);
     if (!url) {
       state.value = {
         status: 'failed',
@@ -76,6 +99,15 @@ export function useChatVideoPlayback(
       stopPoll();
       return;
     }
+
+    const hit = playbackCache.get(cacheKey(url));
+    if (hit && !options?.silent) {
+      state.value = hit;
+      syncPollTimer();
+      void load({ silent: true });
+      return;
+    }
+
     if (!options?.silent) {
       stopPoll();
       state.value = {
@@ -88,22 +120,22 @@ export function useChatVideoPlayback(
     try {
       const res = await fetchEchoVideoPlayback(null, url);
       if (id !== requestId) return;
-      const resolvedSource = safeImageUrl(res.sourceUrl || url);
+      const resolvedSource = resolveEchoUploadPlaybackUrl(res.sourceUrl || url);
       if (res.status === 'ready' && res.format === 'hls' && res.playbackUrl) {
-        state.value = {
+        const next: ChatVideoPlaybackState = {
           status: 'ready',
           mode: 'hls',
-          playbackUrl: rewriteR2EchoUploadUrlForReadThrough(
-            safeImageUrl(res.playbackUrl),
-          ),
+          playbackUrl: resolveEchoUploadPlaybackUrl(res.playbackUrl),
           sourceUrl: resolvedSource,
           sourceEtag: res.sourceEtag,
           sourceSize: res.sourceSize,
         };
+        state.value = next;
+        rememberPlayback(url, next);
         stopPoll();
         return;
       }
-      state.value = {
+      const next: ChatVideoPlaybackState = {
         status: res.status === 'failed' ? 'failed' : 'pending',
         mode: 'progressive',
         playbackUrl: resolvedSource,
@@ -111,10 +143,12 @@ export function useChatVideoPlayback(
         sourceEtag: res.sourceEtag,
         sourceSize: res.sourceSize,
       };
+      state.value = next;
+      rememberPlayback(url, next);
       syncPollTimer();
     } catch {
       if (id !== requestId) return;
-      state.value = {
+      const next: ChatVideoPlaybackState = {
         status: 'pending',
         mode: 'progressive',
         playbackUrl: fallbackSource,
@@ -122,6 +156,8 @@ export function useChatVideoPlayback(
         sourceEtag: null,
         sourceSize: 0,
       };
+      state.value = next;
+      rememberPlayback(url, next);
       syncPollTimer();
     }
   }
@@ -130,6 +166,14 @@ export function useChatVideoPlayback(
     sourceUrl,
     () => {
       stopPoll();
+      const url = sourceUrl.value.trim();
+      const hit = url ? playbackCache.get(cacheKey(url)) : undefined;
+      if (hit) {
+        state.value = hit;
+        syncPollTimer();
+        void load({ silent: true });
+        return;
+      }
       void load();
     },
     { immediate: true },
@@ -140,4 +184,9 @@ export function useChatVideoPlayback(
   });
 
   return { state, refresh: () => void load() };
+}
+
+/** @internal test helper */
+export function __clearChatVideoPlaybackCacheForTests(): void {
+  playbackCache.clear();
 }

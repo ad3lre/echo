@@ -681,6 +681,24 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     ALTER TABLE echo_role_categories ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT false;
   `);
   await pool.query(`
+    ALTER TABLE echo_role_categories ADD COLUMN IF NOT EXISTS default_permissions JSONB NOT NULL DEFAULT '[]'::jsonb;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_role_categories ADD COLUMN IF NOT EXISTS default_hoist BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_role_categories ADD COLUMN IF NOT EXISTS default_on_join BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_role_categories ADD COLUMN IF NOT EXISTS default_role_scope TEXT NOT NULL DEFAULT 'category';
+  `);
+  await pool.query(`
+    ALTER TABLE echo_role_categories ADD COLUMN IF NOT EXISTS default_role_type TEXT NOT NULL DEFAULT 'mixed';
+  `);
+  await pool.query(`
+    ALTER TABLE echo_roles ADD COLUMN IF NOT EXISTS sync_with_category_defaults BOOLEAN NOT NULL DEFAULT true;
+  `);
+  await pool.query(`
     ALTER TABLE echo_roles ADD COLUMN IF NOT EXISTS role_category_id TEXT NULL REFERENCES echo_role_categories(id) ON DELETE SET NULL;
   `);
   await pool.query(`
@@ -1208,6 +1226,18 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     ALTER TABLE echo_server_custom_emojis
       ADD COLUMN IF NOT EXISTS discord_source_emoji_id TEXT NULL;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_server_custom_emojis
+      ADD COLUMN IF NOT EXISTS expression_kind TEXT NOT NULL DEFAULT 'emoji';
+  `);
+  await pool.query(`
+    ALTER TABLE echo_server_custom_emojis
+      ADD COLUMN IF NOT EXISTS sticker_format TEXT NULL;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_server_custom_emojis_expression_kind_idx
+    ON echo_server_custom_emojis (server_id, expression_kind);
   `);
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS echo_server_custom_emojis_server_discord_emoji_unique
@@ -2198,6 +2228,20 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
     ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS components JSONB NULL;
   `);
 
+  await pool.query(`
+    ALTER TABLE echo_role_categories ADD COLUMN IF NOT EXISTS self_assignable_defaults BOOLEAN NOT NULL DEFAULT false;
+  `);
+
+  // ─── Self-assignable roles channel ─────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_server_self_roles_config (
+      server_id TEXT PRIMARY KEY REFERENCES echo_servers(id) ON DELETE CASCADE,
+      enabled BOOLEAN NOT NULL DEFAULT false,
+      panel_channel_id TEXT NULL,
+      custom_categories JSONB NOT NULL DEFAULT '[]'
+    );
+  `);
+
   // ─── Ticket system ───────────────────────────────────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_server_ticket_config (
@@ -2269,6 +2313,189 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   `);
 
   await migrateEchoGlobalRoleCategories(pool);
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'consolidate_seeded_global_roles_v1',
+    async () => {
+      const { nextEchoSnowflakeId } = await import('../domain/echoSnowflake');
+      const { ensureGlobalRoleCategoryForServer } =
+        await import('../domain/echoStore/roleCategoryGlobals');
+      const servers = await pool.query<{ id: string }>(
+        `SELECT id FROM echo_servers`,
+      );
+      for (const row of servers.rows) {
+        const serverId = String(row.id);
+        const globalId = await ensureGlobalRoleCategoryForServer(
+          pool,
+          serverId,
+        );
+        const seeded = await pool.query<{ id: string; name: string }>(
+          `
+          SELECT id, name FROM echo_roles
+          WHERE server_id = $1 AND role_category_id = $2 AND name IN ('Admin', 'Moderator')
+          `,
+          [serverId, globalId],
+        );
+        if (seeded.rows.length === 0) continue;
+
+        let allRole = await pool.query<{ id: string }>(
+          `SELECT id FROM echo_roles WHERE server_id = $1 AND name = 'All' LIMIT 1`,
+          [serverId],
+        );
+        let allRoleId = allRole.rows[0]?.id;
+        if (!allRoleId) {
+          allRoleId = nextEchoSnowflakeId();
+          await pool.query(
+            `
+            INSERT INTO echo_roles (
+              id, server_id, name, color, position, hoist, permissions,
+              role_category_id, rank_in_category, role_scope, sync_with_category_defaults
+            ) VALUES ($1, $2, 'All', '#5865F2', 1, true, $3::jsonb, $4, 0, 'global', false)
+            `,
+            [allRoleId, serverId, JSON.stringify(['ADMINISTRATOR']), globalId],
+          );
+        }
+
+        const legacyIds = seeded.rows.map((r) => String(r.id));
+        for (const legacyId of legacyIds) {
+          await pool.query(
+            `
+            INSERT INTO echo_member_roles (server_id, user_id, role_id)
+            SELECT server_id, user_id, $3
+            FROM echo_member_roles
+            WHERE server_id = $1 AND role_id = $2
+            ON CONFLICT DO NOTHING
+            `,
+            [serverId, legacyId, allRoleId],
+          );
+        }
+        await pool.query(
+          `DELETE FROM echo_member_roles WHERE server_id = $1 AND role_id = ANY($2::text[])`,
+          [serverId, legacyIds],
+        );
+        await pool.query(
+          `DELETE FROM echo_roles WHERE server_id = $1 AND id = ANY($2::text[])`,
+          [serverId, legacyIds],
+        );
+      }
+    },
+  );
+
+  // Undo mistaken consolidate migration for legacy servers: restore Admin/Moderator,
+  // remove the replacement "All" role. New servers (created after consolidate) keep
+  // the single seeded "All" role.
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'repair_consolidate_global_roles_undo_v1',
+    async () => {
+      const consolidated = await pool.query<{ applied_at: Date }>(
+        `SELECT applied_at FROM echo_schema_migrations WHERE id = $1 LIMIT 1`,
+        ['consolidate_seeded_global_roles_v1'],
+      );
+      if (consolidated.rows.length === 0) return;
+      const consolidateAppliedAt = consolidated.rows[0]!.applied_at;
+
+      const { nextEchoSnowflakeId } = await import('../domain/echoSnowflake');
+      const { ensureGlobalRoleCategoryForServer } =
+        await import('../domain/echoStore/roleCategoryGlobals');
+
+      const MODERATOR_PERMISSIONS = JSON.stringify([
+        'KICK_MEMBERS',
+        'BAN_MEMBERS',
+        'MODERATE_MEMBERS',
+        'MANAGE_MESSAGES',
+      ]);
+      const ADMIN_PERMISSIONS = JSON.stringify(['ADMINISTRATOR']);
+
+      const servers = await pool.query<{ id: string }>(
+        `
+        SELECT id FROM echo_servers
+        WHERE created_at < $1
+        `,
+        [consolidateAppliedAt],
+      );
+
+      for (const row of servers.rows) {
+        const serverId = String(row.id);
+        const allRole = await pool.query<{ id: string }>(
+          `SELECT id FROM echo_roles WHERE server_id = $1 AND name = 'All' LIMIT 1`,
+          [serverId],
+        );
+        if (!allRole.rows[0]) continue;
+        const allRoleId = String(allRole.rows[0].id);
+
+        const existing = await pool.query<{ name: string }>(
+          `
+          SELECT name FROM echo_roles
+          WHERE server_id = $1 AND name IN ('Admin', 'Moderator')
+          `,
+          [serverId],
+        );
+        const names = new Set(existing.rows.map((r) => String(r.name)));
+        if (names.has('Admin') && names.has('Moderator')) continue;
+
+        const globalId = await ensureGlobalRoleCategoryForServer(
+          pool,
+          serverId,
+        );
+
+        let adminRoleId: string | null = null;
+        if (!names.has('Admin')) {
+          adminRoleId = nextEchoSnowflakeId();
+          await pool.query(
+            `
+            INSERT INTO echo_roles (
+              id, server_id, name, color, position, hoist, permissions,
+              role_category_id, rank_in_category, role_scope, sync_with_category_defaults
+            ) VALUES ($1, $2, 'Admin', '#e74c3c', 2, true, $3::jsonb, $4, 1, 'global', false)
+            `,
+            [adminRoleId, serverId, ADMIN_PERMISSIONS, globalId],
+          );
+        } else {
+          const adminRow = await pool.query<{ id: string }>(
+            `SELECT id FROM echo_roles WHERE server_id = $1 AND name = 'Admin' LIMIT 1`,
+            [serverId],
+          );
+          adminRoleId = adminRow.rows[0] ? String(adminRow.rows[0].id) : null;
+        }
+
+        if (!names.has('Moderator')) {
+          const modRoleId = nextEchoSnowflakeId();
+          await pool.query(
+            `
+            INSERT INTO echo_roles (
+              id, server_id, name, color, position, hoist, permissions,
+              role_category_id, rank_in_category, role_scope, sync_with_category_defaults
+            ) VALUES ($1, $2, 'Moderator', '#2ecc71', 1, true, $3::jsonb, $4, 0, 'global', false)
+            `,
+            [modRoleId, serverId, MODERATOR_PERMISSIONS, globalId],
+          );
+        }
+
+        if (adminRoleId) {
+          await pool.query(
+            `
+            INSERT INTO echo_member_roles (server_id, user_id, role_id)
+            SELECT server_id, user_id, $3
+            FROM echo_member_roles
+            WHERE server_id = $1 AND role_id = $2
+            ON CONFLICT DO NOTHING
+            `,
+            [serverId, allRoleId, adminRoleId],
+          );
+        }
+
+        await pool.query(
+          `DELETE FROM echo_member_roles WHERE server_id = $1 AND role_id = $2`,
+          [serverId, allRoleId],
+        );
+        await pool.query(
+          `DELETE FROM echo_roles WHERE server_id = $1 AND id = $2`,
+          [serverId, allRoleId],
+        );
+      }
+    },
+  );
 }
 
 /** One pinned Global Roles category per server; backfill uncategorized roles. */

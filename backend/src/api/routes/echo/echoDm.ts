@@ -53,7 +53,16 @@ export default async function echoDmRoutes(
 ): Promise<void> {
   fastify.get<{ Querystring: { q?: string; limit?: string; before?: string } }>(
     '/dm/messages/search',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const userId = getAuthUser(req).id;
@@ -174,6 +183,14 @@ export default async function echoDmRoutes(
           400,
           'INVALID_BODY',
           'memberUserIds array required',
+        );
+      }
+      if (raw.length > 32) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'memberUserIds exceeds maximum length',
         );
       }
       const name = typeof req.body?.name === 'string' ? req.body.name : '';

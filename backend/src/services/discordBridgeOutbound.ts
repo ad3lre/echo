@@ -51,6 +51,7 @@ export async function mirrorEchoMessageToDiscordIfConfigured(
   const body: Record<string, unknown> = {
     content: text,
     username,
+    allowed_mentions: { parse: [] as string[] },
   };
   if (avatarUrl) body.avatar_url = avatarUrl;
 

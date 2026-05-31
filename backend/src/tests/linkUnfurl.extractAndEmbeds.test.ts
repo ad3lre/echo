@@ -119,6 +119,11 @@ async function main() {
     },
   );
 
+  await run('rejects plain http unfurl targets', () => {
+    assert.equal(isUrlSafeForOutboundFetch('http://example.com/path'), false);
+    assert.equal(isUrlSafeForOutboundFetch('https://example.com/path'), true);
+  });
+
   await run('rejects loopback and private IPv6 unfurl targets', () => {
     assert.equal(isUrlSafeForOutboundFetch('http://[::1]/health'), false);
     assert.equal(isUrlSafeForOutboundFetch('http://[fd00::1]/internal'), false);

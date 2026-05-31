@@ -32,6 +32,17 @@ const emit = defineEmits<{
 function isPdfPending(doc: PendingDocument): boolean {
   return doc.file.name.toLowerCase().endsWith('.pdf');
 }
+
+function pendingVideoShellStyle(video: PendingVideo) {
+  if (video.aspectRatio) {
+    return {
+      aspectRatio: video.aspectRatio,
+      width: '4rem',
+      maxWidth: '6rem',
+    };
+  }
+  return undefined;
+}
 </script>
 
 <template>
@@ -111,8 +122,17 @@ function isPdfPending(doc: PendingDocument): boolean {
       :key="'video-' + video.url"
       class="group relative flex h-16 max-w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-glass-1"
       :class="{ 'ring-2 ring-amber-500/70': video.spoiler }"
+      :style="pendingVideoShellStyle(video)"
     >
+      <img
+        v-if="video.previewFrameUrl"
+        :src="video.previewFrameUrl"
+        :alt="video.file.name"
+        :class="video.spoiler ? 'blur-md' : ''"
+        class="h-full w-full object-cover"
+      />
       <video
+        v-else
         :src="video.url"
         muted
         playsinline
@@ -120,6 +140,14 @@ function isPdfPending(doc: PendingDocument): boolean {
         :class="video.spoiler ? 'blur-md' : ''"
         class="max-h-16 max-w-full object-contain"
       />
+      <div
+        v-if="video.uploadStatus === 'uploading'"
+        class="pointer-events-none absolute inset-x-0 top-0 bg-black/55 px-1 py-0.5 text-center text-[8px] font-semibold uppercase tracking-wide text-white"
+      >
+        {{
+          video.uploadPercent != null ? `${video.uploadPercent}%` : 'Uploading'
+        }}
+      </div>
       <div
         class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1 pb-1 pt-3"
       >

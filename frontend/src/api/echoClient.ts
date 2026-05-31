@@ -18,3 +18,4 @@ export * from './echo/voice';
 export * from './echo/moderation';
 export * from './echo/serverEvents';
 export * from './echo/tickets';
+export * from './echo/selfAssignableRoles';

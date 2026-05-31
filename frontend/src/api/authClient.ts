@@ -1519,6 +1519,19 @@ export async function authForgotPassword(body: {
   return data as { ok: boolean; message?: string };
 }
 
+export async function authVerifyEmail(token: string): Promise<{ ok: boolean }> {
+  assertAuthDomainNetworkAllowed();
+  const res = await fetch(`${AUTH_BASE}/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ token: token.trim() }),
+  });
+  const data = await parseJson(res);
+  throwIfError(res, data, 'POST /auth/verify-email');
+  return data as { ok: boolean };
+}
+
 export async function authResetPassword(body: {
   token: string;
   newPassword: string;

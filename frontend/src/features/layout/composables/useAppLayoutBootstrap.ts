@@ -6,6 +6,8 @@ import { useAuthSessionStore } from '@/stores/authSession';
 import { ensureIconCatalogLoaded } from '@/assets/iconCatalog';
 import { echoDevTrace } from '@/observability/echoDevTrace';
 import { applySavedServerRailOrder } from '@/utils/serverRailOrderPersistence';
+import { hasPriorRegistration } from '@/utils/priorRegistration';
+import { applyWorkspaceBootstrapServerNav } from '@/services/orchestration/workspaceBootstrapServerNav';
 
 function logIconCatalogPrefetchFailure(err: unknown): void {
   echoDevTrace('icon_catalog_prefetch_failed', {
@@ -22,6 +24,14 @@ export function useAppLayoutBootstrap(deps: {
   isMemberPopoutOpen: Ref<boolean>;
   isSelfProfilePopoutOpen: Ref<boolean>;
   activeChannelId: Ref<string>;
+  /** First text channel in a server's category list — used to land the bootstrap guild. */
+  getFirstTextChannelId: (
+    cats: { name: string; channels: { id: string; type: string }[] }[],
+  ) => string;
+  /** Active Echo DM channel ids — guards against stealing focus from an open DM. */
+  echoDmThreadIds?: Ref<Set<string>>;
+  /** Peer id of an in-progress DM call, if any. */
+  dmCallWithUserId?: Ref<string | null>;
   onEchoMessageFailedGuest: (ev: Event) => void;
   /** After password reset deep link / session flag, open Echo login. */
   openAuthModal?: (opts?: {
@@ -40,6 +50,9 @@ export function useAppLayoutBootstrap(deps: {
     isMemberPopoutOpen,
     isSelfProfilePopoutOpen,
     activeChannelId,
+    getFirstTextChannelId,
+    echoDmThreadIds,
+    dmCallWithUserId,
     onEchoMessageFailedGuest,
   } = deps;
 
@@ -48,12 +61,19 @@ export function useAppLayoutBootstrap(deps: {
     if (authSession.backendUser?.isGuest === true) {
       serverStore.selectServer(null);
       activeRailTab.value = 'explore';
-    } else if (serverStore.servers.length > 0) {
-      const preferred = serverStore.pickPreferredGuildServerId();
-      if (preferred) serverStore.selectServer(preferred);
+    } else if (
+      serverStore.servers.length > 0 ||
+      (authSession.backendUser != null && hasPriorRegistration())
+    ) {
+      // Optimistic: returning members almost always land in a server. Show the
+      // servers rail immediately (skeleton until data arrives) instead of flashing
+      // Explore first. The reactive watch below selects the preferred guild once
+      // `workspace.servers` is populated (synchronously for pre-hydrated users).
+      // If the authoritative load returns no joined servers, the watch falls back
+      // to Explore.
       activeRailTab.value = 'servers';
     } else {
-      // No joined servers — default the UI to the public Explore directory
+      // First-time / unknown visitor — default the UI to the public Explore directory
       serverStore.selectServer(null);
       activeRailTab.value = 'explore';
     }
@@ -109,6 +129,44 @@ export function useAppLayoutBootstrap(deps: {
         return;
       }
       serverStore.setServers(next);
+    },
+    { immediate: true },
+  );
+
+  /**
+   * Data-driven guild selection: mirror the reconnect hydrate path so the boot
+   * path picks the preferred guild + first text channel as soon as workspace data
+   * is available. With `immediate: true` this fires synchronously during setup for
+   * pre-hydrated users (selecting before first paint) and again when the network
+   * snapshot arrives for cold-start users. If the authoritative load resolves with
+   * no joined servers, revert the optimistic 'servers' guess back to Explore.
+   */
+  watch(
+    [workspace.servers, workspace.fromApi],
+    ([servers, fromApi]) => {
+      const authSession = useAuthSessionStore();
+      if (authSession.backendUser?.isGuest === true) return;
+      if (servers.length > 0) {
+        applyWorkspaceBootstrapServerNav({
+          servers,
+          serverStore,
+          activeRailTab,
+          activeChannelId,
+          categoriesByServer: workspace.categoriesByServer.value,
+          getFirstTextChannelId,
+          echoDmThreadIds: echoDmThreadIds?.value ?? null,
+          dmCallWithUserId: dmCallWithUserId?.value ?? null,
+        });
+        return;
+      }
+      if (
+        fromApi &&
+        activeRailTab.value === 'servers' &&
+        !serverStore.selectedServerId
+      ) {
+        serverStore.selectServer(null);
+        activeRailTab.value = 'explore';
+      }
     },
     { immediate: true },
   );

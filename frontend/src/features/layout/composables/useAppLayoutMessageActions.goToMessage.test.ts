@@ -112,6 +112,52 @@ describe('useAppLayoutMessageActions goToMessage (search/pins / registry path)',
     expect(onSelectServerForChannel).not.toHaveBeenCalled();
   });
 
+  it('leaves DM notifications subview so chat can mount for scroll', async () => {
+    const channelId = '88888888-8888-4888-8888-888888888888';
+    const messageId = '77777777-7777-4777-7777-777777777777';
+    const activeChannelId = ref('other-channel');
+    const dmActiveTab = ref<'messages' | 'friends' | 'notifications'>(
+      'notifications',
+    );
+    const activeRailTab = ref<'servers' | 'explore' | 'dm'>('dm');
+    const messages = ref<Record<string, RawMessage[]>>({
+      [channelId]: [
+        {
+          id: messageId,
+          authorId: 'author-1',
+          timestamp: new Date().toISOString(),
+          content: 'hello',
+        },
+      ],
+    });
+
+    const { handleGoToMessage } = useAppLayoutMessageActions({
+      activeChannelId,
+      currentUser: ref({ id: 'user-1' }),
+      users: ref([]),
+      messages,
+      votePoll: vi.fn(),
+      toggleReaction: vi.fn(),
+      recordReaction: vi.fn(),
+      clearSearch: vi.fn(),
+      onSelectServerForChannel: vi.fn(),
+      onSelectDmUser: vi.fn(),
+      dmActiveTab,
+      activeRailTab,
+      getActiveChatMessageNav: () => ({
+        scrollToMessage: vi.fn(async () => true),
+        flashHighlight: vi.fn(),
+      }),
+      prefetchEchoMessage: vi.fn(async () => okResult()),
+    });
+
+    handleGoToMessage(channelId, messageId);
+    expect(dmActiveTab.value).toBe('messages');
+    await vi.waitFor(() => {
+      expect(activeChannelId.value).toBe(channelId);
+    });
+  });
+
   it('routes legacy dm-* to peer selection, not guild server "dm"', async () => {
     const channelId = 'dm-user-999';
     const messageId = 'm1';

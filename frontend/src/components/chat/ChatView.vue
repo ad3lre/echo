@@ -53,6 +53,7 @@ import { useChannelTypingStore } from '@/stores/channelTyping';
 import { extractChatImageSearchSeeds } from '@/utils/imageSearchSeedKeywords';
 import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
 import { useEchoChatBottomChromeReporter } from '@/features/layout/composables/useEchoChatBottomChromeReporter';
+import SelfAssignableRolesWidget from '@/features/self-roles/components/SelfAssignableRolesWidget.vue';
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 const chatColumnRef = ref<HTMLElement | null>(null);
@@ -350,6 +351,13 @@ const showChatTypingIndicatorUi = computed(() => {
 const gifPopoutSeedKeywords = computed(() =>
   extractChatImageSearchSeeds(props.activeChannelMessages.values()),
 );
+
+/** Channel setting: open at top of loaded page vs bottom (newest). */
+const messageScrollAnchor = computed((): 'top' | 'bottom' => {
+  const ch = props.activeChannel;
+  if (ch?.type === 'text' && ch.messageHistoryAnchor === 'top') return 'top';
+  return 'bottom';
+});
 
 watch(othersTypingCount, (n, prev) => {
   if (!showChatTypingIndicatorUi.value) return;
@@ -706,6 +714,16 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         Back to forum
       </button>
       <!-- Opening a channel: always anchor to latest; go-to-message / search / links scroll via nav bridge. -->
+      <SelfAssignableRolesWidget
+        v-if="
+          activeContentTab === 'messages' &&
+          serverId &&
+          activeChannel?.id &&
+          activeChannel.type === 'text'
+        "
+        :server-id="serverId"
+        :channel-id="activeChannel.id"
+      />
       <MessageList
         v-if="activeContentTab === 'messages'"
         v-show="!markdownPreviewState.expanded"
@@ -756,7 +774,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         :last-read-message-id="activeChannelLastReadMessageId"
         :show-unread-separator="false"
         :dm-history-intro="dmHistoryIntro ?? null"
-        message-scroll-anchor="bottom"
+        :message-scroll-anchor="messageScrollAnchor"
         @imported="echoChannelHistory?.reload()"
         @seen-message-id-changed="handleSeenMessageIdChanged"
       />

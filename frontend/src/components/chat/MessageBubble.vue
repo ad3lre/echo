@@ -46,6 +46,7 @@ import {
 import MessageLinkEmbeds from './MessageLinkEmbeds.vue';
 import MessageInlineGifEmbeds from './MessageInlineGifEmbeds.vue';
 import MessageAttachments from './MessageAttachments.vue';
+import PendingMediaPreview from './PendingMediaPreview.vue';
 import MessageReactions from './MessageReactions.vue';
 import MessageHeader from './MessageHeader.vue';
 import MessageReplyPreview from './MessageReplyPreview.vue';
@@ -70,6 +71,7 @@ import { linkTokenMessage } from '@/utils/idTokens';
 import { useContextMenuPosition } from '@/features/chat/composables/useContextMenuPosition';
 import { useMessageEditState } from '@/features/chat/composables/useMessageEditState';
 import { usePendingMedia } from '@/composables/usePendingMedia';
+import { usePendingVideoEagerUpload } from '@/composables/usePendingVideoEagerUpload';
 import { uploadPendingMediaAsAttachments } from '@/composables/uploadPendingMediaAsAttachments';
 import { defaultQuickReactionFavorites } from '@/composables/useReactionFavorites';
 import { useMessageBubbleUi } from '@/features/chat/composables/useMessageBubbleUi';
@@ -466,13 +468,7 @@ function emitExpandDmCallRoll() {
   emit('expandDmCallRoll', id);
 }
 
-const reactionPopoverOpenFromReactions = computed(() => {
-  const inst = reactionsRef.value as
-    | { reactionPopoverOpen: { value: boolean } }
-    | null
-    | undefined;
-  return inst?.reactionPopoverOpen?.value ?? false;
-});
+const reactionPopoverOpen = ref(false);
 
 const showContextMenu = computed(
   () => !isSystemMessage.value && menuOpen.value,
@@ -722,6 +718,9 @@ function onFloatingBarMouseLeave(e: MouseEvent) {
   const next = e.relatedTarget as Node | null;
   if (next && rootRef.value?.contains(next)) return;
   hovered.value = false;
+  if (menuOpen.value || reactionPopoverOpen.value) return;
+  blurFocusedMessageChrome();
+  syncFocusWithinFromDom();
 }
 
 function toggleMenuFromEllipsis(e: MouseEvent) {
@@ -751,8 +750,19 @@ const {
   pendingExternalImages,
   pendingGifs,
   addFiles,
+  removeImage,
+  removeVideo,
+  removeAudio,
+  removeDocument,
+  removeExternalImage,
+  removeGif,
   clearAll: clearPendingEditMedia,
 } = usePendingMedia();
+
+usePendingVideoEagerUpload(
+  computed(() => props.channelId ?? ''),
+  pendingVideos,
+);
 
 async function finalizeEditAttachments(): Promise<MessageAttachmentPayload[]> {
   const cid = props.channelId?.trim();
@@ -789,7 +799,7 @@ async function finalizeEditAttachments(): Promise<MessageAttachmentPayload[]> {
 function onEditAttachmentFilePick(e: Event) {
   const t = e.target as HTMLInputElement;
   const files = t.files;
-  if (files?.length) addFiles(Array.from(files));
+  if (files?.length) addFiles(Array.from(files), props.channelId ?? '');
   t.value = '';
 }
 
@@ -887,6 +897,15 @@ const {
   },
 });
 
+const editMessageForAttachments = computed(() => ({
+  ...message.value,
+  attachments: editAttachments.value,
+}));
+
+const showEditAttachmentsSection = computed(
+  () => editAttachments.value.length > 0 || pendingEditUploadCount.value > 0,
+);
+
 function clearMessageActionBarVisibility() {
   hovered.value = false;
   focusWithin.value = false;
@@ -929,7 +948,7 @@ const showActionBar = computed(
     (hovered.value ||
       focusWithin.value ||
       menuOpen.value ||
-      reactionPopoverOpenFromReactions.value),
+      reactionPopoverOpen.value),
 );
 
 const { style: actionBarFloatingStyle } = useAnchoredFloatingPosition(
@@ -1046,6 +1065,9 @@ function forwardMessageFromMenu() {
 
 function handleReact(emoji: string) {
   props.onReact?.(emoji);
+  reactionPopoverOpen.value = false;
+  clearMessageActionBarVisibility();
+  blurFocusedMessageChrome();
 }
 
 function openAuthorProfile(event: MouseEvent) {
@@ -1061,6 +1083,8 @@ function openAuthorProfile(event: MouseEvent) {
 
 function handleQuickReact(emoji: string) {
   handleQuickReactCore(emoji, props.onReact);
+  clearMessageActionBarVisibility();
+  blurFocusedMessageChrome();
 }
 
 function jumpToQuotedMessage() {
@@ -1110,6 +1134,7 @@ watch(
   () => message.value.id,
   () => {
     resetForMessageChange();
+    reactionPopoverOpen.value = false;
     clearMessageActionBarVisibility();
   },
 );
@@ -1119,6 +1144,9 @@ watch(
   <div
     v-if="row.showUnreadSeparatorBefore"
     class="message-list__unread-separator mx-1 mb-2 mt-1 flex items-center gap-3 px-2"
+    :class="{
+      'message-list__unread-separator--first': row.layout.isFirstInList,
+    }"
     aria-label="First unread message"
   >
     <span class="h-px flex-1 bg-rose-400/45" aria-hidden="true" />
@@ -1131,7 +1159,8 @@ watch(
   </div>
   <div
     v-if="row.showDaySeparatorBefore"
-    class="message-list__day-separator flex items-center gap-3 px-4 py-2"
+    class="message-list__day-separator flex items-center gap-3 px-4"
+    :class="{ 'message-list__day-separator--first': row.layout.isFirstInList }"
     :data-day="row.daySeparatorLabel"
   >
     <span class="h-px flex-1 bg-glass-2" aria-hidden="true" />
@@ -1332,51 +1361,43 @@ watch(
           <div
             v-if="isEditing && isOwnMessage"
             ref="editFormRef"
-            class="edit-form message-text"
+            class="edit-form"
           >
             <textarea
               ref="editTextareaRef"
               v-model="editDraft"
               rows="1"
               placeholder="Edit message..."
-              class="edit-textarea"
+              class="edit-textarea message-text message-content max-w-3xl text-fg"
               spellcheck="true"
               @input="onEditInput"
               @keydown="onEditKeydown"
             />
-            <input
-              ref="editAttachmentFileInputRef"
-              type="file"
-              class="sr-only"
-              multiple
-              accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
-              @change="onEditAttachmentFilePick"
-            />
-            <div class="edit-form__attachments">
-              <span
-                class="text-[11px] font-semibold uppercase tracking-wide text-muted"
-                >Attachments</span
+            <div
+              v-if="showEditAttachmentsSection"
+              class="edit-form__attachments"
+            >
+              <MessageAttachments
+                :message="editMessageForAttachments"
+                :attachments="editAttachments"
+                :open-image-viewer="openImageViewer"
+                :open-document-viewer="openDocumentViewer"
+              />
+              <div
+                v-if="editAttachments.length"
+                class="edit-form__attachment-tags"
               >
-              <button
-                type="button"
-                class="chat-focus-ring rounded-md border border-border bg-glass-2 px-2 py-1 text-xs font-medium text-fg-soft hover:bg-glass-hover hover:text-fg"
-                @click="editAttachmentFileInputRef?.click()"
-              >
-                Add files
-              </button>
-              <span v-if="pendingEditUploadCount > 0" class="text-xs text-muted"
-                >{{ pendingEditUploadCount }} uploading…</span
-              >
-              <div class="flex w-full flex-wrap gap-1.5">
                 <div
                   v-for="(att, idx) in editAttachments"
                   :key="`${att.url}-${idx}`"
-                  class="inline-flex max-w-full items-center gap-1 rounded-md bg-glass-2 px-2 py-1 text-xs text-fg-soft"
+                  class="edit-form__attachment-tag"
                 >
-                  <span class="truncate">{{ att.filename || att.kind }}</span>
+                  <span class="truncate">{{
+                    att.filename || att.kind || 'Attachment'
+                  }}</span>
                   <button
                     type="button"
-                    class="chat-focus-ring shrink-0 rounded px-1 text-muted hover:text-fg"
+                    class="edit-form__attachment-remove chat-focus-ring"
                     title="Remove attachment"
                     aria-label="Remove attachment"
                     @click="removeEditAttachment(idx)"
@@ -1385,12 +1406,48 @@ watch(
                   </button>
                 </div>
               </div>
+              <PendingMediaPreview
+                :images="pendingImages"
+                :videos="pendingVideos"
+                :audios="pendingAudios"
+                :documents="pendingDocuments"
+                :external-images="pendingExternalImages"
+                :gifs="pendingGifs"
+                @remove-image="removeImage"
+                @remove-video="removeVideo"
+                @remove-audio="removeAudio"
+                @remove-document="removeDocument"
+                @remove-external-image="removeExternalImage"
+                @remove-gif="removeGif"
+              />
             </div>
+            <input
+              ref="editAttachmentFileInputRef"
+              type="file"
+              class="sr-only"
+              multiple
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+              @change="onEditAttachmentFilePick"
+            />
             <div
               class="edit-form__actions"
               role="group"
               aria-label="Edit message actions"
             >
+              <button
+                type="button"
+                class="edit-form__btn edit-form__btn--ghost chat-focus-ring"
+                title="Add files"
+                @click="editAttachmentFileInputRef?.click()"
+              >
+                Add files
+              </button>
+              <span
+                v-if="pendingEditUploadCount > 0"
+                class="edit-form__pending-hint"
+                >{{ pendingEditUploadCount }} to upload</span
+              >
+              <span class="edit-form__actions-spacer" aria-hidden="true" />
               <button
                 type="button"
                 class="edit-form__btn edit-form__btn--secondary chat-focus-ring"
@@ -1483,6 +1540,7 @@ watch(
             </span>
             <MessageReactions
               ref="reactionsRef"
+              v-model:reaction-popover-open="reactionPopoverOpen"
               :message="message"
               :server-id="serverId"
               :channel-id="channelId"

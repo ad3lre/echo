@@ -23,7 +23,21 @@ export function useAppLayoutRailLoadingDerived(opts: {
     );
   });
 
+  /**
+   * Cold-start skeleton: the optimistic 'servers' rail is showing but the
+   * authoritative workspace fetch has not landed yet (`loading` true, `fromApi`
+   * still false). There is no switch event to drive `isServerRailFastSwitchPending`
+   * on first load, so the channel panel would otherwise render blank.
+   */
+  const isInitialWorkspaceLoading = computed(
+    () =>
+      opts.workspace.loading.value &&
+      !opts.workspace.fromApi.value &&
+      opts.activeRailTab.value === 'servers',
+  );
+
   const isChannelPanelSwitchLoading = computed(() => {
+    if (isInitialWorkspaceLoading.value) return true;
     if (!isServerRailFastSwitchPending.value) return false;
     const sid = opts.serverStore.selectedServerId;
     if (!sid || sid === 'echo') return false;
@@ -32,6 +46,7 @@ export function useAppLayoutRailLoadingDerived(opts: {
   });
 
   const isMessageSurfaceSwitchLoading = computed(() => {
+    if (isInitialWorkspaceLoading.value) return true;
     if (!isServerRailFastSwitchPending.value) return false;
     const cid = opts.activeChannelId.value.trim();
     if (!cid) return true;
@@ -40,6 +55,7 @@ export function useAppLayoutRailLoadingDerived(opts: {
 
   return {
     isServerRailFastSwitchPending,
+    isInitialWorkspaceLoading,
     isChannelPanelSwitchLoading,
     isMessageSurfaceSwitchLoading,
   };

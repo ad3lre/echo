@@ -31,6 +31,8 @@ import type {
 } from '../../types';
 import {
   MIN_PASSWORD_LENGTH,
+  sanitizeProfileBio,
+  sanitizeProfileCustomStatus,
   validateDisplayName,
   validateRegistrationEmail,
   validateRegistrationUsername,
@@ -478,12 +480,11 @@ export class PostgresAuthStore implements AuthStore {
       sets.push(`status = $${values.length}`);
     }
     if (patch.customStatus !== undefined) {
-      values.push(patch.customStatus);
+      values.push(sanitizeProfileCustomStatus(patch.customStatus));
       sets.push(`custom_status = $${values.length}`);
     }
     if (patch.bio !== undefined) {
-      const t = String(patch.bio).trim().slice(0, 280);
-      values.push(t);
+      values.push(sanitizeProfileBio(String(patch.bio)));
       sets.push(`bio = $${values.length}`);
     }
     if (patch.bannerImage !== undefined) {
@@ -1293,7 +1294,10 @@ export class PostgresAuthStore implements AuthStore {
         throw new Error('NO_PENDING_TOTP');
       }
       const secret = decryptTotpSecret(String(pending));
-      if (!verifyTotpCode(secret, code) || checkAndMarkTotpUsed(userId, code)) {
+      if (
+        !verifyTotpCode(secret, code) ||
+        (await checkAndMarkTotpUsed(userId, code))
+      ) {
         await client.query('ROLLBACK');
         throw new Error('INVALID_TOTP');
       }
@@ -1387,7 +1391,7 @@ export class PostgresAuthStore implements AuthStore {
         const secret = decryptTotpSecret(String(cipher));
         if (
           !verifyTotpCode(secret, totp) ||
-          checkAndMarkTotpUsed(userId, totp)
+          (await checkAndMarkTotpUsed(userId, totp))
         ) {
           await client.query('ROLLBACK');
           throw new Error('INVALID_TOTP');
@@ -1464,7 +1468,7 @@ export class PostgresAuthStore implements AuthStore {
       const secret = decryptTotpSecret(String(r.totp_secret_cipher));
       const isValid = verifyTotpCode(secret, code);
       if (isValid) {
-        if (checkAndMarkTotpUsed(userId, code)) return false; // Block replay
+        if (await checkAndMarkTotpUsed(userId, code)) return false; // Block replay
         return true;
       }
       return false;
@@ -1598,7 +1602,7 @@ export class PostgresAuthStore implements AuthStore {
           if (u.totp_secret_cipher) {
             const secret = decryptTotpSecret(String(u.totp_secret_cipher));
             okTotp = verifyTotpCode(secret, code);
-            if (okTotp && checkAndMarkTotpUsed(userId, code)) {
+            if (okTotp && (await checkAndMarkTotpUsed(userId, code))) {
               okTotp = false;
             }
           }

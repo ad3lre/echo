@@ -620,7 +620,7 @@ export default async function echoMessagesRoutes(
             const { store } = await getAuthStore();
             const u = await store.getUserById(userId);
             if (u?.isGuest) {
-              blockGuestWritesForIpGuest(ip, userId);
+              await blockGuestWritesForIpGuest(ip, userId);
             }
           } catch {
             /* ignore */
@@ -633,7 +633,7 @@ export default async function echoMessagesRoutes(
         const { store } = await getAuthStore();
         const authU = await store.getUserById(userId);
         if (authU?.isGuest) {
-          if (isGuestWriteComboBlocked(ip, userId)) {
+          if (await isGuestWriteComboBlocked(ip, userId)) {
             restMessageFailed('GUEST_ABUSE_COOLDOWN');
             return sendError(
               reply,

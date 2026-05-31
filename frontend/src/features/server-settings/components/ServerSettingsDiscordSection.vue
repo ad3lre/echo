@@ -93,7 +93,8 @@ async function loadBridgeSettings() {
     const s = await getEchoDiscordBridge(token, props.serverId, cid);
     bridgeInbound.value = s.inboundEnabled;
     bridgeOutbound.value = s.outboundEnabled;
-    bridgeHasWebhook.value = s.hasWebhook;
+    bridgeHasWebhook.value =
+      s.hasWebhook === true || s.bridgeConfigured === true;
   } catch (e) {
     bridgeError.value =
       e instanceof Error ? e.message : 'Could not load bridge settings.';
@@ -129,7 +130,8 @@ async function saveBridgeSettings() {
     });
     bridgeInbound.value = saved.inboundEnabled;
     bridgeOutbound.value = saved.outboundEnabled;
-    bridgeHasWebhook.value = saved.hasWebhook;
+    bridgeHasWebhook.value =
+      saved.hasWebhook === true || saved.bridgeConfigured === true;
     bridgeWebhookDraft.value = '';
     await props.onWorkspaceRefresh?.();
   } catch (e) {

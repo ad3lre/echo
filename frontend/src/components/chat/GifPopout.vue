@@ -8,15 +8,30 @@ import {
   inject,
   unref,
 } from 'vue';
-import { useGifSearch, type GifResult } from '@/composables/useGifSearch';
-import { useImageSearch } from '@/composables/useImageSearch';
+import {
+  useGifSearch,
+  type GifResult,
+  warmGifCategoryLibrary,
+  getGifCategoryPreviewUrls,
+  getCachedGifCategoryResults,
+} from '@/composables/useGifSearch';
+import {
+  useImageSearch,
+  warmImageCategoryLibrary,
+  getImageCategoryPreviewUrls,
+  getCachedImageCategoryResults,
+} from '@/composables/useImageSearch';
+import {
+  GIF_BROWSE_CATEGORIES,
+  IMAGE_BROWSE_CATEGORIES,
+  type MediaBrowseCategory,
+} from '@/data/mediaCategoryLibrary';
 import {
   useMediaFavorites,
   gifToMediaFavorite,
   imageToMediaFavorite,
   type MediaFavorite,
 } from '@/composables/useMediaFavorites';
-import { pickImageSearchSeed } from '@/utils/imageSearchSeedKeywords';
 import { mediaFavoriteStarBtnClass } from '@/utils/mediaFavoriteStarBtnClass';
 import LimitedGifImg from '@/components/LimitedGifImg.vue';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -43,6 +58,11 @@ const activeTab = ref<MediaTab>('gif');
 /** GIF vs image context for the favorites folder (Discord-style per-picker collection). */
 const browseKind = ref<'gif' | 'image'>('gif');
 const imageTabSeeded = ref(false);
+/** Category landing vs search results grid (Discord-style). */
+const gifBrowseView = ref<'categories' | 'results'>('categories');
+const imageBrowseView = ref<'categories' | 'results'>('categories');
+const activeGifCategorySlug = ref<string | null>(null);
+const activeImageCategorySlug = ref<string | null>(null);
 
 const {
   query: gifSearchQuery,
@@ -50,6 +70,7 @@ const {
   loading: gifLoading,
   error: gifError,
   search: searchGifs,
+  loadCategory: loadGifCategory,
 } = useGifSearch();
 
 const {
@@ -62,6 +83,7 @@ const {
   hasMore: imageHasMore,
   search: searchImages,
   loadMore: loadMoreImages,
+  loadCategory: loadImageCategory,
 } = useImageSearch();
 
 const authSession = useAuthSessionStore();
@@ -132,10 +154,19 @@ watch(
   gifSearchQuery,
   (q) => {
     if (gifDebounceTimer) clearTimeout(gifDebounceTimer);
-    const delay = q.trim() ? 250 : 120;
+    const trimmed = q.trim();
+    if (!trimmed) {
+      gifBrowseView.value = 'categories';
+      activeGifCategorySlug.value = null;
+      const cached = getCachedGifCategoryResults('trending');
+      if (cached?.length) gifResults.value = cached;
+      return;
+    }
+    gifBrowseView.value = 'results';
+    const delay = 250;
     gifDebounceTimer = setTimeout(() => searchGifs(q), delay);
   },
-  { immediate: true },
+  { immediate: false },
 );
 
 let imageDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -143,7 +174,14 @@ watch(
   imageSearchQuery,
   (q) => {
     if (imageDebounceTimer) clearTimeout(imageDebounceTimer);
-    const delay = q.trim() ? 250 : 120;
+    const trimmed = q.trim();
+    if (!trimmed) {
+      imageBrowseView.value = 'categories';
+      activeImageCategorySlug.value = null;
+      return;
+    }
+    imageBrowseView.value = 'results';
+    const delay = 250;
     imageDebounceTimer = setTimeout(() => searchImages(q), delay);
   },
   { immediate: false },
@@ -154,12 +192,58 @@ watch(activeTab, (tab) => {
     imageLoadMoreObserver?.disconnect();
     return;
   }
+  void warmImageCategoryLibrary();
   if (!imageTabSeeded.value) {
     imageTabSeeded.value = true;
-    imageSearchQuery.value = pickImageSearchSeed(props.seedKeywords ?? []);
+    imageBrowseView.value = 'categories';
+    imageSearchQuery.value = '';
   }
   queueMicrotask(() => setupImageLoadMoreObserver());
 });
+
+function openGifCategory(cat: MediaBrowseCategory) {
+  activeGifCategorySlug.value = cat.slug;
+  gifBrowseView.value = 'results';
+  gifSearchQuery.value = cat.query;
+  const cached = getCachedGifCategoryResults(cat.slug);
+  if (cached?.length) {
+    gifResults.value = cached;
+    return;
+  }
+  void loadGifCategory(cat.slug);
+}
+
+function openImageCategory(cat: MediaBrowseCategory) {
+  activeImageCategorySlug.value = cat.slug;
+  imageBrowseView.value = 'results';
+  imageSearchQuery.value = cat.query;
+  const cached = getCachedImageCategoryResults(cat.slug);
+  if (cached?.length) {
+    imageResults.value = cached;
+    return;
+  }
+  void loadImageCategory(cat.slug);
+}
+
+function gifCategoryPreviewUrls(slug: string): string[] {
+  return getGifCategoryPreviewUrls(slug);
+}
+
+function imageCategoryPreviewUrls(slug: string): string[] {
+  return getImageCategoryPreviewUrls(slug);
+}
+
+function backToGifCategories() {
+  gifSearchQuery.value = '';
+  gifBrowseView.value = 'categories';
+  activeGifCategorySlug.value = null;
+}
+
+function backToImageCategories() {
+  imageSearchQuery.value = '';
+  imageBrowseView.value = 'categories';
+  activeImageCategorySlug.value = null;
+}
 
 watch(
   [imageScrollRoot, imageLoadMoreSentinel, imageHasMore, imageResults],
@@ -174,6 +258,11 @@ onMounted(() => {
   imageTabSeeded.value = false;
   browseKind.value = 'gif';
   activeTab.value = 'gif';
+  gifBrowseView.value = 'categories';
+  imageBrowseView.value = 'categories';
+  void warmGifCategoryLibrary();
+  const trending = getCachedGifCategoryResults('trending');
+  if (trending?.length) gifResults.value = trending;
 });
 
 onUnmounted(() => {
@@ -191,6 +280,17 @@ onUnmounted(() => {
 function setTab(tab: MediaTab) {
   if (tab === 'gif' || tab === 'image') browseKind.value = tab;
   activeTab.value = tab;
+  if (tab === 'gif') {
+    gifBrowseView.value = gifSearchQuery.value.trim()
+      ? 'results'
+      : 'categories';
+  }
+  if (tab === 'image') {
+    imageBrowseView.value = imageSearchQuery.value.trim()
+      ? 'results'
+      : 'categories';
+    void warmImageCategoryLibrary();
+  }
 }
 
 function prefetchFullUrl(url: string) {
@@ -490,9 +590,65 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
           "
         />
         <div
+          v-if="gifBrowseView === 'categories' && !gifSearchQuery.trim()"
           class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
           v-scrollbar-on-scroll
         >
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              v-for="cat in GIF_BROWSE_CATEGORIES"
+              :key="cat.slug"
+              type="button"
+              class="group relative flex aspect-[4/3] flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
+              @click="openGifCategory(cat)"
+            >
+              <div class="relative min-h-0 flex-1 overflow-hidden">
+                <template v-if="gifCategoryPreviewUrls(cat.slug).length">
+                  <img
+                    v-for="(previewUrl, pi) in gifCategoryPreviewUrls(cat.slug)"
+                    :key="`${cat.slug}-${pi}`"
+                    :src="previewUrl"
+                    alt=""
+                    class="absolute inset-0 h-full w-full object-cover"
+                    :class="
+                      pi === 1 ? 'opacity-80 mix-blend-lighten scale-105' : ''
+                    "
+                    loading="eager"
+                    fetchpriority="high"
+                    draggable="false"
+                  />
+                </template>
+                <div
+                  v-else
+                  class="flex h-full items-center justify-center text-2xl opacity-60"
+                  aria-hidden="true"
+                >
+                  {{ cat.navEmoji }}
+                </div>
+                <div
+                  class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6"
+                >
+                  <span class="text-xs font-semibold text-white">{{
+                    cat.name
+                  }}</span>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+        <div
+          v-else
+          class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
+          v-scrollbar-on-scroll
+        >
+          <button
+            v-if="activeGifCategorySlug && !gifSearchQuery.trim()"
+            type="button"
+            class="mb-2 text-xs font-medium text-muted hover:text-foreground"
+            @click="backToGifCategories"
+          >
+            ← Categories
+          </button>
           <div v-if="gifError" class="py-8 text-center text-sm text-red-400">
             {{ gifError }}
           </div>
@@ -612,10 +768,78 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
           {{ imageSearchQuotaLabel }}
         </p>
         <div
+          v-if="imageBrowseView === 'categories' && !imageSearchQuery.trim()"
+          class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
+          v-scrollbar-on-scroll
+        >
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              class="group relative flex aspect-square flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
+              @click="setTab('favorites')"
+            >
+              <div
+                class="flex h-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-indigo-500/20 to-purple-500/10"
+              >
+                <img
+                  :src="icons.folder"
+                  alt=""
+                  class="h-8 w-8 opacity-80"
+                  aria-hidden="true"
+                />
+                <span class="text-xs font-semibold text-foreground"
+                  >Favorites</span
+                >
+              </div>
+            </button>
+            <button
+              v-for="cat in IMAGE_BROWSE_CATEGORIES"
+              :key="cat.slug"
+              type="button"
+              class="group relative flex aspect-square flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
+              @click="openImageCategory(cat)"
+            >
+              <template v-if="imageCategoryPreviewUrls(cat.slug).length">
+                <img
+                  :src="imageCategoryPreviewUrls(cat.slug)[0]"
+                  alt=""
+                  class="h-full w-full object-cover"
+                  loading="eager"
+                  fetchpriority="high"
+                  draggable="false"
+                />
+              </template>
+              <div
+                v-else
+                class="flex h-full items-center justify-center text-2xl opacity-60"
+                aria-hidden="true"
+              >
+                {{ cat.navEmoji }}
+              </div>
+              <div
+                class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6"
+              >
+                <span class="text-xs font-semibold text-white">{{
+                  cat.name
+                }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+        <div
+          v-else
           ref="imageScrollRoot"
           class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
           v-scrollbar-on-scroll
         >
+          <button
+            v-if="activeImageCategorySlug && !imageSearchQuery.trim()"
+            type="button"
+            class="mb-2 text-xs font-medium text-muted hover:text-foreground"
+            @click="backToImageCategories"
+          >
+            ← Categories
+          </button>
           <div
             v-if="imageError"
             class="py-8 px-3 text-center text-sm text-red-400"

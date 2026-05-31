@@ -1,10 +1,19 @@
 /**
- * Lets `AppLayout` toast UI send a plain-text reply without threading `sendMessage`
+ * Lets `AppLayout` toast UI send a reply without threading `sendMessage`
  * through `CustomEvent` payloads (non-serializable).
  */
+import type { MentionEntity } from '@shared/types';
+
+export type EchoToastQuickReplyPayload = {
+  text: string;
+  mentions?: MentionEntity[];
+  contentJson?: unknown;
+  contentSchemaVersion?: number;
+};
+
 export type EchoToastQuickReplySender = (
   channelId: string,
-  text: string,
+  payload: EchoToastQuickReplyPayload,
 ) => void;
 
 let sender: EchoToastQuickReplySender | null = null;
@@ -17,11 +26,16 @@ export function registerEchoToastQuickReplySender(
 
 export function sendEchoToastQuickReply(
   channelId: string,
-  text: string,
+  payload: EchoToastQuickReplyPayload,
 ): boolean {
   const cid = channelId?.trim() ?? '';
-  const body = text?.trim() ?? '';
+  const body = payload.text?.trim() ?? '';
   if (!cid || !body || !sender) return false;
-  sender(cid, body);
+  sender(cid, {
+    text: body,
+    mentions: payload.mentions,
+    contentJson: payload.contentJson,
+    contentSchemaVersion: payload.contentSchemaVersion,
+  });
   return true;
 }

@@ -60,6 +60,7 @@ function jarMergeSetCookie(
 }
 
 async function run(): Promise<void> {
+  process.env.ECHO_CONFIG_TEST_ISOLATION = '1';
   // Use empty strings so dotenv does not repopulate these from a local `.env`.
   process.env.NODE_ENV = 'development';
   process.env.ECHO_BACKEND_STORAGE = 'memory';

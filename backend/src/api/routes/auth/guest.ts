@@ -129,7 +129,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
         }
 
         const ip = req.ip;
-        const gate = evaluateGuestMint(ip);
+        const gate = await evaluateGuestMint(ip);
         if (!gate.ok) {
           if (gate.reason === 'GUEST_MINT_BLOCKED') {
             return sendError(
@@ -157,9 +157,9 @@ export default async function guestRoutes(fastify: FastifyInstance) {
               siteKey ? JSON.stringify({ siteKey }) : undefined,
             );
           }
-          const captchaOk = await verifyTurnstileToken(captchaToken);
+          const captchaOk = await verifyTurnstileToken(captchaToken, req.ip);
           if (!captchaOk) {
-            recordFailedGuestCaptcha(ip);
+            await recordFailedGuestCaptcha(ip);
             return sendError(
               reply,
               403,
@@ -222,7 +222,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           req,
         );
         setGuestBindingCookie(reply, newGuest.id, req);
-        recordGuestMintSuccess(ip);
+        await recordGuestMintSuccess(ip);
         fastify.log.info({
           msg: 'echo_product_analytics',
           event: 'guest_minted',
@@ -236,17 +236,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           .send({ user: newGuest, resumed: false, csrfToken });
       } catch (err) {
         fastify.log.error(err, 'Auth guest mint failed');
-        const detail =
-          !config.isProduction && err instanceof Error
-            ? err.message
-            : undefined;
-        return sendError(
-          reply,
-          500,
-          'INTERNAL_ERROR',
-          'Internal Server Error',
-          detail,
-        );
+        return sendError(reply, 500, 'INTERNAL_ERROR', 'Internal Server Error');
       }
     },
   );

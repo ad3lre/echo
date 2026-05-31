@@ -41,6 +41,7 @@ import {
   requireEchoStore,
   trimEchoPathParam,
 } from './echoRouteUtils';
+import { ECHO_DISCORD_BRIDGE_PUT_RATE } from '../../sharedMutationRateLimits';
 
 const DISCORD_BRIDGEABLE_CHANNEL_TYPES = new Set([0, 5, 15]);
 
@@ -165,8 +166,7 @@ export default async function echoDiscordBridgeSettingsRoutes(
         discordChannelId,
         inboundEnabled: row?.inboundEnabled ?? false,
         outboundEnabled: row?.outboundEnabled ?? false,
-        hasWebhook: Boolean(row?.discordWebhookUrl?.trim()),
-        hasBridge: Boolean(row),
+        bridgeConfigured: Boolean(row),
       });
     },
   );
@@ -470,7 +470,10 @@ export default async function echoDiscordBridgeSettingsRoutes(
     };
   }>(
     '/servers/:serverId/channels/:channelId/discord-bridge',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_DISCORD_BRIDGE_PUT_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);

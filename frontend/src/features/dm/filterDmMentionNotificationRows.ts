@@ -107,6 +107,8 @@ export function buildMentionNotificationSourceChips(input: {
   categoriesByServer: Readonly<Record<string, ChannelCategory[]>>;
   serverNameById: Readonly<Record<string, string>>;
   isPersistedEchoDmThread: (id: string) => boolean;
+  /** Prefer fresh resolution over cached row labels (avoids stale raw ids). */
+  resolveChannelLabel?: (channelId: string) => string;
   /** Max “# channel” chips after server chips (default 12). */
   maxChannelChips?: number;
 }): MentionNotificationSourceChip[] {
@@ -115,6 +117,7 @@ export function buildMentionNotificationSourceChips(input: {
     categoriesByServer,
     serverNameById,
     isPersistedEchoDmThread,
+    resolveChannelLabel,
     maxChannelChips = 12,
   } = input;
 
@@ -140,7 +143,9 @@ export function buildMentionNotificationSourceChips(input: {
     const cid = row.channelId;
     if (!seenCh.has(cid)) {
       seenCh.add(cid);
-      channelsOrdered.push({ id: cid, label: row.channelLabel });
+      const label =
+        resolveChannelLabel?.(cid) ?? (row.channelLabel.trim() || 'Channel');
+      channelsOrdered.push({ id: cid, label });
     }
   }
 

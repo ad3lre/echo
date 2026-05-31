@@ -40,7 +40,8 @@ import {
 import { sessionUserDisplayName } from '@/utils/memberProfiles';
 import {
   describeEchoUsernameFieldIssue,
-  validateRegistrationUsername,
+  isUsernameUnchanged,
+  validateUsernameForProfilePatch,
 } from '@shared/usernamePolicy';
 
 type UserLike =
@@ -105,6 +106,12 @@ type ProfileEditSnapshot = {
   bannerBlackoutEnabled: boolean;
   bannerPositionY: number;
 };
+
+function clampBannerPositionY(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(100, value))
+    : 50;
+}
 
 function workspaceVisualsFromAuthUser(user: AuthUserPublic) {
   return {
@@ -239,14 +246,22 @@ export function useSettingsProfileEditor(
       const u = currentUser.value;
       if (!u?.id) return false;
 
+      const baselineUsername = authSession.backendUser?.username ?? '';
       const usernameTrim = form.username.trim();
       let normalizedUsername: string | undefined;
-      if (usernameTrim.length > 0) {
-        const vr = validateRegistrationUsername(form.username);
+      const usernameChanged =
+        usernameTrim.length > 0 &&
+        !isUsernameUnchanged(form.username, baselineUsername);
+      if (usernameChanged) {
+        const vr = validateUsernameForProfilePatch(
+          form.username,
+          baselineUsername,
+        );
         if (!vr.ok) {
           const msg =
-            describeEchoUsernameFieldIssue(form.username) ??
-            'Username is not valid. Fix it before saving.';
+            describeEchoUsernameFieldIssue(form.username, {
+              baselineUsername,
+            }) ?? 'Username is not valid. Fix it before saving.';
           UIErrorBus.emit({
             context: 'settings.profile_username',
             severity: 'error',
@@ -401,7 +416,9 @@ export function useSettingsProfileEditor(
   });
 
   const usernameFieldIssue = computed(() =>
-    describeEchoUsernameFieldIssue(form.username),
+    describeEchoUsernameFieldIssue(form.username, {
+      baselineUsername: authSession.backendUser?.username,
+    }),
   );
 
   function applyAuthUserToForm(user: AuthUserPublic) {
@@ -415,11 +432,7 @@ export function useSettingsProfileEditor(
     form.bannerRefractionEnabled = user.bannerRefractionEnabled ?? false;
     form.bannerBlurEnabled = user.bannerBlurEnabled ?? false;
     form.bannerBlackoutEnabled = user.bannerBlackoutEnabled ?? false;
-    form.bannerPositionY =
-      typeof user.bannerPositionY === 'number' &&
-      Number.isFinite(user.bannerPositionY)
-        ? Math.max(0, Math.min(100, user.bannerPositionY))
-        : 50;
+    form.bannerPositionY = clampBannerPositionY(user.bannerPositionY);
     serverBaselinePfp.value = user.pfp ?? '';
     serverBaselineBannerImage.value = user.bannerImage ?? '';
   }
@@ -501,6 +514,11 @@ export function useSettingsProfileEditor(
       if (auth?.id === currentUser.value.id) {
         serverBaselinePfp.value = auth.pfp ?? '';
         serverBaselineBannerImage.value = auth.bannerImage ?? '';
+        form.bannerPositionY = clampBannerPositionY(auth.bannerPositionY);
+      } else {
+        form.bannerPositionY = clampBannerPositionY(
+          currentUser.value.bannerPositionY,
+        );
       }
       bannerEditSnapshot.value = {
         bannerImage: currentUser.value.bannerImage,
@@ -544,6 +562,7 @@ export function useSettingsProfileEditor(
         bannerRefractionEnabled: form.bannerRefractionEnabled,
         bannerBlurEnabled: form.bannerBlurEnabled,
         bannerBlackoutEnabled: form.bannerBlackoutEnabled,
+        bannerPositionY: form.bannerPositionY,
         pfp: nextPfp,
       });
       bannerEditSnapshot.value = null;

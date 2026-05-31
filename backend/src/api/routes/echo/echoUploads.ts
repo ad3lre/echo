@@ -43,6 +43,7 @@ import {
 import { consumeLocalUploadTokenOnce } from '../../../services/localUploadTokenReplay';
 import { getPgPool } from '../../../db/pg';
 import { enqueueEchoChatVideoHls } from '../../../services/echoVideoOptimizeQueue';
+import { kickVideoUploadOptimizeJob } from '../../../jobs/videoUploadOptimize';
 import { readEchoUploadSourceMetadata } from '../../../services/echoUploadSourceMetadata';
 import { extractStorageKeyFromEchoMediaUrl } from '../../../services/echoEmojiAsset';
 import {
@@ -55,9 +56,17 @@ import {
   sendS3EchoUploadObject,
 } from '../../../services/echoUploadServe';
 import {
+  sanitizeEchoUploadContentType,
+  sanitizeEchoUploadServeContentType,
+} from '../../../services/echoUploadContentTypePolicy';
+import {
   purgeEchoUploadObject,
-  runEchoImageUploadSafetyRegisterStep,
+  runEchoUploadIntegrityRegisterStep,
 } from '../../../services/csamScan';
+import {
+  signUploadReadToken,
+  verifyUploadReadToken,
+} from '../../../services/uploadReadToken';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { echoPool, requireEchoStore } from './echoRouteUtils';
 import { isEchoChatUserMediaStorageKey } from '../../../../../shared/chatMediaRetention';
@@ -69,29 +78,11 @@ import {
   touchChatUploadRetention,
 } from '../../../services/chatUploadRetention';
 
-/**
- * Reject content types that could execute code when served directly from S3/CDN.
- * We allow image/*, video/*, audio/*, application/pdf, application/octet-stream,
- * and a few document types.  Anything else falls back to application/octet-stream.
- */
-const SAFE_CONTENT_TYPE_RE = /^(image|video|audio)\//i;
-const SAFE_CONTENT_TYPE_EXACT = new Set([
-  'application/octet-stream',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.apple.mpegurl',
-  'video/iso.segment',
-]);
 function sanitizeUploadContentType(
   raw: string,
   fallback = 'application/octet-stream',
 ): string {
-  const ct = raw.trim().toLowerCase();
-  if (!ct) return fallback;
-  if (SAFE_CONTENT_TYPE_RE.test(ct)) return ct;
-  if (SAFE_CONTENT_TYPE_EXACT.has(ct)) return ct;
-  return 'application/octet-stream';
+  return sanitizeEchoUploadContentType(raw, fallback).contentType;
 }
 
 export type EchoPresignBody = {
@@ -182,13 +173,65 @@ function decodeUploadFilesRouteStorageKey(req: FastifyRequest): string | null {
   return decodeURIComponent(star.replace(/\+/g, ' ')).trim() || null;
 }
 
+async function requireAuthUnlessUploadReadGranted(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  storageKey: string | null,
+): Promise<void> {
+  const key = storageKey?.trim() ?? '';
+  if (key && isEchoPublicServerBrandingStorageKey(key)) return;
+  const readQuery =
+    typeof (req.query as { read?: unknown })?.read === 'string'
+      ? (req.query as { read: string }).read.trim()
+      : '';
+  if (key && readQuery && verifyUploadReadToken(readQuery, key)) return;
+  await requireAuth(req, reply);
+}
+
 async function requireAuthUnlessPublicServerBrandingUpload(
   req: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const key = decodeUploadFilesRouteStorageKey(req);
-  if (key && isEchoPublicServerBrandingStorageKey(key)) return;
-  await requireAuth(req, reply);
+  await requireAuthUnlessUploadReadGranted(
+    req,
+    reply,
+    decodeUploadFilesRouteStorageKey(req),
+  );
+}
+
+function decodeUploadS3RouteStorageKey(req: FastifyRequest): string | null {
+  const star = (req.params as { '*': string })['*'];
+  if (typeof star !== 'string' || !star) return null;
+  const key = decodeURIComponent(star.replace(/\+/g, ' ')).trim();
+  return key || null;
+}
+
+async function requireAuthUnlessPublicServerBrandingS3Upload(
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  await requireAuthUnlessUploadReadGranted(
+    req,
+    reply,
+    decodeUploadS3RouteStorageKey(req),
+  );
+}
+
+async function canAccessUploadStorageKey(
+  req: FastifyRequest,
+  storageKey: string,
+): Promise<boolean> {
+  const key = storageKey.trim();
+  if (!key) return false;
+  if (isEchoPublicServerBrandingStorageKey(key)) return true;
+  const readQuery =
+    typeof (req.query as { read?: unknown })?.read === 'string'
+      ? (req.query as { read: string }).read.trim()
+      : '';
+  if (readQuery && verifyUploadReadToken(readQuery, key)) {
+    return true;
+  }
+  return canUserReadLocalUploadStorageKey(req, key);
 }
 
 async function canUserReadLocalUploadStorageKey(
@@ -197,7 +240,6 @@ async function canUserReadLocalUploadStorageKey(
 ): Promise<boolean> {
   const key = storageKey.trim();
   if (!key) return false;
-  if (isEchoPublicServerBrandingStorageKey(key)) return true;
   const userId = req.authUser?.id?.trim();
   if (!userId) return false;
   const pool = getPgPool();
@@ -256,6 +298,57 @@ export default async function echoUploadsRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
+  fastify.post<{ Body: { storageKey?: string; publicUrl?: string } }>(
+    '/uploads/read-token',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      let storageKey =
+        typeof req.body?.storageKey === 'string'
+          ? req.body.storageKey.trim()
+          : '';
+      if (!storageKey) {
+        const publicUrl =
+          typeof req.body?.publicUrl === 'string'
+            ? req.body.publicUrl.trim()
+            : '';
+        if (publicUrl) {
+          storageKey = extractStorageKeyFromEchoMediaUrl(publicUrl) ?? '';
+        }
+      }
+      if (!storageKey) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'storageKey or publicUrl required',
+        );
+      }
+      const canRead = await canUserReadLocalUploadStorageKey(req, storageKey);
+      if (!canRead) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Not allowed to read this upload',
+        );
+      }
+      const readToken = signUploadReadToken(storageKey);
+      return reply.code(200).send({
+        readToken,
+        expiresInSeconds: 3600,
+      });
+    },
+  );
+
   fastify.get(
     '/uploads/files/*',
     {
@@ -276,7 +369,7 @@ export default async function echoUploadsRoutes(
       if (!key) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
-      const canRead = await canUserReadLocalUploadStorageKey(req, key);
+      const canRead = await canAccessUploadStorageKey(req, key);
       if (!canRead) {
         return sendError(
           reply,
@@ -313,6 +406,7 @@ export default async function echoUploadsRoutes(
           /* use extension-based guess */
         }
       }
+      const serveMeta = sanitizeEchoUploadServeContentType(ct, key);
       const publicBranding = isEchoPublicServerBrandingStorageKey(key);
       reply
         .header(
@@ -320,13 +414,20 @@ export default async function echoUploadsRoutes(
           publicBranding ? 'public, max-age=86400' : 'private, no-store',
         )
         .header('Vary', 'X-Forwarded-Proto, X-Forwarded-Host');
-      return sendLocalEchoUploadFile(reply, req, abs, ct);
+      return sendLocalEchoUploadFile(
+        reply,
+        req,
+        abs,
+        serveMeta.contentType,
+        serveMeta,
+      );
     },
   );
 
   fastify.get(
     '/uploads/s3/*',
     {
+      preHandler: [requireAuthUnlessPublicServerBrandingS3Upload],
       config: {
         rateLimit: {
           max: 120,
@@ -339,20 +440,14 @@ export default async function echoUploadsRoutes(
       if (!config.echoS3PublicReadThroughApi || !isEchoS3UploadConfigured()) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
-      const star = (req.params as { '*': string })['*'];
-      if (typeof star !== 'string' || !star) {
+      const key = decodeUploadS3RouteStorageKey(req);
+      if (!key) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
-      const key = decodeURIComponent(star.replace(/\+/g, ' ')).trim();
-      if (
-        !key ||
-        key.length > 512 ||
-        key.includes('..') ||
-        key.startsWith('/')
-      ) {
+      if (key.length > 512 || key.includes('..') || key.startsWith('/')) {
         return sendError(reply, 400, 'INVALID_BODY', 'Invalid key');
       }
-      const canRead = await canUserReadLocalUploadStorageKey(req, key);
+      const canRead = await canAccessUploadStorageKey(req, key);
       if (!canRead) {
         return sendError(
           reply,
@@ -391,6 +486,7 @@ export default async function echoUploadsRoutes(
             /* use extension guess */
           }
         }
+        const serveMeta = sanitizeEchoUploadServeContentType(servedCt, key);
         let totalSize: number | undefined;
         try {
           const head = await client.send(
@@ -420,8 +516,9 @@ export default async function echoUploadsRoutes(
           client,
           bucket,
           key,
-          servedCt,
+          serveMeta.contentType,
           totalSize,
+          serveMeta,
         );
       } catch (e) {
         const status = (e as { $metadata?: { httpStatusCode?: number } })
@@ -719,7 +816,7 @@ export default async function echoUploadsRoutes(
       bodyLimit: 4096,
       config: {
         rateLimit: {
-          max: 60,
+          max: 20,
           timeWindow: '1 minute',
           keyGenerator: authUserOrIpRateLimitKey,
         },
@@ -1005,7 +1102,7 @@ export default async function echoUploadsRoutes(
         warn: (o: unknown, m?: string) => req.log.warn(o, m),
         info: (o: unknown, m?: string) => req.log.info(o, m),
       };
-      const safety = await runEchoImageUploadSafetyRegisterStep({
+      const safety = await runEchoUploadIntegrityRegisterStep({
         kind,
         storageKey: storageKeyClient,
         byteLength,
@@ -1068,6 +1165,7 @@ export default async function echoUploadsRoutes(
           sourceSize: sourceMeta.size,
           sourceEtag: sourceMeta.etag,
         });
+        kickVideoUploadOptimizeJob();
       }
 
       return reply.code(204).send();
@@ -1152,7 +1250,7 @@ export default async function echoUploadsRoutes(
       }
       return reply
         .code(200)
-        .header('Cache-Control', 'private, max-age=15')
+        .header('Cache-Control', 'private, no-store')
         .send({
           status: row.status === 'failed' ? 'failed' : 'pending',
           format: 'progressive',

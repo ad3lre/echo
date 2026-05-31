@@ -12,9 +12,17 @@ import type { MessageAttachmentPayload } from '@shared/types';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 import { openExternal } from '@/platform/desktopBridge';
 import { attachmentSaveLinkAttrs } from '@/utils/attachmentSaveLinkAttrs';
+import {
+  isDocxAttachment,
+  isLegacyDocAttachment,
+  isPdfAttachment,
+} from '@/utils/documentAttachmentKind';
 
 const PdfDocumentViewer = defineAsyncComponent(
   () => import('./PdfDocumentViewer.vue'),
+);
+const DocxDocumentViewer = defineAsyncComponent(
+  () => import('./DocxDocumentViewer.vue'),
 );
 
 const props = defineProps<{
@@ -30,42 +38,91 @@ const modalRef = ref<HTMLElement | null>(null);
 useFocusTrap(modalRef, toRef(props, 'modelValue'));
 
 const iframeLoading = ref(true);
-
-function isPdf(att: MessageAttachmentPayload): boolean {
-  const m = (att.mimeType ?? '').toLowerCase();
-  if (m === 'application/pdf') return true;
-  const n = (att.filename ?? '').toLowerCase();
-  return n.endsWith('.pdf');
-}
+const iframeError = ref<string | null>(null);
+let iframeLoadTimer: ReturnType<typeof setTimeout> | undefined;
 
 const useNativePdf = computed(
-  () => !!props.document?.url?.trim() && isPdf(props.document),
+  () => !!props.document?.url?.trim() && isPdfAttachment(props.document),
 );
+
+const useNativeDocx = computed(
+  () => !!props.document?.url?.trim() && isDocxAttachment(props.document),
+);
+
+const useOfficeIframe = computed(() => {
+  const att = props.document;
+  if (!att?.url?.trim()) return false;
+  if (useNativePdf.value || useNativeDocx.value) return false;
+  return isLegacyDocAttachment(att);
+});
 
 const iframeSrc = computed(() => {
   const att = props.document;
-  if (!att?.url?.trim()) return '';
+  if (!att?.url?.trim() || !useOfficeIframe.value) return '';
   const url = att.url.trim();
-  if (isPdf(att)) return '';
   return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
 });
 
-const title = computed(
-  () =>
-    props.document?.filename?.trim() ||
-    (props.document && isPdf(props.document) ? 'PDF' : 'Document'),
-);
+const title = computed(() => {
+  const att = props.document;
+  if (!att) return 'Document';
+  return (
+    att.filename?.trim() ||
+    (isPdfAttachment(att)
+      ? 'PDF'
+      : isDocxAttachment(att)
+        ? 'Document'
+        : 'Document')
+  );
+});
+
+const documentUrl = computed(() => props.document?.url?.trim() ?? '');
 
 const saveLinkAttrs = computed(() =>
-  attachmentSaveLinkAttrs(props.document?.url?.trim() ?? '', title.value),
+  attachmentSaveLinkAttrs(documentUrl.value, title.value),
 );
 
+function clearIframeLoadTimer() {
+  if (iframeLoadTimer !== undefined) {
+    clearTimeout(iframeLoadTimer);
+    iframeLoadTimer = undefined;
+  }
+}
+
+function resetIframeState() {
+  clearIframeLoadTimer();
+  iframeLoading.value = false;
+  iframeError.value = null;
+}
+
 watch(
-  () => [props.modelValue, props.document?.url, useNativePdf.value] as const,
+  () =>
+    [
+      props.modelValue,
+      props.document?.url,
+      useNativePdf.value,
+      useNativeDocx.value,
+      useOfficeIframe.value,
+    ] as const,
   () => {
-    if (props.modelValue && props.document?.url) {
-      iframeLoading.value = !useNativePdf.value;
+    clearIframeLoadTimer();
+    iframeError.value = null;
+    if (!props.modelValue || !props.document?.url) {
+      iframeLoading.value = false;
+      return;
     }
+    if (useOfficeIframe.value) {
+      iframeLoading.value = true;
+      iframeLoadTimer = setTimeout(() => {
+        if (iframeLoading.value) {
+          iframeLoading.value = false;
+          iframeError.value =
+            'Preview timed out. The file may require a public URL, or your browser blocked the embed. Try Download or Open.';
+        }
+      }, 45_000);
+      return;
+    }
+    iframeLoading.value = false;
   },
 );
 
@@ -74,11 +131,19 @@ function close() {
 }
 
 function onIframeLoad() {
+  clearIframeLoadTimer();
   iframeLoading.value = false;
 }
 
+function onIframeError() {
+  clearIframeLoadTimer();
+  iframeLoading.value = false;
+  iframeError.value =
+    'Could not load the document preview. Try Download or Open.';
+}
+
 function openInBrowser() {
-  const u = props.document?.url?.trim();
+  const u = documentUrl.value;
   if (!u) return;
   void openExternal(u);
 }
@@ -96,6 +161,7 @@ onMounted(() => {
 });
 onUnmounted(() => {
   window.removeEventListener('keydown', onDocKeydown);
+  resetIframeState();
 });
 </script>
 
@@ -103,50 +169,92 @@ onUnmounted(() => {
   <Teleport to="body">
     <div
       v-if="modelValue && document"
-      class="fixed inset-0 z-[70] flex flex-col bg-black/80 backdrop-blur-sm"
+      ref="modalRef"
+      class="document-viewer-modal fixed inset-0 z-[70] flex flex-col bg-overlay-ink"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="`Document: ${title}`"
       @click.self="close"
     >
-      <div
-        ref="modalRef"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="`Document: ${title}`"
-        class="flex h-full min-h-0 w-full flex-col bg-[var(--echo-chat-view-bg)] shadow-2xl md:mx-auto md:my-4 md:max-h-[calc(100vh-2rem)] md:max-w-6xl md:rounded-xl md:border md:border-border"
-        @click.stop
-      >
-        <header
-          class="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5"
+      <PdfDocumentViewer
+        v-if="useNativePdf"
+        :key="document.url"
+        class="min-h-0 flex-1"
+        :url="documentUrl"
+        :document-label="title"
+        :download-url="documentUrl"
+        :download-filename="saveLinkAttrs.download"
+        @close="close"
+      />
+      <DocxDocumentViewer
+        v-else-if="useNativeDocx"
+        :key="document.url"
+        class="min-h-0 flex-1"
+        :url="documentUrl"
+        :document-label="title"
+        :download-url="documentUrl"
+        :download-filename="saveLinkAttrs.download"
+        @close="close"
+      />
+      <template v-else-if="useOfficeIframe">
+        <div
+          class="viewer-btn-group absolute right-4 top-4 z-20 flex items-center gap-0.5 rounded-lg px-1 py-1"
         >
-          <div class="min-w-0 flex-1 truncate text-sm font-semibold text-fg">
-            {{ title }}
-          </div>
           <a
-            v-if="document.url"
-            :href="document.url"
-            class="chat-focus-ring shrink-0 rounded-md border border-border bg-glass-2 px-2.5 py-1.5 text-xs font-medium text-fg-soft hover:bg-glass-hover"
+            v-if="documentUrl"
+            :href="documentUrl"
+            class="viewer-icon-btn rounded-full p-2 transition-colors"
             :download="saveLinkAttrs.download"
             :target="saveLinkAttrs.target"
             :rel="saveLinkAttrs.rel"
+            title="Download"
+            aria-label="Download"
             @click.stop
           >
-            Download
+            <svg
+              class="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
           </a>
           <button
-            v-if="document.url"
             type="button"
-            class="chat-focus-ring shrink-0 rounded-md border border-border bg-glass-2 px-2.5 py-1.5 text-xs font-medium text-fg-soft hover:bg-glass-hover"
+            class="viewer-icon-btn rounded-full p-2 transition-colors"
+            title="Open in browser"
+            aria-label="Open in browser"
             @click="openInBrowser"
           >
-            Open
+            <svg
+              class="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              />
+            </svg>
           </button>
           <button
             type="button"
-            class="chat-focus-ring shrink-0 rounded-md p-2 text-fg-soft hover:bg-glass-hover hover:text-fg"
+            class="viewer-icon-btn rounded-full p-2 transition-colors"
             aria-label="Close"
+            title="Close"
             @click="close"
           >
             <svg
-              class="h-5 w-5"
+              class="h-6 w-6"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -159,37 +267,72 @@ onUnmounted(() => {
               />
             </svg>
           </button>
-        </header>
-        <div class="relative flex min-h-0 flex-1 flex-col bg-surface">
-          <PdfDocumentViewer
-            v-if="useNativePdf"
-            :key="document.url"
-            class="min-h-0 flex-1"
-            :url="document.url!.trim()"
-            :document-label="title"
-          />
-          <template v-else>
-            <div
-              v-if="iframeLoading"
-              class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-surface"
-            >
-              <div
-                class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"
-              />
-              <span class="text-xs text-fg-subtle">Loading preview…</span>
-            </div>
-            <iframe
-              v-if="iframeSrc"
-              :key="iframeSrc"
-              :src="iframeSrc"
-              class="h-full min-h-[50vh] w-full flex-1 border-0 md:min-h-0"
-              title="Document preview"
-              referrerpolicy="no-referrer-when-downgrade"
-              @load="onIframeLoad"
-            />
-          </template>
         </div>
-      </div>
+        <div
+          class="viewer-counter absolute left-4 top-4 z-20 max-w-[min(70vw,28rem)] truncate px-3 py-1.5 text-sm text-fg"
+          :title="title"
+        >
+          {{ title }}
+        </div>
+        <div class="relative flex min-h-0 flex-1 flex-col">
+          <div
+            v-if="iframeLoading"
+            class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2"
+          >
+            <div
+              class="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent"
+            />
+            <span class="text-xs text-fg-subtle">Loading preview…</span>
+          </div>
+          <div
+            v-else-if="iframeError"
+            class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
+          >
+            <p class="max-w-md text-sm text-fg-soft">{{ iframeError }}</p>
+            <button
+              type="button"
+              class="viewer-icon-btn rounded-lg px-3 py-2 text-sm"
+              @click="openInBrowser"
+            >
+              Open in browser
+            </button>
+          </div>
+          <iframe
+            v-if="iframeSrc && !iframeError"
+            :key="iframeSrc"
+            :src="iframeSrc"
+            class="h-full min-h-0 w-full flex-1 border-0"
+            title="Document preview"
+            referrerpolicy="no-referrer-when-downgrade"
+            @load="onIframeLoad"
+            @error="onIframeError"
+          />
+        </div>
+      </template>
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.document-viewer-modal .viewer-btn-group,
+.document-viewer-modal .viewer-counter {
+  background: var(--vue-auto-069);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow: inset 0 1px 0 var(--vue-auto-010);
+}
+
+.document-viewer-modal .viewer-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--vue-auto-009);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.document-viewer-modal .viewer-icon-btn:hover {
+  background: var(--vue-auto-003);
+  color: var(--vue-auto-006);
+}
+</style>

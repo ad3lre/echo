@@ -1339,9 +1339,9 @@ watch(
         role="treeitem"
         :aria-expanded="!isCategoryCollapsed(category.id)"
         :aria-label="getChannelDisplayName(category.name)"
-        class="mb-5"
+        class="mb-4"
       >
-        <div v-if="category.hideCategoryHeader" class="mb-2 px-2">
+        <div v-if="category.hideCategoryHeader" class="mb-1.5 px-2">
           <div
             class="text-[10px] font-medium uppercase tracking-wide text-fg-subtle"
           >
@@ -1365,7 +1365,7 @@ watch(
             "
           />
           <div
-            class="group mb-2 flex items-center justify-between gap-2 px-2 text-[12px] font-bold uppercase tracking-wider text-fg-soft"
+            class="group mb-1.5 flex items-center justify-between gap-2 px-2 text-[12px] font-bold uppercase tracking-wider text-fg-soft"
             :class="{
               'category-header--drag-source':
                 reorderDragCategoryId === category.id,

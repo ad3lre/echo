@@ -28,6 +28,15 @@ export function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
 }
 
+/** True when the edited handle matches the account's stored username (case-insensitive). */
+export function isUsernameUnchanged(
+  raw: string,
+  baselineUsername: string | null | undefined,
+): boolean {
+  if (baselineUsername == null || baselineUsername === '') return false;
+  return normalizeUsername(raw) === normalizeUsername(baselineUsername);
+}
+
 export function validateRegistrationUsername(
   raw: string,
 ): { ok: true; normalizedUsername: string } | { ok: false } {
@@ -44,12 +53,26 @@ export function validateRegistrationUsername(
   return { ok: true, normalizedUsername };
 }
 
+export type EchoUsernameFieldIssueOptions = {
+  /** When set, an unchanged value is accepted even if shorter than the register minimum. */
+  baselineUsername?: string | null;
+};
+
 /**
  * Short hint for profile / signup fields. Returns null when the field is
  * effectively empty so we do not nag while the user has not entered a handle.
  */
-export function describeEchoUsernameFieldIssue(raw: string): string | null {
+export function describeEchoUsernameFieldIssue(
+  raw: string,
+  options?: EchoUsernameFieldIssueOptions,
+): string | null {
   if (raw.trim().length === 0) return null;
+  if (
+    options?.baselineUsername != null &&
+    isUsernameUnchanged(raw, options.baselineUsername)
+  ) {
+    return null;
+  }
   if (/\s/.test(raw)) {
     return 'Usernames cannot contain spaces.';
   }
@@ -71,4 +94,15 @@ export function describeEchoUsernameFieldIssue(raw: string): string | null {
     return 'Usernames may only use lowercase letters, numbers, dots, underscores, and hyphens; they must start and end with a letter or number.';
   }
   return null;
+}
+
+/** Profile PATCH: enforce register rules only when the user is changing their handle. */
+export function validateUsernameForProfilePatch(
+  raw: string,
+  baselineUsername: string | null | undefined,
+): { ok: true; normalizedUsername: string } | { ok: false } {
+  if (isUsernameUnchanged(raw, baselineUsername)) {
+    return { ok: true, normalizedUsername: normalizeUsername(raw) };
+  }
+  return validateRegistrationUsername(raw);
 }

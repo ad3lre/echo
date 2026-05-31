@@ -22,6 +22,7 @@ import { icons } from '@/assets/icons';
 const props = defineProps<{
   currentUserId: string;
   rows: DmMentionNotificationRow[];
+  resolveChannelLabel: (channelId: string) => string;
   users: { id: string; name: string; pfp: string; status?: string }[];
   readStateByChannelId: Readonly<Record<string, string | null>>;
   categoriesByServer: Readonly<Record<string, ChannelCategory[]>>;
@@ -30,6 +31,7 @@ const props = defineProps<{
   readPreset?: NotificationReadPreset;
   sourceKey?: string;
   showFilters?: boolean;
+  hydrationLoading?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -93,7 +95,15 @@ const sourceChips = computed((): MentionNotificationSourceChip[] =>
     categoriesByServer: props.categoriesByServer,
     serverNameById: serverNameById.value,
     isPersistedEchoDmThread: props.isPersistedEchoDmThread,
+    resolveChannelLabel: props.resolveChannelLabel,
   }),
+);
+
+const displayRows = computed(() =>
+  props.rows.map((row) => ({
+    ...row,
+    channelLabel: props.resolveChannelLabel(row.channelId),
+  })),
 );
 
 /**
@@ -128,7 +138,7 @@ const selectedSource = computed(
 
 const filteredRows = computed(() =>
   filterDmMentionNotificationRows({
-    rows: props.rows,
+    rows: displayRows.value,
     preset: readPreset.value,
     source: selectedSource.value,
     readStateByChannelId: props.readStateByChannelId,
@@ -142,7 +152,7 @@ function countRowsFor(
   source: NotificationSourceSelection,
 ): number {
   return filterDmMentionNotificationRows({
-    rows: props.rows,
+    rows: displayRows.value,
     preset,
     source,
     readStateByChannelId: props.readStateByChannelId,
@@ -229,6 +239,9 @@ const notificationListItems = computed((): DmNotificationListItem[] => {
 });
 
 const listEmptyMessage = computed(() => {
+  if (props.hydrationLoading && props.rows.length === 0) {
+    return 'Loading mentions from your channels…';
+  }
   if (props.rows.length === 0) {
     return "You're all caught up — no mentions yet.";
   }
@@ -337,139 +350,150 @@ function formatKinds(kinds: readonly string[]): string {
           </p>
         </div>
       </div>
-
-      <div
-        v-if="props.showFilters !== false"
-        class="flex flex-col gap-2"
-        role="toolbar"
-        aria-label="Mention filters"
-      >
-        <div class="dm-filter-widget-row custom-scrollbar">
-          <button
-            v-for="preset in presetWidgets"
-            :key="preset.key"
-            type="button"
-            class="dm-filter-widget"
-            :class="{ 'dm-filter-widget--active': readPreset === preset.key }"
-            :aria-pressed="readPreset === preset.key"
-            :title="preset.hint"
-            :data-echo-hint="preset.hint"
-            @click="readPreset = preset.key"
-          >
-            <span class="dm-filter-widget__label">{{ preset.label }}</span>
-            <span class="dm-filter-widget__meta">{{ preset.hint }}</span>
-            <span class="dm-filter-widget__count">{{ preset.count }}</span>
-          </button>
-        </div>
-
-        <div v-if="sourceWidgets.length > 1" class="min-w-0">
-          <p
-            class="dm-notifications__section-heading mb-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
-          >
-            Place
-          </p>
-          <div class="dm-filter-widget-row custom-scrollbar">
-            <button
-              v-for="source in sourceWidgets"
-              :key="source.key"
-              type="button"
-              class="dm-filter-widget dm-filter-widget--source"
-              :class="{
-                'dm-filter-widget--active': selectedSourceKey === source.key,
-              }"
-              :aria-pressed="selectedSourceKey === source.key"
-              :title="source.context"
-              :data-echo-hint="source.context"
-              @click="selectedSourceKey = source.key"
-            >
-              <span class="dm-filter-widget__label">{{ source.label }}</span>
-              <span class="dm-filter-widget__meta">{{ source.context }}</span>
-              <span class="dm-filter-widget__count">{{ source.count }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
     </header>
 
-    <div class="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 py-3">
-      <div
-        v-if="filteredRows.length === 0"
-        class="px-3 py-16 text-center text-sm text-fg-subtle"
-      >
-        {{ listEmptyMessage }}
+    <div
+      v-if="props.showFilters !== false"
+      class="dm-notifications__preset-bar flex shrink-0 border-b border-border px-5 py-3"
+      role="toolbar"
+      aria-label="Mention read state"
+    >
+      <div class="dm-filter-widget-row custom-scrollbar">
+        <button
+          v-for="preset in presetWidgets"
+          :key="preset.key"
+          type="button"
+          class="dm-filter-widget"
+          :class="{ 'dm-filter-widget--active': readPreset === preset.key }"
+          :aria-pressed="readPreset === preset.key"
+          :title="preset.hint"
+          :data-echo-hint="preset.hint"
+          @click="readPreset = preset.key"
+        >
+          <span class="dm-filter-widget__label">{{ preset.label }}</span>
+          <span class="dm-filter-widget__meta">{{ preset.hint }}</span>
+          <span class="dm-filter-widget__count">{{ preset.count }}</span>
+        </button>
       </div>
-      <div v-else class="flex flex-col gap-2">
-        <template v-for="item in notificationListItems" :key="item.key">
-          <div
-            v-if="item.type === 'header'"
-            class="flex items-center gap-3 px-3 py-2"
-            role="presentation"
-          >
-            <span
-              class="dm-notifications__divider-line h-px flex-1"
-              aria-hidden="true"
-            />
-            <span
-              class="dm-notifications__divider-label shrink-0 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
-            >
-              {{ item.label }}
-            </span>
-            <span
-              class="dm-notifications__divider-line h-px flex-1"
-              aria-hidden="true"
-            />
-          </div>
+    </div>
+
+    <div class="dm-notifications__body flex min-h-0 min-w-0 flex-1">
+      <aside
+        v-if="props.showFilters !== false && sourceWidgets.length > 1"
+        class="dm-notifications__places flex min-h-0 shrink-0 flex-col border-r border-border px-3 py-3"
+        aria-label="Filter by place"
+      >
+        <p
+          class="dm-notifications__section-heading mb-2 shrink-0 px-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
+        >
+          Place
+        </p>
+        <div
+          class="dm-notifications__places-list custom-scrollbar min-h-0 flex-1"
+        >
           <button
-            v-else
+            v-for="source in sourceWidgets"
+            :key="source.key"
             type="button"
-            class="dm-notification-card group flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left"
-            @click="emit('open-row', item.row)"
-            @contextmenu.prevent="openRowContextMenu(item.row, $event)"
+            class="dm-filter-widget dm-filter-widget--source dm-filter-widget--place"
+            :class="{
+              'dm-filter-widget--active': selectedSourceKey === source.key,
+            }"
+            :aria-pressed="selectedSourceKey === source.key"
+            :title="source.context"
+            :data-echo-hint="source.context"
+            @click="selectedSourceKey = source.key"
           >
+            <span class="dm-filter-widget__label">{{ source.label }}</span>
+            <span class="dm-filter-widget__meta">{{ source.context }}</span>
+            <span class="dm-filter-widget__count">{{ source.count }}</span>
+          </button>
+        </div>
+      </aside>
+
+      <div
+        class="dm-notifications__list custom-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3"
+      >
+        <div
+          v-if="filteredRows.length === 0"
+          class="px-3 py-16 text-center text-sm text-fg-subtle"
+          :aria-busy="props.hydrationLoading"
+        >
+          {{ listEmptyMessage }}
+        </div>
+        <div v-else class="flex flex-col gap-2">
+          <template v-for="item in notificationListItems" :key="item.key">
             <div
-              class="relative h-11 w-11 shrink-0 overflow-hidden rounded-full"
+              v-if="item.type === 'header'"
+              class="flex items-center gap-3 px-3 py-2"
+              role="presentation"
             >
-              <PausedGifAvatar
-                :src="safeImageUrl(pfpFor(item.row.authorId))"
-                :alt="item.row.authorName"
-                :session-key="item.row.authorId"
-                img-class="h-full w-full rounded-full object-cover"
+              <span
+                class="dm-notifications__divider-line h-px flex-1"
+                aria-hidden="true"
+              />
+              <span
+                class="dm-notifications__divider-label shrink-0 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
+              >
+                {{ item.label }}
+              </span>
+              <span
+                class="dm-notifications__divider-line h-px flex-1"
+                aria-hidden="true"
               />
             </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span class="truncate text-sm font-semibold text-fg-strong">{{
-                  item.row.authorName
-                }}</span>
+            <button
+              v-else
+              type="button"
+              class="dm-notification-card group flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left"
+              @click="emit('open-row', item.row)"
+              @contextmenu.prevent="openRowContextMenu(item.row, $event)"
+            >
+              <div
+                class="relative h-11 w-11 shrink-0 overflow-hidden rounded-full"
+              >
+                <PausedGifAvatar
+                  :src="safeImageUrl(pfpFor(item.row.authorId))"
+                  :alt="item.row.authorName"
+                  :session-key="item.row.authorId"
+                  img-class="h-full w-full rounded-full object-cover"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span class="truncate text-sm font-semibold text-fg-strong">{{
+                    item.row.authorName
+                  }}</span>
+                  <span
+                    class="dm-notifications__mention-kind shrink-0 text-[11px] font-medium"
+                    >{{ formatKinds(item.row.mentionKinds) }}</span
+                  >
+                  <span class="text-[11px] text-fg-subtle">{{
+                    formatShortTime(item.row.timestamp)
+                  }}</span>
+                </div>
                 <span
-                  class="dm-notifications__mention-kind shrink-0 text-[11px] font-medium"
-                  >{{ formatKinds(item.row.mentionKinds) }}</span
+                  class="dm-notification-card__chip mt-1 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
                 >
-                <span class="text-[11px] text-fg-subtle">{{
-                  formatShortTime(item.row.timestamp)
-                }}</span>
+                  <span class="opacity-70">#</span>
+                  <span class="truncate">{{ item.row.channelLabel }}</span>
+                </span>
+                <p
+                  class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-fg-soft"
+                >
+                  {{ item.row.preview }}
+                </p>
               </div>
               <span
-                class="dm-notification-card__chip mt-1 inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                class="dm-notification-card__jump mt-2 hidden shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold sm:inline-flex"
+                aria-hidden="true"
               >
-                <span class="opacity-70">#</span>
-                <span class="truncate">{{ item.row.channelLabel }}</span>
+                Jump
+                <span>›</span>
               </span>
-              <p
-                class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-fg-soft"
-              >
-                {{ item.row.preview }}
-              </p>
-            </div>
-            <span
-              class="dm-notification-card__jump mt-2 hidden shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold sm:inline-flex"
-              aria-hidden="true"
-            >
-              Jump
-              <span>›</span>
-            </span>
-          </button>
-        </template>
+            </button>
+          </template>
+        </div>
       </div>
     </div>
 
@@ -521,6 +545,28 @@ function formatKinds(kinds: readonly string[]): string {
   overflow-y: hidden;
   padding-bottom: 0.2rem;
   scroll-snap-type: x proximity;
+}
+
+.dm-notifications__places {
+  width: min(14.5rem, 36vw);
+  min-width: 10.5rem;
+}
+
+.dm-notifications__places-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+  overscroll-behavior: contain;
+}
+
+.dm-filter-widget--place {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  scroll-snap-align: none;
 }
 
 .dm-filter-widget {
@@ -717,14 +763,27 @@ function formatKinds(kinds: readonly string[]): string {
   opacity: 0.78;
 }
 
-:global([data-theme='light'] .dm-notifications__header) {
+:global([data-theme='light'] .dm-notifications__header),
+:global([data-theme='light'] .dm-notifications__preset-bar),
+:global([data-theme='light'] .dm-notifications__places) {
   border-color: color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
+}
+
+:global([data-theme='light'] .dm-notifications__header) {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--elevated) 88%, var(--accent) 6%) 0%,
     transparent 100%
   );
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+}
+
+:global([data-theme='light'] .dm-notifications__preset-bar) {
+  background: color-mix(in srgb, var(--elevated) 94%, var(--accent) 6%);
+}
+
+:global([data-theme='light'] .dm-notifications__places) {
+  background: color-mix(in srgb, var(--elevated) 96%, var(--accent) 4%);
 }
 
 :global([data-theme='light'] .dm-notifications__kicker) {

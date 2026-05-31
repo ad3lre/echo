@@ -3,7 +3,53 @@ import {
   appToastBottomInsetCss,
   buildAppToastShellPositionStyle,
   computeVisualViewportToastInsets,
+  shouldAppToastClearBottomChrome,
 } from './appToastShellPosition';
+
+describe('shouldAppToastClearBottomChrome', () => {
+  const base = {
+    chatComposerFocused: false,
+    measuredChromeInsetPx: 0,
+    useCompactTriPaneShell: false,
+    useCompactDmShell: false,
+    hasGuildChannelChrome: false,
+    isDmThreadSurface: false,
+  };
+
+  it('lifts when the composer is focused or measured chrome exists', () => {
+    expect(
+      shouldAppToastClearBottomChrome({
+        ...base,
+        chatComposerFocused: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAppToastClearBottomChrome({
+        ...base,
+        measuredChromeInsetPx: 72,
+      }),
+    ).toBe(true);
+  });
+
+  it('uses a modest inset on surfaces without bottom chrome', () => {
+    expect(shouldAppToastClearBottomChrome(base)).toBe(false);
+  });
+
+  it('lifts on compact shells and active DM thread surfaces', () => {
+    expect(
+      shouldAppToastClearBottomChrome({
+        ...base,
+        useCompactDmShell: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAppToastClearBottomChrome({
+        ...base,
+        isDmThreadSurface: true,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe('appToastBottomInsetCss', () => {
   it('uses a modest floor when not clearing bottom chrome', () => {

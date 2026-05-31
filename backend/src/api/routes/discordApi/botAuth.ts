@@ -1,6 +1,6 @@
-import { createHash } from 'crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { getEchoStore } from '../../../domain/echoStore/bootstrap';
+import { verifyBotTokenAgainstStoredHash } from '../../../services/botTokenHash';
 
 export interface BotApp {
   id: string;
@@ -22,6 +22,18 @@ function discordError(
   return reply.code(status).send({ code: 0, message });
 }
 
+/** Parse bot snowflake id embedded in `Echo.<base64url(id)>.<secret>` tokens. */
+export function botIdFromBotToken(token: string): string | null {
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts[0] !== 'Echo') return null;
+  try {
+    const id = Buffer.from(parts[1]!, 'base64url').toString('utf8').trim();
+    return id.length > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fastify preHandler that validates `Authorization: Bot <token>` against
  * `echo_bot_applications.token_hash`. On success, attaches `req.botApp`.
@@ -41,7 +53,11 @@ export async function requireBotAuth(
     return;
   }
 
-  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const botId = botIdFromBotToken(token);
+  if (!botId) {
+    discordError(reply, 401, '401: Unauthorized');
+    return;
+  }
 
   const { pool, enabled } = await getEchoStore();
   if (!enabled || !pool) {
@@ -50,8 +66,8 @@ export async function requireBotAuth(
   }
 
   const r = await pool.query(
-    `SELECT id, name, owner_user_id FROM echo_bot_applications WHERE token_hash = $1`,
-    [tokenHash],
+    `SELECT id, name, owner_user_id, token_hash FROM echo_bot_applications WHERE id = $1`,
+    [botId],
   );
   if (r.rows.length === 0) {
     discordError(reply, 401, '401: Unauthorized');
@@ -59,6 +75,13 @@ export async function requireBotAuth(
   }
 
   const row = r.rows[0] as Record<string, unknown>;
+  const storedHash = String(row.token_hash ?? '');
+  const ok = await verifyBotTokenAgainstStoredHash(token, storedHash);
+  if (!ok) {
+    discordError(reply, 401, '401: Unauthorized');
+    return;
+  }
+
   req.botApp = {
     id: String(row.id),
     name: String(row.name),

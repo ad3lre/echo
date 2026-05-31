@@ -20,7 +20,16 @@ import type { RolePermissionKey, ServerSettingsSection } from '../types';
 import {
   reconcileSelectedRoleIdForCategoryTab,
   topEchoRoleIdForUserServerSettings,
+  applyCategoryDefaultsToManagedRole,
+  categoryDefaultsAreConfigured,
+  defaultRolePermissions,
 } from '@/features/server-settings/domain/roleManagerState';
+import {
+  roleUiPermissionsFromEchoStrings,
+  roleUiPermissionsToEchoStrings,
+} from '@shared/rolePermissionBridge';
+import type { EchoRoleScope } from '@shared/echoRoleScope';
+import type { EchoRoleType } from '@shared/echoRoleTypes';
 import { uploadServerBrandingFile } from '@/api/echo/uploads';
 import type { EmojiEntry } from '@/composables/useEmojiData';
 import type { AppIconEntry } from '@/composables/useAppIconSearch';
@@ -193,26 +202,17 @@ export function useServerSettingsRoles(options: {
   const echoRoleCategories = ref<EchoRoleCategoryDto[]>([]);
   const selectedRoleCategoryTabId = ref<'all' | string>('all');
 
-  const globalRoleCategoryId = computed(
-    () =>
-      echoRoleCategories.value.find((c) => c.isSystem)?.id ??
-      echoRoleCategories.value[0]?.id ??
-      null,
-  );
-
   function hydrateEchoRoleCategories(categories: EchoRoleCategoryDto[]) {
-    echoRoleCategories.value = [...categories].sort(
-      (a, b) => a.position - b.position || a.id.localeCompare(b.id),
-    );
-    const globalId = globalRoleCategoryId.value;
+    echoRoleCategories.value = [...categories]
+      .filter((c) => !c.isSystem)
+      .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id));
     const tab = selectedRoleCategoryTabId.value;
     if (
       roleCategoryUiEnabled.value &&
-      globalId &&
       tab !== 'all' &&
-      !categories.some((c) => c.id === tab)
+      !echoRoleCategories.value.some((c) => c.id === tab)
     ) {
-      selectedRoleCategoryTabId.value = globalId;
+      selectedRoleCategoryTabId.value = 'all';
     }
   }
 
@@ -243,11 +243,61 @@ export function useServerSettingsRoles(options: {
     return tab !== 'all' && !!tab;
   });
 
-  function assignRoleToCategory(roleId: string, categoryId: string | null) {
+  function assignRoleToCategory(
+    roleId: string,
+    categoryId: string | null,
+    syncWithDefaults = false,
+  ) {
     const role = roleManagerRoles.value.find((r) => r.id === roleId);
     if (!role || role.name === '@everyone') return;
     if (role.roleCategoryId === categoryId) return;
     role.roleCategoryId = categoryId;
+    if (categoryId && syncWithDefaults) {
+      const cat = echoRoleCategories.value.find((c) => c.id === categoryId);
+      if (cat && categoryDefaultsAreConfigured(cat)) {
+        applyCategoryDefaultsToManagedRole(role, cat);
+      } else {
+        role.syncWithCategoryDefaults = true;
+      }
+    } else if (categoryId) {
+      role.syncWithCategoryDefaults = false;
+    }
+    roleManagerDirty.value = true;
+  }
+
+  const roleCategorySyncPrompt = ref<{
+    roleId: string;
+    categoryId: string;
+  } | null>(null);
+
+  function requestAssignRoleToCategory(
+    roleId: string,
+    categoryId: string | null,
+  ) {
+    if (!categoryId) {
+      assignRoleToCategory(roleId, null, false);
+      return;
+    }
+    const role = roleManagerRoles.value.find((r) => r.id === roleId);
+    if (!role || role.name === '@everyone') return;
+    if (role.roleCategoryId === categoryId) return;
+    const cat = echoRoleCategories.value.find((c) => c.id === categoryId);
+    if (cat && categoryDefaultsAreConfigured(cat)) {
+      roleCategorySyncPrompt.value = { roleId, categoryId };
+      return;
+    }
+    assignRoleToCategory(roleId, categoryId, false);
+  }
+
+  function confirmRoleCategorySync(sync: boolean) {
+    const ctx = roleCategorySyncPrompt.value;
+    roleCategorySyncPrompt.value = null;
+    if (!ctx) return;
+    assignRoleToCategory(ctx.roleId, ctx.categoryId, sync);
+  }
+
+  function cancelRoleCategorySync() {
+    roleCategorySyncPrompt.value = null;
   }
 
   async function createRoleCategory() {
@@ -284,13 +334,12 @@ export function useServerSettingsRoles(options: {
       echoRoleCategories.value = echoRoleCategories.value.filter(
         (c) => c.id !== tab,
       );
-      const globalId = globalRoleCategoryId.value;
       for (const r of roleManagerRoles.value) {
         if (r.roleCategoryId === tab) {
-          r.roleCategoryId = globalId;
+          r.roleCategoryId = null;
         }
       }
-      selectedRoleCategoryTabId.value = globalId ?? 'all';
+      selectedRoleCategoryTabId.value = 'all';
     } catch {
       /* non-blocking */
     }
@@ -328,8 +377,37 @@ export function useServerSettingsRoles(options: {
 
   const roleCategoryListExtra = ref<'settings' | null>(null);
   const categorySettingsNameDraft = ref('');
+  const categorySettingsDefaultsDraft = ref({
+    permissions: defaultRolePermissions(),
+    defaultHoist: false,
+    defaultOnJoin: false,
+    defaultRoleScope: 'category' as EchoRoleScope,
+    defaultRoleType: 'mixed' as EchoRoleType,
+  });
+  const categorySettingsSelfAssignableDraft = ref(false);
   const categorySettingsSaving = ref(false);
   const categorySettingsError = ref('');
+
+  function hydrateCategorySettingsDrafts(tab: string) {
+    const cat = echoRoleCategories.value.find((c) => c.id === tab);
+    categorySettingsNameDraft.value = cat?.name ?? '';
+    const partial = roleUiPermissionsFromEchoStrings(
+      cat?.defaultPermissions ?? [],
+    );
+    categorySettingsDefaultsDraft.value = {
+      permissions: {
+        ...defaultRolePermissions(),
+        ...partial,
+      } as typeof categorySettingsDefaultsDraft.value.permissions,
+      defaultHoist: cat?.defaultHoist === true,
+      defaultOnJoin: cat?.defaultOnJoin === true,
+      defaultRoleScope: cat?.defaultRoleScope ?? 'category',
+      defaultRoleType: cat?.defaultRoleType ?? 'mixed',
+    };
+    categorySettingsSelfAssignableDraft.value =
+      cat?.selfAssignableDefaults === true;
+    categorySettingsError.value = '';
+  }
 
   watch(selectedRoleId, (id) => {
     if (id.trim()) roleCategoryListExtra.value = null;
@@ -340,9 +418,7 @@ export function useServerSettingsRoles(options: {
     if (tab === 'all') return;
     selectedRoleId.value = '';
     roleCategoryListExtra.value = 'settings';
-    const cat = echoRoleCategories.value.find((c) => c.id === tab);
-    categorySettingsNameDraft.value = cat?.name ?? '';
-    categorySettingsError.value = '';
+    hydrateCategorySettingsDrafts(tab);
   }
 
   watch(selectedRoleCategoryTabId, (tab) => {
@@ -367,14 +443,52 @@ export function useServerSettingsRoles(options: {
     categorySettingsSaving.value = true;
     categorySettingsError.value = '';
     try {
-      await patchEchoRoleCategory(token, sid, tab, name);
+      await patchEchoRoleCategory(token, sid, tab, {
+        name,
+        defaultPermissions: roleUiPermissionsToEchoStrings(
+          categorySettingsDefaultsDraft.value.permissions as Record<
+            string,
+            boolean
+          >,
+        ),
+        defaultHoist: categorySettingsDefaultsDraft.value.defaultHoist,
+        defaultOnJoin: categorySettingsDefaultsDraft.value.defaultOnJoin,
+        defaultRoleScope: categorySettingsDefaultsDraft.value.defaultRoleScope,
+        defaultRoleType: categorySettingsDefaultsDraft.value.defaultRoleType,
+        selfAssignableDefaults: categorySettingsSelfAssignableDraft.value,
+      });
       const idx = echoRoleCategories.value.findIndex((c) => c.id === tab);
       if (idx >= 0) {
         echoRoleCategories.value[idx] = {
           ...echoRoleCategories.value[idx],
           name,
+          defaultPermissions: roleUiPermissionsToEchoStrings(
+            categorySettingsDefaultsDraft.value.permissions as Record<
+              string,
+              boolean
+            >,
+          ),
+          defaultHoist: categorySettingsDefaultsDraft.value.defaultHoist,
+          defaultOnJoin: categorySettingsDefaultsDraft.value.defaultOnJoin,
+          defaultRoleScope:
+            categorySettingsDefaultsDraft.value.defaultRoleScope,
+          defaultRoleType: categorySettingsDefaultsDraft.value.defaultRoleType,
+          selfAssignableDefaults: categorySettingsSelfAssignableDraft.value,
         };
       }
+      for (const role of roleManagerRoles.value) {
+        if (
+          role.roleCategoryId === tab &&
+          role.syncWithCategoryDefaults &&
+          role.name !== '@everyone'
+        ) {
+          applyCategoryDefaultsToManagedRole(
+            role,
+            echoRoleCategories.value[idx]!,
+          );
+        }
+      }
+      roleManagerDirty.value = true;
     } catch (e) {
       categorySettingsError.value =
         e instanceof Error ? e.message : 'Failed to save category';
@@ -567,14 +681,19 @@ export function useServerSettingsRoles(options: {
     selectedRoleCategoryTabId,
     roleCategoryUiEnabled,
     rolesDragReorderEnabled,
-    globalRoleCategoryId,
     hydrateEchoRoleCategories,
     reorderRoleCategoriesLocally,
     assignRoleToCategory,
+    requestAssignRoleToCategory,
+    confirmRoleCategorySync,
+    cancelRoleCategorySync,
+    roleCategorySyncPrompt,
     createRoleCategory,
     deleteActiveRoleCategory,
     roleCategoryListExtra,
     categorySettingsNameDraft,
+    categorySettingsDefaultsDraft,
+    categorySettingsSelfAssignableDraft,
     categorySettingsSaving,
     categorySettingsError,
     selectRoleCategorySettingsRow,

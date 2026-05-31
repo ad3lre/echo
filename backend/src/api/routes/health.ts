@@ -15,11 +15,24 @@ function requireMetricsScrapeAuth(
   reply: FastifyReply,
 ): void {
   const token = config.echoMetricsScrapeToken?.trim();
-  if (!token) return;
+  const requireAuth =
+    config.isProduction ||
+    (config.backendStorageMode === 'postgres' &&
+      config.echoRequireMetricsScrapeTokenInProduction);
+  if (!requireAuth || !token) {
+    if (requireAuth && !token) {
+      sendError(
+        reply,
+        503,
+        'NOT_CONFIGURED',
+        'Metrics scrape token not configured',
+      );
+    }
+    return;
+  }
   const h = request.headers.authorization;
   if (h !== `Bearer ${token}`) {
     sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
-    return;
   }
 }
 

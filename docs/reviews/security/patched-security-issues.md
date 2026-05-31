@@ -2,6 +2,115 @@
 
 This file tracks concrete security issues patched in the repo so we can avoid regressions and keep a lightweight audit trail.
 
+## 2026-05-31
+
+### 1. Upload serve Content-Type XSS / MIME confusion (#82)
+
+- Severity: High
+- Area: Upload file delivery (`GET /uploads/files/*`, S3 read-through)
+- Fixed in:
+  - `backend/src/services/echoUploadContentTypePolicy.ts` (new)
+  - `backend/src/services/echoUploadServe.ts`
+  - `backend/src/api/routes/echo/echoUploads.ts`
+- Root issue:
+  - Served `Content-Type` could come from DB metadata without allowlist re-check.
+  - `image/svg+xml` matched presign `image/*` rule.
+  - Responses lacked `X-Content-Type-Options: nosniff`.
+- Impact:
+  - Poisoned metadata or SVG uploads could cause browsers to interpret user content as executable HTML/script when opened from the upload origin.
+- Patch summary:
+  - Central MIME policy blocks SVG, HTML, and JavaScript types at presign and serve time.
+  - Serve path sets `nosniff` and `Content-Disposition: attachment` when type is coerced to `application/octet-stream`.
+  - Regression tests in `backend/src/tests/echoUploadContentTypePolicy.test.ts`.
+
+### 2. Bot install IDOR (#71)
+
+- Severity: High
+- Area: `POST /api/v1/echo/bot-applications/:botId/guilds/:guildId`
+- Fixed in:
+  - `backend/src/api/routes/echo/echoBotApplications.ts`
+- Root issue:
+  - Any user with `MANAGE_GUILD` could install any bot application by snowflake ID without being the bot owner.
+- Impact:
+  - Unauthorized third-party bot propagation into guilds when bot IDs are known or guessable.
+- Patch summary:
+  - Install route now requires `owner_user_id === authenticated user`.
+  - Static regression check in `backend/src/tests/echoInviteSharePage.xss.test.ts`.
+
+### 3. CSRF + XSS regression test suite
+
+- Severity: Hardening (no new vuln)
+- Area: CI / audit trail
+- Fixed in:
+  - `backend/src/tests/csrf.enforcement.test.ts`
+  - `frontend/src/features/chat/viewModel/messageBodyMarkdown.xss.test.ts`
+  - `backend/package.json` (`test:security`)
+- Patch summary:
+  - Negative CSRF tests for `PATCH /me` and `POST /guest/upgrade`.
+  - Markdown XSS payload corpus for chat rendering pipeline.
+
+### 4. Profile field HTML stripping (defense-in-depth)
+
+- Severity: Low–Medium
+- Area: Auth profile storage (`displayName`, `bio`, `customStatus`)
+- Fixed in:
+  - `backend/src/auth/accountPolicy.ts`
+  - `backend/src/auth/store/memory/MemoryAuthStore.ts`
+  - `backend/src/auth/store/postgres/PostgresAuthStore.ts`
+- Patch summary:
+  - Strip angle-bracket markup and control chars before persisting profile text fields.
+
+### 5. Markdown / Paper / unfurl hardening
+
+- Severity: Medium
+- Fixed in:
+  - `frontend/src/features/chat/viewModel/messageBodyMarkdown.ts` (`ALLOW_UNKNOWN_PROTOCOLS: false`)
+  - `frontend/src/features/paper/editor/paperKatexRenderCache.ts` (DOMPurify on KaTeX HTML)
+  - `frontend/src/components/chat/EmojiAutocompletePopover.vue` (`safeCustomEmojiUrl`)
+  - `backend/src/services/linkUnfurl/linkUnfurlFetch.ts` (HTTPS-only unfurl)
+  - `backend/src/services/integrations/turnstileVerify.ts` (`remoteip` binding)
+
+### 6. Security backlog batch (Medium/Low ledger items)
+
+- Severity: Medium / Low (see `docs/security/vulnerability-ranking.md` ledger)
+- Area: Account step-up, bot tokens, rate limits, webhooks, config guards
+- Fixed in (highlights):
+  - `backend/src/auth/stepUpAuth.ts` — TOTP step-up for delete account, change password, transfer ownership (#85, #101, #102)
+  - `backend/src/services/botTokenHash.ts` — bcrypt bot token storage with legacy SHA-256 verify (#29)
+  - `backend/src/services/echoWebhookSignature.ts` — HMAC verification for Discord hooks in production (#93, #94)
+  - `backend/src/bootstrap/createFastify.ts` — `randomUUID()` request IDs (#18)
+  - `backend/src/sockets/eventMiddleware.ts` — sampled socket packet logging (#21)
+  - `backend/src/api/routes/echo/echoPublic.ts`, `echoSocial.ts`, `discordApi/index.ts` — rate limits (#25, #28, #87)
+  - `backend/src/config.ts` — postgres deployments require strong JWT + default socket auth (#7, #19)
+  - `backend/src/services/localUploadTokenReplay.ts` — fail closed without Redis in production (#13)
+- Regression tests: `botTokenHash.test.ts`, `echoWebhookSignature.test.ts` (in `npm run test:security`)
+
+### 7. Large-ticket backlog (upload ACL, dedupe integrity, email verify, OAuth origins)
+
+- Severity: Medium / Low
+- Fixed in:
+  - `backend/src/services/uploadReadToken.ts` — HMAC signed read tokens (`?read=`) + `POST /uploads/read-token` (#15, #81)
+  - `backend/src/api/routes/echo/echoUploads.ts` — ACL on local + S3 read-through; conservative cache headers retained
+  - `backend/src/services/csamScan/index.ts` — server-side SHA-256 verify for image **and video** dedupe register (#84)
+  - `backend/src/auth/verifyEmailFlow.ts`, `backend/src/api/routes/auth/register.ts`, `frontend/src/views/VerifyEmailView.vue` — fragment + POST verify (#100)
+  - `backend/src/config.ts` — `ECHO_APP_PUBLIC_URL` / `ECHO_API_PUBLIC_URL` must match `CORS_ORIGIN` on postgres/production deploys (#32)
+- Regression tests: `uploadReadToken.test.ts`
+
+### 8. Final backlog closure (ledger #23–103)
+
+- Severity: Low / Medium (remaining ranked findings)
+- Fixed / mitigated in (highlights):
+  - `backend/src/auth/loginAudit.ts` — HMAC digests for IP/UA (#23)
+  - `backend/src/api/sharedMutationRateLimits.ts` — shared Discord import, E2EE, emoji, bridge limits (#50, #67, #69, #75–76)
+  - `backend/src/api/routes/discordApi/rest/userBatch.ts` — batch author load (#34)
+  - `backend/src/api/routes/discordApi/rest/gateway.ts` — IP rate limit (#30)
+  - `backend/src/api/routes/health.ts` — metrics auth + redacted health (#8, #17)
+  - `backend/src/api/routes/livekitWebhook.ts` — redacted logs; count-only workspace events (#92)
+  - `backend/src/api/routes/passkeyRoutes.ts` — user-scoped ceremony keys + credential bounds (#89, #90)
+  - `backend/src/api/routes/echo/echoDiscordBridgeSettings.ts` — `bridgeConfigured` GET (#66)
+  - `frontend/src/api/echo/discordBridge.ts` — compatible with `bridgeConfigured` response
+- Ledger: all **103** findings marked closed in `docs/security/vulnerability-ranking.md` (Fixed / Mitigated / Accepted).
+
 ## 2026-04-23
 
 ### 1. AWS XML builder transitive CVE in S3 upload path (CVE-2026-41650)

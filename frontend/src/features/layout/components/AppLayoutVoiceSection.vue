@@ -1044,7 +1044,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
     var(--chat-glass-header-bg)
   );
   isolation: isolate;
-  border-bottom: 1px solid color-mix(in srgb, white 10%, transparent);
+  border-bottom: none;
   box-shadow: none;
 }
 
@@ -1054,16 +1054,6 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
     backdrop-filter: var(--chat-glass-header-backdrop);
     -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
   }
-}
-
-:global([data-theme='light'] .voice-side-chat-header) {
-  border-bottom-color: color-mix(in srgb, var(--border) 55%, transparent);
-}
-
-/* Sunny: cream header — avoid a faint cool edge from pure white mix */
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .voice-side-chat-header {
-  border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 .voice-side-chat-header--mobile {

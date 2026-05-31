@@ -5,6 +5,10 @@
 
 import { ref, onUnmounted } from 'vue';
 import { apiGet } from '@/api/client';
+import {
+  GIF_BROWSE_CATEGORIES,
+  gifCategoryBySlug,
+} from '@/data/mediaCategoryLibrary';
 
 export interface GifResult {
   id: string;
@@ -96,19 +100,91 @@ function mapGif(g: GiphyGif): GifResult {
   };
 }
 
-const SEARCH_CACHE_TTL_MS = 2 * 60 * 1000; // 2 min
+const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
 const searchCache = new Map<string, { data: GifResult[]; ts: number }>();
 
+function cacheKeyForQuery(q: string): string {
+  return q.toLowerCase().trim();
+}
+
 function getCachedSearch(q: string): GifResult[] | null {
-  const key = q.toLowerCase().trim();
+  const key = cacheKeyForQuery(q);
   const entry = searchCache.get(key);
   if (!entry || Date.now() - entry.ts > SEARCH_CACHE_TTL_MS) return null;
   return entry.data;
 }
 
 function setCachedSearch(q: string, data: GifResult[]) {
-  const key = q.toLowerCase().trim();
-  searchCache.set(key, { data, ts: Date.now() });
+  searchCache.set(cacheKeyForQuery(q), { data, ts: Date.now() });
+}
+
+async function fetchGifsFromApi(
+  q: string,
+  signal?: AbortSignal,
+): Promise<GifResult[]> {
+  const trimmed = q.trim();
+  const path = trimmed
+    ? `/api/v1/giphy/search?q=${encodeURIComponent(trimmed)}&limit=24`
+    : '/api/v1/giphy/trending?limit=24';
+  const data = (await apiGet<GiphyGif[]>(path, { signal })) ?? [];
+  return data.map(mapGif);
+}
+
+/** Preload first N category preview stills for instant picker landing. */
+const PREVIEW_PER_CATEGORY = 2;
+
+let libraryWarmInflight: Promise<void> | null = null;
+
+/** Test helper — clears in-memory GIF search cache. */
+export function __clearGifSearchCacheForTests(): void {
+  searchCache.clear();
+  libraryWarmInflight = null;
+}
+
+/**
+ * Warm trending + category tag caches so the GIF picker landing feels instant.
+ * Safe to call multiple times (idempotent while cache is fresh).
+ */
+export function warmGifCategoryLibrary(): Promise<void> {
+  if (libraryWarmInflight) return libraryWarmInflight;
+  libraryWarmInflight = (async () => {
+    const jobs: Promise<void>[] = [];
+    for (const cat of GIF_BROWSE_CATEGORIES) {
+      const q = cat.query;
+      if (getCachedSearch(q)?.length) continue;
+      jobs.push(
+        fetchGifsFromApi(q)
+          .then((mapped) => {
+            if (mapped.length) setCachedSearch(q, mapped);
+          })
+          .catch(() => {
+            /* non-blocking warmup */
+          }),
+      );
+    }
+    await Promise.all(jobs);
+  })().finally(() => {
+    libraryWarmInflight = null;
+  });
+  return libraryWarmInflight;
+}
+
+/** First preview still URLs per category slug (after warmup). */
+export function getGifCategoryPreviewUrls(slug: string): string[] {
+  const cat = gifCategoryBySlug(slug);
+  if (!cat) return [];
+  const rows = getCachedSearch(cat.query);
+  if (!rows?.length) return [];
+  return rows
+    .slice(0, PREVIEW_PER_CATEGORY)
+    .map((g) => g.thumbnailUrl || g.previewUrl || g.url)
+    .filter(Boolean);
+}
+
+export function getCachedGifCategoryResults(slug: string): GifResult[] | null {
+  const cat = gifCategoryBySlug(slug);
+  if (!cat) return null;
+  return getCachedSearch(cat.query);
 }
 
 export function useGifSearch() {
@@ -129,12 +205,15 @@ export function useGifSearch() {
     loading.value = true;
     error.value = null;
     try {
-      const data =
-        (await apiGet<GiphyGif[]>('/api/v1/giphy/trending', { signal })) ?? [];
-      const mapped = data.map(mapGif);
+      const cached = getCachedSearch('');
+      if (cached?.length) {
+        if (!signal.aborted) gifs.value = cached;
+        return;
+      }
+      const mapped = await fetchGifsFromApi('', signal);
       if (!signal.aborted) {
         gifs.value = mapped;
-        setCachedSearch('', mapped);
+        if (mapped.length) setCachedSearch('', mapped);
       }
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
@@ -171,12 +250,7 @@ export function useGifSearch() {
     loading.value = true;
     error.value = null;
     try {
-      const data =
-        (await apiGet<GiphyGif[]>(
-          `/api/v1/giphy/search?q=${encodeURIComponent(trimmed)}`,
-          { signal },
-        )) ?? [];
-      const mapped = data.map(mapGif);
+      const mapped = await fetchGifsFromApi(trimmed, signal);
       if (!signal.aborted) {
         gifs.value = mapped;
         setCachedSearch(trimmed, mapped);
@@ -193,6 +267,18 @@ export function useGifSearch() {
     }
   }
 
+  async function loadCategory(slug: string) {
+    const cat = gifCategoryBySlug(slug);
+    if (!cat) return;
+    query.value = cat.query;
+    const cached = getCachedSearch(cat.query);
+    if (cached?.length) {
+      gifs.value = cached;
+      return;
+    }
+    await search(cat.query);
+  }
+
   return {
     query,
     gifs,
@@ -200,5 +286,6 @@ export function useGifSearch() {
     error,
     fetchTrending,
     search,
+    loadCategory,
   };
 }

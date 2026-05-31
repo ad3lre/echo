@@ -6,6 +6,7 @@ import type { EmojiEntry } from '@/composables/useEmojiData';
 import { copyToClipboard } from '@/features/chat/composables/useMessageLinkActions';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import { emojiPickerDevCopyValue } from '@/utils/emojiDevCopy';
+import { safeCustomEmojiUrl } from '@/utils/customEmojiUrl';
 
 const props = defineProps<{
   suggestions: EmojiEntry[] | Ref<EmojiEntry[]> | ComputedRef<EmojiEntry[]>;
@@ -41,6 +42,11 @@ function onSuggestionContextMenu(ev: MouseEvent, entry: EmojiEntry) {
   ev.stopPropagation();
   copyToClipboard(emojiPickerDevCopyValue(entry));
 }
+
+function safeEmojiImageUrl(entry: EmojiEntry): string | null {
+  if (entry.kind !== 'custom' || !entry.imageUrl) return null;
+  return safeCustomEmojiUrl(entry.imageUrl);
+}
 </script>
 
 <template>
@@ -66,9 +72,9 @@ function onSuggestionContextMenu(ev: MouseEvent, entry: EmojiEntry) {
       @contextmenu="onSuggestionContextMenu($event, entry)"
     >
       <img
-        v-if="entry.kind === 'custom' && entry.imageUrl"
+        v-if="safeEmojiImageUrl(entry)"
         class="emoji custom-emoji h-5 w-5 object-contain"
-        :src="entry.imageUrl"
+        :src="safeEmojiImageUrl(entry)!"
         :alt="`:${entry.name}:`"
         draggable="false"
       />

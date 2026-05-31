@@ -5,10 +5,12 @@ export type GuildSettingsSection =
   | 'Members'
   | 'Roles'
   | 'Emoji'
+  | 'Stickers'
   | 'Discord'
   | 'Security'
   | 'Access'
   | 'Tickets'
+  | 'Self-assignable Roles'
   | 'Banned Words'
   | 'Moderation'
   | 'Audit Log'
@@ -38,7 +40,7 @@ export const GUILD_SETTINGS_SECTION_GROUPS: GuildSettingsSectionGroup[] = [
   },
   {
     label: 'Community',
-    items: ['Members', 'Roles', 'Emoji'],
+    items: ['Members', 'Roles', 'Emoji', 'Stickers'],
   },
   {
     label: 'Integrations',
@@ -50,6 +52,7 @@ export const GUILD_SETTINGS_SECTION_GROUPS: GuildSettingsSectionGroup[] = [
       'Security',
       'Access',
       'Tickets',
+      'Self-assignable Roles',
       'Banned Words',
       'Moderation',
       'Bans',

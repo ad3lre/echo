@@ -10,6 +10,7 @@ import {
   gatherEchoPostMessageFailureDiagnostics,
   type EchoPostMessageDenialReason,
 } from '../domain/echoPermissions';
+import { resolveStickerIdsForChannel } from '../domain/echoStore/stickerResolver';
 import { getAuthStore } from '../auth/store';
 import {
   checkEchoServerSpamFilter,
@@ -20,6 +21,8 @@ import {
   isEchoChannelWithinForumContext,
   getEchoStore,
   selectEchoChannelMessageFormat,
+  getEffectiveChannelPermissions,
+  ECHO_DM_REALM_SERVER_ID,
 } from '../domain/echoStore';
 import { branchFromPersistedChannelRow } from './echoMessageFlow';
 import { resolveEchoForwardSnapshot } from '../domain/echoForwardResolution';
@@ -138,6 +141,7 @@ export function registerMessageHandler(
           imageSpoiler,
           poll: pollDef,
           attachments,
+          stickerIds,
           contentJson,
           messageFormatVersion,
           contentSchemaVersion,
@@ -157,7 +161,10 @@ export function registerMessageHandler(
               const { store } = await getAuthStore();
               const u = await store.getUserById(userId);
               if (u?.isGuest) {
-                blockGuestWritesForIpGuest(clientIpFromSocket(socket), userId);
+                await blockGuestWritesForIpGuest(
+                  clientIpFromSocket(socket),
+                  userId,
+                );
               }
             } catch {
               /* ignore */
@@ -175,7 +182,9 @@ export function registerMessageHandler(
           const { store } = await getAuthStore();
           const authU = await store.getUserById(userId);
           if (authU?.isGuest) {
-            if (isGuestWriteComboBlocked(clientIpFromSocket(socket), userId)) {
+            if (
+              await isGuestWriteComboBlocked(clientIpFromSocket(socket), userId)
+            ) {
               emitMessageFailed(socket, {
                 code: 'GUEST_ABUSE_COOLDOWN',
                 channelId: rawChannelId,
@@ -541,6 +550,55 @@ export function registerMessageHandler(
             return;
           }
 
+          let resolvedStickers: Awaited<
+            ReturnType<typeof resolveStickerIdsForChannel>
+          > | null = null;
+          if (stickerIds?.length) {
+            const stickerServerId = await getEchoChannelServerId(
+              pool,
+              channelId,
+            );
+            if (
+              stickerServerId &&
+              stickerServerId !== ECHO_DM_REALM_SERVER_ID
+            ) {
+              const perms = await getEffectiveChannelPermissions(
+                pool,
+                stickerServerId,
+                userId,
+                channelId,
+              );
+              if (
+                !perms.has('USE_EXTERNAL_STICKERS') &&
+                !perms.has('USE_EXPRESSIONS') &&
+                !perms.has('ADMINISTRATOR')
+              ) {
+                emitMessageFailed(socket, {
+                  code: 'FORBIDDEN',
+                  channelId,
+                  clientMessageId,
+                  detail:
+                    'You do not have permission to use stickers in this channel.',
+                });
+                return;
+              }
+            }
+            resolvedStickers = await resolveStickerIdsForChannel(
+              pool,
+              channelId,
+              stickerIds,
+            );
+            if (!resolvedStickers.ok) {
+              emitMessageFailed(socket, {
+                code: 'VALIDATION',
+                channelId,
+                clientMessageId,
+                detail: resolvedStickers.error,
+              });
+              return;
+            }
+          }
+
           const persistRes = await echoPersistedMessageCreateAndBroadcast(
             pool,
             io,
@@ -559,6 +617,9 @@ export function registerMessageHandler(
               imageSpoiler,
               poll: pollDef,
               attachments,
+              ...(resolvedStickers?.ok
+                ? { stickers: resolvedStickers.stickers }
+                : {}),
               ...(contentJson !== undefined ? { contentJson } : {}),
               messageFormatVersion,
               contentSchemaVersion,

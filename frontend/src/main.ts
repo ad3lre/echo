@@ -28,6 +28,10 @@ import {
 } from '@/utils/theme';
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
+import {
+  readJwtSub,
+  readWorkspaceSessionCache,
+} from '@/utils/workspaceSessionCache';
 import { scrollbarOnScroll } from '@/directives/scrollbarOnScroll';
 import { spoilerReveal } from '@/directives/spoilerReveal';
 /* Critical path: one Inter weight; 600/700 load after first paint. */
@@ -254,6 +258,28 @@ async function bootstrap() {
    * gate while `/auth/me` is in flight. The session is validated below, after
    * `app.mount()`, so first paint is never blocked on a network round-trip. */
   authSessionStore.hydrateFromStorage();
+
+  /**
+   * Warm paint before mount: if a returning user already holds a session token
+   * plus a cached workspace snapshot, apply it now so the very first frame paints
+   * the servers rail / channels / members instead of the boot spinner → explore
+   * flash. `startInitialLoad()` (kicked off after mount) keeps this paint and
+   * reconciles authoritatively with `/workspace` in the background.
+   */
+  try {
+    const preToken = authSessionStore.accessToken?.trim() || '';
+    const preSub = preToken ? readJwtSub(preToken) : null;
+    if (preSub) {
+      const preCache = readWorkspaceSessionCache(preSub);
+      if (preCache) {
+        (
+          getEchoPlatform().workspace as WorkspaceStateApi
+        ).preHydrateFromSessionCache(preCache);
+      }
+    }
+  } catch {
+    /* best-effort warm paint; startInitialLoad still hydrates authoritatively */
+  }
 
   await applyEchoLocaleFromPreferences(
     authSessionStore.backendUser?.locale ?? null,
@@ -565,6 +591,12 @@ async function bootstrap() {
     void notifyAppAuthenticated();
     startSessionHeartbeat();
   }
+
+  enqueueStartupTask('gif-library-preload', 'idle', () => {
+    void import('@/composables/useGifSearch').then((m) =>
+      m.warmGifCategoryLibrary(),
+    );
+  });
 
   /** Warm icon catalog shortly after first paint. */
   enqueueStartupTask('icon-catalog-preload', 'high', () => {

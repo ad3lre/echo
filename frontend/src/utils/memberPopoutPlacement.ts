@@ -2,16 +2,21 @@ import type {
   PopoutAnchorRect,
   PopoutAnchorSource,
 } from '@/utils/memberProfiles';
+import type { OverlayVisibleViewport } from '@/utils/overlayViewport';
 
 export type ResolveMemberPopoutTopParams = {
   desiredTop: number;
   panelHeight: number;
-  viewportHeight: number;
+  viewport: OverlayVisibleViewport;
   padding: number;
   anchor: PopoutAnchorRect;
   source: PopoutAnchorSource;
   gap: number;
 };
+
+function visibleBottom(viewport: OverlayVisibleViewport): number {
+  return viewport.offsetTop + viewport.height;
+}
 
 /** Natural content height for positioning (scrollHeight, not clipped layout height). */
 export function measurePopoutContentHeight(
@@ -33,46 +38,44 @@ export function computePopoutPanelHeight(
 }
 
 export function computePopoutViewportMaxHeight(
-  viewportHeight: number,
+  viewport: OverlayVisibleViewport,
   top: number,
   padding: number,
   maxPanelHeight: number,
 ): number {
-  const viewportFitMaxHeight = Math.max(200, viewportHeight - top - padding);
+  const viewportFitMaxHeight = Math.max(
+    200,
+    visibleBottom(viewport) - top - padding,
+  );
   return Math.min(maxPanelHeight, viewportFitMaxHeight);
 }
 
 export function computeFittedPopoutTop(
   top: number,
   panelMaxHeight: number,
-  viewportHeight: number,
+  viewport: OverlayVisibleViewport,
   padding: number,
 ): number {
-  return Math.max(
-    padding,
-    Math.min(top, viewportHeight - panelMaxHeight - padding),
-  );
+  const minTop = viewport.offsetTop + padding;
+  const maxTop = visibleBottom(viewport) - panelMaxHeight - padding;
+  return Math.max(minTop, Math.min(top, Math.max(minTop, maxTop)));
 }
 
 /** Keep the quick profile card inside the viewport; flip above the anchor when needed. */
 export function resolveMemberPopoutTop(
   params: ResolveMemberPopoutTopParams,
 ): number {
-  const {
-    desiredTop,
-    panelHeight,
-    viewportHeight,
-    padding,
-    anchor,
-    source,
-    gap,
-  } = params;
-  const maxTop = Math.max(padding, viewportHeight - panelHeight - padding);
-  const clampTop = (value: number) =>
-    Math.min(Math.max(value, padding), maxTop);
+  const { desiredTop, panelHeight, viewport, padding, anchor, source, gap } =
+    params;
+  const minTop = viewport.offsetTop + padding;
+  const maxTop = Math.max(
+    minTop,
+    visibleBottom(viewport) - panelHeight - padding,
+  );
+  const clampTop = (value: number) => Math.min(Math.max(value, minTop), maxTop);
 
-  const spaceBelow = viewportHeight - anchor.bottom - padding;
-  const spaceAbove = anchor.top - padding;
+  const spaceBelow = visibleBottom(viewport) - anchor.bottom - padding;
+  const spaceAbove = anchor.top - viewport.offsetTop - padding;
 
   const isChatSource = source === 'chat-avatar' || source === 'chat-name';
   if (isChatSource) {
@@ -84,17 +87,17 @@ export function resolveMemberPopoutTop(
       return clampTop(preferredBelowTop);
     }
     if (spaceAbove >= panelHeight + gap) {
-      return Math.max(preferredAboveTop, padding);
+      return Math.max(preferredAboveTop, minTop);
     }
     if (spaceBelow >= spaceAbove) {
       return clampTop(preferredBelowTop);
     }
-    return Math.max(Math.min(preferredAboveTop, maxTop), padding);
+    return Math.max(Math.min(preferredAboveTop, maxTop), minTop);
   }
 
   if (source === 'member-list') {
     let preferredTop = desiredTop;
-    const bottomAlignedTop = viewportHeight - panelHeight - padding;
+    const bottomAlignedTop = visibleBottom(viewport) - panelHeight - padding;
     if (preferredTop > bottomAlignedTop) {
       preferredTop = bottomAlignedTop;
     }
@@ -107,13 +110,13 @@ export function resolveMemberPopoutTop(
     }
     if (spaceAbove >= panelHeight + gap) {
       const aboveTop = anchor.top - panelHeight - gap;
-      return Math.max(Math.min(aboveTop, maxTop), padding);
+      return Math.max(Math.min(aboveTop, maxTop), minTop);
     }
     if (spaceBelow >= spaceAbove) {
       return clampTop(desiredTop);
     }
     const aboveTop = anchor.bottom - panelHeight - gap;
-    return Math.max(Math.min(aboveTop, maxTop), padding);
+    return Math.max(Math.min(aboveTop, maxTop), minTop);
   }
 
   return clampTop(desiredTop);

@@ -38,7 +38,7 @@ export function collectDmMentionNotifications(input: {
   messagesByChannelId: Record<string, readonly RawMessage[] | undefined>;
   selfUserId: string;
   resolveChannelLabel: (channelId: string) => string;
-  resolveUserName: (userId: string) => string;
+  resolveUserName: (userId: string, authorDisplayName?: string) => string;
   maxItems?: number;
 }): DmMentionNotificationRow[] {
   const selfId = input.selfUserId.trim();
@@ -80,7 +80,10 @@ export function collectDmMentionNotifications(input: {
         channelLabel: input.resolveChannelLabel(ch),
         messageId: mid,
         authorId: msg.authorId,
-        authorName: input.resolveUserName(msg.authorId),
+        authorName: input.resolveUserName(
+          msg.authorId ?? '',
+          msg.authorDisplayName,
+        ),
         preview: messagePreviewPlainText(msg, 220) || '…',
         timestamp: msg.timestamp,
         mentionKinds: uniqKinds,

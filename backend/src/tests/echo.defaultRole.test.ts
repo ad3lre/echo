@@ -63,8 +63,8 @@ async function run(): Promise<void> {
     await grantManageRolesToEveryone(pool, serverId);
 
     const roles = await listEchoRolesForServer(pool, serverId);
-    const memberRole = roles.find((r) => r.name === 'Moderator');
-    assert.ok(memberRole, 'Expected seeded Moderator role to exist');
+    const memberRole = roles.find((r) => r.name === 'All');
+    assert.ok(memberRole, 'Expected seeded All role to exist');
 
     const markDefault = await updateEchoRole(
       pool,
