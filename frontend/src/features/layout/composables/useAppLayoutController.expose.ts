@@ -526,6 +526,8 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
       ctx.mentionNotificationHydrationLoading,
     resolveDmMentionNotificationChannelLabel:
       ctx.resolveDmMentionNotificationChannelLabel,
+    resolveDmMentionNotificationAuthorName:
+      ctx.resolveDmMentionNotificationAuthorName,
     dmNotificationReadStateByChannelId: ctx.dmNotificationReadStateByChannelId,
     mentionNotificationCategoriesByServer:
       ctx.mentionNotificationCategoriesByServer,

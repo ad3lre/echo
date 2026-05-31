@@ -1,81 +1,54 @@
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config';
 import { getPgPool } from '../db/pg';
-import { ensureEchoTables } from '../db/echoTables';
-import {
-  claimNextEchoVideoHlsJob,
-  reclaimStaleEchoVideoHlsJobs,
-} from '../services/echoVideoOptimizeQueue';
-import { processEchoVideoHlsJob } from '../services/echoVideoHlsProcessor';
+import { createEchoVideoHlsScheduler } from './videoHls/scheduler';
 
-let activeRunner: (() => void) | null = null;
+let embeddedScheduler: ReturnType<typeof createEchoVideoHlsScheduler> | null =
+  null;
+
+function shutdownIdleTimeoutMs(): number {
+  return config.echoVideoHlsTimeoutMs + 30_000;
+}
 
 /**
- * Background chat video HLS packaging after fast client upload.
- * Requires `ffmpeg` + `ffprobe` on PATH (or `FFMPEG_PATH` / `FFPROBE_PATH`). Interval 0 disables.
+ * Background chat video HLS packaging after fast client upload (embedded in API process).
+ * Requires `ffmpeg` + `ffprobe` on PATH. Disabled when `ECHO_VIDEO_HLS_WORKER=standalone`
+ * or `ECHO_VIDEO_OPTIMIZE_MS=0`.
  */
 export function startVideoUploadOptimizeJob(
   fastify: FastifyInstance,
 ): NodeJS.Timeout | null {
+  if (config.echoVideoHlsWorker !== 'embedded') {
+    fastify.log.warn(
+      { echo_video_hls_worker: config.echoVideoHlsWorker },
+      'Video HLS transcode not started on API (ECHO_VIDEO_HLS_WORKER=standalone); run the video-hls worker process',
+    );
+    return null;
+  }
   if (config.echoVideoOptimizeIntervalMs <= 0) {
     fastify.log.info(
       'Video HLS transcode job disabled (ECHO_VIDEO_OPTIMIZE_MS=0)',
     );
     return null;
   }
-  const intervalMs = config.echoVideoOptimizeIntervalMs;
-  let running = false;
-  let rerunRequested = false;
 
-  const run = (): void => {
-    void (async () => {
-      if (running) return;
-      running = true;
-      const pool = getPgPool();
-      if (!pool) {
-        running = false;
-        return;
-      }
-      try {
-        do {
-          rerunRequested = false;
-          await ensureEchoTables(pool);
-          await reclaimStaleEchoVideoHlsJobs(
-            pool,
-            config.echoVideoHlsTimeoutMs,
-          );
-          while (true) {
-            const job = await claimNextEchoVideoHlsJob(pool);
-            if (!job) break;
-            await processEchoVideoHlsJob(pool, job, fastify.log);
-          }
-        } while (rerunRequested);
-      } catch (e) {
-        fastify.log.error(e, 'echo.video_hls.tick_failed');
-      } finally {
-        running = false;
-      }
-    })();
-  };
-
-  const runner = (): void => {
-    if (running) {
-      rerunRequested = true;
-      return;
-    }
-    run();
-  };
-  activeRunner = runner;
-  const timer = setInterval(runner, intervalMs);
-  fastify.addHook('onClose', (_instance, done) => {
-    clearInterval(timer);
-    if (activeRunner === runner) activeRunner = null;
-    done();
+  const scheduler = createEchoVideoHlsScheduler({
+    intervalMs: config.echoVideoOptimizeIntervalMs,
+    log: fastify.log,
+    getPool: getPgPool,
   });
-  runner();
-  return timer;
+  if (!scheduler) return null;
+
+  embeddedScheduler = scheduler;
+  fastify.addHook('onClose', async () => {
+    scheduler.stop();
+    await scheduler.whenIdle(shutdownIdleTimeoutMs());
+    if (embeddedScheduler === scheduler) embeddedScheduler = null;
+  });
+
+  return null;
 }
 
 export function kickVideoUploadOptimizeJob(): void {
-  activeRunner?.();
+  embeddedScheduler?.kick();
 }

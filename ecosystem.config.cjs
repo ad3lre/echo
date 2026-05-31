@@ -1,10 +1,13 @@
 const path = require('path');
 const fs = require('fs');
 
+const repoRoot = __dirname;
+const pm2EnvFile = path.join(repoRoot, '.env');
+
 /**
  * PM2 app definitions. Install PM2 once: `npm install -g pm2` (use Node from `.nvmrc`, >=22.13).
- * Marketing only: `npm run marketing:pm2` from repo root.
- * Prefer NVM’s newest v22.x so PM2 does not pick an IDE-bundled Node (Astro 6 + ESLint 10).
+ * Start from repo root: `pm2 start ecosystem.config.cjs` so `env_file` loads DATABASE_URL, ECHO_S3_*, etc.
+ * `echo-backend` uses ECHO_VIDEO_HLS_WORKER=standalone; `echo-video-hls-worker` must run alongside it (ffmpeg on PATH).
  */
 function resolveNvmNode22Bin() {
   const home = process.env.HOME || '';
@@ -65,9 +68,23 @@ module.exports = {
       script: 'npm',
       args: 'start',
       cwd: './backend',
+      env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
+        ECHO_VIDEO_HLS_WORKER: 'standalone',
+      },
+      restart_delay: 3000,
+      max_restarts: 10,
+    },
+    {
+      name: 'echo-video-hls-worker',
+      script: 'npm',
+      args: 'run worker:video-hls',
+      cwd: './backend',
+      env_file: pm2EnvFile,
+      env: {
+        NODE_ENV: 'production',
       },
       restart_delay: 3000,
       max_restarts: 10,

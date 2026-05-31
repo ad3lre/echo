@@ -82,7 +82,3 @@ export async function runEchoUploadIntegrityRegisterStep(opts: {
   }
   return { ok: true };
 }
-
-/** @deprecated Use {@link runEchoUploadIntegrityRegisterStep}. */
-export const runEchoImageUploadSafetyRegisterStep =
-  runEchoUploadIntegrityRegisterStep;

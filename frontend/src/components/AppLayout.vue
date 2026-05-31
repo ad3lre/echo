@@ -43,6 +43,9 @@ const GuestOnboardingModal = defineAsyncComponent(
 const GuestCaptchaModal = defineAsyncComponent(
   () => import('@/components/GuestCaptchaModal.vue'),
 );
+const UnverifiedEmailModal = defineAsyncComponent(
+  () => import('@/components/UnverifiedEmailModal.vue'),
+);
 const BugReportModal = defineAsyncComponent(
   () => import('@/components/BugReportModal.vue'),
 );
@@ -612,6 +615,7 @@ const {
   dmMentionNotifications,
   mentionNotificationHydrationLoading,
   resolveDmMentionNotificationChannelLabel,
+  resolveDmMentionNotificationAuthorName,
   dmNotificationReadStateByChannelId,
   mentionNotificationCategoriesByServer,
   mentionNotificationServers,
@@ -2009,6 +2013,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   dmMentionNotifications,
   mentionNotificationHydrationLoading,
   resolveDmMentionNotificationChannelLabel,
+  resolveDmMentionNotificationAuthorName,
   dmNotificationReadStateByChannelId,
   mentionNotificationCategoriesByServer,
   mentionNotificationServers,
@@ -2644,7 +2649,7 @@ const _showEmailVerificationFlashBanner = computed(
     ),
 );
 
-const showUnverifiedEmailBanner = computed(() => {
+const showUnverifiedEmailPrompt = computed(() => {
   if (EMAIL_VERIFICATION_DOWNTIME) return false;
   if (!isAuthenticated.value || dismissUnverifiedEmailBanner.value)
     return false;
@@ -2654,6 +2659,14 @@ const showUnverifiedEmailBanner = computed(() => {
   if (!em) return false;
   return u.emailVerified === false;
 });
+
+const showUnverifiedEmailBanner = computed(
+  () => showUnverifiedEmailPrompt.value && !isCompactShell.value,
+);
+
+const showUnverifiedEmailModal = computed(
+  () => showUnverifiedEmailPrompt.value && isCompactShell.value,
+);
 
 const shouldShowEmailVerificationDowntimeToast = computed(() => {
   if (!EMAIL_VERIFICATION_DOWNTIME) return false;
@@ -2818,6 +2831,10 @@ function dismissUnverifiedEmailBannerClick() {
   dismissUnverifiedEmailBanner.value = true;
   emailBannerResendMessage.value = null;
   emailBannerResendError.value = null;
+}
+
+function onUnverifiedEmailModalUpdate(open: boolean) {
+  if (!open) dismissUnverifiedEmailBannerClick();
 }
 
 function onGuestUpgradeBannerOpenSettings() {
@@ -4150,6 +4167,17 @@ watch(
       v-model="isGuestCaptchaModalOpen"
       :site-key="guestCaptchaSiteKey"
       @verified="onGuestCaptchaVerified"
+    />
+
+    <UnverifiedEmailModal
+      v-if="showUnverifiedEmailModal"
+      :model-value="showUnverifiedEmailModal"
+      :resend-busy="emailBannerResendBusy"
+      :resend-message="emailBannerResendMessage"
+      :resend-error="emailBannerResendError"
+      @update:model-value="onUnverifiedEmailModalUpdate"
+      @resend="onUnverifiedEmailResend"
+      @change-email="onUnverifiedEmailChangeEmail"
     />
 
     <DiscordProfileImportPromptModal v-model="showDiscordProfileImportPrompt" />

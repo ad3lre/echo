@@ -12,7 +12,7 @@ import {
 import {
   applyEchoChannelClientCapToBucket,
   writeSortedMessagesForChannel,
-} from './channelMessageBucket';
+} from '@/services/realtime/channelMessageBucket';
 
 /** Decimal snowflake-shaped id (passes `isEchoGraphId`). */
 const CH = '1492135186257805312';

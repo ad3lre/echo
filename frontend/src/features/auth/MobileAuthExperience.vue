@@ -55,6 +55,7 @@ import {
   normalizeEmail,
 } from '@/utils/accountValidation';
 import LegalDocsModal from '@/components/LegalDocsModal.vue';
+import AuthAlertModal from '@/components/auth/AuthAlertModal.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -222,6 +223,17 @@ const strengthBarClass = computed(() => {
 watch(view, () => {
   errorMessage.value = '';
 });
+
+const showAuthErrorModal = computed(() => {
+  const msg = errorMessage.value.trim();
+  if (!msg) return false;
+  if (view.value === 'welcome' && submitting.value) return false;
+  return true;
+});
+
+function onAuthErrorModalUpdate(open: boolean) {
+  if (!open) errorMessage.value = '';
+}
 
 // ── Error mapping ───────────────────────────────────────────────────────────
 
@@ -667,14 +679,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             </button>
           </div>
 
-          <p
-            v-if="errorMessage && !submitting"
-            class="mobile-auth__alert"
-            role="alert"
-          >
-            {{ errorMessage }}
-          </p>
-
           <button
             type="button"
             class="mobile-auth__primary mobile-auth__primary--echo"
@@ -736,7 +740,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
       <section
         v-else-if="view === 'login'"
         key="login"
-        class="mobile-auth__page mobile-auth__page--form mobile-auth__page--login"
+        class="mobile-auth__page mobile-auth__page--form"
       >
         <header class="mobile-auth__top-nav">
           <button
@@ -800,10 +804,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               Forgot password?
             </button>
           </div>
-
-          <p v-if="errorMessage" class="mobile-auth__alert" role="alert">
-            {{ errorMessage }}
-          </p>
 
           <button
             type="submit"
@@ -935,10 +935,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             </div>
           </label>
 
-          <p v-if="errorMessage" class="mobile-auth__alert" role="alert">
-            {{ errorMessage }}
-          </p>
-
           <button
             type="submit"
             class="mobile-auth__primary mobile-auth__primary--filled"
@@ -1028,9 +1024,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               :disabled="isMockDataMode"
             />
           </label>
-          <p v-if="errorMessage" class="mobile-auth__alert" role="alert">
-            {{ errorMessage }}
-          </p>
           <p v-if="forgotMessage" class="mobile-auth__success" role="status">
             {{ forgotMessage }}
           </p>
@@ -1117,9 +1110,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
               placeholder="XXXX-XXXX-XXXX"
             />
           </label>
-          <p v-if="errorMessage" class="mobile-auth__alert" role="alert">
-            {{ errorMessage }}
-          </p>
           <button
             type="submit"
             class="mobile-auth__primary mobile-auth__primary--filled"
@@ -1131,6 +1121,14 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
       </section>
     </transition>
 
+    <AuthAlertModal
+      :model-value="showAuthErrorModal"
+      :message="errorMessage"
+      title="Sign-in issue"
+      variant="error"
+      @update:model-value="onAuthErrorModalUpdate"
+    />
+
     <LegalDocsModal v-model="legalModalOpen" :initial-tab="legalModalTab" />
   </div>
 </template>
@@ -1140,6 +1138,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
   position: relative;
   isolation: isolate;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: center;
   width: 100%;
@@ -1214,10 +1213,10 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
   position: relative;
   z-index: 1;
   display: flex;
-  flex-direction: column;
   flex: 1 1 auto;
+  flex-direction: column;
   width: min(100%, 27rem);
-  min-height: 100dvh;
+  min-height: 0;
   margin: 0 auto;
   padding: 1.25rem 1.5rem 1.5rem;
 }
@@ -1228,12 +1227,8 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
 }
 
 .mobile-auth__page--form {
-  justify-content: center;
-  gap: 1.1rem;
-}
-
-.mobile-auth__page--login {
-  transform: translateY(0.75rem);
+  justify-content: flex-start;
+  gap: 0;
 }
 
 /* ── Brand head ─────────────────────────────────────────────────────────── */
@@ -1576,6 +1571,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
   display: grid;
   grid-template-columns: 2.5rem 1fr 2.5rem;
   align-items: center;
+  flex-shrink: 0;
   margin-top: 0.25rem;
 }
 
@@ -1614,9 +1610,13 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
 
 .mobile-auth__form {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  justify-content: center;
   gap: 0.95rem;
-  margin-top: 0.5rem;
+  min-height: 0;
+  margin-top: 0;
+  padding-block: 0.75rem 1rem;
 }
 
 .mobile-auth__field {
@@ -1686,17 +1686,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
   color: color-mix(in srgb, var(--text) 66%, transparent);
 }
 
-/* ── Alerts ─────────────────────────────────────────────────────────────── */
-
-.mobile-auth__alert {
-  margin: 0;
-  padding: 0.7rem 0.9rem;
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, #f43f5e 18%, transparent);
-  color: color-mix(in srgb, white 95%, #f43f5e);
-  font-size: 0.875rem;
-  line-height: 1.4;
-}
+/* ── Success ────────────────────────────────────────────────────────────── */
 
 .mobile-auth__success {
   margin: 0;

@@ -1,10 +1,9 @@
-import type { LegalDocTabId } from '@/features/settings/legalDocsCore';
+export type LegalDocTabId = 'privacy' | 'terms' | 'community' | 'attributions';
+
 import { echoT } from '@/i18n';
 import { legalDocTabLabel } from '@/i18n/labels';
 import type { EchoUiLocale } from '@/i18n';
 import { loadTimeLanguagePreferences } from '@/features/settings/timeLanguagePreferences';
-
-export type { LegalDocTabId };
 
 export interface LegalDocTab {
   id: LegalDocTabId;

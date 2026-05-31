@@ -321,7 +321,3 @@ export function setAudioTrackVolumeIfSupported(
     t.setVolume(elementVolume);
   }
 }
-
-/** @deprecated Use {@link setAudioTrackVolumeIfSupported} */
-export const setRemoteAudioTrackVolumeIfSupported =
-  setAudioTrackVolumeIfSupported;

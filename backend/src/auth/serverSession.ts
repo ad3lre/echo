@@ -28,14 +28,31 @@ export type ServerSessionPayload = {
 const REDIS_KEY = (sid: string) => `echo:sess:${sid}`;
 const REDIS_USER_INDEX = (userId: string) => `echo:usess:${userId}`;
 
-let redisClient: Redis | null = null;
+type ServerSessionRuntime = {
+  redisClient: Redis | null;
+  memSessions: Map<
+    string,
+    { payload: ServerSessionPayload; expiresAt: number }
+  >;
+  memUserIndex: Map<string, Set<string>>;
+};
 
-/** In-process fallback when REDIS_URL is unset (single Node process only). */
-const memSessions = new Map<
-  string,
-  { payload: ServerSessionPayload; expiresAt: number }
->();
-const memUserIndex = new Map<string, Set<string>>();
+const SERVER_SESSION_RUNTIME_KEY = Symbol.for('echo.serverSession.runtime');
+
+/** Shared across duplicate module evaluations (tsx / test dynamic imports). */
+function sessionRuntime(): ServerSessionRuntime {
+  const g = globalThis as typeof globalThis & {
+    [SERVER_SESSION_RUNTIME_KEY]?: ServerSessionRuntime;
+  };
+  if (!g[SERVER_SESSION_RUNTIME_KEY]) {
+    g[SERVER_SESSION_RUNTIME_KEY] = {
+      redisClient: null,
+      memSessions: new Map(),
+      memUserIndex: new Map(),
+    };
+  }
+  return g[SERVER_SESSION_RUNTIME_KEY];
+}
 
 function sessionTtlSeconds(): number {
   return Math.max(60, config.refreshTokenTtlDays * 24 * 60 * 60);
@@ -43,11 +60,15 @@ function sessionTtlSeconds(): number {
 
 function getRedis(): Redis | null {
   if (!config.redisUrl?.trim()) return null;
-  if (!redisClient) {
-    redisClient = new Redis(config.redisUrl.trim(), echoIoredisClientOptions);
-    redisClient.on('error', () => {});
+  const rt = sessionRuntime();
+  if (!rt.redisClient) {
+    rt.redisClient = new Redis(
+      config.redisUrl.trim(),
+      echoIoredisClientOptions,
+    );
+    rt.redisClient.on('error', () => {});
   }
-  return redisClient;
+  return rt.redisClient;
 }
 
 async function updateRedisSessionWithCas(
@@ -115,12 +136,13 @@ export async function saveServerSession(
     await pipe.exec();
     return;
   }
+  const rt = sessionRuntime();
   const exp = Date.now() + ttl * 1000;
-  memSessions.set(sessionId, { payload: normalized, expiresAt: exp });
-  let set = memUserIndex.get(payload.userId);
+  rt.memSessions.set(sessionId, { payload: normalized, expiresAt: exp });
+  let set = rt.memUserIndex.get(payload.userId);
   if (!set) {
     set = new Set();
-    memUserIndex.set(payload.userId, set);
+    rt.memUserIndex.set(payload.userId, set);
   }
   set.add(sessionId);
 }
@@ -140,10 +162,11 @@ export async function getServerSession(
       return null;
     }
   }
-  const row = memSessions.get(sessionId);
+  const rt = sessionRuntime();
+  const row = rt.memSessions.get(sessionId);
   if (!row) return null;
   if (row.expiresAt <= Date.now()) {
-    memSessions.delete(sessionId);
+    rt.memSessions.delete(sessionId);
     return null;
   }
   return row.payload;
@@ -158,7 +181,7 @@ export async function touchServerSession(sessionId: string): Promise<void> {
     if (data) await r.expire(REDIS_USER_INDEX(data.userId), ttl);
     return;
   }
-  const row = memSessions.get(sessionId);
+  const row = sessionRuntime().memSessions.get(sessionId);
   if (row) row.expiresAt = Date.now() + ttl * 1000;
 }
 
@@ -174,11 +197,12 @@ export async function deleteServerSession(
     await pipe.exec();
     return;
   }
-  memSessions.delete(sessionId);
-  const set = memUserIndex.get(userId);
+  const rt = sessionRuntime();
+  rt.memSessions.delete(sessionId);
+  const set = rt.memUserIndex.get(userId);
   if (set) {
     set.delete(sessionId);
-    if (set.size === 0) memUserIndex.delete(userId);
+    if (set.size === 0) rt.memUserIndex.delete(userId);
   }
 }
 
@@ -196,10 +220,11 @@ export async function deleteAllServerSessionsForUser(
     }
     return;
   }
-  const set = memUserIndex.get(userId);
+  const rt = sessionRuntime();
+  const set = rt.memUserIndex.get(userId);
   if (set) {
-    for (const sid of set) memSessions.delete(sid);
-    memUserIndex.delete(userId);
+    for (const sid of set) rt.memSessions.delete(sid);
+    rt.memUserIndex.delete(userId);
   }
 }
 
@@ -278,14 +303,15 @@ export async function deleteServerSessionByRefreshTokenId(
     }
     return null;
   }
-  const set = memUserIndex.get(userId);
+  const rt = sessionRuntime();
+  const set = rt.memUserIndex.get(userId);
   if (!set) return null;
   for (const sid of set) {
-    const row = memSessions.get(sid);
+    const row = rt.memSessions.get(sid);
     if (row?.payload.refreshTokenId === refreshTokenId) {
-      memSessions.delete(sid);
+      rt.memSessions.delete(sid);
       set.delete(sid);
-      if (set.size === 0) memUserIndex.delete(userId);
+      if (set.size === 0) rt.memUserIndex.delete(userId);
       return sid;
     }
   }
@@ -307,10 +333,11 @@ export async function updateCachedUserInAllSessions(
     }
     return;
   }
-  const set = memUserIndex.get(userId);
+  const rt = sessionRuntime();
+  const set = rt.memUserIndex.get(userId);
   if (!set) return;
   for (const sid of set) {
-    const row = memSessions.get(sid);
+    const row = rt.memSessions.get(sid);
     if (row?.payload) {
       row.payload.cachedUser = updatedUser;
     }
@@ -319,8 +346,17 @@ export async function updateCachedUserInAllSessions(
 
 /** @internal Close Redis on shutdown (tests). */
 export async function disconnectServerSessionRedis(): Promise<void> {
-  if (redisClient) {
-    await redisClient.quit();
-    redisClient = null;
+  const rt = sessionRuntime();
+  if (rt.redisClient) {
+    await rt.redisClient.quit();
+    rt.redisClient = null;
   }
+}
+
+/** @internal Test isolation for standalone scripts with dynamic imports. */
+export function __resetServerSessionStoreForTests(): void {
+  const rt = sessionRuntime();
+  rt.memSessions.clear();
+  rt.memUserIndex.clear();
+  void disconnectServerSessionRedis();
 }

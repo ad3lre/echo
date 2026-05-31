@@ -1,27 +1,5 @@
 import { config } from '../config';
 
-/** @deprecated use createSocketMessageRateLimiter */
-export const MAX_MESSAGES_PER_MINUTE = 60;
-
-/** @deprecated use createSocketMessageRateLimiter */
-export function createMessageRateLimiter(
-  limit = MAX_MESSAGES_PER_MINUTE,
-): () => boolean {
-  const messageCounts: number[] = [];
-  return function checkMessageRate(): boolean {
-    const now = Date.now();
-    const cutoff = now - 60_000;
-    while (messageCounts.length && messageCounts[0]! < cutoff) {
-      messageCounts.shift();
-    }
-    if (messageCounts.length >= limit) {
-      return false;
-    }
-    messageCounts.push(now);
-    return true;
-  };
-}
-
 type WindowBucket = number[];
 
 const MAX_RATE_LIMIT_KEYS = 20_000;

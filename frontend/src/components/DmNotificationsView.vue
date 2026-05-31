@@ -27,6 +27,7 @@ const props = defineProps<{
   currentUserId: string;
   rows: DmMentionNotificationRow[];
   resolveChannelLabel: (channelId: string) => string;
+  resolveAuthorName: (row: DmMentionNotificationRow) => string;
   users: { id: string; name: string; pfp: string; status?: string }[];
   readStateByChannelId: Readonly<Record<string, string | null>>;
   categoriesByServer: Readonly<Record<string, ChannelCategory[]>>;
@@ -107,6 +108,7 @@ const displayRows = computed(() =>
   props.rows.map((row) => ({
     ...row,
     channelLabel: props.resolveChannelLabel(row.channelId),
+    authorName: props.resolveAuthorName(row),
   })),
 );
 

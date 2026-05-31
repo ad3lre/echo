@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   normalizeMoreServerFolders,
   normalizeMoreServerFoldersFile,
-  normalizeMoreServerFoldersLegacy,
   visibleFolderServerIds,
 } from '@/utils/moreServerFoldersPersistence';
 
@@ -45,19 +44,6 @@ describe('normalizeMoreServerFoldersFile', () => {
     });
     expect(file.folders[0]?.name).toBe('Old');
     expect(file.ui.expandedInCompact).toEqual([]);
-  });
-});
-
-describe('normalizeMoreServerFoldersLegacy', () => {
-  it('filters to valid ids when requested', () => {
-    const valid = new Set(['a', 'b']);
-    const out = normalizeMoreServerFoldersLegacy(
-      {
-        folders: [{ id: 'f1', name: 'Games', serverIds: ['b', 'x', 'a'] }],
-      },
-      valid,
-    );
-    expect(out).toEqual([{ id: 'f1', name: 'Games', serverIds: ['b', 'a'] }]);
   });
 });
 

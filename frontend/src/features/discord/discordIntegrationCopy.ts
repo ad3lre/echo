@@ -47,6 +47,3 @@ export const discordProfileImportPromptNotNowCta = () =>
 
 export const discordImportProfileIntoEchoCta = () =>
   echoT('integrations.discord.importProfileIntoEchoCta');
-
-/** @deprecated Use messageForDiscordOAuthError — kept for tests referencing raw map keys. */
-export const DISCORD_OAUTH_ERROR_MESSAGES: Record<string, string> = {};

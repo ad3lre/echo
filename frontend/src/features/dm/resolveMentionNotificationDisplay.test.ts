@@ -4,7 +4,9 @@ import {
   mentionNotificationLabelLooksUnresolved,
   resolveMentionNotificationAuthorName,
   resolveMentionNotificationChannelLabel,
+  resolveMentionNotificationRowAuthorName,
 } from './resolveMentionNotificationDisplay';
+import { MENTION_NOTIFICATION_STUB_PREVIEW } from './mentionNotificationAuthority';
 
 const SRV = '100000000000000001';
 const CH = '100000000000000002';
@@ -104,5 +106,52 @@ describe('resolveMentionNotificationAuthorName', () => {
         users: [],
       }),
     ).toBe('Someone');
+  });
+
+  it('prefers server nickname over global roster name', () => {
+    expect(
+      resolveMentionNotificationAuthorName({
+        userId: 'u1',
+        users: [{ id: 'u1', name: 'Jamie' }],
+        serverId: SRV,
+        serverMemberNicknames: { [SRV]: { u1: 'JJ' } },
+      }),
+    ).toBe('JJ');
+  });
+});
+
+describe('resolveMentionNotificationRowAuthorName', () => {
+  it('shows ellipsis for loading stubs without a cached author', () => {
+    expect(
+      resolveMentionNotificationRowAuthorName({
+        row: {
+          authorId: '',
+          channelId: CH,
+          messageId: 'msg-1',
+          preview: MENTION_NOTIFICATION_STUB_PREVIEW,
+        },
+        users: [],
+        categoriesByServer,
+        serverMemberNicknames: {},
+      }),
+    ).toBe('…');
+  });
+
+  it('resolves author from cache when stub row authorId is still empty', () => {
+    expect(
+      resolveMentionNotificationRowAuthorName({
+        row: {
+          authorId: '',
+          channelId: CH,
+          messageId: 'msg-1',
+          preview: MENTION_NOTIFICATION_STUB_PREVIEW,
+        },
+        cachedAuthorId: 'u1',
+        authorDisplayName: 'Casey',
+        users: [],
+        categoriesByServer,
+        serverMemberNicknames: {},
+      }),
+    ).toBe('Casey');
   });
 });

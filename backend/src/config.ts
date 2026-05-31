@@ -366,8 +366,13 @@ interface AppConfig {
    */
   readonly echoVoiceReconcileIntervalMs: number;
   /**
+   * `embedded`: HLS drain runs inside the API process (default, local dev).
+   * `standalone`: API only enqueues + pg_notify; run `npm run worker:video-hls` separately.
+   */
+  readonly echoVideoHlsWorker: 'embedded' | 'standalone';
+  /**
    * Poll interval for background chat video re-encode after upload (ms). 0 disables.
-   * Requires `ffmpeg` on the API host (or `FFMPEG_PATH`).
+   * Requires `ffmpeg` on the API or worker host (or `FFMPEG_PATH`).
    */
   readonly echoVideoOptimizeIntervalMs: number;
   /** Max chat video duration (seconds) for HLS transcode. */
@@ -953,6 +958,18 @@ const echoRequireGuestBindingSecretInProduction = parseBoolean(
   isProduction,
 );
 
+/** Parses `ECHO_VIDEO_HLS_WORKER` (`embedded` default, `standalone` for external worker). */
+export function parseEchoVideoHlsWorker(
+  raw: string | undefined,
+): 'embedded' | 'standalone' {
+  const v = (raw ?? 'embedded').trim().toLowerCase();
+  if (v === 'standalone') return 'standalone';
+  if (v === 'embedded' || v === '') return 'embedded';
+  throw new Error(
+    `Invalid ECHO_VIDEO_HLS_WORKER="${raw}" (expected embedded or standalone)`,
+  );
+}
+
 function parseEchoCsamImageScanMode(): 'off' | 'dry_run' | 'on' {
   const raw = process.env.ECHO_CSAM_IMAGE_SCAN_MODE?.trim().toLowerCase() ?? '';
   if (raw === 'on' || raw === 'dry_run') return raw;
@@ -1227,6 +1244,9 @@ export const config: AppConfig = {
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 30_000;
   })(),
+  echoVideoHlsWorker: parseEchoVideoHlsWorker(
+    process.env.ECHO_VIDEO_HLS_WORKER,
+  ),
   echoVideoOptimizeIntervalMs: (() => {
     const raw = process.env.ECHO_VIDEO_OPTIMIZE_MS;
     if (raw === undefined) return 15000;

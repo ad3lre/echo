@@ -7,11 +7,15 @@ import type { AuthStore } from './types';
 export * from './types';
 export * from './helpers';
 
-let instance: AuthStore | null = null;
+const AUTH_STORE_KEY = Symbol.for('echo.authStore.instance');
 
 export function getAuthStore(): AuthStore {
-  if (instance) return instance;
+  const g = globalThis as typeof globalThis & {
+    [AUTH_STORE_KEY]?: AuthStore | null;
+  };
+  if (g[AUTH_STORE_KEY]) return g[AUTH_STORE_KEY]!;
 
+  let instance: AuthStore;
   if (config.backendStorageMode === 'postgres') {
     const pool = getPgPool();
     if (!pool) {
@@ -25,5 +29,14 @@ export function getAuthStore(): AuthStore {
     instance = new MemoryAuthStore();
   }
 
+  g[AUTH_STORE_KEY] = instance;
   return instance;
+}
+
+/** @internal Test isolation for standalone scripts with dynamic imports. */
+export function __resetAuthStoreForTests(): void {
+  const g = globalThis as typeof globalThis & {
+    [AUTH_STORE_KEY]?: AuthStore | null;
+  };
+  g[AUTH_STORE_KEY] = null;
 }

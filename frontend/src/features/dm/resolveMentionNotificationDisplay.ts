@@ -1,7 +1,11 @@
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { ChannelSummary } from '@shared/types';
 import { getChannelDisplayName } from '@/assets/icons';
+import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
+import { MENTION_NOTIFICATION_STUB_PREVIEW } from '@/features/dm/mentionNotificationAuthority';
 import { isDmThreadId } from '@/features/layout/mainSurface';
+import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
+import { resolveGuildMemberDisplayName } from '@/utils/resolveGuildMemberDisplayName';
 import { isEchoGraphId } from '@/utils/echoIds';
 
 function looksLikeEchoGraphIdString(value: string): boolean {
@@ -87,27 +91,80 @@ export function resolveMentionNotificationAuthorName(input: {
   users: readonly { id: string; name?: string }[];
   selfUserId?: string | null;
   selfDisplayName?: string | null;
+  serverId?: string | null;
+  serverMemberNicknames?: Readonly<Record<string, Record<string, string>>>;
 }): string {
   const uid = input.userId.trim();
   if (!uid) return 'Someone';
 
   const fromMessage = input.authorDisplayName?.trim() ?? '';
+  let base: string;
   if (
     fromMessage &&
     !mentionNotificationLabelLooksUnresolved(fromMessage, uid)
   ) {
-    return fromMessage;
+    base = fromMessage;
+  } else {
+    const known = input.users.find((u) => u.id === uid);
+    const roster = known?.name?.trim() ?? '';
+    if (roster && roster.toLowerCase() !== 'unknown') {
+      base = roster;
+    } else {
+      const selfId = input.selfUserId?.trim() ?? '';
+      if (selfId && uid === selfId) {
+        const self = input.selfDisplayName?.trim();
+        base = self || 'Someone';
+      } else {
+        base = 'Someone';
+      }
+    }
   }
 
-  const known = input.users.find((u) => u.id === uid);
-  const roster = known?.name?.trim() ?? '';
-  if (roster && roster.toLowerCase() !== 'unknown') return roster;
+  return resolveGuildMemberDisplayName({
+    serverId: input.serverId,
+    userId: uid,
+    fallbackName: base,
+    serverMemberNicknames: input.serverMemberNicknames ?? {},
+  });
+}
 
-  const selfId = input.selfUserId?.trim() ?? '';
-  if (selfId && uid === selfId) {
-    const self = input.selfDisplayName?.trim();
-    if (self) return self;
+/**
+ * Live author label for a notification row — uses cached message author fields when
+ * the feed row is still an attention stub (`authorId` empty) but hydration landed.
+ */
+export function resolveMentionNotificationRowAuthorName(input: {
+  row: Pick<
+    DmMentionNotificationRow,
+    'authorId' | 'channelId' | 'messageId' | 'preview'
+  >;
+  cachedAuthorId?: string | null;
+  authorDisplayName?: string | null;
+  users: readonly { id: string; name?: string }[];
+  selfUserId?: string | null;
+  selfDisplayName?: string | null;
+  categoriesByServer: Readonly<Record<string, ChannelCategory[]>>;
+  serverMemberNicknames: Readonly<Record<string, Record<string, string>>>;
+}): string {
+  const userId =
+    input.row.authorId?.trim() || input.cachedAuthorId?.trim() || '';
+  if (!userId) {
+    return input.row.preview === MENTION_NOTIFICATION_STUB_PREVIEW
+      ? '…'
+      : 'Someone';
   }
 
-  return 'Someone';
+  const serverId = resolveEchoServerIdContainingChannel(
+    input.row.channelId,
+    input.categoriesByServer,
+  );
+
+  return resolveMentionNotificationAuthorName({
+    userId,
+    authorDisplayName: input.authorDisplayName,
+    users: input.users,
+    selfUserId: input.selfUserId,
+    selfDisplayName: input.selfDisplayName,
+    serverId,
+    serverMemberNicknames: input.serverMemberNicknames,
+  });
 }

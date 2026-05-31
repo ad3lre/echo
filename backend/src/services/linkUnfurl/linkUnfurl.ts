@@ -31,7 +31,6 @@ import {
   extractHttpUrlsFromPlainText,
 } from '../../../../shared/linkEmbedCandidates';
 
-export { isUrlSafeForOutboundFetch as isUrlSafeForUnfurlPublic } from './linkUnfurlFetch';
 export { extractHttpUrlsFromPlainText } from '../../../../shared/linkEmbedCandidates';
 
 const MAX_BODY_BYTES = 512 * 1024;

@@ -202,6 +202,9 @@ const props = defineProps<{
   dmMentionNotifications: DmMentionNotificationRow[];
   mentionNotificationHydrationLoading: boolean;
   resolveDmMentionNotificationChannelLabel: (channelId: string) => string;
+  resolveDmMentionNotificationAuthorName: (
+    row: DmMentionNotificationRow,
+  ) => string;
   dmNotificationReadStateByChannelId: Readonly<Record<string, string | null>>;
   mentionNotificationCategoriesByServer: Readonly<
     Record<string, ChannelCategory[]>
@@ -388,6 +391,7 @@ async function handleDmCallLeave() {
       :rows="dmMentionNotifications"
       :hydration-loading="mentionNotificationHydrationLoading"
       :resolve-channel-label="resolveDmMentionNotificationChannelLabel"
+      :resolve-author-name="resolveDmMentionNotificationAuthorName"
       :read-state-by-channel-id="dmNotificationReadStateByChannelId"
       :categories-by-server="mentionNotificationCategoriesByServer"
       :mention-servers="mentionNotificationServers"

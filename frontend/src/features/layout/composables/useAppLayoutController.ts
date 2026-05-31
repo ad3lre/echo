@@ -141,6 +141,7 @@ import { peerDisplayNamePlaceholder } from '@/features/dm/peerDisplayPlaceholder
 import {
   resolveMentionNotificationAuthorName,
   resolveMentionNotificationChannelLabel,
+  resolveMentionNotificationRowAuthorName,
 } from '@/features/dm/resolveMentionNotificationDisplay';
 import type { WorkspaceRosterUserRow } from '@/services/domain/workspaceRoster';
 import { useAppLayoutMainSurfaceDmFlags } from './useAppLayoutMainSurfaceDmFlags';
@@ -228,63 +229,15 @@ import {
 import { registerEchoToastQuickReplySender } from '@/features/layout/echoToastQuickReplyBridge';
 import { insertChannelMessageFromHistory } from '@/services/realtime/channelMessageAuthority';
 import { randomUuidV4 } from '@/utils/randomUuid';
+import {
+  readServerLayoutPrefsStore,
+  writeServerLayoutPrefsStore,
+  type ServerLayoutPrefs,
+} from './serverLayoutPrefsStorage';
 
 const ExploreView = defineAsyncComponent(
   () => import('@/components/ExploreView.vue'),
 );
-
-const SERVER_LAYOUT_PREFS_STORAGE_KEY = 'echo-server-layout-prefs-v1';
-
-type ServerLayoutPrefs = {
-  channelPanelCollapsed: boolean;
-  channelPanelBubbleMode?: boolean;
-  memberPanelCollapsed: boolean;
-  voiceSideChatCollapsed: boolean;
-  compactGuildTriPaneChannelPanelOpen: boolean;
-  isMoreServersPinned: boolean;
-};
-
-function readServerLayoutPrefsStore(): Record<string, ServerLayoutPrefs> {
-  if (typeof localStorage === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(SERVER_LAYOUT_PREFS_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
-      return {};
-    const out: Record<string, ServerLayoutPrefs> = {};
-    for (const [serverId, value] of Object.entries(parsed)) {
-      if (!serverId.trim()) continue;
-      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
-      const v = value as Partial<ServerLayoutPrefs>;
-      out[serverId] = {
-        channelPanelCollapsed: !!v.channelPanelCollapsed,
-        memberPanelCollapsed: !!v.memberPanelCollapsed,
-        voiceSideChatCollapsed: !!v.voiceSideChatCollapsed,
-        compactGuildTriPaneChannelPanelOpen:
-          !!v.compactGuildTriPaneChannelPanelOpen,
-        isMoreServersPinned: !!v.isMoreServersPinned,
-      };
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-function writeServerLayoutPrefsStore(
-  store: Record<string, ServerLayoutPrefs>,
-): void {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(
-      SERVER_LAYOUT_PREFS_STORAGE_KEY,
-      JSON.stringify(store),
-    );
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
 
 type DmMarkReadPayload =
   | { kind: 'user'; userId: string }
@@ -3114,6 +3067,26 @@ export function useAppLayoutController() {
     });
   }
 
+  function resolveDmMentionNotificationAuthorName(
+    row: DmMentionNotificationRow,
+  ): string {
+    void messageReadFacade.globalResolverVersion.value;
+    const cached = messageReadFacade.getChannelEntity(
+      row.channelId,
+      row.messageId,
+    );
+    return resolveMentionNotificationRowAuthorName({
+      row,
+      cachedAuthorId: cached?.authorId,
+      authorDisplayName: cached?.authorDisplayName,
+      users: workspace.users.value,
+      selfUserId: currentUserIdForSocket.value ?? undefined,
+      selfDisplayName: authSession.backendUser?.username?.trim(),
+      categoriesByServer: workspace.categoriesByServer.value,
+      serverMemberNicknames: workspace.serverMemberNicknames.value,
+    });
+  }
+
   const dmMentionNotificationsBase = computed(() =>
     collectMentionNotificationsFromAuthority({
       channelAttentionByChannelId: channelAttentionByChannelId.value,
@@ -3129,6 +3102,7 @@ export function useAppLayoutController() {
           users: workspace.users.value,
           selfUserId: currentUserIdForSocket.value ?? undefined,
           selfDisplayName: authSession.backendUser?.username?.trim(),
+          serverMemberNicknames: workspace.serverMemberNicknames.value,
         }),
       maxItems: 120,
     }),
@@ -3142,12 +3116,19 @@ export function useAppLayoutController() {
     activeChannelId,
   });
 
-  const dmMentionNotifications = computed(() =>
-    applyMentionNotificationHydrationFailures(
-      dmMentionNotificationsBase.value,
+  const dmMentionNotifications = computed(() => {
+    void workspace.users.value;
+    void workspace.serverMemberNicknames.value;
+    void messageReadFacade.globalResolverVersion.value;
+    return applyMentionNotificationHydrationFailures(
+      dmMentionNotificationsBase.value.map((row) => ({
+        ...row,
+        channelLabel: resolveDmMentionNotificationChannelLabel(row.channelId),
+        authorName: resolveDmMentionNotificationAuthorName(row),
+      })),
       mentionNotificationFailedChannelIds.value,
-    ),
-  );
+    );
+  });
 
   /** Proxies the attention store's read-state map for the notifications panel. */
   const dmNotificationReadStateByChannelId = computed(
@@ -4447,6 +4428,7 @@ export function useAppLayoutController() {
       dmMentionNotifications,
       mentionNotificationHydrationLoading,
       resolveDmMentionNotificationChannelLabel,
+      resolveDmMentionNotificationAuthorName,
       dmNotificationReadStateByChannelId,
       mentionNotificationCategoriesByServer,
       mentionNotificationServers,

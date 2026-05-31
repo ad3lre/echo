@@ -361,6 +361,3 @@ export async function processEchoVideoHlsJob(
     await rm(tmpRoot, { recursive: true, force: true }).catch(() => {});
   }
 }
-
-/** @deprecated */
-export const processEchoVideoOptimizeJob = processEchoVideoHlsJob;

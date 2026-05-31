@@ -48,6 +48,8 @@ import {
   ECHO_PUBLIC_SUPPORT_EMAIL,
   echoPublicSupportMailtoHref,
 } from '@/config/echoPublicSupportContact';
+import { useCompactShell } from '@/composables/useCompactShell';
+import AuthAlertModal from '@/components/auth/AuthAlertModal.vue';
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
@@ -77,6 +79,7 @@ const GOOGLE_OAUTH_ERR_KEY = 'echo_google_oauth_error';
 
 const authSession = useAuthSessionStore();
 const { isMockDataMode } = usePlatform();
+const { isCompactShell } = useCompactShell();
 
 const tab = ref<'login' | 'register'>('login');
 const username = ref('');
@@ -99,6 +102,7 @@ const authSubView = ref<null | 'forgot'>(null);
 const loginEntryView = ref<'social' | 'echo'>('social');
 const forgotEmail = ref('');
 const forgotMessage = ref('');
+const dismissMockWarningModal = ref(false);
 const modalRef = ref<HTMLElement | null>(null);
 useFocusTrap(modalRef, toRef(props, 'modelValue'));
 
@@ -140,10 +144,32 @@ const signedInAccountLabel = computed(() => {
 
 const showMfaStep = computed(() => Boolean(mfaToken.value));
 
+const showAuthErrorModal = computed(
+  () => isCompactShell.value && props.modelValue && !!errorMessage.value.trim(),
+);
+
+const showMockWarningModal = computed(
+  () =>
+    isCompactShell.value &&
+    props.modelValue &&
+    isMockDataMode &&
+    showAuthForms.value &&
+    !dismissMockWarningModal.value,
+);
+
+function onAuthErrorModalUpdate(open: boolean) {
+  if (!open) errorMessage.value = '';
+}
+
+function onMockWarningModalUpdate(open: boolean) {
+  if (!open) dismissMockWarningModal.value = true;
+}
+
 watch(
   () => props.modelValue,
   (open) => {
     if (!open) return;
+    dismissMockWarningModal.value = false;
     errorMessage.value = '';
     submitting.value = false;
     mfaToken.value = null;
@@ -694,7 +720,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
 
         <template v-if="showAuthForms">
           <div
-            v-if="isMockDataMode"
+            v-if="isMockDataMode && !isCompactShell"
             class="auth-alert-warning mt-8 rounded-xl px-5 py-3.5 text-sm leading-relaxed"
           >
             Account actions are turned off in preview mode so sample data stays
@@ -760,7 +786,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               />
             </div>
             <div
-              v-if="errorMessage"
+              v-if="errorMessage && !isCompactShell"
               class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
@@ -806,7 +832,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               />
             </div>
             <div
-              v-if="errorMessage"
+              v-if="errorMessage && !isCompactShell"
               class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
@@ -929,7 +955,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             </div>
 
             <div
-              v-if="errorMessage"
+              v-if="errorMessage && !isCompactShell"
               class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
@@ -1064,7 +1090,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             </div>
 
             <div
-              v-if="errorMessage"
+              v-if="errorMessage && !isCompactShell"
               class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
@@ -1132,7 +1158,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
             </div>
 
             <div
-              v-if="errorMessage"
+              v-if="errorMessage && !isCompactShell"
               class="auth-alert-error rounded-xl px-4 py-3 text-sm leading-snug"
               role="alert"
             >
@@ -1225,6 +1251,21 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
       </div>
     </div>
   </div>
+
+  <AuthAlertModal
+    :model-value="showAuthErrorModal"
+    :message="errorMessage"
+    title="Sign-in issue"
+    variant="error"
+    @update:model-value="onAuthErrorModalUpdate"
+  />
+  <AuthAlertModal
+    :model-value="showMockWarningModal"
+    title="Preview mode"
+    message="Account actions are turned off in preview mode so sample data stays local."
+    variant="warning"
+    @update:model-value="onMockWarningModalUpdate"
+  />
 </template>
 
 <style scoped lang="scss">

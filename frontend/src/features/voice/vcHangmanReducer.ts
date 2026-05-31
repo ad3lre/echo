@@ -142,19 +142,6 @@ export function alignHangmanGuessHistoryToLetters(
   });
 }
 
-/** @deprecated Use {@link alignHangmanGuessHistoryToLetters} — kept for call-site clarity. */
-export function normalizeHangmanGuessHistoryForRoster(
-  guessedLetters: readonly string[],
-  rawHistory: unknown,
-  rosterSorted: readonly string[],
-): EchoHangmanGuessHistoryEntryV1[] {
-  return alignHangmanGuessHistoryToLetters(
-    guessedLetters,
-    rawHistory,
-    rosterSorted,
-  );
-}
-
 export function mergeHangmanPresenceRoster(
   a: readonly string[],
   b: readonly string[],

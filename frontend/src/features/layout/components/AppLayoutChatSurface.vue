@@ -729,6 +729,9 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
           :resolve-dm-mention-notification-channel-label="
             chatCtx.resolveDmMentionNotificationChannelLabel
           "
+          :resolve-dm-mention-notification-author-name="
+            chatCtx.resolveDmMentionNotificationAuthorName
+          "
           :dm-notification-read-state-by-channel-id="
             chatCtx.dmNotificationReadStateByChannelId
           "

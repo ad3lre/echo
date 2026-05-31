@@ -114,17 +114,6 @@ export function normalizeMoreServerFoldersFile(
   };
 }
 
-/** @deprecated use normalizeMoreServerFolders — kept for existing tests */
-export function normalizeMoreServerFoldersLegacy(
-  raw: unknown,
-  validServerIds: ReadonlySet<string>,
-): MoreServerWidgetFolder[] {
-  return normalizeMoreServerFolders(raw).map((f) => ({
-    ...f,
-    serverIds: f.serverIds.filter((id) => validServerIds.has(id)),
-  }));
-}
-
 function readRawFromStorage(): unknown {
   if (typeof localStorage === 'undefined') return null;
   try {

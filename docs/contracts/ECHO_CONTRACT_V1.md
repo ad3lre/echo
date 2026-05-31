@@ -103,7 +103,7 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
   - **Errors:** **400** `INVALID_BODY`, **403** `FORBIDDEN`, **503** `UPLOADS_NOT_CONFIGURED`.
 - `POST` `/uploads/retention/touch` — authenticated; body `{ storageKeys: string[] }` (max 20). Resets **abandonment** timers for chat media the caller can read. Server ignores touches when `last_seen_at >= now() - 24h` per key.
 - **Chat video HLS (background packaging):**
-  - `POST` `/uploads/register` with `kind: video` and `channelId` enqueues background HLS packaging after CSAM scan passes. Requires `ffmpeg` + `ffprobe` on the API host (see [`docs/operations/chat-video-hls.md`](../operations/chat-video-hls.md)).
+  - `POST` `/uploads/register` with `kind: video` and `channelId` enqueues background HLS packaging after CSAM scan passes. Requires `ffmpeg` + `ffprobe` on the transcode worker host (embedded API or standalone worker; see [`docs/operations/chat-video-hls.md`](../operations/chat-video-hls.md)).
   - `GET` `/uploads/video-playback?url=` — authenticated; caller must have read access to the source upload. Returns `{ status: 'ready' | 'pending' | 'failed', format: 'hls' | 'progressive', playbackUrl?, sourceUrl, sourceEtag, sourceSize, renditions? }`. When `status` is `ready` and `format` is `hls`, `playbackUrl` is the master `.m3u8`. The original progressive source remains playable at `sourceUrl`; HLS is a best-effort optimization.
   - Client polls `video-playback` while `status` is `pending` and switches to HLS when ready.
 - **Chat media abandonment** (user-sent channel/legacy/webhook-inbound keys only; not avatars, banners, emoji, etc.):

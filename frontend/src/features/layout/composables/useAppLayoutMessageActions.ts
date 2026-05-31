@@ -6,7 +6,7 @@ import { authPatchMe } from '@/api/authClient';
 import { postEchoPresenceHttp } from '@/api/echoClient';
 import { buildComposerDoc } from '@/features/chat/editor/composerModel';
 import { relocateMentionsInEditableText } from '@/features/chat/editor/messageEditDraft';
-import { writeSortedMessagesForChannel } from '@/features/chat/viewModel/channelMessageBucket';
+import { writeSortedMessagesForChannel } from '@/services/realtime/channelMessageBucket';
 import {
   overwriteLocalProfileFromAuthUser,
   saveLocalProfile,

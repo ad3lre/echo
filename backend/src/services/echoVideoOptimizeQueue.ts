@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import { config } from '../config';
+import { notifyEchoVideoHlsJobEnqueued } from '../jobs/videoHls/notify';
 import {
   upsertEchoVideoPlaybackPending,
   markEchoVideoPlaybackProcessing,
@@ -70,10 +71,8 @@ export async function enqueueEchoChatVideoHls(
   });
 
   await syncEchoVideoHlsQueueToPendingPlayback(pool, row.storageKey);
+  await notifyEchoVideoHlsJobEnqueued(pool, row.storageKey);
 }
-
-/** @deprecated use enqueueEchoChatVideoHls */
-export const enqueueEchoChatVideoOptimize = enqueueEchoChatVideoHls;
 
 export type VideoHlsJobRow = {
   id: string;
@@ -81,9 +80,6 @@ export type VideoHlsJobRow = {
   public_url: string;
   source_content_type: string;
 };
-
-/** @deprecated */
-export type VideoOptimizeJobRow = VideoHlsJobRow;
 
 export async function reclaimStaleEchoVideoHlsJobs(
   pool: pg.Pool,
@@ -136,9 +132,6 @@ export async function claimNextEchoVideoHlsJob(
   }
 }
 
-/** @deprecated */
-export const claimNextEchoVideoOptimizeJob = claimNextEchoVideoHlsJob;
-
 export async function markEchoVideoHlsJobDone(
   pool: pg.Pool,
   jobId: string,
@@ -163,9 +156,6 @@ export async function markEchoVideoHlsJobDone(
     renditions: opts.renditions,
   });
 }
-
-/** @deprecated */
-export const markEchoVideoOptimizeDone = markEchoVideoHlsJobDone;
 
 export async function markEchoVideoHlsJobFailed(
   pool: pg.Pool,
@@ -196,6 +186,3 @@ export async function markEchoVideoHlsJobFailed(
     await markEchoVideoPlaybackFailed(pool, sourceStorageKey, err);
   }
 }
-
-/** @deprecated */
-export const markEchoVideoOptimizeFailed = markEchoVideoHlsJobFailed;

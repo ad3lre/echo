@@ -458,6 +458,9 @@ export interface AppLayoutControllerContext {
   dmMentionNotifications: ComputedRef<DmMentionNotificationRow[]>;
   mentionNotificationHydrationLoading: Ref<boolean>;
   resolveDmMentionNotificationChannelLabel: (channelId: string) => string;
+  resolveDmMentionNotificationAuthorName: (
+    row: DmMentionNotificationRow,
+  ) => string;
   /** Local read cursors for DM mention inbox preset filtering (All / Unread / Read). */
   dmNotificationReadStateByChannelId: ComputedRef<
     Readonly<Record<string, string | null>>

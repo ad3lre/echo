@@ -60,17 +60,40 @@ function clearRequireCacheBySubstring(substrings: string[]) {
   }
 }
 
+function resetProcessWideAuthAndSessionStores(): void {
+  const g = globalThis as typeof globalThis & Record<symbol, unknown>;
+  g[Symbol.for('echo.authStore.instance')] = null;
+  const rt = g[Symbol.for('echo.serverSession.runtime')] as
+    | {
+        redisClient: { quit?: () => Promise<void> } | null;
+        memSessions: Map<unknown, unknown>;
+        memUserIndex: Map<unknown, unknown>;
+      }
+    | undefined;
+  if (rt) {
+    rt.memSessions.clear();
+    rt.memUserIndex.clear();
+    if (rt.redisClient) {
+      void rt.redisClient.quit?.();
+      rt.redisClient = null;
+    }
+  }
+}
+
 function clearBackendSingletonsForRestart() {
+  resetProcessWideAuthAndSessionStores();
   // Config is evaluated at import-time. Clearing simulates a fresh process.
   // On Windows + ts-node, module IDs can vary, so clear by both resolve() and substring.
   clearModule('../config');
   clearModule('../db/pg');
   clearModule('../auth/store');
+  clearModule('../auth/serverSession');
   clearModule('../domain/echoStore/bootstrap');
   clearRequireCacheBySubstring([
     `${path.sep}backend${path.sep}src${path.sep}config.`,
     `${path.sep}backend${path.sep}src${path.sep}db${path.sep}pg.`,
     `${path.sep}backend${path.sep}src${path.sep}auth${path.sep}store${path.sep}`,
+    `${path.sep}backend${path.sep}src${path.sep}auth${path.sep}serverSession.`,
     `${path.sep}backend${path.sep}src${path.sep}domain${path.sep}echoStore${path.sep}bootstrap.`,
   ]);
 }

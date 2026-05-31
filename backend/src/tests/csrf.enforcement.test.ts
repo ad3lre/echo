@@ -45,6 +45,9 @@ async function run(): Promise<void> {
       import('../auth/csrf'),
       import('../auth/serverSession'),
     ]);
+  const { __resetAuthStoreForTests } = await import('../auth/store');
+  __resetAuthStoreForTests();
+  serverSession.__resetServerSessionStoreForTests();
   const { CSRF_COOKIE } = serverSession;
 
   const app = Fastify({ logger: false });

@@ -23,6 +23,3 @@ export const googleMergeHintPartial = () =>
   echoT('integrations.google.mergeHintPartial');
 export const googleYoutubeRequiresLinkHint = () =>
   echoT('integrations.google.youtubeRequiresLinkHint');
-
-/** @deprecated */
-export const GOOGLE_OAUTH_ERROR_MESSAGES: Record<string, string> = {};

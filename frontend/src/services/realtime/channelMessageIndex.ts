@@ -126,6 +126,7 @@ export function createChannelMessageIndex(
 
   function rebuildOrderSignals() {
     orderRevisionRef.value += 1;
+    bumpResolverVersion();
   }
 
   function incrementAuthor(authorId: string | undefined) {
