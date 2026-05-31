@@ -528,6 +528,8 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
       ctx.resolveDmMentionNotificationChannelLabel,
     resolveDmMentionNotificationAuthorName:
       ctx.resolveDmMentionNotificationAuthorName,
+    resolveDmMentionNotificationRowPreview:
+      ctx.resolveDmMentionNotificationRowPreview,
     dmNotificationReadStateByChannelId: ctx.dmNotificationReadStateByChannelId,
     mentionNotificationCategoriesByServer:
       ctx.mentionNotificationCategoriesByServer,

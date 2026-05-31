@@ -13,7 +13,7 @@ export interface MentionOption {
   /** Additional search aliases (e.g. username, server nickname). */
   aliases?: string[];
   avatar?: string;
-  /** When set, offline users get muted label + grayscale avatar in the popover. */
+  /** When set, offline users get muted label styling in the popover. */
   status?: string;
   special?: boolean;
   kind?: MentionKind;

@@ -47,13 +47,13 @@ async function run(): Promise<void> {
   });
   assert.equal(kind, 'full');
   assert.ok(patches.some((p) => p.patch.displayName === 'Discord Name'));
-  assert.ok(
-    patches.some(
-      (p) =>
-        typeof p.patch.pfp === 'string' &&
-        String(p.patch.pfp).includes('cdn.discordapp.com'),
-    ),
-  );
+  const pfpPatch = patches.find((p) => p.patch.pfp !== undefined);
+  if (pfpPatch && typeof pfpPatch.patch.pfp === 'string') {
+    assert.ok(
+      !String(pfpPatch.patch.pfp).includes('cdn.discordapp.com'),
+      'Discord OAuth merge must not persist CDN avatar URLs',
+    );
+  }
   assert.ok(patches.some((p) => p.patch.email === 'x@y.z'));
 
   patches.length = 0;

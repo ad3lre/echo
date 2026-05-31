@@ -12,7 +12,7 @@ import { paperFontFamilyCss } from '@/features/paper/editor/paperTypography';
 import { preloadPaperFontCatalog } from '@/features/paper/editor/paperFontLoader';
 import { useAuthSessionStore } from '@/stores/authSession';
 import 'katex/dist/katex.min.css';
-import '@/features/paper/paperTheme.css';
+import '@/features/paper/styles/paperTheme.scss';
 
 const props = defineProps<{
   token: string;

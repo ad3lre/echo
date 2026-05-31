@@ -84,11 +84,7 @@ function suggestionSecondaryText(option: MentionOption): string {
           :src="safeImageUrl(option.avatar)"
           :alt="option.name"
           :session-key="option.id"
-          :img-class="
-            isMessageAuthorOffline(option.status)
-              ? 'rounded-full object-cover grayscale'
-              : 'rounded-full object-cover'
-          "
+          img-class="rounded-full object-cover"
         />
       </div>
       <span

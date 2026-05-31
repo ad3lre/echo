@@ -1189,11 +1189,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
               :src="safeImageUrl(dmPartnerUser.pfp || icons.usersAvatar)"
               :alt="dmPartnerUser.name || 'User'"
               :session-key="dmPartnerUser.id ?? 'dm-partner'"
-              :img-class="
-                dmPartnerPresence.isOffline
-                  ? 'rounded-full object-cover grayscale'
-                  : 'rounded-full object-cover'
-              "
+              img-class="rounded-full object-cover"
             />
           </div>
           <StatusIndicator

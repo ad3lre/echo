@@ -6,6 +6,8 @@ import {
 } from '../auth/accountPolicy';
 import type { DiscordMeApi, DiscordNormalizedV1 } from './discordNormalized';
 import { isValidEmailFormat, normalizeEmail } from '../auth/email';
+import type pg from 'pg';
+import { mirrorDiscordImportAvatarToEcho } from '../services/discordImportAvatarMirror';
 
 /** Match accountPolicy CONTROL_CHARS_RE — strip before Echo validation. */
 const DISCORD_IMPORT_STRIP_CONTROLS = /[\u0000-\u001f\u007f]/g;
@@ -47,8 +49,9 @@ export async function applyDiscordProfileMerge(params: {
   user: AuthUser;
   me: DiscordMeApi;
   normalized: DiscordNormalizedV1;
+  pool?: pg.Pool | null;
 }): Promise<'full' | 'partial'> {
-  const { store, user, me, normalized } = params;
+  const { store, user, me, normalized, pool = null } = params;
   if (!user.isGuest) {
     return 'partial';
   }
@@ -59,8 +62,14 @@ export async function applyDiscordProfileMerge(params: {
   if (safeDisplay) {
     patch.displayName = safeDisplay;
   }
-  if (normalized.avatarUrl) {
-    patch.pfp = normalized.avatarUrl;
+  if (normalized.avatarUrl || normalized.avatarHash !== null) {
+    const mirrored = await mirrorDiscordImportAvatarToEcho(
+      pool,
+      user.id,
+      normalized.discordUserId,
+      normalized.avatarHash,
+    );
+    if (mirrored) patch.pfp = mirrored;
   }
   if (normalized.bannerUrl) {
     patch.bannerImage = normalized.bannerUrl;

@@ -26,6 +26,12 @@ import {
 } from '../../../auth/sessionCookies';
 import type { AuthRefreshBody, AuthLogoutBody } from '../../../auth/types';
 import { refreshTokenExpiryIso } from '../../../auth/issueBrowserSession';
+import { authSessionJsonBody } from '../../../auth/authSessionResponse';
+import {
+  buildNativeAuthResponse,
+  nativeBearerEnabledForRequest,
+  signSessionBoundAccessToken,
+} from '../../../auth/nativeBearer';
 import {
   disconnectAllSocketsForAuthUser,
   disconnectSocketsForAuthSession,
@@ -35,11 +41,17 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
   function refreshLimiterKey(req: {
     ip: string;
     cookies: Record<string, string | undefined>;
+    body?: unknown;
   }): string {
+    const bodyToken =
+      typeof (req.body as AuthRefreshBody | undefined)?.refreshToken ===
+      'string'
+        ? (req.body as AuthRefreshBody).refreshToken.trim()
+        : '';
     const refreshCookie =
       req.cookies?.[REFRESH_COOKIE]?.trim() ||
       req.cookies?.[LEGACY_REFRESH_COOKIE]?.trim() ||
-      '';
+      bodyToken;
     if (refreshCookie) {
       return `auth_refresh_token:${hashRefreshToken(refreshCookie).slice(0, 24)}`;
     }
@@ -59,7 +71,9 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
         schema: {
           body: {
             type: 'object',
-            properties: {},
+            properties: {
+              refreshToken: { type: 'string', minLength: 1 },
+            },
             additionalProperties: false,
           },
         },
@@ -71,13 +85,15 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
             | Record<string, string | undefined>
             | undefined;
           const refreshToken =
-            cookies?.[REFRESH_COOKIE] || cookies?.[LEGACY_REFRESH_COOKIE];
+            req.body?.refreshToken?.trim() ||
+            cookies?.[REFRESH_COOKIE] ||
+            cookies?.[LEGACY_REFRESH_COOKIE];
           if (!refreshToken) {
             return sendError(
               reply,
               400,
               'REFRESH_TOKEN_REQUIRED',
-              'Refresh cookie is required',
+              'Refresh token is required',
             );
           }
           const tokenHash = hashRefreshToken(refreshToken);
@@ -148,6 +164,7 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
               ] ??
               '',
           ).trim();
+          const includeNativeAuth = nativeBearerEnabledForRequest(req);
           if (sid) {
             const sess = await getServerSession(sid);
             if (
@@ -157,7 +174,27 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
             ) {
               await updateSessionRefreshBinding(sid, user.id, newRec.id, user);
               setRefreshCookie(reply, newRefresh, req);
-              return reply.code(200).send({ user, csrfToken: sess.csrfSecret });
+              const accessToken = includeNativeAuth
+                ? signSessionBoundAccessToken({
+                    userId: user.id,
+                    username: user.username,
+                    sessionId: sid,
+                  })
+                : undefined;
+              return reply.code(200).send(
+                authSessionJsonBody({
+                  user,
+                  csrfToken: sess.csrfSecret,
+                  ...(accessToken
+                    ? {
+                        nativeAuth: buildNativeAuthResponse(
+                          accessToken,
+                          newRefresh,
+                        ).auth,
+                      }
+                    : {}),
+                }),
+              );
             }
             if (sess?.userId === user.id) {
               await deleteServerSession(sid, sess.userId);
@@ -181,7 +218,25 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
             },
             req,
           );
-          return reply.code(200).send({ user, csrfToken: csrfSecret });
+          const accessToken = includeNativeAuth
+            ? signSessionBoundAccessToken({
+                userId: user.id,
+                username: user.username,
+                sessionId,
+              })
+            : undefined;
+          return reply.code(200).send(
+            authSessionJsonBody({
+              user,
+              csrfToken: csrfSecret,
+              ...(accessToken
+                ? {
+                    nativeAuth: buildNativeAuthResponse(accessToken, newRefresh)
+                      .auth,
+                  }
+                : {}),
+            }),
+          );
         } catch (err) {
           fastify.log.error(err, 'Auth refresh failed');
           return sendError(

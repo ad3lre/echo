@@ -10,6 +10,7 @@ export type EchoProductionConfigGateInput = {
   echoSmsOtpPepper: string | null;
   echo2faEncryptionKey: string | null;
   authLegacyBearer: boolean;
+  authNativeBearer: boolean;
   echoRequireRedisInProduction: boolean;
   redisUrl: string | null;
   echoLocalUploadDir: string | null;

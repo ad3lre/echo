@@ -1,5 +1,5 @@
 /**
- * Role chips — surface colors from themes.css (--member-role-chip-*).
+ * Role chips — surface colors from themes.scss (--member-role-chip-*).
  * Chips are borderless; separation comes from background + hover.
  */
 export function memberPopoutRoleChipStyle(

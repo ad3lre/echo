@@ -1,10 +1,13 @@
 import type { Pool } from 'pg';
-import {
-  discordAvatarIdentityKey,
-  resolveDiscordAvatarForStorage,
-} from './discordNormalized';
 import { nextEchoSnowflakeId } from './echoSnowflake';
 import { addEchoServerMember } from './echoStore/servers';
+import {
+  avatarHashFromInput,
+  ensureDiscordImportAvatarStoredInEcho,
+  isEchoStoredProfileImageUrl,
+  mirrorDiscordImportAvatarToEcho,
+  resolveStoredDiscordAvatarHash,
+} from '../services/discordImportAvatarMirror';
 
 /** Minimal Discord user payload (message author or guild member `user`). */
 export type DiscordAuthorLike = {
@@ -94,6 +97,22 @@ export async function mergeDiscordImportUserMapBatch(
   );
 }
 
+async function persistShadowAvatar(
+  pool: Pool,
+  shadowUserId: string,
+  pfp: string,
+  avatarHash: string,
+): Promise<void> {
+  await pool.query(`UPDATE auth_users SET pfp = $2 WHERE id = $1`, [
+    shadowUserId,
+    pfp,
+  ]);
+  await pool.query(
+    `UPDATE echo_discord_shadow_users SET avatar_url = $2 WHERE shadow_user_id = $1`,
+    [shadowUserId, avatarHash],
+  );
+}
+
 /**
  * Resolve or create the Echo user for a Discord account in this imported server context:
  * linked canonical user, existing shadow, or new shadow. Ensures server membership.
@@ -129,9 +148,10 @@ export async function ensureEchoUserForDiscordMember(
   const existingShadow = await pool.query<{
     shadow_user_id: string;
     pfp: string | null;
+    avatar_url: string | null;
   }>(
     `
-    SELECT s.shadow_user_id, u.pfp
+    SELECT s.shadow_user_id, u.pfp, s.avatar_url
     FROM echo_discord_shadow_users s
     INNER JOIN auth_users u ON u.id = s.shadow_user_id
     WHERE s.discord_user_id = $1 AND s.source_server_id = $2
@@ -140,10 +160,32 @@ export async function ensureEchoUserForDiscordMember(
   );
   if (existingShadow.rows.length > 0) {
     const sid = String(existingShadow.rows[0].shadow_user_id);
-    const storedPfp =
+    let storedPfp =
       existingShadow.rows[0].pfp != null
         ? String(existingShadow.rows[0].pfp).trim()
         : '';
+    const storedAvatarMeta =
+      existingShadow.rows[0].avatar_url != null
+        ? String(existingShadow.rows[0].avatar_url).trim()
+        : '';
+
+    const backfilled = await ensureDiscordImportAvatarStoredInEcho(
+      pool,
+      sid,
+      discordUserId,
+      storedPfp,
+      storedAvatarMeta,
+    );
+    if (backfilled && backfilled !== storedPfp) {
+      const hash = resolveStoredDiscordAvatarHash(
+        discordUserId,
+        storedAvatarMeta,
+        storedPfp,
+      );
+      await persistShadowAvatar(pool, sid, backfilled, hash);
+      storedPfp = backfilled;
+    }
+
     /**
      * Only apply Discord avatar data when the payload includes `avatar` (string or null).
      * If the field is omitted, do not derive a default from `undefined` — that would wipe a
@@ -151,41 +193,27 @@ export async function ensureEchoUserForDiscordMember(
      */
     const hasExplicitDiscordAvatar =
       typeof author.avatar === 'string' || author.avatar === null;
-    const resolvedPfp = hasExplicitDiscordAvatar
-      ? resolveDiscordAvatarForStorage(
+    if (hasExplicitDiscordAvatar) {
+      const incomingHash = avatarHashFromInput(
+        discordUserId,
+        author.avatar as string | null,
+      );
+      const storedHash = resolveStoredDiscordAvatarHash(
+        discordUserId,
+        storedAvatarMeta,
+        storedPfp,
+      );
+      const needsMirror =
+        incomingHash !== storedHash || !isEchoStoredProfileImageUrl(storedPfp);
+      if (needsMirror) {
+        const mirrored = await mirrorDiscordImportAvatarToEcho(
+          pool,
+          sid,
           discordUserId,
           author.avatar as string | null,
-        )
-      : '';
-    if (hasExplicitDiscordAvatar && resolvedPfp) {
-      const before = discordAvatarIdentityKey(discordUserId, storedPfp);
-      const after = discordAvatarIdentityKey(discordUserId, resolvedPfp);
-      if (before !== after) {
-        await pool.query(`UPDATE auth_users SET pfp = $2 WHERE id = $1`, [
-          sid,
-          resolvedPfp,
-        ]);
-        await pool.query(
-          `UPDATE echo_discord_shadow_users SET avatar_url = $2 WHERE shadow_user_id = $1`,
-          [sid, resolvedPfp],
         );
-      }
-    } else if (!hasExplicitDiscordAvatar) {
-      const storedLooksLikeUrl = /^https?:\/\//i.test(storedPfp);
-      if (!storedLooksLikeUrl && storedPfp) {
-        const materialized = resolveDiscordAvatarForStorage(
-          discordUserId,
-          storedPfp,
-        );
-        if (materialized) {
-          await pool.query(`UPDATE auth_users SET pfp = $2 WHERE id = $1`, [
-            sid,
-            materialized,
-          ]);
-          await pool.query(
-            `UPDATE echo_discord_shadow_users SET avatar_url = $2 WHERE shadow_user_id = $1`,
-            [sid, materialized],
-          );
+        if (mirrored) {
+          await persistShadowAvatar(pool, sid, mirrored, incomingHash);
         }
       }
     }
@@ -213,7 +241,13 @@ export async function ensureEchoUserForDiscordMember(
       ? author.username.trim()
       : 'user';
   const displayNameRaw = resolveDiscordShadowDisplayName(author);
-  const pfp = resolveDiscordAvatarForStorage(discordUserId, author.avatar);
+  const avatarHash = avatarHashFromInput(discordUserId, author.avatar);
+  const pfp = await mirrorDiscordImportAvatarToEcho(
+    pool,
+    authUserId,
+    discordUserId,
+    author.avatar,
+  );
   /**
    * `auth_users.username` is UNIQUE globally. Do not derive it from Discord handle +
    * a short id suffix: many snowflakes share the same last 4 digits, and the same
@@ -237,7 +271,7 @@ export async function ensureEchoUserForDiscordMember(
   await pool.query(
     `INSERT INTO echo_discord_shadow_users (shadow_user_id, discord_user_id, source_server_id, username, display_name, avatar_url)
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [authUserId, discordUserId, serverId, uname, displayNameRaw, pfp],
+    [authUserId, discordUserId, serverId, uname, displayNameRaw, avatarHash],
   );
 
   await addEchoServerMember(pool, serverId, authUserId);

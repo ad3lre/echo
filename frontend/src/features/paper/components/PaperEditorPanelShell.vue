@@ -12,7 +12,7 @@ import PaperEditorAssetsTab from '@/features/paper/components/PaperEditorAssetsT
 import PaperEditorStructureTab from '@/features/paper/components/PaperEditorStructureTab.vue';
 import { onPaperFormatBarMouseDown } from '@/features/paper/editor/paperFormatSelection';
 import { icons } from '@/assets/icons';
-import '@/features/paper/paperTheme.css';
+import '@/features/paper/styles/paperTheme.scss';
 
 const props = defineProps<{
   context: PaperEditorPanelBridgeContext;

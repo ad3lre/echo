@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit';
 import { sendError } from '../../errors';
 import { getAuthStore } from '../../../auth/store';
 import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
+import { authSessionJsonBody } from '../../../auth/authSessionResponse';
 import { updateCachedUserInAllSessions } from '../../../auth/serverSession';
 import { getEmailVerifyRedirectUrl } from '../../../domain/emailVerificationUrls';
 import {
@@ -201,26 +202,30 @@ export default async function registerRoutes(fastify: FastifyInstance) {
             }
           }
           const user = await store.createUser(body);
-          const { user: u, csrfToken } = await issueEchoBrowserSession(
+          const session = await issueEchoBrowserSession(
             store,
             user,
             reply,
             req,
           );
-          if (mode === 'postgres' && u.email && !u.emailVerified) {
-            void sendSignupVerificationEmail(fastify.log, store, u);
+          if (
+            mode === 'postgres' &&
+            session.user.email &&
+            !session.user.emailVerified
+          ) {
+            void sendSignupVerificationEmail(fastify.log, store, session.user);
           }
           if (normalizedHwidForCap) {
             await recordHwidProfileAccountBinding(
-              u.id,
+              session.user.id,
               normalizedHwidForCap,
               ip,
             );
           }
-          void tryJoinOfficialEchoServerOnSignup(fastify.log, u.id, {
+          void tryJoinOfficialEchoServerOnSignup(fastify.log, session.user.id, {
             joinClientIp: ip,
           });
-          return reply.code(201).send({ user: u, csrfToken });
+          return reply.code(201).send(authSessionJsonBody(session));
         } catch (err: any) {
           if (err?.message === 'USERNAME_TAKEN') {
             return sendError(

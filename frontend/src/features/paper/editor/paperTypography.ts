@@ -17,7 +17,7 @@ export const PAPER_FONT_SIZE_PRESETS = [
   10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72,
 ] as const;
 
-/** Default px when no explicit fontSize mark (matches paperTheme.css). */
+/** Default px when no explicit fontSize mark (matches paperTheme.scss). */
 export const PAPER_BLOCK_DEFAULT_FONT_PX = {
   paragraph: 15,
   heading1: 36,

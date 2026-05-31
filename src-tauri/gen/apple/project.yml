@@ -41,8 +41,7 @@ targets:
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
-        # Do not require `arm64` here: Intel Macs build the simulator as x86_64; requiring arm64
-        # prevents the app from installing on the simulator (home screen never shows Echo).
+        # `metal` capability — available on all supported devices and Apple Silicon simulators.
         UIRequiredDeviceCapabilities: [metal]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -64,12 +63,15 @@ targets:
     settings:
       base:
         ENABLE_BITCODE: false
-        ARCHS: [arm64, x86_64]
-        VALID_ARCHS: arm64  x86_64
+        # arm64-only: Tauri's xcode-script only emits the Externals lib for the
+        # Rust target(s) passed via `-t`, so an x86_64 simulator slice can never
+        # link (`ld: library 'app' not found`). Intel Mac devs already used the
+        # sim-release-build script which calls xcodebuild with ARCHS=arm64 directly.
+        ARCHS: [arm64]
+        VALID_ARCHS: arm64
         ONLY_ACTIVE_ARCH: true
         SWIFT_VERSION: '5.0'
         DEFINES_MODULE: true
-        LIBRARY_SEARCH_PATHS[arch=x86_64]: $(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)
         LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
@@ -86,9 +88,19 @@ targets:
       - sdk: UIKit.framework
       - sdk: WebKit.framework
     preBuildScripts:
+      - script: |
+          # Merge hand-managed entitlements (associated-domains for passkeys / universal links)
+          # into the Tauri-generated file.  Tauri's init/build may strip keys it doesn't manage;
+          # this re-injects them before xcodebuild reads the entitlements for code-signing.
+          TEMPLATE="${SRCROOT}/../../Entitlements.ios.plist"
+          TARGET="${SRCROOT}/echo-desktop_iOS/echo-desktop_iOS.entitlements"
+          if [ -f "$TEMPLATE" ] && [ -f "$TARGET" ]; then
+            node "${SRCROOT}/../../../scripts/sync-tauri-ios-entitlements.mjs" 2>&1 || true
+          fi
+        name: Sync iOS Entitlements
+        basedOnDependencyAnalysis: false
       - script: npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${ARCHS:?}
         name: Build Rust Code
         basedOnDependencyAnalysis: false
         outputFiles:
-          - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
           - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a

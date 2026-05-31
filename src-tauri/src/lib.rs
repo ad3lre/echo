@@ -879,7 +879,11 @@ pub fn run() {
       ios_auth::ios_auth_session_restore_failed,
       ios_auth::ios_auth_should_show_login,
       ios_auth::ios_auth_mark_verified,
+      ios_auth::ios_auth_store_refresh_token,
+      ios_auth::ios_auth_get_refresh_token,
+      ios_auth::ios_auth_clear_refresh_token,
       ios_native::ios_native_haptic,
+      ios_native::ios_is_simulator,
     ])
     .setup(|app| {
       setup_app_shell(app);

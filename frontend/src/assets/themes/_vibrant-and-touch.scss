@@ -1,0 +1,104 @@
+/* ------------------------------------------------------------------ */
+/*  Vibrant accents — Settings → Appearance (data-echo-vibrant-accents=on) */
+/* ------------------------------------------------------------------ */
+html[data-echo-vibrant-accents='on'] {
+  &[data-theme='dark'] {
+    --accent: #818cf8;
+    --accent-contrast-fg: #ffffff;
+    --chat-accent: rgba(129, 140, 248, 0.58);
+    --chat-accent-muted: rgba(129, 140, 248, 0.34);
+    --message-highlight-flash: rgba(129, 140, 248, 0.42);
+    --md-link-fg: #a5b4fc;
+    --md-link-fg-hover: #c7d2fe;
+    --vc-settings-accent-fg: rgb(199 210 254);
+    --vc-slider-fill: rgb(129 140 248);
+    --set-input-focus-ring: rgba(165, 180, 252, 0.72);
+    --set-input-focus-glow: rgba(129, 140, 248, 0.18);
+    --set-primary-grad: linear-gradient(
+      135deg,
+      rgba(139, 92, 246, 0.95),
+      rgba(99, 102, 241, 0.88)
+    );
+    --set-toggle-pill-on: rgba(129, 140, 248, 0.82);
+    --set-chip-active-bg: rgba(129, 140, 248, 0.3);
+    --set-chip-active-ring: rgba(165, 180, 252, 0.32);
+    --mention-user-fg: #93b4ff;
+    --mention-user-bg: rgba(88, 101, 242, 0.24);
+    --mention-user-bg-hover: rgba(88, 101, 242, 0.42);
+    --mention-user-fg-hover: #c7d2fe;
+    --mention-special-fg: #fde047;
+    --mention-special-bg: rgba(234, 179, 8, 0.2);
+    --mention-special-bg-hover: rgba(234, 179, 8, 0.34);
+    --mention-special-fg-hover: #fef08a;
+    --mention-channel-fg: #6ee7b7;
+    --mention-channel-bg: rgba(52, 211, 153, 0.2);
+    --mention-channel-bg-hover: rgba(52, 211, 153, 0.34);
+    --mention-channel-fg-hover: #a7f3d0;
+    --server-ping-personal: #fb7185;
+    --server-ping-role: #c084fc;
+    --server-ping-broadcast: #fbbf24;
+    --chat-glass-header-backdrop: blur(28px);
+  }
+
+  &[data-theme='light'] {
+    --accent: #6366f1;
+    --accent-contrast-fg: #ffffff;
+    --chat-accent: rgba(79, 70, 229, 0.45);
+    --chat-accent-muted: rgba(79, 70, 229, 0.26);
+    --message-highlight-flash: rgba(99, 102, 241, 0.34);
+    --md-link-fg: #4f46e5;
+    --md-link-fg-hover: #4338ca;
+    --vc-settings-accent-fg: rgb(67 56 202);
+    --vc-slider-fill: rgb(99 102 241);
+    --set-input-focus-ring: rgba(99, 102, 241, 0.45);
+    --set-input-focus-glow: rgba(99, 102, 241, 0.14);
+    --set-primary-grad: linear-gradient(
+      135deg,
+      rgba(79, 70, 229, 0.98),
+      rgba(99, 102, 241, 0.92)
+    );
+    --set-toggle-pill-on: rgba(99, 102, 241, 0.78);
+    --set-chip-active-bg: rgba(99, 102, 241, 0.22);
+    --set-chip-active-ring: rgba(79, 70, 229, 0.28);
+    --mention-user-fg: #4338ca;
+    --mention-user-bg: rgba(79, 70, 229, 0.18);
+    --mention-user-bg-hover: rgba(79, 70, 229, 0.32);
+    --mention-user-fg-hover: #312e81;
+    --mention-special-fg: #b45309;
+    --mention-special-bg: rgba(245, 158, 11, 0.22);
+    --mention-special-bg-hover: rgba(245, 158, 11, 0.36);
+    --mention-special-fg-hover: #92400e;
+    --mention-channel-fg: #047857;
+    --mention-channel-bg: rgba(16, 185, 129, 0.2);
+    --mention-channel-bg-hover: rgba(16, 185, 129, 0.34);
+    --mention-channel-fg-hover: #065f46;
+    --server-ping-personal: #e11d48;
+    --server-ping-role: #7e22ce;
+    --server-ping-broadcast: #b45309;
+    --chat-glass-header-backdrop: blur(30px);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Touch — cheaper chat chrome blur (large backdrop-filter is costly on mobile WebKit) */
+/* ------------------------------------------------------------------ */
+@media (pointer: coarse) {
+  :root,
+  [data-theme='dark'] {
+    --chat-glass-header-backdrop: blur(20px);
+  }
+
+  [data-theme='light'] {
+    --chat-glass-header-backdrop: blur(18px);
+  }
+
+  html[data-echo-vibrant-accents='on'] {
+    &[data-theme='dark'] {
+      --chat-glass-header-backdrop: blur(20px);
+    }
+
+    &[data-theme='light'] {
+      --chat-glass-header-backdrop: blur(18px);
+    }
+  }
+}

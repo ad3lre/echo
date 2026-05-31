@@ -1,5 +1,9 @@
 import type { Socket } from 'socket.io-client';
 import { echoSocketIoManagerOptions } from './socketIoSessionWire';
+import {
+  getNativeAccessToken,
+  isNativeBearerClient,
+} from '@/services/auth/nativeAuthToken';
 
 /**
  * One attempt to create a fresh Socket.IO client: guards, discard stale instance,
@@ -24,6 +28,11 @@ export async function executeEchoSocketConnectAttempt(opts: {
   if (opts.socketOff()) return;
   if (opts.startGen !== opts.getCurrentGeneration()) return;
 
-  const client = io(opts.socketIoBase, echoSocketIoManagerOptions());
+  const client = io(opts.socketIoBase, {
+    ...echoSocketIoManagerOptions(),
+    ...(isNativeBearerClient() && getNativeAccessToken()
+      ? { auth: { token: getNativeAccessToken()! } }
+      : {}),
+  });
   opts.afterConnectedSocket(client);
 }

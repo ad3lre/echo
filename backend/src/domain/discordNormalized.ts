@@ -71,6 +71,23 @@ export function parseDiscordAvatarHashFromCdnUrl(
   return hash || null;
 }
 
+/** Discord user snowflake from a custom avatar CDN URL (`/avatars/{id}/…`). */
+export function parseDiscordUserIdFromAvatarCdnUrl(url: string): string | null {
+  const raw = typeof url === 'string' ? url.trim() : '';
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (!/^cdn\.discordapp\.com$/i.test(parsed.hostname)) return null;
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  if (parts.length < 3 || parts[0] !== 'avatars') return null;
+  const id = parts[1]?.trim() ?? '';
+  return /^\d{5,}$/.test(id) ? id : null;
+}
+
 /**
  * Stable key for comparing “same Discord avatar” across hash-only storage, CDN URLs, and
  * default embed avatars (ignores `?size=` and other query params).
@@ -118,8 +135,10 @@ export function discordDefaultAvatarUrl(discordUserId: string): string {
 }
 
 /**
- * Turn Discord API `user.avatar` (hash or null) or an already-resolved CDN URL into a value
- * suitable for `auth_users.pfp` / message `authorAvatar` (always https URL when possible).
+ * Turn Discord API `user.avatar` (hash or null) or an already-resolved CDN URL into a
+ * fetchable Discord CDN URL. Used for OAuth API responses and as a download source during
+ * import mirroring — do not persist the return value on shadow/imported users; use
+ * `mirrorDiscordImportAvatarToEcho` instead.
  */
 export function resolveDiscordAvatarForStorage(
   discordUserId: string,

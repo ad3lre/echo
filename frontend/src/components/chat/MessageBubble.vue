@@ -1280,11 +1280,7 @@ watch(
             :src="safeImageUrl(message.author.avatar)"
             :alt="authorLabel"
             :session-key="message.authorId"
-            :img-class="
-              authorLooksOffline
-                ? 'rounded-full object-cover grayscale'
-                : 'rounded-full object-cover'
-            "
+            img-class="rounded-full object-cover"
           />
         </div>
       </button>

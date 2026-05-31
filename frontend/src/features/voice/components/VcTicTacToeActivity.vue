@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
-import '@/features/voice/ticTacToe/tic-tac-toe-activity.css';
+import '@/features/voice/styles/ticTacToeActivity.scss';
 import type {
   EchoTicTacToeActivityV1,
   EchoTicTacToeInviteV1,

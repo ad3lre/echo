@@ -3,6 +3,8 @@ import type { ChannelSummary } from '@shared/types';
 import { getChannelDisplayName } from '@/assets/icons';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import { MENTION_NOTIFICATION_STUB_PREVIEW } from '@/features/dm/mentionNotificationAuthority';
+import type { RawMessage } from '@/services/realtime/chatMessageTypes';
+import { messagePreviewPlainText } from '@/services/domain/messagePreviewPlain';
 import { isDmThreadId } from '@/features/layout/mainSurface';
 import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { resolveGuildMemberDisplayName } from '@/utils/resolveGuildMemberDisplayName';
@@ -167,4 +169,21 @@ export function resolveMentionNotificationRowAuthorName(input: {
     serverId,
     serverMemberNicknames: input.serverMemberNicknames,
   });
+}
+
+/**
+ * Live preview for a notification row — uses cached message body when the feed row
+ * is still an attention stub but background hydration landed in the message index.
+ */
+export function resolveMentionNotificationRowPreview(input: {
+  row: Pick<DmMentionNotificationRow, 'preview' | 'channelId' | 'messageId'>;
+  cachedMessage?: Pick<RawMessage, 'content'> | null;
+}): string {
+  if (input.row.preview !== MENTION_NOTIFICATION_STUB_PREVIEW) {
+    return input.row.preview;
+  }
+  if (input.cachedMessage) {
+    return messagePreviewPlainText(input.cachedMessage, 220) || '…';
+  }
+  return MENTION_NOTIFICATION_STUB_PREVIEW;
 }

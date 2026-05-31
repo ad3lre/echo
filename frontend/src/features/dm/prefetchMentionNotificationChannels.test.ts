@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
+import { ref } from 'vue';
 import type { EchoAttentionChannelSummary } from '@shared/types';
-import { resolveMentionNotificationPrefetchTargets } from './prefetchMentionNotificationChannels';
+import { bindChannelMessageBuckets } from '@/services/realtime/channelMessageAuthority';
+import type { RawMessage } from '@/services/realtime/chatMessageTypes';
+import { MENTION_NOTIFICATION_STUB_PREVIEW } from './mentionNotificationAuthority';
+import {
+  mergeMentionNotificationPrefetchTargets,
+  resolveMentionNotificationPrefetchTargets,
+  resolveMentionNotificationPrefetchTargetsFromStubRows,
+} from './prefetchMentionNotificationChannels';
 
 function serverSummary(
   partial: Partial<EchoAttentionChannelSummary> &
@@ -18,6 +26,10 @@ function serverSummary(
 }
 
 describe('resolveMentionNotificationPrefetchTargets', () => {
+  beforeEach(() => {
+    bindChannelMessageBuckets(ref<Record<string, RawMessage[]>>({}));
+  });
+
   it('prefetches channels with unread personal pings and empty local cache', () => {
     const channelId = '00000000-0000-4000-8000-000000000010';
     const targets = resolveMentionNotificationPrefetchTargets({
@@ -76,5 +88,32 @@ describe('resolveMentionNotificationPrefetchTargets', () => {
     });
 
     expect(targets).toEqual([]);
+  });
+
+  it('builds prefetch targets from visible stub rows', () => {
+    const channelId = '00000000-0000-4000-8000-000000000013';
+    const targets = resolveMentionNotificationPrefetchTargetsFromStubRows([
+      {
+        channelId,
+        messageId: 'msg-stub',
+        preview: MENTION_NOTIFICATION_STUB_PREVIEW,
+      },
+    ]);
+
+    expect(targets).toEqual([{ channelId, anchorMessageId: 'msg-stub' }]);
+  });
+
+  it('merges attention and stub targets without duplicate channels', () => {
+    const attentionChannel = '00000000-0000-4000-8000-000000000014';
+    const stubChannel = '00000000-0000-4000-8000-000000000015';
+    const merged = mergeMentionNotificationPrefetchTargets(
+      [{ channelId: attentionChannel, anchorMessageId: 'msg-a' }],
+      [{ channelId: stubChannel, anchorMessageId: 'msg-b' }],
+    );
+
+    expect(merged).toEqual([
+      { channelId: attentionChannel, anchorMessageId: 'msg-a' },
+      { channelId: stubChannel, anchorMessageId: 'msg-b' },
+    ]);
   });
 });

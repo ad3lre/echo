@@ -1,0 +1,30 @@
+/*
+ * WebKit often fails to apply unprefixed `filter` on some elements; prefix + layer
+ * promotion matches Chrome/Firefox behavior (e.g. PollOptionEmojiPopover).
+ */
+.grayscale {
+  -webkit-filter: grayscale(100%);
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/*
+ * iOS Safari: default push-button appearance can ignore Tailwind text colors on <button>.
+ * Reset appearance and re-assert the theme token so offline / muted labels match other browsers.
+ */
+button.text-fg-subtle {
+  -webkit-appearance: none;
+  appearance: none;
+  color: var(--color-fg-subtle);
+}
+
+button.text-fg-soft {
+  -webkit-appearance: none;
+  appearance: none;
+  color: var(--color-fg-soft);
+}
+
+/* Light mode: drop heavy button shadows (often dark-on-light or muddy). */
+[data-theme='light'] button {
+  box-shadow: none !important;
+}

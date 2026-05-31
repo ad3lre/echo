@@ -16,7 +16,6 @@ import {
   listPollVotesForMessages,
   mergePollVotesIntoDefinition,
 } from './echoPollVotesDal';
-import { resolveDiscordAvatarForStorage } from './discordNormalized';
 import {
   ECHO_MESSAGE_TIMELINE_ORDER_DESC,
   echoMessageIdPgGreaterThan,
@@ -391,13 +390,7 @@ export async function attachAuthorLabelsToEchoMessageRows(
       row.shadow_discord_user_id != null
         ? String(row.shadow_discord_user_id).trim()
         : '';
-    const pfp =
-      row.is_discord_shadow === true && shadowDid
-        ? resolveDiscordAvatarForStorage(
-            shadowDid,
-            pfpRaw === '' ? null : pfpRaw,
-          )
-        : pfpRaw;
+    const pfp = pfpRaw;
     byId.set(id, {
       name,
       pfp,

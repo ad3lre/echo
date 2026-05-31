@@ -1,0 +1,100 @@
+name: Echo iOS (Tauri)
+
+on:
+  push:
+    paths:
+      - 'src-tauri/**'
+      - 'frontend/**'
+      - 'scripts/tauri-ios-build.mjs'
+      - 'scripts/tauri-before-build-frontend.mjs'
+      - 'scripts/verify-ios-version.mjs'
+      - 'scripts/sync-tauri-ios-icons.mjs'
+      - 'scripts/sync-tauri-ios-launch-logo.mjs'
+      - 'scripts/sync-tauri-ios-entitlements.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/echo-ios-ci.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/**'
+      - 'frontend/**'
+      - 'scripts/tauri-ios-build.mjs'
+      - 'scripts/tauri-before-build-frontend.mjs'
+      - 'scripts/verify-ios-version.mjs'
+      - 'scripts/sync-tauri-ios-icons.mjs'
+      - 'scripts/sync-tauri-ios-launch-logo.mjs'
+      - 'scripts/sync-tauri-ios-entitlements.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: echo-ios-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VITE_API_URL: https://chat-echo.com
+  VITE_SOCKET_IO_URL: https://chat-echo.com
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  tauri-ios:
+    # arm64 macOS runner: device target is arm64-only, so the iOS Simulator
+    # x86_64 slice (which the Tauri xcode-script does not emit) is never needed.
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.13.1'
+          cache: 'npm'
+
+      # Pin Xcode so the iOS toolchain (and the bundled iphoneos SDK) is
+      # deterministic instead of whatever the runner image defaults to.
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: 'aarch64-apple-ios'
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ios-tauri
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Verify iOS version alignment
+        run: node scripts/verify-ios-version.mjs
+
+      # Unsigned device (aarch64) archive — no Apple signing secrets required, the
+      # iOS analogue of the Android unsigned AAB. The generated Xcode project is
+      # committed under src-tauri/gen/apple, so no `tauri ios init` step is needed.
+      # ECHO_TAURI_FAST_FRONTEND=1 skips vue-tsc here: echo-frontend-ci already
+      # type-checks via `npm run build -w frontend`, so this only needs vite output.
+      - name: Tauri iOS build (unsigned)
+        env:
+          ECHO_TAURI_FAST_FRONTEND: '1'
+        run: npm run tauri:ios:build:unsigned
+
+      - name: Upload iOS output (unsigned IPA)
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-device-unsigned
+          path: src-tauri/gen/apple/build/**/*.ipa
+          if-no-files-found: warn
+          retention-days: 14

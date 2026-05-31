@@ -1,0 +1,88 @@
+/*
+ * Skip link: visually hidden until focused; jumps to #echo-main-content.
+ * Tailwind's sr-only hides it; focus:not-sr-only reveals it using Tailwind's own utility pair.
+ * The explicit rule here covers the focused state appearance.
+ */
+.echo-skip-link {
+  &:focus {
+    position: fixed;
+    top: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    padding: 0.5rem 1.25rem;
+    border-radius: 0.5rem;
+    background: var(--accent, #7c5cff);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.4),
+      0 0 0 2px rgba(255, 255, 255, 0.25);
+    outline: none;
+  }
+}
+
+/*
+ * Accessibility preferences — applied by applyAccessibilityPreferences() in accessibilityPreferences.ts.
+ * Data-attributes on <html> are set at boot and on every settings change; components and CSS key off them
+ * rather than reading the store directly.
+ */
+
+/* --- Font scale --------------------------------------------------------------- */
+:root {
+  --echo-font-scale: 1;
+}
+
+html {
+  font-size: calc(1rem * var(--echo-font-scale));
+}
+
+/* --- Reduced motion ----------------------------------------------------------- */
+html[data-echo-reduced-motion='1'] {
+  &,
+  & * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- High contrast ------------------------------------------------------------ */
+html[data-echo-high-contrast='1'] {
+  --border: color-mix(in srgb, var(--border) 0%, currentColor 35%);
+  --fg-soft: var(--foreground);
+  --text-muted: var(--foreground);
+  color-scheme: dark;
+
+  .text-muted,
+  .text-fg-soft {
+    color: var(--foreground) !important;
+    opacity: 0.85;
+  }
+
+  button,
+  a {
+    outline-offset: 2px;
+  }
+}
+
+/* --- Dyslexia-friendly font --------------------------------------------------- */
+html[data-echo-dyslexia-font='1'] {
+  &,
+  & input,
+  & textarea,
+  & button {
+    font-family: 'Atkinson Hyperlegible', system-ui, sans-serif !important;
+    letter-spacing: 0.01em;
+    word-spacing: 0.05em;
+  }
+}
+
+/* --- Message spacing ---------------------------------------------------------- */
+html[data-echo-message-spacing='0'] {
+  --echo-density-msg-header-mt: 0.5rem;
+  --echo-density-msg-continuation-py: 0.0312rem;
+}

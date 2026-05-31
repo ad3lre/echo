@@ -42,9 +42,9 @@ import { spoilerReveal } from '@/directives/spoilerReveal';
 import '@fontsource/inter/latin-400.css';
 
 import './assets/tailwind.css';
-import './assets/themes.css';
-import './assets/density.css';
-import './assets/accessibility.css';
+import './assets/themes.scss';
+import './assets/density.scss';
+import './assets/accessibility.scss';
 import './assets/main.scss';
 import './assets/document-canvas.scss';
 import { registerEchoServiceWorker } from '@/registerServiceWorker';
@@ -81,10 +81,19 @@ import {
   notifyAppAuthenticated,
   startSessionHeartbeat,
 } from '@/services/auth/iosBootOrchestrator';
-import { markIosNativeShell } from '@/platform/iosNativeFeedback';
+import { bootstrapNativeBearerSessionFromKeychain } from '@/api/authClient';
+import {
+  markIosNativeShell,
+  detectIosSimulator,
+} from '@/platform/iosNativeFeedback';
 
 ensureEchoBrandFavicon();
 markIosNativeShell();
+/* Resolve the iOS Simulator flag ASAP so audio priming can be skipped there
+ * (the Simulator's CoreAudio times out starting an audio unit and aborts WebKit's
+ * GPU process). Fire-and-forget: resolves in ~ms, long before the first tap that
+ * would prime audio. No-op / false on real devices and non-iOS builds. */
+void detectIosSimulator();
 registerEchoServiceWorker();
 applyGpuTierToDocument(detectGpuTier());
 installDevConsoleLogRecorder();
@@ -262,6 +271,15 @@ async function bootstrap() {
    * gate while `/auth/me` is in flight. The session is validated below, after
    * `app.mount()`, so first paint is never blocked on a network round-trip. */
   authSessionStore.hydrateFromStorage();
+
+  if (hasStoredSessionToRestore() || authSessionStore.isSessionUnverified) {
+    const bearerUser = await bootstrapNativeBearerSessionFromKeychain();
+    if (bearerUser) {
+      authSessionStore.applyRestoredProfile(bearerUser, {
+        allowUnauthenticated: true,
+      });
+    }
+  }
 
   /**
    * Warm paint before mount: if a returning user already holds a session token

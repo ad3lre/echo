@@ -18,6 +18,7 @@ export const ECHO_CORS_ALLOWED_HEADERS: string[] = [
   'X-CSRF-Token',
   'X-Diag-Trace-Id',
   'X-Diag-Span-Id',
+  'X-Echo-Client',
 ];
 
 function requestOrigin(req: FastifyRequest): string | null {

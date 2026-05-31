@@ -1,0 +1,124 @@
+/* AMOLED dark variant (runtime) */
+html[data-theme='dark'][data-echo-dark-variant='amoled'] {
+  --bg: #000000;
+  --surface: #070707;
+  --elevated: #0d0d0d;
+  --border: rgba(255, 255, 255, 0.075);
+  --glass-tint: rgba(255, 255, 255, 0.028);
+  --overlay-subtle: rgba(0, 0, 0, 0.42);
+  --chat-glass-bg: rgba(2, 2, 4, 0.48);
+  --chat-glass-bg-strong: rgba(2, 2, 4, 0.8);
+  --chat-glass-header-bg: rgba(0, 0, 0, 0.62);
+  --chat-glass-header-bg-fallback: rgba(0, 0, 0, 0.94);
+  --chat-glass-header-backdrop: blur(28px);
+  --echo-menu-surface-bg: var(--chat-glass-header-bg);
+  --echo-menu-surface-bg-fallback: var(--chat-glass-header-bg-fallback);
+  --set-sidebar-bg: rgba(255, 255, 255, 0.015);
+  --set-card-bg: rgba(255, 255, 255, 0.022);
+  --set-card-ring: rgba(255, 255, 255, 0.042);
+  --set-panel-bg: rgba(0, 0, 0, 0.28);
+  --set-panel-ring: rgba(255, 255, 255, 0.032);
+  --set-input-bg: rgba(0, 0, 0, 0.32);
+  --set-toggle-bg: rgba(0, 0, 0, 0.3);
+  --set-action-bg: rgba(255, 255, 255, 0.03);
+  --set-action-hover-bg: rgba(255, 255, 255, 0.055);
+  --set-chip-bg: rgba(255, 255, 255, 0.03);
+  --set-chip-ring: rgba(255, 255, 255, 0.034);
+  /* True-black surfaces: `screen` yields muddy refraction; normal blend + slightly stronger wash */
+  --profile-banner-refraction-opacity: 0.26;
+  --profile-banner-refraction-mix-blend-mode: normal;
+
+  /* Pull purple-tinted chrome to true black like the main chat column */
+  --echo-server-rail-bg: var(--bg);
+  --echo-channel-panel-bg: var(--bg);
+  --echo-rail-corner-bg: var(--bg);
+  --echo-rail-corner-liquid-bg: var(--bg);
+
+  --echo-menu-bg: var(--elevated);
+  --echo-popover-bg: var(--elevated);
+  --echo-dm-chrome-bg: var(--bg);
+  /* DM list + inset popovers: keep ink-black (surface is #070707 and reads “not AMOLED”) */
+  --echo-dm-inset-bg: var(--bg);
+  /* Message column + main grid: match shell (#000) instead of lifted --surface */
+  --echo-chat-view-bg: var(--bg);
+  --echo-modal-bg: var(--elevated);
+  --echo-modal-bg-heavy: var(--surface);
+  --echo-modal-bg-muted: var(--surface);
+  --echo-explore-banner-bg: var(--surface);
+  --echo-explore-gradient-from: var(--bg);
+  --echo-explore-gradient-deep: var(--bg);
+  --echo-settings-inset-bg: var(--surface);
+  --echo-server-dialog-bg: var(--elevated);
+  --echo-dev-pill-bg: var(--elevated);
+  --echo-dev-pill-bg-hover: var(--surface);
+  --echo-avatar-ring-bg: var(--surface);
+
+  /* Settings shell: drop purple wash so AMOLED stays ink-black */
+  --set-modal-backdrop: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.97),
+    rgba(0, 0, 0, 0.94)
+  );
+
+  /* Member profile popout card (MemberProfilePopout.vue only) */
+  --vue-auto-182: color-mix(in srgb, var(--accent) 10%, transparent);
+  --vue-auto-183: color-mix(in srgb, var(--elevated) 92%, transparent);
+  --vue-auto-184: color-mix(in srgb, var(--surface) 94%, transparent);
+  --vue-auto-190: var(--surface);
+
+  /* Role assign panel inside popout (MemberProfileRolePanel.vue only) */
+  --vue-auto-191: color-mix(in srgb, var(--elevated) 93%, transparent);
+  --vue-auto-192: color-mix(in srgb, var(--surface) 94%, transparent);
+
+  /* Full profile modal + DM profile panel (expandedProfileShared.scss only) */
+  --vue-auto-132: rgba(0, 0, 0, 0.82);
+  --vue-auto-133: color-mix(in srgb, var(--accent) 10%, transparent);
+  --vue-auto-134: color-mix(in srgb, var(--elevated) 96%, transparent);
+  --vue-auto-135: color-mix(in srgb, var(--surface) 98%, transparent);
+  --vue-auto-136: color-mix(in srgb, var(--surface) 88%, transparent);
+  --vue-auto-071: var(--surface);
+
+  /*
+   * Rail overlay panels (DM, Extra servers, Explore, etc.) reuse the same
+   * “liquid glass” gradient tokens. Default dark keeps a navy wash; AMOLED
+   * should match the pure-black shell.
+   */
+  --vue-auto-022: transparent;
+  --vue-auto-023: var(--bg);
+  --vue-auto-024: var(--bg);
+  --vue-auto-027: transparent;
+
+  /* Tighter glass fills on ink-black so chrome stays subtle */
+  --ui-glass-1: rgba(255, 255, 255, 0.042);
+  --ui-glass-2: rgba(255, 255, 255, 0.065);
+  --ui-glass-3: rgba(255, 255, 255, 0.095);
+  --ui-glass-hover: rgba(255, 255, 255, 0.082);
+  --ui-glass-active: rgba(255, 255, 255, 0.11);
+
+  /*
+   * Voice dock (bottom VC controls): default dark uses purple-tinted glass;
+   * AMOLED keeps the same ink-black shell as channel rail / chat (#000 / --elevated).
+   */
+  --vc-panel-bg: var(--bg);
+  --vc-device-list-bg: rgba(0, 0, 0, 0.38);
+  --vc-device-row-hover-bg: rgba(255, 255, 255, 0.055);
+  --vc-device-row-selected-bg: rgba(255, 255, 255, 0.078);
+  --vc-slider-track: rgba(255, 255, 255, 0.06);
+  --vc-row-btn-hover: rgba(255, 255, 255, 0.06);
+  --vc-ctrl-bg: rgba(255, 255, 255, 0.045);
+  --vc-ctrl-bg-hover: rgba(255, 255, 255, 0.09);
+  --vc-ctrl-bg-active: rgba(255, 255, 255, 0.12);
+  --vc-indicator-pill-bg: color-mix(in srgb, var(--elevated) 94%, transparent);
+  --vc-indicator-badge-bg: rgba(37, 99, 235, 0.82);
+
+  /* Paper — soft professional dark (not ink-black) */
+  --paper-workspace-bg: #1a1522;
+  --paper-surface-bg: #16161c;
+  --paper-surface-fg: rgba(255, 255, 255, 0.93);
+  --paper-surface-muted: rgba(255, 255, 255, 0.56);
+  --paper-surface-border: rgba(255, 255, 255, 0.09);
+  --paper-surface-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --paper-comment-card-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  --paper-pin-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}

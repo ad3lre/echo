@@ -5,6 +5,10 @@ import { config } from '../config';
 export type AccessTokenPayload = {
   sub: string; // user id
   username: string;
+  /** Server session id — present on session-bound native bearer tokens only. */
+  sid?: string;
+  /** Distinguishes session-bound native tokens from legacy stateless bearer JWTs. */
+  typ?: string;
 };
 
 export function signAccessToken(payload: AccessTokenPayload): string {

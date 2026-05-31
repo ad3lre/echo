@@ -66,11 +66,7 @@ function truncateForReply(text: string, maxLen = 60): string {
         :session-key="
           replyToMessage?.authorId ?? message.replyTo.messageId ?? 'reply'
         "
-        :img-class="
-          quotedAuthorOffline
-            ? 'rounded-full object-cover grayscale'
-            : 'rounded-full object-cover'
-        "
+        img-class="rounded-full object-cover"
       />
     </div>
     <span class="text-xs truncate text-muted">

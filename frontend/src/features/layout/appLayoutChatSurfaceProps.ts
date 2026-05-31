@@ -234,6 +234,9 @@ export type AppLayoutChatSurfaceProps = {
   resolveDmMentionNotificationAuthorName: (
     row: import('@/features/dm/collectDmMentionNotifications').DmMentionNotificationRow,
   ) => string;
+  resolveDmMentionNotificationRowPreview: (
+    row: import('@/features/dm/collectDmMentionNotifications').DmMentionNotificationRow,
+  ) => string;
   /** Per-channel read cursors (Echo attention) for mention inbox read/unread filters. */
   dmNotificationReadStateByChannelId: Readonly<Record<string, string | null>>;
   mentionNotificationCategoriesByServer: Readonly<
@@ -598,6 +601,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'mentionNotificationHydrationLoading',
   'resolveDmMentionNotificationChannelLabel',
   'resolveDmMentionNotificationAuthorName',
+  'resolveDmMentionNotificationRowPreview',
   'dmNotificationReadStateByChannelId',
   'mentionNotificationCategoriesByServer',
   'mentionNotificationServers',

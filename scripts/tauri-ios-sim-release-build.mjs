@@ -154,11 +154,23 @@ function main() {
   }
 
   const tauriJs = path.join(root, 'node_modules/@tauri-apps/cli/tauri.js');
+  /**
+   * The Echo Tauri shell **requires** `VITE_API_URL` at build time — `config.ts`'s
+   * `resolveApiBase()` throws when it is missing. That throw runs at module import
+   * (`export const API_BASE = resolveApiBase()`), i.e. **before** `bootstrap()`'s
+   * `.catch()` fatal fallback can attach, so a build without it boots to a permanent
+   * blank screen with no error UI. Bake a default (overridable) so this release sim
+   * bundle actually launches into the app. Mirrors `tauri:ios:build:chat-echo`.
+   */
+  const apiUrl = process.env.VITE_API_URL?.trim() || 'https://chat-echo.com';
+  const socketUrl = process.env.VITE_SOCKET_IO_URL?.trim() || apiUrl;
   const env = {
     ...process.env,
     VITE_ECHO_TAURI: '1',
     VITE_ECHO_IOS: '1',
     ECHO_TAURI_IOS: '1',
+    VITE_API_URL: apiUrl,
+    VITE_SOCKET_IO_URL: socketUrl,
     CI: process.env.CI || '1',
     APPLE_DEVELOPMENT_TEAM: process.env.APPLE_DEVELOPMENT_TEAM || '7HBQV8236H',
     CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS || '2',
@@ -204,7 +216,10 @@ function main() {
       env: {
         ...process.env,
         VITE_ECHO_TAURI: '1',
+        VITE_ECHO_IOS: '1',
         ECHO_TAURI_IOS: '1',
+        VITE_API_URL: apiUrl,
+        VITE_SOCKET_IO_URL: socketUrl,
       },
       stdio: 'inherit',
       shell: true,

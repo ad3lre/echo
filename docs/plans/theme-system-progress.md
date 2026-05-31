@@ -16,19 +16,19 @@
 
 ### Tokens and Tailwind
 
-- **Palette:** `frontend/src/assets/themes.css` — core tokens, glass/legacy aliases, DM/call chrome, markdown/mention/VC/settings/server-settings composites, explore/slowmode helpers, and `**--vue-auto-*`\*\* entries mapping former Vue inline/style literals (both themes).
+- **Palette:** `frontend/src/assets/themes.scss` (+ partials under `themes/`) — core tokens, glass/legacy aliases, DM/call chrome, markdown/mention/VC/settings/server-settings composites, explore/slowmode helpers, and `**--vue-auto-*`\*\* entries mapping former Vue inline/style literals (both themes).
 - **Tailwind bridge:** `frontend/src/assets/tailwind.css` `@theme` utilities.
 
 ### UI migration
 
-- Legacy SCSS (`main.scss`, channel panel, message bubbles, settings + server settings modals) uses `var(--…)` only; raw literals live in `themes.css`.
+- Legacy SCSS (`main.scss`, channel panel, message bubbles, settings + server settings modals) uses `var(--…)` only; raw literals live in `themes.scss`.
 - Vue SFC `<style>` blocks: literals replaced with `var(--vue-auto-*)` or named tokens; inline template colors removed where Stylelint parsed them (e.g. ExploreView, ChatInput slowmode).
 
 ### Enforcement and CI
 
 - **ESLint:** `frontend/eslint.config.js` — Vue essential + theme `no-restricted-syntax` on `*.vue` / `*.ts`; `npm run lint -w frontend` uses `--quiet`.
 - `**npm run lint:theme -w frontend`:\*\* `ESLINT_THEME_STRICT=1`, `--max-warnings 0`.
-- **Stylelint:** `frontend/stylelint.config.mjs` — `color-no-hex` + disallowed color functions on `**/*.scss` and `**/*.vue` (`postcss-scss` / `postcss-html`); `themes.css` ignored.
+- **Stylelint:** `frontend/stylelint.config.mjs` — `color-no-hex` + disallowed color functions on `**/*.scss` and `**/*.vue` (`postcss-scss` / `postcss-html`); `themes.scss` + `themes/**` ignored.
 - **Grep script sunset:** `scripts/check-theme-no-raw-colors.mjs` and `scripts/theme-raw-colors-allowlist.txt` **removed**; CI relies on Stylelint + ESLint only.
 
 ### Documentation
@@ -64,7 +64,7 @@
 | Resolver + DOM write | `frontend/src/utils/theme.ts`            |
 | Store                | `frontend/src/stores/theme.ts`           |
 | Bootstrap            | `frontend/src/main.ts`                   |
-| Tokens               | `frontend/src/assets/themes.css`         |
+| Tokens               | `frontend/src/assets/themes.scss`        |
 | Tailwind             | `frontend/src/assets/tailwind.css`       |
 | ESLint               | `frontend/eslint.config.js`              |
 | Stylelint            | `frontend/stylelint.config.mjs`          |

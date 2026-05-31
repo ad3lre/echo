@@ -9,6 +9,13 @@ import {
   saveServerSession,
 } from './serverSession';
 import { setBrowserSessionCookies } from './sessionCookies';
+import {
+  buildNativeAuthResponse,
+  nativeBearerEnabledForRequest,
+  signSessionBoundAccessToken,
+  type NativeAuthTokens,
+} from './nativeBearer';
+import type { EchoBrowserSessionResult } from './authSessionResponse';
 
 export function refreshTokenExpiryIso(): string {
   const ms = config.refreshTokenTtlDays * 24 * 60 * 60 * 1000;
@@ -20,7 +27,7 @@ export async function issueEchoBrowserSession(
   user: { id: string; username: string },
   reply: FastifyReply,
   request?: FastifyRequest,
-): Promise<{ user: AuthUser; csrfToken: string }> {
+): Promise<EchoBrowserSessionResult> {
   const refreshToken = createRefreshToken();
   const refreshTokenHash = hashRefreshToken(refreshToken);
   const rec = await store.storeRefreshToken(
@@ -45,5 +52,15 @@ export async function issueEchoBrowserSession(
     { sessionId, csrfSecret, refreshToken },
     request,
   );
-  return { user: full, csrfToken: csrfSecret };
+  const base = { user: full, csrfToken: csrfSecret };
+  if (!nativeBearerEnabledForRequest(request)) return base;
+  const accessToken = signSessionBoundAccessToken({
+    userId: user.id,
+    username: user.username,
+    sessionId,
+  });
+  return {
+    ...base,
+    nativeAuth: buildNativeAuthResponse(accessToken, refreshToken).auth,
+  };
 }

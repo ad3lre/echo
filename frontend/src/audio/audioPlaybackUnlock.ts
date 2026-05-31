@@ -1,3 +1,5 @@
+import { getIsIosSimulator } from '@/platform/iosNativeFeedback';
+
 const SILENT_AUDIO_DATA_URL =
   'data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YRAAAAAA';
 
@@ -19,6 +21,10 @@ function flushUnlockCallbacks(): void {
 
 async function primeHtmlAudioPlayback(): Promise<void> {
   if (typeof Audio === 'undefined') return;
+  /* iOS Simulator: playing even a silent HTMLAudio clip starts the audio output
+   * unit, whose CoreAudio RPC times out and aborts WebKit's GPU process. Skip on
+   * the Simulator only; real devices and other targets are unaffected. */
+  if (getIsIosSimulator()) return;
   const audio = new Audio(SILENT_AUDIO_DATA_URL);
   audio.preload = 'auto';
   audio.setAttribute('playsinline', '');

@@ -149,5 +149,50 @@ describe('buildMentionNotificationSourceChips', () => {
       `channel:${CH_GUILD}`,
     ]);
     expect(chips.find((c) => c.key === `server:${SRV}`)?.label).toBe('Acme');
+    expect(chips.find((c) => c.key === 'all')?.visual.kind).toBe('svg');
+    expect(chips.find((c) => c.key === 'dms')?.visual.kind).toBe('svg');
+    expect(chips.find((c) => c.key === `server:${SRV}`)?.visual.kind).toBe(
+      'avatar',
+    );
+    expect(
+      chips.find((c) => c.key === `channel:${CH_GUILD}`)?.visual.kind,
+    ).toBe('svg');
+  });
+
+  it('uses server guild icons and DM peer avatars when available', () => {
+    const chips = buildMentionNotificationSourceChips({
+      rows: [
+        row({
+          channelId: 'dm-peer',
+          channelLabel: 'River',
+          key: '1',
+        }),
+        row({
+          channelId: CH_GUILD,
+          channelLabel: 'general',
+          key: '2',
+        }),
+      ],
+      categoriesByServer,
+      serverNameById: { [SRV]: 'Acme' },
+      serverImageUrlById: { [SRV]: 'https://cdn.example/guild.png' },
+      users: [
+        { id: 'peer-1', name: 'River', pfp: 'https://cdn.example/pfp.png' },
+      ],
+      echoDmPeerByChannelId: new Map([['dm-peer', 'peer-1']]),
+      isPersistedEchoDmThread: () => false,
+      maxChannelChips: 10,
+    });
+
+    expect(chips.find((c) => c.key === `server:${SRV}`)?.visual).toEqual({
+      kind: 'avatar',
+      url: 'https://cdn.example/guild.png',
+      alt: 'Acme',
+    });
+    expect(chips.find((c) => c.key === 'channel:dm-peer')?.visual).toEqual({
+      kind: 'avatar',
+      url: 'https://cdn.example/pfp.png',
+      alt: 'River',
+    });
   });
 });

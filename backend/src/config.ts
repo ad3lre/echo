@@ -564,6 +564,11 @@ interface AppConfig {
    * so enable only for API clients / tooling that need it (`AUTH_LEGACY_BEARER=true`).
    */
   readonly authLegacyBearer: boolean;
+  /**
+   * When true, iOS native clients may authenticate with session-bound bearer tokens
+   * (`Authorization: Bearer` + `X-Echo-Client: ios`) minted alongside cookie sessions.
+   */
+  readonly authNativeBearer: boolean;
   /** Delete `auth_login_events` older than this many days (retention job). */
   readonly echoLoginEventsRetentionDays: number;
   /** How often to run login event pruning (ms). 0 disables. */
@@ -1612,6 +1617,8 @@ export const config: AppConfig = {
     process.env.ECHO_DISCORD_TOKEN_ENCRYPTION_KEY?.trim() || null,
   redisUrl: process.env.REDIS_URL?.trim() || null,
   authLegacyBearer: parseBoolean(process.env.AUTH_LEGACY_BEARER, false),
+  /** Session-bound bearer for iOS native shell; safe in production (revocable via server session). */
+  authNativeBearer: parseBoolean(process.env.AUTH_NATIVE_BEARER, false),
   echoLoginEventsRetentionDays: (() => {
     const raw = process.env.ECHO_LOGIN_EVENTS_RETENTION_DAYS;
     if (raw === undefined || raw === '') return 90;
@@ -1784,6 +1791,7 @@ if (config.isProduction) {
     echoSmsOtpPepper: config.echoSmsOtpPepper,
     echo2faEncryptionKey: config.echo2faEncryptionKey,
     authLegacyBearer: config.authLegacyBearer,
+    authNativeBearer: config.authNativeBearer,
     echoRequireRedisInProduction: config.echoRequireRedisInProduction,
     redisUrl: config.redisUrl,
     echoLocalUploadDir: config.echoLocalUploadDir,

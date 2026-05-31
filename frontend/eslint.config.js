@@ -53,7 +53,7 @@ const baseIgnores = {
     'cypress/**',
     'node_modules/**',
     'coverage/**',
-    'src/assets/themes.css',
+    'src/assets/themes.scss',
     '**/*.scss',
     '**/vite-env.d.ts',
   ],

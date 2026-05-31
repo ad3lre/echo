@@ -1,7 +1,7 @@
 /*
- * Glass & accent tokens now live in themes.css (Phase B).
+ * Glass & accent tokens now live in themes.scss (Phase B).
  * Legacy var(--chat-glass-*) / var(--chat-accent*) still work because
- * themes.css defines them per [data-theme].
+ * themes.scss defines them per [data-theme].
  */
 
 html.echo-shell-ios {

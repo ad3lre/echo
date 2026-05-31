@@ -347,11 +347,7 @@ function memberRowPresence(member: GroupMember): PresenceSelection {
                 :src="safeImageUrl(member.pfp)"
                 :alt="member.name"
                 :session-key="member.id"
-                :img-class="
-                  memberRowPresence(member).isOffline
-                    ? 'rounded-full object-cover grayscale'
-                    : 'rounded-full object-cover'
-                "
+                img-class="rounded-full object-cover"
               />
             </div>
             <StatusIndicator

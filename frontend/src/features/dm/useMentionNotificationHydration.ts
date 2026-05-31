@@ -8,10 +8,13 @@ import {
   resolveMentionNotificationScanChannelIds,
 } from '@/features/dm/mentionNotificationAuthority';
 import {
+  mergeMentionNotificationPrefetchTargets,
   prefetchMentionNotificationChannels,
   resolveMentionNotificationPrefetchTargets,
+  resolveMentionNotificationPrefetchTargetsFromStubRows,
   type MentionNotificationPrefetchTarget,
 } from '@/features/dm/prefetchMentionNotificationChannels';
+import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
 import { hasChannelMessageInBucket } from '@/services/realtime/channelMessageAuthority';
 import { shouldSkipChannelMessagePrefetch } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -35,11 +38,14 @@ function resolveStubChannelIds(
 function filterHydrationTargets(
   targets: readonly MentionNotificationPrefetchTarget[],
   failedChannelIds: ReadonlySet<string>,
+  retryChannelIds: ReadonlySet<string>,
 ): MentionNotificationPrefetchTarget[] {
   if (failedChannelIds.size === 0) return [...targets];
-  return targets.filter(
-    (target) => !failedChannelIds.has(target.channelId.trim()),
-  );
+  return targets.filter((target) => {
+    const channelId = target.channelId.trim();
+    if (retryChannelIds.has(channelId)) return true;
+    return !failedChannelIds.has(channelId);
+  });
 }
 
 /**
@@ -52,6 +58,7 @@ export function useMentionNotificationHydration(input: {
   activeChannelId?: Ref<string | null | undefined>;
 }) {
   const auth = useAuthSessionStore();
+  const { accessToken, isAuthenticated } = storeToRefs(auth);
   const echoAttention = useEchoAttentionStore();
   const {
     channelAttentionByChannelId,
@@ -97,11 +104,20 @@ export function useMentionNotificationHydration(input: {
   }
 
   async function hydrateMentionChannels(): Promise<void> {
-    const token = auth.accessToken?.trim() ?? '';
-    if (!token || !auth.isAuthenticated) {
+    if (!isAuthenticated.value) {
       loading.value = false;
       return;
     }
+
+    const token = accessToken.value?.trim() ?? '';
+    if (!token) {
+      loading.value = false;
+      return;
+    }
+
+    const rows = input.rows.value;
+    const stubChannelIds = resolveStubChannelIds(rows);
+    const retryChannelIds = new Set(stubChannelIds);
 
     const scanChannelIds = resolveMentionNotificationScanChannelIds({
       channelAttentionByChannelId: channelAttentionByChannelId.value,
@@ -110,20 +126,27 @@ export function useMentionNotificationHydration(input: {
         serverNotificationLevelByServerId.value,
     });
 
-    const allTargets = resolveMentionNotificationPrefetchTargets({
+    const attentionTargets = resolveMentionNotificationPrefetchTargets({
       channelAttentionByChannelId: channelAttentionByChannelId.value,
       readStateByChannelId: readStateByChannelId.value,
       serverNotificationLevelByServerId:
         serverNotificationLevelByServerId.value,
       messagesByChannelId: buildCachedMessagesMapForPrefetch(scanChannelIds),
-      prioritizeChannelIds: resolveStubChannelIds(input.rows.value),
+      prioritizeChannelIds: stubChannelIds,
     });
-
-    const targets = filterHydrationTargets(allTargets, failedChannelIds.value);
-
-    const hasLoadingStubs = mentionNotificationRowsHaveLoadingStubs(
-      input.rows.value,
+    const stubTargets =
+      resolveMentionNotificationPrefetchTargetsFromStubRows(rows);
+    const allTargets = mergeMentionNotificationPrefetchTargets(
+      attentionTargets,
+      stubTargets,
     );
+    const targets = filterHydrationTargets(
+      allTargets,
+      failedChannelIds.value,
+      retryChannelIds,
+    );
+
+    const hasLoadingStubs = mentionNotificationRowsHaveLoadingStubs(rows);
 
     if (targets.length === 0) {
       loading.value = false;
@@ -136,8 +159,7 @@ export function useMentionNotificationHydration(input: {
     }
 
     const expectInitialLoad =
-      input.rows.value.length === 0 &&
-      targets.some((target) => !!target.anchorMessageId);
+      rows.length === 0 && targets.some((target) => !!target.anchorMessageId);
 
     if (expectInitialLoad) loading.value = true;
 
@@ -177,8 +199,10 @@ export function useMentionNotificationHydration(input: {
       channelAttentionByChannelId,
       readStateByChannelId,
       serverNotificationLevelByServerId,
-      () =>
-        input.rows.value.map((row) => `${row.key}:${row.preview}`).join('|'),
+      accessToken,
+      isAuthenticated,
+      () => messageReadFacade.globalResolverVersion.value,
+      () => rowsSignature(input.rows.value),
     ],
     () => {
       scheduleHydrate();
@@ -187,4 +211,8 @@ export function useMentionNotificationHydration(input: {
   );
 
   return { loading, failedChannelIds };
+}
+
+function rowsSignature(rows: readonly DmMentionNotificationRow[]): string {
+  return rows.map((row) => `${row.key}:${row.preview}`).join('|');
 }

@@ -478,12 +478,7 @@ function sendFriendRequestTo(userId: string) {
                               :src="safeImageUrl(user.pfp)"
                               :alt="user.name"
                               :session-key="user.id"
-                              :img-class="
-                                selectPresence({ rowStatus: user.status })
-                                  .isOffline
-                                  ? 'rounded-full object-cover grayscale'
-                                  : 'rounded-full object-cover'
-                              "
+                              img-class="rounded-full object-cover"
                             />
                           </div>
                           <span

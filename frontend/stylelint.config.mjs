@@ -1,6 +1,6 @@
 /**
  * Theme-focused Stylelint: raw palette literals in UI-layer SCSS and Vue SFC styles.
- * Token layer: themes.css ignored (AGENTS.md).
+ * Token layer: themes.scss ignored (AGENTS.md).
  */
 /** @type {import('stylelint').Config} */
 const colorRules = {
@@ -35,7 +35,8 @@ export default {
     '**/node_modules/**',
     '**/dist/**',
     '**/coverage/**',
-    'src/assets/themes.css',
+    'src/assets/themes.scss',
+    'src/assets/themes/**',
   ],
   overrides: [
     {
@@ -47,11 +48,15 @@ export default {
     {
       files: [
         'src/assets/main.scss',
+        'src/assets/accessibility.scss',
         'src/components/expandedProfileShared.scss',
         'src/features/channel-panel/styles/channelPanel.scss',
         'src/features/channel-panel/styles/channelPanelListParticipant.scss',
         'src/features/chat/styles/messageBubble.scss',
         'src/features/settings/styles/settingsModal.scss',
+        'src/features/voice/styles/wordlineActivity.scss',
+        'src/features/voice/styles/ticTacToeActivity.scss',
+        'src/features/paper/styles/paperTheme.scss',
       ],
       customSyntax: 'postcss-scss',
       rules: {
@@ -67,7 +72,7 @@ export default {
         'function-disallowed-list': null,
       },
     },
-    /* Theme swatch miniatures: explicit hex/rgba mirroring themes.css (token file is ignored). */
+    /* Theme swatch miniatures: explicit hex/rgba mirroring themes.scss (token file is ignored). */
     {
       files: ['src/features/settings/components/SettingsAppearance.vue'],
       customSyntax: 'postcss-html',

@@ -2,6 +2,10 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { sendError } from '../api/errors';
 import { config } from '../config';
 import { verifyAccessToken } from './token';
+import {
+  nativeBearerEnabledForRequest,
+  verifySessionBoundAccessToken,
+} from './nativeBearer';
 import { getAuthStore } from './store';
 import type { AuthUser } from './types';
 import {
@@ -17,6 +21,8 @@ declare module 'fastify' {
     authUser?: AuthUser;
     /** Set when authenticated via `echo_sid` cookie session. */
     authSessionId?: string;
+    /** Set when authenticated via session-bound native bearer token. */
+    authViaNativeBearer?: boolean;
   }
 }
 
@@ -115,6 +121,64 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
         },
         'auth_reject',
       );
+    }
+  }
+
+  if (config.authNativeBearer) {
+    const header = req.headers.authorization;
+    if (header && typeof header === 'string' && header.startsWith('Bearer ')) {
+      const token = header.slice('Bearer '.length);
+      try {
+        const payload = verifySessionBoundAccessToken(token);
+        const sess = await getServerSession(payload.sid);
+        if (sess && sess.userId === payload.sub) {
+          const { store } = await getAuthStore();
+          const active = await store.findRefreshTokenById(sess.refreshTokenId);
+          if (active && active.userId === sess.userId) {
+            const user = await store.getUserById(sess.userId);
+            if (!user) {
+              await deleteServerSession(payload.sid, sess.userId);
+              return sendError(reply, 401, 'UNAUTHORIZED', 'User not found');
+            }
+            const gate = checkGuestGates(user);
+            if (gate) {
+              if (gate.code === 401) {
+                await deleteServerSession(payload.sid, sess.userId);
+              }
+              return sendError(reply, gate.code, gate.errorCode, gate.message);
+            }
+            req.authSessionId = payload.sid;
+            req.authUser = user;
+            req.authViaNativeBearer = true;
+            void touchServerSession(payload.sid);
+            return;
+          }
+        }
+        if (sess) {
+          await deleteServerSession(payload.sid, sess.userId);
+        }
+      } catch {
+        if (debugAuth) {
+          req.log.warn(
+            {
+              msg: 'echo.debug.auth.reject',
+              reason: 'native_bearer_invalid_or_expired',
+              requestId: req.id,
+              method: req.method,
+              url: req.url,
+              origin: req.headers.origin,
+              host: req.headers.host,
+            },
+            'auth_reject',
+          );
+        }
+        return sendError(
+          reply,
+          401,
+          'UNAUTHORIZED',
+          'Invalid or expired token',
+        );
+      }
     }
   }
 

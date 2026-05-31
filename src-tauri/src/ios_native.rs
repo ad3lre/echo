@@ -31,6 +31,19 @@ pub fn ios_native_haptic(kind: Option<IosHapticKind>) -> IosHapticResult {
     }
 }
 
+/// Whether the app is running inside the iOS Simulator (vs a physical device).
+///
+/// The Simulator injects `SIMULATOR_UDID` (and other `SIMULATOR_*` vars) into
+/// every hosted process' environment; physical devices do not. The frontend uses
+/// this to skip Web Audio priming on the Simulator, whose CoreAudio HAL frequently
+/// times out starting an `AURemoteIO` and aborts WebKit's GPU process
+/// (`AudioOutputUnitAdaptor::start()` → `_ReportRPCTimeout`). Real devices are
+/// unaffected, so this is gated to the Simulator only and never changes device behavior.
+#[tauri::command]
+pub fn ios_is_simulator() -> bool {
+    cfg!(target_os = "ios") && std::env::var_os("SIMULATOR_UDID").is_some()
+}
+
 #[cfg(target_os = "ios")]
 mod platform {
     use super::IosHapticKind;

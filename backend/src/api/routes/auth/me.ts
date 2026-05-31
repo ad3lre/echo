@@ -18,6 +18,10 @@ import { fanoutUserProfileChangeToEchoServers } from '../../../services/echoUser
 import { buildEchoPlanLimitsPublic } from '../../../domain/echoPlanEntitlements';
 import { getEchoPlusInterestForUser } from '../../../domain/echoPlusInterest';
 import { validateEchoStoredBrandingUrl } from '../../../services/storedMediaUrl';
+import {
+  isDiscordAvatarCdnUrl,
+  mirrorDiscordImportAvatarToEcho,
+} from '../../../services/discordImportAvatarMirror';
 import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSessionRevocation';
 import { normalizeProfileBannerColor } from '../../../../../shared/profileBannerColor';
 import { publicBadgesFromAccount } from '../../../../../shared/echoAccountBadges';
@@ -453,7 +457,29 @@ export default async function meRoutes(fastify: FastifyInstance) {
       }
 
       if (patch.pfp !== undefined) {
-        const t = patch.pfp.trim();
+        let t = patch.pfp.trim();
+        if (t.length > 0 && isDiscordAvatarCdnUrl(t)) {
+          const pool = getPgPool();
+          if (pool) {
+            const link = await pool.query<{ discord_user_id: string }>(
+              `SELECT discord_user_id FROM auth_discord_user_links WHERE user_id = $1`,
+              [req.authUser.id],
+            );
+            const discordUserId =
+              link.rows.length > 0
+                ? String(link.rows[0].discord_user_id).trim()
+                : '';
+            if (discordUserId) {
+              const mirrored = await mirrorDiscordImportAvatarToEcho(
+                pool,
+                req.authUser.id,
+                discordUserId,
+                t,
+              );
+              if (mirrored) t = mirrored;
+            }
+          }
+        }
         if (t.length > 0) {
           const v = validateEchoStoredBrandingUrl(t);
           if (!v.ok) {

@@ -1004,12 +1004,7 @@ watch(
                       :src="safeImageUrl(entry.pfp)"
                       :alt="entry.name"
                       :session-key="entry.id"
-                      :img-class="
-                        entry.kind === 'user' &&
-                        dmInboxUserPresence(entry).isOffline
-                          ? 'rounded-full object-cover grayscale'
-                          : 'rounded-full object-cover'
-                      "
+                      img-class="rounded-full object-cover"
                     />
                   </div>
                   <StatusIndicator
@@ -1159,11 +1154,7 @@ watch(
                         :src="safeImageUrl(user.pfp)"
                         :alt="user.name"
                         :session-key="user.id"
-                        :img-class="
-                          friendRowPresence(user).isOffline
-                            ? 'rounded-full object-cover grayscale'
-                            : 'rounded-full object-cover'
-                        "
+                        img-class="rounded-full object-cover"
                       />
                     </div>
                     <StatusIndicator

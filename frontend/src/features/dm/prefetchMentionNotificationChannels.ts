@@ -1,4 +1,6 @@
 import type { EchoAttentionChannelSummary } from '@shared/types';
+import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
+import { MENTION_NOTIFICATION_STUB_PREVIEW } from '@/features/dm/mentionNotificationAuthority';
 import type { ServerNotificationLevel } from '@/features/server-notifications/types';
 import {
   applyAttentionNotificationLevel,
@@ -165,6 +167,46 @@ export function resolveMentionNotificationPrefetchTargets(input: {
   }
 
   return targets;
+}
+
+/** Prefetch targets derived from visible stub rows (exact anchor message ids). */
+export function resolveMentionNotificationPrefetchTargetsFromStubRows(
+  rows: readonly Pick<
+    DmMentionNotificationRow,
+    'channelId' | 'messageId' | 'preview'
+  >[],
+): MentionNotificationPrefetchTarget[] {
+  const targets: MentionNotificationPrefetchTarget[] = [];
+  const seen = new Set<string>();
+
+  for (const row of rows) {
+    if (row.preview !== MENTION_NOTIFICATION_STUB_PREVIEW) continue;
+    const channelId = row.channelId.trim();
+    const anchorMessageId = row.messageId.trim();
+    if (!channelId || !anchorMessageId || seen.has(channelId)) continue;
+    if (hasChannelMessageInBucket(channelId, anchorMessageId)) continue;
+    seen.add(channelId);
+    targets.push({ channelId, anchorMessageId });
+  }
+
+  return targets;
+}
+
+export function mergeMentionNotificationPrefetchTargets(
+  primary: readonly MentionNotificationPrefetchTarget[],
+  secondary: readonly MentionNotificationPrefetchTarget[],
+): MentionNotificationPrefetchTarget[] {
+  const out = [...primary];
+  const seen = new Set(primary.map((target) => target.channelId.trim()));
+
+  for (const target of secondary) {
+    const channelId = target.channelId.trim();
+    if (!channelId || seen.has(channelId)) continue;
+    seen.add(channelId);
+    out.push(target);
+  }
+
+  return out;
 }
 
 /**

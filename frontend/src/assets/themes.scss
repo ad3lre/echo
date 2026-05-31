@@ -1,0 +1,25 @@
+/*
+ * Echo — semantic theme palette (Phase B)
+ *
+ * TOKEN LAYER: raw color values are expected here. The UI layer must reference
+ * these variables via var(--…) or semantic classes — never hardcoded hex/rgb.
+ *
+ * Seven core tokens:
+ *   --bg        App / page background
+ *   --surface   Primary panels, sidebars
+ *   --elevated  Cards, modals, popovers
+ *   --text      Primary foreground
+ *   --muted     Secondary / de-emphasized text
+ *   --border    Dividers, hairlines
+ *   --accent    Links, focus, key actions
+ *
+ * Glass & legacy tokens are aliased per-theme so existing var(--chat-glass-*)
+ * usage keeps working while new code migrates to the core seven.
+ */
+
+@use 'themes/dark';
+@use 'themes/dark-amoled';
+@use 'themes/light';
+@use 'themes/light-sunny';
+@use 'themes/vibrant-and-touch';
+@use 'themes/utilities';

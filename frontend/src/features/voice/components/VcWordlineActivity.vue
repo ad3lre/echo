@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toRef } from 'vue';
-import '@/features/voice/wordline/wordline-activity.css';
+import '@/features/voice/styles/wordlineActivity.scss';
 import { useWordlineGame } from '@/features/voice/wordline/useWordlineGame';
 const props = defineProps<{
   accountUserId?: string | null;

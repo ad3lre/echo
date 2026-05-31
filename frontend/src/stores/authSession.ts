@@ -25,6 +25,7 @@ import {
   iosAuthSessionRestoreFailed,
   iosAuthMarkVerified,
 } from '@/services/auth/iosNativeAuth';
+import { clearNativeAuthTokens } from '@/services/auth/nativeAuthToken';
 import {
   setSkipAutoGuestAfterLogout,
   clearSkipAutoGuestAfterLogout,
@@ -268,6 +269,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     clearAuthUserCache();
     isSessionUnverified.value = false;
     void iosAuthClearSession();
+    void clearNativeAuthTokens();
   }
 
   /**

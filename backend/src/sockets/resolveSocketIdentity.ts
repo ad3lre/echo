@@ -5,6 +5,7 @@ import { config } from '../config';
 import { getAuthStore } from '../auth/store';
 import type { AuthUser } from '../auth/types';
 import { verifyAccessToken } from '../auth/token';
+import { verifySessionBoundAccessToken } from '../auth/nativeBearer';
 import {
   LEGACY_SESSION_COOKIE,
   SESSION_COOKIE,
@@ -96,6 +97,48 @@ export async function resolveSocketIdentity(
   }
 
   const token = getSocketToken(handshake);
+  if (token && config.authNativeBearer) {
+    try {
+      const payload = verifySessionBoundAccessToken(token);
+      const sess = await getServerSession(payload.sid);
+      if (sess && sess.userId === payload.sub) {
+        const { store } = await getAuthStore();
+        const rt = await store.findRefreshTokenById(sess.refreshTokenId);
+        if (rt && rt.userId === sess.userId) {
+          const user = await store.getUserById(sess.userId);
+          if (user) {
+            if (user.isGuest && user.guestDeletedAt) {
+              return {
+                userId: fallbackUserId,
+                authenticated: false,
+                isGuest: false,
+              };
+            }
+            if (user.isGuest && user.guestSuspendedUntil) {
+              const until = new Date(user.guestSuspendedUntil).getTime();
+              if (until > Date.now()) {
+                return {
+                  userId: fallbackUserId,
+                  authenticated: false,
+                  isGuest: false,
+                };
+              }
+            }
+            return {
+              userId: user.id,
+              authenticated: true,
+              authSessionId: payload.sid,
+              isGuest: !!user.isGuest,
+              profileStatus: user.status,
+            };
+          }
+        }
+      }
+    } catch (err) {
+      log.warn({ socketId, err }, 'Socket native bearer resolve failed');
+    }
+  }
+
   if (token && config.authLegacyBearer) {
     try {
       const payload = verifyAccessToken(token);

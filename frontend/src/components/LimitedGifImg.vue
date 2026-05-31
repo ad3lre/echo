@@ -157,33 +157,18 @@ function onMouseLeave() {
   onPointerLeave();
 }
 
-/** Tailwind `grayscale` on layered GIF <img>s is unreliable in WebKit; hoist to wrapper (see scoped CSS). */
-const wantsGrayscale = computed(() =>
-  /\bgrayscale\b/.test(props.imgClass ?? ''),
-);
-
-const sanitizedImgClass = computed(() =>
-  (props.imgClass ?? '')
-    .replace(/\bgrayscale\b/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim(),
-);
-
-const layoutMode = computed(() =>
-  layoutModeFromImgClass(sanitizedImgClass.value),
-);
+const layoutMode = computed(() => layoutModeFromImgClass(props.imgClass));
 
 /** Stabilized layouts need `relative` for absolutely layered poster/animated. */
 const mergedWrapperClass = computed(() => {
   const base = props.wrapperClass ?? '';
-  const grey = wantsGrayscale.value ? 'limited-gif-img--grayscale' : '';
   if (
     layoutMode.value === 'intrinsic-contain' ||
     layoutMode.value === 'fill-cover'
   ) {
-    return ['relative', base, grey].filter(Boolean).join(' ');
+    return ['relative', base].filter(Boolean).join(' ');
   }
-  return [base, grey].filter(Boolean).join(' ');
+  return base;
 });
 
 /** Layers share one box: sizing comes from full-GIF decode (`safeUrl`), not static PNG. */
@@ -215,7 +200,7 @@ const imgReferrerPolicy = 'no-referrer';
       <img
         :src="safeUrl"
         :alt="alt"
-        :class="sanitizedImgClass"
+        :class="props.imgClass"
         :style="imgStyle"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
@@ -228,7 +213,7 @@ const imgReferrerPolicy = 'no-referrer';
       <img
         :src="staticFrame ?? safeUrl"
         :alt="alt"
-        :class="sanitizedImgClass"
+        :class="props.imgClass"
         :style="imgStyle"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
@@ -239,7 +224,7 @@ const imgReferrerPolicy = 'no-referrer';
         :key="epoch"
         :src="animSrc"
         :alt="alt"
-        :class="sanitizedImgClass"
+        :class="props.imgClass"
         :style="imgStyle"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
@@ -253,7 +238,7 @@ const imgReferrerPolicy = 'no-referrer';
         alt=""
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[sanitizedImgClass, 'invisible']"
+        :class="[props.imgClass, 'invisible']"
         :style="imgStyle"
         @error="onImgError"
       />
@@ -262,7 +247,7 @@ const imgReferrerPolicy = 'no-referrer';
         :alt="alt"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[sanitizedImgClass, fillOverlayClass]"
+        :class="[props.imgClass, fillOverlayClass]"
         :style="imgStyle"
         @error="onImgError"
       />
@@ -273,7 +258,7 @@ const imgReferrerPolicy = 'no-referrer';
         :alt="alt"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[sanitizedImgClass, fillAnimatedOverlayClass]"
+        :class="[props.imgClass, fillAnimatedOverlayClass]"
         :style="imgStyle"
         @error="onImgError"
       />
@@ -285,7 +270,7 @@ const imgReferrerPolicy = 'no-referrer';
         alt=""
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[sanitizedImgClass, 'invisible block']"
+        :class="[props.imgClass, 'invisible block']"
         :style="imgStyle"
         @error="onImgError"
       />
@@ -294,7 +279,7 @@ const imgReferrerPolicy = 'no-referrer';
         :alt="alt"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[sanitizedImgClass, intrinsicPosterOverlayClass]"
+        :class="[props.imgClass, intrinsicPosterOverlayClass]"
         :style="imgStyle"
         @error="onImgError"
       />
@@ -305,19 +290,10 @@ const imgReferrerPolicy = 'no-referrer';
         :alt="alt"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
-        :class="[sanitizedImgClass, intrinsicAnimatedOverlayClass]"
+        :class="[props.imgClass, intrinsicAnimatedOverlayClass]"
         :style="imgStyle"
         @error="onImgError"
       />
     </template>
   </div>
 </template>
-
-<style scoped>
-.limited-gif-img--grayscale {
-  -webkit-filter: grayscale(100%);
-  filter: grayscale(100%);
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-}
-</style>

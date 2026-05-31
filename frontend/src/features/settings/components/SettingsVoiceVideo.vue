@@ -909,7 +909,7 @@ watch(
 </template>
 
 <style scoped lang="scss">
-/* Match VC panel slider fill (theme vars from themes.css). */
+/* Match VC panel slider fill (theme vars from themes.scss). */
 .settings-voice-slider {
   --value: 0%;
   height: 0.375rem;

@@ -7,6 +7,7 @@ import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNot
 import {
   buildMentionNotificationSourceChips,
   filterDmMentionNotificationRows,
+  type MentionNotificationPlaceVisual,
   type MentionNotificationSourceChip,
   type NotificationReadPreset,
   type NotificationSourceSelection,
@@ -28,10 +29,16 @@ const props = defineProps<{
   rows: DmMentionNotificationRow[];
   resolveChannelLabel: (channelId: string) => string;
   resolveAuthorName: (row: DmMentionNotificationRow) => string;
+  resolvePreview: (row: DmMentionNotificationRow) => string;
   users: { id: string; name: string; pfp: string; status?: string }[];
   readStateByChannelId: Readonly<Record<string, string | null>>;
   categoriesByServer: Readonly<Record<string, ChannelCategory[]>>;
-  mentionServers: ReadonlyArray<{ id: string; name: string }>;
+  mentionServers: ReadonlyArray<{
+    id: string;
+    name: string;
+    imageUrl?: string;
+  }>;
+  echoPeerByChannelId?: ReadonlyMap<string, string>;
   isPersistedEchoDmThread: (channelId: string) => boolean;
   readPreset?: NotificationReadPreset;
   sourceKey?: string;
@@ -48,7 +55,7 @@ const emit = defineEmits<{
   'back-to-messages': [];
 }>();
 
-const localReadPreset = ref<NotificationReadPreset>('all');
+const localReadPreset = ref<NotificationReadPreset>('unread');
 const localSourceKey = ref('all');
 const contextRow = ref<DmMentionNotificationRow | null>(null);
 
@@ -82,6 +89,14 @@ const selectedSourceKey = computed<string>({
   },
 });
 
+watch(
+  () => props.readPreset,
+  (preset) => {
+    if (preset === 'read') readPreset.value = 'all';
+  },
+  { immediate: true },
+);
+
 const usersById = computed(
   () => new Map(props.users.map((u) => [u.id, u] as const)),
 );
@@ -94,11 +109,22 @@ const serverNameById = computed<Record<string, string>>(() => {
   return m;
 });
 
+const serverImageUrlById = computed<Record<string, string | undefined>>(() => {
+  const m: Record<string, string | undefined> = {};
+  for (const s of props.mentionServers) {
+    m[s.id] = s.imageUrl;
+  }
+  return m;
+});
+
 const sourceChips = computed((): MentionNotificationSourceChip[] =>
   buildMentionNotificationSourceChips({
     rows: props.rows,
     categoriesByServer: props.categoriesByServer,
     serverNameById: serverNameById.value,
+    serverImageUrlById: serverImageUrlById.value,
+    users: props.users,
+    echoDmPeerByChannelId: props.echoPeerByChannelId,
     isPersistedEchoDmThread: props.isPersistedEchoDmThread,
     resolveChannelLabel: props.resolveChannelLabel,
   }),
@@ -109,48 +135,8 @@ const displayRows = computed(() =>
     ...row,
     channelLabel: props.resolveChannelLabel(row.channelId),
     authorName: props.resolveAuthorName(row),
+    preview: props.resolvePreview(row),
   })),
-);
-
-/**
- * Keep source chips aligned with the active read preset so Unread/Read only
- * shows places that currently have matching rows.
- */
-const visibleSourceChips = computed<MentionNotificationSourceChip[]>(() =>
-  sourceChips.value.filter(
-    (chip) =>
-      chip.selection.kind === 'all' ||
-      countRowsFor(readPreset.value, chip.selection) > 0,
-  ),
-);
-
-// Reset the source chip selection when the active chip is removed
-// (e.g. the last message from a server is read and that chip disappears).
-watch(
-  visibleSourceChips,
-  (chips) => {
-    if (!chips.some((c) => c.key === selectedSourceKey.value)) {
-      selectedSourceKey.value = 'all';
-    }
-  },
-  { deep: true },
-);
-
-const selectedSource = computed(
-  () =>
-    visibleSourceChips.value.find((c) => c.key === selectedSourceKey.value)
-      ?.selection ?? { kind: 'all' as const },
-);
-
-const filteredRows = computed(() =>
-  filterDmMentionNotificationRows({
-    rows: displayRows.value,
-    preset: readPreset.value,
-    source: selectedSource.value,
-    readStateByChannelId: props.readStateByChannelId,
-    categoriesByServer: props.categoriesByServer,
-    isPersistedEchoDmThread: props.isPersistedEchoDmThread,
-  }),
 );
 
 function countRowsFor(
@@ -167,43 +153,86 @@ function countRowsFor(
   }).length;
 }
 
-type PresetWidget = {
-  key: NotificationReadPreset;
-  label: string;
-  hint: string;
-  count: number;
+const UNREAD_FILTER_KEY = 'unread';
+
+const unreadPlaceVisual: MentionNotificationPlaceVisual = {
+  kind: 'svg',
+  url: icons.bellSchool,
 };
 
-const presetWidgets = computed<PresetWidget[]>(() => [
-  {
-    key: 'all',
-    label: 'All mentions',
-    hint: 'Show every mention and ping',
-    count: countRowsFor('all', selectedSource.value),
+/**
+ * Single filter key for the vertical place list: `unread` or a source chip key.
+ * Maps to the legacy read-preset + source-key pair the parent persists.
+ */
+const activeFilterKey = computed<string>({
+  get: () => {
+    if (readPreset.value === 'unread') return UNREAD_FILTER_KEY;
+    return selectedSourceKey.value;
   },
-  {
-    key: 'unread',
-    label: 'Unread',
-    hint: 'Only mentions not marked as read yet',
-    count: countRowsFor('unread', selectedSource.value),
+  set: (key) => {
+    if (key === UNREAD_FILTER_KEY) {
+      readPreset.value = 'unread';
+      selectedSourceKey.value = 'all';
+      return;
+    }
+    readPreset.value = 'all';
+    selectedSourceKey.value = key;
   },
-  {
-    key: 'read',
-    label: 'Read',
-    hint: 'Mentions already acknowledged',
-    count: countRowsFor('read', selectedSource.value),
-  },
-]);
+});
 
-type SourceWidget = {
+const effectiveReadPreset = computed<NotificationReadPreset>(() =>
+  activeFilterKey.value === UNREAD_FILTER_KEY ? 'unread' : 'all',
+);
+
+const effectiveSource = computed<NotificationSourceSelection>(() => {
+  if (activeFilterKey.value === UNREAD_FILTER_KEY) {
+    return { kind: 'all' };
+  }
+  return (
+    sourceChips.value.find((chip) => chip.key === activeFilterKey.value)
+      ?.selection ?? { kind: 'all' }
+  );
+});
+
+/**
+ * Keep place chips aligned with available rows. Unread is always shown; other
+ * places appear when they have at least one mention.
+ */
+const visibleSourceChips = computed<MentionNotificationSourceChip[]>(() =>
+  sourceChips.value.filter(
+    (chip) =>
+      chip.selection.kind === 'all' || countRowsFor('all', chip.selection) > 0,
+  ),
+);
+
+const filteredRows = computed(() =>
+  filterDmMentionNotificationRows({
+    rows: displayRows.value,
+    preset: effectiveReadPreset.value,
+    source: effectiveSource.value,
+    readStateByChannelId: props.readStateByChannelId,
+    categoriesByServer: props.categoriesByServer,
+    isPersistedEchoDmThread: props.isPersistedEchoDmThread,
+  }),
+);
+
+type PlaceWidget = {
   key: string;
   label: string;
   context: string;
   count: number;
+  visual: MentionNotificationPlaceVisual;
 };
 
-const sourceWidgets = computed<SourceWidget[]>(() =>
-  visibleSourceChips.value.map((chip) => ({
+const placeWidgets = computed<PlaceWidget[]>(() => {
+  const unread: PlaceWidget = {
+    key: UNREAD_FILTER_KEY,
+    label: 'Unread',
+    context: 'Not marked read yet',
+    count: countRowsFor('unread', { kind: 'all' }),
+    visual: unreadPlaceVisual,
+  };
+  const places = visibleSourceChips.value.map((chip) => ({
     key: chip.key,
     label: chip.label,
     context:
@@ -212,8 +241,20 @@ const sourceWidgets = computed<SourceWidget[]>(() =>
         : chip.selection.kind === 'dms'
           ? 'Direct messages'
           : `In ${chip.label}`,
-    count: countRowsFor(readPreset.value, chip.selection),
-  })),
+    count: countRowsFor('all', chip.selection),
+    visual: chip.visual,
+  }));
+  return [unread, ...places];
+});
+
+watch(
+  placeWidgets,
+  (widgets) => {
+    if (!widgets.some((place) => place.key === activeFilterKey.value)) {
+      activeFilterKey.value = UNREAD_FILTER_KEY;
+    }
+  },
+  { deep: true },
 );
 
 type DmNotificationListItem =
@@ -368,37 +409,12 @@ function formatKinds(kinds: readonly string[]): string {
     </header>
 
     <div
-      v-if="props.showFilters !== false"
-      class="dm-notifications__preset-bar flex shrink-0 border-b border-border px-5 py-3"
-      role="toolbar"
-      aria-label="Mention read state"
-    >
-      <div class="dm-filter-widget-row custom-scrollbar">
-        <button
-          v-for="preset in presetWidgets"
-          :key="preset.key"
-          type="button"
-          class="dm-filter-widget"
-          :class="{ 'dm-filter-widget--active': readPreset === preset.key }"
-          :aria-pressed="readPreset === preset.key"
-          :title="preset.hint"
-          :data-echo-hint="preset.hint"
-          @click="readPreset = preset.key"
-        >
-          <span class="dm-filter-widget__label">{{ preset.label }}</span>
-          <span class="dm-filter-widget__meta">{{ preset.hint }}</span>
-          <span class="dm-filter-widget__count">{{ preset.count }}</span>
-        </button>
-      </div>
-    </div>
-
-    <div
       class="dm-notifications__body flex min-h-0 min-w-0 flex-1 flex-col md:flex-row"
     >
       <aside
-        v-if="props.showFilters !== false && sourceWidgets.length > 1"
+        v-if="props.showFilters !== false && placeWidgets.length > 1"
         class="dm-notifications__places flex min-h-0 shrink-0 flex-col border-r border-border px-3 py-3"
-        aria-label="Filter by place"
+        aria-label="Filter mentions"
       >
         <p
           class="dm-notifications__section-heading mb-2 shrink-0 px-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
@@ -409,21 +425,49 @@ function formatKinds(kinds: readonly string[]): string {
           class="dm-notifications__places-list custom-scrollbar min-h-0 flex-1"
         >
           <button
-            v-for="source in sourceWidgets"
-            :key="source.key"
+            v-for="place in placeWidgets"
+            :key="place.key"
             type="button"
             class="dm-filter-widget dm-filter-widget--source dm-filter-widget--place"
             :class="{
-              'dm-filter-widget--active': selectedSourceKey === source.key,
+              'dm-filter-widget--active': activeFilterKey === place.key,
             }"
-            :aria-pressed="selectedSourceKey === source.key"
-            :title="source.context"
-            :data-echo-hint="source.context"
-            @click="selectedSourceKey = source.key"
+            :aria-pressed="activeFilterKey === place.key"
+            :title="place.context"
+            :data-echo-hint="place.context"
+            @click="activeFilterKey = place.key"
           >
-            <span class="dm-filter-widget__label">{{ source.label }}</span>
-            <span class="dm-filter-widget__meta">{{ source.context }}</span>
-            <span class="dm-filter-widget__count">{{ source.count }}</span>
+            <span
+              class="dm-filter-widget__icon"
+              :class="{
+                'dm-filter-widget__icon--avatar':
+                  place.visual.kind === 'avatar',
+                'dm-filter-widget__icon--glyph': place.visual.kind !== 'avatar',
+              }"
+              aria-hidden="true"
+            >
+              <PausedGifAvatar
+                v-if="place.visual.kind === 'avatar'"
+                :src="place.visual.url"
+                :alt="place.visual.alt"
+                :session-key="`place:${place.key}`"
+                img-class="h-full w-full rounded-[inherit] object-cover"
+              />
+              <span
+                v-else-if="place.visual.kind === 'emoji'"
+                class="dm-filter-widget__emoji"
+                >{{ place.visual.emoji }}</span
+              >
+              <img
+                v-else
+                :src="place.visual.url"
+                alt=""
+                class="dm-filter-widget__glyph"
+              />
+            </span>
+            <span class="dm-filter-widget__label">{{ place.label }}</span>
+            <span class="dm-filter-widget__meta">{{ place.context }}</span>
+            <span class="dm-filter-widget__count">{{ place.count }}</span>
           </button>
         </div>
       </aside>
@@ -567,16 +611,6 @@ function formatKinds(kinds: readonly string[]): string {
 </template>
 
 <style scoped lang="scss">
-.dm-filter-widget-row {
-  display: flex;
-  gap: 0.5rem;
-  max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 0.2rem;
-  scroll-snap-type: x proximity;
-}
-
 .dm-notifications__places {
   width: min(14.5rem, 36vw);
   min-width: 10.5rem;
@@ -584,10 +618,6 @@ function formatKinds(kinds: readonly string[]): string {
 
 @media (max-width: 767px) {
   .dm-notifications__header {
-    padding-inline: 1rem;
-  }
-
-  .dm-notifications__preset-bar {
     padding-inline: 1rem;
   }
 
@@ -638,6 +668,45 @@ function formatKinds(kinds: readonly string[]): string {
   min-width: 0;
   max-width: none;
   scroll-snap-align: none;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'icon label count'
+    'icon meta count';
+  column-gap: 0.55rem;
+}
+
+.dm-filter-widget__icon {
+  grid-area: icon;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, black 24%, transparent);
+}
+
+.dm-filter-widget__icon--avatar {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+}
+
+.dm-filter-widget__icon--glyph {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 0.4rem;
+}
+
+.dm-filter-widget__glyph {
+  width: 1rem;
+  height: 1rem;
+  object-fit: contain;
+  opacity: 0.92;
+}
+
+.dm-filter-widget__emoji {
+  font-size: 0.95rem;
+  line-height: 1;
 }
 
 .dm-filter-widget {
@@ -729,14 +798,6 @@ function formatKinds(kinds: readonly string[]): string {
 
 .dm-filter-widget--active .dm-filter-widget__count {
   background: color-mix(in srgb, #7c83ff 33%, black 67%);
-}
-
-@media (min-width: 768px) {
-  .dm-filter-widget-row {
-    flex-wrap: wrap;
-    overflow-x: visible;
-    padding-bottom: 0;
-  }
 }
 
 @media (max-width: 420px) {
@@ -845,7 +906,6 @@ function formatKinds(kinds: readonly string[]): string {
 }
 
 :global([data-theme='light'] .dm-notifications__header),
-:global([data-theme='light'] .dm-notifications__preset-bar),
 :global([data-theme='light'] .dm-notifications__places) {
   border-color: color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
 }
@@ -857,10 +917,6 @@ function formatKinds(kinds: readonly string[]): string {
     transparent 100%
   );
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
-}
-
-:global([data-theme='light'] .dm-notifications__preset-bar) {
-  background: color-mix(in srgb, var(--elevated) 94%, var(--accent) 6%);
 }
 
 :global([data-theme='light'] .dm-notifications__places) {

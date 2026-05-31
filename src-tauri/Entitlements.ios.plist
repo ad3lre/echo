@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Source-of-truth for iOS entitlements that Tauri's code generator does not
+  manage.  scripts/sync-tauri-ios-entitlements.mjs merges these keys into the
+  generated file at src-tauri/gen/apple/echo-desktop_iOS/echo-desktop_iOS.entitlements
+  before every build.
+
+  Add new entitlement keys here, NOT directly in gen/apple — Tauri will
+  overwrite them on the next build.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:chat-echo.com</string>
+		<string>applinks:chat-echo.com</string>
+	</array>
+</dict>
+</plist>

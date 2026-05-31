@@ -25,6 +25,7 @@ import {
 import { verifyTurnstileToken } from '../../../services/integrations/turnstileVerify';
 import { sendSignupVerificationEmail } from '../../../services/auth/emailVerificationActions';
 import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
+import { authSessionJsonBody } from '../../../auth/authSessionResponse';
 import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSessionRevocation';
 import {
   authHwidAccountCapActive,
@@ -109,21 +110,22 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             if (!suspended) {
               const guestUser =
                 await store.ensureGuestDisplayAliasIfEmpty(existing);
-              const { user: g, csrfToken } = await issueEchoBrowserSession(
+              const session = await issueEchoBrowserSession(
                 store,
                 guestUser,
                 reply,
                 req,
               );
-              setGuestBindingCookie(reply, g.id, req);
+              setGuestBindingCookie(reply, session.user.id, req);
               fastify.log.info({
                 msg: 'echo_product_analytics',
                 event: 'guest_resumed',
-                userId: g.id,
+                userId: session.user.id,
               });
-              return reply
-                .code(200)
-                .send({ user: g, resumed: true, csrfToken });
+              return reply.code(200).send({
+                ...authSessionJsonBody(session),
+                resumed: true,
+              });
             }
           }
         }
@@ -215,25 +217,26 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             ip,
           );
         }
-        const { user: newGuest, csrfToken } = await issueEchoBrowserSession(
+        const session = await issueEchoBrowserSession(
           store,
           created,
           reply,
           req,
         );
-        setGuestBindingCookie(reply, newGuest.id, req);
+        setGuestBindingCookie(reply, session.user.id, req);
         await recordGuestMintSuccess(ip);
         fastify.log.info({
           msg: 'echo_product_analytics',
           event: 'guest_minted',
-          userId: newGuest.id,
+          userId: session.user.id,
         });
-        void tryJoinOfficialEchoServerOnSignup(fastify.log, newGuest.id, {
+        void tryJoinOfficialEchoServerOnSignup(fastify.log, session.user.id, {
           joinClientIp: ip,
         });
-        return reply
-          .code(201)
-          .send({ user: newGuest, resumed: false, csrfToken });
+        return reply.code(201).send({
+          ...authSessionJsonBody(session),
+          resumed: false,
+        });
       } catch (err) {
         fastify.log.error(err, 'Auth guest mint failed');
         return sendError(reply, 500, 'INTERNAL_ERROR', 'Internal Server Error');
@@ -293,21 +296,20 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           user.id,
           'guest_upgrade',
         );
-        const { user: upgraded, csrfToken } = await issueEchoBrowserSession(
-          store,
-          user,
-          reply,
-          req,
-        );
+        const session = await issueEchoBrowserSession(store, user, reply, req);
         fastify.log.info({
           msg: 'echo_product_analytics',
           event: 'guest_upgrade_completed',
-          userId: upgraded.id,
+          userId: session.user.id,
         });
-        if (mode === 'postgres' && upgraded.email && !upgraded.emailVerified) {
-          void sendSignupVerificationEmail(fastify.log, store, upgraded);
+        if (
+          mode === 'postgres' &&
+          session.user.email &&
+          !session.user.emailVerified
+        ) {
+          void sendSignupVerificationEmail(fastify.log, store, session.user);
         }
-        return reply.code(200).send({ user: upgraded, csrfToken });
+        return reply.code(200).send(authSessionJsonBody(session));
       } catch (err: any) {
         if (err?.message === 'INVALID_EMAIL') {
           return sendError(

@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { sendError } from '../api/errors';
 import { safeCompare } from '../shared/safeCompare';
+import { isNativeBearerCsrfExempt } from './nativeBearer';
 import {
   CSRF_COOKIE,
   LEGACY_CSRF_COOKIE,
@@ -71,6 +72,7 @@ export async function enforceApiCsrf(
 
   const path = pathOnly(req.url);
   if (isCsrfExemptPath(path)) return true;
+  if (isNativeBearerCsrfExempt(req)) return true;
 
   const headerRaw = req.headers['x-csrf-token'];
   const header = typeof headerRaw === 'string' ? headerRaw.trim() : '';

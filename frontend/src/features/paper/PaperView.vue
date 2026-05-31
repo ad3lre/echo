@@ -61,7 +61,7 @@ import {
 import { useAuthSessionStore } from '@/stores/authSession';
 import { createRafCoalescer } from '@/utils/rafCoalesce';
 import type { ChannelSummary } from '@shared/types';
-import '@/features/paper/paperTheme.css';
+import '@/features/paper/styles/paperTheme.scss';
 
 const props = defineProps<{
   channelId: string;

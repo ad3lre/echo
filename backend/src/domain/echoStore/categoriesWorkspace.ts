@@ -7,7 +7,6 @@ import {
   listLiveKitParticipants,
 } from '../../services/livekit/livekitAdapter';
 import { vcTrace } from '../../observability/voiceTraceLog';
-import { resolveDiscordAvatarForStorage } from '../discordNormalized';
 import { echoPartialToChannelOverrides } from '../../../../shared/rolePermissionBridge';
 import { executeEvaluationPlan } from '../echoPermissionEvaluate';
 import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
@@ -644,17 +643,7 @@ export async function listEchoWorkspaceForUser(
     const sid = String(row.server_id ?? '');
     if (!sid || !membersByServer[sid]) continue;
     const rawPfp = String(row.pfp ?? '').trim();
-    const shadowDid =
-      row.shadow_discord_user_id != null
-        ? String(row.shadow_discord_user_id).trim()
-        : '';
-    const pfp =
-      row.is_discord_shadow === true && shadowDid
-        ? resolveDiscordAvatarForStorage(
-            shadowDid,
-            rawPfp === '' ? null : rawPfp,
-          )
-        : rawPfp;
+    const pfp = rawPfp;
     const joinedRaw = (row as { joined_at?: unknown }).joined_at;
     const joinedAt =
       joinedRaw instanceof Date

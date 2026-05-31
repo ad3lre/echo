@@ -11,6 +11,7 @@ import { config } from '../../../config';
 import { isValidEmailFormat } from '../../../auth/email';
 import type { AuthLoginBody, AuthLoginMfaBody } from '../../../auth/types';
 import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
+import { authSessionJsonBody } from '../../../auth/authSessionResponse';
 import { loginAuditDigests } from '../../../auth/loginAudit';
 import bcrypt from 'bcrypt';
 
@@ -129,13 +130,13 @@ export default async function loginRoutes(fastify: FastifyInstance) {
             ipDigest: audit.ipDigest,
             uaDigest: audit.uaDigest,
           });
-          const { user: logged, csrfToken } = await issueEchoBrowserSession(
+          const session = await issueEchoBrowserSession(
             store,
             userRecord,
             reply,
             req,
           );
-          return reply.code(200).send({ user: logged, csrfToken });
+          return reply.code(200).send(authSessionJsonBody(session));
         } catch (err) {
           fastify.log.error(err, 'Auth login failed');
           return sendError(
@@ -279,13 +280,13 @@ export default async function loginRoutes(fastify: FastifyInstance) {
             ipDigest: audit.ipDigest,
             uaDigest: audit.uaDigest,
           });
-          const { user: nextUser, csrfToken } = await issueEchoBrowserSession(
+          const session = await issueEchoBrowserSession(
             store,
             { id: user.id, username: user.username },
             reply,
             req,
           );
-          return reply.code(200).send({ user: nextUser, csrfToken });
+          return reply.code(200).send(authSessionJsonBody(session));
         } catch (err) {
           fastify.log.error(err, 'Auth login mfa failed');
           return sendError(

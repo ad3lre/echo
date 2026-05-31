@@ -9,7 +9,7 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
 
-  /* Theme-aware chrome (see --ui-* in themes.css) */
+  /* Theme-aware chrome (see --ui-* in themes.scss) */
   --color-fg-strong: var(--text);
   --color-fg: var(--ui-fg);
   --color-fg-soft: var(--ui-fg-soft);

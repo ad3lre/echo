@@ -1,0 +1,82 @@
+/*
+ * Interface density — comfortable is the baseline (:root).
+ * Compact / spacious set html[data-echo-density] via theme store (see utils/theme.ts).
+ */
+
+@mixin echo-density-tokens(
+  $channel-py,
+  $channel-px,
+  $dm-row-py,
+  $dm-row-px,
+  $dm-inbox-gap,
+  $settings-toggle-pad,
+  $msg-header-mt,
+  $msg-header-first-mt,
+  $msg-header-py,
+  $msg-continuation-py,
+  $msg-last-mb
+) {
+  --echo-density-channel-py: #{$channel-py};
+  --echo-density-channel-px: #{$channel-px};
+  --echo-density-dm-row-py: #{$dm-row-py};
+  --echo-density-dm-row-px: #{$dm-row-px};
+  --echo-density-dm-inbox-gap: #{$dm-inbox-gap};
+  --echo-density-settings-toggle-pad: #{$settings-toggle-pad};
+  --echo-density-msg-header-mt: #{$msg-header-mt};
+  --echo-density-msg-header-first-mt: #{$msg-header-first-mt};
+  --echo-density-msg-header-py: #{$msg-header-py};
+  --echo-density-msg-continuation-py: #{$msg-continuation-py};
+  --echo-density-msg-last-mb: #{$msg-last-mb};
+}
+
+:root {
+  @include echo-density-tokens(
+    0.375rem,
+    0.625rem,
+    0.625rem,
+    0.75rem,
+    0.25rem,
+    1rem,
+    1.0625rem,
+    1.5rem,
+    0.25rem,
+    0.0625rem,
+    1rem
+  );
+}
+
+html[data-echo-density='compact'] {
+  @include echo-density-tokens(
+    0.25rem,
+    0.5rem,
+    0.5rem,
+    0.625rem,
+    0.125rem,
+    0.75rem,
+    0.8125rem,
+    1.125rem,
+    0.1875rem,
+    0.0625rem,
+    0.75rem
+  );
+}
+
+html[data-echo-density='spacious'] {
+  @include echo-density-tokens(
+    0.5rem,
+    0.75rem,
+    0.75rem,
+    0.875rem,
+    0.375rem,
+    1.125rem,
+    1.25rem,
+    1.75rem,
+    0.3125rem,
+    0.125rem,
+    1.25rem
+  );
+}
+
+.dm-inbox-dnd > * + * {
+  margin-top: var(--echo-density-dm-inbox-gap);
+}

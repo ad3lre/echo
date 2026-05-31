@@ -340,12 +340,6 @@ watch(
   { deep: true, immediate: true },
 );
 
-function memberRowClass(status: string | undefined) {
-  return selectPresence({ rowStatus: status }).isOffline
-    ? 'member-offline'
-    : '';
-}
-
 function statusLabel(status: string | undefined): string {
   return selectPresence({ rowStatus: status }).label;
 }
@@ -596,7 +590,6 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
               :data-member-id="user.id"
               :class="[
                 'flex items-center gap-3 p-2 cursor-pointer rounded-lg hover:bg-glass-tint',
-                memberRowClass(user.status),
               ]"
               @click="handleOpenProfile(user.id, $event)"
               @contextmenu="handleMemberContextMenu(user, $event)"
@@ -894,13 +887,6 @@ function handleOpenProfile(userId: string, event: MouseEvent) {
 .avatar-wrap :deep(.status-indicator) {
   right: -3px;
   bottom: -3px;
-}
-
-.member-offline :deep(.member-pfp) {
-  -webkit-filter: grayscale(100%);
-  filter: grayscale(100%);
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
 }
 
 /* Discord active users get a subtle blue tint on their name */

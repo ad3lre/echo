@@ -142,6 +142,7 @@ import {
   resolveMentionNotificationAuthorName,
   resolveMentionNotificationChannelLabel,
   resolveMentionNotificationRowAuthorName,
+  resolveMentionNotificationRowPreview,
 } from '@/features/dm/resolveMentionNotificationDisplay';
 import type { WorkspaceRosterUserRow } from '@/services/domain/workspaceRoster';
 import { useAppLayoutMainSurfaceDmFlags } from './useAppLayoutMainSurfaceDmFlags';
@@ -3087,6 +3088,20 @@ export function useAppLayoutController() {
     });
   }
 
+  function resolveDmMentionNotificationRowPreview(
+    row: DmMentionNotificationRow,
+  ): string {
+    void messageReadFacade.globalResolverVersion.value;
+    const cached = messageReadFacade.getChannelEntity(
+      row.channelId,
+      row.messageId,
+    );
+    return resolveMentionNotificationRowPreview({
+      row,
+      cachedMessage: cached,
+    });
+  }
+
   const dmMentionNotificationsBase = computed(() =>
     collectMentionNotificationsFromAuthority({
       channelAttentionByChannelId: channelAttentionByChannelId.value,
@@ -3144,7 +3159,7 @@ export function useAppLayoutController() {
    * Persisted in the parent (AppLayout) across tab switches via v-model emits;
    * the panel resets these on first mount if the parent does not provide them.
    */
-  const dmNotificationsReadPreset = ref<NotificationReadPreset>('all');
+  const dmNotificationsReadPreset = ref<NotificationReadPreset>('unread');
   const dmNotificationsSourceKey = ref('all');
 
   const mentionNotificationServers = computed(() =>
@@ -4429,6 +4444,7 @@ export function useAppLayoutController() {
       mentionNotificationHydrationLoading,
       resolveDmMentionNotificationChannelLabel,
       resolveDmMentionNotificationAuthorName,
+      resolveDmMentionNotificationRowPreview,
       dmNotificationReadStateByChannelId,
       mentionNotificationCategoriesByServer,
       mentionNotificationServers,

@@ -32,9 +32,26 @@ Team id defaults to `bundle.iOS.developmentTeam` in [`tauri.ios.conf.json`](../.
 | `npm run tauri:ios:dev`             | Simulator / device dev against local Vite                                              |
 | `npm run tauri:ios:dev:chat-echo`   | Dev WebView loads production `https://chat-echo.com`                                   |
 | `npm run tauri:ios:build`           | Release archive (macOS + signing)                                                      |
+| `npm run tauri:ios:build:unsigned`  | Unsigned device (`aarch64`) archive — no signing/secrets; used by CI                   |
 | `npm run tauri:ios:build:chat-echo` | Production API URLs baked into the bundle                                              |
 | `npm run tauri:ios:sim:chat-echo`   | Install simulator build pointed at chat-echo.com                                       |
 | `npm run verify:ios-version`        | Align `package.json`, `tauri.ios.conf.json`, `Cargo.toml` versions before store upload |
+
+## Continuous integration
+
+[`.github/workflows/echo-ios-ci.yml`](../../.github/workflows/echo-ios-ci.yml) builds an **unsigned device archive** on `macos-15` for pushes/PRs that touch `src-tauri/`, `frontend/`, the iOS build scripts, or dependencies. It runs `npm run tauri:ios:build:unsigned` (`tauri ios build --target aarch64 --no-sign`), so it needs **no Apple signing secrets** — the iOS analogue of the unsigned Android AAB job. The generated Xcode project is committed under `src-tauri/gen/apple`, so CI does not run `tauri ios init`. The resulting `Echo.ipa` is uploaded as the `ios-device-unsigned` artifact.
+
+> **Why device (`aarch64`), not the simulator:** historically `tauri ios build` asked `xcodebuild` for both simulator slices (`arm64` + `x86_64`) but its xcode-script only emitted the `arm64` static lib. The project now builds **arm64-only** (`ARCHS = arm64` in both `project.yml` and `project.pbxproj`), which makes simulator builds work too (`-t aarch64-sim`). Device builds were always arm64-only since `x86_64` is excluded for the `iphoneos` SDK.
+
+## iOS entitlements
+
+Tauri's code generator may overwrite `src-tauri/gen/apple/echo-desktop_iOS/echo-desktop_iOS.entitlements` on cold builds, stripping keys it doesn't manage (like `com.apple.developer.associated-domains` for passkeys and universal links).
+
+**Source of truth:** [`src-tauri/Entitlements.ios.plist`](../../src-tauri/Entitlements.ios.plist) — add new entitlement keys here. The sync script [`scripts/sync-tauri-ios-entitlements.mjs`](../../scripts/sync-tauri-ios-entitlements.mjs) merges them into the generated entitlements file. The sync runs in three places to ensure coverage:
+
+1. **`tauri-ios-build.mjs`** — before the preflight check, so stripped entitlements are auto-repaired.
+2. **Xcode preBuildScript** — inside xcodebuild, right before compilation, as a safety net.
+3. **`npm run tauri:ios:init`** — after project generation.
 
 ## Universal Links (HTTPS → iOS app)
 

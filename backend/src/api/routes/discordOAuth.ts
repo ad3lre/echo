@@ -599,6 +599,7 @@ export default async function discordOAuthRoutes(
         user,
         me,
         normalized,
+        pool,
       });
     } catch (err) {
       fastify.log.error(err, 'discord_oauth_merge_failed');

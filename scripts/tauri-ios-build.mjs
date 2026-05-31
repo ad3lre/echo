@@ -257,6 +257,7 @@ function runAssetSync() {
   for (const script of [
     'scripts/sync-tauri-ios-icons.mjs',
     'scripts/sync-tauri-ios-launch-logo.mjs',
+    'scripts/sync-tauri-ios-entitlements.mjs',
   ]) {
     const scriptPath = path.join(repoRoot, script);
     if (!fs.existsSync(scriptPath)) {
@@ -295,8 +296,8 @@ const rawPassthrough =
 const passthrough = stripLocalArgs(rawPassthrough);
 
 if (!hasHelpOrVersionArg(rawPassthrough)) {
-  assertIosBuildEnvironment(passthrough);
   runAssetSync();
+  assertIosBuildEnvironment(passthrough);
 }
 
 if (hasDoctorArg(rawPassthrough)) {

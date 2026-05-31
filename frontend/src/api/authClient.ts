@@ -14,6 +14,14 @@ import {
   notifyInvalidateSessionForReauth,
 } from '@/api/authSessionBridge';
 import { newTraceId } from '@/observability/sessionDiagnostics';
+import {
+  applyNativeAuthFromAuthJson,
+  authTryNativeBearerRefresh,
+  bootstrapNativeBearerSessionFromKeychain,
+  getNativeRefreshTokenForLogout,
+  isNativeBearerClient,
+  nativeAuthRequestHeaders,
+} from '@/services/auth/nativeAuthToken';
 
 const AUTH_BASE = `${API_BASE.replace(/\/$/, '')}/api/v1/auth`;
 const SIMPLE_POST_CONTENT_TYPES = new Set([
@@ -287,6 +295,15 @@ export function authEndpointsDoc(): { label: string; href: string }[] {
 
 let cookieRefreshInFlight: Promise<AuthUserPublic | null> | null = null;
 
+async function finalizeAuthSessionResponse(
+  data: Record<string, unknown>,
+): Promise<void> {
+  applyEchoCsrfFromAuthJson(data);
+  await applyNativeAuthFromAuthJson(data);
+}
+
+export { bootstrapNativeBearerSessionFromKeychain };
+
 async function postCookieRefreshOnce(): Promise<{
   res: Response;
   data: Record<string, unknown>;
@@ -294,7 +311,10 @@ async function postCookieRefreshOnce(): Promise<{
   const res = await fetch(`${AUTH_BASE}/refresh`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...nativeAuthRequestHeaders(),
+    },
     body: JSON.stringify({}),
   });
   const data = (await parseJson(res)) as Record<string, unknown>;
@@ -353,6 +373,7 @@ async function executeCookieRefresh(options?: {
     return null;
   }
   applyEchoCsrfFromAuthJson(data);
+  await applyNativeAuthFromAuthJson(data);
   const user = data.user;
   if (user && typeof user === 'object') return user as AuthUserPublic;
   echoAuthDebugLog('cookie refresh unexpected body', { url: res.url });
@@ -367,6 +388,12 @@ async function executeCookieRefresh(options?: {
 export async function authTryCookieRefresh(options?: {
   quietExpectedNoRefreshCookie?: boolean;
 }): Promise<AuthUserPublic | null> {
+  if (isNativeBearerClient()) {
+    const native = await authTryNativeBearerRefresh({
+      quietExpectedNoRefreshToken: options?.quietExpectedNoRefreshCookie,
+    });
+    if (native) return native;
+  }
   assertAuthDomainNetworkAllowed();
   if (!cookieRefreshInFlight) {
     cookieRefreshInFlight = executeCookieRefresh(options).finally(() => {
@@ -637,7 +664,7 @@ export async function authDesktopRedeemHandoff(
     });
   }
   throwIfError(res, data, 'POST /auth/desktop/redeem-handoff');
-  applyEchoCsrfFromAuthJson(data);
+  await finalizeAuthSessionResponse(data);
   const user = data.user;
   if (!user || typeof user !== 'object') {
     throw new Error('INVALID_HANDOFF_RESPONSE');
@@ -787,6 +814,7 @@ export async function authContinueAsGuest(body?: {
       res = await fetch(u.toString(), {
         method: 'POST',
         credentials: 'include',
+        headers: nativeAuthRequestHeaders(),
       });
     } else {
       const payload: { captchaToken?: string; clientHwid: string } = {
@@ -795,7 +823,10 @@ export async function authContinueAsGuest(body?: {
       if (body?.captchaToken) payload.captchaToken = body.captchaToken;
       res = await fetch(appendDiagTraceId(`${AUTH_BASE}/guest`, traceId), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...nativeAuthRequestHeaders(),
+        },
         credentials: 'include',
         body: JSON.stringify({ ...payload, diagTraceId: traceId }),
       });
@@ -833,7 +864,7 @@ export async function authContinueAsGuest(body?: {
     }
   }
   throwIfError(res, data, 'POST /auth/guest');
-  applyEchoCsrfFromAuthJson(data);
+  await finalizeAuthSessionResponse(data);
   return data as { user: AuthUserPublic; resumed?: boolean };
 }
 
@@ -851,7 +882,10 @@ export async function authUpgradeGuest(body: {
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: echoCsrfJsonHeaders(),
+      headers: {
+        ...echoCsrfJsonHeaders(),
+        ...nativeAuthRequestHeaders(),
+      },
       credentials: 'include',
       body: JSON.stringify({ ...body, diagTraceId: traceId }),
     });
@@ -868,7 +902,7 @@ export async function authUpgradeGuest(body: {
   }
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'POST /auth/guest/upgrade');
-  applyEchoCsrfFromAuthJson(data);
+  await finalizeAuthSessionResponse(data);
   return data as { user: AuthUserPublic };
 }
 
@@ -885,7 +919,10 @@ export async function authRegister(body: {
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...nativeAuthRequestHeaders(),
+      },
       credentials: 'include',
       body: JSON.stringify({
         ...body,
@@ -906,7 +943,7 @@ export async function authRegister(body: {
   }
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'POST /auth/register');
-  applyEchoCsrfFromAuthJson(data);
+  await finalizeAuthSessionResponse(data);
   return data as { user: AuthUserPublic };
 }
 
@@ -980,6 +1017,7 @@ export async function authLogin(body: {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
+          ...nativeAuthRequestHeaders(),
         },
         credentials: 'include',
         body: params.toString(),
@@ -987,7 +1025,10 @@ export async function authLogin(body: {
     } else {
       res = await fetch(appendDiagTraceId(`${AUTH_BASE}/login`, traceId), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...nativeAuthRequestHeaders(),
+        },
         credentials: 'include',
         body: JSON.stringify({ ...body, diagTraceId: traceId }),
       });
@@ -1015,7 +1056,7 @@ export async function authLogin(body: {
   }
   throwIfError(res, data, 'POST /auth/login');
   if (data && typeof data === 'object') {
-    applyEchoCsrfFromAuthJson(data as Record<string, unknown>);
+    await finalizeAuthSessionResponse(data as Record<string, unknown>);
   }
   return parseAuthLoginResult(data);
 }
@@ -1069,7 +1110,7 @@ export async function authLoginMfa(body: {
   }
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'POST /auth/login/mfa');
-  applyEchoCsrfFromAuthJson(data);
+  await finalizeAuthSessionResponse(data);
   const user = data.user;
   if (!user || typeof user !== 'object') {
     throw new Error('INVALID_LOGIN_RESPONSE');
@@ -1261,6 +1302,7 @@ async function authFetchMeInner(): Promise<{
   const res = await fetch(`${AUTH_BASE}/me`, {
     method: 'GET',
     credentials: 'include',
+    headers: nativeAuthRequestHeaders(),
   });
   const data = (await parseJson(res)) as Record<string, unknown>;
   if (!res.ok && res.status === 401) {
@@ -1335,7 +1377,10 @@ export async function authPatchMe(
   try {
     res = await fetch(url, {
       method: 'PATCH',
-      headers: echoCsrfJsonHeaders(),
+      headers: {
+        ...echoCsrfJsonHeaders(),
+        ...nativeAuthRequestHeaders(),
+      },
       credentials: 'include',
       body: JSON.stringify({ ...body, diagTraceId: traceId }),
     });
@@ -1493,10 +1538,17 @@ export async function authLogoutAllSessions(): Promise<void> {
 }
 
 export async function authLogout(refreshToken?: string | null): Promise<void> {
-  const body = refreshToken ? { refreshToken } : {};
+  const rt =
+    refreshToken?.trim() ||
+    (await getNativeRefreshTokenForLogout()) ||
+    undefined;
+  const body = rt ? { refreshToken: rt } : {};
   const res = await fetch(`${AUTH_BASE}/logout`, {
     method: 'POST',
-    headers: echoCsrfJsonHeaders(),
+    headers: {
+      ...echoCsrfJsonHeaders(),
+      ...nativeAuthRequestHeaders(),
+    },
     credentials: 'include',
     body: JSON.stringify(body),
   });

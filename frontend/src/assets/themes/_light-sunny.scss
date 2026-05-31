@@ -1,0 +1,255 @@
+html[data-theme='light'][data-echo-light-variant='sunny'] {
+  --bg: #faf3e6;
+  --surface: #fff8ec;
+  --elevated: #fffdf6;
+  --text: rgba(48, 28, 8, 0.94);
+  --muted: rgba(90, 62, 38, 0.7);
+  --border: rgba(120, 80, 30, 0.14);
+  --glass-tint: rgba(255, 216, 154, 0.09);
+  --glass-border: rgba(120, 80, 30, 0.1);
+  --overlay-subtle: rgba(120, 80, 30, 0.12);
+  --overlay-dim: rgba(90, 62, 38, 0.34);
+  --overlay-heavy: rgba(48, 28, 8, 0.52);
+
+  --chat-glass-bg: rgba(255, 248, 235, 0.72);
+  --chat-glass-bg-strong: rgba(255, 246, 224, 0.88);
+  --chat-permission-lock-bg: var(--chat-glass-bg-strong);
+  --chat-permission-lock-border: color-mix(
+    in srgb,
+    var(--border) 88%,
+    transparent
+  );
+  --chat-glass-header-bg: rgba(255, 252, 244, 0.42);
+  --chat-glass-header-bg-fallback: rgba(252, 248, 238, 0.96);
+  --chat-glass-header-backdrop: blur(30px);
+  --set-sidebar-bg: rgba(120, 80, 30, 0.028);
+  --set-card-bg: rgba(120, 80, 30, 0.038);
+  --set-card-ring: rgba(120, 80, 30, 0.07);
+  --set-panel-bg: rgba(120, 80, 30, 0.05);
+  --set-panel-ring: rgba(120, 80, 30, 0.07);
+  --echo-control-bg: var(--elevated);
+  --echo-control-bg-hover: color-mix(
+    in srgb,
+    var(--surface) 55%,
+    var(--elevated) 45%
+  );
+  --echo-control-bg-active: var(--surface);
+  --echo-control-border: color-mix(in srgb, var(--border) 100%, transparent);
+  --echo-control-border-hover: rgba(120, 80, 30, 0.18);
+  --echo-control-border-focus: rgba(217, 119, 6, 0.48);
+  --set-input-bg: var(--echo-control-bg);
+  --set-toggle-bg: rgba(120, 80, 30, 0.05);
+  --set-action-bg: rgba(120, 80, 30, 0.04);
+  --set-action-hover-bg: rgba(120, 80, 30, 0.08);
+  --set-chip-bg: rgba(120, 80, 30, 0.04);
+  --set-chip-ring: rgba(120, 80, 30, 0.07);
+  /* Cream cards: keep normal blend (from light); lift opacity slightly vs default light */
+  --profile-banner-refraction-opacity: 0.15;
+
+  /* Pull lavender-tinted chrome to warm cream like the main chat column */
+  --echo-server-rail-bg: var(--bg);
+  --echo-channel-panel-bg: var(--bg);
+  --echo-rail-corner-bg: #fffdf6;
+  --echo-rail-corner-liquid-bg: #fff3d8;
+
+  --echo-menu-bg: var(--elevated);
+  --echo-popover-bg: var(--elevated);
+  --echo-dm-chrome-bg: var(--bg);
+  --echo-dm-inset-bg: var(--bg);
+  --echo-chat-view-bg: var(--bg);
+  --echo-modal-bg: var(--elevated);
+  --echo-modal-bg-heavy: color-mix(in srgb, var(--surface) 92%, var(--bg) 8%);
+  --echo-modal-bg-muted: color-mix(in srgb, var(--surface) 82%, var(--bg) 18%);
+  --echo-explore-banner-bg: color-mix(
+    in srgb,
+    var(--surface) 78%,
+    var(--bg) 22%
+  );
+  --echo-settings-inset-bg: color-mix(
+    in srgb,
+    var(--surface) 86%,
+    var(--bg) 14%
+  );
+  --echo-server-dialog-bg: var(--elevated);
+  --echo-dev-pill-bg: var(--elevated);
+  --echo-dev-pill-bg-hover: color-mix(
+    in srgb,
+    var(--elevated) 88%,
+    var(--text) 12%
+  );
+  --echo-avatar-ring-bg: color-mix(
+    in srgb,
+    var(--surface) 88%,
+    var(--text) 12%
+  );
+
+  /* Rail corner liquid glass — sun / amber sheen (replaces lavender/sky) */
+  --echo-rail-corner-sheen-0: #ffffff;
+  --echo-rail-corner-sheen-35: #fff1c8;
+  --echo-rail-corner-blue-0: #ffe9a8;
+  --echo-rail-corner-blue-42: #ffc05c;
+  --echo-rail-corner-blue-100: #d97706;
+  --echo-rail-corner-violet-0: #ffd89a;
+  --echo-rail-corner-violet-55: #f59e0b;
+  --echo-rail-corner-violet-100: #fff7e0;
+  --echo-rail-corner-base-glow: rgba(245, 158, 11, 0.16);
+  --echo-rail-corner-ambient-glow-1: rgba(251, 191, 36, 0.14);
+  --echo-rail-corner-ambient-glow-2: rgba(254, 243, 199, 0.72);
+  --echo-rail-corner-highlight-glow-1: rgba(255, 255, 255, 0.88);
+  --echo-rail-corner-highlight-glow-2: rgba(254, 215, 170, 0.48);
+  --echo-rail-corner-particle-1: rgba(120, 80, 30, 0.2);
+  --echo-rail-corner-particle-2: rgba(120, 80, 30, 0.14);
+  --echo-rail-corner-particle-3: rgba(120, 80, 30, 0.18);
+  --echo-rail-corner-particle-4: rgba(120, 80, 30, 0.1);
+  --echo-rail-corner-shadow-glow: rgba(120, 80, 30, 0.16);
+  --echo-rail-corner-logo-glow: rgba(245, 158, 11, 0.24);
+  --echo-rail-corner-logo-shadow: rgba(120, 80, 30, 0.12);
+  --echo-rail-corner-logo-sheen-1: rgba(255, 255, 255, 0.78);
+  --echo-rail-corner-logo-sheen-2: rgba(255, 255, 255, 0.94);
+
+  --ui-fg: rgba(48, 28, 8, 0.92);
+  --ui-fg-soft: rgba(90, 62, 38, 0.74);
+  --ui-fg-subtle: rgba(90, 62, 38, 0.54);
+  --ui-glass-1: rgba(120, 80, 30, 0.04);
+  --ui-glass-2: rgba(120, 80, 30, 0.06);
+  --ui-glass-3: rgba(120, 80, 30, 0.085);
+  --ui-glass-hover: rgba(120, 80, 30, 0.07);
+  --ui-glass-active: rgba(120, 80, 30, 0.1);
+  --ui-scrim-1: rgba(120, 80, 30, 0.16);
+  --ui-scrim-2: rgba(120, 80, 30, 0.32);
+
+  --scrollbar-thumb: rgba(180, 130, 70, 0.38);
+  --scrollbar-thumb-hover: rgba(180, 130, 70, 0.55);
+
+  /* Settings shell: warm cream wash (no purple radial) */
+  --set-modal-backdrop:
+    linear-gradient(
+      180deg,
+      rgba(255, 246, 224, 0.98),
+      rgba(250, 240, 214, 0.96)
+    ),
+    radial-gradient(
+      circle at top left,
+      rgba(251, 191, 36, 0.14),
+      transparent 42%
+    );
+  --set-nav-active-grad: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.2),
+    rgba(251, 191, 36, 0.08)
+  );
+  --set-nav-active-ring: rgba(217, 119, 6, 0.24);
+  --set-primary-grad: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.92),
+    rgba(217, 119, 6, 0.86)
+  );
+  --set-input-focus-ring: rgba(217, 119, 6, 0.48);
+  --set-input-focus-glow: rgba(245, 158, 11, 0.14);
+  --set-toggle-pill-on: rgba(245, 158, 11, 0.58);
+  --set-chip-active-bg: rgba(245, 158, 11, 0.16);
+  --set-chip-active-ring: rgba(217, 119, 6, 0.3);
+
+  /* Member profile popout + role panel + profile modal (match AMOLED override shape) */
+  --vue-auto-182: color-mix(in srgb, var(--accent) 10%, transparent);
+  --vue-auto-183: color-mix(in srgb, var(--elevated) 92%, transparent);
+  --vue-auto-184: color-mix(in srgb, var(--surface) 94%, transparent);
+  --vue-auto-190: var(--surface);
+
+  --vue-auto-191: color-mix(in srgb, var(--elevated) 93%, transparent);
+  --vue-auto-192: color-mix(in srgb, var(--surface) 94%, transparent);
+
+  --vue-auto-132: rgba(90, 62, 38, 0.42);
+  --vue-auto-133: color-mix(in srgb, var(--accent) 10%, transparent);
+  --vue-auto-134: color-mix(in srgb, var(--elevated) 96%, transparent);
+  --vue-auto-135: color-mix(in srgb, var(--surface) 98%, transparent);
+  --vue-auto-136: color-mix(in srgb, var(--surface) 88%, transparent);
+  --vue-auto-071: var(--surface);
+
+  /*
+   * Rail overlay panels — default light keeps a lavender wash; Sunny matches
+   * the warm cream shell.
+   */
+  --vue-auto-022: transparent;
+  --vue-auto-023: var(--bg);
+  --vue-auto-024: var(--bg);
+  --vue-auto-027: transparent;
+
+  /* Light tail overrides — keep frost reading warm */
+  --vue-auto-066: var(--echo-chat-view-bg);
+  --vue-auto-156: rgba(0, 0, 0, 0.09);
+  --vue-auto-157: rgba(48, 28, 8, 0.72);
+  --vue-auto-158: color-mix(in srgb, var(--surface) 96%, var(--bg) 4%);
+  --vue-auto-159: color-mix(in srgb, var(--surface) 88%, var(--bg) 12%);
+  --vue-auto-160: var(--elevated);
+  --vue-auto-161: rgba(217, 119, 6, 0.26);
+  --vue-auto-011: rgba(90, 62, 38, 0.38);
+  --vue-auto-013: rgba(120, 80, 30, 0.06);
+  --vue-auto-015: color-mix(in srgb, var(--elevated) 98%, var(--border) 2%);
+  --vue-auto-016: rgba(120, 80, 30, 0.1);
+  --vue-auto-036: var(--surface);
+  --vue-auto-166: color-mix(in srgb, var(--elevated) 98%, var(--accent) 2%);
+  --vue-auto-167: color-mix(in srgb, var(--surface) 98%, var(--bg) 2%);
+  --vue-auto-168: color-mix(in srgb, var(--surface) 94%, var(--bg) 6%);
+
+  /*
+   * Desktop VC dock (channel panel): match warm cream shell + brown ink — not
+   * default light’s cool frost / pure-white pills (see channelPanel.scss).
+   */
+  --vc-panel-bg: color-mix(in srgb, var(--elevated) 88%, transparent);
+  --vc-device-list-bg: color-mix(in srgb, var(--surface) 96%, var(--text) 4%);
+  --vc-device-row-hover-bg: rgba(120, 80, 30, 0.06);
+  --vc-device-row-selected-bg: rgba(120, 80, 30, 0.095);
+  --vc-device-name-fg: var(--text);
+  --vc-device-name-muted: var(--muted);
+  --vc-settings-accent-fg: rgb(180 83 9);
+  --vc-slider-fill: rgb(217 119 6);
+  --vc-slider-track: rgba(120, 80, 30, 0.14);
+  --vc-slider-thumb-bg: var(--elevated);
+  --vc-slider-thumb-shadow: rgba(120, 80, 30, 0.16);
+  --vc-row-btn-hover: rgba(120, 80, 30, 0.07);
+  --vc-ctrl-bg: color-mix(in srgb, var(--elevated) 94%, var(--surface) 6%);
+  --vc-ctrl-bg-hover: rgba(120, 80, 30, 0.08);
+  --vc-ctrl-bg-active: rgba(120, 80, 30, 0.12);
+  --vc-indicator-pill-bg: color-mix(in srgb, var(--elevated) 94%, transparent);
+  --vc-participant-name-hover: var(--text);
+  --vc-participant-name-dim: var(--muted);
+  --vc-status-connected-fg: rgb(21 128 61);
+  --vc-status-warn-fg: rgb(180 83 9);
+  --vc-status-error-fg: rgb(185 28 28);
+  --vc-status-muted-fg: var(--muted);
+  --vc-server-mod-banner-bg: color-mix(
+    in srgb,
+    rgb(220 38 38) 9%,
+    var(--surface)
+  );
+  --vc-server-mod-banner-border: color-mix(
+    in srgb,
+    rgb(185 28 28) 32%,
+    transparent
+  );
+  --vc-server-mod-banner-fg: rgb(153 27 27);
+  --vc-server-mod-banner-muted-fg: color-mix(
+    in srgb,
+    rgb(153 27 27) 68%,
+    var(--muted)
+  );
+  --vc-voice-status-hover-bg: rgba(120, 80, 30, 0.065);
+  --vc-network-popup-shadow: 0 10px 28px rgba(120, 80, 30, 0.12);
+  --vc-device-link-border: color-mix(in srgb, var(--border) 85%, transparent);
+  --vc-meter-track-bg: rgba(120, 80, 30, 0.14);
+  --vc-strike-red: rgb(185 28 28);
+  --vc-server-mute-fg: rgb(220 38 38);
+
+  /* Paper — warm cream workspace */
+  --paper-workspace-bg: var(--bg);
+  --paper-surface-bg: var(--elevated);
+  --paper-surface-fg: rgba(48, 28, 8, 0.92);
+  --paper-surface-muted: rgba(90, 62, 38, 0.65);
+  --paper-surface-border: rgba(120, 80, 30, 0.12);
+  --paper-surface-shadow:
+    0 4px 18px rgba(120, 80, 30, 0.1), 0 0 0 1px rgba(120, 80, 30, 0.08);
+  --paper-prose-link: #b45309;
+  --paper-comment-card-shadow: 0 8px 22px rgba(120, 80, 30, 0.14);
+  --paper-pin-shadow: 0 2px 8px rgba(120, 80, 30, 0.18);
+}

@@ -24,6 +24,19 @@ import {
   playDesktopNativeRingtone,
 } from '@/platform/desktopBridge';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
+import { getIsIosSimulator } from '@/platform/iosNativeFeedback';
+
+/**
+ * The iOS Simulator's CoreAudio HAL frequently times out when WebKit starts an
+ * audio output unit (`AudioOutputUnitAdaptor::start()` → `_ReportRPCTimeout`),
+ * aborting WebKit's GPU process the moment a Web Audio `AudioContext` resumes or
+ * an `HTMLAudioElement` plays. Disable Echo sound priming/playback there so the
+ * Simulator stays usable. Real devices (and all non-iOS targets) return `false`,
+ * so this never changes shipped audio behavior. See `detectIosSimulator()`.
+ */
+function isEchoAudioDisabledForSimulator(): boolean {
+  return getIsIosSimulator();
+}
 
 const ECHO_SOUND_DEBUG =
   import.meta.env.DEV ||
@@ -97,6 +110,9 @@ function notifyEchoSoundSyntheticFallback(): void {
 
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null;
+  /* iOS Simulator: never create/resume an AudioContext — starting the audio unit
+   * times out and aborts WebKit's GPU process. All callers handle a null context. */
+  if (isEchoAudioDisabledForSimulator()) return null;
   if (!audioCtx) {
     try {
       audioCtx = new AudioContext();
@@ -108,6 +124,7 @@ function getCtx(): AudioContext | null {
 }
 
 export function primeEchoAudioPlayback(): void {
+  if (isEchoAudioDisabledForSimulator()) return;
   onAudioPlaybackUnlocked();
   if (isDesktop() && DESKTOP_NATIVE_AUDIO_ENABLED) {
     void initDesktopNativeAudio()
@@ -234,6 +251,10 @@ export function playEchoSound(
   id: EchoSoundId,
   opts?: { volume?: number; silentFallback?: boolean },
 ): void {
+  /* iOS Simulator: skip all sound playback (HTMLAudio + Web Audio both start the
+   * audio unit, which times out and aborts WebKit's GPU process). Device unaffected. */
+  if (isEchoAudioDisabledForSimulator()) return;
+
   const prefs = useNotificationPreferencesStore();
   if (!prefs.settings.soundEffects) return;
   if (prefs.settings.soundEffectsById[id] === false) return;

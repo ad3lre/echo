@@ -46,6 +46,8 @@ impl Default for IosAuthState {
 const KEYCHAIN_SERVICE: &str = "com.echo.ios.auth";
 #[cfg(target_os = "ios")]
 const KEYCHAIN_ACCOUNT: &str = "session_memory";
+#[cfg(target_os = "ios")]
+const KEYCHAIN_REFRESH_ACCOUNT: &str = "refresh_token";
 
 // ── Keychain: iOS uses security-framework, other platforms use temp file ──
 
@@ -95,6 +97,43 @@ mod keychain {
             }
         }
     }
+
+    pub fn read_refresh_token() -> Option<String> {
+        match security_framework::passwords::get_generic_password(
+            KEYCHAIN_SERVICE,
+            KEYCHAIN_REFRESH_ACCOUNT,
+        ) {
+            Ok(bytes) => std::str::from_utf8(&bytes).ok().map(|s| s.to_string()),
+            Err(_) => None,
+        }
+    }
+
+    pub fn write_refresh_token(token: &str) -> Result<(), String> {
+        let _ = delete_refresh_token();
+        security_framework::passwords::set_generic_password(
+            KEYCHAIN_SERVICE,
+            KEYCHAIN_REFRESH_ACCOUNT,
+            token.as_bytes(),
+        )
+        .map_err(|e| format!("keychain refresh write: {e}"))
+    }
+
+    pub fn delete_refresh_token() -> Result<(), String> {
+        match security_framework::passwords::delete_generic_password(
+            KEYCHAIN_SERVICE,
+            KEYCHAIN_REFRESH_ACCOUNT,
+        ) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                let code = e.code();
+                if code == -25300 {
+                    Ok(())
+                } else {
+                    Err(format!("keychain refresh delete: {e}"))
+                }
+            }
+        }
+    }
 }
 
 #[cfg(not(target_os = "ios"))]
@@ -106,6 +145,12 @@ mod keychain {
         let dir = std::env::temp_dir().join("echo-dev-keychain");
         let _ = std::fs::create_dir_all(&dir);
         dir.join("session_memory.json")
+    }
+
+    fn refresh_file_path() -> PathBuf {
+        let dir = std::env::temp_dir().join("echo-dev-keychain");
+        let _ = std::fs::create_dir_all(&dir);
+        dir.join("refresh_token.txt")
     }
 
     pub fn read_session() -> Option<StoredSessionMemory> {
@@ -125,6 +170,22 @@ mod keychain {
         let path = session_file_path();
         if path.exists() {
             std::fs::remove_file(&path).map_err(|e| format!("delete: {e}"))?;
+        }
+        Ok(())
+    }
+
+    pub fn read_refresh_token() -> Option<String> {
+        std::fs::read_to_string(refresh_file_path()).ok()
+    }
+
+    pub fn write_refresh_token(token: &str) -> Result<(), String> {
+        std::fs::write(refresh_file_path(), token).map_err(|e| format!("write refresh: {e}"))
+    }
+
+    pub fn delete_refresh_token() -> Result<(), String> {
+        let path = refresh_file_path();
+        if path.exists() {
+            std::fs::remove_file(&path).map_err(|e| format!("delete refresh: {e}"))?;
         }
         Ok(())
     }
@@ -220,10 +281,26 @@ pub fn ios_auth_update_session(
 #[tauri::command]
 pub fn ios_auth_clear_session(app: tauri::AppHandle) -> Result<(), String> {
     keychain::delete_session()?;
+    let _ = keychain::delete_refresh_token();
     let state = app.state::<IosAuthState>();
     *state.session.lock().unwrap() = None;
     *state.native_auth_complete.lock().unwrap() = false;
     Ok(())
+}
+
+#[tauri::command]
+pub fn ios_auth_store_refresh_token(refresh_token: String) -> Result<(), String> {
+    keychain::write_refresh_token(refresh_token.trim())
+}
+
+#[tauri::command]
+pub fn ios_auth_get_refresh_token() -> Option<String> {
+    keychain::read_refresh_token()
+}
+
+#[tauri::command]
+pub fn ios_auth_clear_refresh_token() -> Result<(), String> {
+    keychain::delete_refresh_token()
 }
 
 #[tauri::command]

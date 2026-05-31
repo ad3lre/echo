@@ -1,7 +1,7 @@
 import { selectPresence } from '@/services/domain/presence';
 
 /**
- * Whether to render a user with offline styling (muted name, grayscale avatar).
+ * Whether a user is offline for presence-aware UI (e.g. muted labels).
  * Unknown / empty status is not treated as offline; wait for authoritative presence.
  */
 export function isOfflinePresence(status: string | undefined): boolean {

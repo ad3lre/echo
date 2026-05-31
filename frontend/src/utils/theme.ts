@@ -12,7 +12,7 @@
 /** User-facing theme preference — may include future ids without CSS yet. */
 export type EchoThemeId = 'Dark' | 'Light' | 'Amoled' | 'Sunny';
 
-/** Values that have a matching [data-theme="…"] block in themes.css. */
+/** Values that have a matching [data-theme="…"] block in themes.scss. */
 export type CanonicalThemeId = 'dark' | 'light';
 /** Runtime modifier on top of canonical dark theme. */
 export type EchoDarkVariantId = 'default' | 'amoled';
@@ -215,7 +215,7 @@ export function persistActionRailPlacement(
 }
 
 /**
- * Sets `data-echo-density` on `<html>` for density.css overrides.
+ * Sets `data-echo-density` on `<html>` for density.scss overrides.
  * Comfortable → attribute removed (baseline matches historical UI).
  */
 export function applyInterfaceDensityToDocument(
@@ -232,7 +232,7 @@ export function applyInterfaceDensityToDocument(
 }
 
 /**
- * Sets `data-echo-vibrant-accents` on `<html>` for themes.css overrides.
+ * Sets `data-echo-vibrant-accents` on `<html>` for themes.scss overrides.
  * When enabled: attribute value is `"on"` (matches `html[data-echo-vibrant-accents='on']`).
  * When disabled: attribute is removed (not `"false"`).
  */
@@ -290,7 +290,7 @@ export function applyThemeToDocument(theme: CanonicalThemeId): void {
  * mobile and some desktop PWA window frames. Static `manifest.webmanifest` and
  * `index.html` defaults are overridden here whenever the active theme changes.
  *
- * Hex values match `themes.css` `--bg` (dark default, light, Sunny, AMOLED).
+ * Hex values match `themes.scss` `--bg` (dark default, light, Sunny, AMOLED).
  */
 export function applyBrowserChromeThemeColor(
   canonicalTheme: CanonicalThemeId,

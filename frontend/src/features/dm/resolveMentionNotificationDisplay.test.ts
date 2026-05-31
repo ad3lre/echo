@@ -5,6 +5,7 @@ import {
   resolveMentionNotificationAuthorName,
   resolveMentionNotificationChannelLabel,
   resolveMentionNotificationRowAuthorName,
+  resolveMentionNotificationRowPreview,
 } from './resolveMentionNotificationDisplay';
 import { MENTION_NOTIFICATION_STUB_PREVIEW } from './mentionNotificationAuthority';
 
@@ -153,5 +154,34 @@ describe('resolveMentionNotificationRowAuthorName', () => {
         serverMemberNicknames: {},
       }),
     ).toBe('Casey');
+  });
+});
+
+describe('resolveMentionNotificationRowPreview', () => {
+  it('shows loading copy for stubs without cached message body', () => {
+    expect(
+      resolveMentionNotificationRowPreview({
+        row: {
+          channelId: CH,
+          messageId: 'msg-1',
+          preview: MENTION_NOTIFICATION_STUB_PREVIEW,
+        },
+      }),
+    ).toBe(MENTION_NOTIFICATION_STUB_PREVIEW);
+  });
+
+  it('uses cached message body when stub row has not refreshed yet', () => {
+    expect(
+      resolveMentionNotificationRowPreview({
+        row: {
+          channelId: CH,
+          messageId: 'msg-1',
+          preview: MENTION_NOTIFICATION_STUB_PREVIEW,
+        },
+        cachedMessage: {
+          content: 'hello @you there',
+        },
+      }),
+    ).toBe('hello @you there');
   });
 });

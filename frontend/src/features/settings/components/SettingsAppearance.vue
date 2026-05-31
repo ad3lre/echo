@@ -55,7 +55,7 @@ function themeOptionDisabled(t: { id?: string; disabled?: boolean }): boolean {
 }
 
 /**
- * Miniature uses scoped canonical hexes from themes.css (light / dark / AMOLED),
+ * Miniature uses scoped canonical hexes from themes.scss (light / dark / AMOLED),
  * not live CSS variables, so previews stay honest inside the settings shell.
  */
 function themePreviewKind(id: string): 'light' | 'dark' | 'amoled' | 'sunny' {
@@ -415,7 +415,7 @@ watch(
 </template>
 
 <style scoped lang="scss">
-/* Canonical preview fills — keep aligned with frontend/src/assets/themes.css */
+/* Canonical preview fills — keep aligned with frontend/src/assets/themes.scss */
 
 .theme-selection-panel {
   background: var(--elevated);
