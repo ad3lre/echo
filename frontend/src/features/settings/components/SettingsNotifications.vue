@@ -10,6 +10,10 @@ import {
 } from '@/stores/callRingtone';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
+import {
+  disableEchoWebPushSubscription,
+  ensureEchoWebPushSubscription,
+} from '@/services/webPush';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
@@ -49,6 +53,51 @@ const ringtoneDropdownOptions = computed(() =>
   ),
 );
 
+async function toggleDesktopAlerts() {
+  const next = !props.form.notificationSettings.desktopAlerts;
+  props.form.notificationSettings.desktopAlerts = next;
+  const token = authSession.accessToken?.trim() ?? '';
+  if (!next) {
+    if (token) void disableEchoWebPushSubscription(token);
+    return;
+  }
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    if (token) void ensureEchoWebPushSubscription(token);
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    dispatchAppToast(
+      'Notifications are blocked for this site in your browser settings.',
+      'warning',
+    );
+    return;
+  }
+  if (
+    echoSyncCapabilities.browser.pageNotificationPreviewMode ===
+    'standalone-only'
+  ) {
+    dispatchAppToast(
+      'On iPhone and iPad, add Echo to the Home Screen to enable notifications.',
+      'warning',
+    );
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      dispatchAppToast(
+        'Desktop notifications need browser permission to appear.',
+        'warning',
+      );
+      return;
+    }
+    if (token) void ensureEchoWebPushSubscription(token);
+  } catch {
+    /* ignore */
+  }
+}
+
 function sendTestDesktopNotification() {
   const notify = (message: string, severity: 'info' | 'warning' = 'info') => {
     dispatchAppToast(message, severity);
@@ -86,7 +135,7 @@ function sendTestDesktopNotification() {
     }
   };
   if (Notification.permission === 'granted') {
-    show('This is a test alert. Personal settings are saved in this browser.');
+    show('This is a test alert. Personal settings sync across your devices.');
     return;
   }
   if (Notification.permission === 'denied') {
@@ -98,9 +147,7 @@ function sendTestDesktopNotification() {
   }
   Notification.requestPermission().then((perm) => {
     if (perm === 'granted') {
-      show(
-        'This is a test alert. Personal settings are saved in this browser.',
-      );
+      show('This is a test alert. Personal settings sync across your devices.');
     } else {
       notify('Permission was not granted.', 'warning');
     }
@@ -146,8 +193,8 @@ async function removeCustomRingtone(id: string, label: string) {
 <template>
   <div class="flex flex-col gap-6">
     <p class="-mt-1 max-w-2xl text-sm leading-relaxed text-fg-soft">
-      Personal notification defaults for this browser. They combine with
-      <span class="font-semibold text-fg-soft">per-server</span> settings
+      Personal notification defaults that sync across your devices. They combine
+      with <span class="font-semibold text-fg-soft">per-server</span> settings
       (server menu → Notification Settings).
     </p>
     <div class="grid gap-4 lg:grid-cols-2">
@@ -160,10 +207,7 @@ async function removeCustomRingtone(id: string, label: string) {
           <button
             type="button"
             class="settings-toggle"
-            @click="
-              form.notificationSettings.desktopAlerts =
-                !form.notificationSettings.desktopAlerts
-            "
+            @click="toggleDesktopAlerts"
           >
             <span class="flex min-w-0 flex-1 items-start gap-3">
               <img

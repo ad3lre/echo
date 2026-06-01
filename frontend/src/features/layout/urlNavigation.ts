@@ -54,6 +54,7 @@ export function parseGuildSettingsSectionFromQuery(
   if (!raw) return null;
   const dec = decodeSettingsQueryValue(raw);
   if (dec === 'Applications') return 'Access';
+  if (dec === 'Stickers') return 'Emoji';
   if (GUILD_SETTINGS_SECTION_IDS.has(dec)) return dec as GuildSettingsSection;
   return null;
 }

@@ -45,6 +45,10 @@ import {
 } from '@/platform/desktopBridge';
 import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import {
+  getPasskeyWebCeremonyBlockReason,
+  mapPasskeyCeremonyError,
+} from '@/utils/passkeyClientSupport';
+import {
   ECHO_PUBLIC_SUPPORT_EMAIL,
   echoPublicSupportMailtoHref,
 } from '@/config/echoPublicSupportContact';
@@ -199,13 +203,13 @@ watch(
     } catch {
       /* ignore */
     }
-    if (
-      props.passkeyOnOpen &&
-      !isMockDataMode &&
-      ECHO_PASSKEYS_ENABLED &&
-      !isDesktop()
-    ) {
-      nextTick(() => void submitPasskeyLogin());
+    if (props.passkeyOnOpen && ECHO_PASSKEYS_ENABLED && !isMockDataMode) {
+      const blocked = getPasskeyWebCeremonyBlockReason('login');
+      if (blocked) {
+        errorMessage.value = blocked;
+      } else {
+        nextTick(() => void submitPasskeyLogin());
+      }
     }
   },
   { immediate: true },
@@ -532,9 +536,11 @@ async function startGoogleLogin() {
 }
 
 async function submitPasskeyLogin() {
-  // In Tauri the WKWebView origin doesn't match the RP ID so WebAuthn always
-  // fails. The native Swift overlay handles passkeys on iOS; skip here.
-  if (isMockDataMode || !ECHO_PASSKEYS_ENABLED || isDesktop()) return;
+  const blocked = getPasskeyWebCeremonyBlockReason('login');
+  if (blocked) {
+    errorMessage.value = blocked;
+    return;
+  }
   submitting.value = true;
   errorMessage.value = '';
   try {
@@ -563,7 +569,7 @@ async function submitPasskeyLogin() {
     authSession.setSession(result);
     close();
   } catch (e) {
-    errorMessage.value = mapError(e);
+    errorMessage.value = mapPasskeyCeremonyError(e, 'login');
   } finally {
     submitting.value = false;
   }

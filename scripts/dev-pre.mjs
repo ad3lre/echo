@@ -32,11 +32,11 @@ if (
 
 run(
   [
-    'node scripts/ensure-docker.js',
+    'node scripts/ensure-docker.mjs',
     'npm run db:up',
-    'node scripts/copy-twemoji.js',
-    'node scripts/build-emoji-secondary-aliases.js',
-    'node scripts/build-emoji-search-index.js',
+    'node scripts/copy-twemoji.mjs',
+    'node scripts/build-emoji-secondary-aliases.mjs',
+    'node scripts/build-emoji-search-index.mjs',
     'node scripts/diagnostics-prune.mjs',
   ].join(' && '),
 );

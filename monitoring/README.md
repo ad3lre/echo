@@ -1,6 +1,6 @@
 # Echo monitoring (Prometheus / Grafana)
 
-**Doc verified:** 2026-03-27 — scrape path and rule filenames match this repo layout.
+**Doc verified:** 2026-06-01 — scrape path and rule filenames match this repo layout.
 
 Versioned **recording** and **alert** rules for Echo live under `prometheus/rules/`. They assume a Prometheus (or Mimir/VictoriaMetrics Prometheus-compatible) scrape of the Echo API metrics endpoint.
 

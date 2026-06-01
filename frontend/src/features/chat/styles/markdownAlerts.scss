@@ -1,6 +1,6 @@
 // GitHub-style markdown alerts (`> [!NOTE]` etc.) for message HTML hosts.
 @mixin echo-markdown-alerts() {
-  :deep(.md-alert) {
+  & .md-alert {
     margin: 0 0 1em;
     padding: 8px 16px;
     color: inherit;
@@ -9,15 +9,15 @@
     background: transparent;
   }
 
-  :deep(.md-alert > :first-child) {
+  & .md-alert > :first-child {
     margin-top: 0;
   }
 
-  :deep(.md-alert > :last-child) {
+  & .md-alert > :last-child {
     margin-bottom: 0;
   }
 
-  :deep(.md-alert__title) {
+  & .md-alert__title {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -30,36 +30,36 @@
     color: var(--md-alert-fg, var(--text));
   }
 
-  :deep(.md-alert__icon) {
+  & .md-alert__icon {
     flex-shrink: 0;
     display: block;
   }
 
-  :deep(.md-alert__label) {
+  & .md-alert__label {
     font-weight: 600;
   }
 
-  :deep(.md-alert--note) {
+  & .md-alert--note {
     --md-alert-border: var(--md-alert-note-border);
     --md-alert-fg: var(--md-alert-note-fg);
   }
 
-  :deep(.md-alert--tip) {
+  & .md-alert--tip {
     --md-alert-border: var(--md-alert-tip-border);
     --md-alert-fg: var(--md-alert-tip-fg);
   }
 
-  :deep(.md-alert--important) {
+  & .md-alert--important {
     --md-alert-border: var(--md-alert-important-border);
     --md-alert-fg: var(--md-alert-important-fg);
   }
 
-  :deep(.md-alert--warning) {
+  & .md-alert--warning {
     --md-alert-border: var(--md-alert-warning-border);
     --md-alert-fg: var(--md-alert-warning-fg);
   }
 
-  :deep(.md-alert--caution) {
+  & .md-alert--caution {
     --md-alert-border: var(--md-alert-caution-border);
     --md-alert-fg: var(--md-alert-caution-fg);
   }

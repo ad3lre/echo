@@ -16,15 +16,13 @@ export const SECTION_GROUPS: SectionGroup[] = GUILD_SETTINGS_SECTION_GROUPS;
 
 export const SECTION_COPY: Record<ServerSettingsSection, string> = {
   Overview: 'Manage branding and the core information members see first.',
-  Events:
-    'Create scheduled events with RSVPs. Upcoming events appear in the channel sidebar for members.',
+  Events: "Schedule community events and track who's going.",
   Structure:
     'Reorder categories and channels in a simple list. This mirrors the sidebar drag order and is handy on touch devices.',
   Members: 'Members, import placeholders, moderation.',
   Roles:
     'Review the role ladder, member distribution, and default permissions at a glance.',
-  Emoji: 'Manage emoji slots and server visual identity.',
-  Stickers: 'View and manage server sticker packs for the composer picker.',
+  Emoji: 'Manage emoji and sticker packs for the composer picker.',
   Discord:
     'Discord import status, refresh from the latest export, and optional realtime bridge.',
   Security:
@@ -34,7 +32,7 @@ export const SECTION_COPY: Record<ServerSettingsSection, string> = {
   Tickets:
     'Set up a ticket system so members can submit private reports and inquiries visible only to them and designated handlers.',
   'Self-assignable Roles':
-    'Enable a widget channel where members can pick up roles marked as self-selectable, organized by role categories or custom groups.',
+    'Enable a built-in widget channel where members pick up self-selectable roles. The channel is created automatically when enabled.',
   'Banned Words':
     'Choose a filter level to automatically block, delete, or warn when members use inappropriate language.',
   Moderation:

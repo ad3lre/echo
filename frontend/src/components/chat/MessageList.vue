@@ -10,7 +10,7 @@ import {
   type ComponentPublicInstance,
 } from 'vue';
 import { useVirtualizer } from '@tanstack/vue-virtual';
-import type { MessageWithAuthor } from '@shared/types';
+import type { MessageWithAuthor, EchoChannelType } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import MessageBubble from './MessageBubble.vue';
 import MessageListHistorySkeleton from './MessageListHistorySkeleton.vue';
@@ -151,7 +151,7 @@ const props = defineProps<{
   discordChannelId?: string;
   channelName?: string;
   /** When `voice`, Discord message import is not offered (voice side chat / voice channels). */
-  channelType?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  channelType?: EchoChannelType;
   /** True when viewing a forum post channel (child thread channel under a forum). */
   isForumPostChannel?: boolean;
   /** Server owner / manage-server only — empty-channel Discord import CTA. */

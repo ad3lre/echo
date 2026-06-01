@@ -9,8 +9,10 @@ import {
 
 /** Desktop rail: hold or deliberate move starts reorder (ms / px). */
 const HOLD_MS = 200;
-/** Movement from pointerdown before drag mode engages (trackpad clicks often jitter <10px). */
-const DRAG_ACTIVATE_MOVE_PX = 10;
+/** Trackpad tap-clicks finish quickly; ignore movement-only drag until press is deliberate. */
+const MIN_PRESS_MS_FOR_MOVE_DRAG = 80;
+/** Movement from pointerdown before drag mode engages (trackpad clicks often jitter <14px). */
+const DRAG_ACTIVATE_MOVE_PX = 14;
 const HYSTERESIS_PX = 4;
 
 function railFinalIndexAfterMove(n: number, from: number, to: number): number {
@@ -38,6 +40,7 @@ type Pending = {
   index: number;
   startX: number;
   startY: number;
+  downAtMs: number;
   folderRoot: HTMLElement;
   downTarget: HTMLElement;
   timer: ReturnType<typeof setTimeout>;
@@ -186,6 +189,9 @@ export function useServerRailReorder(
 
   function onWindowPointerMove(e: PointerEvent) {
     if (pending && e.pointerId === pending.pointerId) {
+      if (Date.now() - pending.downAtMs < MIN_PRESS_MS_FOR_MOVE_DRAG) {
+        return;
+      }
       const dx = e.clientX - pending.startX;
       const dy = e.clientY - pending.startY;
       if (dx * dx + dy * dy >= DRAG_ACTIVATE_MOVE_PX * DRAG_ACTIVATE_MOVE_PX) {
@@ -287,6 +293,7 @@ export function useServerRailReorder(
       index,
       startX: e.clientX,
       startY: e.clientY,
+      downAtMs: Date.now(),
       folderRoot,
       downTarget: target,
       timer,

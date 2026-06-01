@@ -19,8 +19,6 @@ import { useChannelMoveCrossCategoryPreference } from '@/features/channel-settin
 
 const MERGED_HIDE_KEY = '__merged_hide__';
 
-const { mode } = useChannelMoveCrossCategoryPreference();
-
 const props = withDefaults(
   defineProps<{
     categories: ChannelCategory[];
@@ -43,6 +41,10 @@ const props = withDefaults(
     canReorderChannels: false,
     canReorderCategories: false,
   },
+);
+
+const { mode } = useChannelMoveCrossCategoryPreference(
+  toRef(props, 'serverId'),
 );
 
 const channelIconResolver = useChannelIconResolver(
@@ -699,7 +701,7 @@ onBeforeUnmount(() => {
             type="radio"
             class="mt-0.5"
             value="keep"
-            name="echo-channel-move-perm"
+            :name="`echo-channel-move-perm-${props.serverId ?? 'global'}`"
           />
           <span>
             <span class="font-medium text-fg">Keep channel overrides</span>
@@ -717,14 +719,14 @@ onBeforeUnmount(() => {
             type="radio"
             class="mt-0.5"
             value="sync"
-            name="echo-channel-move-perm"
+            :name="`echo-channel-move-perm-${props.serverId ?? 'global'}`"
           />
           <span>
-            <span class="font-medium text-fg">Sync with new category</span>
+            <span class="font-medium text-fg">Sync with category</span>
             <span class="mt-0.5 block text-xs text-fg-subtle">
               Clear the channel’s permission overwrites so it inherits from the
-              destination category (same as “Sync permissions with category” in
-              channel settings).
+              destination category (same as “Sync with category” in channel
+              settings).
             </span>
           </span>
         </label>
@@ -736,7 +738,7 @@ onBeforeUnmount(() => {
             type="radio"
             class="mt-0.5"
             value="ask"
-            name="echo-channel-move-perm"
+            :name="`echo-channel-move-perm-${props.serverId ?? 'global'}`"
           />
           <span>
             <span class="font-medium text-fg">Decide each time</span>

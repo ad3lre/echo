@@ -389,6 +389,20 @@ async function run(): Promise<void> {
       /consumeWebhookDeliveryOnce/,
       'discord voice mirror webhook must enforce replay protection',
     );
+    const botEchoApiSource = await readFile(
+      path.join(process.cwd(), 'bot', 'src', 'echoApi.ts'),
+      'utf8',
+    );
+    assert.match(
+      botEchoApiSource,
+      /x-echo-signature/,
+      'discord bot echoApi must sign production webhook POSTs',
+    );
+    assert.match(
+      botEchoApiSource,
+      /x-echo-delivery-id/,
+      'discord bot echoApi must send delivery-id on POSTs',
+    );
     const meDiscordSource = await readFile(
       path.join(
         process.cwd(),

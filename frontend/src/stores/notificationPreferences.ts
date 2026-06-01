@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
 import { ECHO_SOUND_IDS, type EchoSoundId } from '@/audio/echoSoundAssets';
+import {
+  fetchEchoPersonalNotificationPreferences,
+  putEchoPersonalNotificationPreferences,
+} from '@/api/echo/attention';
+import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 
 const STORAGE_KEY = 'echo-personal-notification-settings';
 
@@ -101,13 +106,95 @@ export const useNotificationPreferencesStore = defineStore(
       }, 200);
     };
 
+    // --- Cross-device cloud sync ---------------------------------------------
+    // The store stays token-agnostic: the app registers a token getter via
+    // `configureCloudSync`, pulls the remote blob once on login, then pushes
+    // debounced updates. `applyingRemote` prevents the pull from echoing back as
+    // a push, and `cloudHydrated` blocks pushes until after the initial pull so
+    // local defaults never clobber a saved remote.
+    let cloudTokenGetter: (() => string) | null = null;
+    let applyingRemote = false;
+    let pushTimeout: ReturnType<typeof setTimeout> | null = null;
+    const cloudHydrated = ref(false);
+
+    const schedulePush = () => {
+      const token = cloudTokenGetter?.().trim() ?? '';
+      if (!token) return;
+      if (pushTimeout != null) clearTimeout(pushTimeout);
+      const snapshot = { ...settings.value } as unknown as Record<
+        string,
+        unknown
+      >;
+      pushTimeout = setTimeout(() => {
+        pushTimeout = null;
+        void putEchoPersonalNotificationPreferences(token, snapshot).catch(
+          (e) => {
+            reportPrimaryFlowFailure(
+              'putEchoPersonalNotificationPreferences',
+              e,
+              {},
+              { showBanner: false },
+            );
+          },
+        );
+      }, 600);
+    };
+
     watch(
       settings,
       (v) => {
         schedulePersist(v);
+        if (!applyingRemote && cloudHydrated.value) schedulePush();
       },
-      { deep: true },
+      // Synchronous so the `applyingRemote` guard reliably brackets the
+      // `replaceAll` mutation during a remote pull (an async watcher would fire
+      // after the guard already reset, echoing the pull back as a push).
+      { deep: true, flush: 'sync' },
     );
+
+    /** Register the auth token source and pull remote settings once. */
+    async function configureCloudSync(getToken: () => string): Promise<void> {
+      cloudTokenGetter = getToken;
+      await pullFromServer();
+    }
+
+    /** Fetch remote settings and apply them (no-op when nothing is stored). */
+    async function pullFromServer(): Promise<void> {
+      const token = cloudTokenGetter?.().trim() ?? '';
+      if (!token) return;
+      try {
+        const remote = await fetchEchoPersonalNotificationPreferences(token);
+        if (remote && Object.keys(remote).length > 0) {
+          applyingRemote = true;
+          replaceAll(remote as Partial<PersonalNotificationSettings>);
+          applyingRemote = false;
+          cloudHydrated.value = true;
+        } else {
+          // First device / never saved: seed the server from local settings.
+          cloudHydrated.value = true;
+          schedulePush();
+        }
+      } catch (e) {
+        // Still allow local-only operation; just keep pushing future edits.
+        cloudHydrated.value = true;
+        reportPrimaryFlowFailure(
+          'fetchEchoPersonalNotificationPreferences',
+          e,
+          {},
+          { showBanner: false },
+        );
+      }
+    }
+
+    /** Stop cloud sync (e.g. on logout). */
+    function disableCloudSync(): void {
+      if (pushTimeout != null) {
+        clearTimeout(pushTimeout);
+        pushTimeout = null;
+      }
+      cloudTokenGetter = null;
+      cloudHydrated.value = false;
+    }
 
     function patch(partial: Partial<PersonalNotificationSettings>) {
       settings.value = {
@@ -155,6 +242,10 @@ export const useNotificationPreferencesStore = defineStore(
       replaceAll,
       allowDesktopAlerts,
       defaults,
+      cloudHydrated,
+      configureCloudSync,
+      pullFromServer,
+      disableCloudSync,
     };
   },
 );

@@ -538,11 +538,8 @@ function clearCover() {
         <div class="min-w-0 flex-1">
           <div class="settings-subtitle">Community events</div>
           <p class="mt-1.5 text-sm leading-snug text-fg-subtle">
-            Schedule covers, times, and where it happens: a voice or text
-            channel on this server, or a custom venue (address, external link,
-            invite, or Echo path). Members see upcoming events in the channel
-            sidebar; RSVPs also surface in DMs. Times use each viewer’s local
-            timezone.
+            Plan what’s happening, when, and where. Members see upcoming events
+            in the sidebar and can RSVP from their inbox.
           </p>
         </div>
         <button
@@ -579,8 +576,7 @@ function clearCover() {
           <div class="mb-4 border-b border-border/60 pb-3">
             <h5 class="settings-subtitle">Event details</h5>
             <p class="mt-1 text-xs leading-relaxed text-fg-soft">
-              Title and description shown in the sidebar carousel and event
-              cards.
+              What members see on the event card.
             </p>
           </div>
           <div
@@ -613,7 +609,7 @@ function clearCover() {
             <div class="min-w-0 lg:col-span-5">
               <label class="settings-label">Cover image</label>
               <p class="mt-1 text-xs text-fg-soft">
-                16:9 works best. Upload only — stored like server branding.
+                Wide images work best (16:9).
               </p>
               <div
                 class="relative mt-3 aspect-[16/9] w-full overflow-hidden rounded-2xl bg-glass-2 ring-1 ring-border/50"
@@ -671,8 +667,7 @@ function clearCover() {
           <div class="mb-4 border-b border-border/60 pb-3">
             <h5 class="settings-subtitle">Schedule</h5>
             <p class="mt-1 text-xs leading-relaxed text-fg-soft">
-              Times use your device timezone; members see the event in their own
-              local time.
+              Everyone sees times in their own timezone.
             </p>
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
@@ -710,9 +705,7 @@ function clearCover() {
           <div class="mb-4 border-b border-border/60 pb-3">
             <h5 class="settings-subtitle">Location</h5>
             <p class="mt-1 text-xs leading-relaxed text-fg-soft">
-              Pick a voice or text channel on this server, or describe anywhere
-              else (address, link, invite, or an Echo path like
-              <code class="rounded bg-glass-2 px-1">/channels/…</code>).
+              Choose a channel on this server, or add an address or link.
             </p>
           </div>
           <div
@@ -788,7 +781,7 @@ function clearCover() {
                 rows="3"
                 maxlength="2000"
                 class="server-input mt-2 min-h-[88px] w-full resize-y"
-                placeholder="Physical address, another site, Discord/Echo invite, or paste an Echo path (/channels/…)"
+                placeholder="Address, link, or invite"
                 :disabled="saving"
               />
             </div>
@@ -804,9 +797,7 @@ function clearCover() {
             v-if="editingHadDiscordMirror"
             class="text-sm leading-snug text-fg-subtle"
           >
-            This event is listed on Discord; saving updates that listing. The
-            Discord description keeps a clear link back to this Echo server for
-            RSVPs and full details.
+            Saving updates the Discord listing with a link back here.
           </p>
           <label v-else class="flex cursor-pointer items-start gap-3">
             <input
@@ -820,9 +811,7 @@ function clearCover() {
                 Also create a Discord scheduled event
               </span>
               <span class="mt-0.5 block text-xs leading-snug text-fg-soft">
-                Same title and schedule on Discord. The description points
-                members to this Echo server as the canonical place for RSVPs and
-                details.
+                Creates a matching event on Discord with a link back to Echo.
               </span>
             </span>
           </label>
@@ -973,7 +962,7 @@ function clearCover() {
       class="settings-section-stack py-6 text-center"
     >
       <p class="text-sm text-fg-soft">
-        No events yet. Create one to surface it in the channel sidebar carousel.
+        No events yet. Create one to show it in the sidebar.
       </p>
     </section>
   </div>

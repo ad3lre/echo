@@ -106,8 +106,64 @@ function simDestinationForXcodebuild() {
     : `platform=iOS Simulator,name=${name}`;
 }
 
-function xcodebuildReleaseSim(arch) {
-  const dest = simDestinationForXcodebuild();
+function xcodeDestinationForBootedSimulator(udid) {
+  return udid
+    ? `platform=iOS Simulator,id=${udid}`
+    : simDestinationForXcodebuild();
+}
+
+function removeGeneratedPath(p) {
+  fs.rmSync(p, { recursive: true, force: true });
+}
+
+function filterKnownTauriBuildNoise(text) {
+  const chunks = text.split(/(?<=\n)/);
+  let skippingDestinationWarning = false;
+  return chunks
+    .filter((chunk) => {
+      const line = chunk.trimEnd();
+      if (
+        line.includes(
+          '--- xcodebuild: WARNING: Using the first of multiple matching destinations:',
+        )
+      ) {
+        skippingDestinationWarning = true;
+        return false;
+      }
+      if (skippingDestinationWarning) {
+        if (line.trim().startsWith('{ platform:')) return false;
+        skippingDestinationWarning = false;
+      }
+      if (
+        line.includes('failed to rename app') &&
+        line.includes(
+          'build/echo-desktop_iOS.xcarchive/Products/Applications/Echo.app: Directory not empty',
+        )
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .join('');
+}
+
+function writeFilteredBuildOutput(output) {
+  if (typeof output !== 'string' || output.length === 0) return;
+  process.stdout.write(filterKnownTauriBuildNoise(output));
+}
+
+function hasKnownSimulatorArchiveRenameFailure(text) {
+  return (
+    typeof text === 'string' &&
+    text.includes('failed to rename app') &&
+    text.includes(
+      'build/echo-desktop_iOS.xcarchive/Products/Applications/Echo.app: Directory not empty',
+    )
+  );
+}
+
+function xcodebuildReleaseSim(arch, udid) {
+  const dest = xcodeDestinationForBootedSimulator(udid);
   const derived = path.join(os.tmpdir(), `echo-ios-sim-dd-${Date.now()}`);
   console.log(
     `\n[ios:sim:release] Fallback: xcodebuild Release (arch=${arch}) → ${derived}\n`,
@@ -182,12 +238,25 @@ function main() {
     console.log(
       `\n[ios:sim:release] tauri ios build (Rust target: ${target})…\n`,
     );
+    removeGeneratedPath(
+      path.join(appleDir, 'build/echo-desktop_iOS.xcarchive'),
+    );
     const build = spawnSync(
       'node',
       [tauriJs, 'ios', 'build', '-t', target, '--ci'],
-      { cwd: root, env, stdio: 'inherit' },
+      {
+        cwd: root,
+        env,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      },
     );
-    if (build.status !== 0) {
+    const rawBuildOutput = `${build.stdout ?? ''}\n${build.stderr ?? ''}`;
+    const knownRenameFailure =
+      hasKnownSimulatorArchiveRenameFailure(rawBuildOutput);
+    writeFilteredBuildOutput(build.stdout);
+    writeFilteredBuildOutput(build.stderr);
+    if (build.status !== 0 && !knownRenameFailure) {
       console.warn(
         '\n[ios:sim:release] tauri ios build exited non-zero (often **archive** fails on Intel while the **simulator** build already succeeded). Looking for release-iphonesimulator/Echo.app…\n',
       );
@@ -225,7 +294,7 @@ function main() {
       shell: true,
     });
     if (fe.status !== 0) process.exit(fe.status ?? 1);
-    appPath = xcodebuildReleaseSim(arch);
+    appPath = xcodebuildReleaseSim(arch, udid);
   }
 
   if (!appPath) {

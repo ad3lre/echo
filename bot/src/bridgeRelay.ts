@@ -1,62 +1,18 @@
-import { randomUUID } from 'node:crypto';
-import type { Client, Message } from 'discord.js';
+import type { Client, Message, PartialMessage } from 'discord.js';
 import { StickerFormatType } from 'discord.js';
-import { fetchEchoWebhook } from './echoFetch.js';
+import {
+  getEchoWebhookJson,
+  noteAllowlistRefresh,
+  postEchoWebhookJson,
+} from './echoApi.js';
+import { sleep } from './util/rateLimitQueue.js';
 
 let cachedAllowlist: Set<string> = new Set();
 let allowlistGuildByChannel = new Map<string, string>();
-
-function echoApiBaseUrl(): string {
-  const raw = process.env.ECHO_API_BASE_URL?.trim();
-  if (raw) return raw.replace(/\/$/, '');
-  const hook = process.env.ECHO_DISCORD_BOT_WEBHOOK_URL?.trim();
-  if (hook) {
-    try {
-      const u = new URL(hook);
-      return u.origin;
-    } catch {
-      /* fall through */
-    }
-  }
-  return 'http://127.0.0.1:3000';
-}
-
-async function refreshAllowlist(): Promise<void> {
-  const secret = process.env.ECHO_DISCORD_BOT_WEBHOOK_SECRET?.trim();
-  if (!secret) return;
-  const url = `${echoApiBaseUrl()}/api/v1/hooks/discord-bridge/allowlist`;
-  try {
-    const res = await fetchEchoWebhook(url, {
-      method: 'GET',
-      headers: { 'x-echo-discord-bot-secret': secret },
-    });
-    if (!res.ok) return;
-    const body = (await res.json()) as { channels?: unknown };
-    const chans = body.channels;
-    if (!Array.isArray(chans)) return;
-    const next = new Set<string>();
-    const guildMap = new Map<string, string>();
-    for (const item of chans) {
-      if (!item || typeof item !== 'object') continue;
-      const o = item as Record<string, unknown>;
-      const gid =
-        typeof o.discordGuildId === 'string' ? o.discordGuildId.trim() : '';
-      const cid =
-        typeof o.discordChannelId === 'string' ? o.discordChannelId.trim() : '';
-      if (gid && cid) {
-        next.add(cid);
-        guildMap.set(cid, gid);
-      }
-    }
-    cachedAllowlist = next;
-    allowlistGuildByChannel = guildMap;
-  } catch (e) {
-    console.warn(
-      '[bridge] allowlist refresh failed — inbound sync disabled until this succeeds:',
-      e,
-    );
-  }
-}
+let allowlistReadyResolve: (() => void) | null = null;
+const allowlistReady = new Promise<void>((resolve) => {
+  allowlistReadyResolve = resolve;
+});
 
 function serializeAuthor(m: Message): Record<string, unknown> {
   const a = m.author;
@@ -93,11 +49,19 @@ function mapStickerFormat(
   }
 }
 
-async function forwardToEcho(m: Message): Promise<void> {
-  const secret = process.env.ECHO_DISCORD_BOT_WEBHOOK_SECRET?.trim();
-  if (!secret) return;
-  const url = `${echoApiBaseUrl()}/api/v1/hooks/discord-bridge/inbound`;
-  const guildId = allowlistGuildByChannel.get(m.channelId) ?? m.guildId;
+function buildInboundBody(
+  m: Message,
+  guildId: string | null | undefined,
+  event: 'create' | 'update' | 'delete',
+): Record<string, unknown> {
+  if (event === 'delete') {
+    return {
+      event: 'delete',
+      discordGuildId: guildId,
+      discordChannelId: m.channelId,
+      discordMessageId: m.id,
+    };
+  }
   const stickerPayload = [...m.stickers.values()].map((s) => ({
     id: s.id,
     name: s.name,
@@ -105,8 +69,9 @@ async function forwardToEcho(m: Message): Promise<void> {
     format: mapStickerFormat(s.format),
   }));
   const ref = m.reference;
-  const body = {
-    discordGuildId: guildId,
+  return {
+    event: event === 'update' ? 'update' : undefined,
+    discordGuildId: allowlistGuildByChannel.get(m.channelId) ?? guildId,
     discordChannelId: m.channelId,
     discordMessageId: m.id,
     timestamp: m.createdAt.toISOString(),
@@ -125,22 +90,105 @@ async function forwardToEcho(m: Message): Promise<void> {
       : {}),
     webhookId: m.webhookId,
   };
-  const res = await fetchEchoWebhook(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-echo-discord-bot-secret': secret,
-      /** Required by Echo replay guard (`discordBridgeHook.ts`). */
-      'x-echo-delivery-id': randomUUID(),
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok && res.status !== 204) {
-    const t = await res.text().catch(() => '');
+}
+
+async function forwardToEcho(
+  m: Message,
+  event: 'create' | 'update' | 'delete' = 'create',
+): Promise<void> {
+  await allowlistReady;
+  const guildId = allowlistGuildByChannel.get(m.channelId) ?? m.guildId;
+  const body = buildInboundBody(m, guildId, event);
+  await postEchoWebhookJson(
+    '/api/v1/hooks/discord-bridge/inbound',
+    body,
+    'bridge',
+  );
+}
+
+async function backfillChannel(
+  client: Client,
+  channelId: string,
+): Promise<void> {
+  try {
+    const ch = await client.channels.fetch(channelId);
+    if (!ch || !ch.isTextBased() || ch.isDMBased()) return;
+    const fetched = await ch.messages.fetch({ limit: 25 });
+    const sorted = [...fetched.values()].sort(
+      (a, b) => a.createdTimestamp - b.createdTimestamp,
+    );
+    for (const m of sorted) {
+      if (!m.guild || m.author.bot) continue;
+      await forwardToEcho(m, 'create');
+      await sleep(150);
+    }
+  } catch (e) {
     console.warn(
-      `[bridge] inbound HTTP ${res.status} for msg ${m.id}: ${t.slice(0, 200)}`,
+      JSON.stringify({
+        level: 'warn',
+        relay: 'bridge',
+        msg: 'backfill_failed',
+        channelId,
+        error: e instanceof Error ? e.message : String(e),
+      }),
     );
   }
+}
+
+async function refreshAllowlist(client: Client): Promise<void> {
+  const body = await getEchoWebhookJson<{ channels?: unknown }>(
+    '/api/v1/hooks/discord-bridge/allowlist',
+    'bridge',
+  );
+  if (!body) {
+    noteAllowlistRefresh(false, cachedAllowlist.size);
+    if (allowlistReadyResolve) {
+      allowlistReadyResolve();
+      allowlistReadyResolve = null;
+    }
+    return;
+  }
+  const chans = body.channels;
+  if (!Array.isArray(chans)) {
+    noteAllowlistRefresh(false, cachedAllowlist.size);
+    if (allowlistReadyResolve) {
+      allowlistReadyResolve();
+      allowlistReadyResolve = null;
+    }
+    return;
+  }
+  const next = new Set<string>();
+  const guildMap = new Map<string, string>();
+  for (const item of chans) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    const gid =
+      typeof o.discordGuildId === 'string' ? o.discordGuildId.trim() : '';
+    const cid =
+      typeof o.discordChannelId === 'string' ? o.discordChannelId.trim() : '';
+    if (gid && cid) {
+      next.add(cid);
+      guildMap.set(cid, gid);
+    }
+  }
+  const added: string[] = [];
+  for (const cid of next) {
+    if (!cachedAllowlist.has(cid)) added.push(cid);
+  }
+  cachedAllowlist = next;
+  allowlistGuildByChannel = guildMap;
+  noteAllowlistRefresh(true, next.size);
+  if (allowlistReadyResolve) {
+    allowlistReadyResolve();
+    allowlistReadyResolve = null;
+  }
+  for (const cid of added) {
+    void backfillChannel(client, cid);
+  }
+}
+
+function shouldRelay(m: Message | PartialMessage): m is Message {
+  return Boolean(m.guild && m.author && !m.author.bot && m.partial === false);
 }
 
 /**
@@ -152,16 +200,41 @@ export function startDiscordBridgeRelay(client: Client): void {
     pollRaw === undefined || pollRaw === ''
       ? 30_000
       : Math.max(5_000, Number(pollRaw));
-  void refreshAllowlist();
+  void refreshAllowlist(client);
   if (Number.isFinite(pollMs) && pollMs > 0) {
-    setInterval(() => void refreshAllowlist(), pollMs);
+    setInterval(() => void refreshAllowlist(client), pollMs);
   }
 
   client.on('messageCreate', (m: Message) => {
-    if (!m.guild || m.author.bot) return;
+    if (!shouldRelay(m)) return;
     if (!cachedAllowlist.has(m.channelId)) return;
-    void forwardToEcho(m).catch((e) =>
+    void forwardToEcho(m, 'create').catch((e) =>
       console.warn('[bridge] forward failed', e),
     );
+  });
+
+  client.on('messageUpdate', (_old, m) => {
+    if (!m.guild || m.author?.bot) return;
+    if (!cachedAllowlist.has(m.channelId)) return;
+    void (async () => {
+      const full = m.partial ? await m.fetch().catch(() => null) : m;
+      if (!full || !full.author || full.author.bot) return;
+      await forwardToEcho(full, 'update');
+    })().catch((e) => console.warn('[bridge] update failed', e));
+  });
+
+  client.on('messageDelete', (m) => {
+    if (!m.guild || !cachedAllowlist.has(m.channelId)) return;
+    const guildId = allowlistGuildByChannel.get(m.channelId) ?? m.guild.id;
+    void postEchoWebhookJson(
+      '/api/v1/hooks/discord-bridge/inbound',
+      {
+        event: 'delete',
+        discordGuildId: guildId,
+        discordChannelId: m.channelId,
+        discordMessageId: m.id,
+      },
+      'bridge',
+    ).catch((e) => console.warn('[bridge] delete failed', e));
   });
 }

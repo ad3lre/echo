@@ -7,6 +7,7 @@ import type {
   ChannelPermissionKey,
   ChannelPermissionsState,
   ChannelSummary,
+  EchoChannelType,
 } from '@shared/types';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 import EchoDropdown from '@/components/EchoDropdown.vue';
@@ -99,7 +100,7 @@ const emit = defineEmits<{
   save: [
     payload: {
       channelId: string;
-      channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+      channelType: EchoChannelType;
       serverId: string;
       name: string;
       categoryId: string;
@@ -243,7 +244,7 @@ const channelSettingsTabs = computed((): ChannelSettingsTab[] => {
 const settingsChannelIconModel = computed(
   (): {
     name: string;
-    type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+    type: EchoChannelType;
     iconKey?: string;
   } | null => {
     const cs = props.channelSettings;
@@ -1494,7 +1495,7 @@ async function confirmDeleteChannel() {
                       class="channel-settings-option-row__text min-w-0 max-w-[min(100%,42rem)]"
                     >
                       <div class="channel-settings-option-title">
-                        Sync permissions with category
+                        Sync with category
                       </div>
                       <p class="channel-settings-hint mt-1">
                         When enabled, this channel inherits category-level
@@ -1544,7 +1545,7 @@ async function confirmDeleteChannel() {
                       class="channel-settings-option-row__text min-w-0 max-w-[min(100%,42rem)]"
                     >
                       <div class="channel-settings-option-title">
-                        Sync permissions with category
+                        Sync with category
                       </div>
                       <p class="channel-settings-hint mt-1">
                         When enabled, this channel uses defaults from

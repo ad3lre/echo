@@ -1,62 +1,58 @@
-const { exec } = require('child_process');
-const { promisify } = require('util');
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+
 const execP = promisify(exec);
 
 const PLATFORM = process.platform;
-const START_TIMEOUT = 120_000; // ms
-const POLL_INTERVAL = 2000; // ms
+const START_TIMEOUT = 120_000;
+const POLL_INTERVAL = 2000;
 
 async function dockerIsReady() {
   try {
     await execP('docker info', { timeout: 5000 });
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
 
 async function tryStartDocker() {
   if (PLATFORM === 'win32') {
-    // Try common Docker Desktop install paths on Windows
     const possible = [
       `"C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe"`,
       `"C:\\Program Files (x86)\\Docker\\Docker\\Docker Desktop.exe"`,
     ];
     for (const p of possible) {
       try {
-        // Use start so it launches detached and doesn't block the script
         await execP(`start "" ${p}`);
         return true;
-      } catch (e) {
+      } catch {
         // continue trying other paths
       }
     }
-    // Fallback: try to start via wsl (if docker desktop integration is used)
     try {
       await execP('wsl -l -v', { timeout: 5000 });
-      // no-op: presence of wsl doesn't guarantee docker-desktop, but try to start service
       await execP('wsl -d docker-desktop', { timeout: 5000 }).catch(() => {});
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   } else if (PLATFORM === 'darwin') {
     try {
       await execP('open -a Docker');
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   } else {
-    // Linux: try systemctl or service (may require sudo)
     try {
       await execP('systemctl start docker', { timeout: 5000 });
       return true;
-    } catch (e) {
+    } catch {
       try {
         await execP('service docker start', { timeout: 5000 });
         return true;
-      } catch (err) {
+      } catch {
         return false;
       }
     }

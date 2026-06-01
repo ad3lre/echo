@@ -8,6 +8,13 @@ import {
   watch,
 } from 'vue';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
+import {
+  rsvpDeclinedButtonClass,
+  rsvpDeclinedLabel,
+  rsvpGoingButtonClass,
+  rsvpGoingLabel,
+} from '@/features/server-events/rsvpUi';
+import { useOptimisticEventRsvp } from '@/features/server-events/useOptimisticEventRsvp';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 
 const props = defineProps<{
@@ -27,17 +34,24 @@ const emit = defineEmits<{
   'open-detail': [payload: { eventId: string }];
 }>();
 
-/** Hide events the user explicitly declined; keep “going” + “needs RSVP”. */
+const eventsRef = computed(() => props.events);
+const { rsvpFor, isEventVisible, setRsvp } = useOptimisticEventRsvp(eventsRef);
+
+function eventRsvp(ev: EchoWorkspaceEventSummary) {
+  return rsvpFor(ev.id, ev.userRsvp);
+}
+
+/** Hide declined events (after brief feedback) and keep “going” + “needs RSVP”. */
 const visibleEvents = computed(() =>
-  props.events.filter((e) => e.userRsvp !== 'declined'),
+  props.events.filter((e) => isEventVisible(e.id, e.userRsvp)),
 );
 
 const goingEvents = computed(() =>
-  visibleEvents.value.filter((e) => e.userRsvp === 'going'),
+  visibleEvents.value.filter((e) => eventRsvp(e) === 'going'),
 );
 
 const pendingRsvpEvents = computed(() =>
-  visibleEvents.value.filter((e) => e.userRsvp == null),
+  visibleEvents.value.filter((e) => eventRsvp(e) == null),
 );
 
 const scrollerRef = ref<HTMLElement | null>(null);
@@ -232,6 +246,7 @@ onBeforeUnmount(() => {
 });
 
 function onRsvp(ev: EchoWorkspaceEventSummary, status: 'going' | 'declined') {
+  setRsvp(ev.id, status);
   emit('rsvp', { eventId: ev.id, status });
 }
 
@@ -266,7 +281,7 @@ const hasAny = computed(
         role="button"
         tabindex="0"
         :aria-label="`Open event ${ev.title}`"
-        class="flex min-h-0 cursor-pointer items-stretch gap-2 rounded-lg border border-border/70 bg-glass-1/90 pl-2 pr-2 py-1.5 shadow-[inset_3px_0_0_rgba(99,102,241,0.45)] transition-colors hover:bg-glass-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+        class="flex min-h-0 cursor-pointer items-stretch gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/8 pl-2 pr-2 py-1.5 shadow-[inset_3px_0_0_rgba(16,185,129,0.75)] transition-colors hover:bg-emerald-500/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
         @click="onOpenDetail(ev)"
         @keydown.enter.prevent="onOpenDetail(ev)"
         @keydown.space.prevent="onOpenDetail(ev)"
@@ -293,6 +308,11 @@ const hasAny = computed(
         >
           <p class="truncate text-[12px] font-semibold text-foreground">
             {{ ev.title }}
+          </p>
+          <p
+            class="text-[10px] font-bold uppercase tracking-wide text-emerald-400"
+          >
+            Going
           </p>
           <p class="text-[11px] font-medium text-accent">
             {{ countdownLabel(ev.startsAt) }}
@@ -398,25 +418,19 @@ const hasAny = computed(
               </button>
               <button
                 type="button"
-                class="rounded-lg px-2 py-1 text-[11px] font-semibold transition-colors"
-                :class="
-                  ev.userRsvp === 'going'
-                    ? 'bg-emerald-600/90 text-white'
-                    : 'border border-border bg-glass-2 text-fg-soft hover:bg-glass-hover'
-                "
+                :class="rsvpGoingButtonClass(eventRsvp(ev), 'sm')"
+                :aria-pressed="eventRsvp(ev) === 'going'"
                 @click.stop="onRsvp(ev, 'going')"
               >
-                Going
+                {{ rsvpGoingLabel(eventRsvp(ev), 'sm') }}
               </button>
               <button
                 type="button"
-                class="rounded-lg border border-border bg-glass-2 px-2 py-1 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
-                :class="
-                  ev.userRsvp === 'declined' ? 'ring-1 ring-accent/40' : ''
-                "
+                :class="rsvpDeclinedButtonClass(eventRsvp(ev), 'sm')"
+                :aria-pressed="eventRsvp(ev) === 'declined'"
                 @click.stop="onRsvp(ev, 'declined')"
               >
-                Not going
+                {{ rsvpDeclinedLabel(eventRsvp(ev), 'sm') }}
               </button>
             </div>
           </div>
@@ -450,25 +464,19 @@ const hasAny = computed(
               </button>
               <button
                 type="button"
-                class="rounded-lg px-2 py-1 text-[11px] font-semibold transition-colors"
-                :class="
-                  ev.userRsvp === 'going'
-                    ? 'bg-emerald-600/90 text-white'
-                    : 'border border-border bg-glass-2 text-fg-soft hover:bg-glass-hover'
-                "
+                :class="rsvpGoingButtonClass(eventRsvp(ev), 'sm')"
+                :aria-pressed="eventRsvp(ev) === 'going'"
                 @click.stop="onRsvp(ev, 'going')"
               >
-                Going
+                {{ rsvpGoingLabel(eventRsvp(ev), 'sm') }}
               </button>
               <button
                 type="button"
-                class="rounded-lg border border-border bg-glass-2 px-2 py-1 text-[11px] font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
-                :class="
-                  ev.userRsvp === 'declined' ? 'ring-1 ring-accent/40' : ''
-                "
+                :class="rsvpDeclinedButtonClass(eventRsvp(ev), 'sm')"
+                :aria-pressed="eventRsvp(ev) === 'declined'"
                 @click.stop="onRsvp(ev, 'declined')"
               >
-                Not going
+                {{ rsvpDeclinedLabel(eventRsvp(ev), 'sm') }}
               </button>
             </div>
           </template>

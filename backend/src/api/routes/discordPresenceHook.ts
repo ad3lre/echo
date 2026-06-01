@@ -1,51 +1,25 @@
-import type {
-  FastifyInstance,
-  FastifyPluginOptions,
-  FastifyReply,
-  FastifyRequest,
-} from 'fastify';
-import { config } from '../../config';
+import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { getPgPool } from '../../db/pg';
 import {
   upsertDiscordPresence,
   type DiscordPresenceRow,
 } from '../../domain/discordPresenceRepo';
 import { listDiscordVoiceMirrorWatchGuildIds } from '../../domain/discordVoiceMirrorRepo';
+import { consumeWebhookDeliveryOnce } from '../../services/webhookReplayGuard';
 import { sendError } from '../errors';
-import { safeCompare } from '../../shared/safeCompare';
-
-function requireBotWebhookSecret(
-  req: FastifyRequest,
-  reply: FastifyReply,
-): boolean {
-  const secret = config.echoDiscordBotWebhookSecret.trim();
-  if (!secret) {
-    sendError(
-      reply,
-      503,
-      'NOT_CONFIGURED',
-      'Discord bot webhook secret is not configured.',
-    );
-    return false;
-  }
-  const hdr = req.headers['x-echo-discord-bot-secret'];
-  const presented = typeof hdr === 'string' ? hdr.trim() : '';
-  if (!safeCompare(presented, secret)) {
-    sendError(reply, 401, 'UNAUTHORIZED', 'Invalid webhook secret.');
-    return false;
-  }
-  return true;
-}
+import {
+  discordBotSignedWebhookPlugin,
+  requireBotWebhookPostSignature,
+  requireBotWebhookSecret,
+  requireWebhookDeliveryId,
+} from '../discordBotWebhookAuth';
 
 export default async function discordPresenceHookRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
-  /**
-   * GET /hooks/discord-presence/watchlist
-   * Returns the list of guild IDs that should have presence polled.
-   * For now, reuses the voice mirror watchlist (guilds with Discord integration enabled).
-   */
+  await fastify.register(discordBotSignedWebhookPlugin);
+
   fastify.get('/hooks/discord-presence/watchlist', async (req, reply) => {
     if (!requireBotWebhookSecret(req, reply)) return;
     const pool = getPgPool();
@@ -55,14 +29,26 @@ export default async function discordPresenceHookRoutes(
     return reply.code(200).send({ guildIds });
   });
 
-  /**
-   * POST /hooks/discord-presence/snapshot
-   * Receives batched presence snapshots from the Discord bot.
-   */
   fastify.post<{ Body: Record<string, unknown> }>(
     '/hooks/discord-presence/snapshot',
     async (req, reply) => {
-      if (!requireBotWebhookSecret(req, reply)) return;
+      const secret = requireBotWebhookSecret(req, reply);
+      if (!secret) return;
+      if (!requireBotWebhookPostSignature(req, reply, secret)) return;
+      const deliveryId = requireWebhookDeliveryId(req, reply);
+      if (!deliveryId) return;
+      const firstDelivery = await consumeWebhookDeliveryOnce(
+        'discord-presence-snapshot',
+        deliveryId,
+      );
+      if (!firstDelivery) {
+        return sendError(
+          reply,
+          409,
+          'WEBHOOK_REPLAYED',
+          'Webhook delivery already processed',
+        );
+      }
 
       const pool = getPgPool();
       if (!pool)
@@ -126,7 +112,6 @@ export default async function discordPresenceHookRoutes(
         });
       }
 
-      // Upsert all presences
       const results = await Promise.allSettled(
         presences.map((p) => upsertDiscordPresence(pool, p)),
       );
@@ -135,8 +120,9 @@ export default async function discordPresenceHookRoutes(
       const failed = results.filter((r) => r.status === 'rejected').length;
 
       if (failed > 0) {
-        console.warn(
-          `[discord-presence-hook] ${failed}/${presences.length} upserts failed for guild ${discordGuildId}`,
+        req.log.warn(
+          { failed, total: presences.length, discordGuildId },
+          'discord_presence_hook partial upsert failure',
         );
       }
 

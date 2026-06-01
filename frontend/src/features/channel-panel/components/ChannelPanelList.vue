@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { EchoChannelType } from '@shared/types';
 import { computed, nextTick, ref, toRef, watch } from 'vue';
 import { icons, getChannelDisplayName } from '@/assets/icons';
 import { useChannelIconResolver } from '@/composables/useChannelIconResolver';
@@ -119,7 +120,7 @@ const channelIconResolver = useChannelIconResolver(
 
 function getChannelEmojiOrNull(channel: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  type?: EchoChannelType;
   iconKey?: string;
 }): string | null {
   const v = channelIconResolver.getVisual(channel);
@@ -128,7 +129,7 @@ function getChannelEmojiOrNull(channel: {
 
 function getChannelIconUrlOrFallback(channel: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  type?: EchoChannelType;
   iconKey?: string;
 }): string {
   const v = channelIconResolver.getVisual(channel);
@@ -138,7 +139,7 @@ function getChannelIconUrlOrFallback(channel: {
 
 function channelIconUsesInvert(channel: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  type?: EchoChannelType;
   iconKey?: string;
 }): boolean {
   return channelIconResolver.usesSvgInvert(channel);

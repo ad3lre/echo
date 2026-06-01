@@ -1,19 +1,13 @@
 /**
  * Frees TCP ports used by `npm run dev` (or `npm run prod:serve` when `ECHO_FREE_PORTS` is set)
  * so a new run does not hit EADDRINUSE.
- *
- * The `kill-port` package uses `lsof` on macOS/Linux. On minimal Linux images `lsof`
- * is often missing — kills no-op and the backend then dies with EADDRINUSE. This script:
- * - Runs kill-port twice per port with settle delays
- * - On Linux, runs `fuser -k PORT/tcp` once for every listed port before verification (covers
- *   no-lsof setups and IPv6 listeners); if still busy, retries fuser on busy ports only
- *   (avoid mapping unrelated services to these ports on the same host)
- * - Verifies each port can be bound before exiting; if not, prints hints and exits 1 so
- *   `concurrently` does not start a backend doomed to fail on listen()
  */
+import { execFileSync } from 'node:child_process';
+import net from 'node:net';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 const killPort = require('kill-port');
-const net = require('net');
-const { execFileSync } = require('child_process');
 
 /** Backend (default), Discord bot internal server (default), Vite dev (vite.config.ts), Vite preview (frontend/package.json). */
 const DEFAULT_PORTS = [3000, 3005, 8080, 4173];
@@ -42,10 +36,6 @@ function delay(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/**
- * Port is free only if both IPv4 and IPv6 binds succeed (when IPv6 exists).
- * A listener on [::]:PORT alone can leave 0.0.0.0:PORT bind succeeding on some stacks.
- */
 function tryListen(port, host) {
   return new Promise((resolve) => {
     const s = net.createServer();
@@ -101,8 +91,6 @@ async function main() {
   }
   await delay(200);
 
-  // Linux: always SIGKILL listeners on listed ports once. kill-port often no-ops without lsof;
-  // fuser catches IPv6-only listeners that an IPv4-only bind check can miss.
   if (process.platform === 'linux') {
     for (const p of ports) {
       tryLinuxFuserKill(p);

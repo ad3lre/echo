@@ -14,7 +14,6 @@ import {
   resolveMentionNotificationPrefetchTargetsFromStubRows,
   type MentionNotificationPrefetchTarget,
 } from '@/features/dm/prefetchMentionNotificationChannels';
-import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
 import { hasChannelMessageInBucket } from '@/services/realtime/channelMessageAuthority';
 import { shouldSkipChannelMessagePrefetch } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -88,8 +87,10 @@ export function useMentionNotificationHydration(input: {
 
   function markHydrationFailures(
     targets: readonly MentionNotificationPrefetchTarget[],
+    rows: readonly DmMentionNotificationRow[],
   ): void {
     const next = new Set(failedChannelIds.value);
+
     for (const target of targets) {
       const channelId = target.channelId.trim();
       const anchor = target.anchorMessageId?.trim();
@@ -100,6 +101,19 @@ export function useMentionNotificationHydration(input: {
         next.delete(channelId);
       }
     }
+
+    for (const row of rows) {
+      if (row.preview !== MENTION_NOTIFICATION_STUB_PREVIEW) continue;
+      const channelId = row.channelId.trim();
+      const messageId = row.messageId.trim();
+      if (!channelId || !messageId) continue;
+      if (!hasChannelMessageInBucket(channelId, messageId)) {
+        next.add(channelId);
+      } else {
+        next.delete(channelId);
+      }
+    }
+
     failedChannelIds.value = next;
   }
 
@@ -149,6 +163,9 @@ export function useMentionNotificationHydration(input: {
     const hasLoadingStubs = mentionNotificationRowsHaveLoadingStubs(rows);
 
     if (targets.length === 0) {
+      if (hasLoadingStubs) {
+        markHydrationFailures([], rows);
+      }
       loading.value = false;
       return;
     }
@@ -171,7 +188,7 @@ export function useMentionNotificationHydration(input: {
       });
     } finally {
       loading.value = false;
-      markHydrationFailures(targets);
+      markHydrationFailures(targets, input.rows.value);
     }
   }
 
@@ -201,7 +218,6 @@ export function useMentionNotificationHydration(input: {
       serverNotificationLevelByServerId,
       accessToken,
       isAuthenticated,
-      () => messageReadFacade.globalResolverVersion.value,
       () => rowsSignature(input.rows.value),
     ],
     () => {

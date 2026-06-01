@@ -92,3 +92,48 @@ export function ceilToFiveMinutes(d: Date): Date {
   const rounded = Math.ceil(out.getTime() / ms) * ms;
   return new Date(rounded);
 }
+
+export const YEAR_PICKER_PAGE_SIZE = 12;
+
+/** Localized short month label for picker grids (0 = January). */
+export function monthShortLabel(
+  month: number,
+  locales?: Intl.LocalesArgument,
+): string {
+  return new Date(2000, month, 1).toLocaleString(locales, { month: 'short' });
+}
+
+/** True when every day in the month is before `min`. */
+export function isCalendarMonthBeforeMin(
+  year: number,
+  month: number,
+  min: Date | null,
+): boolean {
+  if (!min) return false;
+  const lastDay = new Date(year, month + 1, 0);
+  return compareCalendarDays(lastDay, min) < 0;
+}
+
+/** True when every day in the year is before `min`. */
+export function isCalendarYearBeforeMin(
+  year: number,
+  min: Date | null,
+): boolean {
+  if (!min) return false;
+  const lastDay = new Date(year, 11, 31);
+  return compareCalendarDays(lastDay, min) < 0;
+}
+
+export function buildYearPage(
+  startYear: number,
+  count = YEAR_PICKER_PAGE_SIZE,
+): number[] {
+  return Array.from({ length: count }, (_, i) => startYear + i);
+}
+
+export function centeredYearPageStart(
+  year: number,
+  count = YEAR_PICKER_PAGE_SIZE,
+): number {
+  return year - Math.floor(count / 2);
+}

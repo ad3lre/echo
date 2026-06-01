@@ -1,8 +1,10 @@
 import type {
   EchoAttentionChannelSummary,
   EchoAttentionPingKind,
+  EchoChannelNotificationOverride,
   EchoServerNotificationLevel,
   MentionEntity,
+  MentionKind,
   ReplyTo,
 } from './types';
 
@@ -89,6 +91,94 @@ export function classifyAttentionPingKind(
     }
   }
   return best;
+}
+
+/**
+ * The mention kinds in `mentions` that actually ping the viewer, using the same
+ * matching rules as {@link classifyAttentionPingKind}. Used to label mention
+ * inbox rows (e.g. "@you", "@role", "@everyone").
+ */
+export function selfPingingMentionKinds(
+  mentions: MentionEntity[] | undefined,
+  opts: {
+    userId?: string;
+    username?: string;
+    displayName?: string;
+    memberRoleIds?: Set<string>;
+  },
+): MentionKind[] {
+  if (!mentions?.length) return [];
+  const out: MentionKind[] = [];
+  const seen = new Set<MentionKind>();
+  const push = (k: MentionKind) => {
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(k);
+  };
+  for (const mention of mentions) {
+    if (mention.kind === 'channel') continue;
+    if (mention.kind === 'user') {
+      if (opts.userId) {
+        const uid = opts.userId.trim();
+        const byUserId = mention.userId?.trim() === uid;
+        const byEntityId =
+          typeof mention.id === 'string' && mention.id.trim() === uid;
+        if (byUserId || byEntityId) {
+          push('user');
+          continue;
+        }
+      }
+      const labelLow = mention.label.trim().toLowerCase();
+      const labelCandidates = [opts.username, opts.displayName].filter(
+        (x): x is string => typeof x === 'string' && x.trim().length > 0,
+      );
+      if (
+        labelLow &&
+        labelCandidates.some((c) => c.trim().toLowerCase() === labelLow)
+      ) {
+        push('user');
+      }
+      continue;
+    }
+    if (mention.kind === 'role') {
+      if (!mention.roleId?.trim()) continue;
+      if (
+        opts.memberRoleIds === undefined ||
+        opts.memberRoleIds.has(mention.roleId.trim())
+      ) {
+        push('role');
+      }
+      continue;
+    }
+    if (mention.kind === 'everyone' || mention.kind === 'active') {
+      push(mention.kind);
+    }
+  }
+  return out;
+}
+
+/** True when the channel is snoozed (muted) at `nowMs`. */
+export function isEchoChannelSnoozed(
+  override: EchoChannelNotificationOverride | undefined | null,
+  nowMs: number = Date.now(),
+): boolean {
+  const raw = override?.mutedUntil;
+  if (!raw) return false;
+  const t = Date.parse(raw);
+  return Number.isFinite(t) && t > nowMs;
+}
+
+/**
+ * Effective notification level for a channel: a snoozed channel reports `none`,
+ * otherwise a per-channel `level` override wins over the server-wide level.
+ */
+export function resolveEffectiveChannelNotificationLevel(
+  serverLevel: EchoServerNotificationLevel,
+  override: EchoChannelNotificationOverride | undefined | null,
+  nowMs: number = Date.now(),
+): EchoServerNotificationLevel {
+  if (isEchoChannelSnoozed(override, nowMs)) return 'none';
+  return override?.level ?? serverLevel;
 }
 
 export function applyAttentionNotificationLevel(

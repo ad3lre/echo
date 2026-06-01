@@ -66,7 +66,7 @@ function onKeydown(ev: KeyboardEvent, index: number) {
   <div
     role="radiogroup"
     aria-label="Action bar position"
-    class="grid min-w-0 grid-cols-2 gap-3 sm:gap-4"
+    class="grid min-w-0 grid-cols-2 gap-3 p-1 sm:gap-4"
   >
     <button
       v-for="(opt, idx) in options"
@@ -76,7 +76,7 @@ function onKeydown(ev: KeyboardEvent, index: number) {
       :data-rail-id="opt.id"
       :tabindex="radioTabIndex(opt.id)"
       :aria-checked="modelValue === opt.id"
-      class="rail-card group flex min-w-0 flex-col overflow-hidden rounded-xl border-2 text-left transition-[box-shadow,border-color,transform] duration-200"
+      class="rail-card group flex min-w-0 flex-col rounded-xl border-2 text-left transition-[box-shadow,border-color,transform] duration-200"
       :class="[
         modelValue === opt.id
           ? 'rail-card--selected border-[color:var(--accent)]'
@@ -152,13 +152,20 @@ function onKeydown(ev: KeyboardEvent, index: number) {
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/echoVisualSelectCard' as vsc;
+
 .rail-card-preview {
+  @include vsc.echo-visual-select-preview-clip;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  border-radius: 0.5rem 0.5rem 0 0;
+  border-radius: 0.625rem 0.625rem 0 0;
   background: color-mix(in srgb, var(--elevated) 88%, var(--border) 12%);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.rail-card-caption {
+  @include vsc.echo-visual-select-caption-clip;
 }
 
 .rail-card-preview--layout-left {
@@ -256,11 +263,14 @@ function onKeydown(ev: KeyboardEvent, index: number) {
 }
 
 .rail-card--selected {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  @include vsc.echo-visual-select-selected-ring;
 }
 
 .rail-card:focus-visible {
-  outline: 2px solid var(--accent, #6366f1);
-  outline-offset: 2px;
+  @include vsc.echo-visual-select-focus-ring;
+}
+
+.rail-card--selected:focus-visible {
+  @include vsc.echo-visual-select-selected-focus-rings;
 }
 </style>

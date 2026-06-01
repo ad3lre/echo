@@ -1,21 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { icons } from '@/assets/icons';
 import { useServerSelfRolesStore } from '@/stores/serverSelfRoles';
 import type {
   EchoSelfRolesConfig,
   SelfRolesCustomCategory,
 } from '@shared/types/selfAssignableRoles';
+import { ECHO_SELF_ROLES_CHANNEL_NAME } from '@shared/types/selfAssignableRoles';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
+
+type RoleRow = {
+  id: string;
+  name: string;
+  color?: string;
+  roleCategoryId?: string | null;
+  permissions?: string[];
+};
 
 const props = defineProps<{
   serverId: string;
   accessToken: string | null | undefined;
-  categories?: Array<{
-    id: string;
-    name: string;
-    channels?: Array<{ id: string; name: string }>;
-  }>;
-  roles?: Array<{ id: string; name: string; permissions?: string[] }>;
+  roles?: RoleRow[];
   roleCategories?: Array<{
     id: string;
     name: string;
@@ -29,8 +34,8 @@ const loading = ref(true);
 const loadError = ref<string | null>(null);
 const saving = ref(false);
 const enabled = ref(false);
-const panelChannelId = ref<string | null>(null);
 const customCategories = ref<SelfRolesCustomCategory[]>([]);
+const savedSnapshot = ref('');
 
 const selfSelectableRoles = computed(() =>
   (props.roles ?? []).filter(
@@ -44,22 +49,84 @@ const derivedCategories = computed(() =>
   (props.roleCategories ?? []).filter((c) => c.selfAssignableDefaults),
 );
 
-const textChannels = computed(() => allChannels());
+const derivedCategoryRows = computed(() =>
+  derivedCategories.value.map((cat) => ({
+    ...cat,
+    roleCount: selfSelectableRoles.value.filter(
+      (r) => r.roleCategoryId === cat.id,
+    ).length,
+  })),
+);
 
-function allChannels(): Array<{ id: string; name: string }> {
-  const all: Array<{ id: string; name: string }> = [];
-  for (const cat of props.categories ?? []) {
-    for (const ch of cat.channels ?? []) {
-      all.push(ch);
+const exposedRoleCount = computed(() => {
+  const exposed = new Set<string>();
+  for (const cat of derivedCategoryRows.value) {
+    for (const role of selfSelectableRoles.value) {
+      if (role.roleCategoryId === cat.id) exposed.add(role.id);
     }
   }
-  return all;
+  const claimed = new Set<string>();
+  for (const cat of customCategories.value) {
+    if (!cat.randomEligible) {
+      for (const rid of cat.roleIds) {
+        exposed.add(rid);
+        claimed.add(rid);
+      }
+    }
+  }
+  for (const cat of customCategories.value) {
+    if (!cat.randomEligible) continue;
+    for (const role of selfSelectableRoles.value) {
+      if (!claimed.has(role.id)) exposed.add(role.id);
+    }
+  }
+  return exposed.size;
+});
+
+const setupWarnings = computed(() => {
+  if (!enabled.value) return [] as string[];
+  const warnings: string[] = [];
+  if (!selfSelectableRoles.value.length) {
+    warnings.push(
+      'No roles have the Self-selectable permission yet. Edit roles under Server Settings → Roles.',
+    );
+  }
+  if (
+    selfSelectableRoles.value.length &&
+    !derivedCategories.value.length &&
+    !customCategories.value.length
+  ) {
+    warnings.push(
+      'Add synced role categories or custom groups so members have roles to pick from.',
+    );
+  }
+  if (
+    derivedCategories.value.length &&
+    derivedCategoryRows.value.every((c) => c.roleCount === 0)
+  ) {
+    warnings.push(
+      'Synced categories are exposed but contain no self-selectable roles yet.',
+    );
+  }
+  return warnings;
+});
+
+const isDirty = computed(() => snapshotState() !== savedSnapshot.value);
+
+function snapshotState(): string {
+  return JSON.stringify({
+    enabled: enabled.value,
+    customCategories: customCategories.value.map((c, i) => ({
+      ...c,
+      position: i,
+    })),
+  });
 }
 
 function syncFromConfig(config: EchoSelfRolesConfig) {
   enabled.value = config.enabled;
-  panelChannelId.value = config.panelChannelId;
   customCategories.value = config.customCategories.map((c) => ({ ...c }));
+  savedSnapshot.value = snapshotState();
 }
 
 async function loadSettings() {
@@ -70,7 +137,6 @@ async function loadSettings() {
   loading.value = true;
   loadError.value = null;
   try {
-    /* Cookie session auth; bearer token is legacy only (see echoFetch). */
     await selfRolesStore.loadConfig(props.serverId, props.accessToken ?? '');
     const cfg = selfRolesStore.configFor(props.serverId);
     if (cfg) syncFromConfig(cfg);
@@ -118,6 +184,11 @@ function toggleRoleInCategory(catId: string, roleId: string) {
   });
 }
 
+function discardChanges() {
+  const cfg = selfRolesStore.configFor(props.serverId);
+  if (cfg) syncFromConfig(cfg);
+}
+
 async function save() {
   if (!props.serverId) return;
   saving.value = true;
@@ -126,7 +197,6 @@ async function save() {
     props.accessToken ?? '',
     {
       enabled: enabled.value,
-      panelChannelId: panelChannelId.value,
       customCategories: customCategories.value.map((c, i) => ({
         ...c,
         position: i,
@@ -141,174 +211,383 @@ async function save() {
     dispatchAppToast(selfRolesStore.lastError, 'warning');
   }
 }
+
+function roleChipStyle(color?: string) {
+  const c = color?.trim() || '#99aab5';
+  return {
+    borderColor: `color-mix(in srgb, ${c} 45%, var(--border))`,
+    background: `color-mix(in srgb, ${c} 12%, var(--bg-secondary))`,
+  } as Record<string, string>;
+}
+
+function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
+  if (cat.randomEligible) return selfSelectableRoles.value;
+  const byId = new Map(selfSelectableRoles.value.map((r) => [r.id, r]));
+  return cat.roleIds.map((id) => byId.get(id)).filter((r): r is RoleRow => !!r);
+}
 </script>
 
 <template>
-  <div class="server-settings-self-roles">
-    <div v-if="loading" class="server-settings-self-roles__loading">
+  <div class="server-settings-sections--flat server-settings-panel-root pb-24">
+    <div v-if="loading" class="py-6 text-sm text-fg-soft">
       Loading self-assignable roles settings…
     </div>
+
     <template v-else>
       <div
         v-if="loadError"
-        class="server-settings-self-roles__error"
+        class="mb-4 flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-fg"
         role="alert"
       >
-        <p>{{ loadError }}</p>
+        <p class="min-w-0">{{ loadError }}</p>
         <button
           type="button"
-          class="server-settings-self-roles__add-btn chat-focus-ring"
+          class="shrink-0 rounded-lg bg-glass-2 px-3 py-1.5 text-xs font-semibold text-fg transition-colors hover:bg-glass-3"
           @click="loadSettings"
         >
           Retry
         </button>
       </div>
 
-      <section class="server-settings-self-roles__section">
-        <h3 class="server-settings-self-roles__heading">
-          Self-assignable roles channel
-        </h3>
-        <p class="server-settings-self-roles__desc">
-          Enable a built-in widget channel where members can pick up roles
-          marked with the Self-selectable permission. This is not a custom
-          channel type — choose an existing text channel as the panel.
+      <section class="settings-section-stack">
+        <div class="settings-subtitle">Self-assignable roles</div>
+        <p class="mt-1.5 max-w-2xl text-sm leading-relaxed text-fg-subtle">
+          Give members a dedicated widget channel to pick up roles they qualify
+          for. Roles must have the
+          <span class="text-fg-soft">Self-selectable</span> permission and
+          appear in a synced or custom category below.
         </p>
-        <label class="server-settings-self-roles__toggle">
-          <input v-model="enabled" type="checkbox" class="server-toggle" />
-          <span>Enable self-assignable roles channel</span>
-        </label>
+
+        <div class="server-settings-panel mt-4 rounded-2xl p-4 sm:p-5">
+          <div class="server-toggle-row">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="text-sm font-semibold text-fg">
+                  Enable widget channel
+                </div>
+                <span
+                  class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                  :class="
+                    enabled
+                      ? 'bg-accent/15 text-accent'
+                      : 'bg-glass-2 text-fg-subtle'
+                  "
+                >
+                  {{ enabled ? 'Active' : 'Off' }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs leading-relaxed text-fg-subtle">
+                Creates
+                <span class="font-medium text-fg-soft"
+                  >#{{ ECHO_SELF_ROLES_CHANNEL_NAME }}</span
+                >
+                automatically — members open it to assign roles.
+              </p>
+            </div>
+            <input
+              v-model="enabled"
+              type="checkbox"
+              class="server-toggle shrink-0"
+              aria-label="Enable self-assignable roles widget channel"
+            />
+          </div>
+        </div>
       </section>
 
       <template v-if="enabled">
-        <section class="server-settings-self-roles__section">
-          <h4 class="server-settings-self-roles__subheading">Panel channel</h4>
-          <p class="server-settings-self-roles__hint">
-            Members see the role picker widget in this channel.
-          </p>
-          <select
-            v-model="panelChannelId"
-            class="server-settings-self-roles__select"
+        <section class="settings-section-stack">
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div
+              class="rounded-xl bg-glass-1 px-4 py-3"
+              style="box-shadow: inset 0 0 0 1px var(--border)"
+            >
+              <div
+                class="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
+              >
+                Self-selectable roles
+              </div>
+              <div class="mt-1 text-2xl font-semibold tabular-nums text-fg">
+                {{ selfSelectableRoles.length }}
+              </div>
+            </div>
+            <div
+              class="rounded-xl bg-glass-1 px-4 py-3"
+              style="box-shadow: inset 0 0 0 1px var(--border)"
+            >
+              <div
+                class="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
+              >
+                Synced categories
+              </div>
+              <div class="mt-1 text-2xl font-semibold tabular-nums text-fg">
+                {{ derivedCategories.length }}
+              </div>
+            </div>
+            <div
+              class="rounded-xl bg-glass-1 px-4 py-3"
+              style="box-shadow: inset 0 0 0 1px var(--border)"
+            >
+              <div
+                class="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
+              >
+                Custom categories
+              </div>
+              <div class="mt-1 text-2xl font-semibold tabular-nums text-fg">
+                {{ customCategories.length }}
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="setupWarnings.length"
+            class="mt-4 space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3"
           >
-            <option :value="null">— Select a channel —</option>
-            <option v-for="ch in textChannels" :key="ch.id" :value="ch.id">
-              #{{ ch.name }}
-            </option>
-          </select>
+            <p
+              v-for="(warning, i) in setupWarnings"
+              :key="i"
+              class="text-xs leading-relaxed text-fg-soft"
+            >
+              {{ warning }}
+            </p>
+          </div>
+
           <p
-            v-if="!textChannels.length"
-            class="server-settings-self-roles__empty-note"
+            v-else-if="exposedRoleCount > 0"
+            class="mt-4 text-xs text-fg-subtle"
           >
-            No text channels available. Create a channel under Structure first.
+            {{ exposedRoleCount }} role{{ exposedRoleCount === 1 ? '' : 's' }}
+            ready for members in the widget channel.
           </p>
         </section>
 
-        <section class="server-settings-self-roles__section">
-          <h4 class="server-settings-self-roles__subheading">
-            Derived from role categories
-          </h4>
-          <p class="server-settings-self-roles__hint">
-            Role categories with “Expose in self-assign channel” enabled (Server
-            Settings → Roles → Category settings) appear here automatically with
-            their self-selectable roles.
-          </p>
-          <ul
-            v-if="derivedCategories.length"
-            class="server-settings-self-roles__derived-list"
+        <section class="settings-section-stack">
+          <div class="mb-3">
+            <div class="settings-subtitle">Synced from role categories</div>
+            <p class="mt-1 text-xs leading-relaxed text-fg-subtle">
+              Turn on
+              <span class="text-fg-soft">Expose in self-assign channel</span>
+              in a role category’s settings to mirror its self-selectable roles
+              here automatically.
+            </p>
+          </div>
+
+          <div v-if="derivedCategoryRows.length" class="flex flex-wrap gap-2">
+            <div
+              v-for="cat in derivedCategoryRows"
+              :key="cat.id"
+              class="inline-flex items-center gap-2 rounded-full bg-glass-1 px-3 py-1.5 text-sm text-fg"
+              style="box-shadow: inset 0 0 0 1px var(--border)"
+            >
+              <span>{{ cat.name }}</span>
+              <span
+                class="rounded-full bg-glass-2 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-fg-subtle"
+              >
+                {{ cat.roleCount }} role{{ cat.roleCount === 1 ? '' : 's' }}
+              </span>
+              <span
+                class="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent"
+              >
+                synced
+              </span>
+            </div>
+          </div>
+
+          <div
+            v-else
+            class="rounded-xl border border-dashed border-border/80 bg-glass-1/40 px-4 py-5 text-center"
           >
-            <li v-for="cat in derivedCategories" :key="cat.id">
-              {{ cat.name }}
-            </li>
-          </ul>
-          <p v-else class="server-settings-self-roles__empty-note">
-            No role categories are exposed yet.
-          </p>
+            <p class="text-sm text-fg-subtle">
+              No role categories are exposed yet.
+            </p>
+            <p class="mt-1 text-xs text-fg-subtle">
+              Open Server Settings → Roles, pick a category, and enable
+              <span class="text-fg-soft">Expose in self-assign channel</span>.
+            </p>
+          </div>
         </section>
 
-        <section class="server-settings-self-roles__section">
-          <div class="server-settings-self-roles__section-head">
-            <h4 class="server-settings-self-roles__subheading">
-              Custom categories
-            </h4>
+        <section class="settings-section-stack">
+          <div
+            class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+          >
+            <div class="min-w-0">
+              <div class="settings-subtitle">Custom categories</div>
+              <p class="mt-1 text-xs leading-relaxed text-fg-subtle">
+                Group self-selectable roles manually, or use an
+                <span class="text-fg-soft">eligible pool</span> category for
+                every role not listed elsewhere.
+              </p>
+            </div>
             <button
               type="button"
-              class="server-settings-self-roles__add-btn chat-focus-ring"
+              class="h-fit shrink-0 self-start rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+              :disabled="!selfSelectableRoles.length"
               @click="addCustomCategory"
             >
               Add category
             </button>
           </div>
-          <p class="server-settings-self-roles__hint">
-            Group any self-selectable roles, or use “All eligible roles” to
-            include every self-selectable role not listed in other custom
-            categories.
-          </p>
 
           <div
             v-if="!customCategories.length"
-            class="server-settings-self-roles__empty-note"
+            class="rounded-xl border border-dashed border-border/80 bg-glass-1/40 px-4 py-8 text-center"
           >
-            No custom categories yet.
+            <img
+              :src="icons.userTag"
+              alt=""
+              class="mx-auto mb-3 h-8 w-8 opacity-60 filter invert"
+            />
+            <p class="text-sm text-fg-subtle">No custom categories yet.</p>
+            <p class="mt-1 text-xs text-fg-subtle">
+              Optional — synced role categories may be enough on their own.
+            </p>
+            <button
+              type="button"
+              class="mt-4 rounded-lg bg-glass-2 px-3 py-1.5 text-xs font-semibold text-fg transition-colors hover:bg-glass-3 disabled:opacity-50"
+              :disabled="!selfSelectableRoles.length"
+              @click="addCustomCategory"
+            >
+              Create first category
+            </button>
           </div>
 
-          <article
-            v-for="cat in customCategories"
-            :key="cat.id"
-            class="server-settings-self-roles__custom-card"
-          >
-            <div class="server-settings-self-roles__custom-head">
-              <input
-                v-model="cat.name"
-                type="text"
-                class="server-settings-self-roles__input"
-                placeholder="Category name"
-              />
-              <button
-                type="button"
-                class="server-settings-self-roles__remove-btn chat-focus-ring"
-                @click="removeCustomCategory(cat.id)"
-              >
-                Remove
-              </button>
-            </div>
-            <label class="server-settings-self-roles__toggle">
-              <input
-                v-model="cat.randomEligible"
-                type="checkbox"
-                class="server-toggle"
-              />
-              <span>All eligible roles (random pool)</span>
-            </label>
-            <div
-              v-if="!cat.randomEligible"
-              class="server-settings-self-roles__role-list"
+          <div v-else class="space-y-3">
+            <article
+              v-for="cat in customCategories"
+              :key="cat.id"
+              class="server-settings-panel rounded-2xl p-4 sm:p-5"
             >
-              <label
-                v-for="role in selfSelectableRoles"
-                :key="role.id"
-                class="server-settings-self-roles__role-item"
+              <div
+                class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
               >
+                <div class="min-w-0 flex-1">
+                  <label class="settings-label">Category name</label>
+                  <input
+                    v-model="cat.name"
+                    type="text"
+                    class="server-input mt-2 w-full"
+                    placeholder="e.g. Colors, Games, Region"
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="shrink-0 self-end rounded-lg px-2 py-1 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 sm:self-start"
+                  @click="removeCustomCategory(cat.id)"
+                >
+                  Remove
+                </button>
+              </div>
+
+              <label class="role-permission-row roles-display-option">
+                <div>
+                  <div class="font-medium text-fg">Eligible roles pool</div>
+                  <div class="text-xs text-fg-subtle">
+                    Include every self-selectable role not explicitly assigned
+                    to another custom category.
+                  </div>
+                </div>
                 <input
+                  v-model="cat.randomEligible"
                   type="checkbox"
-                  :checked="cat.roleIds.includes(role.id)"
-                  @change="toggleRoleInCategory(cat.id, role.id)"
+                  class="server-toggle shrink-0"
                 />
-                <span>{{ role.name }}</span>
               </label>
-              <p
-                v-if="!selfSelectableRoles.length"
-                class="server-settings-self-roles__empty-note"
-              >
-                No roles have Self-selectable enabled yet.
-              </p>
-            </div>
-          </article>
+
+              <div v-if="cat.randomEligible" class="mt-3">
+                <p
+                  class="rounded-xl bg-glass-1 px-3 py-2 text-xs leading-relaxed text-fg-subtle"
+                >
+                  Members will see all unclaimed self-selectable roles in this
+                  tab. Roles already listed in other custom categories stay
+                  exclusive to those groups.
+                </p>
+                <div
+                  v-if="selectedRolesForCategory(cat).length"
+                  class="mt-3 flex flex-wrap gap-2"
+                >
+                  <span
+                    v-for="role in selectedRolesForCategory(cat)"
+                    :key="role.id"
+                    class="rounded-full border px-2.5 py-1 text-xs font-medium text-fg"
+                    :style="roleChipStyle(role.color)"
+                  >
+                    {{ role.name }}
+                  </span>
+                </div>
+              </div>
+
+              <div v-else class="mt-4">
+                <div class="mb-2 flex items-center justify-between gap-2">
+                  <span class="settings-label mb-0"
+                    >Roles in this category</span
+                  >
+                  <span class="text-[11px] tabular-nums text-fg-subtle">
+                    {{ cat.roleIds.length }} selected
+                  </span>
+                </div>
+
+                <div
+                  v-if="!selfSelectableRoles.length"
+                  class="rounded-xl bg-glass-1 px-3 py-2 text-xs text-fg-subtle"
+                >
+                  No roles have Self-selectable enabled yet.
+                </div>
+
+                <div v-else class="flex flex-wrap gap-2">
+                  <button
+                    v-for="role in selfSelectableRoles"
+                    :key="role.id"
+                    type="button"
+                    class="rounded-full border px-2.5 py-1 text-xs font-medium transition-opacity"
+                    :class="
+                      cat.roleIds.includes(role.id)
+                        ? 'text-fg opacity-100'
+                        : 'text-fg-subtle opacity-70 hover:opacity-100'
+                    "
+                    :style="roleChipStyle(role.color)"
+                    :aria-pressed="cat.roleIds.includes(role.id)"
+                    @click="toggleRoleInCategory(cat.id, role.id)"
+                  >
+                    {{ role.name }}
+                  </button>
+                </div>
+              </div>
+            </article>
+          </div>
         </section>
       </template>
 
-      <div class="server-settings-self-roles__actions">
+      <div
+        v-if="isDirty"
+        class="roles-change-bar mt-6"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="text-sm text-fg-soft">You have unsaved changes</span>
+        <div class="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            class="rounded-lg px-3 py-1.5 text-sm font-semibold"
+            :disabled="saving"
+            @click="discardChanges"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            class="rounded-lg px-3 py-1.5 text-sm font-semibold"
+            :disabled="saving"
+            @click="save"
+          >
+            {{ saving ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="mt-8 flex justify-end">
         <button
           type="button"
-          class="server-settings-self-roles__save-btn chat-focus-ring"
+          class="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
           :disabled="saving"
           @click="save"
         >
@@ -318,151 +597,3 @@ async function save() {
     </template>
   </div>
 </template>
-
-<style scoped lang="scss">
-.server-settings-self-roles {
-  &__loading {
-    padding: 1rem 0;
-    color: var(--fg-subtle);
-    font-size: 0.875rem;
-  }
-
-  &__error {
-    margin-bottom: 1rem;
-    padding: 0.75rem 1rem;
-    border-radius: 0.65rem;
-    border: 1px solid var(--destructive, #e55);
-    background: color-mix(in srgb, var(--destructive, #e55) 12%, transparent);
-    color: var(--fg);
-    font-size: 0.8125rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  &__section {
-    margin-bottom: 1.5rem;
-  }
-
-  &__heading {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 0.35rem;
-  }
-
-  &__subheading {
-    font-size: 0.875rem;
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-  }
-
-  &__desc,
-  &__hint {
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: var(--fg-subtle);
-    margin-bottom: 0.65rem;
-  }
-
-  &__toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    font-size: 0.875rem;
-    cursor: pointer;
-  }
-
-  &__select,
-  &__input {
-    width: 100%;
-    max-width: 28rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-    background: var(--glass-1);
-    padding: 0.5rem 0.65rem;
-    font-size: 0.875rem;
-    color: var(--fg);
-  }
-
-  &__derived-list {
-    margin: 0;
-    padding-left: 1.1rem;
-    font-size: 0.875rem;
-    color: var(--fg-soft);
-  }
-
-  &__empty-note {
-    font-size: 0.8125rem;
-    color: var(--fg-subtle);
-    font-style: italic;
-  }
-
-  &__section-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.25rem;
-  }
-
-  &__add-btn,
-  &__save-btn {
-    border-radius: 0.5rem;
-    padding: 0.45rem 0.85rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    background: var(--glass-2);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    cursor: pointer;
-  }
-
-  &__save-btn {
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  }
-
-  &__custom-card {
-    border: 1px solid var(--border);
-    border-radius: 0.65rem;
-    padding: 0.85rem;
-    margin-bottom: 0.75rem;
-    background: var(--glass-1);
-  }
-
-  &__custom-head {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.65rem;
-  }
-
-  &__remove-btn {
-    flex-shrink: 0;
-    border: none;
-    background: transparent;
-    color: var(--destructive, #e55);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  &__role-list {
-    display: grid;
-    gap: 0.35rem;
-    margin-top: 0.65rem;
-  }
-
-  &__role-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8125rem;
-    cursor: pointer;
-  }
-
-  &__actions {
-    padding-top: 0.5rem;
-  }
-}
-</style>

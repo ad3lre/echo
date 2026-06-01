@@ -1,9 +1,9 @@
 import { watch, type ComputedRef, type Ref } from 'vue';
+import { dmPeerUserIdFromChannelId } from '@/features/dm/buildDmPanelUserList';
+import type { MainSurface } from '@/features/layout/mainSurface';
 
 export function useAppLayoutDmProfileBridge(deps: {
   dmPartnerUser: ComputedRef<{ id: string } | null | undefined>;
-  /** DM rail + selected peer user id (1:1 thread); false while viewing a group DM. */
-  isInDMChat: ComputedRef<boolean>;
   /** Main surface is a DM thread / idle DM — true for both peer and group threads. */
   isInDmThreadOrIdleMainSurface: ComputedRef<boolean>;
   isExpandedProfileSidePanel: Ref<boolean>;
@@ -13,11 +13,32 @@ export function useAppLayoutDmProfileBridge(deps: {
   isGroupOverviewOpen: Ref<boolean>;
   isGroupDM: ComputedRef<boolean>;
   openExpandedProfilePanelForUserId: (userId: string) => void;
+  activeChannelId: Ref<string>;
+  echoDmPeerByChannelId: Ref<Map<string, string>>;
+  selectedDMUserId: Ref<string | null>;
+  mainSurface: ComputedRef<MainSurface>;
+  groupDMs: Ref<Record<string, unknown>>;
 }) {
+  watch(
+    () => [deps.activeChannelId.value, deps.mainSurface.value.type] as const,
+    ([channelId, surfaceType]) => {
+      if (surfaceType !== 'dmThread') return;
+      if (deps.groupDMs.value[channelId]) return;
+      const peer = dmPeerUserIdFromChannelId(
+        channelId,
+        deps.echoDmPeerByChannelId.value,
+      )?.trim();
+      if (!peer) return;
+      if (deps.selectedDMUserId.value === peer) return;
+      deps.selectedDMUserId.value = peer;
+    },
+  );
+
   watch(deps.dmPartnerUser, (next) => {
     if (!next) return;
     if (deps.isGroupOverviewOpen.value) return;
-    if (!deps.isInDMChat.value) return;
+    if (deps.isGroupDM.value) return;
+    if (!deps.isInDmThreadOrIdleMainSurface.value) return;
     if (!deps.isExpandedProfileModalOpen.value) return;
     const boundId =
       deps.expandedProfileTargetUserId.value?.trim() ??

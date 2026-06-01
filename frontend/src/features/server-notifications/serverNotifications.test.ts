@@ -3,7 +3,9 @@ import type { MentionEntity } from '@shared/types';
 import {
   applyAttentionNotificationLevel,
   classifyAttentionPingKind,
+  isEchoChannelSnoozed,
   mergeAttentionPingKinds,
+  resolveEffectiveChannelNotificationLevel,
 } from '@shared/attentionPing';
 import { describeServerPingKind } from '@/features/server-notifications/serverPing';
 import { getServerNotificationSummary } from '@/features/server-notifications/types';
@@ -190,6 +192,56 @@ describe('shared attention ping authority', () => {
         },
       ),
     ).toBe('personal');
+  });
+});
+
+describe('per-channel notification overrides', () => {
+  const NOW = Date.parse('2026-06-01T00:00:00.000Z');
+
+  it('treats a future mutedUntil as snoozed', () => {
+    expect(
+      isEchoChannelSnoozed({ mutedUntil: '2026-06-01T01:00:00.000Z' }, NOW),
+    ).toBe(true);
+  });
+
+  it('treats a past mutedUntil as not snoozed', () => {
+    expect(
+      isEchoChannelSnoozed({ mutedUntil: '2026-05-31T23:00:00.000Z' }, NOW),
+    ).toBe(false);
+    expect(isEchoChannelSnoozed(undefined, NOW)).toBe(false);
+    expect(isEchoChannelSnoozed({ mutedUntil: null }, NOW)).toBe(false);
+  });
+
+  it('snooze forces an effective level of none', () => {
+    expect(
+      resolveEffectiveChannelNotificationLevel(
+        'all',
+        { level: 'all', mutedUntil: '2026-06-01T01:00:00.000Z' },
+        NOW,
+      ),
+    ).toBe('none');
+  });
+
+  it('a level override wins over the server level when not snoozed', () => {
+    expect(
+      resolveEffectiveChannelNotificationLevel('all', { level: 'none' }, NOW),
+    ).toBe('none');
+    expect(
+      resolveEffectiveChannelNotificationLevel(
+        'mentions',
+        { level: 'all' },
+        NOW,
+      ),
+    ).toBe('all');
+  });
+
+  it('falls back to the server level with no override', () => {
+    expect(
+      resolveEffectiveChannelNotificationLevel('mentions', undefined, NOW),
+    ).toBe('mentions');
+    expect(resolveEffectiveChannelNotificationLevel('mentions', {}, NOW)).toBe(
+      'mentions',
+    );
   });
 });
 

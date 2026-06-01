@@ -43,6 +43,14 @@ Team id defaults to `bundle.iOS.developmentTeam` in [`tauri.ios.conf.json`](../.
 
 > **Why device (`aarch64`), not the simulator:** historically `tauri ios build` asked `xcodebuild` for both simulator slices (`arm64` + `x86_64`) but its xcode-script only emitted the `arm64` static lib. The project now builds **arm64-only** (`ARCHS = arm64` in both `project.yml` and `project.pbxproj`), which makes simulator builds work too (`-t aarch64-sim`). Device builds were always arm64-only since `x86_64` is excluded for the `iphoneos` SDK.
 
+## Release optimization baseline
+
+Shipping iOS builds use Cargo's default `release` profile in [`src-tauri/Cargo.toml`](../../src-tauri/Cargo.toml), with ThinLTO, a single codegen unit, and symbol stripping enabled for the Rust static library. The generated Xcode Release target also enables dead-code stripping, installed-product stripping, Swift whole-module compilation, `-Osize`, and product validation.
+
+Echo does not ship App Intents, so the generated Xcode target disables Swift AppIntents autolinking via `OTHER_SWIFT_FLAGS` and weak-links `AppIntents.framework` via `OTHER_LDFLAGS`. This keeps Xcode's `ExtractAppIntentsMetadata` step from warning about a missing framework dependency while avoiding a hard runtime dependency.
+
+`npm run tauri:ios:doctor` checks these settings before a local archive starts, so regenerated Xcode files should fail fast if the optimization baseline drifts.
+
 ## iOS entitlements
 
 Tauri's code generator may overwrite `src-tauri/gen/apple/echo-desktop_iOS/echo-desktop_iOS.entitlements` on cold builds, stripping keys it doesn't manage (like `com.apple.developer.associated-domains` for passkeys and universal links).

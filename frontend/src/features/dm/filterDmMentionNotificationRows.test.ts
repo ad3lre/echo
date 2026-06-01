@@ -122,7 +122,7 @@ describe('filterDmMentionNotificationRows', () => {
 });
 
 describe('buildMentionNotificationSourceChips', () => {
-  it('includes All, DMs, server, and channel chips', () => {
+  it('includes All and server chips only', () => {
     const chips = buildMentionNotificationSourceChips({
       rows: [
         row({
@@ -138,61 +138,33 @@ describe('buildMentionNotificationSourceChips', () => {
       ],
       categoriesByServer,
       serverNameById: { [SRV]: 'Acme' },
-      isPersistedEchoDmThread: () => false,
-      maxChannelChips: 10,
     });
-    expect(chips.map((c) => c.key)).toEqual([
-      'all',
-      'dms',
-      `server:${SRV}`,
-      'channel:dm-x',
-      `channel:${CH_GUILD}`,
-    ]);
+    expect(chips.map((c) => c.key)).toEqual(['all', `server:${SRV}`]);
     expect(chips.find((c) => c.key === `server:${SRV}`)?.label).toBe('Acme');
-    expect(chips.find((c) => c.key === 'all')?.visual.kind).toBe('svg');
-    expect(chips.find((c) => c.key === 'dms')?.visual.kind).toBe('svg');
+    expect(chips.find((c) => c.key === 'all')?.visual.kind).toBe('none');
     expect(chips.find((c) => c.key === `server:${SRV}`)?.visual.kind).toBe(
-      'avatar',
+      'none',
     );
-    expect(
-      chips.find((c) => c.key === `channel:${CH_GUILD}`)?.visual.kind,
-    ).toBe('svg');
   });
 
-  it('uses server guild icons and DM peer avatars when available', () => {
+  it('uses server guild icons as image visuals when available', () => {
     const chips = buildMentionNotificationSourceChips({
       rows: [
         row({
-          channelId: 'dm-peer',
-          channelLabel: 'River',
-          key: '1',
-        }),
-        row({
           channelId: CH_GUILD,
           channelLabel: 'general',
-          key: '2',
+          key: '1',
         }),
       ],
       categoriesByServer,
       serverNameById: { [SRV]: 'Acme' },
       serverImageUrlById: { [SRV]: 'https://cdn.example/guild.png' },
-      users: [
-        { id: 'peer-1', name: 'River', pfp: 'https://cdn.example/pfp.png' },
-      ],
-      echoDmPeerByChannelId: new Map([['dm-peer', 'peer-1']]),
-      isPersistedEchoDmThread: () => false,
-      maxChannelChips: 10,
     });
 
     expect(chips.find((c) => c.key === `server:${SRV}`)?.visual).toEqual({
-      kind: 'avatar',
+      kind: 'image',
       url: 'https://cdn.example/guild.png',
       alt: 'Acme',
-    });
-    expect(chips.find((c) => c.key === 'channel:dm-peer')?.visual).toEqual({
-      kind: 'avatar',
-      url: 'https://cdn.example/pfp.png',
-      alt: 'River',
     });
   });
 });

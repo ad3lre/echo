@@ -4,6 +4,14 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **Documentation:** README quick start, TOC, and expanded CI badges; STACK mobile strategy updated (Tauri ships on desktop, Android, and iOS); root doc link and markdown fixes; ADR index; `releases/ios.md`; deduplicated `domain-map.md`; tree generator excludes runtime `logs/` paths.
+
+---
+
 ## [1.0.0] — 2026-05-14
 
 Initial open-source release under AGPL-3.0-only.
@@ -61,13 +69,13 @@ Initial open-source release under AGPL-3.0-only.
 
 **CI**
 
-- GitHub Actions: format, backend (typecheck + contract + pipeline + RBAC + multi-node + uploads), frontend (Vitest), desktop and Android builds, CodeQL, secret scan, dependency review
+- GitHub Actions: format, backend (typecheck + contract + pipeline + RBAC + multi-node + uploads), frontend (Vitest), desktop, Android, and iOS builds, Cypress E2E smoke, CodeQL, secret scan, dependency review
 - Custom AST guards: DAL isolation, snowflake feed order, single-reality, RBAC primitives, channel writes, no-SQL-in-routes
 - OSS artifact check (no cursor/IDE dirs, no leaked secrets in tracked files)
 
 **Frontend**
 
-- Vue 3 + Vite SPA (Pinia, Vue Router, TypeScript)
+- Vue 3 + Vite SPA (Pinia, History API navigation, TypeScript)
 - Theming system: AMOLED dark, Sunny light, Mac-glass variants; semantic CSS tokens; Stylelint + ESLint theme gates
 - Tailwind CSS v4
 - TipTap rich-text message composer (format v2)
@@ -85,7 +93,7 @@ Initial open-source release under AGPL-3.0-only.
 
 ### Known gaps (Horizon B)
 
-- No Cypress / E2E test suite in CI.
+- Cypress E2E smoke runs in CI; a full product E2E grid is not yet in place.
 - Voice Layer 2 (noise suppression, Krisp integration) is not production-ready.
 - Discord import: bulk member import and full history/attachments not yet implemented.
 - Group DMs exist on the graph; UI polish is incomplete.

@@ -1,22 +1,16 @@
 /**
  * Sets DATABASE_URL in the monorepo root `.env` after confirmation.
  * Does not print the full connection string after write (only masked preview before confirm).
- *
- * Usage:
- *   node scripts/set-database-url.js
- *   node scripts/set-database-url.js --url "postgresql://user:pass@localhost:5432/echo"
- *   node scripts/set-database-url.js --yes --url "postgresql://..."   # skip confirm
  */
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
+import path from 'node:path';
+import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
+import { patchEnvFile } from './lib/patch-env-file.mjs';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const rootEnv = path.join(root, '.env');
 
-/**
- * @param {string} url
- */
 function maskDatabaseUrl(url) {
   try {
     const u = new URL(url);
@@ -27,58 +21,13 @@ function maskDatabaseUrl(url) {
   }
 }
 
-/**
- * @param {string} filePath
- * @param {{ set?: Record<string, string> }} options
- */
-function patchEnvFile(filePath, { set = {} }) {
-  let content = '';
-  try {
-    content = fs.readFileSync(filePath, 'utf8');
-  } catch {
-    // create
-  }
-
-  const toSet = new Map(Object.entries(set));
-  const lines = content.split(/\r?\n/);
-  const applied = new Set();
-  const out = [];
-
-  for (const line of lines) {
-    const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-    if (m && !line.trimStart().startsWith('#')) {
-      const key = m[1];
-      if (toSet.has(key)) {
-        out.push(`${key}=${toSet.get(key)}`);
-        applied.add(key);
-        continue;
-      }
-    }
-    out.push(line);
-  }
-
-  for (const [k, v] of toSet) {
-    if (!applied.has(k)) {
-      if (out.length > 0 && out[out.length - 1] !== '') out.push('');
-      out.push(`${k}=${v}`);
-    }
-  }
-
-  const text = out.join('\n').replace(/\n+$/, '') + '\n';
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, text, 'utf8');
-}
-
-/**
- * @param {string} question
- */
-function question(question) {
+function question(prompt) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
   return new Promise((resolve) => {
-    rl.question(question, (answer) => {
+    rl.question(prompt, (answer) => {
       rl.close();
       resolve(answer);
     });
@@ -105,7 +54,7 @@ async function main() {
     console.log(
       'Enter PostgreSQL connection string for DATABASE_URL (input is visible).',
     );
-    url = (await question('DATABASE_URL: ')).trim();
+    url = String(await question('DATABASE_URL: ')).trim();
   } else {
     url = url.trim();
   }
@@ -116,10 +65,10 @@ async function main() {
   }
 
   if (!/^postgres(ql)?:\/\//i.test(url)) {
-    const again = (
+    const again = String(
       await question(
         'URL does not start with postgres:// or postgresql://. Continue anyway? [y/N] ',
-      )
+      ),
     )
       .trim()
       .toLowerCase();
@@ -135,7 +84,7 @@ async function main() {
   console.log('');
 
   if (!skipConfirm) {
-    const ok = (await question('Write DATABASE_URL to .env? [y/N] '))
+    const ok = String(await question('Write DATABASE_URL to .env? [y/N] '))
       .trim()
       .toLowerCase();
     if (ok !== 'y' && ok !== 'yes') {

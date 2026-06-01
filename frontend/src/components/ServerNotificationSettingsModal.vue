@@ -68,7 +68,7 @@ function selectLevel(level: ServerNotificationLevel) {
       <p class="mt-1 text-sm text-muted">
         Choose what you get from
         <span class="font-semibold text-foreground">{{ serverName }}</span
-        >. This applies only to you and is stored in this browser (mock).
+        >. This applies only to you and syncs across your devices.
       </p>
 
       <ul

@@ -33,11 +33,11 @@ const concurrentlyBin = path.join(
 );
 
 const backendCmd = `cross-env NODE_ENV=production PORT=${apiPort} npm start`;
-const frontendCmd = `node scripts/wait-for-port.js 127.0.0.1 ${apiPort} && cross-env NODE_ENV=production npm exec --prefix frontend -- vite preview --host --port ${frontendPort} --strictPort`;
+const frontendCmd = `node scripts/wait-for-port.mjs 127.0.0.1 ${apiPort} && cross-env NODE_ENV=production npm exec --prefix frontend -- vite preview --host --port ${frontendPort} --strictPort`;
 
 const child = spawn(
   process.execPath,
-  [path.join(repoRoot, 'scripts/kill-dev-ports.js')],
+  [path.join(repoRoot, 'scripts/kill-dev-ports.mjs')],
   {
     cwd: repoRoot,
     stdio: 'inherit',

@@ -3,7 +3,9 @@ import {
   applyAttentionNotificationLevel,
   classifyAttentionPingKind,
   mergeAttentionPingKinds,
+  resolveEffectiveChannelNotificationLevel,
 } from '../../../../shared/attentionPing';
+import type { EchoChannelNotificationOverride } from '../../../../shared/types';
 import type {
   EchoAttentionChannelSummary,
   EchoAttentionPingKind,
@@ -23,6 +25,7 @@ import { listEchoWorkspaceForUser } from './categoriesWorkspace';
 import { listEchoChannelReadStatesForUser } from './channelReadState';
 import { listEchoMemberRoleAssignmentsByUser } from './roles';
 import { listEchoServerNotificationLevelsForUser } from './serverNotificationPreferences';
+import { listEchoChannelNotificationOverridesForUser } from './channelNotificationOverrides';
 import { getEchoUserPublicProfileRow } from './userTypingProfile';
 
 function parseMentions(raw: unknown): MentionEntity[] {
@@ -100,19 +103,36 @@ export async function buildEchoAttentionSnapshot(
       ...Array.from(channelAttentionSeed.keys()),
     ]),
   ];
-  const [readStateByChannelId, storedLevels, roleAssignmentsByServer] =
-    await Promise.all([
-      listEchoChannelReadStatesForUser(pool, userId, channelIds),
-      listEchoServerNotificationLevelsForUser(pool, userId, serverIds),
-      Promise.all(
-        serverIds.map(
-          async (serverId): Promise<[string, Record<string, string[]>]> => [
-            serverId,
-            await listEchoMemberRoleAssignmentsByUser(pool, serverId),
-          ],
-        ),
+  const [
+    readStateByChannelId,
+    storedLevels,
+    roleAssignmentsByServer,
+    channelOverridesByChannelId,
+  ] = await Promise.all([
+    listEchoChannelReadStatesForUser(pool, userId, channelIds),
+    listEchoServerNotificationLevelsForUser(pool, userId, serverIds),
+    Promise.all(
+      serverIds.map(
+        async (serverId): Promise<[string, Record<string, string[]>]> => [
+          serverId,
+          await listEchoMemberRoleAssignmentsByUser(pool, serverId),
+        ],
       ),
-    ]);
+    ),
+    listEchoChannelNotificationOverridesForUser(pool, userId, channelIds),
+  ]);
+  const nowMs = Date.now();
+  const effectiveChannelLevel = (
+    channelId: string,
+    serverLevel: EchoServerNotificationLevel,
+  ): EchoServerNotificationLevel =>
+    resolveEffectiveChannelNotificationLevel(
+      serverLevel,
+      channelOverridesByChannelId[channelId] as
+        | EchoChannelNotificationOverride
+        | undefined,
+      nowMs,
+    );
 
   const serverNotificationLevelByServerId: Record<
     string,
@@ -154,7 +174,10 @@ export async function buildEchoAttentionSnapshot(
     const channelId = row.channel_id;
     const serverId = serverChannelToServerId.get(channelId);
     if (!serverId) continue;
-    const level = serverNotificationLevelByServerId[serverId] ?? 'mentions';
+    const level = effectiveChannelLevel(
+      channelId,
+      serverNotificationLevelByServerId[serverId] ?? 'mentions',
+    );
     const classified = applyAttentionNotificationLevel(
       level,
       classifyAttentionPingKind(parseMentions(row.mentions), {
@@ -175,7 +198,10 @@ export async function buildEchoAttentionSnapshot(
     const channelId = row.channel_id;
     const serverId = serverChannelToServerId.get(channelId);
     if (!serverId) continue;
-    const level = serverNotificationLevelByServerId[serverId] ?? 'mentions';
+    const level = effectiveChannelLevel(
+      channelId,
+      serverNotificationLevelByServerId[serverId] ?? 'mentions',
+    );
     const classified = applyAttentionNotificationLevel(level, 'personal');
     pingKindByChannel.set(
       channelId,

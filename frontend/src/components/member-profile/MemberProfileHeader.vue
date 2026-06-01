@@ -100,7 +100,7 @@ defineEmits<{
 @use '../expandedProfileShared.scss';
 
 /* WebKit: rounded avatar + layered GIF can show square fringes in quick profile. */
-.member-popout__avatar :deep(img) {
+.member-popout__avatar img {
   clip-path: inset(0 round 9999px);
   -webkit-clip-path: inset(0 round 9999px);
 }

@@ -5,7 +5,6 @@ export type GuildSettingsSection =
   | 'Members'
   | 'Roles'
   | 'Emoji'
-  | 'Stickers'
   | 'Discord'
   | 'Security'
   | 'Access'
@@ -40,7 +39,7 @@ export const GUILD_SETTINGS_SECTION_GROUPS: GuildSettingsSectionGroup[] = [
   },
   {
     label: 'Community',
-    items: ['Members', 'Roles', 'Emoji', 'Stickers'],
+    items: ['Members', 'Roles', 'Emoji'],
   },
   {
     label: 'Integrations',

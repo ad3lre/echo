@@ -10,6 +10,7 @@ import {
   getChannelIconVisual,
   type ChannelIconVisual,
 } from '@/assets/icons';
+import type { EchoChannelType } from '@shared/types';
 import {
   type ChannelIconEmojiUrlLookup,
   resolveChannelIconRasterUrl,
@@ -22,7 +23,7 @@ import {
 
 type ChannelLike = {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  type?: EchoChannelType;
   iconKey?: string;
 };
 

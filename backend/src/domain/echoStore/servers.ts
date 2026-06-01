@@ -18,8 +18,6 @@ import { parseEchoApplicationFormFromDb } from './applicationForm';
 import { invalidateEchoPermissionCacheForUser } from '../echoPermissionCache';
 import { applyEchoRoleLinksAfterAssignment } from './roleLinks';
 import { getMergedRolePermissions } from './permissions';
-import { ensureGlobalRoleCategoryForServer } from './roleCategoryGlobals';
-
 async function assignEveryoneRoleToMember(
   pool: pg.Pool | pg.PoolClient,
   serverId: string,
@@ -101,10 +99,6 @@ export async function createEchoServer(
         `INSERT INTO echo_channels (id, server_id, name, type, category_id, position) VALUES ($1, $2, $3, 'voice', $4, 0)`,
         [defaultVoiceChannelId, serverId, 'voice', voiceCategoryId],
       );
-      const globalRoleCategoryId = await ensureGlobalRoleCategoryForServer(
-        client,
-        serverId,
-      );
       await client.query(
         `INSERT INTO echo_roles (id, server_id, name, color, position, permissions) VALUES ($1, $2, $3, $4, 0, $5::jsonb)`,
         [
@@ -121,8 +115,8 @@ export async function createEchoServer(
         `
         INSERT INTO echo_roles (
           id, server_id, name, color, position, hoist, permissions,
-          role_category_id, rank_in_category, role_scope, sync_with_category_defaults
-        ) VALUES ($1, $2, $3, $4, 1, true, $5::jsonb, $6, 0, 'global', false)
+          rank_in_category, role_scope, sync_with_category_defaults
+        ) VALUES ($1, $2, $3, $4, 1, true, $5::jsonb, 0, 'global', false)
         `,
         [
           allRoleId,
@@ -130,7 +124,6 @@ export async function createEchoServer(
           'All',
           '#5865F2',
           JSON.stringify(['ADMINISTRATOR']),
-          globalRoleCategoryId,
         ],
       );
       await assignEveryoneRoleToMember(client, serverId, ownerId);

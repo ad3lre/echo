@@ -2,6 +2,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { Client } from 'discord.js';
 import { fetchChannelMessages } from './exporter/messages.js';
+import { getBotHealthSnapshot } from './botHealth.js';
 
 /**
  * Starts a minimal internal HTTP server so the Echo API can request
@@ -39,7 +40,14 @@ export function startBotInternalServer(client: Client) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '', `http://localhost:${port}`);
 
-    // Auth check
+    if (req.method === 'GET' && url.pathname === '/health') {
+      const snapshot = getBotHealthSnapshot();
+      res.statusCode = snapshot.status === 'ok' ? 200 : 503;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(snapshot));
+      return;
+    }
+
     const incomingSecret = req.headers['x-echo-discord-bot-secret'];
     const presented = Array.isArray(incomingSecret)
       ? incomingSecret[0]
@@ -53,7 +61,6 @@ export function startBotInternalServer(client: Client) {
       return;
     }
 
-    // GET /channels/:id/messages?limit=90
     const messageMatch = url.pathname.match(/^\/channels\/(\d+)\/messages$/);
     if (req.method === 'GET' && messageMatch) {
       const channelId = messageMatch[1];

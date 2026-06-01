@@ -38,6 +38,7 @@ const appleEntitlements = path.join(
   'echo-desktop_iOS',
   'echo-desktop_iOS.entitlements',
 );
+const cargoToml = path.join(repoRoot, 'src-tauri', 'Cargo.toml');
 
 const TAURI_TO_RUST_TARGET = new Map([
   ['aarch64', 'aarch64-apple-ios'],
@@ -118,6 +119,64 @@ function readTextIfExists(file) {
   }
 }
 
+function tomlTableBody(text, tableName) {
+  const marker = `[${tableName}]`;
+  const start = text.indexOf(marker);
+  if (start === -1) return '';
+  const afterMarker = text.slice(start + marker.length);
+  const nextTable = afterMarker.search(/\n\[/);
+  return nextTable === -1 ? afterMarker : afterMarker.slice(0, nextTable);
+}
+
+function assertOptimizedRustReleaseProfile(problems, hints) {
+  const releaseProfile = tomlTableBody(
+    readTextIfExists(cargoToml),
+    'profile.release',
+  );
+  const missing = [];
+  if (!/\blto\s*=\s*["']thin["']/.test(releaseProfile)) {
+    missing.push('lto = "thin"');
+  }
+  if (!/\bcodegen-units\s*=\s*1\b/.test(releaseProfile)) {
+    missing.push('codegen-units = 1');
+  }
+  if (!/\bstrip\s*=\s*(true|["']symbols["'])/.test(releaseProfile)) {
+    missing.push('strip = "symbols"');
+  }
+  if (missing.length > 0) {
+    problems.push(
+      `Rust release profile is missing shipping optimization setting(s):\n${formatList(missing)}`,
+    );
+    hints.push(
+      'Keep [profile.release] in src-tauri/Cargo.toml configured for ThinLTO, one codegen unit, and symbol stripping.',
+    );
+  }
+}
+
+function targetIosReleasePbxConfiguration(pbxproj) {
+  const marker = '/* release */ = {';
+  let start = -1;
+  while ((start = pbxproj.indexOf(marker, start + 1)) !== -1) {
+    const end = pbxproj.indexOf('\n\t\t};', start);
+    if (end === -1) break;
+    const block = pbxproj.slice(start, end);
+    if (block.includes('INFOPLIST_FILE = "echo-desktop_iOS/Info.plist";')) {
+      return block;
+    }
+  }
+  return '';
+}
+
+function targetIosReleaseYamlConfiguration(projectYaml) {
+  const start = projectYaml.indexOf('\n        release:\n');
+  if (start === -1) return '';
+  const ends = ['\n      groups:', '\n    dependencies:']
+    .map((needle) => projectYaml.indexOf(needle, start))
+    .filter((index) => index !== -1);
+  const end = ends.length > 0 ? Math.min(...ends) : projectYaml.length;
+  return projectYaml.slice(start, end);
+}
+
 function assertGeneratedIosProjectHealth(problems, hints) {
   if (!fs.existsSync(appleProject)) return;
 
@@ -132,6 +191,89 @@ function assertGeneratedIosProjectHealth(problems, hints) {
     );
     hints.push(
       'Remove ${FORCE_COLOR} / the extra 0 before ${ARCHS:?} in src-tauri/gen/apple/project.yml and project.pbxproj.',
+    );
+  }
+
+  const releasePbxConfig = targetIosReleasePbxConfiguration(pbxproj);
+  const requiredReleasePbxSettings = [
+    ['COPY_PHASE_STRIP', 'YES'],
+    ['DEAD_CODE_STRIPPING', 'YES'],
+    ['DEPLOYMENT_POSTPROCESSING', 'YES'],
+    ['GCC_OPTIMIZATION_LEVEL', 's'],
+    ['STRIP_INSTALLED_PRODUCT', 'YES'],
+    ['STRIP_STYLE', 'all'],
+    ['SWIFT_COMPILATION_MODE', 'wholemodule'],
+    ['SWIFT_OPTIMIZATION_LEVEL', '"-Osize"'],
+    ['VALIDATE_PRODUCT', 'YES'],
+  ];
+  const missingReleasePbxSettings = releasePbxConfig
+    ? requiredReleasePbxSettings
+        .filter(
+          ([key, value]) => !releasePbxConfig.includes(`${key} = ${value};`),
+        )
+        .map(([key, value]) => `${key} = ${value}`)
+    : ['iOS target release build configuration'];
+  const releaseYamlConfig = targetIosReleaseYamlConfiguration(projectYaml);
+  const requiredReleaseYamlSettings = [
+    'COPY_PHASE_STRIP: true',
+    'DEAD_CODE_STRIPPING: true',
+    'DEPLOYMENT_POSTPROCESSING: true',
+    'GCC_OPTIMIZATION_LEVEL: s',
+    'STRIP_INSTALLED_PRODUCT: true',
+    'STRIP_STYLE: all',
+    'SWIFT_COMPILATION_MODE: wholemodule',
+    'SWIFT_OPTIMIZATION_LEVEL: -Osize',
+    'VALIDATE_PRODUCT: true',
+  ];
+  const missingReleaseYamlSettings = releaseYamlConfig
+    ? requiredReleaseYamlSettings.filter(
+        (setting) => !releaseYamlConfig.includes(setting),
+      )
+    : ['iOS target release config in project.yml'];
+  if (
+    missingReleasePbxSettings.length > 0 ||
+    missingReleaseYamlSettings.length > 0
+  ) {
+    problems.push(
+      [
+        'Generated iOS Release configuration is missing optimization setting(s).',
+        missingReleasePbxSettings.length
+          ? `project.pbxproj:\n${formatList(missingReleasePbxSettings)}`
+          : '',
+        missingReleaseYamlSettings.length
+          ? `project.yml:\n${formatList(missingReleaseYamlSettings)}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    );
+    hints.push(
+      'Keep src-tauri/gen/apple/project.yml and echo-desktop.xcodeproj/project.pbxproj release settings aligned.',
+    );
+  }
+
+  const appIntentsAutolinkFlag =
+    '-Xfrontend -disable-autolink-framework -Xfrontend AppIntents';
+  const appIntentsWeakLinkFlag = '-weak_framework AppIntents';
+  if (
+    !pbxproj.includes(
+      `OTHER_SWIFT_FLAGS = "$(inherited) ${appIntentsAutolinkFlag}";`,
+    ) ||
+    !projectYaml.includes(
+      `OTHER_SWIFT_FLAGS: $(inherited) ${appIntentsAutolinkFlag}`,
+    ) ||
+    !pbxproj.includes(
+      `OTHER_LDFLAGS = "$(inherited) ${appIntentsWeakLinkFlag}";`,
+    ) ||
+    !projectYaml.includes(
+      `OTHER_LDFLAGS: $(inherited) ${appIntentsWeakLinkFlag}`,
+    )
+  ) {
+    problems.push(
+      'Generated iOS project is missing AppIntents warning hygiene settings, which makes Xcode emit ExtractAppIntentsMetadata noise for a target that has no App Intents.',
+    );
+    hints.push(
+      'Keep OTHER_SWIFT_FLAGS and OTHER_LDFLAGS AppIntents settings aligned in both project.yml and project.pbxproj.',
     );
   }
 
@@ -185,6 +327,7 @@ function assertIosBuildEnvironment(args) {
     problems.push(`Missing generated Xcode project at ${appleProject}.`);
     hints.push('Run npm run tauri:ios:init once, then retry the build.');
   }
+  assertOptimizedRustReleaseProfile(problems, hints);
   assertGeneratedIosProjectHealth(problems, hints);
 
   if (process.platform === 'darwin') {

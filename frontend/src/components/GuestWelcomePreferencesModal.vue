@@ -154,7 +154,7 @@ function themeRadioTabIndex(t: { id?: string }): number {
           <div
             role="radiogroup"
             aria-label="Theme"
-            class="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3"
+            class="grid min-w-0 grid-cols-2 gap-2 p-1 sm:grid-cols-4 sm:gap-3"
           >
             <button
               v-for="t in themeOptions"
@@ -166,7 +166,7 @@ function themeRadioTabIndex(t: { id?: string }): number {
               :disabled="themeOptionDisabled(t)"
               :aria-checked="visuallySelectedTheme === t.id"
               :aria-disabled="themeOptionDisabled(t) ? 'true' : undefined"
-              class="guest-theme-card group flex min-w-0 flex-col overflow-hidden rounded-xl border-2 text-left transition-[box-shadow,border-color,transform,opacity] duration-200"
+              class="guest-theme-card group flex min-w-0 flex-col rounded-xl border-2 text-left transition-[box-shadow,border-color,transform,opacity] duration-200"
               :class="[
                 themeOptionDisabled(t)
                   ? 'cursor-not-allowed opacity-45 border-transparent'
@@ -189,7 +189,7 @@ function themeRadioTabIndex(t: { id?: string }): number {
                 />
               </div>
               <div
-                class="flex flex-col items-center justify-center bg-black px-1.5 py-2 text-center sm:px-2 sm:py-2.5"
+                class="guest-theme-card-caption flex flex-col items-center justify-center bg-black px-1.5 py-2 text-center sm:px-2 sm:py-2.5"
               >
                 <span
                   class="text-[10px] font-bold uppercase leading-tight tracking-[0.1em] text-white sm:text-[11px] sm:tracking-[0.12em]"
@@ -235,6 +235,8 @@ function themeRadioTabIndex(t: { id?: string }): number {
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/echoVisualSelectCard' as vsc;
+
 .guest-welcome-modal {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--border) 40%, transparent),
@@ -242,11 +244,16 @@ function themeRadioTabIndex(t: { id?: string }): number {
 }
 
 .guest-theme-card-preview {
+  @include vsc.echo-visual-select-preview-clip;
   position: relative;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  border-radius: 0.5rem 0.5rem 0 0;
+  border-radius: 0.625rem 0.625rem 0 0;
+}
+
+.guest-theme-card-caption {
+  @include vsc.echo-visual-select-caption-clip;
 }
 
 .guest-theme-card-preview__bar {
@@ -314,11 +321,14 @@ function themeRadioTabIndex(t: { id?: string }): number {
 }
 
 .guest-theme-card--selected {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  @include vsc.echo-visual-select-selected-ring;
 }
 
 .guest-theme-card:focus-visible {
-  outline: 2px solid var(--accent, #6366f1);
-  outline-offset: 2px;
+  @include vsc.echo-visual-select-focus-ring;
+}
+
+.guest-theme-card--selected:focus-visible {
+  @include vsc.echo-visual-select-selected-focus-rings;
 }
 </style>

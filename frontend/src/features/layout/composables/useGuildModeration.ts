@@ -338,6 +338,8 @@ export function useGuildModeration(deps: {
     if (!sid || sid === 'echo' || !cur || !targetId || !action) return;
     if (!canModerateMemberActionInServer(targetId, action)) return;
 
+    moderationModalOpen.value = false;
+
     const banPayload =
       action === 'ban' && payload && 'banDurationMinutes' in payload
         ? payload

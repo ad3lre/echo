@@ -16,7 +16,10 @@ import {
 } from '@/features/settings/composables/useTwoFactorQr';
 import { totpQrDataUrl } from '@/utils/totpQrDataUrl';
 import { copyToClipboard } from '@/utils/copyToClipboard';
-import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
+import {
+  getPasskeyWebCeremonyBlockReason,
+  mapPasskeyCeremonyError,
+} from '@/utils/passkeyClientSupport';
 
 type TwoFactorStep = 'setup' | 'verify' | 'recovery' | 'done';
 
@@ -59,6 +62,7 @@ export function useTwoFactorAuth(
 
   const passkeyRegisterBusy = ref(false);
   const passkeyRegisterError = ref<string | null>(null);
+  const passkeyRegisterSuccess = ref<string | null>(null);
 
   const { twoFactorQrRects } = useTwoFactorQr(twoFactorSecret);
 
@@ -246,16 +250,15 @@ export function useTwoFactorAuth(
   }
 
   async function registerPasskey(label?: string) {
-    if (!ECHO_PASSKEYS_ENABLED) {
-      passkeyRegisterError.value = 'Passkeys are disabled for this deployment.';
-      return;
-    }
-    if (echoSyncCapabilities.isMockDataMode) {
-      passkeyRegisterError.value = 'Not available in preview mode.';
+    const blocked = getPasskeyWebCeremonyBlockReason('register');
+    if (blocked) {
+      passkeyRegisterSuccess.value = null;
+      passkeyRegisterError.value = blocked;
       return;
     }
     passkeyRegisterBusy.value = true;
     passkeyRegisterError.value = null;
+    passkeyRegisterSuccess.value = null;
     try {
       const { startRegistration } = await import('@simplewebauthn/browser');
       type StartRegistrationOpts = Parameters<typeof startRegistration>[0];
@@ -269,19 +272,10 @@ export function useTwoFactorAuth(
         credential: credential as unknown as Record<string, unknown>,
         label: label || undefined,
       });
+      passkeyRegisterSuccess.value =
+        'Passkey added. You can use it the next time you sign in.';
     } catch (e) {
-      if (e instanceof AuthApiError) {
-        if (e.body.code === 'NOT_AVAILABLE') {
-          passkeyRegisterError.value =
-            'Passkeys need a database-backed server.';
-        } else {
-          passkeyRegisterError.value = e.message;
-        }
-      } else if (e instanceof Error && e.name === 'NotAllowedError') {
-        passkeyRegisterError.value = 'Passkey registration was cancelled.';
-      } else {
-        passkeyRegisterError.value = 'Could not register passkey. Try again.';
-      }
+      passkeyRegisterError.value = mapPasskeyCeremonyError(e, 'register');
     } finally {
       passkeyRegisterBusy.value = false;
     }
@@ -306,6 +300,7 @@ export function useTwoFactorAuth(
     disableTotpBusy,
     passkeyRegisterBusy,
     passkeyRegisterError,
+    passkeyRegisterSuccess,
     openTwoFactorSetupModal,
     closeTwoFactorSetupModal,
     verifyTwoFactorCode,

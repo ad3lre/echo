@@ -2,25 +2,13 @@
  * Builds secondary search terms for the "main 500" Unicode emoji used in chat:
  * all of Smileys & Emotion + the first slice of People & Body (total 500).
  * Output: frontend/src/data/emoji-secondary-aliases.json
- *
- * Run: node scripts/build-emoji-secondary-aliases.js
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { resolveEmojiDataByGroupPath } from './lib/resolve-emoji-data-path.mjs';
 
-function resolveEmojiDataByGroupPath() {
-  for (const rel of [
-    '../node_modules/unicode-emoji-json/data-by-group.json',
-    '../frontend/node_modules/unicode-emoji-json/data-by-group.json',
-  ]) {
-    const candidate = path.resolve(__dirname, rel);
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  throw new Error(
-    'unicode-emoji-json/data-by-group.json not found; run npm install',
-  );
-}
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataPath = resolveEmojiDataByGroupPath();
 const outputPath = path.resolve(
   __dirname,

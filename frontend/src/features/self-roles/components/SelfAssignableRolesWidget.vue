@@ -7,6 +7,7 @@ import { storeToRefs } from 'pinia';
 const props = defineProps<{
   serverId: string;
   channelId: string;
+  channelType?: string;
 }>();
 
 const selfRolesStore = useServerSelfRolesStore();
@@ -19,11 +20,11 @@ const busyRoleId = ref<string | null>(null);
 const config = computed(() => selfRolesStore.configFor(props.serverId));
 const panel = computed(() => selfRolesStore.panelFor(props.serverId));
 
-const isPanelChannel = computed(
-  () =>
-    config.value?.enabled === true &&
-    config.value.panelChannelId === props.channelId,
-);
+const isPanelChannel = computed(() => {
+  if (config.value?.enabled !== true) return false;
+  if (props.channelType === 'selfRoles') return true;
+  return config.value.panelChannelId === props.channelId;
+});
 
 const categories = computed(() => panel.value?.categories ?? []);
 const assignedSet = computed(() => new Set(panel.value?.assignedRoleIds ?? []));
@@ -91,7 +92,11 @@ function roleChipStyle(role: { color: string }) {
 </script>
 
 <template>
-  <div v-if="isPanelChannel" class="self-roles-widget">
+  <div
+    v-if="isPanelChannel"
+    class="self-roles-widget"
+    :class="{ 'self-roles-widget--standalone': channelType === 'selfRoles' }"
+  >
     <div class="self-roles-widget__card">
       <div class="self-roles-widget__header">
         <h3 class="self-roles-widget__title">Self-assignable roles</h3>
@@ -177,6 +182,20 @@ function roleChipStyle(role: { color: string }) {
 <style scoped lang="scss">
 .self-roles-widget {
   padding: 0.75rem 1rem 0;
+
+  &--standalone {
+    flex: 1;
+    min-height: 0;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+
+    .self-roles-widget__card {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+    }
+  }
 
   &__card {
     background: var(--color-bg-secondary, var(--bg-secondary));

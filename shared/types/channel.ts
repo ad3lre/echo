@@ -61,6 +61,15 @@ export type ChannelPermissionKey =
   /** Paper channels — margin comments (independent of author / SEND_MESSAGES). */
   | 'commentOnPaper';
 
+/** All supported Echo channel kinds (text, voice, forum, stage, paper, selfRoles). */
+export type EchoChannelType =
+  | 'text'
+  | 'voice'
+  | 'forum'
+  | 'stage'
+  | 'paper'
+  | 'selfRoles';
+
 export interface ChannelPermissionsState {
   /** When true, category defaults apply; overrides are ignored. */
   syncWithCategory: boolean;
@@ -79,7 +88,7 @@ export interface Channel {
   id: string;
   name: string;
   serverId: string;
-  type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  type: EchoChannelType;
   parentChannelId?: string;
   createdAt: string;
   updatedAt: string;

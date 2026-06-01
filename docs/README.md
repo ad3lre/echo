@@ -5,9 +5,11 @@ Start here, then open the area that matches your work. **New to the repo?** See 
 ## Overview
 
 - [Stack](overview/STACK.md) — technologies and scale stance
-- [Repository tree](overview/tree.md) — layout snapshot (regenerate: `node scripts/generate-tree-md.mjs` from repo root)
+- [Repository tree](overview/tree.md) — layout snapshot (regenerate: `npm run docs:tree` from repo root)
+- [Domain map](overview/domain-map.md) — backend/frontend domain boundaries
 - [agents.md](overview/agents.md) — client/controller charter for contributors
 - [privacy-levels.md](overview/privacy-levels.md) — product privacy positioning
+- [i18n](overview/i18n.md) — localization stance
 - [frontend-typescript-bloat-audit.md](overview/frontend-typescript-bloat-audit.md) — multi-axis TS/Vue size and coupling audit (repro commands inside)
 
 ## Architecture (client charter)
@@ -28,7 +30,7 @@ Subsystem reference: [infra/](infra/).
 
 ## Plans
 
-Forward-looking technical plans: [plans/](plans/).
+Forward-looking technical plans: [plans/](plans/). Treat linked **STATUS** and **operations** docs as more current than stale plan checklists when they disagree.
 
 ## Operations
 
@@ -43,7 +45,15 @@ Runbooks and procedures: [operations/](operations/).
 
 ## ADRs
 
-[adr/](adr/) — architecture decision records.
+Architecture decision records (index):
+
+| ADR                                                                      | Topic                                                 |
+| ------------------------------------------------------------------------ | ----------------------------------------------------- |
+| [002 — Public snowflake IDs](adr/002-echo-public-snowflake-ids.md)       | Echo entity IDs (decimal snowflakes in JSON/Postgres) |
+| [Client message authority](architecture/adr-client-message-authority.md) | Single write owner for channel messages in the SPA    |
+| [Paper channel type](architecture/adr-paper-channel.md)                  | Guild channel for shared block document + comments    |
+
+Additional ADRs may land under `docs/adr/` or `docs/architecture/`; update this table when adding new ones.
 
 ## Chat formatting (Markdown and math)
 

@@ -396,10 +396,13 @@ io.use(async (socket, next) => {
 - **No token in handshake**—BFF validates session cookie server-side and resolves to user/JWT for Socket.IO middleware
 - BFF handles token lifecycle; Vue never touches JWTs
 
-### 6.4 Route Guards (Vue Router)
+### 6.4 Route guards (History API shell)
 
-- `requiresAuth` meta; redirect unauthenticated users to `/login`
-- `requiresGuest` for login/register; redirect authenticated to app
+The SPA does **not** use Vue Router. Auth gating lives in the layout / boot orchestrators:
+
+- Unauthenticated users on protected paths → redirect to `/login` (or native login overlay on iOS)
+- Authenticated users on guest-only paths (`/login`, `/register`, …) → redirect into the app shell
+- Session validity is determined by BFF `/me` and cookie presence, not client-stored JWTs
 
 ### 6.5 UI Screens
 

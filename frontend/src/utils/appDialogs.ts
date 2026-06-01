@@ -43,6 +43,12 @@ export type AppDialogRequest =
       secondaryLabel: string;
       dismissLabel?: string;
       danger?: boolean;
+      /** Wider modal with icon cards instead of a compact button row. */
+      layout?: 'choices';
+      primaryDescription?: string;
+      secondaryDescription?: string;
+      primaryIconSrc?: string;
+      secondaryIconSrc?: string;
     };
 
 export type AppDialogResponse =
@@ -233,6 +239,11 @@ export function requestAppTwoChoice(payload: {
   secondaryLabel: string;
   dismissLabel?: string;
   danger?: boolean;
+  layout?: 'choices';
+  primaryDescription?: string;
+  secondaryDescription?: string;
+  primaryIconSrc?: string;
+  secondaryIconSrc?: string;
 }): Promise<'primary' | 'secondary' | null> {
   ensureResponseListener();
   const id = newDialogId();
@@ -247,6 +258,19 @@ export function requestAppTwoChoice(payload: {
       ? { dismissLabel: payload.dismissLabel.trim() }
       : {}),
     ...(payload.danger ? { danger: true } : {}),
+    ...(payload.layout === 'choices' ? { layout: 'choices' as const } : {}),
+    ...(payload.primaryDescription?.trim()
+      ? { primaryDescription: payload.primaryDescription.trim() }
+      : {}),
+    ...(payload.secondaryDescription?.trim()
+      ? { secondaryDescription: payload.secondaryDescription.trim() }
+      : {}),
+    ...(payload.primaryIconSrc?.trim()
+      ? { primaryIconSrc: payload.primaryIconSrc.trim() }
+      : {}),
+    ...(payload.secondaryIconSrc?.trim()
+      ? { secondaryIconSrc: payload.secondaryIconSrc.trim() }
+      : {}),
   };
   return new Promise<'primary' | 'secondary' | null>((resolve) => {
     pending.set(id, (r) => {

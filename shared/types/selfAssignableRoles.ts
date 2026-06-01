@@ -1,3 +1,6 @@
+/** Built-in widget channel name (auto-provisioned when the feature is enabled). */
+export const ECHO_SELF_ROLES_CHANNEL_NAME = 'self-assignable-roles';
+
 /** Admin-defined category in the self-assignable roles channel (not a role-settings organizer tab). */
 export type SelfRolesCustomCategory = {
   id: string;
@@ -14,6 +17,7 @@ export type SelfRolesCustomCategory = {
 
 export interface EchoSelfRolesConfig {
   enabled: boolean;
+  /** Server-managed widget channel id; set automatically when `enabled` is true. */
   panelChannelId: string | null;
   customCategories: SelfRolesCustomCategory[];
 }

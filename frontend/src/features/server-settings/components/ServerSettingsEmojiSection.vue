@@ -11,10 +11,11 @@ import { icons } from '@/assets/icons';
 const devSettings = useDevSettingsStore();
 const { devModeIdsEnabled } = storeToRefs(devSettings);
 
-/** Left list focus: pack settings, add-emoji affordance, or a real emoji (null = use selectedEmojiId only). */
-type ListExtra = 'settings' | 'add' | null;
+/** Left list focus: pack settings, add rows, or a real emoji/sticker (null = use selection only). */
+type ListExtra = 'settings' | 'add' | 'add-sticker' | null;
 const listExtra = ref<ListExtra>(null);
 const addEmojiFileInputRef = ref<HTMLInputElement | null>(null);
+const addStickerFileInputRef = ref<HTMLInputElement | null>(null);
 
 function onEmojiRowContextMenu(
   ev: MouseEvent,
@@ -38,6 +39,7 @@ const props = defineProps<{
   emojiSearchQuery: string;
   selectedEmojiPackId: string;
   selectedEmojiId: string;
+  selectedStickerId: string;
   customEmojiPackName: string;
   customEmojiPackDescription: string;
   customEmojiPackTags: string[];
@@ -57,7 +59,9 @@ const props = defineProps<{
   canImportMorePacks: boolean;
   selectedEmojiPack: any | null;
   selectedEmoji: any | null;
+  selectedSticker: any | null;
   filteredPackEmojis: any[];
+  filteredPackStickers: any[];
   filteredMarketEmojiPacks: any[];
   marketEmojiPacksLoading: boolean;
   marketEmojiPacksError: string | null;
@@ -66,7 +70,9 @@ const props = defineProps<{
   importMarketEmojiPack: (packId: string) => void;
   onEmojiUploadFile: (file: File) => void | Promise<void>;
   onEmojiUploadFileChange: (event: Event) => void;
+  onStickerUploadFileChange: (event: Event) => void;
   removeEmoji: (emojiId: string) => void;
+  removeSticker: (stickerId: string) => void;
   updateSelectedEmojiName: (name: string) => void;
   forkSelectedEmojiPack: () => void;
   openEmojiPackModal: (tab: 'create' | 'market') => void;
@@ -77,6 +83,7 @@ const emit = defineEmits<{
   'update:emojiSearchQuery': [value: string];
   'update:selectedEmojiPackId': [value: string];
   'update:selectedEmojiId': [value: string];
+  'update:selectedStickerId': [value: string];
   'update:emojiPackModalTab': [value: 'create' | 'market'];
   'update:customEmojiPackName': [value: string];
   'update:customEmojiPackDescription': [value: string];
@@ -115,7 +122,14 @@ async function onAddRowDrop(event: DragEvent) {
 
 function selectEmojiRow(emojiId: string) {
   listExtra.value = null;
+  emit('update:selectedStickerId', '');
   emit('update:selectedEmojiId', emojiId);
+}
+
+function selectStickerRow(stickerId: string) {
+  listExtra.value = null;
+  emit('update:selectedEmojiId', '');
+  emit('update:selectedStickerId', stickerId);
 }
 
 function selectSettingsRow() {
@@ -126,15 +140,31 @@ function selectAddRow() {
   listExtra.value = 'add';
 }
 
+function selectAddStickerRow() {
+  listExtra.value = 'add-sticker';
+}
+
 function openAddEmojiFilePicker() {
   listExtra.value = 'add';
   nextTick(() => addEmojiFileInputRef.value?.click());
 }
 
-const canAddMoreEmojis = computed(
+function openAddStickerFilePicker() {
+  listExtra.value = 'add-sticker';
+  nextTick(() => addStickerFileInputRef.value?.click());
+}
+
+function packExpressionCount(pack: {
+  emojis?: unknown[];
+  stickers?: unknown[];
+}) {
+  return (pack.emojis?.length ?? 0) + (pack.stickers?.length ?? 0);
+}
+
+const canAddMoreExpressions = computed(
   () =>
     props.selectedEmojiPack?.source === 'custom' &&
-    (props.selectedEmojiPack?.emojis?.length ?? 0) < props.maxEmojisPerPack,
+    packExpressionCount(props.selectedEmojiPack) < props.maxEmojisPerPack,
 );
 
 const showPackSettingsPanel = computed(
@@ -148,11 +178,27 @@ const showAddEmojiPanel = computed(
     props.selectedEmojiPack?.source === 'custom' && listExtra.value === 'add',
 );
 
+const showAddStickerPanel = computed(
+  () =>
+    props.selectedEmojiPack?.source === 'custom' &&
+    listExtra.value === 'add-sticker',
+);
+
 const showEmojiDetailPanel = computed(
   () =>
     !showPackSettingsPanel.value &&
     !showAddEmojiPanel.value &&
+    !showAddStickerPanel.value &&
     !!props.selectedEmoji &&
+    props.selectedEmojiPack !== null,
+);
+
+const showStickerDetailPanel = computed(
+  () =>
+    !showPackSettingsPanel.value &&
+    !showAddEmojiPanel.value &&
+    !showAddStickerPanel.value &&
+    !!props.selectedSticker &&
     props.selectedEmojiPack !== null,
 );
 
@@ -168,7 +214,7 @@ watch(
     [
       props.selectedEmojiPackId,
       props.selectedEmojiPack?.source,
-      props.selectedEmojiPack?.emojis?.length ?? 0,
+      packExpressionCount(props.selectedEmojiPack ?? {}),
     ] as const,
   ([, source, n]) => {
     if (source === 'custom' && n === 0) {
@@ -179,7 +225,7 @@ watch(
 );
 
 watch(
-  () => props.selectedEmojiPack?.emojis?.length ?? 0,
+  () => packExpressionCount(props.selectedEmojiPack ?? {}),
   (n) => {
     if (props.selectedEmojiPack?.source === 'custom' && n === 0) {
       listExtra.value = 'settings';
@@ -231,7 +277,7 @@ watch(
             :value="props.emojiSearchQuery"
             class="roles-toolbar-search min-w-0 flex-1"
             type="text"
-            placeholder="Search emojis"
+            placeholder="Search emojis & stickers"
             @input="
               $emit(
                 'update:emojiSearchQuery',
@@ -264,7 +310,9 @@ watch(
             @click="$emit('update:selectedEmojiPackId', pack.id)"
           >
             {{ pack.name }}
-            <span class="ml-1 text-fg-subtle">{{ pack.emojis.length }}</span>
+            <span class="ml-1 text-fg-subtle">{{
+              (pack.emojis?.length ?? 0) + (pack.stickers?.length ?? 0)
+            }}</span>
           </button>
           <button
             type="button"
@@ -289,8 +337,16 @@ watch(
             type="file"
             accept="image/*"
             class="hidden"
-            :disabled="!canAddMoreEmojis"
+            :disabled="!canAddMoreExpressions"
             @change="props.onEmojiUploadFileChange"
+          />
+          <input
+            ref="addStickerFileInputRef"
+            type="file"
+            accept="image/png,image/gif,image/apng,.png,.gif,.apng"
+            class="hidden"
+            :disabled="!canAddMoreExpressions"
+            @change="props.onStickerUploadFileChange"
           />
           <div class="divide-y divide-white/5">
             <button
@@ -360,8 +416,45 @@ watch(
             </button>
 
             <button
+              v-for="s in props.filteredPackStickers"
+              :key="`sticker-${s.id}`"
+              type="button"
+              class="w-full py-2.5 px-2 text-left transition-colors"
+              :class="
+                listExtra === null && s.id === props.selectedStickerId
+                  ? 'bg-glass-1'
+                  : 'hover:bg-glass-hover'
+              "
+              @click="selectStickerRow(s.id)"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-3">
+                  <div
+                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-glass-1"
+                  >
+                    <img
+                      v-if="s.previewUrl"
+                      :src="safeImageUrl(s.previewUrl)"
+                      alt=""
+                      class="h-full w-full object-contain"
+                    />
+                  </div>
+                  <div class="min-w-0">
+                    <div class="truncate font-semibold text-fg text-sm">
+                      {{ s.name }}
+                    </div>
+                    <div class="truncate text-[11px] text-fg-subtle">
+                      Sticker
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            <button
               v-if="
-                props.selectedEmojiPack?.source === 'custom' && canAddMoreEmojis
+                props.selectedEmojiPack?.source === 'custom' &&
+                canAddMoreExpressions
               "
               type="button"
               class="group w-full py-2.5 px-2 text-left transition-colors"
@@ -396,15 +489,48 @@ watch(
                 </div>
               </div>
             </button>
+
+            <button
+              v-if="
+                props.selectedEmojiPack?.source === 'custom' &&
+                canAddMoreExpressions
+              "
+              type="button"
+              class="group w-full py-2.5 px-2 text-left transition-colors"
+              :class="
+                listExtra === 'add-sticker'
+                  ? 'bg-glass-1'
+                  : 'hover:bg-glass-hover'
+              "
+              @click="selectAddStickerRow"
+              @dblclick.prevent="openAddStickerFilePicker"
+            >
+              <div class="flex min-w-0 items-center gap-3">
+                <div
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-glass-2 text-fg-subtle transition-colors group-hover:bg-glass-hover group-hover:text-fg-soft"
+                >
+                  <span class="text-lg font-light leading-none">+</span>
+                </div>
+                <div class="min-w-0">
+                  <div class="truncate font-semibold text-fg text-sm">
+                    Add sticker
+                  </div>
+                  <div class="truncate text-[11px] text-fg-subtle">
+                    PNG, APNG, or GIF · up to 512KB
+                  </div>
+                </div>
+              </div>
+            </button>
           </div>
           <div
             v-if="
               props.filteredPackEmojis.length === 0 &&
+              props.filteredPackStickers.length === 0 &&
               props.emojiSearchQuery.trim()
             "
             class="px-2 py-6 text-center text-sm text-fg-subtle"
           >
-            No emojis match.
+            No emojis or stickers match.
           </div>
         </div>
       </div>
@@ -488,8 +614,8 @@ watch(
 
           <div v-else-if="showAddEmojiPanel" class="space-y-4">
             <div class="text-sm text-fg-subtle">
-              {{ props.selectedEmojiPack.emojis.length }} /
-              {{ props.maxEmojisPerPack }} emojis
+              {{ packExpressionCount(props.selectedEmojiPack) }} /
+              {{ props.maxEmojisPerPack }} expressions
             </div>
             <button
               type="button"
@@ -518,10 +644,34 @@ watch(
             </button>
           </div>
 
+          <div v-else-if="showAddStickerPanel" class="space-y-4">
+            <div class="text-sm text-fg-subtle">
+              {{ packExpressionCount(props.selectedEmojiPack) }} /
+              {{ props.maxEmojisPerPack }} expressions
+            </div>
+            <button
+              type="button"
+              class="flex w-full items-center justify-center gap-2 rounded-lg bg-glass-1 py-8 px-4 text-center transition-colors hover:bg-glass-hover"
+              @click="openAddStickerFilePicker"
+            >
+              <span
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-white/25 text-xl font-light text-fg-subtle"
+              >
+                +
+              </span>
+              <div class="min-w-0 text-left">
+                <div class="text-sm font-semibold text-fg">Add a sticker</div>
+                <div class="mt-0.5 text-xs text-fg-subtle">
+                  PNG, APNG, or GIF · appears in the composer sticker picker
+                </div>
+              </div>
+            </button>
+          </div>
+
           <template v-else-if="showEmojiDetailPanel">
             <div class="text-sm text-fg-subtle">
-              {{ props.selectedEmojiPack.emojis.length }} /
-              {{ props.maxEmojisPerPack }} emojis
+              {{ packExpressionCount(props.selectedEmojiPack) }} /
+              {{ props.maxEmojisPerPack }} expressions
             </div>
 
             <div class="space-y-5">
@@ -589,9 +739,73 @@ watch(
             </button>
           </template>
 
+          <template v-else-if="showStickerDetailPanel">
+            <div class="text-sm text-fg-subtle">
+              {{ packExpressionCount(props.selectedEmojiPack) }} /
+              {{ props.maxEmojisPerPack }} expressions
+            </div>
+
+            <div class="space-y-5">
+              <div class="flex justify-center">
+                <div
+                  class="flex aspect-square h-28 w-28 max-w-full shrink-0 items-center justify-center overflow-hidden rounded-xl bg-glass-1"
+                >
+                  <img
+                    v-if="props.selectedSticker!.previewUrl"
+                    :src="safeImageUrl(props.selectedSticker!.previewUrl)"
+                    alt=""
+                    class="max-h-full max-w-full object-contain"
+                  />
+                </div>
+              </div>
+              <div class="flex items-center gap-6">
+                <div>
+                  <div
+                    class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
+                  >
+                    Name
+                  </div>
+                  <div class="mt-2 font-semibold text-fg-soft">
+                    :{{ props.selectedSticker!.name }}:
+                  </div>
+                </div>
+                <div>
+                  <div
+                    class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
+                  >
+                    Format
+                  </div>
+                  <div class="mt-1 font-semibold uppercase text-fg-soft">
+                    {{ props.selectedSticker!.format }}
+                  </div>
+                </div>
+                <div>
+                  <div
+                    class="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
+                  >
+                    Usage
+                  </div>
+                  <div class="mt-1 font-semibold text-fg-soft">
+                    {{ props.selectedSticker!.used }} uses
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              v-if="props.selectedEmojiPack.source === 'custom'"
+              type="button"
+              class="echo-destructive-fill mt-auto w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors"
+              @click="props.removeSticker(props.selectedSticker!.id)"
+            >
+              Delete Sticker
+            </button>
+          </template>
+
           <div v-else class="py-8 text-center text-sm text-fg-subtle">
             <span v-if="props.selectedEmojiPack.source === 'custom'"
-              >Choose an emoji, pack settings, or add from the list.</span
+              >Choose an emoji, sticker, pack settings, or add from the
+              list.</span
             >
             <span v-else>Select an emoji from the list.</span>
           </div>
@@ -854,19 +1068,19 @@ watch(
                   Included Emojis
                 </div>
                 <div
-                  class="mt-2 flex max-h-[150px] flex-wrap gap-2 overflow-y-auto pr-1"
+                  class="emoji-pack-preview-grid mt-2 grid max-h-44 grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-1.5 overflow-y-auto pr-1 custom-scrollbar"
                 >
                   <div
                     v-for="emoji in selectedMarketPreviewPack.emojis"
                     :key="emoji.id"
-                    class="flex h-9 min-w-9 items-center justify-center overflow-hidden rounded-md bg-glass-1 px-2"
-                    :title="emoji.name"
+                    class="emoji-pack-preview-cell flex aspect-square min-w-0 items-center justify-center overflow-hidden rounded-lg bg-glass-1 p-1.5 transition-colors hover:bg-glass-2"
+                    :title="`:${emoji.name}:`"
                   >
                     <img
                       v-if="emoji.previewUrl"
                       :src="safeImageUrl(emoji.previewUrl)"
                       alt=""
-                      class="h-full w-full object-contain"
+                      class="max-h-full max-w-full object-contain"
                     />
                     <span v-else class="text-lg leading-none">{{
                       emoji.char || '😀'

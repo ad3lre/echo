@@ -21,6 +21,7 @@ import type {
   MessageAttachmentPayload,
   MessageWithAuthor,
   ReplyTo,
+  EchoChannelType,
 } from '@shared/types';
 import type { ReactionFavorite } from '@/composables/useReactionFavorites';
 import MessageList from './MessageList.vue';
@@ -234,7 +235,7 @@ const props = defineProps<{
   channels?: {
     id: string;
     name: string;
-    type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+    type?: EchoChannelType;
     iconKey?: string;
   }[];
   sendMessage?: (
@@ -339,6 +340,16 @@ const showVoiceSideChatComposer = computed(() => {
   const ch = props.activeChannel;
   if (!ch || !props.showInputForVoiceChannel) return false;
   return ch.type === 'voice' || ch.type === 'stage';
+});
+
+const isSelfRolesWidgetChannel = computed(
+  () => props.activeChannel?.type === 'selfRoles',
+);
+
+const showSelfAssignableRolesWidget = computed(() => {
+  const ch = props.activeChannel;
+  if (!ch?.id) return false;
+  return ch.type === 'selfRoles' || ch.type === 'text';
 });
 
 const showChatTypingIndicatorUi = computed(() => {
@@ -729,13 +740,14 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
           activeContentTab === 'messages' &&
           serverId &&
           activeChannel?.id &&
-          activeChannel.type === 'text'
+          showSelfAssignableRolesWidget
         "
         :server-id="serverId"
         :channel-id="activeChannel.id"
+        :channel-type="activeChannel.type"
       />
       <MessageList
-        v-if="activeContentTab === 'messages'"
+        v-if="activeContentTab === 'messages' && !isSelfRolesWidgetChannel"
         v-show="!markdownPreviewState.expanded"
         ref="messageListRef"
         class="flex-1 min-h-0"

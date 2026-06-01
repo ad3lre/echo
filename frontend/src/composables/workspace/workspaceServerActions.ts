@@ -31,7 +31,9 @@ import type {
   ChannelPermissionKey,
   ChannelPermissionsState,
   ChannelSummary,
+  EchoChannelType,
 } from '@shared/types';
+import { seedChannelMoveCrossCategoryPreferenceForServer } from '@/features/channel-settings/composables/useChannelMoveCrossCategoryPreference';
 
 export function useWorkspaceServerActions(refs: WorkspaceStateRefs) {
   const {
@@ -51,7 +53,7 @@ export function useWorkspaceServerActions(refs: WorkspaceStateRefs) {
     categoryId: string,
     channel: {
       name: string;
-      type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+      type: EchoChannelType;
       iconKey?: string;
     },
   ): Promise<string | null> {
@@ -119,6 +121,7 @@ export function useWorkspaceServerActions(refs: WorkspaceStateRefs) {
         bootstrapCategoriesForNewServer(resp.serverId, resp.defaultChannelId),
       );
       ensureChannelBucket(resp.defaultChannelId);
+      seedChannelMoveCrossCategoryPreferenceForServer(resp.serverId);
       if (opts?.memberUserId) {
         serverMemberIds.value = addSingleMemberToServerMemberIds(
           serverMemberIds.value,

@@ -4,11 +4,13 @@ import { sendError } from '../../errors';
 import {
   canManageSelfRolesConfig,
   getEchoSelfRolesConfig,
+  insertEchoAudit,
   resolveEchoSelfRolesPanel,
   toggleSelfAssignableMemberRole,
   updateEchoSelfRolesConfig,
 } from '../../../domain/echoStore';
 import { isMemberOfServer } from '../../../domain/echoPermissions';
+import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
 import {
   echoPool,
   requireEchoStore,
@@ -94,12 +96,22 @@ export default async function echoSelfAssignableRolesRoutes(
       }
       const updated = await updateEchoSelfRolesConfig(pool, sid, {
         enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
-        panelChannelId:
-          body.panelChannelId !== undefined
-            ? (body.panelChannelId as string | null)
-            : undefined,
         customCategories,
       });
+      const auditId = await insertEchoAudit(
+        pool,
+        sid,
+        uid,
+        'self_roles_config.update',
+        'server',
+        sid,
+        { enabled: updated.enabled },
+      );
+      publishEchoWorkspaceEvent(
+        fastify,
+        { kind: 'channel_tree_changed', version: auditId, serverId: sid },
+        { serverId: sid },
+      );
       return reply.send(updated);
     },
   );

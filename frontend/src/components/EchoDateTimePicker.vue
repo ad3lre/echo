@@ -10,14 +10,20 @@ import {
 } from 'vue';
 import {
   buildMonthGrid,
+  buildYearPage,
   ceilToFiveMinutes,
+  centeredYearPageStart,
   compareCalendarDays,
   dateToCalendarKey,
   formatDateTimeLocal,
+  isCalendarMonthBeforeMin,
+  isCalendarYearBeforeMin,
   isSameCalendarDay,
+  monthShortLabel,
   parseDateTimeLocal,
   resolveMinDateTime,
   startOfDay,
+  YEAR_PICKER_PAGE_SIZE,
   type CalendarCell,
 } from '@/utils/calendarDate';
 
@@ -47,6 +53,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
 
+type CalendarView = 'day' | 'month' | 'year';
+
 const isOpen = ref(false);
 const triggerRef = ref<HTMLElement | null>(null);
 const panelRef = ref<HTMLElement | null>(null);
@@ -56,6 +64,8 @@ const panelError = ref('');
 
 const viewYear = ref(new Date().getFullYear());
 const viewMonth = ref(new Date().getMonth());
+const calendarView = ref<CalendarView>('day');
+const yearPageStart = ref(centeredYearPageStart(new Date().getFullYear()));
 const draftDay = ref(startOfDay(new Date()));
 const draftHour = ref(12);
 const draftMinute = ref(0);
@@ -73,12 +83,52 @@ const monthGrid = computed(() =>
   buildMonthGrid(viewYear.value, viewMonth.value),
 );
 
-const monthLabel = computed(() =>
+const monthNameLabel = computed(() =>
   new Date(viewYear.value, viewMonth.value, 1).toLocaleString(undefined, {
     month: 'long',
-    year: 'numeric',
   }),
 );
+
+const monthPickerOptions = computed(() =>
+  Array.from({ length: 12 }, (_, month) => ({
+    month,
+    label: monthShortLabel(month),
+    disabled: isCalendarMonthBeforeMin(
+      viewYear.value,
+      month,
+      minResolved.value,
+    ),
+    selected:
+      draftDay.value.getFullYear() === viewYear.value &&
+      draftDay.value.getMonth() === month,
+  })),
+);
+
+const yearPickerOptions = computed(() =>
+  buildYearPage(yearPageStart.value, YEAR_PICKER_PAGE_SIZE).map((year) => ({
+    year,
+    disabled: isCalendarYearBeforeMin(year, minResolved.value),
+    selected: draftDay.value.getFullYear() === year,
+  })),
+);
+
+const yearRangeLabel = computed(() => {
+  const years = yearPickerOptions.value;
+  if (years.length === 0) return '';
+  return `${years[0]!.year} – ${years[years.length - 1]!.year}`;
+});
+
+const navPrevLabel = computed(() => {
+  if (calendarView.value === 'day') return 'Previous month';
+  if (calendarView.value === 'month') return 'Previous year';
+  return 'Previous years';
+});
+
+const navNextLabel = computed(() => {
+  if (calendarView.value === 'day') return 'Next month';
+  if (calendarView.value === 'month') return 'Next year';
+  return 'Next years';
+});
 
 const displayText = computed(() => {
   const d = parseDateTimeLocal(props.modelValue);
@@ -140,6 +190,8 @@ function syncDraftFromModel() {
   draftMinute.value = d.getMinutes();
   viewYear.value = d.getFullYear();
   viewMonth.value = d.getMonth();
+  calendarView.value = 'day';
+  yearPageStart.value = centeredYearPageStart(d.getFullYear());
   focusedDayKey.value = dateToCalendarKey(d);
   panelError.value = '';
 }
@@ -223,6 +275,72 @@ function nextMonth() {
   }
 }
 
+function prevYear() {
+  viewYear.value -= 1;
+}
+
+function nextYear() {
+  viewYear.value += 1;
+}
+
+function prevYearPage() {
+  yearPageStart.value -= YEAR_PICKER_PAGE_SIZE;
+}
+
+function nextYearPage() {
+  yearPageStart.value += YEAR_PICKER_PAGE_SIZE;
+}
+
+function navPrev() {
+  if (calendarView.value === 'day') prevMonth();
+  else if (calendarView.value === 'month') prevYear();
+  else prevYearPage();
+}
+
+function navNext() {
+  if (calendarView.value === 'day') nextMonth();
+  else if (calendarView.value === 'month') nextYear();
+  else nextYearPage();
+}
+
+function openMonthView() {
+  calendarView.value = 'month';
+}
+
+function openYearView() {
+  yearPageStart.value = centeredYearPageStart(viewYear.value);
+  calendarView.value = 'year';
+}
+
+function selectMonth(month: number) {
+  if (isCalendarMonthBeforeMin(viewYear.value, month, minResolved.value)) {
+    return;
+  }
+  viewMonth.value = month;
+  calendarView.value = 'day';
+}
+
+function selectYear(year: number) {
+  if (isCalendarYearBeforeMin(year, minResolved.value)) return;
+  viewYear.value = year;
+  calendarView.value = 'month';
+}
+
+function pickerCellClass(options: {
+  disabled: boolean;
+  selected: boolean;
+}): string {
+  const base =
+    'echo-dtp-picker-cell rounded-lg px-2 py-2 text-sm font-medium transition-colors';
+  if (options.disabled) {
+    return `${base} cursor-not-allowed opacity-35`;
+  }
+  if (options.selected) {
+    return `${base} echo-dtp-picker-cell--selected`;
+  }
+  return `${base} echo-dtp-picker-cell--default`;
+}
+
 function moveFocusedDay(deltaDays: number) {
   const current = parseDateTimeLocal(`${focusedDayKey.value}T12:00`);
   const base = current ?? draftDay.value;
@@ -295,6 +413,7 @@ async function openPanel() {
 
 function closePanel() {
   isOpen.value = false;
+  calendarView.value = 'day';
   panelError.value = '';
 }
 
@@ -397,52 +516,121 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="echo-dtp-nav-btn"
-                aria-label="Previous month"
-                @click="prevMonth"
+                :aria-label="navPrevLabel"
+                @click="navPrev"
               >
                 ‹
               </button>
-              <div class="text-sm font-semibold">{{ monthLabel }}</div>
+              <div
+                class="flex min-w-0 flex-1 items-center justify-center gap-1"
+              >
+                <template v-if="calendarView === 'day'">
+                  <button
+                    type="button"
+                    class="echo-dtp-header-btn"
+                    :aria-label="`Choose month, currently ${monthNameLabel}`"
+                    @click="openMonthView"
+                  >
+                    {{ monthNameLabel }}
+                  </button>
+                  <button
+                    type="button"
+                    class="echo-dtp-header-btn"
+                    :aria-label="`Choose year, currently ${viewYear}`"
+                    @click="openYearView"
+                  >
+                    {{ viewYear }}
+                  </button>
+                </template>
+                <template v-else-if="calendarView === 'month'">
+                  <button
+                    type="button"
+                    class="echo-dtp-header-btn"
+                    :aria-label="`Choose year, currently ${viewYear}`"
+                    @click="openYearView"
+                  >
+                    {{ viewYear }}
+                  </button>
+                </template>
+                <span v-else class="text-sm font-semibold">{{
+                  yearRangeLabel
+                }}</span>
+              </div>
               <button
                 type="button"
                 class="echo-dtp-nav-btn"
-                aria-label="Next month"
-                @click="nextMonth"
+                :aria-label="navNextLabel"
+                @click="navNext"
               >
                 ›
               </button>
             </div>
 
-            <div
-              class="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide echo-dtp-weekdays"
-            >
-              <span v-for="wd in WEEKDAY_LABELS" :key="wd">{{ wd }}</span>
-            </div>
-            <div class="mt-1 grid grid-cols-7 gap-1">
-              <button
-                v-for="cell in monthGrid"
-                :key="dateToCalendarKey(cell.date)"
-                type="button"
-                :class="dayButtonClass(cell)"
-                :disabled="isDayDisabled(cell.date)"
-                :tabindex="
-                  dateToCalendarKey(cell.date) === focusedDayKey ? 0 : -1
-                "
-                :aria-label="
-                  cell.date.toLocaleDateString(undefined, {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })
-                "
-                :aria-pressed="
-                  dateToCalendarKey(cell.date) === dateToCalendarKey(draftDay)
-                "
-                @click="selectDay(cell)"
-                @keydown="onDayKeydown($event, cell)"
+            <template v-if="calendarView === 'day'">
+              <div
+                class="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide echo-dtp-weekdays"
               >
-                {{ cell.date.getDate() }}
+                <span v-for="wd in WEEKDAY_LABELS" :key="wd">{{ wd }}</span>
+              </div>
+              <div class="mt-1 grid grid-cols-7 gap-1">
+                <button
+                  v-for="cell in monthGrid"
+                  :key="dateToCalendarKey(cell.date)"
+                  type="button"
+                  :class="dayButtonClass(cell)"
+                  :disabled="isDayDisabled(cell.date)"
+                  :tabindex="
+                    dateToCalendarKey(cell.date) === focusedDayKey ? 0 : -1
+                  "
+                  :aria-label="
+                    cell.date.toLocaleDateString(undefined, {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })
+                  "
+                  :aria-pressed="
+                    dateToCalendarKey(cell.date) === dateToCalendarKey(draftDay)
+                  "
+                  @click="selectDay(cell)"
+                  @keydown="onDayKeydown($event, cell)"
+                >
+                  {{ cell.date.getDate() }}
+                </button>
+              </div>
+            </template>
+
+            <div
+              v-else-if="calendarView === 'month'"
+              class="grid grid-cols-3 gap-1"
+            >
+              <button
+                v-for="opt in monthPickerOptions"
+                :key="opt.month"
+                type="button"
+                :class="pickerCellClass(opt)"
+                :disabled="opt.disabled"
+                :aria-label="opt.label"
+                :aria-pressed="opt.selected"
+                @click="selectMonth(opt.month)"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+
+            <div v-else class="grid grid-cols-3 gap-1">
+              <button
+                v-for="opt in yearPickerOptions"
+                :key="opt.year"
+                type="button"
+                :class="pickerCellClass(opt)"
+                :disabled="opt.disabled"
+                :aria-label="String(opt.year)"
+                :aria-pressed="opt.selected"
+                @click="selectYear(opt.year)"
+              >
+                {{ opt.year }}
               </button>
             </div>
 
@@ -596,18 +784,21 @@ onUnmounted(() => {
 
 .echo-dtp-panel {
   border-radius: 0.9rem;
-  background: var(--echo-control-bg, var(--bg));
+  background: color-mix(in srgb, var(--echo-menu-bg) 94%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow:
     0 16px 40px rgb(0 0 0 / 0.35),
-    inset 0 0 0 1px var(--echo-control-border, var(--border));
+    inset 0 0 0 1px
+      var(--echo-menu-surface-border, var(--echo-control-border, var(--border)));
   color: var(--echo-control-fg, var(--fg));
 }
 
 .echo-dtp-panel--server {
-  background: var(--srv-input-bg);
-  box-shadow:
-    0 16px 40px rgb(0 0 0 / 0.35),
-    inset 0 0 0 1px var(--srv-input-ring);
+  background: var(--srv-role-menu-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--srv-role-menu-shadow);
   color: var(--srv-input-fg);
 }
 
@@ -636,6 +827,33 @@ onUnmounted(() => {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
+}
+
+.echo-dtp-header-btn {
+  border-radius: 0.5rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: inherit;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: var(--glass-hover, rgb(255 255 255 / 0.08));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+}
+
+.echo-dtp-picker-cell--default:hover:not(:disabled) {
+  background: var(--glass-hover, rgb(255 255 255 / 0.08));
+}
+
+.echo-dtp-picker-cell--selected {
+  background: var(--accent);
+  color: white;
 }
 
 .echo-dtp-weekdays {

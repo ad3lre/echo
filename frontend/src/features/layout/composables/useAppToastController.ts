@@ -23,6 +23,7 @@ import { sendEchoToastQuickReply } from '@/features/layout/echoToastQuickReplyBr
 import type { EchoToastQuickReplyPayload } from '@/features/layout/echoToastQuickReplyBridge';
 import {
   appToastBottomInsetCss,
+  buildAppToastBarTimedPositionStyle,
   buildAppToastShellPositionStyle,
   computeVisualViewportToastInsets,
   shouldAppToastClearBottomChrome,
@@ -91,6 +92,11 @@ export function useAppToastController(
     () =>
       appToast.value?.variant === 'incoming_call' ||
       appToast.value?.variant === 'incoming_chat_message',
+  );
+
+  /** Compact timed bar toasts (system updates, etc.) — not message/call rich toasts. */
+  const appToastIsBarTimed = computed(
+    () => appToast.value?.variant === 'default',
   );
 
   const appToastProgressVisible = computed(() => {
@@ -321,6 +327,11 @@ export function useAppToastController(
   });
 
   const appToastShellPositionStyle = computed(() => {
+    if (appToastIsBarTimed.value) {
+      return buildAppToastBarTimedPositionStyle({
+        visualViewportOffsetTopPx: visualViewportToastOffsetTopPx.value,
+      });
+    }
     const elevated = appToastClearsBottomChrome.value;
     const bottomInset = appToastBottomInsetCss({
       elevated,
@@ -350,11 +361,18 @@ export function useAppToastController(
     const widthClass = appToastIsRich.value
       ? 'w-[min(26rem,calc(100vw-1rem))]'
       : 'w-[min(24rem,calc(100vw-1rem))]';
+    if (appToastIsBarTimed.value) {
+      return `pointer-events-none fixed z-[500] min-h-0 ${widthClass}`;
+    }
     return `pointer-events-none fixed left-1/2 z-[500] min-h-0 -translate-x-1/2 ${widthClass}`;
   });
 
-  const appToastStackClass =
-    'pointer-events-auto absolute inset-x-0 bottom-0 flex max-h-full min-h-0 flex-col-reverse gap-2.5 overflow-y-auto overscroll-contain';
+  const appToastStackClass = computed(() => {
+    if (appToastIsBarTimed.value) {
+      return 'pointer-events-auto absolute inset-x-0 top-0 flex max-h-full min-h-0 flex-col gap-2.5 overflow-y-auto overscroll-contain';
+    }
+    return 'pointer-events-auto absolute inset-x-0 bottom-0 flex max-h-full min-h-0 flex-col-reverse gap-2.5 overflow-y-auto overscroll-contain';
+  });
 
   function scheduleAppToastDismiss(durationMs: number) {
     if (appToastClearTimer != null) {

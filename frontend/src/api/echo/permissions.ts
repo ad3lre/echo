@@ -244,12 +244,16 @@ export async function fetchEchoChannelPermissionOverwriteRows(
   };
 }
 
+export type PermissionOverwritePutResult = {
+  warnings?: { strippedAllows?: string[] };
+};
+
 export async function putEchoChannelPermissionOverwriteRows(
   token: string,
   channelId: string,
   rows: EchoPermissionOverwriteRowDto[],
-): Promise<void> {
-  await echoFetch<Record<string, unknown>>(
+): Promise<PermissionOverwritePutResult> {
+  const data = await echoFetch<PermissionOverwritePutResult>(
     token,
     `/channels/${encodeURIComponent(channelId)}/permission-overwrites`,
     {
@@ -263,6 +267,7 @@ export async function putEchoChannelPermissionOverwriteRows(
       }),
     },
   );
+  return data ?? {};
 }
 
 export async function fetchEchoCategoryPermissionOverwriteRows(
@@ -296,8 +301,8 @@ export async function putEchoCategoryPermissionOverwriteRows(
   serverId: string,
   categoryId: string,
   rows: EchoPermissionOverwriteRowDto[],
-): Promise<void> {
-  await echoFetch<Record<string, unknown>>(
+): Promise<PermissionOverwritePutResult> {
+  const data = await echoFetch<PermissionOverwritePutResult>(
     token,
     `/servers/${encodeURIComponent(serverId)}/categories/${encodeURIComponent(categoryId)}/permission-overwrites`,
     {
@@ -311,6 +316,7 @@ export async function putEchoCategoryPermissionOverwriteRows(
       }),
     },
   );
+  return data ?? {};
 }
 
 export async function createEchoRoleApi(

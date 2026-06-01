@@ -1,45 +1,23 @@
-import type {
-  FastifyInstance,
-  FastifyPluginOptions,
-  FastifyReply,
-  FastifyRequest,
-} from 'fastify';
-import { config } from '../../config';
+import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { getPgPool } from '../../db/pg';
 import { listDiscordVoiceMirrorWatchGuildIds } from '../../domain/discordVoiceMirrorRepo';
 import { ingestDiscordVoiceMirrorPayload } from '../../services/discordVoiceMirrorIngest';
 import type { DiscordVoiceMirrorInboundChannel } from '../../services/discordVoiceMirrorIngest';
 import { consumeWebhookDeliveryOnce } from '../../services/webhookReplayGuard';
 import { sendError } from '../errors';
-import { safeCompare } from '../../shared/safeCompare';
-
-function requireBotWebhookSecret(
-  req: FastifyRequest,
-  reply: FastifyReply,
-): boolean {
-  const secret = config.echoDiscordBotWebhookSecret.trim();
-  if (!secret) {
-    sendError(
-      reply,
-      503,
-      'NOT_CONFIGURED',
-      'Discord bot webhook secret is not configured.',
-    );
-    return false;
-  }
-  const hdr = req.headers['x-echo-discord-bot-secret'];
-  const presented = typeof hdr === 'string' ? hdr.trim() : '';
-  if (!safeCompare(presented, secret)) {
-    sendError(reply, 401, 'UNAUTHORIZED', 'Invalid webhook secret.');
-    return false;
-  }
-  return true;
-}
+import {
+  discordBotSignedWebhookPlugin,
+  requireBotWebhookPostSignature,
+  requireBotWebhookSecret,
+  requireWebhookDeliveryId,
+} from '../discordBotWebhookAuth';
 
 export default async function discordVoiceMirrorHookRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
+  await fastify.register(discordBotSignedWebhookPlugin);
+
   fastify.get('/hooks/discord-voice-mirror/watchlist', async (req, reply) => {
     if (!requireBotWebhookSecret(req, reply)) return;
     const pool = getPgPool();
@@ -52,18 +30,11 @@ export default async function discordVoiceMirrorHookRoutes(
   fastify.post<{ Body: Record<string, unknown> }>(
     '/hooks/discord-voice-mirror/snapshot',
     async (req, reply) => {
-      if (!requireBotWebhookSecret(req, reply)) return;
-      const deliveryIdHdr = req.headers['x-echo-delivery-id'];
-      const deliveryId =
-        typeof deliveryIdHdr === 'string' ? deliveryIdHdr.trim() : '';
-      if (!deliveryId) {
-        return sendError(
-          reply,
-          400,
-          'INVALID_BODY',
-          'x-echo-delivery-id header is required',
-        );
-      }
+      const secret = requireBotWebhookSecret(req, reply);
+      if (!secret) return;
+      if (!requireBotWebhookPostSignature(req, reply, secret)) return;
+      const deliveryId = requireWebhookDeliveryId(req, reply);
+      if (!deliveryId) return;
       const firstDelivery = await consumeWebhookDeliveryOnce(
         'discord-voice-mirror-snapshot',
         deliveryId,

@@ -1268,6 +1268,47 @@ export async function updateEchoMessageEmbeds(
   );
 }
 
+/** Bridge-only content update (no author permission check). */
+export async function updateEchoMessageDiscordBridgeSql(
+  pool: pg.Pool,
+  channelId: string,
+  messageId: string,
+  args: {
+    content: string;
+    mentions?: unknown;
+    attachments?: unknown;
+    stickers?: unknown;
+    embeds?: unknown;
+  },
+): Promise<boolean> {
+  const r = await pool.query(
+    `UPDATE echo_messages SET
+      content = $3,
+      search_index_text = $3,
+      mentions = $4::jsonb,
+      attachments = $5::jsonb,
+      stickers = $6::jsonb,
+      embeds = $7::jsonb,
+      edited_at = NOW(),
+      image_url = NULL,
+      video_url = NULL,
+      audio_url = NULL,
+      gif = FALSE,
+      image_spoiler = FALSE
+     WHERE id = $1 AND channel_id = $2 AND deleted_at IS NULL AND bridge_source = 'discord_inbound'`,
+    [
+      messageId,
+      channelId,
+      args.content,
+      JSON.stringify(args.mentions ?? null),
+      JSON.stringify(args.attachments ?? null),
+      JSON.stringify(args.stickers ?? null),
+      JSON.stringify(args.embeds ?? null),
+    ],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
 /**
  * Rewrite imported Discord CDN URLs to Echo-hosted URLs. Does not touch `edited_at` or message body text.
  */
@@ -2003,6 +2044,107 @@ export async function selectUnreadReplyToSelfRowsForAttention(
   );
   return r.rows.map((row: any) => ({
     channel_id: String(row.channel_id),
+  }));
+}
+
+/** One hydrated unread mention/reply row for the server-side mention inbox feed. */
+export type EchoMentionFeedRow = {
+  id: string;
+  channel_id: string;
+  server_id: string | null;
+  author_id: string;
+  content: string;
+  mentions: unknown;
+  reply_to: unknown;
+  created_at: string;
+  is_reply_to_self: boolean;
+  author_display_label: string;
+  author_pfp: string | null;
+};
+
+/**
+ * Bounded scan returning hydrated unread rows that either mention the viewer or
+ * reply to them, across the given channels. Powers `GET /attention/mentions` so
+ * the client renders the mention inbox without per-channel message prefetch.
+ */
+export async function selectUnreadMentionFeedRowsForUser(
+  pool: pg.Pool,
+  userId: string,
+  channelIds: string[],
+  limit: number = MENTION_SCAN_LIMIT,
+): Promise<EchoMentionFeedRow[]> {
+  if (channelIds.length === 0) return [];
+  const cappedLimit = Math.min(Math.max(limit, 1), MENTION_SCAN_LIMIT);
+  const mIdAfterReadTieBreak = echoMessageIdPgGreaterThan(
+    'm.id',
+    'rs.last_read_message_id',
+  );
+  const mAfterRead = `(
+    lr.id IS NULL
+    OR m.created_at > lr.created_at
+    OR (m.created_at = lr.created_at AND ${mIdAfterReadTieBreak})
+  )`;
+  const replyToSelfPredicate = `(
+    m.reply_to IS NOT NULL
+    AND m.reply_to <> 'null'::jsonb
+    AND (
+      NULLIF(m.reply_to->>'authorId', '') = $1
+      OR parent.author_id = $1
+    )
+  )`;
+  const r = await pool.query(
+    `
+    SELECT
+      m.id,
+      m.channel_id,
+      ch.server_id,
+      m.author_id,
+      m.content,
+      m.mentions,
+      m.reply_to,
+      m.created_at,
+      ${replyToSelfPredicate} AS is_reply_to_self,
+      COALESCE(NULLIF(TRIM(u.display_name), ''), NULLIF(TRIM(u.username), ''), 'Unknown') AS author_display_label,
+      TRIM(u.pfp) AS author_pfp
+    FROM echo_messages m
+    INNER JOIN echo_channels ch ON ch.id = m.channel_id
+    LEFT JOIN auth_users u ON u.id = m.author_id
+    LEFT JOIN echo_channel_read_state rs
+      ON rs.user_id = $1
+     AND rs.channel_id = m.channel_id
+    LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
+    LEFT JOIN echo_messages parent
+      ON parent.id = NULLIF(m.reply_to->>'messageId', '')
+     AND parent.deleted_at IS NULL
+    WHERE m.channel_id = ANY($2::text[])
+      AND m.deleted_at IS NULL
+      AND m.author_id <> $1
+      AND (
+        (m.mentions IS NOT NULL AND m.mentions <> '[]'::jsonb)
+        OR ${replyToSelfPredicate}
+      )
+      AND (
+        rs.last_read_message_id IS NULL
+        OR ${mAfterRead}
+      )
+    ORDER BY m.id DESC
+    LIMIT ${cappedLimit}
+    `,
+    [userId, channelIds],
+  );
+  return r.rows.map((row: any) => ({
+    id: String(row.id),
+    channel_id: String(row.channel_id),
+    server_id: row.server_id != null ? String(row.server_id) : null,
+    author_id: String(row.author_id ?? ''),
+    content: typeof row.content === 'string' ? row.content : '',
+    mentions: row.mentions,
+    reply_to: row.reply_to,
+    created_at: new Date(row.created_at as string | Date).toISOString(),
+    is_reply_to_self: row.is_reply_to_self === true,
+    author_display_label: String(row.author_display_label ?? 'Unknown'),
+    author_pfp:
+      row.author_pfp != null ? String(row.author_pfp).trim() || null : null,
   }));
 }
 

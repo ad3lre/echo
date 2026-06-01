@@ -123,10 +123,6 @@ const sourceChips = computed((): MentionNotificationSourceChip[] =>
     categoriesByServer: props.categoriesByServer,
     serverNameById: serverNameById.value,
     serverImageUrlById: serverImageUrlById.value,
-    users: props.users,
-    echoDmPeerByChannelId: props.echoPeerByChannelId,
-    isPersistedEchoDmThread: props.isPersistedEchoDmThread,
-    resolveChannelLabel: props.resolveChannelLabel,
   }),
 );
 
@@ -155,9 +151,11 @@ function countRowsFor(
 
 const UNREAD_FILTER_KEY = 'unread';
 
-const unreadPlaceVisual: MentionNotificationPlaceVisual = {
-  kind: 'svg',
-  url: icons.bellSchool,
+type PlaceWidget = {
+  key: string;
+  label: string;
+  count: number;
+  visual: MentionNotificationPlaceVisual;
 };
 
 /**
@@ -205,6 +203,22 @@ const visibleSourceChips = computed<MentionNotificationSourceChip[]>(() =>
   ),
 );
 
+const placeWidgets = computed<PlaceWidget[]>(() => {
+  const unread: PlaceWidget = {
+    key: UNREAD_FILTER_KEY,
+    label: 'Unread',
+    count: countRowsFor('unread', { kind: 'all' }),
+    visual: { kind: 'none' },
+  };
+  const places = visibleSourceChips.value.map((chip) => ({
+    key: chip.key,
+    label: chip.label,
+    count: countRowsFor('all', chip.selection),
+    visual: chip.visual,
+  }));
+  return [unread, ...places];
+});
+
 const filteredRows = computed(() =>
   filterDmMentionNotificationRows({
     rows: displayRows.value,
@@ -215,37 +229,6 @@ const filteredRows = computed(() =>
     isPersistedEchoDmThread: props.isPersistedEchoDmThread,
   }),
 );
-
-type PlaceWidget = {
-  key: string;
-  label: string;
-  context: string;
-  count: number;
-  visual: MentionNotificationPlaceVisual;
-};
-
-const placeWidgets = computed<PlaceWidget[]>(() => {
-  const unread: PlaceWidget = {
-    key: UNREAD_FILTER_KEY,
-    label: 'Unread',
-    context: 'Not marked read yet',
-    count: countRowsFor('unread', { kind: 'all' }),
-    visual: unreadPlaceVisual,
-  };
-  const places = visibleSourceChips.value.map((chip) => ({
-    key: chip.key,
-    label: chip.label,
-    context:
-      chip.selection.kind === 'all'
-        ? 'Across all places'
-        : chip.selection.kind === 'dms'
-          ? 'Direct messages'
-          : `In ${chip.label}`,
-    count: countRowsFor('all', chip.selection),
-    visual: chip.visual,
-  }));
-  return [unread, ...places];
-});
 
 watch(
   placeWidgets,
@@ -293,7 +276,7 @@ const listEmptyMessage = computed(() => {
 });
 
 function isLoadingStubRow(row: DmMentionNotificationRow): boolean {
-  return row.preview === MENTION_NOTIFICATION_STUB_PREVIEW;
+  return props.resolvePreview(row) === MENTION_NOTIFICATION_STUB_PREVIEW;
 }
 
 function isFailedStubRow(row: DmMentionNotificationRow): boolean {
@@ -301,7 +284,7 @@ function isFailedStubRow(row: DmMentionNotificationRow): boolean {
 }
 
 function rowPreviewText(row: DmMentionNotificationRow): string {
-  return row.preview;
+  return props.resolvePreview(row);
 }
 
 watch(menuOpen, async (open) => {
@@ -366,7 +349,7 @@ function formatKinds(kinds: readonly string[]): string {
           <img
             :src="icons.arrowLeft"
             alt=""
-            class="dm-notifications__back-icon h-5 w-5 shrink-0 opacity-90"
+            class="echo-ink-icon h-5 w-5 shrink-0 opacity-90"
           />
           <span>Messages</span>
         </button>
@@ -428,46 +411,28 @@ function formatKinds(kinds: readonly string[]): string {
             v-for="place in placeWidgets"
             :key="place.key"
             type="button"
-            class="dm-filter-widget dm-filter-widget--source dm-filter-widget--place"
+            class="dm-filter-widget dm-filter-widget--place"
             :class="{
               'dm-filter-widget--active': activeFilterKey === place.key,
+              'dm-filter-widget--has-bg': place.visual.kind === 'image',
             }"
             :aria-pressed="activeFilterKey === place.key"
-            :title="place.context"
-            :data-echo-hint="place.context"
+            :title="place.label"
+            :data-echo-hint="place.label"
             @click="activeFilterKey = place.key"
           >
             <span
-              class="dm-filter-widget__icon"
-              :class="{
-                'dm-filter-widget__icon--avatar':
-                  place.visual.kind === 'avatar',
-                'dm-filter-widget__icon--glyph': place.visual.kind !== 'avatar',
+              v-if="place.visual.kind === 'image'"
+              class="dm-filter-widget__bg"
+              :style="{
+                backgroundImage: `url(${safeImageUrl(place.visual.url)})`,
               }"
               aria-hidden="true"
-            >
-              <PausedGifAvatar
-                v-if="place.visual.kind === 'avatar'"
-                :src="place.visual.url"
-                :alt="place.visual.alt"
-                :session-key="`place:${place.key}`"
-                img-class="h-full w-full rounded-[inherit] object-cover"
-              />
-              <span
-                v-else-if="place.visual.kind === 'emoji'"
-                class="dm-filter-widget__emoji"
-                >{{ place.visual.emoji }}</span
-              >
-              <img
-                v-else
-                :src="place.visual.url"
-                alt=""
-                class="dm-filter-widget__glyph"
-              />
+            />
+            <span class="dm-filter-widget__content">
+              <span class="dm-filter-widget__label">{{ place.label }}</span>
+              <span class="dm-filter-widget__count">{{ place.count }}</span>
             </span>
-            <span class="dm-filter-widget__label">{{ place.label }}</span>
-            <span class="dm-filter-widget__meta">{{ place.context }}</span>
-            <span class="dm-filter-widget__count">{{ place.count }}</span>
           </button>
         </div>
       </aside>
@@ -668,62 +633,19 @@ function formatKinds(kinds: readonly string[]): string {
   min-width: 0;
   max-width: none;
   scroll-snap-align: none;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    'icon label count'
-    'icon meta count';
-  column-gap: 0.55rem;
-}
-
-.dm-filter-widget__icon {
-  grid-area: icon;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  background: color-mix(in srgb, black 24%, transparent);
-}
-
-.dm-filter-widget__icon--avatar {
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 999px;
-}
-
-.dm-filter-widget__icon--glyph {
-  width: 1.55rem;
-  height: 1.55rem;
-  border-radius: 0.4rem;
-}
-
-.dm-filter-widget__glyph {
-  width: 1rem;
-  height: 1rem;
-  object-fit: contain;
-  opacity: 0.92;
-}
-
-.dm-filter-widget__emoji {
-  font-size: 0.95rem;
-  line-height: 1;
 }
 
 .dm-filter-widget {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    'label count'
-    'meta count';
-  align-items: center;
-  column-gap: 0.65rem;
-  row-gap: 0.1rem;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
   min-width: 12rem;
   max-width: 18rem;
-  min-height: 2.75rem;
-  padding: 0.55rem 0.7rem;
+  min-height: 2.5rem;
+  padding: 0;
   border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, white 8%, transparent);
   background: linear-gradient(
     140deg,
     color-mix(in srgb, white 6%, transparent) 0%,
@@ -733,8 +655,71 @@ function formatKinds(kinds: readonly string[]): string {
   transition:
     background-color 120ms ease,
     color 120ms ease,
+    border-color 120ms ease,
     transform 120ms ease;
   scroll-snap-align: start;
+}
+
+.dm-filter-widget__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  position: relative;
+  z-index: 1;
+}
+
+.dm-filter-widget__bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  filter: blur(10px) saturate(1.2);
+  transform: scale(1.08);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      120deg,
+      color-mix(in srgb, black 62%, transparent) 0%,
+      color-mix(in srgb, black 78%, transparent) 100%
+    );
+  }
+}
+
+.dm-filter-widget--has-bg {
+  border-color: color-mix(in srgb, white 14%, transparent);
+
+  .dm-filter-widget__label {
+    text-shadow: 0 1px 8px color-mix(in srgb, black 55%, transparent);
+  }
+
+  .dm-filter-widget__count {
+    background: color-mix(in srgb, black 42%, transparent);
+    backdrop-filter: blur(4px);
+  }
+}
+
+.dm-filter-widget--has-bg:hover,
+.dm-filter-widget--has-bg:focus-visible,
+.dm-filter-widget--has-bg.dm-filter-widget--active {
+  border-color: color-mix(in srgb, white 22%, transparent);
+
+  .dm-filter-widget__bg::after {
+    background: linear-gradient(
+      120deg,
+      color-mix(in srgb, #7c83ff 28%, black 72%) 0%,
+      color-mix(in srgb, black 68%, transparent) 100%
+    );
+  }
 }
 
 .dm-filter-widget:hover,
@@ -762,36 +747,28 @@ function formatKinds(kinds: readonly string[]): string {
 }
 
 .dm-filter-widget__label {
-  grid-area: label;
   min-width: 0;
-  font-size: 0.73rem;
+  flex: 1;
+  font-size: 0.78rem;
   font-weight: 650;
   letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.dm-filter-widget__meta {
-  grid-area: meta;
-  min-width: 0;
-  font-size: 0.66rem;
-  color: color-mix(in srgb, currentColor 68%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: left;
 }
 
 .dm-filter-widget__count {
-  grid-area: count;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.65rem;
-  padding: 0.2rem 0.45rem;
+  flex-shrink: 0;
+  min-width: 1.75rem;
+  padding: 0.22rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, black 30%, transparent);
   color: color-mix(in srgb, white 92%, transparent);
 }
@@ -804,10 +781,6 @@ function formatKinds(kinds: readonly string[]): string {
   .dm-filter-widget {
     min-width: min(13.5rem, calc(100vw - 4.25rem));
   }
-}
-
-.dm-notifications__back-icon {
-  filter: invert(1);
 }
 
 .dm-notifications__divider-line {
@@ -900,11 +873,6 @@ function formatKinds(kinds: readonly string[]): string {
 }
 
 /* Light: notification chrome — ink-forward labels, accent-tinted structure, crisp filters */
-:global([data-theme='light'] .dm-notifications__back-icon) {
-  filter: none;
-  opacity: 0.78;
-}
-
 :global([data-theme='light'] .dm-notifications__header),
 :global([data-theme='light'] .dm-notifications__places) {
   border-color: color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
@@ -977,6 +945,23 @@ function formatKinds(kinds: readonly string[]): string {
     0 1px 2px rgba(15, 10, 25, 0.05);
 }
 
+:global([data-theme='light'] .dm-filter-widget--has-bg) {
+  border-color: color-mix(in srgb, var(--border) 55%, var(--accent) 45%);
+
+  .dm-filter-widget__bg::after {
+    background: linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--surface) 78%, transparent) 0%,
+      color-mix(in srgb, var(--surface) 92%, transparent) 100%
+    );
+  }
+
+  .dm-filter-widget__label {
+    text-shadow: none;
+    color: var(--text);
+  }
+}
+
 :global([data-theme='light'] .dm-filter-widget:hover),
 :global([data-theme='light'] .dm-filter-widget:focus-visible) {
   background: linear-gradient(
@@ -1011,13 +996,15 @@ function formatKinds(kinds: readonly string[]): string {
 }
 
 :global(
-  [data-theme='light'] .dm-filter-widget--active .dm-filter-widget__meta
+  [data-theme='light'] .dm-filter-widget--has-bg.dm-filter-widget--active
 ) {
-  color: color-mix(in srgb, var(--accent-contrast-fg) 78%, transparent);
-}
-
-:global([data-theme='light'] .dm-filter-widget__meta) {
-  color: color-mix(in srgb, var(--text) 58%, transparent);
+  .dm-filter-widget__bg::after {
+    background: linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--accent) 38%, transparent) 0%,
+      color-mix(in srgb, var(--surface) 82%, transparent) 100%
+    );
+  }
 }
 
 :global([data-theme='light'] .dm-filter-widget__count) {

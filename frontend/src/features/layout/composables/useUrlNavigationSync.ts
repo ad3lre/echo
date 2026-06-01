@@ -39,6 +39,7 @@ import {
   type EchoParsedPath,
 } from '@/features/layout/urlNavigation';
 import { isEchoGraphId } from '@/utils/echoIds';
+import { dmPeerUserIdFromChannelId } from '@/features/dm/buildDmPanelUserList';
 
 export interface UseUrlNavigationSyncOptions {
   base: string;
@@ -55,6 +56,7 @@ export interface UseUrlNavigationSyncOptions {
   authSession: ReturnType<typeof useAuthSessionStore>;
   mainSurface: ComputedRef<MainSurface>;
   echoDmThreadIds: Ref<Set<string>>;
+  echoDmPeerByChannelId: Ref<Map<string, string>>;
   isSettingsModalOpen: Ref<boolean>;
   settingsModalInitialSection: Ref<SettingsSection | null>;
   settingsModalActiveSection: Ref<SettingsSection>;
@@ -179,7 +181,6 @@ export function useUrlNavigationSync(opts: UseUrlNavigationSyncOptions) {
           activeChannelId: opts.activeChannelId,
         });
         opts.isDMPanelOpen.value = true;
-        opts.selectedDMUserId.value = null;
         opts.selectedMessageRequestId.value = null;
         logShellNav('useUrlNavigationSync', 'dm_thread_path', {
           channelId: parsed.channelId,
@@ -197,6 +198,11 @@ export function useUrlNavigationSync(opts: UseUrlNavigationSyncOptions) {
             next.add(cid);
             opts.echoDmThreadIds.value = next;
           }
+          const peerId = dmPeerUserIdFromChannelId(
+            cid,
+            opts.echoDmPeerByChannelId.value,
+          );
+          opts.selectedDMUserId.value = peerId;
         }
         break;
       default:

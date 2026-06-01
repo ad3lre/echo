@@ -68,6 +68,7 @@ import {
   getActiveIndexMap,
   getChannelIndex,
 } from '@/features/chat/domain/channelMessageIndex';
+import { seedChannelMoveCrossCategoryPreferenceForServer } from '@/features/channel-settings/composables/useChannelMoveCrossCategoryPreference';
 
 export type JoinEchoInviteFromChatResult =
   | {
@@ -290,6 +291,7 @@ export function useAddServerFlow(deps: {
       bootstrapCategoriesForNewServer(opts.serverId, opts.defaultChannelId),
     );
     ensureChannelBucket(opts.defaultChannelId);
+    seedChannelMoveCrossCategoryPreferenceForServer(opts.serverId);
     if (ownerId) {
       workspace.serverMemberIds.value = addSingleMemberToServerMemberIds(
         workspace.serverMemberIds.value,

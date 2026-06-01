@@ -43,6 +43,7 @@ import { echoMessagesPersistedTotal } from '../observability/echoMetrics';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
 import { resolveAndBroadcastLinkEmbeds } from '../sockets/echoLinkEmbeds';
 import { emitEchoAttentionSnapshotsForUsers } from './echoAttentionRealtime';
+import { dispatchEchoMessagePushNotifications } from './echoMessagePushNotify';
 import { botEventBus } from '../platform/botEventBus';
 import { findAllIdTokenMatches } from '../shared/idTokens';
 import { mirrorEchoMessageToDiscordIfConfigured } from './discordBridgeOutbound';
@@ -502,6 +503,12 @@ export async function echoPersistedMessageCreateAndBroadcast(
   }
   if (dmRecipients.length > 0) {
     void emitEchoAttentionSnapshotsForUsers(pool, io, dmRecipients, log);
+    void dispatchEchoMessagePushNotifications(pool, log, {
+      message: messageForClients,
+      authorId: userId,
+      serverId: null,
+      dmRecipients,
+    });
   } else {
     const serverId = await getEchoChannelServerId(pool, channelId);
     if (serverId) {
@@ -524,6 +531,12 @@ export async function echoPersistedMessageCreateAndBroadcast(
         channelId,
         messageForClients,
       );
+      void dispatchEchoMessagePushNotifications(pool, log, {
+        message: messageForClients,
+        authorId: userId,
+        serverId,
+        dmRecipients: [],
+      });
     }
   }
   log.info(

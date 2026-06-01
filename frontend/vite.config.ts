@@ -332,6 +332,9 @@ export default defineConfig(({ mode }) => {
        */
       chunkSizeWarningLimit: 8000,
       rollupOptions: {
+        checks: {
+          pluginTimings: false,
+        },
         onwarn(warning, defaultHandler) {
           // Transitive protobufjs helper uses `eval` for optional module loading; not actionable
           // in our bundle and drowns real warnings.
@@ -340,6 +343,18 @@ export default defineConfig(({ mode }) => {
             typeof warning.id === 'string' &&
             warning.id.includes('protobufjs')
           ) {
+            return;
+          }
+          // @hpke/common ships a misplaced pure annotation in noble.js. It does not affect the
+          // browser bundle, so keep dependency chatter out while preserving other annotation logs.
+          if (
+            warning.code === 'INVALID_ANNOTATION' &&
+            typeof warning.id === 'string' &&
+            warning.id.includes('@hpke/common/esm/src/utils/noble.js')
+          ) {
+            return;
+          }
+          if (warning.code === 'PLUGIN_TIMINGS') {
             return;
           }
           defaultHandler(warning);
@@ -360,7 +375,7 @@ export default defineConfig(({ mode }) => {
           find: '@shared',
           replacement: path.resolve(__dirname, '../shared'),
         },
-        // Emscripten bundles may reference Node builtins; browser path is unused at runtime.
+        // Some browser-targeted deps keep Node fallback imports behind runtime guards.
         {
           find: /^path$/,
           replacement: path.resolve(
@@ -370,6 +385,13 @@ export default defineConfig(({ mode }) => {
         },
         {
           find: /^fs$/,
+          replacement: path.resolve(
+            __dirname,
+            './vite-shims/node-builtin-stub.js',
+          ),
+        },
+        {
+          find: /^crypto$/,
           replacement: path.resolve(
             __dirname,
             './vite-shims/node-builtin-stub.js',

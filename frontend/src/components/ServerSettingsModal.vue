@@ -16,7 +16,6 @@ import {
   type AuditTimeFilter,
 } from '@/features/server-settings/composables/useServerSettingsAudit';
 import { useServerSettingsEmoji } from '@/features/server-settings/composables/useServerSettingsEmoji';
-import { useServerSettingsStickers } from '@/features/server-settings/composables/useServerSettingsStickers';
 import { useServerSettingsEchoAuditBans } from '@/features/server-settings/composables/useServerSettingsEchoAuditBans';
 import { useServerSettingsRoles } from '@/features/server-settings/composables/useServerSettingsRoles';
 import { useServerSettingsOverviewState } from '@/features/server-settings/composables/useServerSettingsOverviewState';
@@ -34,7 +33,6 @@ import ServerSettingsHeader from '@/features/server-settings/components/ServerSe
 import ServerSettingsOverviewSection from '@/features/server-settings/components/ServerSettingsOverviewSection.vue';
 import ServerSettingsRolesSection from '@/features/server-settings/components/ServerSettingsRolesSection.vue';
 import ServerSettingsEmojiSection from '@/features/server-settings/components/ServerSettingsEmojiSection.vue';
-import ServerSettingsStickersSection from '@/features/server-settings/components/ServerSettingsStickersSection.vue';
 import ServerSettingsSecuritySection from '@/features/server-settings/components/ServerSettingsSecuritySection.vue';
 import ServerSettingsAccessSection from '@/features/server-settings/components/ServerSettingsAccessSection.vue';
 import ServerSettingsTicketsSection from '@/features/server-settings/components/ServerSettingsTicketsSection.vue';
@@ -419,6 +417,7 @@ const {
   emojiSearchQuery,
   selectedEmojiPackId,
   selectedEmojiId,
+  selectedStickerId,
   customEmojiPackName,
   customEmojiPackDescription,
   customEmojiPackTags,
@@ -435,7 +434,9 @@ const {
   canImportMorePacks,
   selectedEmojiPack,
   selectedEmoji,
+  selectedSticker,
   filteredPackEmojis,
+  filteredPackStickers,
   filteredMarketEmojiPacks,
   marketEmojiPacksLoading,
   marketEmojiPacksError,
@@ -444,31 +445,14 @@ const {
   importMarketEmojiPack,
   onEmojiUploadFile,
   onEmojiUploadFileChange,
+  onStickerUploadFileChange,
   removeEmoji,
+  removeSticker,
   updateSelectedEmojiName,
   forkSelectedEmojiPack,
   openEmojiPackModal,
   closeEmojiPackModal,
 } = useServerSettingsEmoji(computed(() => props.server?.id));
-
-const {
-  packs: stickerPacks,
-  loading: stickerLoading,
-  error: stickerError,
-  refresh: refreshStickers,
-  flatStickers,
-  customPacks: stickerCustomPacks,
-  customPacksLoading: stickerCustomPacksLoading,
-  selectedPackId: selectedStickerPackId,
-  stickerUploadFeedback,
-  canCreateMorePacks: canCreateMoreStickerPacks,
-  canUploadToSelectedPack: canUploadStickerToSelectedPack,
-  createStickerPack,
-  onStickerUploadFileChange,
-  removeSticker,
-} = useServerSettingsStickers(computed(() => props.server?.id));
-
-const stickerTotal = computed(() => flatStickers.value.length);
 
 const {
   auditTabFilter,
@@ -1041,6 +1025,7 @@ async function onModerationPatch(patch: {
                   :emoji-search-query="emojiSearchQuery"
                   :selected-emoji-pack-id="selectedEmojiPackId"
                   :selected-emoji-id="selectedEmojiId"
+                  :selected-sticker-id="selectedStickerId"
                   :custom-emoji-pack-name="customEmojiPackName"
                   :custom-emoji-pack-description="customEmojiPackDescription"
                   :custom-emoji-pack-tags="customEmojiPackTags"
@@ -1059,7 +1044,9 @@ async function onModerationPatch(patch: {
                   :can-import-more-packs="canImportMorePacks"
                   :selected-emoji-pack="selectedEmojiPack"
                   :selected-emoji="selectedEmoji"
+                  :selected-sticker="selectedSticker"
                   :filtered-pack-emojis="filteredPackEmojis"
+                  :filtered-pack-stickers="filteredPackStickers"
                   :filtered-market-emoji-packs="filteredMarketEmojiPacks"
                   :market-emoji-packs-loading="marketEmojiPacksLoading"
                   :market-emoji-packs-error="marketEmojiPacksError"
@@ -1068,7 +1055,9 @@ async function onModerationPatch(patch: {
                   :import-market-emoji-pack="importMarketEmojiPack"
                   :on-emoji-upload-file="onEmojiUploadFile"
                   :on-emoji-upload-file-change="onEmojiUploadFileChange"
+                  :on-sticker-upload-file-change="onStickerUploadFileChange"
                   :remove-emoji="removeEmoji"
+                  :remove-sticker="removeSticker"
                   :update-selected-emoji-name="updateSelectedEmojiName"
                   :fork-selected-emoji-pack="forkSelectedEmojiPack"
                   :open-emoji-pack-modal="openEmojiPackModal"
@@ -1076,6 +1065,7 @@ async function onModerationPatch(patch: {
                   @update:emoji-search-query="emojiSearchQuery = $event"
                   @update:selected-emoji-pack-id="selectedEmojiPackId = $event"
                   @update:selected-emoji-id="selectedEmojiId = $event"
+                  @update:selected-sticker-id="selectedStickerId = $event"
                   @update:custom-emoji-pack-name="customEmojiPackName = $event"
                   @update:custom-emoji-pack-description="
                     customEmojiPackDescription = $event
@@ -1093,26 +1083,6 @@ async function onModerationPatch(patch: {
                     emojiPackMarketSearch = $event
                   "
                   @update:emoji-pack-modal-tab="emojiPackModalTab = $event"
-                />
-
-                <ServerSettingsStickersSection
-                  v-else-if="activeSection === 'Stickers'"
-                  :server-id="server?.id"
-                  :can-manage-emojis="!!props.canManageServer"
-                  :packs="stickerPacks"
-                  :loading="stickerLoading"
-                  :error="stickerError"
-                  :total-stickers="stickerTotal"
-                  :custom-packs="stickerCustomPacks"
-                  :custom-packs-loading="stickerCustomPacksLoading"
-                  v-model:selected-pack-id="selectedStickerPackId"
-                  :sticker-upload-feedback="stickerUploadFeedback"
-                  :can-create-more-packs="canCreateMoreStickerPacks"
-                  :can-upload-to-selected-pack="canUploadStickerToSelectedPack"
-                  :refresh="refreshStickers"
-                  :create-sticker-pack="createStickerPack"
-                  :on-sticker-upload-file-change="onStickerUploadFileChange"
-                  :remove-sticker="removeSticker"
                 />
 
                 <ServerSettingsSecuritySection
@@ -1150,11 +1120,12 @@ async function onModerationPatch(patch: {
                   v-else-if="activeSection === 'Self-assignable Roles'"
                   :server-id="server?.id ?? ''"
                   :access-token="accessToken"
-                  :categories="structureCategories"
                   :roles="
                     roleManagerRoles.map((r) => ({
                       id: r.id,
                       name: r.name,
+                      color: r.color,
+                      roleCategoryId: r.roleCategoryId,
                       permissions: r.storedEchoPermissions,
                     }))
                   "

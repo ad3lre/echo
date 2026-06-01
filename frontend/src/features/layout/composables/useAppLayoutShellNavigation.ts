@@ -418,6 +418,7 @@ export function useAppLayoutShellNavigation(
     authSession: opts.authSession,
     mainSurface,
     echoDmThreadIds: opts.echoDmThreadIds,
+    echoDmPeerByChannelId: opts.echoDmPeerByChannelId,
     isSettingsModalOpen: opts.isSettingsModalOpen,
     settingsModalInitialSection: opts.settingsModalInitialSection,
     settingsModalActiveSection: opts.settingsModalActiveSection,

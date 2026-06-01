@@ -24,6 +24,7 @@ import {
 } from '../../../services/auth/guestAbuseLimiter';
 import {
   buildEchoAttentionSnapshot,
+  buildEchoMentionNotificationsFeed,
   buildEchoSingleChannelAttention,
   checkEchoServerSpamFilter,
   echoChannelAllowsMessageUnderSlowmode,
@@ -31,6 +32,12 @@ import {
   getEchoChannelReadState,
   getEchoChannelServerId,
   getEchoMessageById,
+  getEchoUserNotificationPreferences,
+  upsertEchoUserNotificationPreferences,
+  listEchoChannelNotificationOverridesForUser,
+  upsertEchoChannelNotificationOverride,
+  upsertEchoWebPushSubscription,
+  deleteEchoWebPushSubscriptionByEndpoint,
   listEchoMessages,
   listPinnedMessageIdsForChannel,
   selectEchoMessageAnchorRowForListDebug,
@@ -40,6 +47,10 @@ import {
   echoSendPlainTextViolatesHardFormat,
   selectEchoChannelMessageFormat,
 } from '../../../domain/echoStore';
+import {
+  echoWebPushPublicKey,
+  isEchoWebPushConfigured,
+} from '../../../services/echoWebPush';
 import { evaluateBannedWordsOnMessageSend } from '../../../domain/echoStore/bannedWords/messageEval';
 import { applyBannedWordsAfterMessagePersisted } from '../../../services/echoBannedWordsApply';
 import {
@@ -131,6 +142,175 @@ export default async function echoMessagesRoutes(
         getAuthUser(req).id,
       );
       return reply.code(200).send(snapshot);
+    },
+  );
+
+  fastify.get<{ Querystring: { limit?: string } }>(
+    '/attention/mentions',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const parsedLimit = Number.parseInt(req.query.limit ?? '', 10);
+      const rows = await buildEchoMentionNotificationsFeed(
+        pool,
+        getAuthUser(req).id,
+        Number.isFinite(parsedLimit) ? { limit: parsedLimit } : undefined,
+      );
+      return reply.code(200).send({ rows });
+    },
+  );
+
+  fastify.get(
+    '/me/notification-preferences',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const prefs = await getEchoUserNotificationPreferences(
+        pool,
+        getAuthUser(req).id,
+      );
+      return reply.code(200).send({
+        settings: prefs?.settings ?? null,
+        ...(prefs?.updatedAt ? { updatedAt: prefs.updatedAt } : {}),
+      });
+    },
+  );
+
+  fastify.put<{ Body: { settings?: unknown } }>(
+    '/me/notification-preferences',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const result = await upsertEchoUserNotificationPreferences(
+        pool,
+        getAuthUser(req).id,
+        req.body?.settings,
+      );
+      if (result === 'invalid') {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'Invalid notification settings payload.',
+        );
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  fastify.get(
+    '/me/channel-notification-overrides',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const overridesByChannelId =
+        await listEchoChannelNotificationOverridesForUser(
+          pool,
+          getAuthUser(req).id,
+        );
+      return reply.code(200).send({ overridesByChannelId });
+    },
+  );
+
+  fastify.put<{
+    Params: { channelId: string };
+    Body: { level?: unknown; mutedUntil?: unknown };
+  }>(
+    '/channels/:channelId/notification-override',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const level =
+        req.body?.level === null
+          ? null
+          : typeof req.body?.level === 'string'
+            ? req.body.level
+            : undefined;
+      const mutedUntil =
+        req.body?.mutedUntil === null
+          ? null
+          : typeof req.body?.mutedUntil === 'string'
+            ? req.body.mutedUntil
+            : undefined;
+      const result = await upsertEchoChannelNotificationOverride(
+        pool,
+        getAuthUser(req).id,
+        channelId,
+        {
+          ...(level !== undefined ? { level } : {}),
+          ...(mutedUntil !== undefined ? { mutedUntil } : {}),
+        },
+      );
+      if (result === 'invalid') {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'Invalid channel notification override payload.',
+        );
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  fastify.get('/push/vapid-public-key', async (_req, reply) => {
+    return reply.code(200).send({
+      publicKey: echoWebPushPublicKey(),
+      enabled: isEchoWebPushConfigured(),
+    });
+  });
+
+  fastify.post<{
+    Body: { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } };
+  }>(
+    '/push/subscribe',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const endpoint =
+        typeof req.body?.endpoint === 'string' ? req.body.endpoint : '';
+      const p256dh =
+        typeof req.body?.keys?.p256dh === 'string' ? req.body.keys.p256dh : '';
+      const auth =
+        typeof req.body?.keys?.auth === 'string' ? req.body.keys.auth : '';
+      const result = await upsertEchoWebPushSubscription(pool, {
+        userId: getAuthUser(req).id,
+        endpoint,
+        p256dh,
+        auth,
+        userAgent:
+          typeof req.headers['user-agent'] === 'string'
+            ? req.headers['user-agent']
+            : '',
+      });
+      if (result === 'invalid') {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'Invalid push subscription payload.',
+        );
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  fastify.post<{ Body: { endpoint?: unknown } }>(
+    '/push/unsubscribe',
+    { preHandler: [requireAuth, requireEchoStore] },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const endpoint =
+        typeof req.body?.endpoint === 'string' ? req.body.endpoint : '';
+      if (endpoint.trim()) {
+        await deleteEchoWebPushSubscriptionByEndpoint(
+          pool,
+          endpoint,
+          getAuthUser(req).id,
+        );
+      }
+      return reply.code(204).send();
     },
   );
 

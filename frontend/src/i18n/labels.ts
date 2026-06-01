@@ -38,7 +38,6 @@ const SERVER_SETTINGS_SECTION_I18N: Record<ServerSettingsSection, string> = {
   Members: 'serverSettings.sections.members',
   Roles: 'serverSettings.sections.roles',
   Emoji: 'serverSettings.sections.emoji',
-  Stickers: 'serverSettings.sections.stickers',
   Discord: 'serverSettings.sections.discord',
   Security: 'serverSettings.sections.security',
   Access: 'serverSettings.sections.access',

@@ -49,6 +49,7 @@ import { emitDiagnostic, newTraceId } from '@/observability/sessionDiagnostics';
 import { getChannelIndex } from '@/features/chat/domain/channelMessageIndex';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 import { runVoiceJoinMediaPreflightInteractive } from '@/features/voice/voiceJoinMediaPreflightFlow';
+import { dmPeerUserIdFromChannelId } from '@/features/dm/buildDmPanelUserList';
 import { openEchoDirectDmChannel } from '@/features/dm/echoDmCommandFacade';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
 import { formatTimestamp } from '@/utils/formatTimestamp';
@@ -552,9 +553,14 @@ export function useAppLayoutDmCalls(deps: {
     const callId = dmCallWithUserId.value?.trim() ?? '';
     const oneToOneCallPeer = callId && !groupDMs.value[callId] ? callId : '';
     const selected = selectedDMUserId.value?.trim() ?? '';
+    const threadPeer =
+      dmPeerUserIdFromChannelId(
+        activeChannelId.value,
+        echoDmPeerByChannelId.value,
+      )?.trim() ?? '';
     // Thread identity (header, empty/history intro, presence) must follow the
     // open DM, not whoever is in `dmCallWithUserId` — that stays set while you browse.
-    const uid = selected || oneToOneCallPeer;
+    const uid = selected || threadPeer || oneToOneCallPeer;
     if (!uid) return null;
     const user = workspace.users.value.find((u) => u.id === uid);
     if (!user) return null;

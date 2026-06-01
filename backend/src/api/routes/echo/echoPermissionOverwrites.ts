@@ -6,6 +6,7 @@ import {
   getMergedRolePermissions,
   insertEchoAudit,
   listEchoChannelPermissionOverwrites,
+  permissionOverwriteSaveWarnings,
   replaceEchoChannelPermissionOverwrites,
 } from '../../../domain/echoStore';
 import { evaluatePermissionSet } from '../../../domain/echoPermissionEvaluate';
@@ -136,6 +137,10 @@ export default async function echoPermissionOverwritesRoutes(
         { kind: 'permission_invalidated', version: auditId, serverId: sid },
         { serverId: sid },
       );
+      const warnings = permissionOverwriteSaveWarnings(r);
+      if (warnings?.strippedAllows?.length) {
+        return reply.code(200).send({ warnings });
+      }
       return reply.code(204).send();
     },
   );

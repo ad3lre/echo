@@ -1,6 +1,5 @@
 import type pg from 'pg';
 import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
-import { getGlobalRoleCategoryId } from './roleCategoryGlobals';
 
 type RoleRow = {
   id: string;
@@ -10,6 +9,8 @@ type RoleRow = {
 };
 
 type CategoryRow = { id: string; position: number; is_system: boolean };
+
+const UNCATEGORIZED_KEY = '__uncategorized__';
 
 /**
  * Renumbers global `position` and `rank_in_category` from per-category top-to-bottom lists.
@@ -63,14 +64,18 @@ export async function applyRolePositionsFromCategoryBlocks(
     for (const r of inCat) ordered.push(String(r.id));
   }
 
-  const globalId = await getGlobalRoleCategoryId(pool, serverId);
+  const uncategorizedList = categoryRoleIdsTopToBottom.get(UNCATEGORIZED_KEY);
+  if (uncategorizedList?.length) {
+    for (const id of uncategorizedList) {
+      if (id !== everyoneId && !ordered.includes(id)) ordered.push(id);
+    }
+  }
   const uncategorized = roles.rows
     .filter(
       (r) =>
         r.name !== '@everyone' &&
         !ordered.includes(String(r.id)) &&
-        (r.role_category_id == null ||
-          (globalId && String(r.role_category_id) === globalId)),
+        r.role_category_id == null,
     )
     .sort(
       (a, b) =>
@@ -93,7 +98,7 @@ export async function applyRolePositionsFromCategoryBlocks(
       const row = roles.rows.find((r) => String(r.id) === roleId);
       const catKey = row?.role_category_id
         ? String(row.role_category_id)
-        : (globalId ?? '__none__');
+        : UNCATEGORIZED_KEY;
       const rank = rankByCat.get(catKey) ?? 0;
       rankByCat.set(catKey, rank + 1);
       await client.query(
@@ -119,7 +124,6 @@ export async function buildCategoryRoleOrderMap(
   pool: pg.Pool,
   serverId: string,
 ): Promise<Map<string, string[]>> {
-  const globalId = await getGlobalRoleCategoryId(pool, serverId);
   const r = await pool.query<RoleRow>(
     `
     SELECT r.id, r.name, r.role_category_id, r.rank_in_category, c.position AS cat_pos
@@ -136,7 +140,7 @@ export async function buildCategoryRoleOrderMap(
     const catId =
       row.role_category_id != null && String(row.role_category_id).trim()
         ? String(row.role_category_id)
-        : (globalId ?? '__uncategorized__');
+        : UNCATEGORIZED_KEY;
     const list = map.get(catId) ?? [];
     list.push(String(row.id));
     map.set(catId, list);

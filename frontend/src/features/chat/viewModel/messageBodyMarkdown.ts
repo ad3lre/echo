@@ -87,6 +87,14 @@ function preprocessMentions(text: string): string {
 const CUSTOM_EMOJI_SHORTCODE_RE =
   /(?<!<)(?<![\w:]):([a-zA-Z0-9_]{2,32}):(?![a-zA-Z0-9_]*>)/g;
 
+/**
+ * Non-global twin of `CUSTOM_EMOJI_SHORTCODE_RE` for `.test()` checks. A `/g`
+ * regex shares `lastIndex` between `.test()` calls, so reusing the global one
+ * for detection yields intermittent false negatives.
+ */
+const CUSTOM_EMOJI_SHORTCODE_DETECT_RE =
+  /(?<!<)(?<![\w:]):[a-zA-Z0-9_]{2,32}:(?![a-zA-Z0-9_]*>)/;
+
 function expandCustomEmojiShortcodesInSlice(
   slice: string,
   resolvers: IdTokenResolvers | undefined,
@@ -621,7 +629,38 @@ const SANITIZE_OPTS = {
 
 let katexOnlyStyleSanitizerHookInstalled = false;
 
-/** Strip user inline `style` while preserving KaTeX layout styles inside `.katex`. */
+/**
+ * CSS fragments that enable the only two impactful pure-CSS attacks available
+ * through an allowed inline `style`: full-viewport phishing/clickjacking overlays
+ * (`position:fixed|sticky` + `z-index`) and render-time beacons / IP disclosure
+ * (`url(...)`). DOMPurify's CSS filter blocks script-y CSS (`expression()`,
+ * `javascript:` urls) but NOT these layout/fetch properties. KaTeX never emits any
+ * of these inline (it uses `position:absolute|relative` + dimensional props only),
+ * so stripping declarations that match this list cannot affect math rendering.
+ */
+const DANGEROUS_INLINE_STYLE_DECLARATION_RE =
+  /url\s*\(|expression\s*\(|image-set\s*\(|@import|behavior\s*:|-moz-binding|position\s*:\s*(?:fixed|sticky)|z-index/i;
+
+/** Drop whole `prop:value` declarations that contain a dangerous fragment; keep the rest. */
+function filterDangerousInlineStyleDeclarations(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .split(';')
+    .map((decl) => decl.trim())
+    .filter((decl) => decl.length > 0)
+    .filter((decl) => !DANGEROUS_INLINE_STYLE_DECLARATION_RE.test(decl))
+    .join('; ');
+}
+
+/**
+ * Constrain inline `style` on message HTML. Two layers, both required:
+ *  1) Ancestor gate — only elements inside a `.katex` subtree may carry `style`
+ *     at all (user prose/links get it stripped entirely).
+ *  2) Value denylist — because `class` is itself an allowed (attacker-settable)
+ *     attribute, a forged `class="katex"` would otherwise re-open the hole. We
+ *     therefore also strip overlay/beacon declarations from any surviving value,
+ *     so a spoofed KaTeX wrapper cannot smuggle `position:fixed`/`z-index`/`url()`.
+ */
 function ensureKatexOnlyStyleSanitizerHook(): void {
   if (katexOnlyStyleSanitizerHookInstalled) return;
   katexOnlyStyleSanitizerHookInstalled = true;
@@ -638,7 +677,14 @@ function ensureKatexOnlyStyleSanitizerHook(): void {
     }
     if (!allowed) {
       data.keepAttr = false;
+      return;
     }
+    const filtered = filterDangerousInlineStyleDeclarations(data.attrValue);
+    if (!filtered) {
+      data.keepAttr = false;
+      return;
+    }
+    data.attrValue = filtered;
   });
 }
 
@@ -717,7 +763,7 @@ function echoTextAllowsMarkedBypass(
   if (findAllIdTokenMatches(text).length > 0) return false;
   if (
     resolvers?.customEmojiByName?.size &&
-    CUSTOM_EMOJI_SHORTCODE_RE.test(text)
+    CUSTOM_EMOJI_SHORTCODE_DETECT_RE.test(text)
   ) {
     return false;
   }
@@ -735,7 +781,7 @@ const PARSE_CACHE = new Map<string, string>();
 const PARSE_CACHE_MAX = 2000;
 const HTML_STAGE_CACHE_MAX = 2000;
 const MARKDOWN_PIPELINE_VERSION =
-  'mdp1_math3_dollar_inline_latex_text1_sanitize4_katex_style_gate_twemoji1_alerts1_extlinkfav1';
+  'mdp1_math3_dollar_inline_latex_text1_sanitize5_katex_style_gate_valdeny_twemoji1_alerts1_extlinkfav1';
 const EMOJI_CANDIDATE_RE = /[\u{2600}-\u{27BF}\u{1F000}-\u{1FAFF}]/u;
 const RESOLVER_CACHE_VERSION = new WeakMap<object, number>();
 const HEADING_HTML_CACHE = new Map<string, string>();
@@ -786,7 +832,12 @@ function parseMessageCacheKey(
   parseCacheExtra?: string,
 ): string {
   const m = mentions?.length ? JSON.stringify(mentions) : '';
-  const needsResolverVersion = findAllIdTokenMatches(text).length > 0;
+  // Plain `:name:` shortcodes also resolve through the resolver (name→id→url), so
+  // they must bust the cache when the resolver version bumps (e.g. the emoji
+  // library or image URL resolves asynchronously after the first render).
+  const needsResolverVersion =
+    findAllIdTokenMatches(text).length > 0 ||
+    CUSTOM_EMOJI_SHORTCODE_DETECT_RE.test(text);
   const extra = parseCacheExtra ? `\x1e${parseCacheExtra}` : '';
   return `${MARKDOWN_PIPELINE_VERSION}:r${needsResolverVersion ? resolverVersion : 0}:${text}\n${m}${extra}`;
 }

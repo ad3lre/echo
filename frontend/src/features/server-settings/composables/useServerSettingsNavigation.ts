@@ -17,8 +17,6 @@ export function useServerSettingsNavigation() {
         return icons.crown;
       case 'Emoji':
         return icons.emotesServerNav;
-      case 'Stickers':
-        return icons.sparkle;
       case 'Discord':
         return icons.discordMark;
       case 'Security':

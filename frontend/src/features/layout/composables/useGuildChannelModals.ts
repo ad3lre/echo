@@ -22,6 +22,11 @@ import { channelOverridesToEchoPartial } from '@shared/rolePermissionBridge';
 import { EchoApiError } from '@/api/echo/transport';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { UIErrorBus } from '@/utils/uiErrorBus';
+import {
+  CHANNEL_PERMISSION_DEFS_CATEGORY,
+  getChannelPermissionDefsForChannelType,
+} from '@/features/channel-settings/types';
+import { emitPermissionOverwriteSaveFeedback } from '@/features/channel-settings/domain/permissionOverwriteSaveFeedback';
 import type { CategorySettingsSnapshot } from '@/features/channel-settings/types';
 import type {
   EchoPermissionEditorState,
@@ -32,6 +37,7 @@ import type {
   ChannelPermissionsState,
   ChannelSummary,
   ForumCreatorDefaultPerms,
+  EchoChannelType,
 } from '@shared/types';
 import type { CreateChannelModalSubmitPayload } from '@/components/CreateChannelModal.vue';
 import { requestAppTwoChoice } from '@/utils/appDialogs';
@@ -40,7 +46,7 @@ import type { Server } from '@shared/types/server';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { EchoChannelPatch } from '@/api/echo/types';
 import type { RailTab } from '@/features/layout/mainSurface';
-import { getChannelDisplayName } from '@/assets/icons';
+import { getChannelDisplayName, icons } from '@/assets/icons';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 
 const CHANNEL_STRUCTURE_ACTION_TOAST_MS = 2600;
@@ -204,7 +210,7 @@ export function useGuildChannelModals(deps: {
 
   async function handleCreateChannelSubmit(payload: {
     name: string;
-    type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+    type: EchoChannelType;
     categoryId: string;
     iconKey: string;
   }) {
@@ -372,14 +378,21 @@ export function useGuildChannelModals(deps: {
       targetCategoryId !== null &&
       sourceCategoryApiId !== targetCategoryId
     ) {
-      let mode = getChannelMoveCrossCategoryPermission();
+      let mode = getChannelMoveCrossCategoryPermission(sid);
       if (mode === 'ask') {
         const picked = await requestAppTwoChoice({
-          title: 'Move channel to another category',
+          title: 'Sync with category',
           message:
-            'This channel has custom permissions. Keep them, or match the new category?',
+            'This channel has permission overwrites that may differ from the destination category.',
+          layout: 'choices',
           primaryLabel: 'Keep channel permissions',
-          secondaryLabel: 'Match new category',
+          primaryDescription:
+            'Leave this channel’s permission rows unchanged when it moves.',
+          primaryIconSrc: icons.shield,
+          secondaryLabel: 'Sync with category',
+          secondaryDescription:
+            'Clear channel overwrites so permissions inherit from the new category.',
+          secondaryIconSrc: icons.folder,
           dismissLabel: 'Cancel',
         });
         if (picked === null) return;
@@ -433,7 +446,7 @@ export function useGuildChannelModals(deps: {
 
   async function handleChannelSettingsSave(payload: {
     channelId: string;
-    channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+    channelType: EchoChannelType;
     serverId: string;
     name: string;
     categoryId: string;
@@ -508,12 +521,14 @@ export function useGuildChannelModals(deps: {
               }
             : {}),
         });
+        let permissionPutWarnings: { strippedAllows?: string[] } | undefined;
         if (payload.echoPermissionRows !== undefined) {
-          await putEchoChannelPermissionOverwriteRows(
+          const putResult = await putEchoChannelPermissionOverwriteRows(
             token,
             chId,
             payload.echoPermissionRows,
           );
+          permissionPutWarnings = putResult.warnings;
         }
         const cats = await buildEchoChannelCategoriesForServer(token, sid);
         workspace.categoriesByServer.value = {
@@ -532,6 +547,16 @@ export function useGuildChannelModals(deps: {
                 ...channelSettingsEchoPermissionEditor.value,
                 rows: overwriteRows.rows,
               };
+            }
+            if (payload.echoPermissionRows !== undefined) {
+              emitPermissionOverwriteSaveFeedback({
+                sentRows: payload.echoPermissionRows,
+                fetchedRows: overwriteRows.rows,
+                warnings: permissionPutWarnings,
+                defs: getChannelPermissionDefsForChannelType(
+                  payload.channelType,
+                ).filter((d) => d.group !== 'Threads'),
+              });
             }
           } catch (permErr) {
             guildChannelModalFailure(
@@ -688,13 +713,17 @@ export function useGuildChannelModals(deps: {
             categoryPatch,
           );
         }
+        let categoryPermissionPutWarnings:
+          | { strippedAllows?: string[] }
+          | undefined;
         if (payload.echoPermissionRows !== undefined) {
-          await putEchoCategoryPermissionOverwriteRows(
+          const putResult = await putEchoCategoryPermissionOverwriteRows(
             token,
             sid,
             payload.categoryId,
             payload.echoPermissionRows,
           );
+          categoryPermissionPutWarnings = putResult.warnings;
         } else if (!categorySettingsEchoPermissionEditor.value) {
           const echoPartial = channelOverridesToEchoPartial(
             payload.channelPermissionDefaults,
@@ -732,6 +761,16 @@ export function useGuildChannelModals(deps: {
                 ...categorySettingsEchoPermissionEditor.value,
                 rows: overwriteRows.rows,
               };
+            }
+            if (payload.echoPermissionRows !== undefined) {
+              emitPermissionOverwriteSaveFeedback({
+                sentRows: payload.echoPermissionRows,
+                fetchedRows: overwriteRows.rows,
+                warnings: categoryPermissionPutWarnings,
+                defs: CHANNEL_PERMISSION_DEFS_CATEGORY.filter(
+                  (d) => d.group !== 'Threads',
+                ),
+              });
             }
           } catch (permErr) {
             guildChannelModalFailure(

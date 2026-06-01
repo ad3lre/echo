@@ -77,7 +77,7 @@ const hookSecret =
   (process.env.ECHO_DISCORD_BOT_WEBHOOK_SECRET ?? '').trim() ||
   DEV_DISCORD_BOT_WEBHOOK_SECRET;
 
-/** Same default as scripts/wait-for-port.js — bot must not race ahead of `npm run dev` API bind. */
+/** Same default as scripts/wait-for-port.mjs — bot must not race ahead of `npm run dev` API bind. */
 const waitHost = process.env.ECHO_DEV_WAIT_API_HOST?.trim() || '127.0.0.1';
 const waitMs = Number(process.env.WAIT_FOR_PORT_MS || 120_000);
 const waitIntervalMs = 200;

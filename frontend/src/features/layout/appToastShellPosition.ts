@@ -9,6 +9,16 @@ export const APP_TOAST_VIEWPORT_BOTTOM_MIN = '1.25rem';
 /** Top breathing room for the toast viewport (safe-area is layered via max()). */
 export const APP_TOAST_TOP_RESERVE = '0.5rem';
 
+/** Top offset for bar-timed default toasts — below the very top edge / titlebar band. */
+export const APP_TOAST_BAR_TIMED_TOP =
+  'max(2.75rem, calc(env(safe-area-inset-top, 0px) + 2rem))';
+
+export const APP_TOAST_BAR_TIMED_LEFT =
+  'max(1rem, env(safe-area-inset-left, 0px))';
+
+/** Minimum distance from the layout viewport bottom for bar-timed toasts. */
+export const APP_TOAST_BAR_TIMED_BOTTOM_FLOOR = '1rem';
+
 /** Gap between the measured chat bottom stack and the toast shell. */
 export const APP_TOAST_CHROME_GAP_PX = 10;
 
@@ -109,4 +119,20 @@ export function buildAppToastShellPositionStyle(
       : `max(${APP_TOAST_TOP_RESERVE}, env(safe-area-inset-top, 0px))`;
   const maxHeight = `max(0px, calc(min(100dvh, 100vh) - (${bottom}) - (${topReserve})))`;
   return { top: topReserve, bottom, maxHeight };
+}
+
+export type AppToastBarTimedPositionInput = {
+  visualViewportOffsetTopPx: number;
+};
+
+/** Viewport bounds for compact bar-timed toasts (default variant), pinned top-left. */
+export function buildAppToastBarTimedPositionStyle(
+  input: AppToastBarTimedPositionInput,
+): Record<string, string> {
+  const top =
+    input.visualViewportOffsetTopPx > 0
+      ? `max(${APP_TOAST_BAR_TIMED_TOP}, ${input.visualViewportOffsetTopPx}px)`
+      : APP_TOAST_BAR_TIMED_TOP;
+  const maxHeight = `max(0px, calc(min(100dvh, 100vh) - (${top}) - ${APP_TOAST_BAR_TIMED_BOTTOM_FLOOR}))`;
+  return { top, left: APP_TOAST_BAR_TIMED_LEFT, maxHeight };
 }

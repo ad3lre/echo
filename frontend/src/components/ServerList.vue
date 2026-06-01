@@ -573,7 +573,7 @@ $reactive-decay-ease: cubic-bezier(0.33, 1, 0.68, 1);
     0 0 14px var(--vue-auto-089) !important;
 }
 
-.server-folder__item--drag-source :deep(img),
+.server-folder__item--drag-source img,
 .server-folder__item--drag-source .server-folder__initials {
   opacity: 0;
   visibility: hidden;

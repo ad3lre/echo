@@ -19,7 +19,7 @@
     "test:csam": "node ../node_modules/ts-node/dist/bin.js src/tests/csamScan.test.ts",
     "test:guest-abuse": "ts-node src/tests/guestAbuseLimiter.test.ts",
     "test:shipping-security": "ts-node src/tests/shippingSecurity.test.ts",
-    "test:security": "node --import tsx src/tests/csrf.exemptPaths.test.ts && node --import tsx src/tests/csrf.enforcement.test.ts && node --import tsx src/tests/echoUploadContentTypePolicy.test.ts && node --import tsx src/tests/echoUploadServe.security.test.ts && node --import tsx src/tests/echoInviteSharePage.xss.test.ts && node --import tsx src/tests/accountPolicy.profileSanitize.test.ts && node --import tsx src/tests/botTokenHash.test.ts && node --import tsx src/tests/echoWebhookSignature.test.ts && node --import tsx src/tests/uploadReadToken.test.ts",
+    "test:security": "node --import tsx src/tests/csrf.exemptPaths.test.ts && node --import tsx src/tests/csrf.enforcement.test.ts && node --import tsx src/tests/echoUploadContentTypePolicy.test.ts && node --import tsx src/tests/echoUploadServe.security.test.ts && node --import tsx src/tests/echoInviteSharePage.xss.test.ts && node --import tsx src/tests/accountPolicy.profileSanitize.test.ts && node --import tsx src/tests/botTokenHash.test.ts && node --import tsx src/tests/echoWebhookSignature.test.ts && node --import tsx src/tests/discordBotWebhook.contract.test.ts && node --import tsx src/tests/uploadReadToken.test.ts",
     "test:serper-image-search": "REDIS_URL= DATABASE_URL= node --import tsx src/tests/serperImageSearchCache.test.ts && REDIS_URL= DATABASE_URL= node --import tsx src/tests/serperImageSearchRoute.test.ts",
     "test:production-config-gates": "ts-node src/tests/productionConfigGates.test.ts",
     "test:storage-mode": "node --import tsx src/tests/storageMode.config.test.ts",
@@ -105,6 +105,7 @@
     "@tiptap/extension-text-align": "^3.23.6",
     "@tiptap/extension-text-style": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
+    "@types/web-push": "^3.6.4",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "fastify": "^5.8.5",
@@ -117,7 +118,8 @@
     "otplib": "^13.4.0",
     "pg": "^8.21.0",
     "prom-client": "^15.1.3",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "web-push": "^3.6.7"
   },
   "optionalDependencies": {
     "re2": "^1.24.1"

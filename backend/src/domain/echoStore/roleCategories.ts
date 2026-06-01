@@ -4,11 +4,7 @@ import {
   canManageEchoRolesCatalog,
   getMergedRolePermissions,
 } from './permissions';
-import {
-  ensureGlobalRoleCategoryForServer,
-  getGlobalRoleCategoryId,
-  isSystemRoleCategory,
-} from './roleCategoryGlobals';
+import { isSystemRoleCategory } from './roleCategoryGlobals';
 import { actorMayMutateTargetRoleById } from './roleScope';
 import { normalizePermissionListForStorage } from '../echoPermissionPrimitives';
 import { ALLOWED_PERMS_SET } from './constants';
@@ -54,7 +50,6 @@ export async function listEchoRoleCategories(
   pool: pg.Pool,
   serverId: string,
 ): Promise<EchoRoleCategoryDto[]> {
-  await ensureGlobalRoleCategoryForServer(pool, serverId);
   const r = await pool.query(
     `SELECT id, name, position, is_system, default_permissions, default_hoist,
             default_on_join, default_role_scope, default_role_type,
@@ -110,8 +105,6 @@ export async function createEchoRoleCategory(
   const name = normalizeCategoryName(nameRaw);
   if (!name) return 'invalid_body';
 
-  await ensureGlobalRoleCategoryForServer(pool, serverId);
-
   const cnt = await pool.query(
     `SELECT COUNT(*)::int AS c FROM echo_role_categories WHERE server_id = $1`,
     [serverId],
@@ -120,10 +113,10 @@ export async function createEchoRoleCategory(
   if (n >= MAX_ROLE_CATEGORIES_PER_SERVER) return 'invalid_body';
 
   const posR = await pool.query(
-    `SELECT COALESCE(MAX(position), 0) + 1 AS p FROM echo_role_categories WHERE server_id = $1 AND is_system = false`,
+    `SELECT COALESCE(MAX(position), -1) + 1 AS p FROM echo_role_categories WHERE server_id = $1`,
     [serverId],
   );
-  const position = Math.max(1, Number(posR.rows[0]?.p ?? 1));
+  const position = Number(posR.rows[0]?.p ?? 0);
   const id = nextEchoSnowflakeId();
   await pool.query(
     `INSERT INTO echo_role_categories (id, server_id, name, position, is_system) VALUES ($1, $2, $3, $4, false)`,
@@ -252,29 +245,17 @@ export async function deleteEchoRoleCategory(
   if (await isSystemRoleCategory(pool, serverId, categoryId)) {
     return 'cannot_delete_system';
   }
-  const globalId = await getGlobalRoleCategoryId(pool, serverId);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    if (globalId) {
-      await client.query(
-        `
-        UPDATE echo_roles
-        SET role_category_id = $3
-        WHERE server_id = $1 AND role_category_id = $2
-        `,
-        [serverId, categoryId, globalId],
-      );
-    } else {
-      await client.query(
-        `
-        UPDATE echo_roles
-        SET role_category_id = NULL
-        WHERE server_id = $1 AND role_category_id = $2
-        `,
-        [serverId, categoryId],
-      );
-    }
+    await client.query(
+      `
+      UPDATE echo_roles
+      SET role_category_id = NULL
+      WHERE server_id = $1 AND role_category_id = $2
+      `,
+      [serverId, categoryId],
+    );
     const r = await client.query(
       `DELETE FROM echo_role_categories WHERE server_id = $1 AND id = $2`,
       [serverId, categoryId],
@@ -306,8 +287,6 @@ export async function replaceEchoRoleCategoryOrder(
 ): Promise<ReplaceEchoRoleCategoryOrderResult> {
   const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
   if (!canManageEchoRolesCatalog(actorPerms)) return 'forbidden';
-  await ensureGlobalRoleCategoryForServer(pool, serverId);
-  const globalId = await getGlobalRoleCategoryId(pool, serverId);
   const dbRows = await pool.query(
     `SELECT id, is_system FROM echo_role_categories WHERE server_id = $1`,
     [serverId],
@@ -317,9 +296,6 @@ export async function replaceEchoRoleCategoryOrder(
     byId.set(String(row.id), { isSystem: Boolean(row.is_system) });
   }
   if (categoryIdsTopToBottom.length !== byId.size || byId.size === 0) {
-    return 'invalid_body';
-  }
-  if (globalId && categoryIdsTopToBottom[0] !== globalId) {
     return 'invalid_body';
   }
   const seen = new Set<string>();
@@ -359,15 +335,15 @@ export async function echoRoleCategoryExistsForServer(
   return r.rows.length > 0;
 }
 
-/** Resolve null/omitted category to the system Global Roles category id. */
+/** Resolve null/omitted category to uncategorized (null). */
 export async function resolveRoleCategoryIdForAssignment(
-  pool: pg.Pool | pg.PoolClient,
-  serverId: string,
+  _pool: pg.Pool | pg.PoolClient,
+  _serverId: string,
   roleCategoryId: string | null | undefined,
 ): Promise<string | null> {
   if (roleCategoryId != null && typeof roleCategoryId === 'string') {
     const cid = roleCategoryId.trim();
     if (cid) return cid;
   }
-  return getGlobalRoleCategoryId(pool, serverId);
+  return null;
 }

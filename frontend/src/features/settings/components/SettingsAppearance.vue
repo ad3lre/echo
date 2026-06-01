@@ -244,7 +244,7 @@ watch(
       <div
         role="radiogroup"
         aria-labelledby="theme-selection-heading"
-        class="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4"
+        class="grid min-w-0 grid-cols-2 gap-3 p-1 sm:grid-cols-4 sm:gap-4"
       >
         <button
           v-for="(t, themeIndex) in themeOptions"
@@ -256,7 +256,7 @@ watch(
           :disabled="themeOptionDisabled(t)"
           :aria-checked="visuallySelectedTheme === t.id"
           :aria-disabled="themeOptionDisabled(t) ? 'true' : undefined"
-          class="theme-card group flex min-w-0 flex-col overflow-hidden rounded-xl border-2 text-left transition-[box-shadow,border-color,transform,opacity] duration-200"
+          class="theme-card group flex min-w-0 flex-col rounded-xl border-2 text-left transition-[box-shadow,border-color,transform,opacity] duration-200"
           :class="[
             themeOptionDisabled(t)
               ? 'cursor-not-allowed opacity-45 border-transparent'
@@ -415,6 +415,8 @@ watch(
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/echoVisualSelectCard' as vsc;
+
 /* Canonical preview fills — keep aligned with frontend/src/assets/themes.scss */
 
 .theme-selection-panel {
@@ -451,10 +453,15 @@ watch(
 }
 
 .theme-card-preview {
+  @include vsc.echo-visual-select-preview-clip;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  border-radius: 0.5rem 0.5rem 0 0;
+  border-radius: 0.625rem 0.625rem 0 0;
+}
+
+.theme-card-caption {
+  @include vsc.echo-visual-select-caption-clip;
 }
 
 .theme-card-preview__bar {
@@ -532,18 +539,14 @@ watch(
 }
 
 .theme-card:not(:disabled):focus-visible {
-  outline: 2px solid var(--accent, #6366f1);
-  outline-offset: 2px;
+  @include vsc.echo-visual-select-focus-ring;
 }
 
-/* Selected swatch ring: avoid Tailwind arbitrary `color-mix` in `box-shadow` (Safari quirks). */
 .theme-card--selected {
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35);
+  @include vsc.echo-visual-select-selected-ring;
 }
 
-@supports (color: color-mix(in srgb, red, blue)) {
-  .theme-card--selected {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
-  }
+.theme-card--selected:not(:disabled):focus-visible {
+  @include vsc.echo-visual-select-selected-focus-rings;
 }
 </style>

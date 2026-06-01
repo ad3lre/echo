@@ -1,5 +1,5 @@
 import { echoPartialToChannelOverrides } from '@shared/rolePermissionBridge';
-import type { ChannelSummary } from '@shared/types';
+import type { ChannelSummary, EchoChannelType } from '@shared/types';
 import type { ForumCreatorDefaultPerms } from '@shared/types';
 import { echoFetch } from './transport';
 import type { ChannelCategory } from '@/composables/useChannels';
@@ -18,7 +18,7 @@ export async function postEchoServerChannel(
   serverId: string,
   body: {
     name: string;
-    type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+    type: EchoChannelType;
     categoryId: string;
     iconKey?: string;
   },
@@ -139,7 +139,9 @@ export function echoChannelRowToChannelSummary(
           ? 'forum'
           : c.type === 'paper'
             ? 'paper'
-            : 'text';
+            : c.type === 'selfRoles'
+              ? 'selfRoles'
+              : 'text';
   const base: ChannelSummary = {
     id: c.id,
     name: c.name,

@@ -628,9 +628,7 @@ async function bootstrap() {
   });
 
   enqueueStartupTask('time-language-prewarm', 'high', () => {
-    void import('@/features/settings/timeLanguagePreferences').then((m) =>
-      m.loadTimeLanguagePreferences(),
-    );
+    loadTimeLanguagePreferences();
   });
 
   /** Defer audio decode until first interaction (or 5s fallback). */

@@ -3,6 +3,8 @@
  * so Vite can hash and bundle assets correctly for production.
  */
 
+import type { EchoChannelType } from '@shared/types';
+
 // Icons
 import { iconEchoRounded, iconEcho } from './branding';
 import iconHashtag from './icons/hashtag.svg?url';
@@ -329,7 +331,7 @@ export function getChannelIconVisual(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+        type?: EchoChannelType;
         iconKey?: string;
       }
     | null
@@ -364,7 +366,7 @@ export function getChannelIcon(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+        type?: EchoChannelType;
         iconKey?: string;
       }
     | null

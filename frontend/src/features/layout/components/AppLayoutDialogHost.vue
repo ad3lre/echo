@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { icons } from '@/assets/icons';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 import {
   dispatchAppDialogResponse,
@@ -179,6 +180,14 @@ const confirmClass = computed(() => {
     : 'bg-indigo-600/85 hover:bg-indigo-600';
 });
 
+const twoChoiceUsesCardLayout = computed(
+  () => active.value?.kind === 'twoChoice' && active.value.layout === 'choices',
+);
+
+const modalWidthClass = computed(() =>
+  twoChoiceUsesCardLayout.value ? 'max-w-xl' : 'max-w-md',
+);
+
 let unsub: null | (() => void) = null;
 
 onMounted(() => {
@@ -209,7 +218,8 @@ onUnmounted(() => {
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId"
-      class="real-glass-modal relative w-full max-w-md rounded-xl p-6 text-foreground bg-transparent"
+      class="real-glass-modal relative w-full rounded-xl p-6 text-foreground bg-transparent"
+      :class="modalWidthClass"
     >
       <div
         class="pointer-events-none absolute inset-x-0 top-0 h-24 rounded-t-xl bg-gradient-to-b opacity-90"
@@ -220,7 +230,22 @@ onUnmounted(() => {
         "
       />
       <div class="relative">
+        <div v-if="twoChoiceUsesCardLayout" class="flex items-start gap-3">
+          <span
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 ring-1 ring-indigo-500/25"
+            aria-hidden="true"
+          >
+            <img :src="icons.folder" alt="" class="h-5 w-5 opacity-90" />
+          </span>
+          <h2
+            :id="titleId"
+            class="min-w-0 flex-1 text-lg font-bold leading-tight text-foreground"
+          >
+            {{ active.title }}
+          </h2>
+        </div>
         <h2
+          v-else
           :id="titleId"
           class="text-lg font-bold leading-tight text-foreground"
         >
@@ -243,8 +268,65 @@ onUnmounted(() => {
           />
         </div>
 
+        <div v-if="active.kind === 'twoChoice' && twoChoiceUsesCardLayout">
+          <div class="mt-5 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-glass-hover"
+              @click="pickTwoChoice('primary')"
+            >
+              <span class="flex items-center gap-2">
+                <img
+                  v-if="active.primaryIconSrc"
+                  :src="active.primaryIconSrc"
+                  alt=""
+                  class="h-5 w-5 shrink-0 opacity-85"
+                />
+                <span class="text-sm font-semibold text-foreground">{{
+                  active.primaryLabel
+                }}</span>
+              </span>
+              <span
+                v-if="active.primaryDescription"
+                class="text-xs leading-relaxed text-muted"
+                >{{ active.primaryDescription }}</span
+              >
+            </button>
+            <button
+              type="button"
+              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border border-indigo-500/35 bg-indigo-500/10 px-4 py-3 text-left transition-colors hover:bg-indigo-500/20"
+              @click="pickTwoChoice('secondary')"
+            >
+              <span class="flex items-center gap-2">
+                <img
+                  v-if="active.secondaryIconSrc"
+                  :src="active.secondaryIconSrc"
+                  alt=""
+                  class="h-5 w-5 shrink-0 opacity-85"
+                />
+                <span class="text-sm font-semibold text-foreground">{{
+                  active.secondaryLabel
+                }}</span>
+              </span>
+              <span
+                v-if="active.secondaryDescription"
+                class="text-xs leading-relaxed text-muted"
+                >{{ active.secondaryDescription }}</span
+              >
+            </button>
+          </div>
+          <div class="mt-5 flex justify-end border-t border-border pt-4">
+            <button
+              type="button"
+              class="rounded-lg px-4 py-2 text-sm font-semibold text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
+              @click="cancel"
+            >
+              {{ cancelLabel }}
+            </button>
+          </div>
+        </div>
         <div
-          v-if="active.kind === 'twoChoice'"
+          v-else-if="active.kind === 'twoChoice'"
           class="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4"
         >
           <button

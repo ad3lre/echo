@@ -507,6 +507,14 @@ export default async function echoServerScopedRoutes(
       if (channelId === 'invalid_category') {
         return sendError(reply, 400, 'INVALID_BODY', 'Invalid categoryId');
       }
+      if (channelId === 'forbidden_channel_type') {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'Channel type cannot be created manually',
+        );
+      }
       const auditId = await insertEchoAudit(
         pool,
         sid,

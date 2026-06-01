@@ -716,18 +716,20 @@ function optionRowClass(value: string) {
   letter-spacing: 0.16em;
 }
 
-/* Channel icons in server settings dropdowns: readable on dark menus */
-html[data-theme='dark']
-  .echo-dropdown--server
-  .echo-dropdown-channel-icon--mono {
-  filter: brightness(0) invert(1);
-  opacity: 0.92;
-}
+/* Channel icons in server settings dropdowns: readable on dark menus.
+ * Include `.echo-dropdown-menu--server` so teleported menus match (they are not
+ * descendants of `.echo-dropdown--server`). */
+html[data-theme='dark'] {
+  .echo-dropdown--server .echo-dropdown-channel-icon--mono,
+  .echo-dropdown-menu--server .echo-dropdown-channel-icon--mono {
+    filter: brightness(0) invert(1);
+    opacity: 0.92;
+  }
 
-html[data-theme='dark']
-  .echo-dropdown--server
-  .echo-dropdown-channel-icon--color {
-  filter: brightness(1.12);
-  opacity: 0.98;
+  .echo-dropdown--server .echo-dropdown-channel-icon--color,
+  .echo-dropdown-menu--server .echo-dropdown-channel-icon--color {
+    filter: brightness(1.12);
+    opacity: 0.98;
+  }
 }
 </style>

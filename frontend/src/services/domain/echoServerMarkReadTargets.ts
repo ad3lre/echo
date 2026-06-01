@@ -1,4 +1,5 @@
 import type { EchoAttentionChannelSummary } from '@shared/types';
+import { resolveEchoUnreadUpperBoundMessageId } from '@shared/attentionPing';
 import { compareEchoTimelineIds } from '@/services/domain/echoMessageReadState';
 
 export type EchoServerMarkReadTarget = {
@@ -21,6 +22,11 @@ export function buildEchoServerMarkReadPlan(params: {
    * (common for voice channels) so “mark server read” can still advance the cursor.
    */
   latestMessageIdByChannelId?: Record<string, string | null | undefined>;
+  /**
+   * Explicit mark-read actions should advance the server cursor even when the local
+   * read map already matches the target (stale attention volume can still show badges).
+   */
+  ignoreLocalCursor?: boolean;
 }): EchoServerMarkReadPlan {
   const serverId = params.serverId.trim();
   if (!serverId) return { targets: [], channelIdsMissingLatestUnread: [] };
@@ -32,11 +38,7 @@ export function buildEchoServerMarkReadPlan(params: {
     if (summary.kind !== 'server' || summary.serverId !== serverId) continue;
     if (summary.unreadCount <= 0) continue;
 
-    const latestUnread = summary.latestUnreadMessageId?.trim() ?? '';
-    const firstUnread = summary.firstUnreadMessageId?.trim() ?? '';
-    let markTarget =
-      latestUnread ||
-      (summary.unreadCount === 1 && firstUnread ? firstUnread : '');
+    let markTarget = resolveEchoUnreadUpperBoundMessageId(summary);
     if (!markTarget) {
       const fb =
         params.latestMessageIdByChannelId?.[summary.channelId]?.trim() ?? '';
@@ -47,11 +49,13 @@ export function buildEchoServerMarkReadPlan(params: {
       continue;
     }
 
-    const currentCursor =
-      params.readStateByChannelId[summary.channelId] ??
-      summary.lastReadMessageId;
-    const lr = currentCursor?.trim() ?? '';
-    if (lr && compareEchoTimelineIds(lr, markTarget) >= 0) continue;
+    if (!params.ignoreLocalCursor) {
+      const currentCursor =
+        params.readStateByChannelId[summary.channelId] ??
+        summary.lastReadMessageId;
+      const lr = currentCursor?.trim() ?? '';
+      if (lr && compareEchoTimelineIds(lr, markTarget) >= 0) continue;
+    }
 
     targets.push({
       channelId: summary.channelId,
@@ -62,11 +66,40 @@ export function buildEchoServerMarkReadPlan(params: {
   return { targets, channelIdsMissingLatestUnread };
 }
 
-/** DM scope: all unread threads (1:1 + group) for rail “mark all as read”. */
+/** Resolve mark-read targets for channels whose attention row lacks unread anchors. */
+export async function resolveEchoMarkReadTargetsForMissingChannels(params: {
+  channelIds: string[];
+  fetchLatestMessageId: (channelId: string) => Promise<string | null>;
+}): Promise<{
+  targets: EchoServerMarkReadTarget[];
+  unresolvedChannelIds: string[];
+}> {
+  const targets: EchoServerMarkReadTarget[] = [];
+  const unresolvedChannelIds: string[] = [];
+  for (const rawId of params.channelIds) {
+    const channelId = rawId.trim();
+    if (!channelId) continue;
+    try {
+      const lastReadMessageId = (
+        await params.fetchLatestMessageId(channelId)
+      )?.trim();
+      if (lastReadMessageId) {
+        targets.push({ channelId, lastReadMessageId });
+      } else {
+        unresolvedChannelIds.push(channelId);
+      }
+    } catch {
+      unresolvedChannelIds.push(channelId);
+    }
+  }
+  return { targets, unresolvedChannelIds };
+}
+
 export function buildEchoDmMarkReadPlan(params: {
   channelAttentionByChannelId: Record<string, EchoAttentionChannelSummary>;
   readStateByChannelId: Record<string, string | null>;
   latestMessageIdByChannelId?: Record<string, string | null | undefined>;
+  ignoreLocalCursor?: boolean;
 }): EchoServerMarkReadPlan {
   const targets: EchoServerMarkReadTarget[] = [];
   const channelIdsMissingLatestUnread: string[] = [];
@@ -75,11 +108,7 @@ export function buildEchoDmMarkReadPlan(params: {
     if (summary.kind !== 'dm') continue;
     if (summary.unreadCount <= 0) continue;
 
-    const latestUnread = summary.latestUnreadMessageId?.trim() ?? '';
-    const firstUnread = summary.firstUnreadMessageId?.trim() ?? '';
-    let markTarget =
-      latestUnread ||
-      (summary.unreadCount === 1 && firstUnread ? firstUnread : '');
+    let markTarget = resolveEchoUnreadUpperBoundMessageId(summary);
     if (!markTarget) {
       const fb =
         params.latestMessageIdByChannelId?.[summary.channelId]?.trim() ?? '';
@@ -90,11 +119,13 @@ export function buildEchoDmMarkReadPlan(params: {
       continue;
     }
 
-    const currentCursor =
-      params.readStateByChannelId[summary.channelId] ??
-      summary.lastReadMessageId;
-    const lr = currentCursor?.trim() ?? '';
-    if (lr && compareEchoTimelineIds(lr, markTarget) >= 0) continue;
+    if (!params.ignoreLocalCursor) {
+      const currentCursor =
+        params.readStateByChannelId[summary.channelId] ??
+        summary.lastReadMessageId;
+      const lr = currentCursor?.trim() ?? '';
+      if (lr && compareEchoTimelineIds(lr, markTarget) >= 0) continue;
+    }
 
     targets.push({
       channelId: summary.channelId,

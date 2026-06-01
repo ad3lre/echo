@@ -74,7 +74,7 @@ function bootedSimulatorUdid() {
 }
 
 async function main() {
-  execFileSync('node', [path.join(root, 'scripts/kill-dev-ports.js')], {
+  execFileSync('node', [path.join(root, 'scripts/kill-dev-ports.mjs')], {
     cwd: root,
     env: { ...process.env, ECHO_FREE_PORTS: '8080' },
     stdio: 'inherit',

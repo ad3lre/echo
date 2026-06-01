@@ -124,6 +124,7 @@ const {
   registerPasskey,
   passkeyRegisterBusy,
   passkeyRegisterError,
+  passkeyRegisterSuccess,
 } = useSettingsAccountSecurity(props.form, currentUserRef);
 
 /**
@@ -142,6 +143,7 @@ const passkeyEditingLabelValue = ref('');
 
 async function handleAddPasskey() {
   if (!ECHO_PASSKEYS_ENABLED) return;
+  passkeyRegisterSuccess.value = null;
   await registerPasskey(passkeyNewLabel.value.trim() || undefined);
   if (!passkeyRegisterError.value) {
     passkeyNewLabel.value = '';
@@ -1412,7 +1414,18 @@ defineExpose({
         <p v-if="passkeysError" class="text-sm text-red-600 mb-2">
           {{ passkeysError }}
         </p>
-        <p v-if="passkeyRegisterError" class="text-sm text-red-600 mb-2">
+        <p
+          v-if="passkeyRegisterSuccess"
+          class="text-sm text-emerald-600 dark:text-emerald-400 mb-2"
+          role="status"
+        >
+          {{ passkeyRegisterSuccess }}
+        </p>
+        <p
+          v-if="passkeyRegisterError"
+          class="text-sm text-red-600 mb-2"
+          role="alert"
+        >
           {{ passkeyRegisterError }}
         </p>
         <div v-if="passkeysLoading" class="text-sm text-fg-subtle py-2 mb-2">
@@ -1482,24 +1495,35 @@ defineExpose({
             </template>
           </div>
         </div>
-        <div class="flex items-center gap-3">
-          <input
-            v-model="passkeyNewLabel"
-            type="text"
-            maxlength="64"
-            placeholder="Label (e.g. MacBook, iPhone)"
-            class="min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 py-2.5 text-xs text-foreground placeholder:text-muted outline-none focus:border-accent"
-            :disabled="isAccountLocked || passkeyRegisterBusy"
-            @keyup.enter="handleAddPasskey"
-          />
-          <button
-            type="button"
-            class="settings-action shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider"
-            :disabled="isAccountLocked || passkeyRegisterBusy"
-            @click="handleAddPasskey"
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center gap-3">
+            <input
+              v-model="passkeyNewLabel"
+              type="text"
+              maxlength="64"
+              placeholder="Label (e.g. MacBook, iPhone)"
+              class="min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 py-2.5 text-xs text-foreground placeholder:text-muted outline-none focus:border-accent"
+              :disabled="isAccountLocked || passkeyRegisterBusy"
+              @keyup.enter="handleAddPasskey"
+            />
+            <button
+              type="button"
+              class="settings-action shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider"
+              :disabled="isAccountLocked || passkeyRegisterBusy"
+              :aria-busy="passkeyRegisterBusy"
+              @click="handleAddPasskey"
+            >
+              {{ passkeyRegisterBusy ? 'Working…' : 'Add passkey' }}
+            </button>
+          </div>
+          <p
+            v-if="passkeyRegisterBusy"
+            class="text-xs text-fg-subtle"
+            role="status"
+            aria-live="polite"
           >
-            {{ passkeyRegisterBusy ? 'Working…' : 'Add passkey' }}
-          </button>
+            Follow your browser or device prompt to create a passkey…
+          </p>
         </div>
       </div>
 

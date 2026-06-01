@@ -17,6 +17,7 @@ import type {
   MentionKind,
   PollData,
   ReplyTo,
+  EchoChannelType,
 } from '@shared/types';
 import { ECHO_CONTENT_SCHEMA_VERSION } from '@shared/echoMessageFormatV2';
 import { storeToRefs } from 'pinia';
@@ -120,7 +121,7 @@ const props = defineProps<
     channels?: {
       id: string;
       name: string;
-      type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+      type?: EchoChannelType;
       iconKey?: string;
     }[];
     sendMessage?: (
@@ -2234,7 +2235,6 @@ onMounted(() => {
 }
 
 .selection-menu-btn {
-  @apply chat-focus-ring;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2246,6 +2246,11 @@ onMounted(() => {
   transition:
     background 0.15s,
     color 0.15s;
+}
+
+.selection-menu-btn:focus-visible {
+  outline: none;
+  filter: brightness(1.08);
 }
 
 .selection-menu-btn:hover {

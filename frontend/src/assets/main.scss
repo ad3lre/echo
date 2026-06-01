@@ -251,7 +251,12 @@ html.echo-shell-ios select {
     opacity: 0.56;
   }
 
-  /* PNG menu glyphs are dark-filled; invert for dark glass only (see appLayout DM header). */
+  /* PNG menu glyphs are dark-filled; light glyphs on dark glass (see appLayout DM header). */
+  .ellipsis-menu .echo-menu-item-icon--img,
+  .chat-liquid-glass-menu .echo-menu-item-icon--img {
+    filter: var(--echo-ink-icon-filter, invert(1));
+  }
+
   [data-theme='light'] .ellipsis-menu .echo-menu-item-icon--img,
   [data-theme='light'] .chat-liquid-glass-menu .echo-menu-item-icon--img {
     filter: none;

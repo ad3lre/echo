@@ -9,14 +9,18 @@ import {
 } from './permissions';
 import { isEchoServerOwner } from './access';
 import { actorMayGrantPermissionSet } from './roles';
-import { getGlobalRoleCategoryId } from './roleCategoryGlobals';
-import type {
-  EchoSelfRolesConfig,
-  EchoSelfRolesPanel,
-  SelfRolesCustomCategory,
-  SelfRolesPanelCategory,
-  SelfRolesPanelRole,
+import { listEchoCategories } from './categoriesWorkspace';
+import {
+  ECHO_SELF_ROLES_CHANNEL_NAME,
+  type EchoSelfRolesConfig,
+  type EchoSelfRolesPanel,
+  type SelfRolesCustomCategory,
+  type SelfRolesPanelCategory,
+  type SelfRolesPanelRole,
 } from '../../../../shared/types/selfAssignableRoles';
+import type { EchoWorkspaceCategoryBootstrap } from './categoriesWorkspace';
+
+const SELF_ROLES_CHANNEL_TYPE = 'selfRoles';
 
 const DEFAULT_CONFIG: EchoSelfRolesConfig = {
   enabled: false,
@@ -65,6 +69,89 @@ function normalizeCustomCategories(raw: unknown): SelfRolesCustomCategory[] {
   );
 }
 
+async function findSelfRolesWidgetChannelId(
+  pool: pg.Pool,
+  serverId: string,
+): Promise<string | null> {
+  const r = await pool.query<{ id: string }>(
+    `SELECT id FROM echo_channels WHERE server_id = $1 AND type = $2 LIMIT 1`,
+    [serverId, SELF_ROLES_CHANNEL_TYPE],
+  );
+  return r.rows[0]?.id ? String(r.rows[0].id) : null;
+}
+
+/** Ensures the built-in self-assignable roles widget channel exists for a server. */
+export async function ensureSelfRolesWidgetChannel(
+  pool: pg.Pool,
+  serverId: string,
+): Promise<string> {
+  const existing = await findSelfRolesWidgetChannelId(pool, serverId);
+  if (existing) return existing;
+
+  const cats = await listEchoCategories(pool, serverId);
+  let categoryId =
+    cats.find((c) => c.name === 'Text Channels')?.id ?? cats[0]?.id ?? null;
+  if (!categoryId) {
+    categoryId = nextEchoSnowflakeId();
+    await pool.query(
+      `INSERT INTO echo_categories (id, server_id, name, position) VALUES ($1, $2, $3, 0)`,
+      [categoryId, serverId, 'Text Channels'],
+    );
+  }
+
+  const id = nextEchoSnowflakeId();
+  const maxPos = await pool.query<{ p: number }>(
+    `SELECT COALESCE(MIN(position), 0) - 1 AS p FROM echo_channels WHERE server_id = $1 AND category_id = $2`,
+    [serverId, categoryId],
+  );
+  const pos = Number(maxPos.rows[0]?.p ?? -1);
+
+  await pool.query(
+    `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      id,
+      serverId,
+      ECHO_SELF_ROLES_CHANNEL_NAME,
+      SELF_ROLES_CHANNEL_TYPE,
+      categoryId,
+      pos,
+      'userTag',
+    ],
+  );
+  invalidateEchoPermissionCacheForServer(serverId);
+  return id;
+}
+
+/** Hide auto-provisioned widget channels when the feature is disabled. */
+export async function stripDisabledSelfRolesChannelsFromWorkspace(
+  pool: pg.Pool,
+  serverIds: string[],
+  categoriesByServer: Record<string, EchoWorkspaceCategoryBootstrap[]>,
+): Promise<void> {
+  if (!serverIds.length) return;
+  const r = await pool.query<{ server_id: string; enabled: boolean }>(
+    `SELECT server_id, enabled FROM echo_server_self_roles_config WHERE server_id = ANY($1::text[])`,
+    [serverIds],
+  );
+  const enabledByServer = new Map(
+    r.rows.map((row) => [String(row.server_id), Boolean(row.enabled)]),
+  );
+  for (const sid of serverIds) {
+    if (enabledByServer.get(sid) === true) continue;
+    const cats = categoriesByServer[sid];
+    if (!cats) continue;
+    for (const cat of cats) {
+      cat.channels = cat.channels.filter(
+        (ch) =>
+          !ch ||
+          typeof ch !== 'object' ||
+          (ch as { type?: string }).type !== SELF_ROLES_CHANNEL_TYPE,
+      );
+    }
+  }
+}
+
 export async function getEchoSelfRolesConfig(
   pool: pg.Pool,
   serverId: string,
@@ -93,10 +180,7 @@ export async function updateEchoSelfRolesConfig(
   const existing = await getEchoSelfRolesConfig(pool, serverId);
   const merged: EchoSelfRolesConfig = {
     enabled: input.enabled ?? existing.enabled,
-    panelChannelId:
-      input.panelChannelId !== undefined
-        ? input.panelChannelId
-        : existing.panelChannelId,
+    panelChannelId: existing.panelChannelId,
     customCategories: input.customCategories ?? existing.customCategories,
   };
   if (merged.customCategories.length > MAX_CUSTOM_CATEGORIES) {
@@ -104,6 +188,10 @@ export async function updateEchoSelfRolesConfig(
       0,
       MAX_CUSTOM_CATEGORIES,
     );
+  }
+
+  if (merged.enabled) {
+    merged.panelChannelId = await ensureSelfRolesWidgetChannel(pool, serverId);
   }
 
   await pool.query(
@@ -191,7 +279,6 @@ async function loadDerivedCategories(
   pool: pg.Pool,
   serverId: string,
   selectableById: Map<string, RoleRow>,
-  globalCategoryId: string | null,
 ): Promise<SelfRolesPanelCategory[]> {
   const r = await pool.query<{
     id: string;
@@ -210,7 +297,7 @@ async function loadDerivedCategories(
   for (const cat of r.rows) {
     const roles: SelfRolesPanelRole[] = [];
     for (const role of selectableById.values()) {
-      const rc = role.role_category_id ?? globalCategoryId;
+      const rc = role.role_category_id;
       if (rc === cat.id) roles.push(toPanelRole(role));
     }
     roles.sort((a, b) => b.position - a.position || a.id.localeCompare(b.id));
@@ -274,14 +361,8 @@ export async function resolveEchoSelfRolesPanel(
   const config = await getEchoSelfRolesConfig(pool, serverId);
   const selectable = await loadSelfSelectableRoles(pool, serverId);
   const selectableById = new Map(selectable.map((r) => [r.id, r]));
-  const globalCategoryId = await getGlobalRoleCategoryId(pool, serverId);
 
-  const derived = await loadDerivedCategories(
-    pool,
-    serverId,
-    selectableById,
-    globalCategoryId,
-  );
+  const derived = await loadDerivedCategories(pool, serverId, selectableById);
   const custom = buildCustomCategories(config, selectableById);
   const categories = [...derived, ...custom].sort(
     (a, b) => a.position - b.position || a.id.localeCompare(b.id),

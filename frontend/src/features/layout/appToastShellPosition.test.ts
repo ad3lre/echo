@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   appToastBottomInsetCss,
+  APP_TOAST_BAR_TIMED_LEFT,
+  APP_TOAST_BAR_TIMED_TOP,
+  APP_TOAST_BAR_TIMED_BOTTOM_FLOOR,
+  buildAppToastBarTimedPositionStyle,
   buildAppToastShellPositionStyle,
   computeVisualViewportToastInsets,
   shouldAppToastClearBottomChrome,
@@ -125,6 +129,29 @@ describe('buildAppToastShellPositionStyle', () => {
       top: topReserve,
       bottom,
       maxHeight: `max(0px, calc(min(100dvh, 100vh) - (${bottom}) - (${topReserve})))`,
+    });
+  });
+});
+
+describe('buildAppToastBarTimedPositionStyle', () => {
+  it('pins bar-timed toasts top-left with breathing room', () => {
+    expect(
+      buildAppToastBarTimedPositionStyle({ visualViewportOffsetTopPx: 0 }),
+    ).toEqual({
+      top: APP_TOAST_BAR_TIMED_TOP,
+      left: APP_TOAST_BAR_TIMED_LEFT,
+      maxHeight: `max(0px, calc(min(100dvh, 100vh) - (${APP_TOAST_BAR_TIMED_TOP}) - ${APP_TOAST_BAR_TIMED_BOTTOM_FLOOR}))`,
+    });
+  });
+
+  it('respects visual viewport offsetTop', () => {
+    const top = `max(${APP_TOAST_BAR_TIMED_TOP}, 48px)`;
+    expect(
+      buildAppToastBarTimedPositionStyle({ visualViewportOffsetTopPx: 48 }),
+    ).toEqual({
+      top,
+      left: APP_TOAST_BAR_TIMED_LEFT,
+      maxHeight: `max(0px, calc(min(100dvh, 100vh) - (${top}) - ${APP_TOAST_BAR_TIMED_BOTTOM_FLOOR}))`,
     });
   });
 });

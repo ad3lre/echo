@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { EchoChannelType } from '@shared/types';
 import { computed, unref, toRef } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 import type { ChannelOption } from '@/composables/useChannelAutocomplete';
@@ -37,9 +38,7 @@ function handleClick(option: ChannelOption) {
   emit('select', option);
 }
 
-function channelSecondaryText(option: {
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
-}): string {
+function channelSecondaryText(option: { type?: EchoChannelType }): string {
   if (option.type === 'voice') return 'Voice channel';
   if (option.type === 'forum') return 'Forum channel';
   return 'Text channel';
@@ -47,7 +46,7 @@ function channelSecondaryText(option: {
 
 function getOptionEmojiOrNull(option: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  type?: EchoChannelType;
   iconKey?: string;
 }): string | null {
   const v = channelIconResolver.getVisual(option);
@@ -56,7 +55,7 @@ function getOptionEmojiOrNull(option: {
 
 function getOptionIconUrlOrFallback(option: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  type?: EchoChannelType;
   iconKey?: string;
 }): string {
   const v = channelIconResolver.getVisual(option);
@@ -66,7 +65,7 @@ function getOptionIconUrlOrFallback(option: {
 
 function optionIconUsesInvert(option: {
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  type?: EchoChannelType;
   iconKey?: string;
 }): boolean {
   return channelIconResolver.usesSvgInvert(option);

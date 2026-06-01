@@ -15,6 +15,12 @@ import {
   type EchoEmojiLibraryPackApi,
   type EchoEmojiMarketPackApi,
 } from '@/api/echoClient';
+import {
+  invalidateServerStickerLibraryCache,
+  useServerStickerLibrary,
+  type EchoStickerLibraryStickerApi,
+} from '@/composables/useServerStickerLibrary';
+import type { MessageStickerFormat } from '@shared/types';
 
 export type EmojiKind = 'static' | 'animated';
 export type EmojiPackSource = 'market' | 'custom';
@@ -25,6 +31,14 @@ export interface ManagedEmoji {
   kind: EmojiKind;
   previewUrl?: string;
   char?: string;
+  used: number;
+}
+
+export interface ManagedSticker {
+  id: string;
+  name: string;
+  format: MessageStickerFormat;
+  previewUrl: string;
   used: number;
 }
 
@@ -40,7 +54,52 @@ export interface ManagedEmojiPack {
   authorServerName?: string;
   totalUseCount?: number;
   emojis: ManagedEmoji[];
+  stickers: ManagedSticker[];
 }
+
+function mapLibraryStickerToManaged(
+  sticker: EchoStickerLibraryStickerApi,
+): ManagedSticker {
+  return {
+    id: sticker.id,
+    name: sticker.name,
+    format: sticker.format,
+    previewUrl: sticker.imageUrl,
+    used: sticker.useCount ?? 0,
+  };
+}
+
+function packExpressionCount(pack: ManagedEmojiPack): number {
+  return pack.emojis.length + pack.stickers.length;
+}
+
+const STICKER_MIME = new Set(['image/png', 'image/gif', 'image/apng']);
+
+function stickerFormatFromFile(file: File): {
+  format: 'png' | 'gif' | 'apng';
+  animated: boolean;
+} {
+  const t = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  if (t === 'image/gif' || name.endsWith('.gif')) {
+    return { format: 'gif', animated: true };
+  }
+  if (t === 'image/apng' || name.endsWith('.apng')) {
+    return { format: 'apng', animated: true };
+  }
+  return { format: 'png', animated: false };
+}
+
+function isStickerFile(file: File): boolean {
+  const t = file.type.toLowerCase();
+  if (STICKER_MIME.has(t)) return true;
+  const n = file.name.toLowerCase();
+  return n.endsWith('.png') || n.endsWith('.gif') || n.endsWith('.apng');
+}
+
+const MAX_STICKER_UPLOAD_BYTES = 512 * 1024;
+const MAX_STICKER_INPUT_BYTES = 8 * 1024 * 1024;
+const MAX_STICKER_IMAGE_URL_CHARS = 600_000;
 export type EmojiUploadFeedbackTone = 'success' | 'error' | 'info';
 export interface EmojiUploadFeedback {
   tone: EmojiUploadFeedbackTone;
@@ -85,6 +144,7 @@ function mapEchoMarketPackToManaged(
       previewUrl: e.previewUrl,
       used: 0,
     })),
+    stickers: [],
   };
 }
 
@@ -98,6 +158,7 @@ const FALLBACK_MOCK_SERVER_PACKS: ManagedEmojiPack[] = [
       { id: 'house-1', name: 'welcome', kind: 'static', char: '👋', used: 22 },
       { id: 'house-2', name: 'spark', kind: 'animated', char: '✨', used: 14 },
     ],
+    stickers: [],
   },
   {
     id: 'pack-starter-social',
@@ -127,6 +188,7 @@ const FALLBACK_MOCK_SERVER_PACKS: ManagedEmojiPack[] = [
         used: 0,
       },
     ],
+    stickers: [],
   },
 ];
 
@@ -149,6 +211,7 @@ function mapLibraryPackToManaged(p: EchoEmojiLibraryPackApi): ManagedEmojiPack {
       previewUrl: e.imageUrl,
       used: e.useCount,
     })),
+    stickers: [],
   };
 }
 
@@ -254,9 +317,11 @@ async function compressImageToLimit(
 
 export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
   const auth = useAuthSessionStore();
+  const stickerLibrary = useServerStickerLibrary(serverId);
   const emojiSearchQuery = ref('');
   const selectedEmojiPackId = ref<string>('');
   const selectedEmojiId = ref<string>('');
+  const selectedStickerId = ref<string>('');
   const customEmojiPackName = ref('');
   const customEmojiPackDescription = ref('');
   const customEmojiPackTags = ref<string[]>([]);
@@ -300,6 +365,30 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
         ) as ManagedEmojiPack[])
       : [],
   );
+
+  function attachStickersToPacks(
+    packs: ManagedEmojiPack[],
+  ): ManagedEmojiPack[] {
+    const stickersByPackId = new Map<string, ManagedSticker[]>();
+    for (const pack of stickerLibrary.packs.value) {
+      stickersByPackId.set(
+        pack.id,
+        pack.stickers.map(mapLibraryStickerToManaged),
+      );
+    }
+    return packs.map((pack) => ({
+      ...pack,
+      stickers: stickersByPackId.get(pack.id) ?? [],
+    }));
+  }
+
+  const serverEmojiPacksWithStickers = computed(() =>
+    attachStickersToPacks(serverEmojiPacks.value),
+  );
+
+  async function refreshExpressionLibrary() {
+    await Promise.all([refreshServerEmojiLibrary(), stickerLibrary.refresh()]);
+  }
 
   async function refreshServerEmojiLibrary() {
     if (echoSyncCapabilities.isMockDataMode) {
@@ -349,14 +438,17 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
   );
 
   const totalServerEmojis = computed(() =>
-    serverEmojiPacks.value.reduce((sum, pack) => sum + pack.emojis.length, 0),
+    serverEmojiPacksWithStickers.value.reduce(
+      (sum, pack) => sum + packExpressionCount(pack),
+      0,
+    ),
   );
   const canImportMorePacks = computed(
     () => serverEmojiPacks.value.length < MAX_EMOJI_PACKS,
   );
   const selectedEmojiPack = computed(
     () =>
-      serverEmojiPacks.value.find(
+      serverEmojiPacksWithStickers.value.find(
         (pack) => pack.id === selectedEmojiPackId.value,
       ) ?? null,
   );
@@ -364,6 +456,12 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
     () =>
       selectedEmojiPack.value?.emojis.find(
         (emoji) => emoji.id === selectedEmojiId.value,
+      ) ?? null,
+  );
+  const selectedSticker = computed(
+    () =>
+      selectedEmojiPack.value?.stickers.find(
+        (sticker) => sticker.id === selectedStickerId.value,
       ) ?? null,
   );
   const filteredPackEmojis = computed(() => {
@@ -376,6 +474,13 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
           : emoji.name.toLowerCase().includes(q) ||
             (emoji.char ?? '').includes(q),
       )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
+  const filteredPackStickers = computed(() => {
+    const q = emojiSearchQuery.value.trim().toLowerCase();
+    const stickers = selectedEmojiPack.value?.stickers ?? [];
+    return stickers
+      .filter((sticker) => (!q ? true : sticker.name.toLowerCase().includes(q)))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
   const filteredMarketEmojiPacks = computed(() => {
@@ -403,11 +508,12 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
   );
 
   watch(
-    serverEmojiPacks,
+    serverEmojiPacksWithStickers,
     (next) => {
       if (!next.length) {
         selectedEmojiPackId.value = '';
         selectedEmojiId.value = '';
+        selectedStickerId.value = '';
         return;
       }
       if (
@@ -418,16 +524,29 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
       }
       const pack =
         next.find((item) => item.id === selectedEmojiPackId.value) ?? next[0]!;
-      if (!pack.emojis.length) {
+      if (!packExpressionCount(pack)) {
         selectedEmojiId.value = '';
+        selectedStickerId.value = '';
         return;
       }
       if (
-        !selectedEmojiId.value ||
-        !pack.emojis.some((emoji) => emoji.id === selectedEmojiId.value)
+        selectedEmojiId.value &&
+        pack.emojis.some((emoji) => emoji.id === selectedEmojiId.value)
       ) {
-        selectedEmojiId.value = pack.emojis[0]!.id;
+        selectedStickerId.value = '';
+        return;
       }
+      if (
+        selectedStickerId.value &&
+        pack.stickers.some((sticker) => sticker.id === selectedStickerId.value)
+      ) {
+        selectedEmojiId.value = '';
+        return;
+      }
+      selectedEmojiId.value = pack.emojis[0]?.id ?? '';
+      selectedStickerId.value = selectedEmojiId.value
+        ? ''
+        : (pack.stickers[0]?.id ?? '');
     },
     { deep: true, immediate: true },
   );
@@ -435,8 +554,13 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
   watch(
     selectedEmojiPackId,
     (packId) => {
-      const pack = serverEmojiPacks.value.find((item) => item.id === packId);
+      const pack = serverEmojiPacksWithStickers.value.find(
+        (item) => item.id === packId,
+      );
       selectedEmojiId.value = pack?.emojis[0]?.id ?? '';
+      selectedStickerId.value = selectedEmojiId.value
+        ? ''
+        : (pack?.stickers[0]?.id ?? '');
     },
     { immediate: true },
   );
@@ -465,6 +589,7 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
         listedInMarket,
         marketSettings,
         emojis: [],
+        stickers: [],
       };
       serverEmojiPacks.value = [...serverEmojiPacks.value, pack];
       selectedEmojiPackId.value = pack.id;
@@ -644,10 +769,13 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
       };
       return;
     }
-    if (selectedEmojiPack.value.emojis.length >= MAX_EMOJIS_PER_PACK) {
+    if (
+      selectedEmojiPack.value &&
+      packExpressionCount(selectedEmojiPack.value) >= MAX_EMOJIS_PER_PACK
+    ) {
       emojiUploadFeedback.value = {
         tone: 'error',
-        message: `Pack is full (${MAX_EMOJIS_PER_PACK} emojis max).`,
+        message: `Pack is full (${MAX_EMOJIS_PER_PACK} expressions max).`,
       };
       return;
     }
@@ -719,8 +847,10 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
             imageUrl,
           },
         );
-        await refreshServerEmojiLibrary();
+        invalidateServerStickerLibraryCache(sid);
+        await refreshExpressionLibrary();
         selectedEmojiId.value = newId;
+        selectedStickerId.value = '';
         emojiUploadFeedback.value = {
           tone: 'success',
           message: usedInlineDataUrl
@@ -744,6 +874,7 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
         ...selectedEmojiPack.value.emojis,
       ];
       selectedEmojiId.value = newEmoji.id;
+      selectedStickerId.value = '';
       emojiUploadFeedback.value = {
         tone: 'success',
         message: 'Emoji uploaded successfully.',
@@ -756,11 +887,145 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
     }
   }
 
+  async function onStickerUploadFile(file: File) {
+    emojiUploadFeedback.value = null;
+    if (!file) return;
+    if (!isStickerFile(file)) {
+      emojiUploadFeedback.value = {
+        tone: 'error',
+        message: 'Use PNG, APNG, or GIF for stickers.',
+      };
+      return;
+    }
+    if (!serverId.value) {
+      emojiUploadFeedback.value = {
+        tone: 'error',
+        message: 'Select a server before uploading stickers.',
+      };
+      return;
+    }
+    if (file.size > MAX_STICKER_INPUT_BYTES) {
+      emojiUploadFeedback.value = {
+        tone: 'error',
+        message: 'File too large. Max input size is 8MB.',
+      };
+      return;
+    }
+    if (
+      !selectedEmojiPack.value ||
+      selectedEmojiPack.value.source !== 'custom'
+    ) {
+      emojiUploadFeedback.value = {
+        tone: 'error',
+        message: 'Upload is only available for custom packs.',
+      };
+      return;
+    }
+    if (packExpressionCount(selectedEmojiPack.value) >= MAX_EMOJIS_PER_PACK) {
+      emojiUploadFeedback.value = {
+        tone: 'error',
+        message: `Pack is full (${MAX_EMOJIS_PER_PACK} expressions max).`,
+      };
+      return;
+    }
+
+    const { format, animated } = stickerFormatFromFile(file);
+    if (file.size > MAX_STICKER_UPLOAD_BYTES) {
+      emojiUploadFeedback.value = {
+        tone: 'error',
+        message: 'Sticker must be 512KB or smaller.',
+      };
+      return;
+    }
+
+    const baseName = (file.name || 'sticker')
+      .replace(/\.[a-z0-9]+$/i, '')
+      .trim();
+    const name = baseName || 'sticker';
+
+    if (echoSyncCapabilities.isMockDataMode) {
+      emojiUploadFeedback.value = {
+        tone: 'info',
+        message: 'Sticker upload is not available in mock mode.',
+      };
+      return;
+    }
+
+    const sid = serverId.value;
+    const token = auth.accessToken;
+    const packId = selectedEmojiPack.value.id;
+    if (!sid || !auth.isAuthenticated || !token) {
+      emojiUploadFeedback.value = {
+        tone: 'error',
+        message: 'Not signed in or no pack selected.',
+      };
+      return;
+    }
+
+    try {
+      let imageUrl: string;
+      try {
+        imageUrl = await uploadServerEmojiObject(token, sid, file);
+      } catch (e) {
+        if (!isEchoObjectStorageNotConfiguredError(e)) {
+          emojiUploadFeedback.value = {
+            tone: 'error',
+            message: e instanceof Error ? e.message : 'Upload failed',
+          };
+          return;
+        }
+        imageUrl = await fileToDataUrl(file);
+        if (imageUrl.length > MAX_STICKER_IMAGE_URL_CHARS) {
+          emojiUploadFeedback.value = {
+            tone: 'error',
+            message:
+              'Image is too large to store without object storage. Configure ECHO_S3_* or use a smaller file.',
+          };
+          return;
+        }
+      }
+
+      const { id: newId } = await postEchoServerCustomEmoji(
+        token,
+        sid,
+        packId,
+        {
+          name,
+          animated,
+          imageUrl,
+          expressionKind: 'sticker',
+          stickerFormat: format,
+        },
+      );
+      invalidateServerStickerLibraryCache(sid);
+      await refreshExpressionLibrary();
+      selectedStickerId.value = newId;
+      selectedEmojiId.value = '';
+      emojiUploadFeedback.value = {
+        tone: 'success',
+        message: `Sticker :${name}: uploaded.`,
+      };
+    } catch (e) {
+      emojiUploadFeedback.value = {
+        tone: 'error',
+        message: e instanceof Error ? e.message : 'Upload failed',
+      };
+    }
+  }
+
   async function onEmojiUploadFileChange(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
     await onEmojiUploadFile(file);
+    input.value = '';
+  }
+
+  async function onStickerUploadFileChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    await onStickerUploadFile(file);
     input.value = '';
   }
 
@@ -774,7 +1039,8 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
       if (!sid || !auth.isAuthenticated) return;
       try {
         await deleteEchoServerCustomEmoji(token ?? '', sid, packId, emojiId);
-        await refreshServerEmojiLibrary();
+        invalidateServerStickerLibraryCache(sid);
+        await refreshExpressionLibrary();
       } catch (e) {
         emojiUploadFeedback.value = {
           tone: 'error',
@@ -788,6 +1054,40 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
     );
     if (selectedEmojiId.value === emojiId) {
       selectedEmojiId.value = selectedEmojiPack.value.emojis[0]?.id ?? '';
+      selectedStickerId.value = selectedEmojiId.value
+        ? ''
+        : (selectedEmojiPack.value.stickers[0]?.id ?? '');
+    }
+  }
+
+  async function removeSticker(stickerId: string) {
+    if (!selectedEmojiPack.value || selectedEmojiPack.value.source !== 'custom')
+      return;
+    if (!echoSyncCapabilities.isMockDataMode) {
+      const sid = serverId.value;
+      const token = auth.accessToken;
+      const packId = selectedEmojiPack.value.id;
+      if (!sid || !auth.isAuthenticated) return;
+      try {
+        await deleteEchoServerCustomEmoji(token ?? '', sid, packId, stickerId);
+        invalidateServerStickerLibraryCache(sid);
+        await refreshExpressionLibrary();
+      } catch (e) {
+        emojiUploadFeedback.value = {
+          tone: 'error',
+          message: e instanceof Error ? e.message : 'Could not remove sticker',
+        };
+      }
+      return;
+    }
+    selectedEmojiPack.value.stickers = selectedEmojiPack.value.stickers.filter(
+      (sticker) => sticker.id !== stickerId,
+    );
+    if (selectedStickerId.value === stickerId) {
+      selectedStickerId.value = selectedEmojiPack.value.stickers[0]?.id ?? '';
+      selectedEmojiId.value = selectedStickerId.value
+        ? ''
+        : (selectedEmojiPack.value.emojis[0]?.id ?? '');
     }
   }
 
@@ -859,6 +1159,7 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
     emojiSearchQuery,
     selectedEmojiPackId,
     selectedEmojiId,
+    selectedStickerId,
     customEmojiPackName,
     customEmojiPackDescription,
     customEmojiPackTags,
@@ -876,20 +1177,26 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
     marketEmojiPacksError,
     refreshMarketEmojiPacks,
     refreshServerEmojiLibrary,
+    refreshExpressionLibrary,
     serverEmojiLibraryLoading,
     serverEmojiLibraryError,
-    serverEmojiPacks,
+    serverEmojiPacks: serverEmojiPacksWithStickers,
     totalServerEmojis,
     canImportMorePacks,
     selectedEmojiPack,
     selectedEmoji,
+    selectedSticker,
     filteredPackEmojis,
+    filteredPackStickers,
     filteredMarketEmojiPacks,
     createCustomEmojiPack,
     importMarketEmojiPack,
     onEmojiUploadFile,
     onEmojiUploadFileChange,
+    onStickerUploadFile,
+    onStickerUploadFileChange,
     removeEmoji,
+    removeSticker,
     updateSelectedEmojiName,
     forkSelectedEmojiPack,
     openEmojiPackModal,

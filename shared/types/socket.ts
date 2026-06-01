@@ -2,6 +2,7 @@ import type {
   Embed,
   Message,
   MentionEntity,
+  MentionKind,
   MessageAttachmentPayload,
   MessageReaction,
   PollData,
@@ -292,6 +293,50 @@ export type EchoAttentionSnapshot = {
     string,
     EchoServerNotificationLevel
   >;
+};
+
+/**
+ * One hydrated, server-authoritative mention-inbox row. Unlike the attention
+ * snapshot (which only carries unread *volume* + ping tier), this includes the
+ * message body and author so the client can render the notification without a
+ * per-channel message prefetch round-trip.
+ */
+export type EchoMentionNotificationRow = {
+  /** Stable `${channelId}:${messageId}` identity for dedupe/keying. */
+  key: string;
+  channelId: string;
+  channelKind: EchoAttentionChannelKind;
+  serverId?: string;
+  messageId: string;
+  authorId: string;
+  /** Backend-resolved display label; clients may override with nicknames. */
+  authorName: string;
+  authorAvatar?: string;
+  /** Raw message body; the client computes the plain-text preview. */
+  content: string;
+  /** ISO timestamp of the message. */
+  timestamp: string;
+  /** Mention kinds that pinged the viewer (plus `user` for reply-to-self). */
+  mentionKinds: MentionKind[];
+};
+
+export type EchoMentionNotificationsResponse = {
+  rows: EchoMentionNotificationRow[];
+};
+
+/**
+ * Per-channel notification override for a single viewer. `level` overrides the
+ * server-wide notification level for that channel; `mutedUntil` (ISO) snoozes
+ * the channel until that instant (a far-future value means "muted until I turn
+ * it back on"). Either may be null/absent.
+ */
+export type EchoChannelNotificationOverride = {
+  level?: EchoServerNotificationLevel | null;
+  mutedUntil?: string | null;
+};
+
+export type EchoChannelNotificationOverridesResponse = {
+  overridesByChannelId: Record<string, EchoChannelNotificationOverride>;
 };
 
 /**

@@ -320,6 +320,49 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     CREATE INDEX IF NOT EXISTS echo_server_notification_preferences_server_idx
     ON echo_server_notification_preferences (server_id);
   `);
+  // Personal (cross-device) notification settings: desktop alerts, sounds,
+  // unread badges, mention highlights. Stored as an opaque JSON blob so the
+  // client owns the schema (per-sound maps etc.) without backend churn.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_user_notification_preferences (
+      user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
+      settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  // Per-channel notification overrides + snooze. `level` overrides the
+  // server-wide level for one channel; `muted_until` snoozes it until then.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_channel_notification_overrides (
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
+      level TEXT NULL,
+      muted_until TIMESTAMPTZ NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (user_id, channel_id)
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_channel_notification_overrides_channel_idx
+    ON echo_channel_notification_overrides (channel_id);
+  `);
+  // Web Push subscriptions (one row per browser/device endpoint).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_web_push_subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      user_agent TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_web_push_subscriptions_user_idx
+    ON echo_web_push_subscriptions (user_id);
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_friendships (
       id TEXT PRIMARY KEY,
@@ -2324,7 +2367,7 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
     );
   `);
 
-  await migrateEchoGlobalRoleCategories(pool);
+  await migrateEchoGlobalRoleCategoriesCleanup(pool);
   await runEchoSchemaMigrationOnce(
     pool,
     'consolidate_seeded_global_roles_v1',
@@ -2510,24 +2553,35 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   );
 }
 
-/** One pinned Global Roles category per server; backfill uncategorized roles. */
-async function migrateEchoGlobalRoleCategories(pool: pg.Pool): Promise<void> {
-  const {
-    ensureGlobalRoleCategoryForServer,
-    backfillUncategorizedRolesToGlobalCategory,
-  } = await import('../domain/echoStore/roleCategoryGlobals');
-  const servers = await pool.query<{ id: string }>(
-    `SELECT id FROM echo_servers`,
+/** Remove legacy system Global Roles categories; uncategorized roles stay null. */
+async function migrateEchoGlobalRoleCategoriesCleanup(
+  pool: pg.Pool,
+): Promise<void> {
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'remove_system_role_categories_v1',
+    async () => {
+      await pool.query(`
+        UPDATE echo_roles r
+        SET role_category_id = NULL
+        FROM echo_role_categories c
+        WHERE r.role_category_id = c.id AND c.is_system = true
+      `);
+      await pool.query(
+        `DELETE FROM echo_role_categories WHERE is_system = true`,
+      );
+    },
   );
-  for (const row of servers.rows) {
-    const serverId = String(row.id);
-    const globalId = await ensureGlobalRoleCategoryForServer(pool, serverId);
-    await backfillUncategorizedRolesToGlobalCategory(pool, serverId, globalId);
-  }
-  await pool.query(`
-    UPDATE echo_roles SET role_scope = 'category'
-    WHERE role_scope IS NULL OR TRIM(role_scope) = '';
-  `);
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'echo_role_scope_non_null_v1',
+    async () => {
+      await pool.query(`
+        UPDATE echo_roles SET role_scope = 'category'
+        WHERE role_scope IS NULL OR TRIM(role_scope) = '';
+      `);
+    },
+  );
 }
 
 /**

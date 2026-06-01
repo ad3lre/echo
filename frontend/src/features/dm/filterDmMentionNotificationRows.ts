@@ -1,10 +1,9 @@
 import type { ChannelCategory } from '@/composables/useChannels';
-import { icons, getChannelIconVisual } from '@/assets/icons';
+import { iconEchoRounded } from '@/assets/branding';
 import { isDmThreadId } from '@/features/layout/mainSurface';
 import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { isEchoMessageRead } from '@/services/domain/echoMessageReadState';
 import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
-import { safeImageUrl } from '@/utils/safeImageUrl';
 import type { DmMentionNotificationRow } from './collectDmMentionNotifications';
 
 export type NotificationReadPreset = 'all' | 'unread' | 'read';
@@ -16,9 +15,8 @@ export type NotificationSourceSelection =
   | { kind: 'channel'; channelId: string };
 
 export type MentionNotificationPlaceVisual =
-  | { kind: 'svg'; url: string }
-  | { kind: 'emoji'; emoji: string }
-  | { kind: 'avatar'; url: string; alt: string };
+  | { kind: 'none' }
+  | { kind: 'image'; url: string; alt: string };
 
 export type MentionNotificationSourceChip = {
   key: string;
@@ -107,49 +105,8 @@ function truncateChipLabel(label: string, max = 22): string {
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
-function findChannelSummary(
-  channelId: string,
-  categoriesByServer: Readonly<Record<string, ChannelCategory[]>>,
-): {
-  name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
-  iconKey?: string;
-} | null {
-  const cid = channelId.trim();
-  if (!cid) return null;
-  for (const cats of Object.values(categoriesByServer)) {
-    for (const cat of cats ?? []) {
-      for (const ch of cat.channels ?? []) {
-        if (ch.id === cid) {
-          return {
-            name: ch.name,
-            type: ch.type,
-            iconKey: ch.iconKey,
-          };
-        }
-      }
-    }
-  }
-  return null;
-}
-
-function resolveDmPeerUserId(
-  channelId: string,
-  echoDmPeerByChannelId?: ReadonlyMap<string, string>,
-): string {
-  const mapped = echoDmPeerByChannelId?.get(channelId)?.trim() ?? '';
-  if (mapped) return mapped;
-  if (channelId.startsWith('dm-group-')) return '';
-  if (channelId.startsWith('dm-')) return channelId.slice('dm-'.length).trim();
-  return '';
-}
-
 function buildAllPlacesVisual(): MentionNotificationPlaceVisual {
-  return { kind: 'svg', url: icons.globe };
-}
-
-function buildDmsVisual(): MentionNotificationPlaceVisual {
-  return { kind: 'svg', url: icons.messageFilled };
+  return { kind: 'none' };
 }
 
 function buildServerVisual(
@@ -157,84 +114,31 @@ function buildServerVisual(
   serverName: string,
   serverImageUrlById: Readonly<Record<string, string | undefined>>,
 ): MentionNotificationPlaceVisual {
+  const url = serverGuildIconDisplayUrl(serverImageUrlById[serverId]);
+  if (url === iconEchoRounded) {
+    return { kind: 'none' };
+  }
   return {
-    kind: 'avatar',
-    url: serverGuildIconDisplayUrl(serverImageUrlById[serverId]),
+    kind: 'image',
+    url,
     alt: serverName.trim() || 'Server',
   };
 }
 
-function buildChannelVisual(input: {
-  channelId: string;
-  channelLabel: string;
-  categoriesByServer: Readonly<Record<string, ChannelCategory[]>>;
-  isPersistedEchoDmThread: (id: string) => boolean;
-  users: readonly { id: string; name?: string; pfp?: string }[];
-  echoDmPeerByChannelId?: ReadonlyMap<string, string>;
-}): MentionNotificationPlaceVisual {
-  const channelId = input.channelId.trim();
-  if (
-    isDmNotificationChannel(channelId, input.isPersistedEchoDmThread) ||
-    isDmThreadId(channelId)
-  ) {
-    if (channelId.startsWith('dm-group-')) {
-      return { kind: 'svg', url: icons.communityFilled };
-    }
-    const peerId = resolveDmPeerUserId(channelId, input.echoDmPeerByChannelId);
-    if (peerId) {
-      const user = input.users.find((row) => row.id === peerId);
-      const pfp = user?.pfp?.trim() ?? '';
-      if (pfp) {
-        return {
-          kind: 'avatar',
-          url: safeImageUrl(pfp),
-          alt:
-            user?.name?.trim() || input.channelLabel.trim() || 'Direct message',
-        };
-      }
-    }
-    return { kind: 'svg', url: icons.messageFilled };
-  }
-
-  const channel = findChannelSummary(channelId, input.categoriesByServer);
-  if (channel) {
-    const visual = getChannelIconVisual(channel);
-    if (visual.kind === 'emoji') {
-      return { kind: 'emoji', emoji: visual.emoji };
-    }
-    return { kind: 'svg', url: visual.url };
-  }
-
-  return { kind: 'svg', url: icons.hashtag };
-}
-
 /**
- * Builds quick-filter chips: All places, DMs (if any), each guild with mentions,
- * then per-channel chips (capped) for finer narrowing.
+ * Builds quick-filter chips: All places, then one chip per guild with mentions.
  */
 export function buildMentionNotificationSourceChips(input: {
   rows: readonly DmMentionNotificationRow[];
   categoriesByServer: Readonly<Record<string, ChannelCategory[]>>;
   serverNameById: Readonly<Record<string, string>>;
   serverImageUrlById?: Readonly<Record<string, string | undefined>>;
-  users?: readonly { id: string; name?: string; pfp?: string }[];
-  echoDmPeerByChannelId?: ReadonlyMap<string, string>;
-  isPersistedEchoDmThread: (id: string) => boolean;
-  /** Prefer fresh resolution over cached row labels (avoids stale raw ids). */
-  resolveChannelLabel?: (channelId: string) => string;
-  /** Max “# channel” chips after server chips (default 12). */
-  maxChannelChips?: number;
 }): MentionNotificationSourceChip[] {
   const {
     rows,
     categoriesByServer,
     serverNameById,
     serverImageUrlById = {},
-    users = [],
-    echoDmPeerByChannelId,
-    isPersistedEchoDmThread,
-    resolveChannelLabel,
-    maxChannelChips = 12,
   } = input;
 
   const chips: MentionNotificationSourceChip[] = [
@@ -246,37 +150,14 @@ export function buildMentionNotificationSourceChips(input: {
     },
   ];
 
-  let hasDm = false;
   const serverIds = new Set<string>();
-  const channelsOrdered: { id: string; label: string }[] = [];
-  const seenCh = new Set<string>();
 
   for (const row of rows) {
-    if (isDmNotificationChannel(row.channelId, isPersistedEchoDmThread)) {
-      hasDm = true;
-    } else {
-      const sid = resolveEchoServerIdContainingChannel(
-        row.channelId,
-        categoriesByServer,
-      );
-      if (sid) serverIds.add(sid);
-    }
-    const cid = row.channelId;
-    if (!seenCh.has(cid)) {
-      seenCh.add(cid);
-      const label =
-        resolveChannelLabel?.(cid) ?? (row.channelLabel.trim() || 'Channel');
-      channelsOrdered.push({ id: cid, label });
-    }
-  }
-
-  if (hasDm) {
-    chips.push({
-      key: 'dms',
-      label: 'DMs',
-      selection: { kind: 'dms' },
-      visual: buildDmsVisual(),
-    });
+    const sid = resolveEchoServerIdContainingChannel(
+      row.channelId,
+      categoriesByServer,
+    );
+    if (sid) serverIds.add(sid);
   }
 
   const sortedServers = [...serverIds].sort((a, b) => {
@@ -293,29 +174,6 @@ export function buildMentionNotificationSourceChips(input: {
       selection: { kind: 'server', serverId: sid },
       visual: buildServerVisual(sid, serverName, serverImageUrlById),
     });
-  }
-
-  let n = 0;
-  for (const ch of channelsOrdered) {
-    if (n >= maxChannelChips) break;
-    const raw = ch.label.trim() || ch.id;
-    const hashPrefix = isDmNotificationChannel(ch.id, isPersistedEchoDmThread)
-      ? ''
-      : '# ';
-    chips.push({
-      key: `channel:${ch.id}`,
-      label: truncateChipLabel(`${hashPrefix}${raw}`),
-      selection: { kind: 'channel', channelId: ch.id },
-      visual: buildChannelVisual({
-        channelId: ch.id,
-        channelLabel: raw,
-        categoriesByServer,
-        isPersistedEchoDmThread,
-        users,
-        echoDmPeerByChannelId,
-      }),
-    });
-    n += 1;
   }
 
   return chips;

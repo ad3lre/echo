@@ -10,7 +10,6 @@ import {
   listEchoRoleCategories,
   listEchoRolesForServer,
 } from '../domain/echoStore';
-import { getGlobalRoleCategoryId } from '../domain/echoStore/roleCategoryGlobals';
 
 async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
   const passwordHash = await bcrypt.hash('pw', 4);
@@ -108,23 +107,13 @@ async function run(): Promise<void> {
     const rolesAfter = await listEchoRolesForServer(pool, serverId);
     const supportAfter = rolesAfter.find((r) => r.id === roleId);
     assert.ok(supportAfter);
-    assert.ok(supportAfter!.roleCategoryId);
+    assert.equal(supportAfter!.roleCategoryId, null);
 
     const catsAfter = await listEchoRoleCategories(pool, serverId);
     assert.equal(
       catsAfter.some((c) => c.id === categoryId),
       false,
     );
-    assert.equal(
-      catsAfter.some((c) => c.isSystem),
-      false,
-      'system Global Roles bucket must not appear in category list API',
-    );
-
-    const globalCategoryId = await getGlobalRoleCategoryId(pool, serverId);
-    assert.ok(globalCategoryId);
-    const supportAfterGlobal = rolesAfter.find((r) => r.id === roleId);
-    assert.equal(supportAfterGlobal!.roleCategoryId, globalCategoryId);
 
     console.log('echo.roleCategories: ok');
   } finally {

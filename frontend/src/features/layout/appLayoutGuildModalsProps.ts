@@ -13,11 +13,12 @@ import type {
   ChannelPermissionsState,
   ChannelSummary,
   ForumCreatorDefaultPerms,
+  EchoChannelType,
 } from '@shared/types';
 
 export type AppLayoutGuildModalsChannelSettingsSavePayload = {
   channelId: string;
-  channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  channelType: EchoChannelType;
   serverId: string;
   name: string;
   categoryId: string;

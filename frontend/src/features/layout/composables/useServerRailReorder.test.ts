@@ -163,5 +163,122 @@ describe('useServerRailReorder', () => {
 
     expect(reorder).not.toHaveBeenCalled();
     expect(r.consumeRailSelectIntent()).toBe(true);
+    expect(r.railDragSourceIndex.value).toBeNull();
+  });
+
+  it('does not enter drag mode on quick trackpad tap jitter', async () => {
+    document.body.innerHTML = `
+      <div class="servers-folder">
+        <div class="server-folder__slot"><button type="button" id="b0"></button></div>
+        <div class="server-folder__slot"><button type="button" id="b1"></button></div>
+      </div>`;
+    const folder = document.querySelector('.servers-folder') as HTMLElement;
+    const b0 = document.getElementById('b0') as HTMLButtonElement;
+
+    const reorder = vi.fn();
+    const r = useServerRailReorder(
+      ref(true),
+      ref(2),
+      reorder,
+      ref('horizontal'),
+      ref(false),
+    );
+
+    r.onRailServerPointerDown({
+      event: pointerDownOn(b0, {
+        pointerId: 9,
+        pointerType: 'mouse',
+        button: 0,
+        clientX: 10,
+        clientY: 10,
+      }),
+      index: 0,
+      folderRoot: folder,
+    });
+
+    vi.advanceTimersByTime(40);
+    window.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        pointerId: 9,
+        clientX: 30,
+        clientY: 10,
+      }),
+    );
+    await nextTick();
+
+    window.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        pointerId: 9,
+        clientX: 30,
+        clientY: 10,
+      }),
+    );
+    await nextTick();
+
+    expect(r.railDragSourceIndex.value).toBeNull();
+    expect(reorder).not.toHaveBeenCalled();
+    expect(r.consumeRailSelectIntent()).toBe(true);
+  });
+
+  it('activates move drag only after minimum press duration', async () => {
+    document.body.innerHTML = `
+      <div class="servers-folder">
+        <div class="server-folder__slot"><button type="button" id="b0"></button></div>
+        <div class="server-folder__slot"><button type="button" id="b1"></button></div>
+      </div>`;
+    const folder = document.querySelector('.servers-folder') as HTMLElement;
+    const b0 = document.getElementById('b0') as HTMLButtonElement;
+    mockSlotRects(folder, [
+      { top: 0, bottom: 40, left: 0, right: 40 },
+      { top: 60, bottom: 100, left: 0, right: 40 },
+    ]);
+
+    const reorder = vi.fn();
+    const r = useServerRailReorder(
+      ref(true),
+      ref(2),
+      reorder,
+      ref('vertical'),
+      ref(false),
+    );
+
+    r.onRailServerPointerDown({
+      event: pointerDownOn(b0, {
+        pointerId: 10,
+        pointerType: 'mouse',
+        button: 0,
+        clientX: 10,
+        clientY: 10,
+      }),
+      index: 0,
+      folderRoot: folder,
+    });
+
+    vi.advanceTimersByTime(90);
+    window.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        pointerId: 10,
+        clientX: 10,
+        clientY: 85,
+      }),
+    );
+    await nextTick();
+
+    expect(r.railDragSourceIndex.value).toBe(0);
+
+    window.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        pointerId: 10,
+        clientX: 10,
+        clientY: 85,
+      }),
+    );
+    await nextTick();
+
+    expect(reorder).toHaveBeenCalledWith(0, 1);
   });
 });

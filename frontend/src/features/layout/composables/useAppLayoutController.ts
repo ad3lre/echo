@@ -103,6 +103,17 @@ import {
   applyMentionNotificationHydrationFailures,
 } from '@/features/dm/mentionNotificationAuthority';
 import { useMentionNotificationHydration } from '@/features/dm/useMentionNotificationHydration';
+import {
+  mapServerMentionRowsToDmRows,
+  mergeMentionNotificationRows,
+} from '@/features/dm/mentionNotificationFeedMerge';
+import { useMentionNotificationsFeedStore } from '@/stores/mentionNotificationsFeed';
+import { useNotificationPreferencesStore } from '@/stores/notificationPreferences';
+import {
+  disableEchoWebPushSubscription,
+  ensureEchoWebPushSubscription,
+} from '@/services/webPush';
+import { useChannelNotificationOverridesStore } from '@/stores/channelNotificationOverrides';
 import { useHiddenDmInboxStore } from '@/stores/hiddenDmInbox';
 import { useFavoriteDmInboxStore } from '@/stores/favoriteDmInbox';
 import { useDmInboxOrderCacheStore } from '@/stores/dmInboxOrderCache';
@@ -125,7 +136,6 @@ import { buildAppLayoutExpose } from './useAppLayoutController.expose';
 import { createSubmitPinToggle } from './useAppLayoutSubmitPinToggle';
 import { createMemberListHighestRoleResolver } from './useMemberListHighestRoleResolver';
 import { useAppLayoutEffectiveChannel } from './useAppLayoutEffectiveChannel';
-import { useAppLayoutDmPeerSelectionOpen } from './useAppLayoutDmPeerSelectionOpen';
 import { useAppLayoutDmUiContext } from './useAppLayoutDmUiContext';
 import { useAppLayoutDmGroupFriendsComputed } from './useAppLayoutDmGroupFriendsComputed';
 import { useAppLayoutVoiceContextExpose } from './useAppLayoutVoiceContextExpose';
@@ -198,6 +208,7 @@ import {
   buildEchoDmMarkReadPlan,
   buildEchoServerMarkReadPlan,
   buildLatestMessageIdByChannelIdForServer,
+  resolveEchoMarkReadTargetsForMissingChannels,
   type EchoServerMarkReadPlan,
 } from '@/services/domain/echoServerMarkReadTargets';
 import { fetchEchoAttentionSummary } from '@/api/echo/attention';
@@ -211,7 +222,10 @@ import {
   postEchoLeaveServer,
 } from '@/api/echoClient';
 import { postEchoOpenDm } from '@/api/echo/social';
-import { putEchoChannelReadState } from '@/api/echo/messages';
+import {
+  fetchEchoChannelMessages,
+  putEchoChannelReadState,
+} from '@/api/echo/messages';
 import { compareEchoTimelineIds } from '@/services/domain/echoMessageReadState';
 import { resolveEchoDmWireChannelId } from '@/features/layout/resolveEchoDmWireChannelId';
 import { isViewingEchoConversationChannel } from '@/features/layout/isViewingEchoConversationChannel';
@@ -618,11 +632,6 @@ export function useAppLayoutController() {
     },
     { immediate: true },
   );
-
-  const isInDMChat = useAppLayoutDmPeerSelectionOpen({
-    activeRailTab,
-    selectedDMUserId,
-  });
 
   const isDmUiContext = useAppLayoutDmUiContext(activeRailTab);
 
@@ -2405,6 +2414,7 @@ export function useAppLayoutController() {
         categoriesByServer: workspace.categoriesByServer.value,
         messagesByChannelId: workspace.messages.value,
       }),
+      ignoreLocalCursor: true,
     });
   }
 
@@ -2413,16 +2423,34 @@ export function useAppLayoutController() {
     opts?: { applyOptimistic?: 'server' | 'dm'; refreshAttention?: boolean },
   ): Promise<EchoMarkReadPlanResult> {
     if (!authSession.isAuthenticated) return { status: 'unauthenticated' };
-    if (
-      plan.targets.length === 0 &&
-      plan.channelIdsMissingLatestUnread.length === 0
-    ) {
-      return { status: 'empty' };
-    }
     const token = authSession.accessToken?.trim() ?? '';
 
+    let targets = [...plan.targets];
+    let unresolvedMissing = 0;
+    if (plan.channelIdsMissingLatestUnread.length > 0) {
+      const resolved = await resolveEchoMarkReadTargetsForMissingChannels({
+        channelIds: plan.channelIdsMissingLatestUnread,
+        fetchLatestMessageId: async (channelId) => {
+          const { messages } = await fetchEchoChannelMessages(
+            token,
+            channelId,
+            {
+              limit: 1,
+            },
+          );
+          return messages[0]?.id?.trim() ?? null;
+        },
+      });
+      targets = [...targets, ...resolved.targets];
+      unresolvedMissing = resolved.unresolvedChannelIds.length;
+    }
+
+    if (targets.length === 0 && unresolvedMissing === 0) {
+      return { status: 'empty' };
+    }
+
     if (opts?.applyOptimistic) {
-      for (const target of plan.targets) {
+      for (const target of targets) {
         echoAttention.applyServerChannelMarkRead(
           target.channelId,
           target.lastReadMessageId,
@@ -2430,8 +2458,8 @@ export function useAppLayoutController() {
       }
     }
 
-    let failed = 0;
-    for (const target of plan.targets) {
+    let failed = unresolvedMissing;
+    for (const target of targets) {
       try {
         await putEchoChannelReadState(
           token,
@@ -2539,6 +2567,7 @@ export function useAppLayoutController() {
       channelAttentionByChannelId: channelAttentionByChannelId.value,
       readStateByChannelId: readStateByChannelId.value,
       latestMessageIdByChannelId,
+      ignoreLocalCursor: true,
     });
     const result = await executeEchoMarkReadPlan(plan, {
       applyOptimistic: 'dm',
@@ -2765,7 +2794,7 @@ export function useAppLayoutController() {
     memberPopoutAnchor,
     selfProfileAnchor,
     selfProfile,
-    isInDMChat,
+    isInDMChat: isInDmThreadOrIdleMainSurface,
     leaveDmUiIfViewingUser,
     canChangeMemberNicknameInServer,
     hydrateEchoFromApi,
@@ -2777,7 +2806,6 @@ export function useAppLayoutController() {
 
   useAppLayoutDmProfileBridge({
     dmPartnerUser,
-    isInDMChat,
     isInDmThreadOrIdleMainSurface,
     isExpandedProfileSidePanel,
     isExpandedProfileModalOpen,
@@ -2786,6 +2814,11 @@ export function useAppLayoutController() {
     isGroupOverviewOpen,
     isGroupDM: isGroupDMComputed,
     openExpandedProfilePanelForUserId,
+    activeChannelId,
+    echoDmPeerByChannelId,
+    selectedDMUserId,
+    mainSurface,
+    groupDMs,
   });
 
   const userSettingsModalCallbacks = useAppLayoutUserSettingsModalCallbacks({
@@ -3102,7 +3135,8 @@ export function useAppLayoutController() {
     });
   }
 
-  const dmMentionNotificationsBase = computed(() =>
+  /** Rows reconstructed from the in-memory message cache (live socket updates). */
+  const dmMentionNotificationsClient = computed(() =>
     collectMentionNotificationsFromAuthority({
       channelAttentionByChannelId: channelAttentionByChannelId.value,
       readStateByChannelId: readStateByChannelId.value,
@@ -3127,9 +3161,97 @@ export function useAppLayoutController() {
     loading: mentionNotificationHydrationLoading,
     failedChannelIds: mentionNotificationFailedChannelIds,
   } = useMentionNotificationHydration({
-    rows: dmMentionNotificationsBase,
+    rows: dmMentionNotificationsClient,
     activeChannelId,
   });
+
+  // Server-authoritative mention feed: hydrated rows from `GET /attention/mentions`.
+  // Once loaded it becomes the source of truth (no per-channel prefetch needed);
+  // live socket rows not yet in the feed are merged in from the client cache.
+  const mentionFeed = useMentionNotificationsFeedStore();
+  const { rows: mentionFeedRows, loaded: mentionFeedLoaded } =
+    storeToRefs(mentionFeed);
+
+  const dmMentionNotificationsBase = computed(() => {
+    if (!mentionFeedLoaded.value) return dmMentionNotificationsClient.value;
+    return mergeMentionNotificationRows(
+      mapServerMentionRowsToDmRows(mentionFeedRows.value),
+      dmMentionNotificationsClient.value,
+      120,
+    );
+  });
+
+  watch(
+    [() => authSession.accessToken, () => channelAttentionByChannelId.value],
+    () => {
+      const token = authSession.accessToken?.trim() ?? '';
+      if (!token) {
+        mentionFeed.reset();
+        return;
+      }
+      mentionFeed.scheduleRefresh(token);
+    },
+    { immediate: true, deep: true },
+  );
+
+  // Cross-device personal notification settings: pull once on login, then push
+  // debounced local edits. Configured a single time per session.
+  const notificationPreferences = useNotificationPreferencesStore();
+  let cloudSyncConfigured = false;
+  watch(
+    () => authSession.accessToken,
+    () => {
+      const token = authSession.accessToken?.trim() ?? '';
+      if (!token) {
+        cloudSyncConfigured = false;
+        notificationPreferences.disableCloudSync();
+        return;
+      }
+      if (cloudSyncConfigured) return;
+      cloudSyncConfigured = true;
+      void notificationPreferences.configureCloudSync(
+        () => authSession.accessToken?.trim() ?? '',
+      );
+    },
+    { immediate: true },
+  );
+
+  // Web push: keep this browser's subscription in sync with login + the
+  // desktop-alerts preference. Re-runs ensure (which re-subscribes on VAPID
+  // rotation) whenever the token or preference changes; tears down on disable.
+  watch(
+    [
+      () => authSession.accessToken,
+      () => notificationPreferences.settings.desktopAlerts,
+    ],
+    () => {
+      const token = authSession.accessToken?.trim() ?? '';
+      if (!token) return;
+      if (notificationPreferences.settings.desktopAlerts) {
+        void ensureEchoWebPushSubscription(token);
+      } else {
+        void disableEchoWebPushSubscription(token);
+      }
+    },
+    { immediate: true },
+  );
+
+  // Per-channel notification overrides + snooze: load once on login.
+  const channelNotificationOverrides = useChannelNotificationOverridesStore();
+  watch(
+    () => authSession.accessToken,
+    () => {
+      const token = authSession.accessToken?.trim() ?? '';
+      if (!token) {
+        channelNotificationOverrides.reset();
+        return;
+      }
+      if (!channelNotificationOverrides.loaded) {
+        void channelNotificationOverrides.refresh(token);
+      }
+    },
+    { immediate: true },
+  );
 
   const dmMentionNotifications = computed(() => {
     void workspace.users.value;
@@ -3140,6 +3262,7 @@ export function useAppLayoutController() {
         ...row,
         channelLabel: resolveDmMentionNotificationChannelLabel(row.channelId),
         authorName: resolveDmMentionNotificationAuthorName(row),
+        preview: resolveDmMentionNotificationRowPreview(row),
       })),
       mentionNotificationFailedChannelIds.value,
     );

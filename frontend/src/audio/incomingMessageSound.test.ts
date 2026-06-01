@@ -30,7 +30,7 @@ describe('playIncomingChatMessageSound', () => {
     expect(playEchoSoundMock).toHaveBeenCalledWith('pingDm');
   });
 
-  it('does not play server-channel sound when channel is inactive', () => {
+  it('does not play a sound for non-mention server messages', () => {
     const played = playIncomingChatMessageSound({
       channelId: 'server-channel-2',
       authorId: 'u2',
@@ -44,6 +44,32 @@ describe('playIncomingChatMessageSound', () => {
 
     expect(played).toBe(false);
     expect(playEchoSoundMock).not.toHaveBeenCalled();
+  });
+
+  it('plays a mention sound for an inactive (non-open) server channel', () => {
+    const played = playIncomingChatMessageSound({
+      channelId: 'server-channel-2',
+      authorId: 'u2',
+      activeChannelId: 'server-channel-1',
+      currentUserId: 'u1',
+      currentUsername: 'ada',
+      isDmChannel: false,
+      serverNotificationLevel: 'mentions',
+      memberRoleIds: new Set<string>(),
+      mentions: [
+        {
+          id: '1',
+          kind: 'user',
+          label: 'Ada',
+          userId: 'u1',
+          start: 0,
+          end: 4,
+        },
+      ],
+    });
+
+    expect(played).toBe(true);
+    expect(playEchoSoundMock).toHaveBeenCalledWith('pingDirectMention');
   });
 
   it('maps personal, role, and broadcast pings to the expected sounds', () => {

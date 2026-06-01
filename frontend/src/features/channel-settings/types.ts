@@ -1,4 +1,4 @@
-import type { ChannelPermissionKey } from '@shared/types';
+import type { ChannelPermissionKey, EchoChannelType } from '@shared/types';
 
 export type PermissionOverwriteTargetType = 'everyone' | 'role' | 'member';
 
@@ -284,7 +284,7 @@ export const CHANNEL_PERMISSION_DEFS_CATEGORY: ChannelPermissionDef[] = (() => {
  * present for voice in the same order as category defaults.
  */
 export function getChannelPermissionDefsForChannelType(
-  channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper',
+  channelType: EchoChannelType,
 ): ChannelPermissionDef[] {
   if (channelType === 'paper') return CHANNEL_PERMISSION_DEFS_PAPER;
   if (channelType === 'text' || channelType === 'forum')

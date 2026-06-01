@@ -11,9 +11,15 @@
  *   ECHO_SKIP_TWEMOJI_COPY=1  Never convert; exit 0 only if incremental check passes.
  *       Use only when assets are already complete for the current package + script.
  */
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const require = createRequire(import.meta.url);
 
 const sourceDir = path.resolve(__dirname, '../node_modules/@twemoji/svg');
 const targetDir = path.resolve(__dirname, '../frontend/public/twemoji');

@@ -13,7 +13,7 @@ import { playEchoSound } from '@/composables/useEchoSounds';
 export { ECHO_INCOMING_CHAT_MESSAGE_EVENT };
 
 /**
- * Pick UI sound for mention-based server notifications (active channel only).
+ * Pick UI sound for mention-based server notifications.
  * Distinguishes @active vs @everyone when both classify as "broadcast".
  */
 function echoSoundIdForMentionPing(
@@ -66,7 +66,11 @@ export function playIncomingChatMessageSound(opts: {
     playEchoSound('pingDm');
     return true;
   }
-  if (opts.channelId !== opts.activeChannelId) return false;
+
+  // Mentions and reply-pings notify regardless of which channel is active — an
+  // @you in another channel should not stay silent just because it isn't open.
+  // The server notification level (applied below) still gates noise; non-mention
+  // messages never reach a sound here.
 
   if (
     messageRepliesToUser(

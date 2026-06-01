@@ -284,7 +284,9 @@ function echoChannelRowInternalToUiChannel(
             ? 'forum'
             : c.type === 'paper'
               ? 'paper'
-              : 'text',
+              : c.type === 'selfRoles'
+                ? 'selfRoles'
+                : 'text',
     serverId,
     ...(c.parentChannelId ? { parentChannelId: c.parentChannelId } : {}),
     createdAt: ts,
@@ -796,6 +798,13 @@ export async function listEchoWorkspaceForUser(
     membersByServer,
   );
   await attachVoiceParticipantsToWorkspace(pool, serverIds, categoriesByServer);
+  const { stripDisabledSelfRolesChannelsFromWorkspace } =
+    await import('./selfAssignableRoles');
+  await stripDisabledSelfRolesChannelsFromWorkspace(
+    pool,
+    serverIds,
+    categoriesByServer,
+  );
   const { upcomingEventsByServerId, myEventRsvps } =
     await loadEchoWorkspaceEventPayload(pool, userId, serverIds);
   return {
@@ -1523,7 +1532,11 @@ export async function applyEchoCategoryPlacement(
   return 'ok';
 }
 
-export type DeleteEchoChannelResult = 'ok' | 'forbidden' | 'not_found';
+export type DeleteEchoChannelResult =
+  | 'ok'
+  | 'forbidden'
+  | 'not_found'
+  | 'system_channel';
 
 export async function deleteEchoChannel(
   pool: pg.Pool,
@@ -1531,6 +1544,12 @@ export async function deleteEchoChannel(
   actorId: string,
   channelId: string,
 ): Promise<DeleteEchoChannelResult> {
+  const typeR = await pool.query<{ type: string }>(
+    `SELECT type FROM echo_channels WHERE id = $1 AND server_id = $2 LIMIT 1`,
+    [channelId, serverId],
+  );
+  if (typeR.rows[0]?.type === 'selfRoles') return 'system_channel';
+
   const forumAccess = await getForumPostCreatorAccess(pool, channelId);
   if (
     forumAccess &&
@@ -1616,7 +1635,7 @@ export async function createEchoChannel(
   pool: pg.Pool,
   serverId: string,
   name: string,
-  type: 'text' | 'voice' | 'forum' | 'stage' | 'paper',
+  type: 'text' | 'voice' | 'forum' | 'stage' | 'paper' | 'selfRoles',
   categoryId: string | null,
   iconKey?: string,
   opts?: {
@@ -1630,7 +1649,8 @@ export async function createEchoChannel(
     /** Display-only Discord VC roster mirror; CONNECT denied for @everyone. */
     discordVoiceMirrorOnly?: boolean;
   },
-): Promise<string | 'invalid_category'> {
+): Promise<string | 'invalid_category' | 'forbidden_channel_type'> {
+  if (type === 'selfRoles') return 'forbidden_channel_type';
   const cid = categoryId != null ? String(categoryId).trim() : '';
   if (cid) {
     const cat = await pool.query(

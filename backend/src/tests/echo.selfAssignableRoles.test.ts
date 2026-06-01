@@ -6,6 +6,7 @@ import {
   createEchoRole,
   createEchoRoleCategory,
   createEchoServer,
+  getEchoSelfRolesConfig,
   resolveEchoSelfRolesPanel,
   toggleSelfAssignableMemberRole,
   updateEchoSelfRolesConfig,
@@ -93,9 +94,18 @@ async function run(): Promise<void> {
 
     await updateEchoSelfRolesConfig(pool, serverId, {
       enabled: true,
-      panelChannelId: null,
       customCategories: [],
     });
+
+    const config = await getEchoSelfRolesConfig(pool, serverId);
+    assert.ok(config.panelChannelId);
+    const ch = await pool.query<{ type: string; name: string }>(
+      `SELECT type, name FROM echo_channels WHERE id = $1 AND server_id = $2`,
+      [config.panelChannelId, serverId],
+    );
+    assert.equal(ch.rows.length, 1);
+    assert.equal(ch.rows[0]!.type, 'selfRoles');
+    assert.equal(ch.rows[0]!.name, 'self-assignable-roles');
 
     let panel = await resolveEchoSelfRolesPanel(pool, serverId, ownerId);
     assert.equal(panel.categories.length, 1);

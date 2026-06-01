@@ -45,6 +45,10 @@ import {
 import { iosNativeHaptic } from '@/platform/iosNativeFeedback';
 import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import {
+  getPasskeyWebCeremonyBlockReason,
+  mapPasskeyCeremonyError,
+} from '@/utils/passkeyClientSupport';
+import {
   ECHO_PUBLIC_SUPPORT_EMAIL,
   echoPublicSupportMailtoHref,
 } from '@/config/echoPublicSupportContact';
@@ -187,7 +191,10 @@ const biometricVerb = computed(() => {
 // The native Swift overlay (EchoNativeAuthBridge) handles passkeys directly via
 // ASAuthorizationController — hide the web passkey CTA when running in Tauri.
 const showPasskeyCta = computed(
-  () => ECHO_PASSKEYS_ENABLED && !props.isMockDataMode && !isDesktop(),
+  () =>
+    ECHO_PASSKEYS_ENABLED &&
+    !props.isMockDataMode &&
+    getPasskeyWebCeremonyBlockReason('login') === null,
 );
 
 // ── Form state ──────────────────────────────────────────────────────────────
@@ -274,7 +281,11 @@ function signalAuthSuccess(): void {
 // ── Auth flows ──────────────────────────────────────────────────────────────
 
 async function runPasskeyLogin(): Promise<void> {
-  if (props.isMockDataMode || !ECHO_PASSKEYS_ENABLED) return;
+  const blocked = getPasskeyWebCeremonyBlockReason('login');
+  if (blocked) {
+    setAuthError(blocked);
+    return;
+  }
   iosNativeHaptic('medium');
   submitting.value = true;
   errorMessage.value = '';
@@ -306,7 +317,7 @@ async function runPasskeyLogin(): Promise<void> {
     signalAuthSuccess();
     emit('authenticated');
   } catch (e) {
-    setAuthError(mapError(e));
+    setAuthError(mapPasskeyCeremonyError(e, 'login'));
   } finally {
     submitting.value = false;
   }

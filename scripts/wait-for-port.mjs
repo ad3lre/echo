@@ -2,7 +2,7 @@
  * Blocks until something accepts TCP connections on host:port (default 127.0.0.1:3000).
  * Used so Vite's dev proxy does not race ahead of the API on `npm run dev`.
  */
-const net = require('net');
+import net from 'node:net';
 
 const host = process.argv[2] || '127.0.0.1';
 const port = Number(process.argv[3] || 3000);

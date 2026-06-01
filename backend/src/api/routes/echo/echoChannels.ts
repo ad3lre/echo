@@ -585,6 +585,13 @@ export default async function echoChannelsRoutes(
           'FORBIDDEN',
           'You cannot delete this channel',
         );
+      if (r === 'system_channel')
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Built-in widget channels cannot be deleted',
+        );
       if (r === 'not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'Channel not found');
 

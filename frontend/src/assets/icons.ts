@@ -1,3 +1,4 @@
+import type { EchoChannelType } from '@shared/types';
 import iconHashtag from './icons/hashtag.svg?url';
 import { iconEcho, iconEchoRounded } from './branding';
 import iconVolumeUp from './icons/volume up.svg?url';
@@ -190,15 +191,16 @@ export const channelIcons = {
   forum: iconMessageAlt,
   /** Collaborative document channel. */
   paper: iconFile,
+  /** Built-in self-assignable roles widget channel. */
+  selfRoles: iconUserTag ?? iconFile,
 } as const;
 
-function defaultChannelGlyphUrl(
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper',
-): string {
+function defaultChannelGlyphUrl(type?: EchoChannelType): string {
   if (type === 'voice') return channelIcons.voice;
   if (type === 'stage') return icons.sofa;
   if (type === 'forum') return channelIcons.forum;
   if (type === 'paper') return channelIcons.paper;
+  if (type === 'selfRoles') return channelIcons.selfRoles;
   return channelIcons.text;
 }
 
@@ -408,7 +410,7 @@ export function getChannelIconVisual(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+        type?: EchoChannelType;
         iconKey?: string;
       }
     | null
@@ -435,6 +437,8 @@ export function getChannelIconVisual(
       return { kind: 'svg', url: channelIcons.forum };
     if (channel.type === 'paper')
       return { kind: 'svg', url: channelIcons.paper };
+    if (channel.type === 'selfRoles')
+      return { kind: 'svg', url: channelIcons.selfRoles };
   }
   const name = stripLeadingChannelEmojiForMatching(channel.name).toLowerCase();
   const match = channelIconMatchers.find(({ patterns }) =>
@@ -458,7 +462,7 @@ export function getChannelIconKeyForEdit(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+        type?: EchoChannelType;
         iconKey?: string;
       }
     | null
@@ -478,6 +482,7 @@ export function getChannelIconKeyForEdit(
   if (channel.type === 'stage') return 'sofa';
   if (channel.type === 'forum') return 'messageAlt';
   if (channel.type === 'paper') return 'file';
+  if (channel.type === 'selfRoles') return 'userTag';
   return 'message';
 }
 
@@ -485,7 +490,7 @@ export function getChannelIcon(
   channel:
     | {
         name: string;
-        type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+        type?: EchoChannelType;
         iconKey?: string;
       }
     | null

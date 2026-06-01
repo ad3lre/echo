@@ -155,6 +155,8 @@ export {
   buildEchoSingleChannelAttention,
 } from './attention';
 
+export { buildEchoMentionNotificationsFeed } from './mentionNotificationsFeed';
+
 export {
   getEchoForumChannelRow,
   listEchoForumPosts,
@@ -194,6 +196,26 @@ export {
 } from './serverNotificationPreferences';
 
 export {
+  getEchoUserNotificationPreferences,
+  upsertEchoUserNotificationPreferences,
+  type EchoUserNotificationPreferences,
+} from './userNotificationPreferences';
+
+export {
+  listEchoChannelNotificationOverridesForUser,
+  upsertEchoChannelNotificationOverride,
+  type UpsertChannelNotificationOverrideInput,
+} from './channelNotificationOverrides';
+
+export {
+  upsertEchoWebPushSubscription,
+  listEchoWebPushSubscriptionsForUser,
+  deleteEchoWebPushSubscriptionByEndpoint,
+  touchEchoWebPushSubscription,
+  type EchoWebPushSubscriptionRow,
+} from './webPushSubscriptions';
+
+export {
   canAssignEchoMemberRoles,
   canManageEchoRolesCatalog,
   ECHO_PERMISSIONS,
@@ -207,6 +229,7 @@ export {
   listEchoCategoryPermissionOverwrites,
   listEchoChannelPermissionOverwrites,
   patchEchoChannel,
+  permissionOverwriteSaveWarnings,
   replaceEchoCategoryPermissionOverwrites,
   replaceEchoChannelPermissionOverwrites,
   updateEchoCategoryPermissionOverrides,
@@ -214,6 +237,7 @@ export {
   type EchoPermissionOverwriteRowDto,
   type EchoPermissionOverwriteRowInput,
   type PatchEchoChannelInput,
+  type PermissionOverwriteSaveWarnings,
   type ReplaceEchoPermissionOverwritesResult,
   type UpdateEchoCategoryPermissionOverridesResult,
   type UpdateEchoChannelPermissionOverridesResult,

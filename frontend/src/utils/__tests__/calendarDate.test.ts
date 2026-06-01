@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildMonthGrid,
+  buildYearPage,
+  centeredYearPageStart,
   compareCalendarDays,
   dateToCalendarKey,
   formatDateTimeLocal,
+  isCalendarMonthBeforeMin,
+  isCalendarYearBeforeMin,
   isDateTimeBeforeMin,
+  monthShortLabel,
   parseDateTimeLocal,
   resolveMinDateTime,
 } from '@/utils/calendarDate';
@@ -44,5 +49,21 @@ describe('calendarDate', () => {
     expect(isDateTimeBeforeMin('2026-05-24T11:59', 'now', now)).toBe(true);
     expect(isDateTimeBeforeMin('2026-05-24T12:00', 'now', now)).toBe(false);
     expect(resolveMinDateTime('now', now)?.getTime()).toBe(now.getTime());
+  });
+
+  it('month/year picker helpers respect min date', () => {
+    const min = new Date(2026, 4, 15);
+    expect(isCalendarMonthBeforeMin(2026, 3, min)).toBe(true);
+    expect(isCalendarMonthBeforeMin(2026, 4, min)).toBe(false);
+    expect(isCalendarYearBeforeMin(2025, min)).toBe(true);
+    expect(isCalendarYearBeforeMin(2026, min)).toBe(false);
+  });
+
+  it('buildYearPage and centeredYearPageStart', () => {
+    expect(buildYearPage(2020)).toEqual([
+      2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031,
+    ]);
+    expect(centeredYearPageStart(2026)).toBe(2020);
+    expect(monthShortLabel(0)).toMatch(/jan/i);
   });
 });

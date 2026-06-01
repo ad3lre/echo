@@ -13,7 +13,12 @@ import { formatExportPermissionReport } from './exportPermissions.js';
 import { runFullExport } from './exporter/runFullExport.js';
 import { startBotInternalServer } from './server.js';
 import { ensureDir } from './util/fs.js';
-import { fetchEchoWebhook } from './echoFetch.js';
+import {
+  getEchoWebhookJson,
+  postEchoWebhookJson,
+  verifyEchoWebhookPostAuth,
+} from './echoApi.js';
+import { setDiscordReady } from './botHealth.js';
 import { startDiscordBridgeRelay } from './bridgeRelay.js';
 import { startDiscordVoiceMirrorRelay } from './voiceMirrorRelay.js';
 import { startDiscordPresenceRelay } from './presenceRelay.js';
@@ -24,8 +29,8 @@ let warnedMissingWebhook = false;
 let lastPendingNotVisibleLogAt = 0;
 
 async function notifyEchoExportReady(discordGuildId: string): Promise<void> {
-  const url = process.env.ECHO_DISCORD_BOT_WEBHOOK_URL?.trim();
   const secret = process.env.ECHO_DISCORD_BOT_WEBHOOK_SECRET?.trim();
+  const url = process.env.ECHO_DISCORD_BOT_WEBHOOK_URL?.trim();
   if (!url || !secret) {
     if (!warnedMissingWebhook) {
       warnedMissingWebhook = true;
@@ -35,57 +40,24 @@ async function notifyEchoExportReady(discordGuildId: string): Promise<void> {
     }
     return;
   }
-  try {
-    const res = await fetchEchoWebhook(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-echo-discord-bot-secret': secret,
-      },
-      body: JSON.stringify({ discordGuildId }),
-    });
-    if (!res.ok) {
-      console.warn(
-        `[serve] export-ready webhook HTTP ${res.status} for guild ${discordGuildId}`,
-      );
-    }
-  } catch (e) {
-    console.warn(
-      `[serve] export-ready webhook failed for guild ${discordGuildId}`,
-      e,
-    );
-  }
-}
-
-function exportPendingUrlFromWebhook(exportReadyUrl: string): string {
-  const u = exportReadyUrl.trim();
-  return u.replace(/\/export-ready\/?$/i, '/export-pending');
+  await postEchoWebhookJson(
+    '/api/v1/hooks/discord-bot/export-ready',
+    { discordGuildId },
+    'export-ready',
+  );
 }
 
 async function fetchPendingDiscordGuildIds(): Promise<string[]> {
-  const url = process.env.ECHO_DISCORD_BOT_WEBHOOK_URL?.trim();
-  const secret = process.env.ECHO_DISCORD_BOT_WEBHOOK_SECRET?.trim();
-  if (!url || !secret) return [];
-  try {
-    const pendingUrl = exportPendingUrlFromWebhook(url);
-    const res = await fetchEchoWebhook(pendingUrl, {
-      method: 'GET',
-      headers: { 'x-echo-discord-bot-secret': secret },
-    });
-    if (!res.ok) {
-      console.warn(`[serve] export-pending HTTP ${res.status}`);
-      return [];
-    }
-    const body = (await res.json()) as { pending?: unknown };
-    const raw = body.pending;
-    if (!Array.isArray(raw)) return [];
-    return raw.filter(
-      (x): x is string => typeof x === 'string' && /^\d{10,25}$/.test(x.trim()),
-    );
-  } catch (e) {
-    console.warn('[serve] export-pending fetch failed', e);
-    return [];
-  }
+  const body = await getEchoWebhookJson<{ pending?: unknown }>(
+    '/api/v1/hooks/discord-bot/export-pending',
+    'export-pending',
+  );
+  if (!body) return [];
+  const raw = body.pending;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (x): x is string => typeof x === 'string' && /^\d{10,25}$/.test(x.trim()),
+  );
 }
 
 async function processPendingExportsVisibleGuilds(
@@ -290,6 +262,7 @@ async function runServeMode(token: string, flags: CliFlags): Promise<void> {
   });
 
   client.once(Events.ClientReady, async () => {
+    setDiscordReady(true, client.guilds.cache.size);
     console.log(
       `[serve] Logged in as ${client.user?.tag}; writing exports to ${resolve(flags.outDir)}`,
     );
@@ -309,6 +282,15 @@ async function runServeMode(token: string, flags: CliFlags): Promise<void> {
       console.warn(
         '[serve] Missing ECHO_DISCORD_BOT_WEBHOOK_URL or ECHO_DISCORD_BOT_WEBHOOK_SECRET: pending-import polling and export-ready callbacks are disabled (bots already in the server never auto-export). See repo .env.example.',
       );
+    } else {
+      const authProbe = await verifyEchoWebhookPostAuth();
+      if (authProbe.ok) {
+        console.log(`[serve] Echo webhook POST auth OK (${authProbe.detail})`);
+      } else {
+        console.error(
+          `[serve] Echo webhook POST auth FAILED: ${authProbe.detail} — bridge inbound and export-ready will not work until fixed.`,
+        );
+      }
     }
 
     await processPendingExportsVisibleGuilds(client, flags, pkg.version);

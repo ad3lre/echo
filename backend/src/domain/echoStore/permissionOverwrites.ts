@@ -24,6 +24,7 @@ import { actorMayGrantPermissionSet } from './roles';
 
 export type UpdateEchoChannelPermissionOverridesResult =
   | 'ok'
+  | { ok: true; warnings: PermissionOverwriteSaveWarnings }
   | 'forbidden'
   | 'not_found'
   | 'invalid_body';
@@ -53,6 +54,111 @@ function cleanPermissionPartialObject(
     if (v === true || v === false) cleaned[k] = v;
   }
   return cleaned;
+}
+
+export type PermissionOverwriteSaveWarnings = {
+  /** Allow bits removed because the actor does not hold those permissions. */
+  strippedAllows: string[];
+};
+
+function sanitizePartialAllowsForActor(
+  cleaned: Record<string, boolean>,
+  actorPerms: ReadonlySet<string>,
+  actorIsOwner: boolean,
+): { partial: Record<string, boolean>; strippedAllows: string[] } {
+  const strippedAllows: string[] = [];
+  const partial: Record<string, boolean> = {};
+  for (const [k, v] of Object.entries(cleaned)) {
+    if (
+      v === true &&
+      !actorMayGrantPermissionSet(actorPerms, new Set([k]), actorIsOwner)
+    ) {
+      strippedAllows.push(k);
+      continue;
+    }
+    partial[k] = v;
+  }
+  return { partial, strippedAllows };
+}
+
+type PreparedPermissionOverwriteRow = {
+  targetType: 'everyone' | 'role' | 'member';
+  targetId: string | null;
+  partial: Record<string, boolean>;
+};
+
+type PreparePermissionOverwriteRowsResult =
+  | {
+      ok: true;
+      prepared: PreparedPermissionOverwriteRow[];
+      roleIdsToValidate: string[];
+      memberIdsToValidate: string[];
+      strippedAllows: string[];
+    }
+  | 'invalid_body';
+
+function preparePermissionOverwriteRows(
+  rows: EchoPermissionOverwriteRowInput[],
+  actorPerms: ReadonlySet<string>,
+  actorIsOwner: boolean,
+): PreparePermissionOverwriteRowsResult {
+  const seen = new Set<string>();
+  const roleIdsToValidate: string[] = [];
+  const memberIdsToValidate: string[] = [];
+  const prepared: PreparedPermissionOverwriteRow[] = [];
+  const strippedAllows: string[] = [];
+
+  for (const row of rows) {
+    const tt = row.targetType;
+    if (tt !== 'everyone' && tt !== 'role' && tt !== 'member')
+      return 'invalid_body';
+    const tid = typeof row.targetId === 'string' ? row.targetId.trim() : '';
+    if (tt === 'everyone') {
+      if (tid !== '') return 'invalid_body';
+    } else if (!tid) {
+      return 'invalid_body';
+    }
+    const key = `${tt}:${tt === 'everyone' ? '' : tid}`;
+    if (seen.has(key)) return 'invalid_body';
+    seen.add(key);
+
+    if (
+      typeof row.partial !== 'object' ||
+      row.partial === null ||
+      Array.isArray(row.partial)
+    )
+      return 'invalid_body';
+
+    const cleaned = cleanPermissionPartialObject(row.partial);
+    const { partial, strippedAllows: rowStripped } =
+      sanitizePartialAllowsForActor(cleaned, actorPerms, actorIsOwner);
+    strippedAllows.push(...rowStripped);
+
+    prepared.push({
+      targetType: tt,
+      targetId: tt === 'everyone' ? null : tid,
+      partial,
+    });
+
+    if (tt === 'role') roleIdsToValidate.push(tid);
+    if (tt === 'member') memberIdsToValidate.push(tid);
+  }
+
+  return {
+    ok: true,
+    prepared,
+    roleIdsToValidate,
+    memberIdsToValidate,
+    strippedAllows,
+  };
+}
+
+function replaceOverwriteResultFromStripped(
+  strippedAllows: string[],
+): ReplaceEchoPermissionOverwritesResult {
+  const unique = [...new Set(strippedAllows)];
+  if (unique.length === 0) return 'ok';
+  return { ok: true, warnings: { strippedAllows: unique } };
 }
 
 export async function listEchoChannelPermissionOverwrites(
@@ -101,9 +207,18 @@ export async function listEchoCategoryPermissionOverwrites(
 
 export type ReplaceEchoPermissionOverwritesResult =
   | 'ok'
+  | { ok: true; warnings: PermissionOverwriteSaveWarnings }
   | 'forbidden'
   | 'not_found'
   | 'invalid_body';
+
+export function permissionOverwriteSaveWarnings(
+  result: ReplaceEchoPermissionOverwritesResult,
+): PermissionOverwriteSaveWarnings | undefined {
+  return typeof result === 'object' && result.ok === true
+    ? result.warnings
+    : undefined;
+}
 
 export async function replaceEchoChannelPermissionOverwrites(
   pool: pg.Pool,
@@ -136,40 +251,15 @@ export async function replaceEchoChannelPermissionOverwrites(
     return 'ok';
   }
 
-  const seen = new Set<string>();
-  const roleIdsToValidate: string[] = [];
-  const memberIdsToValidate: string[] = [];
-  for (const row of rows) {
-    const tt = row.targetType;
-    if (tt !== 'everyone' && tt !== 'role' && tt !== 'member')
-      return 'invalid_body';
-    const tid = typeof row.targetId === 'string' ? row.targetId.trim() : '';
-    if (tt === 'everyone') {
-      if (tid !== '') return 'invalid_body';
-    } else {
-      if (!tid) return 'invalid_body';
-    }
-    const key = `${tt}:${tt === 'everyone' ? '' : tid}`;
-    if (seen.has(key)) return 'invalid_body';
-    seen.add(key);
-    if (
-      typeof row.partial !== 'object' ||
-      row.partial === null ||
-      Array.isArray(row.partial)
-    )
-      return 'invalid_body';
+  const preparedRows = preparePermissionOverwriteRows(
+    rows,
+    actorPerms,
+    actorIsOwner,
+  );
+  if (preparedRows === 'invalid_body') return 'invalid_body';
 
-    const cleaned = cleanPermissionPartialObject(row.partial);
-    const granted = new Set(
-      Object.keys(cleaned).filter((k) => cleaned[k] === true),
-    );
-    if (!actorMayGrantPermissionSet(actorPerms, granted, actorIsOwner)) {
-      return 'forbidden';
-    }
-
-    if (tt === 'role') roleIdsToValidate.push(tid);
-    if (tt === 'member') memberIdsToValidate.push(tid);
-  }
+  const { prepared, roleIdsToValidate, memberIdsToValidate, strippedAllows } =
+    preparedRows;
 
   if (roleIdsToValidate.length > 0) {
     const q = await pool.query(
@@ -201,10 +291,7 @@ export async function replaceEchoChannelPermissionOverwrites(
       `DELETE FROM echo_channel_permission_overwrite_rows WHERE server_id = $1 AND channel_id = $2`,
       [serverId, channelId],
     );
-    for (const row of rows) {
-      const tid =
-        row.targetType === 'everyone' ? null : String(row.targetId!).trim();
-      const cleaned = cleanPermissionPartialObject(row.partial);
+    for (const row of prepared) {
       await client.query(
         `INSERT INTO echo_channel_permission_overwrite_rows (id, server_id, channel_id, target_type, target_id, partial)
          VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
@@ -213,8 +300,8 @@ export async function replaceEchoChannelPermissionOverwrites(
           serverId,
           channelId,
           row.targetType,
-          tid,
-          JSON.stringify(cleaned),
+          row.targetId,
+          JSON.stringify(row.partial),
         ],
       );
     }
@@ -230,7 +317,7 @@ export async function replaceEchoChannelPermissionOverwrites(
     client.release();
   }
   invalidateEchoPermissionCacheForServer(serverId);
-  return 'ok';
+  return replaceOverwriteResultFromStripped(strippedAllows);
 }
 
 export async function replaceEchoCategoryPermissionOverwrites(
@@ -264,40 +351,15 @@ export async function replaceEchoCategoryPermissionOverwrites(
     return 'ok';
   }
 
-  const seen = new Set<string>();
-  const roleIdsToValidate: string[] = [];
-  const memberIdsToValidate: string[] = [];
-  for (const row of rows) {
-    const tt = row.targetType;
-    if (tt !== 'everyone' && tt !== 'role' && tt !== 'member')
-      return 'invalid_body';
-    const tid = typeof row.targetId === 'string' ? row.targetId.trim() : '';
-    if (tt === 'everyone') {
-      if (tid !== '') return 'invalid_body';
-    } else {
-      if (!tid) return 'invalid_body';
-    }
-    const key = `${tt}:${tt === 'everyone' ? '' : tid}`;
-    if (seen.has(key)) return 'invalid_body';
-    seen.add(key);
-    if (
-      typeof row.partial !== 'object' ||
-      row.partial === null ||
-      Array.isArray(row.partial)
-    )
-      return 'invalid_body';
+  const preparedRows = preparePermissionOverwriteRows(
+    rows,
+    actorPerms,
+    actorIsOwner,
+  );
+  if (preparedRows === 'invalid_body') return 'invalid_body';
 
-    const cleaned = cleanPermissionPartialObject(row.partial);
-    const granted = new Set(
-      Object.keys(cleaned).filter((k) => cleaned[k] === true),
-    );
-    if (!actorMayGrantPermissionSet(actorPerms, granted, actorIsOwner)) {
-      return 'forbidden';
-    }
-
-    if (tt === 'role') roleIdsToValidate.push(tid);
-    if (tt === 'member') memberIdsToValidate.push(tid);
-  }
+  const { prepared, roleIdsToValidate, memberIdsToValidate, strippedAllows } =
+    preparedRows;
 
   if (roleIdsToValidate.length > 0) {
     const q = await pool.query(
@@ -329,10 +391,7 @@ export async function replaceEchoCategoryPermissionOverwrites(
       `DELETE FROM echo_category_permission_overwrite_rows WHERE server_id = $1 AND category_id = $2`,
       [serverId, categoryId],
     );
-    for (const row of rows) {
-      const tid =
-        row.targetType === 'everyone' ? null : String(row.targetId!).trim();
-      const cleaned = cleanPermissionPartialObject(row.partial);
+    for (const row of prepared) {
       await client.query(
         `INSERT INTO echo_category_permission_overwrite_rows (id, server_id, category_id, target_type, target_id, partial)
          VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
@@ -341,8 +400,8 @@ export async function replaceEchoCategoryPermissionOverwrites(
           serverId,
           categoryId,
           row.targetType,
-          tid,
-          JSON.stringify(cleaned),
+          row.targetId,
+          JSON.stringify(row.partial),
         ],
       );
     }
@@ -358,7 +417,7 @@ export async function replaceEchoCategoryPermissionOverwrites(
     client.release();
   }
   invalidateEchoPermissionCacheForServer(serverId);
-  return 'ok';
+  return replaceOverwriteResultFromStripped(strippedAllows);
 }
 
 export type PatchEchoChannelInput = {
@@ -719,7 +778,9 @@ export async function patchEchoChannel(
       channelId,
       patch.permissionOverrides,
     );
-    if (pr !== 'ok') return pr;
+    if (pr === 'forbidden' || pr === 'not_found' || pr === 'invalid_body') {
+      return pr;
+    }
   }
 
   return 'ok';
@@ -809,6 +870,7 @@ export async function updateEchoChannelPermissionOverrides(
 
 export type UpdateEchoCategoryPermissionOverridesResult =
   | 'ok'
+  | { ok: true; warnings: PermissionOverwriteSaveWarnings }
   | 'forbidden'
   | 'not_found'
   | 'invalid_body';

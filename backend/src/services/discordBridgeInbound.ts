@@ -14,7 +14,9 @@ import {
 import {
   getEchoMessageById,
   insertEchoMessage,
+  softDeleteEchoMessageSql,
   updateEchoMessageCreatedAtById,
+  updateEchoMessageDiscordBridgeSql,
 } from '../domain/echoMessagesDal';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
 import { echoMessagesPersistedTotal } from '../observability/echoMetrics';
@@ -289,4 +291,193 @@ export async function ingestDiscordBridgeMessage(
     ok: true,
     message,
   };
+}
+
+async function resolveActiveInboundBridge(
+  pool: pg.Pool,
+  payload: Pick<
+    DiscordInboundPayload,
+    'discordGuildId' | 'discordChannelId' | 'discordMessageId'
+  >,
+): Promise<
+  | {
+      ok: true;
+      echoChannelId: string;
+      serverId: string;
+      discordChannelId: string;
+      discordMessageId: string;
+    }
+  | { ok: false; reason: string; statusCode?: number }
+> {
+  const guildId = payload.discordGuildId?.trim() ?? '';
+  const dChannelId = payload.discordChannelId?.trim() ?? '';
+  const dMsgId = payload.discordMessageId?.trim() ?? '';
+  if (!guildId || !dChannelId || !dMsgId) {
+    return { ok: false, reason: 'missing_ids', statusCode: 400 };
+  }
+  const resolved = await resolveEchoChannelForDiscordBridge(
+    pool,
+    guildId,
+    dChannelId,
+  );
+  if (!resolved) {
+    return { ok: false, reason: 'unknown_guild_or_channel', statusCode: 404 };
+  }
+  const bridge = await getDiscordBridgeForEchoChannel(
+    pool,
+    resolved.echoChannelId,
+  );
+  if (!bridge || !bridge.inboundEnabled) {
+    return { ok: false, reason: 'bridge_disabled', statusCode: 403 };
+  }
+  if (bridge.discordChannelId.trim() !== dChannelId) {
+    return { ok: false, reason: 'channel_mismatch', statusCode: 400 };
+  }
+  return {
+    ok: true,
+    echoChannelId: resolved.echoChannelId,
+    serverId: resolved.serverId,
+    discordChannelId: dChannelId,
+    discordMessageId: dMsgId,
+  };
+}
+
+/**
+ * Apply a Discord message edit to an existing bridged Echo row.
+ */
+export async function updateDiscordBridgeMessage(
+  pool: pg.Pool,
+  io: Server | undefined,
+  log: FastifyBaseLogger,
+  payload: DiscordInboundPayload,
+): Promise<
+  | { ok: true; message: Message }
+  | { ok: false; reason: string; statusCode?: number }
+> {
+  const resolved = await resolveActiveInboundBridge(pool, payload);
+  if (!resolved.ok) return resolved;
+
+  const existing = await getEchoMessageById(pool, resolved.discordMessageId);
+  if (!existing || existing.channelId !== resolved.echoChannelId) {
+    return { ok: false, reason: 'not_found', statusCode: 404 };
+  }
+  if (existing.bridgeSource !== 'discord_inbound') {
+    return { ok: false, reason: 'not_bridge_message', statusCode: 403 };
+  }
+
+  const attachments = parseImportedAttachments(payload.attachments);
+  const stickers = parseImportedStickers(payload.stickers);
+  const embeds = parseImportedEmbeds(payload.embeds);
+  const rawContent = typeof payload.content === 'string' ? payload.content : '';
+  const translated = await resolveDiscordSyncedContentMentions(
+    pool,
+    resolved.serverId,
+    rawContent,
+  );
+  let mentions = translated.mentions;
+  if (mentions?.length) {
+    mentions = await filterMentionsForChannelContext(
+      pool,
+      resolved.echoChannelId,
+      mentions,
+    );
+  }
+  const content = translated.content;
+
+  const updated = await updateEchoMessageDiscordBridgeSql(
+    pool,
+    resolved.echoChannelId,
+    resolved.discordMessageId,
+    {
+      content,
+      ...(mentions?.length ? { mentions } : {}),
+      ...(attachments ? { attachments } : {}),
+      ...(stickers ? { stickers } : {}),
+      ...(embeds ? { embeds } : {}),
+    },
+  );
+  if (!updated) {
+    return { ok: false, reason: 'not_found', statusCode: 404 };
+  }
+
+  const row = await getEchoMessageById(pool, resolved.discordMessageId);
+  if (!row) {
+    return { ok: false, reason: 'load_failed', statusCode: 500 };
+  }
+  const message = messageFromEchoRow(row, row.authorId);
+  const editedAt = row.editedAt ?? new Date().toISOString();
+  const plain = row.searchIndexText ?? row.content ?? '';
+
+  if (io) {
+    io.to(resolved.echoChannelId).emit('message:updated', {
+      channelId: resolved.echoChannelId,
+      messageId: resolved.discordMessageId,
+      content: plain,
+      contentText: plain,
+      editedAt,
+      ...(row.attachments?.length ? { attachments: row.attachments } : {}),
+      ...(row.stickers?.length ? { stickers: row.stickers } : {}),
+      ...(Array.isArray(row.embeds) && row.embeds.length
+        ? { embeds: row.embeds }
+        : {}),
+      bridgeFromDiscord: true,
+    });
+    log.info(
+      {
+        msg: 'discord_bridge.update_broadcast',
+        channelId: resolved.echoChannelId,
+        messageId: resolved.discordMessageId,
+      },
+      'Broadcast Discord bridge message update',
+    );
+  }
+
+  return { ok: true, message };
+}
+
+/**
+ * Soft-delete an Echo row when the source Discord message is deleted.
+ */
+export async function deleteDiscordBridgeMessage(
+  pool: pg.Pool,
+  io: Server | undefined,
+  log: FastifyBaseLogger,
+  payload: Pick<
+    DiscordInboundPayload,
+    'discordGuildId' | 'discordChannelId' | 'discordMessageId'
+  >,
+): Promise<{ ok: true } | { ok: false; reason: string; statusCode?: number }> {
+  const resolved = await resolveActiveInboundBridge(pool, payload);
+  if (!resolved.ok) return resolved;
+
+  const existing = await getEchoMessageById(pool, resolved.discordMessageId);
+  if (!existing || existing.channelId !== resolved.echoChannelId) {
+    return { ok: false, reason: 'not_found' };
+  }
+  if (existing.bridgeSource !== 'discord_inbound') {
+    return { ok: false, reason: 'not_bridge_message', statusCode: 403 };
+  }
+
+  await softDeleteEchoMessageSql(
+    pool,
+    resolved.echoChannelId,
+    resolved.discordMessageId,
+  );
+
+  if (io) {
+    broadcastToEchoChannel(io, resolved.echoChannelId, 'message:deleted', {
+      channelId: resolved.echoChannelId,
+      messageId: resolved.discordMessageId,
+    });
+    log.info(
+      {
+        msg: 'discord_bridge.delete_broadcast',
+        channelId: resolved.echoChannelId,
+        messageId: resolved.discordMessageId,
+      },
+      'Broadcast Discord bridge message delete',
+    );
+  }
+
+  return { ok: true };
 }

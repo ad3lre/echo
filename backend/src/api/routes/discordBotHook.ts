@@ -4,7 +4,6 @@ import type {
   FastifyReply,
   FastifyRequest,
 } from 'fastify';
-import { config } from '../../config';
 import { getPgPool } from '../../db/pg';
 import {
   listDiscordGuildIdsWithPendingBotExport,
@@ -12,49 +11,20 @@ import {
 } from '../../domain/discordBotExportPendingRepo';
 import { publishEchoWorkspaceEvent } from '../../platform/echoPlatformEvents';
 import { sendError } from '../errors';
-import { safeCompare } from '../../shared/safeCompare';
 import { consumeWebhookDeliveryOnce } from '../../services/webhookReplayGuard';
-import { verifyEchoWebhookHmac } from '../../services/echoWebhookSignature';
-
-function requireBotWebhookSecret(
-  req: FastifyRequest,
-  reply: FastifyReply,
-): string | null {
-  const secret = config.echoDiscordBotWebhookSecret.trim();
-  if (!secret) {
-    sendError(
-      reply,
-      503,
-      'NOT_CONFIGURED',
-      'Discord bot webhook is not configured.',
-    );
-    return null;
-  }
-  const hdr = req.headers['x-echo-discord-bot-secret'];
-  const presented = typeof hdr === 'string' ? hdr.trim() : '';
-  if (!safeCompare(presented, secret)) {
-    sendError(reply, 401, 'UNAUTHORIZED', 'Invalid webhook secret.');
-    return null;
-  }
-  return secret;
-}
-
-function requireBotWebhookPostSignature(
-  req: FastifyRequest,
-  reply: FastifyReply,
-  secret: string,
-): boolean {
-  if (!config.isProduction) return true;
-  const rawBody = JSON.stringify(req.body ?? {});
-  if (verifyEchoWebhookHmac(secret, rawBody, req)) return true;
-  sendError(reply, 401, 'UNAUTHORIZED', 'Invalid webhook signature.');
-  return false;
-}
+import {
+  discordBotSignedWebhookPlugin,
+  requireBotWebhookPostSignature,
+  requireBotWebhookSecret,
+  requireWebhookDeliveryId,
+} from '../discordBotWebhookAuth';
 
 export default async function discordBotHookRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
+  await fastify.register(discordBotSignedWebhookPlugin);
+
   fastify.get('/hooks/discord-bot/export-pending', async (req, reply) => {
     if (!requireBotWebhookSecret(req, reply)) return;
     const pool = getPgPool();
@@ -73,17 +43,8 @@ export default async function discordBotHookRoutes(
       const secret = requireBotWebhookSecret(req, reply);
       if (!secret) return;
       if (!requireBotWebhookPostSignature(req, reply, secret)) return;
-      const deliveryIdHdr = req.headers['x-echo-delivery-id'];
-      const deliveryId =
-        typeof deliveryIdHdr === 'string' ? deliveryIdHdr.trim() : '';
-      if (!deliveryId) {
-        return sendError(
-          reply,
-          400,
-          'INVALID_BODY',
-          'x-echo-delivery-id header is required',
-        );
-      }
+      const deliveryId = requireWebhookDeliveryId(req, reply);
+      if (!deliveryId) return;
       const firstDelivery = await consumeWebhookDeliveryOnce(
         'discord-bot-export-ready',
         deliveryId,

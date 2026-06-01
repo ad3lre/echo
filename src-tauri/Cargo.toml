@@ -57,9 +57,11 @@ security-framework = "3"
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
-# Default release profile: strip symbols from the desktop binary (smaller, less casual symbol leakage).
+# Shipping release profile: keep runtime speed while shrinking the native iOS/staticlib output.
 [profile.release]
-strip = true
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
 
 # Faster release-ish profile for local `tauri build` iteration (see root `package.json` scripts).
 # Shipping CI can keep default `release` or pass `--profile release` explicitly.

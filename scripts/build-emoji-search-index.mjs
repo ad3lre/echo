@@ -1,24 +1,13 @@
 /**
  * Builds emoji search index at build time.
  * Output: frontend/public/emoji-search-index.json
- * Runtime loads this instead of building Map at startup.
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { resolveEmojiDataByGroupPath } from './lib/resolve-emoji-data-path.mjs';
 
-function resolveEmojiDataByGroupPath() {
-  for (const rel of [
-    '../node_modules/unicode-emoji-json/data-by-group.json',
-    '../frontend/node_modules/unicode-emoji-json/data-by-group.json',
-  ]) {
-    const candidate = path.resolve(__dirname, rel);
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  throw new Error(
-    'unicode-emoji-json/data-by-group.json not found; run npm install',
-  );
-}
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const emojiDataPath = resolveEmojiDataByGroupPath();
 const outputPath = path.resolve(
   __dirname,
@@ -44,11 +33,13 @@ function tokenize(text) {
 }
 
 const raw = JSON.parse(fs.readFileSync(emojiDataPath, 'utf-8'));
+/** @type {Record<string, string[]>} */
 let secondaryBySlug = {};
 if (fs.existsSync(secondaryAliasesPath)) {
   secondaryBySlug = JSON.parse(fs.readFileSync(secondaryAliasesPath, 'utf-8'));
 }
 
+/** @type {Record<string, string[]>} */
 const byToken = {};
 
 for (const cat of raw) {

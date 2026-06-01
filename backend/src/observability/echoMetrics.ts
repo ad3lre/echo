@@ -179,6 +179,22 @@ export const echoE2eeEnvelopeRejectedTotal = new Counter({
   registers: [registry],
 });
 
+/** Discord bot webhook hook rejections (auth, replay, validation). */
+export const echoDiscordBotWebhookRejectTotal = new Counter({
+  name: 'echo_discord_bot_webhook_reject_total',
+  help: 'Discord bot webhook hook requests rejected before handler',
+  labelNames: ['reason'],
+  registers: [registry],
+});
+
+/** Discord bridge ingest outcomes from bot relay. */
+export const echoDiscordBridgeInboundTotal = new Counter({
+  name: 'echo_discord_bridge_inbound_total',
+  help: 'Discord bridge inbound hook handler outcomes',
+  labelNames: ['event', 'result'],
+  registers: [registry],
+});
+
 export function getEchoMetricsRegistry(): Registry {
   return registry;
 }

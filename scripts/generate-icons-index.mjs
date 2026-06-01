@@ -4,11 +4,13 @@
  * - Validates paths exist (skips missing, logs warning)
  * - Supports preferred filenames (e.g., search.svg over search-2.svg)
  *
- * Run: node scripts/generate-icons-index.js
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const iconsDir = path.join(__dirname, '../frontend/src/assets/icons');
 

@@ -23,7 +23,7 @@ export {
   setPrebuiltSearchIndex,
 } from '@/composables/emojiSearchIndexState';
 
-/** Extra search terms for the main 500 chat emoji (see scripts/build-emoji-secondary-aliases.js). */
+/** Extra search terms for the main 500 chat emoji (see scripts/build-emoji-secondary-aliases.mjs). */
 const SECONDARY_ALIASES: Readonly<Record<string, readonly string[]>> =
   secondaryAliasesJson;
 

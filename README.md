@@ -4,6 +4,35 @@
 
 You can **run it yourself** (self-host), **fork and extend** it (AGPL), or use it as the basis for a product you control end-to-end.
 
+## Quick start
+
+From the repository root (Node.js **22.13+**, Docker for Postgres):
+
+```bash
+npm ci
+cp .env.example .env
+npm run db:up
+npm run dev
+```
+
+- API: **http://localhost:3000**
+- Vite dev server: **http://localhost:8080**
+
+Full setup, PR checks, and maintainer notes: **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)**.
+
+## Contents
+
+- [What Echo is](#what-echo-is)
+- [Why Echo](#why-echo)
+- [Open source](#open-source)
+- [Project structure](#project-structure)
+- [Stack (summary)](#stack-summary)
+- [Getting started](#getting-started)
+- [Native apps (Tauri)](#native-apps-tauri)
+- [Contributing](#contributing)
+- [Third-party assets](#third-party-assets)
+- [License](#license)
+
 ## What Echo is
 
 Echo is a **full-stack communication app**: a Vue 3 SPA, a Node.js (**Fastify**) API, **Socket.IO** for realtime, **PostgreSQL** for durable data, optional **NATS** for multi-process scaling, and **native clients** (Tauri) where you want an installed app. A separate **marketing** site (Astro) and optional **Discord bridge / import** tooling exist for migration and interoperability—not as the core identity of the product.
@@ -16,18 +45,21 @@ The codebase is organized for **operators and contributors**: typed shared contr
 - **You own your deployment** — no mandatory third-party control plane; configure auth, storage, voice, and edge the way your threat model requires.
 - **Realtime-first** — chat and presence are first-class; voice/video follow a documented LiveKit path with production checklists in-repo.
 - **Serious engineering guardrails** — contract tests, RBAC and snowflake guards in CI, observability hooks, and a single [production readiness rollup](./docs/reviews/STATUS_AND_PRODUCTION_READINESS.md) so progress is inspectable, not hand-wavy.
-- **Installable where your users are** — **PWA** for the web and **Tauri** builds for desktop and Android (see [`releases/`](./releases/README.md)).
+- **Installable where your users are** — **PWA** for the web and **Tauri** for desktop, Android, and iOS (see [`releases/`](./releases/README.md)).
 
 ## Open source
 
-Echo is **open source** under the [**GNU Affero General Public License v3.0 only**](./LICENSE) (AGPL). Contributions, issues, and pull requests: [CONTRIBUTING.md](./CONTRIBUTING.md), [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md), [`.github/SECURITY.md`](./.github/SECURITY.md). **Day-to-day setup:** [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md). **Documentation index:** [docs/README.md](./docs/README.md).
+Echo is **open source** under the [**GNU Affero General Public License v3.0 only**](./LICENSE) (AGPL). Contributions, issues, and pull requests: [CONTRIBUTING.md](./CONTRIBUTING.md), [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md), [`.github/SECURITY.md`](./.github/SECURITY.md). **Documentation index:** [docs/README.md](./docs/README.md).
 
 **CI (GitHub Actions)** — badges target this fork’s default GitHub branch (`release/1.0.0`). Change `ad3lre/echo` and `branch=…` in the URLs if your owner/repo or branch name differs:
 
 [![Echo format check](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-format-ci.yml)
 [![Echo backend checks](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-backend-ci.yml)
+[![Echo frontend checks](https://github.com/ad3lre/echo/actions/workflows/echo-frontend-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-frontend-ci.yml)
+[![Echo E2E smoke](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/echo-e2e-ci.yml)
+[![CodeQL](https://github.com/ad3lre/echo/actions/workflows/codeql.yml/badge.svg?branch=release/1.0.0)](https://github.com/ad3lre/echo/actions/workflows/codeql.yml)
 
-Release and signing workflows may need **repository secrets** on the canonical fork; forks still get format and backend checks when relevant paths change.
+Release and signing workflows may need **repository secrets** on the canonical fork; forks still get format, backend, frontend, and E2E checks when relevant paths change.
 
 ## Project structure
 
@@ -40,12 +72,14 @@ Release and signing workflows may need **repository secrets** on the canonical f
 
 ## Stack (summary)
 
-| Layer    | Choices                                                                                                                                                                                              |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend | Vue 3, Vite, Pinia, TypeScript (History API client navigation)                                                                                                                                       |
-| Backend  | Node.js, Fastify, Socket.IO, TypeScript                                                                                                                                                              |
-| Data     | PostgreSQL; optional **NATS** for Socket.IO adapter when **`NATS_URL`** is set ([realtime scaling](./docs/infra/realtime-scaling.md); broader JetStream stance in [STACK](./docs/overview/STACK.md)) |
-| Voice    | LiveKit (session + webhooks + client); ops in [`docs/operations/livekit-production.md`](./docs/operations/livekit-production.md)                                                                     |
+| Layer    | Choices                                                                                                                                                         |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend | Vue 3, Vite, Pinia, TypeScript (History API client navigation)                                                                                                  |
+| Backend  | Node.js, Fastify, Socket.IO, TypeScript                                                                                                                         |
+| Data     | PostgreSQL                                                                                                                                                      |
+| Realtime | Optional **NATS** Socket.IO adapter when **`NATS_URL`** is set — see [realtime scaling](./docs/infra/realtime-scaling.md) and [STACK](./docs/overview/STACK.md) |
+| Voice    | LiveKit (session + webhooks + client); ops in [`docs/operations/livekit-production.md`](./docs/operations/livekit-production.md)                                |
+| Storage  | S3-compatible object storage when **`ECHO_S3_*`** is configured (optional)                                                                                      |
 
 ## Getting started
 
@@ -68,7 +102,7 @@ The SPA ships a [manifest](https://developer.mozilla.org/en-US/docs/Web/Manifest
 
 ## Native apps (Tauri)
 
-Windows, macOS, Linux, and Android — **paths, commands, CI pointers** in [`releases/README.md`](./releases/README.md). Signing, stores, and CORS depth live under [`docs/operations/`](./docs/operations/).
+Windows, macOS, Linux, Android, and iOS — **paths, commands, CI pointers** in [`releases/README.md`](./releases/README.md). Signing, stores, and CORS depth live under [`docs/operations/`](./docs/operations/).
 
 ## Contributing
 
@@ -76,7 +110,7 @@ We welcome contributions on **GitHub**. Start with [docs/DEVELOPMENT.md](./docs/
 
 ## Third-party assets
 
-Icons and emoji: [terms/ATTRIBUTIONS.md](./terms/ATTRIBUTIONS.md).
+Icons and emoji: [terms/en-US/ATTRIBUTIONS.md](./terms/en-US/ATTRIBUTIONS.md).
 
 ## License
 

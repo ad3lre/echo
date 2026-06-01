@@ -158,7 +158,7 @@ function webpCountInDir(dir) {
  * Blue/green each have their own git clone; without this, the idle slot often has no
  * twemoji fingerprint and `npm run build` reconverts all SVGs every deploy.
  * Symlink idle `frontend/public/twemoji` → $ECHO_DEPLOY_ROOT/shared/twemoji (override:
- * ECHO_DEPLOY_SHARED_TWEMOJI) so incremental copy-twemoji.js sees the same cache.
+ * ECHO_DEPLOY_SHARED_TWEMOJI) so incremental copy-twemoji.mjs sees the same cache.
  */
 function ensureSharedTwemojiSymlink(idleRoot) {
   if (process.platform !== 'linux') return;
@@ -406,14 +406,14 @@ async function loadTreeKill() {
 }
 
 /**
- * Free TCP port(s) the same way as `npm run prod:serve` (`scripts/kill-dev-ports.js` + ECHO_FREE_PORTS).
+ * Free TCP port(s) the same way as `npm run prod:serve` (`scripts/kill-dev-ports.mjs` + ECHO_FREE_PORTS).
  * Only pass the **idle** deploy port(s) here — never the live slot port while it serves traffic.
  */
 function runKillDevPorts(releaseRoot, portsCsv) {
-  const script = path.join(releaseRoot, 'scripts', 'kill-dev-ports.js');
+  const script = path.join(releaseRoot, 'scripts', 'kill-dev-ports.mjs');
   if (!fs.existsSync(script)) {
     console.warn(
-      '[echo-deploy] scripts/kill-dev-ports.js missing; skipping port free:',
+      '[echo-deploy] scripts/kill-dev-ports.mjs missing; skipping port free:',
       portsCsv,
     );
     return;
@@ -425,7 +425,7 @@ function runKillDevPorts(releaseRoot, portsCsv) {
   });
   if (r.status !== 0) {
     throw new Error(
-      `kill-dev-ports failed for ECHO_FREE_PORTS=${portsCsv} (exit ${r.status}). Install lsof on Linux or see scripts/kill-dev-ports.js.`,
+      `kill-dev-ports failed for ECHO_FREE_PORTS=${portsCsv} (exit ${r.status}). Install lsof on Linux or see scripts/kill-dev-ports.mjs.`,
     );
   }
   console.log('[echo-deploy] Freed port(s):', portsCsv);
@@ -764,7 +764,7 @@ Environment:
 
 Twemoji: idle checkout symlinks frontend/public/twemoji -> $ECHO_DEPLOY_ROOT/shared/twemoji
   (override: ECHO_DEPLOY_SHARED_TWEMOJI=/abs/path) so blue/green share one cache and
-  copy-twemoji.js usually hits the fast path. scripts/copy-twemoji.js also supports
+  copy-twemoji.mjs usually hits the fast path. scripts/copy-twemoji.mjs also supports
   ECHO_SKIP_TWEMOJI_COPY=1 for strict skip-only mode.
 `);
       process.exit(sub === 'help' ? 0 : 1);

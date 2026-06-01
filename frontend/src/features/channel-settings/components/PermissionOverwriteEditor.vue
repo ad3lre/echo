@@ -8,6 +8,7 @@ import type {
 import type { ChannelPermissionKey } from '@shared/types';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
 const props = withDefaults(
   defineProps<{
@@ -226,6 +227,11 @@ function ensureRow(
   targetType: 'everyone' | 'role' | 'member',
   targetId?: string | null,
 ) {
+  if (props.disabled) {
+    notifyPermissionEditBlocked();
+    if (targetType === 'everyone') selectedRowKey.value = 'everyone';
+    return;
+  }
   const existing = props.rows.find(
     (row) =>
       row.targetType === targetType &&
@@ -233,10 +239,6 @@ function ensureRow(
   );
   if (existing) {
     selectedRowKey.value = rowKey(existing);
-    return;
-  }
-  if (props.disabled) {
-    if (targetType === 'everyone') selectedRowKey.value = 'everyone';
     return;
   }
   const next: PermissionOverwriteRowDraft = {
@@ -255,11 +257,21 @@ function removeSelectedRow() {
   ensureDefaultSelection();
 }
 
+function notifyPermissionEditBlocked() {
+  const msg =
+    props.disabledMessage?.trim() ||
+    'Permission overrides are not editable in the current mode.';
+  dispatchAppToast(msg, 'info');
+}
+
 function setPermissionValue(
   key: ChannelPermissionKey,
   value: boolean | undefined,
 ) {
-  if (props.disabled) return;
+  if (props.disabled) {
+    notifyPermissionEditBlocked();
+    return;
+  }
   const selKey = selectedRowKey.value;
   if (!selKey) return;
 

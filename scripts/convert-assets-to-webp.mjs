@@ -1,7 +1,10 @@
 /* eslint-disable no-console */
-const fs = require('fs/promises');
-const path = require('path');
-const sharp = require('sharp');
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import sharp from 'sharp';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const repoRoot = path.join(__dirname, '..');
 const assetsRoot = path.join(repoRoot, 'frontend', 'src', 'assets');

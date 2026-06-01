@@ -1,6 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, toRef } from 'vue';
+import { computed, ref, toRef, watch } from 'vue';
 import { useFocusTrap } from '@/composables/useFocusTrap';
+import type { EventRsvpStatus } from '@/features/server-events/rsvpUi';
+import {
+  rsvpDeclinedButtonClass,
+  rsvpDeclinedLabel,
+  rsvpGoingButtonClass,
+  rsvpGoingLabel,
+  rsvpStatusBannerClass,
+  rsvpStatusBannerText,
+} from '@/features/server-events/rsvpUi';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -93,7 +102,30 @@ const goingSummary = computed(() => {
   return e.maxAttendees ? `${base} · ${e.maxAttendees} max` : base;
 });
 
-function onRsvp(status: 'going' | 'declined') {
+const pendingRsvp = ref<EventRsvpStatus | null>(null);
+
+const displayRsvp = computed(
+  () => pendingRsvp.value ?? ev.value?.userRsvp ?? null,
+);
+
+watch(
+  () => ev.value?.userRsvp,
+  (serverRsvp) => {
+    if (pendingRsvp.value != null && serverRsvp === pendingRsvp.value) {
+      pendingRsvp.value = null;
+    }
+  },
+);
+
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (!open) pendingRsvp.value = null;
+  },
+);
+
+function onRsvp(status: EventRsvpStatus) {
+  pendingRsvp.value = status;
   emit('rsvp', { status });
 }
 
@@ -259,37 +291,41 @@ function onOpenLocation() {
         </p>
 
         <!-- Actions -->
-        <div
-          class="mt-5 flex flex-wrap items-center gap-2 border-t border-border pt-4"
-        >
-          <button
-            type="button"
-            class="rounded-lg px-3 py-2 text-sm font-semibold transition-colors"
-            :class="
-              ev.userRsvp === 'going'
-                ? 'bg-emerald-600/90 text-white'
-                : 'border border-border bg-glass-2 text-fg-soft hover:bg-glass-hover hover:text-foreground'
-            "
-            @click="onRsvp('going')"
+        <div class="mt-5 flex flex-col gap-3 border-t border-border pt-4">
+          <p
+            v-if="displayRsvp"
+            class="rounded-lg px-3 py-2 text-[12px] font-semibold leading-snug"
+            :class="rsvpStatusBannerClass(displayRsvp)"
+            role="status"
           >
-            {{ ev.userRsvp === 'going' ? "You're going" : 'Going' }}
-          </button>
-          <button
-            type="button"
-            class="rounded-lg border border-border bg-glass-2 px-3 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
-            :class="ev.userRsvp === 'declined' ? 'ring-1 ring-accent/40' : ''"
-            @click="onRsvp('declined')"
-          >
-            Not going
-          </button>
-          <button
-            v-if="hasLocation"
-            type="button"
-            class="ml-auto rounded-lg bg-accent/90 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent"
-            @click="onOpenLocation"
-          >
-            {{ openLocationLabel }}
-          </button>
+            {{ rsvpStatusBannerText(displayRsvp) }}
+          </p>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              :class="rsvpGoingButtonClass(displayRsvp, 'md')"
+              :aria-pressed="displayRsvp === 'going'"
+              @click="onRsvp('going')"
+            >
+              {{ rsvpGoingLabel(displayRsvp, 'md') }}
+            </button>
+            <button
+              type="button"
+              :class="rsvpDeclinedButtonClass(displayRsvp, 'md')"
+              :aria-pressed="displayRsvp === 'declined'"
+              @click="onRsvp('declined')"
+            >
+              {{ rsvpDeclinedLabel(displayRsvp, 'md') }}
+            </button>
+            <button
+              v-if="hasLocation"
+              type="button"
+              class="ml-auto rounded-lg bg-accent/90 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent"
+              @click="onOpenLocation"
+            >
+              {{ openLocationLabel }}
+            </button>
+          </div>
         </div>
       </div>
     </div>

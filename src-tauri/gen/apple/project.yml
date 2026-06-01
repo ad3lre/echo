@@ -72,9 +72,24 @@ targets:
         ONLY_ACTIVE_ARCH: true
         SWIFT_VERSION: '5.0'
         DEFINES_MODULE: true
+        # Echo does not ship App Intents. Without this, newer Xcode releases still run
+        # ExtractAppIntentsMetadata and warn that no AppIntents.framework dependency exists.
+        OTHER_SWIFT_FLAGS: $(inherited) -Xfrontend -disable-autolink-framework -Xfrontend AppIntents
+        OTHER_LDFLAGS: $(inherited) -weak_framework AppIntents
         LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
+      configs:
+        release:
+          COPY_PHASE_STRIP: true
+          DEAD_CODE_STRIPPING: true
+          DEPLOYMENT_POSTPROCESSING: true
+          GCC_OPTIMIZATION_LEVEL: s
+          STRIP_INSTALLED_PRODUCT: true
+          STRIP_STYLE: all
+          SWIFT_COMPILATION_MODE: wholemodule
+          SWIFT_OPTIMIZATION_LEVEL: -Osize
+          VALIDATE_PRODUCT: true
       groups: [app]
     dependencies:
       - framework: libapp.a

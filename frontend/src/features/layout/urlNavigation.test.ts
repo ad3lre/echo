@@ -290,6 +290,7 @@ describe('parseUserSettingsSectionFromQuery / parseGuildSettingsSectionFromQuery
     expect(parseGuildSettingsSectionFromQuery('Structure')).toBe('Structure');
     expect(parseGuildSettingsSectionFromQuery('Members')).toBe('Members');
     expect(parseGuildSettingsSectionFromQuery('Applications')).toBe('Access');
+    expect(parseGuildSettingsSectionFromQuery('Stickers')).toBe('Emoji');
     expect(parseGuildSettingsSectionFromQuery('Access')).toBe('Access');
     expect(parseGuildSettingsSectionFromQuery('Discord')).toBe('Discord');
     expect(parseGuildSettingsSectionFromQuery('Banned%20Words')).toBe(

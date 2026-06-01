@@ -1,3 +1,4 @@
+import type { EchoChannelType } from '@shared/types';
 import type { Ref } from 'vue';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import type { ChannelCategory } from '@/composables/useChannels';
@@ -174,7 +175,7 @@ export type WorkspaceStateApi = {
     categoryId: string,
     channel: {
       name: string;
-      type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+      type: EchoChannelType;
       iconKey?: string;
     },
   ) => Promise<string | null>;

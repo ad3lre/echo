@@ -10,6 +10,7 @@ import {
   insertEchoAudit,
   listEchoCategories,
   listEchoCategoryPermissionOverwrites,
+  permissionOverwriteSaveWarnings,
   replaceEchoCategoryPermissionOverwrites,
   updateEchoCategory,
   updateEchoCategoryPermissionOverrides,
@@ -509,6 +510,10 @@ export default async function echoCategoriesRoutes(
         pool,
         categoryId,
       );
+      const warnings = permissionOverwriteSaveWarnings(r);
+      if (warnings?.strippedAllows?.length) {
+        return reply.code(200).send({ warnings });
+      }
       return reply.code(204).send();
     },
   );

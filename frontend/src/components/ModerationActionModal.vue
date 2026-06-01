@@ -169,10 +169,24 @@ function selectTimeoutPreset(minutes: number) {
   selectedTimeoutMinutes.value = minutes;
 }
 
+function enableCustomTimeout() {
+  timeoutUseCustom.value = true;
+}
+
 function selectBanPreset(minutes: number) {
   banPermanent.value = false;
   banUseCustom.value = false;
   selectedBanMinutes.value = minutes;
+}
+
+function selectPermanentBan() {
+  banPermanent.value = true;
+  banUseCustom.value = false;
+}
+
+function enableCustomBan() {
+  banPermanent.value = false;
+  banUseCustom.value = true;
 }
 
 function resolvedBanMinutes(): number | null {
@@ -199,7 +213,6 @@ function onConfirm() {
   } else {
     emit('confirm');
   }
-  emit('update:modelValue', false);
 }
 </script>
 
@@ -273,7 +286,7 @@ function onConfirm() {
                   ? 'bg-indigo-500/35 text-foreground ring-1 ring-indigo-400/50'
                   : 'bg-glass-1 text-fg-soft hover:bg-glass-2'
               "
-              @click="timeoutUseCustom = true"
+              @click="enableCustomTimeout"
             >
               Custom…
             </button>
@@ -316,10 +329,7 @@ function onConfirm() {
                     ? 'bg-rose-500/35 text-foreground ring-1 ring-rose-400/45'
                     : 'bg-glass-1 text-fg-soft hover:bg-glass-2'
                 "
-                @click="
-                  banPermanent = true;
-                  banUseCustom = false;
-                "
+                @click="selectPermanentBan"
               >
                 Permanent
               </button>
@@ -347,10 +357,7 @@ function onConfirm() {
                     ? 'bg-rose-500/35 text-foreground ring-1 ring-rose-400/45'
                     : 'bg-glass-1 text-fg-soft hover:bg-glass-2'
                 "
-                @click="
-                  banPermanent = false;
-                  banUseCustom = true;
-                "
+                @click="enableCustomBan"
               >
                 Custom…
               </button>

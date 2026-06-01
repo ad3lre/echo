@@ -1170,7 +1170,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
       </button>
       <button
         v-if="
-          isInDMMode &&
+          isInDMChat &&
           dmPartnerUser &&
           dmActiveTab === 'messages' &&
           !isGroupDmThread &&
@@ -1254,7 +1254,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         <div class="min-w-0 flex-1 overflow-hidden">
           <button
             v-if="
-              isInDMMode &&
+              isInDMChat &&
               dmPartnerUser &&
               dmActiveTab === 'messages' &&
               !isGroupDmThread &&
@@ -1486,7 +1486,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
       </div>
       <template
         v-if="
-          isInDMMode &&
+          isInDMChat &&
           dmPartnerUser &&
           dmActiveTab === 'messages' &&
           !isGroupDmThread

@@ -116,4 +116,14 @@ describe('resolveMentionNotificationPrefetchTargets', () => {
       { channelId: stubChannel, anchorMessageId: 'msg-b' },
     ]);
   });
+
+  it('fills missing anchor from stub targets for the same channel', () => {
+    const channelId = '00000000-0000-4000-8000-000000000016';
+    const merged = mergeMentionNotificationPrefetchTargets(
+      [{ channelId }],
+      [{ channelId, anchorMessageId: 'msg-stub' }],
+    );
+
+    expect(merged).toEqual([{ channelId, anchorMessageId: 'msg-stub' }]);
+  });
 });

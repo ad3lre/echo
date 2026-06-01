@@ -1,0 +1,85 @@
+import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
+import { echoSyncCapabilities } from '@/platform/syncCapabilities';
+import { isDesktop } from '@/platform/desktopBridge';
+import { AuthApiError } from '@/api/authClient';
+
+export type PasskeyCeremonyMode = 'login' | 'register';
+
+const isEchoIosShell = import.meta.env.VITE_ECHO_IOS === '1';
+
+/**
+ * When non-null, the in-app WebAuthn ceremony must not run; show this message instead.
+ */
+export function getPasskeyWebCeremonyBlockReason(
+  mode: PasskeyCeremonyMode,
+): string | null {
+  if (!ECHO_PASSKEYS_ENABLED) {
+    return 'Passkeys are disabled for this deployment.';
+  }
+  if (echoSyncCapabilities.isMockDataMode) {
+    return 'Passkeys are not available in preview mode.';
+  }
+  if (isDesktop()) {
+    return mode === 'login'
+      ? 'Passkey sign-in in the desktop app is not supported yet. Use Discord, Google, or your Echo username and password.'
+      : 'Adding a passkey in the desktop app is not supported yet. Open Echo in Chrome, Safari, or Edge on the web to add one from Account settings.';
+  }
+  if (isEchoIosShell) {
+    return mode === 'login'
+      ? 'Use Face ID or Touch ID on the native sign-in screen to sign in with a passkey.'
+      : 'Adding a passkey from the iOS app is not supported yet. Open Echo in Safari on the web to add one from Account settings.';
+  }
+  if (typeof window !== 'undefined') {
+    if (!window.isSecureContext) {
+      return 'Passkeys require a secure connection (HTTPS).';
+    }
+    if (!window.PublicKeyCredential) {
+      return 'This browser does not support passkeys. Try Chrome, Safari, or Edge.';
+    }
+  }
+  return null;
+}
+
+export function mapPasskeyCeremonyError(
+  err: unknown,
+  mode: PasskeyCeremonyMode,
+): string {
+  if (err instanceof AuthApiError) {
+    if (err.body.code === 'NOT_AVAILABLE') {
+      return mode === 'register'
+        ? 'Passkeys need a database-backed server.'
+        : err.body.message || 'Passkeys are not available on this server.';
+    }
+    if (err.body.code === 'CHALLENGE_EXPIRED') {
+      return 'That passkey step expired. Try again.';
+    }
+    if (err.body.code === 'VERIFICATION_FAILED') {
+      return 'Passkey verification failed. Try again.';
+    }
+    return err.message;
+  }
+  if (err instanceof DOMException || err instanceof Error) {
+    const name = err.name;
+    if (name === 'NotAllowedError') {
+      return mode === 'register'
+        ? 'Passkey registration was cancelled.'
+        : 'Passkey sign-in was cancelled.';
+    }
+    if (name === 'AbortError') {
+      return 'Passkey was interrupted. Try again.';
+    }
+    if (name === 'SecurityError') {
+      return 'Passkeys cannot run on this page. Open Echo in a supported browser at your usual sign-in URL.';
+    }
+    if (name === 'InvalidStateError') {
+      return 'This passkey is already registered on this device.';
+    }
+    if (name === 'NotSupportedError') {
+      return 'This device or browser does not support passkeys.';
+    }
+    if (err.message?.trim()) return err.message;
+  }
+  return mode === 'register'
+    ? 'Could not register passkey. Try again.'
+    : 'Could not sign in with passkey. Try again.';
+}

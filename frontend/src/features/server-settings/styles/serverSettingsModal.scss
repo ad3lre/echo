@@ -278,6 +278,14 @@
   color: var(--srv-nav-active-fg);
 }
 
+.emoji-pack-preview-grid {
+  scrollbar-gutter: stable;
+}
+
+.emoji-pack-preview-cell {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
 /* Overview: flat chrome — no inset ring on panels, card, toggles, or inputs (focus uses outline). */
 .server-settings-overview--borderless {
   .server-settings-panel,

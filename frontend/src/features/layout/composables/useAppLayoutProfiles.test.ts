@@ -131,4 +131,52 @@ describe('useAppLayoutProfiles DM overview', () => {
     expect(isExpandedProfileModalOpen.value).toBe(true);
     expect(isExpandedProfileSidePanel.value).toBe(false);
   });
+
+  it('expandDmProfileToFullModal keeps the profile shell open', async () => {
+    const users = ref([
+      { id: 'self', name: 'Self', pfp: 'self.png' },
+      { id: 'peer', name: 'Peer', pfp: 'peer.png' },
+    ]);
+    const isExpandedProfileModalOpen = ref(true);
+    const isExpandedProfileSidePanel = ref(true);
+    const expandedProfile = ref<ExpandedProfile | null>({
+      id: 'peer',
+      displayName: 'Peer',
+      username: 'peer',
+      pfp: 'peer.png',
+    } as ExpandedProfile);
+    const expandedProfileTargetUserId = ref<string | null>('peer');
+
+    const api = useAppLayoutProfiles({
+      users,
+      servers: ref([]),
+      serverMemberIds: ref({}),
+      friendIdsByUserId: ref({}),
+      friendIds: ref([]),
+      currentUser: ref(users.value[0]),
+      selectedServer: ref(null),
+      workspaceMembersByServer: ref({}),
+      isInDMChat: ref(true),
+      isMemberPopoutOpen: ref(false),
+      isSelfProfilePopoutOpen: ref(false),
+      isExpandedProfileModalOpen,
+      isExpandedProfileSidePanel,
+      canShowDmProfileSidePanel: ref(true),
+      isGroupOverviewOpen: ref(false),
+      activeMemberProfile: ref(null),
+      expandedProfile,
+      expandedProfileTargetUserId,
+      profileNotes: ref({}),
+      memberPopoutAnchor: ref(null),
+      selfProfileAnchor: ref(null),
+      selfProfile: ref(null),
+    });
+
+    api.expandDmProfileToFullModal();
+    await vi.runAllTimersAsync();
+
+    expect(isExpandedProfileModalOpen.value).toBe(true);
+    expect(isExpandedProfileSidePanel.value).toBe(false);
+    expect(expandedProfile.value?.id).toBe('peer');
+  });
 });

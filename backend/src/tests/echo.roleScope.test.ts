@@ -7,7 +7,6 @@ import {
   createEchoRole,
   createEchoRoleCategory,
   createEchoServer,
-  listEchoRoleCategories,
   listEchoRolesForServer,
   updateEchoRole,
 } from '../domain/echoStore';
@@ -60,10 +59,6 @@ async function run(): Promise<void> {
     const created = await createEchoServer(pool, ownerId, 'role-scope-test');
     serverId = created.serverId;
 
-    const categories = await listEchoRoleCategories(pool, serverId);
-    const globalCat = categories.find((c) => c.isSystem);
-    assert.ok(globalCat, 'expected system Global Roles category');
-
     const gameCat = await createEchoRoleCategory(
       pool,
       serverId,
@@ -78,7 +73,6 @@ async function run(): Promise<void> {
       name: 'GlobalAdmin',
       color: '',
       permissions: ['MANAGE_ROLES'],
-      roleCategoryId: globalCat!.id,
       roleScope: 'global',
     });
     assert.ok(typeof globalAdmin === 'object' && 'roleId' in globalAdmin);
@@ -110,7 +104,6 @@ async function run(): Promise<void> {
       name: 'GlobalMember',
       color: '',
       permissions: [],
-      roleCategoryId: globalCat!.id,
     });
     const globalMemberId =
       typeof globalMember === 'object' && 'roleId' in globalMember

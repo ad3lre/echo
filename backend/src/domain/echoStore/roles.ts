@@ -18,10 +18,6 @@ import {
   resolveRoleCategoryIdForAssignment,
 } from './roleCategories';
 import {
-  ensureGlobalRoleCategoryForServer,
-  getGlobalRoleCategoryId,
-} from './roleCategoryGlobals';
-import {
   applyRolePositionsFromCategoryBlocks,
   buildCategoryRoleOrderMap,
 } from './roleOrdering';
@@ -247,7 +243,6 @@ export async function listEchoRolesForServer(
   options?: ListEchoRolesForServerOptions,
 ): Promise<EchoRoleDto[]> {
   const includeAuthority = options?.includeAuthorityRoles !== false;
-  await ensureGlobalRoleCategoryForServer(pool, serverId);
   const r = await pool.query<EchoRoleRow>(
     `
     SELECT r.id, r.name, r.color, r.dark_color, r.light_color, r.separate_theme_colors,
@@ -409,13 +404,11 @@ export async function replaceEchoServerRoleOrder(
       if (!ok) return 'forbidden';
     }
   }
-  const globalCatId = await getGlobalRoleCategoryId(pool, serverId);
   const blockMap = new Map<string, string[]>();
   for (const roleId of ordered) {
     const row = byId.get(roleId);
     if (!row || row.name === '@everyone') continue;
-    const catId = row.roleCategoryId ?? globalCatId;
-    if (!catId) continue;
+    const catId = row.roleCategoryId ?? '__uncategorized__';
     const list = blockMap.get(catId) ?? [];
     list.push(roleId);
     blockMap.set(catId, list);
@@ -652,9 +645,6 @@ export async function updateEchoRole(
       const rc = row0.role_category_id;
       targetCategoryId =
         rc != null && String(rc).trim() ? String(rc).trim() : null;
-      if (!targetCategoryId) {
-        targetCategoryId = await getGlobalRoleCategoryId(pool, serverId);
-      }
     }
     if (targetCategoryId) {
       const catDefaults = await loadEchoRoleCategoryDefaults(
@@ -1057,7 +1047,6 @@ export async function createEchoRole(
     effLight = color;
   }
 
-  await ensureGlobalRoleCategoryForServer(pool, serverId);
   const roleCategoryId = await resolveRoleCategoryIdForAssignment(
     pool,
     serverId,

@@ -24,6 +24,8 @@ const SKIP_REL_PREFIXES = [
   'backend/.diagnostics',
   'backend/data/echo-local-uploads',
   'bot/exports',
+  'logs',
+  'src-tauri/target',
 ];
 
 /** Generated file should not count itself in totals. */
@@ -348,7 +350,7 @@ out.push(
   '- Line counts exclude comment-only lines for common source/config formats (`//`, `/* */`, `#`, `<!-- -->` by extension).',
 );
 out.push(
-  '- Additional generated/runtime noise is omitted (`backend/.diagnostics/`, `backend/data/echo-local-uploads/`, `bot/exports/`), and files with 0 counted lines are hidden from the detailed tree.',
+  '- Additional generated/runtime noise is omitted (`backend/.diagnostics/`, `backend/data/echo-local-uploads/`, `bot/exports/`, `logs/`, `src-tauri/target/`), and files with 0 counted lines are hidden from the detailed tree.',
 );
 out.push(`- Regenerated: ${new Date().toISOString().slice(0, 10)}`);
 out.push('');

@@ -18,6 +18,8 @@ export type DmMentionNotificationRow = {
 function mentionPingsSelf(m: MentionEntity, selfId: string): boolean {
   if (m.kind === 'user') return (m.userId ?? m.id) === selfId;
   if (m.kind === 'everyone' || m.kind === 'active') return true;
+  // Role pings are included when the attention snapshot already surfaced them.
+  if (m.kind === 'role') return true;
   return false;
 }
 

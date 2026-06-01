@@ -275,6 +275,11 @@ interface AppConfig {
    * sockets before stopping the stack (`ECHO_DEPLOY_NOTIFY_SECRET`).
    */
   readonly echoDeployNotifySecret: string | null;
+  /** Web Push VAPID keys (base64url). All three must be set to enable web push. */
+  readonly webPushVapidPublicKey: string | null;
+  readonly webPushVapidPrivateKey: string | null;
+  /** `mailto:` or https contact URL embedded in push JWT (VAPID `sub`). */
+  readonly webPushVapidSubject: string;
   /** S3-compatible uploads (R2/S3). All must be set for presigned PUT. */
   readonly s3UploadBucket: string | null;
   readonly s3UploadRegion: string | null;
@@ -1160,6 +1165,10 @@ export const config: AppConfig = {
     const raw = process.env.ECHO_DEPLOY_NOTIFY_SECRET?.trim() ?? '';
     return raw.length > 0 ? raw : null;
   })(),
+  webPushVapidPublicKey: process.env.VAPID_PUBLIC_KEY?.trim() || null,
+  webPushVapidPrivateKey: process.env.VAPID_PRIVATE_KEY?.trim() || null,
+  webPushVapidSubject:
+    process.env.VAPID_SUBJECT?.trim() || 'mailto:push@echo.local',
   s3UploadBucket: process.env.ECHO_S3_BUCKET?.trim() || null,
   s3UploadRegion: process.env.ECHO_S3_REGION?.trim() || null,
   s3UploadAccessKey: process.env.ECHO_S3_ACCESS_KEY?.trim() || null,

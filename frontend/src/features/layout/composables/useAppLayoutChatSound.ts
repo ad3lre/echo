@@ -4,7 +4,12 @@ import type { IncomingChatMessageNotifyDetail } from '@/audio/incomingChatMessag
 import { playIncomingChatMessageSound } from '@/audio/incomingMessageSound';
 import { ECHO_INCOMING_CHAT_MESSAGE_EVENT } from '@/audio/echoSoundEvents';
 import type { ServerNotificationLevel } from '@/features/server-notifications/types';
+import {
+  isEchoChannelSnoozed,
+  resolveEffectiveChannelNotificationLevel,
+} from '@shared/attentionPing';
 import { useNotificationPreferencesStore } from '@/stores/notificationPreferences';
+import { useChannelNotificationOverridesStore } from '@/stores/channelNotificationOverrides';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { avatarUrlForCallDisplay } from '@/utils/avatarDisplay';
@@ -52,6 +57,24 @@ export function useAppLayoutChatSound(deps: {
       const isDm = deps.isDmChannel(d.channelId);
       const sid = deps.selectedServerId.value;
       const currentUser = deps.currentUser.value;
+
+      // Per-channel snooze suppresses both sound and toast (server or DM).
+      const channelOverrides = useChannelNotificationOverridesStore();
+      const channelOverride =
+        channelOverrides.overridesByChannelId[d.channelId];
+      if (isEchoChannelSnoozed(channelOverride)) return;
+
+      const baseServerLevel =
+        !isDm && sid && sid !== 'echo'
+          ? deps.serverNotificationLevelsMap.value[sid]
+          : undefined;
+      const effectiveServerLevel = baseServerLevel
+        ? resolveEffectiveChannelNotificationLevel(
+            baseServerLevel,
+            channelOverride,
+          )
+        : undefined;
+
       const played = playIncomingChatMessageSound({
         channelId: d.channelId,
         authorId: d.authorId,
@@ -62,10 +85,7 @@ export function useAppLayoutChatSound(deps: {
         currentUsername: currentUser?.username,
         currentDisplayName: currentUser?.displayName,
         isDmChannel: isDm,
-        serverNotificationLevel:
-          !isDm && sid && sid !== 'echo'
-            ? deps.serverNotificationLevelsMap.value[sid]
-            : undefined,
+        serverNotificationLevel: effectiveServerLevel,
         memberRoleIds: deps.memberRoleIds(),
       });
       if (!played) return;

@@ -4,12 +4,13 @@
  */
 
 import { ref, computed, watch, type Ref } from 'vue';
+import type { EchoChannelType } from '@shared/types';
 import { channelMentionRefLabel } from '@/utils/channelMentionLabel';
 
 export interface ChannelOption {
   id: string;
   name: string;
-  type?: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+  type?: EchoChannelType;
   iconKey?: string;
 }
 

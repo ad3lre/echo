@@ -22,6 +22,7 @@ import type {
   EchoServerNotificationLevel,
   ForumCreatorDefaultPerms,
   MessageWithAuthor,
+  EchoChannelType,
 } from '@shared/types';
 import type { Server } from '@shared/types/server';
 import type {
@@ -82,7 +83,7 @@ export type CreateChannelModalSubmitPayload =
   | {
       kind: 'channel';
       name: string;
-      type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+      type: Exclude<EchoChannelType, 'selfRoles'>;
       categoryId: string;
       iconKey: string;
     }
@@ -380,7 +381,7 @@ export interface AppLayoutControllerContext {
   ) => void;
   handleCreateChannelSubmit: (payload: {
     name: string;
-    type: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+    type: EchoChannelType;
     categoryId: string;
     iconKey: string;
   }) => void;
@@ -392,7 +393,7 @@ export interface AppLayoutControllerContext {
   onChannelSettingsModalOpenUpdate: (next: boolean) => void;
   handleChannelSettingsSave: (payload: {
     channelId: string;
-    channelType: 'text' | 'voice' | 'forum' | 'stage' | 'paper';
+    channelType: EchoChannelType;
     serverId: string;
     name: string;
     categoryId: string;

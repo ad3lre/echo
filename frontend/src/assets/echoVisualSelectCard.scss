@@ -1,0 +1,28 @@
+// Shared selection/focus rings for visual radio cards (theme, rail layout, guest prefs).
+// Keep outer rings off overflow:hidden shells — clip preview/caption children instead.
+
+@mixin echo-visual-select-selected-ring {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+@mixin echo-visual-select-focus-ring {
+  outline: none;
+  /* Inset only: outer outline-offset is clipped by scroll panels and tight grids. */
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+@mixin echo-visual-select-selected-focus-rings {
+  outline: none;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent),
+    inset 0 0 0 2px var(--accent);
+}
+
+@mixin echo-visual-select-preview-clip {
+  overflow: hidden;
+}
+
+@mixin echo-visual-select-caption-clip {
+  overflow: hidden;
+  border-radius: 0 0 0.625rem 0.625rem;
+}

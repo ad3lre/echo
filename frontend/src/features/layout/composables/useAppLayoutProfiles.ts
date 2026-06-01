@@ -44,6 +44,7 @@ interface UseAppLayoutProfilesOptions {
   selectedServer: Ref<SelectedServer>;
   /** Workspace roster: used for real per-server “Member since” dates. */
   workspaceMembersByServer: Ref<Record<string, EchoServerMemberDto[]>>;
+  /** Main surface is an open DM thread (1:1 or idle), not merely DM rail selected. */
   isInDMChat: Ref<boolean>;
   isMemberPopoutOpen: Ref<boolean>;
   isSelfProfilePopoutOpen: Ref<boolean>;
@@ -341,8 +342,10 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
   function expandDmProfileToFullModal() {
     if (!expandedProfileTargetUserId.value && !expandedProfile.value) return;
     if (!isExpandedProfileModalOpen.value) return;
-    suppressProfileUiInteraction();
-    isExpandedProfileSidePanel.value = false;
+    if (!isExpandedProfileSidePanel.value) return;
+    deferAfterProfilePointerAction(() => {
+      isExpandedProfileSidePanel.value = false;
+    });
   }
 
   function handleExpandedProfileOpenProfile(

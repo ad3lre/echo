@@ -8,12 +8,12 @@ describe('useServerSettingsNavigation', () => {
   it('returns distinct icons for newer server settings sections', () => {
     expect(getSectionIcon('Tickets')).toBe(icons.lifeRing);
     expect(getSectionIcon('Self-assignable Roles')).toBe(icons.userTag);
-    expect(getSectionIcon('Stickers')).toBe(icons.sparkle);
+    expect(getSectionIcon('Emoji')).toBe(icons.emotesServerNav);
   });
 
   it('does not fall back to generic more icon for known sections', () => {
     expect(getSectionIcon('Tickets')).not.toBe(icons.more);
     expect(getSectionIcon('Self-assignable Roles')).not.toBe(icons.more);
-    expect(getSectionIcon('Stickers')).not.toBe(icons.more);
+    expect(getSectionIcon('Emoji')).not.toBe(icons.more);
   });
 });

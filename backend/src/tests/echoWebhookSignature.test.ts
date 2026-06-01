@@ -1,20 +1,20 @@
 import assert from 'node:assert/strict';
-import { createHmac } from 'node:crypto';
 import { describe, it } from 'node:test';
 import { verifyEchoWebhookHmac } from '../services/echoWebhookSignature';
+import {
+  signEchoWebhookBody,
+  verifyEchoWebhookBodyHmac,
+} from '../../../shared/echoWebhookHmac';
 
 describe('echoWebhookSignature', () => {
   it('accepts valid HMAC signatures within skew window', () => {
     const secret = 'test-webhook-secret-value-32chars';
     const rawBody = JSON.stringify({ discordGuildId: '123' });
-    const ts = String(Date.now());
-    const signature = createHmac('sha256', secret)
-      .update(`${ts}.${rawBody}`)
-      .digest('hex');
+    const signed = signEchoWebhookBody(secret, rawBody, Date.now());
     const req = {
       headers: {
-        'x-echo-signature-ts': ts,
-        'x-echo-signature': signature,
+        'x-echo-signature-ts': signed['x-echo-signature-ts'],
+        'x-echo-signature': signed['x-echo-signature'],
       },
     } as Parameters<typeof verifyEchoWebhookHmac>[2];
     assert.equal(verifyEchoWebhookHmac(secret, rawBody, req), true);
@@ -23,21 +23,14 @@ describe('echoWebhookSignature', () => {
   it('rejects tampered bodies', () => {
     const secret = 'test-webhook-secret-value-32chars';
     const rawBody = JSON.stringify({ discordGuildId: '123' });
-    const ts = String(Date.now());
-    const signature = createHmac('sha256', secret)
-      .update(`${ts}.${rawBody}`)
-      .digest('hex');
-    const req = {
-      headers: {
-        'x-echo-signature-ts': ts,
-        'x-echo-signature': signature,
-      },
-    } as Parameters<typeof verifyEchoWebhookHmac>[2];
+    const signed = signEchoWebhookBody(secret, rawBody, Date.now());
     assert.equal(
-      verifyEchoWebhookHmac(
+      verifyEchoWebhookBodyHmac(
         secret,
         JSON.stringify({ discordGuildId: '456' }),
-        req,
+        signed['x-echo-signature-ts'],
+        signed['x-echo-signature'],
+        signed.tsMs,
       ),
       false,
     );

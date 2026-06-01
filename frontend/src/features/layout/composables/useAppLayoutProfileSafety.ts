@@ -201,11 +201,16 @@ export function useAppLayoutProfileSafety(deps: {
       dispatchAppToast('Cannot change nickname in this context.', 'warning');
       return;
     }
+    const previousNick =
+      workspace.serverMemberNicknames.value[sid]?.[targetUserId] ?? '';
+    workspace.setServerMemberNickname(sid, targetUserId, trimmed);
     try {
       await patchEchoMemberNickname(token, sid, targetUserId, trimmed);
-      await hydrateEchoFromApi();
-      void refreshEchoRoleData();
+      void hydrateEchoFromApi().then(() => {
+        refreshEchoRoleData();
+      });
     } catch (e) {
+      workspace.setServerMemberNickname(sid, targetUserId, previousNick);
       const msg =
         e instanceof Error ? e.message : "Something didn't work. Try again.";
       dispatchAppToast(`Could not update nickname: ${msg}`, 'warning');

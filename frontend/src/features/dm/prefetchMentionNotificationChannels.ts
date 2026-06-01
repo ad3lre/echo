@@ -196,14 +196,28 @@ export function mergeMentionNotificationPrefetchTargets(
   primary: readonly MentionNotificationPrefetchTarget[],
   secondary: readonly MentionNotificationPrefetchTarget[],
 ): MentionNotificationPrefetchTarget[] {
-  const out = [...primary];
-  const seen = new Set(primary.map((target) => target.channelId.trim()));
+  const out = primary.map((target) => ({ ...target }));
+  const indexByChannel = new Map(
+    out.map((target, index) => [target.channelId.trim(), index]),
+  );
 
   for (const target of secondary) {
     const channelId = target.channelId.trim();
-    if (!channelId || seen.has(channelId)) continue;
-    seen.add(channelId);
-    out.push(target);
+    const secondaryAnchor = target.anchorMessageId?.trim();
+    if (!channelId) continue;
+
+    const existingIndex = indexByChannel.get(channelId);
+    if (existingIndex == null) {
+      indexByChannel.set(channelId, out.length);
+      out.push({ ...target });
+      continue;
+    }
+
+    const existing = out[existingIndex]!;
+    const existingAnchor = existing.anchorMessageId?.trim();
+    if (secondaryAnchor && !existingAnchor) {
+      out[existingIndex] = { ...existing, anchorMessageId: secondaryAnchor };
+    }
   }
 
   return out;

@@ -566,7 +566,7 @@ function horizontalRingIconCssUrl(server: Server): string {
 </template>
 
 <style lang="scss">
-@import './serverRailPills.scss';
+@use './serverRailPills.scss';
 </style>
 
 <style scoped>
