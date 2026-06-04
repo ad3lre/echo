@@ -170,7 +170,7 @@
     "@tiptap/extension-text-style": "^3.23.6",
     "@tiptap/pm": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
-    "@tiptap/vue-3": "^3.23.6",
+    "@tiptap/vue-3": "^3.25.0",
     "browser-image-compression": "^2.0.2",
     "dompurify": "^3.4.1",
     "hls.js": "^1.6.16",
