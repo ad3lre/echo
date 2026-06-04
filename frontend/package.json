@@ -179,7 +179,7 @@
     "mammoth": "^1.12.0",
     "marked": "^18.0.4",
     "marked-footnote": "^1.4.0",
-    "pdfjs-dist": "^5.4.296",
+    "pdfjs-dist": "^6.0.227",
     "pinia": "^3.0.4",
     "qrcode": "^1.5.4",
     "socket.io-client": "^4.8.3",
