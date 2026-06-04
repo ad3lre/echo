@@ -31,6 +31,22 @@ function escapeMdLinkUrl(href: string): string {
   return href.replace(/\\/g, '\\\\').replace(/\)/g, '\\)');
 }
 
+function escapeMdImageTitle(title: string): string {
+  return title
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\)/g, '\\)')
+    .replace(/\(/g, '\\(')
+    .replace(/\r?\n/g, ' ');
+}
+
+function escapeMdTableCell(inner: string): string {
+  return inner
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, ' ');
+}
+
 type Mark = { type?: string; attrs?: Record<string, unknown> };
 
 function composeMarkedText(raw: string, marks: unknown[] | undefined): string {
@@ -185,9 +201,10 @@ function serializeBlock(node: unknown, listDepth = 0): string {
         typeof attrs.title === 'string' && attrs.title.trim()
           ? attrs.title.trim()
           : '';
+      const safeSrc = escapeMdLinkUrl(src);
       return title
-        ? `![${alt}](${src} "${title.replace(/"/g, '\\"')}")`
-        : `![${alt}](${src})`;
+        ? `![${alt}](${safeSrc} "${escapeMdImageTitle(title)}")`
+        : `![${alt}](${safeSrc})`;
     }
     case 'horizontalRule':
       return '---';
@@ -219,7 +236,7 @@ function serializeTableBlock(node: Record<string, unknown>): string {
       const inner = serializeInlineFragment(
         Array.isArray(cell.content) ? cell.content : undefined,
       );
-      cells.push(inner.replace(/\|/g, '\\|').replace(/\n/g, ' '));
+      cells.push(escapeMdTableCell(inner));
     }
     if (cells.length) tableRows.push(cells);
   }

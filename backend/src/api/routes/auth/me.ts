@@ -41,6 +41,7 @@ import {
   MIN_REGISTER_USERNAME_LENGTH,
 } from '../../../../../shared/usernamePolicy';
 import type { AuthUser } from '../../../auth/types';
+import { AUTH_PROFILE_PATCH_RATE } from '../../sharedMutationRateLimits';
 
 function mergeMeBadgesForPlan(
   user: AuthUser,
@@ -309,6 +310,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
     '/me',
     {
       preHandler: [requireAuth],
+      config: { rateLimit: AUTH_PROFILE_PATCH_RATE },
       schema: {
         body: {
           type: 'object',

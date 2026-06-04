@@ -10,8 +10,6 @@ export {
 
 const RESERVED_DISPLAY_NAMES = new Set<string>(['@everyone', '@here']);
 const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f]/;
-/** Strip angle-bracket markup so profile text cannot become HTML when rendered elsewhere. */
-const HTML_TAG_RE = /<[^>]*>/g;
 
 /** Minimum password length for registration, password change, and guest upgrade. */
 export const MIN_PASSWORD_LENGTH = 8;
@@ -20,11 +18,24 @@ export const MAX_PROFILE_CUSTOM_STATUS_LENGTH = 140;
 export const MAX_PROFILE_BIO_LENGTH = 280;
 export const ECHO_SERVER_ROLE_LIMIT = 512;
 
+function replaceUntilStable(
+  input: string,
+  pattern: RegExp,
+  replacement: string,
+): string {
+  let current = input;
+  for (;;) {
+    const next = current.replace(pattern, replacement);
+    if (next === current) return next;
+    current = next;
+  }
+}
+
+/** Strip angle-bracket markup so profile text cannot become HTML when rendered elsewhere. */
 export function stripProfileHtmlMarkup(raw: string): string {
-  return raw
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(HTML_TAG_RE, '');
+  let out = replaceUntilStable(raw, /<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+  out = replaceUntilStable(out, /<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+  return replaceUntilStable(out, /<[^>]+>/g, '');
 }
 
 export function sanitizeProfilePlainText(raw: string, maxLen: number): string {

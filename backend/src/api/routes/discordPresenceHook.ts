@@ -13,6 +13,7 @@ import {
   requireBotWebhookSecret,
   requireWebhookDeliveryId,
 } from '../discordBotWebhookAuth';
+import { DISCORD_BOT_WEBHOOK_ROUTE_RATE } from '../sharedMutationRateLimits';
 
 export default async function discordPresenceHookRoutes(
   fastify: FastifyInstance,
@@ -31,6 +32,7 @@ export default async function discordPresenceHookRoutes(
 
   fastify.post<{ Body: Record<string, unknown> }>(
     '/hooks/discord-presence/snapshot',
+    { config: { rateLimit: DISCORD_BOT_WEBHOOK_ROUTE_RATE } },
     async (req, reply) => {
       const secret = requireBotWebhookSecret(req, reply);
       if (!secret) return;

@@ -4,6 +4,7 @@ import type {
   FastifyRequest,
   FastifyReply,
 } from 'fastify';
+import { DISCORD_BOT_API_ROUTE_RATE } from '../../../sharedMutationRateLimits';
 import {
   requireBotAuth,
   getBotInstalledGuildIds,
@@ -109,7 +110,10 @@ export default async function discordMessagesRoutes(
     };
   }>(
     '/channels/:channelId/messages',
-    { preHandler: [requireBotAuth] },
+    {
+      preHandler: [requireBotAuth],
+      config: { rateLimit: DISCORD_BOT_API_ROUTE_RATE },
+    },
     async (req: FastifyRequest, reply: FastifyReply) => {
       const channelId = (req.params as { channelId: string }).channelId.trim();
       const access = await assertBotChannelAccess(

@@ -1,16 +1,24 @@
-import { createHash, randomBytes } from 'crypto';
+import { randomBytes, scryptSync } from 'crypto';
 import type { Pool } from 'pg';
 import { hashDesktopOauthHandoffNonce } from './desktopOAuthHandoffNonce';
 
 const HANDOFF_TTL_SEC = 120;
+const HANDOFF_CODE_SCRYPT_SALT = 'echo-desktop-handoff-code-v3';
 
+/**
+ * One-time OAuth handoff code digest (not user password storage). scrypt with
+ * N=2^14 matches other Echo domain-separated derivations.
+ */
 function buildDesktopOauthHandoffCodeHash(
   code: string,
   desktopNonceHash: string,
 ): string {
-  return createHash('sha256')
-    .update(`echo_desktop_handoff_v2|${desktopNonceHash}|${code}`, 'utf8')
-    .digest('hex');
+  return scryptSync(
+    `echo_desktop_handoff_v3|${desktopNonceHash}|${code}`,
+    HANDOFF_CODE_SCRYPT_SALT,
+    32,
+    { N: 16384, r: 8, p: 1 },
+  ).toString('hex');
 }
 
 export async function createDesktopOauthHandoff(

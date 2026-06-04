@@ -18,6 +18,7 @@ import {
   requireBotWebhookSecret,
   requireWebhookDeliveryId,
 } from '../discordBotWebhookAuth';
+import { DISCORD_BOT_WEBHOOK_ROUTE_RATE } from '../sharedMutationRateLimits';
 
 export default async function discordBotHookRoutes(
   fastify: FastifyInstance,
@@ -36,6 +37,7 @@ export default async function discordBotHookRoutes(
 
   fastify.post<{ Body: { discordGuildId?: unknown } }>(
     '/hooks/discord-bot/export-ready',
+    { config: { rateLimit: DISCORD_BOT_WEBHOOK_ROUTE_RATE } },
     async (
       req: FastifyRequest<{ Body: { discordGuildId?: unknown } }>,
       reply: FastifyReply,

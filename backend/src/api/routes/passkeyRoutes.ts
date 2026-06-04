@@ -4,7 +4,10 @@ import type {
   FastifyReply,
 } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import { passkeyCeremonyRateLimitKey } from '../sharedMutationRateLimits';
+import {
+  PASSKEY_CEREMONY_ROUTE_RATE,
+  passkeyCeremonyRateLimitKey,
+} from '../sharedMutationRateLimits';
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -74,6 +77,7 @@ export default async function passkeyRoutes(
       '/passkey/register/options',
       {
         preHandler: [requireAuth],
+        config: { rateLimit: PASSKEY_CEREMONY_ROUTE_RATE },
         schema: {
           body: {
             type: 'object',
@@ -152,6 +156,7 @@ export default async function passkeyRoutes(
       '/passkey/register/verify',
       {
         preHandler: [requireAuth],
+        config: { rateLimit: PASSKEY_CEREMONY_ROUTE_RATE },
         schema: {
           body: {
             type: 'object',
@@ -320,6 +325,7 @@ export default async function passkeyRoutes(
       '/passkey/credentials/revoke',
       {
         preHandler: [requireAuth],
+        config: { rateLimit: PASSKEY_CEREMONY_ROUTE_RATE },
         schema: {
           body: {
             type: 'object',

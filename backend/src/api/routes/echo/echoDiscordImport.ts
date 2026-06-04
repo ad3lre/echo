@@ -30,6 +30,7 @@ import {
 import {
   ECHO_DISCORD_IMPORT_BIND_RATE,
   ECHO_DISCORD_IMPORT_CHANNEL_RATE,
+  ECHO_DISCORD_IMPORT_REFRESH_RATE,
   ECHO_DISCORD_IMPORT_RUN_FULL_RATE,
 } from '../../sharedMutationRateLimits';
 
@@ -419,7 +420,10 @@ export default async function echoDiscordImportRoutes(
    */
   fastify.post<{ Params: { serverId: string } }>(
     '/servers/:serverId/discord-import/refresh-from-export',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_DISCORD_IMPORT_REFRESH_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const sid = trimEchoPathParam(req.params.serverId);

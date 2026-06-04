@@ -1,0 +1,7 @@
+name: local/echo-discord-cdn-ssrf-models
+version: 0.0.1
+library: true
+extensionTargets:
+  codeql/javascript-all: '*'
+dataExtensions:
+  - discord-cdn-ssrf.yml

@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import rateLimit from '@fastify/rate-limit';
 import { sidecarConfig } from './config';
 import { register, voiceSidecarIngestTotal } from './metrics';
 import { VoiceIntelligencePipeline } from './pipeline';
@@ -34,36 +35,54 @@ app.get(sidecarConfig.metricsPath, async (_req, reply) => {
   return await register.metrics();
 });
 
-app.post('/ingest/livekit-webhook', async (req, reply) => {
-  const secret = sidecarConfig.echoForwardWebhookSecret;
-  if (!secret) {
-    return reply.code(503).send({ error: 'webhook_secret_not_configured' });
-  }
+app.post(
+  '/ingest/livekit-webhook',
+  {
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute',
+        keyGenerator: (req) => `voice_sidecar_ingest_ip:${req.ip}`,
+      },
+    },
+  },
+  async (req, reply) => {
+    const secret = sidecarConfig.echoForwardWebhookSecret;
+    if (!secret) {
+      return reply.code(503).send({ error: 'webhook_secret_not_configured' });
+    }
 
-  const rawBody = (req as typeof req & { rawBody?: string }).rawBody;
-  if (!rawBody) {
-    return reply.code(400).send({ error: 'missing_body' });
-  }
+    const rawBody = (req as typeof req & { rawBody?: string }).rawBody;
+    if (!rawBody) {
+      return reply.code(400).send({ error: 'missing_body' });
+    }
 
-  if (!verifyEchoForwardSignature(req, rawBody, secret)) {
-    return reply.code(401).send({ error: 'invalid_signature' });
-  }
+    if (!verifyEchoForwardSignature(req, rawBody, secret)) {
+      return reply.code(401).send({ error: 'invalid_signature' });
+    }
 
-  let envelope: LiveKitWebhookEnvelope;
-  try {
-    envelope = JSON.parse(rawBody) as LiveKitWebhookEnvelope;
-  } catch {
-    return reply.code(400).send({ error: 'invalid_json' });
-  }
+    let envelope: LiveKitWebhookEnvelope;
+    try {
+      envelope = JSON.parse(rawBody) as LiveKitWebhookEnvelope;
+    } catch {
+      return reply.code(400).send({ error: 'invalid_json' });
+    }
 
-  const event = String(envelope.event ?? 'unknown');
-  voiceSidecarIngestTotal.inc({ source: 'livekit_webhook', event });
+    const event = String(envelope.event ?? 'unknown');
+    voiceSidecarIngestTotal.inc({ source: 'livekit_webhook', event });
 
-  pipeline.ingestLiveKitWebhook(envelope);
-  return reply.code(204).send();
-});
+    pipeline.ingestLiveKitWebhook(envelope);
+    return reply.code(204).send();
+  },
+);
 
 async function main() {
+  await app.register(rateLimit, {
+    max: 600,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => `voice_sidecar_ip:${req.ip}`,
+    addHeaders: { 'retry-after': true },
+  });
   await app.listen({
     host: sidecarConfig.host,
     port: sidecarConfig.port,

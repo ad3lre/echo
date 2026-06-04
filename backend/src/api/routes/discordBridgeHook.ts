@@ -20,6 +20,7 @@ import {
   requireBotWebhookSecret,
   requireWebhookDeliveryId,
 } from '../discordBotWebhookAuth';
+import { DISCORD_BOT_WEBHOOK_ROUTE_RATE } from '../sharedMutationRateLimits';
 import { echoDiscordBridgeInboundTotal } from '../../observability/echoMetrics';
 
 function parseBridgeEvent(
@@ -74,6 +75,7 @@ export default async function discordBridgeHookRoutes(
 
   fastify.post<{ Body: Record<string, unknown> }>(
     '/hooks/discord-bridge/inbound',
+    { config: { rateLimit: DISCORD_BOT_WEBHOOK_ROUTE_RATE } },
     async (req, reply) => {
       const secret = requireBotWebhookSecret(req, reply);
       if (!secret) return;

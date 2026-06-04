@@ -10,9 +10,16 @@ export type VideoProbeResult = VideoDimensions & {
   frameUrl: string;
 };
 
+function assertBlobMediaUrl(url: string): void {
+  if (!url.startsWith('blob:')) {
+    throw new Error('Video probe requires a blob: URL');
+  }
+}
+
 function loadVideoMetadata(
   url: string,
 ): Promise<{ video: HTMLVideoElement; width: number; height: number }> {
+  assertBlobMediaUrl(url);
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.preload = 'metadata';

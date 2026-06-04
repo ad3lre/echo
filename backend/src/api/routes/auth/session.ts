@@ -67,6 +67,13 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
     refreshScope.post<{ Body: AuthRefreshBody }>(
       '/refresh',
       {
+        config: {
+          rateLimit: {
+            max: 120,
+            timeWindow: '15 minutes',
+            keyGenerator: refreshLimiterKey,
+          },
+        },
         schema: {
           body: {
             type: 'object',

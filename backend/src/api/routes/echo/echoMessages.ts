@@ -90,6 +90,7 @@ import type {
   MessageFailedCode,
 } from '../../../../../shared/types';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
+import { ECHO_MESSAGE_PATCH_RATE } from '../../sharedMutationRateLimits';
 import {
   echoPool,
   requireEchoStore,
@@ -1170,7 +1171,10 @@ export default async function echoMessagesRoutes(
     };
   }>(
     '/channels/:channelId/messages/:messageId',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_MESSAGE_PATCH_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);

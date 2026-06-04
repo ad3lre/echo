@@ -16,6 +16,7 @@ function run(): void {
     'away',
   );
   assert.equal(sanitizeProfileBio('<b>bio</b> text'), 'bio text');
+  assert.equal(stripProfileHtmlMarkup('<<script>alert(1)</script>>x'), '<>x');
 
   const display = validateDisplayName('<i>Alice</i>', 'fallback');
   assert.equal(display.ok, true);

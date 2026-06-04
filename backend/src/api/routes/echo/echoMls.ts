@@ -26,18 +26,12 @@ import {
 import { ECHO_DM_REALM_SERVER_ID } from '../../../domain/echoStore/dmThreads';
 import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
 import { publishVoiceMlsMessage } from '../../../platform/echoPlatformEvents';
-import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
+import { MLS_READ_RATE, MLS_WRITE_RATE } from '../../sharedMutationRateLimits';
 import {
   echoPool,
   requireEchoStore,
   trimEchoPathParam,
 } from './echoRouteUtils';
-
-const MLS_WRITE_RATE = {
-  max: 60,
-  timeWindow: '1 minute' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
 
 function sendInitError(reply: FastifyReply, r: InitMlsGroupResult): unknown {
   if (r.ok) return null;
@@ -555,7 +549,10 @@ export default async function echoMlsRoutes(
   // ---- DM voice MLS ----
   fastify.get<{ Params: { channelId: string } }>(
     '/dm/channels/:channelId/voice/mls/group-info',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: MLS_READ_RATE },
+    },
     (req, reply) =>
       handleGroupInfo(
         req,
@@ -623,7 +620,10 @@ export default async function echoMlsRoutes(
   // ---- Guild voice MLS ----
   fastify.get<{ Params: { serverId: string; channelId: string } }>(
     '/servers/:serverId/channels/:channelId/voice/mls/group-info',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: MLS_READ_RATE },
+    },
     (req, reply) =>
       handleGroupInfo(
         req,
