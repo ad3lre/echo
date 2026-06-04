@@ -27,3 +27,15 @@ extensions:
           'true',
           'request-forgery',
         ]
+      - [
+          'backend/src/domain/discordCdnUrls',
+          'Member[isDiscordHostedImportMediaUrl].Argument[0]',
+          'true',
+          'request-forgery',
+        ]
+      - [
+          'discordCdnUrls',
+          'Member[isDiscordHostedImportMediaUrl].Argument[0]',
+          'true',
+          'request-forgery',
+        ]

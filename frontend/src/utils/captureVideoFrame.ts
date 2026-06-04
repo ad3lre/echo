@@ -10,16 +10,19 @@ export type VideoProbeResult = VideoDimensions & {
   frameUrl: string;
 };
 
-function assertBlobMediaUrl(url: string): void {
-  if (!url.startsWith('blob:')) {
+/** Only `blob:` URLs from createObjectURL are assigned to <video src>. */
+export function blobUrlForVideoElement(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed.startsWith('blob:')) {
     throw new Error('Video probe requires a blob: URL');
   }
+  return trimmed;
 }
 
 function loadVideoMetadata(
   url: string,
 ): Promise<{ video: HTMLVideoElement; width: number; height: number }> {
-  assertBlobMediaUrl(url);
+  const safeSrc = blobUrlForVideoElement(url);
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.preload = 'metadata';
@@ -46,7 +49,7 @@ function loadVideoMetadata(
     };
     video.addEventListener('loadedmetadata', onMeta);
     video.addEventListener('error', onErr);
-    video.src = url;
+    video.src = safeSrc;
   });
 }
 

@@ -47,6 +47,19 @@ export function isDiscordHostedImportMediaUrl(raw: string): boolean {
  * (`ex` / `is` / `hm` query params). Host is ignored so `cdn.discordapp.com` and
  * `media.discordapp.net` proxy URLs for one attachment still match.
  */
+/** SSRF-safe fetch entry for Discord CDN import mirroring (host allowlist only). */
+export async function fetchDiscordHostedImportMedia(
+  raw: string,
+  init: RequestInit & { maxBytes?: number } = {},
+): Promise<Response | null> {
+  if (!isDiscordHostedImportMediaUrl(raw)) return null;
+  const url = raw.trim();
+  return fetch(url, {
+    ...init,
+    redirect: 'error',
+  });
+}
+
 export function discordCdnUrlStableKey(raw: string): string | null {
   const s = typeof raw === 'string' ? raw.trim() : '';
   if (!s || !isDiscordHostedImportMediaUrl(s)) return null;

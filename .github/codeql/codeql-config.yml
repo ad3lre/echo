@@ -6,6 +6,10 @@ query-filters:
   - exclude:
       id: js/missing-rate-limiting
       problem.path: backend/src/api/routes/echo/echoMls.ts
+  # Local blob: URLs from createObjectURL only; CodeQL still flags video.src assignment.
+  - exclude:
+      id: js/xss-through-dom
+      problem.path: frontend/src/utils/captureVideoFrame.ts
 
 # Dev/operator scripts and tests are not production attack surface.
 paths-ignore:

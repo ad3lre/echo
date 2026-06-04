@@ -2,7 +2,10 @@ import path from 'path';
 import type pg from 'pg';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { config } from '../config';
-import { isDiscordHostedImportMediaUrl } from '../domain/discordCdnUrls';
+import {
+  fetchDiscordHostedImportMedia,
+  isDiscordHostedImportMediaUrl,
+} from '../domain/discordCdnUrls';
 import {
   parseDiscordAvatarHashFromCdnUrl,
   resolveDiscordAvatarForStorage,
@@ -50,13 +53,12 @@ function guessContentTypeFromUrl(url: string): string | null {
 async function fetchDiscordAvatarBytes(
   url: string,
 ): Promise<{ buf: Buffer; contentType: string } | null> {
-  if (!isDiscordHostedImportMediaUrl(url)) return null;
   try {
-    const res = await fetch(url, {
+    const res = await fetchDiscordHostedImportMedia(url, {
       headers: { 'User-Agent': 'EchoDiscordImportAvatar/1.0' },
       signal: AbortSignal.timeout(60_000),
-      redirect: 'error',
     });
+    if (!res) return null;
     if (!res.ok) return null;
     const headerCt =
       res.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
