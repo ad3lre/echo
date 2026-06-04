@@ -202,7 +202,7 @@
     "esbuild": "^0.28.0",
     "eslint": "^10.2.1",
     "eslint-plugin-vue": "^10.9.1",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^20.10.1",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.11",
     "postcss-html": "^1.8.1",
