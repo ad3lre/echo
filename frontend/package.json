@@ -155,7 +155,7 @@
     "@tiptap/extension-bubble-menu": "^3.23.6",
     "@tiptap/extension-code": "^3.23.6",
     "@tiptap/extension-color": "^3.23.6",
-    "@tiptap/extension-font-family": "^3.23.6",
+    "@tiptap/extension-font-family": "^3.25.0",
     "@tiptap/extension-highlight": "^3.23.6",
     "@tiptap/extension-image": "^3.23.6",
     "@tiptap/extension-italic": "^3.23.6",
