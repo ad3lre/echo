@@ -3,6 +3,7 @@ import { FastifyInstance, FastifyPluginOptions, FastifyRequest } from 'fastify';
 import { requireAuth, getAuthUser } from '../../../auth/middleware';
 import {
   ECHO_MSG_NOT_SERVER_MEMBER,
+  sendEchoChannelAccessDenied,
   sendEchoVoiceJoinDenied,
   sendError,
 } from '../../errors';
@@ -23,7 +24,10 @@ import {
   getEchoChannelType,
   type EchoVoiceModerationAction,
 } from '../../../domain/echoStore';
-import { isMemberOfServer } from '../../../domain/echoPermissions';
+import {
+  diagnoseEchoChannelAccess,
+  isMemberOfServer,
+} from '../../../domain/echoPermissions';
 import {
   publishEchoWorkspaceEvent,
   publishVoiceRosterDelta,
@@ -249,6 +253,7 @@ export default async function echoVoiceRoutes(
         serverId,
         channelId,
         getAuthUser(req).id,
+        { membershipAlreadyVerified: true },
       );
       if (!r.ok) {
         if (r.reason === 'not_found')
@@ -365,6 +370,7 @@ export default async function echoVoiceRoutes(
         serverId,
         channelId,
         getAuthUser(req).id,
+        { membershipAlreadyVerified: true },
       );
       if (!r.ok) {
         if (r.reason === 'not_found')
@@ -679,6 +685,18 @@ export default async function echoVoiceRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
+      }
+      const access = await diagnoseEchoChannelAccess(
+        pool,
+        getAuthUser(req).id,
+        channelId,
+      );
+      if (!access.ok) {
+        vcTrace(req.log, 'voice.participants:channel_forbidden', {
+          serverId,
+          channelId,
+        });
+        return sendEchoChannelAccessDenied(reply, access);
       }
       const participants = await listEchoVoiceParticipants(
         pool,

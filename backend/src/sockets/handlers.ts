@@ -29,7 +29,10 @@ import {
 import { registerPollVoteHandler } from './pollVoteHandler';
 import { registerTypingHandler } from './typingHandler';
 import { registerPaperWatchHandler } from './paperWatchHandler';
-import { registerPaperCollabHandler } from './paperCollabHandler';
+import {
+  registerPaperCollabHandler,
+  startPaperCollabLockPruner,
+} from './paperCollabHandler';
 import { appendBackendDiagnostic } from '../observability/sessionDiagnostics';
 import { touchAuthUserLastSeenIp } from '../auth/authUserLastSeenIp';
 import { clientIpFromSocketHandshake } from '../net/clientIp';
@@ -359,4 +362,5 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
   });
 
   log.info('Registered Socket.IO handlers and awaiting connections');
+  startPaperCollabLockPruner(io);
 }

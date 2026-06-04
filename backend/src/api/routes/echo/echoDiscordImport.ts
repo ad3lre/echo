@@ -14,6 +14,10 @@ import {
   runDiscordImportStep,
 } from '../../../services/discordImport';
 import { DiscordImportQuotaError } from '../../../services/discordImportQuota';
+import {
+  DiscordImportAuthorizationError,
+  requireDiscordImportableGuildForUser,
+} from '../../../services/discordImportAuthorization';
 import { countEchoMessagesInChannel } from '../../../domain/echoMessagesDal';
 import { runDiscordMessageImport } from '../../../services/discordMessageImport';
 import { runDiscordImportPostSetup } from '../../../services/discordImportPostSetup';
@@ -28,6 +32,13 @@ import {
   ECHO_DISCORD_IMPORT_CHANNEL_RATE,
   ECHO_DISCORD_IMPORT_RUN_FULL_RATE,
 } from '../../sharedMutationRateLimits';
+
+function discordImportAuthError(
+  reply: Parameters<typeof sendError>[0],
+  err: DiscordImportAuthorizationError,
+) {
+  return sendError(reply, err.statusCode, err.errorCode, err.publicMessage);
+}
 
 function importStepFromBody(
   raw: unknown,
@@ -126,9 +137,17 @@ export default async function echoDiscordImportRoutes(
         );
       }
       try {
+        await requireDiscordImportableGuildForUser(
+          pool,
+          actorId,
+          discordGuildId,
+        );
         await bindDiscordImportGuild(pool, sid, discordGuildId);
         return reply.code(204).send();
       } catch (err) {
+        if (err instanceof DiscordImportAuthorizationError) {
+          return discordImportAuthError(reply, err);
+        }
         req.log.warn({ err, serverId: sid }, 'discord_import_bind_failed');
         return sendError(
           reply,
@@ -182,6 +201,11 @@ export default async function echoDiscordImportRoutes(
       const discordGuildId = typeof raw === 'string' ? raw.trim() : '';
       try {
         if (discordGuildId) {
+          await requireDiscordImportableGuildForUser(
+            pool,
+            actorId,
+            discordGuildId,
+          );
           await bindDiscordImportGuild(pool, sid, discordGuildId);
         }
         fastify.log.info(
@@ -223,6 +247,9 @@ export default async function echoDiscordImportRoutes(
           nextChannelId: last.nextChannelId ?? '',
         });
       } catch (error) {
+        if (error instanceof DiscordImportAuthorizationError) {
+          return discordImportAuthError(reply, error);
+        }
         fastify.log.error({ err: error }, 'Discord import run-full failed');
         if (error instanceof DiscordImportQuotaError) {
           return sendError(
@@ -419,6 +446,20 @@ export default async function echoDiscordImportRoutes(
         );
       }
       try {
+        const boundRow = await pool.query<{ discord_guild_id: string | null }>(
+          `SELECT discord_guild_id FROM echo_discord_import_states WHERE server_id = $1 LIMIT 1`,
+          [sid],
+        );
+        const boundGuildId = String(
+          boundRow.rows[0]?.discord_guild_id ?? '',
+        ).trim();
+        if (boundGuildId) {
+          await requireDiscordImportableGuildForUser(
+            pool,
+            actorId,
+            boundGuildId,
+          );
+        }
         const result = await runDiscordImportRefreshFromExport(
           pool,
           sid,
@@ -438,6 +479,9 @@ export default async function echoDiscordImportRoutes(
         );
         return reply.code(200).send(result);
       } catch (error) {
+        if (error instanceof DiscordImportAuthorizationError) {
+          return discordImportAuthError(reply, error);
+        }
         fastify.log.error(
           { err: error },
           'Discord import refresh-from-export failed',

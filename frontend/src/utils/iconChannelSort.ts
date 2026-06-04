@@ -88,6 +88,69 @@ export const VOICE_KEYWORD_ORDER = [
 ] as const;
 
 /** Good for channels but not specifically “bubble vs mic” — ranked after tier 0. */
+/** Vendored `math-*.svg` pack — substring match on filename stem. */
+export const MATH_PACK_KEYWORD_ORDER = [
+  'math',
+  'sigma',
+  'pi',
+  'infinity',
+  'calculator',
+  'percent',
+  'divide',
+  'function',
+  'radical',
+  'chart',
+  'atom',
+  'dna',
+  'flask',
+  'microscope',
+  'ruler',
+  'graduation',
+  'brain',
+  'equals',
+  'operations',
+] as const;
+
+/** Vendored `hobby-*.svg` pack — games, sports, nature, creative. */
+export const HOBBY_PACK_KEYWORD_ORDER = [
+  'hobby',
+  'game',
+  'dice',
+  'trophy',
+  'medal',
+  'puzzle',
+  'palette',
+  'paint',
+  'guitar',
+  'piano',
+  'music',
+  'flower',
+  'tree',
+  'leaf',
+  'paw',
+  'fish',
+  'basketball',
+  'football',
+  'soccer',
+  'tennis',
+  'volleyball',
+  'golf',
+  'campfire',
+  'tent',
+  'mountain',
+  'backpack',
+  'bicycle',
+  'train',
+  'rocket',
+  'planet',
+  'ghost',
+  'skull',
+  'robot',
+  'magic',
+  'alien',
+  'balloon',
+] as const;
+
 export const SECONDARY_KEYWORD_ORDER = [
   'user',
   'people',
@@ -194,9 +257,12 @@ function bestKeywordIndex(
 }
 
 export interface ChannelIconSortKeys {
-  tier: 0 | 1 | 2;
+  /** 0 = chat/voice core, 1 = math/hobby packs, 2 = secondary, 3 = other */
+  tier: 0 | 1 | 2 | 3;
   chatIdx: number;
   voiceIdx: number;
+  mathIdx: number;
+  hobbyIdx: number;
   secondaryIdx: number;
   label: string;
 }
@@ -207,15 +273,26 @@ export function getChannelIconSortKeys(
   const fileLower = entry.id.toLowerCase();
   const chatIdx = bestKeywordIndex(fileLower, CHAT_KEYWORD_ORDER);
   const voiceIdx = bestKeywordIndex(fileLower, VOICE_KEYWORD_ORDER);
+  const mathIdx = bestKeywordIndex(fileLower, MATH_PACK_KEYWORD_ORDER);
+  const hobbyIdx = bestKeywordIndex(fileLower, HOBBY_PACK_KEYWORD_ORDER);
   const secondaryIdx = bestKeywordIndex(fileLower, SECONDARY_KEYWORD_ORDER);
 
   const inCore = chatIdx < MAX || voiceIdx < MAX;
-  const tier: 0 | 1 | 2 = inCore ? 0 : secondaryIdx < MAX ? 1 : 2;
+  const inPack = mathIdx < MAX || hobbyIdx < MAX;
+  const tier: 0 | 1 | 2 | 3 = inCore
+    ? 0
+    : inPack
+      ? 1
+      : secondaryIdx < MAX
+        ? 2
+        : 3;
 
   return {
     tier,
     chatIdx,
     voiceIdx,
+    mathIdx,
+    hobbyIdx,
     secondaryIdx,
     label: entry.label,
   };
@@ -240,6 +317,17 @@ function compareByChannelType(
   }
 
   if (a.tier === 1) {
+    if (channelType === 'text') {
+      if (a.mathIdx !== b.mathIdx) return a.mathIdx - b.mathIdx;
+      if (a.hobbyIdx !== b.hobbyIdx) return a.hobbyIdx - b.hobbyIdx;
+    } else {
+      if (a.hobbyIdx !== b.hobbyIdx) return a.hobbyIdx - b.hobbyIdx;
+      if (a.mathIdx !== b.mathIdx) return a.mathIdx - b.mathIdx;
+    }
+    return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+  }
+
+  if (a.tier === 2) {
     if (a.secondaryIdx !== b.secondaryIdx)
       return a.secondaryIdx - b.secondaryIdx;
     return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });

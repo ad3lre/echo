@@ -154,6 +154,17 @@ async function main() {
     assert.equal(isPrivateOrLocalIpLiteral('::ffff:169.254.169.254'), true);
   });
 
+  await run('rejects IPv4-compatible and NAT64 private literals', () => {
+    assert.equal(isPrivateOrLocalIpLiteral('::7f00:1'), true);
+    assert.equal(isPrivateOrLocalIpLiteral('::127.0.0.1'), true);
+    assert.equal(isPrivateOrLocalIpLiteral('64:ff9b::10.0.0.1'), true);
+    assert.equal(
+      isUrlSafeForOutboundFetch('https://[64:ff9b::127.0.0.1]/'),
+      false,
+    );
+    assert.equal(isUrlSafeForOutboundFetch('https://[::7f00:1]/'), false);
+  });
+
   process.exit(failed ? 1 : 0);
 }
 

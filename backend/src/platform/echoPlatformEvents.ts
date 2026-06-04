@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import type { Server } from 'socket.io';
 import type { EchoWorkspaceEvent } from '../../../shared/types/socket';
+import { canUserAccessChannel } from '../domain/echoPermissions';
+import { getPgPool } from '../db/pg';
 import { echoWorkspaceEventPublishedTotal } from '../observability/echoMetrics';
 import { botEventBus } from './botEventBus';
 
@@ -99,20 +101,73 @@ export function publishVoiceRosterDelta(
   >,
   auditVersion: string,
 ): void {
-  const occurredAt = new Date().toISOString();
-  publishEchoWorkspaceEvent(
+  void publishVoiceRosterDeltaFiltered(
     fastify,
-    {
-      kind: 'voice_roster_delta',
-      version: auditVersion,
+    serverId,
+    delta,
+    auditVersion,
+  ).catch(() => {
+    /* best-effort realtime; workspace_invalidated remains the correctness fallback */
+  });
+}
+
+/**
+ * Fan out voice roster deltas only to sockets whose user can access the voice channel.
+ * Broadcasting to the whole server room would leak private/staff channel attendance.
+ */
+async function publishVoiceRosterDeltaFiltered(
+  fastify: FastifyInstance,
+  serverId: string,
+  delta: Omit<
+    NonNullable<EchoWorkspaceEvent['voiceRosterDelta']>,
+    'serverId' | 'workspaceVersion' | 'occurredAt'
+  >,
+  auditVersion: string,
+): Promise<void> {
+  const io = getIo(fastify);
+  if (!io) return;
+
+  const channelId =
+    typeof delta.channelId === 'string' ? delta.channelId.trim() : '';
+  if (!channelId) return;
+
+  const occurredAt = new Date().toISOString();
+  const payload: EchoWorkspaceEvent = {
+    kind: 'voice_roster_delta',
+    version: auditVersion,
+    serverId,
+    voiceRosterDelta: {
+      ...delta,
       serverId,
-      voiceRosterDelta: {
-        ...delta,
-        serverId,
-        workspaceVersion: auditVersion,
-        occurredAt,
-      },
+      workspaceVersion: auditVersion,
+      occurredAt,
     },
-    { serverId },
+  };
+
+  echoWorkspaceEventPublishedTotal.inc({ kind: payload.kind });
+  botEventBus.emitBotEvent({ kind: 'workspace', payload });
+
+  const pool = getPgPool();
+  if (!pool) return;
+
+  const room = io.sockets.adapter.rooms.get(`echo:server:${serverId}`);
+  if (!room) return;
+
+  await Promise.all(
+    [...room].map(async (socketId) => {
+      const socket = io.sockets.sockets.get(socketId);
+      if (!socket?.data?.authenticated) return;
+      const userId = socket.data.userId;
+      if (typeof userId !== 'string' || !userId || userId.startsWith('user_')) {
+        return;
+      }
+      try {
+        if (await canUserAccessChannel(pool, userId, channelId)) {
+          socket.emit('echo:workspace_event', payload);
+        }
+      } catch {
+        /* skip broken socket evaluation */
+      }
+    }),
   );
 }

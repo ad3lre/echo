@@ -36,7 +36,6 @@ import {
   disconnectAllSocketsForAuthUser,
   disconnectSocketsForAuthSession,
 } from '../../../services/auth/socketSessionRevocation';
-
 export default async function sessionRoutes(fastify: FastifyInstance) {
   function refreshLimiterKey(req: {
     ip: string;
@@ -273,11 +272,19 @@ export default async function sessionRoutes(fastify: FastifyInstance) {
             createdAt: string;
             expiresAt: string;
             isCurrentSession?: boolean;
+            userAgent?: string | null;
+            location?: string | null;
           } = {
             id: s.id,
             createdAt: s.createdAt,
             expiresAt: s.expiresAt,
           };
+          if (s.userAgent != null && s.userAgent !== '') {
+            row.userAgent = s.userAgent;
+          }
+          if (s.location != null && s.location !== '') {
+            row.location = s.location;
+          }
           if (currentRtId) {
             row.isCurrentSession = s.id === currentRtId;
           }

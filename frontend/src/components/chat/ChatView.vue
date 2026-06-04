@@ -55,6 +55,8 @@ import { extractChatImageSearchSeeds } from '@/utils/imageSearchSeedKeywords';
 import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
 import { useEchoChatBottomChromeReporter } from '@/features/layout/composables/useEchoChatBottomChromeReporter';
 import SelfAssignableRolesWidget from '@/features/self-roles/components/SelfAssignableRolesWidget.vue';
+import EmojiInspectCard from '@/components/chat/EmojiInspectCard.vue';
+import { useEmojiInspect } from '@/composables/useEmojiInspect';
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 const chatColumnRef = ref<HTMLElement | null>(null);
@@ -310,6 +312,8 @@ const props = defineProps<{
   canShowDiscordChannelImport?: boolean;
   /** Transient navigation/loading state (e.g. opening DM thread) to suppress empty-state copy. */
   transitionLoading?: boolean;
+  /** Guild channel tree / active channel still settling on servers rail. */
+  guildShellSettling?: boolean;
   /**
    * Parent already provides a back affordance (e.g. forum post split header).
    * Hides the floating top-right "Back to forum" pill only; message list forum styling unchanged.
@@ -565,6 +569,17 @@ provide('ensureCustomEmojiId', chatCustomEmoji.ensureEmojiId);
 provide('customEmojiUrlById', chatCustomEmoji.customEmojiUrlById);
 provide('idTokenResolvers', chatCustomEmoji.idTokenResolvers);
 
+const {
+  open: emojiInspectOpen,
+  info: emojiInspectInfo,
+  triggerRect: emojiInspectTriggerRect,
+  close: closeEmojiInspect,
+} = useEmojiInspect({
+  rootRef: chatColumnRef,
+  serverId: computed(() => props.serverId),
+  customEmojiUrlById: chatCustomEmoji.customEmojiUrlById,
+});
+
 const isDiscordImportedServer = computed(() => {
   const s = serverStore.servers.find((s) => s.id === props.serverId);
   return !!s?.discordGuildId;
@@ -692,6 +707,12 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
       v-model="documentViewerOpen"
       :attachment="documentViewerDocument"
     />
+    <EmojiInspectCard
+      :open="emojiInspectOpen"
+      :info="emojiInspectInfo"
+      :trigger-rect="emojiInspectTriggerRect"
+      @close="closeEmojiInspect"
+    />
     <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         v-if="canShowDiscordTab"
@@ -782,6 +803,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         :loading-older="echoLoadingOlder"
         :initial-history-loading="echoInitialHistoryLoading"
         :transition-loading="transitionLoading"
+        :guild-shell-settling="guildShellSettling"
         :no-servers-yet="noServersYet"
         :on-open-explore="onOpenExplore"
         :is-discord-imported-server="isDiscordImportedServer"
@@ -1133,6 +1155,7 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
   vertical-align: -0.15em;
   display: inline-block;
   object-fit: contain;
+  cursor: pointer;
   box-sizing: content-box;
 }
 </style>

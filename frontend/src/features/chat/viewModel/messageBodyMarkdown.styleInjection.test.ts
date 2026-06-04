@@ -14,7 +14,10 @@
  * smuggles a full-viewport overlay past sanitization (confirmed bypass).
  */
 import { describe, expect, it } from 'vitest';
-import { parseMessageContent } from '@/composables/useMarkdown';
+import {
+  ensureKatexReady,
+  parseMessageContent,
+} from '@/composables/useMarkdown';
 
 describe('message style-attribute hardening', () => {
   it('strips style from plain user HTML (outside .katex)', () => {
@@ -49,7 +52,10 @@ describe('message style-attribute hardening', () => {
     expect(out.toLowerCase()).not.toMatch(/z-index/);
   });
 
-  it('still renders real KaTeX with its inline layout styles intact', () => {
+  it('still renders real KaTeX with its inline layout styles intact', async () => {
+    // KaTeX is lazy-loaded; warm the chunk so we assert on typeset output
+    // rather than the interim placeholder.
+    await ensureKatexReady();
     const out = parseMessageContent('$\\frac{1}{2}$');
     // KaTeX emits inline style (height/vertical-align/etc.) on layout spans.
     expect(out).toMatch(/style=/i);

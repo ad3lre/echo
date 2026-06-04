@@ -39,6 +39,7 @@ const emit = defineEmits<{
   delete: [commentId: string];
   reply: [parentId: string];
   scrollToBlock: [anchorBlockId: string];
+  'toggle-resolved': [];
 }>();
 
 const blockTopById = computed(() => {
@@ -144,6 +145,11 @@ const composerPlaceholder = computed(() => {
   return 'Add a comment…';
 });
 
+const resolvedCount = computed(
+  () =>
+    props.comments.filter((c) => !c.parentCommentId && !!c.resolvedAt).length,
+);
+
 function pinLabel(count: number) {
   return count > 9 ? '9+' : String(count);
 }
@@ -212,7 +218,7 @@ function onDraftInput(ev: Event) {
               }}</span>
               <div class="flex shrink-0 gap-1" @click.stop>
                 <button
-                  v-if="canComment"
+                  v-if="canComment && !c.resolvedAt"
                   type="button"
                   class="paper-icon-btn px-1 text-[10px] text-fg-subtle hover:text-fg"
                   @click="emit('reply', c.id)"
@@ -226,6 +232,15 @@ function onDraftInput(ev: Event) {
                   @click="emit('resolve', c.id, !c.resolvedAt)"
                 >
                   {{ c.resolvedAt ? 'Reopen' : 'Resolve' }}
+                </button>
+                <button
+                  v-if="canManage || c.authorId === currentUserId"
+                  type="button"
+                  class="paper-icon-btn px-1 text-[10px] text-fg-subtle hover:text-red-400"
+                  title="Delete comment"
+                  @click="emit('delete', c.id)"
+                >
+                  Delete
                 </button>
               </div>
             </div>
@@ -260,6 +275,32 @@ function onDraftInput(ev: Event) {
         </div>
       </article>
     </TransitionGroup>
+
+    <Transition name="paper-comment-resolved-toggle">
+      <button
+        v-if="canManage && resolvedCount > 0"
+        type="button"
+        class="paper-resolved-toggle pointer-events-auto"
+        :style="{
+          left: `${positioned.at(-1)?.left ?? pageLayout.left + PAPER_COMMENT_GAP + pageLayout.width}px`,
+          top: `${(positioned.at(-1)?.top ?? stackedBaseTop) + 116}px`,
+          width: `${PAPER_CARD_WIDTH}px`,
+        }"
+        @click="emit('toggle-resolved')"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          class="h-3 w-3 shrink-0"
+          aria-hidden="true"
+        >
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+        {{ showResolved ? 'Hide resolved' : `Show ${resolvedCount} resolved` }}
+      </button>
+    </Transition>
 
     <Transition name="paper-comment-composer">
       <div
@@ -353,5 +394,29 @@ function onDraftInput(ev: Event) {
 .paper-comment-composer {
   position: absolute;
   z-index: 30;
+}
+
+.paper-resolved-toggle {
+  position: absolute;
+  z-index: 23;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--elevated);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-subtle);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.paper-resolved-toggle:hover {
+  background: var(--glass-hover);
+  color: var(--fg);
 }
 </style>

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX,
   extractStorageKeyFromEchoMediaUrl,
   hlsManifestStorageKeyForSourceKey,
   hlsPackPrefixForSourceKey,
   isEchoPublicServerBrandingStorageKey,
+  isSafeEchoUploadStorageKeyPath,
+  normalizeEchoUploadStorageKeyPath,
   stripExtension,
 } from '@shared/echoUploadStorageKey';
 import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '@shared/echoS3ReadThrough';
@@ -31,6 +34,30 @@ describe('echoUploadStorageKey shared helpers', () => {
         `${ECHO_S3_PUBLIC_READ_THROUGH_PREFIX}echo/channels/c/u/clip.mp4`,
       ),
     ).toBe('echo/channels/c/u/clip.mp4');
+  });
+
+  it('rejects traversal in normalizeEchoUploadStorageKeyPath', () => {
+    expect(normalizeEchoUploadStorageKeyPath('echo/channels/x.png')).toBe(
+      'echo/channels/x.png',
+    );
+    expect(normalizeEchoUploadStorageKeyPath('../etc/passwd')).toBeNull();
+    expect(normalizeEchoUploadStorageKeyPath('echo/a/../b.png')).toBeNull();
+    expect(normalizeEchoUploadStorageKeyPath('/echo/x.png')).toBeNull();
+    expect(normalizeEchoUploadStorageKeyPath('echo\\..\\x.png')).toBeNull();
+    expect(isSafeEchoUploadStorageKeyPath('data:text/html,x')).toBe(false);
+  });
+
+  it('extractStorageKeyFromEchoMediaUrl rejects traversal in local file URLs', () => {
+    expect(
+      extractStorageKeyFromEchoMediaUrl(
+        `${ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX}echo%2F..%2F..%2Fsecret.png`,
+      ),
+    ).toBeNull();
+    expect(
+      extractStorageKeyFromEchoMediaUrl(
+        `${ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX}echo/channels/c/u/ok.png`,
+      ),
+    ).toBe('echo/channels/c/u/ok.png');
   });
 
   it('detects public server branding storage keys', () => {

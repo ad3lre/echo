@@ -32,6 +32,8 @@ import {
 } from '@/utils/theme';
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
+import type { EchoWorkspaceState } from '@/api/echoClient';
+import { prefetchWorkspaceBootstrapTextChannelsNonBlocking } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 import {
   readJwtSub,
   readWorkspaceSessionCache,
@@ -58,6 +60,10 @@ import {
 import { enqueueStartupTask } from '@/utils/startupScheduler';
 import { applyGpuTierToDocument, detectGpuTier } from '@/utils/gpuTier';
 import { installDevConsoleLogRecorder } from '@/dev/consoleLogRecorder';
+import {
+  echoClientDebugError,
+  echoClientDebugWarn,
+} from '@/utils/echoClientDebug';
 import { installGlobalAudioPlaybackUnlock } from '@/audio/audioPlaybackUnlock';
 import {
   preloadEchoSounds,
@@ -147,7 +153,7 @@ async function bootstrap() {
     void import('@tauri-apps/api/core')
       .then(({ invoke }) => invoke<string>('desktop_log_path'))
       .then((path) => {
-        console.warn(`[echo-desktop] log file: ${path}`);
+        echoClientDebugWarn(`[echo-desktop] log file: ${path}`);
       })
       .catch(() => {
         /* ignore */
@@ -169,7 +175,7 @@ async function bootstrap() {
           } catch {
             /* ignore */
           }
-          console.warn('[echo-desktop] api health probe', {
+          echoClientDebugWarn('[echo-desktop] api health probe', {
             url: `${API_BASE}/api/v1/health`,
             status: res.status,
             ok: res.ok,
@@ -177,7 +183,7 @@ async function bootstrap() {
           });
         })
         .catch((error: unknown) => {
-          console.error('[echo-desktop] api health probe failed', {
+          echoClientDebugError('[echo-desktop] api health probe failed', {
             url: `${API_BASE}/api/v1/health`,
             error:
               error instanceof Error
@@ -198,7 +204,7 @@ async function bootstrap() {
           } catch {
             /* ignore */
           }
-          console.warn('[echo-desktop] auth/me include probe', {
+          echoClientDebugWarn('[echo-desktop] auth/me include probe', {
             url: `${API_BASE}/api/v1/auth/me`,
             status: res.status,
             ok: res.ok,
@@ -206,7 +212,7 @@ async function bootstrap() {
           });
         })
         .catch((error: unknown) => {
-          console.error('[echo-desktop] auth/me include probe failed', {
+          echoClientDebugError('[echo-desktop] auth/me include probe failed', {
             url: `${API_BASE}/api/v1/auth/me`,
             error:
               error instanceof Error
@@ -227,7 +233,7 @@ async function bootstrap() {
           } catch {
             /* ignore */
           }
-          console.warn('[echo-desktop] auth/me omit probe', {
+          echoClientDebugWarn('[echo-desktop] auth/me omit probe', {
             url: `${API_BASE}/api/v1/auth/me`,
             status: res.status,
             ok: res.ok,
@@ -235,7 +241,7 @@ async function bootstrap() {
           });
         })
         .catch((error: unknown) => {
-          console.error('[echo-desktop] auth/me omit probe failed', {
+          echoClientDebugError('[echo-desktop] auth/me omit probe failed', {
             url: `${API_BASE}/api/v1/auth/me`,
             error:
               error instanceof Error
@@ -297,6 +303,12 @@ async function bootstrap() {
         (
           getEchoPlatform().workspace as WorkspaceStateApi
         ).preHydrateFromSessionCache(preCache);
+        if (preToken) {
+          prefetchWorkspaceBootstrapTextChannelsNonBlocking(
+            preToken,
+            preCache as EchoWorkspaceState,
+          );
+        }
       }
     }
   } catch {
@@ -325,7 +337,7 @@ async function bootstrap() {
       );
     }
     if (isDesktop()) {
-      console.warn('[echo-desktop] bootstrap desktop handoff check', {
+      echoClientDebugWarn('[echo-desktop] bootstrap desktop handoff check', {
         href: window.location.href,
         hasQueryHandoff: Boolean(params.get('echo_handoff')?.trim()),
         hasStoredHandoff: Boolean(readPendingDesktopOAuthHandoffCode()),
@@ -337,7 +349,7 @@ async function bootstrap() {
       if (echoHandoff) {
         const handoffLen = echoHandoff.length;
         const handoffHex64 = /^[0-9a-f]{64}$/i.test(echoHandoff);
-        console.warn('[echo-desktop] bootstrap handoff token shape', {
+        echoClientDebugWarn('[echo-desktop] bootstrap handoff token shape', {
           handoffLen,
           handoffHex64,
         });
@@ -349,9 +361,12 @@ async function bootstrap() {
       if (echoHandoff) {
         const pendingNonce = readPendingDesktopOAuthHandoffNonce();
         if (!pendingNonce) {
-          console.error('[echo-desktop] bootstrap missing pending nonce', {
-            hasHandoff: true,
-          });
+          echoClientDebugError(
+            '[echo-desktop] bootstrap missing pending nonce',
+            {
+              hasHandoff: true,
+            },
+          );
           clearAllPendingDesktopOAuthHandoffState();
           try {
             sessionStorage.setItem(
@@ -364,7 +379,7 @@ async function bootstrap() {
         } else {
           setSkipAutoGuestOnce();
           try {
-            console.warn('[echo-desktop] bootstrap redeem start', {
+            echoClientDebugWarn('[echo-desktop] bootstrap redeem start', {
               hasHandoff: true,
             });
             const payload = await authDesktopRedeemHandoff(
@@ -382,7 +397,7 @@ async function bootstrap() {
             try {
               await withTransientFetchRetries(() => authFetchMe());
             } catch (primeError: unknown) {
-              console.warn(
+              echoClientDebugWarn(
                 '[echo-desktop] bootstrap post-redeem session prime failed',
                 {
                   err:
@@ -392,13 +407,16 @@ async function bootstrap() {
                 },
               );
             }
-            console.warn('[echo-desktop] bootstrap redeem success', {
+            echoClientDebugWarn('[echo-desktop] bootstrap redeem success', {
               userId: payload.user.id,
             });
           } catch (error) {
-            console.error('[echo-desktop] bootstrap redeem failed', {
+            echoClientDebugError('[echo-desktop] bootstrap redeem failed', {
               hasHandoff: true,
-              error,
+              error:
+                error instanceof Error
+                  ? { name: error.name, message: error.message }
+                  : 'unknown',
             });
             clearAllPendingDesktopOAuthHandoffState();
             const recovered = await authSessionStore.restoreSessionFromApi();
@@ -412,7 +430,7 @@ async function bootstrap() {
                 /* ignore */
               }
             } else {
-              console.warn(
+              echoClientDebugWarn(
                 '[echo-desktop] bootstrap recover via /auth/me succeeded after redeem failure',
               );
               clearSkipAutoGuestOnce();

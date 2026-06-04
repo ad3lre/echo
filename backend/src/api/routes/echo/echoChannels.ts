@@ -35,6 +35,7 @@ import {
   trimEchoPathParam,
 } from './echoRouteUtils';
 import { echoPersistedMessageCreateAndBroadcast } from '../../../services/echoPersistedMessageCreate';
+import { evaluateEchoGuildOutboundMessageModeration } from '../../../services/echoGuildOutboundMessageModeration';
 import { validateMessagePayload } from '../../../sockets/messageValidation';
 
 export default async function echoChannelsRoutes(
@@ -251,11 +252,27 @@ export default async function echoChannelsRoutes(
         return sendError(reply, 400, 'INVALID_BODY', validated.error);
       }
 
+      const userId = getAuthUser(req).id;
+      const moderation = await evaluateEchoGuildOutboundMessageModeration(
+        pool,
+        {
+          serverId: sid,
+          channelId: postChannelId,
+          userId,
+          content: validated.value.content,
+          mentions: validated.value.mentions,
+        },
+      );
+      if (!moderation.ok) {
+        const { denial } = moderation;
+        return sendError(reply, denial.httpStatus, denial.code, denial.detail);
+      }
+
       const persistRes = await echoPersistedMessageCreateAndBroadcast(
         pool,
         fastify.io,
         fastify.log,
-        getAuthUser(req).id,
+        userId,
         {
           ...validated.value,
         },

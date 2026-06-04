@@ -1216,6 +1216,7 @@ function forwardInvite(payload?: {
               class="paper-editor-panel-stage__channels min-h-0 flex-1 flex flex-col overflow-hidden"
             >
               <ChannelPanelList
+                :allow-empty-state="!loading"
                 :effective-categories="effectiveCategories"
                 :active-channel-id="activeChannelId"
                 :server-owner-id="selectedServer?.ownerId ?? null"

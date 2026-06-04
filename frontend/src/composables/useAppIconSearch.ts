@@ -52,7 +52,7 @@ export function appIconEntriesForAutocompleteQuery(
 }
 
 /** Bust memoization when sort/grouping rules change. */
-const PICKER_CACHE_VER = 'v4-semantic-mega';
+const PICKER_CACHE_VER = 'v5-math-hobby-packs';
 
 const sortedCache = new Map<string, AppIconEntry[]>();
 const groupedCache = new Map<string, IconFamilyGroup[]>();

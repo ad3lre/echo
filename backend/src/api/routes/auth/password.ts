@@ -56,7 +56,7 @@ export default async function passwordRoutes(fastify: FastifyInstance) {
             });
           }
           const user = await store.findPasswordUserByEmail(email);
-          if (user && !user.isGuest && user.email) {
+          if (user && !user.isGuest && user.email && user.emailVerified) {
             await sendPasswordResetEmail(fastify.log, store, {
               id: user.id,
               username: user.username,

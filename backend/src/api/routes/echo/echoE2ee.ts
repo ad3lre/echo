@@ -20,6 +20,7 @@ import {
 import {
   diagnoseEchoChannelAccess,
   createEchoE2eePairingSession,
+  assertEchoE2eePeerBundleFetchQuota,
   echoUsersMayFetchE2eeDeviceBundle,
   getEchoE2eePairingStateForUser,
   getEchoE2eeThreadState,
@@ -223,7 +224,16 @@ export default async function echoE2eeRoutes(
           reply,
           403,
           'FORBIDDEN',
-          'You can only fetch device bundles for users you share a server, DM, or group chat with.',
+          'You can only fetch device bundles for users you have a DM, group chat, or active voice session with.',
+        );
+      }
+      const quota = await assertEchoE2eePeerBundleFetchQuota(pool, me, target);
+      if (quota === 'rate_limited') {
+        return sendError(
+          reply,
+          429,
+          'RATE_LIMITED',
+          'Too many device bundle requests for this user. Try again later.',
         );
       }
       let bundles: Awaited<ReturnType<typeof listEchoE2eePeerDeviceBundles>>;

@@ -60,7 +60,7 @@ function videoArticleMaxClass(i: number, embed: Embed) {
     /** Image / OG-style cards can read wider than compact text-only previews. */
     return embed.image?.url?.trim()
       ? 'max-w-[min(100%,min(92vw,36rem))]'
-      : 'max-w-[min(100%,480px)]';
+      : 'max-w-[min(100%,32rem)]';
   }
   return isVideoExpanded(i, embed)
     ? 'max-w-[min(100%,min(92vw,56rem))]'
@@ -155,6 +155,24 @@ function isRichMedia(embed: Embed): boolean {
   return Boolean(embed.image?.url?.trim()) || playableVideo(embed) != null;
 }
 
+function formatEmbedTimestamp(raw: string | undefined): string {
+  const s = raw?.trim();
+  if (!s) return '';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function embedHasFooter(embed: Embed): boolean {
+  return Boolean(embed.footer?.text?.trim() || embed.timestamp?.trim());
+}
+
 const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
 </script>
 
@@ -191,8 +209,15 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
             </div>
             <div
               v-if="embed.author?.name"
-              class="mt-1 text-sm font-semibold leading-snug text-fg"
+              class="mt-1 flex min-w-0 items-center gap-2 text-sm font-semibold leading-snug text-fg"
             >
+              <MessageEmbedRemoteImg
+                v-if="embed.author.icon_url"
+                :src="embed.author.icon_url"
+                alt=""
+                img-class="block h-5 w-5 rounded-full object-cover"
+                compact
+              />
               <a
                 v-if="embed.author.url"
                 :href="embed.author.url"
@@ -220,10 +245,52 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
             </h3>
             <p
               v-if="embed.description"
-              class="mt-1 line-clamp-2 text-xs leading-snug text-[#b5bac1]"
+              class="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-[#b5bac1]"
             >
               {{ embed.description }}
             </p>
+            <div
+              v-if="embed.fields?.length"
+              class="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-3"
+            >
+              <div
+                v-for="(field, fi) in embed.fields"
+                :key="`${fi}-${field.name}`"
+                :class="field.inline ? 'sm:col-span-1' : 'sm:col-span-3'"
+              >
+                <div
+                  class="text-[11px] font-semibold leading-snug text-[#f2f3f5]"
+                >
+                  {{ field.name }}
+                </div>
+                <div
+                  class="mt-0.5 whitespace-pre-wrap break-words text-[11px] leading-snug text-[#b5bac1]"
+                >
+                  {{ field.value }}
+                </div>
+              </div>
+            </div>
+            <div
+              v-if="embedHasFooter(embed)"
+              class="mt-2 flex min-w-0 items-center gap-2 text-[10px] leading-snug text-fg-subtle"
+            >
+              <MessageEmbedRemoteImg
+                v-if="embed.footer?.icon_url"
+                :src="embed.footer.icon_url"
+                alt=""
+                img-class="block h-4 w-4 rounded-full object-cover"
+                compact
+              />
+              <span v-if="embed.footer?.text" class="min-w-0 break-words">{{
+                embed.footer.text
+              }}</span>
+              <span
+                v-if="embed.timestamp"
+                class="shrink-0 before:mx-1 before:content-['•'] first:before:content-none"
+              >
+                {{ formatEmbedTimestamp(embed.timestamp) }}
+              </span>
+            </div>
           </div>
 
           <div
@@ -290,53 +357,107 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
         </div>
 
         <!-- Compact: thumbnail + text (non-video sites, small previews) -->
-        <div v-else class="relative flex min-w-0 flex-1 gap-3 py-2.5 pl-1 pr-3">
+        <div
+          v-else
+          class="relative flex min-w-0 flex-1 flex-col py-2.5 pl-1 pr-3"
+        >
+          <div class="flex min-w-0 gap-3">
+            <div
+              v-if="embed.thumbnail?.url"
+              class="shrink-0 self-start overflow-hidden rounded-md bg-scrim-1"
+              :style="embedMediaAspectStyle(embed.thumbnail)"
+            >
+              <MessageEmbedRemoteImg
+                :src="embed.thumbnail.url"
+                alt=""
+                :img-class="embedThumbImgClass(embed.thumbnail)"
+                compact
+              />
+            </div>
+            <div class="min-w-0 flex-1 pt-0.5">
+              <div
+                v-if="embed.provider"
+                class="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle"
+              >
+                {{ embed.provider }}
+              </div>
+              <div
+                v-else-if="embed.author?.name"
+                class="flex min-w-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
+              >
+                <MessageEmbedRemoteImg
+                  v-if="embed.author.icon_url"
+                  :src="embed.author.icon_url"
+                  alt=""
+                  img-class="block h-4 w-4 rounded-full object-cover"
+                  compact
+                />
+                <span>{{ embed.author.name }}</span>
+              </div>
+              <h3
+                class="mt-0.5 text-[15px] font-semibold leading-tight text-[#f2f3f5]"
+              >
+                <a
+                  v-if="embed.url"
+                  :href="embed.url"
+                  class="text-[#00a8fc] hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  @click.stop
+                >
+                  {{ embed.title || embed.url }}
+                </a>
+                <span v-else>{{ embed.title }}</span>
+              </h3>
+              <p
+                v-if="embed.description"
+                class="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-[#b5bac1]"
+              >
+                {{ embed.description }}
+              </p>
+            </div>
+          </div>
           <div
-            v-if="embed.thumbnail?.url"
-            class="shrink-0 self-start overflow-hidden rounded-md bg-scrim-1"
-            :style="embedMediaAspectStyle(embed.thumbnail)"
+            v-if="embed.fields?.length"
+            class="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-3"
+          >
+            <div
+              v-for="(field, fi) in embed.fields"
+              :key="`${fi}-${field.name}`"
+              :class="field.inline ? 'sm:col-span-1' : 'sm:col-span-3'"
+            >
+              <div
+                class="text-[11px] font-semibold leading-snug text-[#f2f3f5]"
+              >
+                {{ field.name }}
+              </div>
+              <div
+                class="mt-0.5 whitespace-pre-wrap break-words text-[11px] leading-snug text-[#b5bac1]"
+              >
+                {{ field.value }}
+              </div>
+            </div>
+          </div>
+          <div
+            v-if="embedHasFooter(embed)"
+            class="mt-2 flex min-w-0 items-center gap-2 text-[10px] leading-snug text-fg-subtle"
           >
             <MessageEmbedRemoteImg
-              :src="embed.thumbnail.url"
+              v-if="embed.footer?.icon_url"
+              :src="embed.footer.icon_url"
               alt=""
-              :img-class="embedThumbImgClass(embed.thumbnail)"
+              img-class="block h-4 w-4 rounded-full object-cover"
               compact
             />
-          </div>
-          <div class="min-w-0 flex-1 pt-0.5">
-            <div
-              v-if="embed.provider"
-              class="text-[10px] font-bold uppercase tracking-[0.14em] text-fg-subtle"
+            <span v-if="embed.footer?.text" class="min-w-0 break-words">{{
+              embed.footer.text
+            }}</span>
+            <span
+              v-if="embed.timestamp"
+              class="shrink-0 before:mx-1 before:content-['•'] first:before:content-none"
             >
-              {{ embed.provider }}
-            </div>
-            <div
-              v-else-if="embed.author?.name"
-              class="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
-            >
-              {{ embed.author.name }}
-            </div>
-            <h3
-              class="mt-0.5 text-[15px] font-semibold leading-tight text-[#f2f3f5]"
-            >
-              <a
-                v-if="embed.url"
-                :href="embed.url"
-                class="text-[#00a8fc] hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-                @click.stop
-              >
-                {{ embed.title || embed.url }}
-              </a>
-              <span v-else>{{ embed.title }}</span>
-            </h3>
-            <p
-              v-if="embed.description"
-              class="mt-1 line-clamp-3 text-xs leading-snug text-[#b5bac1]"
-            >
-              {{ embed.description }}
-            </p>
+              {{ formatEmbedTimestamp(embed.timestamp) }}
+            </span>
           </div>
         </div>
       </div>

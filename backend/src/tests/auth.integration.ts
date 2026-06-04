@@ -91,9 +91,12 @@ async function run(): Promise<void> {
   const password = 'password123';
   const email = `${username}@echo.test`;
 
+  const testUserAgent =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   const registerRes = await app.inject({
     method: 'POST',
     url: '/api/v1/auth/register',
+    headers: { 'user-agent': testUserAgent },
     payload: { username, password, email, displayName: 'Integration User' },
   });
   assert.equal(
@@ -248,9 +251,16 @@ async function run(): Promise<void> {
     200,
     `sessions failed: ${sessionsRes.body}`,
   );
-  const sessions = sessionsRes.json() as { sessions: unknown[] };
+  const sessions = sessionsRes.json() as {
+    sessions: Array<{
+      userAgent?: string;
+      isCurrentSession?: boolean;
+    }>;
+  };
   assert.ok(Array.isArray(sessions.sessions));
   assert.ok(sessions.sessions.length >= 1);
+  const current = sessions.sessions.find((s) => s.isCurrentSession);
+  assert.ok(current?.userAgent?.includes('Chrome'), 'session should store UA');
 
   const changePasswordRes = await app.inject({
     method: 'POST',

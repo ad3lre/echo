@@ -31,9 +31,17 @@ type LockEntry = PaperBlockLock & { since: number };
 type CursorEntry = PaperRemoteCursor & { updatedAt: number };
 
 const channelLocks = new Map<string, Map<string, LockEntry>>();
-const channelCursors = new Map<string, Map<string, CursorEntry>>();
+export const channelCursors = new Map<string, Map<string, CursorEntry>>();
 const LOCK_IDLE_MS = 45_000;
 const CURSOR_STALE_MS = 8_000;
+/**
+ * Cursor moves arrive at the client's raw pointer cadence (potentially dozens/sec
+ * per author) and each broadcast carries the full channel cursor snapshot — O(N²)
+ * traffic with N co-editors, amplified across replicas on the NATS adapter. Coalesce
+ * per channel so at most one snapshot is emitted per flush window.
+ */
+export const CURSOR_FLUSH_MS = 50;
+const pendingCursorFlush = new Map<string, ReturnType<typeof setTimeout>>();
 
 function locksForChannel(channelId: string): Map<string, LockEntry> {
   let map = channelLocks.get(channelId);
@@ -92,12 +100,36 @@ function broadcastLocks(io: Server, channelId: string): void {
   io.to(paperWatchRoom(channelId)).emit('paper:locks', payload);
 }
 
-function broadcastCursors(io: Server, channelId: string): void {
+export function cancelPendingCursorFlush(channelId: string): void {
+  const t = pendingCursorFlush.get(channelId);
+  if (t) {
+    clearTimeout(t);
+    pendingCursorFlush.delete(channelId);
+  }
+}
+
+export function emitCursorsNow(io: Server, channelId: string): void {
+  cancelPendingCursorFlush(channelId);
   const payload: PaperCursorsPayload = {
     channelId,
     cursors: serializeCursors(channelId),
   };
   io.to(paperWatchRoom(channelId)).emit('paper:cursors', payload);
+}
+
+/**
+ * Coalesces cursor snapshots per channel: the first request schedules a flush and
+ * subsequent moves within the window collapse into it. Use {@link emitCursorsNow}
+ * when immediacy matters (e.g. tearing down a channel).
+ */
+export function broadcastCursors(io: Server, channelId: string): void {
+  if (pendingCursorFlush.has(channelId)) return;
+  const t = setTimeout(() => {
+    pendingCursorFlush.delete(channelId);
+    emitCursorsNow(io, channelId);
+  }, CURSOR_FLUSH_MS);
+  if (typeof t.unref === 'function') t.unref();
+  pendingCursorFlush.set(channelId, t);
 }
 
 /** Clear locks/cursors when fewer than two authors remain. */
@@ -107,6 +139,7 @@ export function clearPaperCollabForChannel(
 ): void {
   channelLocks.delete(channelId);
   channelCursors.delete(channelId);
+  cancelPendingCursorFlush(channelId);
   io.to(paperWatchRoom(channelId)).emit('paper:locks', {
     channelId,
     locks: [],
@@ -321,6 +354,16 @@ export function pruneStalePaperLocks(io: Server): void {
     if (map.size === 0) channelLocks.delete(channelId);
     if (changed) broadcastLocks(io, channelId);
   }
+}
+
+const LOCK_PRUNE_INTERVAL_MS = 15_000;
+
+/** Prune abandoned block locks on a fixed interval (server process lifetime). */
+export function startPaperCollabLockPruner(io: Server): void {
+  const t = setInterval(() => {
+    pruneStalePaperLocks(io);
+  }, LOCK_PRUNE_INTERVAL_MS);
+  if (typeof t.unref === 'function') t.unref();
 }
 
 export function paperCollabAuthorCount(channelId: string): number {

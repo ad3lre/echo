@@ -78,17 +78,14 @@ describe('useEchoHistory', () => {
       serverNotificationLevelByServerId: {},
     });
     vi.mocked(putEchoChannelReadState).mockResolvedValue({
-      channelAttentionByChannelId: {
-        [channelId]: {
-          channelId,
-          kind: 'dm',
-          lastReadMessageId: lastUnreadMessageId,
-          unreadCount: 0,
-          peerUserId: '1492135186257805310',
-        },
+      lastReadMessageId: lastUnreadMessageId,
+      channelAttention: {
+        channelId,
+        kind: 'dm',
+        lastReadMessageId: lastUnreadMessageId,
+        unreadCount: 0,
+        peerUserId: '1492135186257805310',
       },
-      serverAttentionByServerId: {},
-      serverNotificationLevelByServerId: {},
     });
 
     const messages = ref<Record<string, RawMessage[]>>({});

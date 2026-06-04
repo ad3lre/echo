@@ -57,6 +57,11 @@ import {
 import { createDesktopOauthHandoff } from '../../domain/desktopOAuthHandoffRepo';
 import { isValidEmailFormat } from '../../auth/email';
 import { isOAuthLoginStartOriginAllowed } from '../../auth/oauthLoginOrigin';
+import { clientIpFromFastifyRequest } from '../../net/clientIp';
+import {
+  evaluateGuestMint,
+  recordGuestMintSuccess,
+} from '../../services/auth/guestAbuseLimiter';
 
 const OAUTH_FETCH: FetchLike = globalThis.fetch.bind(globalThis);
 
@@ -523,6 +528,24 @@ export default async function discordOAuthRoutes(
         normalized.discordUserId,
       );
       if (!echoUserId) {
+        if (!config.guestAccountsEnabled) {
+          return reply
+            .code(302)
+            .redirect(
+              discordOAuthAppRedirect(false, 'guests_disabled', redirectOpts),
+            );
+        }
+        const mintIp = clientIpFromFastifyRequest(req);
+        const mintGate = await evaluateGuestMint(mintIp);
+        if (!mintGate.ok) {
+          const errCode =
+            mintGate.reason === 'GUEST_MINT_BLOCKED'
+              ? 'guest_mint_blocked'
+              : 'guest_mint_limit';
+          return reply
+            .code(302)
+            .redirect(discordOAuthAppRedirect(false, errCode, redirectOpts));
+        }
         const guest = await store.createGuestUser();
         if (!guest) {
           return reply
@@ -531,6 +554,7 @@ export default async function discordOAuthRoutes(
               discordOAuthAppRedirect(false, 'persist_failed', redirectOpts),
             );
         }
+        await recordGuestMintSuccess(mintIp);
         const emailHint = me.email?.trim();
         if (emailHint && isValidEmailFormat(emailHint)) {
           await store.setGuestPendingEmail(guest.id, emailHint);
@@ -538,7 +562,7 @@ export default async function discordOAuthRoutes(
         targetUserId = guest.id;
         provisionedNewGuestViaDiscordLogin = true;
         void tryJoinOfficialEchoServerOnSignup(fastify.log, targetUserId, {
-          joinClientIp: req.ip,
+          joinClientIp: mintIp,
         });
       } else {
         targetUserId = echoUserId;

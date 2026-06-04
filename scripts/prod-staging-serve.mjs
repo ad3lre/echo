@@ -11,7 +11,7 @@ const repoRoot = path.resolve(__dirname, '..');
 
 function parsePorts(argv) {
   let apiPort = Number(process.env.ECHO_STAGING_API_PORT || 3001);
-  let frontendPort = Number(process.env.ECHO_STAGING_FRONTEND_PORT || 4174);
+  let frontendPort = Number(process.env.ECHO_STAGING_FRONTEND_PORT || 4175);
   for (const a of argv) {
     if (a.startsWith('--api-port='))
       apiPort = Number(a.slice('--api-port='.length));
@@ -19,7 +19,7 @@ function parsePorts(argv) {
       frontendPort = Number(a.slice('--frontend-port='.length));
   }
   if (!Number.isFinite(apiPort) || apiPort <= 0) apiPort = 3001;
-  if (!Number.isFinite(frontendPort) || frontendPort <= 0) frontendPort = 4174;
+  if (!Number.isFinite(frontendPort) || frontendPort <= 0) frontendPort = 4175;
   return { apiPort, frontendPort };
 }
 
@@ -33,7 +33,7 @@ const concurrentlyBin = path.join(
 );
 
 const backendCmd = `cross-env NODE_ENV=production PORT=${apiPort} npm start`;
-const frontendCmd = `node scripts/wait-for-port.mjs 127.0.0.1 ${apiPort} && cross-env NODE_ENV=production npm exec --prefix frontend -- vite preview --host --port ${frontendPort} --strictPort`;
+const frontendCmd = `node scripts/wait-for-port.mjs 127.0.0.1 ${apiPort} && cross-env NODE_ENV=production npm run preview -w frontend -- --host --port ${frontendPort} --strictPort`;
 
 const child = spawn(
   process.execPath,

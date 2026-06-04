@@ -5,6 +5,7 @@ import path from 'node:path';
 import bcrypt from 'bcrypt';
 import pg from 'pg';
 import { ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX } from '../../../shared/echoEmojiCdn';
+import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { emojiEtag } from '../services/echoEmojiAsset';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from '../services/localUploadDisk';
 
@@ -100,7 +101,7 @@ async function run(): Promise<void> {
   const runTag = `${Date.now().toString(36)}`;
   const ownerId = `pub_emoji_owner_${runTag}`;
   let serverId = '';
-  const emojiId = '304238867010606081';
+  const emojiId = nextEchoSnowflakeId();
   const storageKey = `echo/emoji/srv/u1/${runTag}.png`;
 
   try {
@@ -175,7 +176,7 @@ async function run(): Promise<void> {
       });
       assert.equal(res304.statusCode, 304);
 
-      const stickerId = '304238867010606082';
+      const stickerId = nextEchoSnowflakeId();
       await pool.query(
         `INSERT INTO echo_server_custom_emojis (
            id, server_id, pack_id, name, animated, image_url, expression_kind

@@ -4,6 +4,7 @@ import path from 'path';
 import { pipeline } from 'stream/promises';
 import { Transform } from 'stream';
 import type { Readable } from 'stream';
+import { normalizeEchoUploadStorageKeyPath } from '../../../shared/echoUploadStorageKey';
 import { config } from '../config';
 
 /** Public URL path prefix (same origin as the SPA; Vite proxies `/api` to Echo). */
@@ -25,7 +26,9 @@ export async function writeLocalEchoUploadFile(
 ): Promise<void> {
   const root = config.echoLocalUploadDir;
   if (!root) throw new Error('Local uploads are not enabled');
-  const abs = path.join(root, storageKey);
+  const safeKey = normalizeEchoUploadStorageKeyPath(storageKey);
+  if (!safeKey) throw new Error('Invalid storage key');
+  const abs = path.join(root, safeKey);
   if (!assertUnderRoot(abs, root)) throw new Error('Invalid storage key');
   await fs.mkdir(path.dirname(abs), { recursive: true });
   await fs.writeFile(abs, buf);
@@ -54,7 +57,9 @@ export async function writeLocalEchoUploadFileStream(
   }
   const root = config.echoLocalUploadDir;
   if (!root) throw new Error('Local uploads are not enabled');
-  const abs = path.join(root, storageKey);
+  const safeKey = normalizeEchoUploadStorageKeyPath(storageKey);
+  if (!safeKey) throw new Error('Invalid storage key');
+  const abs = path.join(root, safeKey);
   if (!assertUnderRoot(abs, root)) throw new Error('Invalid storage key');
   await fs.mkdir(path.dirname(abs), { recursive: true });
 
@@ -90,9 +95,9 @@ export async function writeLocalEchoUploadFileStream(
 export function resolveLocalUploadFilePath(key: string): string | null {
   const root = config.echoLocalUploadDir;
   if (!root) return null;
-  if (key.includes('..') || key.startsWith('/') || key.startsWith('\\'))
-    return null;
-  const abs = path.join(root, key);
+  const safeKey = normalizeEchoUploadStorageKeyPath(key);
+  if (!safeKey) return null;
+  const abs = path.join(root, safeKey);
   if (!assertUnderRoot(abs, root)) return null;
   return abs;
 }

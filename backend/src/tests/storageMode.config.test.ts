@@ -219,6 +219,7 @@ async function run(): Promise<void> {
           DATABASE_URL: dbUrl,
           USE_MOCK_DB: 'false',
           ECHO_AUTH_STORE: '',
+          JWT_SECRET: 'jwt-0123456789abcdef0123456789abcdef01234567',
         });
         clearBackendSingletonsForRestart();
 

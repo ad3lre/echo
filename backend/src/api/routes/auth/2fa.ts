@@ -3,7 +3,37 @@ import rateLimit from '@fastify/rate-limit';
 import { sendError } from '../../errors';
 import { getAuthStore } from '../../../auth/store';
 import { requireAuth } from '../../../auth/middleware';
+import {
+  assertSensitiveAccountStepUp,
+  sendSensitiveAccountStepUpError,
+} from '../../../auth/stepUpAuth';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
+
+async function requireSensitiveStepUp(
+  req: import('fastify').FastifyRequest,
+  reply: import('fastify').FastifyReply,
+): Promise<boolean> {
+  if (!req.authUser) {
+    sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+    return false;
+  }
+  const { store } = await getAuthStore();
+  const userRecord = await store.getUserByUsername(req.authUser.username);
+  if (!userRecord) {
+    sendError(reply, 404, 'NOT_FOUND', 'User not found');
+    return false;
+  }
+  const body = (req.body ?? {}) as {
+    currentPassword?: string;
+    totpCode?: string;
+  };
+  const stepUp = await assertSensitiveAccountStepUp(store, userRecord, body);
+  if (!stepUp.ok) {
+    sendSensitiveAccountStepUpError(reply, stepUp.reason);
+    return false;
+  }
+  return true;
+}
 
 const TOTP_ROUTE_RATE = {
   max: 20,
@@ -20,12 +50,26 @@ export default async function twoFactorRoutes(fastify: FastifyInstance) {
       addHeaders: { 'retry-after': true },
     });
 
-    scope.post(
+    scope.post<{ Body: { currentPassword?: string; totpCode?: string } }>(
       '/2fa/totp/begin',
-      { preHandler: [requireAuth], config: { rateLimit: TOTP_ROUTE_RATE } },
+      {
+        preHandler: [requireAuth],
+        config: { rateLimit: TOTP_ROUTE_RATE },
+        schema: {
+          body: {
+            type: 'object',
+            properties: {
+              currentPassword: { type: 'string', minLength: 1 },
+              totpCode: { type: 'string', minLength: 6, maxLength: 16 },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
       async (req, reply) => {
         if (!req.authUser)
           return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+        if (!(await requireSensitiveStepUp(req, reply))) return;
         if (req.authUser.isGuest) {
           return sendError(
             reply,
@@ -78,7 +122,9 @@ export default async function twoFactorRoutes(fastify: FastifyInstance) {
       },
     );
 
-    scope.post<{ Body: { code: string } }>(
+    scope.post<{
+      Body: { code: string; currentPassword?: string; totpCode?: string };
+    }>(
       '/2fa/totp/confirm',
       {
         preHandler: [requireAuth],
@@ -89,6 +135,8 @@ export default async function twoFactorRoutes(fastify: FastifyInstance) {
             required: ['code'],
             properties: {
               code: { type: 'string', minLength: 6, maxLength: 16 },
+              currentPassword: { type: 'string', minLength: 1 },
+              totpCode: { type: 'string', minLength: 6, maxLength: 16 },
             },
             additionalProperties: false,
           },
@@ -97,6 +145,7 @@ export default async function twoFactorRoutes(fastify: FastifyInstance) {
       async (req, reply) => {
         if (!req.authUser)
           return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+        if (!(await requireSensitiveStepUp(req, reply))) return;
         if (req.authUser.isGuest) {
           return sendError(
             reply,

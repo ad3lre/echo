@@ -71,6 +71,10 @@ import {
   shouldSkipScrollToIndexForLatest,
 } from '@/features/chat/domain/messageListScrollSnap';
 import {
+  createMessageListScrollOwnership,
+  type ScrollIntent,
+} from '@/features/chat/domain/messageListScrollOwnership';
+import {
   logMessageList,
   logMessageListThrottled,
   messageListDebugEnabled,
@@ -144,6 +148,8 @@ const props = defineProps<{
   initialHistoryLoading?: boolean;
   /** Navigation-level loading (e.g. DM thread opening) before channel id/history resolve. */
   transitionLoading?: boolean;
+  /** Guild shell still hydrating (channel tree / active channel) — suppress empty copy. */
+  guildShellSettling?: boolean;
   /** Servers rail with no joinable guild / channel chrome (empty onboarding) — show CTA instead of generic empty channel copy. */
   noServersYet?: boolean;
   onOpenExplore?: () => void;
@@ -561,7 +567,10 @@ const showHistorySkeleton = computed(
 );
 const showTransitionSkeleton = computed(
   () =>
-    isEmpty.value && !!props.transitionLoading && !showHistorySkeleton.value,
+    isEmpty.value &&
+    !showHistorySkeleton.value &&
+    (!!props.transitionLoading ||
+      (!props.hasChannel && !!props.guildShellSettling)),
 );
 
 const showLoadingSkeleton = computed(
@@ -586,6 +595,7 @@ const showEmptyChannelHint = computed(
   () =>
     isEmpty.value &&
     !showLoadingSkeleton.value &&
+    !props.guildShellSettling &&
     !showNoServersYet.value &&
     !discordMessageImportEligible.value &&
     !props.dmHistoryIntro,
@@ -595,6 +605,7 @@ const showDiscordImportWidget = computed(
   () =>
     isEmpty.value &&
     !showLoadingSkeleton.value &&
+    !props.guildShellSettling &&
     !showNoServersYet.value &&
     discordMessageImportEligible.value,
 );
@@ -604,6 +615,7 @@ const showDmHistoryIntro = computed(
     isEmpty.value &&
     !!props.dmHistoryIntro &&
     !showLoadingSkeleton.value &&
+    !props.guildShellSettling &&
     !showNoServersYet.value &&
     !showDiscordImportWidget.value,
 );
@@ -830,22 +842,41 @@ const MESSAGE_LIST_OVERSCAN_COARSE = 56;
  */
 const MESSAGE_LIST_ACTION_BAR_GUTTER_PX = 14;
 const USER_SCROLL_SETTLE_MS = 180;
-/** After initial anchor, block follow scrollToIndex while row heights settle. */
-const INITIAL_ANCHOR_FOLLOW_COOLDOWN_MS = 400;
 
 function nowMs(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
 /**
+ * Single arbiter for every programmatic scroll write in this component.
+ * See `messageListScrollOwnership.ts` for the model. All scroll writes route
+ * through {@link commitScrollToLatest} / {@link scrollOwnership.canCommit}; this is the
+ * only thing that decides whether the system may move the viewport.
+ */
+const scrollOwnership = createMessageListScrollOwnership({
+  now: nowMs,
+  userScrollSettleMs: USER_SCROLL_SETTLE_MS,
+});
+
+/**
+ * Run a programmatic scroll write while bracketing it so the resulting native
+ * `scroll` events are recognized as ours (never misread as a user gesture).
+ */
+function withProgrammaticScroll<T>(write: () => T): T {
+  scrollOwnership.beginProgrammaticWrite();
+  return write();
+}
+
+/**
  * Hard invariant: while the user is actively scrolling (or within the post-scroll
  * settle window), no code path may programmatically correct scroll position.
+ * Backed by {@link scrollOwnership} so there is one definition of "user is active".
  */
 function isUserScrollProtected(
   scrollDirection: 'forward' | 'backward' | null = null,
 ): boolean {
   if (scrollDirection !== null) return true;
-  return nowMs() < userScrollActiveUntilMs;
+  return scrollOwnership.isUserActive();
 }
 
 /** Whether new messages should pull the viewport to the latest (bottom-anchored channels). */
@@ -855,14 +886,11 @@ let scrollJumpRaf: number | null = null;
 /** Coalesces load-older + jump UI to one rAF — never run that work on the scroll event itself. */
 let scrollIdleRaf: number | null = null;
 let viewportMemoryRaf: number | null = null;
-let userScrollActiveUntilMs = 0;
 let lastObservedScrollTop = 0;
 let lastObservedScrollDirection: 'up' | 'down' | 'still' = 'still';
 let suppressLoadOlderUntilLeaveTopZone = false;
 /** Bumps on channel change and each `applyInitialScrollAnchor` call — stale rAF work bails (max one commit pass wins). */
 let initialAnchorScheduleGeneration = 0;
-/** Set when initial anchor finishes — length watcher uses snap-only during cooldown. */
-let initialAnchorSettledAtMs = 0;
 /** De-dupe deferred row measurement: at most one pending measure per row key. */
 const measureRowPendingKeys = new Set<string>();
 /** Skip re-measure for stable rows whose rendered height did not change. */
@@ -1113,6 +1141,7 @@ async function restoreViewportMemoryForChannel(
       clearMessageListViewport(channelId);
       return false;
     }
+    if (!scrollOwnership.canCommit('viewport-restore')) return false;
   }
 
   let restored = false;
@@ -1121,17 +1150,17 @@ async function restoreViewportMemoryForChannel(
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
     );
+    // Restore spans several frames; if the user grabs the scroll mid-restore,
+    // abandon it rather than yank them back to the saved anchor.
+    if (!scrollOwnership.canCommit('viewport-restore')) return false;
     const el = containerRef.value;
     const v = virtualizer.value;
     if (!el || !v) continue;
-    restored = restoreViewportAnchorInContainer(
-      el,
-      displayOrderedIds.value,
-      v,
-      {
+    restored = withProgrammaticScroll(() =>
+      restoreViewportAnchorInContainer(el, displayOrderedIds.value, v, {
         anchorMessageId: entry.anchorMessageId,
         anchorTop: entry.anchorTop,
-      },
+      }),
     );
     if (restored) break;
   }
@@ -1253,8 +1282,36 @@ function onScrollCombined() {
   );
   lastObservedScrollTop = nextScrollTop;
   if (prependTransactionActive.value) return;
-  userScrollActiveUntilMs = nowMs() + USER_SCROLL_SETTLE_MS;
+  // Distinguish our own programmatic scrolls from user-driven ones (e.g. scrollbar
+  // drag); only the latter refreshes the user-active window.
+  scrollOwnership.noteScrollEvent();
   scheduleScrollIdleWork();
+}
+
+/**
+ * Genuine user input gestures (wheel, touch, navigation keys) unambiguously mean
+ * the user is driving — claim scroll ownership even during initial load so the
+ * one-shot anchor / viewport restore yields instead of yanking them back.
+ */
+function onUserScrollGesture() {
+  if (prependTransactionActive.value) return;
+  scrollOwnership.markUserGesture();
+}
+
+const NAVIGATION_SCROLL_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'PageUp',
+  'PageDown',
+  'Home',
+  'End',
+  ' ',
+  'Spacebar',
+]);
+
+function onKeydownScrollGesture(event: KeyboardEvent) {
+  if (!NAVIGATION_SCROLL_KEYS.has(event.key)) return;
+  onUserScrollGesture();
 }
 
 /** Wheel at scrollTop≈0 does not emit scroll events — treat as upward pagination intent. */
@@ -1264,14 +1321,13 @@ function onWheelNearTopForLoadOlder(event: WheelEvent) {
   if (event.deltaY >= 0) return;
   if (el.scrollTop > NEAR_TOP_PX) return;
   lastObservedScrollDirection = 'up';
-  userScrollActiveUntilMs = nowMs() + USER_SCROLL_SETTLE_MS;
   scheduleScrollIdleWork();
 }
 
 function jumpToLatestMessages() {
   followNewMessagesToBottom.value = true;
   jumpUi.pendingNewWhileAway.value = 0;
-  scrollToBottom(true);
+  scrollToBottom(true, 'user-intent');
   requestAnimationFrame(() => {
     scheduleJumpUiFromScroll();
   });
@@ -1283,28 +1339,17 @@ let scrollViewportResizeObserver: ResizeObserver | null = null;
 let lastScrollViewportClientHeight = 0;
 
 /** Max scrollTop for the list container (actual DOM; aligns with virtualizer total height). */
-function snapContainerScrollToBottom() {
+function snapContainerScrollToBottom(intent: ScrollIntent) {
+  if (!scrollOwnership.canSnapScrollBottom(intent)) return;
   const el = containerRef.value;
   if (!el) return;
-  el.scrollTop = downwardOnlySnapScrollTop(
-    el.scrollTop,
-    el.scrollHeight,
-    el.clientHeight,
-  );
-}
-
-/** When the tail row grows (media decode), re-pin only if the user is following the end. */
-function maybeSnapToBottomAfterTailRowGrow(): void {
-  if (prependTransactionActive.value) return;
-  if (suppressListUntilInitialAnchor.value) return;
-  if (isUserScrollProtected(virtualizer.value?.scrollDirection ?? null)) {
-    return;
-  }
-  if (messageScrollAnchorResolved.value === 'top') return;
-  if (!followNewMessagesToBottom.value && !isNearBottom(FOLLOW_NEW_ATTACH_PX)) {
-    return;
-  }
-  snapContainerScrollToBottom();
+  withProgrammaticScroll(() => {
+    el.scrollTop = downwardOnlySnapScrollTop(
+      el.scrollTop,
+      el.scrollHeight,
+      el.clientHeight,
+    );
+  });
 }
 
 function disconnectScrollViewportResizeObserver(): void {
@@ -1336,7 +1381,7 @@ function attachScrollViewportResizeObserver(el: HTMLElement): void {
     lastScrollViewportClientHeight = h;
     if (h >= prev - 0.5) return;
     if (!shouldFollowViewportShrink()) return;
-    scrollToBottom(false);
+    scrollToBottom(false, 'layout-compensation');
   });
   scrollViewportResizeObserver.observe(el);
 }
@@ -1756,13 +1801,17 @@ function commitScrollToLatest(
   options: {
     smooth?: boolean;
     forceScrollToIndex?: boolean;
+    intent?: ScrollIntent;
   } = {},
 ): void {
+  const intent = options.intent ?? 'follow-tail';
+  if (!scrollOwnership.canCommit(intent)) return;
   const el = containerRef.value;
   const v = virtualizer.value;
   if (!v || displayOrderedIds.value.length === 0) return;
   const smooth = options.smooth ?? false;
   const lastIdx = displayOrderedIds.value.length - 1;
+  const maySnap = scrollOwnership.canSnapScrollBottom(intent);
 
   if (el) {
     const virtualDist = v.getTotalSize() - el.scrollTop - el.clientHeight;
@@ -1777,33 +1826,40 @@ function commitScrollToLatest(
         nearBottomAttachPx: FOLLOW_NEW_ATTACH_PX,
       })
     ) {
-      snapContainerScrollToBottom();
+      if (maySnap) snapContainerScrollToBottom(intent);
       return;
     }
   }
 
-  v.scrollToIndex(lastIdx, {
-    align: 'end',
-    behavior: smooth ? 'smooth' : 'auto',
-  });
+  withProgrammaticScroll(() =>
+    v.scrollToIndex(lastIdx, {
+      align: 'end',
+      behavior: smooth ? 'smooth' : 'auto',
+    }),
+  );
+  if (!maySnap) return;
   if (!smooth) {
-    snapContainerScrollToBottom();
-    requestAnimationFrame(() => {
-      snapContainerScrollToBottom();
-    });
+    snapContainerScrollToBottom(intent);
+    if (!scrollOwnership.isInitialAnchorSettled()) {
+      requestAnimationFrame(() => snapContainerScrollToBottom(intent));
+    }
   } else {
-    window.setTimeout(() => {
-      snapContainerScrollToBottom();
-    }, 400);
+    window.setTimeout(() => snapContainerScrollToBottom(intent), 400);
   }
 }
 
-function scrollToBottom(smooth = false) {
+/**
+ * @param intent declares whether this is a direct user action (`'user-intent'`,
+ *   always honored) or a passive follow/compensation write that must yield to the
+ *   user. Exposed callers (composer growth) default to the passive path.
+ */
+function scrollToBottom(smooth = false, intent: ScrollIntent = 'follow-tail') {
   if (suppressListUntilInitialAnchor.value) return;
   nextTick(() => {
     requestAnimationFrame(() => {
       if (suppressListUntilInitialAnchor.value) return;
-      commitScrollToLatest({ smooth });
+      if (!scrollOwnership.canCommit(intent)) return;
+      commitScrollToLatest({ smooth, intent });
     });
   });
 }
@@ -1841,9 +1897,14 @@ function applyInitialScrollAnchor() {
       }
       const v = virtualizer.value;
       const finish = (
-        anchor: 'top' | 'bottom' | 'restored_memory' | 'skipped_empty',
+        anchor:
+          | 'top'
+          | 'bottom'
+          | 'restored_memory'
+          | 'skipped_empty'
+          | 'user_owned',
       ) => {
-        initialAnchorSettledAtMs = nowMs();
+        scrollOwnership.markInitialAnchorSettled();
         suppressListUntilInitialAnchor.value = false;
         emitSeenMessageId(resolveSeenMessageId());
         const el = containerRef.value;
@@ -1861,6 +1922,9 @@ function applyInitialScrollAnchor() {
           outcomeOk = (el?.scrollTop ?? 0) <= NEAR_TOP_PX + 40;
         } else if (anchor === 'restored_memory') {
           expectation = 'restored near previous anchor position';
+        } else if (anchor === 'user_owned') {
+          expectation =
+            'user took control during initial load — anchor intentionally skipped';
         }
         logMessageList('initial_anchor', 'initial_anchor_commit', {
           scheduleId,
@@ -1897,42 +1961,65 @@ function applyInitialScrollAnchor() {
         finish('skipped_empty');
         return;
       }
+      // The single-authority rule: the one-shot anchor must yield if the user
+      // already grabbed the scroll during history load. This is the fix for
+      // "channels correct my explicit scroll events on initial load."
+      if (!scrollOwnership.canCommit('initial-anchor')) {
+        finish('user_owned');
+        return;
+      }
       const settleThenFinish = (
         anchor: 'top' | 'bottom' | 'restored_memory',
       ) => {
         requestAnimationFrame(() => {
           if (scheduleId !== initialAnchorScheduleGeneration) return;
           if (anchor === 'bottom') {
-            snapContainerScrollToBottom();
+            snapContainerScrollToBottom('initial-anchor');
           }
           persistViewportMemoryForChannel(channelId);
           finish(anchor);
         });
       };
+      /** Passive anchor writes after async work must re-check — user may have scrolled during restore. */
+      const commitInitialAnchorFallback = (): boolean => {
+        if (!scrollOwnership.canCommit('initial-anchor')) {
+          finish('user_owned');
+          return false;
+        }
+        if (messageScrollAnchorResolved.value === 'top') {
+          withProgrammaticScroll(() =>
+            v!.scrollToIndex(0, { align: 'start', behavior: 'auto' }),
+          );
+          settleThenFinish('top');
+          requestAnimationFrame(() => {
+            if (scheduleId !== initialAnchorScheduleGeneration) return;
+            runLoadOlderIfEligible();
+          });
+          return true;
+        }
+        commitScrollToLatest({ intent: 'initial-anchor' });
+        settleThenFinish('bottom');
+        return true;
+      };
       if (channelId) {
         void restoreViewportMemoryForChannel(channelId).then((restored) => {
           if (scheduleId !== initialAnchorScheduleGeneration) return;
           if (restored) {
+            if (!scrollOwnership.canCommit('viewport-restore')) {
+              finish('user_owned');
+              return;
+            }
             settleThenFinish('restored_memory');
             return;
           }
-          if (messageScrollAnchorResolved.value === 'top') {
-            v!.scrollToIndex(0, { align: 'start', behavior: 'auto' });
-            settleThenFinish('top');
-            requestAnimationFrame(() => {
-              if (scheduleId !== initialAnchorScheduleGeneration) return;
-              runLoadOlderIfEligible();
-            });
-            return;
-          }
-
-          commitScrollToLatest();
-          settleThenFinish('bottom');
+          commitInitialAnchorFallback();
         });
         return;
       }
       if (messageScrollAnchorResolved.value === 'top') {
-        v.scrollToIndex(0, { align: 'start', behavior: 'auto' });
+        withProgrammaticScroll(() =>
+          v.scrollToIndex(0, { align: 'start', behavior: 'auto' }),
+        );
         settleThenFinish('top');
         requestAnimationFrame(() => {
           if (scheduleId !== initialAnchorScheduleGeneration) return;
@@ -1941,7 +2028,7 @@ function applyInitialScrollAnchor() {
         return;
       }
 
-      commitScrollToLatest();
+      commitScrollToLatest({ intent: 'initial-anchor' });
       settleThenFinish('bottom');
     });
   });
@@ -1966,7 +2053,6 @@ watch(
       );
     }
     initialAnchorScheduleGeneration++;
-    initialAnchorSettledAtMs = 0;
     logMessageList('lifecycle', 'channel_changed', {
       channelId: cid ?? null,
       initialAnchorScheduleGeneration,
@@ -1978,7 +2064,7 @@ watch(
     messageBubbleRefBinderByMessageId.clear();
     lastObservedScrollTop = 0;
     lastObservedScrollDirection = 'still';
-    userScrollActiveUntilMs = 0;
+    scrollOwnership.reset();
     suppressLoadOlderUntilLeaveTopZone = false;
     prependTransactionActive.value = false;
     activePrependChannelId.value = null;
@@ -2107,6 +2193,9 @@ onMounted(() => {
       el.addEventListener('wheel', onWheelNearTopForLoadOlder, {
         passive: true,
       });
+      el.addEventListener('wheel', onUserScrollGesture, { passive: true });
+      el.addEventListener('touchstart', onUserScrollGesture, { passive: true });
+      el.addEventListener('keydown', onKeydownScrollGesture);
       attachScrollViewportResizeObserver(el);
       emitSeenMessageId(resolveSeenMessageId());
       logMessageList('scroll', 'scroll_listener_attached', {
@@ -2141,6 +2230,9 @@ onUnmounted(() => {
   if (el) {
     el.removeEventListener('scroll', onScrollCombined);
     el.removeEventListener('wheel', onWheelNearTopForLoadOlder);
+    el.removeEventListener('wheel', onUserScrollGesture);
+    el.removeEventListener('touchstart', onUserScrollGesture);
+    el.removeEventListener('keydown', onKeydownScrollGesture);
   }
 });
 
@@ -2182,15 +2274,14 @@ watch(
         props.linkedDiscordUserId,
       );
 
+    const followIntent: ScrollIntent = sentByCurrentUser
+      ? 'user-intent'
+      : 'follow-tail';
     nextTick(() => {
       requestAnimationFrame(() => {
-        const el = containerRef.value;
         const v = virtualizer.value;
-        if (!el || !v) return;
-        const total = v.getTotalSize();
-        const distanceFromBottom = total - el.scrollTop - el.clientHeight;
-        /** Same band as follow-detach (`updateJumpUiFromScroll`) — “near end” for send / incoming. */
-        const near = distanceFromBottom < FOLLOW_NEW_DETACH_PX;
+        if (!v) return;
+        const near = distanceFromBottomPx() < FOLLOW_NEW_DETACH_PX;
         const shouldFollow =
           sentByCurrentUser || followNewMessagesToBottom.value || near;
         if (!shouldFollow) return;
@@ -2200,27 +2291,11 @@ watch(
         ) {
           return;
         }
-        if (
-          !sentByCurrentUser &&
-          initialAnchorSettledAtMs > 0 &&
-          nowMs() - initialAnchorSettledAtMs < INITIAL_ANCHOR_FOLLOW_COOLDOWN_MS
-        ) {
-          snapContainerScrollToBottom();
-          followNewMessagesToBottom.value = true;
-          emitSeenMessageId(resolveSeenMessageId());
-          return;
-        }
-        if (!sentByCurrentUser && distanceFromBottom <= 2) {
-          snapContainerScrollToBottom();
-          emitSeenMessageId(resolveSeenMessageId());
-          return;
-        }
-        /**
-         * Always use instant scroll here + DOM snap. Smooth `scrollToIndex` skipped
-         * `snapContainerScrollToBottom`, so the viewport often stopped short of the true
-         * bottom after a new row measured (virtualizer total height updates one frame late).
-         */
-        commitScrollToLatest({ forceScrollToIndex: sentByCurrentUser });
+        if (!scrollOwnership.canCommit(followIntent)) return;
+        commitScrollToLatest({
+          forceScrollToIndex: sentByCurrentUser,
+          intent: followIntent,
+        });
         followNewMessagesToBottom.value = true;
         emitSeenMessageId(resolveSeenMessageId());
       });
@@ -2338,10 +2413,12 @@ async function scrollMessageIntoView(messageId: string): Promise<boolean> {
   await nextTick();
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => {
-      virtualizer.value.scrollToIndex(idx, {
-        align: 'center',
-        behavior: 'smooth',
-      });
+      withProgrammaticScroll(() =>
+        virtualizer.value.scrollToIndex(idx, {
+          align: 'center',
+          behavior: 'smooth',
+        }),
+      );
       resolve();
     });
   });
@@ -2407,7 +2484,6 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
     requestAnimationFrame(() => {
       if (deferKey) measureRowPendingKeys.delete(deferKey);
       if (!element.isConnected) return;
-      let tailRowGrew = false;
       if (deferKey) {
         const h = element.getBoundingClientRect().height;
         const prev = measureRowLastHeightByKey.get(deferKey);
@@ -2445,17 +2521,9 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
             });
           }
         }
-        tailRowGrew =
-          prev !== undefined &&
-          h > prev + 0.5 &&
-          Number.isFinite(idx) &&
-          idx === displayOrderedIds.value.length - 1;
         measureRowLastHeightByKey.set(deferKey, h);
       }
       virtualizer.value.measureElement(element);
-      if (tailRowGrew) {
-        maybeSnapToBottomAfterTailRowGrow();
-      }
     });
   });
 }

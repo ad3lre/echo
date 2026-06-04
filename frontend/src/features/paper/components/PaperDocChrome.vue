@@ -6,6 +6,8 @@ import { copyToClipboard } from '@/features/chat/composables/useMessageLinkActio
 import PaperChromeDropdown from '@/features/paper/components/PaperChromeDropdown.vue';
 import type { MergedPaperWatchingPeer } from '@/features/paper/composables/mergePaperWatchingPeers';
 import type { PaperConnectionPhase } from '@/features/paper/composables/usePaperSession';
+import type { PaperSourceViewMode } from '@/features/paper/composables/usePaperSourceViewMode';
+import { paperSourceViewKeybindLabel } from '@/features/paper/composables/usePaperSourceViewKeybind';
 import type { PaperUiMode } from '@/features/paper/composables/usePaperUiMode';
 import type { PaperShareSettingsPayload } from '@shared/types/paperShare';
 import {
@@ -50,6 +52,7 @@ const props = defineProps<{
   canToggleComments?: boolean;
   canReconnect?: boolean;
   floating?: boolean;
+  sourceViewMode?: PaperSourceViewMode;
 }>();
 
 const emit = defineEmits<{
@@ -64,6 +67,7 @@ const emit = defineEmits<{
   togglePaperAppearance: [];
   paperPageColorLight: [hex: string];
   paperPageColorDark: [hex: string];
+  toggleSourceView: [];
 }>();
 
 const TITLE_MAX = 32;
@@ -84,6 +88,20 @@ const appearanceTitle = computed(() =>
   props.paperAppearance === 'dark'
     ? 'Paper dark preview (canvas only)'
     : 'Paper light preview (canvas only)',
+);
+
+const sourceViewMode = computed(() => props.sourceViewMode ?? 'inline');
+
+const sourceViewKeybind = paperSourceViewKeybindLabel();
+
+const sourceViewTitle = computed(() =>
+  sourceViewMode.value === 'inline'
+    ? `Rendered preview — formatted document. Click or ${sourceViewKeybind} for markdown source.`
+    : `Markdown source — full document as text. Click or ${sourceViewKeybind} for rendered preview.`,
+);
+
+const sourceViewLabel = computed(() =>
+  sourceViewMode.value === 'inline' ? 'Rendered' : 'Raw',
 );
 
 function modeIcon(id: PaperUiMode): string {
@@ -165,6 +183,20 @@ function onRedo() {
           alt=""
           class="h-4 w-4 opacity-85 paper-chrome-icon"
         />
+      </button>
+
+      <button
+        type="button"
+        class="paper-chrome-btn paper-chrome-btn--source-view hidden sm:inline-flex"
+        :class="{ 'paper-chrome-btn--active': sourceViewMode === 'inline' }"
+        :title="sourceViewTitle"
+        :aria-label="sourceViewTitle"
+        :aria-pressed="sourceViewMode === 'inline'"
+        @click="emit('toggleSourceView')"
+      >
+        <span class="paper-chrome-btn__source-label">{{
+          sourceViewLabel
+        }}</span>
       </button>
 
       <PaperChromeDropdown label="File" title="File actions" align="left">
@@ -618,6 +650,21 @@ function onRedo() {
           >
             {{ opt.label }}
           </button>
+          <button
+            type="button"
+            class="paper-chrome-menu-item md:hidden"
+            @click.stop="
+              emit('toggleSourceView');
+              close();
+            "
+          >
+            <span class="font-medium">{{ sourceViewLabel }} view</span>
+            <span class="block text-[11px] text-fg-subtle">{{
+              sourceViewMode === 'inline'
+                ? 'Switch to full markdown source'
+                : 'Switch to rendered preview'
+            }}</span>
+          </button>
           <div class="border-t border-border px-3 py-2 md:hidden" @click.stop>
             <p
               class="text-[11px] font-medium uppercase tracking-wide text-fg-subtle"
@@ -950,6 +997,20 @@ function onRedo() {
 .paper-chrome-btn--active {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent);
+}
+
+.paper-chrome-btn--source-view {
+  width: auto;
+  min-width: 2rem;
+  padding: 0 0.45rem;
+}
+
+.paper-chrome-btn__source-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
 }
 
 .paper-chrome-btn--comments {

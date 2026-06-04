@@ -40,6 +40,10 @@ import type {
   EchoChannelType,
 } from '@shared/types';
 import type { CreateChannelModalSubmitPayload } from '@/components/CreateChannelModal.vue';
+import {
+  applyOptimisticCategoryReorder,
+  applyOptimisticChannelReorder,
+} from '@/services/domain/channelStructureOptimistic';
 import { requestAppTwoChoice } from '@/utils/appDialogs';
 import { getChannelMoveCrossCategoryPermission } from '@/features/channel-settings/composables/useChannelMoveCrossCategoryPreference';
 import type { Server } from '@shared/types/server';
@@ -401,14 +405,37 @@ export function useGuildChannelModals(deps: {
       patch.moveOutOfCategoryPermission = mode;
     }
 
+    const prevCats = categoriesForServer.value;
     try {
+      const optimistic = applyOptimisticChannelReorder(
+        prevCats,
+        channelId,
+        targetCategoryId,
+        siblingIndex,
+      );
+      if (optimistic) {
+        workspace.categoriesByServer.value = {
+          ...workspace.categoriesByServer.value,
+          [sid]: optimistic,
+        };
+      }
+
       await patchEchoChannel(token, channelId, patch);
-      const cats = await buildEchoChannelCategoriesForServer(token, sid);
+      void buildEchoChannelCategoriesForServer(token, sid)
+        .then((cats) => {
+          workspace.categoriesByServer.value = {
+            ...workspace.categoriesByServer.value,
+            [sid]: cats,
+          };
+        })
+        .catch(() => {
+          /* keep optimistic */
+        });
+    } catch (e) {
       workspace.categoriesByServer.value = {
         ...workspace.categoriesByServer.value,
-        [sid]: cats,
+        [sid]: prevCats,
       };
-    } catch (e) {
       guildChannelModalFailure(
         'handleChannelReorder',
         e,
@@ -427,14 +454,36 @@ export function useGuildChannelModals(deps: {
     const token = authSession.accessToken?.trim() ?? '';
     const { categoryId, siblingIndex } = payload;
 
+    const prevCats = categoriesForServer.value;
     try {
+      const optimistic = applyOptimisticCategoryReorder(
+        prevCats,
+        categoryId,
+        siblingIndex,
+      );
+      if (optimistic) {
+        workspace.categoriesByServer.value = {
+          ...workspace.categoriesByServer.value,
+          [sid]: optimistic,
+        };
+      }
+
       await patchEchoServerCategory(token, sid, categoryId, { siblingIndex });
-      const cats = await buildEchoChannelCategoriesForServer(token, sid);
+      void buildEchoChannelCategoriesForServer(token, sid)
+        .then((cats) => {
+          workspace.categoriesByServer.value = {
+            ...workspace.categoriesByServer.value,
+            [sid]: cats,
+          };
+        })
+        .catch(() => {
+          /* keep optimistic */
+        });
+    } catch (e) {
       workspace.categoriesByServer.value = {
         ...workspace.categoriesByServer.value,
-        [sid]: cats,
+        [sid]: prevCats,
       };
-    } catch (e) {
       guildChannelModalFailure(
         'handleCategoryReorder',
         e,

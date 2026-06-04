@@ -3,29 +3,35 @@
  * Rolling prod deploy for a single checkout:
  * 1. preverify:prod
  * 2. build (live stack on :3000 / :4173 keeps serving)
- * 3. start candidate on staging ports (default :3001 / :4174)
+ * 3. start candidate on staging ports (default :3001 / :4175; :4174 is echo-marketing)
  * 4. health-check candidate
  * 5. stop live + staging, start prod:serve on main ports
+ * 6. restart PM2 echo-marketing (app-echo.net static site on :4174)
  *
  * Downtime is only the cutover window (~seconds), not the full build.
+ * `npm run build` includes `marketing`; PM2 serves `marketing/dist` via astro preview.
  *
  * Env:
  *   ECHO_STAGING_API_PORT      (default 3001)
- *   ECHO_STAGING_FRONTEND_PORT (default 4174)
+ *   ECHO_STAGING_FRONTEND_PORT (default 4175)
  *   ECHO_ROLLING_HEALTH_MS     (default 120000)
  */
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { execFile } from 'child_process';
 import { spawn } from 'child_process';
+import { promisify } from 'util';
 import { fileURLToPath } from 'url';
+
+const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 
 const STAGING_API_PORT = Number(process.env.ECHO_STAGING_API_PORT || 3001);
 const STAGING_FRONTEND_PORT = Number(
-  process.env.ECHO_STAGING_FRONTEND_PORT || 4174,
+  process.env.ECHO_STAGING_FRONTEND_PORT || 4175,
 );
 const HEALTH_TIMEOUT_MS = Number(process.env.ECHO_ROLLING_HEALTH_MS || 120_000);
 const logDir = path.join(repoRoot, 'logs', 'vps');
@@ -78,6 +84,19 @@ function baseEnv() {
 
 function npmCmd() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+}
+
+/** PM2 app-echo.net marketing site (port 4174); shares staging port during rolling cutover. */
+async function pm2Marketing(action) {
+  try {
+    await execFileAsync('pm2', [action, 'echo-marketing'], {
+      cwd: repoRoot,
+      env: baseEnv(),
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function run(cmd, args, opts = {}) {
@@ -211,7 +230,12 @@ async function main() {
   await waitForHttp(
     `http://127.0.0.1:${STAGING_API_PORT}/api/v1/health?ts=${Date.now()}`,
   );
-  await waitForHttp(`http://127.0.0.1:${STAGING_FRONTEND_PORT}/`);
+  // Vite preview needs a moment after the API is up; avoids false timeouts under memory pressure.
+  await new Promise((r) => setTimeout(r, 3000));
+  await waitForHttp(
+    `http://127.0.0.1:${STAGING_FRONTEND_PORT}/?ts=${Date.now()}`,
+    HEALTH_TIMEOUT_MS,
+  );
 
   const livePid = readPidFile(livePidFile);
   const stagingPid = readPidFile(stagingPidFile);
@@ -243,8 +267,30 @@ async function main() {
   await waitForHttp(`http://127.0.0.1:3000/api/v1/health?ts=${Date.now()}`);
   await waitForHttp('http://127.0.0.1:4173/');
 
+  appendMeta('restarting PM2 echo-marketing (marketing/dist)');
+  if (await pm2Marketing('restart')) {
+    try {
+      await waitForHttp(`http://127.0.0.1:4174/?ts=${Date.now()}`);
+      appendMeta('echo-marketing healthy on :4174');
+    } catch (e) {
+      appendMeta(
+        `echo-marketing health check failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      console.warn(
+        '[prod-rolling] echo-marketing restart ok but :4174 health failed',
+      );
+    }
+  } else {
+    appendMeta('PM2 echo-marketing not managed — skipped marketing restart');
+    console.warn(
+      '[prod-rolling] PM2 echo-marketing not found; run: npm run marketing:pm2',
+    );
+  }
+
   appendMeta('rolling deploy complete');
-  console.log('[prod-rolling] complete — live on :3000 / :4173');
+  console.log(
+    '[prod-rolling] complete — live on :3000 / :4173, marketing on :4174',
+  );
   console.log(`[prod-rolling] pid file: ${livePidFile}`);
   console.log(`[prod-rolling] log: ${metaPath}`);
 }

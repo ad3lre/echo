@@ -78,7 +78,7 @@ Discord bot HTTP (`/discord/v10`) and gateway WebSocket are **outside** `/api/v1
 
 From [`echo.ts`](../../backend/src/api/routes/echo.ts):
 
-1. **`echoPublic`** is registered **without** `requireAuth`. It exposes **GET** directory/marketing-style endpoints and **POST `/support/contact`** (scoped rate limit + honeypot). **Mutations elsewhere under `/echo` are not in this plugin.**
+1. **`echoPublic`** is registered **without** `requireAuth`. It exposes **GET** directory/marketing-style endpoints and **POST `/support/contact`** (scoped rate limits + honeypot). **Mutations elsewhere under `/echo` are not in this plugin.**
 
 2. **Secured subtree**: all other Echo feature plugins run under `secured.addHook('preHandler', requireAuth)`. Any **POST/PUT/PATCH/DELETE** there expects a **valid browser session** (or compatible auth) and **CSRF** unless the path is globally exempt (none of the standard Echo REST paths are in the CSRF exempt list).
 

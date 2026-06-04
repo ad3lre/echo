@@ -6,6 +6,7 @@ import type {
 } from '@/features/voice/vcActivityTypes';
 import { syncYoutubeVideoIdFromPlaylist } from '@/features/voice/vcActivityTypes';
 import { ECHOED_NAMES_VC_ACTIVITY_ENABLED } from '@shared/vcActivityCatalog';
+import { prefetchPasskeyLoginOptions } from '@/utils/passkeyWebCeremony';
 
 const MORE_SERVERS_PINNED_STORAGE_KEY = 'echo-more-servers-panel-pinned-v1';
 
@@ -71,6 +72,9 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       authModalInitialLoginEntry.value = opts?.entry ?? 'social';
       authModalPasskeyOnOpen.value = opts?.passkey ?? false;
       authModalInitialTab.value = opts?.tab ?? 'login';
+      if (opts?.passkey) {
+        void prefetchPasskeyLoginOptions();
+      }
     }
     isAuthModalOpen.value = true;
   }

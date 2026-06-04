@@ -28,6 +28,7 @@ import {
   buildEchoReplyToSnapshot,
   parseDiscordMessageReference,
 } from './discordReplySnapshot';
+import { DISCORD_IMPORT_BRIDGE_SOURCE } from '../../../shared/discordBridgeSources';
 
 export type DiscordImportMessagesOptions = {
   limit?: number;
@@ -84,12 +85,15 @@ function parseImportedForwardedFrom(
 }
 
 /** Map Discord API embed JSON (from bot `Embed#toJSON()`) into Echo `Embed` rows. */
-function mapDiscordApiEmbedToEcho(raw: Record<string, unknown>): Embed | null {
+export function mapDiscordApiEmbedToEcho(
+  raw: Record<string, unknown>,
+): Embed | null {
   const out: Embed = {};
-  if (typeof raw.title === 'string' && raw.title.trim())
-    out.title = raw.title.trim();
-  if (typeof raw.description === 'string' && raw.description.trim()) {
-    out.description = raw.description.trim();
+  if (typeof raw.title === 'string' && raw.title.length > 0) {
+    out.title = raw.title;
+  }
+  if (typeof raw.description === 'string' && raw.description.length > 0) {
+    out.description = raw.description;
   }
   if (typeof raw.url === 'string' && raw.url.trim()) out.url = raw.url.trim();
   if (typeof raw.color === 'number' && Number.isFinite(raw.color)) {
@@ -126,6 +130,20 @@ function mapDiscordApiEmbedToEcho(raw: Record<string, unknown>): Embed | null {
       out.image = { url };
       if (typeof im.width === 'number') out.image.width = im.width;
       if (typeof im.height === 'number') out.image.height = im.height;
+    }
+  }
+
+  // Discord `type: "video"` embeds expose media on `video`, not `image`.
+  if (!out.image) {
+    const video = raw.video;
+    if (video && typeof video === 'object') {
+      const v = video as Record<string, unknown>;
+      const url = pickDiscordUrlOrProxy(v);
+      if (url) {
+        out.image = { url };
+        if (typeof v.width === 'number') out.image.width = v.width;
+        if (typeof v.height === 'number') out.image.height = v.height;
+      }
     }
   }
 
@@ -416,6 +434,7 @@ export async function runDiscordMessageImport(
       ...(embeds ? { embeds } : {}),
       ...(poll ? { poll } : {}),
       ...(forwardedFrom ? { forwardedFrom } : {}),
+      bridgeSource: DISCORD_IMPORT_BRIDGE_SOURCE,
     });
 
     await tryInsertBridgeIngested(pool, discordChannelId, String(m.id));

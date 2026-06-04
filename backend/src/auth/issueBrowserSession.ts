@@ -16,6 +16,7 @@ import {
   type NativeAuthTokens,
 } from './nativeBearer';
 import type { EchoBrowserSessionResult } from './authSessionResponse';
+import { sessionClientContextFromRequest } from './sessionClientContext';
 
 export function refreshTokenExpiryIso(): string {
   const ms = config.refreshTokenTtlDays * 24 * 60 * 60 * 1000;
@@ -34,6 +35,7 @@ export async function issueEchoBrowserSession(
     user.id,
     refreshTokenHash,
     refreshTokenExpiryIso(),
+    sessionClientContextFromRequest(request),
   );
   const full = await store.getUserById(user.id);
   if (!full) {

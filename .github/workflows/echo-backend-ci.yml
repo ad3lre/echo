@@ -6,6 +6,7 @@ on:
       - 'backend/**'
       - 'shared/**'
       - 'scripts/check-*.mjs'
+      - 'scripts/god-file-baselines.json'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/echo-backend-ci.yml'
@@ -14,6 +15,7 @@ on:
       - 'backend/**'
       - 'shared/**'
       - 'scripts/check-*.mjs'
+      - 'scripts/god-file-baselines.json'
       - 'package.json'
       - 'package-lock.json'
   workflow_dispatch:
@@ -21,6 +23,8 @@ on:
 jobs:
   echo-ci:
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: jwt-0123456789abcdef0123456789abcdef01234567
     services:
       postgres:
         image: postgres:16-alpine
@@ -72,6 +76,7 @@ jobs:
           npm run check:echo-rbac
           npm run check:channel-message-writes
           node scripts/check-echo-no-sql-in-routes.mjs
+          node scripts/check-god-file-ratchet.mjs
 
       - name: Socket handler unit tests
         run: npx vitest run --config frontend/vitest.config.ts backend/src/tests/channelHandlers.joinChannel.test.ts
@@ -110,6 +115,8 @@ jobs:
   perf-validation:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: jwt-0123456789abcdef0123456789abcdef01234567
     services:
       postgres:
         image: postgres:16-alpine

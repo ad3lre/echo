@@ -8,7 +8,6 @@
 import { Marked } from 'marked';
 import markedFootnote from 'marked-footnote';
 import DOMPurify from 'dompurify';
-import * as katex from 'katex';
 import {
   applyTwemojiToHtmlString,
   splitTextWithEmoji,
@@ -22,7 +21,15 @@ import {
   hasMarkdownMathRegions,
   injectRenderedMathRegions,
 } from '@/composables/markdownMathRegions';
-import { normalizeKatexInput } from '@/composables/normalizeKatexInput';
+import {
+  ensureKatexOnlyStyleSanitizerHook,
+  ensureMarkdownKatexLoaded,
+  ensureMarkdownKatexReady,
+  isMarkdownKatexReady,
+  MARKDOWN_KATEX_PIPELINE_VERSION,
+  markdownKatexReadyVersion,
+  renderMarkdownKatexHtml,
+} from '@/composables/markdownKatex';
 import { preprocessLatexTextCompat } from './latexTextCompat';
 import {
   appendMarkdownAlertIcon,
@@ -337,7 +344,7 @@ export function renderComposerOverlayPlainSegment(
           token.rawLen < 512
             ? token.rawLen
             : 4;
-        out += `<span class="composer-emoji-token-slot" style="width:${w}ch"><img class="emoji custom-emoji" draggable="false" alt="${escapeAttr(t)}" title="${escapeAttr(t)}" src="${escapeAttr(url)}" data-emoji-id="${escapeAttr(token.id)}" data-emoji-animated="${token.animated ? 'true' : 'false'}" data-emoji-src-try="0"/></span>`;
+        out += `<span class="composer-emoji-token-slot" style="width:${w}ch"><img class="emoji custom-emoji" draggable="false" alt="${escapeAttr(t)}" title="${escapeAttr(t)}" src="${escapeAttr(url)}" data-emoji-id="${escapeAttr(token.id)}" data-emoji-name="${escapeAttr(token.name)}" data-emoji-animated="${token.animated ? 'true' : 'false'}" data-emoji-src-try="0"/></span>`;
       } else {
         out += renderIdTokenHtml(token, r);
       }
@@ -419,7 +426,7 @@ function renderIdTokenHtml(
       const url = rawUrl ? safeCustomEmojiUrl(rawUrl) : null;
       if (url) {
         const t = `:${parsed.name}:`;
-        return `<img class="emoji custom-emoji" draggable="false" alt="${attr(t)}" title="${attr(t)}" src="${attr(url)}" data-emoji-id="${attr(parsed.id)}" data-emoji-animated="${parsed.animated ? 'true' : 'false'}" data-emoji-src-try="0"/>`;
+        return `<img class="emoji custom-emoji" draggable="false" alt="${attr(t)}" title="${attr(t)}" src="${attr(url)}" data-emoji-id="${attr(parsed.id)}" data-emoji-name="${attr(parsed.name)}" data-emoji-animated="${parsed.animated ? 'true' : 'false'}" data-emoji-src-try="0"/>`;
       }
       const disp = `:${parsed.name}:`;
       return `<span class="mention mention--custom-emoji id-token" data-emoji-id="${attr(parsed.id)}" data-emoji-name="${attr(parsed.name)}" tabindex="0" role="button">${safe(disp)}</span>`;
@@ -587,6 +594,7 @@ const SANITIZE_OPTS = {
     'data-emoji-name',
     'data-emoji-animated',
     'data-emoji-src-try',
+    'data-echo-unicode-emoji',
     'data-app-icon',
     'aria-describedby',
     'aria-label',
@@ -626,67 +634,6 @@ const SANITIZE_OPTS = {
   ADD_ATTR: ['target'],
   ALLOW_UNKNOWN_PROTOCOLS: false,
 };
-
-let katexOnlyStyleSanitizerHookInstalled = false;
-
-/**
- * CSS fragments that enable the only two impactful pure-CSS attacks available
- * through an allowed inline `style`: full-viewport phishing/clickjacking overlays
- * (`position:fixed|sticky` + `z-index`) and render-time beacons / IP disclosure
- * (`url(...)`). DOMPurify's CSS filter blocks script-y CSS (`expression()`,
- * `javascript:` urls) but NOT these layout/fetch properties. KaTeX never emits any
- * of these inline (it uses `position:absolute|relative` + dimensional props only),
- * so stripping declarations that match this list cannot affect math rendering.
- */
-const DANGEROUS_INLINE_STYLE_DECLARATION_RE =
-  /url\s*\(|expression\s*\(|image-set\s*\(|@import|behavior\s*:|-moz-binding|position\s*:\s*(?:fixed|sticky)|z-index/i;
-
-/** Drop whole `prop:value` declarations that contain a dangerous fragment; keep the rest. */
-function filterDangerousInlineStyleDeclarations(raw: string): string {
-  if (!raw) return '';
-  return raw
-    .split(';')
-    .map((decl) => decl.trim())
-    .filter((decl) => decl.length > 0)
-    .filter((decl) => !DANGEROUS_INLINE_STYLE_DECLARATION_RE.test(decl))
-    .join('; ');
-}
-
-/**
- * Constrain inline `style` on message HTML. Two layers, both required:
- *  1) Ancestor gate — only elements inside a `.katex` subtree may carry `style`
- *     at all (user prose/links get it stripped entirely).
- *  2) Value denylist — because `class` is itself an allowed (attacker-settable)
- *     attribute, a forged `class="katex"` would otherwise re-open the hole. We
- *     therefore also strip overlay/beacon declarations from any surviving value,
- *     so a spoofed KaTeX wrapper cannot smuggle `position:fixed`/`z-index`/`url()`.
- */
-function ensureKatexOnlyStyleSanitizerHook(): void {
-  if (katexOnlyStyleSanitizerHookInstalled) return;
-  katexOnlyStyleSanitizerHookInstalled = true;
-  DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
-    if (data.attrName !== 'style') return;
-    let el = node as Element | null;
-    let allowed = false;
-    while (el) {
-      if (el.classList?.contains('katex')) {
-        allowed = true;
-        break;
-      }
-      el = el.parentElement;
-    }
-    if (!allowed) {
-      data.keepAttr = false;
-      return;
-    }
-    const filtered = filterDangerousInlineStyleDeclarations(data.attrValue);
-    if (!filtered) {
-      data.keepAttr = false;
-      return;
-    }
-    data.attrValue = filtered;
-  });
-}
 
 const MARKDOWN_SYNTAX =
   /(^|\n)(#{1,6}\s|>\s|[-*+]\s|\d+\.\s|```|~~~|\|.*\||\s*[-*_]{3,}\s*$)|(\*\*[^*\n]*\*\*|\*[^*\n]+\*|__[^_\n]*__|_[^_\n]+_|`[^`\n]+`|~~[^~\n]+~~|\[[^\]]+\]\([^)]+\)|!\[[^\]]*\]\([^)]+\)|==[^=\n]+==|\|\|[^|]+\|\|)|(\*\*|\*\s|\*\S|`|~~|==|\|\|)/m;
@@ -780,8 +727,7 @@ function echoTextAllowsMarkedBypass(
 const PARSE_CACHE = new Map<string, string>();
 const PARSE_CACHE_MAX = 2000;
 const HTML_STAGE_CACHE_MAX = 2000;
-const MARKDOWN_PIPELINE_VERSION =
-  'mdp1_math3_dollar_inline_latex_text1_sanitize5_katex_style_gate_valdeny_twemoji1_alerts1_extlinkfav1';
+const MARKDOWN_PIPELINE_VERSION = `mdp1_math3_dollar_inline_latex_text1_sanitize5_${MARKDOWN_KATEX_PIPELINE_VERSION}_twemoji1_alerts1_extlinkfav1`;
 const EMOJI_CANDIDATE_RE = /[\u{2600}-\u{27BF}\u{1F000}-\u{1FAFF}]/u;
 const RESOLVER_CACHE_VERSION = new WeakMap<object, number>();
 const HEADING_HTML_CACHE = new Map<string, string>();
@@ -842,41 +788,7 @@ function parseMessageCacheKey(
   return `${MARKDOWN_PIPELINE_VERSION}:r${needsResolverVersion ? resolverVersion : 0}:${text}\n${m}${extra}`;
 }
 
-const MAX_KATEX_SOURCE_CHARS = 3000;
-let katexCssLoadPromise: Promise<unknown> | null = null;
-
-/**
- * KaTeX styles are loaded on-demand so they do not inflate the entry CSS.
- * Rendering may happen before the stylesheet finishes downloading; classes
- * still resolve once the import completes.
- */
-function ensureKatexCssLoaded(): void {
-  if (katexCssLoadPromise) return;
-  katexCssLoadPromise = import('katex/dist/katex.min.css').catch(
-    () => undefined,
-  );
-}
-
-function renderKatexHtml(latex: string, displayMode: boolean): string {
-  const src =
-    latex.length > MAX_KATEX_SOURCE_CHARS
-      ? `${latex.slice(0, MAX_KATEX_SOURCE_CHARS)}\\text{...}`
-      : latex;
-  try {
-    return katex.renderToString(src, {
-      displayMode,
-      throwOnError: false,
-      trust: false,
-      strict: 'warn',
-      output: 'htmlAndMathml',
-      /** Large matrices and nested macros need more than a very small cap. */
-      maxExpand: 2000,
-      maxSize: 20,
-    });
-  } catch {
-    return `<span class="katex-error" title="Math render error">\\text{...}</span>`;
-  }
-}
+export { ensureMarkdownKatexReady as ensureKatexReady };
 
 function applyTwemojiOutsideKatex(html: string): string {
   if (!html.trim()) return html;
@@ -1260,6 +1172,8 @@ export function parseMessageContent(
 
   let rawHtml: string;
   let renderedMath: { token: string; html: string }[];
+  /** True when math rendered placeholders because the KaTeX chunk is still loading. */
+  let mathRenderPending = false;
 
   const useMarkedBypass =
     depth === 0 &&
@@ -1278,12 +1192,16 @@ export function parseMessageContent(
     const withHighlights = preprocessHighlights(withMentions);
     const extractedMath = extractMarkdownMathRegions(withHighlights);
     if (extractedMath.regions.length > 0) {
-      ensureKatexCssLoaded();
+      ensureMarkdownKatexLoaded();
+      // Register a reactive dependency so consumers re-render once KaTeX loads,
+      // and avoid caching the interim placeholder output below.
+      void markdownKatexReadyVersion.value;
+      if (!isMarkdownKatexReady()) mathRenderPending = true;
     }
     const latexCompatText = preprocessLatexTextCompat(extractedMath.text);
     renderedMath = extractedMath.regions.map((r) => ({
       token: r.token,
-      html: renderKatexHtml(normalizeKatexInput(r.latex), r.displayMode),
+      html: renderMarkdownKatexHtml(r.latex, r.displayMode),
     }));
     rawHtml = marked.parse(latexCompatText, { async: false }) as string;
     rawHtml = rawHtml
@@ -1365,7 +1283,7 @@ export function parseMessageContent(
   const twemojified = applyTwemojiOutsideKatex(sanitized);
   ensureKatexOnlyStyleSanitizerHook();
   const out = DOMPurify.sanitize(twemojified, SANITIZE_OPTS);
-  if (useCache) {
+  if (useCache && !mathRenderPending) {
     const cacheKey = parseMessageCacheKey(
       text,
       mentions,

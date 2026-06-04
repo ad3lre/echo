@@ -46,6 +46,15 @@ function rowTimeValue(row: DmMentionNotificationRow): number {
  * `channelId:messageId`. The server feed is authoritative for bodies; local
  * rows fill in anything the feed hasn't returned yet (live socket messages
  * since the last fetch). When both exist, prefer whichever has a real preview.
+ *
+ * Client stubs (preview === MENTION_NOTIFICATION_STUB_PREVIEW) are dropped for
+ * any channel the server already covers. The attention snapshot uses
+ * `latestUnreadMessageId` as the stub anchor, which is the most recent unread
+ * message regardless of whether it carries an @mention. When subsequent
+ * non-mention messages arrive after the @mention, that anchor differs from the
+ * server's mention row ID, producing a phantom stub that can never match a
+ * server row. Dropping stubs for server-covered channels eliminates these
+ * phantom loading indicators.
  */
 export function mergeMentionNotificationRows(
   serverRows: readonly DmMentionNotificationRow[],
@@ -54,12 +63,30 @@ export function mergeMentionNotificationRows(
 ): DmMentionNotificationRow[] {
   const byKey = new Map<string, DmMentionNotificationRow>();
 
+  // Track which channels the server has already provided mention rows for.
+  const serverChannelIds = new Set<string>();
   for (const row of serverRows) {
     byKey.set(row.key, row);
+    const cid = row.channelId.trim();
+    if (cid) serverChannelIds.add(cid);
   }
 
   for (const row of clientRows) {
     const existing = byKey.get(row.key);
+
+    // Drop client stubs for channels the server already covers. The stub's
+    // messageId is `latestUnreadMessageId` (newest unread, not necessarily the
+    // @mention itself), so it often mismatches the server row's messageId.
+    // Real client rows (live socket messages with resolved previews) are always
+    // kept — they represent mentions that arrived after the last server fetch.
+    if (
+      !existing &&
+      isPlaceholderPreview(row.preview) &&
+      serverChannelIds.has(row.channelId.trim())
+    ) {
+      continue;
+    }
+
     if (!existing) {
       byKey.set(row.key, row);
       continue;

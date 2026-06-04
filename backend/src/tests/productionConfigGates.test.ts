@@ -84,6 +84,8 @@ function baseProductionEnv(): Record<string, string> {
     CORS_ORIGIN: 'https://app.example.com',
     ECHO_API_PUBLIC_URL: 'https://app.example.com',
     ECHO_APP_PUBLIC_URL: 'https://app.example.com',
+    ECHO_MARKETING_PUBLIC_URL: 'https://app.example.com',
+    ECHO_SMTP_HOST: 'smtp.example.com',
     ECHO_TRUST_PROXY: 'true',
     ECHO_METRICS_SCRAPE_TOKEN: 'metrics-0123456789abcdef0123456789abcdef',
     ECHO_MEDIA_URL_REQUIRE_HTTPS: 'true',
@@ -129,6 +131,11 @@ async function run(): Promise<void> {
   assertProdGateFails({ CORS_ORIGIN: '' }, 'empty CORS_ORIGIN');
   assertProdGateFails({ CORS_ORIGIN: '   ' }, 'whitespace-only CORS_ORIGIN');
   assertProdGateFails({ CORS_ORIGIN: '*' }, 'CORS_ORIGIN=*');
+  assertProdGateFails({ ECHO_SMTP_HOST: '' }, 'empty ECHO_SMTP_HOST');
+  assertProdGateFails(
+    { ECHO_SMTP_HOST: '   ' },
+    'whitespace-only ECHO_SMTP_HOST',
+  );
   assertProdGateFails({ JWT_SECRET: '' }, 'empty JWT_SECRET');
   assertProdGateFails({ JWT_SECRET: '   ' }, 'whitespace-only JWT_SECRET');
   assertProdGateFails({ JWT_SECRET: 'dev-insecure-secret' }, 'dev JWT_SECRET');

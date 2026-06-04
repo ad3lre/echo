@@ -20,6 +20,7 @@ export type EchoProductionConfigGateInput = {
   echoMetricsScrapeToken: string | null;
   echoAgentNetworkDiagnosticsEnabled: boolean;
   echoAgentNetworkDiagnosticsToken: string | null;
+  echoSmtpHost: string | null;
   echoRequireMediaUrlHardeningInProduction: boolean;
   echoMediaUrlRequireHttps: boolean;
   echoMediaUrlAllowedHosts: readonly string[];
@@ -169,6 +170,12 @@ export function assertEchoProductionConfigGates(
   if (config.voiceSidecarEnabled) {
     deps.configStderr(
       '[echo-config] VOICE_SIDECAR_ENABLED must not be enabled in production (Layer 2 is paused).',
+    );
+    deps.exitProcess(1);
+  }
+  if (!config.echoSmtpHost?.trim()) {
+    deps.configStderr(
+      'ECHO_SMTP_HOST is required in production for transactional email (signup verification, support contact).',
     );
     deps.exitProcess(1);
   }

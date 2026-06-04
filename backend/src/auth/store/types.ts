@@ -23,9 +23,13 @@ export type PasswordRecord = AuthUser & {
   totpEnabled?: boolean;
   _memVerifiedE164?: string;
   _memPendingE164?: string;
+  _memPendingEmail?: string;
   _memTotpSecret?: string;
   _memPendingTotpSecret?: string;
 };
+
+import type { RefreshTokenClientContext } from '../sessionClientContext';
+export type { RefreshTokenClientContext };
 
 export type RefreshTokenRecord = {
   id: string;
@@ -34,6 +38,8 @@ export type RefreshTokenRecord = {
   expiresAt: string;
   createdAt: string;
   revokedAt?: string;
+  userAgent?: string | null;
+  location?: string | null;
 };
 
 export type AuthProfilePatch = {
@@ -84,6 +90,8 @@ export interface UserStore {
   ): Promise<AuthUser>;
   /** Suggested email for Discord-initiated guests; cleared on upgrade. */
   setGuestPendingEmail(userId: string, email: string | null): Promise<void>;
+  /** Stage a new login email; verified via `email_change` token before promotion. */
+  requestEmailChange(userId: string, email: string): Promise<AuthUser>;
   incrementGuestMessageCount(userId: string): Promise<number | null>;
   ensureGuestDisplayAliasIfEmpty(user: AuthUser): Promise<AuthUser>;
   deleteUserAccount(userId: string): Promise<boolean>;
@@ -102,6 +110,7 @@ export interface SessionStore {
     userId: string,
     tokenHash: string,
     expiresAt: string,
+    client?: RefreshTokenClientContext,
   ): Promise<RefreshTokenRecord>;
   findActiveRefreshToken(tokenHash: string): Promise<RefreshTokenRecord | null>;
   /** Whether a row exists for this hash and if it is still usable (not revoked / not past expires_at). */
@@ -127,15 +136,17 @@ export interface SessionStore {
   revokeUserRefreshTokens(userId: string): Promise<void>;
 }
 
+export type EmailVerificationPurpose = 'signup' | 'email_change';
+
 export interface VerificationStore {
   createEmailVerificationToken(
     userId: string,
-    purpose: 'signup',
+    purpose: EmailVerificationPurpose,
     options?: { enforceResendCooldown?: boolean },
   ): Promise<{ plainToken: string }>;
   consumeEmailVerificationToken(
     plainToken: string,
-  ): Promise<{ userId: string } | null>;
+  ): Promise<{ userId: string; purpose: EmailVerificationPurpose } | null>;
   issuePhoneOtpChallenge(
     userId: string,
     options?: { enforceResendCooldown?: boolean },

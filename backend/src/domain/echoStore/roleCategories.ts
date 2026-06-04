@@ -16,6 +16,12 @@ import {
   normalizeEchoRoleType,
   type EchoRoleType,
 } from '../../../../shared/echoRoleTypes';
+import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
+import { isEchoServerOwner } from './access';
+import {
+  actorMayGrantPermissionSet,
+  elevatedPermissionsBlockDefaultOnJoin,
+} from './roles';
 import {
   loadEchoRoleCategoryDefaults,
   propagateCategoryDefaultsToSyncedRoles,
@@ -148,6 +154,7 @@ export async function updateEchoRoleCategory(
 ): Promise<UpdateEchoRoleCategoryResult> {
   const actorPerms = await getMergedRolePermissions(pool, serverId, actorId);
   if (!canManageEchoRolesCatalog(actorPerms)) return 'forbidden';
+  const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
 
   const sets: string[] = [];
   const vals: unknown[] = [];
@@ -164,6 +171,9 @@ export async function updateEchoRoleCategory(
       patch.defaultPermissions,
       ALLOWED_PERMS_SET,
     );
+    if (!actorMayGrantPermissionSet(actorPerms, new Set(perms), actorIsOwner)) {
+      return 'forbidden';
+    }
     sets.push(`default_permissions = $${vals.length + 1}::jsonb`);
     vals.push(JSON.stringify(perms));
   }
@@ -193,6 +203,27 @@ export async function updateEchoRoleCategory(
     vals.push(patch.selfAssignableDefaults);
   }
 
+  if (patch.defaultOnJoin === true) {
+    const existingDefaults = await loadEchoRoleCategoryDefaults(
+      pool,
+      serverId,
+      categoryId,
+    );
+    const permsForJoinCheck =
+      patch.defaultPermissions !== undefined
+        ? normalizePermissionListForStorage(
+            patch.defaultPermissions,
+            ALLOWED_PERMS_SET,
+          )
+        : (existingDefaults?.permissions ?? []);
+    if (
+      elevatedPermissionsBlockDefaultOnJoin(permsForJoinCheck) &&
+      !actorIsOwner
+    ) {
+      return 'forbidden';
+    }
+  }
+
   if (sets.length === 0) return 'invalid_body';
 
   vals.push(serverId, categoryId);
@@ -217,12 +248,29 @@ export async function updateEchoRoleCategory(
       categoryId,
     );
     if (nextDefaults) {
+      if (
+        !actorMayGrantPermissionSet(
+          actorPerms,
+          new Set(nextDefaults.permissions),
+          actorIsOwner,
+        )
+      ) {
+        return 'forbidden';
+      }
+      if (
+        nextDefaults.defaultOnJoin &&
+        elevatedPermissionsBlockDefaultOnJoin(nextDefaults.permissions) &&
+        !actorIsOwner
+      ) {
+        return 'forbidden';
+      }
       await propagateCategoryDefaultsToSyncedRoles(
         pool,
         serverId,
         categoryId,
         nextDefaults,
       );
+      invalidateEchoPermissionCacheForServer(serverId);
     }
   }
   return 'ok';

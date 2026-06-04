@@ -5,7 +5,6 @@ import { canDeleteOthersMessagesInChannel } from '../domain/echoPolicy';
 import {
   canUserAccessChannel,
   canUserPostMessage,
-  canUserSendMassMentionInChannel,
 } from '../domain/echoPermissions';
 import {
   getEchoChannelServerId,
@@ -24,6 +23,7 @@ import { resolveAndBroadcastLinkEmbeds } from './echoLinkEmbeds';
 import { echoMessageFailedTotal } from '../observability/echoMetrics';
 import { emitEchoAttentionSnapshotsForUsers } from '../services/echoAttentionRealtime';
 import { isEchoMessageAuthorOrLinkedTwin } from '../domain/discordTwinMessageAuth';
+import { evaluateEchoGuildOutboundMessageEditModeration } from '../services/echoGuildOutboundMessageModeration';
 
 function emitFailed(
   socket: Socket,
@@ -38,6 +38,16 @@ function isAnonymousSocketUser(userId: string): boolean {
   return userId.startsWith('user_');
 }
 
+function messageFailedCodeFromModerationDenial(
+  code: string,
+): MessageFailedCode {
+  if (code === 'SPAM_FILTER') return 'SPAM_FILTER';
+  if (code === 'BANNED_WORDS_BLOCKED') return 'BANNED_WORDS_BLOCKED';
+  if (code === 'SLOWMODE') return 'SLOWMODE';
+  if (code === 'INVALID_BODY') return 'VALIDATION';
+  return 'FORBIDDEN';
+}
+
 async function emitAttentionForChannel(
   pool: import('pg').Pool,
   io: Server,
@@ -46,7 +56,10 @@ async function emitAttentionForChannel(
 ): Promise<void> {
   const dmParticipants = await listEchoDmParticipantUserIds(pool, channelId);
   if (dmParticipants.length > 0) {
-    await emitEchoAttentionSnapshotsForUsers(pool, io, dmParticipants, log);
+    await emitEchoAttentionSnapshotsForUsers(pool, io, dmParticipants, log, {
+      mode: 'channel',
+      channelId,
+    });
     return;
   }
   const serverId = await getEchoChannelServerId(pool, channelId);
@@ -57,6 +70,7 @@ async function emitAttentionForChannel(
     io,
     members.map((member) => member.userId),
     log,
+    { mode: 'channel', channelId, serverId },
   );
 }
 
@@ -163,20 +177,26 @@ export function registerMessageEditDeleteHandler(
         return;
       }
       const v = parsed.value;
-      if (
-        v.editKind === 'json' &&
-        !(await canUserSendMassMentionInChannel(
+      const guildServerId = await getEchoChannelServerId(pool, channelId);
+      const editPlain = v.content;
+      if (guildServerId && editPlain.trim()) {
+        const moderation = await evaluateEchoGuildOutboundMessageEditModeration(
           pool,
-          userId,
-          channelId,
-          v.mentions,
-        ))
-      ) {
-        fail('FORBIDDEN', {
-          channelId,
-          detail: 'You cannot mention @everyone or @active in this channel.',
-        });
-        return;
+          {
+            serverId: guildServerId,
+            channelId,
+            userId,
+            content: editPlain,
+            mentions: v.editKind === 'json' ? v.mentions : undefined,
+          },
+        );
+        if (!moderation.ok) {
+          fail(messageFailedCodeFromModerationDenial(moderation.denial.code), {
+            channelId,
+            detail: moderation.denial.detail,
+          });
+          return;
+        }
       }
       const editBody =
         v.editKind === 'legacy'
@@ -205,6 +225,7 @@ export function registerMessageEditDeleteHandler(
         messageId,
         userId,
         editBody,
+        meta,
       );
       if (r !== 'ok') {
         log.warn({

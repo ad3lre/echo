@@ -2,6 +2,7 @@ import { computed, type Ref } from 'vue';
 import type { useServerStore } from '@/stores/server';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { RailTab } from '@/features/layout/mainSurface';
+import { isGuildShellSettling } from '@/features/layout/composables/guildShellSettling';
 
 /**
  * Loading hints while the servers rail switches guild or the first channel/messages hydrate.
@@ -36,8 +37,21 @@ export function useAppLayoutRailLoadingDerived(opts: {
       opts.activeRailTab.value === 'servers',
   );
 
+  const isGuildShellSettlingRef = computed(() =>
+    isGuildShellSettling({
+      rail: opts.activeRailTab.value,
+      selectedServerId: opts.serverStore.selectedServerId,
+      activeChannelId: opts.activeChannelId.value,
+      categoriesByServer: opts.workspace.categoriesByServer.value,
+      workspaceLoading: opts.workspace.loading.value,
+      workspaceFromApi: opts.workspace.fromApi.value,
+      initialLoadInFlight: opts.workspace.initialLoadInFlight.value,
+    }),
+  );
+
   const isChannelPanelSwitchLoading = computed(() => {
     if (isInitialWorkspaceLoading.value) return true;
+    if (isGuildShellSettlingRef.value) return true;
     if (!isServerRailFastSwitchPending.value) return false;
     const sid = opts.serverStore.selectedServerId;
     if (!sid || sid === 'echo') return false;
@@ -47,6 +61,7 @@ export function useAppLayoutRailLoadingDerived(opts: {
 
   const isMessageSurfaceSwitchLoading = computed(() => {
     if (isInitialWorkspaceLoading.value) return true;
+    if (isGuildShellSettlingRef.value) return true;
     if (!isServerRailFastSwitchPending.value) return false;
     const cid = opts.activeChannelId.value.trim();
     if (!cid) return true;
@@ -56,6 +71,7 @@ export function useAppLayoutRailLoadingDerived(opts: {
   return {
     isServerRailFastSwitchPending,
     isInitialWorkspaceLoading,
+    isGuildShellSettling: isGuildShellSettlingRef,
     isChannelPanelSwitchLoading,
     isMessageSurfaceSwitchLoading,
   };

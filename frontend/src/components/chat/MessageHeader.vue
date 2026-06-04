@@ -4,6 +4,7 @@ import type { MessageWithAuthor } from '@shared/types';
 import { getChannelIcon, getChannelDisplayName, icons } from '@/assets/icons';
 import { formatTimestamp } from '@/utils/formatTimestamp';
 import DiscordSyncedMessageBadge from '@/features/chat/components/DiscordSyncedMessageBadge.vue';
+import MessageSendPendingDots from '@/components/chat/MessageSendPendingDots.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -17,9 +18,10 @@ const props = withDefaults(
     showTimestamp?: boolean;
     isPinned?: boolean;
     saveFeedback?: boolean;
+    sendPending?: boolean;
     channelId?: string;
   }>(),
-  { authorOffline: false, showTimestamp: true },
+  { authorOffline: false, showTimestamp: true, sendPending: false },
 );
 
 const timestampLabel = computed(() => formatTimestamp(props.message.timestamp));
@@ -52,6 +54,7 @@ defineEmits<{
     >
       {{ timestampLabel }}
     </span>
+    <MessageSendPendingDots v-if="sendPending" />
     <span
       v-if="message.editedAt || saveFeedback"
       class="text-xs italic transition-opacity"

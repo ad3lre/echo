@@ -1,11 +1,20 @@
 <script setup lang="ts">
-import { computed, inject, ref, unref, watch } from 'vue';
+import { computed, defineAsyncComponent, inject, ref, unref, watch } from 'vue';
 import type { MaybeRef } from 'vue';
 import ServerList from '@/components/ServerList.vue';
 import ChannelPanel from '@/components/ChannelPanel.vue';
 import ChannelPanelContextMenu from '@/features/channel-panel/components/ChannelPanelContextMenu.vue';
 import DMPanel from '@/components/DMPanel.vue';
-import MoreServersPanel from '@/components/MoreServersPanel.vue';
+/**
+ * MoreServersPanel (~67 KB raw) is never visible on first paint — it opens on demand.
+ * Load it lazily and only mount it once it has first been opened (`moreServersEverOpened`
+ * latch below), so its chunk and subtree stay off the cold-boot critical path. The latch
+ * stays true after first open so the panel's CSS open/close animation keeps working on
+ * subsequent toggles; only the very first open skips the enter animation.
+ */
+const MoreServersPanel = defineAsyncComponent(
+  () => import('@/components/MoreServersPanel.vue'),
+);
 import { useServerStore } from '@/stores/server';
 import { useSimpleContextMenu } from '@/composables/useSimpleContextMenu';
 import { useDevSettingsStore } from '@/stores/devSettings';
@@ -226,6 +235,20 @@ const serverListBindings = computed(() => {
     railProfileAwaySelfSpeaking: L.railProfileAwaySelfSpeaking,
   };
 });
+
+/**
+ * Latch that keeps the lazily-loaded MoreServersPanel mounted once it has first been opened, so
+ * its async chunk loads only on demand (off the cold-boot path) while its open/close animation
+ * still works on every toggle after the first.
+ */
+const moreServersEverOpened = ref(false);
+watch(
+  () => lc.value.isMoreServersPanelOpen,
+  (open) => {
+    if (open) moreServersEverOpened.value = true;
+  },
+  { immediate: true },
+);
 
 /**
  * Compact stack: omit the channel/DM column when it would be empty (e.g. Explore).
@@ -1186,6 +1209,7 @@ function onMoreServersPinServer(payload: {
         :class="{ 'pointer-events-auto': lc.isMoreServersPanelOpen }"
       >
         <MoreServersPanel
+          v-if="moreServersEverOpened"
           :open="lc.isMoreServersPanelOpen"
           :compact="lc.isMoreServersCompact"
           :pinned="lc.isMoreServersPinned"
@@ -1360,6 +1384,7 @@ function onMoreServersPinServer(payload: {
       />
       <div class="relative h-full min-w-0 overflow-hidden">
         <MoreServersPanel
+          v-if="moreServersEverOpened"
           :open="lc.isMoreServersPanelOpen"
           :compact="lc.isMoreServersCompact"
           :pinned="lc.isMoreServersPinned"

@@ -4,6 +4,7 @@ import { useAuthSessionStore } from '@/stores/authSession';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { useSettingsAccountSecurity } from '@/features/settings/composables/useSettingsAccountSecurity';
 import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
+import { prefetchPasskeyRegistrationOptions } from '@/utils/passkeyWebCeremony';
 import { EMAIL_VERIFICATION_DOWNTIME } from '@/config/emailVerificationDowntime';
 import {
   PHONE_VERIFICATION_COMING_SOON,
@@ -13,6 +14,11 @@ import type {
   SettingsForm,
   SettingsCurrentUser,
 } from '@/features/settings/composables/useSettingsForm';
+import {
+  formatAuthSessionSummary,
+  parseAuthSessionUserAgent,
+} from '@/utils/authSessionDeviceLabel';
+import type { AuthSessionInfo } from '@/api/authClient';
 
 const props = defineProps<{
   form: SettingsForm;
@@ -134,8 +140,19 @@ const {
  */
 onMounted(() => {
   void loadAccountSessions();
-  if (ECHO_PASSKEYS_ENABLED) void loadPasskeys();
+  if (ECHO_PASSKEYS_ENABLED) {
+    void loadPasskeys();
+    void prefetchPasskeyRegistrationOptions();
+  }
 });
+
+function sessionTitle(s: AuthSessionInfo): string {
+  return parseAuthSessionUserAgent(s.userAgent).headline;
+}
+
+function sessionSubtitle(s: AuthSessionInfo): string {
+  return formatAuthSessionSummary(s);
+}
 
 const passkeyNewLabel = ref('');
 const passkeyEditingLabelId = ref<string | null>(null);
@@ -1511,6 +1528,9 @@ defineExpose({
               class="settings-action shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider"
               :disabled="isAccountLocked || passkeyRegisterBusy"
               :aria-busy="passkeyRegisterBusy"
+              @pointerdown="
+                ECHO_PASSKEYS_ENABLED && prefetchPasskeyRegistrationOptions()
+              "
               @click="handleAddPasskey"
             >
               {{ passkeyRegisterBusy ? 'Working…' : 'Add passkey' }}
@@ -1617,8 +1637,19 @@ defineExpose({
               </svg>
             </div>
             <div class="min-w-0">
-              <div class="text-sm font-bold text-foreground truncate">
-                Session
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="text-sm font-bold text-foreground truncate">
+                  {{ sessionTitle(s) }}
+                </div>
+                <span
+                  v-if="s.isCurrentSession"
+                  class="shrink-0 rounded-md bg-glass-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-fg-subtle"
+                >
+                  This device
+                </span>
+              </div>
+              <div class="text-xs text-fg-subtle mt-0.5 truncate">
+                {{ sessionSubtitle(s) }}
               </div>
               <div class="text-xs text-fg-subtle mt-0.5">
                 Started {{ formatSessionDate(s.createdAt) }} · expires

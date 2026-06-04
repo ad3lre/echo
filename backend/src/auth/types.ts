@@ -116,6 +116,9 @@ export interface AuthLogoutBody {
 }
 
 export interface AuthProfileUpdateBody {
+  /** Required for sensitive profile changes when the account has a password and/or TOTP. */
+  currentPassword?: string;
+  totpCode?: string;
   email?: string;
   /** E.164 pending phone (set via PATCH); omit to leave unchanged, empty string or null clears pending only. */
   phone?: string | null;

@@ -107,6 +107,7 @@ export async function joinEchoVoiceChannel(
   serverId: string,
   channelId: string,
   userId: string,
+  opts?: { membershipAlreadyVerified?: boolean },
 ): Promise<EchoVoiceJoinResult> {
   const ch = await pool.query(
     `SELECT id, type, user_limit FROM echo_channels WHERE id = $1 AND server_id = $2`,
@@ -116,11 +117,13 @@ export async function joinEchoVoiceChannel(
   const channelType = String(ch.rows[0].type);
   if (!isVoiceLikeChannelType(channelType))
     return { ok: false, reason: 'not_found' };
-  const mem = await pool.query(
-    `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
-    [serverId, userId],
-  );
-  if (mem.rows.length === 0) return { ok: false, reason: 'not_member' };
+  if (!opts?.membershipAlreadyVerified) {
+    const mem = await pool.query(
+      `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
+      [serverId, userId],
+    );
+    if (mem.rows.length === 0) return { ok: false, reason: 'not_member' };
+  }
   if (await isUserBannedFromServer(pool, serverId, userId))
     return { ok: false, reason: 'banned' };
   const timeoutState = await getUserCommunicationTimeoutState(

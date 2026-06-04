@@ -33,6 +33,31 @@ export async function sendSignupVerificationEmail(
   }
 }
 
+export async function sendEmailChangeVerificationEmail(
+  log: FastifyBaseLogger,
+  store: AuthStore,
+  user: Pick<AuthUser, 'id' | 'username' | 'email'>,
+  pendingEmail: string,
+): Promise<void> {
+  const target = pendingEmail.trim();
+  if (!target) return;
+  try {
+    const { plainToken } = await store.createEmailVerificationToken(
+      user.id,
+      'email_change',
+      { enforceResendCooldown: false },
+    );
+    const verifyUrl = buildSignupVerificationVerifyUrl(plainToken);
+    const { subject, text, html } = buildSignupVerificationEmailContent({
+      username: user.username,
+      verifyUrl,
+    });
+    await sendTransactionalEmail(log, { to: target, subject, text, html });
+  } catch (err) {
+    log.error(err, 'email_change_verification_email_failed');
+  }
+}
+
 export async function sendSignupVerificationResend(
   log: FastifyBaseLogger,
   store: AuthStore,

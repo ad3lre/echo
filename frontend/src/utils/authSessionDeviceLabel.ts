@@ -3,9 +3,28 @@ import type { AuthSessionInfo } from '@/api/authClient';
 export type ParsedClientEnvironment = {
   os: string;
   device: string;
+  browser: string;
   /** e.g. `Windows — PC` or `iOS — iPhone` */
   headline: string;
 };
+
+function browserFromUa(u: string): string {
+  if (/Edg\//i.test(u)) return 'Edge';
+  if (/OPR\/|Opera/i.test(u)) return 'Opera';
+  if (/Firefox\//i.test(u)) return 'Firefox';
+  if (/CriOS\//i.test(u)) return 'Chrome';
+  if (/Chrome\//i.test(u) && !/Edg\//i.test(u)) return 'Chrome';
+  if (/Safari\//i.test(u) && !/Chrome\//i.test(u)) return 'Safari';
+  if (/Electron/i.test(u)) return 'Echo Desktop';
+  return 'Browser';
+}
+
+function withBrowser(
+  env: Omit<ParsedClientEnvironment, 'browser'>,
+  ua: string,
+): ParsedClientEnvironment {
+  return { ...env, browser: browserFromUa(ua) };
+}
 
 /** Small map for iPhone hardware strings occasionally present in Mobile Safari UAs. */
 const IPHONE_HW: Record<string, string> = {
@@ -47,11 +66,14 @@ export function parseAuthSessionUserAgent(
 ): ParsedClientEnvironment {
   const raw = typeof ua === 'string' && ua.trim() ? ua.trim() : '';
   if (!raw) {
-    return {
-      os: 'Unknown OS',
-      device: 'Browser',
-      headline: 'Unknown OS — Browser',
-    };
+    return withBrowser(
+      {
+        os: 'Unknown OS',
+        device: 'Browser',
+        headline: 'Unknown OS — Browser',
+      },
+      '',
+    );
   }
   const u = raw;
 
@@ -64,7 +86,7 @@ export function parseAuthSessionUserAgent(
     if (/iPad/i.test(u)) device = 'iPad';
     else if (/iPod/i.test(u)) device = 'iPod touch';
     else if (/iPhone/i.test(u)) device = iphoneModelFromUa(u) ?? 'iPhone';
-    return { os, device, headline: `${os} — ${device}` };
+    return withBrowser({ os, device, headline: `${os} — ${device}` }, u);
   }
 
   // macOS
@@ -73,7 +95,7 @@ export function parseAuthSessionUserAgent(
     const ver = macVer?.[1]?.replace(/_/g, '.') ?? '';
     const os = ver ? `macOS ${ver.split('.').slice(0, 3).join('.')}` : 'macOS';
     const device = /Mobile\/\w+/i.test(u) ? 'Mac (touch class)' : 'Mac';
-    return { os, device, headline: `${os} — ${device}` };
+    return withBrowser({ os, device, headline: `${os} — ${device}` }, u);
   }
 
   // Android
@@ -88,7 +110,7 @@ export function parseAuthSessionUserAgent(
         device = hint;
       }
     }
-    return { os, device, headline: `${os} — ${device}` };
+    return withBrowser({ os, device, headline: `${os} — ${device}` }, u);
   }
 
   // Windows
@@ -99,7 +121,7 @@ export function parseAuthSessionUserAgent(
     else if (/Windows NT 6\.2/i.test(u)) os = 'Windows 8';
     else if (/Windows NT 6\.1/i.test(u)) os = 'Windows 7';
     const device = /Touch/i.test(u) ? 'PC (touch)' : 'PC';
-    return { os, device, headline: `${os} — ${device}` };
+    return withBrowser({ os, device, headline: `${os} — ${device}` }, u);
   }
 
   // Linux desktop / other
@@ -107,14 +129,32 @@ export function parseAuthSessionUserAgent(
     const os = 'Linux';
     let device = 'Desktop';
     if (/CrOS/i.test(u)) device = 'Chromebook';
-    return { os, device, headline: `${os} — ${device}` };
+    return withBrowser({ os, device, headline: `${os} — ${device}` }, u);
   }
 
-  return {
-    os: 'Unknown OS',
-    device: 'Browser',
-    headline: 'Unknown OS — Browser',
-  };
+  return withBrowser(
+    {
+      os: 'Unknown OS',
+      device: 'Browser',
+      headline: 'Unknown OS — Browser',
+    },
+    u,
+  );
+}
+
+/** One-line summary for session lists (browser · OS · location). */
+export function formatAuthSessionSummary(session: {
+  userAgent?: string | null;
+  location?: string | null;
+}): string {
+  const env = parseAuthSessionUserAgent(session.userAgent);
+  const parts = [env.browser, env.os];
+  const loc =
+    typeof session.location === 'string' && session.location.trim()
+      ? session.location.trim()
+      : '';
+  if (loc) parts.push(loc);
+  return parts.join(' · ');
 }
 
 export type AuthSessionDisplayGroup = {

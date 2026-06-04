@@ -16,6 +16,8 @@ With `NODE_ENV=production`, the server exits on dangerous or incomplete public-f
 - **`REDIS_URL`** is required unless **`ECHO_REQUIRE_REDIS_IN_PRODUCTION=false`** (defaults to requiring Redis in production for shared sessions).
 - LiveKit: if enabled, `LIVEKIT_PUBLIC_URL` must not use `ws://` (browsers need `wss://` on the public internet).
 - `VOICE_SIDECAR_ENABLED` must not be on in production (explicitly blocked).
+- **`ECHO_SMTP_HOST`** must be set so transactional mail works (signup DOI, support).
+- **`ECHO_MARKETING_PUBLIC_URL`** origin must appear in **`CORS_ORIGIN`** (browser POST from app-echo.net).
 
 Automated coverage: `backend/src/tests/productionConfigGates.test.ts`.
 

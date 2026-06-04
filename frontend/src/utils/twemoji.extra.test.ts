@@ -10,7 +10,8 @@ import {
 describe('twemoji utils extra', () => {
   it('parseSingleEmoji returns img tag with alt and src', () => {
     const html = parseSingleEmoji('😀');
-    expect(html).toContain('class="emoji"');
+    expect(html).toContain('class="emoji echo-emoji-inspect-target"');
+    expect(html).toContain('data-echo-unicode-emoji="😀"');
     expect(html).toContain('alt="😀"');
     expect(html).toMatch(/twemoji\/[0-9a-fA-F]+\.webp/);
   });
@@ -55,7 +56,7 @@ describe('twemoji utils extra', () => {
   it('parseTextWithTwemoji returns html with images', () => {
     const html = parseTextWithTwemoji('A😀B');
     expect(html).toContain('<img');
-    expect(html).toContain('class="emoji"');
+    expect(html).toContain('class="emoji echo-emoji-inspect-target"');
   });
 
   it('splitTextWithEmoji keeps ZWJ head-shake sequence as one segment', () => {

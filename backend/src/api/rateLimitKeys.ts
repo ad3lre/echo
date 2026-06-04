@@ -1,11 +1,14 @@
 import type { FastifyRequest } from 'fastify';
+import { clientIpFromFastifyRequest } from '../net/clientIp';
 
-/** Per authenticated user, else per client IP (Echo API routes). */
+/** Per authenticated user, else per trusted client IP (Echo API routes). */
 export function authUserOrIpRateLimitKey(req: FastifyRequest): string {
-  return req.authUser?.id ? `uid:${req.authUser.id}` : `ip:${req.ip}`;
+  return req.authUser?.id
+    ? `uid:${req.authUser.id}`
+    : `ip:${clientIpFromFastifyRequest(req)}`;
 }
 
-/** Per client IP (OAuth, guest mint, unauthenticated flows). */
+/** Per trusted client IP (OAuth, guest mint, unauthenticated flows). */
 export function ipRateLimitKey(req: FastifyRequest): string {
-  return `ip:${req.ip}`;
+  return `ip:${clientIpFromFastifyRequest(req)}`;
 }

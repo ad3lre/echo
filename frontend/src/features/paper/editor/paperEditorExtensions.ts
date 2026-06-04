@@ -18,6 +18,12 @@ import {
   CustomEmojiNode,
   MentionEntityNode,
 } from '@/features/chat/editor/composerModel';
+import {
+  ComposerBold,
+  ComposerCode,
+  ComposerItalic,
+  ComposerStrike,
+} from '@/features/chat/editor/composerTextualMarks';
 import { PaperBlockIdExtension } from '@/features/paper/editor/paperBlockIdExtension';
 import { PaperMarkdownMathDecorations } from '@/features/paper/editor/paperMarkdownMathDecorations';
 import { PaperBlockHighlight } from '@/features/paper/editor/paperBlockHighlight';
@@ -50,7 +56,16 @@ export function buildPaperEditorExtensions(
     StarterKit.configure({
       dropcursor: { color: 'rgba(99,102,241,0.6)', width: 2 },
       heading: { levels: [1, 2, 3] },
+      // Keep literal `**`, `` ` ``, etc. in the doc; inline/raw preview is decoration-driven.
+      bold: false,
+      italic: false,
+      strike: false,
+      code: false,
     }),
+    ComposerBold,
+    ComposerItalic,
+    ComposerStrike,
+    ComposerCode,
     PaperDocumentAttributes,
     TextStyle,
     FontFamily.configure({ types: ['textStyle'] }),

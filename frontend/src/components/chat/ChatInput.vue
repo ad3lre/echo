@@ -29,7 +29,6 @@ import AttachPopout from '@/components/chat/AttachPopout.vue';
 import PendingMediaPreview from '@/components/chat/PendingMediaPreview.vue';
 import ImageViewerModal from '@/components/chat/ImageViewerModal.vue';
 import type { ImageItem } from '@/components/chat/ImageViewerModal.vue';
-import ChatMediaUploadOverlay from '@/components/chat/ChatMediaUploadOverlay.vue';
 import PollCreateModal from '@/components/chat/PollCreateModal.vue';
 import ChatInputComposerBar from '@/features/chat/components/ChatInputComposerBar.vue';
 import { applyComposerOrderedListEnter } from '@/features/chat/editor/composerMarkdownListEnter';
@@ -81,7 +80,6 @@ import type {
 import { insertUserMentionAtCursor as insertUserMentionAtCursorShared } from '@/features/chat/composables/insertUserMentionAtCursor';
 import { shiftMentionsForReplacement } from '@/features/chat/editor/composerModel';
 
-import type { ChatMediaUploadProgressEvent } from '@/api/echoClient';
 import { useChatInputSlowmode } from '@/features/chat/composables/useChatInputSlowmode';
 import { useChatTypingComposer } from '@/features/chat/composables/useChatTypingComposer';
 import ChatInputMarkdownPreview from '@/features/chat/components/ChatInputMarkdownPreview.vue';
@@ -251,15 +249,8 @@ const communicationTimeoutLockDetail = computed(() => {
     : 'You are in a communication timeout in this server.';
 });
 
-const mediaUploadProgress = ref<ChatMediaUploadProgressEvent | null>(null);
-const composerBarDisabled = computed(
-  () => composerDisabled.value || mediaUploadProgress.value != null,
-);
-const composerBarDisabledReason = computed(() =>
-  mediaUploadProgress.value != null
-    ? 'Sending attachments…'
-    : composerDisabledReason.value,
-);
+const composerBarDisabled = computed(() => composerDisabled.value);
+const composerBarDisabledReason = computed(() => composerDisabledReason.value);
 
 /** Full replacement of the composer (like slowmode) when send is blocked by permissions. */
 const showPermissionLockOverlay = computed(
@@ -1145,28 +1136,19 @@ async function handleSubmit() {
   const replyTo = props.replyingTo ?? undefined;
   try {
     if (hasMedia) {
-      try {
-        await send(
-          props.channelId,
-          content,
-          mentions,
-          pendingImages.value,
-          pendingVideos.value,
-          pendingAudios.value,
-          pendingDocuments.value,
-          pendingExternalImages.value,
-          pendingGifs.value,
-          replyTo,
-          {
-            onMediaUploadProgress: (e) => {
-              mediaUploadProgress.value = e;
-            },
-          },
-        );
-        clearPendingMedia();
-      } finally {
-        mediaUploadProgress.value = null;
-      }
+      send(
+        props.channelId,
+        content,
+        mentions,
+        pendingImages.value,
+        pendingVideos.value,
+        pendingAudios.value,
+        pendingDocuments.value,
+        pendingExternalImages.value,
+        pendingGifs.value,
+        replyTo,
+      );
+      clearPendingMedia({ revokeObjectUrls: false });
     } else {
       const docJson = composer.getContentJson();
       const jsonOk = docJson !== null && typeof docJson === 'object';
@@ -1541,11 +1523,6 @@ onMounted(() => {
       @remove-external-image="removeExternalImage"
       @remove-gif="removeGif"
       @preview-images="openPendingImagePreview"
-    />
-
-    <ChatMediaUploadOverlay
-      v-if="mediaUploadProgress"
-      :state="mediaUploadProgress"
     />
 
     <div

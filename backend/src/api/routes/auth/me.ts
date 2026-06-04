@@ -11,7 +11,14 @@ import {
 import { updateCachedUserInAllSessions } from '../../../auth/serverSession';
 import { config } from '../../../config';
 import type { AuthProfileUpdateBody } from '../../../auth/types';
-import { sendSignupVerificationEmail } from '../../../services/auth/emailVerificationActions';
+import {
+  sendEmailChangeVerificationEmail,
+  sendSignupVerificationEmail,
+} from '../../../services/auth/emailVerificationActions';
+import {
+  assertSensitiveAccountStepUp,
+  sendSensitiveAccountStepUpError,
+} from '../../../auth/stepUpAuth';
 import { sendPhoneVerificationSms } from '../../../services/auth/phoneVerificationActions';
 import { getPgPool } from '../../../db/pg';
 import { fanoutUserProfileChangeToEchoServers } from '../../../services/echoUserProfileWorkspaceFanout';
@@ -343,6 +350,8 @@ export default async function meRoutes(fastify: FastifyInstance) {
                 { type: 'null' },
               ],
             },
+            currentPassword: { type: 'string', minLength: 1 },
+            totpCode: { type: 'string', minLength: 6, maxLength: 16 },
           },
           additionalProperties: false,
         },
@@ -387,8 +396,8 @@ export default async function meRoutes(fastify: FastifyInstance) {
         );
       }
       const patch: AuthProfileUpdateBody = {};
-      if (typeof req.body.email === 'string')
-        patch.email = req.body.email.trim();
+      const requestedEmail =
+        typeof req.body.email === 'string' ? req.body.email.trim() : '';
       if (req.body.phone !== undefined) {
         patch.phone =
           req.body.phone === null ? null : String(req.body.phone).trim();
@@ -514,10 +523,85 @@ export default async function meRoutes(fastify: FastifyInstance) {
       }
 
       const { store, mode } = await getAuthStore();
+
+      if (requestedEmail) {
+        const userRecord = await store.getUserByUsername(req.authUser.username);
+        if (!userRecord) {
+          return sendError(reply, 404, 'NOT_FOUND', 'User not found');
+        }
+        const stepUp = await assertSensitiveAccountStepUp(store, userRecord, {
+          currentPassword: req.body.currentPassword,
+          totpCode: req.body.totpCode,
+        });
+        if (!stepUp.ok)
+          return sendSensitiveAccountStepUpError(reply, stepUp.reason);
+        try {
+          const staged = await store.requestEmailChange(
+            req.authUser.id,
+            requestedEmail,
+          );
+          if (mode === 'postgres') {
+            const pending = (
+              await getPgPool()?.query<{ pending_email: string | null }>(
+                `SELECT pending_email FROM auth_users WHERE id = $1 LIMIT 1`,
+                [req.authUser.id],
+              )
+            )?.rows?.[0]?.pending_email;
+            if (pending?.trim()) {
+              void sendEmailChangeVerificationEmail(
+                fastify.log,
+                store,
+                staged,
+                pending.trim(),
+              );
+            }
+          }
+          await updateCachedUserInAllSessions(staged.id, staged);
+          return reply.code(200).send({
+            user: staged,
+            emailChangePending: true,
+          });
+        } catch (err: any) {
+          if (err?.message === 'INVALID_EMAIL') {
+            return sendError(
+              reply,
+              400,
+              'INVALID_EMAIL',
+              'Please enter a valid email address.',
+            );
+          }
+          if (err?.message === 'INVALID_EMAIL_PROVIDER') {
+            return sendError(
+              reply,
+              400,
+              'INVALID_EMAIL_PROVIDER',
+              'Temporary, disposable, or relay inbox domains cannot be used.',
+            );
+          }
+          if (err?.message === 'EMAIL_IN_USE') {
+            return sendError(
+              reply,
+              409,
+              'EMAIL_IN_USE',
+              'That email is already registered.',
+            );
+          }
+          throw err;
+        }
+      }
+
       let updated: Awaited<ReturnType<typeof store.updateUserProfile>>;
       try {
         updated = await store.updateUserProfile(req.authUser.id, patch);
       } catch (err: any) {
+        if (err?.message === 'EMAIL_CHANGE_REQUIRES_VERIFICATION') {
+          return sendError(
+            reply,
+            400,
+            'INVALID_BODY',
+            'Email changes require verification; send email with currentPassword.',
+          );
+        }
         if (err?.message === 'INVALID_EMAIL') {
           return sendError(
             reply,
@@ -609,15 +693,6 @@ export default async function meRoutes(fastify: FastifyInstance) {
         throw err;
       }
       if (!updated) return sendError(reply, 404, 'NOT_FOUND', 'User not found');
-      if (
-        mode === 'postgres' &&
-        patch.email !== undefined &&
-        updated.email &&
-        !updated.emailVerified
-      ) {
-        void sendSignupVerificationEmail(fastify.log, store, updated);
-      }
-
       await updateCachedUserInAllSessions(updated.id, updated);
 
       if (mode === 'postgres') {

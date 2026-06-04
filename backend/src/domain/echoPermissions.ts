@@ -9,6 +9,7 @@ import {
   canUserPostMessage,
   diagnoseEchoChannelAccess,
   diagnoseEchoPostMessageDenial,
+  evaluateEchoPostMessageAccess,
   gatherEchoPostMessageFailureDiagnostics,
   getEchoChannelCapabilitiesForUser,
   getEffectiveChannelPermissions,
@@ -45,6 +46,7 @@ export {
   canUserPostMessage,
   diagnoseEchoChannelAccess,
   diagnoseEchoPostMessageDenial,
+  evaluateEchoPostMessageAccess,
   gatherEchoPostMessageFailureDiagnostics,
   getEchoChannelCapabilitiesForUser,
   getEffectiveChannelPermissions,
@@ -55,5 +57,6 @@ export {
 export type {
   EchoChannelAccessDenialCode,
   EchoChannelAccessDiagnosis,
+  EchoPostMessageAccessContext,
   EchoPostMessageDenialReason,
 } from './echoStore';

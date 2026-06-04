@@ -23,6 +23,9 @@ import {
 } from '../../../services/auth/hwidAccountProfile';
 import { tryJoinOfficialEchoServerOnSignup } from '../../../services/auth/officialEchoServerOnSignup';
 import { consumeSignupVerificationToken } from '../../../auth/verifyEmailFlow';
+import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSessionRevocation';
+import { deleteAllServerSessionsForUser } from '../../../auth/serverSession';
+import { clearBrowserSessionCookies } from '../../../auth/sessionCookies';
 
 export default async function registerRoutes(fastify: FastifyInstance) {
   async function finishEmailVerification(
@@ -51,6 +54,23 @@ export default async function registerRoutes(fastify: FastifyInstance) {
     const updated = await store.getUserById(outcome.userId);
     if (updated) {
       await updateCachedUserInAllSessions(updated.id, updated);
+    }
+    if (outcome.purpose === 'email_change') {
+      await deleteAllServerSessionsForUser(outcome.userId);
+      await disconnectAllSocketsForAuthUser(
+        fastify,
+        outcome.userId,
+        'email_changed',
+      );
+      clearBrowserSessionCookies(reply);
+      if (opts?.json) {
+        return reply.code(200).send({ ok: true, emailChanged: true });
+      }
+      const base = getEmailVerifyRedirectUrl().replace(
+        'emailVerified=1',
+        'emailChanged=1',
+      );
+      return reply.code(302).redirect(base);
     }
     if (opts?.json) {
       return reply.code(200).send({ ok: true });

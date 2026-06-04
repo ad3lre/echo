@@ -19,7 +19,10 @@ import {
   type AppendProposalResult,
   type InitMlsGroupResult,
 } from '../../../domain/echoStore';
-import { echoUsersMayFetchE2eeDeviceBundle } from '../../../domain/echoStore/e2ee';
+import {
+  assertEchoE2eePeerBundleFetchQuota,
+  echoUsersMayFetchE2eeDeviceBundle,
+} from '../../../domain/echoStore/e2ee';
 import { ECHO_DM_REALM_SERVER_ID } from '../../../domain/echoStore/dmThreads';
 import { nextEchoSnowflakeId } from '../../../domain/echoSnowflake';
 import { publishVoiceMlsMessage } from '../../../platform/echoPlatformEvents';
@@ -513,16 +516,30 @@ export default async function echoMlsRoutes(
       const targetDevice = trimEchoPathParam(req.params.deviceId);
       if (!target || !targetDevice)
         return sendError(reply, 400, 'INVALID_BODY', 'user/device required');
-      const may =
-        target === me ||
-        (await echoUsersMayFetchE2eeDeviceBundle(pool, me, target));
-      if (!may)
-        return sendError(
-          reply,
-          403,
-          'FORBIDDEN',
-          'Not allowed to fetch this key package.',
+      if (target !== me) {
+        const may = await echoUsersMayFetchE2eeDeviceBundle(pool, me, target);
+        if (!may) {
+          return sendError(
+            reply,
+            403,
+            'FORBIDDEN',
+            'Not allowed to fetch this key package.',
+          );
+        }
+        const quota = await assertEchoE2eePeerBundleFetchQuota(
+          pool,
+          me,
+          target,
         );
+        if (quota === 'rate_limited') {
+          return sendError(
+            reply,
+            429,
+            'RATE_LIMITED',
+            'Too many key package requests for this user. Try again later.',
+          );
+        }
+      }
       const kp = await claimMlsKeyPackage(pool, target, targetDevice);
       if (!kp)
         return sendError(

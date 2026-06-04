@@ -8,7 +8,9 @@ import { getAccessUserIdFromAuthHeader } from '../auth/token';
 import { enforceApiCsrf } from '../auth/csrf';
 import { isEchoApiReadRequest } from './echoReadRateLimitPaths';
 import { registerEchoHttpObservability } from './echoHttpObservability';
+import { registerGlobalErrorHandler } from './errorHandler';
 import { recordNetworkDiagnostic } from '../observability/networkDiagnostics';
+import { clientIpFromFastifyRequest } from '../net/clientIp';
 
 /** Browser preflight must allow every non-simple header Echo clients send (see `frontend/src/api/echo/transport.ts`). */
 export const ECHO_CORS_ALLOWED_HEADERS: string[] = [
@@ -49,6 +51,8 @@ function appendVaryValue(
 export async function registerHttpPlugins(
   fastify: FastifyInstance,
 ): Promise<void> {
+  registerGlobalErrorHandler(fastify);
+
   const edgeCspHsts = config.echoEdgeSecurityHeaders;
   await fastify.register(helmet, {
     // Keep security headers explicit so external scanners can verify them.
@@ -127,7 +131,7 @@ export async function registerHttpPlugins(
     timeWindow: '1 minute',
     keyGenerator: (req) => {
       const userId = getAccessUserIdFromAuthHeader(req.headers.authorization);
-      return userId ? `uid:${userId}` : `ip:${req.ip}`;
+      return userId ? `uid:${userId}` : `ip:${clientIpFromFastifyRequest(req)}`;
     },
     allowList: (req: FastifyRequest) =>
       isEchoApiReadRequest(req.method, req.url),

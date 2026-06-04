@@ -12,7 +12,6 @@ import {
   authForgotPassword,
   authLogin,
   authLoginMfa,
-  authPasskeyLoginOptions,
   authPasskeyLoginVerify,
   authRegister,
   authUpgradeGuest,
@@ -48,6 +47,12 @@ import {
   getPasskeyWebCeremonyBlockReason,
   mapPasskeyCeremonyError,
 } from '@/utils/passkeyClientSupport';
+import {
+  passkeyLoginIdentFromRaw,
+  prefetchPasskeyLoginOptions,
+  runPasskeyAuthenticationCeremony,
+} from '@/utils/passkeyWebCeremony';
+import { isSafariLikeBrowser } from '@/platform/browserCompatibility';
 import {
   ECHO_PUBLIC_SUPPORT_EMAIL,
   echoPublicSupportMailtoHref,
@@ -208,7 +213,15 @@ watch(
       if (blocked) {
         errorMessage.value = blocked;
       } else {
-        nextTick(() => void submitPasskeyLogin());
+        void prefetchPasskeyLoginOptions(
+          passkeyLoginIdentFromRaw(username.value),
+        );
+        if (!isSafariLikeBrowser()) {
+          nextTick(() => void submitPasskeyLogin());
+        } else {
+          errorMessage.value =
+            'Tap Sign in with passkey below to continue with Face ID or Touch ID.';
+        }
       }
     }
   },
@@ -535,6 +548,12 @@ async function startGoogleLogin() {
   }
 }
 
+function prefetchPasskeyLoginFromForm() {
+  if (!ECHO_PASSKEYS_ENABLED || isMockDataMode) return;
+  if (getPasskeyWebCeremonyBlockReason('login')) return;
+  void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(username.value));
+}
+
 async function submitPasskeyLogin() {
   const blocked = getPasskeyWebCeremonyBlockReason('login');
   if (blocked) {
@@ -544,17 +563,9 @@ async function submitPasskeyLogin() {
   submitting.value = true;
   errorMessage.value = '';
   try {
-    const { startAuthentication } = await import('@simplewebauthn/browser');
-    const raw = username.value.trim();
-    const ident: { username?: string; email?: string } = {};
-    if (raw) {
-      if (raw.includes('@')) ident.email = raw;
-      else ident.username = raw;
-    }
-    const { options, challengeId } = await authPasskeyLoginOptions(ident);
-    const credential = await startAuthentication({
-      optionsJSON: options as any,
-    });
+    const ident = passkeyLoginIdentFromRaw(username.value);
+    const { credential, challengeId } =
+      await runPasskeyAuthenticationCeremony(ident);
     const result = await authPasskeyLoginVerify({
       challengeId,
       credential: credential as unknown as Record<string, unknown>,
@@ -570,6 +581,7 @@ async function submitPasskeyLogin() {
     close();
   } catch (e) {
     errorMessage.value = mapPasskeyCeremonyError(e, 'login');
+    void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(username.value));
   } finally {
     submitting.value = false;
   }
@@ -1075,6 +1087,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
                 class="auth-sso-segmented__btn auth-sso-segmented__btn--passkey"
                 :disabled="submitting"
                 aria-label="Sign in with a passkey"
+                @pointerdown="prefetchPasskeyLoginFromForm"
                 @click="submitPasskeyLogin()"
               >
                 <svg
@@ -1189,6 +1202,7 @@ const legalPrivacyHref = withBasePath('/legal/privacy', appBase);
               type="button"
               class="auth-submit-secondary mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-45"
               :disabled="submitting"
+              @pointerdown="prefetchPasskeyLoginFromForm"
               @click="submitPasskeyLogin()"
             >
               Sign in with passkey

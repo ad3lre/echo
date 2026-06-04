@@ -26,3 +26,6 @@ jobs:
 
       - name: OSS tracked-file guard
         run: node scripts/check-oss-artifacts.mjs
+
+      - name: God-file ratchet
+        run: node scripts/check-god-file-ratchet.mjs

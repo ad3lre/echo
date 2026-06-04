@@ -5,7 +5,7 @@ import type { AuthUser } from '../auth/types';
 import { config } from '../config';
 import { resolveSocketPresenceSetState } from '../domain/echoPresenceAuthority';
 import {
-  filterVisibleEchoUserIds,
+  filterEchoViewersWhoCanSeeSubject,
   getEchoPresenceState,
   getEchoStore,
   touchEchoPresence,
@@ -45,16 +45,14 @@ async function emitPresenceUpdateScoped(
 ): Promise<void> {
   const { enabled, pool } = await getEchoStore();
   if (!enabled || !pool) return;
-  const viewerIds = getAllConnectedUserIds();
-  for (const viewerId of viewerIds) {
-    if (viewerId === userId) {
-      emitPresenceUpdate(io, viewerId, userId, status, activeClient);
-      continue;
-    }
-    const visible = await filterVisibleEchoUserIds(pool, viewerId, [userId]);
-    if (visible.includes(userId)) {
-      emitPresenceUpdate(io, viewerId, userId, status, activeClient);
-    }
+  const viewerIds = [...getAllConnectedUserIds()];
+  const visibleViewerIds = await filterEchoViewersWhoCanSeeSubject(
+    pool,
+    userId,
+    viewerIds,
+  );
+  for (const viewerId of visibleViewerIds) {
+    emitPresenceUpdate(io, viewerId, userId, status, activeClient);
   }
 }
 

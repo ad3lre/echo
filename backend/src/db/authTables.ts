@@ -74,6 +74,12 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
     CREATE INDEX IF NOT EXISTS auth_refresh_tokens_user_id_idx ON auth_refresh_tokens(user_id);
   `);
   await pool.query(
+    `ALTER TABLE auth_refresh_tokens ADD COLUMN IF NOT EXISTS user_agent TEXT NULL;`,
+  );
+  await pool.query(
+    `ALTER TABLE auth_refresh_tokens ADD COLUMN IF NOT EXISTS client_location TEXT NULL;`,
+  );
+  await pool.query(
     `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS is_guest BOOLEAN NOT NULL DEFAULT false;`,
   );
   await pool.query(
@@ -93,6 +99,9 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
   );
   await pool.query(
     `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS guest_pending_email TEXT NULL;`,
+  );
+  await pool.query(
+    `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS pending_email TEXT NULL;`,
   );
   await pool.query(
     `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ NULL;`,

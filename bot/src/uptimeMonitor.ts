@@ -9,6 +9,7 @@ import {
   type TextChannel,
 } from 'discord.js';
 import type { CliFlags } from './config.js';
+import { triggerRecoveryWatchdog } from './recoveryWatchdog.js';
 import { ensureDir, writeJson } from './util/fs.js';
 
 export type UptimeSubscription = {
@@ -349,6 +350,9 @@ export function startUptimeMonitor(client: Client, flags: CliFlags): void {
 
       const msg = await channel.send({ embeds: [embed] });
       sub.lastStatusMessageId = msg.id;
+      if (prevHealthy === true && !healthy) {
+        triggerRecoveryWatchdog('discord-uptime');
+      }
       sub.lastHealthHealthy = healthy;
       persistSub();
       await saveState();
@@ -357,6 +361,9 @@ export function startUptimeMonitor(client: Client, flags: CliFlags): void {
         try {
           const msg = await channel.send({ embeds: [embed] });
           sub.lastStatusMessageId = msg.id;
+          if (prevHealthy === true && !healthy) {
+            triggerRecoveryWatchdog('discord-uptime');
+          }
           sub.lastHealthHealthy = healthy;
           persistSub();
           await saveState();

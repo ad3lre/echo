@@ -16,6 +16,10 @@ import {
   publishCacheInvalidation,
   registerCacheInvalidationHandler,
 } from './cacheInvalidationBus';
+import {
+  invalidateMemberAccessStateForServer,
+  invalidateMemberAccessStateForUser,
+} from './echoMemberStateCache';
 
 type CacheEntry = {
   value: Set<string>;
@@ -64,6 +68,10 @@ function localInvalidateForServer(serverId: string): void {
   for (const k of [...cache.keys()]) {
     if (k.startsWith(prefix)) cache.delete(k);
   }
+  // Membership/ban/timeout state shares every server-scoped mutation site with permissions,
+  // so the member-state cache rides this invalidation (local + remote) rather than wiring
+  // each mutation independently.
+  invalidateMemberAccessStateForServer(serverId);
 }
 
 function localInvalidateForUser(serverId: string, userId: string): void {
@@ -72,6 +80,7 @@ function localInvalidateForUser(serverId: string, userId: string): void {
   for (const k of [...cache.keys()]) {
     if (k.startsWith(keyPrefix)) cache.delete(k);
   }
+  invalidateMemberAccessStateForUser(serverId, userId);
 }
 
 function localInvalidateForChannel(serverId: string, channelId: string): void {

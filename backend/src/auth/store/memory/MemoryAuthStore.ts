@@ -268,15 +268,7 @@ export class MemoryAuthStore implements AuthStore {
       u.bannerPositionY = n;
     }
     if (patch.email !== undefined) {
-      const emailResult = validateRegistrationEmail(patch.email);
-      if (!emailResult.ok) throw new Error(emailResult.code);
-      const norm = emailResult.normalizedEmail;
-      for (const other of this.users.values()) {
-        if (other.id !== userId && other.email === norm)
-          throw new Error('EMAIL_IN_USE');
-      }
-      u.email = norm;
-      u.emailVerified = false;
+      throw new Error('EMAIL_CHANGE_REQUIRES_VERIFICATION');
     }
     if (patch.displayName !== undefined) {
       const displayNameResult = validateDisplayName(patch.displayName, '');
@@ -483,14 +475,19 @@ export class MemoryAuthStore implements AuthStore {
     userId: string,
     tokenHash: string,
     expiresAt: string,
+    client?: { userAgent?: string | null; location?: string | null },
   ): Promise<RefreshTokenRecord> {
     const id = nextEchoSnowflakeId();
+    const userAgent = client?.userAgent ?? null;
+    const location = client?.location ?? null;
     const record: RefreshTokenRecord = {
       id,
       userId,
       tokenHash,
       expiresAt,
       createdAt: new Date().toISOString(),
+      ...(userAgent ? { userAgent } : {}),
+      ...(location ? { location } : {}),
     };
     this.refreshTokens.set(tokenHash, record);
     return record;
@@ -552,6 +549,10 @@ export class MemoryAuthStore implements AuthStore {
       existing.userId,
       params.nextTokenHash,
       params.nextExpiresAt,
+      {
+        userAgent: existing.userAgent ?? null,
+        location: existing.location ?? null,
+      },
     );
     return { ok: true, previousTokenId: existing.id, next };
   }
@@ -590,14 +591,33 @@ export class MemoryAuthStore implements AuthStore {
     }
   }
 
+  async requestEmailChange(userId: string, email: string): Promise<AuthUser> {
+    const u = this.users.get(userId);
+    if (!u) throw new Error('NOT_FOUND');
+    const emailResult = validateRegistrationEmail(email);
+    if (!emailResult.ok) throw new Error(emailResult.code);
+    const norm = emailResult.normalizedEmail;
+    for (const other of this.users.values()) {
+      if (other.id !== userId && other.email === norm)
+        throw new Error('EMAIL_IN_USE');
+      if (other.id !== userId && other._memPendingEmail === norm)
+        throw new Error('EMAIL_IN_USE');
+    }
+    u._memPendingEmail = norm;
+    u.updatedAt = new Date().toISOString();
+    return publicUser(u);
+  }
+
   // --- VerificationStore ---
 
   async createEmailVerificationToken(
     userId: string,
-    purpose: 'signup',
+    purpose: 'signup' | 'email_change',
     options?: { enforceResendCooldown?: boolean },
   ): Promise<{ plainToken: string }> {
-    if (purpose !== 'signup') throw new Error('UNSUPPORTED_PURPOSE');
+    if (purpose !== 'signup' && purpose !== 'email_change') {
+      throw new Error('UNSUPPORTED_PURPOSE');
+    }
     const cooldownMs = config.echoEmailVerificationResendCooldownSeconds * 1000;
     if (options?.enforceResendCooldown) {
       for (const [hash, t] of this.emailVerificationTokens.entries()) {
@@ -627,17 +647,32 @@ export class MemoryAuthStore implements AuthStore {
 
   async consumeEmailVerificationToken(
     plainToken: string,
-  ): Promise<{ userId: string } | null> {
+  ): Promise<{ userId: string; purpose: 'signup' | 'email_change' } | null> {
     const hash = hashRefreshToken(plainToken);
     const t = this.emailVerificationTokens.get(hash);
     if (!t || new Date(t.expiresAt).getTime() <= Date.now()) return null;
     this.emailVerificationTokens.delete(hash);
     const u = this.users.get(t.userId);
-    if (u) {
+    if (!u) return null;
+    if (t.purpose === 'email_change') {
+      const next = u._memPendingEmail?.trim();
+      if (!next) return null;
+      u.email = next;
+      u._memPendingEmail = undefined;
       u.emailVerified = true;
-      u.updatedAt = new Date().toISOString();
+      for (const r of this.refreshTokens.values()) {
+        if (r.userId === t.userId) {
+          r.revokedAt = new Date().toISOString();
+        }
+      }
+    } else {
+      u.emailVerified = true;
     }
-    return { userId: t.userId };
+    u.updatedAt = new Date().toISOString();
+    return {
+      userId: t.userId,
+      purpose: t.purpose === 'email_change' ? 'email_change' : 'signup',
+    };
   }
 
   async issuePhoneOtpChallenge(

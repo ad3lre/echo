@@ -143,7 +143,7 @@ export function getTwemojiSrc(emoji: string): string | null {
 function emojiGlyphToImgHtml(emoji: string): string {
   const src = getTwemojiSrc(emoji);
   if (!src) return escapeHtml(emoji);
-  return `<img class="emoji" draggable="false" alt="${escapeHtml(emoji)}" src="${escapeHtml(src)}" loading="lazy"/>`;
+  return `<img class="emoji echo-emoji-inspect-target" draggable="false" alt="${escapeHtml(emoji)}" data-echo-unicode-emoji="${escapeHtml(emoji)}" src="${escapeHtml(src)}" loading="lazy"/>`;
 }
 
 /**

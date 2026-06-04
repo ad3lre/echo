@@ -3,6 +3,10 @@ import type pg from 'pg';
 import type { Server } from 'socket.io';
 import type { EchoAttentionChannelSummary } from '../../../shared/types';
 import { buildEchoAttentionSnapshot } from '../domain/echoStore';
+import {
+  scheduleEchoAttentionSnapshotsForUsers,
+  type EchoAttentionFanoutScope,
+} from './echoAttentionSnapshotScheduler';
 
 export async function emitEchoAttentionSnapshotForUser(
   pool: pg.Pool,
@@ -18,18 +22,9 @@ export async function emitEchoAttentionSnapshotsForUsers(
   io: Server,
   userIds: Iterable<string>,
   log?: FastifyBaseLogger,
+  scope?: EchoAttentionFanoutScope,
 ): Promise<void> {
-  const seen = new Set<string>();
-  for (const userId of userIds) {
-    const trimmed = userId.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    try {
-      await emitEchoAttentionSnapshotForUser(pool, io, trimmed);
-    } catch (err) {
-      log?.error({ err, userId: trimmed }, 'emit attention snapshot failed');
-    }
-  }
+  scheduleEchoAttentionSnapshotsForUsers(pool, io, userIds, log, scope);
 }
 
 export function emitEchoReadStateUpdate(

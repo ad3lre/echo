@@ -2,6 +2,23 @@
 
 This file tracks concrete security issues patched in the repo so we can avoid regressions and keep a lightweight audit trail.
 
+## 2026-06-03
+
+### Upload storage key path traversal hardening
+
+- Severity: Hardening (defense in depth)
+- Area: Local upload read/write, S3 presign keys, media URL → storage key extraction
+- Fixed in:
+  - `shared/echoUploadStorageKey.ts` (`normalizeEchoUploadStorageKeyPath`, `isSafeEchoUploadStorageKeyPath`)
+  - `backend/src/services/localUploadDisk.ts`
+  - `backend/src/api/routes/echo/echoUploads.ts` (unified route key decode)
+  - `backend/src/services/s3UploadPresign.ts`
+- Root issue:
+  - Path safety checks were duplicated and missing on some decode paths (local files route vs S3, URL extraction).
+- Patch summary:
+  - Central rejection of `..`, absolute paths, `data:` URLs, and keys over 512 chars before any disk resolve or URL-derived key use.
+  - Regression tests: `backend/src/tests/echoUploadStorageKeyPath.test.ts`, `frontend/src/utils/echoUploadStorageKey.test.ts`.
+
 ## 2026-05-31
 
 ### 1. Upload serve Content-Type XSS / MIME confusion (#82)

@@ -371,6 +371,14 @@ export default async function echoPaperRoutes(
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
       const userId = getAuthUser(req).id;
+      const visCreate = await assertPaperContentVisibleToUser(
+        pool,
+        channelId,
+        userId,
+      );
+      if (!visCreate.ok) {
+        return sendError(reply, 403, 'FORBIDDEN', visCreate.message);
+      }
       const result = await createEchoPaperComment(pool, channelId, userId, {
         anchorBlockId: String(req.body?.anchorBlockId ?? ''),
         anchorFrom: req.body?.anchorFrom ?? null,
@@ -380,7 +388,13 @@ export default async function echoPaperRoutes(
         parentCommentId: req.body?.parentCommentId ?? null,
       });
       if (!result.ok) {
-        return sendError(reply, result.status, 'FORBIDDEN', result.error);
+        const code =
+          result.status === 404
+            ? 'NOT_FOUND'
+            : result.status === 400
+              ? 'INVALID_BODY'
+              : 'FORBIDDEN';
+        return sendError(reply, result.status, code, result.error);
       }
       const comment = echoPaperCommentToPayload(result.row);
       const sid = await getEchoChannelServerId(pool, channelId);
@@ -436,7 +450,13 @@ export default async function echoPaperRoutes(
         },
       );
       if (!result.ok) {
-        return sendError(reply, result.status, 'FORBIDDEN', result.error);
+        const code =
+          result.status === 404
+            ? 'NOT_FOUND'
+            : result.status === 400
+              ? 'INVALID_BODY'
+              : 'FORBIDDEN';
+        return sendError(reply, result.status, code, result.error);
       }
       const comment = echoPaperCommentToPayload(result.row);
       const sid = await getEchoChannelServerId(pool, channelId);
@@ -482,7 +502,8 @@ export default async function echoPaperRoutes(
         userId,
       );
       if (!result.ok) {
-        return sendError(reply, result.status, 'FORBIDDEN', result.error);
+        const code = result.status === 404 ? 'NOT_FOUND' : 'FORBIDDEN';
+        return sendError(reply, result.status, code, result.error);
       }
       const sid = await getEchoChannelServerId(pool, channelId);
       if (sid && !(await isPaperSharePrivate(pool, channelId))) {

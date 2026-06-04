@@ -5,6 +5,8 @@ import { logShellNav } from '@/features/layout/shellNavDebugLog';
 import { pickFirstGuildToBootstrap } from '@/services/domain/workspaceShellSelection';
 import { workspaceFirstGuildBootstrapGuard } from '@/services/orchestration/workspaceFirstGuildBootstrapGuard';
 import type { EchoWorkspaceHydrateServerSlice } from '@/services/orchestration/workspaceEchoHydrateFromApi';
+import { channelExistsInRawCategories } from '@/features/layout/composables/guildShellSettling';
+import { readLastVisitedServerChannelMap } from '@/utils/lastVisitedNavigationPersistence';
 
 export type ApplyWorkspaceBootstrapServerNavParams = {
   servers: readonly { id: string }[];
@@ -66,13 +68,18 @@ export function applyWorkspaceBootstrapServerNav(
   if (preferredId) {
     p.serverStore.selectServer(preferredId);
     const cats = p.categoriesByServer[preferredId] ?? [];
-    const first = p.getFirstTextChannelId(cats);
-    if (first) {
+    const remembered =
+      readLastVisitedServerChannelMap()[preferredId]?.trim() ?? '';
+    const nextChannel = channelExistsInRawCategories(cats, remembered)
+      ? remembered
+      : p.getFirstTextChannelId(cats);
+    if (nextChannel) {
       logShellNav(source, 'hydrate_first_server_first_channel', {
-        first,
+        first: nextChannel,
         serverId: preferredId,
+        fromLastVisited: nextChannel === remembered,
       });
-      p.activeChannelId.value = first;
+      p.activeChannelId.value = nextChannel;
     }
   }
   p.activeRailTab.value = 'servers';

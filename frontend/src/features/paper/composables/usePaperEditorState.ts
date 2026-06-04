@@ -109,14 +109,6 @@ export function usePaperEditorState(opts: {
     editor.value?.setEditable(v);
   });
 
-  watch(
-    () => opts.mode.value,
-    () => {
-      if (!opts.documentLoaded.value) return;
-      bootstrapFromServer();
-    },
-  );
-
   onUnmounted(destroyEditor);
 
   function getContentJson(): Record<string, unknown> | null {

@@ -1,4 +1,8 @@
 import type { Pool } from 'pg';
+import {
+  invalidateEchoPermissionCacheForServer,
+  invalidateEchoPermissionCacheForUser,
+} from './echoPermissionCache';
 import { reattributeEchoMessagesAuthorFromShadow } from './echoMessagesDal';
 import {
   applyStoredDiscordImportedRoleAssignments,
@@ -94,5 +98,8 @@ export async function mergeDiscordShadows(
 
     // 6. Delete shadow user (Cascades to anything remaining)
     await pool.query(`DELETE FROM auth_users WHERE id = $1`, [shadowId]);
+
+    invalidateEchoPermissionCacheForServer(String(serverId));
+    invalidateEchoPermissionCacheForUser(String(serverId), canonicalUserId);
   }
 }

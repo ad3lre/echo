@@ -121,6 +121,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
   const serverMemberNicknames = ref<Record<string, Record<string, string>>>({});
   const loading = ref(false);
   const fromApi = ref(false);
+  const initialLoadInFlight = ref(false);
   const apiError = ref<string | null>(null);
 
   const refs: WorkspaceStateRefs = {
@@ -147,6 +148,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
     socialGraphStatus,
     loading,
     fromApi,
+    initialLoadInFlight,
     apiError,
   };
 
@@ -218,6 +220,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
     if (!preHydrated) loading.value = true;
     const auth = useAuthSessionStore();
     const seq = ++startInitialLoadSeq;
+    initialLoadInFlight.value = true;
     try {
       workspaceHydrateSkipLatch.armSkipNext();
 
@@ -382,7 +385,10 @@ export function createWorkspaceState(): WorkspaceStateApi {
     } catch (e) {
       apiError.value = e instanceof Error ? e.message : 'Failed to load data';
     } finally {
-      if (seq === startInitialLoadSeq) loading.value = false;
+      if (seq === startInitialLoadSeq) {
+        loading.value = false;
+        initialLoadInFlight.value = false;
+      }
     }
   }
 
@@ -415,6 +421,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
     ...serverActions,
     loading,
     fromApi,
+    initialLoadInFlight,
     apiError,
     refreshExploreDirectory,
     startInitialLoad,

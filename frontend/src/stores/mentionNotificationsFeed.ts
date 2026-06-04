@@ -5,6 +5,7 @@ import { fetchEchoMentionNotifications } from '@/api/echo/attention';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 
 const REFRESH_DEBOUNCE_MS = 400;
+const REFRESH_RETRY_DELAY_MS = 30_000;
 
 /**
  * Caches the server-authoritative mention inbox feed (`GET /attention/mentions`).
@@ -21,11 +22,20 @@ export const useMentionNotificationsFeedStore = defineStore(
     let inFlight: Promise<void> | null = null;
     let queued = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function clearRetry(): void {
+      if (retryTimer != null) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+    }
 
     async function runRefresh(token: string, limit?: number): Promise<void> {
       const trimmed = token.trim();
       if (!trimmed) return;
       loading.value = true;
+      clearRetry();
       try {
         rows.value = await fetchEchoMentionNotifications(trimmed, limit);
         loaded.value = true;
@@ -36,6 +46,14 @@ export const useMentionNotificationsFeedStore = defineStore(
           {},
           { showBanner: false },
         );
+        // Mark as loaded so the UI doesn't wait indefinitely on a failed fetch.
+        // The merge will fall back to hydrated client rows. Schedule a retry so
+        // stubs resolve once the network recovers.
+        loaded.value = true;
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          void refresh(trimmed, limit);
+        }, REFRESH_RETRY_DELAY_MS);
       } finally {
         loading.value = false;
       }
@@ -71,6 +89,7 @@ export const useMentionNotificationsFeedStore = defineStore(
         clearTimeout(debounceTimer);
         debounceTimer = null;
       }
+      clearRetry();
       rows.value = [];
       loaded.value = false;
       loading.value = false;

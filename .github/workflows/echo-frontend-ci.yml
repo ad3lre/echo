@@ -7,6 +7,8 @@ on:
       - 'shared/**'
       - 'package.json'
       - 'package-lock.json'
+      - 'scripts/god-file-baselines.json'
+      - 'scripts/check-god-file-ratchet.mjs'
       - '.github/workflows/echo-frontend-ci.yml'
   pull_request:
     paths:
@@ -14,6 +16,8 @@ on:
       - 'shared/**'
       - 'package.json'
       - 'package-lock.json'
+      - 'scripts/god-file-baselines.json'
+      - 'scripts/check-god-file-ratchet.mjs'
   workflow_dispatch:
 
 jobs:
@@ -32,6 +36,9 @@ jobs:
 
       - name: Lint (theme + TS + Vue essential)
         run: npm run lint -w frontend
+
+      - name: God-file ratchet
+        run: node scripts/check-god-file-ratchet.mjs
 
       - name: Strict theme ESLint
         run: npm run lint:theme -w frontend

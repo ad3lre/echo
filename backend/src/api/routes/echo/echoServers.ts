@@ -31,6 +31,12 @@ import { validateEchoStoredBrandingUrl } from '../../../services/storedMediaUrl'
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
 import { ensureOfficialEchoServerMembership } from '../../../services/auth/officialEchoServerOnSignup';
 import {
+  isUserAlreadyInOfficialEchoServer,
+  markOfficialEchoServerMembershipChecked,
+  shouldSkipOfficialEchoServerMembershipBackfill,
+} from '../../../services/auth/officialEchoServerMembershipCache';
+import { resolveOfficialEchoServerId } from '../../../domain/echoStore';
+import {
   echoPool,
   requireEchoStore,
   trimEchoPathParam,
@@ -88,7 +94,18 @@ export default async function echoServersRoutes(
       const pool = echoPool(req);
       const userId = getAuthUser(req).id;
       try {
-        await ensureOfficialEchoServerMembership(pool, userId);
+        const officialId = await resolveOfficialEchoServerId(pool);
+        if (officialId) {
+          if (shouldSkipOfficialEchoServerMembershipBackfill(userId)) {
+            /* cached */
+          } else if (
+            await isUserAlreadyInOfficialEchoServer(pool, userId, officialId)
+          ) {
+            markOfficialEchoServerMembershipChecked(userId);
+          } else {
+            await ensureOfficialEchoServerMembership(pool, userId);
+          }
+        }
       } catch (err) {
         req.log.warn(
           { err, userId },

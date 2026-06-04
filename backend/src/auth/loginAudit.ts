@@ -1,6 +1,7 @@
 import { createHmac } from 'crypto';
 import type { FastifyRequest } from 'fastify';
 import { config } from '../config';
+import { clientIpFromFastifyRequest } from '../net/clientIp';
 
 const LOGIN_AUDIT_DIGEST_BYTES = 16;
 
@@ -16,7 +17,7 @@ export function loginAuditDigests(req: FastifyRequest): {
   uaDigest: string;
 } {
   const key = loginAuditMacKey();
-  const ip = String(req.ip ?? '');
+  const ip = clientIpFromFastifyRequest(req);
   const ua = String(req.headers['user-agent'] ?? '');
   return {
     ipDigest: createHmac('sha256', key)

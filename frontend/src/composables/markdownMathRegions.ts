@@ -2,6 +2,8 @@ export type MarkdownMathRegion = {
   token: string;
   latex: string;
   displayMode: boolean;
+  start: number;
+  end: number;
 };
 
 export type MarkdownMathExtraction = {
@@ -118,7 +120,12 @@ export function extractMarkdownMathRegions(
   let i = 0;
   let slot = 0;
 
-  const pushRegion = (latex: string, displayMode: boolean) => {
+  const pushRegion = (
+    latex: string,
+    displayMode: boolean,
+    start: number,
+    end: number,
+  ) => {
     if (slot >= MAX_MATH_REGIONS) {
       if (displayMode) out += `$$${latex}$$`;
       else out += `\\(${latex}\\)`;
@@ -126,7 +133,7 @@ export function extractMarkdownMathRegions(
     }
     const token = `${TOKEN_PREFIX}${slot}${TOKEN_SUFFIX}`;
     slot += 1;
-    regions.push({ token, latex, displayMode });
+    regions.push({ token, latex, displayMode, start, end });
     out += token;
   };
 
@@ -173,7 +180,7 @@ export function extractMarkdownMathRegions(
 
     const bareEnv = matchBareDisplayMathEnvironment(text, i);
     if (bareEnv) {
-      pushRegion(bareEnv.latex, true);
+      pushRegion(bareEnv.latex, true, i, bareEnv.end);
       i = bareEnv.end;
       continue;
     }
@@ -190,7 +197,7 @@ export function extractMarkdownMathRegions(
         i += 2;
         continue;
       }
-      pushRegion(text.slice(i + 2, end), false);
+      pushRegion(text.slice(i + 2, end), false, i, end + 2);
       i = end + 2;
       continue;
     }
@@ -207,7 +214,7 @@ export function extractMarkdownMathRegions(
         i += 2;
         continue;
       }
-      pushRegion(text.slice(i + 2, end), true);
+      pushRegion(text.slice(i + 2, end), true, i, end + 2);
       i = end + 2;
       continue;
     }
@@ -224,7 +231,7 @@ export function extractMarkdownMathRegions(
         i += 2;
         continue;
       }
-      pushRegion(text.slice(i + 2, end), true);
+      pushRegion(text.slice(i + 2, end), true, i, end + 2);
       i = end + 2;
       continue;
     }
@@ -257,7 +264,7 @@ export function extractMarkdownMathRegions(
           end += 1;
           continue;
         }
-        pushRegion(body, false);
+        pushRegion(body, false, i, end + 1);
         i = end + 1;
         matched = true;
         break;

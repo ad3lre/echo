@@ -27,7 +27,6 @@ import {
   bumpEchoDmThreadActivity,
   getEchoChannelServerId,
   ECHO_DM_REALM_SERVER_ID,
-  getEchoMessageById,
   getEchoMessageCreatedAtById,
   incrementEchoEmojiUsage,
   insertEchoMessage,
@@ -35,7 +34,11 @@ import {
   listEchoDmParticipantUserIds,
   listEchoServerMembers,
 } from '../domain/echoStore';
-import { echoMessagesTableHasE2eeColumns } from '../domain/echoMessagesDal';
+import {
+  echoMessagesTableHasE2eeColumns,
+  getEchoMessageById,
+  selectEchoMessageReplyPreviewRow,
+} from '../domain/echoMessagesDal';
 import { filterMentionsForChannelContext } from '../domain/echoStore/mentionContext';
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { isEchoPublicId } from '../../../shared/snowflakeIds';
@@ -51,6 +54,7 @@ import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
 import { registerChatUploadRetentionFromMessageUrls } from './chatUploadRetention';
 import { isEchoChatUserMediaStorageKey } from '../../../shared/chatMediaRetention';
 import { isEchoChatUploadAttachmentRegistered } from './echoUploadIntent';
+import { isDiscordSyncedBridgeSource } from '../../../shared/discordBridgeSources';
 
 async function resolveSafeReplyTo(
   pool: pg.Pool,
@@ -69,13 +73,8 @@ async function resolveSafeReplyTo(
   ).trim();
   if (!mid) return undefined;
 
-  const row = await getEchoMessageById(pool, mid);
+  const row = await selectEchoMessageReplyPreviewRow(pool, mid, channelId);
   if (!row) return undefined;
-
-  // Discord allows replying across channels in some contexts, but Echo's UI
-  // and model currently expect same-channel replies for the 'replyTo' field.
-  // (Cross-channel is handled via 'forwardedFrom' / 'forwardMessageId').
-  if (row.channelId !== channelId) return undefined;
 
   const plain = (row.searchIndexText ?? row.content ?? '').trim();
   const preview = plain.length > 500 ? `${plain.slice(0, 499)}…` : plain;
@@ -165,7 +164,7 @@ export function echoRowToMessage(existing: EchoMessageRow): Message {
     ...(row.stickers?.length ? { stickers: row.stickers } : {}),
     ...(row.forwardedFrom ? { forwardedFrom: row.forwardedFrom } : {}),
     ...(row.systemMessage === true ? { systemMessage: true } : {}),
-    ...(row.bridgeSource === 'discord_inbound'
+    ...(isDiscordSyncedBridgeSource(row.bridgeSource)
       ? { bridgeFromDiscord: true }
       : {}),
     ...(row.bridgeSource ? { bridgeSource: row.bridgeSource } : {}),
@@ -502,7 +501,11 @@ export async function echoPersistedMessageCreateAndBroadcast(
     });
   }
   if (dmRecipients.length > 0) {
-    void emitEchoAttentionSnapshotsForUsers(pool, io, dmRecipients, log);
+    void emitEchoAttentionSnapshotsForUsers(pool, io, dmRecipients, log, {
+      mode: 'channel',
+      channelId,
+      serverId: null,
+    });
     void dispatchEchoMessagePushNotifications(pool, log, {
       message: messageForClients,
       authorId: userId,
@@ -518,6 +521,7 @@ export async function echoPersistedMessageCreateAndBroadcast(
         io,
         members.map((member) => member.userId),
         log,
+        { mode: 'channel', channelId, serverId },
       );
       botEventBus.emitBotEvent({
         kind: 'message',
@@ -710,7 +714,11 @@ export async function echoAutomodPostOwnerChannelNotice(
       });
     }
     if (io) {
-      void emitEchoAttentionSnapshotsForUsers(pool, io, dmRecipients, log);
+      void emitEchoAttentionSnapshotsForUsers(pool, io, dmRecipients, log, {
+        mode: 'channel',
+        channelId: input.targetChannelId,
+        serverId: null,
+      });
     }
   } else if (io) {
     const sid = await getEchoChannelServerId(pool, input.targetChannelId);
@@ -721,6 +729,11 @@ export async function echoAutomodPostOwnerChannelNotice(
         io,
         members.map((m) => m.userId),
         log,
+        {
+          mode: 'channel',
+          channelId: input.targetChannelId,
+          serverId: sid,
+        },
       );
       botEventBus.emitBotEvent({
         kind: 'message',

@@ -13,6 +13,13 @@ import DOMPurify from 'dompurify';
 export function sanitizeEmojiImgHtmlForVHtml(html: string): string {
   return DOMPurify.sanitize(html.trim(), {
     ALLOWED_TAGS: ['img'],
-    ALLOWED_ATTR: ['class', 'draggable', 'alt', 'src', 'loading'],
+    ALLOWED_ATTR: [
+      'class',
+      'draggable',
+      'alt',
+      'src',
+      'loading',
+      'data-echo-unicode-emoji',
+    ],
   });
 }

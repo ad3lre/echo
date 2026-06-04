@@ -3,7 +3,7 @@ import {
   type EchoMessageSearchQueryInput,
 } from '@/api/echoSearchParams';
 import type {
-  EchoAttentionSnapshot,
+  EchoReadStatePutResponse,
   ForwardedFrom,
   MessageAttachmentPayload,
   MessageReaction,
@@ -156,9 +156,9 @@ export async function putEchoChannelReadState(
   token: string,
   channelId: string,
   lastReadMessageId: string,
-): Promise<EchoAttentionSnapshot> {
+): Promise<EchoReadStatePutResponse> {
   const ch = trimEchoPathSegment(channelId);
-  return echoFetch<EchoAttentionSnapshot>(
+  return echoFetch<EchoReadStatePutResponse>(
     token,
     `/channels/${encodeURIComponent(ch)}/read-state`,
     {

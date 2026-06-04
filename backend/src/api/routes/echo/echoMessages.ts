@@ -13,7 +13,7 @@ import {
   canUserSendMassMentionInChannel,
   diagnoseEchoChannelAccess,
   canUserPostMessage,
-  diagnoseEchoPostMessageDenial,
+  evaluateEchoPostMessageAccess,
   gatherEchoPostMessageFailureDiagnostics,
   type EchoPostMessageDenialReason,
 } from '../../../domain/echoPermissions';
@@ -22,6 +22,8 @@ import {
   blockGuestWritesForIpGuest,
   isGuestWriteComboBlocked,
 } from '../../../services/auth/guestAbuseLimiter';
+import { clientIpFromFastifyRequest } from '../../../net/clientIp';
+import { evaluateEchoGuildOutboundMessageEditModeration } from '../../../services/echoGuildOutboundMessageModeration';
 import {
   buildEchoAttentionSnapshot,
   buildEchoMentionNotificationsFeed,
@@ -97,7 +99,7 @@ import {
 const checkHttpMessageRate = createSocketMessageRateLimiter();
 
 function clientIpFromRequest(req: FastifyRequest): string {
-  return typeof req.ip === 'string' && req.ip.length > 0 ? req.ip : 'unknown';
+  return clientIpFromFastifyRequest(req);
 }
 
 function isAnonymousRestUser(userId: string): boolean {
@@ -221,6 +223,12 @@ export default async function echoMessagesRoutes(
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);
+      const access = await diagnoseEchoChannelAccess(
+        pool,
+        getAuthUser(req).id,
+        channelId,
+      );
+      if (!access.ok) return sendEchoChannelAccessDenied(reply, access);
       const level =
         req.body?.level === null
           ? null
@@ -428,8 +436,10 @@ export default async function echoMessagesRoutes(
         nextReadState,
         channelAttention,
       );
-      const snapshot = await buildEchoAttentionSnapshot(pool, userId);
-      return reply.code(200).send(snapshot);
+      return reply.code(200).send({
+        lastReadMessageId: nextReadState,
+        channelAttention,
+      });
     },
   );
 
@@ -873,19 +883,19 @@ export default async function echoMessagesRoutes(
         );
       }
 
-      const postDiag = await diagnoseEchoPostMessageDenial(
+      const postAccess = await evaluateEchoPostMessageAccess(
         pool,
         userId,
         channelId,
       );
-      if (!postDiag.ok) {
-        echoPermissionDenialReasonTotal.inc({ reason: postDiag.reason });
+      if (!postAccess.ok) {
+        echoPermissionDenialReasonTotal.inc({ reason: postAccess.reason });
         const diagnostics = await gatherEchoPostMessageFailureDiagnostics(
           pool,
           {
             userId,
             channelId,
-            reason: postDiag.reason,
+            reason: postAccess.reason,
             correlationId,
           },
         );
@@ -895,7 +905,7 @@ export default async function echoMessagesRoutes(
           correlationId,
           channelId,
           userId,
-          reason: postDiag.reason,
+          reason: postAccess.reason,
           diagnostics,
         });
         const detailByReason: Record<EchoPostMessageDenialReason, string> = {
@@ -922,19 +932,20 @@ export default async function echoMessagesRoutes(
           reply,
           403,
           'FORBIDDEN',
-          detailByReason[postDiag.reason],
+          detailByReason[postAccess.reason],
           config.echoMessageFailedDiagnosticsToClient
             ? JSON.stringify(diagnostics)
             : undefined,
         );
       }
 
-      const sidForSlow = await getEchoChannelServerId(pool, channelId);
+      const postCtx = postAccess.ctx;
+      const guildServerId = postCtx.realm === 'guild' ? postCtx.serverId : null;
       if (
-        sidForSlow &&
+        guildServerId &&
         !(await echoChannelAllowsMessageUnderSlowmode(
           pool,
-          sidForSlow,
+          guildServerId,
           userId,
           channelId,
         ))
@@ -972,6 +983,7 @@ export default async function echoMessagesRoutes(
           userId,
           channelId,
           sanitizedMentions,
+          { postAccess: postCtx },
         ))
       ) {
         restMessageFailed('FORBIDDEN');
@@ -986,9 +998,9 @@ export default async function echoMessagesRoutes(
       let bannedWordsEval: Awaited<
         ReturnType<typeof evaluateBannedWordsOnMessageSend>
       > | null = null;
-      if (sidForSlow) {
+      if (guildServerId) {
         const spamCheck = await checkEchoServerSpamFilter(pool, {
-          serverId: sidForSlow,
+          serverId: guildServerId,
           userId,
           content,
           mentions: sanitizedMentions,
@@ -998,7 +1010,7 @@ export default async function echoMessagesRoutes(
           return sendError(reply, 429, 'SPAM_FILTER', spamCheck.detail);
         }
         bannedWordsEval = await evaluateBannedWordsOnMessageSend(pool, {
-          serverId: sidForSlow,
+          serverId: guildServerId,
           userId,
           content,
         });
@@ -1115,19 +1127,19 @@ export default async function echoMessagesRoutes(
 
       if (
         persistRes.kind !== 'duplicate_ack' &&
-        sidForSlow &&
+        guildServerId &&
         bannedWordsEval &&
         bannedWordsEval.matches.length > 0 &&
         bannedWordsEval.action
       ) {
         const own = await pool.query(
           `SELECT owner_id::text AS owner_id FROM echo_servers WHERE id = $1 LIMIT 1`,
-          [sidForSlow],
+          [guildServerId],
         );
         const ownerActorId = own.rows[0] ? String(own.rows[0].owner_id) : '';
         if (ownerActorId) {
           await applyBannedWordsAfterMessagePersisted(fastify, pool, {
-            serverId: sidForSlow,
+            serverId: guildServerId,
             ownerActorId,
             channelId,
             userId,
@@ -1193,21 +1205,28 @@ export default async function echoMessagesRoutes(
       if (!parsed.ok)
         return sendError(reply, 400, 'INVALID_BODY', parsed.error);
       const v = parsed.value;
-      if (
-        v.editKind === 'json' &&
-        !(await canUserSendMassMentionInChannel(
+      const guildServerId = await getEchoChannelServerId(pool, channelId);
+      const editPlain = v.content;
+      if (guildServerId && editPlain.trim()) {
+        const moderation = await evaluateEchoGuildOutboundMessageEditModeration(
           pool,
-          getAuthUser(req).id,
-          channelId,
-          v.mentions,
-        ))
-      ) {
-        return sendError(
-          reply,
-          403,
-          'FORBIDDEN',
-          'You cannot mention @everyone or @active in this channel.',
+          {
+            serverId: guildServerId,
+            channelId,
+            userId: uid,
+            content: editPlain,
+            mentions: v.editKind === 'json' ? v.mentions : undefined,
+          },
         );
+        if (!moderation.ok) {
+          const { denial } = moderation;
+          return sendError(
+            reply,
+            denial.httpStatus,
+            denial.code,
+            denial.detail,
+          );
+        }
       }
       const editBody =
         v.editKind === 'legacy'
@@ -1237,6 +1256,7 @@ export default async function echoMessagesRoutes(
         messageId,
         getAuthUser(req).id,
         editBody,
+        meta,
       );
       if (r === 'not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'Message not found');

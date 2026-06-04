@@ -185,9 +185,24 @@ function isVoiceE2eeNotEnabledOnServer(err: unknown): boolean {
   );
 }
 
+function isVoiceE2eeActiveEpochConflict(err: unknown): boolean {
+  return (
+    err instanceof EchoApiError &&
+    err.status === 409 &&
+    (err.body.code === 'VOICE_E2EE_ACTIVE_EPOCH_CONFLICT' ||
+      err.body.code === 'VOICE_E2EE_EPOCH_ID_CONFLICT')
+  );
+}
+
 /**
- * Non-creators must not POST a new epoch when one is already active — that
- * supersedes the room key and disconnects everyone else.
+ * Non-creators must not POST a new epoch when one is already active and has
+ * envelopes for participants — that supersedes the room key and disconnects
+ * everyone else.
+ *
+ * Exception: an epoch with *no envelopes* means the creator had no peer
+ * devices registered at the time (they joined alone or peers were unregistered).
+ * Any participant may supersede such an epoch to include themselves and
+ * distribute keys to the full roster.
  */
 export function assertMayCreateVoiceE2eeEpoch(
   res: EchoVoiceE2eeEnvelopesResponse,
@@ -195,6 +210,8 @@ export function assertMayCreateVoiceE2eeEpoch(
 ): void {
   const epochId = res.epochId?.trim();
   if (!epochId) return;
+  // Empty-envelope epoch: creator had no addressable peers — anyone may supersede.
+  if (res.envelopes.length === 0) return;
   const creator = res.createdByUserId?.trim() ?? '';
   const viewer = viewerUserId.trim();
   if (creator && creator === viewer) return;
@@ -242,12 +259,15 @@ async function resolveDmVoiceMemberUserIds(opts: {
 
 async function postVoiceE2eeEpochOrSkip(
   post: () => Promise<void>,
-): Promise<'posted' | 'skipped'> {
+): Promise<'posted' | 'skipped' | 'conflict'> {
   try {
     await post();
     return 'posted';
   } catch (e) {
     if (isVoiceE2eeNotEnabledOnServer(e)) return 'skipped';
+    // Another client raced us to create an epoch — caller must re-fetch and
+    // decrypt the winning epoch rather than using the seed we generated.
+    if (isVoiceE2eeActiveEpochConflict(e)) return 'conflict';
     throw e;
   }
 }
@@ -402,6 +422,22 @@ export async function prepareDmVoiceE2eeMediaKey(opts: {
       envelopes,
     }),
   );
+  if (posted === 'conflict') {
+    // A concurrent client won the race — re-fetch the winning epoch and try
+    // to decrypt our envelope from it. If it still has no envelope for us the
+    // backend will return VOICE_E2EE_ENVELOPE_MISSING, which the session-mint
+    // retry loop handles.
+    const refreshed = await fetchDmVoiceE2eeEnvelopes(
+      opts.token,
+      opts.channelId,
+    );
+    const fromConflict = await decryptVoiceE2eeMediaKeyFromActiveEpoch({
+      res: refreshed,
+      viewerUserId: opts.viewerUserId,
+      senderDeviceId,
+    });
+    return { mediaKey: fromConflict, senderDeviceId };
+  }
   return {
     mediaKey: posted === 'posted' ? toArrayBuffer(seed) : null,
     senderDeviceId,
@@ -509,6 +545,19 @@ export async function prepareGuildVoiceE2eeMediaKey(opts: {
       envelopes,
     }),
   );
+  if (posted === 'conflict') {
+    const refreshed = await fetchGuildVoiceE2eeEnvelopes(
+      opts.token,
+      opts.serverId,
+      opts.channelId,
+    );
+    const fromConflict = await decryptVoiceE2eeMediaKeyFromActiveEpoch({
+      res: refreshed,
+      viewerUserId: opts.viewerUserId,
+      senderDeviceId,
+    });
+    return { mediaKey: fromConflict, senderDeviceId };
+  }
   return {
     mediaKey: posted === 'posted' ? toArrayBuffer(seed) : null,
     senderDeviceId,

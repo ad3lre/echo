@@ -16,6 +16,7 @@ import {
   GUEST_BINDING_COOKIE,
 } from '../../../auth/sessionCookies';
 import { config } from '../../../config';
+import { clientIpFromFastifyRequest } from '../../../net/clientIp';
 import type { AuthUpgradeGuestBody } from '../../../auth/types';
 import {
   evaluateGuestMint,
@@ -130,7 +131,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           }
         }
 
-        const ip = req.ip;
+        const ip = clientIpFromFastifyRequest(req);
         const gate = await evaluateGuestMint(ip);
         if (!gate.ok) {
           if (gate.reason === 'GUEST_MINT_BLOCKED') {
@@ -159,7 +160,10 @@ export default async function guestRoutes(fastify: FastifyInstance) {
               siteKey ? JSON.stringify({ siteKey }) : undefined,
             );
           }
-          const captchaOk = await verifyTurnstileToken(captchaToken, req.ip);
+          const captchaOk = await verifyTurnstileToken(
+            captchaToken,
+            clientIpFromFastifyRequest(req),
+          );
           if (!captchaOk) {
             await recordFailedGuestCaptcha(ip);
             return sendError(

@@ -88,31 +88,13 @@ import {
   createChatPermissions,
   provideChatPermissions,
 } from '@/composables/useChatPermissions';
-import { AuthApiError, authResendVerification } from '@/api/authClient';
-import { putGuildEventRsvp } from '@/services/http/echoServerEventsHttp';
-import { resolveGuildEventLocation } from '@/features/server-events/resolveGuildEventLocation';
-import {
-  eventDetailViewFromRsvp,
-  eventDetailViewFromSummary,
-  type EventDetailView,
-} from '@/features/server-events/eventDetailView';
-import {
-  mergeModalSearchParams,
-  parseModalQueries,
-} from '@/features/layout/urlNavigation';
-import { applyEchoShellPath } from '@/platform/desktopProductDeepLink';
 import { hasPriorRegistration } from '@/utils/priorRegistration';
 import { CHAT_MESSAGE_NAV_BRIDGE_KEY } from '@/features/navigation/chatMessageNavBridge';
 import {
   dispatchAppToast,
   dispatchAppToastDetail,
-  type AppToastAction,
 } from '@/utils/controllerMissingAction';
 import { echoChatBottomChromeInsetPx } from '@/features/layout/echoChatBottomChromeInset';
-import {
-  EMAIL_VERIFICATION_DOWNTIME,
-  EMAIL_VERIFICATION_DOWNTIME_TOAST,
-} from '@/config/emailVerificationDowntime';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
 import { memberPanelDiag } from '@/utils/memberPanelDiag';
 import { channelPanelDiag } from '@/utils/channelPanelDiag';
@@ -123,19 +105,13 @@ import {
   shouldOfferDiscordProfileImport,
 } from '@/features/discord/discordProfileImportFlow';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
-import { isDesktop, openExternal } from '@/platform/desktopBridge';
+import { isDesktop } from '@/platform/desktopBridge';
 import { provideSpeakingState } from '@/composables/useSpeakingState';
 import { ECHO_VOICE_PROCESSING_KEY } from '@/composables/voiceProcessingInjection';
 import { watchBugHunterAppContext } from '@/composables/useBugHunterAppTrace';
 import { useBugHunterStore } from '@/stores/bugHunter';
 import { useThemeStore } from '@/stores/theme';
 import { useEchoSessionStore } from '@/stores/echoSession';
-import {
-  createForumPost as createForumPostOrchestration,
-  fetchForumPosts as fetchForumPostsOrchestration,
-  patchForumPost as patchForumPostOrchestration,
-} from '@/services/orchestration/forumPosts';
-import { findActionForKeyboardEvent } from '@/features/settings/keybindPreferences';
 import AppToastShell from '@/features/layout/components/AppToastShell.vue';
 import type { AppToastLayoutContext } from '@/features/layout/composables/useAppToastController';
 import {
@@ -167,6 +143,11 @@ import {
 } from '@/features/chat/chatComposerContext';
 import { useAppLayoutShellNavigationChrome } from '@/features/layout/composables/useAppLayoutShellNavigationChrome';
 import { useAppLayoutPlatformLifecycle } from '@/features/layout/composables/useAppLayoutPlatformLifecycle';
+import { useAppLayoutGlobalShortcuts } from '@/features/layout/composables/useAppLayoutGlobalShortcuts';
+import { useGuildEventDetailModalController } from '@/features/layout/composables/useGuildEventDetailModalController';
+import { useForumPostsController } from '@/features/layout/composables/useForumPostsController';
+import { useFullscreenStreamOverlay } from '@/features/layout/composables/useFullscreenStreamOverlay';
+import { useAppLayoutBannerNotices } from '@/features/layout/composables/useAppLayoutBannerNotices';
 
 /** Shared ref: ChatInput registers; CallView / channel VC menus / bubbles inject. */
 const composerInsertUserMention = ref<InsertUserMentionFn | null>(null);
@@ -503,6 +484,7 @@ const {
   isMoreServersPinned,
   isOpeningDmThread,
   isChannelPanelSwitchLoading,
+  isGuildShellSettling,
   isMessageSurfaceSwitchLoading,
   isMemberSurfaceSwitchLoading,
   isPinsDropdownOpen,
@@ -782,6 +764,37 @@ const {
   inviteLandingPersistBeforeOAuth,
 } = useAppLayoutController();
 
+/* Info-banner notices (email verification / guest upgrade / Discord export).
+ * Placed before the LAYOUT_MODALS_KEY provide because onGuestUpgradeSignInFromSettings
+ * is consumed there; see useAppLayoutBannerNotices. */
+const {
+  emailBannerResendBusy,
+  emailBannerResendMessage,
+  emailBannerResendError,
+  showUnverifiedEmailBanner,
+  showUnverifiedEmailModal,
+  showGuestUpgradeBanner,
+  showGuestOnboardingModal,
+  discordBotExportReadyGuildNameForBanner,
+  dismissEmailVerificationFlash,
+  dismissUnverifiedEmailBannerClick,
+  onUnverifiedEmailModalUpdate,
+  onGuestUpgradeBannerOpenSettings,
+  dismissGuestUpgradeBannerClick,
+  onUnverifiedEmailChangeEmail,
+  onUnverifiedEmailResend,
+  onGuestUpgradeSignInFromSettings,
+} = useAppLayoutBannerNotices({
+  authSession,
+  isAuthenticated,
+  isCompactShell,
+  isGuestUpgradeModalOpen,
+  discordBotExportReadyBanner,
+  openAuthModal,
+  openUserSettingsModal,
+  onUserSettingsModalUpdate,
+});
+
 function onJoinServerFromShell(inviteLink?: string) {
   openAddServerModal('join', inviteLink);
 }
@@ -922,261 +935,23 @@ const guildEventActivityCards = computed<GuildEventActivityCard[]>(() =>
   }),
 );
 
-/* ===== Event detail modal ===== */
-const isEventDetailModalOpen = ref(false);
-const eventDetailView = ref<EventDetailView | null>(null);
-const applyingEventDetailFromUrl = ref(false);
-
-type GuildEventDetailTarget = { serverId: string; eventId: string };
-
-/** Re-resolve the open event from the freshest workspace data (e.g. after an RSVP hydrate). */
-function resolveEventDetailView(
-  serverId: string,
-  eventId: string,
-): EventDetailView | null {
-  const rsvp = myEventRsvps.value.find((r) => r.id === eventId);
-  if (rsvp) return eventDetailViewFromRsvp(rsvp);
-  const summary = (upcomingEventsByServerId.value[serverId] ?? []).find(
-    (e) => e.id === eventId,
-  );
-  if (summary) {
-    const srv = serverStore.servers.find((s) => s.id === serverId);
-    return eventDetailViewFromSummary(summary, {
-      name: srv?.name ?? null,
-      imageUrl: srv?.imageUrl ?? null,
-    });
-  }
-  return null;
-}
-
-function guildEventDetailTargetFromLocation(): GuildEventDetailTarget | null {
-  if (typeof window === 'undefined') return null;
-  const mq = parseModalQueries(window.location.search);
-  const serverId = mq.guildEventServerId?.trim();
-  const eventId = mq.guildEventId?.trim();
-  return serverId && eventId ? { serverId, eventId } : null;
-}
-
-function setGuildEventDetailUrl(
-  payload: GuildEventDetailTarget | null,
-  mode: 'push' | 'replace',
-) {
-  if (typeof window === 'undefined') return;
-  const search = mergeModalSearchParams(
-    window.location.search,
-    payload
-      ? {
-          guild_event_server: payload.serverId,
-          guild_event: payload.eventId,
-        }
-      : {
-          guild_event_server: null,
-          guild_event: null,
-        },
-  );
-  const next = `${window.location.pathname}${search}${window.location.hash}`;
-  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  if (next === current) return;
-  if (mode === 'replace') window.history.replaceState(null, '', next);
-  else window.history.pushState(null, '', next);
-}
-
-function closeGuildEventDetailModal(opts?: { syncUrl?: boolean }) {
-  isEventDetailModalOpen.value = false;
-  eventDetailView.value = null;
-  if (opts?.syncUrl !== false && !applyingEventDetailFromUrl.value) {
-    setGuildEventDetailUrl(null, 'replace');
-  }
-}
-
-function openGuildEventDetail(
-  payload: GuildEventDetailTarget,
-  opts?: { syncUrl?: boolean },
-) {
-  const view = resolveEventDetailView(payload.serverId, payload.eventId);
-  if (!view) {
-    // Fall back to plain navigation if we can't resolve event details.
-    isDMPanelOpen.value = false;
-    navigateGuildEventOpenPayload({ serverId: payload.serverId });
-    return;
-  }
-  eventDetailView.value = view;
-  isEventDetailModalOpen.value = true;
-  if (opts?.syncUrl !== false && !applyingEventDetailFromUrl.value) {
-    setGuildEventDetailUrl(payload, 'push');
-  }
-}
-
-function applyGuildEventDetailQueryFromLocation() {
-  const target = guildEventDetailTargetFromLocation();
-  applyingEventDetailFromUrl.value = true;
-  try {
-    if (!target) {
-      closeGuildEventDetailModal({ syncUrl: false });
-      return;
-    }
-    const view = resolveEventDetailView(target.serverId, target.eventId);
-    if (!view) return;
-    eventDetailView.value = view;
-    isEventDetailModalOpen.value = true;
-  } finally {
-    applyingEventDetailFromUrl.value = false;
-  }
-}
-
-async function submitGuildEventRsvp(payload: {
-  serverId: string;
-  eventId: string;
-  status: 'going' | 'declined';
-  closeDetailOnDecline?: boolean;
-}) {
-  try {
-    /* Cookie session: bearer token is unused by `echoFetch` (see `transport.ts`). */
-    await putGuildEventRsvp(
-      '',
-      payload.serverId,
-      payload.eventId,
-      payload.status,
-    );
-    await hydrateEchoFromApi();
-    if (payload.status === 'declined' && payload.closeDetailOnDecline) {
-      closeGuildEventDetailModal();
-      return;
-    }
-    // Keep an open detail modal in sync with the refreshed counts/RSVP state.
-    if (isEventDetailModalOpen.value && eventDetailView.value) {
-      const refreshed = resolveEventDetailView(
-        payload.serverId,
-        payload.eventId,
-      );
-      if (refreshed) {
-        eventDetailView.value = refreshed;
-      } else if (payload.status === 'declined') {
-        // Declining drops the event out of myEventRsvps; reflect locally.
-        eventDetailView.value = {
-          ...eventDetailView.value,
-          userRsvp: 'declined',
-        };
-      }
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    dispatchAppToastDetail({
-      message: msg.includes('EVENT_FULL')
-        ? 'This event is at capacity.'
-        : 'Could not update RSVP. Try again.',
-      durationMs: 4000,
-    });
-  }
-}
-
-function onEventDetailPopState() {
-  applyGuildEventDetailQueryFromLocation();
-}
-
-onMounted(() => {
-  if (typeof window === 'undefined') return;
-  window.addEventListener('popstate', onEventDetailPopState);
-  applyGuildEventDetailQueryFromLocation();
+/* ===== Event detail modal: see useGuildEventDetailModalController ===== */
+const {
+  isEventDetailModalOpen,
+  eventDetailView,
+  openGuildEventDetail,
+  closeGuildEventDetailModal,
+  submitGuildEventRsvp,
+  navigateGuildEventOpenPayload,
+} = useGuildEventDetailModalController({
+  myEventRsvps,
+  upcomingEventsByServerId,
+  serverStore,
+  workspace,
+  hydrateEchoFromApi,
+  openServerSurface,
+  isDMPanelOpen,
 });
-
-watch(
-  [
-    myEventRsvps,
-    upcomingEventsByServerId,
-    () => serverStore.servers.length,
-    () => workspace.loading.value,
-  ],
-  () => {
-    if (!guildEventDetailTargetFromLocation()) return;
-    applyGuildEventDetailQueryFromLocation();
-  },
-  { deep: true, flush: 'post' },
-);
-
-function toastPlainGuildEventLocation(text: string, urls: readonly string[]) {
-  const actions: AppToastAction[] = [
-    {
-      id: 'copy',
-      label: 'Copy',
-      kind: 'primary',
-      run: () => {
-        void navigator.clipboard?.writeText(text);
-      },
-    },
-  ];
-  const first = urls[0];
-  if (first) {
-    actions.push({
-      id: 'open',
-      label: 'Open link',
-      run: () => {
-        void openExternal(first);
-      },
-    });
-  }
-  dispatchAppToastDetail({
-    title: 'Event location',
-    message: text.length > 720 ? `${text.slice(0, 720)}…` : text,
-    subtitle: first,
-    actions,
-    severity: 'info',
-    durationMs: 14_000,
-  });
-}
-
-function navigateGuildEventOpenPayload(payload: {
-  serverId: string;
-  channelId?: string | null;
-  customLocation?: string | null;
-}) {
-  const base = import.meta.env.BASE_URL || '/';
-  const res = resolveGuildEventLocation({
-    eventServerId: payload.serverId,
-    channelId: payload.channelId,
-    customLocation: payload.customLocation,
-    base,
-  });
-  switch (res.kind) {
-    case 'server_channel':
-      openServerSurface(res.serverId, res.channelId);
-      break;
-    case 'shell_path': {
-      const ok = applyEchoShellPath(res.pathWithSearch);
-      if (!ok) {
-        dispatchAppToastDetail({
-          title: 'Open this location',
-          message:
-            'Finish loading Echo, then try again — or paste the link into your browser bar.',
-          severity: 'warning',
-        });
-      }
-      break;
-    }
-    case 'external':
-      void openExternal(res.url);
-      break;
-    case 'plain':
-      toastPlainGuildEventLocation(res.text, res.detectedUrls);
-      break;
-    case 'fallback_server': {
-      const cats = workspace.categoriesByServer.value[res.serverId] ?? [];
-      let cid = '';
-      outer: for (const cat of cats) {
-        for (const ch of cat.channels ?? []) {
-          if (ch.type === 'text') {
-            cid = ch.id;
-            break outer;
-          }
-        }
-      }
-      openServerSurface(res.serverId, cid || undefined);
-      break;
-    }
-    default:
-      break;
-  }
-}
 
 const pendingVcActivityPhaseAfterJoin = ref<VcActivityUiPhase | null>(null);
 
@@ -1433,179 +1208,27 @@ const chatSurfaceSwitchLoading = computed(
   () => !!unref(isMessageSurfaceSwitchLoading) || !!unref(isOpeningDmThread),
 );
 
-const forumPostsByForumId = ref<Record<string, any[]>>({});
-const forumPostsLoadingByForumId = ref<Record<string, boolean>>({});
-const forumPostsErrorByForumId = ref<Record<string, string | null>>({});
-
-async function refreshForumPosts(
-  forumChannelId: string,
-  opts?: {
-    sort?: 'latest_activity' | 'creation_date';
-    includeArchived?: boolean;
-    limit?: number;
-  },
-): Promise<void> {
-  const forumId = forumChannelId.trim();
-  if (!forumId) return;
-  const token = authSession.accessToken?.trim() ?? '';
-  forumPostsLoadingByForumId.value = {
-    ...forumPostsLoadingByForumId.value,
-    [forumId]: true,
-  };
-  forumPostsErrorByForumId.value = {
-    ...forumPostsErrorByForumId.value,
-    [forumId]: null,
-  };
-  try {
-    const rows = await fetchForumPostsOrchestration({
-      token,
-      forumChannelId: forumId,
-      sort: opts?.sort ?? 'latest_activity',
-      includeArchived: opts?.includeArchived ?? false,
-      limit: opts?.limit ?? 100,
-    });
-    forumPostsByForumId.value = {
-      ...forumPostsByForumId.value,
-      [forumId]: rows,
-    };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    forumPostsErrorByForumId.value = {
-      ...forumPostsErrorByForumId.value,
-      [forumId]: msg,
-    };
-  } finally {
-    forumPostsLoadingByForumId.value = {
-      ...forumPostsLoadingByForumId.value,
-      [forumId]: false,
-    };
-  }
-}
-
-async function createForumPost(payload: {
-  forumChannelId: string;
-  content: string;
-  tagIds?: string[];
-  mentions?: unknown;
-  imageUrl?: string;
-  videoUrl?: string;
-  gif?: boolean;
-  imageSpoiler?: boolean;
-  poll?: unknown;
-  attachments?: unknown;
-  stickers?: unknown;
-  contentJson?: unknown;
-  contentSchemaVersion?: number;
-  messageFormatVersion?: number;
-}): Promise<void> {
-  const forumId = payload.forumChannelId.trim();
-  if (!forumId) return;
-  const token = authSession.accessToken?.trim() ?? '';
-  try {
-    const sid =
-      serverStore.selectedServer?.id &&
-      isEchoGraphId(serverStore.selectedServer.id)
-        ? serverStore.selectedServer.id
-        : null;
-    const res = await createForumPostOrchestration({
-      token,
-      forumChannelId: forumId,
-      refreshCategoriesForServerId: sid ?? undefined,
-      body: {
-        content: payload.content,
-        ...(payload.tagIds ? { tagIds: payload.tagIds } : {}),
-        ...(payload.mentions !== undefined
-          ? { mentions: payload.mentions }
-          : {}),
-        ...(payload.imageUrl ? { imageUrl: payload.imageUrl } : {}),
-        ...(payload.videoUrl ? { videoUrl: payload.videoUrl } : {}),
-        ...(payload.gif ? { gif: true } : {}),
-        ...(payload.imageSpoiler ? { imageSpoiler: true } : {}),
-        ...(payload.poll !== undefined ? { poll: payload.poll } : {}),
-        ...(payload.attachments !== undefined
-          ? { attachments: payload.attachments }
-          : {}),
-        ...(payload.stickers !== undefined
-          ? { stickers: payload.stickers }
-          : {}),
-        ...(payload.contentJson !== undefined
-          ? { contentJson: payload.contentJson }
-          : {}),
-        ...(payload.contentSchemaVersion !== undefined
-          ? { contentSchemaVersion: payload.contentSchemaVersion }
-          : {}),
-        ...(payload.messageFormatVersion !== undefined
-          ? { messageFormatVersion: payload.messageFormatVersion }
-          : {}),
-      },
-    });
-    if (sid && res.refreshedCategories) {
-      workspace.categoriesByServer.value = {
-        ...workspace.categoriesByServer.value,
-        [sid]: res.refreshedCategories,
-      };
-    }
-    await refreshForumPosts(forumId);
-    if (res.created.channelId) {
-      if (res.created.messageId) {
-        handleGoToMessage(res.created.channelId, res.created.messageId);
-      } else {
-        handleGoToChannel(res.created.channelId);
-      }
-    }
-  } catch (e) {
-    dispatchAppToast(
-      e instanceof Error && e.message.trim()
-        ? e.message.trim()
-        : 'Failed to create forum post',
-      'warning',
-    );
-  }
-}
-
-async function patchForumPost(payload: {
-  postChannelId: string;
-  pinned?: boolean;
-  locked?: boolean;
-  archivedAt?: string | null;
-  tagIds?: unknown;
-}): Promise<void> {
-  const token = authSession.accessToken?.trim() ?? '';
-  const postId = payload.postChannelId.trim();
-  if (!postId) return;
-  await patchForumPostOrchestration({
-    token,
-    postChannelId: postId,
-    patch: {
-      ...(payload.pinned !== undefined ? { pinned: payload.pinned } : {}),
-      ...(payload.locked !== undefined ? { locked: payload.locked } : {}),
-      ...(payload.archivedAt !== undefined
-        ? { archivedAt: payload.archivedAt }
-        : {}),
-      ...(payload.tagIds !== undefined ? { tagIds: payload.tagIds } : {}),
-    },
-  });
-}
-
-watch(
-  () => unref(mainSurface),
-  (s) => {
-    if (s?.type !== 'serverForum') return;
-    void refreshForumPosts(s.forumChannelId);
-  },
-  { immediate: true },
-);
-
-const canManageForumPosts = computed(() => {
-  const s = unref(mainSurface);
-  if (s?.type !== 'serverForum') return false;
-  const find = _findChannelContextById as (
+/* ===== Forum posts: see useForumPostsController ===== */
+const {
+  forumPostsByForumId,
+  forumPostsLoadingByForumId,
+  forumPostsErrorByForumId,
+  refreshForumPosts,
+  createForumPost,
+  patchForumPost,
+  canManageForumPosts,
+} = useForumPostsController({
+  authSession,
+  serverStore,
+  workspace,
+  mainSurface,
+  isEchoGraphId,
+  canManageThisChannel,
+  findChannelContextById: _findChannelContextById as (
     id: string | null | undefined,
-  ) => { channel: ChannelSummary } | null | undefined;
-  const ctx = find(s.forumChannelId);
-  const forumCh = ctx?.channel;
-  if (!forumCh) return false;
-  return canManageThisChannel(forumCh);
+  ) => { channel: ChannelSummary } | null | undefined,
+  handleGoToChannel,
+  handleGoToMessage,
 });
 
 /**
@@ -1828,6 +1451,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   mainSurface,
   callOverlay,
   surfaceSwitchLoading: chatSurfaceSwitchLoading,
+  guildShellSettling: isGuildShellSettling,
   dmThreadSwitchLoading: computed(() => !!unref(isOpeningDmThread)),
   channelPanelCollapsed,
   memberPanelCollapsed: memberPanelCollapsedEffective,
@@ -2452,86 +2076,23 @@ const mainContentGridTemplateRows = computed(() =>
   explorePageUnifiedScroll.value ? 'minmax(0, 1fr)' : 'auto minmax(0, 1fr)',
 );
 
-const voiceParticipantsForFullscreenStream = computed(() => {
-  if (callOverlay.value.type === 'dmCall' && dmCallWithUserId.value?.trim()) {
-    return dmCallCallViewParticipants.value;
-  }
-  return activeVoiceChannelParticipants.value ?? [];
-});
-
-const fullscreenStreamTrack = computed(() => {
-  const pid = fullscreenStreamParticipantId.value;
-  if (!pid) return null;
-  if (pid === currentUser.value?.id) {
-    const screen = getLocalScreenTrack();
-    if (screen) return screen;
-    return getLocalCameraTrack();
-  }
-  const p = voiceParticipantsForFullscreenStream.value?.find(
-    (participant: { id?: string }) => participant.id === pid,
-  ) as Record<string, any> | undefined;
-  return (p?.screenTrack ?? p?.cameraTrack ?? null) as any;
-});
-
-const fullscreenStreamAudioTrack = computed(() => {
-  const pid = fullscreenStreamParticipantId.value;
-  if (!pid || pid === currentUser.value?.id) return null;
-  const p = voiceParticipantsForFullscreenStream.value?.find(
-    (participant: { id?: string }) => participant.id === pid,
-  ) as Record<string, any> | undefined;
-  return (p?.screenAudioTrack ?? null) as any;
-});
-
-const fullscreenStreamName = computed(() => {
-  const pid = fullscreenStreamParticipantId.value;
-  if (!pid) return '';
-  if (pid === currentUser.value?.id) return currentUser.value?.name ?? 'You';
-  const p = voiceParticipantsForFullscreenStream.value?.find(
-    (participant: { id?: string }) => participant.id === pid,
-  );
-  return p?.name ?? '';
-});
-
-const fullscreenStreamPfp = computed(() => {
-  const pid = fullscreenStreamParticipantId.value;
-  if (!pid) return '';
-  if (pid === currentUser.value?.id) return currentUser.value?.pfp ?? '';
-  const p = voiceParticipantsForFullscreenStream.value?.find(
-    (participant: { id?: string }) => participant.id === pid,
-  );
-  return p?.pfp ?? '';
-});
-
-const fullscreenStreamIsScreenShare = computed(() => {
-  const pid = fullscreenStreamParticipantId.value;
-  if (!pid) return false;
-  if (pid === currentUser.value?.id) return !!getLocalScreenTrack();
-  const p = voiceParticipantsForFullscreenStream.value?.find(
-    (participant: { id?: string }) => participant.id === pid,
-  );
-  return !!(p as { screenTrack?: unknown } | undefined)?.screenTrack;
-});
-
-const FULLSCREEN_STREAM_LOST_CLEAR_MS = 160;
-
-watch(
+/* ===== Fullscreen stream overlay: see useFullscreenStreamOverlay ===== */
+const {
   fullscreenStreamTrack,
-  (track) => {
-    if (fullscreenStreamLostDefer != null) {
-      clearTimeout(fullscreenStreamLostDefer);
-      fullscreenStreamLostDefer = null;
-    }
-    if (!fullscreenStreamParticipantId.value) return;
-    if (track) return;
-    fullscreenStreamLostDefer = setTimeout(() => {
-      fullscreenStreamLostDefer = null;
-      if (fullscreenStreamParticipantId.value && !fullscreenStreamTrack.value) {
-        fullscreenStreamParticipantId.value = null;
-      }
-    }, FULLSCREEN_STREAM_LOST_CLEAR_MS);
-  },
-  { flush: 'post' },
-);
+  fullscreenStreamAudioTrack,
+  fullscreenStreamName,
+  fullscreenStreamPfp,
+  fullscreenStreamIsScreenShare,
+} = useFullscreenStreamOverlay({
+  fullscreenStreamParticipantId,
+  callOverlay,
+  dmCallWithUserId,
+  dmCallCallViewParticipants,
+  activeVoiceChannelParticipants,
+  currentUser,
+  getLocalScreenTrack,
+  getLocalCameraTrack,
+});
 
 provide(CHAT_MESSAGE_NAV_BRIDGE_KEY, chatMessageNavBridge);
 provide('echoChannelHistory', echoChannelHistory);
@@ -2610,99 +2171,6 @@ watch(
   { immediate: true },
 );
 
-const dismissUnverifiedEmailBanner = ref(false);
-const dismissGuestUpgradeBanner = ref(false);
-const emailBannerResendBusy = ref(false);
-const emailBannerResendMessage = ref<string | null>(null);
-const emailBannerResendError = ref<string | null>(null);
-const emailVerificationDowntimeNotified = ref(false);
-
-watch(
-  () => authSession.backendUser?.id,
-  () => {
-    dismissUnverifiedEmailBanner.value = false;
-    dismissGuestUpgradeBanner.value = false;
-    emailBannerResendMessage.value = null;
-    emailBannerResendError.value = null;
-    emailVerificationDowntimeNotified.value = false;
-  },
-);
-
-watch(
-  () => authSession.backendUser?.isGuest,
-  (v) => {
-    if (v !== true) dismissGuestUpgradeBanner.value = false;
-  },
-);
-
-watch(
-  () => authSession.backendUser?.emailVerified,
-  (v) => {
-    if (v) dismissUnverifiedEmailBanner.value = false;
-    if (v) emailVerificationDowntimeNotified.value = false;
-  },
-);
-
-const _showEmailVerificationFlashBanner = computed(
-  () =>
-    !!(
-      emailVerificationFlash.value &&
-      String(emailVerificationFlash.value).trim()
-    ),
-);
-
-const showUnverifiedEmailPrompt = computed(() => {
-  if (EMAIL_VERIFICATION_DOWNTIME) return false;
-  if (!isAuthenticated.value || dismissUnverifiedEmailBanner.value)
-    return false;
-  const u = authSession.backendUser;
-  if (!u || u.isGuest) return false;
-  const em = u.email?.trim();
-  if (!em) return false;
-  return u.emailVerified === false;
-});
-
-const showUnverifiedEmailBanner = computed(
-  () => showUnverifiedEmailPrompt.value && !isCompactShell.value,
-);
-
-const showUnverifiedEmailModal = computed(
-  () => showUnverifiedEmailPrompt.value && isCompactShell.value,
-);
-
-const shouldShowEmailVerificationDowntimeToast = computed(() => {
-  if (!EMAIL_VERIFICATION_DOWNTIME) return false;
-  if (!isAuthenticated.value) return false;
-  if (echoSyncCapabilities.isMockDataMode) return false;
-  const u = authSession.backendUser;
-  if (!u || u.isGuest) return false;
-  const em = u.email?.trim();
-  if (!em) return false;
-  return u.emailVerified === false;
-});
-
-watch(
-  () => shouldShowEmailVerificationDowntimeToast.value,
-  (show) => {
-    if (!show || emailVerificationDowntimeNotified.value) return;
-    emailVerificationDowntimeNotified.value = true;
-    dispatchAppToastDetail(EMAIL_VERIFICATION_DOWNTIME_TOAST);
-  },
-  { immediate: true },
-);
-
-const showGuestUpgradeBanner = computed(() => {
-  if (!isAuthenticated.value || dismissGuestUpgradeBanner.value) return false;
-  return authSession.backendUser?.isGuest === true;
-});
-
-const showGuestOnboardingModal = computed(() => false);
-
-const discordBotExportReadyGuildNameForBanner = computed(() => {
-  const n = discordBotExportReadyBanner.value?.guildName?.trim();
-  return n ? n : null;
-});
-
 const {
   desktopUpdateBannerVisible,
   desktopUpdatePendingVersion,
@@ -2723,70 +2191,23 @@ const {
   openUserSettingsModal,
 });
 
-/** Debounce closing fullscreen when the media track drops (avoid flicker on quick swaps). */
-let fullscreenStreamLostDefer: ReturnType<typeof setTimeout> | null = null;
-
-function isEditableEventTarget(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  if (el.closest('[contenteditable="true"]')) return true;
-  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
-}
-
-function onGlobalShortcutKeydown(e: KeyboardEvent) {
-  if (e.defaultPrevented || e.isComposing) return;
-  const action = findActionForKeyboardEvent(e);
-  if (!action) return;
-  if (isEditableEventTarget(e.target) && !action.startsWith('navigation.'))
-    return;
-  switch (action) {
-    case 'voice.toggleMute':
-      e.preventDefault();
-      if (dmCallWithUserId.value) {
-        toggleDmCallMuted();
-      } else {
-        onGuildChannelVcMuted(!channelPanelVcMutedEffective.value);
-      }
-      break;
-    case 'voice.toggleDeafen':
-      e.preventDefault();
-      if (dmCallWithUserId.value) {
-        applyDmCallDeafened(!dmCallDeafened.value);
-      } else {
-        onGuildChannelVcDeafened(!channelPanelVcDeafenedEffective.value);
-      }
-      break;
-    case 'navigation.quickSwitcher':
-    case 'navigation.openSearch':
-      e.preventDefault();
-      window.dispatchEvent(
-        new CustomEvent('echo:focus-search', { detail: { selectAll: true } }),
-      );
-      break;
-    case 'navigation.markChannelRead':
-      e.preventDefault();
-      void markActiveChannelAsRead();
-      break;
-    case 'navigation.selectRailServer1':
-    case 'navigation.selectRailServer2':
-    case 'navigation.selectRailServer3':
-    case 'navigation.selectRailServer4':
-    case 'navigation.selectRailServer5': {
-      e.preventDefault();
-      const slot =
-        Number(action.slice('navigation.selectRailServer'.length)) - 1;
-      const row = serverStore.visibleServers[slot];
-      if (row?.id) openServerSurface(row.id);
-      break;
-    }
-    default:
-      break;
-  }
-}
+// Global shell keyboard shortcuts (voice mute/deafen, search, mark-read, rail 1–5).
+// Owns its own window keydown listener; see useAppLayoutGlobalShortcuts.
+useAppLayoutGlobalShortcuts({
+  dmCallWithUserId,
+  dmCallDeafened,
+  channelPanelVcMutedEffective,
+  channelPanelVcDeafenedEffective,
+  serverStore,
+  toggleDmCallMuted,
+  applyDmCallDeafened,
+  onGuildChannelVcMuted,
+  onGuildChannelVcDeafened,
+  markActiveChannelAsRead,
+  openServerSurface,
+});
 
 onMounted(() => {
-  window.addEventListener('keydown', onGlobalShortcutKeydown);
-
   void nextTick(() => {
     if (typeof ResizeObserver === 'undefined') return;
     const el = mainContentAreaEl.value;
@@ -2814,86 +2235,12 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('popstate', onEventDetailPopState);
-  }
   disposeAppLayoutSideEffects();
 });
 
 function onUiErrorCreateAccount() {
   openAuthModal({ tab: 'register' });
   dismissUiErrorBanner();
-}
-
-function dismissEmailVerificationFlash() {
-  authSession.clearEmailVerificationFlash();
-}
-
-function dismissUnverifiedEmailBannerClick() {
-  dismissUnverifiedEmailBanner.value = true;
-  emailBannerResendMessage.value = null;
-  emailBannerResendError.value = null;
-}
-
-function onUnverifiedEmailModalUpdate(open: boolean) {
-  if (!open) dismissUnverifiedEmailBannerClick();
-}
-
-function onGuestUpgradeBannerOpenSettings() {
-  openUserSettingsModal('Account');
-}
-
-function dismissGuestUpgradeBannerClick() {
-  dismissGuestUpgradeBanner.value = true;
-}
-
-function onUnverifiedEmailChangeEmail() {
-  try {
-    sessionStorage.setItem('echo_settings_change_email', '1');
-  } catch {
-    /* ignore */
-  }
-  openUserSettingsModal('Account');
-}
-
-async function onUnverifiedEmailResend() {
-  if (EMAIL_VERIFICATION_DOWNTIME) {
-    dispatchAppToastDetail(EMAIL_VERIFICATION_DOWNTIME_TOAST);
-    return;
-  }
-  emailBannerResendMessage.value = null;
-  emailBannerResendError.value = null;
-  if (!authSession.isAuthenticated) return;
-  emailBannerResendBusy.value = true;
-  try {
-    await authResendVerification();
-    emailBannerResendMessage.value =
-      'Check your inbox for a new verification link.';
-  } catch (e) {
-    if (
-      e instanceof AuthApiError &&
-      e.body.code === 'VERIFICATION_EMAIL_COOLDOWN'
-    ) {
-      emailBannerResendError.value =
-        'Please wait before requesting another email.';
-    } else if (e instanceof AuthApiError) {
-      emailBannerResendError.value = e.message;
-    } else {
-      emailBannerResendError.value = 'Could not send email. Try again later.';
-    }
-  } finally {
-    emailBannerResendBusy.value = false;
-  }
-}
-
-function onGuestUpgradeSignInExisting() {
-  isGuestUpgradeModalOpen.value = false;
-  openAuthModal();
-}
-
-function onGuestUpgradeSignInFromSettings() {
-  onUserSettingsModalUpdate(false);
-  onGuestUpgradeSignInExisting();
 }
 
 const sessionReturningUserHint = computed(
@@ -3352,13 +2699,8 @@ watch(
 
 /** Canonical teardown for bus subscriptions and member panel width observer. */
 function disposeAppLayoutSideEffects() {
-  if (fullscreenStreamLostDefer != null) {
-    clearTimeout(fullscreenStreamLostDefer);
-    fullscreenStreamLostDefer = null;
-  }
   memberPanelMainWidthObserver?.disconnect();
   memberPanelMainWidthObserver = null;
-  window.removeEventListener('keydown', onGlobalShortcutKeydown);
 }
 
 function maybeAutoCollapseMemberPanelForMainWidth() {

@@ -26,6 +26,7 @@ import {
   contentForLegacyEncryptedChatRow,
   rowHasLegacyChatE2eeCiphertext,
 } from '../../../shared/chatE2eePolicy';
+import { isDiscordSyncedBridgeSource } from '../../../shared/discordBridgeSources';
 
 export { CHAT_E2EE_REMOVED_DETAIL };
 
@@ -414,7 +415,7 @@ export async function attachAuthorLabelsToEchoMessageRows(
       ...(a.isDiscordShadow && a.shadowDiscordUserId
         ? { authorDiscordUserId: a.shadowDiscordUserId }
         : {}),
-      ...(row.bridgeSource === 'discord_inbound'
+      ...(isDiscordSyncedBridgeSource(row.bridgeSource)
         ? { bridgeFromDiscord: true }
         : {}),
     };
@@ -863,6 +864,86 @@ export async function insertEchoMessage(
   return ins.rows.length > 0 ? 'inserted' : 'duplicate';
 }
 
+/** Fields for `message:updated` socket emit without full enrichment. */
+export async function selectEchoMessageBroadcastRow(
+  pool: pg.Pool,
+  channelId: string,
+  messageId: string,
+): Promise<{
+  authorId: string;
+  content: string;
+  searchIndexText: string | null;
+  contentJson: unknown;
+  messageFormatVersion: number;
+  contentSchemaVersion: number;
+  mentions: unknown;
+  attachments: unknown;
+  editedAt: string | null;
+} | null> {
+  const q = await pool.query(
+    `
+    SELECT author_id, content, search_index_text, content_json,
+           message_format_version, content_schema_version, mentions, attachments,
+           edited_at
+    FROM echo_messages
+    WHERE id = $1 AND channel_id = $2 AND deleted_at IS NULL
+    `,
+    [messageId, channelId],
+  );
+  if (!q.rows[0]) return null;
+  const row = q.rows[0];
+  return {
+    authorId: String(row.author_id),
+    content: String(row.content ?? ''),
+    searchIndexText:
+      row.search_index_text != null ? String(row.search_index_text) : null,
+    contentJson: row.content_json,
+    messageFormatVersion: Number(row.message_format_version ?? 1),
+    contentSchemaVersion: Number(row.content_schema_version ?? 1),
+    mentions: row.mentions,
+    attachments: row.attachments,
+    editedAt:
+      row.edited_at != null ? new Date(row.edited_at).toISOString() : null,
+  };
+}
+
+export async function selectEchoMessageReplyPreviewRow(
+  pool: pg.Pool,
+  messageId: string,
+  channelId: string,
+): Promise<{
+  id: string;
+  authorId: string;
+  authorDisplayName: string;
+  authorAvatar?: string;
+  content: string;
+  searchIndexText: string | null;
+} | null> {
+  const q = await pool.query(
+    `
+    SELECT m.id, m.author_id, m.content, m.search_index_text,
+           COALESCE(NULLIF(TRIM(u.display_name), ''), NULLIF(TRIM(u.username), ''), 'Unknown') AS author_display_name,
+           u.avatar_url AS author_avatar
+    FROM echo_messages m
+    LEFT JOIN auth_users u ON u.id = m.author_id
+    WHERE m.id = $1 AND m.channel_id = $2 AND m.deleted_at IS NULL
+    `,
+    [messageId, channelId],
+  );
+  if (!q.rows[0]) return null;
+  const row = q.rows[0];
+  return {
+    id: String(row.id),
+    authorId: String(row.author_id),
+    authorDisplayName: String(row.author_display_name),
+    authorAvatar:
+      row.author_avatar != null ? String(row.author_avatar) : undefined,
+    content: String(row.content ?? ''),
+    searchIndexText:
+      row.search_index_text != null ? String(row.search_index_text) : null,
+  };
+}
+
 export async function getEchoMessageById(
   pool: pg.Pool,
   messageId: string,
@@ -1138,6 +1219,34 @@ export async function searchEchoMessagesInChannels(
   const drafts = mapMsgRowsDraft(r.rows).reverse();
   const enriched = await enrichEchoMessageDraftsParallel(pool, drafts);
   return enriched.rows;
+}
+
+/** Lean existence check: channel + author + deleted (no enrichment). */
+export async function selectEchoMessageChannelRef(
+  pool: pg.Pool,
+  messageId: string,
+  channelId?: string,
+): Promise<{
+  channelId: string;
+  authorId: string;
+  deleted: boolean;
+} | null> {
+  const params: string[] = [messageId];
+  let channelClause = '';
+  if (channelId?.trim()) {
+    params.push(channelId.trim());
+    channelClause = ` AND channel_id = $2`;
+  }
+  const q = await pool.query(
+    `SELECT channel_id, author_id, deleted_at FROM echo_messages WHERE id = $1${channelClause}`,
+    params,
+  );
+  if (!q.rows[0]) return null;
+  return {
+    channelId: String(q.rows[0].channel_id),
+    authorId: String(q.rows[0].author_id),
+    deleted: q.rows[0].deleted_at != null,
+  };
 }
 
 export async function selectEchoMessageAuthorDeleted(
@@ -1920,6 +2029,126 @@ export async function selectUnreadAttentionAggregatesByChannel(
     [userId, channelIds],
   );
   return r.rows.map((row: any) => ({
+    channel_id: String(row.channel_id),
+    server_id: String(row.server_id ?? ''),
+    unread_count: Number(row.unread_count ?? 0),
+    first_unread_message_id: row.first_unread_message_id
+      ? String(row.first_unread_message_id)
+      : null,
+    first_unread_created_at:
+      row.first_unread_created_at instanceof Date
+        ? row.first_unread_created_at.toISOString()
+        : row.first_unread_created_at
+          ? String(row.first_unread_created_at)
+          : null,
+    latest_unread_message_id: row.latest_unread_message_id
+      ? String(row.latest_unread_message_id)
+      : null,
+    latest_unread_created_at:
+      row.latest_unread_created_at instanceof Date
+        ? row.latest_unread_created_at.toISOString()
+        : row.latest_unread_created_at
+          ? String(row.latest_unread_created_at)
+          : null,
+  }));
+}
+
+export type UnreadAttentionAggregateByUser = UnreadAttentionAggregate & {
+  user_id: string;
+};
+
+/**
+ * Per-user unread aggregate for one channel (message fanout — avoids full workspace snapshots).
+ */
+export async function selectUnreadAttentionAggregatesForUsersOnChannel(
+  pool: pg.Pool,
+  channelId: string,
+  userIds: string[],
+): Promise<UnreadAttentionAggregateByUser[]> {
+  const ch = channelId.trim();
+  const ids = [...new Set(userIds.map((id) => id.trim()).filter(Boolean))];
+  if (!ch || ids.length === 0) return [];
+
+  const mIdAfterReadTieBreak = echoMessageIdPgGreaterThan(
+    'm.id',
+    'rs.last_read_message_id',
+  );
+  const mAfterRead = `(
+    lr.id IS NULL
+    OR m.created_at > lr.created_at
+    OR (m.created_at = lr.created_at AND ${mIdAfterReadTieBreak})
+  )`;
+  const firstsLastsCtes = `
+    firsts AS (
+      SELECT DISTINCT ON (user_id)
+        user_id,
+        id AS first_unread_message_id,
+        created_at AS first_unread_created_at
+      FROM unread
+      ORDER BY user_id, id ASC
+    ),
+    lasts AS (
+      SELECT DISTINCT ON (user_id)
+        user_id,
+        id AS latest_unread_message_id,
+        created_at AS latest_unread_created_at
+      FROM unread
+      ORDER BY user_id, id DESC
+    )`;
+
+  const r = await pool.query(
+    `
+    WITH viewers AS (
+      SELECT UNNEST($2::text[]) AS user_id
+    ),
+    unread AS (
+      SELECT
+        v.user_id,
+        m.channel_id,
+        ch.server_id,
+        m.id,
+        m.created_at
+      FROM viewers v
+      INNER JOIN echo_messages m ON m.channel_id = $1
+      INNER JOIN echo_channels ch ON ch.id = m.channel_id
+      LEFT JOIN echo_channel_read_state rs
+        ON rs.user_id = v.user_id
+       AND rs.channel_id = m.channel_id
+      LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
+      WHERE m.deleted_at IS NULL
+        AND m.author_id <> v.user_id
+        AND (
+          rs.last_read_message_id IS NULL
+          OR ${mAfterRead}
+        )
+    ),
+    ${firstsLastsCtes}
+    SELECT
+      u.user_id,
+      u.channel_id,
+      u.server_id,
+      LEAST(COUNT(*)::int, 200) AS unread_count,
+      f.first_unread_message_id,
+      f.first_unread_created_at,
+      l.latest_unread_message_id,
+      l.latest_unread_created_at
+    FROM unread u
+    INNER JOIN firsts f ON f.user_id = u.user_id
+    INNER JOIN lasts l ON l.user_id = u.user_id
+    GROUP BY
+      u.user_id,
+      u.channel_id,
+      u.server_id,
+      f.first_unread_message_id,
+      f.first_unread_created_at,
+      l.latest_unread_message_id,
+      l.latest_unread_created_at
+    `,
+    [ch, ids],
+  );
+
+  return r.rows.map((row: Record<string, unknown>) => ({
+    user_id: String(row.user_id),
     channel_id: String(row.channel_id),
     server_id: String(row.server_id ?? ''),
     unread_count: Number(row.unread_count ?? 0),

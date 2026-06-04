@@ -23,7 +23,11 @@ export default tseslint.config(
   },
 
   {
+    // Type-aware linting only covers files in the build tsconfig. `src/tests` is
+    // deliberately excluded there (tests run via tsx, never compiled), so the project
+    // service can't resolve them — scope the typed rules to non-test source.
     files: ['src/**/*.ts'],
+    ignores: ['src/tests/**'],
     languageOptions: {
       parserOptions: {
         projectService: true,

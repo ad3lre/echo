@@ -23,12 +23,12 @@ import {
   persistRemoveEchoMessageReaction,
   isEchoServerOwner,
 } from '../../../../domain/echoStore';
-import { nextEchoSnowflakeId } from '../../../../domain/echoSnowflake';
-import { insertEchoMessage } from '../../../../domain/echoStore';
 import {
   editEchoMessageAndBroadcast,
   deleteEchoMessageAndBroadcast,
 } from '../../../../services/echoMessageEditDeleteOps';
+import { echoPersistedMessageCreateAndBroadcast } from '../../../../services/echoPersistedMessageCreate';
+import { evaluateEchoGuildOutboundMessageModeration } from '../../../../services/echoGuildOutboundMessageModeration';
 import type { Server } from 'socket.io';
 import { getEffectiveChannelPermissions } from '../../../../domain/echoStore/permissions';
 import { loadDiscordApiAuthorsByIds } from './userBatch';
@@ -237,35 +237,53 @@ export default async function discordMessagesRoutes(
       if (!pool) return discordError(reply, 503, '503: Service Unavailable');
 
       const botUserId = req.botApp!.id;
-      const messageId = nextEchoSnowflakeId();
-
-      await insertEchoMessage(pool, {
-        id: messageId,
-        channelId,
-        authorId: botUserId,
-        content,
-        messageFormatVersion: 1,
-      });
+      const moderation = await evaluateEchoGuildOutboundMessageModeration(
+        pool,
+        {
+          serverId: access.guildId,
+          channelId,
+          userId: botUserId,
+          content,
+        },
+      );
+      if (!moderation.ok) {
+        const { denial } = moderation;
+        return discordError(
+          reply,
+          denial.httpStatus,
+          `${denial.httpStatus}: ${denial.detail}`,
+        );
+      }
 
       const io = getIo(fastify);
-      if (io) {
-        io.to(channelId).emit('message', {
-          id: messageId,
+      if (!io) {
+        return discordError(reply, 503, '503: Service Unavailable');
+      }
+
+      const persistRes = await echoPersistedMessageCreateAndBroadcast(
+        pool,
+        io,
+        fastify.log,
+        botUserId,
+        {
           channelId,
-          authorId: botUserId,
           content,
-          timestamp: new Date().toISOString(),
-          authorDisplayName: req.botApp!.name,
-        });
+          messageFormatVersion: 1,
+          contentSchemaVersion: 1,
+        },
+      );
+      if (!persistRes.ok) {
+        return discordError(reply, 500, '500: Failed to persist message');
       }
 
       const author = serializeBotUser(req.botApp!);
+      const msg = persistRes.message;
       return reply.code(200).send({
-        id: messageId,
+        id: msg.id,
         channel_id: channelId,
         author,
-        content,
-        timestamp: new Date().toISOString(),
+        content: msg.content,
+        timestamp: msg.timestamp,
         edited_timestamp: null,
         tts: false,
         mention_everyone: false,

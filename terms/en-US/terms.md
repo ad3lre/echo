@@ -1,7 +1,7 @@
 ## Terms of Service (and Service Terms) — Echo App
 
-**Last updated:** 23 March 2026  
-**Effective date:** 23 March 2026
+**Last updated:** 3 June 2026  
+**Effective date:** 3 June 2026
 
 These Terms of Service ("Terms") govern your access to and use of the **Echo** mobile/web application (the "Service") provided by the business operating the Echo app ("we", "us", "our"). By accessing or using the Service, you agree to these Terms. If you do not agree, do not use the Service.
 
@@ -91,25 +91,42 @@ When enforcing rules, we aim to apply them consistently with prior enforcement p
 
 ## 6) Moderation; Safety Controls; Enforcement
 
-You acknowledge that we may moderate the Service and User Content.
+We moderate the Service and User Content to keep Echo safe, lawful, and usable. This section explains what we may do, what we will tell you, and how you can challenge a decision.
 
-### 6.1 Removal and bans
+### 6.1 Content removal and account restrictions
 
 We may remove content when we reasonably believe removal is needed for safety, legal compliance, platform integrity, or rule enforcement.
 
-We may ban, suspend, or terminate users, including without prior warning when urgency or safety risk requires immediate action.
+We may restrict features, suspend, or ban accounts when we reasonably believe that is necessary. In urgent situations (for example credible threats or active abuse), we may act immediately; we will still explain the action to you as soon as we reasonably can.
 
-### 6.2 Appeals
+### 6.2 Your right to know why
 
-You have the right to request an appeal of moderation or account enforcement decisions.
+If we restrict, suspend, or ban your **platform** access, you have the right to be told **why**, in clear and understandable terms, whenever we can do so without:
 
-To appeal, contact in-app support or **[support@app-echo.net](mailto:support@app-echo.net)** and include enough detail to identify the decision (for example account ID, affected content, date/time, and reason you believe the decision was incorrect).
+- putting someone at risk,
+- violating the law or a legal process,
+- or undermining an active safety investigation.
 
-We will review appeal requests in good faith, with reference to the rule text, prior enforcement approach in similar cases, and the overall intent of the rules. Not every appeal will result in reversal, and urgent safety actions may remain in effect while review is ongoing.
+When we cannot share full details at the time of the action, we will say so and share what we can, when it is safe and lawful to do so. A generic notice alone is not a substitute for a real explanation when we are able to provide one.
 
-Appeal availability and outcomes remain subject to applicable law, platform safety obligations, and abuse-prevention requirements.
+### 6.3 Your right to appeal
 
-We may also use **technical and account enforcement measures** to prevent circumvention of bans and misuse, including restricting access by IP address, device identifiers, or other signals, and/or linking accounts where reasonably necessary to enforce these Terms.
+If you believe a moderation or account enforcement decision was wrong, **you have the right to appeal**.
+
+To appeal:
+
+1. Use **in-app support**, or
+2. Email **[support@app-echo.net](mailto:support@app-echo.net)**
+
+Tell us what happened and why you disagree. Helpful details include your account ID, affected content or server, and the date/time of the action — but you do not need special wording or legal language.
+
+We review appeals in good faith, using our rules, how we have handled similar cases, and the intent of these policies. We aim to respond within a reasonable time. Not every appeal will be reversed; urgent safety measures may stay in place while review is ongoing.
+
+Appeals remain subject to applicable law, platform safety obligations, and abuse-prevention requirements.
+
+### 6.4 Technical enforcement
+
+We may use **technical and account enforcement measures** to prevent circumvention of bans and misuse, including restricting access by IP address, device identifiers, or other signals, and/or linking accounts where reasonably necessary to enforce these Terms.
 
 ---
 
@@ -181,7 +198,7 @@ We may take additional technical measures to reduce abuse and ban evasion (for e
 
 ## 11) Termination; Account Changes
 
-We may terminate or suspend access where we reasonably determine it is necessary for rule enforcement, safety, legal compliance, abuse prevention, or protection of the Service and its users.
+We may terminate or suspend access where we reasonably determine it is necessary for rule enforcement, safety, legal compliance, abuse prevention, or protection of the Service and its users. When we do, Section 6 applies: we will explain why when we can, and you may appeal.
 
 We do not guarantee account restoration, data recovery, or that any content will remain accessible after termination.
 

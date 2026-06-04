@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type pg from 'pg';
 import { getEchoStore } from '../../domain/echoStore/bootstrap';
 import { joinNewAccountToOfficialEchoServer } from '../../domain/echoStore/officialServerOnboarding';
+import { markOfficialEchoServerMembershipChecked } from './officialEchoServerMembershipCache';
 
 /** Best-effort membership in the official Echo server after account creation. */
 export async function tryJoinOfficialEchoServerOnSignup(
@@ -35,5 +36,8 @@ export async function ensureOfficialEchoServerMembership(
   userId: string,
 ): Promise<{ joined: boolean; serverId: string | null }> {
   const result = await joinNewAccountToOfficialEchoServer(pool, userId);
+  if (result.reason !== 'server_limit') {
+    markOfficialEchoServerMembershipChecked(userId);
+  }
   return { joined: result.joined, serverId: result.serverId };
 }

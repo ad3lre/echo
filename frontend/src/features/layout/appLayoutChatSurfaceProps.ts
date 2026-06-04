@@ -41,6 +41,7 @@ export type AppLayoutChatSurfaceProps = {
   mainSurface: MainSurface;
   callOverlay: CallOverlayState;
   surfaceSwitchLoading: boolean;
+  guildShellSettling: boolean;
   dmThreadSwitchLoading: boolean;
   channelPanelCollapsed: boolean;
   /** Layout/search: true when the member column is hidden (user collapsed or NSFW gate). */
@@ -437,6 +438,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'mainSurface',
   'callOverlay',
   'surfaceSwitchLoading',
+  'guildShellSettling',
   'dmThreadSwitchLoading',
   'channelPanelCollapsed',
   'memberPanelCollapsed',

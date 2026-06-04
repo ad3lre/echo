@@ -457,7 +457,7 @@ export interface AppLayoutControllerContext {
   ignoreMessageRequest: (requestId: string) => void;
   returnFromMessageRequests: () => void;
   dmMentionNotifications: ComputedRef<DmMentionNotificationRow[]>;
-  mentionNotificationHydrationLoading: Ref<boolean>;
+  mentionNotificationHydrationLoading: ComputedRef<boolean>;
   resolveDmMentionNotificationChannelLabel: (channelId: string) => string;
   resolveDmMentionNotificationAuthorName: (
     row: DmMentionNotificationRow,
@@ -1210,6 +1210,7 @@ export interface AppLayoutControllerContext {
   } | null;
   showApiFetchErrorBanner: Ref<boolean>;
   isChannelPanelSwitchLoading: ComputedRef<boolean>;
+  isGuildShellSettling: ComputedRef<boolean>;
   isMessageSurfaceSwitchLoading: ComputedRef<boolean>;
   isMemberSurfaceSwitchLoading: ComputedRef<boolean>;
   isServerNotificationSettingsOpen: Ref<boolean>;

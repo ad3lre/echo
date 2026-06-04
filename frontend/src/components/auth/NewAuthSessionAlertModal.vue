@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { AuthSessionInfo } from '@/api/authClient';
-import {
-  parseAuthSessionUserAgent,
-  type ParsedClientEnvironment,
-} from '@/utils/authSessionDeviceLabel';
+import { formatAuthSessionSummary } from '@/utils/authSessionDeviceLabel';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -14,10 +11,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
 }>();
-
-function labelFor(s: AuthSessionInfo): ParsedClientEnvironment {
-  return parseAuthSessionUserAgent(s.userAgent);
-}
 
 const hasRows = computed(() => props.sessions.length > 0);
 
@@ -64,10 +57,7 @@ function close() {
               class="rounded-xl border border-border bg-glass-1 px-3 py-2.5"
             >
               <div class="text-sm font-semibold text-foreground">
-                {{ labelFor(s).os }}
-              </div>
-              <div class="text-xs text-fg-subtle">
-                {{ labelFor(s).device }}
+                {{ formatAuthSessionSummary(s) }}
               </div>
             </li>
           </ul>

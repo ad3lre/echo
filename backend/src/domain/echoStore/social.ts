@@ -99,6 +99,61 @@ export async function filterVisibleEchoUserIds(
   return r.rows.map((row) => String(row.candidate_id));
 }
 
+/**
+ * Given a subject user and candidate viewers, return viewer ids who should
+ * receive presence updates for that subject (one query vs N sequential checks).
+ */
+export async function filterEchoViewersWhoCanSeeSubject(
+  pool: pg.Pool,
+  subjectUserId: string,
+  viewerUserIds: string[],
+): Promise<string[]> {
+  const subject = subjectUserId.trim();
+  const viewers = [
+    ...new Set(viewerUserIds.map((id) => id.trim()).filter(Boolean)),
+  ];
+  if (!subject || viewers.length === 0) return [];
+  const r = await pool.query<{ viewer_id: string }>(
+    `
+    WITH viewers(viewer_id) AS (
+      SELECT UNNEST($2::text[])
+    )
+    SELECT v.viewer_id
+    FROM viewers v
+    WHERE v.viewer_id = $1
+       OR (
+         NOT EXISTS (
+           SELECT 1
+           FROM echo_user_blocks b
+           WHERE (b.blocker_id = v.viewer_id AND b.blocked_id = $1)
+              OR (b.blocked_id = v.viewer_id AND b.blocker_id = $1)
+         )
+         AND (
+           EXISTS (
+             SELECT 1
+             FROM echo_friendships f
+             WHERE f.status = 'accepted'
+               AND (
+                 (f.user_id = v.viewer_id AND f.peer_id = $1)
+                 OR (f.user_id = $1 AND f.peer_id = v.viewer_id)
+               )
+           )
+           OR EXISTS (
+             SELECT 1
+             FROM echo_server_members mine
+             INNER JOIN echo_server_members theirs
+               ON theirs.server_id = mine.server_id
+             WHERE mine.user_id = v.viewer_id
+               AND theirs.user_id = $1
+           )
+         )
+       )
+    `,
+    [subject, viewers],
+  );
+  return r.rows.map((row) => String(row.viewer_id));
+}
+
 export async function listEchoFriends(
   pool: pg.Pool,
   userId: string,

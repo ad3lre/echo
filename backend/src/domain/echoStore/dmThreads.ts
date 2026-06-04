@@ -864,11 +864,12 @@ export async function createEchoGroupDmThread(
         unique.length < ECHO_GROUP_DM_MIN_MEMBERS ? 'too_few' : 'too_many',
     };
   }
-  for (const uid of unique) {
-    const row = await pool.query(`SELECT 1 FROM auth_users WHERE id = $1`, [
-      uid,
-    ]);
-    if (row.rows.length === 0) return { ok: false, reason: 'unknown_peer' };
+  const knownUsers = await pool.query<{ id: string }>(
+    `SELECT id FROM auth_users WHERE id = ANY($1)`,
+    [unique],
+  );
+  if (knownUsers.rows.length !== unique.length) {
+    return { ok: false, reason: 'unknown_peer' };
   }
   const pairPolicy = await validateEchoGroupDmPairPolicy(pool, unique);
   if (pairPolicy !== 'ok') {
@@ -889,8 +890,15 @@ export async function createEchoGroupDmThread(
   try {
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key) VALUES ($1, $2, $3, 'text', $4, $5, '')`,
-      [channelId, ECHO_DM_REALM_SERVER_ID, name, categoryId, position],
+      `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key, group_dm_owner_user_id) VALUES ($1, $2, $3, 'text', $4, $5, '', $6)`,
+      [
+        channelId,
+        ECHO_DM_REALM_SERVER_ID,
+        name,
+        categoryId,
+        position,
+        initiatorUserId,
+      ],
     );
     for (const uid of unique) {
       await client.query(
@@ -958,12 +966,12 @@ export async function addEchoGroupDmMembers(
   const toAdd = incoming.filter((id) => !existing.includes(id));
   if (!toAdd.length) return { ok: true, addedMemberUserIds: [] };
 
-  for (const uid of toAdd) {
-    const row = await pool.query(
-      `SELECT 1 FROM auth_users WHERE id = $1 LIMIT 1`,
-      [uid],
-    );
-    if (!row.rows[0]) return { ok: false, reason: 'invalid_members' };
+  const knownToAdd = await pool.query<{ id: string }>(
+    `SELECT id FROM auth_users WHERE id = ANY($1)`,
+    [toAdd],
+  );
+  if (knownToAdd.rows.length !== toAdd.length) {
+    return { ok: false, reason: 'invalid_members' };
   }
 
   const toAddSet = new Set(toAdd);
@@ -1017,9 +1025,26 @@ export async function addEchoGroupDmMembers(
   }
 }
 
+async function resolveEchoGroupDmOwnerId(
+  pool: pg.Pool,
+  channelId: string,
+): Promise<string | null> {
+  const r = await pool.query(
+    `SELECT group_dm_owner_user_id FROM echo_channels WHERE id = $1 AND server_id = $2 LIMIT 1`,
+    [channelId, ECHO_DM_REALM_SERVER_ID],
+  );
+  const stored = r.rows[0]?.group_dm_owner_user_id;
+  if (stored != null && String(stored).trim()) return String(stored).trim();
+  const legacy = await pool.query(
+    `SELECT user_id FROM echo_group_dm_members WHERE channel_id = $1 ORDER BY user_id ASC LIMIT 1`,
+    [channelId],
+  );
+  return legacy.rows[0] ? String(legacy.rows[0].user_id) : null;
+}
+
 /**
- * Remove another member from a group DM. Any current member may remove others (no separate
- * owner role). Cannot remove yourself — use `leaveEchoGroupDm` instead.
+ * Remove another member from a group DM. Only the group owner may remove others.
+ * Cannot remove yourself — use `leaveEchoGroupDm` instead.
  */
 export async function removeEchoGroupDmMember(
   pool: pg.Pool,
@@ -1044,6 +1069,10 @@ export async function removeEchoGroupDmMember(
     [cid, actor],
   );
   if (actorMem.rows.length === 0) return 'forbidden';
+
+  const ownerId = await resolveEchoGroupDmOwnerId(pool, cid);
+  if (!ownerId || ownerId !== actor) return 'forbidden';
+  if (target === ownerId) return 'forbidden';
 
   const targetMem = await pool.query(
     `SELECT 1 FROM echo_group_dm_members WHERE channel_id = $1 AND user_id = $2 LIMIT 1`,
@@ -1080,11 +1109,43 @@ export async function leaveEchoGroupDm(
   );
   if (mem.rows.length === 0) return 'forbidden';
 
-  const del = await pool.query(
-    `DELETE FROM echo_group_dm_members WHERE channel_id = $1 AND user_id = $2`,
-    [cid, uid],
-  );
-  return del.rowCount ? 'ok' : 'not_found';
+  const ownerId = await resolveEchoGroupDmOwnerId(pool, cid);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const del = await client.query(
+      `DELETE FROM echo_group_dm_members WHERE channel_id = $1 AND user_id = $2`,
+      [cid, uid],
+    );
+    if (!del.rowCount) {
+      await client.query('ROLLBACK');
+      return 'not_found';
+    }
+    if (ownerId === uid) {
+      const nextOwner = await client.query(
+        `SELECT user_id FROM echo_group_dm_members WHERE channel_id = $1 ORDER BY user_id ASC LIMIT 1`,
+        [cid],
+      );
+      const nextId = nextOwner.rows[0]
+        ? String(nextOwner.rows[0].user_id)
+        : null;
+      await client.query(
+        `UPDATE echo_channels SET group_dm_owner_user_id = $2 WHERE id = $1`,
+        [cid, nextId],
+      );
+    }
+    await client.query('COMMIT');
+    return 'ok';
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateEchoGroupDm(
@@ -1096,11 +1157,15 @@ export async function updateEchoGroupDm(
   'ok' | 'forbidden' | 'not_found' | 'invalid_name' | 'invalid_pfp' | 'noop'
 > {
   const cid = channelId.trim();
+  const uid = userId.trim();
   const mem = await pool.query(
     `SELECT 1 FROM echo_group_dm_members WHERE channel_id = $1 AND user_id = $2 LIMIT 1`,
-    [cid, userId],
+    [cid, uid],
   );
   if (mem.rows.length === 0) return 'forbidden';
+
+  const ownerId = await resolveEchoGroupDmOwnerId(pool, cid);
+  if (!ownerId || ownerId !== uid) return 'forbidden';
 
   const hasName = patch.name !== undefined;
   const hasPfp = patch.pfp !== undefined;

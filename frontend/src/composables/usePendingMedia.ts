@@ -270,16 +270,19 @@ export function usePendingMedia() {
     );
   }
 
-  function clearAll() {
-    pendingImages.value.forEach((p) => URL.revokeObjectURL(p.url));
-    pendingVideos.value.forEach((p) => {
-      URL.revokeObjectURL(p.url);
-      if (p.previewFrameUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(p.previewFrameUrl);
-      }
-    });
-    pendingAudios.value.forEach((p) => URL.revokeObjectURL(p.url));
-    pendingDocuments.value.forEach((p) => URL.revokeObjectURL(p.url));
+  function clearAll(options?: { revokeObjectUrls?: boolean }) {
+    const revoke = options?.revokeObjectUrls !== false;
+    if (revoke) {
+      pendingImages.value.forEach((p) => URL.revokeObjectURL(p.url));
+      pendingVideos.value.forEach((p) => {
+        URL.revokeObjectURL(p.url);
+        if (p.previewFrameUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(p.previewFrameUrl);
+        }
+      });
+      pendingAudios.value.forEach((p) => URL.revokeObjectURL(p.url));
+      pendingDocuments.value.forEach((p) => URL.revokeObjectURL(p.url));
+    }
     pendingImages.value = [];
     pendingVideos.value = [];
     pendingAudios.value = [];

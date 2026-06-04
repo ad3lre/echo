@@ -1,11 +1,19 @@
 import type pg from 'pg';
 import type { MentionEntity } from '../../../../shared/types';
 import { evaluatePermissionSet } from '../echoPermissionEvaluate';
-import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
+import {
+  getEchoPermissionCacheGeneration,
+  invalidateEchoPermissionCacheForServer,
+} from '../echoPermissionCache';
 import {
   getCachedChannelServerId,
   setCachedChannelServerId,
 } from '../echoChannelServerCache';
+import {
+  getCachedMemberAccessState,
+  setCachedMemberAccessState,
+  type EchoMemberAccessState,
+} from '../echoMemberStateCache';
 import type { ServerAggregationTrace } from '../echoPermissionTrace';
 import { composePermissionExplanation } from '../permissionExplanation';
 import {
@@ -41,6 +49,63 @@ export async function getEchoChannelServerId(
   const serverId = String(row.server_id);
   setCachedChannelServerId(channelId, serverId);
   return serverId;
+}
+
+/**
+ * Membership + active ban + active timeout for a member, in **one** round-trip, cached
+ * for a short window via {@link echoMemberStateCache}. These three are read on every guild
+ * message send/reaction; folding them into a single cached read removes three uncached
+ * queries from the hot write path. Never used for DM channels (no server membership).
+ */
+export async function getEchoMemberAccessState(
+  pool: pg.Pool,
+  serverId: string,
+  userId: string,
+): Promise<EchoMemberAccessState> {
+  const cached = getCachedMemberAccessState(serverId, userId);
+  if (cached) return cached;
+  const startGen = getEchoPermissionCacheGeneration(serverId);
+  const r = await pool.query<{
+    is_member: boolean;
+    banned: boolean;
+    timeout_until: string | Date | null;
+  }>(
+    `
+    SELECT
+      EXISTS(
+        SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2
+      ) AS is_member,
+      EXISTS(
+        SELECT 1 FROM echo_server_bans
+        WHERE server_id = $1 AND user_id = $2
+          AND (expires_at IS NULL OR expires_at > NOW())
+      ) AS banned,
+      (
+        SELECT timeout_until FROM echo_server_member_timeouts
+        WHERE server_id = $1 AND user_id = $2 AND timeout_until > NOW()
+      ) AS timeout_until
+    `,
+    [serverId, userId],
+  );
+  const row = r.rows[0];
+  let timeoutUntilEpochMs: number | null = null;
+  if (row?.timeout_until != null) {
+    const iso =
+      row.timeout_until instanceof Date
+        ? row.timeout_until.toISOString()
+        : new Date(String(row.timeout_until)).toISOString();
+    const epoch = Date.parse(iso);
+    timeoutUntilEpochMs = Number.isFinite(epoch) ? epoch : null;
+  }
+  const state: EchoMemberAccessState = {
+    isMember: row?.is_member === true,
+    banned: row?.banned === true,
+    timeoutUntilEpochMs,
+  };
+  if (getEchoPermissionCacheGeneration(serverId) === startGen) {
+    setCachedMemberAccessState(serverId, userId, state);
+  }
+  return state;
 }
 
 /** Existence check for Socket.IO branch + join gate (no permission — caller checks). */
@@ -336,15 +401,16 @@ export async function canUserMassMentionInChannel(
   pool: pg.Pool,
   userId: string,
   channelId: string,
+  opts?: { postAccess?: EchoPostMessageAccessContext },
 ): Promise<boolean> {
-  const sid = await getEchoChannelServerId(pool, channelId);
+  const cached = opts?.postAccess;
+  if (cached?.realm === 'dm') return true;
+  const sid =
+    cached?.serverId ?? (await getEchoChannelServerId(pool, channelId));
   if (!sid || sid === ECHO_DM_REALM_SERVER_ID) return true;
-  const perms = await getEffectiveChannelPermissions(
-    pool,
-    sid,
-    userId,
-    channelId,
-  );
+  const perms =
+    cached?.effectiveChannelPermissions ??
+    (await getEffectiveChannelPermissions(pool, sid, userId, channelId));
   return perms.has('MENTION_EVERYONE');
 }
 
@@ -353,9 +419,10 @@ export async function canUserSendMassMentionInChannel(
   userId: string,
   channelId: string,
   mentions: ReadonlyArray<Pick<MentionEntity, 'kind'>> | null | undefined,
+  opts?: { postAccess?: EchoPostMessageAccessContext },
 ): Promise<boolean> {
   if (!messageContainsMassMention(mentions)) return true;
-  return canUserMassMentionInChannel(pool, userId, channelId);
+  return canUserMassMentionInChannel(pool, userId, channelId, opts);
 }
 
 /**
@@ -572,17 +639,37 @@ export async function gatherEchoPostMessageFailureDiagnostics(
   return base;
 }
 
-export async function diagnoseEchoPostMessageDenial(
+/** Cached result of a successful post-message access check (avoids repeat server/channel lookups). */
+export type EchoPostMessageAccessContext = {
+  channelId: string;
+  serverId: string;
+  realm: 'guild' | 'dm';
+  effectiveChannelPermissions: ReadonlySet<string>;
+};
+
+export async function evaluateEchoPostMessageAccess(
   pool: pg.Pool,
   userId: string,
   channelId: string,
-): Promise<{ ok: true } | { ok: false; reason: EchoPostMessageDenialReason }> {
+): Promise<
+  | { ok: true; ctx: EchoPostMessageAccessContext }
+  | { ok: false; reason: EchoPostMessageDenialReason }
+> {
   const sid = await getEchoChannelServerId(pool, channelId);
   if (!sid) return { ok: false, reason: 'no_channel' };
   if (sid === ECHO_DM_REALM_SERVER_ID) {
     if (await isEchoGroupDmChannel(pool, channelId)) {
-      if (await userHasEchoGroupDmAccess(pool, channelId, userId))
-        return { ok: true };
+      if (await userHasEchoGroupDmAccess(pool, channelId, userId)) {
+        return {
+          ok: true,
+          ctx: {
+            channelId,
+            serverId: sid,
+            realm: 'dm',
+            effectiveChannelPermissions: new Set(),
+          },
+        };
+      }
       return { ok: false, reason: 'group_dm_not_member' };
     }
     const peer = await getEchoDmPeerUserId(pool, channelId, userId);
@@ -591,19 +678,32 @@ export async function diagnoseEchoPostMessageDenial(
         return { ok: false, reason: 'dm_user_blocked' };
       if (!(await userHasEchoDirectDmAccess(pool, channelId, userId)))
         return { ok: false, reason: 'dm_not_allowed' };
-      return { ok: true };
+      return {
+        ok: true,
+        ctx: {
+          channelId,
+          serverId: sid,
+          realm: 'dm',
+          effectiveChannelPermissions: new Set(),
+        },
+      };
     }
-    if (await userHasEchoGroupDmAccess(pool, channelId, userId))
-      return { ok: true };
+    if (await userHasEchoGroupDmAccess(pool, channelId, userId)) {
+      return {
+        ok: true,
+        ctx: {
+          channelId,
+          serverId: sid,
+          realm: 'dm',
+          effectiveChannelPermissions: new Set(),
+        },
+      };
+    }
     return { ok: false, reason: 'group_dm_not_member' };
   }
-  const mem = await pool.query(
-    `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
-    [sid, userId],
-  );
-  if (mem.rows.length === 0) return { ok: false, reason: 'not_member' };
-  if (await isUserBannedFromServer(pool, sid, userId))
-    return { ok: false, reason: 'banned' };
+  const memberState = await getEchoMemberAccessState(pool, sid, userId);
+  if (!memberState.isMember) return { ok: false, reason: 'not_member' };
+  if (memberState.banned) return { ok: false, reason: 'banned' };
   const perms = await getEffectiveChannelPermissions(
     pool,
     sid,
@@ -611,7 +711,10 @@ export async function diagnoseEchoPostMessageDenial(
     channelId,
   );
   if (!perms.has('VIEW_CHANNEL')) return { ok: false, reason: 'no_view' };
-  if (await isUserCommunicationTimedOut(pool, sid, userId))
+  if (
+    memberState.timeoutUntilEpochMs != null &&
+    memberState.timeoutUntilEpochMs > Date.now()
+  )
     return { ok: false, reason: 'timeout' };
   if (!perms.has('SEND_MESSAGES')) return { ok: false, reason: 'no_send' };
   const ch = await pool.query(
@@ -628,7 +731,25 @@ export async function diagnoseEchoPostMessageDenial(
   if (row?.forum_post_locked === true) return { ok: false, reason: 'locked' };
   if (row?.forum_post_archived_at != null)
     return { ok: false, reason: 'archived' };
-  return { ok: true };
+  return {
+    ok: true,
+    ctx: {
+      channelId,
+      serverId: sid,
+      realm: 'guild',
+      effectiveChannelPermissions: perms,
+    },
+  };
+}
+
+export async function diagnoseEchoPostMessageDenial(
+  pool: pg.Pool,
+  userId: string,
+  channelId: string,
+): Promise<{ ok: true } | { ok: false; reason: EchoPostMessageDenialReason }> {
+  const r = await evaluateEchoPostMessageAccess(pool, userId, channelId);
+  if (r.ok) return { ok: true };
+  return { ok: false, reason: r.reason };
 }
 
 /** Posting: channel access + SEND_MESSAGES + not in active comm timeout. */
@@ -657,7 +778,13 @@ export async function canUserAddMessageReaction(
     userId,
     channelId,
   );
-  if (await isUserCommunicationTimedOut(pool, sid, userId)) return false;
+  const { timeoutUntilEpochMs } = await getEchoMemberAccessState(
+    pool,
+    sid,
+    userId,
+  );
+  if (timeoutUntilEpochMs != null && timeoutUntilEpochMs > Date.now())
+    return false;
   return perms.has('ADD_REACTIONS');
 }
 

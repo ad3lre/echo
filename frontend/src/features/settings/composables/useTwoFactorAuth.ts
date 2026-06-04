@@ -6,8 +6,6 @@ import {
   authTotpConfirm,
   authTotpDisable,
   authFetchMe,
-  authPasskeyRegisterOptions,
-  authPasskeyRegisterVerify,
 } from '@/api/authClient';
 import { useAuthSessionStore } from '@/stores/authSession';
 import {
@@ -20,6 +18,10 @@ import {
   getPasskeyWebCeremonyBlockReason,
   mapPasskeyCeremonyError,
 } from '@/utils/passkeyClientSupport';
+import {
+  prefetchPasskeyRegistrationOptions,
+  runPasskeyRegistrationCeremony,
+} from '@/utils/passkeyWebCeremony';
 
 type TwoFactorStep = 'setup' | 'verify' | 'recovery' | 'done';
 
@@ -260,22 +262,12 @@ export function useTwoFactorAuth(
     passkeyRegisterError.value = null;
     passkeyRegisterSuccess.value = null;
     try {
-      const { startRegistration } = await import('@simplewebauthn/browser');
-      type StartRegistrationOpts = Parameters<typeof startRegistration>[0];
-      const opt = await authPasskeyRegisterOptions();
-      const credential = await startRegistration({
-        optionsJSON:
-          opt.options as unknown as StartRegistrationOpts['optionsJSON'],
-      });
-      await authPasskeyRegisterVerify({
-        challengeId: opt.challengeId,
-        credential: credential as unknown as Record<string, unknown>,
-        label: label || undefined,
-      });
+      await runPasskeyRegistrationCeremony(label);
       passkeyRegisterSuccess.value =
         'Passkey added. You can use it the next time you sign in.';
     } catch (e) {
       passkeyRegisterError.value = mapPasskeyCeremonyError(e, 'register');
+      void prefetchPasskeyRegistrationOptions();
     } finally {
       passkeyRegisterBusy.value = false;
     }

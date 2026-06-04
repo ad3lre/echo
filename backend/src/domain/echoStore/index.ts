@@ -31,6 +31,8 @@ export {
   canUserPostMessage,
   diagnoseEchoChannelAccess,
   diagnoseEchoPostMessageDenial,
+  evaluateEchoPostMessageAccess,
+  type EchoPostMessageAccessContext,
   gatherEchoPostMessageFailureDiagnostics,
   deleteEchoServerByOwner,
   echoChannelExistsInDb,
@@ -152,7 +154,9 @@ export {
 
 export {
   buildEchoAttentionSnapshot,
+  buildEchoChannelAttentionFanoutDeltas,
   buildEchoSingleChannelAttention,
+  type EchoChannelAttentionFanoutDelta,
 } from './attention';
 
 export { buildEchoMentionNotificationsFeed } from './mentionNotificationsFeed';
@@ -306,6 +310,7 @@ export {
   cancelEchoPendingFriendRequest,
   echoUsersShareAnyServer,
   filterVisibleEchoUserIds,
+  filterEchoViewersWhoCanSeeSubject,
   declineEchoPendingFriendRequest,
   listEchoFriends,
   listEchoMutualFriendPeerIds,
@@ -356,6 +361,7 @@ export {
   assertEchoE2eeDeviceOwned,
   createEchoE2eePairingSession,
   echoUsersMayFetchE2eeDeviceBundle,
+  assertEchoE2eePeerBundleFetchQuota,
   enableEchoE2eeForDmThread,
   getEchoE2eePairingStateForUser,
   getEchoE2eePeerDeviceBundle,

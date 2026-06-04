@@ -35,11 +35,12 @@ const CSRF_EXEMPT_EXACT = new Set([
   '/api/v1/hooks/livekit',
   '/api/v1/dev/diagnostics/ingest',
   '/api/v1/echo/uploads/local/put',
+  '/api/v1/auth/passkey/login/options',
+  '/api/v1/auth/passkey/login/verify',
 ]);
 
-/** Prefix exemptions kept narrow for grouped webhook/passkey routes. */
+/** Prefix exemptions kept narrow for grouped webhook routes. */
 const CSRF_EXEMPT_PREFIXES = [
-  '/api/v1/auth/passkey/',
   /** Discord bot hooks use `x-echo-discord-bot-secret`, not browser CSRF cookies. */
   '/api/v1/hooks/discord-bot/',
   '/api/v1/hooks/discord-bridge/',

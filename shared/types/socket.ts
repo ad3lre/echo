@@ -295,6 +295,12 @@ export type EchoAttentionSnapshot = {
   >;
 };
 
+/** PUT /channels/:id/read-state — per-channel delta (avoids full workspace rebuild). */
+export type EchoReadStatePutResponse = {
+  lastReadMessageId: string | null;
+  channelAttention: EchoAttentionChannelSummary;
+};
+
 /**
  * One hydrated, server-authoritative mention-inbox row. Unlike the attention
  * snapshot (which only carries unread *volume* + ping tier), this includes the
@@ -582,11 +588,11 @@ export interface ServerToClientEvents {
   'read_state:update': (payload: {
     channelId: string;
     lastReadMessageId: string | null;
-    /** Single-channel attention summary (present after PUT read-state). */
+    /** Single-channel attention summary (PUT read-state, or message fanout deltas). */
     channelAttention?: EchoAttentionChannelSummary;
   }) => void;
 
-  /** User-scoped replicated attention snapshot (read state, badges, DM unread, notification policy). */
+  /** Full attention snapshot (bootstrap / explicit refresh). Message fanout prefers `read_state:update` deltas. */
   'attention:update': (payload: EchoAttentionSnapshot) => void;
 
   /** Channel-wide: message body was edited (persisted Echo). */

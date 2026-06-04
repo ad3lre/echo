@@ -29,14 +29,23 @@ export type EchoMessageEditBody =
       attachments?: MessageAttachmentPayload[] | null;
     };
 
+export type EchoMessageAuthorMeta = {
+  authorId: string;
+  deleted: boolean;
+  messageFormatVersion: number;
+};
+
 export async function updateEchoMessageContent(
   pool: pg.Pool,
   channelId: string,
   messageId: string,
   editorId: string,
   body: EchoMessageEditBody,
+  prevalidated?: EchoMessageAuthorMeta,
 ): Promise<'ok' | 'not_found' | 'forbidden'> {
-  const row = await selectEchoMessageAuthorDeleted(pool, channelId, messageId);
+  const row =
+    prevalidated ??
+    (await selectEchoMessageAuthorDeleted(pool, channelId, messageId));
   if (!row) return 'not_found';
   if (row.deleted) return 'forbidden';
   if (

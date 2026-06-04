@@ -1,5 +1,6 @@
 import { ref, watch, type Ref } from 'vue';
 import type { PaperDocumentPayload } from '@shared/types/paper';
+import { EchoApiError } from '@/api/echo/transport';
 import {
   fetchPaperDocument,
   patchPaperDocument,
@@ -18,6 +19,7 @@ export function usePaperDocument(channelId: Ref<string>) {
     loading.value = true;
     error.value = null;
     conflict.value = false;
+    doc.value = null;
     try {
       doc.value = await fetchPaperDocument(id);
     } catch (e) {
@@ -42,12 +44,11 @@ export function usePaperDocument(channelId: Ref<string>) {
       });
       return true;
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Save failed';
-      if (msg.includes('409') || msg.toLowerCase().includes('conflict')) {
+      if (e instanceof EchoApiError && e.status === 409) {
         conflict.value = true;
         await load();
       } else {
-        error.value = msg;
+        error.value = e instanceof Error ? e.message : 'Save failed';
       }
       return false;
     } finally {

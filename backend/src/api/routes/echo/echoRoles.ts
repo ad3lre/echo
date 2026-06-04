@@ -128,6 +128,14 @@ export default async function echoRolesRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
+      const caps = await getEchoServerCapabilitiesForUser(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
+      if (!caps.canManageRoles && !caps.canManageServer) {
+        return reply.code(200).send({ roleLinks: [] });
+      }
       const roleLinks = await listEchoRoleLinksForServer(pool, sid);
       return reply.code(200).send({ roleLinks });
     },
@@ -175,6 +183,14 @@ export default async function echoRolesRoutes(
           ECHO_MSG_NOT_SERVER_MEMBER,
           'NOT_SERVER_MEMBER',
         );
+      const caps = await getEchoServerCapabilitiesForUser(
+        pool,
+        sid,
+        getAuthUser(req).id,
+      );
+      if (!caps.canManageRoles && !caps.canManageServer) {
+        return reply.code(200).send({ categories: [] });
+      }
       const categories = await listEchoRoleCategories(pool, sid);
       return reply.code(200).send({ categories });
     },

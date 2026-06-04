@@ -125,4 +125,42 @@ describe('mergeMentionNotificationRows', () => {
     const merged = mergeMentionNotificationRows(server, client);
     expect(merged[0]?.preview).toBe('server body');
   });
+
+  it('drops client stub when server covers the same channel with a different messageId', () => {
+    // The attention snapshot uses `latestUnreadMessageId` (m10 — a plain message)
+    // as the stub anchor, while the server found the actual @mention at m7.
+    // Without this fix both rows would appear: one real, one phantom loading stub.
+    const server = mapServerMentionRowsToDmRows([
+      serverRow({ channelId: 'c1', messageId: 'm7', content: 'hey @you' }),
+    ]);
+    const client = [
+      clientRow({
+        channelId: 'c1',
+        messageId: 'm10',
+        preview: MENTION_NOTIFICATION_STUB_PREVIEW,
+      }),
+    ];
+    const merged = mergeMentionNotificationRows(server, client);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.messageId).toBe('m7');
+    expect(merged[0]?.preview).toBe('hey @you');
+  });
+
+  it('keeps a real client row for the same channel even when server covers it', () => {
+    // A live websocket message (m11) arrived after the server fetch — it has a
+    // resolved preview and should always be kept alongside the server row.
+    const server = mapServerMentionRowsToDmRows([
+      serverRow({ channelId: 'c1', messageId: 'm7', content: 'hey @you' }),
+    ]);
+    const client = [
+      clientRow({
+        channelId: 'c1',
+        messageId: 'm11',
+        preview: 'live mention @you',
+      }),
+    ];
+    const merged = mergeMentionNotificationRows(server, client);
+    expect(merged).toHaveLength(2);
+    expect(merged.map((r) => r.messageId).sort()).toEqual(['m11', 'm7']);
+  });
 });

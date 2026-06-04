@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import { config } from '../../config';
+import { runWithPgQueryContext } from '../../db/pgQueryContext';
 import { ensureEchoTables } from '../../db/echoTables';
 import {
   claimNextEchoVideoHlsJob,
@@ -24,10 +25,19 @@ export async function runEchoVideoHlsDrainTick(
   if (opts?.ensureTables !== false) {
     await ensureEchoTables(pool);
   }
-  await reclaimStaleEchoVideoHlsJobs(pool, config.echoVideoHlsTimeoutMs);
+  await runWithPgQueryContext(
+    { scope: 'job', label: 'video_hls_reclaim' },
+    () => reclaimStaleEchoVideoHlsJobs(pool, config.echoVideoHlsTimeoutMs),
+  );
   while (true) {
-    const job = await claimNextEchoVideoHlsJob(pool);
+    const job = await runWithPgQueryContext(
+      { scope: 'job', label: 'video_hls_claim' },
+      () => claimNextEchoVideoHlsJob(pool),
+    );
     if (!job) break;
-    await processEchoVideoHlsJob(pool, job, log);
+    await runWithPgQueryContext(
+      { scope: 'job', label: 'video_hls_process' },
+      () => processEchoVideoHlsJob(pool, job, log),
+    );
   }
 }

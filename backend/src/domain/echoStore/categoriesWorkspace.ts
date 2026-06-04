@@ -782,10 +782,20 @@ export async function listEchoWorkspaceForUser(
     );
   }
 
-  const workspaceVersion = await getEchoWorkspaceVersionForServers(
+  // Kick off the read-only enrichments that never touch `categoriesByServer`
+  // up front so their roundtrips overlap with the channel-mutation chain below.
+  const workspaceVersionPromise = getEchoWorkspaceVersionForServers(
     pool,
     serverIds,
   );
+  const eventPayloadPromise = loadEchoWorkspaceEventPayload(
+    pool,
+    userId,
+    serverIds,
+  );
+
+  // These steps mutate `categoriesByServer` (filter invisible channels, attach
+  // member ids / voice participants) and must stay ordered.
   await attachChannelPermissionCapsAndStripInvisibleForWorkspace(
     pool,
     userId,
@@ -805,8 +815,8 @@ export async function listEchoWorkspaceForUser(
     serverIds,
     categoriesByServer,
   );
-  const { upcomingEventsByServerId, myEventRsvps } =
-    await loadEchoWorkspaceEventPayload(pool, userId, serverIds);
+  const workspaceVersion = await workspaceVersionPromise;
+  const { upcomingEventsByServerId, myEventRsvps } = await eventPayloadPromise;
   return {
     servers,
     categoriesByServer,

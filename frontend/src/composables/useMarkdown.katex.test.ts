@@ -1,12 +1,16 @@
 /* @vitest-environment happy-dom */
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
+  ensureKatexReady,
   hasMarkdownSyntax,
   parseMessageContent,
   markdownMentionPassTestOnly,
 } from './useMarkdown';
 
 describe('useMarkdown with KaTeX', () => {
+  beforeAll(async () => {
+    await ensureKatexReady();
+  });
   it('renders inline and display latex', () => {
     const inline = parseMessageContent('Math: \\(a+b\\) and $c+d$');
     const display = parseMessageContent('$$x^2+y^2$$');

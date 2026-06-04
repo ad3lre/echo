@@ -1,4 +1,4 @@
-﻿import type { FastifyInstance } from 'fastify';
+﻿import type { FastifyInstance, FastifyRequest } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { sendError } from '../../errors';
 import {
@@ -13,17 +13,39 @@ import type { AuthLoginBody, AuthLoginMfaBody } from '../../../auth/types';
 import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
 import { authSessionJsonBody } from '../../../auth/authSessionResponse';
 import { loginAuditDigests } from '../../../auth/loginAudit';
+import { clientIpFromFastifyRequest } from '../../../net/clientIp';
+import {
+  evaluateMfaLogin,
+  evaluatePasswordLogin,
+  loginProtectionKeyForUser,
+  loginProtectionKeyForUsername,
+  recordMfaLoginFailure,
+  recordMfaLoginSuccess,
+  recordPasswordLoginFailure,
+  recordPasswordLoginSuccess,
+} from '../../../services/auth/loginProtection';
 import bcrypt from 'bcrypt';
 
 const DUMMY_HASH =
   '$2b$10$Cm/6wtFYacv3Kh/YTvmAWuaI29ASBONCB4UZ1v8KT8TM04.iNlh1K';
 
+function sendAccountLocked(
+  reply: Parameters<typeof sendError>[0],
+  retryAfterMs: number,
+): ReturnType<typeof sendError> {
+  const retryAfterSec = Math.max(1, Math.ceil(retryAfterMs / 1000));
+  reply.header('Retry-After', String(retryAfterSec));
+  return sendError(
+    reply,
+    429,
+    'ACCOUNT_LOCKED',
+    'Too many failed sign-in attempts. Try again later.',
+  );
+}
+
 export default async function loginRoutes(fastify: FastifyInstance) {
   await fastify.register(async (loginScope) => {
-    const loginIdentityRateLimitKey = (req: {
-      ip: string;
-      body?: unknown;
-    }): string => {
+    const loginIdentityRateLimitKey = (req: FastifyRequest): string => {
       let username = '';
       if (req.body && typeof req.body === 'object') {
         const value = (req.body as { username?: unknown }).username;
@@ -31,12 +53,12 @@ export default async function loginRoutes(fastify: FastifyInstance) {
           username = value.trim().toLowerCase();
         }
       }
-      return `auth_login_identity:${req.ip}:${username || '__missing__'}`;
+      return `auth_login_identity:${clientIpFromFastifyRequest(req)}:${username || '__missing__'}`;
     };
     await loginScope.register(rateLimit, {
       max: 80,
       timeWindow: '15 minutes',
-      keyGenerator: (req) => `auth_login:${req.ip}`,
+      keyGenerator: (req) => `auth_login:${clientIpFromFastifyRequest(req)}`,
       addHeaders: { 'retry-after': true },
     });
     await loginScope.register(rateLimit, {
@@ -69,11 +91,22 @@ export default async function loginRoutes(fastify: FastifyInstance) {
           const { store } = await getAuthStore();
           const audit = loginAuditDigests(req);
           const loginId = body.username.trim();
+          const usernameKey = loginProtectionKeyForUsername(loginId);
           const userRecord = isValidEmailFormat(loginId)
             ? await store.findPasswordUserByEmail(loginId)
             : await store.getUserByUsername(loginId);
+
+          const accountKey = userRecord
+            ? loginProtectionKeyForUser(userRecord.id)
+            : usernameKey;
+          const gate = await evaluatePasswordLogin(accountKey);
+          if (!gate.ok) {
+            return sendAccountLocked(reply, gate.retryAfterMs);
+          }
+
           if (!userRecord) {
             await bcrypt.compare(body.password, DUMMY_HASH);
+            await recordPasswordLoginFailure(usernameKey);
             void store.recordLoginEvent({
               userId: null,
               eventType: 'login_fail_unknown_user',
@@ -90,6 +123,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
 
           const ok = await store.verifyPassword(userRecord, body.password);
           if (!ok) {
+            await recordPasswordLoginFailure(accountKey);
             void store.recordLoginEvent({
               userId: userRecord.id,
               eventType: 'login_fail_bad_password',
@@ -104,13 +138,15 @@ export default async function loginRoutes(fastify: FastifyInstance) {
             );
           }
 
+          await recordPasswordLoginSuccess(accountKey);
+
           const full = await store.getUserById(userRecord.id);
           if (full?.isGuest) {
             return sendError(
               reply,
               403,
               'GUEST_USE_CONTINUE',
-              'Guest accounts use â€œContinue as guestâ€ on the sign-in page.',
+              'Guest accounts use "Continue as guest" on the sign-in page.',
             );
           }
 
@@ -151,10 +187,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
   });
 
   await fastify.register(async (mfaLoginScope) => {
-    const mfaIdentityRateLimitKey = (req: {
-      ip: string;
-      body?: unknown;
-    }): string => {
+    const mfaIdentityRateLimitKey = (req: FastifyRequest): string => {
       let token = '';
       if (req.body && typeof req.body === 'object') {
         const value = (req.body as { mfaToken?: unknown }).mfaToken;
@@ -162,12 +195,12 @@ export default async function loginRoutes(fastify: FastifyInstance) {
           token = value.trim();
         }
       }
-      return `mfa_login_identity:${req.ip}:${token || '__missing__'}`;
+      return `mfa_login_identity:${clientIpFromFastifyRequest(req)}:${token || '__missing__'}`;
     };
     await mfaLoginScope.register(rateLimit, {
       max: config.echoMfaLoginMaxPerIpPer15Min,
       timeWindow: '15 minutes',
-      keyGenerator: (req) => `mfa_login_ip:${req.ip}`,
+      keyGenerator: (req) => `mfa_login_ip:${clientIpFromFastifyRequest(req)}`,
       addHeaders: { 'retry-after': true },
     });
     await mfaLoginScope.register(rateLimit, {
@@ -227,6 +260,12 @@ export default async function loginRoutes(fastify: FastifyInstance) {
               'MFA step expired or invalid. Sign in again.',
             );
           }
+
+          const mfaGate = await evaluateMfaLogin(userId);
+          if (!mfaGate.ok) {
+            return sendAccountLocked(reply, mfaGate.retryAfterMs);
+          }
+
           const { store, mode } = await getAuthStore();
           if (mode !== 'postgres') {
             return sendError(
@@ -260,6 +299,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
             factorOk = await store.consumeRecoveryCode(userId, recoveryRaw);
           }
           if (!factorOk) {
+            await recordMfaLoginFailure(userId);
             void store.recordLoginEvent({
               userId,
               eventType: 'login_fail_mfa',
@@ -273,6 +313,7 @@ export default async function loginRoutes(fastify: FastifyInstance) {
               'Invalid authentication code.',
             );
           }
+          await recordMfaLoginSuccess(userId);
           clearGuestBindingCookie(reply);
           void store.recordLoginEvent({
             userId,

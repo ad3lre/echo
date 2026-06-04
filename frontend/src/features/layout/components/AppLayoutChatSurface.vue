@@ -679,6 +679,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :can-show-discord-channel-import="chatCtx.canShowDiscordChannelImport"
         :on-open-explore="chatCtx.onOpenExplore"
         :transition-loading="chatCtx.surfaceSwitchLoading"
+        :guild-shell-settling="chatCtx.guildShellSettling"
         :forum-posts-by-forum-id="chatCtx.forumPostsByForumId"
         :forum-posts-loading-by-forum-id="chatCtx.forumPostsLoadingByForumId"
         :forum-posts-error-by-forum-id="chatCtx.forumPostsErrorByForumId"
@@ -820,6 +821,8 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
           :decline-nsfw-gate="chatCtx.declineNsfwGate"
           :on-open-explore="chatCtx.onOpenExplore"
           :dm-thread-switch-loading="chatCtx.dmThreadSwitchLoading"
+          :surface-switch-loading="chatCtx.surfaceSwitchLoading"
+          :guild-shell-settling="chatCtx.guildShellSettling"
           :can-show-discord-channel-import="chatCtx.canShowDiscordChannelImport"
           :dm-call-can-answer-incoming="
             chatCtx.currentUser ? !chatCtx.currentUser.isGuest : true

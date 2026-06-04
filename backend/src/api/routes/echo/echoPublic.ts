@@ -15,7 +15,6 @@ import {
 import { sendError } from '../../errors';
 import { getPublicPaperDocumentByToken } from '../../../domain/echoStore/paperShare';
 import { sendEchoPublicCustomEmojiAsset } from '../../../services/echoEmojiAsset';
-
 const SUPPORT_TOPIC_VALUES = ['Account', 'Bug', 'Safety', 'Other'] as const;
 type SupportTopic = (typeof SUPPORT_TOPIC_VALUES)[number];
 

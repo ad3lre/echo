@@ -3,12 +3,21 @@
  * Invoked from `npm run ship:verify`.
  */
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const entry = path.join(root, 'backend', 'dist', 'backend', 'src', 'index.js');
+const marketingIndexHtml = path.join(root, 'marketing', 'dist', 'index.html');
+
+if (!fs.existsSync(marketingIndexHtml)) {
+  console.error(
+    'ship-verify-smoke: missing marketing/dist/index.html — run full `npm run build` first',
+  );
+  process.exit(1);
+}
 
 const PORT = process.env.SHIP_VERIFY_PORT ?? '30999';
 const HOST = '127.0.0.1';

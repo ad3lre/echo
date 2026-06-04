@@ -5,6 +5,12 @@
 
 import pg from 'pg';
 import { config } from '../config';
+import {
+  formatPgQueryContextLabel,
+  getPgQueryContext,
+  runWithPgQueryContext,
+} from './pgQueryContext';
+import { echoPgQueryRoundtripsTotal } from '../observability/echoMetrics';
 
 const { Pool } = pg;
 
@@ -17,17 +23,21 @@ function fingerprint(text: unknown): string {
   return text.replace(/\s+/g, ' ').trim().slice(0, 120);
 }
 
-/**
- * Wraps pool.query to emit structured warnings for queries exceeding
- * ECHO_SLOW_QUERY_MS (default 100ms).  Transparent to callers.
- */
-function instrumentPool(raw: pg.Pool): pg.Pool {
-  const origQuery = raw.query.bind(raw) as (...args: unknown[]) => unknown;
+type Queryable = Pick<pg.Pool, 'query'>;
 
-  const instrumented = function queryWithTiming(
-    this: pg.Pool,
-    ...args: unknown[]
-  ): unknown {
+function recordPgRoundtrip(): void {
+  const ctx = getPgQueryContext();
+  echoPgQueryRoundtripsTotal.inc({
+    scope: ctx?.scope ?? 'internal',
+    label: ctx?.label ?? 'unlabeled',
+  });
+}
+
+function wrapQueryWithInstrumentation(
+  origQuery: (...args: unknown[]) => unknown,
+): (...args: unknown[]) => unknown {
+  return function queryWithTiming(...args: unknown[]): unknown {
+    recordPgRoundtrip();
     const t0 = process.hrtime.bigint();
     const result = origQuery(...args);
     if (result && typeof (result as { then?: unknown }).then === 'function') {
@@ -40,7 +50,7 @@ function instrumentPool(raw: pg.Pool): pg.Pool {
                 ? args[0]
                 : (args[0] as { text?: string })?.text;
             console.warn(
-              `[slow-query] ${Math.round(ms)}ms | ${fingerprint(text)}`,
+              `[slow-query] ${Math.round(ms)}ms | ${formatPgQueryContextLabel()} | ${fingerprint(text)}`,
             );
           }
           return res;
@@ -53,7 +63,7 @@ function instrumentPool(raw: pg.Pool): pg.Pool {
                 ? args[0]
                 : (args[0] as { text?: string })?.text;
             console.warn(
-              `[slow-query-error] ${Math.round(ms)}ms | ${fingerprint(text)}`,
+              `[slow-query-error] ${Math.round(ms)}ms | ${formatPgQueryContextLabel()} | ${fingerprint(text)}`,
             );
           }
           throw err;
@@ -62,7 +72,58 @@ function instrumentPool(raw: pg.Pool): pg.Pool {
     }
     return result;
   };
-  raw.query = instrumented as typeof raw.query;
+}
+
+const instrumentedQueryables = new WeakSet<object>();
+
+function instrumentQueryable<T extends Queryable>(raw: T): T {
+  if (!raw?.query || typeof raw.query !== 'function') return raw;
+  if (instrumentedQueryables.has(raw as object)) return raw;
+  const origQuery = raw.query.bind(raw) as (...args: unknown[]) => unknown;
+  raw.query = wrapQueryWithInstrumentation(origQuery) as typeof raw.query;
+  instrumentedQueryables.add(raw as object);
+  return raw;
+}
+
+function instrumentPoolClient(client: pg.PoolClient | undefined): void {
+  if (client) instrumentQueryable(client);
+}
+
+/**
+ * Wraps pool.query (and clients from pool.connect) to count roundtrips and
+ * emit structured warnings for queries exceeding ECHO_SLOW_QUERY_MS.
+ */
+function instrumentPool(raw: pg.Pool): pg.Pool {
+  instrumentQueryable(raw);
+  const origConnect = raw.connect.bind(raw);
+  type ConnectCallback = (
+    err: Error,
+    client: pg.PoolClient,
+    done: (release?: boolean) => void,
+  ) => void;
+  raw.connect = ((...args: unknown[]) => {
+    const maybeCb = args[args.length - 1];
+    if (typeof maybeCb === 'function') {
+      const userCb = maybeCb as ConnectCallback;
+      args[args.length - 1] = (
+        err: Error,
+        client: pg.PoolClient,
+        done: (release?: boolean) => void,
+      ) => {
+        if (!err) instrumentPoolClient(client);
+        userCb(err, client, done);
+      };
+      return origConnect(...(args as Parameters<typeof origConnect>));
+    }
+    return (
+      origConnect(
+        ...(args as Parameters<typeof origConnect>),
+      ) as unknown as Promise<pg.PoolClient>
+    ).then((client) => {
+      instrumentPoolClient(client);
+      return client;
+    });
+  }) as typeof raw.connect;
   return raw;
 }
 
@@ -89,3 +150,5 @@ export async function closePgPool(): Promise<void> {
     pool = null;
   }
 }
+
+export { runWithPgQueryContext };

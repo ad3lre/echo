@@ -88,6 +88,7 @@ const props = defineProps<{
   canShowDiscordChannelImport?: boolean;
   onOpenExplore?: () => void;
   transitionLoading?: boolean;
+  guildShellSettling?: boolean;
 
   forumPostsByForumId: Record<string, ForumPostRow[]>;
   forumPostsLoadingByForumId: Record<string, boolean>;
@@ -1016,6 +1017,7 @@ watch(
           :on-nsfw-acknowledge="onNsfwAcknowledge"
           :on-nsfw-decline="onNsfwDecline"
           :transition-loading="transitionLoading"
+          :guild-shell-settling="guildShellSettling"
           :can-show-discord-channel-import="canShowDiscordChannelImport"
           :on-open-explore="onOpenExplore"
         />

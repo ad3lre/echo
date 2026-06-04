@@ -24,6 +24,15 @@
   padding-top: var(--echo-density-msg-header-py, 0.25rem);
   padding-bottom: var(--echo-density-msg-header-py, 0.25rem);
 }
+
+.message-bubble--send-pending {
+  opacity: 0.62;
+  transition: opacity 0.2s ease;
+}
+
+.message-bubble--send-pending:hover {
+  opacity: 0.78;
+}
 /* First row in a same-minute cluster: keep header chrome, tighten gap to the next row. */
 .msg-header--clustered {
   padding-bottom: var(--echo-density-msg-continuation-py, 0.0625rem);
@@ -336,6 +345,11 @@
   vertical-align: -0.12em;
   display: inline-block;
   box-sizing: content-box;
+  cursor: pointer;
+}
+
+.message-text :deep(.mention--custom-emoji) {
+  cursor: pointer;
 }
 
 .message-video-shell {

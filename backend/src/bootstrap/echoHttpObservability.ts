@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { enterPgQueryContext } from '../db/pgQueryContext';
 import {
   echoRestHttpRequestDurationSeconds,
   echoRestHttpRequestsTotal,
@@ -51,6 +52,8 @@ export async function registerEchoHttpObservability(
   fastify: FastifyInstance,
 ): Promise<void> {
   fastify.addHook('onRequest', async (req: FastifyRequest) => {
+    const pathOnly = req.url.split('?')[0] ?? '';
+    enterPgQueryContext({ scope: 'rest', label: echoRestRouteGroup(pathOnly) });
     const id =
       typeof req.id === 'string' && req.id.length > 0 ? req.id : undefined;
     if (id) {
@@ -69,7 +72,7 @@ export async function registerEchoHttpObservability(
         undefined,
       context: {
         method: req.method,
-        path: req.url.split('?')[0] ?? '',
+        path: pathOnly,
       },
     });
   });

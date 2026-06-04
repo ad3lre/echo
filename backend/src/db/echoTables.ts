@@ -437,6 +437,9 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       PRIMARY KEY (channel_id, user_id)
     );
   `);
+  await pool.query(`
+    ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS group_dm_owner_user_id TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL;
+  `);
   await pool.query(
     `CREATE INDEX IF NOT EXISTS echo_group_dm_members_user_idx ON echo_group_dm_members(user_id);`,
   );
@@ -581,6 +584,13 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       PRIMARY KEY (server_id, user_id, role_id)
     );
   `);
+  // PK prefix (server_id, user_id) serves member lookups; role_id is the trailing
+  // column, so the ON DELETE CASCADE from echo_roles (and role-scoped deletes)
+  // would otherwise scan. Cheap index to make role deletion index-driven.
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_member_roles_role_idx
+    ON echo_member_roles (role_id);
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_role_links (
       server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
@@ -605,6 +615,13 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       meta JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+  // Audit-log reads are always scoped to one server and ordered newest-first
+  // (overview + per-target moderation history). The table grows monotonically,
+  // so without this every read is a full scan + sort.
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_audit_log_server_created_idx
+    ON echo_audit_log (server_id, created_at DESC);
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_server_bans (
@@ -906,6 +923,17 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS echo_e2ee_pairing_expires_idx
     ON echo_e2ee_pairing_sessions(expires_at);
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_e2ee_peer_bundle_fetches (
+      viewer_user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      target_user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_e2ee_peer_bundle_fetches_pair_time_idx
+    ON echo_e2ee_peer_bundle_fetches (viewer_user_id, target_user_id, created_at DESC);
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_poll_votes (
@@ -2366,6 +2394,15 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
       SELECT 1 FROM auth_users WHERE id = 'echo_internal_system_actor_v1'
     );
   `);
+
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'drop_leoparden_form_tables_v1',
+    async () => {
+      await pool.query(`DROP TABLE IF EXISTS leoparden_email_tokens`);
+      await pool.query(`DROP TABLE IF EXISTS leoparden_applications`);
+    },
+  );
 
   await migrateEchoGlobalRoleCategoriesCleanup(pool);
   await runEchoSchemaMigrationOnce(

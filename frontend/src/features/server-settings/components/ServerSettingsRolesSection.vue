@@ -568,6 +568,20 @@ const roleCategorySyncCategoryName = computed(() => {
   );
 });
 
+const roleCategorySyncSelection = ref<boolean | null>(null);
+
+watch(
+  () => props.roleCategorySyncPrompt,
+  (next) => {
+    if (next) roleCategorySyncSelection.value = null;
+  },
+);
+
+function confirmRoleCategorySyncChoice() {
+  if (roleCategorySyncSelection.value === null) return;
+  props.confirmRoleCategorySync?.(roleCategorySyncSelection.value);
+}
+
 const showCategorySettingsPanel = computed(
   () =>
     props.roleCategoryUiEnabled &&
@@ -2547,7 +2561,11 @@ onUnmounted(() => {
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 ring-1 ring-sky-500/25"
               aria-hidden="true"
             >
-              <img :src="icons.folder" alt="" class="h-5 w-5 opacity-90" />
+              <img
+                :src="icons.folder"
+                alt=""
+                class="echo-ink-icon h-5 w-5 opacity-90"
+              />
             </span>
             <div class="min-w-0 flex-1">
               <h3
@@ -2566,17 +2584,28 @@ onUnmounted(() => {
               </p>
             </div>
           </div>
-          <div class="mt-5 grid gap-3 sm:grid-cols-2">
+          <div
+            class="mt-5 grid gap-3 sm:grid-cols-2"
+            role="radiogroup"
+            aria-labelledby="role-category-sync-title"
+          >
             <button
               type="button"
-              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border border-border bg-glass-1 px-4 py-3 text-left transition-colors hover:bg-glass-hover"
-              @click="props.confirmRoleCategorySync?.(false)"
+              role="radio"
+              :aria-checked="roleCategorySyncSelection === false"
+              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border px-4 py-3 text-left transition-colors"
+              :class="
+                roleCategorySyncSelection === false
+                  ? 'border-sky-500/35 bg-sky-500/10 hover:bg-sky-500/20'
+                  : 'border-border bg-glass-1 hover:bg-glass-hover'
+              "
+              @click="roleCategorySyncSelection = false"
             >
               <span class="flex items-center gap-2">
                 <img
                   :src="icons.sliders"
                   alt=""
-                  class="h-5 w-5 shrink-0 opacity-85"
+                  class="echo-ink-icon h-5 w-5 shrink-0 opacity-85"
                 />
                 <span class="text-sm font-semibold text-fg"
                   >Keep current settings</span
@@ -2589,14 +2618,21 @@ onUnmounted(() => {
             </button>
             <button
               type="button"
-              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-left transition-colors hover:bg-sky-500/20"
-              @click="props.confirmRoleCategorySync?.(true)"
+              role="radio"
+              :aria-checked="roleCategorySyncSelection === true"
+              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border px-4 py-3 text-left transition-colors"
+              :class="
+                roleCategorySyncSelection === true
+                  ? 'border-sky-500/35 bg-sky-500/10 hover:bg-sky-500/20'
+                  : 'border-border bg-glass-1 hover:bg-glass-hover'
+              "
+              @click="roleCategorySyncSelection = true"
             >
               <span class="flex items-center gap-2">
                 <img
                   :src="icons.shield"
                   alt=""
-                  class="h-5 w-5 shrink-0 opacity-85"
+                  class="echo-ink-icon h-5 w-5 shrink-0 opacity-85"
                 />
                 <span class="text-sm font-semibold text-fg"
                   >Sync with category</span
@@ -2611,13 +2647,21 @@ onUnmounted(() => {
               </span>
             </button>
           </div>
-          <div class="mt-5 flex justify-end border-t border-border pt-4">
+          <div class="mt-5 flex justify-end gap-2 border-t border-border pt-4">
             <button
               type="button"
               class="rounded-lg px-3 py-2 text-sm font-semibold text-fg-soft transition-colors hover:bg-glass-hover"
               @click="props.cancelRoleCategorySync?.()"
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-sky-600/90 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-45"
+              :disabled="roleCategorySyncSelection === null"
+              @click="confirmRoleCategorySyncChoice"
+            >
+              Confirm
             </button>
           </div>
         </div>

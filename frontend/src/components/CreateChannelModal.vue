@@ -547,7 +547,7 @@ function submit() {
     background-color 0.14s ease;
 }
 
-.cc-type-choice:hover {
+.cc-type-choice:hover:not(.cc-type-choice--selected) {
   background: color-mix(in srgb, var(--elevated) 55%, transparent);
   border-color: color-mix(in srgb, var(--border) 80%, transparent);
 }
@@ -555,6 +555,11 @@ function submit() {
 .cc-type-choice--selected {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, var(--elevated) 40%);
+}
+
+.cc-type-choice--selected:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--elevated) 40%);
 }
 
 .cc-type-choice-icon {

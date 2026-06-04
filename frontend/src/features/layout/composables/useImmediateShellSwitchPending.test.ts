@@ -24,6 +24,27 @@ describe('useImmediateShellSwitchPending', () => {
     scope.stop();
   });
 
+  it('clears pending when clearWhen becomes true', async () => {
+    const activeRailTab = ref<'servers' | 'explore' | 'dm'>('servers');
+    const clearWhen = ref(false);
+    let immediateShellSwitchPending: Ref<boolean>;
+    const scope = effectScope(true);
+    scope.run(() => {
+      ({ immediateShellSwitchPending } = useImmediateShellSwitchPending({
+        activeRailTab,
+        selectedServerId: ref('s1'),
+        clearWhen,
+      }));
+    });
+    activeRailTab.value = 'dm';
+    await nextTick();
+    expect(immediateShellSwitchPending!.value).toBe(true);
+    clearWhen.value = true;
+    await nextTick();
+    expect(immediateShellSwitchPending!.value).toBe(false);
+    scope.stop();
+  });
+
   it('bumps when staying on servers rail but selected server id changes', async () => {
     const activeRailTab = ref<'servers' | 'explore' | 'dm'>('servers');
     const serverId = ref('a');

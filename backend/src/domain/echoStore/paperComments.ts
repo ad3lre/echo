@@ -1,10 +1,7 @@
 import type pg from 'pg';
 import { MAX_PAPER_COMMENT_BODY_CHARS } from '../../../../shared/types/paper';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
-import {
-  getEchoPaperChannelSettings,
-  assertEchoPaperChannelAccess,
-} from './paper';
+import { assertEchoPaperChannelAccess } from './paper';
 import { getPaperCapabilitiesForUser } from './access';
 
 export type EchoPaperCommentRow = {
@@ -111,22 +108,42 @@ export async function createEchoPaperComment(
   if (body.length > MAX_PAPER_COMMENT_BODY_CHARS) {
     return { ok: false, error: 'Comment too long', status: 400 };
   }
-  const anchorBlockId = String(input.anchorBlockId ?? '').trim();
-  if (!anchorBlockId) {
-    return { ok: false, error: 'anchorBlockId required', status: 400 };
-  }
   const parentId =
     input.parentCommentId != null && String(input.parentCommentId).trim()
       ? String(input.parentCommentId).trim()
       : null;
+
+  let anchorBlockId = String(input.anchorBlockId ?? '').trim();
+  let anchorFrom = input.anchorFrom ?? null;
+  let anchorTo = input.anchorTo ?? null;
+  let anchorQuote = String(input.anchorQuote ?? '');
+
   if (parentId) {
     const parent = await pool.query(
-      `SELECT 1 FROM echo_paper_comments WHERE id = $1 AND channel_id = $2`,
+      `SELECT anchor_block_id, anchor_from, anchor_to, anchor_quote
+       FROM echo_paper_comments WHERE id = $1 AND channel_id = $2`,
       [parentId, channelId],
     );
     if (parent.rows.length === 0) {
       return { ok: false, error: 'Parent comment not found', status: 400 };
     }
+    const prow = parent.rows[0];
+    if (!anchorBlockId) {
+      anchorBlockId = String(prow.anchor_block_id ?? '').trim();
+      if (anchorFrom == null) {
+        anchorFrom = prow.anchor_from != null ? Number(prow.anchor_from) : null;
+      }
+      if (anchorTo == null) {
+        anchorTo = prow.anchor_to != null ? Number(prow.anchor_to) : null;
+      }
+      if (!anchorQuote.trim()) {
+        anchorQuote = String(prow.anchor_quote ?? '');
+      }
+    }
+  }
+
+  if (!anchorBlockId) {
+    return { ok: false, error: 'anchorBlockId required', status: 400 };
   }
   const id = nextEchoSnowflakeId();
   const r = await pool.query(
@@ -141,9 +158,9 @@ export async function createEchoPaperComment(
       id,
       channelId,
       anchorBlockId,
-      input.anchorFrom ?? null,
-      input.anchorTo ?? null,
-      String(input.anchorQuote ?? '').slice(0, 2000),
+      anchorFrom,
+      anchorTo,
+      anchorQuote.slice(0, 2000),
       userId,
       body,
       parentId,

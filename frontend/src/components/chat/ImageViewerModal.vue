@@ -5,6 +5,7 @@ import LimitedGifImg from '@/components/LimitedGifImg.vue';
 import { copyImageFromUrl, copyToClipboard } from '@/utils/copyToClipboard';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { openExternal } from '@/platform/desktopBridge';
+import { loadImageViewerPreferences } from '@/features/settings/imageViewerPreferences';
 
 export interface ImageItem {
   url: string;
@@ -109,11 +110,52 @@ function zoomOut() {
   clampPos();
 }
 
+function applyPinchZoom(deltaY: number) {
+  const prev = zoom.value;
+  const next = Math.max(0.25, Math.min(4, prev * Math.exp(-deltaY * 0.002)));
+  zoom.value = next;
+  if (next < prev) {
+    pos.value = {
+      x: (Number.isFinite(pos.value.x) ? pos.value.x : 0) * 0.98,
+      y: (Number.isFinite(pos.value.y) ? pos.value.y : 0) * 0.98,
+    };
+  }
+  if (next <= 1) {
+    pos.value = { x: 0, y: 0 };
+  }
+  clampPos();
+}
+
+function applyWheelPan(deltaX: number, deltaY: number) {
+  pos.value = {
+    x: (Number.isFinite(pos.value.x) ? pos.value.x : 0) - deltaX,
+    y: (Number.isFinite(pos.value.y) ? pos.value.y : 0) - deltaY,
+  };
+  clampPos();
+}
+
 function onWheel(e: WheelEvent) {
   if (!props.modelValue) return;
   e.preventDefault();
+
+  const { wheelScrollPans } = loadImageViewerPreferences();
+
+  if (wheelScrollPans) {
+    // Browsers map trackpad pinch to ctrl/meta + wheel; plain two-finger scroll pans.
+    if (e.ctrlKey || e.metaKey) {
+      applyPinchZoom(e.deltaY);
+      return;
+    }
+    applyWheelPan(e.deltaX, e.deltaY);
+    return;
+  }
+
+  if (e.ctrlKey || e.metaKey) {
+    applyPinchZoom(e.deltaY);
+    return;
+  }
   if (e.deltaY < 0) zoomIn();
-  else zoomOut();
+  else if (e.deltaY > 0) zoomOut();
 }
 
 function clearPanPointerCapture() {

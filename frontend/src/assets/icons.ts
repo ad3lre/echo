@@ -78,7 +78,10 @@ import iconFile from './icons/file.svg?url';
 import iconLifeRing from './icons/life ring.svg?url';
 import iconUserTag from './icons/USER-AVATAR-TAG.svg?url';
 import iconSparkle from './icons/sparkle.svg?url';
-import { getIconUrlByFilename } from './iconCatalog';
+import iconMathCalculator from './icons/math-calculator.svg?url';
+import iconHobbyGameController from './icons/hobby-game-controller.svg?url';
+import iconHobbyTrophy from './icons/hobby-trophy.svg?url';
+import { getIconFilenameByUrl, getIconUrlByFilename } from './iconCatalog';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import {
   type ChannelIconEmojiUrlLookup,
@@ -364,6 +367,52 @@ const channelIconMatchers: Array<{ patterns: string[]; icon: string }> = [
     patterns: ['project', 'materials', 'tips', 'tool', 'workshop', 'maker'],
     icon: iconImageGallery,
   },
+  {
+    patterns: [
+      'math',
+      'algebra',
+      'calculus',
+      'geometry',
+      'homework',
+      'exam',
+      'physics',
+      'chemistry',
+      'biology',
+      'statistics',
+      'stats',
+      'lab',
+      'study',
+    ],
+    icon: iconMathCalculator,
+  },
+  {
+    patterns: [
+      'gaming',
+      'minecraft',
+      'valorant',
+      'league',
+      'sports',
+      'fitness',
+      'workout',
+      'anime',
+      'cosplay',
+      'craft',
+      'hobby',
+    ],
+    icon: iconHobbyGameController,
+  },
+  {
+    patterns: [
+      'football',
+      'soccer',
+      'basketball',
+      'tennis',
+      'volleyball',
+      'golf',
+      'racing league',
+    ],
+    icon: iconHobbyTrophy,
+  },
 ];
 
 function getAppIconUrlIfOwnKey(key: string): string | undefined {
@@ -478,6 +527,8 @@ export function getChannelIconKeyForEdit(
   for (const [k, v] of Object.entries(icons) as [AppIconKey, string][]) {
     if (v && v === visual.url) return k;
   }
+  const catalogId = getIconFilenameByUrl(visual.url);
+  if (catalogId) return catalogId;
   if (channel.type === 'voice') return 'volumeUp';
   if (channel.type === 'stage') return 'sofa';
   if (channel.type === 'forum') return 'messageAlt';

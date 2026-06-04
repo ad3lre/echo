@@ -1,4 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { clientIpFromFastifyRequest } from '../net/clientIp';
 
 const MAX_NETWORK_DIAGNOSTICS = 400;
 
@@ -93,7 +94,7 @@ export function recordNetworkDiagnostic(
     statusCode: reply.statusCode,
     route: trimToNull(req.routeOptions?.url, 256),
     kind,
-    ip: trimToNull(req.ip, 128) ?? 'unknown',
+    ip: trimToNull(clientIpFromFastifyRequest(req), 128) ?? 'unknown',
     host: firstHeader(req.headers.host, 256),
     origin: firstHeader(req.headers.origin, 256),
     referer: firstHeader(req.headers.referer, 512),

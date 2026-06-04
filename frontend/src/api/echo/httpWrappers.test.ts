@@ -233,18 +233,18 @@ describe('Echo REST helper wrappers', () => {
     await fetchEchoAttentionSummary('tok');
     expectLast('/attention/summary');
 
-    await putEchoServerNotificationPreference('tok', ' srv/1 ', 'muted');
+    await putEchoServerNotificationPreference('tok', ' srv/1 ', 'none');
     expectLast('/servers/srv%2F1/notification-preferences', {
       method: 'PUT',
-      body: JSON.stringify({ level: 'muted' }),
+      body: JSON.stringify({ level: 'none' }),
     });
 
     await fetchEchoBannedWordsConfig('tok', 'srv/1');
     expectLast('/servers/srv%2F1/banned-words/config');
-    await updateEchoBannedWordsConfig('tok', 'srv/1', { enabled: true });
+    await updateEchoBannedWordsConfig('tok', 'srv/1', { presetLevel: 'low' });
     expectLast('/servers/srv%2F1/banned-words/config', {
       method: 'PUT',
-      body: JSON.stringify({ enabled: true }),
+      body: JSON.stringify({ presetLevel: 'low' }),
     });
 
     await postEchoBugReport('tok', {

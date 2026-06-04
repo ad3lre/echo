@@ -185,6 +185,8 @@ const props = defineProps<{
     MessageWithAuthor & { channelName?: string }
   >;
   dmThreadSwitchLoading?: boolean;
+  surfaceSwitchLoading?: boolean;
+  guildShellSettling?: boolean;
   allChannels: ChannelSummary[];
   selectedServerId: string;
   pinnedMessageIdsForCurrentChannel: string[];
@@ -666,6 +668,8 @@ async function handleDmCallLeave() {
     :no-servers-yet="mainSurface.type === 'serverEmptyOnboarding'"
     :on-open-explore="onOpenExplore"
     :can-show-discord-channel-import="canShowDiscordChannelImport"
+    :transition-loading="surfaceSwitchLoading"
+    :guild-shell-settling="guildShellSettling"
   />
 
   <div

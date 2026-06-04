@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import { getEchoMessageById } from '../echoMessagesDal';
+import { selectEchoMessageChannelRef } from '../echoMessagesDal';
 import {
   canUserAccessChannel,
   getEchoChannelServerId,
@@ -48,9 +48,8 @@ export async function persistAddEchoChannelPin(
 ): Promise<EchoPinMutationResult> {
   const mid = messageId.trim();
   if (!mid) return { ok: false, code: 'VALIDATION' };
-  const msg = await getEchoMessageById(pool, mid);
-  if (!msg || msg.channelId !== channelId)
-    return { ok: false, code: 'NOT_FOUND' };
+  const msg = await selectEchoMessageChannelRef(pool, mid, channelId);
+  if (!msg || msg.deleted) return { ok: false, code: 'NOT_FOUND' };
   const sid = await getEchoChannelServerId(pool, channelId);
   if (sid && sid !== ECHO_DM_REALM_SERVER_ID) {
     return {

@@ -43,7 +43,7 @@ export function usePaperComments(
   }
 
   async function addComment(input: {
-    anchorBlockId: string;
+    anchorBlockId?: string;
     anchorFrom?: number | null;
     anchorTo?: number | null;
     anchorQuote?: string;

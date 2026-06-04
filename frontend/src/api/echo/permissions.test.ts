@@ -97,7 +97,7 @@ describe('Echo permissions API client', () => {
       roleCategoryId: null,
       roleIconUrl: null,
       roleIconEmojiId: 'emoji-1',
-      roleType: 'admin',
+      roleType: 'authority',
     });
 
     expect(lastEchoCall()[1]).toBe('/servers/srv/roles/role%2F1');
@@ -114,7 +114,7 @@ describe('Echo permissions API client', () => {
       roleCategoryId: null,
       roleIconUrl: null,
       roleIconEmojiId: 'emoji-1',
-      roleType: 'admin',
+      roleType: 'authority',
     });
 
     await patchEchoRolePermissions('tok', 'srv', 'role', ['SEND_MESSAGES']);
@@ -338,7 +338,7 @@ describe('Echo permissions API client', () => {
       defaultHoist: true,
       defaultOnJoin: false,
       defaultRoleScope: 'global',
-      defaultRoleType: 'admin',
+      defaultRoleType: 'authority',
       selfAssignableDefaults: true,
     });
     expect(lastEchoCall()[1]).toBe('/servers/srv/role-categories/cat%2F1');

@@ -17,6 +17,9 @@ type ConsoleIssuePayload = {
 const originalWarn = console.warn.bind(console);
 const originalError = console.error.bind(console);
 
+const SENSITIVE_LOG_KEY =
+  /^(password|passwd|secret|token|accessToken|refreshToken|authorization|csrf|mfaToken|recoveryCode|apiKey|jwt|cookie|handoff|code|nonce)$/i;
+
 let recorderInstalled = false;
 let isPostingFailure = false;
 let isDesktopInvokeFailure = false;
@@ -48,7 +51,9 @@ function safeSerialize(value: unknown, depth = 0): unknown {
     for (const [key, nested] of Object.entries(
       value as Record<string, unknown>,
     )) {
-      out[key] = safeSerialize(nested, depth + 1);
+      out[key] = SENSITIVE_LOG_KEY.test(key)
+        ? '[REDACTED]'
+        : safeSerialize(nested, depth + 1);
     }
     return out;
   }

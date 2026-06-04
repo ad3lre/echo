@@ -10,6 +10,7 @@ const modules = import.meta.glob('./icons/**/*.svg', {
 }) as Record<string, () => Promise<string>>;
 
 let urlByFileName: Map<string, string> | null = null;
+let fileNameByUrl: Map<string, string> | null = null;
 let loadPromise: Promise<void> | null = null;
 const LOAD_CHUNK = 60;
 
@@ -32,6 +33,7 @@ export async function ensureIconCatalogLoaded(): Promise<void> {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
     const map = new Map<string, string>();
+    const byUrl = new Map<string, string>();
     const entries = Object.entries(modules);
     for (let i = 0; i < entries.length; i += LOAD_CHUNK) {
       const batch = entries.slice(i, i + LOAD_CHUNK);
@@ -39,12 +41,17 @@ export async function ensureIconCatalogLoaded(): Promise<void> {
         batch.map(async ([path, loader]) => {
           const url = await loader();
           const name = path.split('/').pop();
-          if (name) map.set(name, url);
+          if (name) {
+            map.set(name, url);
+            byUrl.set(url, name);
+          }
         }),
       );
       if (i + LOAD_CHUNK < entries.length) await yieldToMain();
     }
     urlByFileName = map;
+    fileNameByUrl = byUrl;
+    cachedEntries = null;
   })();
   return loadPromise;
 }
@@ -57,6 +64,12 @@ export function isCatalogLoaded(): boolean {
 /** Resolve by exact filename, e.g. `message.svg`, `volume up.svg` */
 export function getIconUrlByFilename(filename: string): string | undefined {
   return urlByFileName?.get(filename);
+}
+
+/** Reverse lookup after catalog load (e.g. name-heuristic icon → `math-flask.svg`). */
+export function getIconFilenameByUrl(url: string): string | undefined {
+  if (!url) return undefined;
+  return fileNameByUrl?.get(url);
 }
 
 export interface IconCatalogEntry {

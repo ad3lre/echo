@@ -18,7 +18,7 @@ import {
 } from '../echoMessagesDal';
 import { listEchoWorkspaceForUser } from './categoriesWorkspace';
 import { listEchoChannelNotificationOverridesForUser } from './channelNotificationOverrides';
-import { listEchoMemberRoleAssignmentsByUser } from './roles';
+import { listEchoSelfRoleIdsByServer } from './roles';
 import { listEchoServerNotificationLevelsForUser } from './serverNotificationPreferences';
 import { getEchoUserPublicProfileRow } from './userTypingProfile';
 
@@ -90,17 +90,10 @@ export async function buildEchoMentionNotificationsFeed(
   ];
   if (channelIds.length === 0) return [];
 
-  const [storedLevels, roleAssignmentsByServer, channelOverridesByChannelId] =
+  const [storedLevels, selfRoleIdsByServer, channelOverridesByChannelId] =
     await Promise.all([
       listEchoServerNotificationLevelsForUser(pool, userId, serverIds),
-      Promise.all(
-        serverIds.map(
-          async (serverId): Promise<[string, Record<string, string[]>]> => [
-            serverId,
-            await listEchoMemberRoleAssignmentsByUser(pool, serverId),
-          ],
-        ),
-      ),
+      listEchoSelfRoleIdsByServer(pool, userId, serverIds),
       listEchoChannelNotificationOverridesForUser(pool, userId, channelIds),
     ]);
   const nowMs = Date.now();
@@ -112,11 +105,6 @@ export async function buildEchoMentionNotificationsFeed(
   for (const serverId of serverIds) {
     serverNotificationLevelByServerId[serverId] =
       storedLevels[serverId] ?? 'mentions';
-  }
-
-  const selfRoleIdsByServer = new Map<string, Set<string>>();
-  for (const [serverId, byUser] of roleAssignmentsByServer) {
-    selfRoleIdsByServer.set(serverId, new Set(byUser[userId] ?? []));
   }
 
   const feedRows = await selectUnreadMentionFeedRowsForUser(

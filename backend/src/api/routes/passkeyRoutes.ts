@@ -28,6 +28,36 @@ import {
   putWebAuthnChallenge,
   takeWebAuthnChallenge,
 } from '../../auth/webauthnChallenge';
+import {
+  assertSensitiveAccountStepUp,
+  sendSensitiveAccountStepUpError,
+} from '../../auth/stepUpAuth';
+
+async function requirePasskeySensitiveStepUp(
+  req: import('fastify').FastifyRequest,
+  reply: FastifyReply,
+): Promise<boolean> {
+  if (!req.authUser) {
+    sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+    return false;
+  }
+  const { store } = await getAuthStore();
+  const userRecord = await store.getUserByUsername(req.authUser.username);
+  if (!userRecord) {
+    sendError(reply, 404, 'NOT_FOUND', 'User not found');
+    return false;
+  }
+  const body = (req.body ?? {}) as {
+    currentPassword?: string;
+    totpCode?: string;
+  };
+  const stepUp = await assertSensitiveAccountStepUp(store, userRecord, body);
+  if (!stepUp.ok) {
+    sendSensitiveAccountStepUpError(reply, stepUp.reason);
+    return false;
+  }
+  return true;
+}
 
 export default async function passkeyRoutes(
   fastify: FastifyInstance,
@@ -40,12 +70,25 @@ export default async function passkeyRoutes(
       keyGenerator: passkeyCeremonyRateLimitKey,
       addHeaders: { 'retry-after': true },
     });
-    regScope.post(
+    regScope.post<{ Body: { currentPassword?: string; totpCode?: string } }>(
       '/passkey/register/options',
-      { preHandler: [requireAuth] },
+      {
+        preHandler: [requireAuth],
+        schema: {
+          body: {
+            type: 'object',
+            properties: {
+              currentPassword: { type: 'string', minLength: 1 },
+              totpCode: { type: 'string', minLength: 6, maxLength: 16 },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
       async (req, reply) => {
         if (!req.authUser)
           return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+        if (!(await requirePasskeySensitiveStepUp(req, reply))) return;
         if (req.authUser.isGuest) {
           return sendError(
             reply,
@@ -102,6 +145,8 @@ export default async function passkeyRoutes(
         challengeId: string;
         credential: RegistrationResponseJSON;
         label?: string;
+        currentPassword?: string;
+        totpCode?: string;
       };
     }>(
       '/passkey/register/verify',
@@ -119,6 +164,8 @@ export default async function passkeyRoutes(
                 maxProperties: 64,
               },
               label: { type: 'string', maxLength: 64 },
+              currentPassword: { type: 'string', minLength: 1 },
+              totpCode: { type: 'string', minLength: 6, maxLength: 16 },
             },
             additionalProperties: false,
           },
@@ -127,6 +174,7 @@ export default async function passkeyRoutes(
       async (req, reply) => {
         if (!req.authUser)
           return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+        if (!(await requirePasskeySensitiveStepUp(req, reply))) return;
         if (req.authUser.isGuest) {
           return sendError(
             reply,
@@ -266,7 +314,9 @@ export default async function passkeyRoutes(
       },
     );
 
-    credScope.post<{ Body: { id: string } }>(
+    credScope.post<{
+      Body: { id: string; currentPassword?: string; totpCode?: string };
+    }>(
       '/passkey/credentials/revoke',
       {
         preHandler: [requireAuth],
@@ -274,7 +324,11 @@ export default async function passkeyRoutes(
           body: {
             type: 'object',
             required: ['id'],
-            properties: { id: { type: 'string', minLength: 4 } },
+            properties: {
+              id: { type: 'string', minLength: 4 },
+              currentPassword: { type: 'string', minLength: 1 },
+              totpCode: { type: 'string', minLength: 6, maxLength: 16 },
+            },
             additionalProperties: false,
           },
         },
@@ -282,6 +336,7 @@ export default async function passkeyRoutes(
       async (req, reply) => {
         if (!req.authUser)
           return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+        if (!(await requirePasskeySensitiveStepUp(req, reply))) return;
         if (req.authUser.isGuest) {
           return sendError(
             reply,
@@ -320,7 +375,14 @@ export default async function passkeyRoutes(
       },
     );
 
-    credScope.post<{ Body: { id: string; label: string } }>(
+    credScope.post<{
+      Body: {
+        id: string;
+        label: string;
+        currentPassword?: string;
+        totpCode?: string;
+      };
+    }>(
       '/passkey/credentials/rename',
       {
         preHandler: [requireAuth],
@@ -341,6 +403,8 @@ export default async function passkeyRoutes(
             properties: {
               id: { type: 'string', minLength: 4 },
               label: { type: 'string', maxLength: 64 },
+              currentPassword: { type: 'string', minLength: 1 },
+              totpCode: { type: 'string', minLength: 6, maxLength: 16 },
             },
             additionalProperties: false,
           },
@@ -349,6 +413,7 @@ export default async function passkeyRoutes(
       async (req, reply) => {
         if (!req.authUser)
           return sendError(reply, 401, 'UNAUTHORIZED', 'Unauthorized');
+        if (!(await requirePasskeySensitiveStepUp(req, reply))) return;
         if (req.authUser.isGuest) {
           return sendError(
             reply,

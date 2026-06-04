@@ -20,7 +20,6 @@ import {
   authGoogleLoginStart,
   authLogin,
   authLoginMfa,
-  authPasskeyLoginOptions,
   authPasskeyLoginVerify,
   authRegister,
   authUpgradeGuest,
@@ -48,6 +47,11 @@ import {
   getPasskeyWebCeremonyBlockReason,
   mapPasskeyCeremonyError,
 } from '@/utils/passkeyClientSupport';
+import {
+  passkeyLoginIdentFromRaw,
+  prefetchPasskeyLoginOptions,
+  runPasskeyAuthenticationCeremony,
+} from '@/utils/passkeyWebCeremony';
 import {
   ECHO_PUBLIC_SUPPORT_EMAIL,
   echoPublicSupportMailtoHref,
@@ -280,6 +284,12 @@ function signalAuthSuccess(): void {
 
 // ── Auth flows ──────────────────────────────────────────────────────────────
 
+function prefetchPasskeyLoginFromForm(): void {
+  if (!ECHO_PASSKEYS_ENABLED || props.isMockDataMode) return;
+  if (getPasskeyWebCeremonyBlockReason('login')) return;
+  void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(username.value));
+}
+
 async function runPasskeyLogin(): Promise<void> {
   const blocked = getPasskeyWebCeremonyBlockReason('login');
   if (blocked) {
@@ -290,17 +300,9 @@ async function runPasskeyLogin(): Promise<void> {
   submitting.value = true;
   errorMessage.value = '';
   try {
-    const { startAuthentication } = await import('@simplewebauthn/browser');
-    const raw = username.value.trim();
-    const ident: { username?: string; email?: string } = {};
-    if (raw) {
-      if (raw.includes('@')) ident.email = raw;
-      else ident.username = raw;
-    }
-    const { options, challengeId } = await authPasskeyLoginOptions(ident);
-    const credential = await startAuthentication({
-      optionsJSON: options as any,
-    });
+    const ident = passkeyLoginIdentFromRaw(username.value);
+    const { credential, challengeId } =
+      await runPasskeyAuthenticationCeremony(ident);
     const result = await authPasskeyLoginVerify({
       challengeId,
       credential: credential as unknown as Record<string, unknown>,
@@ -318,6 +320,7 @@ async function runPasskeyLogin(): Promise<void> {
     emit('authenticated');
   } catch (e) {
     setAuthError(mapPasskeyCeremonyError(e, 'login'));
+    void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(username.value));
   } finally {
     submitting.value = false;
   }
@@ -561,6 +564,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             class="mobile-auth__biometric"
             :disabled="submitting"
             :aria-label="biometricLabel"
+            @pointerdown="prefetchPasskeyLoginFromForm"
             @click="runPasskeyLogin"
           >
             <span class="mobile-auth__biometric-glyph" aria-hidden="true">
@@ -829,6 +833,7 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             type="button"
             class="mobile-auth__outline"
             :disabled="submitting"
+            @pointerdown="prefetchPasskeyLoginFromForm"
             @click="runPasskeyLogin"
           >
             {{ biometricVerb }}

@@ -105,6 +105,14 @@ export const echoRestHttpRequestDurationSeconds = new Histogram({
   registers: [registry],
 });
 
+/** Postgres query roundtrips (pool.query and PoolClient.query). */
+export const echoPgQueryRoundtripsTotal = new Counter({
+  name: 'echo_pg_query_roundtrips_total',
+  help: 'PostgreSQL query executions by request scope and label',
+  labelNames: ['scope', 'label'],
+  registers: [registry],
+});
+
 /** DM open outcomes (complements echo.dm.open structured logs). */
 export const echoDmOpenTotal = new Counter({
   name: 'echo_dm_open_total',

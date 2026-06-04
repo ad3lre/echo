@@ -16,14 +16,19 @@ describe('getChannelIconSortKeys', () => {
     expect(k.chatIdx).toBeLessThan(9999);
   });
 
-  it('assigns tier 1 for secondary keywords only', () => {
-    const k = getChannelIconSortKeys(entry('random-user-icon.svg'));
-    expect(k.tier).toBe(1);
+  it('assigns tier 1 for math/hobby pack icons', () => {
+    expect(getChannelIconSortKeys(entry('math-sigma.svg')).tier).toBe(1);
+    expect(getChannelIconSortKeys(entry('hobby-dice.svg')).tier).toBe(1);
   });
 
-  it('assigns tier 2 when no keywords match', () => {
-    const k = getChannelIconSortKeys(entry('xyz-unknown.svg'));
+  it('assigns tier 2 for secondary keywords only', () => {
+    const k = getChannelIconSortKeys(entry('random-user-icon.svg'));
     expect(k.tier).toBe(2);
+  });
+
+  it('assigns tier 3 when no keywords match', () => {
+    const k = getChannelIconSortKeys(entry('xyz-unknown.svg'));
+    expect(k.tier).toBe(3);
   });
 });
 
@@ -42,5 +47,13 @@ describe('sortIconsForChannelPicker', () => {
       'voice',
     );
     expect(sorted[0]!.id).toContain('volume');
+  });
+
+  it('ranks math pack before hobby pack for text channels', () => {
+    const sorted = sortIconsForChannelPicker(
+      [entry('hobby-dice.svg'), entry('math-sigma.svg')],
+      'text',
+    );
+    expect(sorted[0]!.id).toBe('math-sigma.svg');
   });
 });

@@ -2,7 +2,6 @@ import type pg from 'pg';
 import { isPostgresUndefinedRelationError } from '../../db/pgErrors';
 import { diagnoseEchoPostMessageDenial } from './access';
 import { echoUsersShareDirectDm, isEchoGroupDmChannel } from './dmThreads';
-import { echoUsersShareAnyServer } from './social';
 
 export type EchoE2eeDeviceUpsertInput = {
   deviceId: string;
@@ -483,6 +482,33 @@ export async function getEchoE2eeThreadState(
   return { enabled: false };
 }
 
+const E2EE_PEER_BUNDLE_FETCH_MAX_PER_DAY = 24;
+const E2EE_PEER_BUNDLE_FETCH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+async function echoUsersShareActiveVoiceSession(
+  pool: pg.Pool,
+  viewerId: string,
+  targetId: string,
+): Promise<boolean> {
+  try {
+    const r = await pool.query(
+      `
+      SELECT 1
+      FROM echo_voice_participants p1
+      INNER JOIN echo_voice_participants p2
+        ON p1.server_id = p2.server_id AND p1.channel_id = p2.channel_id
+      WHERE p1.user_id = $1 AND p2.user_id = $2
+      LIMIT 1
+      `,
+      [viewerId, targetId],
+    );
+    return r.rows.length > 0;
+  } catch (e) {
+    if (isPostgresUndefinedRelationError(e)) return false;
+    throw e;
+  }
+}
+
 /** Device bundles for LibSignal voice key distribution (not chat). */
 export async function echoUsersMayFetchE2eeDeviceBundle(
   pool: pg.Pool,
@@ -493,7 +519,6 @@ export async function echoUsersMayFetchE2eeDeviceBundle(
   const target = targetId.trim();
   if (!me || !target || me === target) return false;
   if (await echoUsersShareDirectDm(pool, me, target)) return true;
-  if (await echoUsersShareAnyServer(pool, me, target)) return true;
   const r = await pool.query(
     `
     SELECT 1
@@ -504,7 +529,44 @@ export async function echoUsersMayFetchE2eeDeviceBundle(
     `,
     [me, target],
   );
-  return r.rows.length > 0;
+  if (r.rows.length > 0) return true;
+  return echoUsersShareActiveVoiceSession(pool, me, target);
+}
+
+export async function assertEchoE2eePeerBundleFetchQuota(
+  pool: pg.Pool,
+  viewerId: string,
+  targetId: string,
+): Promise<'ok' | 'rate_limited' | 'infra_missing'> {
+  const me = viewerId.trim();
+  const target = targetId.trim();
+  if (!me || !target) return 'rate_limited';
+  const since = new Date(
+    Date.now() - E2EE_PEER_BUNDLE_FETCH_WINDOW_MS,
+  ).toISOString();
+  try {
+    const count = await pool.query(
+      `
+      SELECT COUNT(*)::int AS c
+      FROM echo_e2ee_peer_bundle_fetches
+      WHERE viewer_user_id = $1 AND target_user_id = $2 AND created_at > $3::timestamptz
+      `,
+      [me, target, since],
+    );
+    const n = Number(count.rows[0]?.c ?? 0);
+    if (n >= E2EE_PEER_BUNDLE_FETCH_MAX_PER_DAY) return 'rate_limited';
+    await pool.query(
+      `
+      INSERT INTO echo_e2ee_peer_bundle_fetches (viewer_user_id, target_user_id)
+      VALUES ($1, $2)
+      `,
+      [me, target],
+    );
+    return 'ok';
+  } catch (e) {
+    if (isPostgresUndefinedRelationError(e)) return 'infra_missing';
+    throw e;
+  }
 }
 
 export async function isEchoE2eeThreadEnabled(

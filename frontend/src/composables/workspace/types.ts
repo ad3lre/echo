@@ -95,6 +95,8 @@ export interface WorkspaceStateRefs {
   socialGraphStatus: Ref<SocialGraphStatus>;
   loading: Ref<boolean>;
   fromApi: Ref<boolean>;
+  /** True while {@link WorkspaceStateApi.startInitialLoad} is reconciling (including warm paint). */
+  initialLoadInFlight: Ref<boolean>;
   apiError: Ref<string | null>;
 }
 
@@ -168,6 +170,7 @@ export type WorkspaceStateApi = {
   ) => void;
   loading: Ref<boolean>;
   fromApi: Ref<boolean>;
+  initialLoadInFlight: Ref<boolean>;
   apiError: Ref<string | null>;
   refreshExploreDirectory: () => Promise<void>;
   addChannelToCategory: (

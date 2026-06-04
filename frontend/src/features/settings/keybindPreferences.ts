@@ -13,7 +13,8 @@ export type KeybindActionId =
   | 'composer.italic'
   | 'composer.inlineCode'
   | 'composer.strike'
-  | 'composer.spoiler';
+  | 'composer.spoiler'
+  | 'paper.toggleSourceView';
 
 export interface KeybindDefinition {
   id: KeybindActionId;
@@ -51,6 +52,7 @@ const DEFAULT_KEYBINDS: Record<KeybindActionId, string> = {
   'composer.inlineCode': 'Ctrl+E',
   'composer.strike': 'Ctrl+Shift+S',
   'composer.spoiler': 'Ctrl+Shift+H',
+  'paper.toggleSourceView': 'Ctrl+Alt+M',
 };
 
 const ACTION_TITLES: Record<KeybindActionId, string> = {
@@ -69,6 +71,7 @@ const ACTION_TITLES: Record<KeybindActionId, string> = {
   'composer.inlineCode': 'Inline code (message composer)',
   'composer.strike': 'Strikethrough (message composer)',
   'composer.spoiler': 'Spoiler (message composer)',
+  'paper.toggleSourceView': 'Paper: toggle raw / rendered',
 };
 
 export const KEYBIND_ACTION_ORDER: KeybindActionId[] = [
@@ -87,6 +90,7 @@ export const KEYBIND_ACTION_ORDER: KeybindActionId[] = [
   'composer.inlineCode',
   'composer.strike',
   'composer.spoiler',
+  'paper.toggleSourceView',
 ];
 
 function readStored(): Partial<Record<KeybindActionId, string>> {

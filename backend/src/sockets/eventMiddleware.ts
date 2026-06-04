@@ -1,6 +1,7 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type { Socket } from 'socket.io';
 import { config } from '../config';
+import { enterPgQueryContext } from '../db/pgQueryContext';
 
 const RATE_LIMITED_EVENTS = new Set([
   'message',
@@ -35,6 +36,14 @@ export function attachSocketEventLogger(
 
   socket.use((packet, next) => {
     const event = packet[0];
+    if (typeof event === 'string') {
+      enterPgQueryContext({
+        scope: 'socket',
+        label: event.slice(0, 64) || 'unknown',
+      });
+    } else {
+      enterPgQueryContext({ scope: 'socket', label: 'unknown' });
+    }
     if (typeof event === 'string' && RATE_LIMITED_EVENTS.has(event)) {
       const now = Date.now();
       const cutoff = now - windowMs;

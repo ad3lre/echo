@@ -69,6 +69,9 @@ import iconUserBlock from './icons/user-block.svg?url';
 import iconImageRemove from './icons/IMAGE-REMOVE.svg?url';
 import iconDiscordStage from './icons/discord-stage.svg?url';
 import iconDiscordMark from './icons/discord-mark.svg?url';
+import iconMathCalculator from './icons/math-calculator.svg?url';
+import iconHobbyGameController from './icons/hobby-game-controller.svg?url';
+import iconHobbyTrophy from './icons/hobby-trophy.svg?url';
 import { getIconUrlByFilename } from './iconCatalog';
 import { stripLeadingChannelEmojiForMatching } from './icons';
 
@@ -288,6 +291,52 @@ const channelIconMatchers: Array<{ patterns: string[]; icon: string }> = [
   {
     patterns: ['project', 'materials', 'tips', 'tool', 'workshop', 'maker'],
     icon: iconImageGallery,
+  },
+  {
+    patterns: [
+      'math',
+      'algebra',
+      'calculus',
+      'geometry',
+      'homework',
+      'exam',
+      'physics',
+      'chemistry',
+      'biology',
+      'statistics',
+      'stats',
+      'lab',
+      'study',
+    ],
+    icon: iconMathCalculator,
+  },
+  {
+    patterns: [
+      'gaming',
+      'minecraft',
+      'valorant',
+      'league',
+      'sports',
+      'fitness',
+      'workout',
+      'anime',
+      'cosplay',
+      'craft',
+      'hobby',
+    ],
+    icon: iconHobbyGameController,
+  },
+  {
+    patterns: [
+      'football',
+      'soccer',
+      'basketball',
+      'tennis',
+      'volleyball',
+      'golf',
+      'racing league',
+    ],
+    icon: iconHobbyTrophy,
   },
 ];
 

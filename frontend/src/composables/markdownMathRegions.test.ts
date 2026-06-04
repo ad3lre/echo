@@ -16,6 +16,11 @@ describe('markdownMathRegions', () => {
       latex: 'x^2 + y^2',
       displayMode: true,
     });
+    expect(out.regions.map((r) => [r.start, r.end])).toEqual([
+      [7, 14],
+      [19, 24],
+      [35, 48],
+    ]);
     expect(out.text).toContain('@@ECHO_MATH_SLOT_0@@');
     expect(out.text).toContain('@@ECHO_MATH_SLOT_1@@');
     expect(out.text).toContain('@@ECHO_MATH_SLOT_2@@');

@@ -50,7 +50,9 @@ function composeMarkedText(raw: string, marks: unknown[] | undefined): string {
   const hasBold = types.has('bold');
   const hasItalic = types.has('italic');
   const hasStrike = types.has('strike');
+  const hasHighlight = types.has('highlight');
   if (hasStrike) out = `~~${out}~~`;
+  if (hasHighlight) out = `==${out}==`;
   if (hasBold && hasItalic) out = `***${out}***`;
   else if (hasBold) out = `**${out}**`;
   else if (hasItalic) out = `*${out}*`;
@@ -174,6 +176,23 @@ function serializeBlock(node: unknown, listDepth = 0): string {
         .filter((s) => s.length > 0)
         .join('\n');
     }
+    case 'image': {
+      const attrs = isPlainObject(node.attrs) ? node.attrs : {};
+      const src = typeof attrs.src === 'string' ? attrs.src.trim() : '';
+      if (!src) return '';
+      const alt = typeof attrs.alt === 'string' ? attrs.alt : '';
+      const title =
+        typeof attrs.title === 'string' && attrs.title.trim()
+          ? attrs.title.trim()
+          : '';
+      return title
+        ? `![${alt}](${src} "${title.replace(/"/g, '\\"')}")`
+        : `![${alt}](${src})`;
+    }
+    case 'horizontalRule':
+      return '---';
+    case 'table':
+      return serializeTableBlock(node);
     default:
       if (node.type === 'listItem') {
         return serializeListItem(node, false, 1, listDepth);
@@ -185,6 +204,44 @@ function serializeBlock(node: unknown, listDepth = 0): string {
       }
       return '';
   }
+}
+
+function serializeTableBlock(node: Record<string, unknown>): string {
+  const rows = Array.isArray(node.content) ? node.content : [];
+  const tableRows: string[][] = [];
+
+  for (const row of rows) {
+    if (!isPlainObject(row) || row.type !== 'tableRow') continue;
+    const cells: string[] = [];
+    const cellNodes = Array.isArray(row.content) ? row.content : [];
+    for (const cell of cellNodes) {
+      if (!isPlainObject(cell)) continue;
+      const inner = serializeInlineFragment(
+        Array.isArray(cell.content) ? cell.content : undefined,
+      );
+      cells.push(inner.replace(/\|/g, '\\|').replace(/\n/g, ' '));
+    }
+    if (cells.length) tableRows.push(cells);
+  }
+
+  if (!tableRows.length) return '';
+
+  const colCount = Math.max(...tableRows.map((r) => r.length));
+  const padRow = (cells: string[]) => {
+    const out = [...cells];
+    while (out.length < colCount) out.push('');
+    return out;
+  };
+
+  const lines: string[] = [];
+  tableRows.forEach((row, idx) => {
+    const padded = padRow(row);
+    lines.push(`| ${padded.join(' | ')} |`);
+    if (idx === 0) {
+      lines.push(`| ${Array(colCount).fill('---').join(' | ')} |`);
+    }
+  });
+  return lines.join('\n');
 }
 
 function serializeListItem(

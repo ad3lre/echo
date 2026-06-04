@@ -86,6 +86,8 @@ const props = defineProps<{
   /** Guild owner user id — crown next to voice participant names. */
   serverOwnerId?: string | null;
   canCreateChannels: boolean;
+  /** When false, hide empty-tree copy while parent shows loading skeleton. */
+  allowEmptyState?: boolean;
   /** Echo: show drag handle when user has MANAGE_CHANNELS. */
   canReorderChannels?: boolean;
   /** Echo: drag-reorder category headers (MANAGE_CHANNELS). */
@@ -435,7 +437,10 @@ function toggleCategoryCollapsed(categoryId: string) {
   if (sid) persistCollapsedCategoryIdsForServer(sid);
 }
 
-function onCategoryToggleClick(categoryId: string, ev: MouseEvent) {
+function onCategoryToggleClick(
+  categoryId: string,
+  ev: MouseEvent | KeyboardEvent,
+) {
   if (suppressCategoryToggleClick.value) {
     ev.preventDefault();
     ev.stopPropagation();
@@ -497,6 +502,15 @@ function showCategoryDropLineBefore(ri: number): boolean {
 }
 
 function onCategoryReorderDragStart(categoryId: string, e: DragEvent) {
+  if (!categoryReorderEnabled.value) {
+    e.preventDefault();
+    return;
+  }
+  const t = e.target;
+  if (t instanceof Element && t.closest('button')) {
+    e.preventDefault();
+    return;
+  }
   reorderDragCategoryId.value = categoryId;
   reorderDragChannelId.value = null;
   channelDropLine.value = null;
@@ -605,9 +619,10 @@ function onCategoryDropAtLine(lineBefore: number, e: DragEvent) {
   const fromTransfer = e.dataTransfer?.getData('text/plain')?.trim();
   const dragId = reorderDragCategoryId.value ?? fromTransfer ?? null;
   if (!dragId) return;
-  const without = ids.filter((id) => id !== dragId);
-  const clamped = Math.max(0, Math.min(lineBefore, without.length));
-  const insertBeforeId = without[clamped] ?? null;
+  // `lineBefore` is an index into the full ordered list, not the filtered
+  // without-dragId list — use ids[lineBefore] directly so the position is
+  // correct regardless of whether the dragged item sits before or after the gap.
+  const insertBeforeId = ids[lineBefore] ?? null;
   const idx = reorderInsertIndex(ids, dragId, insertBeforeId);
   if (idx === null) return;
   emit('category-reorder', { categoryId: dragId, siblingIndex: idx });
@@ -812,7 +827,16 @@ function onReorderDrop(
   e?: DragEvent,
   opts?: { fromChannelRow?: boolean },
 ) {
-  if (reorderDragCategoryId.value) return;
+  if (reorderDragCategoryId.value) {
+    // The drop landed on a channel row or channel append zone while a category
+    // drag was in progress (capture-phase preventDefault makes those elements
+    // valid drop targets).  Forward to the last-known category drop position so
+    // the drop is not silently swallowed.
+    if (categoryDropLineBefore.value !== null && e != null) {
+      onCategoryDropAtLine(categoryDropLineBefore.value, e);
+    }
+    return;
+  }
   const fromTransfer = e?.dataTransfer?.getData('text/plain')?.trim();
   const dragId = reorderDragChannelId.value ?? fromTransfer ?? null;
   if (!dragId) return;
@@ -1315,7 +1339,10 @@ watch(
       v-scrollbar-on-scroll
       @dragover.capture="onChannelListDragOverCapture"
     >
-      <div v-if="effectiveCategories.length === 0" class="px-3 py-6">
+      <div
+        v-if="effectiveCategories.length === 0 && allowEmptyState !== false"
+        class="px-3 py-6"
+      >
         <template v-if="canCreateChannels">
           <div class="text-sm text-fg-soft">No channels yet</div>
           <p class="mt-2 max-w-[16rem] text-sm leading-snug text-fg-subtle">
@@ -1377,16 +1404,34 @@ watch(
             @dragover.prevent="onCategoryHeaderDragOver(category, $event)"
             @drop.prevent="onCategoryHeaderDrop(category, $event)"
           >
-            <button
-              type="button"
+            <div
               class="channel-category-toggle inline-flex min-w-0 flex-1 items-center gap-1.5 text-left"
+              :class="{
+                'channel-category-toggle--draggable': categoryReorderEnabled,
+              }"
+              role="button"
+              tabindex="0"
               :aria-label="
                 isCategoryCollapsed(category.id)
                   ? `Expand ${getChannelDisplayName(category.name)}`
                   : `Collapse ${getChannelDisplayName(category.name)}`
               "
               :aria-expanded="!isCategoryCollapsed(category.id)"
+              :draggable="categoryReorderEnabled"
+              :title="
+                categoryReorderEnabled
+                  ? 'Drag to reorder · Click to expand or collapse'
+                  : undefined
+              "
               @click.stop="onCategoryToggleClick(category.id, $event)"
+              @keydown.enter.prevent="
+                onCategoryToggleClick(category.id, $event)
+              "
+              @keydown.space.prevent="
+                onCategoryToggleClick(category.id, $event)
+              "
+              @dragstart="onCategoryReorderDragStart(category.id, $event)"
+              @dragend="onCategoryReorderDragEnd"
             >
               <span
                 class="channel-category-caret -ml-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm"
@@ -1394,23 +1439,14 @@ watch(
                   'channel-category-caret--collapsed': isCategoryCollapsed(
                     category.id,
                   ),
-                  'channel-category-caret--draggable': categoryReorderEnabled,
                 }"
-                :draggable="categoryReorderEnabled"
-                :title="
-                  categoryReorderEnabled
-                    ? 'Drag to reorder · Click to expand or collapse'
-                    : undefined
-                "
                 aria-hidden="true"
-                @dragstart="onCategoryReorderDragStart(category.id, $event)"
-                @dragend="onCategoryReorderDragEnd"
                 >▾</span
               >
               <span class="inline min-w-0 flex-1 truncate">{{
                 getChannelDisplayName(category.name)
               }}</span>
-            </button>
+            </div>
             <div
               v-if="canCreateChannels && selectedServerId !== 'echo'"
               class="flex shrink-0 items-center gap-0.5"
@@ -2817,12 +2853,12 @@ watch(
   transform: rotate(-90deg);
 }
 
-.channel-category-caret--draggable {
+.channel-category-toggle--draggable {
   cursor: grab;
   user-select: none;
 }
 
-.channel-category-caret--draggable:active {
+.channel-category-toggle--draggable:active {
   cursor: grabbing;
 }
 

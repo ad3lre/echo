@@ -2,6 +2,8 @@
 import { EditorContent } from '@tiptap/vue-3';
 import type { Editor } from '@tiptap/vue-3';
 import type { VNodeRef } from 'vue';
+import PaperRawMarkdownSurface from '@/features/paper/components/PaperRawMarkdownSurface.vue';
+import type { PaperSourceViewMode } from '@/features/paper/composables/usePaperSourceViewMode';
 
 defineProps<{
   editor: Editor | null | undefined;
@@ -10,6 +12,13 @@ defineProps<{
   /** CSS font-family stack for the page (document default). */
   documentFontFamily?: string;
   pageSurfaceStyle?: Record<string, string>;
+  sourceViewMode?: PaperSourceViewMode;
+  rawMarkdown?: string;
+  rawEditable?: boolean;
+}>();
+
+const emit = defineEmits<{
+  'update:rawMarkdown': [value: string];
 }>();
 </script>
 
@@ -31,6 +40,7 @@ defineProps<{
       v-else
       :ref="pageRef"
       class="paper-page w-full max-w-[816px]"
+      :class="{ 'paper-page--raw': sourceViewMode === 'raw' }"
       :style="{
         ...(documentFontFamily
           ? { '--paper-doc-font': documentFontFamily }
@@ -38,8 +48,20 @@ defineProps<{
         ...(pageSurfaceStyle ?? {}),
       }"
     >
-      <EditorContent :editor="editor ?? undefined" />
-      <slot />
+      <div
+        v-show="sourceViewMode !== 'raw'"
+        class="paper-page__wysiwyg"
+        :aria-hidden="sourceViewMode === 'raw' ? 'true' : undefined"
+      >
+        <EditorContent :editor="editor ?? undefined" />
+      </div>
+      <slot v-if="sourceViewMode !== 'raw'" />
+      <PaperRawMarkdownSurface
+        v-if="sourceViewMode === 'raw'"
+        :model-value="rawMarkdown ?? ''"
+        :editable="rawEditable !== false"
+        @update:model-value="emit('update:rawMarkdown', $event)"
+      />
     </div>
   </div>
 </template>
@@ -71,6 +93,16 @@ defineProps<{
 
 .paper-page-skeleton-line--short {
   width: 70%;
+}
+
+.paper-page__wysiwyg[aria-hidden='true'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 @keyframes paper-skeleton-shimmer {

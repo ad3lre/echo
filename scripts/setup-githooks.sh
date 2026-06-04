@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 git config core.hooksPath scripts/githooks
-chmod +x scripts/githooks/pre-push scripts/githooks/prepare-commit-msg scripts/githooks/github-push-guard.sh scripts/ci-precheck.sh 2>/dev/null || true
+chmod +x scripts/githooks/pre-commit scripts/githooks/pre-push scripts/githooks/prepare-commit-msg scripts/githooks/github-push-guard.sh scripts/ci-precheck.sh 2>/dev/null || true
 
 # Plain `git push` must never target GitHub for main or release (GitLab first, then mirror script).
 if git show-ref --verify --quiet refs/heads/main; then
@@ -16,5 +16,6 @@ fi
 
 echo "core.hooksPath set to scripts/githooks for $(pwd)"
 echo "GitHub push guard: blocks main on github, local main→github, release tip == origin/main"
+echo "pre-commit: god-file ratchet on staged paths (skip with ECHO_GOD_FILE_RATCHET_BYPASS=1)"
 echo "pre-push CI: npm run ci:precheck (skip with ECHO_SKIP_CI_PRECHECK=1)"
 echo "Branch upstream: main → origin/main, release/1.0.0 → origin/release/1.0.0"

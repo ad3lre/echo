@@ -380,7 +380,7 @@ function resolveCatInsertBeforeId(
   return ids[lineBefore] ?? null;
 }
 
-async function onCatRowDrop(rowIndex: number, e: DragEvent) {
+function onCatRowDrop(rowIndex: number, e: DragEvent) {
   const fromTransfer = e.dataTransfer?.getData('text/plain')?.trim();
   const dragId = catDragId.value ?? fromTransfer ?? null;
   if (!dragId || !props.canReorderCategories) return;
@@ -391,16 +391,11 @@ async function onCatRowDrop(rowIndex: number, e: DragEvent) {
     onCatDragEnd();
     return;
   }
-  busy.value = true;
-  try {
-    await props.commitCategoryReorder({
-      categoryId: dragId,
-      siblingIndex: idx,
-    });
-  } finally {
-    busy.value = false;
-    onCatDragEnd();
-  }
+  void props.commitCategoryReorder({
+    categoryId: dragId,
+    siblingIndex: idx,
+  });
+  onCatDragEnd();
 }
 
 function onCatAppendDragOver(e: DragEvent) {
@@ -419,7 +414,7 @@ function showCatLineEnd() {
   );
 }
 
-async function onCatAppendDrop(e: DragEvent) {
+function onCatAppendDrop(e: DragEvent) {
   const fromTransfer = e.dataTransfer?.getData('text/plain')?.trim();
   const dragId = catDragId.value ?? fromTransfer ?? null;
   if (!dragId || !props.canReorderCategories) return;
@@ -429,16 +424,11 @@ async function onCatAppendDrop(e: DragEvent) {
     onCatDragEnd();
     return;
   }
-  busy.value = true;
-  try {
-    await props.commitCategoryReorder({
-      categoryId: dragId,
-      siblingIndex: idx,
-    });
-  } finally {
-    busy.value = false;
-    onCatDragEnd();
-  }
+  void props.commitCategoryReorder({
+    categoryId: dragId,
+    siblingIndex: idx,
+  });
+  onCatDragEnd();
 }
 
 // ----- channel DnD -----
@@ -552,7 +542,7 @@ function targetCategoryForBucket(
   return namedCat;
 }
 
-async function onChRowDrop(
+function onChRowDrop(
   bucketKey: string,
   targetCat: ChannelCategory,
   topIds: string[],
@@ -575,17 +565,12 @@ async function onChRowDrop(
     onChDragEnd();
     return;
   }
-  busy.value = true;
-  try {
-    await props.commitChannelReorder({
-      channelId: dragId,
-      targetCategoryId: categoryApiIdForReorder(cat),
-      siblingIndex: idx,
-    });
-  } finally {
-    busy.value = false;
-    onChDragEnd();
-  }
+  void props.commitChannelReorder({
+    channelId: dragId,
+    targetCategoryId: categoryApiIdForReorder(cat),
+    siblingIndex: idx,
+  });
+  onChDragEnd();
 }
 
 function onChAppendDragOver(bucketKey: string, listLen: number, e: DragEvent) {
@@ -622,7 +607,7 @@ async function onMergedHideAppendDrop(e: DragEvent) {
   await onChAppendDrop(MERGED_HIDE_KEY, anchor, e);
 }
 
-async function onChAppendDrop(
+function onChAppendDrop(
   bucketKey: string,
   targetCat: ChannelCategory,
   e: DragEvent,
@@ -637,17 +622,12 @@ async function onChAppendDrop(
     onChDragEnd();
     return;
   }
-  busy.value = true;
-  try {
-    await props.commitChannelReorder({
-      channelId: dragId,
-      targetCategoryId: categoryApiIdForReorder(cat),
-      siblingIndex: idx,
-    });
-  } finally {
-    busy.value = false;
-    onChDragEnd();
-  }
+  void props.commitChannelReorder({
+    channelId: dragId,
+    targetCategoryId: categoryApiIdForReorder(cat),
+    siblingIndex: idx,
+  });
+  onChDragEnd();
 }
 
 function onWindowDropEnd() {

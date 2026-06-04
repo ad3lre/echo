@@ -28,6 +28,7 @@ import {
   tryReloadForSocketXhrPollError,
 } from '@/services/orchestration/socketReloadGuard';
 import { defaultEchoRealtimeBrowserEvents } from '@/services/orchestration/echoRealtimeBrowserEvents';
+import { registerDeferredMediaOutboundSend } from '@/services/realtime/deferredMediaOutboundSend';
 import { createEchoRealtimePlatformSessionSync } from '@/services/orchestration/echoRealtimePlatformSessionSync';
 import { ingestEchoSocketConnectError } from '@/services/realtime/socketConnectErrorIngest';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
@@ -156,6 +157,20 @@ export function createAppEchoRealtimeSocketBinding(
           uiTx,
           host: effectiveHost,
           cleanupOptimisticSend: bridge.cleanupOptimisticSend,
+        });
+
+        registerDeferredMediaOutboundSend({
+          getAuthorId: () => input.currentUserId.value,
+          socketOff: transport.socketOff,
+          isSocketConnected: transport.getSocketConnected,
+          getAdapter: () => transport.io.adapter,
+          appendChannelMessage: bridge.appendChannelMessage,
+          cleanupOptimisticSend: bridge.cleanupOptimisticSend,
+          pendingSentMessages: bridge.pendingSentMessages,
+          uiTx,
+          getLocalAuthorEcho: input.getLocalAuthorEcho,
+          dispatchEchoMessageFailed: (detail) =>
+            browserEvents.dispatchEchoMessageFailed(detail),
         });
 
         const sendMessage = createEchoSocketSendMessage({

@@ -57,7 +57,14 @@ export async function getOrCreateLocalE2eeDevice(
   const uid = authorUserId?.trim();
   if (!uid) throw new Error('authorUserId required for E2EE device material');
   const { registration } = await ensureEchoSignalBootstrap(uid);
-  await syncEchoE2eeLocalProtocolDeviceId(uid, authToken);
+  try {
+    await syncEchoE2eeLocalProtocolDeviceId(uid, authToken);
+  } catch {
+    // Best-effort: a transient registration sync failure must not block the
+    // voice call. The local device key material is still valid; peers may not
+    // be able to look up our device until the next successful sync, but the
+    // epoch retry / key-rotation flow will recover when connectivity returns.
+  }
   return {
     deviceId: registration.deviceId,
     identityKey: registration.identityKey,

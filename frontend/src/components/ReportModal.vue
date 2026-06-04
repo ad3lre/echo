@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import {
   ECHO_REPORT_CATEGORIES,
   type EchoReportCategory,
@@ -35,7 +35,14 @@ const targetSearchRef = ref<HTMLInputElement | null>(null);
 const category = ref<EchoReportCategory>('other');
 const reason = ref('');
 const submitting = ref(false);
+const submitted = ref(false);
 const errorMessage = ref<string | null>(null);
+
+let closeAfterSuccessTimer: ReturnType<typeof setTimeout> | null = null;
+
+onUnmounted(() => {
+  if (closeAfterSuccessTimer) clearTimeout(closeAfterSuccessTimer);
+});
 
 const generalTargetType = ref<'user' | 'message'>('user');
 const targetSearchQuery = ref('');
@@ -115,8 +122,13 @@ const messagePreview = computed(() => {
 const categoryOptions = ECHO_REPORT_CATEGORIES.map((id) => ({
   id,
   label: REPORT_CATEGORY_LABELS[id],
-  hint: REPORT_CATEGORY_HINTS[id],
 }));
+
+const selectedCategoryHint = computed(
+  () => REPORT_CATEGORY_HINTS[category.value],
+);
+
+const needsScrollBody = computed(() => context.value?.kind === 'general');
 
 const userCandidates = computed(() =>
   buildReportUserCandidates({
@@ -158,7 +170,7 @@ const pickedMessage = computed(() =>
 
 const canSubmit = computed(() => {
   const ctx = context.value;
-  if (!ctx || submitting.value) return false;
+  if (!ctx || submitting.value || submitted.value) return false;
   if (ctx.kind === 'user' || ctx.kind === 'message') return true;
   if (generalTargetType.value === 'user') {
     if (pickedUserId.value.trim()) return true;
@@ -172,10 +184,19 @@ const canSubmit = computed(() => {
   );
 });
 
+function clearCloseAfterSuccessTimer() {
+  if (closeAfterSuccessTimer) {
+    clearTimeout(closeAfterSuccessTimer);
+    closeAfterSuccessTimer = null;
+  }
+}
+
 function resetForm() {
   category.value = 'other';
   reason.value = '';
   errorMessage.value = null;
+  submitted.value = false;
+  clearCloseAfterSuccessTimer();
   generalTargetType.value = 'user';
   targetSearchQuery.value = '';
   pickedUserId.value = '';
@@ -204,6 +225,8 @@ watch(pickedChannelId, () => {
 });
 
 function handleClose() {
+  if (submitting.value) return;
+  clearCloseAfterSuccessTimer();
   closeReportModal();
 }
 
@@ -269,8 +292,13 @@ async function handleSubmit() {
           }
         : {}),
     });
-    closeReportModal();
+    submitted.value = true;
     dispatchAppToast('Report submitted. Thank you.', 'success');
+    clearCloseAfterSuccessTimer();
+    closeAfterSuccessTimer = setTimeout(() => {
+      closeAfterSuccessTimer = null;
+      closeReportModal();
+    }, 1400);
   } catch (e) {
     errorMessage.value =
       e instanceof Error ? e.message : 'Could not submit report.';
@@ -295,11 +323,50 @@ async function handleSubmit() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="report-modal-title"
-            class="report-modal-panel relative flex w-full max-w-[520px] max-h-[min(40rem,92vh)] flex-col overflow-hidden rounded-3xl text-[var(--text)]"
+            class="report-modal-panel relative flex w-full max-w-[520px] flex-col overflow-hidden rounded-3xl text-[var(--text)]"
+            :class="
+              needsScrollBody
+                ? 'max-h-[min(44rem,94vh)]'
+                : 'max-h-[min(36rem,94vh)]'
+            "
             @click.stop
           >
+            <Transition name="report-success">
+              <div
+                v-if="submitted"
+                class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-3xl bg-overlay-heavy px-6 text-center backdrop-blur-sm"
+                role="status"
+                aria-live="polite"
+              >
+                <div
+                  class="report-success-ring flex h-16 w-16 items-center justify-center rounded-full"
+                >
+                  <svg
+                    class="report-success-check h-8 w-8"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-base font-semibold text-[var(--text)]">
+                    Report submitted
+                  </p>
+                  <p class="mt-1 text-sm text-[var(--muted)]">
+                    Thank you — our Trust &amp; Safety team will review it.
+                  </p>
+                </div>
+              </div>
+            </Transition>
+
             <div
-              class="report-top-accent pointer-events-none absolute inset-x-0 top-0 h-24 rounded-t-3xl"
+              class="report-top-accent pointer-events-none absolute inset-x-0 top-0 h-20 rounded-t-3xl"
               aria-hidden="true"
             />
 
@@ -307,6 +374,7 @@ async function handleSubmit() {
               type="button"
               class="chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-glass-hover hover:text-[var(--text)]"
               aria-label="Close"
+              :disabled="submitting"
               @click="handleClose"
             >
               <svg
@@ -324,7 +392,7 @@ async function handleSubmit() {
             </button>
 
             <div
-              class="relative shrink-0 border-b border-[var(--border)] px-5 pb-4 pt-5 pr-12"
+              class="relative shrink-0 border-b border-[var(--border)] px-5 pb-3 pt-4 pr-12"
             >
               <h2
                 id="report-modal-title"
@@ -332,16 +400,19 @@ async function handleSubmit() {
               >
                 {{ title }}
               </h2>
-              <p class="mt-1 text-sm text-[var(--muted)]">
+              <p
+                v-if="!targetCard"
+                class="mt-1 text-sm leading-snug text-[var(--muted)]"
+              >
                 {{ subtitle }}
               </p>
 
               <div
                 v-if="targetCard"
-                class="mt-3 flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
+                class="mt-2.5 flex items-start gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
               >
                 <div
-                  class="report-avatar-initial flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                  class="report-avatar-initial flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
                   :style="`--_hue: ${labelHue(targetCard.label)}`"
                 >
                   {{ initial(targetCard.label) }}
@@ -352,7 +423,7 @@ async function handleSubmit() {
                   }}</span>
                   <p
                     v-if="targetCard.kind === 'message' && targetCard.preview"
-                    class="mt-1 line-clamp-3 text-sm leading-snug text-[var(--muted)]"
+                    class="mt-0.5 line-clamp-2 text-xs leading-snug text-[var(--muted)]"
                   >
                     {{ targetCard.preview }}
                   </p>
@@ -361,7 +432,12 @@ async function handleSubmit() {
             </div>
 
             <div
-              class="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-4"
+              class="px-5 py-3"
+              :class="
+                needsScrollBody
+                  ? 'custom-scrollbar min-h-0 flex-1 overflow-y-auto'
+                  : 'shrink-0'
+              "
             >
               <template v-if="context.kind === 'general'">
                 <div
@@ -672,49 +748,55 @@ async function handleSubmit() {
                 </div>
               </template>
 
-              <fieldset class="mt-1">
-                <legend class="mb-2 text-sm font-semibold text-[var(--text)]">
-                  What is this report about?
+              <fieldset>
+                <legend
+                  class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]"
+                >
+                  Category
                 </legend>
-                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div class="flex flex-wrap gap-1.5">
                   <button
                     v-for="opt in categoryOptions"
                     :key="opt.id"
                     type="button"
-                    class="chat-focus-ring rounded-xl border px-3 py-2.5 text-left transition-colors"
+                    class="chat-focus-ring rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors"
                     :class="
                       category === opt.id
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/12'
-                        : 'border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]/40'
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--text)]'
+                        : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:border-[var(--accent)]/40 hover:text-[var(--text)]'
                     "
                     @click="category = opt.id"
                   >
-                    <div class="text-sm font-semibold">{{ opt.label }}</div>
-                    <div
-                      class="mt-0.5 text-xs leading-snug text-[var(--muted)]"
-                    >
-                      {{ opt.hint }}
-                    </div>
+                    {{ opt.label }}
                   </button>
                 </div>
+                <p class="mt-1.5 text-xs leading-snug text-[var(--muted)]">
+                  {{ selectedCategoryHint }}
+                </p>
               </fieldset>
 
-              <label class="mt-4 block text-sm font-medium text-[var(--text)]">
-                Additional details
+              <label class="mt-3 block">
+                <span class="text-xs font-semibold text-[var(--text)]">
+                  Additional details
+                  <span class="font-normal text-[var(--muted)]"
+                    >(optional)</span
+                  >
+                </span>
                 <textarea
                   ref="reasonInputRef"
                   v-model="reason"
-                  class="mt-1 w-full min-h-[88px] resize-y rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:outline-none"
+                  rows="2"
+                  class="mt-1 w-full min-h-[4.5rem] resize-y rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:outline-none"
                   maxlength="2000"
-                  placeholder="Tell us what happened (optional)"
+                  placeholder="Tell us what happened"
                 />
               </label>
             </div>
 
-            <div class="shrink-0 border-t border-[var(--border)] px-5 py-4">
+            <div class="shrink-0 border-t border-[var(--border)] px-5 py-3">
               <p
                 v-if="errorMessage"
-                class="mb-3 text-sm text-red-400"
+                class="mb-2.5 text-sm text-red-400"
                 role="alert"
               >
                 {{ errorMessage }}
@@ -723,7 +805,7 @@ async function handleSubmit() {
                 <button
                   type="button"
                   class="rounded-lg px-4 py-2 text-sm font-semibold text-[var(--muted)] hover:bg-glass-hover"
-                  :disabled="submitting"
+                  :disabled="submitting || submitted"
                   @click="handleClose"
                 >
                   Cancel
@@ -731,7 +813,7 @@ async function handleSubmit() {
                 <button
                   type="button"
                   class="rounded-lg bg-rose-600/90 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
-                  :disabled="submitting || !canSubmit"
+                  :disabled="submitting || submitted || !canSubmit"
                   @click="handleSubmit"
                 >
                   {{ submitting ? 'Submitting…' : 'Submit report' }}
@@ -803,5 +885,28 @@ async function handleSubmit() {
 .report-card-leave-to {
   opacity: 0;
   transform: scale(0.96) translateY(6px);
+}
+
+.report-success-ring {
+  background: rgba(16, 185, 129, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.3);
+}
+[data-theme='light'] .report-success-ring {
+  background: rgba(16, 185, 129, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.25);
+}
+
+.report-success-check {
+  color: #34d399;
+}
+[data-theme='light'] .report-success-check {
+  color: #059669;
+}
+
+.report-success-enter-active {
+  transition: opacity 0.18s ease;
+}
+.report-success-enter-from {
+  opacity: 0;
 }
 </style>

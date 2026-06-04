@@ -76,6 +76,8 @@ const emit = defineEmits<{
   clearSearch: [];
   goToPage: [page: number];
   goToMessage: [channelId: string, messageId: string];
+  /** True while the search field is focused or has query text / filter chips. */
+  engagedChange: [engaged: boolean];
 }>();
 
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -387,6 +389,18 @@ function onKeydown(e: KeyboardEvent) {
 
 const isSearchActive = computed(
   () => props.modelValue.trim().length > 0 || props.filterChips.length > 0,
+);
+
+const isSearchEngaged = computed(
+  () => isSearchActive.value || isDropdownOpen.value,
+);
+
+watch(
+  isSearchEngaged,
+  (engaged) => {
+    emit('engagedChange', engaged);
+  },
+  { immediate: true },
 );
 
 const showSearchResults = computed(

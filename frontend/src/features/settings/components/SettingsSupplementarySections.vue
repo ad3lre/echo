@@ -42,6 +42,12 @@ import {
   saveKeybindMap,
   type KeybindActionId,
 } from '@/features/settings/keybindPreferences';
+import {
+  loadImageViewerPreferences,
+  resetImageViewerPreferencesToDefaults,
+  saveImageViewerPreferences,
+} from '@/features/settings/imageViewerPreferences';
+import SettingsPillSwitch from '@/features/settings/components/SettingsPillSwitch.vue';
 import { useSettingsDataRights } from '@/features/settings/composables/useSettingsDataRights';
 import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
@@ -188,6 +194,7 @@ const heroMarkUrl = computed(() => echoPlanMarkUrl(currentPlan.value));
 const editingActionId = ref<KeybindActionId | null>(null);
 const keybindError = ref('');
 const keybindMap = ref(loadKeybindMap());
+const imageViewerPrefs = ref(loadImageViewerPreferences());
 const {
   dataExportInFlight,
   removalInFlight,
@@ -248,8 +255,15 @@ function updateBinding(actionId: KeybindActionId, e: KeyboardEvent) {
 
 function resetDefaults() {
   keybindMap.value = resetKeybindsToDefaults();
+  imageViewerPrefs.value = resetImageViewerPreferencesToDefaults();
   editingActionId.value = null;
   keybindError.value = '';
+}
+
+function setImageViewerWheelScrollPans(next: boolean) {
+  imageViewerPrefs.value = saveImageViewerPreferences({
+    wheelScrollPans: next,
+  });
 }
 </script>
 
@@ -382,52 +396,79 @@ function resetDefaults() {
     </div>
   </div>
 
-  <div
-    v-else-if="activeSection === 'Keybinds'"
-    class="settings-card rounded-2xl p-5"
-  >
-    <div class="flex items-center justify-between gap-3">
-      <div class="settings-label">Keyboard Shortcuts</div>
-      <button
-        type="button"
-        class="rounded-lg px-3 py-1.5 text-xs font-semibold bg-glass-1 text-fg-soft hover:bg-glass-2"
-        @click="resetDefaults"
-      >
-        Reset defaults
-      </button>
-    </div>
-    <div class="mt-4 flex flex-col gap-3">
-      <div
-        v-for="bind in keybindRows"
-        :key="bind.id"
-        class="settings-panel flex items-center justify-between gap-4 rounded-xl p-4"
-      >
-        <div>
-          <div class="text-sm font-semibold text-foreground">
-            {{ bind.action }}
-          </div>
-        </div>
+  <div v-else-if="activeSection === 'Keybinds'" class="flex flex-col gap-4">
+    <div class="settings-card rounded-2xl p-5">
+      <div class="flex items-center justify-between gap-3">
+        <div class="settings-label">Keyboard Shortcuts</div>
         <button
           type="button"
-          class="keycap min-w-[10rem] text-center"
-          :class="
-            editingActionId === bind.id ? 'ring-2 ring-indigo-400/70' : ''
-          "
-          @click="startEditingKeybind(bind.id)"
-          @keydown="updateBinding(bind.id, $event)"
-          @blur="cancelEditingKeybind"
+          class="rounded-lg px-3 py-1.5 text-xs font-semibold bg-glass-1 text-fg-soft hover:bg-glass-2"
+          @click="resetDefaults"
         >
-          {{
-            editingActionId === bind.id
-              ? 'Press new shortcut…'
-              : bind.binding || '—'
-          }}
+          Reset defaults
         </button>
       </div>
-      <p v-if="keybindError" class="text-xs text-red-600">{{ keybindError }}</p>
-      <p class="text-xs text-muted">
-        Click a shortcut and press a new key combo to change it.
+      <div class="mt-4 flex flex-col gap-3">
+        <div
+          v-for="bind in keybindRows"
+          :key="bind.id"
+          class="settings-panel flex items-center justify-between gap-4 rounded-xl p-4"
+        >
+          <div>
+            <div class="text-sm font-semibold text-foreground">
+              {{ bind.action }}
+            </div>
+          </div>
+          <button
+            type="button"
+            class="keycap min-w-[10rem] text-center"
+            :class="
+              editingActionId === bind.id ? 'ring-2 ring-indigo-400/70' : ''
+            "
+            @click="startEditingKeybind(bind.id)"
+            @keydown="updateBinding(bind.id, $event)"
+            @blur="cancelEditingKeybind"
+          >
+            {{
+              editingActionId === bind.id
+                ? 'Press new shortcut…'
+                : bind.binding || '—'
+            }}
+          </button>
+        </div>
+        <p v-if="keybindError" class="text-xs text-red-600">
+          {{ keybindError }}
+        </p>
+        <p class="text-xs text-muted">
+          Click a shortcut and press a new key combo to change it.
+        </p>
+      </div>
+    </div>
+
+    <div class="settings-card rounded-2xl p-5">
+      <div class="settings-label">Image viewer</div>
+      <p class="mt-2 text-sm text-fg-soft">
+        Choose how scroll wheel and trackpad gestures behave while viewing an
+        image.
       </p>
+      <div class="mt-4">
+        <div class="settings-toggle">
+          <span>
+            <span class="block text-sm font-semibold text-foreground"
+              >Scroll to pan</span
+            >
+            <span class="block text-sm text-muted">
+              Two-finger scroll moves the image; pinch to zoom. Turn off to use
+              scroll to zoom instead (classic).
+            </span>
+          </span>
+          <SettingsPillSwitch
+            :model-value="imageViewerPrefs.wheelScrollPans"
+            ariaLabel="Scroll to pan in image viewer"
+            @update:model-value="setImageViewerWheelScrollPans"
+          />
+        </div>
+      </div>
     </div>
   </div>
 

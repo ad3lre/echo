@@ -2,6 +2,7 @@ import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { isDesktop } from '@/platform/desktopBridge';
 import { AuthApiError } from '@/api/authClient';
+import { PasskeyCeremonyNotReadyError } from '@/utils/passkeyWebCeremony';
 
 export type PasskeyCeremonyMode = 'login' | 'register';
 
@@ -44,6 +45,11 @@ export function mapPasskeyCeremonyError(
   err: unknown,
   mode: PasskeyCeremonyMode,
 ): string {
+  if (err instanceof PasskeyCeremonyNotReadyError) {
+    return mode === 'register'
+      ? 'Passkey setup is still loading. Wait a moment, then tap Add passkey again.'
+      : 'Passkey sign-in is still loading. Wait a moment, then tap Sign in with passkey again.';
+  }
   if (err instanceof AuthApiError) {
     if (err.body.code === 'NOT_AVAILABLE') {
       return mode === 'register'

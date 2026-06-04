@@ -23,6 +23,7 @@ const isOpen = computed(() => !!active.value);
 useFocusTrap(modalRef, isOpen);
 
 const promptValue = ref('');
+const twoChoiceCardSelection = ref<'primary' | 'secondary' | null>(null);
 
 watch(
   () => active.value,
@@ -32,6 +33,7 @@ watch(
     } else {
       promptValue.value = '';
     }
+    twoChoiceCardSelection.value = null;
   },
   { immediate: true },
 );
@@ -111,6 +113,11 @@ function pickTwoChoice(which: 'primary' | 'secondary') {
   });
   setActive(null);
   maybeDequeue();
+}
+
+function confirmTwoChoiceCardSelection() {
+  if (!twoChoiceCardSelection.value) return;
+  pickTwoChoice(twoChoiceCardSelection.value);
 }
 
 function onDocumentEscape(e: KeyboardEvent) {
@@ -235,7 +242,11 @@ onUnmounted(() => {
             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 ring-1 ring-indigo-500/25"
             aria-hidden="true"
           >
-            <img :src="icons.folder" alt="" class="h-5 w-5 opacity-90" />
+            <img
+              :src="icons.folder"
+              alt=""
+              class="echo-ink-icon h-5 w-5 opacity-90"
+            />
           </span>
           <h2
             :id="titleId"
@@ -269,18 +280,29 @@ onUnmounted(() => {
         </div>
 
         <div v-if="active.kind === 'twoChoice' && twoChoiceUsesCardLayout">
-          <div class="mt-5 grid gap-3 sm:grid-cols-2">
+          <div
+            class="mt-5 grid gap-3 sm:grid-cols-2"
+            role="radiogroup"
+            :aria-labelledby="titleId"
+          >
             <button
               type="button"
-              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-glass-hover"
-              @click="pickTwoChoice('primary')"
+              role="radio"
+              :aria-checked="twoChoiceCardSelection === 'primary'"
+              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border px-4 py-3 text-left transition-colors"
+              :class="
+                twoChoiceCardSelection === 'primary'
+                  ? 'border-indigo-500/35 bg-indigo-500/10 hover:bg-indigo-500/20'
+                  : 'border-border bg-surface hover:bg-glass-hover'
+              "
+              @click="twoChoiceCardSelection = 'primary'"
             >
               <span class="flex items-center gap-2">
                 <img
                   v-if="active.primaryIconSrc"
                   :src="active.primaryIconSrc"
                   alt=""
-                  class="h-5 w-5 shrink-0 opacity-85"
+                  class="echo-ink-icon h-5 w-5 shrink-0 opacity-85"
                 />
                 <span class="text-sm font-semibold text-foreground">{{
                   active.primaryLabel
@@ -294,15 +316,22 @@ onUnmounted(() => {
             </button>
             <button
               type="button"
-              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border border-indigo-500/35 bg-indigo-500/10 px-4 py-3 text-left transition-colors hover:bg-indigo-500/20"
-              @click="pickTwoChoice('secondary')"
+              role="radio"
+              :aria-checked="twoChoiceCardSelection === 'secondary'"
+              class="flex min-w-0 flex-col items-start gap-2 rounded-xl border px-4 py-3 text-left transition-colors"
+              :class="
+                twoChoiceCardSelection === 'secondary'
+                  ? 'border-indigo-500/35 bg-indigo-500/10 hover:bg-indigo-500/20'
+                  : 'border-border bg-surface hover:bg-glass-hover'
+              "
+              @click="twoChoiceCardSelection = 'secondary'"
             >
               <span class="flex items-center gap-2">
                 <img
                   v-if="active.secondaryIconSrc"
                   :src="active.secondaryIconSrc"
                   alt=""
-                  class="h-5 w-5 shrink-0 opacity-85"
+                  class="echo-ink-icon h-5 w-5 shrink-0 opacity-85"
                 />
                 <span class="text-sm font-semibold text-foreground">{{
                   active.secondaryLabel
@@ -315,13 +344,22 @@ onUnmounted(() => {
               >
             </button>
           </div>
-          <div class="mt-5 flex justify-end border-t border-border pt-4">
+          <div class="mt-5 flex justify-end gap-2 border-t border-border pt-4">
             <button
               type="button"
               class="rounded-lg px-4 py-2 text-sm font-semibold text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
               @click="cancel"
             >
               {{ cancelLabel }}
+            </button>
+            <button
+              type="button"
+              class="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+              :class="confirmClass"
+              :disabled="!twoChoiceCardSelection"
+              @click="confirmTwoChoiceCardSelection"
+            >
+              Confirm
             </button>
           </div>
         </div>

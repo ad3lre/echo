@@ -12,6 +12,7 @@ import {
   canUserAccessChannel,
   isMemberOfServer,
 } from '../../../domain/echoPermissions';
+import { getMergedRolePermissions } from '../../../domain/echoStore/permissions';
 import { echoUsersShareAnyServer } from '../../../domain/echoStore/social';
 import { getEchoEntitlements } from '../../../domain/echoPlanEntitlements';
 import { ECHO_RINGTONE_UPLOAD_MAX_BYTES } from '../../../../../shared/echoPlanLimits';
@@ -73,6 +74,7 @@ import { isEchoChatUserMediaStorageKey } from '../../../../../shared/chatMediaRe
 import {
   isEchoPublicEmojiCdnStorageKey,
   isEchoPublicServerBrandingStorageKey,
+  normalizeEchoUploadStorageKeyPath,
 } from '../../../../../shared/echoUploadStorageKey';
 import {
   getChatUploadRetentionByStorageKey,
@@ -175,10 +177,15 @@ function dedupeScopePrefixFromStorageKey(storageKey: string): string {
   return trimmed.slice(0, slash + 1);
 }
 
-function decodeUploadFilesRouteStorageKey(req: FastifyRequest): string | null {
+function decodeUploadRouteStorageKey(req: FastifyRequest): string | null {
   const star = (req.params as { '*': string })['*'];
   if (typeof star !== 'string' || !star) return null;
-  return decodeURIComponent(star.replace(/\+/g, ' ')).trim() || null;
+  try {
+    const decoded = decodeURIComponent(star.replace(/\+/g, ' '));
+    return normalizeEchoUploadStorageKeyPath(decoded);
+  } catch {
+    return null;
+  }
 }
 
 async function requireAuthUnlessUploadReadGranted(
@@ -208,15 +215,8 @@ async function requireAuthUnlessPublicServerBrandingUpload(
   await requireAuthUnlessUploadReadGranted(
     req,
     reply,
-    decodeUploadFilesRouteStorageKey(req),
+    decodeUploadRouteStorageKey(req),
   );
-}
-
-function decodeUploadS3RouteStorageKey(req: FastifyRequest): string | null {
-  const star = (req.params as { '*': string })['*'];
-  if (typeof star !== 'string' || !star) return null;
-  const key = decodeURIComponent(star.replace(/\+/g, ' ')).trim();
-  return key || null;
 }
 
 async function requireAuthUnlessPublicServerBrandingS3Upload(
@@ -226,7 +226,7 @@ async function requireAuthUnlessPublicServerBrandingS3Upload(
   await requireAuthUnlessUploadReadGranted(
     req,
     reply,
-    decodeUploadS3RouteStorageKey(req),
+    decodeUploadRouteStorageKey(req),
   );
 }
 
@@ -299,8 +299,12 @@ async function canUserReadLocalUploadStorageKey(
   if (key.startsWith('echo/server-application-attachments/')) {
     const parts = key.split('/');
     const serverId = parts[2]?.trim();
-    if (!serverId) return false;
-    return isMemberOfServer(pool, serverId, userId);
+    const applicantUserId = parts[3]?.trim();
+    if (!serverId || !applicantUserId) return false;
+    if (userId === applicantUserId) return true;
+    if (!(await isMemberOfServer(pool, serverId, userId))) return false;
+    const perms = await getMergedRolePermissions(pool, serverId, userId);
+    return perms.has('MANAGE_GUILD');
   }
   if (key.startsWith('echo/')) {
     const parts = key.split('/');
@@ -382,7 +386,7 @@ export default async function echoUploadsRoutes(
       if (!config.echoLocalUploadDir) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
-      const key = decodeUploadFilesRouteStorageKey(req);
+      const key = decodeUploadRouteStorageKey(req);
       if (!key) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
@@ -461,12 +465,9 @@ export default async function echoUploadsRoutes(
       if (!config.echoS3PublicReadThroughApi || !isEchoS3UploadConfigured()) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
       }
-      const key = decodeUploadS3RouteStorageKey(req);
+      const key = decodeUploadRouteStorageKey(req);
       if (!key) {
         return sendError(reply, 404, 'NOT_FOUND', 'Not found');
-      }
-      if (key.length > 512 || key.includes('..') || key.startsWith('/')) {
-        return sendError(reply, 400, 'INVALID_BODY', 'Invalid key');
       }
       const canRead = await canAccessUploadStorageKey(req, key);
       if (!canRead) {

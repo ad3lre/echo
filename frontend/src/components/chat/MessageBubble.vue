@@ -49,6 +49,7 @@ import MessageAttachments from './MessageAttachments.vue';
 import PendingMediaPreview from './PendingMediaPreview.vue';
 import MessageReactions from './MessageReactions.vue';
 import MessageHeader from './MessageHeader.vue';
+import MessageSendPendingDots from './MessageSendPendingDots.vue';
 import MessageReplyPreview from './MessageReplyPreview.vue';
 import MessagePreviewSnippet from './MessagePreviewSnippet.vue';
 import MessageContextMenu from './MessageContextMenu.vue';
@@ -96,6 +97,7 @@ import { isDmCallRollupCollapseMessageId } from '@/features/chat/domain/dmCallLo
 import { emitDiagnostic } from '@/observability/sessionDiagnostics';
 import { useEchoWorkspace } from '@/composables/useEchoWorkspace';
 import { resolveGuildMemberDisplayName } from '@/utils/resolveGuildMemberDisplayName';
+import { isOutboundMessageSendPending } from '@/services/realtime/deferredMediaOutboundSend';
 
 const props = defineProps<{
   /** Prebuilt row: message, layout, reply preview, separators — from MessageList view model. */
@@ -288,6 +290,13 @@ const customEmojiRenderKey = computed(
 );
 
 const displayAttachments = computed(() => message.value.attachments ?? []);
+
+const isSendPending = computed(() => {
+  const channelId = props.channelId?.trim();
+  const messageId = message.value.id?.trim();
+  if (!channelId || !messageId) return false;
+  return isOutboundMessageSendPending(channelId, messageId);
+});
 
 function parseSingleEmojiForReactions(emoji: string): string {
   return renderSingleEmojiHtml(emoji, {
@@ -1190,6 +1199,7 @@ watch(
         'reply-message': message.replyTo,
         'message-mentioned': shouldHighlightMention,
         'message-bubble--unread': row.readState === 'unread',
+        'message-bubble--send-pending': isSendPending,
       },
     ]"
     @contextmenu="onRootContextMenu"
@@ -1289,7 +1299,9 @@ watch(
         class="msg-gutter w-10 shrink-0 flex items-start justify-end"
         data-dev-hit="message"
       >
+        <MessageSendPendingDots v-if="isSendPending" />
         <span
+          v-else
           class="msg-hover-time text-[9px] tabular-nums leading-none text-muted opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 select-none whitespace-nowrap text-right"
         >
           {{ shortTime }}
@@ -1352,6 +1364,7 @@ watch(
           :author-offline="authorLooksOffline"
           :is-pinned="isPinned"
           :save-feedback="saveFeedback"
+          :send-pending="isSendPending"
           :channel-id="channelId"
           @open-profile="openAuthorProfile"
         />

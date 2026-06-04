@@ -424,7 +424,7 @@ export default async function echoDmRoutes(
           reply,
           403,
           'FORBIDDEN',
-          'You are not a member of this group',
+          'Only the group owner can remove other members',
         );
       }
       if (r === 'not_found') {
@@ -552,7 +552,12 @@ export default async function echoDmRoutes(
         ...(pfp !== undefined ? { pfp } : {}),
       });
       if (r === 'forbidden')
-        return sendError(reply, 403, 'FORBIDDEN', 'Not a member of this group');
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Only the group owner can update this group',
+        );
       if (r === 'not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'Group not found');
       if (r === 'invalid_name')

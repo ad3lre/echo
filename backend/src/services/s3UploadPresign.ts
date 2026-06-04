@@ -3,9 +3,8 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from '../config';
 import { ECHO_UPLOAD_ABS_MAX_BYTES } from '../../../shared/echoPlanLimits';
 import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '../../../shared/echoS3ReadThrough';
+import { isSafeEchoUploadStorageKeyPath } from '../../../shared/echoUploadStorageKey';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from './localUploadDisk';
-
-const MAX_KEY_LEN = 512;
 
 /**
  * Historical default for routes that do not yet resolve per-user caps (tests, legacy callers).
@@ -231,12 +230,7 @@ export async function presignEchoUpload(opts: {
   }
 
   const key = opts.key.trim();
-  if (
-    !key ||
-    key.length > MAX_KEY_LEN ||
-    key.includes('..') ||
-    key.startsWith('/')
-  ) {
+  if (!isSafeEchoUploadStorageKeyPath(key)) {
     return { ok: false, reason: 'INVALID_BODY' };
   }
   const contentType = opts.contentType.trim();

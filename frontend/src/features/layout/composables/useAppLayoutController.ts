@@ -33,6 +33,7 @@ import { useStageVcActivityBlock } from '@/features/voice/composables/useStageVc
 import { useAppLayoutUiState } from './useAppLayoutUiState';
 import { useAppLayoutShellNavigation } from './useAppLayoutShellNavigation';
 import { useImmediateShellSwitchPending } from './useImmediateShellSwitchPending';
+import { isGuildShellSettling as computeGuildShellSettling } from './guildShellSettling';
 import { useAppLayoutActiveChannelNavigation } from './useAppLayoutActiveChannelNavigation';
 import { useAppLayoutRailLoadingDerived } from './useAppLayoutRailLoadingDerived';
 import { useAppLayoutChannelManageCapabilities } from './useAppLayoutChannelManageCapabilities';
@@ -665,9 +666,23 @@ export function useAppLayoutController() {
 
   const isChannelActive = createIsChannelActive(activeChannelId);
 
+  const isGuildShellSettledForSwitchPending = computed(
+    () =>
+      !computeGuildShellSettling({
+        rail: activeRailTab.value,
+        selectedServerId: serverStore.selectedServerId,
+        activeChannelId: activeChannelId.value,
+        categoriesByServer: workspace.categoriesByServer.value,
+        workspaceLoading: workspace.loading.value,
+        workspaceFromApi: workspace.fromApi.value,
+        initialLoadInFlight: workspace.initialLoadInFlight.value,
+      }),
+  );
+
   const { immediateShellSwitchPending } = useImmediateShellSwitchPending({
     activeRailTab,
     selectedServerId: selectedServerIdRef,
+    clearWhen: isGuildShellSettledForSwitchPending,
   });
 
   const selectedServerEcho = useComputedOptionalRefAlias(selectedServerRef);
@@ -1599,6 +1614,7 @@ export function useAppLayoutController() {
 
   const {
     isServerRailFastSwitchPending,
+    isGuildShellSettling,
     isChannelPanelSwitchLoading,
     isMessageSurfaceSwitchLoading,
   } = useAppLayoutRailLoadingDerived({
@@ -2670,8 +2686,12 @@ export function useAppLayoutController() {
     echoAttention.applyServerChannelMarkRead(cid, targetId);
     const token = authSession.accessToken?.trim() ?? '';
     try {
-      const snapshot = await putEchoChannelReadState(token, cid, targetId);
-      echoAttention.replaceSnapshot(snapshot);
+      const readState = await putEchoChannelReadState(token, cid, targetId);
+      echoAttention.mergeReadStateUpdate(
+        cid,
+        readState.lastReadMessageId,
+        readState.channelAttention,
+      );
       if (!opts?.silent) {
         dispatchAppToast(
           opts?.successMessage ?? 'Marked channel as read.',
@@ -2837,6 +2857,7 @@ export function useAppLayoutController() {
   });
   const isMemberSurfaceSwitchLoading = useAppLayoutMemberSurfaceSwitchLoading({
     isServerRailFastSwitchPending,
+    isGuildShellSettling,
     memberListUsers,
   });
 
@@ -3136,8 +3157,11 @@ export function useAppLayoutController() {
   }
 
   /** Rows reconstructed from the in-memory message cache (live socket updates). */
-  const dmMentionNotificationsClient = computed(() =>
-    collectMentionNotificationsFromAuthority({
+  const dmMentionNotificationsClient = computed(() => {
+    // Depend on the global resolver version so this re-computes when messages
+    // are prefetched/loaded into the cache, replacing "Loading mention…" stubs.
+    void messageReadFacade.globalResolverVersion.value;
+    return collectMentionNotificationsFromAuthority({
       channelAttentionByChannelId: channelAttentionByChannelId.value,
       readStateByChannelId: readStateByChannelId.value,
       serverNotificationLevelByServerId:
@@ -3154,11 +3178,11 @@ export function useAppLayoutController() {
           serverMemberNicknames: workspace.serverMemberNicknames.value,
         }),
       maxItems: 120,
-    }),
-  );
+    });
+  });
 
   const {
-    loading: mentionNotificationHydrationLoading,
+    loading: mentionNotificationLegacyHydrationLoading,
     failedChannelIds: mentionNotificationFailedChannelIds,
   } = useMentionNotificationHydration({
     rows: dmMentionNotificationsClient,
@@ -3169,8 +3193,19 @@ export function useAppLayoutController() {
   // Once loaded it becomes the source of truth (no per-channel prefetch needed);
   // live socket rows not yet in the feed are merged in from the client cache.
   const mentionFeed = useMentionNotificationsFeedStore();
-  const { rows: mentionFeedRows, loaded: mentionFeedLoaded } =
-    storeToRefs(mentionFeed);
+  const {
+    rows: mentionFeedRows,
+    loaded: mentionFeedLoaded,
+    loading: mentionFeedLoading,
+  } = storeToRefs(mentionFeed);
+
+  const mentionNotificationHydrationLoading = computed(() => {
+    if (mentionFeedLoaded.value) return false;
+    return (
+      mentionFeedLoading.value ||
+      mentionNotificationLegacyHydrationLoading.value
+    );
+  });
 
   const dmMentionNotificationsBase = computed(() => {
     if (!mentionFeedLoaded.value) return dmMentionNotificationsClient.value;
@@ -4486,6 +4521,7 @@ export function useAppLayoutController() {
       isMoreServersPanelOpen,
       isMoreServersPinned,
       isChannelPanelSwitchLoading,
+      isGuildShellSettling,
       isMessageSurfaceSwitchLoading,
       isMemberSurfaceSwitchLoading,
       isEchoRoleBootstrapLoading,

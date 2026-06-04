@@ -3,6 +3,27 @@ import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from './echoS3ReadThrough';
 /** Same-origin path for local disk upload reads (mirrors backend `localUploadDisk`). */
 export const ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX = '/api/v1/echo/uploads/files/';
 
+/** Max storage key length (aligned with S3 presign and upload read routes). */
+export const ECHO_UPLOAD_STORAGE_KEY_MAX_LEN = 512;
+
+/**
+ * Reject path traversal and absolute paths before any disk or URL key use.
+ * Does not validate key prefix semantics (channel membership, etc.).
+ */
+export function isSafeEchoUploadStorageKeyPath(key: string): boolean {
+  const t = key.trim();
+  if (!t || t.length > ECHO_UPLOAD_STORAGE_KEY_MAX_LEN) return false;
+  if (t.includes('..') || t.startsWith('/') || t.startsWith('\\')) return false;
+  if (t.toLowerCase().startsWith('data:')) return false;
+  return true;
+}
+
+/** Returns trimmed key when safe, otherwise null. */
+export function normalizeEchoUploadStorageKeyPath(key: string): string | null {
+  const t = key.trim();
+  return isSafeEchoUploadStorageKeyPath(t) ? t : null;
+}
+
 /**
  * Server icon/banner objects are world-readable (Explore directory, invite preview, OG tags).
  * Upload/write remains restricted to guild managers.
@@ -39,7 +60,8 @@ function decodeStorageKeyPath(encodedPath: string): string | null {
   try {
     const segments = encodedPath.split('/').filter((s) => s.length > 0);
     if (!segments.length) return null;
-    return segments.map((seg) => decodeURIComponent(seg)).join('/');
+    const decoded = segments.map((seg) => decodeURIComponent(seg)).join('/');
+    return normalizeEchoUploadStorageKeyPath(decoded);
   } catch {
     return null;
   }
@@ -96,7 +118,7 @@ export function extractStorageKeyFromEchoMediaUrl(
   if (!t) return null;
 
   if (t.startsWith('echo/') && !/^https?:\/\//i.test(t)) {
-    return t.replace(/^\/+/, '');
+    return normalizeEchoUploadStorageKeyPath(t.replace(/^\/+/, ''));
   }
 
   const tryPathSuffix = (pathname: string, prefix: string): string | null => {
@@ -131,10 +153,14 @@ export function extractStorageKeyFromEchoMediaUrl(
       if (fromLocal) return fromLocal;
 
       const barePath = u.pathname.replace(/^\/+/, '');
-      if (barePath.startsWith('echo/')) return barePath;
+      if (barePath.startsWith('echo/')) {
+        return normalizeEchoUploadStorageKeyPath(barePath);
+      }
 
       if (u.hostname.toLowerCase().endsWith('.r2.dev')) {
-        if (barePath.startsWith('echo/')) return barePath;
+        if (barePath.startsWith('echo/')) {
+          return normalizeEchoUploadStorageKeyPath(barePath);
+        }
       }
 
       for (const prefix of opts?.httpPublicUrlPrefixes ?? []) {

@@ -43,6 +43,10 @@ async function deploy() {
   await runCommand('npm', ['run', 'build', '-w', 'frontend'], ROOT_DIR);
   console.log('Frontend build complete.');
 
+  console.log('\n--- Building Marketing (app-echo.net) ---');
+  await runCommand('npm', ['run', 'build', '-w', 'marketing'], ROOT_DIR);
+  console.log('Marketing build complete.');
+
   console.log('\n--- Building Backend ---');
   await runCommand('npm', ['run', 'build', '-w', 'backend'], ROOT_DIR);
   console.log('Backend build complete.');

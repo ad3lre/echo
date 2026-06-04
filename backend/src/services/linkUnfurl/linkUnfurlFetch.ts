@@ -83,22 +83,46 @@ function expandIpv6ToHextets(ipv6: string): number[] | null {
   return [...left, ...new Array<number>(zerosNeeded).fill(0), ...right];
 }
 
-function mappedIpv4OctetsFromIpv6(ipv6: string): number[] | null {
-  const hextets = expandIpv6ToHextets(ipv6);
-  if (!hextets) return null;
-  if (
-    hextets[0] !== 0 ||
-    hextets[1] !== 0 ||
-    hextets[2] !== 0 ||
-    hextets[3] !== 0 ||
-    hextets[4] !== 0 ||
-    hextets[5] !== 0xffff
-  ) {
-    return null;
+function ipv6HextetsAreZero(
+  hextets: number[],
+  from: number,
+  to: number,
+): boolean {
+  for (let i = from; i < to; i++) {
+    if (hextets[i] !== 0) return false;
   }
+  return true;
+}
+
+function embeddedIpv4OctetsFromLowHextets(hextets: number[]): number[] {
   const hi = hextets[6]!;
   const lo = hextets[7]!;
   return [(hi >> 8) & 0xff, hi & 0xff, (lo >> 8) & 0xff, lo & 0xff];
+}
+
+/** IPv4-mapped, IPv4-compatible (::/96), and NAT64 (64:ff9b::/96) embedded forms. */
+function embeddedIpv4OctetsFromIpv6(ipv6: string): number[] | null {
+  const hextets = expandIpv6ToHextets(ipv6);
+  if (!hextets) return null;
+  if (
+    ipv6HextetsAreZero(hextets, 0, 5) &&
+    hextets[5] === 0xffff &&
+    !ipv6HextetsAreZero(hextets, 6, 8)
+  ) {
+    return embeddedIpv4OctetsFromLowHextets(hextets);
+  }
+  if (
+    hextets[0] === 0x64 &&
+    hextets[1] === 0xff9b &&
+    ipv6HextetsAreZero(hextets, 2, 6) &&
+    !ipv6HextetsAreZero(hextets, 6, 8)
+  ) {
+    return embeddedIpv4OctetsFromLowHextets(hextets);
+  }
+  if (ipv6HextetsAreZero(hextets, 0, 6) && !ipv6HextetsAreZero(hextets, 6, 8)) {
+    return embeddedIpv4OctetsFromLowHextets(hextets);
+  }
+  return null;
 }
 
 export function isPrivateOrLocalIpLiteral(hostnameOrIp: string): boolean {
@@ -124,9 +148,9 @@ export function isPrivateOrLocalIpLiteral(hostnameOrIp: string): boolean {
     ) {
       return true;
     }
-    const mappedIpv4 = mappedIpv4OctetsFromIpv6(normalized);
-    if (mappedIpv4) {
-      return isPrivateOrLocalIpv4Octets(mappedIpv4);
+    const embeddedIpv4 = embeddedIpv4OctetsFromIpv6(normalized);
+    if (embeddedIpv4) {
+      return isPrivateOrLocalIpv4Octets(embeddedIpv4);
     }
   }
   const ipv4 = parseIpv4Octets(h);

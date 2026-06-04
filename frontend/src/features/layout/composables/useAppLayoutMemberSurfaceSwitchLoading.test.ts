@@ -6,6 +6,16 @@ describe('useAppLayoutMemberSurfaceSwitchLoading', () => {
   it('is true when pending and member list empty', () => {
     const loading = useAppLayoutMemberSurfaceSwitchLoading({
       isServerRailFastSwitchPending: ref(true),
+      isGuildShellSettling: ref(false),
+      memberListUsers: ref([]),
+    });
+    expect(loading.value).toBe(true);
+  });
+
+  it('is true when guild shell settling and member list empty', () => {
+    const loading = useAppLayoutMemberSurfaceSwitchLoading({
+      isServerRailFastSwitchPending: ref(false),
+      isGuildShellSettling: ref(true),
       memberListUsers: ref([]),
     });
     expect(loading.value).toBe(true);
@@ -14,6 +24,7 @@ describe('useAppLayoutMemberSurfaceSwitchLoading', () => {
   it('is false when list has users', () => {
     const loading = useAppLayoutMemberSurfaceSwitchLoading({
       isServerRailFastSwitchPending: ref(true),
+      isGuildShellSettling: ref(true),
       memberListUsers: ref([{ id: '1' }]),
     });
     expect(loading.value).toBe(false);
@@ -22,6 +33,7 @@ describe('useAppLayoutMemberSurfaceSwitchLoading', () => {
   it('accepts computed member list', () => {
     const loading = useAppLayoutMemberSurfaceSwitchLoading({
       isServerRailFastSwitchPending: ref(true),
+      isGuildShellSettling: ref(false),
       memberListUsers: computed(() => []),
     });
     expect(loading.value).toBe(true);

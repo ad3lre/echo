@@ -123,10 +123,14 @@ export async function buildEvaluationPlan(
   userId: string,
   channelId: string | undefined,
 ): Promise<EvaluationPlan> {
-  if (await isEchoServerOwnerLocal(pool, serverId, userId))
-    return { kind: 'owner_bypass' };
-  if (!(await isMember(pool, serverId, userId))) return { kind: 'not_member' };
-  if (await isBanned(pool, serverId, userId)) return { kind: 'banned' };
+  const [owner, member, banned] = await Promise.all([
+    isEchoServerOwnerLocal(pool, serverId, userId),
+    isMember(pool, serverId, userId),
+    isBanned(pool, serverId, userId),
+  ]);
+  if (owner) return { kind: 'owner_bypass' };
+  if (!member) return { kind: 'not_member' };
+  if (banned) return { kind: 'banned' };
 
   const r = await pool.query(
     `
@@ -137,7 +141,10 @@ export async function buildEvaluationPlan(
      AND mr.role_id = r.id
      AND mr.user_id = $2
     WHERE r.server_id = $1
-      AND (mr.user_id IS NOT NULL OR r.name = '@everyone')
+      AND (
+        mr.user_id IS NOT NULL
+        OR r.position = (SELECT MIN(position) FROM echo_roles WHERE server_id = $1)
+      )
     ORDER BY r.position ASC, r.id ASC
     `,
     [serverId, userId],
@@ -414,37 +421,54 @@ export async function buildBatchEvaluationPlans(
   const result = new Map<string, EvaluationPlan>();
   if (channelIds.length === 0) return result;
 
-  if (await isEchoServerOwnerLocal(pool, serverId, userId)) {
+  const [owner, member, banned] = await Promise.all([
+    isEchoServerOwnerLocal(pool, serverId, userId),
+    isMember(pool, serverId, userId),
+    isBanned(pool, serverId, userId),
+  ]);
+  if (owner) {
     for (const cid of channelIds) result.set(cid, { kind: 'owner_bypass' });
     return result;
   }
-  if (!(await isMember(pool, serverId, userId))) {
+  if (!member) {
     for (const cid of channelIds) result.set(cid, { kind: 'not_member' });
     return result;
   }
-  if (await isBanned(pool, serverId, userId)) {
+  if (banned) {
     for (const cid of channelIds) result.set(cid, { kind: 'banned' });
     return result;
   }
 
   const r = await pool.query(
-    `SELECT r.id, r.position, r.permissions
+    `SELECT r.id, r.position, r.permissions, r.role_type
      FROM echo_roles r
      LEFT JOIN echo_member_roles mr
        ON mr.server_id = r.server_id
       AND mr.role_id = r.id
       AND mr.user_id = $2
      WHERE r.server_id = $1
-       AND (mr.user_id IS NOT NULL OR r.name = '@everyone')
+       AND (
+         mr.user_id IS NOT NULL
+         OR r.position = (SELECT MIN(position) FROM echo_roles WHERE server_id = $1)
+       )
      ORDER BY r.position ASC, r.id ASC`,
     [serverId, userId],
   );
 
   let roles: RoleInput[] = r.rows.map(
-    (row: { id: unknown; position: unknown; permissions: unknown }) => ({
+    (row: {
+      id: unknown;
+      position: unknown;
+      permissions: unknown;
+      role_type?: unknown;
+    }) => ({
       id: String(row.id),
       position: Number(row.position ?? 0),
       permissions: row.permissions,
+      roleType:
+        row.role_type != null && typeof row.role_type === 'string'
+          ? row.role_type
+          : 'mixed',
     }),
   );
 

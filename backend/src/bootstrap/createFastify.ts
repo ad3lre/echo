@@ -5,7 +5,7 @@ import { config } from '../config';
 export function createFastifyServer() {
   return Fastify({
     requestIdHeader: 'x-request-id',
-    trustProxy: config.trustProxy,
+    trustProxy: config.trustProxy ? config.trustProxyHops : false,
     genReqId: () => randomUUID(),
     /** Allow legacy base64 profile banner / avatar uploads without keeping the limit overly large. */
     bodyLimit: 8 * 1024 * 1024,

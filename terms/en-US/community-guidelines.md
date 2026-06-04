@@ -1,7 +1,7 @@
 ## Community Guidelines — Echo
 
-**Last updated:** 23 March 2026  
-**Effective date:** 23 March 2026
+**Last updated:** 3 June 2026  
+**Effective date:** 3 June 2026
 
 These guidelines set Echo’s **platform-wide** expectations. **Communities (servers) may adopt their own stricter rules** for members and moderation, but they cannot override platform-wide safety requirements.
 
@@ -101,11 +101,15 @@ Rights and usage of content are defined in the Terms of Service, including any l
 
 Echo enforces these guidelines through a combination of automated systems and manual review.
 
-The platform reserves the right to take action where:
+The platform may take action where:
 
-user behavior threatens platform stability
-legal obligations require intervention
-abuse or exploitation of the system occurs
+- user behavior threatens platform stability
+- legal obligations require intervention
+- abuse or exploitation of the system occurs
+
+We aim to be fair and consistent. When we restrict, suspend, or ban your **platform** account, we will tell you **why** in plain language whenever we can (see our Terms of Service, Section 6). If you believe we got it wrong, **you have the right to appeal** through in-app support or **[support@app-echo.net](mailto:support@app-echo.net)**.
+
+**Community (server) moderation** — kicks, timeouts, and bans inside a server — is handled by that community’s moderators under their own rules. Echo does not run those day-to-day decisions. If you are banned from a server, ask that community’s staff for the reason and any local appeal process. Echo may still take separate **platform** action for serious violations of these guidelines or the law.
 
 ---
 

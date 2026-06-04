@@ -33,6 +33,8 @@ export function usePaperAutosave(opts: {
     if (!v && timer) {
       clearTimeout(timer);
       timer = null;
+      const json = opts.getContentJson();
+      if (json) void opts.save(json);
     }
   });
 

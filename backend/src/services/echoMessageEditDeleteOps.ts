@@ -3,13 +3,14 @@ import type pg from 'pg';
 import {
   softDeleteEchoMessage,
   updateEchoMessageContent,
+  type EchoMessageAuthorMeta,
   type EchoMessageEditBody,
 } from '../domain/echoStore/messageOps';
+import { getEchoChannelServerId, insertEchoAudit } from '../domain/echoStore';
 import {
-  getEchoChannelServerId,
-  getEchoMessageById,
-  insertEchoAudit,
-} from '../domain/echoStore';
+  selectEchoMessageBroadcastRow,
+  selectEchoMessageChannelRef,
+} from '../domain/echoMessagesDal';
 import { bulkSoftDeleteEchoMessagesForAuthorInServerSince } from '../domain/echoMessagesDal';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
 import { resolveAndBroadcastLinkEmbeds } from '../sockets/echoLinkEmbeds';
@@ -25,6 +26,7 @@ export async function editEchoMessageAndBroadcast(
   messageId: string,
   editorId: string,
   body: EchoMessageEditBody,
+  prevalidated?: EchoMessageAuthorMeta,
 ): Promise<'ok' | 'not_found' | 'forbidden'> {
   const r = await updateEchoMessageContent(
     pool,
@@ -32,12 +34,12 @@ export async function editEchoMessageAndBroadcast(
     messageId,
     editorId,
     body,
+    prevalidated,
   );
   if (r !== 'ok') return r;
 
-  const row = await getEchoMessageById(pool, messageId);
+  const row = await selectEchoMessageBroadcastRow(pool, channelId, messageId);
   if (!row) return 'not_found';
-  if (row.channelId !== channelId) return 'not_found';
 
   const editedAt = row.editedAt ?? new Date().toISOString();
   const plain = row.searchIndexText ?? row.content ?? '';
@@ -92,7 +94,7 @@ export async function editEchoMessageAndBroadcast(
     messageId,
     authorId: row.authorId,
     content: plain,
-    ...(mf >= 2 && row.contentJson !== undefined
+    ...(mf >= 2 && row.contentJson != null
       ? { contentJson: row.contentJson }
       : {}),
   });
@@ -108,8 +110,8 @@ export async function deleteEchoMessageAndBroadcast(
   actorId: string,
   asModerator: boolean,
 ): Promise<'ok' | 'not_found' | 'forbidden'> {
-  const before = await getEchoMessageById(pool, messageId);
-  if (!before || before.channelId !== channelId) return 'not_found';
+  const before = await selectEchoMessageChannelRef(pool, messageId, channelId);
+  if (!before || before.deleted) return 'not_found';
 
   const r = await softDeleteEchoMessage(
     pool,

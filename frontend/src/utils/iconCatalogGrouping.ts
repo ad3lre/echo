@@ -42,16 +42,36 @@ const PEOPLE_MEGA_SUBSTRINGS = [
   'person',
 ] as const;
 
-export type SemanticMegaKey = 'messaging' | 'voice' | 'people';
+export type SemanticMegaKey =
+  | 'messaging'
+  | 'voice'
+  | 'people'
+  | 'math'
+  | 'hobbies';
+
+const PACK_PREFIX_MEGA: Record<string, SemanticMegaKey> = {
+  'math-': 'math',
+  'hobby-': 'hobbies',
+};
 
 /**
  * Map many chat-, message-, CHAT-, etc. files into one mega-family (tier-0 chat vs voice from
  * {@link getChannelIconSortKeys}), plus a people bucket for common social avatars.
  */
+function resolvePackMegaKey(entry: IconCatalogEntry): SemanticMegaKey | null {
+  const stem = entry.id.replace(/\.svg$/i, '').toLowerCase();
+  for (const [prefix, mega] of Object.entries(PACK_PREFIX_MEGA)) {
+    if (stem.startsWith(prefix)) return mega;
+  }
+  return null;
+}
+
 export function resolveSemanticMegaKey(
   entry: IconCatalogEntry,
   channelType: 'text' | 'voice',
 ): SemanticMegaKey | null {
+  const pack = resolvePackMegaKey(entry);
+  if (pack) return pack;
   const keys = getChannelIconSortKeys(entry);
   if (keys.tier === 0) {
     if (channelType === 'text') {
@@ -76,6 +96,8 @@ const MEGA_LABEL: Record<SemanticMegaKey, string> = {
   messaging: 'Chat & messages',
   voice: 'Voice & video',
   people: 'People & profiles',
+  math: 'Math & science',
+  hobbies: 'Hobbies & fun',
 };
 
 /**
@@ -92,6 +114,8 @@ export function getBaseIconGroupKey(
       url: '',
       label: filename.replace(/\.svg$/i, '').trim(),
     };
+    const packMega = resolvePackMegaKey(entry);
+    if (packMega) return `__mega_${packMega}`;
     const mega = resolveSemanticMegaKey(entry, channelType);
     if (mega) return `__mega_${mega}`;
   }
@@ -112,7 +136,7 @@ function pickRepresentative(
 }
 
 function familyLabel(key: string, representative: IconCatalogEntry): string {
-  const mega = key.match(/^__mega_(messaging|voice|people)$/);
+  const mega = key.match(/^__mega_(messaging|voice|people|math|hobbies)$/);
   if (mega) {
     return MEGA_LABEL[mega[1] as SemanticMegaKey];
   }

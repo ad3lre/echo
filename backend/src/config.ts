@@ -264,6 +264,8 @@ interface AppConfig {
   readonly enforceHttps: boolean;
   /** Honor `X-Forwarded-*` only when the API is behind a trusted reverse proxy that strips spoofed headers. */
   readonly trustProxy: boolean;
+  /** Number of trusted proxy hops when `trustProxy` is enabled (Cloudflare → Caddy → Node = 2). */
+  readonly trustProxyHops: number;
   /**
    * When true, Helmet omits `Content-Security-Policy` and `Strict-Transport-Security` so the edge
    * proxy can emit them once (avoids duplicate/conflicting headers on `/api/` when the edge adds
@@ -516,6 +518,8 @@ interface AppConfig {
   readonly echoBugReportEmailFrom: string;
   /** Inbox that receives support-form submissions from the marketing site (default public support address). */
   readonly echoSupportEmail: string;
+  /** Public marketing site origin (app-echo.net) for CORS and deploy URL gates. */
+  readonly echoMarketingPublicUrl: string;
   readonly echoEmailVerificationTokenHours: number;
   readonly echoEmailVerificationResendCooldownSeconds: number;
   /** Telnyx API key; empty = SMS log-only (no outbound). */
@@ -542,6 +546,16 @@ interface AppConfig {
   readonly echoMfaPendingJwtExpiresIn: string;
   readonly echo2faRecoveryCodeCount: number;
   readonly echoMfaLoginMaxPerIpPer15Min: number;
+  /** Max failed password attempts per account before lockout. */
+  readonly echoLoginMaxPasswordFailures: number;
+  /** Max failed MFA attempts per account before lockout. */
+  readonly echoLoginMaxMfaFailures: number;
+  /** Duration of temporary account lockout after too many failures. */
+  readonly echoLoginLockoutDurationMs: number;
+  /** Base delay for exponential backoff before lockout threshold. */
+  readonly echoLoginBackoffBaseMs: number;
+  /** Start applying backoff after this many consecutive failures. */
+  readonly echoLoginBackoffAfterFailures: number;
   /** Discord user OAuth (optional). All three required to enable linking; secret must never be exposed to clients. */
   readonly discordOauthClientId: string;
   readonly discordOauthClientSecret: string;
@@ -1157,6 +1171,12 @@ export const config: AppConfig = {
   ),
   enforceHttps: parseBoolean(process.env.ENFORCE_HTTPS, isProduction),
   trustProxy: parseBoolean(process.env.ECHO_TRUST_PROXY, false),
+  trustProxyHops: (() => {
+    const raw = process.env.ECHO_TRUST_PROXY_HOPS;
+    if (raw === undefined || raw === '') return 1;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 && n <= 8 ? n : 1;
+  })(),
   echoEdgeSecurityHeaders: parseBoolean(
     process.env.ECHO_EDGE_SECURITY_HEADERS,
     false,
@@ -1527,6 +1547,8 @@ export const config: AppConfig = {
     'Echo Bugs <bugs@chat-echo.com>',
   echoSupportEmail:
     process.env.ECHO_SUPPORT_EMAIL?.trim() || 'support@app-echo.net',
+  echoMarketingPublicUrl:
+    process.env.ECHO_MARKETING_PUBLIC_URL?.trim() || 'https://app-echo.net',
   echoEmailVerificationTokenHours: (() => {
     const raw = process.env.ECHO_EMAIL_VERIFICATION_TOKEN_HOURS;
     if (raw === undefined || raw === '') return 48;
@@ -1605,6 +1627,38 @@ export const config: AppConfig = {
     if (raw === undefined || raw === '') return 60;
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 10 && n <= 500 ? n : 60;
+  })(),
+  echoLoginMaxPasswordFailures: (() => {
+    const raw = process.env.ECHO_LOGIN_MAX_PASSWORD_FAILURES;
+    if (raw === undefined || raw === '') return 10;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 3 && n <= 100 ? n : 10;
+  })(),
+  echoLoginMaxMfaFailures: (() => {
+    const raw = process.env.ECHO_LOGIN_MAX_MFA_FAILURES;
+    if (raw === undefined || raw === '') return 10;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 3 && n <= 100 ? n : 10;
+  })(),
+  echoLoginLockoutDurationMs: (() => {
+    const raw = process.env.ECHO_LOGIN_LOCKOUT_DURATION_MS;
+    if (raw === undefined || raw === '') return 15 * 60 * 1000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 60_000 && n <= 86_400_000
+      ? n
+      : 15 * 60 * 1000;
+  })(),
+  echoLoginBackoffBaseMs: (() => {
+    const raw = process.env.ECHO_LOGIN_BACKOFF_BASE_MS;
+    if (raw === undefined || raw === '') return 1000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 100 && n <= 60_000 ? n : 1000;
+  })(),
+  echoLoginBackoffAfterFailures: (() => {
+    const raw = process.env.ECHO_LOGIN_BACKOFF_AFTER_FAILURES;
+    if (raw === undefined || raw === '') return 5;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 1 && n <= 50 ? n : 5;
   })(),
   discordOauthClientId: process.env.DISCORD_OAUTH_CLIENT_ID?.trim() ?? '',
   discordOauthClientSecret:
@@ -1812,6 +1866,7 @@ if (config.isProduction) {
     echoAgentNetworkDiagnosticsEnabled:
       config.echoAgentNetworkDiagnosticsEnabled,
     echoAgentNetworkDiagnosticsToken: config.echoAgentNetworkDiagnosticsToken,
+    echoSmtpHost: config.echoSmtpHost,
     echoRequireMediaUrlHardeningInProduction:
       config.echoRequireMediaUrlHardeningInProduction,
     echoMediaUrlRequireHttps: config.echoMediaUrlRequireHttps,
@@ -1856,6 +1911,7 @@ function validateDeployPublicUrlOrigins(): void {
   const urls = [
     ['ECHO_APP_PUBLIC_URL', config.echoAppPublicUrl],
     ['ECHO_API_PUBLIC_URL', config.echoApiPublicUrl],
+    ['ECHO_MARKETING_PUBLIC_URL', config.echoMarketingPublicUrl],
   ] as const;
   for (const [label, raw] of urls) {
     const trimmed = normalizeEnvValue(raw);

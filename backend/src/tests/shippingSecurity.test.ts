@@ -199,11 +199,24 @@ async function run(): Promise<void> {
     );
     assert.equal(
       clientIpFromSocketHandshake(
+        {
+          'cf-connecting-ip': '198.51.100.20',
+          'x-forwarded-for': '203.0.113.10, 198.51.100.20',
+        },
+        '127.0.0.1',
+        true,
+      ),
+      '198.51.100.20',
+      'CF-Connecting-IP must win over spoofable leftmost XFF',
+    );
+    assert.equal(
+      clientIpFromSocketHandshake(
         { 'x-forwarded-for': '203.0.113.10, 198.51.100.20' },
         '127.0.0.1',
         true,
       ),
-      '203.0.113.10',
+      '198.51.100.20',
+      'trusted proxy must use rightmost XFF hop, not attacker-controlled leftmost',
     );
 
     const untrustedProxyRestore = setEnv({
@@ -749,6 +762,16 @@ async function run(): Promise<void> {
       /consumeLocalUploadTokenOnce\(/,
       'local upload route must consume upload tokens with one-time semantics',
     );
+    assert.match(
+      uploadsRouteSource,
+      /decodeUploadRouteStorageKey/,
+      'upload file routes must decode keys through shared path normalizer',
+    );
+    assert.match(
+      uploadsRouteSource,
+      /normalizeEchoUploadStorageKeyPath/,
+      'upload file routes must reject traversal keys before ACL checks',
+    );
 
     const chatMessageHandlerSource = await readFile(
       path.join(
@@ -826,6 +849,11 @@ async function run(): Promise<void> {
       localUploadDiskSource,
       /createWriteStream\(abs,\s*\{\s*flags:\s*'wx'\s*\}\)/,
       'local upload writes must be single-use (no overwrite) to prevent token replay',
+    );
+    assert.match(
+      localUploadDiskSource,
+      /normalizeEchoUploadStorageKeyPath/,
+      'local upload disk must normalize storage keys before path.join',
     );
   }
 
@@ -1094,6 +1122,30 @@ async function run(): Promise<void> {
       restore();
       clearConfigAndRoutes();
     }
+  }
+
+  {
+    const mainTs = await readFile(
+      path.join(repoRoot(), 'frontend', 'src', 'main.ts'),
+      'utf8',
+    );
+    const authClientTs = await readFile(
+      path.join(repoRoot(), 'frontend', 'src', 'api', 'authClient.ts'),
+      'utf8',
+    );
+    const rawProdConsole =
+      /console\.(warn|error|log)\(\s*['"`]\[echo-desktop\]/;
+    assert.equal(
+      rawProdConsole.test(mainTs),
+      false,
+      'main.ts must route [echo-desktop] console output through echoClientDebug* helpers',
+    );
+    const rawAuthConsole = /console\.(warn|error)\(\s*['"`]\[echo\]\[auth\]/;
+    assert.equal(
+      rawAuthConsole.test(authClientTs),
+      false,
+      'authClient.ts must route [echo][auth] console output through echoClientDebug* helpers',
+    );
   }
 
   console.log('shippingSecurity: ok');

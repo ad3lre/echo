@@ -22,6 +22,11 @@ import {
   isNativeBearerClient,
   nativeAuthRequestHeaders,
 } from '@/services/auth/nativeAuthToken';
+import {
+  echoClientDebugEnabled,
+  echoClientDebugError,
+  echoClientDebugWarn,
+} from '@/utils/echoClientDebug';
 
 const AUTH_BASE = `${API_BASE.replace(/\/$/, '')}/api/v1/auth`;
 const SIMPLE_POST_CONTENT_TYPES = new Set([
@@ -169,10 +174,7 @@ function authCorsProfile(
 
 /** True when verbose auth logging is allowed. Production bundles ignore `VITE_ECHO_AUTH_DEBUG`. */
 export function authDebugEnabled(): boolean {
-  return (
-    import.meta.env.DEV ||
-    (!import.meta.env.PROD && import.meta.env.VITE_ECHO_AUTH_DEBUG === 'true')
-  );
+  return echoClientDebugEnabled();
 }
 
 function logAuthNetworkFailure(params: {
@@ -185,7 +187,7 @@ function logAuthNetworkFailure(params: {
 }): void {
   if (!authDebugEnabled()) return;
   const cors = authCorsProfile(params.url, params.method, params.headers);
-  console.error(`[echo][auth][network] ${params.operation}`, {
+  echoClientDebugError(`[echo][auth][network] ${params.operation}`, {
     traceId: params.traceId,
     endpoint: params.url,
     method: params.method,
@@ -600,7 +602,7 @@ export async function authDesktopRedeemHandoff(
   const trimmedCode = code.trim();
   const trimmedNonce = nonce.trim();
   if (IS_ECHO_TAURI_SHELL && authDebugEnabled()) {
-    console.warn('[echo-desktop] redeem-handoff request', {
+    echoClientDebugWarn('[echo-desktop] redeem-handoff request', {
       traceId,
       url,
       codeLen: trimmedCode.length,
@@ -648,7 +650,7 @@ export async function authDesktopRedeemHandoff(
     throw error;
   }
   if (IS_ECHO_TAURI_SHELL && authDebugEnabled()) {
-    console.warn('[echo-desktop] redeem-handoff response', {
+    echoClientDebugWarn('[echo-desktop] redeem-handoff response', {
       traceId,
       status: res.status,
       ok: res.ok,
@@ -656,7 +658,7 @@ export async function authDesktopRedeemHandoff(
   }
   const data = (await parseJson(res)) as Record<string, unknown>;
   if (IS_ECHO_TAURI_SHELL && !res.ok && authDebugEnabled()) {
-    console.warn('[echo-desktop] redeem-handoff error body', {
+    echoClientDebugWarn('[echo-desktop] redeem-handoff error body', {
       traceId,
       status: res.status,
       code: typeof data.code === 'string' ? data.code : null,
@@ -847,7 +849,7 @@ export async function authContinueAsGuest(body?: {
   const data = (await parseJson(res)) as Record<string, unknown>;
   if (authDebugEnabled()) {
     if (res.ok) {
-      console.warn('[echo][auth][guest] response', {
+      echoClientDebugWarn('[echo][auth][guest] response', {
         endpoint: `${AUTH_BASE}/guest`,
         status: res.status,
         resumed:
@@ -856,7 +858,7 @@ export async function authContinueAsGuest(body?: {
             : undefined,
       });
     } else {
-      console.error('[echo][auth][guest] non-ok response', {
+      echoClientDebugError('[echo][auth][guest] non-ok response', {
         endpoint: `${AUTH_BASE}/guest`,
         status: res.status,
         body: data,
@@ -1048,7 +1050,7 @@ export async function authLogin(body: {
   }
   const data = await parseJson(res);
   if (!res.ok && authDebugEnabled()) {
-    console.error('[echo][auth][login] non-ok response', {
+    echoClientDebugError('[echo][auth][login] non-ok response', {
       endpoint: `${AUTH_BASE}/login`,
       status: res.status,
       body: data,
@@ -1482,8 +1484,10 @@ export type AuthSessionInfo = {
    * row powers this client. Omitted for legacy bearer auth or unknown binding.
    */
   isCurrentSession?: boolean;
-  /** Stored client hint when available; otherwise omit or null. */
+  /** Stored User-Agent when available; otherwise omit or null. */
   userAgent?: string | null;
+  /** Approximate location from edge headers at sign-in; otherwise omit or null. */
+  location?: string | null;
 };
 
 export async function authFetchSessions(): Promise<{

@@ -268,6 +268,60 @@ describe('MessageList runtime row synchronization', () => {
     });
   });
 
+  it('does not override an explicit user scroll with the initial anchor', async () => {
+    // Regression: opening a channel must not yank the viewport back to the
+    // anchor if the user has already started scrolling during history load.
+    const channelId = ref('ch-user-owned');
+    const initialHistoryLoading = ref(true);
+    const ids = ['m1', 'm2', 'm3'];
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    const Wrapper = defineComponent({
+      name: 'MessageListUserOwnedInitHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: channelId.value,
+            messages: messages.value,
+            messageScrollAnchor: 'top',
+            initialHistoryLoading: initialHistoryLoading.value,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+    await nextTick();
+
+    const scrollEl = container.querySelector(
+      '[data-cy="message-list"]',
+    ) as HTMLElement | null;
+    expect(scrollEl).not.toBeNull();
+    if (!scrollEl) return;
+
+    // User flicks the wheel while history is still streaming in.
+    scrollEl.dispatchEvent(new Event('wheel'));
+
+    // History finishes loading — the one-shot anchor would normally fire here.
+    initialHistoryLoading.value = false;
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
+  });
+
   it('does not paint a blocking busy mask during a DM-to-server switch', async () => {
     const queuedRafs: FrameRequestCallback[] = [];
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -502,5 +556,61 @@ describe('MessageList runtime row synchronization', () => {
       behavior: 'auto',
     });
     expect(readMessageListViewport('ch-restore')?.anchorMessageId).toBe('m20');
+  });
+
+  it('does not fall back to default anchor after user scroll aborts viewport restore', async () => {
+    const channelId = ref('ch-restore-gesture');
+    const ids = Array.from({ length: 40 }, (_, i) => `m${i + 1}`);
+    const mapEntries = ids.map(
+      (id) => [id, makeMessageWithAuthor(id)] as const,
+    );
+    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
+    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
+    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
+    messageWindowAuthority.orderedIds.value = ids.slice();
+
+    writeMessageListViewport('ch-restore-gesture', {
+      anchorMessageId: 'm20',
+      anchorTop: 48,
+      followNewMessages: false,
+    });
+
+    const Wrapper = defineComponent({
+      name: 'MessageListViewportRestoreGestureHarness',
+      setup() {
+        return () =>
+          h(MessageList, {
+            channelId: channelId.value,
+            messages: messages.value,
+            messageScrollAnchor: 'bottom',
+            initialHistoryLoading: false,
+          });
+      },
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    app = createApp(Wrapper);
+    app.directive('scrollbar-on-scroll', {});
+    app.mount(container);
+
+    await nextTick();
+    await nextTick();
+
+    const scrollEl = container.querySelector(
+      '[data-cy="message-list"]',
+    ) as HTMLElement | null;
+    expect(scrollEl).not.toBeNull();
+    if (!scrollEl) return;
+
+    // User scrolls before restore / fallback anchor can commit.
+    scrollEl.dispatchEvent(new Event('wheel'));
+
+    await Promise.resolve();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(scrollToIndexMock).not.toHaveBeenCalled();
   });
 });

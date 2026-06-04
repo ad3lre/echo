@@ -544,17 +544,7 @@ export class PostgresAuthStore implements AuthStore {
       }
     }
     if (patch.email !== undefined) {
-      const emailResult = validateRegistrationEmail(patch.email);
-      if (!emailResult.ok) throw new Error(emailResult.code);
-      const norm = emailResult.normalizedEmail;
-      const dup = await this.pool.query(
-        `SELECT 1 FROM auth_users WHERE LOWER(TRIM(email)) = $1 AND id <> $2 LIMIT 1`,
-        [norm, userId],
-      );
-      if (dup?.rows?.length) throw new Error('EMAIL_IN_USE');
-      values.push(norm);
-      sets.push(`email = $${values.length}`);
-      sets.push(`email_verified_at = NULL`);
+      throw new Error('EMAIL_CHANGE_REQUIRES_VERIFICATION');
     }
     if (patch.phone !== undefined) {
       if (patch.phone === null || String(patch.phone).trim() === '') {
@@ -768,25 +758,65 @@ export class PostgresAuthStore implements AuthStore {
 
   // --- SessionStore ---
 
+  private mapRefreshTokenRow(r: {
+    id: unknown;
+    user_id: unknown;
+    token_hash: unknown;
+    expires_at: Date;
+    created_at: Date;
+    revoked_at?: Date | null;
+    user_agent?: string | null;
+    client_location?: string | null;
+  }): RefreshTokenRecord {
+    const ua =
+      r.user_agent != null && String(r.user_agent).trim()
+        ? String(r.user_agent)
+        : null;
+    const loc =
+      r.client_location != null && String(r.client_location).trim()
+        ? String(r.client_location)
+        : null;
+    return {
+      id: String(r.id),
+      userId: String(r.user_id),
+      tokenHash: String(r.token_hash),
+      expiresAt: new Date(r.expires_at).toISOString(),
+      createdAt: new Date(r.created_at).toISOString(),
+      ...(r.revoked_at
+        ? { revokedAt: new Date(r.revoked_at).toISOString() }
+        : {}),
+      ...(ua ? { userAgent: ua } : {}),
+      ...(loc ? { location: loc } : {}),
+    };
+  }
+
   async storeRefreshToken(
     userId: string,
     tokenHash: string,
     expiresAt: string,
+    client?: { userAgent?: string | null; location?: string | null },
   ): Promise<RefreshTokenRecord> {
     const id = nextEchoSnowflakeId();
+    const createdAt = new Date().toISOString();
+    const userAgent = client?.userAgent ?? null;
+    const clientLocation = client?.location ?? null;
     await this.pool.query(
       `
-      INSERT INTO auth_refresh_tokens (id, user_id, token_hash, expires_at)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO auth_refresh_tokens (
+        id, user_id, token_hash, expires_at, user_agent, client_location
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
       `,
-      [id, userId, tokenHash, expiresAt],
+      [id, userId, tokenHash, expiresAt, userAgent, clientLocation],
     );
     return {
       id,
       userId,
       tokenHash,
       expiresAt,
-      createdAt: new Date().toISOString(),
+      createdAt,
+      ...(userAgent ? { userAgent } : {}),
+      ...(clientLocation ? { location: clientLocation } : {}),
     };
   }
 
@@ -811,7 +841,8 @@ export class PostgresAuthStore implements AuthStore {
   ): Promise<RefreshTokenRecord | null> {
     const row = await this.pool.query(
       `
-      SELECT id, user_id, token_hash, expires_at, revoked_at, created_at
+      SELECT id, user_id, token_hash, expires_at, revoked_at, created_at,
+             user_agent, client_location
       FROM auth_refresh_tokens
       WHERE token_hash = $1
       `,
@@ -821,16 +852,7 @@ export class PostgresAuthStore implements AuthStore {
     if (!r) return null;
     if (r.revoked_at) return null;
     if (new Date(r.expires_at).getTime() <= Date.now()) return null;
-    return {
-      id: String(r.id),
-      userId: String(r.user_id),
-      tokenHash: String(r.token_hash),
-      expiresAt: new Date(r.expires_at).toISOString(),
-      createdAt: new Date(r.created_at).toISOString(),
-      ...(r.revoked_at
-        ? { revokedAt: new Date(r.revoked_at).toISOString() }
-        : {}),
-    };
+    return this.mapRefreshTokenRow(r);
   }
 
   async findRefreshTokenById(
@@ -838,7 +860,8 @@ export class PostgresAuthStore implements AuthStore {
   ): Promise<RefreshTokenRecord | null> {
     const row = await this.pool.query(
       `
-      SELECT id, user_id, token_hash, expires_at, revoked_at, created_at
+      SELECT id, user_id, token_hash, expires_at, revoked_at, created_at,
+             user_agent, client_location
       FROM auth_refresh_tokens
       WHERE id = $1
       `,
@@ -848,13 +871,7 @@ export class PostgresAuthStore implements AuthStore {
     if (!r) return null;
     if (r.revoked_at) return null;
     if (new Date(r.expires_at).getTime() <= Date.now()) return null;
-    return {
-      id: String(r.id),
-      userId: String(r.user_id),
-      tokenHash: String(r.token_hash),
-      expiresAt: new Date(r.expires_at).toISOString(),
-      createdAt: new Date(r.created_at).toISOString(),
-    };
+    return this.mapRefreshTokenRow(r);
   }
 
   async rotateRefreshTokenAtomic(params: {
@@ -877,7 +894,7 @@ export class PostgresAuthStore implements AuthStore {
       await client.query('BEGIN');
       const existingRes = await client.query(
         `
-        SELECT id, user_id, expires_at, revoked_at
+        SELECT id, user_id, expires_at, revoked_at, user_agent, client_location
         FROM auth_refresh_tokens
         WHERE token_hash = $1
         LIMIT 1
@@ -891,6 +908,8 @@ export class PostgresAuthStore implements AuthStore {
             user_id: string;
             expires_at: Date;
             revoked_at: Date | null;
+            user_agent: string | null;
+            client_location: string | null;
           }
         | undefined;
       if (!existing) {
@@ -919,12 +938,30 @@ export class PostgresAuthStore implements AuthStore {
       const createdAtIso = new Date().toISOString();
       await client.query(
         `
-        INSERT INTO auth_refresh_tokens (id, user_id, token_hash, expires_at)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO auth_refresh_tokens (
+          id, user_id, token_hash, expires_at, user_agent, client_location
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
         `,
-        [nextId, existing.user_id, params.nextTokenHash, params.nextExpiresAt],
+        [
+          nextId,
+          existing.user_id,
+          params.nextTokenHash,
+          params.nextExpiresAt,
+          existing.user_agent,
+          existing.client_location,
+        ],
       );
       await client.query('COMMIT');
+      const ua =
+        existing.user_agent != null && String(existing.user_agent).trim()
+          ? String(existing.user_agent)
+          : null;
+      const loc =
+        existing.client_location != null &&
+        String(existing.client_location).trim()
+          ? String(existing.client_location)
+          : null;
       return {
         ok: true,
         previousTokenId: String(existing.id),
@@ -934,6 +971,8 @@ export class PostgresAuthStore implements AuthStore {
           tokenHash: params.nextTokenHash,
           expiresAt: params.nextExpiresAt,
           createdAt: createdAtIso,
+          ...(ua ? { userAgent: ua } : {}),
+          ...(loc ? { location: loc } : {}),
         },
       };
     } catch (e) {
@@ -953,7 +992,8 @@ export class PostgresAuthStore implements AuthStore {
   ): Promise<RefreshTokenRecord[]> {
     const row = await this.pool.query(
       `
-      SELECT id, user_id, token_hash, expires_at, revoked_at, created_at
+      SELECT id, user_id, token_hash, expires_at, revoked_at, created_at,
+             user_agent, client_location
       FROM auth_refresh_tokens
       WHERE user_id = $1
       ORDER BY created_at DESC
@@ -963,15 +1003,10 @@ export class PostgresAuthStore implements AuthStore {
     const now = Date.now();
     return (row?.rows ?? [])
       .filter(
-        (r: any) => !r.revoked_at && new Date(r.expires_at).getTime() > now,
+        (r: { revoked_at: Date | null; expires_at: Date }) =>
+          !r.revoked_at && new Date(r.expires_at).getTime() > now,
       )
-      .map((r: any) => ({
-        id: String(r.id),
-        userId: String(r.user_id),
-        tokenHash: String(r.token_hash),
-        expiresAt: new Date(r.expires_at).toISOString(),
-        createdAt: new Date(r.created_at).toISOString(),
-      }));
+      .map((r) => this.mapRefreshTokenRow(r));
   }
 
   async revokeRefreshToken(tokenId: string): Promise<void> {
@@ -990,12 +1025,37 @@ export class PostgresAuthStore implements AuthStore {
 
   // --- VerificationStore ---
 
+  async requestEmailChange(userId: string, email: string): Promise<AuthUser> {
+    const emailResult = validateRegistrationEmail(email);
+    if (!emailResult.ok) throw new Error(emailResult.code);
+    const norm = emailResult.normalizedEmail;
+    const dup = await this.pool.query(
+      `SELECT 1 FROM auth_users WHERE LOWER(TRIM(email)) = $1 AND id <> $2 LIMIT 1`,
+      [norm, userId],
+    );
+    if (dup?.rows?.length) throw new Error('EMAIL_IN_USE');
+    const dupPending = await this.pool.query(
+      `SELECT 1 FROM auth_users WHERE LOWER(TRIM(pending_email)) = $1 AND id <> $2 LIMIT 1`,
+      [norm, userId],
+    );
+    if (dupPending?.rows?.length) throw new Error('EMAIL_IN_USE');
+    await this.pool.query(
+      `UPDATE auth_users SET pending_email = $2, updated_at = NOW() WHERE id = $1`,
+      [userId, norm],
+    );
+    const next = await this.getUserById(userId);
+    if (!next) throw new Error('NOT_FOUND');
+    return next;
+  }
+
   async createEmailVerificationToken(
     userId: string,
-    purpose: 'signup',
+    purpose: 'signup' | 'email_change',
     options?: { enforceResendCooldown?: boolean },
   ): Promise<{ plainToken: string }> {
-    if (purpose !== 'signup') throw new Error('UNSUPPORTED_PURPOSE');
+    if (purpose !== 'signup' && purpose !== 'email_change') {
+      throw new Error('UNSUPPORTED_PURPOSE');
+    }
     const cooldownMs = config.echoEmailVerificationResendCooldownSeconds * 1000;
     const ttlMs = config.echoEmailVerificationTokenHours * 60 * 60 * 1000;
     if (options?.enforceResendCooldown) {
@@ -1033,7 +1093,7 @@ export class PostgresAuthStore implements AuthStore {
 
   async consumeEmailVerificationToken(
     plainToken: string,
-  ): Promise<{ userId: string } | null> {
+  ): Promise<{ userId: string; purpose: 'signup' | 'email_change' } | null> {
     const trimmed = plainToken?.trim();
     if (!trimmed) return null;
     const tokenHash = hashRefreshToken(trimmed);
@@ -1042,7 +1102,7 @@ export class PostgresAuthStore implements AuthStore {
       await client.query('BEGIN');
       const sel = await client.query(
         `
-        SELECT id, user_id FROM auth_email_verification_tokens
+        SELECT id, user_id, purpose FROM auth_email_verification_tokens
         WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > NOW()
         FOR UPDATE
         `,
@@ -1053,16 +1113,47 @@ export class PostgresAuthStore implements AuthStore {
         await client.query('ROLLBACK');
         return null;
       }
+      const purpose = String(r.purpose ?? 'signup');
       await client.query(
         `UPDATE auth_email_verification_tokens SET consumed_at = NOW() WHERE id = $1`,
         [r.id],
       );
-      await client.query(
-        `UPDATE auth_users SET email_verified_at = NOW(), updated_at = NOW() WHERE id = $1`,
-        [r.user_id],
-      );
+      if (purpose === 'email_change') {
+        const pending = await client.query(
+          `SELECT pending_email FROM auth_users WHERE id = $1 FOR UPDATE`,
+          [r.user_id],
+        );
+        const nextEmail = String(pending.rows[0]?.pending_email ?? '').trim();
+        if (!nextEmail) {
+          await client.query('ROLLBACK');
+          return null;
+        }
+        await client.query(
+          `
+          UPDATE auth_users
+          SET email = $2,
+              pending_email = NULL,
+              email_verified_at = NOW(),
+              updated_at = NOW()
+          WHERE id = $1
+          `,
+          [r.user_id, nextEmail],
+        );
+        await client.query(
+          `UPDATE auth_refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`,
+          [r.user_id],
+        );
+      } else {
+        await client.query(
+          `UPDATE auth_users SET email_verified_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [r.user_id],
+        );
+      }
       await client.query('COMMIT');
-      return { userId: String(r.user_id) };
+      return {
+        userId: String(r.user_id),
+        purpose: purpose === 'email_change' ? 'email_change' : 'signup',
+      };
     } catch (e) {
       try {
         await client.query('ROLLBACK');

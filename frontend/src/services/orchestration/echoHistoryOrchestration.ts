@@ -321,12 +321,16 @@ export function createEchoHistoryController(
       context: { channelId, lastReadMessageId },
     });
     try {
-      const snapshot = await putEchoChannelReadState(
+      const readState = await putEchoChannelReadState(
         '',
         channelId,
         lastReadMessageId,
       );
-      echoAttention.replaceSnapshot(snapshot);
+      echoAttention.mergeReadStateUpdate(
+        channelId,
+        readState.lastReadMessageId,
+        readState.channelAttention,
+      );
       dbgReadState('write_success', { channelId, lastReadMessageId });
       emitDiagnostic({
         level: 'info',
@@ -1301,6 +1305,14 @@ export function createEchoHistoryController(
     activeChannelId,
     (cid) => {
       messageWindowAuthority.setActiveChannel(cid);
+      // Eagerly mark loading so MessageList shows skeletons immediately after
+      // the channel window clears — without this, there is a render gap between
+      // setActiveChannel (orderedIds → []) and the async loadHistory watcher
+      // where isEmpty=true and initialLoading=false causes "No messages here yet"
+      // to flash before the skeleton appears.
+      if (cid && auth.isAuthenticated && canLoadHistoryForChannelId(cid)) {
+        initialLoading.value = true;
+      }
     },
     { immediate: true, flush: 'sync' },
   );

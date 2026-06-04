@@ -28,7 +28,10 @@ describe('voiceE2eePrepare epoch rotation guard', () => {
     ).not.toThrow();
   });
 
-  it('blocks non-creator when active epoch exists but envelopes list is empty', () => {
+  it('allows non-creator to supersede when active epoch has no envelopes', () => {
+    // An empty-envelope epoch means the creator had no addressable peers at
+    // join time (no registered E2EE devices). Any participant may supersede it
+    // so they can include themselves and distribute a key to the full roster.
     expect(() =>
       assertMayCreateVoiceE2eeEpoch(
         {
@@ -39,7 +42,7 @@ describe('voiceE2eePrepare epoch rotation guard', () => {
         },
         'user-b',
       ),
-    ).toThrow(VoiceE2eeEnvelopeMissingError);
+    ).not.toThrow();
   });
 
   it('blocks non-creator when envelopes exist but not for this device', () => {

@@ -30,7 +30,11 @@ import { usePaperCommentLayout } from '@/features/paper/composables/usePaperComm
 import { usePaperWatchers } from '@/features/paper/composables/usePaperWatchers';
 import { mergePaperWatchingPeers } from '@/features/paper/composables/mergePaperWatchingPeers';
 import { usePaperAppearance } from '@/features/paper/composables/usePaperAppearance';
+import { usePaperSourceViewMode } from '@/features/paper/composables/usePaperSourceViewMode';
+import { usePaperSourceViewKeybind } from '@/features/paper/composables/usePaperSourceViewKeybind';
+import { usePaperRawMarkdownBridge } from '@/features/paper/composables/usePaperRawMarkdownBridge';
 import { usePaperUiMode } from '@/features/paper/composables/usePaperUiMode';
+import { setPaperMarkdownRenderInline } from '@/features/paper/editor/setPaperMarkdownRenderInline';
 import { usePaperShare } from '@/features/paper/composables/usePaperShare';
 import { usePaperCollab } from '@/features/paper/composables/usePaperCollab';
 import {
@@ -60,6 +64,7 @@ import {
 } from '@/features/paper/editor/paperFontLoader';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { createRafCoalescer } from '@/utils/rafCoalesce';
+import { ensureMarkdownKatexReady } from '@/composables/markdownKatex';
 import type { ChannelSummary } from '@shared/types';
 import '@/features/paper/styles/paperTheme.scss';
 
@@ -252,6 +257,31 @@ const paperAppearance = usePaperAppearance({
   contentJson: appearanceContentJson,
 });
 
+const paperSourceView = usePaperSourceViewMode({ channelId: channelIdRef });
+
+usePaperSourceViewKeybind({
+  enabled: computed(() => documentLoaded.value),
+  onToggle: () => paperSourceView.toggleMode(),
+});
+
+const paperRawMarkdown = usePaperRawMarkdownBridge({
+  mode: paperSourceView.mode,
+  editor,
+  onSyncedToEditor: () => {
+    editorDocVersion.value += 1;
+  },
+});
+
+watch(
+  [() => paperSourceView.mode.value, editor],
+  () => {
+    const ed = editor.value;
+    if (!ed) return;
+    setPaperMarkdownRenderInline(ed, paperSourceView.mode.value === 'inline');
+  },
+  { immediate: true },
+);
+
 const watchingMerged = computed(() =>
   mergePaperWatchingPeers(socketWatchers.value),
 );
@@ -283,11 +313,19 @@ const skipBootstrapRevision = ref<number | null>(null);
 const connectionBannerMessage = computed(() => {
   if (!canAuthor.value) return null;
   if (conflict.value) return session.tooltip.value;
+  if (error.value && documentLoaded.value) return `Save failed: ${error.value}`;
   return null;
 });
 
 watch(
   () => session.phase.value,
+  () => {
+    connectionBannerDismissed.value = false;
+  },
+);
+
+watch(
+  () => error.value,
   () => {
     connectionBannerDismissed.value = false;
   },
@@ -485,6 +523,7 @@ watch(
     }
     bootstrapFromServer();
     applyServerAttributionToEditor();
+    paperRawMarkdown.refreshFromEditorIfRaw();
     measurePage();
   },
 );
@@ -669,6 +708,28 @@ async function submitComment() {
   }
 }
 
+async function onResolveComment(id: string, resolved: boolean) {
+  try {
+    await commentsApi.resolveComment(id, resolved);
+  } catch (e) {
+    dispatchAppToast(
+      e instanceof Error ? e.message : 'Could not update comment',
+      'warning',
+    );
+  }
+}
+
+async function onDeleteComment(id: string) {
+  try {
+    await commentsApi.removeComment(id);
+  } catch (e) {
+    dispatchAppToast(
+      e instanceof Error ? e.message : 'Could not delete comment',
+      'warning',
+    );
+  }
+}
+
 watch(
   () => paperUi.effectiveMode.value,
   (mode) => {
@@ -680,7 +741,15 @@ watch(
 
 function onReply(parentId: string) {
   replyParentId.value = parentId;
-  pendingComment.value = null;
+  const parent = commentsApi.comments.value.find((c) => c.id === parentId);
+  pendingComment.value = parent
+    ? {
+        anchorBlockId: parent.anchorBlockId,
+        anchorFrom: parent.anchorFrom,
+        anchorTo: parent.anchorTo,
+        anchorQuote: parent.anchorQuote,
+      }
+    : null;
   commentDraft.value = '';
   commentComposerOpen.value = true;
   commentsVisible.value = true;
@@ -794,7 +863,11 @@ let unsubComment: (() => void) | null = null;
 
 onMounted(() => {
   preloadPaperFontCatalog();
-  void import('katex/dist/katex.min.css');
+  void ensureMarkdownKatexReady().then(() => {
+    if (editor.value) {
+      editor.value.view.dispatch(editor.value.view.state.tr);
+    }
+  });
   unsubDoc = onPaperDocumentUpdated((remote) => {
     if (remote.channelId !== props.channelId) return;
     const prevRevision = doc.value?.revision ?? 0;
@@ -807,6 +880,7 @@ onMounted(() => {
     ) {
       setContentFromServer(remote.contentJson as Record<string, unknown>);
       applyServerAttributionToEditor();
+      paperRawMarkdown.refreshFromEditorIfRaw();
       measurePage();
     }
   });
@@ -829,6 +903,9 @@ onMounted(() => {
 onUnmounted(() => {
   unsubDoc?.();
   unsubComment?.();
+  if (paperSourceView.mode.value === 'raw') {
+    paperRawMarkdown.flushSyncToEditor();
+  }
   autosave.flush();
   paperCollab.releaseMyLocks();
 });
@@ -838,6 +915,7 @@ onUnmounted(() => {
   <div
     class="paper-root flex h-full min-h-0 flex-col"
     :data-paper-appearance="paperAppearance.appearance.value"
+    :data-paper-source-view="paperSourceView.mode.value"
   >
     <PaperToast
       v-if="showToast && toastMessage"
@@ -900,6 +978,7 @@ onUnmounted(() => {
             :can-toggle-comments="commentsEnabled"
             :can-reconnect="conflict"
             :show-connection-status="showConnectionStatus"
+            :source-view-mode="paperSourceView.mode.value"
             @open-settings="openChannelSettings"
             @toggle-comments="toggleCommentsVisible"
             @reconnect="onReloadAfterConflict"
@@ -909,6 +988,7 @@ onUnmounted(() => {
             @download-json="onDownloadJson"
             @copy-plain-text="onCopyPlainText"
             @toggle-paper-appearance="paperAppearance.toggleAppearance()"
+            @toggle-source-view="paperSourceView.toggleMode()"
             @paper-page-color-light="onPaperPageColorLight"
             @paper-page-color-dark="onPaperPageColorDark"
           />
@@ -944,6 +1024,10 @@ onUnmounted(() => {
             :page-ref="pageRef"
             :document-font-family="paperPageFontFamily"
             :page-surface-style="paperAppearance.pageSurfaceStyle.value"
+            :source-view-mode="paperSourceView.mode.value"
+            :raw-markdown="paperRawMarkdown.rawMarkdown.value"
+            :raw-editable="editorEditable"
+            @update:raw-markdown="paperRawMarkdown.onRawMarkdownInput"
           >
             <PaperBubbleMenu
               :editor="editor"
@@ -1002,16 +1086,18 @@ onUnmounted(() => {
           @update:comment-draft="commentDraft = $event"
           @update:composer-open="commentComposerOpen = $event"
           @submit="submitComment"
-          @resolve="(id, r) => commentsApi.resolveComment(id, r)"
-          @delete="(id) => commentsApi.removeComment(id)"
+          @resolve="onResolveComment"
+          @delete="onDeleteComment"
           @reply="onReply"
           @scroll-to-block="scrollToBlock"
+          @toggle-resolved="showResolvedComments = !showResolvedComments"
         />
       </div>
 
       <PaperFloatingFormatBar
         v-if="
           editorEditable &&
+          paperSourceView.mode.value === 'inline' &&
           !(
             hideFormatBarWhenEditorPinned &&
             paperEditorPanelBridge.panelPinned.value
@@ -1075,22 +1161,48 @@ onUnmounted(() => {
   margin: 0.75rem 0;
 }
 
-:deep(.paper-math-source) {
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math-source) {
   font-size: 0;
   line-height: 0;
   opacity: 0.25;
 }
 
-:deep(.paper-math--display) {
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math) {
+  max-width: 100%;
+  line-height: normal;
+  white-space: normal;
+}
+
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math .katex) {
+  box-sizing: content-box;
+  padding: 0.14em 0.08em 0.22em;
+}
+
+.paper-root[data-paper-source-view='inline']
+  :deep(.paper-math .katex-display > .katex) {
+  padding: 0;
+}
+
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math .katex-display) {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 0.45em 0.25em;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math--display) {
   display: block;
   margin: 0.75rem 0;
   overflow-x: auto;
+  overflow-y: visible;
 }
 
-:deep(.paper-math--inline) {
+.paper-root[data-paper-source-view='inline'] :deep(.paper-math--inline) {
   display: inline-block;
   vertical-align: middle;
   margin: 0 0.1em;
+  overflow: visible;
 }
 
 :deep(.paper-collab-cursor) {

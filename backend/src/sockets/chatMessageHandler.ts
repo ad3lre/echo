@@ -6,8 +6,9 @@ import { validateMessagePayload } from './messageValidation';
 import { config } from '../config';
 import {
   canUserSendMassMentionInChannel,
-  diagnoseEchoPostMessageDenial,
+  evaluateEchoPostMessageAccess,
   gatherEchoPostMessageFailureDiagnostics,
+  type EchoPostMessageAccessContext,
   type EchoPostMessageDenialReason,
 } from '../domain/echoPermissions';
 import { resolveStickerIdsForChannel } from '../domain/echoStore/stickerResolver';
@@ -17,12 +18,9 @@ import {
   echoChannelAllowsMessageUnderSlowmode,
   echoChannelExistsInDb,
   echoSendPlainTextViolatesHardFormat,
-  getEchoChannelServerId,
   isEchoChannelWithinForumContext,
   getEchoStore,
   selectEchoChannelMessageFormat,
-  getEffectiveChannelPermissions,
-  ECHO_DM_REALM_SERVER_ID,
 } from '../domain/echoStore';
 import { branchFromPersistedChannelRow } from './echoMessageFlow';
 import { resolveEchoForwardSnapshot } from '../domain/echoForwardResolution';
@@ -281,6 +279,8 @@ export function registerMessageHandler(
           return;
         }
 
+        let postAccessCtx: EchoPostMessageAccessContext | null = null;
+
         if (branch === 'echo_persisted') {
           if (!authenticated || isAnonymousSocketUser(userId)) {
             log.warn(
@@ -323,19 +323,19 @@ export function registerMessageHandler(
             });
             return;
           }
-          const postDiag = await diagnoseEchoPostMessageDenial(
+          const postAccess = await evaluateEchoPostMessageAccess(
             pool,
             userId,
             channelId,
           );
-          if (!postDiag.ok) {
-            echoPermissionDenialReasonTotal.inc({ reason: postDiag.reason });
+          if (!postAccess.ok) {
+            echoPermissionDenialReasonTotal.inc({ reason: postAccess.reason });
             const diagnostics = await gatherEchoPostMessageFailureDiagnostics(
               pool,
               {
                 userId,
                 channelId,
-                reason: postDiag.reason,
+                reason: postAccess.reason,
                 correlationId,
               },
             );
@@ -346,7 +346,7 @@ export function registerMessageHandler(
               channelId,
               userId,
               socketId: socket.id,
-              reason: postDiag.reason,
+              reason: postAccess.reason,
               diagnostics,
             });
             const detailByReason: Record<EchoPostMessageDenialReason, string> =
@@ -373,19 +373,21 @@ export function registerMessageHandler(
               code: 'FORBIDDEN',
               channelId,
               clientMessageId,
-              detail: detailByReason[postDiag.reason],
+              detail: detailByReason[postAccess.reason],
               ...(config.echoMessageFailedDiagnosticsToClient
                 ? { diagnostics }
                 : {}),
             });
             return;
           }
-          const sidForSlow = await getEchoChannelServerId(pool, channelId);
+          postAccessCtx = postAccess.ctx;
+          const guildServerId =
+            postAccessCtx.realm === 'guild' ? postAccessCtx.serverId : null;
           if (
-            sidForSlow &&
+            guildServerId &&
             !(await echoChannelAllowsMessageUnderSlowmode(
               pool,
-              sidForSlow,
+              guildServerId,
               userId,
               channelId,
             ))
@@ -418,13 +420,16 @@ export function registerMessageHandler(
           }
         }
 
-        if (branch === 'echo_persisted' && pool) {
+        if (branch === 'echo_persisted' && pool && postAccessCtx) {
+          const guildServerId =
+            postAccessCtx.realm === 'guild' ? postAccessCtx.serverId : null;
           if (
             !(await canUserSendMassMentionInChannel(
               pool,
               userId,
               channelId,
               sanitizedMentions,
+              { postAccess: postAccessCtx },
             ))
           ) {
             emitMessageFailed(socket, {
@@ -436,13 +441,12 @@ export function registerMessageHandler(
             });
             return;
           }
-          const sidForSpam = await getEchoChannelServerId(pool, channelId);
           let bannedWordsEval: Awaited<
             ReturnType<typeof evaluateBannedWordsOnMessageSend>
           > | null = null;
-          if (sidForSpam) {
+          if (guildServerId) {
             const spamCheck = await checkEchoServerSpamFilter(pool, {
-              serverId: sidForSpam,
+              serverId: guildServerId,
               userId,
               content,
               mentions: sanitizedMentions,
@@ -466,7 +470,7 @@ export function registerMessageHandler(
               return;
             }
             bannedWordsEval = await evaluateBannedWordsOnMessageSend(pool, {
-              serverId: sidForSpam,
+              serverId: guildServerId,
               userId,
               content,
             });
@@ -491,8 +495,12 @@ export function registerMessageHandler(
           }
           if (
             pollDef &&
-            sidForSpam &&
-            (await isEchoChannelWithinForumContext(pool, sidForSpam, channelId))
+            guildServerId &&
+            (await isEchoChannelWithinForumContext(
+              pool,
+              guildServerId,
+              channelId,
+            ))
           ) {
             emitMessageFailed(socket, {
               code: 'FORBIDDEN',
@@ -554,20 +562,8 @@ export function registerMessageHandler(
             ReturnType<typeof resolveStickerIdsForChannel>
           > | null = null;
           if (stickerIds?.length) {
-            const stickerServerId = await getEchoChannelServerId(
-              pool,
-              channelId,
-            );
-            if (
-              stickerServerId &&
-              stickerServerId !== ECHO_DM_REALM_SERVER_ID
-            ) {
-              const perms = await getEffectiveChannelPermissions(
-                pool,
-                stickerServerId,
-                userId,
-                channelId,
-              );
+            if (postAccessCtx.realm === 'guild') {
+              const perms = postAccessCtx.effectiveChannelPermissions;
               if (
                 !perms.has('USE_EXTERNAL_STICKERS') &&
                 !perms.has('USE_EXPRESSIONS') &&
@@ -649,21 +645,21 @@ export function registerMessageHandler(
           }
           if (
             persistRes.kind !== 'duplicate_ack' &&
-            sidForSpam &&
+            guildServerId &&
             bannedWordsEval &&
             bannedWordsEval.matches.length > 0 &&
             bannedWordsEval.action
           ) {
             const own = await pool.query(
               `SELECT owner_id::text AS owner_id FROM echo_servers WHERE id = $1 LIMIT 1`,
-              [sidForSpam],
+              [guildServerId],
             );
             const ownerActorId = own.rows[0]
               ? String(own.rows[0].owner_id)
               : '';
             if (ownerActorId) {
               await applyBannedWordsAfterMessagePersisted(fastify, pool, {
-                serverId: sidForSpam,
+                serverId: guildServerId,
                 ownerActorId,
                 channelId,
                 userId,

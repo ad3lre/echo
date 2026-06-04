@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, unref, watch } from 'vue';
+import { computed, inject, ref, unref, watch } from 'vue';
 import type { MaybeRef } from 'vue';
 import MemberList from '@/components/MemberList.vue';
 import SearchBar from '@/components/chat/SearchBar.vue';
@@ -251,6 +251,9 @@ const resolvedSearchScopeHint = computed(() => {
   }
   return props.searchScopeHint ?? '';
 });
+
+/** Hide the collapse control while search is focused or has query/filters. */
+const memberSearchEngaged = ref(false);
 </script>
 
 <template>
@@ -262,6 +265,7 @@ const resolvedSearchScopeHint = computed(() => {
       class="chat-header-glass pointer-events-auto absolute top-0 left-0 right-0 z-20 flex h-12 min-w-0 flex-shrink-0 items-center gap-2 px-4"
     >
       <button
+        v-if="!memberSearchEngaged"
         type="button"
         class="members-column-collapse-btn pointer-events-auto shrink-0"
         title="Hide members"
@@ -286,6 +290,7 @@ const resolvedSearchScopeHint = computed(() => {
         class="search-input-wrapper relative flex h-full min-w-0 flex-1 items-end"
       >
         <SearchBar
+          @engaged-change="memberSearchEngaged = $event"
           :model-value="resolvedSearchText ?? ''"
           :filter-chips="resolvedFilterChips ?? []"
           :channels="resolvedAllChannels ?? []"

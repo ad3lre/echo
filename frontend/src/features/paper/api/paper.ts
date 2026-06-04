@@ -44,7 +44,7 @@ export async function fetchPaperComments(channelId: string): Promise<{
 export async function createPaperComment(
   channelId: string,
   body: {
-    anchorBlockId: string;
+    anchorBlockId?: string;
     anchorFrom?: number | null;
     anchorTo?: number | null;
     anchorQuote?: string;

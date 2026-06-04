@@ -1,14 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onMounted,
-  onUnmounted,
-  ref,
-  toRef,
-  watch,
-} from 'vue';
-import { clampMenuToViewport } from '@/features/chat/composables/useContextMenuPosition';
+import { computed, ref, toRef } from 'vue';
 import { storeToRefs } from 'pinia';
 import { icons } from '@/assets/icons';
 import StatusIndicator from '@/components/StatusIndicator.vue';
@@ -103,88 +94,16 @@ const hasBannerImage = computed(
   () => !!String(props.form.bannerImage ?? '').trim(),
 );
 
-const bannerMenuOpen = ref(false);
-const bannerMenuRef = ref<HTMLElement | null>(null);
-const bannerMenuTriggerRef = ref<HTMLElement | null>(null);
 const bannerFileInputRef = ref<HTMLInputElement | null>(null);
-const bannerMenuPosition = ref({ left: 0, top: 0 });
-
-const bannerMenuStyle = computed(() => ({
-  left: `${bannerMenuPosition.value.left}px`,
-  top: `${bannerMenuPosition.value.top}px`,
-}));
-
-watch(bannerMenuOpen, (open) => {
-  if (!open) return;
-  void nextTick().then(() => {
-    const rect = bannerMenuTriggerRef.value?.getBoundingClientRect();
-    if (!rect) return;
-    const estW = 200;
-    const estH = 132;
-    const left = rect.right - estW;
-    const top = rect.bottom + 8;
-    bannerMenuPosition.value = clampMenuToViewport(left, top, estW, estH);
-    void nextTick().then(() => {
-      requestAnimationFrame(() => {
-        const el = bannerMenuRef.value;
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        bannerMenuPosition.value = clampMenuToViewport(
-          r.left,
-          r.top,
-          r.width,
-          r.height,
-        );
-      });
-    });
-  });
-});
-
-function closeBannerMenu() {
-  bannerMenuOpen.value = false;
-}
-
-function toggleBannerMenu() {
-  bannerMenuOpen.value = !bannerMenuOpen.value;
-}
-
-function onBannerMenuDocMouseDown(ev: MouseEvent) {
-  const target = ev.target;
-  if (!(target instanceof Node)) return;
-  if (bannerMenuRef.value?.contains(target)) return;
-  if (bannerMenuTriggerRef.value?.contains(target)) return;
-  closeBannerMenu();
-}
-
-function onBannerMenuKeydown(ev: KeyboardEvent) {
-  if (ev.key === 'Escape') closeBannerMenu();
-}
-
-onMounted(() => {
-  document.addEventListener('mousedown', onBannerMenuDocMouseDown);
-  document.addEventListener('keydown', onBannerMenuKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('mousedown', onBannerMenuDocMouseDown);
-  document.removeEventListener('keydown', onBannerMenuKeydown);
-});
 
 function openBannerReposition() {
   if (isProfileLocked.value) return;
   if (!hasBannerImage.value) return;
-  closeBannerMenu();
   bannerRepositionOpen.value = true;
 }
 
 function pickBannerImage() {
-  closeBannerMenu();
   bannerFileInputRef.value?.click();
-}
-
-async function removeBannerFromMenu() {
-  closeBannerMenu();
-  await removeBannerImage();
 }
 
 function saveBannerReposition(nextY: number) {
@@ -235,10 +154,12 @@ defineExpose({
         <!-- Div (not button): nested <label>/<input> is invalid inside <button> and breaks file pick on Safari. -->
         <div
           v-if="!isProfileLocked"
-          class="banner-hover-overlay pointer-coarse:opacity-100 pointer-coarse:bg-scrim-2 absolute inset-0 z-20 flex items-end justify-center bg-transparent opacity-0 transition-all duration-150 pointer-fine:group-hover/banner:bg-scrim-2 pointer-fine:group-hover/banner:opacity-100"
+          class="banner-hover-overlay pointer-coarse:opacity-100 pointer-coarse:bg-scrim-2 absolute inset-0 z-20 flex items-center justify-center bg-transparent opacity-0 transition-all duration-150 pointer-fine:group-hover/banner:bg-scrim-2 pointer-fine:group-hover/banner:opacity-100"
         >
           <div
-            class="mb-3 inline-flex w-[calc(100%-1.25rem)] max-w-[26rem] items-center justify-end rounded-xl bg-scrim-2 px-2 py-2 ring-1 ring-border"
+            class="inline-flex max-w-[calc(100%-1.25rem)] flex-wrap items-center justify-center gap-1.5 rounded-xl bg-scrim-2 px-2 py-2 ring-1 ring-border"
+            role="group"
+            aria-label="Banner options"
           >
             <input
               ref="bannerFileInputRef"
@@ -248,74 +169,46 @@ defineExpose({
               @change="onBannerFileChange"
             />
             <button
-              ref="bannerMenuTriggerRef"
               type="button"
-              class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-glass-2 text-fg transition-colors hover:bg-glass-hover"
-              title="Banner options"
-              aria-label="Banner options"
-              aria-haspopup="menu"
-              :aria-expanded="bannerMenuOpen"
-              @click.stop="toggleBannerMenu"
+              class="chat-focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg bg-glass-2 px-2.5 text-xs font-medium text-fg transition-colors hover:bg-glass-hover"
+              title="Change banner"
+              @click.stop="pickBannerImage"
             >
               <img
-                :src="icons.moreVertical"
+                :src="icons.imageGallery"
                 alt=""
-                class="h-4 w-4 filter invert opacity-90"
+                class="h-4 w-4 shrink-0 opacity-90"
               />
+              Change banner
             </button>
-            <Teleport to="body">
-              <div
-                v-if="bannerMenuOpen"
-                ref="bannerMenuRef"
-                role="menu"
-                aria-label="Banner options"
-                class="ellipsis-menu chat-liquid-glass-menu--over-modal fixed z-[200] min-w-[180px] py-1"
-                :style="bannerMenuStyle"
-                @click.stop
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="chat-focus-ring echo-menu-item flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground"
-                  @click="pickBannerImage"
-                >
-                  <img
-                    :src="icons.imageGallery"
-                    alt=""
-                    class="echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-90"
-                  />
-                  Change banner
-                </button>
-                <button
-                  v-if="hasBannerImage"
-                  type="button"
-                  role="menuitem"
-                  class="chat-focus-ring echo-menu-item flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-foreground"
-                  @click="openBannerReposition"
-                >
-                  <img
-                    :src="icons.sliders"
-                    alt=""
-                    class="echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-90"
-                  />
-                  Reposition
-                </button>
-                <button
-                  v-if="hasBannerImage"
-                  type="button"
-                  role="menuitem"
-                  class="chat-focus-ring echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm"
-                  @click="removeBannerFromMenu"
-                >
-                  <img
-                    :src="icons.trash"
-                    alt=""
-                    class="echo-menu-item-icon--img h-4 w-4 shrink-0 opacity-90"
-                  />
-                  Remove
-                </button>
-              </div>
-            </Teleport>
+            <button
+              v-if="hasBannerImage"
+              type="button"
+              class="chat-focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg bg-glass-2 px-2.5 text-xs font-medium text-fg transition-colors hover:bg-glass-hover"
+              title="Reposition banner"
+              @click.stop="openBannerReposition"
+            >
+              <img
+                :src="icons.sliders"
+                alt=""
+                class="h-4 w-4 shrink-0 opacity-90"
+              />
+              Reposition
+            </button>
+            <button
+              v-if="hasBannerImage"
+              type="button"
+              class="chat-focus-ring inline-flex h-9 items-center gap-1.5 rounded-lg bg-glass-2 px-2.5 text-xs font-medium text-[color:var(--menu-item-destructive-fg)] transition-colors hover:bg-glass-hover"
+              title="Remove banner"
+              @click.stop="removeBannerImage"
+            >
+              <img
+                :src="icons.trash"
+                alt=""
+                class="h-4 w-4 shrink-0 opacity-90"
+              />
+              Remove
+            </button>
           </div>
         </div>
       </div>

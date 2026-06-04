@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import type {
   FastifyInstance,
   FastifyPluginOptions,
@@ -23,7 +23,8 @@ import {
   serializeMessage,
 } from '../serializers';
 import { botEventBus, type BotEvent } from '../../../../platform/botEventBus';
-import type { BotApp } from '../botAuth';
+import { botIdFromBotToken, type BotApp } from '../botAuth';
+import { verifyBotTokenAgainstStoredHash } from '../../../../services/botTokenHash';
 
 const HEARTBEAT_INTERVAL_MS = 41250;
 
@@ -83,15 +84,19 @@ async function resolveTokenToBot(token: string): Promise<BotApp | null> {
   const rawToken = token.startsWith('Bot ')
     ? token.slice(4).trim()
     : token.trim();
-  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const botId = botIdFromBotToken(rawToken);
+  if (!botId) return null;
   const { pool, enabled } = await getEchoStore();
   if (!enabled || !pool) return null;
   const r = await pool.query(
-    `SELECT id, name, owner_user_id FROM echo_bot_applications WHERE token_hash = $1`,
-    [tokenHash],
+    `SELECT id, name, owner_user_id, token_hash FROM echo_bot_applications WHERE id = $1`,
+    [botId],
   );
   if (r.rows.length === 0) return null;
   const row = r.rows[0] as Record<string, unknown>;
+  const storedHash = String(row.token_hash ?? '');
+  const ok = await verifyBotTokenAgainstStoredHash(rawToken, storedHash);
+  if (!ok) return null;
   return {
     id: String(row.id),
     name: String(row.name),

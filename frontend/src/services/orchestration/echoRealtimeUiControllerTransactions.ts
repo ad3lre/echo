@@ -5,6 +5,7 @@ import {
   updateChannelMessageInBucket,
 } from '@/services/realtime/channelMessageAuthority';
 import type { UiTransactionManager } from '@/ui/transactions/TransactionManager';
+import { touchOutboundSendPendingUi } from '@/services/realtime/deferredMediaOutboundSend';
 
 export function registerEchoRealtimeUiControllerTransactions(opts: {
   uiTx: UiTransactionManager;
@@ -17,8 +18,11 @@ export function registerEchoRealtimeUiControllerTransactions(opts: {
     rollback(tx) {
       if (tx.type !== 'message-send') return;
       cleanupOptimisticSend(tx.channelId, tx.clientMessageId);
+      touchOutboundSendPendingUi();
     },
-    commit() {},
+    commit() {
+      touchOutboundSendPendingUi();
+    },
   });
 
   uiTx.register('reaction-toggle', {

@@ -104,6 +104,19 @@ export type ListEchoRolesForServerOptions = {
 
 const HEX_ROLE_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
+/** Permissions that must not be category defaults with `defaultOnJoin` unless the actor owns the server. */
+const ECHO_AUTO_JOIN_FORBIDDEN_PERMISSIONS = new Set([
+  'ADMINISTRATOR',
+  'MANAGE_GUILD',
+  'MANAGE_ROLES',
+]);
+
+export function elevatedPermissionsBlockDefaultOnJoin(
+  permissions: readonly string[],
+): boolean {
+  return permissions.some((p) => ECHO_AUTO_JOIN_FORBIDDEN_PERMISSIONS.has(p));
+}
+
 /** Non-owners may only write permission bits they already hold (`ADMINISTRATOR` ⇒ full set in `actorPerms`). */
 export function actorMayGrantPermissionSet(
   actorPerms: ReadonlySet<string>,
@@ -117,6 +130,8 @@ export function actorMayGrantPermissionSet(
   }
   return true;
 }
+
+const RESERVED_ECHO_ROLE_NAME = '@everyone';
 
 function normalizeRoleName(raw: unknown): string {
   return typeof raw === 'string' ? raw.trim() : '';
@@ -571,6 +586,8 @@ export async function updateEchoRole(
     if (!nm) return 'invalid_body';
     if (currentName === '@everyone' && nm !== '@everyone')
       return 'invalid_body';
+    if (currentName !== '@everyone' && nm === RESERVED_ECHO_ROLE_NAME)
+      return 'invalid_body';
   }
 
   if (patch.color !== undefined) {
@@ -842,6 +859,36 @@ export async function listEchoMemberRoleAssignmentsByUser(
   return out;
 }
 
+/**
+ * Returns a single user's role ids across many servers in one query, keyed by
+ * server id. Use this instead of calling listEchoMemberRoleAssignmentsByUser per
+ * server when only the viewer's own roles are needed — it avoids both the N+1
+ * across servers and loading every member's rows.
+ */
+export async function listEchoSelfRoleIdsByServer(
+  pool: pg.Pool,
+  userId: string,
+  serverIds: string[],
+): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>();
+  if (serverIds.length === 0) return out;
+  const r = await pool.query(
+    `SELECT server_id, role_id FROM echo_member_roles WHERE server_id = ANY($1) AND user_id = $2`,
+    [serverIds, userId],
+  );
+  for (const row of r.rows) {
+    const sid = String(row.server_id);
+    const rid = String(row.role_id);
+    let set = out.get(sid);
+    if (!set) {
+      set = new Set<string>();
+      out.set(sid, set);
+    }
+    set.add(rid);
+  }
+  return out;
+}
+
 export async function echoAuthorityRoleIdsForServer(
   pool: pg.Pool,
   serverId: string,
@@ -1021,6 +1068,7 @@ export async function createEchoRole(
   const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
   const name = normalizeRoleName(body.name);
   if (!name) return 'invalid_body';
+  if (name === RESERVED_ECHO_ROLE_NAME) return 'invalid_body';
   const color = normalizeRoleColor(body.color);
   if (color == null) return 'invalid_body';
   const darkColor = normalizeRoleColor(body.darkColor);

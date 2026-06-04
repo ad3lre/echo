@@ -260,6 +260,134 @@
   }
 }
 
+/* Inline source view: live markdown delimiter styling (ProseMirror decorations). */
+.paper-root[data-paper-source-view='inline'] .paper-editor-surface {
+  .composer-md-delim {
+    color: var(--paper-surface-muted);
+    opacity: 0.55;
+    font-weight: inherit;
+    font-style: inherit;
+    text-decoration: none;
+  }
+
+  .composer-md-bold {
+    font-weight: 700;
+  }
+
+  .composer-md-italic {
+    font-style: italic;
+  }
+
+  .composer-md-code {
+    border-radius: 0.25rem;
+    background: color-mix(in srgb, var(--paper-surface-fg) 8%, transparent);
+    padding: 0.04em 0.2em;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+      'Courier New', monospace;
+    font-size: 0.92em;
+  }
+
+  .composer-md-strike {
+    text-decoration: line-through;
+  }
+
+  .composer-md-spoiler {
+    border-radius: 0.25rem;
+    background: color-mix(in srgb, var(--paper-surface-fg) 10%, transparent);
+    filter: blur(4px);
+    transition: filter 0.15s ease;
+  }
+
+  .composer-md-spoiler:hover {
+    filter: none;
+  }
+
+  .composer-md-code-block {
+    display: block;
+    margin: 0.15em 0;
+    border-radius: 0.35rem;
+    padding: 0.35em 0.5em;
+    background: color-mix(in srgb, var(--paper-surface-fg) 6%, transparent);
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+      'Courier New', monospace;
+    font-size: 0.88em;
+    line-height: 1.45;
+    white-space: pre-wrap;
+  }
+
+  .composer-md-h1 {
+    font-size: 1.35em;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .composer-md-h2 {
+    font-size: 1.22em;
+    font-weight: 700;
+    line-height: 1.28;
+  }
+
+  .composer-md-h3 {
+    font-size: 1.12em;
+    font-weight: 650;
+    line-height: 1.3;
+  }
+
+  .composer-md-h4 {
+    font-size: 1.06em;
+    font-weight: 650;
+  }
+
+  .composer-md-h5 {
+    font-size: 1.02em;
+    font-weight: 600;
+  }
+
+  .composer-md-h6 {
+    font-size: 0.98em;
+    font-weight: 600;
+    color: var(--paper-surface-muted);
+  }
+
+  .composer-md-hr {
+    color: var(--paper-surface-muted);
+    opacity: 0.65;
+    font-size: 0.75em;
+    letter-spacing: 0.12em;
+  }
+
+  .composer-md-blockquote {
+    color: var(--paper-surface-muted);
+    font-style: italic;
+  }
+
+  .composer-md-link-text {
+    color: var(--paper-prose-link);
+    font-weight: 500;
+  }
+
+  .composer-md-link-url {
+    color: var(--paper-prose-link);
+    opacity: 0.85;
+    font-size: 0.9em;
+  }
+
+  .composer-md-footnote-ref {
+    color: var(--paper-prose-link);
+    font-size: 0.88em;
+    vertical-align: super;
+    line-height: 0;
+  }
+
+  .composer-md-highlight {
+    border-radius: 0.2rem;
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    padding: 0.04em 0.12em;
+  }
+}
+
 .paper-block-flash {
   outline: 2px solid var(--paper-block-flash);
   outline-offset: 2px;

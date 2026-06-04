@@ -28,6 +28,10 @@ import { checkEchoServerSpamFilter } from '../domain/echoStore/serverSpamFilter'
 import { evaluateBannedWordsOnMessageSend } from '../domain/echoStore/bannedWords/messageEval';
 import { validateEchoForumPostCreateFirstMessagePoll } from '../domain/echoStore/forums';
 import { buildMentionEntitiesFromDiscordWebhookContent } from './echoChannelWebhookAllowedMentions';
+import {
+  sanitizeWebhookAvatarUrl,
+  sanitizeWebhookEmbeds,
+} from './webhookMediaUrl';
 import { normalizeWebhookExecutePoll } from './echoChannelWebhookPollDiscord';
 import { resolveWebhookExecuteTargetChannel } from './echoChannelWebhookRouting';
 import { persistWebhookInboundFiles } from './echoChannelWebhookInboundFiles';
@@ -194,20 +198,13 @@ export async function executeEchoChannelWebhook(
   if (typeof merged.username === 'string' && merged.username.trim()) {
     username = merged.username.trim().slice(0, 80);
   }
-  let avatarUrl: string | undefined;
-  if (typeof merged.avatar_url === 'string' && merged.avatar_url.trim()) {
-    const u = merged.avatar_url.trim().slice(0, 2048);
-    if (
-      u.toLowerCase().startsWith('http://') ||
-      u.toLowerCase().startsWith('https://')
-    ) {
-      avatarUrl = u;
-    }
-  }
+  const avatarUrl = sanitizeWebhookAvatarUrl(
+    typeof merged.avatar_url === 'string' ? merged.avatar_url : undefined,
+  );
 
   let embeds: Embed[] | undefined;
   if (Array.isArray(merged.embeds) && merged.embeds.length > 0) {
-    embeds = merged.embeds.slice(0, 10) as Embed[];
+    embeds = sanitizeWebhookEmbeds(merged.embeds.slice(0, 10) as Embed[]);
   }
 
   const tts = merged.tts === true;

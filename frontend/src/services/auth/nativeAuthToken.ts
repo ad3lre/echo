@@ -10,6 +10,10 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { AuthUserPublic } from '@/api/authClient';
 import { API_BASE } from '@/config';
 import { applyEchoCsrfFromAuthJson } from '@/utils/echoCsrf';
+import {
+  echoClientDebugError,
+  echoClientDebugWarn,
+} from '@/utils/echoClientDebug';
 
 const IS_IOS_BUILD = import.meta.env.VITE_ECHO_IOS === '1';
 const AUTH_BASE = `${API_BASE.replace(/\/$/, '')}/api/v1/auth`;
@@ -134,7 +138,10 @@ async function executeNativeBearerRefresh(options?: {
     ({ res, data } = await postNativeRefreshOnce(refreshToken));
   } catch (error) {
     if (!options?.quietExpectedNoRefreshToken) {
-      console.warn('[echo][auth][native-refresh] network failure', error);
+      echoClientDebugWarn(
+        '[echo][auth][native-refresh] network failure',
+        error,
+      );
     }
     return null;
   }
@@ -154,7 +161,7 @@ async function executeNativeBearerRefresh(options?: {
   }
   if (!res.ok) {
     if (!options?.quietExpectedNoRefreshToken) {
-      console.warn('[echo][auth][native-refresh] failed', {
+      echoClientDebugWarn('[echo][auth][native-refresh] failed', {
         status: res.status,
         code: typeof data.code === 'string' ? data.code : undefined,
       });

@@ -8,6 +8,7 @@ import {
   getEchoUserTypingProfile,
 } from '../domain/echoStore';
 import { getEchoChannelType } from '../domain/echoStore/voice';
+import { assertPaperContentVisibleToUser } from '../domain/echoStore/paperShare';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -140,6 +141,15 @@ export function registerPaperWatchHandler(
       log.warn(
         { socketId: socket.id, channelId, userId },
         'paper:watch denied: no channel access',
+      );
+      return false;
+    }
+
+    const vis = await assertPaperContentVisibleToUser(pool, channelId, userId);
+    if (!vis.ok) {
+      log.warn(
+        { socketId: socket.id, channelId, userId },
+        'paper:watch denied: private paper visibility',
       );
       return false;
     }

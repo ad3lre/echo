@@ -1,8 +1,8 @@
 import type pg from 'pg';
 import type { MessageReaction } from '../../../../shared/types';
 import {
-  getEchoMessageById,
   listAggregatedReactionsForMessages,
+  selectEchoMessageChannelRef,
   normalizeReactionEmojiKey,
   removeEchoMessageReaction,
   upsertEchoMessageReaction,
@@ -43,8 +43,8 @@ export async function persistToggleEchoMessageReaction(
     return { ok: false, code: 'VALIDATION' };
   }
 
-  const msg = await getEchoMessageById(pool, messageId);
-  if (!msg || msg.channelId !== channelId) {
+  const msg = await selectEchoMessageChannelRef(pool, messageId, channelId);
+  if (!msg || msg.deleted) {
     return { ok: false, code: 'NOT_FOUND' };
   }
 
@@ -83,9 +83,8 @@ export async function persistAddEchoMessageReaction(
 ): Promise<EchoReactionToggleResult> {
   const emoji = normalizeReactionEmojiKey(emojiRaw);
   if (!emoji) return { ok: false, code: 'VALIDATION' };
-  const msg = await getEchoMessageById(pool, messageId);
-  if (!msg || msg.channelId !== channelId)
-    return { ok: false, code: 'NOT_FOUND' };
+  const msg = await selectEchoMessageChannelRef(pool, messageId, channelId);
+  if (!msg || msg.deleted) return { ok: false, code: 'NOT_FOUND' };
   const sid = await getEchoChannelServerId(pool, channelId);
   if (sid && (await isUserCommunicationTimedOut(pool, sid, userId))) {
     return {
@@ -110,9 +109,8 @@ export async function persistRemoveEchoMessageReaction(
 ): Promise<EchoReactionToggleResult> {
   const emoji = normalizeReactionEmojiKey(emojiRaw);
   if (!emoji) return { ok: false, code: 'VALIDATION' };
-  const msg = await getEchoMessageById(pool, messageId);
-  if (!msg || msg.channelId !== channelId)
-    return { ok: false, code: 'NOT_FOUND' };
+  const msg = await selectEchoMessageChannelRef(pool, messageId, channelId);
+  if (!msg || msg.deleted) return { ok: false, code: 'NOT_FOUND' };
   const sid = await getEchoChannelServerId(pool, channelId);
   if (sid && (await isUserCommunicationTimedOut(pool, sid, userId))) {
     return {

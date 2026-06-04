@@ -29,6 +29,7 @@ import discordApiRoutes from './discordApi';
 import discordGatewayRoutes from './discordApi/gateway';
 import { getAccessUserIdFromAuthHeader } from '../../auth/token';
 import { isEchoApiReadRequest } from '../../bootstrap/echoReadRateLimitPaths';
+import { clientIpFromFastifyRequest } from '../../net/clientIp';
 
 /**
  * Registers all REST API routes under /api/v1.
@@ -75,7 +76,9 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
           const userId = getAccessUserIdFromAuthHeader(
             req.headers.authorization,
           );
-          return userId ? `uid:${userId}` : `ip:${req.ip}`;
+          return userId
+            ? `uid:${userId}`
+            : `ip:${clientIpFromFastifyRequest(req)}`;
         },
         allowList: (req: FastifyRequest) =>
           !isEchoApiReadRequest(req.method, req.url),

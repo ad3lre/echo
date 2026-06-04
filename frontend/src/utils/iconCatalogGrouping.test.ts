@@ -28,6 +28,13 @@ describe('getBaseIconGroupKey', () => {
     expect(getBaseIconGroupKey('chateau.svg', 'text')).toBe('chateau');
     expect(getBaseIconGroupKey('coffee.svg', 'text')).toBe('coffee');
   });
+
+  it('mega-groups math and hobby pack prefixes', () => {
+    expect(getBaseIconGroupKey('math-sigma.svg', 'text')).toBe('__mega_math');
+    expect(getBaseIconGroupKey('hobby-dice.svg', 'text')).toBe(
+      '__mega_hobbies',
+    );
+  });
 });
 
 describe('resolveSemanticMegaKey', () => {
@@ -38,6 +45,15 @@ describe('resolveSemanticMegaKey', () => {
     expect(resolveSemanticMegaKey(e('volume up.svg', 'volume'), 'text')).toBe(
       'voice',
     );
+  });
+
+  it('classifies math and hobby packs', () => {
+    expect(resolveSemanticMegaKey(e('math-pi.svg', 'math-pi'), 'text')).toBe(
+      'math',
+    );
+    expect(
+      resolveSemanticMegaKey(e('hobby-guitar.svg', 'hobby-guitar'), 'text'),
+    ).toBe('hobbies');
   });
 });
 
