@@ -49,7 +49,7 @@ export async function destroyPdfLoad(
   doc: PDFDocumentProxy | undefined,
 ): Promise<void> {
   if (doc) {
-    await doc.destroy().catch(() => {});
+    await doc.loadingTask.destroy().catch(() => {});
     return;
   }
   if (task) {

@@ -76,6 +76,8 @@ async function run(): Promise<void> {
   const uploadRoot = await mkdtemp(path.join(tmpdir(), 'echo-pub-emoji-'));
   const restoreEnv = setEnv({
     ECHO_CONFIG_TEST_ISOLATION: '1',
+    DATABASE_URL: databaseUrl,
+    ECHO_BACKEND_STORAGE: 'postgres',
     ECHO_LOCAL_UPLOAD_DIR: uploadRoot,
     ECHO_LOCAL_UPLOADS: 'true',
     ECHO_S3_BUCKET: undefined,

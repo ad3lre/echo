@@ -177,6 +177,7 @@
     "livekit-client": "^2.18.6"
   },
   "overrides": {
+    "prosemirror-model": "1.25.7",
     "typescript": "6.0.3",
     "@cypress/request": {
       "qs": "6.15.2"

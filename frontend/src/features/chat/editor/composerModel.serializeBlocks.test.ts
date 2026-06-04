@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Editor, type JSONContent } from '@tiptap/core';
+import { Editor, type Extensions, type JSONContent } from '@tiptap/core';
+import HardBreak from '@tiptap/extension-hard-break';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import {
@@ -39,12 +40,13 @@ function makeEditor(content: JSONContent): Editor {
       ComposerItalic,
       ComposerStrike,
       ComposerCode,
+      HardBreak,
       Placeholder.configure({ placeholder: '' }),
       MentionEntityNode,
       ChannelMentionNode,
       CustomEmojiNode,
       ComposerMarkdownDecorations,
-    ],
+    ] satisfies Extensions,
     content,
     editable: false,
   });

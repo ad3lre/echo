@@ -8,7 +8,8 @@ import {
   type ComputedRef,
   type Ref,
 } from 'vue';
-import { Editor } from '@tiptap/core';
+import { Editor, type Extensions } from '@tiptap/core';
+import HardBreak from '@tiptap/extension-hard-break';
 import Placeholder from '@tiptap/extension-placeholder';
 import StarterKit from '@tiptap/starter-kit';
 import type { MentionEntity, MentionKind } from '@shared/types';
@@ -262,13 +263,14 @@ export function useComposerState(
       ComposerItalic,
       ComposerStrike,
       ComposerCode,
+      HardBreak,
       Placeholder.configure({ placeholder: '' }),
       MentionEntityNode,
       ChannelMentionNode,
       CustomEmojiNode,
       AppIconNode,
       ComposerMarkdownDecorations,
-    ],
+    ] satisfies Extensions,
     content: buildComposerDoc('', [], getResolvers()),
     editorProps: {
       attributes: {
