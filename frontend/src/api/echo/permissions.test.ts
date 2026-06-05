@@ -233,7 +233,7 @@ describe('Echo permissions API client', () => {
     ).resolves.toEqual({
       rows: [
         {
-          targetType: 'everyone',
+          targetType: 'members',
           partial: { viewChannel: true, sendMessages: false },
         },
         {
@@ -258,7 +258,7 @@ describe('Echo permissions API client', () => {
     );
 
     await putEchoChannelPermissionOverwriteRows('tok', 'chan', [
-      { targetType: 'everyone', partial: { viewChannel: true } },
+      { targetType: 'members', partial: { viewChannel: true } },
       {
         targetType: 'role',
         targetId: 'role-1',
@@ -267,7 +267,7 @@ describe('Echo permissions API client', () => {
     ]);
     expect(parsedBody()).toEqual({
       rows: [
-        { targetType: 'everyone', partial: { VIEW_CHANNEL: true } },
+        { targetType: 'members', partial: { VIEW_CHANNEL: true } },
         {
           targetType: 'role',
           targetId: 'role-1',

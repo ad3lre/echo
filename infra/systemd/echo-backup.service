@@ -1,0 +1,31 @@
+[Unit]
+Description=Echo Postgres backup - daily dump upload to offsite storage
+Documentation=https://github.com/echo-chat/echo/blob/main/docs/operations/runbooks/backup-restore.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=echo
+Group=echo
+
+# Environment file with write-only backup credentials (not restore credentials)
+EnvironmentFile=-/etc/echo/backup-upload.env
+
+# Working directory: production checkout
+WorkingDirectory=/opt/echo
+
+# Uses npm from PATH (set in EnvironmentFile) so Node matches production toolchain
+ExecStart=/usr/bin/env npm run backup:postgres
+
+# Backup can take time on large databases
+TimeoutStartSec=1800
+
+# Lower priority to avoid impacting production API
+Nice=10
+
+# If backup fails, don't restart - timer will try again tomorrow
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

@@ -1,17 +1,29 @@
 import { computed, ref, watch, type Ref } from 'vue';
 import {
-  derivePaperSurfaceStyle,
+  PAPER_APPEARANCE_CYCLE,
   readPaperPageColors,
+  resolvePaperPageSurfaceStyle,
+  type PaperAppearanceMode,
 } from '@/features/paper/editor/paperPageAppearance';
 
-export type PaperAppearanceMode = 'light' | 'dark' | 'amber';
+export type { PaperAppearanceMode };
 
 const STORAGE_PREFIX = 'echo-paper-appearance:';
 
+const VALID_MODES = new Set<string>(PAPER_APPEARANCE_CYCLE);
+
+function normalizeStoredMode(raw: string | null): PaperAppearanceMode | null {
+  if (!raw) return null;
+  if (raw === 'amber') return 'sunny';
+  if (VALID_MODES.has(raw)) return raw as PaperAppearanceMode;
+  return null;
+}
+
 function loadStored(channelId: string): PaperAppearanceMode | null {
   try {
-    const raw = sessionStorage.getItem(`${STORAGE_PREFIX}${channelId}`);
-    if (raw === 'light' || raw === 'dark' || raw === 'amber') return raw;
+    return normalizeStoredMode(
+      sessionStorage.getItem(`${STORAGE_PREFIX}${channelId}`),
+    );
   } catch {
     /* ignore */
   }
@@ -26,10 +38,17 @@ function store(channelId: string, mode: PaperAppearanceMode) {
   }
 }
 
-/** Read the global app theme from the DOM so paper inherits it on first open. */
+/**
+ * Read the global Echo theme from the DOM so Paper inherits it on first open
+ * (before the user picks a per-channel canvas mode).
+ */
 export function detectGlobalAppearance(): PaperAppearanceMode {
   if (typeof document === 'undefined') return 'dark';
-  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  const root = document.documentElement;
+  if (root.dataset.theme === 'light') {
+    return root.dataset.echoLightVariant === 'sunny' ? 'sunny' : 'light';
+  }
+  return root.dataset.echoDarkVariant === 'amoled' ? 'amoled' : 'dark';
 }
 
 export function usePaperAppearance(opts: {
@@ -54,21 +73,16 @@ export function usePaperAppearance(opts: {
   }
 
   function toggleAppearance() {
-    const order: PaperAppearanceMode[] = ['light', 'dark', 'amber'];
-    const idx = order.indexOf(appearance.value);
-    setAppearance(order[(idx + 1) % order.length]);
+    const idx = PAPER_APPEARANCE_CYCLE.indexOf(appearance.value);
+    const next =
+      PAPER_APPEARANCE_CYCLE[(idx + 1) % PAPER_APPEARANCE_CYCLE.length] ??
+      'light';
+    setAppearance(next);
   }
 
   const pageSurfaceStyle = computed(() => {
     const colors = readPaperPageColors(opts.contentJson.value);
-    const hex =
-      appearance.value === 'dark'
-        ? colors.dark
-        : appearance.value === 'amber'
-          ? (colors.light ?? '#fffbf0')
-          : colors.light;
-    if (!hex) return {};
-    return derivePaperSurfaceStyle(hex);
+    return resolvePaperPageSurfaceStyle(appearance.value, colors);
   });
 
   return {

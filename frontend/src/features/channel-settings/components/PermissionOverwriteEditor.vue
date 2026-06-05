@@ -31,9 +31,9 @@ const emit = defineEmits<{
   'update:rows': [rows: PermissionOverwriteRowDraft[]];
 }>();
 
-/** @everyone is always listed first; may be absent from `rows` until a perm is set. */
-const EVERYONE_ROW_DRAFT: PermissionOverwriteRowDraft = {
-  targetType: 'everyone',
+/** @members is always listed first; may be absent from `rows` until a perm is set. */
+const MEMBERS_ROW_DRAFT: PermissionOverwriteRowDraft = {
+  targetType: 'members',
   partial: {},
 };
 
@@ -60,8 +60,8 @@ const memberMap = computed(
 );
 
 function rowKey(row: PermissionOverwriteRowDraft): string {
-  return row.targetType === 'everyone'
-    ? 'everyone'
+  return row.targetType === 'members'
+    ? 'members'
     : `${row.targetType}:${row.targetId ?? ''}`;
 }
 
@@ -70,9 +70,7 @@ function normalizeRow(
 ): PermissionOverwriteRowDraft {
   return {
     targetType: row.targetType,
-    ...(row.targetType === 'everyone'
-      ? {}
-      : { targetId: row.targetId ?? null }),
+    ...(row.targetType === 'members' ? {} : { targetId: row.targetId ?? null }),
     partial: { ...(row.partial ?? {}) },
   };
 }
@@ -86,10 +84,10 @@ function emitRows(rows: PermissionOverwriteRowDraft[]) {
 
 const roleRows = computed(() =>
   props.rows
-    .filter((row) => row.targetType === 'everyone' || row.targetType === 'role')
+    .filter((row) => row.targetType === 'members' || row.targetType === 'role')
     .sort((a, b) => {
-      if (a.targetType === 'everyone') return -1;
-      if (b.targetType === 'everyone') return 1;
+      if (a.targetType === 'members') return -1;
+      if (b.targetType === 'members') return 1;
       const aIndex = props.roles.findIndex((role) => role.id === a.targetId);
       const bIndex = props.roles.findIndex((role) => role.id === b.targetId);
       return (aIndex === -1 ? 9999 : aIndex) - (bIndex === -1 ? 9999 : bIndex);
@@ -150,7 +148,7 @@ function selectionKeyValidForTab(
 ): boolean {
   if (!key) return false;
   if (tab === 'roles') {
-    if (key === 'everyone') return true;
+    if (key === 'members') return true;
     return props.rows.some(
       (row) => row.targetType === 'role' && rowKey(row) === key,
     );
@@ -161,7 +159,7 @@ function selectionKeyValidForTab(
 }
 
 function defaultSelectionKeyForTab(tab: 'roles' | 'members'): string {
-  if (tab === 'roles') return 'everyone';
+  if (tab === 'roles') return 'members';
   const first = memberRows.value[0];
   return first ? rowKey(first) : '';
 }
@@ -177,8 +175,8 @@ const selectedRow = computed(() => {
   if (!key) return null;
   const found = props.rows.find((row) => rowKey(row) === key);
   if (found) return found;
-  if (key === 'everyone' && targetTab.value === 'roles')
-    return EVERYONE_ROW_DRAFT;
+  if (key === 'members' && targetTab.value === 'roles')
+    return MEMBERS_ROW_DRAFT;
   return null;
 });
 
@@ -205,8 +203,8 @@ function describeRow(row: PermissionOverwriteRowDraft): {
   color?: string;
   avatarUrl?: string;
 } {
-  if (row.targetType === 'everyone')
-    return { label: '@everyone', subtitle: 'Base overwrite for all members' };
+  if (row.targetType === 'members')
+    return { label: '@members', subtitle: 'Base overwrite for all members' };
   if (row.targetType === 'role') {
     const role = roleMap.value.get(row.targetId ?? '');
     return {
@@ -224,18 +222,18 @@ function describeRow(row: PermissionOverwriteRowDraft): {
 }
 
 function ensureRow(
-  targetType: 'everyone' | 'role' | 'member',
+  targetType: 'members' | 'role' | 'member',
   targetId?: string | null,
 ) {
   if (props.disabled) {
     notifyPermissionEditBlocked();
-    if (targetType === 'everyone') selectedRowKey.value = 'everyone';
+    if (targetType === 'members') selectedRowKey.value = 'members';
     return;
   }
   const existing = props.rows.find(
     (row) =>
       row.targetType === targetType &&
-      (targetType === 'everyone' || row.targetId === targetId),
+      (targetType === 'members' || row.targetId === targetId),
   );
   if (existing) {
     selectedRowKey.value = rowKey(existing);
@@ -243,7 +241,7 @@ function ensureRow(
   }
   const next: PermissionOverwriteRowDraft = {
     targetType,
-    ...(targetType === 'everyone' ? {} : { targetId: targetId ?? null }),
+    ...(targetType === 'members' ? {} : { targetId: targetId ?? null }),
     partial: {},
   };
   emitRows([...props.rows, next]);
@@ -252,7 +250,7 @@ function ensureRow(
 
 function removeSelectedRow() {
   const row = props.rows.find((r) => rowKey(r) === selectedRowKey.value);
-  if (props.disabled || !row || row.targetType === 'everyone') return;
+  if (props.disabled || !row || row.targetType === 'members') return;
   emitRows(props.rows.filter((r) => rowKey(r) !== rowKey(row)));
   ensureDefaultSelection();
 }
@@ -278,10 +276,10 @@ function setPermissionValue(
   const rows = props.rows.map((row) => normalizeRow(row));
   const idx = rows.findIndex((row) => rowKey(row) === selKey);
   if (idx === -1) {
-    if (selKey !== 'everyone') return;
+    if (selKey !== 'members') return;
     const partial: Partial<Record<ChannelPermissionKey, boolean>> = {};
     if (value !== undefined) partial[key] = value;
-    emitRows([...rows, { targetType: 'everyone', partial }]);
+    emitRows([...rows, { targetType: 'members', partial }]);
     return;
   }
 
@@ -354,14 +352,14 @@ function explicitPermissionCount(
             type="button"
             class="overwrite-editor__target"
             :class="{
-              'overwrite-editor__target--active': selectedRowKey === 'everyone',
+              'overwrite-editor__target--active': selectedRowKey === 'members',
             }"
-            @click="ensureRow('everyone')"
+            @click="ensureRow('members')"
           >
             <span
-              class="overwrite-editor__dot overwrite-editor__dot--everyone"
+              class="overwrite-editor__dot overwrite-editor__dot--members"
             ></span>
-            <span class="truncate">@everyone</span>
+            <span class="truncate">@members</span>
           </button>
 
           <button
@@ -498,7 +496,7 @@ function explicitPermissionCount(
               </div>
             </div>
             <button
-              v-if="selectedRow.targetType !== 'everyone'"
+              v-if="selectedRow.targetType !== 'members'"
               type="button"
               class="overwrite-editor__remove"
               :disabled="disabled"
@@ -687,7 +685,7 @@ function explicitPermissionCount(
   background: var(--vue-auto-063);
 }
 
-.overwrite-editor__dot--everyone {
+.overwrite-editor__dot--members {
   background: linear-gradient(135deg, var(--vue-auto-286), var(--vue-auto-287));
 }
 

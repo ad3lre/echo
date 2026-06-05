@@ -1,5 +1,6 @@
 import { Marked } from 'marked';
 import markedFootnote from 'marked-footnote';
+import { applyPaperSmartTypographyToMarkdown } from '@/features/paper/editor/paperSmartTypography';
 
 const marked = new Marked()
   .setOptions({ gfm: true, breaks: true })
@@ -14,6 +15,8 @@ const marked = new Marked()
 export function paperMarkdownToHtml(markdown: string): string {
   const trimmed = markdown.trim();
   if (!trimmed) return '<p></p>';
-  const html = marked.parse(trimmed, { async: false }) as string;
+  const html = marked.parse(applyPaperSmartTypographyToMarkdown(trimmed), {
+    async: false,
+  }) as string;
   return html.trim() || '<p></p>';
 }

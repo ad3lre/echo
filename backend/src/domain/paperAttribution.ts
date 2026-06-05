@@ -11,6 +11,7 @@ const BLOCK_NODE_TYPES = new Set([
   'bulletList',
   'orderedList',
   'image',
+  'paperShape',
   'table',
   'horizontalRule',
 ]);

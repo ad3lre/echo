@@ -808,8 +808,8 @@ export default async function echoRolesRoutes(
           'FORBIDDEN',
           'You cannot edit roles in this server',
         );
-      if (r === 'cannot_delete_everyone')
-        return sendError(reply, 400, 'INVALID_BODY', 'Cannot delete @everyone');
+      if (r === 'cannot_delete_members')
+        return sendError(reply, 400, 'INVALID_BODY', 'Cannot delete @members');
       if (r === 'not_found')
         return sendError(reply, 404, 'NOT_FOUND', 'Role not found');
       await evictAllUsersFromEchoServerChannelRealtimeScopes(
@@ -1072,12 +1072,12 @@ export default async function echoRolesRoutes(
         );
       if (r === 'invalid_role')
         return sendError(reply, 400, 'INVALID_BODY', 'Unknown role');
-      if (r === 'cannot_remove_everyone') {
+      if (r === 'cannot_remove_members') {
         return sendError(
           reply,
           400,
           'INVALID_BODY',
-          'Cannot remove the @everyone role',
+          'Cannot remove the @members role',
         );
       }
       if (r === 'unchanged') return reply.code(204).send();

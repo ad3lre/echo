@@ -6,8 +6,26 @@ export const KATEX_DISPLAY_SCROLLBAR_VISIBLE_CLASS =
 
 const REVEAL_MS = 1400;
 
+/** Inner `.katex` under `.katex-display` — the element that actually scrolls horizontally. */
+export function katexDisplayScrollElement(
+  el: HTMLElement | null,
+): HTMLElement | null {
+  if (!el) return null;
+  if (
+    el.classList.contains('katex') &&
+    el.parentElement?.classList.contains('katex-display')
+  ) {
+    return el;
+  }
+  if (el.classList.contains('katex-display')) {
+    const inner = el.querySelector<HTMLElement>(':scope > .katex');
+    return inner ?? null;
+  }
+  return null;
+}
+
 /**
- * Keeps horizontal scrollbars hidden on `.katex-display` blocks until the user
+ * Keeps horizontal scrollbars hidden on display-math blocks until the user
  * begins scrolling (wheel / trackpad / scrollbar / touch scroll).
  */
 export function useMessageKatexScrollbarReveal(
@@ -29,17 +47,19 @@ export function useMessageKatexScrollbarReveal(
 
   function bindScrollListeners(root: HTMLElement | null) {
     if (!root) return;
-    root.querySelectorAll<HTMLElement>('.katex-display').forEach((el) => {
-      if (el.dataset.echoKatexSb === '1') return;
-      el.dataset.echoKatexSb = '1';
-      el.addEventListener(
-        'scroll',
-        () => {
-          reveal(el);
-        },
-        { passive: true },
-      );
-    });
+    root
+      .querySelectorAll<HTMLElement>('.katex-display > .katex')
+      .forEach((el) => {
+        if (el.dataset.echoKatexSb === '1') return;
+        el.dataset.echoKatexSb = '1';
+        el.addEventListener(
+          'scroll',
+          () => {
+            reveal(el);
+          },
+          { passive: true },
+        );
+      });
   }
 
   function onWheel(e: WheelEvent) {
@@ -47,8 +67,9 @@ export function useMessageKatexScrollbarReveal(
     if (!root) return;
     let el = e.target as HTMLElement | null;
     while (el && el !== root) {
-      if (el.classList.contains('katex-display')) {
-        if (el.scrollWidth > el.clientWidth + 1) reveal(el);
+      const scrollEl = katexDisplayScrollElement(el);
+      if (scrollEl) {
+        if (scrollEl.scrollWidth > scrollEl.clientWidth + 1) reveal(scrollEl);
         return;
       }
       el = el.parentElement;

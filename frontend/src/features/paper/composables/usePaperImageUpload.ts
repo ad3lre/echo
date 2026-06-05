@@ -10,24 +10,60 @@ import {
 } from '@/features/paper/composables/extractPaperClipboardImage';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { insertPaperImage } from '@/features/paper/editor/insertPaperImage';
+import { snapshotPaperEditorCaretAt } from '@/features/paper/editor/paperFormatSelection';
+
+function isImageFile(file: File): boolean {
+  return inferChatPendingMediaKind(file) === 'image';
+}
 
 export function usePaperImageUpload(channelId: string) {
   const uploading = ref(false);
   const error = ref<string | null>(null);
   const authSession = useAuthSessionStore();
 
-  function insertImageUrl(editor: Editor, src: string) {
+  function insertImageUrl(
+    editor: Editor,
+    src: string,
+    opts: { restoreCaret?: boolean } = {},
+  ) {
+    if (!editor.isEditable) {
+      error.value = 'Switch to edit mode to insert images';
+      dispatchAppToast(error.value, 'warning');
+      return false;
+    }
     const safe = safeImageUrl(src);
     if (!safe || safe.startsWith('data:')) {
       error.value = 'That URL is not allowed for images.';
       dispatchAppToast(error.value, 'warning');
       return false;
     }
-    insertPaperImage(editor, safe);
+    if (
+      !insertPaperImage(editor, safe, {
+        restoreCaret: opts.restoreCaret ?? true,
+      })
+    ) {
+      error.value = 'Could not insert image at this position';
+      dispatchAppToast(error.value, 'warning');
+      return false;
+    }
     return true;
   }
 
-  async function insertImageFile(editor: Editor, file: File) {
+  async function insertImageFile(
+    editor: Editor,
+    file: File,
+    opts: { restoreCaret?: boolean } = {},
+  ) {
+    if (!editor.isEditable) {
+      error.value = 'Switch to edit mode to upload images';
+      dispatchAppToast(error.value, 'warning');
+      return;
+    }
+    if (!isImageFile(file)) {
+      error.value = 'Only image files can be inserted';
+      dispatchAppToast(error.value, 'warning');
+      return;
+    }
     const token = authSession.accessToken?.trim() ?? '';
     if (!token?.trim()) {
       error.value = 'Sign in to upload images';
@@ -44,7 +80,14 @@ export function usePaperImageUpload(channelId: string) {
         dispatchAppToast(error.value, 'warning');
         return;
       }
-      insertPaperImage(editor, safe);
+      if (
+        !insertPaperImage(editor, safe, {
+          restoreCaret: opts.restoreCaret ?? true,
+        })
+      ) {
+        error.value = 'Could not insert image at this position';
+        dispatchAppToast(error.value, 'warning');
+      }
     } catch (e) {
       if (
         e instanceof Error &&
@@ -62,16 +105,17 @@ export function usePaperImageUpload(channelId: string) {
   }
 
   function handlePaste(editor: Editor, event: ClipboardEvent): boolean {
+    if (!editor.isEditable) return false;
     const payload = extractPaperClipboardImage(event);
     if (!payload) return false;
     event.preventDefault();
 
     if (payload.kind === 'file') {
-      void insertImageFile(editor, payload.file);
+      void insertImageFile(editor, payload.file, { restoreCaret: false });
       return true;
     }
     if (payload.kind === 'url') {
-      return insertImageUrl(editor, payload.url);
+      return insertImageUrl(editor, payload.url, { restoreCaret: false });
     }
 
     const file = dataUrlToImageFile(payload.dataUrl);
@@ -80,14 +124,22 @@ export function usePaperImageUpload(channelId: string) {
       dispatchAppToast(error.value, 'warning');
       return true;
     }
-    void insertImageFile(editor, file);
+    void insertImageFile(editor, file, { restoreCaret: false });
     return true;
   }
 
   function handleDrop(editor: Editor, event: DragEvent): boolean {
+    if (!editor.isEditable) return false;
     const file = event.dataTransfer?.files?.[0];
-    if (!file || inferChatPendingMediaKind(file) !== 'image') return false;
+    if (!file || !isImageFile(file)) return false;
     event.preventDefault();
+    const coords = editor.view.posAtCoords({
+      left: event.clientX,
+      top: event.clientY,
+    });
+    if (coords?.pos != null) {
+      snapshotPaperEditorCaretAt(coords.pos);
+    }
     void insertImageFile(editor, file);
     return true;
   }

@@ -3,9 +3,11 @@ import type { ChainedCommands, Editor } from '@tiptap/core';
 export type PaperEditorTextRange = { from: number; to: number };
 
 let storedRange: PaperEditorTextRange | null = null;
+/** Caret position snapshotted before file pickers (selection is lost when the dialog opens). */
+let storedCaretPos: number | null = null;
 
 const FORMAT_CHROME_SELECTOR =
-  '.paper-floating-format-bar, .paper-font-picker-panel, .paper-color-picker-shell, #paper-format-more-menu-panel, .paper-editor-panel';
+  '.paper-floating-format-bar, .paper-font-picker-panel, .paper-color-picker-shell, #paper-format-more-menu-panel, .paper-format-preset-menu, #paper-canvas-color-picker-pageLight, #paper-canvas-color-picker-pageDark, #paper-canvas-color-picker-text, #paper-canvas-color-picker-highlight, #paper-canvas-color-picker-object, .paper-editor-panel';
 
 /** Remember the current non-empty editor selection for toolbar commands. */
 export function snapshotPaperEditorSelection(
@@ -18,6 +20,26 @@ export function snapshotPaperEditorSelection(
 
 export function clearStoredPaperEditorSelection(): void {
   storedRange = null;
+}
+
+/** Remember the editor caret for the next block insert (image upload file picker). */
+export function snapshotPaperEditorCaret(
+  editor: Editor | null | undefined,
+): void {
+  if (!editor) return;
+  const { to } = editor.state.selection;
+  const max = editor.state.doc.content.size;
+  storedCaretPos = Math.min(Math.max(0, to), max);
+}
+
+export function snapshotPaperEditorCaretAt(pos: number): void {
+  storedCaretPos = Math.max(0, pos);
+}
+
+export function consumeStoredPaperEditorCaret(): number | null {
+  const pos = storedCaretPos;
+  storedCaretPos = null;
+  return pos;
 }
 
 export function getStoredPaperEditorSelection(): PaperEditorTextRange | null {

@@ -33,7 +33,7 @@ async function grantManageRolesToEveryone(
     `
     UPDATE echo_roles
     SET permissions = permissions || '["MANAGE_ROLES"]'::jsonb
-    WHERE server_id = $1 AND name = '@everyone'
+    WHERE server_id = $1 AND name = '@members'
     `,
     [serverId],
   );

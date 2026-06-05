@@ -2,10 +2,10 @@ import { ECHO_PERMISSIONS } from '../echoPermissionPrimitives';
 import { ECHO_DIRECTORY_EXCLUDED_SERVER_NAMES_LOWER } from '../../../../shared/exploreDirectoryExcludedNames';
 
 /**
- * Default server-level @everyone permissions for new servers and `ensureEchoTables` resets.
+ * Default server-level @members permissions for new servers and `ensureEchoTables` resets.
  * Includes voice connect + video (Discord `STREAM`) so members can join VC with camera by default.
  */
-export const DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS: readonly string[] = [
+export const DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS: readonly string[] = [
   'VIEW_CHANNEL',
   'SEND_MESSAGES',
   'CREATE_INSTANT_INVITE',
@@ -13,6 +13,16 @@ export const DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS: readonly string[] = [
   'CONNECT',
   'STREAM',
 ];
+
+/** @deprecated use DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS */
+export const DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS =
+  DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS;
+
+/**
+ * Default server-level @global permissions for new servers.
+ * Authenticated non-members start with 0 permissions; must be explicitly granted.
+ */
+export const DEFAULT_ECHO_GLOBAL_ROLE_PERMISSIONS: readonly string[] = [];
 
 export const ALL_PERMS_SET = new Set<string>(ECHO_PERMISSIONS);
 export const ALLOWED_PERMS_SET = ALL_PERMS_SET;

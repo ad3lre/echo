@@ -6,6 +6,7 @@ import {
   paperSetTextAlign,
   paperStepFontSize,
   paperToggleBulletList,
+  paperToggleMark,
 } from '@/features/paper/editor/paperKeyboardActions';
 
 /** Paper editor keyboard shortcuts (typography, alignment, structure). */
@@ -14,10 +15,19 @@ export const PaperKeyboardShortcuts = Extension.create({
 
   addKeyboardShortcuts() {
     return {
-      'Shift-ArrowUp': () => paperStepFontSize(this.editor, 'up'),
-      'Shift-ArrowDown': () => paperStepFontSize(this.editor, 'down'),
-      'Shift-ArrowLeft': () => paperCycleFontFamily(this.editor, 'prev'),
-      'Shift-ArrowRight': () => paperCycleFontFamily(this.editor, 'next'),
+      'Mod-b': () => paperToggleMark(this.editor, 'toggleBold'),
+      'Mod-B': () => paperToggleMark(this.editor, 'toggleBold'),
+      'Mod-i': () => paperToggleMark(this.editor, 'toggleItalic'),
+      'Mod-I': () => paperToggleMark(this.editor, 'toggleItalic'),
+      'Mod-Shift-s': () => paperToggleMark(this.editor, 'toggleStrike'),
+      'Mod-Shift-S': () => paperToggleMark(this.editor, 'toggleStrike'),
+      'Mod-e': () => paperToggleMark(this.editor, 'toggleCode'),
+      'Mod-E': () => paperToggleMark(this.editor, 'toggleCode'),
+
+      'Mod-Shift-ArrowUp': () => paperStepFontSize(this.editor, 'up'),
+      'Mod-Shift-ArrowDown': () => paperStepFontSize(this.editor, 'down'),
+      'Mod-Shift-ArrowLeft': () => paperCycleFontFamily(this.editor, 'prev'),
+      'Mod-Shift-ArrowRight': () => paperCycleFontFamily(this.editor, 'next'),
 
       'Mod-Alt-1': () => paperSetHeadingLevel(this.editor, 1),
       'Mod-Alt-2': () => paperSetHeadingLevel(this.editor, 2),

@@ -1335,9 +1335,11 @@ async function importRolesStep(
   const bundle = await loadBundle(sourceDir);
 
   const existingRoles = await listEchoRolesForServer(pool, serverId);
-  const everyoneRole = existingRoles.find((role) => role.isEveryone);
-  if (!everyoneRole)
-    throw new Error('Echo server is missing the default @everyone role.');
+  const membersRole = existingRoles.find(
+    (role) => role.isMembers || role.isEveryone,
+  );
+  if (!membersRole)
+    throw new Error('Echo server is missing the default @members role.');
 
   const roleIdMap: ImportMapping = {};
   const warnings = [...bundle.warnings];
@@ -1387,7 +1389,7 @@ async function importRolesStep(
         pool,
         serverId,
         actorId,
-        everyoneRole.id,
+        membersRole.id,
         patch,
       );
       if (update !== 'ok') {
@@ -1403,8 +1405,8 @@ async function importRolesStep(
           roleImportIssues,
         );
       }
-      roleIdMap[discordRoleId] = everyoneRole.id;
-      orderedRoleIdsTopToBottom.push(everyoneRole.id);
+      roleIdMap[discordRoleId] = membersRole.id;
+      orderedRoleIdsTopToBottom.push(membersRole.id);
       continue;
     }
     const effectiveRoleName = makeUniqueImportedRoleName(
@@ -1486,8 +1488,8 @@ async function importRolesStep(
     orderedRoleIdsTopToBottom.push(created.roleId);
   }
 
-  if (!orderedRoleIdsTopToBottom.includes(everyoneRole.id)) {
-    orderedRoleIdsTopToBottom.push(everyoneRole.id);
+  if (!orderedRoleIdsTopToBottom.includes(membersRole.id)) {
+    orderedRoleIdsTopToBottom.push(membersRole.id);
   }
   // Preserve any pre-existing roles not referenced by the import by appending them.
   for (const r of existingRoles) {
@@ -1602,9 +1604,11 @@ async function importMembersStep(
     bundle.guild.id != null ? String(bundle.guild.id).trim() : '';
 
   const existingRoles = await listEchoRolesForServer(pool, serverId);
-  const everyoneRole = existingRoles.find((role) => role.isEveryone);
-  if (!everyoneRole)
-    throw new Error('Echo server is missing the default @everyone role.');
+  const membersRole = existingRoles.find(
+    (role) => role.isMembers || role.isEveryone,
+  );
+  if (!membersRole)
+    throw new Error('Echo server is missing the default @members role.');
 
   const membersPath = path.join(sourceDir, 'members.jsonl');
   /** Flush map in chunks so one giant JSON parameter cannot OOM or hit driver limits. */
@@ -1690,7 +1694,7 @@ async function importMembersStep(
         const d = String(drid).trim();
         if (!d || d === guildDiscordId) continue;
         const echoRoleId = roleIdMap[d];
-        if (!echoRoleId || echoRoleId === everyoneRole.id) continue;
+        if (!echoRoleId || echoRoleId === membersRole.id) continue;
         desiredRoleIds.push(echoRoleId);
       }
 
@@ -2369,7 +2373,7 @@ async function importChannelsStep(
     const targetType = overwriteTargetType(overwrite.type);
     if (targetType === 'role') {
       if (guildId && targetId === guildId) {
-        row = { targetType: 'everyone', partial };
+        row = { targetType: 'members', partial };
       } else if (roleIdMap[targetId]) {
         row = { targetType: 'role', targetId: roleIdMap[targetId], partial };
       } else {

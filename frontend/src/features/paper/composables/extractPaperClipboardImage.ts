@@ -11,10 +11,16 @@ export type PaperClipboardImagePayload =
 export function extractImageSrcFromClipboardHtml(html: string): string | null {
   const trimmed = html.trim();
   if (!trimmed) return null;
-  const match = /<img\s[^>]*?\bsrc\s*=\s*"([^"]+)"/i.exec(trimmed);
-  if (match?.[1]) return match[1].trim() || null;
-  const matchSingle = /<img\s[^>]*?\bsrc\s*=\s*'([^']+)'/i.exec(trimmed);
-  if (matchSingle?.[1]) return matchSingle[1].trim() || null;
+  const patterns = [
+    /<img\s[^>]*?\bsrc\s*=\s*"([^"]+)"/i,
+    /<img\s[^>]*?\bsrc\s*=\s*'([^']+)'/i,
+    /<img\s[^>]*?\bsrc\s*=\s*([^\s"'>]+)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = pattern.exec(trimmed);
+    const raw = match?.[1]?.trim();
+    if (raw) return raw;
+  }
   return null;
 }
 

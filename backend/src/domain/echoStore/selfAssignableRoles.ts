@@ -235,7 +235,7 @@ type RoleRow = {
   role_icon_url: string | null;
   role_icon_emoji_id: string | null;
   role_type: string;
-  is_everyone: boolean;
+  is_members: boolean;
 };
 
 function toPanelRole(row: RoleRow): SelfRolesPanelRole {
@@ -263,7 +263,7 @@ async function loadSelfSelectableRoles(
     SELECT id, name, color, dark_color, light_color, separate_theme_colors,
            position, permissions, role_category_id, role_icon_url,
            role_icon_emoji_id, role_type,
-           (name = '@everyone') AS is_everyone
+           (name = '@members') AS is_members
     FROM echo_roles
     WHERE server_id = $1
     ORDER BY position DESC, id ASC
@@ -271,7 +271,7 @@ async function loadSelfSelectableRoles(
     [serverId],
   );
   return r.rows.filter(
-    (row) => !row.is_everyone && roleIsSelfSelectable(row.permissions),
+    (row) => !row.is_members && roleIsSelfSelectable(row.permissions),
   );
 }
 
@@ -404,7 +404,7 @@ export async function toggleSelfAssignableMemberRole(
   if (tmem.rows.length === 0) return 'not_member';
 
   const roleRow = await pool.query<{ permissions: unknown }>(
-    `SELECT permissions FROM echo_roles WHERE server_id = $1 AND id = $2 AND name <> '@everyone' LIMIT 1`,
+    `SELECT permissions FROM echo_roles WHERE server_id = $1 AND id = $2 AND name <> '@members' LIMIT 1`,
     [serverId, roleId],
   );
   if (roleRow.rows.length === 0) return 'invalid_role';

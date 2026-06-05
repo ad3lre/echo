@@ -37,12 +37,3 @@ const latexPreviewHtml = computed(() => {
     </template>
   </SettingsDocTabbedView>
 </template>
-
-<style lang="scss" scoped>
-.legal-md-preview {
-  :deep(.katex-display) {
-    overflow-x: auto;
-    overflow-y: visible;
-  }
-}
-</style>

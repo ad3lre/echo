@@ -59,7 +59,10 @@ export type EchoRoleDto = {
   position: number;
   hoist: boolean;
   defaultOnJoin: boolean;
+  isMembers: boolean;
+  /** @deprecated use isMembers */
   isEveryone: boolean;
+  isGlobal: boolean;
   /** Server settings organizer only; omitted when column missing (legacy clients). */
   roleCategoryId: string | null;
   /** Display order within the role category (higher = higher in settings list). */
@@ -131,7 +134,9 @@ export function actorMayGrantPermissionSet(
   return true;
 }
 
-const RESERVED_ECHO_ROLE_NAME = '@everyone';
+const RESERVED_ECHO_ROLE_NAMES = new Set<string>(['@members', '@global']);
+/** @deprecated use RESERVED_ECHO_ROLE_NAMES */
+const RESERVED_ECHO_ROLE_NAME = '@members';
 
 function normalizeRoleName(raw: unknown): string {
   return typeof raw === 'string' ? raw.trim() : '';
@@ -176,11 +181,11 @@ async function roleIconEmojiBelongsToServer(
 }
 
 /**
- * Reassigns `echo_roles.position` so the `@everyone` role is strictly lower than every other role
- * in the server, preserving relative order among non-everyone roles (by current position DESC, id ASC).
+ * Reassigns `echo_roles.position` so the `@members` role is strictly lower than every other role
+ * in the server, preserving relative order among non-members roles (by current position DESC, id ASC).
  * Idempotent; no-ops when already satisfied.
  */
-export async function reconcileEveryoneRoleHierarchyPosition(
+export async function reconcileMembersRoleHierarchyPosition(
   pool: pg.Pool,
   serverId: string,
 ): Promise<void> {
@@ -190,7 +195,7 @@ export async function reconcileEveryoneRoleHierarchyPosition(
       SELECT id,
         ROW_NUMBER() OVER (
           ORDER BY
-            CASE WHEN name = '@everyone' THEN 0 ELSE 1 END DESC,
+            CASE WHEN name = '@members' THEN 0 ELSE 1 END DESC,
             position DESC,
             id ASC
         ) AS rank,
@@ -214,8 +219,12 @@ export async function reconcileEveryoneRoleHierarchyPosition(
   }
 }
 
+/** @deprecated use reconcileMembersRoleHierarchyPosition */
+export const reconcileEveryoneRoleHierarchyPosition =
+  reconcileMembersRoleHierarchyPosition;
+
 /** One-time / startup: fix all servers (e.g. after bad imports or legacy data). */
-export async function migrateEveryoneRoleHierarchyPositions(
+export async function migrateMembersRoleHierarchyPositions(
   pool: pg.Pool,
 ): Promise<void> {
   const result = await pool.query(
@@ -225,7 +234,7 @@ export async function migrateEveryoneRoleHierarchyPositions(
         ROW_NUMBER() OVER (
           PARTITION BY server_id
           ORDER BY
-            CASE WHEN name = '@everyone' THEN 0 ELSE 1 END DESC,
+            CASE WHEN name = '@members' THEN 0 ELSE 1 END DESC,
             position DESC,
             id ASC
         ) AS rank,
@@ -252,6 +261,10 @@ export async function migrateEveryoneRoleHierarchyPositions(
   }
 }
 
+/** @deprecated use migrateMembersRoleHierarchyPositions */
+export const migrateEveryoneRoleHierarchyPositions =
+  migrateMembersRoleHierarchyPositions;
+
 export async function listEchoRolesForServer(
   pool: pg.Pool,
   serverId: string,
@@ -269,7 +282,7 @@ export async function listEchoRolesForServer(
       ON c.id = r.role_category_id AND c.server_id = r.server_id
     WHERE r.server_id = $1
     ORDER BY
-      CASE WHEN r.name = '@everyone' THEN 1 ELSE 0 END,
+      CASE WHEN r.name = '@members' THEN 1 ELSE 0 END,
       COALESCE(c.position, 0) ASC,
       r.rank_in_category DESC,
       r.position DESC,
@@ -339,7 +352,9 @@ export async function listEchoRolesForServer(
       position: Number(row.position ?? 0),
       hoist,
       defaultOnJoin,
-      isEveryone: name === '@everyone',
+      isMembers: name === '@members',
+      isEveryone: name === '@members', // deprecated alias for backward compatibility
+      isGlobal: name === '@global',
       roleCategoryId,
       rankInCategory: Number(row.rank_in_category ?? 0),
       roleScope: normalizeEchoRoleScope(row.role_scope),
@@ -359,7 +374,7 @@ export type UpdateEchoRoleResult =
   | 'not_found'
   | 'invalid_body';
 
-/** Top-to-bottom UI order (highest role first). @everyone is forced to bottom; must be a permutation of server roles. */
+/** Top-to-bottom UI order (highest role first). @members is forced to bottom; must be a permutation of server roles. */
 export async function replaceEchoServerRoleOrder(
   pool: pg.Pool,
   serverId: string,
@@ -399,16 +414,16 @@ export async function replaceEchoServerRoleOrder(
     seen.add(id);
   }
   const ordered = [...roleIdsTopToBottom];
-  const everyoneIdx = ordered.findIndex(
-    (id) => byId.get(id)?.name === '@everyone',
+  const membersIdx = ordered.findIndex(
+    (id) => byId.get(id)?.name === '@members',
   );
-  if (everyoneIdx >= 0) {
-    const [ev] = ordered.splice(everyoneIdx, 1);
+  if (membersIdx >= 0) {
+    const [ev] = ordered.splice(membersIdx, 1);
     ordered.push(ev!);
   }
   if (!actorIsOwner) {
     for (const roleId of ordered) {
-      if (byId.get(roleId)?.name === '@everyone') continue;
+      if (byId.get(roleId)?.name === '@members') continue;
       const ok = await actorMayMutateTargetRoleById(
         pool,
         serverId,
@@ -422,7 +437,7 @@ export async function replaceEchoServerRoleOrder(
   const blockMap = new Map<string, string[]>();
   for (const roleId of ordered) {
     const row = byId.get(roleId);
-    if (!row || row.name === '@everyone') continue;
+    if (!row || row.name === '@members') continue;
     const catId = row.roleCategoryId ?? '__uncategorized__';
     const list = blockMap.get(catId) ?? [];
     list.push(roleId);
@@ -458,7 +473,7 @@ export async function replaceEchoRoleOrderInCategory(
     `,
     [serverId, categoryId],
   );
-  const expected = inCat.rows.filter((r) => r.name !== '@everyone');
+  const expected = inCat.rows.filter((r) => r.name !== '@members');
   if (roleIdsTopToBottom.length !== expected.length) return 'invalid_body';
   const expectedIds = new Set(expected.map((r) => String(r.id)));
   const seen = new Set<string>();
@@ -484,7 +499,7 @@ export async function replaceEchoRoleOrderInCategory(
   const map = await buildCategoryRoleOrderMap(pool, serverId);
   map.set(categoryId, roleIdsTopToBottom);
   await applyRolePositionsFromCategoryBlocks(pool, serverId, map);
-  await reconcileEveryoneRoleHierarchyPosition(pool, serverId);
+  await reconcileMembersRoleHierarchyPosition(pool, serverId);
   return 'ok';
 }
 
@@ -502,7 +517,7 @@ export async function updateEchoRole(
     hoist?: boolean;
     defaultOnJoin?: boolean;
     permissions?: unknown;
-    /** Server settings category; null clears. Not valid for @everyone. */
+    /** Server settings category; null clears. Not valid for @members. */
     roleCategoryId?: string | null;
     roleScope?: unknown;
     roleIconUrl?: string | null;
@@ -558,12 +573,12 @@ export async function updateEchoRole(
     patch.roleType !== undefined
       ? normalizeEchoRoleType(patch.roleType)
       : currentType;
-  if (currentName === '@everyone') {
+  if (currentName === '@members' || currentName === '@global') {
     nextType = 'mixed';
   }
   if (
     patch.roleType !== undefined &&
-    currentName === '@everyone' &&
+    (currentName === '@members' || currentName === '@global') &&
     normalizeEchoRoleType(patch.roleType) !== 'mixed'
   ) {
     return 'invalid_body';
@@ -584,9 +599,12 @@ export async function updateEchoRole(
   if (patch.name !== undefined) {
     const nm = normalizeRoleName(patch.name);
     if (!nm) return 'invalid_body';
-    if (currentName === '@everyone' && nm !== '@everyone')
-      return 'invalid_body';
-    if (currentName !== '@everyone' && nm === RESERVED_ECHO_ROLE_NAME)
+    if (currentName === '@members' && nm !== '@members') return 'invalid_body';
+    if (currentName === '@global' && nm !== '@global') return 'invalid_body';
+    if (
+      !RESERVED_ECHO_ROLE_NAMES.has(currentName) &&
+      RESERVED_ECHO_ROLE_NAMES.has(nm)
+    )
       return 'invalid_body';
   }
 
@@ -613,11 +631,13 @@ export async function updateEchoRole(
 
   if (patch.defaultOnJoin !== undefined) {
     if (typeof patch.defaultOnJoin !== 'boolean') return 'invalid_body';
-    if (currentName === '@everyone') return 'invalid_body';
+    if (currentName === '@members' || currentName === '@global')
+      return 'invalid_body';
   }
 
   if (patch.roleCategoryId !== undefined) {
-    if (currentName === '@everyone') return 'invalid_body';
+    if (currentName === '@members' || currentName === '@global')
+      return 'invalid_body';
     if (patch.roleCategoryId === null) {
       /* resolves to global category on write */
     } else if (typeof patch.roleCategoryId === 'string') {
@@ -629,7 +649,11 @@ export async function updateEchoRole(
       return 'invalid_body';
     }
   }
-  if (patch.roleScope !== undefined && currentName !== '@everyone') {
+  if (
+    patch.roleScope !== undefined &&
+    currentName !== '@members' &&
+    currentName !== '@global'
+  ) {
     normalizeEchoRoleScope(patch.roleScope);
   }
   if (patch.roleIconUrl !== undefined) {
@@ -650,7 +674,7 @@ export async function updateEchoRole(
       return 'invalid_body';
   }
 
-  if (patch.syncWithCategoryDefaults === true && currentName !== '@everyone') {
+  if (patch.syncWithCategoryDefaults === true && currentName !== '@members') {
     let targetCategoryId: string | null = null;
     if (patch.roleCategoryId !== undefined) {
       targetCategoryId = await resolveRoleCategoryIdForAssignment(
@@ -770,7 +794,7 @@ export async function updateEchoRole(
     sets.push(`role_category_id = $${vals.length + 1}`);
     vals.push(resolved);
   }
-  if (patch.roleScope !== undefined && currentName !== '@everyone') {
+  if (patch.roleScope !== undefined && currentName !== '@members') {
     sets.push(`role_scope = $${vals.length + 1}`);
     vals.push(normalizeEchoRoleScope(patch.roleScope));
   }
@@ -784,7 +808,7 @@ export async function updateEchoRole(
     sets.push(`role_icon_emoji_id = $${vals.length + 1}`);
     vals.push(emoji);
   }
-  if (patch.roleType !== undefined && currentName !== '@everyone') {
+  if (patch.roleType !== undefined && currentName !== '@members') {
     sets.push(`role_type = $${vals.length + 1}`);
     vals.push(nextType);
   }
@@ -840,7 +864,9 @@ export async function updateEchoRolePermissions(
   return updateEchoRole(pool, serverId, actorId, roleId, { permissions });
 }
 
-/** userId -> role ids (including @everyone). */
+/** userId -> role ids (including @members).
+ * @deprecated Note: @everyone was renamed to @members.
+ */
 export async function listEchoMemberRoleAssignmentsByUser(
   pool: pg.Pool,
   serverId: string,
@@ -919,18 +945,26 @@ export type EchoMemberRoleMutationResult =
   | 'forbidden'
   | 'not_member'
   | 'invalid_role'
+  | 'cannot_remove_members';
+
+/** @deprecated use cannot_remove_members */
+export type EchoMemberRoleMutationResultLegacy =
+  | EchoMemberRoleMutationResult
   | 'cannot_remove_everyone';
 
-async function getEveryoneRoleIdForServer(
+async function getMembersRoleIdForServer(
   pool: pg.Pool,
   serverId: string,
 ): Promise<string | null> {
   const r = await pool.query(
-    `SELECT id FROM echo_roles WHERE server_id = $1 AND name = '@everyone' LIMIT 1`,
+    `SELECT id FROM echo_roles WHERE server_id = $1 AND name = '@members' LIMIT 1`,
     [serverId],
   );
   return r.rows[0] ? String(r.rows[0].id) : null;
 }
+
+/** @deprecated use getMembersRoleIdForServer */
+const getEveryoneRoleIdForServer = getMembersRoleIdForServer;
 
 export async function assignEchoMemberRole(
   pool: pg.Pool,
@@ -1004,7 +1038,7 @@ export async function removeEchoMemberRole(
   if (!actorIsOwner && targetIsOwner) return 'forbidden';
 
   const everyoneId = await getEveryoneRoleIdForServer(pool, serverId);
-  if (everyoneId && roleId === everyoneId) return 'cannot_remove_everyone';
+  if (everyoneId && roleId === everyoneId) return 'cannot_remove_members';
 
   const tmem = await pool.query(
     `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
@@ -1068,7 +1102,7 @@ export async function createEchoRole(
   const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
   const name = normalizeRoleName(body.name);
   if (!name) return 'invalid_body';
-  if (name === RESERVED_ECHO_ROLE_NAME) return 'invalid_body';
+  if (RESERVED_ECHO_ROLE_NAMES.has(name)) return 'invalid_body';
   const color = normalizeRoleColor(body.color);
   if (color == null) return 'invalid_body';
   const darkColor = normalizeRoleColor(body.darkColor);
@@ -1078,7 +1112,8 @@ export async function createEchoRole(
   let separateThemeColors = body.separateThemeColors === true;
   let hoist = body.hoist === true;
   let defaultOnJoin = body.defaultOnJoin === true;
-  if (defaultOnJoin && name === '@everyone') return 'invalid_body';
+  if (defaultOnJoin && (name === '@members' || name === '@global'))
+    return 'invalid_body';
 
   const roleType = normalizeEchoRoleType(body.roleType);
   let effDark = darkColor ?? color;
@@ -1114,18 +1149,27 @@ export async function createEchoRole(
     if (!ok) return 'invalid_body';
   }
   const roleScope =
-    name === '@everyone' ? 'category' : normalizeEchoRoleScope(body.roleScope);
+    name === '@members' || name === '@global'
+      ? 'category'
+      : normalizeEchoRoleScope(body.roleScope);
   let syncWithCategoryDefaults =
-    body.syncWithCategoryDefaults !== false && name !== '@everyone';
+    body.syncWithCategoryDefaults !== false &&
+    name !== '@members' &&
+    name !== '@global';
 
   const categoryDefaults =
-    roleCategoryId && name !== '@everyone'
+    roleCategoryId && name !== '@members' && name !== '@global'
       ? await loadEchoRoleCategoryDefaults(pool, serverId, roleCategoryId)
       : null;
   const hasCategoryDefaults =
     !!categoryDefaults && categoryDefaultsAreConfigured(categoryDefaults);
 
-  if (hasCategoryDefaults && categoryDefaults && name !== '@everyone') {
+  if (
+    hasCategoryDefaults &&
+    categoryDefaults &&
+    name !== '@members' &&
+    name !== '@global'
+  ) {
     const merged = mergeRoleFieldsWithCategoryDefaults(categoryDefaults, {
       permissions: [],
       hoist: false,
@@ -1149,7 +1193,7 @@ export async function createEchoRole(
   }
 
   const effectiveRoleScope =
-    name === '@everyone'
+    name === '@members'
       ? 'category'
       : normalizeEchoRoleScope(body.roleScope ?? roleScope);
   let effectiveRoleType = normalizeEchoRoleType(body.roleType ?? roleType);
@@ -1192,7 +1236,7 @@ export async function createEchoRole(
   }>(
     `
     SELECT id, position, rank_in_category FROM echo_roles
-    WHERE server_id = $1 AND role_category_id IS NOT DISTINCT FROM $2 AND name <> '@everyone'
+    WHERE server_id = $1 AND role_category_id IS NOT DISTINCT FROM $2 AND name <> '@members'
     ORDER BY rank_in_category DESC, position DESC
     `,
     [serverId, roleCategoryId],
@@ -1219,7 +1263,7 @@ export async function createEchoRole(
     const minR = await pool.query<{ p: number | null }>(
       `
       SELECT MIN(position) AS p FROM echo_roles
-      WHERE server_id = $1 AND name <> '@everyone'
+      WHERE server_id = $1 AND name <> '@members'
       `,
       [serverId],
     );
@@ -1271,7 +1315,7 @@ export async function createEchoRole(
     map.set(roleCategoryId, [id, ...list.filter((rid) => rid !== id)]);
   }
   await applyRolePositionsFromCategoryBlocks(pool, serverId, map);
-  await reconcileEveryoneRoleHierarchyPosition(pool, serverId);
+  await reconcileMembersRoleHierarchyPosition(pool, serverId);
   return { roleId: id };
 }
 
@@ -1279,6 +1323,11 @@ export type DeleteEchoRoleResult =
   | 'ok'
   | 'forbidden'
   | 'not_found'
+  | 'cannot_delete_members';
+
+/** @deprecated use cannot_delete_members */
+export type DeleteEchoRoleResultLegacy =
+  | DeleteEchoRoleResult
   | 'cannot_delete_everyone';
 
 /**
@@ -1300,7 +1349,7 @@ export async function deleteEchoRole(
   if (rowQ.rows.length === 0) return 'not_found';
   const row0 = rowQ.rows[0] as { name: string; position: unknown };
   const name = String(row0.name);
-  if (name === '@everyone') return 'cannot_delete_everyone';
+  if (name === '@members' || name === '@global') return 'cannot_delete_members';
 
   const actorIsOwner = await isEchoServerOwner(pool, serverId, actorId);
   if (!actorIsOwner) {
@@ -1329,6 +1378,6 @@ export async function deleteEchoRole(
   );
   if ((del.rowCount ?? 0) < 1) return 'not_found';
   invalidateEchoPermissionCacheForServer(serverId);
-  await reconcileEveryoneRoleHierarchyPosition(pool, serverId);
+  await reconcileMembersRoleHierarchyPosition(pool, serverId);
   return 'ok';
 }

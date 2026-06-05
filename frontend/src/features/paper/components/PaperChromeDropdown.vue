@@ -76,8 +76,10 @@ defineExpose({ close });
       :aria-expanded="open"
       @click.stop="toggleOpen"
     >
-      <slot name="icon" />
-      <span class="hidden sm:inline">{{ label }}</span>
+      <span class="paper-chrome-menu-btn__icon" aria-hidden="true">
+        <slot name="icon" />
+      </span>
+      <span v-if="label" class="paper-chrome-menu-btn__label">{{ label }}</span>
       <svg
         class="paper-chrome-menu-chevron"
         viewBox="0 0 24 24"
@@ -108,13 +110,33 @@ defineExpose({ close });
   display: inline-flex;
   height: 2rem;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   border-radius: 8px;
-  padding: 0 0.5rem;
+  padding: 0 0.45rem;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--text);
   transition: background 0.15s ease;
+}
+
+.paper-chrome-menu-btn__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+}
+
+.paper-chrome-menu-btn__icon:empty {
+  display: none;
+}
+
+.paper-chrome-menu-btn__label {
+  max-width: 5.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .paper-chrome-menu-btn:hover {

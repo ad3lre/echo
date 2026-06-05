@@ -4,8 +4,8 @@
  * Matches Discord's documented precedence
  * (https://discord.com/developers/docs/topics/permissions#permission-overwrites):
  *
- *   3. @everyone deny
- *   4. @everyone allow
+ *   3. @members deny
+ *   4. @members allow
  *   5. role deny  (union across ALL of the member's roles)
  *   6. role allow (union across ALL of the member's roles)
  *   7. member deny
@@ -23,7 +23,12 @@
 
 import type { OverrideRow } from './mergeOverrideRows';
 
-export type PermissionOverwriteTargetType = 'everyone' | 'role' | 'member';
+export type PermissionOverwriteTargetType =
+  | 'members'
+  | 'global'
+  | 'role'
+  | 'member'
+  | 'everyone';
 
 export type DbOverwriteRow = {
   id: string;
@@ -37,7 +42,8 @@ type RoleInOrder = { id: string; position: number; permissions: unknown };
 type LayerRow = { id: string; partial: Record<string, unknown> };
 
 export type LayeredOverwritesForMember = {
-  everyone: LayerRow | null;
+  members: LayerRow | null;
+  everyone: LayerRow | null; // deprecated alias for members
   /** Only the role rows whose role the member actually has (in fold order). */
   roles: LayerRow[];
   member: LayerRow | null;
@@ -50,7 +56,7 @@ function asPartialObject(raw: unknown): Record<string, unknown> | null {
 
 /**
  * Partition raw overwrite rows into Discord's three layer slots for one member:
- *  - the single @everyone row (if any)
+ *  - the single @members row (if any)
  *  - role rows the member actually carries (deduplicated by role id, in fold order)
  *  - the member's own row (if any)
  *
@@ -61,15 +67,15 @@ export function partitionOverwriteRowsForMember(
   rolesInFoldOrder: readonly RoleInOrder[],
   userId: string,
 ): LayeredOverwritesForMember {
-  let everyone: LayerRow | null = null;
+  let members: LayerRow | null = null;
   const roleRowById = new Map<string, DbOverwriteRow>();
   let memberRow: DbOverwriteRow | null = null;
 
   for (const r of dbRows) {
-    if (r.target_type === 'everyone') {
-      if (!everyone) {
+    if (r.target_type === 'members' || r.target_type === 'everyone') {
+      if (!members) {
         const partial = asPartialObject(r.partial);
-        if (partial) everyone = { id: r.id, partial };
+        if (partial) members = { id: r.id, partial };
       }
       continue;
     }
@@ -97,15 +103,15 @@ export function partitionOverwriteRowsForMember(
     if (partial) member = { id: memberRow.id, partial };
   }
 
-  return { everyone, roles, member };
+  return { members, everyone: members, roles, member };
 }
 
 /**
- * Collapse @everyone + (combined-roles) + member overwrites into a single partial
+ * Collapse @members + (combined-roles) + member overwrites into a single partial
  * with Discord's "allow wins over deny within the role layer" semantics.
  *
  * Precedence per bit:
- *  1. @everyone partial value (true/false), if set
+ *  1. @members partial value (true/false), if set
  *  2. Union of role denies across ALL member roles → false (only when bit isn't role-allowed)
  *  3. Union of role allows across ALL member roles → true (always wins over role denies)
  *  4. Member partial value (true/false), if set (overrides everything)
@@ -117,8 +123,9 @@ export function mergeLayeredOverwritesForMember(
 ): Record<string, boolean> | null {
   const merged: Record<string, boolean> = {};
 
-  if (layered.everyone) {
-    for (const [k, v] of Object.entries(layered.everyone.partial)) {
+  const membersRow = layered.members ?? layered.everyone;
+  if (membersRow) {
+    for (const [k, v] of Object.entries(membersRow.partial)) {
       if (v === true || v === false) merged[k] = v;
     }
   }
@@ -160,7 +167,7 @@ export function mergeOverwritesForMember(
 }
 
 /**
- * Legacy ordering helper — emits rows in @everyone → roles (fold order) → member order.
+ * Legacy ordering helper — emits rows in @members → roles (fold order) → member order.
  * Kept for tests that exercise ordering directly; production evaluators should use
  * {@link mergeOverwritesForMember} so the role layer combines allow/deny correctly.
  */
@@ -194,6 +201,64 @@ export function orderOverwriteRowsForMember(
     });
   }
   return out;
+}
+
+/**
+ * Partition raw overwrite rows for global (authenticated non-member) users:
+ *  - the single @global row (if any)
+ *
+ * Ignores members/role/member overwrites — global users only see global-target rows.
+ */
+export function partitionOverwriteRowsForGlobal(
+  dbRows: readonly DbOverwriteRow[],
+): { global: LayerRow | null } {
+  let globalRow: LayerRow | null = null;
+
+  for (const r of dbRows) {
+    if (r.target_type === 'global') {
+      if (!globalRow) {
+        const partial = asPartialObject(r.partial);
+        if (partial) globalRow = { id: r.id, partial };
+      }
+    }
+  }
+
+  return { global: globalRow };
+}
+
+/**
+ * Collapse @global overwrites into a single partial.
+ * Precedence per bit:
+ *  1. @global partial value (true/false), if set
+ *
+ * Bits not touched are absent from the output (caller treats as "inherit" → deny for @global).
+ */
+export function mergeLayeredOverwritesForGlobal(layered: {
+  global: LayerRow | null;
+}): Record<string, boolean> | null {
+  const merged: Record<string, boolean> = {};
+
+  if (layered.global) {
+    for (const [k, v] of Object.entries(layered.global.partial)) {
+      if (v === true || v === false) merged[k] = v;
+    }
+  }
+
+  return Object.keys(merged).length === 0 ? null : merged;
+}
+
+/**
+ * One-call helper for `buildEvaluationPlan` / `buildBatchEvaluationPlans` for global users.
+ * Returns the per-layer merged partial (channel-level or category-level) or `null`
+ * when no row touches this global user.
+ */
+export function mergeOverwritesForGlobal(
+  dbRows: readonly DbOverwriteRow[],
+): Record<string, boolean> | null {
+  if (dbRows.length === 0) return null;
+  return mergeLayeredOverwritesForGlobal(
+    partitionOverwriteRowsForGlobal(dbRows),
+  );
 }
 
 /**

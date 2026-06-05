@@ -228,19 +228,22 @@ export async function fetchEchoChannelPermissionOverwriteRows(
 ): Promise<{ rows: EchoPermissionOverwriteRowDto[] }> {
   const data = await echoFetch<{
     rows: Array<{
-      targetType: 'everyone' | 'role' | 'member';
+      targetType: 'members' | 'role' | 'member' | 'everyone';
       targetId?: string | null;
       partial: Record<string, unknown>;
     }>;
   }>(token, `/channels/${encodeURIComponent(channelId)}/permission-overwrites`);
   return {
-    rows: (data.rows ?? []).map((row) => ({
-      targetType: row.targetType,
-      ...(row.targetType === 'everyone'
-        ? {}
-        : { targetId: row.targetId ?? null }),
-      partial: echoPartialToChannelOverrides(row.partial ?? {}),
-    })),
+    rows: (data.rows ?? []).map((row) => {
+      // Normalize 'everyone' (legacy) to 'members'
+      const targetType =
+        row.targetType === 'everyone' ? 'members' : row.targetType;
+      return {
+        targetType: targetType as 'members' | 'role' | 'member',
+        ...(targetType === 'members' ? {} : { targetId: row.targetId ?? null }),
+        partial: echoPartialToChannelOverrides(row.partial ?? {}),
+      };
+    }),
   };
 }
 
@@ -261,7 +264,7 @@ export async function putEchoChannelPermissionOverwriteRows(
       body: JSON.stringify({
         rows: rows.map((row) => ({
           targetType: row.targetType,
-          ...(row.targetType === 'everyone' ? {} : { targetId: row.targetId }),
+          ...(row.targetType === 'members' ? {} : { targetId: row.targetId }),
           partial: channelOverridesToEchoPartial(row.partial),
         })),
       }),
@@ -277,7 +280,7 @@ export async function fetchEchoCategoryPermissionOverwriteRows(
 ): Promise<{ rows: EchoPermissionOverwriteRowDto[] }> {
   const data = await echoFetch<{
     rows: Array<{
-      targetType: 'everyone' | 'role' | 'member';
+      targetType: 'members' | 'role' | 'member' | 'everyone';
       targetId?: string | null;
       partial: Record<string, unknown>;
     }>;
@@ -286,13 +289,16 @@ export async function fetchEchoCategoryPermissionOverwriteRows(
     `/servers/${encodeURIComponent(serverId)}/categories/${encodeURIComponent(categoryId)}/permission-overwrites`,
   );
   return {
-    rows: (data.rows ?? []).map((row) => ({
-      targetType: row.targetType,
-      ...(row.targetType === 'everyone'
-        ? {}
-        : { targetId: row.targetId ?? null }),
-      partial: echoPartialToChannelOverrides(row.partial ?? {}),
-    })),
+    rows: (data.rows ?? []).map((row) => {
+      // Normalize 'everyone' (legacy) to 'members'
+      const targetType =
+        row.targetType === 'everyone' ? 'members' : row.targetType;
+      return {
+        targetType: targetType as 'members' | 'role' | 'member',
+        ...(targetType === 'members' ? {} : { targetId: row.targetId ?? null }),
+        partial: echoPartialToChannelOverrides(row.partial ?? {}),
+      };
+    }),
   };
 }
 
@@ -310,7 +316,7 @@ export async function putEchoCategoryPermissionOverwriteRows(
       body: JSON.stringify({
         rows: rows.map((row) => ({
           targetType: row.targetType,
-          ...(row.targetType === 'everyone' ? {} : { targetId: row.targetId }),
+          ...(row.targetType === 'members' ? {} : { targetId: row.targetId }),
           partial: channelOverridesToEchoPartial(row.partial),
         })),
       }),

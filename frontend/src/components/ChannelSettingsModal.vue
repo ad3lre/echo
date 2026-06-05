@@ -329,7 +329,7 @@ function syncFromProps() {
   if (editor?.loading) {
     echoPermissionRows.value = (editor.rows ?? []).map((row) => ({
       targetType: row.targetType,
-      ...(row.targetType === 'everyone'
+      ...(row.targetType === 'members'
         ? {}
         : { targetId: row.targetId ?? null }),
       partial: { ...(row.partial ?? {}) },
@@ -337,7 +337,7 @@ function syncFromProps() {
   } else if (editor) {
     echoPermissionRows.value = (editor.rows ?? []).map((row) => ({
       targetType: row.targetType,
-      ...(row.targetType === 'everyone'
+      ...(row.targetType === 'members'
         ? {}
         : { targetId: row.targetId ?? null }),
       partial: { ...(row.partial ?? {}) },

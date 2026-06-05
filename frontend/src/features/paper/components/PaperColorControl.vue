@@ -107,13 +107,11 @@ function onClear() {
 }
 
 function toggleOpen() {
-  if (props.mixed) return;
   open.value = !open.value;
 }
 
 function onContextMenu(ev: MouseEvent) {
-  if (props.mixed) return;
-  if (!props.isDefault && props.color) {
+  if (props.mixed || (!props.isDefault && props.color)) {
     ev.preventDefault();
     emit('clear');
   }
@@ -145,10 +143,10 @@ onUnmounted(() => {
     <button
       type="button"
       class="paper-color-trigger"
-      :class="{ 'paper-color-trigger--disabled': mixed }"
+      :class="{ 'paper-color-trigger--mixed': mixed }"
       :title="
         mixed
-          ? `${label}: mixed`
+          ? `${label}: mixed colors (pick one to apply to selection)`
           : isDefault
             ? `${label}: default (right-click to clear)`
             : `${label}: ${color ?? ''} (right-click to clear)`
@@ -156,7 +154,6 @@ onUnmounted(() => {
       :aria-label="label"
       :aria-expanded="open"
       :aria-haspopup="true"
-      :disabled="mixed"
       @mousedown.prevent
       @click="toggleOpen"
       @contextmenu="onContextMenu"
@@ -244,10 +241,8 @@ onUnmounted(() => {
   outline-offset: 2px;
 }
 
-.paper-color-trigger--disabled,
-.paper-color-trigger:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
+.paper-color-trigger--mixed {
+  cursor: pointer;
 }
 
 .paper-color-swatch {

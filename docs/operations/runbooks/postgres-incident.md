@@ -54,8 +54,27 @@
 
 ## Restore / RPO-RTO pointer
 
-- **Backups:** Follow your host’s backup/restore playbooks (RDS snapshots, managed Postgres PITR, etc.). Echo repo does not store provider credentials.
+- **Backups:** If using Echo's Option B backup system, see **[backup-restore.md](./backup-restore.md)** for restore procedures. For managed Postgres (RDS, etc.), follow your host’s backup/restore playbooks (RDS snapshots, managed Postgres PITR, etc.). Echo repo does not store provider credentials.
 - After restore: run application **migrations** as required for the restored schema version, then validate **`GET /api/v1/health`** and a smoke **login + channel list + send message**.
+
+### Quick restore (Option B)
+
+If you have the Echo backup system configured ([backup-restore.md](./backup-restore.md)):
+
+```bash
+# Restore from yesterday's backup to current DATABASE_URL
+sudo -E npm run backup:postgres:restore -- \
+  --date $(date -d yesterday +%Y-%m-%d) \
+  --tier daily
+
+# Or restore to scratch for verification first
+sudo -E npm run backup:postgres:restore -- \
+  --date 2026-06-05 \
+  --tier daily \
+  --target-database-url postgres://echo:pass@localhost/echo_scratch
+```
+
+Note: Restore requires `sudo` and read-capable credentials stored separately from upload credentials.
 
 ## Related documentation
 

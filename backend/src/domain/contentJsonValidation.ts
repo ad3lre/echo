@@ -116,6 +116,23 @@ function validatePaperNode(node: unknown, depth: number): string | undefined {
       return 'content_json image requires src';
     }
   }
+  if (node.type === 'paperShape') {
+    const attrs = isPlainObject(node.attrs) ? node.attrs : {};
+    const shape = attrs.shape;
+    if (
+      shape !== undefined &&
+      shape !== 'rectangle' &&
+      shape !== 'circle' &&
+      shape !== 'triangle' &&
+      shape !== 'line'
+    ) {
+      return 'content_json paperShape invalid shape';
+    }
+    const fill = attrs.fill;
+    if (fill !== undefined && typeof fill !== 'string') {
+      return 'content_json paperShape invalid fill';
+    }
+  }
   return undefined;
 }
 

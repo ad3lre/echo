@@ -546,7 +546,8 @@ export interface AppLayoutControllerContext {
           separateThemeColors: boolean;
           roleIconUrl: string | null;
           roleIconEmojiId: string | null;
-          isEveryone: boolean;
+          isMembers: boolean;
+          isEveryone: boolean; // deprecated alias for isMembers
           position: number;
           roleCategoryId: string | null;
           roleScope: string | undefined;

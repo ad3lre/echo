@@ -6,12 +6,20 @@ import {
   type PaperEditorPanelTab,
 } from '@/features/paper/composables/paperEditorPanelBridge';
 import { usePaperEditorPanelPreferences } from '@/features/paper/composables/usePaperEditorPanelPreferences';
+import PaperEditorDesignTab from '@/features/paper/components/PaperEditorDesignTab.vue';
 import PaperEditorColorsTab from '@/features/paper/components/PaperEditorColorsTab.vue';
 import PaperEditorTextTab from '@/features/paper/components/PaperEditorTextTab.vue';
 import PaperEditorAssetsTab from '@/features/paper/components/PaperEditorAssetsTab.vue';
-import { onPaperFormatBarMouseDown } from '@/features/paper/editor/paperFormatSelection';
+import {
+  onPaperFormatBarMouseDown,
+  syncStoredPaperEditorSelection,
+} from '@/features/paper/editor/paperFormatSelection';
 import { icons } from '@/assets/icons';
 import '@/features/paper/styles/paperTheme.scss';
+import {
+  nextPaperAppearance,
+  paperAppearanceCanvasLabel,
+} from '@/features/paper/editor/paperPageAppearance';
 
 const props = defineProps<{
   context: PaperEditorPanelBridgeContext;
@@ -20,14 +28,17 @@ const props = defineProps<{
 const bridge = usePaperEditorPanelBridge();
 const { hideFormatBarWhenEditorPinned } = usePaperEditorPanelPreferences();
 
-const appearance = computed(
-  () => props.context.appearance.value as 'light' | 'dark' | 'amber',
+const appearance = computed(() => props.context.appearance.value);
+
+const nextAppearanceTitle = computed(() =>
+  paperAppearanceCanvasLabel(nextPaperAppearance(appearance.value)),
 );
 const canCustomize = computed(() => props.context.canCustomize.value);
 const editorEditable = computed(() => props.context.editorEditable.value);
 const editorRef = computed(() => props.context.editor.value);
 
 const tabs: { id: PaperEditorPanelTab; label: string; icon: string }[] = [
+  { id: 'design', label: 'Design', icon: 'design' },
   { id: 'colors', label: 'Colors', icon: 'palette' },
   { id: 'text', label: 'Text', icon: 'type' },
   { id: 'assets', label: 'Assets', icon: 'image' },
@@ -66,7 +77,9 @@ watch(
   editorRef,
   (ed, prev) => {
     const onSelectionUpdate = () => {
-      if (!bridge.panelOpen.value || !ed) return;
+      if (!ed) return;
+      syncStoredPaperEditorSelection(ed);
+      if (!bridge.panelOpen.value) return;
       const { from, to } = ed.state.selection;
       if (from < to && bridge.activeTab.value !== 'text') {
         bridge.setActiveTab('text');
@@ -83,7 +96,7 @@ watch(
   <aside
     class="paper-editor-panel"
     :data-paper-appearance="appearance"
-    @mousedown="onPanelMouseDown"
+    @mousedown.capture="onPanelMouseDown"
   >
     <header class="paper-editor-panel__header">
       <button
@@ -113,23 +126,17 @@ watch(
       <button
         type="button"
         class="paper-editor-panel__icon-btn"
-        :title="
-          appearance === 'dark'
-            ? 'Switch to light canvas'
-            : appearance === 'amber'
-              ? 'Switch to dark canvas'
-              : 'Switch to amber canvas'
-        "
+        :title="`Switch to ${nextAppearanceTitle}`"
         @click="context.toggleAppearance()"
       >
         <img
-          v-if="appearance === 'dark'"
+          v-if="appearance === 'dark' || appearance === 'amoled'"
           :src="icons.sun"
           alt=""
           class="h-4 w-4 opacity-85"
         />
         <img
-          v-else-if="appearance === 'amber'"
+          v-else-if="appearance === 'sunny'"
           :src="icons.moon"
           alt=""
           class="h-4 w-4 opacity-85"
@@ -166,7 +173,20 @@ watch(
         >
           <span class="paper-editor-panel__tab-icon" aria-hidden="true">
             <svg
-              v-if="tab.icon === 'palette'"
+              v-if="tab.icon === 'design'"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 15h18" />
+              <path d="M9 3v18" />
+            </svg>
+            <svg
+              v-else-if="tab.icon === 'palette'"
               viewBox="0 0 24 24"
               width="18"
               height="18"
@@ -226,12 +246,12 @@ watch(
 
       <div class="paper-editor-panel__scroll min-h-0 flex-1 overflow-y-auto">
         <div
-          v-show="bridge.activeTab.value === 'colors'"
-          :id="`paper-editor-panel-colors`"
+          v-show="bridge.activeTab.value === 'design'"
+          :id="`paper-editor-panel-design`"
           role="tabpanel"
-          aria-labelledby="paper-editor-tab-colors"
+          aria-labelledby="paper-editor-tab-design"
         >
-          <PaperEditorColorsTab
+          <PaperEditorDesignTab
             v-if="canCustomize"
             :context="context"
             :appearance="appearance"
@@ -242,6 +262,18 @@ watch(
           >
             Switch to edit mode to customize the canvas.
           </p>
+        </div>
+        <div
+          v-show="bridge.activeTab.value === 'colors'"
+          :id="`paper-editor-panel-colors`"
+          role="tabpanel"
+          aria-labelledby="paper-editor-tab-colors"
+        >
+          <PaperEditorColorsTab
+            :context="context"
+            :appearance="appearance"
+            :editor-editable="editorEditable"
+          />
         </div>
         <div
           v-show="bridge.activeTab.value === 'text'"

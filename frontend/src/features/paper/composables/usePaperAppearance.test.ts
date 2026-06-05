@@ -7,9 +7,15 @@ import {
 
 const storage = new Map<string, string>();
 
-function stubDocumentTheme(theme: string | undefined) {
+function stubDocumentTheme(opts: {
+  theme?: string;
+  echoLightVariant?: string;
+  echoDarkVariant?: string;
+}) {
   const dataset: Record<string, string | undefined> = {};
-  if (theme) dataset.theme = theme;
+  if (opts.theme) dataset.theme = opts.theme;
+  if (opts.echoLightVariant) dataset.echoLightVariant = opts.echoLightVariant;
+  if (opts.echoDarkVariant) dataset.echoDarkVariant = opts.echoDarkVariant;
   vi.stubGlobal('document', {
     documentElement: { dataset },
   });
@@ -24,7 +30,7 @@ describe('usePaperAppearance', () => {
       removeItem: (k: string) => storage.delete(k),
       clear: () => storage.clear(),
     });
-    stubDocumentTheme('dark');
+    stubDocumentTheme({ theme: 'dark' });
   });
 
   afterEach(() => {
@@ -49,7 +55,7 @@ describe('usePaperAppearance', () => {
   });
 
   it('defaults to global dark theme when no stored preference', () => {
-    stubDocumentTheme('dark');
+    stubDocumentTheme({ theme: 'dark' });
     const result = usePaperAppearance({
       channelId: ref('ch-new'),
       contentJson: ref(null),
@@ -58,7 +64,7 @@ describe('usePaperAppearance', () => {
   });
 
   it('defaults to global light theme when no stored preference', () => {
-    stubDocumentTheme('light');
+    stubDocumentTheme({ theme: 'light' });
     const result = usePaperAppearance({
       channelId: ref('ch-new'),
       contentJson: ref(null),
@@ -66,12 +72,60 @@ describe('usePaperAppearance', () => {
     expect(result.appearance.value).toBe('light');
   });
 
-  it('detectGlobalAppearance reads data-theme from document', () => {
-    stubDocumentTheme('light');
+  it('defaults to sunny when global light variant is sunny', () => {
+    stubDocumentTheme({ theme: 'light', echoLightVariant: 'sunny' });
+    const result = usePaperAppearance({
+      channelId: ref('ch-new'),
+      contentJson: ref(null),
+    });
+    expect(result.appearance.value).toBe('sunny');
+  });
+
+  it('defaults to amoled when global dark variant is amoled', () => {
+    stubDocumentTheme({ theme: 'dark', echoDarkVariant: 'amoled' });
+    const result = usePaperAppearance({
+      channelId: ref('ch-new'),
+      contentJson: ref(null),
+    });
+    expect(result.appearance.value).toBe('amoled');
+  });
+
+  it('migrates stored amber to sunny', async () => {
+    storage.set('echo-paper-appearance:ch-old', 'amber');
+    const result = usePaperAppearance({
+      channelId: ref('ch-old'),
+      contentJson: ref(null),
+    });
+    expect(result.appearance.value).toBe('sunny');
+  });
+
+  it('detectGlobalAppearance maps all four Echo main themes', () => {
+    stubDocumentTheme({ theme: 'light' });
     expect(detectGlobalAppearance()).toBe('light');
-    stubDocumentTheme('dark');
+    stubDocumentTheme({ theme: 'light', echoLightVariant: 'sunny' });
+    expect(detectGlobalAppearance()).toBe('sunny');
+    stubDocumentTheme({ theme: 'dark' });
     expect(detectGlobalAppearance()).toBe('dark');
-    stubDocumentTheme(undefined);
+    stubDocumentTheme({ theme: 'dark', echoDarkVariant: 'amoled' });
+    expect(detectGlobalAppearance()).toBe('amoled');
+    stubDocumentTheme({});
     expect(detectGlobalAppearance()).toBe('dark');
+  });
+
+  it('cycles through all four modes on toggle', () => {
+    stubDocumentTheme({ theme: 'light', echoLightVariant: 'sunny' });
+    const result = usePaperAppearance({
+      channelId: ref('ch-cycle'),
+      contentJson: ref(null),
+    });
+    expect(result.appearance.value).toBe('sunny');
+    result.toggleAppearance();
+    expect(result.appearance.value).toBe('light');
+    result.toggleAppearance();
+    expect(result.appearance.value).toBe('dark');
+    result.toggleAppearance();
+    expect(result.appearance.value).toBe('amoled');
+    result.toggleAppearance();
+    expect(result.appearance.value).toBe('sunny');
   });
 });

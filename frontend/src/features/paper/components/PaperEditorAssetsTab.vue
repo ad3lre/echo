@@ -11,7 +11,20 @@ import type {
 } from '@/features/paper/editor/paperImageExtension';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import type { EchoDropdownOption } from '@/components/EchoDropdown.vue';
-import { runPaperFormatCommand } from '@/features/paper/editor/paperFormatSelection';
+import PaperFormatPresetMenu from '@/features/paper/components/PaperFormatPresetMenu.vue';
+import {
+  runPaperFormatCommand,
+  snapshotPaperEditorCaret,
+} from '@/features/paper/editor/paperFormatSelection';
+import { inferChatPendingMediaKind } from '@/utils/chatUploadMediaTypes';
+import {
+  PAPER_SHAPE_SIZE_PRESETS,
+  usePaperShapeActions,
+} from '@/features/paper/composables/usePaperShapeActions';
+import type {
+  PaperShapeAlign,
+  PaperShapeKind,
+} from '@/features/paper/editor/paperShapeExtension';
 
 const props = defineProps<{
   context: PaperEditorPanelBridgeContext;
@@ -19,6 +32,14 @@ const props = defineProps<{
 }>();
 
 const editorRef = computed(() => props.context.editor.value);
+const shapeActions = usePaperShapeActions(editorRef);
+
+const shapeTools: { id: PaperShapeKind; label: string }[] = [
+  { id: 'rectangle', label: 'Square' },
+  { id: 'circle', label: 'Circle' },
+  { id: 'triangle', label: 'Triangle' },
+  { id: 'line', label: 'Line' },
+];
 const fileInput = ref<HTMLInputElement | null>(null);
 const dragOver = ref(false);
 const imageUrlDialogOpen = ref(false);
@@ -28,6 +49,31 @@ const searchQuery = ref('');
 const isImageSelected = computed(
   () => editorRef.value?.isActive('image') ?? false,
 );
+
+const isShapeSelected = computed(() => shapeActions.isShapeSelected());
+
+const selectedShapeAttrs = computed(() => shapeActions.selectedShapeAttrs());
+
+const shapeSizeOptions: EchoDropdownOption[] = PAPER_SHAPE_SIZE_PRESETS.map(
+  (p) => ({
+    label: p.label,
+    value: String(p.px),
+  }),
+);
+
+const shapeAlignOptions: EchoDropdownOption[] = [
+  { label: 'Left', value: 'left' },
+  { label: 'Center', value: 'center' },
+  { label: 'Right', value: 'right' },
+];
+
+const currentShapeSize = computed(() => {
+  const { width } = shapeActions.selectedShapeSizePx();
+  const hit = PAPER_SHAPE_SIZE_PRESETS.find((p) => p.px === width);
+  return hit ? String(hit.px) : String(width);
+});
+
+const currentShapeAlign = computed(() => shapeActions.selectedShapeAlign());
 
 const selectedImageAttrs = computed(() => {
   const ed = editorRef.value;
@@ -81,6 +127,14 @@ function setImageWrap(value: string) {
   );
 }
 
+function setShapeSize(value: string) {
+  shapeActions.setShapeSizePx(Number(value));
+}
+
+function setShapeAlign(value: string) {
+  shapeActions.setShapeAlign(value as PaperShapeAlign);
+}
+
 const {
   images: searchResults,
   loading: searchLoading,
@@ -93,7 +147,13 @@ const docImages = computed(() =>
 );
 
 function onPickImage() {
+  snapshotPaperEditorCaret(editorRef.value);
   fileInput.value?.click();
+}
+
+function openImageUrlDialog() {
+  snapshotPaperEditorCaret(editorRef.value);
+  imageUrlDialogOpen.value = true;
 }
 
 async function insertFiles(files: FileList | File[]) {
@@ -101,7 +161,7 @@ async function insertFiles(files: FileList | File[]) {
   if (!editor) return;
   const list = Array.from(files);
   for (const file of list) {
-    if (!file.type.startsWith('image/')) continue;
+    if (inferChatPendingMediaKind(file) !== 'image') continue;
     await props.context.imageUpload.insertImageFile(editor, file);
     break;
   }
@@ -118,6 +178,7 @@ async function onImageFileChange(ev: Event) {
 function onDrop(ev: DragEvent) {
   dragOver.value = false;
   if (!props.editorEditable) return;
+  snapshotPaperEditorCaret(editorRef.value);
   const files = ev.dataTransfer?.files;
   if (!files?.length) return;
   ev.preventDefault();
@@ -186,10 +247,38 @@ function submitSearch() {
         <button
           type="button"
           class="paper-editor-panel__asset-btn paper-editor-panel__asset-btn--ghost"
-          @click="imageUrlDialogOpen = true"
+          @click="openImageUrlDialog()"
         >
           Insert from URL…
         </button>
+      </section>
+
+      <section class="paper-editor-tab__block">
+        <h4 class="paper-editor-tab__label">Shapes</h4>
+        <p class="paper-editor-tab__hint">
+          Uses the fill color from Colors → Objects.
+        </p>
+        <div class="paper-colors-tab__shape-grid">
+          <button
+            v-for="tool in shapeTools"
+            :key="tool.id"
+            type="button"
+            class="paper-colors-tab__shape-btn"
+            :title="`Insert ${tool.label.toLowerCase()}`"
+            :aria-label="`Insert ${tool.label.toLowerCase()}`"
+            @mousedown.prevent.stop="shapeActions.insertShape(tool.id)"
+          >
+            <span
+              class="paper-colors-tab__shape-preview"
+              :class="`paper-colors-tab__shape-preview--${tool.id}`"
+              :style="{
+                backgroundColor: shapeActions.pendingObjectColor.value,
+              }"
+              aria-hidden="true"
+            />
+            <span class="paper-colors-tab__shape-label">{{ tool.label }}</span>
+          </button>
+        </div>
       </section>
 
       <section class="paper-editor-tab__block">
@@ -245,6 +334,50 @@ function submitSearch() {
             <img :src="safeImageUrl(img.src)" alt="" loading="lazy" />
           </button>
         </div>
+      </section>
+
+      <section
+        v-if="isShapeSelected"
+        class="paper-editor-tab__block paper-editor-tab__block--highlight"
+      >
+        <h4 class="paper-editor-tab__label">Selected shape</h4>
+        <div class="paper-editor-panel__tool-row paper-editor-panel__size-row">
+          <span class="paper-editor-panel__control-label">Size</span>
+          <PaperFormatPresetMenu
+            :model-value="currentShapeSize"
+            :options="shapeSizeOptions"
+            :paper-appearance="context.appearance.value"
+            trigger-mode="label"
+            placement="below"
+            title="Shape size"
+            @update:model-value="setShapeSize"
+          />
+        </div>
+        <div class="paper-editor-panel__tool-row">
+          <span class="paper-editor-panel__control-label">Position</span>
+          <EchoDropdown
+            :model-value="currentShapeAlign"
+            :options="shapeAlignOptions"
+            label="Position"
+            compact
+            @update:model-value="setShapeAlign"
+          />
+        </div>
+        <p class="paper-editor-tab__hint">
+          Drag the handles on the canvas to resize, or change fill in Colors →
+          Objects.
+        </p>
+        <span
+          v-if="selectedShapeAttrs"
+          class="paper-editor-shape-preview-chip"
+          :class="`paper-editor-shape-preview-chip--${selectedShapeAttrs.shape}`"
+          :style="{
+            backgroundColor: String(selectedShapeAttrs.fill ?? '#3b82f6'),
+            width: String(selectedShapeAttrs.width ?? '48px'),
+            height: String(selectedShapeAttrs.height ?? '48px'),
+          }"
+          aria-hidden="true"
+        />
       </section>
 
       <section
@@ -318,3 +451,24 @@ function submitSearch() {
     />
   </div>
 </template>
+
+<style scoped>
+.paper-editor-shape-preview-chip {
+  display: inline-block;
+  margin-top: 0.5rem;
+  max-width: 100%;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.paper-editor-shape-preview-chip--circle {
+  border-radius: 50%;
+}
+
+.paper-editor-shape-preview-chip--triangle {
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.paper-editor-shape-preview-chip--line {
+  border-radius: 9999px;
+}
+</style>

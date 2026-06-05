@@ -568,12 +568,12 @@ async function run(): Promise<void> {
       chat!.id,
     );
     assert.equal(
-      categoryRows.find((row) => row.targetType === 'everyone')?.partial
+      categoryRows.find((row) => row.targetType === 'members')?.partial
         .VIEW_CHANNEL,
       true,
     );
     assert.equal(
-      chatRows.find((row) => row.targetType === 'everyone')?.partial
+      chatRows.find((row) => row.targetType === 'members')?.partial
         .SEND_MESSAGES,
       false,
     );
@@ -588,10 +588,10 @@ async function run(): Promise<void> {
       serverNews!.id,
     );
     assert.equal(
-      serverNewsRows.find((row) => row.targetType === 'everyone')?.partial
+      serverNewsRows.find((row) => row.targetType === 'members')?.partial
         .SEND_MESSAGES,
       false,
-      'GUILD_NEWS: @everyone should not send (typical announcement channel)',
+      'GUILD_NEWS: @members should not send (typical announcement channel)',
     );
     assert.equal(
       serverNewsRows.find((row) => row.targetType === 'role')?.partial

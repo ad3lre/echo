@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import { config } from '../config';
-import { DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS } from '../domain/echoStore/constants';
-import { migrateEveryoneRoleHierarchyPositions } from '../domain/echoStore/roles';
+import { DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS } from '../domain/echoStore/constants';
+import { migrateMembersRoleHierarchyPositions } from '../domain/echoStore/roles';
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { normalizePermissionOverwritePartial } from '../domain/echoPermissionPrimitives';
 import { repairEchoVoiceChannelMigrationDamage } from './repairEchoVoiceChannelMigration';
@@ -668,16 +668,16 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       PRIMARY KEY (server_id, user_id)
     );
   `);
-  const everyonePermsJson = JSON.stringify([
-    ...DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS,
+  const membersPermsJson = JSON.stringify([
+    ...DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS,
   ]);
   // DDL DEFAULT cannot use bind parameters ($1) with node-pg; inline escaped JSON literal.
-  const everyonePermsSqlLiteral = `'${everyonePermsJson.replace(/'/g, "''")}'`;
+  const membersPermsSqlLiteral = `'${membersPermsJson.replace(/'/g, "''")}'`;
   await pool.query(
-    `ALTER TABLE echo_roles ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT ${everyonePermsSqlLiteral}::jsonb`,
+    `ALTER TABLE echo_roles ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT ${membersPermsSqlLiteral}::jsonb`,
   );
   await pool.query(
-    `ALTER TABLE echo_roles ALTER COLUMN permissions SET DEFAULT ${everyonePermsSqlLiteral}::jsonb`,
+    `ALTER TABLE echo_roles ALTER COLUMN permissions SET DEFAULT ${membersPermsSqlLiteral}::jsonb`,
   );
   await pool.query(`
     ALTER TABLE echo_roles ADD COLUMN IF NOT EXISTS hoist BOOLEAN NOT NULL DEFAULT false;
@@ -1434,8 +1434,8 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     'everyone_role_default_permissions_v1',
     async () => {
       await pool.query(
-        `UPDATE echo_roles SET permissions = $1::jsonb WHERE name = '@everyone'`,
-        [everyonePermsJson],
+        `UPDATE echo_roles SET permissions = $1::jsonb WHERE name = '@members'`,
+        [membersPermsJson],
       );
     },
   );
@@ -1457,29 +1457,74 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       await pool.query(`
         UPDATE echo_roles
         SET permissions = permissions || '["ADD_REACTIONS"]'::jsonb
-        WHERE name = '@everyone' AND NOT (permissions @> '["ADD_REACTIONS"]'::jsonb);
+        WHERE name = '@members' AND NOT (permissions @> '["ADD_REACTIONS"]'::jsonb);
       `);
       await pool.query(`
         UPDATE echo_roles
         SET permissions = permissions || '["CONNECT"]'::jsonb
-        WHERE name = '@everyone' AND NOT (permissions @> '["CONNECT"]'::jsonb);
+        WHERE name = '@members' AND NOT (permissions @> '["CONNECT"]'::jsonb);
       `);
       await pool.query(`
         UPDATE echo_roles
         SET permissions = permissions || '["STREAM"]'::jsonb
-        WHERE name = '@everyone' AND NOT (permissions @> '["STREAM"]'::jsonb);
+        WHERE name = '@members' AND NOT (permissions @> '["STREAM"]'::jsonb);
       `);
     },
   );
-  await migrateEveryoneRoleHierarchyPositions(pool);
+  await migrateMembersRoleHierarchyPositions(pool);
   await migrateEchoCategorySchema(pool);
   await migrateEchoChannelCategoryNullable(pool);
   await ensureEchoPermissionOverwriteTables(pool);
+  await ensurePermissionOverwriteTargetTypeIncludesMembers(pool);
   await migrateEchoPermissionOverwriteRows(pool);
   await repairEchoVoiceChannelMigrationDamage(pool);
+
+  // Migration: Rename @everyone to @members (roles and overwrites)
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'rename_everyone_to_members_v1',
+    async () => {
+      // Rename role
+      await pool.query(
+        `UPDATE echo_roles SET name = '@members' WHERE name = '@everyone'`,
+      );
+      // Rename overwrite target_type in channel overwrites
+      await pool.query(
+        `UPDATE echo_channel_permission_overwrite_rows SET target_type = 'members' WHERE target_type = 'everyone'`,
+      );
+      // Rename overwrite target_type in category overwrites
+      await pool.query(
+        `UPDATE echo_category_permission_overwrite_rows SET target_type = 'members' WHERE target_type = 'everyone'`,
+      );
+    },
+  );
+
+  // Migration: Create @global role for existing servers
+  await runEchoSchemaMigrationOnce(pool, 'seed_global_role_v1', async () => {
+    // Create @global role for servers that don't have one
+    // Position -1 ensures it's below @members (position 0)
+    // Use gen_random_uuid() for unique IDs
+    await pool.query(`
+        INSERT INTO echo_roles (id, server_id, name, color, position, permissions, hoist, role_scope, sync_with_category_defaults)
+        SELECT
+          'g_' || encode(gen_random_uuid()::text::bytea, 'base64'),
+          s.id,
+          '@global',
+          '#808080',
+          -1,
+          '[]'::jsonb,
+          false,
+          'category',
+          false
+        FROM echo_servers s
+        WHERE NOT EXISTS (
+          SELECT 1 FROM echo_roles r WHERE r.server_id = s.id AND r.name = '@global'
+        )
+      `);
+  });
 }
 
-/** Per-target channel/category permission partials (everyone / role / member). */
+/** Per-target channel/category permission partials (members / global / role / member). */
 async function ensureEchoPermissionOverwriteTables(
   pool: pg.Pool,
 ): Promise<void> {
@@ -1488,7 +1533,7 @@ async function ensureEchoPermissionOverwriteTables(
       id TEXT PRIMARY KEY,
       server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
       channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
-      target_type TEXT NOT NULL CHECK (target_type IN ('everyone', 'role', 'member')),
+      target_type TEXT NOT NULL CHECK (target_type IN ('members', 'global', 'role', 'member', 'everyone')),
       target_id TEXT NULL,
       partial JSONB NOT NULL DEFAULT '{}'::jsonb
     );
@@ -1500,7 +1545,12 @@ async function ensureEchoPermissionOverwriteTables(
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS echo_ch_ow_evr
     ON echo_channel_permission_overwrite_rows (server_id, channel_id)
-    WHERE target_type = 'everyone';
+    WHERE target_type = 'members';
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS echo_ch_ow_global
+    ON echo_channel_permission_overwrite_rows (server_id, channel_id)
+    WHERE target_type = 'global';
   `);
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS echo_ch_ow_role
@@ -1518,7 +1568,7 @@ async function ensureEchoPermissionOverwriteTables(
       id TEXT PRIMARY KEY,
       server_id TEXT NOT NULL REFERENCES echo_servers(id) ON DELETE CASCADE,
       category_id TEXT NOT NULL REFERENCES echo_categories(id) ON DELETE CASCADE,
-      target_type TEXT NOT NULL CHECK (target_type IN ('everyone', 'role', 'member')),
+      target_type TEXT NOT NULL CHECK (target_type IN ('members', 'global', 'role', 'member', 'everyone')),
       target_id TEXT NULL,
       partial JSONB NOT NULL DEFAULT '{}'::jsonb
     );
@@ -1530,7 +1580,12 @@ async function ensureEchoPermissionOverwriteTables(
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS echo_cat_ow_evr
     ON echo_category_permission_overwrite_rows (server_id, category_id)
-    WHERE target_type = 'everyone';
+    WHERE target_type = 'members';
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS echo_cat_ow_global
+    ON echo_category_permission_overwrite_rows (server_id, category_id)
+    WHERE target_type = 'global';
   `);
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS echo_cat_ow_role
@@ -1542,6 +1597,53 @@ async function ensureEchoPermissionOverwriteTables(
     ON echo_category_permission_overwrite_rows (server_id, category_id, target_id)
     WHERE target_type = 'member';
   `);
+}
+
+const PERMISSION_OVERWRITE_TARGET_TYPE_CHECK =
+  "target_type IN ('members', 'global', 'role', 'member', 'everyone')";
+
+function quotePgIdent(name: string): string {
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
+/**
+ * Existing deployments may still have a pre-@members CHECK (everyone only).
+ * CREATE TABLE IF NOT EXISTS does not widen constraints; fix before inserts.
+ */
+async function ensurePermissionOverwriteTargetTypeIncludesMembers(
+  pool: pg.Pool,
+): Promise<void> {
+  const tables = [
+    'echo_channel_permission_overwrite_rows',
+    'echo_category_permission_overwrite_rows',
+  ] as const;
+  for (const table of tables) {
+    const existing = await pool.query<{ conname: string; def: string }>(
+      `
+      SELECT conname, pg_get_constraintdef(oid) AS def
+      FROM pg_constraint
+      WHERE conrelid = $1::regclass AND contype = 'c'
+      `,
+      [table],
+    );
+    const targetCons = existing.rows.filter((r) =>
+      String(r.def).includes('target_type'),
+    );
+    if (targetCons.some((r) => String(r.def).includes("'members'"))) {
+      continue;
+    }
+    for (const r of targetCons) {
+      await pool.query(
+        `ALTER TABLE ${table} DROP CONSTRAINT ${quotePgIdent(r.conname)}`,
+      );
+    }
+    await pool.query(
+      `ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${table}_target_type_check`,
+    );
+    await pool.query(
+      `ALTER TABLE ${table} ADD CONSTRAINT ${table}_target_type_check CHECK (${PERMISSION_OVERWRITE_TARGET_TYPE_CHECK})`,
+    );
+  }
 }
 
 /** One-time: copy legacy JSONB blobs into everyone rows, then clear legacy columns. Idempotent. */
@@ -1564,7 +1666,7 @@ async function migrateEchoPermissionOverwriteRows(
     if (!normalized || Object.keys(normalized).length === 0) continue;
     await pool.query(
       `INSERT INTO echo_channel_permission_overwrite_rows (id, server_id, channel_id, target_type, target_id, partial)
-       VALUES ($1, $2, $3, 'everyone', NULL, $4::jsonb)`,
+       VALUES ($1, $2, $3, 'members', NULL, $4::jsonb)`,
       [
         nextEchoSnowflakeId(),
         String(row.server_id),
@@ -1597,7 +1699,7 @@ async function migrateEchoPermissionOverwriteRows(
     if (!normalized || Object.keys(normalized).length === 0) continue;
     await pool.query(
       `INSERT INTO echo_category_permission_overwrite_rows (id, server_id, category_id, target_type, target_id, partial)
-       VALUES ($1, $2, $3, 'everyone', NULL, $4::jsonb)`,
+       VALUES ($1, $2, $3, 'members', NULL, $4::jsonb)`,
       [
         nextEchoSnowflakeId(),
         String(row.server_id),

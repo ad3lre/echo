@@ -44,6 +44,7 @@ const clearLabel = computed(() => {
   if (props.kind === 'highlight') return 'Remove highlight';
   if (props.kind === 'pageLight') return 'Use default light page color';
   if (props.kind === 'pageDark') return 'Use default dark page color';
+  if (props.kind === 'object') return 'Use default object color';
   return 'Reset';
 });
 
@@ -195,7 +196,8 @@ onUnmounted(() => {
           class="paper-color-picker-swatch"
           :class="{
             'paper-color-picker-swatch--active': isActiveSwatch(hex),
-            'paper-color-picker-swatch--square': kind === 'highlight',
+            'paper-color-picker-swatch--square':
+              kind === 'highlight' || kind === 'object',
           }"
           :style="{ background: hex }"
           :title="hex"
@@ -215,7 +217,8 @@ onUnmounted(() => {
           class="paper-color-picker-swatch"
           :class="{
             'paper-color-picker-swatch--active': isActiveSwatch(swatch.value),
-            'paper-color-picker-swatch--square': kind === 'highlight',
+            'paper-color-picker-swatch--square':
+              kind === 'highlight' || kind === 'object',
           }"
           :style="{ background: swatch.value }"
           :title="swatch.label"

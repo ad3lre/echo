@@ -1,6 +1,7 @@
 const STORAGE_KEYS = {
   text: 'echo.paper.recentTextColors',
   highlight: 'echo.paper.recentHighlightColors',
+  object: 'echo.paper.recentObjectColors',
   pageLight: 'echo.paper.recentPageLightColors',
   pageDark: 'echo.paper.recentPageDarkColors',
 } as const;

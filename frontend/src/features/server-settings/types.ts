@@ -95,7 +95,7 @@ export interface ManagedRole {
   lightColor: string;
   separateThemeColors: boolean;
   displaySeparately: boolean;
-  /** When true, new members receive this role automatically (not shown for @everyone). */
+  /** When true, new members receive this role automatically (not shown for @members). */
   defaultOnJoin: boolean;
   /** Other roles implied when this role is assigned (Server Settings → Roles → Display). */
   linkedRoles: ManagedRoleLink[];

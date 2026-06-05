@@ -91,6 +91,10 @@ export const PaperImage = Image.extend({
       ...baseAttrs,
       class: this.options.HTMLAttributes?.class || 'paper-editor-image',
     };
+    const src = node.attrs.src;
+    if (typeof src === 'string' && src.trim()) {
+      attrs.src = src.trim();
+    }
 
     // Add alignment class
     if (align && align !== 'center') {

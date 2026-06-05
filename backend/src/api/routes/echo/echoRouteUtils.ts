@@ -32,7 +32,14 @@ export function parsePermissionOverwriteRowsBody(
       return undefined;
     const o = item as Record<string, unknown>;
     const tt = o.targetType;
-    if (tt !== 'everyone' && tt !== 'role' && tt !== 'member') return undefined;
+    if (
+      tt !== 'everyone' &&
+      tt !== 'members' &&
+      tt !== 'global' &&
+      tt !== 'role' &&
+      tt !== 'member'
+    )
+      return undefined;
     const partial = o.partial;
     if (
       typeof partial !== 'object' ||
@@ -40,9 +47,11 @@ export function parsePermissionOverwriteRowsBody(
       Array.isArray(partial)
     )
       return undefined;
-    if (tt === 'everyone') {
+    if (tt === 'everyone' || tt === 'members' || tt === 'global') {
+      const normalized =
+        tt === 'everyone' ? 'members' : (tt as 'members' | 'global');
       out.push({
-        targetType: 'everyone',
+        targetType: normalized,
         partial: partial as Record<string, unknown>,
       });
       continue;

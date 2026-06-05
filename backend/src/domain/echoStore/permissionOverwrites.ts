@@ -30,15 +30,15 @@ export type UpdateEchoChannelPermissionOverridesResult =
   | 'invalid_body';
 
 export type EchoPermissionOverwriteRowInput = {
-  targetType: 'everyone' | 'role' | 'member';
-  /** Role id or member user id; omit or null for everyone. */
+  targetType: 'members' | 'global' | 'role' | 'member' | 'everyone';
+  /** Role id or member user id; omit or null for members/global. */
   targetId?: string | null;
   partial: Record<string, unknown>;
 };
 
 export type EchoPermissionOverwriteRowDto = {
   id: string;
-  targetType: 'everyone' | 'role' | 'member';
+  targetType: 'members' | 'global' | 'role' | 'member' | 'everyone';
   targetId: string | null;
   partial: Record<string, boolean>;
 };
@@ -82,7 +82,7 @@ function sanitizePartialAllowsForActor(
 }
 
 type PreparedPermissionOverwriteRow = {
-  targetType: 'everyone' | 'role' | 'member';
+  targetType: 'members' | 'global' | 'role' | 'member' | 'everyone';
   targetId: string | null;
   partial: Record<string, boolean>;
 };
@@ -110,15 +110,21 @@ function preparePermissionOverwriteRows(
 
   for (const row of rows) {
     const tt = row.targetType;
-    if (tt !== 'everyone' && tt !== 'role' && tt !== 'member')
+    if (
+      tt !== 'members' &&
+      tt !== 'global' &&
+      tt !== 'everyone' &&
+      tt !== 'role' &&
+      tt !== 'member'
+    )
       return 'invalid_body';
     const tid = typeof row.targetId === 'string' ? row.targetId.trim() : '';
-    if (tt === 'everyone') {
+    if (tt === 'members' || tt === 'global' || tt === 'everyone') {
       if (tid !== '') return 'invalid_body';
     } else if (!tid) {
       return 'invalid_body';
     }
-    const key = `${tt}:${tt === 'everyone' ? '' : tid}`;
+    const key = `${tt}:${tt === 'members' || tt === 'global' || tt === 'everyone' ? '' : tid}`;
     if (seen.has(key)) return 'invalid_body';
     seen.add(key);
 
@@ -134,9 +140,12 @@ function preparePermissionOverwriteRows(
       sanitizePartialAllowsForActor(cleaned, actorPerms, actorIsOwner);
     strippedAllows.push(...rowStripped);
 
+    const canonicalType: PreparedPermissionOverwriteRow['targetType'] =
+      tt === 'everyone' ? 'members' : tt;
     prepared.push({
-      targetType: tt,
-      targetId: tt === 'everyone' ? null : tid,
+      targetType: canonicalType,
+      targetId:
+        tt === 'members' || tt === 'global' || tt === 'everyone' ? null : tid,
       partial,
     });
 
@@ -864,7 +873,7 @@ export async function updateEchoChannelPermissionOverrides(
     serverId,
     actorId,
     channelId,
-    [{ targetType: 'everyone', partial: cleaned }],
+    [{ targetType: 'members', partial: cleaned }],
   );
 }
 
@@ -915,6 +924,6 @@ export async function updateEchoCategoryPermissionOverrides(
     serverId,
     actorId,
     categoryId,
-    [{ targetType: 'everyone', partial: cleaned }],
+    [{ targetType: 'members', partial: cleaned }],
   );
 }

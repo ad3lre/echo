@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { Editor } from '@tiptap/core';
+import { buildPaperEditorExtensions } from '@/features/paper/editor/paperEditorExtensions';
+import { paperToggleMark } from '@/features/paper/editor/paperKeyboardActions';
+import { snapshotPaperEditorSelection } from '@/features/paper/editor/paperFormatSelection';
 import {
   cycleFontInCatalog,
   cycleHighlightColor,
@@ -39,6 +43,43 @@ describe('cycleFontInCatalog', () => {
     expect(cycleFontInCatalog(second.family, 'prev').id).toBe(first.id);
     expect(cycleFontInCatalog(last.family, 'next').id).toBe(first.id);
     expect(cycleFontInCatalog(first.family, 'prev').id).toBe(last.id);
+  });
+});
+
+describe('paperToggleMark', () => {
+  it('toggles bold and italic on the current selection', () => {
+    const editor = new Editor({
+      extensions: buildPaperEditorExtensions(),
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Hello world' }],
+          },
+        ],
+      },
+    });
+    editor.commands.setTextSelection({ from: 1, to: 6 });
+    snapshotPaperEditorSelection(editor);
+
+    paperToggleMark(editor, 'toggleBold');
+    expect(
+      editor.state.doc
+        .resolve(2)
+        .marks()
+        .some((mark) => mark.type.name === 'bold'),
+    ).toBe(true);
+
+    paperToggleMark(editor, 'toggleItalic');
+    expect(
+      editor.state.doc
+        .resolve(2)
+        .marks()
+        .some((mark) => mark.type.name === 'italic'),
+    ).toBe(true);
+
+    editor.destroy();
   });
 });
 

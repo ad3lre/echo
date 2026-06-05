@@ -16,14 +16,27 @@ import { ensurePaperFontLoaded } from '@/features/paper/editor/paperFontLoader';
 import PaperPromptDialog from '@/features/paper/components/PaperPromptDialog.vue';
 import PaperColorControl from '@/features/paper/components/PaperColorControl.vue';
 import PaperFontPicker from '@/features/paper/components/PaperFontPicker.vue';
+import PaperTypographySlider from '@/features/paper/components/PaperTypographySlider.vue';
+import {
+  formatLetterSpacingLabel,
+  formatLineHeightLabel,
+  letterSpacingFromSlider,
+  letterSpacingSliderValue,
+  lineHeightFromSlider,
+  lineHeightSliderValue,
+  PAPER_LETTER_SPACING_RANGE,
+  PAPER_LINE_HEIGHT_RANGE,
+} from '@/features/paper/editor/paperSpacingSliders';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import type { EchoDropdownOption } from '@/components/EchoDropdown.vue';
+import PaperFormatPresetMenu from '@/features/paper/components/PaperFormatPresetMenu.vue';
 import type { PaperPageLayout } from '@/features/paper/composables/usePaperPageLayout';
 import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
 import { readPaperDefaultFont } from '@/features/paper/editor/paperDocumentAttributes';
 import {
   onPaperFormatBarMouseDown,
   runPaperFormatCommand,
+  snapshotPaperEditorCaret,
   snapshotPaperEditorSelection,
   syncStoredPaperEditorSelection,
 } from '@/features/paper/editor/paperFormatSelection';
@@ -33,7 +46,7 @@ const props = defineProps<{
   imageUpload: ReturnType<typeof usePaperImageUpload>;
   visible?: boolean;
   pageLayout?: PaperPageLayout;
-  paperAppearance?: 'light' | 'dark' | 'amber';
+  paperAppearance?: PaperAppearanceMode;
 }>();
 
 const ed = computed(() => props.editor);
@@ -68,34 +81,46 @@ const fontSizeDisplay = computed(() => {
   return '';
 });
 
+const fontSizeStepKeyHint =
+  typeof navigator !== 'undefined' &&
+  /Mac|iPhone|iPod|iPad/i.test(navigator.platform)
+    ? '⌘⇧↑↓'
+    : 'Ctrl+Shift+↑↓';
+
 const fontSizeTitle = computed(() => {
-  if (fmt.value.fontSizeMixed) return 'Font size: mixed · Shift+↑↓';
+  if (fmt.value.fontSizeMixed) {
+    return `Font size: mixed · ${fontSizeStepKeyHint}`;
+  }
   const px = fmt.value.fontSizePx;
-  return px != null ? `Font size: ${px}px · Shift+↑↓` : 'Font size · Shift+↑↓';
+  return px != null
+    ? `Font size: ${px}px · ${fontSizeStepKeyHint}`
+    : `Font size · ${fontSizeStepKeyHint}`;
 });
 
-const headingOptions: EchoDropdownOption[] = [
-  { label: 'Title', value: '1' },
-  { label: 'Heading 2', value: '2' },
-  { label: 'Heading 3', value: '3' },
-  { label: 'Body', value: '0' },
-];
+const letterSpacingSliderModel = computed({
+  get: () => letterSpacingSliderValue(fmt.value.letterSpacing),
+  set: (n: number) => {
+    formatActions.setLetterSpacing(letterSpacingFromSlider(n));
+  },
+});
 
-const letterSpacingPresetOptions: EchoDropdownOption[] = [
-  { label: 'Normal', value: '' },
-  { label: '0.5px', value: '0.5px' },
-  { label: '1px', value: '1px' },
-  { label: '2px', value: '2px' },
-  { label: '4px', value: '4px' },
-];
+const lineHeightSliderModel = computed({
+  get: () => lineHeightSliderValue(fmt.value.lineHeight),
+  set: (n: number) => {
+    formatActions.setLineHeight(lineHeightFromSlider(n));
+  },
+});
 
-const lineHeightPresetOptions: EchoDropdownOption[] = [
-  { label: '1.0', value: '1' },
-  { label: '1.15', value: '1.15' },
-  { label: '1.35', value: '1.35' },
-  { label: '1.5', value: '1.5' },
-  { label: '2.0', value: '2' },
-];
+const letterSpacingSliderLabel = computed(() =>
+  formatLetterSpacingLabel(
+    fmt.value.letterSpacing,
+    fmt.value.letterSpacingMixed,
+  ),
+);
+
+const lineHeightSliderLabel = computed(() =>
+  formatLineHeightLabel(fmt.value.lineHeight, fmt.value.lineHeightMixed),
+);
 
 const textOutlinePresetOptions: EchoDropdownOption[] = [
   { label: 'Off', value: '' },
@@ -109,18 +134,6 @@ const fontSizePresetOptions = computed<EchoDropdownOption[]>(() =>
     value: String(px),
   })),
 );
-
-const currentHeadingValue = computed(() => {
-  if (fmt.value.heading === 'h1') return '1';
-  if (fmt.value.heading === 'h2') return '2';
-  if (fmt.value.heading === 'h3') return '3';
-  return '0';
-});
-
-function onHeadingSelect(value: string) {
-  const level = Number.parseInt(value, 10) as 0 | 1 | 2 | 3;
-  setHeading(level);
-}
 
 function onFontSizePresetSelect(value: string) {
   const n = Number.parseInt(value, 10);
@@ -186,6 +199,10 @@ function onFormatBarMouseDown(ev: MouseEvent) {
   onPaperFormatBarMouseDown(ed.value, ev);
 }
 
+function onMoreMenuMouseDown(ev: MouseEvent) {
+  onPaperFormatBarMouseDown(ed.value, ev);
+}
+
 watch(
   ed,
   (editor, prev) => {
@@ -203,7 +220,13 @@ onUnmounted(() => {
 });
 
 async function onPickImage() {
+  snapshotPaperEditorCaret(ed.value);
   fileInput.value?.click();
+}
+
+function openImageUrlDialog() {
+  snapshotPaperEditorCaret(ed.value);
+  imageUrlDialogOpen.value = true;
 }
 
 async function onImageFileChange(ev: Event) {
@@ -241,21 +264,6 @@ function onImageUrlConfirm(src: string) {
   }
 }
 
-function setHeading(level: 0 | 1 | 2 | 3) {
-  formatActions.setHeading(level);
-}
-
-function headingBtnClass(level: 1 | 2 | 3) {
-  const h = fmt.value.heading;
-  if (h === 'mixed') {
-    return 'paper-format-heading-btn paper-format-heading-btn--mixed';
-  }
-  const key = level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3';
-  return h === key
-    ? 'paper-format-heading-btn paper-format-heading-btn--active'
-    : 'paper-format-heading-btn';
-}
-
 function triBtnClass(state: TriState) {
   if (state === 'mixed') {
     return 'paper-format-btn paper-format-btn--mixed';
@@ -277,17 +285,13 @@ async function onFontPick(fontId: string) {
   if (!font || !editor) return;
   snapshotPaperEditorSelection(editor);
   await ensurePaperFontLoaded(font.id);
-  runPaperFormatCommand(editor, (chain) =>
-    chain.extendMarkRange('textStyle').setFontFamily(font.family),
-  );
+  runPaperFormatCommand(editor, (chain) => chain.setFontFamily(font.family));
 }
 
 function onFontClear() {
   const editor = ed.value;
   if (!editor) return;
-  runPaperFormatCommand(editor, (chain) =>
-    chain.extendMarkRange('textStyle').unsetFontFamily(),
-  );
+  runPaperFormatCommand(editor, (chain) => chain.unsetFontFamily());
 }
 
 function onFontSizeInput(ev: Event) {
@@ -295,24 +299,18 @@ function onFontSizeInput(ev: Event) {
   const editor = ed.value;
   if (!editor) return;
   if (!raw) {
-    runPaperFormatCommand(editor, (chain) =>
-      chain.extendMarkRange('textStyle').unsetFontSize(),
-    );
+    runPaperFormatCommand(editor, (chain) => chain.unsetFontSize());
     return;
   }
   const n = Number.parseInt(raw, 10);
   if (!Number.isFinite(n) || n < 6 || n > 400) return;
-  runPaperFormatCommand(editor, (chain) =>
-    chain.extendMarkRange('textStyle').setFontSize(`${n}px`),
-  );
+  runPaperFormatCommand(editor, (chain) => chain.setFontSize(`${n}px`));
 }
 
 function onFontSizePreset(px: number) {
   const editor = ed.value;
   if (!editor) return;
-  runPaperFormatCommand(editor, (chain) =>
-    chain.extendMarkRange('textStyle').setFontSize(`${px}px`),
-  );
+  runPaperFormatCommand(editor, (chain) => chain.setFontSize(`${px}px`));
 }
 
 function setTextColor(color: string) {
@@ -325,14 +323,6 @@ function setHighlight(color: string | null) {
 
 function setAlign(align: 'left' | 'center' | 'right' | 'justify') {
   formatActions.setAlign(align);
-}
-
-function setLetterSpacing(value: string) {
-  formatActions.setLetterSpacing(value || null);
-}
-
-function setLineHeight(value: string) {
-  formatActions.setLineHeight(value || null);
 }
 
 function setTextOutline(preset: string) {
@@ -404,16 +394,6 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
       style="background: var(--paper-format-bar-bg)"
       @mousedown.capture="onFormatBarMouseDown"
     >
-      <EchoDropdown
-        :model-value="currentHeadingValue"
-        :options="headingOptions"
-        label="Style"
-        compact
-        @update:model-value="onHeadingSelect"
-      />
-
-      <span class="paper-format-divider" aria-hidden="true" />
-
       <PaperFontPicker
         :model-value="fmt.fontFamilyMixed ? '' : fmt.fontFamily"
         :mixed="fmt.fontFamilyMixed"
@@ -433,12 +413,12 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
           aria-label="Font size in pixels"
           @change="onFontSizeInput"
         />
-        <EchoDropdown
-          :model-value="''"
+        <PaperFormatPresetMenu
+          :model-value="fontSizeDisplay || ''"
           :options="fontSizePresetOptions"
-          label="Size"
-          compact
-          menu-match-trigger-width
+          :paper-appearance="paperAppearance ?? 'light'"
+          trigger-mode="chevron"
+          placement="above"
           @update:model-value="onFontSizePresetSelect"
         />
       </div>
@@ -665,7 +645,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
             :data-paper-appearance="paperAppearance ?? 'light'"
             :style="moreMenuPanelStyle"
             @click.stop
-            @mousedown.prevent
+            @mousedown="onMoreMenuMouseDown"
           >
             <button
               type="button"
@@ -692,60 +672,36 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
               type="button"
               class="paper-heading-item"
               @click="
-                imageUrlDialogOpen = true;
+                openImageUrlDialog();
                 closeMoreMenu();
               "
             >
               Image from URL…
             </button>
             <div class="my-1 border-t border-border" />
-            <div
-              class="paper-heading-item paper-heading-item--disabled text-xs text-fg-subtle"
-            >
-              Letter spacing
+            <div class="px-2 pb-2" @click.stop>
+              <PaperTypographySlider
+                v-model="letterSpacingSliderModel"
+                label="Letter spacing"
+                :min="PAPER_LETTER_SPACING_RANGE.min"
+                :max="PAPER_LETTER_SPACING_RANGE.max"
+                :step="PAPER_LETTER_SPACING_RANGE.step"
+                :display="letterSpacingSliderLabel"
+                :disabled="fmt.letterSpacingMixed"
+                compact
+              />
             </div>
-            <div class="flex gap-1 px-2 pb-2">
-              <button
-                v-for="opt in letterSpacingPresetOptions"
-                :key="opt.value"
-                type="button"
-                class="px-2 py-1 text-xs rounded hover:bg-glass-hover"
-                :class="{
-                  'bg-accent/20':
-                    fmt.letterSpacing === opt.value ||
-                    (!opt.value && !fmt.letterSpacing),
-                }"
-                @click="
-                  setLetterSpacing(opt.value);
-                  closeMoreMenu();
-                "
-              >
-                {{ opt.label }}
-              </button>
-            </div>
-            <div
-              class="paper-heading-item paper-heading-item--disabled text-xs text-fg-subtle"
-            >
-              Line height
-            </div>
-            <div class="flex gap-1 px-2 pb-2">
-              <button
-                v-for="opt in lineHeightPresetOptions"
-                :key="opt.value"
-                type="button"
-                class="px-2 py-1 text-xs rounded hover:bg-glass-hover"
-                :class="{
-                  'bg-accent/20':
-                    fmt.lineHeight === opt.value ||
-                    (!opt.value && !fmt.lineHeight),
-                }"
-                @click="
-                  setLineHeight(opt.value);
-                  closeMoreMenu();
-                "
-              >
-                {{ opt.label }}
-              </button>
+            <div class="px-2 pb-2" @click.stop>
+              <PaperTypographySlider
+                v-model="lineHeightSliderModel"
+                label="Line height"
+                :min="PAPER_LINE_HEIGHT_RANGE.min"
+                :max="PAPER_LINE_HEIGHT_RANGE.max"
+                :step="PAPER_LINE_HEIGHT_RANGE.step"
+                :display="lineHeightSliderLabel"
+                :disabled="fmt.lineHeightMixed"
+                compact
+              />
             </div>
             <div
               class="paper-heading-item paper-heading-item--disabled text-xs text-fg-subtle"
@@ -904,35 +860,6 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
   cursor: not-allowed;
 }
 
-.paper-format-heading-group {
-  display: inline-flex;
-  flex-shrink: 0;
-  gap: 0.125rem;
-  padding: 0.125rem;
-  border-radius: 9999px;
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-}
-
-.paper-format-heading-btn {
-  min-width: 2rem;
-  height: 1.75rem;
-  padding: 0 0.4rem;
-  border-radius: 9999px;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--muted);
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.paper-format-heading-btn--active {
-  background: var(--accent);
-  color: #fff;
-}
-
-.paper-format-heading-btn--mixed,
 .paper-format-btn--mixed {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
   opacity: 0.85;
@@ -950,8 +877,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
   font-variant-numeric: tabular-nums;
 }
 
-.paper-format-btn,
-.paper-format-heading-btn {
+.paper-format-btn {
   transition:
     background 0.15s ease,
     color 0.15s ease,
@@ -959,8 +885,7 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .paper-format-btn,
-  .paper-format-heading-btn {
+  .paper-format-btn {
     transition: none;
   }
 }
@@ -1004,16 +929,6 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
 
 .paper-format-size-input:focus {
   outline: none;
-}
-
-.paper-format-size-preset {
-  width: 1.25rem;
-  height: 2rem;
-  border: none;
-  background: transparent;
-  font-size: 0.625rem;
-  color: var(--muted);
-  cursor: pointer;
 }
 
 .paper-format-color {

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, inject, unref } from 'vue';
+import { useCompactShell } from '@/composables/useCompactShell';
+import { LAYOUT_CHAT_SURFACE_KEY } from '@/features/layout/layoutInjectionKeys';
 import type { Editor } from '@tiptap/core';
 import { icons } from '@/assets/icons';
 import { copyToClipboard } from '@/features/chat/composables/useMessageLinkActions';
@@ -7,7 +9,6 @@ import PaperChromeDropdown from '@/features/paper/components/PaperChromeDropdown
 import type { MergedPaperWatchingPeer } from '@/features/paper/composables/mergePaperWatchingPeers';
 import type { PaperConnectionPhase } from '@/features/paper/composables/usePaperSession';
 import type { PaperSourceViewMode } from '@/features/paper/composables/usePaperSourceViewMode';
-import { paperSourceViewKeybindLabel } from '@/features/paper/composables/usePaperSourceViewKeybind';
 import type { PaperUiMode } from '@/features/paper/composables/usePaperUiMode';
 import type { PaperShareSettingsPayload } from '@shared/types/paperShare';
 import {
@@ -16,9 +17,14 @@ import {
 } from '@/features/paper/editor/paperTypography';
 import type { PaperShareVisibility } from '@shared/types/paperShare';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
+import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
+import {
+  paperAppearanceCanvasLabel,
+  paperAppearanceShortLabel,
+} from '@/features/paper/editor/paperPageAppearance';
 
 const props = defineProps<{
-  paperAppearance?: 'light' | 'dark' | 'amber';
+  paperAppearance?: PaperAppearanceMode;
   channelName: string;
   connectionPhase: PaperConnectionPhase;
   connectionTooltip: string;
@@ -70,6 +76,38 @@ const emit = defineEmits<{
   toggleSourceView: [];
 }>();
 
+const layoutChat = inject(LAYOUT_CHAT_SURFACE_KEY, null);
+const { isCompactShell } = useCompactShell();
+
+const channelPanelCollapsed = computed(
+  () => !!unref(layoutChat?.channelPanelCollapsed),
+);
+
+const compactGuildTriPaneNav = computed(
+  () => !!unref(layoutChat?.compactGuildTriPaneNav),
+);
+
+const expandChannels = computed(() => {
+  const fn = layoutChat?.expandChannels;
+  return fn ? unref(fn) : undefined;
+});
+
+const showMobileBackToChannels = computed(
+  () => isCompactShell.value && typeof expandChannels.value === 'function',
+);
+
+const showRevealChannelList = computed(
+  () =>
+    !compactGuildTriPaneNav.value &&
+    !isCompactShell.value &&
+    channelPanelCollapsed.value &&
+    typeof expandChannels.value === 'function',
+);
+
+function revealChannelList() {
+  expandChannels.value?.();
+}
+
 const TITLE_MAX = 32;
 
 const displayTitle = computed(() => {
@@ -84,32 +122,22 @@ const subtitle = computed(() => {
   return null;
 });
 
-const appearanceTitle = computed(() => {
-  if (props.paperAppearance === 'dark') return 'Dark canvas';
-  if (props.paperAppearance === 'amber') return 'Amber canvas';
-  return 'Light canvas';
-});
+const appearanceTitle = computed(() =>
+  paperAppearanceCanvasLabel(props.paperAppearance ?? 'light'),
+);
 
-const appearanceLabel = computed(() => {
-  if (props.paperAppearance === 'dark') return 'Dark';
-  if (props.paperAppearance === 'amber') return 'Amber';
-  return 'Light';
-});
+const appearanceLabel = computed(() =>
+  paperAppearanceShortLabel(props.paperAppearance ?? 'light'),
+);
 
 const showCommentsToggle = computed(() => (props.commentCount ?? 0) > 0);
 
 const sourceViewMode = computed(() => props.sourceViewMode ?? 'inline');
 
-const sourceViewKeybind = paperSourceViewKeybindLabel();
-
-const sourceViewTitle = computed(() =>
+const sourceViewToggleTitle = computed(() =>
   sourceViewMode.value === 'inline'
-    ? `Rendered preview — formatted document. Click or ${sourceViewKeybind} for markdown source.`
-    : `Markdown source — full document as text. Click or ${sourceViewKeybind} for rendered preview.`,
-);
-
-const sourceViewLabel = computed(() =>
-  sourceViewMode.value === 'inline' ? 'Rendered' : 'Raw',
+    ? 'Rendered preview — click for markdown source'
+    : 'Markdown source — click for rendered preview',
 );
 
 function modeIcon(id: PaperUiMode): string {
@@ -179,6 +207,35 @@ function onRedo() {
     :class="{ 'paper-doc-chrome--floating': floating !== false }"
   >
     <div class="paper-doc-chrome__left">
+      <button
+        v-if="showMobileBackToChannels"
+        type="button"
+        class="paper-chrome-btn shrink-0"
+        title="Back to channel list"
+        aria-label="Back to channel list"
+        @click="revealChannelList"
+      >
+        <img
+          :src="icons.arrowLeft"
+          alt=""
+          class="h-4 w-4 opacity-80 paper-chrome-icon"
+        />
+      </button>
+      <button
+        v-else-if="showRevealChannelList"
+        type="button"
+        class="paper-chrome-btn shrink-0"
+        title="Show channels"
+        aria-label="Show channels"
+        @click="revealChannelList"
+      >
+        <img
+          :src="icons.list"
+          alt=""
+          class="h-4 w-4 opacity-80 paper-chrome-icon"
+        />
+      </button>
+
       <!-- File -->
       <PaperChromeDropdown label="File" title="File actions" align="left">
         <template #icon>
@@ -213,7 +270,7 @@ function onRedo() {
             </svg>
             <span>
               <span class="font-medium">Download as PDF</span>
-              <span class="block text-[11px] text-fg-subtle"
+              <span class="block text-[11px] paper-chrome-subtext"
                 >Print or save as PDF</span
               >
             </span>
@@ -242,7 +299,7 @@ function onRedo() {
             </svg>
             <span>
               <span class="font-medium">Download JSON</span>
-              <span class="block text-[11px] text-fg-subtle"
+              <span class="block text-[11px] paper-chrome-subtext"
                 >Full document data</span
               >
             </span>
@@ -271,7 +328,7 @@ function onRedo() {
             </svg>
             <span>
               <span class="font-medium">Copy plain text</span>
-              <span class="block text-[11px] text-fg-subtle"
+              <span class="block text-[11px] paper-chrome-subtext"
                 >Text only, no formatting</span
               >
             </span>
@@ -320,140 +377,103 @@ function onRedo() {
         </button>
       </div>
 
-      <!-- Mode dropdown (moved from right cluster) -->
-      <PaperChromeDropdown
-        v-if="modeOptions.length > 1"
-        class="hidden md:block"
-        :label="modeLabel"
-        title="Document mode"
-        align="left"
-      >
-        <template #icon>
-          <img
-            :src="modeIcon(uiMode)"
-            alt=""
-            class="h-4 w-4 opacity-80 paper-chrome-icon"
-          />
-        </template>
-        <template #default="{ close }">
-          <button
-            v-for="opt in modeOptions"
-            :key="opt.id"
-            type="button"
-            class="paper-chrome-menu-item paper-chrome-menu-item--icon"
-            :class="{ 'paper-chrome-menu-item--active': uiMode === opt.id }"
-            @click.stop="
-              emit('setUiMode', opt.id);
-              close();
-            "
+      <div class="paper-chrome-toolbar hidden md:flex" aria-label="Canvas view">
+        <button
+          type="button"
+          class="paper-chrome-pill"
+          :title="appearanceTitle"
+          :aria-label="appearanceTitle"
+          @click="emit('togglePaperAppearance')"
+        >
+          <svg
+            v-if="paperAppearance === 'dark' || paperAppearance === 'amoled'"
+            class="paper-chrome-pill__icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
           >
-            <img
-              :src="modeIcon(opt.id)"
-              alt=""
-              class="paper-chrome-menu-icon-img"
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+          <svg
+            v-else-if="paperAppearance === 'sunny'"
+            class="paper-chrome-pill__icon paper-chrome-pill__icon--sunny"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+          </svg>
+          <svg
+            v-else
+            class="paper-chrome-pill__icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+          </svg>
+          <span class="paper-chrome-pill__label">{{ appearanceLabel }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="paper-chrome-pill"
+          :class="{ 'paper-chrome-pill--active': sourceViewMode === 'raw' }"
+          :title="sourceViewToggleTitle"
+          :aria-label="sourceViewToggleTitle"
+          @click="emit('toggleSourceView')"
+        >
+          <svg
+            v-if="sourceViewMode === 'inline'"
+            class="paper-chrome-pill__icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
             />
-            <span>
-              <span class="font-medium">{{ opt.label }}</span>
-              <span class="block text-[11px] text-fg-subtle">{{
-                opt.hint
-              }}</span>
-            </span>
-          </button>
-        </template>
-      </PaperChromeDropdown>
-
-      <!-- Appearance toggle with label -->
-      <button
-        type="button"
-        class="paper-chrome-btn hidden md:flex items-center gap-1.5"
-        :title="appearanceTitle"
-        @click="emit('togglePaperAppearance')"
-      >
-        <svg
-          v-if="paperAppearance === 'dark'"
-          class="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-        </svg>
-        <svg
-          v-else-if="paperAppearance === 'amber'"
-          class="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <circle cx="12" cy="12" r="5" />
-          <line x1="12" y1="1" x2="12" y2="3" />
-          <line x1="12" y1="21" x2="12" y2="23" />
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-          <line x1="1" y1="12" x2="3" y2="12" />
-          <line x1="21" y1="12" x2="23" y2="12" />
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-        </svg>
-        <svg
-          v-else
-          class="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <circle cx="12" cy="12" r="5" />
-          <line x1="12" y1="1" x2="12" y2="3" />
-          <line x1="12" y1="21" x2="12" y2="23" />
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-          <line x1="1" y1="12" x2="3" y2="12" />
-          <line x1="21" y1="12" x2="23" y2="12" />
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-        </svg>
-        <span class="text-xs">{{ appearanceLabel }}</span>
-      </button>
-
-      <!-- Source view toggle (desktop) -->
-      <button
-        type="button"
-        class="paper-chrome-btn hidden md:flex items-center gap-1.5"
-        :title="sourceViewTitle"
-        @click="emit('toggleSourceView')"
-      >
-        <svg
-          v-if="sourceViewMode === 'inline'"
-          class="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path
-            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-          />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <polyline points="10 9 9 9 8 9" />
-        </svg>
-        <svg
-          v-else
-          class="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <polyline points="16 18 22 12 16 6" />
-          <polyline points="8 6 2 12 8 18" />
-        </svg>
-        <span class="text-xs">{{ sourceViewLabel }}</span>
-      </button>
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+          <svg
+            v-else
+            class="paper-chrome-pill__icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+          <span class="paper-chrome-pill__label">{{
+            sourceViewMode === 'inline' ? 'Rendered' : 'Raw'
+          }}</span>
+        </button>
+      </div>
     </div>
 
     <div class="paper-doc-chrome__center">
@@ -530,12 +550,53 @@ function onRedo() {
           </div>
           <span
             v-if="totalWatching > watchingPeers.length"
-            class="flex h-6 min-w-6 items-center justify-center rounded-full border border-border bg-elevated px-1 text-[9px] font-semibold text-fg-subtle"
+            class="flex h-6 min-w-6 items-center justify-center rounded-full border border-border bg-elevated px-1 text-[9px] font-semibold paper-chrome-subtext"
           >
             +{{ totalWatching - watchingPeers.length }}
           </span>
         </div>
       </div>
+
+      <PaperChromeDropdown
+        v-if="modeOptions.length > 1"
+        class="hidden md:block"
+        :label="modeLabel"
+        title="Document mode"
+        align="right"
+      >
+        <template #icon>
+          <img
+            :src="modeIcon(uiMode)"
+            alt=""
+            class="h-4 w-4 opacity-80 paper-chrome-icon"
+          />
+        </template>
+        <template #default="{ close }">
+          <button
+            v-for="opt in modeOptions"
+            :key="opt.id"
+            type="button"
+            class="paper-chrome-menu-item paper-chrome-menu-item--icon"
+            :class="{ 'paper-chrome-menu-item--active': uiMode === opt.id }"
+            @click.stop="
+              emit('setUiMode', opt.id);
+              close();
+            "
+          >
+            <img
+              :src="modeIcon(opt.id)"
+              alt=""
+              class="paper-chrome-menu-icon-img"
+            />
+            <span>
+              <span class="font-medium">{{ opt.label }}</span>
+              <span class="block text-[11px] paper-chrome-subtext">{{
+                opt.hint
+              }}</span>
+            </span>
+          </button>
+        </template>
+      </PaperChromeDropdown>
 
       <PaperChromeDropdown
         class="hidden md:block"
@@ -553,16 +614,16 @@ function onRedo() {
         <template #default>
           <div class="px-3 py-2" @click.stop>
             <p
-              class="text-[11px] font-medium uppercase tracking-wide text-fg-subtle"
+              class="text-[11px] font-medium uppercase tracking-wide paper-chrome-subtext"
             >
               Who can open this link
             </p>
             <p
               v-if="share.loading"
-              class="mt-2 flex items-center gap-2 text-xs text-fg-subtle"
+              class="mt-2 flex items-center gap-2 text-xs paper-chrome-subtext"
             >
               <span
-                class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-fg-subtle border-t-transparent"
+                class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-[color:var(--paper-surface-muted)] border-t-transparent"
                 aria-hidden="true"
               />
               Loading share settings…
@@ -646,41 +707,93 @@ function onRedo() {
         align="right"
       >
         <template #default="{ close }">
-          <button
-            v-for="opt in modeOptions"
-            :key="`more-mode-${opt.id}`"
-            type="button"
-            class="paper-chrome-menu-item md:hidden"
-            :class="{ 'paper-chrome-menu-item--active': uiMode === opt.id }"
-            @click.stop="
-              emit('setUiMode', opt.id);
-              close();
-            "
+          <div
+            v-if="modeOptions.length > 1"
+            class="border-b border-border px-3 py-2 md:hidden"
+            @click.stop
           >
-            {{ opt.label }}
-          </button>
+            <p
+              class="text-[11px] font-medium uppercase tracking-wide paper-chrome-subtext"
+            >
+              Document mode
+            </p>
+            <button
+              v-for="opt in modeOptions"
+              :key="`more-mode-${opt.id}`"
+              type="button"
+              class="paper-chrome-menu-item paper-chrome-menu-item--icon mt-1 w-full"
+              :class="{ 'paper-chrome-menu-item--active': uiMode === opt.id }"
+              @click.stop="
+                emit('setUiMode', opt.id);
+                close();
+              "
+            >
+              <img
+                :src="modeIcon(opt.id)"
+                alt=""
+                class="paper-chrome-menu-icon-img"
+              />
+              <span>
+                <span class="font-medium">{{ opt.label }}</span>
+                <span class="block text-[11px] paper-chrome-subtext">{{
+                  opt.hint
+                }}</span>
+              </span>
+            </button>
+          </div>
           <button
             type="button"
-            class="paper-chrome-menu-item md:hidden"
+            class="paper-chrome-menu-item paper-chrome-menu-item--icon md:hidden"
             @click.stop="
               emit('toggleSourceView');
               close();
             "
           >
-            <span class="font-medium">{{ sourceViewLabel }} view</span>
-            <span class="block text-[11px] text-fg-subtle">{{
-              sourceViewMode === 'inline'
-                ? 'Switch to full markdown source'
-                : 'Switch to rendered preview'
-            }}</span>
+            <svg
+              v-if="sourceViewMode === 'inline'"
+              class="paper-chrome-menu-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+            </svg>
+            <svg
+              v-else
+              class="paper-chrome-menu-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+            <span>
+              <span class="font-medium">{{
+                sourceViewMode === 'inline' ? 'Rendered' : 'Raw'
+              }}</span>
+              <span class="block text-[11px] paper-chrome-subtext">{{
+                sourceViewMode === 'inline'
+                  ? 'Tap for markdown source'
+                  : 'Tap for rendered preview'
+              }}</span>
+            </span>
           </button>
           <div class="border-t border-border px-3 py-2 md:hidden" @click.stop>
             <p
-              class="text-[11px] font-medium uppercase tracking-wide text-fg-subtle"
+              class="text-[11px] font-medium uppercase tracking-wide paper-chrome-subtext"
             >
               Share
             </p>
-            <p v-if="share.loading" class="mt-1 text-xs text-fg-subtle">
+            <p v-if="share.loading" class="mt-1 text-xs paper-chrome-subtext">
               Loading…
             </p>
             <p v-else-if="share.error" class="mt-1 text-xs text-red-400">
@@ -704,7 +817,10 @@ function onRedo() {
                 {{ opt.label }}
               </label>
             </template>
-            <p v-else-if="share.settings" class="mt-1 text-xs text-fg-subtle">
+            <p
+              v-else-if="share.settings"
+              class="mt-1 text-xs paper-chrome-subtext"
+            >
               {{ share.settings.audience.detail }}
             </p>
             <button
@@ -835,7 +951,7 @@ function onRedo() {
 .paper-doc-chrome__left {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
   justify-self: start;
   min-width: 0;
 }
@@ -851,7 +967,7 @@ function onRedo() {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
   justify-self: end;
   min-width: 0;
 }
@@ -872,13 +988,17 @@ function onRedo() {
   }
 }
 
+.paper-doc-chrome__subtitle,
+.paper-chrome-subtext {
+  color: var(--paper-surface-muted);
+}
+
 .paper-doc-chrome__subtitle {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-top: 0.125rem;
   font-size: 0.6875rem;
-  color: var(--muted);
 }
 
 .paper-doc-chrome__presence {
@@ -889,9 +1009,84 @@ function onRedo() {
 .paper-chrome-history {
   display: inline-flex;
   gap: 0.125rem;
-  padding: 0.125rem;
+  margin-right: 0.125rem;
+}
+
+.paper-chrome-toolbar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.paper-chrome-divider {
+  width: 1px;
+  height: 1.35rem;
+  margin: 0 0.1rem;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.paper-chrome-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: none;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--text) 5%, transparent);
+  background: transparent;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--paper-surface-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.paper-chrome-pill:focus {
+  outline: none;
+}
+
+.paper-chrome-pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.paper-chrome-pill:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}
+
+.paper-chrome-pill--active {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text);
+}
+
+.paper-chrome-pill__icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.paper-chrome-pill__label {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .paper-chrome-pill__label {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .paper-doc-chrome__right :deep(.paper-chrome-menu-btn__label) {
+    display: none;
+  }
 }
 
 .paper-chrome-menu-item {
@@ -978,7 +1173,7 @@ function onRedo() {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  color: var(--muted);
+  color: var(--paper-surface-muted);
   transition:
     background 0.15s ease,
     color 0.15s ease;
@@ -1008,32 +1203,14 @@ function onRedo() {
   color: var(--accent);
 }
 
-.paper-chrome-btn--source-view {
-  width: auto;
-  min-width: 2rem;
-  padding: 0 0.45rem;
-}
-
-.paper-chrome-btn__source-label {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1;
-}
-
 .paper-chrome-btn--comments {
   position: relative;
   overflow: visible;
 }
 
 .paper-chrome-btn--comments.paper-chrome-btn--active {
-  background: color-mix(
-    in srgb,
-    var(--accent) 24%,
-    var(--paper-chrome-bg, var(--bg))
-  );
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  color: var(--accent);
 }
 
 .paper-chrome-btn__glyph {

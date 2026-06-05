@@ -6,7 +6,8 @@ import { insertEchoAudit } from './auditLog';
 import { isUserBannedFromServer } from './access';
 import { isClientIpBannedFromEchoServer } from './serverIpBans';
 import {
-  DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS,
+  DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS,
+  DEFAULT_ECHO_GLOBAL_ROLE_PERMISSIONS,
   echoDirectoryExcludedNamesSql,
   MAX_ECHO_SERVER_DESCRIPTION_LEN,
   MAX_ECHO_SERVER_MEDIA_URL_LEN,
@@ -18,25 +19,28 @@ import { parseEchoApplicationFormFromDb } from './applicationForm';
 import { invalidateEchoPermissionCacheForUser } from '../echoPermissionCache';
 import { applyEchoRoleLinksAfterAssignment } from './roleLinks';
 import { getMergedRolePermissions } from './permissions';
-async function assignEveryoneRoleToMember(
+async function assignMembersRoleToMember(
   pool: pg.Pool | pg.PoolClient,
   serverId: string,
   userId: string,
 ): Promise<void> {
   const r = await pool.query(
-    `SELECT id FROM echo_roles WHERE server_id = $1 AND name = '@everyone' LIMIT 1`,
+    `SELECT id FROM echo_roles WHERE server_id = $1 AND name = '@members' LIMIT 1`,
     [serverId],
   );
   if (!r.rows[0]) return;
-  const everyoneId = String(r.rows[0].id);
+  const membersId = String(r.rows[0].id);
   const ins = await pool.query(
     `INSERT INTO echo_member_roles (server_id, user_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING role_id`,
-    [serverId, userId, everyoneId],
+    [serverId, userId, membersId],
   );
   if ((ins.rowCount ?? 0) > 0) {
-    await applyEchoRoleLinksAfterAssignment(pool, serverId, userId, everyoneId);
+    await applyEchoRoleLinksAfterAssignment(pool, serverId, userId, membersId);
   }
 }
+
+/** @deprecated use assignMembersRoleToMember */
+const assignEveryoneRoleToMember = assignMembersRoleToMember;
 
 async function assignDefaultJoinRolesToMember(
   pool: pg.Pool | pg.PoolClient,
@@ -44,7 +48,7 @@ async function assignDefaultJoinRolesToMember(
   userId: string,
 ): Promise<void> {
   const r = await pool.query(
-    `SELECT id FROM echo_roles WHERE server_id = $1 AND default_on_join = true AND name <> '@everyone'`,
+    `SELECT id FROM echo_roles WHERE server_id = $1 AND default_on_join = true AND name <> '@members'`,
     [serverId],
   );
   for (const row of r.rows) {
@@ -99,14 +103,27 @@ export async function createEchoServer(
         `INSERT INTO echo_channels (id, server_id, name, type, category_id, position) VALUES ($1, $2, $3, 'voice', $4, 0)`,
         [defaultVoiceChannelId, serverId, 'voice', voiceCategoryId],
       );
+      // Seed @members role (position 0) - assigned to all server members
       await client.query(
         `INSERT INTO echo_roles (id, server_id, name, color, position, permissions) VALUES ($1, $2, $3, $4, 0, $5::jsonb)`,
         [
           roleId,
           serverId,
-          '@everyone',
+          '@members',
           '#99aab5',
-          JSON.stringify([...DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS]),
+          JSON.stringify([...DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS]),
+        ],
+      );
+      // Seed @global role (position -1) - base for authenticated non-members
+      const globalRoleId = nextEchoSnowflakeId();
+      await client.query(
+        `INSERT INTO echo_roles (id, server_id, name, color, position, permissions) VALUES ($1, $2, $3, $4, -1, $5::jsonb)`,
+        [
+          globalRoleId,
+          serverId,
+          '@global',
+          '#808080',
+          JSON.stringify([...DEFAULT_ECHO_GLOBAL_ROLE_PERMISSIONS]),
         ],
       );
       // Seed a single global-scope "All" role for server administration
@@ -126,7 +143,7 @@ export async function createEchoServer(
           JSON.stringify(['ADMINISTRATOR']),
         ],
       );
-      await assignEveryoneRoleToMember(client, serverId, ownerId);
+      await assignMembersRoleToMember(client, serverId, ownerId);
       const allRoleIns = await client.query(
         `INSERT INTO echo_member_roles (server_id, user_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING role_id`,
         [serverId, ownerId, allRoleId],
@@ -160,7 +177,7 @@ export async function addEchoServerMember(
     `INSERT INTO echo_server_members (server_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
     [serverId, userId],
   );
-  await assignEveryoneRoleToMember(pool, serverId, userId);
+  await assignMembersRoleToMember(pool, serverId, userId);
   await assignDefaultJoinRolesToMember(pool, serverId, userId);
   invalidateEchoPermissionCacheForUser(serverId, userId);
 }

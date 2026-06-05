@@ -1,9 +1,56 @@
 /** Derive paper surface CSS variables from a custom page hex color. */
 
+export type PaperAppearanceMode = 'light' | 'dark' | 'sunny' | 'amoled';
+
+/** Cycle order matches Settings → Appearance theme cards (Sunny, Light, Dark, Amoled). */
+export const PAPER_APPEARANCE_CYCLE: readonly PaperAppearanceMode[] = [
+  'sunny',
+  'light',
+  'dark',
+  'amoled',
+] as const;
+
 export type PaperPageColorPair = {
   light: string | null;
   dark: string | null;
 };
+
+/** Default page canvas colors when the document has no custom page hex. */
+export const PAPER_DEFAULT_PAGE_HEX: Record<PaperAppearanceMode, string> = {
+  light: '#ffffff',
+  dark: '#16161c',
+  sunny: '#fffbf0',
+  amoled: '#000000',
+};
+
+export function isPaperDarkAppearance(
+  appearance: PaperAppearanceMode,
+): boolean {
+  return appearance === 'dark' || appearance === 'amoled';
+}
+
+export function paperAppearanceShortLabel(
+  appearance: PaperAppearanceMode,
+): string {
+  if (appearance === 'sunny') return 'Sunny';
+  if (appearance === 'amoled') return 'AMOLED';
+  if (appearance === 'dark') return 'Dark';
+  return 'Light';
+}
+
+export function paperAppearanceCanvasLabel(
+  appearance: PaperAppearanceMode,
+): string {
+  return `${paperAppearanceShortLabel(appearance)} canvas`;
+}
+
+export function nextPaperAppearance(
+  current: PaperAppearanceMode,
+): PaperAppearanceMode {
+  const idx = PAPER_APPEARANCE_CYCLE.indexOf(current);
+  const next = (idx + 1) % PAPER_APPEARANCE_CYCLE.length;
+  return PAPER_APPEARANCE_CYCLE[next] ?? 'light';
+}
 
 export function readPaperPageColors(
   doc: Record<string, unknown> | null | undefined,
@@ -60,5 +107,51 @@ export function derivePaperSurfaceStyle(hex: string): Record<string, string> {
     '--paper-surface-fg': fg,
     '--paper-surface-muted': muted,
     '--paper-surface-border': border,
+  };
+}
+
+/** Resolve the active page hex for the current paper appearance mode. */
+export function resolvePaperPageHex(
+  appearance: PaperAppearanceMode,
+  colors: PaperPageColorPair,
+): string {
+  if (isPaperDarkAppearance(appearance)) {
+    return colors.dark?.trim() || PAPER_DEFAULT_PAGE_HEX[appearance];
+  }
+  if (appearance === 'sunny') {
+    return colors.light?.trim() || PAPER_DEFAULT_PAGE_HEX.sunny;
+  }
+  return colors.light?.trim() || PAPER_DEFAULT_PAGE_HEX.light;
+}
+
+/**
+ * Inline page surface tokens — always derived for the active appearance so paper
+ * canvas text stays readable when the app theme (data-theme) differs.
+ */
+export function resolvePaperPageSurfaceStyle(
+  appearance: PaperAppearanceMode,
+  colors: PaperPageColorPair,
+): Record<string, string> {
+  const derived = derivePaperSurfaceStyle(
+    resolvePaperPageHex(appearance, colors),
+  );
+  const fg = derived['--paper-surface-fg'];
+  const muted = derived['--paper-surface-muted'];
+  if (!fg) return derived;
+  const soft = `color-mix(in srgb, ${fg} 82%, transparent)`;
+  return {
+    ...derived,
+    '--text': fg,
+    '--muted': muted ?? fg,
+    '--ui-fg': fg,
+    '--ui-fg-subtle': muted ?? fg,
+    '--ui-fg-soft': soft,
+    '--color-foreground': fg,
+    '--color-fg': fg,
+    '--color-fg-soft': soft,
+    '--color-fg-subtle': muted ?? fg,
+    '--color-muted': muted ?? fg,
+    '--fg': fg,
+    '--fg-subtle': muted ?? fg,
   };
 }

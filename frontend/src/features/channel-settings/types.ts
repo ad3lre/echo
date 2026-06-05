@@ -1,6 +1,11 @@
 import type { ChannelPermissionKey, EchoChannelType } from '@shared/types';
 
-export type PermissionOverwriteTargetType = 'everyone' | 'role' | 'member';
+export type PermissionOverwriteTargetType =
+  | 'members'
+  | 'global'
+  | 'role'
+  | 'member'
+  | 'everyone';
 
 export interface PermissionOverwriteRowDraft {
   targetType: PermissionOverwriteTargetType;

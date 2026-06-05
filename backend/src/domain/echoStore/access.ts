@@ -18,6 +18,7 @@ import type { ServerAggregationTrace } from '../echoPermissionTrace';
 import { composePermissionExplanation } from '../permissionExplanation';
 import {
   getEffectiveChannelPermissions,
+  getEffectiveGlobalPermissions,
   getMergedRolePermissions,
 } from './permissions';
 import { type EchoPermission } from '../echoPermissionPrimitives';
@@ -195,7 +196,7 @@ export type EchoChannelAccessDenialCode =
   | 'MISSING_VIEW_CHANNEL';
 
 export type EchoChannelAccessDiagnosis =
-  | { ok: true }
+  | { ok: true; globalAccess?: boolean }
   | {
       ok: false;
       code: EchoChannelAccessDenialCode;
@@ -263,7 +264,12 @@ export async function diagnoseEchoChannelAccess(
   }
   // Membership and ban are both single-row existence checks against the same
   // (server, user) — fold them into one round-trip instead of two sequential queries.
-  const access = await pool.query<{ is_member: boolean; is_banned: boolean }>(
+  // Also check if user has a real account (not guest/anonymous) for @global access.
+  const access = await pool.query<{
+    is_member: boolean;
+    is_banned: boolean;
+    has_account: boolean;
+  }>(
     `SELECT
        EXISTS(
          SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2
@@ -272,17 +278,13 @@ export async function diagnoseEchoChannelAccess(
          SELECT 1 FROM echo_server_bans
          WHERE server_id = $1 AND user_id = $2
            AND (expires_at IS NULL OR expires_at > NOW())
-       ) AS is_banned`,
+       ) AS is_banned,
+       EXISTS(
+         SELECT 1 FROM auth_users WHERE id = $2 AND is_guest = false
+       ) AS has_account`,
     [sid, userId],
   );
-  if (!access.rows[0]?.is_member) {
-    return {
-      ok: false,
-      code: 'NOT_SERVER_MEMBER',
-      message:
-        'You are not a member of this server. Ask an admin for an invite or join from Explore if the server is listed.',
-    };
-  }
+
   if (access.rows[0]?.is_banned) {
     return {
       ok: false,
@@ -291,6 +293,31 @@ export async function diagnoseEchoChannelAccess(
         'You are banned from this server, so you cannot view or use its channels.',
     };
   }
+
+  const isMember = access.rows[0]?.is_member ?? false;
+  const hasAccount = access.rows[0]?.has_account ?? false;
+
+  if (!isMember) {
+    // Non-members with an account get @global role evaluation
+    if (hasAccount) {
+      const globalPerms = await getEffectiveGlobalPermissions(
+        pool,
+        sid,
+        userId,
+        channelId,
+      );
+      if (globalPerms.has('VIEW_CHANNEL')) {
+        return { ok: true, globalAccess: true };
+      }
+    }
+    return {
+      ok: false,
+      code: 'NOT_SERVER_MEMBER',
+      message:
+        'You are not a member of this server. Ask an admin for an invite or join from Explore if the server is listed.',
+    };
+  }
+
   const perms = await getEffectiveChannelPermissions(
     pool,
     sid,

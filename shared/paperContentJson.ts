@@ -18,6 +18,7 @@ export const PAPER_CONTENT_JSON_NODE_TYPES = [
   'heading',
   'horizontalRule',
   'image',
+  'paperShape',
   'table',
   'tableRow',
   'tableHeader',

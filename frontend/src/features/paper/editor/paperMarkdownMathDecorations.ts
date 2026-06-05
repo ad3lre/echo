@@ -4,6 +4,10 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { findComposerMarkdownStyleRanges } from '@/features/chat/editor/composerMarkdownDecorations';
 import { getPaperMarkdownRenderInline } from '@/features/paper/editor/paperMarkdownRenderState';
+import {
+  findPaperEmDashStyleRanges,
+  findPaperSmartQuoteStyleRanges,
+} from '@/features/paper/editor/paperSmartTypography';
 import { extractMarkdownMathRegions } from '@/composables/markdownMathRegions';
 import { renderMarkdownKatexSafeHtml } from '@/composables/markdownKatex';
 
@@ -22,7 +26,29 @@ function buildInlineDecorationSet(doc: PMNode): Decoration[] {
     const text = node.text;
     const base = pos;
 
-    for (const seg of findComposerMarkdownStyleRanges(text, [])) {
+    const mdSegs = findComposerMarkdownStyleRanges(text, []);
+    for (const seg of mdSegs) {
+      if (seg.start >= seg.end) continue;
+      decos.push(
+        Decoration.inline(base + seg.start, base + seg.end, {
+          class: seg.class,
+        }),
+      );
+    }
+
+    const codeSkip = mdSegs
+      .filter((seg) => seg.class.includes('code'))
+      .map((seg) => [seg.start, seg.end] as [number, number]);
+    for (const seg of findPaperEmDashStyleRanges(text, codeSkip)) {
+      if (seg.start >= seg.end) continue;
+      decos.push(
+        Decoration.inline(base + seg.start, base + seg.end, {
+          class: seg.class,
+        }),
+      );
+    }
+
+    for (const seg of findPaperSmartQuoteStyleRanges(text, codeSkip)) {
       if (seg.start >= seg.end) continue;
       decos.push(
         Decoration.inline(base + seg.start, base + seg.end, {

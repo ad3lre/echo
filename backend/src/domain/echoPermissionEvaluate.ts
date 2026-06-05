@@ -29,16 +29,22 @@ import {
   mergeOverwritesForMember,
   type DbOverwriteRow,
 } from './permissionOverwriteMerge';
-import { DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS } from './echoStore/constants';
+import { DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS } from './echoStore/constants';
+/** @deprecated alias for backward compatibility */
+const DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS =
+  DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS;
 const RBAC_SEPARATE_TRACES = process.env.RBAC_SEPARATE_TRACES === '1';
 
 const ALL_KEYS = [...ECHO_PERMISSIONS];
 
-/** Safe baseline when the role fold produced an empty set (Discord-named bits); matches default @everyone (no MANAGE_CHANNELS). Includes EMBED_LINKS like post-migration rows. */
-const EVERYONE_FALLBACK = new Set([
-  ...DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS,
+/** Safe baseline when the role fold produced an empty set (Discord-named bits); matches default @members (no MANAGE_CHANNELS). Includes EMBED_LINKS like post-migration rows. */
+const MEMBERS_FALLBACK = new Set([
+  ...DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS,
   'EMBED_LINKS',
 ]);
+
+/** @deprecated use MEMBERS_FALLBACK */
+const EVERYONE_FALLBACK = MEMBERS_FALLBACK;
 
 export type EvaluatePermissionSetResult = {
   effective: Set<string>;
@@ -60,6 +66,8 @@ type RoleInput = {
 export type EvaluationPlan =
   | { kind: 'owner_bypass' }
   | { kind: 'not_member' }
+  | { kind: 'not_authenticated' }
+  | { kind: 'global_baseline' }
   | { kind: 'banned' }
   | { kind: 'no_roles' }
   | {
@@ -70,6 +78,15 @@ export type EvaluationPlan =
       categoryOverride: Record<string, unknown> | null;
       /** Channel-level partial JSON override (null = none). */
       channelOverride: Record<string, unknown> | null;
+    }
+  | {
+      kind: 'global_evaluate';
+      /** The @global role for authenticated non-members. */
+      globalRole: RoleInput;
+      /** Category-level global overwrite (target_type='global'). */
+      categoryGlobalOverride: Record<string, unknown> | null;
+      /** Channel-level global overwrite (target_type='global'). */
+      channelGlobalOverride: Record<string, unknown> | null;
     };
 
 // ---------------------------------------------------------------------------
@@ -288,10 +305,72 @@ export function executeEvaluationPlan(
 
   if (
     plan.kind === 'not_member' ||
+    plan.kind === 'not_authenticated' ||
     plan.kind === 'banned' ||
     plan.kind === 'no_roles'
   ) {
     return { effective: new Set(), ownerBypass: false, traces: [] };
+  }
+
+  // Handle global baseline evaluation (authenticated non-members)
+  if (plan.kind === 'global_baseline') {
+    // @global role starts with 0 permissions by default
+    return { effective: new Set(), ownerBypass: false, traces: [] };
+  }
+
+  if (plan.kind === 'global_evaluate') {
+    const { globalRole, categoryGlobalOverride, channelGlobalOverride } = plan;
+
+    const foldCol = createTraceCollector(traceMode);
+    const foldTrace: FoldTraceContext =
+      foldCol.mode === 'full'
+        ? { mode: 'full', full: foldCol.full }
+        : { mode: 'compressed', compressed: foldCol.compressed! };
+
+    // Start with the @global role permissions only
+    let state = foldRolePermissions([globalRole], {
+      trace: foldTrace,
+      allKeys: ALL_KEYS,
+      presorted: true,
+    });
+
+    // Apply global category overwrites
+    if (
+      categoryGlobalOverride &&
+      Object.keys(categoryGlobalOverride).length > 0
+    ) {
+      state = applyLayerFromPartialObject(
+        state,
+        categoryGlobalOverride,
+        ALL_KEYS,
+        {
+          layer: 'category',
+          trace: foldTrace,
+        },
+      );
+    }
+
+    // Apply global channel overwrites
+    if (
+      channelGlobalOverride &&
+      Object.keys(channelGlobalOverride).length > 0
+    ) {
+      state = applyLayerFromPartialObject(
+        state,
+        channelGlobalOverride,
+        ALL_KEYS,
+        {
+          layer: 'channel',
+          trace: foldTrace,
+        },
+      );
+    }
+
+    return {
+      effective: state,
+      ownerBypass: false,
+      traces: [toServerTrace(foldCol)],
+    };
   }
 
   const foldCol = createTraceCollector(traceMode);
@@ -307,7 +386,7 @@ export function executeEvaluationPlan(
   });
 
   if (state.size === 0) {
-    state = new Set(EVERYONE_FALLBACK);
+    state = new Set(MEMBERS_FALLBACK);
   }
 
   // Discord semantics: ADMINISTRATOR bypasses category/channel overwrites.

@@ -9,9 +9,14 @@ import { usePaperSourceViewKeybind } from '@/features/paper/composables/usePaper
 import PaperPageCanvas from '@/features/paper/components/PaperPageCanvas.vue';
 import { readPaperDefaultFont } from '@/features/paper/editor/paperDocumentAttributes';
 import {
-  derivePaperSurfaceStyle,
+  nextPaperAppearance,
   readPaperPageColors,
+  resolvePaperPageSurfaceStyle,
 } from '@/features/paper/editor/paperPageAppearance';
+import {
+  detectGlobalAppearance,
+  type PaperAppearanceMode,
+} from '@/features/paper/composables/usePaperAppearance';
 import { paperFontFamilyCss } from '@/features/paper/editor/paperTypography';
 import { preloadPaperFontCatalog } from '@/features/paper/editor/paperFontLoader';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -71,21 +76,17 @@ const paperPageFontFamily = computed(() =>
   paperFontFamilyCss(readPaperDefaultFont(contentJson.value)),
 );
 
-const pageSurfaceStyle = computed(() => {
-  const colors = readPaperPageColors(contentJson.value);
-  const color = appearance.value === 'dark' ? colors.dark : colors.light;
-  if (!color) return {};
-  return derivePaperSurfaceStyle(color);
-});
+const appearance = ref<PaperAppearanceMode>(detectGlobalAppearance());
 
-const systemPrefersDark =
-  typeof window !== 'undefined' &&
-  window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-
-const appearance = ref<'light' | 'dark'>(systemPrefersDark ? 'dark' : 'light');
+const pageSurfaceStyle = computed(() =>
+  resolvePaperPageSurfaceStyle(
+    appearance.value,
+    readPaperPageColors(contentJson.value),
+  ),
+);
 
 function toggleAppearance() {
-  appearance.value = appearance.value === 'dark' ? 'light' : 'dark';
+  appearance.value = nextPaperAppearance(appearance.value);
 }
 
 const isLoggedIn = computed(() => authSession.isAuthenticated);

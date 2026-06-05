@@ -8,8 +8,8 @@ import PaperDocChrome from '@/features/paper/components/PaperDocChrome.vue';
 import PaperFloatingComments from '@/features/paper/components/PaperFloatingComments.vue';
 import PaperFloatingFormatBar from '@/features/paper/components/PaperFloatingFormatBar.vue';
 import PaperImageFormatBar from '@/features/paper/components/PaperImageFormatBar.vue';
+import PaperShapeFormatBar from '@/features/paper/components/PaperShapeFormatBar.vue';
 import PaperPageCanvas from '@/features/paper/components/PaperPageCanvas.vue';
-import PaperToast from '@/features/paper/components/PaperToast.vue';
 import { usePaperDocument } from '@/features/paper/composables/usePaperDocument';
 import {
   usePaperEditorState,
@@ -481,27 +481,6 @@ const composerTop = computed(() => {
   return row?.top ?? null;
 });
 
-const toastMessage = computed(() => {
-  if (editorMode.value === 'viewer') {
-    return 'You can view this document but cannot edit it.';
-  }
-  if (editorMode.value === 'commenter') {
-    return 'You can add comments on the document. Select text and choose Comment.';
-  }
-  return null;
-});
-
-const toastTone = computed(() => {
-  if (editorMode.value === 'viewer' || editorMode.value === 'commenter') {
-    return 'info' as const;
-  }
-  return 'info' as const;
-});
-
-const showToast = ref(true);
-
-const toastPersist = computed(() => false);
-
 watch(
   () => editor.value,
   (ed, _prev, onCleanup) => {
@@ -617,15 +596,15 @@ async function onCopyPlainText() {
   );
 }
 
+/** Shown only when the user asked for edit/comment but permissions block it — not default view mode. */
 const chromeViewHint = computed(() => {
   if (!documentLoaded.value) return undefined;
-  if (paperUi.effectiveMode.value === 'view') {
-    return canAuthor.value || canComment.value
-      ? 'Viewing — switch mode to edit or comment'
-      : 'View only';
+  const pref = paperUi.preferred.value;
+  if (pref === 'edit' && !canAuthor.value) {
+    return 'You can view this document but cannot edit it.';
   }
-  if (paperUi.effectiveMode.value === 'comment') {
-    return 'Commenting — select text to add a comment';
+  if (pref === 'comment' && !canComment.value) {
+    return 'You can view this document but cannot add comments.';
   }
   return undefined;
 });
@@ -939,15 +918,6 @@ onUnmounted(() => {
     :data-paper-appearance="paperAppearance.appearance.value"
     :data-paper-source-view="paperSourceView.mode.value"
   >
-    <PaperToast
-      v-if="showToast && toastMessage"
-      class="paper-toast-layer"
-      :message="toastMessage"
-      :tone="toastTone"
-      :persist="toastPersist"
-      @dismiss="showToast = false"
-    />
-
     <div
       v-if="error && !documentLoaded"
       class="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center paper-workspace"
@@ -1139,6 +1109,14 @@ onUnmounted(() => {
         :page-layout="pageLayout"
         :paper-appearance="paperAppearance.appearance.value"
       />
+
+      <PaperShapeFormatBar
+        v-if="editorEditable && paperSourceView.mode.value === 'inline'"
+        :editor="editor"
+        :visible="!!editor"
+        :page-layout="pageLayout"
+        :paper-appearance="paperAppearance.appearance.value"
+      />
     </template>
   </div>
 </template>
@@ -1163,19 +1141,6 @@ onUnmounted(() => {
 .paper-connection-banner-wrap {
   border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
   background: var(--paper-chrome-bg);
-}
-
-.paper-toast-layer {
-  position: absolute;
-  top: 3.25rem;
-  left: 50%;
-  z-index: 25;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.paper-toast-layer :deep(*) {
-  pointer-events: auto;
 }
 
 .paper-gutter-overlay {
@@ -1203,29 +1168,14 @@ onUnmounted(() => {
   white-space: normal;
 }
 
-.paper-root[data-paper-source-view='inline'] :deep(.paper-math .katex) {
-  box-sizing: content-box;
-  padding: 0.14em 0.08em 0.22em;
-}
-
-.paper-root[data-paper-source-view='inline']
-  :deep(.paper-math .katex-display > .katex) {
-  padding: 0;
-}
-
 .paper-root[data-paper-source-view='inline'] :deep(.paper-math .katex-display) {
-  overflow-x: auto;
-  overflow-y: visible;
-  padding: 0.45em 0.25em;
   margin: 0;
-  box-sizing: border-box;
 }
 
 .paper-root[data-paper-source-view='inline'] :deep(.paper-math--display) {
   display: block;
   margin: 0.75rem 0;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
 }
 
 .paper-root[data-paper-source-view='inline'] :deep(.paper-math--inline) {

@@ -8,7 +8,11 @@ export {
   MAX_REGISTER_USERNAME_LENGTH,
 } from '../../../shared/usernamePolicy';
 
-const RESERVED_DISPLAY_NAMES = new Set<string>(['@everyone', '@here']);
+const RESERVED_DISPLAY_NAMES = new Set<string>([
+  '@members',
+  '@everyone',
+  '@here',
+]);
 const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f]/;
 
 /** Minimum password length for registration, password change, and guest upgrade. */

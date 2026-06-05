@@ -2,20 +2,30 @@
 import { computed } from 'vue';
 import type { PaperEditorPanelBridgeContext } from '@/features/paper/composables/paperEditorPanelBridge';
 import { usePaperFormatActions } from '@/features/paper/composables/usePaperFormatActions';
-import PaperColorControl from '@/features/paper/components/PaperColorControl.vue';
 import PaperFontPicker from '@/features/paper/components/PaperFontPicker.vue';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import type { EchoDropdownOption } from '@/components/EchoDropdown.vue';
+import PaperFormatPresetMenu from '@/features/paper/components/PaperFormatPresetMenu.vue';
+import PaperTypographySlider from '@/features/paper/components/PaperTypographySlider.vue';
 import {
   PAPER_FONT_SIZE_PRESETS,
-  PAPER_HIGHLIGHT_COLORS,
-  PAPER_TEXT_COLORS,
   paperFontIdFromFamily,
 } from '@/features/paper/editor/paperTypography';
+import {
+  formatLetterSpacingLabel,
+  formatLineHeightLabel,
+  letterSpacingFromSlider,
+  letterSpacingSliderValue,
+  lineHeightFromSlider,
+  lineHeightSliderValue,
+  PAPER_LETTER_SPACING_RANGE,
+  PAPER_LINE_HEIGHT_RANGE,
+} from '@/features/paper/editor/paperSpacingSliders';
+import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
 
 const props = defineProps<{
   context: PaperEditorPanelBridgeContext;
-  appearance: 'light' | 'dark' | 'amber';
+  appearance: PaperAppearanceMode;
   canCustomize: boolean;
   editorEditable: boolean;
 }>();
@@ -43,21 +53,33 @@ const fontSizePresetOptions = computed<EchoDropdownOption[]>(() =>
   })),
 );
 
-const letterSpacingPresetOptions: EchoDropdownOption[] = [
-  { label: 'Normal', value: '' },
-  { label: '0.5px', value: '0.5px' },
-  { label: '1px', value: '1px' },
-  { label: '2px', value: '2px' },
-  { label: '4px', value: '4px' },
-];
+const letterSpacingSliderModel = computed({
+  get: () => letterSpacingSliderValue(actions.fmt.value.letterSpacing),
+  set: (n: number) => {
+    actions.setLetterSpacing(letterSpacingFromSlider(n));
+  },
+});
 
-const lineHeightPresetOptions: EchoDropdownOption[] = [
-  { label: '1.0', value: '1' },
-  { label: '1.15', value: '1.15' },
-  { label: '1.35', value: '1.35' },
-  { label: '1.5', value: '1.5' },
-  { label: '2.0', value: '2' },
-];
+const lineHeightSliderModel = computed({
+  get: () => lineHeightSliderValue(actions.fmt.value.lineHeight),
+  set: (n: number) => {
+    actions.setLineHeight(lineHeightFromSlider(n));
+  },
+});
+
+const letterSpacingSliderLabel = computed(() =>
+  formatLetterSpacingLabel(
+    actions.fmt.value.letterSpacing,
+    actions.fmt.value.letterSpacingMixed,
+  ),
+);
+
+const lineHeightSliderLabel = computed(() =>
+  formatLineHeightLabel(
+    actions.fmt.value.lineHeight,
+    actions.fmt.value.lineHeightMixed,
+  ),
+);
 
 const textOutlinePresetOptions: EchoDropdownOption[] = [
   { label: 'Off', value: '' },
@@ -86,14 +108,6 @@ function cycleAlignInPanel() {
 function alignDisplayLabel(align: string): string {
   if (align === 'mixed') return 'Mixed';
   return align.charAt(0).toUpperCase() + align.slice(1);
-}
-
-function setLetterSpacing(value: string) {
-  actions.setLetterSpacing(value || null);
-}
-
-function setLineHeight(value: string) {
-  actions.setLineHeight(value || null);
 }
 
 function setTextOutline(preset: string) {
@@ -168,38 +182,15 @@ function runOutdent() {
               }
             "
           />
-          <EchoDropdown
-            :model-value="''"
+          <PaperFormatPresetMenu
+            :model-value="fontSizeDisplay || ''"
             :options="fontSizePresetOptions"
-            label="Presets"
+            :paper-appearance="appearance"
             :disabled="!selectionActive"
-            compact
-            menu-match-trigger-width
+            trigger-mode="chevron"
+            placement="below"
+            title="Font size presets"
             @update:model-value="onFontSizePresetSelect"
-          />
-        </div>
-        <div class="paper-editor-panel__tool-row">
-          <PaperColorControl
-            label="Text"
-            variant="text"
-            :color="actions.fmtColors.value.textColor"
-            :mixed="actions.fmtColors.value.textMixed"
-            :is-default="actions.fmtColors.value.textIsDefault"
-            :palette="PAPER_TEXT_COLORS"
-            :paper-appearance="appearance"
-            @input="actions.setTextColor"
-            @clear="actions.setTextColor('')"
-          />
-          <PaperColorControl
-            label="Highlight"
-            variant="highlight"
-            :color="actions.fmtColors.value.highlightColor"
-            :mixed="actions.fmtColors.value.highlightMixed"
-            :is-default="!actions.fmtColors.value.hasHighlight"
-            :palette="PAPER_HIGHLIGHT_COLORS"
-            :paper-appearance="appearance"
-            @input="actions.setHighlight"
-            @clear="actions.setHighlight(null)"
           />
         </div>
         <div class="paper-editor-panel__mark-row">
@@ -347,46 +338,24 @@ function runOutdent() {
         <div class="paper-editor-panel__divider" />
 
         <h4 class="paper-editor-tab__label">Spacing</h4>
-        <div class="paper-editor-panel__tool-row">
-          <span class="paper-editor-panel__control-label">Letter</span>
-          <div class="paper-editor-panel__chip-row">
-            <button
-              v-for="opt in letterSpacingPresetOptions"
-              :key="opt.value"
-              type="button"
-              class="paper-editor-panel__chip"
-              :class="{
-                'paper-editor-panel__chip--active':
-                  (!opt.value && !actions.fmt.value.letterSpacing) ||
-                  actions.fmt.value.letterSpacing === opt.value,
-              }"
-              :disabled="!selectionActive"
-              @click="setLetterSpacing(opt.value)"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
-        </div>
-        <div class="paper-editor-panel__tool-row">
-          <span class="paper-editor-panel__control-label">Line</span>
-          <div class="paper-editor-panel__chip-row">
-            <button
-              v-for="opt in lineHeightPresetOptions"
-              :key="opt.value"
-              type="button"
-              class="paper-editor-panel__chip"
-              :class="{
-                'paper-editor-panel__chip--active':
-                  (!opt.value && !actions.fmt.value.lineHeight) ||
-                  actions.fmt.value.lineHeight === opt.value,
-              }"
-              :disabled="!selectionActive"
-              @click="setLineHeight(opt.value)"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
-        </div>
+        <PaperTypographySlider
+          v-model="letterSpacingSliderModel"
+          label="Letter spacing"
+          :min="PAPER_LETTER_SPACING_RANGE.min"
+          :max="PAPER_LETTER_SPACING_RANGE.max"
+          :step="PAPER_LETTER_SPACING_RANGE.step"
+          :display="letterSpacingSliderLabel"
+          :disabled="!selectionActive || actions.fmt.value.letterSpacingMixed"
+        />
+        <PaperTypographySlider
+          v-model="lineHeightSliderModel"
+          label="Line height"
+          :min="PAPER_LINE_HEIGHT_RANGE.min"
+          :max="PAPER_LINE_HEIGHT_RANGE.max"
+          :step="PAPER_LINE_HEIGHT_RANGE.step"
+          :display="lineHeightSliderLabel"
+          :disabled="!selectionActive || actions.fmt.value.lineHeightMixed"
+        />
 
         <div class="paper-editor-panel__divider" />
 

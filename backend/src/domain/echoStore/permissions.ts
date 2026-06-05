@@ -3,6 +3,7 @@ import {
   buildBatchEvaluationPlans,
   evaluatePermissionSet,
   executeEvaluationPlan,
+  type EvaluationPlan,
 } from '../echoPermissionEvaluate';
 import {
   getCachedMergedPermissions,
@@ -10,6 +11,7 @@ import {
   setCachedPermissions,
   tryGetCachedPermissions,
 } from '../echoPermissionCache';
+import { mergeOverwritesForGlobal } from '../permissionOverwriteMerge';
 
 /** Create/edit/delete roles, reorder roles/categories (in scope). */
 export function canManageEchoRolesCatalog(perms: ReadonlySet<string>): boolean {
@@ -59,6 +61,96 @@ export async function getEffectiveChannelPermissions(
     );
     return effective;
   });
+}
+
+/**
+ * Evaluate permissions for authenticated non-members using @global role.
+ * Checks the @global role permissions + global-target overwrites.
+ */
+export async function getEffectiveGlobalPermissions(
+  pool: pg.Pool,
+  serverId: string,
+  _userId: string,
+  channelId: string,
+): Promise<Set<string>> {
+  // Fetch the @global role for this server
+  const globalRoleRes = await pool.query(
+    `SELECT id, position, permissions, role_type FROM echo_roles WHERE server_id = $1 AND name = '@global' LIMIT 1`,
+    [serverId],
+  );
+  if (globalRoleRes.rows.length === 0) {
+    // No @global role found - deny all
+    return new Set();
+  }
+
+  const globalRole = {
+    id: String(globalRoleRes.rows[0].id),
+    position: Number(globalRoleRes.rows[0].position ?? -1),
+    permissions: globalRoleRes.rows[0].permissions,
+    roleType: String(globalRoleRes.rows[0].role_type ?? 'mixed'),
+  };
+
+  // Get category and channel global overwrites
+  const ch = await pool.query(
+    `SELECT ch.category_id FROM echo_channels ch WHERE ch.id = $1 AND ch.server_id = $2`,
+    [channelId, serverId],
+  );
+  if (!ch.rows[0]) {
+    return new Set();
+  }
+
+  const categoryId = String(ch.rows[0].category_id ?? '');
+
+  // Fetch category global overwrites
+  let categoryGlobalOverride: Record<string, unknown> | null = null;
+  if (categoryId) {
+    const catOw = await pool.query(
+      `SELECT id, target_type, target_id, partial
+       FROM echo_category_permission_overwrite_rows
+       WHERE server_id = $1 AND category_id = $2 AND target_type = 'global'`,
+      [serverId, categoryId],
+    );
+    if (catOw.rows.length > 0) {
+      categoryGlobalOverride = mergeOverwritesForGlobal(
+        catOw.rows.map((row: Record<string, unknown>) => ({
+          id: String(row.id),
+          target_type: String(row.target_type),
+          target_id: row.target_id != null ? String(row.target_id) : null,
+          partial: row.partial,
+        })),
+      );
+    }
+  }
+
+  // Fetch channel global overwrites
+  let channelGlobalOverride: Record<string, unknown> | null = null;
+  const chOw = await pool.query(
+    `SELECT id, target_type, target_id, partial
+     FROM echo_channel_permission_overwrite_rows
+     WHERE server_id = $1 AND channel_id = $2 AND target_type = 'global'`,
+    [serverId, channelId],
+  );
+  if (chOw.rows.length > 0) {
+    channelGlobalOverride = mergeOverwritesForGlobal(
+      chOw.rows.map((row: Record<string, unknown>) => ({
+        id: String(row.id),
+        target_type: String(row.target_type),
+        target_id: row.target_id != null ? String(row.target_id) : null,
+        partial: row.partial,
+      })),
+    );
+  }
+
+  // Build and execute evaluation plan for global user
+  const plan: EvaluationPlan = {
+    kind: 'global_evaluate',
+    globalRole,
+    categoryGlobalOverride,
+    channelGlobalOverride,
+  };
+
+  const { effective } = executeEvaluationPlan(plan, 'compressed');
+  return effective;
 }
 
 /**

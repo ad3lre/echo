@@ -904,36 +904,51 @@ img.brightness-0.invert {
   display: block !important;
 }
 
-/* Inline KaTeX: glyphs can extend past the nominal line box — pad so line layout doesn’t clip. */
-.message-content .katex {
-  padding: 0.14em 0.08em 0.22em;
-  box-sizing: content-box;
-}
+/*
+ * KaTeX layout in chat, composer preview, settings guide, and Paper.
+ * Display math: keep `.katex-display` overflow visible (tall matrices are not
+ * clipped). Horizontal scroll lives on the inner `.katex` child — pairing
+ * overflow-x:auto with overflow-y:visible on one element forces overflow-y:auto
+ * and clips the bottom of tall formulas.
+ */
+.message-content,
+.markdown-preview__content,
+.legal-md-preview,
+.paper-math {
+  .katex {
+    padding: 0.14em 0.08em 0.22em;
+    box-sizing: content-box;
+  }
 
-.message-content .katex-display > .katex {
-  padding: 0;
-}
+  .katex-display {
+    display: block;
+    max-width: 100%;
+    overflow: visible;
+    padding: 0.45em 0.25em;
+    margin: 0.35em 0;
+    box-sizing: border-box;
+  }
 
-.message-content .katex-display {
-  overflow-x: auto;
-  overflow-y: visible;
-  padding: 0.45em 0.25em;
-  margin: 0.35em 0;
-  box-sizing: border-box;
-  /* Matrices are tall; clipping the bottom looks broken. Horizontal scroll only when wider than the bubble. */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
+  .katex-display > .katex {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
 
-.message-content .katex-display::-webkit-scrollbar {
-  height: 0;
-}
+  .katex-display > .katex::-webkit-scrollbar {
+    height: 0;
+  }
 
-.message-content .katex-display.echo-katex-display--scrollbar-visible {
-  scrollbar-width: thin;
-}
+  .katex-display > .katex.echo-katex-display--scrollbar-visible {
+    scrollbar-width: thin;
+  }
 
-.message-content
-  .katex-display.echo-katex-display--scrollbar-visible::-webkit-scrollbar {
-  height: 0.5rem;
+  .katex-display
+    > .katex.echo-katex-display--scrollbar-visible::-webkit-scrollbar {
+    height: 0.5rem;
+  }
 }

@@ -33,9 +33,7 @@ export function paperStepFontSize(
 ): boolean {
   if (!editor.isEditable) return false;
   const px = stepFontSizePx(resolveFontSizePx(editor), direction);
-  return runPaperFormatCommand(editor, (chain) =>
-    chain.extendMarkRange('textStyle').setFontSize(`${px}px`),
-  );
+  return runPaperFormatCommand(editor, (chain) => chain.setFontSize(`${px}px`));
 }
 
 export function paperCycleFontFamily(
@@ -46,7 +44,7 @@ export function paperCycleFontFamily(
   const font = cycleFontInCatalog(resolveFontFamily(editor), direction);
   void ensurePaperFontLoaded(font.id);
   return runPaperFormatCommand(editor, (chain) =>
-    chain.extendMarkRange('textStyle').setFontFamily(font.family),
+    chain.setFontFamily(font.family),
   );
 }
 
@@ -74,16 +72,22 @@ export function paperToggleBulletList(editor: Editor): boolean {
   return runPaperFormatCommand(editor, (chain) => chain.toggleBulletList());
 }
 
+export function paperToggleMark(
+  editor: Editor,
+  cmd: 'toggleBold' | 'toggleItalic' | 'toggleStrike' | 'toggleCode',
+): boolean {
+  if (!editor.isEditable) return false;
+  return runPaperFormatCommand(editor, (chain) => chain[cmd]());
+}
+
 export function paperCycleHighlight(editor: Editor): boolean {
   if (!editor.isEditable) return false;
   const colors = analyzePaperSelectionColors(editor);
   const next = cycleHighlightColor(colors.highlightColor);
   if (!next) {
-    return runPaperFormatCommand(editor, (chain) =>
-      chain.extendMarkRange('highlight').unsetHighlight(),
-    );
+    return runPaperFormatCommand(editor, (chain) => chain.unsetHighlight());
   }
   return runPaperFormatCommand(editor, (chain) =>
-    chain.extendMarkRange('highlight').setHighlight({ color: next }),
+    chain.setHighlight({ color: next }),
   );
 }

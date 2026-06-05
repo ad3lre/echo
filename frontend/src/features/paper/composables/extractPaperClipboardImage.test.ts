@@ -20,6 +20,13 @@ describe('extractImageSrcFromClipboardHtml', () => {
   it('returns null when no image', () => {
     expect(extractImageSrcFromClipboardHtml('<p>hello</p>')).toBeNull();
   });
+
+  it('reads unquoted src values', () => {
+    const src = extractImageSrcFromClipboardHtml(
+      '<img alt="x" src=https://cdn.example/y.webp width=100>',
+    );
+    expect(src).toBe('https://cdn.example/y.webp');
+  });
 });
 
 describe('dataUrlToImageFile', () => {

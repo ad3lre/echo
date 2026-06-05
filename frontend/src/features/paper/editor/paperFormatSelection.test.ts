@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Editor } from '@tiptap/vue-3';
-import StarterKit from '@tiptap/starter-kit';
-import { TextStyle } from '@tiptap/extension-text-style';
-import { FontFamily } from '@tiptap/extension-font-family';
+import { buildPaperEditorExtensions } from '@/features/paper/editor/paperEditorExtensions';
 import {
   clearStoredPaperEditorSelection,
   getStoredPaperEditorSelection,
@@ -13,11 +11,7 @@ import {
 
 function createEditor(content?: object) {
   return new Editor({
-    extensions: [
-      StarterKit,
-      TextStyle,
-      FontFamily.configure({ types: ['textStyle'] }),
-    ],
+    extensions: buildPaperEditorExtensions(),
     content: content ?? {
       type: 'doc',
       content: [
@@ -30,6 +24,15 @@ function createEditor(content?: object) {
   });
 }
 
+function textColorAt(editor: Editor, pos: number): string | null {
+  const mark = editor.state.doc
+    .resolve(pos)
+    .marks()
+    .find((m) => m.type.name === 'textStyle');
+  const color = mark?.attrs.color;
+  return typeof color === 'string' && color.trim() ? color.trim() : null;
+}
+
 describe('paperFormatSelection', () => {
   it('snapshots and restores range when applying a mark command', () => {
     const editor = createEditor();
@@ -37,13 +40,65 @@ describe('paperFormatSelection', () => {
     snapshotPaperEditorSelection(editor);
     editor.commands.setTextSelection(6);
 
-    runPaperFormatCommand(editor, (chain) =>
-      chain.extendMarkRange('textStyle').setFontFamily('Georgia'),
-    );
+    runPaperFormatCommand(editor, (chain) => chain.setFontFamily('Georgia'));
 
     expect(editor.state.selection.from).toBe(1);
     expect(editor.state.selection.to).toBe(6);
     expect(editor.getAttributes('textStyle').fontFamily).toBe('Georgia');
+    editor.destroy();
+  });
+
+  it('applies one text color over a mixed-color selection', () => {
+    const editor = createEditor({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Red',
+              marks: [
+                {
+                  type: 'textStyle',
+                  attrs: { color: '#ef4444' },
+                },
+              ],
+            },
+            {
+              type: 'text',
+              text: ' blue',
+              marks: [
+                {
+                  type: 'textStyle',
+                  attrs: { color: '#2563eb' },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    editor.commands.setTextSelection({ from: 1, to: 10 });
+    snapshotPaperEditorSelection(editor);
+    runPaperFormatCommand(editor, (chain) => chain.setColor('#22c55e'));
+
+    expect(textColorAt(editor, 2)).toBe('#22c55e');
+    expect(textColorAt(editor, 8)).toBe('#22c55e');
+    editor.destroy();
+  });
+
+  it('applies text color only to the selected characters', () => {
+    const editor = createEditor();
+    editor.commands.setTextSelection({ from: 1, to: 12 });
+    runPaperFormatCommand(editor, (chain) => chain.setFontFamily('Georgia'));
+
+    editor.commands.setTextSelection({ from: 7, to: 12 });
+    snapshotPaperEditorSelection(editor);
+    runPaperFormatCommand(editor, (chain) => chain.setColor('#ff0000'));
+
+    expect(textColorAt(editor, 2)).toBeNull();
+    expect(textColorAt(editor, 8)).toBe('#ff0000');
     editor.destroy();
   });
 

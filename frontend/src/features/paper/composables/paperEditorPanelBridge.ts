@@ -10,7 +10,7 @@ import type { Editor } from '@tiptap/core';
 import type { usePaperImageUpload } from '@/features/paper/composables/usePaperImageUpload';
 import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
 
-export type PaperEditorPanelTab = 'colors' | 'text' | 'assets';
+export type PaperEditorPanelTab = 'design' | 'colors' | 'text' | 'assets';
 
 export type PaperEditorPanelBridgeContext = {
   channelId: string;
@@ -71,7 +71,7 @@ const registeredContext = shallowRef<PaperEditorPanelBridgeContext | null>(
 );
 /** Editor tools panel is open (click to toggle; no hover). */
 const panelOpen = ref(false);
-const activeTab = ref<PaperEditorPanelTab>('colors');
+const activeTab = ref<PaperEditorPanelTab>('design');
 /** Bound from layout; plain let avoids shallowRef unwrapping a nested Ref<number>. */
 let channelPanelWidthBinding: Ref<number> | null = null;
 const savedChannelPanelWidth = ref<number | null>(null);
@@ -87,9 +87,24 @@ function persistPanelState() {
   });
 }
 
+const PANEL_TABS: PaperEditorPanelTab[] = [
+  'design',
+  'colors',
+  'text',
+  'assets',
+];
+
+function normalizePanelTab(tab: unknown): PaperEditorPanelTab | null {
+  if (typeof tab !== 'string') return null;
+  return PANEL_TABS.includes(tab as PaperEditorPanelTab)
+    ? (tab as PaperEditorPanelTab)
+    : null;
+}
+
 function restorePanelState(channelId: string) {
   const saved = readSession(channelId);
-  if (saved.tab) activeTab.value = saved.tab;
+  const tab = normalizePanelTab(saved.tab);
+  if (tab) activeTab.value = tab;
   if (saved.open) panelOpen.value = true;
 }
 

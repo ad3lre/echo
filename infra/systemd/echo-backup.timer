@@ -1,0 +1,16 @@
+[Unit]
+Description=Timer — Echo Postgres daily backup
+Documentation=https://github.com/echo-chat/echo/blob/main/docs/operations/runbooks/backup-restore.md
+
+[Timer]
+# Run daily at 03:15 (after deploy window, before high-traffic hours)
+OnCalendar=*-*-* 03:15:00
+
+# Ensure backup runs even if system was off at scheduled time
+Persistent=true
+
+# Add random delay to avoid thundering herd if multiple services use :15
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

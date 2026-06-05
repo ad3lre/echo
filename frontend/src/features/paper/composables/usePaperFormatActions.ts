@@ -41,58 +41,44 @@ export function usePaperFormatActions(editor: Ref<Editor | null | undefined>) {
     if (!font || !ed) return;
     snapshotPaperEditorSelection(ed);
     await ensurePaperFontLoaded(font.id);
-    runPaperFormatCommand(ed, (chain) =>
-      chain.extendMarkRange('textStyle').setFontFamily(font.family),
-    );
+    runPaperFormatCommand(ed, (chain) => chain.setFontFamily(font.family));
   }
 
   function clearSelectionFont() {
     const ed = editor.value;
     if (!ed) return;
-    runPaperFormatCommand(ed, (chain) =>
-      chain.extendMarkRange('textStyle').unsetFontFamily(),
-    );
+    runPaperFormatCommand(ed, (chain) => chain.unsetFontFamily());
   }
 
   function setFontSizePx(px: number | null) {
     const ed = editor.value;
     if (!ed) return;
     if (px == null) {
-      runPaperFormatCommand(ed, (chain) =>
-        chain.extendMarkRange('textStyle').unsetFontSize(),
-      );
+      runPaperFormatCommand(ed, (chain) => chain.unsetFontSize());
       return;
     }
-    runPaperFormatCommand(ed, (chain) =>
-      chain.extendMarkRange('textStyle').setFontSize(`${px}px`),
-    );
+    runPaperFormatCommand(ed, (chain) => chain.setFontSize(`${px}px`));
   }
 
   function setTextColor(color: string) {
     const ed = editor.value;
     if (!ed) return;
+    snapshotPaperEditorSelection(ed);
     if (!color) {
-      runPaperFormatCommand(ed, (chain) =>
-        chain.extendMarkRange('textStyle').unsetColor(),
-      );
+      runPaperFormatCommand(ed, (chain) => chain.unsetColor());
     } else {
-      runPaperFormatCommand(ed, (chain) =>
-        chain.extendMarkRange('textStyle').setColor(color),
-      );
+      runPaperFormatCommand(ed, (chain) => chain.setColor(color));
     }
   }
 
   function setHighlight(color: string | null) {
     const ed = editor.value;
     if (!ed) return;
+    snapshotPaperEditorSelection(ed);
     if (!color) {
-      runPaperFormatCommand(ed, (chain) =>
-        chain.extendMarkRange('highlight').unsetHighlight(),
-      );
+      runPaperFormatCommand(ed, (chain) => chain.unsetHighlight());
     } else {
-      runPaperFormatCommand(ed, (chain) =>
-        chain.extendMarkRange('highlight').setHighlight({ color }),
-      );
+      runPaperFormatCommand(ed, (chain) => chain.setHighlight({ color }));
     }
   }
 
@@ -129,44 +115,34 @@ export function usePaperFormatActions(editor: Ref<Editor | null | undefined>) {
   function setLetterSpacing(spacing: string | null) {
     const ed = editor.value;
     if (!ed) return;
+    snapshotPaperEditorSelection(ed);
     if (!spacing) {
-      runPaperFormatCommand(ed, (chain) =>
-        chain.extendMarkRange('textStyle').unsetLetterSpacing(),
-      );
+      runPaperFormatCommand(ed, (chain) => chain.unsetLetterSpacing());
       return;
     }
-    runPaperFormatCommand(ed, (chain) =>
-      chain.extendMarkRange('textStyle').setLetterSpacing(spacing),
-    );
+    runPaperFormatCommand(ed, (chain) => chain.setLetterSpacing(spacing));
   }
 
   function setLineHeight(height: string | null) {
     const ed = editor.value;
     if (!ed) return;
+    snapshotPaperEditorSelection(ed);
     if (!height) {
-      runPaperFormatCommand(ed, (chain) =>
-        chain.extendMarkRange('textStyle').unsetLineHeight(),
-      );
+      runPaperFormatCommand(ed, (chain) => chain.unsetLineHeight());
       return;
     }
-    runPaperFormatCommand(ed, (chain) =>
-      chain.extendMarkRange('textStyle').setLineHeight(height),
-    );
+    runPaperFormatCommand(ed, (chain) => chain.setLineHeight(height));
   }
 
   function setTextOutline(width: string | null, color?: string | null) {
     const ed = editor.value;
     if (!ed) return;
     if (!width) {
-      runPaperFormatCommand(ed, (chain) =>
-        chain.extendMarkRange('textStyle').unsetTextOutline(),
-      );
+      runPaperFormatCommand(ed, (chain) => chain.unsetTextOutline());
       return;
     }
     runPaperFormatCommand(ed, (chain) =>
-      chain
-        .extendMarkRange('textStyle')
-        .setTextOutline(width, color ?? 'currentColor'),
+      chain.setTextOutline(width, color ?? 'currentColor'),
     );
   }
 

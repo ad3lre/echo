@@ -32,7 +32,9 @@ import { PaperLineHeight } from '@/features/paper/editor/paperLineHeightExtensio
 import { PaperTextOutline } from '@/features/paper/editor/paperTextOutlineExtension';
 import { PaperIndent } from '@/features/paper/editor/paperIndentExtension';
 import { PaperImage } from '@/features/paper/editor/paperImageExtension';
+import { PaperShape } from '@/features/paper/editor/paperShapeExtension';
 import { PaperKeyboardShortcuts } from '@/features/paper/editor/paperKeyboardShortcutsExtension';
+import { PaperSmartTypography } from '@/features/paper/editor/paperSmartTypographyExtension';
 import { PaperDocumentAttributes } from '@/features/paper/editor/paperDocumentAttributes';
 import {
   PaperBlockLockExtension,
@@ -96,6 +98,7 @@ export function buildPaperEditorExtensions(
       allowBase64: false,
       HTMLAttributes: { class: 'paper-editor-image' },
     }),
+    PaperShape,
     Table.configure({ resizable: true }),
     TableRow,
     TableHeader,
@@ -121,6 +124,7 @@ export function buildPaperEditorExtensions(
     PaperMarkdownMathDecorations,
     PaperBlockHighlight,
     PaperKeyboardShortcuts,
+    PaperSmartTypography,
   ];
 
   if (opts.blockLock) {

@@ -14,7 +14,7 @@ const props = defineProps<{
   modelValue: string;
   mixed?: boolean;
   documentDefaultFamily?: string;
-  paperAppearance?: 'light' | 'dark' | 'amber';
+  paperAppearance?: PaperAppearanceMode;
   variant?: 'popover' | 'panel';
 }>();
 
@@ -204,7 +204,7 @@ onUnmounted(() => {
         <button
           type="button"
           class="paper-font-picker-row paper-font-picker-row--default"
-          @click.stop="useDocumentDefault()"
+          @mousedown.prevent.stop="useDocumentDefault()"
         >
           Use document font
         </button>
@@ -223,7 +223,7 @@ onUnmounted(() => {
               :style="{ fontFamily: font.family }"
               role="option"
               :aria-selected="font.id === selectedId"
-              @click.stop="pick(font)"
+              @mousedown.prevent.stop="pick(font)"
             >
               {{ font.label }}
             </button>
@@ -248,7 +248,7 @@ onUnmounted(() => {
       <button
         type="button"
         class="paper-font-picker-row paper-font-picker-row--default"
-        @click="useDocumentDefault()"
+        @mousedown.prevent.stop="useDocumentDefault()"
       >
         Use document font
       </button>
@@ -268,7 +268,7 @@ onUnmounted(() => {
               :style="{ fontFamily: font.family }"
               role="option"
               :aria-selected="font.id === selectedId"
-              @click="pick(font)"
+              @mousedown.prevent.stop="pick(font)"
             >
               {{ font.label }}
             </button>

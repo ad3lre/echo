@@ -25,6 +25,19 @@ export const PAPER_BLOCK_DEFAULT_FONT_PX = {
   heading3: 19,
 } as const;
 
+export const PAPER_OBJECT_COLORS = [
+  { label: 'Blue', value: '#3b82f6' },
+  { label: 'Red', value: '#ef4444' },
+  { label: 'Orange', value: '#f97316' },
+  { label: 'Amber', value: '#f59e0b' },
+  { label: 'Green', value: '#22c55e' },
+  { label: 'Teal', value: '#14b8a6' },
+  { label: 'Purple', value: '#a855f7' },
+  { label: 'Pink', value: '#ec4899' },
+  { label: 'Slate', value: '#64748b' },
+  { label: 'Black', value: '#111111' },
+] as const;
+
 export const PAPER_HIGHLIGHT_COLORS = [
   { label: 'Yellow', value: '#fef08a' },
   { label: 'Green', value: '#bbf7d0' },

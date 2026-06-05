@@ -15,6 +15,8 @@ export type EchoServerRoleDto = {
   position: number;
   hoist: boolean;
   defaultOnJoin: boolean;
+  isMembers: boolean;
+  /** @deprecated use isMembers */
   isEveryone: boolean;
   /** Server settings organizer; null = uncategorized. */
   roleCategoryId?: string | null;
@@ -87,7 +89,7 @@ export type EchoServerMemberDto = {
 };
 
 export type EchoPermissionOverwriteRowDto = {
-  targetType: 'everyone' | 'role' | 'member';
+  targetType: 'members' | 'global' | 'role' | 'member' | 'everyone';
   targetId?: string | null;
   partial: Partial<Record<ChannelPermissionKey, boolean>>;
 };
