@@ -9,6 +9,9 @@ import {
   writeDiscordBotExportWaitState,
 } from '@/features/discord/discordBotExportWaitState';
 
+/** Cadence for the background poll that watches for a ready Discord bot export. */
+const DISCORD_BOT_BG_POLL_INTERVAL_MS = 5000;
+
 export function useAppLayoutDiscordBotPoll(deps: {
   isAuthenticated: () => boolean;
   isAddServerModalOpen: { value: boolean };
@@ -69,7 +72,10 @@ export function useAppLayoutDiscordBotPoll(deps: {
     }
     if (bgPollTimer != null) return;
     void tick();
-    bgPollTimer = setInterval(() => void tick(), 5000);
+    bgPollTimer = setInterval(
+      () => void tick(),
+      DISCORD_BOT_BG_POLL_INTERVAL_MS,
+    );
   }
 
   function dismissBanner(): void {

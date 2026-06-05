@@ -2,24 +2,27 @@ import type { Ref } from 'vue';
 import type { Editor } from '@tiptap/core';
 import {
   defaultPaperShapeSize,
+  PAPER_DEFAULT_SHAPE_BORDER_COLOR,
   PAPER_DEFAULT_SHAPE_FILL,
+  PAPER_SHAPE_FILL_NONE,
   type PaperShapeAlign,
+  type PaperShapeBorderStyle,
   type PaperShapeKind,
 } from '@/features/paper/editor/paperShapeExtension';
 import {
   clampPaperShapePx,
+  formatPaperShapeBorderWidth,
   formatPaperShapePx,
+  isPaperShapeFillNone,
+  parsePaperShapeBorderWidth,
   parsePaperShapePx,
+  PAPER_SHAPE_SIZE_PRESETS,
+  stepShapeSizePx,
 } from '@/features/paper/editor/paperShapeUtils';
+
+export { PAPER_SHAPE_SIZE_PRESETS };
 import { runPaperFormatCommand } from '@/features/paper/editor/paperFormatSelection';
 import { usePaperObjectColor } from '@/features/paper/composables/usePaperObjectColor';
-
-export const PAPER_SHAPE_SIZE_PRESETS = [
-  { label: 'Small', px: 80 },
-  { label: 'Medium', px: 120 },
-  { label: 'Large', px: 200 },
-  { label: 'XL', px: 280 },
-] as const;
 
 export function usePaperShapeActions(editor: Ref<Editor | null | undefined>) {
   const { pendingObjectColor, setPendingObjectColor, resetPendingObjectColor } =
@@ -35,7 +38,27 @@ export function usePaperShapeActions(editor: Ref<Editor | null | undefined>) {
 
   function selectedShapeFill(): string | null {
     const fill = selectedShapeAttrs()?.fill;
-    return typeof fill === 'string' && fill.trim() ? fill : null;
+    return typeof fill === 'string' ? fill : null;
+  }
+
+  function selectedShapeFillIsNone(): boolean {
+    return isPaperShapeFillNone(selectedShapeFill());
+  }
+
+  function selectedShapeBorderColor(): string | null {
+    const color = selectedShapeAttrs()?.borderColor;
+    return typeof color === 'string' && color.trim() ? color : null;
+  }
+
+  function selectedShapeBorderWidthPx(): number {
+    return parsePaperShapeBorderWidth(
+      selectedShapeAttrs()?.borderWidth as string | undefined,
+    );
+  }
+
+  function selectedShapeBorderStyle(): PaperShapeBorderStyle {
+    const style = selectedShapeAttrs()?.borderStyle;
+    return style === 'dashed' || style === 'dotted' ? style : 'solid';
   }
 
   function selectedShapeAlign(): PaperShapeAlign {
@@ -73,30 +96,112 @@ export function usePaperShapeActions(editor: Ref<Editor | null | undefined>) {
         fill: color,
         width: size.width,
         height: size.height,
+        adjacent: true,
       }),
     );
-    setPendingObjectColor(color);
+    if (!isPaperShapeFillNone(color)) {
+      setPendingObjectColor(color);
+    }
+  }
+
+  function replaceShape(shape: PaperShapeKind) {
+    const ed = editor.value;
+    if (!ed?.isActive('paperShape')) return;
+    const size = defaultPaperShapeSize(shape);
+    runPaperFormatCommand(ed, (chain) =>
+      chain.updatePaperShapeAttributes({
+        shape,
+        width: size.width,
+        height: size.height,
+      }),
+    );
+  }
+
+  function setShapeImage(src: string | null) {
+    const ed = editor.value;
+    if (!ed?.isActive('paperShape')) return;
+    runPaperFormatCommand(ed, (chain) =>
+      chain.updatePaperShapeAttributes({ imageSrc: src }),
+    );
+  }
+
+  function clearShapeImage() {
+    setShapeImage(null);
   }
 
   function setObjectFill(color: string) {
     const ed = editor.value;
     if (!ed) return;
+    const fill = isPaperShapeFillNone(color) ? PAPER_SHAPE_FILL_NONE : color;
     if (ed.isActive('paperShape')) {
       runPaperFormatCommand(ed, (chain) =>
-        chain.updatePaperShapeAttributes({ fill: color }),
+        chain.updatePaperShapeAttributes({ fill }),
       );
     }
-    setPendingObjectColor(color);
+    if (!isPaperShapeFillNone(fill)) {
+      setPendingObjectColor(fill);
+    }
   }
 
   function clearObjectFill() {
     const ed = editor.value;
     if (ed?.isActive('paperShape')) {
       runPaperFormatCommand(ed, (chain) =>
-        chain.updatePaperShapeAttributes({ fill: PAPER_DEFAULT_SHAPE_FILL }),
+        chain.updatePaperShapeAttributes({ fill: PAPER_SHAPE_FILL_NONE }),
       );
     }
-    resetPendingObjectColor();
+  }
+
+  function setShapeBorderColor(color: string | null) {
+    const ed = editor.value;
+    if (!ed?.isActive('paperShape')) return;
+    const borderColor = color && !isPaperShapeFillNone(color) ? color : null;
+    runPaperFormatCommand(ed, (chain) =>
+      chain.updatePaperShapeAttributes({ borderColor }),
+    );
+  }
+
+  function setShapeBorderWidth(px: number) {
+    const ed = editor.value;
+    if (!ed?.isActive('paperShape')) return;
+    const width = Math.max(0, Math.min(24, Math.round(px)));
+    const attrs = ed.getAttributes('paperShape');
+    const updates: Record<string, unknown> = {
+      borderWidth: formatPaperShapeBorderWidth(width),
+    };
+    if (
+      width > 0 &&
+      (!attrs.borderColor ||
+        isPaperShapeFillNone(String(attrs.borderColor ?? '')))
+    ) {
+      updates.borderColor = PAPER_DEFAULT_SHAPE_BORDER_COLOR;
+    }
+    if (width === 0) {
+      updates.borderColor = null;
+    }
+    runPaperFormatCommand(ed, (chain) =>
+      chain.updatePaperShapeAttributes(updates),
+    );
+  }
+
+  function setShapeBorderStyle(style: PaperShapeBorderStyle) {
+    const ed = editor.value;
+    if (!ed?.isActive('paperShape')) return;
+    runPaperFormatCommand(ed, (chain) =>
+      chain.updatePaperShapeAttributes({ borderStyle: style }),
+    );
+  }
+
+  function clearShapeBorder() {
+    const ed = editor.value;
+    if (!ed?.isActive('paperShape')) return;
+    runPaperFormatCommand(ed, (chain) =>
+      chain.updatePaperShapeAttributes({
+        borderColor: null,
+        borderWidth: '0px',
+        borderStyle: 'solid',
+      }),
+    );
   }
 
   function setShapeAlign(align: PaperShapeAlign) {
@@ -127,17 +232,34 @@ export function usePaperShapeActions(editor: Ref<Editor | null | undefined>) {
     );
   }
 
+  function stepShapeSize(direction: 'up' | 'down') {
+    const { width } = selectedShapeSizePx();
+    setShapeSizePx(stepShapeSizePx(width, direction));
+  }
+
   return {
     pendingObjectColor,
     isShapeSelected,
     selectedShapeAttrs,
     selectedShapeFill,
+    selectedShapeFillIsNone,
+    selectedShapeBorderColor,
+    selectedShapeBorderWidthPx,
+    selectedShapeBorderStyle,
     selectedShapeAlign,
     selectedShapeSizePx,
     insertShape,
+    replaceShape,
     setObjectFill,
     clearObjectFill,
+    setShapeBorderColor,
+    setShapeBorderWidth,
+    setShapeBorderStyle,
+    clearShapeBorder,
     setShapeAlign,
     setShapeSizePx,
+    stepShapeSize,
+    setShapeImage,
+    clearShapeImage,
   };
 }

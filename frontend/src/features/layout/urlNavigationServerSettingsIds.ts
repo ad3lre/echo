@@ -18,13 +18,14 @@ export type GuildSettingsSection =
 
 /**
  * Sidebar section buckets for server settings (labels only; `guild_section=` uses item ids).
- * Kept granular enough to scan, coarse enough to avoid a flat list of 14 tabs.
+ * Kept granular enough to scan, coarse enough to avoid a flat list of 16 tabs.
  */
 export type GuildSettingsGroup =
   | 'General'
   | 'Community'
   | 'Integrations'
-  | 'Safety'
+  | 'Access'
+  | 'Moderation'
   | 'Danger zone';
 
 export interface GuildSettingsSectionGroup {
@@ -39,24 +40,19 @@ export const GUILD_SETTINGS_SECTION_GROUPS: GuildSettingsSectionGroup[] = [
   },
   {
     label: 'Community',
-    items: ['Members', 'Roles', 'Emoji'],
+    items: ['Members', 'Roles', 'Self-assignable Roles', 'Emoji'],
   },
   {
     label: 'Integrations',
     items: ['Discord'],
   },
   {
-    label: 'Safety',
-    items: [
-      'Security',
-      'Access',
-      'Tickets',
-      'Self-assignable Roles',
-      'Banned Words',
-      'Moderation',
-      'Bans',
-      'Audit Log',
-    ],
+    label: 'Access',
+    items: ['Security', 'Access', 'Tickets'],
+  },
+  {
+    label: 'Moderation',
+    items: ['Banned Words', 'Moderation', 'Bans', 'Audit Log'],
   },
   {
     label: 'Danger zone',

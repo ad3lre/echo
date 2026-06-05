@@ -44,7 +44,7 @@ const clearLabel = computed(() => {
   if (props.kind === 'highlight') return 'Remove highlight';
   if (props.kind === 'pageLight') return 'Use default light page color';
   if (props.kind === 'pageDark') return 'Use default dark page color';
-  if (props.kind === 'object') return 'Use default object color';
+  if (props.kind === 'object') return 'No fill';
   return 'Reset';
 });
 

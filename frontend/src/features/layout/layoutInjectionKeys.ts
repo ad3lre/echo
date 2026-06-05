@@ -14,6 +14,7 @@ import type { AppLayoutLeftChromeProps } from '@/features/layout/appLayoutLeftCh
 import type { PopoutAnchorRect } from '@/utils/memberProfiles';
 import type { DmSubView } from '@/features/layout/mainSurface';
 import type { ChannelSummary } from '@shared/types';
+import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
 
 type DmMarkReadPayload =
   | { kind: 'user'; userId: string }
@@ -248,6 +249,8 @@ export type LayoutLeftChromeHostHandlers = {
     serverId: string;
     eventId: string;
   }) => void;
+  onUpdateDmNotificationsReadPreset?: (preset: NotificationReadPreset) => void;
+  onUpdateDmNotificationsSourceKey?: (key: string) => void;
 };
 
 export type LayoutLeftChromeContext = {

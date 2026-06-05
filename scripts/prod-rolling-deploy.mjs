@@ -23,17 +23,30 @@ import { execFile } from 'child_process';
 import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
+import { parseIntegerInRange, parseMinInteger } from './lib/number-parse.mjs';
 
 const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 
-const STAGING_API_PORT = Number(process.env.ECHO_STAGING_API_PORT || 3001);
-const STAGING_FRONTEND_PORT = Number(
-  process.env.ECHO_STAGING_FRONTEND_PORT || 4175,
+const STAGING_API_PORT = parseIntegerInRange(
+  process.env.ECHO_STAGING_API_PORT,
+  3001,
+  1,
+  65_535,
 );
-const HEALTH_TIMEOUT_MS = Number(process.env.ECHO_ROLLING_HEALTH_MS || 120_000);
+const STAGING_FRONTEND_PORT = parseIntegerInRange(
+  process.env.ECHO_STAGING_FRONTEND_PORT,
+  4175,
+  1,
+  65_535,
+);
+const HEALTH_TIMEOUT_MS = parseMinInteger(
+  process.env.ECHO_ROLLING_HEALTH_MS,
+  120_000,
+  1,
+);
 const logDir = path.join(repoRoot, 'logs', 'vps');
 const metaPath = path.join(logDir, 'prod.rolling.log');
 const stagingPidFile = path.join(logDir, 'echo-vps-prod.staging.pid');

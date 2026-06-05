@@ -12,6 +12,7 @@ import {
   parseMessageContent,
   type IdTokenResolvers,
 } from '@/composables/useMarkdown';
+import { markdownKatexReadyVersion } from '@/composables/markdownKatex';
 
 /** Composer preview only — avoids multi‑second main-thread stalls on huge pastes. */
 const PREVIEW_CHAR_CAP = 14_000;
@@ -166,6 +167,7 @@ export function useDebouncedMarkdownPreviewHtml(options: {
         options.content.value,
         options.mentions.value,
         options.parseIdResolvers.value,
+        markdownKatexReadyVersion.value,
       ] as const,
     () => {
       if (!surfaceActive.value) return;

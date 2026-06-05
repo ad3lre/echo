@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseIntegerInRange } from './lib/number-parse.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -57,9 +58,7 @@ const exportBaseDir =
   (process.env.ECHO_DISCORD_EXPORTS_ROOT ?? '').trim() ||
   join(root, 'bot', 'exports');
 
-const apiPortRaw = parseInt(process.env.PORT ?? '', 10);
-const apiPort =
-  Number.isFinite(apiPortRaw) && apiPortRaw > 0 ? apiPortRaw : 3000;
+const apiPort = parseIntegerInRange(process.env.PORT, 3000, 1, 65_535);
 const defaultWebhookUrl = `http://127.0.0.1:${apiPort}/api/v1/hooks/discord-bot/export-ready`;
 const hookUrl =
   (process.env.ECHO_DISCORD_BOT_WEBHOOK_URL ?? '').trim() || defaultWebhookUrl;

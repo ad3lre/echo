@@ -13,7 +13,7 @@ import {
 } from './livekit/livekitAdapter';
 import { purgeEchoAuthorRecentMessagesInServerAndBroadcast } from './echoMessageEditDeleteOps';
 
-/** Whitelist for `meta.deleteRecentMessagesHours` on ban (compact windows). */
+/** Allowlist for `meta.deleteRecentMessagesHours` on ban (compact windows). */
 const DELETE_RECENT_MESSAGES_HOURS_ALLOWED = new Set([0, 1, 24, 72, 168]);
 
 export function parseDeleteRecentMessagesHours(

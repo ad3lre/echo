@@ -12,26 +12,38 @@ export type MergedPaperWatchingPeer = {
   userId: string;
   name: string;
   color: string;
+  avatarUrl?: string;
   /** User is actively authoring (edit mode) in this paper. */
   isAuthoring?: boolean;
 };
 
-const MAX_AVATARS = 4;
+const MAX_AVATARS = 3;
 
-export function mergePaperWatchingPeers(socketWatchers: PaperSocketWatcher[]): {
+export type MergePaperWatchingPeersOptions = {
+  /** Omit this user from bubbles (typically the signed-in viewer). */
+  excludeUserId?: string;
+};
+
+export function mergePaperWatchingPeers(
+  socketWatchers: PaperSocketWatcher[],
+  options?: MergePaperWatchingPeersOptions,
+): {
   peers: MergedPaperWatchingPeer[];
   totalWatching: number;
 } {
+  const excludeUserId = options?.excludeUserId?.trim() ?? '';
   const byUser = new Map<string, MergedPaperWatchingPeer>();
 
   for (const w of socketWatchers) {
     const id = w.userId.trim();
-    if (!id) continue;
+    if (!id || (excludeUserId && id === excludeUserId)) continue;
+    const avatarUrl = w.avatarUrl?.trim();
     byUser.set(id, {
       clientId: -1,
       userId: id,
       name: w.displayName.trim() || 'Someone',
       color: paperAuthorColor(id),
+      avatarUrl: avatarUrl || undefined,
       isAuthoring: w.authoring === true,
     });
   }

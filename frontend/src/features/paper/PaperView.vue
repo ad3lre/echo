@@ -51,8 +51,13 @@ import {
   flashPaperBlockHighlight,
   setPaperAuthorSegmentHighlight,
 } from '@/features/paper/editor/paperBlockHighlight';
+import {
+  computeBlockMerge,
+  findChangedBlocks,
+} from '@/features/paper/editor/paperBlockMerge';
 import type { PaperAuthorSegment } from '@/features/paper/composables/computePaperAuthorSegments';
 import { syncPaperBlockAttributionFromJson } from '@/features/paper/editor/syncPaperBlockAttribution';
+import { paperBlockIdAtPos } from '@/features/paper/editor/paperBlockAtPos';
 import { readPaperDefaultFont } from '@/features/paper/editor/paperDocumentAttributes';
 import { readPaperPageColors } from '@/features/paper/editor/paperPageAppearance';
 import {
@@ -305,7 +310,9 @@ watch(
 );
 
 const watchingMerged = computed(() =>
-  mergePaperWatchingPeers(socketWatchers.value),
+  mergePaperWatchingPeers(socketWatchers.value, {
+    excludeUserId: currentUserId.value,
+  }),
 );
 const watchingPeers = computed(() => watchingMerged.value.peers);
 const totalWatching = computed(() => watchingMerged.value.totalWatching);
@@ -320,6 +327,7 @@ const autosave = usePaperAutosave({
   enabled: autosaveEnabled,
   getContentJson,
   save,
+  collabActive: computed(() => paperCollab.collabEnabled.value),
 });
 
 const commentComposerOpen = ref(false);
@@ -331,10 +339,20 @@ const lockRequestDismissed = ref(false);
 const editorDirty = ref(false);
 /** Revision echoed from our own save — skip resetting the editor from server JSON. */
 const skipBootstrapRevision = ref<number | null>(null);
+/** Block IDs that have pending remote updates blocked by local edits */
+const pendingRemoteUpdateBlocks = ref<Set<string>>(new Set());
+/** Whether to show remote update banner for held blocks */
+const showRemoteUpdateBanner = ref(false);
 
 const connectionBannerMessage = computed(() => {
   if (!canAuthor.value) return null;
   if (conflict.value) return session.tooltip.value;
+  if (showRemoteUpdateBanner.value) {
+    const count = pendingRemoteUpdateBlocks.value.size;
+    return count === 1
+      ? 'Someone updated the paragraph you are editing'
+      : `Someone updated ${count} paragraphs you are editing`;
+  }
   if (error.value && documentLoaded.value) return `Save failed: ${error.value}`;
   return null;
 });
@@ -358,6 +376,26 @@ watch(
   (savingNow, wasSaving) => {
     if (wasSaving && !savingNow && !conflict.value) {
       editorDirty.value = false;
+      // After save, check if we can now apply pending remote updates
+      if (showRemoteUpdateBanner.value && !paperCollab.myHeldBlockId.value) {
+        void onApplyPendingRemoteUpdates();
+      }
+    }
+  },
+);
+
+// When user releases their held block, auto-apply pending updates if no longer holding changed blocks
+watch(
+  () => paperCollab.myHeldBlockId.value,
+  (newHeld, oldHeld) => {
+    if (oldHeld && !newHeld && showRemoteUpdateBanner.value) {
+      // User released block - check if any pending blocks are still held
+      const stillHoldingPending = pendingRemoteUpdateBlocks.value.has(
+        newHeld ?? '',
+      );
+      if (!stillHoldingPending) {
+        void onApplyPendingRemoteUpdates();
+      }
     }
   },
 );
@@ -495,6 +533,15 @@ watch(
       measure();
       scheduleLayout();
       if (session.autosaveEnabled.value) autosave.schedule();
+
+      // Claim block on keystroke (edit start), not just cursor move
+      if (paperCollab.collabEnabled.value && canAuthor.value) {
+        const sel = ed.state.selection;
+        const blockId = sel ? paperBlockIdAtPos(ed.state.doc, sel.from) : null;
+        if (blockId) {
+          paperCollab.onEditStart(blockId);
+        }
+      }
     };
     ed.on('update', onDocUpdate);
     onCleanup(() => {
@@ -543,6 +590,21 @@ function onReloadAfterConflict() {
   void load();
 }
 
+function onDismissRemoteUpdateBanner() {
+  showRemoteUpdateBanner.value = false;
+  pendingRemoteUpdateBlocks.value = new Set();
+}
+
+async function onApplyPendingRemoteUpdates() {
+  if (!doc.value?.contentJson) return;
+  onDismissRemoteUpdateBanner();
+  setContentFromServer(doc.value.contentJson as Record<string, unknown>);
+  applyServerAttributionToEditor();
+  paperRawMarkdown.refreshFromEditorIfRaw();
+  measurePage();
+  editorDirty.value = false;
+}
+
 function onPaperPageColorLight(hex: string | null) {
   const ed = editor.value;
   if (!ed) return;
@@ -569,7 +631,8 @@ async function onDocumentFontChange(fontId: string) {
     return;
   }
   await ensurePaperFontLoaded(font.id);
-  ed.chain().focus().setPaperDefaultFont(font.family).run();
+  const ok = ed.chain().focus().setPaperDefaultFont(font.family).run();
+  if (ok) editorDocVersion.value += 1;
   autosave.schedule();
 }
 
@@ -874,15 +937,45 @@ onMounted(() => {
     const prevRevision = doc.value?.revision ?? 0;
     if (remote.revision === prevRevision) return;
     doc.value = remote;
-    if (
-      remote.contentJson &&
-      remote.revision > prevRevision &&
-      !editorDirty.value
-    ) {
+
+    if (!remote.contentJson || remote.revision <= prevRevision) return;
+
+    // If editor is clean, always apply full update
+    if (!editorDirty.value) {
       setContentFromServer(remote.contentJson as Record<string, unknown>);
       applyServerAttributionToEditor();
       paperRawMarkdown.refreshFromEditorIfRaw();
       measurePage();
+      pendingRemoteUpdateBlocks.value = new Set();
+      showRemoteUpdateBanner.value = false;
+      return;
+    }
+
+    // Editor is dirty - check block-level merge
+    const localJson = editor.value?.getJSON();
+    if (!localJson) return;
+
+    const mergeResult = computeBlockMerge(
+      localJson as Record<string, unknown>,
+      remote.contentJson as Record<string, unknown>,
+      paperCollab.myHeldBlockId.value,
+    );
+
+    if (mergeResult.type === 'full') {
+      // Safe to apply full update - no held blocks changed
+      setContentFromServer(remote.contentJson as Record<string, unknown>);
+      applyServerAttributionToEditor();
+      paperRawMarkdown.refreshFromEditorIfRaw();
+      measurePage();
+      pendingRemoteUpdateBlocks.value = new Set();
+      showRemoteUpdateBanner.value = false;
+    } else if (mergeResult.type === 'blocked') {
+      // Held blocks changed - show banner but keep local edits
+      pendingRemoteUpdateBlocks.value = new Set(mergeResult.heldBlockIds);
+      showRemoteUpdateBanner.value = true;
+      // Still apply server doc to our state (for attribution)
+      // but don't override editor content
+      applyServerAttributionToEditor();
     }
   });
   unsubComment = onPaperCommentUpdated((evt) => {
@@ -1116,6 +1209,7 @@ onUnmounted(() => {
         :visible="!!editor"
         :page-layout="pageLayout"
         :paper-appearance="paperAppearance.appearance.value"
+        :image-upload="imageUpload"
       />
     </template>
   </div>
@@ -1157,9 +1251,21 @@ onUnmounted(() => {
 }
 
 .paper-root[data-paper-source-view='inline'] :deep(.paper-math-source) {
+  /* Keep source in the doc for editing/caret, but never paint over KaTeX scripts. */
   font-size: 0;
   line-height: 0;
-  opacity: 0.25;
+  color: transparent;
+  opacity: 0;
+  -webkit-text-fill-color: transparent;
+}
+
+.paper-root[data-paper-source-view='inline']
+  :deep(.paper-math-source :is(span, em, strong, mark, a)) {
+  color: transparent;
+  opacity: 0;
+  font-size: 0;
+  line-height: 0;
+  -webkit-text-fill-color: transparent;
 }
 
 .paper-root[data-paper-source-view='inline'] :deep(.paper-math) {

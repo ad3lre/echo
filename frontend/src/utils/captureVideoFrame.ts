@@ -10,19 +10,13 @@ export type VideoProbeResult = VideoDimensions & {
   frameUrl: string;
 };
 
-/** Only `blob:` URLs from createObjectURL are assigned to <video src>. */
-export function blobUrlForVideoElement(url: string): string {
-  const trimmed = url.trim();
-  if (!trimmed.startsWith('blob:')) {
-    throw new Error('Video probe requires a blob: URL');
-  }
-  return trimmed;
-}
-
-function loadVideoMetadata(
-  url: string,
-): Promise<{ video: HTMLVideoElement; width: number; height: number }> {
-  const safeSrc = blobUrlForVideoElement(url);
+function loadVideoMetadata(source: Blob): Promise<{
+  video: HTMLVideoElement;
+  width: number;
+  height: number;
+  blobUrl: string;
+}> {
+  const blobUrl = URL.createObjectURL(source);
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.preload = 'metadata';
@@ -36,20 +30,22 @@ function loadVideoMetadata(
       cleanup();
       const width = video.videoWidth;
       const height = video.videoHeight;
-      if (width > 0 && height > 0) resolve({ video, width, height });
+      if (width > 0 && height > 0) resolve({ video, width, height, blobUrl });
       else {
+        URL.revokeObjectURL(blobUrl);
         disposeVideoElement(video);
         reject(new Error('Video has no dimensions'));
       }
     };
     const onErr = () => {
       cleanup();
+      URL.revokeObjectURL(blobUrl);
       disposeVideoElement(video);
       reject(new Error('Video metadata load failed'));
     };
     video.addEventListener('loadedmetadata', onMeta);
     video.addEventListener('error', onErr);
-    video.src = safeSrc;
+    video.src = blobUrl;
   });
 }
 
@@ -96,12 +92,14 @@ function frameFromVideo(video: HTMLVideoElement): string | null {
 
 /** Fast metadata-only probe — sets aspect ratio before a frame decode finishes. */
 export async function probeVideoDimensionsOnly(
-  blobUrl: string,
+  source: Blob,
 ): Promise<VideoDimensions | null> {
   let video: HTMLVideoElement | null = null;
+  let blobUrl: string | null = null;
   try {
-    const loaded = await loadVideoMetadata(blobUrl);
+    const loaded = await loadVideoMetadata(source);
     video = loaded.video;
+    blobUrl = loaded.blobUrl;
     const { width, height } = loaded;
     return {
       width,
@@ -111,19 +109,22 @@ export async function probeVideoDimensionsOnly(
   } catch {
     return null;
   } finally {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
     if (video) disposeVideoElement(video);
   }
 }
 
 /** Returns a data URL frame and locked aspect ratio, or null when probing fails. */
 export async function probeVideoBlobUrl(
-  blobUrl: string,
+  source: Blob,
   seekSec = 0.5,
 ): Promise<VideoProbeResult | null> {
   let video: HTMLVideoElement | null = null;
+  let blobUrl: string | null = null;
   try {
-    const loaded = await loadVideoMetadata(blobUrl);
+    const loaded = await loadVideoMetadata(source);
     video = loaded.video;
+    blobUrl = loaded.blobUrl;
     const { width, height } = loaded;
     const aspectRatio = `${width} / ${height}`;
     try {
@@ -143,6 +144,7 @@ export async function probeVideoBlobUrl(
   } catch {
     return null;
   } finally {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
     if (video) disposeVideoElement(video);
   }
 }

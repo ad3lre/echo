@@ -850,8 +850,8 @@ function sendFriendRequestTo(userId: string) {
 }
 
 .friends-tab--active {
-  color: var(--text);
-  background: transparent;
+  color: var(--vue-auto-025);
+  background: var(--vue-auto-003);
 }
 
 .friends-tab--inactive {
@@ -866,7 +866,7 @@ function sendFriendRequestTo(userId: string) {
 
 .friends-tab--inactive:hover {
   color: var(--vue-auto-009);
-  background: transparent;
+  background: var(--vue-auto-002);
 }
 
 .friends-tab--add-idle {
@@ -876,5 +876,10 @@ function sendFriendRequestTo(userId: string) {
 .friends-tab--add-active {
   color: #bfdbfe;
   background: color-mix(in srgb, #3b82f6 22%, transparent);
+}
+
+:global([data-theme='light']) .friends-tab--add-active {
+  color: #1d4ed8;
+  background: color-mix(in srgb, #3b82f6 12%, var(--vue-auto-003));
 }
 </style>

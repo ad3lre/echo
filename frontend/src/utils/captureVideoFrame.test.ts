@@ -5,13 +5,14 @@ import {
   probeVideoDimensionsOnly,
 } from './captureVideoFrame';
 
+const testVideoBlob = new Blob(['video'], { type: 'video/mp4' });
+
 describe('probeVideoBlobUrl', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it('returns null when video metadata fails to load', async () => {
-    const blobUrl = 'blob:broken-video';
     vi.spyOn(HTMLVideoElement.prototype, 'addEventListener').mockImplementation(
       function (this: HTMLVideoElement, type, listener) {
         if (type === 'error') {
@@ -22,12 +23,11 @@ describe('probeVideoBlobUrl', () => {
       },
     );
 
-    const result = await probeVideoBlobUrl(blobUrl, 1);
+    const result = await probeVideoBlobUrl(testVideoBlob, 1);
     expect(result).toBeNull();
   });
 
   it('returns dimensions without capturing a frame', async () => {
-    const blobUrl = 'blob:dims-only';
     const videoProto = HTMLVideoElement.prototype;
 
     vi.spyOn(videoProto, 'addEventListener').mockImplementation(function (
@@ -50,7 +50,7 @@ describe('probeVideoBlobUrl', () => {
       }
     });
 
-    const result = await probeVideoDimensionsOnly(blobUrl);
+    const result = await probeVideoDimensionsOnly(testVideoBlob);
     expect(result).toEqual({
       width: 1280,
       height: 720,
@@ -59,7 +59,6 @@ describe('probeVideoBlobUrl', () => {
   });
 
   it('captures dimensions and a data-url frame when metadata and seek succeed', async () => {
-    const blobUrl = 'blob:ok-video';
     const videoProto = HTMLVideoElement.prototype;
 
     vi.spyOn(videoProto, 'addEventListener').mockImplementation(function (
@@ -99,7 +98,7 @@ describe('probeVideoBlobUrl', () => {
       'data:image/jpeg;base64,frame',
     );
 
-    const result = await probeVideoBlobUrl(blobUrl, 1);
+    const result = await probeVideoBlobUrl(testVideoBlob, 1);
     expect(result).toEqual({
       width: 640,
       height: 360,

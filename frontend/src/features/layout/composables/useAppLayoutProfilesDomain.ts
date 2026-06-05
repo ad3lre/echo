@@ -85,6 +85,7 @@ export function useAppLayoutProfilesDomain(deps: {
   selfProfileAnchor: Ref<PopoutAnchorRect | null>;
   selfProfile: Ref<any | null>;
   isInDMChat: Ref<boolean>;
+  isInDMMode: Ref<boolean>;
   leaveDmUiIfViewingUser: (userId: string) => void;
   canChangeMemberNicknameInServer: (targetUserId: string) => boolean;
   hydrateEchoFromApi: () => Promise<void>;
@@ -116,6 +117,7 @@ export function useAppLayoutProfilesDomain(deps: {
     selfProfileAnchor,
     selfProfile,
     isInDMChat,
+    isInDMMode,
     leaveDmUiIfViewingUser,
     canChangeMemberNicknameInServer,
     hydrateEchoFromApi,
@@ -238,6 +240,7 @@ export function useAppLayoutProfilesDomain(deps: {
     selectedServer: selectedServerView,
     workspaceMembersByServer,
     isInDMChat,
+    isInDMMode,
     isMemberPopoutOpen,
     isSelfProfilePopoutOpen,
     isExpandedProfileModalOpen,

@@ -105,6 +105,11 @@ export function createAppEchoRealtimeSocketBinding(
             },
             onUnexpectedDisconnect: (reason) => {
               const now = Date.now();
+              // Reflect the drop in live-sync state immediately. The Manager auto-reconnects
+              // without a teardown, so without this `liveSyncConnected` would stay stale-true
+              // for the whole disconnected window (no reconnect banner, history treats realtime
+              // as authoritative). `onAfterConnected` flips it back true on reconnect.
+              platformSync.setConnected(false);
               // Keep the existing UI debounce policy, but host owns the side effects.
               if (
                 maybeEmitEchoSocketUnexpectedDisconnectUi({

@@ -10,6 +10,7 @@ import type { ChannelSummary } from '@shared/types';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
 import type { DmSubView, RailTab } from '@/features/layout/mainSurface';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
+import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
 
 /** Active guild VC row for DM panel “voice activity” strip (horizontal carousel). */
 export type GuildVoiceActivityCard = {
@@ -183,7 +184,18 @@ export type AppLayoutLeftChromeProps = {
   mentionNotificationCategoriesByServer?: Readonly<
     Record<string, ChannelCategory[]>
   >;
+  mentionNotificationServers?: ReadonlyArray<{
+    id: string;
+    name: string;
+    imageUrl?: string;
+  }>;
   isPersistedEchoDmThread?: (channelId: string) => boolean;
+  /** Current notifications filter state (controlled from parent). */
+  dmNotificationsReadPreset?: NotificationReadPreset;
+  dmNotificationsSourceKey?: string;
+  /** Notifications filter state update handlers. */
+  onUpdateDmNotificationsReadPreset?: (preset: NotificationReadPreset) => void;
+  onUpdateDmNotificationsSourceKey?: (key: string) => void;
   /** Snowflake / client group thread id when a group DM is open — highlights the row in the Messages list. */
   selectedGroupDmChannelId?: string | null;
   /** Active DM or group call target (Echo peer id or group thread id) — DM list in-call indicator. */

@@ -17,6 +17,10 @@ export const PAPER_FONT_SIZE_PRESETS = [
   10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72,
 ] as const;
 
+export const PAPER_FONT_SIZE_MIN = 6;
+export const PAPER_FONT_SIZE_MAX = 400;
+export const PAPER_FONT_SIZE_FINE_STEP = 1;
+
 /** Default px when no explicit fontSize mark (matches paperTheme.scss). */
 export const PAPER_BLOCK_DEFAULT_FONT_PX = {
   paragraph: 15,
@@ -26,6 +30,7 @@ export const PAPER_BLOCK_DEFAULT_FONT_PX = {
 } as const;
 
 export const PAPER_OBJECT_COLORS = [
+  { label: 'None', value: 'transparent' },
   { label: 'Blue', value: '#3b82f6' },
   { label: 'Red', value: '#ef4444' },
   { label: 'Orange', value: '#f97316' },
@@ -75,8 +80,16 @@ export function paperFontIdFromFamily(
   family: string | null | undefined,
 ): string {
   if (!family?.trim()) return 'inter';
-  const hit = PAPER_FONT_CATALOG.find((f) => f.family === family.trim());
+  const raw = family.trim();
+  const byId = PAPER_FONT_CATALOG.find((f) => f.id === raw);
+  if (byId) return byId.id;
+  const hit = PAPER_FONT_CATALOG.find((f) => f.family === raw);
   return hit?.id ?? 'inter';
+}
+
+/** Resolve a catalog font id from either a font id or CSS family string. */
+export function resolvePaperFontId(value: string | null | undefined): string {
+  return paperFontIdFromFamily(value);
 }
 
 export function defaultFontPxForBlock(

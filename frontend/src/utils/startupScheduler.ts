@@ -10,6 +10,9 @@ const highQueue: StartupTask[] = [];
 const idleQueue: StartupTask[] = [];
 const seenTaskNames = new Set<string>();
 
+/** Delay before draining queued startup tasks if the user never interacts first. */
+const STARTUP_KICKOFF_DELAY_MS = 5000;
+
 let highScheduled = false;
 let idleScheduled = false;
 let idleStarted = false;
@@ -78,7 +81,7 @@ function scheduleIdleStart(): void {
     passive: true,
   });
 
-  setTimeout(kickoff, 5000);
+  setTimeout(kickoff, STARTUP_KICKOFF_DELAY_MS);
 }
 
 export function enqueueStartupTask(

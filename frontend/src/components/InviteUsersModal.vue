@@ -119,11 +119,14 @@ function inviteFriend(userId: string) {
   invitedUserIds.value = new Set([...invitedUserIds.value, userId]);
 }
 
+/** How long the "Copied!" affordance stays lit after a successful copy. */
+const COPY_FEEDBACK_RESET_MS = 2000;
+
 async function copyLink() {
   const ok = await copyToClipboard(props.inviteLink);
   if (ok) {
     copied.value = true;
-    setTimeout(() => (copied.value = false), 2000);
+    setTimeout(() => (copied.value = false), COPY_FEEDBACK_RESET_MS);
   } else {
     dispatchAppToast(
       'Could not copy invite link. Copy it manually or check clipboard permission.',
@@ -138,7 +141,7 @@ async function copyDirectInviteLink() {
   const ok = await copyToClipboard(link);
   if (ok) {
     directCopied.value = true;
-    setTimeout(() => (directCopied.value = false), 2000);
+    setTimeout(() => (directCopied.value = false), COPY_FEEDBACK_RESET_MS);
   } else {
     dispatchAppToast(
       'Could not copy link. Copy it manually or check clipboard permission.',

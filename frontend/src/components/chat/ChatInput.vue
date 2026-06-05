@@ -1608,10 +1608,11 @@ onMounted(() => {
       class="reply-bar mb-2 flex items-center gap-2 rounded-lg px-3 py-2"
     >
       <svg
-        class="w-4 h-4 shrink-0 text-indigo-400"
+        class="reply-bar__icon w-4 h-4 shrink-0"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
+        aria-hidden="true"
       >
         <path
           stroke-linecap="round"
@@ -1621,17 +1622,17 @@ onMounted(() => {
         />
       </svg>
       <div class="min-w-0 flex-1">
-        <span class="text-xs font-medium text-indigo-400"
+        <span class="reply-bar__label text-xs font-medium"
           >Replying to {{ replyingTo.authorName }}</span
         >
-        <p class="text-sm text-muted truncate">
+        <p class="reply-bar__preview text-sm truncate">
           {{ truncateForReply(replyingTo.content) || 'Attachment' }}
         </p>
       </div>
       <button
         type="button"
         aria-label="Cancel reply"
-        class="chat-focus-ring p-1 rounded text-muted hover:text-foreground hover:bg-glass-hover"
+        class="reply-bar__close chat-focus-ring rounded p-1"
         @click="emit('clear-reply')"
       >
         <svg
@@ -1955,6 +1956,25 @@ onMounted(() => {
 
 .reply-bar {
   border-left: 1px solid var(--chat-accent-muted);
+  color: var(--text);
+
+  &__icon,
+  &__label {
+    color: var(--accent);
+  }
+
+  &__preview {
+    color: var(--muted);
+  }
+
+  &__close {
+    color: var(--muted);
+
+    &:hover {
+      color: var(--text);
+      background: var(--ui-glass-hover);
+    }
+  }
 }
 
 /* Inline composer preview only (wrapper .markdown-preview). :deep() requires scoped CSS; unscoped :deep() breaks v-html heading/paragraph rules vs Tailwind preflight. */

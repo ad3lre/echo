@@ -1,9 +1,20 @@
 import { computed, onScopeDispose, watch, type Ref } from 'vue';
+import type { RemoteTrack } from 'livekit-client';
+
+type LocalTrackLike = {
+  mediaStreamTrack?: MediaStreamTrack;
+  track?: MediaStreamTrack;
+};
+
+type StreamTrack = RemoteTrack | LocalTrackLike | null;
 
 type FullscreenStreamParticipant = {
   id?: string;
   name?: string | null;
   pfp?: string | null;
+  screenTrack?: unknown;
+  cameraTrack?: unknown;
+  screenAudioTrack?: unknown;
 };
 
 const FULLSCREEN_STREAM_LOST_CLEAR_MS = 160;
@@ -53,27 +64,27 @@ export function useFullscreenStreamOverlay(deps: {
     return activeVoiceChannelParticipants.value ?? [];
   });
 
-  const fullscreenStreamTrack = computed(() => {
+  const fullscreenStreamTrack = computed((): StreamTrack => {
     const pid = fullscreenStreamParticipantId.value;
     if (!pid) return null;
     if (pid === currentUser.value?.id) {
       const screen = getLocalScreenTrack();
-      if (screen) return screen;
-      return getLocalCameraTrack();
+      if (screen) return screen as StreamTrack;
+      return getLocalCameraTrack() as StreamTrack;
     }
     const p = voiceParticipantsForFullscreenStream.value?.find(
-      (participant: { id?: string }) => participant.id === pid,
-    ) as Record<string, any> | undefined;
-    return (p?.screenTrack ?? p?.cameraTrack ?? null) as any;
+      (participant) => participant.id === pid,
+    );
+    return (p?.screenTrack ?? p?.cameraTrack ?? null) as StreamTrack;
   });
 
-  const fullscreenStreamAudioTrack = computed(() => {
+  const fullscreenStreamAudioTrack = computed((): RemoteTrack | null => {
     const pid = fullscreenStreamParticipantId.value;
     if (!pid || pid === currentUser.value?.id) return null;
     const p = voiceParticipantsForFullscreenStream.value?.find(
-      (participant: { id?: string }) => participant.id === pid,
-    ) as Record<string, any> | undefined;
-    return (p?.screenAudioTrack ?? null) as any;
+      (participant) => participant.id === pid,
+    );
+    return (p?.screenAudioTrack ?? null) as RemoteTrack | null;
   });
 
   const fullscreenStreamName = computed(() => {

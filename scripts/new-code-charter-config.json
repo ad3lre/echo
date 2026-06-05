@@ -1,0 +1,38 @@
+{
+  "cutoffIso": "2026-06-01T00:00:00Z",
+  "cutoffCommit": "09d1433a48a3fc0d4c5ac6c8e9217bc95069b71e",
+  "scopes": [
+    "frontend/src",
+    "backend/src",
+    "shared",
+    "bot/src",
+    "voice-sidecar/src"
+  ],
+  "strict": {
+    "maxFileLines": 400,
+    "maxFunctionLines": 80,
+    "maxNestingSpaces": 12,
+    "maxDeepNestingLines": 0
+  },
+  "rules": {
+    "banExplicitAny": true,
+    "banTsSuppressions": true,
+    "banConsoleLog": true,
+    "banTodoWithoutIssue": true,
+    "banCommentedOutCode": true,
+    "banInclusiveTerms": true,
+    "banProcessExit": true,
+    "requireNamedTimerLiterals": true,
+    "enforceLayerBoundaries": true
+  },
+  "processExitAllowPrefixes": [
+    "backend/src/scripts/",
+    "bot/src/",
+    "voice-sidecar/src/tests/"
+  ],
+  "workspaceMergeForbidden": [
+    "applyWorkspaceSnapshotToEchoSession",
+    "setMessagesOnEchoSession",
+    "mergeMembersByServerInEchoSession"
+  ]
+}

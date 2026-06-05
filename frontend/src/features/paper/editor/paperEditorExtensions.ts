@@ -33,6 +33,7 @@ import { PaperTextOutline } from '@/features/paper/editor/paperTextOutlineExtens
 import { PaperIndent } from '@/features/paper/editor/paperIndentExtension';
 import { PaperImage } from '@/features/paper/editor/paperImageExtension';
 import { PaperShape } from '@/features/paper/editor/paperShapeExtension';
+import { PaperShapeRow } from '@/features/paper/editor/paperShapeRowExtension';
 import { PaperKeyboardShortcuts } from '@/features/paper/editor/paperKeyboardShortcutsExtension';
 import { PaperSmartTypography } from '@/features/paper/editor/paperSmartTypographyExtension';
 import { PaperDocumentAttributes } from '@/features/paper/editor/paperDocumentAttributes';
@@ -99,6 +100,7 @@ export function buildPaperEditorExtensions(
       HTMLAttributes: { class: 'paper-editor-image' },
     }),
     PaperShape,
+    PaperShapeRow,
     Table.configure({ resizable: true }),
     TableRow,
     TableHeader,

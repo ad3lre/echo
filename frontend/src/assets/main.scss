@@ -915,9 +915,72 @@ img.brightness-0.invert {
 .markdown-preview__content,
 .legal-md-preview,
 .paper-math {
+  /*
+   * Critical KaTeX vlist layout (especially vlist-t2 for combined sub+sup).
+   * Duplicated here so chat math is correct even if the async CSS chunk is late.
+   */
+  .katex .base,
+  .katex .strut {
+    display: inline-block;
+  }
+
+  .katex .base {
+    position: relative;
+    white-space: nowrap;
+    width: min-content;
+  }
+
+  .katex .vlist-t {
+    border-collapse: collapse;
+    display: inline-table;
+    table-layout: fixed;
+  }
+
+  .katex .vlist-r {
+    display: table-row;
+  }
+
+  .katex .vlist {
+    display: table-cell;
+    position: relative;
+    vertical-align: bottom;
+  }
+
+  .katex .vlist > span {
+    display: block;
+    height: 0;
+    position: relative;
+  }
+
+  .katex .vlist > span > span {
+    display: inline-block;
+  }
+
+  .katex .vlist > span > .pstrut {
+    overflow: hidden;
+    width: 0;
+  }
+
+  .katex .vlist-t2 {
+    margin-right: -2px;
+  }
+
+  .katex .vlist-s {
+    display: table-cell;
+    font-size: 1px;
+    min-width: 2px;
+    vertical-align: bottom;
+    width: 2px;
+  }
+
+  .katex .msupsub {
+    text-align: left;
+  }
+
   .katex {
     padding: 0.14em 0.08em 0.22em;
     box-sizing: content-box;
+    line-height: normal;
   }
 
   .katex-display {

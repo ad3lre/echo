@@ -34,6 +34,7 @@ import {
   requireEchoStore,
   trimEchoPathParam,
 } from './echoRouteUtils';
+import { boundedInteger } from '../../../shared/numberParsing';
 import { echoPersistedMessageCreateAndBroadcast } from '../../../services/echoPersistedMessageCreate';
 import { evaluateEchoGuildOutboundMessageModeration } from '../../../services/echoGuildOutboundMessageModeration';
 import { validateMessagePayload } from '../../../sockets/messageValidation';
@@ -92,8 +93,7 @@ export default async function echoChannelsRoutes(
           ? 'creation_date'
           : 'latest_activity';
       const includeArchived = req.query?.includeArchived === 'true';
-      const limit =
-        req.query?.limit != null ? Number(req.query.limit) : undefined;
+      const limit = boundedInteger(req.query?.limit, 50, 1, 200);
 
       return reply.code(200).send(
         await listEchoForumPosts(pool, forumChannelId, {

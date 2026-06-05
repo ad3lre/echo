@@ -45,7 +45,7 @@ defineEmits<{
     class="message-actions msg-actions-bar flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 rounded-lg"
     :class="
       props.floating
-        ? 'relative z-10 bg-scrim-2 shadow-md ring-1 ring-border backdrop-blur-sm opacity-100'
+        ? 'relative z-10 shadow-md ring-1 ring-border backdrop-blur-sm opacity-100'
         : [
             'absolute -top-3 right-1 z-10',
             menuOpen || reactionPopoverOpen
@@ -59,7 +59,7 @@ defineEmits<{
       v-for="fav in quickReactionRow"
       :key="fav.emoji"
       type="button"
-      class="msg-action-btn msg-action-emoji chat-focus-ring p-1 rounded hover:bg-glass-hover text-muted hover:text-foreground flex items-center justify-center"
+      class="msg-action-btn msg-action-emoji chat-focus-ring flex items-center justify-center rounded p-1 hover:bg-glass-hover"
       :class="{ 'msg-action-emoji--pop': poppingQuickEmoji === fav.emoji }"
       :title="`React with ${fav.emoji} · right-click to remove from quick bar`"
       v-html="parseSingleEmojiForReactions(fav.emoji)"
@@ -75,7 +75,7 @@ defineEmits<{
     />
     <button
       type="button"
-      class="msg-action-btn chat-focus-ring p-1 rounded hover:bg-glass-hover text-muted hover:text-foreground"
+      class="msg-action-btn chat-focus-ring rounded p-1 hover:bg-glass-hover"
       title="Add reaction"
       @click="$emit('openReactionPopover', $event)"
     >
@@ -95,7 +95,7 @@ defineEmits<{
     </button>
     <button
       type="button"
-      class="msg-action-btn chat-focus-ring p-1 rounded hover:bg-glass-hover text-muted hover:text-foreground"
+      class="msg-action-btn chat-focus-ring rounded p-1 hover:bg-glass-hover"
       title="Reply"
       @click="$emit('reply')"
     >
@@ -116,7 +116,7 @@ defineEmits<{
     <template v-if="isOwnMessage">
       <button
         type="button"
-        class="msg-action-btn chat-focus-ring p-1 rounded hover:bg-glass-hover text-muted hover:text-foreground"
+        class="msg-action-btn chat-focus-ring rounded p-1 hover:bg-glass-hover"
         title="Edit"
         @click="$emit('enterEditMode')"
       >
@@ -250,7 +250,7 @@ defineEmits<{
       <button
         ref="ellipsisRef"
         type="button"
-        class="msg-action-btn chat-focus-ring shrink-0 p-1 rounded hover:bg-glass-hover text-muted hover:text-foreground"
+        class="msg-action-btn chat-focus-ring shrink-0 rounded p-1 hover:bg-glass-hover"
         title="More options"
         @click="$emit('toggleMenu', $event)"
       >
@@ -270,6 +270,17 @@ defineEmits<{
  * Scoped styles on MessageBubble do not apply here (different SFC scope).
  * Match sibling controls: SVG icons use Tailwind w-4 h-4 (= 1rem).
  */
+.msg-action-btn {
+  color: var(--menu-item-icon);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover {
+    color: var(--menu-item-icon-hover);
+  }
+}
+
 .msg-action-emoji {
   :deep(img.emoji),
   :deep(img.custom-emoji) {

@@ -18,6 +18,13 @@ import EchoDropdown from '@/components/EchoDropdown.vue';
 import type { EchoDropdownOption } from '@/components/EchoDropdown.vue';
 import PaperFormatPresetMenu from '@/features/paper/components/PaperFormatPresetMenu.vue';
 import { PAPER_SHAPE_SIZE_PRESETS } from '@/features/paper/composables/usePaperShapeActions';
+import {
+  PAPER_SHAPE_BORDER_STYLES,
+  PAPER_SHAPE_BORDER_WIDTHS,
+  PAPER_SHAPE_MAX_PX,
+  PAPER_SHAPE_MIN_PX,
+} from '@/features/paper/editor/paperShapeUtils';
+import type { PaperShapeBorderStyle } from '@/features/paper/editor/paperShapeExtension';
 import type {
   PaperShapeAlign,
   PaperShapeKind,
@@ -68,12 +75,28 @@ const textQuickPalette = computed(() =>
 
 const objectDisplayColor = computed(() => {
   if (shapeSelected.value) {
-    return (
-      shapeActions.selectedShapeFill() ?? shapeActions.pendingObjectColor.value
-    );
+    return shapeActions.selectedShapeFill() ?? 'transparent';
   }
   return shapeActions.pendingObjectColor.value;
 });
+
+const objectFillIsNone = computed(
+  () => shapeSelected.value && shapeActions.selectedShapeFillIsNone(),
+);
+
+const borderWidthOptions: EchoDropdownOption[] = PAPER_SHAPE_BORDER_WIDTHS.map(
+  (px) => ({
+    label: px === 0 ? 'No border' : `${px}px`,
+    value: String(px),
+  }),
+);
+
+const borderStyleOptions: EchoDropdownOption[] = PAPER_SHAPE_BORDER_STYLES.map(
+  (entry) => ({
+    label: entry.label,
+    value: entry.value,
+  }),
+);
 
 const targetHint = computed(() => {
   const hit = colorTargets.find((t) => t.id === activeColorTarget.value);
@@ -114,10 +137,6 @@ onUnmounted(() => {
   editorRef.value?.off('selectionUpdate', onEditorSelectionUpdate);
 });
 
-function insertShape(shape: PaperShapeKind) {
-  shapeActions.insertShape(shape);
-}
-
 const shapeSizeOptions: EchoDropdownOption[] = PAPER_SHAPE_SIZE_PRESETS.map(
   (p) => ({ label: p.label, value: String(p.px) }),
 );
@@ -133,6 +152,22 @@ const currentShapeSize = computed(() => {
   const hit = PAPER_SHAPE_SIZE_PRESETS.find((p) => p.px === width);
   return hit ? String(hit.px) : String(width);
 });
+
+const currentShapeWidth = computed(
+  () => shapeActions.selectedShapeSizePx().width,
+);
+
+const canDecreaseShapeSize = computed(
+  () => shapeSelected.value && currentShapeWidth.value > PAPER_SHAPE_MIN_PX,
+);
+
+const canIncreaseShapeSize = computed(
+  () => shapeSelected.value && currentShapeWidth.value < PAPER_SHAPE_MAX_PX,
+);
+
+function stepShapeSize(direction: 'up' | 'down') {
+  shapeActions.stepShapeSize(direction);
+}
 </script>
 
 <template>
@@ -220,6 +255,7 @@ const currentShapeSize = computed(() => {
           label=""
           kind="object"
           :color="objectDisplayColor"
+          :is-default="objectFillIsNone"
           :quick-palette="PAPER_OBJECT_COLORS"
           :document-palette="documentColors.object"
           :paper-appearance="appearance"
@@ -232,17 +268,37 @@ const currentShapeSize = computed(() => {
             class="paper-editor-panel__tool-row paper-editor-panel__size-row"
           >
             <span class="paper-editor-panel__control-label">Size</span>
-            <PaperFormatPresetMenu
-              :model-value="currentShapeSize"
-              :options="shapeSizeOptions"
-              :paper-appearance="appearance"
-              trigger-mode="label"
-              placement="below"
-              title="Shape size"
-              @update:model-value="
-                (v) => shapeActions.setShapeSizePx(Number(v))
-              "
-            />
+            <div class="paper-editor-panel__size-controls">
+              <button
+                type="button"
+                class="paper-editor-panel__size-step"
+                aria-label="Decrease shape size"
+                :disabled="!canDecreaseShapeSize"
+                @mousedown.prevent="stepShapeSize('down')"
+              >
+                −
+              </button>
+              <PaperFormatPresetMenu
+                :model-value="currentShapeSize"
+                :options="shapeSizeOptions"
+                :paper-appearance="appearance"
+                trigger-mode="label"
+                placement="below"
+                title="Shape size"
+                @update:model-value="
+                  (v) => shapeActions.setShapeSizePx(Number(v))
+                "
+              />
+              <button
+                type="button"
+                class="paper-editor-panel__size-step"
+                aria-label="Increase shape size"
+                :disabled="!canIncreaseShapeSize"
+                @mousedown.prevent="stepShapeSize('up')"
+              >
+                +
+              </button>
+            </div>
           </div>
           <div class="paper-editor-panel__tool-row">
             <span class="paper-editor-panel__control-label">Position</span>
@@ -256,21 +312,91 @@ const currentShapeSize = computed(() => {
               "
             />
           </div>
+          <div class="paper-editor-panel__tool-row">
+            <span class="paper-editor-panel__control-label">Border</span>
+            <EchoDropdown
+              :model-value="String(shapeActions.selectedShapeBorderWidthPx())"
+              :options="borderWidthOptions"
+              label="Border width"
+              compact
+              @update:model-value="
+                (v) => shapeActions.setShapeBorderWidth(Number(v))
+              "
+            />
+          </div>
+          <div
+            v-if="shapeActions.selectedShapeBorderWidthPx() > 0"
+            class="paper-editor-panel__tool-row paper-editor-panel__size-row"
+          >
+            <PaperEditorCanvasColorSection
+              label="Border color"
+              kind="object"
+              :color="shapeActions.selectedShapeBorderColor() ?? '#111111'"
+              :quick-palette="
+                PAPER_OBJECT_COLORS.filter((s) => s.value !== 'transparent')
+              "
+              :document-palette="documentColors.object"
+              :paper-appearance="appearance"
+              @pick="shapeActions.setShapeBorderColor"
+              @clear="shapeActions.clearShapeBorder"
+            />
+          </div>
+          <div
+            v-if="shapeActions.selectedShapeBorderWidthPx() > 0"
+            class="paper-editor-panel__tool-row"
+          >
+            <span class="paper-editor-panel__control-label">Border style</span>
+            <EchoDropdown
+              :model-value="shapeActions.selectedShapeBorderStyle()"
+              :options="borderStyleOptions"
+              label="Border style"
+              compact
+              @update:model-value="
+                (v) =>
+                  shapeActions.setShapeBorderStyle(v as PaperShapeBorderStyle)
+              "
+            />
+          </div>
+        </section>
+
+        <section v-if="shapeSelected" class="paper-colors-tab__shapes">
+          <h4 class="paper-editor-tab__label">Replace shape</h4>
+          <div class="paper-colors-tab__shape-grid">
+            <button
+              v-for="tool in shapeTools"
+              :key="`replace-${tool.id}`"
+              type="button"
+              class="paper-colors-tab__shape-btn"
+              :title="`Replace with ${tool.label.toLowerCase()}`"
+              :aria-label="`Replace with ${tool.label.toLowerCase()}`"
+              @mousedown.prevent.stop="shapeActions.replaceShape(tool.id)"
+            >
+              <span
+                class="paper-colors-tab__shape-preview"
+                :class="`paper-colors-tab__shape-preview--${tool.id}`"
+                :style="{ backgroundColor: objectDisplayColor }"
+                aria-hidden="true"
+              />
+              <span class="paper-colors-tab__shape-label">{{
+                tool.label
+              }}</span>
+            </button>
+          </div>
         </section>
 
         <section class="paper-colors-tab__shapes">
           <h4 class="paper-editor-tab__label">
-            {{ shapeSelected ? 'Replace shape' : 'Add shape' }}
+            {{ shapeSelected ? 'Add another shape' : 'Add shape' }}
           </h4>
           <div class="paper-colors-tab__shape-grid">
             <button
               v-for="tool in shapeTools"
-              :key="tool.id"
+              :key="`add-${tool.id}`"
               type="button"
               class="paper-colors-tab__shape-btn"
-              :title="`Insert ${tool.label.toLowerCase()}`"
-              :aria-label="`Insert ${tool.label.toLowerCase()}`"
-              @mousedown.prevent.stop="insertShape(tool.id)"
+              :title="`Add ${tool.label.toLowerCase()}`"
+              :aria-label="`Add ${tool.label.toLowerCase()}`"
+              @mousedown.prevent.stop="shapeActions.insertShape(tool.id)"
             >
               <span
                 class="paper-colors-tab__shape-preview"

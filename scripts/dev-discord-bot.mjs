@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseIntegerInRange, parseMinInteger } from './lib/number-parse.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -67,9 +68,7 @@ const exportBaseDir =
 
 /** Keep in sync with `DEV_DISCORD_BOT_WEBHOOK_SECRET` in backend/src/config.ts */
 const DEV_DISCORD_BOT_WEBHOOK_SECRET = 'echo-dev-local-discord-bot-webhook';
-const apiPortRaw = parseInt(process.env.PORT ?? '', 10);
-const apiPort =
-  Number.isFinite(apiPortRaw) && apiPortRaw > 0 ? apiPortRaw : 3000;
+const apiPort = parseIntegerInRange(process.env.PORT, 3000, 1, 65_535);
 const defaultWebhookUrl = `http://127.0.0.1:${apiPort}/api/v1/hooks/discord-bot/export-ready`;
 const hookUrl =
   (process.env.ECHO_DISCORD_BOT_WEBHOOK_URL ?? '').trim() || defaultWebhookUrl;
@@ -79,7 +78,7 @@ const hookSecret =
 
 /** Same default as scripts/wait-for-port.mjs — bot must not race ahead of `npm run dev` API bind. */
 const waitHost = process.env.ECHO_DEV_WAIT_API_HOST?.trim() || '127.0.0.1';
-const waitMs = Number(process.env.WAIT_FOR_PORT_MS || 120_000);
+const waitMs = parseMinInteger(process.env.WAIT_FOR_PORT_MS, 120_000, 1);
 const waitIntervalMs = 200;
 
 function waitForTcp(host, port, timeoutMs) {

@@ -49,6 +49,46 @@ export function usePaperImageUpload(channelId: string) {
     return true;
   }
 
+  async function uploadImageFileToUrl(file: File): Promise<string | null> {
+    if (!isImageFile(file)) {
+      error.value = 'Only image files can be inserted';
+      dispatchAppToast(error.value, 'warning');
+      return null;
+    }
+    const token = authSession.accessToken?.trim() ?? '';
+    if (!token?.trim()) {
+      error.value = 'Sign in to upload images';
+      dispatchAppToast(error.value, 'warning');
+      return null;
+    }
+    uploading.value = true;
+    error.value = null;
+    try {
+      const { url } = await uploadChatMediaFile(token, channelId, file);
+      const safe = safeImageUrl(url);
+      if (!safe) {
+        error.value = 'Upload returned an invalid image URL';
+        dispatchAppToast(error.value, 'warning');
+        return null;
+      }
+      return safe;
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        /403|forbidden|cannot upload/i.test(e.message)
+      ) {
+        error.value =
+          'You do not have permission to upload images in this paper';
+      } else {
+        error.value = e instanceof Error ? e.message : 'Upload failed';
+      }
+      dispatchAppToast(error.value, 'warning');
+      return null;
+    } finally {
+      uploading.value = false;
+    }
+  }
+
   async function insertImageFile(
     editor: Editor,
     file: File,
@@ -70,37 +110,15 @@ export function usePaperImageUpload(channelId: string) {
       dispatchAppToast(error.value, 'warning');
       return;
     }
-    uploading.value = true;
-    error.value = null;
-    try {
-      const { url } = await uploadChatMediaFile(token, channelId, file);
-      const safe = safeImageUrl(url);
-      if (!safe) {
-        error.value = 'Upload returned an invalid image URL';
-        dispatchAppToast(error.value, 'warning');
-        return;
-      }
-      if (
-        !insertPaperImage(editor, safe, {
-          restoreCaret: opts.restoreCaret ?? true,
-        })
-      ) {
-        error.value = 'Could not insert image at this position';
-        dispatchAppToast(error.value, 'warning');
-      }
-    } catch (e) {
-      if (
-        e instanceof Error &&
-        /403|forbidden|cannot upload/i.test(e.message)
-      ) {
-        error.value =
-          'You do not have permission to upload images in this paper';
-      } else {
-        error.value = e instanceof Error ? e.message : 'Upload failed';
-      }
+    const safe = await uploadImageFileToUrl(file);
+    if (!safe) return;
+    if (
+      !insertPaperImage(editor, safe, {
+        restoreCaret: opts.restoreCaret ?? true,
+      })
+    ) {
+      error.value = 'Could not insert image at this position';
       dispatchAppToast(error.value, 'warning');
-    } finally {
-      uploading.value = false;
     }
   }
 
@@ -147,6 +165,7 @@ export function usePaperImageUpload(channelId: string) {
   return {
     uploading,
     error,
+    uploadImageFileToUrl,
     insertImageFile,
     insertImageUrl,
     handlePaste,

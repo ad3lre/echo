@@ -9,6 +9,8 @@ describe('useServerSettingsNavigation', () => {
     expect(getSectionIcon('Tickets')).toBe(icons.lifeRing);
     expect(getSectionIcon('Self-assignable Roles')).toBe(icons.userTag);
     expect(getSectionIcon('Emoji')).toBe(icons.emotesServerNav);
+    expect(getSectionIcon('Banned Words')).toBe(icons.block);
+    expect(getSectionIcon('Moderation')).toBe(icons.shield);
   });
 
   it('does not fall back to generic more icon for known sections', () => {

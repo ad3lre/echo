@@ -22,24 +22,66 @@ export const MAX_PROFILE_CUSTOM_STATUS_LENGTH = 140;
 export const MAX_PROFILE_BIO_LENGTH = 280;
 export const ECHO_SERVER_ROLE_LIMIT = 512;
 
-function replaceUntilStable(
+function indexOfInsensitive(
+  haystack: string,
+  needle: string,
+  from = 0,
+): number {
+  return haystack.toLowerCase().indexOf(needle.toLowerCase(), from);
+}
+
+/** Linear-time removal of `<open ...> ... </close>` blocks (no backtracking regex). */
+function stripDelimitedBlocks(
   input: string,
-  pattern: RegExp,
-  replacement: string,
+  openTag: string,
+  closeTag: string,
 ): string {
-  let current = input;
-  for (;;) {
-    const next = current.replace(pattern, replacement);
-    if (next === current) return next;
-    current = next;
+  let result = '';
+  let i = 0;
+  while (i < input.length) {
+    const start = indexOfInsensitive(input, openTag, i);
+    if (start === -1) {
+      result += input.slice(i);
+      break;
+    }
+    result += input.slice(i, start);
+    const end = indexOfInsensitive(input, closeTag, start + openTag.length);
+    if (end === -1) {
+      result += input.slice(start);
+      break;
+    }
+    i = end + closeTag.length;
   }
+  return result;
+}
+
+/** Linear-time removal of `<...>` tags (empty `<>` and unclosed `<` kept as literal text). */
+function stripAngleBracketTags(input: string): string {
+  let out = '';
+  let i = 0;
+  while (i < input.length) {
+    const lt = input.indexOf('<', i);
+    if (lt === -1) {
+      out += input.slice(i);
+      break;
+    }
+    out += input.slice(i, lt);
+    const gt = input.indexOf('>', lt + 1);
+    if (gt === -1 || gt === lt + 1) {
+      out += input[lt];
+      i = lt + 1;
+      continue;
+    }
+    i = gt + 1;
+  }
+  return out;
 }
 
 /** Strip angle-bracket markup so profile text cannot become HTML when rendered elsewhere. */
 export function stripProfileHtmlMarkup(raw: string): string {
-  let out = replaceUntilStable(raw, /<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
-  out = replaceUntilStable(out, /<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
-  return replaceUntilStable(out, /<[^>]+>/g, '');
+  let out = stripDelimitedBlocks(raw, '<script', '</script>');
+  out = stripDelimitedBlocks(out, '<style', '</style>');
+  return stripAngleBracketTags(out);
 }
 
 export function sanitizeProfilePlainText(raw: string, maxLen: number): string {

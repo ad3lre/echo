@@ -18,6 +18,14 @@ type PaperMarkdownMathDecoState = {
   decos: DecorationSet;
 };
 
+function segmentOverlapsMath(
+  start: number,
+  end: number,
+  mathRegions: readonly { start: number; end: number }[],
+): boolean {
+  return mathRegions.some((r) => start < r.end && r.start < end);
+}
+
 function buildInlineDecorationSet(doc: PMNode): Decoration[] {
   const decos: Decoration[] = [];
 
@@ -26,9 +34,12 @@ function buildInlineDecorationSet(doc: PMNode): Decoration[] {
     const text = node.text;
     const base = pos;
 
+    const mathRegions = extractMarkdownMathRegions(text).regions;
+
     const mdSegs = findComposerMarkdownStyleRanges(text, []);
     for (const seg of mdSegs) {
       if (seg.start >= seg.end) continue;
+      if (segmentOverlapsMath(seg.start, seg.end, mathRegions)) continue;
       decos.push(
         Decoration.inline(base + seg.start, base + seg.end, {
           class: seg.class,
@@ -41,6 +52,7 @@ function buildInlineDecorationSet(doc: PMNode): Decoration[] {
       .map((seg) => [seg.start, seg.end] as [number, number]);
     for (const seg of findPaperEmDashStyleRanges(text, codeSkip)) {
       if (seg.start >= seg.end) continue;
+      if (segmentOverlapsMath(seg.start, seg.end, mathRegions)) continue;
       decos.push(
         Decoration.inline(base + seg.start, base + seg.end, {
           class: seg.class,
@@ -50,6 +62,7 @@ function buildInlineDecorationSet(doc: PMNode): Decoration[] {
 
     for (const seg of findPaperSmartQuoteStyleRanges(text, codeSkip)) {
       if (seg.start >= seg.end) continue;
+      if (segmentOverlapsMath(seg.start, seg.end, mathRegions)) continue;
       decos.push(
         Decoration.inline(base + seg.start, base + seg.end, {
           class: seg.class,
@@ -57,7 +70,7 @@ function buildInlineDecorationSet(doc: PMNode): Decoration[] {
       );
     }
 
-    for (const span of extractMarkdownMathRegions(text).regions) {
+    for (const span of mathRegions) {
       const html = renderMarkdownKatexSafeHtml(span.latex, span.displayMode);
       decos.push(
         Decoration.widget(

@@ -11,12 +11,18 @@ import {
   runWithPgQueryContext,
 } from './pgQueryContext';
 import { echoPgQueryRoundtripsTotal } from '../observability/echoMetrics';
+import { boundedInteger } from '../shared/numberParsing';
 
 const { Pool } = pg;
 
 let pool: pg.Pool | null = null;
 
-const SLOW_QUERY_MS = Number(process.env.ECHO_SLOW_QUERY_MS) || 100;
+const SLOW_QUERY_MS = boundedInteger(
+  process.env.ECHO_SLOW_QUERY_MS,
+  100,
+  1,
+  60_000,
+);
 
 function fingerprint(text: unknown): string {
   if (typeof text !== 'string') return '(non-string)';

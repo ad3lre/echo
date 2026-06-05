@@ -56,7 +56,7 @@ export function triggerRecoveryWatchdog(reason: string): void {
       },
     });
     child.unref();
-    console.log(
+    console.warn(
       `[recovery-watchdog] spawned pid=${child.pid ?? '?'} (${reason})`,
     );
   } catch (e) {

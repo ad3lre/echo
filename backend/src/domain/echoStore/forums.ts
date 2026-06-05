@@ -1,6 +1,7 @@
 import type pg from 'pg';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
 import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
+import { boundedInteger } from '../../shared/numberParsing';
 
 export type EchoForumPostListSort = 'latest_activity' | 'creation_date';
 
@@ -74,7 +75,7 @@ export async function listEchoForumPosts(
   const sort =
     opts?.sort === 'creation_date' ? 'creation_date' : 'latest_activity';
   const includeArchived = opts?.includeArchived === true;
-  const limit = Math.max(1, Math.min(200, Number(opts?.limit ?? 50)));
+  const limit = boundedInteger(opts?.limit, 50, 1, 200);
 
   const whereArchived = includeArchived
     ? ``

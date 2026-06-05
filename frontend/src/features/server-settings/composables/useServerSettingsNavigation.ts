@@ -28,7 +28,7 @@ export function useServerSettingsNavigation() {
       case 'Self-assignable Roles':
         return icons.userTag;
       case 'Banned Words':
-        return icons.shield;
+        return icons.block;
       case 'Moderation':
         return icons.shield;
       case 'Audit Log':

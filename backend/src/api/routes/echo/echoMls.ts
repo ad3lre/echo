@@ -32,6 +32,7 @@ import {
   requireEchoStore,
   trimEchoPathParam,
 } from './echoRouteUtils';
+import { boundedInteger } from '../../../shared/numberParsing';
 
 function sendInitError(reply: FastifyReply, r: InitMlsGroupResult): unknown {
   if (r.ok) return null;
@@ -240,7 +241,10 @@ async function handleMessages(
   const userId = getAuthUser(req).id;
   const q = req.query as Record<string, unknown> | undefined;
   const sinceSeq = typeof q?.since === 'string' ? q.since : '0';
-  const limit = typeof q?.limit === 'string' ? Number(q.limit) : undefined;
+  const limit =
+    typeof q?.limit === 'string'
+      ? boundedInteger(q.limit, 200, 1, 200)
+      : undefined;
   const r = await fetchMlsMessagesSince(pool, {
     serverId,
     channelId,

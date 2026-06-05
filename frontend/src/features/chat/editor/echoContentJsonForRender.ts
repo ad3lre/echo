@@ -1,6 +1,6 @@
 /**
  * Client-side shape check before readonly TipTap render (INV-RENDER / INV-SCHEMA-UPGRADE).
- * Mirrors server whitelist in `backend/src/domain/contentJsonValidation.ts`.
+ * Mirrors server allowlist in `backend/src/domain/contentJsonValidation.ts`.
  */
 import {
   ECHO_CONTENT_SCHEMA_VERSION,

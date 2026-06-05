@@ -21,6 +21,10 @@ import {
   PAPER_SHAPE_SIZE_PRESETS,
   usePaperShapeActions,
 } from '@/features/paper/composables/usePaperShapeActions';
+import {
+  PAPER_SHAPE_MAX_PX,
+  PAPER_SHAPE_MIN_PX,
+} from '@/features/paper/editor/paperShapeUtils';
 import type {
   PaperShapeAlign,
   PaperShapeKind,
@@ -129,6 +133,22 @@ function setImageWrap(value: string) {
 
 function setShapeSize(value: string) {
   shapeActions.setShapeSizePx(Number(value));
+}
+
+const currentShapeWidth = computed(
+  () => shapeActions.selectedShapeSizePx().width,
+);
+
+const canDecreaseShapeSize = computed(
+  () => isShapeSelected.value && currentShapeWidth.value > PAPER_SHAPE_MIN_PX,
+);
+
+const canIncreaseShapeSize = computed(
+  () => isShapeSelected.value && currentShapeWidth.value < PAPER_SHAPE_MAX_PX,
+);
+
+function stepShapeSize(direction: 'up' | 'down') {
+  shapeActions.stepShapeSize(direction);
 }
 
 function setShapeAlign(value: string) {
@@ -343,15 +363,35 @@ function submitSearch() {
         <h4 class="paper-editor-tab__label">Selected shape</h4>
         <div class="paper-editor-panel__tool-row paper-editor-panel__size-row">
           <span class="paper-editor-panel__control-label">Size</span>
-          <PaperFormatPresetMenu
-            :model-value="currentShapeSize"
-            :options="shapeSizeOptions"
-            :paper-appearance="context.appearance.value"
-            trigger-mode="label"
-            placement="below"
-            title="Shape size"
-            @update:model-value="setShapeSize"
-          />
+          <div class="paper-editor-panel__size-controls">
+            <button
+              type="button"
+              class="paper-editor-panel__size-step"
+              aria-label="Decrease shape size"
+              :disabled="!canDecreaseShapeSize"
+              @mousedown.prevent="stepShapeSize('down')"
+            >
+              −
+            </button>
+            <PaperFormatPresetMenu
+              :model-value="currentShapeSize"
+              :options="shapeSizeOptions"
+              :paper-appearance="context.appearance.value"
+              trigger-mode="label"
+              placement="below"
+              title="Shape size"
+              @update:model-value="setShapeSize"
+            />
+            <button
+              type="button"
+              class="paper-editor-panel__size-step"
+              aria-label="Increase shape size"
+              :disabled="!canIncreaseShapeSize"
+              @mousedown.prevent="stepShapeSize('up')"
+            >
+              +
+            </button>
+          </div>
         </div>
         <div class="paper-editor-panel__tool-row">
           <span class="paper-editor-panel__control-label">Position</span>

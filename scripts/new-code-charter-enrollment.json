@@ -1,0 +1,131 @@
+{
+  "enrolledAt": "2026-06-05",
+  "strict": {
+    "maxFileLines": 400,
+    "maxFunctionLines": 80,
+    "maxNestingSpaces": 12,
+    "maxDeepNestingLines": 0
+  },
+  "files": {
+    "frontend/src/composables/useEmojiInspect.ts": {
+      "lines": 144,
+      "longestFunction": 130,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/features/chat/domain/messageListScrollOwnership.ts": {
+      "lines": 215,
+      "longestFunction": 89,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "frontend/src/features/layout/composables/useAppLayoutBannerNotices.ts": {
+      "lines": 227,
+      "longestFunction": 204,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/features/layout/composables/useAppLayoutGlobalShortcuts.ts": {
+      "lines": 108,
+      "longestFunction": 94,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/features/layout/composables/useForumPostsController.ts": {
+      "lines": 231,
+      "longestFunction": 207,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 12
+    },
+    "frontend/src/features/layout/composables/useFullscreenStreamOverlay.ts": {
+      "lines": 160,
+      "longestFunction": 127,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/features/layout/composables/useGuildEventDetailModalController.ts": {
+      "lines": 325,
+      "longestFunction": 287,
+      "deepNestingLines": 3,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/features/paper/components/PaperEditorColorsTab.vue": {
+      "lines": 471,
+      "longestFunction": 7,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 4
+    },
+    "frontend/src/features/paper/components/PaperShapeFormatBar.vue": {
+      "lines": 417,
+      "longestFunction": 10,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 6
+    },
+    "frontend/src/features/paper/composables/usePaperShapeActions.ts": {
+      "lines": 266,
+      "longestFunction": 239,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "frontend/src/features/paper/editor/paperIndentExtension.ts": {
+      "lines": 110,
+      "longestFunction": 0,
+      "deepNestingLines": 15,
+      "maxNestingSpaces": 16
+    },
+    "frontend/src/features/paper/editor/paperLetterSpacingExtension.ts": {
+      "lines": 65,
+      "longestFunction": 0,
+      "deepNestingLines": 8,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/features/paper/editor/paperLineHeightExtension.ts": {
+      "lines": 65,
+      "longestFunction": 0,
+      "deepNestingLines": 8,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/features/paper/editor/paperShapeExtension.ts": {
+      "lines": 289,
+      "longestFunction": 58,
+      "deepNestingLines": 11,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/features/paper/editor/paperShapeNodeView.ts": {
+      "lines": 205,
+      "longestFunction": 105,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 12
+    },
+    "frontend/src/features/paper/editor/paperTextOutlineExtension.ts": {
+      "lines": 95,
+      "longestFunction": 0,
+      "deepNestingLines": 24,
+      "maxNestingSpaces": 16
+    },
+    "frontend/src/services/domain/channelStructureOptimistic.ts": {
+      "lines": 247,
+      "longestFunction": 93,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "frontend/src/services/realtime/deferredMediaOutboundSend.ts": {
+      "lines": 291,
+      "longestFunction": 118,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "backend/src/api/routes/honchoMemory.ts": {
+      "lines": 209,
+      "longestFunction": 24,
+      "deepNestingLines": 2,
+      "maxNestingSpaces": 14
+    },
+    "backend/src/services/echoAttentionSnapshotScheduler.ts": {
+      "lines": 155,
+      "longestFunction": 52,
+      "deepNestingLines": 5,
+      "maxNestingSpaces": 14
+    }
+  }
+}

@@ -10,3 +10,4 @@ if [[ -n "${ECHO_GOD_FILE_RATCHET_BYPASS:-}" ]]; then
 fi
 
 node "$ROOT/scripts/check-god-file-ratchet.mjs" --staged
+node "$ROOT/scripts/check-new-code-charter.mjs" --staged

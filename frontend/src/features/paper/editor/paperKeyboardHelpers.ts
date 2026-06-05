@@ -1,5 +1,8 @@
 import {
   PAPER_FONT_CATALOG,
+  PAPER_FONT_SIZE_FINE_STEP,
+  PAPER_FONT_SIZE_MAX,
+  PAPER_FONT_SIZE_MIN,
   PAPER_FONT_SIZE_PRESETS,
   PAPER_HIGHLIGHT_COLORS,
   type PaperFontDefinition,
@@ -13,10 +16,12 @@ export function stepFontSizePx(
   const presets = PAPER_FONT_SIZE_PRESETS;
   if (direction === 'up') {
     const next = presets.find((p) => p > currentPx);
-    return next ?? presets[presets.length - 1]!;
+    if (next != null) return next;
+    return Math.min(PAPER_FONT_SIZE_MAX, currentPx + PAPER_FONT_SIZE_FINE_STEP);
   }
   const prev = [...presets].reverse().find((p) => p < currentPx);
-  return prev ?? presets[0]!;
+  if (prev != null) return prev;
+  return Math.max(PAPER_FONT_SIZE_MIN, currentPx - PAPER_FONT_SIZE_FINE_STEP);
 }
 
 export function cycleFontInCatalog(

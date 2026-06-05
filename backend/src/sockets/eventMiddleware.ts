@@ -15,6 +15,7 @@ const RATE_LIMITED_EVENTS = new Set([
   'presence:heartbeat',
   'joinChannel',
   'leaveChannel',
+  'client:ping',
 ]);
 
 /** High-frequency events: sample info logs to reduce log-amplification abuse. */
@@ -22,6 +23,7 @@ const HIGH_FREQUENCY_EVENTS = new Set([
   'presence:heartbeat',
   'presence:set',
   'message:reaction_toggle',
+  'client:ping',
 ]);
 
 const HIGH_FREQUENCY_LOG_SAMPLE_RATE = 0.02;

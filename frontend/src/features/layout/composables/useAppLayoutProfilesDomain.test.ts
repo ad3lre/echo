@@ -141,6 +141,7 @@ function createDomain() {
       pfp: 'self.png',
     }),
     isInDMChat: ref(false),
+    isInDMMode: ref(false),
     leaveDmUiIfViewingUser: vi.fn(),
     canChangeMemberNicknameInServer: vi.fn(() => true),
     hydrateEchoFromApi: vi.fn(async () => undefined),

@@ -77,9 +77,10 @@ jobs:
           npm run check:channel-message-writes
           node scripts/check-echo-no-sql-in-routes.mjs
           node scripts/check-god-file-ratchet.mjs
+          node scripts/check-new-code-charter.mjs
 
       - name: Socket handler unit tests
-        run: npx vitest run --config frontend/vitest.config.ts backend/src/tests/channelHandlers.joinChannel.test.ts
+        run: npm run test -w frontend -- backend/src/tests/channelHandlers.joinChannel.test.ts
 
       - name: Pipeline integration (Postgres)
         env:

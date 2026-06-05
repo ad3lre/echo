@@ -352,6 +352,12 @@ export type EchoChannelNotificationOverridesResponse = {
  * between the client and the server.
  */
 
+/** Acknowledgement payload for the `client:ping` liveness probe. */
+export type SocketLivenessAck = {
+  /** Server time (ms epoch) when the probe was handled. */
+  t: number;
+};
+
 /**
  * Defines the events that the client can send to the server.
  * The key is the event name, and the value is the type of the payload.
@@ -452,6 +458,15 @@ export interface ClientToServerEvents {
   }) => void;
 
   /**
+   * Application-level liveness probe with an acknowledgement. The client emits this on an
+   * interval while the tab is visible and force-recycles the socket if the server stops
+   * acking — catching "zombie" connections where Engine.IO believes the transport is still
+   * up but the Socket.IO session is effectively dead. The handler simply echoes the server
+   * time back; it does not require auth and has no side effects.
+   */
+  'client:ping': (cb: (ack: SocketLivenessAck) => void) => void;
+
+  /**
    * Emitted when a user wants to join a specific channel (room).
    * @param channelId - The ID of the channel to join.
    */
@@ -537,6 +552,23 @@ export interface ClientToServerEvents {
     channelId: string;
     blockId: string;
     displayName?: string;
+  }) => void;
+
+  /** Ephemeral: notify others this user is actively editing a block (keystrokes). */
+  'paper:block-dirty': (payload: {
+    channelId: string;
+    blockId: string;
+    displayName?: string;
+    color?: string;
+  }) => void;
+
+  /** Ephemeral: share preview text of a block being edited. */
+  'paper:block-preview': (payload: {
+    channelId: string;
+    blockId: string;
+    previewText: string;
+    displayName?: string;
+    color?: string;
   }) => void;
 }
 
@@ -703,6 +735,29 @@ export interface ServerToClientEvents {
     fromUserId: string;
     fromDisplayName: string;
     toUserId: string;
+  }) => void;
+
+  /** Ephemeral: broadcast active editing blocks (who is typing where). */
+  'paper:block-dirty': (payload: {
+    channelId: string;
+    dirty: {
+      userId: string;
+      blockId: string;
+      displayName: string;
+      color: string;
+    }[];
+  }) => void;
+
+  /** Ephemeral: broadcast preview text of blocks being edited. */
+  'paper:block-previews': (payload: {
+    channelId: string;
+    previews: {
+      userId: string;
+      blockId: string;
+      displayName: string;
+      color: string;
+      previewText: string;
+    }[];
   }) => void;
 
   /**

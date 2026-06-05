@@ -32,8 +32,35 @@ type CursorEntry = PaperRemoteCursor & { updatedAt: number };
 
 const channelLocks = new Map<string, Map<string, LockEntry>>();
 export const channelCursors = new Map<string, Map<string, CursorEntry>>();
+/** Ephemeral active editing blocks per channel */
+const channelDirtyBlocks = new Map<string, Map<string, DirtyEntry>>();
+/** Ephemeral block preview texts per channel */
+const channelBlockPreviews = new Map<string, Map<string, PreviewEntry>>();
 const LOCK_IDLE_MS = 45_000;
 const CURSOR_STALE_MS = 8_000;
+/** Ephemeral dirty entries go stale after this ms of inactivity */
+const DIRTY_STALE_MS = 3_000;
+/** Ephemeral previews go stale after this ms */
+const PREVIEW_STALE_MS = 5_000;
+/** Max length of preview text to broadcast */
+const MAX_PREVIEW_CHARS = 200;
+
+type DirtyEntry = {
+  userId: string;
+  blockId: string;
+  displayName: string;
+  color: string;
+  updatedAt: number;
+};
+
+type PreviewEntry = {
+  userId: string;
+  blockId: string;
+  displayName: string;
+  color: string;
+  previewText: string;
+  updatedAt: number;
+};
 /**
  * Cursor moves arrive at the client's raw pointer cadence (potentially dozens/sec
  * per author) and each broadcast carries the full channel cursor snapshot — O(N²)
@@ -115,6 +142,136 @@ export function emitCursorsNow(io: Server, channelId: string): void {
     cursors: serializeCursors(channelId),
   };
   io.to(paperWatchRoom(channelId)).emit('paper:cursors', payload);
+}
+
+function dirtyForChannel(channelId: string): Map<string, DirtyEntry> {
+  let map = channelDirtyBlocks.get(channelId);
+  if (!map) {
+    map = new Map();
+    channelDirtyBlocks.set(channelId, map);
+  }
+  return map;
+}
+
+function previewsForChannel(channelId: string): Map<string, PreviewEntry> {
+  let map = channelBlockPreviews.get(channelId);
+  if (!map) {
+    map = new Map();
+    channelBlockPreviews.set(channelId, map);
+  }
+  return map;
+}
+
+function serializeDirty(
+  channelId: string,
+): { userId: string; blockId: string; displayName: string; color: string }[] {
+  const now = Date.now();
+  const map = dirtyForChannel(channelId);
+  const out: {
+    userId: string;
+    blockId: string;
+    displayName: string;
+    color: string;
+  }[] = [];
+  for (const [key, entry] of map) {
+    if (now - entry.updatedAt > DIRTY_STALE_MS) {
+      map.delete(key);
+      continue;
+    }
+    out.push({
+      userId: entry.userId,
+      blockId: entry.blockId,
+      displayName: entry.displayName,
+      color: entry.color,
+    });
+  }
+  return out;
+}
+
+function serializePreviews(channelId: string): {
+  userId: string;
+  blockId: string;
+  displayName: string;
+  color: string;
+  previewText: string;
+}[] {
+  const now = Date.now();
+  const map = previewsForChannel(channelId);
+  const out: {
+    userId: string;
+    blockId: string;
+    displayName: string;
+    color: string;
+    previewText: string;
+  }[] = [];
+  for (const [key, entry] of map) {
+    if (now - entry.updatedAt > PREVIEW_STALE_MS) {
+      map.delete(key);
+      continue;
+    }
+    out.push({
+      userId: entry.userId,
+      blockId: entry.blockId,
+      displayName: entry.displayName,
+      color: entry.color,
+      previewText: entry.previewText,
+    });
+  }
+  return out;
+}
+
+/** Coalesce dirty broadcasts (lighter weight than cursors) */
+const DIRTY_FLUSH_MS = 100;
+const pendingDirtyFlush = new Map<string, ReturnType<typeof setTimeout>>();
+
+function emitDirtyNow(io: Server, channelId: string): void {
+  const t = pendingDirtyFlush.get(channelId);
+  if (t) {
+    clearTimeout(t);
+    pendingDirtyFlush.delete(channelId);
+  }
+  const payload = {
+    channelId,
+    dirty: serializeDirty(channelId),
+  };
+  io.to(paperWatchRoom(channelId)).emit('paper:block-dirty', payload);
+}
+
+export function broadcastDirty(io: Server, channelId: string): void {
+  if (pendingDirtyFlush.has(channelId)) return;
+  const t = setTimeout(() => {
+    pendingDirtyFlush.delete(channelId);
+    emitDirtyNow(io, channelId);
+  }, DIRTY_FLUSH_MS);
+  if (typeof t.unref === 'function') t.unref();
+  pendingDirtyFlush.set(channelId, t);
+}
+
+/** Coalesce preview broadcasts (heavier payload) */
+const PREVIEW_FLUSH_MS = 200;
+const pendingPreviewFlush = new Map<string, ReturnType<typeof setTimeout>>();
+
+function emitPreviewsNow(io: Server, channelId: string): void {
+  const t = pendingPreviewFlush.get(channelId);
+  if (t) {
+    clearTimeout(t);
+    pendingPreviewFlush.delete(channelId);
+  }
+  const payload = {
+    channelId,
+    previews: serializePreviews(channelId),
+  };
+  io.to(paperWatchRoom(channelId)).emit('paper:block-previews', payload);
+}
+
+export function broadcastPreviews(io: Server, channelId: string): void {
+  if (pendingPreviewFlush.has(channelId)) return;
+  const t = setTimeout(() => {
+    pendingPreviewFlush.delete(channelId);
+    emitPreviewsNow(io, channelId);
+  }, PREVIEW_FLUSH_MS);
+  if (typeof t.unref === 'function') t.unref();
+  pendingPreviewFlush.set(channelId, t);
 }
 
 /**
@@ -331,8 +488,98 @@ export function registerPaperCollabHandler(
     })();
   });
 
+  socket.on('paper:block-dirty', (payload) => {
+    void (async () => {
+      const channelId =
+        typeof payload?.channelId === 'string' ? payload.channelId.trim() : '';
+      const blockId =
+        typeof payload?.blockId === 'string' ? payload.blockId.trim() : '';
+      if (!channelId || !blockId) return;
+      if (!(await collabAllowed(channelId))) return;
+
+      const displayName =
+        typeof payload?.displayName === 'string' && payload.displayName.trim()
+          ? payload.displayName.trim()
+          : 'Author';
+      const color =
+        typeof payload?.color === 'string' && payload.color.trim()
+          ? payload.color.trim()
+          : '#6366f1';
+
+      const map = dirtyForChannel(channelId);
+      const key = `${userId}:${blockId}`;
+      map.set(key, {
+        userId,
+        blockId,
+        displayName,
+        color,
+        updatedAt: Date.now(),
+      });
+      broadcastDirty(io, channelId);
+    })();
+  });
+
+  socket.on('paper:block-preview', (payload) => {
+    void (async () => {
+      const channelId =
+        typeof payload?.channelId === 'string' ? payload.channelId.trim() : '';
+      const blockId =
+        typeof payload?.blockId === 'string' ? payload.blockId.trim() : '';
+      if (!channelId || !blockId) return;
+      if (!(await collabAllowed(channelId))) return;
+
+      const previewText =
+        typeof payload?.previewText === 'string'
+          ? payload.previewText.slice(0, MAX_PREVIEW_CHARS)
+          : '';
+      if (!previewText) return;
+
+      const displayName =
+        typeof payload?.displayName === 'string' && payload.displayName.trim()
+          ? payload.displayName.trim()
+          : 'Author';
+      const color =
+        typeof payload?.color === 'string' && payload.color.trim()
+          ? payload.color.trim()
+          : '#6366f1';
+
+      const map = previewsForChannel(channelId);
+      const key = `${userId}:${blockId}`;
+      map.set(key, {
+        userId,
+        blockId,
+        displayName,
+        color,
+        previewText,
+        updatedAt: Date.now(),
+      });
+      broadcastPreviews(io, channelId);
+    })();
+  });
+
   socket.on('disconnect', () => {
     // paperWatchHandler clears socket channels; collab cleanup runs from there too.
+    // Clean up ephemeral state for this user
+    for (const [channelId, map] of channelDirtyBlocks) {
+      let changed = false;
+      for (const [key, entry] of map) {
+        if (entry.userId === userId) {
+          map.delete(key);
+          changed = true;
+        }
+      }
+      if (changed) broadcastDirty(io, channelId);
+    }
+    for (const [channelId, map] of channelBlockPreviews) {
+      let changed = false;
+      for (const [key, entry] of map) {
+        if (entry.userId === userId) {
+          map.delete(key);
+          changed = true;
+        }
+      }
+      if (changed) broadcastPreviews(io, channelId);
+    }
   });
 }
 

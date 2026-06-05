@@ -214,6 +214,20 @@ interface AppConfig {
    */
   readonly serperRefreshFailureMaxCount: number;
   /**
+   * Honcho conversational memory (https://honcho.dev). Off unless `HONCHO_ENABLED=true`
+   * and `HONCHO_API_KEY` is set. Keys: https://app.honcho.dev/api-keys
+   */
+  readonly honchoEnabled: boolean;
+  readonly honchoApiKey: string;
+  /** Honcho workspace id (Echo default: `ECHO`). */
+  readonly honchoWorkspaceId: string;
+  /** `production` (SaaS) or `local` (self-hosted). */
+  readonly honchoEnvironment: 'local' | 'production';
+  /** Override API base URL (self-hosted). When unset, SDK uses environment default. */
+  readonly honchoBaseUrl: string | null;
+  /** Per-user requests/minute to `/api/v1/honcho/*`. Default 20. */
+  readonly honchoRateLimitPerMinute: number;
+  /**
    * YouTube Data API v3 key for VC “Watch together” search (`GET …/youtube/search`).
    * When unset, search uses public Invidious-compatible instances (best-effort).
    */
@@ -1034,7 +1048,7 @@ if (echoCsamImageScanModeResolved === 'on' && !echoCsamHasConfiguredScanners) {
 }
 
 export const config: AppConfig = {
-  port: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
+  port: process.env.PORT ? Number(process.env.PORT) : 3000,
   host: process.env.HOST ?? '0.0.0.0',
   logLevel: process.env.LOG_LEVEL ?? 'info',
   corsOrigin: mergeCorsWithDesktop(
@@ -1109,6 +1123,25 @@ export const config: AppConfig = {
     const n = raw ? Number(raw) : NaN;
     if (raw === '0') return 0;
     return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 0;
+  })(),
+  honchoEnabled: (() => {
+    const raw = (process.env.HONCHO_ENABLED ?? '').trim().toLowerCase();
+    return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+  })(),
+  honchoApiKey: process.env.HONCHO_API_KEY?.trim() ?? '',
+  honchoWorkspaceId: process.env.HONCHO_WORKSPACE_ID?.trim() || 'ECHO',
+  honchoEnvironment:
+    (process.env.HONCHO_ENVIRONMENT ?? '').trim().toLowerCase() === 'local'
+      ? 'local'
+      : 'production',
+  honchoBaseUrl: (() => {
+    const raw = process.env.HONCHO_BASE_URL?.trim();
+    return raw || null;
+  })(),
+  honchoRateLimitPerMinute: (() => {
+    const raw = process.env.HONCHO_RATE_LIMIT_PER_MINUTE?.trim();
+    const n = raw ? Number(raw) : NaN;
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 20;
   })(),
   youtubeDataApiKey: process.env.YOUTUBE_DATA_API_KEY?.trim() ?? '',
   youtubeInvidiousHosts: (() => {
@@ -1804,9 +1837,9 @@ export const config: AppConfig = {
 
 // It's a good practice to validate critical configuration variables
 // to prevent the application from starting in a misconfigured state.
-if (isNaN(config.port)) {
+if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65_535) {
   configStderr(
-    `Invalid PORT specified: ${process.env.PORT}. It must be a number.`,
+    `Invalid PORT specified: ${process.env.PORT}. Use an integer between 1 and 65535.`,
   );
   process.exit(1);
 }

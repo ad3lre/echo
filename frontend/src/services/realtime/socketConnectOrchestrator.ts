@@ -30,8 +30,18 @@ export async function executeEchoSocketConnectAttempt(opts: {
 
   const client = io(opts.socketIoBase, {
     ...echoSocketIoManagerOptions(),
-    ...(isNativeBearerClient() && getNativeAccessToken()
-      ? { auth: { token: getNativeAccessToken()! } }
+    ...(isNativeBearerClient()
+      ? {
+          // Callback form (not a static object): Socket.IO invokes this on EVERY
+          // (re)connect handshake. Native access tokens are short-lived (~15 min) and
+          // rotate, so a frozen `auth: { token }` captured here would replay a stale
+          // token on Manager auto-reconnect → permanent 401 loop. Reading the token
+          // afresh per handshake lets the connect_error→refresh→retry cycle self-heal.
+          auth: (cb: (data: Record<string, unknown>) => void) => {
+            const token = getNativeAccessToken();
+            cb(token ? { token } : {});
+          },
+        }
       : {}),
   });
   opts.afterConnectedSocket(client);

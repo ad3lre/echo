@@ -8,6 +8,11 @@ import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { isGuestWelcomeLayoutDismissedForUser } from '@/utils/guestWelcomeLayout';
 
+/** Delays (ms) before nudging the guest "welcome prefs" modal open, by trigger. */
+const GUEST_WELCOME_PREFS_SCHEDULE_DELAY_MS = 700;
+const GUEST_WELCOME_PREFS_AFTER_NAME_DELAY_MS = 400;
+const GUEST_WELCOME_PREFS_INITIAL_DELAY_MS = 1400;
+
 export function useAppLayoutGuestSession(deps: {
   serverStore: ReturnType<typeof useServerStore>;
   workspace: WorkspaceStateApi;
@@ -46,7 +51,10 @@ export function useAppLayoutGuestSession(deps: {
 
   function scheduleGuestWelcomePrefsModal() {
     if (typeof window === 'undefined') return;
-    window.setTimeout(() => tryOpenGuestWelcomePrefsModal(), 700);
+    window.setTimeout(
+      () => tryOpenGuestWelcomePrefsModal(),
+      GUEST_WELCOME_PREFS_SCHEDULE_DELAY_MS,
+    );
   }
 
   watch(
@@ -54,7 +62,10 @@ export function useAppLayoutGuestSession(deps: {
     (open, wasOpen) => {
       if (open || !wasOpen) return;
       void nextTick(() => {
-        window.setTimeout(() => tryOpenGuestWelcomePrefsModal(), 400);
+        window.setTimeout(
+          () => tryOpenGuestWelcomePrefsModal(),
+          GUEST_WELCOME_PREFS_AFTER_NAME_DELAY_MS,
+        );
       });
     },
   );
@@ -77,7 +88,10 @@ export function useAppLayoutGuestSession(deps: {
       const id = authSession.backendUser?.id?.trim() ?? '';
       if (!id || isGuestWelcomeLayoutDismissedForUser(id)) return;
       guestWelcomeInitialScheduleDone = true;
-      window.setTimeout(() => tryOpenGuestWelcomePrefsModal(), 1400);
+      window.setTimeout(
+        () => tryOpenGuestWelcomePrefsModal(),
+        GUEST_WELCOME_PREFS_INITIAL_DELAY_MS,
+      );
     },
     { immediate: true },
   );

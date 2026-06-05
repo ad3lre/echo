@@ -5,6 +5,7 @@ import {
   fetchPaperDocument,
   patchPaperDocument,
 } from '@/features/paper/api/paper';
+import { findChangedBlocks } from '@/features/paper/editor/paperBlockMerge';
 
 const SAVE_RETRY_ATTEMPTS = 2;
 const SAVE_RETRY_BASE_MS = 400;
@@ -21,6 +22,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export type ConflictDetails = {
+  /** Server revision at time of conflict */
+  serverRevision: number;
+  /** Local revision we tried to save */
+  localRevision: number;
+  /** Blocks that changed on server */
+  serverChangedBlocks: string[];
+  /** Blocks that changed locally */
+  localChangedBlocks: string[];
+  /** Overlapping changed blocks (true conflict) */
+  overlappingBlocks: string[];
+};
+
 export function usePaperDocument(channelId: Ref<string>) {
   const doc = ref<PaperDocumentPayload | null>(null);
   const loading = ref(false);
@@ -28,6 +42,10 @@ export function usePaperDocument(channelId: Ref<string>) {
   const saveRetrying = ref(false);
   const error = ref<string | null>(null);
   const conflict = ref(false);
+  /** Detailed conflict info for block-level merge UI */
+  const conflictDetails = ref<ConflictDetails | null>(null);
+  /** Local JSON snapshot at time of conflict (for recovery) */
+  const conflictLocalSnapshot = ref<Record<string, unknown> | null>(null);
 
   let pendingJson: Record<string, unknown> | null = null;
   let drainPromise: Promise<boolean> | null = null;
@@ -69,13 +87,37 @@ export function usePaperDocument(channelId: Ref<string>) {
         });
         error.value = null;
         conflict.value = false;
+        conflictDetails.value = null;
+        conflictLocalSnapshot.value = null;
         return true;
       } catch (e) {
         lastError = e;
         if (e instanceof EchoApiError && e.status === 409) {
           conflict.value = true;
           saveRetrying.value = false;
+          // Save local snapshot for potential recovery
+          conflictLocalSnapshot.value = JSON.parse(JSON.stringify(contentJson));
+          // Load server state and compute conflict details
+          const serverBefore = doc.value?.contentJson ?? null;
           await load();
+          const serverAfter = doc.value?.contentJson ?? null;
+          if (serverBefore && serverAfter && conflictLocalSnapshot.value) {
+            const serverChanged = findChangedBlocks(serverBefore, serverAfter);
+            const localChanged = findChangedBlocks(
+              serverBefore,
+              conflictLocalSnapshot.value,
+            );
+            const overlapping = [...localChanged].filter((id) =>
+              serverChanged.has(id),
+            );
+            conflictDetails.value = {
+              serverRevision: doc.value?.revision ?? 0,
+              localRevision: current.revision,
+              serverChangedBlocks: [...serverChanged],
+              localChangedBlocks: [...localChanged],
+              overlappingBlocks: overlapping,
+            };
+          }
           return false;
         }
         if (!isTransientSaveError(e) || attempt >= SAVE_RETRY_ATTEMPTS) {
@@ -134,6 +176,20 @@ export function usePaperDocument(channelId: Ref<string>) {
     { immediate: true },
   );
 
+  /** Attempt to resolve conflict by accepting local changes (retry save) */
+  async function resolveConflictAcceptLocal(): Promise<boolean> {
+    if (!conflictLocalSnapshot.value || !doc.value) return false;
+    // Retry save with current server revision
+    return await save(conflictLocalSnapshot.value);
+  }
+
+  /** Clear conflict state and accept server version */
+  function resolveConflictAcceptServer(): void {
+    conflict.value = false;
+    conflictDetails.value = null;
+    conflictLocalSnapshot.value = null;
+  }
+
   return {
     doc,
     loading,
@@ -141,7 +197,11 @@ export function usePaperDocument(channelId: Ref<string>) {
     saveRetrying,
     error,
     conflict,
+    conflictDetails,
+    conflictLocalSnapshot,
     load,
     save,
+    resolveConflictAcceptLocal,
+    resolveConflictAcceptServer,
   };
 }

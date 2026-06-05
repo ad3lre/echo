@@ -5,6 +5,7 @@ import {
   clearStoredPaperEditorSelection,
   getStoredPaperEditorSelection,
   onPaperFormatBarMouseDown,
+  preservePaperEditorSelectionDuring,
   runPaperFormatCommand,
   snapshotPaperEditorSelection,
 } from '@/features/paper/editor/paperFormatSelection';
@@ -125,6 +126,41 @@ describe('paperFormatSelection', () => {
     expect(inputEv.preventDefault).not.toHaveBeenCalled();
     expect(getStoredPaperEditorSelection()).toEqual({ from: 1, to: 6 });
 
+    editor.destroy();
+  });
+
+  it('applies font family at a collapsed caret for upcoming typing', () => {
+    const editor = createEditor();
+    clearStoredPaperEditorSelection();
+    editor.commands.setTextSelection(3);
+
+    runPaperFormatCommand(editor, (chain) => chain.setFontFamily('Georgia'));
+
+    expect(editor.state.selection.from).toBe(3);
+    expect(editor.state.selection.to).toBe(3);
+    expect(editor.getAttributes('textStyle').fontFamily).toBe('Georgia');
+    editor.destroy();
+  });
+
+  it('preservePaperEditorSelectionDuring keeps range across async work', async () => {
+    const editor = createEditor();
+    editor.commands.setTextSelection({ from: 1, to: 6 });
+    clearStoredPaperEditorSelection();
+    snapshotPaperEditorSelection(editor);
+    editor.commands.setTextSelection(6);
+
+    await preservePaperEditorSelectionDuring(editor, async () => {
+      editor.commands.setTextSelection(3);
+      await Promise.resolve();
+    });
+
+    runPaperFormatCommand(editor, (chain) =>
+      chain.extendMarkRange('textStyle').setFontFamily('Georgia'),
+    );
+
+    expect(editor.state.selection.from).toBe(1);
+    expect(editor.state.selection.to).toBe(6);
+    expect(editor.getAttributes('textStyle').fontFamily).toBe('Georgia');
     editor.destroy();
   });
 });

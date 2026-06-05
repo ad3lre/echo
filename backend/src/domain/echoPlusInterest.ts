@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { boundedInteger, minInteger } from '../shared/numberParsing';
 
 export type EchoPlusInterestTier = 'plus' | 'black' | 'any';
 export type EchoPlusInterestBillingCycle = 'monthly' | 'yearly';
@@ -110,8 +111,8 @@ export async function listEchoPlusInterest(
   limit = 500,
   offset = 0,
 ): Promise<{ entries: EchoPlusInterestListEntry[]; total: number }> {
-  const cappedLimit = Math.min(Math.max(limit, 1), 2000);
-  const cappedOffset = Math.max(offset, 0);
+  const cappedLimit = boundedInteger(limit, 500, 1, 2000);
+  const cappedOffset = minInteger(offset, 0, 0);
   const [listRes, countRes] = await Promise.all([
     pool.query<{
       user_id: string;

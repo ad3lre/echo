@@ -53,6 +53,8 @@ import { mirrorEchoMessageToDiscordIfConfigured } from './discordBridgeOutbound'
 import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
 import { registerChatUploadRetentionFromMessageUrls } from './chatUploadRetention';
 import { isEchoChatUserMediaStorageKey } from '../../../shared/chatMediaRetention';
+import { isHonchoActive } from './honcho/client';
+import { scheduleHonchoMessageSync } from './honcho/memory';
 import { isEchoChatUploadAttachmentRegistered } from './echoUploadIntent';
 import { isDiscordSyncedBridgeSource } from '../../../shared/discordBridgeSources';
 
@@ -439,6 +441,15 @@ export async function echoPersistedMessageCreateAndBroadcast(
   }
 
   echoMessagesPersistedTotal.inc({ result: 'inserted' });
+
+  if (isHonchoActive()) {
+    scheduleHonchoMessageSync(log, {
+      channelId,
+      userId,
+      messageId: message.id,
+      content,
+    });
+  }
 
   void (async () => {
     try {

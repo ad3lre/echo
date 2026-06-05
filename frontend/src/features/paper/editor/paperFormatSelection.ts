@@ -46,6 +46,33 @@ export function getStoredPaperEditorSelection(): PaperEditorTextRange | null {
   return storedRange;
 }
 
+export function restorePaperEditorSelection(
+  range: PaperEditorTextRange | null,
+): void {
+  storedRange = range;
+}
+
+/** Keep the last stored range while awaiting async toolbar work (e.g. font loading). */
+export async function preservePaperEditorSelectionDuring<T>(
+  editor: Editor | null | undefined,
+  work: () => Promise<T>,
+): Promise<T | undefined> {
+  if (!editor) return undefined;
+  snapshotPaperEditorSelection(editor);
+  const saved = getStoredPaperEditorSelection();
+  const { from, to } = editor.state.selection;
+  const savedCaret = from === to ? from : null;
+  try {
+    return await work();
+  } finally {
+    if (saved) {
+      restorePaperEditorSelection(saved);
+    } else if (savedCaret != null) {
+      editor.commands.setTextSelection(savedCaret);
+    }
+  }
+}
+
 function activeInFormatChrome(): boolean {
   return !!document.activeElement?.closest(FORMAT_CHROME_SELECTOR);
 }
@@ -84,6 +111,9 @@ export function runPaperFormatCommand(
         }
       : null);
 
+  const { from, to } = editor.state.selection;
+  const caretOnly = !range && from === to;
+
   let chain = editor.chain().focus();
   if (range) {
     chain = chain.setTextSelection(range);
@@ -91,6 +121,8 @@ export function runPaperFormatCommand(
   const ok = build(chain).run();
   if (ok && range) {
     storedRange = range;
+  } else if (ok && caretOnly) {
+    editor.commands.setTextSelection(from);
   }
   return ok;
 }

@@ -17,6 +17,13 @@ describe('markdownKatex', () => {
     expect(html).not.toContain('katex-error');
   });
 
+  it('preserves distinct vlist offsets for simultaneous subscript and superscript', () => {
+    const html = renderMarkdownKatexSafeHtml('x_i^2', false);
+    const tops = [...html.matchAll(/top:\s*-?[\d.]+em/g)].map((m) => m[0]);
+    expect(tops.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(tops).size).toBeGreaterThanOrEqual(2);
+  });
+
   it('keeps KaTeX layout styles needed for fractions and tall glyphs', () => {
     const html = renderMarkdownKatexSafeHtml(String.raw`\frac{1}{2}`, false);
     expect(html).toContain('style=');

@@ -42,6 +42,7 @@ function walkNode(
   if (n.type === 'paperShape') {
     const attrs = n.attrs as Record<string, unknown> | undefined;
     pushUniqueHex(object, attrs?.fill);
+    pushUniqueHex(object, attrs?.borderColor);
   }
   walkMarks(n.marks, text, highlight);
   const content = n.content;

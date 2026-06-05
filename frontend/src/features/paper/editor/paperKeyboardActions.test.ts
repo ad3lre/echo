@@ -10,6 +10,8 @@ import {
 } from '@/features/paper/editor/paperKeyboardHelpers';
 import {
   PAPER_FONT_CATALOG,
+  PAPER_FONT_SIZE_MAX,
+  PAPER_FONT_SIZE_MIN,
   PAPER_FONT_SIZE_PRESETS,
 } from '@/features/paper/editor/paperTypography';
 
@@ -24,12 +26,15 @@ describe('stepFontSizePx', () => {
     expect(stepFontSizePx(14, 'down')).toBe(12);
   });
 
-  it('clamps at preset bounds', () => {
-    expect(stepFontSizePx(PAPER_FONT_SIZE_PRESETS[0]!, 'down')).toBe(
-      PAPER_FONT_SIZE_PRESETS[0],
-    );
+  it('steps by 1px beyond preset bounds', () => {
+    const min = PAPER_FONT_SIZE_PRESETS[0]!;
     const max = PAPER_FONT_SIZE_PRESETS[PAPER_FONT_SIZE_PRESETS.length - 1]!;
-    expect(stepFontSizePx(max, 'up')).toBe(max);
+    expect(stepFontSizePx(min, 'down')).toBe(min - 1);
+    expect(stepFontSizePx(max, 'up')).toBe(max + 1);
+    expect(stepFontSizePx(PAPER_FONT_SIZE_MIN, 'down')).toBe(
+      PAPER_FONT_SIZE_MIN,
+    );
+    expect(stepFontSizePx(PAPER_FONT_SIZE_MAX, 'up')).toBe(PAPER_FONT_SIZE_MAX);
   });
 });
 

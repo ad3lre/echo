@@ -11,6 +11,7 @@ import {
   normalizeEchoPlusInterestTier,
   upsertEchoPlusInterest,
 } from '../../../domain/echoPlusInterest';
+import { boundedInteger, minInteger } from '../../../shared/numberParsing';
 
 function interestAdminAllowed(userId: string): boolean {
   const allow = config.echoPlusInterestAdminUserIds;
@@ -153,13 +154,13 @@ export default async function echoPlusInterestRoutes(
           'Subscription interest requires a database.',
         );
       }
-      const limit = Number(req.query?.limit ?? 500);
-      const offset = Number(req.query?.offset ?? 0);
+      const limit = boundedInteger(req.query?.limit, 500, 1, 2000);
+      const offset = minInteger(req.query?.offset, 0, 0);
       try {
         const { entries, total } = await listEchoPlusInterest(
           pool,
-          Number.isFinite(limit) ? limit : 500,
-          Number.isFinite(offset) ? offset : 0,
+          limit,
+          offset,
         );
         return reply.code(200).send({ interests: entries, total });
       } catch (err) {

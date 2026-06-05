@@ -8,3 +8,5 @@ export const TURNSTILE_VERIFY_MS = 12_000;
 export const OAUTH_UPSTREAM_FETCH_MS = 15_000;
 export const DISCORD_BOT_INTERNAL_FETCH_MS = 60_000;
 export const YOUTUBE_SEARCH_FETCH_MS = 12_000;
+/** Honcho conversational memory API (`@honcho-ai/sdk`). */
+export const HONCHO_FETCH_MS = 30_000;

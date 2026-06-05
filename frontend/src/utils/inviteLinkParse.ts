@@ -2,6 +2,14 @@
  * Extract invite token from pasted text: full URL (including `/api/v1/echo/invites/…/share`),
  * `/invite/CODE` path, or raw vanity / hex code.
  */
+function decodeInvitePathSegment(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 export function extractInviteTokenFromUserInput(input: string): string {
   const t = input.trim();
   if (!t) return '';
@@ -11,13 +19,13 @@ export function extractInviteTokenFromUserInput(input: string): string {
       const share = u.pathname.match(
         /^\/api\/v1\/echo\/invites\/([^/]+)\/share\/?$/i,
       );
-      if (share?.[1]) return decodeURIComponent(share[1]);
+      if (share?.[1]) return decodeInvitePathSegment(share[1]);
       const parts = u.pathname.split('/').filter(Boolean);
       const invIdx = parts.indexOf('invite');
       if (invIdx >= 0 && parts[invIdx + 1]) {
-        return decodeURIComponent(parts[invIdx + 1]!);
+        return decodeInvitePathSegment(parts[invIdx + 1]!);
       }
-      return decodeURIComponent(parts[parts.length - 1] ?? '');
+      return decodeInvitePathSegment(parts[parts.length - 1] ?? '');
     }
   } catch {
     /* not a URL */

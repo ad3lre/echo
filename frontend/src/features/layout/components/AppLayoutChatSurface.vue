@@ -16,6 +16,7 @@ import { getActivePinia, storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import AppLayoutChatHeader from '@/features/layout/components/AppLayoutChatHeader.vue';
 import AppLayoutPinsDropdown from '@/features/layout/components/AppLayoutPinsDropdown.vue';
+import RealtimeConnectionBanner from '@/features/layout/components/RealtimeConnectionBanner.vue';
 import AppLayoutVoiceSection from '@/features/layout/components/AppLayoutVoiceSection.vue';
 import GuildVoiceFloatingSpeakerPill from '@/features/layout/components/GuildVoiceFloatingSpeakerPill.vue';
 import GuildVoiceStreamPip from '@/features/layout/components/GuildVoiceStreamPip.vue';
@@ -477,6 +478,10 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :vc-mirror-camera="chatCtx.vcMirrorCamera"
         :vc-remote-participants="chatCtx.vcRemoteParticipants"
       />
+      <!-- Paper has its own PaperConnectionBanner; avoid doubling up there. -->
+      <RealtimeConnectionBanner
+        v-if="chatCtx.mainSurface.type !== 'serverPaper'"
+      />
       <AppLayoutPinsDropdown
         :is-open="chatCtx.isPinsDropdownOpen"
         :rect="chatCtx.pinsDropdownRect"
@@ -812,6 +817,9 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
           :handle-go-to-channel="chatCtx.handleGoToChannel"
           :handle-go-to-message="resolvedHandleGoToMessage"
           :open-member-profile="chatCtx.openMemberProfile"
+          :open-extended-profile-modal-for-user-id="
+            chatCtx.openExtendedProfileModalForUserId
+          "
           :open-profile-from-context-menu="chatCtx.openProfileFromContextMenu"
           :can-moderate-author="chatCtx.canModerateAuthor"
           :handle-moderate-user="chatCtx.handleModerateUser"
@@ -839,9 +847,6 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
           :on-mobile-back-to-channels="chatCtx.expandChannels"
           :open-expanded-profile-panel-for-user-id="
             chatCtx.openExpandedProfilePanelForUserId
-          "
-          :open-extended-profile-modal-for-user-id="
-            chatCtx.openExtendedProfileModalForUserId
           "
         />
       </div>

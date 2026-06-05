@@ -35,9 +35,16 @@ import type {
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { ChannelCategory as GuildVoiceStripCategory } from '@/features/channel-panel/composables/useChannelPanelVoiceState';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
-import { filterDmMentionNotificationRows } from '@/features/dm/filterDmMentionNotificationRows';
 import { useCompactShell } from '@/composables/useCompactShell';
 import { echoUserMatchesSearchQuery } from '@/utils/echoUserSearch';
+import {
+  buildMentionNotificationSourceChips,
+  filterDmMentionNotificationRows,
+  type MentionNotificationPlaceVisual,
+  type MentionNotificationSourceChip,
+  type NotificationReadPreset,
+  type NotificationSourceSelection,
+} from '@/features/dm/filterDmMentionNotificationRows';
 
 defineOptions({ inheritAttrs: false });
 
@@ -153,7 +160,15 @@ const props = defineProps<{
   mentionNotificationCategoriesByServer?: Readonly<
     Record<string, ChannelCategory[]>
   >;
+  mentionNotificationServers?: ReadonlyArray<{
+    id: string;
+    name: string;
+    imageUrl?: string;
+  }>;
   isPersistedEchoDmThread?: (channelId: string) => boolean;
+  /** Current notifications filter state (controlled from parent). */
+  dmNotificationsReadPreset?: NotificationReadPreset;
+  dmNotificationsSourceKey?: string;
   /** Called when a participant avatar in the guild VC activity strip is right-clicked. */
   onGuildVcStripParticipantContextMenu?: (payload: {
     userId: string;
@@ -238,6 +253,9 @@ const emit = defineEmits<{
   'update:guild-vc-screenshare': [value: boolean];
   'leave-guild-voice': [];
   'open-guild-voice-audio-settings': [];
+  /** Notifications filter state updates. */
+  'update:dm-notifications-read-preset': [preset: NotificationReadPreset];
+  'update:dm-notifications-source-key': [key: string];
 }>();
 
 type DmPanelContextTarget =
@@ -460,6 +478,94 @@ const notificationLatestPreview = computed(() => {
 const notificationsRowSelected = computed(
   () => props.activeTab === 'notifications',
 );
+
+// --- Notifications place filter widgets (shown when notifications tab is active) ---
+const UNREAD_FILTER_KEY = 'unread';
+
+type PlaceWidget = {
+  key: string;
+  label: string;
+  count: number;
+  visual: MentionNotificationPlaceVisual;
+};
+
+const serverNameById = computed<Record<string, string>>(() => {
+  const m: Record<string, string> = {};
+  for (const s of props.mentionNotificationServers ?? []) {
+    m[s.id] = s.name;
+  }
+  return m;
+});
+
+const serverImageUrlById = computed<Record<string, string | undefined>>(() => {
+  const m: Record<string, string | undefined> = {};
+  for (const s of props.mentionNotificationServers ?? []) {
+    m[s.id] = s.imageUrl;
+  }
+  return m;
+});
+
+const sourceChips = computed((): MentionNotificationSourceChip[] =>
+  buildMentionNotificationSourceChips({
+    rows: props.dmMentionNotifications ?? [],
+    categoriesByServer: props.mentionNotificationCategoriesByServer ?? {},
+    serverNameById: serverNameById.value,
+    serverImageUrlById: serverImageUrlById.value,
+  }),
+);
+
+function countRowsFor(
+  preset: NotificationReadPreset,
+  source: NotificationSourceSelection,
+): number {
+  return filterDmMentionNotificationRows({
+    rows: props.dmMentionNotifications ?? [],
+    preset,
+    source,
+    readStateByChannelId: props.dmNotificationReadStateByChannelId ?? {},
+    categoriesByServer: props.mentionNotificationCategoriesByServer ?? {},
+    isPersistedEchoDmThread: props.isPersistedEchoDmThread ?? (() => false),
+  }).length;
+}
+
+const visibleSourceChips = computed<MentionNotificationSourceChip[]>(() =>
+  sourceChips.value.filter(
+    (chip) =>
+      chip.selection.kind === 'all' || countRowsFor('all', chip.selection) > 0,
+  ),
+);
+
+const placeWidgets = computed<PlaceWidget[]>(() => {
+  const unread: PlaceWidget = {
+    key: UNREAD_FILTER_KEY,
+    label: 'Unread',
+    count: countRowsFor('unread', { kind: 'all' }),
+    visual: { kind: 'none' },
+  };
+  const places = visibleSourceChips.value.map((chip) => ({
+    key: chip.key,
+    label: chip.label,
+    count: countRowsFor('all', chip.selection),
+    visual: chip.visual,
+  }));
+  return [unread, ...places];
+});
+
+const activeFilterKey = computed<string>({
+  get: () => {
+    if (props.dmNotificationsReadPreset === 'unread') return UNREAD_FILTER_KEY;
+    return props.dmNotificationsSourceKey ?? 'all';
+  },
+  set: (key) => {
+    if (key === UNREAD_FILTER_KEY) {
+      emit('update:dm-notifications-read-preset', 'unread');
+      emit('update:dm-notifications-source-key', 'all');
+      return;
+    }
+    emit('update:dm-notifications-read-preset', 'all');
+    emit('update:dm-notifications-source-key', key);
+  },
+});
 
 const dmUsersFiltered = computed(() => {
   const q = dmListSearch.value.trim().toLowerCase();
@@ -831,6 +937,51 @@ watch(
                 </div>
               </div>
             </button>
+
+            <!-- Place filter widgets: shown when notifications tab is active -->
+            <div
+              v-if="activeTab === 'notifications' && placeWidgets.length > 1"
+              class="dm-notifications-places flex flex-col gap-1.5 pt-1"
+              aria-label="Filter mentions"
+            >
+              <p
+                class="px-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
+              >
+                Place
+              </p>
+              <div class="flex flex-col gap-1">
+                <button
+                  v-for="place in placeWidgets"
+                  :key="place.key"
+                  type="button"
+                  class="dm-filter-widget"
+                  :class="{
+                    'dm-filter-widget--active': activeFilterKey === place.key,
+                    'dm-filter-widget--has-bg': place.visual.kind === 'image',
+                  }"
+                  :aria-pressed="activeFilterKey === place.key"
+                  :title="place.label"
+                  @click="activeFilterKey = place.key"
+                >
+                  <span
+                    v-if="place.visual.kind === 'image'"
+                    class="dm-filter-widget__bg"
+                    :style="{
+                      backgroundImage: `url(${safeImageUrl(place.visual.url)})`,
+                    }"
+                    aria-hidden="true"
+                  />
+                  <span class="dm-filter-widget__content">
+                    <span class="dm-filter-widget__label">{{
+                      place.label
+                    }}</span>
+                    <span class="dm-filter-widget__count">{{
+                      place.count
+                    }}</span>
+                  </span>
+                </button>
+              </div>
+            </div>
 
             <GuildVoiceActivityStrip
               v-if="(guildVoiceActivityCards?.length ?? 0) > 0"
@@ -1547,5 +1698,231 @@ watch(
     backdrop-filter: var(--chat-glass-header-backdrop);
     -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
   }
+}
+
+/* Notifications place filter widgets */
+.dm-filter-widget {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  min-height: 2.25rem;
+  padding: 0;
+  border-radius: 0.625rem;
+  border: 1px solid color-mix(in srgb, white 8%, transparent);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, white 6%, transparent) 0%,
+    color-mix(in srgb, white 3%, transparent) 100%
+  );
+  color: color-mix(in srgb, white 83%, transparent);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+
+.dm-filter-widget__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+  position: relative;
+  z-index: 1;
+}
+
+.dm-filter-widget__bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  filter: blur(10px) saturate(1.2);
+  transform: scale(1.08);
+}
+
+.dm-filter-widget__bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, black 62%, transparent) 0%,
+    color-mix(in srgb, black 78%, transparent) 100%
+  );
+}
+
+.dm-filter-widget--has-bg {
+  border-color: color-mix(in srgb, white 14%, transparent);
+}
+
+.dm-filter-widget--has-bg .dm-filter-widget__label {
+  text-shadow: 0 1px 8px color-mix(in srgb, black 55%, transparent);
+}
+
+.dm-filter-widget--has-bg .dm-filter-widget__count {
+  background: color-mix(in srgb, black 42%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.dm-filter-widget:hover,
+.dm-filter-widget:focus-visible {
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, white 11%, transparent) 0%,
+    color-mix(in srgb, white 5%, transparent) 100%
+  );
+  color: white;
+}
+
+.dm-filter-widget:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, white 20%, transparent);
+}
+
+.dm-filter-widget--active {
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, #7c83ff 26%, transparent) 0%,
+    color-mix(in srgb, #7c83ff 14%, transparent) 100%
+  );
+  color: white;
+}
+
+.dm-filter-widget--active.dm-filter-widget--has-bg
+  .dm-filter-widget__bg::after {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, #7c83ff 28%, black 72%) 0%,
+    color-mix(in srgb, black 68%, transparent) 100%
+  );
+}
+
+.dm-filter-widget__label {
+  min-width: 0;
+  flex: 1;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.dm-filter-widget__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 1.5rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, black 30%, transparent);
+  color: color-mix(in srgb, white 92%, transparent);
+}
+
+.dm-filter-widget--active .dm-filter-widget__count {
+  background: color-mix(in srgb, #7c83ff 33%, black 67%);
+}
+
+/* Light theme for filter widgets */
+:global([data-theme='light'] .dm-filter-widget) {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 96%, var(--accent) 4%),
+    color-mix(in srgb, var(--surface) 93%, var(--accent) 7%)
+  );
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent) 18%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.82) inset,
+    0 1px 2px rgba(15, 10, 25, 0.05);
+}
+
+:global([data-theme='light'] .dm-filter-widget--has-bg) {
+  border-color: color-mix(in srgb, var(--border) 55%, var(--accent) 45%);
+}
+
+:global(
+  [data-theme='light'] .dm-filter-widget--has-bg .dm-filter-widget__bg::after
+) {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--surface) 78%, transparent) 0%,
+    color-mix(in srgb, var(--surface) 92%, transparent) 100%
+  );
+}
+
+:global(
+  [data-theme='light'] .dm-filter-widget--has-bg .dm-filter-widget__label
+) {
+  text-shadow: none;
+  color: var(--text);
+}
+
+:global([data-theme='light'] .dm-filter-widget:hover),
+:global([data-theme='light'] .dm-filter-widget:focus-visible) {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--elevated) 90%, var(--accent) 10%),
+    color-mix(in srgb, var(--surface) 86%, var(--accent) 14%)
+  );
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 2px 10px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+:global([data-theme='light'] .dm-filter-widget:focus-visible) {
+  outline: none;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 38%, transparent),
+    0 1px 0 rgba(255, 255, 255, 0.82) inset;
+}
+
+:global([data-theme='light'] .dm-filter-widget--active) {
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--accent) 24%, var(--elevated) 76%),
+    color-mix(in srgb, var(--accent) 16%, var(--surface) 84%)
+  );
+  color: var(--accent-contrast-fg);
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border) 48%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 4px 16px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+:global(
+  [data-theme='light']
+    .dm-filter-widget--active.dm-filter-widget--has-bg
+    .dm-filter-widget__bg::after
+) {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--accent) 38%, transparent) 0%,
+    color-mix(in srgb, var(--surface) 82%, transparent) 100%
+  );
+}
+
+:global([data-theme='light'] .dm-filter-widget__count) {
+  background: color-mix(in srgb, var(--text) 10%, var(--surface) 90%);
+  color: var(--text);
+}
+
+:global(
+  [data-theme='light'] .dm-filter-widget--active .dm-filter-widget__count
+) {
+  background: color-mix(in srgb, var(--accent-contrast-fg) 22%, transparent);
+  color: var(--accent-contrast-fg);
 }
 </style>

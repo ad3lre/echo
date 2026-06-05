@@ -42,6 +42,14 @@ function getIo(fastify: FastifyInstance): Server | null {
   return (fastify as FastifyInstance & { io?: Server }).io ?? null;
 }
 
+function decodeRouteParam(raw: string): string | null {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Verify the bot has access to the channel by checking its guild install and permissions.
  * Returns the guildId and installerId if access is granted, or emits a 403 and returns null.
@@ -428,7 +436,10 @@ export default async function discordMessagesRoutes(
       const { pool } = await getEchoStore();
       if (!pool) return discordError(reply, 503, '503: Service Unavailable');
 
-      const decodedEmoji = decodeURIComponent(emoji);
+      const decodedEmoji = decodeRouteParam(emoji);
+      if (!decodedEmoji) {
+        return discordError(reply, 400, '400: Bad Request');
+      }
       await persistAddEchoMessageReaction(
         pool,
         req.botApp!.id,
@@ -464,7 +475,10 @@ export default async function discordMessagesRoutes(
       const { pool } = await getEchoStore();
       if (!pool) return discordError(reply, 503, '503: Service Unavailable');
 
-      const decodedEmoji = decodeURIComponent(emoji);
+      const decodedEmoji = decodeRouteParam(emoji);
+      if (!decodedEmoji) {
+        return discordError(reply, 400, '400: Bad Request');
+      }
       await persistRemoveEchoMessageReaction(
         pool,
         req.botApp!.id,

@@ -1,6 +1,21 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { Socket } from 'socket.io-client';
 import { executeEchoSocketConnectAttempt } from '../socketConnectOrchestrator';
+
+const nativeAuthMock = vi.hoisted(() => ({
+  isNativeBearerClient: vi.fn(() => false),
+  getNativeAccessToken: vi.fn<() => string | null>(() => null),
+}));
+
+vi.mock('@/services/auth/nativeAuthToken', () => ({
+  isNativeBearerClient: nativeAuthMock.isNativeBearerClient,
+  getNativeAccessToken: nativeAuthMock.getNativeAccessToken,
+}));
+
+beforeEach(() => {
+  nativeAuthMock.isNativeBearerClient.mockReturnValue(false);
+  nativeAuthMock.getNativeAccessToken.mockReturnValue(null);
+});
 
 describe('executeEchoSocketConnectAttempt', () => {
   it('returns immediately when socket transport is off', async () => {
@@ -101,5 +116,84 @@ describe('executeEchoSocketConnectAttempt', () => {
       expect.objectContaining({ path: '/socket.io', withCredentials: true }),
     );
     expect(after).toHaveBeenCalledWith(mockClient);
+  });
+
+  it('omits auth for non-native (cookie) clients', async () => {
+    const io = vi.fn(
+      (_base?: string, _opts?: Record<string, unknown>) => ({}) as Socket,
+    );
+    await executeEchoSocketConnectAttempt({
+      socketOff: () => false,
+      startGen: 1,
+      getCurrentGeneration: () => 1,
+      isSocketConnected: () => false,
+      discardDisconnectedSocket: vi.fn(),
+      socketIoBase: 'http://api.test',
+      importSocketIoClient: async () =>
+        ({ io }) as unknown as typeof import('socket.io-client'),
+      afterConnectedSocket: vi.fn(),
+    });
+    expect(io.mock.calls[0]?.[1]).not.toHaveProperty('auth');
+  });
+
+  it('passes auth as a callback that reads the freshest native token per handshake', async () => {
+    nativeAuthMock.isNativeBearerClient.mockReturnValue(true);
+    // Token rotates between handshakes: stale first, fresh on retry.
+    nativeAuthMock.getNativeAccessToken
+      .mockReturnValueOnce('stale-token')
+      .mockReturnValueOnce('fresh-token');
+    const io = vi.fn(
+      (_base?: string, _opts?: Record<string, unknown>) => ({}) as Socket,
+    );
+    await executeEchoSocketConnectAttempt({
+      socketOff: () => false,
+      startGen: 1,
+      getCurrentGeneration: () => 1,
+      isSocketConnected: () => false,
+      discardDisconnectedSocket: vi.fn(),
+      socketIoBase: 'http://api.test',
+      importSocketIoClient: async () =>
+        ({ io }) as unknown as typeof import('socket.io-client'),
+      afterConnectedSocket: vi.fn(),
+    });
+
+    const auth = io.mock.calls[0]?.[1]?.auth as
+      | ((cb: (data: Record<string, unknown>) => void) => void)
+      | undefined;
+    expect(typeof auth).toBe('function');
+
+    const first = vi.fn();
+    auth!(first);
+    expect(first).toHaveBeenCalledWith({ token: 'stale-token' });
+
+    // Simulates Manager auto-reconnect re-invoking the same auth callback.
+    const second = vi.fn();
+    auth!(second);
+    expect(second).toHaveBeenCalledWith({ token: 'fresh-token' });
+  });
+
+  it('sends an empty auth payload when the native token is unavailable', async () => {
+    nativeAuthMock.isNativeBearerClient.mockReturnValue(true);
+    nativeAuthMock.getNativeAccessToken.mockReturnValue(null);
+    const io = vi.fn(
+      (_base?: string, _opts?: Record<string, unknown>) => ({}) as Socket,
+    );
+    await executeEchoSocketConnectAttempt({
+      socketOff: () => false,
+      startGen: 1,
+      getCurrentGeneration: () => 1,
+      isSocketConnected: () => false,
+      discardDisconnectedSocket: vi.fn(),
+      socketIoBase: 'http://api.test',
+      importSocketIoClient: async () =>
+        ({ io }) as unknown as typeof import('socket.io-client'),
+      afterConnectedSocket: vi.fn(),
+    });
+    const auth = io.mock.calls[0]?.[1]?.auth as (
+      cb: (data: Record<string, unknown>) => void,
+    ) => void;
+    const cb = vi.fn();
+    auth(cb);
+    expect(cb).toHaveBeenCalledWith({});
   });
 });

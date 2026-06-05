@@ -954,6 +954,40 @@
   &__size-row {
     align-items: center;
   }
+  &__size-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    margin-left: auto;
+  }
+  &__size-step {
+    display: inline-flex;
+    width: 1.65rem;
+    height: 1.65rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--ui-glass-2);
+    font-size: 0.875rem;
+    line-height: 1;
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
+
+    &:hover:not(:disabled) {
+      color: var(--text);
+      background: color-mix(in srgb, var(--text) 8%, transparent);
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+  }
   &__size-input {
     width: 3.5rem;
     padding: 0.35rem 0.45rem;
@@ -1035,6 +1069,15 @@
   line-height: 1.4;
   color: var(--muted);
   margin-bottom: 0.75rem;
+}
+
+.paper-editor-tab__hint--inline {
+  margin-top: -0.15rem;
+  margin-bottom: 0.55rem;
+}
+
+.paper-editor-tab__label--spaced {
+  margin-top: 0.85rem;
 }
 
 .paper-editor-tab__hint--center {
@@ -1241,6 +1284,20 @@
 }
 
 /* ---- Vector shapes ---- */
+.paper-editor-shape-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0.75rem 0;
+}
+
+.paper-editor-shape-row > .paper-editor-shape-wrap {
+  width: auto;
+  margin: 0;
+}
+
 .paper-editor-shape-wrap {
   display: flex;
   width: 100%;
@@ -1263,11 +1320,45 @@
   position: relative;
   display: inline-block;
   max-width: 100%;
-  line-height: 0;
+  overflow: hidden;
 }
 
 .paper-editor-shape {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   max-width: 100%;
+  pointer-events: none;
+}
+
+.paper-editor-shape-content {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  padding: 0.5rem;
+  outline: none;
+}
+
+.paper-editor-shape-content > * {
+  margin: 0;
+}
+
+.paper-editor-shape-content p {
+  text-align: center;
+  word-break: break-word;
+}
+
+.paper-editor-shape-wrap:not(.ProseMirror-selectednode)
+  .paper-editor-shape-content:empty::before {
+  content: 'Click to add text…';
+  display: block;
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  opacity: 0.72;
+  pointer-events: none;
 }
 
 .ProseMirror-selectednode .paper-editor-shape {
@@ -1409,7 +1500,7 @@
 .paper-format-preset-trigger--chevron {
   width: 1.35rem;
   height: 2rem;
-  border-radius: 0 8px 8px 0;
+  border-radius: 0;
 }
 
 .paper-format-preset-trigger--label {
@@ -1436,7 +1527,7 @@
 }
 
 .paper-format-preset-menu {
-  overflow: hidden;
+  overflow-y: auto;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg-elevated);

@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 
 import { createApp, defineComponent } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';

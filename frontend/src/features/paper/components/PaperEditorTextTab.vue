@@ -8,9 +8,12 @@ import type { EchoDropdownOption } from '@/components/EchoDropdown.vue';
 import PaperFormatPresetMenu from '@/features/paper/components/PaperFormatPresetMenu.vue';
 import PaperTypographySlider from '@/features/paper/components/PaperTypographySlider.vue';
 import {
+  PAPER_FONT_SIZE_MAX,
+  PAPER_FONT_SIZE_MIN,
   PAPER_FONT_SIZE_PRESETS,
   paperFontIdFromFamily,
 } from '@/features/paper/editor/paperTypography';
+import { stepFontSizePx } from '@/features/paper/editor/paperKeyboardHelpers';
 import {
   formatLetterSpacingLabel,
   formatLineHeightLabel,
@@ -22,6 +25,7 @@ import {
   PAPER_LINE_HEIGHT_RANGE,
 } from '@/features/paper/editor/paperSpacingSliders';
 import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
+import { onPaperFormatBarMouseDown } from '@/features/paper/editor/paperFormatSelection';
 
 const props = defineProps<{
   context: PaperEditorPanelBridgeContext;
@@ -92,6 +96,28 @@ function onFontSizePresetSelect(value: string) {
   if (Number.isFinite(n)) actions.setFontSizePx(n);
 }
 
+const canStepFontSize = computed(
+  () => selectionActive.value && !actions.fmt.value.fontSizeMixed,
+);
+
+const canDecreaseFontSize = computed(
+  () =>
+    canStepFontSize.value &&
+    (actions.fmt.value.fontSizePx ?? 15) > PAPER_FONT_SIZE_MIN,
+);
+
+const canIncreaseFontSize = computed(
+  () =>
+    canStepFontSize.value &&
+    (actions.fmt.value.fontSizePx ?? 15) < PAPER_FONT_SIZE_MAX,
+);
+
+function stepFontSize(direction: 'up' | 'down') {
+  if (!canStepFontSize.value) return;
+  const current = actions.fmt.value.fontSizePx ?? 15;
+  actions.setFontSizePx(stepFontSizePx(current, direction));
+}
+
 function cycleAlignInPanel() {
   const current = actions.fmt.value.textAlign;
   const order: Array<'left' | 'center' | 'right' | 'justify'> = [
@@ -126,6 +152,10 @@ function runIndent() {
 function runOutdent() {
   actions.outdent();
 }
+
+function onPanelFontMouseDown(ev: MouseEvent) {
+  onPaperFormatBarMouseDown(editorRef.value, ev);
+}
 </script>
 
 <template>
@@ -136,277 +166,314 @@ function runOutdent() {
         :model-value="documentFontId"
         :document-default-family="context.documentFontFamily.value"
         :paper-appearance="appearance"
-        variant="panel"
+        layout="field"
+        placement="below"
+        :show-document-default="false"
+        @panel-mousedown="onPanelFontMouseDown"
         @update:model-value="context.onDocumentFontChange"
       />
     </section>
 
     <template v-if="editorEditable">
-      <p v-if="!selectionActive" class="paper-editor-tab__hint">
-        Select text to style it, or set the document default font above.
-      </p>
-
-      <section
-        class="paper-editor-tab__block"
-        :class="{ 'paper-editor-tab__block--muted': !selectionActive }"
-      >
-        <h4 class="paper-editor-tab__label">Selection</h4>
+      <section class="paper-editor-tab__block">
+        <h4 class="paper-editor-tab__label">Typeface</h4>
+        <p class="paper-editor-tab__hint paper-editor-tab__hint--inline">
+          Applies to selected text, or to what you type next at the cursor.
+        </p>
         <div class="paper-editor-panel__tool-row">
           <PaperFontPicker
             :model-value="actions.selectionFontId()"
             :mixed="actions.fmt.value.fontFamilyMixed"
             :document-default-family="context.documentFontFamily.value"
             :paper-appearance="appearance"
-            variant="panel"
+            layout="field"
+            placement="below"
+            @panel-mousedown="onPanelFontMouseDown"
             @update:model-value="actions.setSelectionFont"
             @clear="actions.clearSelectionFont"
           />
         </div>
-        <div class="paper-editor-panel__tool-row paper-editor-panel__size-row">
-          <input
-            type="text"
-            class="paper-editor-panel__size-input"
-            :readonly="actions.fmt.value.fontSizeMixed || !selectionActive"
-            :placeholder="actions.fmt.value.fontSizeMixed ? 'Mixed' : 'Size'"
-            :value="fontSizeDisplay"
-            aria-label="Font size in pixels"
-            @change="
-              (e) => {
-                const raw = (e.target as HTMLInputElement).value.trim();
-                if (!raw) {
-                  actions.setFontSizePx(null);
-                  return;
-                }
-                const n = Number.parseInt(raw, 10);
-                if (Number.isFinite(n)) actions.setFontSizePx(n);
-              }
-            "
-          />
-          <PaperFormatPresetMenu
-            :model-value="fontSizeDisplay || ''"
-            :options="fontSizePresetOptions"
-            :paper-appearance="appearance"
-            :disabled="!selectionActive"
-            trigger-mode="chevron"
-            placement="below"
-            title="Font size presets"
-            @update:model-value="onFontSizePresetSelect"
-          />
-        </div>
-        <div class="paper-editor-panel__mark-row">
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.bold === true,
-            }"
-            :disabled="!selectionActive"
-            @click="actions.toggleMark('toggleBold')"
-          >
-            B
-          </button>
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.italic === true,
-            }"
-            :disabled="!selectionActive"
-            @click="actions.toggleMark('toggleItalic')"
-          >
-            I
-          </button>
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.strike === true,
-            }"
-            :disabled="!selectionActive"
-            @click="actions.toggleMark('toggleStrike')"
-          >
-            S
-          </button>
-        </div>
-        <div class="paper-editor-panel__mark-row">
-          <button
-            type="button"
-            class="paper-editor-panel__chip paper-editor-panel__chip--wide"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.textAlign !== 'left',
-            }"
-            :disabled="!selectionActive"
-            :title="`Alignment: ${actions.fmt.value.textAlign} (click to cycle)`"
-            @click="cycleAlignInPanel"
-          >
-            Align: {{ alignDisplayLabel(actions.fmt.value.textAlign) }}
-          </button>
-        </div>
-        <div class="paper-editor-panel__heading-row">
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.heading === 'h1',
-            }"
-            :disabled="!selectionActive"
-            @click="actions.setHeading(1)"
-          >
-            H1
-          </button>
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.heading === 'h2',
-            }"
-            :disabled="!selectionActive"
-            @click="actions.setHeading(2)"
-          >
-            H2
-          </button>
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.heading === 'h3',
-            }"
-            :disabled="!selectionActive"
-            @click="actions.setHeading(3)"
-          >
-            H3
-          </button>
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.heading === 'paragraph',
-            }"
-            :disabled="!selectionActive"
-            @click="actions.setHeading(0)"
-          >
-            Body
-          </button>
-        </div>
+        <h4 class="paper-editor-tab__label paper-editor-tab__label--spaced">
+          Selection
+        </h4>
+        <p
+          v-if="!selectionActive"
+          class="paper-editor-tab__hint paper-editor-tab__hint--inline"
+        >
+          Select text to change size, weight, and layout.
+        </p>
 
-        <div class="paper-editor-panel__mark-row">
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.bulletList === true,
-            }"
-            :disabled="!selectionActive"
-            @click="actions.toggleList('toggleBulletList')"
+        <div
+          class="paper-editor-selection-tools"
+          :class="{ 'paper-editor-tab__block--muted': !selectionActive }"
+        >
+          <div
+            class="paper-editor-panel__tool-row paper-editor-panel__size-row"
           >
-            Bullet
-          </button>
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :class="{
-              'paper-editor-panel__chip--active':
-                actions.fmt.value.orderedList === true,
-            }"
-            :disabled="!selectionActive"
-            @click="actions.toggleList('toggleOrderedList')"
-          >
-            Numbered
-          </button>
-        </div>
-
-        <div class="paper-editor-panel__tool-row">
-          <button
-            type="button"
-            class="paper-editor-panel__asset-btn paper-editor-panel__asset-btn--ghost"
-            :disabled="!selectionActive"
-            @click="actions.insertHorizontalRule()"
-          >
-            Insert horizontal rule
-          </button>
-        </div>
-
-        <div class="paper-editor-panel__divider" />
-
-        <h4 class="paper-editor-tab__label">Spacing</h4>
-        <PaperTypographySlider
-          v-model="letterSpacingSliderModel"
-          label="Letter spacing"
-          :min="PAPER_LETTER_SPACING_RANGE.min"
-          :max="PAPER_LETTER_SPACING_RANGE.max"
-          :step="PAPER_LETTER_SPACING_RANGE.step"
-          :display="letterSpacingSliderLabel"
-          :disabled="!selectionActive || actions.fmt.value.letterSpacingMixed"
-        />
-        <PaperTypographySlider
-          v-model="lineHeightSliderModel"
-          label="Line height"
-          :min="PAPER_LINE_HEIGHT_RANGE.min"
-          :max="PAPER_LINE_HEIGHT_RANGE.max"
-          :step="PAPER_LINE_HEIGHT_RANGE.step"
-          :display="lineHeightSliderLabel"
-          :disabled="!selectionActive || actions.fmt.value.lineHeightMixed"
-        />
-
-        <div class="paper-editor-panel__divider" />
-
-        <h4 class="paper-editor-tab__label">Effects</h4>
-        <div class="paper-editor-panel__tool-row">
-          <span class="paper-editor-panel__control-label">Outline</span>
-          <div class="paper-editor-panel__chip-row">
             <button
-              v-for="opt in textOutlinePresetOptions"
-              :key="opt.value"
+              type="button"
+              class="paper-editor-panel__size-step"
+              aria-label="Decrease font size"
+              :disabled="!canDecreaseFontSize"
+              @mousedown.prevent="stepFontSize('down')"
+            >
+              −
+            </button>
+            <input
+              type="text"
+              class="paper-editor-panel__size-input"
+              :readonly="actions.fmt.value.fontSizeMixed || !selectionActive"
+              :placeholder="actions.fmt.value.fontSizeMixed ? 'Mixed' : 'Size'"
+              :value="fontSizeDisplay"
+              aria-label="Font size in pixels"
+              @change="
+                (e) => {
+                  const raw = (e.target as HTMLInputElement).value.trim();
+                  if (!raw) {
+                    actions.setFontSizePx(null);
+                    return;
+                  }
+                  const n = Number.parseInt(raw, 10);
+                  if (Number.isFinite(n)) actions.setFontSizePx(n);
+                }
+              "
+            />
+            <PaperFormatPresetMenu
+              :model-value="fontSizeDisplay || ''"
+              :options="fontSizePresetOptions"
+              :paper-appearance="appearance"
+              :disabled="!selectionActive"
+              trigger-mode="chevron"
+              placement="below"
+              position-target="parent"
+              title="Font size presets"
+              @update:model-value="onFontSizePresetSelect"
+            />
+            <button
+              type="button"
+              class="paper-editor-panel__size-step"
+              aria-label="Increase font size"
+              :disabled="!canIncreaseFontSize"
+              @mousedown.prevent="stepFontSize('up')"
+            >
+              +
+            </button>
+          </div>
+          <div class="paper-editor-panel__mark-row">
+            <button
               type="button"
               class="paper-editor-panel__chip"
               :class="{
                 'paper-editor-panel__chip--active':
-                  (!opt.value && !actions.fmt.value.textOutlineWidth) ||
-                  (opt.value === 'thin' &&
-                    actions.fmt.value.textOutlineWidth === '1px') ||
-                  (opt.value === 'medium' &&
-                    actions.fmt.value.textOutlineWidth === '2px'),
+                  actions.fmt.value.bold === true,
               }"
               :disabled="!selectionActive"
-              @click="setTextOutline(opt.value)"
+              @click="actions.toggleMark('toggleBold')"
             >
-              {{ opt.label }}
+              B
+            </button>
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :class="{
+                'paper-editor-panel__chip--active':
+                  actions.fmt.value.italic === true,
+              }"
+              :disabled="!selectionActive"
+              @click="actions.toggleMark('toggleItalic')"
+            >
+              I
+            </button>
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :class="{
+                'paper-editor-panel__chip--active':
+                  actions.fmt.value.strike === true,
+              }"
+              :disabled="!selectionActive"
+              @click="actions.toggleMark('toggleStrike')"
+            >
+              S
             </button>
           </div>
-        </div>
+          <div class="paper-editor-panel__mark-row">
+            <button
+              type="button"
+              class="paper-editor-panel__chip paper-editor-panel__chip--wide"
+              :class="{
+                'paper-editor-panel__chip--active':
+                  actions.fmt.value.textAlign !== 'left',
+              }"
+              :disabled="!selectionActive"
+              :title="`Alignment: ${actions.fmt.value.textAlign} (click to cycle)`"
+              @click="cycleAlignInPanel"
+            >
+              Align: {{ alignDisplayLabel(actions.fmt.value.textAlign) }}
+            </button>
+          </div>
+          <div class="paper-editor-panel__heading-row">
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :class="{
+                'paper-editor-panel__chip--active':
+                  actions.fmt.value.heading === 'h1',
+              }"
+              :disabled="!selectionActive"
+              @click="actions.setHeading(1)"
+            >
+              H1
+            </button>
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :class="{
+                'paper-editor-panel__chip--active':
+                  actions.fmt.value.heading === 'h2',
+              }"
+              :disabled="!selectionActive"
+              @click="actions.setHeading(2)"
+            >
+              H2
+            </button>
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :class="{
+                'paper-editor-panel__chip--active':
+                  actions.fmt.value.heading === 'h3',
+              }"
+              :disabled="!selectionActive"
+              @click="actions.setHeading(3)"
+            >
+              H3
+            </button>
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :class="{
+                'paper-editor-panel__chip--active':
+                  actions.fmt.value.heading === 'paragraph',
+              }"
+              :disabled="!selectionActive"
+              @click="actions.setHeading(0)"
+            >
+              Body
+            </button>
+          </div>
 
-        <div class="paper-editor-panel__divider" />
+          <div class="paper-editor-panel__mark-row">
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :class="{
+                'paper-editor-panel__chip--active':
+                  actions.fmt.value.bulletList === true,
+              }"
+              :disabled="!selectionActive"
+              @click="actions.toggleList('toggleBulletList')"
+            >
+              Bullet
+            </button>
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :class="{
+                'paper-editor-panel__chip--active':
+                  actions.fmt.value.orderedList === true,
+              }"
+              :disabled="!selectionActive"
+              @click="actions.toggleList('toggleOrderedList')"
+            >
+              Numbered
+            </button>
+          </div>
 
-        <h4 class="paper-editor-tab__label">Indent</h4>
-        <div class="paper-editor-panel__tool-row">
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :disabled="!selectionActive || actions.fmt.value.indent <= 0"
-            @click="runOutdent"
-          >
-            ← Outdent
-          </button>
-          <span class="paper-editor-panel__indent-display">{{
-            actions.fmt.value.indentMixed ? 'Mixed' : actions.fmt.value.indent
-          }}</span>
-          <button
-            type="button"
-            class="paper-editor-panel__chip"
-            :disabled="!selectionActive || actions.fmt.value.indent >= 4"
-            @click="runIndent"
-          >
-            Indent →
-          </button>
+          <div class="paper-editor-panel__tool-row">
+            <button
+              type="button"
+              class="paper-editor-panel__asset-btn paper-editor-panel__asset-btn--ghost"
+              :disabled="!selectionActive"
+              @click="actions.insertHorizontalRule()"
+            >
+              Insert horizontal rule
+            </button>
+          </div>
+
+          <div class="paper-editor-panel__divider" />
+
+          <h4 class="paper-editor-tab__label">Spacing</h4>
+          <PaperTypographySlider
+            v-model="letterSpacingSliderModel"
+            label="Letter spacing"
+            :min="PAPER_LETTER_SPACING_RANGE.min"
+            :max="PAPER_LETTER_SPACING_RANGE.max"
+            :step="PAPER_LETTER_SPACING_RANGE.step"
+            :display="letterSpacingSliderLabel"
+            :disabled="!selectionActive || actions.fmt.value.letterSpacingMixed"
+          />
+          <PaperTypographySlider
+            v-model="lineHeightSliderModel"
+            label="Line height"
+            :min="PAPER_LINE_HEIGHT_RANGE.min"
+            :max="PAPER_LINE_HEIGHT_RANGE.max"
+            :step="PAPER_LINE_HEIGHT_RANGE.step"
+            :display="lineHeightSliderLabel"
+            :disabled="!selectionActive || actions.fmt.value.lineHeightMixed"
+          />
+
+          <div class="paper-editor-panel__divider" />
+
+          <h4 class="paper-editor-tab__label">Effects</h4>
+          <div class="paper-editor-panel__tool-row">
+            <span class="paper-editor-panel__control-label">Outline</span>
+            <div class="paper-editor-panel__chip-row">
+              <button
+                v-for="opt in textOutlinePresetOptions"
+                :key="opt.value"
+                type="button"
+                class="paper-editor-panel__chip"
+                :class="{
+                  'paper-editor-panel__chip--active':
+                    (!opt.value && !actions.fmt.value.textOutlineWidth) ||
+                    (opt.value === 'thin' &&
+                      actions.fmt.value.textOutlineWidth === '1px') ||
+                    (opt.value === 'medium' &&
+                      actions.fmt.value.textOutlineWidth === '2px'),
+                }"
+                :disabled="!selectionActive"
+                @click="setTextOutline(opt.value)"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="paper-editor-panel__divider" />
+
+          <h4 class="paper-editor-tab__label">Indent</h4>
+          <div class="paper-editor-panel__tool-row">
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :disabled="!selectionActive || actions.fmt.value.indent <= 0"
+              @click="runOutdent"
+            >
+              ← Outdent
+            </button>
+            <span class="paper-editor-panel__indent-display">{{
+              actions.fmt.value.indentMixed ? 'Mixed' : actions.fmt.value.indent
+            }}</span>
+            <button
+              type="button"
+              class="paper-editor-panel__chip"
+              :disabled="!selectionActive || actions.fmt.value.indent >= 4"
+              @click="runIndent"
+            >
+              Indent →
+            </button>
+          </div>
         </div>
       </section>
     </template>

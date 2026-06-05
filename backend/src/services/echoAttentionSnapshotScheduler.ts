@@ -7,10 +7,13 @@ import {
 } from '../domain/echoStore';
 import { runWithPgQueryContext } from '../db/pgQueryContext';
 import { emitEchoReadStateUpdate } from './echoAttentionRealtime';
+import { boundedInteger } from '../shared/numberParsing';
 
-const DEBOUNCE_MS = Math.max(
+const DEBOUNCE_MS = boundedInteger(
+  process.env.ECHO_ATTENTION_SNAPSHOT_DEBOUNCE_MS,
+  150,
   0,
-  Number(process.env.ECHO_ATTENTION_SNAPSHOT_DEBOUNCE_MS) || 150,
+  60_000,
 );
 
 export type EchoAttentionFanoutScope =

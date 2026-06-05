@@ -242,13 +242,13 @@ export function usePendingMedia() {
   }
 
   async function enrichPendingVideoPreview(entry: PendingVideo): Promise<void> {
-    const dims = await probeVideoDimensionsOnly(entry.url);
+    const dims = await probeVideoDimensionsOnly(entry.file);
     if (dims) {
       entry.aspectRatio = dims.aspectRatio;
       entry.width = dims.width;
       entry.height = dims.height;
     }
-    const probe = await probeVideoBlobUrl(entry.url);
+    const probe = await probeVideoBlobUrl(entry.file);
     if (!probe) return;
     entry.previewFrameUrl = probe.frameUrl;
     entry.aspectRatio = probe.aspectRatio;

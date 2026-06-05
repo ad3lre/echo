@@ -18,6 +18,9 @@ export type VcYoutubeRemotePlaybackState = EchoYoutubePlaybackSyncV1 & {
 type YTNamespace = any;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+/** How often the host republishes playback position to followers while playing. */
+const YT_WATCH_PUBLISH_INTERVAL_MS = 2200;
+
 const YT_IFRAME_API_SRC = 'https://www.youtube.com/iframe_api';
 
 let iframeApiLoadPromise: Promise<YTNamespace> | null = null;
@@ -136,7 +139,10 @@ export function useVcYoutubeWatchTogetherPlayer(opts: {
   function armPublishWhilePlaying() {
     clearPublishInterval();
     if (!publish || !canPublish.value) return;
-    publishInterval = setInterval(() => publishSample('interval'), 2200);
+    publishInterval = setInterval(
+      () => publishSample('interval'),
+      YT_WATCH_PUBLISH_INTERVAL_MS,
+    );
   }
 
   function onPlayerStateChange(ev: { data: number; target?: any }) {

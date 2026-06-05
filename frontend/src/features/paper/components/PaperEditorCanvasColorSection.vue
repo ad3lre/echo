@@ -32,6 +32,9 @@ const quickSwatches = computed(() =>
   props.quickPalette.filter((s) => s.value.trim().length > 0),
 );
 
+const isNoneSwatch = (value: string) =>
+  props.kind === 'object' && value.trim().toLowerCase() === 'transparent';
+
 const pickerPalette = computed(() => {
   const doc = props.documentPalette ?? [];
   const seen = new Set<string>();
@@ -62,6 +65,13 @@ const customSwatchStyle = computed(() => {
 
 const isActiveQuick = (value: string) => {
   if (props.mixed) return false;
+  if (isNoneSwatch(value)) {
+    return (
+      !props.color ||
+      props.color.trim().toLowerCase() === 'transparent' ||
+      props.color.trim().toLowerCase() === 'none'
+    );
+  }
   if (!value) return !!props.isDefault;
   return props.color?.toLowerCase() === value.toLowerCase();
 };
@@ -166,8 +176,13 @@ onUnmounted(() => {
           ),
           'paper-canvas-color-section__swatch--square':
             kind === 'highlight' || kind === 'object',
+          'paper-canvas-color-section__swatch--none': isNoneSwatch(
+            swatch.value,
+          ),
         }"
-        :style="{ background: swatch.value }"
+        :style="
+          isNoneSwatch(swatch.value) ? undefined : { background: swatch.value }
+        "
         :title="swatch.label"
         :aria-label="swatch.label"
         :disabled="disabled"
@@ -268,6 +283,20 @@ onUnmounted(() => {
 
 .paper-canvas-color-section__swatch--square {
   border-radius: 0.5rem;
+}
+
+.paper-canvas-color-section__swatch--none {
+  background:
+    linear-gradient(45deg, #d4d4d8 25%, transparent 25%),
+    linear-gradient(-45deg, #d4d4d8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #d4d4d8 75%),
+    linear-gradient(-45deg, transparent 75%, #d4d4d8 75%);
+  background-size: 8px 8px;
+  background-position:
+    0 0,
+    0 4px,
+    4px -4px,
+    -4px 0;
 }
 
 .paper-canvas-color-section__swatch:hover:not(:disabled) {

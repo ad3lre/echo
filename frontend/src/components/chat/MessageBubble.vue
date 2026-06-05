@@ -212,19 +212,24 @@ watchEffect(() => {
   triggerRef.value = bar?.ellipsisRef?.value ?? null;
 });
 
+const reactTriggerRef = ref<HTMLElement | null>(null);
+const menuOpen = ref(false);
+
 watch(
-  () => contextMenuRef.value,
-  async () => {
+  [() => contextMenuRef.value, menuOpen],
+  async ([, open]) => {
+    if (!open) {
+      menuRef.value = null;
+      return;
+    }
     await nextTick();
     const vm = contextMenuRef.value as null | {
       getMenuRootElement?: () => HTMLElement | null;
     };
     menuRef.value = vm?.getMenuRootElement?.() ?? null;
   },
-  { flush: 'post', immediate: true },
+  { flush: 'post' },
 );
-const reactTriggerRef = ref<HTMLElement | null>(null);
-const menuOpen = ref(false);
 const {
   menuPosition,
   setMenuPositionFromRect,

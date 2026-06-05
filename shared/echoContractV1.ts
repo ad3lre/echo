@@ -17,6 +17,7 @@ export const ECHO_V1_CLIENT_SOCKET_EVENTS = [
   'message:reaction_toggle',
   'message:pin',
   'message:unpin',
+  'client:ping',
   'joinChannel',
   'leaveChannel',
   'presence:set',
@@ -32,6 +33,8 @@ export const ECHO_V1_CLIENT_SOCKET_EVENTS = [
   'paper:release',
   'paper:cursor',
   'paper:lock-request',
+  'paper:block-dirty',
+  'paper:block-preview',
 ] as const satisfies readonly (keyof ClientToServerEvents)[];
 
 /** All server → client event names (must match `ServerToClientEvents` keys). */
@@ -58,6 +61,8 @@ export const ECHO_V1_SERVER_SOCKET_EVENTS = [
   'paper:locks',
   'paper:cursors',
   'paper:lock-requested',
+  'paper:block-dirty',
+  'paper:block-previews',
   'app:deploy_countdown',
 ] as const satisfies readonly (keyof ServerToClientEvents)[];
 

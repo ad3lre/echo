@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { Client } from 'discord.js';
 import { fetchChannelMessages } from './exporter/messages.js';
 import { getBotHealthSnapshot } from './botHealth.js';
+import { parseIntegerInRange } from './util/numberParsing.js';
 
 /**
  * Starts a minimal internal HTTP server so the Echo API can request
@@ -21,9 +22,12 @@ function safeCompare(left: string, right: string): boolean {
 }
 
 export function startBotInternalServer(client: Client) {
-  const port = process.env.ECHO_DISCORD_BOT_INTERNAL_PORT
-    ? Number(process.env.ECHO_DISCORD_BOT_INTERNAL_PORT)
-    : 3005;
+  const port = parseIntegerInRange(
+    process.env.ECHO_DISCORD_BOT_INTERNAL_PORT,
+    3005,
+    1,
+    65_535,
+  );
   const host =
     process.env.ECHO_DISCORD_BOT_INTERNAL_HOST?.trim() || '127.0.0.1';
   const isProduction = process.env.NODE_ENV === 'production';
@@ -64,9 +68,11 @@ export function startBotInternalServer(client: Client) {
     const messageMatch = url.pathname.match(/^\/channels\/(\d+)\/messages$/);
     if (req.method === 'GET' && messageMatch) {
       const channelId = messageMatch[1];
-      const limit = Math.min(
+      const limit = parseIntegerInRange(
+        url.searchParams.get('limit'),
+        90,
+        1,
         100,
-        Number(url.searchParams.get('limit') || '90'),
       );
 
       if (!channelId) {

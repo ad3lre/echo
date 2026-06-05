@@ -6,6 +6,7 @@ import {
   noteBridgeAllowlistRefresh,
   noteWebhookPostResult,
 } from './botHealth.js';
+import { parseRetryAfterMs } from './util/numberParsing.js';
 
 /** Keep in sync with `shared/echoWebhookHmac.ts`. */
 function signEchoWebhookBody(
@@ -120,8 +121,9 @@ export async function postEchoWebhookJson(
       noteWebhookPostResult(relay, res.status);
       if (res.ok || res.status === 204) return res;
       if (res.status === 429 && attempt < 3) {
-        const retrySec = Number(res.headers.get('retry-after') ?? '2');
-        await sleep(Math.min(30_000, Math.max(500, retrySec * 1000)));
+        await sleep(
+          parseRetryAfterMs(res.headers.get('retry-after'), 2_000, 500, 30_000),
+        );
         continue;
       }
       if (!res.ok) {

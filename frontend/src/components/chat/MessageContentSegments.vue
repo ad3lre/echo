@@ -8,6 +8,7 @@ import {
   type EchoRenderedMessageRow,
   type MagicTimeRenderContext,
 } from '@/features/chat/viewModel/messageContentSegments';
+import { markdownKatexReadyVersion } from '@/composables/markdownKatex';
 import { normalizeExternalUrlForOpen } from '@/platform/desktopBridge';
 import ChatInviteEmbed from './ChatInviteEmbed.vue';
 import MessageJumpEmbed from './MessageJumpEmbed.vue';
@@ -22,15 +23,17 @@ const props = defineProps<{
   magicTime?: MagicTimeRenderContext | null;
 }>();
 
-const renderedRows = computed(() =>
-  buildRenderedEchoMessageSegments(
+const renderedRows = computed(() => {
+  // Re-render once KaTeX (and its CSS) finish lazy-loading.
+  void markdownKatexReadyVersion.value;
+  return buildRenderedEchoMessageSegments(
     props.content,
     props.embeds,
     props.mentions,
     props.parseIdResolvers,
     props.magicTime,
-  ),
-);
+  );
+});
 
 const activeLink = ref<{
   href: string;

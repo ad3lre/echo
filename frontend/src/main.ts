@@ -48,6 +48,8 @@ import './assets/themes.scss';
 import './assets/density.scss';
 import './assets/accessibility.scss';
 import './assets/main.scss';
+/* Eager load: vlist-t2 sub+sup layout breaks if this arrives after first math paint. */
+import 'katex/dist/katex.min.css';
 import './assets/document-canvas.scss';
 import { registerEchoServiceWorker } from '@/registerServiceWorker';
 import { initDesktopDeepLinks } from '@/platform/desktopDeepLink';

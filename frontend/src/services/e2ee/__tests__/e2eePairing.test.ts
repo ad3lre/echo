@@ -25,6 +25,13 @@ describe('e2ee pairing payload', () => {
     });
   });
 
+  it('returns null instead of throwing on malformed encoded pairing ids', () => {
+    expect(
+      parsePairingPayloadFromQr('echo://e2ee-pair/%E0%A4%A?s=secret'),
+    ).toBeNull();
+    expect(parsePairingIdFromQrPayload('echo://e2ee-pair/%E0%A4%A')).toBeNull();
+  });
+
   it('encryptPairingExport / decryptPairingExport roundtrip', async () => {
     const pairingId = 'pair_test_snowflake_1';
     const pairingSecret = 'pair_secret_test_1';

@@ -24,6 +24,7 @@ import { startDiscordVoiceMirrorRelay } from './voiceMirrorRelay.js';
 import { startDiscordPresenceRelay } from './presenceRelay.js';
 import { startUptimeMonitor } from './uptimeMonitor.js';
 import { sleep } from './util/rateLimitQueue.js';
+import { parseMinInteger } from './util/numberParsing.js';
 
 let warnedMissingWebhook = false;
 let lastPendingNotVisibleLogAt = 0;
@@ -187,12 +188,12 @@ function parseArgs(argv: string[]): {
       continue;
     }
     if (a === '--effective-members') {
-      flags.effectiveMemberLimit = Math.max(1, Number(argv[i + 1] ?? '20'));
+      flags.effectiveMemberLimit = parseMinInteger(argv[i + 1], 20, 1);
       i += 1;
       continue;
     }
     if (a === '--effective-channels') {
-      flags.effectiveChannelLimit = Math.max(1, Number(argv[i + 1] ?? '30'));
+      flags.effectiveChannelLimit = parseMinInteger(argv[i + 1], 30, 1);
       i += 1;
       continue;
     }
@@ -297,15 +298,11 @@ async function runServeMode(token: string, flags: CliFlags): Promise<void> {
     }
 
     await processPendingExportsVisibleGuilds(client, flags, pkg.version);
-    const pollRaw = process.env.ECHO_DISCORD_BOT_POLL_MS?.trim();
-    const pollMs =
-      pollRaw === undefined || pollRaw === ''
-        ? 45_000
-        : Math.max(0, Number(pollRaw));
-    if (!Number.isFinite(pollMs)) {
-      console.warn('[serve] Invalid ECHO_DISCORD_BOT_POLL_MS; using 45000');
-    }
-    const intervalMs = Number.isFinite(pollMs) ? pollMs : 45_000;
+    const intervalMs = parseMinInteger(
+      process.env.ECHO_DISCORD_BOT_POLL_MS,
+      45_000,
+      0,
+    );
     if (intervalMs > 0) {
       setInterval(
         () =>

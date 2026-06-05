@@ -132,7 +132,9 @@ export function useAppToastController(
       'app-toast-glass',
       'relative',
       severityClassByKey[t.severity],
-      t.variant === 'incoming_call' ? 'app-toast-incoming-call' : '',
+      t.variant === 'incoming_call' || t.variant === 'incoming_chat_message'
+        ? 'app-toast-incoming-call'
+        : '',
     ]
       .filter(Boolean)
       .join(' ');

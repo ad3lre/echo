@@ -11,6 +11,7 @@ import {
 import type { CliFlags } from './config.js';
 import { triggerRecoveryWatchdog } from './recoveryWatchdog.js';
 import { ensureDir, writeJson } from './util/fs.js';
+import { parseMinInteger } from './util/numberParsing.js';
 
 export type UptimeSubscription = {
   guildId: string;
@@ -45,11 +46,11 @@ export function startUptimeMonitor(client: Client, flags: CliFlags): void {
   const targetUrl =
     process.env.ECHO_UPTIME_URL?.trim() ||
     'https://chat-echo.com/api/v1/health';
-  const pollRaw = process.env.ECHO_UPTIME_POLL_MS?.trim();
-  const pollMs =
-    pollRaw === undefined || pollRaw === ''
-      ? 300_000
-      : Math.max(60_000, Number(pollRaw));
+  const pollMs = parseMinInteger(
+    process.env.ECHO_UPTIME_POLL_MS,
+    300_000,
+    60_000,
+  );
   const pollMinutes = Math.max(1, Math.round(pollMs / 60_000));
 
   const statePath =

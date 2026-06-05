@@ -9,6 +9,8 @@ on:
       - 'package-lock.json'
       - 'scripts/god-file-baselines.json'
       - 'scripts/check-god-file-ratchet.mjs'
+      - 'scripts/check-new-code-charter.mjs'
+      - 'scripts/new-code-charter-*.json'
       - '.github/workflows/echo-frontend-ci.yml'
   pull_request:
     paths:
@@ -18,6 +20,8 @@ on:
       - 'package-lock.json'
       - 'scripts/god-file-baselines.json'
       - 'scripts/check-god-file-ratchet.mjs'
+      - 'scripts/check-new-code-charter.mjs'
+      - 'scripts/new-code-charter-*.json'
   workflow_dispatch:
 
 jobs:
@@ -39,6 +43,9 @@ jobs:
 
       - name: God-file ratchet
         run: node scripts/check-god-file-ratchet.mjs
+
+      - name: New-code charter (June 2026+)
+        run: node scripts/check-new-code-charter.mjs
 
       - name: Strict theme ESLint
         run: npm run lint:theme -w frontend

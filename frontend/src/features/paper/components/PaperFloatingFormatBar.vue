@@ -7,6 +7,8 @@ import { usePaperFormatActions } from '@/features/paper/composables/usePaperForm
 import type { TriState } from '@/features/paper/editor/paperSelectionFormat';
 import {
   PAPER_FONT_CATALOG,
+  PAPER_FONT_SIZE_MAX,
+  PAPER_FONT_SIZE_MIN,
   PAPER_FONT_SIZE_PRESETS,
   PAPER_HIGHLIGHT_COLORS,
   PAPER_TEXT_COLORS,
@@ -30,14 +32,15 @@ import {
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import type { EchoDropdownOption } from '@/components/EchoDropdown.vue';
 import PaperFormatPresetMenu from '@/features/paper/components/PaperFormatPresetMenu.vue';
+import { stepFontSizePx } from '@/features/paper/editor/paperKeyboardHelpers';
 import type { PaperPageLayout } from '@/features/paper/composables/usePaperPageLayout';
 import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
 import { readPaperDefaultFont } from '@/features/paper/editor/paperDocumentAttributes';
 import {
   onPaperFormatBarMouseDown,
+  preservePaperEditorSelectionDuring,
   runPaperFormatCommand,
   snapshotPaperEditorCaret,
-  snapshotPaperEditorSelection,
   syncStoredPaperEditorSelection,
 } from '@/features/paper/editor/paperFormatSelection';
 
@@ -138,6 +141,25 @@ const fontSizePresetOptions = computed<EchoDropdownOption[]>(() =>
 function onFontSizePresetSelect(value: string) {
   const n = Number.parseInt(value, 10);
   if (Number.isFinite(n)) onFontSizePreset(n);
+}
+
+const canStepFontSize = computed(() => !fmt.value.fontSizeMixed);
+
+const canDecreaseFontSize = computed(
+  () =>
+    canStepFontSize.value && (fmt.value.fontSizePx ?? 15) > PAPER_FONT_SIZE_MIN,
+);
+
+const canIncreaseFontSize = computed(
+  () =>
+    canStepFontSize.value && (fmt.value.fontSizePx ?? 15) < PAPER_FONT_SIZE_MAX,
+);
+
+function stepFontSize(direction: 'up' | 'down') {
+  const editor = ed.value;
+  if (!editor || !canStepFontSize.value) return;
+  const current = fmt.value.fontSizePx ?? 15;
+  onFontSizePreset(stepFontSizePx(current, direction));
 }
 
 const docDefaultFont = computed(() =>
@@ -283,9 +305,10 @@ async function onFontPick(fontId: string) {
   const font = PAPER_FONT_CATALOG.find((f) => f.id === fontId);
   const editor = ed.value;
   if (!font || !editor) return;
-  snapshotPaperEditorSelection(editor);
-  await ensurePaperFontLoaded(font.id);
-  runPaperFormatCommand(editor, (chain) => chain.setFontFamily(font.family));
+  await preservePaperEditorSelectionDuring(editor, async () => {
+    await ensurePaperFontLoaded(font.id);
+    runPaperFormatCommand(editor, (chain) => chain.setFontFamily(font.family));
+  });
 }
 
 function onFontClear() {
@@ -303,7 +326,13 @@ function onFontSizeInput(ev: Event) {
     return;
   }
   const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 6 || n > 400) return;
+  if (
+    !Number.isFinite(n) ||
+    n < PAPER_FONT_SIZE_MIN ||
+    n > PAPER_FONT_SIZE_MAX
+  ) {
+    return;
+  }
   runPaperFormatCommand(editor, (chain) => chain.setFontSize(`${n}px`));
 }
 
@@ -399,11 +428,21 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         :mixed="fmt.fontFamilyMixed"
         :document-default-family="docDefaultFont"
         :paper-appearance="paperAppearance ?? 'light'"
+        @panel-mousedown="onFormatBarMouseDown"
         @update:model-value="onFontPick"
         @clear="onFontClear"
       />
 
       <div class="paper-format-size-wrap" :title="fontSizeTitle">
+        <button
+          type="button"
+          class="paper-format-size-step"
+          aria-label="Decrease font size"
+          :disabled="!canDecreaseFontSize"
+          @mousedown.prevent="stepFontSize('down')"
+        >
+          −
+        </button>
         <input
           type="text"
           class="paper-format-size-input"
@@ -419,8 +458,18 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
           :paper-appearance="paperAppearance ?? 'light'"
           trigger-mode="chevron"
           placement="above"
+          position-target="parent"
           @update:model-value="onFontSizePresetSelect"
         />
+        <button
+          type="button"
+          class="paper-format-size-step"
+          aria-label="Increase font size"
+          :disabled="!canIncreaseFontSize"
+          @mousedown.prevent="stepFontSize('up')"
+        >
+          +
+        </button>
       </div>
 
       <PaperColorControl
@@ -916,15 +965,51 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
   background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
+.paper-format-size-step {
+  display: inline-flex;
+  width: 1.35rem;
+  height: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.paper-format-size-step:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.paper-format-size-step:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+.paper-format-size-step:hover:not(:disabled) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.paper-format-size-step:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .paper-format-size-input {
-  width: 2.75rem;
+  width: 2.35rem;
   height: 2rem;
   border: none;
   background: transparent;
-  padding: 0 0.25rem 0 0.5rem;
+  padding: 0 0.15rem;
   font-size: 0.75rem;
   color: var(--text);
-  text-align: right;
+  text-align: center;
 }
 
 .paper-format-size-input:focus {

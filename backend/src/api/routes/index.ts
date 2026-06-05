@@ -6,6 +6,7 @@ import healthRoutes from './health';
 import statusPageRoutes from './statusPage';
 import giphyRoutes from './giphy';
 import serperImageSearchRoutes from './serperImageSearch';
+import honchoMemoryRoutes from './honchoMemory';
 import authRoutes from './auth';
 import passkeyRoutes from './passkeyRoutes';
 import discordOAuthRoutes from './discordOAuth';
@@ -48,6 +49,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(systemDeployCountdownRoutes, { prefix: '/api/v1' });
   await fastify.register(giphyRoutes, { prefix: '/api/v1' });
   await fastify.register(serperImageSearchRoutes, { prefix: '/api/v1' });
+  await fastify.register(honchoMemoryRoutes, { prefix: '/api/v1' });
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(passkeyRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(discordOAuthRoutes, { prefix: '/api/v1/auth' });

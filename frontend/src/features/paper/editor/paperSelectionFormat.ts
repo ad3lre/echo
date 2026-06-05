@@ -241,10 +241,18 @@ export function analyzePaperSelectionFormat(
   else if (fontSizeUsesDefault && heading === 'h3') fontSizeDefaultHint = 'H3';
   else if (fontSizeUsesDefault) fontSizeDefaultHint = 'Body';
 
-  const fontFamilyMixed = families.size > 1;
-  const fontFamily = fontFamilyMixed
-    ? ''
-    : ([...families][0] ?? docDefaultFont);
+  let fontFamilyMixed = families.size > 1;
+  let fontFamily = fontFamilyMixed ? '' : ([...families][0] ?? docDefaultFont);
+
+  // Collapsed caret: prefer stored typing attributes over the surrounding text run.
+  if (from === to) {
+    const caretFam = editor.getAttributes('textStyle').fontFamily;
+    fontFamily =
+      typeof caretFam === 'string' && caretFam.trim()
+        ? caretFam.trim()
+        : docDefaultFont;
+    fontFamilyMixed = false;
+  }
 
   let textAlign: PaperSelectionFormatSnapshot['textAlign'] = 'left';
   if (aligns.size > 1) textAlign = 'mixed';

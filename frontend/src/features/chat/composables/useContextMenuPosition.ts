@@ -58,14 +58,24 @@ export function useContextMenuPosition() {
     menuPosition.value = clampMenuToViewport(left, top, estW, estH);
   }
 
-  /** After the menu is in the DOM, snap its top-left using its real width/height. */
+  /**
+   * After the menu is in the DOM, clamp using measured size but the intended
+   * top-left from `setMenuPosition*`. Reading `getBoundingClientRect()` for
+   * position races the first paint — teleported menus often still sit at (0,0)
+   * for a frame and get clamped to the viewport corner.
+   */
   function fitMenuToViewport(menuEl: HTMLElement | null) {
     if (!menuEl) return;
     const r = menuEl.getBoundingClientRect();
     const w = r.width;
     const h = r.height;
     if (w < 1 && h < 1) return;
-    menuPosition.value = clampMenuToViewport(r.left, r.top, w, h);
+    menuPosition.value = clampMenuToViewport(
+      menuPosition.value.left,
+      menuPosition.value.top,
+      w,
+      h,
+    );
   }
 
   return {

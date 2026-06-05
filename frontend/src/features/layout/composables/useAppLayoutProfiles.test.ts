@@ -9,6 +9,7 @@ describe('useAppLayoutProfiles DM overview', () => {
     setActivePinia(createPinia());
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-23T12:00:00.000Z'));
+    vi.advanceTimersByTime(1000);
   });
 
   afterEach(() => {
@@ -21,6 +22,7 @@ describe('useAppLayoutProfiles DM overview', () => {
       { id: 'peer', name: 'Peer', pfp: 'peer.png' },
     ]);
     const isInDMChat = ref(true);
+    const isInDMMode = ref(true);
     const isMemberPopoutOpen = ref(false);
     const isSelfProfilePopoutOpen = ref(false);
     const isExpandedProfileModalOpen = ref(false);
@@ -45,6 +47,7 @@ describe('useAppLayoutProfiles DM overview', () => {
       selectedServer: ref(null),
       workspaceMembersByServer: ref({}),
       isInDMChat,
+      isInDMMode,
       isMemberPopoutOpen,
       isSelfProfilePopoutOpen,
       isExpandedProfileModalOpen,
@@ -74,12 +77,59 @@ describe('useAppLayoutProfiles DM overview', () => {
     expect(isExpandedProfileModalOpen.value).toBe(false);
   });
 
+  it('opens full modal from Friends surface when DM rail is active', () => {
+    const users = ref([
+      { id: 'self', name: 'Self', pfp: 'self.png' },
+      { id: 'peer', name: 'Peer', pfp: 'peer.png' },
+    ]);
+    const isInDMChat = ref(false);
+    const isInDMMode = ref(true);
+    const isExpandedProfileModalOpen = ref(false);
+    const isExpandedProfileSidePanel = ref(false);
+    const expandedProfile = ref<ExpandedProfile | null>(null);
+    const expandedProfileTargetUserId = ref<string | null>(null);
+
+    const api = useAppLayoutProfiles({
+      users,
+      servers: ref([]),
+      serverMemberIds: ref({}),
+      friendIdsByUserId: ref({}),
+      friendIds: ref([]),
+      currentUser: ref(users.value[0]),
+      selectedServer: ref(null),
+      workspaceMembersByServer: ref({}),
+      isInDMChat,
+      isInDMMode,
+      isMemberPopoutOpen: ref(false),
+      isSelfProfilePopoutOpen: ref(false),
+      isExpandedProfileModalOpen,
+      isExpandedProfileSidePanel,
+      canShowDmProfileSidePanel: ref(true),
+      isGroupOverviewOpen: ref(false),
+      activeMemberProfile: ref(null),
+      expandedProfile,
+      expandedProfileTargetUserId,
+      profileNotes: ref({}),
+      memberPopoutAnchor: ref(null),
+      selfProfileAnchor: ref(null),
+      selfProfile: ref(null),
+    });
+
+    api.openExtendedProfileModalForUserId('peer', {
+      skipInteractionGuard: true,
+    });
+    expect(isExpandedProfileModalOpen.value).toBe(true);
+    expect(isExpandedProfileSidePanel.value).toBe(false);
+    expect(expandedProfile.value?.id).toBe('peer');
+  });
+
   it('opens full modal directly for avatar/name clicks in DMs', () => {
     const users = ref([
       { id: 'self', name: 'Self', pfp: 'self.png' },
       { id: 'peer', name: 'Peer', pfp: 'peer.png' },
     ]);
     const isInDMChat = ref(true);
+    const isInDMMode = ref(true);
     const isMemberPopoutOpen = ref(false);
     const isSelfProfilePopoutOpen = ref(false);
     const isExpandedProfileModalOpen = ref(false);
@@ -104,6 +154,7 @@ describe('useAppLayoutProfiles DM overview', () => {
       selectedServer: ref(null),
       workspaceMembersByServer: ref({}),
       isInDMChat,
+      isInDMMode,
       isMemberPopoutOpen,
       isSelfProfilePopoutOpen,
       isExpandedProfileModalOpen,
@@ -157,6 +208,7 @@ describe('useAppLayoutProfiles DM overview', () => {
       selectedServer: ref(null),
       workspaceMembersByServer: ref({}),
       isInDMChat: ref(true),
+      isInDMMode: ref(true),
       isMemberPopoutOpen: ref(false),
       isSelfProfilePopoutOpen: ref(false),
       isExpandedProfileModalOpen,

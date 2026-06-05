@@ -17,12 +17,20 @@ import type { Server } from '@shared/types/server';
 import type { WorkspaceStateApi } from '@/composables/workspace/types';
 import type { useAuthSessionStore } from '@/stores/authSession';
 
+function decodeInvitePathSegment(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function resolveInviteUrlFromApi(raw: string): string {
   const t = raw.trim();
   if (!t) return '';
   if (t.startsWith('/api/v1/echo/invites/')) {
     const m = t.match(/^\/api\/v1\/echo\/invites\/([^/]+)\/share\/?$/i);
-    if (m?.[1]) return echoInviteSharePageUrl(decodeURIComponent(m[1]));
+    if (m?.[1]) return echoInviteSharePageUrl(decodeInvitePathSegment(m[1]));
   }
   if (t.startsWith('/')) {
     const seg = t.replace(/^\/+/, '').split('/')[0]?.trim();

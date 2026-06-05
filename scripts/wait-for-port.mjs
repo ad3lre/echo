@@ -3,16 +3,12 @@
  * Used so Vite's dev proxy does not race ahead of the API on `npm run dev`.
  */
 import net from 'node:net';
+import { parseIntegerInRange, parseMinInteger } from './lib/number-parse.mjs';
 
 const host = process.argv[2] || '127.0.0.1';
-const port = Number(process.argv[3] || 3000);
-const timeoutMs = Number(process.env.WAIT_FOR_PORT_MS || 120_000);
+const port = parseIntegerInRange(process.argv[3], 3000, 1, 65_535);
+const timeoutMs = parseMinInteger(process.env.WAIT_FOR_PORT_MS, 120_000, 1);
 const intervalMs = 200;
-
-if (!Number.isFinite(port) || port <= 0) {
-  console.error('wait-for-port: invalid port');
-  process.exit(1);
-}
 
 const deadline = Date.now() + timeoutMs;
 

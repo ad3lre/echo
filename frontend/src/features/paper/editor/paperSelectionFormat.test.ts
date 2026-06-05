@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { buildPaperEditorExtensions } from '@/features/paper/editor/paperEditorExtensions';
 import { analyzePaperSelectionFormat } from '@/features/paper/editor/paperSelectionFormat';
+import {
+  clearStoredPaperEditorSelection,
+  runPaperFormatCommand,
+} from '@/features/paper/editor/paperFormatSelection';
 import { PAPER_BLOCK_DEFAULT_FONT_PX } from '@/features/paper/editor/paperTypography';
 
 describe('analyzePaperSelectionFormat', () => {
@@ -136,6 +140,28 @@ describe('analyzePaperSelectionFormat', () => {
     editor.destroy();
     expect(fmt.textOutlineWidth).toBe('1px');
     expect(fmt.textOutlineMixed).toBe(false);
+  });
+
+  it('reads stored font family at a collapsed caret', () => {
+    const editor = new Editor({
+      extensions: buildPaperEditorExtensions(),
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Hello' }],
+          },
+        ],
+      },
+    });
+    clearStoredPaperEditorSelection();
+    editor.commands.setTextSelection(3);
+    runPaperFormatCommand(editor, (chain) => chain.setFontFamily('Roboto'));
+    const fmt = analyzePaperSelectionFormat(editor);
+    editor.destroy();
+    expect(fmt.fontFamily).toBe('Roboto');
+    expect(fmt.fontFamilyMixed).toBe(false);
   });
 
   it('reports paragraph indent from data-indent attr', () => {

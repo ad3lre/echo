@@ -12,6 +12,7 @@ import type { useAuthSessionStore } from '@/stores/authSession';
 import type { WorkspaceStateApi } from '@/composables/workspace/types';
 import { createVoiceService } from '@/services/orchestration/voice';
 import { postEchoVoiceQosSample } from '@/api/echo/voice';
+import { ensureGuildVoiceParticipantRow } from '@/services/orchestration/voice';
 import {
   useLiveKitVoiceRoom,
   type DesktopStreamingPreferences,
@@ -1814,7 +1815,11 @@ export function useServerVoiceSession(deps: {
   /** Bumped on intentional leave so in-flight auto-reconnect loops exit. */
   let vcAutoReconnectEpoch = 0;
 
-  async function guildVoiceE2eePrepare(serverId: string, channelId: string) {
+  async function guildVoiceE2eePrepare(
+    serverId: string,
+    channelId: string,
+    forceE2ee = false,
+  ) {
     const token = authSession.accessToken?.trim() ?? '';
     const uid = currentUser.value?.id?.trim() ?? '';
     if (!token || !uid) return { mediaKey: null, senderDeviceId: '' };
@@ -1822,6 +1827,35 @@ export function useServerVoiceSession(deps: {
     const ch = ctx?.channel;
     if (ch && ch.type !== 'voice' && ch.type !== 'stage') {
       return { mediaKey: null, senderDeviceId: '' };
+    }
+    // Normal (non-E2EE) voice must never touch the E2EE/MLS prepare flow: doing
+    // so issues MLS/envelope requests the backend rejects for plain channels
+    // (e.g. 403 VOICE_E2EE_DISABLED), which would fail an otherwise valid join.
+    // `forceE2ee` is set by the orchestrator's retry when the server reports the
+    // channel actually requires E2EE (cached flag was stale).
+    if (!forceE2ee && ch && ch.voiceE2eeEnabled !== true) {
+      return { mediaKey: null, senderDeviceId: '' };
+    }
+    // Guild E2EE: the epoch creator must already be a member of
+    // `echo_voice_participants` (backend `assertActorInVoiceChannelForEpochCreate`),
+    // but the LiveKit session mint — which normally inserts that row — runs only
+    // *after* this prepare. Without an explicit join here, epoch creation fails
+    // closed with `not_in_voice` (403) and the call never completes its privacy
+    // setup. The REST join is idempotent (`ON CONFLICT … DO UPDATE`) with the
+    // join performed again during the session mint. DM calls don't need this
+    // (the epoch guard exempts the DM realm).
+    const serverIdForJoin = serverId.trim();
+    if (serverIdForJoin) {
+      try {
+        await ensureGuildVoiceParticipantRow(token, serverIdForJoin, channelId);
+      } catch (e) {
+        voiceClientTrace('voice.client:guild_e2ee_prejoin_failed', {
+          serverId: serverIdForJoin,
+          channelId,
+          err: e instanceof Error ? e.message : String(e),
+        });
+        throw e;
+      }
     }
     const roster = ch?.voiceParticipantIds ?? [];
     const members = [

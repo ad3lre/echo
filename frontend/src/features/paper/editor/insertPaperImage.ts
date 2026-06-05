@@ -16,12 +16,6 @@ export function insertPaperImage(
   src: string,
   opts: InsertPaperImageOpts = {},
 ): boolean {
-  const attrs = {
-    src,
-    align: 'center' as PaperImageAlign,
-    wrap: 'none' as PaperImageWrap,
-  };
-
   const caret = opts.restoreCaret ? consumeStoredPaperEditorCaret() : null;
   let chain = editor.chain().focus();
   if (caret != null) {
@@ -30,13 +24,15 @@ export function insertPaperImage(
   }
 
   const inserted = chain.setImage({ src }).run();
-  if (!inserted) return false;
-  editor
-    .chain()
-    .updateAttributes('image', {
-      align: attrs.align,
-      wrap: attrs.wrap,
-    })
-    .run();
-  return true;
+  if (inserted) {
+    editor
+      .chain()
+      .focus()
+      .updateAttributes('image', {
+        align: 'center' as PaperImageAlign,
+        wrap: 'none' as PaperImageWrap,
+      })
+      .run();
+  }
+  return inserted;
 }

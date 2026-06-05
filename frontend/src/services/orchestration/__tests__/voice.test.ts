@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createVoiceService } from '../voice';
-import { postEchoDmLivekitSession } from '@/api/echoClient';
+import {
+  postEchoDmLivekitSession,
+  postEchoVoiceLivekitSession,
+} from '@/api/echoClient';
+import { EchoApiError } from '@/api/echo/transport';
 
 vi.mock('@/api/echoClient', () => ({
   postEchoVoiceJoin: vi.fn(async () => {}),
@@ -57,6 +61,50 @@ describe('voice orchestration', () => {
       undefined,
       undefined,
     );
+  });
+
+  it('skips guild E2EE prepare for normal channels but forces it on backend E2EE retry', async () => {
+    const connect = vi.fn(async () => {});
+    const prepareCalls: Array<boolean | undefined> = [];
+    const getGuildVoiceE2eeMediaKey = vi.fn(
+      async (_s: string, _c: string, forceE2ee?: boolean) => {
+        prepareCalls.push(forceE2ee);
+        return { mediaKey: null, senderDeviceId: '' };
+      },
+    );
+
+    vi.mocked(postEchoVoiceLivekitSession)
+      .mockRejectedValueOnce(
+        new EchoApiError(409, {
+          code: 'VOICE_E2EE_EPOCH_REQUIRED',
+          message: 'Voice E2EE epoch required',
+        }),
+      )
+      .mockResolvedValueOnce({
+        url: 'wss://example.livekit.invalid',
+        token: 'token',
+        roomName: 'echo_realm:test',
+        bitrateBps: null,
+        voiceE2ee: { required: true, epochId: null },
+      });
+
+    const svc = createVoiceService({
+      authSession: { isAuthenticated: true, accessToken: 'test-token' },
+      workspace: {},
+      workspaceHydrator: { hydrate: async () => {} },
+      liveKit: { connect, disconnect: vi.fn() },
+      getGuildVoiceE2eeMediaKey,
+    });
+
+    // The mocked retry resolves with a session whose voiceE2ee.required is true
+    // but no real key (prepare returns null here); we only assert the gate flag
+    // threading, so swallow the resulting "requires E2EE" guard error.
+    await expect(svc.onJoinVoice(SERVER_ID, CHANNEL_ID)).rejects.toThrow();
+
+    // First call must NOT force E2EE (normal-channel fast path); the
+    // backend-driven retry must force it.
+    expect(prepareCalls).toEqual([undefined, true]);
+    expect(postEchoVoiceLivekitSession).toHaveBeenCalledTimes(2);
   });
 
   it('retries DM LiveKit join once after membership-style forbidden', async () => {

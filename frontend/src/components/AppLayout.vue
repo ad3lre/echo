@@ -2610,6 +2610,12 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   },
   onGuildEventRsvp: submitGuildEventRsvp,
   onOpenGuildEventDetail: openGuildEventDetail,
+  onUpdateDmNotificationsReadPreset: (preset) => {
+    dmNotificationsReadPreset.value = preset;
+  },
+  onUpdateDmNotificationsSourceKey: (key) => {
+    dmNotificationsSourceKey.value = key;
+  },
   onOpenGuildEventChannel: (payload) => {
     // Clicking an event card from the DM list navigates the server surface
     // underneath; close the DM panel so the destination is actually visible

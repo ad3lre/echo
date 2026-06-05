@@ -3,6 +3,7 @@ import net from 'net';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { parseIntegerInRange } from './lib/number-parse.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,9 +16,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * serves a nice maintenance page if the selected target is down.
  */
 
-const WATCHDOG_PORT = parseInt(process.env.WATCHDOG_PORT || '3005', 10);
+const WATCHDOG_PORT = parseIntegerInRange(
+  process.env.WATCHDOG_PORT,
+  3005,
+  1,
+  65_535,
+);
 const TARGET_HOST = process.env.TARGET_HOST || '127.0.0.1';
-const TARGET_PORT = parseInt(process.env.TARGET_PORT || '8080', 10);
+const TARGET_PORT = parseIntegerInRange(
+  process.env.TARGET_PORT,
+  8080,
+  1,
+  65_535,
+);
 const WATCHDOG_HOST_TARGETS = process.env.WATCHDOG_HOST_TARGETS || '';
 const CHECK_INTERVAL_MS = 2000;
 const DOWNTIME_FILE = path.join(__dirname, 'downtime-stats.json');

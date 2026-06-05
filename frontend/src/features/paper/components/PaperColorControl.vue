@@ -13,7 +13,7 @@ const props = defineProps<{
   mixed?: boolean;
   isDefault?: boolean;
   /** 'text' shows underlined A; 'highlight' shows marker icon */
-  variant?: 'text' | 'highlight';
+  variant?: 'text' | 'highlight' | 'object' | 'border';
   palette: readonly PaperColorSwatch[];
   pageLayout?: PaperPageLayout;
   paperAppearance?: PaperAppearanceMode;
@@ -24,9 +24,17 @@ const emit = defineEmits<{
   clear: [];
 }>();
 
-const kind = computed<PaperColorKind>(() =>
-  (props.variant ?? 'text') === 'highlight' ? 'highlight' : 'text',
-);
+const kind = computed<PaperColorKind>(() => {
+  const variant = props.variant ?? 'text';
+  if (variant === 'highlight') return 'highlight';
+  if (variant === 'object' || variant === 'border') return 'object';
+  return 'text';
+});
+
+const isTransparentColor = computed(() => {
+  const value = props.color?.trim().toLowerCase();
+  return value === 'transparent' || value === 'none';
+});
 
 const open = ref(false);
 const rootRef = ref<HTMLElement | null>(null);
@@ -38,7 +46,22 @@ const swatchStyle = computed(() => {
       background: 'linear-gradient(135deg, #ef4444 0 50%, #3b82f6 50% 100%)',
     };
   }
+  if (
+    (props.variant === 'object' || props.variant === 'border') &&
+    isTransparentColor.value
+  ) {
+    return {};
+  }
+  if (props.variant === 'border' && props.color) {
+    return {
+      background: 'transparent',
+      boxShadow: `inset 0 0 0 2px ${props.color}`,
+    };
+  }
   if (props.isDefault || !props.color) {
+    if (props.variant === 'object' || props.variant === 'border') {
+      return {};
+    }
     return {
       background: 'var(--paper-surface-fg)',
       color: 'var(--paper-surface-bg)',
@@ -160,7 +183,14 @@ onUnmounted(() => {
     >
       <span
         class="paper-color-swatch"
-        :class="{ 'paper-color-swatch--mixed': mixed }"
+        :class="{
+          'paper-color-swatch--mixed': mixed,
+          'paper-color-swatch--none':
+            (variant === 'object' || variant === 'border') &&
+            isTransparentColor,
+          'paper-color-swatch--border':
+            variant === 'border' && !isTransparentColor && !isDefault,
+        }"
         :style="swatchStyle"
         aria-hidden="true"
       >
@@ -269,6 +299,25 @@ onUnmounted(() => {
 
 .paper-color-swatch--mixed {
   border-style: dashed;
+}
+
+.paper-color-swatch--none {
+  background:
+    linear-gradient(45deg, #d4d4d8 25%, transparent 25%),
+    linear-gradient(-45deg, #d4d4d8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #d4d4d8 75%),
+    linear-gradient(-45deg, transparent 75%, #d4d4d8 75%);
+  background-size: 6px 6px;
+  background-position:
+    0 0,
+    0 3px,
+    3px -3px,
+    -3px 0;
+}
+
+.paper-color-swatch--border {
+  box-shadow: inset 0 0 0 2px currentColor;
+  background: transparent !important;
 }
 
 .paper-color-picker-shell {

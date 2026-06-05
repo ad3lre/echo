@@ -34,6 +34,18 @@ function normalizeVoiceE2eePrepare(
   return raw;
 }
 
+/**
+ * Idempotent REST join so guild E2EE epoch creation sees the actor in
+ * `echo_voice_participants` before LiveKit session mint (see layout prepare hook).
+ */
+export async function ensureGuildVoiceParticipantRow(
+  token: string,
+  serverId: string,
+  channelId: string,
+): Promise<void> {
+  await postEchoVoiceJoin(token, serverId, channelId);
+}
+
 /** Build the connect input: v2 carries a keyIndex for in-band rotation. */
 function toConnectE2eeInput(p: VoiceE2eePrepareResult): VoiceConnectE2eeInput {
   if (!p.mediaKey) return null;
@@ -67,10 +79,17 @@ export type VoiceServiceDeps = {
     ) => Promise<void>;
     disconnect: () => void;
   };
-  /** Guild voice: create/fetch LibSignal-wrapped media key before LiveKit session. */
+  /**
+   * Guild voice: create/fetch LibSignal-wrapped media key before LiveKit session.
+   * Returns null key material for non-E2EE channels so normal voice never runs
+   * the E2EE/MLS machinery. `forceE2ee` is set on the backend-driven retry (the
+   * server reported the channel requires E2EE) to bypass that client-side gate
+   * when the cached channel flag is stale.
+   */
   getGuildVoiceE2eeMediaKey?: (
     serverId: string,
     channelId: string,
+    forceE2ee?: boolean,
   ) => Promise<VoiceE2eePrepareFnResult>;
   /** DM call: LibSignal-wrapped media key epoch (voice E2EE, always on). */
   getDmVoiceE2eeMediaKey?: (
@@ -104,6 +123,7 @@ export function createVoiceService({
     e2eePrepare?: (
       serverId: string,
       channelId: string,
+      forceE2ee?: boolean,
     ) => Promise<VoiceE2eePrepareFnResult>,
   ): Promise<{
     session: EchoLiveKitSessionResponse;
@@ -140,7 +160,7 @@ export function createVoiceService({
           code: e.body.code,
         });
         prepared = normalizeVoiceE2eePrepare(
-          await e2eePrepare(serverId, channelId),
+          await e2eePrepare(serverId, channelId, true),
         );
         const retryOpts = prepared.senderDeviceId
           ? { e2eeDeviceId: prepared.senderDeviceId }

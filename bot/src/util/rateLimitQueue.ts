@@ -1,3 +1,5 @@
+import { parseRetryAfterMs } from './numberParsing.js';
+
 /**
  * Small helper for non-discord.js HTTP (e.g. CDN asset downloads).
  * discord.js REST already rate-limits API calls internally.
@@ -18,8 +20,12 @@ export async function fetchWithRetry(
     if (res.status !== 429) return res;
     attempt += 1;
     if (attempt > maxRetries) return res;
-    const ra = Number(res.headers.get('retry-after') ?? '1');
-    const waitMs = Number.isFinite(ra) ? Math.ceil(ra * 1000) : 1000 * attempt;
+    const waitMs = parseRetryAfterMs(
+      res.headers.get('retry-after'),
+      1000 * attempt,
+      1000,
+      60_000,
+    );
     await sleep(waitMs);
   }
 }

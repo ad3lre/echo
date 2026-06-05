@@ -11,6 +11,9 @@ import {
 } from '@/services/realtime/socketIoSessionWire';
 import type { EchoSocketInboundListeners } from '@/services/realtime/socketInbound';
 import { createTryEmitRealtime } from '@/services/realtime/socketOutbound';
+import { createSocketLivenessWatchdog } from '@/services/realtime/socketLivenessWatchdog';
+import { probeSocketLiveness } from '@/services/realtime/socketLivenessProbe';
+import { socketDiagInfo } from '@/observability/socketDiagnostics';
 
 export type EchoSocketIoState = {
   socket: import('socket.io-client').Socket | null;
@@ -60,6 +63,23 @@ export function createEchoSocketSessionLifecycle(opts: {
   const io = opts.io;
   let idleCancel: (() => void) | null = null;
   let detachWindowResumeListeners: (() => void) | null = null;
+
+  /**
+   * Detects "zombie" sockets (connected but unresponsive) and force-recycles them, covering
+   * the gap where Engine.IO never fires `disconnect`. Self-gates on visibility + connection,
+   * so starting it once at mount is safe across the Manager's own auto-reconnects.
+   */
+  const livenessWatchdog = createSocketLivenessWatchdog({
+    isConnected: () => Boolean(io.socket?.connected),
+    isVisible: () =>
+      typeof document === 'undefined' || document.visibilityState === 'visible',
+    probe: (timeoutMs) => probeSocketLiveness(io.socket, timeoutMs),
+    recycle: () => {
+      teardownSocket();
+      void connectSocket();
+    },
+    onDiag: (event, meta) => socketDiagInfo(event, meta),
+  });
 
   function connectSocket(): Promise<void> {
     if (opts.socketOff()) return Promise.resolve();
@@ -151,11 +171,13 @@ export function createEchoSocketSessionLifecycle(opts: {
   function disposeSocketComposable() {
     cancelIdleConnectScheduling();
     removeSocketWindowListeners();
+    livenessWatchdog.stop();
     teardownSocket();
   }
 
   function mountWindowAndIdle() {
     if (opts.socketOff()) return;
+    livenessWatchdog.start();
     idleCancel = scheduleEchoSocketInitialConnect({
       onConnect: () => {
         void connectSocket();

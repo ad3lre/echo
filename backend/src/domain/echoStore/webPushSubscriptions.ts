@@ -9,7 +9,7 @@ export type EchoWebPushSubscriptionRow = {
   auth: string;
 };
 
-function mapRow(row: any): EchoWebPushSubscriptionRow {
+function mapRow(row: Record<string, unknown>): EchoWebPushSubscriptionRow {
   return {
     id: String(row.id),
     userId: String(row.user_id),

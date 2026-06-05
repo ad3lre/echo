@@ -16,6 +16,8 @@ fi
 
 echo "core.hooksPath set to scripts/githooks for $(pwd)"
 echo "GitHub push guard: blocks main on github, local main→github, release tip == origin/main"
-echo "pre-commit: god-file ratchet on staged paths (skip with ECHO_GOD_FILE_RATCHET_BYPASS=1)"
+echo "pre-commit: god-file ratchet + new-code charter on staged paths"
+echo "  skip god-file: ECHO_GOD_FILE_RATCHET_BYPASS=1"
+echo "  skip charter: ECHO_NEW_CODE_CHARTER_BYPASS=1"
 echo "pre-push CI: npm run ci:precheck (skip with ECHO_SKIP_CI_PRECHECK=1)"
 echo "Branch upstream: main → origin/main, release/1.0.0 → origin/release/1.0.0"

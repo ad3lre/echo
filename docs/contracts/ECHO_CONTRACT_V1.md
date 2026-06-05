@@ -17,6 +17,7 @@ Frozen **v1** contract for Echo realtime + REST. Breaking changes require **v2**
 | `leaveChannel`            | `channelId` string                                                        | Leave room.                                                                                                                                                                   |
 | `presence:set`            | `{ status }`                                                              | Persist presence (authenticated).                                                                                                                                             |
 | `presence:heartbeat`      | `{ status }`                                                              | Refresh `updated_at` for TTL sweep.                                                                                                                                           |
+| `client:ping`             | ack `(cb: ({ t }) => void)`                                               | Liveness probe; server echoes `{ t: serverTimeMs }`. Client recycles the socket if the ack stops arriving (zombie-connection detection). No auth, no side effects.            |
 
 ## Socket.IO — server → client
 

@@ -2,10 +2,13 @@ import type { Ref } from 'vue';
 import type { Editor } from '@tiptap/core';
 import {
   PAPER_FONT_CATALOG,
+  PAPER_FONT_SIZE_MAX,
+  PAPER_FONT_SIZE_MIN,
   paperFontIdFromFamily,
 } from '@/features/paper/editor/paperTypography';
 import { ensurePaperFontLoaded } from '@/features/paper/editor/paperFontLoader';
 import {
+  preservePaperEditorSelectionDuring,
   runPaperFormatCommand,
   snapshotPaperEditorSelection,
 } from '@/features/paper/editor/paperFormatSelection';
@@ -39,9 +42,10 @@ export function usePaperFormatActions(editor: Ref<Editor | null | undefined>) {
     const font = PAPER_FONT_CATALOG.find((f) => f.id === fontId);
     const ed = editor.value;
     if (!font || !ed) return;
-    snapshotPaperEditorSelection(ed);
-    await ensurePaperFontLoaded(font.id);
-    runPaperFormatCommand(ed, (chain) => chain.setFontFamily(font.family));
+    await preservePaperEditorSelectionDuring(ed, async () => {
+      await ensurePaperFontLoaded(font.id);
+      runPaperFormatCommand(ed, (chain) => chain.setFontFamily(font.family));
+    });
   }
 
   function clearSelectionFont() {
@@ -57,7 +61,11 @@ export function usePaperFormatActions(editor: Ref<Editor | null | undefined>) {
       runPaperFormatCommand(ed, (chain) => chain.unsetFontSize());
       return;
     }
-    runPaperFormatCommand(ed, (chain) => chain.setFontSize(`${px}px`));
+    const clamped = Math.min(
+      PAPER_FONT_SIZE_MAX,
+      Math.max(PAPER_FONT_SIZE_MIN, Math.round(px)),
+    );
+    runPaperFormatCommand(ed, (chain) => chain.setFontSize(`${clamped}px`));
   }
 
   function setTextColor(color: string) {

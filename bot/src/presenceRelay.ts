@@ -1,5 +1,6 @@
 import { type Client, type Guild, type GuildMember } from 'discord.js';
 import { getEchoWebhookJson, postEchoWebhookJson } from './echoApi.js';
+import { parseMinInteger } from './util/numberParsing.js';
 
 /** Batch size for presence queries — conservative to stay well under Discord API limits. */
 const DEFAULT_BATCH_SIZE = 50;
@@ -159,11 +160,11 @@ async function refreshWatchlist(client: Client): Promise<Set<string>> {
 }
 
 export function startDiscordPresenceRelay(client: Client): void {
-  const pollRaw = process.env.ECHO_DISCORD_PRESENCE_POLL_MS?.trim();
-  const pollMs =
-    pollRaw === undefined || pollRaw === ''
-      ? DEFAULT_POLL_INTERVAL_MS
-      : Math.max(15_000, Number(pollRaw));
+  const pollMs = parseMinInteger(
+    process.env.ECHO_DISCORD_PRESENCE_POLL_MS,
+    DEFAULT_POLL_INTERVAL_MS,
+    15_000,
+  );
 
   let cachedGuildIds = new Set<string>();
 

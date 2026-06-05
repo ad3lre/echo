@@ -122,6 +122,10 @@ const subtitle = computed(() => {
   return null;
 });
 
+function peerAvatarUrl(peer: MergedPaperWatchingPeer) {
+  return peer.avatarUrl || props.resolveUserAvatar(peer.userId);
+}
+
 const appearanceTitle = computed(() =>
   paperAppearanceCanvasLabel(props.paperAppearance ?? 'light'),
 );
@@ -516,33 +520,36 @@ function onRedo() {
 
       <div
         v-if="watchingPeers.length"
-        class="paper-doc-chrome__presence hidden lg:flex"
+        class="paper-doc-chrome__presence"
         :title="
           totalWatching > watchingPeers.length
-            ? `${totalWatching} people here`
-            : `${totalWatching} here now`
+            ? `${totalWatching} people viewing`
+            : `${totalWatching} viewing`
         "
       >
-        <div class="flex items-center -space-x-1.5">
+        <div class="paper-doc-chrome__presence-stack">
           <div
-            v-for="peer in watchingPeers"
+            v-for="(peer, index) in watchingPeers"
             :key="peer.userId"
-            class="h-6 w-6 overflow-hidden rounded-full border-2"
+            class="paper-doc-chrome__presence-avatar"
+            :class="{
+              'paper-doc-chrome__presence-avatar--authoring': peer.isAuthoring,
+            }"
             :style="{
-              borderColor: peer.color,
-              boxShadow: `0 0 0 1px ${peer.color}44`,
+              zIndex: watchingPeers.length - index,
+              '--presence-ring': peer.color,
             }"
             :title="peer.name"
           >
             <img
-              v-if="resolveUserAvatar(peer.userId)"
-              :src="resolveUserAvatar(peer.userId)"
+              v-if="peerAvatarUrl(peer)"
+              :src="peerAvatarUrl(peer)"
               alt=""
-              class="h-full w-full object-cover"
+              class="paper-doc-chrome__presence-photo"
             />
             <div
               v-else
-              class="flex h-full w-full items-center justify-center text-[8px] font-semibold text-white"
+              class="paper-doc-chrome__presence-initial"
               :style="{ backgroundColor: peer.color }"
             >
               {{ peer.name.slice(0, 1).toUpperCase() }}
@@ -550,7 +557,8 @@ function onRedo() {
           </div>
           <span
             v-if="totalWatching > watchingPeers.length"
-            class="flex h-6 min-w-6 items-center justify-center rounded-full border border-border bg-elevated px-1 text-[9px] font-semibold paper-chrome-subtext"
+            class="paper-doc-chrome__presence-overflow"
+            :style="{ zIndex: 0 }"
           >
             +{{ totalWatching - watchingPeers.length }}
           </span>
@@ -1002,8 +1010,80 @@ function onRedo() {
 }
 
 .paper-doc-chrome__presence {
+  display: flex;
   align-items: center;
   margin-right: 0.125rem;
+}
+
+.paper-doc-chrome__presence-stack {
+  display: flex;
+  align-items: center;
+}
+
+.paper-doc-chrome__presence-avatar {
+  position: relative;
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 2px solid var(--bg);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent),
+    0 1px 2px color-mix(in srgb, var(--text) 12%, transparent);
+  margin-left: -0.5rem;
+}
+
+.paper-doc-chrome__presence-avatar:first-child {
+  margin-left: 0;
+}
+
+.paper-doc-chrome__presence-avatar--authoring {
+  box-shadow:
+    0 0 0 2px var(--presence-ring),
+    0 0 0 3px var(--bg),
+    0 1px 2px color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.paper-doc-chrome__presence-photo,
+.paper-doc-chrome__presence-initial {
+  height: 100%;
+  width: 100%;
+}
+
+.paper-doc-chrome__presence-photo {
+  object-fit: cover;
+}
+
+.paper-doc-chrome__presence-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.paper-doc-chrome__presence-overflow {
+  display: flex;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  margin-left: -0.5rem;
+  border-radius: 9999px;
+  border: 2px solid var(--bg);
+  background: var(--elevated);
+  padding: 0 0.25rem;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--muted);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent),
+    0 1px 2px color-mix(in srgb, var(--text) 12%, transparent);
 }
 
 .paper-chrome-history {

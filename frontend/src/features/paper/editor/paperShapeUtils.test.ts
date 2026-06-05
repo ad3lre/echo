@@ -3,7 +3,13 @@ import {
   clampPaperShapePx,
   computeShapeResize,
   formatPaperShapePx,
+  isPaperShapeFillNone,
   parsePaperShapePx,
+  PAPER_SHAPE_MAX_PX,
+  PAPER_SHAPE_MIN_PX,
+  PAPER_SHAPE_SIZE_PRESETS,
+  shapeInlineStyle,
+  stepShapeSizePx,
 } from '@/features/paper/editor/paperShapeUtils';
 
 describe('paperShapeUtils', () => {
@@ -26,5 +32,55 @@ describe('paperShapeUtils', () => {
 
   it('clamps to minimum size', () => {
     expect(clampPaperShapePx(8)).toBe(24);
+  });
+
+  it('detects transparent fills', () => {
+    expect(isPaperShapeFillNone('transparent')).toBe(true);
+    expect(isPaperShapeFillNone('none')).toBe(true);
+    expect(isPaperShapeFillNone('#3b82f6')).toBe(false);
+  });
+
+  it('renders borders and transparent fills', () => {
+    const hollow = shapeInlineStyle(
+      'rectangle',
+      'transparent',
+      '120px',
+      '120px',
+    );
+    expect(hollow).toContain('background-color:transparent');
+
+    const bordered = shapeInlineStyle(
+      'rectangle',
+      'transparent',
+      '120px',
+      '120px',
+      null,
+      { color: '#111111', width: '3px', style: 'dashed' },
+    );
+    expect(bordered).toContain('border:3px dashed #111111');
+
+    const triangle = shapeInlineStyle(
+      'triangle',
+      '#3b82f6',
+      '120px',
+      '120px',
+      null,
+      { color: '#111111', width: '2px', style: 'solid' },
+    );
+    expect(triangle).toContain('box-shadow:inset 0 0 0 2px #111111');
+  });
+
+  it('steps through presets and beyond in 20px increments', () => {
+    expect(stepShapeSizePx(120, 'up')).toBe(200);
+    expect(stepShapeSizePx(120, 'down')).toBe(80);
+    const xl =
+      PAPER_SHAPE_SIZE_PRESETS[PAPER_SHAPE_SIZE_PRESETS.length - 1]!.px;
+    expect(stepShapeSizePx(xl, 'up')).toBe(xl + 20);
+    const small = PAPER_SHAPE_SIZE_PRESETS[0]!.px;
+    expect(stepShapeSizePx(small, 'down')).toBe(small - 20);
+    expect(stepShapeSizePx(PAPER_SHAPE_MIN_PX, 'down')).toBe(
+      PAPER_SHAPE_MIN_PX,
+    );
+    expect(stepShapeSizePx(PAPER_SHAPE_MAX_PX, 'up')).toBe(PAPER_SHAPE_MAX_PX);
   });
 });

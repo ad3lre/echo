@@ -4,6 +4,7 @@ import type { useServerStore } from '@/stores/server';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { MainSurface } from '@/features/layout/mainSurface';
 import type { ChannelSummary } from '@shared/types';
+import type { EchoForumPostRow } from '@/api/echo/forums';
 import {
   createForumPost as createForumPostOrchestration,
   fetchForumPosts as fetchForumPostsOrchestration,
@@ -45,7 +46,7 @@ export function useForumPostsController(deps: {
     handleGoToMessage,
   } = deps;
 
-  const forumPostsByForumId = ref<Record<string, any[]>>({});
+  const forumPostsByForumId = ref<Record<string, EchoForumPostRow[]>>({});
   const forumPostsLoadingByForumId = ref<Record<string, boolean>>({});
   const forumPostsErrorByForumId = ref<Record<string, string | null>>({});
 

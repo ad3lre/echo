@@ -162,9 +162,11 @@ function escapeKatexFallback(latex: string): string {
 export function ensureMarkdownKatexLoaded(): void {
   if (katexModule || katexLoadPromise) return;
   if (!katexCssLoadPromise) {
-    katexCssLoadPromise = import('katex/dist/katex.min.css').catch(
-      () => undefined,
-    );
+    katexCssLoadPromise = import('katex/dist/katex.min.css')
+      .then(() => {
+        markdownKatexReadyVersion.value += 1;
+      })
+      .catch(() => undefined);
   }
   katexLoadPromise = import('katex')
     .then((mod) => {
@@ -179,7 +181,7 @@ export function ensureMarkdownKatexLoaded(): void {
 export async function ensureMarkdownKatexReady(): Promise<void> {
   if (katexModule) return;
   ensureMarkdownKatexLoaded();
-  await katexLoadPromise;
+  await Promise.all([katexLoadPromise, katexCssLoadPromise]);
 }
 
 export function isMarkdownKatexReady(): boolean {

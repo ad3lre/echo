@@ -155,7 +155,7 @@ export async function deleteEchoMessageAndBroadcast(
 
 /**
  * After a ban, remove this author's recent messages across the server and notify clients.
- * {@link hoursBack} must be a positive whitelist value (e.g. 1, 24, 72, 168).
+ * {@link hoursBack} must be a positive allowlist value (e.g. 1, 24, 72, 168).
  */
 export async function purgeEchoAuthorRecentMessagesInServerAndBroadcast(
   pool: pg.Pool,

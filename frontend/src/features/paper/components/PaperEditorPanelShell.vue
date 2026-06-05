@@ -79,11 +79,6 @@ watch(
     const onSelectionUpdate = () => {
       if (!ed) return;
       syncStoredPaperEditorSelection(ed);
-      if (!bridge.panelOpen.value) return;
-      const { from, to } = ed.state.selection;
-      if (from < to && bridge.activeTab.value !== 'text') {
-        bridge.setActiveTab('text');
-      }
     };
     prev?.off('selectionUpdate', onSelectionUpdate);
     ed?.on('selectionUpdate', onSelectionUpdate);

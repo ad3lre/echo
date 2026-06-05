@@ -32,6 +32,17 @@ describe('extractInviteTokenFromUserInput', () => {
   it('strips leading slashes for non-URL input', () => {
     expect(extractInviteTokenFromUserInput('//raw-code')).toBe('raw-code');
   });
+
+  it('does not return the whole URL when the token has malformed percent encoding', () => {
+    expect(
+      extractInviteTokenFromUserInput('https://app.test/invite/%E0%A4%A'),
+    ).toBe('%E0%A4%A');
+    expect(
+      extractInviteTokenFromUserInput(
+        'https://app.test/api/v1/echo/invites/%E0%A4%A/share',
+      ),
+    ).toBe('%E0%A4%A');
+  });
 });
 
 describe('extractVoiceChannelIdFromInviteUserInput', () => {

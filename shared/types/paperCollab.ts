@@ -47,3 +47,33 @@ export type PaperLockRequestedPayload = {
   /** Block lock holder who should receive the request. */
   toUserId: string;
 };
+
+/** Ephemeral: author is actively editing this block (keystrokes). */
+export type PaperBlockDirtyEntry = {
+  channelId: string;
+  blockId: string;
+  userId: string;
+  displayName: string;
+  color: string;
+};
+
+/** Ephemeral: preview text of a block being edited by another author. */
+export type PaperBlockPreviewEntry = {
+  channelId: string;
+  blockId: string;
+  userId: string;
+  displayName: string;
+  color: string;
+  /** Plain text preview of the block content (first N chars) */
+  previewText: string;
+};
+
+export type PaperBlockDirtyPayload = {
+  channelId: string;
+  dirty: PaperBlockDirtyEntry[];
+};
+
+export type PaperBlockPreviewsPayload = {
+  channelId: string;
+  previews: PaperBlockPreviewEntry[];
+};

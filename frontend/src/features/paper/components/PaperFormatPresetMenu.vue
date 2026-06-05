@@ -17,10 +17,13 @@ const props = withDefaults(
     /** Chevron-only trigger beside an input, or label showing the current preset. */
     triggerMode?: 'chevron' | 'label';
     placement?: 'above' | 'below';
+    /** Align the menu to the parent row (e.g. size input + chevron) instead of the trigger only. */
+    positionTarget?: 'self' | 'parent';
   }>(),
   {
     triggerMode: 'chevron',
     placement: 'above',
+    positionTarget: 'self',
   },
 );
 
@@ -44,37 +47,69 @@ const triggerTitle = computed(
     (props.triggerMode === 'label' ? 'Size' : 'Font size presets'),
 );
 
-async function positionPanel() {
-  await nextTick();
+function getAnchorEl(): HTMLElement | null {
   const root = rootRef.value;
-  if (!root) {
-    panelStyle.value = null;
-    return;
+  if (!root) return null;
+  if (props.positionTarget === 'parent' && root.parentElement) {
+    return root.parentElement;
   }
-  const rect = root.getBoundingClientRect();
-  const panelWidth =
-    props.triggerMode === 'label' ? Math.max(rect.width, 88) : 88;
-  const left = Math.min(
-    Math.max(8, rect.left),
-    window.innerWidth - panelWidth - 8,
-  );
+  return root;
+}
+
+function clampCenterX(centerX: number, panelWidth: number): number {
+  const half = panelWidth / 2;
+  const minCenter = 8 + half;
+  const maxCenter = window.innerWidth - 8 - half;
+  return Math.min(Math.max(centerX, minCenter), maxCenter);
+}
+
+function applyPanelPosition(
+  rect: DOMRect,
+  centerX: number,
+  minWidth: number,
+  panelWidth: number,
+) {
+  const left = clampCenterX(centerX, panelWidth);
+  const base: Record<string, string> = {
+    position: 'fixed',
+    left: `${left}px`,
+    transform: 'translateX(-50%)',
+    minWidth: `${minWidth}px`,
+    zIndex: '450',
+  };
   if (props.placement === 'below') {
     panelStyle.value = {
-      position: 'fixed',
-      left: `${left}px`,
+      ...base,
       top: `${rect.bottom + 6}px`,
-      width: `${panelWidth}px`,
-      zIndex: '450',
     };
     return;
   }
   panelStyle.value = {
-    position: 'fixed',
-    left: `${left}px`,
+    ...base,
     bottom: `${window.innerHeight - rect.top + 6}px`,
-    width: `${panelWidth}px`,
-    zIndex: '450',
   };
+}
+
+async function positionPanel() {
+  await nextTick();
+  const anchor = getAnchorEl();
+  if (!anchor) {
+    panelStyle.value = null;
+    return;
+  }
+  const rect = anchor.getBoundingClientRect();
+  const minWidth = Math.max(rect.width, 72);
+  const centerX = rect.left + rect.width / 2;
+
+  applyPanelPosition(rect, centerX, minWidth, minWidth);
+  await nextTick();
+
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  const measured = panel.getBoundingClientRect().width;
+  if (Math.abs(measured - minWidth) > 1) {
+    applyPanelPosition(rect, centerX, minWidth, measured);
+  }
 }
 
 function close() {
@@ -239,7 +274,7 @@ onUnmounted(() => {
 .paper-format-preset-trigger--chevron {
   width: 1.35rem;
   height: 2rem;
-  border-radius: 0 8px 8px 0;
+  border-radius: 0;
 }
 
 .paper-format-preset-trigger--label {
@@ -266,12 +301,10 @@ onUnmounted(() => {
 }
 
 .paper-format-preset-menu--teleport {
-  overflow-x: hidden;
   overflow-y: auto;
   max-height: min(14rem, 45vh);
   width: max-content;
-  min-width: 5.25rem;
-  max-width: min(10rem, calc(100vw - 1rem));
+  max-width: min(12rem, calc(100vw - 1rem));
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--elevated);

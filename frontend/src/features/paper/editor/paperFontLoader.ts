@@ -11,11 +11,15 @@ const BUNDLED_FONT_IMPORTS: Record<string, () => Promise<unknown>> = {
     import('@/features/paper/fonts/lohit-devanagari.css'),
 };
 
-/** Resolve @fontsource via package name (works with hoisted monorepo node_modules). */
+/**
+ * Resolve @fontsource via package name (works with hoisted monorepo node_modules).
+ * Uses latin-400.css subset to minimize font file dependencies and ensure reliable
+ * loading. The latin subset covers standard English and Western European characters.
+ */
 const FONT_IMPORTS = Object.fromEntries(
   PAPER_FONT_CATALOG.filter((font) => !font.bundled).map((font) => {
     const pkg = paperFontPackageName(font);
-    return [font.id, () => import(`@fontsource/${pkg}/400.css`)];
+    return [font.id, () => import(`@fontsource/${pkg}/latin-400.css`)];
   }),
 ) as Record<string, () => Promise<unknown>>;
 

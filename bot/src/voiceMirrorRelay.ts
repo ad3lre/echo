@@ -1,5 +1,6 @@
 import { ChannelType, type Client, type VoiceState } from 'discord.js';
 import { getEchoWebhookJson, postEchoWebhookJson } from './echoApi.js';
+import { parseMinInteger } from './util/numberParsing.js';
 
 let cachedWatchGuildIds = new Set<string>();
 
@@ -125,15 +126,13 @@ function scheduleGuildFlush(client: Client, guildId: string): void {
  * Poll Echo for guilds with voice mirror enabled; debounce-post voice snapshots on updates.
  */
 export function startDiscordVoiceMirrorRelay(client: Client): void {
-  const pollRaw = process.env.ECHO_DISCORD_VOICE_MIRROR_POLL_MS?.trim();
-  const pollMs =
-    pollRaw === undefined || pollRaw === ''
-      ? 30_000
-      : Math.max(5_000, Number(pollRaw));
+  const pollMs = parseMinInteger(
+    process.env.ECHO_DISCORD_VOICE_MIRROR_POLL_MS,
+    30_000,
+    5_000,
+  );
   void refreshWatchlist(client);
-  if (Number.isFinite(pollMs) && pollMs > 0) {
-    setInterval(() => void refreshWatchlist(client), pollMs);
-  }
+  setInterval(() => void refreshWatchlist(client), pollMs);
 
   client.on('voiceStateUpdate', (_old: VoiceState, vs: VoiceState) => {
     const guildId = vs.guild?.id;

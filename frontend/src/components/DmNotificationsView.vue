@@ -391,52 +391,7 @@ function formatKinds(kinds: readonly string[]): string {
       </div>
     </header>
 
-    <div
-      class="dm-notifications__body flex min-h-0 min-w-0 flex-1 flex-col md:flex-row"
-    >
-      <aside
-        v-if="props.showFilters !== false && placeWidgets.length > 1"
-        class="dm-notifications__places flex min-h-0 shrink-0 flex-col border-r border-border px-3 py-3"
-        aria-label="Filter mentions"
-      >
-        <p
-          class="dm-notifications__section-heading mb-2 shrink-0 px-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
-        >
-          Place
-        </p>
-        <div
-          class="dm-notifications__places-list custom-scrollbar min-h-0 flex-1"
-        >
-          <button
-            v-for="place in placeWidgets"
-            :key="place.key"
-            type="button"
-            class="dm-filter-widget dm-filter-widget--place"
-            :class="{
-              'dm-filter-widget--active': activeFilterKey === place.key,
-              'dm-filter-widget--has-bg': place.visual.kind === 'image',
-            }"
-            :aria-pressed="activeFilterKey === place.key"
-            :title="place.label"
-            :data-echo-hint="place.label"
-            @click="activeFilterKey = place.key"
-          >
-            <span
-              v-if="place.visual.kind === 'image'"
-              class="dm-filter-widget__bg"
-              :style="{
-                backgroundImage: `url(${safeImageUrl(place.visual.url)})`,
-              }"
-              aria-hidden="true"
-            />
-            <span class="dm-filter-widget__content">
-              <span class="dm-filter-widget__label">{{ place.label }}</span>
-              <span class="dm-filter-widget__count">{{ place.count }}</span>
-            </span>
-          </button>
-        </div>
-      </aside>
-
+    <div class="dm-notifications__body flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         class="dm-notifications__list custom-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3"
       >
@@ -576,63 +531,14 @@ function formatKinds(kinds: readonly string[]): string {
 </template>
 
 <style scoped lang="scss">
-.dm-notifications__places {
-  width: min(14.5rem, 36vw);
-  min-width: 10.5rem;
-}
-
 @media (max-width: 767px) {
   .dm-notifications__header {
     padding-inline: 1rem;
   }
 
-  .dm-notifications__places {
-    width: 100%;
-    min-width: 0;
-    max-height: none;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-    padding-inline: 1rem;
-  }
-
-  .dm-notifications__places-list {
-    flex-direction: row;
-    gap: 0.5rem;
-    max-height: none;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: 0.2rem;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .dm-filter-widget--place {
-    width: auto;
-    min-width: min(12.5rem, calc(100vw - 3.5rem));
-    flex: 0 0 auto;
-    scroll-snap-align: start;
-  }
-
   .dm-notifications__list {
     padding-inline: 0.75rem;
   }
-}
-
-.dm-notifications__places-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding-right: 0.15rem;
-  overscroll-behavior: contain;
-}
-
-.dm-filter-widget--place {
-  width: 100%;
-  min-width: 0;
-  max-width: none;
-  scroll-snap-align: none;
 }
 
 .dm-filter-widget {
@@ -873,22 +779,14 @@ function formatKinds(kinds: readonly string[]): string {
 }
 
 /* Light: notification chrome — ink-forward labels, accent-tinted structure, crisp filters */
-:global([data-theme='light'] .dm-notifications__header),
-:global([data-theme='light'] .dm-notifications__places) {
-  border-color: color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
-}
-
 :global([data-theme='light'] .dm-notifications__header) {
+  border-color: color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--elevated) 88%, var(--accent) 6%) 0%,
     transparent 100%
   );
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
-}
-
-:global([data-theme='light'] .dm-notifications__places) {
-  background: color-mix(in srgb, var(--elevated) 96%, var(--accent) 4%);
 }
 
 :global([data-theme='light'] .dm-notifications__kicker) {

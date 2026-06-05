@@ -1,5 +1,7 @@
 import type { Socket } from 'socket.io-client';
 import type {
+  PaperBlockDirtyPayload,
+  PaperBlockPreviewsPayload,
   PaperCursorsPayload,
   PaperLockRequestedPayload,
   PaperLocksPayload,
@@ -10,12 +12,16 @@ type PaperWatchersListener = (payload: PaperWatchersPayload) => void;
 type PaperLocksListener = (payload: PaperLocksPayload) => void;
 type PaperCursorsListener = (payload: PaperCursorsPayload) => void;
 type PaperLockRequestedListener = (payload: PaperLockRequestedPayload) => void;
+type PaperBlockDirtyListener = (payload: PaperBlockDirtyPayload) => void;
+type PaperBlockPreviewsListener = (payload: PaperBlockPreviewsPayload) => void;
 
 let boundSocket: Socket | null = null;
 const watcherListeners = new Set<PaperWatchersListener>();
 const lockListeners = new Set<PaperLocksListener>();
 const cursorListeners = new Set<PaperCursorsListener>();
 const lockRequestedListeners = new Set<PaperLockRequestedListener>();
+const dirtyListeners = new Set<PaperBlockDirtyListener>();
+const previewsListeners = new Set<PaperBlockPreviewsListener>();
 
 function onPaperWatchers(raw: unknown) {
   if (!raw || typeof raw !== 'object') return;
@@ -45,12 +51,28 @@ function onPaperLockRequested(raw: unknown) {
   for (const fn of lockRequestedListeners) fn(p);
 }
 
+function onPaperBlockDirty(raw: unknown) {
+  if (!raw || typeof raw !== 'object') return;
+  const p = raw as PaperBlockDirtyPayload;
+  if (typeof p.channelId !== 'string' || !Array.isArray(p.dirty)) return;
+  for (const fn of dirtyListeners) fn(p);
+}
+
+function onPaperBlockPreviews(raw: unknown) {
+  if (!raw || typeof raw !== 'object') return;
+  const p = raw as PaperBlockPreviewsPayload;
+  if (typeof p.channelId !== 'string' || !Array.isArray(p.previews)) return;
+  for (const fn of previewsListeners) fn(p);
+}
+
 export function bindPaperWatchSocket(socket: Socket | null): void {
   if (boundSocket) {
     boundSocket.off('paper:watchers', onPaperWatchers);
     boundSocket.off('paper:locks', onPaperLocks);
     boundSocket.off('paper:cursors', onPaperCursors);
     boundSocket.off('paper:lock-requested', onPaperLockRequested);
+    boundSocket.off('paper:block-dirty', onPaperBlockDirty);
+    boundSocket.off('paper:block-previews', onPaperBlockPreviews);
   }
   boundSocket = socket;
   if (socket) {
@@ -58,6 +80,8 @@ export function bindPaperWatchSocket(socket: Socket | null): void {
     socket.on('paper:locks', onPaperLocks);
     socket.on('paper:cursors', onPaperCursors);
     socket.on('paper:lock-requested', onPaperLockRequested);
+    socket.on('paper:block-dirty', onPaperBlockDirty);
+    socket.on('paper:block-previews', onPaperBlockPreviews);
   }
 }
 
@@ -81,6 +105,20 @@ export function subscribePaperLockRequested(
 ): () => void {
   lockRequestedListeners.add(fn);
   return () => lockRequestedListeners.delete(fn);
+}
+
+export function subscribePaperBlockDirty(
+  fn: PaperBlockDirtyListener,
+): () => void {
+  dirtyListeners.add(fn);
+  return () => dirtyListeners.delete(fn);
+}
+
+export function subscribePaperBlockPreviews(
+  fn: PaperBlockPreviewsListener,
+): () => void {
+  previewsListeners.add(fn);
+  return () => previewsListeners.delete(fn);
 }
 
 export type { PaperWatchersPayload };
@@ -157,5 +195,41 @@ export function emitPaperLockRequest(
     channelId: id,
     blockId: block,
     displayName,
+  });
+}
+
+export function emitPaperBlockDirty(
+  channelId: string,
+  blockId: string,
+  displayName: string,
+  color: string,
+): void {
+  const id = channelId.trim();
+  const block = blockId.trim();
+  if (!id || !block || !boundSocket?.connected) return;
+  boundSocket.emit('paper:block-dirty', {
+    channelId: id,
+    blockId: block,
+    displayName,
+    color,
+  });
+}
+
+export function emitPaperBlockPreview(
+  channelId: string,
+  blockId: string,
+  previewText: string,
+  displayName: string,
+  color: string,
+): void {
+  const id = channelId.trim();
+  const block = blockId.trim();
+  if (!id || !block || !boundSocket?.connected) return;
+  boundSocket.emit('paper:block-preview', {
+    channelId: id,
+    blockId: block,
+    previewText,
+    displayName,
+    color,
   });
 }

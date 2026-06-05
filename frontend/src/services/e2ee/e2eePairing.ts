@@ -17,6 +17,9 @@ export type E2eePairingPayload = {
   pairingSecret: string;
 };
 
+/** Delay between polls while waiting for the trusted device to respond. */
+const PAIRING_POLL_INTERVAL_MS = 1200;
+
 function createPairingSecret(): string {
   const bytes = new Uint8Array(24);
   globalThis.crypto.getRandomValues(bytes);
@@ -27,13 +30,21 @@ export function buildE2eePairingQrPayload(payload: E2eePairingPayload): string {
   return `echo://e2ee-pair/${encodeURIComponent(payload.pairingId)}?s=${encodeURIComponent(payload.pairingSecret)}`;
 }
 
+function safeDecodeQrSegment(raw: string): string | null {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+}
+
 export function parsePairingPayloadFromQr(
   payload: string,
 ): E2eePairingPayload | null {
   const t = payload.trim();
   const m = /^echo:\/\/e2ee-pair\/([^?]+)(?:\?(.+))?$/i.exec(t);
   if (!m?.[1]) return null;
-  const pairingId = decodeURIComponent(m[1].trim());
+  const pairingId = safeDecodeQrSegment(m[1].trim());
   const qs = new URLSearchParams(m[2] ?? '');
   const pairingSecret = (qs.get('s') ?? '').trim();
   if (!pairingId || !pairingSecret) return null;
@@ -45,7 +56,7 @@ export function parsePairingIdFromQrPayload(payload: string): string | null {
   if (parsed) return parsed.pairingId;
   const t = payload.trim();
   const m = /^echo:\/\/e2ee-pair\/(.+)$/i.exec(t);
-  return m?.[1] ? decodeURIComponent(m[1].trim()) : null;
+  return m?.[1] ? safeDecodeQrSegment(m[1].trim()) : null;
 }
 
 export async function startDevicePairingSession(
@@ -96,7 +107,7 @@ export async function completeDevicePairingAsNewDevice(opts: {
     if (st.status === 'expired' || st.status === 'consumed') {
       throw new Error('Pairing session is no longer available');
     }
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, PAIRING_POLL_INTERVAL_MS));
   }
   if (!ciphertext)
     throw new Error('Pairing timed out waiting for trusted device');

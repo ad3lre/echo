@@ -212,6 +212,14 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
     }
 
     attachSocketEventLogger(socket, log);
+
+    // Application-level liveness probe: echo server time so the client can distinguish a
+    // healthy socket from a "zombie" (transport up, session dead) and force a clean reconnect.
+    // No auth required and no side effects beyond the ack.
+    socket.on('client:ping', (cb) => {
+      if (typeof cb === 'function') cb({ t: Date.now() });
+    });
+
     registerChannelHandlers(socket, log, socket.data.userId, { authenticated });
     registerMessageHandler(fastify, socket, io, log, socket.data.userId, {
       authenticated,

@@ -2815,6 +2815,7 @@ export function useAppLayoutController() {
     selfProfileAnchor,
     selfProfile,
     isInDMChat: isInDmThreadOrIdleMainSurface,
+    isInDMMode: isInDMModeComputed,
     leaveDmUiIfViewingUser,
     canChangeMemberNicknameInServer,
     hydrateEchoFromApi,

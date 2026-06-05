@@ -5,21 +5,40 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { parseIntegerInRange } from './lib/number-parse.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 
 function parsePorts(argv) {
-  let apiPort = Number(process.env.ECHO_STAGING_API_PORT || 3001);
-  let frontendPort = Number(process.env.ECHO_STAGING_FRONTEND_PORT || 4175);
+  let apiPort = parseIntegerInRange(
+    process.env.ECHO_STAGING_API_PORT,
+    3001,
+    1,
+    65_535,
+  );
+  let frontendPort = parseIntegerInRange(
+    process.env.ECHO_STAGING_FRONTEND_PORT,
+    4175,
+    1,
+    65_535,
+  );
   for (const a of argv) {
     if (a.startsWith('--api-port='))
-      apiPort = Number(a.slice('--api-port='.length));
+      apiPort = parseIntegerInRange(
+        a.slice('--api-port='.length),
+        3001,
+        1,
+        65_535,
+      );
     if (a.startsWith('--frontend-port='))
-      frontendPort = Number(a.slice('--frontend-port='.length));
+      frontendPort = parseIntegerInRange(
+        a.slice('--frontend-port='.length),
+        4175,
+        1,
+        65_535,
+      );
   }
-  if (!Number.isFinite(apiPort) || apiPort <= 0) apiPort = 3001;
-  if (!Number.isFinite(frontendPort) || frontendPort <= 0) frontendPort = 4175;
   return { apiPort, frontendPort };
 }
 

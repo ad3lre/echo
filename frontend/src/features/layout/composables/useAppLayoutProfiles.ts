@@ -46,6 +46,8 @@ interface UseAppLayoutProfilesOptions {
   workspaceMembersByServer: Ref<Record<string, EchoServerMemberDto[]>>;
   /** Main surface is an open DM thread (1:1 or idle), not merely DM rail selected. */
   isInDMChat: Ref<boolean>;
+  /** DM rail selected (Messages, Friends, Notifications, etc.). */
+  isInDMMode: Ref<boolean>;
   isMemberPopoutOpen: Ref<boolean>;
   isSelfProfilePopoutOpen: Ref<boolean>;
   isExpandedProfileModalOpen: Ref<boolean>;
@@ -74,6 +76,7 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     selectedServer,
     workspaceMembersByServer,
     isInDMChat,
+    isInDMMode,
     isMemberPopoutOpen,
     isSelfProfilePopoutOpen,
     isExpandedProfileModalOpen,
@@ -306,12 +309,16 @@ export function useAppLayoutProfiles(options: UseAppLayoutProfilesOptions) {
     rehydrateExpandedProfileForUserId(trimmed);
   }
 
+  function canOpenExtendedProfileModalFromDmUi(): boolean {
+    return isInDMChat.value || isInDMMode.value;
+  }
+
   /** DM avatar/name clicks: always open full `ExpandedProfileModal`, never side overview. */
   function openExtendedProfileModalForUserId(
     userId: string,
     opts?: ProfileOpenOpts,
   ) {
-    if (!isInDMChat.value) return;
+    if (!canOpenExtendedProfileModalFromDmUi()) return;
     if (!opts?.skipInteractionGuard && consumeProfileUiInteractionSuppressed())
       return;
     if (!currentUser.value) return;

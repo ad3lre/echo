@@ -17,6 +17,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { parseIntegerInRange, parseMinInteger } from './lib/number-parse.mjs';
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -32,18 +33,22 @@ const lockPath = path.join(logDir, 'echo-recovery-watchdog.lock');
 const metaPath = path.join(logDir, 'echo-recovery-watchdog.log');
 const livePidFile = path.join(logDir, 'echo-vps-prod.pid');
 
-const DEV_QUIET_MS = Number(
-  process.env.ECHO_WATCHDOG_DEV_QUIET_MS || 60 * 60 * 1000,
+const DEV_QUIET_MS = parseMinInteger(
+  process.env.ECHO_WATCHDOG_DEV_QUIET_MS,
+  60 * 60 * 1000,
+  1,
 );
-const DEV_SCAN_MS = Number(
-  process.env.ECHO_WATCHDOG_DEV_SCAN_MS || DEV_QUIET_MS,
+const DEV_SCAN_MS = parseMinInteger(
+  process.env.ECHO_WATCHDOG_DEV_SCAN_MS,
+  DEV_QUIET_MS,
+  1,
 );
 const LOCAL_HEALTH_URL =
   process.env.ECHO_WATCHDOG_LOCAL_HEALTH_URL?.trim() ||
   'http://127.0.0.1:3000/api/v1/health';
 const NOTIFY_EMAIL =
   process.env.ECHO_WATCHDOG_NOTIFY_EMAIL?.trim() || 'support@chat-echo.com';
-const POLL_MS = Number(process.env.ECHO_WATCHDOG_POLL_MS || 30_000);
+const POLL_MS = parseMinInteger(process.env.ECHO_WATCHDOG_POLL_MS, 30_000, 1);
 
 const CODE_EXTENSIONS = new Set([
   '.ts',
@@ -453,7 +458,7 @@ async function sendSummaryEmail(report) {
     appendMeta('email skipped: ECHO_SMTP_HOST unset');
     return { sent: false, error: 'ECHO_SMTP_HOST unset' };
   }
-  const port = Number(process.env.ECHO_SMTP_PORT || 587);
+  const port = parseIntegerInRange(process.env.ECHO_SMTP_PORT, 587, 1, 65_535);
   const secure = process.env.ECHO_SMTP_SECURE === 'true';
   const user = process.env.ECHO_SMTP_USER?.trim() || '';
   const pass = process.env.ECHO_SMTP_PASSWORD ?? '';

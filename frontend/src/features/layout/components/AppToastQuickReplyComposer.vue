@@ -238,12 +238,13 @@ defineExpose({
           class="text-[13px] leading-relaxed text-fg"
         />
       </div>
-      <ComposerChannelFormatBanner
-        class="mt-0.5 shrink-0"
-        :message-format-template="messageFormatTemplate"
-        :message-format-hard="messageFormatHard === true"
-        popout-direction="down"
-      />
+      <div class="app-toast-quick-reply-format mt-0.5 shrink-0">
+        <ComposerChannelFormatBanner
+          :message-format-template="messageFormatTemplate"
+          :message-format-hard="messageFormatHard === true"
+          popout-direction="down"
+        />
+      </div>
     </div>
   </div>
 </template>

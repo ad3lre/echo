@@ -6,6 +6,7 @@ import {
   postEchoWebhookJson,
 } from './echoApi.js';
 import { sleep } from './util/rateLimitQueue.js';
+import { parseMinInteger } from './util/numberParsing.js';
 
 let cachedAllowlist: Set<string> = new Set();
 let allowlistGuildByChannel = new Map<string, string>();
@@ -195,15 +196,13 @@ function shouldRelay(m: Message | PartialMessage): m is Message {
  * Poll Echo for bridged Discord channel ids and forward GuildMessages to the API.
  */
 export function startDiscordBridgeRelay(client: Client): void {
-  const pollRaw = process.env.ECHO_DISCORD_BRIDGE_POLL_MS?.trim();
-  const pollMs =
-    pollRaw === undefined || pollRaw === ''
-      ? 30_000
-      : Math.max(5_000, Number(pollRaw));
+  const pollMs = parseMinInteger(
+    process.env.ECHO_DISCORD_BRIDGE_POLL_MS,
+    30_000,
+    5_000,
+  );
   void refreshAllowlist(client);
-  if (Number.isFinite(pollMs) && pollMs > 0) {
-    setInterval(() => void refreshAllowlist(client), pollMs);
-  }
+  setInterval(() => void refreshAllowlist(client), pollMs);
 
   client.on('messageCreate', (m: Message) => {
     if (!shouldRelay(m)) return;

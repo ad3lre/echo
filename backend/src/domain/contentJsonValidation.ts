@@ -1,5 +1,5 @@
 /**
- * Validates TipTap/ProseMirror JSON for message writes (whitelist nodes).
+ * Validates TipTap/ProseMirror JSON for message writes (allowlist nodes).
  * @see docs/contracts/ECHO_CONTRACT_V2.md
  */
 import {
@@ -131,6 +131,35 @@ function validatePaperNode(node: unknown, depth: number): string | undefined {
     const fill = attrs.fill;
     if (fill !== undefined && typeof fill !== 'string') {
       return 'content_json paperShape invalid fill';
+    }
+    const imageSrc = attrs.imageSrc;
+    if (
+      imageSrc !== undefined &&
+      imageSrc !== null &&
+      typeof imageSrc !== 'string'
+    ) {
+      return 'content_json paperShape invalid imageSrc';
+    }
+    const borderColor = attrs.borderColor;
+    if (
+      borderColor !== undefined &&
+      borderColor !== null &&
+      typeof borderColor !== 'string'
+    ) {
+      return 'content_json paperShape invalid borderColor';
+    }
+    const borderWidth = attrs.borderWidth;
+    if (borderWidth !== undefined && typeof borderWidth !== 'string') {
+      return 'content_json paperShape invalid borderWidth';
+    }
+    const borderStyle = attrs.borderStyle;
+    if (
+      borderStyle !== undefined &&
+      borderStyle !== 'solid' &&
+      borderStyle !== 'dashed' &&
+      borderStyle !== 'dotted'
+    ) {
+      return 'content_json paperShape invalid borderStyle';
     }
   }
   return undefined;

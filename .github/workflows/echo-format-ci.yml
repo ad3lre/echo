@@ -29,3 +29,6 @@ jobs:
 
       - name: God-file ratchet
         run: node scripts/check-god-file-ratchet.mjs
+
+      - name: New-code charter (June 2026+)
+        run: node scripts/check-new-code-charter.mjs
