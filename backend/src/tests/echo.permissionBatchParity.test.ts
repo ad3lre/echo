@@ -108,6 +108,32 @@ async function run(): Promise<void> {
       false,
     );
 
+    // Unknown / cross-server channel id: both evaluators must fail closed
+    // (empty set), not fall through to server-baseline perms.
+    const missingChannelId = `bp_missing_${Date.now().toString(36)}`;
+    const singleMissing = await getEffectiveChannelPermissions(
+      pool,
+      serverId,
+      memberId,
+      missingChannelId,
+    );
+    const batchMissing = (
+      await batchGetEffectiveChannelPermissions(pool, serverId, memberId, [
+        missingChannelId,
+      ])
+    ).get(missingChannelId);
+    assert.ok(batchMissing, 'expected a batch entry for the missing channel');
+    assert.deepEqual(
+      [...singleMissing].sort(),
+      [...batchMissing!].sort(),
+      'single and batch must agree for an unknown channel id',
+    );
+    assert.equal(
+      singleMissing.size,
+      0,
+      'unknown channel must yield no permissions (fail closed)',
+    );
+
     console.log('echo.permissionBatchParity: ok');
   } finally {
     if (serverId) {

@@ -12,6 +12,14 @@ export const APP_LAYOUT_LOAD_HINT_MS = 22_000;
 /** If the dynamic import has not settled by then, show the load error UI (user can retry). */
 export const APP_LAYOUT_LOAD_TIMEOUT_MS = 120_000;
 
+/**
+ * Hard cap on how long the `App.vue` boot gate holds its full-screen splash for a
+ * no-session cold start. `startInitialLoad` reliably settles (and clears the gate)
+ * well before this, so it is purely a defensive force-reveal; the in-splash "still
+ * loading" hint already appears at ~22 s via {@link resolveAppLayoutLoadHintMs}.
+ */
+export const APP_BOOT_GATE_TIMEOUT_MS = 30_000;
+
 type NetworkInformationLike = {
   /** Round-trip time in ms (browser estimate). */
   rtt?: number;

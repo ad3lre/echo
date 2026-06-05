@@ -11,6 +11,7 @@ export type PaperConnectionPhase =
 export function usePaperSession(opts: {
   canAuthor: Ref<boolean>;
   saving: Ref<boolean>;
+  saveRetrying?: Ref<boolean>;
   conflict: Ref<boolean>;
 }) {
   const autosaveEnabled = computed(() => opts.canAuthor.value);
@@ -27,7 +28,7 @@ export function usePaperSession(opts: {
       case 'synced':
         return 'All changes saved';
       case 'syncing':
-        return 'Saving…';
+        return opts.saveRetrying?.value ? 'Retrying save…' : 'Saving…';
       case 'conflict':
         return 'Updated elsewhere — showing latest version';
       default:

@@ -7,6 +7,7 @@ import PaperLockRequestBanner from '@/features/paper/components/PaperLockRequest
 import PaperDocChrome from '@/features/paper/components/PaperDocChrome.vue';
 import PaperFloatingComments from '@/features/paper/components/PaperFloatingComments.vue';
 import PaperFloatingFormatBar from '@/features/paper/components/PaperFloatingFormatBar.vue';
+import PaperImageFormatBar from '@/features/paper/components/PaperImageFormatBar.vue';
 import PaperPageCanvas from '@/features/paper/components/PaperPageCanvas.vue';
 import PaperToast from '@/features/paper/components/PaperToast.vue';
 import { usePaperDocument } from '@/features/paper/composables/usePaperDocument';
@@ -100,6 +101,7 @@ const {
   save: saveDocument,
   load,
   saving,
+  saveRetrying,
 } = usePaperDocument(channelIdRef);
 
 const canAuthor = computed(() => doc.value?.canAuthorPaper === true);
@@ -159,6 +161,7 @@ const isAuthoring = computed(
 const session = usePaperSession({
   canAuthor,
   saving,
+  saveRetrying,
   conflict,
 });
 
@@ -191,6 +194,7 @@ const collabBridge = {
 
 const { editor, setContentFromServer, getContentJson, bootstrapFromServer } =
   usePaperEditorState({
+    channelId: channelIdRef,
     mode: editorMode,
     editable: editorEditable,
     documentLoaded,
@@ -280,6 +284,24 @@ watch(
     setPaperMarkdownRenderInline(ed, paperSourceView.mode.value === 'inline');
   },
   { immediate: true },
+);
+
+// Open Assets tab when an image is selected
+const { setActiveTab: setEditorPanelTab, openPanel: openEditorPanel } =
+  usePaperEditorPanelBridge();
+watch(
+  () => editor.value?.state.selection,
+  (selection) => {
+    if (!selection) return;
+    const ed = editor.value;
+    if (!ed) return;
+    // Check if an image node is selected (either node selection or within text)
+    if (ed.isActive('image')) {
+      setEditorPanelTab('assets');
+      openEditorPanel();
+    }
+  },
+  { immediate: false },
 );
 
 const watchingMerged = computed(() =>
@@ -1016,7 +1038,7 @@ onUnmounted(() => {
         </div>
 
         <div
-          class="relative mx-auto flex min-h-full max-w-[816px] justify-center"
+          class="relative mx-auto flex min-h-full max-w-[920px] justify-center"
         >
           <PaperPageCanvas
             :editor="editor"
@@ -1105,6 +1127,14 @@ onUnmounted(() => {
         "
         :editor="editor"
         :image-upload="imageUpload"
+        :visible="!!editor"
+        :page-layout="pageLayout"
+        :paper-appearance="paperAppearance.appearance.value"
+      />
+
+      <PaperImageFormatBar
+        v-if="editorEditable && paperSourceView.mode.value === 'inline'"
+        :editor="editor"
         :visible="!!editor"
         :page-layout="pageLayout"
         :paper-appearance="paperAppearance.appearance.value"

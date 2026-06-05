@@ -22,6 +22,17 @@ export type PaperSelectionFormatSnapshot = {
   underline: TriState;
   strike: TriState;
   textAlign: 'left' | 'center' | 'right' | 'justify' | 'mixed';
+  bulletList: TriState;
+  orderedList: TriState;
+  letterSpacing: string | null;
+  letterSpacingMixed: boolean;
+  lineHeight: string | null;
+  lineHeightMixed: boolean;
+  textOutlineWidth: string | null;
+  textOutlineColor: string | null;
+  textOutlineMixed: boolean;
+  indent: number;
+  indentMixed: boolean;
 };
 
 function parseFontSizePx(
@@ -93,6 +104,58 @@ function markActiveInRange(
   return all ? true : 'mixed';
 }
 
+function attrInRangeMixed(
+  editor: Editor,
+  from: number,
+  to: number,
+  markName: string,
+  attrKey: string,
+): { value: unknown | null; mixed: boolean } {
+  const doc = editor.state.doc;
+  const values = new Set<unknown>();
+  const rangeFrom = Math.min(from, to);
+  const rangeTo = Math.max(from, to);
+
+  doc.nodesBetween(rangeFrom, rangeTo, (node, pos) => {
+    if (!node.isText || !node.text?.length) return;
+    const nodeFrom = Math.max(rangeFrom, pos);
+    const nodeTo = Math.min(rangeTo, pos + node.nodeSize);
+    if (nodeFrom >= nodeTo) return;
+    const mark = node.marks.find((m) => m.type.name === markName);
+    const v = mark?.attrs?.[attrKey] ?? null;
+    values.add(v);
+  });
+
+  if (rangeFrom === rangeTo) {
+    const marks = editor.state.doc.resolve(rangeFrom).marks();
+    const mark = marks.find((m) => m.type.name === markName);
+    return { value: mark?.attrs?.[attrKey] ?? null, mixed: false };
+  }
+
+  if (values.size === 0) return { value: null, mixed: false };
+  if (values.size === 1) return { value: [...values][0], mixed: false };
+  return { value: null, mixed: true };
+}
+
+function indentInSelection(
+  editor: Editor,
+  from: number,
+  to: number,
+): { value: number; mixed: boolean } {
+  const indents = new Set<number>();
+  const indentTypes = ['paragraph', 'heading', 'listItem'];
+  editor.state.doc.nodesBetween(from, to, (node) => {
+    if (indentTypes.includes(node.type.name)) {
+      const level = (node.attrs.indent as number | undefined) ?? 0;
+      indents.add(level);
+    }
+  });
+  if (indents.size === 0) return { value: 0, mixed: false };
+  if (indents.size === 1)
+    return { value: [...indents][0] as number, mixed: false };
+  return { value: 0, mixed: true };
+}
+
 export function analyzePaperSelectionFormat(
   editor: Editor | null | undefined,
 ): PaperSelectionFormatSnapshot {
@@ -109,6 +172,17 @@ export function analyzePaperSelectionFormat(
     underline: false,
     strike: false,
     textAlign: 'left',
+    bulletList: false,
+    orderedList: false,
+    letterSpacing: null,
+    letterSpacingMixed: false,
+    lineHeight: null,
+    lineHeightMixed: false,
+    textOutlineWidth: null,
+    textOutlineColor: null,
+    textOutlineMixed: false,
+    indent: 0,
+    indentMixed: false,
   };
   if (!editor) return empty;
 
@@ -178,6 +252,36 @@ export function analyzePaperSelectionFormat(
   else if (aligns.has('right')) textAlign = 'right';
   else if (aligns.has('justify')) textAlign = 'justify';
 
+  const letterSpacingResult = attrInRangeMixed(
+    editor,
+    from,
+    to,
+    'textStyle',
+    'letterSpacing',
+  );
+  const lineHeightResult = attrInRangeMixed(
+    editor,
+    from,
+    to,
+    'textStyle',
+    'lineHeight',
+  );
+  const textStrokeWidthResult = attrInRangeMixed(
+    editor,
+    from,
+    to,
+    'textStyle',
+    'textStrokeWidth',
+  );
+  const textStrokeColorResult = attrInRangeMixed(
+    editor,
+    from,
+    to,
+    'textStyle',
+    'textStrokeColor',
+  );
+  const indentResult = indentInSelection(editor, from, to);
+
   return {
     heading,
     fontSizePx,
@@ -191,5 +295,17 @@ export function analyzePaperSelectionFormat(
     underline: markActiveInRange(editor, from, to, 'underline'),
     strike: markActiveInRange(editor, from, to, 'strike'),
     textAlign,
+    bulletList: editor.isActive('bulletList'),
+    orderedList: editor.isActive('orderedList'),
+    letterSpacing: (letterSpacingResult.value as string | null) ?? null,
+    letterSpacingMixed: letterSpacingResult.mixed,
+    lineHeight: (lineHeightResult.value as string | null) ?? null,
+    lineHeightMixed: lineHeightResult.mixed,
+    textOutlineWidth: (textStrokeWidthResult.value as string | null) ?? null,
+    textOutlineColor: (textStrokeColorResult.value as string | null) ?? null,
+    textOutlineMixed:
+      textStrokeWidthResult.mixed || textStrokeColorResult.mixed,
+    indent: indentResult.value,
+    indentMixed: indentResult.mixed,
   };
 }

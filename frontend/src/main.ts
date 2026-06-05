@@ -291,7 +291,7 @@ async function bootstrap() {
    * Warm paint before mount: if a returning user already holds a session token
    * plus a cached workspace snapshot, apply it now so the very first frame paints
    * the servers rail / channels / members instead of the boot spinner → explore
-   * flash. `startInitialLoad()` (kicked off after mount) keeps this paint and
+   * flash. `startInitialLoad()` (kicked off just before mount) keeps this paint and
    * reconciles authoritatively with `/workspace` in the background.
    */
   try {
@@ -587,6 +587,19 @@ async function bootstrap() {
   const appEl = document.getElementById('app');
   if (appEl) appEl.setAttribute('data-echo-mounted', '');
 
+  /**
+   * Kick the workspace hydrate BEFORE mount so its synchronous prelude flips
+   * `loading` / `initialLoadInFlight` true on the very first rendered frame. That
+   * lets the channel-panel + chat skeletons paint immediately for session users
+   * instead of a one-frame empty "no servers yet" flash, and lets the boot gate in
+   * `App.vue` hold a splash for no-session cold starts until the load settles. The
+   * async fetch still runs concurrently with mount (fire-and-forget), so first paint
+   * is not delayed; warm-painted returning users keep `loading` false (preHydrated)
+   * so they still paint real content with no skeleton.
+   */
+  const workspace = getEchoPlatform().workspace as WorkspaceStateApi;
+  void workspace.startInitialLoad();
+
   app.mount('#app');
 
   if (typeof requestAnimationFrame !== 'undefined') {
@@ -594,9 +607,6 @@ async function bootstrap() {
   } else {
     loadDeferredInterWeights();
   }
-
-  const workspace = getEchoPlatform().workspace as WorkspaceStateApi;
-  void workspace.startInitialLoad();
 
   /**
    * Background session validation.

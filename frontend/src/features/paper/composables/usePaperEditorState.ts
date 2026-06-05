@@ -3,6 +3,7 @@ import { Editor, type EditorOptions } from '@tiptap/vue-3';
 import { buildPaperEditorExtensions } from '@/features/paper/editor/paperEditorExtensions';
 import type { PaperRemoteCursor } from '@shared/types/paperCollab';
 import { createEmptyPaperContentJson } from '@shared/types/paperEmptyDocument';
+import { pickPaperInspirationQuote } from '@/features/paper/editor/paperInspirationQuotes';
 
 export type PaperEditorMode = 'author' | 'commenter' | 'viewer';
 
@@ -21,6 +22,7 @@ export type PaperEditorCollabOpts = {
 };
 
 export function usePaperEditorState(opts: {
+  channelId?: Ref<string>;
   mode: Ref<PaperEditorMode>;
   editable: Ref<boolean>;
   documentLoaded: Ref<boolean>;
@@ -64,7 +66,14 @@ export function usePaperEditorState(opts: {
       editorProps: {
         attributes: {
           class:
-            'paper-editor-surface max-w-none px-6 py-8 md:px-10 md:py-12 focus:outline-none',
+            'paper-editor-surface max-w-none px-8 py-10 md:px-12 md:py-14 focus:outline-none',
+          ...(opts.channelId?.value.trim()
+            ? {
+                'data-paper-inspiration': pickPaperInspirationQuote(
+                  opts.channelId.value.trim(),
+                ),
+              }
+            : {}),
         },
         ...(opts.getEditorProps?.() ?? {}),
       },

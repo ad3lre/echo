@@ -14,7 +14,8 @@ const props = defineProps<{
   modelValue: string;
   mixed?: boolean;
   documentDefaultFamily?: string;
-  paperAppearance?: PaperAppearanceMode;
+  paperAppearance?: 'light' | 'dark' | 'amber';
+  variant?: 'popover' | 'panel';
 }>();
 
 const emit = defineEmits<{
@@ -63,6 +64,8 @@ const triggerLabel = computed(() => {
   if (props.mixed) return 'Mixed';
   return triggerFont.value?.label ?? 'Font';
 });
+
+const isPopover = computed(() => props.variant !== 'panel');
 
 const categories: { id: PaperFontDefinition['category']; label: string }[] = [
   { id: 'sans', label: 'Sans serif' },
@@ -152,8 +155,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="rootRef" class="relative">
+  <div ref="rootRef" class="relative" :class="{ 'w-full': !isPopover }">
     <button
+      v-if="isPopover"
       type="button"
       class="paper-font-picker-trigger"
       :title="`Font: ${triggerLabel} · Shift+←→`"
@@ -179,7 +183,7 @@ onUnmounted(() => {
         <path d="M6 9l6 6 6-6" />
       </svg>
     </button>
-    <Teleport to="body">
+    <Teleport v-if="isPopover" to="body">
       <div
         v-if="open && panelStyle"
         id="paper-font-picker-panel"
@@ -227,6 +231,51 @@ onUnmounted(() => {
         </template>
       </div>
     </Teleport>
+
+    <!-- Panel variant (inline, no teleport, full width) -->
+    <div
+      v-else
+      class="paper-font-picker-panel paper-font-picker-panel--inline"
+      :data-paper-appearance="paperAppearance ?? 'light'"
+      role="listbox"
+    >
+      <input
+        v-model="query"
+        type="search"
+        class="paper-font-picker-search"
+        placeholder="Search fonts…"
+      />
+      <button
+        type="button"
+        class="paper-font-picker-row paper-font-picker-row--default"
+        @click="useDocumentDefault()"
+      >
+        Use document font
+      </button>
+      <div class="paper-font-picker-scroll">
+        <template v-for="cat in categories" :key="cat.id">
+          <template v-if="filtered.some((f) => f.category === cat.id)">
+            <div class="paper-font-picker-cat">{{ cat.label }}</div>
+            <button
+              v-for="font in filtered.filter((f) => f.category === cat.id)"
+              :key="font.id"
+              type="button"
+              class="paper-font-picker-row"
+              :class="{
+                'paper-font-picker-row--active': font.id === selectedId,
+              }"
+              v-bind="font.attributes"
+              :style="{ fontFamily: font.family }"
+              role="option"
+              :aria-selected="font.id === selectedId"
+              @click="pick(font)"
+            >
+              {{ font.label }}
+            </button>
+          </template>
+        </template>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -271,6 +320,18 @@ onUnmounted(() => {
 
 .paper-font-picker-search::placeholder {
   color: var(--muted);
+}
+
+.paper-font-picker-panel--inline {
+  max-height: 16rem;
+  border-radius: 0.5rem;
+  box-shadow: none;
+  border: 1px solid var(--border);
+}
+
+.paper-font-picker-scroll {
+  max-height: 12rem;
+  overflow-y: auto;
 }
 
 .paper-font-picker-cat {

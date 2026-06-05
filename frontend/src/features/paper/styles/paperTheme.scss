@@ -136,6 +136,63 @@
   --glass-border: rgba(255, 255, 255, 0.08);
 }
 
+:is(.paper-root, .paper-teleport-surface)[data-paper-appearance='amber'] {
+  color-scheme: light;
+
+  /* ---- Paper surface ---- */
+  --paper-workspace-bg: #f5efe6;
+  --paper-surface-bg: #fffbf0;
+  --paper-surface-fg: rgba(45, 35, 20, 0.94);
+  --paper-surface-muted: rgba(80, 65, 45, 0.72);
+  --paper-surface-border: rgba(120, 100, 70, 0.15);
+  --paper-surface-shadow:
+    0 4px 20px rgba(60, 50, 30, 0.08), 0 1px 3px rgba(60, 50, 30, 0.06);
+  --paper-prose-link: #8b5a2b;
+  --paper-table-border: rgba(120, 100, 70, 0.18);
+  --paper-table-header-bg: rgba(120, 100, 70, 0.06);
+  --paper-block-flash: rgba(200, 150, 80, 0.55);
+  --paper-format-bar-bg: color-mix(in srgb, var(--elevated) 94%, transparent);
+  --paper-dropdown-shadow: 0 12px 40px rgba(60, 50, 30, 0.14);
+  --paper-comment-card-shadow: 0 8px 24px rgba(60, 50, 30, 0.12);
+  --paper-comment-card-bg: var(--paper-surface-bg);
+  --paper-selection-bg: color-mix(in srgb, var(--accent) 28%, transparent);
+  --paper-chrome-bg: rgba(250, 245, 235, 0.97);
+  --paper-pin-shadow: 0 2px 8px rgba(60, 50, 30, 0.12);
+
+  /* ---- Status indicators ---- */
+  --paper-status-synced: #16a34a;
+  --paper-status-pending: #d97706;
+  --paper-status-offline: rgba(80, 65, 45, 0.45);
+  --paper-status-error: #dc2626;
+
+  /* ---- Global semantic tokens (override app theme) ---- */
+  --accent: #c49a6c;
+  --accent-contrast-fg: #2d2314;
+  --echo-ink-icon-filter: none;
+  --text: var(--paper-surface-fg);
+  --muted: var(--paper-surface-muted);
+  --surface: #faf5eb;
+  --ui-fg: var(--paper-surface-fg);
+  --ui-fg-soft: color-mix(in srgb, var(--paper-surface-fg) 82%, transparent);
+  --ui-fg-subtle: var(--paper-surface-muted);
+  --border: var(--paper-surface-border);
+  --elevated: var(--paper-surface-bg);
+  --bg: var(--paper-chrome-bg);
+  --bg-elevated: var(--paper-surface-bg);
+  --ui-glass-1: rgba(255, 255, 255, 0.55);
+  --ui-glass-2: var(--paper-surface-bg);
+  --ui-glass-hover: color-mix(in srgb, var(--paper-surface-fg) 8%, transparent);
+  --ui-glass-active: color-mix(
+    in srgb,
+    var(--paper-surface-fg) 12%,
+    transparent
+  );
+  --overlay-dim: rgba(45, 35, 20, 0.34);
+  --overlay-heavy: rgba(45, 35, 20, 0.52);
+  --glass-tint: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(120, 100, 70, 0.12);
+}
+
 .paper-workspace {
   background: var(--paper-workspace-bg);
 }
@@ -173,12 +230,61 @@
     margin: 0.5em 0;
   }
 
+  ul {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+    list-style-type: disc;
+  }
+
+  ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+    list-style-type: decimal;
+  }
+
+  ul ul,
+  ol ul {
+    list-style-type: circle;
+  }
+
+  ul ul ul,
+  ol ul ul,
+  ol ol ul,
+  ul ol ul {
+    list-style-type: square;
+  }
+
+  ol ol {
+    list-style-type: lower-alpha;
+  }
+
+  ol ol ol {
+    list-style-type: lower-roman;
+  }
+
+  li {
+    display: list-item;
+  }
+
   h1 {
     font-size: 2.25rem;
     font-weight: 700;
     margin: 0 0 0.65em;
     line-height: 1.15;
     letter-spacing: -0.02em;
+  }
+
+  &[data-paper-inspiration] h1.is-empty::after {
+    content: attr(data-paper-inspiration);
+    display: block;
+    margin-top: 0.4em;
+    font-size: 0.9375rem;
+    font-weight: 400;
+    line-height: 1.45;
+    letter-spacing: normal;
+    color: var(--paper-surface-muted);
+    pointer-events: none;
+    white-space: pre-wrap;
   }
 
   h2 {
@@ -919,4 +1025,199 @@
 .paper-editor-panel-fade-leave-to {
   opacity: 0;
   transform: translateX(-8px);
+}
+
+/* Colors tab (Canva-like) */
+
+.paper-colors-tab {
+  padding-top: 0.25rem;
+}
+
+.paper-colors-tab__section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.paper-colors-tab__hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+
+.paper-colors-tab__mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.paper-colors-tab__mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.paper-colors-tab__mode-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.paper-colors-tab__color-preview {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.paper-colors-tab__preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.paper-colors-tab__preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background 0.15s ease;
+}
+
+.paper-colors-tab__preset-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.paper-colors-tab__preset-btn--active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.paper-colors-tab__preset-swatch {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 30%, transparent);
+}
+
+.paper-colors-tab__preset-name {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.1;
+}
+
+/* ---- Text outline (Canva-style) ---- */
+.paper-editor-surface [style*='-webkit-text-stroke'] {
+  paint-order: stroke fill;
+}
+
+/* ---- Indent visualization (Canva-style block margins) ---- */
+.paper-editor-surface p[data-indent]:not([data-indent='0']),
+.paper-editor-surface h1[data-indent]:not([data-indent='0']),
+.paper-editor-surface h2[data-indent]:not([data-indent='0']),
+.paper-editor-surface h3[data-indent]:not([data-indent='0']),
+.paper-editor-surface li[data-indent]:not([data-indent='0']) {
+  transition: margin-left 0.15s ease;
+}
+
+/* ---- Image alignment & wrap (Canva-style) ---- */
+.paper-editor-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+}
+
+.paper-editor-image--align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.paper-editor-image--align-left {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.paper-editor-image--align-right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.paper-editor-image--wrap-left {
+  float: left;
+  margin: 0.5rem 1rem 0.5rem 0;
+}
+
+.paper-editor-image--wrap-right {
+  float: right;
+  margin: 0.5rem 0 0.5rem 1rem;
+}
+
+/* Clearfix for paragraphs containing floated images */
+.paper-editor-surface p:has(> .paper-editor-image--wrap-left),
+.paper-editor-surface p:has(> .paper-editor-image--wrap-right) {
+  overflow: hidden;
+}
+
+/* Selected image highlight */
+.ProseMirror-selectednode .paper-editor-image {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Editor panel typography controls ---- */
+.paper-editor-panel__divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.75rem 0;
+}
+
+.paper-editor-panel__control-label {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  min-width: 2.5rem;
+}
+
+.paper-editor-panel__chip-row {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.paper-editor-panel__chip--wide {
+  flex: 1;
+  min-width: 6rem;
+}
+
+.paper-editor-panel__indent-display {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 2rem;
+  text-align: center;
+}
+
+.paper-editor-tab__block--highlight {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.paper-editor-image-grid__item--active {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.paper-editor-selected-preview {
+  max-width: 100%;
+  max-height: 120px;
+  border-radius: 0.375rem;
+  margin-top: 0.5rem;
 }

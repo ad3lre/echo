@@ -5,7 +5,9 @@
 
 import { ref, onUnmounted, type Ref } from 'vue';
 import { API_BASE } from '@/config';
+import { authTryCookieRefresh } from '@/api/authClient';
 import { ApiError } from '@/api/client';
+import { nativeAuthRequestHeaders } from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import {
   IMAGE_BROWSE_CATEGORIES,
@@ -117,12 +119,39 @@ async function parseErrorBody(
   return null;
 }
 
+async function fetchImageSearchResponse(
+  url: string,
+  signal?: AbortSignal,
+): Promise<Response> {
+  let headers = nativeAuthRequestHeaders();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(url, {
+      signal,
+      credentials: 'include',
+      headers: { ...headers },
+    });
+    if (res.status === 401 && attempt === 0) {
+      const user = await authTryCookieRefresh();
+      if (user) {
+        useAuthSessionStore().applyRestoredProfile(user);
+        headers = nativeAuthRequestHeaders();
+        continue;
+      }
+    }
+    return res;
+  }
+  throw new Error('Image search request failed');
+}
+
 async function fetchImageSearchPage(
   q: string,
   page: number,
   signal?: AbortSignal,
 ): Promise<ImageSearchPageResponse> {
-  const res = await fetch(`${API_BASE}${imageSearchUrl(q, page)}`, { signal });
+  const res = await fetchImageSearchResponse(
+    `${API_BASE}${imageSearchUrl(q, page)}`,
+    signal,
+  );
   applyImageSearchQuotaFromHeaders(res);
   if (!res.ok) {
     const body = await parseErrorBody(res);

@@ -152,15 +152,11 @@ export function extractStorageKeyFromEchoMediaUrl(
       );
       if (fromLocal) return fromLocal;
 
+      // Covers direct bucket/CDN hosts (incl. `*.r2.dev`) where the object key
+      // is the path verbatim, e.g. `https://<bucket>.r2.dev/echo/...`.
       const barePath = u.pathname.replace(/^\/+/, '');
       if (barePath.startsWith('echo/')) {
         return normalizeEchoUploadStorageKeyPath(barePath);
-      }
-
-      if (u.hostname.toLowerCase().endsWith('.r2.dev')) {
-        if (barePath.startsWith('echo/')) {
-          return normalizeEchoUploadStorageKeyPath(barePath);
-        }
       }
 
       for (const prefix of opts?.httpPublicUrlPrefixes ?? []) {

@@ -67,6 +67,20 @@ async function main() {
       'vue-tsc',
       '--noEmit',
     ]);
+    await run('sql schema columns (static)', [
+      'run',
+      'check:sql-schema-columns',
+    ]);
+    if (process.env.DATABASE_URL?.trim()) {
+      await run('sql schema columns (live EXPLAIN)', [
+        'run',
+        'check:sql-schema-columns:live',
+      ]);
+    } else {
+      console.log(
+        '[preverify:prod] DATABASE_URL unset — skipping live SQL EXPLAIN check',
+      );
+    }
   } catch (e) {
     const code = e && typeof e === 'object' && 'code' in e ? e.code : 1;
     console.error(

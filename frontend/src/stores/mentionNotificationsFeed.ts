@@ -5,6 +5,11 @@ import { fetchEchoMentionNotifications } from '@/api/echo/attention';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 
 const REFRESH_DEBOUNCE_MS = 400;
+// Upper bound on how long the debounced path may keep deferring a refresh. The
+// controller re-triggers `scheduleRefresh` on every `channelAttentionByChannelId`
+// change; in an active workspace that map churns faster than the debounce window,
+// which would otherwise reset the timer forever and starve the very first load.
+const REFRESH_DEBOUNCE_MAX_WAIT_MS = 1_500;
 const REFRESH_RETRY_DELAY_MS = 30_000;
 
 /**
@@ -22,6 +27,7 @@ export const useMentionNotificationsFeedStore = defineStore(
     let inFlight: Promise<void> | null = null;
     let queued = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let debounceMaxDeadline = 0;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     function clearRetry(): void {
@@ -74,14 +80,43 @@ export const useMentionNotificationsFeedStore = defineStore(
       return inFlight;
     }
 
-    /** Debounced refresh for chatty triggers (attention snapshot churn). */
+    /**
+     * Refresh trigger for the inbox feed. The first load after login/reset fires
+     * immediately: the server feed is self-contained (it does not read the client
+     * attention snapshot), so there is nothing to wait for, and debouncing the
+     * first load lets attention churn reset the timer forever — leaving the inbox
+     * stuck on "Loading mention…" stubs. Later (churn-driven) refreshes are
+     * debounced, with a max-wait cap so continuous churn cannot starve the timer.
+     */
     function scheduleRefresh(token: string, limit?: number): void {
-      if (!token.trim()) return;
-      if (debounceTimer != null) clearTimeout(debounceTimer);
+      const trimmed = token.trim();
+      if (!trimmed) return;
+
+      if (!loaded.value && !inFlight) {
+        if (debounceTimer != null) {
+          clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
+        debounceMaxDeadline = 0;
+        void refresh(trimmed, limit);
+        return;
+      }
+
+      const now = Date.now();
+      if (debounceTimer == null) {
+        debounceMaxDeadline = now + REFRESH_DEBOUNCE_MAX_WAIT_MS;
+      } else {
+        clearTimeout(debounceTimer);
+      }
+      const wait = Math.max(
+        0,
+        Math.min(REFRESH_DEBOUNCE_MS, debounceMaxDeadline - now),
+      );
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        void refresh(token, limit);
-      }, REFRESH_DEBOUNCE_MS);
+        debounceMaxDeadline = 0;
+        void refresh(trimmed, limit);
+      }, wait);
     }
 
     function reset(): void {
@@ -89,6 +124,7 @@ export const useMentionNotificationsFeedStore = defineStore(
         clearTimeout(debounceTimer);
         debounceTimer = null;
       }
+      debounceMaxDeadline = 0;
       clearRetry();
       rows.value = [];
       loaded.value = false;

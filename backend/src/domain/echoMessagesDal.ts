@@ -923,7 +923,7 @@ export async function selectEchoMessageReplyPreviewRow(
     `
     SELECT m.id, m.author_id, m.content, m.search_index_text,
            COALESCE(NULLIF(TRIM(u.display_name), ''), NULLIF(TRIM(u.username), ''), 'Unknown') AS author_display_name,
-           u.avatar_url AS author_avatar
+           TRIM(u.pfp) AS author_avatar
     FROM echo_messages m
     LEFT JOIN auth_users u ON u.id = m.author_id
     WHERE m.id = $1 AND m.channel_id = $2 AND m.deleted_at IS NULL

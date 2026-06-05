@@ -16,6 +16,8 @@ import { ensurePaperFontLoaded } from '@/features/paper/editor/paperFontLoader';
 import PaperPromptDialog from '@/features/paper/components/PaperPromptDialog.vue';
 import PaperColorControl from '@/features/paper/components/PaperColorControl.vue';
 import PaperFontPicker from '@/features/paper/components/PaperFontPicker.vue';
+import EchoDropdown from '@/components/EchoDropdown.vue';
+import type { EchoDropdownOption } from '@/components/EchoDropdown.vue';
 import type { PaperPageLayout } from '@/features/paper/composables/usePaperPageLayout';
 import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
 import { readPaperDefaultFont } from '@/features/paper/editor/paperDocumentAttributes';
@@ -31,7 +33,7 @@ const props = defineProps<{
   imageUpload: ReturnType<typeof usePaperImageUpload>;
   visible?: boolean;
   pageLayout?: PaperPageLayout;
-  paperAppearance?: PaperAppearanceMode;
+  paperAppearance?: 'light' | 'dark' | 'amber';
 }>();
 
 const ed = computed(() => props.editor);
@@ -68,13 +70,62 @@ const fontSizeDisplay = computed(() => {
 
 const fontSizeTitle = computed(() => {
   if (fmt.value.fontSizeMixed) return 'Font size: mixed · Shift+↑↓';
-  const hint = fmt.value.fontSizeDefaultHint;
   const px = fmt.value.fontSizePx;
-  if (hint && fmt.value.fontSizeUsesDefault) {
-    return `Font size: ${px}px (${hint} default) · Shift+↑↓`;
-  }
   return px != null ? `Font size: ${px}px · Shift+↑↓` : 'Font size · Shift+↑↓';
 });
+
+const headingOptions: EchoDropdownOption[] = [
+  { label: 'Title', value: '1' },
+  { label: 'Heading 2', value: '2' },
+  { label: 'Heading 3', value: '3' },
+  { label: 'Body', value: '0' },
+];
+
+const letterSpacingPresetOptions: EchoDropdownOption[] = [
+  { label: 'Normal', value: '' },
+  { label: '0.5px', value: '0.5px' },
+  { label: '1px', value: '1px' },
+  { label: '2px', value: '2px' },
+  { label: '4px', value: '4px' },
+];
+
+const lineHeightPresetOptions: EchoDropdownOption[] = [
+  { label: '1.0', value: '1' },
+  { label: '1.15', value: '1.15' },
+  { label: '1.35', value: '1.35' },
+  { label: '1.5', value: '1.5' },
+  { label: '2.0', value: '2' },
+];
+
+const textOutlinePresetOptions: EchoDropdownOption[] = [
+  { label: 'Off', value: '' },
+  { label: 'Thin', value: 'thin' },
+  { label: 'Medium', value: 'medium' },
+];
+
+const fontSizePresetOptions = computed<EchoDropdownOption[]>(() =>
+  PAPER_FONT_SIZE_PRESETS.map((px) => ({
+    label: `${px}px`,
+    value: String(px),
+  })),
+);
+
+const currentHeadingValue = computed(() => {
+  if (fmt.value.heading === 'h1') return '1';
+  if (fmt.value.heading === 'h2') return '2';
+  if (fmt.value.heading === 'h3') return '3';
+  return '0';
+});
+
+function onHeadingSelect(value: string) {
+  const level = Number.parseInt(value, 10) as 0 | 1 | 2 | 3;
+  setHeading(level);
+}
+
+function onFontSizePresetSelect(value: string) {
+  const n = Number.parseInt(value, 10);
+  if (Number.isFinite(n)) onFontSizePreset(n);
+}
 
 const docDefaultFont = computed(() =>
   readPaperDefaultFont(ed.value?.getJSON() as Record<string, unknown>),
@@ -276,6 +327,49 @@ function setAlign(align: 'left' | 'center' | 'right' | 'justify') {
   formatActions.setAlign(align);
 }
 
+function setLetterSpacing(value: string) {
+  formatActions.setLetterSpacing(value || null);
+}
+
+function setLineHeight(value: string) {
+  formatActions.setLineHeight(value || null);
+}
+
+function setTextOutline(preset: string) {
+  if (!preset) {
+    formatActions.setTextOutline(null);
+    return;
+  }
+  const width = preset === 'thin' ? '1px' : '2px';
+  formatActions.setTextOutline(width);
+}
+
+function runIndent() {
+  formatActions.indent();
+}
+
+function runOutdent() {
+  formatActions.outdent();
+}
+
+function cycleAlign() {
+  const current = fmt.value.textAlign;
+  const order: Array<'left' | 'center' | 'right' | 'justify'> = [
+    'left',
+    'center',
+    'right',
+    'justify',
+  ];
+  const idx = order.indexOf(current === 'mixed' ? 'left' : current);
+  const next = order[(idx + 1) % order.length];
+  setAlign(next);
+}
+
+const alignCycleIcon = computed(() => {
+  const align = fmt.value.textAlign === 'mixed' ? 'left' : fmt.value.textAlign;
+  return align;
+});
+
 function runMarkToggle(cmd: 'toggleBold' | 'toggleItalic' | 'toggleStrike') {
   formatActions.toggleMark(cmd);
 }
@@ -310,36 +404,13 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
       style="background: var(--paper-format-bar-bg)"
       @mousedown.capture="onFormatBarMouseDown"
     >
-      <div
-        class="paper-format-heading-group"
-        role="group"
-        aria-label="Heading level"
-      >
-        <button
-          type="button"
-          :class="headingBtnClass(1)"
-          title="Title (H1)"
-          @click="setHeading(1)"
-        >
-          H1
-        </button>
-        <button
-          type="button"
-          :class="headingBtnClass(2)"
-          title="Heading 2"
-          @click="setHeading(2)"
-        >
-          H2
-        </button>
-        <button
-          type="button"
-          :class="headingBtnClass(3)"
-          title="Heading 3"
-          @click="setHeading(3)"
-        >
-          H3
-        </button>
-      </div>
+      <EchoDropdown
+        :model-value="currentHeadingValue"
+        :options="headingOptions"
+        label="Style"
+        compact
+        @update:model-value="onHeadingSelect"
+      />
 
       <span class="paper-format-divider" aria-hidden="true" />
 
@@ -362,29 +433,14 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
           aria-label="Font size in pixels"
           @change="onFontSizeInput"
         />
-        <span
-          v-if="
-            fmt.fontSizeUsesDefault &&
-            !fmt.fontSizeMixed &&
-            fmt.fontSizeDefaultHint
-          "
-          class="paper-format-size-hint"
-        >
-          {{ fmt.fontSizeDefaultHint }}
-        </span>
-        <select
-          class="paper-format-size-preset"
-          aria-label="Font size preset"
-          @change="
-            (e) =>
-              onFontSizePreset(Number((e.target as HTMLSelectElement).value))
-          "
-        >
-          <option value="" disabled selected hidden>▾</option>
-          <option v-for="px in PAPER_FONT_SIZE_PRESETS" :key="px" :value="px">
-            {{ px }}px
-          </option>
-        </select>
+        <EchoDropdown
+          :model-value="''"
+          :options="fontSizePresetOptions"
+          label="Size"
+          compact
+          menu-match-trigger-width
+          @update:model-value="onFontSizePresetSelect"
+        />
       </div>
 
       <PaperColorControl
@@ -412,65 +468,63 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
         @clear="setHighlight(null)"
       />
 
-      <div class="paper-format-align-group" role="group" aria-label="Alignment">
-        <button
-          type="button"
-          :class="alignBtnClass('left')"
-          title="Align left"
-          aria-label="Align left"
-          @click="setAlign('left')"
+      <button
+        type="button"
+        class="paper-format-btn"
+        :class="{ 'paper-format-btn--active': fmt.textAlign !== 'left' }"
+        :title="`Align: ${fmt.textAlign === 'mixed' ? 'left' : fmt.textAlign} (click to cycle)`"
+        aria-label="Cycle alignment"
+        @click="cycleAlign"
+      >
+        <svg
+          v-if="alignCycleIcon === 'left'"
+          class="paper-format-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
         >
-          <svg
-            class="paper-format-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="4" y1="12" x2="14" y2="12" />
-            <line x1="4" y1="18" x2="18" y2="18" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          :class="alignBtnClass('center')"
-          title="Align center"
-          aria-label="Align center"
-          @click="setAlign('center')"
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="4" y1="12" x2="14" y2="12" />
+          <line x1="4" y1="18" x2="18" y2="18" />
+        </svg>
+        <svg
+          v-else-if="alignCycleIcon === 'center'"
+          class="paper-format-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
         >
-          <svg
-            class="paper-format-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="7" y1="12" x2="17" y2="12" />
-            <line x1="5" y1="18" x2="19" y2="18" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          :class="alignBtnClass('right')"
-          title="Align right"
-          aria-label="Align right"
-          @click="setAlign('right')"
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="7" y1="12" x2="17" y2="12" />
+          <line x1="5" y1="18" x2="19" y2="18" />
+        </svg>
+        <svg
+          v-else-if="alignCycleIcon === 'right'"
+          class="paper-format-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
         >
-          <svg
-            class="paper-format-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="10" y1="12" x2="20" y2="12" />
-            <line x1="6" y1="18" x2="20" y2="18" />
-          </svg>
-        </button>
-      </div>
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="10" y1="12" x2="20" y2="12" />
+          <line x1="6" y1="18" x2="20" y2="18" />
+        </svg>
+        <svg
+          v-else
+          class="paper-format-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <line x1="4" y1="6" x2="20" y2="6" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="18" x2="20" y2="18" />
+        </svg>
+      </button>
 
       <span class="paper-format-divider" aria-hidden="true" />
 
@@ -614,48 +668,6 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
             @mousedown.prevent
           >
             <button
-              v-for="swatch in PAPER_TEXT_COLORS.filter((c) => c.value)"
-              :key="swatch.value"
-              type="button"
-              class="paper-heading-item flex items-center gap-2"
-              @click="setTextColor(swatch.value)"
-            >
-              <span
-                class="h-3 w-3 rounded-full border border-border"
-                :style="{ background: swatch.value }"
-              />
-              {{ swatch.label }}
-            </button>
-            <button
-              type="button"
-              class="paper-heading-item"
-              @click="setTextColor('')"
-            >
-              Default text color
-            </button>
-            <div class="my-1 border-t border-border" aria-hidden="true" />
-            <button
-              v-for="swatch in PAPER_HIGHLIGHT_COLORS.filter((c) => c.value)"
-              :key="`hl-${swatch.value}`"
-              type="button"
-              class="paper-heading-item flex items-center gap-2"
-              @click="setHighlight(swatch.value)"
-            >
-              <span
-                class="h-3 w-3 rounded-sm border border-border"
-                :style="{ background: swatch.value }"
-              />
-              {{ swatch.label }}
-            </button>
-            <button
-              type="button"
-              class="paper-heading-item"
-              @click="setHighlight(null)"
-            >
-              Remove highlight
-            </button>
-            <div class="my-1 border-t border-border" aria-hidden="true" />
-            <button
               type="button"
               class="paper-heading-item"
               @click="
@@ -686,6 +698,109 @@ function alignBtnClass(align: 'left' | 'center' | 'right') {
             >
               Image from URL…
             </button>
+            <div class="my-1 border-t border-border" />
+            <div
+              class="paper-heading-item paper-heading-item--disabled text-xs text-fg-subtle"
+            >
+              Letter spacing
+            </div>
+            <div class="flex gap-1 px-2 pb-2">
+              <button
+                v-for="opt in letterSpacingPresetOptions"
+                :key="opt.value"
+                type="button"
+                class="px-2 py-1 text-xs rounded hover:bg-glass-hover"
+                :class="{
+                  'bg-accent/20':
+                    fmt.letterSpacing === opt.value ||
+                    (!opt.value && !fmt.letterSpacing),
+                }"
+                @click="
+                  setLetterSpacing(opt.value);
+                  closeMoreMenu();
+                "
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+            <div
+              class="paper-heading-item paper-heading-item--disabled text-xs text-fg-subtle"
+            >
+              Line height
+            </div>
+            <div class="flex gap-1 px-2 pb-2">
+              <button
+                v-for="opt in lineHeightPresetOptions"
+                :key="opt.value"
+                type="button"
+                class="px-2 py-1 text-xs rounded hover:bg-glass-hover"
+                :class="{
+                  'bg-accent/20':
+                    fmt.lineHeight === opt.value ||
+                    (!opt.value && !fmt.lineHeight),
+                }"
+                @click="
+                  setLineHeight(opt.value);
+                  closeMoreMenu();
+                "
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+            <div
+              class="paper-heading-item paper-heading-item--disabled text-xs text-fg-subtle"
+            >
+              Text outline
+            </div>
+            <div class="flex gap-1 px-2 pb-2">
+              <button
+                v-for="opt in textOutlinePresetOptions"
+                :key="opt.value"
+                type="button"
+                class="px-2 py-1 text-xs rounded hover:bg-glass-hover"
+                :class="{
+                  'bg-accent/20':
+                    fmt.textOutlineWidth ===
+                      (opt.value === 'thin'
+                        ? '1px'
+                        : opt.value === 'medium'
+                          ? '2px'
+                          : '') ||
+                    (!opt.value && !fmt.textOutlineWidth),
+                }"
+                @click="
+                  setTextOutline(opt.value);
+                  closeMoreMenu();
+                "
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+            <div class="my-1 border-t border-border" />
+            <div class="flex gap-1 px-2 pb-2">
+              <button
+                type="button"
+                class="paper-heading-item flex-1"
+                :disabled="fmt.indent <= 0"
+                @click="
+                  runOutdent();
+                  closeMoreMenu();
+                "
+              >
+                ← Outdent
+              </button>
+              <button
+                type="button"
+                class="paper-heading-item flex-1"
+                :disabled="fmt.indent >= 4"
+                @click="
+                  runIndent();
+                  closeMoreMenu();
+                "
+              >
+                Indent →
+              </button>
+            </div>
           </div>
         </Teleport>
       </div>

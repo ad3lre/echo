@@ -433,6 +433,40 @@ async function run(): Promise<void> {
       }
     }
 
+    const paperCh = await fetch(
+      `${baseUrl}/api/v1/echo/servers/${serverId}/channels`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': t1.csrfToken,
+          cookie: `echo_sid=${t1Sid}`,
+        },
+        body: JSON.stringify({ name: 'Paper uploads', type: 'paper' }),
+      },
+    );
+    const paperChBody = await paperCh.text();
+    assert.equal(paperCh.status, 201, paperChBody);
+    const { channelId: paperChannelId } = JSON.parse(paperChBody) as {
+      channelId: string;
+    };
+
+    const paperUpload = await postPresign(baseUrl, t1Sid, t1.csrfToken, {
+      channelId: paperChannelId,
+      key: 'paper.png',
+      contentType: 'image/png',
+      contentLength: 10,
+    });
+    assert.ok(
+      paperUpload.status === 503 || paperUpload.status === 200,
+      `paper channel upload: expected 503 or 200, got ${paperUpload.status} ${JSON.stringify(paperUpload.json)}`,
+    );
+    assert.notEqual(
+      paperUpload.status,
+      403,
+      'paper authors must not be denied presign (was blocked by canUserPostMessage)',
+    );
+
     console.log('echo.uploads.presign.integration: ok');
   } finally {
     await close();

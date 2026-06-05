@@ -24,11 +24,11 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="paper-workspace flex min-h-0 flex-1 justify-center px-4 py-10 md:px-8"
+    class="paper-workspace flex min-h-0 flex-1 justify-center px-6 py-12 md:px-10"
   >
     <div
       v-if="loading"
-      class="paper-page paper-page--skeleton w-full max-w-[816px]"
+      class="paper-page paper-page--skeleton w-full max-w-[920px]"
     >
       <div class="paper-page-skeleton-line paper-page-skeleton-line--title" />
       <div class="paper-page-skeleton-line" />
@@ -39,7 +39,7 @@ const emit = defineEmits<{
     <div
       v-else
       :ref="pageRef"
-      class="paper-page w-full max-w-[816px]"
+      class="paper-page w-full max-w-[920px]"
       :class="{ 'paper-page--raw': sourceViewMode === 'raw' }"
       :style="{
         ...(documentFontFamily
@@ -68,7 +68,7 @@ const emit = defineEmits<{
 
 <style scoped>
 .paper-page--skeleton {
-  padding: 2.5rem 2rem;
+  padding: 3rem 2.5rem;
 }
 
 .paper-page-skeleton-line {

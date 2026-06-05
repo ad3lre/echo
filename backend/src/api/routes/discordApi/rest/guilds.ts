@@ -560,10 +560,10 @@ export default async function discordGuildsRoutes(
       if (!actorId) return;
 
       const bans = await pool.query(
-        `SELECT b.banned_user_id, b.reason, u.username, u.display_name, u.pfp
+        `SELECT b.user_id, b.reason, u.username, u.display_name, u.pfp
          FROM echo_server_bans b
-         LEFT JOIN auth_users u ON u.id = b.banned_user_id
-         WHERE b.server_id = $1 ORDER BY b.banned_at DESC`,
+         LEFT JOIN auth_users u ON u.id = b.user_id
+         WHERE b.server_id = $1 ORDER BY b.created_at DESC`,
         [guildId],
       );
 
@@ -571,7 +571,7 @@ export default async function discordGuildsRoutes(
         bans.rows.map((row: Record<string, unknown>) => ({
           reason: typeof row.reason === 'string' ? row.reason : null,
           user: serializeUser({
-            id: String(row.banned_user_id),
+            id: String(row.user_id),
             username: typeof row.username === 'string' ? row.username : 'user',
             displayName:
               typeof row.display_name === 'string'

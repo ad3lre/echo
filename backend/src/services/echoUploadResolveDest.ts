@@ -5,6 +5,7 @@ import {
   isMemberOfServer,
   isEchoServerOwner,
 } from '../domain/echoPermissions';
+import { getPaperCapabilitiesForUser } from '../domain/echoStore/access';
 import { getUserCommunicationTimeoutState } from '../domain/echoStore';
 import { hasServerPermission } from '../domain/echoPolicy';
 import { isUserBannedFromServer } from '../domain/echoStore/access';
@@ -285,14 +286,14 @@ export async function resolveEchoUploadStorageKey(
         },
       };
     }
-    const okPost = await canUserPostMessage(pool, userId, channelId);
-    if (!okPost) {
+    const okUpload = await canUserUploadToEchoChannel(pool, userId, channelId);
+    if (!okUpload) {
       return {
         ok: false,
         error: {
           status: 403,
           code: 'FORBIDDEN',
-          message: 'Cannot post in this channel',
+          message: 'Cannot upload to this channel',
         },
       };
     }
@@ -452,4 +453,22 @@ export async function resolveEchoUploadStorageKey(
   }
 
   return { ok: true, storageKey };
+}
+
+/** Chat channels use post-message access; paper channels use author capability. */
+export async function canUserUploadToEchoChannel(
+  pool: pg.Pool,
+  userId: string,
+  channelId: string,
+): Promise<boolean> {
+  const ch = await pool.query(
+    `SELECT type FROM echo_channels WHERE id = $1 LIMIT 1`,
+    [channelId],
+  );
+  const type = String(ch.rows[0]?.type ?? '');
+  if (type === 'paper') {
+    const caps = await getPaperCapabilitiesForUser(pool, channelId, userId);
+    return caps.canAuthorPaper;
+  }
+  return canUserPostMessage(pool, userId, channelId);
 }

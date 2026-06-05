@@ -1,4 +1,4 @@
-import { ref, watch, type Ref } from 'vue';
+import { onScopeDispose, ref, watch, type Ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import {
@@ -18,6 +18,15 @@ import { hasChannelMessageInBucket } from '@/services/realtime/channelMessageAut
 import { shouldSkipChannelMessagePrefetch } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useEchoAttentionStore } from '@/stores/echoAttention';
+
+/**
+ * Upper bound on how long a row may stay a "Loading mention…" stub before we
+ * give up and surface the actionable failure preview. `echoFetch` has no request
+ * timeout and the hydrate pipeline is gated behind a single in-flight promise, so
+ * one stalled prefetch would otherwise pin the stub forever. The eager server
+ * feed resolves rows in well under a second, so this only bites a genuine wedge.
+ */
+const STUB_WATCHDOG_MS = 12_000;
 
 function resolveStubChannelIds(
   rows: readonly DmMentionNotificationRow[],
@@ -70,6 +79,7 @@ export function useMentionNotificationHydration(input: {
 
   let hydrateInFlight: Promise<void> | null = null;
   let hydrateQueued = false;
+  let stubWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
 
   function targetsNeedHydration(
     targets: readonly MentionNotificationPrefetchTarget[],
@@ -211,6 +221,41 @@ export function useMentionNotificationHydration(input: {
       });
   }
 
+  function clearStubWatchdog(): void {
+    if (stubWatchdogTimer != null) {
+      clearTimeout(stubWatchdogTimer);
+      stubWatchdogTimer = null;
+    }
+  }
+
+  /**
+   * Arm a one-shot timer that converts still-loading stubs into the actionable
+   * failure preview. Intentionally not re-armed while running — re-arming on
+   * every reactive tick would let attention churn reset it forever, the same
+   * starvation that wedges the feed debounce.
+   */
+  function armStubWatchdog(): void {
+    if (stubWatchdogTimer != null) return;
+    stubWatchdogTimer = setTimeout(() => {
+      stubWatchdogTimer = null;
+      const rows = input.rows.value;
+      if (!mentionNotificationRowsHaveLoadingStubs(rows)) return;
+      // Flip unresolved stubs to MENTION_NOTIFICATION_FAILED_PREVIEW so the inbox
+      // never shows an indefinite spinner. If a wedged fetch later lands, the row
+      // self-heals on the next resolver-version recompute.
+      markHydrationFailures([], rows);
+      loading.value = false;
+    }, STUB_WATCHDOG_MS);
+  }
+
+  function syncStubWatchdog(): void {
+    if (mentionNotificationRowsHaveLoadingStubs(input.rows.value)) {
+      armStubWatchdog();
+    } else {
+      clearStubWatchdog();
+    }
+  }
+
   watch(
     [
       channelAttentionByChannelId,
@@ -222,9 +267,12 @@ export function useMentionNotificationHydration(input: {
     ],
     () => {
       scheduleHydrate();
+      syncStubWatchdog();
     },
     { immediate: true, deep: true },
   );
+
+  onScopeDispose(clearStubWatchdog);
 
   return { loading, failedChannelIds };
 }

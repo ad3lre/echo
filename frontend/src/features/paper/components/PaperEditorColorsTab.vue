@@ -10,7 +10,7 @@ import { derivePaperSurfaceStyle } from '@/features/paper/editor/paperPageAppear
 
 const props = defineProps<{
   context: PaperEditorPanelBridgeContext;
-  appearance: 'light' | 'dark';
+  appearance: 'light' | 'dark' | 'amber';
 }>();
 
 const pageLight = computed(
@@ -39,31 +39,59 @@ function applyPreset(light: string, dark: string) {
 </script>
 
 <template>
-  <div class="paper-editor-tab">
-    <div
-      class="paper-editor-page-preview"
-      :style="previewStyle"
-      aria-hidden="true"
-    >
-      <span
-        class="paper-editor-page-preview__line paper-editor-page-preview__line--title"
-      />
-      <span class="paper-editor-page-preview__line" />
-      <span
-        class="paper-editor-page-preview__line paper-editor-page-preview__line--short"
-      />
-    </div>
+  <div class="paper-editor-tab paper-colors-tab">
+    <section class="paper-editor-tab__block">
+      <h3 class="paper-colors-tab__section-title">Page colors</h3>
+      <p class="paper-colors-tab__hint">
+        Choose colors for light and dark preview modes.
+      </p>
+
+      <div class="paper-colors-tab__mode-grid">
+        <div class="paper-colors-tab__mode-card">
+          <span class="paper-colors-tab__mode-label">Light</span>
+          <div
+            class="paper-colors-tab__color-preview"
+            :style="{ backgroundColor: pageLight }"
+          />
+          <PaperColorPickerPanel
+            kind="pageLight"
+            embedded
+            compact
+            :palette="pagePalette"
+            :color="pageLight"
+            @pick="context.onPageColorLight"
+            @clear="context.onPageColorLight(null)"
+          />
+        </div>
+        <div class="paper-colors-tab__mode-card">
+          <span class="paper-colors-tab__mode-label">Dark</span>
+          <div
+            class="paper-colors-tab__color-preview"
+            :style="{ backgroundColor: pageDark }"
+          />
+          <PaperColorPickerPanel
+            kind="pageDark"
+            embedded
+            compact
+            :palette="pagePalette"
+            :color="pageDark"
+            @pick="context.onPageColorDark"
+            @clear="context.onPageColorDark(null)"
+          />
+        </div>
+      </div>
+    </section>
 
     <section class="paper-editor-tab__block">
       <h4 class="paper-editor-tab__label">Presets</h4>
-      <div class="paper-editor-panel__preset-grid">
+      <div class="paper-colors-tab__preset-grid">
         <button
           v-for="preset in PAPER_PAGE_COLOR_PRESETS"
           :key="preset.label"
           type="button"
-          class="paper-editor-panel__preset"
+          class="paper-colors-tab__preset-btn"
           :class="{
-            'paper-editor-panel__preset--active': isPaperPagePresetActive(
+            'paper-colors-tab__preset-btn--active': isPaperPagePresetActive(
               pageLight,
               pageDark,
               preset,
@@ -73,40 +101,14 @@ function applyPreset(light: string, dark: string) {
           @click="applyPreset(preset.light, preset.dark)"
         >
           <span
-            class="paper-editor-panel__preset-swatch"
+            class="paper-colors-tab__preset-swatch"
             :style="{
               background: `linear-gradient(135deg, ${preset.light} 0 50%, ${preset.dark} 50% 100%)`,
             }"
           />
-          <span class="paper-editor-panel__preset-label">{{
-            preset.label
-          }}</span>
+          <span class="paper-colors-tab__preset-name">{{ preset.label }}</span>
         </button>
       </div>
-    </section>
-
-    <section class="paper-editor-tab__block">
-      <h4 class="paper-editor-tab__label">Light page color</h4>
-      <PaperColorPickerPanel
-        kind="pageLight"
-        embedded
-        :palette="pagePalette"
-        :color="pageLight"
-        @pick="context.onPageColorLight"
-        @clear="context.onPageColorLight(null)"
-      />
-    </section>
-
-    <section class="paper-editor-tab__block">
-      <h4 class="paper-editor-tab__label">Dark page color</h4>
-      <PaperColorPickerPanel
-        kind="pageDark"
-        embedded
-        :palette="pagePalette"
-        :color="pageDark"
-        @pick="context.onPageColorDark"
-        @clear="context.onPageColorDark(null)"
-      />
     </section>
   </div>
 </template>

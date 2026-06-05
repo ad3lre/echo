@@ -6,10 +6,9 @@ import {
   type PaperEditorPanelTab,
 } from '@/features/paper/composables/paperEditorPanelBridge';
 import { usePaperEditorPanelPreferences } from '@/features/paper/composables/usePaperEditorPanelPreferences';
-import PaperEditorDesignTab from '@/features/paper/components/PaperEditorDesignTab.vue';
+import PaperEditorColorsTab from '@/features/paper/components/PaperEditorColorsTab.vue';
 import PaperEditorTextTab from '@/features/paper/components/PaperEditorTextTab.vue';
 import PaperEditorAssetsTab from '@/features/paper/components/PaperEditorAssetsTab.vue';
-import PaperEditorStructureTab from '@/features/paper/components/PaperEditorStructureTab.vue';
 import { onPaperFormatBarMouseDown } from '@/features/paper/editor/paperFormatSelection';
 import { icons } from '@/assets/icons';
 import '@/features/paper/styles/paperTheme.scss';
@@ -21,16 +20,17 @@ const props = defineProps<{
 const bridge = usePaperEditorPanelBridge();
 const { hideFormatBarWhenEditorPinned } = usePaperEditorPanelPreferences();
 
-const appearance = computed(() => props.context.appearance.value);
+const appearance = computed(
+  () => props.context.appearance.value as 'light' | 'dark' | 'amber',
+);
 const canCustomize = computed(() => props.context.canCustomize.value);
 const editorEditable = computed(() => props.context.editorEditable.value);
 const editorRef = computed(() => props.context.editor.value);
 
 const tabs: { id: PaperEditorPanelTab; label: string; icon: string }[] = [
-  { id: 'design', label: 'Design', icon: 'palette' },
+  { id: 'colors', label: 'Colors', icon: 'palette' },
   { id: 'text', label: 'Text', icon: 'type' },
   { id: 'assets', label: 'Assets', icon: 'image' },
-  { id: 'structure', label: 'Structure', icon: 'list' },
 ];
 
 const tabListRef = ref<HTMLElement | null>(null);
@@ -114,15 +114,28 @@ watch(
         type="button"
         class="paper-editor-panel__icon-btn"
         :title="
-          appearance === 'dark' ? 'Light canvas preview' : 'Dark canvas preview'
+          appearance === 'dark'
+            ? 'Switch to light canvas'
+            : appearance === 'amber'
+              ? 'Switch to dark canvas'
+              : 'Switch to amber canvas'
         "
         @click="context.toggleAppearance()"
       >
         <img
-          :src="appearance === 'dark' ? icons.sun : icons.moon"
+          v-if="appearance === 'dark'"
+          :src="icons.sun"
           alt=""
           class="h-4 w-4 opacity-85"
         />
+        <img
+          v-else-if="appearance === 'amber'"
+          :src="icons.moon"
+          alt=""
+          class="h-4 w-4 opacity-85"
+          style="filter: sepia(0.5) saturate(2) hue-rotate(-15deg)"
+        />
+        <img v-else :src="icons.moon" alt="" class="h-4 w-4 opacity-85" />
       </button>
     </header>
 
@@ -213,12 +226,12 @@ watch(
 
       <div class="paper-editor-panel__scroll min-h-0 flex-1 overflow-y-auto">
         <div
-          v-show="bridge.activeTab.value === 'design'"
-          :id="`paper-editor-panel-design`"
+          v-show="bridge.activeTab.value === 'colors'"
+          :id="`paper-editor-panel-colors`"
           role="tabpanel"
-          aria-labelledby="paper-editor-tab-design"
+          aria-labelledby="paper-editor-tab-colors"
         >
-          <PaperEditorDesignTab
+          <PaperEditorColorsTab
             v-if="canCustomize"
             :context="context"
             :appearance="appearance"
@@ -250,17 +263,6 @@ watch(
           aria-labelledby="paper-editor-tab-assets"
         >
           <PaperEditorAssetsTab
-            :context="context"
-            :editor-editable="editorEditable"
-          />
-        </div>
-        <div
-          v-show="bridge.activeTab.value === 'structure'"
-          :id="`paper-editor-panel-structure`"
-          role="tabpanel"
-          aria-labelledby="paper-editor-tab-structure"
-        >
-          <PaperEditorStructureTab
             :context="context"
             :editor-editable="editorEditable"
           />

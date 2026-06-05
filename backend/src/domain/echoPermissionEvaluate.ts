@@ -179,7 +179,14 @@ export async function buildEvaluationPlan(
        WHERE ch.id = $1 AND ch.server_id = $2`,
       [channelId, serverId],
     );
-    if (ch.rows[0]) {
+    if (!ch.rows[0]) {
+      /* Channel does not exist in this server (deleted, or a cross-server id).
+       * Fail closed — a permission check scoped to a missing channel must not
+       * fall through to server-baseline perms. Mirrors buildBatchEvaluationPlans,
+       * which returns `no_roles` for unknown channel ids. */
+      return { kind: 'no_roles' };
+    }
+    {
       const categoryId = String(ch.rows[0].category_id ?? '');
 
       const catOw = await pool.query(
@@ -408,8 +415,9 @@ export function executeEvaluationPlan(
 // ---------------------------------------------------------------------------
 // Batch plan builder — prefetches server-level data once, then builds
 // per-channel plans from bulk-fetched overwrite rows.  Produces identical
-// results to calling buildEvaluationPlan per channel but with O(1) server
-// queries instead of O(channels).
+// results to calling buildEvaluationPlan per channel (including `no_roles`
+// for unknown/cross-server channel ids) but with O(1) server queries instead
+// of O(channels).
 // ---------------------------------------------------------------------------
 
 export async function buildBatchEvaluationPlans(

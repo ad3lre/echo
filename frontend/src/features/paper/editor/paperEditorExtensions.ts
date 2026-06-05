@@ -1,7 +1,6 @@
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
@@ -28,6 +27,11 @@ import { PaperBlockIdExtension } from '@/features/paper/editor/paperBlockIdExten
 import { PaperMarkdownMathDecorations } from '@/features/paper/editor/paperMarkdownMathDecorations';
 import { PaperBlockHighlight } from '@/features/paper/editor/paperBlockHighlight';
 import { PaperFontSize } from '@/features/paper/editor/paperFontSizeExtension';
+import { PaperLetterSpacing } from '@/features/paper/editor/paperLetterSpacingExtension';
+import { PaperLineHeight } from '@/features/paper/editor/paperLineHeightExtension';
+import { PaperTextOutline } from '@/features/paper/editor/paperTextOutlineExtension';
+import { PaperIndent } from '@/features/paper/editor/paperIndentExtension';
+import { PaperImage } from '@/features/paper/editor/paperImageExtension';
 import { PaperKeyboardShortcuts } from '@/features/paper/editor/paperKeyboardShortcutsExtension';
 import { PaperDocumentAttributes } from '@/features/paper/editor/paperDocumentAttributes';
 import {
@@ -70,6 +74,10 @@ export function buildPaperEditorExtensions(
     TextStyle,
     FontFamily.configure({ types: ['textStyle'] }),
     PaperFontSize,
+    PaperLetterSpacing,
+    PaperLineHeight,
+    PaperTextOutline,
+    PaperIndent,
     Color.configure({ types: ['textStyle'] }),
     Highlight.configure({ multicolor: true }),
     TextAlign.configure({
@@ -83,7 +91,7 @@ export function buildPaperEditorExtensions(
       linkOnPaste: true,
       HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
     }),
-    Image.configure({
+    PaperImage.configure({
       inline: false,
       allowBase64: false,
       HTMLAttributes: { class: 'paper-editor-image' },

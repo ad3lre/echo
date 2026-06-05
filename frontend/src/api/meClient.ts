@@ -1,5 +1,6 @@
 import { API_BASE } from '@/config';
 import type { ApiErrorBody } from '@shared/types/api';
+import { authenticatedApiFetch } from '@/api/authenticatedApiFetch';
 import { AuthApiError, echoAuthLogRequestFailure } from '@/api/authClient';
 import { echoCsrfHeaders } from '@/utils/echoCsrf';
 
@@ -52,9 +53,8 @@ export type MeDiscordResponse =
 
 export async function fetchMeDiscord(): Promise<MeDiscordResponse> {
   assertNetworkAllowed();
-  const res = await fetch(`${API_ROOT}/me/discord`, {
+  const res = await authenticatedApiFetch(`${API_ROOT}/me/discord`, {
     method: 'GET',
-    credentials: 'include',
   });
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'GET /api/v1/me/discord');
@@ -80,9 +80,8 @@ export type MeGoogleResponse =
 
 export async function fetchMeGoogle(): Promise<MeGoogleResponse> {
   assertNetworkAllowed();
-  const res = await fetch(`${API_ROOT}/me/google`, {
+  const res = await authenticatedApiFetch(`${API_ROOT}/me/google`, {
     method: 'GET',
-    credentials: 'include',
   });
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'GET /api/v1/me/google');
@@ -91,10 +90,9 @@ export async function fetchMeGoogle(): Promise<MeGoogleResponse> {
 
 export async function disconnectMeGoogle(): Promise<void> {
   assertNetworkAllowed();
-  const res = await fetch(`${API_ROOT}/me/google`, {
+  const res = await authenticatedApiFetch(`${API_ROOT}/me/google`, {
     method: 'DELETE',
     headers: echoCsrfHeaders(),
-    credentials: 'include',
   });
   if (res.status === 204) return;
   const data = (await parseJson(res)) as Record<string, unknown>;
@@ -119,10 +117,12 @@ export type FetchDiscordImportableGuildsResult =
 
 export async function fetchDiscordImportableGuilds(): Promise<FetchDiscordImportableGuildsResult> {
   assertNetworkAllowed();
-  const res = await fetch(`${API_ROOT}/me/discord/importable-guilds`, {
-    method: 'GET',
-    credentials: 'include',
-  });
+  const res = await authenticatedApiFetch(
+    `${API_ROOT}/me/discord/importable-guilds`,
+    {
+      method: 'GET',
+    },
+  );
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'GET /api/v1/me/discord/importable-guilds');
   const linked = data.linked === true;
@@ -170,9 +170,9 @@ export async function fetchDiscordBotInGuild(discordGuildId: string): Promise<{
   checkSkipped: boolean;
 }> {
   assertNetworkAllowed();
-  const res = await fetch(
+  const res = await authenticatedApiFetch(
     `${API_ROOT}/me/discord/bot-in-guild?${new URLSearchParams({ discordGuildId })}`,
-    { method: 'GET', credentials: 'include' },
+    { method: 'GET' },
   );
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'GET /api/v1/me/discord/bot-in-guild');
@@ -187,12 +187,14 @@ export async function postDiscordBotExportPending(
   guildName: string,
 ): Promise<void> {
   assertNetworkAllowed();
-  const res = await fetch(`${API_ROOT}/me/discord/bot-export-pending`, {
-    method: 'POST',
-    headers: { ...echoCsrfHeaders(), 'content-type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ discordGuildId, guildName }),
-  });
+  const res = await authenticatedApiFetch(
+    `${API_ROOT}/me/discord/bot-export-pending`,
+    {
+      method: 'POST',
+      headers: { ...echoCsrfHeaders(), 'content-type': 'application/json' },
+      body: JSON.stringify({ discordGuildId, guildName }),
+    },
+  );
   if (res.status === 204) return;
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'POST /api/v1/me/discord/bot-export-pending');
@@ -202,10 +204,12 @@ export async function fetchDiscordBotExportPending(): Promise<{
   pending: DiscordBotExportPendingRow[];
 }> {
   assertNetworkAllowed();
-  const res = await fetch(`${API_ROOT}/me/discord/bot-export-pending`, {
-    method: 'GET',
-    credentials: 'include',
-  });
+  const res = await authenticatedApiFetch(
+    `${API_ROOT}/me/discord/bot-export-pending`,
+    {
+      method: 'GET',
+    },
+  );
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'GET /api/v1/me/discord/bot-export-pending');
   const raw = data.pending;

@@ -4,14 +4,14 @@ import {
   readPaperPageColors,
 } from '@/features/paper/editor/paperPageAppearance';
 
-export type PaperAppearanceMode = 'light' | 'dark';
+export type PaperAppearanceMode = 'light' | 'dark' | 'amber';
 
 const STORAGE_PREFIX = 'echo-paper-appearance:';
 
 function loadStored(channelId: string): PaperAppearanceMode | null {
   try {
     const raw = sessionStorage.getItem(`${STORAGE_PREFIX}${channelId}`);
-    if (raw === 'light' || raw === 'dark') return raw;
+    if (raw === 'light' || raw === 'dark' || raw === 'amber') return raw;
   } catch {
     /* ignore */
   }
@@ -54,12 +54,19 @@ export function usePaperAppearance(opts: {
   }
 
   function toggleAppearance() {
-    setAppearance(appearance.value === 'light' ? 'dark' : 'light');
+    const order: PaperAppearanceMode[] = ['light', 'dark', 'amber'];
+    const idx = order.indexOf(appearance.value);
+    setAppearance(order[(idx + 1) % order.length]);
   }
 
   const pageSurfaceStyle = computed(() => {
     const colors = readPaperPageColors(opts.contentJson.value);
-    const hex = appearance.value === 'dark' ? colors.dark : colors.light;
+    const hex =
+      appearance.value === 'dark'
+        ? colors.dark
+        : appearance.value === 'amber'
+          ? (colors.light ?? '#fffbf0')
+          : colors.light;
     if (!hex) return {};
     return derivePaperSurfaceStyle(hex);
   });

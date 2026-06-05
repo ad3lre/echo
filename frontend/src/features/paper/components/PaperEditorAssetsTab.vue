@@ -5,6 +5,13 @@ import { extractPaperDocumentImages } from '@/features/paper/editor/extractPaper
 import { useImageSearch } from '@/composables/useImageSearch';
 import PaperPromptDialog from '@/features/paper/components/PaperPromptDialog.vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import type {
+  PaperImageAlign,
+  PaperImageWrap,
+} from '@/features/paper/editor/paperImageExtension';
+import EchoDropdown from '@/components/EchoDropdown.vue';
+import type { EchoDropdownOption } from '@/components/EchoDropdown.vue';
+import { runPaperFormatCommand } from '@/features/paper/editor/paperFormatSelection';
 
 const props = defineProps<{
   context: PaperEditorPanelBridgeContext;
@@ -17,6 +24,62 @@ const dragOver = ref(false);
 const imageUrlDialogOpen = ref(false);
 const imageUrlError = ref<string | null>(null);
 const searchQuery = ref('');
+
+const isImageSelected = computed(
+  () => editorRef.value?.isActive('image') ?? false,
+);
+
+const selectedImageAttrs = computed(() => {
+  const ed = editorRef.value;
+  if (!ed || !ed.isActive('image')) return null;
+  return ed.getAttributes('image');
+});
+
+const widthOptions: EchoDropdownOption[] = [
+  { label: '25%', value: '25%' },
+  { label: '50%', value: '50%' },
+  { label: '75%', value: '75%' },
+  { label: '100%', value: '100%' },
+  { label: 'Auto', value: '' },
+];
+
+const alignOptions: EchoDropdownOption[] = [
+  { label: 'Left', value: 'left' },
+  { label: 'Center', value: 'center' },
+  { label: 'Right', value: 'right' },
+];
+
+const wrapOptions: EchoDropdownOption[] = [
+  { label: 'None', value: 'none' },
+  { label: 'Left', value: 'left' },
+  { label: 'Right', value: 'right' },
+];
+
+const currentWidth = computed(() => selectedImageAttrs.value?.width ?? '');
+const currentAlign = computed(
+  () => (selectedImageAttrs.value?.align as PaperImageAlign) ?? 'center',
+);
+const currentWrap = computed(
+  () => (selectedImageAttrs.value?.wrap as PaperImageWrap) ?? 'none',
+);
+
+function setImageWidth(value: string) {
+  runPaperFormatCommand(editorRef.value, (chain) =>
+    chain.updateAttributes('image', { width: value || null }),
+  );
+}
+
+function setImageAlign(value: string) {
+  runPaperFormatCommand(editorRef.value, (chain) =>
+    chain.updateAttributes('image', { align: value as PaperImageAlign }),
+  );
+}
+
+function setImageWrap(value: string) {
+  runPaperFormatCommand(editorRef.value, (chain) =>
+    chain.updateAttributes('image', { wrap: value as PaperImageWrap }),
+  );
+}
 
 const {
   images: searchResults,
@@ -172,12 +235,60 @@ function submitSearch() {
             :key="img.src"
             type="button"
             class="paper-editor-image-grid__item"
+            :class="{
+              'paper-editor-image-grid__item--active':
+                selectedImageAttrs?.src === img.src,
+            }"
             :title="img.blockId ? 'Go to image' : 'Insert again'"
             @click="onDocImageClick(img.src, img.blockId)"
           >
             <img :src="safeImageUrl(img.src)" alt="" loading="lazy" />
           </button>
         </div>
+      </section>
+
+      <section
+        v-if="isImageSelected"
+        class="paper-editor-tab__block paper-editor-tab__block--highlight"
+      >
+        <h4 class="paper-editor-tab__label">Selected image</h4>
+        <div class="paper-editor-panel__tool-row">
+          <span class="paper-editor-panel__control-label">Width</span>
+          <EchoDropdown
+            :model-value="currentWidth"
+            :options="widthOptions"
+            label="Width"
+            compact
+            @update:model-value="setImageWidth"
+          />
+        </div>
+        <div class="paper-editor-panel__tool-row">
+          <span class="paper-editor-panel__control-label">Align</span>
+          <EchoDropdown
+            :model-value="currentAlign"
+            :options="alignOptions"
+            label="Align"
+            compact
+            @update:model-value="setImageAlign"
+          />
+        </div>
+        <div class="paper-editor-panel__tool-row">
+          <span class="paper-editor-panel__control-label">Wrap</span>
+          <EchoDropdown
+            :model-value="currentWrap"
+            :options="wrapOptions"
+            label="Wrap"
+            compact
+            @update:model-value="setImageWrap"
+          />
+        </div>
+        <p v-if="selectedImageAttrs?.src" class="paper-editor-tab__hint">
+          <img
+            :src="safeImageUrl(selectedImageAttrs.src)"
+            alt="Selected"
+            class="paper-editor-selected-preview"
+          />
+        </p>
       </section>
     </template>
 

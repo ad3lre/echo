@@ -34,7 +34,7 @@ function onInput(ev: Event) {
   width: 100%;
   min-height: 11in;
   margin: 0;
-  padding: 2rem 2rem 2.5rem;
+  padding: 2.5rem 2.5rem 3rem;
   border: 0;
   outline: none;
   resize: vertical;

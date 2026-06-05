@@ -46,7 +46,15 @@ export function usePaperImageUpload(channelId: string) {
       }
       insertPaperImage(editor, safe);
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Upload failed';
+      if (
+        e instanceof Error &&
+        /403|forbidden|cannot upload/i.test(e.message)
+      ) {
+        error.value =
+          'You do not have permission to upload images in this paper';
+      } else {
+        error.value = e instanceof Error ? e.message : 'Upload failed';
+      }
       dispatchAppToast(error.value, 'warning');
     } finally {
       uploading.value = false;

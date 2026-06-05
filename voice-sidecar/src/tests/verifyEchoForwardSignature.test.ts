@@ -36,6 +36,24 @@ function run(): void {
   );
   assert.equal(bad, false);
 
+  // A correctly-signed but stale timestamp (outside the ±5 min skew window)
+  // must be rejected so captured forwards cannot be replayed.
+  const staleTs = String(Date.now() - 10 * 60 * 1000);
+  const staleSig = createHmac('sha256', secret)
+    .update(`${staleTs}.${rawBody}`)
+    .digest('hex');
+  const stale = verifyEchoForwardSignature(
+    {
+      headers: {
+        'x-echo-signature-ts': staleTs,
+        'x-echo-signature': staleSig,
+      },
+    } as unknown as Parameters<typeof verifyEchoForwardSignature>[0],
+    rawBody,
+    secret,
+  );
+  assert.equal(stale, false);
+
   console.log('verifyEchoForwardSignature.test: ok');
 }
 

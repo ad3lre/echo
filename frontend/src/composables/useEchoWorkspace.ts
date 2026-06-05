@@ -122,6 +122,12 @@ export function createWorkspaceState(): WorkspaceStateApi {
   const loading = ref(false);
   const fromApi = ref(false);
   const initialLoadInFlight = ref(false);
+  /**
+   * One-way latch: flips true the first time {@link startInitialLoad} settles (on any
+   * terminal path — success, unauthenticated, or error) and never resets. The boot
+   * gate in `App.vue` watches this to reveal the shell for no-session cold starts.
+   */
+  const initialLoadSettled = ref(false);
   const apiError = ref<string | null>(null);
 
   const refs: WorkspaceStateRefs = {
@@ -389,6 +395,9 @@ export function createWorkspaceState(): WorkspaceStateApi {
         loading.value = false;
         initialLoadInFlight.value = false;
       }
+      // One-way: the first settled load reveals the boot gate, even for a stale/superseded
+      // sequence (a newer load is already in flight, so the shell is safe to show).
+      initialLoadSettled.value = true;
     }
   }
 
@@ -422,6 +431,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
     loading,
     fromApi,
     initialLoadInFlight,
+    initialLoadSettled,
     apiError,
     refreshExploreDirectory,
     startInitialLoad,

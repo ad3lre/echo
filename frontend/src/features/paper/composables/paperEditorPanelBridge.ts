@@ -10,7 +10,7 @@ import type { Editor } from '@tiptap/core';
 import type { usePaperImageUpload } from '@/features/paper/composables/usePaperImageUpload';
 import type { PaperAppearanceMode } from '@/features/paper/composables/usePaperAppearance';
 
-export type PaperEditorPanelTab = 'design' | 'text' | 'assets' | 'structure';
+export type PaperEditorPanelTab = 'colors' | 'text' | 'assets';
 
 export type PaperEditorPanelBridgeContext = {
   channelId: string;
@@ -71,7 +71,7 @@ const registeredContext = shallowRef<PaperEditorPanelBridgeContext | null>(
 );
 /** Editor tools panel is open (click to toggle; no hover). */
 const panelOpen = ref(false);
-const activeTab = ref<PaperEditorPanelTab>('design');
+const activeTab = ref<PaperEditorPanelTab>('colors');
 /** Bound from layout; plain let avoids shallowRef unwrapping a nested Ref<number>. */
 let channelPanelWidthBinding: Ref<number> | null = null;
 const savedChannelPanelWidth = ref<number | null>(null);

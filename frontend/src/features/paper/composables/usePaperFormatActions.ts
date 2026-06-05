@@ -126,6 +126,58 @@ export function usePaperFormatActions(editor: Ref<Editor | null | undefined>) {
     );
   }
 
+  function setLetterSpacing(spacing: string | null) {
+    const ed = editor.value;
+    if (!ed) return;
+    if (!spacing) {
+      runPaperFormatCommand(ed, (chain) =>
+        chain.extendMarkRange('textStyle').unsetLetterSpacing(),
+      );
+      return;
+    }
+    runPaperFormatCommand(ed, (chain) =>
+      chain.extendMarkRange('textStyle').setLetterSpacing(spacing),
+    );
+  }
+
+  function setLineHeight(height: string | null) {
+    const ed = editor.value;
+    if (!ed) return;
+    if (!height) {
+      runPaperFormatCommand(ed, (chain) =>
+        chain.extendMarkRange('textStyle').unsetLineHeight(),
+      );
+      return;
+    }
+    runPaperFormatCommand(ed, (chain) =>
+      chain.extendMarkRange('textStyle').setLineHeight(height),
+    );
+  }
+
+  function setTextOutline(width: string | null, color?: string | null) {
+    const ed = editor.value;
+    if (!ed) return;
+    if (!width) {
+      runPaperFormatCommand(ed, (chain) =>
+        chain.extendMarkRange('textStyle').unsetTextOutline(),
+      );
+      return;
+    }
+    runPaperFormatCommand(ed, (chain) =>
+      chain
+        .extendMarkRange('textStyle')
+        .setTextOutline(width, color ?? 'currentColor'),
+    );
+  }
+
+  function indent() {
+    runPaperFormatCommand(editor.value, (chain) => chain.indent());
+  }
+
+  function outdent() {
+    runPaperFormatCommand(editor.value, (chain) => chain.outdent());
+  }
+
   return {
     fmt,
     fmtColors,
@@ -142,5 +194,10 @@ export function usePaperFormatActions(editor: Ref<Editor | null | undefined>) {
     toggleList,
     insertHorizontalRule,
     setLink,
+    setLetterSpacing,
+    setLineHeight,
+    setTextOutline,
+    indent,
+    outdent,
   };
 }

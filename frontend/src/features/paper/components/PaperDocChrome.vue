@@ -18,7 +18,7 @@ import type { PaperShareVisibility } from '@shared/types/paperShare';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
 const props = defineProps<{
-  paperAppearance?: 'light' | 'dark';
+  paperAppearance?: 'light' | 'dark' | 'amber';
   channelName: string;
   connectionPhase: PaperConnectionPhase;
   connectionTooltip: string;
@@ -84,11 +84,19 @@ const subtitle = computed(() => {
   return null;
 });
 
-const appearanceTitle = computed(() =>
-  props.paperAppearance === 'dark'
-    ? 'Paper dark preview (canvas only)'
-    : 'Paper light preview (canvas only)',
-);
+const appearanceTitle = computed(() => {
+  if (props.paperAppearance === 'dark') return 'Dark canvas';
+  if (props.paperAppearance === 'amber') return 'Amber canvas';
+  return 'Light canvas';
+});
+
+const appearanceLabel = computed(() => {
+  if (props.paperAppearance === 'dark') return 'Dark';
+  if (props.paperAppearance === 'amber') return 'Amber';
+  return 'Light';
+});
+
+const showCommentsToggle = computed(() => (props.commentCount ?? 0) > 0);
 
 const sourceViewMode = computed(() => props.sourceViewMode ?? 'inline');
 
@@ -171,34 +179,7 @@ function onRedo() {
     :class="{ 'paper-doc-chrome--floating': floating !== false }"
   >
     <div class="paper-doc-chrome__left">
-      <button
-        type="button"
-        class="paper-chrome-btn"
-        :title="appearanceTitle"
-        :aria-label="appearanceTitle"
-        @click="emit('togglePaperAppearance')"
-      >
-        <img
-          :src="paperAppearance === 'dark' ? icons.sun : icons.moon"
-          alt=""
-          class="h-4 w-4 opacity-85 paper-chrome-icon"
-        />
-      </button>
-
-      <button
-        type="button"
-        class="paper-chrome-btn paper-chrome-btn--source-view hidden sm:inline-flex"
-        :class="{ 'paper-chrome-btn--active': sourceViewMode === 'inline' }"
-        :title="sourceViewTitle"
-        :aria-label="sourceViewTitle"
-        :aria-pressed="sourceViewMode === 'inline'"
-        @click="emit('toggleSourceView')"
-      >
-        <span class="paper-chrome-btn__source-label">{{
-          sourceViewLabel
-        }}</span>
-      </button>
-
+      <!-- File -->
       <PaperChromeDropdown label="File" title="File actions" align="left">
         <template #icon>
           <img
@@ -208,43 +189,6 @@ function onRedo() {
           />
         </template>
         <template #default="{ close }">
-          <template v-if="canCustomizeTypography">
-            <div class="border-b border-border px-3 py-2" @click.stop>
-              <p class="text-[11px] font-medium text-fg-subtle">Page colors</p>
-              <label
-                class="mt-2 flex items-center justify-between gap-2 text-xs"
-              >
-                Light mode
-                <input
-                  type="color"
-                  class="h-7 w-10 cursor-pointer rounded border border-border"
-                  :value="paperPageColorLight ?? '#ffffff'"
-                  @input="
-                    emit(
-                      'paperPageColorLight',
-                      ($event.target as HTMLInputElement).value,
-                    )
-                  "
-                />
-              </label>
-              <label
-                class="mt-1.5 flex items-center justify-between gap-2 text-xs"
-              >
-                Dark mode
-                <input
-                  type="color"
-                  class="h-7 w-10 cursor-pointer rounded border border-border"
-                  :value="paperPageColorDark ?? '#16161c'"
-                  @input="
-                    emit(
-                      'paperPageColorDark',
-                      ($event.target as HTMLInputElement).value,
-                    )
-                  "
-                />
-              </label>
-            </div>
-          </template>
           <button
             v-if="canDownload !== false"
             type="button"
@@ -332,35 +276,6 @@ function onRedo() {
               >
             </span>
           </button>
-          <label
-            v-if="canCustomizeTypography"
-            class="paper-chrome-menu-item flex flex-col gap-1 border-t border-border"
-            @click.stop
-          >
-            <span class="text-[11px] font-medium text-fg-subtle"
-              >Document font</span
-            >
-            <select
-              class="paper-chrome-font-select w-full"
-              :value="documentFontId"
-              @change="
-                emit(
-                  'documentFontChange',
-                  ($event.target as HTMLSelectElement).value,
-                )
-              "
-            >
-              <option
-                v-for="font in PAPER_FONT_CATALOG"
-                :key="font.id"
-                :value="font.id"
-                v-bind="font.attributes"
-                :style="{ fontFamily: font.family }"
-              >
-                {{ font.label }}
-              </option>
-            </select>
-          </label>
         </template>
       </PaperChromeDropdown>
 
@@ -404,6 +319,141 @@ function onRedo() {
           </svg>
         </button>
       </div>
+
+      <!-- Mode dropdown (moved from right cluster) -->
+      <PaperChromeDropdown
+        v-if="modeOptions.length > 1"
+        class="hidden md:block"
+        :label="modeLabel"
+        title="Document mode"
+        align="left"
+      >
+        <template #icon>
+          <img
+            :src="modeIcon(uiMode)"
+            alt=""
+            class="h-4 w-4 opacity-80 paper-chrome-icon"
+          />
+        </template>
+        <template #default="{ close }">
+          <button
+            v-for="opt in modeOptions"
+            :key="opt.id"
+            type="button"
+            class="paper-chrome-menu-item paper-chrome-menu-item--icon"
+            :class="{ 'paper-chrome-menu-item--active': uiMode === opt.id }"
+            @click.stop="
+              emit('setUiMode', opt.id);
+              close();
+            "
+          >
+            <img
+              :src="modeIcon(opt.id)"
+              alt=""
+              class="paper-chrome-menu-icon-img"
+            />
+            <span>
+              <span class="font-medium">{{ opt.label }}</span>
+              <span class="block text-[11px] text-fg-subtle">{{
+                opt.hint
+              }}</span>
+            </span>
+          </button>
+        </template>
+      </PaperChromeDropdown>
+
+      <!-- Appearance toggle with label -->
+      <button
+        type="button"
+        class="paper-chrome-btn hidden md:flex items-center gap-1.5"
+        :title="appearanceTitle"
+        @click="emit('togglePaperAppearance')"
+      >
+        <svg
+          v-if="paperAppearance === 'dark'"
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+        <svg
+          v-else-if="paperAppearance === 'amber'"
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+        <svg
+          v-else
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+        <span class="text-xs">{{ appearanceLabel }}</span>
+      </button>
+
+      <!-- Source view toggle (desktop) -->
+      <button
+        type="button"
+        class="paper-chrome-btn hidden md:flex items-center gap-1.5"
+        :title="sourceViewTitle"
+        @click="emit('toggleSourceView')"
+      >
+        <svg
+          v-if="sourceViewMode === 'inline'"
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+          />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+        <svg
+          v-else
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <polyline points="16 18 22 12 16 6" />
+          <polyline points="8 6 2 12 8 18" />
+        </svg>
+        <span class="text-xs">{{ sourceViewLabel }}</span>
+      </button>
     </div>
 
     <div class="paper-doc-chrome__center">
@@ -415,7 +465,7 @@ function onRedo() {
 
     <div class="paper-doc-chrome__right">
       <button
-        v-if="canToggleComments"
+        v-if="canToggleComments && showCommentsToggle"
         type="button"
         class="paper-chrome-btn paper-chrome-btn--comments"
         :class="{ 'paper-chrome-btn--active': commentsVisible }"
@@ -486,47 +536,6 @@ function onRedo() {
           </span>
         </div>
       </div>
-
-      <PaperChromeDropdown
-        v-if="modeOptions.length > 1"
-        class="hidden md:block"
-        :label="modeLabel"
-        title="Document mode"
-        align="right"
-      >
-        <template #icon>
-          <img
-            :src="modeIcon(uiMode)"
-            alt=""
-            class="h-4 w-4 opacity-80 paper-chrome-icon"
-          />
-        </template>
-        <template #default="{ close }">
-          <button
-            v-for="opt in modeOptions"
-            :key="opt.id"
-            type="button"
-            class="paper-chrome-menu-item paper-chrome-menu-item--icon"
-            :class="{ 'paper-chrome-menu-item--active': uiMode === opt.id }"
-            @click.stop="
-              emit('setUiMode', opt.id);
-              close();
-            "
-          >
-            <img
-              :src="modeIcon(opt.id)"
-              alt=""
-              class="paper-chrome-menu-icon-img"
-            />
-            <span>
-              <span class="font-medium">{{ opt.label }}</span>
-              <span class="block text-[11px] text-fg-subtle">{{
-                opt.hint
-              }}</span>
-            </span>
-          </button>
-        </template>
-      </PaperChromeDropdown>
 
       <PaperChromeDropdown
         class="hidden md:block"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  computed,
   defineAsyncComponent,
   onMounted,
   onUnmounted,
@@ -8,11 +9,16 @@ import {
 } from 'vue';
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
 import { PLATFORM_KEY } from '@/platform/keys';
+import { useAuthSessionStore } from '@/stores/authSession';
+import { useAppBootGate } from '@/features/layout/composables/useAppBootGate';
 import { ENABLE_NUMBERED_ICON_RENAME_TOOL } from '@/dev/echoDevTools';
 import AppLayoutLoadError from '@/components/AppLayoutLoadError.vue';
 import AppLayoutSplash from '@/components/AppLayoutSplash.vue';
 import EchoHoverHintsHost from '@/components/EchoHoverHintsHost.vue';
-import { APP_LAYOUT_LOAD_TIMEOUT_MS } from '@/config/appLoadUi';
+import {
+  APP_BOOT_GATE_TIMEOUT_MS,
+  APP_LAYOUT_LOAD_TIMEOUT_MS,
+} from '@/config/appLoadUi';
 import {
   normalizePathname,
   parseLegalDocPath,
@@ -67,6 +73,23 @@ const NumberedIconRenameDevModal =
 const echoPlatform = getEchoPlatform();
 provide(PLATFORM_KEY, echoPlatform);
 
+/**
+ * Boot gate: hold a full-screen splash for a no-session cold start until the
+ * workspace's initial load settles, so the app reveals only when servers/channels
+ * are ready. Returning users (a session token is present at boot) or warm-painted
+ * users render the shell immediately — empty surfaces show live skeletons via the
+ * workspace `loading` flags instead of a blank splash. `startInitialLoad` is kicked
+ * off just before mount (see `main.ts`) so those flags are already set on the first
+ * frame.
+ */
+const workspace = echoPlatform.workspace;
+const { showBootGate } = useAppBootGate({
+  hasSession: !!useAuthSessionStore().accessToken?.trim(),
+  warmPainted: workspace.fromApi.value,
+  initialLoadSettled: workspace.initialLoadSettled,
+  timeoutMs: APP_BOOT_GATE_TIMEOUT_MS,
+});
+
 const AppLayout = defineAsyncComponent({
   loader: () => import('@/components/AppLayout.vue'),
   loadingComponent: AppLayoutSplash,
@@ -86,6 +109,11 @@ const PaperPublicShareView = defineAsyncComponent({
 const authShell = ref<null | 'reset' | 'forgot' | 'verify-email'>(null);
 const legalDocId = ref<LegalDocTabId | null>(null);
 const paperPublicToken = ref<string | null>(null);
+
+/** The main app branch (`<AppLayout>`) — i.e. none of the URL-gated standalone views. */
+const showAppLayout = computed(
+  () => !authShell.value && !legalDocId.value && !paperPublicToken.value,
+);
 
 function authShellFromLocation(): null | 'reset' | 'forgot' | 'verify-email' {
   if (typeof window === 'undefined') return null;
@@ -125,8 +153,11 @@ function syncShellRoute() {
     : paperPublicTokenFromLocation();
 }
 
+// Resolve the shell route synchronously at setup so the boot gate only ever covers
+// the real app branch, never the URL-gated auth / legal / paper-share views.
+syncShellRoute();
+
 onMounted(() => {
-  syncShellRoute();
   window.addEventListener('popstate', syncShellRoute);
 });
 
@@ -159,8 +190,34 @@ function onAuthShellDone() {
     :token="paperPublicToken"
   />
   <AppLayout v-else />
+  <Transition name="echo-boot-gate-fade">
+    <div v-if="showAppLayout && showBootGate" class="echo-boot-gate">
+      <AppLayoutSplash />
+    </div>
+  </Transition>
   <component
     :is="NumberedIconRenameDevModal"
     v-if="NumberedIconRenameDevModal"
   />
 </template>
+
+<style scoped>
+/* Full-screen cover held over the shell during a no-session cold start, removed once
+ * the workspace is ready. Sits above all app chrome; the inline boot-error fallback in
+ * index.html still wins (it replaces #app). */
+.echo-boot-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+}
+
+/* Fade out when content is ready (matches the 180ms boot-splash fade in
+ * public/echo-boot-splash.css). */
+.echo-boot-gate-fade-leave-active {
+  transition: opacity 180ms ease-out;
+}
+
+.echo-boot-gate-fade-leave-to {
+  opacity: 0;
+}
+</style>

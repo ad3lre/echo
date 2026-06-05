@@ -171,6 +171,8 @@ export type WorkspaceStateApi = {
   loading: Ref<boolean>;
   fromApi: Ref<boolean>;
   initialLoadInFlight: Ref<boolean>;
+  /** One-way latch: true once {@link WorkspaceStateApi.startInitialLoad} first settles. */
+  initialLoadSettled: Ref<boolean>;
   apiError: Ref<string | null>;
   refreshExploreDirectory: () => Promise<void>;
   addChannelToCategory: (

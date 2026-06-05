@@ -1,5 +1,6 @@
 import { API_BASE } from '@/config';
 import type { ApiErrorBody } from '@shared/types/api';
+import { authenticatedApiFetch } from '@/api/authenticatedApiFetch';
 import { AuthApiError, echoAuthLogRequestFailure } from '@/api/authClient';
 import { echoCsrfHeaders } from '@/utils/echoCsrf';
 
@@ -51,9 +52,8 @@ export type MeYoutubeResponse = {
 };
 
 export async function fetchMeYoutube(): Promise<MeYoutubeResponse> {
-  const res = await fetch(`${API_ROOT}/me/youtube`, {
+  const res = await authenticatedApiFetch(`${API_ROOT}/me/youtube`, {
     method: 'GET',
-    credentials: 'include',
   });
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'GET /api/v1/me/youtube');
@@ -65,13 +65,12 @@ export async function saveMeYoutubeStreamKey(body: {
   serverUrl?: string;
   rtmpUrl?: string;
 }): Promise<{ ok: boolean; streamKey: MeYoutubeStreamKeyMeta }> {
-  const res = await fetch(`${API_ROOT}/me/youtube/stream-key`, {
+  const res = await authenticatedApiFetch(`${API_ROOT}/me/youtube/stream-key`, {
     method: 'PUT',
     headers: {
       ...echoCsrfHeaders(),
       'Content-Type': 'application/json',
     },
-    credentials: 'include',
     body: JSON.stringify(body),
   });
   const data = (await parseJson(res)) as Record<string, unknown>;
@@ -84,10 +83,9 @@ export async function saveMeYoutubeStreamKey(body: {
 }
 
 export async function revokeMeYoutubeStreamKey(): Promise<void> {
-  const res = await fetch(`${API_ROOT}/me/youtube/stream-key`, {
+  const res = await authenticatedApiFetch(`${API_ROOT}/me/youtube/stream-key`, {
     method: 'DELETE',
     headers: echoCsrfHeaders(),
-    credentials: 'include',
   });
   if (res.status === 204 || res.ok) return;
   const data = (await parseJson(res)) as Record<string, unknown>;
@@ -95,10 +93,9 @@ export async function revokeMeYoutubeStreamKey(): Promise<void> {
 }
 
 export async function unlinkMeYoutube(): Promise<void> {
-  const res = await fetch(`${API_ROOT}/me/youtube`, {
+  const res = await authenticatedApiFetch(`${API_ROOT}/me/youtube`, {
     method: 'DELETE',
     headers: echoCsrfHeaders(),
-    credentials: 'include',
   });
   if (res.status === 204 || res.ok) return;
   const data = (await parseJson(res)) as Record<string, unknown>;

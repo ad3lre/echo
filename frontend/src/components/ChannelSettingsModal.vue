@@ -216,6 +216,13 @@ const channelType = computed(
   () => props.channelSettings?.channel.type ?? 'text',
 );
 
+const isPaperChannel = computed(() => channelType.value === 'paper');
+
+const paperPermissionsDisabled = computed(() => {
+  if (!isPaperChannel.value) return false;
+  return paperShareVisibility.value !== 'server';
+});
+
 const discordSyncChannelType = computed(() =>
   channelType.value === 'forum' ? 'forum' : 'text',
 );
@@ -1487,7 +1494,24 @@ async function confirmDeleteChannel() {
                 key="permissions"
                 class="server-settings-panel-root space-y-5 pb-4"
               >
-                <template v-if="echoPermissionEditor">
+                <div
+                  v-if="isPaperChannel && paperPermissionsDisabled"
+                  class="rounded-xl border border-border bg-elevated/50 p-4"
+                >
+                  <p class="text-sm text-fg">
+                    Permissions apply when share visibility is set to
+                    <strong>Server members (RBAC)</strong>. Change the share
+                    visibility in the Overview tab to enable permission
+                    controls.
+                  </p>
+                </div>
+
+                <template
+                  v-if="
+                    echoPermissionEditor &&
+                    !(isPaperChannel && paperPermissionsDisabled)
+                  "
+                >
                   <div
                     class="server-toggle-row channel-settings-perm-sync-row items-start !py-4"
                   >
@@ -1529,6 +1553,11 @@ async function confirmDeleteChannel() {
                     "
                     @update:rows="echoPermissionRows = $event"
                   />
+                </template>
+                <template
+                  v-else-if="isPaperChannel && paperPermissionsDisabled"
+                >
+                  <!-- Permissions hidden when paper share visibility is not server -->
                 </template>
 
                 <div
