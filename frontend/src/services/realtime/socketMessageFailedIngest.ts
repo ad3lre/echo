@@ -8,6 +8,7 @@ import { failResult } from '@/types/actionResult';
 import { propagateActionFailure } from '@/utils/actionFailurePropagation';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { realtimeMessageFailedUserMessage } from '@/utils/realtimeMessageFailedUserMessage';
+import { describeLastEmittedAttachmentUrls } from '@/services/realtime/attachmentSendDiag';
 
 export type EchoMessageFailedPayload = {
   code: MessageFailedCode;
@@ -61,7 +62,13 @@ export function ingestEchoMessageFailed(
   sink.prunePendingClientMessages(Date.now());
 
   const rawDetail = payload.detail != null ? String(payload.detail).trim() : '';
-  const detailForLog = rawDetail || '(no detail from server)';
+  let detailForLog = rawDetail || '(no detail from server)';
+  // Attachment rejections are otherwise undebuggable from the UI: append the
+  // URL(s) of the just-emitted message so the offending value is visible.
+  if (/attachment/i.test(rawDetail)) {
+    const urls = describeLastEmittedAttachmentUrls();
+    if (urls) detailForLog = `${detailForLog} — sent: ${urls}`;
+  }
   const userFacingDetail = realtimeMessageFailedUserMessage(
     payload.code,
     rawDetail,

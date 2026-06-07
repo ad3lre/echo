@@ -162,7 +162,7 @@ export async function listEchoServerApplications(
     `,
     params,
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     id: String(row.id),
     userId: String(row.user_id),
     status: String(row.status),

@@ -46,6 +46,7 @@ export function isTrustedMediaUrl(url: string | undefined | null): boolean {
     trimmed.startsWith('http://') ||
     trimmed.startsWith('https://') ||
     trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:') ||
     trimmed.startsWith('/')
   ) {
     return true;
@@ -72,6 +73,7 @@ export function safeImageUrl(url: string | undefined | null): string {
     trimmed.startsWith('http://') ||
     trimmed.startsWith('https://') ||
     trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:') ||
     trimmed.startsWith('/')
   ) {
     return trimmed;

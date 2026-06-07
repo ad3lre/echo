@@ -10,13 +10,22 @@ export type VideoProbeResult = VideoDimensions & {
   frameUrl: string;
 };
 
+/** Only `blob:` URLs from createObjectURL are assigned to <video src>. */
+function blobUrlForVideoElement(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed.startsWith('blob:')) {
+    throw new Error('Video probe requires a blob: URL');
+  }
+  return trimmed;
+}
+
 function loadVideoMetadata(source: Blob): Promise<{
   video: HTMLVideoElement;
   width: number;
   height: number;
   blobUrl: string;
 }> {
-  const blobUrl = URL.createObjectURL(source);
+  const blobUrl = blobUrlForVideoElement(URL.createObjectURL(source));
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.preload = 'metadata';

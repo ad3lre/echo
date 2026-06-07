@@ -6,6 +6,13 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const repoRoot = process.cwd();
+const requireFromBackend = createRequire(
+  path.join(repoRoot, 'backend/package.json'),
+);
+const { AccessToken, TrackSource } = requireFromBackend('livekit-server-sdk');
 
 const envPath = process.argv[2]?.trim() || path.join(process.cwd(), '.env');
 
@@ -28,6 +35,25 @@ function parseEnvFile(file) {
     }
     out.set(key, val);
   }
+  return out;
+}
+
+function parseLiveKitYamlKeys(yamlPath) {
+  const out = new Map();
+  if (!fs.existsSync(yamlPath)) return out;
+  const text = fs.readFileSync(yamlPath, 'utf8');
+  const inKeys = text.split('\n').some((line, i, arr) => {
+    if (!line.trim().startsWith('keys:')) return false;
+    for (let j = i + 1; j < arr.length; j += 1) {
+      const row = arr[j];
+      if (!row.trim() || row.trim().startsWith('#')) continue;
+      if (!/^\s/.test(row)) break;
+      const m = row.match(/^\s+([^:\s]+):\s*(.+)$/);
+      if (m) out.set(m[1], m[2].trim().replace(/^['"]|['"]$/g, ''));
+    }
+    return out.size > 0;
+  });
+  void inKeys;
   return out;
 }
 
@@ -65,6 +91,25 @@ if (!publicUrl.startsWith('wss://') && nodeEnv === 'production') {
   failed = true;
 }
 
+const yamlPath = path.join(
+  path.dirname(envPath),
+  'infra',
+  'livekit',
+  'livekit.yaml',
+);
+const yamlKeys = parseLiveKitYamlKeys(yamlPath);
+const yamlSecret = yamlKeys.get(apiKey);
+if (yamlSecret && yamlSecret !== apiSecret) {
+  console.error(
+    `[livekit-prod-check] FAIL — LIVEKIT_API_SECRET does not match infra/livekit/livekit.yaml keys.${apiKey}. Echo will mint JWTs the SFU rejects.`,
+  );
+  failed = true;
+} else if (yamlSecret) {
+  console.log(
+    '[livekit-prod-check] OK — API secret matches infra/livekit/livekit.yaml',
+  );
+}
+
 const ttlRaw = env.get('LIVEKIT_JOIN_TOKEN_TTL_SEC')?.trim();
 if (ttlRaw) {
   const ttl = parseInt(ttlRaw, 10);
@@ -78,6 +123,48 @@ if (ttlRaw) {
   }
 } else {
   console.log('[livekit-prod-check] OK — join token TTL default 300s');
+}
+
+async function validateTokenAgainstPublicUrl() {
+  const httpBase = publicUrl.startsWith('wss://')
+    ? `https://${publicUrl.slice(6)}`
+    : publicUrl.startsWith('ws://')
+      ? `http://${publicUrl.slice(5)}`
+      : publicUrl;
+  const at = new AccessToken(apiKey, apiSecret, {
+    identity: 'livekit-prod-check',
+    name: 'livekit-prod-check',
+    ttl: '60s',
+  });
+  at.addGrant({
+    room: 'livekit-prod-check:room',
+    roomJoin: true,
+    canPublish: true,
+    canPublishSources: [TrackSource.MICROPHONE],
+    canSubscribe: true,
+  });
+  const token = await at.toJwt();
+  const validateUrl = `${httpBase.replace(/\/$/, '')}/rtc/validate?access_token=${encodeURIComponent(token)}`;
+  const res = await fetch(validateUrl);
+  const body = (await res.text()).slice(0, 160);
+  if (res.status === 200) {
+    console.log(
+      '[livekit-prod-check] OK — SFU accepted minted join token (/rtc/validate 200)',
+    );
+    return;
+  }
+  console.error(
+    `[livekit-prod-check] FAIL — SFU rejected minted join token (${res.status} ${body}). LIVEKIT_API_KEY/SECRET must match the LiveKit server at ${publicUrl}.`,
+  );
+  failed = true;
+}
+
+try {
+  await validateTokenAgainstPublicUrl();
+} catch (e) {
+  console.error(
+    `[livekit-prod-check] WARN — could not reach SFU validate endpoint: ${e instanceof Error ? e.message : String(e)}`,
+  );
 }
 
 console.log('[livekit-prod-check] Manual edge items (not read from .env):');

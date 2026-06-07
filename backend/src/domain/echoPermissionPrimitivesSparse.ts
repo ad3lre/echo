@@ -52,16 +52,13 @@ export function foldRolePermissionsSparse(
     if (perms.includes('ADMINISTRATOR') || canonSet.has('ADMINISTRATOR')) {
       adminSentinel = role.id;
       if (isFullTrace) {
-        emitTraceEvent(
-          trace as FoldTraceContext,
-          {
-            kind: 'server_fold_bit',
-            bit: '*',
-            roleId: role.id,
-            value: true,
-            reason: 'administrator',
-          } as any,
-        );
+        emitTraceEvent(trace as FoldTraceContext, {
+          kind: 'server_fold_bit',
+          bit: '*',
+          roleId: role.id,
+          value: true,
+          reason: 'administrator',
+        });
       }
       if (isCompressedTrace) {
         recordCompressedBulkAdmin(trace!.compressed!, role.id, allKeys);
@@ -78,15 +75,12 @@ export function foldRolePermissionsSparse(
       // write true
       lastTrue.add(k);
       if (isFullTrace) {
-        emitTraceEvent(
-          trace as FoldTraceContext,
-          {
-            kind: 'server_fold_bit',
-            bit: k,
-            roleId: role.id,
-            value: true,
-          } as any,
-        );
+        emitTraceEvent(trace as FoldTraceContext, {
+          kind: 'server_fold_bit',
+          bit: k,
+          roleId: role.id,
+          value: true,
+        });
       }
       if (isCompressedTrace) {
         recordCompressedSource(

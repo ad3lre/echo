@@ -340,6 +340,7 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     isAuthModalOpen: ctx.isAuthModalOpen,
     isAuthenticated: ctx.isAuthenticated,
     isCompactShell: ctx.isCompactShell,
+    isCompactGuildSplitShell: ctx.isCompactGuildSplitShell,
     isCreateCategoryModalOpen: ctx.isCreateCategoryModalOpen,
     isCreateChannelModalOpen: ctx.isCreateChannelModalOpen,
     isDMPanelOpen: ctx.isDMPanelOpen,

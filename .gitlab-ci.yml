@@ -1,14 +1,15 @@
-# Prettier format gate (see docs/operations/ops/REPO_ARTIFACTS_POLICY.md)
+# GitLab CI mirror (see docs/operations/ops/REPO_ARTIFACTS_POLICY.md).
 #
 # Public OSS on GitHub: authoritative CI is GitHub Actions (.github/workflows/).
-# This file is for GitLab-only pipelines; omit it from a GitHub-only export if you
-# want a single CI story, or keep it for a private GitLab mirror.
+# GitLab runs Prettier on doc/format paths and a ship gate (test:ci parity) on
+# application code paths so merges do not rely solely on local pre-push hooks.
 #
 # Ignores for `.cursor/`, other AI tool dirs, IDE dirs, and `.env` align with root
 # `.gitignore` and `.prettierignore`; `scripts/check-oss-artifacts.mjs` fails if any
 # of those paths are still tracked in git.
 stages:
   - quality
+  - test
 
 .prettier_paths: &prettier_paths
   - '**/*.ts'
@@ -30,6 +31,15 @@ stages:
   - '.gitignore'
   - '.gitlab-ci.yml'
 
+.ci_paths: &ci_paths
+  - 'backend/**'
+  - 'frontend/**'
+  - 'shared/**'
+  - 'scripts/**'
+  - 'package.json'
+  - 'package-lock.json'
+  - '.gitlab-ci.yml'
+
 prettier:
   stage: quality
   image: node:22.13-bookworm-slim
@@ -48,3 +58,22 @@ prettier:
     - node scripts/check-oss-artifacts.mjs
     - npm ci
     - npm run format:check
+
+ship-gate:
+  stage: test
+  image: node:22.13-bookworm-slim
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      changes: *ci_paths
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: *ci_paths
+  script:
+    - npm ci
+    - npm run test:ci
+    - npm run charter:new-code:test

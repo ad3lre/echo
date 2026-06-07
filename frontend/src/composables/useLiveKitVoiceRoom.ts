@@ -189,6 +189,8 @@ export type {
   DesktopStreamingControlMode,
   DesktopStreamingPreferences,
   EchoVoiceE2eeConnectInput,
+  LiveKitVoiceConnectOptions,
+  LiveKitVoiceInitialAudioState,
   LiveKitNetworkStats,
   LiveKitRoomState,
   LiveKitVoiceRoomApi,
@@ -200,6 +202,7 @@ export type {
 import type {
   DesktopStreamingPreferences,
   EchoVoiceE2eeConnectInput,
+  LiveKitVoiceConnectOptions,
   LiveKitNetworkStats,
   LiveKitRoomState,
   LiveKitVoiceRoomApi,
@@ -881,10 +884,8 @@ export function useLiveKitVoiceRoom(
         dbfs: localMicMonitor.dbfs.value,
         gateMode: voiceLevels.outboundGateMode,
         thresholdPercent: voiceLevels.voiceActivationThresholdPercent,
-        audioCtx:
-          (localMicMonitor as any).audioContextState?.value ?? 'unknown',
-        audioCtxSampleRate:
-          (localMicMonitor as any).audioContextSampleRate?.value ?? 0,
+        audioCtx: localMicMonitor.audioContextState.value ?? 'unknown',
+        audioCtxSampleRate: localMicMonitor.audioContextSampleRate.value ?? 0,
       });
     }
   }
@@ -1365,11 +1366,9 @@ export function useLiveKitVoiceRoom(
         roomName: room.name,
         mstReadyState: mst.readyState,
         mstEnabled: mst.enabled,
-        mstMuted: (mst as any).muted === true,
-        audioCtx:
-          (localMicMonitor as any).audioContextState?.value ?? 'unknown',
-        audioCtxSampleRate:
-          (localMicMonitor as any).audioContextSampleRate?.value ?? 0,
+        mstMuted: mst.muted === true,
+        audioCtx: localMicMonitor.audioContextState.value ?? 'unknown',
+        audioCtxSampleRate: localMicMonitor.audioContextSampleRate.value ?? 0,
       });
     }
   }
@@ -2529,7 +2528,14 @@ export function useLiveKitVoiceRoom(
     token: string,
     bitrateBps?: number | null,
     e2eeMediaKey?: ArrayBuffer | EchoVoiceE2eeConnectInput | null,
+    connectOptions?: LiveKitVoiceConnectOptions,
   ) {
+    const initialAudioState = connectOptions?.initialAudioState ?? {
+      muted: false,
+      deafened: false,
+    };
+    const shouldPublishInitialMic =
+      !initialAudioState.muted && !initialAudioState.deafened;
     const urlForLog = (() => {
       try {
         return new URL(url).host;
@@ -2549,6 +2555,8 @@ export function useLiveKitVoiceRoom(
     }
     voiceClientDiag('info', 'voice.client:connect_requested', {
       urlHost: urlForLog,
+      initialMuted: initialAudioState.muted,
+      initialDeafened: initialAudioState.deafened,
     });
     connectInFlight = true;
 
@@ -2675,12 +2683,25 @@ export function useLiveKitVoiceRoom(
         localIdentity: room.localParticipant.identity,
       });
 
-      const micOptsRaw = buildAudioCaptureOptionsForSession(
-        loadVoiceProcessingPreferences(),
-        krispSessionFailed.value,
-      );
-      const micOpts = jsonPlainClone(micOptsRaw) as AudioCaptureOptions;
-      await room.localParticipant.setMicrophoneEnabled(true, micOpts);
+      lastVcAudioOpts = { ...initialAudioState };
+      vcDeafenedInternal.value = initialAudioState.deafened;
+      if (initialAudioState.deafened) {
+        await muteRemoteParticipantsForDeafen(room);
+      }
+      if (shouldPublishInitialMic) {
+        const micOptsRaw = buildAudioCaptureOptionsForSession(
+          loadVoiceProcessingPreferences(),
+          krispSessionFailed.value,
+        );
+        const micOpts = jsonPlainClone(micOptsRaw) as AudioCaptureOptions;
+        await room.localParticipant.setMicrophoneEnabled(true, micOpts);
+      } else {
+        await room.localParticipant.setMicrophoneEnabled(false);
+        voiceClientDiag('info', 'voice.client:mic_initially_disabled', {
+          muted: initialAudioState.muted,
+          deafened: initialAudioState.deafened,
+        });
+      }
       if (myGen !== connectGeneration) {
         voiceClientTrace('voice.client:lk_connect_stale_after_mic', {});
         connectAbortTarget = null;
@@ -2731,7 +2752,9 @@ export function useLiveKitVoiceRoom(
 
       reapplyRemotePlaybackGains(room);
 
-      await attachMicSendProcessorIfNeeded(room);
+      if (shouldPublishInitialMic) {
+        await attachMicSendProcessorIfNeeded(room);
+      }
       if (myGen !== connectGeneration) {
         voiceClientTrace('voice.client:lk_connect_stale_after_krisp', {});
         connectAbortTarget = null;
@@ -2742,7 +2765,11 @@ export function useLiveKitVoiceRoom(
         return;
       }
 
-      voiceClientTrace('voice.client:lk_mic_enabled_after_connect', {});
+      voiceClientTrace('voice.client:lk_initial_audio_state_after_connect', {
+        muted: initialAudioState.muted,
+        deafened: initialAudioState.deafened,
+        micPublished: shouldPublishInitialMic,
+      });
       {
         const pub =
           room.localParticipant.getTrackPublication(LK_SOURCE_MICROPHONE);
@@ -2755,7 +2782,7 @@ export function useLiveKitVoiceRoom(
           mst: !!mst,
           mstReadyState: mst?.readyState ?? 'missing',
           mstEnabled: mst ? mst.enabled : null,
-          mstMuted: mst ? (mst as any).muted === true : null,
+          mstMuted: mst ? mst.muted === true : null,
           settings: mst?.getSettings ? mst.getSettings() : null,
         });
       }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RemoteTrack } from 'livekit-client';
+import type { StreamVideoTileTrack } from '@/components/streamVideoTileTrack';
 import {
   ref,
   computed,
@@ -25,13 +25,8 @@ import { useLocalScreenSharePreviewSuspend } from '@/composables/useLocalScreenS
 import { useLiveKitTrackSurfaceGeneration } from '@/composables/useLiveKitTrackSurfaceGeneration';
 import { clampMenuToViewport } from '@/features/chat/composables/useContextMenuPosition';
 
-type LocalTrackLike = {
-  mediaStreamTrack?: MediaStreamTrack;
-  track?: MediaStreamTrack;
-};
-
 const props = defineProps<{
-  track: RemoteTrack | LocalTrackLike | null;
+  track: StreamVideoTileTrack | null;
   participantName: string;
   participantPfp?: string;
   /** Echo user id — used for hi-res / fallback avatar when video track is not ready. */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref, unref, watch } from 'vue';
+import { computed, inject, unref, watch } from 'vue';
 import type { MaybeRef } from 'vue';
 import MemberList from '@/components/MemberList.vue';
 import SearchBar from '@/components/chat/SearchBar.vue';
@@ -99,13 +99,6 @@ const memberListLoading = pick('memberListLoading');
 const echoMemberSectionOrdering = pick('echoMemberSectionOrdering');
 const onUpdateMemberPanelCollapsed = pick('onUpdateMemberPanelCollapsed');
 const onOpenMemberProfile = pick('onOpenMemberProfile');
-
-function collapseMemberPanel() {
-  const fn = onUpdateMemberPanelCollapsed.value;
-  if (typeof fn === 'function') {
-    fn(true);
-  }
-}
 
 watch(
   () => ({
@@ -251,9 +244,6 @@ const resolvedSearchScopeHint = computed(() => {
   }
   return props.searchScopeHint ?? '';
 });
-
-/** Hide the collapse control while search is focused or has query/filters. */
-const memberSearchEngaged = ref(false);
 </script>
 
 <template>
@@ -264,33 +254,11 @@ const memberSearchEngaged = ref(false);
     <div
       class="chat-header-glass pointer-events-auto absolute top-0 left-0 right-0 z-20 flex h-12 min-w-0 flex-shrink-0 items-center gap-2 px-4"
     >
-      <button
-        v-if="!memberSearchEngaged"
-        type="button"
-        class="members-column-collapse-btn pointer-events-auto shrink-0"
-        title="Hide members"
-        aria-label="Hide members"
-        @click="collapseMemberPanel"
-      >
-        <svg
-          class="members-column-collapse-btn__icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      </button>
       <div
         v-if="effectiveActiveChannel"
         class="search-input-wrapper relative flex h-full min-w-0 flex-1 items-end"
       >
         <SearchBar
-          @engaged-change="memberSearchEngaged = $event"
           :model-value="resolvedSearchText ?? ''"
           :filter-chips="resolvedFilterChips ?? []"
           :channels="resolvedAllChannels ?? []"

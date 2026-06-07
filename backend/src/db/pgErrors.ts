@@ -1,3 +1,10 @@
+/** SQLSTATE code off an unknown thrown value, when present (e.g. `23505` unique_violation). */
+export function pgErrorCode(err: unknown): string | undefined {
+  if (typeof err !== 'object' || err === null) return undefined;
+  const code = (err as { code?: unknown }).code;
+  return typeof code === 'string' ? code : undefined;
+}
+
 /** PostgreSQL `undefined_column` — query referenced a column that does not exist yet. */
 export function isPostgresUndefinedColumnError(err: unknown): boolean {
   return (

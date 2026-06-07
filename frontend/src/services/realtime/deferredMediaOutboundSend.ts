@@ -26,6 +26,7 @@ import {
   socketDiagInfo,
   socketDiagWarn,
 } from '@/observability/socketDiagnostics';
+import { recordEmittedAttachmentUrls } from '@/services/realtime/attachmentSendDiag';
 
 export type DeferredMediaOutboundSendDeps = {
   getAuthorId: () => string | undefined;
@@ -243,6 +244,9 @@ export function completeDeferredMediaOutboundSend(opts: {
     clientMessageId,
     attachmentCount: opts.attachments.length,
   });
+  if (hasAttachments) {
+    recordEmittedAttachmentUrls(opts.attachments.map((a) => a.url));
+  }
 
   try {
     adapter.sendMessage({

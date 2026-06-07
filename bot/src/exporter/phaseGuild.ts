@@ -82,12 +82,10 @@ export async function runPhaseGuild(
   const forumPosts: Record<string, unknown>[] = [];
   const seenForumPostIds = new Set<string>();
   for (const ch of parentChannels) {
-    if ((ch as any).type !== ChannelType.GuildForum) continue;
-    const forum = ch as any;
+    if (ch.type !== ChannelType.GuildForum) continue;
+    const forum = ch;
     const active = await forum.threads.fetchActive().catch(() => null);
-    const activeThreads: any[] = active?.threads
-      ? [...active.threads.values()]
-      : [];
+    const activeThreads = active?.threads ? [...active.threads.values()] : [];
     for (const thread of activeThreads) {
       const id = thread?.id != null ? String(thread.id).trim() : '';
       if (!id || seenForumPostIds.has(id)) continue;
@@ -98,7 +96,7 @@ export async function runPhaseGuild(
     const archived = await forum.threads
       .fetchArchived({ type: 'public', fetchAll: true })
       .catch(() => null);
-    const archivedThreads: any[] = archived?.threads
+    const archivedThreads = archived?.threads
       ? [...archived.threads.values()]
       : [];
     for (const thread of archivedThreads) {

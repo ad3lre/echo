@@ -733,6 +733,17 @@ fn append_startup_log(app: &tauri::AppHandle) {
 fn setup_app_shell(app: &tauri::App) {
   append_startup_log(app.handle());
 
+  // iOS: show the native splash/login overlay immediately so the WebView's
+  // remote load happens behind it (no white flash). Configures the native auth
+  // bridge with the prod API base. `ECHO_IOS_API_BASE` overrides at build time.
+  #[cfg(target_os = "ios")]
+  {
+    let _ = app;
+    const DEFAULT_IOS_API_BASE: &str = "https://chat-echo.com";
+    let api_base = option_env!("ECHO_IOS_API_BASE").unwrap_or(DEFAULT_IOS_API_BASE);
+    ios_auth::native_boot(api_base);
+  }
+
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
   {
     let prefs = app.state::<ShellPrefs>();

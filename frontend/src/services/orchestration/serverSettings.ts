@@ -1,6 +1,33 @@
 import type { Ref } from 'vue';
 import type { PatchEchoServerPreferencesBody } from '@/api/echoClient';
 import { patchEchoServerPreferences } from '@/api/echoClient';
+import type { Server } from '@shared/types';
+
+type ServerPreferenceStorePatch = Partial<
+  Pick<
+    Server,
+    | 'allowGlobalGuests'
+    | 'applicationsEnabled'
+    | 'automodSpamEnabled'
+    | 'bannerBlackoutEnabled'
+    | 'bannerBlurEnabled'
+    | 'bannerImageUrl'
+    | 'bannerPositionY'
+    | 'description'
+    | 'imageUrl'
+    | 'inviteJoinEnabled'
+    | 'listedInDirectory'
+    | 'name'
+    | 'tags'
+    | 'vanityCode'
+    | 'verificationRequireEmail'
+  >
+> & {
+  applicationForm?: PatchEchoServerPreferencesBody['applicationForm'];
+  raidJoinThresholdCount?: number;
+  raidJoinWindowSeconds?: number;
+  raidProtectionEnabled?: boolean;
+};
 
 export type ServerStoreLike = {
   updateServerBannerBlurEnabled: (id: string, v: boolean) => void;
@@ -8,27 +35,33 @@ export type ServerStoreLike = {
   updateServerBannerImageUrl: (id: string, url: string) => void;
   updateServerBannerPositionY: (id: string, y: number) => void;
   updateServerImageUrl: (id: string, url: string) => void;
-  setServers: (next: any[]) => void;
-  servers: any[];
-  pinnedMoreServers: any[];
+  setServers: (next: Server[]) => void;
+  servers: Server[];
+  pinnedMoreServers: Server[];
 };
 
 type ServerListLike = ServerStoreLike['servers'];
+
+function normalizeServerPreferencePatch(
+  patch: Partial<PatchEchoServerPreferencesBody>,
+): ServerPreferenceStorePatch {
+  const { iconUrl, bannerUrl, ...rest } = patch;
+  const normalized: ServerPreferenceStorePatch = { ...rest };
+  if (iconUrl !== undefined) {
+    normalized.imageUrl = iconUrl;
+  }
+  if (bannerUrl !== undefined) {
+    normalized.bannerImageUrl = bannerUrl;
+  }
+  return normalized;
+}
 
 function mergeServerPatch(
   servers: ServerListLike,
   serverId: string,
   patch: Partial<PatchEchoServerPreferencesBody>,
 ): ServerListLike {
-  const normalized: Record<string, unknown> = { ...patch };
-  if ('iconUrl' in normalized) {
-    normalized.imageUrl = normalized.iconUrl;
-    delete normalized.iconUrl;
-  }
-  if ('bannerUrl' in normalized) {
-    normalized.bannerImageUrl = normalized.bannerUrl;
-    delete normalized.bannerUrl;
-  }
+  const normalized = normalizeServerPreferencePatch(patch);
   return servers.map((server) =>
     server.id === serverId ? { ...server, ...normalized } : server,
   );
@@ -39,7 +72,7 @@ export function createServerSettingsService() {
     serverId: string;
     patch: Partial<PatchEchoServerPreferencesBody>;
     serverStore: ServerStoreLike;
-    workspaceServers?: Ref<any[]>;
+    workspaceServers?: Ref<unknown[]>;
   }) {
     const next = mergeServerPatch(
       opts.serverStore.servers,
@@ -60,7 +93,7 @@ export function createServerSettingsService() {
       serverId: string;
       patch: Partial<PatchEchoServerPreferencesBody>;
       serverStore: ServerStoreLike;
-      workspaceServers?: Ref<any[]>;
+      workspaceServers?: Ref<unknown[]>;
       refreshExploreDirectory?: () => Promise<void>;
     }) {
       const { token, serverId, patch, serverStore, refreshExploreDirectory } =

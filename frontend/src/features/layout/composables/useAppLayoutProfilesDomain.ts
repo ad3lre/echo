@@ -17,6 +17,14 @@ import { invalidateInFlightEchoWorkspaceSocialRefresh } from '@/services/orchest
 import type { EchoServerMemberDto } from '@/api/echo/types';
 import { memberPanelDiag } from '@/utils/memberPanelDiag';
 import { isEchoPublicBadgeId } from '@shared/echoAccountBadges';
+import type { AuthUserPublic } from '@/api/authClient';
+import type { SocialGraphStatus } from '@/composables/workspace/types';
+import type {
+  ExpandedProfile,
+  MemberProfile,
+  MutualFriendSummary,
+  ShellCurrentUserSummary,
+} from '@/utils/memberProfiles';
 
 type SelectedServer =
   | { id: string; name: string; imageUrl?: string }
@@ -33,6 +41,41 @@ type DomainUser = {
   isDiscordShadow?: boolean;
   isGuest?: boolean;
   badges?: string[];
+};
+
+type ProfileDomainAuthSession = {
+  accessToken?: string | null;
+  isAuthenticated: boolean;
+  backendUser?:
+    | (Omit<Partial<AuthUserPublic>, 'status'> & {
+        id: string;
+        isGuest?: boolean;
+        status?: string;
+        customStatus?: string;
+      })
+    | null;
+};
+
+type ProfileDomainWorkspace = {
+  users: Ref<DomainUser[]>;
+  servers: Ref<{ id: string; name: string; imageUrl?: string }[]>;
+  serverMemberIds: Ref<Record<string, string[]>>;
+  serverMemberNicknames?: Ref<Record<string, Record<string, string>>>;
+  friendIdsByUserId: Ref<Record<string, string[]>>;
+  friendIds: Ref<string[]>;
+  friendRequestsIncoming: Ref<{ id: string; fromUserId: string }[]>;
+  friendRequestsOutgoing: Ref<{ id: string; toUserId: string }[]>;
+  blockedUserIds: Ref<string[]>;
+  socialGraphStatus?: Ref<SocialGraphStatus>;
+  setServerMemberNickname: (
+    serverId: string,
+    userId: string,
+    nickname: string,
+  ) => void;
+  refreshEchoSocialFromApi: () => Promise<void>;
+  acceptFriendRequest: (requestId: string) => void | Promise<void>;
+  declineFriendRequest: (requestId: string) => void | Promise<void>;
+  cancelFriendRequest: (requestId: string) => void | Promise<void>;
 };
 
 function workspaceUserBadges(
@@ -62,11 +105,18 @@ function normalizePublicBadges(
   return base.length ? base : undefined;
 }
 
+function withMutualFriends(
+  profile: ExpandedProfile,
+  mutualFriends: MutualFriendSummary[],
+): ExpandedProfile {
+  return { ...profile, mutualFriends };
+}
+
 export function useAppLayoutProfilesDomain(deps: {
-  workspace: any;
-  authSession: any;
-  serverStore: any;
-  currentUser: ComputedRef<any>;
+  workspace: ProfileDomainWorkspace;
+  authSession: ProfileDomainAuthSession;
+  serverStore: { selectedServerId?: string | null };
+  currentUser: ComputedRef<ShellCurrentUserSummary | undefined>;
   activeChannel: ComputedRef<ChannelSummary | null>;
   selectedServerEcho: ComputedRef<SelectedServer>;
   selectedServerView: ComputedRef<SelectedServer>;
@@ -77,13 +127,13 @@ export function useAppLayoutProfilesDomain(deps: {
   isExpandedProfileModalOpen: Ref<boolean>;
   isExpandedProfileSidePanel: Ref<boolean>;
   isGroupOverviewOpen: Ref<boolean>;
-  activeMemberProfile: Ref<any | null>;
-  expandedProfile: Ref<any | null>;
+  activeMemberProfile: Ref<MemberProfile | null>;
+  expandedProfile: Ref<ExpandedProfile | null>;
   expandedProfileTargetUserId: Ref<string | null>;
   profileNotes: Ref<Record<string, string>>;
   memberPopoutAnchor: Ref<PopoutAnchorRect | null>;
   selfProfileAnchor: Ref<PopoutAnchorRect | null>;
-  selfProfile: Ref<any | null>;
+  selfProfile: Ref<MemberProfile | null>;
   isInDMChat: Ref<boolean>;
   isInDMMode: Ref<boolean>;
   leaveDmUiIfViewingUser: (userId: string) => void;
@@ -214,7 +264,6 @@ export function useAppLayoutProfilesDomain(deps: {
   const profileSafety = useAppLayoutProfileSafety({
     workspace,
     authSession,
-    serverStore,
     currentUser,
     selectedServer: selectedServerEcho,
     customStatus,
@@ -271,10 +320,7 @@ export function useAppLayoutProfilesDomain(deps: {
         peerId !== prevPeerId &&
         expandedProfile.value
       ) {
-        expandedProfile.value = {
-          ...(expandedProfile.value as any),
-          mutualFriends: [],
-        };
+        expandedProfile.value = withMutualFriends(expandedProfile.value, []);
       }
       if (!peerId) return;
       const token = authSession.accessToken?.trim() ?? '';
@@ -294,14 +340,14 @@ export function useAppLayoutProfilesDomain(deps: {
         const mutualFriends = await fetchProfileMutualFriends({
           token,
           peerId,
-          users: workspace.users.value as DomainUser[],
+          users: workspace.users.value,
         });
         if (gen !== expandedProfileMutualFetchGen) return;
         if (expandedProfile.value?.id !== peerId) return;
-        expandedProfile.value = {
-          ...(expandedProfile.value as any),
+        expandedProfile.value = withMutualFriends(
+          expandedProfile.value,
           mutualFriends,
-        } as any;
+        );
       } catch (e) {
         reportPrimaryFlowFailure('fetchEchoMutualFriends', e, { peerId });
       }
@@ -323,10 +369,10 @@ export function useAppLayoutProfilesDomain(deps: {
   const isMemberPopoutCanSendFriendRequest = computed(() => {
     const p = activeMemberProfile.value;
     const id = p?.id?.trim();
-    if (!id) return false;
+    if (!p || !id) return false;
     if (isMemberPopoutFriend.value) return false;
     if (p.isDiscordShadow) return false;
-    if ((p as any).isGuest) return false;
+    if (p.isGuest) return false;
     const me = authSession.backendUser?.id?.trim();
     if (!me || id === me) return false;
     if (authSession.backendUser?.isGuest === true) return false;
@@ -382,7 +428,7 @@ export function useAppLayoutProfilesDomain(deps: {
   const usersById = computed(() => {
     const map = new Map<string, DomainUser>();
     for (const u of workspace.users.value) {
-      map.set(u.id, u as DomainUser);
+      map.set(u.id, u);
     }
     return map;
   });
@@ -514,14 +560,9 @@ export function useAppLayoutProfilesDomain(deps: {
       const u = uMap.get(id);
       const ro = rosterById.get(id);
       const nick = nicks[id]?.trim();
-      const isGuest =
-        ro?.isGuest === true ||
-        (!!u &&
-          typeof u === 'object' &&
-          'isGuest' in u &&
-          (u as { isGuest?: boolean }).isGuest === true);
+      const isGuest = ro?.isGuest === true || (!!u && u.isGuest === true);
       if (u) {
-        const du = u as DomainUser;
+        const du = u;
         const isSelf = !!(me && du.id === me && authU?.id === me);
         const status = resolveDomainUserPresence(
           du.id,
@@ -591,24 +632,15 @@ export function useAppLayoutProfilesDomain(deps: {
       const u = uMap.get(id);
       const ro = rosterById.get(id);
       const nick = nicks[id]?.trim();
-      const isGuest =
-        ro?.isGuest === true ||
-        (!!u &&
-          typeof u === 'object' &&
-          'isGuest' in u &&
-          (u as { isGuest?: boolean }).isGuest === true);
+      const isGuest = ro?.isGuest === true || (!!u && u.isGuest === true);
       const isDiscordShadow =
-        ro?.isDiscordShadow === true ||
-        (!!u &&
-          typeof u === 'object' &&
-          'isDiscordShadow' in u &&
-          (u as { isDiscordShadow?: boolean }).isDiscordShadow === true);
+        ro?.isDiscordShadow === true || (!!u && u.isDiscordShadow === true);
 
       const nameFromRoster =
         ro && typeof ro.name === 'string' ? ro.name.trim() : '';
 
       if (u) {
-        const du = u as DomainUser;
+        const du = u;
         const isSelf = !!(me && du.id === me && authU?.id === me);
         const status = resolveDomainUserPresence(
           du.id,

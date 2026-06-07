@@ -1543,6 +1543,7 @@ watch(
               :message-id="message.id"
               :current-user-id="currentUserId"
               :current-user-display-name="currentUserName"
+              :discord-synced="!!message.bridgeFromDiscord"
               :resolve-poll-voter-display="resolvePollVoterDisplay"
               :resolve-poll-voter-avatar="resolvePollVoterAvatar"
               @vote="onVote?.($event)"

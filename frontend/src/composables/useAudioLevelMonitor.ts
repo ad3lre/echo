@@ -130,7 +130,7 @@ export function useAudioLevelMonitor() {
         audioTracks: stream.getAudioTracks().map((t) => ({
           label: t.label,
           enabled: t.enabled,
-          muted: (t as any).muted === true,
+          muted: t.muted === true,
           readyState: t.readyState,
         })),
       });

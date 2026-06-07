@@ -7,6 +7,8 @@ describe('planMobileShellBack', () => {
       planMobileShellBack(
         {
           useCompactTriPaneShell: false,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
           useCompactExploreShell: false,
           useCompactDmShell: false,
           useCompactStackShell: false,
@@ -26,6 +28,8 @@ describe('planMobileShellBack', () => {
       planMobileShellBack(
         {
           useCompactTriPaneShell: true,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
           useCompactExploreShell: false,
           useCompactDmShell: false,
           useCompactStackShell: false,
@@ -45,6 +49,8 @@ describe('planMobileShellBack', () => {
       planMobileShellBack(
         {
           useCompactTriPaneShell: true,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
           useCompactExploreShell: false,
           useCompactDmShell: false,
           useCompactStackShell: false,
@@ -64,6 +70,8 @@ describe('planMobileShellBack', () => {
       planMobileShellBack(
         {
           useCompactTriPaneShell: false,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
           useCompactExploreShell: true,
           useCompactDmShell: false,
           useCompactStackShell: false,
@@ -83,6 +91,8 @@ describe('planMobileShellBack', () => {
       planMobileShellBack(
         {
           useCompactTriPaneShell: false,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
           useCompactExploreShell: true,
           useCompactDmShell: false,
           useCompactStackShell: false,
@@ -102,6 +112,8 @@ describe('planMobileShellBack', () => {
       planMobileShellBack(
         {
           useCompactTriPaneShell: false,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
           useCompactExploreShell: false,
           useCompactDmShell: true,
           useCompactStackShell: false,
@@ -116,11 +128,34 @@ describe('planMobileShellBack', () => {
     ).toEqual({ kind: 'dm_pane', next: 1 });
   });
 
+  it('guild split: members open -> collapse members', () => {
+    expect(
+      planMobileShellBack(
+        {
+          useCompactTriPaneShell: false,
+          useCompactGuildSplitShell: true,
+          memberPanelCollapsed: false,
+          useCompactExploreShell: false,
+          useCompactDmShell: false,
+          useCompactStackShell: false,
+          isExploreView: false,
+          compactPagerPane: 1,
+          compactExplorePane: 0,
+          compactDmPane: 0,
+          compactGuildTriPaneChannelPanelOpen: false,
+        },
+        { isCompactShell: true, historyLength: 3 },
+      ),
+    ).toEqual({ kind: 'split_collapse_members' });
+  });
+
   it('DM dual: rail -> close dm panel', () => {
     expect(
       planMobileShellBack(
         {
           useCompactTriPaneShell: false,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
           useCompactExploreShell: false,
           useCompactDmShell: true,
           useCompactStackShell: false,

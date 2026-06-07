@@ -2028,7 +2028,7 @@ export async function selectUnreadAttentionAggregatesByChannel(
     `,
     [userId, channelIds],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     channel_id: String(row.channel_id),
     server_id: String(row.server_id ?? ''),
     unread_count: Number(row.unread_count ?? 0),
@@ -2217,7 +2217,7 @@ export async function selectUnreadMentionRowsForAttention(
     `,
     [userId, channelIds],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     channel_id: String(row.channel_id),
     mentions: row.mentions,
   }));
@@ -2271,7 +2271,7 @@ export async function selectUnreadReplyToSelfRowsForAttention(
     `,
     [userId, channelIds],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     channel_id: String(row.channel_id),
   }));
 }
@@ -2361,7 +2361,7 @@ export async function selectUnreadMentionFeedRowsForUser(
     `,
     [userId, channelIds],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     id: String(row.id),
     channel_id: String(row.channel_id),
     server_id: row.server_id != null ? String(row.server_id) : null,

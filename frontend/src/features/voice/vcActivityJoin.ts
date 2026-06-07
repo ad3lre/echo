@@ -1,4 +1,5 @@
 import { watch, type Ref } from 'vue';
+import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
 import { ECHOED_NAMES_VC_ACTIVITY_ENABLED } from '@shared/vcActivityCatalog';
 import type {
   VcActivityPresenceKind,
@@ -28,11 +29,14 @@ const PRESENCE_KIND_PRIORITY: readonly VcActivityPresenceKind[] = [
 export function primaryVcActivityPresenceKind(
   kinds: readonly VcActivityPresenceKind[],
 ): VcActivityPresenceKind | null {
-  if (!kinds.length) return null;
+  const visible = YOUTUBE_INTEGRATION_ENABLED
+    ? kinds
+    : kinds.filter((k) => k !== 'youtube');
+  if (!visible.length) return null;
   for (const preferred of PRESENCE_KIND_PRIORITY) {
-    if (kinds.includes(preferred)) return preferred;
+    if (visible.includes(preferred)) return preferred;
   }
-  return kinds[0] ?? null;
+  return visible[0] ?? null;
 }
 
 export function vcActivityPresenceKindToPhase(
@@ -106,7 +110,11 @@ export function applyVcActivityUiPhase(
       openers.openVcActivityPicker();
       return;
     case 'youtube':
-      openers.openVcActivityYoutubeBrowse();
+      if (YOUTUBE_INTEGRATION_ENABLED) {
+        openers.openVcActivityYoutubeBrowse();
+      } else {
+        openers.openVcActivityPicker();
+      }
       return;
     case 'wordle':
       openers.openVcActivityWordle();

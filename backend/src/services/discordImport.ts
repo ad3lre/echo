@@ -47,8 +47,18 @@ import {
   isEchoS3UploadConfigured,
 } from './s3UploadPresign';
 import { resolveEchoUploadStorageKey } from './echoUploadResolveDest';
-
-type JsonObject = Record<string, unknown>;
+import {
+  permissionsFromBitfield,
+  overwritePartialFromAllowDeny,
+} from './discordImportPermissions';
+import {
+  type JsonObject,
+  asObject,
+  asStringArray,
+  readJsonObjectFile,
+  readJsonArrayFile,
+  readJsonlFile,
+} from './discordImportJson';
 
 /**
  * Raw Discord channel shape from export JSON.
@@ -238,34 +248,6 @@ type NormalizedDiscordForumPost = {
   createdAt: Date | null;
 };
 
-const DISCORD_PERMISSION_BIT_POSITIONS = DISCORD_ECHO_PERMISSION_STRINGS.map(
-  (_: string, index: number) => (index < 47 ? index : index + 2),
-);
-
-const DISCORD_PERMISSION_BIT_TO_NAME = DISCORD_ECHO_PERMISSION_STRINGS.map(
-  (name: string, index: number) => ({
-    name,
-    bit: 1n << BigInt(DISCORD_PERMISSION_BIT_POSITIONS[index]!),
-  }),
-);
-
-const THREAD_PERMISSION_NAMES = new Set([
-  'MANAGE_THREADS',
-  'CREATE_PUBLIC_THREADS',
-  'CREATE_PRIVATE_THREADS',
-  'SEND_MESSAGES_IN_THREADS',
-]);
-
-function asObject(value: unknown): JsonObject | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  return value as JsonObject;
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((entry): entry is string => typeof entry === 'string');
-}
-
 function parseRoleImportIssues(raw: unknown): DiscordRoleImportIssue[] {
   if (!Array.isArray(raw)) return [];
   const out: DiscordRoleImportIssue[] = [];
@@ -415,78 +397,6 @@ function normalizeDiscordForumPosts(
   return out;
 }
 
-function parseJsonObject(text: string, label: string): JsonObject {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error(`Invalid JSON in ${label}`);
-  }
-  const obj = asObject(parsed);
-  if (!obj) throw new Error(`Expected JSON object in ${label}`);
-  return obj;
-}
-
-function parseJsonArray(text: string, label: string): JsonObject[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error(`Invalid JSON in ${label}`);
-  }
-  if (!Array.isArray(parsed))
-    throw new Error(`Expected JSON array in ${label}`);
-  return parsed.filter((entry): entry is JsonObject => asObject(entry) != null);
-}
-
-async function readJsonObjectFile(
-  filePath: string,
-  label: string,
-): Promise<JsonObject> {
-  return parseJsonObject(await readFile(filePath, 'utf8'), label);
-}
-
-async function readJsonArrayFile(
-  filePath: string,
-  label: string,
-): Promise<JsonObject[]> {
-  return parseJsonArray(await readFile(filePath, 'utf8'), label);
-}
-
-async function readJsonlFile(
-  filePath: string,
-  label: string,
-): Promise<JsonObject[]> {
-  const rows: JsonObject[] = [];
-  const stream = createReadStream(filePath, { encoding: 'utf8' });
-  const lines = createInterface({ input: stream, crlfDelay: Infinity });
-  let lineNo = 0;
-  try {
-    for await (const line of lines) {
-      lineNo += 1;
-      const raw = line.trim();
-      if (!raw) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        throw new Error(`Invalid JSONL row in ${label} at line ${lineNo}`);
-      }
-      const obj = asObject(parsed);
-      if (!obj)
-        throw new Error(`Expected JSON object in ${label} at line ${lineNo}`);
-      rows.push(obj);
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw error;
-  } finally {
-    lines.close();
-    stream.destroy();
-  }
-  return rows;
-}
-
 function uniqueWarnings(...parts: Array<string[] | undefined>): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -497,44 +407,6 @@ function uniqueWarnings(...parts: Array<string[] | undefined>): string[] {
       seen.add(trimmed);
       out.push(trimmed);
     }
-  }
-  return out;
-}
-
-function parseBitfield(raw: unknown): bigint {
-  if (typeof raw === 'bigint') return raw;
-  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0)
-    return BigInt(Math.floor(raw));
-  if (typeof raw === 'string') {
-    const trimmed = raw.trim();
-    if (!trimmed) return 0n;
-    if (/^\d+$/.test(trimmed)) return BigInt(trimmed);
-  }
-  return 0n;
-}
-
-function permissionsFromBitfield(raw: unknown): string[] {
-  const bitfield = parseBitfield(raw);
-  if (bitfield === 0n) return [];
-  return DISCORD_PERMISSION_BIT_TO_NAME.filter(
-    (entry: { name: string; bit: bigint }) =>
-      (bitfield & entry.bit) === entry.bit,
-  )
-    .map((entry: { name: string; bit: bigint }) => entry.name)
-    .filter((n) => !THREAD_PERMISSION_NAMES.has(n));
-}
-
-function overwritePartialFromAllowDeny(
-  allowRaw: unknown,
-  denyRaw: unknown,
-): Record<string, boolean> {
-  const allow = parseBitfield(allowRaw);
-  const deny = parseBitfield(denyRaw);
-  const out: Record<string, boolean> = {};
-  for (const entry of DISCORD_PERMISSION_BIT_TO_NAME) {
-    if (THREAD_PERMISSION_NAMES.has(entry.name)) continue;
-    if ((deny & entry.bit) === entry.bit) out[entry.name] = false;
-    if ((allow & entry.bit) === entry.bit) out[entry.name] = true;
   }
   return out;
 }

@@ -36,9 +36,9 @@ export function createEchoServerMemberOrchestration(
         count: Array.isArray(members) ? members.length : -1,
         sample: Array.isArray(members)
           ? members.slice(0, 3).map((m) => ({
-              userId: (m as any)?.userId,
-              isDiscordShadow: (m as any)?.isDiscordShadow,
-              isGuest: (m as any)?.isGuest,
+              userId: m.userId,
+              isDiscordShadow: m.isDiscordShadow,
+              isGuest: m.isGuest,
             }))
           : [],
       });

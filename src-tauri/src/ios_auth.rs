@@ -2,6 +2,70 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::Manager;
 
+// ── Native overlay bridge (Rust ↔ Swift) ──
+//
+// The Rust shell is built as a dylib that is linked *before* the Swift
+// `@_cdecl` overlay functions exist (they live in the app executable). So Rust
+// cannot reference those symbols directly at link time. Instead `main.mm` (which
+// is compiled into the app target alongside the Swift code) passes the Swift
+// function pointers into Rust at launch via `echo_ios_register_overlay_callbacks`,
+// and Rust calls back through the stored pointers. This also keeps the Swift
+// symbols alive (referenced by `main.mm`), preventing dead-strip.
+
+#[cfg(target_os = "ios")]
+mod overlay_ffi {
+    use std::os::raw::c_char;
+    use std::sync::OnceLock;
+
+    pub type BootFn = extern "C" fn(*const c_char);
+    pub type VoidFn = extern "C" fn();
+
+    pub static BOOT: OnceLock<BootFn> = OnceLock::new();
+    pub static DISMISS: OnceLock<VoidFn> = OnceLock::new();
+    pub static SHOW_LOGIN: OnceLock<VoidFn> = OnceLock::new();
+
+    /// Registered once from `main.mm` before the Tauri app starts.
+    #[no_mangle]
+    pub extern "C" fn echo_ios_register_overlay_callbacks(
+        boot: BootFn,
+        dismiss: VoidFn,
+        show_login: VoidFn,
+    ) {
+        let _ = BOOT.set(boot);
+        let _ = DISMISS.set(dismiss);
+        let _ = SHOW_LOGIN.set(show_login);
+    }
+}
+
+/// Configure the native auth bridge + show the boot overlay. Call once at startup.
+#[cfg(target_os = "ios")]
+pub fn native_boot(api_base: &str) {
+    if let (Some(boot), Ok(c)) = (overlay_ffi::BOOT.get(), std::ffi::CString::new(api_base)) {
+        // Swift copies the string synchronously, so the CString may drop after.
+        boot(c.as_ptr());
+    }
+}
+#[cfg(not(target_os = "ios"))]
+pub fn native_boot(_api_base: &str) {}
+
+#[cfg(target_os = "ios")]
+fn native_dismiss_overlay() {
+    if let Some(f) = overlay_ffi::DISMISS.get() {
+        f();
+    }
+}
+#[cfg(not(target_os = "ios"))]
+fn native_dismiss_overlay() {}
+
+#[cfg(target_os = "ios")]
+fn native_show_login() {
+    if let Some(f) = overlay_ffi::SHOW_LOGIN.get() {
+        f();
+    }
+}
+#[cfg(not(target_os = "ios"))]
+fn native_show_login() {}
+
 /// Stored session state persisted in iOS Keychain.
 /// Provides instant boot decisions without waiting for network.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -316,6 +380,8 @@ pub fn ios_auth_session_restored(app: tauri::AppHandle) -> Result<(), String> {
     *state.native_auth_complete.lock().unwrap() = true;
     *state.show_native_login.lock().unwrap() = false;
     let _ = &app;
+    // WebView has adopted the session — fade out the native overlay.
+    native_dismiss_overlay();
     Ok(())
 }
 
@@ -326,6 +392,8 @@ pub fn ios_auth_session_restore_failed(app: tauri::AppHandle) -> Result<(), Stri
     *state.session.lock().unwrap() = None;
     *state.show_native_login.lock().unwrap() = true;
     let _ = &app;
+    // Stored session is gone / invalid — show the native login screen.
+    native_show_login();
     Ok(())
 }
 

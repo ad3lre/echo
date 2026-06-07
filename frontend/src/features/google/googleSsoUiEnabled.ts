@@ -1,5 +1,7 @@
+import { GOOGLE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
+
 /**
- * Google SSO entry points (login modal, welcome gate). Backend routes may still exist.
- * Set to `false` to hide “Continue with Google” without removing OAuth handlers.
+ * Google SSO entry points (login modal, welcome gate).
+ * Controlled by {@link GOOGLE_INTEGRATION_ENABLED} in `shared/integrationKillSwitches.ts`.
  */
-export const GOOGLE_SSO_SIGNIN_UI_ENABLED = true;
+export const GOOGLE_SSO_SIGNIN_UI_ENABLED = GOOGLE_INTEGRATION_ENABLED;

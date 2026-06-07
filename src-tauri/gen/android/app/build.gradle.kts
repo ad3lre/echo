@@ -23,6 +23,10 @@ val keystoreProperties = Properties().apply {
 
 android {
     compileSdk = 36
+    // Pin the NDK so AGP, CI, and Tauri's Rust linker use the same installed
+    // toolchain instead of AGP auto-downloading its default NDK during CI.
+    // Keep in sync with ANDROID_NDK_VERSION in .github/workflows/echo-android-ci.yml.
+    ndkVersion = "29.0.14206865"
     namespace = "com.echo.app"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"

@@ -4,7 +4,10 @@ import type pg from 'pg';
 import * as authEmail from '../../email';
 import { config } from '../../../config';
 import { assertEchoAuthLocale } from '../../../../../shared/echoLocale';
-import { isPostgresUndefinedColumnError } from '../../../db/pgErrors';
+import {
+  isPostgresUndefinedColumnError,
+  pgErrorCode,
+} from '../../../db/pgErrors';
 import { maskE164, normalizeInputToE164 } from '../../phoneE164';
 import { smsOtpHmacHex, smsOtpVerifyTimingSafe } from '../../smsOtpHmac';
 import { hashRefreshToken } from '../../token';
@@ -55,6 +58,11 @@ import { publicBadgesFromAccount } from '../../../../../shared/echoAccountBadges
 import { normalizeEchoPlanId } from '../../../../../shared/echoPlanLimits';
 import { normalizeUsername, makeHash } from '../helpers';
 
+/** Coerce a pg timestamp cell (Date or string) to an ISO string. */
+function isoFromDbTimestamp(value: unknown): string {
+  return new Date(value as string | number | Date).toISOString();
+}
+
 export class PostgresAuthStore implements AuthStore {
   constructor(private pool: pg.Pool) {}
 
@@ -65,7 +73,7 @@ export class PostgresAuthStore implements AuthStore {
     return 'postgres';
   }
 
-  private mapUser(row: any): AuthUser {
+  private mapUser(row: Record<string, unknown>): AuthUser {
     const emailCell =
       row.email != null && String(row.email).trim() !== ''
         ? String(row.email).trim().toLowerCase()
@@ -98,9 +106,9 @@ export class PostgresAuthStore implements AuthStore {
         Number.isFinite(Number(row.banner_position_y))
           ? Math.max(0, Math.min(100, Number(row.banner_position_y)))
           : 50,
-      createdAt: new Date(row.created_at).toISOString(),
+      createdAt: isoFromDbTimestamp(row.created_at),
       updatedAt: row.updated_at
-        ? new Date(row.updated_at).toISOString()
+        ? isoFromDbTimestamp(row.updated_at)
         : undefined,
       emailVerified: !hasEmail || row.email_verified_at != null,
       phoneVerified: !committedPhone || row.phone_verified_at != null,
@@ -120,11 +128,11 @@ export class PostgresAuthStore implements AuthStore {
         .toLowerCase();
     }
     if (row.guest_minted_at)
-      u.guestMintedAt = new Date(row.guest_minted_at).toISOString();
+      u.guestMintedAt = isoFromDbTimestamp(row.guest_minted_at);
     if (row.guest_suspended_until)
-      u.guestSuspendedUntil = new Date(row.guest_suspended_until).toISOString();
+      u.guestSuspendedUntil = isoFromDbTimestamp(row.guest_suspended_until);
     if (row.guest_deleted_at)
-      u.guestDeletedAt = new Date(row.guest_deleted_at).toISOString();
+      u.guestDeletedAt = isoFromDbTimestamp(row.guest_deleted_at);
     if (
       row.guest_total_messages != null &&
       row.guest_total_messages !== undefined
@@ -226,8 +234,8 @@ export class PostgresAuthStore implements AuthStore {
           passwordHash,
         ],
       );
-    } catch (e: any) {
-      if (e?.code === '23505') {
+    } catch (e: unknown) {
+      if (pgErrorCode(e) === '23505') {
         const row = await this.pool.query(
           `SELECT username FROM auth_users WHERE LOWER(TRIM(email)) = $1 OR username = $2 LIMIT 1`,
           [emailNorm, username],
@@ -300,8 +308,8 @@ export class PostgresAuthStore implements AuthStore {
           input.emailVerifiedFromIdp ? new Date().toISOString() : null,
         ],
       );
-    } catch (e: any) {
-      if (e?.code === '23505') {
+    } catch (e: unknown) {
+      if (pgErrorCode(e) === '23505') {
         const row = await this.pool.query(
           `SELECT username FROM auth_users WHERE (email IS NOT NULL AND LOWER(TRIM(email)) = $1) OR username = $2 LIMIT 1`,
           [emailNorm || '---', username],
@@ -434,7 +442,7 @@ export class PostgresAuthStore implements AuthStore {
     userId: string,
     patch: AuthProfilePatch,
   ): Promise<AuthUser | null> {
-    const values: any[] = [userId];
+    const values: unknown[] = [userId];
     const sets: string[] = [];
     if (patch.displayName !== undefined) {
       const displayNameResult = validateDisplayName(patch.displayName, '');
@@ -595,8 +603,8 @@ export class PostgresAuthStore implements AuthStore {
         `,
         [id, username, displayName, pfp, passwordHash],
       );
-    } catch (e: any) {
-      if (e?.code === '23505') return null;
+    } catch (e: unknown) {
+      if (pgErrorCode(e) === '23505') return null;
       throw e;
     }
     return this.getUserById(id);

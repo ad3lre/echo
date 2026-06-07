@@ -7,6 +7,10 @@ import WebKit
 final class EchoKeychain {
     static let service = "com.echo.ios.auth"
     static let sessionAccount = "session_memory"
+    // Must match `KEYCHAIN_REFRESH_ACCOUNT` in src-tauri/src/ios_auth.rs so the
+    // WebView's `bootstrapNativeBearerSessionFromKeychain()` (via the Rust
+    // `ios_auth_get_refresh_token` command) can read the token native login wrote.
+    static let refreshAccount = "refresh_token"
 
     static func readSession() -> [String: Any]? {
         let query: [String: Any] = [
@@ -26,6 +30,51 @@ final class EchoKeychain {
     static func hasStoredSession() -> Bool {
         return readSession() != nil
     }
+
+    /// Upsert raw bytes for an account under the shared Echo service.
+    @discardableResult
+    static func write(account: String, data: Data) -> Bool {
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        // Delete-then-add keeps parity with the Rust `security-framework` writer.
+        SecItemDelete(base as CFDictionary)
+        var add = base
+        add[kSecValueData as String] = data
+        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
+    }
+
+    /// Persist the refresh token so the WebView can mint an access token via `/auth/refresh`.
+    @discardableResult
+    static func writeRefreshToken(_ token: String) -> Bool {
+        guard let data = token.data(using: .utf8) else { return false }
+        return write(account: refreshAccount, data: data)
+    }
+
+    /// Persist a session-memory snapshot so the *next* launch can show the
+    /// "Opening Echo…" splash (restore path) instead of the login screen.
+    /// Shape mirrors `StoredSessionMemory` in src-tauri/src/ios_auth.rs (camelCase).
+    @discardableResult
+    static func writeSessionMemory(from user: [String: Any], apiBase: String?) -> Bool {
+        // Build a JSON-valid dictionary: only insert present String values (a Swift
+        // Optional wrapped in Any is not a valid JSONSerialization value).
+        var memory: [String: Any] = [
+            "isGuest": user["isGuest"] as? Bool ?? false,
+            "lastVerifiedAt": Int(Date().timeIntervalSince1970 * 1000)
+        ]
+        if let userId = user["id"] as? String { memory["userId"] = userId }
+        if let displayName = user["displayName"] as? String { memory["displayName"] = displayName }
+        if let username = user["username"] as? String { memory["username"] = username }
+        if let pfp = user["pfp"] as? String { memory["pfp"] = pfp }
+        if let apiBase = apiBase, !apiBase.isEmpty { memory["apiBase"] = apiBase }
+        guard
+            JSONSerialization.isValidJSONObject(memory),
+            let data = try? JSONSerialization.data(withJSONObject: memory)
+        else { return false }
+        return write(account: sessionAccount, data: data)
+    }
 }
 
 // MARK: - Native Auth Overlay
@@ -34,6 +83,9 @@ final class EchoKeychain {
 
     private static var overlayWindow: UIWindow?
     private static var loginVC: EchoLoginViewController?
+    /// Configured prod API base (from the Rust shell). Stored for the session-memory
+    /// snapshot; the bridge falls back to https://chat-echo.com when empty.
+    static var apiBaseValue: String = ""
 
     /// Show the persistent splash overlay that covers the webview during boot.
     @objc public static func showSplashOverlay() {
@@ -67,6 +119,27 @@ final class EchoKeychain {
 
             let vc = EchoLoginViewController()
             loginVC = vc
+            // Native auth succeeded: persist the refresh token (so the WebView's
+            // `bootstrapNativeBearerSessionFromKeychain()` can restore) + a session
+            // snapshot for the next launch. Returns false when the server did not
+            // mint bearer tokens (AUTH_NATIVE_BEARER off) so the VC can surface an error.
+            vc.onLoginComplete = { userData in
+                guard
+                    let auth = userData["auth"] as? [String: Any],
+                    let refresh = auth["refreshToken"] as? String,
+                    !refresh.isEmpty
+                else {
+                    return false
+                }
+                EchoKeychain.writeRefreshToken(refresh)
+                if let user = userData["user"] as? [String: Any] {
+                    EchoKeychain.writeSessionMemory(from: user, apiBase: apiBaseValue)
+                }
+                // Hold a splash over the WebView while JS exchanges the token; the
+                // overlay is dismissed from Rust (`ios_auth_session_restored`).
+                EchoNativeAuthOverlay.transitionToSplash(message: "Opening Echo…")
+                return true
+            }
 
             if overlayWindow?.rootViewController != nil {
                 UIView.transition(with: overlayWindow!, duration: 0.3, options: .transitionCrossDissolve) {
@@ -74,6 +147,20 @@ final class EchoKeychain {
                 }
             } else {
                 overlayWindow?.rootViewController = vc
+            }
+        }
+    }
+
+    /// Swap the current overlay back to the splash screen (e.g. after a native
+    /// login, while the WebView restores the session behind it).
+    static func transitionToSplash(message: String) {
+        DispatchQueue.main.async {
+            guard let window = overlayWindow else { return }
+            let splashVC = EchoSplashViewController()
+            splashVC.initialStatus = message
+            loginVC = nil
+            UIView.transition(with: window, duration: 0.25, options: .transitionCrossDissolve) {
+                window.rootViewController = splashVC
             }
         }
     }
@@ -94,9 +181,39 @@ final class EchoKeychain {
     }
 
     /// Called on app launch to determine boot path.
+    /// - Shows a branded splash immediately (covers the WebView's white load).
+    /// - If no stored session exists, transitions to the native login screen.
+    /// When a session *does* exist the splash stays up until the WebView restores
+    /// it and Rust calls `dismissOverlay()` via `ios_auth_session_restored`.
     @objc public static func performBootCheck() {
         showSplashOverlay()
+        if !EchoKeychain.hasStoredSession() {
+            showLoginOverlay()
+        }
     }
+}
+
+// MARK: - C entry points (called from the Rust shell over FFI)
+
+/// Configure the API base + run the boot check. Invoked once from Tauri `setup`.
+@_cdecl("echo_ios_boot")
+public func echo_ios_boot(_ apiBase: UnsafePointer<CChar>?) {
+    let base = apiBase.map { String(cString: $0) } ?? ""
+    EchoNativeAuthOverlay.apiBaseValue = base
+    EchoNativeAuthBridge.shared.configure(apiBase: base)
+    EchoNativeAuthOverlay.performBootCheck()
+}
+
+/// Dismiss the overlay (WebView has adopted the session).
+@_cdecl("echo_ios_dismiss_overlay")
+public func echo_ios_dismiss_overlay() {
+    EchoNativeAuthOverlay.dismissOverlay()
+}
+
+/// (Re)show the native login screen (session restore failed / logout).
+@_cdecl("echo_ios_show_login")
+public func echo_ios_show_login() {
+    EchoNativeAuthOverlay.showLoginOverlay()
 }
 
 // MARK: - Splash Screen (shown during session check)
@@ -106,6 +223,8 @@ final class EchoSplashViewController: UIViewController {
     private let logoImageView = UIImageView()
     private let statusLabel = UILabel()
     private let spinner = UIActivityIndicatorView(style: .medium)
+    /// Optional status text shown on first load (set before presentation).
+    var initialStatus: String?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -116,7 +235,7 @@ final class EchoSplashViewController: UIViewController {
         logoImageView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(logoImageView)
 
-        statusLabel.text = "Opening Echo…"
+        statusLabel.text = initialStatus ?? "Opening Echo…"
         statusLabel.textColor = EchoColors.textSecondary
         statusLabel.font = .systemFont(ofSize: 15, weight: .medium)
         statusLabel.textAlignment = .center
@@ -178,9 +297,22 @@ final class EchoLoginViewController: UIViewController {
         didSet { updateLoadingState() }
     }
 
-    /// Callback invoked by Rust after native login completes.
-    /// The JS bridge picks this up to call setSession.
-    var onLoginComplete: (([String: Any]) -> Void)?
+    /// Invoked after native login returns a session. Persists the bearer refresh
+    /// token to the Keychain and returns `true` on success; `false` means the
+    /// server did not mint bearer tokens (so the VC should surface an error).
+    var onLoginComplete: (([String: Any]) -> Bool)?
+
+    private static let signInUnavailableMessage =
+        "Sign-in isn't available right now. Please try again."
+
+    /// Apply a native-auth result: hand off on success, show an error otherwise.
+    private func handleAuthSuccess(_ userData: [String: Any]) {
+        if onLoginComplete?(userData) == true {
+            // Overlay transitions to splash inside the handoff; nothing else to do.
+        } else {
+            showError(Self.signInUnavailableMessage)
+        }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -481,8 +613,7 @@ final class EchoLoginViewController: UIViewController {
                 self?.isLoading = false
                 switch result {
                 case .success(let userData):
-                    self?.onLoginComplete?(userData)
-                    EchoNativeAuthOverlay.dismissOverlay()
+                    self?.handleAuthSuccess(userData)
                 case .failure(let error):
                     self?.showError(error.localizedDescription)
                 }
@@ -542,8 +673,7 @@ final class EchoLoginViewController: UIViewController {
                 self?.isLoading = false
                 switch result {
                 case .success(let userData):
-                    self?.onLoginComplete?(userData)
-                    EchoNativeAuthOverlay.dismissOverlay()
+                    self?.handleAuthSuccess(userData)
                 case .failure(let error):
                     self?.showError(error.localizedDescription)
                 }
@@ -559,8 +689,7 @@ final class EchoLoginViewController: UIViewController {
                 self?.isLoading = false
                 switch result {
                 case .success(let userData):
-                    self?.onLoginComplete?(userData)
-                    EchoNativeAuthOverlay.dismissOverlay()
+                    self?.handleAuthSuccess(userData)
                 case .failure(let error):
                     self?.showError(error.localizedDescription)
                 }

@@ -59,6 +59,8 @@ import {
   renderCustomEmojiHtml,
   safeCustomEmojiUrl,
 } from '@/utils/customEmojiUrl';
+import { ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX } from '@shared/echoEmojiCdn';
+import { API_BASE } from '@/config';
 import {
   linkTokenCustomEmoji,
   linkTokenCustomEmojiAnimated,
@@ -68,11 +70,32 @@ export function customEmojiPickerHtml(imageUrl: string, name: string): string {
   return renderCustomEmojiHtml(imageUrl, name) ?? parseTwemoji('❓');
 }
 
+/** Prefer API-resolved URLs; fall back to the public emoji CDN route by id. */
+function customEmojiLibraryDisplayUrl(
+  emojiId: string,
+  storedUrl: string,
+): string {
+  const safe = safeCustomEmojiUrl(storedUrl);
+  if (safe) return safe;
+  const id = emojiId.trim();
+  if (!/^\d+$/.test(id)) return '';
+  try {
+    const rel = `${ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX}${encodeURIComponent(id)}`;
+    return (
+      safeCustomEmojiUrl(
+        new URL(rel, `${API_BASE.replace(/\/$/, '')}/`).href,
+      ) ?? ''
+    );
+  } catch {
+    return '';
+  }
+}
+
 export function libraryEmojiToEntry(
   serverId: string,
   e: EchoEmojiLibraryEmojiApi,
 ): EmojiEntry {
-  const imageUrl = safeCustomEmojiUrl(e.imageUrl) ?? '';
+  const imageUrl = customEmojiLibraryDisplayUrl(e.id, e.imageUrl);
   const token = e.animated
     ? linkTokenCustomEmojiAnimated(e.name, e.id)
     : linkTokenCustomEmoji(e.name, e.id);

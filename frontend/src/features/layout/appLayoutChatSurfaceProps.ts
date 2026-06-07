@@ -54,6 +54,7 @@ export type AppLayoutChatSurfaceProps = {
    * even if `channelPanelCollapsed` / `memberPanelCollapsed` are false (desktop defaults).
    */
   compactGuildTriPaneNav: boolean;
+  compactGuildSplitNav: boolean;
   /** Sub-800px shell: single-column layout; channel column width is not in play. */
   isCompactShell: boolean;
   /**
@@ -444,6 +445,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'memberPanelCollapsed',
   'memberPanelCollapsedRaw',
   'compactGuildTriPaneNav',
+  'compactGuildSplitNav',
   'isCompactShell',
   'narrowChannelPanelForActivityOverflowStep',
   'isDmUiContext',

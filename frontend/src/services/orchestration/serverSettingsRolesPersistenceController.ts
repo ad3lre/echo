@@ -145,7 +145,7 @@ export async function saveRoleManagerChanges(
         deps.initRoleManagerFromEcho(bundle.managedRoles);
         deps.onEchoRoleCatalogMutated?.();
 
-        const patchState: any = {
+        const patchState: Parameters<typeof deps.updateRoleModelState>[0] = {
           roleEditorTab: prevRoleEditorTab ?? 'display',
         };
         if (

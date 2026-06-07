@@ -1,9 +1,10 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, ref, type Ref } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import type { ChannelSummary } from '@shared/types';
 import type * as EchoSocialApi from '@/api/echo/social';
 import type * as EchoClientApi from '@/api/echoClient';
+import type { MemberProfile } from '@/utils/memberProfiles';
 import { useAppLayoutProfilesDomain } from './useAppLayoutProfilesDomain';
 import {
   fetchEchoMutualFriends,
@@ -90,6 +91,7 @@ function createDomain() {
     acceptFriendRequest: vi.fn(),
     declineFriendRequest: vi.fn(),
     cancelFriendRequest: vi.fn(),
+    setServerMemberNickname: vi.fn(),
   };
 
   const authSession = {
@@ -130,16 +132,12 @@ function createDomain() {
     isExpandedProfileModalOpen: ref(false),
     isExpandedProfileSidePanel: ref(false),
     isGroupOverviewOpen: ref(false),
-    activeMemberProfile: ref<unknown | null>(null),
+    activeMemberProfile: ref(null) as Ref<MemberProfile | null>,
     expandedProfile: ref<any | null>(null),
     profileNotes: ref<Record<string, string>>({}),
     memberPopoutAnchor: ref(null),
     selfProfileAnchor: ref(null),
-    selfProfile: ref<TestUser | null>({
-      id: 'self',
-      name: 'Self',
-      pfp: 'self.png',
-    }),
+    selfProfile: ref(null) as Ref<MemberProfile | null>,
     isInDMChat: ref(false),
     isInDMMode: ref(false),
     leaveDmUiIfViewingUser: vi.fn(),

@@ -314,8 +314,9 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           void sendSignupVerificationEmail(fastify.log, store, session.user);
         }
         return reply.code(200).send(authSessionJsonBody(session));
-      } catch (err: any) {
-        if (err?.message === 'INVALID_EMAIL') {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : undefined;
+        if (msg === 'INVALID_EMAIL') {
           return sendError(
             reply,
             400,
@@ -323,7 +324,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             'Please enter a valid email address.',
           );
         }
-        if (err?.message === 'INVALID_EMAIL_PROVIDER') {
+        if (msg === 'INVALID_EMAIL_PROVIDER') {
           return sendError(
             reply,
             400,
@@ -331,7 +332,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             'Temporary, disposable, or relay inbox domains cannot be used. Sign up with a normal email address you keep long term.',
           );
         }
-        if (err?.message === 'WEAK_PASSWORD') {
+        if (msg === 'WEAK_PASSWORD') {
           return sendError(
             reply,
             400,
@@ -339,10 +340,10 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
           );
         }
-        if (err?.message === 'NOT_GUEST') {
+        if (msg === 'NOT_GUEST') {
           return sendError(reply, 400, 'NOT_GUEST', 'Not a guest account');
         }
-        if (err?.message === 'EMAIL_IN_USE') {
+        if (msg === 'EMAIL_IN_USE') {
           return sendError(
             reply,
             409,
@@ -350,7 +351,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             'That email is already registered. Try logging in instead.',
           );
         }
-        if (err?.message === 'USERNAME_TAKEN') {
+        if (msg === 'USERNAME_TAKEN') {
           return sendError(
             reply,
             409,
@@ -358,7 +359,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             'That username is already taken. Try another.',
           );
         }
-        if (err?.message === 'INVALID_USERNAME') {
+        if (msg === 'INVALID_USERNAME') {
           return sendError(
             reply,
             400,
@@ -366,7 +367,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             'That username isn’t valid. Try a different one.',
           );
         }
-        if (err?.message === 'INVALID_DISPLAY_NAME') {
+        if (msg === 'INVALID_DISPLAY_NAME') {
           return sendError(
             reply,
             400,
@@ -374,7 +375,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             'Display name is invalid.',
           );
         }
-        if (err?.message === 'INVALID_BODY') {
+        if (msg === 'INVALID_BODY') {
           return sendError(
             reply,
             400,

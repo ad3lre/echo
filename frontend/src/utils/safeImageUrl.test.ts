@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { requiresBundledMediaFallback, safeImageUrl } from './safeImageUrl';
+import {
+  isTrustedMediaUrl,
+  requiresBundledMediaFallback,
+  safeImageUrl,
+} from './safeImageUrl';
 
 describe('safeImageUrl', () => {
   it('returns placeholder for nullish or empty', () => {
@@ -9,13 +13,16 @@ describe('safeImageUrl', () => {
     expect(safeImageUrl('')).toBe(p);
   });
 
-  it('allows http, https, data, and root-relative URLs', () => {
+  it('allows http, https, data, blob, and root-relative URLs', () => {
     expect(safeImageUrl('https://cdn.test/x.png')).toBe(
       'https://cdn.test/x.png',
     );
     expect(safeImageUrl('http://x/y')).toBe('http://x/y');
     expect(safeImageUrl('data:image/png;base64,xx')).toBe(
       'data:image/png;base64,xx',
+    );
+    expect(safeImageUrl('blob:https://echo.test/abc-123')).toBe(
+      'blob:https://echo.test/abc-123',
     );
     expect(safeImageUrl('/static/a.webp')).toBe('/static/a.webp');
   });
@@ -53,8 +60,17 @@ describe('requiresBundledMediaFallback', () => {
     expect(requiresBundledMediaFallback(safeImageUrl(''))).toBe(true);
   });
 
-  it('is false for normal remote or relative URLs', () => {
+  it('is false for normal remote, blob, or relative URLs', () => {
     expect(requiresBundledMediaFallback('https://cdn.test/x.png')).toBe(false);
+    expect(requiresBundledMediaFallback('blob:https://echo.test/preview')).toBe(
+      false,
+    );
     expect(requiresBundledMediaFallback('/media/a.webp')).toBe(false);
+  });
+});
+
+describe('isTrustedMediaUrl', () => {
+  it('trusts blob URLs for local optimistic upload previews', () => {
+    expect(isTrustedMediaUrl('blob:https://echo.test/abc-123')).toBe(true);
   });
 });

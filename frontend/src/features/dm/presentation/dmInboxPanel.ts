@@ -64,7 +64,10 @@ export const DmInboxPanel = {
    * Calculate total pending friend requests.
    * Authority: Logic consolidation.
    */
-  getPendingFriendRequestCount(incoming: any[], outgoing: any[]): number {
+  getPendingFriendRequestCount(
+    incoming: unknown[],
+    outgoing: unknown[],
+  ): number {
     return incoming.length + outgoing.length;
   },
 };

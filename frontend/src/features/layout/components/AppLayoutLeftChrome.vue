@@ -57,12 +57,19 @@ const stackChrome = computed(
   () => (props.chromeWrap ?? 'contents') === 'stack',
 );
 
-function g(key: keyof AppLayoutLeftChromeProps): any {
+type InjectedLeftChromeProps = Partial<{
+  [K in keyof AppLayoutLeftChromeProps]: MaybeRef<AppLayoutLeftChromeProps[K]>;
+}>;
+
+function g<K extends keyof AppLayoutLeftChromeProps>(
+  key: K,
+): AppLayoutLeftChromeProps[K] | undefined {
   const inj = layoutLeft;
-  if (inj && (inj as Record<string, unknown>)[key as string] !== undefined) {
-    return unref((inj as Record<string, MaybeRef<unknown>>)[key as string]);
+  const injected = inj as InjectedLeftChromeProps | null;
+  if (injected && injected[key] !== undefined) {
+    return unref(injected[key]) as AppLayoutLeftChromeProps[K];
   }
-  return (props as Record<string, unknown>)[key as string];
+  return props[key] as AppLayoutLeftChromeProps[K] | undefined;
 }
 
 const noopProfile = (_userId: string, _anchor: PopoutAnchorRect | null) => {};
@@ -70,6 +77,7 @@ const noopProfile = (_userId: string, _anchor: PopoutAnchorRect | null) => {};
 const lc = computed((): AppLayoutLeftChromeProps => {
   return {
     compactTriPaneGuildNav: g('compactTriPaneGuildNav') ?? false,
+    compactGuildSplitNav: g('compactGuildSplitNav') ?? false,
     hideServerRail: g('hideServerRail'),
     isAuthenticated: g('isAuthenticated') ?? false,
     guestFriendsLocked: g('guestFriendsLocked'),
@@ -180,6 +188,7 @@ const lc = computed((): AppLayoutLeftChromeProps => {
           | 'serverMute'
           | 'serverDeafen'
           | 'disconnect'
+          | 'move'
           | 'inviteToSpeak'
           | 'moveToAudience'
           | 'stopCamera'
@@ -211,12 +220,14 @@ const serverListBindings = computed(() => {
     showChannelButton:
       L.channelPanelCollapsed &&
       !L.compactTriPaneGuildNav &&
+      !L.compactGuildSplitNav &&
       !L.isDmUiContext &&
       !L.isServerEmptyOnboarding &&
       !L.isExploreView,
     showMemberButton:
       L.memberPanelCollapsedRaw &&
       !L.compactTriPaneGuildNav &&
+      !L.compactGuildSplitNav &&
       !L.isDmUiContext &&
       !L.isServerEmptyOnboarding &&
       !L.isExploreView,
@@ -292,6 +303,7 @@ const stackChromeRowHasVisibleChildren = computed(() => {
 const stackChromeRootRowClass = computed(() => {
   const L = lc.value;
   const base = 'flex h-full min-h-0 min-w-0 flex-row';
+  if (L.compactGuildSplitNav) return [base, 'shrink-0'];
   if (L.compactTriPaneGuildNav) return [base, 'w-full'];
   if (L.isDmUiContext) return [base, 'w-full'];
   if (L.isExploreView && !showStackChannelColumn.value) {
@@ -1068,6 +1080,7 @@ function onMoreServersPinServer(payload: {
         :show-channel-button="
           lc.channelPanelCollapsed &&
           !lc.compactTriPaneGuildNav &&
+          !lc.compactGuildSplitNav &&
           !lc.isDmUiContext &&
           !lc.isServerEmptyOnboarding &&
           !lc.isExploreView
@@ -1075,6 +1088,7 @@ function onMoreServersPinServer(payload: {
         :show-member-button="
           lc.memberPanelCollapsedRaw &&
           !lc.compactTriPaneGuildNav &&
+          !lc.compactGuildSplitNav &&
           !lc.isDmUiContext &&
           !lc.isServerEmptyOnboarding &&
           !lc.isExploreView
@@ -1128,9 +1142,11 @@ function onMoreServersPinServer(payload: {
       v-if="showStackChannelColumn"
       :class="[
         'relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden',
-        lc.compactTriPaneGuildNav || lc.isDmUiContext
-          ? 'flex-1'
-          : 'w-[min(18rem,calc(100vw-7rem))] shrink-0',
+        lc.compactGuildSplitNav
+          ? 'w-[min(18rem,calc(100vw-7rem))] shrink-0'
+          : lc.compactTriPaneGuildNav || lc.isDmUiContext
+            ? 'flex-1'
+            : 'w-[min(18rem,calc(100vw-7rem))] shrink-0',
       ]"
     >
       <!--
@@ -1266,9 +1282,9 @@ function onMoreServersPinServer(payload: {
           :selected-group-dm-channel-id="lc.selectedGroupDmChannelId ?? null"
           :selected-message-request-id="lc.selectedMessageRequestId"
           :friend-ids="lc.friendIds"
-          :message-requests="lc.messageRequests as any"
-          :friend-requests-incoming="lc.friendRequestsIncoming as any"
-          :friend-requests-outgoing="lc.friendRequestsOutgoing as any"
+          :message-requests="lc.messageRequests"
+          :friend-requests-incoming="lc.friendRequestsIncoming"
+          :friend-requests-outgoing="lc.friendRequestsOutgoing"
           :dm-mention-notifications="lc.dmMentionNotifications"
           :dm-notification-read-state-by-channel-id="
             lc.dmNotificationReadStateByChannelId
@@ -1447,9 +1463,9 @@ function onMoreServersPinServer(payload: {
           :selected-group-dm-channel-id="lc.selectedGroupDmChannelId ?? null"
           :selected-message-request-id="lc.selectedMessageRequestId"
           :friend-ids="lc.friendIds"
-          :message-requests="lc.messageRequests as any"
-          :friend-requests-incoming="lc.friendRequestsIncoming as any"
-          :friend-requests-outgoing="lc.friendRequestsOutgoing as any"
+          :message-requests="lc.messageRequests"
+          :friend-requests-incoming="lc.friendRequestsIncoming"
+          :friend-requests-outgoing="lc.friendRequestsOutgoing"
           :dm-mention-notifications="lc.dmMentionNotifications"
           :dm-notification-read-state-by-channel-id="
             lc.dmNotificationReadStateByChannelId

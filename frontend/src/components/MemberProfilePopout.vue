@@ -156,24 +156,6 @@ const showProfileMoreMenu = computed(
     props.profile.id !== props.currentUserId,
 );
 
-/** Compact shell quick profile (bottom sheet): full-width control for the same actions as ⋮ / member-list right-click. */
-const showCompactPersonSettingsRow = computed(
-  () =>
-    isCompactShell.value &&
-    showProfileMoreMenu.value &&
-    !rolesStandaloneUi.value,
-);
-
-const profileMoreMenuRef = ref<InstanceType<typeof UserProfileMoreMenu> | null>(
-  null,
-);
-
-function onCompactPersonSettingsClick(ev: MouseEvent) {
-  const el = ev.currentTarget;
-  if (!(el instanceof HTMLElement)) return;
-  profileMoreMenuRef.value?.toggleMenu(el);
-}
-
 const canSendFriendRequestInEllipsisMenu = computed(
   () =>
     !!props.canSendFriendRequest &&
@@ -945,7 +927,6 @@ function handleViewportUpdate() {
               </button>
               <UserProfileMoreMenu
                 v-if="showProfileMoreMenu"
-                ref="profileMoreMenuRef"
                 :user-id="profile.id"
                 :mention-display-name="profile.displayName"
                 :is-blocked="!!isTargetBlocked"
@@ -955,7 +936,6 @@ function handleViewportUpdate() {
                 :message-menu-item-disabled="
                   !!isTargetBlocked || !!profile.isDiscordShadow
                 "
-                :show-trigger="!showCompactPersonSettingsRow"
                 trigger-class="ep-profile-banner-more-btn"
                 @block="emitPopoutProfileBlock"
                 @unblock="emitPopoutProfileUnblock"
@@ -971,28 +951,6 @@ function handleViewportUpdate() {
           ref="popoutScrollRef"
           class="member-popout__scroll custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
         >
-          <div
-            v-if="showCompactPersonSettingsRow"
-            class="member-popout__person-settings-wrap shrink-0 px-4"
-          >
-            <button
-              type="button"
-              class="member-popout__person-settings chat-focus-ring"
-              data-profile-more-menu-anchor
-              aria-haspopup="menu"
-              aria-label="Person settings"
-              @click.stop="onCompactPersonSettingsClick"
-            >
-              <img
-                :src="icons.sliders"
-                alt=""
-                class="member-popout__person-settings-icon h-4 w-4 shrink-0 opacity-90"
-                aria-hidden="true"
-              />
-              <span>Person settings</span>
-            </button>
-          </div>
-
           <MemberProfileContent
             ref="contentRef"
             :profile="profile"
@@ -1124,55 +1082,5 @@ function handleViewportUpdate() {
 
 .member-popout--left {
   --popout-enter-x: 14px;
-}
-
-.member-popout__person-settings-wrap {
-  margin-top: 2px;
-  margin-bottom: 2px;
-}
-
-.member-popout__person-settings {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.65rem 0.75rem;
-  border: 0;
-  border-radius: 14px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--vue-auto-044);
-  background: color-mix(in srgb, white 5%, transparent);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, white 10%, transparent),
-    0 2px 10px color-mix(in srgb, black 18%, transparent);
-  outline: none;
-  transition:
-    background-color 0.14s ease,
-    transform 0.14s ease,
-    box-shadow 0.14s ease;
-}
-
-.member-popout__person-settings:hover {
-  background: color-mix(in srgb, white 8%, transparent);
-  transform: translateY(-0.5px);
-}
-
-.member-popout__person-settings:focus-visible {
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, white 14%, transparent),
-    0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
-}
-
-.member-popout__person-settings-icon {
-  filter: invert(1);
-  opacity: 0.88;
-}
-
-:global([data-theme='light'] .member-popout__person-settings-icon) {
-  filter: brightness(0);
-  opacity: 0.75;
 }
 </style>

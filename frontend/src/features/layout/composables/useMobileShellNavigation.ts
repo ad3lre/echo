@@ -7,6 +7,8 @@ import {
 export type UseMobileShellNavigationOptions = {
   isCompactShell: Ref<boolean>;
   useCompactTriPaneShell: Ref<boolean>;
+  useCompactGuildSplitShell: Ref<boolean>;
+  memberPanelCollapsed: Ref<boolean>;
   useCompactExploreShell: Ref<boolean>;
   useCompactDmShell: Ref<boolean>;
   useCompactStackShell: Ref<boolean>;
@@ -30,6 +32,8 @@ export function useMobileShellNavigation(
   function snapshot(): MobileShellBackSnapshot {
     return {
       useCompactTriPaneShell: opts.useCompactTriPaneShell.value,
+      useCompactGuildSplitShell: opts.useCompactGuildSplitShell.value,
+      memberPanelCollapsed: opts.memberPanelCollapsed.value,
       useCompactExploreShell: opts.useCompactExploreShell.value,
       useCompactDmShell: opts.useCompactDmShell.value,
       useCompactStackShell: opts.useCompactStackShell.value,
@@ -57,6 +61,9 @@ export function useMobileShellNavigation(
         return true;
       case 'tri_pane_collapse_channel_stack':
         opts.compactGuildTriPaneChannelPanelOpen.value = false;
+        return true;
+      case 'split_collapse_members':
+        opts.memberPanelCollapsed.value = true;
         return true;
       case 'explore_pane':
         opts.compactExplorePane.value = plan.next;

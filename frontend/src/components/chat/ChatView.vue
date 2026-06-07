@@ -29,7 +29,6 @@ import ChatInput from './ChatInput.vue';
 import ChatTypingIndicator from './ChatTypingIndicator.vue';
 import ImageViewerModal from './ImageViewerModal.vue';
 import DocumentViewerModal from './DocumentViewerModal.vue';
-import ChannelDiscordSyncPanel from '@/features/channel-settings/components/ChannelDiscordSyncPanel.vue';
 import type { ImageItem } from './ImageViewerModal.vue';
 import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import type { MemberRole, PopoutAnchorRect } from '@/utils/memberProfiles';
@@ -183,16 +182,6 @@ const forumParentChannelId = computed(() =>
 const showBackToForum = computed(() => !!forumParentChannelId.value);
 const showFloatingForumBackButton = computed(
   () => showBackToForum.value && props.hideFloatingForumBackButton !== true,
-);
-const activeContentTab = ref<'messages' | 'discord'>('messages');
-const canShowDiscordTab = computed(
-  () =>
-    !!props.serverId &&
-    (props.activeChannel?.type === 'text' ||
-      props.activeChannel?.type === 'forum'),
-);
-const discordTabChannelType = computed<'text' | 'forum'>(() =>
-  props.activeChannel?.type === 'forum' ? 'forum' : 'text',
 );
 
 function debugForumNavLog(payload: unknown) {
@@ -356,6 +345,8 @@ const showSelfAssignableRolesWidget = computed(() => {
   return ch.type === 'selfRoles' || ch.type === 'text';
 });
 
+const messageListUsesCompactTop = computed(() => props.compactTop);
+
 const showChatTypingIndicatorUi = computed(() => {
   const ch = props.activeChannel;
   if (!ch) return false;
@@ -376,7 +367,6 @@ const messageScrollAnchor = computed((): 'top' | 'bottom' => {
 
 watch(othersTypingCount, (n, prev) => {
   if (!showChatTypingIndicatorUi.value) return;
-  if (activeContentTab.value !== 'messages') return;
   if (markdownPreviewState.value.expanded) return;
   const prevN = prev ?? 0;
   if (prevN !== 0 || n === 0) return;
@@ -389,7 +379,6 @@ watch(othersTypingCount, (n, prev) => {
 
 useEchoChatBottomChromeReporter(chatBottomChromeRef, {
   onLayoutGrowth: () => {
-    if (activeContentTab.value !== 'messages') return;
     if (markdownPreviewState.value.expanded) return;
     keepLatestMessageVisible(false, false);
   },
@@ -428,7 +417,6 @@ function handleSeenMessageIdChanged(messageId: string | null) {
 watch(
   () => props.activeChannel?.id ?? '',
   () => {
-    activeContentTab.value = 'messages';
     echoChannelHistory?.reportSeenMessageId(null, null);
     debugForumNavLog({
       channelId: props.activeChannel?.id ?? null,
@@ -714,37 +702,8 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
       @close="closeEmojiInspect"
     />
     <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      <div
-        v-if="canShowDiscordTab"
-        class="flex items-center gap-2 border-b border-border px-3 py-2"
-      >
-        <button
-          type="button"
-          class="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-          :class="
-            activeContentTab === 'messages'
-              ? 'bg-glass-2 text-foreground'
-              : 'text-fg-soft hover:bg-glass-hover hover:text-foreground'
-          "
-          @click="activeContentTab = 'messages'"
-        >
-          Messages
-        </button>
-        <button
-          type="button"
-          class="rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-          :class="
-            activeContentTab === 'discord'
-              ? 'bg-glass-2 text-foreground'
-              : 'text-fg-soft hover:bg-glass-hover hover:text-foreground'
-          "
-          @click="activeContentTab = 'discord'"
-        >
-          Discord
-        </button>
-      </div>
       <button
-        v-if="showFloatingForumBackButton && activeContentTab === 'messages'"
+        v-if="showFloatingForumBackButton"
         type="button"
         class="chat-focus-ring absolute right-3 top-3 z-30 rounded-lg bg-glass-2 px-3 py-1.5 text-xs font-semibold text-fg-soft backdrop-blur-xl transition-colors hover:bg-glass-3 hover:text-foreground"
         @click="
@@ -757,25 +716,20 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
       </button>
       <!-- Opening a channel: always anchor to latest; go-to-message / search / links scroll via nav bridge. -->
       <SelfAssignableRolesWidget
-        v-if="
-          activeContentTab === 'messages' &&
-          serverId &&
-          activeChannel?.id &&
-          showSelfAssignableRolesWidget
-        "
+        v-if="serverId && activeChannel?.id && showSelfAssignableRolesWidget"
         :server-id="serverId"
         :channel-id="activeChannel.id"
         :channel-type="activeChannel.type"
       />
       <MessageList
-        v-if="activeContentTab === 'messages' && !isSelfRolesWidgetChannel"
+        v-if="!isSelfRolesWidgetChannel"
         v-show="!markdownPreviewState.expanded"
         ref="messageListRef"
         class="flex-1 min-h-0"
         :messages="activeChannelMessages"
         :has-channel="!!activeChannel"
         :header-overlay-inset-px="headerOverlayInsetPx"
-        :compact-top="compactTop"
+        :compact-top="messageListUsesCompactTop"
         :channel-id="activeChannel?.id"
         :server-id="serverId"
         :resolve-author-role="resolveAuthorRole"
@@ -825,7 +779,6 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
       />
 
       <div
-        v-if="activeContentTab === 'messages'"
         v-show="markdownPreviewState.expanded"
         class="chat-markdown-expanded-root flex-1 min-h-0 flex flex-col overflow-hidden pt-12"
       >
@@ -902,7 +855,6 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
 
       <div
         v-if="
-          activeContentTab === 'messages' &&
           activeChannel &&
           (activeChannel.type === 'text' || showVoiceSideChatComposer)
         "
@@ -939,22 +891,6 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
           :message-format-template="activeChannel.messageFormatTemplate"
           :message-format-hard="activeChannel.messageFormatHard === true"
           @clear-reply="replyingTo = null"
-        />
-      </div>
-
-      <div
-        v-if="
-          activeContentTab === 'discord' &&
-          canShowDiscordTab &&
-          activeChannel?.id &&
-          serverId
-        "
-        class="min-h-0 flex-1 overflow-y-auto px-2 py-3"
-      >
-        <ChannelDiscordSyncPanel
-          :server-id="serverId"
-          :channel-id="activeChannel.id"
-          :channel-type="discordTabChannelType"
         />
       </div>
 

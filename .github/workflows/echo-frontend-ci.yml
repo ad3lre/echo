@@ -10,6 +10,7 @@ on:
       - 'scripts/god-file-baselines.json'
       - 'scripts/check-god-file-ratchet.mjs'
       - 'scripts/check-new-code-charter.mjs'
+      - 'scripts/check-new-code-charter.test.mjs'
       - 'scripts/new-code-charter-*.json'
       - '.github/workflows/echo-frontend-ci.yml'
   pull_request:
@@ -21,6 +22,7 @@ on:
       - 'scripts/god-file-baselines.json'
       - 'scripts/check-god-file-ratchet.mjs'
       - 'scripts/check-new-code-charter.mjs'
+      - 'scripts/check-new-code-charter.test.mjs'
       - 'scripts/new-code-charter-*.json'
   workflow_dispatch:
 
@@ -46,6 +48,9 @@ jobs:
 
       - name: New-code charter (June 2026+)
         run: node scripts/check-new-code-charter.mjs
+
+      - name: New-code charter unit tests
+        run: npm run charter:new-code:test
 
       - name: Strict theme ESLint
         run: npm run lint:theme -w frontend

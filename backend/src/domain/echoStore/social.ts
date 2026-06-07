@@ -172,7 +172,7 @@ export async function listEchoFriends(
     `,
     [userId],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     peerId: String(row.peer_id),
     status: String(row.status),
   }));

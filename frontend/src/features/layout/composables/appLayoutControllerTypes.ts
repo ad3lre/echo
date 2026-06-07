@@ -29,6 +29,7 @@ import type {
   PopoutAnchorRect,
   MemberProfile,
   ExpandedProfile,
+  ShellCurrentUserSummary,
 } from '@/utils/memberProfiles';
 import type { useEchoHistory } from '@/composables/useEchoHistory';
 import type { ActionResult } from '@/types/actionResult';
@@ -70,7 +71,15 @@ import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
-import type { EchoServerRoleDto } from '@/api/echo/types';
+import type {
+  EchoChannelCapabilitiesDto,
+  EchoServerRoleDto,
+} from '@/api/echo/types';
+import type { FilterChip } from '@/composables/useSearch';
+import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
+import type { DmPanelInboxEntry } from '@/features/dm/buildDmPanelUserList';
+import type { DmIncomingRailAvatar } from '@/services/orchestration/useAppLayoutDmRailUnread';
+import type { MemberRoleManagementSpec } from '@/components/MemberList.vue';
 import type {
   CategorySettingsSnapshot,
   EchoPermissionEditorState,
@@ -270,9 +279,7 @@ export interface AppLayoutControllerContext {
   workspace: ReturnType<typeof useEchoWorkspace>;
   authSession: ReturnType<typeof useAuthSessionStore>;
   isAuthenticated: ComputedRef<boolean>;
-  currentUser: ComputedRef<
-    { id: string; name?: string; pfp?: string; status?: string } | undefined
-  >;
+  currentUser: ComputedRef<ShellCurrentUserSummary | undefined>;
   workspaceReady: ComputedRef<boolean>;
   sessionEndedMessage: Ref<string | null>;
   discordBotExportReadyBanner: Ref<{ guildName: string } | null>;
@@ -442,14 +449,7 @@ export interface AppLayoutControllerContext {
   echoDmThreadIds: Ref<Set<string>>;
   echoBlockedUserIds: Ref<Set<string>>;
   dmIncomingRailCluster: ComputedRef<{
-    avatars: {
-      kind: string;
-      name: string;
-      pfp: string;
-      unreadCount: number;
-      inCall?: boolean;
-      [key: string]: unknown;
-    }[];
+    avatars: DmIncomingRailAvatar[];
     overflowCount: number;
     totalUnreadCount: number;
   }>;
@@ -512,9 +512,7 @@ export interface AppLayoutControllerContext {
   dmGroupFriends: ComputedRef<
     { id: string; name: string; pfp: string; status?: string }[]
   >;
-  dmInboxEntriesForPanel: ComputedRef<
-    { id: string; name: string; pfp: string; [key: string]: unknown }[]
-  >;
+  dmInboxEntriesForPanel: ComputedRef<DmPanelInboxEntry[]>;
   /** Subset of inbox rows (user kind only); prefer {@link dmInboxEntriesForPanel} for the Messages list. */
   dmUsersForDmPanel: ComputedRef<
     { id: string; name: string; pfp: string; status?: string }[]
@@ -534,40 +532,7 @@ export interface AppLayoutControllerContext {
   memberListResolveHighestRole: (
     userId: string,
   ) => { id: string; name: string; color: string } | undefined;
-  memberListRoleManagement: ComputedRef<
-    | {
-        enabled: boolean;
-        assignableRoles: {
-          id: string;
-          name: string;
-          color: string;
-          darkColor: string;
-          lightColor: string;
-          separateThemeColors: boolean;
-          roleIconUrl: string | null;
-          roleIconEmojiId: string | null;
-          isMembers: boolean;
-          isEveryone: boolean; // deprecated alias for isMembers
-          position: number;
-          roleCategoryId: string | null;
-          roleScope: string | undefined;
-        }[];
-        roleCategories: { id: string; name: string }[];
-        canMutateMemberRole: (
-          targetUserId: string,
-          roleId: string,
-          assign: boolean,
-        ) => boolean;
-        busy: boolean;
-        resolveAssignedRoleIds: (userId: string) => string[];
-        onToggleRole: (p: {
-          targetUserId: string;
-          roleId: string;
-          assign: boolean;
-        }) => void;
-      }
-    | undefined
-  >;
+  memberListRoleManagement: ComputedRef<MemberRoleManagementSpec | undefined>;
   serverSettingsCanManageRoles: ComputedRef<boolean>;
   serverSettingsCanManageServer: ComputedRef<boolean>;
   canOpenServerSettings: ComputedRef<boolean>;
@@ -585,7 +550,7 @@ export interface AppLayoutControllerContext {
   echoCanCreateInvite: ComputedRef<boolean>;
   echoCapabilitiesForServerId: Ref<string | null>;
   isEchoRoleBootstrapLoading: ComputedRef<boolean>;
-  liveChannelCapabilities: Ref<Record<string, unknown> | null>;
+  liveChannelCapabilities: Ref<EchoChannelCapabilitiesDto | null>;
 
   // Lifecycle / Guest
   echoWorkspaceError: Ref<string | null>;
@@ -641,6 +606,7 @@ export interface AppLayoutControllerContext {
   expandMembers: () => void;
   /** Sub-800px compact swipe shell (mobile + tablet). */
   isCompactShell: Ref<boolean>;
+  isCompactGuildSplitShell: Ref<boolean>;
   /** Tri-pane index in compact guild mode: 0 rail+channels, 1 chat, 2 members. */
   compactPagerPane: Ref<0 | 1 | 2>;
   /** Tri-pane: true when the guild channel stack column should show (pane 0 or explicit expand). */
@@ -920,7 +886,7 @@ export interface AppLayoutControllerContext {
 
   // Search
   searchText: Ref<string>;
-  filterChips: Ref<{ key: string; value: string; label?: string }[]>;
+  filterChips: Ref<FilterChip[]>;
   allChannels: ComputedRef<{ id: string; name: string }[]>;
   isSearchActive: ComputedRef<boolean>;
   paginatedSearchResults: ComputedRef<MessageWithAuthor[]>;
@@ -1087,9 +1053,7 @@ export interface AppLayoutControllerContext {
     { id: string; name: string; pfp: string; status?: string }[]
   >;
   /** `@` mention autocomplete: channel/DM participants only (not full workspace directory). */
-  usersForMentionAutocomplete: ComputedRef<
-    { id: string; name: string; pfp: string; status?: string }[]
-  >;
+  usersForMentionAutocomplete: ComputedRef<UserForAuthor[]>;
   selfProfile: ComputedRef<MemberProfile | null>;
   memberPopoutOpenRolesPanel: Ref<boolean>;
   onMemberPopoutOpenUpdate: (next: boolean) => void;
@@ -1215,7 +1179,7 @@ export interface AppLayoutControllerContext {
   isMessageSurfaceSwitchLoading: ComputedRef<boolean>;
   isMemberSurfaceSwitchLoading: ComputedRef<boolean>;
   isServerNotificationSettingsOpen: Ref<boolean>;
-  currentServerNotificationLevel: ComputedRef<EchoServerNotificationLevel | null>;
+  currentServerNotificationLevel: ComputedRef<EchoServerNotificationLevel>;
   openServerNotificationSettings: () => void;
   handleServerNotificationSave: (level: EchoServerNotificationLevel) => void;
   serverNotificationLevelsMap: ComputedRef<

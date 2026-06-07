@@ -38,11 +38,11 @@ export function useAccountActions(
   showAccountPasswordPrompt: Ref<boolean>,
   accountPasswordInput: Ref<string>,
   accountPasswordError: Ref<string | null>,
+  isEditingEmail = ref(false),
+  isEditingPhone = ref(false),
 ) {
   const authSession = useAuthSessionStore();
 
-  const isEditingEmail = ref(false);
-  const isEditingPhone = ref(false);
   const accountSaveError = ref<string | null>(null);
   const accountSaveBusy = ref(false);
   const accountGuestNotice = ref<string | null>(null);

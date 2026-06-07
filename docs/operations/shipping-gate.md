@@ -47,6 +47,8 @@ Many **missing rate limiting** findings are false positives: production uses `@f
 
 Link unfurl **SSRF** alerts are mitigated by `canSafelyResolveUrlForOutboundFetch`, manual redirect validation, and `safeFetchAgent` connect-time DNS checks (`backend/src/services/linkUnfurl/`).
 
+**DOM text reinterpreted as HTML** (`js/xss-through-dom`) on `frontend/src/utils/captureVideoFrame.ts` is a false positive: the probe only assigns `blob:` object URLs from `URL.createObjectURL` on caller-supplied video blobs to a detached `<video>` for metadata/frame decode. `blobUrlForVideoElement` rejects non-`blob:` values; CodeQL still models `video.src` as an XSS sink, so `.github/codeql/codeql-config.yml` excludes that path.
+
 ## Related references
 
 - `docs/operations/PRODUCTION_SECURITY_CHECKLIST.md` — broader operator checklist.

@@ -265,16 +265,13 @@
   column-gap: 6px;
 }
 
+/* Dark glass pill — label stays light in all themes (same as ⋮ above). */
 .ep-profile-banner-friend-btn__text {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.92);
   white-space: nowrap;
-}
-
-[data-theme='light'] .ep-profile-banner-friend-btn__text {
-  color: rgba(15, 23, 42, 0.88);
 }
 
 .ep-banner-actions {

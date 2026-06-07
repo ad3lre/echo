@@ -10,6 +10,7 @@ import AppLayoutChatSurface from '@/features/layout/components/AppLayoutChatSurf
 import CompactDualPaneShell from '@/features/layout/components/CompactDualPaneShell.vue';
 import CompactStackShellFrame from '@/features/layout/components/CompactStackShellFrame.vue';
 import CompactTriPaneShell from '@/features/layout/components/CompactTriPaneShell.vue';
+import CompactGuildSplitShell from '@/features/layout/components/CompactGuildSplitShell.vue';
 import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { ECHO_SCREEN_SHARE_USE_CONFIG_MODAL } from '@/config/screenShareUi';
 
@@ -446,6 +447,7 @@ const {
   openAuthModal,
   isAuthenticated,
   isCompactShell,
+  isCompactGuildSplitShell,
   isCreateCategoryModalOpen,
   isCreateChannelModalOpen,
   isDMPanelOpen,
@@ -1106,7 +1108,7 @@ provide(LAYOUT_MEMBERS_COLUMN_KEY, {
   isVisible: membersColumnVisible,
   effectiveActiveChannel,
   searchText,
-  filterChips: filterChips as any,
+  filterChips,
   allChannels,
   users: computed(() => workspace.users.value),
   paginatedSearchResults,
@@ -1169,8 +1171,8 @@ provide(LAYOUT_MEMBERS_COLUMN_KEY, {
   canChangeMemberNickname: canChangeMemberNicknameInServer,
   onChangeMemberNickname: handleChangeMemberNicknameFromMemberList,
   onMessageMemberUser: selectDM,
-  resolveHighestRole: memberListResolveHighestRoleResolved as any,
-  roleManagement: memberListRoleManagement as any,
+  resolveHighestRole: memberListResolveHighestRoleResolved,
+  roleManagement: memberListRoleManagement,
   memberListLoading: membersColumnListLoading,
   echoMemberSectionOrdering: membersColumnEchoSectionOrdering,
 });
@@ -1239,12 +1241,22 @@ const explorePageUnifiedScroll = computed(() => !!unref(isExploreView));
 
 const compactExplorePane = ref<0 | 1>(0);
 
-/** Guild text/voice/forum: use horizontal tri-pane under compact breakpoint. */
+/** Compact tablet: rail + fixed-width channel column + chat visible together. */
+const useCompactGuildSplitShell = computed(
+  () =>
+    unref(isCompactShell) &&
+    unref(hasGuildChannelChrome) &&
+    !explorePageUnifiedScroll.value &&
+    unref(isCompactGuildSplitShell),
+);
+
+/** Guild text/voice/forum: horizontal tri-pane swipe on narrow compact phones. */
 const useCompactTriPaneShell = computed(
   () =>
     unref(isCompactShell) &&
     unref(hasGuildChannelChrome) &&
-    !explorePageUnifiedScroll.value,
+    !explorePageUnifiedScroll.value &&
+    !useCompactGuildSplitShell.value,
 );
 
 const useCompactExploreShell = computed(
@@ -1291,6 +1303,7 @@ const isDmThreadSurface = computed(
 const appToastLayoutContext: AppToastLayoutContext = {
   echoChatBottomChromeInsetPx,
   useCompactTriPaneShell,
+  useCompactGuildSplitShell,
   useCompactDmShell,
   hasGuildChannelChrome,
   isDmUiContext,
@@ -1353,6 +1366,8 @@ function focusGuildVoiceChannelInSidebar() {
 const { mobileShellGoBack } = useMobileShellNavigation({
   isCompactShell,
   useCompactTriPaneShell,
+  useCompactGuildSplitShell,
+  memberPanelCollapsed,
   useCompactExploreShell,
   useCompactDmShell,
   useCompactStackShell,
@@ -1444,6 +1459,17 @@ const railProfileAwaySelfSpeaking = computed(
     railProfileDmCallAwaySpeaking.value || railProfileGuildVcAwaySpeaking.value,
 );
 
+const chatSurfaceCurrentUser = computed(() => currentUser.value ?? null);
+const chatSurfaceGetChannelDisplayName = (name?: string) =>
+  getChannelDisplayName(name ?? '');
+const modalsCurrentUser = computed(() =>
+  isAuthenticated.value ? (currentUser.value ?? null) : null,
+);
+const leftChromeCurrentUserForServerList = computed(() =>
+  isAuthenticated.value ? (currentUser.value ?? null) : null,
+);
+const leftChromeCurrentUser = computed(() => currentUser.value);
+
 provide(LAYOUT_CHAT_SURFACE_KEY, {
   dmSurfaceAdapter,
   profileSurfaceAdapter,
@@ -1457,6 +1483,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   memberPanelCollapsed: memberPanelCollapsedEffective,
   memberPanelCollapsedRaw: memberPanelCollapsed,
   compactGuildTriPaneNav: useCompactTriPaneShell,
+  compactGuildSplitNav: useCompactGuildSplitShell,
   isCompactShell,
   narrowChannelPanelForActivityOverflowStep,
   isDmUiContext,
@@ -1465,7 +1492,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   startMemberResize,
   resetMemberWidth,
   effectiveActiveChannel,
-  liveChannelCapabilities: liveChannelCapabilities as any,
+  liveChannelCapabilities,
   isInDMChat,
   dmCallMatchesActiveChannel,
   activeDmThreadCallUi,
@@ -1481,7 +1508,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   icons,
   dmActiveTab,
   getChannelIcon,
-  getChannelDisplayName: getChannelDisplayName as any,
+  getChannelDisplayName: chatSurfaceGetChannelDisplayName,
   togglePinsDropdown,
   expandChannels: openChannelPaneFromHeader,
   collapseMembers,
@@ -1491,10 +1518,10 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   clearRolePreview,
   memberPanelWidth,
   searchText,
-  filterChips: filterChips as any,
+  filterChips,
   allChannels,
   users: computed(() => workspace.users.value),
-  usersForMentionAutocomplete: usersForMentionAutocomplete as any,
+  usersForMentionAutocomplete,
   paginatedSearchResults,
   searchResultMessagesCount: computed(() => searchResultMessages.value.length),
   searchResultPage,
@@ -1530,7 +1557,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   openGroupOverviewPanel: ((gid?: string) =>
     openGroupOverviewPanel(gid ?? '')) as (groupId?: string) => void,
   activeGroupCallMembers,
-  currentUser: currentUser as any,
+  currentUser: chatSurfaceCurrentUser,
   linkedDiscordUserId,
   dmCallVideo,
   dmCallScreenshare,
@@ -1802,9 +1829,7 @@ const moderationCanPurgeBanMessages = computed(() => {
 
 provide(LAYOUT_MODALS_KEY, {
   profileSurfaceAdapter,
-  currentUser: computed(() =>
-    isAuthenticated.value ? (unref(currentUser) ?? null) : null,
-  ) as any,
+  currentUser: modalsCurrentUser,
   onOpenSettingsFromProfileBar: openUserSettingsModal,
   isAuthModalOpen,
   authModalInitialLoginEntry,
@@ -1914,7 +1939,7 @@ provide(LAYOUT_MODALS_KEY, {
   activeMemberProfile,
   memberPopoutAnchor,
   activeMemberNote,
-  memberListRoleManagement: memberListRoleManagement as any,
+  memberListRoleManagement,
   memberPopoutOpenRolesPanel,
   onUpdateMemberPopoutOpen: onMemberPopoutOpenUpdate,
   onUpdateMemberNote: (note: string) =>
@@ -2120,7 +2145,7 @@ provideChatPermissions(
     isRolePreviewActiveForServer,
     isInDMMode,
     isGroupDM,
-    liveChannelCapabilities: liveChannelCapabilities as any,
+    liveChannelCapabilities,
   }),
 );
 
@@ -2310,7 +2335,7 @@ provide(LAYOUT_GUILD_MODALS_KEY, {
   channelSettingsCategoryAutoDeleteAfterSeconds,
   channelSettingsEchoPermissionEditor,
   categorySettingsEchoPermissionEditor,
-  currentServerNotificationLevel: currentServerNotificationLevel as any,
+  currentServerNotificationLevel,
   isDiscordImportedServer: computed(() => {
     const s = selectedServer.value as { discordGuildId?: string } | undefined;
     return !!s?.discordGuildId?.trim();
@@ -2417,12 +2442,10 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   inDmMode: isInDMMode,
   dmPanelOpen: isDMPanelOpen,
   channelPanelLoading: isChannelPanelSwitchLoading,
-  currentUserForServerList: computed(() =>
-    isAuthenticated.value ? (currentUser.value ?? null) : null,
-  ) as any,
+  currentUserForServerList: leftChromeCurrentUserForServerList,
   presenceByUserId,
   presenceMobileByUserId,
-  serverNotificationLevelsMap: serverNotificationLevelsMap as any,
+  serverNotificationLevelsMap,
   serverPingKindsMap: serverPingKindByServerId,
   serverPingBubblesMap: serverPingBubbleByServerId,
   serverPingChannelDotsMap: serverPingChannelDotsByServerId,
@@ -2439,8 +2462,8 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   isMoreServersCompact,
   isMoreServersPinned,
   dmActiveTab,
-  dmIncomingRailCluster: dmIncomingRailCluster as any,
-  dmInboxEntries: dmInboxEntriesForPanel as any,
+  dmIncomingRailCluster,
+  dmInboxEntries: dmInboxEntriesForPanel,
   echoPeerByChannelId: computed(() => echoDmPeerByChannelId.value),
   usersForChannelPanel,
   currentUserId: computed(() => currentUser.value?.id ?? ''),
@@ -2466,7 +2489,7 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   selectedServer: computed(() => selectedServer.value ?? null),
   categoriesForServer,
   activeChannelId,
-  currentUser: computed(() => currentUser.value ?? undefined) as any,
+  currentUser: leftChromeCurrentUser,
   guildVoiceChannelId: channelPanelVoiceChannelId,
   guildVoiceChannelName: channelPanelVoiceChannelName,
   focusGuildVoiceChannelInSidebar,
@@ -2847,7 +2870,83 @@ watch(
     </div>
     <AppToastShell :layout-context="appToastLayoutContext" />
 
-    <template v-if="useCompactTriPaneShell">
+    <template v-if="useCompactGuildSplitShell">
+      <CompactGuildSplitShell class="relative min-h-0 flex-1">
+        <template #left>
+          <AppLayoutLeftChrome
+            chrome-wrap="stack"
+            :action-rail-top-layout="actionRailTopLayout"
+            :compact-guild-split-nav="true"
+            @channel-invite="handleChannelInviteRequest"
+            @channel-delete-channel="onChannelPanelDeleteChannel"
+            @channel-delete-category="onChannelPanelDeleteCategory"
+          />
+        </template>
+        <template #chat>
+          <div
+            ref="mainContentAreaEl"
+            class="main-content-area relative grid min-h-0 min-w-0 flex-1 overflow-hidden"
+            :class="[
+              {
+                'main-content-area--explore':
+                  isExploreView || isServerEmptyOnboarding,
+              },
+              mainContentVcDockBottomPadClass,
+            ]"
+            :style="{
+              gridTemplateRows: mainContentGridTemplateRows,
+              gridTemplateColumns: mainContentAreaGridColumns,
+            }"
+          >
+            <AppLayoutInfoBanners />
+            <ServerDownGate
+              v-if="showServerDownGate"
+              class="col-span-full min-h-full min-w-0 self-stretch"
+              v-bind="serverDownGateBind"
+              @retry="checkServerHealthNow"
+            />
+            <InviteLandingView
+              v-else-if="inviteLandingActive"
+              class="col-span-full min-h-full min-w-0 self-stretch"
+              :preview="inviteLandingPreview"
+              :loading="inviteLandingLoading"
+              :error="inviteLandingError"
+              :show-mobile-back="isCompactShell"
+              @back="mobileShellGoBack"
+              @log-in-echo="openAuthModal({ entry: 'echo' })"
+              @create-account="openAuthModal({ tab: 'register' })"
+              @sign-in-passkey="
+                openAuthModal({ entry: 'social', passkey: true })
+              "
+              @persist-before-oauth="inviteLandingPersistBeforeOAuth"
+            />
+            <WelcomeBackExploreGate
+              v-else-if="welcomeBackExploreGate"
+              class="col-span-full min-h-full min-w-0 self-stretch"
+              :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
+              @log-in-echo="openAuthModal({ entry: 'echo' })"
+              @create-account="openAuthModal({ tab: 'register' })"
+              @sign-in-passkey="
+                openAuthModal({ entry: 'social', passkey: true })
+              "
+              @create-server="openAddServerModal('create')"
+              @join-server="onJoinServerFromShell"
+            />
+            <AppLayoutChatSurface v-else />
+          </div>
+        </template>
+        <template #members-overlay>
+          <div
+            v-if="membersColumnVisible"
+            class="pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-[min(18rem,42vw)] min-w-[14rem] max-w-[20rem] flex-col border-l border-border bg-[var(--bg)] shadow-xl"
+          >
+            <AppLayoutMembersColumn />
+          </div>
+        </template>
+      </CompactGuildSplitShell>
+      <AppLayoutGuildModals />
+    </template>
+    <template v-else-if="useCompactTriPaneShell">
       <CompactTriPaneShell
         v-model="compactPagerPane"
         class="relative min-h-0 flex-1"

@@ -13,6 +13,7 @@ import {
   type SocketAdapterInstance,
 } from './socketOutbound';
 import type { OutboundPollUiTransactionSink } from './socketOutboundPollSend';
+import { recordEmittedAttachmentUrls } from './attachmentSendDiag';
 
 /**
  * One logical outbound chat send (plain, rich JSON, media, forward metadata) from `useSocket`
@@ -141,6 +142,9 @@ export function sendOneOutboundChatMessage(opts: {
       clientMessageId,
       contentPreview: `${opts.wireContent.substring(0, 20)}…`,
     });
+    if (opts.attachments && opts.attachments.length) {
+      recordEmittedAttachmentUrls(opts.attachments.map((a) => a.url));
+    }
     try {
       opts.adapter.sendMessage({
         channelId: opts.channelId,

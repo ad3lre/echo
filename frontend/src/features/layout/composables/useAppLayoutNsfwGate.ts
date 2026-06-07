@@ -1,18 +1,21 @@
-import { ref, computed, type ComputedRef } from 'vue';
+import { ref, computed, type ComputedRef, type Ref } from 'vue';
+import type { ChannelSummary } from '@shared/types';
 import type { useServerStore } from '@/stores/server';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 
 export function useAppLayoutNsfwGate(deps: {
   serverStore: ReturnType<typeof useServerStore>;
   workspace: WorkspaceStateApi;
-  effectiveActiveChannel: ComputedRef<any>;
+  effectiveActiveChannel: ComputedRef<ChannelSummary | null>;
   handleGoToChannel: (channelId: string) => void;
-  getFirstTextChannelId: (cats: any[]) => string;
+  getFirstTextChannelId: (
+    cats: { name: string; channels: { id: string; type: string }[] }[],
+  ) => string;
   isDmUiContext: ComputedRef<boolean>;
   isExploreView: ComputedRef<boolean>;
   isServerEmptyOnboarding: ComputedRef<boolean>;
   mainContentColumns: ComputedRef<string>;
-  memberPanelCollapsed: any; // Ref<boolean>
+  memberPanelCollapsed: Ref<boolean>;
 }) {
   const {
     serverStore,

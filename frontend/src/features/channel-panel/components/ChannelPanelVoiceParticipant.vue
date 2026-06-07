@@ -11,6 +11,7 @@ import {
   voiceMuteDeafenHoverTitle,
 } from '@/features/voice/voiceIndicatorHints';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
+import type { ChannelVoiceParticipantUi } from '@/features/channel-panel/channelVoiceParticipantUi';
 
 defineProps<{
   userId: string;
@@ -22,16 +23,7 @@ defineProps<{
   isDragSource?: boolean;
   /** Guild owner — small crown beside display name. */
   isServerOwner?: boolean;
-  vc: {
-    muted: boolean;
-    deafened: boolean;
-    serverMuted: boolean;
-    serverDeafened: boolean;
-    streaming: boolean;
-    video: boolean;
-    speaking?: boolean;
-    audioLevel?: number;
-  };
+  vc: ChannelVoiceParticipantUi;
   isActive: boolean;
   /** YouTube / activities — same source as CallView. */
   activityPresence?: VcActivityPresenceKind[];
@@ -70,9 +62,9 @@ const emit = defineEmits<{
       :class="{ 'vc-speaking-ring': vc.speaking }"
       :style="
         vc.speaking
-          ? ({
+          ? {
               '--speak-strength': Math.min(1, (vc.audioLevel ?? 0) * 3 + 0.5),
-            } as any)
+            }
           : undefined
       "
     >

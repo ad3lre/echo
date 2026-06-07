@@ -1021,6 +1021,24 @@ export function useServerVoiceSession(deps: {
 
   skrigglesLkApi = lkRoom;
 
+  function guildLiveKitTransport() {
+    return {
+      connect: (
+        url: string,
+        token: string,
+        bitrateBps?: number | null,
+        e2eeMediaKey?: Parameters<LiveKitVoiceRoomApi['connect']>[3],
+      ) =>
+        lkRoom.connect(url, token, bitrateBps, e2eeMediaKey, {
+          initialAudioState: {
+            muted: vcMuted.value,
+            deafened: vcDeafened.value || micTestListenDeafenActive.value,
+          },
+        }),
+      disconnect: () => lkRoom.disconnect(),
+    };
+  }
+
   /**
    * Voice E2EE v2: when a participant leaves the SFU, update the MLS authorized
    * roster and — if this client is the deterministic committer — remove the
@@ -1892,7 +1910,7 @@ export function useServerVoiceSession(deps: {
       authSession,
       workspace,
       workspaceHydrator: { hydrate: hydrateWorkspace },
-      liveKit: lkRoom ?? undefined,
+      liveKit: guildLiveKitTransport(),
       getGuildVoiceE2eeMediaKey: guildVoiceE2eePrepare,
     });
     await voiceService.onJoinVoice(sid, channelId);
@@ -1913,7 +1931,7 @@ export function useServerVoiceSession(deps: {
       authSession,
       workspace,
       workspaceHydrator: { hydrate: hydrateWorkspace },
-      liveKit: lkRoom ?? undefined,
+      liveKit: guildLiveKitTransport(),
       getGuildVoiceE2eeMediaKey: guildVoiceE2eePrepare,
     });
     try {
@@ -1949,7 +1967,7 @@ export function useServerVoiceSession(deps: {
       authSession,
       workspace,
       workspaceHydrator: { hydrate: hydrateWorkspace },
-      liveKit: lkRoom ?? undefined,
+      liveKit: guildLiveKitTransport(),
       getGuildVoiceE2eeMediaKey: guildVoiceE2eePrepare,
     });
     void voiceService.onLeaveVoice(sid);

@@ -1,14 +1,22 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { iconYoutubeSvgPath, icons } from '@/assets/icons';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
+import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     kinds: VcActivityPresenceKind[];
     /** `sm` = channel list; `md` = CallView tiles */
     size?: 'sm' | 'md';
   }>(),
   { size: 'sm' },
+);
+
+const visibleKinds = computed(() =>
+  YOUTUBE_INTEGRATION_ENABLED
+    ? props.kinds
+    : props.kinds.filter((k) => k !== 'youtube'),
 );
 
 function titleFor(k: VcActivityPresenceKind): string {
@@ -47,13 +55,13 @@ function titleFor(k: VcActivityPresenceKind): string {
 
 <template>
   <div
-    v-if="kinds.length"
+    v-if="visibleKinds.length"
     class="vc-act-pres-badges inline-flex items-center"
     :class="size === 'md' ? 'gap-0.5' : 'gap-px'"
     aria-label="Voice activity"
   >
     <span
-      v-for="k in kinds"
+      v-for="k in visibleKinds"
       :key="k"
       class="vc-act-pres-badges__chip inline-flex items-center justify-center rounded-md border border-border bg-elevated"
       :class="

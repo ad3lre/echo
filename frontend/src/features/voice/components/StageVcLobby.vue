@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { withBasePath } from '@/features/layout/urlNavigation';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
 import StageYoutubeGoLiveControls from '@/features/voice/components/StageYoutubeGoLiveControls.vue';
 import {
   formatStageEventCountdown,
@@ -79,8 +80,11 @@ const otherUpcomingEvents = computed(() => {
           {{ channelName }}
         </h1>
         <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
-          Start a scheduled event, go live on YouTube, or enter the stage with
-          voice only.
+          {{
+            YOUTUBE_INTEGRATION_ENABLED
+              ? 'Start a scheduled event, go live on YouTube, or enter the stage with voice only.'
+              : 'Start a scheduled event or enter the stage with voice only.'
+          }}
         </p>
       </header>
 
@@ -130,6 +134,7 @@ const otherUpcomingEvents = computed(() => {
       </section>
 
       <section
+        v-if="YOUTUBE_INTEGRATION_ENABLED"
         class="stage-vc-lobby__youtube mb-6 overflow-hidden rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-100 via-[var(--elevated)] to-[var(--bg)] p-5 dark:from-red-950/40 dark:via-[#12101a] dark:to-[#0b0a10] sm:p-6"
       >
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start">

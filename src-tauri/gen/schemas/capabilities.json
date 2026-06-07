@@ -9,8 +9,7 @@
       "deep-link:default",
       "dialog:allow-save",
       "notification:default",
-      "opener:default",
-      "process:default"
+      "opener:default"
     ],
     "platforms": ["android"]
   },

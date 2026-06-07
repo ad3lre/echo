@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
+import type { Editor as VueEditor } from '@tiptap/vue-3';
 import { useComposerState } from '@/composables/useComposerState';
 import ComposerChannelFormatBanner from '@/features/chat/components/ComposerChannelFormatBanner.vue';
 import { applyComposerOrderedListEnter } from '@/features/chat/editor/composerMarkdownListEnter';
@@ -28,7 +29,12 @@ const emit = defineEmits<{
 }>();
 
 const composer = useComposerState();
-const composerEditor = computed((): any => composer.editor.value);
+// The composer's tiptap instance is the `@tiptap/core` Editor, nominally
+// distinct from the `@tiptap/vue-3` one EditorContent wants though identical at
+// runtime; bridge the gap once here.
+const composerEditor = computed(
+  () => composer.editor.value as unknown as VueEditor | null,
+);
 
 const TOAST_QUICK_REPLY_PLACEHOLDER = 'Write a reply…';
 

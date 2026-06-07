@@ -642,6 +642,12 @@ async function bootstrap() {
   } else if (iosBootDecision && authSessionStore.isAuthenticated) {
     void notifyAppAuthenticated();
     startSessionHeartbeat();
+  } else if (iosBootDecision?.action === 'login') {
+    /* Native iOS login overlay is up. The user authenticates in the native UI,
+     * which writes a bearer refresh token to the Keychain. Poll for it, then
+     * adopt the session and dismiss the overlay (`notifyAppAuthenticated` →
+     * `ios_auth_session_restored` → native dismiss). */
+    startNativeLoginRestorePoll(authSessionStore);
   }
 
   enqueueStartupTask('gif-library-preload', 'idle', () => {
@@ -665,6 +671,48 @@ async function bootstrap() {
   enqueueStartupTask('echo-sounds-preload', 'idle', () => {
     preloadEchoSounds();
   });
+}
+
+/**
+ * While the native iOS login overlay is shown, poll the Keychain for the bearer
+ * refresh token that native sign-in writes on success. Once present,
+ * `bootstrapNativeBearerSessionFromKeychain()` mints an access token and returns
+ * the user; we apply it to the store (app paints behind the overlay), dismiss the
+ * native overlay, and reconcile authoritatively with `/auth/me`.
+ *
+ * Pre-login ticks are cheap: with no stored refresh token the bootstrap is a
+ * single Keychain read that returns `null` with no network call.
+ */
+function startNativeLoginRestorePoll(
+  authSessionStore: ReturnType<typeof useAuthSessionStore>,
+): void {
+  const POLL_INTERVAL_MS = 700;
+  let stopped = false;
+  const tick = async (): Promise<void> => {
+    if (stopped || authSessionStore.isAuthenticated) {
+      stopped = true;
+      return;
+    }
+    try {
+      const user = await bootstrapNativeBearerSessionFromKeychain();
+      if (user) {
+        stopped = true;
+        authSessionStore.applyRestoredProfile(user, {
+          allowUnauthenticated: true,
+        });
+        await notifyAppAuthenticated();
+        startSessionHeartbeat();
+        void authSessionStore.restoreSessionFromApi();
+        return;
+      }
+    } catch {
+      /* keep polling — native login may not have completed yet */
+    }
+    if (!stopped) {
+      setTimeout(() => void tick(), POLL_INTERVAL_MS);
+    }
+  };
+  void tick();
 }
 
 function renderBootstrapFatalFallback(error: unknown) {

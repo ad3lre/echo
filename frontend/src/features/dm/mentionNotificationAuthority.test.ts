@@ -107,6 +107,63 @@ describe('mentionNotificationAuthority', () => {
     expect(failed[0]?.preview).toBe(MENTION_NOTIFICATION_FAILED_PREVIEW);
   });
 
+  it('drops attention stubs when the channel already has a resolved cached mention row', () => {
+    const channelId = '00000000-0000-4000-8000-000000000012';
+    const messages = ref<
+      Record<
+        string,
+        import('@/services/realtime/chatMessageTypes').RawMessage[]
+      >
+    >({
+      [channelId]: [
+        {
+          id: '1420070400000000001',
+          authorId: 'author-1',
+          timestamp: '2026-06-06T12:00:00.000Z',
+          content: 'hey @you from discord',
+          bridgeFromDiscord: true,
+          mentions: [
+            {
+              id: 'm1',
+              kind: 'user',
+              label: 'you',
+              userId: 'self-1',
+              start: 4,
+              end: 8,
+            },
+          ],
+        },
+        {
+          id: '1420070400000000099',
+          authorId: 'author-2',
+          timestamp: '2026-06-06T12:01:00.000Z',
+          content: 'plain follow-up',
+          bridgeFromDiscord: true,
+        },
+      ],
+    });
+    bindChannelMessageBuckets(messages);
+
+    const rows = collectMentionNotificationsFromAuthority({
+      channelAttentionByChannelId: {
+        [channelId]: serverSummary({
+          channelId,
+          latestUnreadMessageId: '1420070400000000099',
+        }),
+      },
+      readStateByChannelId: {},
+      serverNotificationLevelByServerId: { 'server-1': 'mentions' },
+      selfUserId: 'self-1',
+      resolveChannelLabel: () => 'bridge',
+      resolveUserName: () => 'Ada',
+      maxItems: 10,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.messageId).toBe('1420070400000000001');
+    expect(rows[0]?.preview).not.toBe(MENTION_NOTIFICATION_STUB_PREVIEW);
+  });
+
   it('collectMentionNotificationsFromAuthority merges stubs with cached mention rows', () => {
     const channelId = '00000000-0000-4000-8000-000000000011';
     const messages = ref<

@@ -34,6 +34,7 @@ import type {
   ChatHeaderModel,
 } from '@/features/layout/regionAdapters';
 import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRoom';
+import type { RemoteTrack } from 'livekit-client';
 import StreamVideoTile from '@/components/StreamVideoTile.vue';
 import QuarterCallMediaBadges from '@/features/layout/components/QuarterCallMediaBadges.vue';
 import { quarterCallMediaBadgesTitle } from '@/features/voice/voiceIndicatorHints';
@@ -41,6 +42,7 @@ import {
   COMPOSER_INSERT_USER_MENTION_KEY,
   type InsertUserMentionFn,
 } from '@/features/chat/chatComposerContext';
+import { isForumPostChannel } from '@/features/forums/domain/forumPostChannel';
 
 const props = defineProps([
   'effectiveActiveChannel',
@@ -73,8 +75,8 @@ const props = defineProps([
   'memberPanelCollapsed',
   'memberPanelCollapsedRaw',
   'compactGuildTriPaneNav',
+  'compactGuildSplitNav',
   'expandChannels',
-  'collapseMembers',
   'expandMembers',
   'memberPanelWidth',
   'searchText',
@@ -612,33 +614,32 @@ const dmCallQuarterSelfSpeaking = computed(() => {
   return isDmCallParticipantSpeaking(p.currentUser?.id ?? null);
 });
 
-function isForumPostChannelOption(ch: any): boolean {
-  const parent =
-    (typeof ch?.parentChannelId === 'string' && ch.parentChannelId.trim()) ||
-    (typeof ch?.parent_channel_id === 'string' && ch.parent_channel_id.trim());
-  if (parent) return true;
-  if (
-    Array.isArray(ch?.forumPostTagIds) ||
-    Array.isArray(ch?.forum_post_tag_ids)
-  )
-    return true;
-  if (ch?.forumPostPinned === true || ch?.forum_post_pinned === true)
-    return true;
-  if (ch?.forumPostLocked === true || ch?.forum_post_locked === true)
-    return true;
-  const archived =
-    (typeof ch?.forumPostArchivedAt === 'string' &&
-      ch.forumPostArchivedAt.trim()) ||
-    (typeof ch?.forum_post_archived_at === 'string' &&
-      ch.forum_post_archived_at.trim());
-  if (archived) return true;
-  return false;
+function isPaperChannelOption(ch: unknown): boolean {
+  return (
+    ch !== null &&
+    typeof ch === 'object' &&
+    (ch as { type?: unknown }).type === 'paper'
+  );
 }
 
-const searchFilterChannels = computed(() => {
-  const p = props as { allChannels?: any[] };
+type SearchFilterChannel = {
+  id: string;
+  name: string;
+};
+
+function isSearchFilterChannel(ch: unknown): ch is SearchFilterChannel {
+  if (ch === null || typeof ch !== 'object') return false;
+  const row = ch as { id?: unknown; name?: unknown };
+  return typeof row.id === 'string' && typeof row.name === 'string';
+}
+
+const searchFilterChannels = computed((): SearchFilterChannel[] => {
+  const p = props as { allChannels?: unknown[] };
   return (p.allChannels ?? []).filter(
-    (ch) => !isForumPostChannelOption(ch) && ch?.type !== 'paper',
+    (ch): ch is SearchFilterChannel =>
+      isSearchFilterChannel(ch) &&
+      !isForumPostChannel(ch) &&
+      !isPaperChannelOption(ch),
   );
 });
 
@@ -850,10 +851,17 @@ type QuarterCallParticipantRow = {
   id: string;
   streaming?: boolean;
   video?: boolean;
-  screenTrack?: unknown;
-  cameraTrack?: unknown;
+  screenTrack?: StreamVideoTrack | null;
+  cameraTrack?: StreamVideoTrack | null;
   dmCallPresence?: string;
 };
+
+type LocalTrackLike = {
+  mediaStreamTrack?: MediaStreamTrack;
+  track?: MediaStreamTrack;
+};
+
+type StreamVideoTrack = RemoteTrack | LocalTrackLike;
 
 function remoteTrackInfoForQuarter(
   userId: string,
@@ -869,12 +877,12 @@ function remoteTrackInfoForQuarter(
 function resolveQuarterRowScreenTrack(
   r: QuarterCallParticipantRow,
   selfId: string,
-): unknown | null {
+): StreamVideoTrack | null {
   if (r.screenTrack) return r.screenTrack;
   if (r.id === selfId) {
     return (
       (
-        props as { getLocalScreenTrack?: () => unknown }
+        props as { getLocalScreenTrack?: () => StreamVideoTrack | null }
       ).getLocalScreenTrack?.() ?? null
     );
   }
@@ -884,12 +892,12 @@ function resolveQuarterRowScreenTrack(
 function resolveQuarterRowCameraTrack(
   r: QuarterCallParticipantRow,
   selfId: string,
-): unknown | null {
+): StreamVideoTrack | null {
   if (r.cameraTrack) return r.cameraTrack;
   if (r.id === selfId) {
     return (
       (
-        props as { getLocalCameraTrack?: () => unknown }
+        props as { getLocalCameraTrack?: () => StreamVideoTrack | null }
       ).getLocalCameraTrack?.() ?? null
     );
   }
@@ -948,7 +956,7 @@ type DmCallQuarterGlance = {
   id: string;
   isLocal: boolean;
   isScreen: boolean;
-  track: unknown;
+  track: StreamVideoTrack;
 };
 
 /** PIP / widget stream for half-height DM call (replaces the corresponding avatar). */
@@ -1158,7 +1166,10 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
     >
       <button
         v-if="
-          isCompactShell && !isViewingVoiceChannel && effectiveActiveChannel
+          isCompactShell &&
+          !compactGuildSplitNav &&
+          !isViewingVoiceChannel &&
+          effectiveActiveChannel
         "
         type="button"
         class="dm-header-action-btn -ml-0.5 shrink-0"
@@ -1344,14 +1355,23 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         <div
           v-if="
             !isInDMMode &&
-            !compactGuildTriPaneNav &&
-            ((channelPanelCollapsed && !isCompactShell) ||
-              (memberPanelCollapsedRaw && !isViewingVoiceChannel))
+            !isViewingVoiceChannel &&
+            (compactGuildTriPaneNav ||
+              memberPanelCollapsedRaw ||
+              (channelPanelCollapsed &&
+                !isCompactShell &&
+                !compactGuildSplitNav &&
+                !compactGuildTriPaneNav))
           "
           class="dm-header-actions flex items-center gap-0.5 shrink-0"
         >
           <button
-            v-if="channelPanelCollapsed && !isCompactShell"
+            v-if="
+              channelPanelCollapsed &&
+              !isCompactShell &&
+              !compactGuildSplitNav &&
+              !compactGuildTriPaneNav
+            "
             type="button"
             class="dm-header-action-btn"
             title="Show channels"
@@ -1361,26 +1381,14 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             <img :src="icons.list" alt="" class="dm-header-action-icon" />
           </button>
           <button
-            v-if="memberPanelCollapsedRaw && !isViewingVoiceChannel"
+            v-if="compactGuildTriPaneNav || memberPanelCollapsedRaw"
             type="button"
             class="dm-header-action-btn dm-header-action-btn--member-toggle"
-            title="Show members"
-            aria-label="Show members"
+            :title="compactGuildTriPaneNav ? 'Open members' : 'Show members'"
+            :aria-label="
+              compactGuildTriPaneNav ? 'Open members' : 'Show members'
+            "
             @click="expandMembers"
-          >
-            <img
-              :src="icons.usersAvatar"
-              alt=""
-              class="dm-header-action-icon"
-            />
-          </button>
-          <button
-            v-if="!memberPanelCollapsedRaw && !isViewingVoiceChannel"
-            type="button"
-            class="dm-header-action-btn dm-header-action-btn--member-toggle"
-            title="Hide members"
-            aria-label="Hide members"
-            @click="collapseMembers"
           >
             <img
               :src="icons.usersAvatar"
@@ -1813,7 +1821,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         >
           <StreamVideoTile
             class="h-full w-full"
-            :track="(dmCallQuarterGlance.track as any) ?? null"
+            :track="dmCallQuarterGlance.track ?? null"
             :participant-name="dmCallQuarterGlanceName"
             :participant-pfp="dmCallQuarterGlancePfp"
             :participant-id="dmCallQuarterGlance.id"
@@ -1899,7 +1907,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         >
           <StreamVideoTile
             class="h-full w-full"
-            :track="(dmCallQuarterGlance.track as any) ?? null"
+            :track="dmCallQuarterGlance.track ?? null"
             :participant-name="dmCallQuarterGlanceName"
             :participant-pfp="dmCallQuarterGlancePfp"
             :participant-id="dmCallQuarterGlance.id"
@@ -2004,7 +2012,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         >
           <StreamVideoTile
             class="h-full w-full"
-            :track="(dmCallQuarterGlance.track as any) ?? null"
+            :track="dmCallQuarterGlance.track ?? null"
             :participant-name="dmCallQuarterGlanceName"
             :participant-pfp="dmCallQuarterGlancePfp"
             :participant-id="dmCallQuarterGlance.id"

@@ -28,6 +28,10 @@ import echoRoutes from './echo';
 import systemDeployCountdownRoutes from './systemDeployCountdown';
 import discordApiRoutes from './discordApi';
 import discordGatewayRoutes from './discordApi/gateway';
+import {
+  GOOGLE_INTEGRATION_ENABLED,
+  YOUTUBE_INTEGRATION_ENABLED,
+} from '../../../../shared/integrationKillSwitches';
 import { getAccessUserIdFromAuthHeader } from '../../auth/token';
 import { isEchoApiReadRequest } from '../../bootstrap/echoReadRateLimitPaths';
 import { clientIpFromFastifyRequest } from '../../net/clientIp';
@@ -53,11 +57,15 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(passkeyRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(discordOAuthRoutes, { prefix: '/api/v1/auth' });
-  await fastify.register(googleOAuthRoutes, { prefix: '/api/v1/auth' });
-  await fastify.register(youtubeOAuthRoutes, { prefix: '/api/v1/auth' });
+  if (GOOGLE_INTEGRATION_ENABLED) {
+    await fastify.register(googleOAuthRoutes, { prefix: '/api/v1/auth' });
+    await fastify.register(meGoogleRoutes, { prefix: '/api/v1' });
+  }
+  if (YOUTUBE_INTEGRATION_ENABLED) {
+    await fastify.register(youtubeOAuthRoutes, { prefix: '/api/v1/auth' });
+    await fastify.register(meYoutubeRoutes, { prefix: '/api/v1' });
+  }
   await fastify.register(meDiscordRoutes, { prefix: '/api/v1' });
-  await fastify.register(meGoogleRoutes, { prefix: '/api/v1' });
-  await fastify.register(meYoutubeRoutes, { prefix: '/api/v1' });
   await fastify.register(discordBotHookRoutes, { prefix: '/api/v1' });
   await fastify.register(discordBridgeHookRoutes, { prefix: '/api/v1' });
   await fastify.register(discordVoiceMirrorHookRoutes, { prefix: '/api/v1' });

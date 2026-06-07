@@ -1,6 +1,7 @@
 import { computed, unref, type MaybeRef } from 'vue';
 import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRoom';
 import type { LayoutChatSurfaceContext } from '@/features/layout/layoutInjectionKeys';
+import type { StreamVideoTileTrack } from '@/components/streamVideoTileTrack';
 
 export type GuildVoiceStreamGlance = {
   id: string;
@@ -8,7 +9,7 @@ export type GuildVoiceStreamGlance = {
   pfp: string;
   isLocal: boolean;
   isScreenShare: boolean;
-  track: unknown;
+  track: StreamVideoTileTrack | null;
 };
 
 type VoiceParticipantRow = {
@@ -89,7 +90,7 @@ export function pickGuildVoiceStreamGlance(
       pfp: row.pfp ?? '',
       isLocal: row.id === selfId,
       isScreenShare: true,
-      track,
+      track: track as StreamVideoTileTrack,
     };
   };
 
@@ -105,7 +106,7 @@ export function pickGuildVoiceStreamGlance(
       pfp: row.pfp ?? '',
       isLocal: row.id === selfId,
       isScreenShare: false,
-      track,
+      track: track as StreamVideoTileTrack,
     };
   };
 

@@ -192,7 +192,7 @@ function toggleMinimized() {
             <StreamVideoTile
               v-if="glance"
               class="absolute inset-0 h-full w-full"
-              :track="(glance.track as any) ?? null"
+              :track="glance.track ?? null"
               :participant-name="glance.name"
               :participant-pfp="glance.pfp"
               :participant-id="glance.id"

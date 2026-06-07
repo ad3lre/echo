@@ -1,6 +1,15 @@
 import { echoPartialToChannelOverrides } from '@shared/rolePermissionBridge';
-import type { ChannelSummary, EchoChannelType } from '@shared/types';
+import type { ChannelSummary, EchoChannelType, ForumTag } from '@shared/types';
 import type { ForumCreatorDefaultPerms } from '@shared/types';
+
+function isForumTag(t: unknown): t is ForumTag {
+  return (
+    !!t &&
+    typeof t === 'object' &&
+    typeof (t as { id?: unknown }).id === 'string' &&
+    typeof (t as { name?: unknown }).name === 'string'
+  );
+}
 import { echoFetch } from './transport';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { EchoChannelRow, EchoChannelPatch } from './types';
@@ -116,16 +125,8 @@ export function echoChannelRowToChannelSummary(
       : undefined;
   const forumAvailableTags =
     Array.isArray(c.forumAvailableTags) &&
-    c.forumAvailableTags.every(
-      (t) =>
-        !!t &&
-        typeof t === 'object' &&
-        'id' in (t as any) &&
-        'name' in (t as any) &&
-        typeof (t as any).id === 'string' &&
-        typeof (t as any).name === 'string',
-    )
-      ? (c.forumAvailableTags as any)
+    c.forumAvailableTags.every(isForumTag)
+      ? (c.forumAvailableTags as ForumTag[])
       : undefined;
   const forumPostTagIds = Array.isArray(c.forumPostTagIds)
     ? c.forumPostTagIds.filter((x): x is string => typeof x === 'string')

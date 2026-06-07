@@ -45,6 +45,7 @@ import {
 export type AppToastLayoutContext = {
   echoChatBottomChromeInsetPx: Ref<number>;
   useCompactTriPaneShell: Ref<boolean>;
+  useCompactGuildSplitShell: Ref<boolean>;
   useCompactDmShell: Ref<boolean>;
   hasGuildChannelChrome: Ref<boolean>;
   isDmUiContext: Ref<boolean>;
@@ -249,6 +250,7 @@ export function useAppToastController(
       chatComposerFocused: chatComposerFocusedForToast.value,
       measuredChromeInsetPx: layoutContext.echoChatBottomChromeInsetPx.value,
       useCompactTriPaneShell: layoutContext.useCompactTriPaneShell.value,
+      useCompactGuildSplitShell: layoutContext.useCompactGuildSplitShell.value,
       useCompactDmShell: layoutContext.useCompactDmShell.value,
       hasGuildChannelChrome: unref(layoutContext.hasGuildChannelChrome),
       isDmThreadSurface: layoutContext.isDmThreadSurface.value,

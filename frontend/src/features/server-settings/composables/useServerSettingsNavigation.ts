@@ -55,7 +55,16 @@ export function useServerSettingsRolePreview(
     permissions?: Record<string, boolean>;
   } | null>,
   serverId: Ref<string | undefined>,
-  emit: (event: 'preview-role', payload: any) => void,
+  emit: (
+    event: 'preview-role',
+    payload: {
+      serverId: string;
+      roleId: string;
+      roleName: string;
+      roleColor: string;
+      uiPermissions: string[];
+    },
+  ) => void,
   close: () => void,
 ) {
   function previewSelectedRole() {

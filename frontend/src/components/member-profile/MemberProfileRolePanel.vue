@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, type CSSProperties } from 'vue';
 import {
   roleHierarchyDisplayRank,
   type MemberProfile,
@@ -43,7 +43,7 @@ const props = defineProps<{
   assignedRoleIds: string[];
   optimisticAssign: Record<string, boolean>;
   pendingRoleIds: Set<string>;
-  popupStyle: any;
+  popupStyle: CSSProperties;
 }>();
 
 defineEmits<{

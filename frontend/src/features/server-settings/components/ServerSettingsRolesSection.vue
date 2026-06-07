@@ -16,7 +16,18 @@ import {
   labelsForEnabledRiskyDefaultOnJoinPermissions,
   roleIsRiskyForDefaultOnJoin,
 } from '@/features/server-settings/domain/rolePermissionPolicies';
-import type { RolePermissionKey } from '@/features/server-settings/types';
+import type {
+  ManagedRole,
+  RolePermissionKey,
+} from '@/features/server-settings/types';
+
+/** A member row shown under a role's Members tab. */
+type RoleMemberSummary = {
+  id: string;
+  name: string;
+  pfp: string;
+  status: 'online' | 'idle' | 'do_not_disturb' | 'offline' | undefined;
+};
 import type { EmojiEntry } from '@/composables/useEmojiData';
 import type { AppIconEntry } from '@/composables/useAppIconSearch';
 import type { EchoRoleType } from '@shared/echoRoleTypes';
@@ -75,7 +86,7 @@ function isActivePreset(
 
 const props = withDefaults(
   defineProps<{
-    roleManagerRoles: any[];
+    roleManagerRoles: ManagedRole[];
     selectedRoleId: string | null;
     hoveredRoleId: string | null;
     draggingRoleId: string | null;
@@ -84,8 +95,8 @@ const props = withDefaults(
     roleManagerDirty: boolean;
     roleManagerSearchQuery: string;
     roleEditorTab: 'display' | 'permissions' | 'members';
-    selectedRole: any | null;
-    filteredRoleManagerRoles: any[];
+    selectedRole: ManagedRole | null;
+    filteredRoleManagerRoles: ManagedRole[];
     visibleRolePermissionDefs: {
       key: RolePermissionKey;
       group: string;
@@ -100,7 +111,7 @@ const props = withDefaults(
     roleHInput: number;
     roleSInput: number;
     roleLInput: number;
-    selectedRoleMembers: any[];
+    selectedRoleMembers: RoleMemberSummary[];
     setColorWheelCanvasEl: (el: HTMLCanvasElement | null) => void;
     createRole: (name: string) => void;
     rolePosition: (roleId: string) => number | null;

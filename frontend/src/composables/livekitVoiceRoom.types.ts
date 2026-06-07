@@ -82,6 +82,19 @@ export type DesktopStreamingPreferences = {
   cameraQuality: VideoQualityPreset;
 };
 
+export type LiveKitVoiceInitialAudioState = {
+  muted: boolean;
+  deafened: boolean;
+};
+
+export type LiveKitVoiceConnectOptions = {
+  /**
+   * Applied immediately after LiveKit signaling connects, before attempting to
+   * publish the microphone. This lets "join muted" avoid browser mic prompts.
+   */
+  initialAudioState?: LiveKitVoiceInitialAudioState;
+};
+
 export type UseLiveKitVoiceRoomOptions = {
   /**
    * When set, quality restarts and camera-switch fallbacks only call
@@ -208,6 +221,7 @@ export type LiveKitVoiceRoomApi = {
     token: string,
     bitrateBps?: number | null,
     e2eeMediaKey?: ArrayBuffer | EchoVoiceE2eeConnectInput | null,
+    options?: LiveKitVoiceConnectOptions,
   ) => Promise<void>;
   disconnect: () => void;
   /**

@@ -6,27 +6,12 @@ import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { useAuthSessionStore } from '@/stores/authSession';
 import type { RailTab, DmSubView } from '@/features/layout/mainSurface';
 import { logShellNavWithStack } from '@/features/layout/shellNavDebugLog';
-import { isEchoGraphId } from '@/utils/echoIds';
-
-function compareNumericStringDesc(a: string, b: string): number {
-  if (a === b) return 0;
-  if (!a) return 1;
-  if (!b) return -1;
-  try {
-    const ai = BigInt(a);
-    const bi = BigInt(b);
-    if (ai === bi) return 0;
-    return ai > bi ? -1 : 1;
-  } catch {
-    return b.localeCompare(a);
-  }
-}
-
-function parseIsoToMs(value: unknown): number {
-  if (typeof value !== 'string' || !value.trim()) return 0;
-  const t = new Date(value).getTime();
-  return Number.isFinite(t) && t > 0 ? t : 0;
-}
+import {
+  mergeEchoDmThreadIntoRegistry,
+  mergeEchoDmThreadSnapshotIntoRegistry,
+  removeEchoDmThreadsForPeer,
+  type EchoDmThreadRegistryState,
+} from '@/services/domain/echoDmThreadRegistry';
 
 export function useAppLayoutEchoDmState(deps: {
   serverStore: ReturnType<typeof useServerStore>;
@@ -75,122 +60,57 @@ export function useAppLayoutEchoDmState(deps: {
     new Map<string, string[]>(),
   );
 
+  function currentThreadRegistryState(): EchoDmThreadRegistryState {
+    return {
+      peerByChannelId: echoDmPeerByChannelId.value,
+      threadIds: echoDmThreadIds.value,
+      lastActivityIdByChannelId: echoDmLastActivityIdByChannelId.value,
+      lastActivityAtMsByChannelId: echoDmLastActivityAtMsByChannelId.value,
+      activeCallParticipantUserIdsByChannelId:
+        echoDmActiveCallParticipantUserIdsByChannelId.value,
+      groupDMs: groupDMs.value,
+    };
+  }
+
+  function applyThreadRegistryState(next: EchoDmThreadRegistryState): void {
+    echoDmPeerByChannelId.value = new Map(next.peerByChannelId);
+    echoDmThreadIds.value = new Set(next.threadIds);
+    echoDmLastActivityIdByChannelId.value = new Map(
+      next.lastActivityIdByChannelId,
+    );
+    echoDmLastActivityAtMsByChannelId.value = new Map(
+      next.lastActivityAtMsByChannelId,
+    );
+    echoDmActiveCallParticipantUserIdsByChannelId.value = new Map(
+      next.activeCallParticipantUserIdsByChannelId,
+    );
+    groupDMs.value = { ...next.groupDMs };
+  }
+
   function mergeEchoDmThread(
     thread: EchoDmThreadFromApi | EchoDmRealtimeThread,
     overrideLastActivityId?: string,
   ) {
-    const m = new Map(echoDmPeerByChannelId.value);
-    const s = new Set(echoDmThreadIds.value);
-    const a = new Map(echoDmLastActivityIdByChannelId.value);
-    const at = new Map(echoDmLastActivityAtMsByChannelId.value);
-    const callParticipants = new Map(
-      echoDmActiveCallParticipantUserIdsByChannelId.value,
+    applyThreadRegistryState(
+      mergeEchoDmThreadIntoRegistry(currentThreadRegistryState(), thread, {
+        overrideLastActivityId,
+        selfId: authSession.backendUser?.id,
+        users: workspace.users.value,
+      }),
     );
-    const nextGroups = { ...groupDMs.value };
-    const selfId = authSession.backendUser?.id;
-    s.add(thread.channelId);
-    const lastActivityId =
-      overrideLastActivityId?.trim() ||
-      ('lastActivityId' in thread && typeof thread.lastActivityId === 'string'
-        ? thread.lastActivityId.trim()
-        : '');
-    if (lastActivityId) {
-      const prev = a.get(thread.channelId) ?? '';
-      if (!prev || compareNumericStringDesc(lastActivityId, prev) < 0) {
-        a.set(thread.channelId, lastActivityId);
-      }
-    }
-    const lastActivityAtMs =
-      'lastActivityAt' in thread ? parseIsoToMs(thread.lastActivityAt) : 0;
-    if (lastActivityAtMs > 0) {
-      const prevAt = at.get(thread.channelId) ?? 0;
-      if (lastActivityAtMs > prevAt) at.set(thread.channelId, lastActivityAtMs);
-    }
-    if ('activeCallParticipantUserIds' in thread) {
-      const ids = Array.isArray(thread.activeCallParticipantUserIds)
-        ? thread.activeCallParticipantUserIds
-            .map((id) => String(id).trim())
-            .filter(Boolean)
-        : [];
-      if (ids.length > 0) callParticipants.set(thread.channelId, ids);
-      else callParticipants.delete(thread.channelId);
-    }
-    if (thread.kind === 'group') {
-      const persistedPfp =
-        'pfp' in thread && typeof thread.pfp === 'string'
-          ? thread.pfp.trim()
-          : '';
-      const otherId =
-        thread.memberUserIds.find((id) => id !== selfId) ??
-        thread.memberUserIds[0];
-      const u = otherId
-        ? workspace.users.value.find((x) => x.id === otherId)
-        : undefined;
-      nextGroups[thread.channelId] = {
-        id: thread.channelId,
-        name: thread.name,
-        memberIds: thread.memberUserIds,
-        pfp: persistedPfp || u?.pfp || '',
-      };
-    } else if (thread.peerUserId) {
-      m.set(thread.channelId, thread.peerUserId);
-    }
-    groupDMs.value = nextGroups;
-    echoDmPeerByChannelId.value = m;
-    echoDmThreadIds.value = s;
-    echoDmLastActivityIdByChannelId.value = a;
-    echoDmLastActivityAtMsByChannelId.value = at;
-    echoDmActiveCallParticipantUserIdsByChannelId.value = callParticipants;
-  }
-
-  /**
-   * `/dm/threads` and workspace social `dmThreads` are authoritative snapshots.
-   * Drop persisted Echo channel rows that disappeared (leave group, removed, etc.)
-   * so the rail and pins fetch do not use stale ids.
-   */
-  function pruneEchoDmGraphThreadsMissingFromSnapshot(
-    incomingChannelIds: ReadonlySet<string>,
-  ): void {
-    const toRemove: string[] = [];
-    for (const ch of echoDmThreadIds.value) {
-      if (!isEchoGraphId(ch)) continue;
-      if (!incomingChannelIds.has(ch)) toRemove.push(ch);
-    }
-    if (!toRemove.length) return;
-    const m = new Map(echoDmPeerByChannelId.value);
-    const s = new Set(echoDmThreadIds.value);
-    const a = new Map(echoDmLastActivityIdByChannelId.value);
-    const at = new Map(echoDmLastActivityAtMsByChannelId.value);
-    const callParticipants = new Map(
-      echoDmActiveCallParticipantUserIdsByChannelId.value,
-    );
-    const nextGroups = { ...groupDMs.value };
-    for (const ch of toRemove) {
-      m.delete(ch);
-      s.delete(ch);
-      a.delete(ch);
-      at.delete(ch);
-      callParticipants.delete(ch);
-      delete nextGroups[ch];
-    }
-    echoDmPeerByChannelId.value = m;
-    echoDmThreadIds.value = s;
-    echoDmLastActivityIdByChannelId.value = a;
-    echoDmLastActivityAtMsByChannelId.value = at;
-    echoDmActiveCallParticipantUserIdsByChannelId.value = callParticipants;
-    groupDMs.value = nextGroups;
   }
 
   function mergeEchoDmThreadsFromApi(threads: EchoDmThreadFromApi[]) {
-    const incomingIds = new Set(
-      threads
-        .map((t) => String(t.channelId).trim())
-        .filter((id): id is string => Boolean(id)),
+    applyThreadRegistryState(
+      mergeEchoDmThreadSnapshotIntoRegistry(
+        currentThreadRegistryState(),
+        threads,
+        {
+          selfId: authSession.backendUser?.id,
+          users: workspace.users.value,
+        },
+      ),
     );
-    for (const t of threads) {
-      mergeEchoDmThread(t);
-    }
-    pruneEchoDmGraphThreadsMissingFromSnapshot(incomingIds);
   }
 
   function mergeEchoDmThreadFromRealtime(
@@ -215,22 +135,9 @@ export function useAppLayoutEchoDmState(deps: {
   }
 
   function stripEchoDmThreadsForPeer(peerUserId: string) {
-    const m = new Map(echoDmPeerByChannelId.value);
-    const s = new Set(echoDmThreadIds.value);
-    const a = new Map(echoDmLastActivityIdByChannelId.value);
-    const at = new Map(echoDmLastActivityAtMsByChannelId.value);
-    for (const [ch, peer] of [...m.entries()]) {
-      if (peer === peerUserId) {
-        m.delete(ch);
-        s.delete(ch);
-        a.delete(ch);
-        at.delete(ch);
-      }
-    }
-    echoDmPeerByChannelId.value = m;
-    echoDmThreadIds.value = s;
-    echoDmLastActivityIdByChannelId.value = a;
-    echoDmLastActivityAtMsByChannelId.value = at;
+    applyThreadRegistryState(
+      removeEchoDmThreadsForPeer(currentThreadRegistryState(), peerUserId),
+    );
   }
 
   function leaveDmUiIfViewingUser(userId: string) {

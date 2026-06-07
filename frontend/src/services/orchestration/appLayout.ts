@@ -1,16 +1,28 @@
 import type { SendServiceDeps } from '@/services/send/send';
 import type { createSendService } from '@/services/send/send';
 
+export type AppLayoutVoiceJoinArgs = [
+  serverId: string,
+  channelId: string,
+  userId?: unknown,
+];
+
+export type AppLayoutVoiceLeaveArgs = [
+  serverId: string,
+  channelId?: unknown,
+  userId?: unknown,
+];
+
 export type AppLayoutDeps = {
   createSendService: (
     deps: SendServiceDeps,
   ) => ReturnType<typeof createSendService>;
-  workspaceLifecycleService: { hydrate: () => Promise<any> };
+  workspaceLifecycleService: { hydrate: () => Promise<unknown> };
   voiceRoutingService?: {
-    handleJoinVoice: (...args: any[]) => void;
-    handleLeaveVoice: (...args: any[]) => void;
+    handleJoinVoice: (...args: AppLayoutVoiceJoinArgs) => void;
+    handleLeaveVoice: (...args: AppLayoutVoiceLeaveArgs) => void;
   };
-  adapters?: any;
+  adapters?: Record<string, unknown>;
 };
 
 export function createAppLayoutService({
@@ -27,10 +39,10 @@ export function createAppLayoutService({
     async hydrateWorkspace() {
       return workspaceLifecycleService.hydrate();
     },
-    joinVoice(...args: any[]) {
+    joinVoice(...args: AppLayoutVoiceJoinArgs) {
       return voiceRoutingService?.handleJoinVoice(...args);
     },
-    leaveVoice(...args: any[]) {
+    leaveVoice(...args: AppLayoutVoiceLeaveArgs) {
       return voiceRoutingService?.handleLeaveVoice(...args);
     },
   };

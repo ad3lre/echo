@@ -214,8 +214,20 @@ export function collectMentionNotificationsFromAuthority(input: {
     maxItems: max,
   });
 
+  // Channels that already have a hydrated mention row from the local cache (e.g. a
+  // live Discord bridge `message` socket event) must not also get an attention stub.
+  // The stub anchor is `latestUnreadMessageId`, which is often a newer non-mention
+  // message — it can never resolve and surfaces as "Could not load this mention…".
+  const channelsWithResolvedMentionRows = new Set<string>();
+  for (const row of fromMessages) {
+    if (row.preview === MENTION_NOTIFICATION_STUB_PREVIEW) continue;
+    const channelId = row.channelId.trim();
+    if (channelId) channelsWithResolvedMentionRows.add(channelId);
+  }
+
   const byKey = new Map<string, DmMentionNotificationRow>();
   for (const row of buildAttentionStubMentionRows(input)) {
+    if (channelsWithResolvedMentionRows.has(row.channelId.trim())) continue;
     byKey.set(row.key, row);
   }
   for (const row of fromMessages) {

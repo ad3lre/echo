@@ -72,20 +72,20 @@ numbers, logging, and process safety.
 
 ## 3. Violations summary
 
-| Rule                            | Findings                                                      | Dominant severity       | Notes                                                |
-| ------------------------------- | ------------------------------------------------------------- | ----------------------- | ---------------------------------------------------- |
-| C1 nesting (≥8 levels)          | **940 lines** (.ts)                                           | OPEN                    | Concentrated in the same monster modules as C3/C4.   |
-| C2 lines >100 cols              | **3,625 lines**                                               | OPEN (mostly low)       | Mostly long string literals / table defs / comments. |
-| C3 functions ≥120 lines         | **208 blocks**                                                | OPEN                    | Many are whole composable `useX()` setups.           |
-| C4 files >400 lines             | **254 files** (30 over 1500)                                  | OPEN                    | Top: `useAppLayoutController.ts` 4,684.              |
-| C5 terminology                  | **29 hits** (4 real `whitelist`; rest HLS/audio domain terms) | mixed                   | No `master/slave` pairs found.                       |
-| C6 magic numbers                | **8 extracted**, ~12 deferred                                 | RESOLVED (tuning knobs) | Self-evident one-shot UI delays left as WONTFIX.     |
-| C7 dead code / TODO / modelines | **1 TODO, 1 commented-line, 0 modelines**                     | low                     | Codebase is very clean here.                         |
-| C8 centralized cleanup          | qualitative                                                   | review                  | Spot-check the long-function offenders.              |
-| C9 explicit `any`               | **193**                                                       | OPEN                    | Plus 2 documented `@ts-expect-error`.                |
-| C10 `process.exit` (non-entry)  | **10** (9 in `config.ts` fail-fast)                           | ACCEPTED (mostly)       | Boot-time config validation.                         |
-| C11 reuse / duplication         | qualitative                                                   | review                  | `numberParsing` extraction is a recent example fix.  |
-| C12 `console.*` runtime         | **221** (mostly scripts/CLI)                                  | mixed                   | App-runtime ones are the concern.                    |
+| Rule                            | Findings                                                      | Dominant severity       | Notes                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| C1 nesting (≥8 levels)          | **940 lines** (.ts)                                           | OPEN                    | Concentrated in the same monster modules as C3/C4.                                                                         |
+| C2 lines >100 cols              | **3,625 lines**                                               | OPEN (mostly low)       | Mostly long string literals / table defs / comments.                                                                       |
+| C3 functions ≥120 lines         | **208 blocks**                                                | OPEN                    | Many are whole composable `useX()` setups.                                                                                 |
+| C4 files >400 lines             | **254 files** (30 over 1500)                                  | OPEN                    | Top: `useAppLayoutController.ts` 4,684.                                                                                    |
+| C5 terminology                  | **29 hits** (4 real `whitelist`; rest HLS/audio domain terms) | mixed                   | No `master/slave` pairs found.                                                                                             |
+| C6 magic numbers                | **8 extracted**, ~12 deferred                                 | RESOLVED (tuning knobs) | Self-evident one-shot UI delays left as WONTFIX.                                                                           |
+| C7 dead code / TODO / modelines | **1 TODO, 1 commented-line, 0 modelines**                     | low                     | Codebase is very clean here.                                                                                               |
+| C8 centralized cleanup          | qualitative                                                   | review                  | Spot-check the long-function offenders.                                                                                    |
+| C9 explicit `any`               | **7** (ACCEPTED)                                              | RESOLVED                | All actionable `any` typed; 7 forwarding-seam `any` kept ACCEPTED w/ eslint-disable. Plus 2 documented `@ts-expect-error`. |
+| C10 `process.exit` (non-entry)  | **10** (9 in `config.ts` fail-fast)                           | ACCEPTED (mostly)       | Boot-time config validation.                                                                                               |
+| C11 reuse / duplication         | qualitative                                                   | review                  | `numberParsing` extraction is a recent example fix.                                                                        |
+| C12 `console.*` runtime         | **221** (mostly scripts/CLI)                                  | mixed                   | App-runtime ones are the concern.                                                                                          |
 
 ---
 
@@ -101,38 +101,38 @@ numbers, logging, and process safety.
 > Reproduce all `>400`: `find frontend/src backend/src bot/src shared voice-sidecar/src -type f \( -name '*.ts' -o -name '*.vue' \) | grep -vE 'node_modules|/dist/|__tests__|\.test\.|\.integration\.|/tests/' | xargs wc -l | awk '$1>400' | sort -rn`
 > Buckets: **30** files >1500 · **54** files 801–1500 · **170** files 401–800.
 
-| ID     | Lines | File                                                                              | Status |
-| ------ | ----- | --------------------------------------------------------------------------------- | ------ |
-| C4-001 | 4684  | `frontend/src/features/layout/composables/useAppLayoutController.ts`              | OPEN   |
-| C4-002 | 3586  | `frontend/src/components/AppLayout.vue`                                           | OPEN   |
-| C4-003 | 3502  | `frontend/src/composables/useLiveKitVoiceRoom.ts`                                 | OPEN   |
-| C4-004 | 3440  | `frontend/src/features/voice/components/VcActivityStage.vue`                      | OPEN   |
-| C4-005 | 3356  | `frontend/src/features/voice/components/VcHangmanGame.vue`                        | OPEN   |
-| C4-006 | 2883  | `frontend/src/features/channel-panel/components/ChannelPanelList.vue`             | OPEN   |
-| C4-007 | 2777  | `frontend/src/components/chat/MessageList.vue`                                    | OPEN   |
-| C4-008 | 2758  | `backend/src/db/echoTables.ts`                                                    | OPEN   |
-| C4-009 | 2719  | `backend/src/domain/echoMessagesDal.ts`                                           | OPEN   |
-| C4-010 | 2707  | `frontend/src/features/server-settings/components/ServerSettingsRolesSection.vue` | OPEN   |
-| C4-011 | 2611  | `backend/src/services/discordImport.ts`                                           | OPEN   |
-| C4-012 | 2583  | `frontend/src/components/MoreServersPanel.vue`                                    | OPEN   |
-| C4-013 | 2573  | `frontend/src/features/layout/composables/useServerVoiceSession.ts`               | OPEN   |
-| C4-014 | 2417  | `frontend/src/features/layout/components/AppLayoutChatHeader.vue`                 | OPEN   |
-| C4-015 | 2341  | `frontend/src/components/chat/ChatInput.vue`                                      | OPEN   |
-| C4-016 | 2139  | `frontend/src/features/layout/composables/useAppLayoutDmCalls.ts`                 | OPEN   |
-| C4-017 | 1945  | `backend/src/config.ts`                                                           | OPEN   |
-| C4-018 | 1928  | `frontend/src/components/DMPanel.vue`                                             | OPEN   |
-| C4-019 | 1873  | `backend/src/auth/store/postgres/PostgresAuthStore.ts`                            | OPEN   |
-| C4-020 | 1861  | `frontend/src/components/ChannelSettingsModal.vue`                                | OPEN   |
-| C4-021 | 1848  | `frontend/src/features/auth/MobileAuthExperience.vue`                             | OPEN   |
-| C4-022 | 1787  | `frontend/src/components/LoginRegisterModal.vue`                                  | OPEN   |
-| C4-023 | 1776  | `backend/src/domain/echoStore/categoriesWorkspace.ts`                             | OPEN   |
-| C4-024 | 1730  | `frontend/src/audio/voiceEchoLiveKitData.ts`                                      | OPEN   |
-| C4-025 | 1726  | `frontend/src/api/authClient.ts`                                                  | OPEN   |
-| C4-026 | 1723  | `frontend/src/components/CallView.vue`                                            | OPEN   |
-| C4-027 | 1683  | `frontend/src/features/settings/components/SettingsAccount.vue`                   | OPEN   |
-| C4-028 | 1653  | `frontend/src/features/layout/components/AppLayoutLeftChrome.vue`                 | OPEN   |
-| C4-029 | 1624  | `frontend/src/components/chat/MessageBubble.vue`                                  | OPEN   |
-| C4-030 | 1561  | `frontend/src/features/layout/components/WelcomeBackExploreGate.vue`              | OPEN   |
+| ID     | Lines | File                                                                              | Status                                                                                                     |
+| ------ | ----- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| C4-001 | 4684  | `frontend/src/features/layout/composables/useAppLayoutController.ts`              | OPEN                                                                                                       |
+| C4-002 | 3586  | `frontend/src/components/AppLayout.vue`                                           | OPEN                                                                                                       |
+| C4-003 | 3502  | `frontend/src/composables/useLiveKitVoiceRoom.ts`                                 | OPEN                                                                                                       |
+| C4-004 | 3440  | `frontend/src/features/voice/components/VcActivityStage.vue`                      | OPEN                                                                                                       |
+| C4-005 | 3356  | `frontend/src/features/voice/components/VcHangmanGame.vue`                        | OPEN                                                                                                       |
+| C4-006 | 2883  | `frontend/src/features/channel-panel/components/ChannelPanelList.vue`             | OPEN                                                                                                       |
+| C4-007 | 2777  | `frontend/src/components/chat/MessageList.vue`                                    | OPEN                                                                                                       |
+| C4-008 | 2758  | `backend/src/db/echoTables.ts`                                                    | OPEN                                                                                                       |
+| C4-009 | 2719  | `backend/src/domain/echoMessagesDal.ts`                                           | OPEN                                                                                                       |
+| C4-010 | 2707  | `frontend/src/features/server-settings/components/ServerSettingsRolesSection.vue` | OPEN                                                                                                       |
+| C4-011 | 2483  | `backend/src/services/discordImport.ts`                                           | PARTIAL (pure helpers → `discordImportJson.ts`, `discordImportPermissions.ts`; main still oversized)       |
+| C4-012 | 2583  | `frontend/src/components/MoreServersPanel.vue`                                    | OPEN                                                                                                       |
+| C4-013 | 2573  | `frontend/src/features/layout/composables/useServerVoiceSession.ts`               | OPEN                                                                                                       |
+| C4-014 | 2417  | `frontend/src/features/layout/components/AppLayoutChatHeader.vue`                 | OPEN                                                                                                       |
+| C4-015 | 2341  | `frontend/src/components/chat/ChatInput.vue`                                      | OPEN                                                                                                       |
+| C4-016 | 2139  | `frontend/src/features/layout/composables/useAppLayoutDmCalls.ts`                 | OPEN                                                                                                       |
+| C4-017 | 1945  | `backend/src/config.ts`                                                           | OPEN                                                                                                       |
+| C4-018 | 1928  | `frontend/src/components/DMPanel.vue`                                             | OPEN                                                                                                       |
+| C4-019 | 1873  | `backend/src/auth/store/postgres/PostgresAuthStore.ts`                            | OPEN                                                                                                       |
+| C4-020 | 1861  | `frontend/src/components/ChannelSettingsModal.vue`                                | OPEN                                                                                                       |
+| C4-021 | 1848  | `frontend/src/features/auth/MobileAuthExperience.vue`                             | OPEN                                                                                                       |
+| C4-022 | 1787  | `frontend/src/components/LoginRegisterModal.vue`                                  | OPEN                                                                                                       |
+| C4-023 | 1776  | `backend/src/domain/echoStore/categoriesWorkspace.ts`                             | OPEN                                                                                                       |
+| C4-024 | 11    | `frontend/src/audio/voiceEchoLiveKitData.ts`                                      | RESOLVED (barrel; codecs split into `voiceData/*` by activity)                                             |
+| C4-025 | 1480  | `frontend/src/api/authClient.ts`                                                  | PARTIAL (core types/errors/transport helpers → `authClientCore.ts`; below hard threshold, still oversized) |
+| C4-026 | 1233  | `frontend/src/components/CallView.vue`                                            | RESOLVED (state/media/menu logic → `useCallViewState.ts`; below hard threshold)                            |
+| C4-027 | 1683  | `frontend/src/features/settings/components/SettingsAccount.vue`                   | OPEN                                                                                                       |
+| C4-028 | 1653  | `frontend/src/features/layout/components/AppLayoutLeftChrome.vue`                 | OPEN                                                                                                       |
+| C4-029 | 1624  | `frontend/src/components/chat/MessageBubble.vue`                                  | OPEN                                                                                                       |
+| C4-030 | 1561  | `frontend/src/features/layout/components/WelcomeBackExploreGate.vue`              | OPEN                                                                                                       |
 
 > Note: `useAppLayoutController.ts` (C4-001) is the subject of an in-flight
 > move-only decomposition effort — already recognized as the top offender.
@@ -198,24 +198,40 @@ numbers, logging, and process safety.
 | C2-009 | 29    | `frontend/src/components/chat/PendingMediaPreview.vue` / `DMCallView.vue` / `ChannelSettingsModal.vue` / `backend/.../discordImport.ts` | OPEN               |
 | C2-010 | 28    | `frontend/src/components/DMPanel.vue`                                                                                                   | OPEN               |
 
-### C9 — Explicit `any` (top offenders of 193)
+### C9 — Explicit `any` (top offenders of 119)
 
 > Reproduce: `... | xargs grep -nE ':[[:space:]]*any\b|as any\b|<any>|\bany\[\]'`.
 > ESLint already flags these as `warn` under `lintStrict`.
 
-| ID     | Count | File                                                                                                                                       | Status   |
-| ------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| C9-001 | 17    | `frontend/src/components/AppLayout.vue`                                                                                                    | OPEN     |
-| C9-002 | 8     | `frontend/src/features/layout/composables/useAppLayoutProfilesDomain.ts`                                                                   | OPEN     |
-| C9-003 | 7     | `frontend/src/features/server-settings/components/ServerSettingsEmojiSection.vue`                                                          | OPEN     |
-| C9-004 | 7     | `frontend/src/features/layout/components/AppLayoutLeftChrome.vue`                                                                          | OPEN     |
-| C9-005 | 6     | `frontend/src/services/orchestration/appLayout.ts`                                                                                         | OPEN     |
-| C9-006 | 6     | `frontend/src/composables/useLiveKitVoiceRoom.ts`                                                                                          | OPEN     |
-| C9-007 | 5     | `frontend/src/services/orchestration/serverSettings.ts`                                                                                    | OPEN     |
-| C9-008 | 5     | `frontend/src/features/settings/composables/useSettingsAccountSecurity.ts`                                                                 | OPEN     |
-| C9-009 | 5     | `frontend/src/features/layout/components/AppLayoutChatHeader.vue`                                                                          | OPEN     |
-| C9-010 | 5     | `frontend/src/features/forums/domain/forumPostChannel.ts`                                                                                  | OPEN     |
-| C9-011 | 2     | `@ts-expect-error` — `backend/src/services/linkUnfurl/linkUnfurl.ts:237`, `linkUnfurlFetch.ts:227` (Node 18+ undici dispatcher typing gap) | ACCEPTED |
+| ID     | Count | File                                                                                                                                                                                                                                                                   | Status   |
+| ------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| C9-001 | 0     | `frontend/src/components/AppLayout.vue`                                                                                                                                                                                                                                | RESOLVED |
+| C9-002 | 0     | `frontend/src/features/layout/composables/useAppLayoutProfilesDomain.ts`                                                                                                                                                                                               | RESOLVED |
+| C9-006 | 0     | `frontend/src/composables/useLiveKitVoiceRoom.ts`                                                                                                                                                                                                                      | RESOLVED |
+| C9-012 | 0     | `frontend/src/features/layout/chatSwitchPerfTrace.ts`                                                                                                                                                                                                                  | RESOLVED |
+| C9-013 | 0     | `frontend/src/features/chat/components/ChatInputComposerBar.vue`                                                                                                                                                                                                       | RESOLVED |
+| C9-014 | 0     | `frontend/src/features/channel-panel/components/ChannelPanelList.vue`                                                                                                                                                                                                  | RESOLVED |
+| C9-015 | 0     | `frontend/src/components/CallView.vue`                                                                                                                                                                                                                                 | RESOLVED |
+| C9-016 | 0     | `frontend/src/api/echo/channels.ts`                                                                                                                                                                                                                                    | RESOLVED |
+| C9-017 | 0     | `backend/src/auth/store/postgres/PostgresAuthStore.ts`                                                                                                                                                                                                                 | RESOLVED |
+| C9-003 | 0     | `frontend/src/features/server-settings/components/ServerSettingsEmojiSection.vue`                                                                                                                                                                                      | RESOLVED |
+| C9-004 | 0     | `frontend/src/features/layout/components/AppLayoutLeftChrome.vue`                                                                                                                                                                                                      | RESOLVED |
+| C9-005 | 0     | `frontend/src/services/orchestration/appLayout.ts`                                                                                                                                                                                                                     | RESOLVED |
+| C9-007 | 0     | `frontend/src/services/orchestration/serverSettings.ts`                                                                                                                                                                                                                | RESOLVED |
+| C9-008 | 0     | `frontend/src/features/settings/composables/useSettingsAccountSecurity.ts`                                                                                                                                                                                             | RESOLVED |
+| C9-009 | 0     | `frontend/src/features/layout/components/AppLayoutChatHeader.vue`                                                                                                                                                                                                      | RESOLVED |
+| C9-010 | 0     | `frontend/src/features/forums/domain/forumPostChannel.ts`                                                                                                                                                                                                              | RESOLVED |
+| C9-011 | 2     | `@ts-expect-error` — `backend/src/services/linkUnfurl/linkUnfurl.ts:237`, `linkUnfurlFetch.ts:227` (Node 18+ undici dispatcher typing gap)                                                                                                                             | ACCEPTED |
+| C9-018 | 0     | Long-tail sweep (~40 files): DB row mappers → `Record<string, unknown>`; `catch (err: any)` → `unknown` + `instanceof Error`/`pgErrorCode`; stale casts dropped; props/composables typed (StreamVideoTileTrack, ManagedRole, ChannelSummary, YouTube IFrame API, etc.) | RESOLVED |
+
+> **C9 remainder (7 ACCEPTED).** Two layout prop-forwarding shims
+> (`AppLayoutChatSurface.vue`, `AppLayoutModals.vue`) return a merged
+> inject+props bag as `any` so child components keep their own prop contracts;
+> two channel computeds bridge the slim search-panel shape to the wider voice/DM
+> child summaries; three context-menu `menuRef` props receive a parent ref that
+> Vue unwraps to its element when forwarded to a child `:ref`. Each is annotated
+> with an `eslint-disable-next-line @typescript-eslint/no-explicit-any` and a
+> reason; tightening them would break the child contracts or all call sites.
 
 ### C12 — `console.*` in runtime code (221 total)
 

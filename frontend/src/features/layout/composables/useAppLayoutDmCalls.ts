@@ -1397,7 +1397,14 @@ export function useAppLayoutDmCalls(deps: {
       workspaceHydrator: { hydrate: hydrateEchoFromApi },
       liveKit: liveKitVoiceApi
         ? {
-            connect: liveKitVoiceApi.connect.bind(liveKitVoiceApi),
+            connect: (url, token, bitrateBps, e2eeMediaKey) =>
+              liveKitVoiceApi.connect(url, token, bitrateBps, e2eeMediaKey, {
+                initialAudioState: {
+                  muted: dmCallMuted.value,
+                  deafened:
+                    dmCallDeafened.value || micTestListenDeafenActive.value,
+                },
+              }),
             disconnect: liveKitVoiceApi.disconnect.bind(liveKitVoiceApi),
           }
         : undefined,

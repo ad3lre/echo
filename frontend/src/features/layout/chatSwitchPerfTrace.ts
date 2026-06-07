@@ -1,6 +1,15 @@
 import type { RailTab } from '@/features/layout/mainSurface';
 import { emitDiagnostic, newTraceId } from '@/observability/sessionDiagnostics';
 
+// Chrome DevTools exposes non-standard `console.profile`/`profileEnd` that the
+// lib.dom typings omit; narrow to an optional shape rather than reaching for any.
+type DevtoolsConsole = Console & {
+  profile?: (label: string) => void;
+  profileEnd?: (label: string) => void;
+};
+
+type PerfDumpWindow = Window & { dumpPerf?: () => void };
+
 type ChatSwitchSnapshot = {
   switchId: number;
   traceId: string;
@@ -69,9 +78,9 @@ export function beginChatSwitch(params: {
   if (
     profileEnabled &&
     typeof console !== 'undefined' &&
-    (console as any).profile
+    (console as DevtoolsConsole).profile
   ) {
-    (console as any).profile(`chat-switch-${snapshot.switchId}`);
+    (console as DevtoolsConsole).profile?.(`chat-switch-${snapshot.switchId}`);
   }
 
   if (profileEnabled) {
@@ -162,9 +171,11 @@ export function emitChatSwitchEvent(params: {
     if (
       snapshot.shouldProfile &&
       typeof console !== 'undefined' &&
-      (console as any).profileEnd
+      (console as DevtoolsConsole).profileEnd
     ) {
-      (console as any).profileEnd(`chat-switch-${snapshot.switchId}`);
+      (console as DevtoolsConsole).profileEnd?.(
+        `chat-switch-${snapshot.switchId}`,
+      );
     }
   }
 
@@ -201,7 +212,7 @@ export function emitChatSwitchEvent(params: {
 }
 
 if (typeof window !== 'undefined') {
-  (window as any).dumpPerf = () => {
+  (window as PerfDumpWindow).dumpPerf = () => {
     const entries = performance.getEntriesByType('measure');
     const sorted = entries.sort((a, b) => b.duration - a.duration).slice(0, 10);
     console.table(

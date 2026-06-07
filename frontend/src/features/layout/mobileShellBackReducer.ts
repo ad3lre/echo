@@ -5,6 +5,8 @@
 
 export type MobileShellBackSnapshot = {
   useCompactTriPaneShell: boolean;
+  useCompactGuildSplitShell: boolean;
+  memberPanelCollapsed: boolean;
   useCompactExploreShell: boolean;
   useCompactDmShell: boolean;
   useCompactStackShell: boolean;
@@ -18,6 +20,7 @@ export type MobileShellBackSnapshot = {
 export type MobileShellBackResult =
   | { kind: 'tri_pane_pager'; next: 0 | 1 | 2 }
   | { kind: 'tri_pane_collapse_channel_stack' }
+  | { kind: 'split_collapse_members' }
   | { kind: 'explore_pane'; next: 0 | 1 }
   | { kind: 'dm_pane'; next: 0 | 1 }
   | { kind: 'history_back' }
@@ -32,6 +35,16 @@ export function planMobileShellBack(
 ): MobileShellBackResult {
   if (!opts.isCompactShell) {
     return { kind: 'noop_desktop', action: 'servers_rail_only' };
+  }
+
+  if (snapshot.useCompactGuildSplitShell) {
+    if (!snapshot.memberPanelCollapsed) {
+      return { kind: 'split_collapse_members' };
+    }
+    if (opts.historyLength > 1) {
+      return { kind: 'history_back' };
+    }
+    return { kind: 'servers_rail_only' };
   }
 
   if (snapshot.useCompactTriPaneShell) {

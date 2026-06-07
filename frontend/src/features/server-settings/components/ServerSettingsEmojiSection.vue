@@ -7,6 +7,11 @@ import { useDevSettingsStore } from '@/stores/devSettings';
 import { linkTokenCustomEmoji } from '@/utils/idTokens';
 import EmojiPackTagsField from '@/features/server-settings/components/EmojiPackTagsField.vue';
 import { icons } from '@/assets/icons';
+import type {
+  ManagedEmoji,
+  ManagedEmojiPack,
+  ManagedSticker,
+} from '@/features/server-settings/composables/useServerSettingsEmoji';
 
 const devSettings = useDevSettingsStore();
 const { devModeIdsEnabled } = storeToRefs(devSettings);
@@ -55,14 +60,14 @@ const props = defineProps<{
     tone: 'success' | 'error' | 'info';
     message: string;
   } | null;
-  serverEmojiPacks: any[];
+  serverEmojiPacks: ManagedEmojiPack[];
   canImportMorePacks: boolean;
-  selectedEmojiPack: any | null;
-  selectedEmoji: any | null;
-  selectedSticker: any | null;
-  filteredPackEmojis: any[];
-  filteredPackStickers: any[];
-  filteredMarketEmojiPacks: any[];
+  selectedEmojiPack: ManagedEmojiPack | null;
+  selectedEmoji: ManagedEmoji | null;
+  selectedSticker: ManagedSticker | null;
+  filteredPackEmojis: ManagedEmoji[];
+  filteredPackStickers: ManagedSticker[];
+  filteredMarketEmojiPacks: ManagedEmojiPack[];
   marketEmojiPacksLoading: boolean;
   marketEmojiPacksError: string | null;
   refreshMarketEmojiPacks: () => void | Promise<void>;
@@ -516,7 +521,7 @@ watch(
                     Add sticker
                   </div>
                   <div class="truncate text-[11px] text-fg-subtle">
-                    PNG, APNG, or GIF · up to 512KB
+                    PNG, APNG, or GIF · auto-compressed to 512KB
                   </div>
                 </div>
               </div>
@@ -662,7 +667,7 @@ watch(
               <div class="min-w-0 text-left">
                 <div class="text-sm font-semibold text-fg">Add a sticker</div>
                 <div class="mt-0.5 text-xs text-fg-subtle">
-                  PNG, APNG, or GIF · appears in the composer sticker picker
+                  PNG, APNG, or GIF · auto-compressed to 512KB where possible
                 </div>
               </div>
             </button>

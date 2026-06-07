@@ -15,6 +15,7 @@ describe('shouldAppToastClearBottomChrome', () => {
     chatComposerFocused: false,
     measuredChromeInsetPx: 0,
     useCompactTriPaneShell: false,
+    useCompactGuildSplitShell: false,
     useCompactDmShell: false,
     hasGuildChannelChrome: false,
     isDmThreadSurface: false,

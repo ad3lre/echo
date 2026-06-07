@@ -11,6 +11,7 @@ import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
 import type { DmSubView, RailTab } from '@/features/layout/mainSurface';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
+import type { DmPanelInboxEntry } from '@/features/dm/buildDmPanelUserList';
 
 /** Active guild VC row for DM panel “voice activity” strip (horizontal carousel). */
 export type GuildVoiceActivityCard = {
@@ -45,6 +46,23 @@ export type GuildEventActivityCard = {
   goingCount: number;
 };
 
+export type DmMessageRequestRow = {
+  id: string;
+  channelId: string;
+  fromUserId: string;
+  preview: string;
+};
+
+export type DmFriendRequestIncomingRow = {
+  id: string;
+  fromUserId: string;
+};
+
+export type DmFriendRequestOutgoingRow = {
+  id: string;
+  toUserId: string;
+};
+
 /** Props for `AppLayoutLeftChrome` — optional when `LAYOUT_LEFT_CHROME_KEY` is provided. */
 export type AppLayoutLeftChromeProps = {
   /**
@@ -52,6 +70,8 @@ export type AppLayoutLeftChromeProps = {
    * even when grid `channelPanelCollapsed` / `memberPanelCollapsed` are false.
    */
   compactTriPaneGuildNav?: boolean;
+  /** Compact tablet split: rail + fixed-width channel column + chat visible together. */
+  compactGuildSplitNav?: boolean;
   /** Tri-pane guild: channel/DM/more column visible (after explicit channel-list open, not swipe-only). */
   compactGuildTriPaneChannelPanelOpen?: boolean;
   /** Collapses the server rail column; used when the welcome-back explore gate is full-width. */
@@ -144,24 +164,7 @@ export type AppLayoutLeftChromeProps = {
    */
   isDmInboxGroupFavorite?: (channelId: string) => boolean;
   /** Merged 1:1 + group DM rows (Messages tab), recency-sorted. */
-  dmInboxEntries: Array<
-    | {
-        kind: 'user';
-        id: string;
-        name: string;
-        pfp: string;
-        status: string;
-        customStatus?: string;
-        unreadDmCount?: number;
-      }
-    | {
-        kind: 'group';
-        id: string;
-        name: string;
-        pfp: string;
-        unreadDmCount?: number;
-      }
-  >;
+  dmInboxEntries: DmPanelInboxEntry[];
   /** Echo DM channel id → peer user id (DM inbox last-message subtitles). */
   echoPeerByChannelId?: ReadonlyMap<string, string>;
   /** Server channel list + VC participant name/avatar resolution (member roster). */
@@ -176,9 +179,9 @@ export type AppLayoutLeftChromeProps = {
   selectedDmUserId: string | null;
   selectedMessageRequestId: string | null;
   friendIds: string[];
-  messageRequests: unknown[];
-  friendRequestsIncoming: unknown[];
-  friendRequestsOutgoing: unknown[];
+  messageRequests: DmMessageRequestRow[];
+  friendRequestsIncoming: DmFriendRequestIncomingRow[];
+  friendRequestsOutgoing: DmFriendRequestOutgoingRow[];
   dmMentionNotifications?: DmMentionNotificationRow[];
   dmNotificationReadStateByChannelId?: Readonly<Record<string, string | null>>;
   mentionNotificationCategoriesByServer?: Readonly<

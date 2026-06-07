@@ -1,33 +1,27 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
 import { echoInviteSharePageUrl } from '@/utils/echoInviteShareUrl';
-import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { useMoreServers } from '@/composables/useMoreServers';
 import type { MoreServersMockServer } from '@/composables/useMoreServers';
 import { useMoreServerFolders } from '@/composables/useMoreServerFolders';
-import type { MoreServerWidgetFolder } from '@/composables/useMoreServerFolders';
+import { useMoreServersLayout } from '@/composables/useMoreServersLayout';
+import { useMoreServersMenus } from '@/composables/useMoreServersMenus';
+import { useMoreServersFolders } from '@/composables/useMoreServersFolders';
 import {
   useMoreServerFolderDrag,
   type MoreServerDropTarget,
 } from '@/composables/useMoreServerFolderDrag';
 import MoreServerFolderModal from '@/components/MoreServerFolderModal.vue';
 import MoreServerCompactHoverPreview from '@/components/MoreServerCompactHoverPreview.vue';
+import MoreServersCardStack from '@/components/MoreServersCardStack.vue';
+import MoreServersCompactList from '@/components/MoreServersCompactList.vue';
+import MoreServersContextMenus from '@/components/MoreServersContextMenus.vue';
 import { useMoreServerCompactHoverPreview } from '@/composables/useMoreServerCompactHoverPreview';
 import { useServerStore } from '@/stores/server';
 import { MAX_STARRED_SERVERS } from '@/utils/serverRailReorder';
 import { showStarredServerLimitAlert } from '@/utils/serverRailPinFeedback';
-import { visibleFolderServerIds } from '@/utils/moreServerFoldersPersistence';
 import { icons } from '@/assets/icons';
-import iconFolder from '@/assets/icons/folder.svg?url';
-
-const menuItemIconClass =
-  'echo-menu-item-icon echo-menu-item-icon--img h-4 w-4 shrink-0 filter invert';
-
-type WidgetFolderContextMenu =
-  | { target: 'server'; serverId: string; left: number; top: number }
-  | { target: 'folder'; folderId: string; left: number; top: number };
 
 const props = defineProps<{
   open: boolean;
@@ -69,24 +63,6 @@ const {
   toggleFolderCollapsedInCard,
 } = useMoreServerFolders();
 
-const folderModalOpen = ref(false);
-const folderModalMode = ref<'create' | 'edit'>('create');
-const folderModalTargetId = ref<string | null>(null);
-const pendingServerForNewFolder = ref<string | null>(null);
-
-const folderModalInitialName = computed(() => {
-  if (folderModalMode.value !== 'edit' || !folderModalTargetId.value) return '';
-  return (
-    folders.value.find((f) => f.id === folderModalTargetId.value)?.name ?? ''
-  );
-});
-
-const folderModalServerCount = computed(() => {
-  if (!folderModalTargetId.value) return 0;
-  const f = folders.value.find((x) => x.id === folderModalTargetId.value);
-  return f?.serverIds.length ?? 0;
-});
-
 function handleServerDrop(serverId: string, target: MoreServerDropTarget) {
   if (target.kind === 'ungrouped') {
     moveServerInFolder(serverId, null);
@@ -123,393 +99,80 @@ const {
   dismissPreview: dismissCompactPreviewNow,
 } = useMoreServerCompactHoverPreview();
 
-const openMenuId = ref<string | null>(null);
-const cardMenuTriggerRef = ref<HTMLElement | null>(null);
-const cardMenuPosition = ref<{ left: number; top: number } | null>(null);
-const contextMenu = ref<WidgetFolderContextMenu | null>(null);
-
-const CARD_MENU_WIDTH = 200;
-const CARD_MENU_EST_HEIGHT = 320;
-const CARD_MENU_GAP = 6;
-
-const openMenuServer = computed(() => {
-  const id = openMenuId.value;
-  if (!id) return null;
-  return serverById.value.get(id) ?? null;
+const {
+  serverById,
+  otherServersSearchQuery,
+  normalizedOtherServersSearch,
+  filteredUngroupedServers,
+  showOtherServersSearch,
+  foldersWithServers,
+  foldersWithServersMap,
+  folderPeekServers,
+  cardStack,
+  compactRows,
+} = useMoreServersLayout({
+  servers: moreServersList,
+  folders,
+  validServerIds,
+  isPinned,
+  isFolderCollapsedInCard,
 });
 
-const cardMenuStyle = computed(() => {
-  const p = cardMenuPosition.value;
-  if (!p) return {};
-  return { left: `${p.left}px`, top: `${p.top}px` };
+const {
+  openMenuId,
+  cardMenuPosition,
+  contextMenu,
+  openMenuServer,
+  cardMenuStyle,
+  contextMenuStyle,
+  setCardMenuTriggerRef,
+  closeContextMenu,
+  openServerContextMenu,
+  openFolderContextMenu,
+  toggleMenu,
+} = useMoreServersMenus({ serverById });
+
+const {
+  folderModalOpen,
+  folderModalMode,
+  folderModalInitialName,
+  folderModalServerCount,
+  openCreateFolderModal,
+  onFolderModalSave,
+  onFolderModalDelete,
+  onCreateWidgetFolder,
+  assignServerToFolder,
+  assignServerToFolderFromMenu,
+  newFolderFromContextMenu,
+  newFolderWithServer,
+  contextMenuToggleFolderLayout,
+  contextMenuFolderExpandedLabel,
+  contextMenuFolderName,
+  contextMenuEditFolder,
+  contextMenuDeleteFolder,
+} = useMoreServersFolders({
+  folders,
+  addFolder,
+  removeFolder,
+  renameFolder,
+  moveServerInFolder,
+  setServerFolderMembership,
+  setFolderExpandedInCompact,
+  toggleFolderExpandedInCompact,
+  toggleFolderCollapsedInCard,
+  isFolderExpandedInCompact,
+  isFolderCollapsedInCard,
+  compact: () => props.compact,
+  contextMenu,
+  closeContextMenu,
+  openMenuId,
 });
-
-function syncCardMenuPosition() {
-  const el = cardMenuTriggerRef.value;
-  if (!el || !openMenuId.value) {
-    cardMenuPosition.value = null;
-    return;
-  }
-  const r = el.getBoundingClientRect();
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  let left = r.right - CARD_MENU_WIDTH;
-  left = Math.max(8, Math.min(left, vw - CARD_MENU_WIDTH - 8));
-  let top = r.top - CARD_MENU_GAP - CARD_MENU_EST_HEIGHT;
-  if (top < 8) top = r.bottom + CARD_MENU_GAP;
-  top = Math.max(8, Math.min(top, vh - CARD_MENU_EST_HEIGHT - 8));
-  cardMenuPosition.value = { left, top };
-}
-
-function setCardMenuTriggerRef(serverId: string, el: unknown) {
-  if (openMenuId.value !== serverId) return;
-  cardMenuTriggerRef.value = (el as HTMLElement | null) ?? null;
-}
-
-function onCardMenuScrollOrResize() {
-  if (openMenuId.value) syncCardMenuPosition();
-}
-
-const contextMenuStyle = computed(() => {
-  const m = contextMenu.value;
-  if (!m) return {};
-  const vw = typeof window !== 'undefined' ? window.innerWidth : 800;
-  const vh = typeof window !== 'undefined' ? window.innerHeight : 600;
-  const left = Math.max(8, Math.min(m.left, vw - 220));
-  const top = Math.max(8, Math.min(m.top, vh - 320));
-  return { left: `${left}px`, top: `${top}px` };
-});
-
-const mockServers = moreServersList;
-
-const sortedServers = computed(() => {
-  const all = mockServers.value;
-  const pinned = all.filter((s) => isPinned(s.id));
-  const unpinned = all.filter((s) => !isPinned(s.id));
-  return [...pinned, ...unpinned];
-});
-
-const serverById = computed(
-  () => new Map(sortedServers.value.map((s) => [s.id, s] as const)),
-);
-
-const idsInAnyFolder = computed(() => {
-  const ids = new Set<string>();
-  for (const f of folders.value) for (const id of f.serverIds) ids.add(id);
-  return ids;
-});
-
-const ungroupedServers = computed(() =>
-  sortedServers.value.filter((s) => !idsInAnyFolder.value.has(s.id)),
-);
-
-const otherServersSearchQuery = ref('');
-
-const normalizedOtherServersSearch = computed(() =>
-  otherServersSearchQuery.value.trim().toLowerCase(),
-);
-
-const filteredUngroupedServers = computed(() => {
-  const q = normalizedOtherServersSearch.value;
-  if (!q) return ungroupedServers.value;
-  return ungroupedServers.value.filter((s) => s.name.toLowerCase().includes(q));
-});
-
-const showOtherServersSearch = computed(
-  () => ungroupedServers.value.length > 0,
-);
-
-const foldersWithServers = computed(() =>
-  folders.value.map((folder) => ({
-    folder,
-    servers: visibleFolderServerIds(folder, validServerIds.value)
-      .map((id) => serverById.value.get(id))
-      .filter((x): x is MoreServersMockServer => !!x),
-  })),
-);
-
-const foldersWithServersMap = computed(
-  () => new Map(foldersWithServers.value.map((x) => [x.folder.id, x] as const)),
-);
-
-const FOLDER_ICON_PEEK_MAX = 3;
-
-function folderPeekServers(
-  servers: MoreServersMockServer[],
-): MoreServersMockServer[] {
-  return servers.slice(0, FOLDER_ICON_PEEK_MAX);
-}
-
-type CardStackItem =
-  | {
-      type: 'folderLabel';
-      key: string;
-      folder: MoreServerWidgetFolder;
-      folderOrderIndex: number;
-    }
-  | { type: 'ungroupedLabel'; key: string }
-  | {
-      type: 'server';
-      key: string;
-      server: MoreServersMockServer;
-      topSpacer: boolean;
-      folderId?: string;
-      serverIndexInFolder?: number;
-      ungroupedIndex?: number;
-      /** When this row sits under a widget folder header, show a subtle chip. */
-      inFolderName?: string;
-    };
-
-const cardStack = computed((): CardStackItem[] => {
-  const out: CardStackItem[] = [];
-  let folderOrderIndex = 0;
-  for (const { folder, servers } of foldersWithServers.value) {
-    out.push({
-      type: 'folderLabel',
-      key: `h-${folder.id}`,
-      folder,
-      folderOrderIndex: folderOrderIndex++,
-    });
-    if (isFolderCollapsedInCard(folder.id)) continue;
-    servers.forEach((server, serverIndexInFolder) => {
-      out.push({
-        type: 'server',
-        key: `f-${folder.id}-${server.id}`,
-        server,
-        topSpacer: false,
-        folderId: folder.id,
-        serverIndexInFolder,
-        inFolderName: folder.name,
-      });
-    });
-  }
-  let ungroupedIndex = 0;
-  if (
-    (ungroupedServers.value.length > 0 ||
-      normalizedOtherServersSearch.value.length > 0) &&
-    foldersWithServers.value.length > 0
-  ) {
-    out.push({ type: 'ungroupedLabel', key: 'ungrouped-label' });
-  }
-  for (const server of filteredUngroupedServers.value) {
-    out.push({
-      type: 'server',
-      key: `u-${server.id}`,
-      server,
-      topSpacer: false,
-      ungroupedIndex: ungroupedIndex++,
-    });
-  }
-  return out;
-});
-
-type CompactRow =
-  | { kind: 'server'; server: MoreServersMockServer; ungroupedIndex: number }
-  | { kind: 'ungroupedLabel' }
-  | {
-      kind: 'folder';
-      folder: MoreServerWidgetFolder;
-      servers: MoreServersMockServer[];
-      folderOrderIndex: number;
-    };
-
-const compactRows = computed((): CompactRow[] => {
-  const rows: CompactRow[] = [];
-  let folderOrderIndex = 0;
-  for (const folder of folders.value) {
-    const servers = visibleFolderServerIds(folder, validServerIds.value)
-      .map((id) => serverById.value.get(id))
-      .filter((x): x is MoreServersMockServer => !!x);
-    rows.push({
-      kind: 'folder',
-      folder,
-      servers,
-      folderOrderIndex: folderOrderIndex++,
-    });
-  }
-  if (
-    (ungroupedServers.value.length > 0 ||
-      normalizedOtherServersSearch.value.length > 0) &&
-    folders.value.length > 0
-  ) {
-    rows.push({ kind: 'ungroupedLabel' });
-  }
-  let ungroupedIndex = 0;
-  for (const server of filteredUngroupedServers.value) {
-    rows.push({ kind: 'server', server, ungroupedIndex: ungroupedIndex++ });
-  }
-  return rows;
-});
-
-function closeContextMenu() {
-  contextMenu.value = null;
-}
-
-function openServerContextMenu(server: MoreServersMockServer, e: MouseEvent) {
-  e.preventDefault();
-  e.stopPropagation();
-  openMenuId.value = null;
-  contextMenu.value = {
-    target: 'server',
-    serverId: server.id,
-    left: e.clientX,
-    top: e.clientY,
-  };
-}
-
-function openFolderContextMenu(folderId: string, e: MouseEvent) {
-  e.preventDefault();
-  e.stopPropagation();
-  openMenuId.value = null;
-  contextMenu.value = {
-    target: 'folder',
-    folderId,
-    left: e.clientX,
-    top: e.clientY,
-  };
-}
-
-function onDocPointerDown(ev: MouseEvent) {
-  const t = ev.target;
-  if (!(t instanceof Node)) return;
-  const ctxEl = document.querySelector('[data-more-servers-folder-menu]');
-  if (ctxEl && !ctxEl.contains(t)) closeContextMenu();
-  if (!openMenuId.value) return;
-  const cardEl = document.querySelector('[data-more-servers-card-menu]');
-  const trigger = cardMenuTriggerRef.value;
-  if (cardEl && !cardEl.contains(t) && trigger && !trigger.contains(t)) {
-    openMenuId.value = null;
-    cardMenuPosition.value = null;
-  }
-}
-
-watch(openMenuId, (id) => {
-  if (id) {
-    nextTick(() => syncCardMenuPosition());
-    window.addEventListener('scroll', onCardMenuScrollOrResize, true);
-    window.addEventListener('resize', onCardMenuScrollOrResize);
-  } else {
-    cardMenuPosition.value = null;
-    window.removeEventListener('scroll', onCardMenuScrollOrResize, true);
-    window.removeEventListener('resize', onCardMenuScrollOrResize);
-  }
-});
-
-onMounted(() => {
-  document.addEventListener('pointerdown', onDocPointerDown, true);
-});
-onUnmounted(() => {
-  document.removeEventListener('pointerdown', onDocPointerDown, true);
-  window.removeEventListener('scroll', onCardMenuScrollOrResize, true);
-  window.removeEventListener('resize', onCardMenuScrollOrResize);
-});
-
-function openCreateFolderModal() {
-  folderModalMode.value = 'create';
-  folderModalTargetId.value = null;
-  folderModalOpen.value = true;
-}
-
-function openEditFolderModal(folderId: string) {
-  folderModalMode.value = 'edit';
-  folderModalTargetId.value = folderId;
-  folderModalOpen.value = true;
-  setFolderExpandedInCompact(folderId, true);
-  closeContextMenu();
-}
-
-function onFolderModalSave(name: string) {
-  if (folderModalMode.value === 'create') {
-    const f = addFolder(name);
-    const sid = pendingServerForNewFolder.value;
-    if (sid) {
-      moveServerInFolder(sid, f.id, 0);
-      pendingServerForNewFolder.value = null;
-    }
-  } else if (folderModalTargetId.value) {
-    renameFolder(folderModalTargetId.value, name);
-  }
-}
-
-function onFolderModalDelete() {
-  const id = folderModalTargetId.value;
-  if (!id) return;
-  removeFolder(id);
-  folderModalTargetId.value = null;
-}
-
-function onCreateWidgetFolder() {
-  pendingServerForNewFolder.value = null;
-  openCreateFolderModal();
-}
 
 function onPanelBackgroundClick() {
   openMenuId.value = null;
   cardMenuPosition.value = null;
   closeContextMenu();
   dismissCompactPreviewNow();
-}
-
-function assignServerToFolder(serverId: string, folderId: string | null) {
-  setServerFolderMembership(serverId, folderId);
-  closeContextMenu();
-}
-
-function assignServerToFolderFromMenu(folderId: string | null) {
-  const m = contextMenu.value;
-  if (!m || m.target !== 'server') return;
-  assignServerToFolder(m.serverId, folderId);
-}
-
-function newFolderFromContextMenu() {
-  const m = contextMenu.value;
-  if (!m || m.target !== 'server') return;
-  newFolderWithServer(m.serverId);
-}
-
-function newFolderWithServer(serverId: string) {
-  pendingServerForNewFolder.value = serverId;
-  openCreateFolderModal();
-  openMenuId.value = null;
-  closeContextMenu();
-}
-
-function contextMenuToggleFolderLayout() {
-  const m = contextMenu.value;
-  if (!m || m.target !== 'folder') return;
-  if (props.compact) {
-    toggleFolderExpandedInCompact(m.folderId);
-  } else {
-    toggleFolderCollapsedInCard(m.folderId);
-  }
-  closeContextMenu();
-}
-
-const contextMenuFolderExpandedLabel = computed(() => {
-  const m = contextMenu.value;
-  if (!m || m.target !== 'folder') return '';
-  if (props.compact) {
-    return isFolderExpandedInCompact(m.folderId)
-      ? 'Collapse folder'
-      : 'Expand folder';
-  }
-  return isFolderCollapsedInCard(m.folderId) ? 'Show servers' : 'Hide servers';
-});
-
-const contextMenuFolderName = computed(() => {
-  const m = contextMenu.value;
-  if (!m || m.target !== 'folder') return 'Folder';
-  return folders.value.find((f) => f.id === m.folderId)?.name ?? 'Folder';
-});
-
-function contextMenuEditFolder() {
-  const m = contextMenu.value;
-  if (!m || m.target !== 'folder') return;
-  openEditFolderModal(m.folderId);
-}
-
-function contextMenuDeleteFolder() {
-  contextMenuEditFolder();
 }
 
 function isPinned(id: string) {
@@ -536,13 +199,6 @@ function togglePin(server: MoreServersMockServer) {
   openMenuId.value = null;
 }
 
-function toggleMenu(id: string) {
-  closeContextMenu();
-  const next = openMenuId.value === id ? null : id;
-  openMenuId.value = next;
-  if (!next) cardMenuPosition.value = null;
-}
-
 function onLeaveServer(serverId: string) {
   removeServerFromAllFolders(serverId);
   emit('leave-server', serverId);
@@ -553,6 +209,10 @@ function onLeaveServer(serverId: string) {
 function openServerInfo(serverId: string) {
   emit('open-server', serverId);
   openMenuId.value = null;
+}
+
+function openServer(serverId: string) {
+  emit('open-server', serverId);
 }
 
 function inviteServer(serverId: string) {
@@ -890,945 +550,95 @@ function compactFolderDropRing(
       </template>
 
       <!-- ── CARD VIEW ── -->
-      <div
+      <MoreServersCardStack
         v-if="!props.compact"
-        class="custom-scrollbar flex-1 overflow-y-auto px-3 py-3"
-        @click="onPanelBackgroundClick"
-      >
-        <div class="flex flex-col gap-2">
-          <p
-            v-if="
-              foldersWithServers.length === 0 &&
-              normalizedOtherServersSearch &&
-              filteredUngroupedServers.length === 0
-            "
-            class="rounded-lg border border-dashed border-[color-mix(in_srgb,var(--border)_40%,transparent)] px-3 py-4 text-center text-[11px] text-fg-subtle"
-          >
-            No servers match “{{ otherServersSearchQuery.trim() }}”.
-          </p>
-          <template v-for="item in cardStack" :key="item.key">
-            <div
-              v-if="item.type === 'folderLabel'"
-              data-ms-drop="folder"
-              :data-ms-drop-folder="item.folder.id"
-              data-ms-drop-index="0"
-              class="widget-folder-card-rail group relative mt-3 overflow-hidden rounded-xl border transition-all duration-200"
-              :class="[
-                draggingFolderId === item.folder.id ? 'opacity-60' : '',
-                draggingServerId ? 'min-h-[3rem]' : '',
-                isDropTargetActive({
-                  kind: 'folder-order',
-                  index: item.folderOrderIndex,
-                })
-                  ? 'widget-folder-card-rail--drop-order'
-                  : isDropTargetActive({
-                        kind: 'folder',
-                        folderId: item.folder.id,
-                        index: 0,
-                      })
-                    ? 'widget-folder-card-rail--drop-in'
-                    : draggingServerId
-                      ? 'widget-folder-card-rail--drop-hint'
-                      : '',
-              ]"
-              @dragover.prevent="
-                onFolderDragOverCard(item.folder.id, 0, $event);
-                onFolderOrderDragOver(item.folderOrderIndex, $event);
-              "
-              @drop.prevent="onDrop"
-              @contextmenu.prevent="
-                openFolderContextMenu(item.folder.id, $event)
-              "
-            >
-              <div class="widget-folder-card-rail__shine" aria-hidden="true" />
-              <div class="widget-folder-card-rail__accent" aria-hidden="true" />
-              <div
-                class="widget-folder-card-rail__inner flex min-h-[2.5rem] items-center gap-1.5 px-2.5 py-1.5"
-              >
-                <!-- drag handle — visible only on group hover -->
-                <span
-                  class="widget-folder-drag-handle inline-flex shrink-0 cursor-grab items-center text-fg-subtle opacity-0 transition-opacity duration-150 group-hover:opacity-50 active:cursor-grabbing"
-                  title="Drag to reorder folders"
-                  draggable="true"
-                  @dragstart="onFolderDragStart(item.folder.id, $event)"
-                  @dragend="onDragEnd"
-                  @click.stop
-                >
-                  <svg
-                    class="h-3.5 w-3.5"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <circle cx="9" cy="6" r="1.5" />
-                    <circle cx="15" cy="6" r="1.5" />
-                    <circle cx="9" cy="12" r="1.5" />
-                    <circle cx="15" cy="12" r="1.5" />
-                    <circle cx="9" cy="18" r="1.5" />
-                    <circle cx="15" cy="18" r="1.5" />
-                  </svg>
-                </span>
-                <!-- collapse / expand chevron -->
-                <button
-                  type="button"
-                  class="widget-folder-chevron shrink-0"
-                  :title="
-                    isFolderCollapsedInCard(item.folder.id)
-                      ? 'Show servers in folder'
-                      : 'Hide servers in folder'
-                  "
-                  :aria-expanded="
-                    !isFolderCollapsedInCard(item.folder.id) ? 'true' : 'false'
-                  "
-                  @click.stop="toggleFolderCollapsedInCard(item.folder.id)"
-                >
-                  <svg
-                    class="h-4 w-4 transition-transform duration-200"
-                    :class="
-                      isFolderCollapsedInCard(item.folder.id)
-                        ? '-rotate-90'
-                        : 'rotate-0'
-                    "
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M6 9l6 6 6-6"
-                    />
-                  </svg>
-                </button>
-                <!-- folder name -->
-                <p
-                  class="widget-folder-card-rail__name min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight text-fg"
-                >
-                  {{ item.folder.name }}
-                </p>
-                <!-- peek avatars when collapsed -->
-                <div
-                  v-if="
-                    isFolderCollapsedInCard(item.folder.id) &&
-                    (foldersWithServersMap.get(item.folder.id)?.servers
-                      .length ?? 0) > 0
-                  "
-                  class="folder-peek-avatars shrink-0"
-                  aria-hidden="true"
-                >
-                  <span
-                    v-for="(peek, pi) in folderPeekServers(
-                      foldersWithServersMap.get(item.folder.id)?.servers ?? [],
-                    )"
-                    :key="peek.id"
-                    class="folder-peek-avatar"
-                    :style="{ '--pi': String(pi) }"
-                  >
-                    <PausedGifAvatar
-                      :src="serverGuildIconDisplayUrl(peek.icon)"
-                      :alt="''"
-                      img-class="h-full w-full object-cover pointer-events-none"
-                    />
-                  </span>
-                </div>
-                <!-- count pill -->
-                <span class="widget-folder-card-rail__count shrink-0">{{
-                  item.folder.serverIds.length
-                }}</span>
-                <!-- more options — visible only on group hover -->
-                <button
-                  type="button"
-                  class="widget-folder-icon-btn shrink-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-                  title="Folder options"
-                  @click.stop="openFolderContextMenu(item.folder.id, $event)"
-                >
-                  <svg
-                    class="h-3.5 w-3.5"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <circle cx="5" cy="12" r="1.75" />
-                    <circle cx="12" cy="12" r="1.75" />
-                    <circle cx="19" cy="12" r="1.75" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div
-              v-else-if="item.type === 'ungroupedLabel'"
-              data-ms-drop="ungrouped"
-              data-ms-drop-index="0"
-              class="ungrouped-section mt-4 transition-all"
-              :class="
-                isDropTargetActive({ kind: 'ungrouped', index: 0 })
-                  ? 'ungrouped-section--drop'
-                  : ''
-              "
-              @dragover.prevent="onUngroupedDragOver(0, $event)"
-              @drop.prevent="onDrop"
-            >
-              <div class="ungrouped-section__rule">
-                <span class="ungrouped-section__label">Other servers</span>
-              </div>
-              <div
-                v-if="draggingServerId && folders.length > 0"
-                class="mt-2 flex flex-wrap items-center gap-1.5 px-1"
-                role="group"
-                aria-label="Drop into widget folder"
-              >
-                <span class="w-full text-[10px] font-medium text-fg-subtle"
-                  >Move into folder:</span
-                >
-                <button
-                  v-for="f in folders"
-                  :key="'ungrouped-folder-drop-' + f.id"
-                  type="button"
-                  data-ms-drop="folder"
-                  :data-ms-drop-folder="f.id"
-                  data-ms-drop-index="0"
-                  class="rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors"
-                  :class="
-                    isDropTargetActive({
-                      kind: 'folder',
-                      folderId: f.id,
-                      index: 0,
-                    })
-                      ? 'border-emerald-400/60 bg-emerald-500/12 text-fg'
-                      : 'border-[color-mix(in_srgb,var(--border)_55%,transparent)] bg-[color-mix(in_srgb,var(--surface)_65%,transparent)] text-fg-subtle hover:text-fg'
-                  "
-                  @dragover.prevent="onFolderDragOverCard(f.id, 0, $event)"
-                  @drop.prevent="onDrop"
-                >
-                  {{ f.name }}
-                </button>
-              </div>
-              <p
-                v-if="
-                  normalizedOtherServersSearch &&
-                  filteredUngroupedServers.length === 0
-                "
-                class="mt-2 px-1 text-[10px] text-fg-subtle"
-              >
-                No other servers match “{{ otherServersSearchQuery.trim() }}”.
-              </p>
-            </div>
-            <article
-              v-else
-              class="more-server-card overflow-hidden rounded-xl transition-opacity"
-              :data-ms-drop="
-                item.ungroupedIndex != null
-                  ? 'ungrouped'
-                  : item.folderId
-                    ? 'folder'
-                    : undefined
-              "
-              :data-ms-drop-folder="item.folderId"
-              :data-ms-drop-index="
-                item.ungroupedIndex != null
-                  ? String(item.ungroupedIndex)
-                  : item.serverIndexInFolder != null
-                    ? String(item.serverIndexInFolder + 1)
-                    : undefined
-              "
-              :class="[
-                item.topSpacer ? 'mt-2' : '',
-                draggingServerId === item.server.id ? 'opacity-50' : '',
-                item.ungroupedIndex != null &&
-                isDropTargetActive({
-                  kind: 'ungrouped',
-                  index: item.ungroupedIndex,
-                })
-                  ? 'ring-2 ring-sky-400/40'
-                  : '',
-              ]"
-              draggable="true"
-              title="Drag to move between folders"
-              @dragstart="onCardServerDragStart(item.server, $event)"
-              @dragend="onDragEnd"
-              @dragover.prevent="
-                item.ungroupedIndex != null
-                  ? onUngroupedDragOver(item.ungroupedIndex, $event)
-                  : item.folderId != null && item.serverIndexInFolder != null
-                    ? onFolderDragOverCard(
-                        item.folderId,
-                        item.serverIndexInFolder + 1,
-                        $event,
-                      )
-                    : undefined
-              "
-              @drop.prevent="onDrop"
-              @contextmenu.prevent="openServerContextMenu(item.server, $event)"
-            >
-              <div
-                class="more-server-card__banner h-[4.25rem] w-full shrink-0 bg-cover bg-no-repeat"
-                :style="serverBannerStyle(item.server)"
-              />
-              <div class="more-server-card__body px-3 pb-3 pt-1.5">
-                <div class="flex items-start gap-3">
-                  <div
-                    class="more-server-card__avatar-ring shrink-0 rounded-2xl p-0.5 shadow-md"
-                    :class="
-                      isDropTargetActive({
-                        kind: 'folder',
-                        folderId: item.folderId ?? '',
-                        index: (item.serverIndexInFolder ?? 0) + 1,
-                      }) && item.folderId
-                        ? 'ring-2 ring-emerald-400/60'
-                        : ''
-                    "
-                    @click.stop
-                  >
-                    <PausedGifAvatar
-                      :src="serverGuildIconDisplayUrl(item.server.icon)"
-                      :alt="item.server.name"
-                      img-class="h-12 w-12 rounded-[0.875rem] object-cover pointer-events-none"
-                    />
-                  </div>
-                  <div class="min-w-0 flex-1 pt-0.5">
-                    <div
-                      class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5"
-                    >
-                      <span
-                        class="truncate text-[0.9375rem] font-semibold tracking-tight text-fg leading-tight"
-                        >{{ item.server.name }}</span
-                      >
-                      <span
-                        v-if="item.inFolderName"
-                        class="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-fg-soft"
-                        :title="'In widget folder: ' + item.inFolderName"
-                      >
-                        Folder
-                      </span>
-                      <span
-                        v-if="isPinned(item.server.id)"
-                        class="shrink-0 rounded-md bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-contrast-fg)]"
-                      >
-                        Pinned
-                      </span>
-                      <svg
-                        v-if="item.server.verified"
-                        class="h-3.5 w-3.5 shrink-0 text-sky-400"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        aria-label="Verified"
-                      >
-                        <path
-                          d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                        />
-                      </svg>
-                    </div>
-                    <p
-                      v-if="serverInviteLabel(item.server.vanityCode)"
-                      class="mt-1 truncate text-[11px] text-fg-subtle"
-                      :title="serverInviteLabel(item.server.vanityCode)"
-                    >
-                      {{ serverInviteLabel(item.server.vanityCode) }}
-                    </p>
-                    <div
-                      v-if="item.server.online || item.server.members"
-                      class="mt-1 flex items-center gap-1.5 text-[11px] text-fg-subtle"
-                    >
-                      <span class="flex items-center gap-1">
-                        <span
-                          class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"
-                        />
-                        {{ item.server.online }} online
-                      </span>
-                      <span class="text-fg-subtle">·</span>
-                      <span>{{ item.server.members }} members</span>
-                    </div>
-                  </div>
-                </div>
-                <p
-                  v-if="item.server.description?.trim()"
-                  class="mt-2 text-[11.5px] leading-relaxed text-fg-soft line-clamp-2"
-                >
-                  {{ item.server.description }}
-                </p>
-                <div
-                  v-if="item.server.tags.length > 0"
-                  class="mt-2 flex flex-wrap gap-1"
-                >
-                  <span
-                    v-for="tag in item.server.tags"
-                    :key="tag"
-                    class="server-tag"
-                    >{{ tag }}</span
-                  >
-                </div>
-                <div class="mt-2.5 flex items-center gap-1.5" data-no-card-drag>
-                  <button
-                    type="button"
-                    class="open-btn flex-1"
-                    data-no-card-drag
-                    @click="emit('open-server', item.server.id)"
-                  >
-                    Open
-                  </button>
-                  <button
-                    type="button"
-                    class="card-icon-btn"
-                    data-no-card-drag
-                    :class="
-                      isPinned(item.server.id) ? 'card-icon-btn--active' : ''
-                    "
-                    :title="
-                      isPinned(item.server.id)
-                        ? 'Unpin from server list'
-                        : 'Pin to server list'
-                    "
-                    @click.stop="togglePin(item.server)"
-                  >
-                    <svg
-                      class="h-3.5 w-3.5"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      :fill="isPinned(item.server.id) ? 'currentColor' : 'none'"
-                      stroke="currentColor"
-                      stroke-width="1.8"
-                      stroke-linejoin="round"
-                    >
-                      <path
-                        d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z"
-                      />
-                    </svg>
-                  </button>
-                  <div>
-                    <button
-                      :ref="(el) => setCardMenuTriggerRef(item.server.id, el)"
-                      type="button"
-                      class="card-icon-btn"
-                      data-no-card-drag
-                      :class="
-                        openMenuId === item.server.id
-                          ? 'card-icon-btn--active'
-                          : ''
-                      "
-                      title="More options"
-                      aria-haspopup="menu"
-                      :aria-expanded="openMenuId === item.server.id"
-                      @click.stop="toggleMenu(item.server.id)"
-                    >
-                      <svg
-                        class="h-3.5 w-3.5"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        aria-hidden="true"
-                      >
-                        <circle cx="5" cy="12" r="2" />
-                        <circle cx="12" cy="12" r="2" />
-                        <circle cx="19" cy="12" r="2" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </article>
-          </template>
-        </div>
-      </div>
+        :card-stack="cardStack"
+        :folders="folders"
+        :folders-with-servers="foldersWithServers"
+        :folders-with-servers-map="foldersWithServersMap"
+        :normalized-other-servers-search="normalizedOtherServersSearch"
+        :other-servers-search-query="otherServersSearchQuery"
+        :filtered-ungrouped-servers="filteredUngroupedServers"
+        :dragging-folder-id="draggingFolderId"
+        :dragging-server-id="draggingServerId"
+        :is-drop-target-active="isDropTargetActive"
+        :on-panel-background-click="onPanelBackgroundClick"
+        :on-folder-drag-over-card="onFolderDragOverCard"
+        :on-folder-order-drag-over="onFolderOrderDragOver"
+        :on-drop="onDrop"
+        :open-folder-context-menu="openFolderContextMenu"
+        :on-folder-drag-start="onFolderDragStart"
+        :on-drag-end="onDragEnd"
+        :is-folder-collapsed-in-card="isFolderCollapsedInCard"
+        :toggle-folder-collapsed-in-card="toggleFolderCollapsedInCard"
+        :folder-peek-servers="folderPeekServers"
+        :on-ungrouped-drag-over="onUngroupedDragOver"
+        :on-card-server-drag-start="onCardServerDragStart"
+        :open-server-context-menu="openServerContextMenu"
+        :server-banner-style="serverBannerStyle"
+        :server-invite-label="serverInviteLabel"
+        :is-pinned="isPinned"
+        :open-server="openServer"
+        :toggle-pin="togglePin"
+        :open-menu-id="openMenuId"
+        :toggle-menu="toggleMenu"
+        :set-card-menu-trigger-ref="setCardMenuTriggerRef"
+      />
 
       <!-- ── COMPACT VIEW ── -->
-      <div v-else class="compact-scroll flex-1 py-2">
-        <div class="flex w-full flex-col items-center gap-2 px-0.5">
-          <template
-            v-for="(row, rowIdx) in compactRows"
-            :key="
-              row.kind === 'server'
-                ? 's-' + row.server.id
-                : row.kind === 'folder'
-                  ? 'f-' + row.folder.id
-                  : 'ungrouped-label'
-            "
-          >
-            <div
-              v-if="row.kind === 'ungroupedLabel'"
-              data-ms-drop="ungrouped"
-              data-ms-drop-index="0"
-              class="compact-ungrouped mt-2 w-full px-1 transition-all"
-              :class="
-                isDropTargetActive({ kind: 'ungrouped', index: 0 })
-                  ? 'compact-ungrouped--drop'
-                  : ''
-              "
-              @dragover.prevent="onUngroupedDragOver(0, $event)"
-              @drop.prevent="onDrop"
-            >
-              <div class="compact-ungrouped-rule" />
-              <div
-                v-if="draggingServerId && folders.length > 0"
-                class="mt-1.5 flex flex-wrap justify-center gap-1"
-                role="group"
-                aria-label="Drop into widget folder"
-              >
-                <button
-                  v-for="f in folders"
-                  :key="'compact-ungrouped-drop-' + f.id"
-                  type="button"
-                  data-ms-drop="folder"
-                  :data-ms-drop-folder="f.id"
-                  data-ms-drop-index="0"
-                  class="max-w-full truncate rounded border px-1.5 py-0.5 text-[9px] font-semibold transition-colors"
-                  :class="
-                    isDropTargetActive({
-                      kind: 'folder',
-                      folderId: f.id,
-                      index: 0,
-                    })
-                      ? 'border-emerald-400/60 bg-emerald-500/12 text-fg'
-                      : 'border-[color-mix(in_srgb,var(--border)_50%,transparent)] text-fg-subtle'
-                  "
-                  :title="'Drop into ' + f.name"
-                  @dragover.prevent="onFolderDragOverCompact(f.id, 0, $event)"
-                  @drop.prevent="onDrop"
-                >
-                  {{ f.name }}
-                </button>
-              </div>
-            </div>
-            <div
-              v-else-if="row.kind === 'server'"
-              data-ms-drop="ungrouped"
-              :data-ms-drop-index="String(row.ungroupedIndex)"
-              class="compact-slot relative flex w-full items-center justify-center transition-opacity"
-              :class="[
-                rowIdx === 0 ? 'mt-3' : '',
-                draggingServerId === row.server.id ? 'opacity-50' : '',
-                isDropTargetActive({
-                  kind: 'ungrouped',
-                  index: row.ungroupedIndex,
-                })
-                  ? 'ring-2 ring-sky-400/40 rounded-full'
-                  : '',
-              ]"
-              @dragover.prevent="
-                onUngroupedDragOver(row.ungroupedIndex, $event)
-              "
-              @drop.prevent="onDrop"
-            >
-              <span
-                v-if="isPinned(row.server.id)"
-                class="compact-pinned-dot"
-                title="Pinned to rail"
-              />
-              <button
-                type="button"
-                class="compact-circle overflow-hidden"
-                draggable="true"
-                :title="
-                  row.server.name +
-                  ' — drag to move · right-click for folder options'
-                "
-                @click="emit('open-server', row.server.id)"
-                @contextmenu.prevent="openServerContextMenu(row.server, $event)"
-                @pointerenter="onCompactServerPointerEnter(row.server, $event)"
-                @pointerleave="onCompactServerPointerLeave"
-                @pointerdown="onCompactServerPointerDown"
-                @dragstart="onCompactServerDragStart(row.server.id, $event)"
-                @dragend="onDragEnd"
-              >
-                <PausedGifAvatar
-                  :src="serverGuildIconDisplayUrl(row.server.icon)"
-                  :alt="row.server.name"
-                  img-class="h-full w-full object-cover pointer-events-none"
-                />
-              </button>
-            </div>
-            <div
-              v-else-if="row.kind === 'folder'"
-              class="widget-folder-compact flex w-full flex-col items-center"
-              :class="draggingFolderId === row.folder.id ? 'opacity-60' : ''"
-            >
-              <div
-                v-if="!isFolderExpandedInCompact(row.folder.id)"
-                class="relative flex w-full justify-center"
-              >
-                <span
-                  class="widget-folder-drag-handle absolute -left-0.5 top-1/2 z-[1] -translate-y-1/2 cursor-grab text-fg-subtle active:cursor-grabbing"
-                  title="Drag to reorder folders"
-                  draggable="true"
-                  @dragstart="onFolderDragStart(row.folder.id, $event)"
-                  @dragend="onDragEnd"
-                  @click.stop
-                >
-                  <svg
-                    class="h-3 w-3"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <circle cx="9" cy="8" r="1.5" />
-                    <circle cx="15" cy="8" r="1.5" />
-                    <circle cx="9" cy="16" r="1.5" />
-                    <circle cx="15" cy="16" r="1.5" />
-                  </svg>
-                </span>
-                <button
-                  type="button"
-                  data-ms-drop="folder"
-                  :data-ms-drop-folder="row.folder.id"
-                  data-ms-drop-index="0"
-                  class="widget-folder-compact-trigger compact-circle transition-all duration-200"
-                  :class="
-                    compactFolderDropRing(row.folder.id, row.folderOrderIndex)
-                  "
-                  :aria-expanded="false"
-                  :aria-label="
-                    row.folder.name +
-                    ', ' +
-                    row.servers.length +
-                    ' servers. Click to expand.'
-                  "
-                  :title="
-                    row.folder.name +
-                    ' — ' +
-                    row.servers.length +
-                    ' server(s). Click to expand; drag servers here.'
-                  "
-                  @click="toggleFolderExpandedInCompact(row.folder.id)"
-                  @contextmenu.prevent="
-                    openFolderContextMenu(row.folder.id, $event)
-                  "
-                  @dragover.prevent="
-                    onFolderDragOverCompact(row.folder.id, 0, $event);
-                    onFolderOrderDragOver(row.folderOrderIndex, $event);
-                  "
-                  @drop.prevent="onDrop"
-                >
-                  <div class="widget-folder-compact-trigger__body">
-                    <div
-                      v-if="row.servers.length"
-                      class="widget-folder-compact-stack"
-                      aria-hidden="true"
-                    >
-                      <span
-                        v-for="(peek, si) in folderPeekServers(row.servers)"
-                        :key="peek.id"
-                        class="widget-folder-compact-peek"
-                        :style="{ '--wf-peek': String(si) }"
-                      >
-                        <PausedGifAvatar
-                          :src="serverGuildIconDisplayUrl(peek.icon)"
-                          :alt="''"
-                          img-class="h-full w-full object-cover pointer-events-none"
-                        />
-                      </span>
-                    </div>
-                    <div v-else class="widget-folder-compact-empty">
-                      <img
-                        :src="iconFolder"
-                        alt=""
-                        class="widget-folder-compact-empty__icon"
-                      />
-                    </div>
-                  </div>
-                  <span
-                    v-if="row.servers.length"
-                    class="widget-folder-compact-badge"
-                    >{{ row.servers.length }}</span
-                  >
-                </button>
-              </div>
-              <div
-                v-else
-                data-ms-drop="folder"
-                :data-ms-drop-folder="row.folder.id"
-                data-ms-drop-index="0"
-                class="widget-folder-blob w-full transition-all duration-200"
-                :class="
-                  compactFolderDropRing(row.folder.id, row.folderOrderIndex)
-                "
-                @dragover.prevent="
-                  onFolderDragOverCompact(row.folder.id, 0, $event);
-                  onFolderOrderDragOver(row.folderOrderIndex, $event);
-                "
-                @drop.prevent="onDrop"
-                @contextmenu.prevent="
-                  openFolderContextMenu(row.folder.id, $event)
-                "
-              >
-                <div class="widget-folder-blob__glow" aria-hidden="true" />
-                <div
-                  class="widget-folder-blob__header cursor-grab active:cursor-grabbing"
-                  draggable="true"
-                  @dragstart="onFolderDragStart(row.folder.id, $event)"
-                  @dragend="onDragEnd"
-                >
-                  <p
-                    class="widget-folder-blob__name min-w-0 flex-1 truncate text-center text-[10px] font-semibold tracking-wide text-fg"
-                    :title="row.folder.name"
-                  >
-                    {{ row.folder.name }}
-                  </p>
-                  <span class="widget-folder-blob__count">{{
-                    row.servers.length
-                  }}</span>
-                  <button
-                    type="button"
-                    class="widget-folder-blob__collapse-btn"
-                    :aria-expanded="true"
-                    :title="row.folder.name + ' — click to collapse'"
-                    @click.stop="toggleFolderExpandedInCompact(row.folder.id)"
-                  >
-                    <svg
-                      class="h-3 w-3"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      aria-hidden="true"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M5 15l7-7 7 7"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                <p
-                  v-if="!row.servers.length"
-                  class="widget-folder-blob__empty px-2 pb-2.5 text-center text-[10px] leading-snug text-fg-subtle"
-                >
-                  Empty — drag a server here.
-                </p>
-                <div class="widget-folder-blob__servers">
-                  <div
-                    v-for="(s, si) in row.servers"
-                    :key="'fe-' + s.id"
-                    class="compact-slot relative flex w-full items-center justify-center transition-opacity"
-                    :class="[
-                      draggingServerId === s.id ? 'opacity-50' : '',
-                      isDropTargetActive({
-                        kind: 'folder',
-                        folderId: row.folder.id,
-                        index: si + 1,
-                      })
-                        ? 'ring-2 ring-emerald-400/35 rounded-full'
-                        : '',
-                    ]"
-                    data-ms-drop="folder"
-                    :data-ms-drop-folder="row.folder.id"
-                    :data-ms-drop-index="String(si + 1)"
-                    @dragover.prevent="
-                      onFolderDragOverCompact(row.folder.id, si + 1, $event)
-                    "
-                    @drop.prevent="onDrop"
-                  >
-                    <span
-                      v-if="isPinned(s.id)"
-                      class="compact-pinned-dot"
-                      title="Pinned to rail"
-                    />
-                    <button
-                      type="button"
-                      class="compact-circle overflow-hidden"
-                      draggable="true"
-                      :title="
-                        s.name +
-                        ' — drag to move · right-click for folder options'
-                      "
-                      @click="emit('open-server', s.id)"
-                      @contextmenu.prevent="openServerContextMenu(s, $event)"
-                      @pointerenter="onCompactServerPointerEnter(s, $event)"
-                      @pointerleave="onCompactServerPointerLeave"
-                      @pointerdown="onCompactServerPointerDown"
-                      @dragstart="onCompactServerDragStart(s.id, $event)"
-                      @dragend="onDragEnd"
-                    >
-                      <PausedGifAvatar
-                        :src="serverGuildIconDisplayUrl(s.icon)"
-                        :alt="s.name"
-                        img-class="h-full w-full object-cover pointer-events-none"
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
-      </div>
+      <MoreServersCompactList
+        v-else
+        :compact-rows="compactRows"
+        :folders="folders"
+        :dragging-folder-id="draggingFolderId"
+        :dragging-server-id="draggingServerId"
+        :is-drop-target-active="isDropTargetActive"
+        :on-ungrouped-drag-over="onUngroupedDragOver"
+        :on-folder-drag-over-compact="onFolderDragOverCompact"
+        :on-folder-order-drag-over="onFolderOrderDragOver"
+        :on-drop="onDrop"
+        :is-pinned="isPinned"
+        :open-server="openServer"
+        :open-server-context-menu="openServerContextMenu"
+        :on-compact-server-pointer-enter="onCompactServerPointerEnter"
+        :on-compact-server-pointer-leave="onCompactServerPointerLeave"
+        :on-compact-server-pointer-down="onCompactServerPointerDown"
+        :on-compact-server-drag-start="onCompactServerDragStart"
+        :on-drag-end="onDragEnd"
+        :is-folder-expanded-in-compact="isFolderExpandedInCompact"
+        :toggle-folder-expanded-in-compact="toggleFolderExpandedInCompact"
+        :on-folder-drag-start="onFolderDragStart"
+        :open-folder-context-menu="openFolderContextMenu"
+        :compact-folder-drop-ring="compactFolderDropRing"
+        :folder-peek-servers="folderPeekServers"
+      />
     </div>
-    <Teleport to="body">
-      <div
-        v-if="openMenuId && openMenuServer && cardMenuPosition"
-        data-more-servers-card-menu
-        class="ellipsis-menu fixed z-[200] min-w-[200px] py-1"
-        :style="cardMenuStyle"
-        role="menu"
-        aria-label="Server options"
-        @mousedown.stop
-      >
-        <button
-          type="button"
-          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="openServerInfo(openMenuServer.id)"
-        >
-          <img :src="icons.community" alt="" :class="menuItemIconClass" />
-          View server info
-        </button>
-        <button
-          v-if="props.canOpenInviteForServer?.(openMenuServer.id) ?? false"
-          type="button"
-          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="inviteServer(openMenuServer.id)"
-        >
-          <img :src="icons.friendAdd" alt="" :class="menuItemIconClass" />
-          Invite people
-        </button>
-        <button
-          type="button"
-          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="togglePin(openMenuServer)"
-        >
-          <img :src="icons.thumbtack" alt="" :class="menuItemIconClass" />
-          {{ isPinned(openMenuServer.id) ? 'Remove from rail' : 'Pin to rail' }}
-        </button>
-        <div class="my-1 h-px bg-glass-2" role="separator" />
-        <div
-          class="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle"
-        >
-          Widget folder
-        </div>
-        <button
-          v-if="folderForServer(openMenuServer.id)"
-          type="button"
-          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="assignServerToFolder(openMenuServer.id, null)"
-        >
-          <img :src="icons.arrowLeft" alt="" :class="menuItemIconClass" />
-          Remove from folder
-        </button>
-        <button
-          v-for="f in folders"
-          :key="'card-fm-' + f.id"
-          type="button"
-          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="assignServerToFolder(openMenuServer.id, f.id)"
-        >
-          <img :src="iconFolder" alt="" :class="menuItemIconClass" />
-          Move to “{{ f.name }}”
-        </button>
-        <button
-          type="button"
-          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="newFolderWithServer(openMenuServer.id)"
-        >
-          <img :src="icons.plus" alt="" :class="menuItemIconClass" />
-          New folder with this server…
-        </button>
-        <div class="my-1 h-px bg-glass-2" role="separator" />
-        <button
-          type="button"
-          class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="onLeaveServer(openMenuServer.id)"
-        >
-          <img :src="icons.logOut" alt="" :class="menuItemIconClass" />
-          Leave server
-        </button>
-      </div>
-      <div
-        v-if="contextMenu"
-        data-more-servers-folder-menu
-        class="ellipsis-menu fixed z-[200] min-w-[200px] py-1"
-        :style="contextMenuStyle"
-        role="menu"
-        @mousedown.stop
-      >
-        <template v-if="contextMenu.target === 'folder'">
-          <div
-            class="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle truncate border-b border-border"
-          >
-            {{ contextMenuFolderName }}
-          </div>
-          <button
-            type="button"
-            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-            role="menuitem"
-            @click="contextMenuToggleFolderLayout"
-          >
-            <img :src="icons.list" alt="" :class="menuItemIconClass" />
-            {{ contextMenuFolderExpandedLabel }}
-          </button>
-          <button
-            type="button"
-            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-            role="menuitem"
-            @click="contextMenuEditFolder"
-          >
-            <img :src="icons.pen" alt="" :class="menuItemIconClass" />
-            Edit folder…
-          </button>
-          <button
-            type="button"
-            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-            role="menuitem"
-            @click="openCreateFolderModal"
-          >
-            <img :src="icons.plus" alt="" :class="menuItemIconClass" />
-            New folder…
-          </button>
-          <div class="my-1 h-px bg-glass-2" role="separator" />
-          <button
-            type="button"
-            class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-            role="menuitem"
-            @click="contextMenuDeleteFolder"
-          >
-            <img :src="icons.trash" alt="" :class="menuItemIconClass" />
-            Delete folder…
-          </button>
-        </template>
-        <template v-else-if="contextMenu.target === 'server'">
-          <div
-            class="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle border-b border-border"
-          >
-            Move to folder
-          </div>
-          <button
-            v-if="folderForServer(contextMenu.serverId)"
-            type="button"
-            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-            role="menuitem"
-            @click="assignServerToFolderFromMenu(null)"
-          >
-            <img :src="icons.arrowLeft" alt="" :class="menuItemIconClass" />
-            Remove from folder
-          </button>
-          <button
-            v-for="f in folders"
-            :key="'fm-' + f.id"
-            type="button"
-            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-            role="menuitem"
-            @click="assignServerToFolderFromMenu(f.id)"
-          >
-            <img :src="iconFolder" alt="" :class="menuItemIconClass" />
-            Move to “{{ f.name }}”
-          </button>
-          <button
-            type="button"
-            class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-            role="menuitem"
-            @click="newFolderFromContextMenu"
-          >
-            <img :src="icons.plus" alt="" :class="menuItemIconClass" />
-            New folder with this server…
-          </button>
-        </template>
-      </div>
-    </Teleport>
+    <MoreServersContextMenus
+      :open-menu-id="openMenuId"
+      :open-menu-server="openMenuServer"
+      :card-menu-position="cardMenuPosition"
+      :card-menu-style="cardMenuStyle"
+      :context-menu="contextMenu"
+      :context-menu-style="contextMenuStyle"
+      :folders="folders"
+      :context-menu-folder-name="contextMenuFolderName"
+      :context-menu-folder-expanded-label="contextMenuFolderExpandedLabel"
+      :can-open-invite-for-server="props.canOpenInviteForServer"
+      :is-pinned="isPinned"
+      :folder-for-server="folderForServer"
+      :open-server-info="openServerInfo"
+      :invite-server="inviteServer"
+      :toggle-pin="togglePin"
+      :assign-server-to-folder="assignServerToFolder"
+      :new-folder-with-server="newFolderWithServer"
+      :on-leave-server="onLeaveServer"
+      :context-menu-toggle-folder-layout="contextMenuToggleFolderLayout"
+      :context-menu-edit-folder="contextMenuEditFolder"
+      :open-create-folder-modal="openCreateFolderModal"
+      :context-menu-delete-folder="contextMenuDeleteFolder"
+      :assign-server-to-folder-from-menu="assignServerToFolderFromMenu"
+      :new-folder-from-context-menu="newFolderFromContextMenu"
+    />
     <Teleport to="body">
       <MoreServerCompactHoverPreview
         v-if="props.compact && compactPreviewServer && compactPreviewAnchor"
@@ -1971,613 +781,7 @@ $ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 
-/* ── card ── */
-.more-server-card {
-  background: linear-gradient(
-    165deg,
-    color-mix(in srgb, var(--bg-elevated, var(--bg)) 88%, white 6%),
-    color-mix(in srgb, var(--bg) 92%, transparent)
-  );
-  border: 1px solid color-mix(in srgb, white 10%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
-    0 6px 20px rgb(0 0 0 / 18%);
-  transition:
-    transform 0.18s $ease-out-expo,
-    box-shadow 0.18s ease-out,
-    border-color 0.18s ease-out;
-  &:hover {
-    transform: translateY(-1px);
-    border-color: color-mix(in srgb, white 16%, transparent);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
-      0 10px 26px rgb(0 0 0 / 22%);
-  }
-}
-
-.more-server-card__banner {
-  position: relative;
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    /* Light scrim: keep artwork visible; only deepen toward the fold for contrast */
-    background: linear-gradient(
-      180deg,
-      rgb(0 0 0 / 0%) 0%,
-      rgb(0 0 0 / 12%) 52%,
-      color-mix(in srgb, var(--bg) 55%, rgb(0 0 0 / 35%)) 100%
-    );
-    pointer-events: none;
-  }
-}
-
-.more-server-card__avatar-ring {
-  margin-top: -1.75rem;
-  position: relative;
-  z-index: 2;
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, white 22%, transparent),
-    color-mix(in srgb, var(--bg) 40%, transparent)
-  );
-  border: 1px solid color-mix(in srgb, white 14%, transparent);
-}
-
-.more-server-card__body {
-  margin-top: -0.35rem;
-  position: relative;
-  z-index: 1;
-}
-
-/* tags */
-.server-tag {
-  font-size: 10px;
-  font-weight: 500;
-  padding: 0.15rem 0.45rem;
-  border-radius: 99px;
-  background: var(--vue-auto-008);
-  color: var(--vue-auto-086);
-  border: 1px solid var(--vue-auto-008);
-}
-
-/* open button */
-.open-btn {
-  padding: 0.35rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--vue-auto-044);
-  background: var(--vue-auto-206);
-  border: 1px solid var(--vue-auto-008);
-  transition: background-color 0.15s ease-out;
-  &:hover {
-    background: var(--vue-auto-207);
-  }
-}
-
-/* card icon button (pin / ellipsis) */
-.card-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 7px;
-  color: var(--vue-auto-028);
-  background: var(--vue-auto-005);
-  border: 1px solid var(--vue-auto-002);
-  transition:
-    background-color 0.15s ease-out,
-    color 0.15s ease-out;
-  &:hover {
-    background: var(--vue-auto-034);
-    color: var(--vue-auto-020);
-  }
-}
-.card-icon-btn--active {
-  background: var(--vue-auto-004);
-  color: var(--vue-auto-025);
-  border-color: var(--vue-auto-014);
-}
-
-/* ── Extra servers: widget folders ── */
-.widget-folder-card-rail {
-  border-color: color-mix(in srgb, var(--border) 50%, transparent);
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--accent) 14%, transparent),
-    color-mix(in srgb, var(--bg-elevated, var(--bg)) 92%, transparent) 42%,
-    color-mix(in srgb, var(--surface) 88%, transparent)
-  );
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
-    0 8px 22px rgb(0 0 0 / 16%);
-}
-.widget-folder-card-rail:hover {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
-}
-.widget-folder-card-rail--drop-order {
-  border-color: rgb(56 189 248 / 55%);
-  box-shadow:
-    inset 0 0 0 1px rgb(56 189 248 / 20%),
-    0 0 20px rgb(56 189 248 / 12%);
-}
-.widget-folder-card-rail--drop-in,
-.widget-folder-card-rail--drop-hint {
-  border-color: rgb(52 211 153 / 45%);
-  box-shadow:
-    inset 0 0 0 1px rgb(52 211 153 / 18%),
-    0 0 18px rgb(52 211 153 / 10%);
-}
-.widget-folder-card-rail__shine {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 35%,
-    color-mix(in srgb, white 8%, transparent) 50%,
-    transparent 65%
-  );
-  opacity: 0.55;
-}
-.widget-folder-card-rail__accent {
-  pointer-events: none;
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 12px 0 0 12px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent) 95%, white 8%),
-    color-mix(in srgb, var(--accent) 55%, transparent)
-  );
-  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-.widget-folder-card-rail__inner {
-  position: relative;
-  z-index: 1;
-}
-
-/* peek avatars strip for collapsed folder in card view */
-.folder-peek-avatars {
-  display: flex;
-  align-items: center;
-  height: 1.35rem;
-  position: relative;
-  width: calc(1.1rem + (var(--peek-count, 3) - 1) * 0.55rem);
-  width: 2.1rem; /* fixed: up to 3 icons at 5px nudge each */
-}
-.folder-peek-avatar {
-  --pi: 0;
-  position: absolute;
-  left: calc(var(--pi) * 0.55rem);
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 999px;
-  overflow: hidden;
-  border: 1.5px solid color-mix(in srgb, var(--bg) 90%, transparent);
-  box-shadow: 0 2px 6px rgb(0 0 0 / 22%);
-  z-index: calc(3 - var(--pi));
-}
-
-.widget-folder-card-rail__name {
-  letter-spacing: 0.01em;
-}
-.widget-folder-card-rail__count {
-  display: inline-flex;
-  min-width: 1.35rem;
-  align-items: center;
-  justify-content: center;
-  padding: 0.2rem 0.45rem;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent-contrast-fg, #fff);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent) 88%, white 12%),
-    var(--accent)
-  );
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent);
-}
-
-.widget-folder-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 8px;
-  color: var(--vue-auto-049);
-  background: color-mix(in srgb, var(--bg) 40%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
-  transition:
-    background-color 0.12s ease-out,
-    color 0.12s ease-out,
-    border-color 0.12s ease-out,
-    transform 0.12s ease-out;
-  &:hover {
-    background: var(--vue-auto-001);
-    color: var(--vue-auto-025);
-    border-color: var(--vue-auto-034);
-  }
-}
-
-.widget-folder-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 8px;
-  color: var(--vue-auto-049);
-  border: 1px solid transparent;
-  transition:
-    background-color 0.12s ease-out,
-    color 0.12s ease-out,
-    border-color 0.12s ease-out;
-  &:hover {
-    background: var(--vue-auto-001);
-    color: var(--vue-auto-025);
-    border-color: var(--vue-auto-002);
-  }
-}
-
-/* ── "Other servers" ungrouped section divider ── */
-.ungrouped-section {
-  padding: 0 0.25rem;
-}
-.ungrouped-section__rule {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  &::before,
-  &::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: color-mix(in srgb, var(--border) 35%, transparent);
-    transition: background 0.2s;
-  }
-}
-.ungrouped-section--drop .ungrouped-section__rule {
-  &::before,
-  &::after {
-    background: rgb(56 189 248 / 45%);
-  }
-}
-.ungrouped-section__label {
-  flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--vue-auto-087);
-  white-space: nowrap;
-  transition: color 0.2s;
-}
-.ungrouped-section--drop .ungrouped-section__label {
-  color: rgb(56 189 248 / 70%);
-}
-
-/* ── compact ── */
-.compact-scroll {
-  overflow-y: auto;
-  /* Keep a small inset so the scrollbar never overlaps the server circles visually */
-  padding-right: 4px;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-
-  &:hover {
-    scrollbar-color: var(--vue-auto-088) transparent;
-  }
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: transparent;
-    border-radius: 3px;
-  }
-  &:hover::-webkit-scrollbar-thumb {
-    background: var(--vue-auto-088);
-  }
-}
-
 .compact-header {
   width: 100%;
-}
-
-.compact-slot {
-  position: relative;
-  height: 3.25rem;
-}
-
-.compact-pinned-dot {
-  position: absolute;
-  top: 6px;
-  right: calc(50% - 1.65rem);
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--vue-auto-212);
-  box-shadow: 0 0 6px var(--vue-auto-213);
-  pointer-events: none;
-}
-
-.compact-circle {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 999px;
-  background: var(--vue-auto-001);
-  box-shadow:
-    0 0 0 1.5px var(--vue-auto-214),
-    0 6px 16px var(--vue-auto-089);
-  transition:
-    border-radius 0.25s $ease-out-expo,
-    box-shadow 0.22s ease-out,
-    transform 0.18s ease-out;
-  &:hover {
-    border-radius: 14px;
-    transform: translateY(-1px);
-    box-shadow:
-      0 0 0 2px var(--vue-auto-215),
-      0 10px 22px var(--vue-auto-216);
-  }
-}
-
-/* Light theme: compact overflow rail — drop shadows read as muddy on pale chrome */
-[data-theme='light'] .compact-circle {
-  box-shadow: none;
-  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
-  &:hover {
-    box-shadow: none;
-    border-color: color-mix(in srgb, var(--text) 22%, transparent);
-  }
-}
-[data-theme='light'] .compact-pinned-dot {
-  box-shadow: none;
-}
-
-.widget-folder-compact-trigger {
-  position: relative;
-  width: 2.65rem;
-  height: 2.65rem;
-  padding: 0;
-  overflow: visible;
-  background: linear-gradient(
-    165deg,
-    color-mix(in srgb, var(--accent) 18%, transparent),
-    color-mix(in srgb, var(--bg-elevated, var(--bg)) 90%, transparent)
-  );
-  border: 1.5px solid color-mix(in srgb, var(--accent) 32%, var(--border));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
-    0 8px 20px rgb(0 0 0 / 22%);
-  &:hover {
-    border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-    transform: translateY(-2px);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
-      0 12px 26px rgb(0 0 0 / 28%);
-  }
-}
-.widget-folder-compact-trigger__body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  overflow: hidden;
-}
-
-.widget-folder-compact-stack {
-  position: relative;
-  width: 2rem;
-  height: 2.15rem;
-}
-.widget-folder-compact-stack--sm {
-  width: 1.55rem;
-  height: 1.55rem;
-}
-.widget-folder-compact-peek {
-  --wf-nudge: calc(var(--wf-peek, 0) * 5px);
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 999px;
-  overflow: hidden;
-  transform: translateX(-50%) translateY(var(--wf-nudge));
-  border: 2px solid color-mix(in srgb, var(--bg) 88%, transparent);
-  box-shadow: 0 4px 10px rgb(0 0 0 / 28%);
-  z-index: calc(3 - var(--wf-peek, 0));
-}
-.widget-folder-compact-stack--sm .widget-folder-compact-peek {
-  width: 1.25rem;
-  height: 1.25rem;
-  --wf-nudge: calc(var(--wf-peek, 0) * 4px);
-  border-width: 1.5px;
-}
-
-.widget-folder-compact-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-}
-.widget-folder-compact-empty__icon {
-  width: 1.35rem;
-  height: 1.35rem;
-  opacity: 0.72;
-  filter: invert(1) brightness(1.05);
-}
-
-.widget-folder-compact-badge {
-  position: absolute;
-  right: -4px;
-  bottom: -4px;
-  z-index: 4;
-  min-width: 1.05rem;
-  height: 1.05rem;
-  padding: 0 0.22rem;
-  border-radius: 999px;
-  font-size: 9px;
-  font-weight: 800;
-  line-height: 1.05rem;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent-contrast-fg, #fff);
-  background: linear-gradient(
-    180deg,
-    var(--accent),
-    color-mix(in srgb, var(--accent) 75%, #312e81)
-  );
-  border: 1.5px solid color-mix(in srgb, var(--bg) 90%, transparent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-.widget-folder-blob {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.4rem;
-  padding: 0.5rem 0.4rem 0.55rem;
-  border-radius: 1.15rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent) 12%, transparent),
-    color-mix(in srgb, var(--bg-elevated, var(--bg)) 94%, transparent) 38%,
-    color-mix(in srgb, var(--surface) 90%, transparent)
-  );
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 8%, transparent),
-    0 10px 28px rgb(0 0 0 / 20%);
-}
-.widget-folder-blob__glow {
-  pointer-events: none;
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: radial-gradient(
-    120% 80% at 50% 0%,
-    color-mix(in srgb, var(--accent) 22%, transparent),
-    transparent 68%
-  );
-  opacity: 0.9;
-}
-.widget-folder-blob__header {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.3rem 0.2rem 0.4rem;
-  border-radius: 0.65rem;
-  background: color-mix(in srgb, var(--bg) 35%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-  user-select: none;
-}
-.widget-folder-blob__collapse-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: 6px;
-  color: var(--vue-auto-049);
-  transition:
-    background-color 0.12s ease-out,
-    color 0.12s ease-out;
-  cursor: pointer;
-  &:hover {
-    background: var(--vue-auto-001);
-    color: var(--vue-auto-025);
-  }
-}
-.widget-folder-blob__name {
-  text-shadow: 0 1px 2px rgb(0 0 0 / 25%);
-}
-.widget-folder-blob__count {
-  flex-shrink: 0;
-  min-width: 1.1rem;
-  padding: 0.1rem 0.35rem;
-  border-radius: 999px;
-  font-size: 9px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent-contrast-fg, #fff);
-  background: var(--accent);
-  box-shadow: 0 1px 6px color-mix(in srgb, var(--accent) 35%, transparent);
-}
-.widget-folder-blob__empty {
-  position: relative;
-  z-index: 1;
-  font-style: italic;
-  opacity: 0.9;
-}
-.widget-folder-blob__servers {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  padding-top: 0.1rem;
-}
-
-[data-theme='light'] .widget-folder-card-rail {
-  box-shadow: none;
-  border-color: color-mix(in srgb, var(--text) 12%, transparent);
-}
-[data-theme='light'] .widget-folder-compact-trigger {
-  box-shadow: none;
-  border-color: color-mix(in srgb, var(--text) 14%, transparent);
-  &:hover {
-    box-shadow: none;
-    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-  }
-}
-[data-theme='light'] .widget-folder-compact-empty__icon {
-  filter: none;
-  opacity: 0.55;
-}
-[data-theme='light'] .widget-folder-blob {
-  box-shadow: none;
-  border-color: color-mix(in srgb, var(--text) 12%, transparent);
-}
-
-/* ── compact ungrouped divider ── */
-.compact-ungrouped-rule {
-  height: 1px;
-  margin: 0.15rem 0.25rem 0.25rem;
-  background: color-mix(in srgb, var(--border) 35%, transparent);
-  border-radius: 1px;
-  transition: background 0.2s;
-}
-.compact-ungrouped--drop .compact-ungrouped-rule {
-  background: rgb(56 189 248 / 45%);
-  box-shadow: 0 0 6px rgb(56 189 248 / 18%);
-}
-
-/* ── folder peek avatar overrides for light theme ── */
-[data-theme='light'] .folder-peek-avatar {
-  border-color: color-mix(in srgb, var(--text) 8%, transparent);
-  box-shadow: none;
 }
 </style>

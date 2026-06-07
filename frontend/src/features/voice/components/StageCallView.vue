@@ -12,6 +12,7 @@ import {
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import StreamVideoTile from '@/components/StreamVideoTile.vue';
+import type { StreamVideoTileTrack } from '@/components/streamVideoTileTrack';
 import type { VcModerateAction } from '@/components/CallView.vue';
 import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRoom';
 import { useAuthSessionStore } from '@/stores/authSession';
@@ -35,6 +36,7 @@ import {
   cancelEchoStageSpeakRequest,
   requestEchoStageSpeak,
 } from '@/services/voice/requestStageSpeak';
+import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
 import StageYoutubeLiveBar from '@/features/voice/components/StageYoutubeLiveBar.vue';
 import StageActiveEventBanner from '@/features/voice/components/StageActiveEventBanner.vue';
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
@@ -238,7 +240,7 @@ type SpeakerMediaTile = {
   name: string;
   pfp: string;
   isLocal: boolean;
-  track: unknown | null;
+  track: StreamVideoTileTrack | null;
 };
 
 const speakerMediaTiles = computed<SpeakerMediaTile[]>(() => {
@@ -252,7 +254,9 @@ const speakerMediaTiles = computed<SpeakerMediaTile[]>(() => {
         name: p.name,
         pfp: p.pfp,
         isLocal: p.id === props.currentUserId,
-        track: resolveParticipantScreenShareTrack(p),
+        track: resolveParticipantScreenShareTrack(
+          p,
+        ) as StreamVideoTileTrack | null,
       });
     }
     if (p.video) {
@@ -263,7 +267,7 @@ const speakerMediaTiles = computed<SpeakerMediaTile[]>(() => {
         name: p.name,
         pfp: p.pfp,
         isLocal: p.id === props.currentUserId,
-        track: resolveParticipantCameraTrack(p),
+        track: resolveParticipantCameraTrack(p) as StreamVideoTileTrack | null,
       });
     }
   }
@@ -477,6 +481,7 @@ watch(
     </div>
 
     <StageYoutubeLiveBar
+      v-if="YOUTUBE_INTEGRATION_ENABLED"
       :echo-server-id="echoServerId"
       :stage-channel-id="stageChannelId"
       :can-manage="canManageStageYoutube"
@@ -570,9 +575,13 @@ watch(
         :now-ms="stageEventNowMs ?? Date.now()"
         :started-from-lobby="stageEventStartedFromLobby"
         :prompt-youtube-live="
-          showYoutubeLivePrompt && promptYoutubeLiveForEvent
+          YOUTUBE_INTEGRATION_ENABLED &&
+          showYoutubeLivePrompt &&
+          promptYoutubeLiveForEvent
         "
-        :can-manage-youtube="canManageStageYoutube"
+        :can-manage-youtube="
+          YOUTUBE_INTEGRATION_ENABLED && canManageStageYoutube
+        "
         @dismiss="emit('dismissStageEvent')"
         @dismiss-youtube-prompt="
           () => {
@@ -620,7 +629,7 @@ watch(
               <StreamVideoTile
                 :key="stagePrimaryTile.tileId"
                 class="h-full w-full min-h-0 flex-1 overflow-hidden rounded-xl"
-                :track="(stagePrimaryTile.track as any) ?? null"
+                :track="stagePrimaryTile.track ?? null"
                 :participant-name="stagePrimaryTile.name"
                 :participant-pfp="stagePrimaryTile.pfp"
                 :participant-id="stagePrimaryTile.id"
@@ -645,7 +654,7 @@ watch(
                 v-for="t in stageSideTiles"
                 :key="t.tileId"
                 class="aspect-video h-24 w-36 shrink-0 overflow-hidden rounded-lg md:h-auto md:w-full md:min-h-[5.5rem]"
-                :track="(t.track as any) ?? null"
+                :track="t.track ?? null"
                 :participant-name="t.name"
                 :participant-pfp="t.pfp"
                 :participant-id="t.id"
@@ -701,12 +710,12 @@ watch(
                   :class="{ 'stage-avatar-speaking-ring': p.speaking }"
                   :style="
                     p.speaking
-                      ? ({
+                      ? {
                           '--speak-strength': Math.min(
                             1,
                             (p.audioLevel ?? 0) * 3 + 0.4,
                           ),
-                        } as any)
+                        }
                       : undefined
                   "
                 >

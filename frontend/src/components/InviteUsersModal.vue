@@ -218,7 +218,27 @@ const showDirectInviteSection = computed(
       class="invite-users-modal real-glass-modal custom-scrollbar relative flex w-full max-w-xl flex-col overflow-y-auto overscroll-contain rounded-2xl p-5 text-foreground max-h-[min(92dvh,calc(100dvh-3rem))] sm:p-6"
       @click.stop
     >
-      <header class="shrink-0 text-center">
+      <button
+        type="button"
+        class="invite-modal-close chat-focus-ring absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
+        aria-label="Close"
+        @click="close"
+      >
+        <svg
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </button>
+
+      <header class="shrink-0 px-8 text-center">
         <h2 id="invite-modal-title" class="text-xl font-bold tracking-tight">
           {{ modalTitle }}
         </h2>

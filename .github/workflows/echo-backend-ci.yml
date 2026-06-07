@@ -62,9 +62,12 @@ jobs:
       - name: Contract surface + CI guards
         env:
           PG_TEST_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+          DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
         run: |
           npm run test:storage-mode -w backend
           npm run test:production-config-gates -w backend
+          npm run test:video-hls-worker-config -w backend
+          npm run test:video-hls-notify -w backend
           npm run test:linkUnfurlStubs -w backend
           npm run test:linkUnfurlExtract -w backend
           npm run test:shipping-security -w backend
@@ -78,6 +81,12 @@ jobs:
           node scripts/check-echo-no-sql-in-routes.mjs
           node scripts/check-god-file-ratchet.mjs
           node scripts/check-new-code-charter.mjs
+          npm run charter:new-code:test
+          node scripts/check-github-remote-policy.mjs
+          npm run check:sql-schema-columns
+          npm run check:sql-schema-columns:live
+          node --import tsx backend/src/tests/paperCollabState.test.ts
+          node --import tsx backend/src/tests/paperAttribution.test.ts
 
       - name: Socket handler unit tests
         run: npm run test -w frontend -- backend/src/tests/channelHandlers.joinChannel.test.ts

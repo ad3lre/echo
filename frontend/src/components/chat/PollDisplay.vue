@@ -4,6 +4,7 @@ import type { PollData, PollOption } from '@shared/types';
 import { formatPollTimeRemaining, isPollEnded } from '@/utils/formatPollTime';
 import PollOptionEmoji from '@/components/chat/PollOptionEmoji.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
+import DiscordSyncedMessageBadge from '@/features/chat/components/DiscordSyncedMessageBadge.vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 
@@ -16,6 +17,8 @@ const props = defineProps<{
   resolvePollVoterDisplay?: (userId: string) => string;
   /** Optional avatar URL for a voter id (e.g. from member list). */
   resolvePollVoterAvatar?: (userId: string) => string | undefined;
+  /** Read-only Discord bridge/import poll — Echo-native chrome, no in-app voting. */
+  discordSynced?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -61,8 +64,10 @@ const userHasVotedAny = computed(() => {
   return props.poll.options.some((o) => o.voterIds.includes(uid));
 });
 
+const readOnly = computed(() => props.discordSynced === true);
+
 const showVoteTallies = computed(() => {
-  if (ended.value) return true;
+  if (readOnly.value || ended.value) return true;
   if (!props.currentUserId) return true;
   return userHasVotedAny.value;
 });
@@ -71,7 +76,9 @@ const timeLabel = computed(() =>
   formatPollTimeRemaining(props.poll.endsAt, now.value),
 );
 
-const showWhoVotedUi = computed(() => props.poll.anonymous !== true);
+const showWhoVotedUi = computed(
+  () => props.poll.anonymous !== true && !readOnly.value,
+);
 
 const voterRowsByOption = computed(() => {
   return props.poll.options.map((opt) => {
@@ -154,81 +161,140 @@ function hasVoted(opt: PollOption) {
   return props.currentUserId && opt.voterIds.includes(props.currentUserId);
 }
 
+function optionShellClass(opt: PollOption) {
+  return [
+    'poll-display__option w-full text-left rounded-md overflow-hidden transition-colors',
+    hasVoted(opt) ? 'poll-display__option--selected ring-1 ring-accent/40' : '',
+    readOnly.value
+      ? 'poll-display__option--readonly'
+      : ended.value
+        ? 'cursor-default opacity-80'
+        : 'hover:bg-glass-hover',
+  ];
+}
+
 function handleVote(opt: PollOption) {
-  if (hasVoted(opt) || ended.value) return;
+  if (readOnly.value || hasVoted(opt) || ended.value) return;
   emit('vote', opt.id);
 }
 </script>
 
 <template>
   <div
-    class="mt-2 w-full max-w-[400px] rounded-lg border border-border bg-surface overflow-hidden"
+    class="poll-display mt-2 w-full max-w-[400px] overflow-hidden rounded-lg border border-border bg-elevated"
+    :class="{ 'poll-display--discord': discordSynced }"
   >
-    <div class="px-4 py-4">
-      <div class="text-sm font-medium text-foreground mb-3">
-        {{ poll.question }}
-      </div>
-      <div class="space-y-1.5">
-        <button
-          v-for="opt in poll.options"
-          :key="opt.id"
-          type="button"
-          class="w-full text-left rounded-md overflow-hidden transition-colors"
-          :class="[
-            hasVoted(opt) ? 'ring-1 ring-accent/40' : '',
-            ended ? 'cursor-default opacity-80' : 'hover:bg-glass-hover',
-          ]"
-          :disabled="ended"
-          @click="handleVote(opt)"
+    <div class="poll-display__body px-4 py-4">
+      <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <h3
+          class="poll-display__question min-w-0 flex-1 text-sm font-semibold text-foreground"
         >
-          <div class="relative px-4 py-2.5">
-            <div
-              v-if="showVoteTallies"
-              class="absolute left-0 top-0 bottom-0 z-0 bg-accent/15 transition-all duration-300"
-              :style="{ width: `${getPercent(opt)}%` }"
-            />
-            <div class="relative z-10 flex items-center justify-between gap-2">
-              <div class="flex min-w-0 flex-1 items-center gap-2 text-left">
-                <PollOptionEmoji v-if="opt.emoji" :emoji="opt.emoji" />
-                <span class="text-sm text-foreground truncate min-w-0">{{
-                  opt.text
-                }}</span>
-              </div>
-              <span
+          {{ poll.question }}
+        </h3>
+        <DiscordSyncedMessageBadge v-if="discordSynced" />
+      </div>
+      <div class="space-y-1.5" role="list">
+        <template v-for="opt in poll.options" :key="opt.id">
+          <button
+            v-if="!discordSynced"
+            type="button"
+            role="listitem"
+            :class="optionShellClass(opt)"
+            :disabled="ended"
+            @click="handleVote(opt)"
+          >
+            <div class="relative px-4 py-2.5">
+              <div
                 v-if="showVoteTallies"
-                class="text-xs text-muted shrink-0 tabular-nums"
+                class="poll-display__bar absolute bottom-0 left-0 top-0 z-0 bg-accent/15 transition-all duration-300"
+                :style="{ width: `${getPercent(opt)}%` }"
+              />
+              <div
+                class="relative z-10 flex items-center justify-between gap-2"
               >
-                {{ opt.votes }} {{ opt.votes === 1 ? 'vote' : 'votes' }}
-                <template v-if="totalVotes > 0"
-                  >{{ getPercent(opt) }}%</template
+                <div class="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  <PollOptionEmoji v-if="opt.emoji" :emoji="opt.emoji" />
+                  <span
+                    class="poll-display__option-label min-w-0 truncate text-sm text-foreground"
+                    >{{ opt.text }}</span
+                  >
+                </div>
+                <span
+                  v-if="showVoteTallies"
+                  class="poll-display__tally shrink-0 text-xs tabular-nums text-muted"
                 >
-              </span>
+                  {{ opt.votes }} {{ opt.votes === 1 ? 'vote' : 'votes' }}
+                  <template v-if="totalVotes > 0">
+                    · {{ getPercent(opt) }}%
+                  </template>
+                </span>
+              </div>
+            </div>
+          </button>
+          <div
+            v-else
+            role="listitem"
+            :class="optionShellClass(opt)"
+            aria-label="Poll option"
+          >
+            <div class="relative px-4 py-2.5">
+              <div
+                v-if="showVoteTallies"
+                class="poll-display__bar absolute bottom-0 left-0 top-0 z-0 bg-accent/15 transition-all duration-300"
+                :style="{ width: `${getPercent(opt)}%` }"
+              />
+              <div
+                class="relative z-10 flex items-center justify-between gap-2"
+              >
+                <div class="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  <PollOptionEmoji v-if="opt.emoji" :emoji="opt.emoji" />
+                  <span
+                    class="poll-display__option-label min-w-0 truncate text-sm text-foreground"
+                    >{{ opt.text }}</span
+                  >
+                </div>
+                <span
+                  v-if="showVoteTallies"
+                  class="poll-display__tally shrink-0 text-xs tabular-nums text-muted"
+                >
+                  {{ opt.votes }} {{ opt.votes === 1 ? 'vote' : 'votes' }}
+                  <template v-if="totalVotes > 0">
+                    · {{ getPercent(opt) }}%
+                  </template>
+                </span>
+              </div>
             </div>
           </div>
-        </button>
+        </template>
       </div>
       <div
-        class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted"
+        class="poll-display__footer mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted"
       >
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-          <span v-if="showVoteTallies" class="tabular-nums">
+        <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <span v-if="showVoteTallies" class="poll-display__meta tabular-nums">
             {{ totalVotes }} {{ totalVotes === 1 ? 'vote' : 'votes' }} total
           </span>
-          <span v-else class="text-muted/90">
+          <span v-else class="poll-display__meta poll-display__meta--hint">
             Results hidden until you vote
           </span>
           <button
             v-if="showWhoVotedUi"
             type="button"
-            class="text-accent hover:brightness-110 transition-[filter,color] shrink-0 font-medium"
+            class="poll-display__who-voted shrink-0 font-medium text-accent transition-[filter,color] hover:brightness-110"
             @click="votersModalOpen = true"
           >
             View who voted
           </button>
+          <span
+            v-if="discordSynced"
+            class="poll-display__discord-note text-muted"
+          >
+            Vote in Discord
+          </span>
         </div>
         <span
           v-if="timeLabel"
-          class="shrink-0 tabular-nums"
+          class="poll-display__time shrink-0 tabular-nums"
           :class="ended ? 'poll-time--ended' : 'text-muted'"
         >
           {{ timeLabel }}
@@ -372,8 +438,56 @@ function handleVote(opt: PollOption) {
 </template>
 
 <style scoped lang="scss">
+.poll-display__option {
+  border: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+  background: color-mix(in srgb, var(--elevated) 88%, var(--surface) 12%);
+}
+
+.poll-display__option--readonly {
+  cursor: default;
+}
+
+.poll-display--discord .poll-display__option {
+  background: color-mix(in srgb, var(--elevated) 94%, white 6%);
+}
+
 .poll-time--ended {
   color: color-mix(in srgb, var(--muted) 72%, var(--accent) 28%);
+}
+
+:global([data-theme='light']) .poll-display {
+  background: #fff;
+  border-color: color-mix(in srgb, var(--border) 78%, transparent);
+
+  .poll-display__question,
+  .poll-display__option-label {
+    color: var(--text);
+  }
+
+  .poll-display__option {
+    border-color: color-mix(in srgb, var(--border) 62%, transparent);
+    background: #fff;
+  }
+
+  .poll-display__option--selected {
+    border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+    background: color-mix(in srgb, var(--accent) 6%, #fff);
+  }
+
+  .poll-display__bar {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  .poll-display__tally,
+  .poll-display__meta,
+  .poll-display__discord-note,
+  .poll-display__time {
+    color: color-mix(in srgb, var(--text) 56%, transparent);
+  }
+
+  .poll-display__who-voted {
+    color: var(--accent);
+  }
 }
 
 .modal-overlay-bg {
@@ -409,6 +523,25 @@ function handleVote(opt: PollOption) {
     background-color: color-mix(in srgb, var(--surface) 88%, transparent);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
+  }
+}
+
+:global([data-theme='light']) .poll-voters-modal {
+  color: var(--text);
+
+  &::before {
+    background-color: #fff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .text-muted {
+    color: color-mix(in srgb, var(--text) 58%, transparent);
+  }
+
+  .text-foreground,
+  .text-foreground\/95 {
+    color: var(--text);
   }
 }
 </style>

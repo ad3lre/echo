@@ -40,21 +40,24 @@ function dismiss() {
       >
         <h2
           id="unverified-email-title"
-          class="text-lg font-semibold text-sky-50"
+          class="text-lg font-semibold text-foreground"
         >
           Verify your email
         </h2>
-        <p class="mt-2 text-sm leading-relaxed text-sky-100/90">
+        <p class="mt-2 text-sm leading-relaxed text-muted">
           Verify your email to secure your account. Check your inbox for the
           link we sent.
         </p>
         <p
           v-if="resendMessage"
-          class="mt-2 text-sm font-medium text-sky-100/95"
+          class="mt-2 text-sm font-medium text-foreground"
         >
           {{ resendMessage }}
         </p>
-        <p v-if="resendError" class="mt-2 text-sm text-rose-100">
+        <p
+          v-if="resendError"
+          class="mt-2 text-sm text-rose-600 dark:text-rose-300"
+        >
           {{ resendError }}
         </p>
         <div
@@ -62,14 +65,14 @@ function dismiss() {
         >
           <button
             type="button"
-            class="order-3 rounded-lg px-3 py-2 text-sm font-medium text-sky-100/80 transition-colors hover:bg-glass-hover hover:text-sky-50 sm:order-1"
+            class="order-3 rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-glass-hover hover:text-foreground sm:order-1"
             @click="dismiss"
           >
             Dismiss
           </button>
           <button
             type="button"
-            class="order-2 rounded-lg bg-glass-2 px-4 py-2.5 text-sm font-semibold text-sky-50 transition-colors hover:bg-glass-active"
+            class="order-2 rounded-lg bg-glass-2 px-4 py-2.5 text-sm font-semibold text-fg transition-colors hover:bg-glass-active"
             @click="emit('change-email')"
           >
             Change email

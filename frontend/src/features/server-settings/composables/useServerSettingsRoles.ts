@@ -192,7 +192,7 @@ export function useServerSettingsRoles(options: {
   } = useRoleColorPicker({
     selectedRole,
     roleManagerDirty,
-    activeSection: activeSection as any,
+    activeSection: activeSection as Ref<ServerSettingsSection>,
     roleEditorTab,
     selectedRoleId,
   });

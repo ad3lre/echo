@@ -121,8 +121,7 @@ export function useGlobalEmojiTokenResolver() {
 
   function queueEmojiIds(ids: readonly string[]) {
     if (!auth.isAuthenticated || echoSyncCapabilities.isMockDataMode) return;
-    const token = (auth.accessToken ?? '').trim();
-    if (!token) return;
+    const token = auth.accessToken ?? '';
     let queued = false;
     for (const raw of ids) {
       const k = normalizeEmojiId(raw);

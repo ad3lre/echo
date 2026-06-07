@@ -28,6 +28,7 @@ permissions:
 env:
   VITE_API_URL: https://chat-echo.com
   VITE_SOCKET_IO_URL: https://chat-echo.com
+  ANDROID_NDK_VERSION: '29.0.14206865'
   NODE_OPTIONS: --max-old-space-size=6144
 
 jobs:
@@ -56,8 +57,22 @@ jobs:
         uses: android-actions/setup-android@v4
         with:
           # Default is only tools+platform-tools; app uses compileSdk 36 (see gen/android/app/build.gradle.kts).
-          # NDK required for Rust Android link; Tauri/AGP on GHA commonly resolves NDK 29.x (keep in sync with linker env).
-          packages: tools platform-tools platforms;android-36 build-tools;35.0.0 ndk;29.0.14206865
+          # NDK required for Rust Android link; keep this in sync with Gradle's ndkVersion pin.
+          packages: tools platform-tools platforms;android-36 build-tools;35.0.0 ndk;${{ env.ANDROID_NDK_VERSION }}
+
+      - name: Export Android NDK path
+        run: |
+          ndk_dir="$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION"
+          if [ ! -d "$ndk_dir" ]; then
+            echo "Expected Android NDK at $ndk_dir" >&2
+            ls -la "$ANDROID_HOME/ndk" >&2 || true
+            exit 1
+          fi
+          {
+            echo "ANDROID_NDK_HOME=$ndk_dir"
+            echo "ANDROID_NDK_ROOT=$ndk_dir"
+            echo "NDK_HOME=$ndk_dir"
+          } >> "$GITHUB_ENV"
 
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@stable

@@ -1,6 +1,6 @@
 export type VoiceRoutingDeps = {
   adapters: {
-    socket?: { emit: (ev: string, p: any) => void };
+    socket?: { emit: (ev: string, p: unknown) => void };
   };
 };
 

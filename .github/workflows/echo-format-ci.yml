@@ -32,3 +32,9 @@ jobs:
 
       - name: New-code charter (June 2026+)
         run: node scripts/check-new-code-charter.mjs
+
+      - name: New-code charter unit tests
+        run: npm run charter:new-code:test
+
+      - name: GitHub mirror policy guard
+        run: node scripts/check-github-remote-policy.mjs

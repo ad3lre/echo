@@ -14,9 +14,40 @@ export type VcYoutubeRemotePlaybackState = EchoYoutubePlaybackSyncV1 & {
   updatedAt: number;
 };
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- YouTube IFrame API global */
-type YTNamespace = any;
-/* eslint-enable @typescript-eslint/no-explicit-any */
+/** Minimal slice of the YouTube IFrame Player API that this composable drives. */
+interface YoutubePlayer {
+  destroy(): void;
+  playVideo(): void;
+  pauseVideo(): void;
+  seekTo(seconds: number, allowSeekAhead?: boolean): void;
+  getCurrentTime(): number;
+  getPlayerState(): number;
+}
+
+interface YoutubePlayerEvent {
+  data: number;
+  target?: YoutubePlayer;
+}
+
+interface YoutubePlayerOptions {
+  height?: string | number;
+  width?: string | number;
+  host?: string;
+  videoId?: string;
+  playerVars?: Record<string, unknown>;
+  events?: {
+    onReady?: (e: { target: YoutubePlayer }) => void;
+    onStateChange?: (e: YoutubePlayerEvent) => void;
+    onError?: (e: unknown) => void;
+  };
+}
+
+interface YTNamespace {
+  Player: new (
+    el: string | HTMLElement,
+    options: YoutubePlayerOptions,
+  ) => YoutubePlayer;
+}
 
 /** How often the host republishes playback position to followers while playing. */
 const YT_WATCH_PUBLISH_INTERVAL_MS = 2200;
@@ -95,7 +126,7 @@ export function useVcYoutubeWatchTogetherPlayer(opts: {
 }) {
   const { containerRef, videoId, remotePlayback, publish, canPublish } = opts;
 
-  const player = shallowRef<any>(null);
+  const player = shallowRef<YoutubePlayer | null>(null);
   let destroyInFlight: Promise<void> | null = null;
   let publishInterval: ReturnType<typeof setInterval> | null = null;
   let suppressPublish = false;
@@ -145,7 +176,7 @@ export function useVcYoutubeWatchTogetherPlayer(opts: {
     );
   }
 
-  function onPlayerStateChange(ev: { data: number; target?: any }) {
+  function onPlayerStateChange(ev: YoutubePlayerEvent) {
     const st = ev.data;
     const playing = st === 1;
     if (playing) {
@@ -214,7 +245,7 @@ export function useVcYoutubeWatchTogetherPlayer(opts: {
             ...(origin ? { origin } : {}),
           },
           events: {
-            onReady: (e: { target: any }) => {
+            onReady: (e: { target: YoutubePlayer }) => {
               player.value = e.target;
               done();
             },

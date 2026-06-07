@@ -14,6 +14,7 @@ import type {
   ChannelCategory,
 } from '@/features/channel-panel/composables/useChannelPanelVoiceState';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
+import type { ChannelVoiceParticipantUi } from '@/features/channel-panel/channelVoiceParticipantUi';
 import ChannelPanelVoiceParticipant from './ChannelPanelVoiceParticipant.vue';
 import ChannelPanelDiscordMirrorParticipant from './ChannelPanelDiscordMirrorParticipant.vue';
 import ChannelIconPickerPopover from '@/components/ChannelIconPickerPopover.vue';
@@ -101,8 +102,11 @@ const props = defineProps<{
     channelId: string,
     userId: string,
   ) => string | undefined;
-  participantVoiceUi: (channelId: string, userId: string) => any;
-  rowCanManageChannel: (channel: any) => boolean;
+  participantVoiceUi: (
+    channelId: string,
+    userId: string,
+  ) => ChannelVoiceParticipantUi;
+  rowCanManageChannel: (channel: ChannelWithParticipants) => boolean;
   /** Voice rows: when set and returns false, row looks disabled (click still shows parent toast). */
   canJoinVoice?: (channelId: string) => boolean;
   /** Mobile VC lobby: pulse outline on the targeted voice row. */
@@ -155,7 +159,9 @@ const emit = defineEmits<{
   'open-create-channel': [categoryId: string | null];
   'open-create-category': [];
   'open-category-settings': [categoryId: string];
-  'open-channel-settings': [payload: { channel: any; categoryId: string }];
+  'open-channel-settings': [
+    payload: { channel: ChannelWithParticipants; categoryId: string },
+  ];
   'category-contextmenu': [
     categoryId: string,
     categoryName: string,
@@ -206,7 +212,7 @@ function blurChannelSettingsTrigger(e: MouseEvent) {
 }
 
 function openChannelSettings(
-  payload: { channel: any; categoryId: string },
+  payload: { channel: ChannelWithParticipants; categoryId: string },
   e: MouseEvent,
 ) {
   blurChannelSettingsTrigger(e);
@@ -900,7 +906,7 @@ const activeForumContextId = computed((): string | null => {
 });
 
 function topLevelChannelsForCategory(channels: ChannelWithParticipants[]) {
-  return channels.filter((c: any) => {
+  return channels.filter((c) => {
     if (getParentChannelIdOrNull(c)) return false;
     if (isForumPostChannel(c)) return false;
     return true;
@@ -913,7 +919,7 @@ function visibleForumSubchannelsForParent(
   activeForumId: string | null,
 ) {
   if (!activeForumId || activeForumId !== parentId) return [];
-  return channels.filter((c: any) => {
+  return channels.filter((c) => {
     if (getParentChannelIdOrNull(c) !== parentId) return false;
     if (!isForumPostChannel(c)) return false;
 

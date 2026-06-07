@@ -246,8 +246,9 @@ export default async function registerRoutes(fastify: FastifyInstance) {
             joinClientIp: ip,
           });
           return reply.code(201).send(authSessionJsonBody(session));
-        } catch (err: any) {
-          if (err?.message === 'USERNAME_TAKEN') {
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : undefined;
+          if (msg === 'USERNAME_TAKEN') {
             return sendError(
               reply,
               409,
@@ -255,7 +256,7 @@ export default async function registerRoutes(fastify: FastifyInstance) {
               'Username is already in use',
             );
           }
-          if (err?.message === 'INVALID_USERNAME') {
+          if (msg === 'INVALID_USERNAME') {
             return sendError(
               reply,
               400,
@@ -263,7 +264,7 @@ export default async function registerRoutes(fastify: FastifyInstance) {
               'Username is invalid',
             );
           }
-          if (err?.message === 'INVALID_EMAIL') {
+          if (msg === 'INVALID_EMAIL') {
             return sendError(
               reply,
               400,
@@ -271,7 +272,7 @@ export default async function registerRoutes(fastify: FastifyInstance) {
               'Please enter a valid email address.',
             );
           }
-          if (err?.message === 'INVALID_EMAIL_PROVIDER') {
+          if (msg === 'INVALID_EMAIL_PROVIDER') {
             return sendError(
               reply,
               400,
@@ -279,7 +280,7 @@ export default async function registerRoutes(fastify: FastifyInstance) {
               'Temporary, disposable, or relay inbox domains cannot be used. Sign up with a normal email address you keep long term.',
             );
           }
-          if (err?.message === 'EMAIL_IN_USE') {
+          if (msg === 'EMAIL_IN_USE') {
             return sendError(
               reply,
               409,
@@ -287,7 +288,7 @@ export default async function registerRoutes(fastify: FastifyInstance) {
               'That email is already registered.',
             );
           }
-          if (err?.message === 'INVALID_DISPLAY_NAME') {
+          if (msg === 'INVALID_DISPLAY_NAME') {
             return sendError(
               reply,
               400,
@@ -295,7 +296,7 @@ export default async function registerRoutes(fastify: FastifyInstance) {
               'Display name is invalid.',
             );
           }
-          if (err?.message === 'WEAK_PASSWORD') {
+          if (msg === 'WEAK_PASSWORD') {
             return sendError(
               reply,
               400,
@@ -352,8 +353,9 @@ export default async function registerRoutes(fastify: FastifyInstance) {
         }
         await sendSignupVerificationResend(fastify.log, store, req.authUser);
         return reply.code(204).send();
-      } catch (err: any) {
-        if (err?.message === 'VERIFICATION_EMAIL_COOLDOWN') {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : undefined;
+        if (msg === 'VERIFICATION_EMAIL_COOLDOWN') {
           return sendError(
             reply,
             429,

@@ -8,6 +8,7 @@ import {
   utcIsoToDateTimeLocalValue,
 } from '@/features/server-settings/utils/serverEventFormDateTime';
 import { parseDateTimeLocal } from '@/utils/calendarDate';
+import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
 import { withStageModeInDescription } from '@/features/voice/stage/stageLobbyUtils';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
@@ -201,6 +202,7 @@ async function submit() {
             />
           </div>
           <label
+            v-if="YOUTUBE_INTEGRATION_ENABLED"
             class="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-glass-1 px-3 py-2.5"
           >
             <input v-model="youtubeLive" type="checkbox" class="rounded" />

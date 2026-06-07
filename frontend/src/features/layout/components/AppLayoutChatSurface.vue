@@ -85,6 +85,7 @@ const chatCtx = computed(() => {
       o[k as string] = props[k];
     }
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deliberately loose: child layout components keep their own prop contracts over this merged inject+props bag
   return o as any;
 });
 
@@ -192,9 +193,11 @@ const resolvedSelectedServerName =
 
 /** Search panel uses a slim channel shape; voice/DM children accept wider summaries via their own props. */
 const allChannelsForVoice = computed(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional slim->wide channel seam; children re-validate via their own prop types
   () => (resolvedAllChannels.value ?? []) as any,
 );
 const allChannelsForDm = computed(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional slim->wide channel seam; children re-validate via their own prop types
   () => (chatCtx.value.allChannels ?? []) as any,
 );
 
@@ -417,6 +420,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :member-panel-collapsed="chatCtx.memberPanelCollapsed"
         :member-panel-collapsed-raw="chatCtx.memberPanelCollapsedRaw"
         :compact-guild-tri-pane-nav="!!chatCtx.compactGuildTriPaneNav"
+        :compact-guild-split-nav="!!chatCtx.compactGuildSplitNav"
         :expand-channels="chatCtx.expandChannels"
         :collapse-members="chatCtx.collapseMembers"
         :expand-members="chatCtx.expandMembers"
@@ -530,7 +534,9 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
           chatCtx.bumpVoiceMobileChatFromCallScrollDown
         "
         :voice-mobile-dock-reserve-px="chatCtx.voiceMobileDockReservePx ?? 0"
-        :is-compact-mobile-guild="!!chatCtx.compactGuildTriPaneNav"
+        :is-compact-mobile-guild="
+          !!chatCtx.compactGuildTriPaneNav || !!chatCtx.compactGuildSplitNav
+        "
         :is-compact-shell="!!chatCtx.isCompactShell"
         :narrow-channel-panel-for-activity-overflow-step="
           chatCtx.narrowChannelPanelForActivityOverflowStep

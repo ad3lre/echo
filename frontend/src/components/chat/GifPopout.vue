@@ -532,7 +532,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
     <div
       ref="popoutRef"
       data-chat-insert-popout
-      class="chat-popout chat-liquid-glass-menu overflow-hidden"
+      class="chat-popout chat-liquid-glass-menu gif-popout overflow-hidden"
       :style="popoutStyle"
       role="menu"
       @mousedown.stop
@@ -1116,10 +1116,77 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
 
 <style scoped lang="scss">
 .chat-popout {
-  /* Glass from .chat-liquid-glass-menu on root; inner is transparent for content */
   .chat-popout-inner {
     position: relative;
     background-color: transparent;
+  }
+}
+
+/* Light mode: white picker chrome + dark text (scrim/glass utilities read as muddy grey). */
+:global([data-theme='light']) .gif-popout.chat-liquid-glass-menu {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: #fff;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow: none;
+  color: var(--text);
+}
+
+:global([data-theme='light']) .gif-popout {
+  :global(.bg-scrim-1) {
+    background-color: #fff !important;
+  }
+
+  :global(.bg-scrim-2) {
+    background-color: color-mix(in srgb, var(--border) 16%, #fff) !important;
+  }
+
+  :global(.text-muted),
+  :global(.text-fg-subtle) {
+    color: color-mix(in srgb, var(--text) 58%, transparent) !important;
+  }
+
+  :global(.text-foreground) {
+    color: var(--text) !important;
+  }
+
+  [role='tablist'] {
+    background-color: color-mix(in srgb, var(--border) 14%, #fff) !important;
+  }
+
+  [role='tab'] {
+    color: color-mix(in srgb, var(--text) 62%, transparent);
+
+    &[aria-selected='true'] {
+      background-color: #fff !important;
+      color: var(--text) !important;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 50%, transparent);
+    }
+
+    &:hover:not([aria-selected='true']) {
+      background-color: color-mix(in srgb, var(--border) 10%, #fff) !important;
+      color: var(--text) !important;
+    }
+  }
+
+  input[type='text'] {
+    background-color: #fff !important;
+    color: var(--text) !important;
+    border: 1px solid color-mix(in srgb, var(--border) 62%, transparent) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+
+    &::placeholder {
+      color: color-mix(in srgb, var(--text) 42%, transparent);
+    }
+  }
+
+  button.text-muted:hover {
+    color: var(--text) !important;
+  }
+
+  button:global(.bg-scrim-1):hover {
+    background-color: color-mix(in srgb, var(--border) 10%, #fff) !important;
   }
 }
 </style>

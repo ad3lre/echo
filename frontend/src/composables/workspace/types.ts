@@ -1,4 +1,4 @@
-import type { EchoChannelType } from '@shared/types';
+import type { ChannelPermissionsState, EchoChannelType } from '@shared/types';
 import type { Ref } from 'vue';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import type { ChannelCategory } from '@/composables/useChannels';
@@ -211,7 +211,7 @@ export type WorkspaceStateApi = {
       messageHistoryAnchor?: 'top' | 'bottom';
       bitrateBps?: number | null;
       voiceE2eeEnabled?: boolean;
-      channelPermissions?: any;
+      channelPermissions?: ChannelPermissionsState;
       messageFormatTemplate?: string;
       messageFormatHard?: boolean;
     },

@@ -462,8 +462,7 @@ export function executeEvaluationPlan(
     function traceHasContent(t: ServerAggregationTrace): boolean {
       if (t.mode === 'compressed')
         return Array.isArray(t.compressed) && t.compressed.length > 0;
-      if (t.mode === 'full')
-        return Array.isArray((t as any).full) && (t as any).full.length > 0;
+      if (t.mode === 'full') return Array.isArray(t.full) && t.full.length > 0;
       return false;
     }
     if (traceHasContent(cat)) tracesOut.push(cat);

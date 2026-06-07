@@ -8,6 +8,7 @@ import { copyToClipboard } from '@/features/chat/composables/useMessageLinkActio
 import { linkTokenChannel } from '@/utils/idTokens';
 import type { MainSurface } from '@/features/layout/mainSurface';
 import type { ReactionFavorite } from '@/composables/useReactionFavorites';
+import type { MemberRole, PopoutAnchorRect } from '@/utils/memberProfiles';
 import type {
   ChannelSummary,
   MessageWithAuthor,
@@ -77,11 +78,15 @@ const props = defineProps<{
   onReact?: (messageId: string, emoji: string) => void;
   onGoToChannel?: (channelId: string) => void;
   onGoToMessage?: (channelId: string, messageId: string) => void;
-  onOpenProfile?: (userId: string, anchorRect: any) => void;
+  onOpenProfile?: (userId: string, anchorRect: PopoutAnchorRect | null) => void;
   onOpenProfileFromContextMenu?: (userId: string) => void;
   canModerateAuthor?: (authorId: string) => boolean;
-  onModerateUser?: (payload: any) => void;
-  resolveAuthorRole?: (userId: string) => any;
+  onModerateUser?: (payload: {
+    action: 'kick' | 'ban' | 'timeout';
+    targetUserId: string;
+    timeoutMinutes?: number;
+  }) => void;
+  resolveAuthorRole?: (userId: string) => MemberRole;
   showNsfwGate?: boolean;
   onNsfwAcknowledge?: () => void;
   onNsfwDecline?: () => void;
@@ -442,7 +447,7 @@ watch(
                 :server-id="selectedServerId"
                 :users="users"
                 :mention-users="mentionUsers"
-                :channels="allChannels as any"
+                :channels="allChannels"
                 :send-message="handlePostComposerSend"
                 :message-format-template="
                   forumChannelForFormat?.messageFormatTemplate
@@ -987,6 +992,7 @@ watch(
         </div>
         <ChatView
           class="min-h-0 min-w-0 flex-1"
+          compact-top
           hide-floating-forum-back-button
           :active-channel="effectiveActiveChannel"
           :active-channel-messages="activeChannelMessagesMap"
@@ -994,7 +1000,7 @@ watch(
           :resolve-author-role="resolveAuthorRole"
           :users="users"
           :mention-users="mentionUsers"
-          :channels="allChannels as any"
+          :channels="allChannels"
           :send-message="sendMessage"
           :on-request-forward="onRequestForward"
           :current-user-id="currentUserId"

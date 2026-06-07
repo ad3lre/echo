@@ -1,13 +1,10 @@
 import { computed, type Ref, type ComputedRef } from 'vue';
-import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
-import type { useAuthSessionStore } from '@/stores/authSession';
-import type { useServerStore } from '@/stores/server';
 import { isEchoAuthUserId, isEchoGraphId } from '@/utils/echoIds';
 import {
   saveLocalProfile,
   overwriteLocalProfileFromAuthUser,
 } from '@/utils/localProfilePersistence';
-import { authPatchMe } from '@/api/authClient';
+import { authPatchMe, type AuthUserPublic } from '@/api/authClient';
 import {
   postEchoBlockUser,
   deleteEchoUnblockUser,
@@ -17,13 +14,49 @@ import { openReportModal } from '@/features/safety/reportModal';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { requestAppPrompt } from '@/utils/appDialogs';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
+import type {
+  ExpandedProfile,
+  MemberProfile,
+  ShellCurrentUserSummary,
+} from '@/utils/memberProfiles';
+
+type SelectedServer = { id: string } | null | undefined;
+
+type ProfileSafetyAuthSession = {
+  accessToken?: string | null;
+  isAuthenticated: boolean;
+  backendUser?:
+    | (Omit<Partial<AuthUserPublic>, 'status'> & {
+        id: string;
+        status?: string;
+        customStatus?: string;
+      })
+    | null;
+};
+
+type ProfileSafetyWorkspace = {
+  users: Ref<
+    {
+      id: string;
+      name: string;
+      customStatus?: string;
+    }[]
+  >;
+  blockedUserIds: Ref<string[]>;
+  friendIds: Ref<string[]>;
+  serverMemberNicknames?: Ref<Record<string, Record<string, string>>>;
+  setServerMemberNickname: (
+    serverId: string,
+    userId: string,
+    nickname: string,
+  ) => void;
+};
 
 export function useAppLayoutProfileSafety(deps: {
-  workspace: WorkspaceStateApi;
-  authSession: ReturnType<typeof useAuthSessionStore>;
-  serverStore: ReturnType<typeof useServerStore>;
-  currentUser: ComputedRef<any>;
-  selectedServer: ComputedRef<any>;
+  workspace: ProfileSafetyWorkspace;
+  authSession: ProfileSafetyAuthSession;
+  currentUser: ComputedRef<ShellCurrentUserSummary | undefined>;
+  selectedServer: ComputedRef<SelectedServer>;
   customStatus: Ref<string>;
   echoBlockedUserIds: Ref<Set<string>>;
   isMemberPopoutOpen: Ref<boolean>;
@@ -33,13 +66,12 @@ export function useAppLayoutProfileSafety(deps: {
   canChangeMemberNicknameInServer: (targetUserId: string) => boolean;
   hydrateEchoFromApi: () => Promise<void>;
   refreshEchoRoleData: () => void;
-  expandedProfile: Ref<any>;
-  activeMemberProfile: Ref<any>;
+  expandedProfile: Ref<ExpandedProfile | null>;
+  activeMemberProfile: Ref<MemberProfile | null>;
 }) {
   const {
     workspace,
     authSession,
-    serverStore: _serverStore,
     currentUser,
     selectedServer,
     customStatus,
@@ -202,7 +234,7 @@ export function useAppLayoutProfileSafety(deps: {
       return;
     }
     const previousNick =
-      workspace.serverMemberNicknames.value[sid]?.[targetUserId] ?? '';
+      workspace.serverMemberNicknames?.value[sid]?.[targetUserId] ?? '';
     workspace.setServerMemberNickname(sid, targetUserId, trimmed);
     try {
       await patchEchoMemberNickname(token, sid, targetUserId, trimmed);

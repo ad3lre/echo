@@ -30,7 +30,7 @@ function handleCreatePoll() {
 
 <template>
   <div
-    class="chat-popout chat-popout--left chat-liquid-glass-menu absolute left-4 w-[240px] overflow-hidden"
+    class="chat-popout chat-popout--left chat-liquid-glass-menu attach-popout absolute left-4 w-[240px] overflow-hidden"
     :class="props.placement === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'"
     :data-placement="props.placement"
     role="menu"
@@ -44,7 +44,7 @@ function handleCreatePoll() {
         @click="handleUpload"
       >
         <span
-          class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-glass-2"
+          class="attach-popout__icon flex h-7 w-7 flex-shrink-0 items-center justify-center"
         >
           <svg
             class="h-4 w-4 text-fg"
@@ -83,7 +83,7 @@ function handleCreatePoll() {
         @click="handleCreatePoll"
       >
         <span
-          class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-glass-2"
+          class="attach-popout__icon flex h-7 w-7 flex-shrink-0 items-center justify-center"
         >
           <svg
             class="h-4 w-4 text-fg"
@@ -127,7 +127,6 @@ function handleCreatePoll() {
     right: auto;
   }
 
-  /* Glass: .chat-liquid-glass-menu on root (main.scss) */
   .chat-popout-inner {
     position: relative;
     background-color: transparent;
@@ -151,5 +150,26 @@ function handleCreatePoll() {
     border-top: none;
     border-bottom: 6px solid var(--vue-auto-040);
   }
+}
+
+/* Flat attach menu — glass shadow/stack reads muddy on light chat surfaces. */
+.attach-popout {
+  box-shadow: none;
+}
+
+:global([data-theme='light']) .attach-popout.chat-liquid-glass-menu {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: var(--echo-menu-bg);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow: none;
+}
+
+:global([data-theme='light']) .attach-popout::after {
+  border-top-color: var(--echo-menu-bg);
+}
+
+:global([data-theme='light']) .attach-popout[data-placement='down']::after {
+  border-bottom-color: var(--echo-menu-bg);
 }
 </style>

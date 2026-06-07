@@ -6,6 +6,7 @@ import {
   getDiscordBridgeForEchoChannel,
   normalizeDiscordWebhookUrl,
 } from '../domain/discordBridgeRepo';
+import { sanitizeWebhookAvatarUrl } from './webhookMediaUrl';
 
 const OUTBOUND_TIMEOUT_MS = 12_000;
 const OUTBOUND_MAX_ATTEMPTS = 3;
@@ -36,13 +37,16 @@ function mapEchoEmbedsForDiscord(
   });
 }
 
-function buildOutboundWebhookBody(
+/** Exported for unit tests — builds the Discord incoming-webhook JSON body. */
+export function buildDiscordBridgeOutboundWebhookBody(
   message: Message,
 ): Record<string, unknown> | null {
   const username =
     message.authorDisplayName?.trim().slice(0, 80) || 'Echo user';
-  const avatarUrl = message.authorAvatar?.trim().slice(0, 2048);
-  let text = (message.content ?? '').slice(0, 2000);
+  // Native Echo users often have `data:image/svg+xml` default pfps. Discord
+  // webhooks reject non-HTTP(S) avatar_url values with 400 and drop the post.
+  const avatarUrl = sanitizeWebhookAvatarUrl(message.authorAvatar);
+  let text = (message.contentText ?? message.content ?? '').slice(0, 2000);
   if (!text.trim() && message.attachments?.length) {
     text = message.attachments
       .map((a) => a.url)
@@ -70,6 +74,18 @@ function buildOutboundWebhookBody(
   return body;
 }
 
+async function postDiscordBridgeWebhook(
+  url: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetch(`${url}?wait=true`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
+  });
+}
+
 /**
  * Post Echo message to Discord via channel incoming webhook (username + avatar_url).
  */
@@ -95,17 +111,16 @@ export async function mirrorEchoMessageToDiscordIfConfigured(
     return;
   }
 
-  const body = buildOutboundWebhookBody(message);
+  const body = buildDiscordBridgeOutboundWebhookBody(message);
   if (!body) return;
 
   for (let attempt = 1; attempt <= OUTBOUND_MAX_ATTEMPTS; attempt++) {
     try {
-      const res = await fetch(`${url}?wait=true`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
-      });
+      let res = await postDiscordBridgeWebhook(url, body);
+      if (!res.ok && res.status === 400 && body.avatar_url) {
+        const { avatar_url: _drop, ...withoutAvatar } = body;
+        res = await postDiscordBridgeWebhook(url, withoutAvatar);
+      }
       if (res.ok) return;
       const t = await res.text().catch(() => '');
       const retryable = res.status >= 500 || res.status === 429;

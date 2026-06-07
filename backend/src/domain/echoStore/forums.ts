@@ -153,12 +153,14 @@ export async function listEchoForumPosts(
     [forumChannelId, limit],
   );
 
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     id: String(row.id),
     forumChannelId: String(row.parent_channel_id),
     title: String(row.name),
     tagIds: Array.isArray(row.forum_post_tag_ids)
-      ? row.forum_post_tag_ids.filter((x: any) => typeof x === 'string')
+      ? row.forum_post_tag_ids.filter(
+          (x: unknown): x is string => typeof x === 'string',
+        )
       : [],
     pinned: row.forum_post_pinned === true,
     locked: row.forum_post_locked === true,

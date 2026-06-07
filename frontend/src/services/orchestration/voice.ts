@@ -6,6 +6,7 @@ import {
 } from '@/api/echoClient';
 import { EchoApiError } from '@/api/echo/transport';
 import type { EchoLiveKitSessionResponse } from '@/api/echo/voice';
+import type { LiveKitVoiceConnectOptions } from '@/composables/livekitVoiceRoom.types';
 import {
   jwtMetaForClientLog,
   voiceClientDiag,
@@ -76,6 +77,7 @@ export type VoiceServiceDeps = {
       token: string,
       bitrateBps?: number | null,
       e2eeMediaKey?: VoiceConnectE2eeInput,
+      options?: LiveKitVoiceConnectOptions,
     ) => Promise<void>;
     disconnect: () => void;
   };

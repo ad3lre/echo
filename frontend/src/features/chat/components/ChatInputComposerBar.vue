@@ -3,6 +3,14 @@ import type { ComponentPublicInstance } from 'vue';
 import type { Ref } from 'vue';
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
+import type { Editor as VueEditor } from '@tiptap/vue-3';
+import type { Editor } from '@tiptap/core';
+import type {
+  useMentionAutocomplete,
+  MentionOption,
+} from '@/composables/useMentionAutocomplete';
+import type { useChannelAutocomplete } from '@/composables/useChannelAutocomplete';
+import type { useEmojiAutocomplete } from '@/composables/useEmojiAutocomplete';
 import EmojiAutocompletePopover from '@/components/chat/EmojiAutocompletePopover.vue';
 import MentionAutocompletePopover from '@/components/chat/MentionAutocompletePopover.vue';
 import ChannelAutocompletePopover from '@/components/chat/ChannelAutocompletePopover.vue';
@@ -19,10 +27,10 @@ const props = defineProps<{
   showMentionAutocomplete: boolean;
   showChannelAutocomplete: boolean;
   showEmojiAutocomplete: boolean;
-  mentionAutocomplete: any;
-  channelAutocomplete: any;
-  emojiAutocomplete: any;
-  handleMentionAutocompleteSelect: (option: any) => void;
+  mentionAutocomplete: ReturnType<typeof useMentionAutocomplete>;
+  channelAutocomplete: ReturnType<typeof useChannelAutocomplete>;
+  emojiAutocomplete: ReturnType<typeof useEmojiAutocomplete>;
+  handleMentionAutocompleteSelect: (option: MentionOption) => void;
   handleChannelAutocompleteSelect: (option: {
     id: string;
     name: string;
@@ -46,7 +54,7 @@ const props = defineProps<{
   pendingDocumentsLength: number;
   pendingGifsLength: number;
   pendingExternalImagesLength: number;
-  composerEditor: any;
+  composerEditor: Editor | null;
   /** When true, scale overlay emojis (unicode + custom) like emoji-only messages. */
   composerEmojiOnly?: boolean;
   composerContent: string;
@@ -92,6 +100,13 @@ export type { MarkdownPreviewMenuMode };
 const emit = defineEmits<{
   'set-markdown-preview-mode': [mode: MarkdownPreviewMenuMode];
 }>();
+
+// The composer builds its instance from `@tiptap/core`, whose `Editor` is
+// nominally distinct from the `@tiptap/vue-3` one `EditorContent` expects even
+// though they are the same object at runtime; bridge the gap once here.
+const composerEditorForContent = computed(
+  () => props.composerEditor as unknown as VueEditor | null,
+);
 
 const markdownMenuOpen = ref(false);
 const markdownMenuRootRef = ref<HTMLElement | null>(null);
@@ -410,8 +425,8 @@ defineExpose({
           </div>
           <div class="chat-input-editor-stack relative min-h-[24px] min-w-0">
             <EditorContent
-              v-if="composerEditor"
-              :editor="composerEditor"
+              v-if="composerEditorForContent"
+              :editor="composerEditorForContent"
               class="chat-input-surface min-w-0 w-full"
             />
           </div>

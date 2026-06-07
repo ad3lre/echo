@@ -22,6 +22,26 @@ const x = 1;
   assert.match(extractScriptSource('frontend/src/Foo.vue', vue), /const x = 1/);
 });
 
+test('extractScriptSource parses script and scriptSetup via compiler-sfc', () => {
+  const vue = `<template><div /></template>
+<script lang="ts">
+export default { name: 'Foo' };
+</script>
+<script setup lang="ts">
+const y = 2;
+</script>`;
+  const script = extractScriptSource('frontend/src/Foo.vue', vue);
+  assert.match(script, /export default/);
+  assert.match(script, /const y = 2/);
+});
+
+test('extractScriptSource ignores external-only script tags', () => {
+  const vue = `<template><div /></template>
+<script src="/evil.js"></script>`;
+  const script = extractScriptSource('frontend/src/Foo.vue', vue);
+  assert.equal(script, '');
+});
+
 test('scanFunctionBlocks measures composable bodies', () => {
   const src = `export function useDemo() {
   const a = 1;

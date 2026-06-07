@@ -13,6 +13,7 @@ This file is a change log of work landed in the sweep. It is not a blanket claim
 - [x] Locked presentation trees against direct workspace-merge or Echo HTTP authority with [`vueEchoWorkspaceApplyForbidden.test.ts`](../../frontend/src/vueEchoWorkspaceApplyForbidden.test.ts), [`vueEchoHttpSurface.contract.test.ts`](../../frontend/src/vueEchoHttpSurface.contract.test.ts), and [`layoutComposableWorkspaceMergeForbidden.test.ts`](../../frontend/src/features/layout/composables/layoutComposableWorkspaceMergeForbidden.test.ts).
 - [x] Locked realtime and voice transport boundaries with [`socketInbound.attachDetachParity.test.ts`](../../frontend/src/services/realtime/__tests__/socketInbound.attachDetachParity.test.ts) and [`voiceLivekitTransportBoundary.test.ts`](../../frontend/src/services/orchestration/voiceLivekitTransportBoundary.test.ts).
 - [x] Verified the charter-focused frontend test set and a full frontend build on 2026-04-11.
+- [x] Moved DM thread registry merge rules out of [`useAppLayoutEchoDmState.ts`](../../frontend/src/services/orchestration/useAppLayoutEchoDmState.ts) into [`echoDmThreadRegistry.ts`](../../frontend/src/services/domain/echoDmThreadRegistry.ts): API/realtime thread identity, activity monotonicity, snapshot pruning, group icon fallback, and active-call participant cleanup now have a domain reducer with focused tests.
 
 ## Still open after the sweep
 

@@ -11,12 +11,16 @@
  * Emergency local bypass: ECHO_NEW_CODE_CHARTER_BYPASS=1
  */
 import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
+const frontendPkg = path.join(repoRoot, 'frontend', 'package.json');
+const requireFromFrontend = createRequire(frontendPkg);
+const { parse: parseVueSfc } = requireFromFrontend('@vue/compiler-sfc');
 
 const CONFIG_PATH = path.join(__dirname, 'new-code-charter-config.json');
 const GRANDFATHER_PATH = path.join(
@@ -123,8 +127,12 @@ function relPosix(absPath) {
 
 export function extractScriptSource(rel, content) {
   if (!rel.endsWith('.vue')) return content;
-  const match = content.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
-  return match ? match[1] : '';
+  const { descriptor } = parseVueSfc(content, { filename: rel });
+  const parts = [];
+  if (descriptor.script?.content) parts.push(descriptor.script.content);
+  if (descriptor.scriptSetup?.content)
+    parts.push(descriptor.scriptSetup.content);
+  return parts.join('\n');
 }
 
 export function scanFunctionBlocks(source) {

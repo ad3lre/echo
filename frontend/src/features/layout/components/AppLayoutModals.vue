@@ -82,6 +82,7 @@ const m = computed(() => {
       o[k as string] = props[k];
     }
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deliberately loose: child modal components keep their own prop contracts over this merged inject+props bag
   return o as any;
 });
 

@@ -31,6 +31,7 @@ export type AppToastClearsBottomChromeInput = {
   chatComposerFocused: boolean;
   measuredChromeInsetPx: number;
   useCompactTriPaneShell: boolean;
+  useCompactGuildSplitShell: boolean;
   useCompactDmShell: boolean;
   hasGuildChannelChrome: boolean;
   isDmThreadSurface: boolean;
@@ -43,6 +44,7 @@ export function shouldAppToastClearBottomChrome(
   if (input.chatComposerFocused) return true;
   if (input.measuredChromeInsetPx > 0) return true;
   if (input.useCompactTriPaneShell) return true;
+  if (input.useCompactGuildSplitShell) return true;
   if (input.useCompactDmShell) return true;
   if (input.hasGuildChannelChrome) return true;
   return input.isDmThreadSurface;

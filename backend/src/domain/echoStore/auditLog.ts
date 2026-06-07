@@ -81,7 +81,7 @@ export async function listEchoAuditLogForServer(
     `,
     [serverId, limit, actorId],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     id: String(row.id),
     actor_id: String(row.actor_id),
     actor_label: String(row.actor_label ?? 'Unknown'),
@@ -133,7 +133,7 @@ export async function listEchoServerBans(
     `,
     [serverId],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     userId: String(row.user_id),
     username: String(row.username ?? '').trim() || 'unknown',
     displayName: String(row.display_name ?? '').trim() || 'Deleted user',
@@ -184,7 +184,7 @@ export async function listEchoModerationHistoryForServer(
       `,
       [serverId, targetUserId, limit],
     );
-    return r.rows.map((row: any) => ({
+    return r.rows.map((row: Record<string, unknown>) => ({
       id: String(row.id),
       actor_id: String(row.actor_id),
       actor_label: String(row.actor_label ?? 'Unknown'),
@@ -206,7 +206,7 @@ export async function listEchoModerationHistoryForServer(
     `,
     [serverId, limit],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     id: String(row.id),
     actor_id: String(row.actor_id),
     actor_label: String(row.actor_label ?? 'Unknown'),

@@ -24,6 +24,7 @@ import {
 } from '@/services/domain/echoMessageSnapshots';
 import { applyEchoHistoryOlderPageFromApi } from '@/services/realtime/echoHistoryChannelApply';
 import {
+  applyPrefetchedWorkspaceChannelMessages,
   prefetchChannelMessagesFirstPage,
   shouldSkipChannelMessagePrefetch,
 } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
@@ -260,7 +261,22 @@ export async function prefetchMentionNotificationChannelBackground(
     insertChannelMessageFromHistory(channelId, mapEchoMessageToRaw(message));
     return;
   } catch {
-    // Fall back to paging older history from the cached head.
+    // Fall back below — anchor may still be on the latest page.
+  }
+
+  if (!hasChannelMessageInBucket(channelId, anchorMessageId)) {
+    try {
+      const { messages: latestMsgs } = await fetchEchoChannelMessages(
+        token,
+        channelId,
+        { limit: ECHO_CHANNEL_MESSAGE_PAGE_SIZE },
+      );
+      // Live Discord bridge messages often land newer than an earlier bootstrap
+      // prefetch head; paging `before: oldestId` never reaches them.
+      applyPrefetchedWorkspaceChannelMessages(channelId, latestMsgs);
+    } catch {
+      // Fall back to paging older history from the cached head.
+    }
   }
 
   for (let page = 0; page < maxPages; page += 1) {

@@ -91,7 +91,7 @@ const props = defineProps<{
   collapsed: boolean;
   visible: boolean;
   currentUserId?: string;
-  /** Broad gate: any moderation UI for this member (hierarchy / server rules). */
+  /** Broad gate for moderation UI on this member (hierarchy / server rules). */
   canModerateUser?: (userId: string) => boolean;
   /** Per-action permission (preview roles, Echo capabilities, mock hierarchy). */
   canModerateMemberAction?: (
@@ -109,7 +109,7 @@ const props = defineProps<{
   /** Open DM with this user (same as clicking them in DM list). */
   onMessageUser?: (userId: string) => void;
   /** When set, overrides static mock map / drives Echo grouping. */
-  resolveHighestRole?: (userId: string) => MemberRole;
+  resolveHighestRole?: (userId: string) => MemberRole | undefined;
   /** compact role checkboxes (nested glass panel). */
   roleManagement?: MemberRoleManagementSpec;
   /** True while waiting for server role hierarchy bootstrap for this guild. */

@@ -7,6 +7,7 @@ delete process.env.DATABASE_URL;
 delete process.env.USE_MOCK_DB;
 
 import assert from 'node:assert/strict';
+import { YOUTUBE_INTEGRATION_ENABLED } from '../../../shared/integrationKillSwitches';
 import {
   buildLinkEmbedsFromPlainText,
   extractHttpUrlsFromPlainText,
@@ -80,44 +81,51 @@ async function main() {
     },
   );
 
-  await run(
-    'v2 contentJson link href unfurls YouTube when plain text omits URL',
-    async () => {
-      const contentJson = {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              { type: 'text', text: 'see ' },
-              {
-                type: 'text',
-                text: 'this clip',
-                marks: [
-                  {
-                    type: 'link',
-                    attrs: {
-                      href: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+  if (YOUTUBE_INTEGRATION_ENABLED) {
+    await run(
+      'v2 contentJson link href unfurls YouTube when plain text omits URL',
+      async () => {
+        const contentJson = {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'see ' },
+                {
+                  type: 'text',
+                  text: 'this clip',
+                  marks: [
+                    {
+                      type: 'link',
+                      attrs: {
+                        href: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                      },
                     },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      };
-      const embeds = await buildLinkEmbedsFromPlainText('see this clip', {
-        allow: true,
-        contentJson,
-        budgetMs: 8000,
-      });
-      assert.equal(embeds.length, 1);
-      assert.equal(embeds[0]?.video?.kind, 'youtube');
-      assert(
-        embeds[0]?.video?.embedUrl?.includes('youtube-nocookie.com/embed/'),
-      );
-    },
-  );
+                  ],
+                },
+              ],
+            },
+          ],
+        };
+        const embeds = await buildLinkEmbedsFromPlainText('see this clip', {
+          allow: true,
+          contentJson,
+          budgetMs: 8000,
+        });
+        assert.equal(embeds.length, 1);
+        assert.equal(embeds[0]?.video?.kind, 'youtube');
+        assert(
+          embeds[0]?.video?.embedUrl?.includes('youtube-nocookie.com/embed/'),
+        );
+      },
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(
+      'skip v2 contentJson link href unfurls YouTube (integration disabled)',
+    );
+  }
 
   await run('rejects plain http unfurl targets', () => {
     assert.equal(isUrlSafeForOutboundFetch('http://example.com/path'), false);

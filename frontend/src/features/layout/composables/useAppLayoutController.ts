@@ -25,8 +25,10 @@ import { useChatMessages } from '@/composables/useChatMessages';
 import { useMessageReactions } from '@/composables/useMessageReactions';
 import { useReactionFavorites } from '@/composables/useReactionFavorites';
 import { useLayout } from '@/composables/useLayout';
+import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import { bindPaperEditorChannelPanelWidth } from '@/features/paper/composables/paperEditorPanelBridge';
 import { useCompactShell } from '@/composables/useCompactShell';
+import { useCompactGuildSplitShell } from '@/composables/useCompactGuildSplitShell';
 // Sub-composables
 import { useAppLayoutRealtimeSocketBinding } from './useAppLayoutRealtimeSocketBinding';
 import { useStageVcActivityBlock } from '@/features/voice/composables/useStageVcActivityBlock';
@@ -251,6 +253,24 @@ import {
   type ServerLayoutPrefs,
 } from './serverLayoutPrefsStorage';
 
+type MentionAutocompleteUser = {
+  id: string;
+  name: string;
+  pfp: string;
+  status?: string;
+  timeZone?: string | null;
+};
+
+function toUserForAuthor(user: MentionAutocompleteUser): UserForAuthor {
+  return {
+    id: user.id,
+    name: user.name,
+    pfp: user.pfp,
+    status: user.status ?? 'offline',
+    ...(user.timeZone !== undefined ? { timeZone: user.timeZone } : {}),
+  };
+}
+
 const ExploreView = defineAsyncComponent(
   () => import('@/components/ExploreView.vue'),
 );
@@ -379,6 +399,7 @@ export function useAppLayoutController() {
   bindPaperEditorChannelPanelWidth(channelPanelWidth);
 
   const { isCompactShell } = useCompactShell();
+  const { isCompactGuildSplitShell } = useCompactGuildSplitShell();
   const themeStore = useThemeStore();
   const actionRailTopLayout = computed(
     () => themeStore.actionRailPlacement === 'top' && !isCompactShell.value,
@@ -1800,6 +1821,13 @@ export function useAppLayoutController() {
   const expandChannelsGrid = gridChrome.expandChannels;
 
   function expandChannels() {
+    if (
+      isCompactShell.value &&
+      hasGuildChannelChrome.value &&
+      isCompactGuildSplitShell.value
+    ) {
+      return;
+    }
     if (isCompactShell.value && hasGuildChannelChrome.value) {
       compactGuildTriPaneChannelPanelOpen.value = true;
       compactPagerPane.value = 0;
@@ -1809,6 +1837,15 @@ export function useAppLayoutController() {
   }
 
   function expandMembers() {
+    if (
+      isCompactShell.value &&
+      hasGuildChannelChrome.value &&
+      isCompactGuildSplitShell.value
+    ) {
+      memberPanelCollapsed.value = false;
+      markMemberPanelExpandedByUser();
+      return;
+    }
     if (isCompactShell.value && hasGuildChannelChrome.value) {
       compactPagerPane.value = 2;
       return;
@@ -1818,6 +1855,15 @@ export function useAppLayoutController() {
   }
 
   function collapseMembers() {
+    if (
+      isCompactShell.value &&
+      hasGuildChannelChrome.value &&
+      isCompactGuildSplitShell.value
+    ) {
+      memberPanelCollapsed.value = true;
+      markMemberPanelCollapsedByUser();
+      return;
+    }
     if (isCompactShell.value && hasGuildChannelChrome.value) {
       if (compactPagerPane.value === 2) {
         compactPagerPane.value = 1;
@@ -2903,10 +2949,10 @@ export function useAppLayoutController() {
       const byId = new Map<string, (typeof roster)[number]>(
         roster.map((u) => [u.id, u]),
       );
-      const out: (typeof roster)[number][] = [];
+      const out: UserForAuthor[] = [];
       for (const id of idSet) {
         const row = byId.get(id);
-        if (row) out.push(row);
+        if (row) out.push(toUserForAuthor(row));
       }
       return out;
     }
@@ -2917,7 +2963,7 @@ export function useAppLayoutController() {
       ms === 'serverForum' ||
       ms === 'serverEmptyOnboarding'
     ) {
-      return memberListUsers.value;
+      return memberListUsers.value.map(toUserForAuthor);
     }
 
     return [];
@@ -3551,7 +3597,11 @@ export function useAppLayoutController() {
 
   const toggleMemberListBase = createToggleBooleanRef(memberPanelCollapsed);
   function toggleMemberList() {
-    if (isCompactShell.value && hasGuildChannelChrome.value) {
+    if (
+      isCompactShell.value &&
+      hasGuildChannelChrome.value &&
+      !isCompactGuildSplitShell.value
+    ) {
       compactPagerPane.value = compactPagerPane.value === 2 ? 1 : 2;
       return;
     }
@@ -4422,7 +4472,7 @@ export function useAppLayoutController() {
       createChannelCategoryNames,
       createChannelCategoryOptions,
       createChannelInitialCategoryId,
-      currentUser: currentUserComputed,
+      currentUser,
       customStatus,
       deleteMessage: messageActions.deleteMessage,
       deleteMessageCore: messageActions.deleteMessage,
@@ -4501,6 +4551,7 @@ export function useAppLayoutController() {
       isAuthenticated: isAuthenticatedComputed,
       isChannelActive,
       isCompactShell,
+      isCompactGuildSplitShell,
       isCreateCategoryModalOpen,
       isCreateChannelModalOpen,
       isDmUiContext,

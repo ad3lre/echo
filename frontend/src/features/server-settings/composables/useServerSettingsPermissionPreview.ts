@@ -58,7 +58,18 @@ export function useServerSettingsPermissionPreview(serverId: Ref<string>) {
       !!serverId.value,
   );
 
-  function isForumPostChannelRow(ch: any): boolean {
+  function isForumPostChannelRow(ch: {
+    parentChannelId?: unknown;
+    parent_channel_id?: unknown;
+    forumPostTagIds?: unknown;
+    forum_post_tag_ids?: unknown;
+    forumPostPinned?: unknown;
+    forum_post_pinned?: unknown;
+    forumPostLocked?: unknown;
+    forum_post_locked?: unknown;
+    forumPostArchivedAt?: unknown;
+    forum_post_archived_at?: unknown;
+  }): boolean {
     const parent =
       (typeof ch?.parentChannelId === 'string' && ch.parentChannelId.trim()) ||
       (typeof ch?.parent_channel_id === 'string' &&
@@ -88,9 +99,7 @@ export function useServerSettingsPermissionPreview(serverId: Ref<string>) {
       auth.accessToken ?? '',
       serverId.value,
     );
-    const visible = result.channels.filter(
-      (ch: any) => !isForumPostChannelRow(ch),
-    );
+    const visible = result.channels.filter((ch) => !isForumPostChannelRow(ch));
     channels.value = visible;
     if (!selectedChannelId.value && visible.length > 0) {
       selectedChannelId.value = visible[0]!.id;

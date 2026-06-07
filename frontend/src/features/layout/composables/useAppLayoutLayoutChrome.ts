@@ -5,6 +5,7 @@ import type {
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
 import { syncYoutubeVideoIdFromPlaylist } from '@/features/voice/vcActivityTypes';
+import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
 import { ECHOED_NAMES_VC_ACTIVITY_ENABLED } from '@shared/vcActivityCatalog';
 import { prefetchPasskeyLoginOptions } from '@/utils/passkeyWebCeremony';
 
@@ -217,6 +218,10 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
   }
 
   function openVcActivityYoutubeBrowse() {
+    if (!YOUTUBE_INTEGRATION_ENABLED) {
+      openVcActivityPicker();
+      return;
+    }
     fullscreenStreamParticipantId.value = null;
     vcActivityUi.value = {
       phase: 'youtube',
@@ -584,6 +589,10 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
         playlist: [],
         currentIndex: 0,
       };
+      return;
+    }
+    if (!YOUTUBE_INTEGRATION_ENABLED) {
+      openVcActivityPicker();
       return;
     }
     const playlist = snapshot.playlist;

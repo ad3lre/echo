@@ -71,6 +71,13 @@ export function mergeMentionNotificationRows(
     if (cid) serverChannelIds.add(cid);
   }
 
+  const clientResolvedChannelIds = new Set<string>();
+  for (const row of clientRows) {
+    if (isPlaceholderPreview(row.preview)) continue;
+    const cid = row.channelId.trim();
+    if (cid) clientResolvedChannelIds.add(cid);
+  }
+
   for (const row of clientRows) {
     const existing = byKey.get(row.key);
 
@@ -79,10 +86,12 @@ export function mergeMentionNotificationRows(
     // @mention itself), so it often mismatches the server row's messageId.
     // Real client rows (live socket messages with resolved previews) are always
     // kept — they represent mentions that arrived after the last server fetch.
+    const channelId = row.channelId.trim();
     if (
       !existing &&
       isPlaceholderPreview(row.preview) &&
-      serverChannelIds.has(row.channelId.trim())
+      (serverChannelIds.has(channelId) ||
+        clientResolvedChannelIds.has(channelId))
     ) {
       continue;
     }

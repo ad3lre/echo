@@ -1,6 +1,7 @@
 import type { WorkspaceStateApi } from '@/composables/workspace/types';
 import type { AuthUserPublic } from '@/api/authClient';
 import { echoUserRowFromAuthUser } from '@/composables/workspace/utils';
+import type { applyWorkspaceRosterUsersPipeline } from '@/services/domain/workspaceRoster';
 
 export function applyWorkspaceFallbackOnHydrationError(opts: {
   workspace: Pick<
@@ -16,7 +17,7 @@ export function applyWorkspaceFallbackOnHydrationError(opts: {
   echoSession: { resetSessionState: () => void };
   authUser: AuthUserPublic;
   error: unknown;
-  applyRosterPipeline: (users: any[], options: any) => any;
+  applyRosterPipeline: typeof applyWorkspaceRosterUsersPipeline;
 }) {
   const { workspace, echoSession, authUser, error, applyRosterPipeline } = opts;
   echoSession.resetSessionState();

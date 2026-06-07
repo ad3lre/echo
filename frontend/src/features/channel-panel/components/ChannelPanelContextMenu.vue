@@ -7,6 +7,7 @@ import { ECHO_SIMPLE_CONTEXT_MENU_ATTR } from '@/composables/useSimpleContextMen
 const props = withDefaults(
   defineProps<{
     menuOpen: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parent ref unwraps to its element when forwarded; bindMenuRef writes back defensively
     menuRef?: any;
     panelContext: {
       type: 'channel' | 'category' | 'vc';
@@ -18,7 +19,7 @@ const props = withDefaults(
     selectedServerId: string | null;
     menuPosition: { left: number; top: number };
     devModeIdsEnabled: boolean;
-    rowCanManageChannel: (channel: any) => boolean;
+    rowCanManageChannel: (channel: ChannelWithParticipants) => boolean;
     canCreateChannels?: boolean;
     vcContextIsSelf: boolean;
     vcContextShowVoiceMod: boolean;

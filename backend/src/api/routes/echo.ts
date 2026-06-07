@@ -34,6 +34,7 @@ import echoYoutubeSearch from './echo/echoYoutubeSearch';
 import echoChannelWebhooks from './echo/echoChannelWebhooks';
 import echoTickets from './echo/echoTickets';
 import echoSelfAssignableRoles from './echo/echoSelfAssignableRoles';
+import { YOUTUBE_INTEGRATION_ENABLED } from '../../../../shared/integrationKillSwitches';
 import { registerEchoGuestWriteGuard } from './echo/echoGuestWriteHook';
 import { sendError } from '../errors';
 import { requireAuth } from '../../auth/middleware';
@@ -72,7 +73,9 @@ export default async function echoRoutes(
     await secured.register(echoPermissionOverwrites);
     await secured.register(echoCategories);
     await secured.register(echoVoice);
-    await secured.register(echoStageYoutube);
+    if (YOUTUBE_INTEGRATION_ENABLED) {
+      await secured.register(echoStageYoutube);
+    }
     await secured.register(echoVoiceE2ee);
     await secured.register(echoMls);
     await secured.register(echoE2ee);
@@ -96,7 +99,9 @@ export default async function echoRoutes(
     await secured.register(echoBugReports);
     await secured.register(echoUserRingtones);
     await secured.register(echoBotApplications);
-    await secured.register(echoYoutubeSearch);
+    if (YOUTUBE_INTEGRATION_ENABLED) {
+      await secured.register(echoYoutubeSearch);
+    }
     registerEchoGuestWriteGuard(secured);
   });
 }

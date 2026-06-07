@@ -64,7 +64,7 @@ export type AppLayoutMembersColumnProps = {
   canChangeMemberNickname?: (userId: string) => boolean;
   onChangeMemberNickname?: (userId: string) => void;
   onMessageMemberUser?: (userId: string) => void;
-  resolveHighestRole?: (userId: string) => MemberRole;
+  resolveHighestRole?: (userId: string) => MemberRole | undefined;
   roleManagement?: MemberRoleManagementSpec;
   memberListLoading?: boolean;
   echoMemberSectionOrdering?: boolean;

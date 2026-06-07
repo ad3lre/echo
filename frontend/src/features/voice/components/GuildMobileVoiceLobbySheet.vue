@@ -162,7 +162,7 @@ function avatarUrl(p: { id: string; pfp: string }) {
           <div
             class="vc-lobby-actions shrink-0 px-5 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
           >
-            <div class="grid grid-cols-[3rem,1fr,3rem] items-center gap-2.5">
+            <div class="grid grid-cols-[3rem_1fr_3rem] items-center gap-2.5">
               <button
                 type="button"
                 class="vc-lobby-mini-btn inline-flex h-12 w-12 items-center justify-center rounded-2xl text-fg-soft transition hover:text-fg"
@@ -179,7 +179,7 @@ function avatarUrl(p: { id: string; pfp: string }) {
                   <img
                     :src="icons.mic"
                     alt=""
-                    class="h-[17px] w-[17px]"
+                    class="vc-lobby-glyph h-[17px] w-[17px]"
                     :class="props.isMuted ? 'opacity-60' : 'opacity-95'"
                   />
                   <span

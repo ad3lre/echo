@@ -443,8 +443,9 @@ export default async function googleOAuthRoutes(
               displayName: displayName || undefined,
               emailVerifiedFromIdp: Boolean(me.email_verified),
             });
-          } catch (err: any) {
-            if (err?.message === 'EMAIL_IN_USE') {
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : undefined;
+            if (msg === 'EMAIL_IN_USE') {
               return reply
                 .code(302)
                 .redirect(
@@ -455,7 +456,7 @@ export default async function googleOAuthRoutes(
                   ),
                 );
             }
-            if (err?.message === 'INVALID_EMAIL_PROVIDER') {
+            if (msg === 'INVALID_EMAIL_PROVIDER') {
               return reply
                 .code(302)
                 .redirect(
@@ -466,7 +467,7 @@ export default async function googleOAuthRoutes(
                   ),
                 );
             }
-            if (err?.message === 'USERNAME_TAKEN') {
+            if (msg === 'USERNAME_TAKEN') {
               const randomSuffix = randomInt(1000, 10_000);
               userRecord = await store.createOAuthUser({
                 username: `${usernameBase}${randomSuffix}`,
@@ -482,9 +483,10 @@ export default async function googleOAuthRoutes(
           void tryJoinOfficialEchoServerOnSignup(fastify.log, targetUserId, {
             joinClientIp: req.ip,
           });
-        } catch (err: any) {
+        } catch (err: unknown) {
           fastify.log.error(err, 'google_oauth_provision_failed');
-          if (err?.message === 'EMAIL_IN_USE') {
+          const msg = err instanceof Error ? err.message : undefined;
+          if (msg === 'EMAIL_IN_USE') {
             return reply
               .code(302)
               .redirect(
@@ -495,7 +497,7 @@ export default async function googleOAuthRoutes(
                 ),
               );
           }
-          if (err?.message === 'INVALID_EMAIL_PROVIDER') {
+          if (msg === 'INVALID_EMAIL_PROVIDER') {
             return reply
               .code(302)
               .redirect(

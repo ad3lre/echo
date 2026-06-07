@@ -100,7 +100,9 @@ export async function listEchoChannels(
     `,
     [serverId],
   );
-  return r.rows.map((row: any) => mapWorkspaceChannelQueryRow(row));
+  return r.rows.map((row: Record<string, unknown>) =>
+    mapWorkspaceChannelQueryRow(row),
+  );
 }
 
 /**
@@ -145,7 +147,7 @@ export async function listEchoCategories(
      FROM echo_categories WHERE server_id = $1 ORDER BY position ASC, name ASC`,
     [serverId],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     id: String(row.id),
     name: String(row.name),
     position: Number(row.position ?? 0),
@@ -201,7 +203,9 @@ type EchoChannelRowInternal = {
   paperShowAuthorGutter?: boolean;
 };
 
-function mapWorkspaceChannelQueryRow(row: any): EchoChannelRowInternal {
+function mapWorkspaceChannelQueryRow(
+  row: Record<string, unknown>,
+): EchoChannelRowInternal {
   const catId =
     row.category_id != null && String(row.category_id).trim()
       ? String(row.category_id)
@@ -1510,7 +1514,7 @@ export async function applyEchoCategoryPlacement(
     `SELECT id FROM echo_categories WHERE server_id = $1 ORDER BY position ASC, name ASC`,
     [serverId],
   );
-  const ids = list.rows.map((row: any) => String(row.id));
+  const ids = list.rows.map((row: Record<string, unknown>) => String(row.id));
   if (!ids.includes(categoryId)) return 'not_found';
 
   const without = ids.filter((id) => id !== categoryId);

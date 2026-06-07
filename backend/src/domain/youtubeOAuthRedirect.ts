@@ -1,3 +1,4 @@
+import { YOUTUBE_INTEGRATION_ENABLED } from '../../../shared/integrationKillSwitches';
 import { config } from '../config';
 
 /** Redirect browser to SPA after YouTube OAuth callback. */
@@ -22,6 +23,7 @@ export function youtubeOAuthAppRedirect(
 }
 
 export function isYoutubeOauthConfigured(): boolean {
+  if (!YOUTUBE_INTEGRATION_ENABLED) return false;
   return Boolean(
     config.googleOauthClientId &&
     config.googleOauthClientSecret &&

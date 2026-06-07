@@ -102,6 +102,50 @@ export type EchoEmojiLibraryEmojiDto = {
   sourceDiscordEmojiId?: string | null;
 };
 
+type EmojiLibrarySourceRow = {
+  id: string;
+  name: string;
+  animated: boolean;
+  image_url: string;
+  use_count: string;
+  discord_source_emoji_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+  public_cdn_url: string | null;
+};
+
+/** Client-safe display URL (public CDN / resolve path), not raw upload ACL keys. */
+function mapEmojiRowToLibraryDto(
+  row: EmojiLibrarySourceRow,
+  serverId: string,
+): EchoEmojiLibraryEmojiDto {
+  const stored = row.image_url?.trim() ?? '';
+  const { imageUrl } = clientImageUrlForResolvedEmoji(row.id, stored, {
+    publicCdnUrl: row.public_cdn_url,
+    cacheVersion: emojiCacheVersion({
+      id: row.id,
+      server_id: serverId,
+      name: row.name,
+      animated: row.animated,
+      image_url: stored,
+      discord_source_emoji_id: row.discord_source_emoji_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      public_cdn_url: row.public_cdn_url,
+    }),
+  });
+  const d = row.discord_source_emoji_id?.trim();
+  return {
+    id: row.id,
+    serverId,
+    name: row.name,
+    animated: row.animated,
+    imageUrl,
+    useCount: Number(row.use_count) || 0,
+    ...(d ? { sourceDiscordEmojiId: d } : {}),
+  };
+}
+
 export type EchoEmojiLibraryPackDto = {
   id: string;
   name: string;
@@ -153,18 +197,13 @@ export async function listEchoServerEmojiLibrary(
     [serverId],
   );
 
-  const emojiRows = await pool.query<{
-    id: string;
-    pack_id: string;
-    name: string;
-    animated: boolean;
-    image_url: string;
-    use_count: string;
-    discord_source_emoji_id: string | null;
-  }>(
+  const emojiRows = await pool.query<
+    EmojiLibrarySourceRow & { pack_id: string }
+  >(
     `SELECT e.id, e.pack_id, e.name, e.animated, e.image_url,
             COALESCE(u.use_count, 0)::text AS use_count,
-            e.discord_source_emoji_id
+            e.discord_source_emoji_id,
+            e.created_at, e.updated_at, e.public_cdn_url
      FROM echo_server_custom_emojis e
      LEFT JOIN echo_server_emoji_usage u
        ON u.server_id = e.server_id AND u.emoji_id = e.id
@@ -176,16 +215,7 @@ export async function listEchoServerEmojiLibrary(
   const byPack = new Map<string, EchoEmojiLibraryEmojiDto[]>();
   for (const row of emojiRows.rows) {
     const list = byPack.get(row.pack_id) ?? [];
-    const d = row.discord_source_emoji_id?.trim();
-    list.push({
-      id: row.id,
-      serverId,
-      name: row.name,
-      animated: row.animated,
-      imageUrl: row.image_url,
-      useCount: Number(row.use_count) || 0,
-      ...(d ? { sourceDiscordEmojiId: d } : {}),
-    });
+    list.push(mapEmojiRowToLibraryDto(row, serverId));
     byPack.set(row.pack_id, list);
   }
 
@@ -603,39 +633,25 @@ export async function listEchoUserEmojiLibrary(pool: pg.Pool): Promise<{
   );
   if (packsRes.rows.length === 0) return { packs: [] };
 
-  const emojiRows = await pool.query<{
-    id: string;
-    server_id: string;
-    pack_id: string;
-    name: string;
-    animated: boolean;
-    image_url: string;
-    use_count: string;
-    discord_source_emoji_id: string | null;
-  }>(
+  const emojiRows = await pool.query<
+    EmojiLibrarySourceRow & { pack_id: string; server_id: string }
+  >(
     `SELECT e.id, e.server_id, e.pack_id, e.name, e.animated, e.image_url,
             COALESCE(SUM(u.use_count), 0)::text AS use_count,
-            e.discord_source_emoji_id
+            e.discord_source_emoji_id,
+            e.created_at, e.updated_at, e.public_cdn_url
      FROM echo_server_custom_emojis e
      LEFT JOIN echo_server_emoji_usage u
        ON u.emoji_id = e.id
      GROUP BY
-       e.id, e.server_id, e.pack_id, e.name, e.animated, e.image_url, e.discord_source_emoji_id`,
+       e.id, e.server_id, e.pack_id, e.name, e.animated, e.image_url,
+       e.discord_source_emoji_id, e.created_at, e.updated_at, e.public_cdn_url`,
   );
 
   const byPack = new Map<string, EchoEmojiLibraryEmojiDto[]>();
   for (const row of emojiRows.rows) {
     const list = byPack.get(row.pack_id) ?? [];
-    const d = row.discord_source_emoji_id?.trim();
-    list.push({
-      id: row.id,
-      serverId: row.server_id,
-      name: row.name,
-      animated: row.animated,
-      imageUrl: row.image_url,
-      useCount: Number(row.use_count) || 0,
-      ...(d ? { sourceDiscordEmojiId: d } : {}),
-    });
+    list.push(mapEmojiRowToLibraryDto(row, row.server_id));
     byPack.set(row.pack_id, list);
   }
 

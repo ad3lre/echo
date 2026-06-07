@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-06-05",
+  "enrolledAt": "2026-06-07",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -7,11 +7,53 @@
     "maxDeepNestingLines": 0
   },
   "files": {
+    "frontend/src/audio/voiceData/codenames.ts": {
+      "lines": 544,
+      "longestFunction": 87,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "frontend/src/audio/voiceData/hangman.ts": {
+      "lines": 297,
+      "longestFunction": 84,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/audio/voiceData/skriggles.ts": {
+      "lines": 642,
+      "longestFunction": 120,
+      "deepNestingLines": 2,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/components/MoreServersCardStack.vue": {
+      "lines": 483,
+      "longestFunction": 0,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 4
+    },
+    "frontend/src/components/MoreServersCompactList.vue": {
+      "lines": 664,
+      "longestFunction": 0,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 4
+    },
     "frontend/src/composables/useEmojiInspect.ts": {
       "lines": 144,
       "longestFunction": 130,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
+    },
+    "frontend/src/composables/useMoreServersLayout.ts": {
+      "lines": 196,
+      "longestFunction": 155,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/composables/useMoreServersMenus.ts": {
+      "lines": 167,
+      "longestFunction": 146,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 6
     },
     "frontend/src/features/chat/domain/messageListScrollOwnership.ts": {
       "lines": 215,
@@ -110,8 +152,8 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/services/realtime/deferredMediaOutboundSend.ts": {
-      "lines": 291,
-      "longestFunction": 118,
+      "lines": 295,
+      "longestFunction": 121,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },

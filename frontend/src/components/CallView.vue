@@ -1,551 +1,61 @@
 <script setup lang="ts">
-import {
-  computed,
-  inject,
-  ref,
-  onMounted,
-  onUnmounted,
-  nextTick,
-  watch,
-  type Ref,
-} from 'vue';
-import { CALL_VIEW_FULLSCREEN_STREAM_ID_KEY } from '@/features/layout/layoutInjectionKeys';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import StreamVideoTile from '@/components/StreamVideoTile.vue';
-import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRoom';
-import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
-import { clampMenuToViewport } from '@/features/chat/composables/useContextMenuPosition';
-import { getPopoutAnchorRect } from '@/utils/memberProfiles';
-import type { PopoutAnchorRect } from '@/utils/memberProfiles';
-import { liveKitRemoteParticipantByIdentity } from '@/services/livekit/liveKitRoomParticipants';
-import {
-  COMPOSER_INSERT_USER_MENTION_KEY,
-  type InsertUserMentionFn,
-} from '@/features/chat/chatComposerContext';
+import type { StreamVideoTileTrack } from '@/components/streamVideoTileTrack';
 import VcActivityPresenceBadges from '@/features/voice/components/VcActivityPresenceBadges.vue';
 import VcActivityKingCrown from '@/features/voice/components/VcActivityKingCrown.vue';
 import { voiceMuteDeafenHoverTitle } from '@/features/voice/voiceIndicatorHints';
 import VoiceChannelUserLimitBadge from '@/features/voice/components/VoiceChannelUserLimitBadge.vue';
-import { getVoiceChannelUserLimitUi } from '@/features/voice/domain/voiceChannelUserLimit';
-import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
+import {
+  useCallViewState,
+  type CallViewProps,
+} from '@/components/useCallViewState';
 
-export type VcModerateAction =
-  | 'serverMute'
-  | 'serverDeafen'
-  | 'disconnect'
-  | 'move'
-  | 'stopCamera'
-  | 'stopScreenShare';
+export type { VcModerateAction } from '@/components/useCallViewState';
 
-const props = withDefaults(
-  defineProps<{
-    channelName: string;
-    participants: {
-      id: string;
-      name: string;
-      pfp: string;
-      muted?: boolean;
-      deafened?: boolean;
-      video?: boolean;
-      streaming?: boolean;
-      serverMuted?: boolean;
-      serverDeafened?: boolean;
-      speaking?: boolean;
-      audioLevel?: number;
-      screenTrack?: unknown;
-      screenAudioTrack?: unknown;
-      cameraTrack?: unknown;
-      /** DM / group call: not yet in LiveKit, declined, or signaling accepted only. */
-      dmCallPresence?: 'live' | 'ringing' | 'connecting' | 'declined';
-      /** Guild VC: YouTube watch-together / activities picker (LiveKit presence). */
-      activityPresence?: VcActivityPresenceKind[];
-      /** Guild VC: this user drives LiveKit-synced activity until they leave. */
-      isVcActivityKing?: boolean;
-    }[];
-    currentUserId?: string;
-    onOpenProfile?: (
-      userId: string,
-      anchorRect: PopoutAnchorRect | null,
-    ) => void;
-    canModerateParticipant?: (userId: string) => boolean;
-    /** When set, gates each voice moderation action (Echo: MUTE_MEMBERS / DEAFEN_MEMBERS / MODERATE_MEMBERS). */
-    canVcModerateParticipantAction?: (
-      userId: string,
-      action: VcModerateAction,
-    ) => boolean;
-    onVcModerate?: (payload: {
-      action: VcModerateAction;
-      targetUserId: string;
-      targetChannelId?: string;
-      contextVoiceChannelId?: string;
-    }) => void;
-    remoteParticipants?: Map<string, unknown>;
-    lkRoom?: unknown;
-    mirrorLocalCamera?: boolean;
-    getLocalScreenTrack?: () => unknown;
-    getLocalCameraTrack?: () => unknown;
-    onRequestFullscreenStream?: (participantId: string) => void;
-    /** LiveKit: per-remote-user playback level (0–100). */
-    getRemoteParticipantVolume?: (userId: string) => number;
-    setRemoteParticipantVolume?: (
-      userId: string,
-      volumePercent: number,
-    ) => void;
-    /** When false, only the participant grid / streams are shown (e.g. embedded under DM call chrome). */
-    showHeader?: boolean;
-    /** Guild mobile tri-pane: tighter padding and gallery gaps for small screens. */
-    compactLayout?: boolean;
-    /** Guild VC: click channel name to jump to channel in sidebar. */
-    onGoToVoiceChannelInSidebar?: () => void;
-    /** Guild VC: current voice channel id for moderation API context (mute/disconnect/move). */
-    voiceModerationChannelId?: string | null;
-    /** Guild VC: max concurrent users; `0` = unlimited. */
-    voiceChannelUserLimit?: number;
-    /**
-     * DM fullscreen: prioritize camera / screen tiles (majority of space) and show
-     * participant avatar ring in a side rail (desktop) or compact strip (mobile).
-     */
-    videoPrimaryDmLayout?: boolean;
-  }>(),
-  { showHeader: true, compactLayout: false, videoPrimaryDmLayout: false },
-);
-
-const composerInsertUserMention =
-  inject<Ref<InsertUserMentionFn | null> | null>(
-    COMPOSER_INSERT_USER_MENTION_KEY,
-    null,
-  );
-
-function tileAvatar(p: { id: string; pfp: string }) {
-  return resolveCallTileAvatarUrl(p.pfp, p.id);
-}
-
-function handleOpenProfile(userId: string, event: MouseEvent) {
-  const target = event.currentTarget;
-  if (!target || !props.onOpenProfile) return;
-  props.onOpenProfile(userId, getPopoutAnchorRect(target, 'generic'));
-}
-
-function dmCallPresenceLabel(
-  presence: 'live' | 'ringing' | 'connecting' | 'declined' | undefined,
-): string {
-  switch (presence) {
-    case 'ringing':
-      return 'Calling…';
-    case 'connecting':
-      return 'Joining…';
-    case 'declined':
-      return 'Declined';
-    default:
-      return '';
-  }
-}
-
-const focusedStreamParticipantId = ref<string | null>(null);
-
-function remoteTrackInfoForParticipant(
-  participantId: string,
-): RemoteParticipantTrackInfo | null {
-  const m = props.remoteParticipants as
-    | Map<string, RemoteParticipantTrackInfo>
-    | undefined
-    | null;
-  return m?.get(participantId) ?? null;
-}
-
-function resolveParticipantScreenShareTrack(
-  p: (typeof props.participants)[number],
-): unknown | null {
-  if (p.screenTrack) return p.screenTrack;
-  if (p.id === props.currentUserId) {
-    return props.getLocalScreenTrack?.() ?? null;
-  }
-  return remoteTrackInfoForParticipant(p.id)?.screenTrack ?? null;
-}
-
-function resolveParticipantCameraTrack(
-  p: (typeof props.participants)[number],
-): unknown | null {
-  if (p.cameraTrack) return p.cameraTrack;
-  if (p.id === props.currentUserId) {
-    return props.getLocalCameraTrack?.() ?? null;
-  }
-  return remoteTrackInfoForParticipant(p.id)?.cameraTrack ?? null;
-}
-
-const voiceChannelLimitUi = computed(() =>
-  getVoiceChannelUserLimitUi(
-    props.participants.length,
-    props.voiceChannelUserLimit,
-  ),
-);
-
-const screenShareTiles = computed(() => {
-  const tiles = props.participants
-    .filter((p) => !!p.streaming)
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      pfp: p.pfp,
-      isLocal: p.id === props.currentUserId,
-      track: resolveParticipantScreenShareTrack(p),
-    }));
-  const focusId = focusedStreamParticipantId.value;
-  if (!focusId) return tiles;
-  const idx = tiles.findIndex((t) => t.id === focusId);
-  if (idx <= 0) return tiles;
-  return [tiles[idx]!, ...tiles.slice(0, idx), ...tiles.slice(idx + 1)];
+const props = withDefaults(defineProps<CallViewProps>(), {
+  showHeader: true,
+  compactLayout: false,
+  videoPrimaryDmLayout: false,
 });
 
-const cameraVideoTiles = computed(() => {
-  const tiles = props.participants
-    .filter((p) => !!p.video)
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      pfp: p.pfp,
-      isLocal: p.id === props.currentUserId,
-      track: resolveParticipantCameraTrack(p),
-    }));
-  const focusId = focusedStreamParticipantId.value;
-  if (!focusId) return tiles;
-  const idx = tiles.findIndex((t) => t.id === focusId);
-  if (idx <= 0) return tiles;
-  return [tiles[idx]!, ...tiles.slice(0, idx), ...tiles.slice(idx + 1)];
-});
-
-type VisualMediaTile = {
-  tileId: string;
-  mediaKind: 'screen' | 'camera';
-  id: string;
-  name: string;
-  pfp: string;
-  isLocal: boolean;
-  track: unknown | null;
-};
-
-const visualMediaTiles = computed<VisualMediaTile[]>(() => {
-  const screenMapped = screenShareTiles.value.map((tile) => ({
-    tileId: `screen-${tile.id}`,
-    mediaKind: 'screen' as const,
-    ...tile,
-    track: tile.track ?? null,
-  }));
-  const cameraMapped = cameraVideoTiles.value.map((tile) => ({
-    tileId: `camera-${tile.id}`,
-    mediaKind: 'camera' as const,
-    ...tile,
-    track: tile.track ?? null,
-  }));
-  const cameras = props.videoPrimaryDmLayout
-    ? [...cameraMapped].sort(
-        (a, b) => Number(!!a.isLocal) - Number(!!b.isLocal),
-      )
-    : cameraMapped;
-  return [...screenMapped, ...cameras];
-});
-
-const hasVisualMediaTiles = computed(() => visualMediaTiles.value.length > 0);
-
-/** Meet-style dominant stage + participant rail for media calls (guild + DM). */
-const useMeetStageLayout = computed(() => hasVisualMediaTiles.value);
-
-const prioritizedVisualMediaTiles = computed(() => {
-  const focusId = focusedStreamParticipantId.value;
-  const visualTiles = visualMediaTiles.value;
-  if (!focusId) return visualTiles;
-  const idx = visualTiles.findIndex((tile) => tile.id === focusId);
-  if (idx <= 0) return visualTiles;
-  return [
-    visualTiles[idx]!,
-    ...visualTiles.slice(0, idx),
-    ...visualTiles.slice(idx + 1),
-  ];
-});
-
-const stagePrimaryTile = computed(
-  () => prioritizedVisualMediaTiles.value[0] ?? null,
-);
-const sideRailVisualTiles = computed(() =>
-  prioritizedVisualMediaTiles.value.slice(1),
-);
-
-function handleStreamTileAutoQuality(payload: {
-  participantId: string;
-  quality: StreamQuality;
-}) {
-  if (streamLayerManualByParticipantId.value[payload.participantId]) return;
-  const p =
-    props.participants.find((x) => x.id === payload.participantId) ?? null;
-  applyParticipantStreamQuality(p, payload.quality);
-}
-
-function handleStreamTileManualQuality(payload: {
-  participantId: string;
-  quality: StreamQuality;
-}) {
-  streamLayerManualByParticipantId.value = {
-    ...streamLayerManualByParticipantId.value,
-    [payload.participantId]: true,
-  };
-  const p =
-    props.participants.find((x) => x.id === payload.participantId) ?? null;
-  applyParticipantStreamQuality(p, payload.quality);
-}
-
-const vcMenuOpenForId = ref<string | null>(null);
-const vcMenuPos = ref({ left: 0, top: 0 });
-const vcMenuRef = ref<HTMLElement | null>(null);
-/** Local draft while the call tile menu is open (synced to LiveKit on input). */
-const vcMenuVolumeDraft = ref(100);
-
-type StreamQuality = 'high' | 'medium' | 'low';
-
-/** Manual simulcast layer picks (tile menu / call menu); cleared when fullscreen overlay closes. */
-const streamLayerManualByParticipantId = ref<Record<string, true>>({});
-
-const fullscreenStreamParticipantIdForLayers = inject(
-  CALL_VIEW_FULLSCREEN_STREAM_ID_KEY,
-  ref<string | null>(null),
-);
-
-watch(fullscreenStreamParticipantIdForLayers, (next, prev) => {
-  if (prev && !next) {
-    streamLayerManualByParticipantId.value = {};
-  }
-});
-
-const callMenuStreamQuality = ref<StreamQuality>('high');
-const STREAM_QUALITY_LABELS: Record<StreamQuality, string> = {
-  high: 'High (Source)',
-  medium: 'Medium',
-  low: 'Low',
-};
-const STREAM_QUALITY_ORDER: StreamQuality[] = ['high', 'medium', 'low'];
-
-type RemoteTrackPublicationLike = {
-  videoQuality?: number;
-  setEnabled: (enabled: boolean) => void;
-  setVideoQuality: (quality: number) => void;
-};
-
-type RemoteParticipantLike = {
-  getTrackPublication: (
-    source: 'screen_share' | 'camera',
-  ) => RemoteTrackPublicationLike | undefined;
-};
-
-function streamQualityToLiveKitValue(q: StreamQuality): number {
-  if (q === 'low') return 0;
-  if (q === 'medium') return 1;
-  return 2;
-}
-
-function liveKitValueToStreamQuality(value: number | undefined): StreamQuality {
-  if (value === 0) return 'low';
-  if (value === 1) return 'medium';
-  return 'high';
-}
-
-function getParticipantVideoPublication(
-  p: (typeof props.participants)[number] | null | undefined,
-): RemoteTrackPublicationLike | null {
-  if (!p) return null;
-  const room = props.lkRoom as
-    | Parameters<typeof liveKitRemoteParticipantByIdentity>[0]
-    | null
-    | undefined;
-  if (!room || p.id === props.currentUserId) return null;
-  const participant = liveKitRemoteParticipantByIdentity(room, p.id) as
-    | RemoteParticipantLike
-    | undefined;
-  if (!participant) return null;
-  if (p.streaming) {
-    return participant.getTrackPublication('screen_share') ?? null;
-  }
-  if (p.video) {
-    return participant.getTrackPublication('camera') ?? null;
-  }
-  return null;
-}
-
-function applyParticipantStreamQuality(
-  p: (typeof props.participants)[number] | null | undefined,
-  quality: StreamQuality,
-) {
-  const publication = getParticipantVideoPublication(p);
-  if (!publication) return;
-  publication.setEnabled(true);
-  publication.setVideoQuality(streamQualityToLiveKitValue(quality));
-}
-
-function callMenuHasVolumeControl(): boolean {
-  return typeof props.setRemoteParticipantVolume === 'function';
-}
-
-/** True when ChatInput has registered `insertUserMentionAtCursor` on the shell ref. */
-const canQuickMentionFromCallMenu = computed(
-  () => !!composerInsertUserMention?.value,
-);
-
-function remoteStreamVolumeEnabled(participantId: string | undefined): boolean {
-  if (!participantId) return false;
-  return (
-    typeof props.setRemoteParticipantVolume === 'function' &&
-    participantId !== props.currentUserId
-  );
-}
-
-function remoteStreamVolumePercent(participantId: string | undefined): number {
-  if (!participantId) return 100;
-  return props.getRemoteParticipantVolume?.(participantId) ?? 100;
-}
-
-function onRemoteStreamVolume(participantId: string, v: number) {
-  props.setRemoteParticipantVolume?.(participantId, v);
-}
-
-/** Re-apply stored per-user gain after StreamVideoTile wires muxed video/tab audio into Web Audio. */
-function onRemoteVideoPlaybackWired(participantId: string) {
-  const setFn = props.setRemoteParticipantVolume;
-  const getFn = props.getRemoteParticipantVolume;
-  if (!setFn) return;
-  const id = participantId.trim();
-  if (!id) return;
-  setFn(id, getFn?.(id) ?? 100);
-}
-
-const vcModerationTarget = computed(
-  () => props.participants.find((x) => x.id === vcMenuOpenForId.value) ?? null,
-);
-
-function vcModAllowed(userId: string, action: VcModerateAction): boolean {
-  if (props.canVcModerateParticipantAction) {
-    return props.canVcModerateParticipantAction(userId, action);
-  }
-  return props.canModerateParticipant?.(userId) ?? false;
-}
-
-function vcModSectionVisible(userId: string): boolean {
-  if (props.canVcModerateParticipantAction) {
-    return (
-      vcModAllowed(userId, 'serverMute') ||
-      vcModAllowed(userId, 'serverDeafen') ||
-      vcModAllowed(userId, 'disconnect') ||
-      vcModAllowed(userId, 'stopCamera') ||
-      vcModAllowed(userId, 'stopScreenShare')
-    );
-  }
-  return props.canModerateParticipant?.(userId) ?? false;
-}
-
-function onTileContextMenu(
-  p: (typeof props.participants)[number],
-  e: MouseEvent,
-) {
-  e.preventDefault();
-  if (p.id === props.currentUserId) {
-    return;
-  }
-  const canMod = vcModSectionVisible(p.id);
-  const canMention = canQuickMentionFromCallMenu.value;
-  const hasVolume = callMenuHasVolumeControl();
-  const hasStreamQuality = !!getParticipantVideoPublication(p);
-  if (!canMod && !canMention && !hasVolume && !hasStreamQuality) return;
-  const vol = props.getRemoteParticipantVolume?.(p.id) ?? 100;
-  vcMenuVolumeDraft.value = vol;
-  callMenuStreamQuality.value = liveKitValueToStreamQuality(
-    getParticipantVideoPublication(p)?.videoQuality,
-  );
-  const estW = 240;
-  const estH = 360;
-  vcMenuPos.value = clampMenuToViewport(e.clientX, e.clientY, estW, estH);
-  vcMenuOpenForId.value = p.id;
-  void nextTick(() => {
-    requestAnimationFrame(() => {
-      const el = vcMenuRef.value;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      vcMenuPos.value = clampMenuToViewport(r.left, r.top, r.width, r.height);
-    });
-  });
-}
-
-function onCallMenuVolumeInput(e: Event) {
-  const id = vcMenuOpenForId.value;
-  const fn = props.setRemoteParticipantVolume;
-  if (!id || !fn) return;
-  const v = Number((e.target as HTMLInputElement).value);
-  if (!Number.isFinite(v)) return;
-  vcMenuVolumeDraft.value = v;
-  fn(id, v);
-}
-
-function selectCallMenuStreamQuality(q: StreamQuality) {
-  callMenuStreamQuality.value = q;
-  const id = vcMenuOpenForId.value;
-  if (id) {
-    streamLayerManualByParticipantId.value = {
-      ...streamLayerManualByParticipantId.value,
-      [id]: true,
-    };
-  }
-  applyParticipantStreamQuality(vcModerationTarget.value, q);
-}
-
-function closeVcMenu() {
-  vcMenuOpenForId.value = null;
-}
-
-function emitVcModerate(action: VcModerateAction, targetUserId: string) {
-  props.onVcModerate?.({
-    action,
-    targetUserId,
-    contextVoiceChannelId: props.voiceModerationChannelId ?? undefined,
-  });
-  closeVcMenu();
-}
-
-function mentionParticipantFromCallMenu() {
-  const p = vcModerationTarget.value;
-  const fn = composerInsertUserMention?.value;
-  if (!p || !fn) return;
-  closeVcMenu();
-  fn({ userId: p.id, displayName: p.name });
-}
-
-function onDocumentPointerDown(e: MouseEvent) {
-  const menuEl = vcMenuRef.value;
-  if (menuEl) {
-    const path = e.composedPath();
-    if (path.includes(menuEl)) return;
-    for (const n of path) {
-      if (n instanceof Node && menuEl.contains(n)) return;
-    }
-  }
-  closeVcMenu();
-}
-
-function handleRequestFullscreen(participantId: string) {
-  const participant =
-    props.participants.find((candidate) => candidate.id === participantId) ??
-    null;
-  applyParticipantStreamQuality(participant, 'high');
-  props.onRequestFullscreenStream?.(participantId);
-}
-
-function onParticipantAvatarDblClick(p: (typeof props.participants)[number]) {
-  if (p.streaming || p.video) handleRequestFullscreen(p.id);
-}
-
-onMounted(() => {
-  document.addEventListener('mousedown', onDocumentPointerDown, true);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('mousedown', onDocumentPointerDown, true);
-});
+const {
+  STREAM_QUALITY_LABELS,
+  STREAM_QUALITY_ORDER,
+  callMenuHasVolumeControl,
+  callMenuStreamQuality,
+  cameraVideoTiles,
+  canQuickMentionFromCallMenu,
+  dmCallPresenceLabel,
+  emitVcModerate,
+  focusedStreamParticipantId,
+  handleOpenProfile,
+  handleRequestFullscreen,
+  handleStreamTileAutoQuality,
+  handleStreamTileManualQuality,
+  mentionParticipantFromCallMenu,
+  onCallMenuVolumeInput,
+  onParticipantAvatarDblClick,
+  onRemoteStreamVolume,
+  onRemoteVideoPlaybackWired,
+  onTileContextMenu,
+  remoteStreamVolumeEnabled,
+  remoteStreamVolumePercent,
+  screenShareTiles,
+  selectCallMenuStreamQuality,
+  sideRailVisualTiles,
+  stagePrimaryTile,
+  tileAvatar,
+  useMeetStageLayout,
+  vcMenuPos,
+  vcMenuRef,
+  vcMenuVolumeDraft,
+  vcModAllowed,
+  vcModSectionVisible,
+  vcModerationTarget,
+  voiceChannelLimitUi,
+} = useCallViewState(props);
 </script>
 
 <template>
@@ -646,7 +156,7 @@ onUnmounted(() => {
             <StreamVideoTile
               :key="stagePrimaryTile.tileId"
               class="call-meet-stage-tile max-h-none min-h-[14rem] w-full flex-1 md:min-h-[24rem]"
-              :track="(stagePrimaryTile.track as any) ?? null"
+              :track="stagePrimaryTile.track ?? null"
               :participant-name="stagePrimaryTile.name"
               :participant-pfp="stagePrimaryTile.pfp"
               :participant-id="stagePrimaryTile.id"
@@ -710,7 +220,7 @@ onUnmounted(() => {
                   ? 'aspect-video w-[min(11.25rem,40vw)] min-w-[9.25rem] max-w-[12rem]'
                   : 'aspect-video w-[10rem] min-w-[8.75rem] max-w-[11.5rem]',
               ]"
-              :track="(t.track as any) ?? null"
+              :track="(t.track as StreamVideoTileTrack | null) ?? null"
               :participant-name="t.name"
               :participant-pfp="t.pfp"
               :participant-id="t.id"
@@ -786,12 +296,12 @@ onUnmounted(() => {
                 }"
                 :style="
                   p.speaking
-                    ? ({
+                    ? {
                         '--speak-strength': Math.min(
                           1,
                           (p.audioLevel ?? 0) * 3 + 0.4,
                         ),
-                      } as any)
+                      }
                     : undefined
                 "
               >
@@ -937,7 +447,7 @@ onUnmounted(() => {
                 v-for="t in screenShareTiles"
                 :key="`screen-${t.id}`"
                 class="h-40 max-h-[36dvh] min-h-[10rem] w-[min(18rem,calc(100vw-2.5rem))] min-w-[14rem] max-w-[20rem] shrink-0"
-                :track="(t.track as any) ?? null"
+                :track="(t.track as StreamVideoTileTrack | null) ?? null"
                 :participant-name="t.name"
                 :participant-pfp="t.pfp"
                 :participant-id="t.id"
@@ -968,7 +478,7 @@ onUnmounted(() => {
                 v-for="t in cameraVideoTiles"
                 :key="`cam-${t.id}`"
                 class="h-36 max-h-[32dvh] min-h-[9rem] w-[min(14rem,calc(100vw-2.5rem))] min-w-[11rem] max-w-[16rem] shrink-0"
-                :track="(t.track as any) ?? null"
+                :track="(t.track as StreamVideoTileTrack | null) ?? null"
                 :participant-name="t.name"
                 :participant-pfp="t.pfp"
                 :participant-id="t.id"

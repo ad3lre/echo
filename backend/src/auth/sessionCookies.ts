@@ -125,7 +125,7 @@ export function clearRefreshCookie(reply: FastifyReply) {
 }
 
 export function setGuestBindingCookie(
-  reply: any,
+  reply: FastifyReply,
   userId: string,
   request?: FastifyRequest,
 ) {
@@ -137,7 +137,7 @@ export function setGuestBindingCookie(
   });
 }
 
-export function clearGuestBindingCookie(reply: any) {
+export function clearGuestBindingCookie(reply: FastifyReply) {
   reply.clearCookie(GUEST_BINDING_COOKIE, { path: '/' });
   reply.clearCookie(LEGACY_GUEST_BINDING_COOKIE, { path: '/' });
 }

@@ -5,6 +5,7 @@ import { ECHO_SIMPLE_CONTEXT_MENU_ATTR } from '@/composables/useSimpleContextMen
 
 defineProps<{
   menuOpen: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forwarded to a child :ref binding; a parent ref unwraps to its element here
   menuRef?: any;
   menuPosition: { left: number; top: number };
   contextServer: Server | null;

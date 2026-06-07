@@ -1,3 +1,4 @@
+import { GOOGLE_INTEGRATION_ENABLED } from '../../../shared/integrationKillSwitches';
 import { config } from '../config';
 
 export type GoogleOAuthRedirectKind = 'link' | 'login';
@@ -29,6 +30,7 @@ export function googleOAuthAppRedirect(
 }
 
 export function isGoogleOauthConfigured(): boolean {
+  if (!GOOGLE_INTEGRATION_ENABLED) return false;
   return Boolean(
     config.googleOauthClientId &&
     config.googleOauthClientSecret &&

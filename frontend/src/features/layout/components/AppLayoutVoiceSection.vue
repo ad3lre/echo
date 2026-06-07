@@ -198,8 +198,8 @@ const props = defineProps<{
   remoteParticipants?: Map<string, RemoteParticipantTrackInfo>;
   lkRoom?: LKRoom | null;
   mirrorLocalCamera?: boolean;
-  getLocalScreenTrack?: () => any;
-  getLocalCameraTrack?: () => any;
+  getLocalScreenTrack?: () => unknown;
+  getLocalCameraTrack?: () => unknown;
   getRemoteParticipantVolume?: (userId: string) => number;
   setRemoteParticipantVolume?: (userId: string, volumePercent: number) => void;
   onRequestFullscreenStream?: (participantId: string) => void;

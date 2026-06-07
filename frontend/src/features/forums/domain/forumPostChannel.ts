@@ -1,53 +1,82 @@
-export function getParentChannelIdOrNull(ch: any): string | null {
-  const parent =
-    (typeof ch?.parentChannelId === 'string' && ch.parentChannelId.trim()) ||
-    (typeof ch?.parent_channel_id === 'string' && ch.parent_channel_id.trim());
-  return parent ? parent : null;
+type ForumPostChannelLike = {
+  parentChannelId?: unknown;
+  parent_channel_id?: unknown;
+  forumPostTagIds?: unknown;
+  forum_post_tag_ids?: unknown;
+  forumPostPinned?: unknown;
+  forum_post_pinned?: unknown;
+  forumPostLocked?: unknown;
+  forum_post_locked?: unknown;
+  forumPostArchivedAt?: unknown;
+  forum_post_archived_at?: unknown;
+  forumPostCreatorUserId?: unknown;
+  forum_post_creator_user_id?: unknown;
+};
+
+function toForumPostChannelLike(ch: unknown): ForumPostChannelLike | null {
+  if (ch === null || typeof ch !== 'object') return null;
+  return ch as ForumPostChannelLike;
 }
 
-export function hasForumPostMetadata(ch: any): boolean {
+function trimmedStringOrNull(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+export function getParentChannelIdOrNull(ch: unknown): string | null {
+  const channel = toForumPostChannelLike(ch);
+  if (!channel) return null;
+  return (
+    trimmedStringOrNull(channel.parentChannelId) ??
+    trimmedStringOrNull(channel.parent_channel_id)
+  );
+}
+
+export function hasForumPostMetadata(ch: unknown): boolean {
+  const channel = toForumPostChannelLike(ch);
+  if (!channel) return false;
   if (
-    Array.isArray(ch?.forumPostTagIds) ||
-    Array.isArray(ch?.forum_post_tag_ids)
+    Array.isArray(channel.forumPostTagIds) ||
+    Array.isArray(channel.forum_post_tag_ids)
   )
     return true;
-  if (ch?.forumPostPinned === true || ch?.forum_post_pinned === true)
+  if (channel.forumPostPinned === true || channel.forum_post_pinned === true)
     return true;
-  if (ch?.forumPostLocked === true || ch?.forum_post_locked === true)
+  if (channel.forumPostLocked === true || channel.forum_post_locked === true)
     return true;
   const archived =
-    (typeof ch?.forumPostArchivedAt === 'string' &&
-      ch.forumPostArchivedAt.trim()) ||
-    (typeof ch?.forum_post_archived_at === 'string' &&
-      ch.forum_post_archived_at.trim());
+    trimmedStringOrNull(channel.forumPostArchivedAt) ??
+    trimmedStringOrNull(channel.forum_post_archived_at);
   if (archived) return true;
   if (
-    (typeof ch?.forumPostCreatorUserId === 'string' &&
-      ch.forumPostCreatorUserId.trim()) ||
-    (typeof ch?.forum_post_creator_user_id === 'string' &&
-      ch.forum_post_creator_user_id.trim())
+    trimmedStringOrNull(channel.forumPostCreatorUserId) ||
+    trimmedStringOrNull(channel.forum_post_creator_user_id)
   ) {
     return true;
   }
   return false;
 }
 
-export function isForumPostChannel(ch: any): boolean {
+export function isForumPostChannel(ch: unknown): boolean {
   if (!ch) return false;
   if (getParentChannelIdOrNull(ch)) return true;
   if (hasForumPostMetadata(ch)) return true;
   return false;
 }
 
-export function isForumPostPinned(ch: any): boolean {
-  return ch?.forumPostPinned === true || ch?.forum_post_pinned === true;
+export function isForumPostPinned(ch: unknown): boolean {
+  const channel = toForumPostChannelLike(ch);
+  return (
+    channel?.forumPostPinned === true || channel?.forum_post_pinned === true
+  );
 }
 
-export function isForumPostArchived(ch: any): boolean {
+export function isForumPostArchived(ch: unknown): boolean {
+  const channel = toForumPostChannelLike(ch);
+  if (!channel) return false;
   const archived =
-    (typeof ch?.forumPostArchivedAt === 'string' &&
-      ch.forumPostArchivedAt.trim()) ||
-    (typeof ch?.forum_post_archived_at === 'string' &&
-      ch?.forum_post_archived_at.trim());
+    trimmedStringOrNull(channel.forumPostArchivedAt) ??
+    trimmedStringOrNull(channel.forum_post_archived_at);
   return !!archived;
 }

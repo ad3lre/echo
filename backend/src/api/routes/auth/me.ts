@@ -114,8 +114,8 @@ export default async function meRoutes(fastify: FastifyInstance) {
           },
         );
         return reply.code(204).send();
-      } catch (err: any) {
-        const msg = err?.message;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : undefined;
         if (msg === 'NO_PENDING_PHONE') {
           return sendError(
             reply,
@@ -563,8 +563,9 @@ export default async function meRoutes(fastify: FastifyInstance) {
             user: staged,
             emailChangePending: true,
           });
-        } catch (err: any) {
-          if (err?.message === 'INVALID_EMAIL') {
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : undefined;
+          if (msg === 'INVALID_EMAIL') {
             return sendError(
               reply,
               400,
@@ -572,7 +573,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
               'Please enter a valid email address.',
             );
           }
-          if (err?.message === 'INVALID_EMAIL_PROVIDER') {
+          if (msg === 'INVALID_EMAIL_PROVIDER') {
             return sendError(
               reply,
               400,
@@ -580,7 +581,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
               'Temporary, disposable, or relay inbox domains cannot be used.',
             );
           }
-          if (err?.message === 'EMAIL_IN_USE') {
+          if (msg === 'EMAIL_IN_USE') {
             return sendError(
               reply,
               409,
@@ -595,8 +596,9 @@ export default async function meRoutes(fastify: FastifyInstance) {
       let updated: Awaited<ReturnType<typeof store.updateUserProfile>>;
       try {
         updated = await store.updateUserProfile(req.authUser.id, patch);
-      } catch (err: any) {
-        if (err?.message === 'EMAIL_CHANGE_REQUIRES_VERIFICATION') {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : undefined;
+        if (msg === 'EMAIL_CHANGE_REQUIRES_VERIFICATION') {
           return sendError(
             reply,
             400,
@@ -604,7 +606,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'Email changes require verification; send email with currentPassword.',
           );
         }
-        if (err?.message === 'INVALID_EMAIL') {
+        if (msg === 'INVALID_EMAIL') {
           return sendError(
             reply,
             400,
@@ -612,7 +614,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'Please enter a valid email address.',
           );
         }
-        if (err?.message === 'INVALID_EMAIL_PROVIDER') {
+        if (msg === 'INVALID_EMAIL_PROVIDER') {
           return sendError(
             reply,
             400,
@@ -620,7 +622,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'Temporary, disposable, or relay inbox domains cannot be used. Sign up with a normal email address you keep long term.',
           );
         }
-        if (err?.message === 'EMAIL_IN_USE') {
+        if (msg === 'EMAIL_IN_USE') {
           return sendError(
             reply,
             409,
@@ -628,7 +630,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'That email is already registered.',
           );
         }
-        if (err?.message === 'INVALID_DISPLAY_NAME') {
+        if (msg === 'INVALID_DISPLAY_NAME') {
           return sendError(
             reply,
             400,
@@ -636,7 +638,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'Display name is invalid.',
           );
         }
-        if (err?.message === 'INVALID_USERNAME') {
+        if (msg === 'INVALID_USERNAME') {
           return sendError(
             reply,
             400,
@@ -644,7 +646,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'Username is invalid or uses reserved words.',
           );
         }
-        if (err?.message === 'USERNAME_TAKEN') {
+        if (msg === 'USERNAME_TAKEN') {
           return sendError(
             reply,
             409,
@@ -652,7 +654,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'That username is already taken.',
           );
         }
-        if (err?.message === 'USERNAME_GUEST_LOCKED') {
+        if (msg === 'USERNAME_GUEST_LOCKED') {
           return sendError(
             reply,
             403,
@@ -660,7 +662,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'Guest accounts cannot change username until upgraded.',
           );
         }
-        if (err?.message === 'USERNAME_SHADOW_LOCKED') {
+        if (msg === 'USERNAME_SHADOW_LOCKED') {
           return sendError(
             reply,
             403,
@@ -668,7 +670,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'This account cannot change its username.',
           );
         }
-        if (err?.message === 'INVALID_PHONE') {
+        if (msg === 'INVALID_PHONE') {
           return sendError(
             reply,
             400,
@@ -676,7 +678,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'Please enter a valid phone number.',
           );
         }
-        if (err?.message === 'PHONE_IN_USE') {
+        if (msg === 'PHONE_IN_USE') {
           return sendError(
             reply,
             409,
@@ -684,7 +686,7 @@ export default async function meRoutes(fastify: FastifyInstance) {
             'That phone number is already in use.',
           );
         }
-        if (err?.message === 'INVALID_TIME_ZONE') {
+        if (msg === 'INVALID_TIME_ZONE') {
           return sendError(
             reply,
             400,

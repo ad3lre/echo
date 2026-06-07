@@ -3,6 +3,8 @@
  * Used for global popularity aggregation (server-wide open counts).
  */
 
+import { YOUTUBE_INTEGRATION_ENABLED } from './integrationKillSwitches';
+
 /** TODO: set true to re-enable Echoed Names in the VC activity library and open flow. */
 export const ECHOED_NAMES_VC_ACTIVITY_ENABLED = false;
 
@@ -52,5 +54,6 @@ export function isEchoVcActivityLibraryVisible(
   key: EchoVcActivityKey,
 ): boolean {
   if (key === 'codenames' && !ECHOED_NAMES_VC_ACTIVITY_ENABLED) return false;
+  if (key === 'youtube' && !YOUTUBE_INTEGRATION_ENABLED) return false;
   return true;
 }

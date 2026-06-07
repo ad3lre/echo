@@ -7,18 +7,19 @@ import {
   APP_LAYOUT_SEARCH_PANEL_KEY,
   CHAT_SURFACE_SEARCH_KEY,
 } from '@/features/layout/chatSurfaceContext';
-import type { MessageWithAuthor } from '@shared/types';
+import type { MessageWithAuthor, Server } from '@shared/types';
+import type { ChannelCategory } from '@/composables/useChannels';
 
 export function useAppLayoutSearchIntegration(deps: {
   workspace: WorkspaceStateApi;
-  categoriesForServer: ComputedRef<any[]>;
+  categoriesForServer: ComputedRef<ChannelCategory[]>;
   activeChannelId: Ref<string>;
   activeChannelMessages: Ref<MessageWithAuthor[]>;
   authSession: ReturnType<typeof useAuthSessionStore>;
   serverStore: ReturnType<typeof useServerStore>;
   isInDMMode: ComputedRef<boolean>;
   echoDmThreadIds: Ref<Set<string>>;
-  selectedServer: ComputedRef<any>;
+  selectedServer: ComputedRef<Server | null | undefined>;
   handleGoToMessage: (channelId: string, messageId: string) => void;
 }) {
   const {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
 import {
   collectLinkEmbedCandidateUrls,
   extractHttpUrlsFromContentJson,
@@ -74,13 +75,27 @@ describe('stubEchoJumpEmbedsFromMessage', () => {
 });
 
 describe('stubVideoEmbedsFromMessage', () => {
-  it('builds a playable YouTube stub from plain URL', () => {
-    const embeds = stubVideoEmbedsFromMessage(
-      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      undefined,
-    );
-    expect(embeds).toHaveLength(1);
-    expect(embeds[0]?.video?.kind).toBe('youtube');
-    expect(videoEmbedPosterUrl(embeds[0]!)).toContain('i.ytimg.com');
-  });
+  it.skipIf(!YOUTUBE_INTEGRATION_ENABLED)(
+    'builds a playable YouTube stub from plain URL',
+    () => {
+      const embeds = stubVideoEmbedsFromMessage(
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        undefined,
+      );
+      expect(embeds).toHaveLength(1);
+      expect(embeds[0]?.video?.kind).toBe('youtube');
+      expect(videoEmbedPosterUrl(embeds[0]!)).toContain('i.ytimg.com');
+    },
+  );
+
+  it.skipIf(YOUTUBE_INTEGRATION_ENABLED)(
+    'omits YouTube stubs while integration is disabled',
+    () => {
+      const embeds = stubVideoEmbedsFromMessage(
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        undefined,
+      );
+      expect(embeds).toHaveLength(0);
+    },
+  );
 });

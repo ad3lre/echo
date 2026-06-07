@@ -16,11 +16,23 @@ function readJson(p) {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 
+function readText(p) {
+  return fs.readFileSync(p, 'utf8');
+}
+
 function cargoVersion(cargoPath) {
-  const text = fs.readFileSync(cargoPath, 'utf8');
+  const text = readText(cargoPath);
   const m = /^version\s*=\s*"([^"]+)"/m.exec(text);
   if (!m) {
     throw new Error(`No version = "..." in ${cargoPath}`);
+  }
+  return m[1];
+}
+
+function regexMatch(label, text, regex) {
+  const m = regex.exec(text);
+  if (!m) {
+    throw new Error(`No ${label} found`);
   }
   return m[1];
 }
@@ -30,9 +42,25 @@ const androidConf = readJson(
   path.join(root, 'src-tauri', 'tauri.android.conf.json'),
 );
 const cargo = cargoVersion(path.join(root, 'src-tauri', 'Cargo.toml'));
+const androidGradle = readText(
+  path.join(root, 'src-tauri', 'gen', 'android', 'app', 'build.gradle.kts'),
+);
+const androidWorkflow = readText(
+  path.join(root, '.github', 'workflows', 'echo-android-ci.yml'),
+);
 
 const androidVer = androidConf.version;
 const code = androidConf.bundle?.android?.versionCode;
+const gradleNdk = regexMatch(
+  'Android Gradle ndkVersion',
+  androidGradle,
+  /\bndkVersion\s*=\s*"([^"]+)"/,
+);
+const workflowNdk = regexMatch(
+  'GitHub Actions ANDROID_NDK_VERSION',
+  androidWorkflow,
+  /^\s*ANDROID_NDK_VERSION:\s*['"]?([^'"\s]+)['"]?\s*$/m,
+);
 
 const errs = [];
 if (pkg !== androidVer) {
@@ -50,6 +78,16 @@ if (typeof code !== 'number' || code < 1 || !Number.isInteger(code)) {
     `tauri.android.conf.json bundle.android.versionCode must be a positive integer (got ${JSON.stringify(code)})`,
   );
 }
+if (gradleNdk !== workflowNdk) {
+  errs.push(
+    `src-tauri/gen/android/app/build.gradle.kts ndkVersion "${gradleNdk}" !== .github/workflows/echo-android-ci.yml ANDROID_NDK_VERSION "${workflowNdk}"`,
+  );
+}
+if (!androidWorkflow.includes('ndk;${{ env.ANDROID_NDK_VERSION }}')) {
+  errs.push(
+    '.github/workflows/echo-android-ci.yml setup-android packages must install ndk;${{ env.ANDROID_NDK_VERSION }}',
+  );
+}
 
 if (errs.length) {
   console.error('[verify-android-version] Version alignment failed:\n');
@@ -58,5 +96,5 @@ if (errs.length) {
 }
 
 console.log(
-  `[verify-android-version] OK — app version ${pkg}, versionCode ${code}`,
+  `[verify-android-version] OK - app version ${pkg}, versionCode ${code}, NDK ${gradleNdk}`,
 );

@@ -5,6 +5,7 @@ import {
 import { EchoApiError } from '@/api/echo/transport';
 import { toUsername } from '@/utils/memberProfiles';
 import { selectPresence } from '@/services/domain/presence';
+import type { EchoPresenceStatus } from '@shared/types';
 
 export type ProfileSocialUser = {
   id: string;
@@ -19,7 +20,7 @@ export type MutualFriendProfile = {
   displayName: string;
   username: string;
   pfp: string;
-  status?: string;
+  status?: EchoPresenceStatus;
 };
 
 export function shouldUseEchoProfileSocialApi(opts: {

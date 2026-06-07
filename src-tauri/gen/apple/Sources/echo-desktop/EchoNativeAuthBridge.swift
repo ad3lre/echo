@@ -289,6 +289,11 @@ final class EchoNativeAuthBridge {
         config.httpCookieStorage = HTTPCookieStorage.shared
         config.httpShouldSetCookies = true
         config.httpCookieAcceptPolicy = .always
+        // Marks the request as the native iOS client so the server mints bearer
+        // tokens (`auth.accessToken` / `auth.refreshToken`) alongside the cookie
+        // session — required for the Keychain → WebView handoff. Gated server-side
+        // by AUTH_NATIVE_BEARER.
+        config.httpAdditionalHeaders = ["X-Echo-Client": "ios"]
         return URLSession(configuration: config)
     }
 }

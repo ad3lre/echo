@@ -586,7 +586,7 @@ export async function listEchoServersForUser(
     `,
     [userId],
   );
-  return r.rows.map((row: any) => ({
+  return r.rows.map((row: Record<string, unknown>) => ({
     id: String(row.id),
     name: String(row.name),
     iconUrl: String(row.icon_url ?? ''),
@@ -728,7 +728,7 @@ export async function updateEchoServerPreferences(
     if (!perms.has('MANAGE_GUILD')) return 'forbidden';
   }
   const updates: string[] = [];
-  const params: any[] = [];
+  const params: unknown[] = [];
   let idx = 1;
   if (body.name !== undefined) {
     if (typeof body.name !== 'string') return 'invalid_body';

@@ -146,6 +146,29 @@ describe('mergeMentionNotificationRows', () => {
     expect(merged[0]?.preview).toBe('hey @you');
   });
 
+  it('drops a client stub when another client row for the channel already resolved', () => {
+    const mentionId = '1420070400000000001';
+    const newerUnreadId = '1420070400000000099';
+    const client = [
+      clientRow({
+        channelId: 'c1',
+        messageId: mentionId,
+        preview: 'discord @you ping',
+        timestamp: '2026-06-06T12:00:00.000Z',
+      }),
+      clientRow({
+        channelId: 'c1',
+        messageId: newerUnreadId,
+        preview: MENTION_NOTIFICATION_STUB_PREVIEW,
+        timestamp: '2026-06-06T12:01:00.000Z',
+      }),
+    ];
+    const merged = mergeMentionNotificationRows([], client);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.messageId).toBe(mentionId);
+    expect(merged[0]?.preview).toBe('discord @you ping');
+  });
+
   it('keeps a real client row for the same channel even when server covers it', () => {
     // A live websocket message (m11) arrived after the server fetch — it has a
     // resolved preview and should always be kept alongside the server row.
