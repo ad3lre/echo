@@ -96,6 +96,13 @@ function sendCommitError(reply: FastifyReply, r: AppendCommitResult): unknown {
         'INVALID_BODY',
         'Invalid MLS commit payload.',
       );
+    case 'device_invalid':
+      return sendError(
+        reply,
+        400,
+        'INVALID_BODY',
+        'Unknown or revoked E2EE device.',
+      );
     case 'epoch_conflict':
       return sendError(
         reply,
@@ -148,6 +155,13 @@ function sendProposalError(
         400,
         'INVALID_BODY',
         'Invalid MLS proposal payload.',
+      );
+    case 'device_invalid':
+      return sendError(
+        reply,
+        400,
+        'INVALID_BODY',
+        'Unknown or revoked E2EE device.',
       );
     case 'infra_missing':
       return sendError(

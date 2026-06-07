@@ -339,11 +339,9 @@ const isSelfRolesWidgetChannel = computed(
   () => props.activeChannel?.type === 'selfRoles',
 );
 
-const showSelfAssignableRolesWidget = computed(() => {
-  const ch = props.activeChannel;
-  if (!ch?.id) return false;
-  return ch.type === 'selfRoles' || ch.type === 'text';
-});
+const showSelfAssignableRolesWidget = computed(
+  () => props.activeChannel?.type === 'selfRoles',
+);
 
 const messageListUsesCompactTop = computed(() => props.compactTop);
 
@@ -720,6 +718,8 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         :server-id="serverId"
         :channel-id="activeChannel.id"
         :channel-type="activeChannel.type"
+        :channel-display-name="activeChannel.name"
+        :header-overlay-inset-px="headerOverlayInsetPx"
       />
       <MessageList
         v-if="!isSelfRolesWidgetChannel"

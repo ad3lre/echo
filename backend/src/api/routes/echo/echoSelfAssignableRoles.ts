@@ -94,10 +94,21 @@ export default async function echoSelfAssignableRolesRoutes(
         }
         customCategories = parsed;
       }
+      const channelNameRaw =
+        typeof body.channelName === 'string' ? body.channelName : undefined;
       const updated = await updateEchoSelfRolesConfig(pool, sid, {
         enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
+        channelName: channelNameRaw,
         customCategories,
       });
+      if (updated === 'channel_name_required') {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'Enter a channel name for the self-assign roles channel.',
+        );
+      }
       const auditId = await insertEchoAudit(
         pool,
         sid,

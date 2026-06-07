@@ -18,6 +18,7 @@ import {
 import { isMemberOfServer } from '../../../domain/echoPermissions';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
 import { evictAllUsersFromEchoCategoryChannelRealtimeScopes } from '../../../platform/echoRealtimeMembership';
+import { enforceAndPublishEchoVoiceAccess } from '../../../services/echoVoiceAccessEnforcement';
 import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './echoMutationRateLimits';
 import {
   echoPool,
@@ -127,6 +128,10 @@ export default async function echoCategoriesRoutes(
         pool,
         categoryId,
       );
+      await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+        serverId: sid,
+        version: auditId,
+      });
       return reply.code(204).send();
     },
   );
@@ -510,6 +515,10 @@ export default async function echoCategoriesRoutes(
         pool,
         categoryId,
       );
+      await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+        serverId: sid,
+        version: auditId,
+      });
       const warnings = permissionOverwriteSaveWarnings(r);
       if (warnings?.strippedAllows?.length) {
         return reply.code(200).send({ warnings });

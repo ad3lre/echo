@@ -29,6 +29,7 @@
     "test:storage-mode": "node --import tsx src/tests/storageMode.config.test.ts",
     "test:video-hls-worker-config": "node --import tsx src/tests/videoHlsWorker.config.test.ts",
     "test:video-hls-notify": "node --import tsx src/tests/videoHlsNotify.test.ts",
+    "test:video-hls-golden": "node --import tsx src/tests/echoVideoHls.golden.test.ts",
     "test:discord-oauth": "ts-node src/tests/discordOAuth.state.test.ts && ts-node src/tests/discordNormalized.mapper.test.ts && ts-node src/tests/discordProfileMerge.test.ts && ts-node src/tests/discordUserLink.uniqueness.test.ts && node --import tsx src/tests/discordMessageImportEmbeds.test.ts",
     "test:google-oauth": "ts-node src/tests/googleOAuth.state.test.ts && ts-node src/tests/googleOidc.test.ts",
     "test:youtube-oauth": "ts-node src/tests/youtubeOAuth.state.test.ts",

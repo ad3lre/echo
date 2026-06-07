@@ -16,7 +16,6 @@ import { getActivePinia, storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import AppLayoutChatHeader from '@/features/layout/components/AppLayoutChatHeader.vue';
 import AppLayoutPinsDropdown from '@/features/layout/components/AppLayoutPinsDropdown.vue';
-import RealtimeConnectionBanner from '@/features/layout/components/RealtimeConnectionBanner.vue';
 import AppLayoutVoiceSection from '@/features/layout/components/AppLayoutVoiceSection.vue';
 import GuildVoiceFloatingSpeakerPill from '@/features/layout/components/GuildVoiceFloatingSpeakerPill.vue';
 import GuildVoiceStreamPip from '@/features/layout/components/GuildVoiceStreamPip.vue';
@@ -482,10 +481,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :vc-mirror-camera="chatCtx.vcMirrorCamera"
         :vc-remote-participants="chatCtx.vcRemoteParticipants"
       />
-      <!-- Paper has its own PaperConnectionBanner; avoid doubling up there. -->
-      <RealtimeConnectionBanner
-        v-if="chatCtx.mainSurface.type !== 'serverPaper'"
-      />
+
       <AppLayoutPinsDropdown
         :is-open="chatCtx.isPinsDropdownOpen"
         :rect="chatCtx.pinsDropdownRect"

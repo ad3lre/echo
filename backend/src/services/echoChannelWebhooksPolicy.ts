@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { CHANNEL_WEBHOOKS_ENABLED } from '../../../shared/integrationKillSwitches';
 import { isMemberOfServer } from '../domain/echoPermissions';
 import {
   getEchoChannelServerIdAndType,
@@ -15,6 +16,13 @@ export async function assertUserCanManageEchoChannelWebhooks(
   channelId: string,
   userId: string,
 ): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+  if (!CHANNEL_WEBHOOKS_ENABLED) {
+    return {
+      ok: false,
+      status: 503,
+      message: 'Channel webhooks are temporarily disabled.',
+    };
+  }
   const okMem = await isMemberOfServer(pool, serverId, userId);
   if (!okMem) {
     return { ok: false, status: 403, message: 'NOT_SERVER_MEMBER' };

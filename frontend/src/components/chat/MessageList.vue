@@ -67,7 +67,6 @@ import {
 import { messageWindowAuthority } from '@/features/chat/domain/messageWindowAuthority';
 import {
   downwardOnlySnapScrollTop,
-  isScrollNearBottom,
   shouldSkipScrollToIndexForLatest,
 } from '@/features/chat/domain/messageListScrollSnap';
 import {
@@ -1028,8 +1027,29 @@ const virtualizerOptions = computed(() => ({
     }
     return Math.max(0, estimated - viewport);
   },
-  /** Never compensate on row measure — first-load anchor only; post-load yanks feel worse than drift. */
-  shouldAdjustScrollPositionOnItemSizeChange: () => false,
+  /**
+   * Two cases compensate; otherwise we leave the row where it is.
+   *
+   * 1. Rows ABOVE the current offset: scrolling up into unmeasured history is where
+   *    estimate→measure deltas used to shift content under the user (the "background
+   *    flashes before messages appear" bug). Compensating holds the row under the
+   *    user's eyes fixed.
+   * 2. Bottom-anchored + idle: when we are following the tail and the user is not
+   *    actively scrolling, a row growing (late image/GIF decode) should push earlier
+   *    content UP and keep the bottom pinned — otherwise a late image on initial load
+   *    pushes the newest messages below the fold and we drift off the bottom. Gated on
+   *    `!isUserActive()` so it never fights an in-progress wheel/touch gesture, and on
+   *    bottom anchor mode so top-anchored channels are unaffected.
+   */
+  shouldAdjustScrollPositionOnItemSizeChange: (
+    item: { start: number },
+    _delta: number,
+    instance: { scrollOffset: number | null },
+  ) =>
+    item.start < (instance.scrollOffset ?? 0) ||
+    (messageScrollAnchorResolved.value === 'bottom' &&
+      followNewMessagesToBottom.value &&
+      !scrollOwnership.isUserActive()),
 }));
 
 function distanceFromBottomPx(): number {
@@ -1324,6 +1344,13 @@ function onWheelNearTopForLoadOlder(event: WheelEvent) {
   scheduleScrollIdleWork();
 }
 
+/**
+ * USER-INTENT SCROLL (1 of 3 surviving programmatic writes; the others are the own-message
+ * send branch in the new-message watcher and {@link scrollMessageIntoView} for reply / link
+ * jumps). These are direct user actions — always authorized by scroll ownership — and are the
+ * only writes that remain once the passive authorities are gone. Everything else is initial
+ * load state (`initialOffset` + the loading overlay).
+ */
 function jumpToLatestMessages() {
   followNewMessagesToBottom.value = true;
   jumpUi.pendingNewWhileAway.value = 0;
@@ -1334,9 +1361,6 @@ function jumpToLatestMessages() {
 }
 
 const containerRef = ref<HTMLElement | null>(null);
-
-let scrollViewportResizeObserver: ResizeObserver | null = null;
-let lastScrollViewportClientHeight = 0;
 
 /** Max scrollTop for the list container (actual DOM; aligns with virtualizer total height). */
 function snapContainerScrollToBottom(intent: ScrollIntent) {
@@ -1352,39 +1376,10 @@ function snapContainerScrollToBottom(intent: ScrollIntent) {
   });
 }
 
-function disconnectScrollViewportResizeObserver(): void {
-  scrollViewportResizeObserver?.disconnect();
-  scrollViewportResizeObserver = null;
-  lastScrollViewportClientHeight = 0;
-}
-
-function shouldFollowViewportShrink(): boolean {
-  if (prependTransactionActive.value) return false;
-  if (suppressListUntilInitialAnchor.value) return false;
-  if (isUserScrollProtected(virtualizer.value?.scrollDirection ?? null)) {
-    return false;
-  }
-  if (messageScrollAnchorResolved.value !== 'bottom') return false;
-  return followNewMessagesToBottom.value || isNearBottom(FOLLOW_NEW_ATTACH_PX);
-}
-
-/** When the composer / bottom chrome grows, the list viewport shrinks — stay pinned to latest. */
-function attachScrollViewportResizeObserver(el: HTMLElement): void {
-  disconnectScrollViewportResizeObserver();
-  lastScrollViewportClientHeight = el.clientHeight;
-  if (typeof ResizeObserver === 'undefined') return;
-  scrollViewportResizeObserver = new ResizeObserver(() => {
-    const container = containerRef.value;
-    if (!container) return;
-    const h = container.clientHeight;
-    const prev = lastScrollViewportClientHeight;
-    lastScrollViewportClientHeight = h;
-    if (h >= prev - 0.5) return;
-    if (!shouldFollowViewportShrink()) return;
-    scrollToBottom(false, 'layout-compensation');
-  });
-  scrollViewportResizeObserver.observe(el);
-}
+// Removed the viewport-shrink ResizeObserver re-pin (`layout-compensation` authority):
+// post-initial-anchor it was already a no-op (scroll ownership blocked it), and during
+// initial load the loading overlay now covers positioning. Stay-pinned-on-composer-growth
+// is handled by the native bottom-pin in Stage 4 of the scroll refactor.
 
 function beginPrependTransaction(
   channelId: string,
@@ -1864,8 +1859,41 @@ function scrollToBottom(smooth = false, intent: ScrollIntent = 'follow-tail') {
   });
 }
 
-/** Internal guard while the first bottom-anchor settles; do not turn this into a visual blocker. */
+/**
+ * True from channel-change until the first anchor settles. The list still renders and
+ * measures underneath (never gate the list's existence on this — it would unmount the
+ * virtualizer); the loading overlay just stays drawn over it so the one-shot bottom-anchor
+ * and any remembered-position restore happen out of sight. See {@link showInitialLoadOverlay}.
+ */
 const suppressListUntilInitialAnchor = ref(false);
+
+/**
+ * True only for a COLD channel open — one with no cached content at switch time. Set from
+ * `isEmpty` in the channel-change watcher (the window updates synchronously on switch, so
+ * `isEmpty` is already correct there). A warm switch to a cached channel leaves this false, so
+ * the overlay never covers cached content during the anchor settle.
+ */
+const coldLoadInProgress = ref(false);
+
+/**
+ * The loading skeleton is held over the list until the initial position settles — but ONLY for a
+ * cold open. For a cold channel this makes the initial position (latest, or a remembered spot
+ * restored across frames) **load state, not a visible scroll**: positioning finishes behind the
+ * overlay, then it cross-fades to reveal messages in place.
+ *
+ * For a WARM switch (revisiting a cached channel) `coldLoadInProgress` stays false, so the cached
+ * content swaps in instantly — no skeleton over content, no "second of nothing". The remembered
+ * position comes from the virtualizer's `initialOffset` on first paint, which is already correct
+ * because the anchor message is in the cached window.
+ */
+const showInitialLoadOverlay = computed(
+  () =>
+    showLoadingSkeleton.value ||
+    (coldLoadInProgress.value &&
+      suppressListUntilInitialAnchor.value &&
+      !isEmpty.value &&
+      !!props.channelId),
+);
 
 /**
  * First paint after channel switch / history load — not for pagination or new messages.
@@ -2065,6 +2093,10 @@ watch(
     lastObservedScrollTop = 0;
     lastObservedScrollDirection = 'still';
     scrollOwnership.reset();
+    // Cold = no cached content for the new channel at switch time. The window updates
+    // synchronously on channel change, so `isEmpty` is already correct here. Warm switches
+    // (revisiting a cached channel) stay false → no loading overlay over cached content.
+    coldLoadInProgress.value = !!cid && isEmpty.value;
     suppressLoadOlderUntilLeaveTopZone = false;
     prependTransactionActive.value = false;
     activePrependChannelId.value = null;
@@ -2196,7 +2228,6 @@ onMounted(() => {
       el.addEventListener('wheel', onUserScrollGesture, { passive: true });
       el.addEventListener('touchstart', onUserScrollGesture, { passive: true });
       el.addEventListener('keydown', onKeydownScrollGesture);
-      attachScrollViewportResizeObserver(el);
       emitSeenMessageId(resolveSeenMessageId());
       logMessageList('scroll', 'scroll_listener_attached', {
         passive: true,
@@ -2225,7 +2256,6 @@ onUnmounted(() => {
     cancelAnimationFrame(viewportMemoryRaf);
     viewportMemoryRaf = null;
   }
-  disconnectScrollViewportResizeObserver();
   const el = containerRef.value;
   if (el) {
     el.removeEventListener('scroll', onScrollCombined);
@@ -2400,6 +2430,7 @@ function handleExpandDmCallRollFromBubble(messageId: string) {
 
 const SCROLL_TO_MESSAGE_DISPLAY_RETRY = 8;
 
+/** USER-INTENT SCROLL: reply-preview click / message-link jump. See {@link jumpToLatestMessages}. */
 async function scrollMessageIntoView(messageId: string): Promise<boolean> {
   revealDmCallRunContainingMessageIfCollapsed(messageId);
   let idx = -1;
@@ -2578,14 +2609,8 @@ defineExpose({
       :class="scrollContainerPaddingBottomClass"
       :style="{ paddingTop: `${scrollContainerPaddingTopPx}px` }"
     >
-      <MessageListHistorySkeleton
-        v-if="showLoadingSkeleton"
-        :aria-label="
-          showHistorySkeleton ? 'Loading messages' : 'Loading conversation'
-        "
-      />
       <div
-        v-else-if="showNoServersYet"
+        v-if="showNoServersYet"
         class="message-list-empty flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-4 text-center"
         role="status"
         aria-label="No servers yet"
@@ -2756,11 +2781,34 @@ defineExpose({
         </div>
       </div>
     </div>
+    <!--
+      Loading skeleton is an overlay (not in scroll flow) pinned to the BOTTOM of the
+      viewport, so its last bar lands where the newest real message will. The list mounts
+      underneath while loading; `initialOffset` paints the first page already bottom-anchored,
+      and the skeleton cross-fades out to reveal real messages in place (no top→bottom jump,
+      no blank frame). See Stage 2 of the message-list scroll plan.
+    -->
+    <Transition name="msg-skeleton-fade">
+      <div
+        v-if="showInitialLoadOverlay"
+        class="message-list-skeleton-overlay pointer-events-none absolute inset-0 z-[1] flex flex-col justify-end overflow-hidden px-4"
+        :style="{
+          paddingTop: `${scrollContainerPaddingTopPx}px`,
+          paddingBottom: '16px',
+        }"
+      >
+        <MessageListHistorySkeleton
+          :aria-label="
+            showHistorySkeleton ? 'Loading messages' : 'Loading conversation'
+          "
+        />
+      </div>
+    </Transition>
     <MessageListJumpFab
       :message-scroll-anchor="messageScrollAnchorResolved"
       :message-count="displayOrderedIds.length"
       :list-ui-blocked="
-        showLoadingSkeleton ||
+        showInitialLoadOverlay ||
         showNoServersYet ||
         showEmptyChannelHint ||
         showDiscordImportWidget
@@ -2773,5 +2821,29 @@ defineExpose({
 <style scoped lang="scss">
 .message-list-empty__icon {
   background: var(--overlay-subtle);
+}
+
+/*
+ * Skeleton → messages crossfade. The list is already painted (bottom-anchored via
+ * `initialOffset`) underneath, so fading the overlay out dissolves the placeholder
+ * bars into real messages rather than hard-swapping with a blank frame.
+ */
+.msg-skeleton-fade-leave-active {
+  transition: opacity 220ms ease;
+}
+.msg-skeleton-fade-leave-to {
+  opacity: 0;
+}
+.msg-skeleton-fade-enter-from {
+  opacity: 0;
+}
+.msg-skeleton-fade-enter-active {
+  transition: opacity 140ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg-skeleton-fade-leave-active,
+  .msg-skeleton-fade-enter-active {
+    transition: none;
+  }
 }
 </style>

@@ -169,6 +169,13 @@ async function assertRecipientsAllowedForVoiceE2ee(
     if (!mem) return 'forbidden';
     const access = await canUserAccessChannel(pool, uid, channelId);
     if (!access) return 'forbidden';
+    const inVoice = await isUserInGuildVoiceChannel(
+      pool,
+      serverId,
+      channelId,
+      uid,
+    );
+    if (!inVoice) return 'forbidden';
   }
   return 'ok';
 }
@@ -199,13 +206,12 @@ function envelopeJsonByteLength(envelope: unknown): number {
   }
 }
 
-async function assertActorInVoiceChannelForEpochCreate(
+async function isUserInGuildVoiceChannel(
   pool: pg.Pool,
   serverId: string,
   channelId: string,
-  actorUserId: string,
-): Promise<'ok' | 'not_in_voice'> {
-  if (serverId === ECHO_DM_REALM_SERVER_ID) return 'ok';
+  userId: string,
+): Promise<boolean> {
   try {
     const r = await pool.query(
       `
@@ -213,13 +219,30 @@ async function assertActorInVoiceChannelForEpochCreate(
       WHERE server_id = $1 AND channel_id = $2 AND user_id = $3
       LIMIT 1
       `,
-      [serverId, channelId, actorUserId],
+      [serverId, channelId, userId],
     );
-    return r.rows.length > 0 ? 'ok' : 'not_in_voice';
+    return r.rows.length > 0;
   } catch (e) {
-    if (isPostgresUndefinedRelationError(e)) return 'not_in_voice';
+    if (isPostgresUndefinedRelationError(e)) return false;
     throw e;
   }
+}
+
+async function assertActorInVoiceChannelForEpochCreate(
+  pool: pg.Pool,
+  serverId: string,
+  channelId: string,
+  actorUserId: string,
+): Promise<'ok' | 'not_in_voice'> {
+  if (serverId === ECHO_DM_REALM_SERVER_ID) return 'ok';
+  return (await isUserInGuildVoiceChannel(
+    pool,
+    serverId,
+    channelId,
+    actorUserId,
+  ))
+    ? 'ok'
+    : 'not_in_voice';
 }
 
 /**
@@ -443,6 +466,13 @@ export async function listVoiceE2eeEnvelopesForUser(
       opts.channelId,
     );
     if (!access) return { ok: false, reason: 'forbidden' };
+    const inVoice = await isUserInGuildVoiceChannel(
+      pool,
+      opts.serverId,
+      opts.channelId,
+      opts.userId,
+    );
+    if (!inVoice) return { ok: false, reason: 'forbidden' };
   }
 
   const epoch = await getActiveVoiceE2eeEpoch(

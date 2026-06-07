@@ -39,7 +39,6 @@ import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRo
 import type { Room as LKRoom } from 'livekit-client';
 import { icons } from '@/assets/icons';
 import { useChannelIconResolver } from '@/composables/useChannelIconResolver';
-import { useCoarsePointer } from '@/composables/useCoarsePointer';
 import type {
   VcActivityPresenceKind,
   VcActivityUiState,
@@ -331,8 +330,6 @@ watchEffect(() => {
   }
 });
 
-const coarsePointer = useCoarsePointer();
-
 const channelIconResolver = useChannelIconResolver(
   toRef(() => props.selectedServerId ?? undefined),
 );
@@ -455,102 +452,15 @@ watch(
 
 const dockReservePx = computed(() => props.voiceMobileDockReservePx ?? 0);
 
-const voiceMobileSheetBottomStyle = computed(() => {
+/** Full-screen mobile voice chat: reserve space for the floating voice dock. */
+const voiceMobileChatOverlayStyle = computed(() => {
   const extra = dockReservePx.value;
   const dock = extra > 0 ? ` + ${extra}px` : '';
   return {
-    bottom: `calc(3.5rem${dock} + env(safe-area-inset-bottom, 0px))`,
+    paddingTop: 'env(safe-area-inset-top, 0px)',
+    paddingBottom: `calc(3.5rem${dock} + env(safe-area-inset-bottom, 0px))`,
   };
 });
-
-const mobileSheetFrameClass = computed(() => {
-  if (props.voiceSideChatCollapsed) return '';
-  if (props.voiceMobileSheetLevel >= 2) {
-    return 'h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))]';
-  }
-  return coarsePointer.value
-    ? 'h-[58dvh] max-h-[58dvh]'
-    : 'h-[50dvh] max-h-[50dvh]';
-});
-
-let lastCompactVoiceGestureAt = 0;
-let callTouchStartY: number | null = null;
-let sheetChromeTouchStartY: number | null = null;
-
-function isInteractiveWheelTarget(target: EventTarget | null) {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  return !!el.closest(
-    'input,textarea,button,select,a,[contenteditable="true"]',
-  );
-}
-
-function onCompactVoiceCallWheel(e: WheelEvent) {
-  if (!props.isCompactMobileGuild) return;
-  if (isInteractiveWheelTarget(e.target)) return;
-  const now = Date.now();
-  if (now - lastCompactVoiceGestureAt < 400) return;
-  if (e.deltaY < -30) {
-    lastCompactVoiceGestureAt = now;
-    props.bumpVoiceMobileChatFromCallScrollUp();
-  } else if (e.deltaY > 30 && props.voiceMobileSheetLevel === 1) {
-    lastCompactVoiceGestureAt = now;
-    props.bumpVoiceMobileChatFromCallScrollDown();
-  }
-}
-
-function onCompactVoiceTouchStart(e: TouchEvent) {
-  if (!props.isCompactMobileGuild || e.touches.length !== 1) return;
-  callTouchStartY = e.touches[0].clientY;
-}
-
-function onCompactVoiceTouchEnd(e: TouchEvent) {
-  if (!props.isCompactMobileGuild || callTouchStartY == null) return;
-  const startY = callTouchStartY;
-  callTouchStartY = null;
-  const te = e.changedTouches[0];
-  if (!te) return;
-  const dy = startY - te.clientY;
-  const now = Date.now();
-  if (now - lastCompactVoiceGestureAt < 450) return;
-  if (dy > 64) {
-    lastCompactVoiceGestureAt = now;
-    props.bumpVoiceMobileChatFromCallScrollUp();
-  } else if (dy < -64 && props.voiceMobileSheetLevel === 1) {
-    lastCompactVoiceGestureAt = now;
-    props.bumpVoiceMobileChatFromCallScrollDown();
-  }
-}
-
-function onSheetChromeWheel(e: WheelEvent) {
-  if (!props.isCompactMobileGuild) return;
-  const now = Date.now();
-  if (now - lastCompactVoiceGestureAt < 400) return;
-  if (e.deltaY > 30 && props.voiceMobileSheetLevel >= 1) {
-    lastCompactVoiceGestureAt = now;
-    props.bumpVoiceMobileChatFromCallScrollDown();
-  }
-}
-
-function onSheetChromeTouchStart(e: TouchEvent) {
-  if (!props.isCompactMobileGuild || e.touches.length !== 1) return;
-  sheetChromeTouchStartY = e.touches[0].clientY;
-}
-
-function onSheetChromeTouchEnd(e: TouchEvent) {
-  if (!props.isCompactMobileGuild || sheetChromeTouchStartY == null) return;
-  const te = e.changedTouches[0];
-  const startY = sheetChromeTouchStartY;
-  sheetChromeTouchStartY = null;
-  if (!te || props.voiceMobileSheetLevel < 1) return;
-  const dy = startY - te.clientY;
-  const now = Date.now();
-  if (now - lastCompactVoiceGestureAt < 450) return;
-  if (dy < -56) {
-    lastCompactVoiceGestureAt = now;
-    props.bumpVoiceMobileChatFromCallScrollDown();
-  }
-}
 </script>
 
 <template>
@@ -568,7 +478,10 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
       >
         <button
           v-if="
-            voiceSideChatCollapsed && !vcActivitySurfaceOpen && !stageShowLobby
+            voiceSideChatCollapsed &&
+            !vcActivitySurfaceOpen &&
+            !stageShowLobby &&
+            !isCompactMobileGuild
           "
           type="button"
           class="voice-chat-reopen-action group absolute left-1/2 z-[44] inline-flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-border px-3.5 py-2 text-sm font-semibold text-fg transition-colors"
@@ -598,6 +511,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
           <span>Reopen chat</span>
         </button>
         <div
+          v-show="!isCompactMobileGuild || voiceSideChatCollapsed"
           class="min-w-0 min-h-0"
           :class="[
             isCompactMobileGuild
@@ -605,17 +519,6 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
               : 'flex min-h-0 min-w-0 flex-1 flex-col',
             stageShowLobby ? 'z-[46]' : '',
           ]"
-          @wheel.passive="
-            (e: WheelEvent) =>
-              isCompactMobileGuild && onCompactVoiceCallWheel(e)
-          "
-          @touchstart.passive="
-            (e: TouchEvent) =>
-              isCompactMobileGuild && onCompactVoiceTouchStart(e)
-          "
-          @touchend.passive="
-            (e: TouchEvent) => isCompactMobileGuild && onCompactVoiceTouchEnd(e)
-          "
         >
           <button
             v-if="
@@ -920,103 +823,89 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
           </div>
         </template>
 
-        <!-- Mobile: bottom chat sheet — v-show keeps ChatView mounted when collapsed (see desktop comment). -->
+        <!-- Mobile: full-screen voice chat — v-show keeps ChatView mounted when collapsed. -->
         <div
           v-else
           v-show="!voiceSideChatCollapsed"
-          class="voice-mobile-chat-sheet pointer-events-none absolute inset-x-0 z-[35] flex flex-col items-stretch justify-end"
-          :style="voiceMobileSheetBottomStyle"
+          class="voice-mobile-chat absolute inset-0 z-[80] flex min-h-0 flex-col bg-elevated"
+          :style="voiceMobileChatOverlayStyle"
         >
           <div
-            class="pointer-events-auto flex flex-col overflow-hidden rounded-t-2xl border border-border border-b-0 bg-elevated voice-mobile-chat-sheet__panel"
-            :class="mobileSheetFrameClass"
+            class="voice-side-chat-header voice-side-chat-header--mobile flex w-full min-w-0 max-w-full shrink-0 items-center justify-start gap-2 self-stretch px-3 py-2"
           >
-            <div
-              class="flex w-full flex-col items-center px-3 pt-2 pb-1.5"
-              aria-hidden="true"
+            <span
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-glass-1"
             >
-              <span class="h-1 w-10 shrink-0 rounded-full bg-glass-active" />
-            </div>
-            <div
-              class="voice-side-chat-header voice-side-chat-header--mobile flex w-full min-w-0 max-w-full shrink-0 items-center justify-start gap-2 self-stretch px-3 pb-2"
-              @wheel.passive="onSheetChromeWheel"
-              @touchstart.passive="onSheetChromeTouchStart"
-              @touchend.passive="onSheetChromeTouchEnd"
+              <img
+                v-if="!voiceSideChatEmoji"
+                :src="voiceSideChatIconUrl"
+                alt=""
+                class="h-4 w-4 opacity-80 filter invert"
+              />
+              <span
+                v-else
+                class="flex h-4 w-4 items-center justify-center text-[14px] leading-none opacity-80"
+                aria-hidden="true"
+                >{{ voiceSideChatEmoji }}</span
+              >
+            </span>
+            <span
+              class="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg-soft"
+              >{{ voiceSideChatTitle }}</span
             >
-              <span
-                class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-glass-1"
+            <button
+              type="button"
+              class="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg-soft"
+              aria-label="Close voice chat"
+              title="Close voice chat"
+              @click="toggleVoiceSideChat"
+            >
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
               >
-                <img
-                  v-if="!voiceSideChatEmoji"
-                  :src="voiceSideChatIconUrl"
-                  alt=""
-                  class="h-4 w-4 opacity-80 filter invert"
-                />
-                <span
-                  v-else
-                  class="flex h-4 w-4 items-center justify-center text-[14px] leading-none opacity-80"
-                  aria-hidden="true"
-                  >{{ voiceSideChatEmoji }}</span
-                >
-              </span>
-              <span
-                class="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg-soft"
-                >{{ voiceSideChatTitle }}</span
-              >
-              <button
-                type="button"
-                class="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-soft transition-colors hover:bg-glass-hover hover:text-fg-soft"
-                aria-label="Close voice chat"
-                title="Close voice chat"
-                @click="toggleVoiceSideChat"
-              >
-                <svg
-                  class="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            </div>
-            <ChatView
-              class="min-h-0 min-w-0 flex-1"
-              :active-channel="effectiveActiveChannel"
-              :active-channel-messages="activeChannelMessagesMap"
-              :server-id="selectedServerId"
-              :users="users"
-              :mention-users="mentionUsers"
-              :channels="allChannels"
-              :send-message="sendMessage"
-              :on-request-forward="onRequestForward"
-              :can-show-discord-channel-import="canShowDiscordChannelImport"
-              :current-user-id="currentUserId"
-              :linked-discord-user-id="linkedDiscordUserId ?? null"
-              :current-user-name="currentUserName"
-              :current-user-pfp="currentUserPfp"
-              :pinned-message-ids="[]"
-              :on-poll-vote="handlePollVote"
-              :on-save-edit="editMessage"
-              :on-delete="deleteMessage"
-              :on-react="handleReact"
-              :top-reactions="topReactions"
-              :remove-reaction-favorite="removeReactionFavorite"
-              :on-go-to-channel="handleGoToChannel"
-              :on-go-to-message="handleGoToMessage"
-              :on-open-profile="openMemberProfile"
-              :can-moderate-author="canModerateAuthor"
-              :on-moderate-user="handleModerateUser"
-              :show-input-for-voice-channel="true"
-              :compact-top="true"
-              :show-nsfw-gate="showNsfwChatGate"
-              :on-nsfw-acknowledge="acknowledgeNsfwChannel"
-              :on-nsfw-decline="declineNsfwGate"
-            />
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
           </div>
+          <ChatView
+            class="min-h-0 min-w-0 flex-1"
+            :active-channel="effectiveActiveChannel"
+            :active-channel-messages="activeChannelMessagesMap"
+            :server-id="selectedServerId"
+            :users="users"
+            :mention-users="mentionUsers"
+            :channels="allChannels"
+            :send-message="sendMessage"
+            :on-request-forward="onRequestForward"
+            :can-show-discord-channel-import="canShowDiscordChannelImport"
+            :current-user-id="currentUserId"
+            :linked-discord-user-id="linkedDiscordUserId ?? null"
+            :current-user-name="currentUserName"
+            :current-user-pfp="currentUserPfp"
+            :pinned-message-ids="[]"
+            :on-poll-vote="handlePollVote"
+            :on-save-edit="editMessage"
+            :on-delete="deleteMessage"
+            :on-react="handleReact"
+            :top-reactions="topReactions"
+            :remove-reaction-favorite="removeReactionFavorite"
+            :on-go-to-channel="handleGoToChannel"
+            :on-go-to-message="handleGoToMessage"
+            :on-open-profile="openMemberProfile"
+            :can-moderate-author="canModerateAuthor"
+            :on-moderate-user="handleModerateUser"
+            :show-input-for-voice-channel="true"
+            :compact-top="true"
+            :show-nsfw-gate="showNsfwChatGate"
+            :on-nsfw-acknowledge="acknowledgeNsfwChannel"
+            :on-nsfw-decline="declineNsfwGate"
+          />
         </div>
       </div>
     </div>
@@ -1057,12 +946,7 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
 }
 
 .voice-side-chat-header--mobile {
-  min-height: 2.5rem;
-}
-
-/* Touch: lighter shadow (less GPU blur work) + crisper edge than 40px spread */
-.voice-mobile-chat-sheet__panel {
-  box-shadow: 0 -6px 28px color-mix(in srgb, black 38%, transparent);
+  min-height: 2.75rem;
 }
 
 .voice-chat-reopen-action {
@@ -1090,12 +974,6 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
 .voice-chat-reopen-action:focus-visible {
   outline: 2px solid color-mix(in srgb, #7dd3fc 60%, white 12%);
   outline-offset: 2px;
-}
-
-/* Sunny: warm lift + amber focus (default light uses sky blue + grey-black shadows). */
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .voice-mobile-chat-sheet__panel {
-  box-shadow: 0 -6px 28px rgba(120, 80, 30, 0.12);
 }
 
 :global(html[data-theme='light'][data-echo-light-variant='sunny'])
@@ -1137,17 +1015,6 @@ function onSheetChromeTouchEnd(e: TouchEvent) {
   .voice-chat-reopen-action {
     font-size: 0.8125rem;
     padding: 0.45rem 0.8rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .voice-mobile-chat-sheet__panel {
-    box-shadow: 0 -2px 12px color-mix(in srgb, black 45%, transparent);
-  }
-
-  :global(html[data-theme='light'][data-echo-light-variant='sunny'])
-    .voice-mobile-chat-sheet__panel {
-    box-shadow: 0 -2px 12px rgba(120, 80, 30, 0.14);
   }
 }
 </style>

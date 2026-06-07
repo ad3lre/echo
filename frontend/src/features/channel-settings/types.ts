@@ -1,4 +1,5 @@
 import type { ChannelPermissionKey, EchoChannelType } from '@shared/types';
+import { CHANNEL_WEBHOOKS_ENABLED } from '@shared/integrationKillSwitches';
 
 export type PermissionOverwriteTargetType =
   | 'members'
@@ -283,6 +284,14 @@ export const CHANNEL_PERMISSION_DEFS_CATEGORY: ChannelPermissionDef[] = (() => {
   return out;
 })();
 
+/** Category + permission overwrite UIs (respects channel webhook kill switch). */
+export function getCategoryPermissionDefsForUi(): ChannelPermissionDef[] {
+  if (CHANNEL_WEBHOOKS_ENABLED) return CHANNEL_PERMISSION_DEFS_CATEGORY;
+  return CHANNEL_PERMISSION_DEFS_CATEGORY.filter(
+    (d) => d.key !== 'manageWebhooks',
+  );
+}
+
 /**
  * Channel settings permissions tab: text channels get text defs; voice channels get the same
  * General + Voice rows as category settings (from merged list), so “Use Voice Activity” is always
@@ -291,12 +300,16 @@ export const CHANNEL_PERMISSION_DEFS_CATEGORY: ChannelPermissionDef[] = (() => {
 export function getChannelPermissionDefsForChannelType(
   channelType: EchoChannelType,
 ): ChannelPermissionDef[] {
-  if (channelType === 'paper') return CHANNEL_PERMISSION_DEFS_PAPER;
-  if (channelType === 'text' || channelType === 'forum')
-    return CHANNEL_PERMISSION_DEFS_TEXT;
-  return CHANNEL_PERMISSION_DEFS_CATEGORY.filter(
-    (d) => d.group === 'General permissions' || d.group === 'Voice channel',
-  );
+  let defs: ChannelPermissionDef[];
+  if (channelType === 'paper') defs = CHANNEL_PERMISSION_DEFS_PAPER;
+  else if (channelType === 'text' || channelType === 'forum')
+    defs = CHANNEL_PERMISSION_DEFS_TEXT;
+  else
+    defs = CHANNEL_PERMISSION_DEFS_CATEGORY.filter(
+      (d) => d.group === 'General permissions' || d.group === 'Voice channel',
+    );
+  if (CHANNEL_WEBHOOKS_ENABLED) return defs;
+  return defs.filter((d) => d.key !== 'manageWebhooks');
 }
 
 export const CATEGORY_TAB_COPY: Record<

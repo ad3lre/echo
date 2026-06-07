@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { CHANNEL_WEBHOOKS_ENABLED } from '../../../../shared/integrationKillSwitches';
 import { publicBadgesFromAccount } from '../../../../shared/echoAccountBadges';
 import { normalizeEchoPlanId } from '../../../../shared/echoPlanLimits';
 import { config } from '../../config';
@@ -877,11 +878,13 @@ async function attachChannelPermissionCapsAndStripInvisibleForWorkspace(
     for (const [id, ch] of channelMap) {
       const perms = permsMap.get(id);
       ch.canManageChannel = perms ? perms.has('MANAGE_CHANNELS') : false;
-      ch.canManageWebhooks = perms
-        ? perms.has('MANAGE_WEBHOOKS') ||
-          perms.has('MANAGE_GUILD') ||
-          perms.has('ADMINISTRATOR')
-        : false;
+      ch.canManageWebhooks =
+        CHANNEL_WEBHOOKS_ENABLED &&
+        (perms
+          ? perms.has('MANAGE_WEBHOOKS') ||
+            perms.has('MANAGE_GUILD') ||
+            perms.has('ADMINISTRATOR')
+          : false);
       ch.canViewChannel = perms ? perms.has('VIEW_CHANNEL') : false;
     }
 

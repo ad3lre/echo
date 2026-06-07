@@ -142,53 +142,85 @@ export async function joinEchoVoiceChannel(
     return { ok: false, reason: 'no_view_channel' };
   if (!perms.has('CONNECT')) return { ok: false, reason: 'no_connect' };
 
-  const userLimit = Number(ch.rows[0].user_limit ?? 0);
   const modBypass = perms.has('MANAGE_ROLES') || perms.has('MANAGE_GUILD');
-  if (userLimit > 0 && !modBypass) {
-    const cur = await pool.query(
-      `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
-      [serverId, userId],
-    );
-    const alreadyHere =
-      cur.rows[0] && String(cur.rows[0].channel_id) === channelId;
-    if (!alreadyHere) {
-      const cnt = await pool.query(
-        `SELECT COUNT(*)::int AS c FROM echo_voice_participants WHERE server_id = $1 AND channel_id = $2`,
-        [serverId, channelId],
-      );
-      const n = Number(cnt.rows[0]?.c ?? 0);
-      if (n >= userLimit) return { ok: false, reason: 'full' };
-    }
-  }
 
   const isStage = channelType === 'stage';
   const stageSpeaker = isStage
     ? await computeInitialStageSpeaker(pool, serverId, channelId, userId)
     : false;
 
-  await pool.query(
-    `
-    INSERT INTO echo_voice_participants (server_id, channel_id, user_id, stage_speaker)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (server_id, user_id) DO UPDATE SET
-      channel_id = $2,
-      joined_at = NOW(),
-      stage_speaker = $4
-    `,
-    [serverId, channelId, userId, stageSpeaker],
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const lockedChannel = await client.query(
+      `
+      SELECT user_limit
+      FROM echo_channels
+      WHERE id = $1 AND server_id = $2 AND type IN ('voice', 'stage')
+      FOR UPDATE
+      `,
+      [channelId, serverId],
+    );
+    if (!lockedChannel.rows[0]) {
+      await client.query('ROLLBACK');
+      return { ok: false, reason: 'not_found' };
+    }
 
-  await pool.query(
-    `
-    UPDATE echo_servers
-    SET last_voice_activity_at = GREATEST(
-      COALESCE(last_voice_activity_at, '-infinity'::timestamptz),
-      NOW()
-    )
-    WHERE id = $1
-    `,
-    [serverId],
-  );
+    const userLimit = Number(lockedChannel.rows[0].user_limit ?? 0);
+    if (userLimit > 0 && !modBypass) {
+      const cur = await client.query(
+        `SELECT channel_id FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
+        [serverId, userId],
+      );
+      const alreadyHere =
+        cur.rows[0] && String(cur.rows[0].channel_id) === channelId;
+      if (!alreadyHere) {
+        const cnt = await client.query(
+          `SELECT COUNT(*)::int AS c FROM echo_voice_participants WHERE server_id = $1 AND channel_id = $2`,
+          [serverId, channelId],
+        );
+        const n = Number(cnt.rows[0]?.c ?? 0);
+        if (n >= userLimit) {
+          await client.query('ROLLBACK');
+          return { ok: false, reason: 'full' };
+        }
+      }
+    }
+
+    await client.query(
+      `
+      INSERT INTO echo_voice_participants (server_id, channel_id, user_id, stage_speaker)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (server_id, user_id) DO UPDATE SET
+        channel_id = $2,
+        joined_at = NOW(),
+        stage_speaker = $4
+      `,
+      [serverId, channelId, userId, stageSpeaker],
+    );
+
+    await client.query(
+      `
+      UPDATE echo_servers
+      SET last_voice_activity_at = GREATEST(
+        COALESCE(last_voice_activity_at, '-infinity'::timestamptz),
+        NOW()
+      )
+      WHERE id = $1
+      `,
+      [serverId],
+    );
+    await client.query('COMMIT');
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
 
   return isStage ? { ok: true, stageSpeaker } : { ok: true };
 }

@@ -66,6 +66,12 @@ vi.mock('@/utils/uiErrorBus', () => ({
   subscribeUIErrors: (listener: unknown) => subscribeUIErrors(listener),
 }));
 
+vi.mock('@/stores/echoSession', () => ({
+  useEchoSessionStore: () => ({
+    liveSyncConnected: ref(false),
+  }),
+}));
+
 describe('useAppLayoutPlatformLifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();

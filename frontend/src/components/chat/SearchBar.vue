@@ -56,6 +56,11 @@ const props = withDefaults(
     searchError?: string | null;
     /** Teleported dropdown z-index (useful for full-screen mobile search overlays). */
     dropdownZIndex?: number;
+    /**
+     * When set, dropdown width/position match the nearest matching ancestor
+     * (e.g. `.members-column` for full-width member panel search).
+     */
+    dropdownPanelSelector?: string;
   }>(),
   {
     dmMode: false,
@@ -449,21 +454,31 @@ watch(
       requestAnimationFrame(() => {
         const el = containerRef.value;
         if (!el || !isDropdownOpen.value) return;
-        const rect = el.getBoundingClientRect();
+        const inputRect = el.getBoundingClientRect();
+        const panelEl = props.dropdownPanelSelector
+          ? el.closest(props.dropdownPanelSelector)
+          : null;
+        const panelRect = panelEl?.getBoundingClientRect();
         const gap =
           props.dropdownGapPx ??
           (props.dmMode ? 0 : showSearchResults.value ? 4 : 8);
-        const horizontalPad = props.dropdownHorizontalPadPx ?? 16;
-        const top = rect.bottom + gap;
+        const horizontalPad = panelEl
+          ? 0
+          : (props.dropdownHorizontalPadPx ?? 16);
+        const top = inputRect.bottom + gap;
         const viewportWidth =
           window.innerWidth || document.documentElement.clientWidth;
-        let left = rect.left - horizontalPad;
-        let widthPx = rect.width + horizontalPad * 2;
-        const reservedRight =
-          props.reservedRightPx ?? (props.dmMode ? 360 : 680);
-        const maxRight = viewportWidth - reservedRight;
-        if (left + widthPx > maxRight) {
-          widthPx = Math.max(260, maxRight - left);
+        let left = panelRect ? panelRect.left : inputRect.left - horizontalPad;
+        let widthPx = panelRect
+          ? panelRect.width
+          : inputRect.width + horizontalPad * 2;
+        if (!panelEl) {
+          const reservedRight =
+            props.reservedRightPx ?? (props.dmMode ? 360 : 680);
+          const maxRight = viewportWidth - reservedRight;
+          if (left + widthPx > maxRight) {
+            widthPx = Math.max(260, maxRight - left);
+          }
         }
         const bottomPad = DROPDOWN_VIEWPORT_BOTTOM_PAD_PX;
         dropdownPosition.value = {

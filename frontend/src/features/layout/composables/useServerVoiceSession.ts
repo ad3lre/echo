@@ -1832,6 +1832,14 @@ export function useServerVoiceSession(deps: {
 
   /** Bumped on intentional leave so in-flight auto-reconnect loops exit. */
   let vcAutoReconnectEpoch = 0;
+  /** Set by moderation disconnect so LiveKit removal is not treated as a network drop. */
+  let suppressNextVoiceAutoReconnect = false;
+
+  function resolveChannelNameForMove(channelId: string): string {
+    const ctx = findChannelContextById(channelId);
+    const n = ctx?.channel?.name?.trim();
+    return n || 'Voice';
+  }
 
   async function guildVoiceE2eePrepare(
     serverId: string,
@@ -1939,6 +1947,7 @@ export function useServerVoiceSession(deps: {
       playEchoSound('joinVoiceChannel');
     } catch (e) {
       onLeaveVoiceUi();
+      await voiceService.onLeaveVoice(sid ?? '');
       throw e;
     }
   }
@@ -1986,6 +1995,14 @@ export function useServerVoiceSession(deps: {
       const wasInSession =
         prev === 'connected' || (prev === 'connecting' && next === 'error');
       if (!wasInSession) return;
+      if (suppressNextVoiceAutoReconnect) {
+        suppressNextVoiceAutoReconnect = false;
+        voiceClientTrace('voice.client:vc_auto_reconnect_suppressed', {
+          next,
+          prev,
+        });
+        return;
+      }
 
       if (!currentVoiceChannelId.value?.trim()) return;
 
@@ -2596,6 +2613,28 @@ export function useServerVoiceSession(deps: {
       const cur = currentUser.value?.id?.trim();
       if (!cur || delta.userId !== cur) return;
       if (isDmVoiceCallUi.value) return;
+      if (delta.action === 'disconnect') {
+        suppressNextVoiceAutoReconnect = true;
+        vcAutoReconnectEpoch++;
+        lkRoom?.disconnect();
+        onLeaveVoiceUi();
+        dispatchAppToast('A moderator disconnected you from voice.', 'info');
+        return;
+      }
+      if (delta.action === 'move') {
+        const targetChannelId = delta.channelId?.trim();
+        if (!targetChannelId) return;
+        vcAutoReconnectEpoch++;
+        currentVoiceChannelId.value = targetChannelId;
+        currentVoiceChannelName.value =
+          resolveChannelNameForMove(targetChannelId);
+        lkRoom?.disconnect();
+        dispatchAppToast(
+          `You were moved to ${currentVoiceChannelName.value}.`,
+          'info',
+        );
+        return;
+      }
       const inChannel =
         currentVoiceChannelId.value?.trim() === delta.channelId?.trim();
       if (!inChannel) return;

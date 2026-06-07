@@ -6,7 +6,11 @@ import type {
   EchoSelfRolesConfig,
   SelfRolesCustomCategory,
 } from '@shared/types/selfAssignableRoles';
-import { ECHO_SELF_ROLES_CHANNEL_NAME } from '@shared/types/selfAssignableRoles';
+import {
+  ECHO_SELF_ROLES_CHANNEL_NAME,
+  ECHO_SELF_ROLES_DEFAULT_CHANNEL_NAME,
+} from '@shared/types/selfAssignableRoles';
+import { clampEchoChannelName } from '@shared/echoChannelLimits';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 
 type RoleRow = {
@@ -34,6 +38,7 @@ const loading = ref(true);
 const loadError = ref<string | null>(null);
 const saving = ref(false);
 const enabled = ref(false);
+const channelName = ref('');
 const customCategories = ref<SelfRolesCustomCategory[]>([]);
 const savedSnapshot = ref('');
 
@@ -111,11 +116,22 @@ const setupWarnings = computed(() => {
   return warnings;
 });
 
+const channelNameError = computed(() => {
+  if (!enabled.value) return null;
+  if (!clampEchoChannelName(channelName.value)) {
+    return 'Enter a channel name members will see in the sidebar.';
+  }
+  return null;
+});
+
+const canSave = computed(() => !channelNameError.value);
+
 const isDirty = computed(() => snapshotState() !== savedSnapshot.value);
 
 function snapshotState(): string {
   return JSON.stringify({
     enabled: enabled.value,
+    channelName: clampEchoChannelName(channelName.value),
     customCategories: customCategories.value.map((c, i) => ({
       ...c,
       position: i,
@@ -125,6 +141,9 @@ function snapshotState(): string {
 
 function syncFromConfig(config: EchoSelfRolesConfig) {
   enabled.value = config.enabled;
+  channelName.value =
+    config.channelName?.trim() ||
+    (config.enabled ? ECHO_SELF_ROLES_DEFAULT_CHANNEL_NAME : '');
   customCategories.value = config.customCategories.map((c) => ({ ...c }));
   savedSnapshot.value = snapshotState();
 }
@@ -167,6 +186,12 @@ function addCustomCategory() {
   ];
 }
 
+watch(enabled, (on) => {
+  if (on && !clampEchoChannelName(channelName.value)) {
+    channelName.value = ECHO_SELF_ROLES_DEFAULT_CHANNEL_NAME;
+  }
+});
+
 function removeCustomCategory(id: string) {
   customCategories.value = customCategories.value.filter((c) => c.id !== id);
 }
@@ -190,13 +215,15 @@ function discardChanges() {
 }
 
 async function save() {
-  if (!props.serverId) return;
+  if (!props.serverId || !canSave.value) return;
   saving.value = true;
+  const trimmedChannelName = clampEchoChannelName(channelName.value);
   const result = await selfRolesStore.saveConfig(
     props.serverId,
     props.accessToken ?? '',
     {
       enabled: enabled.value,
+      channelName: enabled.value ? trimmedChannelName : undefined,
       customCategories: customCategories.value.map((c, i) => ({
         ...c,
         position: i,
@@ -277,11 +304,9 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
                 </span>
               </div>
               <p class="mt-1 text-xs leading-relaxed text-fg-subtle">
-                Creates
-                <span class="font-medium text-fg-soft"
-                  >#{{ ECHO_SELF_ROLES_CHANNEL_NAME }}</span
-                >
-                automatically — members open it to assign roles.
+                Creates a dedicated channel where members pick roles. Choose the
+                sidebar name below — it appears as
+                <span class="font-medium text-fg-soft">#your-name</span>.
               </p>
             </div>
             <input
@@ -290,6 +315,41 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
               class="server-toggle shrink-0"
               aria-label="Enable self-assignable roles widget channel"
             />
+          </div>
+
+          <div v-if="enabled" class="mt-4 border-t border-border/70 pt-4">
+            <label class="settings-label" for="self-roles-channel-name">
+              Channel name
+            </label>
+            <input
+              id="self-roles-channel-name"
+              v-model="channelName"
+              type="text"
+              class="server-input mt-2 w-full max-w-md"
+              :class="{ 'server-input--invalid': channelNameError }"
+              maxlength="48"
+              :placeholder="ECHO_SELF_ROLES_DEFAULT_CHANNEL_NAME"
+              autocomplete="off"
+            />
+            <p
+              v-if="channelNameError"
+              class="mt-1.5 text-xs text-amber-400"
+              role="alert"
+            >
+              {{ channelNameError }}
+            </p>
+            <p v-else class="mt-1.5 text-xs text-fg-subtle">
+              Preview:
+              <span class="font-medium text-fg-soft"
+                >#{{ clampEchoChannelName(channelName) || '…' }}</span
+              >
+              <span
+                v-if="channelName.trim() === ECHO_SELF_ROLES_CHANNEL_NAME"
+                class="text-fg-subtle"
+              >
+                (legacy slug — pick a friendlier name if you can)
+              </span>
+            </p>
           </div>
         </div>
       </section>
@@ -576,7 +636,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
           <button
             type="button"
             class="rounded-lg px-3 py-1.5 text-sm font-semibold"
-            :disabled="saving"
+            :disabled="saving || !canSave"
             @click="save"
           >
             {{ saving ? 'Saving…' : 'Save changes' }}
@@ -588,7 +648,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
         <button
           type="button"
           class="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
-          :disabled="saving"
+          :disabled="saving || !canSave"
           @click="save"
         >
           {{ saving ? 'Saving…' : 'Save changes' }}

@@ -94,6 +94,7 @@ async function run(): Promise<void> {
 
     await updateEchoSelfRolesConfig(pool, serverId, {
       enabled: true,
+      channelName: 'pick-roles',
       customCategories: [],
     });
 
@@ -105,7 +106,8 @@ async function run(): Promise<void> {
     );
     assert.equal(ch.rows.length, 1);
     assert.equal(ch.rows[0]!.type, 'selfRoles');
-    assert.equal(ch.rows[0]!.name, 'self-assignable-roles');
+    assert.equal(ch.rows[0]!.name, 'pick-roles');
+    assert.equal(config.channelName, 'pick-roles');
 
     let panel = await resolveEchoSelfRolesPanel(pool, serverId, ownerId);
     assert.equal(panel.categories.length, 1);

@@ -29,6 +29,10 @@ import { subscribeUIErrors, type UIErrorSeverity } from '@/utils/uiErrorBus';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import type { SettingsSection } from '@/features/settings/types';
+import { storeToRefs } from 'pinia';
+import { useEchoSessionStore } from '@/stores/echoSession';
+
+const SOCKET_UNEXPECTED_DISCONNECT_CODE = 'SOCKET_UNEXPECTED_DISCONNECT';
 
 type UiErrorBannerState = {
   message: string;
@@ -127,6 +131,7 @@ export function useAppLayoutPlatformLifecycle(
   const uiErrorRetryBusy = ref(false);
   let uiErrorAutoDismissTimer: ReturnType<typeof setTimeout> | null = null;
   let unsubscribeUiErrors: (() => void) | null = null;
+  let stopLiveSyncConnectedWatch: (() => void) | null = null;
   const HEADER_INFO_AUTO_DISMISS_MS = 15_000;
 
   async function verifyEchoApiReachableAfterHealthOk(): Promise<boolean> {
@@ -285,6 +290,8 @@ export function useAppLayoutPlatformLifecycle(
     unsubscribePrimaryFlowFailures = null;
     unsubscribeUiErrors?.();
     unsubscribeUiErrors = null;
+    stopLiveSyncConnectedWatch?.();
+    stopLiveSyncConnectedWatch = null;
     if (uiErrorAutoDismissTimer != null) {
       clearTimeout(uiErrorAutoDismissTimer);
       uiErrorAutoDismissTimer = null;
@@ -322,7 +329,20 @@ export function useAppLayoutPlatformLifecycle(
           : `Primary flow error — ${d.flow}: ${d.message}`;
       }
     });
+
+    const echoSession = useEchoSessionStore();
+    const { liveSyncConnected } = storeToRefs(echoSession);
+    stopLiveSyncConnectedWatch = watch(liveSyncConnected, (connected) => {
+      if (
+        connected &&
+        uiErrorBanner.value?.code === SOCKET_UNEXPECTED_DISCONNECT_CODE
+      ) {
+        dismissUiErrorBanner();
+      }
+    });
+
     unsubscribeUiErrors = subscribeUIErrors((d) => {
+      if (d.code === SOCKET_UNEXPECTED_DISCONNECT_CODE) return;
       if (uiErrorAutoDismissTimer != null) {
         clearTimeout(uiErrorAutoDismissTimer);
         uiErrorAutoDismissTimer = null;

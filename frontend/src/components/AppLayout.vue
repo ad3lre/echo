@@ -7,6 +7,7 @@ import AppLayoutMembersColumn from '@/features/layout/components/AppLayoutMember
 import AppLayoutModals from '@/features/layout/components/AppLayoutModals.vue';
 import AppLayoutDialogHost from '@/features/layout/components/AppLayoutDialogHost.vue';
 import AppLayoutChatSurface from '@/features/layout/components/AppLayoutChatSurface.vue';
+import RealtimeConnectionBanner from '@/features/layout/components/RealtimeConnectionBanner.vue';
 import CompactDualPaneShell from '@/features/layout/components/CompactDualPaneShell.vue';
 import CompactStackShellFrame from '@/features/layout/components/CompactStackShellFrame.vue';
 import CompactTriPaneShell from '@/features/layout/components/CompactTriPaneShell.vue';
@@ -2840,6 +2841,11 @@ watch(
     <div aria-live="polite" aria-atomic="true" class="sr-only">
       {{ navAnnouncerText }}
     </div>
+
+    <!-- Single app-wide realtime status pill (Paper uses PaperConnectionBanner instead). -->
+    <RealtimeConnectionBanner
+      v-if="unref(mainSurface).type !== 'serverPaper'"
+    />
 
     <DesktopTitlebar v-if="isDesktop()" />
     <div

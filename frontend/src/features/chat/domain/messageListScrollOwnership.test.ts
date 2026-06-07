@@ -95,15 +95,11 @@ describe('messageListScrollOwnership', () => {
     it('blocks passive writes during the active-scroll settle window', () => {
       own.markUserGesture();
       expect(own.canCommit('follow-tail')).toBe(false);
-      expect(own.canCommit('layout-compensation')).toBe(false);
       advance(181);
       expect(own.canCommit('follow-tail')).toBe(true);
-      expect(own.canCommit('layout-compensation')).toBe(false);
     });
 
-    it('never allows layout compensation or DOM snaps after the initial anchor', () => {
-      expect(own.canCommit('layout-compensation')).toBe(false);
-      expect(own.canSnapScrollBottom('layout-compensation')).toBe(false);
+    it('never allows DOM bottom-snaps for passive writes after the initial anchor', () => {
       expect(own.canSnapScrollBottom('follow-tail')).toBe(false);
       expect(own.canSnapScrollBottom('user-intent')).toBe(true);
     });

@@ -255,9 +255,9 @@ export function useLayout() {
     beginColumnResize(onMove, onUp);
   }
 
-  /** Returns the initial sheet level when opening the voice chat panel: full-height on touch, half on desktop. */
+  /** Returns the initial sheet level when opening voice chat (legacy; mobile uses full-screen overlay). */
   function voiceSheetLevelForOpen(): VoiceMobileSheetLevel {
-    return isCoarsePointer() ? 2 : 1;
+    return 2;
   }
 
   function resetVoiceSideChatWidth() {
@@ -286,22 +286,18 @@ export function useLayout() {
     persistWidths();
   }
 
-  /** First step from hidden → half; second from half → full (compact mobile voice sheet). */
+  /** Open voice chat from the call surface (mobile scroll-up gesture). */
   function bumpVoiceMobileChatFromCallScrollUp() {
     if (voiceMobileSheetLevel.value === 0) {
       voiceSideChatCollapsed.value = false;
       voiceSideChatWidth.value = VOICE_SIDE_DEFAULT;
-      voiceMobileSheetLevel.value = voiceSheetLevelForOpen();
-    } else if (voiceMobileSheetLevel.value === 1) {
       voiceMobileSheetLevel.value = 2;
     }
     persistWidths();
   }
 
   function bumpVoiceMobileChatFromCallScrollDown() {
-    if (voiceMobileSheetLevel.value === 2) {
-      voiceMobileSheetLevel.value = 1;
-    } else if (voiceMobileSheetLevel.value === 1) {
+    if (voiceMobileSheetLevel.value >= 1) {
       voiceSideChatCollapsed.value = true;
       voiceMobileSheetLevel.value = 0;
     }

@@ -14,6 +14,7 @@ import { composePermissionExplanation } from '../../../domain/permissionExplanat
 import { isMemberOfServer } from '../../../domain/echoPermissions';
 import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents';
 import { evictAllUsersFromEchoChannelRealtimeScope } from '../../../platform/echoRealtimeMembership';
+import { enforceAndPublishEchoVoiceAccess } from '../../../services/echoVoiceAccessEnforcement';
 import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './echoMutationRateLimits';
 import {
   echoPool,
@@ -137,6 +138,11 @@ export default async function echoPermissionOverwritesRoutes(
         { kind: 'permission_invalidated', version: auditId, serverId: sid },
         { serverId: sid },
       );
+      await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+        serverId: sid,
+        channelId,
+        version: auditId,
+      });
       const warnings = permissionOverwriteSaveWarnings(r);
       if (warnings?.strippedAllows?.length) {
         return reply.code(200).send({ warnings });

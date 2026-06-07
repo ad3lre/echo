@@ -1,99 +1,130 @@
-import { ref, watch, onScopeDispose, type Ref } from 'vue';
+import { readonly, ref, watch, type Ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useEchoSessionStore } from '@/stores/echoSession';
 
 /**
- * Maps the raw realtime connection flag into a debounced banner state for the chat surface.
+ * App-wide singleton mapping `liveSyncConnected` → a single status pill.
  *
- * - `reconnecting` is only shown after the socket has been down for {@link reconnectingDelayMs},
- *   so quick blips (and the Manager's own fast auto-reconnect) never flash a banner.
- * - `reconnected` is shown briefly after recovery — but only if a `reconnecting` banner was
- *   actually visible, so the initial boot connect stays silent.
- * - Nothing is shown until the socket has connected at least once (initial load is silent).
+ * - `reconnecting` only after {@link REALTIME_BANNER_RECONNECTING_DELAY_MS} down.
+ * - `connected` (green) only if the user saw `reconnecting`, then auto-hides.
+ * - Initial boot connect stays silent.
+ * - Duplicate connect events during recovery are ignored.
  */
 
 export type RealtimeConnectionBannerState =
   | 'hidden'
   | 'reconnecting'
-  | 'reconnected';
+  | 'connected';
 
 export const REALTIME_BANNER_RECONNECTING_DELAY_MS = 1500;
-export const REALTIME_BANNER_RECONNECTED_HOLD_MS = 2500;
+export const REALTIME_BANNER_CONNECTED_HOLD_MS = 800;
+export const REALTIME_BANNER_CONNECTED_FADE_MS = 1000;
 
 type TimerId = ReturnType<typeof setTimeout>;
 
-export function useRealtimeConnectionBanner(deps: {
-  connected: Ref<boolean>;
+type RealtimeConnectionBannerOptions = {
   reconnectingDelayMs?: number;
-  reconnectedHoldMs?: number;
+  connectedHoldMs?: number;
   setTimeoutFn?: (fn: () => void, ms: number) => TimerId;
   clearTimeoutFn?: (id: TimerId) => void;
-}): { state: Ref<RealtimeConnectionBannerState> } {
-  const reconnectingDelayMs =
-    deps.reconnectingDelayMs ?? REALTIME_BANNER_RECONNECTING_DELAY_MS;
-  const reconnectedHoldMs =
-    deps.reconnectedHoldMs ?? REALTIME_BANNER_RECONNECTED_HOLD_MS;
-  const setTimeoutFn: (fn: () => void, ms: number) => TimerId =
-    deps.setTimeoutFn ?? ((fn, ms) => setTimeout(fn, ms) as TimerId);
-  const clearTimeoutFn: (id: TimerId) => void =
-    deps.clearTimeoutFn ?? ((id) => clearTimeout(id));
+  /** Test hook: observe a specific connected ref instead of the session store. */
+  connected?: Ref<boolean>;
+};
 
-  const state = ref<RealtimeConnectionBannerState>('hidden');
-  let hasConnected = deps.connected.value;
-  let showTimer: TimerId | null = null;
-  let hideTimer: TimerId | null = null;
+const state = ref<RealtimeConnectionBannerState>('hidden');
+let hasConnectedOnce = false;
+let showTimer: TimerId | null = null;
+let hideTimer: TimerId | null = null;
+let watchInstalled = false;
 
-  function clearShowTimer() {
-    if (showTimer !== null) {
-      clearTimeoutFn(showTimer);
-      showTimer = null;
-    }
+let reconnectingDelayMs = REALTIME_BANNER_RECONNECTING_DELAY_MS;
+let connectedHoldMs = REALTIME_BANNER_CONNECTED_HOLD_MS;
+let setTimeoutFn: (fn: () => void, ms: number) => TimerId = (fn, ms) =>
+  setTimeout(fn, ms) as TimerId;
+let clearTimeoutFn: (id: TimerId) => void = (id) => clearTimeout(id);
+
+function clearShowTimer() {
+  if (showTimer !== null) {
+    clearTimeoutFn(showTimer);
+    showTimer = null;
   }
-  function clearHideTimer() {
-    if (hideTimer !== null) {
-      clearTimeoutFn(hideTimer);
-      hideTimer = null;
-    }
-  }
+}
 
-  function onConnected() {
-    clearShowTimer();
-    // Only celebrate a recovery the user actually saw fail.
-    if (state.value === 'reconnecting') {
-      state.value = 'reconnected';
-      clearHideTimer();
-      hideTimer = setTimeoutFn(() => {
-        state.value = 'hidden';
-        hideTimer = null;
-      }, reconnectedHoldMs);
-    } else {
-      state.value = 'hidden';
-    }
-    hasConnected = true;
+function clearHideTimer() {
+  if (hideTimer !== null) {
+    clearTimeoutFn(hideTimer);
+    hideTimer = null;
   }
+}
 
-  function onDisconnected() {
+function onConnected() {
+  clearShowTimer();
+  if (state.value === 'connected') {
+    hasConnectedOnce = true;
+    return;
+  }
+  if (state.value === 'reconnecting') {
+    state.value = 'connected';
     clearHideTimer();
-    // Stay silent until the very first successful connect (initial boot).
-    if (!hasConnected) return;
-    if (state.value === 'reconnecting' || showTimer !== null) return;
-    showTimer = setTimeoutFn(() => {
-      state.value = 'reconnecting';
-      showTimer = null;
-    }, reconnectingDelayMs);
+    hideTimer = setTimeoutFn(() => {
+      state.value = 'hidden';
+      hideTimer = null;
+    }, connectedHoldMs);
+  } else {
+    state.value = 'hidden';
   }
+  hasConnectedOnce = true;
+}
 
+function onDisconnected() {
+  clearHideTimer();
+  if (!hasConnectedOnce) return;
+  if (state.value === 'reconnecting' || showTimer !== null) return;
+  showTimer = setTimeoutFn(() => {
+    state.value = 'reconnecting';
+    showTimer = null;
+  }, reconnectingDelayMs);
+}
+
+function installConnectedWatch(connected: Ref<boolean>) {
+  if (watchInstalled) return;
+  watchInstalled = true;
+  hasConnectedOnce = connected.value;
   watch(
-    () => deps.connected.value,
-    (connected) => {
-      if (connected) onConnected();
+    connected,
+    (isConnected) => {
+      if (isConnected) onConnected();
       else onDisconnected();
     },
     { immediate: true },
   );
+}
 
-  onScopeDispose(() => {
-    clearShowTimer();
-    clearHideTimer();
-  });
+/** @internal Reset singleton between unit tests. */
+export function resetRealtimeConnectionBannerForTests() {
+  clearShowTimer();
+  clearHideTimer();
+  state.value = 'hidden';
+  hasConnectedOnce = false;
+  watchInstalled = false;
+  reconnectingDelayMs = REALTIME_BANNER_RECONNECTING_DELAY_MS;
+  connectedHoldMs = REALTIME_BANNER_CONNECTED_HOLD_MS;
+  setTimeoutFn = (fn, ms) => setTimeout(fn, ms) as TimerId;
+  clearTimeoutFn = (id) => clearTimeout(id);
+}
 
-  return { state };
+export function useRealtimeConnectionBanner(
+  opts: RealtimeConnectionBannerOptions = {},
+): { state: Readonly<Ref<RealtimeConnectionBannerState>> } {
+  reconnectingDelayMs =
+    opts.reconnectingDelayMs ?? REALTIME_BANNER_RECONNECTING_DELAY_MS;
+  connectedHoldMs = opts.connectedHoldMs ?? REALTIME_BANNER_CONNECTED_HOLD_MS;
+  if (opts.setTimeoutFn) setTimeoutFn = opts.setTimeoutFn;
+  if (opts.clearTimeoutFn) clearTimeoutFn = opts.clearTimeoutFn;
+
+  const connected =
+    opts.connected ?? storeToRefs(useEchoSessionStore()).liveSyncConnected;
+  installConnectedWatch(connected);
+
+  return { state: readonly(state) };
 }

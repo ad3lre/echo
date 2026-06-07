@@ -26,6 +26,7 @@ import {
 } from '../../../domain/echoStore';
 import {
   diagnoseEchoChannelAccess,
+  getEffectiveChannelPermissions,
   isMemberOfServer,
 } from '../../../domain/echoPermissions';
 import {
@@ -392,9 +393,47 @@ export default async function echoVoiceRoutes(
         return sendEchoVoiceJoinDenied(reply, r);
       }
       const roomName = liveKitRoomName(serverId, channelId);
+      const uid = getAuthUser(req).id;
+      const rejectJoinedVoiceForE2ee = async (code: string) => {
+        await leaveEchoVoiceChannel(pool, serverId, uid);
+        const auditId = await insertEchoAudit(
+          pool,
+          serverId,
+          uid,
+          'voice.join_e2ee_rejected',
+          'channel',
+          channelId,
+          { code },
+        );
+        publishEchoWorkspaceEvent(
+          fastify,
+          {
+            kind: 'workspace_invalidated',
+            version: auditId,
+            serverId,
+          },
+          { serverId },
+        );
+        publishVoiceRosterDelta(
+          fastify,
+          serverId,
+          {
+            channelId,
+            userId: uid,
+            action: 'leave',
+          },
+          auditId,
+        );
+        await trySyncStageProgramRoomMetadata(
+          pool,
+          serverId,
+          channelId,
+          req.log,
+        );
+      };
       const modRow = await pool.query(
         `SELECT server_muted, server_deafened FROM echo_voice_participants WHERE server_id = $1 AND user_id = $2`,
-        [serverId, getAuthUser(req).id],
+        [serverId, uid],
       );
       const moderationMute =
         modRow.rows[0] != null &&
@@ -428,6 +467,7 @@ export default async function echoVoiceRoutes(
         : null;
       if (voiceE2eeRequired) {
         if (!activeEpoch) {
+          await rejectJoinedVoiceForE2ee('VOICE_E2EE_EPOCH_REQUIRED');
           return sendError(
             reply,
             409,
@@ -435,7 +475,6 @@ export default async function echoVoiceRoutes(
             'End-to-end encrypted voice requires a call key. Create an epoch before connecting.',
           );
         }
-        const uid = getAuthUser(req).id;
         const isCreator = activeEpoch.createdByUserId === uid;
         if (!isCreator) {
           const e2eeDeviceId =
@@ -449,6 +488,7 @@ export default async function echoVoiceRoutes(
             e2eeDeviceId || null,
           );
           if (!hasEnvelope) {
+            await rejectJoinedVoiceForE2ee('VOICE_E2EE_ENVELOPE_MISSING');
             return sendError(
               reply,
               409,
@@ -853,25 +893,27 @@ export default async function echoVoiceRoutes(
       }
       if (
         r === 'ok' &&
-        action === 'disconnect' &&
+        (action === 'disconnect' || action === 'move') &&
         liveKitChannelIdForKick &&
         config.liveKitEnabled
       ) {
         const roomName = liveKitRoomName(sid, liveKitChannelIdForKick);
-        vcTrace(req.log, 'voice.moderate:livekit_disconnect', {
+        vcTrace(req.log, 'voice.moderate:livekit_remove_participant', {
+          action,
           roomName,
           targetUserId,
         });
         try {
           await removeLiveKitParticipant(roomName, targetUserId);
         } catch (e) {
-          vcTrace(req.log, 'voice.moderate:livekit_disconnect_error', {
+          vcTrace(req.log, 'voice.moderate:livekit_remove_participant_error', {
+            action,
             roomName,
             err: e instanceof Error ? e.message : String(e),
           });
           req.log.warn(
-            { err: e },
-            '[LiveKit] removeParticipant after voice moderate disconnect failed',
+            { err: e, action, roomName, targetUserId },
+            '[LiveKit] removeParticipant after voice moderation failed',
           );
         }
         await trySyncStageProgramRoomMetadata(
@@ -880,6 +922,14 @@ export default async function echoVoiceRoutes(
           liveKitChannelIdForKick,
           req.log,
         );
+        if (action === 'move' && targetChannelId) {
+          await trySyncStageProgramRoomMetadata(
+            pool,
+            sid,
+            targetChannelId,
+            req.log,
+          );
+        }
       }
       if (
         r === 'ok' &&
@@ -1172,6 +1222,34 @@ export default async function echoVoiceRoutes(
       const pool = echoPool(req);
       const serverId = trimEchoPathParam(req.params.serverId);
       const channelId = trimEchoPathParam(req.params.channelId);
+      const uid = getAuthUser(req).id;
+      const okMem = await isMemberOfServer(pool, serverId, uid);
+      if (!okMem) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          ECHO_MSG_NOT_SERVER_MEMBER,
+          'NOT_SERVER_MEMBER',
+        );
+      }
+      if ((await getEchoChannelType(pool, serverId, channelId)) !== 'stage') {
+        return sendError(reply, 404, 'NOT_FOUND', 'Stage channel not found');
+      }
+      const perms = await getEffectiveChannelPermissions(
+        pool,
+        serverId,
+        uid,
+        channelId,
+      );
+      if (!perms.has('MUTE_MEMBERS')) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Not allowed to manage stage speak requests',
+        );
+      }
       const userIds = await listEchoStageSpeakRequests(
         pool,
         serverId,

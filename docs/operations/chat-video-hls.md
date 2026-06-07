@@ -52,6 +52,20 @@ npm run worker:video-hls:dev      # ts-node (backend workspace)
 
 Fixed rungs (not plan-tier selectable): 360p / 720p / 1080p. Short clips (&lt;10s or &lt;5MB) get a single rendition (highest eligible rung).
 
+Each rung is encoded with **per-output-stream** rate control (`-c:v:i` / `-b:v:i` / `-maxrate:v:i` / `-bufsize:v:i`), so the rungs are real bitrate steps (e.g. 360p ≈ 0.8 Mbps vs 720p ≈ 2.5 Mbps), not just resolution labels.
+
+## Packaging correctness (`echoVideoHlsProcessor.ts`)
+
+Guarantees enforced by the packager + `validateHlsOutput`:
+
+- **Segments co-locate with playlists.** ffmpeg runs with `cwd=outDir` and relative output names, so `.m4s` segments, `*_init.mp4`, variant playlists, and `master.m3u8` all land in `outDir` with flat relative URIs. (Absolute `-hls_segment_filename` previously wrote segments to the worker cwd while playlists referenced them locally → published packs missing every segment.)
+- **Every playlist reference is verified before publish.** `validateHlsOutput` walks master → each variant → each `EXT-X-MAP` init + media segment and requires the file to exist with non-zero size, rejects absolute URIs, and requires `EXT-X-ENDLIST`. (The old check only sampled for "a `.m4s`/init-ish file", which missed the missing-segment bug.)
+- **IDR-aligned segments.** A keyframe is forced at every segment boundary (`-force_key_frames expr:gte(t,n_forced*SEGMENT_SECONDS)`, `-sc_threshold 0`), so `EXT-X-TARGETDURATION ≈ SEGMENT_SECONDS` and `EXT-X-INDEPENDENT-SEGMENTS` is truthful.
+
+**Cache headers** ([`echoUploadHlsObjectStore.ts`](../../backend/src/services/echoUploadHlsObjectStore.ts) `cacheControlForHlsObjectKey`): segments/init → `public, max-age=31536000, immutable`; manifests (`.m3u8`) → `public, max-age=60, must-revalidate`, because the manifest lives at a stable, non-versioned path (`…/hls/master.m3u8`) and is rewritten in place when a changed source is republished.
+
+**Golden test:** `npm run test:video-hls-golden` (backend; needs ffmpeg/ffprobe, skips otherwise) builds a real two-rung pack and asserts every referenced file exists, bitrate separation between rungs, `TARGETDURATION` ≈ segment length, independent-segments, and that the validator rejects a pack with a deleted segment.
+
 ## Failure behavior
 
 - Transient ffmpeg errors: queue row returns to `pending` until `ECHO_VIDEO_HLS_MAX_ATTEMPTS` is reached.

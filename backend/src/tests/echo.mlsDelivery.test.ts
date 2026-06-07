@@ -161,6 +161,41 @@ async function main(): Promise<void> {
   assert.ok(commitOk.ok, 'commit at epoch 0 should succeed');
   assert.ok(commitOk.ok && commitOk.epoch === '1', 'new epoch should be 1');
 
+  const invalidActorDevice = await appendMlsCommit(pool, {
+    serverId,
+    channelId,
+    actorUserId: ownerId,
+    actorDeviceId: 'missing-device',
+    expectedEpoch: '1',
+    commit: 'invalid-device-commit',
+    groupInfo: 'invalid-device-gi',
+  });
+  assert.ok(
+    !invalidActorDevice.ok && invalidActorDevice.reason === 'device_invalid',
+    'commit sender device must belong to the actor',
+  );
+
+  const welcomeToAbsentPeer = await appendMlsCommit(pool, {
+    serverId,
+    channelId,
+    actorUserId: ownerId,
+    actorDeviceId: devOwner,
+    expectedEpoch: '1',
+    commit: 'welcome-to-absent-peer',
+    groupInfo: 'welcome-to-absent-peer-gi',
+    welcomes: [
+      {
+        recipientUserId: peerId,
+        recipientDeviceId: devPeer,
+        payload: 'opaque-welcome',
+      },
+    ],
+  });
+  assert.ok(
+    !welcomeToAbsentPeer.ok && welcomeToAbsentPeer.reason === 'forbidden',
+    'welcome recipients must be active call members',
+  );
+
   // Stale epoch → conflict
   const stale = await appendMlsCommit(pool, {
     serverId,
@@ -234,6 +269,17 @@ async function main(): Promise<void> {
     sinceSeq: '0',
   });
   assert.ok(!fetchForbidden.ok, 'outsider fetch should be forbidden');
+
+  const peerFetchNotInVoice = await fetchMlsMessagesSince(pool, {
+    serverId,
+    channelId,
+    userId: peerId,
+    sinceSeq: '0',
+  });
+  assert.ok(
+    !peerFetchNotInVoice.ok,
+    'channel-visible peer not in voice cannot fetch MLS log',
+  );
 
   // --- Not-in-voice guard for commit ---
   const notInVoice = await appendMlsCommit(pool, {

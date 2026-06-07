@@ -25,6 +25,20 @@ function contentTypeForHlsObjectKey(key: string): string {
   return 'application/octet-stream';
 }
 
+/**
+ * Segments/init files are content (named per pack) → cache immutable for a year.
+ * Manifests (`.m3u8`) live at a **stable, non-versioned** path (`.../hls/master.m3u8`) and
+ * are rewritten in place when a source changes and the pack is republished, so they must
+ * NOT be cached immutably or a CDN/browser will serve a stale playlist. Short max-age with
+ * revalidation keeps the entry point fresh while still allowing edge caching.
+ */
+function cacheControlForHlsObjectKey(key: string): string {
+  if (key.toLowerCase().endsWith('.m3u8')) {
+    return 'public, max-age=60, must-revalidate';
+  }
+  return 'public, max-age=31536000, immutable';
+}
+
 async function writeS3BodyToFile(
   body: unknown,
   destPath: string,
@@ -72,7 +86,7 @@ export async function uploadLocalFileToEchoUploadKey(
         Key: storageKey,
         Body: createReadStream(localPath),
         ContentType: ct,
-        CacheControl: 'public, max-age=31536000, immutable',
+        CacheControl: cacheControlForHlsObjectKey(storageKey),
       }),
     );
     return;
@@ -215,7 +229,7 @@ export async function publishEchoHlsStagingToPackPrefix(opts: {
           CopySource: `${bucket}/${srcKey}`,
           Key: destKey,
           ContentType: contentTypeForHlsObjectKey(destKey),
-          CacheControl: 'public, max-age=31536000, immutable',
+          CacheControl: cacheControlForHlsObjectKey(destKey),
           MetadataDirective: 'REPLACE',
         }),
       );

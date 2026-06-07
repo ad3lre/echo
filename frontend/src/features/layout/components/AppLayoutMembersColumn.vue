@@ -272,6 +272,8 @@ const resolvedSearchScopeHint = computed(() => {
           "
           :dropdown-gap-px="0"
           :dropdown-horizontal-pad-px="0"
+          dropdown-panel-selector=".members-column"
+          :reserved-right-px="0"
           @update:model-value="resolvedOnSearchInput"
           @add-filter="resolvedAddFilter"
           @remove-filter="resolvedRemoveFilter"

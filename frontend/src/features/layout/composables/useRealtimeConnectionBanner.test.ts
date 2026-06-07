@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { effectScope, ref, type Ref } from 'vue';
+import { afterEach, describe, expect, it } from 'vitest';
+import { ref, type Ref } from 'vue';
 import {
+  resetRealtimeConnectionBannerForTests,
   useRealtimeConnectionBanner,
   type RealtimeConnectionBannerState,
 } from './useRealtimeConnectionBanner';
@@ -34,70 +35,67 @@ function makeFakeTimers() {
 function run(
   connected: Ref<boolean>,
   timers: ReturnType<typeof makeFakeTimers>,
-  opts?: { reconnectingDelayMs?: number; reconnectedHoldMs?: number },
+  opts?: { reconnectingDelayMs?: number; connectedHoldMs?: number },
 ) {
-  const scope = effectScope(true);
-  const state = scope.run(
-    () =>
-      useRealtimeConnectionBanner({
-        connected,
-        reconnectingDelayMs: opts?.reconnectingDelayMs ?? 1500,
-        reconnectedHoldMs: opts?.reconnectedHoldMs ?? 2500,
-        setTimeoutFn: timers.setTimeoutFn,
-        clearTimeoutFn: timers.clearTimeoutFn,
-      }).state,
-  )!;
+  const { state } = useRealtimeConnectionBanner({
+    connected,
+    reconnectingDelayMs: opts?.reconnectingDelayMs ?? 1500,
+    connectedHoldMs: opts?.connectedHoldMs ?? 800,
+    setTimeoutFn: timers.setTimeoutFn,
+    clearTimeoutFn: timers.clearTimeoutFn,
+  });
   const stateOf = () => state.value as RealtimeConnectionBannerState;
-  return { state, stateOf, stop: () => scope.stop() };
+  return { state, stateOf };
 }
 
 describe('useRealtimeConnectionBanner', () => {
+  afterEach(() => {
+    resetRealtimeConnectionBannerForTests();
+  });
+
   it('stays hidden during the initial pre-connect window', () => {
     const connected = ref(false);
     const timers = makeFakeTimers();
-    const { stateOf, stop } = run(connected, timers);
+    const { stateOf } = run(connected, timers);
     expect(stateOf()).toBe('hidden');
     timers.advance(5000);
     expect(stateOf()).toBe('hidden');
-    stop();
   });
 
-  it('shows "reconnecting" only after the debounce once connected before', async () => {
+  it('shows reconnecting only after the debounce once connected before', async () => {
     const connected = ref(false);
     const timers = makeFakeTimers();
-    const { stateOf, stop } = run(connected, timers);
-    connected.value = true; // first connect
+    const { stateOf } = run(connected, timers);
+    connected.value = true;
     await Promise.resolve();
     expect(stateOf()).toBe('hidden');
 
-    connected.value = false; // drop
+    connected.value = false;
     await Promise.resolve();
-    expect(stateOf()).toBe('hidden'); // debounced
+    expect(stateOf()).toBe('hidden');
     timers.advance(1499);
     expect(stateOf()).toBe('hidden');
     timers.advance(1);
     expect(stateOf()).toBe('reconnecting');
-    stop();
   });
 
   it('does not flash on a blip shorter than the debounce', async () => {
     const connected = ref(true);
     const timers = makeFakeTimers();
-    const { stateOf, stop } = run(connected, timers);
+    const { stateOf } = run(connected, timers);
     connected.value = false;
     await Promise.resolve();
     timers.advance(800);
-    connected.value = true; // recovered before the 1500ms threshold
+    connected.value = true;
     await Promise.resolve();
     timers.advance(2000);
-    expect(stateOf()).toBe('hidden'); // never showed reconnecting → no "reconnected"
-    stop();
+    expect(stateOf()).toBe('hidden');
   });
 
-  it('shows "reconnected" briefly after a visible outage, then hides', async () => {
+  it('shows connected briefly after a visible outage, then hides', async () => {
     const connected = ref(true);
     const timers = makeFakeTimers();
-    const { stateOf, stop } = run(connected, timers);
+    const { stateOf } = run(connected, timers);
     connected.value = false;
     await Promise.resolve();
     timers.advance(1500);
@@ -105,22 +103,33 @@ describe('useRealtimeConnectionBanner', () => {
 
     connected.value = true;
     await Promise.resolve();
-    expect(stateOf()).toBe('reconnected');
-    timers.advance(2499);
-    expect(stateOf()).toBe('reconnected');
+    expect(stateOf()).toBe('connected');
+    timers.advance(799);
+    expect(stateOf()).toBe('connected');
     timers.advance(1);
     expect(stateOf()).toBe('hidden');
-    stop();
   });
 
-  it('clears timers on scope dispose', async () => {
+  it('ignores duplicate connect events during the connected recovery hold', async () => {
     const connected = ref(true);
     const timers = makeFakeTimers();
-    const { stateOf, stop } = run(connected, timers);
+    const { stateOf } = run(connected, timers);
     connected.value = false;
     await Promise.resolve();
-    stop(); // dispose before debounce fires
-    timers.advance(5000);
+    timers.advance(1500);
+    expect(stateOf()).toBe('reconnecting');
+
+    connected.value = true;
+    await Promise.resolve();
+    expect(stateOf()).toBe('connected');
+
+    connected.value = true;
+    await Promise.resolve();
+    timers.advance(400);
+    connected.value = true;
+    await Promise.resolve();
+    expect(stateOf()).toBe('connected');
+    timers.advance(400);
     expect(stateOf()).toBe('hidden');
   });
 });

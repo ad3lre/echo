@@ -29,6 +29,7 @@ import systemDeployCountdownRoutes from './systemDeployCountdown';
 import discordApiRoutes from './discordApi';
 import discordGatewayRoutes from './discordApi/gateway';
 import {
+  CHANNEL_WEBHOOKS_ENABLED,
   GOOGLE_INTEGRATION_ENABLED,
   YOUTUBE_INTEGRATION_ENABLED,
 } from '../../../../shared/integrationKillSwitches';
@@ -71,7 +72,9 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(discordVoiceMirrorHookRoutes, { prefix: '/api/v1' });
   await fastify.register(discordPresenceHookRoutes, { prefix: '/api/v1' });
   await fastify.register(livekitWebhookRoutes, { prefix: '/api/v1' });
-  await fastify.register(echoChannelWebhookHookRoutes, { prefix: '/api/v1' });
+  if (CHANNEL_WEBHOOKS_ENABLED) {
+    await fastify.register(echoChannelWebhookHookRoutes, { prefix: '/api/v1' });
+  }
   await fastify.register(analyticsRoutes, { prefix: '/api/v1' });
   await fastify.register(devDiagnosticsRoutes, { prefix: '/api/v1/dev' });
   await fastify.register(agentNetworkDiagnosticsRoutes, {

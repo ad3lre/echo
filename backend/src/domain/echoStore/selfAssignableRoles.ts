@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { clampEchoChannelName } from '../../../../shared/echoChannelLimits';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
 import { expandStoredRolePermissionsToCanonSet } from '../echoPermissionPrimitives';
 import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
@@ -11,7 +12,6 @@ import { isEchoServerOwner } from './access';
 import { actorMayGrantPermissionSet } from './roles';
 import { listEchoCategories } from './categoriesWorkspace';
 import {
-  ECHO_SELF_ROLES_CHANNEL_NAME,
   type EchoSelfRolesConfig,
   type EchoSelfRolesPanel,
   type SelfRolesCustomCategory,
@@ -25,6 +25,7 @@ const SELF_ROLES_CHANNEL_TYPE = 'selfRoles';
 const DEFAULT_CONFIG: EchoSelfRolesConfig = {
   enabled: false,
   panelChannelId: null,
+  channelName: null,
   customCategories: [],
 };
 
@@ -80,13 +81,38 @@ async function findSelfRolesWidgetChannelId(
   return r.rows[0]?.id ? String(r.rows[0].id) : null;
 }
 
+async function loadSelfRolesChannelName(
+  pool: pg.Pool,
+  channelId: string | null,
+): Promise<string | null> {
+  if (!channelId) return null;
+  const r = await pool.query<{ name: string }>(
+    `SELECT name FROM echo_channels WHERE id = $1 LIMIT 1`,
+    [channelId],
+  );
+  const name = r.rows[0]?.name ? String(r.rows[0].name).trim() : '';
+  return name || null;
+}
+
 /** Ensures the built-in self-assignable roles widget channel exists for a server. */
 export async function ensureSelfRolesWidgetChannel(
   pool: pg.Pool,
   serverId: string,
+  channelName: string,
 ): Promise<string> {
+  const name = clampEchoChannelName(channelName);
+  if (!name) {
+    throw new Error('self_roles_channel_name_required');
+  }
+
   const existing = await findSelfRolesWidgetChannelId(pool, serverId);
-  if (existing) return existing;
+  if (existing) {
+    await pool.query(`UPDATE echo_channels SET name = $1 WHERE id = $2`, [
+      name,
+      existing,
+    ]);
+    return existing;
+  }
 
   const cats = await listEchoCategories(pool, serverId);
   let categoryId =
@@ -109,15 +135,7 @@ export async function ensureSelfRolesWidgetChannel(
   await pool.query(
     `INSERT INTO echo_channels (id, server_id, name, type, category_id, position, icon_key)
      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [
-      id,
-      serverId,
-      ECHO_SELF_ROLES_CHANNEL_NAME,
-      SELF_ROLES_CHANNEL_TYPE,
-      categoryId,
-      pos,
-      'userTag',
-    ],
+    [id, serverId, name, SELF_ROLES_CHANNEL_TYPE, categoryId, pos, 'userTag'],
   );
   invalidateEchoPermissionCacheForServer(serverId);
   return id;
@@ -163,24 +181,33 @@ export async function getEchoSelfRolesConfig(
   );
   if (r.rows.length === 0) return { ...DEFAULT_CONFIG };
   const row = r.rows[0] as Record<string, unknown>;
+  const panelChannelId = row.panel_channel_id
+    ? String(row.panel_channel_id)
+    : null;
   return {
     enabled: Boolean(row.enabled),
-    panelChannelId: row.panel_channel_id ? String(row.panel_channel_id) : null,
+    panelChannelId,
+    channelName: await loadSelfRolesChannelName(pool, panelChannelId),
     customCategories: normalizeCustomCategories(row.custom_categories),
   };
 }
 
 export type UpdateEchoSelfRolesConfigInput = Partial<EchoSelfRolesConfig>;
 
+export type UpdateEchoSelfRolesConfigResult =
+  | EchoSelfRolesConfig
+  | 'channel_name_required';
+
 export async function updateEchoSelfRolesConfig(
   pool: pg.Pool,
   serverId: string,
   input: UpdateEchoSelfRolesConfigInput,
-): Promise<EchoSelfRolesConfig> {
+): Promise<UpdateEchoSelfRolesConfigResult> {
   const existing = await getEchoSelfRolesConfig(pool, serverId);
   const merged: EchoSelfRolesConfig = {
     enabled: input.enabled ?? existing.enabled,
     panelChannelId: existing.panelChannelId,
+    channelName: existing.channelName,
     customCategories: input.customCategories ?? existing.customCategories,
   };
   if (merged.customCategories.length > MAX_CUSTOM_CATEGORIES) {
@@ -190,8 +217,26 @@ export async function updateEchoSelfRolesConfig(
     );
   }
 
+  if (input.channelName !== undefined) {
+    const trimmed = clampEchoChannelName(input.channelName ?? '');
+    merged.channelName = trimmed || null;
+  }
+
   if (merged.enabled) {
-    merged.panelChannelId = await ensureSelfRolesWidgetChannel(pool, serverId);
+    let channelName = merged.channelName?.trim() ?? '';
+    if (!channelName && merged.panelChannelId) {
+      channelName =
+        (await loadSelfRolesChannelName(pool, merged.panelChannelId)) ?? '';
+    }
+    if (!clampEchoChannelName(channelName)) {
+      return 'channel_name_required';
+    }
+    merged.panelChannelId = await ensureSelfRolesWidgetChannel(
+      pool,
+      serverId,
+      channelName,
+    );
+    merged.channelName = clampEchoChannelName(channelName);
   }
 
   await pool.query(

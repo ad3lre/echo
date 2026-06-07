@@ -26,34 +26,56 @@ export type MessageListRowEstimateInput = {
   >;
 };
 
+/** Body line box — matches `.message-text` line-height (1.375rem) in messageBubble.scss. */
+const MESSAGE_LIST_BODY_LINE_PX = 22;
+/** Header chrome: group margin-top + vertical padding + author/timestamp row. */
+const MESSAGE_LIST_HEADER_CHROME_PX = 50;
+/** Continuation chrome: just the tight `.msg-continuation` vertical padding. */
+const MESSAGE_LIST_GROUPED_CHROME_PX = 6;
+/** Avg glyphs per rendered line inside `max-w-3xl` before soft-wrap (rough). */
+const MESSAGE_LIST_CHARS_PER_LINE = 80;
+/** Cap line contribution so a wall of text cannot blow past the row max. */
+const MESSAGE_LIST_MAX_BODY_LINES = 12;
+
+/** Rendered line count: explicit newlines plus per-line soft-wrap by width. */
+function estimateRenderedBodyLines(body: string): number {
+  if (!body) return 1;
+  let lines = 0;
+  for (const segment of body.split('\n')) {
+    lines += Math.max(
+      1,
+      Math.ceil(segment.length / MESSAGE_LIST_CHARS_PER_LINE),
+    );
+  }
+  return Math.max(1, lines);
+}
+
 /**
- * TanStack Virtual row height guess before live measure. Grouped continuation rows
- * must not inherit the header minimum — over-estimation leaves visible gaps between
- * clustered messages until (and if) measure catches up.
+ * TanStack Virtual row height guess before live measure. Accuracy matters most for
+ * rows ABOVE the viewport: with above-viewport scroll compensation on, a close guess
+ * keeps the anchor steady on scroll-up; an over-guess (the old line+length double add)
+ * left gaps that read as the background flashing in before messages painted. Grouped
+ * continuation rows omit avatar/header chrome and must stay well under the header floor.
  */
 export function estimateMessageListRowSizePx(
   input: MessageListRowEstimateInput,
 ): number {
   const { groupedWithPrevious, showDaySeparatorBefore, message } = input;
 
-  let size = groupedWithPrevious ? 34 : 78;
+  let size = groupedWithPrevious
+    ? MESSAGE_LIST_GROUPED_CHROME_PX
+    : MESSAGE_LIST_HEADER_CHROME_PX;
   if (showDaySeparatorBefore) size += 32;
 
   const body = message.contentText ?? message.content ?? '';
-  const lineCount = Math.max(1, body.split('\n').length);
-  if (groupedWithPrevious) {
-    // Continuation rows omit avatar/header; avoid stacking line + length heuristics.
-    size += Math.max(0, lineCount - 1) * 20;
-    if (body.length > 90) {
-      size += Math.min(120, Math.ceil(body.length / 90) * 18);
-    }
-  } else {
-    size += Math.min(5, lineCount) * 18;
-    size += Math.min(120, Math.ceil(body.length / 90) * 18);
-  }
+  const renderedLines = Math.min(
+    MESSAGE_LIST_MAX_BODY_LINES,
+    estimateRenderedBodyLines(body),
+  );
+  size += renderedLines * MESSAGE_LIST_BODY_LINE_PX;
 
   if (message.replyTo) size += 28;
-  if (message.forwardedFrom) size += 24;
+  if (message.forwardedFrom) size += 56;
   if (message.poll) {
     size += 128 + Math.min(120, (message.poll.options?.length ?? 0) * 24);
   }

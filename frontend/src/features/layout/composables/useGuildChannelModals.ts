@@ -23,7 +23,7 @@ import { EchoApiError } from '@/api/echo/transport';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { UIErrorBus } from '@/utils/uiErrorBus';
 import {
-  CHANNEL_PERMISSION_DEFS_CATEGORY,
+  getCategoryPermissionDefsForUi,
   getChannelPermissionDefsForChannelType,
 } from '@/features/channel-settings/types';
 import { emitPermissionOverwriteSaveFeedback } from '@/features/channel-settings/domain/permissionOverwriteSaveFeedback';
@@ -816,7 +816,7 @@ export function useGuildChannelModals(deps: {
                 sentRows: payload.echoPermissionRows,
                 fetchedRows: overwriteRows.rows,
                 warnings: categoryPermissionPutWarnings,
-                defs: CHANNEL_PERMISSION_DEFS_CATEGORY.filter(
+                defs: getCategoryPermissionDefsForUi().filter(
                   (d) => d.group !== 'Threads',
                 ),
               });

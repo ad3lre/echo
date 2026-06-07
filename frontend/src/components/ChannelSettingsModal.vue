@@ -9,6 +9,7 @@ import type {
   ChannelSummary,
   EchoChannelType,
 } from '@shared/types';
+import { CHANNEL_WEBHOOKS_ENABLED } from '@shared/integrationKillSwitches';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import ChannelIconPickerPopover from '@/components/ChannelIconPickerPopover.vue';
@@ -230,7 +231,7 @@ const discordSyncChannelType = computed(() =>
 const channelSettingsTabs = computed((): ChannelSettingsTab[] => {
   const tabs: ChannelSettingsTab[] = ['overview', 'permissions'];
   if (
-    devModeIdsEnabled.value &&
+    CHANNEL_WEBHOOKS_ENABLED &&
     (channelType.value === 'text' || channelType.value === 'forum') &&
     props.channelSettings?.channel.canManageWebhooks === true
   ) {

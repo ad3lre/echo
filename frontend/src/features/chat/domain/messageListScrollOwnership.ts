@@ -55,8 +55,6 @@ export type ScrollIntent =
   | 'viewport-restore'
   /** Keep pinned to newest as messages arrive. Passive. */
   | 'follow-tail'
-  /** Re-pin after viewport shrink during initial anchor only (composer, media). Passive. */
-  | 'layout-compensation'
   /** Direct user action: jump-to-latest, go-to-message, own-message send. Always allowed. */
   | 'user-intent';
 
@@ -184,10 +182,6 @@ export function createMessageListScrollOwnership(
         (intent === 'initial-anchor' || intent === 'viewport-restore') &&
         userControlledInit
       ) {
-        return false;
-      }
-      // Post initial anchor: no layout-driven re-pin (composer shrink, tail row grow).
-      if (initialAnchorSettled && intent === 'layout-compensation') {
         return false;
       }
       return true;

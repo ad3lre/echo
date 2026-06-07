@@ -24,6 +24,7 @@ import { publishEchoWorkspaceEvent } from '../../../platform/echoPlatformEvents'
 import { evictAllUsersFromEchoChannelRealtimeScope } from '../../../platform/echoRealtimeMembership';
 import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './echoMutationRateLimits';
 import { config } from '../../../config';
+import { enforceAndPublishEchoVoiceAccess } from '../../../services/echoVoiceAccessEnforcement';
 import {
   deleteLiveKitRoom,
   liveKitRoomName,
@@ -559,6 +560,13 @@ export default async function echoChannelsRoutes(
         },
         { serverId: sid },
       );
+      if (patch.permissionOverrides !== undefined) {
+        await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+          serverId: sid,
+          channelId,
+          version: auditId,
+        });
+      }
       return reply.code(204).send();
     },
   );

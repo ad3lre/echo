@@ -577,5 +577,7 @@ export function getChannelIcon(
 
 export function getChannelDisplayName(name: string): string {
   if (!name) return '';
-  return name.trim();
+  const trimmed = name.trim();
+  if (trimmed === 'self-assignable-roles') return 'Self-assignable roles';
+  return trimmed;
 }

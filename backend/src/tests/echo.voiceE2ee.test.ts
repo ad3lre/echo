@@ -103,6 +103,27 @@ async function main(): Promise<void> {
   });
   assert.equal(noInVoice, 'not_in_voice');
 
+  const recipientNotInVoice = await createVoiceE2eeEpochWithEnvelopes(pool, {
+    serverId,
+    channelId,
+    actorUserId: ownerId,
+    epochId: crypto.randomUUID(),
+    envelopes: [
+      {
+        recipientUserId: peerId,
+        recipientDeviceId: devPeer,
+        ciphertext: 'opaque-ciphertext-placeholder',
+      },
+    ],
+  });
+  assert.equal(recipientNotInVoice, 'recipient_forbidden');
+
+  await pool.query(
+    `INSERT INTO echo_voice_participants (server_id, channel_id, user_id)
+     VALUES ($1, $2, $3)`,
+    [serverId, channelId, peerId],
+  );
+
   const createdEpoch = await createVoiceE2eeEpochWithEnvelopes(pool, {
     serverId,
     channelId,

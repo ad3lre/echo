@@ -33,6 +33,7 @@ import {
   evictAllUsersFromEchoServerChannelRealtimeScopes,
   evictUserFromEchoServerRealtimeScopes,
 } from '../../../platform/echoRealtimeMembership';
+import { enforceAndPublishEchoVoiceAccess } from '../../../services/echoVoiceAccessEnforcement';
 import { ECHO_ADMIN_MUTATION_RATE_LIMIT } from './echoMutationRateLimits';
 import {
   echoPool,
@@ -546,6 +547,10 @@ export default async function echoRolesRoutes(
         { kind: 'role_graph_changed', version: auditId, serverId: sid },
         { serverId: sid },
       );
+      await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+        serverId: sid,
+        version: auditId,
+      });
       return reply.code(204).send();
     },
   );
@@ -734,7 +739,7 @@ export default async function echoRolesRoutes(
           sid,
         );
       }
-      if (hasPerms) {
+      if (hasPerms || hasRoleType) {
         const permsCol = await getEchoRolePermissionsColumn(pool, sid, roleId);
         const newPerms: string[] = Array.isArray(permsCol)
           ? (permsCol as string[])
@@ -751,6 +756,7 @@ export default async function echoRolesRoutes(
           roleId,
           {
             permissionDiff: { added, removed },
+            roleType: hasRoleType ? b.roleType : undefined,
           },
         );
         publishEchoWorkspaceEvent(
@@ -758,6 +764,10 @@ export default async function echoRolesRoutes(
           { kind: 'permission_invalidated', version: auditId, serverId: sid },
           { serverId: sid },
         );
+        await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+          serverId: sid,
+          version: auditId,
+        });
       }
 
       if (hasName || hasColor || hasHoist || hasDefaultOnJoin) {
@@ -831,6 +841,10 @@ export default async function echoRolesRoutes(
         { kind: 'role_graph_changed', version: auditId, serverId: sid },
         { serverId: sid },
       );
+      await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+        serverId: sid,
+        version: auditId,
+      });
       return reply.code(204).send();
     },
   );
@@ -902,6 +916,10 @@ export default async function echoRolesRoutes(
         { kind: 'role_graph_changed', version: auditId, serverId: sid },
         { serverId: sid },
       );
+      await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+        serverId: sid,
+        version: auditId,
+      });
       return reply.code(204).send();
     },
   );
@@ -1035,6 +1053,11 @@ export default async function echoRolesRoutes(
         },
         { serverId: sid, userId: targetUserId },
       );
+      await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+        serverId: sid,
+        userId: targetUserId,
+        version: auditId,
+      });
       return reply.code(204).send();
     },
   );
@@ -1106,6 +1129,11 @@ export default async function echoRolesRoutes(
         },
         { serverId: sid, userId: targetUserId },
       );
+      await enforceAndPublishEchoVoiceAccess(fastify, pool, {
+        serverId: sid,
+        userId: targetUserId,
+        version: auditId,
+      });
       return reply.code(204).send();
     },
   );

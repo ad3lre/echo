@@ -32,7 +32,6 @@ import { registerDeferredMediaOutboundSend } from '@/services/realtime/deferredM
 import { createEchoRealtimePlatformSessionSync } from '@/services/orchestration/echoRealtimePlatformSessionSync';
 import { ingestEchoSocketConnectError } from '@/services/realtime/socketConnectErrorIngest';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
-import { maybeEmitEchoSocketUnexpectedDisconnectUi } from '@/services/realtime/socketUnexpectedDisconnectUi';
 import { devEchoBackendPort } from '@/config';
 import type { LocalAuthorEchoSnapshot } from '@/services/realtime/socketOutbound';
 
@@ -77,7 +76,6 @@ export function createAppEchoRealtimeSocketBinding(
       activeChannelId: input.activeChannelId,
       onTabResumeWhileConnected: input.onTabResumeWhileConnected,
       createDomain: (transport) => {
-        let lastDisconnectUiAt = 0;
         let lastConnectErrorPrimaryFlowAt = 0;
         const effectiveHost: EchoRealtimeHostPorts = {
           ...input.host,
@@ -104,25 +102,13 @@ export function createAppEchoRealtimeSocketBinding(
               });
             },
             onUnexpectedDisconnect: (reason) => {
-              const now = Date.now();
+              void reason;
               // Reflect the drop in live-sync state immediately. The Manager auto-reconnects
               // without a teardown, so without this `liveSyncConnected` would stay stale-true
               // for the whole disconnected window (no reconnect banner, history treats realtime
               // as authoritative). `onAfterConnected` flips it back true on reconnect.
               platformSync.setConnected(false);
-              // Keep the existing UI debounce policy, but host owns the side effects.
-              if (
-                maybeEmitEchoSocketUnexpectedDisconnectUi({
-                  reason,
-                  socketOff: transport.socketOff,
-                  nowMs: now,
-                  // The inbound listener runtime tracks the last emit time; this path is only used
-                  // by this closure so it can update locally.
-                  lastEmitAtMs: lastDisconnectUiAt,
-                })
-              ) {
-                lastDisconnectUiAt = now;
-              }
+              // Connection status UI is handled by RealtimeConnectionBanner (no info toast).
             },
             onMessageFailed: (detail) => {
               browserEvents.dispatchEchoMessageFailed(detail);

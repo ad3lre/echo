@@ -17,7 +17,7 @@ import type {
 } from '@/features/channel-settings/types';
 import {
   CATEGORY_TAB_COPY,
-  CHANNEL_PERMISSION_DEFS_CATEGORY,
+  getCategoryPermissionDefsForUi,
   MESSAGE_AUTO_DELETE_OPTIONS,
 } from '@/features/channel-settings/types';
 import {
@@ -63,14 +63,14 @@ const permissionSelectedRowKey = ref<string | null>(null);
 
 const permissionGroupsList = computed(() => {
   const map = new Map<string, ChannelPermissionDef[]>();
-  for (const d of CHANNEL_PERMISSION_DEFS_CATEGORY) {
+  for (const d of getCategoryPermissionDefsForUi()) {
     if (!map.has(d.group)) map.set(d.group, []);
     map.get(d.group)!.push(d);
   }
   return Array.from(map.entries());
 });
 const echoPermissionDefs = computed(() =>
-  CHANNEL_PERMISSION_DEFS_CATEGORY.filter((def) => def.group !== 'Threads'),
+  getCategoryPermissionDefsForUi().filter((def) => def.group !== 'Threads'),
 );
 
 function syncFromProps() {

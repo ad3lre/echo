@@ -541,6 +541,7 @@ export function setLiveSyncConnectedOnEchoSession(
   refs: EchoWorkspaceSessionApplyRefs,
   connected: boolean,
 ): void {
+  if (refs.liveSyncConnected.value === connected) return;
   refs.liveSyncConnected.value = connected;
 }
 

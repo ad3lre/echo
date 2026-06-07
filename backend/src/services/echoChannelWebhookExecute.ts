@@ -2,6 +2,7 @@ import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import type { Server } from 'socket.io';
 import type pg from 'pg';
 import type { Embed, Message } from '../../../shared/types';
+import { CHANNEL_WEBHOOKS_ENABLED } from '../../../shared/integrationKillSwitches';
 import { redactPollOnMessage } from '../../../shared/types';
 import {
   ECHO_INTERNAL_WEBHOOK_ACTOR_USER_ID,
@@ -152,6 +153,14 @@ export async function executeEchoChannelWebhook(
     }
   | { ok: false; status: number; code: string; message: string }
 > {
+  if (!CHANNEL_WEBHOOKS_ENABLED) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'DISABLED',
+      message: 'Channel webhooks are temporarily disabled.',
+    };
+  }
   const query = opts.query ?? { withComponents: true };
   const wait = query.wait === true;
 
