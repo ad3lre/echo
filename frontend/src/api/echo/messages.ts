@@ -217,12 +217,14 @@ export async function fetchEchoServerMessageSearch(
   token: string,
   serverId: string,
   params: EchoMessageSearchQueryInput,
+  options?: { signal?: AbortSignal },
 ): Promise<{ messages: EchoApiMessage[] }> {
   const qs = buildEchoMessageSearchQueryString(params);
   const sid = trimEchoPathSegment(serverId);
   const raw = await echoFetch<unknown>(
     token,
     `/servers/${encodeURIComponent(sid)}/messages/search${qs ? `?${qs}` : ''}`,
+    { signal: options?.signal },
   );
   return parseEchoMessagesListPayload(raw, 'GET /servers/.../messages/search');
 }
@@ -231,12 +233,14 @@ export async function fetchEchoChannelMessageSearch(
   token: string,
   channelId: string,
   params: EchoMessageSearchQueryInput,
+  options?: { signal?: AbortSignal },
 ): Promise<{ messages: EchoApiMessage[] }> {
   const qs = buildEchoMessageSearchQueryString(params);
   const ch = trimEchoPathSegment(channelId);
   const raw = await echoFetch<unknown>(
     token,
     `/channels/${encodeURIComponent(ch)}/messages/search${qs ? `?${qs}` : ''}`,
+    { signal: options?.signal },
   );
   return parseEchoMessagesListPayload(raw, 'GET /channels/.../messages/search');
 }

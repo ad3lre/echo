@@ -3,7 +3,6 @@ import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
 import type { Editor as VueEditor } from '@tiptap/vue-3';
 import { useComposerState } from '@/composables/useComposerState';
-import ComposerChannelFormatBanner from '@/features/chat/components/ComposerChannelFormatBanner.vue';
 import { applyComposerOrderedListEnter } from '@/features/chat/editor/composerMarkdownListEnter';
 import {
   normalizeEchoMessageFormatTemplateInput,
@@ -71,7 +70,7 @@ function ensureComposerHardFormatPrefix() {
   if (!T || props.messageFormatHard !== true) return;
 
   for (let k = 0; k < 8; k++) {
-    const cur = composer.content.value;
+    const cur = composer.getContent();
     const stripped = stripLeadingDuplicateHardFormatTemplate(cur, T);
     if (stripped === null || stripped === cur) break;
     const lo = T.length;
@@ -95,7 +94,7 @@ function ensureComposerHardFormatPrefix() {
     composer.setSerializedState(stripped, mentions, a, b);
   }
 
-  const cur = composer.content.value;
+  const cur = composer.getContent();
   if (echoHardFormatPrefixSatisfied(cur, T)) return;
   const next = T + cur;
   const m = shiftMentionEntities(composer.mentions.value, T.length);
@@ -106,11 +105,12 @@ function ensureComposerHardFormatPrefix() {
 function ensureComposerSoftFormatIfEmpty() {
   const T = messageFormatNormalized.value;
   if (!T || props.messageFormatHard === true) return;
-  if (composer.content.value.trim().length > 0) return;
+  if (composer.getContent().trim().length > 0) return;
   composer.setSerializedState(T, [], T.length, T.length);
 }
 
 function applyChannelMessageFormatAfterRestore() {
+  composer.flushComposerSync();
   ensureComposerHardFormatPrefix();
   ensureComposerSoftFormatIfEmpty();
 }
@@ -192,6 +192,7 @@ watch(
       syncModelFromComposer();
     });
   },
+  { immediate: true },
 );
 
 watch(
@@ -242,13 +243,6 @@ defineExpose({
           v-if="composerEditor"
           :editor="composerEditor"
           class="text-[13px] leading-relaxed text-fg"
-        />
-      </div>
-      <div class="app-toast-quick-reply-format mt-0.5 shrink-0">
-        <ComposerChannelFormatBanner
-          :message-format-template="messageFormatTemplate"
-          :message-format-hard="messageFormatHard === true"
-          popout-direction="down"
         />
       </div>
     </div>

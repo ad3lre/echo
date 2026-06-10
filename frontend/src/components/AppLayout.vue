@@ -1111,7 +1111,7 @@ provide(LAYOUT_MEMBERS_COLUMN_KEY, {
   searchText,
   filterChips,
   allChannels,
-  users: computed(() => workspace.users.value),
+  users: usersForMentionAutocomplete,
   paginatedSearchResults,
   searchResultMessagesCount: computed(() => searchResultMessages.value.length),
   searchResultPage,

@@ -10,9 +10,10 @@ import { ApiError } from '@/api/client';
 import { nativeAuthRequestHeaders } from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import {
-  IMAGE_BROWSE_CATEGORIES,
+  ensureImageBrowseCategories,
   imageCategoryBySlug,
-} from '@/data/mediaCategoryLibrary';
+  useImageBrowseCategories,
+} from '@/composables/useImageBrowseCategories';
 
 export interface ImageSearchResult {
   id: string;
@@ -163,15 +164,27 @@ async function fetchImageSearchPage(
 }
 
 let imageLibraryWarmInflight: Promise<void> | null = null;
+let imageLibraryWarmKey = '';
 
 /** Bumps when category warmup fills the in-memory cache (picker previews react to this). */
 export const imageCategoryLibraryRevision: Ref<number> = ref(0);
+
+function imageCategoryWarmKey(
+  cats: readonly { slug: string; query: string }[],
+): string {
+  return cats.map((c) => `${c.slug}:${c.query}`).join('|');
+}
 
 /** Warm curated image category first pages for instant picker landing. */
 export function warmImageCategoryLibrary(): Promise<void> {
   if (imageLibraryWarmInflight) return imageLibraryWarmInflight;
   imageLibraryWarmInflight = (async () => {
-    const jobs = IMAGE_BROWSE_CATEGORIES.map((cat) => {
+    await ensureImageBrowseCategories();
+    const { categories } = useImageBrowseCategories();
+    const warmKey = imageCategoryWarmKey(categories.value);
+    if (warmKey === imageLibraryWarmKey) return;
+    imageLibraryWarmKey = warmKey;
+    const jobs = categories.value.map((cat) => {
       if (getCachedSearch(cat.query, 1)?.results.length)
         return Promise.resolve();
       return fetchImageSearchPage(cat.query, 1)

@@ -1,6 +1,8 @@
 import { randomInt } from 'crypto';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
+import { APPLE_LOGIN_ROUTE_RATE } from '../meLinkRouteRateLimits';
+import { ipRateLimitKey } from '../rateLimitKeys';
 import { sendError } from '../errors';
 import { getAuthStore } from '../../auth/store';
 import { issueEchoBrowserSession } from '../../auth/issueBrowserSession';
@@ -47,12 +49,15 @@ export default async function appleOAuthRoutes(
   await fastify.register(rateLimit, {
     max: 30,
     timeWindow: '15 minutes',
-    keyGenerator: (req) => `apple_oauth:${req.ip}`,
+    keyGenerator: (req) => `apple_oauth:${ipRateLimitKey(req)}`,
     addHeaders: { 'retry-after': true },
   });
 
   fastify.post<{ Body?: AppleLoginBody }>(
     '/apple/login',
+    {
+      config: { rateLimit: APPLE_LOGIN_ROUTE_RATE },
+    },
     async (req, reply) => {
       const { store, mode } = await getAuthStore();
       if (mode !== 'postgres') {

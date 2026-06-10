@@ -438,6 +438,29 @@ export async function uploadChatMediaFile(
  * Presign + PUT for chat attachments (images/videos via dedupe pipeline; audio and documents direct PUT).
  * Returns the public URL plus the attachment kind for `MessageAttachmentPayload`.
  */
+export type EchoImportRemoteImageResponse = {
+  url: string;
+  storageKey: string;
+  mimeType: string;
+  fileSize: number;
+};
+
+/** Server-side fetch + store for composer image search / external image URLs. */
+export async function importChatRemoteImage(
+  token: string,
+  channelId: string,
+  url: string,
+): Promise<EchoImportRemoteImageResponse> {
+  return echoFetch<EchoImportRemoteImageResponse>(
+    token,
+    '/uploads/import-remote-image',
+    {
+      method: 'POST',
+      body: JSON.stringify({ channelId, url }),
+    },
+  );
+}
+
 export async function uploadChatAttachmentFile(
   token: string,
   channelId: string,

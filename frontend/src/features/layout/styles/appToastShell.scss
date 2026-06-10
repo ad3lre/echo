@@ -264,24 +264,6 @@
   box-shadow: none;
 }
 
-[data-theme='light']
-  .app-toast-quick-reply-footer
-  .app-toast-quick-reply-format
-  button {
-  color: var(--ui-fg-soft);
-}
-
-[data-theme='light']
-  .app-toast-quick-reply-footer
-  .app-toast-quick-reply-format
-  button:hover,
-[data-theme='light']
-  .app-toast-quick-reply-footer
-  .app-toast-quick-reply-format
-  button[aria-expanded='true'] {
-  color: var(--text);
-}
-
 @keyframes app-toast-incoming-ring {
   0% {
     transform: scale(1);

@@ -13,6 +13,7 @@ import { CHANNEL_WEBHOOKS_ENABLED } from '@shared/integrationKillSwitches';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import ChannelIconPickerPopover from '@/components/ChannelIconPickerPopover.vue';
+import ChannelPermissionIconBadge from '@/features/channel-settings/components/ChannelPermissionIconBadge.vue';
 import PermissionOverwriteEditor from '@/features/channel-settings/components/PermissionOverwriteEditor.vue';
 import ChannelDiscordSyncPanel from '@/features/channel-settings/components/ChannelDiscordSyncPanel.vue';
 import ChannelDiscordVoiceMirrorPanel from '@/features/channel-settings/components/ChannelDiscordVoiceMirrorPanel.vue';
@@ -244,7 +245,7 @@ const channelSettingsTabs = computed((): ChannelSettingsTab[] => {
   if (channelType.value === 'voice' && props.isDiscordImportedServer)
     tabs.push('discord_voice_mirror');
   if (channelType.value === 'forum') tabs.push('forum_creator');
-  tabs.push('delete_channel');
+  tabs.push('danger_zone');
   return tabs;
 });
 
@@ -761,7 +762,7 @@ function tabIcon(tab: ChannelSettingsTab) {
     return icons.discordMark;
   if (tab === 'forum_creator') return icons.messageAlt;
   if (tab === 'format') return icons.list;
-  if (tab === 'delete_channel') return icons.trash;
+  if (tab === 'danger_zone') return icons.trash;
   return icons.message;
 }
 
@@ -769,7 +770,7 @@ function channelSettingsNavClass(tab: ChannelSettingsTab) {
   if (activeTab.value === tab) {
     return 'server-settings-nav-item--active';
   }
-  if (tab === 'delete_channel') {
+  if (tab === 'danger_zone') {
     return 'channel-settings-nav--danger';
   }
   return 'text-muted hover:text-foreground channel-settings-nav--idle pointer-fine:hover:bg-glass-hover';
@@ -1095,55 +1096,6 @@ async function confirmDeleteChannel() {
                     </div>
                   </div>
 
-                  <div
-                    v-if="channelType === 'text' || channelType === 'forum'"
-                    class="w-full min-w-0"
-                  >
-                    <div class="channel-settings-section-label">
-                      Auto-delete messages
-                    </div>
-                    <p class="channel-settings-hint mt-1.5 w-full min-w-0">
-                      Remove messages older than the retention period. When
-                      synced, the category setting applies. Deleted messages
-                      remain in the database for 14 days before purge.
-                    </p>
-                    <label
-                      class="mt-3 flex cursor-pointer items-center gap-2 text-sm"
-                    >
-                      <input
-                        v-model="autoDeleteSyncedToCategory"
-                        type="checkbox"
-                        class="rounded border-border"
-                      />
-                      Sync with category
-                    </label>
-                    <p
-                      v-if="autoDeleteSyncedToCategory"
-                      class="channel-settings-hint mt-2 w-full min-w-0"
-                    >
-                      Inherited from category:
-                      {{
-                        MESSAGE_AUTO_DELETE_OPTIONS.find(
-                          (o) => o.value === effectiveCategoryAutoDeleteStr,
-                        )?.label ?? 'Off'
-                      }}
-                    </p>
-                    <div
-                      class="channel-settings-dropdowns mt-3 w-full min-w-0"
-                      :class="{
-                        'pointer-events-none opacity-45':
-                          autoDeleteSyncedToCategory,
-                      }"
-                    >
-                      <EchoDropdown
-                        v-model="displayedAutoDeleteStr"
-                        :options="MESSAGE_AUTO_DELETE_OPTIONS"
-                        label="Retention"
-                        menu-match-trigger-width
-                      />
-                    </div>
-                  </div>
-
                   <div v-if="channelType === 'text'" class="w-full min-w-0">
                     <div class="channel-settings-section-label">
                       Open messages from
@@ -1464,29 +1416,94 @@ async function confirmDeleteChannel() {
               </div>
 
               <div
-                v-else-if="activeTab === 'delete_channel'"
-                key="delete_channel"
+                v-else-if="activeTab === 'danger_zone'"
+                key="danger_zone"
                 class="server-settings-panel-root pb-8"
               >
-                <div class="max-w-lg space-y-5">
+                <div class="max-w-lg space-y-8">
                   <p class="channel-settings-hint text-[15px] leading-relaxed">
-                    This will permanently delete
-                    <span class="inline-flex min-w-0 max-w-full align-bottom">
-                      <span
-                        class="min-w-0 truncate font-semibold text-fg"
-                        :title="'#' + channelSettings.channel.name"
-                        >#{{ channelSettings.channel.name }}</span
-                      ></span
-                    >. All messages in this channel will be removed. This cannot
-                    be undone.
+                    These actions are sensitive and may be irreversible. Proceed
+                    carefully.
                   </p>
-                  <button
-                    type="button"
-                    class="danger-btn danger-btn--strong w-full max-w-xs sm:w-auto"
-                    @click="confirmDeleteChannel"
+
+                  <section
+                    v-if="channelType === 'text' || channelType === 'forum'"
+                    class="space-y-3"
                   >
-                    Delete channel
-                  </button>
+                    <div class="channel-settings-section-label">
+                      Auto-delete messages
+                    </div>
+                    <p class="channel-settings-hint mt-1.5 w-full min-w-0">
+                      Remove messages older than the retention period. When
+                      synced, the category setting applies. Deleted messages
+                      remain in the database for 14 days before purge.
+                    </p>
+                    <label
+                      class="mt-3 flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <input
+                        v-model="autoDeleteSyncedToCategory"
+                        type="checkbox"
+                        class="rounded border-border"
+                      />
+                      Sync with category
+                    </label>
+                    <p
+                      v-if="autoDeleteSyncedToCategory"
+                      class="channel-settings-hint mt-2 w-full min-w-0"
+                    >
+                      Inherited from category:
+                      {{
+                        MESSAGE_AUTO_DELETE_OPTIONS.find(
+                          (o) => o.value === effectiveCategoryAutoDeleteStr,
+                        )?.label ?? 'Off'
+                      }}
+                    </p>
+                    <div
+                      class="channel-settings-dropdowns mt-3 w-full min-w-0"
+                      :class="{
+                        'pointer-events-none opacity-45':
+                          autoDeleteSyncedToCategory,
+                      }"
+                    >
+                      <EchoDropdown
+                        v-model="displayedAutoDeleteStr"
+                        :options="MESSAGE_AUTO_DELETE_OPTIONS"
+                        label="Retention"
+                        menu-match-trigger-width
+                      />
+                    </div>
+                  </section>
+
+                  <div
+                    class="danger-row danger-row--flat max-w-xl flex-col items-stretch gap-3 sm:flex-row"
+                  >
+                    <div class="min-w-0">
+                      <div class="text-sm font-semibold echo-danger-title">
+                        Delete channel
+                      </div>
+                      <p class="mt-1 text-sm text-fg-soft">
+                        Permanently delete
+                        <span
+                          class="inline-flex min-w-0 max-w-full align-bottom"
+                        >
+                          <span
+                            class="min-w-0 truncate font-semibold text-fg"
+                            :title="'#' + channelSettings.channel.name"
+                            >#{{ channelSettings.channel.name }}</span
+                          ></span
+                        >. All messages in this channel will be removed. This
+                        cannot be undone.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      class="danger-btn danger-btn--strong shrink-0 self-start sm:self-center"
+                      @click="confirmDeleteChannel"
+                    >
+                      Delete channel
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1539,6 +1556,16 @@ async function confirmDeleteChannel() {
                     />
                   </div>
 
+                  <div
+                    v-if="echoSyncWithCategoryModel"
+                    class="echo-warn-banner rounded-xl border border-amber-400/25 border-l-4 border-l-amber-400/70 px-4 py-3 text-sm leading-relaxed"
+                    role="note"
+                  >
+                    This channel is currently inheriting permissions from
+                    <span class="font-semibold">{{ channelCategoryLabel }}</span
+                    >. Disable sync to add channel-specific overwrites.
+                  </div>
+
                   <PermissionOverwriteEditor
                     v-model:selected-row-key="permissionSelectedRowKey"
                     :rows="echoPermissionRows"
@@ -1547,11 +1574,7 @@ async function confirmDeleteChannel() {
                     :permission-defs="echoPermissionDefs"
                     :loading="echoPermissionEditor.loading"
                     :disabled="echoSyncWithCategoryModel"
-                    :disabled-message="
-                      echoSyncWithCategoryModel
-                        ? `This channel is currently inheriting permissions from ${channelCategoryLabel}. Disable sync to add channel-specific overwrites.`
-                        : ''
-                    "
+                    :disabled-message="`This channel is currently inheriting permissions from ${channelCategoryLabel}. Disable sync to add channel-specific overwrites.`"
                     @update:rows="echoPermissionRows = $event"
                   />
                 </template>
@@ -1593,17 +1616,18 @@ async function confirmDeleteChannel() {
                     />
                   </div>
 
-                  <p
+                  <div
                     v-if="syncWithCategoryModel"
-                    class="px-3 py-2 text-sm text-fg-subtle"
+                    class="echo-warn-banner mx-3 rounded-xl border border-amber-400/25 border-l-4 border-l-amber-400/70 px-4 py-3 text-sm leading-relaxed"
+                    role="note"
                   >
                     Showing defaults for
-                    <span class="font-medium text-fg-soft">{{
+                    <span class="font-semibold">{{
                       channelCategoryLabel
                     }}</span>
                     — use the gear on that category in the sidebar to edit.
                     Uncheck sync above to override only this channel.
-                  </p>
+                  </div>
 
                   <div
                     v-for="[group, defs] in permissionGroupsList"
@@ -1621,10 +1645,17 @@ async function confirmDeleteChannel() {
                         :key="def.key"
                         class="role-permission-row channel-settings-perm-item w-full min-w-0 items-start !py-3.5"
                       >
-                        <span
-                          class="channel-settings-option-row__text min-w-0 pr-3 text-[14px] font-semibold leading-snug text-fg"
-                          >{{ def.label }}</span
+                        <div
+                          class="flex min-w-0 flex-1 items-start gap-2.5 pr-3"
                         >
+                          <ChannelPermissionIconBadge
+                            :permission-key="def.key"
+                          />
+                          <span
+                            class="channel-settings-option-row__text min-w-0 pt-1 text-[14px] font-semibold leading-snug text-fg"
+                            >{{ def.label }}</span
+                          >
+                        </div>
                         <input
                           type="checkbox"
                           class="server-toggle mt-0.5 shrink-0"
@@ -1640,7 +1671,7 @@ async function confirmDeleteChannel() {
           </div>
 
           <div
-            v-if="channelDirty && activeTab !== 'delete_channel'"
+            v-if="channelDirty"
             class="roles-change-bar mt-4 shrink-0 border-t border-border pt-4"
           >
             <div class="text-sm text-fg-subtle">

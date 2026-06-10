@@ -19,6 +19,20 @@ export const APP_LAYOUT_LOAD_TIMEOUT_MS = 30_000;
  */
 export const APP_BOOT_GATE_TIMEOUT_MS = 3_000;
 
+/** Boot gate still visible this long after workspace settled → report stall (gate race). */
+export const APP_BOOT_GATE_SETTLED_STALL_MS = 1_500;
+
+/** Extra grace after {@link APP_BOOT_GATE_TIMEOUT_MS} before reporting a gate timeout stall. */
+export const APP_BOOT_GATE_STALL_GRACE_MS = 2_000;
+
+/**
+ * AppLayout async chunk unresolved this long after the boot gate dismisses → report stall.
+ * Tied to the “still loading” hint threshold so we only alert on real hangs, not slow 4G.
+ */
+export function resolveAppLayoutChunkStallMs(): number {
+  return resolveAppLayoutLoadHintMs() + 2_000;
+}
+
 type NetworkInformationLike = {
   /** Round-trip time in ms (browser estimate). */
   rtt?: number;

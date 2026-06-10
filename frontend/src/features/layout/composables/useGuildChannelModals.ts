@@ -45,6 +45,7 @@ import {
   applyOptimisticChannelReorder,
 } from '@/services/domain/channelStructureOptimistic';
 import { requestAppTwoChoice } from '@/utils/appDialogs';
+import { ECHO_CHANNEL_COMPOSER_FORMAT_REHYDRATE_EVENT } from '@/utils/controllerMissingAction';
 import { getChannelMoveCrossCategoryPermission } from '@/features/channel-settings/composables/useChannelMoveCrossCategoryPreference';
 import type { Server } from '@shared/types/server';
 import type { ChannelCategory } from '@/composables/useChannels';
@@ -330,10 +331,24 @@ export function useGuildChannelModals(deps: {
     })();
   }
 
+  function dispatchChannelComposerFormatRehydrate(channelId: string) {
+    const id = channelId.trim();
+    if (!id) return;
+    window.dispatchEvent(
+      new CustomEvent(ECHO_CHANNEL_COMPOSER_FORMAT_REHYDRATE_EVENT, {
+        detail: { channelId: id },
+      }),
+    );
+  }
+
   function onChannelSettingsModalOpenUpdate(open: boolean) {
     if (!open) {
+      const channelId = channelSettingsTarget.value?.channel.id;
       channelSettingsTarget.value = null;
       channelSettingsEchoPermissionEditor.value = null;
+      if (channelId && activeChannelId.value.trim() === channelId.trim()) {
+        dispatchChannelComposerFormatRehydrate(channelId);
+      }
     }
   }
 
@@ -585,6 +600,9 @@ export function useGuildChannelModals(deps: {
           [sid]: cats,
         };
         refreshChannelSettingsTargetAfterSave(sid, chId, cats);
+        if (activeChannelId.value.trim() === chId) {
+          dispatchChannelComposerFormatRehydrate(chId);
+        }
         if (channelSettingsEchoPermissionEditor.value) {
           try {
             const overwriteRows = await fetchEchoChannelPermissionOverwriteRows(
@@ -658,6 +676,9 @@ export function useGuildChannelModals(deps: {
     const cats = categoriesForServer.value;
     if (cats) {
       refreshChannelSettingsTargetAfterSave(sid, payload.channelId, cats);
+    }
+    if (activeChannelId.value.trim() === payload.channelId) {
+      dispatchChannelComposerFormatRehydrate(payload.channelId);
     }
   }
 

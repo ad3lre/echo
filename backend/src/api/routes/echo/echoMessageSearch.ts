@@ -14,6 +14,10 @@ import {
   searchEchoMessagesInChannels,
   type EchoMessageSearchHasType,
 } from '../../../domain/echoStore';
+import {
+  getCachedSearchableChannelIds,
+  setCachedSearchableChannelIds,
+} from '../../../domain/echoSearchChannelCache';
 import { batchGetEffectiveChannelPermissions } from '../../../domain/echoStore/permissions';
 import {
   echoMessageSearchDurationSeconds,
@@ -53,6 +57,9 @@ async function listSearchableTextChannelIds(
   serverId: string,
   userId: string,
 ): Promise<string[]> {
+  const cached = getCachedSearchableChannelIds(serverId, userId);
+  if (cached) return cached;
+
   const chans = await listEchoChannels(pool, serverId);
   const textChannels = chans.filter((ch) => ch.type !== 'voice');
   if (textChannels.length === 0) return [];
@@ -64,10 +71,12 @@ async function listSearchableTextChannelIds(
     userId,
     channelIds,
   );
-  return channelIds.filter((id) => {
+  const allowed = channelIds.filter((id) => {
     const perms = permsMap.get(id);
     return perms != null && perms.has('VIEW_CHANNEL');
   });
+  setCachedSearchableChannelIds(serverId, userId, allowed);
+  return allowed;
 }
 
 type SearchQs = {

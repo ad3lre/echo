@@ -46,20 +46,20 @@ export interface CategorySettingsSnapshot {
   echoPermissionRows?: PermissionOverwriteRowDraft[];
 }
 
-/** Tabs shared with category settings (no delete tab on categories). */
+/** Tabs shared with category settings. */
 export type CategorySettingsTab =
   | 'overview'
   | 'permissions'
   | 'discord_chat_sync'
-  | 'discord_voice_mirror';
+  | 'discord_voice_mirror'
+  | 'danger_zone';
 
 export type ChannelSettingsTab =
   | CategorySettingsTab
   | 'discord_sync'
   | 'webhooks'
   | 'forum_creator'
-  | 'format'
-  | 'delete_channel';
+  | 'format';
 
 export const CHANNEL_TAB_COPY: Record<
   ChannelSettingsTab,
@@ -94,9 +94,10 @@ export const CHANNEL_TAB_COPY: Record<
     description:
       'Defaults for members who start a post: extra control over their own thread without server-wide mod permissions.',
   },
-  delete_channel: {
-    title: 'Delete Channel',
-    description: 'Permanently delete this channel. This cannot be undone.',
+  danger_zone: {
+    title: 'Danger Zone',
+    description:
+      'Sensitive actions that permanently remove this channel. Proceed carefully.',
   },
   discord_voice_mirror: {
     title: 'Discord voice mirror',
@@ -335,6 +336,11 @@ export const CATEGORY_TAB_COPY: Record<
     title: 'Discord voice activity',
     description:
       'Show who is in voice on Discord for channels in this category. Join voice in Discord to participate.',
+  },
+  danger_zone: {
+    title: 'Danger Zone',
+    description:
+      'Sensitive actions that permanently remove this category and its channels. Proceed carefully.',
   },
 };
 

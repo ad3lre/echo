@@ -23,3 +23,11 @@ export const GUEST_MINT_ROUTE_RATE = {
   keyGenerator: ipRateLimitKey,
   addHeaders: { 'retry-after': true as const },
 };
+
+/** Sign in with Apple — native identity-token login (per IP). */
+export const APPLE_LOGIN_ROUTE_RATE = {
+  max: 30,
+  timeWindow: '15 minutes' as const,
+  keyGenerator: (req: FastifyRequest) => `apple_oauth:${ipRateLimitKey(req)}`,
+  addHeaders: { 'retry-after': true as const },
+};

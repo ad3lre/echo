@@ -20,6 +20,26 @@ export async function fetchEchoEmojiMarketPacks(opts?: {
   return normalizeEchoEmojiMarketPacksPayload(data);
 }
 
+export async function fetchEchoEmojiMarketPackById(
+  packId: string,
+): Promise<{ pack: EchoEmojiMarketPackApi }> {
+  const id = packId.trim();
+  const data = await echoFetch<Record<string, unknown>>(
+    null,
+    `/emoji-market/packs/${encodeURIComponent(id)}`,
+  );
+  const packRaw = data.pack;
+  if (!packRaw || typeof packRaw !== 'object' || Array.isArray(packRaw)) {
+    throw new Error('Invalid emoji market pack response');
+  }
+  const normalized = normalizeEchoEmojiMarketPacksPayload({
+    packs: [packRaw],
+  });
+  const pack = normalized.packs[0];
+  if (!pack) throw new Error('Emoji pack not found');
+  return { pack };
+}
+
 export const ECHO_EMOJI_PACK_DESCRIPTION_MIN_LEN = 10;
 
 export async function fetchEchoServerEmojiLibrary(

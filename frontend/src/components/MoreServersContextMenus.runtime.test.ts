@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp, defineComponent, h, nextTick, type App } from 'vue';
 import type { MoreServersMockServer } from '@/composables/useMoreServers';
+import type { MoreServerWidgetFolder } from '@/composables/useMoreServerFolders';
 import MoreServersContextMenus from '@/components/MoreServersContextMenus.vue';
 
 function server(): MoreServersMockServer {
@@ -72,6 +73,9 @@ describe('MoreServersContextMenus runtime', () => {
 
   it('renders the open card menu and wires its actions', async () => {
     const h = handlers();
+    const folders: MoreServerWidgetFolder[] = [
+      { id: 'f1', name: 'Gaming', serverIds: [] },
+    ];
     mount({
       openMenuId: 's1',
       openMenuServer: server(),
@@ -79,7 +83,7 @@ describe('MoreServersContextMenus runtime', () => {
       cardMenuStyle: { left: '10px', top: '10px' },
       contextMenu: null,
       contextMenuStyle: {},
-      folders: [],
+      folders,
       contextMenuFolderName: 'Folder',
       contextMenuFolderExpandedLabel: '',
       isPinned: () => false,
@@ -101,6 +105,9 @@ describe('MoreServersContextMenus runtime', () => {
 
     findMenuButton('Pin to rail')?.click();
     expect(h.togglePin).toHaveBeenCalledTimes(1);
+
+    expect(findMenuButton('Move to folder')).toBeTruthy();
+    expect(findMenuButton('Move to “')).toBeNull();
   });
 
   it('renders nothing when no menu is open', async () => {

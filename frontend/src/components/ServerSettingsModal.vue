@@ -441,6 +441,7 @@ const {
   marketEmojiPacksLoading,
   marketEmojiPacksError,
   refreshMarketEmojiPacks,
+  loadMarketPackDetail,
   createCustomEmojiPack,
   importMarketEmojiPack,
   onEmojiUploadFile,
@@ -1051,6 +1052,7 @@ async function onModerationPatch(patch: {
                   :market-emoji-packs-loading="marketEmojiPacksLoading"
                   :market-emoji-packs-error="marketEmojiPacksError"
                   :refresh-market-emoji-packs="refreshMarketEmojiPacks"
+                  :load-market-pack-detail="loadMarketPackDetail"
                   :create-custom-emoji-pack="createCustomEmojiPack"
                   :import-market-emoji-pack="importMarketEmojiPack"
                   :on-emoji-upload-file="onEmojiUploadFile"

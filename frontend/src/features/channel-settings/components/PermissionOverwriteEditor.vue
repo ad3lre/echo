@@ -6,6 +6,7 @@ import type {
   PermissionOverwriteSubjectOption,
 } from '@/features/channel-settings/types';
 import type { ChannelPermissionKey } from '@shared/types';
+import ChannelPermissionIconBadge from '@/features/channel-settings/components/ChannelPermissionIconBadge.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
@@ -108,8 +109,9 @@ const searchTrim = computed(() => searchQuery.value.trim().toLowerCase());
 
 function rowMatches(row: PermissionOverwriteRowDraft): boolean {
   if (!searchTrim.value) return true;
-  const label = describeRow(row).label.toLowerCase();
-  const subtitle = (describeRow(row).subtitle ?? '').toLowerCase();
+  const described = describeRow(row);
+  const label = described.label.toLowerCase();
+  const subtitle = (described.subtitle ?? '').toLowerCase();
   return (
     label.includes(searchTrim.value) || subtitle.includes(searchTrim.value)
   );
@@ -192,6 +194,7 @@ watch(
 );
 
 watch(targetTab, (tab) => {
+  searchQuery.value = '';
   if (!selectionKeyValidForTab(selectedRowKey.value, tab)) {
     ensureDefaultSelection();
   }
@@ -305,156 +308,143 @@ function explicitPermissionCount(
 
 <template>
   <div class="overwrite-editor">
-    <div class="overwrite-editor__toolbar">
-      <div class="overwrite-editor__segmented">
-        <button
-          type="button"
-          class="overwrite-editor__segment"
-          :class="{
-            'overwrite-editor__segment--active': targetTab === 'roles',
-          }"
-          @click="targetTab = 'roles'"
-        >
-          Roles
-        </button>
-        <button
-          type="button"
-          class="overwrite-editor__segment"
-          :class="{
-            'overwrite-editor__segment--active': targetTab === 'members',
-          }"
-          @click="targetTab = 'members'"
-        >
-          Members
-        </button>
-      </div>
-      <input
-        v-model="searchQuery"
-        type="search"
-        class="overwrite-editor__search"
-        :placeholder="
-          targetTab === 'roles' ? 'Search roles…' : 'Search members…'
-        "
-      />
-    </div>
-
     <div v-if="loading" class="overwrite-editor__empty">
       Loading permission targets…
     </div>
 
-    <div v-else class="overwrite-editor__layout">
-      <aside
-        class="overwrite-editor__sidebar"
-        :class="{ 'opacity-50 pointer-events-none': disabled }"
-      >
-        <template v-if="targetTab === 'roles'">
-          <button
-            type="button"
-            class="overwrite-editor__target"
-            :class="{
-              'overwrite-editor__target--active': selectedRowKey === 'members',
-            }"
-            @click="ensureRow('members')"
+    <div
+      v-else
+      class="overwrite-editor__layout"
+      :class="{ 'opacity-50 pointer-events-none': disabled }"
+    >
+      <aside class="overwrite-editor__sidebar">
+        <div class="overwrite-editor__sidebar-head">
+          <input
+            v-model="searchQuery"
+            type="search"
+            class="overwrite-editor__search"
+            :placeholder="
+              targetTab === 'roles' ? 'Search roles…' : 'Search members…'
+            "
+          />
+          <div
+            class="overwrite-editor__tabs"
+            role="tablist"
+            aria-label="Permission target type"
           >
-            <span
-              class="overwrite-editor__dot overwrite-editor__dot--members"
-            ></span>
-            <span class="truncate">@members</span>
-          </button>
-
-          <button
-            v-for="row in visibleRoleRows.filter(
-              (row) => row.targetType === 'role',
-            )"
-            :key="rowKey(row)"
-            type="button"
-            class="overwrite-editor__target"
-            :class="{
-              'overwrite-editor__target--active':
-                selectedRowKey === rowKey(row),
-            }"
-            @click="selectedRowKey = rowKey(row)"
-          >
-            <span
-              class="overwrite-editor__dot"
-              :style="{
-                background: describeRow(row).color || 'rgba(255,255,255,0.24)',
-              }"
-            ></span>
-            <span class="truncate">{{ describeRow(row).label }}</span>
-          </button>
-
-          <div class="overwrite-editor__add-list">
-            <div class="overwrite-editor__list-title">Add role overwrite</div>
             <button
-              v-for="role in availableRoleOptions.slice(0, 8)"
-              :key="role.id"
               type="button"
-              class="overwrite-editor__add-item"
-              @click="ensureRow('role', role.id)"
+              role="tab"
+              class="overwrite-editor__tab"
+              :class="{
+                'overwrite-editor__tab--active': targetTab === 'roles',
+              }"
+              :aria-selected="targetTab === 'roles'"
+              @click="targetTab = 'roles'"
+            >
+              Roles
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="overwrite-editor__tab"
+              :class="{
+                'overwrite-editor__tab--active': targetTab === 'members',
+              }"
+              :aria-selected="targetTab === 'members'"
+              @click="targetTab = 'members'"
+            >
+              Members
+            </button>
+          </div>
+        </div>
+
+        <div class="overwrite-editor__sidebar-body">
+          <template v-if="targetTab === 'roles'">
+            <button
+              type="button"
+              class="overwrite-editor__target"
+              :class="{
+                'overwrite-editor__target--active':
+                  selectedRowKey === 'members',
+              }"
+              @click="ensureRow('members')"
+            >
+              <span
+                class="overwrite-editor__dot overwrite-editor__dot--members"
+              ></span>
+              <span class="truncate">@members</span>
+            </button>
+
+            <button
+              v-for="row in visibleRoleRows.filter(
+                (row) => row.targetType === 'role',
+              )"
+              :key="rowKey(row)"
+              type="button"
+              class="overwrite-editor__target"
+              :class="{
+                'overwrite-editor__target--active':
+                  selectedRowKey === rowKey(row),
+              }"
+              @click="selectedRowKey = rowKey(row)"
             >
               <span
                 class="overwrite-editor__dot"
-                :style="{ background: role.color || 'rgba(255,255,255,0.24)' }"
+                :style="{
+                  background:
+                    describeRow(row).color || 'rgba(255,255,255,0.24)',
+                }"
               ></span>
-              <span class="truncate">{{ role.label }}</span>
+              <span class="truncate">{{ describeRow(row).label }}</span>
             </button>
-            <div
-              v-if="availableRoleOptions.length === 0"
-              class="overwrite-editor__hint"
-            >
-              No more roles match.
-            </div>
-          </div>
-        </template>
 
-        <template v-else>
-          <button
-            v-for="row in visibleMemberRows"
-            :key="rowKey(row)"
-            type="button"
-            class="overwrite-editor__target"
-            :class="{
-              'overwrite-editor__target--active':
-                selectedRowKey === rowKey(row),
-            }"
-            @click="selectedRowKey = rowKey(row)"
-          >
-            <div
-              v-if="describeRow(row).avatarUrl"
-              class="relative h-[18px] w-[18px] shrink-0 overflow-hidden rounded-full"
-            >
-              <PausedGifAvatar
-                :src="safeImageUrl(describeRow(row).avatarUrl)"
-                alt=""
-                :session-key="row.targetId ?? 'perm-row'"
-                img-class="object-cover"
-              />
+            <div class="overwrite-editor__add-list">
+              <div class="overwrite-editor__list-title">Add role overwrite</div>
+              <button
+                v-for="role in availableRoleOptions.slice(0, 8)"
+                :key="role.id"
+                type="button"
+                class="overwrite-editor__add-item"
+                @click="ensureRow('role', role.id)"
+              >
+                <span
+                  class="overwrite-editor__dot"
+                  :style="{
+                    background: role.color || 'rgba(255,255,255,0.24)',
+                  }"
+                ></span>
+                <span class="truncate">{{ role.label }}</span>
+              </button>
+              <div
+                v-if="availableRoleOptions.length === 0"
+                class="overwrite-editor__hint"
+              >
+                No more roles match.
+              </div>
             </div>
-            <span
-              v-else
-              class="overwrite-editor__dot overwrite-editor__dot--member"
-            ></span>
-            <span class="truncate">{{ describeRow(row).label }}</span>
-          </button>
+          </template>
 
-          <div class="overwrite-editor__add-list">
-            <div class="overwrite-editor__list-title">Add member overwrite</div>
+          <template v-else>
             <button
-              v-for="member in availableMemberOptions.slice(0, 8)"
-              :key="member.id"
+              v-for="row in visibleMemberRows"
+              :key="rowKey(row)"
               type="button"
-              class="overwrite-editor__add-item"
-              @click="ensureRow('member', member.id)"
+              class="overwrite-editor__target"
+              :class="{
+                'overwrite-editor__target--active':
+                  selectedRowKey === rowKey(row),
+              }"
+              @click="selectedRowKey = rowKey(row)"
             >
               <div
-                v-if="member.avatarUrl"
+                v-if="describeRow(row).avatarUrl"
                 class="relative h-[18px] w-[18px] shrink-0 overflow-hidden rounded-full"
               >
                 <PausedGifAvatar
-                  :src="safeImageUrl(member.avatarUrl)"
+                  :src="safeImageUrl(describeRow(row).avatarUrl)"
                   alt=""
-                  :session-key="member.id"
+                  :session-key="row.targetId ?? 'perm-row'"
                   img-class="object-cover"
                 />
               </div>
@@ -462,26 +452,49 @@ function explicitPermissionCount(
                 v-else
                 class="overwrite-editor__dot overwrite-editor__dot--member"
               ></span>
-              <span class="truncate">{{ member.label }}</span>
+              <span class="truncate">{{ describeRow(row).label }}</span>
             </button>
-            <div
-              v-if="availableMemberOptions.length === 0"
-              class="overwrite-editor__hint"
-            >
-              No more members match.
+
+            <div class="overwrite-editor__add-list">
+              <div class="overwrite-editor__list-title">
+                Add member overwrite
+              </div>
+              <button
+                v-for="member in availableMemberOptions.slice(0, 8)"
+                :key="member.id"
+                type="button"
+                class="overwrite-editor__add-item"
+                @click="ensureRow('member', member.id)"
+              >
+                <div
+                  v-if="member.avatarUrl"
+                  class="relative h-[18px] w-[18px] shrink-0 overflow-hidden rounded-full"
+                >
+                  <PausedGifAvatar
+                    :src="safeImageUrl(member.avatarUrl)"
+                    alt=""
+                    :session-key="member.id"
+                    img-class="object-cover"
+                  />
+                </div>
+                <span
+                  v-else
+                  class="overwrite-editor__dot overwrite-editor__dot--member"
+                ></span>
+                <span class="truncate">{{ member.label }}</span>
+              </button>
+              <div
+                v-if="availableMemberOptions.length === 0"
+                class="overwrite-editor__hint"
+              >
+                No more members match.
+              </div>
             </div>
-          </div>
-        </template>
+          </template>
+        </div>
       </aside>
 
       <section class="overwrite-editor__content">
-        <p
-          v-if="disabled && disabledMessage"
-          class="overwrite-editor__disabled-message"
-        >
-          {{ disabledMessage }}
-        </p>
-
         <div v-if="selectedRow" class="overwrite-editor__panel">
           <div class="overwrite-editor__panel-head">
             <div>
@@ -517,7 +530,12 @@ function explicitPermissionCount(
               :key="def.key"
               class="overwrite-editor__perm-row"
             >
-              <span class="overwrite-editor__perm-label">{{ def.label }}</span>
+              <div class="overwrite-editor__perm-label-wrap">
+                <ChannelPermissionIconBadge :permission-key="def.key" />
+                <span class="overwrite-editor__perm-label">{{
+                  def.label
+                }}</span>
+              </div>
               <div class="overwrite-editor__perm-actions">
                 <button
                   type="button"
@@ -573,46 +591,6 @@ function explicitPermissionCount(
 .overwrite-editor {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.overwrite-editor__toolbar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.overwrite-editor__segmented {
-  display: inline-flex;
-  padding: 4px;
-  border-radius: 999px;
-  background: var(--vue-auto-005);
-}
-
-.overwrite-editor__segment {
-  border: 0;
-  background: transparent;
-  color: var(--vue-auto-049);
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.overwrite-editor__segment--active {
-  background: var(--vue-auto-003);
-  color: var(--vue-auto-006);
-}
-
-.overwrite-editor__search {
-  min-width: 0;
-  flex: 1;
-  border: 0;
-  outline: none;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--vue-auto-005);
-  color: var(--vue-auto-006);
 }
 
 .overwrite-editor__layout {
@@ -630,8 +608,68 @@ function explicitPermissionCount(
 }
 
 .overwrite-editor__sidebar {
-  padding: 10px;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.overwrite-editor__sidebar-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--vue-auto-002);
+  flex-shrink: 0;
+}
+
+.overwrite-editor__search {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--vue-auto-005);
+  color: var(--vue-auto-006);
+  font-size: 14px;
+}
+
+.overwrite-editor__tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.overwrite-editor__tab {
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--vue-auto-049);
+  font-size: 11px;
+  font-weight: 700;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.overwrite-editor__tab:hover {
+  background: var(--vue-auto-005);
+  color: var(--vue-auto-030);
+}
+
+.overwrite-editor__tab--active {
+  background: var(--vue-auto-003);
+  color: var(--vue-auto-006);
+  box-shadow: 0 0 0 1px var(--vue-auto-002);
+}
+
+.overwrite-editor__sidebar-body {
+  min-height: 0;
+  flex: 1;
   overflow-y: auto;
+  padding: 10px;
 }
 
 .overwrite-editor__target,
@@ -721,7 +759,6 @@ function explicitPermissionCount(
 
 .overwrite-editor__panel-subtitle,
 .overwrite-editor__hint,
-.overwrite-editor__disabled-message,
 .overwrite-editor__empty {
   color: var(--vue-auto-288);
   font-size: 13px;
@@ -740,11 +777,21 @@ function explicitPermissionCount(
   border-top: 1px solid var(--vue-auto-005);
 }
 
+.overwrite-editor__perm-label-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
 .overwrite-editor__perm-label {
   min-width: 0;
   flex: 1;
+  padding-top: 5px;
   color: var(--vue-auto-009);
   font-size: 14px;
+  line-height: 1.35;
 }
 
 .overwrite-editor__perm-actions {

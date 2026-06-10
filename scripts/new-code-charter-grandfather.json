@@ -840,7 +840,6 @@
     "frontend/src/features/chat/chatMessageTypes.ts",
     "frontend/src/features/chat/components/ChatInputComposerBar.vue",
     "frontend/src/features/chat/components/ChatInputMarkdownPreview.vue",
-    "frontend/src/features/chat/components/ComposerChannelFormatBanner.vue",
     "frontend/src/features/chat/components/DiscordChannelImportWidget.vue",
     "frontend/src/features/chat/components/DiscordSyncedMessageBadge.vue",
     "frontend/src/features/chat/components/ForwardMessageModal.vue",

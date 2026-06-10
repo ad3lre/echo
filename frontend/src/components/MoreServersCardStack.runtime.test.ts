@@ -30,13 +30,14 @@ function handlers() {
     onFolderDragOverCard: vi.fn(),
     onFolderOrderDragOver: vi.fn(),
     onDrop: vi.fn(),
+    onPanelDragOverCapture: vi.fn(),
     openFolderContextMenu: vi.fn(),
     onFolderDragStart: vi.fn(),
     onDragEnd: vi.fn(),
     isFolderCollapsedInCard: vi.fn(() => false),
     toggleFolderCollapsedInCard: vi.fn(),
     folderPeekServers: vi.fn((servers: MoreServersMockServer[]) =>
-      servers.slice(0, 3),
+      servers.slice(0, 4),
     ),
     onUngroupedDragOver: vi.fn(),
     onCardServerDragStart: vi.fn(),
@@ -156,7 +157,7 @@ describe('MoreServersCardStack runtime', () => {
     );
 
     const folderDropTarget = container!.querySelector<HTMLElement>(
-      '.widget-folder-card-rail',
+      '.widget-folder-card',
     );
     const dragOverEvent = new Event('dragover', {
       bubbles: true,

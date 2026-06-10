@@ -82,9 +82,9 @@ const CHANNEL_TAB_I18N: Record<
     title: 'channelSettings.tabs.format.title',
     description: 'channelSettings.tabs.format.description',
   },
-  delete_channel: {
-    title: 'channelSettings.tabs.delete_channel.title',
-    description: 'channelSettings.tabs.delete_channel.description',
+  danger_zone: {
+    title: 'channelSettings.tabs.danger_zone.title',
+    description: 'channelSettings.tabs.danger_zone.description',
   },
   discord_chat_sync: {
     title: 'channelSettings.tabs.discord_chat_sync.title',

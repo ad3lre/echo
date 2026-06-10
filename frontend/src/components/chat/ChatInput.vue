@@ -54,7 +54,10 @@ import { usePendingVideoEagerUpload } from '@/composables/usePendingVideoEagerUp
 import { useChatSend } from '@/composables/useChatSend';
 import { usePopoutStack } from '@/composables/usePopoutStack';
 import { truncateForReply } from '@/features/chat/composables/useReplyPreview';
-import { ECHO_CHAT_COMPOSER_FOCUS_EVENT } from '@/utils/controllerMissingAction';
+import {
+  ECHO_CHANNEL_COMPOSER_FORMAT_REHYDRATE_EVENT,
+  ECHO_CHAT_COMPOSER_FOCUS_EVENT,
+} from '@/utils/controllerMissingAction';
 import { extractMediaFilesFromClipboard } from '@/features/chat/composables/useClipboardMedia';
 import { useChatInputSelectionMenu } from '@/features/chat/composables/useChatInputSelectionMenu';
 import { useChatInputMarkdownPreview } from '@/features/chat/composables/useChatInputMarkdownPreview';
@@ -454,7 +457,7 @@ function ensureComposerHardFormatPrefix() {
   if (!T || props.messageFormatHard !== true) return;
 
   for (let k = 0; k < 8; k++) {
-    const cur = composer.content.value;
+    const cur = composer.getContent();
     const stripped = stripLeadingDuplicateHardFormatTemplate(cur, T);
     if (stripped === null || stripped === cur) break;
     const lo = T.length;
@@ -478,7 +481,7 @@ function ensureComposerHardFormatPrefix() {
     composer.setSerializedState(stripped, mentions, a, b);
   }
 
-  const cur = composer.content.value;
+  const cur = composer.getContent();
   if (echoHardFormatPrefixSatisfied(cur, T)) return;
   const next = T + cur;
   const m = shiftMentionEntities(composer.mentions.value, T.length);
@@ -489,11 +492,12 @@ function ensureComposerHardFormatPrefix() {
 function ensureComposerSoftFormatIfEmpty() {
   const T = messageFormatNormalized.value;
   if (!T || props.messageFormatHard === true) return;
-  if (composer.content.value.trim().length > 0) return;
+  if (composer.getContent().trim().length > 0) return;
   composer.setSerializedState(T, [], T.length, T.length);
 }
 
 function applyChannelMessageFormatAfterRestore() {
+  composer.flushComposerSync();
   ensureComposerHardFormatPrefix();
   ensureComposerSoftFormatIfEmpty();
 }
@@ -567,6 +571,9 @@ const composerBarRef = ref<InstanceType<typeof ChatInputComposerBar> | null>(
 );
 const gifPopoutAnchorEl = computed(
   () => composerBarRef.value?.gifPopoutAnchorRef ?? null,
+);
+const emojiPopoutAnchorEl = computed(
+  () => composerBarRef.value?.emojiPopoutAnchorRef ?? null,
 );
 
 const serverEmojiLibrary = useServerEmojiLibrary(
@@ -951,7 +958,7 @@ function handleInputBlur(e: FocusEvent) {
   emojiAutocomplete.close();
   mentionAutocomplete.close();
   channelAutocomplete.close();
-  void nextTick(() => ensureComposerHardFormatPrefix());
+  void nextTick(() => applyChannelMessageFormatAfterRestore());
 }
 
 function syncPreviewScrollWithTextarea() {
@@ -1169,6 +1176,7 @@ async function handleSubmit() {
     }
     composer.clear();
     clearComposerDraft(props.channelId);
+    void nextTick(() => applyChannelMessageFormatAfterRestore());
     emojiAutocomplete.close();
     mentionAutocomplete.close();
     channelAutocomplete.close();
@@ -1289,7 +1297,16 @@ watch(
   () => {
     void nextTick(() => applyChannelMessageFormatAfterRestore());
   },
+  { immediate: true },
 );
+
+function onChannelComposerFormatRehydrateEv(ev: Event) {
+  const channelId = (
+    ev as CustomEvent<{ channelId?: string }>
+  ).detail?.channelId?.trim();
+  if (!channelId || channelId !== props.channelId) return;
+  void nextTick(() => applyChannelMessageFormatAfterRestore());
+}
 
 watch(
   () => composerBarDisabled.value,
@@ -1332,6 +1349,10 @@ onMounted(() => {
   restoreComposerDraftForChannel(props.channelId);
   composer.registerKeydownHandler(handleKeydown);
   window.addEventListener('echo-message-failed', onEchoMessageFailedEv);
+  window.addEventListener(
+    ECHO_CHANNEL_COMPOSER_FORMAT_REHYDRATE_EVENT,
+    onChannelComposerFormatRehydrateEv,
+  );
 });
 
 onUnmounted(() => {
@@ -1348,6 +1369,10 @@ onUnmounted(() => {
   props.registerInsertUserMention?.(null);
   composer.registerKeydownHandler(null);
   window.removeEventListener('echo-message-failed', onEchoMessageFailedEv);
+  window.removeEventListener(
+    ECHO_CHANNEL_COMPOSER_FORMAT_REHYDRATE_EVENT,
+    onChannelComposerFormatRehydrateEv,
+  );
   if (communicationTimeoutTicker) clearInterval(communicationTimeoutTicker);
   clearPendingMedia();
 });
@@ -1477,6 +1502,7 @@ onMounted(() => {
       :channel-id="channelId"
       :placement="props.popoutDirection ?? 'up'"
       :theme="props.popoutTheme ?? 'default'"
+      :anchor-el="emojiPopoutAnchorEl"
       @insert="insertEmoji"
       @send-sticker="sendSticker"
     />
@@ -1801,8 +1827,6 @@ onMounted(() => {
       :handle-attach-upload="handleUploadClick"
       :handle-attach-create-poll="handleCreatePoll"
       :close-other-popouts="closePopout"
-      :message-format-template="props.messageFormatTemplate"
-      :message-format-hard="props.messageFormatHard === true"
       @set-markdown-preview-mode="setMarkdownPreviewMode"
     />
   </div>

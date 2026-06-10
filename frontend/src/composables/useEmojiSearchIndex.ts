@@ -216,8 +216,17 @@ function entryNameWordCount(entry: EmojiEntry): number {
   return entry.name.split(/\s+/).filter(Boolean).length;
 }
 
+export function parseEmojiSearchWords(query: string): string[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return q
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => resolveSlugAlias(normalizeSlugInput(w)));
+}
+
 /** Lower score = higher relevance (shown first). */
-function searchRankScore(entry: EmojiEntry, words: string[]): number {
+export function searchRankScore(entry: EmojiEntry, words: string[]): number {
   if (words.length === 0) return 99;
   const slug = entry.slug.toLowerCase();
   const name = entry.name.toLowerCase();
@@ -226,11 +235,37 @@ function searchRankScore(entry: EmojiEntry, words: string[]): number {
 
   if (slug === joined) return 0;
   if (words.length === 1 && slug === first) return 0;
-  if (slug.startsWith(first)) return 1;
-  if (name.startsWith(first)) return 2;
-  if (slug.includes(first)) return 3;
-  if (name.includes(first)) return 4;
-  return 5;
+  if (
+    words.length === 1 &&
+    secondaryAliasesFor(entry).some((a) => a.toLowerCase() === first)
+  ) {
+    return 1;
+  }
+  if (slug.startsWith(first)) return 2;
+  if (name.startsWith(first)) return 3;
+  if (slug.includes(first)) return 4;
+  if (name.includes(first)) return 5;
+  return 6;
+}
+
+/** Shared sort for picker search and :slug: autocomplete (lower = more relevant). */
+export function compareEmojiSearchResults(
+  a: EmojiEntry,
+  b: EmojiEntry,
+  words: string[],
+): number {
+  const ra = searchRankScore(a, words);
+  const rb = searchRankScore(b, words);
+  if (ra !== rb) return ra - rb;
+  const aw = entrySlugWordCount(a);
+  const bw = entrySlugWordCount(b);
+  if (aw !== bw) return aw - bw;
+  const anw = entryNameWordCount(a);
+  const bnw = entryNameWordCount(b);
+  if (anw !== bnw) return anw - bnw;
+  if (a.slug.length !== b.slug.length) return a.slug.length - b.slug.length;
+  if (a.name.length !== b.name.length) return a.name.length - b.name.length;
+  return a.slug.localeCompare(b.slug);
 }
 
 function buildIndexFromRuntime(): SearchIndex {
@@ -301,42 +336,77 @@ export function getEmojiSearchIndex(): SearchIndex {
   return next;
 }
 
+function intersectEmojiSets(
+  a: Set<EmojiEntry>,
+  b: Set<EmojiEntry>,
+): Set<EmojiEntry> {
+  if (a.size === 0 || b.size === 0) return new Set();
+  const smaller = a.size <= b.size ? a : b;
+  const larger = a.size <= b.size ? b : a;
+  const out = new Set<EmojiEntry>();
+  for (const entry of smaller) {
+    if (larger.has(entry)) out.add(entry);
+  }
+  return out;
+}
+
+function gatherCandidatesForWord(
+  index: SearchIndex,
+  word: string,
+): Set<EmojiEntry> {
+  const out = new Set<EmojiEntry>();
+  if (word.length === 0) return out;
+
+  const exact = index.byToken.get(word);
+  if (exact) {
+    for (const entry of exact) out.add(entry);
+  }
+
+  if (word.length >= 2) {
+    for (const [token, entries] of index.byToken) {
+      if (token === word) continue;
+      if (
+        token.startsWith(word) ||
+        (word.length >= 3 && token.includes(word))
+      ) {
+        for (const entry of entries) out.add(entry);
+      }
+    }
+  }
+
+  if (out.size === 0 || word.length === 1) {
+    for (const entry of index.all) {
+      if (wordMatchesEmojiSearch(entry, word)) out.add(entry);
+    }
+    return out;
+  }
+
+  for (const entry of [...out]) {
+    if (!wordMatchesEmojiSearch(entry, word)) out.delete(entry);
+  }
+  return out;
+}
+
 /**
  * Search emojis by query: each word must match (substring / prefix on name or slug),
  * with simple relevance ranking — similar to a typical search box.
  */
 export function searchEmojis(query: string, limit = 80): EmojiEntry[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-
-  const words = q
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => resolveSlugAlias(normalizeSlugInput(w)));
+  const words = parseEmojiSearchWords(query);
   if (words.length === 0) return [];
 
   const index = getEmojiSearchIndex();
+  let matched: Set<EmojiEntry> | null = null;
+  for (const word of words) {
+    const set = gatherCandidatesForWord(index, word);
+    matched = matched == null ? set : intersectEmojiSets(matched, set);
+    if (matched.size === 0) return [];
+  }
 
-  const matched = index.all.filter((entry) =>
-    words.every((w) => wordMatchesEmojiSearch(entry, w)),
-  );
+  const arr = [...(matched ?? [])];
+  arr.sort((a, b) => compareEmojiSearchResults(a, b, words));
 
-  matched.sort((a, b) => {
-    const ra = searchRankScore(a, words);
-    const rb = searchRankScore(b, words);
-    if (ra !== rb) return ra - rb;
-    const aw = entrySlugWordCount(a);
-    const bw = entrySlugWordCount(b);
-    if (aw !== bw) return aw - bw;
-    const anw = entryNameWordCount(a);
-    const bnw = entryNameWordCount(b);
-    if (anw !== bnw) return anw - bnw;
-    if (a.slug.length !== b.slug.length) return a.slug.length - b.slug.length;
-    if (a.name.length !== b.name.length) return a.name.length - b.name.length;
-    return a.slug.localeCompare(b.slug);
-  });
-
-  return matched.slice(0, limit);
+  return arr.slice(0, limit);
 }
 
 /**
@@ -353,18 +423,41 @@ export function searchEmojisBySlugPrefix(
   const index = getEmojiSearchIndex();
   const exact: EmojiEntry[] = [];
   const prefix: EmojiEntry[] = [];
+  const seen = new Set<string>();
 
   const aliasResolved = resolveSlugAlias(q);
   if (aliasResolved !== q) {
     const aliasEntry =
       index.all.find((e) => e.slug.toLowerCase() === aliasResolved) ?? null;
-    if (aliasEntry) exact.push(aliasEntry);
+    if (aliasEntry) {
+      exact.push(aliasEntry);
+      seen.add(aliasEntry.emoji);
+    }
   }
 
-  for (const e of index.all) {
-    const slug = e.slug.toLowerCase();
-    if (slug === q) exact.push(e);
-    else if (slug.startsWith(q)) prefix.push(e);
+  const slugCandidates = index.byToken.get(q);
+  if (slugCandidates) {
+    for (const e of slugCandidates) {
+      const slug = e.slug.toLowerCase();
+      if (slug === q && !seen.has(e.emoji)) {
+        exact.push(e);
+        seen.add(e.emoji);
+      } else if (slug.startsWith(q) && !seen.has(e.emoji)) {
+        prefix.push(e);
+        seen.add(e.emoji);
+      }
+    }
+  }
+
+  if (exact.length + prefix.length < limit) {
+    for (const e of index.all) {
+      if (seen.has(e.emoji)) continue;
+      const slug = e.slug.toLowerCase();
+      if (slug === q) exact.push(e);
+      else if (slug.startsWith(q)) prefix.push(e);
+      seen.add(e.emoji);
+      if (exact.length + prefix.length >= limit * 2) break;
+    }
   }
 
   prefix.sort((a, b) => {

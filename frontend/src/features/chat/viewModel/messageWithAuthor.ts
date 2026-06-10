@@ -52,7 +52,7 @@ export function fingerprintMessageReactions(
   reactions: MessageReaction[] | undefined,
 ): string {
   if (!reactions?.length) return '';
-  /** Order-invariant multiset: emoji + sorted member list + count (ignores display order / lastReactionAt). */
+  /** Order-invariant multiset: emoji + sorted member list + count (ignores display order / firstReactionAt). */
   const parts = reactions.map((r) => {
     const users = [...r.userIds].sort().join(',');
     return {

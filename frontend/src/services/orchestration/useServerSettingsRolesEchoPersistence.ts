@@ -20,19 +20,23 @@ import type {
 } from '@/features/server-settings/types';
 import type { EchoRoleCategoryDto } from '@/api/echo/types';
 
-function displayedRoleOrderInCategory(
-  roles: ManagedRole[],
-  categoryId: string,
-): string[] {
-  return roles
-    .filter((r) => r.name !== '@everyone' && r.roleCategoryId === categoryId)
-    .map((r) => r.id);
-}
 import { fetchManagedRolesFromEcho } from '@/services/orchestration/fetchManagedRolesFromEcho';
 import {
   cloneRoleManagerState,
   mergeEchoRoleListPreservingLocalEdits,
 } from '@/features/server-settings/domain/roleManagerState';
+import { isPinnedBottomEchoRole } from '@shared/echoReservedRoles';
+
+function displayedRoleOrderInCategory(
+  roles: ManagedRole[],
+  categoryId: string,
+): string[] {
+  return roles
+    .filter(
+      (r) => !isPinnedBottomEchoRole(r) && r.roleCategoryId === categoryId,
+    )
+    .map((r) => r.id);
+}
 
 function roleLinksSignature(links: ManagedRoleLink[]): string {
   return JSON.stringify(
@@ -144,7 +148,7 @@ export function useServerSettingsRolesEchoPersistence(
         const currentIds = new Set(current.map((r) => r.id));
         for (const removed of snapshot) {
           if (currentIds.has(removed.id)) continue;
-          if (removed.name === '@everyone') continue;
+          if (isPinnedBottomEchoRole(removed)) continue;
           try {
             await deleteEchoRoleApi(token ?? '', sid, removed.id);
           } catch (e) {

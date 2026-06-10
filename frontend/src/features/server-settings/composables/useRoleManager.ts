@@ -13,10 +13,12 @@ import {
   defaultRolePermissions,
 } from '@/features/server-settings/domain/roleManagerState';
 import {
+  pinPinnedBottomEchoRoles,
   rolePosition as getRolePosition,
   setRolePosition as reorderToPosition,
   moveRoleToIndex as reorderToIndex,
 } from '@/features/server-settings/roleManagerOrdering';
+import { isPinnedBottomEchoRole } from '@shared/echoReservedRoles';
 
 type RoleCard = { id: string; name: string; color: string; count: number };
 
@@ -63,7 +65,9 @@ export function useRoleManager(roleCards: Ref<RoleCard[]>) {
   }
 
   function initRoleManager() {
-    const mapped = buildInitialManagedRoles(roleCards.value);
+    const mapped = pinPinnedBottomEchoRoles(
+      buildInitialManagedRoles(roleCards.value),
+    );
     const snap = cloneRoleManagerState(mapped);
     // Snapshot must be updated before `roleManagerRoles` so the deep watch does not
     // compare new roles against a stale snapshot and force `roleManagerDirty` true.
@@ -75,9 +79,10 @@ export function useRoleManager(roleCards: Ref<RoleCard[]>) {
   }
 
   function initRoleManagerFromEcho(mapped: ManagedRole[]) {
-    const snap = cloneRoleManagerState(mapped);
+    const ordered = pinPinnedBottomEchoRoles(mapped);
+    const snap = cloneRoleManagerState(ordered);
     roleManagerInitialSnapshot.value = snap;
-    roleManagerRoles.value = mapped;
+    roleManagerRoles.value = ordered;
     roleManagerDirty.value = false;
     selectedRoleId.value = mapped[0]?.id ?? '';
     resetRoleManagerUi();
@@ -124,6 +129,11 @@ export function useRoleManager(roleCards: Ref<RoleCard[]>) {
   }
 
   function onRoleDragStart(roleId: string, event: DragEvent) {
+    const role = roleManagerRoles.value.find((row) => row.id === roleId);
+    if (role && isPinnedBottomEchoRole(role)) {
+      event.preventDefault();
+      return;
+    }
     draggingRoleId.value = roleId;
     dragOverRoleId.value = roleId;
     dragInsertAfter.value = false;
@@ -222,7 +232,7 @@ export function useRoleManager(roleCards: Ref<RoleCard[]>) {
 
   function setSelectedRoleDefaultOnJoin(value: boolean) {
     if (!selectedRole.value) return;
-    if (selectedRole.value.name === '@everyone') return;
+    if (isPinnedBottomEchoRole(selectedRole.value)) return;
     const rt = selectedRole.value.roleType;
     if (rt !== 'mixed' && rt !== 'visual') return;
     selectedRole.value.defaultOnJoin = value;
@@ -232,7 +242,7 @@ export function useRoleManager(roleCards: Ref<RoleCard[]>) {
   function setSelectedRoleType(roleType: EchoRoleType) {
     if (!selectedRole.value) return;
     const r = selectedRole.value;
-    if (r.name === '@everyone') return;
+    if (isPinnedBottomEchoRole(r)) return;
     r.roleType = roleType;
     if (roleType === 'visual') {
       const mention = r.mentionable;
@@ -261,11 +271,11 @@ export function useRoleManager(roleCards: Ref<RoleCard[]>) {
     if (!selectedRole.value) return;
     const self = selectedRole.value;
     if (self.roleType !== 'mixed' && self.roleType !== 'visual') return;
-    if (self.name === '@everyone') return;
+    if (isPinnedBottomEchoRole(self)) return;
     if (!linkedRoleId || linkedRoleId === self.id) return;
     if (self.linkedRoles.some((l) => l.linkedRoleId === linkedRoleId)) return;
     const target = roleManagerRoles.value.find((r) => r.id === linkedRoleId);
-    if (!target || target.name === '@everyone') return;
+    if (!target || isPinnedBottomEchoRole(target)) return;
     self.linkedRoles.push({ linkedRoleId, twoWay });
     roleManagerDirty.value = true;
   }

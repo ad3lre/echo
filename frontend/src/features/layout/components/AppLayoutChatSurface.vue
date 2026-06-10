@@ -427,7 +427,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :search-text="resolvedSearchText ?? ''"
         :filter-chips="resolvedFilterChips ?? []"
         :all-channels="resolvedAllChannels ?? []"
-        :users="chatCtx.users"
+        :users="chatCtx.usersForMentionAutocomplete"
         :paginated-search-results="resolvedPaginatedSearchResults ?? []"
         :search-result-messages-count="resolvedSearchResultMessagesCount ?? 0"
         :search-result-page="resolvedSearchResultPage ?? 1"

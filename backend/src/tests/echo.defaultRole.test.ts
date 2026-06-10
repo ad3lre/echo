@@ -24,7 +24,7 @@ async function insertAuthUser(pool: pg.Pool, id: string): Promise<void> {
   );
 }
 
-async function grantManageRolesToEveryone(
+async function grantManageRolesToMembers(
   pool: pg.Pool,
   serverId: string,
 ): Promise<void> {
@@ -32,7 +32,7 @@ async function grantManageRolesToEveryone(
     `
     UPDATE echo_roles
     SET permissions = permissions || '["MANAGE_ROLES"]'::jsonb
-    WHERE server_id = $1 AND name = '@everyone'
+    WHERE server_id = $1 AND name IN ('@members', '@everyone')
     `,
     [serverId],
   );
@@ -60,17 +60,17 @@ async function run(): Promise<void> {
     const created = await createEchoServer(pool, ownerId, 'default-role-test');
     serverId = created.serverId;
 
-    await grantManageRolesToEveryone(pool, serverId);
+    await grantManageRolesToMembers(pool, serverId);
 
     const roles = await listEchoRolesForServer(pool, serverId);
-    const memberRole = roles.find((r) => r.name === 'All');
-    assert.ok(memberRole, 'Expected seeded All role to exist');
+    const moderatorRole = roles.find((r) => r.name === 'Moderator');
+    assert.ok(moderatorRole, 'Expected seeded Moderator role to exist');
 
     const markDefault = await updateEchoRole(
       pool,
       serverId,
       ownerId,
-      memberRole!.id,
+      moderatorRole!.id,
       { defaultOnJoin: true },
     );
     assert.equal(markDefault, 'ok');
@@ -82,10 +82,12 @@ async function run(): Promise<void> {
     );
     const memberRoleIds = new Set(assignments[memberId] ?? []);
 
-    const everyoneRole = roles.find((r) => r.name === '@everyone');
-    assert.ok(everyoneRole, 'Expected @everyone role to exist');
-    assert.equal(memberRoleIds.has(everyoneRole!.id), true);
-    assert.equal(memberRoleIds.has(memberRole!.id), true);
+    const membersRole = roles.find(
+      (r) => r.name === '@members' || r.name === '@everyone',
+    );
+    assert.ok(membersRole, 'Expected @members role to exist');
+    assert.equal(memberRoleIds.has(membersRole!.id), true);
+    assert.equal(memberRoleIds.has(moderatorRole!.id), true);
 
     console.log('echo.defaultRole: ok');
   } finally {

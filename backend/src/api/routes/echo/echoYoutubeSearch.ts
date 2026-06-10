@@ -9,6 +9,13 @@ import { config } from '../../../config';
 import { sendError } from '../../errors';
 import { tryConsumeYoutubeWatchTogetherSeconds } from '../../../services/youtubeWatchTogetherUsageBudget';
 import { YOUTUBE_SEARCH_FETCH_MS } from '../../../constants/outboundHttp';
+import { createUpstreamSearchCache } from '../../../services/upstreamSearchCache';
+
+const youtubeSearchCache = createUpstreamSearchCache<{
+  items: YoutubeSearchItem[];
+  source: string;
+  hint?: string;
+}>();
 
 export type YoutubeSearchItem = {
   id: string;
@@ -397,12 +404,16 @@ export default async function echoYoutubeSearchRoutes(
 
         if (!(await consumeYoutubeBrowseBudget(request, reply))) return;
 
+        const cacheKey = q.toLowerCase();
+        const cached = youtubeSearchCache.get(cacheKey);
+        if (cached) return reply.send(cached);
+
         let items = await searchYoutubeOfficial(q);
         if (!items.length) {
           items = await searchInvidious(q, fastify.log);
         }
         if (!items.length) {
-          return reply.send({
+          const empty = {
             items: [] as YoutubeSearchItem[],
             source:
               config.youtubeDataApiKey.trim() !== '' ? 'youtube' : 'invidious',
@@ -410,13 +421,17 @@ export default async function echoYoutubeSearchRoutes(
               config.youtubeDataApiKey.trim() === ''
                 ? 'No results from Invidious mirrors; set YOUTUBE_DATA_API_KEY for official search.'
                 : undefined,
-          });
+          };
+          youtubeSearchCache.set(cacheKey, empty);
+          return reply.send(empty);
         }
-        return reply.send({
+        const payload = {
           items,
           source:
             config.youtubeDataApiKey.trim() !== '' ? 'youtube' : 'invidious',
-        });
+        };
+        youtubeSearchCache.set(cacheKey, payload);
+        return reply.send(payload);
       },
     );
 

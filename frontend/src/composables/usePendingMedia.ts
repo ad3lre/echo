@@ -41,7 +41,7 @@ export interface PendingGif {
   height?: number;
 }
 
-/** Remote image URL (e.g. stock photo) — sent as `kind: image` without upload. */
+/** Remote image URL (e.g. image search) — rehosted to Echo storage before send. */
 export interface PendingExternalImage {
   url: string;
   spoiler: boolean;

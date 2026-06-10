@@ -108,6 +108,7 @@ export function useMoreServersFolders(
 
   function assignServerToFolder(serverId: string, folderId: string | null) {
     setServerFolderMembership(serverId, folderId);
+    openMenuId.value = null;
     closeContextMenu();
   }
 

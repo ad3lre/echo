@@ -45,6 +45,7 @@ export function createMessageSearchController(
   const searchResultPage = ref(0);
   let apiRequestSeq = 0;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let apiAbortController: AbortController | null = null;
 
   const vm = createMessageSearchControllerState({
     categories,
@@ -78,6 +79,8 @@ export function createMessageSearchController(
 
   function cancelApiSearch(opts?: { exhausted?: boolean }) {
     apiRequestSeq += 1;
+    apiAbortController?.abort();
+    apiAbortController = null;
     clearDebounceTimer();
     apiAccumulated.value = [];
     apiExhausted.value = opts?.exhausted ?? false;
@@ -96,6 +99,9 @@ export function createMessageSearchController(
     const token = apiMode.authToken.value ?? '';
 
     const seq = ++apiRequestSeq;
+    apiAbortController?.abort();
+    const abortController = new AbortController();
+    apiAbortController = abortController;
     if (reset) {
       apiAccumulated.value = [];
       apiExhausted.value = false;
@@ -120,11 +126,15 @@ export function createMessageSearchController(
       let rows: EchoApiMessage[];
       if (useServerSearchApi.value) {
         const sid = apiMode.selectedServerId.value!;
-        const res = await fetchEchoServerMessageSearch(token, sid, params);
+        const res = await fetchEchoServerMessageSearch(token, sid, params, {
+          signal: abortController.signal,
+        });
         rows = res.messages;
       } else {
         const cid = activeChannelId.value;
-        const res = await fetchEchoChannelMessageSearch(token, cid, params);
+        const res = await fetchEchoChannelMessageSearch(token, cid, params, {
+          signal: abortController.signal,
+        });
         rows = res.messages;
       }
       if (seq !== apiRequestSeq) return;
@@ -143,10 +153,14 @@ export function createMessageSearchController(
       }
     } catch (e) {
       if (seq !== apiRequestSeq) return;
+      if (e instanceof DOMException && e.name === 'AbortError') return;
       apiError.value = e instanceof Error ? e.message : 'Search failed';
       if (reset) apiAccumulated.value = [];
     } finally {
-      if (seq === apiRequestSeq) apiLoading.value = false;
+      if (seq === apiRequestSeq) {
+        apiLoading.value = false;
+        if (apiAbortController === abortController) apiAbortController = null;
+      }
     }
   }
 

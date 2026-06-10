@@ -45,27 +45,48 @@ async function run(): Promise<void> {
 
     const created = await createEchoServer(pool, ownerId, 'role-meta-test');
     serverId = created.serverId;
-    const everyoneRoleId = await pool.query<{ id: string }>(
-      `SELECT id FROM echo_roles WHERE server_id = $1 AND name = '@everyone' LIMIT 1`,
+    const membersRoleId = await pool.query<{ id: string }>(
+      `SELECT id FROM echo_roles WHERE server_id = $1 AND name IN ('@members', '@everyone') ORDER BY CASE WHEN name = '@members' THEN 0 ELSE 1 END LIMIT 1`,
       [serverId],
     );
-    assert.ok(everyoneRoleId.rows[0], '@everyone role must exist');
+    assert.ok(membersRoleId.rows[0], '@members role must exist');
     await pool.query(
       `INSERT INTO echo_server_members (server_id, user_id) VALUES ($1, $2)`,
       [serverId, managerId],
     );
     await pool.query(
       `INSERT INTO echo_member_roles (server_id, user_id, role_id) VALUES ($1, $2, $3)`,
-      [serverId, managerId, String(everyoneRoleId.rows[0]!.id)],
+      [serverId, managerId, String(membersRoleId.rows[0]!.id)],
     );
 
     let roles = await listEchoRolesForServer(pool, serverId);
-    const everyone = roles.find((r) => r.isEveryone);
-    assert.ok(everyone);
-    const defaultAll = roles.find((r) => r.name === 'All');
-    assert.ok(defaultAll, 'Should have seeded All role');
-    assert.equal(defaultAll!.position, 1);
-    assert.equal(everyone.position, 0);
+    const members = roles.find(
+      (r) => r.isEveryone || r.name === '@members' || r.isMembers,
+    );
+    assert.ok(members);
+    const seededAdmin = roles.find((r) => r.name === 'Admin');
+    const seededModerator = roles.find((r) => r.name === 'Moderator');
+    assert.ok(seededAdmin, 'Should have seeded Admin role');
+    assert.ok(seededModerator, 'Should have seeded Moderator role');
+    assert.ok(seededAdmin!.position > seededModerator!.position);
+    assert.ok(seededModerator!.position > members!.position);
+
+    const ownerAssignments = await pool.query<{ name: string }>(
+      `
+      SELECT r.name
+      FROM echo_member_roles mr
+      INNER JOIN echo_roles r ON r.id = mr.role_id
+      WHERE mr.server_id = $1 AND mr.user_id = $2
+      `,
+      [serverId, ownerId],
+    );
+    const ownerRoleNames = new Set(
+      ownerAssignments.rows.map((row) => String(row.name)),
+    );
+    assert.ok(
+      ownerRoleNames.has('@members') || ownerRoleNames.has('@everyone'),
+    );
+    assert.equal(ownerRoleNames.has('Admin'), false);
 
     const mod = await createEchoRole(pool, serverId, ownerId, {
       name: 'CustomMod',
@@ -108,7 +129,7 @@ async function run(): Promise<void> {
       .sort((a, b) => b.position - a.position || a.id.localeCompare(b.id))
       .map((r) => r.id);
     const managerIdx = ownerOrdered.indexOf(managerRoleRow!.id);
-    const adminIdx = ownerOrdered.indexOf(defaultAll!.id);
+    const adminIdx = ownerOrdered.indexOf(seededAdmin!.id);
     assert.ok(managerIdx >= 0 && adminIdx >= 0, 'expected role ids must exist');
     const managerEscalationOrder = ownerOrdered.slice();
     managerEscalationOrder.splice(managerIdx, 1);
@@ -129,8 +150,8 @@ async function run(): Promise<void> {
       modRow!.id,
       vipRow!.id,
       managerRoleRow!.id,
-      defaultAll!.id,
-      everyone!.id,
+      seededAdmin!.id,
+      members!.id,
     ];
     const rOrder = await replaceEchoServerRoleOrder(
       pool,
@@ -142,28 +163,48 @@ async function run(): Promise<void> {
 
     roles = await listEchoRolesForServer(pool, serverId);
     const byId = new Map(roles.map((r) => [r.id, r]));
-    assert.equal(byId.get(modRow!.id)!.position, 4);
-    assert.equal(byId.get(vipRow!.id)!.position, 3);
-    assert.equal(byId.get(defaultAll!.id)!.position, 1);
-    assert.equal(byId.get(everyone!.id)!.position, 0);
+    assert.ok(byId.get(modRow!.id)!.position > byId.get(vipRow!.id)!.position);
+    assert.ok(
+      byId.get(vipRow!.id)!.position > byId.get(managerRoleRow!.id)!.position,
+    );
+    assert.ok(
+      byId.get(managerRoleRow!.id)!.position >
+        byId.get(seededAdmin!.id)!.position,
+    );
+    assert.ok(
+      byId.get(seededAdmin!.id)!.position > byId.get(members!.id)!.position,
+    );
 
     await pool.query(
-      `UPDATE echo_roles SET position = 500 WHERE server_id = $1 AND name = '@everyone'`,
+      `UPDATE echo_roles SET position = 500 WHERE server_id = $1 AND name IN ('@members', '@everyone')`,
       [serverId],
     );
     await reconcileEveryoneRoleHierarchyPosition(pool, serverId);
     roles = await listEchoRolesForServer(pool, serverId);
-    const evAfter = roles.find((r) => r.isEveryone);
-    assert.ok(evAfter);
+    const membersAfter = roles.find(
+      (r) => r.isEveryone || r.name === '@members' || r.isMembers,
+    );
+    const globalAfter = roles.find((r) => r.name === '@global');
+    assert.ok(membersAfter);
+    assert.ok(globalAfter);
+    const sortedPositions = [...roles.map((r) => r.position)].sort(
+      (a, b) => a - b,
+    );
+    assert.equal(globalAfter!.position, sortedPositions[0]);
+    assert.equal(membersAfter!.position, sortedPositions[1]);
     for (const r of roles) {
-      if (r.isEveryone) {
-        assert.equal(r.position, 0);
-      } else {
-        assert.ok(
-          r.position > evAfter!.position,
-          `@everyone must be lower than ${r.name}`,
-        );
+      if (
+        r.name === '@global' ||
+        r.isEveryone ||
+        r.name === '@members' ||
+        r.isMembers
+      ) {
+        continue;
       }
+      assert.ok(
+        r.position > membersAfter!.position,
+        `${r.name} must sit above @members`,
+      );
     }
 
     const rHoist = await updateEchoRole(pool, serverId, ownerId, modRow!.id, {
@@ -205,8 +246,8 @@ async function run(): Promise<void> {
     );
     assert.equal(rBadColor, 'invalid_body');
 
-    const rBad = await updateEchoRole(pool, serverId, ownerId, everyone!.id, {
-      name: 'RenamedEveryone',
+    const rBad = await updateEchoRole(pool, serverId, ownerId, members!.id, {
+      name: 'RenamedMembers',
     });
     assert.equal(rBad, 'invalid_body');
 

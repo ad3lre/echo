@@ -8,6 +8,11 @@ import {
 } from '../../../domain/echoStore';
 import { sendTransactionalEmail } from '../../../services/email/sendMail';
 import {
+  BOOT_STALL_ALERT_KINDS,
+  sendBootStallAlertEmail,
+  type BootStallAlertKind,
+} from '../../../services/email/echoBootStallAlertEmail';
+import {
   echoPool,
   requireEchoStore,
   trimEchoPathParam,
@@ -83,15 +88,41 @@ export default async function echoPublicRoutes(
     );
 
     /** Public emoji market: community packs, sorted by aggregate usage. */
-    publicReadScope.get<{ Querystring: { q?: string } }>(
+    publicReadScope.get<{
+      Querystring: { q?: string; limit?: string; offset?: string };
+    }>(
       '/emoji-market/packs',
       { preHandler: [requireEchoStore] },
       async (req, reply) => {
         const pool = echoPool(req);
         const q =
           typeof req.query.q === 'string' ? req.query.q.slice(0, 64) : '';
-        const packs = await listEchoEmojiMarketPacks(pool, q);
+        const limit = Math.min(
+          100,
+          Math.max(1, parseInt(req.query.limit ?? '50', 10) || 50),
+        );
+        const offset = Math.max(0, parseInt(req.query.offset ?? '0', 10) || 0);
+        const packs = await listEchoEmojiMarketPacks(pool, q, {
+          limit,
+          offset,
+        });
         return reply.code(200).send({ packs });
+      },
+    );
+
+    publicReadScope.get<{ Params: { packId: string } }>(
+      '/emoji-market/packs/:packId',
+      { preHandler: [requireEchoStore] },
+      async (req, reply) => {
+        const pool = echoPool(req);
+        const packId = trimEchoPathParam(req.params.packId);
+        const { getEchoEmojiMarketPackById } =
+          await import('../../../domain/echoStore/emojiLibrary');
+        const pack = await getEchoEmojiMarketPackById(pool, packId);
+        if (!pack) {
+          return sendError(reply, 404, 'NOT_FOUND', 'Emoji pack not found');
+        }
+        return reply.code(200).send({ pack });
       },
     );
 
@@ -199,6 +230,80 @@ export default async function echoPublicRoutes(
         }
 
         return reply.code(200).send({ ok: true });
+      },
+    );
+  });
+
+  /**
+   * Client boot-stall alerts (web app watcher). No auth — can fire before login.
+   * Rate-limited; emails bugs@chat-echo.com (ECHO_BUGS_EMAIL).
+   */
+  await fastify.register(async (scope) => {
+    await scope.register(rateLimit, {
+      max: 8,
+      timeWindow: '1 hour',
+      keyGenerator: (req) => `boot-stall-alert:ip:${req.ip}`,
+      addHeaders: { 'retry-after': true },
+    });
+
+    type BootStallAlertBody = {
+      kind?: unknown;
+      client?: unknown;
+      timing?: unknown;
+      state?: unknown;
+    };
+
+    scope.post<{ Body: BootStallAlertBody }>(
+      '/public/client-alerts/boot-stall',
+      async (req, reply) => {
+        const body = (req.body ?? {}) as BootStallAlertBody;
+        const kindRaw = typeof body.kind === 'string' ? body.kind.trim() : '';
+        if (!BOOT_STALL_ALERT_KINDS.includes(kindRaw as BootStallAlertKind)) {
+          return reply.code(400).send({ error: 'invalid_kind' });
+        }
+        const kind = kindRaw as BootStallAlertKind;
+
+        const clientMeta =
+          body.client &&
+          typeof body.client === 'object' &&
+          !Array.isArray(body.client)
+            ? (body.client as Record<string, unknown>)
+            : {};
+        const timingMeta =
+          body.timing &&
+          typeof body.timing === 'object' &&
+          !Array.isArray(body.timing)
+            ? (body.timing as Record<string, unknown>)
+            : {};
+        const stateMeta =
+          body.state &&
+          typeof body.state === 'object' &&
+          !Array.isArray(body.state)
+            ? (body.state as Record<string, unknown>)
+            : {};
+
+        req.log.warn(
+          {
+            msg: 'echo_boot_stall_client_alert',
+            kind,
+            timingMeta,
+            stateMeta,
+            clientUrl:
+              typeof clientMeta.url === 'string' ? clientMeta.url : undefined,
+          },
+          'Client reported boot stall',
+        );
+
+        void sendBootStallAlertEmail(req.log, {
+          kind,
+          clientMeta,
+          timingMeta,
+          stateMeta,
+          requestIp: req.ip,
+          userAgent: String(req.headers['user-agent'] ?? '(unknown)'),
+        });
+
+        return reply.code(202).send({ ok: true });
       },
     );
   });

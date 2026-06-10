@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue';
 import { icons } from '@/assets/icons';
-import iconFolder from '@/assets/icons/folder.svg?url';
+import MoreServerFolderAssignMenuItems from '@/components/MoreServerFolderAssignMenuItems.vue';
 import type { MoreServersMockServer } from '@/composables/useMoreServers';
 import type { MoreServerWidgetFolder } from '@/composables/useMoreServerFolders';
 import type { WidgetFolderContextMenu } from '@/composables/useMoreServersMenus';
@@ -82,36 +82,14 @@ defineProps<{
       >
         Widget folder
       </div>
-      <button
-        v-if="folderForServer(openMenuServer.id)"
-        type="button"
-        class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-        role="menuitem"
-        @click="assignServerToFolder(openMenuServer.id, null)"
-      >
-        <img :src="icons.arrowLeft" alt="" :class="menuItemIconClass" />
-        Remove from folder
-      </button>
-      <button
-        v-for="f in folders"
-        :key="'card-fm-' + f.id"
-        type="button"
-        class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-        role="menuitem"
-        @click="assignServerToFolder(openMenuServer.id, f.id)"
-      >
-        <img :src="iconFolder" alt="" :class="menuItemIconClass" />
-        Move to “{{ f.name }}”
-      </button>
-      <button
-        type="button"
-        class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-        role="menuitem"
-        @click="newFolderWithServer(openMenuServer.id)"
-      >
-        <img :src="icons.plus" alt="" :class="menuItemIconClass" />
-        New folder with this server…
-      </button>
+      <MoreServerFolderAssignMenuItems
+        :folders="folders"
+        :current-folder-id="folderForServer(openMenuServer.id)?.id ?? null"
+        :show-remove="!!folderForServer(openMenuServer.id)"
+        @assign="assignServerToFolder(openMenuServer.id, $event)"
+        @remove="assignServerToFolder(openMenuServer.id, null)"
+        @new-folder="newFolderWithServer(openMenuServer.id)"
+      />
       <div class="my-1 h-px bg-glass-2" role="separator" />
       <button
         type="button"
@@ -179,38 +157,16 @@ defineProps<{
         <div
           class="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-fg-subtle border-b border-border"
         >
-          Move to folder
+          Widget folder
         </div>
-        <button
-          v-if="folderForServer(contextMenu.serverId)"
-          type="button"
-          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="assignServerToFolderFromMenu(null)"
-        >
-          <img :src="icons.arrowLeft" alt="" :class="menuItemIconClass" />
-          Remove from folder
-        </button>
-        <button
-          v-for="f in folders"
-          :key="'fm-' + f.id"
-          type="button"
-          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="assignServerToFolderFromMenu(f.id)"
-        >
-          <img :src="iconFolder" alt="" :class="menuItemIconClass" />
-          Move to “{{ f.name }}”
-        </button>
-        <button
-          type="button"
-          class="echo-menu-item flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-          role="menuitem"
-          @click="newFolderFromContextMenu"
-        >
-          <img :src="icons.plus" alt="" :class="menuItemIconClass" />
-          New folder with this server…
-        </button>
+        <MoreServerFolderAssignMenuItems
+          :folders="folders"
+          :current-folder-id="folderForServer(contextMenu.serverId)?.id ?? null"
+          :show-remove="!!folderForServer(contextMenu.serverId)"
+          @assign="assignServerToFolderFromMenu($event)"
+          @remove="assignServerToFolderFromMenu(null)"
+          @new-folder="newFolderFromContextMenu"
+        />
       </template>
     </div>
   </Teleport>

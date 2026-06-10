@@ -113,6 +113,26 @@ describe('useAppBootGate', () => {
     scope.stop();
   });
 
+  it('reveals immediately when the workspace settles before fastRevealMs', async () => {
+    const settled = ref(false);
+    const { api, scope } = run({
+      hasSession: false,
+      warmPainted: false,
+      initialLoadSettled: settled,
+      timeoutMs: 30_000,
+      fastRevealMs: 600,
+    });
+    expect(api.showBootGate.value).toBe(true);
+
+    settled.value = true;
+    await nextTick();
+    expect(api.showBootGate.value).toBe(false);
+
+    vi.advanceTimersByTime(30_000);
+    expect(api.showBootGate.value).toBe(false);
+    scope.stop();
+  });
+
   it('clears both timers on scope dispose (no reveal after teardown)', () => {
     const { api, scope } = run({
       hasSession: false,

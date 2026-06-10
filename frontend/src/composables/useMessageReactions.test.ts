@@ -44,7 +44,7 @@ describe('useMessageReactions', () => {
       count: 1,
       userIds: ['u1'],
     });
-    expect(messages.value.c1![0]!.reactions?.[0]?.lastReactionAt).toEqual(
+    expect(messages.value.c1![0]!.reactions?.[0]?.firstReactionAt).toEqual(
       expect.any(String),
     );
   });

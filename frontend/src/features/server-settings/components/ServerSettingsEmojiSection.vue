@@ -71,6 +71,7 @@ const props = defineProps<{
   marketEmojiPacksLoading: boolean;
   marketEmojiPacksError: string | null;
   refreshMarketEmojiPacks: () => void | Promise<void>;
+  loadMarketPackDetail: (packId: string) => void | Promise<void>;
   createCustomEmojiPack: () => void;
   importMarketEmojiPack: (packId: string) => void;
   onEmojiUploadFile: (file: File) => void | Promise<void>;
@@ -255,6 +256,10 @@ watch(
       props.filteredMarketEmojiPacks[0]?.id ?? '';
   },
 );
+
+watch(selectedMarketPreviewPackId, (packId) => {
+  if (packId) void props.loadMarketPackDetail(packId);
+});
 
 watch(
   () => props.filteredMarketEmojiPacks,
@@ -993,8 +998,9 @@ watch(
                           pack.authorServerName
                             ? `${pack.authorServerName} · `
                             : ''
-                        }}{{ pack.totalUseCount ?? 0 }} uses ·
-                        {{ pack.emojis?.length ?? 0 }} emojis
+                        }}
+                        {{ pack.totalUseCount ?? 0 }} uses ·
+                        {{ pack.emojiCount ?? pack.emojis?.length ?? 0 }} emojis
                       </div>
                     </div>
                   </div>

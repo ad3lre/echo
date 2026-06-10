@@ -147,6 +147,13 @@ const props = defineProps<{
   }) => void | Promise<void>;
   /** Per-channel channel settings (gear, context menu); Echo uses effective MANAGE_CHANNELS. */
   canManageThisChannel?: (channel: ChannelSummary) => boolean;
+  /** Destructive context-menu actions are awaitable so the quick menu mirrors settings flows. */
+  deleteChannelHandler?: (payload: {
+    channelId: string;
+  }) => void | Promise<void>;
+  deleteCategoryHandler?: (payload: {
+    categoryId: string;
+  }) => void | Promise<void>;
   /** When true, show invite entry points (Echo: CREATE_INVITE). Omitted/false hides them. */
   canInvite?: boolean;
   /** When false, hide “Server Settings” in the server header menu (no manage-server / manage-roles). */
@@ -865,6 +872,10 @@ async function channelMenuDelete() {
     danger: true,
   });
   if (!ok) return;
+  if (props.deleteChannelHandler) {
+    await props.deleteChannelHandler({ channelId: id });
+    return;
+  }
   emit('delete-channel', { channelId: id });
 }
 
@@ -883,6 +894,10 @@ async function categoryMenuDelete() {
     danger: true,
   });
   if (!ok) return;
+  if (props.deleteCategoryHandler) {
+    await props.deleteCategoryHandler({ categoryId: id });
+    return;
+  }
   emit('delete-category', { categoryId: id });
 }
 

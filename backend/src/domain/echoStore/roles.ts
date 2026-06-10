@@ -195,7 +195,11 @@ export async function reconcileMembersRoleHierarchyPosition(
       SELECT id,
         ROW_NUMBER() OVER (
           ORDER BY
-            CASE WHEN name = '@members' THEN 0 ELSE 1 END DESC,
+            CASE
+              WHEN name = '@global' THEN 0
+              WHEN name = '@members' THEN 1
+              ELSE 2
+            END DESC,
             position DESC,
             id ASC
         ) AS rank,
@@ -234,7 +238,11 @@ export async function migrateMembersRoleHierarchyPositions(
         ROW_NUMBER() OVER (
           PARTITION BY server_id
           ORDER BY
-            CASE WHEN name = '@members' THEN 0 ELSE 1 END DESC,
+            CASE
+              WHEN name = '@global' THEN 0
+              WHEN name = '@members' THEN 1
+              ELSE 2
+            END DESC,
             position DESC,
             id ASC
         ) AS rank,
@@ -282,7 +290,11 @@ export async function listEchoRolesForServer(
       ON c.id = r.role_category_id AND c.server_id = r.server_id
     WHERE r.server_id = $1
     ORDER BY
-      CASE WHEN r.name = '@members' THEN 1 ELSE 0 END,
+      CASE
+        WHEN r.name = '@global' THEN 2
+        WHEN r.name = '@members' THEN 1
+        ELSE 0
+      END,
       COALESCE(c.position, 0) ASC,
       r.rank_in_category DESC,
       r.position DESC,
@@ -414,13 +426,14 @@ export async function replaceEchoServerRoleOrder(
     seen.add(id);
   }
   const ordered = [...roleIdsTopToBottom];
-  const membersIdx = ordered.findIndex(
-    (id) => byId.get(id)?.name === '@members',
-  );
-  if (membersIdx >= 0) {
-    const [ev] = ordered.splice(membersIdx, 1);
-    ordered.push(ev!);
+  const pinnedTail: string[] = [];
+  for (const reservedName of ['@members', '@everyone', '@global'] as const) {
+    const idx = ordered.findIndex((id) => byId.get(id)?.name === reservedName);
+    if (idx < 0) continue;
+    const [row] = ordered.splice(idx, 1);
+    if (row) pinnedTail.push(row);
   }
+  ordered.push(...pinnedTail);
   if (!actorIsOwner) {
     for (const roleId of ordered) {
       if (byId.get(roleId)?.name === '@members') continue;
@@ -437,7 +450,7 @@ export async function replaceEchoServerRoleOrder(
   const blockMap = new Map<string, string[]>();
   for (const roleId of ordered) {
     const row = byId.get(roleId);
-    if (!row || row.name === '@members') continue;
+    if (!row || row.name === '@members' || row.name === '@global') continue;
     const catId = row.roleCategoryId ?? '__uncategorized__';
     const list = blockMap.get(catId) ?? [];
     list.push(roleId);
@@ -473,7 +486,9 @@ export async function replaceEchoRoleOrderInCategory(
     `,
     [serverId, categoryId],
   );
-  const expected = inCat.rows.filter((r) => r.name !== '@members');
+  const expected = inCat.rows.filter(
+    (r) => r.name !== '@members' && r.name !== '@global',
+  );
   if (roleIdsTopToBottom.length !== expected.length) return 'invalid_body';
   const expectedIds = new Set(expected.map((r) => String(r.id)));
   const seen = new Set<string>();

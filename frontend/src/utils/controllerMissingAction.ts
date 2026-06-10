@@ -5,6 +5,10 @@ export const ECHO_APP_TOAST_EVENT = 'echo-app-toast';
 /** `detail: { focused: boolean }` — composer focus raises the toast's bottom inset so it clears the input bar. */
 export const ECHO_CHAT_COMPOSER_FOCUS_EVENT = 'echo:chat-composer-focus';
 
+/** Ask the active chat composer for `channelId` to re-apply channel message format. */
+export const ECHO_CHANNEL_COMPOSER_FORMAT_REHYDRATE_EVENT =
+  'echo:channel-composer-format-rehydrate';
+
 export type AppToastSeverity = 'success' | 'info' | 'warning' | 'error';
 
 export type AppToastAction = {

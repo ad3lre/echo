@@ -926,93 +926,40 @@ img.brightness-0.invert {
 }
 
 /*
- * KaTeX layout in chat, composer preview, settings guide, and Paper.
- * Display math: keep `.katex-display` overflow visible (tall matrices are not
- * clipped). Horizontal scroll lives on the inner `.katex` child; pairing
- * overflow-x:auto with overflow-y:visible on one element forces overflow-y:auto
- * and creates a vertical scrollport. The inner scroller keeps vertical padding
- * so fractions, roots, and sub/sup stacks have room inside that clip boundary.
+ * KaTeX in chat, composer preview, settings guide, and Paper.
+ *
+ * Structural KaTeX rules (fonts, struts, vlist tables, msupsub, …) come
+ * exclusively from `katex/dist/katex.min.css`, eagerly imported in main.ts.
+ * Do NOT duplicate or override KaTeX internals here: hand-copied subsets
+ * drift between KaTeX versions and previously broke sub/sup + fraction
+ * layout (collapsed vlists painting glyphs on top of each other).
+ *
+ * The app layer below only controls how math sits inside a message column.
+ * Display math: `.katex-display` stays overflow-visible; the inner `.katex`
+ * is the horizontal scroller. Pairing overflow-x:auto with overflow-y:visible
+ * on one element computes to overflow-y:auto and vertically clips tall math,
+ * so the scroller uses overflow-y:hidden plus vertical padding to give
+ * fractions, matrices, and radicals room inside its clip boundary.
  */
 .message-content,
 .message-content-segment,
 .markdown-preview__content,
 .legal-md-preview,
 .paper-math {
-  /*
-   * Critical KaTeX vlist layout (especially vlist-t2 for combined sub+sup).
-   * Duplicated here so chat math is correct even if the async CSS chunk is late.
-   */
-  .katex .base,
-  .katex .strut {
-    display: inline-block;
-  }
-
-  .katex .base {
-    position: relative;
-    white-space: nowrap;
-    width: min-content;
-  }
-
-  .katex .vlist-t {
-    border-collapse: collapse;
-    display: inline-table;
-    table-layout: fixed;
-  }
-
-  .katex .vlist-r {
-    display: table-row;
-  }
-
-  .katex .vlist {
-    display: table-cell;
-    position: relative;
-    vertical-align: bottom;
-  }
-
-  .katex .vlist > span {
-    display: block;
-    height: 0;
-    position: relative;
-  }
-
-  .katex .vlist > span > span {
-    display: inline-block;
-  }
-
-  .katex .vlist > span > .pstrut {
-    overflow: hidden;
-    width: 0;
-  }
-
-  .katex .vlist-t2 {
-    margin-right: -2px;
-  }
-
-  .katex .vlist-s {
-    display: table-cell;
-    font-size: 1px;
-    min-width: 2px;
-    vertical-align: bottom;
-    width: 2px;
-  }
-
-  .katex .msupsub {
-    text-align: left;
-  }
-
   .katex {
     padding: 0.14em 0.08em 0.22em;
     box-sizing: content-box;
-    line-height: normal;
+  }
+
+  :is(p, li, blockquote, h1, h2, h3, h4, h5, h6) {
+    overflow: visible;
   }
 
   .katex-display {
     display: block;
     max-width: 100%;
     overflow: visible;
-    padding: 0;
     margin: 0.35em 0;
-    box-sizing: border-box;
   }
 
   .katex-display > .katex {

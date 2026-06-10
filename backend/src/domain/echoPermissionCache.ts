@@ -20,6 +20,10 @@ import {
   invalidateMemberAccessStateForServer,
   invalidateMemberAccessStateForUser,
 } from './echoMemberStateCache';
+import {
+  invalidateSearchableChannelsForServer,
+  invalidateSearchableChannelsForUser,
+} from './echoSearchChannelCache';
 
 type CacheEntry = {
   value: Set<string>;
@@ -72,6 +76,7 @@ function localInvalidateForServer(serverId: string): void {
   // so the member-state cache rides this invalidation (local + remote) rather than wiring
   // each mutation independently.
   invalidateMemberAccessStateForServer(serverId);
+  invalidateSearchableChannelsForServer(serverId);
 }
 
 function localInvalidateForUser(serverId: string, userId: string): void {
@@ -81,6 +86,7 @@ function localInvalidateForUser(serverId: string, userId: string): void {
     if (k.startsWith(keyPrefix)) cache.delete(k);
   }
   invalidateMemberAccessStateForUser(serverId, userId);
+  invalidateSearchableChannelsForUser(serverId, userId);
 }
 
 function localInvalidateForChannel(serverId: string, channelId: string): void {

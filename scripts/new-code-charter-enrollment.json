@@ -26,13 +26,13 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/components/MoreServersCardStack.vue": {
-      "lines": 483,
-      "longestFunction": 0,
+      "lines": 529,
+      "longestFunction": 7,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
     },
     "frontend/src/components/MoreServersCompactList.vue": {
-      "lines": 664,
+      "lines": 589,
       "longestFunction": 0,
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
@@ -194,7 +194,7 @@
       "maxNestingSpaces": 8
     },
     "backend/src/api/routes/appleOAuth.ts": {
-      "lines": 239,
+      "lines": 244,
       "longestFunction": 4,
       "deepNestingLines": 13,
       "maxNestingSpaces": 16
@@ -216,6 +216,12 @@
       "longestFunction": 112,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
+    },
+    "backend/src/services/chatRemoteImageImport.ts": {
+      "lines": 288,
+      "longestFunction": 140,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
     },
     "backend/src/services/echoAttentionSnapshotScheduler.ts": {
       "lines": 155,

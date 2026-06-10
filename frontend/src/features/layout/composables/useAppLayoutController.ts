@@ -1674,42 +1674,6 @@ export function useAppLayoutController() {
 
   const pinsEnabled = computed(() => mainSurface.value.type === 'dmThread');
 
-  const searchIntegration = useAppLayoutSearchIntegration({
-    workspace,
-    categoriesForServer,
-    activeChannelId,
-    activeChannelMessages,
-    authSession,
-    serverStore,
-    isInDMMode: isInDMModeComputed,
-    echoDmThreadIds,
-    selectedServer: selectedServerEcho,
-    handleGoToMessage: handleGoToMessageDelegated,
-  });
-  const {
-    searchText,
-    filterChips,
-    allChannels,
-    isSearchActive,
-    paginatedSearchResults,
-    searchResultMessages,
-    searchResultPage,
-    totalPages,
-    goToSearchPage,
-    addFilter,
-    removeFilter,
-    clearSearch,
-    searchLoading,
-    searchError,
-    searchScopeHint,
-    onSearchInput,
-    searchActiveTab,
-    searchFilter,
-    searchIsLoading,
-    searchResults,
-    searchStatus,
-  } = searchIntegration;
-
   const pinsIntegration = useAppLayoutPinsIntegration({
     pinsEnabled,
     activeChannelId,
@@ -2407,6 +2371,42 @@ export function useAppLayoutController() {
     authSession,
     memberListUsers,
   });
+
+  const searchIntegration = useAppLayoutSearchIntegration({
+    categoriesForServer,
+    activeChannelId,
+    activeChannelMessages,
+    searchFilterUsers: usersForMentionAutocomplete,
+    authSession,
+    serverStore,
+    isInDMMode: isInDMModeComputed,
+    echoDmThreadIds,
+    selectedServer: selectedServerEcho,
+    handleGoToMessage: handleGoToMessageDelegated,
+  });
+  const {
+    searchText,
+    filterChips,
+    allChannels,
+    isSearchActive,
+    paginatedSearchResults,
+    searchResultMessages,
+    searchResultPage,
+    totalPages,
+    goToSearchPage,
+    addFilter,
+    removeFilter,
+    clearSearch,
+    searchLoading,
+    searchError,
+    searchScopeHint,
+    onSearchInput,
+    searchActiveTab,
+    searchFilter,
+    searchIsLoading,
+    searchResults,
+    searchStatus,
+  } = searchIntegration;
 
   const socketSendMessage = sendMessageViaSocket;
   const sendMessage = sendMessageViaSocket;

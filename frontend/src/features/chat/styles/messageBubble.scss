@@ -156,13 +156,30 @@
 
 /* .ellipsis-menu — global liquid glass in main.scss */
 
-/* Inline edit: match message body typography; minimal chrome. */
+/* Inline edit: match message body typography; subtle container marks edit mode. */
 .edit-form {
   box-sizing: border-box;
   margin-top: 0;
   max-width: 48rem;
   min-width: 0;
   color: var(--fg);
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  background: color-mix(
+    in srgb,
+    var(--ui-scrim-1, var(--ui-glass-2, var(--glass-2))) 92%,
+    transparent
+  );
+  padding: 0.375rem 0.5rem;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 48%, transparent);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.edit-form:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: var(--ui-scrim-1, var(--ui-glass-2, var(--glass-2)));
 }
 
 .edit-textarea {

@@ -3,7 +3,10 @@ import type { CSSProperties } from 'vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import type { MoreServersMockServer } from '@/composables/useMoreServers';
 import type { MoreServerWidgetFolder } from '@/composables/useMoreServerFolders';
-import type { MoreServerDropTarget } from '@/composables/useMoreServerFolderDrag';
+import {
+  shouldAbortMoreServerNestedDrag,
+  type MoreServerDropTarget,
+} from '@/composables/useMoreServerFolderDrag';
 import type { MoreServersCardStackItem } from '@/composables/useMoreServersLayout';
 import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
 
@@ -12,7 +15,7 @@ type FolderWithServers = {
   servers: MoreServersMockServer[];
 };
 
-defineProps<{
+const props = defineProps<{
   cardStack: MoreServersCardStackItem[];
   folders: MoreServerWidgetFolder[];
   foldersWithServers: FolderWithServers[];
@@ -27,6 +30,7 @@ defineProps<{
   onFolderDragOverCard: (folderId: string, index: number, e: DragEvent) => void;
   onFolderOrderDragOver: (index: number, e: DragEvent) => void;
   onDrop: (e: DragEvent) => void;
+  onPanelDragOverCapture: (e: DragEvent) => void;
   openFolderContextMenu: (folderId: string, e: MouseEvent) => void;
   onFolderDragStart: (folderId: string, e: DragEvent) => void;
   onDragEnd: () => void;
@@ -47,12 +51,21 @@ defineProps<{
   toggleMenu: (id: string) => void;
   setCardMenuTriggerRef: (serverId: string, el: unknown) => void;
 }>();
+
+function onFolderCardDragStart(folderId: string, e: DragEvent) {
+  if (shouldAbortMoreServerNestedDrag(e)) {
+    e.preventDefault();
+    return;
+  }
+  props.onFolderDragStart(folderId, e);
+}
 </script>
 
 <template>
   <div
     class="custom-scrollbar flex-1 overflow-y-auto px-3 py-3"
     @click="onPanelBackgroundClick"
+    @dragover.capture="onPanelDragOverCapture"
   >
     <div class="flex flex-col gap-2">
       <p
@@ -71,7 +84,9 @@ defineProps<{
           data-ms-drop="folder"
           :data-ms-drop-folder="item.folder.id"
           data-ms-drop-index="0"
-          class="widget-folder-card-rail group relative mt-3 overflow-hidden rounded-xl border transition-all duration-200"
+          :data-ms-folder-order-index="String(item.folderOrderIndex)"
+          class="widget-folder-card group relative mt-3 cursor-grab overflow-hidden rounded-xl border transition-all duration-200 active:cursor-grabbing"
+          draggable="true"
           :class="[
             draggingFolderId === item.folder.id ? 'opacity-60' : '',
             draggingServerId ? 'min-h-[3rem]' : '',
@@ -79,17 +94,19 @@ defineProps<{
               kind: 'folder-order',
               index: item.folderOrderIndex,
             })
-              ? 'widget-folder-card-rail--drop-order'
+              ? 'widget-folder-card--drop-order'
               : isDropTargetActive({
                     kind: 'folder',
                     folderId: item.folder.id,
                     index: 0,
                   })
-                ? 'widget-folder-card-rail--drop-in'
+                ? 'widget-folder-card--drop-in'
                 : draggingServerId
-                  ? 'widget-folder-card-rail--drop-hint'
+                  ? 'widget-folder-card--drop-hint'
                   : '',
           ]"
+          @dragstart="onFolderCardDragStart(item.folder.id, $event)"
+          @dragend="onDragEnd"
           @dragover.prevent="
             onFolderDragOverCard(item.folder.id, 0, $event);
             onFolderOrderDragOver(item.folderOrderIndex, $event);
@@ -97,115 +114,144 @@ defineProps<{
           @drop.prevent="onDrop"
           @contextmenu.prevent="openFolderContextMenu(item.folder.id, $event)"
         >
-          <div class="widget-folder-card-rail__shine" aria-hidden="true" />
-          <div class="widget-folder-card-rail__accent" aria-hidden="true" />
           <div
-            class="widget-folder-card-rail__inner flex min-h-[2.5rem] items-center gap-1.5 px-2.5 py-1.5"
-          >
-            <span
-              class="widget-folder-drag-handle inline-flex shrink-0 cursor-grab items-center text-fg-subtle opacity-0 transition-opacity duration-150 group-hover:opacity-50 active:cursor-grabbing"
-              title="Drag to reorder folders"
-              draggable="true"
-              @dragstart="onFolderDragStart(item.folder.id, $event)"
-              @dragend="onDragEnd"
-              @click.stop
-            >
-              <svg
-                class="h-3.5 w-3.5"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <circle cx="9" cy="6" r="1.5" />
-                <circle cx="15" cy="6" r="1.5" />
-                <circle cx="9" cy="12" r="1.5" />
-                <circle cx="15" cy="12" r="1.5" />
-                <circle cx="9" cy="18" r="1.5" />
-                <circle cx="15" cy="18" r="1.5" />
-              </svg>
-            </span>
-            <button
-              type="button"
-              class="widget-folder-chevron shrink-0"
-              :title="
-                isFolderCollapsedInCard(item.folder.id)
-                  ? 'Show servers in folder'
-                  : 'Hide servers in folder'
-              "
-              :aria-expanded="
-                !isFolderCollapsedInCard(item.folder.id) ? 'true' : 'false'
-              "
-              @click.stop="toggleFolderCollapsedInCard(item.folder.id)"
-            >
-              <svg
-                class="h-4 w-4 transition-transform duration-200"
-                :class="
-                  isFolderCollapsedInCard(item.folder.id)
-                    ? '-rotate-90'
-                    : 'rotate-0'
-                "
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M6 9l6 6 6-6"
-                />
-              </svg>
-            </button>
-            <p
-              class="widget-folder-card-rail__name min-w-0 flex-1 truncate text-[13px] font-semibold leading-tight text-fg"
-            >
-              {{ item.folder.name }}
-            </p>
-            <div
-              v-if="
-                isFolderCollapsedInCard(item.folder.id) &&
-                (foldersWithServersMap.get(item.folder.id)?.servers.length ??
-                  0) > 0
-              "
-              class="folder-peek-avatars shrink-0"
-              aria-hidden="true"
-            >
-              <span
-                v-for="(peek, pi) in folderPeekServers(
-                  foldersWithServersMap.get(item.folder.id)?.servers ?? [],
-                )"
-                :key="peek.id"
-                class="folder-peek-avatar"
-                :style="{ '--pi': String(pi) }"
+            v-if="foldersWithServersMap.get(item.folder.id)?.servers[0]"
+            class="widget-folder-card__banner h-[3.25rem] w-full shrink-0 bg-cover bg-no-repeat"
+            :style="
+              serverBannerStyle(
+                foldersWithServersMap.get(item.folder.id)!.servers[0],
+              )
+            "
+            aria-hidden="true"
+          />
+          <div
+            v-else
+            class="widget-folder-card__banner widget-folder-card__banner--empty h-[3.25rem] w-full shrink-0"
+            aria-hidden="true"
+          />
+          <div class="widget-folder-card__body px-3 pb-2.5 pt-1">
+            <div class="flex items-start gap-2.5">
+              <div
+                v-if="foldersWithServersMap.get(item.folder.id)?.servers[0]"
+                class="widget-folder-card__hero-ring shrink-0 rounded-xl p-0.5 shadow-md"
               >
                 <PausedGifAvatar
-                  :src="serverGuildIconDisplayUrl(peek.icon)"
-                  :alt="''"
-                  img-class="h-full w-full object-cover pointer-events-none"
+                  :src="
+                    serverGuildIconDisplayUrl(
+                      foldersWithServersMap.get(item.folder.id)!.servers[0]
+                        .icon,
+                    )
+                  "
+                  :alt="item.folder.name"
+                  img-class="h-10 w-10 rounded-[0.7rem] object-cover pointer-events-none"
                 />
-              </span>
-            </div>
-            <span class="widget-folder-card-rail__count shrink-0">{{
-              item.folder.serverIds.length
-            }}</span>
-            <button
-              type="button"
-              class="widget-folder-icon-btn shrink-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-              title="Folder options"
-              @click.stop="openFolderContextMenu(item.folder.id, $event)"
-            >
-              <svg
-                class="h-3.5 w-3.5"
-                viewBox="0 0 24 24"
-                fill="currentColor"
+              </div>
+              <div
+                v-else
+                class="widget-folder-card__hero-ring widget-folder-card__hero-ring--empty shrink-0 rounded-xl p-0.5 shadow-md"
+                aria-hidden="true"
+              />
+              <div class="min-w-0 flex-1 pt-0.5">
+                <p
+                  class="widget-folder-card__name min-w-0 truncate text-[0.9375rem] font-semibold leading-tight tracking-tight text-fg"
+                >
+                  {{ item.folder.name }}
+                </p>
+                <p class="mt-0.5 text-[10px] font-medium text-fg-subtle">
+                  {{
+                    item.folder.serverIds.length === 1
+                      ? '1 server'
+                      : item.folder.serverIds.length + ' servers'
+                  }}
+                </p>
+              </div>
+              <div
+                v-if="
+                  isFolderCollapsedInCard(item.folder.id) &&
+                  (foldersWithServersMap.get(item.folder.id)?.servers.length ??
+                    0) > 0
+                "
+                class="widget-folder-card__grid shrink-0"
+                :data-count="
+                  Math.min(
+                    foldersWithServersMap.get(item.folder.id)!.servers.length,
+                    folderPeekServers(
+                      foldersWithServersMap.get(item.folder.id)!.servers,
+                    ).length,
+                  )
+                "
                 aria-hidden="true"
               >
-                <circle cx="5" cy="12" r="1.75" />
-                <circle cx="12" cy="12" r="1.75" />
-                <circle cx="19" cy="12" r="1.75" />
-              </svg>
-            </button>
+                <span
+                  v-for="(peek, peekIdx) in folderPeekServers(
+                    foldersWithServersMap.get(item.folder.id)?.servers ?? [],
+                  )"
+                  :key="peek.id"
+                  class="widget-folder-card__grid-cell"
+                  :class="
+                    'widget-folder-card__grid-cell--slot-' + (peekIdx + 1)
+                  "
+                >
+                  <PausedGifAvatar
+                    :src="serverGuildIconDisplayUrl(peek.icon)"
+                    :alt="''"
+                    img-class="widget-folder-card__grid-media pointer-events-none"
+                  />
+                </span>
+              </div>
+              <div class="flex shrink-0 flex-col items-end gap-1">
+                <button
+                  type="button"
+                  class="widget-folder-chevron"
+                  :title="
+                    isFolderCollapsedInCard(item.folder.id)
+                      ? 'Show servers in folder'
+                      : 'Hide servers in folder'
+                  "
+                  :aria-expanded="
+                    !isFolderCollapsedInCard(item.folder.id) ? 'true' : 'false'
+                  "
+                  @click.stop="toggleFolderCollapsedInCard(item.folder.id)"
+                >
+                  <svg
+                    class="h-3.5 w-3.5 transition-transform duration-200"
+                    :class="
+                      isFolderCollapsedInCard(item.folder.id)
+                        ? '-rotate-90'
+                        : 'rotate-0'
+                    "
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    aria-hidden="true"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M6 9l6 6 6-6"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="widget-folder-icon-btn opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                  title="Folder options"
+                  @click.stop="openFolderContextMenu(item.folder.id, $event)"
+                >
+                  <svg
+                    class="h-3.5 w-3.5"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <circle cx="5" cy="12" r="1.75" />
+                    <circle cx="12" cy="12" r="1.75" />
+                    <circle cx="19" cy="12" r="1.75" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <div

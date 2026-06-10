@@ -27,6 +27,10 @@ import {
   rowHasLegacyChatE2eeCiphertext,
 } from '../../../shared/chatE2eePolicy';
 import { isDiscordSyncedBridgeSource } from '../../../shared/discordBridgeSources';
+import {
+  computeEchoMessageSearchFlags,
+  echoMessageSearchFlagsSqlValues,
+} from './echoMessageSearchFlags';
 
 export { CHAT_E2EE_REMOVED_DETAIL };
 
@@ -541,11 +545,11 @@ export async function listAggregatedReactionsForMessages(
       emoji,
       array_agg(user_id ORDER BY user_id) AS user_ids,
       COUNT(*)::int AS reaction_count,
-      MAX(created_at) AS last_reaction_at
+      MIN(created_at) AS first_reaction_at
     FROM echo_message_reactions
     WHERE message_id = ANY($1::text[])
     GROUP BY message_id, emoji
-    ORDER BY message_id, reaction_count DESC, last_reaction_at DESC, emoji ASC
+    ORDER BY message_id, reaction_count DESC, first_reaction_at ASC, emoji ASC
     `,
     [messageIds],
   );
@@ -555,16 +559,16 @@ export async function listAggregatedReactionsForMessages(
     const rawIds = row.user_ids as unknown;
     const userIds = Array.isArray(rawIds) ? rawIds.map((x) => String(x)) : [];
     const count = Number(row.reaction_count ?? userIds.length);
-    const lastRaw = row.last_reaction_at;
-    const lastReactionAt =
-      lastRaw != null
-        ? new Date(lastRaw as string | Date).toISOString()
+    const firstRaw = row.first_reaction_at;
+    const firstReactionAt =
+      firstRaw != null
+        ? new Date(firstRaw as string | Date).toISOString()
         : undefined;
     const entry: MessageReaction = {
       emoji,
       count,
       userIds,
-      ...(lastReactionAt ? { lastReactionAt } : {}),
+      ...(firstReactionAt ? { firstReactionAt } : {}),
     };
     const arr = out.get(mid) ?? [];
     arr.push(entry);
@@ -782,6 +786,17 @@ export async function insertEchoMessage(
   const componentsJson =
     row.components !== undefined ? JSON.stringify(row.components) : null;
 
+  const searchFlags = computeEchoMessageSearchFlags({
+    gif: row.gif,
+    imageUrl: row.imageUrl,
+    searchIndexText: sit,
+    attachments: row.attachments,
+    stickers: row.stickers,
+    embeds: row.embeds,
+  });
+  const [hasGif, hasImage, hasLink, hasDocs, hasAttachment] =
+    echoMessageSearchFlagsSqlValues(searchFlags);
+
   const hasE2eeCols = await echoMessagesTableHasE2eeColumns(pool);
   if (wantsE2ee && !hasE2eeCols) {
     throw new Error('E2EE_STORAGE_UNAVAILABLE');
@@ -819,6 +834,7 @@ export async function insertEchoMessage(
       edited_at, deleted_at,
       content_json, search_index_text, message_format_version, content_schema_version,
       embeds,
+      has_gif, has_image, has_link, has_docs, has_attachment,
       e2ee_envelope, e2ee_ciphertext, e2ee_sender_device_id,
       source_webhook_id, webhook_username, webhook_avatar_url,
       tts, message_flags, components,
@@ -827,13 +843,19 @@ export async function insertEchoMessage(
     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15::jsonb, NULL, NULL,
       $16::jsonb, $17, $18, $19,
       $20::jsonb,
-      $21::jsonb, $22, $23,
-      $24, $25, $26, $27, $28, $29::jsonb, $30, $31)
+      $21, $22, $23, $24, $25,
+      $26::jsonb, $27, $28,
+      $29, $30, $31, $32, $33, $34::jsonb, $35, $36)
     ON CONFLICT (id) DO NOTHING
     RETURNING id
     `,
         [
           ...baseParams,
+          hasGif,
+          hasImage,
+          hasLink,
+          hasDocs,
+          hasAttachment,
           e2eeEnvelopeJson,
           e2eeCiphertext,
           e2eeSenderDeviceId,
@@ -855,6 +877,7 @@ export async function insertEchoMessage(
       edited_at, deleted_at,
       content_json, search_index_text, message_format_version, content_schema_version,
       embeds,
+      has_gif, has_image, has_link, has_docs, has_attachment,
       source_webhook_id, webhook_username, webhook_avatar_url,
       tts, message_flags, components,
       bridge_source, system_message
@@ -862,12 +885,18 @@ export async function insertEchoMessage(
     VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14::jsonb, $15::jsonb, NULL, NULL,
       $16::jsonb, $17, $18, $19,
       $20::jsonb,
-      $21, $22, $23, $24, $25, $26::jsonb, $27, $28)
+      $21, $22, $23, $24, $25,
+      $26, $27, $28, $29, $30, $31::jsonb, $32, $33)
     ON CONFLICT (id) DO NOTHING
     RETURNING id
     `,
         [
           ...baseParams,
+          hasGif,
+          hasImage,
+          hasLink,
+          hasDocs,
+          hasAttachment,
           sourceWebhookId,
           webhookUsername,
           webhookAvatarUrl,
@@ -1102,36 +1131,13 @@ function sqlFragmentForHasType(hasType: EchoMessageSearchHasType): string {
     case 'audio':
       return `(m.audio_url IS NOT NULL AND TRIM(COALESCE(m.audio_url, '')) <> '')`;
     case 'gif':
-      return `(m.gif = true
-        OR (m.image_url IS NOT NULL AND (LOWER(m.image_url) LIKE '%giphy%' OR LOWER(m.image_url) LIKE '%tenor%' OR LOWER(m.image_url) LIKE '%.gif%' OR LOWER(m.image_url) LIKE '%media.giphy%'))
-        OR (m.stickers IS NOT NULL AND jsonb_typeof(m.stickers) = 'array' AND EXISTS (
-          SELECT 1 FROM jsonb_array_elements(m.stickers) sticker
-          WHERE sticker->>'format' = 'gif'
-        ))
-        OR (m.embeds IS NOT NULL AND jsonb_typeof(m.embeds) = 'array' AND EXISTS (
-          SELECT 1 FROM jsonb_array_elements(m.embeds) embed
-          WHERE COALESCE(embed->'image'->>'url', '') ILIKE '%media.tenor.%'
-             OR COALESCE(embed->'image'->>'url', '') ILIKE '%media.giphy.%'
-             OR COALESCE(embed->>'url', '') ILIKE '%tenor.com/view/%'
-             OR COALESCE(embed->>'url', '') ILIKE '%giphy.com/gifs/%'
-        )))`;
+      return `m.has_gif = true`;
     case 'image':
-      return `(
-        (m.image_url IS NOT NULL AND TRIM(COALESCE(m.image_url, '')) <> '' AND COALESCE(m.gif, false) = false AND NOT (LOWER(m.image_url) LIKE '%giphy%' OR LOWER(m.image_url) LIKE '%.gif%' OR LOWER(m.image_url) LIKE '%media.giphy%'))
-        OR (m.stickers IS NOT NULL AND jsonb_typeof(m.stickers) = 'array' AND EXISTS (
-          SELECT 1 FROM jsonb_array_elements(m.stickers) sticker
-          WHERE sticker->>'format' IN ('png', 'apng')
-        ))
-      )`;
+      return `m.has_image = true`;
     case 'link':
-      return `(m.search_index_text ~* 'https?://')`;
+      return `m.has_link = true`;
     case 'docs':
-      return `(m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
-        SELECT 1 FROM jsonb_array_elements(m.attachments) att
-        WHERE (att->>'mimeType') ILIKE 'application/%'
-           OR (att->>'mimeType') ILIKE '%pdf%'
-           OR (att->>'mimeType') ILIKE '%document%'
-      ))`;
+      return `m.has_docs = true`;
     default:
       return 'TRUE';
   }
@@ -1209,9 +1215,7 @@ export async function searchEchoMessagesInChannels(
   }
 
   if (hasAttachment) {
-    conditions.push(
-      `(m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND jsonb_array_length(m.attachments) > 0)`,
-    );
+    conditions.push(`m.has_attachment = true`);
   }
 
   if (opts.before) {
@@ -1221,10 +1225,10 @@ export async function searchEchoMessagesInChannels(
   }
 
   const sql = `
-    SELECT m.id, m.channel_id, m.author_id, m.content, m.mentions, m.reply_to, m.embeds, m.poll,
+    SELECT m.id, m.channel_id, m.author_id, m.content, m.mentions, m.reply_to, m.embeds,
            m.image_url, m.video_url, m.audio_url, m.gif, m.image_spoiler, m.attachments, m.stickers,
            m.created_at, m.edited_at,
-           m.content_json, m.search_index_text, m.message_format_version, m.content_schema_version
+           m.search_index_text, m.message_format_version, m.content_schema_version
     FROM echo_messages m
     WHERE ${conditions.join(' AND ')}
     ORDER BY m.id DESC
@@ -1291,6 +1295,45 @@ export async function selectEchoMessageAuthorDeleted(
   };
 }
 
+/** Recompute search flags from the current DB row after media/content edits. */
+async function patchEchoMessageSearchFlags(
+  pool: pg.Pool,
+  channelId: string,
+  messageId: string,
+): Promise<void> {
+  const r = await pool.query<{
+    gif: boolean;
+    image_url: string | null;
+    search_index_text: string | null;
+    attachments: unknown;
+    stickers: unknown;
+    embeds: unknown;
+  }>(
+    `SELECT gif, image_url, search_index_text, attachments, stickers, embeds
+     FROM echo_messages
+     WHERE id = $1 AND channel_id = $2 AND deleted_at IS NULL`,
+    [messageId, channelId],
+  );
+  const row = r.rows[0];
+  if (!row) return;
+  const flags = computeEchoMessageSearchFlags({
+    gif: row.gif === true,
+    imageUrl: row.image_url,
+    searchIndexText: row.search_index_text,
+    attachments: row.attachments,
+    stickers: row.stickers as MessageStickerPayload[] | undefined,
+    embeds: row.embeds,
+  });
+  const [hasGif, hasImage, hasLink, hasDocs, hasAttachment] =
+    echoMessageSearchFlagsSqlValues(flags);
+  await pool.query(
+    `UPDATE echo_messages
+     SET has_gif = $3, has_image = $4, has_link = $5, has_docs = $6, has_attachment = $7
+     WHERE id = $1 AND channel_id = $2`,
+    [messageId, channelId, hasGif, hasImage, hasLink, hasDocs, hasAttachment],
+  );
+}
+
 export async function updateEchoMessageContentSql(
   pool: pg.Pool,
   channelId: string,
@@ -1306,6 +1349,7 @@ export async function updateEchoMessageContentSql(
        WHERE id = $1 AND channel_id = $2`,
       [messageId, channelId, content, JSON.stringify(attachments)],
     );
+    await patchEchoMessageSearchFlags(pool, channelId, messageId);
     return;
   }
   await pool.query(
@@ -1313,6 +1357,7 @@ export async function updateEchoMessageContentSql(
      WHERE id = $1 AND channel_id = $2`,
     [messageId, channelId, content],
   );
+  await patchEchoMessageSearchFlags(pool, channelId, messageId);
 }
 
 /** Full body update for JSON messages (v2). */
@@ -1356,6 +1401,7 @@ export async function updateEchoMessageBodyJsonSql(
         JSON.stringify(args.attachments),
       ],
     );
+    await patchEchoMessageSearchFlags(pool, channelId, messageId);
     return;
   }
   await pool.query(
@@ -1380,6 +1426,7 @@ export async function updateEchoMessageBodyJsonSql(
       args.contentSchemaVersion,
     ],
   );
+  await patchEchoMessageSearchFlags(pool, channelId, messageId);
 }
 
 export async function updateEchoMessageEmbeds(
@@ -1392,6 +1439,7 @@ export async function updateEchoMessageEmbeds(
     `UPDATE echo_messages SET embeds = $1::jsonb WHERE id = $2 AND channel_id = $3 AND deleted_at IS NULL`,
     [JSON.stringify(embeds ?? null), messageId, channelId],
   );
+  await patchEchoMessageSearchFlags(pool, channelId, messageId);
 }
 
 /** Bridge-only content update (no author permission check). */
@@ -1432,6 +1480,9 @@ export async function updateEchoMessageDiscordBridgeSql(
       JSON.stringify(args.embeds ?? null),
     ],
   );
+  if ((r.rowCount ?? 0) > 0) {
+    await patchEchoMessageSearchFlags(pool, channelId, messageId);
+  }
   return (r.rowCount ?? 0) > 0;
 }
 

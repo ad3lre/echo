@@ -3,6 +3,7 @@
  */
 import type { MessageAttachmentPayload } from '@shared/types';
 import {
+  importChatRemoteImage,
   uploadChatAttachmentFile,
   type ChatMediaUploadProgressEvent,
 } from '@/api/echoClient';
@@ -366,7 +367,8 @@ export async function uploadPendingMediaAsAttachments(
     pendingImages.length +
     pendingVideos.length +
     pendingAudios.length +
-    pendingDocuments.length;
+    pendingDocuments.length +
+    pendingExternalImages.length;
   const fileOpts =
     options?.onMediaUploadProgress && uploadFileCount > 0
       ? {
@@ -497,13 +499,50 @@ export async function uploadPendingMediaAsAttachments(
     if (e instanceof Error) wrapped.cause = e;
     throw wrapped;
   }
-  for (const x of pendingExternalImages) {
-    attachments.push({
-      url: x.url,
-      kind: 'image',
-      ...(x.width && x.height ? { width: x.width, height: x.height } : {}),
-      ...(x.spoiler ? { spoiler: true } : {}),
-    });
+  const fileUploadCount =
+    pendingImages.length +
+    pendingVideos.length +
+    pendingAudios.length +
+    pendingDocuments.length;
+  for (let e = 0; e < pendingExternalImages.length; e++) {
+    const x = pendingExternalImages[e]!;
+    const emitIf = (
+      phase: ChatMediaUploadProgressEvent['phase'],
+      uploadPercent: number | null = null,
+    ) => {
+      fileOpts?.onProgress?.({
+        fileIndex: fileUploadCount + e,
+        fileTotal: uploadFileCount,
+        fileName: 'Image from web',
+        kind: 'image',
+        phase,
+        uploadPercent,
+      });
+    };
+    emitIf('preparing', null);
+    emitIf('uploading', null);
+    try {
+      const imported = await importChatRemoteImage(token, channelId, x.url);
+      emitIf('finishing', null);
+      emitIf('done', null);
+      attachments.push({
+        url: imported.url,
+        storageKey: imported.storageKey,
+        kind: 'image',
+        mimeType: imported.mimeType,
+        ...(imported.fileSize > 0 ? { fileSize: imported.fileSize } : {}),
+        ...(x.width && x.height ? { width: x.width, height: x.height } : {}),
+        ...(x.spoiler ? { spoiler: true } : {}),
+      });
+    } catch (err) {
+      reportPrimaryFlowFailure('chat.remote_image_import_failed', err, {
+        channelId,
+        url: x.url,
+      });
+      const wrapped = new Error(formatChatUploadErrorMessage(err));
+      if (err instanceof Error) wrapped.cause = err;
+      throw wrapped;
+    }
   }
   for (const g of pendingGifs) {
     attachments.push({

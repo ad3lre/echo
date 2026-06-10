@@ -269,6 +269,22 @@ export function useAddServerFlow(deps: {
     return getFirstTextChannelId(cats);
   }
 
+  function revokeOptimisticServerIconBlob(imageUrl: string | undefined) {
+    if (imageUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(imageUrl);
+    }
+  }
+
+  function patchCreatedServerImageUrl(serverId: string, imageUrl: string) {
+    const prev =
+      workspace.servers.value.find((s) => s.id === serverId)?.imageUrl ?? '';
+    revokeOptimisticServerIconBlob(prev);
+    workspace.servers.value = workspace.servers.value.map((s) =>
+      s.id === serverId ? { ...s, imageUrl } : s,
+    );
+    serverStore.updateServerImageUrl(serverId, imageUrl);
+  }
+
   function applyLocalCreatedServerGraph(opts: {
     serverId: string;
     name: string;
@@ -315,16 +331,10 @@ export function useAddServerFlow(deps: {
     }
   }
 
-  async function refreshWorkspaceAfterCreate(
-    serverId: string,
-    uploadedServerIconPublicUrl?: string | null,
-  ) {
+  async function refreshWorkspaceAfterCreate(serverId: string) {
     try {
       await hydrateWorkspace();
       await ensureJoinedServerVisibleInRail(serverId);
-      if (uploadedServerIconPublicUrl) {
-        serverStore.updateServerImageUrl(serverId, uploadedServerIconPublicUrl);
-      }
     } catch {
       /* Server exists; snapshot refresh is best-effort. */
     }
@@ -343,8 +353,8 @@ export function useAddServerFlow(deps: {
           uploadServerBrandingFile(token, serverId, 'server_icon', iconFile),
       });
       await patchEchoServerPreferences(token, serverId, { iconUrl: url });
-      serverStore.updateServerImageUrl(serverId, url);
-      await refreshWorkspaceAfterCreate(serverId, url);
+      patchCreatedServerImageUrl(serverId, url);
+      await refreshWorkspaceAfterCreate(serverId);
     } catch (e) {
       const fromApi =
         e instanceof Error && e.message.trim() ? e.message.trim() : '';
@@ -630,6 +640,10 @@ export function useAddServerFlow(deps: {
       !payload.importFromDiscord && !nativeIconFile
         ? (payload.iconUrl?.trim() ?? '')
         : '';
+    let optimisticIconBlobUrl: string | null = null;
+    if (nativeIconFile) {
+      optimisticIconBlobUrl = URL.createObjectURL(nativeIconFile);
+    }
 
     try {
       addServerJoinError.value = '';
@@ -639,7 +653,8 @@ export function useAddServerFlow(deps: {
           ? { iconUrl: nativeIconDataUrl }
           : {}),
       });
-      const optimisticImageUrl = nativeIconDataUrl || iconEchoRounded;
+      const optimisticImageUrl =
+        optimisticIconBlobUrl || nativeIconDataUrl || iconEchoRounded;
       applyLocalCreatedServerGraph({
         serverId,
         name: payload.name,
@@ -755,6 +770,9 @@ export function useAddServerFlow(deps: {
       }
       return;
     } catch (e) {
+      if (optimisticIconBlobUrl) {
+        URL.revokeObjectURL(optimisticIconBlobUrl);
+      }
       const msg =
         e instanceof Error
           ? e.message

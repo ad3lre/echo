@@ -24,6 +24,8 @@ import {
   categoryDefaultsAreConfigured,
   defaultRolePermissions,
 } from '@/features/server-settings/domain/roleManagerState';
+import { isPinnedBottomEchoRole } from '@shared/echoReservedRoles';
+import { pinPinnedBottomEchoRoles } from '@/features/server-settings/roleManagerOrdering';
 import {
   roleUiPermissionsFromEchoStrings,
   roleUiPermissionsToEchoStrings,
@@ -114,7 +116,8 @@ export function useServerSettingsRoles(options: {
   } = useRoleManager(roleCards);
 
   function setSelectedRoleScope(globalScope: boolean) {
-    if (!selectedRole.value || selectedRole.value.name === '@everyone') return;
+    if (!selectedRole.value || isPinnedBottomEchoRole(selectedRole.value))
+      return;
     selectedRole.value.roleScope = globalScope ? 'global' : 'category';
     roleManagerDirty.value = true;
   }
@@ -127,7 +130,7 @@ export function useServerSettingsRoles(options: {
     const tab = selectedRoleCategoryTabId.value;
     if (tab === 'all') return;
     const inCat = roleManagerRoles.value.filter(
-      (r) => r.name !== '@everyone' && r.roleCategoryId === tab,
+      (r) => !isPinnedBottomEchoRole(r) && r.roleCategoryId === tab,
     );
     const ids = inCat.map((r) => r.id);
     const from = ids.indexOf(draggedId);
@@ -140,7 +143,7 @@ export function useServerSettingsRoles(options: {
     ids.splice(insertAt, 0, draggedId);
     const byId = new Map(roleManagerRoles.value.map((r) => [r.id, r]));
     const others = roleManagerRoles.value.filter(
-      (r) => r.name === '@everyone' || r.roleCategoryId !== tab,
+      (r) => isPinnedBottomEchoRole(r) || r.roleCategoryId !== tab,
     );
     const reordered = [
       ...ids
@@ -148,7 +151,7 @@ export function useServerSettingsRoles(options: {
         .filter((r): r is (typeof roleManagerRoles.value)[number] => !!r),
       ...others,
     ];
-    roleManagerRoles.value = reordered;
+    roleManagerRoles.value = pinPinnedBottomEchoRoles(reordered);
     roleManagerDirty.value = true;
   }
 
@@ -249,7 +252,7 @@ export function useServerSettingsRoles(options: {
     syncWithDefaults = false,
   ) {
     const role = roleManagerRoles.value.find((r) => r.id === roleId);
-    if (!role || role.name === '@everyone') return;
+    if (!role || isPinnedBottomEchoRole(role)) return;
     if (role.roleCategoryId === categoryId) return;
     role.roleCategoryId = categoryId;
     if (categoryId && syncWithDefaults) {
@@ -279,7 +282,7 @@ export function useServerSettingsRoles(options: {
       return;
     }
     const role = roleManagerRoles.value.find((r) => r.id === roleId);
-    if (!role || role.name === '@everyone') return;
+    if (!role || isPinnedBottomEchoRole(role)) return;
     if (role.roleCategoryId === categoryId) return;
     const cat = echoRoleCategories.value.find((c) => c.id === categoryId);
     if (cat && categoryDefaultsAreConfigured(cat)) {
@@ -480,7 +483,7 @@ export function useServerSettingsRoles(options: {
         if (
           role.roleCategoryId === tab &&
           role.syncWithCategoryDefaults &&
-          role.name !== '@everyone'
+          !isPinnedBottomEchoRole(role)
         ) {
           applyCategoryDefaultsToManagedRole(
             role,

@@ -30,6 +30,7 @@ function handlers() {
     onFolderDragOverCompact: vi.fn(),
     onFolderOrderDragOver: vi.fn(),
     onDrop: vi.fn(),
+    onPanelDragOverCapture: vi.fn(),
     isPinned: vi.fn(() => false),
     openServer: vi.fn(),
     openServerContextMenu: vi.fn(),
@@ -44,7 +45,7 @@ function handlers() {
     openFolderContextMenu: vi.fn(),
     compactFolderDropRing: vi.fn(() => ''),
     folderPeekServers: vi.fn((servers: MoreServersMockServer[]) =>
-      servers.slice(0, 3),
+      servers.slice(0, 4),
     ),
   };
 }

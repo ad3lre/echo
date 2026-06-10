@@ -21,6 +21,8 @@ const CSRF_EXEMPT_EXACT = new Set([
   '/api/v1/auth/login/mfa',
   '/api/v1/auth/forgot-password',
   '/api/v1/auth/reset-password',
+  /** SPA POST verify from email link (single-use token; no session / CSRF cookie yet). */
+  '/api/v1/auth/verify-email',
   /** Sign-in with Discord from the login modal (no session / CSRF cookie yet). */
   '/api/v1/auth/discord/login/start',
   /** Sign-in with Google from the login modal (no session / CSRF cookie yet). */
@@ -32,11 +34,15 @@ const CSRF_EXEMPT_EXACT = new Set([
    * Honeypot + IP rate-limit + Reply-To, no session yet — no CSRF cookie to compare against.
    */
   '/api/v1/echo/support/contact',
+  /** Client boot-stall watcher — no session / CSRF cookie at cold start. */
+  '/api/v1/echo/public/client-alerts/boot-stall',
   '/api/v1/hooks/livekit',
   '/api/v1/dev/diagnostics/ingest',
   '/api/v1/echo/uploads/local/put',
   '/api/v1/auth/passkey/login/options',
   '/api/v1/auth/passkey/login/verify',
+  /** VPS launcher uses `x-echo-deploy-notify-secret`, not browser CSRF cookies. */
+  '/api/v1/system/deploy-countdown',
 ]);
 
 /** Prefix exemptions kept narrow for grouped webhook routes. */

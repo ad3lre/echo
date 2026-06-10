@@ -2,6 +2,9 @@
 import type { ComponentPublicInstance } from 'vue';
 import type { Ref } from 'vue';
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue';
+
+/** Surface height above one line (py-2 + 24px editor min) ⇒ multiline composer. */
+const COMPOSER_MULTILINE_SURFACE_PX = 44;
 import { EditorContent } from '@tiptap/vue-3';
 import type { Editor as VueEditor } from '@tiptap/vue-3';
 import type { Editor } from '@tiptap/core';
@@ -14,14 +17,11 @@ import type { useEmojiAutocomplete } from '@/composables/useEmojiAutocomplete';
 import EmojiAutocompletePopover from '@/components/chat/EmojiAutocompletePopover.vue';
 import MentionAutocompletePopover from '@/components/chat/MentionAutocompletePopover.vue';
 import ChannelAutocompletePopover from '@/components/chat/ChannelAutocompletePopover.vue';
-import ComposerChannelFormatBanner from '@/features/chat/components/ComposerChannelFormatBanner.vue';
 import {
   INLINE_MARKDOWN_PREVIEW_UI_ENABLED,
   type MarkdownPreviewMenuMode,
 } from '@/features/chat/composables/markdownPreviewModePreference';
 import { isComposerContentEffectivelyEmpty } from '@/features/chat/editor/composerModel';
-import { normalizeEchoMessageFormatTemplateInput } from '@shared/messageChunkLimits';
-
 const props = defineProps<{
   popoutDirection?: 'up' | 'down';
   popoutTheme?: 'default' | 'forum';
@@ -94,8 +94,6 @@ const props = defineProps<{
   compactShellLayout?: boolean;
   hasComposerPayload?: boolean;
   requestSend?: () => void | Promise<void>;
-  messageFormatTemplate?: string;
-  messageFormatHard?: boolean;
 }>();
 
 export type { MarkdownPreviewMenuMode };
@@ -113,10 +111,6 @@ const composerEditorForContent = computed(
 
 const markdownMenuOpen = ref(false);
 const markdownMenuRootRef = ref<HTMLElement | null>(null);
-const formatInfoRef = ref<InstanceType<
-  typeof ComposerChannelFormatBanner
-> | null>(null);
-
 const surfaceSizingClass = computed(() => {
   if (props.popoutTheme === 'forum') {
     return 'min-h-[140px] max-h-[420px]';
@@ -170,14 +164,6 @@ const showMobileComposerOverflowMenu = computed(
   () => !!props.compactInlineSendLayout && showInlineMobileSend.value,
 );
 
-const showChannelFormatBanner = computed(() => {
-  if (typeof props.messageFormatTemplate !== 'string') return false;
-  return (
-    normalizeEchoMessageFormatTemplateInput(props.messageFormatTemplate).trim()
-      .length > 0
-  );
-});
-
 const showComposerPlaceholder = computed(() =>
   isComposerContentEffectivelyEmpty(props.composerContent),
 );
@@ -194,7 +180,6 @@ function toggleMobileOverflowMenu() {
   if (next) {
     props.closeOtherPopouts?.();
     closeMarkdownMenu();
-    formatInfoRef.value?.close?.();
   }
   mobileOverflowMenuOpen.value = next;
 }
@@ -213,7 +198,6 @@ function toggleMarkdownMenu() {
   const next = !markdownMenuOpen.value;
   if (next) {
     props.closeOtherPopouts?.();
-    formatInfoRef.value?.close?.();
   }
   markdownMenuOpen.value = next;
 }
@@ -303,6 +287,8 @@ onUnmounted(() => {
     document.removeEventListener('keydown', mobileOverflowEscHandler);
   if (mobileOverflowDocDown)
     document.removeEventListener('mousedown', mobileOverflowDocDown, true);
+  composerSurfaceRo?.disconnect();
+  composerSurfaceRo = null;
 });
 
 function bindRef<E extends HTMLElement>(
@@ -313,9 +299,48 @@ function bindRef<E extends HTMLElement>(
 }
 
 const gifPopoutAnchorRef = ref<HTMLElement | null>(null);
+const emojiPopoutAnchorRef = ref<HTMLElement | null>(null);
+
+const composerTall = ref(false);
+let composerSurfaceRo: ResizeObserver | null = null;
+
+function syncComposerTall() {
+  const el = props.composerSurfaceRef.value;
+  composerTall.value = !!el && el.clientHeight > COMPOSER_MULTILINE_SURFACE_PX;
+}
+
+watch(
+  () => props.composerSurfaceRef.value,
+  (el, _prev, onCleanup) => {
+    composerSurfaceRo?.disconnect();
+    composerSurfaceRo = null;
+    if (!el) {
+      composerTall.value = false;
+      return;
+    }
+    syncComposerTall();
+    if (typeof ResizeObserver !== 'undefined') {
+      composerSurfaceRo = new ResizeObserver(() => syncComposerTall());
+      composerSurfaceRo.observe(el);
+    }
+    onCleanup(() => {
+      composerSurfaceRo?.disconnect();
+      composerSurfaceRo = null;
+    });
+  },
+  { immediate: true },
+);
+
+watch(
+  () => props.composerContent,
+  () => {
+    void nextTick(syncComposerTall);
+  },
+);
 
 defineExpose({
   gifPopoutAnchorRef,
+  emojiPopoutAnchorRef,
 });
 </script>
 
@@ -351,6 +376,7 @@ defineExpose({
       :class="{
         'chat-input-bar--forum': props.popoutTheme === 'forum',
         'chat-input-bar--compact-shell': props.compactShellLayout,
+        'chat-input-bar--tall': composerTall,
       }"
     >
       <button
@@ -522,310 +548,301 @@ defineExpose({
         </div>
       </div>
 
-      <div
-        class="composer-toolbar-actions relative z-20 flex items-center gap-1 flex-shrink-0"
-      >
-        <template v-if="props.popoutTheme === 'forum'">
-          <button
-            type="button"
-            aria-label="Upload file"
-            :disabled="composerDisabled || attachAllowsUpload === false"
-            class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
-            :class="{
-              'opacity-80': true,
-              'cursor-not-allowed opacity-40 hover:scale-100 hover:bg-transparent':
-                composerDisabled || attachAllowsUpload === false,
-            }"
-            :title="composerDisabled ? composerDisabledReason : undefined"
-            @click="handleAttachUpload?.()"
-          >
-            <svg
-              class="w-6 h-6 text-fg"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            aria-label="Create poll"
-            :disabled="composerDisabled || attachAllowsPoll === false"
-            class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
-            :class="{
-              'opacity-80': true,
-              'cursor-not-allowed opacity-40 hover:scale-100 hover:bg-transparent':
-                composerDisabled || attachAllowsPoll === false,
-            }"
-            :title="composerDisabled ? composerDisabledReason : undefined"
-            @click="handleAttachCreatePoll?.()"
-          >
-            <svg
-              class="w-6 h-6 text-fg"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-              />
-            </svg>
-          </button>
-        </template>
-        <button
-          v-if="
-            pendingImagesLength > 0 ||
-            pendingVideosLength > 0 ||
-            pendingAudiosLength > 0 ||
-            pendingDocumentsLength > 0 ||
-            pendingExternalImagesLength > 0 ||
-            pendingGifsLength > 0
-          "
-          type="button"
-          :aria-pressed="allSpoilers"
-          :title="allSpoilers ? 'Mark as not spoiler' : 'Mark as spoiler'"
-          class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
-          :class="
-            allSpoilers
-              ? 'bg-amber-500/30 text-amber-400 opacity-100'
-              : 'opacity-80'
-          "
-          @click="toggleAllSpoilers"
-        >
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-          >
-            <path
-              d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-            />
-            <line x1="1" y1="1" x2="23" y2="23" />
-          </svg>
-        </button>
-        <ComposerChannelFormatBanner
-          ref="formatInfoRef"
-          :message-format-template="props.messageFormatTemplate"
-          :message-format-hard="props.messageFormatHard === true"
-          :popout-direction="props.popoutDirection ?? 'up'"
-          :close-other-popouts="
-            () => {
-              closeMarkdownMenu();
-              props.closeOtherPopouts?.();
-            }
-          "
-        />
+      <div class="composer-right-rail relative z-20 flex shrink-0 items-center">
         <div
-          v-if="showMarkdownPreviewToggle"
-          ref="markdownMenuRootRef"
-          class="relative shrink-0"
+          class="composer-toolbar-actions relative flex items-center gap-1 flex-shrink-0"
         >
+          <template v-if="props.popoutTheme === 'forum'">
+            <button
+              type="button"
+              aria-label="Upload file"
+              :disabled="composerDisabled || attachAllowsUpload === false"
+              class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
+              :class="{
+                'opacity-80': true,
+                'cursor-not-allowed opacity-40 hover:scale-100 hover:bg-transparent':
+                  composerDisabled || attachAllowsUpload === false,
+              }"
+              :title="composerDisabled ? composerDisabledReason : undefined"
+              @click="handleAttachUpload?.()"
+            >
+              <svg
+                class="w-6 h-6 text-fg"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              aria-label="Create poll"
+              :disabled="composerDisabled || attachAllowsPoll === false"
+              class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
+              :class="{
+                'opacity-80': true,
+                'cursor-not-allowed opacity-40 hover:scale-100 hover:bg-transparent':
+                  composerDisabled || attachAllowsPoll === false,
+              }"
+              :title="composerDisabled ? composerDisabledReason : undefined"
+              @click="handleAttachCreatePoll?.()"
+            >
+              <svg
+                class="w-6 h-6 text-fg"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                />
+              </svg>
+            </button>
+          </template>
           <button
-            type="button"
-            class="chat-focus-ring flex items-center gap-0.5 rounded-md px-2 py-1 text-[11px] font-semibold tracking-wide transition-all hover:scale-105 hover:bg-glass-hover"
-            :class="
-              markdownMenuActive
-                ? 'bg-glass-2 text-foreground'
-                : props.popoutTheme === 'forum'
-                  ? 'text-fg-soft opacity-85'
-                  : 'text-muted opacity-80'
+            v-if="
+              pendingImagesLength > 0 ||
+              pendingVideosLength > 0 ||
+              pendingAudiosLength > 0 ||
+              pendingDocumentsLength > 0 ||
+              pendingExternalImagesLength > 0 ||
+              pendingGifsLength > 0
             "
-            :aria-expanded="markdownMenuOpen"
-            aria-haspopup="menu"
-            title="Markdown preview mode"
-            @click.stop="toggleMarkdownMenu"
+            type="button"
+            :aria-pressed="allSpoilers"
+            :title="allSpoilers ? 'Mark as not spoiler' : 'Mark as spoiler'"
+            class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
+            :class="
+              allSpoilers
+                ? 'bg-amber-500/30 text-amber-400 opacity-100'
+                : 'opacity-80'
+            "
+            @click="toggleAllSpoilers"
           >
-            MD
             <svg
-              class="h-3 w-3 opacity-70"
-              viewBox="0 0 24 24"
+              class="w-6 h-6"
               fill="none"
               stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
+              stroke-width="2"
+              viewBox="0 0 24 24"
             >
-              <path d="M6 9l6 6 6-6" />
+              <path
+                d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+              />
+              <line x1="1" y1="1" x2="23" y2="23" />
             </svg>
           </button>
           <div
-            v-if="markdownMenuOpen"
-            class="chat-md-menu absolute right-0 z-[60] min-w-[220px] rounded-xl py-1 shadow-xl backdrop-blur-xl"
-            :class="
-              props.popoutDirection === 'down'
-                ? 'top-full mt-1'
-                : 'bottom-full mb-1'
-            "
-            role="menu"
-            aria-label="Markdown preview"
-            @mousedown.prevent
-            @click.stop
+            v-if="showMarkdownPreviewToggle"
+            ref="markdownMenuRootRef"
+            class="relative shrink-0"
           >
             <button
               type="button"
-              role="menuitemradio"
-              :aria-checked="currentMarkdownMenuMode === 'off'"
-              class="chat-md-menu__item w-full px-3 py-2 text-left text-sm transition-colors"
-              @click="selectMarkdownMode('off')"
+              class="chat-focus-ring flex items-center gap-0.5 rounded-md px-2 py-1 text-[11px] font-semibold tracking-wide transition-all hover:scale-105 hover:bg-glass-hover"
+              :class="
+                markdownMenuActive
+                  ? 'bg-glass-2 text-foreground'
+                  : props.popoutTheme === 'forum'
+                    ? 'text-fg-soft opacity-85'
+                    : 'text-muted opacity-80'
+              "
+              :aria-expanded="markdownMenuOpen"
+              aria-haspopup="menu"
+              title="Markdown preview mode"
+              @click.stop="toggleMarkdownMenu"
             >
-              <span class="flex items-center gap-2">
-                <span
-                  class="chat-md-menu__check w-4 shrink-0 text-center text-xs"
-                >
-                  {{ currentMarkdownMenuMode === 'off' ? '✓' : '' }}
-                </span>
-                <span>
-                  <span class="font-medium">Source only</span>
-                  <span
-                    class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
-                    >No preview</span
-                  >
-                </span>
-              </span>
+              MD
+              <svg
+                class="h-3 w-3 opacity-70"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </button>
-            <!-- Inline mode: hidden when INLINE_MARKDOWN_PREVIEW_UI_ENABLED is false; code paths remain in ChatInput + composerMarkdownDecorations. -->
-            <button
-              v-if="INLINE_MARKDOWN_PREVIEW_UI_ENABLED"
-              type="button"
-              role="menuitemradio"
-              :aria-checked="currentMarkdownMenuMode === 'inline'"
-              class="chat-md-menu__item w-full px-3 py-2 text-left text-sm transition-colors"
-              @click="selectMarkdownMode('inline')"
+            <div
+              v-if="markdownMenuOpen"
+              class="chat-md-menu absolute right-0 z-[60] min-w-[220px] rounded-xl py-1 shadow-xl backdrop-blur-xl"
+              :class="
+                props.popoutDirection === 'down'
+                  ? 'top-full mt-1'
+                  : 'bottom-full mb-1'
+              "
+              role="menu"
+              aria-label="Markdown preview"
+              @mousedown.prevent
+              @click.stop
             >
-              <span class="flex items-center gap-2">
-                <span
-                  class="chat-md-menu__check w-4 shrink-0 text-center text-xs"
-                >
-                  {{ currentMarkdownMenuMode === 'inline' ? '✓' : '' }}
-                </span>
-                <span>
-                  <span class="font-medium">Inline preview</span>
+              <button
+                type="button"
+                role="menuitemradio"
+                :aria-checked="currentMarkdownMenuMode === 'off'"
+                class="chat-md-menu__item w-full px-3 py-2 text-left text-sm transition-colors"
+                @click="selectMarkdownMode('off')"
+              >
+                <span class="flex items-center gap-2">
                   <span
-                    class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
-                    >Headings, lists, links, fences, and inline marks—same
-                    source as split preview</span
+                    class="chat-md-menu__check w-4 shrink-0 text-center text-xs"
                   >
+                    {{ currentMarkdownMenuMode === 'off' ? '✓' : '' }}
+                  </span>
+                  <span>
+                    <span class="font-medium">Source only</span>
+                    <span
+                      class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
+                      >No preview</span
+                    >
+                  </span>
                 </span>
-              </span>
-            </button>
-            <button
-              type="button"
-              role="menuitemradio"
-              :aria-checked="currentMarkdownMenuMode === 'split'"
-              class="chat-md-menu__item w-full px-3 py-2 text-left text-sm transition-colors"
-              @click="selectMarkdownMode('split')"
-            >
-              <span class="flex items-center gap-2">
-                <span
-                  class="chat-md-menu__check w-4 shrink-0 text-center text-xs"
-                >
-                  {{ currentMarkdownMenuMode === 'split' ? '✓' : '' }}
-                </span>
-                <span>
-                  <span class="font-medium">Split preview</span>
+              </button>
+              <!-- Inline mode: hidden when INLINE_MARKDOWN_PREVIEW_UI_ENABLED is false; code paths remain in ChatInput + composerMarkdownDecorations. -->
+              <button
+                v-if="INLINE_MARKDOWN_PREVIEW_UI_ENABLED"
+                type="button"
+                role="menuitemradio"
+                :aria-checked="currentMarkdownMenuMode === 'inline'"
+                class="chat-md-menu__item w-full px-3 py-2 text-left text-sm transition-colors"
+                @click="selectMarkdownMode('inline')"
+              >
+                <span class="flex items-center gap-2">
                   <span
-                    class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
-                    >Panel above the input</span
+                    class="chat-md-menu__check w-4 shrink-0 text-center text-xs"
                   >
+                    {{ currentMarkdownMenuMode === 'inline' ? '✓' : '' }}
+                  </span>
+                  <span>
+                    <span class="font-medium">Inline preview</span>
+                    <span
+                      class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
+                      >Headings, lists, links, fences, and inline marks—same
+                      source as split preview</span
+                    >
+                  </span>
                 </span>
-              </span>
-            </button>
-            <button
-              type="button"
-              role="menuitemradio"
-              :aria-checked="currentMarkdownMenuMode === 'full'"
-              class="chat-md-menu__item w-full px-3 py-2 text-left text-sm transition-colors"
-              @click="selectMarkdownMode('full')"
-            >
-              <span class="flex items-center gap-2">
-                <span
-                  class="chat-md-menu__check w-4 shrink-0 text-center text-xs"
-                >
-                  {{ currentMarkdownMenuMode === 'full' ? '✓' : '' }}
-                </span>
-                <span>
-                  <span class="font-medium">Full preview</span>
+              </button>
+              <button
+                type="button"
+                role="menuitemradio"
+                :aria-checked="currentMarkdownMenuMode === 'split'"
+                class="chat-md-menu__item w-full px-3 py-2 text-left text-sm transition-colors"
+                @click="selectMarkdownMode('split')"
+              >
+                <span class="flex items-center gap-2">
                   <span
-                    class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
-                    >Large preview in chat area</span
+                    class="chat-md-menu__check w-4 shrink-0 text-center text-xs"
                   >
+                    {{ currentMarkdownMenuMode === 'split' ? '✓' : '' }}
+                  </span>
+                  <span>
+                    <span class="font-medium">Split preview</span>
+                    <span
+                      class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
+                      >Panel above the input</span
+                    >
+                  </span>
                 </span>
-              </span>
-            </button>
+              </button>
+              <button
+                type="button"
+                role="menuitemradio"
+                :aria-checked="currentMarkdownMenuMode === 'full'"
+                class="chat-md-menu__item w-full px-3 py-2 text-left text-sm transition-colors"
+                @click="selectMarkdownMode('full')"
+              >
+                <span class="flex items-center gap-2">
+                  <span
+                    class="chat-md-menu__check w-4 shrink-0 text-center text-xs"
+                  >
+                    {{ currentMarkdownMenuMode === 'full' ? '✓' : '' }}
+                  </span>
+                  <span>
+                    <span class="font-medium">Full preview</span>
+                    <span
+                      class="chat-md-menu__hint mt-0.5 block text-[11px] font-normal"
+                      >Large preview in chat area</span
+                    >
+                  </span>
+                </span>
+              </button>
+            </div>
           </div>
+          <button
+            ref="gifPopoutAnchorRef"
+            type="button"
+            aria-haspopup="menu"
+            :aria-expanded="activePopout === 'gif'"
+            :disabled="composerDisabled"
+            class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
+            :class="{
+              'bg-glass-2 opacity-100': activePopout === 'gif',
+              'opacity-80': activePopout !== 'gif',
+              'cursor-not-allowed opacity-40 hover:scale-100 hover:bg-transparent':
+                composerDisabled,
+            }"
+            :title="composerDisabled ? composerDisabledReason : undefined"
+            @click="togglePopout('gif')"
+          >
+            <img :src="icons.gif" alt="GIF" class="w-6 h-6 chat-toolbar-icon" />
+          </button>
+          <button
+            ref="emojiPopoutAnchorRef"
+            type="button"
+            aria-haspopup="menu"
+            :aria-expanded="activePopout === 'emoji'"
+            class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
+            :class="{
+              'bg-glass-2 opacity-100': activePopout === 'emoji',
+              'opacity-80': activePopout !== 'emoji',
+            }"
+            @click="togglePopout('emoji')"
+          >
+            <img
+              :src="icons.emotes"
+              alt="Emotes"
+              class="w-6 h-6 chat-toolbar-icon"
+            />
+          </button>
         </div>
-        <button
-          ref="gifPopoutAnchorRef"
-          type="button"
-          aria-haspopup="menu"
-          :aria-expanded="activePopout === 'gif'"
-          :disabled="composerDisabled"
-          class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
-          :class="{
-            'bg-glass-2 opacity-100': activePopout === 'gif',
-            'opacity-80': activePopout !== 'gif',
-            'cursor-not-allowed opacity-40 hover:scale-100 hover:bg-transparent':
-              composerDisabled,
-          }"
-          :title="composerDisabled ? composerDisabledReason : undefined"
-          @click="togglePopout('gif')"
-        >
-          <img :src="icons.gif" alt="GIF" class="w-6 h-6 chat-toolbar-icon" />
-        </button>
-        <button
-          type="button"
-          aria-haspopup="menu"
-          :aria-expanded="activePopout === 'emoji'"
-          class="chat-focus-ring p-1 rounded-md transition-all hover:scale-110 hover:bg-glass-hover"
-          :class="{
-            'bg-glass-2 opacity-100': activePopout === 'emoji',
-            'opacity-80': activePopout !== 'emoji',
-          }"
-          @click="togglePopout('emoji')"
-        >
-          <img
-            :src="icons.emotes"
-            alt="Emotes"
-            class="w-6 h-6 chat-toolbar-icon"
-          />
-        </button>
-      </div>
 
-      <div class="composer-send-slot relative z-20 flex shrink-0 items-center">
-        <button
-          v-if="showMobileSendInToolbar"
-          type="button"
-          class="chat-focus-ring chat-mobile-send-btn ml-0.5 inline-flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-lg px-3 text-xs font-semibold transition-colors"
-          :disabled="composerDisabled"
-          :title="composerDisabled ? composerDisabledReason : 'Send message'"
-          aria-label="Send message"
-          @click="void props.requestSend?.()"
-        >
-          Send
-        </button>
-        <button
-          v-if="props.popoutTheme === 'forum'"
-          type="button"
-          class="chat-focus-ring forum-send-btn ml-1 inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold transition-colors"
-          :disabled="composerDisabled || !hasComposerPayload"
-          :title="composerDisabled ? composerDisabledReason : 'Publish post'"
-          aria-label="Publish post"
-          @click="void props.requestSend?.()"
-        >
-          Post
-        </button>
+        <div class="composer-send-slot relative flex shrink-0 items-center">
+          <button
+            v-if="showMobileSendInToolbar"
+            type="button"
+            class="chat-focus-ring chat-mobile-send-btn ml-0.5 inline-flex h-8 shrink-0 touch-manipulation items-center justify-center rounded-lg px-3 text-xs font-semibold transition-colors"
+            :disabled="composerDisabled"
+            :title="composerDisabled ? composerDisabledReason : 'Send message'"
+            aria-label="Send message"
+            @click="void props.requestSend?.()"
+          >
+            Send
+          </button>
+          <button
+            v-if="props.popoutTheme === 'forum'"
+            type="button"
+            class="chat-focus-ring forum-send-btn ml-1 inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold transition-colors"
+            :disabled="composerDisabled || !hasComposerPayload"
+            :title="composerDisabled ? composerDisabledReason : 'Publish post'"
+            aria-label="Publish post"
+            @click="void props.requestSend?.()"
+          >
+            Post
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -839,18 +856,56 @@ defineExpose({
   padding-right: 0.75rem;
 }
 
+.composer-right-rail {
+  gap: 0.25rem;
+}
+
+.chat-input-bar--tall {
+  .composer-right-rail {
+    flex-direction: column;
+    align-items: flex-end;
+    align-self: stretch;
+    justify-content: flex-end;
+  }
+
+  .composer-toolbar-actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  .composer-send-slot {
+    margin-left: 0;
+  }
+
+  .chat-mobile-send-btn,
+  .forum-send-btn {
+    margin-left: 0;
+  }
+}
+
 .chat-input-bar--compact-stacked {
   flex-wrap: wrap;
   row-gap: 0.375rem;
   align-items: flex-end;
 
-  .composer-toolbar-actions {
+  .composer-right-rail {
     order: -1;
     flex: 0 0 100%;
     width: 100%;
-    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    align-self: auto;
     padding-bottom: 0.375rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  }
+
+  .composer-toolbar-actions {
+    flex: 1 1 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
   .chat-input-editor {

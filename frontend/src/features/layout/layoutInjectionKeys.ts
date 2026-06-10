@@ -227,8 +227,12 @@ export type LayoutLeftChromeHostHandlers = {
     categoryId: string;
   }) => void;
   onChannelOpenCategorySettings: (categoryId: string) => void;
-  onChannelDeleteChannel: (payload: { channelId: string }) => void;
-  onChannelDeleteCategory: (payload: { categoryId: string }) => void;
+  onChannelDeleteChannel: (payload: {
+    channelId: string;
+  }) => void | Promise<void>;
+  onChannelDeleteCategory: (payload: {
+    categoryId: string;
+  }) => void | Promise<void>;
   onChannelOpenNotificationSettings: () => void;
   /** Open user Settings focused on Voice & Video (e.g. from VC quick settings). */
   onChannelOpenVoiceAudioSettings: () => void;

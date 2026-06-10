@@ -24,6 +24,15 @@ export const DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS =
  */
 export const DEFAULT_ECHO_GLOBAL_ROLE_PERMISSIONS: readonly string[] = [];
 
+/** Seeded on new servers; assign manually — not granted to the owner (owner bypass is enough). */
+export const DEFAULT_ECHO_SEEDED_ADMIN_ROLE_PERMISSIONS: readonly string[] = [
+  'ADMINISTRATOR',
+];
+
+/** Seeded on new servers for moderation workflows. */
+export const DEFAULT_ECHO_SEEDED_MODERATOR_ROLE_PERMISSIONS: readonly string[] =
+  ['KICK_MEMBERS', 'BAN_MEMBERS', 'MODERATE_MEMBERS', 'MANAGE_MESSAGES'];
+
 export const ALL_PERMS_SET = new Set<string>(ECHO_PERMISSIONS);
 export const ALLOWED_PERMS_SET = ALL_PERMS_SET;
 

@@ -17,6 +17,7 @@ import {
   normalizeEchoRoleScope,
   type EchoRoleScope,
 } from '@shared/echoRoleScope';
+import { pinnedBottomEchoRoleSortKey } from '@shared/echoReservedRoles';
 
 type RoleCard = { id: string; name: string; color: string; count: number };
 
@@ -208,7 +209,12 @@ export function buildManagedRolesFromEcho(
     else byAnchor.set(l.anchorRoleId, [entry]);
   }
   const byId = new Map(roles.map((r) => [r.id, r]));
-  const sorted = [...roles].sort((a, b) => b.position - a.position);
+  const sorted = [...roles].sort((a, b) => {
+    const pinDelta =
+      pinnedBottomEchoRoleSortKey(a.name) - pinnedBottomEchoRoleSortKey(b.name);
+    if (pinDelta !== 0) return pinDelta;
+    return b.position - a.position;
+  });
 
   function topRoleForUser(uid: string): string {
     const ids = assignments[uid] ?? [];
@@ -299,10 +305,10 @@ export function topEchoRoleIdForUserServerSettings(
   const ids = assignments[userId] ?? [];
   const assigned = new Set(ids);
   if (assigned.size === 0) {
-    const everyone = rolesOrderedByPositionDesc.find(
-      (r) => r.name === '@everyone',
+    const membersRole = rolesOrderedByPositionDesc.find(
+      (r) => r.name === '@members' || r.name === '@everyone',
     );
-    return everyone?.id ?? null;
+    return membersRole?.id ?? null;
   }
   for (const r of rolesOrderedByPositionDesc) {
     if (assigned.has(r.id)) return r.id;

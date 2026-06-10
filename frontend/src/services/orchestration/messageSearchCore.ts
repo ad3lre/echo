@@ -20,6 +20,8 @@ export const MESSAGES_PER_PAGE = 16;
 export const API_BATCH_LIMIT = 24;
 export const SEARCH_DEBOUNCE_MS = 320;
 export const CLIENT_SEARCH_CORPUS_DEBOUNCE_MS = 64;
+export const CLIENT_SEARCH_FILTER_DEBOUNCE_MS = 150;
+export const CLIENT_SEARCH_MIN_QUERY_LEN = 2;
 
 export function markApiSearchExhaustedFromBatch(
   rowsLength: number,
@@ -174,6 +176,21 @@ export function applyFilters(
   }
 
   return result;
+}
+
+export function shouldBuildLocalSearchCorpus(
+  searchText: string,
+  filters: SearchFilters,
+): boolean {
+  const activeFilters = Object.entries(filters).some(
+    ([, value]) => value !== undefined && value !== '',
+  );
+  if (activeFilters) return true;
+  const { searchText: normalizedText } = extractInlineSearchFilters(searchText);
+  return (
+    stripFilterPrefixes(normalizedText).trim().length >=
+    CLIENT_SEARCH_MIN_QUERY_LEN
+  );
 }
 
 /**

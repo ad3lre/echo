@@ -40,6 +40,10 @@ import {
   requireEchoStore,
   trimEchoPathParam,
 } from './echoRouteUtils';
+import {
+  getCachedDmThreadChannelIds,
+  setCachedDmThreadChannelIds,
+} from '../../../domain/echoSearchChannelCache';
 
 function peerUserIdLogPrefix(peerUserId: string): string {
   const t = peerUserId.trim();
@@ -79,8 +83,12 @@ export default async function echoDmRoutes(
           ? req.query.before.trim()
           : undefined;
 
-      const threads = await listEchoDmThreadsForUser(pool, userId);
-      const channelIds = threads.map((t) => t.channelId);
+      let channelIds = getCachedDmThreadChannelIds(userId);
+      if (!channelIds) {
+        const threads = await listEchoDmThreadsForUser(pool, userId);
+        channelIds = threads.map((t) => t.channelId);
+        setCachedDmThreadChannelIds(userId, channelIds);
+      }
       if (channelIds.length === 0)
         return reply.code(200).send({ messages: [] });
 

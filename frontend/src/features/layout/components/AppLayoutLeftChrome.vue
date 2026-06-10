@@ -920,27 +920,20 @@ function fireChannelOpenCategorySettings(categoryId: string) {
     h.onChannelOpenCategorySettings(categoryId);
   else emit('channel-open-category-settings', categoryId);
 }
-function fireChannelDeleteChannel(payload: { channelId: string }) {
+async function fireChannelDeleteChannel(payload: { channelId: string }) {
   const h = host();
   const fn = h?.onChannelDeleteChannel;
   if (typeof fn === 'function') {
-    void Promise.resolve(fn(payload)).catch((err) => {
-      console.error('[AppLayoutLeftChrome] onChannelDeleteChannel failed', err);
-    });
+    await fn(payload);
     return;
   }
   emit('channel-delete-channel', payload);
 }
-function fireChannelDeleteCategory(payload: { categoryId: string }) {
+async function fireChannelDeleteCategory(payload: { categoryId: string }) {
   const h = host();
   const fn = h?.onChannelDeleteCategory;
   if (typeof fn === 'function') {
-    void Promise.resolve(fn(payload)).catch((err) => {
-      console.error(
-        '[AppLayoutLeftChrome] onChannelDeleteCategory failed',
-        err,
-      );
-    });
+    await fn(payload);
     return;
   }
   emit('channel-delete-category', payload);
@@ -1199,6 +1192,8 @@ function onMoreServersPinServer(payload: {
         :handle-channel-reorder="lc.handleChannelReorder"
         :handle-category-reorder="lc.handleCategoryReorder"
         :can-manage-this-channel="lc.canManageThisChannel"
+        :delete-channel-handler="fireChannelDeleteChannel"
+        :delete-category-handler="fireChannelDeleteCategory"
         :resize-handlers="{
           onResizeStart: lc.startChannelResize,
           onReset: lc.resetChannelWidth,
@@ -1589,6 +1584,8 @@ function onMoreServersPinServer(payload: {
         :handle-channel-reorder="lc.handleChannelReorder"
         :handle-category-reorder="lc.handleCategoryReorder"
         :can-manage-this-channel="lc.canManageThisChannel"
+        :delete-channel-handler="fireChannelDeleteChannel"
+        :delete-category-handler="fireChannelDeleteCategory"
         :resize-handlers="{
           onResizeStart: lc.startChannelResize,
           onReset: lc.resetChannelWidth,

@@ -68,6 +68,25 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
   const emojiCategories = computed(() => getEmojiCategories());
 
   const searchQuery = ref('');
+  const debouncedSearchQuery = ref('');
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  watch(searchQuery, (q) => {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    if (!q.trim()) {
+      debouncedSearchQuery.value = q;
+      return;
+    }
+    searchDebounceTimer = setTimeout(() => {
+      debouncedSearchQuery.value = q;
+      searchDebounceTimer = null;
+    }, 150);
+  });
+
+  onUnmounted(() => {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  });
+
   const scrollContainerRef = ref<HTMLElement | null>(null);
   const sectionRefs = ref<Record<string, HTMLElement>>({});
   const activeCategory = ref<string | null>(null);
@@ -117,7 +136,7 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
   });
 
   const displayedCategories = computed(() => {
-    const q = searchQuery.value.trim();
+    const q = debouncedSearchQuery.value.trim();
     if (!q) return browsingCategories.value;
     const uni = searchEmojis(q, SEARCH_RESULT_LIMIT);
     const custom = allowCustomEmojiRef.value
@@ -176,7 +195,7 @@ export function useEmojiPicker(opts?: UseEmojiPickerOptions) {
   /** Phase 1: recently used + first row of first unicode category (skip server / personal). */
   const renderedCategories = computed(() => {
     const cats = displayedCategories.value;
-    const searching = !!searchQuery.value.trim();
+    const searching = !!debouncedSearchQuery.value.trim();
     if (phase2.value || searching || cats.length === 0) return cats;
     const result: EmojiCategory[] = [];
     for (const cat of cats) {

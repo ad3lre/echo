@@ -30,11 +30,13 @@ const WIRING_ORDER_MARKERS = [
   'useAppLayoutRailLoadingDerived({',
   'useAppLayoutDmRailUnread({',
   'useChatMessages(',
-  'useAppLayoutSearchIntegration({',
   'useAppLayoutPinsIntegration({',
   'useAppLayoutRealtimeHostWiring({',
   'useAppLayoutRealtimeSocketBinding({',
   'wireDmCallSocketSubmitters({',
+  'useAppLayoutProfilesDomain({',
+  'useAppLayoutMentionAutocompleteUsers({',
+  'useAppLayoutSearchIntegration({',
 ] as const;
 
 describe('useAppLayoutController wiring order', () => {

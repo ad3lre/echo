@@ -1033,19 +1033,92 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       WHERE deleted_at IS NULL;
     `);
   }
+  let pgTrgmExtensionOk = false;
   try {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
-  } catch {
-    /* Some hosts disallow CREATE EXTENSION for the app role */
+    pgTrgmExtensionOk = true;
+  } catch (err) {
+    console.error(
+      '[echo] pg_trgm extension could not be created — message search may seq-scan:',
+      err instanceof Error ? err.message : err,
+    );
   }
+  let messageSearchTrigramIndexOk = false;
   try {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS echo_messages_search_index_text_trgm_idx
       ON echo_messages USING gin (search_index_text gin_trgm_ops)
       WHERE deleted_at IS NULL AND search_index_text IS NOT NULL;
     `);
+    messageSearchTrigramIndexOk = true;
+  } catch (err) {
+    console.error(
+      '[echo] echo_messages_search_index_text_trgm_idx could not be created — message search may seq-scan:',
+      err instanceof Error ? err.message : err,
+    );
+  }
+  if (pgTrgmExtensionOk && !messageSearchTrigramIndexOk) {
+    console.error(
+      '[echo] pg_trgm is available but the message search trigram index is still missing.',
+    );
+  }
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS has_gif BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS has_image BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS has_link BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS has_docs BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
+    ALTER TABLE echo_messages ADD COLUMN IF NOT EXISTS has_attachment BOOLEAN NOT NULL DEFAULT false;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_messages_has_gif_idx
+    ON echo_messages (channel_id, id)
+    WHERE deleted_at IS NULL AND has_gif = true;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_messages_has_image_idx
+    ON echo_messages (channel_id, id)
+    WHERE deleted_at IS NULL AND has_image = true;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_messages_has_link_idx
+    ON echo_messages (channel_id, id)
+    WHERE deleted_at IS NULL AND has_link = true;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_messages_has_docs_idx
+    ON echo_messages (channel_id, id)
+    WHERE deleted_at IS NULL AND has_docs = true;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_messages_has_attachment_idx
+    ON echo_messages (channel_id, id)
+    WHERE deleted_at IS NULL AND has_attachment = true;
+  `);
+  try {
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS echo_emoji_packs_market_name_trgm_idx
+      ON echo_server_emoji_packs USING gin (LOWER(name) gin_trgm_ops)
+      WHERE listed_in_market = true AND source = 'custom';
+    `);
   } catch {
-    /* pg_trgm missing or index creation not permitted */
+    /* optional — emoji market search degrades to sequential scan */
+  }
+  try {
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS echo_emoji_packs_market_description_trgm_idx
+      ON echo_server_emoji_packs USING gin (LOWER(TRIM(description)) gin_trgm_ops)
+      WHERE listed_in_market = true AND source = 'custom';
+    `);
+  } catch {
+    /* optional */
   }
   try {
     await pool.query(`DROP INDEX IF EXISTS echo_messages_content_trgm_idx`);
@@ -2690,6 +2763,156 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
       }
     },
   );
+
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'replace_seeded_all_role_with_admin_mod_v1',
+    async () => {
+      const { nextEchoSnowflakeId } = await import('../domain/echoSnowflake');
+      const {
+        DEFAULT_ECHO_SEEDED_ADMIN_ROLE_PERMISSIONS,
+        DEFAULT_ECHO_SEEDED_MODERATOR_ROLE_PERMISSIONS,
+      } = await import('../domain/echoStore/constants');
+
+      const servers = await pool.query<{ id: string; owner_id: string }>(
+        `
+        SELECT DISTINCT s.id, s.owner_id
+        FROM echo_servers s
+        INNER JOIN echo_roles r ON r.server_id = s.id AND r.name = 'All'
+        `,
+      );
+
+      for (const row of servers.rows) {
+        const serverId = String(row.id);
+        const ownerId = String(row.owner_id);
+        const allRole = await pool.query<{ id: string }>(
+          `SELECT id FROM echo_roles WHERE server_id = $1 AND name = 'All' LIMIT 1`,
+          [serverId],
+        );
+        if (!allRole.rows[0]) continue;
+        const allRoleId = String(allRole.rows[0].id);
+
+        let adminRoleId: string | null = null;
+        const adminRow = await pool.query<{ id: string }>(
+          `SELECT id FROM echo_roles WHERE server_id = $1 AND name = 'Admin' LIMIT 1`,
+          [serverId],
+        );
+        if (adminRow.rows[0]) {
+          adminRoleId = String(adminRow.rows[0].id);
+        } else {
+          adminRoleId = nextEchoSnowflakeId();
+          await pool.query(
+            `
+            INSERT INTO echo_roles (
+              id, server_id, name, color, position, hoist, permissions,
+              rank_in_category, role_scope, sync_with_category_defaults
+            ) VALUES ($1, $2, 'Admin', '#e74c3c', 2, true, $3::jsonb, 1, 'global', false)
+            `,
+            [
+              adminRoleId,
+              serverId,
+              JSON.stringify([...DEFAULT_ECHO_SEEDED_ADMIN_ROLE_PERMISSIONS]),
+            ],
+          );
+        }
+
+        const modRow = await pool.query<{ id: string }>(
+          `SELECT id FROM echo_roles WHERE server_id = $1 AND name = 'Moderator' LIMIT 1`,
+          [serverId],
+        );
+        if (!modRow.rows[0]) {
+          const modRoleId = nextEchoSnowflakeId();
+          await pool.query(
+            `
+            INSERT INTO echo_roles (
+              id, server_id, name, color, position, hoist, permissions,
+              rank_in_category, role_scope, sync_with_category_defaults
+            ) VALUES ($1, $2, 'Moderator', '#2ecc71', 1, true, $3::jsonb, 0, 'global', false)
+            `,
+            [
+              modRoleId,
+              serverId,
+              JSON.stringify([
+                ...DEFAULT_ECHO_SEEDED_MODERATOR_ROLE_PERMISSIONS,
+              ]),
+            ],
+          );
+        }
+
+        if (adminRoleId) {
+          await pool.query(
+            `
+            INSERT INTO echo_member_roles (server_id, user_id, role_id)
+            SELECT mr.server_id, mr.user_id, $3
+            FROM echo_member_roles mr
+            WHERE mr.server_id = $1 AND mr.role_id = $2 AND mr.user_id <> $4
+            ON CONFLICT DO NOTHING
+            `,
+            [serverId, allRoleId, adminRoleId, ownerId],
+          );
+        }
+
+        await pool.query(
+          `DELETE FROM echo_member_roles WHERE server_id = $1 AND role_id = $2`,
+          [serverId, allRoleId],
+        );
+        await pool.query(
+          `DELETE FROM echo_roles WHERE server_id = $1 AND id = $2`,
+          [serverId, allRoleId],
+        );
+      }
+    },
+  );
+
+  await runEchoSchemaMigrationOnce(
+    pool,
+    'backfill_echo_message_search_flags_v1',
+    async () => {
+      await pool.query(`
+        UPDATE echo_messages m SET
+          has_gif = (
+            m.gif = true
+            OR (m.image_url IS NOT NULL AND (
+              LOWER(m.image_url) LIKE '%giphy%' OR LOWER(m.image_url) LIKE '%tenor%'
+              OR LOWER(m.image_url) LIKE '%.gif%' OR LOWER(m.image_url) LIKE '%media.giphy%'))
+            OR (m.stickers IS NOT NULL AND jsonb_typeof(m.stickers) = 'array' AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(m.stickers) sticker
+              WHERE sticker->>'format' = 'gif'))
+            OR (m.embeds IS NOT NULL AND jsonb_typeof(m.embeds) = 'array' AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(m.embeds) embed
+              WHERE COALESCE(embed->'image'->>'url', '') ILIKE '%media.tenor.%'
+                 OR COALESCE(embed->'image'->>'url', '') ILIKE '%media.giphy.%'
+                 OR COALESCE(embed->>'url', '') ILIKE '%tenor.com/view/%'
+                 OR COALESCE(embed->>'url', '') ILIKE '%giphy.com/gifs/%'))
+          ),
+          has_image = (
+            (m.image_url IS NOT NULL AND TRIM(COALESCE(m.image_url, '')) <> ''
+              AND COALESCE(m.gif, false) = false
+              AND NOT (LOWER(m.image_url) LIKE '%giphy%' OR LOWER(m.image_url) LIKE '%.gif%' OR LOWER(m.image_url) LIKE '%media.giphy%'))
+            OR (m.stickers IS NOT NULL AND jsonb_typeof(m.stickers) = 'array' AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(m.stickers) sticker
+              WHERE sticker->>'format' IN ('png', 'apng')))
+          ),
+          has_link = (m.search_index_text ~* 'https?://'),
+          has_docs = (
+            m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array' AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(m.attachments) att
+              WHERE (att->>'mimeType') ILIKE 'application/%'
+                 OR (att->>'mimeType') ILIKE '%pdf%'
+                 OR (att->>'mimeType') ILIKE '%document%')
+          ),
+          has_attachment = (
+            m.attachments IS NOT NULL AND jsonb_typeof(m.attachments) = 'array'
+            AND jsonb_array_length(m.attachments) > 0
+          )
+        WHERE m.deleted_at IS NULL
+      `);
+    },
+  );
+
+  const { verifyEchoMessageSearchIndexes } =
+    await import('./echoMessageSearchIndexHealth');
+  await verifyEchoMessageSearchIndexes(pool);
 }
 
 /** Remove legacy system Global Roles categories; uncategorized roles stay null. */

@@ -31,6 +31,7 @@ type RoleMemberSummary = {
 import type { EmojiEntry } from '@/composables/useEmojiData';
 import type { AppIconEntry } from '@/composables/useAppIconSearch';
 import type { EchoRoleType } from '@shared/echoRoleTypes';
+import { isPinnedBottomEchoRole } from '@shared/echoReservedRoles';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { memberRoleIconImgSrc } from '@/utils/memberRoleIconDisplay';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -359,7 +360,7 @@ const roleLinkPickOptions = computed(() => {
     ),
   );
   return props.roleManagerRoles.filter(
-    (r) => r.id !== self.id && r.name !== '@everyone' && !taken.has(r.id),
+    (r) => r.id !== self.id && !isPinnedBottomEchoRole(r) && !taken.has(r.id),
   );
 });
 
@@ -382,12 +383,23 @@ const permissionPreviewModalOpen = ref(false);
 const defaultOnJoinWarningOpen = ref(false);
 const quickAddMembersModalOpen = ref(false);
 const quickAddSearchQuery = ref('');
+const debouncedQuickAddSearchQuery = ref('');
+let quickAddSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(quickAddSearchQuery, (q) => {
+  if (quickAddSearchDebounceTimer) clearTimeout(quickAddSearchDebounceTimer);
+  quickAddSearchDebounceTimer = setTimeout(() => {
+    debouncedQuickAddSearchQuery.value = q;
+    quickAddSearchDebounceTimer = null;
+  }, 150);
+});
+
 const quickAddBusyUserId = ref<string | null>(null);
 const quickAddError = ref('');
 
 const quickAddFilteredMembers = computed(() => {
   const list = props.allUsers ?? [];
-  const q = quickAddSearchQuery.value.trim().toLowerCase();
+  const q = debouncedQuickAddSearchQuery.value.trim().toLowerCase();
   return list
     .filter((u) => !u.isDiscordShadow)
     .filter(
@@ -665,7 +677,7 @@ function onRoleRowContextMenu(
   role: { id: string; name: string; roleCategoryId?: string | null },
 ) {
   if (props.echoRolesLocked) return;
-  if (role.name === '@everyone') return;
+  if (isPinnedBottomEchoRole(role)) return;
   ev.preventDefault();
   ev.stopPropagation();
   const rc = role.roleCategoryId;
@@ -699,7 +711,7 @@ function onRoleRowClick(
   ev: MouseEvent,
   role: { id: string; name: string; roleCategoryId?: string | null },
 ) {
-  if (ev.shiftKey && !props.echoRolesLocked && role.name !== '@everyone') {
+  if (ev.shiftKey && !props.echoRolesLocked && !isPinnedBottomEchoRole(role)) {
     ev.preventDefault();
     props.deleteRole(role.id);
     return;
@@ -891,7 +903,9 @@ onUnmounted(() => {
                     : '',
                 ]"
                 :draggable="
-                  props.rolesDragReorderEnabled && !props.echoRolesLocked
+                  props.rolesDragReorderEnabled &&
+                  !props.echoRolesLocked &&
+                  !isPinnedBottomEchoRole(role)
                 "
                 @click="onRoleRowClick($event, role)"
                 @contextmenu="onRoleRowContextMenu($event, role)"
@@ -942,8 +956,9 @@ onUnmounted(() => {
                   <div class="flex items-center gap-2 shrink-0">
                     <input
                       v-if="
-                        role.id === props.selectedRoleId ||
-                        role.id === props.hoveredRoleId
+                        !isPinnedBottomEchoRole(role) &&
+                        (role.id === props.selectedRoleId ||
+                          role.id === props.hoveredRoleId)
                       "
                       class="roles-position-input rounded-lg px-2 py-1 text-center text-[11px] font-semibold text-fg-soft outline-none"
                       type="text"
@@ -1313,7 +1328,7 @@ onUnmounted(() => {
                 <label class="settings-label">Name</label>
                 <div class="flex items-stretch gap-2">
                   <RoleIconPickerField
-                    v-if="props.selectedRole.name !== '@everyone'"
+                    v-if="!isPinnedBottomEchoRole(props.selectedRole)"
                     class="self-center"
                     :server-id="props.roleIconPickerServerId"
                     :disabled="props.echoRolesLocked"
@@ -1341,7 +1356,7 @@ onUnmounted(() => {
               <div
                 v-if="
                   props.roleCategoryUiEnabled &&
-                  props.selectedRole.name !== '@everyone'
+                  !isPinnedBottomEchoRole(props.selectedRole)
                 "
                 class="server-settings-role-field"
               >
@@ -1368,7 +1383,7 @@ onUnmounted(() => {
               <div
                 v-if="
                   props.roleCategoryUiEnabled &&
-                  props.selectedRole.name !== '@everyone' &&
+                  !isPinnedBottomEchoRole(props.selectedRole) &&
                   props.setSelectedRoleScope
                 "
                 class="server-settings-role-field"
@@ -1396,7 +1411,7 @@ onUnmounted(() => {
                 </p>
               </div>
               <div
-                v-if="props.selectedRole.name !== '@everyone'"
+                v-if="!isPinnedBottomEchoRole(props.selectedRole)"
                 class="server-settings-role-field"
               >
                 <label
@@ -1966,7 +1981,7 @@ onUnmounted(() => {
                     />
                   </label>
                   <label
-                    v-if="props.selectedRole.name !== '@everyone'"
+                    v-if="!isPinnedBottomEchoRole(props.selectedRole)"
                     class="role-permission-row roles-display-option"
                   >
                     <div>
@@ -1974,7 +1989,7 @@ onUnmounted(() => {
                         Default role — assign to new members
                       </div>
                       <div class="text-xs text-fg-subtle">
-                        Everyone already has @everyone; use this for extra roles
+                        Everyone already has @members; use this for extra roles
                         (for example Member).
                       </div>
                     </div>
@@ -1986,7 +2001,7 @@ onUnmounted(() => {
                     />
                   </label>
                   <div
-                    v-if="props.selectedRole.name !== '@everyone'"
+                    v-if="!isPinnedBottomEchoRole(props.selectedRole)"
                     class="mt-4 space-y-3 border-t border-border pt-4"
                     role="region"
                     aria-labelledby="linked-roles-section-title"
@@ -2220,7 +2235,8 @@ onUnmounted(() => {
                 <button
                   v-if="
                     props.roleQuickAddEnabled &&
-                    props.selectedRole?.name !== '@everyone'
+                    props.selectedRole &&
+                    !isPinnedBottomEchoRole(props.selectedRole)
                   "
                   type="button"
                   class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-glass-1 px-2.5 py-1.5 text-[12px] font-semibold tracking-wide text-fg shadow-sm transition hover:bg-glass-hover hover:border-border"

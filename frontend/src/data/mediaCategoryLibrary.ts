@@ -28,7 +28,11 @@ export const GIF_BROWSE_CATEGORIES: readonly MediaBrowseCategory[] = [
   { slug: 'tv', name: 'TV & Movies', query: 'tv show', navEmoji: '📺' },
 ] as const;
 
-/** Image picker categories — Favorites is handled separately in the UI. */
+/**
+ * Image picker fallback categories when Google Trends is unavailable.
+ * Live picker uses GET /api/v1/image-browse-categories (refreshed monthly).
+ * Favorites is handled separately in the UI.
+ */
 export const IMAGE_BROWSE_CATEGORIES: readonly MediaBrowseCategory[] = [
   { slug: 'nature', name: 'Nature', query: 'nature landscape', navEmoji: '🌿' },
   { slug: 'space', name: 'Space', query: 'space galaxy', navEmoji: '🌌' },

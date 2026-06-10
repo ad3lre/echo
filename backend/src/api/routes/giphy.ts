@@ -9,7 +9,11 @@ import {
   GifProvidersUnavailableError,
   searchGifs,
 } from '../../services/gifProviders';
+import { createUpstreamSearchCache } from '../../services/upstreamSearchCache';
 import { sendError } from '../errors';
+
+const gifSearchCache = createUpstreamSearchCache<unknown>();
+const gifTrendingCache = createUpstreamSearchCache<unknown>();
 
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 30;
@@ -37,8 +41,13 @@ export default async function giphyRoutes(
       '/giphy/trending',
       async (request, reply) => {
         const limit = parseLimit(request.query.limit);
+        const cacheKey = `trending:${limit}`;
+        const cached = gifTrendingCache.get(cacheKey);
+        if (cached) return reply.send(cached);
         try {
-          return reply.send(await fetchTrendingGifs(request.log, limit));
+          const data = await fetchTrendingGifs(request.log, limit);
+          gifTrendingCache.set(cacheKey, data);
+          return reply.send(data);
         } catch (e) {
           if (e instanceof GifProvidersUnavailableError) {
             return sendError(
@@ -59,8 +68,13 @@ export default async function giphyRoutes(
       async (request, reply) => {
         const q = request.query.q?.trim() ?? '';
         const limit = parseLimit(request.query.limit);
+        const cacheKey = `${q.toLowerCase()}|${limit}`;
+        const cached = gifSearchCache.get(cacheKey);
+        if (cached) return reply.send(cached);
         try {
-          return reply.send(await searchGifs(request.log, q, limit));
+          const data = await searchGifs(request.log, q, limit);
+          gifSearchCache.set(cacheKey, data);
+          return reply.send(data);
         } catch (e) {
           if (e instanceof GifProvidersUnavailableError) {
             return sendError(

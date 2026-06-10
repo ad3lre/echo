@@ -1,4 +1,23 @@
 import type { ManagedRole } from '@/features/server-settings/types';
+import {
+  isPinnedBottomEchoRole,
+  pinnedBottomEchoRoleSortKey,
+} from '@shared/echoReservedRoles';
+
+export function pinPinnedBottomEchoRoles(roles: ManagedRole[]): ManagedRole[] {
+  const pinned = roles.filter(isPinnedBottomEchoRole);
+  if (!pinned.length) return roles;
+  const movable = roles.filter((role) => !isPinnedBottomEchoRole(role));
+  const tail = [...pinned].sort(
+    (a, b) =>
+      pinnedBottomEchoRoleSortKey(a.name) - pinnedBottomEchoRoleSortKey(b.name),
+  );
+  const next = [...movable, ...tail];
+  if (next.length !== roles.length) return roles;
+  return next.every((role, index) => role.id === roles[index]?.id)
+    ? roles
+    : next;
+}
 
 export function rolePosition(
   roles: ManagedRole[],
@@ -13,17 +32,24 @@ export function setRolePosition(
   roleId: string,
   targetPosition: number,
 ): ManagedRole[] {
-  const currentIndex = roles.findIndex((role) => role.id === roleId);
+  const role = roles.find((row) => row.id === roleId);
+  if (!role || isPinnedBottomEchoRole(role)) return roles;
+
+  const movable = roles.filter((row) => !isPinnedBottomEchoRole(row));
+  const currentIndex = movable.findIndex((row) => row.id === roleId);
   if (currentIndex < 0) return roles;
-  const clamped = Math.max(1, Math.min(roles.length, targetPosition));
+  const clamped = Math.max(1, Math.min(movable.length, targetPosition));
   const nextIndex = clamped - 1;
   if (currentIndex === nextIndex) return roles;
 
-  const next = [...roles];
-  const [moved] = next.splice(currentIndex, 1);
+  const nextMovable = [...movable];
+  const [moved] = nextMovable.splice(currentIndex, 1);
   if (!moved) return roles;
-  next.splice(nextIndex, 0, moved);
-  return next;
+  nextMovable.splice(nextIndex, 0, moved);
+  return pinPinnedBottomEchoRoles([
+    ...nextMovable,
+    ...roles.filter(isPinnedBottomEchoRole),
+  ]);
 }
 
 export function moveRoleToIndex(
@@ -31,16 +57,23 @@ export function moveRoleToIndex(
   roleId: string,
   targetIndex: number,
 ): ManagedRole[] {
-  const sourceIndex = roles.findIndex((role) => role.id === roleId);
+  const role = roles.find((row) => row.id === roleId);
+  if (!role || isPinnedBottomEchoRole(role)) return roles;
+
+  const movable = roles.filter((row) => !isPinnedBottomEchoRole(row));
+  const sourceIndex = movable.findIndex((row) => row.id === roleId);
   if (sourceIndex < 0) return roles;
-  const boundedTarget = Math.max(0, Math.min(roles.length - 1, targetIndex));
+  const boundedTarget = Math.max(0, Math.min(movable.length - 1, targetIndex));
   if (sourceIndex === boundedTarget) return roles;
 
-  const next = [...roles];
-  const [moved] = next.splice(sourceIndex, 1);
+  const nextMovable = [...movable];
+  const [moved] = nextMovable.splice(sourceIndex, 1);
   if (!moved) return roles;
   const insertIndex =
     sourceIndex < boundedTarget ? boundedTarget - 1 : boundedTarget;
-  next.splice(insertIndex, 0, moved);
-  return next;
+  nextMovable.splice(insertIndex, 0, moved);
+  return pinPinnedBottomEchoRoles([
+    ...nextMovable,
+    ...roles.filter(isPinnedBottomEchoRole),
+  ]);
 }

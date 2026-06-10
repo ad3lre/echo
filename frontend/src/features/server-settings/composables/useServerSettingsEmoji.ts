@@ -5,6 +5,7 @@ import {
   deleteEchoServerCustomEmoji,
   ECHO_EMOJI_PACK_DESCRIPTION_MIN_LEN,
   fetchEchoEmojiMarketPacks,
+  fetchEchoEmojiMarketPackById,
   fetchEchoServerEmojiLibrary,
   patchEchoEmojiPackMeta,
   patchEchoServerCustomEmojiName,
@@ -54,6 +55,8 @@ export interface ManagedEmojiPack {
   marketSettings?: { tags: string[] };
   authorServerName?: string;
   totalUseCount?: number;
+  /** List endpoint may send count without full emoji rows. */
+  emojiCount?: number;
   emojis: ManagedEmoji[];
   stickers: ManagedSticker[];
 }
@@ -71,7 +74,7 @@ function mapLibraryStickerToManaged(
 }
 
 function packExpressionCount(pack: ManagedEmojiPack): number {
-  return pack.emojis.length + pack.stickers.length;
+  return (pack.emojiCount ?? pack.emojis.length) + pack.stickers.length;
 }
 
 const STICKER_MIME = new Set(['image/png', 'image/gif', 'image/apng']);
@@ -129,6 +132,24 @@ export function normalizeEmojiPackTagList(source: string[]): string[] {
 function mapEchoMarketPackToManaged(
   p: EchoEmojiMarketPackApi,
 ): ManagedEmojiPack {
+  const emojis = (p.emojis ?? []).map((e) => ({
+    id: e.id,
+    name: e.name,
+    kind: e.kind,
+    char: e.char,
+    previewUrl: e.previewUrl,
+    used: 0,
+  }));
+  if (emojis.length === 0 && p.previewEmojiUrl) {
+    emojis.push({
+      id: `preview-${p.id}`,
+      name: p.name,
+      kind: 'static',
+      char: undefined,
+      previewUrl: p.previewEmojiUrl,
+      used: 0,
+    });
+  }
   return {
     id: p.id,
     name: p.name,
@@ -137,14 +158,8 @@ function mapEchoMarketPackToManaged(
     authorServerName: p.authorServerName,
     totalUseCount: p.totalUseCount ?? 0,
     marketSettings: p.marketSettings ?? { tags: [] },
-    emojis: (p.emojis ?? []).map((e) => ({
-      id: e.id,
-      name: e.name,
-      kind: e.kind,
-      char: e.char,
-      previewUrl: e.previewUrl,
-      used: 0,
-    })),
+    emojiCount: p.emojiCount ?? emojis.length,
+    emojis,
     stickers: [],
   };
 }
@@ -1199,6 +1214,24 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
     emojiPackModalOpen.value = false;
   }
 
+  async function loadMarketPackDetail(packId: string): Promise<void> {
+    const id = packId.trim();
+    if (!id) return;
+    const idx = marketEmojiPacks.value.findIndex((pack) => pack.id === id);
+    if (idx < 0) return;
+    const current = marketEmojiPacks.value[idx]!;
+    const needsDetail =
+      (current.emojiCount ?? 0) > current.emojis.length ||
+      current.emojis.some((emoji) => emoji.id.startsWith('preview-'));
+    if (!needsDetail) return;
+    try {
+      const { pack } = await fetchEchoEmojiMarketPackById(id);
+      marketEmojiPacks.value[idx] = mapEchoMarketPackToManaged(pack);
+    } catch {
+      /* preview panel keeps list metadata */
+    }
+  }
+
   return {
     MAX_EMOJI_PACKS,
     MAX_EMOJIS_PER_PACK,
@@ -1223,6 +1256,7 @@ export function useServerSettingsEmoji(serverId: Ref<string | undefined>) {
     marketEmojiPacksLoading,
     marketEmojiPacksError,
     refreshMarketEmojiPacks,
+    loadMarketPackDetail,
     refreshServerEmojiLibrary,
     refreshExpressionLibrary,
     serverEmojiLibraryLoading,

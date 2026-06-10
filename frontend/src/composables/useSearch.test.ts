@@ -87,6 +87,20 @@ function mapApiStubToRaw(x: unknown): RawMessage {
 }
 
 describe('useSearch (client mode)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function settleClientSearch() {
+    await vi.advanceTimersByTimeAsync(150);
+    await flushPromises();
+    await nextTick();
+  }
+
   it('filters by query + filter chips and strips trailing filter prefixes from query text', async () => {
     const categories = cats([
       { id: 'ch-general', name: 'general' },
@@ -126,6 +140,7 @@ describe('useSearch (client mode)', () => {
 
     s.searchText.value = 'hello in:';
     await nextTick();
+    await settleClientSearch();
     expect(s.isSearchActive.value).toBe(true);
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual([
       'g-1',
@@ -135,17 +150,20 @@ describe('useSearch (client mode)', () => {
 
     s.addFilter('in', 'general');
     await nextTick();
+    await settleClientSearch();
     expect(s.filterChips.value.map((c) => c.label)).toEqual(['in: #general']);
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual(['g-1']);
 
     s.addFilter('from', 'ali');
     await nextTick();
+    await settleClientSearch();
     expect(s.filterChips.value.map((c) => c.key)).toEqual(['in', 'from']);
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual(['g-1']);
 
     s.addFilter('mentions', '@bob');
     s.addFilter('hasType', 'link');
     await nextTick();
+    await settleClientSearch();
     expect(s.filterChips.value.map((c) => c.key)).toEqual([
       'in',
       'from',
@@ -156,6 +174,7 @@ describe('useSearch (client mode)', () => {
 
     s.removeFilter('mentions');
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual(['g-1']);
 
     s.clearSearch();
@@ -163,6 +182,7 @@ describe('useSearch (client mode)', () => {
 
     s.searchText.value = 'ignored';
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value[0]?.author.name).toBe('Unknown');
 
     s.clearSearch();
@@ -192,6 +212,7 @@ describe('useSearch (client mode)', () => {
 
     s.searchText.value = 'hello in:general';
     await nextTick();
+    await settleClientSearch();
 
     // Input text should not be overwritten while the user is typing an inline filter.
     // The controller should still update filter state correctly.
@@ -252,28 +273,34 @@ describe('useSearch (client mode)', () => {
 
     s.addFilter('hasType', 'image');
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual(['img-1']);
 
     s.addFilter('hasType', 'gif');
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual(['gif-1']);
 
     s.addFilter('hasType', 'link');
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value.some((x) => x.id === 'link-1')).toBe(
       true,
     );
 
     s.addFilter('hasType', 'video');
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual(['vid-1']);
 
     s.addFilter('hasType', 'audio');
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual(['aud-1']);
 
     s.addFilter('hasType', 'docs');
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual([
       'doc-app',
       'doc-doc',
@@ -283,11 +310,13 @@ describe('useSearch (client mode)', () => {
     // Default branch in `messageMatchesHasType`.
     s.addFilter('hasType', 'nope' as never);
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value).toEqual([]);
 
     s.clearSearch();
     s.searchText.value = 'page';
     await nextTick();
+    await settleClientSearch();
     expect(s.totalPages.value).toBe(2);
     expect(s.paginatedSearchResults.value).toHaveLength(16);
     s.goToSearchPage(999);
@@ -331,19 +360,23 @@ describe('useSearch (client mode)', () => {
 
     s.searchText.value = 'hello';
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value[0]?.channelName).toBe('Bob');
 
     activeChannelId.value = 'dm-u404';
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value[0]?.channelName).toBe('DM');
 
     activeChannelId.value = 'dm-group-1';
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value[0]?.channelName).toBe('Group DM');
 
     // Echo graph DM thread id in `echoDmThreadIds` uses "Direct message".
     activeChannelId.value = '100000000000000';
     await nextTick();
+    await settleClientSearch();
     expect(s.searchResultMessages.value[0]?.channelName).toBe('Direct message');
     expect(s.searchScopeHint.value).toContain('message history loaded');
   });
@@ -421,6 +454,7 @@ describe('useSearch (API mode)', () => {
         hasType: 'image',
         limit: expect.any(Number),
       }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
 
     expect(s.searchResultMessages.value.map((x) => x.id)).toEqual(['s-1']);
@@ -590,6 +624,7 @@ describe('useSearch (API mode)', () => {
       'token-1',
       'srv-1',
       expect.not.objectContaining({ q: expect.anything() }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -799,6 +834,7 @@ describe('useSearch (API mode)', () => {
       expect.objectContaining({
         before: 's-23',
       }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(s.searchResultMessages.value.map((x) => x.id)).toContain('s-next');
 

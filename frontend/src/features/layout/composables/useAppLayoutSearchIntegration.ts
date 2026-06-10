@@ -1,6 +1,6 @@
 import { computed, provide, ref, type Ref, type ComputedRef } from 'vue';
 import { useSearch } from '@/composables/useSearch';
-import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
+import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import type { useAuthSessionStore } from '@/stores/authSession';
 import type { useServerStore } from '@/stores/server';
 import {
@@ -11,10 +11,11 @@ import type { MessageWithAuthor, Server } from '@shared/types';
 import type { ChannelCategory } from '@/composables/useChannels';
 
 export function useAppLayoutSearchIntegration(deps: {
-  workspace: WorkspaceStateApi;
   categoriesForServer: ComputedRef<ChannelCategory[]>;
   activeChannelId: Ref<string>;
   activeChannelMessages: Ref<MessageWithAuthor[]>;
+  /** Server members or DM thread participants — not the global Echo roster. */
+  searchFilterUsers: ComputedRef<UserForAuthor[]>;
   authSession: ReturnType<typeof useAuthSessionStore>;
   serverStore: ReturnType<typeof useServerStore>;
   isInDMMode: ComputedRef<boolean>;
@@ -23,10 +24,10 @@ export function useAppLayoutSearchIntegration(deps: {
   handleGoToMessage: (channelId: string, messageId: string) => void;
 }) {
   const {
-    workspace,
     categoriesForServer,
     activeChannelId,
     activeChannelMessages,
+    searchFilterUsers,
     authSession,
     serverStore,
     isInDMMode,
@@ -54,7 +55,7 @@ export function useAppLayoutSearchIntegration(deps: {
   } = useSearch(
     categoriesForServer,
     activeChannelId,
-    workspace.users,
+    searchFilterUsers,
     activeChannelMessages,
     {
       authToken: computed(() => authSession.accessToken),

@@ -28,9 +28,9 @@
       "title": "Format",
       "description": "Slowmode, auto-delete, and other channel formatting options."
     },
-    "delete_channel": {
-      "title": "Delete channel",
-      "description": "Permanently remove this channel and its messages."
+    "danger_zone": {
+      "title": "Danger Zone",
+      "description": "Sensitive actions that permanently remove this channel. Proceed carefully."
     },
     "discord_chat_sync": {
       "title": "Discord messages (category)",

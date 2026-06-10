@@ -28,15 +28,32 @@ const unicodeEntries = [
   },
 ];
 
-vi.mock('@/composables/useEmojiSearchIndex', () => ({
-  ensureEmojiSearchPrebuildLoaded: () => Promise.resolve(),
-  getEmojiBySlug: (slug: string) =>
-    unicodeEntries.find((e) => e.slug === slug) ?? null,
-  searchEmojisBySlugPrefix: (query: string) => {
-    const q = query.toLowerCase();
-    return unicodeEntries.filter((e) => e.slug.startsWith(q));
-  },
-}));
+vi.mock('@/composables/useEmojiSearchIndex', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/composables/useEmojiSearchIndex')>();
+  return {
+    ...actual,
+    ensureEmojiSearchPrebuildLoaded: () => Promise.resolve(),
+    getEmojiBySlug: (slug: string) =>
+      unicodeEntries.find((e) => e.slug === slug) ?? null,
+    searchEmojis: (query: string, limit = 80) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return [];
+      return unicodeEntries
+        .filter((e) => {
+          const slug = e.slug.toLowerCase();
+          const name = e.name.toLowerCase();
+          return (
+            slug === q ||
+            slug.startsWith(q) ||
+            slug.includes(q) ||
+            name.includes(q.replace(/_/g, ' '))
+          );
+        })
+        .slice(0, limit);
+    },
+  };
+});
 
 vi.mock('@/composables/useAppIconSearch', () => ({
   appIconEntriesForAutocompleteQuery: (query: string) => {

@@ -26,9 +26,9 @@ import {
 } from '@/composables/useImageSearch';
 import {
   GIF_BROWSE_CATEGORIES,
-  IMAGE_BROWSE_CATEGORIES,
   type MediaBrowseCategory,
 } from '@/data/mediaCategoryLibrary';
+import { useImageBrowseCategories } from '@/composables/useImageBrowseCategories';
 import {
   useMediaFavorites,
   gifToMediaFavorite,
@@ -97,8 +97,18 @@ const layoutModals = inject(LAYOUT_MODALS_KEY, null);
 const { gifFavorites, imageFavorites, isFavorite, toggleFavorite } =
   useMediaFavorites();
 
+const { categories: imageBrowseCategories, ensureImageBrowseCategories } =
+  useImageBrowseCategories();
+
 const favoritesForBrowseKind = computed(() =>
   browseKind.value === 'gif' ? gifFavorites.value : imageFavorites.value,
+);
+
+const imageFavoritePreviewUrls = computed(() =>
+  imageFavorites.value
+    .slice(0, 2)
+    .map((f) => f.thumbUrl || f.url)
+    .filter(Boolean),
 );
 
 const favoritesEmptyLabel = computed(() =>
@@ -192,12 +202,16 @@ watch(
   { immediate: false },
 );
 
+watch(imageBrowseCategories, () => {
+  if (activeTab.value === 'image') void warmImageCategoryLibrary();
+});
+
 watch(activeTab, (tab) => {
   if (tab !== 'image') {
     imageLoadMoreObserver?.disconnect();
     return;
   }
-  void warmImageCategoryLibrary();
+  void ensureImageBrowseCategories().then(() => warmImageCategoryLibrary());
   if (!imageTabSeeded.value) {
     imageTabSeeded.value = true;
     imageBrowseView.value = 'categories';
@@ -577,7 +591,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
             <img
               :src="icons.folder"
               alt=""
-              class="h-4 w-4 opacity-90"
+              class="echo-ink-icon h-4 w-4 opacity-90"
               :class="activeTab === 'favorites' ? 'opacity-100' : ''"
               aria-hidden="true"
             />
@@ -596,7 +610,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               <img
                 :src="icons.folder"
                 alt=""
-                class="h-10 w-10 opacity-40"
+                class="echo-ink-icon h-10 w-10 opacity-40"
                 aria-hidden="true"
               />
               <p
@@ -904,22 +918,41 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                 class="group relative flex aspect-square flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
                 @click="setTab('favorites')"
               >
+                <template v-if="imageFavoritePreviewUrls.length">
+                  <img
+                    v-for="(previewUrl, pi) in imageFavoritePreviewUrls"
+                    :key="`fav-preview-${pi}`"
+                    :src="previewUrl"
+                    alt=""
+                    class="absolute inset-0 h-full w-full object-cover"
+                    :class="
+                      pi === 1 ? 'opacity-80 mix-blend-lighten scale-105' : ''
+                    "
+                    loading="eager"
+                    draggable="false"
+                  />
+                </template>
                 <div
+                  v-else
                   class="flex h-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-indigo-500/20 to-purple-500/10"
                 >
                   <img
                     :src="icons.folder"
                     alt=""
-                    class="h-8 w-8 opacity-80"
+                    class="echo-ink-icon h-8 w-8 opacity-80"
                     aria-hidden="true"
                   />
-                  <span class="text-xs font-semibold text-foreground"
+                </div>
+                <div
+                  class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6"
+                >
+                  <span class="text-xs font-semibold text-white"
                     >Favorites</span
                   >
                 </div>
               </button>
               <button
-                v-for="cat in IMAGE_BROWSE_CATEGORIES"
+                v-for="cat in imageBrowseCategories"
                 :key="cat.slug"
                 type="button"
                 class="group relative flex aspect-square flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"

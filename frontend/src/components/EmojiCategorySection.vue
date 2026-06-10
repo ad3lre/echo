@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import type { EmojiCategory, EmojiEntry } from '@/composables/useEmojiData';
 import GifImage from '@/components/chat/GifImage.vue';
 import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
+import { getTwemojiSrc } from '@/utils/twemoji';
 
 const props = defineProps<{
   category: EmojiCategory;
@@ -150,6 +151,10 @@ function isStickerGif(entry: EmojiEntry): boolean {
     (entry.stickerFormat === 'gif' || isLikelyGifImageUrl(entry.imageUrl))
   );
 }
+
+function unicodeEmojiSrc(entry: EmojiEntry): string | null {
+  return getTwemojiSrc(entry.emoji);
+}
 </script>
 
 <template>
@@ -178,22 +183,28 @@ function isStickerGif(entry: EmojiEntry): boolean {
           v-if="
             entry.kind === 'sticker' && entry.imageUrl && isStickerGif(entry)
           "
+          class="emoji-btn__gif"
           :src="entry.imageUrl"
           :alt="`:${entry.name}:`"
-          wrapper-class="h-[1.35rem] w-[1.35rem] flex items-center justify-center"
-          img-class="h-[1.35rem] w-[1.35rem] object-contain"
         />
         <img
           v-else-if="
             (entry.kind === 'custom' || entry.kind === 'sticker') &&
             entry.imageUrl
           "
-          class="emoji custom-emoji h-[1.35rem] w-[1.35rem] object-contain"
+          class="emoji custom-emoji"
           :src="entry.imageUrl"
           :alt="`:${entry.name}:`"
           draggable="false"
         />
-        <span v-else v-html="entry.html" />
+        <img
+          v-else-if="unicodeEmojiSrc(entry)"
+          class="emoji"
+          :src="unicodeEmojiSrc(entry)!"
+          :alt="entry.name"
+          draggable="false"
+        />
+        <span v-else class="emoji-btn__fallback" v-html="entry.html" />
       </button>
     </div>
     <div
@@ -222,3 +233,75 @@ function isStickerGif(entry: EmojiEntry): boolean {
     </div>
   </div>
 </template>
+
+<style scoped>
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-auto-rows: auto;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.emoji-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 1;
+  height: auto;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.15s;
+}
+
+.emoji-btn:hover {
+  background: var(--vue-auto-003);
+}
+
+.emoji-btn--active {
+  background: var(--vue-auto-003);
+  box-shadow: inset 0 0 0 2px
+    color-mix(in srgb, var(--vue-auto-008) 55%, transparent);
+}
+
+.emoji-btn :deep(.emoji),
+.emoji-btn .emoji {
+  display: block;
+  width: 22px;
+  height: 22px;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.emoji-btn__fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.emoji-btn__gif {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.emoji-btn__gif :deep(img) {
+  display: block;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+</style>

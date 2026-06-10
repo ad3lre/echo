@@ -74,5 +74,8 @@ export function formatChatUploadErrorMessage(error: unknown): string {
   ) {
     return 'File uploads are not configured on this server (object storage). Ask an admin to set ECHO_S3_* on the API.';
   }
+  if (/REMOTE_IMAGE_FETCH_FAILED|Could not fetch that image/i.test(message)) {
+    return 'Could not fetch that image. Try another result or upload the file directly.';
+  }
   return message;
 }

@@ -5,6 +5,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 import healthRoutes from './health';
 import statusPageRoutes from './statusPage';
 import giphyRoutes from './giphy';
+import imageBrowseCategoriesRoutes from './imageBrowseCategories';
 import serperImageSearchRoutes from './serperImageSearch';
 import honchoMemoryRoutes from './honchoMemory';
 import authRoutes from './auth';
@@ -54,6 +55,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(statusPageRoutes, { prefix: '/api/v1' });
   await fastify.register(systemDeployCountdownRoutes, { prefix: '/api/v1' });
   await fastify.register(giphyRoutes, { prefix: '/api/v1' });
+  await fastify.register(imageBrowseCategoriesRoutes, { prefix: '/api/v1' });
   await fastify.register(serperImageSearchRoutes, { prefix: '/api/v1' });
   await fastify.register(honchoMemoryRoutes, { prefix: '/api/v1' });
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });

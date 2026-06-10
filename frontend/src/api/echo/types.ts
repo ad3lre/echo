@@ -413,6 +413,8 @@ export type EchoEmojiMarketPackApi = {
     char?: string;
     previewUrl?: string;
   }[];
+  emojiCount?: number;
+  previewEmojiUrl?: string;
 };
 
 export type EchoEmojiLibraryEmojiApi = {

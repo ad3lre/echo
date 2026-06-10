@@ -28,6 +28,7 @@ import {
   isFilterSegmentActive,
   type ActiveSearchInlineFilter,
   type SearchInputFilterSegment,
+  type SearchInputSegment,
   type SearchInputTextSegment,
 } from './searchInlineFilterInput';
 
@@ -101,6 +102,20 @@ const dropdownRef = ref<HTMLDivElement | null>(null);
 const isDropdownOpen = ref(false);
 const dropdownMode = ref<'in' | 'from' | 'mentions' | 'has' | null>(null);
 const filterPrefix = ref('');
+const debouncedFilterPrefix = ref('');
+let filterPrefixDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(filterPrefix, (prefix) => {
+  if (filterPrefixDebounceTimer) clearTimeout(filterPrefixDebounceTimer);
+  if (!prefix) {
+    debouncedFilterPrefix.value = prefix;
+    return;
+  }
+  filterPrefixDebounceTimer = setTimeout(() => {
+    debouncedFilterPrefix.value = prefix;
+    filterPrefixDebounceTimer = null;
+  }, 150);
+});
 const highlightedIndex = ref(0);
 const caretIndex = ref(0);
 const activeInlineFilter = ref<ActiveSearchInlineFilter | null>(null);
@@ -227,6 +242,13 @@ const parsedInputSegments = computed(() =>
   parseSearchInputSegments(inputValue.value),
 );
 
+/** Stable segment list for rendering; avoids swapping input elements when query goes empty → first char. */
+const compositeInputSegments = computed((): SearchInputSegment[] => {
+  const segments = parsedInputSegments.value;
+  if (segments.length > 0) return segments;
+  return [{ type: 'text', value: '', start: 0, end: 0 }];
+});
+
 const inlineFilterKeysInText = computed(() => {
   const keys = new Set<FilterKey>();
   for (const segment of parsedInputSegments.value) {
@@ -244,8 +266,8 @@ const pickerOnlyFilterChips = computed(() =>
 );
 
 const lastTextSegmentIndex = computed(() => {
-  for (let i = parsedInputSegments.value.length - 1; i >= 0; i -= 1) {
-    if (parsedInputSegments.value[i]?.type === 'text') return i;
+  for (let i = compositeInputSegments.value.length - 1; i >= 0; i -= 1) {
+    if (compositeInputSegments.value[i]?.type === 'text') return i;
   }
   return -1;
 });
@@ -259,8 +281,7 @@ const needsTrailingTextInput = computed(() => {
 
 const showSearchPlaceholder = computed(
   () =>
-    pickerOnlyFilterChips.value.length === 0 &&
-    parsedInputSegments.value.length === 0,
+    pickerOnlyFilterChips.value.length === 0 && inputValue.value.length === 0,
 );
 
 function chipDisplayParts(chip: FilterChip): { key: string; value: string } {
@@ -384,12 +405,6 @@ function editFilterSegment(segment: SearchInputFilterSegment) {
   nextTick(() => focusActiveFilterValueInput());
 }
 
-function onInput(event: Event) {
-  const el = event.target as HTMLInputElement;
-  syncCaretFromInput(el);
-  inputValue.value = el.value;
-}
-
 function onTrailingTextInput(event: Event) {
   const el = event.target as HTMLInputElement;
   const addition = el.value;
@@ -426,10 +441,11 @@ watch(inputValue, (val) => {
 
 watch(activeInlineFilter, (active, previous) => {
   if (!active) return;
+  // Only refocus when entering a new inline filter token, not on each value keystroke.
   if (
     previous &&
     previous.start === active.start &&
-    previous.end === active.end
+    previous.mode === active.mode
   ) {
     return;
   }
@@ -438,7 +454,7 @@ watch(activeInlineFilter, (active, previous) => {
 
 const dropdownOptions = computed(() => {
   if (!dropdownMode.value) return [];
-  const raw = filterPrefix.value.toLowerCase();
+  const raw = debouncedFilterPrefix.value.toLowerCase();
   const p =
     dropdownMode.value === 'in'
       ? raw.replace(/^#/, '')
@@ -798,6 +814,7 @@ onBeforeUnmount(() => {
     window.clearTimeout(persistSearchTimer);
     persistSearchTimer = null;
   }
+  if (filterPrefixDebounceTimer) clearTimeout(filterPrefixDebounceTimer);
   window.removeEventListener('pointerdown', handlePointerDown, true);
   window.removeEventListener(
     'echo:focus-search',
@@ -927,8 +944,8 @@ onBeforeUnmount(() => {
       </span>
 
       <template
-        v-for="(segment, segmentIndex) in parsedInputSegments"
-        :key="`${segment.type}-${segment.start}-${segment.end}`"
+        v-for="(segment, segmentIndex) in compositeInputSegments"
+        :key="`${segment.type}-${segment.start}`"
       >
         <input
           v-if="segment.type === 'text'"
@@ -943,19 +960,19 @@ onBeforeUnmount(() => {
           data-lpignore="true"
           :placeholder="
             showSearchPlaceholder &&
-            segmentIndex === parsedInputSegments.length - 1
+            segmentIndex === compositeInputSegments.length - 1
               ? placeholder || 'Search'
               : undefined
           "
           class="search-text-segment search-bar-input min-w-0 bg-transparent text-foreground placeholder:text-muted outline-none"
           :class="[
             mobilePanelLayout ? 'text-base' : 'text-sm',
-            segmentIndex === parsedInputSegments.length - 1
+            segmentIndex === compositeInputSegments.length - 1
               ? 'flex-1 min-w-[3rem]'
               : 'flex-none',
           ]"
           :style="
-            segmentIndex === parsedInputSegments.length - 1
+            segmentIndex === compositeInputSegments.length - 1
               ? undefined
               : { width: textSegmentWidthCh(segment.value) }
           "
@@ -1031,28 +1048,6 @@ onBeforeUnmount(() => {
         class="search-text-segment search-bar-input flex-1 min-w-[3rem] bg-transparent text-foreground placeholder:text-muted outline-none"
         :class="mobilePanelLayout ? 'text-base' : 'text-sm'"
         @input="onTrailingTextInput"
-        @focus="onInputFocus"
-        @click="syncCaretFromInput()"
-        @keydown="onKeydown"
-        @keyup="syncCaretFromInput()"
-        @select="syncCaretFromInput()"
-      />
-
-      <input
-        v-if="showSearchPlaceholder"
-        ref="inputRef"
-        :value="inputValue"
-        type="text"
-        name="echo-message-search-native"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-        data-lpignore="true"
-        :placeholder="placeholder || 'Search'"
-        class="search-text-segment search-bar-input flex-1 min-w-[3rem] bg-transparent text-foreground placeholder:text-muted outline-none"
-        :class="mobilePanelLayout ? 'text-base' : 'text-sm'"
-        @input="onInput"
         @focus="onInputFocus"
         @click="syncCaretFromInput()"
         @keydown="onKeydown"

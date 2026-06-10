@@ -5,7 +5,9 @@
 
 import { ref, computed, watch } from 'vue';
 import {
-  searchEmojisBySlugPrefix,
+  searchEmojis,
+  compareEmojiSearchResults,
+  parseEmojiSearchWords,
   getEmojiBySlug,
   ensureEmojiSearchPrebuildLoaded,
 } from '@/composables/useEmojiSearchIndex';
@@ -32,28 +34,6 @@ export function useEmojiAutocomplete(
   const triggerStart = ref<number | null>(null);
   const query = ref('');
   const selectedIndex = ref(0);
-
-  function entrySlugWordCount(entry: EmojiEntry): number {
-    return entry.slug.split('_').filter(Boolean).length;
-  }
-
-  function entryNameWordCount(entry: EmojiEntry): number {
-    return entry.name.split(/\s+/).filter(Boolean).length;
-  }
-
-  function autocompleteRankScore(entry: EmojiEntry, qSlug: string): number {
-    const slug = entry.slug.toLowerCase();
-    const name = entry.name.toLowerCase();
-    const qName = qSlug.replace(/_/g, ' ');
-
-    if (slug === qSlug) return 0;
-    if (name === qName) return 1;
-    if (slug.startsWith(qSlug)) return 2;
-    if (name.startsWith(qName)) return 3;
-    if (slug.includes(qSlug)) return 4;
-    if (name.includes(qName)) return 5;
-    return 9;
-  }
 
   function kindRank(entry: EmojiEntry): number {
     // Mixed suggestions: app icons are intentionally ranked below emoji/custom.
@@ -85,7 +65,8 @@ export function useEmojiAutocomplete(
       ((qq: string) => appIconEntriesForAutocompleteQuery(qq, CANDIDATE_LIMIT));
     const appIcons = iconFn(q);
 
-    const unicode = searchEmojisBySlugPrefix(q, CANDIDATE_LIMIT);
+    const searchWords = parseEmojiSearchWords(q);
+    const unicode = searchEmojis(q, CANDIDATE_LIMIT);
 
     const combined = [...customs, ...appIcons, ...unicode];
     const deduped: EmojiEntry[] = [];
@@ -97,25 +78,14 @@ export function useEmojiAutocomplete(
     }
 
     deduped.sort((a, b) => {
-      const ra = autocompleteRankScore(a, qSlug);
-      const rb = autocompleteRankScore(b, qSlug);
-      if (ra !== rb) return ra - rb;
+      const cmp = compareEmojiSearchResults(a, b, searchWords);
+      if (cmp !== 0) return cmp;
 
       const ka = kindRank(a);
       const kb = kindRank(b);
       if (ka !== kb) return ka - kb;
 
-      const aw = entrySlugWordCount(a);
-      const bw = entrySlugWordCount(b);
-      if (aw !== bw) return aw - bw;
-
-      const anw = entryNameWordCount(a);
-      const bnw = entryNameWordCount(b);
-      if (anw !== bnw) return anw - bnw;
-
-      if (a.slug.length !== b.slug.length) return a.slug.length - b.slug.length;
-      if (a.name.length !== b.name.length) return a.name.length - b.name.length;
-      return a.slug.localeCompare(b.slug);
+      return 0;
     });
 
     return deduped.slice(0, SUGGESTION_LIMIT);

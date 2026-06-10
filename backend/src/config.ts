@@ -77,6 +77,10 @@ interface AppConfig {
   readonly serperApiKey: string;
   /** Query used when the client opens image browse with an empty search box. */
   readonly serperDefaultQuery: string;
+  /** Interval for Google Trends image category refresh (ms). 0 disables. Default 24h. */
+  readonly echoImageCategoriesRefreshIntervalMs: number;
+  /** Google Trends RSS geo code (e.g. US, GB). */
+  readonly echoImageCategoriesTrendsGeo: string;
   /** Number of image results per Serper page (1–100). Default 20. */
   readonly serperImageNum: number;
   /** Max Serper page index (1-based). Default 4 = initial 20 + up to 3 scroll loads. */
@@ -432,6 +436,8 @@ interface AppConfig {
   readonly echoBugReportEmailFrom: string;
   /** Inbox that receives support-form submissions from the marketing site (default public support address). */
   readonly echoSupportEmail: string;
+  /** Inbox for automated client boot-stall / load-hang alerts (default bugs@chat-echo.com). */
+  readonly echoBugsEmail: string;
   /** Public marketing site origin (app-echo.net) for CORS and deploy URL gates. */
   readonly echoMarketingPublicUrl: string;
   readonly echoEmailVerificationTokenHours: number;
@@ -655,6 +661,14 @@ export const config: AppConfig = {
   klipyApiKey: process.env.KLIPY_API_KEY?.trim() ?? '',
   serperApiKey: process.env.SERPER_API_KEY?.trim() ?? '',
   serperDefaultQuery: process.env.SERPER_DEFAULT_QUERY?.trim() || 'photography',
+  echoImageCategoriesRefreshIntervalMs: (() => {
+    const raw = process.env.ECHO_IMAGE_CATEGORIES_REFRESH_INTERVAL_MS;
+    if (raw === undefined || raw === '') return 24 * 60 * 60 * 1000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 24 * 60 * 60 * 1000;
+  })(),
+  echoImageCategoriesTrendsGeo:
+    process.env.ECHO_IMAGE_CATEGORIES_TRENDS_GEO?.trim() || 'US',
   serperImageNum: envBoundedInt('SERPER_IMAGE_NUM', 20, 1, 100),
   serperImageMaxPage: envBoundedInt('SERPER_IMAGE_MAX_PAGE', 4, 1, 10),
   serperCacheTtlMs: envBoundedInt(
@@ -1012,7 +1026,7 @@ export const config: AppConfig = {
   ),
   echoCreateMessageAuthorIdIndex: parseBoolean(
     process.env.ECHO_CREATE_MESSAGE_AUTHOR_ID_INDEX,
-    false,
+    true,
   ),
   discordImportSourceDir:
     process.env.ECHO_DISCORD_IMPORT_SOURCE_DIR?.trim() ||
@@ -1140,6 +1154,7 @@ export const config: AppConfig = {
     'Echo Bugs <bugs@chat-echo.com>',
   echoSupportEmail:
     process.env.ECHO_SUPPORT_EMAIL?.trim() || 'support@app-echo.net',
+  echoBugsEmail: process.env.ECHO_BUGS_EMAIL?.trim() || 'bugs@chat-echo.com',
   echoMarketingPublicUrl:
     process.env.ECHO_MARKETING_PUBLIC_URL?.trim() || 'https://app-echo.net',
   echoEmailVerificationTokenHours: (() => {

@@ -10,6 +10,7 @@ import { useMoreServersMenus } from '@/composables/useMoreServersMenus';
 import { useMoreServersFolders } from '@/composables/useMoreServersFolders';
 import {
   useMoreServerFolderDrag,
+  shouldAbortMoreServerNestedDrag,
   type MoreServerDropTarget,
 } from '@/composables/useMoreServerFolderDrag';
 import MoreServerFolderModal from '@/components/MoreServerFolderModal.vue';
@@ -76,9 +77,11 @@ function handleServerDrop(serverId: string, target: MoreServerDropTarget) {
 const {
   draggingServerId,
   draggingFolderId,
+  suppressClickAfterDrag,
   onServerDragStart,
   onFolderDragStart,
   onDragEnd,
+  onPanelDragOverCapture,
   onUngroupedDragOver,
   onFolderDragOver,
   onFolderOrderDragOver,
@@ -240,15 +243,26 @@ function onCompactServerDragStart(serverId: string, e: DragEvent) {
 }
 
 function onCardServerDragStart(server: MoreServersMockServer, e: DragEvent) {
-  const t = e.target;
-  if (
-    t instanceof Element &&
-    t.closest('button, a, input, textarea, select, [data-no-card-drag]')
-  ) {
+  if (shouldAbortMoreServerNestedDrag(e)) {
     e.preventDefault();
     return;
   }
   onServerDragStart(server.id, e);
+}
+
+function openServerFromPanel(serverId: string) {
+  if (suppressClickAfterDrag.value) return;
+  openServer(serverId);
+}
+
+function toggleFolderExpandedInCompactFromPanel(folderId: string) {
+  if (suppressClickAfterDrag.value) return;
+  toggleFolderExpandedInCompact(folderId);
+}
+
+function toggleFolderCollapsedInCardFromPanel(folderId: string) {
+  if (suppressClickAfterDrag.value) return;
+  toggleFolderCollapsedInCard(folderId);
 }
 
 /** Expand collapsed folder headers while dragging an ungrouped server over them. */
@@ -566,11 +580,12 @@ function compactFolderDropRing(
         :on-folder-drag-over-card="onFolderDragOverCard"
         :on-folder-order-drag-over="onFolderOrderDragOver"
         :on-drop="onDrop"
+        :on-panel-drag-over-capture="onPanelDragOverCapture"
         :open-folder-context-menu="openFolderContextMenu"
         :on-folder-drag-start="onFolderDragStart"
         :on-drag-end="onDragEnd"
         :is-folder-collapsed-in-card="isFolderCollapsedInCard"
-        :toggle-folder-collapsed-in-card="toggleFolderCollapsedInCard"
+        :toggle-folder-collapsed-in-card="toggleFolderCollapsedInCardFromPanel"
         :folder-peek-servers="folderPeekServers"
         :on-ungrouped-drag-over="onUngroupedDragOver"
         :on-card-server-drag-start="onCardServerDragStart"
@@ -578,7 +593,7 @@ function compactFolderDropRing(
         :server-banner-style="serverBannerStyle"
         :server-invite-label="serverInviteLabel"
         :is-pinned="isPinned"
-        :open-server="openServer"
+        :open-server="openServerFromPanel"
         :toggle-pin="togglePin"
         :open-menu-id="openMenuId"
         :toggle-menu="toggleMenu"
@@ -598,15 +613,18 @@ function compactFolderDropRing(
         :on-folder-order-drag-over="onFolderOrderDragOver"
         :on-drop="onDrop"
         :is-pinned="isPinned"
-        :open-server="openServer"
+        :open-server="openServerFromPanel"
         :open-server-context-menu="openServerContextMenu"
+        :on-panel-drag-over-capture="onPanelDragOverCapture"
         :on-compact-server-pointer-enter="onCompactServerPointerEnter"
         :on-compact-server-pointer-leave="onCompactServerPointerLeave"
         :on-compact-server-pointer-down="onCompactServerPointerDown"
         :on-compact-server-drag-start="onCompactServerDragStart"
         :on-drag-end="onDragEnd"
         :is-folder-expanded-in-compact="isFolderExpandedInCompact"
-        :toggle-folder-expanded-in-compact="toggleFolderExpandedInCompact"
+        :toggle-folder-expanded-in-compact="
+          toggleFolderExpandedInCompactFromPanel
+        "
         :on-folder-drag-start="onFolderDragStart"
         :open-folder-context-menu="openFolderContextMenu"
         :compact-folder-drop-ring="compactFolderDropRing"

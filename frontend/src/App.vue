@@ -19,6 +19,7 @@ import {
   APP_BOOT_GATE_TIMEOUT_MS,
   APP_LAYOUT_LOAD_TIMEOUT_MS,
 } from '@/config/appLoadUi';
+import { useAppBootStallWatcher } from '@/observability/appBootStallWatcher';
 import {
   normalizePathname,
   parseLegalDocPath,
@@ -82,17 +83,26 @@ provide(PLATFORM_KEY, echoPlatform);
  * off just before mount (see `main.ts`) so those flags are already set on the first
  * frame.
  */
+const authSessionStore = useAuthSessionStore();
+const hasSessionAtBoot = !!authSessionStore.accessToken?.trim();
+
 const workspace = echoPlatform.workspace;
 const { showBootGate } = useAppBootGate({
-  hasSession: !!useAuthSessionStore().accessToken?.trim(),
+  hasSession: hasSessionAtBoot,
   warmPainted: workspace.fromApi.value,
   initialLoadSettled: workspace.initialLoadSettled,
   timeoutMs: APP_BOOT_GATE_TIMEOUT_MS,
   fastRevealMs: 600, // Show app shell quickly with skeleton states
 });
 
+const appLayoutResolved = ref(false);
+
 const AppLayout = defineAsyncComponent({
-  loader: () => import('@/components/AppLayout.vue'),
+  loader: async () => {
+    const mod = await import('@/components/AppLayout.vue');
+    appLayoutResolved.value = true;
+    return mod;
+  },
   loadingComponent: AppLayoutSplash,
   errorComponent: AppLayoutLoadError,
   delay: 200,
@@ -115,6 +125,15 @@ const paperPublicToken = ref<string | null>(null);
 const showAppLayout = computed(
   () => !authShell.value && !legalDocId.value && !paperPublicToken.value,
 );
+
+useAppBootStallWatcher({
+  showBootGate,
+  initialLoadSettled: workspace.initialLoadSettled,
+  showAppLayout,
+  appLayoutResolved,
+  bootGateTimeoutMs: APP_BOOT_GATE_TIMEOUT_MS,
+  hasSession: hasSessionAtBoot,
+});
 
 function authShellFromLocation(): null | 'reset' | 'forgot' | 'verify-email' {
   if (typeof window === 'undefined') return null;

@@ -232,6 +232,9 @@ export function useComposerState(
   ) {
     const nextEditor = editor.value;
     if (!nextEditor) return;
+    // Drop any queued rAF editor sync — otherwise a stale pending snapshot can
+    // overwrite programmatic updates (e.g. channel message format rehydration).
+    pendingSerialized = null;
     const doc = buildComposerDoc(nextContent, nextMentions, getResolvers());
     nextEditor.commands.setContent(doc, { emitUpdate: false });
     const from = rawOffsetToEditorPos(nextEditor.state.doc, nextSelectionStart);

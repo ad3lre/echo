@@ -87,6 +87,7 @@ import {
   markEchoUploadIntentRegistered,
 } from '../../../services/echoUploadIntent';
 import { verifyEchoUploadReadyToRegister } from '../../../services/echoUploadRegister';
+import { importChatRemoteImage } from '../../../services/chatRemoteImageImport';
 
 function sanitizeUploadContentType(
   raw: string,
@@ -1351,6 +1352,68 @@ export default async function echoUploadsRoutes(
           format: 'progressive',
           ...base,
         });
+    },
+  );
+
+  type EchoImportRemoteImageBody = { channelId?: string; url?: string };
+
+  fastify.post<{ Body: EchoImportRemoteImageBody }>(
+    '/uploads/import-remote-image',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      bodyLimit: 16 * 1024,
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const userId = getAuthUser(req).id;
+      const channelId =
+        typeof req.body?.channelId === 'string'
+          ? req.body.channelId.trim()
+          : '';
+      const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+      if (!channelId || !url) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'channelId and url are required',
+        );
+      }
+      if (url.length > 8192) {
+        return sendError(reply, 400, 'INVALID_BODY', 'url too long');
+      }
+
+      const ent = await getEchoEntitlements(pool, userId);
+      const useLocalDisk =
+        !isEchoS3UploadConfigured() && Boolean(config.echoLocalUploadDir);
+      const effectiveCap = useLocalDisk
+        ? Math.min(ent.uploadMaxBytes, config.echoLocalUploadBodyMaxBytes)
+        : ent.uploadMaxBytes;
+
+      const result = await importChatRemoteImage({
+        pool,
+        userId,
+        channelId,
+        sourceUrl: url,
+        maxBytes: effectiveCap,
+        log: req.log,
+      });
+      if (!result.ok) {
+        return sendError(reply, result.status, result.code, result.message);
+      }
+      return reply.code(200).header('Cache-Control', 'private, no-store').send({
+        url: result.url,
+        storageKey: result.storageKey,
+        mimeType: result.mimeType,
+        fileSize: result.fileSize,
+      });
     },
   );
 

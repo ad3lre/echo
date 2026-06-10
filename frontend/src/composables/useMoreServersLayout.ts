@@ -101,7 +101,7 @@ export function useMoreServersLayout(opts: {
       new Map(foldersWithServers.value.map((x) => [x.folder.id, x] as const)),
   );
 
-  const FOLDER_ICON_PEEK_MAX = 3;
+  const FOLDER_ICON_PEEK_MAX = 4;
 
   function folderPeekServers(
     servers: MoreServersMockServer[],

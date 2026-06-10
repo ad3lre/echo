@@ -507,6 +507,91 @@ function showCategoryDropLineBefore(ri: number): boolean {
   return categoryDropLineBefore.value === ri;
 }
 
+function categoryDragIdFromEvent(e?: DragEvent): string | null {
+  const fromTransfer = e?.dataTransfer?.getData('text/plain')?.trim();
+  const dragId = reorderDragCategoryId.value ?? fromTransfer ?? null;
+  if (!dragId || !realCategoryIds.value.includes(dragId)) return null;
+  return dragId;
+}
+
+function updateCategoryDropLineForCategory(
+  category: ChannelCategory,
+  clientY: number,
+  blockEl: HTMLElement,
+) {
+  if (category.hideCategoryHeader) return;
+  if (!categoryReorderEnabled.value || !reorderDragCategoryId.value) return;
+  const ri = realCategoryIndex(category);
+  if (ri === null) return;
+  const rect = blockEl.getBoundingClientRect();
+  const mid = rect.top + rect.height / 2;
+  const n = realCategoryCount.value;
+  const raw = clientY < mid ? ri : ri + 1;
+  categoryDropLineBefore.value = Math.max(0, Math.min(raw, n));
+}
+
+function updateCategoryDropLineFromPointer(e: DragEvent) {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  const block = t.closest('[data-category-block]');
+  if (!(block instanceof HTMLElement)) return;
+  const catId = block.getAttribute('data-category-block');
+  if (!catId) return;
+  const category = props.effectiveCategories.find((c) => c.id === catId);
+  if (!category) return;
+  updateCategoryDropLineForCategory(category, e.clientY, block);
+}
+
+function resolveCategoryDropLineBefore(
+  category: ChannelCategory,
+  e?: DragEvent,
+): number | null {
+  if (categoryDropLineBefore.value !== null) {
+    return categoryDropLineBefore.value;
+  }
+  if (!e || category.hideCategoryHeader) return null;
+  const block =
+    e.currentTarget instanceof HTMLElement
+      ? e.currentTarget.closest('[data-category-block]')
+      : null;
+  if (!(block instanceof HTMLElement)) return null;
+  const ri = realCategoryIndex(category);
+  if (ri === null) return null;
+  const rect = block.getBoundingClientRect();
+  const mid = rect.top + rect.height / 2;
+  const n = realCategoryCount.value;
+  const raw = e.clientY < mid ? ri : ri + 1;
+  return Math.max(0, Math.min(raw, n));
+}
+
+function onCategoryBlockDragOver(category: ChannelCategory, e: DragEvent) {
+  if (!categoryReorderEnabled.value || !reorderDragCategoryId.value) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  const block = e.currentTarget instanceof HTMLElement ? e.currentTarget : null;
+  if (block) updateCategoryDropLineForCategory(category, e.clientY, block);
+}
+
+function onCategoryBlockDrop(category: ChannelCategory, e: DragEvent) {
+  if (reorderDragChannelId.value) return;
+  if (!categoryReorderEnabled.value) return;
+  const t = e.target;
+  if (t instanceof Element && t !== e.currentTarget) {
+    if (
+      t.closest('.channel-row') ||
+      t.closest('.category-reorder-slot') ||
+      t.closest('.category-reorder-append-target') ||
+      t.closest('[data-category-header]')
+    ) {
+      return;
+    }
+  }
+  if (!categoryDragIdFromEvent(e)) return;
+  const line = resolveCategoryDropLineBefore(category, e);
+  if (line === null) return;
+  onCategoryDropAtLine(line, e);
+}
+
 function onCategoryReorderDragStart(categoryId: string, e: DragEvent) {
   if (!categoryReorderEnabled.value) {
     e.preventDefault();
@@ -621,10 +706,9 @@ function onCategoryDropAtLine(lineBefore: number, e: DragEvent) {
     return;
   }
 
-  const ids = realCategoryIds.value;
-  const fromTransfer = e.dataTransfer?.getData('text/plain')?.trim();
-  const dragId = reorderDragCategoryId.value ?? fromTransfer ?? null;
+  const dragId = categoryDragIdFromEvent(e);
   if (!dragId) return;
+  const ids = realCategoryIds.value;
   // `lineBefore` is an index into the full ordered list, not the filtered
   // without-dragId list — use ids[lineBefore] directly so the position is
   // correct regardless of whether the dragged item sits before or after the gap.
@@ -634,6 +718,7 @@ function onCategoryDropAtLine(lineBefore: number, e: DragEvent) {
   emit('category-reorder', { categoryId: dragId, siblingIndex: idx });
   reorderDragCategoryId.value = null;
   categoryDropLineBefore.value = null;
+  e.stopPropagation();
 }
 
 function onCategoryHeaderDrop(category: ChannelCategory, e: DragEvent) {
@@ -644,8 +729,9 @@ function onCategoryHeaderDrop(category: ChannelCategory, e: DragEvent) {
     return;
   }
 
-  if (!categoryReorderEnabled.value || reorderDragCategoryId.value === null)
-    return;
+  if (!categoryReorderEnabled.value) return;
+  const dragId = categoryDragIdFromEvent(e);
+  if (!dragId) return;
   const ri = realCategoryIndex(category);
   if (ri === null) return;
   const ids = realCategoryIds.value;
@@ -654,14 +740,12 @@ function onCategoryHeaderDrop(category: ChannelCategory, e: DragEvent) {
   const mid = rect.top + rect.height / 2;
   const insertBeforeId =
     e.clientY < mid ? ids[ri]! : ri + 1 < ids.length ? ids[ri + 1]! : null;
-  const fromTransfer = e.dataTransfer?.getData('text/plain')?.trim();
-  const dragId = reorderDragCategoryId.value ?? fromTransfer ?? null;
-  if (!dragId) return;
   const idx = reorderInsertIndex(ids, dragId, insertBeforeId);
   if (idx === null) return;
   emit('category-reorder', { categoryId: dragId, siblingIndex: idx });
   reorderDragCategoryId.value = null;
   categoryDropLineBefore.value = null;
+  e.stopPropagation();
 }
 
 function onReorderDragStart(channelId: string, e: DragEvent) {
@@ -710,6 +794,9 @@ function onChannelListDragOverCapture(e: DragEvent) {
   if (!reorderDragChannelId.value && !reorderDragCategoryId.value) return;
   e.preventDefault();
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  if (reorderDragCategoryId.value) {
+    updateCategoryDropLineFromPointer(e);
+  }
 }
 
 function onChannelRowDragOver(
@@ -838,8 +925,9 @@ function onReorderDrop(
     // drag was in progress (capture-phase preventDefault makes those elements
     // valid drop targets).  Forward to the last-known category drop position so
     // the drop is not silently swallowed.
-    if (categoryDropLineBefore.value !== null && e != null) {
-      onCategoryDropAtLine(categoryDropLineBefore.value, e);
+    const line = resolveCategoryDropLineBefore(targetCategory, e);
+    if (line !== null && e != null) {
+      onCategoryDropAtLine(line, e);
     }
     return;
   }
@@ -1375,6 +1463,11 @@ watch(
         :aria-expanded="!isCategoryCollapsed(category.id)"
         :aria-label="getChannelDisplayName(category.name)"
         class="mb-4"
+        :data-category-block="
+          category.hideCategoryHeader ? undefined : category.id
+        "
+        @dragover.prevent="onCategoryBlockDragOver(category, $event)"
+        @drop.prevent="onCategoryBlockDrop(category, $event)"
       >
         <div v-if="category.hideCategoryHeader" class="mb-1.5 px-2">
           <div
@@ -1400,6 +1493,7 @@ watch(
             "
           />
           <div
+            data-category-header
             class="group mb-1.5 flex items-center justify-between gap-2 px-2 text-[12px] font-bold uppercase tracking-wider text-fg-soft"
             :class="{
               'category-header--drag-source':

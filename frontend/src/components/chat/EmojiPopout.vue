@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, toRef, watch, onMounted, nextTick } from 'vue';
+import {
+  computed,
+  ref,
+  toRef,
+  watch,
+  onMounted,
+  onUnmounted,
+  nextTick,
+} from 'vue';
 import type { EmojiCategory, EmojiEntry } from '@/composables/useEmojiData';
 import { ensureEmojiCategoriesLoaded } from '@/composables/useEmojiData';
 import EmojiCategorySection from '@/components/EmojiCategorySection.vue';
@@ -22,6 +30,8 @@ const props = defineProps<{
   channelId?: string;
   placement?: 'up' | 'down';
   theme?: 'default' | 'forum';
+  /** Emoji toolbar button — positions above the composer, not the markdown preview. */
+  anchorEl?: HTMLElement | null;
 }>();
 
 const emit = defineEmits<{
@@ -284,11 +294,85 @@ function handleIconInsert(entry: AppIconEntry) {
   emit('insert', linkTokenAppIcon(entry.id));
 }
 
+const popoutRef = ref<HTMLElement | null>(null);
+const popoutStyle = ref<Record<string, string>>({
+  position: 'fixed',
+  left: '0px',
+  top: '0px',
+  zIndex: '120',
+});
+
+function updatePopoutPosition() {
+  const anchor = props.anchorEl;
+  if (!anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  const pad = 8;
+  const gap = 8;
+  const width = Math.min(360, window.innerWidth - pad * 2);
+  const height =
+    popoutRef.value?.getBoundingClientRect().height ??
+    Math.min(window.innerHeight * 0.55, 340);
+  let left = rect.right - width;
+  left = Math.max(pad, Math.min(left, window.innerWidth - width - pad));
+  const placement = props.placement ?? 'up';
+  let top = placement === 'down' ? rect.bottom + gap : rect.top - height - gap;
+  if (placement === 'up' && top < pad) {
+    top = Math.min(rect.bottom + gap, window.innerHeight - height - pad);
+  } else if (placement === 'down' && top + height > window.innerHeight - pad) {
+    top = Math.max(pad, rect.top - height - gap);
+  }
+  top = Math.max(pad, Math.min(top, window.innerHeight - height - pad));
+  popoutStyle.value = {
+    position: 'fixed',
+    left: `${Math.round(left)}px`,
+    top: `${Math.round(top)}px`,
+    width: `${Math.round(width)}px`,
+    zIndex: '120',
+  };
+}
+
+function bindPopoutViewportListeners() {
+  window.addEventListener('resize', updatePopoutPosition);
+  window.addEventListener('scroll', updatePopoutPosition, true);
+  window.visualViewport?.addEventListener('resize', updatePopoutPosition);
+  window.visualViewport?.addEventListener('scroll', updatePopoutPosition);
+}
+
+function unbindPopoutViewportListeners() {
+  window.removeEventListener('resize', updatePopoutPosition);
+  window.removeEventListener('scroll', updatePopoutPosition, true);
+  window.visualViewport?.removeEventListener('resize', updatePopoutPosition);
+  window.visualViewport?.removeEventListener('scroll', updatePopoutPosition);
+}
+
+watch(
+  () => [
+    props.anchorEl,
+    pickerTab.value,
+    searchQuery.value,
+    renderedCategories.value.length,
+  ],
+  () => {
+    void nextTick(updatePopoutPosition);
+  },
+);
+
 onMounted(async () => {
   await ensureEmojiCategoriesLoaded();
   await ensureEmojiSearchPrebuildLoaded();
   preloadEmojiImagesOnce();
-  nextTick(() => requestAnimationFrame(advanceToPhase2));
+  bindPopoutViewportListeners();
+  void nextTick(() => {
+    updatePopoutPosition();
+    requestAnimationFrame(() => {
+      advanceToPhase2();
+      updatePopoutPosition();
+    });
+  });
+});
+
+onUnmounted(() => {
+  unbindPopoutViewportListeners();
 });
 
 function handleInsert(entry: EmojiEntry) {
@@ -307,128 +391,135 @@ function handleInsert(entry: EmojiEntry) {
 </script>
 
 <template>
-  <div
-    class="chat-popout chat-liquid-glass-menu absolute right-4 w-[min(360px,calc(100%-2rem))] overflow-hidden"
-    :class="props.placement === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'"
-    role="menu"
-  >
-    <div class="chat-popout-inner max-h-[340px] flex flex-col overflow-hidden">
-      <input
-        v-model="searchInputModel"
-        type="text"
-        :placeholder="searchPlaceholder"
-        class="mx-2 mt-2 mb-1.5 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
-        :class="
-          props.theme === 'forum'
-            ? 'text-foreground placeholder:text-fg-subtle disabled:text-fg-subtle'
-            : 'text-foreground placeholder:text-muted disabled:opacity-50'
-        "
-        @keydown="handleSearchInputKeydown"
-      />
+  <Teleport to="body">
+    <div
+      ref="popoutRef"
+      data-chat-insert-popout
+      class="chat-popout chat-liquid-glass-menu emoji-popout overflow-hidden"
+      :style="popoutStyle"
+      role="menu"
+      @mousedown.stop
+    >
       <div
-        class="flex items-center gap-1 px-2 pb-1.5"
-        role="tablist"
-        aria-label="Picker content"
+        class="chat-popout-inner max-h-[340px] flex flex-col overflow-hidden"
       >
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="pickerTab === 'emoji'"
-          class="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors"
+        <input
+          v-model="searchInputModel"
+          type="text"
+          :placeholder="searchPlaceholder"
+          class="mx-2 mt-2 mb-1.5 rounded-lg border-none bg-scrim-2 px-3 py-2 text-sm outline-none backdrop-blur-sm"
           :class="
-            pickerTab === 'emoji'
-              ? props.theme === 'forum'
-                ? 'bg-glass-2 text-foreground ring-1 ring-border'
-                : 'bg-[var(--vue-auto-003)] text-foreground ring-1 ring-border'
-              : props.theme === 'forum'
-                ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
-                : 'text-muted hover:bg-glass-hover hover:text-foreground'
+            props.theme === 'forum'
+              ? 'text-foreground placeholder:text-fg-subtle disabled:text-fg-subtle'
+              : 'text-foreground placeholder:text-muted disabled:opacity-50'
           "
-          @click="pickerTab = 'emoji'"
-        >
-          Emoji
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="pickerTab === 'icons'"
-          class="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors"
-          :class="
-            pickerTab === 'icons'
-              ? props.theme === 'forum'
-                ? 'bg-glass-2 text-foreground ring-1 ring-border'
-                : 'bg-[var(--vue-auto-003)] text-foreground ring-1 ring-border'
-              : props.theme === 'forum'
-                ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
-                : 'text-muted hover:bg-glass-hover hover:text-foreground'
-          "
-          @click="pickerTab = 'icons'"
-        >
-          Icons
-        </button>
-      </div>
-      <div v-if="pickerTab === 'emoji'" class="flex flex-1 min-h-0">
+          @keydown="handleSearchInputKeydown"
+        />
         <div
-          v-if="!searchQuery.trim()"
-          class="emoji-nav-wrap flex flex-col items-center py-2.5 px-2 gap-1.5 shrink-0 overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0"
-          v-scrollbar-on-scroll
+          class="flex items-center gap-1 px-2 pb-1.5"
+          role="tablist"
+          aria-label="Picker content"
         >
           <button
-            v-for="cat in browsingCategories"
-            :key="cat.slug"
             type="button"
-            class="emoji-nav-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-glass-3"
-            :class="{ 'bg-glass-active': activeCategory === cat.slug }"
-            :title="cat.name"
-            @click="scrollToCategory(cat.slug)"
-            @contextmenu.stop.prevent="openPackCopyMenu($event, cat)"
+            role="tab"
+            :aria-selected="pickerTab === 'emoji'"
+            class="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors"
+            :class="
+              pickerTab === 'emoji'
+                ? props.theme === 'forum'
+                  ? 'bg-glass-2 text-foreground ring-1 ring-border'
+                  : 'bg-[var(--vue-auto-003)] text-foreground ring-1 ring-border'
+                : props.theme === 'forum'
+                  ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
+                  : 'text-muted hover:bg-glass-hover hover:text-foreground'
+            "
+            @click="pickerTab = 'emoji'"
           >
-            <img
-              v-if="cat.navIconImageUrl"
-              class="emoji custom-emoji h-[18px] w-[18px] object-contain"
-              :src="cat.navIconImageUrl"
-              :alt="cat.navIconImageAlt ?? cat.name"
-              draggable="false"
-            />
-            <span v-else v-html="cat.navIconHtml" />
+            Emoji
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="pickerTab === 'icons'"
+            class="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors"
+            :class="
+              pickerTab === 'icons'
+                ? props.theme === 'forum'
+                  ? 'bg-glass-2 text-foreground ring-1 ring-border'
+                  : 'bg-[var(--vue-auto-003)] text-foreground ring-1 ring-border'
+                : props.theme === 'forum'
+                  ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
+                  : 'text-muted hover:bg-glass-hover hover:text-foreground'
+            "
+            @click="pickerTab = 'icons'"
+          >
+            Icons
           </button>
         </div>
-        <div
-          ref="scrollContainerRef"
-          class="emoji-picker-body-scroll flex-1 overflow-y-auto overflow-x-hidden pl-1.5 pr-2 py-1 pb-2.5 custom-scrollbar min-w-0"
-          v-scrollbar-on-scroll
-        >
-          <EmojiCategorySection
-            v-for="(cat, idx) in renderedCategories"
-            :key="cat.slug === 'search' ? `search-${searchQuery}` : cat.slug"
-            :ref="(el) => setSectionRef(cat.slug, el)"
-            :category="cat"
-            :scroll-root="scrollContainerRef"
-            :priority="idx === 0"
-            :active-emoji-index="
-              cat.slug === 'search' ? emojiSearchSelectedIndex : undefined
-            "
-            @insert-emoji="handleInsert"
-            @emoji-context-menu="openPackCopyMenu"
-            @emoji-category-context-menu="openPackCopyMenu"
-          />
+        <div v-if="pickerTab === 'emoji'" class="flex flex-1 min-h-0">
           <div
-            v-if="searchQuery.trim() && renderedCategories.length === 0"
-            class="py-8 text-center text-sm text-muted"
+            v-if="!searchQuery.trim()"
+            class="emoji-nav-wrap flex flex-col items-center py-2.5 px-2 gap-1.5 shrink-0 overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0"
+            v-scrollbar-on-scroll
           >
-            No emojis or stickers match "{{ searchQuery.trim() }}"
+            <button
+              v-for="cat in browsingCategories"
+              :key="cat.slug"
+              type="button"
+              class="emoji-nav-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-glass-3"
+              :class="{ 'bg-glass-active': activeCategory === cat.slug }"
+              :title="cat.name"
+              @click="scrollToCategory(cat.slug)"
+              @contextmenu.stop.prevent="openPackCopyMenu($event, cat)"
+            >
+              <img
+                v-if="cat.navIconImageUrl"
+                class="emoji custom-emoji h-[18px] w-[18px] object-contain"
+                :src="cat.navIconImageUrl"
+                :alt="cat.navIconImageAlt ?? cat.name"
+                draggable="false"
+              />
+              <span v-else v-html="cat.navIconHtml" />
+            </button>
+          </div>
+          <div
+            ref="scrollContainerRef"
+            class="emoji-picker-body-scroll flex-1 overflow-y-auto overflow-x-hidden pl-1.5 pr-2 py-1 pb-2.5 custom-scrollbar min-w-0"
+            v-scrollbar-on-scroll
+          >
+            <EmojiCategorySection
+              v-for="(cat, idx) in renderedCategories"
+              :key="cat.slug === 'search' ? `search-${searchQuery}` : cat.slug"
+              :ref="(el) => setSectionRef(cat.slug, el)"
+              :category="cat"
+              :scroll-root="scrollContainerRef"
+              :priority="idx === 0"
+              :active-emoji-index="
+                cat.slug === 'search' ? emojiSearchSelectedIndex : undefined
+              "
+              @insert-emoji="handleInsert"
+              @emoji-context-menu="openPackCopyMenu"
+              @emoji-category-context-menu="openPackCopyMenu"
+            />
+            <div
+              v-if="searchQuery.trim() && renderedCategories.length === 0"
+              class="py-8 text-center text-sm text-muted"
+            >
+              No emojis or stickers match "{{ searchQuery.trim() }}"
+            </div>
           </div>
         </div>
+        <AppIconPickerPanel
+          v-else
+          :filter-query="iconFilterDebounced"
+          channel-type="text"
+          class="min-h-0 flex-1"
+          @select="handleIconInsert"
+        />
       </div>
-      <AppIconPickerPanel
-        v-else
-        :filter-query="iconFilterDebounced"
-        channel-type="text"
-        class="min-h-0 flex-1"
-        @select="handleIconInsert"
-      />
     </div>
-  </div>
+  </Teleport>
 
   <Teleport to="body">
     <div

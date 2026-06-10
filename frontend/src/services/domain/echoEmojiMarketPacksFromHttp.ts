@@ -53,6 +53,12 @@ export function normalizeEchoEmojiMarketPacksPayload(
       }
     }
     if (!id || !name) continue;
+    const emojiCount =
+      typeof row.emojiCount === 'number' && Number.isFinite(row.emojiCount)
+        ? row.emojiCount
+        : undefined;
+    const previewEmojiUrl =
+      typeof row.previewEmojiUrl === 'string' ? row.previewEmojiUrl : undefined;
     const emRaw = row.emojis;
     const emojis: EchoEmojiMarketPackApi['emojis'] = [];
     if (Array.isArray(emRaw)) {
@@ -79,6 +85,8 @@ export function normalizeEchoEmojiMarketPacksPayload(
       name,
       description,
       emojis,
+      ...(emojiCount !== undefined ? { emojiCount } : {}),
+      ...(previewEmojiUrl ? { previewEmojiUrl } : {}),
       ...(authorServerName !== undefined ? { authorServerName } : {}),
       ...(totalUseCount !== undefined ? { totalUseCount } : {}),
       ...(marketSettings !== undefined ? { marketSettings } : {}),

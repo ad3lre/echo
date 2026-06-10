@@ -61,6 +61,18 @@ const categories = [
         slug: 'rolling_on_the_floor_laughing',
         html: '<img class="emoji" alt="🤣" src="/twemoji/1f923.webp" />',
       },
+      {
+        emoji: '❤️',
+        name: 'red heart',
+        slug: 'red_heart',
+        html: '<img class="emoji" alt="❤️" src="/twemoji/2764.webp" />',
+      },
+      {
+        emoji: '💘',
+        name: 'heart with arrow',
+        slug: 'heart_with_arrow',
+        html: '<img class="emoji" alt="💘" src="/twemoji/1f498.webp" />',
+      },
     ],
   },
 ];
@@ -136,6 +148,10 @@ describe('searchEmojis', () => {
     expect(searchEmojis('haha').map((e) => e.slug)).toContain(
       'rolling_on_the_floor_laughing',
     );
+  });
+
+  it('ranks plain heart before compound heart slugs for query heart', () => {
+    expect(searchEmojis('heart').map((e) => e.slug)[0]).toBe('red_heart');
   });
 
   it('prebuilt token JSON does not shrink the searchable catalog', () => {

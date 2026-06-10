@@ -51,7 +51,9 @@ export function useAppBootGate(deps: {
   // already handles this well
   const stop = watch(initialLoadSettled, (settled) => {
     if (settled) {
-      // Already revealed by fast timer, but ensure cleanup
+      // Fast loads can settle before fastRevealMs; reveal now so we do not
+      // clear the pending timers without ever hiding the gate.
+      reveal();
       clearTimeout(fastRevealTimer);
       clearTimeout(safetyTimer);
     }

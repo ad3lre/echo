@@ -47,7 +47,10 @@ const activeFamilyGroups = computed<IconFamilyGroup[]>(() => {
 
 const searchMatchCount = computed(() => {
   if (!catalogReady.value || !searchTrim.value) return 0;
-  return searchAppIcons(props.filterQuery, props.channelType, 800).length;
+  return activeFamilyGroups.value.reduce(
+    (sum, group) => sum + group.variants.length,
+    0,
+  );
 });
 
 function estimateVariantH(count: number): number {

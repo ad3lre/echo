@@ -46,6 +46,9 @@ export type EchoEmojiMarketPackDto = {
   totalUseCount: number;
   marketSettings: EchoEmojiPackMarketSettingsDto;
   emojis: EchoEmojiMarketEmojiDto[];
+  /** List endpoint may omit full emoji rows and send counts/previews instead. */
+  emojiCount?: number;
+  previewEmojiUrl?: string;
 };
 
 function parseMarketSettingsRow(raw: unknown): EchoEmojiPackMarketSettingsDto {
@@ -449,9 +452,12 @@ export async function resolveEchoEmojiTokens(
 export async function listEchoEmojiMarketPacks(
   pool: pg.Pool,
   query: string,
+  opts?: { limit?: number; offset?: number },
 ): Promise<EchoEmojiMarketPackDto[]> {
   const q = query.trim().toLowerCase();
   const minLen = MIN_EMOJI_PACK_DESCRIPTION_LEN;
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 100);
+  const offset = Math.max(opts?.offset ?? 0, 0);
   const rows = await pool.query<{
     id: string;
     name: string;
@@ -459,7 +465,8 @@ export async function listEchoEmojiMarketPacks(
     server_name: string;
     total_uses: string;
     market_settings: unknown;
-    emojis_json: unknown;
+    emoji_count: string;
+    preview_url: string | null;
   }>(
     `SELECT
        p.id,
@@ -468,21 +475,22 @@ export async function listEchoEmojiMarketPacks(
        s.name AS server_name,
        sub.total_uses::text,
        p.market_settings,
-       COALESCE(
-         json_agg(
-           json_build_object(
-             'id', e.id,
-             'name', e.name,
-             'kind', CASE WHEN e.animated THEN 'animated' ELSE 'static' END,
-             'previewUrl', e.image_url
-           )
-           ORDER BY e.name
-         ) FILTER (WHERE e.id IS NOT NULL),
-         '[]'::json
-       ) AS emojis_json
+       counts.emoji_count::text,
+       preview.preview_url
      FROM echo_server_emoji_packs p
      JOIN echo_servers s ON s.id = p.server_id
-     LEFT JOIN echo_server_custom_emojis e ON e.pack_id = p.id
+     JOIN LATERAL (
+       SELECT COUNT(*)::int AS emoji_count
+       FROM echo_server_custom_emojis e
+       WHERE e.pack_id = p.id
+     ) counts ON true
+     LEFT JOIN LATERAL (
+       SELECT e.image_url AS preview_url
+       FROM echo_server_custom_emojis e
+       WHERE e.pack_id = p.id
+       ORDER BY e.name ASC
+       LIMIT 1
+     ) preview ON true
      LEFT JOIN LATERAL (
        SELECT COALESCE(SUM(u.use_count), 0)::bigint AS total_uses
        FROM echo_server_custom_emojis e2
@@ -493,41 +501,21 @@ export async function listEchoEmojiMarketPacks(
      WHERE p.source = 'custom'
        AND p.listed_in_market = true
        AND LENGTH(TRIM(p.description)) >= $2
-     GROUP BY p.id, s.name, p.name, p.description, p.market_settings, sub.total_uses
-     HAVING COUNT(e.id) > 0
+       AND counts.emoji_count > 0
        AND (
          $1 = ''
          OR LOWER(p.name) LIKE '%' || $1 || '%'
          OR LOWER(TRIM(p.description)) LIKE '%' || $1 || '%'
-         OR LOWER(p.market_settings::text) LIKE '%' || $1 || '%'
        )
-     ORDER BY sub.total_uses DESC NULLS LAST, p.name ASC`,
-    [q, minLen],
+     ORDER BY sub.total_uses DESC NULLS LAST, p.name ASC
+     LIMIT $3 OFFSET $4`,
+    [q, minLen, limit, offset],
   );
 
   const out: EchoEmojiMarketPackDto[] = [];
   for (const row of rows.rows) {
-    const emRaw = row.emojis_json;
-    const emojis: EchoEmojiMarketEmojiDto[] = [];
-    if (Array.isArray(emRaw)) {
-      for (const item of emRaw) {
-        if (!item || typeof item !== 'object') continue;
-        const o = item as Record<string, unknown>;
-        const id = typeof o.id === 'string' ? o.id : '';
-        const name = typeof o.name === 'string' ? o.name : '';
-        const kind =
-          o.kind === 'animated' || o.kind === 'static' ? o.kind : 'static';
-        const previewUrl =
-          typeof o.previewUrl === 'string' ? o.previewUrl : undefined;
-        if (!id || !name) continue;
-        emojis.push({
-          id,
-          name,
-          kind,
-          ...(previewUrl ? { previewUrl } : {}),
-        });
-      }
-    }
+    const emojiCount = Number(row.emoji_count) || 0;
+    if (emojiCount <= 0) continue;
     out.push({
       id: row.id,
       name: row.name,
@@ -535,7 +523,9 @@ export async function listEchoEmojiMarketPacks(
       authorServerName: row.server_name,
       totalUseCount: Number(row.total_uses) || 0,
       marketSettings: parseMarketSettingsRow(row.market_settings),
-      emojis,
+      emojis: [],
+      emojiCount,
+      ...(row.preview_url ? { previewEmojiUrl: row.preview_url } : {}),
     });
   }
   return out;

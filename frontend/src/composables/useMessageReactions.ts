@@ -41,6 +41,7 @@ export function useMessageReactions(
     const reactions = [...(msg.reactions ?? [])];
     const existing = reactions.find((r) => r.emoji === emoji);
 
+    const nowIso = new Date().toISOString();
     let nextReactions: MessageReaction[];
 
     if (existing) {
@@ -68,14 +69,14 @@ export function useMessageReactions(
         );
       }
     } else {
-      nextReactions = [...reactions, { emoji, count: 1, userIds: [userId] }];
+      nextReactions = [
+        ...reactions,
+        { emoji, count: 1, userIds: [userId], firstReactionAt: nowIso },
+      ];
     }
 
-    const nowIso = new Date().toISOString();
-    const stamped = nextReactions.map((r) =>
-      r.emoji === emoji ? { ...r, lastReactionAt: nowIso } : r,
-    );
-    const ordered = sortMessageReactionsForDisplay(stamped) ?? stamped;
+    const ordered =
+      sortMessageReactionsForDisplay(nextReactions) ?? nextReactions;
 
     /**
      * Must go through `ChannelMessageIndex.update` so `byId` and the materialized

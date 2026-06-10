@@ -29,7 +29,7 @@ vi.mock('@/utils/controllerMissingAction', async (importOriginal) => {
   };
 });
 
-import { createEchoServer } from '@/api/echoClient';
+import { createEchoServer, uploadServerBrandingFile } from '@/api/echoClient';
 import { iconEchoRounded } from '@/assets/branding';
 
 function buildFlow() {
@@ -168,6 +168,34 @@ describe('useAddServerFlow create server', () => {
     expect(createPromise).toBeInstanceOf(Promise);
 
     resolveHydrate();
+    await createPromise;
+  });
+
+  it('shows the picked icon file optimistically before upload finishes', async () => {
+    vi.mocked(createEchoServer).mockResolvedValueOnce({
+      serverId: 'srv-icon',
+      defaultChannelId: 'ch-general',
+    });
+    vi.mocked(uploadServerBrandingFile).mockImplementation(
+      () => new Promise(() => {}),
+    );
+    const ctx = buildFlow();
+    const iconFile = new File(['icon-bytes'], 'guild.png', {
+      type: 'image/png',
+    });
+    const createPromise = ctx.flow.handleCreateServer({
+      name: 'Icon Guild',
+      iconFile,
+    });
+
+    await vi.waitFor(() => {
+      expect(ctx.isAddServerModalOpen.value).toBe(false);
+    });
+
+    const row = ctx.workspace.servers.value.find((s) => s.id === 'srv-icon');
+    expect(row?.imageUrl).toMatch(/^blob:/);
+    expect(row?.imageUrl).not.toBe(iconEchoRounded);
+
     await createPromise;
   });
 

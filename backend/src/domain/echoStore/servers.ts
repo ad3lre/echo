@@ -8,6 +8,8 @@ import { isClientIpBannedFromEchoServer } from './serverIpBans';
 import {
   DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS,
   DEFAULT_ECHO_GLOBAL_ROLE_PERMISSIONS,
+  DEFAULT_ECHO_SEEDED_ADMIN_ROLE_PERMISSIONS,
+  DEFAULT_ECHO_SEEDED_MODERATOR_ROLE_PERMISSIONS,
   echoDirectoryExcludedNamesSql,
   MAX_ECHO_SERVER_DESCRIPTION_LEN,
   MAX_ECHO_SERVER_MEDIA_URL_LEN,
@@ -126,8 +128,8 @@ export async function createEchoServer(
           JSON.stringify([...DEFAULT_ECHO_GLOBAL_ROLE_PERMISSIONS]),
         ],
       );
-      // Seed a single global-scope "All" role for server administration
-      const allRoleId = nextEchoSnowflakeId();
+      // Seed Moderator + Admin roles (not assigned to owner — owner bypass is sufficient).
+      const moderatorRoleId = nextEchoSnowflakeId();
       await client.query(
         `
         INSERT INTO echo_roles (
@@ -136,26 +138,30 @@ export async function createEchoServer(
         ) VALUES ($1, $2, $3, $4, 1, true, $5::jsonb, 0, 'global', false)
         `,
         [
-          allRoleId,
+          moderatorRoleId,
           serverId,
-          'All',
-          '#5865F2',
-          JSON.stringify(['ADMINISTRATOR']),
+          'Moderator',
+          '#2ecc71',
+          JSON.stringify([...DEFAULT_ECHO_SEEDED_MODERATOR_ROLE_PERMISSIONS]),
+        ],
+      );
+      const adminRoleId = nextEchoSnowflakeId();
+      await client.query(
+        `
+        INSERT INTO echo_roles (
+          id, server_id, name, color, position, hoist, permissions,
+          rank_in_category, role_scope, sync_with_category_defaults
+        ) VALUES ($1, $2, $3, $4, 2, true, $5::jsonb, 1, 'global', false)
+        `,
+        [
+          adminRoleId,
+          serverId,
+          'Admin',
+          '#e74c3c',
+          JSON.stringify([...DEFAULT_ECHO_SEEDED_ADMIN_ROLE_PERMISSIONS]),
         ],
       );
       await assignMembersRoleToMember(client, serverId, ownerId);
-      const allRoleIns = await client.query(
-        `INSERT INTO echo_member_roles (server_id, user_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING role_id`,
-        [serverId, ownerId, allRoleId],
-      );
-      if ((allRoleIns.rowCount ?? 0) > 0) {
-        await applyEchoRoleLinksAfterAssignment(
-          client,
-          serverId,
-          ownerId,
-          allRoleId,
-        );
-      }
       invalidateEchoPermissionCacheForUser(serverId, ownerId);
       await client.query(`COMMIT`);
     } catch (e) {

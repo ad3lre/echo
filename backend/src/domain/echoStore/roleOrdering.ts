@@ -12,9 +12,13 @@ type CategoryRow = { id: string; position: number; is_system: boolean };
 
 const UNCATEGORIZED_KEY = '__uncategorized__';
 
+function isPinnedBottomEchoRoleName(name: string): boolean {
+  return name === '@members' || name === '@global' || name === '@everyone';
+}
+
 /**
  * Renumbers global `position` and `rank_in_category` from per-category top-to-bottom lists.
- * `categoryRoleIdsTopToBottom` maps category id → role ids (highest first). Omit @everyone.
+ * `categoryRoleIdsTopToBottom` maps category id → role ids (highest first). Omit pinned roles.
  */
 export async function applyRolePositionsFromCategoryBlocks(
   pool: pg.Pool,
@@ -38,8 +42,17 @@ export async function applyRolePositionsFromCategoryBlocks(
     `,
     [serverId],
   );
-  const everyone = roles.rows.find((r) => r.name === '@everyone');
-  const everyoneId = everyone ? String(everyone.id) : null;
+  const pinnedIds = roles.rows
+    .filter((r) => isPinnedBottomEchoRoleName(String(r.name)))
+    .sort((a, b) => {
+      const rank = (name: string) => {
+        if (name === '@global') return 2;
+        if (name === '@members' || name === '@everyone') return 1;
+        return 0;
+      };
+      return rank(String(a.name)) - rank(String(b.name));
+    })
+    .map((r) => String(r.id));
 
   const ordered: string[] = [];
   for (const cat of cats.rows) {
@@ -47,14 +60,15 @@ export async function applyRolePositionsFromCategoryBlocks(
     const list = categoryRoleIdsTopToBottom.get(catId);
     if (list?.length) {
       for (const id of list) {
-        if (id !== everyoneId) ordered.push(id);
+        if (!pinnedIds.includes(id)) ordered.push(id);
       }
       continue;
     }
     const inCat = roles.rows
       .filter(
         (r) =>
-          r.name !== '@everyone' && String(r.role_category_id ?? '') === catId,
+          !isPinnedBottomEchoRoleName(String(r.name)) &&
+          String(r.role_category_id ?? '') === catId,
       )
       .sort(
         (a, b) =>
@@ -67,13 +81,13 @@ export async function applyRolePositionsFromCategoryBlocks(
   const uncategorizedList = categoryRoleIdsTopToBottom.get(UNCATEGORIZED_KEY);
   if (uncategorizedList?.length) {
     for (const id of uncategorizedList) {
-      if (id !== everyoneId && !ordered.includes(id)) ordered.push(id);
+      if (!pinnedIds.includes(id) && !ordered.includes(id)) ordered.push(id);
     }
   }
   const uncategorized = roles.rows
     .filter(
       (r) =>
-        r.name !== '@everyone' &&
+        !isPinnedBottomEchoRoleName(String(r.name)) &&
         !ordered.includes(String(r.id)) &&
         r.role_category_id == null,
     )
@@ -86,7 +100,7 @@ export async function applyRolePositionsFromCategoryBlocks(
     if (!ordered.includes(id)) ordered.push(id);
   }
 
-  if (everyoneId) ordered.push(everyoneId);
+  for (const id of pinnedIds) ordered.push(id);
 
   const n = ordered.length;
   const client = await pool.connect();
@@ -130,7 +144,8 @@ export async function buildCategoryRoleOrderMap(
     FROM echo_roles r
     LEFT JOIN echo_role_categories c
       ON c.id = r.role_category_id AND c.server_id = r.server_id
-    WHERE r.server_id = $1 AND r.name <> '@everyone'
+    WHERE r.server_id = $1
+      AND r.name NOT IN ('@members', '@global', '@everyone')
     ORDER BY COALESCE(c.position, 0) ASC, r.rank_in_category DESC, r.position DESC, r.id ASC
     `,
     [serverId],

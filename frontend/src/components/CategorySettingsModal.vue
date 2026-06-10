@@ -3,6 +3,7 @@ import { computed, ref, watch, toRef } from 'vue';
 import type { ChannelPermissionKey } from '@shared/types';
 import { useFocusTrap } from '@/composables/useFocusTrap';
 import { icons } from '@/assets/icons';
+import ChannelPermissionIconBadge from '@/features/channel-settings/components/ChannelPermissionIconBadge.vue';
 import PermissionOverwriteEditor from '@/features/channel-settings/components/PermissionOverwriteEditor.vue';
 import CategoryDiscordChatSyncPanel from '@/features/channel-settings/components/CategoryDiscordChatSyncPanel.vue';
 import CategoryDiscordVoiceMirrorPanel from '@/features/channel-settings/components/CategoryDiscordVoiceMirrorPanel.vue';
@@ -39,6 +40,7 @@ const categorySettingsTabs = computed((): CategorySettingsTab[] => {
   if (props.isDiscordImportedServer) {
     tabs.push('discord_chat_sync', 'discord_voice_mirror');
   }
+  tabs.push('danger_zone');
   return tabs;
 });
 
@@ -272,7 +274,18 @@ function tabIcon(tab: CategorySettingsTab) {
   if (tab === 'discord_chat_sync' || tab === 'discord_voice_mirror') {
     return icons.discordMark;
   }
+  if (tab === 'danger_zone') return icons.trash;
   return icons.sliders;
+}
+
+function categorySettingsNavClass(tab: CategorySettingsTab) {
+  if (activeTab.value === tab) {
+    return 'server-settings-nav-item--active';
+  }
+  if (tab === 'danger_zone') {
+    return 'category-settings-nav--danger';
+  }
+  return 'text-muted hover:text-foreground category-settings-nav--idle pointer-fine:hover:bg-glass-hover';
 }
 
 async function confirmDeleteCategory() {
@@ -338,11 +351,7 @@ async function confirmDeleteCategory() {
                 :key="tab"
                 type="button"
                 class="server-settings-nav-item rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border"
-                :class="
-                  activeTab === tab
-                    ? 'server-settings-nav-item--active'
-                    : 'text-muted hover:text-foreground category-settings-nav--idle pointer-fine:hover:bg-glass-hover'
-                "
+                :class="categorySettingsNavClass(tab)"
                 @click="onCategorySettingsNavClick(tab, $event)"
               >
                 <div class="flex items-center gap-2">
@@ -416,7 +425,21 @@ async function confirmDeleteCategory() {
                       placeholder="category-name"
                     />
                   </div>
-                  <div>
+                </section>
+              </div>
+
+              <div
+                v-else-if="activeTab === 'danger_zone'"
+                key="danger_zone"
+                class="server-settings-panel-root pb-8"
+              >
+                <div class="max-w-lg space-y-8">
+                  <p class="channel-settings-hint text-[15px] leading-relaxed">
+                    These actions are sensitive and may be irreversible. Proceed
+                    carefully.
+                  </p>
+
+                  <section class="space-y-3">
                     <div class="settings-label">Auto-delete messages</div>
                     <p class="channel-settings-hint mt-1.5 w-full min-w-0">
                       Messages in channels that sync with this category are
@@ -431,31 +454,31 @@ async function confirmDeleteCategory() {
                         menu-match-trigger-width
                       />
                     </div>
-                  </div>
-                </section>
+                  </section>
 
-                <div
-                  class="danger-row danger-row--flat max-w-xl flex-col items-stretch gap-3 sm:flex-row"
-                >
-                  <div class="min-w-0">
-                    <div
-                      class="category-settings-danger-heading text-sm font-semibold"
+                  <div
+                    class="danger-row danger-row--flat max-w-xl flex-col items-stretch gap-3 sm:flex-row"
+                  >
+                    <div class="min-w-0">
+                      <div
+                        class="category-settings-danger-heading text-sm font-semibold"
+                      >
+                        Delete category
+                      </div>
+                      <p class="mt-1 text-sm text-fg-soft">
+                        Permanently delete this category and all channels inside
+                        it. Message history for those channels in the mock will
+                        be removed.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      class="danger-btn danger-btn--strong shrink-0 self-start sm:self-center"
+                      @click="confirmDeleteCategory"
                     >
                       Delete category
-                    </div>
-                    <p class="mt-1 text-sm text-fg-soft">
-                      Permanently delete this category and all channels inside
-                      it. Message history for those channels in the mock will be
-                      removed.
-                    </p>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    class="danger-btn danger-btn--strong shrink-0 self-start sm:self-center"
-                    @click="confirmDeleteCategory"
-                  >
-                    Delete category
-                  </button>
                 </div>
               </div>
 
@@ -495,10 +518,17 @@ async function confirmDeleteCategory() {
                         :key="def.key"
                         class="role-permission-row w-full min-w-0"
                       >
-                        <span
-                          class="min-w-0 flex-1 pr-3 text-sm leading-snug text-fg"
-                          >{{ def.label }}</span
+                        <div
+                          class="flex min-w-0 flex-1 items-start gap-2.5 pr-3"
                         >
+                          <ChannelPermissionIconBadge
+                            :permission-key="def.key"
+                          />
+                          <span
+                            class="min-w-0 flex-1 pt-1 text-sm leading-snug text-fg"
+                            >{{ def.label }}</span
+                          >
+                        </div>
                         <input
                           type="checkbox"
                           class="server-toggle"
@@ -597,5 +627,16 @@ async function confirmDeleteCategory() {
 
 .category-settings-danger-heading {
   color: var(--srv-role-danger-fg);
+}
+
+.category-settings-nav--danger {
+  color: var(--srv-role-danger-fg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .category-settings-nav--danger:hover {
+    background: var(--srv-role-danger-hover-bg);
+    color: var(--srv-role-danger-hover-fg);
+  }
 }
 </style>

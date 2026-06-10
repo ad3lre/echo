@@ -25,8 +25,8 @@ export interface MessageReaction {
   emoji: string;
   count: number;
   userIds: string[];
-  /** ISO time of the latest reaction row for this emoji (server); used to order ties after count. */
-  lastReactionAt?: string;
+  /** ISO time of the earliest reaction row for this emoji (server); used to order ties after count. */
+  firstReactionAt?: string;
 }
 
 export type MentionKind = 'user' | 'everyone' | 'active' | 'channel' | 'role';

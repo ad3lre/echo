@@ -22,6 +22,7 @@ import type { ChannelCategory } from '@/composables/useChannels';
 import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
 import {
   CLIENT_SEARCH_CORPUS_DEBOUNCE_MS,
+  CLIENT_SEARCH_FILTER_DEBOUNCE_MS,
   MESSAGES_PER_PAGE,
   apiSearchCriteriaSatisfied,
   applyFilters,
@@ -36,6 +37,7 @@ import {
   extractInlineSearchFilters,
   isSearchActiveState,
   searchScopeHintFromFlags,
+  shouldBuildLocalSearchCorpus,
   stripFilterPrefixes,
   type MessageWithOrder,
   type SearchApiModeSnapshot,
@@ -108,7 +110,11 @@ export function createMessageSearchControllerState(
   let corpusDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   function rebuildCorpusNow() {
-    if (!isSearchActive.value || useApiSearch.value) {
+    if (
+      !isSearchActive.value ||
+      useApiSearch.value ||
+      !shouldBuildLocalSearchCorpus(searchText.value, filters.value)
+    ) {
       localSearchCorpus.value = [];
       return;
     }
@@ -135,6 +141,8 @@ export function createMessageSearchControllerState(
     [
       isSearchActive,
       useApiSearch,
+      searchText,
+      filters,
       deps.activeChannelId,
       allChannels,
       deps.users,
@@ -143,7 +151,7 @@ export function createMessageSearchControllerState(
     () => {
       rebuildCorpusNow();
     },
-    { immediate: true },
+    { immediate: true, deep: true },
   );
 
   watch(
@@ -154,13 +162,14 @@ export function createMessageSearchControllerState(
     },
   );
 
-  if (getCurrentInstance()) {
-    onUnmounted(() => {
-      if (corpusDebounceTimer) clearTimeout(corpusDebounceTimer);
-    });
-  }
+  const clientSearchResultMessages = ref<MessageWithOrder[]>([]);
+  let clientFilterDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const clientSearchResultMessages = computed(() => {
+  function recomputeClientSearchResultsNow() {
+    if (useApiSearch.value || !isSearchActive.value) {
+      clientSearchResultMessages.value = [];
+      return;
+    }
     const { searchText: normalizedText } = extractInlineSearchFilters(
       searchText.value,
     );
@@ -169,10 +178,33 @@ export function createMessageSearchControllerState(
       stripFilterPrefixes(normalizedText),
       filters.value,
     );
-    return [...filtered].sort(
+    clientSearchResultMessages.value = [...filtered].sort(
       (a, b) => (a._order ?? 0) - (b._order ?? 0),
     ) as MessageWithOrder[];
-  });
+  }
+
+  function scheduleDebouncedClientFilter() {
+    if (clientFilterDebounceTimer) clearTimeout(clientFilterDebounceTimer);
+    clientFilterDebounceTimer = setTimeout(() => {
+      clientFilterDebounceTimer = null;
+      recomputeClientSearchResultsNow();
+    }, CLIENT_SEARCH_FILTER_DEBOUNCE_MS);
+  }
+
+  watch(
+    [searchText, filters, localSearchCorpus, useApiSearch, isSearchActive],
+    () => {
+      scheduleDebouncedClientFilter();
+    },
+    { deep: true, immediate: true },
+  );
+
+  if (getCurrentInstance()) {
+    onUnmounted(() => {
+      if (corpusDebounceTimer) clearTimeout(corpusDebounceTimer);
+      if (clientFilterDebounceTimer) clearTimeout(clientFilterDebounceTimer);
+    });
+  }
 
   const searchResultMessages = computed(() =>
     useApiSearch.value && isSearchActive.value
