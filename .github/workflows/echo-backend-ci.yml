@@ -63,6 +63,7 @@ jobs:
         env:
           PG_TEST_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+          ECHO_BACKEND_STORAGE: postgres
         run: |
           npm run test:storage-mode -w backend
           npm run test:production-config-gates -w backend

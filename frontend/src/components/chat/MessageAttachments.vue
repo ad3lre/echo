@@ -7,6 +7,7 @@ import type {
 import { openExternal } from '@/platform/desktopBridge';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
+import { mediaAspectStyleFromDims } from '@/utils/chatMediaAspect';
 import GifImage from './GifImage.vue';
 import MessageAudioAttachment from './MessageAudioAttachment.vue';
 import MessageChatStillImage from './MessageChatStillImage.vue';
@@ -48,17 +49,7 @@ function mediaAspectStyle(
     | { width?: number; height?: number }
     | undefined,
 ) {
-  const width = media?.width;
-  const height = media?.height;
-  if (
-    typeof width === 'number' &&
-    width > 0 &&
-    typeof height === 'number' &&
-    height > 0
-  ) {
-    return { aspectRatio: `${width} / ${height}` };
-  }
-  return undefined;
+  return mediaAspectStyleFromDims(media);
 }
 </script>
 
@@ -79,6 +70,7 @@ function mediaAspectStyle(
             v-if="sticker.format === 'gif' || isLikelyGifUrl(sticker.url)"
             :src="safeImageUrl(sticker.url)"
             :alt="sticker.name"
+            reserve-layout
           />
           <MessageStickerBitmap v-else :url="sticker.url" :alt="sticker.name" />
         </button>
@@ -137,6 +129,8 @@ function mediaAspectStyle(
             :src="safeImageUrl(att.url)"
             :storage-key="att.storageKey"
             :alt="att.filename || message.content || 'GIF'"
+            reserve-layout
+            :image-style="mediaAspectStyle(att)"
           />
         </button>
         <MessageChatStillImage
@@ -202,13 +196,13 @@ function mediaAspectStyle(
             <GifImage
               :src="safeImageUrl(message.imageUrl ?? '')"
               :alt="message.content || 'GIF'"
+              reserve-layout
             />
           </button>
           <MessageChatStillImage
             v-else
             :url="message.imageUrl ?? ''"
             :alt="message.content || 'Image'"
-            :image-style="mediaAspectStyle(undefined)"
             openable
             @open="openImageViewer?.(message.imageUrl ?? '')"
           />
@@ -231,13 +225,13 @@ function mediaAspectStyle(
         <GifImage
           :src="safeImageUrl(message.imageUrl ?? '')"
           :alt="message.content || 'GIF'"
+          reserve-layout
         />
       </button>
       <MessageChatStillImage
         v-else
         :url="message.imageUrl ?? ''"
         :alt="message.content || 'Image'"
-        :image-style="mediaAspectStyle(undefined)"
         openable
         @open="openImageViewer?.(message.imageUrl ?? '')"
       />

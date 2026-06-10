@@ -41,4 +41,4 @@ node scripts/echo-recovery-watchdog.mjs --reason=manual-test --dry-run
 - `logs/vps/echo-recovery-watchdog.log` — decisions
 - `logs/vps/echo-recovery-watchdog.lock` — single-flight lock
 
-Related: Discord `e!cho uptime` / `ECHO_UPTIME_*` in `bot/src/uptimeMonitor.ts`.
+Related: Discord `e!cho uptime` / `ECHO_UPTIME_*` in `bot/src/uptimeMonitor.ts`. For a **persistent** local watcher (45m down → restart, survives VPS reboots), see [echo-recovery-watcher.md](./echo-recovery-watcher.md).

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isServerEmptyOnboarding,
+  isSuspiciousEmptyWorkspace,
   shouldRetargetServerAfterServerDeletion,
   pickNextServerIdAfterDeletion,
   pickFirstGuildToBootstrap,
@@ -38,6 +39,19 @@ describe('workspaceShellSelection', () => {
           selectedServerId: null,
           categoriesForServer: [],
           workspaceReady: false,
+        }),
+      ).toBe(false);
+    });
+
+    it('returns false when empty workspace contradicts client persistence', () => {
+      expect(
+        isServerEmptyOnboarding({
+          activeRailTab: 'servers',
+          serverCount: 0,
+          selectedServerId: null,
+          categoriesForServer: [],
+          workspaceReady: true,
+          suspiciousEmptyWorkspace: true,
         }),
       ).toBe(false);
     });
@@ -87,6 +101,49 @@ describe('workspaceShellSelection', () => {
               channels: [{ id: 'ch1', name: 'general', type: 'text' }],
             },
           ],
+        }),
+      ).toBe(false);
+    });
+  });
+
+  describe('isSuspiciousEmptyWorkspace', () => {
+    const emptyHints = {
+      hasPriorRegistration: false,
+      savedServerRailOrderCount: 0,
+      lastVisitedGuildId: null,
+      lastVisitedServerChannelCount: 0,
+      pinnedMoreServerIdsCount: 0,
+    };
+
+    it('returns true for authenticated members with persistence evidence', () => {
+      expect(
+        isSuspiciousEmptyWorkspace({
+          serverCount: 0,
+          workspaceFromApi: true,
+          isAuthenticated: true,
+          isGuest: false,
+          hints: { ...emptyHints, hasPriorRegistration: true },
+        }),
+      ).toBe(true);
+    });
+
+    it('returns false for guests and while workspace is not from API', () => {
+      expect(
+        isSuspiciousEmptyWorkspace({
+          serverCount: 0,
+          workspaceFromApi: true,
+          isAuthenticated: true,
+          isGuest: true,
+          hints: { ...emptyHints, hasPriorRegistration: true },
+        }),
+      ).toBe(false);
+      expect(
+        isSuspiciousEmptyWorkspace({
+          serverCount: 0,
+          workspaceFromApi: false,
+          isAuthenticated: true,
+          isGuest: false,
+          hints: { ...emptyHints, hasPriorRegistration: true },
         }),
       ).toBe(false);
     });

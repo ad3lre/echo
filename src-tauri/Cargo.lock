@@ -1076,6 +1076,7 @@ name = "echo-desktop"
 version = "1.0.0"
 dependencies = [
  "cpal",
+ "libc",
  "objc2",
  "objc2-ui-kit",
  "rodio",

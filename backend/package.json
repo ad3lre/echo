@@ -53,6 +53,7 @@
     "test:diagnostics": "ts-node src/tests/sessionDiagnostics.test.ts",
     "test:cors": "ts-node src/tests/corsPreflight.test.ts",
     "test:linkUnfurlStubs": "ts-node src/tests/linkUnfurlUrlStubs.test.ts",
+    "test:gifProviders": "node --import tsx src/tests/gifProviders.klipy.test.ts",
     "test:linkUnfurlExtract": "ts-node src/tests/linkUnfurl.extractAndEmbeds.test.ts",
     "migrate:echo-snowflake": "ts-node src/scripts/migrateEchoIdsToSnowflake.ts",
     "backfill:default-pfp": "ts-node src/scripts/backfillDefaultAvatarPfp.ts",

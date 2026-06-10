@@ -114,6 +114,32 @@ describe('useAppLayoutRailLoadingDerived', () => {
     expect(isChannelPanelSwitchLoading.value).toBe(true);
   });
 
+  it('shows loading while suspicious empty workspace recovery runs', () => {
+    const serverStore = reactive({
+      selectedServerId: null as string | null,
+    });
+    const workspace = mockWorkspace({
+      loading: false,
+      fromApi: true,
+      initialLoadInFlight: false,
+    });
+    const { isMessageSurfaceSwitchLoading, isChannelPanelSwitchLoading } =
+      useAppLayoutRailLoadingDerived({
+        immediateShellSwitchPending: ref(false),
+        activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+        serverStore: serverStore as unknown as Parameters<
+          typeof useAppLayoutRailLoadingDerived
+        >[0]['serverStore'],
+        workspace: workspace as unknown as Parameters<
+          typeof useAppLayoutRailLoadingDerived
+        >[0]['workspace'],
+        activeChannelId: ref(''),
+        suspiciousEmptyWorkspace: ref(true),
+      });
+    expect(isChannelPanelSwitchLoading.value).toBe(true);
+    expect(isMessageSurfaceSwitchLoading.value).toBe(true);
+  });
+
   it('allows empty channel tree after load settles', () => {
     const serverStore = reactive({
       selectedServerId: 'srv1' as string | null,

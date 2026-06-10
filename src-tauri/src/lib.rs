@@ -31,6 +31,7 @@ mod desktop_audio;
 use desktop_audio::{DesktopAudioDevice, DesktopAudioState};
 
 mod ios_auth;
+mod ios_features;
 mod ios_native;
 
 /// Persisted preference mirrored from the SPA (close hides to tray vs exit).
@@ -895,6 +896,8 @@ pub fn run() {
       ios_auth::ios_auth_clear_refresh_token,
       ios_native::ios_native_haptic,
       ios_native::ios_is_simulator,
+      ios_features::ios_sign_in_with_apple,
+      ios_features::ios_register_push_notifications,
     ])
     .setup(|app| {
       setup_app_shell(app);

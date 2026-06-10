@@ -15,9 +15,18 @@ extern "C" void echo_ios_register_overlay_callbacks(
     void (*dismiss)(void),
     void (*show_login)(void));
 
+// Sign in with Apple + APNs registration (EchoNativeIosFeatures.swift).
+extern "C" bool echo_ios_sign_in_with_apple_sync(char **out_json, char **out_error);
+extern "C" bool echo_ios_register_push_sync(char **out_token, char **out_error);
+extern "C" void echo_ios_register_feature_callbacks(
+    bool (*apple_sign_in)(char **, char **),
+    bool (*register_push)(char **, char **));
+
 int main(int argc, char * argv[]) {
 	echo_ios_register_overlay_callbacks(
 		&echo_ios_boot, &echo_ios_dismiss_overlay, &echo_ios_show_login);
+	echo_ios_register_feature_callbacks(
+		&echo_ios_sign_in_with_apple_sync, &echo_ios_register_push_sync);
 	ffi::start_app();
 	return 0;
 }

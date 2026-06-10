@@ -8,6 +8,7 @@ import guestRoutes from './auth/guest';
 import meRoutes from './auth/me';
 import echoPlusInterestRoutes from './auth/echoPlusInterest';
 import desktopHandoffRoutes from './auth/desktop-handoff';
+import pushRoutes from './auth/push';
 
 /**
  * Authentication routes split by domain for maintainability.
@@ -25,4 +26,5 @@ export default async function authRoutes(
   await fastify.register(desktopHandoffRoutes);
   await fastify.register(meRoutes);
   await fastify.register(echoPlusInterestRoutes);
+  await fastify.register(pushRoutes);
 }

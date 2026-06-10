@@ -1324,28 +1324,40 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, black 10%, var(--vue-auto-048));
 }
 
-@media (max-width: 639px) {
+@media (max-width: 799px) {
   .explore-view {
+    background-color: var(--explore-hero-grad-surface-tint);
     background-image:
       radial-gradient(
-        circle at top center,
-        color-mix(in srgb, var(--explore-mobile-radial-sky) 15%, transparent),
-        transparent 38%
+        ellipse 120% 80% at 14% -8%,
+        var(--explore-radial-accent),
+        transparent 52%
       ),
       radial-gradient(
-        circle at 80% 18%,
-        color-mix(in srgb, var(--explore-hero-radial-rose) 14%, transparent),
-        transparent 28%
+        ellipse 95% 72% at 96% 12%,
+        color-mix(in srgb, var(--explore-hero-radial-rose) 26%, transparent),
+        transparent 48%
+      ),
+      radial-gradient(
+        ellipse 88% 68% at 78% 100%,
+        color-mix(in srgb, var(--explore-hero-radial-mint) 20%, transparent),
+        transparent 46%
+      ),
+      radial-gradient(
+        ellipse 72% 58% at -4% 88%,
+        color-mix(in srgb, var(--accent) 12%, transparent),
+        transparent 42%
       ),
       linear-gradient(
         180deg,
         color-mix(
             in srgb,
-            var(--surface) 95%,
-            var(--explore-mobile-grad-deep) 5%
+            var(--surface) 90%,
+            var(--explore-hero-grad-surface-tint) 10%
           )
           0%,
-        var(--bg) 100%
+        color-mix(in srgb, var(--bg) 92%, var(--explore-hero-grad-bg-tint) 8%)
+          100%
       );
   }
 

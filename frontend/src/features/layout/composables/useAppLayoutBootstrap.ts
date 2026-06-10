@@ -8,6 +8,9 @@ import { echoDevTrace } from '@/observability/echoDevTrace';
 import { applySavedServerRailOrder } from '@/utils/serverRailOrderPersistence';
 import { hasPriorRegistration } from '@/utils/priorRegistration';
 import { applyWorkspaceBootstrapServerNav } from '@/services/orchestration/workspaceBootstrapServerNav';
+import { isSuspiciousEmptyWorkspace } from '@/services/domain/workspaceShellSelection';
+import { isSuspiciousEmptyRecoveryExhausted } from '@/services/domain/workspaceEmptyRecoveryLatch';
+import { readWorkspaceEmptyRecoveryHints } from '@/utils/workspaceEmptyRecoveryHints';
 
 function logIconCatalogPrefetchFailure(err: unknown): void {
   echoDevTrace('icon_catalog_prefetch_failed', {
@@ -145,7 +148,8 @@ export function useAppLayoutBootstrap(deps: {
     [workspace.servers, workspace.fromApi],
     ([servers, fromApi]) => {
       const authSession = useAuthSessionStore();
-      if (authSession.backendUser?.isGuest === true) return;
+      const isGuestUser = authSession.backendUser?.isGuest === true;
+      if (isGuestUser) return;
       if (servers.length > 0) {
         applyWorkspaceBootstrapServerNav({
           servers,
@@ -159,8 +163,17 @@ export function useAppLayoutBootstrap(deps: {
         });
         return;
       }
+      const suspiciousEmpty = isSuspiciousEmptyWorkspace({
+        serverCount: servers.length,
+        workspaceFromApi: fromApi,
+        isAuthenticated: authSession.isAuthenticated,
+        isGuest: isGuestUser,
+        recoveryExhausted: isSuspiciousEmptyRecoveryExhausted(),
+        hints: readWorkspaceEmptyRecoveryHints(),
+      });
       if (
         fromApi &&
+        !suspiciousEmpty &&
         activeRailTab.value === 'servers' &&
         !serverStore.selectedServerId
       ) {

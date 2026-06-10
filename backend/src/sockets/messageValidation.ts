@@ -360,6 +360,30 @@ function sanitizeMediaUrlInner(
   return t;
 }
 
+function sanitizeAttachmentDimensions(o: Record<string, unknown>): {
+  width?: number;
+  height?: number;
+} {
+  const widthRaw = o.width;
+  const heightRaw = o.height;
+  const width =
+    typeof widthRaw === 'number' &&
+    Number.isFinite(widthRaw) &&
+    widthRaw > 0 &&
+    widthRaw <= 65535
+      ? Math.floor(widthRaw)
+      : undefined;
+  const height =
+    typeof heightRaw === 'number' &&
+    Number.isFinite(heightRaw) &&
+    heightRaw > 0 &&
+    heightRaw <= 65535
+      ? Math.floor(heightRaw)
+      : undefined;
+  if (width && height) return { width, height };
+  return {};
+}
+
 function sanitizeAttachments(
   raw: unknown,
   blockDataUrls: boolean,
@@ -400,12 +424,14 @@ function sanitizeAttachments(
       fileSizeRaw <= Number.MAX_SAFE_INTEGER
         ? Math.floor(fileSizeRaw)
         : undefined;
+    const dims = sanitizeAttachmentDimensions(o);
     out.push({
       url,
       kind,
       ...(filename ? { filename } : {}),
       ...(mimeType ? { mimeType } : {}),
       ...(typeof fileSize === 'number' ? { fileSize } : {}),
+      ...dims,
       ...(spoiler ? { spoiler: true } : {}),
     });
   }

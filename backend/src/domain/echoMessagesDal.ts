@@ -172,6 +172,22 @@ function parseAttachmentsColumn(
       fileSizeRaw <= Number.MAX_SAFE_INTEGER
         ? Math.floor(fileSizeRaw)
         : undefined;
+    const widthRaw = o.width;
+    const heightRaw = o.height;
+    const width =
+      typeof widthRaw === 'number' &&
+      Number.isFinite(widthRaw) &&
+      widthRaw > 0 &&
+      widthRaw <= 65535
+        ? Math.floor(widthRaw)
+        : undefined;
+    const height =
+      typeof heightRaw === 'number' &&
+      Number.isFinite(heightRaw) &&
+      heightRaw > 0 &&
+      heightRaw <= 65535
+        ? Math.floor(heightRaw)
+        : undefined;
     out.push({
       url: o.url.trim(),
       kind,
@@ -182,6 +198,7 @@ function parseAttachmentsColumn(
         ? { mimeType: o.mimeType.trim().slice(0, 128) }
         : {}),
       ...(typeof fileSize === 'number' ? { fileSize } : {}),
+      ...(width && height ? { width, height } : {}),
       ...(o.spoiler === true ? { spoiler: true } : {}),
     });
   }

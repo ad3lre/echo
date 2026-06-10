@@ -1456,7 +1456,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <div ref="wrapperRef" class="relative px-4 pb-[10px]" data-chat-insert-ui>
+  <div
+    ref="wrapperRef"
+    class="relative w-full"
+    :class="isCompactShell ? 'px-0 pb-0' : 'px-4 pb-[10px]'"
+    data-chat-insert-ui
+  >
     <input
       ref="fileInputRef"
       type="file"
@@ -1785,6 +1790,7 @@ onMounted(() => {
       :handle-keydown="handleKeydown"
       :handle-paste="handlePaste"
       :compact-inline-send-layout="isCompactShell && !!sendMessage"
+      :compact-shell-layout="isCompactShell"
       :has-composer-payload="hasComposerPayload"
       :request-send="handleSubmit"
       :composer-disabled="composerBarDisabled"

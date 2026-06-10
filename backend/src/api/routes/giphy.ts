@@ -1,17 +1,18 @@
 /**
- * Giphy API proxy. Keeps API key server-side.
+ * GIF API proxy (Giphy primary, Klipy fallback). Keeps API keys server-side.
  */
 
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import { config } from '../../config';
-import { GIPHY_FETCH_MS } from '../../constants/outboundHttp';
+import {
+  fetchTrendingGifs,
+  GifProvidersUnavailableError,
+  searchGifs,
+} from '../../services/gifProviders';
 import { sendError } from '../errors';
 
-const GIPHY_BASE = 'https://api.giphy.com/v1/gifs';
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 30;
-const RATING = 'g';
 
 function parseLimit(raw: unknown): number {
   if (raw == null || raw === '') return DEFAULT_LIMIT;
@@ -35,63 +36,43 @@ export default async function giphyRoutes(
     scope.get<{ Querystring: { limit?: string } }>(
       '/giphy/trending',
       async (request, reply) => {
-        if (!config.giphyApiKey) {
-          return sendError(
-            reply,
-            503,
-            'SERVICE_UNAVAILABLE',
-            'GIPHY_API_KEY not configured',
-          );
-        }
         const limit = parseLimit(request.query.limit);
-        const url = `${GIPHY_BASE}/trending?api_key=${config.giphyApiKey}&limit=${limit}&rating=${RATING}`;
-        const res = await fetch(url, {
-          signal: AbortSignal.timeout(GIPHY_FETCH_MS),
-        });
-        if (!res.ok) {
-          fastify.log.warn({ status: res.status }, 'Giphy trending failed');
-          return sendError(reply, 502, 'UPSTREAM_ERROR', 'Giphy API error');
-        }
-        let json: { data?: unknown[] };
         try {
-          json = (await res.json()) as { data?: unknown[] };
-        } catch (err) {
-          fastify.log.warn({ err }, 'Giphy trending: malformed JSON');
-          return sendError(reply, 502, 'UPSTREAM_ERROR', 'Giphy API error');
+          return reply.send(await fetchTrendingGifs(request.log, limit));
+        } catch (e) {
+          if (e instanceof GifProvidersUnavailableError) {
+            return sendError(
+              reply,
+              503,
+              'SERVICE_UNAVAILABLE',
+              'GIF provider not configured (set GIPHY_API_KEY and/or KLIPY_API_KEY)',
+            );
+          }
+          request.log.warn({ err: e }, 'GIF trending failed');
+          return sendError(reply, 502, 'UPSTREAM_ERROR', 'GIF provider error');
         }
-        return reply.send(json.data ?? []);
       },
     );
 
     scope.get<{ Querystring: { q?: string; limit?: string } }>(
       '/giphy/search',
       async (request, reply) => {
-        if (!config.giphyApiKey) {
-          return sendError(
-            reply,
-            503,
-            'SERVICE_UNAVAILABLE',
-            'GIPHY_API_KEY not configured',
-          );
-        }
         const q = request.query.q?.trim() ?? '';
         const limit = parseLimit(request.query.limit);
-        const url = `${GIPHY_BASE}/search?api_key=${config.giphyApiKey}&q=${encodeURIComponent(q)}&limit=${limit}&rating=${RATING}`;
-        const res = await fetch(url, {
-          signal: AbortSignal.timeout(GIPHY_FETCH_MS),
-        });
-        if (!res.ok) {
-          fastify.log.warn({ status: res.status, q }, 'Giphy search failed');
-          return sendError(reply, 502, 'UPSTREAM_ERROR', 'Giphy API error');
-        }
-        let json: { data?: unknown[] };
         try {
-          json = (await res.json()) as { data?: unknown[] };
-        } catch (err) {
-          fastify.log.warn({ err, q }, 'Giphy search: malformed JSON');
-          return sendError(reply, 502, 'UPSTREAM_ERROR', 'Giphy API error');
+          return reply.send(await searchGifs(request.log, q, limit));
+        } catch (e) {
+          if (e instanceof GifProvidersUnavailableError) {
+            return sendError(
+              reply,
+              503,
+              'SERVICE_UNAVAILABLE',
+              'GIF provider not configured (set GIPHY_API_KEY and/or KLIPY_API_KEY)',
+            );
+          }
+          request.log.warn({ err: e, q }, 'GIF search failed');
+          return sendError(reply, 502, 'UPSTREAM_ERROR', 'GIF provider error');
         }
-        return reply.send(json.data ?? []);
       },
     );
   });

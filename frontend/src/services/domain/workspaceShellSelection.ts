@@ -1,4 +1,8 @@
 import type { ChannelCategory } from '@/composables/useChannels';
+import {
+  hasJoinedServersPersistenceEvidence,
+  type WorkspaceEmptyRecoveryHints,
+} from '@/utils/workspaceEmptyRecoveryHints';
 
 export type WorkspaceShellEmptyOnboardingParams = {
   activeRailTab: string;
@@ -10,7 +14,35 @@ export type WorkspaceShellEmptyOnboardingParams = {
    * (e.g. failed sync). Avoid showing the “no servers yet” onboarding surface.
    */
   workspaceReady?: boolean;
+  /**
+   * When true, the authoritative snapshot is empty but client persistence says the
+   * member previously had guilds — treat as a sync issue, not onboarding.
+   */
+  suspiciousEmptyWorkspace?: boolean;
 };
+
+export type SuspiciousEmptyWorkspaceParams = {
+  serverCount: number;
+  workspaceFromApi: boolean;
+  isAuthenticated: boolean;
+  isGuest: boolean;
+  recoveryExhausted?: boolean;
+  hints: WorkspaceEmptyRecoveryHints;
+};
+
+/**
+ * True when the workspace snapshot says “zero guilds” but local evidence says the
+ * account should have joined servers (stale cache, failed hydrate, etc.).
+ */
+export function isSuspiciousEmptyWorkspace(
+  p: SuspiciousEmptyWorkspaceParams,
+): boolean {
+  if (p.recoveryExhausted) return false;
+  if (!p.isAuthenticated || p.isGuest) return false;
+  if (p.serverCount !== 0) return false;
+  if (!p.workspaceFromApi) return false;
+  return hasJoinedServersPersistenceEvidence(p.hints);
+}
 
 /**
  * Derives whether the shell is in the "empty server onboarding" state.
@@ -19,6 +51,7 @@ export function isServerEmptyOnboarding(
   p: WorkspaceShellEmptyOnboardingParams,
 ): boolean {
   if (p.workspaceReady === false) return false;
+  if (p.suspiciousEmptyWorkspace) return false;
   if (p.activeRailTab !== 'servers') return false;
   // "Empty onboarding" is only the account-level empty workspace state.
   // A selected server with zero categories/channels should remain in normal server mode

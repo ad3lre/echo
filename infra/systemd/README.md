@@ -120,3 +120,27 @@ sudo -E npm run backup:postgres:restore -- \
 ```
 
 Restore credentials are **not** loaded by the backup service; they live only in `/etc/echo/backup-restore.env` (root:root 600).
+
+---
+
+# systemd: persistent recovery watcher
+
+Always-on monitor: if the **local** API stays down for **45 minutes**, force-restart `prod:serve` + PM2 apps. Survives host reboots via `Restart=always`. On failed recovery, emails **`bugs@chat-echo.com`**.
+
+Full behaviour: [docs/operations/echo-recovery-watcher.md](../../docs/operations/echo-recovery-watcher.md).
+
+## One-time setup
+
+```bash
+sudo ./scripts/deploy/install-recovery-watcher.sh
+sudo nano /etc/echo/recovery-watcher.env   # PATH, ECHO_SMTP_*, ECHO_REPO_ROOT
+sudo systemctl enable --now echo-recovery-watcher.service
+```
+
+Check:
+
+```bash
+systemctl status echo-recovery-watcher
+journalctl -u echo-recovery-watcher -e
+tail -f /opt/echo/logs/vps/echo-recovery-watcher.log
+```

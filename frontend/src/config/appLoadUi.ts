@@ -7,18 +7,17 @@
  * - earlier thresholds (12 s) were scaring users whose load was still perfectly healthy.
  * `resolveAppLayoutLoadHintMs()` stretches this further on 2G/3G or Save-Data.
  */
-export const APP_LAYOUT_LOAD_HINT_MS = 22_000;
+export const APP_LAYOUT_LOAD_HINT_MS = 8_000;
 
 /** If the dynamic import has not settled by then, show the load error UI (user can retry). */
-export const APP_LAYOUT_LOAD_TIMEOUT_MS = 120_000;
+export const APP_LAYOUT_LOAD_TIMEOUT_MS = 30_000;
 
 /**
  * Hard cap on how long the `App.vue` boot gate holds its full-screen splash for a
- * no-session cold start. `startInitialLoad` reliably settles (and clears the gate)
- * well before this, so it is purely a defensive force-reveal; the in-splash "still
- * loading" hint already appears at ~22 s via {@link resolveAppLayoutLoadHintMs}.
+ * no-session cold start. Now set to 3s for fast reveal with progressive loading.
+ * The app shell with skeleton states shows while data hydrates in background.
  */
-export const APP_BOOT_GATE_TIMEOUT_MS = 30_000;
+export const APP_BOOT_GATE_TIMEOUT_MS = 3_000;
 
 type NetworkInformationLike = {
   /** Round-trip time in ms (browser estimate). */
@@ -35,9 +34,9 @@ type NetworkInformationLike = {
  * Connection-aware version of {@link APP_LAYOUT_LOAD_HINT_MS}.
  *
  * Rules:
- * - Save-Data or slow-2g/2g: 45 s (very slow mobile, don't panic users).
- * - 3g or downlink < 1.5 Mbps or rtt > 400 ms: 35 s.
- * - Fast / unknown: return the default (22 s).
+ * - Save-Data or slow-2g/2g: 20 s (slow mobile).
+ * - 3g or downlink < 1.5 Mbps or rtt > 400 ms: 15 s.
+ * - Fast / unknown: return the default (8 s).
  *
  * Safe to call before Vue mounts; returns the default on non-browser targets.
  */
@@ -50,17 +49,17 @@ export function resolveAppLayoutLoadHintMs(): number {
   };
   const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
   if (!conn) return APP_LAYOUT_LOAD_HINT_MS;
-  if (conn.saveData) return 45_000;
+  if (conn.saveData) return 20_000;
   const type = conn.effectiveType;
-  if (type === 'slow-2g' || type === '2g') return 45_000;
-  if (type === '3g') return 35_000;
+  if (type === 'slow-2g' || type === '2g') return 20_000;
+  if (type === '3g') return 15_000;
   if (
     typeof conn.downlink === 'number' &&
     conn.downlink > 0 &&
     conn.downlink < 1.5
   ) {
-    return 35_000;
+    return 15_000;
   }
-  if (typeof conn.rtt === 'number' && conn.rtt > 400) return 35_000;
+  if (typeof conn.rtt === 'number' && conn.rtt > 400) return 15_000;
   return APP_LAYOUT_LOAD_HINT_MS;
 }

@@ -33,7 +33,12 @@ import {
 } from '@/features/layout/shellNavDebugLog';
 import { emitActiveChannelNavDiagnostic } from '@/features/layout/emitActiveChannelNavDiagnostic';
 import { beginChatSwitch } from '@/features/layout/chatSwitchPerfTrace';
-import { isServerEmptyOnboarding as isServerEmptyOnboardingDomain } from '@/services/domain/workspaceShellSelection';
+import {
+  isServerEmptyOnboarding as isServerEmptyOnboardingDomain,
+  isSuspiciousEmptyWorkspace,
+} from '@/services/domain/workspaceShellSelection';
+import { isSuspiciousEmptyRecoveryExhausted } from '@/services/domain/workspaceEmptyRecoveryLatch';
+import { readWorkspaceEmptyRecoveryHints } from '@/utils/workspaceEmptyRecoveryHints';
 import { isEchoGraphId } from '@/utils/echoIds';
 import {
   readLastVisitedServerChannelMap,
@@ -261,6 +266,17 @@ export function useAppLayoutShellNavigation(
     return opts.workspace.fromApi.value === true;
   });
 
+  const suspiciousEmptyWorkspace = computed(() =>
+    isSuspiciousEmptyWorkspace({
+      serverCount: opts.serverStore.servers.length,
+      workspaceFromApi: opts.workspace.fromApi.value,
+      isAuthenticated: opts.authSession.isAuthenticated,
+      isGuest: opts.authSession.backendUser?.isGuest === true,
+      recoveryExhausted: isSuspiciousEmptyRecoveryExhausted(),
+      hints: readWorkspaceEmptyRecoveryHints(),
+    }),
+  );
+
   const isServerEmptyOnboarding = computed(() => {
     return isServerEmptyOnboardingDomain({
       activeRailTab: opts.activeRailTab.value,
@@ -273,6 +289,7 @@ export function useAppLayoutShellNavigation(
             ]
           : []) ?? [],
       workspaceReady: workspaceReadyForServerEmptyUi.value,
+      suspiciousEmptyWorkspace: suspiciousEmptyWorkspace.value,
     });
   });
 
@@ -459,6 +476,7 @@ export function useAppLayoutShellNavigation(
     shellNavState,
     mainSurface,
     isServerEmptyOnboarding,
+    suspiciousEmptyWorkspace,
     openServerSettingsFromUrl,
   };
 }

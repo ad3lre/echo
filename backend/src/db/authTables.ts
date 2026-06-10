@@ -283,6 +283,40 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
     ON auth_google_user_links (google_sub);
   `);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_apple_user_links (
+      user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
+      apple_sub TEXT NOT NULL,
+      apple_email TEXT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS auth_apple_user_links_apple_sub_idx
+    ON auth_apple_user_links (apple_sub);
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_ios_device_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      device_token TEXT NOT NULL,
+      bundle_id TEXT NOT NULL DEFAULT 'com.echo.ios',
+      environment TEXT NOT NULL DEFAULT 'development',
+      user_agent TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT auth_ios_device_tokens_environment_chk
+        CHECK (environment IN ('development', 'production'))
+    );
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS auth_ios_device_tokens_token_idx
+    ON auth_ios_device_tokens (device_token);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS auth_ios_device_tokens_user_idx
+    ON auth_ios_device_tokens (user_id);
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS auth_password_reset_tokens (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,

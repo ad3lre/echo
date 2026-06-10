@@ -111,10 +111,6 @@ export function useSettingsDataRights() {
 
   async function confirmAccountRemoval() {
     if (removalInFlight.value) return;
-    if (!removalPassword.value.trim()) {
-      removalModalError.value = 'Enter your password to continue.';
-      return;
-    }
     if (removalConfirmText.value.trim().toUpperCase() !== 'DELETE') {
       removalModalError.value = 'Type DELETE to confirm permanent removal.';
       return;
@@ -122,15 +118,14 @@ export function useSettingsDataRights() {
     removalInFlight.value = true;
     removalModalError.value = '';
     try {
-      await authDeleteAccount(removalPassword.value.trim());
+      // Password optional: guest / OAuth-only accounts delete via session.
+      await authDeleteAccount(removalPassword.value.trim() || undefined);
       authSession.clearLocalTokens();
       dispatchAppToast('Account removal completed.', 'info');
       showRemovalModal.value = false;
     } catch (e) {
-      dispatchAppToast(
-        e instanceof Error ? e.message : 'Could not complete account removal.',
-        'warning',
-      );
+      removalModalError.value =
+        e instanceof Error ? e.message : 'Could not complete account removal.';
     } finally {
       removalInFlight.value = false;
     }

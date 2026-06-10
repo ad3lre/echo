@@ -20,6 +20,7 @@ import {
   iosAuthMarkVerified,
 } from './iosNativeAuth';
 import type { BootDecision } from './iosNativeAuth';
+import { syncIosPushAfterAuth } from './iosPushSync';
 
 let bootResult: BootDecision | null = null;
 
@@ -63,6 +64,7 @@ export function getStoredSession(): BootDecision['session'] {
 export async function notifyAppAuthenticated(): Promise<void> {
   await iosAuthSessionRestored();
   bootResult = null;
+  void syncIosPushAfterAuth();
 }
 
 /**

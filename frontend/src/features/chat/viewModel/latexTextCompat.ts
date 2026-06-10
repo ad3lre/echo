@@ -279,6 +279,19 @@ function renderFootnoteCommand(
   };
 }
 
+function matchCommandWithTwoBraceArgs(
+  text: string,
+  from: number,
+  command: string,
+): { first: string; second: string; end: number } | null {
+  const first = matchCommandWithBraceArg(text, from, command);
+  if (!first) return null;
+  const cursor = consumeCommandWhitespace(text, first.end);
+  const second = readBraceArgument(text, cursor);
+  if (!second) return null;
+  return { first: first.content, second: second.content, end: second.end };
+}
+
 function renderUrlCommand(
   text: string,
   from: number,
@@ -292,6 +305,25 @@ function renderUrlCommand(
   const safe = escapeHtml(raw);
   return {
     html: `<a href="${safe}">${safe}</a>`,
+    end: match.end,
+  };
+}
+
+function renderHrefCommand(
+  text: string,
+  from: number,
+): { html: string; end: number } | null {
+  const match = matchCommandWithTwoBraceArgs(text, from, 'href');
+  if (!match) return null;
+  const url = match.first.trim();
+  const label = preprocessLatexTextCompat(match.second).trim();
+  if (!/^https?:\/\/\S+$/i.test(url)) {
+    return { html: escapeHtml(label || url), end: match.end };
+  }
+  const safeUrl = escapeHtml(url);
+  const safeLabel = label || safeUrl;
+  return {
+    html: `<a href="${safeUrl}">${safeLabel}</a>`,
     end: match.end,
   };
 }
@@ -354,7 +386,8 @@ export function preprocessLatexTextCompat(text: string): string {
       renderInlineCommand(text, i, 'emph', 'em') ??
       renderInlineCommand(text, i, 'texttt', 'code') ??
       renderFootnoteCommand(text, i) ??
-      renderUrlCommand(text, i);
+      renderUrlCommand(text, i) ??
+      renderHrefCommand(text, i);
     if (inline) {
       out += inline.html;
       i = inline.end;

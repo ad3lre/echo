@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
+import { useCompactShell } from '@/composables/useCompactShell';
 import { selectPresence } from '@/services/domain/presence';
 import { selectFriendshipUiState } from '@/services/domain/friendshipUi';
 import { safeImageUrl } from '@/utils/safeImageUrl';
@@ -48,6 +49,19 @@ const emit = defineEmits<{
 const activeTab = ref<FriendsTab>('all');
 const friendSearchQuery = ref('');
 const addFriendQuery = ref('');
+const { isCompactShell } = useCompactShell();
+
+watch(isCompactShell, (compact) => {
+  if (compact && activeTab.value === 'pending') {
+    activeTab.value = 'add';
+  }
+});
+
+const showPendingRequestsSection = computed(
+  () =>
+    activeTab.value === 'pending' ||
+    (isCompactShell.value && activeTab.value === 'add'),
+);
 
 const echoPeerByChannelId = computed(
   () => props.echoPeerByChannelId ?? new Map<string, string>(),
@@ -250,7 +264,7 @@ function sendFriendRequestTo(userId: string) {
                     <img
                       :src="icons.usersAvatar"
                       alt=""
-                      class="h-4 w-4 shrink-0 filter invert opacity-70 lg:h-3.5 lg:w-3.5"
+                      class="friends-tab-icon friends-tab-icon--img echo-ink-icon"
                     />
                     <span>All</span>
                   </span>
@@ -267,7 +281,7 @@ function sendFriendRequestTo(userId: string) {
                 >
                   <span class="inline-flex items-center gap-2">
                     <svg
-                      class="h-4 w-4 shrink-0 filter invert opacity-70 lg:h-3.5 lg:w-3.5"
+                      class="friends-tab-icon friends-tab-icon--wifi"
                       viewBox="0 0 24 24"
                       aria-hidden="true"
                     >
@@ -287,7 +301,7 @@ function sendFriendRequestTo(userId: string) {
                 </button>
                 <button
                   type="button"
-                  class="friends-tab rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors lg:rounded-lg lg:px-3 lg:py-1.5 lg:text-[11px]"
+                  class="friends-tab hidden rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors lg:inline-flex lg:rounded-lg lg:px-3 lg:py-1.5 lg:text-[11px]"
                   :class="
                     activeTab === 'pending'
                       ? 'friends-tab--active'
@@ -299,7 +313,7 @@ function sendFriendRequestTo(userId: string) {
                     <img
                       :src="icons.friendAdd"
                       alt=""
-                      class="h-4 w-4 shrink-0 filter invert opacity-70 lg:h-3.5 lg:w-3.5"
+                      class="friends-tab-icon friends-tab-icon--img echo-ink-icon"
                     />
                     <span>Pending</span>
                   </span>
@@ -326,9 +340,16 @@ function sendFriendRequestTo(userId: string) {
                   <img
                     :src="icons.friendAdd"
                     alt=""
-                    class="friend-add-icon--blue h-4 w-4 shrink-0 opacity-90 lg:h-3.5 lg:w-3.5"
+                    class="friend-add-icon--blue"
                   />
-                  <span class="truncate">Add friend</span>
+                  <span class="truncate lg:hidden">Add</span>
+                  <span class="hidden truncate lg:inline">Add friend</span>
+                  <span
+                    v-if="isCompactShell && pendingCount > 0"
+                    class="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-glass-2 px-1.5 text-[10px] font-bold text-foreground lg:hidden"
+                  >
+                    {{ pendingCount }}
+                  </span>
                 </button>
               </nav>
             </div>
@@ -595,225 +616,246 @@ function sendFriendRequestTo(userId: string) {
                   </div>
                 </template>
 
-                <template v-else-if="activeTab === 'pending'">
-                  <div
-                    v-if="
-                      incomingFiltered.length === 0 &&
-                      outgoingFiltered.length === 0
-                    "
-                    class="py-10 text-center text-xs text-fg-soft"
-                  >
-                    No pending requests match your search.
-                  </div>
-
-                  <div v-if="incomingFiltered.length > 0">
+                <template
+                  v-else-if="activeTab === 'pending' || activeTab === 'add'"
+                >
+                  <template v-if="showPendingRequestsSection">
                     <div
-                      v-for="req in incomingFiltered"
-                      :key="req.id"
-                      class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
+                      v-if="
+                        activeTab === 'pending' &&
+                        incomingFiltered.length === 0 &&
+                        outgoingFiltered.length === 0
+                      "
+                      class="py-10 text-center text-xs text-fg-soft"
                     >
-                      <button
-                        type="button"
-                        class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                        :aria-label="`View profile for ${req.user.name}`"
-                        @click="emit('open-expanded-profile', req.user.id)"
-                      >
-                        <div
-                          class="relative h-12 w-12 shrink-0 overflow-hidden rounded-full"
-                        >
-                          <PausedGifAvatar
-                            :src="safeImageUrl(req.user.pfp)"
-                            :alt="req.user.name"
-                            :session-key="req.user.id"
-                            img-class="rounded-full object-cover"
-                          />
-                        </div>
-                        <div class="min-w-0">
-                          <div class="flex items-center gap-2">
-                            <div
-                              class="truncate text-sm font-medium text-foreground"
-                            >
-                              {{ req.user.name }}
-                            </div>
-                            <span
-                              class="rounded-full bg-green-500/15 px-2 py-0.5 text-[11px] font-medium text-green-300"
-                            >
-                              Incoming
-                            </span>
-                          </div>
-                          <div class="mt-0.5 text-xs text-fg-soft">
-                            Wants to be your friend
-                          </div>
-                        </div>
-                      </button>
-                      <div class="flex shrink-0 gap-2">
-                        <button
-                          type="button"
-                          class="rounded-lg bg-green-600/80 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-600"
-                          @click.stop="emit('accept-friend-request', req.id)"
-                        >
-                          Accept
-                        </button>
-                        <button
-                          type="button"
-                          class="rounded-lg bg-glass-2 px-4 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-glass-3"
-                          @click.stop="emit('decline-friend-request', req.id)"
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-if="outgoingFiltered.length > 0">
-                    <div
-                      v-for="req in outgoingFiltered"
-                      :key="req.id"
-                      class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
-                    >
-                      <button
-                        type="button"
-                        class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                        :aria-label="`View profile for ${req.user.name}`"
-                        @click="emit('open-expanded-profile', req.user.id)"
-                      >
-                        <div
-                          class="relative h-12 w-12 shrink-0 overflow-hidden rounded-full"
-                        >
-                          <PausedGifAvatar
-                            :src="safeImageUrl(req.user.pfp)"
-                            :alt="req.user.name"
-                            :session-key="req.user.id"
-                            img-class="rounded-full object-cover"
-                          />
-                        </div>
-                        <div class="min-w-0">
-                          <div class="flex items-center gap-2">
-                            <div
-                              class="truncate text-sm font-medium text-foreground"
-                            >
-                              {{ req.user.name }}
-                            </div>
-                            <span
-                              class="rounded-full bg-glass-2 px-2 py-0.5 text-[11px] font-medium text-fg-soft"
-                            >
-                              Outgoing
-                            </span>
-                          </div>
-                          <div class="mt-0.5 text-xs text-fg-soft">
-                            Awaiting their response
-                          </div>
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        class="shrink-0 rounded-lg bg-glass-2 px-4 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-glass-3"
-                        @click.stop="emit('cancel-friend-request', req.id)"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </template>
-
-                <template v-else-if="activeTab === 'add'">
-                  <section
-                    class="friends-add-panel rounded-2xl px-3 py-4 sm:px-4"
-                  >
-                    <div
-                      class="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between"
-                    >
-                      <div class="min-w-0">
-                        <h2 class="text-lg font-semibold text-foreground">
-                          Add friend
-                        </h2>
-                        <p class="mt-1 text-sm leading-relaxed text-fg-soft">
-                          Suggestions are the newest Echo sign-ups. Search by
-                          display name or username to find someone specific.
-                        </p>
-                      </div>
-
-                      <div
-                        class="friends-search relative w-full sm:max-w-[280px]"
-                      >
-                        <img
-                          :src="icons.search"
-                          alt=""
-                          class="echo-ink-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-55"
-                        />
-                        <input
-                          v-model="addFriendQuery"
-                          type="text"
-                          placeholder="Search by name or username"
-                          class="w-full rounded-lg border border-border bg-glass-1 py-2 pl-9 pr-3 text-sm text-fg placeholder:text-fg-subtle outline-none transition-colors"
-                        />
-                      </div>
+                      No pending requests match your search.
                     </div>
 
-                    <div class="mt-4 flex flex-col gap-2">
-                      <div
-                        v-if="addableUsers.length === 0"
-                        class="py-10 text-center text-xs text-fg-soft"
-                      >
-                        No Echo users match your search.
-                      </div>
+                    <div
+                      v-if="
+                        isCompactShell &&
+                        activeTab === 'add' &&
+                        pendingCount > 0
+                      "
+                      class="px-1 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-fg-soft"
+                    >
+                      Pending requests
+                    </div>
 
+                    <div v-if="incomingFiltered.length > 0">
                       <div
-                        v-for="user in addableUsers"
-                        :key="user.id"
-                        class="friend-row flex items-center justify-between gap-4 rounded-xl bg-scrim-1 px-4 py-3"
+                        v-for="req in incomingFiltered"
+                        :key="req.id"
+                        class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
                       >
                         <button
                           type="button"
                           class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
-                          :aria-label="`View profile for ${user.name}`"
-                          @click="emit('open-expanded-profile', user.id)"
+                          :aria-label="`View profile for ${req.user.name}`"
+                          @click="emit('open-expanded-profile', req.user.id)"
                         >
                           <div
-                            class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-glass-1"
+                            class="relative h-12 w-12 shrink-0 overflow-hidden rounded-full"
                           >
                             <PausedGifAvatar
-                              v-if="hasProfilePicture(user.pfp)"
-                              :src="safeImageUrl(user.pfp)"
-                              :alt="user.name"
-                              :session-key="user.id"
+                              :src="safeImageUrl(req.user.pfp)"
+                              :alt="req.user.name"
+                              :session-key="req.user.id"
                               img-class="rounded-full object-cover"
                             />
-                            <div
-                              v-else
-                              class="flex h-full w-full items-center justify-center rounded-full border border-dashed border-border bg-glass-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
-                            >
-                              No profile
-                            </div>
                           </div>
-
                           <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex items-center gap-2">
                               <div
-                                class="truncate text-sm font-semibold text-foreground"
+                                class="truncate text-sm font-medium text-foreground"
                               >
-                                {{ user.name }}
+                                {{ req.user.name }}
                               </div>
                               <span
-                                v-if="!hasProfilePicture(user.pfp)"
-                                class="rounded-full bg-glass-1 px-2 py-0.5 text-[11px] font-medium text-fg-soft"
+                                class="rounded-full bg-green-500/15 px-2 py-0.5 text-[11px] font-medium text-green-300"
                               >
-                                No profile
+                                Incoming
                               </span>
+                            </div>
+                            <div class="mt-0.5 text-xs text-fg-soft">
+                              Wants to be your friend
                             </div>
                           </div>
                         </button>
+                        <div class="flex shrink-0 gap-2">
+                          <button
+                            type="button"
+                            class="rounded-lg bg-green-600/80 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-600"
+                            @click.stop="emit('accept-friend-request', req.id)"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded-lg bg-glass-2 px-4 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-glass-3"
+                            @click.stop="emit('decline-friend-request', req.id)"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
+                    <div v-if="outgoingFiltered.length > 0">
+                      <div
+                        v-for="req in outgoingFiltered"
+                        :key="req.id"
+                        class="friend-row flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left transition-colors hover:bg-glass-2"
+                      >
                         <button
                           type="button"
-                          class="shrink-0 rounded-md bg-blue-600/90 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
-                          @click="sendFriendRequestTo(user.id)"
+                          class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+                          :aria-label="`View profile for ${req.user.name}`"
+                          @click="emit('open-expanded-profile', req.user.id)"
                         >
-                          Send request
+                          <div
+                            class="relative h-12 w-12 shrink-0 overflow-hidden rounded-full"
+                          >
+                            <PausedGifAvatar
+                              :src="safeImageUrl(req.user.pfp)"
+                              :alt="req.user.name"
+                              :session-key="req.user.id"
+                              img-class="rounded-full object-cover"
+                            />
+                          </div>
+                          <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                              <div
+                                class="truncate text-sm font-medium text-foreground"
+                              >
+                                {{ req.user.name }}
+                              </div>
+                              <span
+                                class="rounded-full bg-glass-2 px-2 py-0.5 text-[11px] font-medium text-fg-soft"
+                              >
+                                Outgoing
+                              </span>
+                            </div>
+                            <div class="mt-0.5 text-xs text-fg-soft">
+                              Awaiting their response
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-lg bg-glass-2 px-4 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-glass-3"
+                          @click.stop="emit('cancel-friend-request', req.id)"
+                        >
+                          Cancel
                         </button>
                       </div>
                     </div>
-                  </section>
+                  </template>
+
+                  <template v-if="activeTab === 'add'">
+                    <section
+                      class="friends-add-panel rounded-2xl px-3 py-4 sm:px-4"
+                      :class="
+                        isCompactShell && pendingCount > 0
+                          ? 'mt-3 border-t border-border pt-5'
+                          : ''
+                      "
+                    >
+                      <div
+                        class="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between"
+                      >
+                        <div class="min-w-0">
+                          <h2 class="text-lg font-semibold text-foreground">
+                            Add friend
+                          </h2>
+                          <p class="mt-1 text-sm leading-relaxed text-fg-soft">
+                            Suggestions are the newest Echo sign-ups. Search by
+                            display name or username to find someone specific.
+                          </p>
+                        </div>
+
+                        <div
+                          class="friends-search relative w-full sm:max-w-[280px]"
+                        >
+                          <img
+                            :src="icons.search"
+                            alt=""
+                            class="echo-ink-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-55"
+                          />
+                          <input
+                            v-model="addFriendQuery"
+                            type="text"
+                            placeholder="Search by name or username"
+                            class="w-full rounded-lg border border-border bg-glass-1 py-2 pl-9 pr-3 text-sm text-fg placeholder:text-fg-subtle outline-none transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="mt-4 flex flex-col gap-2">
+                        <div
+                          v-if="addableUsers.length === 0"
+                          class="py-10 text-center text-xs text-fg-soft"
+                        >
+                          No Echo users match your search.
+                        </div>
+
+                        <div
+                          v-for="user in addableUsers"
+                          :key="user.id"
+                          class="friend-row flex items-center justify-between gap-4 rounded-xl bg-scrim-1 px-4 py-3"
+                        >
+                          <button
+                            type="button"
+                            class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 rounded-lg text-left outline-none transition-colors hover:bg-glass-1/80 focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]"
+                            :aria-label="`View profile for ${user.name}`"
+                            @click="emit('open-expanded-profile', user.id)"
+                          >
+                            <div
+                              class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-glass-1"
+                            >
+                              <PausedGifAvatar
+                                v-if="hasProfilePicture(user.pfp)"
+                                :src="safeImageUrl(user.pfp)"
+                                :alt="user.name"
+                                :session-key="user.id"
+                                img-class="rounded-full object-cover"
+                              />
+                              <div
+                                v-else
+                                class="flex h-full w-full items-center justify-center rounded-full border border-dashed border-border bg-glass-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-fg-subtle"
+                              >
+                                No profile
+                              </div>
+                            </div>
+
+                            <div class="min-w-0">
+                              <div class="flex flex-wrap items-center gap-2">
+                                <div
+                                  class="truncate text-sm font-semibold text-foreground"
+                                >
+                                  {{ user.name }}
+                                </div>
+                                <span
+                                  v-if="!hasProfilePicture(user.pfp)"
+                                  class="rounded-full bg-glass-1 px-2 py-0.5 text-[11px] font-medium text-fg-soft"
+                                >
+                                  No profile
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            class="shrink-0 rounded-md bg-blue-600/90 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
+                            @click="sendFriendRequestTo(user.id)"
+                          >
+                            Send request
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+                  </template>
                 </template>
               </section>
             </div>
@@ -859,9 +901,53 @@ function sendFriendRequestTo(userId: string) {
   background: transparent;
 }
 
+.friends-tab-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  opacity: 0.78;
+  color: currentColor;
+}
+
+.friends-tab-icon--wifi {
+  width: 1.0625rem;
+  height: 1.0625rem;
+}
+
+.friends-tab-icon--img {
+  opacity: 0.78;
+}
+
+.friends-tab--active .friends-tab-icon,
+.friends-tab--active .friends-tab-icon--img {
+  opacity: 1;
+}
+
+@media (min-width: 1024px) {
+  .friends-tab-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .friends-tab-icon--wifi {
+    width: 0.9375rem;
+    height: 0.9375rem;
+  }
+}
+
 .friend-add-icon--blue {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
   filter: invert(35%) sepia(92%) saturate(1450%) hue-rotate(195deg)
     brightness(95%) contrast(95%);
+}
+
+@media (min-width: 1024px) {
+  .friend-add-icon--blue {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
 }
 
 .friends-tab--inactive:hover {

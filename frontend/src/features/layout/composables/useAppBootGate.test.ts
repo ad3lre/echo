@@ -18,15 +18,24 @@ describe('useAppBootGate', () => {
     vi.useRealTimers();
   });
 
-  it('does not gate when a session is present at boot', async () => {
+  it('starts gated and fast-reveals after fastRevealMs for progressive loading', async () => {
     const settled = ref(false);
     const { api, scope } = run({
       hasSession: true,
       warmPainted: false,
       initialLoadSettled: settled,
       timeoutMs: 30_000,
+      fastRevealMs: 600,
     });
+    // Gate starts visible to prevent FOUC
+    expect(api.showBootGate.value).toBe(true);
+
+    // Fast reveal after 600ms regardless of session/warm state
+    vi.advanceTimersByTime(599);
+    expect(api.showBootGate.value).toBe(true);
+    vi.advanceTimersByTime(1);
     expect(api.showBootGate.value).toBe(false);
+
     // Stays revealed even as the load progresses / time passes.
     settled.value = true;
     await nextTick();
@@ -35,70 +44,87 @@ describe('useAppBootGate', () => {
     scope.stop();
   });
 
-  it('does not gate when content was warm-painted from cache', () => {
+  it('starts gated and fast-reveals for warm-painted content', () => {
     const { api, scope } = run({
       hasSession: false,
       warmPainted: true,
       initialLoadSettled: ref(false),
       timeoutMs: 30_000,
+      fastRevealMs: 600,
     });
+    expect(api.showBootGate.value).toBe(true);
+
+    vi.advanceTimersByTime(600);
     expect(api.showBootGate.value).toBe(false);
     scope.stop();
   });
 
-  it('does not gate when the load already settled before mount', () => {
+  it('starts gated and fast-reveals even when load already settled', () => {
     const { api, scope } = run({
       hasSession: false,
       warmPainted: false,
       initialLoadSettled: ref(true),
       timeoutMs: 30_000,
+      fastRevealMs: 600,
     });
+    expect(api.showBootGate.value).toBe(true);
+
+    vi.advanceTimersByTime(600);
     expect(api.showBootGate.value).toBe(false);
     scope.stop();
   });
 
-  it('gates a no-session cold start until the load settles', async () => {
+  it('gates a no-session cold start and reveals after fastRevealMs', async () => {
     const settled = ref(false);
     const { api, scope } = run({
       hasSession: false,
       warmPainted: false,
       initialLoadSettled: settled,
       timeoutMs: 30_000,
+      fastRevealMs: 600,
     });
     expect(api.showBootGate.value).toBe(true);
 
+    // Reveals after fastRevealMs, not waiting for settled
+    vi.advanceTimersByTime(600);
+    expect(api.showBootGate.value).toBe(false);
+
+    // Stays revealed when load eventually settles
     settled.value = true;
     await nextTick();
     expect(api.showBootGate.value).toBe(false);
     scope.stop();
   });
 
-  it('force-reveals after the timeout if the load never settles', () => {
+  it('force-reveals after the safety timeout if fastRevealMs is not reached', () => {
     const { api, scope } = run({
       hasSession: false,
       warmPainted: false,
       initialLoadSettled: ref(false),
-      timeoutMs: 30_000,
+      timeoutMs: 3000,
+      fastRevealMs: 100_000, // Very long, won't be reached
     });
     expect(api.showBootGate.value).toBe(true);
 
-    vi.advanceTimersByTime(29_999);
+    vi.advanceTimersByTime(2999);
     expect(api.showBootGate.value).toBe(true);
     vi.advanceTimersByTime(1);
     expect(api.showBootGate.value).toBe(false);
     scope.stop();
   });
 
-  it('clears the timeout on scope dispose (no force-reveal after teardown)', () => {
+  it('clears both timers on scope dispose (no reveal after teardown)', () => {
     const { api, scope } = run({
       hasSession: false,
       warmPainted: false,
       initialLoadSettled: ref(false),
-      timeoutMs: 30_000,
+      timeoutMs: 3000,
+      fastRevealMs: 600,
     });
     expect(api.showBootGate.value).toBe(true);
     scope.stop();
-    vi.advanceTimersByTime(30_000);
+    vi.advanceTimersByTime(3000);
+    // Should still be true because scope was stopped before timers fired
     expect(api.showBootGate.value).toBe(true);
   });
 });

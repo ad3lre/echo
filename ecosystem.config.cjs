@@ -104,7 +104,7 @@ module.exports = {
       name: 'echo-watchdog',
       script: 'scripts/watchdog.mjs',
       env: {
-        WATCHDOG_PORT: 80, // Set to 80 for public access, or 3005 for testing
+        WATCHDOG_PORT: 3005, // Set to 80 for public access (requires root), or 3005 for testing
         TARGET_PORT: 4173, // Default route points to chat-echo.com / echo-frontend
         TARGET_HOST: '127.0.0.1',
         WATCHDOG_HOST_TARGETS:

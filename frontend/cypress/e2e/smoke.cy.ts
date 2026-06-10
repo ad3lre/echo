@@ -1,4 +1,4 @@
-import { E2E_BACKEND_ORIGIN } from '../support/e2e';
+import { E2E_BACKEND_ORIGIN, waitForAppShell } from '../support/e2e';
 
 /**
  * Requires backend memory + mock API and Vite on :8080 (see root `dev:e2e`).
@@ -14,7 +14,7 @@ describe('smoke', () => {
 
   it('loads the app shell', () => {
     cy.visit('/');
-    cy.get('[data-cy=app-layout]', { timeout: 60_000 }).should('be.visible');
+    waitForAppShell();
   });
 
   /**
@@ -23,6 +23,6 @@ describe('smoke', () => {
    */
   it('loads voice-capable app shell (mock stack)', () => {
     cy.visit('/');
-    cy.get('[data-cy=app-layout]', { timeout: 60_000 }).should('be.visible');
+    waitForAppShell();
   });
 });

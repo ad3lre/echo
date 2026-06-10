@@ -18,6 +18,7 @@ import {
   authForgotPassword,
   authGoogleDesktopHandoffStartUrl,
   authGoogleLoginStart,
+  authSignInWithApple,
   authLogin,
   authLoginMfa,
   authPasskeyLoginVerify,
@@ -42,6 +43,10 @@ import {
   startOAuthFlow,
 } from '@/platform/desktopBridge';
 import { iosNativeHaptic } from '@/platform/iosNativeFeedback';
+import {
+  appleSignInAvailable,
+  signInWithAppleNative,
+} from '@/platform/iosAppleSignIn';
 import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import {
   getPasskeyWebCeremonyBlockReason,
@@ -374,6 +379,32 @@ async function startGoogle(): Promise<void> {
   }
 }
 
+async function startApple(): Promise<void> {
+  if (props.isMockDataMode) return;
+  iosNativeHaptic('light');
+  submitting.value = true;
+  errorMessage.value = '';
+  try {
+    const cred = await signInWithAppleNative();
+    const { user } = await authSignInWithApple({
+      identityToken: cred.identityToken,
+      nonce: cred.nonce,
+      displayName: cred.displayName,
+    });
+    // Session is established server-side (cookies + native bearer). Apply the
+    // returned profile and proceed. On-device verification should confirm the
+    // app picks up the session (see docs/ios-appstore-compliance.md #9).
+    authSession.applyRestoredProfile(user);
+    signalAuthSuccess();
+    emit('authenticated');
+  } catch (e) {
+    // `apple_signin_unavailable` / user-cancel land here; surface generic copy.
+    setAuthError(mapError(e));
+  } finally {
+    submitting.value = false;
+  }
+}
+
 async function submitLogin(): Promise<void> {
   if (props.isMockDataMode) {
     setAuthError(mapError(new Error('ACCOUNTS_DISABLED_PREVIEW')));
@@ -691,6 +722,26 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
                 />
               </svg>
               <span class="mobile-auth__chip-text">Continue with Discord</span>
+            </button>
+            <button
+              v-if="appleSignInAvailable()"
+              type="button"
+              class="mobile-auth__chip mobile-auth__chip--apple"
+              :disabled="submitting"
+              aria-label="Sign in with Apple"
+              @click="startApple"
+            >
+              <svg
+                class="mobile-auth__chip-icon mobile-auth__chip-icon--apple"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M16.365 1.43c0 1.14-.42 2.2-1.12 2.99-.74.85-1.97 1.5-3.04 1.42-.13-1.12.42-2.27 1.07-2.99.74-.81 2.04-1.42 3.09-1.42zM20.5 17.2c-.55 1.27-.81 1.84-1.52 2.97-1 1.57-2.41 3.53-4.16 3.54-1.55.02-1.95-1.01-4.06-1-2.11.01-2.55 1.02-4.11 1.01-1.75-.02-3.09-1.78-4.09-3.35C-.31 17.93-.6 12.7 1.93 9.92c.94-1.05 2.31-1.71 3.56-1.71 1.27 0 2.07.83 3.12.83 1.02 0 1.64-.83 3.11-.83 1.11 0 2.29.61 3.13 1.66-2.75 1.51-2.3 5.43.65 6.56-.39.92-.6 1.34-1 2.77z"
+                />
+              </svg>
+              <span class="mobile-auth__chip-text">Sign in with Apple</span>
             </button>
           </div>
 
@@ -1444,6 +1495,14 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
     inset 0 -14px 30px color-mix(in srgb, #dfe4ea 42%, transparent);
 }
 
+.mobile-auth__chip--apple {
+  background: linear-gradient(135deg, #1c1c1e 0%, #000 100%);
+  color: #fff;
+  box-shadow:
+    0 12px 28px color-mix(in srgb, black 30%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 14%, transparent);
+}
+
 .mobile-auth__chip-icon {
   flex-shrink: 0;
   width: 1.4rem;
@@ -1452,6 +1511,10 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
 
 .mobile-auth__chip-icon--discord {
   color: #5865f2;
+}
+
+.mobile-auth__chip-icon--apple {
+  color: #fff;
 }
 
 .mobile-auth__chip-text {

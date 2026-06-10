@@ -297,7 +297,7 @@ const stackChromeRowHasVisibleChildren = computed(() => {
 });
 
 /**
- * Without this, explore rail-only swipe uses `shrink-0` and the row is ~96px wide inside a
+ * Without this, explore rail-only swipe uses `shrink-0` and the row is ~5.4rem wide inside a
  * full-width pager cell — the rest reads as empty space beside the action rail.
  */
 const stackChromeRootRowClass = computed(() => {
@@ -1072,7 +1072,7 @@ function onMoreServersPinServer(payload: {
     <!-- ServerList root is `w-full`; without a fixed-width wrapper it consumes the entire row in flex-row. -->
     <div
       v-if="!lc.hideServerRail"
-      class="flex h-full min-h-0 w-24 max-w-24 shrink-0 flex-col overflow-x-visible overflow-y-hidden border-r border-border"
+      class="app-layout__compact-action-rail flex h-full min-h-0 shrink-0 flex-col overflow-x-hidden overflow-y-hidden border-r border-border"
     >
       <ServerList
         :authenticated="lc.isAuthenticated"
@@ -1143,10 +1143,10 @@ function onMoreServersPinServer(payload: {
       :class="[
         'relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden',
         lc.compactGuildSplitNav
-          ? 'w-[min(18rem,calc(100vw-7rem))] shrink-0'
+          ? 'app-layout__compact-channel-column'
           : lc.compactTriPaneGuildNav || lc.isDmUiContext
             ? 'flex-1'
-            : 'w-[min(18rem,calc(100vw-7rem))] shrink-0',
+            : 'app-layout__compact-channel-column',
       ]"
     >
       <!--

@@ -88,6 +88,7 @@ const { showBootGate } = useAppBootGate({
   warmPainted: workspace.fromApi.value,
   initialLoadSettled: workspace.initialLoadSettled,
   timeoutMs: APP_BOOT_GATE_TIMEOUT_MS,
+  fastRevealMs: 600, // Show app shell quickly with skeleton states
 });
 
 const AppLayout = defineAsyncComponent({

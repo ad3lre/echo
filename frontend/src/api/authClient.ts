@@ -1269,17 +1269,88 @@ export async function authRevokeSession(sessionId: string): Promise<void> {
   throwIfError(res, parsed, 'POST /auth/sessions/revoke');
 }
 
-export async function authDeleteAccount(password: string): Promise<void> {
+/**
+ * Deletes the current account. `password` is required only for accounts that
+ * have one; guest / OAuth-only accounts (no password) delete via their
+ * authenticated session, so the field is omitted from the request body.
+ */
+export async function authDeleteAccount(password?: string): Promise<void> {
   assertAuthDomainNetworkAllowed();
+  const trimmed = password?.trim();
   const res = await fetch(`${AUTH_BASE}/me`, {
     method: 'DELETE',
     headers: echoCsrfJsonHeaders(),
     credentials: 'include',
-    body: JSON.stringify({ password }),
+    body: JSON.stringify(trimmed ? { password: trimmed } : {}),
   });
   if (res.status === 204) return;
   const data = (await parseJson(res)) as Record<string, unknown>;
   throwIfError(res, data, 'DELETE /auth/me');
+}
+
+/**
+ * Sign in with Apple (native iOS). The app obtains an identity token from
+ * `ASAuthorizationController` and posts it here; the server verifies it against
+ * Apple's JWKS and establishes the session (cookies + native bearer). Mirrors
+ * `authLogin`'s CORS-simple form POST in the Tauri shell. Returns the user.
+ */
+export async function authSignInWithApple(input: {
+  identityToken: string;
+  nonce?: string;
+  displayName?: string;
+}): Promise<{ user: AuthUserPublic }> {
+  assertAuthDomainNetworkAllowed();
+  let res: Response;
+  if (IS_ECHO_TAURI_SHELL) {
+    const params = new URLSearchParams();
+    params.set('identityToken', input.identityToken);
+    if (input.nonce) params.set('nonce', input.nonce);
+    if (input.displayName) params.set('displayName', input.displayName);
+    res = await fetch(`${AUTH_BASE}/apple/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...nativeAuthRequestHeaders(),
+      },
+      credentials: 'include',
+      body: params.toString(),
+    });
+  } else {
+    res = await fetch(`${AUTH_BASE}/apple/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...nativeAuthRequestHeaders(),
+      },
+      credentials: 'include',
+      body: JSON.stringify(input),
+    });
+  }
+  const data = (await parseJson(res)) as Record<string, unknown>;
+  throwIfError(res, data, 'POST /auth/apple/login');
+  return data as { user: AuthUserPublic };
+}
+
+/** Register an iOS APNs device token for the current session (native shell). */
+export async function authRegisterIosPushToken(input: {
+  deviceToken: string;
+  bundleId?: string;
+  environment?: 'development' | 'production';
+}): Promise<void> {
+  assertAuthDomainNetworkAllowed();
+  const res = await fetch(`${AUTH_BASE}/push/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...nativeAuthRequestHeaders(),
+      ...echoCsrfJsonHeaders(),
+    },
+    credentials: 'include',
+    body: JSON.stringify(input),
+  });
+  if (res.status === 204) return;
+  const data = (await parseJson(res)) as Record<string, unknown>;
+  throwIfError(res, data, 'POST /auth/push/register');
 }
 
 /** Revokes all refresh tokens server-side; caller should clear local client state. */

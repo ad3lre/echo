@@ -45,8 +45,10 @@ import { useAuthSessionStore } from '@/stores/authSession';
 import {
   ECHOED_NAMES_VC_ACTIVITY_ENABLED,
   isEchoVcActivityLibraryVisible,
+  isEchoNativeVcActivityKey,
   type EchoVcActivityKey,
 } from '@shared/vcActivityCatalog';
+import { isIosTauriShell } from '@/platform/iosNativeFeedback';
 import type {
   VcActivityUiState,
   YoutubePlaylistEntry,
@@ -419,10 +421,22 @@ const vcActivityPopularityByKey = ref(
   {} as Partial<Record<EchoVcActivityKey, number>>,
 );
 
+/**
+ * App Store guidelines 4.7 / 2.5.2 make shipping remote third-party web games
+ * impractical in the native iOS app, so non-native (iframe) activities are hidden
+ * and blocked in the iOS Tauri shell. The web/desktop builds keep them. First-party
+ * activities and the youtube-nocookie embed remain available everywhere.
+ */
+const hideThirdPartyEmbeds = isIosTauriShell();
+
 const sortedVcActivityLibraryCards = computed(() => {
   const pop = vcActivityPopularityByKey.value;
   return [...VC_ACTIVITY_LIBRARY_CARDS]
-    .filter((c) => isEchoVcActivityLibraryVisible(c.key))
+    .filter(
+      (c) =>
+        isEchoVcActivityLibraryVisible(c.key) &&
+        (!hideThirdPartyEmbeds || isEchoNativeVcActivityKey(c.key)),
+    )
     .sort((a, b) => compareVcActivityLibraryCards(a, b, pop));
 });
 
@@ -453,6 +467,9 @@ type VcActivityLibraryCardKey =
   (typeof VC_ACTIVITY_LIBRARY_CARDS)[number]['key'];
 
 function openActivityFromLibrary(key: VcActivityLibraryCardKey): void {
+  // Defense in depth: third-party game embeds are not offered on iOS (see
+  // hideThirdPartyEmbeds). The CSP frame-src in tauri.ios.conf.json is the final backstop.
+  if (hideThirdPartyEmbeds && !isEchoNativeVcActivityKey(key)) return;
   recordVcActivityOpen(key);
   switch (key) {
     case 'youtube':
@@ -574,6 +591,8 @@ watch(
 );
 
 const iframeEmbedPhase = computed(() => {
+  // iOS never mounts a third-party game iframe (App Store 4.7 / 2.5.2).
+  if (hideThirdPartyEmbeds) return null;
   const p = st.value.phase;
   return isVcIframeEmbedPhase(p) ? p : null;
 });

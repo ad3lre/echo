@@ -42,6 +42,7 @@ export function isLikelyGifMediaUrl(url: string | undefined | null): boolean {
   if (h === 'media.tenor.com' || h.endsWith('.media.tenor.com')) return true;
   if (h === 'media.giphy.com' || h.endsWith('.media.giphy.com')) return true;
   if (h === 'i.giphy.com' || h.endsWith('.i.giphy.com')) return true;
+  if (h === 'static.klipy.com' || h.endsWith('.static.klipy.com')) return true;
   const path = u.pathname.toLowerCase();
   if (path.includes('/media/') && hostMatchesGifHost(h)) return true;
   return false;

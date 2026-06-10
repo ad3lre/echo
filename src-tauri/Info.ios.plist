@@ -8,13 +8,15 @@
 	<string>Echo uses the camera for video chat and sharing images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Echo needs access to your photo library to attach images and media to messages.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Echo uses the local network to reach your development machine when testing on a device.</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Echo saves images and media you download from messages to your photo library.</string>
+	<!--
+	  No NSLocalNetworkUsageDescription / NSAppTransportSecurity override in the
+	  shipping build: production loads bundled assets and reaches voice/chat over
+	  HTTPS+WSS, so default App Transport Security applies and local networking is
+	  not used. `tauri ios dev` against a Mac dev server should use the simulator
+	  or the chat-echo remote config (tauri.ios.chat-echo.conf.json).
+	-->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
@@ -25,8 +27,19 @@
 	<string>UIStatusBarStyleDefault</string>
 	<key>UIBackgroundModes</key>
 	<array>
+		<!-- Keeps the LiveKit voice/video audio session alive while backgrounded. -->
 		<string>audio</string>
+		<!-- Lets APNs silent/alert pushes wake the app to sync DMs and call invites. -->
+		<string>remote-notification</string>
 	</array>
+	<!--
+	  Export compliance: Echo uses only standard, publicly-available encryption
+	  (HTTPS/TLS in transit + standard primitives for end-to-end encrypted DMs).
+	  `false` declares no use of *non-exempt* encryption under the mass-market
+	  exemption. CONFIRM WITH LEGAL before first submission — shipping E2EE can
+	  require either claiming the exemption explicitly or filing the annual
+	  self-classification report. See docs/ios-appstore-compliance.md #12.
+	-->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

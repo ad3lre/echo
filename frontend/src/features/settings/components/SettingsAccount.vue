@@ -1124,6 +1124,9 @@ defineExpose({
                 class="settings-input"
                 placeholder="Current password"
               />
+              <span class="text-xs text-muted">
+                Leave blank if you sign in with Discord or as a guest.
+              </span>
             </label>
             <p v-if="deleteAccountError" class="mt-2 text-sm text-red-600">
               {{ deleteAccountError }}

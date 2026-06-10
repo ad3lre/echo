@@ -11,6 +11,7 @@ import authRoutes from './auth';
 import passkeyRoutes from './passkeyRoutes';
 import discordOAuthRoutes from './discordOAuth';
 import googleOAuthRoutes from './googleOAuth';
+import appleOAuthRoutes from './appleOAuth';
 import meDiscordRoutes from './meDiscord';
 import meGoogleRoutes from './meGoogle';
 import meYoutubeRoutes from './meYoutube';
@@ -58,6 +59,8 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(authRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(passkeyRoutes, { prefix: '/api/v1/auth' });
   await fastify.register(discordOAuthRoutes, { prefix: '/api/v1/auth' });
+  // Sign in with Apple — native identity-token flow (POST /api/v1/auth/apple/login).
+  await fastify.register(appleOAuthRoutes, { prefix: '/api/v1/auth' });
   if (GOOGLE_INTEGRATION_ENABLED) {
     await fastify.register(googleOAuthRoutes, { prefix: '/api/v1/auth' });
     await fastify.register(meGoogleRoutes, { prefix: '/api/v1' });

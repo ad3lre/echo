@@ -1,0 +1,33 @@
+# Persistent Echo prod recovery watcher — survives host reboots (Restart=always).
+# Install: see infra/systemd/README.md and scripts/deploy/install-recovery-watcher.sh
+#
+# Polls local API health; after 45 minutes down, restarts prod:serve + PM2 apps.
+# On failure, emails bugs@chat-echo.com (ECHO_SMTP_* required).
+
+[Unit]
+Description=Echo production recovery watcher (45m down → auto-restart)
+Documentation=file:///opt/echo/docs/operations/echo-recovery-watcher.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=echo
+Group=echo
+
+EnvironmentFile=-/etc/echo/recovery-watcher.env
+
+WorkingDirectory=/opt/echo
+
+ExecStart=/usr/bin/env node scripts/echo-recovery-watcher.mjs
+
+Restart=always
+RestartSec=15
+
+# Health polling + recovery restart can take several minutes.
+TimeoutStopSec=300
+
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

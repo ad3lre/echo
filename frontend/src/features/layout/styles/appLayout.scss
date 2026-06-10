@@ -15,6 +15,27 @@
   transition: grid-template-columns 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Compact shell: vertical action rail — ~10% narrower than desktop 6rem for more list/chat room. */
+@media (max-width: 799px) {
+  .app-layout {
+    --echo-compact-action-rail-width: 5.4rem;
+    --echo-compact-action-rail-layout-offset: 6.3rem;
+  }
+}
+
+.app-layout__compact-action-rail {
+  width: var(--echo-compact-action-rail-width, 6rem);
+  max-width: var(--echo-compact-action-rail-width, 6rem);
+}
+
+.app-layout__compact-channel-column {
+  width: min(
+    18rem,
+    calc(100vw - var(--echo-compact-action-rail-layout-offset, 7rem))
+  );
+  flex-shrink: 0;
+}
+
 .echo-shell-root .app-layout {
   min-height: 0;
 }

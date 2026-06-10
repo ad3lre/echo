@@ -20,6 +20,7 @@ import {
   type MarkdownPreviewMenuMode,
 } from '@/features/chat/composables/markdownPreviewModePreference';
 import { isComposerContentEffectivelyEmpty } from '@/features/chat/editor/composerModel';
+import { normalizeEchoMessageFormatTemplateInput } from '@shared/messageChunkLimits';
 
 const props = defineProps<{
   popoutDirection?: 'up' | 'down';
@@ -89,6 +90,8 @@ const props = defineProps<{
   closeOtherPopouts?: () => void;
   /** Mobile shell: text Send inside the surface when there is something to send. */
   compactInlineSendLayout?: boolean;
+  /** Compact viewport: edge-to-edge composer chrome (no outer inset / bottom gap). */
+  compactShellLayout?: boolean;
   hasComposerPayload?: boolean;
   requestSend?: () => void | Promise<void>;
   messageFormatTemplate?: string;
@@ -114,11 +117,15 @@ const formatInfoRef = ref<InstanceType<
   typeof ComposerChannelFormatBanner
 > | null>(null);
 
-const surfaceSizingClass = computed(() =>
-  props.popoutTheme === 'forum'
-    ? 'min-h-[140px] max-h-[420px]'
-    : 'min-h-[24px] max-h-[200px]',
-);
+const surfaceSizingClass = computed(() => {
+  if (props.popoutTheme === 'forum') {
+    return 'min-h-[140px] max-h-[420px]';
+  }
+  if (props.compactInlineSendLayout) {
+    return 'min-h-[24px] max-h-[min(280px,40vh)]';
+  }
+  return 'min-h-[24px] max-h-[200px]';
+});
 
 const dockClass = computed(() =>
   props.popoutDirection === 'down'
@@ -158,9 +165,49 @@ const showMobileSendInToolbar = computed(
   () => showInlineMobileSend.value && props.popoutTheme !== 'forum',
 );
 
+/** Compact shell while composing: collapse secondary toolbar actions into one menu. */
+const showMobileComposerOverflowMenu = computed(
+  () => !!props.compactInlineSendLayout && showInlineMobileSend.value,
+);
+
+const showChannelFormatBanner = computed(() => {
+  if (typeof props.messageFormatTemplate !== 'string') return false;
+  return (
+    normalizeEchoMessageFormatTemplateInput(props.messageFormatTemplate).trim()
+      .length > 0
+  );
+});
+
 const showComposerPlaceholder = computed(() =>
   isComposerContentEffectivelyEmpty(props.composerContent),
 );
+
+const mobileOverflowMenuOpen = ref(false);
+const mobileOverflowMenuRootRef = ref<HTMLElement | null>(null);
+
+function closeMobileOverflowMenu() {
+  mobileOverflowMenuOpen.value = false;
+}
+
+function toggleMobileOverflowMenu() {
+  const next = !mobileOverflowMenuOpen.value;
+  if (next) {
+    props.closeOtherPopouts?.();
+    closeMarkdownMenu();
+    formatInfoRef.value?.close?.();
+  }
+  mobileOverflowMenuOpen.value = next;
+}
+
+function runOverflowAction(action: () => void) {
+  closeMobileOverflowMenu();
+  action();
+}
+
+function openMarkdownModeFromOverflow(mode: MarkdownPreviewMenuMode) {
+  closeMobileOverflowMenu();
+  selectMarkdownMode(mode);
+}
 
 function toggleMarkdownMenu() {
   const next = !markdownMenuOpen.value;
@@ -183,6 +230,41 @@ function selectMarkdownMode(mode: MarkdownPreviewMenuMode) {
 let markdownMenuEscHandler: ((e: KeyboardEvent) => void) | null = null;
 let markdownMenuDocDown: ((e: MouseEvent) => void) | null = null;
 let markdownMenuOpenGen = 0;
+let mobileOverflowEscHandler: ((e: KeyboardEvent) => void) | null = null;
+let mobileOverflowDocDown: ((e: MouseEvent) => void) | null = null;
+let mobileOverflowOpenGen = 0;
+
+watch(showMobileComposerOverflowMenu, (enabled) => {
+  if (!enabled) closeMobileOverflowMenu();
+});
+
+watch(mobileOverflowMenuOpen, (open) => {
+  if (mobileOverflowEscHandler) {
+    document.removeEventListener('keydown', mobileOverflowEscHandler);
+    mobileOverflowEscHandler = null;
+  }
+  if (mobileOverflowDocDown) {
+    document.removeEventListener('mousedown', mobileOverflowDocDown, true);
+    mobileOverflowDocDown = null;
+  }
+  if (!open) {
+    mobileOverflowOpenGen++;
+    return;
+  }
+  const gen = mobileOverflowOpenGen;
+  mobileOverflowEscHandler = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') closeMobileOverflowMenu();
+  };
+  document.addEventListener('keydown', mobileOverflowEscHandler);
+  void nextTick(() => {
+    if (gen !== mobileOverflowOpenGen || !mobileOverflowMenuOpen.value) return;
+    mobileOverflowDocDown = (e: MouseEvent) => {
+      const root = mobileOverflowMenuRootRef.value;
+      if (root && !root.contains(e.target as Node)) closeMobileOverflowMenu();
+    };
+    document.addEventListener('mousedown', mobileOverflowDocDown, true);
+  });
+});
 
 watch(markdownMenuOpen, (open) => {
   if (markdownMenuEscHandler) {
@@ -217,6 +299,10 @@ onUnmounted(() => {
     document.removeEventListener('keydown', markdownMenuEscHandler);
   if (markdownMenuDocDown)
     document.removeEventListener('mousedown', markdownMenuDocDown, true);
+  if (mobileOverflowEscHandler)
+    document.removeEventListener('keydown', mobileOverflowEscHandler);
+  if (mobileOverflowDocDown)
+    document.removeEventListener('mousedown', mobileOverflowDocDown, true);
 });
 
 function bindRef<E extends HTMLElement>(
@@ -261,8 +347,11 @@ defineExpose({
       />
     </div>
     <div
-      class="chat-input-bar flex min-w-0 items-end gap-3 rounded-lg px-4 py-2"
-      :class="{ 'chat-input-bar--forum': props.popoutTheme === 'forum' }"
+      class="chat-input-bar flex min-w-0 items-end gap-2 rounded-lg px-4 py-2 sm:gap-3"
+      :class="{
+        'chat-input-bar--forum': props.popoutTheme === 'forum',
+        'chat-input-bar--compact-shell': props.compactShellLayout,
+      }"
     >
       <button
         v-if="props.popoutTheme !== 'forum'"
@@ -434,7 +523,7 @@ defineExpose({
       </div>
 
       <div
-        class="composer-right-tools relative z-20 flex items-center gap-1 flex-shrink-0"
+        class="composer-toolbar-actions relative z-20 flex items-center gap-1 flex-shrink-0"
       >
         <template v-if="props.popoutTheme === 'forum'">
           <button
@@ -712,6 +801,9 @@ defineExpose({
             class="w-6 h-6 chat-toolbar-icon"
           />
         </button>
+      </div>
+
+      <div class="composer-send-slot relative z-20 flex shrink-0 items-center">
         <button
           v-if="showMobileSendInToolbar"
           type="button"
@@ -740,6 +832,33 @@ defineExpose({
 </template>
 
 <style scoped lang="scss">
+.chat-input-bar--compact-shell {
+  width: 100%;
+  border-radius: 0;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.chat-input-bar--compact-stacked {
+  flex-wrap: wrap;
+  row-gap: 0.375rem;
+  align-items: flex-end;
+
+  .composer-toolbar-actions {
+    order: -1;
+    flex: 0 0 100%;
+    width: 100%;
+    flex-wrap: wrap;
+    padding-bottom: 0.375rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  }
+
+  .chat-input-editor {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
 .chat-mobile-send-btn,
 .forum-send-btn {
   background: color-mix(in srgb, var(--accent) 20%, transparent);

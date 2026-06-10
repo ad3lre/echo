@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   detectActiveSearchInlineFilter,
   removeInlineFilterToken,
+  parseSearchInputSegments,
+  filterTagValueLabel,
 } from './searchInlineFilterInput';
 
 describe('searchInlineFilterInput', () => {
@@ -46,5 +48,31 @@ describe('searchInlineFilterInput', () => {
     );
     expect(active).not.toBeNull();
     expect(removeInlineFilterToken(text, active!)).toBe('hello world');
+  });
+
+  it('parseSearchInputSegments preserves order of text and filters', () => {
+    expect(parseSearchInputSegments('hello from:beemo world')).toEqual([
+      { type: 'text', value: 'hello ', start: 0, end: 6 },
+      {
+        type: 'filter',
+        mode: 'from',
+        value: 'beemo',
+        start: 6,
+        end: 16,
+      },
+      { type: 'text', value: ' world', start: 16, end: 22 },
+    ]);
+  });
+
+  it('parseSearchInputSegments includes empty filter values while typing', () => {
+    expect(parseSearchInputSegments('from:')).toEqual([
+      { type: 'filter', mode: 'from', value: '', start: 0, end: 5 },
+    ]);
+  });
+
+  it('filterTagValueLabel adds channel and user prefixes', () => {
+    expect(filterTagValueLabel('in', 'general')).toBe('#general');
+    expect(filterTagValueLabel('from', 'alice')).toBe('@alice');
+    expect(filterTagValueLabel('has', 'image')).toBe('image');
   });
 });

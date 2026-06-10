@@ -16,6 +16,7 @@ import {
   sendEchoWebPushToUser,
   type EchoWebPushPayload,
 } from './echoWebPush';
+import { isEchoApnsConfigured, sendEchoApnsToUser } from './echoApns';
 
 const PREVIEW_MAX = 140;
 
@@ -126,7 +127,14 @@ async function pushToUserIfAllowed(
     if (effective === 'none') return;
   }
 
-  await sendEchoWebPushToUser(pool, userId, payload);
+  await Promise.all([
+    isEchoWebPushConfigured()
+      ? sendEchoWebPushToUser(pool, userId, payload)
+      : Promise.resolve(0),
+    isEchoApnsConfigured()
+      ? sendEchoApnsToUser(pool, userId, payload)
+      : Promise.resolve(0),
+  ]);
 }
 
 /**
@@ -143,7 +151,7 @@ export async function dispatchEchoMessagePushNotifications(
     dmRecipients: string[];
   },
 ): Promise<void> {
-  if (!isEchoWebPushConfigured()) return;
+  if (!isEchoWebPushConfigured() && !isEchoApnsConfigured()) return;
   const { message, authorId, serverId } = args;
   if (message.systemMessage) return;
 

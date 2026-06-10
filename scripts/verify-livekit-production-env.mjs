@@ -101,7 +101,7 @@ const yamlKeys = parseLiveKitYamlKeys(yamlPath);
 const yamlSecret = yamlKeys.get(apiKey);
 if (yamlSecret && yamlSecret !== apiSecret) {
   console.error(
-    `[livekit-prod-check] FAIL — LIVEKIT_API_SECRET does not match infra/livekit/livekit.yaml keys.${apiKey}. Echo will mint JWTs the SFU rejects.`,
+    '[livekit-prod-check] FAIL — LIVEKIT_API_SECRET does not match infra/livekit/livekit.yaml for the configured LIVEKIT_API_KEY. Echo will mint JWTs the SFU rejects.',
   );
   failed = true;
 } else if (yamlSecret) {

@@ -719,14 +719,13 @@ export default async function meRoutes(fastify: FastifyInstance) {
     },
   );
 
-  fastify.delete<{ Body: { password: string; totpCode?: string } }>(
+  fastify.delete<{ Body: { password?: string; totpCode?: string } }>(
     '/me',
     {
       preHandler: [requireAuth],
       schema: {
         body: {
           type: 'object',
-          required: ['password'],
           properties: {
             password: { type: 'string', minLength: 1 },
             totpCode: { type: 'string', minLength: 6, maxLength: 16 },
@@ -742,9 +741,32 @@ export default async function meRoutes(fastify: FastifyInstance) {
       const userRecord = await store.getUserByUsername(req.authUser.username);
       if (!userRecord)
         return sendError(reply, 404, 'NOT_FOUND', 'User not found');
-      const ok = await store.verifyPassword(userRecord, req.body.password);
-      if (!ok)
-        return sendError(reply, 401, 'INVALID_CREDENTIALS', 'Invalid password');
+      // Account deletion must be available to every account holder (App Store
+      // 5.1.1(v)). Accounts with a usable password must re-enter it; guest /
+      // OAuth-only accounts (no password hash) are authorized by their
+      // authenticated session + CSRF alone, with TOTP step-up still enforced.
+      const hasUsablePassword =
+        typeof userRecord.passwordHash === 'string' &&
+        userRecord.passwordHash.length > 0;
+      if (hasUsablePassword) {
+        const password = req.body.password ?? '';
+        if (!password) {
+          return sendError(
+            reply,
+            400,
+            'PASSWORD_REQUIRED',
+            'Enter your password to delete your account.',
+          );
+        }
+        const ok = await store.verifyPassword(userRecord, password);
+        if (!ok)
+          return sendError(
+            reply,
+            401,
+            'INVALID_CREDENTIALS',
+            'Invalid password',
+          );
+      }
       const stepUp = await assertStepUpTotpIfEnabled(
         store,
         req.authUser.id,

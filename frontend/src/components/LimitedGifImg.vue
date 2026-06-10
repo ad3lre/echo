@@ -26,6 +26,10 @@ function layoutModeFromImgClass(
   return 'intrinsic-contain';
 }
 
+const emit = defineEmits<{
+  load: [];
+}>();
+
 const props = withDefaults(
   defineProps<{
     src: string;
@@ -78,6 +82,10 @@ watch(
 
 function onImgError() {
   loadFailed.value = true;
+}
+
+function onImgLoad() {
+  emit('load');
 }
 
 const missingFallbackResolved = computed(
@@ -205,6 +213,7 @@ const imgReferrerPolicy = 'no-referrer';
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
         @error="onImgError"
+        @load="onImgLoad"
       />
     </template>
     <!-- Pre-sized parent + absolute layers: avoids CLS when poster/animated swap or static PNG differs. -->
@@ -218,6 +227,7 @@ const imgReferrerPolicy = 'no-referrer';
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
         @error="onImgError"
+        @load="onImgLoad"
       />
       <img
         v-if="showAnimated"
@@ -229,6 +239,7 @@ const imgReferrerPolicy = 'no-referrer';
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
         @error="onImgError"
+        @load="onImgLoad"
       />
     </template>
     <template v-else-if="layoutMode === 'fill-cover'">
@@ -241,6 +252,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[props.imgClass, 'invisible']"
         :style="imgStyle"
         @error="onImgError"
+        @load="onImgLoad"
       />
       <img
         :src="staticFrame ?? safeUrl"
@@ -250,6 +262,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[props.imgClass, fillOverlayClass]"
         :style="imgStyle"
         @error="onImgError"
+        @load="onImgLoad"
       />
       <img
         v-if="showAnimated"
@@ -261,6 +274,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[props.imgClass, fillAnimatedOverlayClass]"
         :style="imgStyle"
         @error="onImgError"
+        @load="onImgLoad"
       />
     </template>
     <template v-else>
@@ -273,6 +287,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[props.imgClass, 'invisible block']"
         :style="imgStyle"
         @error="onImgError"
+        @load="onImgLoad"
       />
       <img
         :src="staticFrame ?? safeUrl"
@@ -282,6 +297,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[props.imgClass, intrinsicPosterOverlayClass]"
         :style="imgStyle"
         @error="onImgError"
+        @load="onImgLoad"
       />
       <img
         v-if="showAnimated"
@@ -293,6 +309,7 @@ const imgReferrerPolicy = 'no-referrer';
         :class="[props.imgClass, intrinsicAnimatedOverlayClass]"
         :style="imgStyle"
         @error="onImgError"
+        @load="onImgLoad"
       />
     </template>
   </div>

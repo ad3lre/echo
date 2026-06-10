@@ -40,7 +40,7 @@ function closePopover() {
   popoverOpen.value = false;
 }
 
-defineExpose({ close: closePopover });
+defineExpose({ close: closePopover, toggle: togglePopover });
 
 let popoverEscHandler: ((e: KeyboardEvent) => void) | null = null;
 let popoverDocDown: ((e: MouseEvent) => void) | null = null;

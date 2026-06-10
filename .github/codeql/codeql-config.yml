@@ -16,5 +16,6 @@ paths-ignore:
   - '**/*.test.ts'
   - '**/*.runtime.test.ts'
   - 'scripts/seed-dev-echo.mjs'
+  - 'scripts/verify-livekit-production-env.mjs'
   - 'scripts/vps-logs.mjs'
   - 'bot/**'

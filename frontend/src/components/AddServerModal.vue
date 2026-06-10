@@ -384,724 +384,744 @@ const discordBotWaitStatusLine = computed(() => {
 </script>
 
 <template>
-  <div
-    v-if="modelValue"
-    class="add-server-overlay fixed inset-0 z-50 flex items-center justify-center px-5 py-10 sm:px-8 sm:py-12"
-    @click.self="requestClose"
-  >
+  <Teleport to="body">
     <div
-      ref="modalRef"
-      role="dialog"
-      aria-modal="true"
-      :aria-labelledby="modalTitleId"
-      :aria-busy="createBusy && view === 'create'"
-      class="add-server-panel relative w-full max-w-[32rem] rounded-2xl px-10 py-10 text-foreground outline-none sm:max-w-[34rem] sm:px-12 sm:py-12"
+      v-if="modelValue"
+      class="add-server-overlay fixed inset-0 z-[150] overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-8 sm:py-12"
+      @click.self="requestClose"
     >
-      <div class="add-server-accent" aria-hidden="true" />
-
       <div
-        v-if="createBusy && view === 'create'"
-        class="add-server-create-busy-overlay absolute inset-0 z-[60] flex flex-col items-center justify-center gap-4 rounded-2xl px-8 text-center"
-        aria-live="polite"
-        aria-atomic="true"
+        class="flex min-h-[100dvh] w-full items-center justify-center py-2 sm:py-4"
       >
         <div
-          class="h-11 w-11 shrink-0 animate-spin rounded-full border-2 border-border border-t-[var(--accent)]"
-          aria-hidden="true"
-        />
-        <p class="max-w-sm text-sm font-semibold leading-snug text-foreground">
-          {{ createBusyStatusLine }}
-        </p>
-      </div>
-
-      <!-- Initial View -->
-      <template v-if="view === 'initial'">
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0">
-            <h2
-              id="add-server-modal-title"
-              class="text-[1.625rem] font-bold leading-snug tracking-tight text-foreground"
-            >
-              Add a server
-            </h2>
-            <p class="mt-4 text-[0.9375rem] leading-relaxed text-fg-subtle">
-              Create a new home for your community or join one with a link.
-            </p>
-          </div>
-          <button
-            type="button"
-            class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground"
-            aria-label="Close"
-            @click="close"
-          >
-            <svg
-              class="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-        <div class="mt-10 flex flex-col gap-3">
-          <button
-            type="button"
-            class="flex w-full items-center gap-5 rounded-xl bg-glass-2 p-5 text-left transition-colors hover:bg-glass-hover"
-            @click="goCreateFlow"
-          >
-            <img
-              :src="icons.plus"
-              alt=""
-              class="h-10 w-10 shrink-0 filter invert opacity-90"
-            />
-            <div>
-              <div class="font-semibold text-foreground">Create My Own</div>
-              <div class="mt-0.5 text-sm leading-snug text-fg-subtle">
-                Set a name and optional icon. You can refine everything in
-                server settings.
-              </div>
-            </div>
-          </button>
-          <button
-            type="button"
-            class="flex w-full items-center gap-5 rounded-xl bg-glass-2 p-5 text-left transition-colors hover:bg-glass-hover"
-            @click="view = 'join'"
-          >
-            <img
-              :src="icons.logIn"
-              alt=""
-              class="h-10 w-10 shrink-0 filter invert opacity-90"
-            />
-            <div>
-              <div class="font-semibold text-foreground">Join a Server</div>
-              <div class="mt-0.5 text-sm leading-snug text-fg-subtle">
-                Browse discoverable servers or paste an invite.
-              </div>
-            </div>
-          </button>
-        </div>
-      </template>
-
-      <!-- Create Server View -->
-      <template v-else-if="view === 'create'">
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0">
-            <h2
-              id="add-server-create-title"
-              class="text-[1.625rem] font-bold leading-snug tracking-tight text-foreground"
-            >
-              {{ createModalTitle }}
-            </h2>
-            <p class="mt-4 text-[0.9375rem] leading-relaxed text-fg-subtle">
-              {{ createModalSubtitle }}
-            </p>
-          </div>
-          <button
-            type="button"
-            class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
-            aria-label="Close"
-            :disabled="createBusy"
-            @click="requestClose"
-          >
-            <svg
-              class="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <p
-          v-if="joinError"
-          class="mt-4 text-sm leading-relaxed text-amber-200/90"
+          ref="modalRef"
+          role="dialog"
+          aria-modal="true"
+          :aria-labelledby="modalTitleId"
+          :aria-busy="createBusy && view === 'create'"
+          class="add-server-panel relative my-auto w-full max-w-[32rem] max-h-[min(calc(100dvh-2rem),780px)] overflow-y-auto custom-scrollbar rounded-2xl px-6 py-8 text-foreground outline-none sm:max-w-[34rem] sm:px-12 sm:py-12"
         >
-          {{ joinError }}
-        </p>
+          <div class="add-server-accent" aria-hidden="true" />
 
-        <div class="mt-10 space-y-8">
-          <!-- Discord import wizard -->
-          <template v-if="createUsesDiscordImport && canImportDiscord">
-            <div
-              v-if="discordImportPhase === 'loading'"
-              class="py-8 text-center text-sm text-fg-soft"
-            >
-              {{ guildsLoading ? 'Loading servers…' : '…' }}
-            </div>
-
-            <div
-              v-else-if="discordImportPhase === 'need_link'"
-              class="space-y-4"
-            >
-              <p
-                v-if="discordGuildsError"
-                class="text-sm leading-relaxed text-amber-200/90"
-              >
-                {{ discordGuildsError }}
-              </p>
-              <p class="text-sm leading-relaxed text-fg-soft">
-                Use the button below, then tap refresh.
-              </p>
-              <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <button
-                  type="button"
-                  class="add-server-primary-btn rounded-xl px-6 py-3 text-sm font-semibold"
-                  @click="onLinkDiscordClick"
-                >
-                  Open Settings
-                </button>
-                <button
-                  type="button"
-                  class="add-server-discord-btn rounded-xl px-6 py-3 text-sm font-semibold"
-                  :disabled="guildsLoading"
-                  @click="loadImportableGuilds"
-                >
-                  Refresh
-                </button>
-              </div>
-            </div>
-
-            <div
-              v-else-if="discordImportPhase === 'pick_guild'"
-              class="space-y-3"
-            >
-              <p
-                v-if="discordGuildsError"
-                class="text-sm leading-relaxed text-amber-200/90"
-              >
-                {{ discordGuildsError }}
-              </p>
-              <p
-                v-if="hasUnknownGuildNameInImportList"
-                class="text-sm leading-relaxed text-amber-200/90"
-              >
-                Some Discord servers were returned without a readable name. This
-                usually means your Discord token is stale or missing scope. Try
-                Refresh, then reconnect Discord in Settings if it persists.
-              </p>
-              <div v-if="importableGuilds.length > 0" class="space-y-2">
-                <label
-                  for="add-server-discord-guild-search"
-                  class="add-server-label"
-                  >Search servers</label
-                >
-                <input
-                  id="add-server-discord-guild-search"
-                  ref="discordGuildSearchInputRef"
-                  v-model="guildSearchQuery"
-                  type="search"
-                  class="add-server-input"
-                  placeholder="Filter by name…"
-                  autocomplete="off"
-                  enterkeyhint="search"
-                />
-              </div>
-              <div
-                class="custom-scrollbar max-h-[min(26rem,calc(100dvh-14rem))] space-y-2 overflow-y-auto pr-1"
-                role="listbox"
-                :aria-label="
-                  importableGuilds.length > 0
-                    ? 'Servers you can import'
-                    : 'No servers to import'
-                "
-              >
-                <p
-                  v-if="
-                    importableGuilds.length > 0 &&
-                    filteredImportableGuilds.length === 0
-                  "
-                  class="py-6 text-center text-sm text-fg-subtle"
-                >
-                  No servers match your search.
-                </p>
-                <button
-                  v-for="g in filteredImportableGuilds"
-                  :key="g.id"
-                  type="button"
-                  class="flex w-full items-center gap-3 rounded-xl bg-glass-2 px-4 py-3.5 text-left transition-colors hover:bg-glass-hover"
-                  @click="selectImportGuild(g)"
-                >
-                  <img
-                    v-if="g.iconUrl"
-                    :src="g.iconUrl"
-                    alt=""
-                    class="h-10 w-10 shrink-0 rounded-full object-cover"
-                  />
-                  <div
-                    v-else
-                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-glass-2 text-sm font-semibold text-fg-soft"
-                  >
-                    {{ (g.name || '?').charAt(0).toUpperCase() }}
-                  </div>
-                  <span
-                    class="min-w-0 truncate font-semibold text-foreground"
-                    >{{ getDiscordGuildDisplayName(g.name) }}</span
-                  >
-                </button>
-              </div>
-            </div>
-
-            <div
-              v-else-if="discordImportPhase === 'invite_bot'"
-              class="space-y-5"
-            >
-              <div
-                class="flex items-center gap-3 rounded-xl bg-glass-2 px-4 py-3"
-              >
-                <img
-                  v-if="selectedImportGuild?.iconUrl"
-                  :src="selectedImportGuild.iconUrl"
-                  alt=""
-                  class="h-11 w-11 shrink-0 rounded-full object-cover"
-                />
-                <div class="min-w-0">
-                  <p
-                    class="text-xs font-semibold uppercase tracking-wider text-fg-subtle"
-                  >
-                    Server
-                  </p>
-                  <p class="truncate font-semibold text-foreground">
-                    {{ selectedImportGuildDisplayName }}
-                  </p>
-                </div>
-              </div>
-              <p
-                v-if="discordGuildsError"
-                class="text-sm leading-relaxed text-amber-200/90"
-              >
-                {{ discordGuildsError }}
-              </p>
-              <p
-                v-if="!selectedImportGuild?.botInviteUrl"
-                class="text-sm text-amber-200/90"
-              >
-                Discord import isn’t set up on this Echo host yet.
-              </p>
-              <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <button
-                  type="button"
-                  class="add-server-primary-btn rounded-xl px-6 py-3 text-sm font-semibold disabled:opacity-40"
-                  :disabled="
-                    !selectedImportGuild?.botInviteUrl || discordInviteFlowBusy
-                  "
-                  @click="openDiscordForBotInstall"
-                >
-                  {{ discordInviteFlowBusy ? 'Checking…' : 'Open Discord' }}
-                </button>
-              </div>
-            </div>
-
-            <div
-              v-else-if="discordImportPhase === 'waiting_bot'"
-              class="space-y-5"
-            >
-              <div class="flex flex-col items-center gap-4 py-1 text-center">
-                <div
-                  class="h-10 w-10 shrink-0 animate-spin rounded-full border-2 border-border border-t-[var(--accent)]"
-                  aria-hidden="true"
-                />
-                <p class="max-w-md text-sm leading-relaxed text-fg-soft">
-                  {{ discordBotWaitStatusLine }}
-                </p>
-                <p
-                  v-if="
-                    botWaitTakingLong && discordBotWaitUiStep === 'exporting'
-                  "
-                  class="max-w-md text-sm leading-relaxed text-amber-200/90"
-                >
-                  Large servers can take several minutes — nothing is wrong if
-                  it’s slow.
-                </p>
-                <p
-                  v-else-if="
-                    botWaitTakingLong && discordBotWaitUiStep !== 'exporting'
-                  "
-                  class="max-w-md text-sm leading-relaxed text-amber-200/90"
-                >
-                  If nothing changes, go back and open Discord again, or confirm
-                  the Echo bot is in your server.
-                </p>
-              </div>
-            </div>
-
-            <div v-else-if="discordImportPhase === 'name_server'">
-              <label for="add-server-name" class="add-server-label"
-                >Server name</label
-              >
-              <input
-                id="add-server-name"
-                ref="addServerNameDiscordInputRef"
-                v-model="newServerName"
-                type="text"
-                class="add-server-input mt-3"
-                placeholder="My Server"
-                autocomplete="organization"
-                @keydown.enter.prevent="submitCreate"
-              />
-              <div
-                class="mt-6 space-y-3 rounded-xl bg-scrim-1 p-4 text-left ring-1 ring-white/8"
-              >
-                <div
-                  class="text-xs font-semibold uppercase tracking-[0.14em] text-fg-subtle"
-                >
-                  After import
-                </div>
-                <label
-                  class="flex cursor-pointer items-start gap-3 text-sm leading-snug text-fg-soft"
-                >
-                  <input
-                    v-model="discordPostImportSyncAllChannels"
-                    type="checkbox"
-                    class="mt-0.5 shrink-0 rounded border-border"
-                    :disabled="createBusy"
-                  />
-                  <span>
-                    <span class="font-medium text-fg">Sync all channels</span>
-                    — turn on the Discord ↔ Echo message bridge for every
-                    imported text and forum channel, and enable the voice mirror
-                    for every imported voice room (including stage channels).
-                  </span>
-                </label>
-                <label
-                  class="flex cursor-pointer items-start gap-3 text-sm leading-snug text-fg-soft"
-                >
-                  <input
-                    v-model="discordPostImportRecentMessages"
-                    type="checkbox"
-                    class="mt-0.5 shrink-0 rounded border-border"
-                    :disabled="createBusy"
-                  />
-                  <span>
-                    <span class="font-medium text-fg"
-                      >Import the last 90 messages</span
-                    >
-                    into each empty text or forum channel. Runs one channel at a
-                    time with pauses to stay kind to Discord rate limits.
-                  </span>
-                </label>
-              </div>
-            </div>
-          </template>
-
-          <!-- Normal create (no Discord import) -->
-          <template v-else>
-            <div
-              class="add-server-icon-row flex items-center justify-between gap-6"
-            >
-              <div class="min-w-0 flex-1 text-left">
-                <p class="add-server-label">Server icon (optional)</p>
-                <p class="mt-3 text-sm leading-relaxed text-fg-subtle">
-                  Tap the circle to upload PNG or JPG (max 5&nbsp;MB).
-                </p>
-                <button
-                  v-if="newServerIconPreviewUrl"
-                  type="button"
-                  class="add-server-link-btn mt-3 text-sm font-semibold"
-                  @click="revokeServerIconPreview"
-                >
-                  Remove icon
-                </button>
-              </div>
-              <label class="add-server-icon-drop group shrink-0 cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  class="sr-only"
-                  @change="onNewServerIconChange"
-                />
-                <span class="sr-only">Upload server icon</span>
-                <span class="add-server-icon-drop__frame">
-                  <img
-                    :src="newServerIconPreviewUrl || iconEchoRounded"
-                    alt=""
-                    class="add-server-icon-drop__blur"
-                    :class="{
-                      'add-server-icon-drop__blur--echo':
-                        !newServerIconPreviewUrl,
-                      'add-server-icon-drop__blur--preview':
-                        !!newServerIconPreviewUrl,
-                    }"
-                    aria-hidden="true"
-                  />
-                  <span
-                    v-if="!newServerIconPreviewUrl"
-                    class="add-server-icon-drop__veil"
-                    aria-hidden="true"
-                  />
-                  <img
-                    v-if="!newServerIconPreviewUrl"
-                    :src="icons.imageGallery"
-                    alt=""
-                    class="add-server-icon-drop__glyph"
-                  />
-                </span>
-              </label>
-            </div>
-
-            <div>
-              <label for="add-server-name-fresh" class="add-server-label"
-                >Server name</label
-              >
-              <input
-                id="add-server-name-fresh"
-                ref="addServerNameFreshInputRef"
-                v-model="newServerName"
-                type="text"
-                class="add-server-input mt-3"
-                placeholder="Adel's Server"
-                autocomplete="organization"
-                @keydown.enter.prevent="submitCreate"
-              />
-            </div>
-          </template>
-        </div>
-
-        <div
-          class="add-server-footer-actions mt-12 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <button
-            v-if="
-              createUsesDiscordImport &&
-              canImportDiscord &&
-              discordImportPhase !== 'name_server'
-            "
-            type="button"
-            class="add-server-back-btn text-sm font-semibold disabled:pointer-events-none disabled:opacity-35"
-            :disabled="createBusy"
-            @click="backDiscordImportStep"
-          >
-            Back
-          </button>
-          <button
-            v-else
-            type="button"
-            class="add-server-back-btn text-sm font-semibold disabled:pointer-events-none disabled:opacity-35"
-            :disabled="createBusy"
-            @click="backFromCreate"
-          >
-            Back
-          </button>
           <div
-            class="flex w-full flex-col gap-3 sm:ml-auto sm:w-auto sm:flex-row sm:flex-nowrap sm:items-center sm:justify-end"
-          >
-            <button
-              v-if="canImportDiscord && !createUsesDiscordImport"
-              type="button"
-              class="add-server-discord-btn rounded-xl px-6 py-3.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-35"
-              :disabled="createBusy"
-              @click="chooseDiscordImport"
-            >
-              Import from Discord
-            </button>
-            <button
-              v-if="
-                !createUsesDiscordImport ||
-                (createUsesDiscordImport &&
-                  discordImportPhase === 'name_server')
-              "
-              type="button"
-              class="add-server-primary-btn rounded-xl px-7 py-3.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-35"
-              :disabled="createBusy"
-              @click="submitCreate"
-            >
-              {{
-                createBusy
-                  ? createUsesDiscordImport
-                    ? 'Importing…'
-                    : 'Creating…'
-                  : createUsesDiscordImport
-                    ? 'Create and import'
-                    : 'Create'
-              }}
-            </button>
-          </div>
-        </div>
-      </template>
-
-      <!-- Join Server View -->
-      <template v-else-if="view === 'join'">
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0">
-            <h2
-              id="add-server-join-title"
-              class="text-[1.625rem] font-bold leading-snug tracking-tight text-foreground"
-            >
-              Join a server
-            </h2>
-            <p class="mt-4 text-[0.9375rem] leading-relaxed text-fg-subtle">
-              Pick a public server or use an invite link.
-            </p>
-          </div>
-          <button
-            type="button"
-            class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground"
-            aria-label="Close"
-            @click="close"
-          >
-            <svg
-              class="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <p
-          v-if="joinError"
-          role="alert"
-          class="add-server-join-error mt-6 text-sm leading-snug"
-        >
-          {{ joinError }}
-        </p>
-
-        <div class="mt-10 space-y-8">
-          <div
-            class="flex max-h-64 flex-col gap-2.5 overflow-y-auto pr-1 custom-scrollbar"
+            v-if="createBusy && view === 'create'"
+            class="add-server-create-busy-overlay absolute inset-0 z-[60] flex flex-col items-center justify-center gap-4 rounded-2xl px-8 text-center"
+            aria-live="polite"
+            aria-atomic="true"
           >
             <div
-              v-for="server in discoverableList"
-              :key="server.name"
-              class="flex items-center justify-between gap-4 rounded-xl bg-glass-2 px-4 py-3.5 transition-colors hover:bg-glass-hover"
+              class="h-11 w-11 shrink-0 animate-spin rounded-full border-2 border-border border-t-[var(--accent)]"
+              aria-hidden="true"
+            />
+            <p
+              class="max-w-sm text-sm font-semibold leading-snug text-foreground"
             >
-              <div class="flex min-w-0 items-center gap-3.5">
-                <div
-                  class="relative h-10 w-10 shrink-0 overflow-hidden rounded-full"
+              {{ createBusyStatusLine }}
+            </p>
+          </div>
+
+          <!-- Initial View -->
+          <template v-if="view === 'initial'">
+            <div class="flex items-start justify-between gap-6">
+              <div class="min-w-0">
+                <h2
+                  id="add-server-modal-title"
+                  class="text-[1.625rem] font-bold leading-snug tracking-tight text-foreground"
                 >
-                  <PausedGifAvatar
-                    :src="serverGuildIconDisplayUrl(server.pfp)"
-                    :alt="server.name"
-                    :session-key="server.id ?? server.name"
-                    img-class="rounded-full object-cover"
-                  />
-                </div>
-                <span class="truncate font-semibold text-foreground">{{
-                  server.name
-                }}</span>
+                  Add a server
+                </h2>
+                <p class="mt-4 text-[0.9375rem] leading-relaxed text-fg-subtle">
+                  Create a new home for your community or join one with a link.
+                </p>
               </div>
               <button
                 type="button"
-                class="add-server-join-row-btn shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover disabled:pointer-events-none disabled:opacity-40"
-                :disabled="joinBusy"
-                @click="emit('join-discoverable', server)"
+                class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground"
+                aria-label="Close"
+                @click="close"
               >
-                {{ joinBusy ? 'Joining…' : 'Join' }}
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
             </div>
-          </div>
+            <div class="mt-10 flex flex-col gap-3">
+              <button
+                type="button"
+                class="flex w-full items-center gap-5 rounded-xl bg-glass-2 p-5 text-left transition-colors hover:bg-glass-hover"
+                @click="goCreateFlow"
+              >
+                <img
+                  :src="icons.plus"
+                  alt=""
+                  class="h-10 w-10 shrink-0 filter invert opacity-90"
+                />
+                <div>
+                  <div class="font-semibold text-foreground">Create My Own</div>
+                  <div class="mt-0.5 text-sm leading-snug text-fg-subtle">
+                    Set a name and optional icon. You can refine everything in
+                    server settings.
+                  </div>
+                </div>
+              </button>
+              <button
+                type="button"
+                class="flex w-full items-center gap-5 rounded-xl bg-glass-2 p-5 text-left transition-colors hover:bg-glass-hover"
+                @click="view = 'join'"
+              >
+                <img
+                  :src="icons.logIn"
+                  alt=""
+                  class="h-10 w-10 shrink-0 filter invert opacity-90"
+                />
+                <div>
+                  <div class="font-semibold text-foreground">Join a Server</div>
+                  <div class="mt-0.5 text-sm leading-snug text-fg-subtle">
+                    Browse discoverable servers or paste an invite.
+                  </div>
+                </div>
+              </button>
+            </div>
+          </template>
 
-          <p
-            class="text-center text-xs font-semibold uppercase tracking-wide text-fg-subtle"
-          >
-            Or invite link
-          </p>
+          <!-- Create Server View -->
+          <template v-else-if="view === 'create'">
+            <div class="flex items-start justify-between gap-6">
+              <div class="min-w-0">
+                <h2
+                  id="add-server-create-title"
+                  class="text-[1.625rem] font-bold leading-snug tracking-tight text-foreground"
+                >
+                  {{ createModalTitle }}
+                </h2>
+                <p class="mt-4 text-[0.9375rem] leading-relaxed text-fg-subtle">
+                  {{ createModalSubtitle }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
+                aria-label="Close"
+                :disabled="createBusy"
+                @click="requestClose"
+              >
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
 
-          <div>
-            <label for="invite-link" class="add-server-label"
-              >Invite link</label
+            <p
+              v-if="joinError"
+              class="mt-4 text-sm leading-relaxed text-amber-200/90"
             >
-            <input
-              id="invite-link"
-              ref="joinInviteInputRef"
-              v-model="joinInviteRaw"
-              type="text"
-              class="add-server-input mt-3"
-              :placeholder="joinInvitePlaceholder"
-              @keydown.enter.prevent="submitJoinWithLink"
-            />
-          </div>
-        </div>
+              {{ joinError }}
+            </p>
 
-        <div
-          class="add-server-footer-actions mt-12 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <button
-            type="button"
-            class="add-server-back-btn text-sm font-semibold"
-            @click="view = 'initial'"
-          >
-            Back
-          </button>
-          <button
-            type="button"
-            class="add-server-primary-btn w-full rounded-xl px-7 py-3.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-40 sm:w-auto"
-            :disabled="joinBusy"
-            :aria-busy="joinBusy"
-            @click="submitJoinWithLink"
-          >
-            {{ joinBusy ? 'Joining…' : 'Join Server' }}
-          </button>
-        </div>
-      </template>
-    </div>
+            <div class="mt-10 space-y-8">
+              <!-- Discord import wizard -->
+              <template v-if="createUsesDiscordImport && canImportDiscord">
+                <div
+                  v-if="discordImportPhase === 'loading'"
+                  class="py-8 text-center text-sm text-fg-soft"
+                >
+                  {{ guildsLoading ? 'Loading servers…' : '…' }}
+                </div>
 
-    <div
-      v-if="importLeaveConfirmVisible"
-      class="add-server-import-leave-backdrop absolute inset-0 z-[70] flex items-center justify-center px-5"
-      role="presentation"
-      @click.self="cancelImportLeaveConfirm"
-    >
+                <div
+                  v-else-if="discordImportPhase === 'need_link'"
+                  class="space-y-4"
+                >
+                  <p
+                    v-if="discordGuildsError"
+                    class="text-sm leading-relaxed text-amber-200/90"
+                  >
+                    {{ discordGuildsError }}
+                  </p>
+                  <p class="text-sm leading-relaxed text-fg-soft">
+                    Use the button below, then tap refresh.
+                  </p>
+                  <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    <button
+                      type="button"
+                      class="add-server-primary-btn rounded-xl px-6 py-3 text-sm font-semibold"
+                      @click="onLinkDiscordClick"
+                    >
+                      Open Settings
+                    </button>
+                    <button
+                      type="button"
+                      class="add-server-discord-btn rounded-xl px-6 py-3 text-sm font-semibold"
+                      :disabled="guildsLoading"
+                      @click="loadImportableGuilds"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  v-else-if="discordImportPhase === 'pick_guild'"
+                  class="space-y-3"
+                >
+                  <p
+                    v-if="discordGuildsError"
+                    class="text-sm leading-relaxed text-amber-200/90"
+                  >
+                    {{ discordGuildsError }}
+                  </p>
+                  <p
+                    v-if="hasUnknownGuildNameInImportList"
+                    class="text-sm leading-relaxed text-amber-200/90"
+                  >
+                    Some Discord servers were returned without a readable name.
+                    This usually means your Discord token is stale or missing
+                    scope. Try Refresh, then reconnect Discord in Settings if it
+                    persists.
+                  </p>
+                  <div v-if="importableGuilds.length > 0" class="space-y-2">
+                    <label
+                      for="add-server-discord-guild-search"
+                      class="add-server-label"
+                      >Search servers</label
+                    >
+                    <input
+                      id="add-server-discord-guild-search"
+                      ref="discordGuildSearchInputRef"
+                      v-model="guildSearchQuery"
+                      type="search"
+                      class="add-server-input"
+                      placeholder="Filter by name…"
+                      autocomplete="off"
+                      enterkeyhint="search"
+                    />
+                  </div>
+                  <div
+                    class="custom-scrollbar max-h-[min(26rem,calc(100dvh-14rem))] space-y-2 overflow-y-auto pr-1"
+                    role="listbox"
+                    :aria-label="
+                      importableGuilds.length > 0
+                        ? 'Servers you can import'
+                        : 'No servers to import'
+                    "
+                  >
+                    <p
+                      v-if="
+                        importableGuilds.length > 0 &&
+                        filteredImportableGuilds.length === 0
+                      "
+                      class="py-6 text-center text-sm text-fg-subtle"
+                    >
+                      No servers match your search.
+                    </p>
+                    <button
+                      v-for="g in filteredImportableGuilds"
+                      :key="g.id"
+                      type="button"
+                      class="flex w-full items-center gap-3 rounded-xl bg-glass-2 px-4 py-3.5 text-left transition-colors hover:bg-glass-hover"
+                      @click="selectImportGuild(g)"
+                    >
+                      <img
+                        v-if="g.iconUrl"
+                        :src="g.iconUrl"
+                        alt=""
+                        class="h-10 w-10 shrink-0 rounded-full object-cover"
+                      />
+                      <div
+                        v-else
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-glass-2 text-sm font-semibold text-fg-soft"
+                      >
+                        {{ (g.name || '?').charAt(0).toUpperCase() }}
+                      </div>
+                      <span
+                        class="min-w-0 truncate font-semibold text-foreground"
+                        >{{ getDiscordGuildDisplayName(g.name) }}</span
+                      >
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  v-else-if="discordImportPhase === 'invite_bot'"
+                  class="space-y-5"
+                >
+                  <div
+                    class="flex items-center gap-3 rounded-xl bg-glass-2 px-4 py-3"
+                  >
+                    <img
+                      v-if="selectedImportGuild?.iconUrl"
+                      :src="selectedImportGuild.iconUrl"
+                      alt=""
+                      class="h-11 w-11 shrink-0 rounded-full object-cover"
+                    />
+                    <div class="min-w-0">
+                      <p
+                        class="text-xs font-semibold uppercase tracking-wider text-fg-subtle"
+                      >
+                        Server
+                      </p>
+                      <p class="truncate font-semibold text-foreground">
+                        {{ selectedImportGuildDisplayName }}
+                      </p>
+                    </div>
+                  </div>
+                  <p
+                    v-if="discordGuildsError"
+                    class="text-sm leading-relaxed text-amber-200/90"
+                  >
+                    {{ discordGuildsError }}
+                  </p>
+                  <p
+                    v-if="!selectedImportGuild?.botInviteUrl"
+                    class="text-sm text-amber-200/90"
+                  >
+                    Discord import isn’t set up on this Echo host yet.
+                  </p>
+                  <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    <button
+                      type="button"
+                      class="add-server-primary-btn rounded-xl px-6 py-3 text-sm font-semibold disabled:opacity-40"
+                      :disabled="
+                        !selectedImportGuild?.botInviteUrl ||
+                        discordInviteFlowBusy
+                      "
+                      @click="openDiscordForBotInstall"
+                    >
+                      {{ discordInviteFlowBusy ? 'Checking…' : 'Open Discord' }}
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  v-else-if="discordImportPhase === 'waiting_bot'"
+                  class="space-y-5"
+                >
+                  <div
+                    class="flex flex-col items-center gap-4 py-1 text-center"
+                  >
+                    <div
+                      class="h-10 w-10 shrink-0 animate-spin rounded-full border-2 border-border border-t-[var(--accent)]"
+                      aria-hidden="true"
+                    />
+                    <p class="max-w-md text-sm leading-relaxed text-fg-soft">
+                      {{ discordBotWaitStatusLine }}
+                    </p>
+                    <p
+                      v-if="
+                        botWaitTakingLong &&
+                        discordBotWaitUiStep === 'exporting'
+                      "
+                      class="max-w-md text-sm leading-relaxed text-amber-200/90"
+                    >
+                      Large servers can take several minutes — nothing is wrong
+                      if it’s slow.
+                    </p>
+                    <p
+                      v-else-if="
+                        botWaitTakingLong &&
+                        discordBotWaitUiStep !== 'exporting'
+                      "
+                      class="max-w-md text-sm leading-relaxed text-amber-200/90"
+                    >
+                      If nothing changes, go back and open Discord again, or
+                      confirm the Echo bot is in your server.
+                    </p>
+                  </div>
+                </div>
+
+                <div v-else-if="discordImportPhase === 'name_server'">
+                  <label for="add-server-name" class="add-server-label"
+                    >Server name</label
+                  >
+                  <input
+                    id="add-server-name"
+                    ref="addServerNameDiscordInputRef"
+                    v-model="newServerName"
+                    type="text"
+                    class="add-server-input mt-3"
+                    placeholder="My Server"
+                    autocomplete="organization"
+                    @keydown.enter.prevent="submitCreate"
+                  />
+                  <div
+                    class="mt-6 space-y-3 rounded-xl bg-scrim-1 p-4 text-left ring-1 ring-white/8"
+                  >
+                    <div
+                      class="text-xs font-semibold uppercase tracking-[0.14em] text-fg-subtle"
+                    >
+                      After import
+                    </div>
+                    <label
+                      class="flex cursor-pointer items-start gap-3 text-sm leading-snug text-fg-soft"
+                    >
+                      <input
+                        v-model="discordPostImportSyncAllChannels"
+                        type="checkbox"
+                        class="mt-0.5 shrink-0 rounded border-border"
+                        :disabled="createBusy"
+                      />
+                      <span>
+                        <span class="font-medium text-fg"
+                          >Sync all channels</span
+                        >
+                        — turn on the Discord ↔ Echo message bridge for every
+                        imported text and forum channel, and enable the voice
+                        mirror for every imported voice room (including stage
+                        channels).
+                      </span>
+                    </label>
+                    <label
+                      class="flex cursor-pointer items-start gap-3 text-sm leading-snug text-fg-soft"
+                    >
+                      <input
+                        v-model="discordPostImportRecentMessages"
+                        type="checkbox"
+                        class="mt-0.5 shrink-0 rounded border-border"
+                        :disabled="createBusy"
+                      />
+                      <span>
+                        <span class="font-medium text-fg"
+                          >Import the last 90 messages</span
+                        >
+                        into each empty text or forum channel. Runs one channel
+                        at a time with pauses to stay kind to Discord rate
+                        limits.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Normal create (no Discord import) -->
+              <template v-else>
+                <div
+                  class="add-server-icon-row flex items-center justify-between gap-6"
+                >
+                  <div class="min-w-0 flex-1 text-left">
+                    <p class="add-server-label">Server icon (optional)</p>
+                    <p class="mt-3 text-sm leading-relaxed text-fg-subtle">
+                      Tap the circle to upload PNG or JPG (max 5&nbsp;MB).
+                    </p>
+                    <button
+                      v-if="newServerIconPreviewUrl"
+                      type="button"
+                      class="add-server-link-btn mt-3 text-sm font-semibold"
+                      @click="revokeServerIconPreview"
+                    >
+                      Remove icon
+                    </button>
+                  </div>
+                  <label
+                    class="add-server-icon-drop group shrink-0 cursor-pointer"
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      class="sr-only"
+                      @change="onNewServerIconChange"
+                    />
+                    <span class="sr-only">Upload server icon</span>
+                    <span class="add-server-icon-drop__frame">
+                      <img
+                        :src="newServerIconPreviewUrl || iconEchoRounded"
+                        alt=""
+                        class="add-server-icon-drop__blur"
+                        :class="{
+                          'add-server-icon-drop__blur--echo':
+                            !newServerIconPreviewUrl,
+                          'add-server-icon-drop__blur--preview':
+                            !!newServerIconPreviewUrl,
+                        }"
+                        aria-hidden="true"
+                      />
+                      <span
+                        v-if="!newServerIconPreviewUrl"
+                        class="add-server-icon-drop__veil"
+                        aria-hidden="true"
+                      />
+                      <img
+                        v-if="!newServerIconPreviewUrl"
+                        :src="icons.imageGallery"
+                        alt=""
+                        class="add-server-icon-drop__glyph"
+                      />
+                    </span>
+                  </label>
+                </div>
+
+                <div>
+                  <label for="add-server-name-fresh" class="add-server-label"
+                    >Server name</label
+                  >
+                  <input
+                    id="add-server-name-fresh"
+                    ref="addServerNameFreshInputRef"
+                    v-model="newServerName"
+                    type="text"
+                    class="add-server-input mt-3"
+                    placeholder="Adel's Server"
+                    autocomplete="organization"
+                    @keydown.enter.prevent="submitCreate"
+                  />
+                </div>
+              </template>
+            </div>
+
+            <div
+              class="add-server-footer-actions mt-12 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <button
+                v-if="
+                  createUsesDiscordImport &&
+                  canImportDiscord &&
+                  discordImportPhase !== 'name_server'
+                "
+                type="button"
+                class="add-server-back-btn text-sm font-semibold disabled:pointer-events-none disabled:opacity-35"
+                :disabled="createBusy"
+                @click="backDiscordImportStep"
+              >
+                Back
+              </button>
+              <button
+                v-else
+                type="button"
+                class="add-server-back-btn text-sm font-semibold disabled:pointer-events-none disabled:opacity-35"
+                :disabled="createBusy"
+                @click="backFromCreate"
+              >
+                Back
+              </button>
+              <div
+                class="flex w-full flex-col gap-3 sm:ml-auto sm:w-auto sm:flex-row sm:flex-nowrap sm:items-center sm:justify-end"
+              >
+                <button
+                  v-if="canImportDiscord && !createUsesDiscordImport"
+                  type="button"
+                  class="add-server-discord-btn rounded-xl px-6 py-3.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-35"
+                  :disabled="createBusy"
+                  @click="chooseDiscordImport"
+                >
+                  Import from Discord
+                </button>
+                <button
+                  v-if="
+                    !createUsesDiscordImport ||
+                    (createUsesDiscordImport &&
+                      discordImportPhase === 'name_server')
+                  "
+                  type="button"
+                  class="add-server-primary-btn rounded-xl px-7 py-3.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-35"
+                  :disabled="createBusy"
+                  @click="submitCreate"
+                >
+                  {{
+                    createBusy
+                      ? createUsesDiscordImport
+                        ? 'Importing…'
+                        : 'Creating…'
+                      : createUsesDiscordImport
+                        ? 'Create and import'
+                        : 'Create'
+                  }}
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Join Server View -->
+          <template v-else-if="view === 'join'">
+            <div class="flex items-start justify-between gap-6">
+              <div class="min-w-0">
+                <h2
+                  id="add-server-join-title"
+                  class="text-[1.625rem] font-bold leading-snug tracking-tight text-foreground"
+                >
+                  Join a server
+                </h2>
+                <p class="mt-4 text-[0.9375rem] leading-relaxed text-fg-subtle">
+                  Pick a public server or use an invite link.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 rounded-xl p-2 text-fg-subtle transition hover:bg-glass-hover hover:text-foreground"
+                aria-label="Close"
+                @click="close"
+              >
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <p
+              v-if="joinError"
+              role="alert"
+              class="add-server-join-error mt-6 text-sm leading-snug"
+            >
+              {{ joinError }}
+            </p>
+
+            <div class="mt-10 space-y-8">
+              <div
+                class="flex max-h-64 flex-col gap-2.5 overflow-y-auto pr-1 custom-scrollbar"
+              >
+                <div
+                  v-for="server in discoverableList"
+                  :key="server.name"
+                  class="flex items-center justify-between gap-4 rounded-xl bg-glass-2 px-4 py-3.5 transition-colors hover:bg-glass-hover"
+                >
+                  <div class="flex min-w-0 items-center gap-3.5">
+                    <div
+                      class="relative h-10 w-10 shrink-0 overflow-hidden rounded-full"
+                    >
+                      <PausedGifAvatar
+                        :src="serverGuildIconDisplayUrl(server.pfp)"
+                        :alt="server.name"
+                        :session-key="server.id ?? server.name"
+                        img-class="rounded-full object-cover"
+                      />
+                    </div>
+                    <span class="truncate font-semibold text-foreground">{{
+                      server.name
+                    }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="add-server-join-row-btn shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-glass-hover disabled:pointer-events-none disabled:opacity-40"
+                    :disabled="joinBusy"
+                    @click="emit('join-discoverable', server)"
+                  >
+                    {{ joinBusy ? 'Joining…' : 'Join' }}
+                  </button>
+                </div>
+              </div>
+
+              <p
+                class="text-center text-xs font-semibold uppercase tracking-wide text-fg-subtle"
+              >
+                Or invite link
+              </p>
+
+              <div>
+                <label for="invite-link" class="add-server-label"
+                  >Invite link</label
+                >
+                <input
+                  id="invite-link"
+                  ref="joinInviteInputRef"
+                  v-model="joinInviteRaw"
+                  type="text"
+                  class="add-server-input mt-3"
+                  :placeholder="joinInvitePlaceholder"
+                  @keydown.enter.prevent="submitJoinWithLink"
+                />
+              </div>
+            </div>
+
+            <div
+              class="add-server-footer-actions mt-12 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <button
+                type="button"
+                class="add-server-back-btn text-sm font-semibold"
+                @click="view = 'initial'"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                class="add-server-primary-btn w-full rounded-xl px-7 py-3.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-40 sm:w-auto"
+                :disabled="joinBusy"
+                :aria-busy="joinBusy"
+                @click="submitJoinWithLink"
+              >
+                {{ joinBusy ? 'Joining…' : 'Join Server' }}
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+
       <div
-        ref="importLeaveDialogRef"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="add-server-import-leave-title"
-        tabindex="-1"
-        class="add-server-import-leave-dialog w-full max-w-[22rem] rounded-2xl px-6 py-6 text-left shadow-xl outline-none sm:max-w-[24rem]"
-        @click.stop
-        @keydown.escape.prevent="cancelImportLeaveConfirm"
+        v-if="importLeaveConfirmVisible"
+        class="add-server-import-leave-backdrop fixed inset-0 z-[160] flex items-center justify-center px-5"
+        role="presentation"
+        @click.self="cancelImportLeaveConfirm"
       >
-        <h3
-          id="add-server-import-leave-title"
-          class="text-lg font-bold leading-snug tracking-tight text-foreground"
-        >
-          Leave Discord import?
-        </h3>
-        <p class="mt-3 text-sm leading-relaxed text-fg-soft">
-          You’ll exit the import wizard. A bot export may still finish on the
-          server; to resume in the UI, start Import from Discord again.
-        </p>
         <div
-          class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+          ref="importLeaveDialogRef"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="add-server-import-leave-title"
+          tabindex="-1"
+          class="add-server-import-leave-dialog w-full max-w-[22rem] rounded-2xl px-6 py-6 text-left shadow-xl outline-none sm:max-w-[24rem]"
+          @click.stop
+          @keydown.escape.prevent="cancelImportLeaveConfirm"
         >
-          <button
-            type="button"
-            class="add-server-back-btn rounded-lg px-4 py-2.5 text-sm font-semibold sm:min-w-[5.5rem]"
-            @click="cancelImportLeaveConfirm"
+          <h3
+            id="add-server-import-leave-title"
+            class="text-lg font-bold leading-snug tracking-tight text-foreground"
           >
-            Stay
-          </button>
-          <button
-            type="button"
-            class="add-server-primary-btn rounded-xl px-5 py-2.5 text-sm font-semibold sm:min-w-[5.5rem]"
-            @click="confirmLeaveDiscordImport"
+            Leave Discord import?
+          </h3>
+          <p class="mt-3 text-sm leading-relaxed text-fg-soft">
+            You’ll exit the import wizard. A bot export may still finish on the
+            server; to resume in the UI, start Import from Discord again.
+          </p>
+          <div
+            class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
           >
-            Leave
-          </button>
+            <button
+              type="button"
+              class="add-server-back-btn rounded-lg px-4 py-2.5 text-sm font-semibold sm:min-w-[5.5rem]"
+              @click="cancelImportLeaveConfirm"
+            >
+              Stay
+            </button>
+            <button
+              type="button"
+              class="add-server-primary-btn rounded-xl px-5 py-2.5 text-sm font-semibold sm:min-w-[5.5rem]"
+              @click="confirmLeaveDiscordImport"
+            >
+              Leave
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped lang="scss">

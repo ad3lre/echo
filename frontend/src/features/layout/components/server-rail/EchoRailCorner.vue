@@ -484,6 +484,47 @@ $reactive-decay-ease: cubic-bezier(0.33, 1, 0.68, 1);
   opacity: 0.22;
 }
 
+/**
+ * Compact shell (phone): vertical rail is only 5.4rem wide — fluid chrome must not spill
+ * horizontally (blur + negative insets otherwise widen the scrollable rail column).
+ */
+@media (max-width: 799px) {
+  .echo-corner--fluid:not(.echo-corner--compact-top) {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .echo-corner--fluid:not(.echo-corner--compact-top) .echo-logo-wrapper,
+  .echo-corner--fluid:not(.echo-corner--compact-top) .echo-logo {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+  }
+
+  .echo-corner--fluid {
+    contain: layout paint;
+  }
+
+  .echo-corner--fluid .echo-corner__fluid {
+    inset: -0.35rem 0 auto -0.35rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .echo-corner--fluid .echo-corner__highlight {
+    inset: 0.35rem 0.15rem auto 0.15rem;
+  }
+
+  .echo-corner--fluid .echo-corner__liquid {
+    inset: -0.35rem 0 auto -0.35rem;
+    width: 100%;
+  }
+
+  .echo-corner--fluid .echo-corner__ambient {
+    filter: blur(14px) saturate(112%);
+    opacity: 0.65;
+  }
+}
+
 /** Match sidebar corner radius ratio: 18px / 48px → 15px at 40px mark. */
 .echo-logo-wrapper--compact-top {
   border-radius: 15px;

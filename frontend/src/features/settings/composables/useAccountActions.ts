@@ -283,24 +283,28 @@ export function useAccountActions(
       return false;
     }
     if (!authSession.isAuthenticated) return false;
+    // Password is optional: guest / Discord-OAuth accounts have none and delete
+    // via their session. Accounts with a password are enforced server-side.
     const pw = deleteAccountPassword.value.trim();
-    if (!pw) {
-      deleteAccountError.value = 'Enter your password to delete your account.';
-      return false;
-    }
     deleteAccountBusy.value = true;
     try {
-      await authDeleteAccount(pw);
+      await authDeleteAccount(pw || undefined);
       showDeleteAccountConfirm.value = false;
       authSession.clearLocalTokens();
       return true;
     } catch (e) {
-      deleteAccountError.value =
-        e instanceof AuthApiError && e.body?.code === 'INVALID_CREDENTIALS'
-          ? 'Incorrect password.'
-          : e instanceof Error
-            ? e.message
-            : 'Could not delete account.';
+      if (e instanceof AuthApiError && e.body?.code === 'PASSWORD_REQUIRED') {
+        deleteAccountError.value =
+          'Enter your password to delete your account.';
+      } else if (
+        e instanceof AuthApiError &&
+        e.body?.code === 'INVALID_CREDENTIALS'
+      ) {
+        deleteAccountError.value = 'Incorrect password.';
+      } else {
+        deleteAccountError.value =
+          e instanceof Error ? e.message : 'Could not delete account.';
+      }
       return false;
     } finally {
       deleteAccountBusy.value = false;

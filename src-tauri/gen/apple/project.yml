@@ -1,8 +1,10 @@
 name: echo-desktop
 options:
-  bundleIdPrefix: com.echo.tauri.ios.dev
+  bundleIdPrefix: com.echo
+  # WKWebView getUserMedia (LiveKit camera/mic capture) requires iOS 14.3+.
+  # 15.0 floor keeps voice/video reliable and matches current Apple SDK expectations.
   deploymentTarget:
-    iOS: 14.0
+    iOS: 15.0
 fileGroups: [../../src]
 configs:
   debug: debug
@@ -11,7 +13,10 @@ settingGroups:
   app:
     base:
       PRODUCT_NAME: Echo
-      PRODUCT_BUNDLE_IDENTIFIER: com.echo.tauri.ios.dev
+      PRODUCT_BUNDLE_IDENTIFIER: com.echo.ios
+      # Universal: 1 = iPhone, 2 = iPad. iPad layout must be verified before submit
+      # (see docs/ios-appstore-compliance.md #11).
+      TARGETED_DEVICE_FAMILY: '1,2'
 targetTemplates:
   app:
     type: application
@@ -36,6 +41,9 @@ targets:
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
+      # Apple privacy manifest — must ship in the app bundle (resources phase).
+      - path: PrivacyInfo.xcprivacy
+        buildPhase: resources
     info:
       path: echo-desktop_iOS/Info.plist
       properties:
@@ -100,6 +108,7 @@ targets:
       - sdk: QuartzCore.framework
       - sdk: Security.framework
       - sdk: AuthenticationServices.framework
+      - sdk: UserNotifications.framework
       - sdk: UIKit.framework
       - sdk: WebKit.framework
     preBuildScripts:

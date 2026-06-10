@@ -13,6 +13,8 @@ export function useAppLayoutRailLoadingDerived(opts: {
   serverStore: ReturnType<typeof useServerStore>;
   workspace: WorkspaceStateApi;
   activeChannelId: Ref<string>;
+  /** Empty workspace that contradicts client persistence — show loading while recovering. */
+  suspiciousEmptyWorkspace?: Ref<boolean>;
 }) {
   const isServerRailFastSwitchPending = computed(() => {
     const sid = opts.serverStore.selectedServerId;
@@ -30,11 +32,18 @@ export function useAppLayoutRailLoadingDerived(opts: {
    * still false). There is no switch event to drive `isServerRailFastSwitchPending`
    * on first load, so the channel panel would otherwise render blank.
    */
+  const isSuspiciousEmptyWorkspaceLoading = computed(
+    () =>
+      !!opts.suspiciousEmptyWorkspace?.value &&
+      opts.activeRailTab.value === 'servers',
+  );
+
   const isInitialWorkspaceLoading = computed(
     () =>
-      opts.workspace.loading.value &&
-      !opts.workspace.fromApi.value &&
-      opts.activeRailTab.value === 'servers',
+      isSuspiciousEmptyWorkspaceLoading.value ||
+      (opts.workspace.loading.value &&
+        !opts.workspace.fromApi.value &&
+        opts.activeRailTab.value === 'servers'),
   );
 
   const isGuildShellSettlingRef = computed(() =>
@@ -71,6 +80,7 @@ export function useAppLayoutRailLoadingDerived(opts: {
   return {
     isServerRailFastSwitchPending,
     isInitialWorkspaceLoading,
+    isSuspiciousEmptyWorkspaceLoading,
     isGuildShellSettling: isGuildShellSettlingRef,
     isChannelPanelSwitchLoading,
     isMessageSurfaceSwitchLoading,

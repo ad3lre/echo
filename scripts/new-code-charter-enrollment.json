@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-06-07",
+  "enrolledAt": "2026-06-10",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -37,6 +37,12 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
     },
+    "frontend/src/composables/useChatBitmapMediaLayout.ts": {
+      "lines": 137,
+      "longestFunction": 112,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
     "frontend/src/composables/useEmojiInspect.ts": {
       "lines": 144,
       "longestFunction": 130,
@@ -56,8 +62,8 @@
       "maxNestingSpaces": 6
     },
     "frontend/src/features/chat/domain/messageListScrollOwnership.ts": {
-      "lines": 215,
-      "longestFunction": 89,
+      "lines": 209,
+      "longestFunction": 85,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -67,9 +73,39 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
+    "frontend/src/features/layout/composables/useAppLayoutDmInboxPanel.ts": {
+      "lines": 262,
+      "longestFunction": 225,
+      "deepNestingLines": 3,
+      "maxNestingSpaces": 14
+    },
     "frontend/src/features/layout/composables/useAppLayoutGlobalShortcuts.ts": {
       "lines": 108,
       "longestFunction": 94,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/features/layout/composables/useAppLayoutMarkRead.ts": {
+      "lines": 368,
+      "longestFunction": 330,
+      "deepNestingLines": 3,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/features/layout/composables/useAppLayoutMentionAutocompleteUsers.ts": {
+      "lines": 118,
+      "longestFunction": 88,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 12
+    },
+    "frontend/src/features/layout/composables/useAppLayoutMentionNotifications.ts": {
+      "lines": 260,
+      "longestFunction": 223,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/features/layout/composables/useAppLayoutServerLayoutPrefs.ts": {
+      "lines": 155,
+      "longestFunction": 141,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -157,11 +193,29 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
+    "backend/src/api/routes/appleOAuth.ts": {
+      "lines": 239,
+      "longestFunction": 4,
+      "deepNestingLines": 13,
+      "maxNestingSpaces": 16
+    },
     "backend/src/api/routes/honchoMemory.ts": {
       "lines": 209,
       "longestFunction": 24,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
+    },
+    "backend/src/config/storage.ts": {
+      "lines": 110,
+      "longestFunction": 81,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "backend/src/config/validateConfig.ts": {
+      "lines": 238,
+      "longestFunction": 112,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
     },
     "backend/src/services/echoAttentionSnapshotScheduler.ts": {
       "lines": 155,

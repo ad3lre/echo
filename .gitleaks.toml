@@ -24,6 +24,7 @@ paths = [
   '''^bot/\.env\.example$''',
   '''^infra/livekit/livekit\.yaml$''',
   '''^docs/EMOJI_LOADING\.md$''',
+  '''^\.github/workflows/echo-backend-ci\.yml$''',
   '''^backend/src/domain/discordProfileMerge\.ts$''',
   '''^frontend/src/features/settings/composables/useDiscordLinkSettings\.ts$''',
   '''^frontend/src/features/settings/components/SettingsDiscordLinkSection\.vue$''',

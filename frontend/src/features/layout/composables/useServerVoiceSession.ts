@@ -1458,9 +1458,11 @@ export function useServerVoiceSession(deps: {
     return name ? { userId: id, name } : { userId: id };
   }
 
-  const liveKitState = computed<LiveKitRoomState>(
-    () => lkRoom?.roomState.value ?? 'idle',
-  );
+  const liveKitState = computed<LiveKitRoomState>(() => {
+    const room = lkRoom;
+    if (!room) return 'idle';
+    return room.roomState.value;
+  });
 
   function republishVcActivitySnapshotIfHostForLateJoiners() {
     if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
@@ -1732,15 +1734,30 @@ export function useServerVoiceSession(deps: {
           activeChannel.value?.type === 'stage')),
   });
 
-  const liveKitNetworkStats = computed<LiveKitNetworkStats | null>(
-    () => lkRoom?.networkStats.value ?? null,
-  );
+  const liveKitNetworkStats = computed<LiveKitNetworkStats | null>(() => {
+    const room = lkRoom;
+    if (!room) return null;
+    return room.networkStats.value;
+  });
 
-  const speakingMap = computed<Record<string, ParticipantAudioLevel>>(
-    () => lkRoom?.speakingMap.value ?? {},
-  );
-  const localSpeaking = computed(() => lkRoom?.localSpeaking.value ?? false);
-  const localAudioLevel = computed(() => lkRoom?.localAudioLevel.value ?? 0);
+  // Use toRef-style access to ensure Vue properly tracks reactivity even when
+  // lkRoom becomes defined after initial evaluation. Optional chaining in computed
+  // can break reactivity tracking if the base object starts as undefined.
+  const speakingMap = computed<Record<string, ParticipantAudioLevel>>(() => {
+    const room = lkRoom;
+    if (!room) return {};
+    return room.speakingMap.value;
+  });
+  const localSpeaking = computed(() => {
+    const room = lkRoom;
+    if (!room) return false;
+    return room.localSpeaking.value;
+  });
+  const localAudioLevel = computed(() => {
+    const room = lkRoom;
+    if (!room) return 0;
+    return room.localAudioLevel.value;
+  });
 
   watch(
     () =>

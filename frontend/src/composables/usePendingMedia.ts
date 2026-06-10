@@ -8,6 +8,11 @@ import {
   probeVideoBlobUrl,
   probeVideoDimensionsOnly,
 } from '@/utils/captureVideoFrame';
+import {
+  probeImageDimensionsFromFile,
+  probeImageDimensionsFromUrl,
+  rememberImageDimensions,
+} from '@/utils/probeImageDimensions';
 import { sha256HexOfBlob } from '@/utils/uploadFingerprint';
 
 const pendingVideoSha256Jobs = new WeakMap<File, Promise<string>>();
@@ -25,17 +30,23 @@ export interface PendingImage {
   url: string;
   file: File;
   spoiler: boolean;
+  width?: number;
+  height?: number;
 }
 
 export interface PendingGif {
   url: string;
   spoiler: boolean;
+  width?: number;
+  height?: number;
 }
 
 /** Remote image URL (e.g. stock photo) — sent as `kind: image` without upload. */
 export interface PendingExternalImage {
   url: string;
   spoiler: boolean;
+  width?: number;
+  height?: number;
 }
 
 export type PendingVideoUploadStatus = 'idle' | 'uploading' | 'done' | 'error';
@@ -106,6 +117,9 @@ export function usePendingMedia() {
       uploadStatus: 'idle' as const,
       uploadPercent: null,
     }));
+    for (const entry of newPending) {
+      void enrichPendingImagePreview(entry);
+    }
     for (const entry of newPendingVideos) {
       void enrichPendingVideoPreview(entry);
       void startPendingVideoSha256(entry.file).then((sha256Hex) => {
@@ -132,14 +146,15 @@ export function usePendingMedia() {
   }
 
   function addGif(url: string) {
-    pendingGifs.value = [...pendingGifs.value, { url, spoiler: false }];
+    const entry: PendingGif = { url, spoiler: false };
+    pendingGifs.value = [...pendingGifs.value, entry];
+    void enrichPendingRemoteImagePreview(entry);
   }
 
   function addExternalImageUrl(url: string) {
-    pendingExternalImages.value = [
-      ...pendingExternalImages.value,
-      { url, spoiler: false },
-    ];
+    const entry: PendingExternalImage = { url, spoiler: false };
+    pendingExternalImages.value = [...pendingExternalImages.value, entry];
+    void enrichPendingRemoteImagePreview(entry);
   }
 
   function toggleImageSpoiler(index: number) {
@@ -239,6 +254,23 @@ export function usePendingMedia() {
       }
     }
     pendingVideos.value = pendingVideos.value.filter((_, i) => i !== index);
+  }
+
+  async function enrichPendingImagePreview(entry: PendingImage): Promise<void> {
+    const dims = await probeImageDimensionsFromFile(entry.file);
+    if (!dims) return;
+    entry.width = dims.width;
+    entry.height = dims.height;
+    rememberImageDimensions(entry.url, dims);
+  }
+
+  async function enrichPendingRemoteImagePreview(
+    entry: PendingGif | PendingExternalImage,
+  ): Promise<void> {
+    const dims = await probeImageDimensionsFromUrl(entry.url);
+    if (!dims) return;
+    entry.width = dims.width;
+    entry.height = dims.height;
   }
 
   async function enrichPendingVideoPreview(entry: PendingVideo): Promise<void> {

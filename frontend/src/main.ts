@@ -254,9 +254,18 @@ async function bootstrap() {
     }
   }
 
-  await initEchoI18n(loadTimeLanguagePreferences().locale);
+  /**
+   * i18n initialization: Start with default locale synchronously, then
+   * switch to preferred locale asynchronously. This allows the app to mount
+   * immediately while translations load in the background.
+   */
+  const i18nInitPromise = initEchoI18n(loadTimeLanguagePreferences().locale);
 
   const app = createApp(App);
+
+  // Wait for i18n to be ready before mounting to avoid hydration mismatch
+  // but the wait happens after app creation for parallel processing
+  await i18nInitPromise;
   app.use(i18n as Plugin);
   app.directive('scrollbar-on-scroll', scrollbarOnScroll);
   app.directive('spoiler-reveal', spoilerReveal);

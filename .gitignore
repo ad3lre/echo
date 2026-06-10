@@ -1,5 +1,8 @@
 # Gitignore for Echo project
 
+# Watchdog runtime stats (written by scripts/watchdog.mjs)
+/scripts/downtime-stats.json
+
 # Dependencies
 /node_modules
 /frontend/node_modules

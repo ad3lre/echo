@@ -6,6 +6,7 @@ import {
   isInlineGifHostEmbed,
 } from '@shared/gifHostLinks';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import { mediaAspectStyleFromDims } from '@/utils/chatMediaAspect';
 import GifImage from './GifImage.vue';
 
 const props = defineProps<{
@@ -38,16 +39,7 @@ const items = computed(() => {
 });
 
 function mediaAspectStyle(item: { width?: number; height?: number }) {
-  const { width, height } = item;
-  if (
-    typeof width === 'number' &&
-    width > 0 &&
-    typeof height === 'number' &&
-    height > 0
-  ) {
-    return { aspectRatio: `${width} / ${height}` };
-  }
-  return undefined;
+  return mediaAspectStyleFromDims(item);
 }
 </script>
 
@@ -60,11 +52,15 @@ function mediaAspectStyle(item: { width?: number; height?: number }) {
       v-for="item in items"
       :key="item.key"
       type="button"
-      class="block text-left cursor-zoom-in rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-      :style="mediaAspectStyle(item)"
+      class="block max-w-full min-w-0 text-left cursor-zoom-in rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
       @click="openImageViewer?.(item.url)"
     >
-      <GifImage :src="safeImageUrl(item.url)" :alt="alt || 'GIF'" />
+      <GifImage
+        :src="safeImageUrl(item.url)"
+        :alt="alt || 'GIF'"
+        reserve-layout
+        :image-style="mediaAspectStyle(item)"
+      />
     </button>
   </div>
 </template>

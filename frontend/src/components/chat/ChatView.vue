@@ -311,9 +311,10 @@ const props = defineProps<{
   dmHistoryIntro?: {
     title: string;
     subtitle: string;
-    helloNudge?: string;
     avatarUrl?: string;
-    statusNugget?: string;
+    presenceStatus?: string;
+    presenceMobileSurface?: boolean;
+    hidePresence?: boolean;
     mutualCommunitiesCount?: number;
     primaryActionLabel?: string;
     onPrimaryAction?: () => void | Promise<void>;

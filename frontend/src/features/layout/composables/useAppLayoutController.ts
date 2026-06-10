@@ -3,7 +3,6 @@ import {
   defineAsyncComponent,
   inject,
   nextTick,
-  onUnmounted,
   ref,
   shallowRef,
   watch,
@@ -17,7 +16,6 @@ import { useEchoAttentionStore } from '@/stores/echoAttention';
 import { useEchoWorkspace } from '@/composables/useEchoWorkspace';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useDevSettingsStore } from '@/stores/devSettings';
-import { fetchMeDiscord } from '@/api/meClient';
 import { PLATFORM_KEY } from '@/platform/keys';
 import { usePollVotes } from '@/composables/usePollVotes';
 import { useEchoHistory } from '@/composables/useEchoHistory';
@@ -25,13 +23,11 @@ import { useChatMessages } from '@/composables/useChatMessages';
 import { useMessageReactions } from '@/composables/useMessageReactions';
 import { useReactionFavorites } from '@/composables/useReactionFavorites';
 import { useLayout } from '@/composables/useLayout';
-import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import { bindPaperEditorChannelPanelWidth } from '@/features/paper/composables/paperEditorPanelBridge';
 import { useCompactShell } from '@/composables/useCompactShell';
 import { useCompactGuildSplitShell } from '@/composables/useCompactGuildSplitShell';
 // Sub-composables
 import { useAppLayoutRealtimeSocketBinding } from './useAppLayoutRealtimeSocketBinding';
-import { useStageVcActivityBlock } from '@/features/voice/composables/useStageVcActivityBlock';
 import { useAppLayoutUiState } from './useAppLayoutUiState';
 import { useAppLayoutShellNavigation } from './useAppLayoutShellNavigation';
 import { useImmediateShellSwitchPending } from './useImmediateShellSwitchPending';
@@ -76,11 +72,17 @@ import { useAppLayoutContextShellChromeSlice } from './useAppLayoutContextShellC
 import { buildAppLayoutControllerContext } from './buildAppLayoutControllerContext';
 import { useAppLayoutDiscordBotPoll } from './useAppLayoutDiscordBotPoll';
 import { useAppLayoutForwardMessage } from './useAppLayoutForwardMessage';
+import { useAppLayoutGroupDmManagement } from './useAppLayoutGroupDmManagement';
+import { useAppLayoutLinkedDiscord } from './useAppLayoutLinkedDiscord';
+import { useAppLayoutMentionAutocompleteUsers } from './useAppLayoutMentionAutocompleteUsers';
+import { useAppLayoutVcActivityGuards } from './useAppLayoutVcActivityGuards';
+import { useAppLayoutServerLayoutPrefs } from './useAppLayoutServerLayoutPrefs';
 import { useAppLayoutMessageActions } from './useAppLayoutMessageActions';
+import { useAppLayoutMarkRead } from './useAppLayoutMarkRead';
+import { useAppLayoutMentionNotifications } from './useAppLayoutMentionNotifications';
 import { useAddServerFlow } from './useAddServerFlow';
 import { useSelectedServerInvite } from './useSelectedServerInvite';
 import { useAppLayoutCallVoiceBridge } from './useAppLayoutCallVoiceBridge';
-import { useAppLayoutGroupDm } from './useAppLayoutGroupDm';
 import { useAppLayoutGuestQuickDm } from './useAppLayoutGuestQuickDm';
 import { useAppLayoutLeaveServerModal } from './useAppLayoutLeaveServerModal';
 import { useJoinServerConfirmModal } from './useJoinServerConfirmModal';
@@ -92,25 +94,6 @@ import { createEchoDmActivityHandler } from '@/features/dm/createEchoDmActivityH
 import { createHandleAcceptMessageRequestOpener } from '@/features/dm/createHandleAcceptMessageRequestOpener';
 import { createLatestDmPeerUserIdForRailResolver } from '@/features/dm/createLatestDmPeerUserIdForRailResolver';
 import { createLatestDmInboxTargetForRailResolver } from '@/features/dm/createLatestDmInboxTargetForRailResolver';
-import {
-  echoDmChannelIdForPeerUser,
-  pinSelfDmInboxEntryFirst,
-} from '@/features/dm/buildDmPanelUserList';
-import { filterVisibleDmInboxEntries } from '@/features/dm/filterVisibleDmInbox';
-import { maxIncomingPeerMessageMs } from '@/features/dm/hiddenDmInboxUtils';
-import { sortFavoriteDmInboxFirst } from '@/features/dm/sortFavoriteDmInboxFirst';
-import { messageReadFacade } from '@/features/chat/domain/messageReadFacade';
-import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
-import {
-  collectMentionNotificationsFromAuthority,
-  applyMentionNotificationHydrationFailures,
-} from '@/features/dm/mentionNotificationAuthority';
-import { useMentionNotificationHydration } from '@/features/dm/useMentionNotificationHydration';
-import {
-  mapServerMentionRowsToDmRows,
-  mergeMentionNotificationRows,
-} from '@/features/dm/mentionNotificationFeedMerge';
-import { useMentionNotificationsFeedStore } from '@/stores/mentionNotificationsFeed';
 import { useNotificationPreferencesStore } from '@/stores/notificationPreferences';
 import {
   disableEchoWebPushSubscription,
@@ -119,13 +102,11 @@ import {
 import { useChannelNotificationOverridesStore } from '@/stores/channelNotificationOverrides';
 import { useHiddenDmInboxStore } from '@/stores/hiddenDmInbox';
 import { useFavoriteDmInboxStore } from '@/stores/favoriteDmInbox';
-import { useDmInboxOrderCacheStore } from '@/stores/dmInboxOrderCache';
 import { useAppLayoutWorkspaceFriendshipQueries } from './useAppLayoutWorkspaceFriendshipQueries';
 import { createEchoCanContextComputeds } from './createEchoCanContextComputeds';
 import { createStableGoToMessageDelegate } from '@/features/layout/actions/appActionRegistry';
 import { createSelectServerFromStore } from '@/features/layout/createSelectServerFromStore';
 import { createChatMessageNavBridge } from '@/features/navigation/createChatMessageNavBridge';
-import { isDmThreadId } from '@/features/layout/mainSurface';
 import {
   isAppNavPath,
   parseAppPathname,
@@ -148,15 +129,9 @@ import { useComputedRefAlias } from './useComputedRefAlias';
 import { useComputedOptionalRefAlias } from './useComputedOptionalRefAlias';
 import { useAppLayoutMemberSurfaceSwitchLoading } from './useAppLayoutMemberSurfaceSwitchLoading';
 import { useMockDataModeOffComputed } from './useMockDataModeOffComputed';
-import { useAppLayoutDmPanelInboxComputed } from './useAppLayoutDmPanelInboxComputed';
+import { useAppLayoutDmInboxPanel } from './useAppLayoutDmInboxPanel';
 import { useEchoDmPeerProfileHydration } from './useEchoDmPeerProfileHydration';
 import { peerDisplayNamePlaceholder } from '@/features/dm/peerDisplayPlaceholder';
-import {
-  resolveMentionNotificationAuthorName,
-  resolveMentionNotificationChannelLabel,
-  resolveMentionNotificationRowAuthorName,
-  resolveMentionNotificationRowPreview,
-} from '@/features/dm/resolveMentionNotificationDisplay';
 import type { WorkspaceRosterUserRow } from '@/services/domain/workspaceRoster';
 import { useAppLayoutMainSurfaceDmFlags } from './useAppLayoutMainSurfaceDmFlags';
 import { useAppLayoutDmProfileBridge } from './useAppLayoutDmProfileBridge';
@@ -173,7 +148,6 @@ import { failResult, type ActionResult } from '@/types/actionResult';
 import { updateChannelMessageInBucket } from '@/services/realtime/channelMessageAuthority';
 import { useAppLayoutActionRegistryPipeline } from './useAppLayoutActionRegistryPipeline';
 import { useAppLayoutRealtimeHostWiring } from './useAppLayoutRealtimeHostWiring';
-import { createBeforeOpenGroupDmModal } from './createBeforeOpenGroupDmModal';
 import { createPromptSignInHandler } from './createPromptSignInHandler';
 import { createResolveEchoDmPeerFromMap } from './createResolveEchoDmPeerFromMap';
 import { openEchoDirectDmChannel } from '@/features/dm/echoDmCommandFacade';
@@ -185,10 +159,6 @@ import { createOpenMemberProfileWithRolesPref } from './createOpenMemberProfileW
 import { createPinToggleHandlers } from './createPinToggleHandlers';
 import { useAppLayoutMemberPopoutChromeCallbacks } from './useAppLayoutMemberPopoutChromeCallbacks';
 import { useAppLayoutUserSettingsModalCallbacks } from './useAppLayoutUserSettingsModalCallbacks';
-import {
-  useDmInboxUsersForPanelComputed,
-  useGroupDmPanelListComputed,
-} from './useDmPanelListComputeds';
 import { usePreviewCanModerateMembersComputed } from './usePreviewCanModerateMembersComputed';
 import { useCanDeleteCurrentEchoServerComputed } from './useCanDeleteCurrentEchoServerComputed';
 import { useDmAttentionUnreadMapForPanelComputed } from './useDmAttentionUnreadMapForPanelComputed';
@@ -207,30 +177,7 @@ import { createCanModerateMessageAuthorAdapter } from './createCanModerateMessag
 import { useHasGuildChannelChromeComputed } from './useHasGuildChannelChromeComputed';
 import { useLiveChannelCapabilitiesRefreshKey } from './useLiveChannelCapabilitiesRefreshKey';
 import { filterPublicExploreDirectoryRows } from '@/services/domain/exploreDirectoryRows';
-import {
-  buildEchoDmMarkReadPlan,
-  buildEchoServerMarkReadPlan,
-  buildLatestMessageIdByChannelIdForServer,
-  resolveEchoMarkReadTargetsForMissingChannels,
-  type EchoServerMarkReadPlan,
-} from '@/services/domain/echoServerMarkReadTargets';
-import { fetchEchoAttentionSummary } from '@/api/echo/attention';
-import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
-import {
-  deleteEchoGroupDmMember,
-  fetchEchoDmThreads,
-  patchEchoGroupDm,
-  postEchoAddGroupDmMembers,
-  postEchoLeaveGroupDm,
-  postEchoLeaveServer,
-} from '@/api/echoClient';
-import { postEchoOpenDm } from '@/api/echo/social';
-import {
-  fetchEchoChannelMessages,
-  putEchoChannelReadState,
-} from '@/api/echo/messages';
-import { compareEchoTimelineIds } from '@/services/domain/echoMessageReadState';
-import { resolveEchoDmWireChannelId } from '@/features/layout/resolveEchoDmWireChannelId';
+import { fetchEchoDmThreads, postEchoLeaveServer } from '@/api/echoClient';
 import { isViewingEchoConversationChannel } from '@/features/layout/isViewingEchoConversationChannel';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { useEchoAfkPresence } from '@/composables/useEchoAfkPresence';
@@ -239,45 +186,14 @@ import {
   normalizeCanonicalPresenceStatus,
 } from '@/services/domain/presence';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
-import {
-  dispatchAppToast,
-  dispatchAppToastDetail,
-  type AppToastAction,
-} from '@/utils/controllerMissingAction';
+import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { registerEchoToastQuickReplySender } from '@/features/layout/echoToastQuickReplyBridge';
 import { insertChannelMessageFromHistory } from '@/services/realtime/channelMessageAuthority';
 import { randomUuidV4 } from '@/utils/randomUuid';
-import {
-  readServerLayoutPrefsStore,
-  writeServerLayoutPrefsStore,
-  type ServerLayoutPrefs,
-} from './serverLayoutPrefsStorage';
-
-type MentionAutocompleteUser = {
-  id: string;
-  name: string;
-  pfp: string;
-  status?: string;
-  timeZone?: string | null;
-};
-
-function toUserForAuthor(user: MentionAutocompleteUser): UserForAuthor {
-  return {
-    id: user.id,
-    name: user.name,
-    pfp: user.pfp,
-    status: user.status ?? 'offline',
-    ...(user.timeZone !== undefined ? { timeZone: user.timeZone } : {}),
-  };
-}
 
 const ExploreView = defineAsyncComponent(
   () => import('@/components/ExploreView.vue'),
 );
-
-type DmMarkReadPayload =
-  | { kind: 'user'; userId: string }
-  | { kind: 'group'; channelId: string };
 
 /**
  * Layout shell composition root: ordered wiring of region composables + slices.
@@ -319,39 +235,10 @@ export function useAppLayoutController() {
   const { sessionEndedMessage, authStateGeneration } = storeToRefs(authSession);
   const devSettings = useDevSettingsStore();
   const { devModeIdsEnabled } = storeToRefs(devSettings);
-  const linkedDiscordUserId = ref<string | null>(null);
-  const linkedDiscordState = ref<Awaited<
-    ReturnType<typeof fetchMeDiscord>
-  > | null>(null);
-
-  async function refreshLinkedDiscordUserId(): Promise<void> {
-    const u = authSession.backendUser;
-    if (!authSession.isAuthenticated || !u || u.isGuest) {
-      linkedDiscordUserId.value = null;
-      linkedDiscordState.value = null;
-      return;
-    }
-    try {
-      const s = await fetchMeDiscord();
-      linkedDiscordState.value = s;
-      if (s.linked) {
-        const id = s.profile.discordUserId?.trim();
-        linkedDiscordUserId.value = id || null;
-      } else {
-        linkedDiscordUserId.value = null;
-      }
-    } catch {
-      linkedDiscordUserId.value = null;
-      linkedDiscordState.value = null;
-    }
-  }
-
-  watch(
-    () => [authSession.isAuthenticated, authStateGeneration.value] as const,
-    () => {
-      void refreshLinkedDiscordUserId();
+  const { linkedDiscordUserId, linkedDiscordState } = useAppLayoutLinkedDiscord(
+    {
+      authSession,
     },
-    { immediate: true },
   );
   const { showApiFetchErrorBanner } = useAppLayoutBanners(workspace);
 
@@ -536,124 +423,17 @@ export function useAppLayoutController() {
     { immediate: true },
   );
 
-  /** Per-server panel layout state (collapse flags, pinned sidebar, etc.), keyed by server id. */
-  const serverLayoutPrefsById = ref<Record<string, ServerLayoutPrefs>>(
-    readServerLayoutPrefsStore(),
-  );
-  let serverLayoutPrefsPersistTimer: ReturnType<typeof setTimeout> | null =
-    null;
-  /**
-   * True while `applyServerLayoutPrefsFor` is writing reactive refs from storage.
-   * Prevents the layout-change watcher from immediately writing those values back,
-   * which would corrupt the prefs for the server we just left.
-   */
-  let applyingServerLayoutPrefs = false;
-
-  /** Strips whitespace and rejects the synthetic 'echo' DM rail server id. */
-  function normalizedPrefsServerId(
-    raw: string | null | undefined,
-  ): string | null {
-    const sid = raw?.trim() ?? '';
-    if (!sid || sid === 'echo') return null;
-    return sid;
-  }
-
-  /** Debounces writes to localStorage — layout changes fire rapidly during drag resize. */
-  function persistServerLayoutPrefsSoon() {
-    if (serverLayoutPrefsPersistTimer != null) {
-      clearTimeout(serverLayoutPrefsPersistTimer);
-    }
-    serverLayoutPrefsPersistTimer = setTimeout(() => {
-      serverLayoutPrefsPersistTimer = null;
-      writeServerLayoutPrefsStore(serverLayoutPrefsById.value);
-    }, 120);
-  }
-
-  onUnmounted(() => {
-    if (serverLayoutPrefsPersistTimer != null) {
-      clearTimeout(serverLayoutPrefsPersistTimer);
-      serverLayoutPrefsPersistTimer = null;
-      writeServerLayoutPrefsStore(serverLayoutPrefsById.value);
-    }
+  useAppLayoutServerLayoutPrefs({
+    channelPanelCollapsed,
+    channelPanelBubbleMode,
+    memberPanelCollapsed,
+    voiceSideChatCollapsed,
+    compactGuildTriPaneChannelPanelOpen,
+    isMoreServersPinned,
+    markMemberPanelExpandedByUser,
+    markMemberPanelCollapsedByUser,
+    selectedServerId: selectedServerIdRef,
   });
-
-  /** Snapshots current panel state into the in-memory prefs map for the given server. */
-  function writeServerLayoutPrefsFor(serverId: string | null | undefined) {
-    const sid = normalizedPrefsServerId(serverId);
-    if (!sid || applyingServerLayoutPrefs) return;
-    serverLayoutPrefsById.value = {
-      ...serverLayoutPrefsById.value,
-      [sid]: {
-        channelPanelCollapsed: channelPanelCollapsed.value,
-        channelPanelBubbleMode: channelPanelBubbleMode.value,
-        memberPanelCollapsed: memberPanelCollapsed.value,
-        voiceSideChatCollapsed: voiceSideChatCollapsed.value,
-        compactGuildTriPaneChannelPanelOpen:
-          compactGuildTriPaneChannelPanelOpen.value,
-        isMoreServersPinned: isMoreServersPinned.value,
-      },
-    };
-    persistServerLayoutPrefsSoon();
-  }
-
-  /**
-   * Restores panel state for the given server from the in-memory prefs map.
-   * Falls back to expanded defaults on first visit (no stored prefs).
-   */
-  function applyServerLayoutPrefsFor(serverId: string | null | undefined) {
-    const sid = normalizedPrefsServerId(serverId);
-    if (!sid) return;
-    const prefs = serverLayoutPrefsById.value[sid];
-    applyingServerLayoutPrefs = true;
-    try {
-      if (prefs) {
-        channelPanelCollapsed.value = prefs.channelPanelCollapsed;
-        channelPanelBubbleMode.value = prefs.channelPanelBubbleMode ?? false;
-        memberPanelCollapsed.value = prefs.memberPanelCollapsed;
-        if (!prefs.memberPanelCollapsed) {
-          markMemberPanelExpandedByUser();
-        } else {
-          markMemberPanelCollapsedByUser();
-        }
-        voiceSideChatCollapsed.value = prefs.voiceSideChatCollapsed;
-        compactGuildTriPaneChannelPanelOpen.value =
-          prefs.compactGuildTriPaneChannelPanelOpen;
-        isMoreServersPinned.value = prefs.isMoreServersPinned;
-        return;
-      }
-      // First visit for this server: start from expanded defaults.
-      channelPanelCollapsed.value = false;
-      channelPanelBubbleMode.value = false;
-      memberPanelCollapsed.value = false;
-      voiceSideChatCollapsed.value = false;
-      compactGuildTriPaneChannelPanelOpen.value = false;
-      isMoreServersPinned.value = false;
-    } finally {
-      applyingServerLayoutPrefs = false;
-    }
-  }
-
-  watch(
-    [
-      channelPanelCollapsed,
-      memberPanelCollapsed,
-      voiceSideChatCollapsed,
-      compactGuildTriPaneChannelPanelOpen,
-      isMoreServersPinned,
-    ],
-    () => {
-      writeServerLayoutPrefsFor(selectedServerIdRef.value);
-    },
-  );
-
-  watch(
-    selectedServerIdRef,
-    (next, prev) => {
-      writeServerLayoutPrefsFor(prev);
-      applyServerLayoutPrefsFor(next);
-    },
-    { immediate: true },
-  );
 
   const isDmUiContext = useAppLayoutDmUiContext(activeRailTab);
 
@@ -858,11 +638,42 @@ export function useAppLayoutController() {
     groupDMs,
   });
 
-  const { guardOpen: guardVcActivityOpen } = useStageVcActivityBlock({
+  const {
+    openVcActivityPickerOnVoice,
+    openVcActivityYoutubeBrowseOnVoice,
+    openVcActivityWordleOnVoice,
+    openVcActivityHangmanOnVoice,
+    openVcActivitySkrigglesOnVoice,
+    openVcActivityTicTacToeOnVoice,
+    openVcActivityOpenGuessrOnVoice,
+    openVcActivitySkribblIoOnVoice,
+    openVcActivityGarticPhoneOnVoice,
+    openVcActivityKrunkerOnVoice,
+    openVcActivityCodenamesOnVoice,
+    openVcActivityRichupOnVoice,
+    openVcActivityGooberDashOnVoice,
+    openVcActivitySmashKartsOnVoice,
+    openVcActivityClusterRushOnVoice,
+  } = useAppLayoutVcActivityGuards({
     isViewingVoiceChannel,
     effectiveActiveChannel,
     vcActivityUi,
     closeVcActivity,
+    openVcActivityPicker,
+    openVcActivityYoutubeBrowse,
+    openVcActivityWordle,
+    openVcActivityHangman,
+    openVcActivitySkriggles,
+    openVcActivityTicTacToe,
+    openVcActivityOpenGuessr,
+    openVcActivitySkribblIo,
+    openVcActivityGarticPhone,
+    openVcActivityKrunker,
+    openVcActivityCodenames,
+    openVcActivityRichup,
+    openVcActivityGooberDash,
+    openVcActivitySmashKarts,
+    openVcActivityClusterRush,
   });
 
   watch(currentVoiceChannelId, (vc) => {
@@ -874,46 +685,6 @@ export function useAppLayoutController() {
     if (active.id === id) return;
     activeChannelId.value = id;
   });
-
-  const openVcActivityPickerOnVoice = guardVcActivityOpen(openVcActivityPicker);
-  const openVcActivityYoutubeBrowseOnVoice = guardVcActivityOpen(
-    openVcActivityYoutubeBrowse,
-  );
-  const openVcActivityWordleOnVoice = guardVcActivityOpen(openVcActivityWordle);
-  const openVcActivityHangmanOnVoice = guardVcActivityOpen(
-    openVcActivityHangman,
-  );
-  const openVcActivitySkrigglesOnVoice = guardVcActivityOpen(
-    openVcActivitySkriggles,
-  );
-  const openVcActivityTicTacToeOnVoice = guardVcActivityOpen(
-    openVcActivityTicTacToe,
-  );
-  const openVcActivityOpenGuessrOnVoice = guardVcActivityOpen(
-    openVcActivityOpenGuessr,
-  );
-  const openVcActivitySkribblIoOnVoice = guardVcActivityOpen(
-    openVcActivitySkribblIo,
-  );
-  const openVcActivityGarticPhoneOnVoice = guardVcActivityOpen(
-    openVcActivityGarticPhone,
-  );
-  const openVcActivityKrunkerOnVoice = guardVcActivityOpen(
-    openVcActivityKrunker,
-  );
-  const openVcActivityCodenamesOnVoice = guardVcActivityOpen(
-    openVcActivityCodenames,
-  );
-  const openVcActivityRichupOnVoice = guardVcActivityOpen(openVcActivityRichup);
-  const openVcActivityGooberDashOnVoice = guardVcActivityOpen(
-    openVcActivityGooberDash,
-  );
-  const openVcActivitySmashKartsOnVoice = guardVcActivityOpen(
-    openVcActivitySmashKarts,
-  );
-  const openVcActivityClusterRushOnVoice = guardVcActivityOpen(
-    openVcActivityClusterRush,
-  );
 
   function applyVcYoutubeWatchTogetherRemoteOnVoice(
     ...args: Parameters<typeof applyVcYoutubeWatchTogetherRemote>
@@ -967,7 +738,6 @@ export function useAppLayoutController() {
 
   const hiddenDmInboxStore = useHiddenDmInboxStore();
   const favoriteDmInboxStore = useFavoriteDmInboxStore();
-  const dmInboxOrderCacheStore = useDmInboxOrderCacheStore();
   const getLatestDmInboxTargetForRailRef = shallowRef<
     () =>
       | { kind: 'user'; userId: string }
@@ -1014,6 +784,7 @@ export function useAppLayoutController() {
     shellNavState,
     mainSurface,
     isServerEmptyOnboarding,
+    suspiciousEmptyWorkspace,
     openServerSettingsFromUrl,
   } = useAppLayoutShellNavigation({
     base: import.meta.env.BASE_URL,
@@ -1644,6 +1415,7 @@ export function useAppLayoutController() {
     serverStore,
     workspace,
     activeChannelId,
+    suspiciousEmptyWorkspace,
   });
 
   const dmUnreadByChannelIdForPanel = useDmAttentionUnreadMapForPanelComputed({
@@ -2334,6 +2106,23 @@ export function useAppLayoutController() {
     echoMemberRoleIdsByUser: () => roleUi.echoMemberRoleIdsByUser.value,
   });
 
+  const {
+    markServerAsReadForRail,
+    handleServerRailMarkAllRead,
+    handleDmRailMarkAllRead,
+    markEchoChannelAsRead,
+    markActiveChannelAsRead,
+    handleDmMarkRead,
+    handleChannelMarkRead,
+  } = useAppLayoutMarkRead({
+    authSession,
+    echoAttention,
+    workspace,
+    serverStore,
+    activeChannelId,
+    echoDmPeerByChannelId,
+  });
+
   useAppLayoutChatSound({
     activeChannelId,
     currentUser: currentUserComputed,
@@ -2459,192 +2248,6 @@ export function useAppLayoutController() {
     currentUserId: () => currentUser.value?.id,
   });
 
-  type EchoMarkReadPlanResult = {
-    status: 'ok' | 'empty' | 'failed' | 'unauthenticated';
-  };
-
-  function buildServerMarkReadPlanForId(
-    serverId: string,
-  ): EchoServerMarkReadPlan {
-    const sid = serverId.trim();
-    return buildEchoServerMarkReadPlan({
-      serverId: sid,
-      channelAttentionByChannelId: channelAttentionByChannelId.value,
-      readStateByChannelId: readStateByChannelId.value,
-      latestMessageIdByChannelId: buildLatestMessageIdByChannelIdForServer({
-        serverId: sid,
-        categoriesByServer: workspace.categoriesByServer.value,
-        messagesByChannelId: workspace.messages.value,
-      }),
-      ignoreLocalCursor: true,
-    });
-  }
-
-  async function executeEchoMarkReadPlan(
-    plan: EchoServerMarkReadPlan,
-    opts?: { applyOptimistic?: 'server' | 'dm'; refreshAttention?: boolean },
-  ): Promise<EchoMarkReadPlanResult> {
-    if (!authSession.isAuthenticated) return { status: 'unauthenticated' };
-    const token = authSession.accessToken?.trim() ?? '';
-
-    let targets = [...plan.targets];
-    let unresolvedMissing = 0;
-    if (plan.channelIdsMissingLatestUnread.length > 0) {
-      const resolved = await resolveEchoMarkReadTargetsForMissingChannels({
-        channelIds: plan.channelIdsMissingLatestUnread,
-        fetchLatestMessageId: async (channelId) => {
-          const { messages } = await fetchEchoChannelMessages(
-            token,
-            channelId,
-            {
-              limit: 1,
-            },
-          );
-          return messages[0]?.id?.trim() ?? null;
-        },
-      });
-      targets = [...targets, ...resolved.targets];
-      unresolvedMissing = resolved.unresolvedChannelIds.length;
-    }
-
-    if (targets.length === 0 && unresolvedMissing === 0) {
-      return { status: 'empty' };
-    }
-
-    if (opts?.applyOptimistic) {
-      for (const target of targets) {
-        echoAttention.applyServerChannelMarkRead(
-          target.channelId,
-          target.lastReadMessageId,
-        );
-      }
-    }
-
-    let failed = unresolvedMissing;
-    for (const target of targets) {
-      try {
-        await putEchoChannelReadState(
-          token,
-          target.channelId,
-          target.lastReadMessageId,
-        );
-      } catch {
-        failed += 1;
-      }
-    }
-
-    if (opts?.refreshAttention !== false && failed === 0) {
-      try {
-        echoAttention.replaceSnapshot(await fetchEchoAttentionSummary(token));
-      } catch {
-        /* keep optimistic */
-      }
-    }
-
-    return failed > 0 ? { status: 'failed' } : { status: 'ok' };
-  }
-
-  async function markServerAsReadForRail(serverId: string): Promise<void> {
-    const result = await executeEchoMarkReadPlan(
-      buildServerMarkReadPlanForId(serverId),
-      { applyOptimistic: 'server' },
-    );
-    if (result.status === 'unauthenticated') {
-      dispatchAppToast('Sign in to mark servers as read.', 'info');
-      return;
-    }
-    if (result.status === 'empty') {
-      dispatchAppToast('No unread channels in this server.', 'info');
-      return;
-    }
-    if (result.status === 'failed') {
-      dispatchAppToast('Could not mark all channels as read.', 'warning');
-      return;
-    }
-    dispatchAppToast('Marked server as read.', 'info');
-  }
-
-  async function handleServerRailMarkAllRead(): Promise<void> {
-    if (!authSession.isAuthenticated) {
-      dispatchAppToast('Sign in to mark servers as read.', 'info');
-      return;
-    }
-    const serverIds = [
-      ...new Set(
-        serverStore.servers
-          .map((s) => s.id.trim())
-          .filter((id) => id && id !== 'echo'),
-      ),
-    ];
-    let anyTargets = false;
-    let failed = 0;
-    for (const sid of serverIds) {
-      const plan = buildServerMarkReadPlanForId(sid);
-      if (
-        plan.targets.length > 0 ||
-        plan.channelIdsMissingLatestUnread.length > 0
-      ) {
-        anyTargets = true;
-      }
-      const result = await executeEchoMarkReadPlan(plan, {
-        applyOptimistic: 'server',
-        refreshAttention: false,
-      });
-      if (result.status === 'failed') failed += 1;
-    }
-    const token = authSession.accessToken?.trim() ?? '';
-    if (failed === 0) {
-      try {
-        echoAttention.replaceSnapshot(await fetchEchoAttentionSummary(token));
-      } catch {
-        /* keep optimistic */
-      }
-    }
-    if (!anyTargets) {
-      dispatchAppToast('No unread channels.', 'info');
-    } else if (failed > 0) {
-      dispatchAppToast('Could not mark all servers as read.', 'warning');
-    } else {
-      dispatchAppToast('Marked all servers as read.', 'info');
-    }
-  }
-
-  async function handleDmRailMarkAllRead(): Promise<void> {
-    if (!authSession.isAuthenticated) {
-      dispatchAppToast('Sign in to mark DMs as read.', 'info');
-      return;
-    }
-    const msgsRoot = workspace.messages.value;
-    const latestMessageIdByChannelId: Record<string, string> = {};
-    for (const row of Object.values(channelAttentionByChannelId.value)) {
-      if (row.kind !== 'dm') continue;
-      const cid = row.channelId.trim();
-      if (!cid || latestMessageIdByChannelId[cid]) continue;
-      const msgs = msgsRoot[cid] ?? [];
-      const last =
-        msgs.length > 0 ? String(msgs[msgs.length - 1]?.id ?? '').trim() : '';
-      if (last) latestMessageIdByChannelId[cid] = last;
-    }
-    const plan = buildEchoDmMarkReadPlan({
-      channelAttentionByChannelId: channelAttentionByChannelId.value,
-      readStateByChannelId: readStateByChannelId.value,
-      latestMessageIdByChannelId,
-      ignoreLocalCursor: true,
-    });
-    const result = await executeEchoMarkReadPlan(plan, {
-      applyOptimistic: 'dm',
-    });
-    if (result.status === 'empty') {
-      dispatchAppToast('No unread DMs.', 'info');
-      return;
-    }
-    if (result.status === 'failed') {
-      dispatchAppToast('Could not mark all DMs as read.', 'warning');
-      return;
-    }
-    dispatchAppToast('Marked all DMs as read.', 'info');
-  }
-
   const {
     handleServerRailSettings,
     handleServerRailInvite,
@@ -2673,123 +2276,6 @@ export function useAppLayoutController() {
     openLeaveServerOwnerBlockedModal,
     openLeaveServerConfirmModal,
   });
-
-  async function markEchoChannelAsRead(
-    channelId: string,
-    opts?: { emptyMessage?: string; successMessage?: string; silent?: boolean },
-  ): Promise<void> {
-    const cid = channelId.trim();
-    if (!cid) {
-      if (!opts?.silent) {
-        dispatchAppToast(opts?.emptyMessage ?? 'Nothing to mark read.', 'info');
-      }
-      return;
-    }
-    if (!authSession.isAuthenticated) {
-      if (!opts?.silent) {
-        dispatchAppToast('Sign in to mark channels as read.', 'info');
-      }
-      return;
-    }
-    if (!isEchoGraphId(cid)) {
-      if (!opts?.silent) {
-        dispatchAppToast(
-          'Mark as read only works in Echo channels and DMs.',
-          'info',
-        );
-      }
-      return;
-    }
-    const summary = echoAttention.getChannelAttention(cid);
-    const latestFromAttention = summary?.latestUnreadMessageId?.trim() ?? '';
-    // When latestUnreadMessageId is absent (common for channels never opened or
-    // voice channels), fall back to firstUnreadMessageId (valid when unreadCount=1)
-    // then to the newest locally-loaded message.
-    const firstFromAttention = summary?.firstUnreadMessageId?.trim() ?? '';
-    const firstFallback =
-      !latestFromAttention && summary?.unreadCount === 1
-        ? firstFromAttention
-        : '';
-    const msgs = workspace.messages.value[cid] ?? [];
-    const lastMsgId =
-      msgs.length > 0 ? String(msgs[msgs.length - 1]?.id ?? '').trim() : '';
-    const targetId = latestFromAttention || firstFallback || lastMsgId;
-    if (!targetId) {
-      if (!opts?.silent) {
-        dispatchAppToast(opts?.emptyMessage ?? 'Nothing to mark read.', 'info');
-      }
-      return;
-    }
-    const currentCursor =
-      readStateByChannelId.value[cid] ?? summary?.lastReadMessageId ?? null;
-    const lr = String(currentCursor ?? '').trim();
-    if (lr && compareEchoTimelineIds(lr, targetId) >= 0) {
-      if (!opts?.silent) {
-        dispatchAppToast('Channel is already up to date.', 'info');
-      }
-      return;
-    }
-    echoAttention.applyServerChannelMarkRead(cid, targetId);
-    const token = authSession.accessToken?.trim() ?? '';
-    try {
-      const readState = await putEchoChannelReadState(token, cid, targetId);
-      echoAttention.mergeReadStateUpdate(
-        cid,
-        readState.lastReadMessageId,
-        readState.channelAttention,
-      );
-      if (!opts?.silent) {
-        dispatchAppToast(
-          opts?.successMessage ?? 'Marked channel as read.',
-          'info',
-        );
-      }
-    } catch (e) {
-      reportPrimaryFlowFailure(
-        'mark_active_channel_read_failed',
-        e,
-        undefined,
-        {
-          showBanner: false,
-        },
-      );
-      if (!opts?.silent) {
-        dispatchAppToast('Could not mark channel as read.', 'warning');
-      }
-    }
-  }
-
-  async function markActiveChannelAsRead(): Promise<void> {
-    const raw = activeChannelId.value?.trim() ?? '';
-    const resolved = resolveEchoDmWireChannelId(
-      raw,
-      echoDmPeerByChannelId.value,
-    );
-    await markEchoChannelAsRead(resolved);
-  }
-
-  async function handleDmMarkRead(payload: DmMarkReadPayload): Promise<void> {
-    const channelId =
-      payload.kind === 'group'
-        ? payload.channelId.trim()
-        : (
-            echoDmChannelIdForPeerUser(
-              payload.userId,
-              echoDmPeerByChannelId.value,
-            ) ?? ''
-          ).trim();
-    await markEchoChannelAsRead(channelId, {
-      emptyMessage: 'Nothing unread in this DM.',
-      successMessage: 'Marked DM as read.',
-    });
-  }
-
-  async function handleChannelMarkRead(channelId: string): Promise<void> {
-    await markEchoChannelAsRead(channelId.trim(), {
-      emptyMessage: 'Nothing unread in this channel.',
-      successMessage: 'Marked channel as read.',
-    });
-  }
 
   const refreshRoleData = createVoidingInvoker(() =>
     roleUi.refreshEchoRoleData(),
@@ -2908,65 +2394,18 @@ export function useAppLayoutController() {
     memberListUsers,
   });
 
-  const usersForMentionAutocomplete = computed(() => {
-    const cid = activeChannelId.value?.trim() ?? '';
-    const ms = mainSurface.value.type;
-
-    const inDmThread =
-      ms === 'dmThread' ||
-      (!!cid && isPersistedEchoDmThread(cid)) ||
-      (!!cid && isDmThreadId(cid));
-
-    if (inDmThread) {
-      const idSet = new Set<string>();
-      const me = authSession.backendUser?.id?.trim();
-      if (me) idSet.add(me);
-
-      if (isGroupDMComputed.value) {
-        const mids = activeGroupDM.value?.memberIds;
-        if (Array.isArray(mids)) {
-          for (const raw of mids) {
-            const id = raw?.trim();
-            if (id) idSet.add(id);
-          }
-        }
-      } else {
-        const peer = selectedDMUserId.value?.trim();
-        if (peer) idSet.add(peer);
-        const partner = dmPartnerUser.value?.id?.trim();
-        if (partner) idSet.add(partner);
-        if (cid) {
-          const mapped = echoDmPeerByChannelId.value.get(cid)?.trim();
-          if (mapped) idSet.add(mapped);
-          if (cid.startsWith('dm-') && !cid.startsWith('dm-group-')) {
-            const legacy = cid.slice('dm-'.length).trim();
-            if (legacy) idSet.add(legacy);
-          }
-        }
-      }
-
-      const roster = workspace.users.value;
-      const byId = new Map<string, (typeof roster)[number]>(
-        roster.map((u) => [u.id, u]),
-      );
-      const out: UserForAuthor[] = [];
-      for (const id of idSet) {
-        const row = byId.get(id);
-        if (row) out.push(toUserForAuthor(row));
-      }
-      return out;
-    }
-
-    if (
-      ms === 'serverText' ||
-      ms === 'serverVoice' ||
-      ms === 'serverForum' ||
-      ms === 'serverEmptyOnboarding'
-    ) {
-      return memberListUsers.value.map(toUserForAuthor);
-    }
-
-    return [];
+  const usersForMentionAutocomplete = useAppLayoutMentionAutocompleteUsers({
+    activeChannelId,
+    mainSurface,
+    isPersistedEchoDmThread,
+    isGroupDM: isGroupDMComputed,
+    activeGroupDM,
+    selectedDMUserId,
+    dmPartnerUser,
+    echoDmPeerByChannelId,
+    workspace,
+    authSession,
+    memberListUsers,
   });
 
   const socketSendMessage = sendMessageViaSocket;
@@ -3152,129 +2591,33 @@ export function useAppLayoutController() {
 
   wireMessageGoToMessage(messageActions.handleGoToMessage);
 
-  /**
-   * All @mention / @everyone / @active notifications for the current user,
-   * derived from the in-memory message cache. Limited to 120 rows to keep
-   * rendering snappy; older mentions appear once the user visits the channel.
-   */
-  function resolveDmMentionNotificationChannelLabel(channelId: string): string {
-    return resolveMentionNotificationChannelLabel({
-      channelId,
-      findChannelContextById,
-      categoriesByServer: workspace.categoriesByServer.value,
-      echoDmPeerByChannelId: echoDmPeerByChannelId.value,
-      echoDmThreadIds: echoDmThreadIds.value,
-      groupDMs: groupDMs.value,
-      users: workspace.users.value,
-    });
-  }
-
-  function resolveDmMentionNotificationAuthorName(
-    row: DmMentionNotificationRow,
-  ): string {
-    void messageReadFacade.globalResolverVersion.value;
-    const cached = messageReadFacade.getChannelEntity(
-      row.channelId,
-      row.messageId,
-    );
-    return resolveMentionNotificationRowAuthorName({
-      row,
-      cachedAuthorId: cached?.authorId,
-      authorDisplayName: cached?.authorDisplayName,
-      users: workspace.users.value,
-      selfUserId: currentUserIdForSocket.value ?? undefined,
-      selfDisplayName: authSession.backendUser?.username?.trim(),
-      categoriesByServer: workspace.categoriesByServer.value,
-      serverMemberNicknames: workspace.serverMemberNicknames.value,
-    });
-  }
-
-  function resolveDmMentionNotificationRowPreview(
-    row: DmMentionNotificationRow,
-  ): string {
-    void messageReadFacade.globalResolverVersion.value;
-    const cached = messageReadFacade.getChannelEntity(
-      row.channelId,
-      row.messageId,
-    );
-    return resolveMentionNotificationRowPreview({
-      row,
-      cachedMessage: cached,
-    });
-  }
-
-  /** Rows reconstructed from the in-memory message cache (live socket updates). */
-  const dmMentionNotificationsClient = computed(() => {
-    // Depend on the global resolver version so this re-computes when messages
-    // are prefetched/loaded into the cache, replacing "Loading mention…" stubs.
-    void messageReadFacade.globalResolverVersion.value;
-    return collectMentionNotificationsFromAuthority({
-      channelAttentionByChannelId: channelAttentionByChannelId.value,
-      readStateByChannelId: readStateByChannelId.value,
-      serverNotificationLevelByServerId:
-        serverNotificationLevelByServerId.value,
-      selfUserId: currentUserIdForSocket.value ?? '',
-      resolveChannelLabel: resolveDmMentionNotificationChannelLabel,
-      resolveUserName: (userId, authorDisplayName) =>
-        resolveMentionNotificationAuthorName({
-          userId,
-          authorDisplayName,
-          users: workspace.users.value,
-          selfUserId: currentUserIdForSocket.value ?? undefined,
-          selfDisplayName: authSession.backendUser?.username?.trim(),
-          serverMemberNicknames: workspace.serverMemberNicknames.value,
-        }),
-      maxItems: 120,
-    });
-  });
-
   const {
-    loading: mentionNotificationLegacyHydrationLoading,
-    failedChannelIds: mentionNotificationFailedChannelIds,
-  } = useMentionNotificationHydration({
-    rows: dmMentionNotificationsClient,
+    dmMentionNotifications,
+    mentionNotificationHydrationLoading,
+    resolveDmMentionNotificationChannelLabel,
+    resolveDmMentionNotificationAuthorName,
+    resolveDmMentionNotificationRowPreview,
+    dmNotificationReadStateByChannelId,
+    mentionNotificationCategoriesByServer,
+    mentionNotificationServers,
+    dmNotificationsReadPreset,
+    dmNotificationsSourceKey,
+    onOpenMentionNotification,
+    onMarkMentionNotificationRead,
+  } = useAppLayoutMentionNotifications({
+    findChannelContextById,
+    workspace,
+    echoDmPeerByChannelId,
+    echoDmThreadIds,
+    groupDMs,
+    currentUserIdForSocket,
+    authSession,
+    echoAttention,
+    serverStore,
     activeChannelId,
+    handleGoToMessage: messageActions.handleGoToMessage,
+    markEchoChannelAsRead,
   });
-
-  // Server-authoritative mention feed: hydrated rows from `GET /attention/mentions`.
-  // Once loaded it becomes the source of truth (no per-channel prefetch needed);
-  // live socket rows not yet in the feed are merged in from the client cache.
-  const mentionFeed = useMentionNotificationsFeedStore();
-  const {
-    rows: mentionFeedRows,
-    loaded: mentionFeedLoaded,
-    loading: mentionFeedLoading,
-  } = storeToRefs(mentionFeed);
-
-  const mentionNotificationHydrationLoading = computed(() => {
-    if (mentionFeedLoaded.value) return false;
-    return (
-      mentionFeedLoading.value ||
-      mentionNotificationLegacyHydrationLoading.value
-    );
-  });
-
-  const dmMentionNotificationsBase = computed(() => {
-    if (!mentionFeedLoaded.value) return dmMentionNotificationsClient.value;
-    return mergeMentionNotificationRows(
-      mapServerMentionRowsToDmRows(mentionFeedRows.value),
-      dmMentionNotificationsClient.value,
-      120,
-    );
-  });
-
-  watch(
-    [() => authSession.accessToken, () => channelAttentionByChannelId.value],
-    () => {
-      const token = authSession.accessToken?.trim() ?? '';
-      if (!token) {
-        mentionFeed.reset();
-        return;
-      }
-      mentionFeed.scheduleRefresh(token);
-    },
-    { immediate: true, deep: true },
-  );
 
   // Cross-device personal notification settings: pull once on login, then push
   // debounced local edits. Configured a single time per session.
@@ -3335,60 +2678,6 @@ export function useAppLayoutController() {
     { immediate: true },
   );
 
-  const dmMentionNotifications = computed(() => {
-    void workspace.users.value;
-    void workspace.serverMemberNicknames.value;
-    void messageReadFacade.globalResolverVersion.value;
-    return applyMentionNotificationHydrationFailures(
-      dmMentionNotificationsBase.value.map((row) => ({
-        ...row,
-        channelLabel: resolveDmMentionNotificationChannelLabel(row.channelId),
-        authorName: resolveDmMentionNotificationAuthorName(row),
-        preview: resolveDmMentionNotificationRowPreview(row),
-      })),
-      mentionNotificationFailedChannelIds.value,
-    );
-  });
-
-  /** Proxies the attention store's read-state map for the notifications panel. */
-  const dmNotificationReadStateByChannelId = computed(
-    () => readStateByChannelId.value,
-  );
-
-  const mentionNotificationCategoriesByServer = computed(
-    () => workspace.categoriesByServer.value,
-  );
-
-  /**
-   * Controlled filter state for the notifications panel.
-   * Persisted in the parent (AppLayout) across tab switches via v-model emits;
-   * the panel resets these on first mount if the parent does not provide them.
-   */
-  const dmNotificationsReadPreset = ref<NotificationReadPreset>('unread');
-  const dmNotificationsSourceKey = ref('all');
-
-  const mentionNotificationServers = computed(() =>
-    serverRowsRef.value.map((s) => ({
-      id: s.id,
-      name: String(s.name ?? '').trim() || 'Server',
-      imageUrl: String(s.imageUrl ?? '').trim() || undefined,
-    })),
-  );
-
-  /** Navigates to the channel containing the notification, then scrolls to the specific message. */
-  function onOpenMentionNotification(row: DmMentionNotificationRow) {
-    messageActions.handleGoToMessage(row.channelId, row.messageId);
-  }
-
-  async function onMarkMentionNotificationRead(
-    row: DmMentionNotificationRow,
-  ): Promise<void> {
-    await markEchoChannelAsRead(row.channelId, {
-      emptyMessage: 'Nothing unread in this thread.',
-      successMessage: 'Marked thread as read.',
-    });
-  }
-
   const afkPresenceEnabled = computed(
     () =>
       authSession.isAuthenticated &&
@@ -3418,176 +2707,33 @@ export function useAppLayoutController() {
     messageActions.updateCurrentUserStatus(canonical);
   };
 
-  const dmInboxEntriesForPanelUnfiltered = useAppLayoutDmPanelInboxComputed({
+  const {
+    dmInboxEntriesForPanel,
+    dmUsersForDmPanelComputed,
+    groupDMListForPanelComputed,
+    isDmInboxUserFavorite,
+    isDmInboxGroupFavorite,
+    toggleFavoriteDmInbox,
+    hideDmFromInboxUser,
+    hideDmFromInboxGroup,
+  } = useAppLayoutDmInboxPanel({
     activeRailTab,
     isDMPanelOpen,
-    selfId: currentUserIdForSocket,
-    users: workspace.users,
+    currentUserIdForSocket,
+    workspace,
     groupDMs,
-    messages: workspace.messages,
-    echoPeerByChannelId: echoDmPeerByChannelId,
+    echoDmPeerByChannelId,
     echoDmLastActivityAtMsByChannelId,
+    echoDmLastActivityIdByChannelId,
     selectedDMUserId,
     activeChannelId,
     dmUnreadByChannelIdForPanel,
-    fallbackRankMsByKey: dmInboxOrderCacheStore.initialRankMsByKey,
+    activeGroupDM,
+    authSession,
+    hiddenDmInboxStore,
+    favoriteDmInboxStore,
+    mergeEchoDmThread,
   });
-  const dmInboxEntriesForPanel = computed(() => {
-    const selfUid = currentUserIdForSocket.value?.trim() ?? '';
-    const sorted = sortFavoriteDmInboxFirst(
-      filterVisibleDmInboxEntries(dmInboxEntriesForPanelUnfiltered.value, {
-        isUserHidden: hiddenDmInboxStore.isUserHidden,
-        isGroupHidden: hiddenDmInboxStore.isGroupHidden,
-        selfUserId: selfUid,
-      }),
-      favoriteDmInboxStore,
-    );
-    return pinSelfDmInboxEntryFirst(sorted, selfUid);
-  });
-
-  let ensureEchoSelfDmThreadInFlight = false;
-  watch(
-    [
-      () => workspace.socialGraphStatus.value,
-      echoDmPeerByChannelId,
-      () => authSession.backendUser?.id ?? '',
-      () => authSession.backendUser?.isGuest === true,
-      () => authSession.accessToken ?? '',
-    ],
-    () => {
-      if (workspace.socialGraphStatus.value !== 'ready') return;
-      if (echoSyncCapabilities.isMockDataMode) return;
-      const selfId = authSession.backendUser?.id?.trim();
-      if (!selfId || authSession.backendUser?.isGuest) return;
-      const token = authSession.accessToken?.trim();
-      if (!token) return;
-      for (const p of echoDmPeerByChannelId.value.values()) {
-        if (p === selfId) return;
-      }
-      if (ensureEchoSelfDmThreadInFlight) return;
-      ensureEchoSelfDmThreadInFlight = true;
-      void postEchoOpenDm(token, selfId)
-        .then((r) => {
-          const ch = String(r.channelId ?? '').trim();
-          if (ch) {
-            mergeEchoDmThread({
-              kind: 'direct',
-              channelId: ch,
-              peerUserId: selfId,
-            });
-          }
-        })
-        .catch(() => {
-          /* best-effort */
-        })
-        .finally(() => {
-          ensureEchoSelfDmThreadInFlight = false;
-        });
-    },
-    { flush: 'post' },
-  );
-
-  function isDmInboxUserFavorite(userId: string) {
-    return favoriteDmInboxStore.isUserFavorite(userId);
-  }
-
-  function isDmInboxGroupFavorite(channelId: string) {
-    return favoriteDmInboxStore.isGroupFavorite(channelId);
-  }
-
-  function toggleFavoriteDmInbox(
-    payload:
-      | { kind: 'user'; userId: string }
-      | { kind: 'group'; channelId: string },
-  ) {
-    if (payload.kind === 'user') {
-      favoriteDmInboxStore.toggleUser(payload.userId);
-    } else {
-      favoriteDmInboxStore.toggleGroup(payload.channelId);
-    }
-  }
-  const dmUsersForDmPanelComputed = useDmInboxUsersForPanelComputed(
-    dmInboxEntriesForPanel,
-  );
-
-  watch(
-    [workspace.messages, echoDmLastActivityAtMsByChannelId],
-    () => {
-      const selfId = currentUserIdForSocket.value?.trim() ?? '';
-      if (!selfId) return;
-      hiddenDmInboxStore.syncUnhide({
-        selfId,
-        messages: workspace.messages.value,
-        echoPeerByChannelId: echoDmPeerByChannelId.value,
-        echoDmLastActivityIdByChannelId: echoDmLastActivityIdByChannelId.value,
-      });
-    },
-    { deep: true },
-  );
-
-  /**
-   * Persist real per-entry `lastActivityAt` (ms epoch) keyed by inbox row id so the
-   * next session's cold-start render matches this session's last live render exactly.
-   * For 1:1 rows the row id is the peer user id, so we look up the channel id via
-   * `echoDmPeerByChannelId`; for groups the row id IS the channel id.
-   */
-  watch(dmInboxEntriesForPanel, (entries) => {
-    if (!entries.length) return;
-    const ats = echoDmLastActivityAtMsByChannelId.value;
-    const peerByCh = echoDmPeerByChannelId.value;
-    const channelIdForPeer = new Map<string, string>();
-    for (const [ch, peer] of peerByCh) {
-      if (!channelIdForPeer.has(peer)) channelIdForPeer.set(peer, ch);
-    }
-    const payload = entries.map((e) => {
-      if (e.kind === 'group') {
-        return { id: e.id, rankMs: ats.get(e.id) ?? 0 };
-      }
-      const ch = channelIdForPeer.get(e.id) ?? '';
-      return { id: e.id, rankMs: ch ? (ats.get(ch) ?? 0) : 0 };
-    });
-    dmInboxOrderCacheStore.saveOrder(payload);
-  });
-
-  function hideDmFromInboxUser(peerId: string) {
-    const selfId = currentUserIdForSocket.value?.trim() ?? '';
-    if (!selfId || peerId === selfId) return;
-    const snap = maxIncomingPeerMessageMs(
-      peerId,
-      selfId,
-      workspace.messages.value,
-      echoDmPeerByChannelId.value,
-    );
-    hiddenDmInboxStore.hideUser(peerId, snap);
-    if (selectedDMUserId.value === peerId) {
-      selectedDMUserId.value = null;
-    }
-    const echoCh = echoDmChannelIdForPeerUser(
-      peerId,
-      echoDmPeerByChannelId.value,
-    );
-    const ac = activeChannelId.value;
-    if (ac === `dm-${peerId}` || (echoCh && ac === echoCh)) {
-      activeChannelId.value = 'general';
-    }
-    dispatchAppToast(
-      'Removed from your DM list. It will return when they message you again.',
-      'info',
-    );
-  }
-
-  function hideDmFromInboxGroup(channelId: string) {
-    const act = echoDmLastActivityIdByChannelId.value.get(channelId) ?? '';
-    hiddenDmInboxStore.hideGroup(channelId, act);
-    if (activeGroupDM.value?.id === channelId) {
-      activeChannelId.value = 'general';
-    }
-    dispatchAppToast(
-      'Removed from your DM list. It will return when there is new activity.',
-      'info',
-    );
-  }
-  const groupDMListForPanelComputed = useGroupDmPanelListComputed(groupDMs);
 
   const { discordBotExportReadyBanner, dismissDiscordBotExportReadyBanner } =
     useAppLayoutDiscordBotPoll({
@@ -3624,12 +2770,15 @@ export function useAppLayoutController() {
   const canModerateMessageAuthorForSurface =
     createCanModerateMessageAuthorAdapter(canModerateMessageAuthor);
 
-  const beforeOpenGroupDmModal = createBeforeOpenGroupDmModal({
-    closePinsDropdown,
-    clearSearch,
-  });
-
-  const groupDmActions = useAppLayoutGroupDm({
+  const {
+    groupDmActions,
+    handleSelectGroupDMWithGuestGuard,
+    groupSettingsMembers,
+    groupSettingsId,
+    onOpenAddMembersToGroupDm,
+    handleKickGroupDmMember,
+    handleLeaveGroupDm,
+  } = useAppLayoutGroupDmManagement({
     groupDMs,
     groupDMPreselectedIds,
     groupDMLockedIds,
@@ -3646,10 +2795,6 @@ export function useAppLayoutController() {
     currentUserId: currentUserIdForSocket,
     dmPartnerUserId: dmPartnerUserIdForGroupDm as unknown as Ref<string | null>,
     activeGroupId: activeGroupId as unknown as Ref<string | null>,
-    users: workspace.users as unknown as Ref<
-      Array<{ id: string; pfp: string }>
-    >,
-    messages: workspace.messages,
     selectServer: selectServerViaStore,
     isInDMChat: isInDmThreadOrIdleMainSurface as unknown as Ref<boolean>,
     isGroupOverviewOpen,
@@ -3658,200 +2803,18 @@ export function useAppLayoutController() {
     expandedProfile,
     expandedProfileTargetUserId,
     openGroupDmOnServer: openGroupDmOnServerImpl,
-    addMembersToGroupDmOnServer: async ({ channelId, memberUserIds }) => {
-      if (!authSession.isAuthenticated) {
-        dispatchAppToast('Sign in to add group members.', 'info');
-        throw new Error('not_authenticated');
-      }
-      const token = authSession.accessToken?.trim() ?? '';
-      try {
-        await postEchoAddGroupDmMembers(token, channelId, { memberUserIds });
-        const { threads } = await fetchEchoDmThreads(token);
-        mergeEchoDmThreadsFromApi(threads);
-      } catch (e) {
-        reportPrimaryFlowFailure('group_dm.add_members', e, {
-          channelId,
-          memberCount: memberUserIds.length,
-        });
-        dispatchAppToastDetail({
-          message: 'Could not add one or more members to the group.',
-          severity: 'warning',
-        });
-        throw e;
-      }
-    },
-    persistGroupDmSettings: async ({ channelId, name, pfp }) => {
-      if (!authSession.isAuthenticated) {
-        dispatchAppToast('Sign in to update group settings.', 'info');
-        throw new Error('not_authenticated');
-      }
-      const token = authSession.accessToken?.trim() ?? '';
-      try {
-        await patchEchoGroupDm(token, channelId, { name, pfp });
-        const { threads } = await fetchEchoDmThreads(token);
-        mergeEchoDmThreadsFromApi(threads);
-      } catch (e) {
-        reportPrimaryFlowFailure('group_dm.update_settings', e, {
-          channelId,
-        });
-        dispatchAppToastDetail({
-          message: 'Could not save group settings.',
-          severity: 'warning',
-        });
-        throw e;
-      }
-    },
-    beforeOpenGroupDmModal,
     isCompactShell,
+    workspace,
+    currentUser,
+    authSession,
+    serverStore,
+    mergeEchoDmThreadsFromApi,
+    openGuestUpgradeModal,
+    closePinsDropdown,
+    clearSearch,
   });
-
-  function handleSelectGroupDMWithGuestGuard(groupId: string) {
-    if (authSession.backendUser?.isGuest === true) {
-      openGuestUpgradeModal();
-      return;
-    }
-    groupDmActions.handleSelectGroupDM(groupId);
-  }
 
   selectGroupDmForIncomingRail.value = handleSelectGroupDMWithGuestGuard;
-
-  const groupSettingsMembers = computed(() => {
-    const groupId = activeGroupSettingsId.value?.trim();
-    const group = groupId ? groupDMs.value[groupId] : null;
-    if (!group) return [];
-    const usersById = new Map(workspace.users.value.map((u) => [u.id, u]));
-    return group.memberIds.map((id) => {
-      const u = usersById.get(id);
-      return {
-        id,
-        name: u?.name ?? peerDisplayNamePlaceholder(id),
-        pfp: u?.pfp ?? '',
-      };
-    });
-  });
-  const groupSettingsId = computed(() => activeGroupSettingsId.value ?? '');
-
-  function onOpenAddMembersToGroupDm() {
-    const groupId = activeGroupSettingsId.value?.trim();
-    const group = groupId ? groupDMs.value[groupId] : null;
-    if (!group) return;
-    const withoutSelf = group.memberIds.filter(
-      (id) => id !== currentUser.value?.id,
-    );
-    groupDmActions.openGroupDMModal({
-      targetGroupId: groupId,
-      preselectedIds: withoutSelf,
-      lockedIds: withoutSelf,
-    });
-  }
-
-  async function handleKickGroupDmMember(payload: {
-    groupId: string;
-    userId: string;
-  }) {
-    const gid = payload.groupId?.trim();
-    const uid = payload.userId?.trim();
-    if (!gid || !uid) return;
-    const self = currentUserIdForSocket.value?.trim();
-    if (self && uid === self) return;
-
-    if (echoSyncCapabilities.isMockDataMode) {
-      const g = groupDMs.value[gid];
-      if (!g) return;
-      groupDMs.value = {
-        ...groupDMs.value,
-        [gid]: {
-          ...g,
-          memberIds: g.memberIds.filter((id) => id !== uid),
-        },
-      };
-      return;
-    }
-
-    if (!authSession.isAuthenticated) return;
-
-    try {
-      await deleteEchoGroupDmMember(
-        authSession.accessToken?.trim() ?? '',
-        gid,
-        uid,
-      );
-      const { threads } = await fetchEchoDmThreads(
-        authSession.accessToken?.trim() ?? '',
-      );
-      mergeEchoDmThreadsFromApi(threads);
-    } catch (e) {
-      reportPrimaryFlowFailure('group_dm.kick_member', e, {
-        groupId: gid,
-        userId: uid,
-      });
-      dispatchAppToastDetail({
-        message: 'Could not remove member from the group.',
-        severity: 'warning',
-      });
-    }
-  }
-
-  async function handleLeaveGroupDm(payload: { groupId: string }) {
-    const gid = payload.groupId?.trim();
-    if (!gid) return;
-    const self = currentUserIdForSocket.value?.trim();
-
-    if (echoSyncCapabilities.isMockDataMode) {
-      const g = groupDMs.value[gid];
-      if (g && self) {
-        const nextMemberIds = g.memberIds.filter((id) => id !== self);
-        if (nextMemberIds.length === 0) {
-          const next = { ...groupDMs.value };
-          delete next[gid];
-          groupDMs.value = next;
-        } else {
-          groupDMs.value = {
-            ...groupDMs.value,
-            [gid]: { ...g, memberIds: nextMemberIds },
-          };
-        }
-      }
-      isGroupDMSettingsOpen.value = false;
-      groupDmSettingsInitialFocus.value = null;
-      activeGroupSettingsId.value = null;
-      isGroupOverviewOpen.value = false;
-      if (activeChannelId.value === gid) {
-        activeChannelId.value = 'general';
-        selectedDMUserId.value = null;
-        serverStore.selectServer('echo');
-      }
-      return;
-    }
-
-    if (!authSession.isAuthenticated || !self) {
-      dispatchAppToast('Sign in to manage group DMs.', 'info');
-      return;
-    }
-
-    try {
-      await postEchoLeaveGroupDm(authSession.accessToken?.trim() ?? '', gid);
-      const { threads } = await fetchEchoDmThreads(
-        authSession.accessToken?.trim() ?? '',
-      );
-      mergeEchoDmThreadsFromApi(threads);
-      isGroupDMSettingsOpen.value = false;
-      groupDmSettingsInitialFocus.value = null;
-      activeGroupSettingsId.value = null;
-      isGroupOverviewOpen.value = false;
-      if (activeChannelId.value === gid) {
-        activeChannelId.value = 'general';
-        selectedDMUserId.value = null;
-        serverStore.selectServer('echo');
-      }
-    } catch (e) {
-      reportPrimaryFlowFailure('group_dm.leave', e, { groupId: gid });
-      dispatchAppToastDetail({
-        message: 'Could not leave the group.',
-        severity: 'warning',
-      });
-    }
-  }
 
   navigateToDmForAnswerRef.value = (targetId: string) => {
     const tid = targetId.trim();

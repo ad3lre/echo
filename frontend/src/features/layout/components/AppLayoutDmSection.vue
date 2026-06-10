@@ -264,6 +264,8 @@ const props = defineProps<{
   activeDmThreadCallUi?: ActiveDmThreadCallUi | null;
   /** Taller global shell header inset (px) for message list padding (e.g. DM quarter-call chrome). */
   headerOverlayInsetPx?: number;
+  /** Phone-class presence for DM history intro status dot. */
+  presenceMobileByUserId?: Record<string, true>;
   /** Opens user Settings focused on Voice & Video. */
   onOpenVoiceAudioSettings?: () => void;
 }>();
@@ -294,16 +296,13 @@ const dmHistoryIntro = computed(() => {
 
   if (props.isGroupDm) {
     const title = props.activeGroupDm?.name?.trim() || 'Group conversation';
-    const subtitle = 'Beginning of your group DM history.';
+    const subtitle =
+      'This is the beginning of your group chat history with this group.';
     return {
       title,
       subtitle,
-      helloNudge: 'Say hello below — your first message starts the thread.',
       avatarUrl: props.activeGroupDm?.pfp || icons.usersAvatar,
-      statusNugget:
-        props.activeGroupCallMembers.length > 0
-          ? `${props.activeGroupCallMembers.length} in call`
-          : undefined,
+      hidePresence: true,
       mutualCommunitiesCount: undefined,
       primaryActionLabel: undefined,
       onPrimaryAction: undefined,
@@ -325,28 +324,26 @@ const dmHistoryIntro = computed(() => {
   let primaryActionLabel: string | undefined;
   let onPrimaryAction: (() => void | Promise<void>) | undefined;
   if (!isFriend && incoming) {
-    primaryActionLabel = 'Accept friend request';
+    primaryActionLabel = 'Accept Friend Request';
     onPrimaryAction = () => props.acceptFriendRequest(incoming.id);
   } else if (!isFriend && outgoing) {
-    primaryActionLabel = 'Cancel friend request';
+    primaryActionLabel = 'Cancel Friend Request';
     onPrimaryAction = () => props.cancelFriendRequest(outgoing.id);
   } else if (!isFriend) {
-    primaryActionLabel = 'Send friend request';
+    primaryActionLabel = 'Send Friend Request';
     onPrimaryAction = () => props.sendFriendRequest(partnerId);
   }
 
-  const statusNugget =
-    partnerRich?.customStatus?.trim() ||
-    partner.status?.trim() ||
-    partnerRich?.status?.trim() ||
-    undefined;
+  const displayName = partner.name.trim() || 'this user';
 
   return {
-    title: partner.name,
-    subtitle: 'Beginning of your direct message history.',
-    helloNudge: 'Say hello below — your first message starts the thread.',
+    title: displayName,
+    subtitle: `This is the beginning of your direct message history with ${displayName}.`,
     avatarUrl: partner.pfp,
-    statusNugget,
+    presenceStatus:
+      partnerRich?.status?.trim() || partner.status?.trim() || 'offline',
+    presenceMobileSurface: !!props.presenceMobileByUserId?.[partnerId],
+    hidePresence: false,
     mutualCommunitiesCount: undefined,
     primaryActionLabel,
     onPrimaryAction,

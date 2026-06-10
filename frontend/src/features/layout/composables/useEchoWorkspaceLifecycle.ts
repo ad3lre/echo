@@ -7,6 +7,14 @@ import type { EchoDmThreadFromApi } from '@/api/echoClient';
 import { type RailTab } from '@/features/layout/mainSurface';
 import { createEchoWorkspaceLifecycleController } from '@/services/orchestration/echoWorkspaceLifecycleOrchestration';
 import { isEchoGraphId } from '@/utils/echoIds';
+import { isSuspiciousEmptyWorkspace } from '@/services/domain/workspaceShellSelection';
+import {
+  clearSuspiciousEmptyRecoveryLatch,
+  isSuspiciousEmptyRecoveryExhausted,
+  noteSuspiciousEmptyRecoveryAttempt,
+} from '@/services/domain/workspaceEmptyRecoveryLatch';
+import { readWorkspaceEmptyRecoveryHints } from '@/utils/workspaceEmptyRecoveryHints';
+import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 
 export function useEchoWorkspaceLifecycle(deps: {
   serverStore: ReturnType<typeof useServerStore>;
@@ -72,6 +80,63 @@ export function useEchoWorkspaceLifecycle(deps: {
       if (!id || id === 'echo' || !isEchoGraphId(id)) return;
       void vm.hydrateEchoFromApi();
     },
+  );
+
+  let suspiciousEmptyRecoveryInFlight = false;
+  let lastSuspiciousEmptyRecoveryAtMs = 0;
+  const SUSPICIOUS_EMPTY_RECOVERY_COOLDOWN_MS = 4_000;
+
+  watch(
+    () =>
+      [
+        deps.workspace.servers.value.length,
+        deps.workspace.fromApi.value,
+        deps.workspace.loading.value,
+        deps.authSession.isAuthenticated,
+        deps.authSession.backendUser?.isGuest,
+        deps.authSession.backendUser?.id,
+      ] as const,
+    ([serverCount, fromApi, loading]) => {
+      if (serverCount > 0) {
+        clearSuspiciousEmptyRecoveryLatch();
+        return;
+      }
+      const suspicious = isSuspiciousEmptyWorkspace({
+        serverCount,
+        workspaceFromApi: fromApi,
+        isAuthenticated: deps.authSession.isAuthenticated,
+        isGuest: deps.authSession.backendUser?.isGuest === true,
+        recoveryExhausted: isSuspiciousEmptyRecoveryExhausted(),
+        hints: readWorkspaceEmptyRecoveryHints(),
+      });
+      if (!suspicious || loading) return;
+      const now = Date.now();
+      if (
+        suspiciousEmptyRecoveryInFlight ||
+        now - lastSuspiciousEmptyRecoveryAtMs <
+          SUSPICIOUS_EMPTY_RECOVERY_COOLDOWN_MS
+      ) {
+        return;
+      }
+      noteSuspiciousEmptyRecoveryAttempt();
+      lastSuspiciousEmptyRecoveryAtMs = now;
+      if (isSuspiciousEmptyRecoveryExhausted()) {
+        reportPrimaryFlowFailure(
+          'suspiciousEmptyWorkspace.recoveryExhausted',
+          new Error(
+            'Workspace snapshot empty but client persistence indicates joined guilds',
+          ),
+          { uid: deps.authSession.backendUser?.id },
+          { showBanner: false },
+        );
+        return;
+      }
+      suspiciousEmptyRecoveryInFlight = true;
+      void vm.hydrateEchoFromApi().finally(() => {
+        suspiciousEmptyRecoveryInFlight = false;
+      });
+    },
+    { immediate: true },
   );
 
   return {

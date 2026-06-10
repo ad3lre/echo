@@ -9,6 +9,7 @@ frontend/coverage
 
 # Machine-local / export artifacts (see docs/operations/ops/REPO_ARTIFACTS_POLICY.md)
 bot/exports
+scripts/downtime-stats.json
 console-log.json
 _console-tail.json
 frontend/lint-warnings.json

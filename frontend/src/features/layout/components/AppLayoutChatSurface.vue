@@ -843,6 +843,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
           :dm-call-matches-active-channel="chatCtx.dmCallMatchesActiveChannel"
           :active-dm-thread-call-ui="chatCtx.activeDmThreadCallUi"
           :header-overlay-inset-px="shellHeaderOverlayInsetPx"
+          :presence-mobile-by-user-id="chatCtx.presenceMobileByUserId"
           :on-open-voice-audio-settings="
             chatCtx.onChannelOpenVoiceAudioSettings
           "

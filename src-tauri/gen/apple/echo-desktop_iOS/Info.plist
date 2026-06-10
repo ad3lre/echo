@@ -45,13 +45,8 @@
 	<string>Echo uses the camera for video chat and sharing images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Echo needs access to your photo library to attach images and media to messages.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Echo uses the local network to reach your development machine when testing on a device.</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Echo saves images and media you download from messages to your photo library.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
@@ -63,6 +58,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>remote-notification</string>
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>

@@ -201,6 +201,7 @@ public func echo_ios_boot(_ apiBase: UnsafePointer<CChar>?) {
     let base = apiBase.map { String(cString: $0) } ?? ""
     EchoNativeAuthOverlay.apiBaseValue = base
     EchoNativeAuthBridge.shared.configure(apiBase: base)
+    EchoPushDelegateProxy.install()
     EchoNativeAuthOverlay.performBootCheck()
 }
 

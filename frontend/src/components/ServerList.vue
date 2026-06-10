@@ -329,7 +329,7 @@ function openSelfProfile(event: MouseEvent) {
     :class="
       props.layout === 'horizontal'
         ? 'relative flex h-full min-h-[60px] w-full min-w-0 flex-row items-stretch overflow-x-hidden overflow-y-visible'
-        : 'relative flex h-full min-h-0 w-full flex-col'
+        : 'relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden'
     "
   >
     <!-- Top Section -->

@@ -180,12 +180,12 @@ const props = defineProps<{
     title: string;
     subtitle: string;
     avatarUrl?: string;
-    statusNugget?: string;
+    presenceStatus?: string;
+    presenceMobileSurface?: boolean;
+    hidePresence?: boolean;
     mutualCommunitiesCount?: number;
     primaryActionLabel?: string;
     onPrimaryAction?: () => void | Promise<void>;
-    /** Short line below the subtitle (e.g. nudge to use the composer). */
-    helloNudge?: string;
   } | null;
 }>();
 
@@ -780,7 +780,7 @@ if (import.meta.env.DEV) {
 
 /**
  * Channel header is `absolute` over the list (`h-12` = 3rem); top padding must clear it.
- * `44px` keeps content just below the glass header; `compactTop` skips this for voice side chat.
+ * `48px` keeps content below the glass header; `compactTop` skips this for voice side chat.
  * When messages are shown, add MESSAGE_LIST_ACTION_BAR_GUTTER_PX so hover action bars are not clipped.
  * When totally empty (no skeleton), match bottom padding for vertical centering.
  */
@@ -793,7 +793,10 @@ const scrollContainerPaddingTopPx = computed(() => {
   ) {
     return props.headerOverlayInsetPx + gutter;
   }
-  const base = props.compactTop ? 12 : props.hasChannel ? 44 : 16;
+  let base = props.compactTop ? 12 : props.hasChannel ? 48 : 16;
+  if (showDmHistoryIntro.value && coarsePointer.value) {
+    base = Math.max(base, 52);
+  }
   return base + gutter;
 });
 
@@ -2715,9 +2718,10 @@ defineExpose({
           class="mb-3"
           :title="props.dmHistoryIntro.title"
           :subtitle="props.dmHistoryIntro.subtitle"
-          :hello-nudge="props.dmHistoryIntro.helloNudge"
           :avatar-url="props.dmHistoryIntro.avatarUrl"
-          :status-nugget="props.dmHistoryIntro.statusNugget"
+          :presence-status="props.dmHistoryIntro.presenceStatus"
+          :presence-mobile-surface="props.dmHistoryIntro.presenceMobileSurface"
+          :hide-presence="props.dmHistoryIntro.hidePresence"
           :mutual-communities-count="
             props.dmHistoryIntro.mutualCommunitiesCount
           "

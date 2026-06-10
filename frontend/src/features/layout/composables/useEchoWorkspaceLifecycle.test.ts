@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { reactive, ref } from 'vue';
+import { markPriorRegistered } from '@/utils/priorRegistration';
+import { resetSuspiciousEmptyRecoveryLatchForTests } from '@/services/domain/workspaceEmptyRecoveryLatch';
 import type * as EchoClientApi from '@/api/echoClient';
 import { useEchoWorkspaceLifecycle } from './useEchoWorkspaceLifecycle';
 import {
@@ -47,12 +49,20 @@ function flushMicrotasks(): Promise<void> {
 
 describe('useEchoWorkspaceLifecycle', () => {
   beforeEach(() => {
+    resetSuspiciousEmptyRecoveryLatchForTests();
     vi.mocked(fetchEchoWorkspaceState).mockReset();
     vi.mocked(fetchEchoFriends).mockReset();
     vi.mocked(fetchEchoFriendRequests).mockReset();
     vi.mocked(fetchEchoDmMessageRequests).mockReset();
     vi.mocked(fetchEchoDmThreads).mockReset();
     vi.mocked(fetchEchoBlockedUsers).mockReset();
+  });
+
+  afterEach(() => {
+    resetSuspiciousEmptyRecoveryLatchForTests();
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('echo_prior_registered_v1');
+    }
   });
 
   function makeLifecycleHarness() {
@@ -80,6 +90,8 @@ describe('useEchoWorkspaceLifecycle', () => {
       servers: ref([]),
       categoriesByServer: ref({}),
       serverMemberNicknames: ref<Record<string, Record<string, string>>>({}),
+      fromApi: ref(true),
+      loading: ref(false),
       consumeSkipEchoWorkspaceHydrate: () => false,
     } as any;
 
@@ -167,5 +179,21 @@ describe('useEchoWorkspaceLifecycle', () => {
       workspaceVersion: '2',
     });
     await flushMicrotasks();
+  });
+
+  it('re-hydrates when workspace is empty but persistence says the member had guilds', async () => {
+    markPriorRegistered();
+    vi.mocked(fetchEchoWorkspaceState).mockResolvedValue({
+      servers: [],
+      categoriesByServer: {},
+      membersByServer: {},
+      serverMemberIds: {},
+      workspaceVersion: '1',
+    } as any);
+
+    makeLifecycleHarness();
+    await flushMicrotasks();
+
+    expect(fetchEchoWorkspaceState).toHaveBeenCalled();
   });
 });

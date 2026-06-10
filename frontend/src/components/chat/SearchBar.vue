@@ -22,7 +22,13 @@ import { safeImageUrl } from '@/utils/safeImageUrl';
 import {
   detectActiveSearchInlineFilter,
   removeInlineFilterToken,
+  parseSearchInputSegments,
+  inlineFilterModeToChipKey,
+  filterTagValueLabel,
+  isFilterSegmentActive,
   type ActiveSearchInlineFilter,
+  type SearchInputFilterSegment,
+  type SearchInputTextSegment,
 } from './searchInlineFilterInput';
 
 const props = withDefaults(
@@ -61,9 +67,12 @@ const props = withDefaults(
      * (e.g. `.members-column` for full-width member panel search).
      */
     dropdownPanelSelector?: string;
+    /** Full-width mobile search modal layout (taller touch input). */
+    mobilePanelLayout?: boolean;
   }>(),
   {
     dmMode: false,
+    mobilePanelLayout: false,
     reservedRightPx: undefined,
     dropdownGapPx: undefined,
     dropdownHorizontalPadPx: undefined,
@@ -86,6 +95,7 @@ const emit = defineEmits<{
 }>();
 
 const inputRef = ref<HTMLInputElement | null>(null);
+const filterValueInputRef = ref<HTMLInputElement | null>(null);
 const containerRef = ref<HTMLDivElement | null>(null);
 const dropdownRef = ref<HTMLDivElement | null>(null);
 const isDropdownOpen = ref(false);
@@ -204,10 +214,192 @@ function syncCaretFromInput(target?: HTMLInputElement | null) {
   caretIndex.value = el.selectionStart ?? el.value.length;
 }
 
+function syncFilterValueCaret(
+  segment: SearchInputFilterSegment,
+  target?: HTMLInputElement | null,
+) {
+  const el = target ?? filterValueInputRef.value;
+  const valueLen = el?.selectionStart ?? segment.value.length;
+  caretIndex.value = segment.start + `${segment.mode}:`.length + valueLen;
+}
+
+const parsedInputSegments = computed(() =>
+  parseSearchInputSegments(inputValue.value),
+);
+
+const inlineFilterKeysInText = computed(() => {
+  const keys = new Set<FilterKey>();
+  for (const segment of parsedInputSegments.value) {
+    if (segment.type === 'filter') {
+      keys.add(inlineFilterModeToChipKey(segment.mode));
+    }
+  }
+  return keys;
+});
+
+const pickerOnlyFilterChips = computed(() =>
+  props.filterChips.filter(
+    (chip) => !inlineFilterKeysInText.value.has(chip.key),
+  ),
+);
+
+const lastTextSegmentIndex = computed(() => {
+  for (let i = parsedInputSegments.value.length - 1; i >= 0; i -= 1) {
+    if (parsedInputSegments.value[i]?.type === 'text') return i;
+  }
+  return -1;
+});
+
+const needsTrailingTextInput = computed(() => {
+  const segments = parsedInputSegments.value;
+  return (
+    segments.length > 0 && segments[segments.length - 1]?.type === 'filter'
+  );
+});
+
+const showSearchPlaceholder = computed(
+  () =>
+    pickerOnlyFilterChips.value.length === 0 &&
+    parsedInputSegments.value.length === 0,
+);
+
+function chipDisplayParts(chip: FilterChip): { key: string; value: string } {
+  const colonIndex = chip.label.indexOf(':');
+  if (colonIndex === -1) {
+    return { key: chip.label, value: chip.value };
+  }
+  return {
+    key: `${chip.label.slice(0, colonIndex + 1)}`,
+    value: chip.label.slice(colonIndex + 1).trim(),
+  };
+}
+
+function bindTextInputRef(el: unknown, segmentIndex: number) {
+  if (segmentIndex === lastTextSegmentIndex.value) {
+    inputRef.value = el as HTMLInputElement | null;
+  }
+}
+
+function bindTrailingTextInputRef(el: unknown) {
+  if (needsTrailingTextInput.value) {
+    inputRef.value = el as HTMLInputElement | null;
+  }
+}
+
+function textSegmentWidthCh(value: string): string {
+  return `${Math.max(1, value.length || 1)}ch`;
+}
+
+function updateTextSegment(segment: SearchInputTextSegment, nextValue: string) {
+  inputValue.value =
+    inputValue.value.slice(0, segment.start) +
+    nextValue +
+    inputValue.value.slice(segment.end);
+}
+
+function onTextSegmentInput(segment: SearchInputTextSegment, event: Event) {
+  const el = event.target as HTMLInputElement;
+  syncCaretFromInput(el);
+  updateTextSegment(segment, el.value);
+}
+
+function onFilterValueInput(segment: SearchInputFilterSegment, event: Event) {
+  const el = event.target as HTMLInputElement;
+  const nextToken = `${segment.mode}:${el.value}`;
+  inputValue.value =
+    inputValue.value.slice(0, segment.start) +
+    nextToken +
+    inputValue.value.slice(segment.end);
+  syncFilterValueCaret(
+    {
+      ...segment,
+      value: el.value,
+      end: segment.start + nextToken.length,
+    },
+    el,
+  );
+}
+
+function onFilterValueFocus(segment: SearchInputFilterSegment) {
+  syncFilterValueCaret(segment);
+}
+
+function removeEmbeddedFilter(segment: SearchInputFilterSegment) {
+  inputValue.value = removeInlineFilterToken(inputValue.value, segment);
+  emit('removeFilter', inlineFilterModeToChipKey(segment.mode));
+  nextTick(() => focusPrimaryTextInput());
+}
+
+function removePickerFilterChip(key: FilterKey) {
+  emit('removeFilter', key);
+  nextTick(() => focusPrimaryTextInput());
+}
+
+function onTextSegmentKeydown(event: KeyboardEvent, segmentIndex: number) {
+  onKeydown(event);
+  if (event.defaultPrevented) return;
+
+  if (event.key !== 'Backspace') return;
+  const el = event.target as HTMLInputElement;
+  if (el.selectionStart !== 0 || el.selectionEnd !== 0) return;
+
+  const previous = parsedInputSegments.value[segmentIndex - 1];
+  if (previous?.type !== 'filter') return;
+
+  event.preventDefault();
+  removeEmbeddedFilter(previous);
+}
+
+function onFilterValueKeydown(
+  event: KeyboardEvent,
+  segment: SearchInputFilterSegment,
+) {
+  onKeydown(event);
+  if (event.defaultPrevented) return;
+
+  if (event.key !== 'Backspace') return;
+  const el = event.target as HTMLInputElement;
+  if (el.value.length > 0) return;
+
+  event.preventDefault();
+  removeEmbeddedFilter(segment);
+}
+
+function focusPrimaryTextInput(selectAll = false) {
+  inputRef.value?.focus();
+  isDropdownOpen.value = true;
+  if (selectAll && inputRef.value) {
+    inputRef.value.select();
+  }
+  syncCaretFromInput();
+}
+
+function focusActiveFilterValueInput() {
+  filterValueInputRef.value?.focus();
+  filterValueInputRef.value?.select();
+}
+
+function editFilterSegment(segment: SearchInputFilterSegment) {
+  caretIndex.value = segment.end;
+  nextTick(() => focusActiveFilterValueInput());
+}
+
 function onInput(event: Event) {
   const el = event.target as HTMLInputElement;
   syncCaretFromInput(el);
   inputValue.value = el.value;
+}
+
+function onTrailingTextInput(event: Event) {
+  const el = event.target as HTMLInputElement;
+  const addition = el.value;
+  if (!addition) return;
+  const base = inputValue.value;
+  inputValue.value =
+    base.length > 0 && !/\s$/.test(base)
+      ? `${base} ${addition}`
+      : `${base}${addition}`;
+  syncCaretFromInput(el);
 }
 
 watch([inputValue, caretIndex], ([val]) => {
@@ -230,6 +422,18 @@ watch([inputValue, caretIndex], ([val]) => {
 });
 watch(inputValue, (val) => {
   scheduleRecentSearchPersist(val);
+});
+
+watch(activeInlineFilter, (active, previous) => {
+  if (!active) return;
+  if (
+    previous &&
+    previous.start === active.start &&
+    previous.end === active.end
+  ) {
+    return;
+  }
+  nextTick(() => focusActiveFilterValueInput());
 });
 
 const dropdownOptions = computed(() => {
@@ -272,11 +476,30 @@ const hasTypeOptions = computed(() =>
 );
 
 function openFilterPicker(mode: 'in' | 'from' | 'mentions' | 'has') {
-  activeInlineFilter.value = null;
-  dropdownMode.value = mode;
-  filterPrefix.value = '';
+  if (props.dmMode && (mode === 'in' || mode === 'from')) return;
+
+  const cur = inputValue.value;
+  const needsSpace = cur.length > 0 && !/\s$/.test(cur);
+  inputValue.value = `${cur}${needsSpace ? ' ' : ''}${mode}:`;
+  caretIndex.value = inputValue.value.length;
+
+  const detected = detectActiveSearchInlineFilter(
+    inputValue.value,
+    caretIndex.value,
+  );
+  activeInlineFilter.value = detected;
+  dropdownMode.value = detected?.mode ?? mode;
+  filterPrefix.value = detected?.prefix ?? '';
   highlightedIndex.value = 0;
   isDropdownOpen.value = true;
+
+  nextTick(() => {
+    if (detected) {
+      focusActiveFilterValueInput();
+    } else {
+      focusPrimaryTextInput();
+    }
+  });
 }
 
 function selectOption(
@@ -298,8 +521,7 @@ function selectOption(
     }
     activeInlineFilter.value = null;
     dropdownMode.value = null;
-    inputRef.value?.focus();
-    syncCaretFromInput();
+    nextTick(() => focusPrimaryTextInput());
   }
 }
 
@@ -320,25 +542,26 @@ function onInputFocus() {
   isDropdownOpen.value = true;
 }
 
+function onCompositeShellFocusIn(event: FocusEvent) {
+  if ((event.target as HTMLElement).closest('.search-filter-tag__remove'))
+    return;
+  onInputFocus();
+}
+
 function applyRecentSearch(term: string) {
   inputValue.value = term;
   isDropdownOpen.value = true;
   nextTick(() => {
+    focusPrimaryTextInput();
     if (!inputRef.value) return;
     const len = inputRef.value.value.length;
-    inputRef.value.focus();
     inputRef.value.setSelectionRange(len, len);
     syncCaretFromInput(inputRef.value);
   });
 }
 
 function focusSearchInput(selectAll = false) {
-  inputRef.value?.focus();
-  isDropdownOpen.value = true;
-  if (selectAll && inputRef.value) {
-    inputRef.value.select();
-  }
-  syncCaretFromInput();
+  focusPrimaryTextInput(selectAll);
 }
 
 function closeDropdown() {
@@ -429,6 +652,53 @@ const searchResultsByChannel = computed(() => {
   }
   return groups;
 });
+
+const isEditingPage = ref(false);
+const pageInputValue = ref('');
+const pageInputRef = ref<HTMLInputElement | null>(null);
+
+const displayedPage = computed(() => (props.currentPage ?? 0) + 1);
+const maxPages = computed(() => props.totalPages ?? 1);
+
+function startEditingPage() {
+  pageInputValue.value = String(displayedPage.value);
+  isEditingPage.value = true;
+  nextTick(() => {
+    pageInputRef.value?.focus();
+    pageInputRef.value?.select();
+  });
+}
+
+function cancelPageInput() {
+  isEditingPage.value = false;
+}
+
+function commitPageInput() {
+  isEditingPage.value = false;
+  const parsed = Number.parseInt(pageInputValue.value.trim(), 10);
+  if (Number.isNaN(parsed)) return;
+  const clamped = Math.max(1, Math.min(parsed, maxPages.value));
+  emit('goToPage', clamped - 1);
+}
+
+function onPageInputKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    commitPageInput();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    cancelPageInput();
+  }
+}
+
+watch(
+  () => [props.currentPage, props.totalPages] as const,
+  () => {
+    isEditingPage.value = false;
+  },
+);
 
 const dropdownPosition = ref({ top: 0, left: 0, width: '', height: '' });
 const dropdownStyle = computed(() => ({
@@ -542,11 +812,6 @@ onBeforeUnmount(() => {
   caret-color: var(--text);
 }
 
-/* Square panel — override global .chat-liquid-glass-menu radius */
-.search-filter-dropdown {
-  border-radius: 0;
-}
-
 .search-filter-dropdown-inner {
   position: relative;
   z-index: 1;
@@ -556,6 +821,77 @@ onBeforeUnmount(() => {
 .search-filter-option:hover {
   background-color: var(--vue-auto-001);
 }
+
+.search-page-input {
+  caret-color: var(--text);
+}
+
+.search-composite-input {
+  border-radius: 0.375rem;
+}
+
+.search-text-segment {
+  caret-color: var(--text);
+  field-sizing: content;
+}
+
+.search-filter-tag {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.125rem;
+  border-radius: 0.375rem;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--glass-3) 88%, var(--elevated));
+  padding: 0.125rem 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+.search-filter-tag--active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.search-filter-tag__key {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.search-filter-tag__value,
+.search-filter-tag__value-input {
+  min-width: 0;
+  color: var(--foreground);
+}
+
+.search-filter-tag__value-input {
+  width: auto;
+  min-width: 1.5ch;
+  max-width: 12rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  outline: none;
+  caret-color: var(--text);
+  font: inherit;
+}
+
+.search-filter-tag__remove {
+  flex-shrink: 0;
+  margin-left: 0.125rem;
+  border-radius: 0.25rem;
+  padding: 0 0.125rem;
+  color: var(--muted);
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.search-filter-tag__remove:hover {
+  color: var(--foreground);
+  background: var(--glass-hover);
+}
 </style>
 
 <template>
@@ -563,9 +899,147 @@ onBeforeUnmount(() => {
     ref="containerRef"
     class="search-bar relative flex h-full w-full min-w-0"
   >
-    <!-- Input row - compact, no chips above -->
-    <div class="relative flex h-full flex-1 items-center gap-2 px-3 py-1.5">
+    <!-- Composite input: embedded filter tags + free-text segments -->
+    <div
+      class="search-composite-input relative flex h-full flex-1 flex-wrap items-center gap-x-0.5 gap-y-1 px-3 py-1.5 min-w-0"
+      :class="mobilePanelLayout ? 'min-h-[2.75rem]' : ''"
+      @focusin="onCompositeShellFocusIn"
+    >
+      <span
+        v-for="chip in pickerOnlyFilterChips"
+        :key="`picker-chip-${chip.key}-${chip.value}`"
+        class="search-filter-tag max-w-full"
+      >
+        <span class="search-filter-tag__key">{{
+          chipDisplayParts(chip).key
+        }}</span>
+        <span class="search-filter-tag__value truncate">{{
+          chipDisplayParts(chip).value
+        }}</span>
+        <button
+          type="button"
+          class="search-filter-tag__remove"
+          :aria-label="`Remove ${chip.label}`"
+          @click.stop="removePickerFilterChip(chip.key)"
+        >
+          ×
+        </button>
+      </span>
+
+      <template
+        v-for="(segment, segmentIndex) in parsedInputSegments"
+        :key="`${segment.type}-${segment.start}-${segment.end}`"
+      >
+        <input
+          v-if="segment.type === 'text'"
+          :ref="(el) => bindTextInputRef(el, segmentIndex)"
+          :value="segment.value"
+          type="text"
+          name="echo-message-search-native"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-lpignore="true"
+          :placeholder="
+            showSearchPlaceholder &&
+            segmentIndex === parsedInputSegments.length - 1
+              ? placeholder || 'Search'
+              : undefined
+          "
+          class="search-text-segment search-bar-input min-w-0 bg-transparent text-foreground placeholder:text-muted outline-none"
+          :class="[
+            mobilePanelLayout ? 'text-base' : 'text-sm',
+            segmentIndex === parsedInputSegments.length - 1
+              ? 'flex-1 min-w-[3rem]'
+              : 'flex-none',
+          ]"
+          :style="
+            segmentIndex === parsedInputSegments.length - 1
+              ? undefined
+              : { width: textSegmentWidthCh(segment.value) }
+          "
+          @input="onTextSegmentInput(segment, $event)"
+          @focus="onInputFocus"
+          @click="syncCaretFromInput()"
+          @keydown="onTextSegmentKeydown($event, segmentIndex)"
+          @keyup="syncCaretFromInput()"
+          @select="syncCaretFromInput()"
+        />
+
+        <span
+          v-else
+          class="search-filter-tag max-w-full"
+          :class="{
+            'search-filter-tag--active': isFilterSegmentActive(
+              segment,
+              activeInlineFilter,
+            ),
+          }"
+        >
+          <span class="search-filter-tag__key">{{ segment.mode }}:</span>
+          <input
+            v-if="isFilterSegmentActive(segment, activeInlineFilter)"
+            ref="filterValueInputRef"
+            :value="segment.value"
+            type="text"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            data-lpignore="true"
+            class="search-filter-tag__value-input"
+            :aria-label="`${segment.mode} filter value`"
+            :placeholder="segment.mode === 'has' ? 'type…' : 'search…'"
+            @input="onFilterValueInput(segment, $event)"
+            @focus="onFilterValueFocus(segment)"
+            @keydown="onFilterValueKeydown($event, segment)"
+            @keyup="syncFilterValueCaret(segment)"
+            @click.stop
+          />
+          <span
+            v-else
+            class="search-filter-tag__value truncate cursor-text"
+            :title="filterTagValueLabel(segment.mode, segment.value)"
+            @click.stop="editFilterSegment(segment)"
+          >
+            {{ filterTagValueLabel(segment.mode, segment.value) || '…' }}
+          </span>
+          <button
+            type="button"
+            class="search-filter-tag__remove"
+            :aria-label="`Remove ${segment.mode} filter`"
+            @click.stop="removeEmbeddedFilter(segment)"
+          >
+            ×
+          </button>
+        </span>
+      </template>
+
       <input
+        v-if="needsTrailingTextInput"
+        :ref="bindTrailingTextInputRef"
+        value=""
+        type="text"
+        name="echo-message-search-native-tail"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        data-lpignore="true"
+        :placeholder="placeholder || 'Search'"
+        class="search-text-segment search-bar-input flex-1 min-w-[3rem] bg-transparent text-foreground placeholder:text-muted outline-none"
+        :class="mobilePanelLayout ? 'text-base' : 'text-sm'"
+        @input="onTrailingTextInput"
+        @focus="onInputFocus"
+        @click="syncCaretFromInput()"
+        @keydown="onKeydown"
+        @keyup="syncCaretFromInput()"
+        @select="syncCaretFromInput()"
+      />
+
+      <input
+        v-if="showSearchPlaceholder"
         ref="inputRef"
         :value="inputValue"
         type="text"
@@ -576,7 +1050,8 @@ onBeforeUnmount(() => {
         spellcheck="false"
         data-lpignore="true"
         :placeholder="placeholder || 'Search'"
-        class="search-bar-input flex-1 min-w-0 bg-transparent text-sm text-foreground placeholder:text-muted outline-none"
+        class="search-text-segment search-bar-input flex-1 min-w-[3rem] bg-transparent text-foreground placeholder:text-muted outline-none"
+        :class="mobilePanelLayout ? 'text-base' : 'text-sm'"
         @input="onInput"
         @focus="onInputFocus"
         @click="syncCaretFromInput()"
@@ -584,11 +1059,12 @@ onBeforeUnmount(() => {
         @keyup="syncCaretFromInput()"
         @select="syncCaretFromInput()"
       />
+
       <button
         v-if="isSearchActive || isDropdownOpen"
         type="button"
         aria-label="Close search"
-        class="flex-shrink-0 p-0.5 rounded hover:bg-glass-hover transition-colors text-muted hover:text-foreground"
+        class="ml-auto flex-shrink-0 rounded p-0.5 text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
         @click="closeSearch"
       >
         ×
@@ -597,7 +1073,7 @@ onBeforeUnmount(() => {
         v-else
         :src="icons.search"
         alt=""
-        class="h-4 w-4 flex-shrink-0 filter invert opacity-40"
+        class="ml-auto h-4 w-4 flex-shrink-0 filter invert opacity-40"
       />
     </div>
 
@@ -606,7 +1082,7 @@ onBeforeUnmount(() => {
       <div
         v-show="isDropdownOpen"
         ref="dropdownRef"
-        class="search-filter-dropdown chat-liquid-glass-menu fixed z-[100] flex min-w-[280px] flex-col overflow-hidden"
+        class="search-filter-dropdown fixed flex min-w-[280px] flex-col overflow-hidden"
         :style="dropdownStyle"
       >
         <div
@@ -616,23 +1092,6 @@ onBeforeUnmount(() => {
             class="search-filter-dropdown-scroll flex min-h-0 flex-1 flex-col overflow-y-auto py-1.5 custom-scrollbar"
             v-scrollbar-on-scroll
           >
-            <!-- Applied filters as bubbles -->
-            <div
-              v-if="filterChips.length > 0"
-              class="flex flex-wrap items-center gap-1.5 px-3 pb-1.5 mb-1.5 shrink-0"
-            >
-              <button
-                v-for="chip in filterChips"
-                :key="`${chip.key}-${chip.value}`"
-                type="button"
-                class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-glass-3 text-foreground hover:bg-glass-active transition-colors"
-                @click="emit('removeFilter', chip.key)"
-              >
-                <span>{{ chip.label }}</span>
-                <span class="opacity-70 hover:opacity-100">×</span>
-              </button>
-            </div>
-
             <!-- Search results: messages list (compact side panel) -->
             <template v-if="showSearchResults">
               <div class="px-4 py-1.5 text-xs text-muted">
@@ -657,30 +1116,45 @@ onBeforeUnmount(() => {
               >
                 {{ searchError }}
               </div>
-              <template
-                v-for="group in searchResultsByChannel"
-                :key="group.channelName"
-              >
-                <div
-                  class="px-4 py-1.5 mt-2 first:mt-0 text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-2"
-                >
-                  <img
-                    :src="
-                      getChannelIcon({ name: group.channelName, type: 'text' })
-                    "
-                    alt=""
-                    class="h-3.5 w-3.5 filter invert opacity-60"
-                  />
-                  <span>{{ getChannelDisplayName(group.channelName) }}</span>
-                </div>
+              <template v-if="dmMode">
                 <SearchMessageRow
-                  v-for="(msg, idx) in group.messages"
-                  :key="msg.id ?? `sr-${group.channelName}-${idx}`"
+                  v-for="(msg, idx) in searchResults ?? []"
+                  :key="msg.id ?? `sr-dm-${idx}`"
                   :message="msg"
                   @go-to-message="
                     (chId, msgId) => emit('goToMessage', chId, msgId)
                   "
                 />
+              </template>
+              <template v-else>
+                <template
+                  v-for="group in searchResultsByChannel"
+                  :key="group.channelName"
+                >
+                  <div
+                    class="px-4 py-1.5 mt-2 first:mt-0 text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-2"
+                  >
+                    <img
+                      :src="
+                        getChannelIcon({
+                          name: group.channelName,
+                          type: 'text',
+                        })
+                      "
+                      alt=""
+                      class="h-3.5 w-3.5 filter invert opacity-60"
+                    />
+                    <span>{{ getChannelDisplayName(group.channelName) }}</span>
+                  </div>
+                  <SearchMessageRow
+                    v-for="(msg, idx) in group.messages"
+                    :key="msg.id ?? `sr-${group.channelName}-${idx}`"
+                    :message="msg"
+                    @go-to-message="
+                      (chId, msgId) => emit('goToMessage', chId, msgId)
+                    "
+                  />
+                </template>
               </template>
               <div
                 v-if="(totalPages ?? 1) > 1"
@@ -694,8 +1168,32 @@ onBeforeUnmount(() => {
                 >
                   ← Previous
                 </button>
-                <span class="text-xs text-muted">
-                  {{ (currentPage ?? 0) + 1 }} / {{ totalPages ?? 1 }}
+                <span
+                  class="inline-flex items-center gap-0.5 text-xs text-muted tabular-nums"
+                >
+                  <input
+                    v-if="isEditingPage"
+                    ref="pageInputRef"
+                    v-model="pageInputValue"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    class="search-page-input w-[3ch] min-w-[1.5rem] max-w-[3rem] rounded border border-border bg-glass-2 px-0.5 py-0 text-center text-xs text-foreground tabular-nums focus:outline-none focus:ring-1 focus:ring-accent"
+                    aria-label="Page number"
+                    @keydown="onPageInputKeydown"
+                    @blur="commitPageInput"
+                    @click.stop
+                  />
+                  <button
+                    v-else
+                    type="button"
+                    class="text-foreground underline decoration-dotted underline-offset-2 hover:text-accent"
+                    :aria-label="`Page ${displayedPage} of ${maxPages}. Click to jump to a page.`"
+                    @click.stop="startEditingPage"
+                  >
+                    {{ displayedPage }}
+                  </button>
+                  <span>/ {{ maxPages }}</span>
                 </span>
                 <button
                   type="button"

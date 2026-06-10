@@ -97,6 +97,27 @@ html.echo-shell-ios select {
     transform: translateZ(0);
   }
 
+  /* Search filter / results dropdown — solid surface. Glass blur often fails to
+   * composite over the scrollable message list (mobile Safari, Linux Electron),
+   * leaving a half-transparent panel with unreadable text. */
+  .search-filter-dropdown {
+    overflow: hidden;
+    border-radius: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: var(
+      --chat-glass-header-bg-fallback,
+      var(--echo-menu-surface-bg-fallback, var(--elevated))
+    );
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    box-shadow: var(--shadow-3);
+    isolation: isolate;
+  }
+
+  .search-filter-dropdown > :first-child {
+    transform: translateZ(0);
+  }
+
   .echo-menu-item {
     color: var(--menu-item-fg);
     transition:
@@ -907,11 +928,13 @@ img.brightness-0.invert {
 /*
  * KaTeX layout in chat, composer preview, settings guide, and Paper.
  * Display math: keep `.katex-display` overflow visible (tall matrices are not
- * clipped). Horizontal scroll lives on the inner `.katex` child — pairing
+ * clipped). Horizontal scroll lives on the inner `.katex` child; pairing
  * overflow-x:auto with overflow-y:visible on one element forces overflow-y:auto
- * and clips the bottom of tall formulas.
+ * and creates a vertical scrollport. The inner scroller keeps vertical padding
+ * so fractions, roots, and sub/sup stacks have room inside that clip boundary.
  */
 .message-content,
+.message-content-segment,
 .markdown-preview__content,
 .legal-md-preview,
 .paper-math {
@@ -987,7 +1010,7 @@ img.brightness-0.invert {
     display: block;
     max-width: 100%;
     overflow: visible;
-    padding: 0.45em 0.25em;
+    padding: 0;
     margin: 0.35em 0;
     box-sizing: border-box;
   }
@@ -995,7 +1018,7 @@ img.brightness-0.invert {
   .katex-display > .katex {
     display: block;
     max-width: 100%;
-    padding: 0;
+    padding: 0.5em 0.25em 0.65em;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;

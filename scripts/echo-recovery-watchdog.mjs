@@ -9,29 +9,31 @@
  *
  * Env: ECHO_RECOVERY_WATCHDOG_ENABLED=1 on the bot; SMTP via root .env (ECHO_SMTP_*).
  */
-import { config as loadDotenv } from 'dotenv';
-import { spawn, execFile } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
-import { parseIntegerInRange, parseMinInteger } from './lib/number-parse.mjs';
+import { parseMinInteger } from './lib/number-parse.mjs';
+import {
+  appendRecoveryLog,
+  baseEnv,
+  loadEnv,
+  localApiHealthy,
+  resolveLogDir,
+  resolveRepoRoot,
+  restartProdStack,
+  sendRecoveryEmail,
+} from './lib/echo-recovery-core.mjs';
 
 const execFileAsync = promisify(execFile);
-const require = createRequire(import.meta.url);
-const nodemailer = require('nodemailer');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(
-  process.env.ECHO_REPO_ROOT?.trim() || path.join(__dirname, '..'),
-);
-
-const logDir = path.join(repoRoot, 'logs', 'vps');
+const repoRoot = resolveRepoRoot();
+const logDir = resolveLogDir(repoRoot);
 const lockPath = path.join(logDir, 'echo-recovery-watchdog.lock');
 const metaPath = path.join(logDir, 'echo-recovery-watchdog.log');
-const livePidFile = path.join(logDir, 'echo-vps-prod.pid');
 
 const DEV_QUIET_MS = parseMinInteger(
   process.env.ECHO_WATCHDOG_DEV_QUIET_MS,
@@ -112,81 +114,7 @@ const DEV_SCAN_FILES = [
 ].map((p) => path.join(repoRoot, p));
 
 function appendMeta(line) {
-  fs.mkdirSync(logDir, { recursive: true });
-  fs.appendFileSync(
-    metaPath,
-    `[${new Date().toISOString()}] ${line}\n`,
-    'utf8',
-  );
-}
-
-function loadEnv() {
-  const envPath = path.join(repoRoot, '.env');
-  const envLocal = path.join(repoRoot, '.env.local');
-  if (fs.existsSync(envPath)) loadDotenv({ path: envPath });
-  if (fs.existsSync(envLocal)) loadDotenv({ path: envLocal, override: true });
-}
-
-function nvmNodeBinDir() {
-  try {
-    const rcPath = path.join(repoRoot, '.nvmrc');
-    if (!fs.existsSync(rcPath)) return '';
-    const raw = fs.readFileSync(rcPath, 'utf8').trim().split(/\s+/)[0];
-    if (!raw) return '';
-    const base = path.join(os.homedir(), '.nvm', 'versions', 'node');
-    if (!fs.existsSync(base)) return '';
-    const want = raw.replace(/^v/, '');
-    const dirs = fs
-      .readdirSync(base)
-      .filter((d) => d.startsWith('v') && d.slice(1).startsWith(want));
-    if (!dirs.length) return '';
-    dirs.sort();
-    const bin = path.join(base, dirs[dirs.length - 1], 'bin');
-    return fs.existsSync(path.join(bin, 'node')) ? bin : '';
-  } catch {
-    return '';
-  }
-}
-
-function baseEnv() {
-  const nvmBin = nvmNodeBinDir();
-  const pathParts = nvmBin
-    ? [
-        nvmBin,
-        '/usr/local/sbin',
-        '/usr/local/bin',
-        '/usr/sbin',
-        '/usr/bin',
-        '/sbin',
-        '/bin',
-      ]
-    : (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
-  return {
-    ...process.env,
-    FORCE_COLOR: '0',
-    PATH: pathParts.join(path.delimiter),
-  };
-}
-
-function npmBin() {
-  const binDir = nvmNodeBinDir();
-  if (binDir) {
-    const npm = path.join(
-      binDir,
-      process.platform === 'win32' ? 'npm.cmd' : 'npm',
-    );
-    if (fs.existsSync(npm)) return npm;
-  }
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
-}
-
-function nodeBin() {
-  const binDir = nvmNodeBinDir();
-  if (binDir) {
-    const node = path.join(binDir, 'node');
-    if (fs.existsSync(node)) return node;
-  }
-  return process.execPath;
+  appendRecoveryLog(line, metaPath);
 }
 
 function acquireLock() {
@@ -228,21 +156,6 @@ function releaseLock() {
     fs.unlinkSync(lockPath);
   } catch {
     /* ignore */
-  }
-}
-
-async function localApiHealthy() {
-  try {
-    const ac = new AbortController();
-    const to = setTimeout(() => ac.abort(), 8000);
-    const res = await fetch(`${LOCAL_HEALTH_URL}?ts=${Date.now()}`, {
-      cache: 'no-store',
-      signal: ac.signal,
-    });
-    clearTimeout(to);
-    return res.ok;
-  } catch {
-    return false;
   }
 }
 
@@ -334,144 +247,7 @@ async function detectDevActivity() {
   return { active: false, reason: null };
 }
 
-async function loadTreeKill() {
-  try {
-    const mod = await import('tree-kill');
-    return mod.default;
-  } catch {
-    return null;
-  }
-}
-
-async function killTree(pid, treeKill) {
-  if (!pid) return;
-  if (treeKill) {
-    await new Promise((resolve) => {
-      treeKill(pid, 'SIGTERM', () => resolve());
-    });
-    await new Promise((r) => setTimeout(r, 2000));
-    return;
-  }
-  try {
-    process.kill(pid, 'SIGTERM');
-  } catch {
-    /* ESRCH */
-  }
-  await new Promise((r) => setTimeout(r, 2000));
-}
-
-function readPidFile(pidFile) {
-  try {
-    const raw = fs.readFileSync(pidFile, 'utf8').trim();
-    const pid = parseInt(raw, 10);
-    return Number.isFinite(pid) && pid > 0 ? pid : null;
-  } catch {
-    return null;
-  }
-}
-
-async function freeProdPorts() {
-  const killer = path.join(repoRoot, 'scripts', 'kill-dev-ports.mjs');
-  await new Promise((resolve, reject) => {
-    const child = spawn(nodeBin(), [killer], {
-      cwd: repoRoot,
-      stdio: 'inherit',
-      env: {
-        ...baseEnv(),
-        ECHO_FREE_PORTS: '3000,4173,3005,3001,4174,4175',
-      },
-    });
-    child.on('error', reject);
-    child.on('exit', (code) =>
-      code === 0 ? resolve() : reject(new Error(`kill-dev-ports exit ${code}`)),
-    );
-  });
-}
-
-function spawnDetachedProdServe() {
-  const outPath = path.join(logDir, 'prod.rolling.stdout.log');
-  const errPath = path.join(logDir, 'prod.rolling.stderr.log');
-  fs.mkdirSync(logDir, { recursive: true });
-  const outFd = fs.openSync(outPath, 'a');
-  const errFd = fs.openSync(errPath, 'a');
-  const child = spawn(npmBin(), ['run', 'prod:serve'], {
-    cwd: repoRoot,
-    detached: true,
-    stdio: ['ignore', outFd, errFd],
-    env: baseEnv(),
-    shell: false,
-  });
-  try {
-    child.unref();
-  } catch {
-    /* ignore */
-  }
-  fs.writeFileSync(livePidFile, `${child.pid}\n`, 'utf8');
-  try {
-    fs.closeSync(outFd);
-    fs.closeSync(errFd);
-  } catch {
-    /* ignore */
-  }
-  return child.pid;
-}
-
-async function pm2RestartMarketing() {
-  try {
-    await execFileAsync('pm2', ['restart', 'echo-marketing'], {
-      cwd: repoRoot,
-      env: baseEnv(),
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function waitForHealthy(timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await localApiHealthy()) return true;
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-  return false;
-}
-
-async function restartProdStack() {
-  const treeKill = await loadTreeKill();
-  const livePid = readPidFile(livePidFile);
-  appendMeta(`restart: stop live pid=${livePid ?? 'none'}`);
-  if (livePid) await killTree(livePid, treeKill);
-  await freeProdPorts();
-  const newPid = spawnDetachedProdServe();
-  appendMeta(`restart: prod:serve pid=${newPid}`);
-  if (await pm2RestartMarketing()) {
-    appendMeta('restart: pm2 echo-marketing restarted');
-  }
-  const ok = await waitForHealthy(120_000);
-  return { newPid, apiOk: ok };
-}
-
 async function sendSummaryEmail(report) {
-  const host = process.env.ECHO_SMTP_HOST?.trim();
-  if (!host) {
-    appendMeta('email skipped: ECHO_SMTP_HOST unset');
-    return { sent: false, error: 'ECHO_SMTP_HOST unset' };
-  }
-  const port = parseIntegerInRange(process.env.ECHO_SMTP_PORT, 587, 1, 65_535);
-  const secure = process.env.ECHO_SMTP_SECURE === 'true';
-  const user = process.env.ECHO_SMTP_USER?.trim() || '';
-  const pass = process.env.ECHO_SMTP_PASSWORD ?? '';
-  const from =
-    process.env.ECHO_EMAIL_FROM?.trim() || 'Echo <noreply@chat-echo.com>';
-
-  const transport = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    ...(user || pass ? { auth: { user, pass } } : {}),
-  });
-
   const subject = `[Echo VPS] Recovery watchdog — ${report.outcome}`;
   const text = [
     'Echo production recovery watchdog finished.',
@@ -500,20 +276,12 @@ async function sendSummaryEmail(report) {
     .filter(Boolean)
     .join('\n');
 
-  try {
-    await transport.sendMail({
-      from,
-      to: NOTIFY_EMAIL,
-      subject,
-      text,
-    });
-    appendMeta(`email sent to ${NOTIFY_EMAIL}`);
-    return { sent: true };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    appendMeta(`email failed: ${msg}`);
-    return { sent: false, error: msg };
-  }
+  return sendRecoveryEmail(report, {
+    notifyEmail: NOTIFY_EMAIL,
+    appendMeta,
+    subject,
+    text,
+  });
 }
 
 function parseArgs(argv) {
@@ -526,7 +294,7 @@ function parseArgs(argv) {
 }
 
 async function main() {
-  loadEnv();
+  loadEnv(repoRoot);
   const { trigger, dryRun } = parseArgs(process.argv.slice(2));
 
   if (!acquireLock()) {
@@ -549,7 +317,7 @@ async function main() {
   try {
     appendMeta(`started trigger=${trigger} dryRun=${dryRun}`);
 
-    const up = await localApiHealthy();
+    const up = await localApiHealthy(LOCAL_HEALTH_URL);
     report.initialDown = !up;
     if (up) {
       report.outcome = 'already_healthy';
@@ -574,7 +342,7 @@ async function main() {
         `dev quiet window: wait ${Math.round(DEV_QUIET_MS / 60000)} min while down before restart`,
       );
       while (true) {
-        if (await localApiHealthy()) {
+        if (await localApiHealthy(LOCAL_HEALTH_URL)) {
           report.outcome = 'recovered_during_quiet_window';
           report.waitedMs = Date.now() - offlineStart;
           appendMeta('API recovered during quiet window — no restart');
@@ -597,7 +365,7 @@ async function main() {
       return;
     }
 
-    if (await localApiHealthy()) {
+    if (await localApiHealthy(LOCAL_HEALTH_URL)) {
       report.outcome = 'recovered_before_restart';
       if (!dryRun) await sendSummaryEmail(report);
       return;
@@ -605,7 +373,12 @@ async function main() {
 
     report.restarted = true;
     try {
-      const { newPid, apiOk } = await restartProdStack();
+      const { newPid, apiOk } = await restartProdStack({
+        repoRoot,
+        appendMeta,
+        env: baseEnv(repoRoot),
+        localHealthUrl: LOCAL_HEALTH_URL,
+      });
       report.newPid = newPid;
       report.apiOkAfter = apiOk;
       report.outcome = apiOk ? 'restarted_ok' : 'restarted_api_still_down';

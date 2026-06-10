@@ -19,13 +19,26 @@ function blobUrlForVideoElement(url: string): string {
   return trimmed;
 }
 
-function loadVideoMetadata(source: Blob): Promise<{
+/** Copy bytes into a fresh Blob so DOM/file-picker taint does not reach media src. */
+async function isolateProbeBlob(source: Blob): Promise<Blob> {
+  const bytes = await source.arrayBuffer();
+  const type = source.type?.trim() || 'application/octet-stream';
+  return new Blob([bytes], { type });
+}
+
+function assignVideoBlobSrc(video: HTMLVideoElement, blobUrl: string): void {
+  const safe = blobUrlForVideoElement(blobUrl);
+  video.setAttribute('src', safe);
+}
+
+async function loadVideoMetadata(source: Blob): Promise<{
   video: HTMLVideoElement;
   width: number;
   height: number;
   blobUrl: string;
 }> {
-  const blobUrl = blobUrlForVideoElement(URL.createObjectURL(source));
+  const isolated = await isolateProbeBlob(source);
+  const blobUrl = blobUrlForVideoElement(URL.createObjectURL(isolated));
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.preload = 'metadata';
@@ -54,7 +67,7 @@ function loadVideoMetadata(source: Blob): Promise<{
     };
     video.addEventListener('loadedmetadata', onMeta);
     video.addEventListener('error', onErr);
-    video.src = blobUrl;
+    assignVideoBlobSrc(video, blobUrl);
   });
 }
 

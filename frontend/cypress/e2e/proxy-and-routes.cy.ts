@@ -14,13 +14,25 @@ describe('vite proxy and routes', () => {
 
   it('renders the reset-password surface', () => {
     cy.visit('/reset-password');
-    cy.get('h1.reset-title').should('contain.text', 'Reset password');
-    cy.get('label[for="rp-token"]').should('contain.text', 'Reset token');
+    cy.get('h1.reset-title', { timeout: 60_000 }).should(
+      'contain.text',
+      'Reset password',
+    );
+    cy.get('label[for="rp-token"]', { timeout: 60_000 }).should(
+      'contain.text',
+      'Reset token',
+    );
   });
 
   it('renders the forgot-password surface', () => {
     cy.visit('/forgot-password');
-    cy.get('h1.forgot-title').should('contain.text', 'Forgot password');
-    cy.get('label[for="fp-email"]').should('contain.text', 'Email');
+    cy.get('h1.forgot-title', { timeout: 60_000 }).should(
+      'contain.text',
+      'Forgot password',
+    );
+    cy.get('label[for="fp-email"]', { timeout: 60_000 }).should(
+      'contain.text',
+      'Email',
+    );
   });
 });

@@ -366,6 +366,21 @@ const devModeIdsEnabled = activePinia
 const isServerSearchMobileOpen = ref(false);
 const isDmSearchMobileOpen = ref(false);
 
+const dmMobileSearchTitle = computed(() => {
+  if (isGroupDmThread.value) {
+    const name = activeGroupDM.value?.name?.trim();
+    if (name) return `Search ${name}`;
+  } else if (dmPartnerUser.value?.name?.trim()) {
+    return `Search ${dmPartnerUser.value.name.trim()}`;
+  }
+  return 'Search conversation';
+});
+
+const dmMobileSearchPlaceholder = computed(() => {
+  if (isGroupDmThread.value) return 'Search in group';
+  return 'Search in conversation';
+});
+
 /** Close full-screen mobile search when jumping to a result (modal would otherwise obscure chat). */
 function handleGoToMessageFromSearch(channelId: string, messageId: string) {
   isServerSearchMobileOpen.value = false;
@@ -1467,30 +1482,6 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         >
           <img :src="icons.search" alt="" class="dm-header-action-icon" />
         </button>
-
-        <MobileSearchModal
-          v-if="isCompactShell && isServerSearchMobileOpen"
-          :title="`Search ${selectedServerName ?? ''}`.trim() || 'Search'"
-          :model-value="searchText"
-          :filter-chips="filterChips"
-          :channels="searchFilterChannels"
-          :users="users"
-          :search-results="paginatedSearchResults"
-          :total-results="searchResultMessagesCount"
-          :current-page="searchResultPage"
-          :total-pages="totalPages"
-          :placeholder="`Search ${selectedServerName ?? ''}`.trim() || 'Search'"
-          :search-loading="searchLoading"
-          :search-error="searchError"
-          :search-scope-hint="searchScopeHint"
-          @close="isServerSearchMobileOpen = false"
-          @update:model-value="onSearchInput"
-          @add-filter="addFilter"
-          @remove-filter="removeFilter"
-          @clear-search="clearSearch"
-          @go-to-page="goToSearchPage"
-          @go-to-message="handleGoToMessageFromSearch"
-        />
       </div>
       <template
         v-if="
@@ -1555,7 +1546,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             <img :src="icons.community" alt="" class="dm-header-action-icon" />
           </button>
           <button
-            v-if="hasProfileOverviewAction"
+            v-if="hasProfileOverviewAction && !isCompactShell"
             type="button"
             class="dm-header-action-btn"
             title="Profile overview"
@@ -1607,31 +1598,6 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           >
             <img :src="icons.search" alt="" class="dm-header-action-icon" />
           </button>
-
-          <MobileSearchModal
-            v-if="isCompactShell && isDmSearchMobileOpen"
-            title="Search conversation"
-            :model-value="searchText"
-            :filter-chips="filterChips"
-            :channels="[]"
-            :users="[]"
-            :dm-mode="true"
-            :search-results="paginatedSearchResults"
-            :total-results="searchResultMessagesCount"
-            :current-page="searchResultPage"
-            :total-pages="totalPages"
-            placeholder="Search in conversation"
-            :search-loading="searchLoading"
-            :search-error="searchError"
-            :search-scope-hint="searchScopeHint"
-            @close="isDmSearchMobileOpen = false"
-            @update:model-value="onSearchInput"
-            @add-filter="addFilter"
-            @remove-filter="removeFilter"
-            @clear-search="clearSearch"
-            @go-to-page="goToSearchPage"
-            @go-to-message="handleGoToMessageFromSearch"
-          />
         </div>
       </template>
       <template
@@ -1770,31 +1736,6 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           >
             <img :src="icons.search" alt="" class="dm-header-action-icon" />
           </button>
-
-          <MobileSearchModal
-            v-if="isCompactShell && isDmSearchMobileOpen"
-            title="Search conversation"
-            :model-value="searchText"
-            :filter-chips="filterChips"
-            :channels="[]"
-            :users="[]"
-            :dm-mode="true"
-            :search-results="paginatedSearchResults"
-            :total-results="searchResultMessagesCount"
-            :current-page="searchResultPage"
-            :total-pages="totalPages"
-            placeholder="Search in conversation"
-            :search-loading="searchLoading"
-            :search-error="searchError"
-            :search-scope-hint="searchScopeHint"
-            @close="isDmSearchMobileOpen = false"
-            @update:model-value="onSearchInput"
-            @add-filter="addFilter"
-            @remove-filter="removeFilter"
-            @clear-search="clearSearch"
-            @go-to-page="goToSearchPage"
-            @go-to-message="handleGoToMessageFromSearch"
-          />
         </div>
       </template>
     </div>
@@ -2421,5 +2362,54 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         </div>
       </div>
     </Teleport>
+
+    <MobileSearchModal
+      v-if="isCompactShell && isServerSearchMobileOpen"
+      :title="`Search ${selectedServerName ?? ''}`.trim() || 'Search'"
+      :model-value="searchText"
+      :filter-chips="filterChips"
+      :channels="searchFilterChannels"
+      :users="users"
+      :search-results="paginatedSearchResults"
+      :total-results="searchResultMessagesCount"
+      :current-page="searchResultPage"
+      :total-pages="totalPages"
+      :placeholder="`Search ${selectedServerName ?? ''}`.trim() || 'Search'"
+      :search-loading="searchLoading"
+      :search-error="searchError"
+      :search-scope-hint="searchScopeHint"
+      @close="isServerSearchMobileOpen = false"
+      @update:model-value="onSearchInput"
+      @add-filter="addFilter"
+      @remove-filter="removeFilter"
+      @clear-search="clearSearch"
+      @go-to-page="goToSearchPage"
+      @go-to-message="handleGoToMessageFromSearch"
+    />
+
+    <MobileSearchModal
+      v-if="isCompactShell && isDmSearchMobileOpen"
+      :title="dmMobileSearchTitle"
+      :model-value="searchText"
+      :filter-chips="filterChips"
+      :channels="[]"
+      :users="[]"
+      :dm-mode="true"
+      :search-results="paginatedSearchResults"
+      :total-results="searchResultMessagesCount"
+      :current-page="searchResultPage"
+      :total-pages="totalPages"
+      :placeholder="dmMobileSearchPlaceholder"
+      :search-loading="searchLoading"
+      :search-error="searchError"
+      :search-scope-hint="searchScopeHint"
+      @close="isDmSearchMobileOpen = false"
+      @update:model-value="onSearchInput"
+      @add-filter="addFilter"
+      @remove-filter="removeFilter"
+      @clear-search="clearSearch"
+      @go-to-page="goToSearchPage"
+      @go-to-message="handleGoToMessageFromSearch"
+    />
   </div>
 </template>

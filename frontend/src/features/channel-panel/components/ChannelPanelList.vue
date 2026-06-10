@@ -1342,6 +1342,7 @@ watch(
       role="tree"
       aria-label="Channels"
       class="channel-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain py-3 px-3 custom-scrollbar touch-pan-y"
+      :class="{ 'channel-list--mobile': isCompactShell }"
       v-scrollbar-on-scroll
       @dragover.capture="onChannelListDragOverCapture"
     >
@@ -2724,6 +2725,83 @@ watch(
 .channel-row {
   padding: var(--echo-density-channel-py, 0.375rem)
     var(--echo-density-channel-px, 0.625rem);
+}
+
+/* Compact shell (phone): Discord-like taller rows, larger type, and touch targets. */
+.channel-list--mobile {
+  --echo-density-channel-py: 0.6875rem;
+  --echo-density-channel-px: 0.875rem;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.channel-list--mobile .channel-row {
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+}
+
+.channel-list--mobile .channel-row-drop-target {
+  gap: 0.625rem;
+}
+
+.channel-list--mobile .channel-row-icon {
+  height: 1.25rem;
+  width: 1.25rem;
+  font-size: 1.125rem;
+}
+
+.channel-list--mobile .channel-row-name {
+  font-size: 1rem;
+  line-height: 1.25rem;
+}
+
+.channel-list--mobile .forum-post-sidebar-row .channel-row-name {
+  font-size: 0.9375rem;
+  line-height: 1.1875rem;
+}
+
+.channel-list--mobile [role='group'] {
+  gap: 0.125rem;
+}
+
+.channel-list--mobile .group:has(.channel-category-toggle) {
+  min-height: 2rem;
+  margin-bottom: 0.375rem;
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+}
+
+.channel-list--mobile .channel-category-caret {
+  width: 0.875rem;
+  height: 1.25rem;
+}
+
+.channel-list--mobile .channel-row-drop-target.channel-row--has-unread {
+  padding-left: 0.875rem;
+}
+
+.channel-list--mobile .channel-row-drop-target.channel-row--has-unread::before {
+  height: 1.375rem;
+}
+
+.channel-list--mobile .channel-row-gear {
+  height: 2rem;
+  width: 2rem;
+}
+
+.channel-list--mobile
+  .channel-quick-create__trigger-inner
+  span[aria-hidden='true'] {
+  height: 1.25rem;
+  width: 1.25rem;
+  font-size: 1.125rem;
+}
+
+.channel-list--mobile .channel-quick-create__trigger-label {
+  font-size: 1rem;
+  line-height: 1.25rem;
 }
 
 .channel-row-slot--drop-before::after {

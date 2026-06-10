@@ -19,9 +19,9 @@ rtc:
       protocol: udp
       username: echo
       credential: echo_turn_dev_secret
-  use_external_ip: false
-  node_ip: 127.0.0.1
-  enable_loopback_candidate: true
+  use_external_ip: true
+  node_ip: 82.165.150.201
+  enable_loopback_candidate: false
   congestion_control:
     enabled: true
 

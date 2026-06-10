@@ -40,8 +40,8 @@ const profileHoverTitle = computed(() => {
     class="rail-profile pointer-events-none z-10 flex items-center gap-1"
     :class="
       horizontalRail
-        ? 'relative h-full min-h-[60px] shrink-0 flex-row items-center border-l border-border pl-4 pr-5 py-2.5'
-        : 'absolute inset-x-0 bottom-0 flex-col justify-center px-0 pb-4'
+        ? 'rail-profile--horizontal relative h-full min-h-[60px] shrink-0 flex-row items-center border-l border-border pl-4 pr-5 py-2.5'
+        : 'absolute inset-x-0 bottom-0 flex-col justify-center px-0 rail-profile--vertical'
     "
   >
     <button
@@ -149,6 +149,16 @@ const profileHoverTitle = computed(() => {
 .rail-profile__avatar:hover .rail-profile__image {
   transform: scale(1.03);
   filter: saturate(1.04) brightness(1.03);
+}
+
+.rail-profile--vertical {
+  padding-bottom: 1rem;
+}
+
+@media (max-width: 799px) {
+  .rail-profile--vertical {
+    padding-bottom: 0.65rem;
+  }
 }
 
 /* Light theme: no elevation shadow under the rail PFP — pale chrome already separates it. */

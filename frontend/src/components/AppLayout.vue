@@ -1290,12 +1290,40 @@ watch(useCompactExploreShell, (on) => {
   if (on) compactExplorePane.value = 0;
 });
 
-const compactDmPane = ref<0 | 1>(0);
+const compactDmPane = ref<0 | 1>(1);
+
+/** Compact DM shell: pane 1 = action rail + inbox list (Discord-style); pane 0 = chat thread. */
+function showCompactDmRailPane() {
+  if (isCompactShell.value) compactDmPane.value = 1;
+}
+
+function handleSelectDmTab() {
+  selectDMTab();
+  showCompactDmRailPane();
+}
+
+function handleOpenDmInboxFromRailOverflow() {
+  openDmInboxFromRailOverflow();
+  showCompactDmRailPane();
+}
+
 watch(useCompactDmShell, (on) => {
   if (!on) return;
-  compactDmPane.value = 0;
+  compactDmPane.value = 1;
   if (!isDMPanelOpen.value) isDMPanelOpen.value = true;
 });
+
+/** Any path that opens DM chrome on compact (controller toasts, deep links, etc.). */
+watch(
+  () =>
+    [isCompactShell.value, activeRailTab.value, isDMPanelOpen.value] as const,
+  ([compact, rail, dmOpen], prev) => {
+    if (!compact || rail !== 'dm' || !dmOpen) return;
+    if (!prev) return;
+    const [, prevRail, prevOpen] = prev;
+    if (prevRail !== 'dm' || !prevOpen) showCompactDmRailPane();
+  },
+);
 
 const isDmThreadSurface = computed(
   () => unref(isDmUiContext) && unref(mainSurface)?.type === 'dmThread',
@@ -1335,6 +1363,8 @@ watch(
   (next, prev) => {
     if (!next[0]) return;
     if (!prev) return;
+    /** Entering DM shell from servers/explore should land on rail + list, not auto-slide to chat. */
+    if (!prev[0]) return;
     const surfaceChanged = next[1] !== prev[1];
     const channelChanged = next[2] !== prev[2];
     if (surfaceChanged || channelChanged) compactDmPane.value = 0;
@@ -2536,10 +2566,10 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   onSelectServers: selectServersTab,
   onSelectServer: openServerSurface,
   onToggleExplore: selectExploreTab,
-  onToggleDmPanel: selectDMTab,
+  onToggleDmPanel: handleSelectDmTab,
   onSelectIncomingDm: selectIncomingDmFromRail,
   onSelectIncomingGroupDm: selectIncomingGroupDmFromRail,
-  onOpenDmInboxOverflow: openDmInboxFromRailOverflow,
+  onOpenDmInboxOverflow: handleOpenDmInboxFromRailOverflow,
   onToggleMoreServers: toggleMoreServersPanel,
   onExpandChannels: expandChannels,
   onToggleChannelPanelBubbleMode: toggleChannelPanelBubbleMode,

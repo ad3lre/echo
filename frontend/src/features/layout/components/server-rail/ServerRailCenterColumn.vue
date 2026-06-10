@@ -92,7 +92,7 @@ const emit = defineEmits<{
     :class="
       props.horizontal
         ? 'relative flex min-h-0 w-full max-w-full flex-row items-center justify-center overflow-x-hidden overflow-y-visible'
-        : 'absolute inset-0 flex items-center justify-center'
+        : 'absolute inset-0 flex items-center justify-center overflow-x-hidden'
     "
   >
     <div
@@ -100,7 +100,7 @@ const emit = defineEmits<{
       :class="
         props.horizontal
           ? 'flex min-h-0 w-auto max-w-full min-w-0 flex-row flex-nowrap items-center justify-center gap-2 overflow-x-auto overflow-y-visible px-3 pb-2 pt-3 md:px-6'
-          : 'flex w-full flex-col items-center justify-center gap-2'
+          : 'flex w-full flex-col items-center justify-center gap-2 server-rail-center-column--vertical'
       "
     >
       <template v-if="authenticated && props.horizontal">
@@ -443,6 +443,12 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
+@media (max-width: 799px) {
+  .server-rail-center-column--vertical {
+    gap: 0.375rem;
+  }
+}
+
 .explore-trigger__button--dm-flat {
   background: transparent;
   box-shadow: none;

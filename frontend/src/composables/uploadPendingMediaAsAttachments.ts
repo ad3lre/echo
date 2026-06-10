@@ -13,6 +13,7 @@ import {
   formatChatUploadErrorMessage,
 } from '@/services/domain/chatUploads';
 import { chatDocumentContentTypeForPresign } from '@/utils/chatUploadMediaTypes';
+import { probeImageDimensionsFromFile } from '@/utils/probeImageDimensions';
 import { useAuthSessionStore } from '@/stores/authSession';
 import type {
   PendingGif,
@@ -152,6 +153,7 @@ export async function uploadPendingMediaAsAttachments(
           kind: 'image',
           filename: p.file.name,
           mimeType: p.file.type || undefined,
+          ...(p.width && p.height ? { width: p.width, height: p.height } : {}),
           ...(p.spoiler ? { spoiler: true } : {}),
         });
       } catch {
@@ -338,6 +340,7 @@ export async function uploadPendingMediaAsAttachments(
       attachments.push({
         url: x.url,
         kind: 'image',
+        ...(x.width && x.height ? { width: x.width, height: x.height } : {}),
         ...(x.spoiler ? { spoiler: true } : {}),
       });
     }
@@ -345,6 +348,7 @@ export async function uploadPendingMediaAsAttachments(
       attachments.push({
         url: g.url,
         kind: 'gif',
+        ...(g.width && g.height ? { width: g.width, height: g.height } : {}),
         ...(g.spoiler ? { spoiler: true } : {}),
       });
     }
@@ -383,12 +387,22 @@ export async function uploadPendingMediaAsAttachments(
           ...fileOpts,
         },
       );
+      let width = p.width;
+      let height = p.height;
+      if (!width || !height) {
+        const dims = await probeImageDimensionsFromFile(p.file);
+        if (dims) {
+          width = dims.width;
+          height = dims.height;
+        }
+      }
       attachments.push({
         url: uploaded.url,
         ...(uploaded.storageKey ? { storageKey: uploaded.storageKey } : {}),
         kind: 'image',
         filename: p.file.name,
         mimeType: p.file.type || undefined,
+        ...(width && height ? { width, height } : {}),
         ...(p.spoiler ? { spoiler: true } : {}),
       });
     }
@@ -487,6 +501,7 @@ export async function uploadPendingMediaAsAttachments(
     attachments.push({
       url: x.url,
       kind: 'image',
+      ...(x.width && x.height ? { width: x.width, height: x.height } : {}),
       ...(x.spoiler ? { spoiler: true } : {}),
     });
   }
@@ -494,6 +509,7 @@ export async function uploadPendingMediaAsAttachments(
     attachments.push({
       url: g.url,
       kind: 'gif',
+      ...(g.width && g.height ? { width: g.width, height: g.height } : {}),
       ...(g.spoiler ? { spoiler: true } : {}),
     });
   }

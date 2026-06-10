@@ -25,6 +25,7 @@ export function buildOptimisticAttachmentsFromPendingMedia(
       kind: 'image',
       filename: p.file.name,
       mimeType: p.file.type || undefined,
+      ...(p.width && p.height ? { width: p.width, height: p.height } : {}),
       ...(p.spoiler ? { spoiler: true } : {}),
     });
   }
@@ -65,6 +66,7 @@ export function buildOptimisticAttachmentsFromPendingMedia(
     attachments.push({
       url: x.url,
       kind: 'image',
+      ...(x.width && x.height ? { width: x.width, height: x.height } : {}),
       ...(x.spoiler ? { spoiler: true } : {}),
     });
   }
@@ -73,6 +75,7 @@ export function buildOptimisticAttachmentsFromPendingMedia(
     attachments.push({
       url: g.url,
       kind: 'gif',
+      ...(g.width && g.height ? { width: g.width, height: g.height } : {}),
       ...(g.spoiler ? { spoiler: true } : {}),
     });
   }

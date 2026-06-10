@@ -1,6 +1,6 @@
 /**
- * Giphy GIF search and trending via backend proxy.
- * API key stays server-side (GIPHY_API_KEY in backend .env).
+ * Giphy + Klipy GIF search/trending via backend proxy.
+ * API keys stay server-side (GIPHY_API_KEY / KLIPY_API_KEY in backend .env).
  */
 
 import { ref, onUnmounted, type Ref } from 'vue';
@@ -224,7 +224,7 @@ export function useGifSearch() {
       if ((e as Error).name === 'AbortError') return;
       const msg = e instanceof Error ? e.message : 'Failed to load GIFs';
       error.value = msg.includes('503')
-        ? 'GIPHY not configured on server'
+        ? 'GIF search not configured on server'
         : msg;
       if (!signal.aborted) gifs.value = [];
     } finally {
@@ -264,7 +264,7 @@ export function useGifSearch() {
       if ((e as Error).name === 'AbortError') return;
       const msg = e instanceof Error ? e.message : 'Failed to search GIFs';
       error.value = msg.includes('503')
-        ? 'GIPHY not configured on server'
+        ? 'GIF search not configured on server'
         : msg;
       if (!signal.aborted) gifs.value = [];
     } finally {

@@ -1,147 +1,37 @@
-import { createHmac } from 'crypto';
-import { config as dotenvConfig, parse as dotenvParse } from 'dotenv';
-import * as fs from 'fs';
+import './config/loadEnv';
 import * as path from 'path';
+import { resolveCsamScanConfig } from './config/csamPrecompute';
 import {
-  assertEchoProductionConfigGates,
-  type EchoProductionConfigGateInput,
-} from './config/productionGates';
+  mergeCorsWithDesktop,
+  normalizeDiscordOauthRedirectUri,
+  parseCorsOrigin,
+  parseEchoDesktopAllowedOrigins,
+  resolvedEchoAppPublicUrl,
+} from './config/corsAndUrls';
+import {
+  envBoundedInt,
+  envMinInt,
+  envNonNegInt,
+  envSerperRefreshFailureMaxCount,
+  parseBoolean,
+} from './config/envParsing';
+import {
+  DEV_DISCORD_BOT_WEBHOOK_SECRET,
+  resolveEchoGuestBindingSecret,
+} from './config/secrets';
+import {
+  resolveBackendStorageMode,
+  resolveEchoLocalUploadDir,
+  type BackendStorageMode,
+} from './config/storage';
+import {
+  defaultValidateConfigDeps,
+  validateConfig,
+} from './config/validateConfig';
+import { ConfigFatalError } from './config/secrets';
 
-/**
- * Find monorepo root (directory containing `backend/package.json`) when running from
- * backend/src, backend/dist/..., or nested paths.
- */
-function resolveRepoRootFromDir(startDir: string): string | undefined {
-  let dir: string = startDir;
-  for (let i = 0; i < 12; i++) {
-    const backendPkg = path.join(dir, 'backend', 'package.json');
-    if (fs.existsSync(backendPkg)) {
-      return dir;
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return undefined;
-}
-
-/**
- * dotenv does not override existing `process.env` keys. An empty export (e.g. `export JWT_SECRET=`
- * in shell, or `Environment=JWT_SECRET=` in systemd) therefore blocks values from `.env`. Fill only
- * keys that are unset or whitespace-only from the parsed file so real secrets in `.env` still apply.
- */
-function fillEmptyProcessEnvFromDotenvFile(envPath: string): void {
-  if (!fs.existsSync(envPath)) return;
-  try {
-    const parsed = dotenvParse(fs.readFileSync(envPath));
-    for (const key of Object.keys(parsed)) {
-      if ((process.env[key] ?? '').trim() !== '') continue;
-      const fromFile = (parsed[key] ?? '').trim();
-      if (fromFile === '') continue;
-      process.env[key] = parsed[key] as string;
-    }
-  } catch {
-    // Ignore unreadable .env; primary dotenv load already ran.
-  }
-}
-
-/**
- * `.env.lan` uses `override: true`; a stray `JWT_SECRET=` there clears the real value from `.env`.
- * If the key is blank after LAN load, re-read it from root then backend files only (no other keys).
- */
-function restoreJwtSecretFromFilesIfBlankAfterLan(
-  rootEnv: string,
-  backendEnv: string,
-): void {
-  if ((process.env.JWT_SECRET ?? '').trim() !== '') return;
-  for (const envPath of [rootEnv, backendEnv]) {
-    if (!fs.existsSync(envPath)) continue;
-    try {
-      const parsed = dotenvParse(fs.readFileSync(envPath));
-      const fromFile = (parsed.JWT_SECRET ?? '').trim();
-      if (fromFile === '') continue;
-      process.env.JWT_SECRET = parsed.JWT_SECRET as string;
-      return;
-    } catch {
-      // try next path
-    }
-  }
-}
-
-/**
- * Load env in order: repo root `.env` → `backend/.env` (fills keys not set by root) → `.env.lan` (overrides all).
- * Use `backend/.env` for vars you do not want in root `.env`; duplicate keys always follow root (unless `.env.lan` overrides).
- */
-const repoRoot = resolveRepoRootFromDir(__dirname);
-/** When `1`, skip loading repo `.env` files so config gate tests are deterministic (see `productionConfigGates.test.ts`). */
-if (repoRoot && process.env.ECHO_CONFIG_TEST_ISOLATION !== '1') {
-  if (process.env.ECHO_DEBUG_ENV_LOAD === '1') {
-    const v = (process.env.JWT_SECRET ?? '').trim();
-    process.stderr.write(
-      `[echo-config] pre-dotenv JWT_SECRET length=${v.length} ${v.length > 0 ? '(non-empty)' : '(empty)'}\n`,
-    );
-  }
-  const rootEnv = path.join(repoRoot, '.env');
-  const backendEnv = path.join(repoRoot, 'backend', '.env');
-  if (fs.existsSync(rootEnv)) {
-    dotenvConfig({ path: rootEnv });
-    fillEmptyProcessEnvFromDotenvFile(rootEnv);
-  }
-  if (fs.existsSync(backendEnv)) {
-    dotenvConfig({ path: backendEnv, override: false });
-    fillEmptyProcessEnvFromDotenvFile(backendEnv);
-  }
-  const lanPath = path.join(repoRoot, '.env.lan');
-  if (fs.existsSync(lanPath)) {
-    dotenvConfig({ path: lanPath, override: true });
-    restoreJwtSecretFromFilesIfBlankAfterLan(rootEnv, backendEnv);
-  }
-  if (process.env.ECHO_DEBUG_ENV_LOAD === '1') {
-    const v = (process.env.JWT_SECRET ?? '').trim();
-    process.stderr.write(
-      `[echo-config] post-dotenv JWT_SECRET length=${v.length} ${v.length > 0 ? '(non-empty)' : '(empty)'}\n`,
-    );
-  }
-}
-
-/**
- * Some dev shells / IDE sandboxes export a default `DATABASE_URL` (e.g. compose-style `echo_dev`).
- * `dotenv` does not override existing `process.env` keys, so that value can mask the real URL in
- * repo `.env` and break Postgres auth. Prefer root `.env` when the process value is empty or one
- * of those known defaults. Opt out with `ECHO_SKIP_ROOT_ENV_DATABASE_URL_RECONCILE=1`.
- */
-const SANDBOX_DEFAULT_DATABASE_URLS = new Set([
-  'postgresql://echo:echo_dev@127.0.0.1:5432/echo',
-  'postgresql://echo:echo_dev@localhost:5432/echo',
-]);
-
-function reconcileDatabaseUrlFromRootEnv(repo: string | undefined): void {
-  if (!repo || process.env.ECHO_SKIP_ROOT_ENV_DATABASE_URL_RECONCILE === '1') {
-    return;
-  }
-  if (process.env.ECHO_CONFIG_TEST_ISOLATION === '1') return;
-  const rootEnv = path.join(repo, '.env');
-  if (!fs.existsSync(rootEnv)) return;
-  let parsed: Record<string, string>;
-  try {
-    parsed = dotenvParse(fs.readFileSync(rootEnv));
-  } catch {
-    return;
-  }
-  const fromFile = (parsed.DATABASE_URL ?? '').trim();
-  if (!fromFile) return;
-  const current = (process.env.DATABASE_URL ?? '').trim();
-  const curNorm = current.replace(/\/$/, '');
-  if (
-    !current ||
-    SANDBOX_DEFAULT_DATABASE_URLS.has(current) ||
-    SANDBOX_DEFAULT_DATABASE_URLS.has(curNorm)
-  ) {
-    process.env.DATABASE_URL = fromFile;
-  }
-}
-
-reconcileDatabaseUrlFromRootEnv(repoRoot);
+export type { BackendStorageMode };
+export { DEV_DISCORD_BOT_WEBHOOK_SECRET };
 
 /**
  * Default Discord user OAuth scopes when `DISCORD_OAUTH_SCOPES` is unset.
@@ -178,6 +68,8 @@ interface AppConfig {
   /** @deprecated Prefer `backendStorageMode === 'memory'`. */
   readonly useMockDb: boolean;
   readonly giphyApiKey: string;
+  /** Klipy GIF API key — backup when Giphy is down or unconfigured. https://docs.klipy.com/ */
+  readonly klipyApiKey: string;
   /**
    * Serper.dev API key for `/api/v1/image-search` (composer Images tab).
    * https://serper.dev
@@ -296,6 +188,14 @@ interface AppConfig {
   readonly webPushVapidPrivateKey: string | null;
   /** `mailto:` or https contact URL embedded in push JWT (VAPID `sub`). */
   readonly webPushVapidSubject: string;
+  /** APNs token auth (.p8). All of key id, team id, and key PEM must be set to enable iOS push. */
+  readonly apnsKeyId: string | null;
+  readonly apnsTeamId: string | null;
+  readonly apnsKeyP8: string | null;
+  /** APNs topic (iOS bundle id). */
+  readonly apnsBundleId: string;
+  /** `sandbox` maps to api.sandbox.push.apple.com; `production` to api.push.apple.com. */
+  readonly apnsEnvironment: 'sandbox' | 'production';
   /** S3-compatible uploads (R2/S3). All must be set for presigned PUT. */
   readonly s3UploadBucket: string | null;
   readonly s3UploadRegion: string | null;
@@ -706,289 +606,19 @@ interface AppConfig {
 }
 
 /**
- * Parses CORS_ORIGIN: single value or comma-separated list.
- * Default `true` reflects the request origin (non-production only). Auth uses `credentials: 'include'` — do not use `*`.
- * In `NODE_ENV=production`, startup fails unless `CORS_ORIGIN` is a non-empty explicit list (see production checks below).
- * Include every UI origin (e.g. Vite `http://localhost:8080` and preview `http://localhost:4173`) when not using the default.
- */
-function parseCorsOrigin(): string | string[] | true {
-  const raw = process.env.CORS_ORIGIN;
-  if (raw === undefined || raw === '*' || raw === '') return true;
-  const origins = raw
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
-  const first = origins[0];
-  return origins.length === 1 && first !== undefined ? first : origins;
-}
-
-/** Tauri desktop WebView origins; used for CORS merge + `SameSite=None` session cookies. */
-function parseEchoDesktopAllowedOrigins(): string[] {
-  const raw = process.env.ECHO_DESKTOP_ALLOWED_ORIGINS?.trim();
-  if (raw) {
-    return raw
-      .split(',')
-      .map((o) => o.trim())
-      .filter(Boolean);
-  }
-  /** Tauri 2 packaged WebViews often use `https://tauri.localhost`; dev may use `http://…`. */
-  return [
-    'http://tauri.localhost',
-    'https://tauri.localhost',
-    'tauri://localhost',
-  ];
-}
-
-function mergeCorsWithDesktop(
-  base: string | string[] | true,
-  desktop: string[],
-): string | string[] | true {
-  if (base === true) return true;
-  const set = new Set<string>();
-  if (typeof base === 'string') set.add(base);
-  else for (const o of base) set.add(o);
-  for (const o of desktop) set.add(o);
-  const merged = [...set];
-  return merged.length === 1 && merged[0] !== undefined ? merged[0] : merged;
-}
-
-/** Default SPA URL for post-verify redirects when ECHO_APP_PUBLIC_URL is unset. */
-function defaultEchoAppPublicUrl(): string {
-  const cors = parseCorsOrigin();
-  if (typeof cors === 'string' && cors.startsWith('http')) return cors;
-  if (Array.isArray(cors) && cors[0]?.startsWith('http')) return cors[0];
-  return 'http://localhost:8080';
-}
-
-function resolvedEchoAppPublicUrl(): string {
-  return process.env.ECHO_APP_PUBLIC_URL?.trim() || defaultEchoAppPublicUrl();
-}
-
-/**
- * Discord matches `redirect_uri` to the portal list exactly (encoding/decoding aside).
- * Strip trailing slashes on the path — a common mistake is registering without `/` but
- * setting `.env` with one (or vice versa).
- */
-function normalizeDiscordOauthRedirectUri(raw: string): string {
-  const t = raw.trim();
-  if (!t) return '';
-  try {
-    const u = new URL(t);
-    if (u.pathname.length > 1 && u.pathname.endsWith('/')) {
-      u.pathname = u.pathname.slice(0, -1);
-    }
-    return u.href;
-  } catch {
-    return t;
-  }
-}
-
-function parseBoolean(raw: string | undefined, defaultValue: boolean): boolean {
-  if (raw === undefined) return defaultValue;
-  const normalized = raw.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
-  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
-  return defaultValue;
-}
-
-function envS3UploadConfigured(): boolean {
-  return !!(
-    process.env.ECHO_S3_BUCKET?.trim() &&
-    process.env.ECHO_S3_REGION?.trim() &&
-    process.env.ECHO_S3_ACCESS_KEY?.trim() &&
-    process.env.ECHO_S3_SECRET_KEY?.trim()
-  );
-}
-
-/** Disk-backed uploads when S3 env is unset; see `echoLocalUploadDir` on `config`. */
-function resolveEchoLocalUploadDir(): string | null {
-  if (process.env.ECHO_LOCAL_UPLOADS?.trim().toLowerCase() === 'false') {
-    return null;
-  }
-  if (envS3UploadConfigured()) return null;
-  const raw = process.env.ECHO_LOCAL_UPLOAD_DIR?.trim();
-  if (raw) return path.resolve(raw);
-  const backendRoot = repoRoot ? path.join(repoRoot, 'backend') : process.cwd();
-  return path.join(backendRoot, 'data', 'echo-local-uploads');
-}
-
-export type BackendStorageMode = 'memory' | 'postgres';
-
-function configStderr(message: string): void {
-  process.stderr.write(`${message}\n`);
-}
-
-function exitBadConfig(message: string): never {
-  configStderr(`[echo-config] ${message}`);
-  process.exit(1);
-}
-
-function normalizeEnvValue(raw: string | undefined): string {
-  return (raw ?? '').trim();
-}
-
-const MIN_PRODUCTION_SECRET_LENGTH = 32;
-const KNOWN_WEAK_PRODUCTION_SECRETS = new Set([
-  'dev-insecure-secret',
-  'echo-dev-local-discord-bot-webhook',
-  'change-me',
-  'changeme',
-  'password',
-  'secret',
-  'test',
-]);
-
-function isStrongProductionSecret(raw: string | null | undefined): boolean {
-  const value = normalizeEnvValue(raw ?? undefined);
-  if (value.length < MIN_PRODUCTION_SECRET_LENGTH) return false;
-  if (/^(.)\1+$/.test(value)) return false;
-  return !KNOWN_WEAK_PRODUCTION_SECRETS.has(value.toLowerCase());
-}
-
-function requireStrongProductionSecret(
-  label: string,
-  raw: string | null | undefined,
-): void {
-  if (isStrongProductionSecret(raw)) return;
-  configStderr(
-    `${label} must be set to a strong random value in production (at least ${MIN_PRODUCTION_SECRET_LENGTH} characters, not a built-in default, and not a repeated character).`,
-  );
-  if (label === 'JWT_SECRET') {
-    const value = normalizeEnvValue(raw ?? undefined);
-    const len = value.length;
-    const rootEnvPath = repoRoot ? path.join(repoRoot, '.env') : null;
-    const backendEnvPath = repoRoot
-      ? path.join(repoRoot, 'backend', '.env')
-      : null;
-    const lanPath = repoRoot ? path.join(repoRoot, '.env.lan') : null;
-    const hasLan = Boolean(lanPath && fs.existsSync(lanPath));
-    const shortHint =
-      len > 0 && len < MIN_PRODUCTION_SECRET_LENGTH
-        ? ` Value is too short (${len} chars after trim; need at least ${MIN_PRODUCTION_SECRET_LENGTH}). Regenerate, e.g. node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))".`
-        : len === 0
-          ? ' Value is empty after trim — check .env for stray quotes/whitespace, blank lines in .env.lan, or an empty export in systemd/PM2.'
-          : '';
-    configStderr(
-      `[echo-config] ${label} check: repoRoot=${repoRoot ?? '(not found — .env files skipped)'}, cwd=${process.cwd()}, normalized length=${len}, root .env exists=${Boolean(rootEnvPath && fs.existsSync(rootEnvPath))}, backend .env exists=${Boolean(backendEnvPath && fs.existsSync(backendEnvPath))}, .env.lan exists=${hasLan}.${shortHint}`,
-    );
-  }
-  process.exit(1);
-}
-
-function resolveBackendStorageMode(isProduction: boolean): {
-  backendStorageMode: BackendStorageMode;
-  databaseUrl: string | null;
-} {
-  const storageRaw = normalizeEnvValue(
-    process.env.ECHO_BACKEND_STORAGE,
-  ).toLowerCase();
-  const dbUrlRaw = normalizeEnvValue(process.env.DATABASE_URL);
-  const useMockDbRaw = normalizeEnvValue(process.env.USE_MOCK_DB);
-  const authStoreRaw = normalizeEnvValue(
-    process.env.ECHO_AUTH_STORE,
-  ).toLowerCase();
-
-  const hasDbUrl = dbUrlRaw.length > 0;
-  const hasUseMockDb = useMockDbRaw.length > 0;
-  const hasAuthStore = authStoreRaw.length > 0;
-
-  if (hasAuthStore) {
-    // Time-bomb: don't allow the auth store to be selected independently.
-    exitBadConfig(
-      'ECHO_AUTH_STORE is deprecated and must not be used. Set ECHO_BACKEND_STORAGE=memory|postgres and remove ECHO_AUTH_STORE.',
-    );
-  }
-
-  if (storageRaw.length === 0) {
-    if (isProduction) {
-      exitBadConfig(
-        'ECHO_BACKEND_STORAGE is required in production (set to postgres).',
-      );
-    }
-    if (hasDbUrl) {
-      exitBadConfig(
-        'DATABASE_URL is set but ECHO_BACKEND_STORAGE is not. Refusing to guess. Set ECHO_BACKEND_STORAGE=postgres (or remove DATABASE_URL).',
-      );
-    }
-    // Dev-only: allow an explicit legacy mock toggle to continue working, but only for memory mode.
-    if (hasUseMockDb && useMockDbRaw.toLowerCase() === 'false') {
-      exitBadConfig(
-        'USE_MOCK_DB=false without ECHO_BACKEND_STORAGE is ambiguous and no longer supported. Set ECHO_BACKEND_STORAGE=postgres and DATABASE_URL.',
-      );
-    }
-    if (hasUseMockDb && useMockDbRaw.toLowerCase() !== 'false') {
-      configStderr(
-        '[echo-config] ECHO_BACKEND_STORAGE is not set; using legacy USE_MOCK_DB to run in memory mode. Set ECHO_BACKEND_STORAGE=memory to be explicit.',
-      );
-    } else {
-      configStderr(
-        '[echo-config] ECHO_BACKEND_STORAGE is not set; defaulting backend storage to memory (dev-only). Set ECHO_BACKEND_STORAGE=memory|postgres to be explicit.',
-      );
-    }
-    return { backendStorageMode: 'memory', databaseUrl: null };
-  }
-
-  if (storageRaw !== 'memory' && storageRaw !== 'postgres') {
-    exitBadConfig(
-      `Invalid ECHO_BACKEND_STORAGE=${JSON.stringify(storageRaw)} (expected "memory" or "postgres").`,
-    );
-  }
-
-  if (storageRaw === 'postgres') {
-    if (!hasDbUrl) {
-      exitBadConfig('ECHO_BACKEND_STORAGE=postgres requires DATABASE_URL.');
-    }
-    if (hasUseMockDb && useMockDbRaw.toLowerCase() !== 'false') {
-      exitBadConfig(
-        'ECHO_BACKEND_STORAGE=postgres conflicts with USE_MOCK_DB=true.',
-      );
-    }
-    return { backendStorageMode: 'postgres', databaseUrl: dbUrlRaw };
-  }
-
-  // memory mode
-  if (hasDbUrl) {
-    exitBadConfig(
-      'ECHO_BACKEND_STORAGE=memory conflicts with DATABASE_URL. Remove DATABASE_URL or set ECHO_BACKEND_STORAGE=postgres.',
-    );
-  }
-  if (hasUseMockDb && useMockDbRaw.toLowerCase() === 'false') {
-    exitBadConfig(
-      'ECHO_BACKEND_STORAGE=memory conflicts with USE_MOCK_DB=false.',
-    );
-  }
-  return { backendStorageMode: 'memory', databaseUrl: null };
-}
-
-/**
  * Centralized configuration object for the application.
  * It's populated from environment variables with sensible defaults.
  */
 const isProduction = process.env.NODE_ENV === 'production';
-const storage = resolveBackendStorageMode(isProduction);
-const echoDesktopAllowedOrigins = parseEchoDesktopAllowedOrigins();
-
-/**
- * Local-only default for `POST/GET …/hooks/discord-bot/*` auth. Must match
- * `scripts/dev-discord-bot.mjs` when that script injects env. Never used when
- * `NODE_ENV=production` (set a real `ECHO_DISCORD_BOT_WEBHOOK_SECRET` in prod).
- */
-const DEV_DISCORD_BOT_WEBHOOK_SECRET = 'echo-dev-local-discord-bot-webhook';
-
-function resolveEchoGuestBindingSecret(
-  prod: boolean,
-  jwtSecret: string,
-  requireExplicitSecretInProd: boolean,
-): string {
-  const raw = process.env.ECHO_GUEST_BINDING_SECRET?.trim() ?? '';
-  if (raw) return raw;
-  if (!prod || !requireExplicitSecretInProd) {
-    return createHmac('sha256', jwtSecret)
-      .update('echo_guest_binding_derived_v1')
-      .digest('hex');
-  }
-  return '';
+let storage: ReturnType<typeof resolveBackendStorageMode>;
+try {
+  storage = resolveBackendStorageMode(isProduction);
+} catch (err) {
+  if (err instanceof ConfigFatalError) process.exit(1);
+  throw err;
 }
+const echoDesktopAllowedOrigins = parseEchoDesktopAllowedOrigins();
+const csam = resolveCsamScanConfig();
 
 const resolvedJwtSecret = process.env.JWT_SECRET ?? 'dev-insecure-secret';
 const echoRequireGuestBindingSecretInProduction = parseBoolean(
@@ -1008,45 +638,6 @@ export function parseEchoVideoHlsWorker(
   );
 }
 
-function parseEchoCsamImageScanMode(): 'off' | 'dry_run' | 'on' {
-  const raw = process.env.ECHO_CSAM_IMAGE_SCAN_MODE?.trim().toLowerCase() ?? '';
-  if (raw === 'on' || raw === 'dry_run') return raw;
-  return 'off';
-}
-
-function parseEchoCsamExternalScanCmdArgv(): string[] | null {
-  const raw = process.env.ECHO_CSAM_EXTERNAL_SCAN_CMD?.trim();
-  if (!raw) return null;
-  try {
-    const v = JSON.parse(raw) as unknown;
-    if (!Array.isArray(v) || v.some((x) => typeof x !== 'string')) return null;
-    return v.map((s) => String(s));
-  } catch {
-    return null;
-  }
-}
-
-const echoCsamImageScanModeResolved = parseEchoCsamImageScanMode();
-const echoCsamSha256BlocklistPathResolved =
-  process.env.ECHO_CSAM_SHA256_BLOCKLIST_PATH?.trim() || null;
-const echoCsamExternalScanCmdArgvResolved = parseEchoCsamExternalScanCmdArgv();
-const echoCsamHasConfiguredScanners = Boolean(
-  (echoCsamSha256BlocklistPathResolved &&
-    echoCsamSha256BlocklistPathResolved.length > 0) ||
-  (echoCsamExternalScanCmdArgvResolved &&
-    echoCsamExternalScanCmdArgvResolved.length > 0),
-);
-let echoCsamImageScanEffectiveResolved: 'off' | 'dry_run' | 'on' =
-  echoCsamImageScanModeResolved;
-if (echoCsamImageScanModeResolved === 'on' && !echoCsamHasConfiguredScanners) {
-  echoCsamImageScanEffectiveResolved = 'dry_run';
-  if (process.env.ECHO_CONFIG_TEST_ISOLATION !== '1') {
-    console.warn(
-      '[echo-config] ECHO_CSAM_IMAGE_SCAN_MODE=on requires ECHO_CSAM_SHA256_BLOCKLIST_PATH and/or ECHO_CSAM_EXTERNAL_SCAN_CMD (JSON argv); falling back to dry_run until scanners are configured.',
-    );
-  }
-}
-
 export const config: AppConfig = {
   port: process.env.PORT ? Number(process.env.PORT) : 3000,
   host: process.env.HOST ?? '0.0.0.0',
@@ -1061,69 +652,28 @@ export const config: AppConfig = {
   natsUrl: process.env.NATS_URL ?? null,
   useMockDb: storage.backendStorageMode === 'memory',
   giphyApiKey: process.env.GIPHY_API_KEY ?? '',
+  klipyApiKey: process.env.KLIPY_API_KEY?.trim() ?? '',
   serperApiKey: process.env.SERPER_API_KEY?.trim() ?? '',
   serperDefaultQuery: process.env.SERPER_DEFAULT_QUERY?.trim() || 'photography',
-  serperImageNum: (() => {
-    const raw = process.env.SERPER_IMAGE_NUM?.trim();
-    const n = raw ? Number(raw) : NaN;
-    if (!Number.isFinite(n)) return 20;
-    return Math.min(100, Math.max(1, Math.floor(n)));
-  })(),
-  serperImageMaxPage: (() => {
-    const raw = process.env.SERPER_IMAGE_MAX_PAGE?.trim();
-    const n = raw ? Number(raw) : NaN;
-    if (!Number.isFinite(n)) return 4;
-    return Math.min(10, Math.max(1, Math.floor(n)));
-  })(),
-  serperCacheTtlMs: (() => {
-    const raw = process.env.SERPER_CACHE_TTL_MS?.trim();
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n >= 5_000 ? Math.floor(n) : 600_000;
-  })(),
-  serperCacheMaxEntries: (() => {
-    const raw = process.env.SERPER_CACHE_MAX_ENTRIES?.trim();
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n >= 16 ? Math.floor(n) : 200;
-  })(),
-  serperRateLimitPerMinute: (() => {
-    const raw = process.env.SERPER_RATE_LIMIT_PER_MINUTE?.trim();
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 10;
-  })(),
-  serperUpstreamMaxPerDayPerIp: (() => {
-    const raw = process.env.SERPER_UPSTREAM_MAX_PER_DAY_PER_IP?.trim();
-    const n = raw ? Number(raw) : NaN;
-    if (raw === '0') return 0;
-    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 180;
-  })(),
-  serperCacheRefreshDays: (() => {
-    const raw = process.env.SERPER_CACHE_REFRESH_DAYS?.trim();
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 90;
-  })(),
-  serperCacheMaxResults: (() => {
-    const raw = process.env.SERPER_CACHE_MAX_RESULTS?.trim();
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n >= 8 ? Math.floor(n) : 60;
-  })(),
-  serperGlobalMaxPerDay: (() => {
-    const raw = process.env.SERPER_GLOBAL_MAX_PER_DAY?.trim();
-    const n = raw ? Number(raw) : NaN;
-    if (raw === '0') return 0;
-    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 500;
-  })(),
-  serperGlobalMaxPerMonth: (() => {
-    const raw = process.env.SERPER_GLOBAL_MAX_PER_MONTH?.trim();
-    const n = raw ? Number(raw) : NaN;
-    if (raw === '0') return 0;
-    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 10_000;
-  })(),
-  serperRefreshFailureMaxCount: (() => {
-    const raw = process.env.SERPER_REFRESH_FAILURE_MAX_COUNT?.trim();
-    const n = raw ? Number(raw) : NaN;
-    if (raw === '0') return 0;
-    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 0;
-  })(),
+  serperImageNum: envBoundedInt('SERPER_IMAGE_NUM', 20, 1, 100),
+  serperImageMaxPage: envBoundedInt('SERPER_IMAGE_MAX_PAGE', 4, 1, 10),
+  serperCacheTtlMs: envBoundedInt(
+    'SERPER_CACHE_TTL_MS',
+    600_000,
+    5_000,
+    Number.MAX_SAFE_INTEGER,
+  ),
+  serperCacheMaxEntries: envMinInt('SERPER_CACHE_MAX_ENTRIES', 200, 16),
+  serperRateLimitPerMinute: envMinInt('SERPER_RATE_LIMIT_PER_MINUTE', 10, 1),
+  serperUpstreamMaxPerDayPerIp: envNonNegInt(
+    'SERPER_UPSTREAM_MAX_PER_DAY_PER_IP',
+    180,
+  ),
+  serperCacheRefreshDays: envMinInt('SERPER_CACHE_REFRESH_DAYS', 90, 1),
+  serperCacheMaxResults: envMinInt('SERPER_CACHE_MAX_RESULTS', 60, 8),
+  serperGlobalMaxPerDay: envNonNegInt('SERPER_GLOBAL_MAX_PER_DAY', 500),
+  serperGlobalMaxPerMonth: envNonNegInt('SERPER_GLOBAL_MAX_PER_MONTH', 10_000),
+  serperRefreshFailureMaxCount: envSerperRefreshFailureMaxCount(),
   honchoEnabled: (() => {
     const raw = (process.env.HONCHO_ENABLED ?? '').trim().toLowerCase();
     return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
@@ -1138,11 +688,7 @@ export const config: AppConfig = {
     const raw = process.env.HONCHO_BASE_URL?.trim();
     return raw || null;
   })(),
-  honchoRateLimitPerMinute: (() => {
-    const raw = process.env.HONCHO_RATE_LIMIT_PER_MINUTE?.trim();
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 20;
-  })(),
+  honchoRateLimitPerMinute: envMinInt('HONCHO_RATE_LIMIT_PER_MINUTE', 20, 1),
   youtubeDataApiKey: process.env.YOUTUBE_DATA_API_KEY?.trim() ?? '',
   youtubeInvidiousHosts: (() => {
     const raw = process.env.YOUTUBE_INVIDIOUS_HOSTS?.trim();
@@ -1222,6 +768,20 @@ export const config: AppConfig = {
   webPushVapidPrivateKey: process.env.VAPID_PRIVATE_KEY?.trim() || null,
   webPushVapidSubject:
     process.env.VAPID_SUBJECT?.trim() || 'mailto:push@echo.local',
+  apnsKeyId: process.env.APNS_KEY_ID?.trim() || null,
+  apnsTeamId: process.env.APNS_TEAM_ID?.trim() || null,
+  apnsKeyP8: (() => {
+    const inline = process.env.APNS_KEY_P8?.trim();
+    if (inline) return inline.replace(/\\n/g, '\n');
+    return null;
+  })(),
+  apnsBundleId: process.env.APNS_BUNDLE_ID?.trim() || 'com.echo.ios',
+  apnsEnvironment: (() => {
+    const raw = (process.env.APNS_ENVIRONMENT ?? 'sandbox')
+      .trim()
+      .toLowerCase();
+    return raw === 'production' ? 'production' : 'sandbox';
+  })(),
   s3UploadBucket: process.env.ECHO_S3_BUCKET?.trim() || null,
   s3UploadRegion: process.env.ECHO_S3_REGION?.trim() || null,
   s3UploadAccessKey: process.env.ECHO_S3_ACCESS_KEY?.trim() || null,
@@ -1261,10 +821,10 @@ export const config: AppConfig = {
       ? n
       : 256 * 1024 * 1024;
   })(),
-  echoCsamImageScanMode: echoCsamImageScanModeResolved,
-  echoCsamImageScanEffective: echoCsamImageScanEffectiveResolved,
-  echoCsamSha256BlocklistPath: echoCsamSha256BlocklistPathResolved,
-  echoCsamExternalScanCmdArgv: echoCsamExternalScanCmdArgvResolved,
+  echoCsamImageScanMode: csam.echoCsamImageScanMode,
+  echoCsamImageScanEffective: csam.echoCsamImageScanEffective,
+  echoCsamSha256BlocklistPath: csam.echoCsamSha256BlocklistPath,
+  echoCsamExternalScanCmdArgv: csam.echoCsamExternalScanCmdArgv,
   echoCsamExternalScanTimeoutMs: (() => {
     const raw = process.env.ECHO_CSAM_EXTERNAL_SCAN_TIMEOUT_MS?.trim();
     const n = raw ? parseInt(raw, 10) : NaN;
@@ -1835,144 +1395,9 @@ export const config: AppConfig = {
   })(),
 };
 
-// It's a good practice to validate critical configuration variables
-// to prevent the application from starting in a misconfigured state.
-if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65_535) {
-  configStderr(
-    `Invalid PORT specified: ${process.env.PORT}. Use an integer between 1 and 65535.`,
-  );
-  process.exit(1);
-}
-
-if (
-  isNaN(config.bcryptSaltRounds) ||
-  config.bcryptSaltRounds < 4 ||
-  config.bcryptSaltRounds > 15
-) {
-  configStderr(
-    `Invalid BCRYPT_SALT_ROUNDS specified: ${process.env.BCRYPT_SALT_ROUNDS}. Use an integer between 4 and 15.`,
-  );
-  process.exit(1);
-}
-
-if (isNaN(config.refreshTokenTtlDays) || config.refreshTokenTtlDays < 1) {
-  configStderr(
-    `Invalid REFRESH_TOKEN_TTL_DAYS specified: ${process.env.REFRESH_TOKEN_TTL_DAYS}. Use an integer >= 1.`,
-  );
-  process.exit(1);
-}
-
-if (
-  config.snowflakeWorkerId < 0 ||
-  config.snowflakeWorkerId > 31 ||
-  config.snowflakeDatacenterId < 0 ||
-  config.snowflakeDatacenterId > 31
-) {
-  configStderr(
-    'Invalid SNOWFLAKE_WORKER_ID or SNOWFLAKE_DATACENTER_ID: each must be an integer 0–31.',
-  );
-  process.exit(1);
-}
-
-if (config.isProduction) {
-  const productionGateInput: EchoProductionConfigGateInput = {
-    isProduction: config.isProduction,
-    backendStorageMode: config.backendStorageMode,
-    jwtSecret: config.jwtSecret,
-    echoRequireGuestBindingSecretInProduction:
-      config.echoRequireGuestBindingSecretInProduction,
-    echoGuestBindingSecret: config.echoGuestBindingSecret,
-    databaseUrl: config.databaseUrl,
-    echoTelnyxApiKey: config.echoTelnyxApiKey,
-    echoSmsOtpPepper: config.echoSmsOtpPepper,
-    echo2faEncryptionKey: config.echo2faEncryptionKey,
-    authLegacyBearer: config.authLegacyBearer,
-    authNativeBearer: config.authNativeBearer,
-    echoRequireRedisInProduction: config.echoRequireRedisInProduction,
-    redisUrl: config.redisUrl,
-    echoLocalUploadDir: config.echoLocalUploadDir,
-    localUploadTokenSecret: config.localUploadTokenSecret,
-    echoDiscordBotWebhookSecret: config.echoDiscordBotWebhookSecret,
-    echoRequireMetricsScrapeTokenInProduction:
-      config.echoRequireMetricsScrapeTokenInProduction,
-    echoMetricsScrapeToken: config.echoMetricsScrapeToken,
-    echoAgentNetworkDiagnosticsEnabled:
-      config.echoAgentNetworkDiagnosticsEnabled,
-    echoAgentNetworkDiagnosticsToken: config.echoAgentNetworkDiagnosticsToken,
-    echoSmtpHost: config.echoSmtpHost,
-    echoRequireMediaUrlHardeningInProduction:
-      config.echoRequireMediaUrlHardeningInProduction,
-    echoMediaUrlRequireHttps: config.echoMediaUrlRequireHttps,
-    echoMediaUrlAllowedHosts: config.echoMediaUrlAllowedHosts,
-    liveKitEnabled: config.liveKitEnabled,
-    liveKitPublicUrl: config.liveKitPublicUrl,
-    voiceSidecarEnabled: config.voiceSidecarEnabled,
-  };
-  assertEchoProductionConfigGates(productionGateInput, {
-    configStderr,
-    exitProcess: (code) => process.exit(code),
-    requireStrongProductionSecret,
-    isStrongProductionSecret,
-    normalizeEnvValue,
-    minProductionSecretLength: MIN_PRODUCTION_SECRET_LENGTH,
-    devDiscordBotWebhookSecret: DEV_DISCORD_BOT_WEBHOOK_SECRET,
-  });
-}
-
-if (
-  !config.isProduction &&
-  config.backendStorageMode === 'postgres' &&
-  !isStrongProductionSecret(config.jwtSecret)
-) {
-  configStderr(
-    `JWT_SECRET must be a strong random value when ECHO_BACKEND_STORAGE=postgres outside pure in-memory dev (at least ${MIN_PRODUCTION_SECRET_LENGTH} characters; built-in defaults like dev-insecure-secret are not permitted).`,
-  );
-  process.exit(1);
-}
-
-function collectConfiguredOrigins(
-  corsOrigin: typeof config.corsOrigin,
-): Set<string> {
-  if (corsOrigin === true) return new Set();
-  if (typeof corsOrigin === 'string') return new Set([corsOrigin]);
-  return new Set(corsOrigin);
-}
-
-function validateDeployPublicUrlOrigins(): void {
-  const allowed = collectConfiguredOrigins(config.corsOrigin);
-  if (allowed.size === 0) return;
-  const urls = [
-    ['ECHO_APP_PUBLIC_URL', config.echoAppPublicUrl],
-    ['ECHO_API_PUBLIC_URL', config.echoApiPublicUrl],
-    ['ECHO_MARKETING_PUBLIC_URL', config.echoMarketingPublicUrl],
-  ] as const;
-  for (const [label, raw] of urls) {
-    const trimmed = normalizeEnvValue(raw);
-    if (!trimmed) {
-      exitBadConfig(`${label} must be set to a valid absolute URL.`);
-    }
-    let origin: string;
-    try {
-      origin = new URL(trimmed).origin;
-    } catch {
-      exitBadConfig(`${label} must be a valid absolute URL.`);
-      return;
-    }
-    if (!allowed.has(origin)) {
-      exitBadConfig(
-        `${label} origin ${origin} must be included in CORS_ORIGIN allowlist to prevent open-redirect style OAuth and email flows.`,
-      );
-    }
-  }
-}
-
-if (config.isProduction || config.backendStorageMode === 'postgres') {
-  validateDeployPublicUrlOrigins();
-}
-
-if (config.isProduction && !config.trustProxy) {
-  configStderr(
-    'ECHO_TRUST_PROXY must be true in production when the API sits behind a reverse proxy so rate limits and audit digests use the real client IP.',
-  );
-  process.exit(1);
+try {
+  validateConfig(config, defaultValidateConfigDeps);
+} catch (err) {
+  if (err instanceof ConfigFatalError) process.exit(1);
+  throw err;
 }
