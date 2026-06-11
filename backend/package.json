@@ -95,7 +95,7 @@
     "@honcho-ai/sdk": "^2.1.2",
     "@mickl/socket.io-nats-adapter": "^2.0.1",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.76.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.77.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
     "@opentelemetry/sdk-node": "^0.218.0",
     "@simplewebauthn/server": "^13.3.0",
