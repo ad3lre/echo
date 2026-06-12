@@ -39,6 +39,7 @@ import {
 } from '@/features/channel-settings/domain/echoPermissionRows';
 import {
   getChannelPermissionDefsForChannelType,
+  groupChannelPermissionDefs,
   SLOW_MODE_OPTIONS,
   MESSAGE_AUTO_DELETE_OPTIONS,
 } from '@/features/channel-settings/types';
@@ -110,7 +111,6 @@ const emit = defineEmits<{
       slowModeSeconds: number;
       userLimit: number;
       nsfw: boolean;
-      messageHistoryAnchor: 'top' | 'bottom';
       bitrateBps: number | null | undefined;
       voiceE2eeEnabled?: boolean;
       channelPermissions: ChannelPermissionsState;
@@ -145,16 +145,6 @@ const selectedIconKey = ref('');
 const slowModeSecondsStr = ref('0');
 const userLimit = ref(0);
 const nsfw = ref(false);
-/** Text channels: initial message list scroll (compact paging). */
-const messageHistoryAnchorStr = ref<'top' | 'bottom'>('bottom');
-
-const MESSAGE_HISTORY_ANCHOR_OPTIONS: {
-  label: string;
-  value: 'top' | 'bottom';
-}[] = [
-  { label: 'Bottom — newest messages (default)', value: 'bottom' },
-  { label: 'Top — start of loaded history', value: 'top' },
-];
 const voiceDefaultBitrate = ref(true);
 const voiceE2eeEnabled = ref(false);
 const bitrateSliderKbps = ref(64);
@@ -288,14 +278,9 @@ const echoPermissionDefs = computed(() =>
   permissionDefs.value.filter((def) => def.group !== 'Threads'),
 );
 
-const permissionGroupsList = computed(() => {
-  const map = new Map<string, ChannelPermissionDef[]>();
-  for (const d of permissionDefs.value) {
-    if (!map.has(d.group)) map.set(d.group, []);
-    map.get(d.group)!.push(d);
-  }
-  return Array.from(map.entries());
-});
+const permissionGroupsList = computed(() =>
+  groupChannelPermissionDefs(permissionDefs.value),
+);
 
 function syncFromProps() {
   const cs = props.channelSettings;
@@ -307,8 +292,6 @@ function syncFromProps() {
   slowModeSecondsStr.value = String(ch.slowModeSeconds ?? 0);
   userLimit.value = ch.userLimit ?? 0;
   nsfw.value = ch.nsfw === true;
-  messageHistoryAnchorStr.value =
-    ch.type === 'text' && ch.messageHistoryAnchor === 'top' ? 'top' : 'bottom';
   voiceDefaultBitrate.value = ch.bitrateBps == null;
   voiceE2eeEnabled.value = ch.voiceE2eeEnabled === true;
   bitrateSliderKbps.value =
@@ -526,10 +509,6 @@ const initialSnapshot = computed(() => {
     slowModeSeconds: String(ch.slowModeSeconds ?? 0),
     userLimit: ch.userLimit ?? 0,
     nsfw: ch.nsfw === true,
-    messageHistoryAnchor:
-      ch.type === 'text' && ch.messageHistoryAnchor === 'top'
-        ? 'top'
-        : 'bottom',
     bitrateBps:
       ch.bitrateBps == null ? null : Math.round((ch.bitrateBps ?? 0) / 1000),
     voiceE2eeEnabled: ch.voiceE2eeEnabled === true,
@@ -598,11 +577,6 @@ const channelDirty = computed(() => {
     return true;
   if ((userLimit.value || 0) !== (snap.userLimit || 0)) return true;
   if ((nsfw.value === true) !== (snap.nsfw === true)) return true;
-  if (
-    channelType.value === 'text' &&
-    messageHistoryAnchorStr.value !== snap.messageHistoryAnchor
-  )
-    return true;
   const currentBps =
     channelType.value === 'voice' && !voiceDefaultBitrate.value
       ? Math.round(bitrateSliderKbps.value)
@@ -691,8 +665,6 @@ function save() {
     slowModeSeconds: Number.parseInt(slowModeSecondsStr.value, 10) || 0,
     userLimit: userLimit.value,
     nsfw: nsfw.value,
-    messageHistoryAnchor:
-      channelType.value === 'text' ? messageHistoryAnchorStr.value : 'bottom',
     bitrateBps:
       channelType.value === 'voice'
         ? voiceDefaultBitrate.value
@@ -952,14 +924,20 @@ async function confirmDeleteChannel() {
                 class="server-settings-panel-root channel-settings-overview-discord pb-8"
               >
                 <div
-                  class="channel-settings-overview-stack flex w-full max-w-2xl flex-col gap-10"
+                  class="channel-settings-overview-stack flex w-full max-w-2xl flex-col gap-6"
                 >
                   <div class="w-full min-w-0">
                     <label
-                      class="channel-settings-section-label"
+                      class="channel-settings-section-label channel-settings-section-label--icon"
                       for="channel-settings-name"
-                      >Channel name</label
                     >
+                      <img
+                        :src="icons.pen"
+                        alt=""
+                        class="channel-settings-label-icon server-settings-inline-icon"
+                      />
+                      Name
+                    </label>
                     <div
                       class="channel-settings-glass-row mt-2 flex min-h-[44px] w-full min-w-0 items-stretch overflow-hidden rounded-xl"
                     >
@@ -985,28 +963,44 @@ async function confirmDeleteChannel() {
                   </div>
 
                   <div class="w-full min-w-0">
-                    <div class="channel-settings-dropdowns w-full min-w-0">
+                    <div
+                      class="channel-settings-section-label channel-settings-section-label--icon"
+                    >
+                      <img
+                        :src="icons.folder"
+                        alt=""
+                        class="channel-settings-label-icon server-settings-inline-icon"
+                      />
+                      Category
+                    </div>
+                    <div class="channel-settings-dropdowns mt-2 w-full min-w-0">
                       <EchoDropdown
                         v-model="selectedCategory"
                         :options="categoryDropdownOptions"
-                        label="Category"
                         menu-match-trigger-width
+                        teleport-menu
+                        attached
+                        surface="server"
                       />
                     </div>
-                    <p class="channel-settings-hint mt-2 w-full min-w-0">
-                      Categories group channels in the sidebar so members can
-                      find conversations faster.
-                    </p>
                   </div>
 
                   <div
                     v-if="channelType === 'paper'"
                     class="w-full min-w-0 space-y-3"
                   >
-                    <div class="channel-settings-section-label">Paper</div>
+                    <div
+                      class="channel-settings-section-label channel-settings-section-label--icon"
+                    >
+                      <img
+                        :src="icons.file"
+                        alt=""
+                        class="channel-settings-label-icon server-settings-inline-icon"
+                      />
+                      Paper
+                    </div>
                     <p class="channel-settings-hint w-full min-w-0">
-                      Paper channels are shared documents with live co-editing
-                      and margin comments — not message history.
+                      Shared document with live co-editing and margin comments.
                     </p>
                     <label
                       class="flex cursor-pointer items-center gap-2 text-sm"
@@ -1081,73 +1075,75 @@ async function confirmDeleteChannel() {
                   </div>
 
                   <div v-if="channelType === 'text'" class="w-full min-w-0">
-                    <div class="channel-settings-section-label">Slowmode</div>
-                    <p class="channel-settings-hint mt-1.5 w-full min-w-0">
-                      Members must wait before sending another message in this
-                      channel. People with bypass slowmode can chat normally.
-                    </p>
-                    <div class="channel-settings-dropdowns mt-3 w-full min-w-0">
+                    <div
+                      class="channel-settings-section-label channel-settings-section-label--icon"
+                    >
+                      <img
+                        :src="icons.stopwatch"
+                        alt=""
+                        class="channel-settings-label-icon server-settings-inline-icon"
+                      />
+                      Slowmode
+                    </div>
+                    <div class="channel-settings-dropdowns mt-2 w-full min-w-0">
                       <EchoDropdown
                         v-model="slowModeSecondsStr"
                         :options="SLOW_MODE_OPTIONS"
-                        label="Slowmode"
                         menu-match-trigger-width
+                        teleport-menu
+                        attached
+                        surface="server"
                       />
-                    </div>
-                  </div>
-
-                  <div v-if="channelType === 'text'" class="w-full min-w-0">
-                    <div class="channel-settings-section-label">
-                      Open messages from
                     </div>
                     <p class="channel-settings-hint mt-1.5 w-full min-w-0">
-                      Bottom shows the newest messages first (default). Top
-                      shows the start of the loaded page. History loads 30
-                      messages at a time; scroll up for older.
+                      Wait time between messages per member.
                     </p>
-                    <div class="channel-settings-dropdowns mt-3 w-full min-w-0">
-                      <EchoDropdown
-                        v-model="messageHistoryAnchorStr"
-                        :options="MESSAGE_HISTORY_ANCHOR_OPTIONS"
-                        label="Initial scroll"
-                        menu-match-trigger-width
-                      />
-                    </div>
                   </div>
 
                   <div
-                    class="server-toggle-row w-full min-w-0 items-start !py-4"
+                    class="server-toggle-row w-full min-w-0 items-center !py-3.5"
                   >
-                    <div class="channel-settings-option-row__text min-w-0">
-                      <div class="channel-settings-option-title">
-                        Age-restricted channel (NSFW)
+                    <div
+                      class="channel-settings-option-row__text flex min-w-0 items-center gap-2.5"
+                    >
+                      <img
+                        :src="icons.shield"
+                        alt=""
+                        class="channel-settings-row-icon server-settings-inline-icon"
+                      />
+                      <div class="min-w-0">
+                        <div class="channel-settings-option-title">
+                          Age-restricted (NSFW)
+                        </div>
+                        <p class="channel-settings-hint mt-0.5">
+                          Members must confirm their age before viewing.
+                        </p>
                       </div>
-                      <p class="channel-settings-hint mt-1">
-                        Users must agree they are of age before viewing this
-                        channel. A warning is shown before entering chat.
-                      </p>
                     </div>
                     <input
                       v-model="nsfw"
                       type="checkbox"
-                      class="server-toggle mt-0.5 shrink-0"
+                      class="server-toggle shrink-0"
                       aria-label="Age-restricted channel"
                     />
                   </div>
 
                   <div
                     v-if="channelType === 'voice'"
-                    class="flex w-full min-w-0 flex-col gap-10"
+                    class="flex w-full min-w-0 flex-col gap-6"
                   >
                     <div class="w-full min-w-0">
-                      <div class="channel-settings-section-label">
+                      <div
+                        class="channel-settings-section-label channel-settings-section-label--icon"
+                      >
+                        <img
+                          :src="icons.usersAvatar"
+                          alt=""
+                          class="channel-settings-label-icon server-settings-inline-icon"
+                        />
                         User limit
                       </div>
-                      <p class="channel-settings-hint mt-1.5 w-full min-w-0">
-                        Maximum number of members connected at once. Set to
-                        unlimited to allow any number.
-                      </p>
-                      <div class="mt-4 flex w-full min-w-0 items-center gap-4">
+                      <div class="mt-3 flex w-full min-w-0 items-center gap-4">
                         <input
                           v-model.number="userLimit"
                           type="range"
@@ -1166,34 +1162,39 @@ async function confirmDeleteChannel() {
                       </div>
                     </div>
                     <div class="w-full min-w-0">
-                      <div class="channel-settings-section-label">Bitrate</div>
-                      <p class="channel-settings-hint mt-1.5 w-full min-w-0">
-                        Voice quality for this channel. Allowed range
-                        {{ ECHO_VOICE_BITRATE_MIN_KBPS }}–{{
-                          ECHO_VOICE_BITRATE_MAX_KBPS
-                        }}
-                        kbps.
-                      </p>
                       <div
-                        class="server-toggle-row mt-4 w-full min-w-0 items-start !py-4"
+                        class="channel-settings-section-label channel-settings-section-label--icon"
+                      >
+                        <img
+                          :src="icons.speedometer"
+                          alt=""
+                          class="channel-settings-label-icon server-settings-inline-icon"
+                        />
+                        Bitrate
+                      </div>
+                      <div
+                        class="server-toggle-row mt-3 w-full min-w-0 items-center !py-3.5"
                       >
                         <div class="channel-settings-option-row__text min-w-0">
                           <div class="channel-settings-option-title">
-                            Use server default bitrate
+                            Use server default
                           </div>
-                          <p class="channel-settings-hint mt-1">
-                            When off, you can set a custom bitrate with the
-                            slider below.
+                          <p class="channel-settings-hint mt-0.5">
+                            Off lets you pick
+                            {{ ECHO_VOICE_BITRATE_MIN_KBPS }}–{{
+                              ECHO_VOICE_BITRATE_MAX_KBPS
+                            }}
+                            kbps below.
                           </p>
                         </div>
                         <input
                           v-model="voiceDefaultBitrate"
                           type="checkbox"
-                          class="server-toggle mt-0.5 shrink-0"
+                          class="server-toggle shrink-0"
                           aria-label="Use server default bitrate"
                         />
                       </div>
-                      <div class="mt-4 flex w-full min-w-0 items-center gap-4">
+                      <div class="mt-3 flex w-full min-w-0 items-center gap-4">
                         <input
                           v-model.number="bitrateSliderKbps"
                           type="range"
@@ -1216,22 +1217,30 @@ async function confirmDeleteChannel() {
 
                   <div
                     v-if="channelType === 'voice' || channelType === 'stage'"
-                    class="server-toggle-row w-full min-w-0 items-start !py-4"
+                    class="server-toggle-row w-full min-w-0 items-center !py-3.5"
                   >
-                    <div class="channel-settings-option-row__text min-w-0">
-                      <div class="channel-settings-option-title">
-                        End-to-end encryption (voice)
+                    <div
+                      class="channel-settings-option-row__text flex min-w-0 items-center gap-2.5"
+                    >
+                      <img
+                        :src="icons.chatLock"
+                        alt=""
+                        class="channel-settings-row-icon server-settings-inline-icon"
+                      />
+                      <div class="min-w-0">
+                        <div class="channel-settings-option-title">
+                          End-to-end encryption
+                        </div>
+                        <p class="channel-settings-hint mt-0.5">
+                          LiveKit E2EE for voice and camera. No recording,
+                          transcription, or audio bots.
+                        </p>
                       </div>
-                      <p class="channel-settings-hint mt-1">
-                        When enabled, voice and camera use LiveKit E2EE.
-                        Recording, transcription, and bots that need decoded
-                        audio are not supported in this channel.
-                      </p>
                     </div>
                     <input
                       v-model="voiceE2eeEnabled"
                       type="checkbox"
-                      class="server-toggle mt-0.5 shrink-0"
+                      class="server-toggle shrink-0"
                       aria-label="End-to-end encryption for voice"
                     />
                   </div>
@@ -1471,6 +1480,9 @@ async function confirmDeleteChannel() {
                         :options="MESSAGE_AUTO_DELETE_OPTIONS"
                         label="Retention"
                         menu-match-trigger-width
+                        teleport-menu
+                        attached
+                        surface="server"
                       />
                     </div>
                   </section>
@@ -1753,6 +1765,26 @@ async function confirmDeleteChannel() {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--srv-label-fg);
+}
+
+.channel-settings-section-label--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.channel-settings-label-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.channel-settings-row-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .channel-settings-hint {

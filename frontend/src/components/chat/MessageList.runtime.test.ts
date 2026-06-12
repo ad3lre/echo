@@ -141,7 +141,6 @@ describe('MessageList runtime row synchronization', () => {
         return () =>
           h(MessageList, {
             messages: messages.value,
-            messageScrollAnchor: 'bottom',
           });
       },
     });
@@ -197,7 +196,6 @@ describe('MessageList runtime row synchronization', () => {
           h(MessageList, {
             channelId: channelId.value,
             messages: messages.value,
-            messageScrollAnchor: 'bottom',
             initialHistoryLoading: initialHistoryLoading.value,
           });
       },
@@ -223,51 +221,6 @@ describe('MessageList runtime row synchronization', () => {
     expect(scrollToIndexMock.mock.calls.length).toBeLessThanOrEqual(1);
   });
 
-  it('anchors to top on initial open when messageScrollAnchor is top', async () => {
-    const channelId = ref<string | undefined>(undefined);
-    const ids = ['m1', 'm2', 'm3'];
-    const mapEntries = ids.map(
-      (id) => [id, makeMessageWithAuthor(id)] as const,
-    );
-    const rawEntries = ids.map((id) => [id, makeRawMessage(id)] as const);
-    const messages = ref<Map<string, MessageWithAuthor>>(new Map(mapEntries));
-    messageWindowAuthority.entitiesById.value = new Map(rawEntries);
-    messageWindowAuthority.orderedIds.value = ids.slice();
-
-    const Wrapper = defineComponent({
-      name: 'MessageListTopAnchorHarness',
-      setup() {
-        return () =>
-          h(MessageList, {
-            channelId: channelId.value,
-            messages: messages.value,
-            messageScrollAnchor: 'top',
-            initialHistoryLoading: false,
-          });
-      },
-    });
-
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    app = createApp(Wrapper);
-    app.directive('scrollbar-on-scroll', {});
-    app.mount(container);
-
-    await nextTick();
-    expect(scrollToIndexMock).not.toHaveBeenCalled();
-
-    channelId.value = 'ch-top';
-    await nextTick();
-    await nextTick();
-    await Promise.resolve();
-    await nextTick();
-
-    expect(scrollToIndexMock).toHaveBeenCalledWith(0, {
-      align: 'start',
-      behavior: 'auto',
-    });
-  });
-
   it('does not override an explicit user scroll with the initial anchor', async () => {
     // Regression: opening a channel must not yank the viewport back to the
     // anchor if the user has already started scrolling during history load.
@@ -289,7 +242,6 @@ describe('MessageList runtime row synchronization', () => {
           h(MessageList, {
             channelId: channelId.value,
             messages: messages.value,
-            messageScrollAnchor: 'top',
             initialHistoryLoading: initialHistoryLoading.value,
           });
       },
@@ -347,7 +299,6 @@ describe('MessageList runtime row synchronization', () => {
           h(MessageList, {
             channelId: channelId.value,
             messages: messages.value,
-            messageScrollAnchor: 'bottom',
           });
       },
     });
@@ -391,7 +342,6 @@ describe('MessageList runtime row synchronization', () => {
           h(MessageList, {
             channelId: channelId.value,
             messages: messages.value,
-            messageScrollAnchor: 'bottom',
             initialHistoryLoading: false,
           });
       },
@@ -448,7 +398,6 @@ describe('MessageList runtime row synchronization', () => {
             channelId: channelId.value,
             currentUserId: currentUserId.value,
             messages: messages.value,
-            messageScrollAnchor: 'bottom',
           });
       },
     });
@@ -532,7 +481,6 @@ describe('MessageList runtime row synchronization', () => {
           h(MessageList, {
             channelId: channelId.value,
             messages: messages.value,
-            messageScrollAnchor: 'bottom',
             initialHistoryLoading: false,
           });
       },
@@ -582,7 +530,6 @@ describe('MessageList runtime row synchronization', () => {
           h(MessageList, {
             channelId: channelId.value,
             messages: messages.value,
-            messageScrollAnchor: 'bottom',
             initialHistoryLoading: false,
           });
       },

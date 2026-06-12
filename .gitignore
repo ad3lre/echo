@@ -59,6 +59,7 @@ src-tauri/gen/android/**/*.jks
 .direnv/
 
 # Cursor, AI coding assistants, and local tool state (never commit)
+CLAUDE.md
 .cursor/
 .claude/
 .windsurf/

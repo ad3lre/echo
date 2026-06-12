@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import AppLayoutLeftChrome from '@/features/layout/components/AppLayoutLeftChrome.vue';
 import DesktopTitlebar from '@/components/DesktopTitlebar.vue';
-import AppLayoutInfoBanners from '@/features/layout/components/AppLayoutInfoBanners.vue';
 import AppLayoutGuildModals from '@/features/layout/components/AppLayoutGuildModals.vue';
 import AppLayoutMembersColumn from '@/features/layout/components/AppLayoutMembersColumn.vue';
 import AppLayoutModals from '@/features/layout/components/AppLayoutModals.vue';
 import AppLayoutDialogHost from '@/features/layout/components/AppLayoutDialogHost.vue';
-import AppLayoutChatSurface from '@/features/layout/components/AppLayoutChatSurface.vue';
+import AppLayoutMainSurface from '@/features/layout/components/AppLayoutMainSurface.vue';
 import RealtimeConnectionBanner from '@/features/layout/components/RealtimeConnectionBanner.vue';
 import CompactDualPaneShell from '@/features/layout/components/CompactDualPaneShell.vue';
 import CompactStackShellFrame from '@/features/layout/components/CompactStackShellFrame.vue';
@@ -15,18 +14,6 @@ import CompactGuildSplitShell from '@/features/layout/components/CompactGuildSpl
 import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { ECHO_SCREEN_SHARE_USE_CONFIG_MODAL } from '@/config/screenShareUi';
 
-/** Lazy: large style + copy surface; only mounted on welcome-back / empty-directory paths. */
-const WelcomeBackExploreGate = defineAsyncComponent(
-  () => import('@/features/layout/components/WelcomeBackExploreGate.vue'),
-);
-/** Lazy: branded invite landing for unauthenticated users arriving via invite URL. */
-const InviteLandingView = defineAsyncComponent(
-  () => import('@/features/layout/components/InviteLandingView.vue'),
-);
-/** Lazy: outage UI; rarely shown vs main chat chrome. */
-const ServerDownGate = defineAsyncComponent(
-  () => import('@/features/layout/components/ServerDownGate.vue'),
-);
 const GuildMobileVoiceLobbySheet = defineAsyncComponent(
   () => import('@/features/voice/components/GuildMobileVoiceLobbySheet.vue'),
 );
@@ -122,6 +109,7 @@ import {
   LAYOUT_GUILD_MODALS_KEY,
   LAYOUT_INFO_BANNERS_KEY,
   LAYOUT_LEFT_CHROME_KEY,
+  LAYOUT_MAIN_SURFACE_KEY,
   LAYOUT_MEMBERS_COLUMN_KEY,
   LAYOUT_MOBILE_SHELL_NAV_KEY,
   LAYOUT_MODALS_KEY,
@@ -157,7 +145,6 @@ provide(COMPOSER_INSERT_USER_MENTION_KEY, composerInsertUserMention);
 
 const {
   _DM_PANEL_WIDTH,
-  ExploreView,
   _MORE_SERVERS_COMPACT_WIDTH,
   _MORE_SERVERS_PANEL_WIDTH,
   acceptFriendRequest,
@@ -2247,6 +2234,30 @@ const {
   openUserSettingsModal,
 });
 
+/* Main-surface gate stack (outage / invite landing / welcome-back / explore vs chat).
+ * Consumed by AppLayoutMainSurface across every shell variant. */
+provide(LAYOUT_MAIN_SURFACE_KEY, {
+  explorePageUnifiedScroll,
+  showServerDownGate,
+  serverDownGateBind,
+  checkServerHealthNow,
+  inviteLandingActive,
+  inviteLandingPreview,
+  inviteLandingLoading,
+  inviteLandingError,
+  inviteLandingPersistBeforeOAuth,
+  isCompactShell,
+  mobileShellGoBack,
+  openAuthModal,
+  welcomeBackExploreGate,
+  welcomeBackExploreMemberEmptyDirectory,
+  openAddServerModal,
+  onJoinServerFromShell,
+  exploreDiscoverableServers,
+  exploreDirectoryJoinBusy,
+  handleJoinDiscoverableServer,
+});
+
 // Global shell keyboard shortcuts (voice mute/deafen, search, mark-read, rail 1–5).
 // Owns its own window keydown listener; see useAppLayoutGlobalShortcuts.
 useAppLayoutGlobalShortcuts({
@@ -2934,41 +2945,7 @@ watch(
               gridTemplateColumns: mainContentAreaGridColumns,
             }"
           >
-            <AppLayoutInfoBanners />
-            <ServerDownGate
-              v-if="showServerDownGate"
-              class="col-span-full min-h-full min-w-0 self-stretch"
-              v-bind="serverDownGateBind"
-              @retry="checkServerHealthNow"
-            />
-            <InviteLandingView
-              v-else-if="inviteLandingActive"
-              class="col-span-full min-h-full min-w-0 self-stretch"
-              :preview="inviteLandingPreview"
-              :loading="inviteLandingLoading"
-              :error="inviteLandingError"
-              :show-mobile-back="isCompactShell"
-              @back="mobileShellGoBack"
-              @log-in-echo="openAuthModal({ entry: 'echo' })"
-              @create-account="openAuthModal({ tab: 'register' })"
-              @sign-in-passkey="
-                openAuthModal({ entry: 'social', passkey: true })
-              "
-              @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-            />
-            <WelcomeBackExploreGate
-              v-else-if="welcomeBackExploreGate"
-              class="col-span-full min-h-full min-w-0 self-stretch"
-              :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-              @log-in-echo="openAuthModal({ entry: 'echo' })"
-              @create-account="openAuthModal({ tab: 'register' })"
-              @sign-in-passkey="
-                openAuthModal({ entry: 'social', passkey: true })
-              "
-              @create-server="openAddServerModal('create')"
-              @join-server="onJoinServerFromShell"
-            />
-            <AppLayoutChatSurface v-else />
+            <AppLayoutMainSurface surface="chat" />
           </div>
         </template>
         <template #members-overlay>
@@ -3013,100 +2990,7 @@ watch(
               gridTemplateColumns: mainContentAreaGridColumns,
             }"
           >
-            <template v-if="explorePageUnifiedScroll">
-              <div
-                class="col-span-full flex min-h-0 min-w-0 flex-col overflow-hidden"
-              >
-                <div
-                  class="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-                >
-                  <AppLayoutInfoBanners />
-                  <ServerDownGate
-                    v-if="showServerDownGate"
-                    class="col-span-full min-h-full min-w-0 self-stretch"
-                    v-bind="serverDownGateBind"
-                    @retry="checkServerHealthNow"
-                  />
-                  <InviteLandingView
-                    v-else-if="inviteLandingActive"
-                    class="col-span-full min-h-full min-w-0 self-stretch"
-                    :preview="inviteLandingPreview"
-                    :loading="inviteLandingLoading"
-                    :error="inviteLandingError"
-                    :show-mobile-back="isCompactShell"
-                    @back="mobileShellGoBack"
-                    @log-in-echo="openAuthModal({ entry: 'echo' })"
-                    @create-account="openAuthModal({ tab: 'register' })"
-                    @sign-in-passkey="
-                      openAuthModal({ entry: 'social', passkey: true })
-                    "
-                    @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-                  />
-                  <WelcomeBackExploreGate
-                    v-else-if="welcomeBackExploreGate"
-                    class="col-span-full min-h-full min-w-0 self-stretch"
-                    :member-empty-directory="
-                      welcomeBackExploreMemberEmptyDirectory
-                    "
-                    @log-in-echo="openAuthModal({ entry: 'echo' })"
-                    @create-account="openAuthModal({ tab: 'register' })"
-                    @sign-in-passkey="
-                      openAuthModal({ entry: 'social', passkey: true })
-                    "
-                    @create-server="openAddServerModal('create')"
-                    @join-server="onJoinServerFromShell"
-                  />
-                  <ExploreView
-                    v-else
-                    class="w-full min-w-0"
-                    :discoverable-servers="exploreDiscoverableServers"
-                    :directory-join-busy="exploreDirectoryJoinBusy"
-                    :show-mobile-back="isCompactShell"
-                    @back="mobileShellGoBack"
-                    @create-server="openAddServerModal('create')"
-                    @join-server="onJoinServerFromShell"
-                    @join-suggested="handleJoinDiscoverableServer"
-                  />
-                </div>
-              </div>
-            </template>
-            <template v-else>
-              <AppLayoutInfoBanners />
-              <ServerDownGate
-                v-if="showServerDownGate"
-                class="col-span-full min-h-full min-w-0 self-stretch"
-                v-bind="serverDownGateBind"
-                @retry="checkServerHealthNow"
-              />
-              <InviteLandingView
-                v-else-if="inviteLandingActive"
-                class="col-span-full min-h-full min-w-0 self-stretch"
-                :preview="inviteLandingPreview"
-                :loading="inviteLandingLoading"
-                :error="inviteLandingError"
-                :show-mobile-back="isCompactShell"
-                @back="mobileShellGoBack"
-                @log-in-echo="openAuthModal({ entry: 'echo' })"
-                @create-account="openAuthModal({ tab: 'register' })"
-                @sign-in-passkey="
-                  openAuthModal({ entry: 'social', passkey: true })
-                "
-                @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-              />
-              <WelcomeBackExploreGate
-                v-else-if="welcomeBackExploreGate"
-                class="col-span-full min-h-full min-w-0 self-stretch"
-                :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-                @log-in-echo="openAuthModal({ entry: 'echo' })"
-                @create-account="openAuthModal({ tab: 'register' })"
-                @sign-in-passkey="
-                  openAuthModal({ entry: 'social', passkey: true })
-                "
-                @create-server="openAddServerModal('create')"
-                @join-server="onJoinServerFromShell"
-              />
-              <AppLayoutChatSurface v-else />
-            </template>
+            <AppLayoutMainSurface />
           </div>
         </template>
         <template #members>
@@ -3132,61 +3016,7 @@ watch(
               gridTemplateColumns: mainContentAreaGridColumns,
             }"
           >
-            <div
-              class="col-span-full flex min-h-0 min-w-0 flex-col overflow-hidden"
-            >
-              <div
-                class="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-              >
-                <AppLayoutInfoBanners />
-                <ServerDownGate
-                  v-if="showServerDownGate"
-                  class="col-span-full min-h-full min-w-0 self-stretch"
-                  v-bind="serverDownGateBind"
-                  @retry="checkServerHealthNow"
-                />
-                <InviteLandingView
-                  v-else-if="inviteLandingActive"
-                  class="col-span-full min-h-full min-w-0 self-stretch"
-                  :preview="inviteLandingPreview"
-                  :loading="inviteLandingLoading"
-                  :error="inviteLandingError"
-                  :show-mobile-back="isCompactShell"
-                  @back="mobileShellGoBack"
-                  @log-in-echo="openAuthModal({ entry: 'echo' })"
-                  @create-account="openAuthModal({ tab: 'register' })"
-                  @sign-in-passkey="
-                    openAuthModal({ entry: 'social', passkey: true })
-                  "
-                  @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-                />
-                <WelcomeBackExploreGate
-                  v-else-if="welcomeBackExploreGate"
-                  class="col-span-full min-h-full min-w-0 self-stretch"
-                  :member-empty-directory="
-                    welcomeBackExploreMemberEmptyDirectory
-                  "
-                  @log-in-echo="openAuthModal({ entry: 'echo' })"
-                  @create-account="openAuthModal({ tab: 'register' })"
-                  @sign-in-passkey="
-                    openAuthModal({ entry: 'social', passkey: true })
-                  "
-                  @create-server="openAddServerModal('create')"
-                  @join-server="onJoinServerFromShell"
-                />
-                <ExploreView
-                  v-else
-                  class="w-full min-w-0"
-                  :discoverable-servers="exploreDiscoverableServers"
-                  :directory-join-busy="exploreDirectoryJoinBusy"
-                  :show-mobile-back="isCompactShell"
-                  @back="mobileShellGoBack"
-                  @create-server="openAddServerModal('create')"
-                  @join-server="onJoinServerFromShell"
-                  @join-suggested="handleJoinDiscoverableServer"
-                />
-              </div>
-            </div>
+            <AppLayoutMainSurface surface="explore" />
           </div>
         </template>
         <template #rail>
@@ -3222,101 +3052,7 @@ watch(
               gridTemplateColumns: mainContentAreaGridColumns,
             }"
           >
-            <template v-if="explorePageUnifiedScroll">
-              <div
-                class="col-span-full flex min-h-0 min-w-0 flex-col overflow-hidden"
-              >
-                <div
-                  class="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-                >
-                  <AppLayoutInfoBanners />
-                  <ServerDownGate
-                    v-if="showServerDownGate"
-                    class="col-span-full min-h-full min-w-0 self-stretch"
-                    v-bind="serverDownGateBind"
-                    @retry="checkServerHealthNow"
-                  />
-                  <InviteLandingView
-                    v-else-if="inviteLandingActive"
-                    class="col-span-full min-h-full min-w-0 self-stretch"
-                    :preview="inviteLandingPreview"
-                    :loading="inviteLandingLoading"
-                    :error="inviteLandingError"
-                    :show-mobile-back="isCompactShell"
-                    @back="mobileShellGoBack"
-                    @log-in-echo="openAuthModal({ entry: 'echo' })"
-                    @create-account="openAuthModal({ tab: 'register' })"
-                    @sign-in-passkey="
-                      openAuthModal({ entry: 'social', passkey: true })
-                    "
-                    @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-                  />
-                  <WelcomeBackExploreGate
-                    v-else-if="welcomeBackExploreGate"
-                    class="col-span-full min-h-full min-w-0 self-stretch"
-                    :member-empty-directory="
-                      welcomeBackExploreMemberEmptyDirectory
-                    "
-                    @log-in-echo="openAuthModal({ entry: 'echo' })"
-                    @create-account="openAuthModal({ tab: 'register' })"
-                    @sign-in-passkey="
-                      openAuthModal({ entry: 'social', passkey: true })
-                    "
-                    @create-server="openAddServerModal('create')"
-                    @join-server="onJoinServerFromShell"
-                  />
-                  <ExploreView
-                    v-else
-                    class="w-full min-w-0"
-                    :discoverable-servers="exploreDiscoverableServers"
-                    :directory-join-busy="exploreDirectoryJoinBusy"
-                    :show-mobile-back="isCompactShell"
-                    @back="mobileShellGoBack"
-                    @create-server="openAddServerModal('create')"
-                    @join-server="onJoinServerFromShell"
-                    @join-suggested="handleJoinDiscoverableServer"
-                  />
-                </div>
-              </div>
-            </template>
-            <template v-else>
-              <AppLayoutInfoBanners />
-              <ServerDownGate
-                v-if="showServerDownGate"
-                class="col-span-full min-h-full min-w-0 self-stretch"
-                v-bind="serverDownGateBind"
-                @retry="checkServerHealthNow"
-              />
-              <InviteLandingView
-                v-else-if="inviteLandingActive"
-                class="col-span-full min-h-full min-w-0 self-stretch"
-                :preview="inviteLandingPreview"
-                :loading="inviteLandingLoading"
-                :error="inviteLandingError"
-                :show-mobile-back="isCompactShell"
-                @back="mobileShellGoBack"
-                @log-in-echo="openAuthModal({ entry: 'echo' })"
-                @create-account="openAuthModal({ tab: 'register' })"
-                @sign-in-passkey="
-                  openAuthModal({ entry: 'social', passkey: true })
-                "
-                @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-              />
-              <WelcomeBackExploreGate
-                v-else-if="welcomeBackExploreGate"
-                class="col-span-full min-h-full min-w-0 self-stretch"
-                :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-                @log-in-echo="openAuthModal({ entry: 'echo' })"
-                @create-account="openAuthModal({ tab: 'register' })"
-                @sign-in-passkey="
-                  openAuthModal({ entry: 'social', passkey: true })
-                "
-                @create-server="openAddServerModal('create')"
-                @join-server="onJoinServerFromShell"
-              />
-              <AppLayoutChatSurface v-else />
-              <AppLayoutMembersColumn />
-            </template>
+            <AppLayoutMainSurface members-column />
           </div>
         </template>
         <template #rail>
@@ -3355,101 +3091,7 @@ watch(
             gridTemplateColumns: mainContentAreaGridColumns,
           }"
         >
-          <template v-if="explorePageUnifiedScroll">
-            <div
-              class="col-span-full flex min-h-0 min-w-0 flex-col overflow-hidden"
-            >
-              <div
-                class="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-              >
-                <AppLayoutInfoBanners />
-                <ServerDownGate
-                  v-if="showServerDownGate"
-                  class="col-span-full min-h-full min-w-0 self-stretch"
-                  v-bind="serverDownGateBind"
-                  @retry="checkServerHealthNow"
-                />
-                <InviteLandingView
-                  v-else-if="inviteLandingActive"
-                  class="col-span-full min-h-full min-w-0 self-stretch"
-                  :preview="inviteLandingPreview"
-                  :loading="inviteLandingLoading"
-                  :error="inviteLandingError"
-                  :show-mobile-back="isCompactShell"
-                  @back="mobileShellGoBack"
-                  @log-in-echo="openAuthModal({ entry: 'echo' })"
-                  @create-account="openAuthModal({ tab: 'register' })"
-                  @sign-in-passkey="
-                    openAuthModal({ entry: 'social', passkey: true })
-                  "
-                  @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-                />
-                <WelcomeBackExploreGate
-                  v-else-if="welcomeBackExploreGate"
-                  class="col-span-full min-h-full min-w-0 self-stretch"
-                  :member-empty-directory="
-                    welcomeBackExploreMemberEmptyDirectory
-                  "
-                  @log-in-echo="openAuthModal({ entry: 'echo' })"
-                  @create-account="openAuthModal({ tab: 'register' })"
-                  @sign-in-passkey="
-                    openAuthModal({ entry: 'social', passkey: true })
-                  "
-                  @create-server="openAddServerModal('create')"
-                  @join-server="onJoinServerFromShell"
-                />
-                <ExploreView
-                  v-else
-                  class="w-full min-w-0"
-                  :discoverable-servers="exploreDiscoverableServers"
-                  :directory-join-busy="exploreDirectoryJoinBusy"
-                  :show-mobile-back="isCompactShell"
-                  @back="mobileShellGoBack"
-                  @create-server="openAddServerModal('create')"
-                  @join-server="onJoinServerFromShell"
-                  @join-suggested="handleJoinDiscoverableServer"
-                />
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <AppLayoutInfoBanners />
-            <ServerDownGate
-              v-if="showServerDownGate"
-              class="col-span-full min-h-full min-w-0 self-stretch"
-              v-bind="serverDownGateBind"
-              @retry="checkServerHealthNow"
-            />
-            <InviteLandingView
-              v-else-if="inviteLandingActive"
-              class="col-span-full min-h-full min-w-0 self-stretch"
-              :preview="inviteLandingPreview"
-              :loading="inviteLandingLoading"
-              :error="inviteLandingError"
-              :show-mobile-back="isCompactShell"
-              @back="mobileShellGoBack"
-              @log-in-echo="openAuthModal({ entry: 'echo' })"
-              @create-account="openAuthModal({ tab: 'register' })"
-              @sign-in-passkey="
-                openAuthModal({ entry: 'social', passkey: true })
-              "
-              @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-            />
-            <WelcomeBackExploreGate
-              v-else-if="welcomeBackExploreGate"
-              class="col-span-full min-h-full min-w-0 self-stretch"
-              :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-              @log-in-echo="openAuthModal({ entry: 'echo' })"
-              @create-account="openAuthModal({ tab: 'register' })"
-              @sign-in-passkey="
-                openAuthModal({ entry: 'social', passkey: true })
-              "
-              @create-server="openAddServerModal('create')"
-              @join-server="onJoinServerFromShell"
-            />
-            <AppLayoutChatSurface v-else />
-            <AppLayoutMembersColumn />
-          </template>
+          <AppLayoutMainSurface members-column />
         </div>
       </CompactStackShellFrame>
       <AppLayoutGuildModals />
@@ -3489,95 +3131,7 @@ watch(
           gridTemplateColumns: mainContentAreaGridColumns,
         }"
       >
-        <template v-if="explorePageUnifiedScroll">
-          <div
-            class="col-span-full flex min-h-0 min-w-0 flex-col overflow-hidden"
-          >
-            <div
-              class="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-            >
-              <AppLayoutInfoBanners />
-              <ServerDownGate
-                v-if="showServerDownGate"
-                class="col-span-full min-h-full min-w-0 self-stretch"
-                v-bind="serverDownGateBind"
-                @retry="checkServerHealthNow"
-              />
-              <InviteLandingView
-                v-else-if="inviteLandingActive"
-                class="col-span-full min-h-full min-w-0 self-stretch"
-                :preview="inviteLandingPreview"
-                :loading="inviteLandingLoading"
-                :error="inviteLandingError"
-                :show-mobile-back="isCompactShell"
-                @back="mobileShellGoBack"
-                @log-in-echo="openAuthModal({ entry: 'echo' })"
-                @create-account="openAuthModal({ tab: 'register' })"
-                @sign-in-passkey="
-                  openAuthModal({ entry: 'social', passkey: true })
-                "
-                @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-              />
-              <WelcomeBackExploreGate
-                v-else-if="welcomeBackExploreGate"
-                class="col-span-full min-h-full min-w-0 self-stretch"
-                :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-                @log-in-echo="openAuthModal({ entry: 'echo' })"
-                @create-account="openAuthModal({ tab: 'register' })"
-                @sign-in-passkey="
-                  openAuthModal({ entry: 'social', passkey: true })
-                "
-                @create-server="openAddServerModal('create')"
-                @join-server="onJoinServerFromShell"
-              />
-              <ExploreView
-                v-else
-                class="w-full min-w-0"
-                :discoverable-servers="exploreDiscoverableServers"
-                :directory-join-busy="exploreDirectoryJoinBusy"
-                :show-mobile-back="isCompactShell"
-                @back="mobileShellGoBack"
-                @create-server="openAddServerModal('create')"
-                @join-server="onJoinServerFromShell"
-                @join-suggested="handleJoinDiscoverableServer"
-              />
-            </div>
-          </div>
-        </template>
-        <template v-else>
-          <AppLayoutInfoBanners />
-          <ServerDownGate
-            v-if="showServerDownGate"
-            class="col-span-full min-h-full min-w-0 self-stretch"
-            v-bind="serverDownGateBind"
-            @retry="checkServerHealthNow"
-          />
-          <InviteLandingView
-            v-else-if="inviteLandingActive"
-            class="col-span-full min-h-full min-w-0 self-stretch"
-            :preview="inviteLandingPreview"
-            :loading="inviteLandingLoading"
-            :error="inviteLandingError"
-            :show-mobile-back="isCompactShell"
-            @back="mobileShellGoBack"
-            @log-in-echo="openAuthModal({ entry: 'echo' })"
-            @create-account="openAuthModal({ tab: 'register' })"
-            @sign-in-passkey="openAuthModal({ entry: 'social', passkey: true })"
-            @persist-before-oauth="inviteLandingPersistBeforeOAuth"
-          />
-          <WelcomeBackExploreGate
-            v-else-if="welcomeBackExploreGate"
-            class="col-span-full min-h-full min-w-0 self-stretch"
-            :member-empty-directory="welcomeBackExploreMemberEmptyDirectory"
-            @log-in-echo="openAuthModal({ entry: 'echo' })"
-            @create-account="openAuthModal({ tab: 'register' })"
-            @sign-in-passkey="openAuthModal({ entry: 'social', passkey: true })"
-            @create-server="openAddServerModal('create')"
-            @join-server="onJoinServerFromShell"
-          />
-          <AppLayoutChatSurface v-else />
-          <AppLayoutMembersColumn />
-        </template>
+        <AppLayoutMainSurface members-column />
       </main>
     </div>
 

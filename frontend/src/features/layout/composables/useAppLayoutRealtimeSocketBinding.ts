@@ -9,6 +9,7 @@ import {
 import { useChannelTypingStore } from '@/stores/channelTyping';
 import type { LocalAuthorEchoSnapshot } from '@/services/realtime/socketOutbound';
 import { registerEchoSocketWarmConnect } from '@/services/realtime/echoSocketWarmConnect';
+import type { EchoSocketAuthKey } from '@/services/realtime/echoSocketSessionLifecycle';
 
 export type AppLayoutEchoRealtimeHostCallbacks = Omit<
   AppLayoutEchoRealtimeHostInput,
@@ -24,7 +25,7 @@ export function useAppLayoutRealtimeSocketBinding(deps: {
   activeChannelId: Ref<string>;
   currentUserId: ComputedRef<string | undefined>;
   hostCallbacks: AppLayoutEchoRealtimeHostCallbacks;
-  getAuthKey: () => readonly [boolean, string | null | undefined];
+  getAuthKey: () => EchoSocketAuthKey;
   platformSession: {
     setLiveSyncConnected: (connected: boolean) => void;
   } | null;

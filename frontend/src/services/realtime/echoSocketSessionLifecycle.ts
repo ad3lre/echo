@@ -220,10 +220,23 @@ export function applyEchoSocketActiveChannelChange(
   }
 }
 
+/**
+ * `[isAuthenticated, accessToken, authStateGeneration]`. The generation counter
+ * is essential for cookie-mode sessions where `accessToken` stays null: without
+ * it, same-user rotations (guest upgrade, re-login) would keep the old socket
+ * authenticated as the previous session.
+ */
+export type EchoSocketAuthKey = readonly [
+  boolean,
+  string | null | undefined,
+  number?,
+];
+
 export function shouldRecycleEchoSocketOnAuthChange(
-  next: readonly [boolean, string | null | undefined],
-  prev: readonly [boolean, string | null | undefined] | undefined,
+  next: EchoSocketAuthKey,
+  prev: EchoSocketAuthKey | undefined,
 ): boolean {
-  if (prev && next[0] === prev[0] && next[1] === prev[1]) return false;
+  if (prev && next[0] === prev[0] && next[1] === prev[1] && next[2] === prev[2])
+    return false;
   return true;
 }

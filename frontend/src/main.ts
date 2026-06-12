@@ -14,22 +14,7 @@ import {
 import { echoT } from '@/i18n';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useBugHunterStore } from '@/stores/bugHunter';
-import {
-  applyBrowserChromeThemeColor,
-  applyDarkVariantToDocument,
-  applyInterfaceDensityToDocument,
-  applyLightVariantToDocument,
-  applyThemeToDocument,
-  applyVibrantAccentsToDocument,
-  loadPersistedInterfaceDensity,
-  loadPersistedSyncWithSystem,
-  loadPersistedThemeId,
-  loadPersistedVibrantAccents,
-  resolveCanonicalTheme,
-  resolveEffectiveDarkVariant,
-  resolveEffectiveLightVariant,
-  resolveSystemThemeId,
-} from '@/utils/theme';
+import { hydrateBootThemeAndPreferences } from '@/utils/bootThemeHydration';
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { EchoWorkspaceState } from '@/api/echoClient';
@@ -78,10 +63,6 @@ import {
 import { authDesktopRedeemHandoff, authFetchMe } from '@/api/authClient';
 import { registerAuthSessionApiBridge } from '@/api/authSessionBridge';
 import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
-import {
-  loadAccessibilityPreferences,
-  applyAccessibilityPreferences,
-} from '@/features/settings/accessibilityPreferences';
 import { ensureEchoBrandFavicon } from '@/utils/ensureEchoBrandFavicon';
 import {
   runIosBootCheck,
@@ -94,6 +75,8 @@ import {
   markIosNativeShell,
   detectIosSimulator,
 } from '@/platform/iosNativeFeedback';
+import { prefetchAppLayoutChunk } from '@/services/appLayoutChunkPrefetch';
+import { reportClientEnvironmentOnce } from '@/observability/reportClientEnvironment';
 
 ensureEchoBrandFavicon();
 markIosNativeShell();
@@ -103,6 +86,8 @@ markIosNativeShell();
  * would prime audio. No-op / false on real devices and non-iOS builds. */
 void detectIosSimulator();
 registerEchoServiceWorker();
+/** Overlap AppLayout chunk fetch/parse with bootstrap work before `App.vue` mounts. */
+void prefetchAppLayoutChunk();
 applyGpuTierToDocument(detectGpuTier());
 installDevConsoleLogRecorder();
 installGlobalAudioPlaybackUnlock(() => {
@@ -111,35 +96,7 @@ installGlobalAudioPlaybackUnlock(() => {
 });
 
 // Phase A: hydrate theme + dark variant before first paint.
-const persistedThemeId = loadPersistedThemeId();
-const bootResolvedTheme = loadPersistedSyncWithSystem()
-  ? resolveSystemThemeId()
-  : persistedThemeId;
-const bootCanonicalTheme = resolveCanonicalTheme(bootResolvedTheme);
-applyThemeToDocument(bootCanonicalTheme);
-const bootDarkVariant = resolveEffectiveDarkVariant(
-  bootCanonicalTheme,
-  persistedThemeId,
-);
-const bootLightVariant = resolveEffectiveLightVariant(
-  bootCanonicalTheme,
-  persistedThemeId,
-);
-applyDarkVariantToDocument(bootCanonicalTheme, bootDarkVariant);
-applyLightVariantToDocument(bootCanonicalTheme, bootLightVariant);
-applyBrowserChromeThemeColor(
-  bootCanonicalTheme,
-  bootDarkVariant,
-  bootLightVariant,
-);
-applyVibrantAccentsToDocument(loadPersistedVibrantAccents());
-applyInterfaceDensityToDocument(loadPersistedInterfaceDensity());
-const bootA11yPrefs = loadAccessibilityPreferences();
-applyAccessibilityPreferences(bootA11yPrefs);
-if (bootA11yPrefs.dyslexiaFriendlyFont) {
-  void import('@fontsource/atkinson-hyperlegible/latin-400.css');
-  void import('@fontsource/atkinson-hyperlegible/latin-700.css');
-}
+hydrateBootThemeAndPreferences();
 
 function loadDeferredInterWeights() {
   void import('@fontsource/inter/latin-600.css');
@@ -279,6 +236,9 @@ async function bootstrap() {
     },
     clearLocalTokens() {
       useAuthSessionStore().clearLocalTokens();
+    },
+    getAuthStateGeneration() {
+      return useAuthSessionStore().authStateGeneration;
     },
   });
 
@@ -674,6 +634,10 @@ async function bootstrap() {
 
   enqueueStartupTask('time-language-prewarm', 'high', () => {
     loadTimeLanguagePreferences();
+  });
+
+  enqueueStartupTask('client-environment-report', 'high', () => {
+    reportClientEnvironmentOnce();
   });
 
   /** Defer audio decode until first interaction (or 5s fallback). */

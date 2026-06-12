@@ -51,6 +51,29 @@ export function stripLeadingDuplicateHardFormatTemplate(
   return t + p.slice(t.length * 2);
 }
 
+/**
+ * Raw UTF-16 length at the start of `plain` that corresponds to the full
+ * hard-format template prefix (LF-normalized). Returns 0 when `plain` does not
+ * start with the template — callers must rehydrate the prefix instead of
+ * blocking deletion using the template length alone.
+ */
+export function echoHardFormatProtectedPrefixLen(
+  plain: string,
+  template: string,
+): number {
+  const t = normalizeEchoMessageFormatLineEndings(template);
+  if (!t) return 0;
+  const p = normalizeEchoMessageFormatLineEndings(plain);
+  if (!p.startsWith(t)) return 0;
+  for (let rawLen = 0; rawLen <= plain.length; rawLen++) {
+    const normLen = normalizeEchoMessageFormatLineEndings(
+      plain.slice(0, rawLen),
+    ).length;
+    if (normLen === t.length) return rawLen;
+  }
+  return t.length;
+}
+
 /** Outbound plain-text chat messages are split into chunks of at most this size before sending. */
 export const ECHO_OUTBOUND_MESSAGE_CHUNK_CHARS = 2000;
 

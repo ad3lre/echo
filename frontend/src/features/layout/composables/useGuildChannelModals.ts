@@ -518,7 +518,6 @@ export function useGuildChannelModals(deps: {
     slowModeSeconds: number;
     userLimit: number;
     nsfw: boolean;
-    messageHistoryAnchor: 'top' | 'bottom';
     bitrateBps?: number | null;
     voiceE2eeEnabled?: boolean;
     channelPermissions: ChannelPermissionsState;
@@ -544,11 +543,6 @@ export function useGuildChannelModals(deps: {
           userLimit: payload.userLimit,
           nsfw: payload.nsfw,
           iconKey: payload.iconKey,
-          ...(payload.channelType === 'text'
-            ? {
-                messageHistoryAnchor: payload.messageHistoryAnchor,
-              }
-            : {}),
           ...(payload.channelType === 'voice'
             ? { bitrateBps: payload.bitrateBps }
             : {}),
@@ -652,10 +646,6 @@ export function useGuildChannelModals(deps: {
       slowModeSeconds: payload.slowModeSeconds,
       userLimit: payload.userLimit,
       nsfw: payload.nsfw,
-      messageHistoryAnchor:
-        payload.channelType === 'text'
-          ? payload.messageHistoryAnchor
-          : undefined,
       bitrateBps: payload.bitrateBps,
       ...(payload.channelType === 'voice' || payload.channelType === 'stage'
         ? { voiceE2eeEnabled: payload.voiceE2eeEnabled === true }

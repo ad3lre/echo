@@ -7,12 +7,13 @@ import { onMounted, onUnmounted, watch, type Ref } from 'vue';
 import type { EchoRealtimePort } from '@/services/realtime/echoRealtimePort';
 import { registerEchoSocketComposableEffects } from '@/services/realtime/echoSocketComposableEffects';
 import type { EchoSocketRealtimeWiring } from '@/services/realtime/echoSocketRealtimeWiring';
+import type { EchoSocketAuthKey } from '@/services/realtime/echoSocketSessionLifecycle';
 
 export type { EchoRealtimePort };
 
 export type UseSocketBinding = {
   activeChannelId: Ref<string>;
-  getAuthKey: () => readonly [boolean, string | null | undefined];
+  getAuthKey: () => EchoSocketAuthKey;
   wiring: EchoSocketRealtimeWiring;
 };
 

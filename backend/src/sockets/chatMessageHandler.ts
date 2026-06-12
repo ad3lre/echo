@@ -245,7 +245,7 @@ export function registerMessageHandler(
 
         echoSocketBranchTotal.inc({ branch });
 
-        log.info({
+        log.debug({
           msg: 'echo.socket.message_branch',
           branch,
           correlationId,
@@ -510,7 +510,7 @@ export function registerMessageHandler(
             });
             return;
           }
-          log.info(
+          log.debug(
             {
               msg: 'echo.socket.message_persist_start',
               correlationId,
@@ -684,7 +684,7 @@ export function registerMessageHandler(
             socket.emit('message_ack', { message: persistRes.message });
             return;
           }
-          log.info(
+          log.debug(
             {
               msg: 'echo.socket.message_persist_complete',
               correlationId,

@@ -357,13 +357,6 @@ const gifPopoutSeedKeywords = computed(() =>
   extractChatImageSearchSeeds(props.activeChannelMessages.values()),
 );
 
-/** Channel setting: open at top of loaded page vs bottom (newest). */
-const messageScrollAnchor = computed((): 'top' | 'bottom' => {
-  const ch = props.activeChannel;
-  if (ch?.type === 'text' && ch.messageHistoryAnchor === 'top') return 'top';
-  return 'bottom';
-});
-
 watch(othersTypingCount, (n, prev) => {
   if (!showChatTypingIndicatorUi.value) return;
   if (markdownPreviewState.value.expanded) return;
@@ -774,7 +767,6 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         :last-read-message-id="activeChannelLastReadMessageId"
         :show-unread-separator="false"
         :dm-history-intro="dmHistoryIntro ?? null"
-        :message-scroll-anchor="messageScrollAnchor"
         @imported="echoChannelHistory?.reload()"
         @seen-message-id-changed="handleSeenMessageIdChanged"
       />

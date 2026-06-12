@@ -37,7 +37,7 @@
     "timeoutMembers": "Timeout Members",
     "sendMessages": "Send Messages",
     "sendMedia": "Send Media",
-    "mentionEveryone": "Mention @Everyone",
+    "mentionEveryone": "Mention all roles",
     "mentionActive": "Mention @Active",
     "manageMessages": "Manage Messages",
     "readMessageHistory": "Read Message History",

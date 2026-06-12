@@ -205,8 +205,6 @@ export type EchoChannelRow = {
   bitrateBps: number | null;
   voiceE2eeEnabled?: boolean;
   nsfw: boolean;
-  /** Text: initial scroll anchor; default bottom when omitted. */
-  messageHistoryAnchor?: 'top' | 'bottom';
   /** Echo `icon_key` (e.g. `sparkle.svg`); omitted when empty. */
   iconKey?: string;
   discordChannelId?: string;
@@ -244,7 +242,6 @@ export type EchoChannelPatch = {
   voiceE2eeEnabled?: boolean;
   nsfw?: boolean;
   iconKey?: string;
-  messageHistoryAnchor?: 'top' | 'bottom';
   permissionOverrides?: Record<string, boolean> | null;
   forumCreatorDefaultPerms?: import('@shared/types').ForumCreatorDefaultPerms;
   autoDeleteAfterSeconds?: number | null;

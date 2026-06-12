@@ -11,7 +11,6 @@ export type EchoChannelAuditSnapshotRow = {
   voice_e2ee_enabled: boolean;
   nsfw: boolean;
   icon_key: string;
-  message_history_anchor: string;
   message_format_template: string;
   message_format_hard: boolean;
 };
@@ -22,7 +21,7 @@ export async function getEchoChannelAuditSnapshot(
   serverId: string,
 ): Promise<EchoChannelAuditSnapshotRow | undefined> {
   const r = await pool.query(
-    `SELECT permission_overrides, name, category_id, slowmode_seconds, user_limit, bitrate_bps, voice_e2ee_enabled, nsfw, icon_key, message_history_anchor, message_format_template, message_format_hard FROM echo_channels WHERE id = $1 AND server_id = $2 LIMIT 1`,
+    `SELECT permission_overrides, name, category_id, slowmode_seconds, user_limit, bitrate_bps, voice_e2ee_enabled, nsfw, icon_key, message_format_template, message_format_hard FROM echo_channels WHERE id = $1 AND server_id = $2 LIMIT 1`,
     [channelId, serverId],
   );
   return r.rows[0] as EchoChannelAuditSnapshotRow | undefined;

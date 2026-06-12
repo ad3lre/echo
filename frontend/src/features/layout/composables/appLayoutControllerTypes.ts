@@ -408,7 +408,6 @@ export interface AppLayoutControllerContext {
     slowModeSeconds: number;
     userLimit: number;
     nsfw: boolean;
-    messageHistoryAnchor: 'top' | 'bottom';
     bitrateBps?: number | null;
     voiceE2eeEnabled?: boolean;
     channelPermissions: ChannelPermissionsState;

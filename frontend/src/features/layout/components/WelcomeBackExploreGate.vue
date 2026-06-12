@@ -1,38 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { icons } from '@/assets/icons';
 import { usePlatform } from '@/platform/usePlatform';
-import {
-  AuthApiError,
-  authDiscordDesktopHandoffStartUrl,
-  authDiscordLoginStart,
-  authGoogleDesktopHandoffStartUrl,
-  authGoogleLoginStart,
-} from '@/api/authClient';
-import {
-  isDesktop,
-  openExternal,
-  startOAuthFlow,
-} from '@/platform/desktopBridge';
-import {
-  clearPendingDesktopOAuthHandoffNonce,
-  createPendingDesktopOAuthHandoffNonce,
-  setPendingDesktopOAuthReturnPath,
-} from '@/platform/desktopOAuthHandoff';
-import { translateApiErrorBody } from '@/i18n/apiErrors';
-import { echoT } from '@/i18n';
-import { messageForDiscordOAuthError } from '@/features/discord/discordIntegrationCopy';
-import { messageForGoogleOAuthError } from '@/features/google/googleIntegrationCopy';
-import { GOOGLE_SSO_SIGNIN_UI_ENABLED } from '@/features/google/googleSsoUiEnabled';
-import { ECHO_PASSKEYS_ENABLED } from '@/config/echoPasskeysEnabled';
 import {
   ECHO_PUBLIC_SUPPORT_EMAIL,
   echoPublicSupportMailtoHref,
 } from '@/config/echoPublicSupportContact';
-import LegalDocsModal from '@/components/LegalDocsModal.vue';
 import MobileAuthExperience from '@/features/auth/MobileAuthExperience.vue';
+import InlineAuthPanel from '@/features/auth/InlineAuthPanel.vue';
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     /** Signed-in Echo user: empty public directory — show create/join instead of auth CTAs. */
     memberEmptyDirectory?: boolean;
@@ -49,13 +26,9 @@ defineEmits<{
 }>();
 
 const { isMockDataMode } = usePlatform();
-const oauthBusy = ref(false);
-const oauthError = ref('');
 const heroVisible = ref(true);
 const heroRef = ref<HTMLElement | null>(null);
 const gateRootRef = ref<HTMLElement | null>(null);
-const legalModalOpen = ref(false);
-const legalModalTab = ref<'terms' | 'privacy'>('terms');
 
 let io: IntersectionObserver | undefined;
 let onViewportResize: (() => void) | undefined;
@@ -68,7 +41,6 @@ function readIsNarrowViewport(): boolean {
 const isNarrowViewport = ref(readIsNarrowViewport());
 
 onMounted(() => {
-  readOauthReturnError();
   if (typeof window !== 'undefined') {
     const updateViewportFlag = () => {
       isNarrowViewport.value = readIsNarrowViewport();
@@ -108,107 +80,6 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', onViewportResize);
   }
 });
-
-function mapOauthError(err: unknown): string {
-  if (err instanceof AuthApiError) {
-    if (err.body.code === 'NOT_CONFIGURED')
-      return (
-        err.body.message ||
-        'This sign-in method isn’t available on this server.'
-      );
-    if (err.body.code === 'NOT_AVAILABLE')
-      return (
-        err.body.message || 'That isn’t available right now. Try again later.'
-      );
-    return translateApiErrorBody(err.body);
-  }
-  if (err instanceof Error) return err.message;
-  return echoT('common.somethingWentWrong');
-}
-
-function readOauthReturnError() {
-  try {
-    const googleCode = sessionStorage
-      .getItem('echo_google_oauth_error')
-      ?.trim();
-    if (googleCode) {
-      sessionStorage.removeItem('echo_google_oauth_error');
-      oauthError.value = messageForGoogleOAuthError(googleCode);
-      return;
-    }
-    const discordCode = sessionStorage
-      .getItem('echo_discord_oauth_error')
-      ?.trim();
-    if (discordCode) {
-      sessionStorage.removeItem('echo_discord_oauth_error');
-      oauthError.value = messageForDiscordOAuthError(discordCode);
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
-async function onDiscordClick() {
-  if (isMockDataMode) return;
-  oauthBusy.value = true;
-  oauthError.value = '';
-  try {
-    if (isDesktop()) {
-      // Store SPA route so we can return to the correct page after the OAuth system-browser roundtrip.
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      setPendingDesktopOAuthReturnPath(returnPath);
-      const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
-      const startUrl = authDiscordDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl, { skipSafetyPrompt: true });
-      return;
-    }
-    const { authorizeUrl } = await authDiscordLoginStart();
-    startOAuthFlow(authorizeUrl);
-  } catch (e) {
-    if (isDesktop()) clearPendingDesktopOAuthHandoffNonce();
-    console.error('[echo][discord][welcome-gate] start failed', {
-      isDesktop: isDesktop(),
-      error:
-        e instanceof Error ? { name: e.name, message: e.message } : String(e),
-    });
-    oauthError.value = mapOauthError(e);
-  } finally {
-    oauthBusy.value = false;
-  }
-}
-
-async function onGoogleClick() {
-  if (isMockDataMode) return;
-  oauthBusy.value = true;
-  oauthError.value = '';
-  try {
-    if (isDesktop()) {
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      setPendingDesktopOAuthReturnPath(returnPath);
-      const desktopHandoffNonce = createPendingDesktopOAuthHandoffNonce();
-      const startUrl = authGoogleDesktopHandoffStartUrl(desktopHandoffNonce);
-      await openExternal(startUrl, { skipSafetyPrompt: true });
-      return;
-    }
-    const { authorizeUrl } = await authGoogleLoginStart();
-    startOAuthFlow(authorizeUrl);
-  } catch (e) {
-    if (isDesktop()) clearPendingDesktopOAuthHandoffNonce();
-    console.error('[echo][google][welcome-gate] start failed', {
-      isDesktop: isDesktop(),
-      error:
-        e instanceof Error ? { name: e.name, message: e.message } : String(e),
-    });
-    oauthError.value = mapOauthError(e);
-  } finally {
-    oauthBusy.value = false;
-  }
-}
-
-function openLegalModal(tabId: 'terms' | 'privacy') {
-  legalModalTab.value = tabId;
-  legalModalOpen.value = true;
-}
 </script>
 
 <template>
@@ -399,6 +270,14 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           >
             Pick up where you left off.
           </p>
+          <p v-if="!memberEmptyDirectory" class="welcome-back-hero__support">
+            Support, legal, or other concerns:
+            <a
+              class="welcome-back-hero__support-link"
+              :href="echoPublicSupportMailtoHref"
+              >{{ ECHO_PUBLIC_SUPPORT_EMAIL }}</a
+            >
+          </p>
         </header>
       </div>
 
@@ -461,157 +340,20 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
           v-else
           class="flex w-full flex-col gap-5 sm:mx-auto sm:max-w-xl lg:mx-0"
         >
-          <div
-            class="flex w-full max-w-full flex-wrap items-stretch justify-center gap-2 self-center sm:w-4/5 sm:gap-3"
-            role="group"
-            aria-label="Quick sign-in"
-          >
-            <button
-              type="button"
-              class="welcome-back-gate__sso-pill welcome-back-gate__sso-pill--discord"
-              :disabled="oauthBusy || isMockDataMode"
-              aria-label="Continue with Discord"
-              @click="onDiscordClick"
-            >
-              <svg
-                class="h-6 w-6 shrink-0 text-[var(--accent-contrast-fg)]"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  fill="currentColor"
-                  d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"
-                />
-              </svg>
-              <span class="welcome-back-gate__sso-pill-label">Discord</span>
-            </button>
-            <button
-              v-if="GOOGLE_SSO_SIGNIN_UI_ENABLED"
-              type="button"
-              class="welcome-back-gate__sso-pill welcome-back-gate__sso-pill--google"
-              :disabled="oauthBusy || isMockDataMode"
-              aria-label="Continue with Google"
-              @click="onGoogleClick"
-            >
-              <svg
-                class="h-6 w-6 shrink-0"
-                viewBox="0 0 48 48"
-                aria-hidden="true"
-              >
-                <path
-                  fill="#EA4335"
-                  d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-                />
-                <path
-                  fill="#4285F4"
-                  d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6C44.21 37.01 46.98 31.49 46.98 24.55z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-                />
-                <path fill="none" d="M0 0h48v48H0z" />
-              </svg>
-              <span class="welcome-back-gate__sso-pill-label">Google</span>
-            </button>
-            <button
-              v-if="ECHO_PASSKEYS_ENABLED"
-              type="button"
-              class="welcome-back-gate__sso-pill welcome-back-gate__sso-pill--passkey"
-              :disabled="oauthBusy || isMockDataMode"
-              aria-label="Sign in with a passkey"
-              @click="$emit('sign-in-passkey')"
-            >
-              <svg
-                class="h-6 w-6 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-              <span class="welcome-back-gate__sso-pill-label">Passkey</span>
-            </button>
-          </div>
+          <InlineAuthPanel
+            class="w-full self-center sm:w-4/5"
+            :is-mock-data-mode="isMockDataMode"
+          />
           <p
             v-if="isMockDataMode"
             class="w-full max-w-full self-center rounded-xl border border-border bg-elevated px-3 py-2.5 text-center text-sm leading-snug text-muted sm:w-4/5"
           >
-            <template v-if="ECHO_PASSKEYS_ENABLED">
-              Preview mode: connect the full app to sign in with Discord or a
-              passkey.
-            </template>
-            <template v-else>
-              Preview mode: connect the full app to sign in with Discord.
-            </template>
-          </p>
-          <p
-            v-else-if="oauthError"
-            class="welcome-back-gate__oauth-error w-full max-w-full self-center rounded-xl border border-border bg-elevated px-3 py-2.5 text-center text-sm leading-snug sm:w-4/5"
-            role="alert"
-          >
-            {{ oauthError }}
-          </p>
-          <button
-            type="button"
-            class="welcome-back-gate__primary w-full max-w-full self-center rounded-full px-4 py-3.5 text-base font-semibold leading-snug sm:w-4/5 sm:py-3"
-            @click="$emit('log-in-echo')"
-          >
-            Login with Echo
-          </button>
-          <button
-            type="button"
-            class="welcome-back-gate__create w-full max-w-full self-center rounded-full px-4 py-3.5 text-base font-semibold leading-snug sm:w-4/5 sm:py-3"
-            @click="$emit('create-account')"
-          >
-            Create an account
-          </button>
-          <p
-            class="w-full max-w-full self-center text-center text-xs leading-snug text-muted sm:w-4/5"
-          >
-            Continuing means you accept our
-            <button
-              type="button"
-              class="welcome-back-gate__legal-link"
-              @click="openLegalModal('terms')"
-            >
-              T.O.S
-            </button>
-            and
-            <button
-              type="button"
-              class="welcome-back-gate__legal-link"
-              @click="openLegalModal('privacy')"
-            >
-              Privacy policy
-            </button>
-            .
-          </p>
-          <p
-            class="w-full max-w-full self-center text-center text-xs leading-snug text-muted sm:w-4/5"
-          >
-            Support, legal, or other concerns:
-            <a
-              class="underline decoration-muted/60 underline-offset-2 hover:text-foreground"
-              :href="echoPublicSupportMailtoHref"
-              >{{ ECHO_PUBLIC_SUPPORT_EMAIL }}</a
-            >
+            Preview mode: connect the full app to sign in.
           </p>
         </div>
       </aside>
     </div>
   </div>
-  <LegalDocsModal v-model="legalModalOpen" :initial-tab="legalModalTab" />
 </template>
 
 <style scoped lang="scss">
@@ -1026,6 +768,31 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
   filter: drop-shadow(
     0 14px 42px color-mix(in srgb, var(--bg) 50%, transparent)
   );
+}
+
+.welcome-back-hero__support {
+  position: absolute;
+  bottom: clamp(1rem, 3vw, 2.25rem);
+  left: clamp(1rem, 4vw, 4rem);
+  z-index: 2;
+  margin: 0;
+  max-width: 28rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--muted) 80%, var(--text));
+  text-shadow: 0 1px 8px color-mix(in srgb, var(--bg) 60%, transparent);
+}
+
+.welcome-back-hero__support-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent);
+  text-underline-offset: 2px;
+
+  &:hover {
+    color: var(--foreground);
+  }
 }
 
 .welcome-back-hero__subtitle {

@@ -121,11 +121,15 @@ export function createEchoWorkspaceLifecycleController(
     const token = authSession.accessToken?.trim() ?? '';
     const uid = authSession.backendUser?.id;
     if (!authSession.isAuthenticated || !uid) return;
+    const authGenAtStart = authSession.authStateGeneration;
     clearEchoWorkspaceErrorAutoDismiss();
     echoWorkspaceError.value = null;
     const result = await runEchoWorkspaceHydrateFromApi({
       token,
       userId: uid,
+      isStale: () =>
+        authSession.authStateGeneration !== authGenAtStart ||
+        authSession.backendUser?.id !== uid,
       isGuest: authSession.backendUser?.isGuest === true,
       workspace,
       echoSession,

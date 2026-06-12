@@ -1959,49 +1959,6 @@ export async function selectEchoMessageAnchorRowForListDebug(
   };
 }
 
-export async function selectUnreadEchoMessagesForAttention(
-  pool: pg.Pool,
-  userId: string,
-  channelIds: string[],
-): Promise<Record<string, unknown>[]> {
-  if (channelIds.length === 0) return [];
-  const mIdAfterReadTieBreak = echoMessageIdPgGreaterThan(
-    'm.id',
-    'rs.last_read_message_id',
-  );
-  const mAfterRead = `(
-    lr.id IS NULL
-    OR m.created_at > lr.created_at
-    OR (m.created_at = lr.created_at AND ${mIdAfterReadTieBreak})
-  )`;
-  const unreadRows = await pool.query(
-    `
-    SELECT
-      m.channel_id,
-      m.id,
-      m.created_at,
-      m.mentions,
-      ch.server_id
-    FROM echo_messages m
-    INNER JOIN echo_channels ch ON ch.id = m.channel_id
-    LEFT JOIN echo_channel_read_state rs
-      ON rs.user_id = $1
-     AND rs.channel_id = m.channel_id
-    LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
-    WHERE m.channel_id = ANY($2::text[])
-      AND m.deleted_at IS NULL
-      AND m.author_id <> $1
-      AND (
-        rs.last_read_message_id IS NULL
-        OR ${mAfterRead}
-      )
-    ORDER BY m.channel_id ASC, m.id DESC
-    `,
-    [userId, channelIds],
-  );
-  return unreadRows.rows as Record<string, unknown>[];
-}
-
 /** Per-channel unread aggregate returned by {@link selectUnreadAttentionAggregatesByChannel}. */
 export type UnreadAttentionAggregate = {
   channel_id: string;
@@ -2014,89 +1971,67 @@ export type UnreadAttentionAggregate = {
 };
 
 /**
- * Per-channel unread counts + boundary IDs using SQL aggregation instead of
- * fetching every unread row.  Caps reported count at 200 per channel so the
- * query stays bounded.
+ * Hard bound for the per-channel unread scan: both the reported count and the
+ * rows Postgres touches stop here. With more unread than this, the "first
+ * unread" boundary is the oldest of the newest {@link UNREAD_ATTENTION_SCAN_LIMIT}
+ * unread messages — the client only pages ~100 messages at a time, so a deeper
+ * anchor was never reachable from the initial page anyway.
  */
-export async function selectUnreadAttentionAggregatesByChannel(
-  pool: pg.Pool,
-  userId: string,
-  channelIds: string[],
-): Promise<UnreadAttentionAggregate[]> {
-  if (channelIds.length === 0) return [];
-  const mIdAfterReadTieBreak = echoMessageIdPgGreaterThan(
+const UNREAD_ATTENTION_SCAN_LIMIT = 200;
+
+/**
+ * Newest-{@link UNREAD_ATTENTION_SCAN_LIMIT} unread rows for one (channel, viewer)
+ * pair, as a LATERAL body. `ra` is the read-anchor row (may be all-NULL when the
+ * viewer has no read state). The redundant `created_at >=` bound restates the
+ * after-read predicate as a btree range condition so a fully-read channel is a
+ * near-empty index range scan instead of a walk over the whole channel history.
+ *
+ * Isolated fragment: keep every `echo_messages` reference here and in the
+ * read-anchor CTE, never in the same template segment as the boundary-pick
+ * ORDER BYs (see scripts/check-echo-message-no-created-at-timeline.mjs).
+ */
+function boundedUnreadRowsSql(channelExpr: string, viewerExpr: string): string {
+  const tieBreak = echoMessageIdPgGreaterThan(
     'm.id',
-    'rs.last_read_message_id',
+    'ra.last_read_message_id',
   );
-  const mAfterRead = `(
-    lr.id IS NULL
-    OR m.created_at > lr.created_at
-    OR (m.created_at = lr.created_at AND ${mIdAfterReadTieBreak})
-  )`;
-  // Isolated fragment: references only the `unread` CTE, not echo_messages directly.
-  // Kept separate so the echo_messages segment above never contains ORDER BY ... created_at.
-  const firstsLastsCtes = `
-    firsts AS (
-      SELECT DISTINCT ON (channel_id)
-        channel_id,
-        id AS first_unread_message_id,
-        created_at AS first_unread_created_at
-      FROM unread
-      ORDER BY channel_id, id ASC
-    ),
-    lasts AS (
-      SELECT DISTINCT ON (channel_id)
-        channel_id,
-        id AS latest_unread_message_id,
-        created_at AS latest_unread_created_at
-      FROM unread
-      ORDER BY channel_id, id DESC
-    )`;
-  const r = await pool.query(
-    `
-    WITH unread AS (
-      SELECT
-        m.channel_id,
-        ch.server_id,
-        m.id,
-        m.created_at
+  return `
+      SELECT m.id, m.created_at
       FROM echo_messages m
-      INNER JOIN echo_channels ch ON ch.id = m.channel_id
-      LEFT JOIN echo_channel_read_state rs
-        ON rs.user_id = $1
-       AND rs.channel_id = m.channel_id
-      LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
-      WHERE m.channel_id = ANY($2::text[])
+      WHERE m.channel_id = ${channelExpr}
         AND m.deleted_at IS NULL
-        AND m.author_id <> $1
+        AND m.author_id <> ${viewerExpr}
+        AND m.created_at >= COALESCE(ra.last_read_created_at, '-infinity'::timestamptz)
         AND (
-          rs.last_read_message_id IS NULL
-          OR ${mAfterRead}
+          ra.last_read_message_id IS NULL
+          OR ra.last_read_created_at IS NULL
+          OR m.created_at > ra.last_read_created_at
+          OR (m.created_at = ra.last_read_created_at AND ${tieBreak})
         )
-    ),
-    ${firstsLastsCtes}
-    SELECT
-      u.channel_id,
-      u.server_id,
-      LEAST(COUNT(*)::int, 200) AS unread_count,
-      f.first_unread_message_id,
-      f.first_unread_created_at,
-      l.latest_unread_message_id,
-      l.latest_unread_created_at
-    FROM unread u
-    INNER JOIN firsts f ON f.channel_id = u.channel_id
-    INNER JOIN lasts l ON l.channel_id = u.channel_id
-    GROUP BY
-      u.channel_id,
-      u.server_id,
-      f.first_unread_message_id,
-      f.first_unread_created_at,
-      l.latest_unread_message_id,
-      l.latest_unread_created_at
-    `,
-    [userId, channelIds],
-  );
-  return r.rows.map((row: Record<string, unknown>) => ({
+      ORDER BY ${ECHO_MESSAGE_TIMELINE_ORDER_DESC}
+      LIMIT ${UNREAD_ATTENTION_SCAN_LIMIT}`;
+}
+
+/**
+ * Count + boundary IDs over the bounded unread window. References only the
+ * `bounded` CTE, so the boundary ORDER BYs never share a segment with
+ * `echo_messages` (same guard split as {@link boundedUnreadRowsSql}).
+ */
+function boundedUnreadAggregateSql(boundedRowsSql: string): string {
+  return `
+      WITH bounded AS (${boundedRowsSql})
+      SELECT
+        (SELECT COUNT(*)::int FROM bounded) AS unread_count,
+        (SELECT b.id FROM bounded b ORDER BY b.id ASC LIMIT 1) AS first_unread_message_id,
+        (SELECT b.created_at FROM bounded b ORDER BY b.id ASC LIMIT 1) AS first_unread_created_at,
+        (SELECT b.id FROM bounded b ORDER BY b.id DESC LIMIT 1) AS latest_unread_message_id,
+        (SELECT b.created_at FROM bounded b ORDER BY b.id DESC LIMIT 1) AS latest_unread_created_at`;
+}
+
+function mapUnreadAttentionAggregateRow(
+  row: Record<string, unknown>,
+): UnreadAttentionAggregate {
+  return {
     channel_id: String(row.channel_id),
     server_id: String(row.server_id ?? ''),
     unread_count: Number(row.unread_count ?? 0),
@@ -2118,7 +2053,56 @@ export async function selectUnreadAttentionAggregatesByChannel(
         : row.latest_unread_created_at
           ? String(row.latest_unread_created_at)
           : null,
-  }));
+  };
+}
+
+/**
+ * Per-channel unread counts + boundary IDs. Each channel is a LATERAL over its
+ * newest {@link UNREAD_ATTENTION_SCAN_LIMIT} unread rows, so the scan itself is
+ * bounded — a never-opened channel with a huge history no longer walks that
+ * history on every attention refresh.
+ */
+export async function selectUnreadAttentionAggregatesByChannel(
+  pool: pg.Pool,
+  userId: string,
+  channelIds: string[],
+): Promise<UnreadAttentionAggregate[]> {
+  if (channelIds.length === 0) return [];
+  // Own segment: echo_messages without any ORDER BY (guard split, see above).
+  const readAnchorCte = `
+    read_anchor AS (
+      SELECT
+        rs.channel_id,
+        rs.last_read_message_id,
+        lr.created_at AS last_read_created_at
+      FROM echo_channel_read_state rs
+      LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
+      WHERE rs.user_id = $1
+        AND rs.channel_id = ANY($2::text[])
+    )`;
+  const r = await pool.query(
+    `
+    WITH ${readAnchorCte}
+    SELECT
+      ch.id AS channel_id,
+      ch.server_id,
+      agg.unread_count,
+      agg.first_unread_message_id,
+      agg.first_unread_created_at,
+      agg.latest_unread_message_id,
+      agg.latest_unread_created_at
+    FROM echo_channels ch
+    LEFT JOIN read_anchor ra ON ra.channel_id = ch.id
+    CROSS JOIN LATERAL (${boundedUnreadAggregateSql(
+      boundedUnreadRowsSql('ch.id', '$1'),
+    )}
+    ) agg
+    WHERE ch.id = ANY($2::text[])
+      AND agg.unread_count > 0
+    `,
+    [userId, channelIds],
+  );
+  return r.rows.map(mapUnreadAttentionAggregateRow);
 }
 
 export type UnreadAttentionAggregateByUser = UnreadAttentionAggregate & {
@@ -2126,7 +2110,11 @@ export type UnreadAttentionAggregateByUser = UnreadAttentionAggregate & {
 };
 
 /**
- * Per-user unread aggregate for one channel (message fanout — avoids full workspace snapshots).
+ * Per-user unread aggregate for one channel (message fanout — avoids full
+ * workspace snapshots). Bounded the same way as
+ * {@link selectUnreadAttentionAggregatesByChannel}: one LATERAL per viewer over
+ * the newest {@link UNREAD_ATTENTION_SCAN_LIMIT} unread rows. This runs on
+ * every persisted message, so the bound matters most here.
  */
 export async function selectUnreadAttentionAggregatesForUsersOnChannel(
   pool: pg.Pool,
@@ -2137,107 +2125,48 @@ export async function selectUnreadAttentionAggregatesForUsersOnChannel(
   const ids = [...new Set(userIds.map((id) => id.trim()).filter(Boolean))];
   if (!ch || ids.length === 0) return [];
 
-  const mIdAfterReadTieBreak = echoMessageIdPgGreaterThan(
-    'm.id',
-    'rs.last_read_message_id',
-  );
-  const mAfterRead = `(
-    lr.id IS NULL
-    OR m.created_at > lr.created_at
-    OR (m.created_at = lr.created_at AND ${mIdAfterReadTieBreak})
-  )`;
-  const firstsLastsCtes = `
-    firsts AS (
-      SELECT DISTINCT ON (user_id)
-        user_id,
-        id AS first_unread_message_id,
-        created_at AS first_unread_created_at
-      FROM unread
-      ORDER BY user_id, id ASC
-    ),
-    lasts AS (
-      SELECT DISTINCT ON (user_id)
-        user_id,
-        id AS latest_unread_message_id,
-        created_at AS latest_unread_created_at
-      FROM unread
-      ORDER BY user_id, id DESC
+  // Own segment: echo_messages without any ORDER BY (guard split, see boundedUnreadRowsSql).
+  const readAnchorCte = `
+    read_anchor AS (
+      SELECT
+        rs.user_id,
+        rs.last_read_message_id,
+        lr.created_at AS last_read_created_at
+      FROM echo_channel_read_state rs
+      LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
+      WHERE rs.channel_id = $1
+        AND rs.user_id = ANY($2::text[])
     )`;
-
   const r = await pool.query(
     `
     WITH viewers AS (
       SELECT UNNEST($2::text[]) AS user_id
     ),
-    unread AS (
-      SELECT
-        v.user_id,
-        m.channel_id,
-        ch.server_id,
-        m.id,
-        m.created_at
-      FROM viewers v
-      INNER JOIN echo_messages m ON m.channel_id = $1
-      INNER JOIN echo_channels ch ON ch.id = m.channel_id
-      LEFT JOIN echo_channel_read_state rs
-        ON rs.user_id = v.user_id
-       AND rs.channel_id = m.channel_id
-      LEFT JOIN echo_messages lr ON lr.id = rs.last_read_message_id
-      WHERE m.deleted_at IS NULL
-        AND m.author_id <> v.user_id
-        AND (
-          rs.last_read_message_id IS NULL
-          OR ${mAfterRead}
-        )
-    ),
-    ${firstsLastsCtes}
+    ${readAnchorCte}
     SELECT
-      u.user_id,
-      u.channel_id,
-      u.server_id,
-      LEAST(COUNT(*)::int, 200) AS unread_count,
-      f.first_unread_message_id,
-      f.first_unread_created_at,
-      l.latest_unread_message_id,
-      l.latest_unread_created_at
-    FROM unread u
-    INNER JOIN firsts f ON f.user_id = u.user_id
-    INNER JOIN lasts l ON l.user_id = u.user_id
-    GROUP BY
-      u.user_id,
-      u.channel_id,
-      u.server_id,
-      f.first_unread_message_id,
-      f.first_unread_created_at,
-      l.latest_unread_message_id,
-      l.latest_unread_created_at
+      v.user_id,
+      ch.id AS channel_id,
+      ch.server_id,
+      agg.unread_count,
+      agg.first_unread_message_id,
+      agg.first_unread_created_at,
+      agg.latest_unread_message_id,
+      agg.latest_unread_created_at
+    FROM viewers v
+    INNER JOIN echo_channels ch ON ch.id = $1
+    LEFT JOIN read_anchor ra ON ra.user_id = v.user_id
+    CROSS JOIN LATERAL (${boundedUnreadAggregateSql(
+      boundedUnreadRowsSql('$1', 'v.user_id'),
+    )}
+    ) agg
+    WHERE agg.unread_count > 0
     `,
     [ch, ids],
   );
 
   return r.rows.map((row: Record<string, unknown>) => ({
     user_id: String(row.user_id),
-    channel_id: String(row.channel_id),
-    server_id: String(row.server_id ?? ''),
-    unread_count: Number(row.unread_count ?? 0),
-    first_unread_message_id: row.first_unread_message_id
-      ? String(row.first_unread_message_id)
-      : null,
-    first_unread_created_at:
-      row.first_unread_created_at instanceof Date
-        ? row.first_unread_created_at.toISOString()
-        : row.first_unread_created_at
-          ? String(row.first_unread_created_at)
-          : null,
-    latest_unread_message_id: row.latest_unread_message_id
-      ? String(row.latest_unread_message_id)
-      : null,
-    latest_unread_created_at:
-      row.latest_unread_created_at instanceof Date
-        ? row.latest_unread_created_at.toISOString()
-        : row.latest_unread_created_at
-          ? String(row.latest_unread_created_at)
-          : null,
+    ...mapUnreadAttentionAggregateRow(row),
   }));
 }
 
@@ -2276,6 +2205,7 @@ export async function selectUnreadMentionRowsForAttention(
       AND m.author_id <> $1
       AND m.mentions IS NOT NULL
       AND m.mentions <> '[]'::jsonb
+      AND m.created_at >= COALESCE(lr.created_at, '-infinity'::timestamptz)
       AND (
         rs.last_read_message_id IS NULL
         OR ${mAfterRead}
@@ -2330,6 +2260,7 @@ export async function selectUnreadReplyToSelfRowsForAttention(
         NULLIF(m.reply_to->>'authorId', '') = $1
         OR parent.author_id = $1
       )
+      AND m.created_at >= COALESCE(lr.created_at, '-infinity'::timestamptz)
       AND (
         rs.last_read_message_id IS NULL
         OR ${mAfterRead}
@@ -2420,6 +2351,7 @@ export async function selectUnreadMentionFeedRowsForUser(
         (m.mentions IS NOT NULL AND m.mentions <> '[]'::jsonb)
         OR ${replyToSelfPredicate}
       )
+      AND m.created_at >= COALESCE(lr.created_at, '-infinity'::timestamptz)
       AND (
         rs.last_read_message_id IS NULL
         OR ${mAfterRead}

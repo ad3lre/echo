@@ -10,6 +10,7 @@ import {
 } from 'vitest';
 import * as authClient from '@/api/authClient';
 import { authenticatedApiFetch } from '@/api/authenticatedApiFetch';
+import { registerAuthSessionApiBridge } from '@/api/authSessionBridge';
 import * as nativeAuth from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import * as echoCsrf from '@/utils/echoCsrf';
@@ -121,5 +122,55 @@ describe('authenticatedApiFetch', () => {
     );
     expect(callHeaders(fetchMock, 1).get('X-CSRF-Token')).toBe('new-csrf');
     expect(applyRestoredProfile).toHaveBeenCalledWith(restoredUser);
+  });
+
+  it('invalidates the session when refresh fails on 401 and generation is unchanged', async () => {
+    const invalidateSessionForReauth = vi.fn();
+    registerAuthSessionApiBridge({
+      invalidateSessionForReauth,
+      clearLocalTokens: () => {},
+      getAuthStateGeneration: () => 7,
+    });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        jsonResponse(
+          { code: 'UNAUTHORIZED', message: 'expired' },
+          { status: 401, statusText: 'Unauthorized' },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await authenticatedApiFetch(
+      'https://api.example.test/api/v1/me/discord',
+    );
+
+    expect(res.status).toBe(401);
+    expect(invalidateSessionForReauth).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not invalidate the session on 401 when auth generation rotated mid-flight', async () => {
+    let generation = 0;
+    const invalidateSessionForReauth = vi.fn();
+    registerAuthSessionApiBridge({
+      invalidateSessionForReauth,
+      clearLocalTokens: () => {},
+      getAuthStateGeneration: () => generation,
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => {
+      generation += 1;
+      return jsonResponse(
+        { code: 'UNAUTHORIZED', message: 'expired' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await authenticatedApiFetch(
+      'https://api.example.test/api/v1/me/discord',
+    );
+
+    expect(res.status).toBe(401);
+    expect(invalidateSessionForReauth).not.toHaveBeenCalled();
   });
 });

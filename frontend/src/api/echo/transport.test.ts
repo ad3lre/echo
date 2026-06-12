@@ -12,6 +12,7 @@ import * as echoMode from '@/echoMode';
 import * as authClient from '@/api/authClient';
 import * as authSessionStore from '@/stores/authSession';
 import * as echoCsrf from '@/utils/echoCsrf';
+import { registerAuthSessionApiBridge } from '@/api/authSessionBridge';
 import { EchoApiError, echoFetch, trimEchoPathSegment } from './transport';
 
 describe('trimEchoPathSegment', () => {
@@ -77,6 +78,11 @@ describe('EchoApiError message fallback', () => {
 describe('echoFetch', () => {
   beforeEach(() => {
     vi.spyOn(echoMode, 'assertEchoApiAllowed').mockImplementation(() => {});
+    vi.spyOn(authSessionStore, 'useAuthSessionStore').mockReturnValue({
+      authStateGeneration: 0,
+      applyRestoredProfile: vi.fn(),
+      invalidateSessionForReauth: vi.fn(),
+    } as never);
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -191,5 +197,57 @@ describe('echoFetch', () => {
     expect(seenHeaders).toHaveLength(2);
     expect(seenHeaders[0]?.['X-CSRF-Token']).toBe('old-csrf');
     expect(seenHeaders[1]?.['X-CSRF-Token']).toBe('new-csrf');
+  });
+
+  function bridgeWith401Fetch() {
+    const state = { generation: 0 };
+    const invalidateSessionForReauth = vi.fn();
+    registerAuthSessionApiBridge({
+      invalidateSessionForReauth,
+      clearLocalTokens: () => {},
+      getAuthStateGeneration: () => state.generation,
+    });
+    vi.spyOn(authClient, 'authTryCookieRefresh').mockResolvedValue(null);
+    return { state, invalidateSessionForReauth };
+  }
+
+  function stub401Fetch(onFetch?: () => void) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async () => {
+        onFetch?.();
+        return {
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          url: 'http://test/api/v1/echo/workspace',
+          headers: { get: () => null },
+          text: async () =>
+            JSON.stringify({ code: 'UNAUTHORIZED', message: 'no' }),
+        };
+      }),
+    );
+  }
+
+  it('does not invalidate session on 401 when auth generation rotated mid-flight', async () => {
+    const { state, invalidateSessionForReauth } = bridgeWith401Fetch();
+    stub401Fetch(() => {
+      state.generation += 1;
+    });
+
+    await expect(echoFetch(null, '/workspace')).rejects.toBeInstanceOf(
+      EchoApiError,
+    );
+    expect(invalidateSessionForReauth).not.toHaveBeenCalled();
+  });
+
+  it('invalidates session on final 401 when auth generation is unchanged', async () => {
+    const { invalidateSessionForReauth } = bridgeWith401Fetch();
+    stub401Fetch();
+
+    await expect(echoFetch(null, '/workspace')).rejects.toBeInstanceOf(
+      EchoApiError,
+    );
+    expect(invalidateSessionForReauth).toHaveBeenCalledTimes(1);
   });
 });

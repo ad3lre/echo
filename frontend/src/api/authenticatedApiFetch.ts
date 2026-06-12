@@ -1,4 +1,8 @@
 import { authTryCookieRefresh } from '@/api/authClient';
+import {
+  captureAuthStateGeneration,
+  finalizeAuthSession401,
+} from '@/api/authSessionBridge';
 import { nativeAuthRequestHeaders } from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { echoCsrfHeaders } from '@/utils/echoCsrf';
@@ -37,6 +41,7 @@ export async function authenticatedApiFetch(
   url: string,
   init: RequestInit = {},
 ): Promise<Response> {
+  const authGenAtStart = captureAuthStateGeneration();
   let currentInit = init;
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await fetch(url, {
@@ -51,6 +56,14 @@ export async function authenticatedApiFetch(
         currentInit = refreshCsrfHeaderIfNeeded(currentInit);
         continue;
       }
+    }
+    if (res.status === 401) {
+      /* Refresh failed (or retry still 401): same teardown semantics as
+       * `echoFetch`, guarded against mid-flight auth rotation. */
+      finalizeAuthSession401({
+        authGenAtStart,
+        message: 'Your session expired or is no longer valid. Sign in again.',
+      });
     }
     return res;
   }

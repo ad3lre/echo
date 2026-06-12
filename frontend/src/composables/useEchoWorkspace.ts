@@ -261,6 +261,22 @@ export function createWorkspaceState(): WorkspaceStateApi {
 
       const restoredUser = await auth.restoreSessionFromApi();
       let sessionUser: AuthUserPublic | null = restoredUser;
+      /**
+       * `restoreSessionFromApi()` returns null not only for "no session" (benign
+       * 401, which clears `backendUser`) but also for transient network errors
+       * and for stale responses superseded by a concurrent `setSession`. In
+       * those cases the store still holds an authenticated identity — keep it
+       * instead of minting a guest over a registered user or wiping the
+       * workspace. A truly dead session self-corrects via the workspace fetch's
+       * 401 path.
+       */
+      if (!sessionUser && auth.isAuthenticated && auth.backendUser) {
+        dbgMemberList(
+          'startInitialLoad restore returned null but store is authenticated — keeping identity',
+          { userId: auth.backendUser.id },
+        );
+        sessionUser = auth.backendUser as AuthUserPublic;
+      }
       if (!sessionUser || !auth.isAuthenticated) {
         const skipAutoGuest =
           !ECHO_GUEST_ACCOUNTS_ENABLED ||
@@ -302,6 +318,12 @@ export function createWorkspaceState(): WorkspaceStateApi {
         return;
       }
       if (seq !== startInitialLoadSeq) return;
+      /**
+       * Captured after restore/auto-guest settled: any later rotation (login,
+       * upgrade, logout) invalidates this load's fetched state, which would
+       * otherwise be applied over the new session's workspace below.
+       */
+      const authGenForLoad = auth.authStateGeneration;
 
       const subGuess: string | null = token
         ? readJwtSub(token)
@@ -336,6 +358,13 @@ export function createWorkspaceState(): WorkspaceStateApi {
         (e) => ({ ok: false as const, error: e }),
       );
       if (seq !== startInitialLoadSeq) return;
+      if (auth.authStateGeneration !== authGenForLoad) {
+        dbgMemberList(
+          'startInitialLoad aborted apply: auth rotated during workspace fetch',
+          { authGenForLoad, authGenNow: auth.authStateGeneration },
+        );
+        return;
+      }
 
       const user = sessionUser;
       if (subGuess && user.id !== subGuess) {

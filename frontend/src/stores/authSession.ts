@@ -33,6 +33,7 @@ import {
 import { trackEchoEvent } from '@/utils/analytics';
 import { clearEchoCsrfMemoryToken } from '@/utils/echoCsrf';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
+import { invalidateInFlightEchoWorkspaceSocialRefresh } from '@/services/orchestration/workspaceSocialRefreshSeq';
 
 /** Mock / legacy preview only — real mode uses HttpOnly cookies (no tokens in localStorage). */
 const ACCESS_KEY = 'echo_auth_access';
@@ -201,6 +202,8 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     planLimits?: EchoPlanLimitsPublic | null;
   }) {
     clearWorkspaceSessionCache();
+    /* New session = new user identity; drop stale social/workspace follow-ups. */
+    invalidateInFlightEchoWorkspaceSocialRefresh();
     /* New session = new user identity; force any cached `/auth/me` to refetch. */
     invalidateAuthFetchMeCache();
     authStateGeneration.value += 1;
@@ -381,6 +384,16 @@ export const useAuthSessionStore = defineStore('authSession', () => {
       if (e instanceof AuthApiError) {
         const benignNoSession = e.status === 401 || e.status === 403;
         if (benignNoSession) {
+          if (generation !== authStateGeneration.value) {
+            echoAuthDebugLog(
+              'restoreSessionFromApi: ignored stale /auth/me after auth rotation',
+              {
+                expectedGeneration: generation,
+                currentGeneration: authStateGeneration.value,
+              },
+            );
+            return null;
+          }
           clearLocalTokens();
           void iosAuthSessionRestoreFailed();
         }

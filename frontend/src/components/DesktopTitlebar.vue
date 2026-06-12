@@ -7,7 +7,12 @@ import {
   toggleMaximizeDesktopWindow,
   closeDesktopWindow,
   isDesktopWindowMaximized,
+  isMacDesktop,
 } from '@/platform/desktopBridge';
+
+// macOS shows native traffic lights; render a minimal drag strip instead of the
+// branded bar + custom Windows-style window buttons.
+const isMac = isMacDesktop();
 
 const isMaximized = ref(false);
 
@@ -41,11 +46,17 @@ onUnmounted(() => {
 
 function onDragRegionMousedown(e: MouseEvent) {
   if (e.button !== 0) return;
+  // Overlay titlebar: native drag via data-tauri-drag-region; JS startDragging
+  // on the first click of a double-click can fight macOS titlebar zoom.
+  if (isMac) return;
   startDesktopWindowDrag();
 }
 
 function onDragRegionDoubleClick(e: MouseEvent) {
   if (e.button !== 0) return;
+  // macOS handles double-click zoom on the overlay titlebar natively; calling
+  // toggleMaximize here races the OS and snaps back to the previous size.
+  if (isMac) return;
   void toggleMaximizeDesktopWindow();
 }
 </script>
@@ -53,10 +64,22 @@ function onDragRegionDoubleClick(e: MouseEvent) {
 <template>
   <div
     class="desktop-titlebar"
+    :class="{ 'desktop-titlebar--mac': isMac }"
     @mousedown.self="onDragRegionMousedown"
     @dblclick.self="onDragRegionDoubleClick"
   >
+    <!-- macOS draws native traffic lights (Overlay titlebar); render only a
+         minimal, brand-free drag strip there. -->
     <div
+      v-if="isMac"
+      class="desktop-titlebar__mac-drag"
+      data-tauri-drag-region
+      @mousedown="onDragRegionMousedown"
+      @dblclick="onDragRegionDoubleClick"
+    />
+
+    <div
+      v-if="!isMac"
       class="desktop-titlebar__brand"
       data-tauri-drag-region
       @mousedown="onDragRegionMousedown"
@@ -72,6 +95,7 @@ function onDragRegionDoubleClick(e: MouseEvent) {
       <span class="desktop-titlebar__brand-subtitle">Desktop</span>
     </div>
     <div
+      v-if="!isMac"
       class="desktop-titlebar__drag"
       data-tauri-drag-region
       @mousedown="onDragRegionMousedown"
@@ -79,6 +103,7 @@ function onDragRegionDoubleClick(e: MouseEvent) {
     />
 
     <div
+      v-if="!isMac"
       class="desktop-titlebar__controls"
       data-tauri-drag-region="false"
       aria-label="Window controls"
@@ -248,6 +273,21 @@ function onDragRegionDoubleClick(e: MouseEvent) {
   flex: 1;
   min-width: 0;
   height: 100%;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+/* macOS: native traffic lights are painted by the OS over the top-left.
+   Keep a shorter, brand-free strip and reserve the lights' zone. */
+.desktop-titlebar--mac {
+  height: 28px;
+}
+
+.desktop-titlebar__mac-drag {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding-left: 78px;
   -webkit-app-region: drag;
   app-region: drag;
 }

@@ -24,6 +24,7 @@ import discordPresenceHookRoutes from './discordPresenceHook';
 import livekitWebhookRoutes from './livekitWebhook';
 import echoChannelWebhookHookRoutes from './echoChannelWebhookHook';
 import analyticsRoutes from './analytics';
+import clientEnvironmentAnalyticsRoutes from './clientEnvironmentAnalytics';
 import devDiagnosticsRoutes from './devDiagnostics';
 import agentNetworkDiagnosticsRoutes from './agentNetworkDiagnostics';
 import echoRoutes from './echo';
@@ -81,6 +82,9 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
     await fastify.register(echoChannelWebhookHookRoutes, { prefix: '/api/v1' });
   }
   await fastify.register(analyticsRoutes, { prefix: '/api/v1' });
+  await fastify.register(clientEnvironmentAnalyticsRoutes, {
+    prefix: '/api/v1',
+  });
   await fastify.register(devDiagnosticsRoutes, { prefix: '/api/v1/dev' });
   await fastify.register(agentNetworkDiagnosticsRoutes, {
     prefix: '/api/v1/agent',

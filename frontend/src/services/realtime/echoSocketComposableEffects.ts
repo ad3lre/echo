@@ -1,5 +1,8 @@
 import type { Ref, onMounted, onUnmounted, watch } from 'vue';
-import type { EchoSocketIoState } from '@/services/realtime/echoSocketSessionLifecycle';
+import type {
+  EchoSocketAuthKey,
+  EchoSocketIoState,
+} from '@/services/realtime/echoSocketSessionLifecycle';
 import {
   applyEchoSocketActiveChannelChange,
   shouldRecycleEchoSocketOnAuthChange,
@@ -16,7 +19,7 @@ export function registerEchoSocketComposableEffects(
   vue: EchoSocketVueEffectHooks,
   p: {
     activeChannelId: Ref<string>;
-    getAuthKey: () => readonly [boolean, string | null | undefined];
+    getAuthKey: () => EchoSocketAuthKey;
     io: EchoSocketIoState;
     socketOff: () => boolean;
     connectSocket: () => Promise<void>;

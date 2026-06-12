@@ -114,13 +114,16 @@ describe('useAppBootStallWatcher', () => {
       hasSession: false,
     });
 
-    vi.advanceTimersByTime(9_999);
+    vi.advanceTimersByTime(14_999);
     expect(postBootStallAlert).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(postBootStallAlert).toHaveBeenCalledTimes(1);
     expect(postBootStallAlert.mock.calls[0]?.[0]?.kind).toBe(
       'app_layout_chunk_stall',
     );
+    expect(
+      postBootStallAlert.mock.calls[0]?.[0]?.timing?.stallThresholdMs,
+    ).toBe(15_000);
     scope.stop();
   });
 

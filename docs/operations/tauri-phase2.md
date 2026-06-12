@@ -2,7 +2,7 @@
 
 **Native release index:** [`releases/README.md`](../../releases/README.md) links artifact locations per platform.
 
-Phase 1 (current): thin shell in [`src-tauri/`](../../src-tauri/), platform bundles ([`tauri.windows.conf.json`](../../src-tauri/tauri.windows.conf.json), [`tauri.linux.conf.json`](../../src-tauri/tauri.linux.conf.json), [`tauri.macos.conf.json`](../../src-tauri/tauri.macos.conf.json)), [`frontend/src/config.ts`](../../frontend/src/config.ts) desktop env, [`backend/src/auth/sessionCookies.ts`](../../backend/src/auth/sessionCookies.ts), [`frontend/src/platform/desktopBridge.ts`](../../frontend/src/platform/desktopBridge.ts).
+Phase 1 (current): thin shell in [`src-tauri/`](../../src-tauri/) ([`src-tauri/src/lib.rs`](../../src-tauri/src/lib.rs) — window state, plugins, tray; [`main.rs`](../../src-tauri/src/main.rs) is a one-line entry), platform bundles ([`tauri.windows.conf.json`](../../src-tauri/tauri.windows.conf.json), [`tauri.linux.conf.json`](../../src-tauri/tauri.linux.conf.json), [`tauri.macos.conf.json`](../../src-tauri/tauri.macos.conf.json)), [`frontend/src/config.ts`](../../frontend/src/config.ts) desktop env, [`backend/src/auth/sessionCookies.ts`](../../backend/src/auth/sessionCookies.ts), [`frontend/src/platform/desktopBridge.ts`](../../frontend/src/platform/desktopBridge.ts).
 
 Platform docs: [desktop-windows.md](desktop-windows.md) · [desktop-linux.md](desktop-linux.md) · [desktop-macos.md](desktop-macos.md).
 
@@ -37,12 +37,12 @@ The SPA now calls `check()` from **Settings → Desktop → Check for updates** 
 
 **Versioning:** bump `version` in [`src-tauri/tauri.conf.json`](../../src-tauri/tauri.conf.json) (and keep aligned with product versioning policy).
 
-### 4. OAuth desktop handoff (Discord)
+### 4. OAuth desktop handoff (Discord & Google)
 
 - [x] One-time code + redeem API + [`frontend/public/oauth-desktop-bridge.html`](../../frontend/public/oauth-desktop-bridge.html) + deep-link handling
-- [ ] **Google** login — same pattern (follow-up)
+- [x] **Google** login — same handoff pattern as Discord ([`authGoogleOAuthStart`](../../frontend/src/api/authClient.ts), CORS-simple desktop POSTs)
 
-Details: [oauth-desktop-bounce.md](oauth-desktop-bounce.md)
+Details: [oauth-desktop-bounce.md](oauth-desktop-bounce.md). Client session-rotation invariants: [OPTION_A_SESSION_ARCHITECTURE.md](../infra/auth/OPTION_A_SESSION_ARCHITECTURE.md#client-auth-invariants-frontend-contract).
 
 ### 5. Nice-to-have (not scheduled)
 
@@ -57,7 +57,7 @@ Details: [oauth-desktop-bounce.md](oauth-desktop-bounce.md)
 1. Green **desktop CI** (unsigned artifacts).
 2. **Signing** keys in secure storage; enable `createUpdaterArtifacts: true` only on release jobs.
 3. **Updater** endpoint + ship first signed update.
-4. Extend **Google** OAuth handoff to match Discord.
+4. Extend **Google** OAuth handoff parity tests and manual QA on all three desktop OSes.
 
 ---
 

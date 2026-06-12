@@ -29,5 +29,9 @@ handle {
 		Referrer-Policy "strict-origin-when-cross-origin"
 	}
 	try_files {path} /index.html
-	file_server
+	# Vite emits .gz sidecars at build time (vite-plugin-compression2); serve those
+	# instead of re-compressing per request. `encode` above still covers misses.
+	file_server {
+		precompressed gzip
+	}
 }

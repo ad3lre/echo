@@ -36,6 +36,8 @@ const CSRF_EXEMPT_EXACT = new Set([
   '/api/v1/echo/support/contact',
   /** Client boot-stall watcher — no session / CSRF cookie at cold start. */
   '/api/v1/echo/public/client-alerts/boot-stall',
+  /** Anonymous client environment rollup — fires once per tab at cold start. */
+  '/api/v1/analytics/client-environment',
   '/api/v1/hooks/livekit',
   '/api/v1/dev/diagnostics/ingest',
   '/api/v1/echo/uploads/local/put',
@@ -82,7 +84,19 @@ export async function enforceApiCsrf(
   if (isNativeBearerCsrfExempt(req)) return true;
 
   const headerRaw = req.headers['x-csrf-token'];
-  const header = typeof headerRaw === 'string' ? headerRaw.trim() : '';
+  let header = typeof headerRaw === 'string' ? headerRaw.trim() : '';
+  if (!header) {
+    /* Desktop Tauri WebViews send CORS-simple POSTs (no custom headers, so no
+     * OPTIONS preflight) and carry the double-submit token as a `csrfToken`
+     * body field instead. Same security property: a cross-site attacker cannot
+     * read the `echo_csrf` cookie to forge the value. */
+    const body = req.body as Record<string, unknown> | undefined | null;
+    const fromBody =
+      body && typeof body === 'object' && typeof body.csrfToken === 'string'
+        ? body.csrfToken.trim()
+        : '';
+    header = fromBody;
+  }
   const cookies = req.cookies as Record<string, string | undefined> | undefined;
   const cookieTok =
     (cookies?.[CSRF_COOKIE] ?? cookies?.[LEGACY_CSRF_COOKIE])?.trim() ?? '';

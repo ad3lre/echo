@@ -1,6 +1,8 @@
 import {
+  browserSupportsWebAuthnAutofill,
   startAuthentication,
   startRegistration,
+  WebAuthnAbortService,
 } from '@simplewebauthn/browser';
 import type {
   AuthenticationResponseJSON,
@@ -167,5 +169,34 @@ export async function runPasskeyAuthenticationCeremony(
     optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON,
   })) as AuthenticationResponseJSON;
 
+  return { credential, challengeId };
+}
+
+/** True when the browser can surface passkeys inside its autofill UI. */
+export function browserSupportsPasskeyAutofill(): Promise<boolean> {
+  return browserSupportsWebAuthnAutofill();
+}
+
+/** Cancel any in-flight WebAuthn ceremony (e.g. on leaving the login view). */
+export function cancelPasskeyCeremony(): void {
+  WebAuthnAbortService.cancelCeremony();
+}
+
+/**
+ * Arms WebAuthn Conditional Mediation ("passkey autofill"). Requests
+ * discoverable-credential options and hands them to the browser, which only
+ * surfaces a prompt if the user actually has a passkey for Echo — otherwise the
+ * promise stays pending until cancelled. A suitable input with
+ * `autocomplete="... webauthn"` must already be in the DOM.
+ */
+export async function runConditionalPasskeyAuthentication(): Promise<{
+  credential: AuthenticationResponseJSON;
+  challengeId: string;
+}> {
+  const { options, challengeId } = await authPasskeyLoginOptions({});
+  const credential = (await startAuthentication({
+    optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON,
+    useBrowserAutofill: true,
+  })) as AuthenticationResponseJSON;
   return { credential, challengeId };
 }

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "ios")]
 use std::ffi::CStr;
+#[cfg(target_os = "ios")]
 use std::os::raw::c_char;
 
 /// Native Sign in with Apple credential returned to the WebView.

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import type { AuthUserPublic } from '@/api/authClient';
+import { AuthApiError } from '@/api/authClient';
 import { useAuthSessionStore } from './authSession';
 
 const mocks = vi.hoisted(() => ({
@@ -75,6 +76,10 @@ vi.mock('@/utils/echoCsrf', () => ({
 
 vi.mock('@/utils/primaryFlowFailure', () => ({
   reportPrimaryFlowFailure: mocks.reportPrimaryFlowFailure,
+}));
+
+vi.mock('@/services/orchestration/workspaceSocialRefreshSeq', () => ({
+  invalidateInFlightEchoWorkspaceSocialRefresh: vi.fn(),
 }));
 
 function makeUser(id: string): AuthUserPublic {
@@ -175,5 +180,25 @@ describe('useAuthSessionStore', () => {
 
     expect(mocks.clearWorkspaceSessionCache).toHaveBeenCalledTimes(1);
     expect(mocks.clearEchoWorkspaceCache).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores stale /auth/me 401 after register/login rotated auth generation', async () => {
+    const pending = deferred<never>();
+    mocks.authFetchMe.mockReturnValueOnce(pending.promise);
+
+    const store = useAuthSessionStore();
+    const restore = store.restoreSessionFromApi();
+
+    store.setSession({ user: makeUser('registered'), planLimits: null });
+
+    pending.reject(
+      new AuthApiError(401, {
+        code: 'UNAUTHORIZED',
+        message: 'no',
+      }),
+    );
+
+    await expect(restore).resolves.toBeNull();
+    expect(store.backendUser?.id).toBe('registered');
   });
 });

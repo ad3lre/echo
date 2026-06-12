@@ -139,8 +139,10 @@ function watchSettledGateStall(
 function watchLayoutChunkStall(
   deps: BootStallWatcherDeps,
   report: (kind: BootStallAlertKind, timing: Record<string, unknown>) => void,
+  mountedAt: number,
 ): { stop: () => void; clearTimer: () => void } {
   let layoutStallTimer: ReturnType<typeof setTimeout> | undefined;
+  let gateDismissedAt: number | undefined;
   const clearTimer = () => {
     if (layoutStallTimer !== undefined) {
       clearTimeout(layoutStallTimer);
@@ -154,18 +156,29 @@ function watchLayoutChunkStall(
       !deps.appLayoutResolved.value,
     (stalled) => {
       clearTimer();
-      if (!stalled) return;
+      if (!stalled) {
+        gateDismissedAt = undefined;
+        return;
+      }
+      if (gateDismissedAt === undefined) {
+        gateDismissedAt = Date.now();
+      }
       const layoutDelayMs = resolveAppLayoutChunkStallMs();
       layoutStallTimer = setTimeout(() => {
-        if (
+        const stillStalled =
           deps.showAppLayout.value &&
           !deps.showBootGate.value &&
-          !deps.appLayoutResolved.value
-        ) {
-          report('app_layout_chunk_stall', {
-            stallThresholdMs: layoutDelayMs,
-          });
-        }
+          !deps.appLayoutResolved.value;
+        if (!stillStalled) return;
+        const msSinceGateDismiss =
+          gateDismissedAt !== undefined
+            ? Date.now() - gateDismissedAt
+            : undefined;
+        report('app_layout_chunk_stall', {
+          stallThresholdMs: layoutDelayMs,
+          msSinceGateDismiss,
+          msSinceMount: Date.now() - mountedAt,
+        });
       }, layoutDelayMs);
     },
     { immediate: true },
@@ -193,7 +206,7 @@ export function useAppBootStallWatcher(deps: BootStallWatcherDeps): void {
   );
 
   const settledWatch = watchSettledGateStall(deps, report);
-  const layoutWatch = watchLayoutChunkStall(deps, report);
+  const layoutWatch = watchLayoutChunkStall(deps, report, mountedAt);
 
   const safetyDelayMs = deps.bootGateTimeoutMs + APP_BOOT_GATE_STALL_GRACE_MS;
   const safetyTimer = setTimeout(() => {

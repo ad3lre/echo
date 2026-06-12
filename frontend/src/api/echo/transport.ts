@@ -1,5 +1,9 @@
 import { API_BASE } from '@/config';
 import { authTryCookieRefresh, echoAuthDebugLog } from '@/api/authClient';
+import {
+  captureAuthStateGeneration,
+  finalizeAuthSession401,
+} from '@/api/authSessionBridge';
 import { nativeAuthRequestHeaders } from '@/services/auth/nativeAuthToken';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { assertEchoApiAllowed } from '@/echoMode';
@@ -122,6 +126,8 @@ export async function echoFetch<T>(
   init?: RequestInit,
 ): Promise<T> {
   assertEchoApiAllowed();
+  const authSession = useAuthSessionStore();
+  const authGenAtStart = captureAuthStateGeneration();
   const method = (init?.method ?? 'GET').toUpperCase();
   const csrf = echoMutatingMethod(method) ? echoCsrfHeaders() : {};
   const headers: Record<string, string> = {
@@ -187,7 +193,7 @@ export async function echoFetch<T>(
           if (res.status === 401 && innerAttempt === 0) {
             const u = await authTryCookieRefresh();
             if (u) {
-              useAuthSessionStore().applyRestoredProfile(u);
+              authSession.applyRestoredProfile(u);
               /* `authTryCookieRefresh` rotates the CSRF cookie + memory token (see `applyEchoCsrfFromAuthJson`).
                * Reusing the pre-refresh `headers` would send the stale `X-CSRF-Token`, causing the
                * retry to fail with `CSRF_REQUIRED`. Re-derive the CSRF header for mutating methods. */
@@ -290,9 +296,17 @@ export async function echoFetch<T>(
           });
         }
         if (res.status === 401) {
-          useAuthSessionStore().invalidateSessionForReauth(
-            'Your session expired or is no longer valid. Sign in again.',
-          );
+          const invalidated = finalizeAuthSession401({
+            authGenAtStart,
+            message:
+              'Your session expired or is no longer valid. Sign in again.',
+          });
+          if (!invalidated) {
+            echoAuthDebugLog(
+              'echoFetch: ignored stale 401 after auth rotation (register/login/upgrade)',
+              { method, path, authGenAtStart },
+            );
+          }
         }
         throw new EchoApiError(res.status, {
           code: typeof data.code === 'string' ? data.code : 'UNKNOWN',

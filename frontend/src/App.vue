@@ -20,6 +20,7 @@ import {
   APP_LAYOUT_LOAD_TIMEOUT_MS,
 } from '@/config/appLoadUi';
 import { useAppBootStallWatcher } from '@/observability/appBootStallWatcher';
+import { prefetchAppLayoutChunk } from '@/services/appLayoutChunkPrefetch';
 import {
   normalizePathname,
   parseLegalDocPath,
@@ -99,7 +100,7 @@ const appLayoutResolved = ref(false);
 
 const AppLayout = defineAsyncComponent({
   loader: async () => {
-    const mod = await import('@/components/AppLayout.vue');
+    const mod = await prefetchAppLayoutChunk();
     appLayoutResolved.value = true;
     return mod;
   },

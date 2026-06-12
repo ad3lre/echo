@@ -243,4 +243,41 @@ describe('registerEchoSocketComposableEffects', () => {
     expect(teardownSocket).not.toHaveBeenCalled();
     expect(connectSocket).not.toHaveBeenCalled();
   });
+
+  it('auth watch recycles on authStateGeneration bump with null token (cookie-mode rotation)', () => {
+    const watchCalls: Array<{
+      cb: (next: unknown, prev?: unknown) => void;
+    }> = [];
+
+    const vue: EchoSocketVueEffectHooks = {
+      onMounted: (() => {}) as EchoSocketVueEffectHooks['onMounted'],
+      onUnmounted: (() => {}) as EchoSocketVueEffectHooks['onUnmounted'],
+      watch: ((
+        _source: unknown,
+        cb: (next: unknown, prev?: unknown) => void,
+      ) => {
+        watchCalls.push({ cb });
+      }) as EchoSocketVueEffectHooks['watch'],
+    };
+
+    const teardownSocket = vi.fn();
+    const connectSocket = vi.fn(() => Promise.resolve());
+
+    registerEchoSocketComposableEffects(vue, {
+      activeChannelId: ref('c1'),
+      getAuthKey: () => [true, null, 2] as const,
+      io: createEchoSocketIoState(),
+      socketOff: () => false,
+      connectSocket,
+      teardownSocket,
+      mountWindowAndIdle: () => {},
+      disposeSocketComposable: () => {},
+    });
+
+    /* Guest upgrade in cookie mode: isAuthenticated + accessToken unchanged
+     * (true/null), only the generation counter moved. */
+    watchCalls[1]!.cb([true, null, 2], [true, null, 1]);
+    expect(teardownSocket).toHaveBeenCalledTimes(1);
+    expect(connectSocket).toHaveBeenCalledTimes(1);
+  });
 });

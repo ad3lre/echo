@@ -157,8 +157,8 @@ Without dimensions (legacy `imageUrl`, attachments the server didn't size) the `
 covered _above-viewport_ growth, so growth in the visible bottom rows drifted us off the bottom.
 
 **Fix (`MessageList.vue`, `shouldAdjustScrollPositionOnItemSizeChange`):** added a second
-compensation case — when bottom-anchored, following the tail, and the user is not actively
-scrolling (`messageScrollAnchorResolved==='bottom' && followNewMessagesToBottom && !isUserActive()`),
+compensation case — when following the tail and the user is not actively
+scrolling (`followNewMessagesToBottom && !isUserActive()`),
 compensate row growth so it pushes earlier content UP and keeps the bottom pinned ("push up
 instead"). Verified against `virtual-core` `resizeItem`: returning true does `scrollAdjustments +=
 delta`, fixing the grown row + everything below and shifting earlier content up. Gated on

@@ -123,7 +123,10 @@ export const ROLE_PERMISSION_DEFS: Array<{
     | 'Invites'
     | 'Profile'
     | 'Moderation'
-    | 'Text'
+    | 'Messaging'
+    | 'Media'
+    | 'Mentions'
+    | 'Polls'
     | 'Paper'
     | 'Voice'
     | 'Advanced';
@@ -157,13 +160,17 @@ export const ROLE_PERMISSION_DEFS: Array<{
   { key: 'kickMembers', label: 'Kick Members', group: 'Moderation' },
   { key: 'banMembers', label: 'Ban Members', group: 'Moderation' },
   { key: 'timeoutMembers', label: 'Timeout Members', group: 'Moderation' },
-  { key: 'sendMessages', label: 'Send Messages', group: 'Text' },
-  { key: 'sendMedia', label: 'Send Media', group: 'Text' },
-  { key: 'mentionEveryone', label: 'Mention @Everyone', group: 'Text' },
-  { key: 'mentionActive', label: 'Mention @Active', group: 'Text' },
-  { key: 'manageMessages', label: 'Manage Messages', group: 'Text' },
-  { key: 'readMessageHistory', label: 'Read Message History', group: 'Text' },
-  { key: 'createPolls', label: 'Create Polls', group: 'Text' },
+  { key: 'sendMessages', label: 'Send Messages', group: 'Messaging' },
+  {
+    key: 'readMessageHistory',
+    label: 'Read Message History',
+    group: 'Messaging',
+  },
+  { key: 'manageMessages', label: 'Manage Messages', group: 'Messaging' },
+  { key: 'sendMedia', label: 'Send Media', group: 'Media' },
+  { key: 'mentionEveryone', label: 'Mention all roles', group: 'Mentions' },
+  { key: 'mentionActive', label: 'Mention @Active', group: 'Mentions' },
+  { key: 'createPolls', label: 'Create Polls', group: 'Polls' },
   {
     key: 'commentOnPaper',
     label: 'Comment on paper',
@@ -220,7 +227,10 @@ export const ROLE_PERMISSION_GROUPS: Array<
   | 'Invites'
   | 'Profile'
   | 'Moderation'
-  | 'Text'
+  | 'Messaging'
+  | 'Media'
+  | 'Mentions'
+  | 'Polls'
   | 'Paper'
   | 'Voice'
   | 'Advanced'
@@ -230,7 +240,10 @@ export const ROLE_PERMISSION_GROUPS: Array<
   'Invites',
   'Profile',
   'Moderation',
-  'Text',
+  'Messaging',
+  'Media',
+  'Mentions',
+  'Polls',
   'Paper',
   'Voice',
   'Advanced',

@@ -6,7 +6,7 @@
  * 3. start candidate on staging ports (default :3001 / :4175; :4174 is echo-marketing)
  * 4. health-check candidate
  * 5. stop live + staging, start prod:serve on main ports
- * 6. restart PM2 echo-marketing (app-echo.net static site on :4174)
+ * 6. ensure PM2 companions + Discord bot are up (start if down; skip if already running)
  *
  * Downtime is only the cutover window (~seconds), not the full build.
  * `npm run build` includes `marketing`; PM2 serves `marketing/dist` via astro preview.
@@ -19,13 +19,10 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { execFile } from 'child_process';
 import { spawn } from 'child_process';
-import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 import { parseIntegerInRange, parseMinInteger } from './lib/number-parse.mjs';
-
-const execFileAsync = promisify(execFile);
+import { ensureCompanionServices } from './lib/ensure-companion-services.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
@@ -97,19 +94,6 @@ function baseEnv() {
 
 function npmCmd() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm';
-}
-
-/** PM2 app-echo.net marketing site (port 4174); shares staging port during rolling cutover. */
-async function pm2Marketing(action) {
-  try {
-    await execFileAsync('pm2', [action, 'echo-marketing'], {
-      cwd: repoRoot,
-      env: baseEnv(),
-    });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function run(cmd, args, opts = {}) {
@@ -280,23 +264,21 @@ async function main() {
   await waitForHttp(`http://127.0.0.1:3000/api/v1/health?ts=${Date.now()}`);
   await waitForHttp('http://127.0.0.1:4173/');
 
-  appendMeta('restarting PM2 echo-marketing (marketing/dist)');
-  if (await pm2Marketing('restart')) {
-    try {
-      await waitForHttp(`http://127.0.0.1:4174/?ts=${Date.now()}`);
-      appendMeta('echo-marketing healthy on :4174');
-    } catch (e) {
-      appendMeta(
-        `echo-marketing health check failed: ${e instanceof Error ? e.message : String(e)}`,
-      );
-      console.warn(
-        '[prod-rolling] echo-marketing restart ok but :4174 health failed',
-      );
-    }
-  } else {
-    appendMeta('PM2 echo-marketing not managed — skipped marketing restart');
-    console.warn(
-      '[prod-rolling] PM2 echo-marketing not found; run: npm run marketing:pm2',
+  appendMeta(
+    'ensuring companion services (PM2, Discord bot, optional compose)',
+  );
+  await ensureCompanionServices({
+    repoRoot,
+    env: baseEnv(),
+    appendLog: (line) =>
+      appendMeta(line.replace(/^\[ensure-companion\]\s*/, '')),
+  });
+  try {
+    await waitForHttp(`http://127.0.0.1:4174/?ts=${Date.now()}`, 15_000);
+    appendMeta('echo-marketing healthy on :4174');
+  } catch {
+    appendMeta(
+      'echo-marketing :4174 not reachable (may be unmanaged or still starting)',
     );
   }
 

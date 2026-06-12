@@ -60,7 +60,6 @@ import {
 import {
   clearMessageListViewport,
   flushMessageListViewportStorage,
-  hasMessageListViewport,
   readMessageListViewport,
   writeMessageListViewport,
 } from '@/features/chat/composables/messageListViewportStorage';
@@ -161,11 +160,6 @@ const props = defineProps<{
   isForumPostChannel?: boolean;
   /** Server owner / manage-server only — empty-channel Discord import CTA. */
   canShowDiscordChannelImport?: boolean;
-  /**
-   * After initial history: scroll to bottom (latest) or top of loaded window.
-   * Main chat always passes `bottom`. Use `top` only for explicit integrations (e.g. forced window modes), not normal channel open.
-   */
-  messageScrollAnchor?: 'top' | 'bottom';
   onRequestForward?: (
     message: MessageWithAuthor & { channelName?: string },
   ) => void;
@@ -199,10 +193,6 @@ const jumpUi = createMessageListJumpUi();
 provide(MESSAGE_LIST_JUMP_UI_KEY, jumpUi);
 
 const coarsePointer = useCoarsePointer();
-
-const messageScrollAnchorResolved = computed(
-  () => props.messageScrollAnchor ?? 'bottom',
-);
 
 async function forwardSaveEdit(
   messageId: string,
@@ -911,10 +901,8 @@ function resolveSeenMessageId(): string | null {
   }
   if (virtualItems.length === 0) {
     // Initial render race: rows exist but virtualizer has not published visible items yet.
-    // Fall back to current anchor mode so "visible on open" can still advance read state.
-    return messageScrollAnchorResolved.value === 'top'
-      ? (displayOrderedIds.value[0] ?? null)
-      : (displayOrderedIds.value[displayOrderedIds.value.length - 1] ?? null);
+    // Fall back to the newest message so "visible on open" can still advance read state.
+    return displayOrderedIds.value[displayOrderedIds.value.length - 1] ?? null;
   }
   return (
     getAnchorMessageIdFromViewport(
@@ -1015,7 +1003,6 @@ const virtualizerOptions = computed(() => ({
         }
       }
     }
-    if (messageScrollAnchorResolved.value !== 'bottom') return 0;
     const n = displayOrderedIds.value.length;
     if (n === 0) return 0;
     const estimated = estimateVirtualListTotalSizePx();
@@ -1037,12 +1024,11 @@ const virtualizerOptions = computed(() => ({
    *    estimate→measure deltas used to shift content under the user (the "background
    *    flashes before messages appear" bug). Compensating holds the row under the
    *    user's eyes fixed.
-   * 2. Bottom-anchored + idle: when we are following the tail and the user is not
+   * 2. Following tail + idle: when we are following the tail and the user is not
    *    actively scrolling, a row growing (late image/GIF decode) should push earlier
    *    content UP and keep the bottom pinned — otherwise a late image on initial load
    *    pushes the newest messages below the fold and we drift off the bottom. Gated on
-   *    `!isUserActive()` so it never fights an in-progress wheel/touch gesture, and on
-   *    bottom anchor mode so top-anchored channels are unaffected.
+   *    `!isUserActive()` so it never fights an in-progress wheel/touch gesture.
    */
   shouldAdjustScrollPositionOnItemSizeChange: (
     item: { start: number },
@@ -1050,9 +1036,7 @@ const virtualizerOptions = computed(() => ({
     instance: { scrollOffset: number | null },
   ) =>
     item.start < (instance.scrollOffset ?? 0) ||
-    (messageScrollAnchorResolved.value === 'bottom' &&
-      followNewMessagesToBottom.value &&
-      !scrollOwnership.isUserActive()),
+    (followNewMessagesToBottom.value && !scrollOwnership.isUserActive()),
 }));
 
 function distanceFromBottomPx(): number {
@@ -1060,13 +1044,6 @@ function distanceFromBottomPx(): number {
   const v = virtualizer.value;
   if (!el || !v) return 0;
   return Math.max(0, v.getTotalSize() - el.scrollTop - el.clientHeight);
-}
-
-function hasChannelViewportMemory(
-  channelId: string | null | undefined,
-): boolean {
-  const cid = channelId?.trim();
-  return !!cid && hasMessageListViewport(cid);
 }
 
 function persistViewportMemoryForChannel(
@@ -1148,10 +1125,7 @@ async function restoreViewportMemoryForChannel(
 
   followNewMessagesToBottom.value = entry.followNewMessages;
 
-  if (
-    entry.followNewMessages &&
-    messageScrollAnchorResolved.value === 'bottom'
-  ) {
+  if (entry.followNewMessages) {
     return false;
   }
 
@@ -1223,10 +1197,8 @@ function updateJumpUiFromScroll() {
     jumpUi.scrollAwayFromBottom.value = scrollAway;
   }
   const d = distanceFromBottomPx();
-  if (messageScrollAnchorResolved.value === 'bottom') {
-    if (d > FOLLOW_NEW_DETACH_PX) followNewMessagesToBottom.value = false;
-    else if (d < FOLLOW_NEW_ATTACH_PX) followNewMessagesToBottom.value = true;
-  }
+  if (d > FOLLOW_NEW_DETACH_PX) followNewMessagesToBottom.value = false;
+  else if (d < FOLLOW_NEW_ATTACH_PX) followNewMessagesToBottom.value = true;
   if (d < NEAR_BOTTOM_PX && jumpUi.pendingNewWhileAway.value !== 0) {
     jumpUi.pendingNewWhileAway.value = 0;
   }
@@ -1269,25 +1241,23 @@ function flushScrollSideEffects(): void {
   const el = containerRef.value;
   const scrollTop = el?.scrollTop;
   runLoadOlderIfEligible();
-  if (messageScrollAnchorResolved.value === 'bottom') {
-    updateJumpUiFromScroll();
-    logMessageListThrottled(
-      'scroll_idle_flush',
-      400,
-      'scroll',
-      'scroll_idle_flush',
-      {
-        scrollTop,
-        direction: lastObservedScrollDirection,
-        distFromBottomPx: distanceFromBottomPx(),
-        jumpScrollAway: jumpUi.scrollAwayFromBottom.value,
-        jumpPendingNew: jumpUi.pendingNewWhileAway.value,
-        nearTopWillConsiderLoadOlder: (scrollTop ?? 0) <= NEAR_TOP_PX,
-        expectation:
-          'after flush: jump UI reflects viewport; load older may run if gated conditions pass',
-      },
-    );
-  }
+  updateJumpUiFromScroll();
+  logMessageListThrottled(
+    'scroll_idle_flush',
+    400,
+    'scroll',
+    'scroll_idle_flush',
+    {
+      scrollTop,
+      direction: lastObservedScrollDirection,
+      distFromBottomPx: distanceFromBottomPx(),
+      jumpScrollAway: jumpUi.scrollAwayFromBottom.value,
+      jumpPendingNew: jumpUi.pendingNewWhileAway.value,
+      nearTopWillConsiderLoadOlder: (scrollTop ?? 0) <= NEAR_TOP_PX,
+      expectation:
+        'after flush: jump UI reflects viewport; load older may run if gated conditions pass',
+    },
+  );
   schedulePersistViewportMemory();
 }
 
@@ -1732,12 +1702,9 @@ function runLoadOlderIfEligible() {
   }
   const atNearTop = el.scrollTop <= NEAR_TOP_PX;
   const atScrollTopCeiling = isAtScrollTopCeiling(el.scrollTop);
-  // Top-anchored channels open at scrollTop≈0; at the physical ceiling wheel-up
-  // cannot move scrollTop further — allow pagination without a scroll delta (same
-  // for bottom-anchored channels once the user has scrolled all the way up).
-  const allowWithoutUpScroll =
-    (messageScrollAnchorResolved.value === 'top' && atNearTop) ||
-    (atNearTop && atScrollTopCeiling);
+  // At the physical ceiling wheel-up cannot move scrollTop further — allow
+  // pagination without a scroll delta once the user has scrolled all the way up.
+  const allowWithoutUpScroll = atNearTop && atScrollTopCeiling;
   if (!allowWithoutUpScroll && lastObservedScrollDirection !== 'up') {
     logMessageListThrottled(
       'scroll_not_up',
@@ -1911,8 +1878,7 @@ function applyInitialScrollAnchor() {
     scheduleId,
     channelId,
     messageCount: displayOrderedIds.value.length,
-    scrollAnchor: messageScrollAnchorResolved.value,
-    expectation: 'one rAF commit: scroll to top or bottom of loaded window',
+    expectation: 'one rAF commit: scroll to bottom of loaded window',
   });
   nextTick(() => {
     requestAnimationFrame(() => {
@@ -2017,17 +1983,6 @@ function applyInitialScrollAnchor() {
           finish('user_owned');
           return false;
         }
-        if (messageScrollAnchorResolved.value === 'top') {
-          withProgrammaticScroll(() =>
-            v!.scrollToIndex(0, { align: 'start', behavior: 'auto' }),
-          );
-          settleThenFinish('top');
-          requestAnimationFrame(() => {
-            if (scheduleId !== initialAnchorScheduleGeneration) return;
-            runLoadOlderIfEligible();
-          });
-          return true;
-        }
         commitScrollToLatest({ intent: 'initial-anchor' });
         settleThenFinish('bottom');
         return true;
@@ -2047,18 +2002,6 @@ function applyInitialScrollAnchor() {
         });
         return;
       }
-      if (messageScrollAnchorResolved.value === 'top') {
-        withProgrammaticScroll(() =>
-          v.scrollToIndex(0, { align: 'start', behavior: 'auto' }),
-        );
-        settleThenFinish('top');
-        requestAnimationFrame(() => {
-          if (scheduleId !== initialAnchorScheduleGeneration) return;
-          runLoadOlderIfEligible();
-        });
-        return;
-      }
-
       commitScrollToLatest({ intent: 'initial-anchor' });
       settleThenFinish('bottom');
     });
@@ -2073,7 +2016,7 @@ const _unpinHandlerCache = new Map<string, () => void>();
 
 watch(
   () => props.channelId,
-  (cid, prevCid) => {
+  (cid) => {
     const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
     if (performance.mark) performance.mark(`messagelist-channel-change-${cid}`);
     if (messageListDebugEnabled()) {
@@ -2106,14 +2049,7 @@ watch(
     activePrependTxId.value = 0;
     if (cid) {
       pendingInitialScroll.value = true;
-      if (
-        messageScrollAnchorResolved.value === 'bottom' ||
-        hasChannelViewportMemory(cid)
-      ) {
-        suppressListUntilInitialAnchor.value = true;
-      } else {
-        suppressListUntilInitialAnchor.value = false;
-      }
+      suppressListUntilInitialAnchor.value = true;
     } else {
       pendingInitialScroll.value = false;
       suppressListUntilInitialAnchor.value = false;
@@ -2137,7 +2073,6 @@ watch(
     [displayOrderedIds.value.length, displayOrderedIds.value.at(-1)] as const,
   ([len, tailId], prev) => {
     if (prependTransactionActive.value) return;
-    if (messageScrollAnchorResolved.value !== 'bottom') return;
     if (!prev) return;
     const [prevLen, prevTail] = prev;
     if (len <= prevLen) return;
@@ -2809,7 +2744,6 @@ defineExpose({
       </div>
     </Transition>
     <MessageListJumpFab
-      :message-scroll-anchor="messageScrollAnchorResolved"
       :message-count="displayOrderedIds.length"
       :list-ui-blocked="
         showInitialLoadOverlay ||

@@ -5,6 +5,7 @@ import type {
   PermissionOverwriteRowDraft,
   PermissionOverwriteSubjectOption,
 } from '@/features/channel-settings/types';
+import { groupChannelPermissionDefs } from '@/features/channel-settings/types';
 import type { ChannelPermissionKey } from '@shared/types';
 import ChannelPermissionIconBadge from '@/features/channel-settings/components/ChannelPermissionIconBadge.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
@@ -44,14 +45,9 @@ const selectedRowKey = defineModel<string | null>('selectedRowKey', {
   default: null,
 });
 
-const permissionGroupsList = computed(() => {
-  const map = new Map<string, ChannelPermissionDef[]>();
-  for (const def of props.permissionDefs) {
-    if (!map.has(def.group)) map.set(def.group, []);
-    map.get(def.group)!.push(def);
-  }
-  return Array.from(map.entries());
-});
+const permissionGroupsList = computed(() =>
+  groupChannelPermissionDefs(props.permissionDefs),
+);
 
 const roleMap = computed(
   () => new Map(props.roles.map((role) => [role.id, role])),

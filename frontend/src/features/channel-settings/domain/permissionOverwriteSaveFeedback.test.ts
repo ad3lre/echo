@@ -9,7 +9,7 @@ describe('permissionOverwriteSaveFeedback', () => {
   it('formats stripped allow warnings', () => {
     const msg = formatPermissionOverwriteSaveWarnings(
       { strippedAllows: ['EMBED_LINKS', 'MANAGE_WEBHOOKS'] },
-      [{ key: 'embedLinks', label: 'Embed links', group: 'Text channel' }],
+      [{ key: 'embedLinks', label: 'Embed links', group: 'Media & links' }],
     );
     expect(msg).toContain('Embed links');
     expect(msg).toContain('Deny and Inherit');
@@ -28,7 +28,7 @@ describe('permissionOverwriteSaveFeedback', () => {
     const mismatches = findPermissionOverwritePersistenceMismatches(
       sent,
       fetched,
-      [{ key: 'embedLinks', label: 'Embed links', group: 'Text channel' }],
+      [{ key: 'embedLinks', label: 'Embed links', group: 'Media & links' }],
     );
     expect(mismatches).toContain('Embed links');
   });

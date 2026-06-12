@@ -2,7 +2,6 @@ import type { ApiErrorBody } from '@shared/types/api';
 import { translateApiErrorBody } from '@/i18n/apiErrors';
 import { API_BASE, IS_ECHO_TAURI_SHELL } from '@/config';
 import { applyEchoCsrfFromAuthJson } from '@/utils/echoCsrf';
-import { notifyInvalidateSessionForReauth } from '@/api/authSessionBridge';
 import { applyNativeAuthFromAuthJson } from '@/services/auth/nativeAuthToken';
 import {
   echoClientDebugEnabled,
@@ -219,10 +218,6 @@ export async function parseJson(res: Response): Promise<unknown> {
   } catch {
     return {};
   }
-}
-
-export function invalidateSessionOn401(message: string): void {
-  notifyInvalidateSessionForReauth(message);
 }
 
 export function throwIfError(

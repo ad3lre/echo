@@ -111,13 +111,50 @@ export const CHANNEL_TAB_COPY: Record<
   },
 };
 
-/** Groups match common channel-permission section labels (subset). */
+/** Section labels for channel permission overwrites (ordered via {@link CHANNEL_PERMISSION_GROUPS}). */
 export type ChannelPermissionGroup =
-  | 'General permissions'
-  | 'Text channel'
+  | 'Access'
+  | 'Messaging'
+  | 'Media & links'
+  | 'Reactions & emoji'
+  | 'Mentions'
+  | 'Apps & commands'
+  | 'Polls'
   | 'Threads'
-  | 'Voice channel'
-  | 'Paper channel';
+  | 'Voice'
+  | 'Voice moderation'
+  | 'Activities & events'
+  | 'Paper';
+
+export const CHANNEL_PERMISSION_GROUPS: ChannelPermissionGroup[] = [
+  'Access',
+  'Messaging',
+  'Media & links',
+  'Reactions & emoji',
+  'Mentions',
+  'Apps & commands',
+  'Polls',
+  'Threads',
+  'Voice',
+  'Voice moderation',
+  'Activities & events',
+  'Paper',
+];
+
+/** Stable section order for permission overwrite UIs. */
+export function groupChannelPermissionDefs(
+  defs: ChannelPermissionDef[],
+): Array<[ChannelPermissionGroup, ChannelPermissionDef[]]> {
+  const map = new Map<ChannelPermissionGroup, ChannelPermissionDef[]>();
+  for (const def of defs) {
+    const bucket = map.get(def.group) ?? [];
+    bucket.push(def);
+    map.set(def.group, bucket);
+  }
+  return CHANNEL_PERMISSION_GROUPS.filter((group) => map.has(group)).map(
+    (group) => [group, map.get(group)!],
+  );
+}
 
 export interface ChannelPermissionDef {
   key: ChannelPermissionKey;
@@ -127,23 +164,23 @@ export interface ChannelPermissionDef {
 
 /** Shared general rows (text + voice). Single source so category merge never drifts. */
 export const CHANNEL_GENERAL_PERMISSION_DEFS: ChannelPermissionDef[] = [
-  { key: 'viewChannel', label: 'View channel', group: 'General permissions' },
+  { key: 'viewChannel', label: 'View channel', group: 'Access' },
   {
     key: 'manageChannel',
     label: 'Manage channel',
-    group: 'General permissions',
+    group: 'Access',
   },
   {
     key: 'managePermissions',
     label: 'Manage permissions',
-    group: 'General permissions',
+    group: 'Access',
   },
   {
     key: 'manageWebhooks',
     label: 'Manage webhooks',
-    group: 'General permissions',
+    group: 'Access',
   },
-  { key: 'createInvite', label: 'Create invite', group: 'General permissions' },
+  { key: 'createInvite', label: 'Create invite', group: 'Access' },
 ];
 
 /**
@@ -151,87 +188,94 @@ export const CHANNEL_GENERAL_PERMISSION_DEFS: ChannelPermissionDef[] = [
  * Always included in voice channel + category UIs from the same source.
  */
 export const CHANNEL_VOICE_ONLY_DEFS: ChannelPermissionDef[] = [
-  { key: 'connect', label: 'Connect', group: 'Voice channel' },
-  { key: 'speak', label: 'Speak', group: 'Voice channel' },
+  { key: 'connect', label: 'Connect', group: 'Voice' },
+  { key: 'speak', label: 'Speak', group: 'Voice' },
   {
     key: 'useVoiceActivity',
     label: 'Use Voice Activity',
-    group: 'Voice channel',
+    group: 'Voice',
   },
-  { key: 'video', label: 'Video', group: 'Voice channel' },
-  { key: 'muteMembers', label: 'Mute members', group: 'Voice channel' },
-  { key: 'deafenMembers', label: 'Deafen members', group: 'Voice channel' },
-  { key: 'moveMembers', label: 'Move members', group: 'Voice channel' },
+  { key: 'video', label: 'Video', group: 'Voice' },
   {
     key: 'prioritySpeaker',
     label: 'Use priority speaker',
-    group: 'Voice channel',
+    group: 'Voice',
   },
-  { key: 'stream', label: 'Stream', group: 'Voice channel' },
+  { key: 'stream', label: 'Stream', group: 'Voice' },
+  { key: 'requestToSpeak', label: 'Request to speak', group: 'Voice' },
+  { key: 'muteMembers', label: 'Mute members', group: 'Voice moderation' },
+  { key: 'deafenMembers', label: 'Deafen members', group: 'Voice moderation' },
+  { key: 'moveMembers', label: 'Move members', group: 'Voice moderation' },
   {
     key: 'useEmbeddedActivities',
     label: 'Use activities',
-    group: 'Voice channel',
+    group: 'Activities & events',
   },
-  { key: 'requestToSpeak', label: 'Request to speak', group: 'Voice channel' },
-  { key: 'useSoundboard', label: 'Use soundboard', group: 'Voice channel' },
+  {
+    key: 'useSoundboard',
+    label: 'Use soundboard',
+    group: 'Activities & events',
+  },
   {
     key: 'useExternalSounds',
     label: 'Use external sounds',
-    group: 'Voice channel',
+    group: 'Activities & events',
   },
-  { key: 'manageEvents', label: 'Manage events', group: 'Voice channel' },
-  { key: 'createEvents', label: 'Create events', group: 'Voice channel' },
+  { key: 'createEvents', label: 'Create events', group: 'Activities & events' },
+  { key: 'manageEvents', label: 'Manage events', group: 'Activities & events' },
 ];
 
 /** Full text-channel permission list (compact). */
 export const CHANNEL_PERMISSION_DEFS_TEXT: ChannelPermissionDef[] = [
   ...CHANNEL_GENERAL_PERMISSION_DEFS,
-  /* Text */
-  { key: 'sendMessages', label: 'Send messages', group: 'Text channel' },
-  { key: 'embedLinks', label: 'Embed links', group: 'Text channel' },
-  { key: 'attachFiles', label: 'Attach files', group: 'Text channel' },
-  { key: 'addReactions', label: 'Add reactions', group: 'Text channel' },
+  { key: 'sendMessages', label: 'Send messages', group: 'Messaging' },
+  {
+    key: 'readMessageHistory',
+    label: 'Read message history',
+    group: 'Messaging',
+  },
+  { key: 'manageMessages', label: 'Manage messages', group: 'Messaging' },
+  { key: 'pinMessages', label: 'Pin messages', group: 'Messaging' },
+  { key: 'bypassSlowmode', label: 'Bypass slowmode', group: 'Messaging' },
+  {
+    key: 'sendTTS',
+    label: 'Send text-to-speech messages',
+    group: 'Messaging',
+  },
+  { key: 'embedLinks', label: 'Embed links', group: 'Media & links' },
+  { key: 'attachFiles', label: 'Attach files', group: 'Media & links' },
+  {
+    key: 'sendVoiceMessages',
+    label: 'Send voice messages',
+    group: 'Media & links',
+  },
+  { key: 'addReactions', label: 'Add reactions', group: 'Reactions & emoji' },
   {
     key: 'useExternalEmoji',
     label: 'Use external emoji',
-    group: 'Text channel',
+    group: 'Reactions & emoji',
   },
   {
     key: 'useExternalStickers',
     label: 'Use external stickers',
-    group: 'Text channel',
+    group: 'Reactions & emoji',
   },
   {
     key: 'mentionEveryone',
-    label: 'Mention @everyone, @here, and all roles',
-    group: 'Text channel',
-  },
-  { key: 'manageMessages', label: 'Manage messages', group: 'Text channel' },
-  {
-    key: 'readMessageHistory',
-    label: 'Read message history',
-    group: 'Text channel',
-  },
-  {
-    key: 'sendTTS',
-    label: 'Send text-to-speech messages',
-    group: 'Text channel',
+    label: 'Mention all roles',
+    group: 'Mentions',
   },
   {
     key: 'useApplicationCommands',
     label: 'Use application commands',
-    group: 'Text channel',
+    group: 'Apps & commands',
   },
-  { key: 'createPolls', label: 'Create polls', group: 'Text channel' },
   {
-    key: 'sendVoiceMessages',
-    label: 'Send voice messages',
-    group: 'Text channel',
+    key: 'useExternalApps',
+    label: 'Use external apps',
+    group: 'Apps & commands',
   },
-  { key: 'pinMessages', label: 'Pin messages', group: 'Text channel' },
-  { key: 'bypassSlowmode', label: 'Bypass slowmode', group: 'Text channel' },
-  { key: 'useExternalApps', label: 'Use external apps', group: 'Text channel' },
+  { key: 'createPolls', label: 'Create polls', group: 'Polls' },
   /* Threads */
   {
     key: 'sendMessagesInThreads',
@@ -259,13 +303,13 @@ export const CHANNEL_PERMISSION_DEFS_VOICE: ChannelPermissionDef[] = [
 
 export const CHANNEL_PERMISSION_DEFS_PAPER: ChannelPermissionDef[] = [
   ...CHANNEL_GENERAL_PERMISSION_DEFS,
-  { key: 'sendMessages', label: 'Author in paper', group: 'Paper channel' },
-  { key: 'commentOnPaper', label: 'Comment on paper', group: 'Paper channel' },
-  { key: 'manageMessages', label: 'Manage comments', group: 'Paper channel' },
+  { key: 'sendMessages', label: 'Author in paper', group: 'Paper' },
+  { key: 'commentOnPaper', label: 'Comment on paper', group: 'Paper' },
+  { key: 'manageMessages', label: 'Manage comments', group: 'Paper' },
   {
     key: 'readMessageHistory',
     label: 'Download / export paper',
-    group: 'Paper channel',
+    group: 'Paper',
   },
 ];
 
@@ -284,6 +328,11 @@ export const CHANNEL_PERMISSION_DEFS_CATEGORY: ChannelPermissionDef[] = (() => {
   }
   return out;
 })();
+
+const CHANNEL_VOICE_SETTINGS_KEYS = new Set<ChannelPermissionKey>([
+  ...CHANNEL_GENERAL_PERMISSION_DEFS.map((def) => def.key),
+  ...CHANNEL_VOICE_ONLY_DEFS.map((def) => def.key),
+]);
 
 /** Category + permission overwrite UIs (respects channel webhook kill switch). */
 export function getCategoryPermissionDefsForUi(): ChannelPermissionDef[] {
@@ -306,8 +355,8 @@ export function getChannelPermissionDefsForChannelType(
   else if (channelType === 'text' || channelType === 'forum')
     defs = CHANNEL_PERMISSION_DEFS_TEXT;
   else
-    defs = CHANNEL_PERMISSION_DEFS_CATEGORY.filter(
-      (d) => d.group === 'General permissions' || d.group === 'Voice channel',
+    defs = CHANNEL_PERMISSION_DEFS_CATEGORY.filter((def) =>
+      CHANNEL_VOICE_SETTINGS_KEYS.has(def.key),
     );
   if (CHANNEL_WEBHOOKS_ENABLED) return defs;
   return defs.filter((d) => d.key !== 'manageWebhooks');

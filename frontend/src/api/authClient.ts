@@ -8,7 +8,11 @@ import {
 } from '@/utils/echoCsrf';
 import { clearSkipAutoGuestAfterLogout } from '@/utils/autoGuestLogoutSuppress';
 import { getOrCreateEchoClientHwid } from '@/services/auth/echoClientHwid';
-import { notifyAuthClearLocalTokensProbe } from '@/api/authSessionBridge';
+import {
+  captureAuthStateGeneration,
+  finalizeAuthSession401,
+  notifyAuthClearLocalTokensProbe,
+} from '@/api/authSessionBridge';
 import { newTraceId } from '@/observability/sessionDiagnostics';
 import {
   authTryNativeBearerRefresh,
@@ -30,7 +34,6 @@ import {
   echoAuthDebugLog,
   echoAuthLogRequestFailure,
   finalizeAuthSessionResponse,
-  invalidateSessionOn401,
   logAuthNetworkFailure,
   parseJson,
   throwIfError,
@@ -65,14 +68,21 @@ async function postCookieRefreshOnce(): Promise<{
   res: Response;
   data: Record<string, unknown>;
 }> {
+  /**
+   * Desktop: CORS-simple empty form POST (no OPTIONS preflight that can break
+   * Set-Cookie on cross-origin Tauri WebViews). The refresh token rides on the
+   * `echo_rt` cookie either way, so the body is empty on both branches.
+   */
   const res = await fetch(`${AUTH_BASE}/refresh`, {
     method: 'POST',
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': IS_ECHO_TAURI_SHELL
+        ? 'application/x-www-form-urlencoded'
+        : 'application/json',
       ...nativeAuthRequestHeaders(),
     },
-    body: JSON.stringify({}),
+    body: IS_ECHO_TAURI_SHELL ? '' : JSON.stringify({}),
   });
   const data = (await parseJson(res)) as Record<string, unknown>;
   return { res, data };
@@ -636,22 +646,53 @@ export async function authUpgradeGuest(body: {
   const url = appendDiagTraceId(`${AUTH_BASE}/guest/upgrade`, traceId);
   let res: Response;
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        ...echoCsrfJsonHeaders(),
-        ...nativeAuthRequestHeaders(),
-      },
-      credentials: 'include',
-      body: JSON.stringify({ ...body, diagTraceId: traceId }),
-    });
+    if (IS_ECHO_TAURI_SHELL) {
+      /**
+       * CORS-simple POST (see `authLogin` / `authRegister` desktop branches).
+       * The double-submit CSRF token travels in the form body instead of
+       * `X-CSRF-Token` so no OPTIONS preflight is triggered (`enforceApiCsrf`
+       * accepts a `csrfToken` body field).
+       */
+      const params = new URLSearchParams();
+      params.set('diagTraceId', traceId);
+      params.set('email', body.email);
+      params.set('password', body.password);
+      if (body.username?.trim()) params.set('username', body.username.trim());
+      if (body.displayName?.trim()) {
+        params.set('displayName', body.displayName.trim());
+      }
+      if (body.pfp?.trim()) params.set('pfp', body.pfp.trim());
+      const csrf = echoCsrfHeaders()['X-CSRF-Token'];
+      if (csrf) params.set('csrfToken', csrf);
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          ...nativeAuthRequestHeaders(),
+        },
+        credentials: 'include',
+        body: params.toString(),
+      });
+    } else {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...echoCsrfJsonHeaders(),
+          ...nativeAuthRequestHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ ...body, diagTraceId: traceId }),
+      });
+    }
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'guest_upgrade',
       traceId,
       url,
       method: 'POST',
-      headers: echoCsrfJsonHeaders(),
+      headers: IS_ECHO_TAURI_SHELL
+        ? { 'Content-Type': 'application/x-www-form-urlencoded' }
+        : echoCsrfJsonHeaders(),
       error,
     });
     throw error;
@@ -671,28 +712,56 @@ export async function authRegister(body: {
 }): Promise<{ user: AuthUserPublic }> {
   const traceId = newTraceId();
   const url = appendDiagTraceId(`${AUTH_BASE}/register`, traceId);
+  const clientHwid = body.clientHwid?.trim() || getOrCreateEchoClientHwid();
   let res: Response;
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...nativeAuthRequestHeaders(),
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        ...body,
-        diagTraceId: traceId,
-        clientHwid: body.clientHwid?.trim() || getOrCreateEchoClientHwid(),
-      }),
-    });
+    if (IS_ECHO_TAURI_SHELL) {
+      /**
+       * CORS-simple POST (see `authLogin` / `authContinueAsGuest` desktop branches).
+       * Avoids OPTIONS preflight that can break Set-Cookie on cross-origin Tauri WebViews.
+       */
+      const params = new URLSearchParams();
+      params.set('diagTraceId', traceId);
+      params.set('username', body.username);
+      params.set('password', body.password);
+      params.set('email', body.email);
+      if (body.displayName?.trim()) {
+        params.set('displayName', body.displayName.trim());
+      }
+      params.set('clientHwid', clientHwid);
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          ...nativeAuthRequestHeaders(),
+        },
+        credentials: 'include',
+        body: params.toString(),
+      });
+    } else {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...nativeAuthRequestHeaders(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...body,
+          diagTraceId: traceId,
+          clientHwid,
+        }),
+      });
+    }
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'register',
       traceId,
       url,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: IS_ECHO_TAURI_SHELL
+        ? { 'Content-Type': 'application/x-www-form-urlencoded' }
+        : { 'Content-Type': 'application/json' },
       error,
     });
     throw error;
@@ -1129,17 +1198,26 @@ export async function authPatchMe(
 ): Promise<{ user: AuthUserPublic }> {
   const traceId = newTraceId();
   const url = appendDiagTraceId(`${AUTH_BASE}/me`, traceId);
-  let res: Response;
-  try {
-    res = await fetch(url, {
+  const authGenAtStart = captureAuthStateGeneration();
+  const doPatch = () =>
+    fetch(url, {
       method: 'PATCH',
       headers: {
+        /* Re-derived per attempt: a cookie refresh rotates the CSRF token. */
         ...echoCsrfJsonHeaders(),
         ...nativeAuthRequestHeaders(),
       },
       credentials: 'include',
       body: JSON.stringify({ ...body, diagTraceId: traceId }),
     });
+  let res: Response;
+  try {
+    res = await doPatch();
+    if (res.status === 401) {
+      /* Refresh-and-retry parity with `echoFetch` / `authenticatedApiFetch`. */
+      const refreshed = await authTryCookieRefresh();
+      if (refreshed) res = await doPatch();
+    }
   } catch (error) {
     logAuthNetworkFailure({
       operation: 'patch_me',
@@ -1153,12 +1231,13 @@ export async function authPatchMe(
   }
   const data = (await parseJson(res)) as Record<string, unknown>;
   if (!res.ok && res.status === 401) {
-    echoAuthLogRequestFailure('PATCH /auth/me', res, data, {
-      willInvalidateSession: true,
+    const invalidated = finalizeAuthSession401({
+      authGenAtStart,
+      message: 'Your session expired or is no longer valid. Sign in again.',
     });
-    invalidateSessionOn401(
-      'Your session expired or is no longer valid. Sign in again.',
-    );
+    echoAuthLogRequestFailure('PATCH /auth/me', res, data, {
+      willInvalidateSession: invalidated,
+    });
     const b = data as unknown as ApiErrorBody;
     throw new AuthApiError(res.status, {
       code: typeof b?.code === 'string' ? b.code : 'UNAUTHORIZED',

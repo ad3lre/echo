@@ -107,11 +107,6 @@ export interface Channel {
   voiceE2eeEnabled?: boolean;
   /** Age-restricted / sensitive content marker. */
   nsfw?: boolean;
-  /**
-   * Text channels: where the message list opens after load — newest at bottom (default)
-   * or the start of the loaded page at the top.
-   */
-  messageHistoryAnchor?: 'top' | 'bottom';
   /** Channel-owned auto-delete TTL (seconds); used when not syncing to category. */
   autoDeleteAfterSeconds?: number | null;
   /** When true (default), effective TTL comes from the parent category. */
@@ -184,7 +179,6 @@ export type ChannelSummary = Pick<
   | 'bitrateBps'
   | 'voiceE2eeEnabled'
   | 'nsfw'
-  | 'messageHistoryAnchor'
   | 'autoDeleteAfterSeconds'
   | 'autoDeleteSyncedToCategory'
   | 'categoryAutoDeleteAfterSeconds'

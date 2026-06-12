@@ -61,6 +61,18 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
     },
+    "frontend/src/features/auth/InlineAuthPanel.vue": {
+      "lines": 1151,
+      "longestFunction": 4,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 6
+    },
+    "frontend/src/features/auth/useInlineAuthFlow.ts": {
+      "lines": 439,
+      "longestFunction": 367,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
     "frontend/src/features/chat/domain/messageListScrollOwnership.ts": {
       "lines": 209,
       "longestFunction": 85,

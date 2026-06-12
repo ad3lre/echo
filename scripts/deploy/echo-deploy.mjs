@@ -15,6 +15,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, spawnSync } from 'child_process';
 import { setTimeout as delay } from 'timers/promises';
+import { ensureCompanionServices } from '../lib/ensure-companion-services.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -714,6 +715,11 @@ async function cmdDeploy(doPull) {
     console.log(
       `[echo-deploy] Cutover complete. Active slot is now ${idleSlot}`,
     );
+
+    await ensureCompanionServices({
+      repoRoot: idleRoot,
+      appendLog: (line) => console.log(line),
+    });
   } catch (e) {
     if (!idleIsLive) {
       console.error(
@@ -761,6 +767,8 @@ Environment:
   ECHO_DEPLOY_ALLOW_NON_LINUX=1  allow build/health on dev OS (skips proxy snippet + reload)
   ECHO_DEPLOY_PUBLIC_ROOT_SYMLINK  optional: path to a symlink updated to the active release (Caddy root)
   ECHO_DEPLOY_SHARED_TWEMOJI  optional: absolute path to shared Twemoji WebP dir (default: $ROOT/shared/twemoji)
+  ECHO_DEPLOY_COMPANION_PM2   comma-separated PM2 apps to start if down (default: echo-marketing,echo-watchdog,echo-video-hls-worker)
+  ECHO_DEPLOY_ENSURE_COMPOSE_SERVICES  optional comma list (e.g. postgres,livekit,coturn) — compose up -d when stopped
 
 Twemoji: idle checkout symlinks frontend/public/twemoji -> $ECHO_DEPLOY_ROOT/shared/twemoji
   (override: ECHO_DEPLOY_SHARED_TWEMOJI=/abs/path) so blue/green share one cache and

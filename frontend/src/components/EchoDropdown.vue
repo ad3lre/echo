@@ -51,12 +51,19 @@ const props = withDefaults(
     menuMatchTriggerWidth?: boolean;
     /** With `surface="server"`, no inset ring on the trigger (focus uses outline). */
     borderless?: boolean;
+    /**
+     * Render the open menu flush with the trigger (no gap, joined corners) so it reads as
+     * an extension of the input rather than a floating panel. Combine with `teleport-menu`
+     * inside scrollable modals so the menu still escapes overflow clipping.
+     */
+    attached?: boolean;
   }>(),
   {
     teleportMenu: false,
     surface: 'default',
     menuMatchTriggerWidth: true,
     borderless: false,
+    attached: false,
   },
 );
 
@@ -113,10 +120,11 @@ function syncTeleportMenuGeometry() {
   if (isOpen.value) {
     openUpward.value = computeOpenUpward();
   }
+  const gap = props.attached ? 0 : GAP;
   const r = triggerRef.value.getBoundingClientRect();
   const upward = openUpward.value;
-  const spaceBelow = window.innerHeight - r.bottom - GAP;
-  const spaceAbove = r.top - GAP;
+  const spaceBelow = window.innerHeight - r.bottom - gap;
+  const spaceAbove = r.top - gap;
   const cap = Math.max(
     80,
     Math.min(MENU_MAX_HEIGHT, upward ? spaceAbove : spaceBelow),
@@ -129,7 +137,7 @@ function syncTeleportMenuGeometry() {
       minWidth: w,
       width: match ? w : 'max-content',
       maxHeight: `${cap}px`,
-      bottom: `${window.innerHeight - r.top + GAP}px`,
+      bottom: `${window.innerHeight - r.top + gap}px`,
       top: 'auto',
     };
   } else {
@@ -138,7 +146,7 @@ function syncTeleportMenuGeometry() {
       minWidth: w,
       width: match ? w : 'max-content',
       maxHeight: `${cap}px`,
-      top: `${r.bottom + GAP}px`,
+      top: `${r.bottom + gap}px`,
       bottom: 'auto',
     };
   }
@@ -365,6 +373,9 @@ function optionRowClass(value: string) {
               : 'px-4 py-3',
           {
             'echo-dropdown-trigger--open': isOpen,
+            'echo-dropdown-trigger--attached-open': isOpen && props.attached,
+            'echo-dropdown-trigger--attached-open-up':
+              isOpen && props.attached && openUpward,
             'opacity-40 cursor-not-allowed': props.disabled,
           },
         ]"
@@ -420,8 +431,16 @@ function optionRowClass(value: string) {
             :class="[
               menuPanelPositionClass,
               isServerSurface ? 'rounded-[0.75rem]' : 'rounded-xl shadow-2xl',
-              openUpward ? 'bottom-full mb-2' : 'top-full mt-2',
+              openUpward
+                ? props.attached
+                  ? 'bottom-full'
+                  : 'bottom-full mb-2'
+                : props.attached
+                  ? 'top-full'
+                  : 'top-full mt-2',
               isServerSurface && 'echo-dropdown-menu--server',
+              props.attached && 'echo-dropdown-menu--attached',
+              props.attached && openUpward && 'echo-dropdown-menu--attached-up',
             ]"
           >
             <div class="max-h-[240px] overflow-y-auto custom-scrollbar">
@@ -477,6 +496,8 @@ function optionRowClass(value: string) {
               !menuMatchTriggerWidth && 'max-w-[calc(100vw-1rem)]',
               isServerSurface ? 'rounded-[0.75rem]' : 'rounded-xl shadow-2xl',
               isServerSurface && 'echo-dropdown-menu--server',
+              props.attached && 'echo-dropdown-menu--attached',
+              props.attached && openUpward && 'echo-dropdown-menu--attached-up',
             ]"
             :style="fixedMenuStyle"
           >
@@ -657,6 +678,33 @@ function optionRowClass(value: string) {
   &::before {
     display: none;
   }
+}
+
+/* Attached: menu reads as an extension of the trigger — flush edge, joined corners. */
+.echo-dropdown-menu--attached {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.echo-dropdown-menu--attached-up {
+  border-radius: inherit;
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.echo-dropdown-trigger--attached-open {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.echo-dropdown-trigger--attached-open-up {
+  border-radius: inherit;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 0.75rem !important;
+  border-bottom-right-radius: 0.75rem !important;
 }
 
 .echo-dropdown-menu--server .echo-dropdown-option {

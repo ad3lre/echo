@@ -159,6 +159,64 @@ describe('runEchoWorkspaceHydrateFromApi', () => {
     expect(saveEchoWorkspaceToCache).not.toHaveBeenCalled();
   });
 
+  it('aborts apply when auth rotates during the workspace fetch (isStale guard)', async () => {
+    let rotated = false;
+    vi.mocked(fetchEchoWorkspaceState).mockImplementation(async () => {
+      rotated = true;
+      return {
+        servers: [{ id: 's1', name: 'Guild', imageUrl: '', ownerId: 'o1' }],
+        categoriesByServer: {},
+        serverMemberIds: {},
+        workspaceVersion: '11',
+        upcomingEventsByServerId: {},
+        myEventRsvps: [],
+      } as Awaited<ReturnType<typeof fetchEchoWorkspaceState>>;
+    });
+    vi.mocked(fetchWorkspaceSocialForHydrate).mockResolvedValue(emptySocial);
+
+    const setServers = vi.fn();
+    const applyWorkspaceSnapshot = vi.fn(() => true);
+
+    const result = await runEchoWorkspaceHydrateFromApi({
+      token: 't',
+      userId: 'me',
+      isGuest: false,
+      isStale: () => rotated,
+      workspace: {
+        consumeSkipEchoWorkspaceHydrate: () => false,
+        users: ref([]),
+        serverMemberNicknames: ref({}),
+        timeoutUntilByServerUser: ref({}),
+        lastTimeoutWorkspaceVersion: ref('0'),
+        lastTimeoutServerCount: ref(0),
+        lastTimeoutMemberKeyCount: ref(0),
+        friendIds: ref([]),
+        friendRequestsIncoming: ref([]),
+        friendRequestsOutgoing: ref([]),
+        messageRequests: ref([]),
+        socialGraphStatus: ref<'idle' | 'loading' | 'ready' | 'error'>('idle'),
+      },
+      echoSession: { applyWorkspaceSnapshot },
+      serverStore: {
+        selectedServerId: null,
+        setServers,
+        selectServer: vi.fn(),
+        pickPreferredGuildServerId: vi.fn(() => null),
+      },
+      activeChannelId: ref(''),
+      activeRailTab: ref<RailTab>('explore'),
+      getFirstTextChannelId: () => '',
+      refreshEchoRoleData: vi.fn(() => Promise.resolve()),
+      ensureAuthUserInMockUsers: vi.fn(),
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(applyWorkspaceSnapshot).not.toHaveBeenCalled();
+    expect(setServers).not.toHaveBeenCalled();
+    expect(saveEchoWorkspaceToCache).not.toHaveBeenCalled();
+    expect(fetchWorkspaceSocialForHydrate).not.toHaveBeenCalled();
+  });
+
   it('returns ok:false when workspace fetch throws', async () => {
     vi.mocked(fetchEchoWorkspaceState).mockRejectedValue(new Error('network'));
     vi.mocked(fetchWorkspaceSocialForHydrate).mockResolvedValue(emptySocial);
@@ -197,6 +255,8 @@ describe('runEchoWorkspaceHydrateFromApi', () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
+      if (result.userMessage !== 'network')
+        console.error('STACK:', (result.error as Error)?.stack);
       expect(result.userMessage).toBe('network');
     }
     expect(fetchWorkspaceSocialForHydrate).not.toHaveBeenCalled();

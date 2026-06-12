@@ -1,10 +1,8 @@
 /**
  * After this many ms on the AppLayout chunk loader, show “still loading” hints (network, first visit, etc.).
  *
- * Default 22 s is tuned for mobile cold starts:
- * - first-visit on 4G LTE typically takes 15–22 s to download + parse the Vue bundle,
- * - iOS Safari spends extra time waking a backgrounded renderer / hydrating a PWA,
- * - earlier thresholds (12 s) were scaring users whose load was still perfectly healthy.
+ * Default 8 s balances early feedback with not alarming users on a healthy slow first visit.
+ * First-visit on 4G LTE can still take 15–22 s to download + parse the full shell graph;
  * `resolveAppLayoutLoadHintMs()` stretches this further on 2G/3G or Save-Data.
  */
 export const APP_LAYOUT_LOAD_HINT_MS = 8_000;
@@ -25,12 +23,16 @@ export const APP_BOOT_GATE_SETTLED_STALL_MS = 1_500;
 /** Extra grace after {@link APP_BOOT_GATE_TIMEOUT_MS} before reporting a gate timeout stall. */
 export const APP_BOOT_GATE_STALL_GRACE_MS = 2_000;
 
+/** Extra grace after the slow-load hint before reporting an AppLayout chunk stall. */
+export const APP_LAYOUT_CHUNK_STALL_GRACE_MS = 7_000;
+
 /**
  * AppLayout async chunk unresolved this long after the boot gate dismisses → report stall.
- * Tied to the “still loading” hint threshold so we only alert on real hangs, not slow 4G.
+ * Hint + grace (~15 s on fast 4G) stays below the 30 s error timeout while avoiding
+ * alerts during healthy first-visit downloads that routinely exceed 10 s.
  */
 export function resolveAppLayoutChunkStallMs(): number {
-  return resolveAppLayoutLoadHintMs() + 2_000;
+  return resolveAppLayoutLoadHintMs() + APP_LAYOUT_CHUNK_STALL_GRACE_MS;
 }
 
 type NetworkInformationLike = {

@@ -6,6 +6,7 @@ import {
   mentionsInTrimmedSlice,
   preparePlainTextChunks,
   echoHardFormatPrefixSatisfied,
+  echoHardFormatProtectedPrefixLen,
   stripLeadingDuplicateHardFormatTemplate,
 } from '@shared/messageChunkLimits';
 
@@ -97,5 +98,17 @@ describe('hard format helpers', () => {
         'Name:\nAge:\n',
       ),
     ).toBe(null);
+  });
+
+  it('echoHardFormatProtectedPrefixLen maps CRLF plain to LF template length', () => {
+    const T = 'Name:\nAge:\n';
+    const plain = 'Name:\r\nAge:\r\nhi';
+    expect(echoHardFormatProtectedPrefixLen(plain, T)).toBe(12);
+    expect(echoHardFormatProtectedPrefixLen('Age:\nhi', T)).toBe(0);
+  });
+
+  it('echoHardFormatProtectedPrefixLen matches normalized template length for LF plain', () => {
+    const T = 'Name:\nAge:\n';
+    expect(echoHardFormatProtectedPrefixLen(`${T}hi`, T)).toBe(T.length);
   });
 });

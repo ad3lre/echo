@@ -415,8 +415,6 @@ export default async function echoChannelsRoutes(
       bitrateBps?: number | null;
       nsfw?: boolean;
       iconKey?: string;
-      /** Text channels: open chat scrolled to newest (bottom) or start of loaded page (top). */
-      messageHistoryAnchor?: 'top' | 'bottom';
       forumCreatorDefaultPerms?: unknown;
       voiceE2eeEnabled?: boolean;
       autoDeleteAfterSeconds?: number | null;
@@ -469,11 +467,6 @@ export default async function echoChannelsRoutes(
         patch.bitrateBps = b.bitrateBps;
       if (typeof b.nsfw === 'boolean') patch.nsfw = b.nsfw;
       if (typeof b.iconKey === 'string') patch.iconKey = b.iconKey;
-      if (
-        b.messageHistoryAnchor === 'top' ||
-        b.messageHistoryAnchor === 'bottom'
-      )
-        patch.messageHistoryAnchor = b.messageHistoryAnchor;
       const raw = b.permissionOverrides;
       if (raw !== undefined) {
         if (raw === null) {

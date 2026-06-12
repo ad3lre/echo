@@ -15,6 +15,8 @@ import type { PopoutAnchorRect } from '@/utils/memberProfiles';
 import type { DmSubView } from '@/features/layout/mainSurface';
 import type { ChannelSummary } from '@shared/types';
 import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
+import type { EchoInvitePreviewDto } from '@/api/echo/types';
+import type { ExploreDirectoryRow } from '@/services/domain/exploreDirectoryRows';
 
 type DmMarkReadPayload =
   | { kind: 'user'; userId: string }
@@ -263,3 +265,53 @@ export type LayoutLeftChromeContext = {
 
 export const LAYOUT_LEFT_CHROME_KEY: InjectionKey<LayoutLeftChromeContext> =
   Symbol('layoutLeftChrome');
+
+/** `ServerDownGate` props (computed bind from `useAppLayoutPlatformLifecycle`). */
+export type LayoutServerDownGateBind = {
+  checking: boolean;
+  outageSinceMs: number | null;
+  lastCheckedAtMs: number | null;
+  detail: string | null;
+  averageRecoverySeconds: number;
+  recoverySampleCount: number;
+};
+
+/** Main-surface gate stack (outage / invite landing / welcome-back / explore vs chat) — injected from `AppLayout.vue` into `AppLayoutMainSurface`. */
+export type LayoutMainSurfaceContext = {
+  /** Explore renders inside a single unified scroll container (compact explore page). */
+  explorePageUnifiedScroll: MaybeRef<boolean>;
+  showServerDownGate: MaybeRef<boolean>;
+  serverDownGateBind: MaybeRef<LayoutServerDownGateBind>;
+  checkServerHealthNow: () => void | Promise<void>;
+  inviteLandingActive: MaybeRef<boolean>;
+  inviteLandingPreview: MaybeRef<EchoInvitePreviewDto | null>;
+  inviteLandingLoading: MaybeRef<boolean>;
+  inviteLandingError: MaybeRef<string | null>;
+  inviteLandingPersistBeforeOAuth: () => void;
+  isCompactShell: MaybeRef<boolean>;
+  mobileShellGoBack: () => boolean;
+  openAuthModal: (opts?: {
+    entry?: 'social' | 'echo';
+    passkey?: boolean;
+    tab?: 'login' | 'register';
+    forgot?: boolean;
+  }) => void;
+  welcomeBackExploreGate: MaybeRef<boolean>;
+  welcomeBackExploreMemberEmptyDirectory: MaybeRef<boolean>;
+  openAddServerModal: (
+    view?: 'initial' | 'create' | 'join',
+    invitePrefill?: string,
+  ) => void;
+  onJoinServerFromShell: (inviteLink?: string) => void;
+  exploreDiscoverableServers: MaybeRef<ExploreDirectoryRow[]>;
+  exploreDirectoryJoinBusy: MaybeRef<boolean>;
+  handleJoinDiscoverableServer: (payload: {
+    id?: string;
+    name: string;
+    pfp: string;
+    memberCount?: number;
+  }) => void;
+};
+
+export const LAYOUT_MAIN_SURFACE_KEY: InjectionKey<LayoutMainSurfaceContext> =
+  Symbol('layoutMainSurface');

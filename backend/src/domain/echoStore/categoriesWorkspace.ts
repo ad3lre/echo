@@ -56,7 +56,6 @@ export async function listEchoChannels(
     voiceE2eeEnabled: boolean;
     nsfw: boolean;
     iconKey: string;
-    messageHistoryAnchor: 'top' | 'bottom';
     autoDeleteAfterSeconds: number | null;
     autoDeleteSyncedToCategory: boolean;
     discordVoiceMirrorOnly?: boolean;
@@ -67,7 +66,6 @@ export async function listEchoChannels(
     `
     SELECT ch.id, ch.name, ch.type, ch.position, ch.permission_overrides,
            ch.slowmode_seconds, ch.user_limit, ch.bitrate_bps, ch.voice_e2ee_enabled, ch.nsfw, ch.icon_key,
-           ch.message_history_anchor,
            ch.auto_delete_after_seconds, ch.auto_delete_synced_to_category,
            ch.discord_voice_mirror_only,
            ch.message_format_template, ch.message_format_hard,
@@ -185,7 +183,6 @@ type EchoChannelRowInternal = {
   voiceE2eeEnabled: boolean;
   nsfw: boolean;
   iconKey: string;
-  messageHistoryAnchor: 'top' | 'bottom';
   autoDeleteAfterSeconds: number | null;
   autoDeleteSyncedToCategory: boolean;
   categoryAutoDeleteAfterSeconds: number | null;
@@ -233,10 +230,6 @@ function mapWorkspaceChannelQueryRow(
     voiceE2eeEnabled: row.voice_e2ee_enabled === true,
     nsfw: Boolean(row.nsfw),
     iconKey: String(row.icon_key ?? ''),
-    messageHistoryAnchor:
-      String(row.message_history_anchor ?? 'bottom').toLowerCase() === 'top'
-        ? 'top'
-        : 'bottom',
     autoDeleteAfterSeconds:
       row.auto_delete_after_seconds != null
         ? Number(row.auto_delete_after_seconds)
@@ -302,9 +295,6 @@ function echoChannelRowInternalToUiChannel(
     bitrateBps: c.bitrateBps ?? null,
     ...((c.type === 'voice' || c.type === 'stage') && c.voiceE2eeEnabled
       ? { voiceE2eeEnabled: true }
-      : {}),
-    ...(c.type === 'text' && c.messageHistoryAnchor === 'top'
-      ? { messageHistoryAnchor: 'top' as const }
       : {}),
     ...(c.type === 'text' || c.type === 'forum'
       ? {
@@ -557,7 +547,6 @@ export async function listEchoWorkspaceForUser(
       `
       SELECT ch.id, ch.server_id, ch.name, ch.type, ch.position, ch.permission_overrides,
              ch.slowmode_seconds, ch.user_limit, ch.bitrate_bps, ch.voice_e2ee_enabled, ch.nsfw, ch.icon_key,
-             ch.message_history_anchor,
              ch.auto_delete_after_seconds, ch.auto_delete_synced_to_category,
              ch.message_format_template, ch.message_format_hard,
              ch.parent_channel_id, ch.forum_available_tags, ch.forum_post_tag_ids,

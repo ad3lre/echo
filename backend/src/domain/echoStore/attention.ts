@@ -28,7 +28,8 @@ import {
   listEchoChannelReadStatesForUsersOnChannel,
 } from './channelReadState';
 import { ECHO_DM_REALM_SERVER_ID } from './dmThreads';
-import { listEchoMemberRoleAssignmentsByUser } from './roles';
+import { listEchoMemberRoleAssignmentsForUsers } from './memberRoleAssignments';
+import { listEchoSelfRoleIdsByServer } from './roles';
 import { listEchoServerNotificationLevelsForUser } from './serverNotificationPreferences';
 import { listEchoChannelNotificationOverridesForUser } from './channelNotificationOverrides';
 import { getEchoUserPublicProfileRow } from './userTypingProfile';
@@ -111,19 +112,12 @@ export async function buildEchoAttentionSnapshot(
   const [
     readStateByChannelId,
     storedLevels,
-    roleAssignmentsByServer,
+    selfRoleIdsByServer,
     channelOverridesByChannelId,
   ] = await Promise.all([
     listEchoChannelReadStatesForUser(pool, userId, channelIds),
     listEchoServerNotificationLevelsForUser(pool, userId, serverIds),
-    Promise.all(
-      serverIds.map(
-        async (serverId): Promise<[string, Record<string, string[]>]> => [
-          serverId,
-          await listEchoMemberRoleAssignmentsByUser(pool, serverId),
-        ],
-      ),
-    ),
+    listEchoSelfRoleIdsByServer(pool, userId, serverIds),
     listEchoChannelNotificationOverridesForUser(pool, userId, channelIds),
   ]);
   const nowMs = Date.now();
@@ -148,9 +142,12 @@ export async function buildEchoAttentionSnapshot(
       storedLevels[serverId] ?? 'mentions';
   }
 
-  const selfRoleIdsByServer = new Map<string, Set<string>>();
-  for (const [serverId, byUser] of roleAssignmentsByServer) {
-    selfRoleIdsByServer.set(serverId, new Set(byUser[userId] ?? []));
+  // Servers where the viewer has no roles get an explicit empty set so the
+  // classify path sees the same shape as before (never undefined).
+  for (const serverId of serverIds) {
+    if (!selfRoleIdsByServer.has(serverId)) {
+      selfRoleIdsByServer.set(serverId, new Set());
+    }
   }
 
   const [aggregates, mentionRows, replyToSelfRows] =
@@ -395,7 +392,7 @@ export async function buildEchoChannelAttentionFanoutDeltas(
         `,
         [serverId, unique],
       ),
-      listEchoMemberRoleAssignmentsByUser(pool, serverId),
+      listEchoMemberRoleAssignmentsForUsers(pool, serverId, unique),
     ]);
     roleIdsByUserId = roleAssignments;
     for (const row of levelsRes.rows) {

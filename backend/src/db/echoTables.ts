@@ -969,7 +969,7 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS icon_key TEXT NOT NULL DEFAULT '';
   `);
   await pool.query(`
-    ALTER TABLE echo_channels ADD COLUMN IF NOT EXISTS message_history_anchor TEXT NOT NULL DEFAULT 'bottom';
+    ALTER TABLE echo_channels DROP COLUMN IF EXISTS message_history_anchor;
   `);
   await pool.query(`
     ALTER TABLE echo_categories ADD COLUMN IF NOT EXISTS auto_delete_after_seconds INT NULL;
@@ -1478,6 +1478,38 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
       discord_channel_id TEXT NOT NULL,
       imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       message_count INT NOT NULL DEFAULT 0
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_client_environment_daily (
+      day_utc DATE NOT NULL,
+      shell TEXT NOT NULL,
+      os_family TEXT NOT NULL,
+      device_form TEXT NOT NULL,
+      browser_family TEXT NOT NULL,
+      display_mode TEXT NOT NULL,
+      gpu_tier TEXT NOT NULL,
+      viewport_bucket TEXT NOT NULL,
+      locale TEXT NOT NULL,
+      touch BOOLEAN NOT NULL,
+      color_scheme TEXT NOT NULL,
+      connection_type TEXT NOT NULL,
+      report_count INT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (
+        day_utc,
+        shell,
+        os_family,
+        device_form,
+        browser_family,
+        display_mode,
+        gpu_tier,
+        viewport_bucket,
+        locale,
+        touch,
+        color_scheme,
+        connection_type
+      )
     );
   `);
   await pool.query(`

@@ -6,7 +6,6 @@ import {
 } from '@/features/chat/viewModel/messageListJumpUi';
 
 const props = defineProps<{
-  messageScrollAnchor: 'top' | 'bottom';
   messageCount: number;
   /** Hide while skeletons, empty states, or import widget — not jump-related. */
   listUiBlocked: boolean;
@@ -20,7 +19,6 @@ const jumpUi = inject<MessageListJumpUi>(MESSAGE_LIST_JUMP_UI_KEY);
 
 const showFab = computed(() => {
   if (!jumpUi) return false;
-  if (props.messageScrollAnchor !== 'bottom') return false;
   if (props.messageCount <= 0) return false;
   if (props.listUiBlocked) return false;
   return (

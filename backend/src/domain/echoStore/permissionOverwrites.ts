@@ -448,8 +448,6 @@ export type PatchEchoChannelInput = {
   nsfw?: boolean;
   /** Client icon picker value, e.g. `sparkle.svg`. Empty string clears to default. */
   iconKey?: string;
-  /** Text channels: initial message list scroll position (newest at bottom vs oldest of page at top). */
-  messageHistoryAnchor?: 'top' | 'bottom';
   permissionOverrides?: Record<string, unknown> | null;
   /** Forum channels only: JSON defaults merged server-side. */
   forumCreatorDefaultPerms?: unknown;
@@ -480,7 +478,6 @@ function patchEchoChannelHasAnyField(p: PatchEchoChannelInput): boolean {
     p.bitrateBps !== undefined ||
     p.nsfw !== undefined ||
     p.iconKey !== undefined ||
-    p.messageHistoryAnchor !== undefined ||
     p.permissionOverrides !== undefined ||
     p.forumCreatorDefaultPerms !== undefined ||
     p.voiceE2eeEnabled !== undefined ||
@@ -601,14 +598,6 @@ export async function patchEchoChannel(
   }
   if (patch.nsfw !== undefined && typeof patch.nsfw !== 'boolean')
     return 'invalid_body';
-  if (patch.messageHistoryAnchor !== undefined) {
-    if (chType !== 'text') return 'invalid_body';
-    if (
-      patch.messageHistoryAnchor !== 'top' &&
-      patch.messageHistoryAnchor !== 'bottom'
-    )
-      return 'invalid_body';
-  }
   if (patch.iconKey !== undefined && typeof patch.iconKey !== 'string')
     return 'invalid_body';
   if (patch.forumCreatorDefaultPerms !== undefined) {
@@ -712,10 +701,6 @@ export async function patchEchoChannel(
   if (patch.iconKey !== undefined) {
     sets.push(`icon_key = $${vals.length + 1}`);
     vals.push(normalizeEchoChannelIconKeyForDb(patch.iconKey));
-  }
-  if (patch.messageHistoryAnchor !== undefined) {
-    sets.push(`message_history_anchor = $${vals.length + 1}`);
-    vals.push(patch.messageHistoryAnchor);
   }
   if (patch.forumCreatorDefaultPerms !== undefined) {
     const norm = normalizeForumCreatorDefaultPerms(

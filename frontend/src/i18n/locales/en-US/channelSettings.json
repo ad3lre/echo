@@ -50,6 +50,6 @@
     "sendMessages": "Send messages",
     "readMessageHistory": "Read message history",
     "manageMessages": "Manage messages",
-    "mentionEveryone": "Mention @everyone, @here, and all roles"
+    "mentionEveryone": "Mention all roles"
   }
 }

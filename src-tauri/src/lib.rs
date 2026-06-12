@@ -852,10 +852,19 @@ pub fn run() {
 
   #[cfg(not(any(target_os = "android", target_os = "ios")))]
   {
+    // Do not persist decorations: macOS uses native traffic lights (Overlay titlebar)
+    // while Windows/Linux use a frameless window + custom titlebar. Restoring an old
+    // `decorated: false` snapshot would hide macOS traffic lights after config changes.
+    let window_state_flags = tauri_plugin_window_state::StateFlags::all()
+      & !tauri_plugin_window_state::StateFlags::DECORATIONS;
     builder = builder
       .plugin(tauri_plugin_process::init())
       .plugin(tauri_plugin_updater::Builder::new().build())
-      .plugin(tauri_plugin_window_state::Builder::default().build());
+      .plugin(
+        tauri_plugin_window_state::Builder::default()
+          .with_state_flags(window_state_flags)
+          .build(),
+      );
   }
 
   builder

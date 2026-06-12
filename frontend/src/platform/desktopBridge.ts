@@ -29,6 +29,17 @@ export function isTauriShell(): boolean {
   return IS_ECHO_TAURI_SHELL;
 }
 
+/**
+ * macOS desktop shell. macOS draws native traffic lights (via the Overlay
+ * titlebar style), so the custom titlebar renders a minimal drag strip there
+ * instead of brand + window buttons. The WKWebView UA reliably contains
+ * `Macintosh` on macOS.
+ */
+export function isMacDesktop(): boolean {
+  if (!isDesktop()) return false;
+  return /Macintosh|Mac OS X/i.test(navigator.userAgent);
+}
+
 export type DesktopAudioDevice = {
   id: string;
   name: string;

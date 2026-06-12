@@ -274,7 +274,6 @@ export function useWorkspaceServerActions(refs: WorkspaceStateRefs) {
       slowModeSeconds?: number;
       userLimit?: number;
       nsfw?: boolean;
-      messageHistoryAnchor?: 'top' | 'bottom';
       bitrateBps?: number | null;
       voiceE2eeEnabled?: boolean;
       channelPermissions?: ChannelPermissionsState;
@@ -321,13 +320,6 @@ export function useWorkspaceServerActions(refs: WorkspaceStateRefs) {
     }
     if (patch.nsfw !== undefined) {
       base.nsfw = patch.nsfw;
-    }
-    if (patch.messageHistoryAnchor !== undefined) {
-      if (patch.messageHistoryAnchor === 'top') {
-        base.messageHistoryAnchor = 'top';
-      } else {
-        delete base.messageHistoryAnchor;
-      }
     }
     if (patch.bitrateBps !== undefined) {
       base.bitrateBps = patch.bitrateBps;

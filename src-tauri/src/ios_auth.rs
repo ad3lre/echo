@@ -45,8 +45,6 @@ pub fn native_boot(api_base: &str) {
         boot(c.as_ptr());
     }
 }
-#[cfg(not(target_os = "ios"))]
-pub fn native_boot(_api_base: &str) {}
 
 #[cfg(target_os = "ios")]
 fn native_dismiss_overlay() {

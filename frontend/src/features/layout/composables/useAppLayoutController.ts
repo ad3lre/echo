@@ -1806,7 +1806,14 @@ export function useAppLayoutController() {
     currentUserId: currentUserIdForSocket,
     hostCallbacks,
     getAuthKey: () =>
-      [authSession.isAuthenticated, authSession.accessToken] as const,
+      // Generation counter covers cookie-mode rotations where accessToken stays
+      // null (guest upgrade, re-login): the socket must recycle to drop the old
+      // session's identity.
+      [
+        authSession.isAuthenticated,
+        authSession.accessToken,
+        authSession.authStateGeneration,
+      ] as const,
     platformSession: platform?.session ?? null,
     getBackendUserStatus: () => authSession.backendUser?.status,
     restoreSessionFromApi: () => authSession.restoreSessionFromApi(),

@@ -19,21 +19,15 @@ import {
 import { dbgMemberList } from '@/utils/echoMemberListDebug';
 import { buildServerMemberNicknameMapFromMembersByServer } from '@/services/domain/workspaceEchoApiSnapshot';
 import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
+import {
+  currentEchoWorkspaceSocialRefreshSeq,
+  nextEchoWorkspaceSocialRefreshSeq,
+} from './workspaceSocialRefreshSeq';
 
 /** Shell nav / debug labels stay aligned with `useEchoWorkspaceLifecycle` callers. */
 const SHELL_SOURCE = 'useEchoWorkspaceLifecycle';
 
-/**
- * Monotonic counter so only the **latest** social-graph fetch applies. Shared by full workspace
- * hydrate (`fetchWorkspaceSocialForHydrate`) and lightweight refresh — otherwise a slow hydrate
- * response can arrive after unfriend + `refreshEchoSocialFromApi` and overwrite `friendIds`.
- */
-let echoWorkspaceSocialRefreshSeq = 0;
-
-/** Drop in-flight social hydrate/refresh results (e.g. before unfriend optimistic UI). */
-export function invalidateInFlightEchoWorkspaceSocialRefresh(): void {
-  echoWorkspaceSocialRefreshSeq++;
-}
+export { invalidateInFlightEchoWorkspaceSocialRefresh } from './workspaceSocialRefreshSeq';
 
 export type EchoWorkspaceHydrateResult =
   | { ok: true }
@@ -88,6 +82,12 @@ export type EchoWorkspaceHydrateParams = {
   refreshEchoRoleData: () => Promise<void>;
   syncEchoPresenceFromApi?: () => void;
   ensureAuthUserInMockUsers: () => void;
+  /**
+   * Auth-rotation guard: returns true when the identity this hydrate was started
+   * for is no longer current (logout / login / guest upgrade mid-flight). Checked
+   * after each await before applying fetched state to stores.
+   */
+  isStale?: () => boolean;
 };
 
 export async function runEchoWorkspaceHydrateFromApi(
@@ -122,6 +122,12 @@ export async function runEchoWorkspaceHydrateFromApi(
             ),
         }),
       );
+      if (p.isStale?.()) {
+        dbgMemberList('hydrateEchoFromApi aborted: auth rotated mid-fetch', {
+          userId: p.userId,
+        });
+        return { ok: true };
+      }
       const state = fetchedWorkspace;
       const applied = p.echoSession.applyWorkspaceSnapshot(state, {
         authoritative: true,
@@ -175,11 +181,17 @@ export async function runEchoWorkspaceHydrateFromApi(
         selectedServerId: p.serverStore.selectedServerId,
       });
     }
-    const socialSeq = ++echoWorkspaceSocialRefreshSeq;
+    const socialSeq = nextEchoWorkspaceSocialRefreshSeq();
     const social = await withTransientFetchRetries(() =>
       fetchWorkspaceSocialForHydrate(p.token, p.isGuest),
     );
-    if (socialSeq !== echoWorkspaceSocialRefreshSeq) {
+    if (p.isStale?.()) {
+      dbgMemberList('hydrateEchoFromApi aborted: auth rotated mid-social', {
+        userId: p.userId,
+      });
+      return { ok: true };
+    }
+    if (socialSeq !== currentEchoWorkspaceSocialRefreshSeq()) {
       if (p.workspace.socialGraphStatus.value === 'loading') {
         p.workspace.socialGraphStatus.value = 'ready';
       }
@@ -241,7 +253,7 @@ export type EchoWorkspaceSocialRefreshParams = {
 export async function runEchoWorkspaceSocialRefreshFromApi(
   p: EchoWorkspaceSocialRefreshParams,
 ): Promise<EchoWorkspaceSocialRefreshResult> {
-  const seq = ++echoWorkspaceSocialRefreshSeq;
+  const seq = nextEchoWorkspaceSocialRefreshSeq();
   const previousStatus = p.workspace.socialGraphStatus.value;
   const hadReadyGraph = previousStatus === 'ready';
   try {
@@ -249,7 +261,7 @@ export async function runEchoWorkspaceSocialRefreshFromApi(
       p.workspace.socialGraphStatus.value = 'loading';
     }
     const slice = await fetchWorkspaceSocialForRefresh(p.token, p.isGuest);
-    if (seq !== echoWorkspaceSocialRefreshSeq) {
+    if (seq !== currentEchoWorkspaceSocialRefreshSeq()) {
       return { ok: true };
     }
     p.workspace.friendIds.value = slice.friendIds;
@@ -262,7 +274,7 @@ export async function runEchoWorkspaceSocialRefreshFromApi(
     p.syncEchoPresenceFromApi?.();
     return { ok: true };
   } catch (e) {
-    if (seq !== echoWorkspaceSocialRefreshSeq) {
+    if (seq !== currentEchoWorkspaceSocialRefreshSeq()) {
       return { ok: false, error: e };
     }
     p.workspace.socialGraphStatus.value = hadReadyGraph ? 'ready' : 'error';

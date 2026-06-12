@@ -10,6 +10,9 @@
 #   {{SPA_ROOT}}
 
 handle /api/* {
+	# API JSON (workspace snapshot, message pages) compresses 10-20x; the backend
+	# does not compress, so the edge must. zstd preferred, gzip fallback.
+	encode zstd gzip
 	reverse_proxy 127.0.0.1:{{API_PORT}}
 }
 

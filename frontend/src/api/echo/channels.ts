@@ -80,8 +80,6 @@ export async function patchEchoChannel(
   }
   if (patch.nsfw !== undefined) body.nsfw = patch.nsfw;
   if (patch.iconKey !== undefined) body.iconKey = patch.iconKey;
-  if (patch.messageHistoryAnchor !== undefined)
-    body.messageHistoryAnchor = patch.messageHistoryAnchor;
   if (patch.permissionOverrides !== undefined)
     body.permissionOverrides = patch.permissionOverrides;
   if (patch.forumCreatorDefaultPerms !== undefined) {
@@ -155,9 +153,6 @@ export function echoChannelRowToChannelSummary(
     ...((channelType === 'voice' || channelType === 'stage') &&
     c.voiceE2eeEnabled === true
       ? { voiceE2eeEnabled: true }
-      : {}),
-    ...(c.type === 'text' && c.messageHistoryAnchor === 'top'
-      ? { messageHistoryAnchor: 'top' as const }
       : {}),
     ...(typeof c.iconKey === 'string' && c.iconKey.trim()
       ? { iconKey: c.iconKey.trim() }

@@ -263,6 +263,8 @@ export default async function guestRoutes(fastify: FastifyInstance) {
             displayName: { type: 'string' },
             pfp: { type: 'string' },
             diagTraceId: { type: 'string', maxLength: 128 },
+            /** Desktop CORS-simple POSTs pass the double-submit token in the body (see `enforceApiCsrf`). */
+            csrfToken: { type: 'string', maxLength: 256 },
           },
           additionalProperties: false,
         },

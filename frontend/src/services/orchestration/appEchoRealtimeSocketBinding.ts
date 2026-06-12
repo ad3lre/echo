@@ -15,6 +15,7 @@ import {
   type PresenceEmitAdapter,
 } from '@/services/realtime/socketPresenceSession';
 import { applyEchoSocketActiveChannelChange } from '@/services/realtime/echoSocketSessionLifecycle';
+import type { EchoSocketAuthKey } from '@/services/realtime/echoSocketSessionLifecycle';
 import { registerChannelTypingSocketEmit } from '@/stores/channelTyping';
 import { createEchoSocketInboundListeners } from '@/services/realtime/echoSocketInboundListeners';
 import { newCorrelationId } from '@/services/realtime/socketOutbound';
@@ -40,7 +41,7 @@ export type AppEchoRealtimeSocketBindingInput = {
   activeChannelId: Ref<string>;
   currentUserId: Ref<string | undefined>;
   host: EchoRealtimeHostPorts;
-  getAuthKey: () => readonly [boolean, string | null | undefined];
+  getAuthKey: () => EchoSocketAuthKey;
   platformSession: {
     setLiveSyncConnected: (connected: boolean) => void;
   } | null;
