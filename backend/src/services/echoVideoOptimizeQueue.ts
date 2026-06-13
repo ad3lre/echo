@@ -38,7 +38,12 @@ export async function enqueueEchoChatVideoHls(
     sourceEtag: string | null;
   },
 ): Promise<void> {
-  if (!row.storageKey.startsWith('echo/channels/')) return;
+  if (
+    !row.storageKey.startsWith('echo/channels/') &&
+    !row.storageKey.startsWith('echo/vc-watch/')
+  ) {
+    return;
+  }
   const ct = row.sourceContentType.trim().toLowerCase();
   if (!ct.startsWith('video/')) return;
 

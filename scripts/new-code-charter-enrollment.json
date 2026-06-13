@@ -37,6 +37,18 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
     },
+    "frontend/src/composables/livekitVoiceRoom/connect.ts": {
+      "lines": 296,
+      "longestFunction": 258,
+      "deepNestingLines": 2,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/composables/livekitVoiceRoom/createLiveKitVoiceSession.ts": {
+      "lines": 231,
+      "longestFunction": 187,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 6
+    },
     "frontend/src/composables/livekitVoiceRoom/mediaControls.ts": {
       "lines": 438,
       "longestFunction": 396,
@@ -44,7 +56,7 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/micSend.ts": {
-      "lines": 297,
+      "lines": 321,
       "longestFunction": 253,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
@@ -62,19 +74,19 @@
       "maxNestingSpaces": 12
     },
     "frontend/src/composables/livekitVoiceRoom/roomEvents.ts": {
-      "lines": 403,
-      "longestFunction": 358,
+      "lines": 405,
+      "longestFunction": 360,
       "deepNestingLines": 18,
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/session.ts": {
-      "lines": 654,
-      "longestFunction": 608,
-      "deepNestingLines": 5,
+      "lines": 337,
+      "longestFunction": 302,
+      "deepNestingLines": 3,
       "maxNestingSpaces": 14
     },
     "frontend/src/composables/livekitVoiceRoom/speaking.ts": {
-      "lines": 286,
+      "lines": 324,
       "longestFunction": 254,
       "deepNestingLines": 0,
       "maxNestingSpaces": 12
@@ -121,9 +133,21 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
+    "frontend/src/features/layout/composables/assembleAppLayoutControllerContext.ts": {
+      "lines": 179,
+      "longestFunction": 88,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "frontend/src/features/layout/composables/buildAppLayoutAssemblyDeps.ts": {
+      "lines": 759,
+      "longestFunction": 748,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
     "frontend/src/features/layout/composables/useAppLayoutBannerNotices.ts": {
-      "lines": 264,
-      "longestFunction": 240,
+      "lines": 256,
+      "longestFunction": 233,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -157,6 +181,12 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
+    "frontend/src/features/layout/composables/useAppLayoutReactionSocketFallback.ts": {
+      "lines": 87,
+      "longestFunction": 81,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
     "frontend/src/features/layout/composables/useAppLayoutServerLayoutPrefs.ts": {
       "lines": 155,
       "longestFunction": 141,
@@ -180,6 +210,24 @@
       "longestFunction": 287,
       "deepNestingLines": 3,
       "maxNestingSpaces": 14
+    },
+    "frontend/src/features/layout/composables/wireAppLayoutDmAndShell.ts": {
+      "lines": 1101,
+      "longestFunction": 992,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/features/layout/composables/wireAppLayoutMessagingAndProfiles.ts": {
+      "lines": 1430,
+      "longestFunction": 1363,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "frontend/src/features/layout/composables/wireAppLayoutVoiceAndRealtime.ts": {
+      "lines": 1817,
+      "longestFunction": 1719,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
     },
     "frontend/src/features/paper/components/PaperEditorColorsTab.vue": {
       "lines": 471,
@@ -235,6 +283,36 @@
       "deepNestingLines": 24,
       "maxNestingSpaces": 16
     },
+    "frontend/src/features/voice/components/VcWatchTogetherLobby.vue": {
+      "lines": 626,
+      "longestFunction": 67,
+      "deepNestingLines": 2,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/features/voice/composables/useVcWatchTogetherPlayer.ts": {
+      "lines": 228,
+      "longestFunction": 208,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/features/voice/hangman/components/HangmanKeyboard.vue": {
+      "lines": 534,
+      "longestFunction": 24,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 6
+    },
+    "frontend/src/features/voice/hangman/components/HangmanPuzzle.vue": {
+      "lines": 490,
+      "longestFunction": 0,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 2
+    },
+    "frontend/src/features/voice/hangman/components/HangmanScene.vue": {
+      "lines": 542,
+      "longestFunction": 0,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 2
+    },
     "frontend/src/services/domain/channelStructureOptimistic.ts": {
       "lines": 247,
       "longestFunction": 93,
@@ -242,8 +320,8 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/services/livekit/livekitVoiceDataChannel.ts": {
-      "lines": 494,
-      "longestFunction": 159,
+      "lines": 545,
+      "longestFunction": 165,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },

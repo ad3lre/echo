@@ -120,6 +120,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     isCompactGuildTriPane,
     vcActivityUi,
     applyVcYoutubeWatchTogetherRemote,
+    applyVcWatchTogetherRemote,
     closeVcActivity,
   } = deps;
 
@@ -190,6 +191,9 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     vcYoutubeRemotePlayback,
     publishVcYoutubePlaybackSync,
     vcYoutubePlaybackShouldPublish,
+    vcWatchTogetherRemotePlayback,
+    publishVcWatchTogetherPlaybackSync,
+    vcWatchTogetherPlaybackShouldPublish,
     effectiveVcActivityKingUserId,
     applyVoiceMediaModerationFromSocket,
   } = useServerVoiceSession({
@@ -222,6 +226,7 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     dmCallVideo,
     vcActivityUi,
     applyVcYoutubeWatchTogetherRemote,
+    applyVcWatchTogetherRemote,
     closeVcActivity,
   });
 
@@ -704,6 +709,9 @@ export function useAppLayoutShellVoice(deps: UseAppLayoutShellVoiceDeps) {
     vcYoutubeRemotePlayback,
     publishVcYoutubePlaybackSync,
     vcYoutubePlaybackShouldPublish,
+    vcWatchTogetherRemotePlayback,
+    publishVcWatchTogetherPlaybackSync,
+    vcWatchTogetherPlaybackShouldPublish,
     effectiveVcActivityKingUserId,
     vcMirrorCamera,
     syncLiveKitAudioFromUiStores,

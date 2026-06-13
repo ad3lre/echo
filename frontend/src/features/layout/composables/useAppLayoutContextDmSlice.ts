@@ -64,3 +64,13 @@ export function useAppLayoutContextDmSlice(
   const slice: Pick<AppLayoutControllerContext, DmSliceKeys> = { ...deps };
   return slice;
 }
+
+export type BuildAppLayoutDmSliceDeps = Parameters<
+  typeof useAppLayoutContextDmSlice
+>[0];
+
+export function buildAppLayoutDmSliceDeps(
+  deps: BuildAppLayoutDmSliceDeps,
+): BuildAppLayoutDmSliceDeps {
+  return deps;
+}

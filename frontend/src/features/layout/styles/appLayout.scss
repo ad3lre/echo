@@ -91,7 +91,9 @@
 
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
   .chat-header-glass {
-    background-color: var(--chat-glass-header-bg);
+    /* Keep `--chat-glass-header-bg-fallback` — Chromium/Linux often reports
+     * backdrop-filter support but fails to composite over scroll surfaces,
+     * which made the translucent `--chat-glass-header-bg` strip vanish. */
     backdrop-filter: var(--chat-glass-header-backdrop);
     -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
   }
@@ -198,7 +200,6 @@
 
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
   .pins-dropdown {
-    background-color: var(--chat-glass-header-bg);
     backdrop-filter: var(--chat-glass-header-backdrop);
     -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
   }

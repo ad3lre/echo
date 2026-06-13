@@ -134,7 +134,9 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
         return;
       }
 
-      routeVoiceDataReceived(payload, participant.identity, dataHandlers);
+      if (routeVoiceDataReceived(payload, participant.identity, dataHandlers)) {
+        return;
+      }
 
       const priv = decodeEchoVcPrivateViewer(payload);
       if (priv?.kind === 'viewer_left_stream') {

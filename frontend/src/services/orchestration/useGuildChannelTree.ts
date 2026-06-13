@@ -30,7 +30,8 @@ export function useGuildChannelTree(deps: {
   } = deps;
 
   const rawCategoriesForServer = computed(() => {
-    const sid = selectedServer.value?.id;
+    const sid =
+      selectedServer.value?.id ?? serverStore.selectedServerId ?? null;
     if (!sid || sid === 'echo') return [];
     return workspace.categoriesByServer.value[sid] ?? [];
   });

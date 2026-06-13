@@ -7,6 +7,7 @@ import type { Server } from '@shared/types/server';
 import type {
   VcActivityUiPhase,
   VcActivityUiState,
+  WatchTogetherPlaylistEntry,
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
 
@@ -61,6 +62,16 @@ export type AppLayoutVoiceShellDepsSlice = {
     youtubeBrowseOpen?: boolean;
     updatedAt: number;
     activityPhase?: VcActivityUiPhase;
+  }) => void;
+  applyVcWatchTogetherRemote: (snapshot: {
+    sessionId: string;
+    sessionStarted: boolean;
+    playlist: WatchTogetherPlaylistEntry[];
+    currentIndex: number;
+    browseOpen?: boolean;
+    updatedAt: number;
+    activityPhase?: VcActivityUiPhase;
+    lobbyRole?: VcActivityUiState['watchTogetherLobbyRole'];
   }) => void;
   closeVcActivity: () => void;
 };

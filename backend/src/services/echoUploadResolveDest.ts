@@ -16,6 +16,7 @@ import {
   isAllowedChatUploadContentType,
   isAllowedEmojiUploadContentType,
   isAllowedRingtoneUploadContentType,
+  isAllowedVcWatchTogetherUploadContentType,
 } from './s3UploadPresign';
 import { sanitizeEchoUploadObjectKeyFragment } from './echoUploadKeyUtils';
 
@@ -30,7 +31,8 @@ export type EchoUploadPurpose =
   | 'server_event_cover'
   | 'server_application_attachment'
   | 'bug_report'
-  | 'user_ringtone';
+  | 'user_ringtone'
+  | 'vc_watch_together';
 
 export type EchoUploadDestInput = {
   channelId?: string;
@@ -254,6 +256,49 @@ export async function resolveEchoUploadStorageKey(
       };
     }
     storageKey = `echo/server-event-covers/${serverId}/${userId}/${objectKey}`;
+  } else if (purpose === 'vc_watch_together') {
+    if (!channelId) {
+      return {
+        ok: false,
+        error: {
+          status: 400,
+          code: 'INVALID_BODY',
+          message: 'channelId required for vc_watch_together presign',
+        },
+      };
+    }
+    if (serverId) {
+      return {
+        ok: false,
+        error: {
+          status: 400,
+          code: 'INVALID_BODY',
+          message: 'Do not combine serverId with vc_watch_together purpose',
+        },
+      };
+    }
+    if (!isAllowedVcWatchTogetherUploadContentType(contentType)) {
+      return {
+        ok: false,
+        error: {
+          status: 400,
+          code: 'INVALID_BODY',
+          message: 'Unsupported content type for Watch Together upload',
+        },
+      };
+    }
+    const okUpload = await canUserUploadToEchoChannel(pool, userId, channelId);
+    if (!okUpload) {
+      return {
+        ok: false,
+        error: {
+          status: 403,
+          code: 'FORBIDDEN',
+          message: 'Cannot upload to this channel',
+        },
+      };
+    }
+    storageKey = `echo/vc-watch/${channelId}/${userId}/${objectKey}`;
   } else if (channelId) {
     if (purpose === 'server_application_attachment') {
       return {

@@ -199,3 +199,13 @@ export function useAppLayoutContextProfileSlice(deps: {
   };
   return slice;
 }
+
+export type BuildAppLayoutProfileSliceDeps = Parameters<
+  typeof useAppLayoutContextProfileSlice
+>[0];
+
+export function buildAppLayoutProfileSliceDeps(
+  deps: BuildAppLayoutProfileSliceDeps,
+): BuildAppLayoutProfileSliceDeps {
+  return deps;
+}

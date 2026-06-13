@@ -291,7 +291,7 @@ function mapParagraphChildToRawOffset(
 
   paragraph.forEach((child, childFragOffset) => {
     if (mapped !== null) return;
-    const pos = blockStart + 1 + childFragOffset;
+    const pos = blockStart + childFragOffset;
 
     if (child.isText) {
       const text = child.text ?? '';

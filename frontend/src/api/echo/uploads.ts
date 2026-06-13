@@ -17,6 +17,7 @@ import {
   ECHO_PLAN_UPLOAD_CAP_BYTES,
   ECHO_RINGTONE_UPLOAD_MAX_BYTES,
   ECHO_UPLOAD_ABS_MAX_BYTES,
+  ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES,
 } from '@shared/echoPlanLimits';
 import { echoFetch } from './transport';
 import { randomUuidV4 } from '@/utils/randomUuid';
@@ -205,7 +206,9 @@ export async function postEchoUploadPresign(
       | 'server_event_cover'
       | 'server_application_attachment'
       | 'bug_report'
-      | 'user_ringtone';
+      | 'user_ringtone'
+      | 'vc_watch_together';
+    sessionId?: string;
     key: string;
     contentType: string;
     contentLength: number;
@@ -231,7 +234,9 @@ type EchoDedupeDestBody = {
     | 'server_event_cover'
     | 'server_application_attachment'
     | 'bug_report'
-    | 'user_ringtone';
+    | 'user_ringtone'
+    | 'vc_watch_together';
+  sessionId?: string;
 };
 
 export type EchoDedupeMatchResponse = { reusePublicUrl: string | null };
@@ -567,12 +572,13 @@ export async function uploadChatAttachmentFile(
 
 /** Reset abandonment timers when chat attachments become visible (debounced client-side). */
 export type EchoVideoPlaybackResponse = {
-  status: 'ready' | 'pending' | 'failed';
+  status: 'ready' | 'pending' | 'processing' | 'failed';
   format: 'hls' | 'progressive';
   playbackUrl?: string;
   sourceUrl: string;
   sourceEtag: string | null;
   sourceSize: number;
+  lastError?: string | null;
   renditions?: { height: number; bandwidth: number; hasAudio: boolean }[];
 };
 
@@ -586,6 +592,100 @@ export async function fetchEchoVideoPlayback(
     `/uploads/video-playback?${q.toString()}`,
     { method: 'GET', cache: 'no-store' },
   );
+}
+
+export async function retryEchoVideoPlaybackTranscode(
+  token: string | null,
+  sourceUrl: string,
+): Promise<void> {
+  await echoFetch<Record<string, never>>(
+    token,
+    '/uploads/video-playback/retry',
+    {
+      method: 'POST',
+      body: JSON.stringify({ url: sourceUrl.trim() }),
+    },
+  );
+}
+
+export async function releaseVcWatchTogetherSessionBytes(
+  token: string | null,
+  sessionId: string,
+  byteLength: number,
+): Promise<void> {
+  await echoFetch<Record<string, never>>(
+    token,
+    '/uploads/vc-watch-together/release-bytes',
+    {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, byteLength }),
+    },
+  );
+}
+
+export type VcWatchTogetherUploadProgress = {
+  fileName: string;
+  uploadPercent: number | null;
+};
+
+export async function uploadVcWatchTogetherVideo(
+  token: string,
+  channelId: string,
+  sessionId: string,
+  file: File,
+  opts?: {
+    onProgress?: (e: VcWatchTogetherUploadProgress) => void;
+  },
+): Promise<{ url: string; storageKey: string; byteLength: number }> {
+  if (file.size > ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES) {
+    throw new Error(
+      `File exceeds ${ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES / (1024 * 1024 * 1024)} GiB limit`,
+    );
+  }
+  const contentType = chatVideoContentTypeForPresign(file);
+  const key = `${randomUuidV4()}-${sanitizeUploadKeyFilename(file.name)}`;
+  const { fingerprintVideoFile, sha256HexOfBlob } =
+    await import('@/utils/uploadFingerprint');
+  const { sha256Hex, phashHex } = await fingerprintVideoFile(file);
+  const presign = await postEchoUploadPresign(token, {
+    channelId,
+    purpose: 'vc_watch_together',
+    sessionId,
+    key,
+    contentType,
+    contentLength: file.size,
+  });
+  opts?.onProgress?.({ fileName: file.name, uploadPercent: 0 });
+  await putEchoUploadBodyWithProgress(
+    presign,
+    file,
+    contentType,
+    (loaded, total) => {
+      const pct =
+        total > 0 ? Math.min(100, Math.round((100 * loaded) / total)) : null;
+      opts?.onProgress?.({ fileName: file.name, uploadPercent: pct });
+    },
+    sha256Hex,
+  );
+  opts?.onProgress?.({ fileName: file.name, uploadPercent: 100 });
+  await postEchoUploadDedupeRegister(token, {
+    channelId,
+    purpose: 'vc_watch_together',
+    sessionId,
+    contentType,
+    objectKey: key,
+    storageKey: presign.key,
+    publicUrl: presign.publicUrl,
+    sha256Hex,
+    phashHex,
+    kind: 'video',
+    byteLength: file.size,
+  });
+  return {
+    url: presign.publicUrl,
+    storageKey: presign.key,
+    byteLength: file.size,
+  };
 }
 
 export async function touchChatUploadRetentionKeys(

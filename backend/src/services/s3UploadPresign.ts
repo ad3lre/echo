@@ -36,6 +36,8 @@ const CHAT_UPLOAD_CONTENT_TYPES = new Set([
   'video/mp4',
   'video/webm',
   'video/quicktime',
+  'video/x-matroska',
+  'video/x-msvideo',
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -150,6 +152,22 @@ export function buildEchoUploadPublicUrlForStorageKey(
 export function isAllowedChatUploadContentType(contentType: string): boolean {
   const t = contentType.trim().toLowerCase();
   return CHAT_UPLOAD_CONTENT_TYPES.has(t);
+}
+
+const VC_WATCH_TOGETHER_VIDEO_CONTENT_TYPES = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-matroska',
+  'video/x-msvideo',
+]);
+
+/** Guild VC Watch Together uploads (MKV and common containers; transcoded to HLS). */
+export function isAllowedVcWatchTogetherUploadContentType(
+  contentType: string,
+): boolean {
+  const t = contentType.trim().toLowerCase();
+  return VC_WATCH_TOGETHER_VIDEO_CONTENT_TYPES.has(t);
 }
 
 export function isAllowedEmojiUploadContentType(contentType: string): boolean {

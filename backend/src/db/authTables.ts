@@ -415,6 +415,12 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
       AND NOT ('og' = ANY(awarded_badges))
   `);
   await pool.query(`
+    UPDATE auth_users
+    SET awarded_badges = awarded_badges || ARRAY['developer']::TEXT[]
+    WHERE username IN ('dannas29', 'danny')
+      AND NOT ('developer' = ANY(awarded_badges))
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS auth_echo_plus_interest (
       user_id TEXT PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
       tier TEXT NOT NULL DEFAULT 'any',

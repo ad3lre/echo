@@ -24,6 +24,7 @@ import {
 import { useVoiceLevelsStore } from '@/stores/voiceLevels';
 import type { ParticipantAudioLevel } from '@/composables/livekitVoiceRoom.types';
 import type { LiveKitVoiceSessionContext } from '@/composables/livekitVoiceRoom/context';
+import { watch } from 'vue';
 
 const MIC_ATTACH_LOG_MAX = 6;
 
@@ -280,6 +281,43 @@ export function createSpeakingController(ctx: LiveKitVoiceSessionContext) {
     refreshLocalMicLevelMonitor,
     setupActiveSpeakerTracking,
   };
+}
+
+export function installSpeakingWatches(ctx: LiveKitVoiceSessionContext) {
+  const {
+    lkRoom,
+    roomState,
+    speakingMap,
+    localSpeaking,
+    localAudioLevel,
+    localMicMonitor,
+  } = ctx;
+  const voiceLevels = useVoiceLevelsStore();
+
+  watch(
+    () => voiceLevels.voiceActivationThresholdPercent,
+    (pct) => {
+      localMicMonitor.setSpeakingThreshold(indicatorRmsFromGatePercent(pct));
+    },
+    { immediate: true },
+  );
+  watch(
+    () =>
+      [localMicMonitor.level.value, localMicMonitor.speaking.value] as const,
+    ([lvl, spk]) => {
+      localAudioLevel.value = lvl;
+      localSpeaking.value = spk;
+      const room = lkRoom.value;
+      if (room && roomState.value === 'connected') {
+        const localId = room.localParticipant.identity;
+        const next = {
+          ...speakingMap.value,
+          [localId]: { level: lvl, speaking: spk },
+        };
+        speakingMap.value = mergeSpeakingMapIfChanged(speakingMap.value, next);
+      }
+    },
+  );
 }
 
 export type SpeakingController = ReturnType<typeof createSpeakingController>;

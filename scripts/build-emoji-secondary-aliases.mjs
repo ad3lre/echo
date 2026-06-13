@@ -1,7 +1,7 @@
 /**
  * Builds secondary search terms for the "main 500" Unicode emoji used in chat:
  * all of Smileys & Emotion + the first slice of People & Body (total 500).
- * Output: frontend/src/data/emoji-secondary-aliases.json
+ * Output: frontend/src/data/emoji-secondary-aliases.json (minified; listed in .prettierignore)
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -249,6 +249,7 @@ for (const e of MAIN_500) {
 
 const dir = path.dirname(outputPath);
 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+// Minified on purpose — Prettier would expand this; see .prettierignore.
 fs.writeFileSync(outputPath, JSON.stringify(result, null, 0) + '\n', 'utf-8');
 console.log(
   'Wrote',

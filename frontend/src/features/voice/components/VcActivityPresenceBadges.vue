@@ -2,7 +2,10 @@
 import { computed } from 'vue';
 import { iconYoutubeSvgPath, icons } from '@/assets/icons';
 import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
-import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
+import {
+  WATCH_TOGETHER_VC_ACTIVITY_ENABLED,
+  YOUTUBE_INTEGRATION_ENABLED,
+} from '@shared/integrationKillSwitches';
 
 const props = withDefaults(
   defineProps<{
@@ -13,16 +16,23 @@ const props = withDefaults(
   { size: 'sm' },
 );
 
-const visibleKinds = computed(() =>
-  YOUTUBE_INTEGRATION_ENABLED
-    ? props.kinds
-    : props.kinds.filter((k) => k !== 'youtube'),
-);
+const visibleKinds = computed(() => {
+  let kinds = props.kinds;
+  if (!YOUTUBE_INTEGRATION_ENABLED) {
+    kinds = kinds.filter((k) => k !== 'youtube');
+  }
+  if (!WATCH_TOGETHER_VC_ACTIVITY_ENABLED) {
+    kinds = kinds.filter((k) => k !== 'watch_together');
+  }
+  return kinds;
+});
 
 function titleFor(k: VcActivityPresenceKind): string {
   switch (k) {
     case 'youtube':
       return 'In YouTube activity';
+    case 'watch_together':
+      return 'In Watch Together activity';
     case 'wordle':
       return 'In Wordline activity';
     case 'hangman':
@@ -79,6 +89,13 @@ function titleFor(k: VcActivityPresenceKind): string {
       >
         <path :d="iconYoutubeSvgPath" />
       </svg>
+      <span
+        v-else-if="k === 'watch_together'"
+        class="font-bold leading-none text-[#6d9fff]"
+        :class="size === 'md' ? 'text-[10px]' : 'text-[8px]'"
+        aria-hidden="true"
+        >WT</span
+      >
       <span
         v-else-if="k === 'wordle'"
         class="font-bold leading-none text-[#538d4e]"

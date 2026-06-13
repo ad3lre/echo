@@ -45,3 +45,13 @@ export function useAppLayoutContextMessagingSlice(
   };
   return slice;
 }
+
+export type BuildAppLayoutMessagingSliceDeps = Parameters<
+  typeof useAppLayoutContextMessagingSlice
+>[0];
+
+export function buildAppLayoutMessagingSliceDeps(
+  deps: BuildAppLayoutMessagingSliceDeps,
+): BuildAppLayoutMessagingSliceDeps {
+  return deps;
+}

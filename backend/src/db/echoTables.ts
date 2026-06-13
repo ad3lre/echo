@@ -2127,6 +2127,21 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_vc_watch_together_sessions (
+      session_id TEXT PRIMARY KEY,
+      host_user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,
+      bytes_used BIGINT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS echo_vc_watch_together_sessions_host
+    ON echo_vc_watch_together_sessions (host_user_id, updated_at DESC);
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_discord_import_media_mirror_queue (
       message_id TEXT PRIMARY KEY REFERENCES echo_messages(id) ON DELETE CASCADE,
       channel_id TEXT NOT NULL REFERENCES echo_channels(id) ON DELETE CASCADE,

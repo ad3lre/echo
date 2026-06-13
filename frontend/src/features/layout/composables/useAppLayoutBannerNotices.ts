@@ -6,7 +6,6 @@ import {
   EMAIL_VERIFICATION_DOWNTIME,
   EMAIL_VERIFICATION_DOWNTIME_TOAST,
 } from '@/config/emailVerificationDowntime';
-import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 
@@ -150,15 +149,8 @@ export function useAppLayoutBannerNotices(deps: {
     }
   });
 
-  const showGuestOnboardingModal = computed(() => {
-    if (!ECHO_GUEST_ACCOUNTS_ENABLED) return false;
-    return (
-      authSession.isAuthenticated &&
-      authSession.backendUser?.isGuest === true &&
-      !echoSyncCapabilities.isMockDataMode &&
-      !guestOnboardingHiddenForSignIn.value
-    );
-  });
+  /** Guest onboarding upgrade modal — disabled; guests interact immediately. */
+  const showGuestOnboardingModal = computed(() => false);
 
   const discordBotExportReadyGuildNameForBanner = computed(() => {
     const n = discordBotExportReadyBanner.value?.guildName?.trim();

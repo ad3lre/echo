@@ -34,6 +34,7 @@ import {
 import { gateMultiplierForDbfs } from '@/composables/voiceGate';
 import { useVoiceLevelsStore } from '@/stores/voiceLevels';
 import type { LiveKitVoiceSessionContext } from '@/composables/livekitVoiceRoom/context';
+import { watch } from 'vue';
 
 const MIC_ATTACH_LOG_MAX = 6;
 const MIC_GAIN_LOG_MAX = 12;
@@ -291,6 +292,29 @@ export function createMicSendController(ctx: LiveKitVoiceSessionContext) {
     applyLocalMicGain,
     reapplyVoiceProcessing,
   };
+}
+
+export function installMicGainWatch(
+  ctx: LiveKitVoiceSessionContext,
+  applyLocalMicGain: (room: LKRoom) => void,
+) {
+  const { lkRoom, roomState, localMicMonitor } = ctx;
+  const voiceLevels = useVoiceLevelsStore();
+
+  watch(
+    () =>
+      [
+        localMicMonitor.dbfs.value,
+        voiceLevels.voiceActivationThresholdPercent,
+        voiceLevels.outboundGateMode,
+        roomState.value,
+      ] as const,
+    () => {
+      const room = lkRoom.value;
+      if (!room || roomState.value !== 'connected') return;
+      applyLocalMicGain(room);
+    },
+  );
 }
 
 export type MicSendController = ReturnType<typeof createMicSendController>;

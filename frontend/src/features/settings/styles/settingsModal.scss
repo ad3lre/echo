@@ -689,7 +689,10 @@
     content: 'Your plan';
     position: absolute;
     top: 1rem;
-    left: 1rem;
+    right: 1rem;
+    left: auto;
+    z-index: 1;
+    white-space: nowrap;
     border-radius: 9999px;
     padding: 0.2rem 0.65rem;
     font-size: 0.5625rem;

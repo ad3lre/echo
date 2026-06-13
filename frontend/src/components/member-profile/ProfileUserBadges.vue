@@ -33,7 +33,7 @@ function labelFor(id: EchoPublicBadgeId): string {
 
 function badgeIconUrl(id: EchoPublicBadgeId): string | null {
   if (id === 'plus' || id === 'black') return echoPlanBadgeUrl(id);
-  if (id === 'bug_hunter') return null;
+  if (id === 'bug_hunter' || id === 'developer') return null;
   return null;
 }
 </script>
@@ -392,6 +392,59 @@ function badgeIconUrl(id: EchoPublicBadgeId): string | null {
     0 0 10px rgba(134, 239, 172, 0.4);
 }
 
+/* Developer — teal/cyan with a soft violet accent */
+.profile-user-badges__pill--developer {
+  background: linear-gradient(
+    145deg,
+    #042f2e 0%,
+    #0f766e 20%,
+    #14b8a6 42%,
+    #5eead4 54%,
+    #2dd4bf 64%,
+    #0d9488 78%,
+    #042f2e 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(204, 251, 241, 0.42),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.24),
+    0 0 0 1px rgba(4, 47, 46, 0.75),
+    0 2px 6px rgba(2, 18, 16, 0.38),
+    0 0 12px rgba(20, 184, 166, 0.3);
+}
+
+.profile-user-badges__pill--developer:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(236, 254, 252, 0.52),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(4, 47, 46, 0.68),
+    0 3px 10px rgba(0, 0, 0, 0.38),
+    0 0 18px rgba(94, 234, 212, 0.45),
+    0 0 30px rgba(20, 184, 166, 0.2);
+}
+
+.profile-user-badges__pill--developer .profile-user-badges__pill-glint {
+  background: linear-gradient(
+    175deg,
+    rgba(236, 254, 252, 0.56) 0%,
+    rgba(153, 246, 228, 0.2) 32%,
+    rgba(94, 234, 212, 0.08) 52%,
+    rgba(255, 255, 255, 0) 62%
+  );
+}
+
+.profile-user-badges__pill--developer .profile-user-badges__pill-rim {
+  box-shadow:
+    inset 0 0 0 1px rgba(204, 251, 241, 0.22),
+    inset 0 -1px 2px rgba(4, 30, 28, 0.42);
+}
+
+.profile-user-badges__pill--developer .profile-user-badges__pill-inner {
+  color: #f0fdfa;
+  text-shadow:
+    0 1px 0 rgba(4, 30, 28, 0.62),
+    0 0 10px rgba(153, 246, 228, 0.4);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .profile-user-badges__pill {
     transition: none;
@@ -445,5 +498,12 @@ function badgeIconUrl(id: EchoPublicBadgeId): string | null {
   .profile-user-badges__pill-inner {
   text-shadow: none;
   color: #f0fdf4;
+}
+
+[data-theme='light']
+  .profile-user-badges__pill--developer
+  .profile-user-badges__pill-inner {
+  text-shadow: none;
+  color: #f0fdfa;
 }
 </style>

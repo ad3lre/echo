@@ -30,6 +30,7 @@ export function useAppLayoutVcActivityGuards(
     openVcActivityGooberDash: () => void;
     openVcActivitySmashKarts: () => void;
     openVcActivityClusterRush: () => void;
+    openVcActivityWatchTogether: () => void;
   },
 ) {
   const { guardOpen: guardVcActivityOpen } = useStageVcActivityBlock({
@@ -78,6 +79,9 @@ export function useAppLayoutVcActivityGuards(
     ),
     openVcActivityClusterRushOnVoice: guardVcActivityOpen(
       deps.openVcActivityClusterRush,
+    ),
+    openVcActivityWatchTogetherOnVoice: guardVcActivityOpen(
+      deps.openVcActivityWatchTogether,
     ),
   };
 }

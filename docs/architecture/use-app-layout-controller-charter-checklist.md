@@ -2,7 +2,7 @@
 
 Charter reference: [agents.md](../overview/agents.md).
 
-Status (2026-04-11): this checklist is for keeping the controller thin. It is **not** evidence that the hotspot is complete. Current workspace and realtime helpers still leak merge, bootstrap, or navigation policy into model-like files; see [overview/agents.md](../overview/agents.md) and [client-charter-violations.md](./client-charter-violations.md).
+Status (2026-06-13): facade + phased wiring complete; context assembly extracted to `assembleAppLayoutControllerContext` / `buildAppLayoutAssemblyDeps`. Phase 3 wiring file remains large — see god-file enrollment.
 
 ## Controller should own
 
@@ -33,7 +33,8 @@ These files may be on the controller call path today, but they are not the final
 
 ## Checklist
 
-- [ ] Keep `useAppLayoutController.ts` as ordered wiring and pass-through only.
+- [x] Keep `useAppLayoutController.ts` as ordered wiring and pass-through only (facade delegates to `createAppLayoutController`).
+- [x] Context assembly DRY: slice dep builders + `assembleAppLayoutControllerContext` + `buildAppLayoutAssemblyDeps`.
 - [ ] Move workspace truth into one model/domain authority instead of the current split across `viewModel` and `services/domain` helpers.
 - [ ] Keep realtime transport in `services/realtime` and move execution order or rollback wiring into controller/orchestration code.
 - [ ] Add new behavior to a model/domain owner when it decides truth, or to controller/orchestration code when it decides execution flow.
@@ -43,3 +44,4 @@ These files may be on the controller call path today, but they are not the final
 
 - [`useAppLayoutController.thinSurface.test.ts`](../../frontend/src/features/layout/composables/useAppLayoutController.thinSurface.test.ts)
 - [`useAppLayoutController.wiringOrder.test.ts`](../../frontend/src/features/layout/composables/useAppLayoutController.wiringOrder.test.ts)
+- [`assembleAppLayoutControllerContext.parity.test.ts`](../../frontend/src/features/layout/composables/assembleAppLayoutControllerContext.parity.test.ts)

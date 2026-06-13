@@ -1,5 +1,6 @@
 import { computed, ref, shallowRef } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
+import { emptyWatchTogetherUiFields } from '@/features/voice/vcActivityTypes';
 import { useAppLayoutShellVoice } from './useAppLayoutShellVoice';
 
 const joinVoiceSessionMock = vi.hoisted(() => vi.fn());
@@ -148,8 +149,10 @@ describe('useAppLayoutShellVoice', () => {
         youtubeBrowseOpen: true,
         playlist: [],
         currentIndex: 0,
+        ...emptyWatchTogetherUiFields(),
       }),
       applyVcYoutubeWatchTogetherRemote: vi.fn(),
+      applyVcWatchTogetherRemote: vi.fn(),
       closeVcActivity: vi.fn(),
     });
 
@@ -235,8 +238,10 @@ describe('useAppLayoutShellVoice', () => {
         youtubeBrowseOpen: true,
         playlist: [],
         currentIndex: 0,
+        ...emptyWatchTogetherUiFields(),
       }),
       applyVcYoutubeWatchTogetherRemote: vi.fn(),
+      applyVcWatchTogetherRemote: vi.fn(),
       closeVcActivity: vi.fn(),
     });
 

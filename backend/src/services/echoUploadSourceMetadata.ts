@@ -1,9 +1,9 @@
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { stat } from 'node:fs/promises';
+import { echoUploadPrefersS3ObjectStore } from './echoUploadObjectBackend';
 import {
   createEchoS3UploadClient,
   getEchoS3UploadBucket,
-  isEchoS3UploadConfigured,
 } from './s3UploadPresign';
 import { resolveLocalUploadFilePath } from './localUploadDisk';
 
@@ -15,7 +15,7 @@ export type EchoUploadSourceMetadata = {
 export async function readEchoUploadSourceMetadata(
   storageKey: string,
 ): Promise<EchoUploadSourceMetadata | null> {
-  if (isEchoS3UploadConfigured()) {
+  if (echoUploadPrefersS3ObjectStore(storageKey)) {
     const client = createEchoS3UploadClient();
     const bucket = getEchoS3UploadBucket();
     if (!client || !bucket) return null;

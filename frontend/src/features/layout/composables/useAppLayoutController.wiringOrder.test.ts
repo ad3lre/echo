@@ -4,16 +4,20 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Contract: `useAppLayoutController` setup order for voice / DM / chat / unread / realtime.
+ * Contract: layout controller setup order for voice / DM / chat / unread / realtime.
  * See docs/architecture/clientCharterLayoutReactiveGraphAuthority.md — update both when reordering.
  */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const CONTROLLER_SRC = readFileSync(
-  join(__dirname, 'useAppLayoutController.ts'),
-  'utf8',
-);
+const WIRING_SRC = [
+  'createAppLayoutController.ts',
+  'wireAppLayoutDmAndShell.ts',
+  'wireAppLayoutVoiceAndRealtime.ts',
+  'wireAppLayoutMessagingAndProfiles.ts',
+]
+  .map((file) => readFileSync(join(__dirname, file), 'utf8'))
+  .join('\n');
 
 const WIRING_ORDER_MARKERS = [
   'useAppLayoutEchoDmState({',
@@ -37,12 +41,14 @@ const WIRING_ORDER_MARKERS = [
   'useAppLayoutProfilesDomain({',
   'useAppLayoutMentionAutocompleteUsers({',
   'useAppLayoutSearchIntegration({',
+  'sealWithGroupDmAndNavigation({',
+  'assembleAppLayoutControllerContext(',
 ] as const;
 
 describe('useAppLayoutController wiring order', () => {
   it('keeps sequential setup markers for voice / DM / chat / unread / realtime', () => {
     const indices = WIRING_ORDER_MARKERS.map((m) => {
-      const i = CONTROLLER_SRC.indexOf(m);
+      const i = WIRING_SRC.indexOf(m);
       expect(i, `missing marker: ${m}`).toBeGreaterThanOrEqual(0);
       return i;
     });

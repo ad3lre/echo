@@ -3,6 +3,10 @@ const fs = require('fs');
 
 const repoRoot = __dirname;
 const pm2EnvFile = path.join(repoRoot, '.env');
+/** Watch Together VC uploads: local disk even when S3 is configured (see backend/src/config/storage.ts). */
+const wtLocalUploadEnv = {
+  ECHO_LOCAL_UPLOAD_DIR: path.join(repoRoot, 'backend/data/echo-local-uploads'),
+};
 
 /**
  * PM2 app definitions. Install PM2 once: `npm install -g pm2` (use Node from `.nvmrc`, >=22.13).
@@ -73,6 +77,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3000,
         ECHO_VIDEO_HLS_WORKER: 'standalone',
+        ...wtLocalUploadEnv,
       },
       restart_delay: 3000,
       max_restarts: 10,
@@ -85,6 +90,7 @@ module.exports = {
       env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
+        ...wtLocalUploadEnv,
       },
       restart_delay: 3000,
       max_restarts: 10,

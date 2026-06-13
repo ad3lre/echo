@@ -6,12 +6,18 @@ import { normalizeEchoPlanId, type EchoPlanId } from './echoPlanLimits';
 
 export const ECHO_OG_BADGE_MAX_SIGNUP_ORDINAL = 100;
 
-export type EchoPublicBadgeId = 'og' | 'plus' | 'black' | 'bug_hunter';
+export type EchoPublicBadgeId =
+  | 'og'
+  | 'plus'
+  | 'black'
+  | 'bug_hunter'
+  | 'developer';
 
 const OG: EchoPublicBadgeId = 'og';
 const PLUS: EchoPublicBadgeId = 'plus';
 const BLACK: EchoPublicBadgeId = 'black';
 const BUG_HUNTER: EchoPublicBadgeId = 'bug_hunter';
+const DEVELOPER: EchoPublicBadgeId = 'developer';
 
 export type EchoPublicBadgeAccountFlags = {
   isGuest?: boolean;
@@ -72,7 +78,13 @@ export function publicBadgesFromAccount(
 }
 
 export function isEchoPublicBadgeId(id: string): id is EchoPublicBadgeId {
-  return id === OG || id === PLUS || id === BLACK || id === BUG_HUNTER;
+  return (
+    id === OG ||
+    id === PLUS ||
+    id === BLACK ||
+    id === BUG_HUNTER ||
+    id === DEVELOPER
+  );
 }
 
 /** Short label shown on profile badge pills. */
@@ -86,6 +98,8 @@ export function echoPublicBadgeLabel(id: EchoPublicBadgeId): string {
       return 'OG';
     case 'bug_hunter':
       return 'Bug Hunter';
+    case 'developer':
+      return 'Developer';
     default:
       return id;
   }
@@ -101,6 +115,8 @@ export function echoPublicBadgeTitle(id: EchoPublicBadgeId): string {
       return `Original Echo member — among the first ${ECHO_OG_BADGE_MAX_SIGNUP_ORDINAL} accounts`;
     case 'bug_hunter':
       return 'Bug Hunter — helped find and report bugs';
+    case 'developer':
+      return 'Echo developer — builds and maintains Echo';
     default:
       return id;
   }

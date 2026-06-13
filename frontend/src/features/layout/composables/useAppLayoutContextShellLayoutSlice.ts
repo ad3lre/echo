@@ -10,3 +10,13 @@ export function useAppLayoutContextShellLayoutSlice(
   };
   return slice;
 }
+
+export type BuildAppLayoutShellLayoutSliceDeps = Parameters<
+  typeof useAppLayoutContextShellLayoutSlice
+>[0];
+
+export function buildAppLayoutShellLayoutSliceDeps(
+  deps: BuildAppLayoutShellLayoutSliceDeps,
+): BuildAppLayoutShellLayoutSliceDeps {
+  return deps;
+}

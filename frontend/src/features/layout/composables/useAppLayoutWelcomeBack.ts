@@ -1,6 +1,7 @@
 import { computed } from 'vue';
 import type { ComputedRef, Ref } from 'vue';
 import type { RailTab } from '@/features/layout/mainSurface';
+import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
 
 export function useAppLayoutWelcomeBack(deps: {
   activeRailTab: Ref<RailTab>;
@@ -18,6 +19,7 @@ export function useAppLayoutWelcomeBack(deps: {
   /** Logged-out welcome surface (Explore hero + slim banner on other rails). */
   const loggedOutWelcomeSurfaceVisible = computed(
     () =>
+      !ECHO_GUEST_ACCOUNTS_ENABLED &&
       !deps.isMockDataMode.value &&
       !deps.isAuthenticated.value &&
       !deps.sessionEndedMessage.value,
@@ -35,7 +37,12 @@ export function useAppLayoutWelcomeBack(deps: {
     if (deps.activeRailTab.value !== 'explore') return false;
     if (deps.isMockDataMode.value) return false;
     if (deps.sessionEndedMessage.value) return false;
-    if (!deps.isAuthenticated.value) return true;
+    if (!deps.isAuthenticated.value) {
+      // Auto-guest mint runs during initial load — land on public Explore instead
+      // of a sign-in wall when guest accounts are enabled.
+      if (ECHO_GUEST_ACCOUNTS_ENABLED) return false;
+      return true;
+    }
     if (!deps.explorePublicDirectoryEmpty.value) return false;
     const fullMember = !deps.isGuestUser.value;
     if (fullMember && deps.workspaceLoading.value) return false;

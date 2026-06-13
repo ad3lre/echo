@@ -43,6 +43,7 @@ import {
   type InsertUserMentionFn,
 } from '@/features/chat/chatComposerContext';
 import { isForumPostChannel } from '@/features/forums/domain/forumPostChannel';
+import type { ChannelSummary } from '@shared/types';
 
 const props = defineProps([
   'effectiveActiveChannel',
@@ -395,6 +396,42 @@ const isDmHubSurface = computed(() => {
   return s?.type === 'dmFriends' || s?.type === 'dmRequests';
 });
 
+/** Prefer injected summary; fall back to main-surface channel id + search channel list. */
+const headerActiveChannel = computed((): ChannelSummary | null => {
+  const direct = (props as { effectiveActiveChannel?: ChannelSummary | null })
+    .effectiveActiveChannel;
+  if (direct) return direct;
+  const ms = (props as { mainSurface?: MainSurface }).mainSurface;
+  const channels =
+    (props as { allChannels?: ChannelSummary[] }).allChannels ?? [];
+  let cid = '';
+  if (ms?.type === 'serverText' || ms?.type === 'serverVoice') {
+    cid = ms.channelId?.trim() ?? '';
+  } else if (ms?.type === 'serverForum') {
+    cid = (ms.postChannelId ?? ms.forumChannelId)?.trim() ?? '';
+  }
+  if (!cid) return null;
+  return channels.find((c) => c.id === cid) ?? null;
+});
+
+const showChatHeaderChrome = computed(() => {
+  if (isDmHubSurface.value) return false;
+  const p = props as {
+    isInDMChat?: boolean;
+    dmCallFullscreen?: boolean;
+    isInDMMode?: boolean;
+    isViewingVoiceChannel?: boolean;
+    dmActiveTab?: string;
+  };
+  if (p.isInDMChat && p.dmCallFullscreen && activeDmThreadCallUi.value) {
+    return false;
+  }
+  const ch = headerActiveChannel.value;
+  if (!ch || p.isViewingVoiceChannel) return false;
+  if (!p.isInDMMode) return true;
+  return !!(p.isInDMChat && p.dmActiveTab === 'messages');
+});
+
 const activeDmThreadCallUi = computed<ActiveDmThreadCallUi | null>(
   () =>
     (props as { activeDmThreadCallUi?: ActiveDmThreadCallUi | null })
@@ -443,8 +480,7 @@ const localDmCallTargetsGroupThread = computed(() => {
 });
 
 const leadingEmoji = computed(() => {
-  const ch = (props as { effectiveActiveChannel?: { iconKey?: string } | null })
-    .effectiveActiveChannel;
+  const ch = headerActiveChannel.value;
   return parseEmojiIconKey(ch?.iconKey ?? '');
 });
 
@@ -459,8 +495,7 @@ const ensureCustomEmojiId = inject<((id: string) => void) | undefined>(
 );
 
 const leadingChannelRasterIconUrl = computed(() => {
-  const ch = (props as { effectiveActiveChannel?: { iconKey?: string } | null })
-    .effectiveActiveChannel;
+  const ch = headerActiveChannel.value;
   const key = ch?.iconKey ?? '';
   if (!key.trim() || leadingEmoji.value) return '';
   return (
@@ -1163,15 +1198,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
 
 <template>
   <div
-    v-if="
-      !isDmHubSurface &&
-      !(isInDMChat && dmCallFullscreen && !!activeDmThreadCallUi) &&
-      ((effectiveActiveChannel && !isViewingVoiceChannel && !isInDMMode) ||
-        (isInDMChat &&
-          effectiveActiveChannel &&
-          !isViewingVoiceChannel &&
-          dmActiveTab === 'messages'))
-    "
+    v-if="showChatHeaderChrome"
     class="chat-header-glass pointer-events-auto absolute top-0 left-0 right-0 z-20 flex min-w-0 flex-shrink-0 flex-col overflow-hidden"
     :class="showDmCallQuarterChrome ? 'min-h-[9rem]' : 'h-12'"
   >
@@ -1184,7 +1211,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           isCompactShell &&
           !compactGuildSplitNav &&
           !isViewingVoiceChannel &&
-          effectiveActiveChannel
+          headerActiveChannel
         "
         type="button"
         class="dm-header-action-btn -ml-0.5 shrink-0"
@@ -1266,10 +1293,10 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
       <img
         v-else
         :src="
-          leadingChannelRasterIconUrl || getChannelIcon(effectiveActiveChannel)
+          leadingChannelRasterIconUrl || getChannelIcon(headerActiveChannel)
         "
         :alt="
-          effectiveActiveChannel?.type === 'voice' ? 'Voice channel' : 'Channel'
+          headerActiveChannel?.type === 'voice' ? 'Voice channel' : 'Channel'
         "
         class="chat-header-leading-icon"
         :class="{
@@ -1298,8 +1325,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
                 ? 'Friends'
                 : isInDMMode && dmActiveTab === 'notifications'
                   ? 'Notifications'
-                  : effectiveActiveChannel
-                    ? getChannelDisplayName(effectiveActiveChannel.name)
+                  : headerActiveChannel
+                    ? getChannelDisplayName(headerActiveChannel.name)
                     : ''
             }}
           </button>
@@ -1321,8 +1348,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
                 ? 'Friends'
                 : isInDMMode && dmActiveTab === 'notifications'
                   ? 'Notifications'
-                  : effectiveActiveChannel
-                    ? getChannelDisplayName(effectiveActiveChannel.name)
+                  : headerActiveChannel
+                    ? getChannelDisplayName(headerActiveChannel.name)
                     : ''
             }}
           </button>
@@ -1341,8 +1368,8 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
                 ? 'Friends'
                 : isInDMMode && dmActiveTab === 'notifications'
                   ? 'Notifications'
-                  : effectiveActiveChannel
-                    ? getChannelDisplayName(effectiveActiveChannel.name)
+                  : headerActiveChannel
+                    ? getChannelDisplayName(headerActiveChannel.name)
                     : ''
             }}</span
           >

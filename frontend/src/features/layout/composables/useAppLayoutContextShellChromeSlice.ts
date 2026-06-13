@@ -52,3 +52,13 @@ export function useAppLayoutContextShellChromeSlice(
   };
   return slice;
 }
+
+export type BuildAppLayoutShellChromeSliceDeps = Parameters<
+  typeof useAppLayoutContextShellChromeSlice
+>[0];
+
+export function buildAppLayoutShellChromeSliceDeps(
+  deps: BuildAppLayoutShellChromeSliceDeps,
+): BuildAppLayoutShellChromeSliceDeps {
+  return deps;
+}

@@ -1,4 +1,7 @@
-import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
+import {
+  WATCH_TOGETHER_VC_ACTIVITY_ENABLED,
+  YOUTUBE_INTEGRATION_ENABLED,
+} from '@shared/integrationKillSwitches';
 import {
   ECHOED_NAMES_VC_ACTIVITY_ENABLED,
   type EchoVcActivityKey,
@@ -6,6 +9,7 @@ import {
 
 export type VcActivityOpenHandlers = {
   youtube: () => void;
+  watch_together: () => void;
   wordle: () => void;
   hangman: () => void;
   skriggles: () => void;
@@ -29,6 +33,10 @@ export function openVcActivityByKey(
   switch (key) {
     case 'youtube':
       if (YOUTUBE_INTEGRATION_ENABLED) handlers.youtube();
+      else handlers.picker();
+      break;
+    case 'watch_together':
+      if (WATCH_TOGETHER_VC_ACTIVITY_ENABLED) handlers.watch_together();
       else handlers.picker();
       break;
     case 'wordle':

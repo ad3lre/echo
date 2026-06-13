@@ -90,6 +90,33 @@ describe('useGuildChannelTree watchActiveChannelWithServerChange', () => {
     expect(activeChannelId.value).toBe('');
   });
 
+  it('resolves channels when selectedServer is empty but selectedServerId is set', () => {
+    const selectedServerId = ref<string | null>('srv-1');
+    const categoriesByServer = ref<Record<string, any[]>>({
+      'srv-1': [
+        {
+          id: 'cat-1',
+          name: 'General',
+          channels: [{ id: 'ch-1', type: 'text', name: 'general' }],
+        },
+      ],
+    });
+    const tree = useGuildChannelTree({
+      serverStore: {
+        get selectedServerId() {
+          return selectedServerId.value;
+        },
+      } as any,
+      workspace: { categoriesByServer } as any,
+      selectedServer: computed(() => undefined),
+      rolePreview: computed(() => null),
+      isRolePreviewActiveForServer: computed(() => false),
+      previewHasUiPermission: () => true,
+    });
+
+    expect(tree.findChannelContextById('ch-1')?.channel.name).toBe('general');
+  });
+
   it('does not rewrite when active channel exists in raw tree but is filtered from sidebar', async () => {
     const { tree } = buildHarness([
       {

@@ -82,9 +82,9 @@ describe('composerModel additional', () => {
       },
     };
     expect(rawOffsetToEditorPos(mockDoc as never, 0)).toBe(1);
-    expect(rawOffsetToEditorPos(mockDoc as never, 4)).toBe(6);
-    expect(rawOffsetToEditorPos(mockDoc as never, 5)).toBe(7);
-    expect(rawOffsetToEditorPos(mockDoc as never, 6)).toBe(8);
+    expect(rawOffsetToEditorPos(mockDoc as never, 4)).toBe(5);
+    expect(rawOffsetToEditorPos(mockDoc as never, 5)).toBe(6);
+    expect(rawOffsetToEditorPos(mockDoc as never, 6)).toBe(7);
   });
 
   // Node render tests: ensure Tiptap Node definitions exist and have render helpers

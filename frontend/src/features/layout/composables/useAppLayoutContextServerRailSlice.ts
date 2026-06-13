@@ -51,3 +51,13 @@ export function useAppLayoutContextServerRailSlice(
   };
   return slice;
 }
+
+export type BuildAppLayoutServerRailSliceDeps = Parameters<
+  typeof useAppLayoutContextServerRailSlice
+>[0];
+
+export function buildAppLayoutServerRailSliceDeps(
+  deps: BuildAppLayoutServerRailSliceDeps,
+): BuildAppLayoutServerRailSliceDeps {
+  return deps;
+}

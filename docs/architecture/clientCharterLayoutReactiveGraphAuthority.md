@@ -2,7 +2,7 @@
 
 Charter: [agents.md](../overview/agents.md). Leak goal **2** in [client-charter-leak-goals.md](./client-charter-leak-goals.md).
 
-This document is the **single place** that explains why [`useAppLayoutController.ts`](../../frontend/src/features/layout/composables/useAppLayoutController.ts) must keep a **strict setup order** across **DM state**, **effective channel / voice context**, **DM rail unread**, **chat rows**, and **realtime host/socket** glue. It complements [clientCharterStoresNavVirtualizerAuthority.md](./clientCharterStoresNavVirtualizerAuthority.md) (rows 24–26): that doc owns nav + list invalidation; this one owns **layout composition-root ordering**.
+This document is the **single place** that explains why the layout composition root (facade + [`createAppLayoutController.ts`](../../frontend/src/features/layout/composables/createAppLayoutController.ts) and phased `wireAppLayout*` modules) must keep a **strict setup order** across **DM state**, **effective channel / voice context**, **DM rail unread**, **chat rows**, and **realtime host/socket** glue. It complements [clientCharterStoresNavVirtualizerAuthority.md](./clientCharterStoresNavVirtualizerAuthority.md) (rows 24–26): that doc owns nav + list invalidation; this one owns **layout composition-root ordering**.
 
 ---
 
@@ -16,7 +16,7 @@ Truth and merge rules **belong** in domain / view-models — this file only reco
 
 ## Enforced contract
 
-**Regression guard:** [`useAppLayoutController.wiringOrder.test.ts`](../../frontend/src/features/layout/composables/useAppLayoutController.wiringOrder.test.ts) asserts that the first occurrence of each marker in `useAppLayoutController.ts` appears in the documented order. If you intentionally reorder setup, update **both** this doc and the marker list in that test.
+**Regression guard:** [`useAppLayoutController.wiringOrder.test.ts`](../../frontend/src/features/layout/composables/useAppLayoutController.wiringOrder.test.ts) asserts that the first occurrence of each marker in the concatenated wiring sources (`createAppLayoutController.ts` + three `wireAppLayout*` phases) appears in the documented order. If you intentionally reorder setup, update **both** this doc and the marker list in that test.
 
 ---
 
@@ -38,11 +38,15 @@ Truth and merge rules **belong** in domain / view-models — this file only reco
 | 12    | `useAppLayoutRailLoadingDerived`                  | shell + workspace + `activeChannelId`                                                                         |
 | 13    | `useAppLayoutDmRailUnread`                        | `isKnownDmChannelId`, `dmAttentionByChannelId`, `activeChannelId`                                             |
 | 14    | `useChatMessages`                                 | history/index path stable for downstream search                                                               |
-| 15    | `useAppLayoutSearchIntegration`                   | `activeChannelMessages`                                                                                       |
-| 16    | `useAppLayoutPinsIntegration`                     | pins state before host assembles callbacks                                                                    |
-| 17    | `useAppLayoutRealtimeHostWiring`                  | `echoChannelHistory`, presence, DM activity, `handleEchoDmCall`, attention patch                              |
-| 18    | `useAppLayoutRealtimeSocketBinding`               | `hostCallbacks`                                                                                               |
-| 19    | `wireDmCallSocketSubmitters`                      | socket submitters from (18) + bridge                                                                          |
+| 15    | `useAppLayoutPinsIntegration`                     | pins state before host assembles callbacks                                                                    |
+| 16    | `useAppLayoutRealtimeHostWiring`                  | `echoChannelHistory`, presence, DM activity, `handleEchoDmCall`, attention patch                              |
+| 17    | `useAppLayoutRealtimeSocketBinding`               | `hostCallbacks`                                                                                               |
+| 18    | `wireDmCallSocketSubmitters`                      | socket submitters from (17) + bridge                                                                          |
+| 19    | `useAppLayoutProfilesDomain`                      | profile / member-list domain (phase 3)                                                                        |
+| 20    | `useAppLayoutMentionAutocompleteUsers`            | mention autocomplete users                                                                                    |
+| 21    | `useAppLayoutSearchIntegration`                   | `activeChannelMessages`                                                                                       |
+| 22    | `sealWithGroupDmAndNavigation`                    | sealed app action registry (phase 3)                                                                          |
+| 23    | `assembleAppLayoutControllerContext`              | context slice assembly (phase 3; after registry seal)                                                         |
 
 ---
 
@@ -56,6 +60,7 @@ Truth and merge rules **belong** in domain / view-models — this file only reco
 
 ## Revision
 
-| Date       | Note                                                                            |
-| ---------- | ------------------------------------------------------------------------------- |
-| 2026-04-11 | Initial authority map + wiring-order contract test for leak goal row 2 at 100%. |
+| Date       | Note                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 2026-04-11 | Initial authority map + wiring-order contract test for leak goal row 2 at 100%.                                          |
+| 2026-06-13 | Phased wiring sources + phase-3 assembly markers (`sealWithGroupDmAndNavigation`, `assembleAppLayoutControllerContext`). |

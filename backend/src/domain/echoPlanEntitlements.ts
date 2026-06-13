@@ -7,6 +7,8 @@ import {
   ECHO_PLAN_MAX_JOINED_SERVERS,
   ECHO_PLAN_THEME_TIER,
   ECHO_PLAN_UPLOAD_CAP_BYTES,
+  ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES,
+  ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES,
   normalizeEchoPlanId,
   type EchoPlanId,
   type EchoPlanLimitsPublic,
@@ -188,5 +190,7 @@ export async function buildEchoPlanLimitsPublic(
     features: ECHO_PLAN_FEATURE_FLAGS[ent.plan],
     imageSearchesPerDay,
     imageSearchesUsedToday: imageUsage.used,
+    watchTogetherMaxVideoBytes: ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES,
+    watchTogetherMaxSessionBytes: ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES,
   };
 }

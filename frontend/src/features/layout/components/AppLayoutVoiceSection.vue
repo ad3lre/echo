@@ -95,6 +95,7 @@ const props = defineProps<{
     isVcActivityKing?: boolean;
   }>;
   currentUserId?: string;
+  effectiveVcActivityKingUserId?: string;
   linkedDiscordUserId?: string | null;
   currentUserName?: string;
   currentUserPfp?: string;
@@ -216,6 +217,7 @@ const props = defineProps<{
   vcActivityUi: MaybeRef<VcActivityUiState>;
   openVcActivityPicker: () => void;
   openVcActivityYoutubeBrowse: () => void;
+  openVcActivityWatchTogether: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
   openVcActivitySkriggles: () => void;
@@ -287,10 +289,26 @@ const props = defineProps<{
   playVcYoutubeAtIndex: (index: number) => void;
   playVcYoutubeNext: () => void;
   playVcYoutubePrevious: () => void;
+  setWatchTogetherLobbyRole: (
+    role: VcActivityUiState['watchTogetherLobbyRole'],
+  ) => void;
+  ensureWatchTogetherSessionId: () => string;
+  patchWatchTogetherUi: (patch: Partial<VcActivityUiState>) => void;
+  setWatchTogetherBrowseOpen: (open: boolean) => void;
+  startWatchTogetherSession: () => void;
+  playWatchTogetherAtIndex: (index: number) => void;
   closeVcActivity: () => void;
   vcYoutubeRemotePlayback: ShallowRef<VcYoutubeRemotePlaybackState | null>;
   publishVcYoutubePlaybackSync: (sample: EchoYoutubePlaybackSyncV1) => void;
   vcYoutubePlaybackShouldPublish: ComputedRef<boolean>;
+  vcWatchTogetherRemotePlayback: ShallowRef<
+    | import('@/features/voice/composables/useVcWatchTogetherPlayer').VcWatchTogetherRemotePlaybackState
+    | null
+  >;
+  publishVcWatchTogetherPlaybackSync: (
+    sample: import('@/audio/voiceEchoLiveKitData').EchoMediaPlaybackSyncV1,
+  ) => void;
+  vcWatchTogetherPlaybackShouldPublish: ComputedRef<boolean>;
   /** Server owner / manage-server — Discord empty-channel import (voice side chat). */
   canShowDiscordChannelImport?: boolean;
   onRequestForward?: (
@@ -601,6 +619,7 @@ const voiceMobileChatOverlayStyle = computed(() => {
             :voice-side-chat-collapsed="voiceSideChatCollapsed"
             :expand-voice-side-chat="expandVoiceSideChat"
             :open-vc-activity-youtube-browse="openVcActivityYoutubeBrowse"
+            :open-vc-activity-watch-together="openVcActivityWatchTogether"
             :open-vc-activity-wordle="openVcActivityWordle"
             :open-vc-activity-hangman="openVcActivityHangman"
             :open-vc-activity-skriggles="openVcActivitySkriggles"
@@ -627,6 +646,21 @@ const voiceMobileChatOverlayStyle = computed(() => {
             :publish-vc-youtube-playback-sync="publishVcYoutubePlaybackSync"
             :vc-youtube-remote-playback="vcYoutubeRemotePlayback"
             :vc-youtube-playback-should-publish="vcYoutubePlaybackShouldPublish"
+            :publish-vc-watch-together-playback-sync="
+              publishVcWatchTogetherPlaybackSync
+            "
+            :vc-watch-together-remote-playback="vcWatchTogetherRemotePlayback"
+            :vc-watch-together-playback-should-publish="
+              vcWatchTogetherPlaybackShouldPublish
+            "
+            :set-watch-together-lobby-role="setWatchTogetherLobbyRole"
+            :ensure-watch-together-session-id="ensureWatchTogetherSessionId"
+            :patch-watch-together-ui="patchWatchTogetherUi"
+            :set-watch-together-browse-open="setWatchTogetherBrowseOpen"
+            :start-watch-together-session="startWatchTogetherSession"
+            :play-watch-together-at-index="playWatchTogetherAtIndex"
+            :voice-channel-id="voiceUiChannel?.id ?? ''"
+            :effective-vc-activity-king-user-id="effectiveVcActivityKingUserId"
             :vc-hangman-activity="vcHangmanActivity"
             :hangman-roster-user-ids="hangmanRosterUserIds"
             :commit-vc-hangman-word="commitVcHangmanWord"
@@ -955,7 +989,6 @@ const voiceMobileChatOverlayStyle = computed(() => {
 
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
   .voice-side-chat-header {
-    background-color: var(--chat-glass-header-bg);
     backdrop-filter: var(--chat-glass-header-backdrop);
     -webkit-backdrop-filter: var(--chat-glass-header-backdrop);
   }

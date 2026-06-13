@@ -1,5 +1,8 @@
 import { watch, type Ref } from 'vue';
-import { YOUTUBE_INTEGRATION_ENABLED } from '@shared/integrationKillSwitches';
+import {
+  WATCH_TOGETHER_VC_ACTIVITY_ENABLED,
+  YOUTUBE_INTEGRATION_ENABLED,
+} from '@shared/integrationKillSwitches';
 import { ECHOED_NAMES_VC_ACTIVITY_ENABLED } from '@shared/vcActivityCatalog';
 import type {
   VcActivityPresenceKind,
@@ -22,6 +25,7 @@ const PRESENCE_KIND_PRIORITY: readonly VcActivityPresenceKind[] = [
   'goober_dash',
   'smash_karts',
   'cluster_rush',
+  'watch_together',
   'youtube',
   'activities',
 ];
@@ -29,9 +33,13 @@ const PRESENCE_KIND_PRIORITY: readonly VcActivityPresenceKind[] = [
 export function primaryVcActivityPresenceKind(
   kinds: readonly VcActivityPresenceKind[],
 ): VcActivityPresenceKind | null {
-  const visible = YOUTUBE_INTEGRATION_ENABLED
-    ? kinds
-    : kinds.filter((k) => k !== 'youtube');
+  let visible = kinds;
+  if (!YOUTUBE_INTEGRATION_ENABLED) {
+    visible = visible.filter((k) => k !== 'youtube');
+  }
+  if (!WATCH_TOGETHER_VC_ACTIVITY_ENABLED) {
+    visible = visible.filter((k) => k !== 'watch_together');
+  }
   if (!visible.length) return null;
   for (const preferred of PRESENCE_KIND_PRIORITY) {
     if (visible.includes(preferred)) return preferred;
@@ -49,7 +57,9 @@ export function vcActivityPresenceKindToPhase(
 export function vcActivityJoinLabel(kind: VcActivityPresenceKind): string {
   switch (kind) {
     case 'youtube':
-      return 'Watch together';
+      return 'YouTube';
+    case 'watch_together':
+      return 'Watch Together';
     case 'activities':
       return 'Activities';
     case 'wordle':
@@ -81,6 +91,7 @@ export function vcActivityJoinLabel(kind: VcActivityPresenceKind): string {
 export type VcActivityPhaseOpeners = {
   openVcActivityPicker: () => void;
   openVcActivityYoutubeBrowse: () => void;
+  openVcActivityWatchTogether: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
   openVcActivitySkriggles: () => void;
@@ -112,6 +123,13 @@ export function applyVcActivityUiPhase(
     case 'youtube':
       if (YOUTUBE_INTEGRATION_ENABLED) {
         openers.openVcActivityYoutubeBrowse();
+      } else {
+        openers.openVcActivityPicker();
+      }
+      return;
+    case 'watch_together':
+      if (WATCH_TOGETHER_VC_ACTIVITY_ENABLED) {
+        openers.openVcActivityWatchTogether();
       } else {
         openers.openVcActivityPicker();
       }

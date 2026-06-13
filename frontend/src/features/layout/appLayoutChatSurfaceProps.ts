@@ -27,8 +27,10 @@ import type {
   EchoTicTacToeActivityV1,
   EchoTicTacToeInviteV1,
   EchoYoutubePlaybackSyncV1,
+  EchoMediaPlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
+import type { VcWatchTogetherRemotePlaybackState } from '@/features/voice/composables/useVcWatchTogetherPlayer';
 
 /**
  * Props / inject bundle for [`AppLayoutChatSurface.vue`](./components/AppLayoutChatSurface.vue).
@@ -306,6 +308,7 @@ export type AppLayoutChatSurfaceProps = {
   vcActivityUi: VcActivityUiState;
   openVcActivityPicker: () => void;
   openVcActivityYoutubeBrowse: () => void;
+  openVcActivityWatchTogether: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
   openVcActivitySkriggles: () => void;
@@ -382,10 +385,22 @@ export type AppLayoutChatSurfaceProps = {
   playVcYoutubeAtIndex: (index: number) => void;
   playVcYoutubeNext: () => void;
   playVcYoutubePrevious: () => void;
+  setWatchTogetherLobbyRole: (
+    role: VcActivityUiState['watchTogetherLobbyRole'],
+  ) => void;
+  ensureWatchTogetherSessionId: () => string;
+  patchWatchTogetherUi: (patch: Partial<VcActivityUiState>) => void;
+  setWatchTogetherBrowseOpen: (open: boolean) => void;
+  startWatchTogetherSession: () => void;
+  playWatchTogetherAtIndex: (index: number) => void;
   closeVcActivity: () => void;
   vcYoutubeRemotePlayback: ShallowRef<VcYoutubeRemotePlaybackState | null>;
   publishVcYoutubePlaybackSync: (sample: EchoYoutubePlaybackSyncV1) => void;
   vcYoutubePlaybackShouldPublish: ComputedRef<boolean>;
+  vcWatchTogetherRemotePlayback: ShallowRef<VcWatchTogetherRemotePlaybackState | null>;
+  publishVcWatchTogetherPlaybackSync: (sample: EchoMediaPlaybackSyncV1) => void;
+  vcWatchTogetherPlaybackShouldPublish: ComputedRef<boolean>;
+  effectiveVcActivityKingUserId: ComputedRef<string>;
   canShowDiscordChannelImport: boolean;
   forumPostsByForumId: Record<string, unknown[]>;
   forumPostsLoadingByForumId: Record<string, boolean>;
@@ -660,6 +675,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'vcActivityUi',
   'openVcActivityPicker',
   'openVcActivityYoutubeBrowse',
+  'openVcActivityWatchTogether',
   'openVcActivityWordle',
   'openVcActivityHangman',
   'openVcActivitySkriggles',
@@ -715,10 +731,20 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'playVcYoutubeAtIndex',
   'playVcYoutubeNext',
   'playVcYoutubePrevious',
+  'setWatchTogetherLobbyRole',
+  'ensureWatchTogetherSessionId',
+  'patchWatchTogetherUi',
+  'setWatchTogetherBrowseOpen',
+  'startWatchTogetherSession',
+  'playWatchTogetherAtIndex',
   'closeVcActivity',
   'vcYoutubeRemotePlayback',
   'publishVcYoutubePlaybackSync',
   'vcYoutubePlaybackShouldPublish',
+  'vcWatchTogetherRemotePlayback',
+  'publishVcWatchTogetherPlaybackSync',
+  'vcWatchTogetherPlaybackShouldPublish',
+  'effectiveVcActivityKingUserId',
   'canShowDiscordChannelImport',
   'forumPostsByForumId',
   'forumPostsLoadingByForumId',

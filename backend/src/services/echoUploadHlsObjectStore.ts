@@ -13,8 +13,8 @@ import { pipeline } from 'node:stream/promises';
 import {
   createEchoS3UploadClient,
   getEchoS3UploadBucket,
-  isEchoS3UploadConfigured,
 } from './s3UploadPresign';
+import { echoUploadPrefersS3ObjectStore } from './echoUploadObjectBackend';
 import { resolveLocalUploadFilePath } from './localUploadDisk';
 
 function contentTypeForHlsObjectKey(key: string): string {
@@ -56,7 +56,7 @@ export async function downloadEchoUploadObjectToFile(
   storageKey: string,
   destPath: string,
 ): Promise<void> {
-  if (isEchoS3UploadConfigured()) {
+  if (echoUploadPrefersS3ObjectStore(storageKey)) {
     const client = createEchoS3UploadClient();
     const bucket = getEchoS3UploadBucket();
     if (!client || !bucket) throw new Error('S3 not configured');
@@ -76,7 +76,7 @@ export async function uploadLocalFileToEchoUploadKey(
   storageKey: string,
 ): Promise<void> {
   const ct = contentTypeForHlsObjectKey(storageKey);
-  if (isEchoS3UploadConfigured()) {
+  if (echoUploadPrefersS3ObjectStore(storageKey)) {
     const client = createEchoS3UploadClient();
     const bucket = getEchoS3UploadBucket();
     if (!client || !bucket) throw new Error('S3 not configured');
@@ -150,7 +150,7 @@ async function listLocalKeysWithPrefix(prefix: string): Promise<string[]> {
 export async function listEchoUploadKeysWithPrefix(
   prefix: string,
 ): Promise<string[]> {
-  if (isEchoS3UploadConfigured()) {
+  if (echoUploadPrefersS3ObjectStore(prefix)) {
     return listS3KeysWithPrefix(prefix);
   }
   return listLocalKeysWithPrefix(prefix);
@@ -158,7 +158,7 @@ export async function listEchoUploadKeysWithPrefix(
 
 export async function deleteEchoUploadKeys(keys: string[]): Promise<void> {
   if (keys.length === 0) return;
-  if (isEchoS3UploadConfigured()) {
+  if (echoUploadPrefersS3ObjectStore(keys[0]!)) {
     const client = createEchoS3UploadClient();
     const bucket = getEchoS3UploadBucket();
     if (!client || !bucket) return;
@@ -216,7 +216,7 @@ export async function publishEchoHlsStagingToPackPrefix(opts: {
     ...(entries.includes('master.m3u8') ? ['master.m3u8'] : []),
   ];
 
-  if (isEchoS3UploadConfigured()) {
+  if (echoUploadPrefersS3ObjectStore(packPrefix)) {
     const client = createEchoS3UploadClient();
     const bucket = getEchoS3UploadBucket();
     if (!client || !bucket) throw new Error('S3 not configured');
@@ -263,7 +263,7 @@ export async function statLocalDirectoryFiles(
 export async function deleteEchoUploadObjectKey(
   storageKey: string,
 ): Promise<void> {
-  if (isEchoS3UploadConfigured()) {
+  if (echoUploadPrefersS3ObjectStore(storageKey)) {
     const client = createEchoS3UploadClient();
     const bucket = getEchoS3UploadBucket();
     if (!client || !bucket) return;

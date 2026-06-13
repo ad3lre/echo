@@ -570,6 +570,7 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :vc-activity-ui="chatCtx.vcActivityUi"
         :open-vc-activity-picker="chatCtx.openVcActivityPicker"
         :open-vc-activity-youtube-browse="chatCtx.openVcActivityYoutubeBrowse"
+        :open-vc-activity-watch-together="chatCtx.openVcActivityWatchTogether"
         :open-vc-activity-wordle="chatCtx.openVcActivityWordle"
         :open-vc-activity-hangman="chatCtx.openVcActivityHangman"
         :open-vc-activity-skriggles="chatCtx.openVcActivitySkriggles"
@@ -629,11 +630,29 @@ const shellHeaderOverlayInsetPx = computed<number | undefined>(() => {
         :play-vc-youtube-at-index="chatCtx.playVcYoutubeAtIndex"
         :play-vc-youtube-next="chatCtx.playVcYoutubeNext"
         :play-vc-youtube-previous="chatCtx.playVcYoutubePrevious"
+        :set-watch-together-lobby-role="chatCtx.setWatchTogetherLobbyRole"
+        :ensure-watch-together-session-id="chatCtx.ensureWatchTogetherSessionId"
+        :patch-watch-together-ui="chatCtx.patchWatchTogetherUi"
+        :set-watch-together-browse-open="chatCtx.setWatchTogetherBrowseOpen"
+        :start-watch-together-session="chatCtx.startWatchTogetherSession"
+        :play-watch-together-at-index="chatCtx.playWatchTogetherAtIndex"
         :close-vc-activity="chatCtx.closeVcActivity"
         :publish-vc-youtube-playback-sync="chatCtx.publishVcYoutubePlaybackSync"
         :vc-youtube-remote-playback="chatCtx.vcYoutubeRemotePlayback"
         :vc-youtube-playback-should-publish="
           chatCtx.vcYoutubePlaybackShouldPublish
+        "
+        :publish-vc-watch-together-playback-sync="
+          chatCtx.publishVcWatchTogetherPlaybackSync
+        "
+        :vc-watch-together-remote-playback="
+          chatCtx.vcWatchTogetherRemotePlayback
+        "
+        :vc-watch-together-playback-should-publish="
+          chatCtx.vcWatchTogetherPlaybackShouldPublish
+        "
+        :effective-vc-activity-king-user-id="
+          chatCtx.effectiveVcActivityKingUserId
         "
         :can-show-discord-channel-import="chatCtx.canShowDiscordChannelImport"
         :guild-vc-muted="!!chatCtx.vcMuted"

@@ -14,14 +14,14 @@ export function envS3UploadConfigured(): boolean {
   );
 }
 
-/** Disk-backed uploads when S3 env is unset; see `echoLocalUploadDir` on `config`. */
+/** Disk-backed uploads when S3 env is unset, or when `ECHO_LOCAL_UPLOAD_DIR` is set explicitly (Watch Together). */
 export function resolveEchoLocalUploadDir(): string | null {
   if (process.env.ECHO_LOCAL_UPLOADS?.trim().toLowerCase() === 'false') {
     return null;
   }
-  if (envS3UploadConfigured()) return null;
   const raw = process.env.ECHO_LOCAL_UPLOAD_DIR?.trim();
   if (raw) return path.resolve(raw);
+  if (envS3UploadConfigured()) return null;
   const backendRoot = repoRoot ? path.join(repoRoot, 'backend') : process.cwd();
   return path.join(backendRoot, 'data', 'echo-local-uploads');
 }

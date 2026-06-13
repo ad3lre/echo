@@ -1,5 +1,6 @@
 import { computed, ref, shallowRef } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
+import { emptyWatchTogetherUiFields } from '@/features/voice/vcActivityTypes';
 import { useAppLayoutContextProfileSlice } from './useAppLayoutContextProfileSlice';
 import { useAppLayoutContextVoiceSlice } from './useAppLayoutContextVoiceSlice';
 import { useAppLayoutContextMessagingSlice } from './useAppLayoutContextMessagingSlice';
@@ -8,6 +9,15 @@ import { useAppLayoutContextShellLayoutSlice } from './useAppLayoutContextShellL
 import { useAppLayoutContextDmSlice } from './useAppLayoutContextDmSlice';
 import { useAppLayoutContextModerationSlice } from './useAppLayoutContextModerationSlice';
 import { useAppLayoutContextShellChromeSlice } from './useAppLayoutContextShellChromeSlice';
+import { buildAppLayoutProfileSliceDeps } from './useAppLayoutContextProfileSlice';
+import { buildAppLayoutVoiceSliceDeps } from './useAppLayoutContextVoiceSlice';
+import { buildAppLayoutMessagingSliceDeps } from './useAppLayoutContextMessagingSlice';
+import { buildAppLayoutServerRailSliceDeps } from './useAppLayoutContextServerRailSlice';
+import { buildAppLayoutShellLayoutSliceDeps } from './useAppLayoutContextShellLayoutSlice';
+import { buildAppLayoutDmSliceDeps } from './useAppLayoutContextDmSlice';
+import { buildAppLayoutModerationSliceDeps } from './useAppLayoutContextModerationSlice';
+import { buildAppLayoutShellChromeSliceDeps } from './useAppLayoutContextShellChromeSlice';
+import { buildAppLayoutContextCore } from './buildAppLayoutContextCore';
 
 describe('app layout context slices wiring', () => {
   it('profile slice preserves key delegates', () => {
@@ -158,9 +168,11 @@ describe('app layout context slices wiring', () => {
         youtubeBrowseOpen: true,
         playlist: [],
         currentIndex: 0,
+        ...emptyWatchTogetherUiFields(),
       }),
       openVcActivityPicker: vi.fn(),
       openVcActivityYoutubeBrowse: vi.fn(),
+      openVcActivityWatchTogether: vi.fn(),
       openVcActivityWordle: vi.fn(),
       openVcActivityHangman: vi.fn(),
       openVcActivitySkriggles: vi.fn(),
@@ -209,10 +221,19 @@ describe('app layout context slices wiring', () => {
       playVcYoutubeAtIndex: vi.fn(),
       playVcYoutubeNext: vi.fn(),
       playVcYoutubePrevious: vi.fn(),
+      setWatchTogetherLobbyRole: vi.fn(),
+      ensureWatchTogetherSessionId: () => 'sess-test',
+      patchWatchTogetherUi: vi.fn(),
+      setWatchTogetherBrowseOpen: vi.fn(),
+      startWatchTogetherSession: vi.fn(),
+      playWatchTogetherAtIndex: vi.fn(),
       closeVcActivity: vi.fn(),
       vcYoutubeRemotePlayback: shallowRef(null),
       publishVcYoutubePlaybackSync: vi.fn(),
       vcYoutubePlaybackShouldPublish: computed(() => true),
+      vcWatchTogetherRemotePlayback: shallowRef(null),
+      publishVcWatchTogetherPlaybackSync: vi.fn(),
+      vcWatchTogetherPlaybackShouldPublish: computed(() => true),
       handleScreenSharePickerConfirm: vi.fn(async () => undefined),
       openDesktopStreamingControl: vi.fn(),
       closeDesktopStreamingControl: vi.fn(),
@@ -438,5 +459,71 @@ describe('app layout context slices wiring', () => {
     expect(typeof dm.handleAcceptMessageRequest).toBe('function');
     expect(typeof mod.handleModerateUser).toBe('function');
     expect(typeof chrome.expandChannels).toBe('function');
+  });
+
+  it('slice dep builders are identity pass-through wrappers', () => {
+    const profileDeps = { toggleMemberList: vi.fn() } as unknown as Parameters<
+      typeof useAppLayoutContextProfileSlice
+    >[0];
+    expect(buildAppLayoutProfileSliceDeps(profileDeps)).toBe(profileDeps);
+
+    const voiceDeps = { joinVoiceChannel: vi.fn() } as unknown as Parameters<
+      typeof useAppLayoutContextVoiceSlice
+    >[0];
+    expect(buildAppLayoutVoiceSliceDeps(voiceDeps)).toBe(voiceDeps);
+
+    const messagingDeps = { sendMessage: vi.fn() } as unknown as Parameters<
+      typeof useAppLayoutContextMessagingSlice
+    >[0];
+    expect(buildAppLayoutMessagingSliceDeps(messagingDeps)).toBe(messagingDeps);
+
+    const serverRailDeps = {
+      handleServerRailInvite: vi.fn(),
+    } as unknown as Parameters<typeof useAppLayoutContextServerRailSlice>[0];
+    expect(buildAppLayoutServerRailSliceDeps(serverRailDeps)).toBe(
+      serverRailDeps,
+    );
+
+    const shellLayoutDeps = { openDMPanel: vi.fn() } as unknown as Parameters<
+      typeof useAppLayoutContextShellLayoutSlice
+    >[0];
+    expect(buildAppLayoutShellLayoutSliceDeps(shellLayoutDeps)).toBe(
+      shellLayoutDeps,
+    );
+
+    const dmDeps = { sendFriendRequest: vi.fn() } as unknown as Parameters<
+      typeof useAppLayoutContextDmSlice
+    >[0];
+    expect(buildAppLayoutDmSliceDeps(dmDeps)).toBe(dmDeps);
+
+    const moderationDeps = {
+      handleModerateUser: vi.fn(),
+    } as unknown as Parameters<typeof useAppLayoutContextModerationSlice>[0];
+    expect(buildAppLayoutModerationSliceDeps(moderationDeps)).toBe(
+      moderationDeps,
+    );
+
+    const shellChromeDeps = {
+      expandChannels: vi.fn(),
+    } as unknown as Parameters<typeof useAppLayoutContextShellChromeSlice>[0];
+    expect(buildAppLayoutShellChromeSliceDeps(shellChromeDeps)).toBe(
+      shellChromeDeps,
+    );
+  });
+
+  it('buildAppLayoutContextCore preserves stable core keys', () => {
+    const authSession = { isAuthenticated: true } as any;
+    const activeChannelId = ref('ch-1');
+    const submitReactionToggle = vi.fn();
+
+    const core = buildAppLayoutContextCore({
+      authSession,
+      activeChannelId,
+      submitReactionToggle,
+    } as unknown as Parameters<typeof buildAppLayoutContextCore>[0]);
+
+    expect(core.authSession).toBe(authSession);
+    expect(core.activeChannelId).toBe(activeChannelId);
+    expect(core.submitReactionToggle).toBe(submitReactionToggle);
   });
 });

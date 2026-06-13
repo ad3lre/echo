@@ -10,7 +10,23 @@ import { describe, expect, it } from 'vitest';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const SRC = readFileSync(join(__dirname, 'useAppLayoutController.ts'), 'utf8');
+const COMPOSITION_ROOT_FILES = [
+  'useAppLayoutController.ts',
+  'createAppLayoutController.ts',
+  'wireAppLayoutDmAndShell.ts',
+  'wireAppLayoutVoiceAndRealtime.ts',
+  'wireAppLayoutMessagingAndProfiles.ts',
+  'assembleAppLayoutControllerContext.ts',
+  'buildAppLayoutAssemblyDeps.ts',
+] as const;
+
+const FACADE_SRC = readFileSync(
+  join(__dirname, 'useAppLayoutController.ts'),
+  'utf8',
+);
+const SRC = COMPOSITION_ROOT_FILES.map((file) =>
+  readFileSync(join(__dirname, file), 'utf8'),
+).join('\n');
 
 /** Substrings (paths / APIs) that must not appear in the composition root. */
 const FORBIDDEN_SUBSTRINGS = [
@@ -28,15 +44,21 @@ const FORBIDDEN_RX = [/\bechoFetch\s*\(/] as const;
 describe('useAppLayoutController thin surface', () => {
   it('does not embed Echo HTTP or socket listeners (delegates to composables / realtime modules)', () => {
     for (const s of FORBIDDEN_SUBSTRINGS) {
-      expect(SRC.includes(s), `forbidden in useAppLayoutController: ${s}`).toBe(
-        false,
-      );
+      expect(
+        SRC.includes(s),
+        `forbidden in layout composition root: ${s}`,
+      ).toBe(false);
     }
     for (const rx of FORBIDDEN_RX) {
       expect(
         rx.test(SRC),
-        `forbidden pattern in useAppLayoutController: ${rx}`,
+        `forbidden pattern in layout composition root: ${rx}`,
       ).toBe(false);
     }
+  });
+
+  it('keeps useAppLayoutController.ts as a thin delegate', () => {
+    expect(FACADE_SRC).toContain('createAppLayoutController');
+    expect(FACADE_SRC).not.toContain('useAppLayoutEchoDmState({');
   });
 });

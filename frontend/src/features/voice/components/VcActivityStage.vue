@@ -40,6 +40,7 @@ import type {
   EchoTicTacToeActivityV1,
   EchoTicTacToeInviteV1,
   EchoYoutubePlaybackSyncV1,
+  EchoMediaPlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import { useAuthSessionStore } from '@/stores/authSession';
 import {
@@ -48,6 +49,7 @@ import {
   isEchoNativeVcActivityKey,
   type EchoVcActivityKey,
 } from '@shared/vcActivityCatalog';
+import { WATCH_TOGETHER_VC_ACTIVITY_ENABLED } from '@shared/integrationKillSwitches';
 import { isIosTauriShell } from '@/platform/iosNativeFeedback';
 import type {
   VcActivityUiState,
@@ -68,6 +70,9 @@ import {
   useVcYoutubeWatchTogetherPlayer,
   type VcYoutubeRemotePlaybackState,
 } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
+import type { VcWatchTogetherRemotePlaybackState } from '@/features/voice/composables/useVcWatchTogetherPlayer';
+import VcWatchTogetherLobby from '@/features/voice/components/VcWatchTogetherLobby.vue';
+import VcWatchTogetherStage from '@/features/voice/components/VcWatchTogetherStage.vue';
 import { compareVcActivityLibraryCards } from '@/features/voice/stage/vcActivityLibrarySort';
 
 const appBase = import.meta.env.BASE_URL || '/';
@@ -77,6 +82,10 @@ const appBase = import.meta.env.BASE_URL || '/';
  */
 const vcActivityArt = {
   youtube: withBasePath('/vc-activities/youtube-hero.svg', appBase),
+  watchTogether: withBasePath(
+    '/vc-activities/watch-together-hero.svg',
+    appBase,
+  ),
   wordle: withBasePath('/vc-activities/wordle-hero.png', appBase),
   hangman: withBasePath('/vc-activities/hangman-hero.svg', appBase),
   skriggles: withBasePath('/vc-activities/skriggles-hero.svg', appBase),
@@ -108,6 +117,15 @@ const VC_ACTIVITY_LIBRARY_CARDS: readonly {
     description:
       'Shared queue with voice · one host drives sync until they leave; you follow automatically',
     ariaLabel: 'Open YouTube activity',
+  },
+  {
+    key: 'watch_together',
+    artKey: 'watchTogether',
+    widgetClass: 'vc-act-widget--watch-together',
+    title: 'Watch Together',
+    description:
+      'Upload your own videos · Echo+ hosts transcode to HLS and sync playback in voice',
+    ariaLabel: 'Open Watch Together activity',
   },
   {
     key: 'wordle',
@@ -231,6 +249,7 @@ const props = withDefaults(
     voiceSideChatCollapsed?: boolean;
     expandVoiceSideChat?: () => void;
     openVcActivityYoutubeBrowse: () => void;
+    openVcActivityWatchTogether: () => void;
     openVcActivityWordle: () => void;
     openVcActivityHangman: () => void;
     openVcActivityTicTacToe: () => void;
@@ -325,6 +344,21 @@ const props = withDefaults(
     publishVcYoutubePlaybackSync?: (sample: EchoYoutubePlaybackSyncV1) => void;
     vcYoutubeRemotePlayback?: MaybeRef<VcYoutubeRemotePlaybackState | null>;
     vcYoutubePlaybackShouldPublish?: MaybeRef<boolean>;
+    setWatchTogetherLobbyRole: (
+      role: VcActivityUiState['watchTogetherLobbyRole'],
+    ) => void;
+    ensureWatchTogetherSessionId: () => string;
+    patchWatchTogetherUi: (patch: Partial<VcActivityUiState>) => void;
+    setWatchTogetherBrowseOpen: (open: boolean) => void;
+    startWatchTogetherSession: () => void;
+    playWatchTogetherAtIndex: (index: number) => void;
+    publishVcWatchTogetherPlaybackSync?: (
+      sample: EchoMediaPlaybackSyncV1,
+    ) => void;
+    vcWatchTogetherRemotePlayback?: MaybeRef<VcWatchTogetherRemotePlaybackState | null>;
+    vcWatchTogetherPlaybackShouldPublish?: MaybeRef<boolean>;
+    voiceChannelId?: string;
+    effectiveVcActivityKingUserId?: string;
   }>(),
   {
     voiceSideChatCollapsed: false,
@@ -475,6 +509,13 @@ function openActivityFromLibrary(key: VcActivityLibraryCardKey): void {
     case 'youtube':
       props.openVcActivityYoutubeBrowse();
       break;
+    case 'watch_together':
+      if (WATCH_TOGETHER_VC_ACTIVITY_ENABLED) {
+        props.openVcActivityWatchTogether();
+      } else {
+        props.openVcActivityPicker();
+      }
+      break;
     case 'wordle':
       props.openVcActivityWordle();
       break;
@@ -614,12 +655,14 @@ const activityRegionLabel = computed(() => {
   if (p === 'tic_tac_toe') return 'Tic Tac Echo';
   if (p === 'codenames') return 'Echoed Names';
   if (isVcIframeEmbedPhase(p)) return vcIframeEmbedTitle(p);
+  if (p === 'watch_together') return 'Watch Together';
   return 'YouTube watch together';
 });
 
 const showVcFullscreenControl = computed(
   () =>
     st.value.phase === 'youtube' ||
+    st.value.phase === 'watch_together' ||
     st.value.phase === 'wordle' ||
     st.value.phase === 'hangman' ||
     st.value.phase === 'skriggles' ||
@@ -966,7 +1009,10 @@ function onKeydownRoot(e: KeyboardEvent) {
     st.value.phase === 'tic_tac_toe'
   ) {
     props.openVcActivityPicker();
-  } else if (isVcIframeEmbedPhase(st.value.phase)) {
+  } else if (
+    st.value.phase === 'watch_together' ||
+    isVcIframeEmbedPhase(st.value.phase)
+  ) {
     props.openVcActivityPicker();
   } else {
     props.closeVcActivity();
@@ -976,6 +1022,7 @@ function onKeydownRoot(e: KeyboardEvent) {
 function headerBack() {
   if (
     st.value.phase === 'youtube' ||
+    st.value.phase === 'watch_together' ||
     st.value.phase === 'wordle' ||
     st.value.phase === 'hangman' ||
     st.value.phase === 'skriggles' ||
@@ -1989,6 +2036,39 @@ watch(
         </div>
       </div>
     </div>
+
+    <VcWatchTogetherLobby
+      v-else-if="
+        st.phase === 'watch_together' && !st.watchTogetherSessionStarted
+      "
+      :state="st"
+      :channel-id="voiceChannelId ?? ''"
+      :current-user-id="currentUserId ?? null"
+      :effective-king-user-id="effectiveVcActivityKingUserId ?? ''"
+      :live-kit-connected="tttLiveKitConnected"
+      :set-watch-together-lobby-role="setWatchTogetherLobbyRole"
+      :ensure-watch-together-session-id="ensureWatchTogetherSessionId"
+      :patch-watch-together-ui="patchWatchTogetherUi"
+      :start-watch-together-session="startWatchTogetherSession"
+      :open-activity-picker="openVcActivityPicker"
+    />
+    <VcWatchTogetherStage
+      v-else-if="
+        st.phase === 'watch_together' && st.watchTogetherSessionStarted
+      "
+      :state="st"
+      :compact-layout="compactLayout"
+      :live-kit-connected="tttLiveKitConnected"
+      :publish-vc-watch-together-playback-sync="
+        publishVcWatchTogetherPlaybackSync
+      "
+      :vc-watch-together-remote-playback="vcWatchTogetherRemotePlayback"
+      :vc-watch-together-playback-should-publish="
+        vcWatchTogetherPlaybackShouldPublish
+      "
+      :set-watch-together-browse-open="setWatchTogetherBrowseOpen"
+      :play-watch-together-at-index="playWatchTogetherAtIndex"
+    />
 
     <!-- Wordline -->
     <div

@@ -22,3 +22,13 @@ export function useAppLayoutContextModerationSlice(
   };
   return slice;
 }
+
+export type BuildAppLayoutModerationSliceDeps = Parameters<
+  typeof useAppLayoutContextModerationSlice
+>[0];
+
+export function buildAppLayoutModerationSliceDeps(
+  deps: BuildAppLayoutModerationSliceDeps,
+): BuildAppLayoutModerationSliceDeps {
+  return deps;
+}

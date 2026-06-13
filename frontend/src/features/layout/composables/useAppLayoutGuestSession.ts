@@ -1,4 +1,4 @@
-import { ref, computed, watch, nextTick, type Ref } from 'vue';
+import { ref, computed, type Ref } from 'vue';
 import type { useServerStore } from '@/stores/server';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { useAuthSessionStore } from '@/stores/authSession';
@@ -7,12 +7,6 @@ import { AuthApiError, authContinueAsGuest } from '@/api/authClient';
 import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
 import { primeCookieSessionAfterMint } from '@/services/auth/desktopSessionPrime';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
-import { isGuestWelcomeLayoutDismissedForUser } from '@/utils/guestWelcomeLayout';
-
-/** Delays (ms) before nudging the guest "welcome prefs" modal open, by trigger. */
-const GUEST_WELCOME_PREFS_SCHEDULE_DELAY_MS = 700;
-const GUEST_WELCOME_PREFS_AFTER_NAME_DELAY_MS = 400;
-const GUEST_WELCOME_PREFS_INITIAL_DELAY_MS = 1400;
 
 export function useAppLayoutGuestSession(deps: {
   serverStore: ReturnType<typeof useServerStore>;
@@ -41,61 +35,10 @@ export function useAppLayoutGuestSession(deps: {
     () => authSession.backendUser?.isGuest === true,
   );
 
-  function tryOpenGuestWelcomePrefsModal() {
-    const u = authSession.backendUser;
-    if (!u?.isGuest || !u.id?.trim()) return;
-    if (isGuestWelcomeLayoutDismissedForUser(u.id)) return;
-    if (isGuestDisplayNameModalOpen.value) return;
-    if (isGuestWelcomePrefsModalOpen.value) return;
-    isGuestWelcomePrefsModalOpen.value = true;
-  }
-
+  /** Welcome prefs modal is opt-in via settings — do not auto-open on guest mint. */
   function scheduleGuestWelcomePrefsModal() {
-    if (typeof window === 'undefined') return;
-    window.setTimeout(
-      () => tryOpenGuestWelcomePrefsModal(),
-      GUEST_WELCOME_PREFS_SCHEDULE_DELAY_MS,
-    );
+    /* no-op */
   }
-
-  watch(
-    () => isGuestDisplayNameModalOpen.value,
-    (open, wasOpen) => {
-      if (open || !wasOpen) return;
-      void nextTick(() => {
-        window.setTimeout(
-          () => tryOpenGuestWelcomePrefsModal(),
-          GUEST_WELCOME_PREFS_AFTER_NAME_DELAY_MS,
-        );
-      });
-    },
-  );
-
-  let guestWelcomeInitialScheduleDone = false;
-  watch(
-    () => authSession.isAuthenticated,
-    (authed) => {
-      if (!authed) guestWelcomeInitialScheduleDone = false;
-    },
-  );
-
-  watch(
-    () =>
-      authSession.isAuthenticated &&
-      authSession.backendUser?.isGuest === true &&
-      (authSession.backendUser?.id ?? '').trim(),
-    (guestKey) => {
-      if (!guestKey || guestWelcomeInitialScheduleDone) return;
-      const id = authSession.backendUser?.id?.trim() ?? '';
-      if (!id || isGuestWelcomeLayoutDismissedForUser(id)) return;
-      guestWelcomeInitialScheduleDone = true;
-      window.setTimeout(
-        () => tryOpenGuestWelcomePrefsModal(),
-        GUEST_WELCOME_PREFS_INITIAL_DELAY_MS,
-      );
-    },
-    { immediate: true },
-  );
 
   async function continueAsGuest(captchaToken?: string) {
     if (!ECHO_GUEST_ACCOUNTS_ENABLED) {

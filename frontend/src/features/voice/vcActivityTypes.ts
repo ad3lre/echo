@@ -2,6 +2,7 @@ export type VcActivityUiPhase =
   | 'closed'
   | 'pick'
   | 'youtube'
+  | 'watch_together'
   | 'wordle'
   | 'hangman'
   | 'skriggles'
@@ -19,6 +20,7 @@ export type VcActivityUiPhase =
 /** Shown on VC avatars / channel list when a user has that activity surface open (LiveKit-broadcast). */
 export type VcActivityPresenceKind =
   | 'youtube'
+  | 'watch_together'
   | 'activities'
   | 'wordle'
   | 'hangman'
@@ -143,6 +145,26 @@ export type YoutubePlaylistEntry = {
   thumbnailUrl: string | null;
 };
 
+export type WatchTogetherTranscodeStatus =
+  | 'uploading'
+  | 'pending'
+  | 'processing'
+  | 'ready'
+  | 'failed';
+
+export type WatchTogetherPlaylistEntry = {
+  id: string;
+  storageKey: string;
+  sourcePublicUrl: string;
+  hlsManifestUrl: string | null;
+  title: string;
+  transcodeStatus: WatchTogetherTranscodeStatus;
+  transcodeError?: string | null;
+  byteLength: number;
+};
+
+export type WatchTogetherLobbyRole = 'choosing' | 'host' | 'follower' | null;
+
 /** Guild VC "activities" surface — fullscreen in the voice column (not a modal). */
 export type VcActivityUiState = {
   phase: VcActivityUiPhase;
@@ -157,7 +179,48 @@ export type VcActivityUiState = {
   playlist: YoutubePlaylistEntry[];
   /** Index into `playlist` for the active embed. */
   currentIndex: number;
+  watchTogetherSessionStarted: boolean;
+  watchTogetherBrowseOpen: boolean;
+  watchTogetherPlaylist: WatchTogetherPlaylistEntry[];
+  watchTogetherCurrentIndex: number;
+  watchTogetherLobbyRole: WatchTogetherLobbyRole;
+  watchTogetherSessionId: string | null;
+  watchTogetherSessionBytesUsed: number;
 };
+
+export function emptyWatchTogetherUiFields(): Pick<
+  VcActivityUiState,
+  | 'watchTogetherSessionStarted'
+  | 'watchTogetherBrowseOpen'
+  | 'watchTogetherPlaylist'
+  | 'watchTogetherCurrentIndex'
+  | 'watchTogetherLobbyRole'
+  | 'watchTogetherSessionId'
+  | 'watchTogetherSessionBytesUsed'
+> {
+  return {
+    watchTogetherSessionStarted: false,
+    watchTogetherBrowseOpen: false,
+    watchTogetherPlaylist: [],
+    watchTogetherCurrentIndex: 0,
+    watchTogetherLobbyRole: null,
+    watchTogetherSessionId: null,
+    watchTogetherSessionBytesUsed: 0,
+  };
+}
+
+export function watchTogetherNowPlaying(
+  s: VcActivityUiState,
+): WatchTogetherPlaylistEntry | null {
+  if (s.phase !== 'watch_together' || !s.watchTogetherPlaylist.length) {
+    return null;
+  }
+  const i = Math.min(
+    Math.max(0, s.watchTogetherCurrentIndex),
+    s.watchTogetherPlaylist.length - 1,
+  );
+  return s.watchTogetherPlaylist[i] ?? null;
+}
 
 export function youtubeNowPlaying(
   s: VcActivityUiState,
@@ -192,5 +255,6 @@ export function vcActivityPresenceKindsFromUi(
   if (s.phase === 'smash_karts') return ['smash_karts'];
   if (s.phase === 'cluster_rush') return ['cluster_rush'];
   if (s.phase === 'tic_tac_toe') return ['tic_tac_toe'];
+  if (s.phase === 'watch_together') return ['watch_together'];
   return ['youtube'];
 }

@@ -2,10 +2,10 @@ import { unlink } from 'node:fs/promises';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getPgPool } from '../../db/pg';
 import { hlsPackPrefixForSourceKey } from '../../../../shared/echoUploadStorageKey';
+import { echoUploadPrefersS3ObjectStore } from '../echoUploadObjectBackend';
 import {
   createEchoS3UploadClient,
   getEchoS3UploadBucket,
-  isEchoS3UploadConfigured,
 } from '../s3UploadPresign';
 import { resolveLocalUploadFilePath } from '../localUploadDisk';
 import { deleteEchoUploadPrefix } from '../echoUploadHlsObjectStore';
@@ -19,7 +19,7 @@ export async function purgeEchoUploadObject(storageKey: string): Promise<void> {
   await deleteEchoUploadPrefix(packPrefix).catch(() => {});
   await deleteEchoUploadPrefix(`${packPrefix}.staging/`).catch(() => {});
 
-  if (isEchoS3UploadConfigured()) {
+  if (echoUploadPrefersS3ObjectStore(storageKey)) {
     const client = createEchoS3UploadClient();
     const bucket = getEchoS3UploadBucket();
     if (!client || !bucket) return;

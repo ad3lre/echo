@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { emptyWatchTogetherUiFields } from '@/features/voice/vcActivityTypes';
 import { computed, createApp, h, nextTick, ref } from 'vue';
 import { createPinia } from 'pinia';
 import { channelIcons } from '@/assets/icons';
@@ -270,9 +271,11 @@ describe('runtime startup smoke', () => {
         youtubeBrowseOpen: true,
         playlist: [],
         currentIndex: 0,
+        ...emptyWatchTogetherUiFields(),
       },
       openVcActivityPicker: () => {},
       openVcActivityYoutubeBrowse: () => {},
+      openVcActivityWatchTogether: () => {},
       openVcActivityWordle: () => {},
       openVcActivityHangman: () => {},
       openVcActivitySkriggles: () => {},

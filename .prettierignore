@@ -45,6 +45,7 @@ package-lock.json
 # Generated frontend assets
 frontend/public/twemoji
 frontend/public/emoji-search-index.json
+frontend/src/data/emoji-secondary-aliases.json
 docs/overview/tree.md
 
 # Prisma migrations (binary SQL history; match .gitignore)

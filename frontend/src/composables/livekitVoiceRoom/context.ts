@@ -1,6 +1,5 @@
 import type { ComputedRef, Ref, ShallowRef } from 'vue';
 import type {
-  LocalAudioTrack,
   RemoteParticipant,
   RemoteTrack,
   RemoteTrackPublication,
@@ -97,22 +96,22 @@ export type LiveKitVoiceSessionContext = {
   vcDeafenedInternal: Ref<boolean>;
   krispSessionFailed: Ref<boolean>;
   viewerLeaveSoundAt: Map<string, number>;
-  connectInFlight: { value: boolean };
-  connectGeneration: { value: number };
-  connectAbortTarget: { value: LKRoom | null };
-  liveKitE2eeWorker: { value: Worker | null };
-  liveKitMlsKeyProvider: { value: EchoMlsKeyProvider | null };
-  applyVcAudioQueued: { value: Promise<void> };
-  lastVcAudioOpts: { value: { muted: boolean; deafened: boolean } };
-  krispAsyncRejectionCleanup: { value: (() => void) | null };
-  tabCleanup: { value: (() => void) | null };
-  mediaRecoveryCleanup: { value: (() => void) | null };
-  activeSpeakerCleanup: { value: (() => void) | null };
-  syncSpeakingLevelsFromRoom: { value: (() => void) | null };
-  audioHealthInterval: { value: ReturnType<typeof setInterval> | null };
-  micAttachDiagLogs: { value: number };
-  micGainDiagLogs: { value: number };
-  micGainZeroLogs: { value: number };
+  connectInFlight: Ref<boolean>;
+  connectGeneration: Ref<number>;
+  connectAbortTarget: ShallowRef<LKRoom | null>;
+  liveKitE2eeWorker: ShallowRef<Worker | null>;
+  liveKitMlsKeyProvider: ShallowRef<EchoMlsKeyProvider | null>;
+  applyVcAudioQueued: Ref<Promise<void>>;
+  lastVcAudioOpts: Ref<{ muted: boolean; deafened: boolean }>;
+  krispAsyncRejectionCleanup: Ref<(() => void) | null>;
+  tabCleanup: Ref<(() => void) | null>;
+  mediaRecoveryCleanup: Ref<(() => void) | null>;
+  activeSpeakerCleanup: Ref<(() => void) | null>;
+  syncSpeakingLevelsFromRoom: Ref<(() => void) | null>;
+  audioHealthInterval: Ref<ReturnType<typeof setInterval> | null>;
+  micAttachDiagLogs: Ref<number>;
+  micGainDiagLogs: Ref<number>;
+  micGainZeroLogs: Ref<number>;
   actions: LiveKitVoiceSessionActions;
 };
 

@@ -112,6 +112,7 @@ type VoiceSliceKeys =
   | 'vcActivityUi'
   | 'openVcActivityPicker'
   | 'openVcActivityYoutubeBrowse'
+  | 'openVcActivityWatchTogether'
   | 'openVcActivityWordle'
   | 'openVcActivityHangman'
   | 'openVcActivitySkriggles'
@@ -133,10 +134,19 @@ type VoiceSliceKeys =
   | 'playVcYoutubeAtIndex'
   | 'playVcYoutubeNext'
   | 'playVcYoutubePrevious'
+  | 'setWatchTogetherLobbyRole'
+  | 'ensureWatchTogetherSessionId'
+  | 'patchWatchTogetherUi'
+  | 'setWatchTogetherBrowseOpen'
+  | 'startWatchTogetherSession'
+  | 'playWatchTogetherAtIndex'
   | 'closeVcActivity'
   | 'vcYoutubeRemotePlayback'
   | 'publishVcYoutubePlaybackSync'
   | 'vcYoutubePlaybackShouldPublish'
+  | 'vcWatchTogetherRemotePlayback'
+  | 'publishVcWatchTogetherPlaybackSync'
+  | 'vcWatchTogetherPlaybackShouldPublish'
   | 'handleScreenSharePickerConfirm'
   | 'handleToggleScreenshare'
   | 'handleStopScreenShare'
@@ -164,4 +174,14 @@ export function useAppLayoutContextVoiceSlice(
 ) {
   const slice: Pick<AppLayoutControllerContext, VoiceSliceKeys> = { ...deps };
   return slice;
+}
+
+export type BuildAppLayoutVoiceSliceDeps = Parameters<
+  typeof useAppLayoutContextVoiceSlice
+>[0];
+
+export function buildAppLayoutVoiceSliceDeps(
+  deps: BuildAppLayoutVoiceSliceDeps,
+): BuildAppLayoutVoiceSliceDeps {
+  return deps;
 }

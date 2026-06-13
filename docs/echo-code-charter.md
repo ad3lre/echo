@@ -77,7 +77,7 @@ numbers, logging, and process safety.
 | C1 nesting (≥8 levels)          | **940 lines** (.ts)                                           | OPEN                    | Concentrated in the same monster modules as C3/C4.                                                                         |
 | C2 lines >100 cols              | **3,625 lines**                                               | OPEN (mostly low)       | Mostly long string literals / table defs / comments.                                                                       |
 | C3 functions ≥120 lines         | **208 blocks**                                                | OPEN                    | Many are whole composable `useX()` setups.                                                                                 |
-| C4 files >400 lines             | **254 files** (30 over 1500)                                  | OPEN                    | Top: `useAppLayoutController.ts` 4,684.                                                                                    |
+| C4 files >400 lines             | **254 files** (30 over 1500)                                  | OPEN                    | Layout facade split done; largest layout wiring: `wireAppLayoutVoiceAndRealtime.ts` ~1,796.                                |
 | C5 terminology                  | **29 hits** (4 real `whitelist`; rest HLS/audio domain terms) | mixed                   | No `master/slave` pairs found.                                                                                             |
 | C6 magic numbers                | **8 extracted**, ~12 deferred                                 | RESOLVED (tuning knobs) | Self-evident one-shot UI delays left as WONTFIX.                                                                           |
 | C7 dead code / TODO / modelines | **1 TODO, 1 commented-line, 0 modelines**                     | low                     | Codebase is very clean here.                                                                                               |
@@ -103,7 +103,7 @@ numbers, logging, and process safety.
 
 | ID     | Lines | File                                                                              | Status                                                                                                     |
 | ------ | ----- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| C4-001 | 4684  | `frontend/src/features/layout/composables/useAppLayoutController.ts`              | OPEN                                                                                                       |
+| C4-001 | 7     | `frontend/src/features/layout/composables/useAppLayoutController.ts`              | PARTIAL (facade; wiring in `wireAppLayout*` + `buildAppLayoutAssemblyDeps`)                                |
 | C4-002 | 3586  | `frontend/src/components/AppLayout.vue`                                           | OPEN                                                                                                       |
 | C4-003 | 3502  | `frontend/src/composables/useLiveKitVoiceRoom.ts`                                 | OPEN                                                                                                       |
 | C4-004 | 3440  | `frontend/src/features/voice/components/VcActivityStage.vue`                      | OPEN                                                                                                       |
@@ -134,8 +134,8 @@ numbers, logging, and process safety.
 | C4-029 | 1624  | `frontend/src/components/chat/MessageBubble.vue`                                  | OPEN                                                                                                       |
 | C4-030 | 1561  | `frontend/src/features/layout/components/WelcomeBackExploreGate.vue`              | OPEN                                                                                                       |
 
-> Note: `useAppLayoutController.ts` (C4-001) is the subject of an in-flight
-> move-only decomposition effort — already recognized as the top offender.
+> Note: `useAppLayoutController.ts` (C4-001) is now a thin facade (~7 lines).
+> Composition debt lives in phased wiring (`wireAppLayoutDmAndShell`, `wireAppLayoutVoiceAndRealtime`, `wireAppLayoutMessagingAndProfiles`) and `buildAppLayoutAssemblyDeps.ts` (~746 lines field-mapping).
 
 ### C3 — Functions/blocks ≥120 lines (top 25 of 208)
 

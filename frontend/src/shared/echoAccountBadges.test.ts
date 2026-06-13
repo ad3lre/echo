@@ -12,6 +12,7 @@ describe('echoPublicBadgeLabel', () => {
     expect(echoPublicBadgeLabel('black')).toBe('Black');
     expect(echoPublicBadgeLabel('og')).toBe('OG');
     expect(echoPublicBadgeLabel('bug_hunter')).toBe('Bug Hunter');
+    expect(echoPublicBadgeLabel('developer')).toBe('Developer');
   });
 });
 

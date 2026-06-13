@@ -131,7 +131,7 @@ describe('useAppLayoutBannerNotices', () => {
     expect(api.showGuestUpgradeBanner.value).toBe(false);
   });
 
-  it('shows guest onboarding modal for authenticated guests', () => {
+  it('does not show guest onboarding modal (guests interact immediately)', () => {
     const { api } = mount({
       authSession: reactive({
         backendUser: {
@@ -144,7 +144,7 @@ describe('useAppLayoutBannerNotices', () => {
         clearEmailVerificationFlash: vi.fn(),
       }),
     });
-    expect(api.showGuestOnboardingModal.value).toBe(true);
+    expect(api.showGuestOnboardingModal.value).toBe(false);
   });
 
   it('resend success sets the confirmation message', async () => {

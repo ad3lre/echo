@@ -130,9 +130,9 @@ describe('serializeComposerDoc multi-paragraph', () => {
     const s = serializeComposerDoc(doc);
     ed.destroy();
     expect(s.content).toBe('a\nb');
-    // Raw offset 0 is mapped to document start (pos 1); first text char is raw 0 at pos 2.
+    // Raw offset 0 is document start (pos 1); raw 1 is before second paragraph text.
     expect(rawOffsetToEditorPos(doc, 0)).toBe(1);
-    expect(rawOffsetToEditorPos(doc, 1)).toBe(3);
+    expect(rawOffsetToEditorPos(doc, 1)).toBe(2);
     expect(rawOffsetToEditorPos(doc, 2)).toBe(4);
   });
 });

@@ -66,8 +66,10 @@ import type {
   EchoTicTacToeActivityV1,
   EchoTicTacToeInviteV1,
   EchoYoutubePlaybackSyncV1,
+  EchoMediaPlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
+import type { VcWatchTogetherRemotePlaybackState } from '@/features/voice/composables/useVcWatchTogetherPlayer';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { DmMentionNotificationRow } from '@/features/dm/collectDmMentionNotifications';
 import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
@@ -171,6 +173,7 @@ export interface AppLayoutControllerContext {
   vcActivityUi: Ref<VcActivityUiState>;
   openVcActivityPicker: () => void;
   openVcActivityYoutubeBrowse: () => void;
+  openVcActivityWatchTogether: () => void;
   openVcActivityWordle: () => void;
   openVcActivityHangman: () => void;
   openVcActivitySkriggles: () => void;
@@ -237,10 +240,21 @@ export interface AppLayoutControllerContext {
   playVcYoutubeAtIndex: (index: number) => void;
   playVcYoutubeNext: () => void;
   playVcYoutubePrevious: () => void;
+  setWatchTogetherLobbyRole: (
+    role: VcActivityUiState['watchTogetherLobbyRole'],
+  ) => void;
+  ensureWatchTogetherSessionId: () => string;
+  patchWatchTogetherUi: (patch: Partial<VcActivityUiState>) => void;
+  setWatchTogetherBrowseOpen: (open: boolean) => void;
+  startWatchTogetherSession: () => void;
+  playWatchTogetherAtIndex: (index: number) => void;
   closeVcActivity: () => void;
   vcYoutubeRemotePlayback: ShallowRef<VcYoutubeRemotePlaybackState | null>;
   publishVcYoutubePlaybackSync: (sample: EchoYoutubePlaybackSyncV1) => void;
   vcYoutubePlaybackShouldPublish: ComputedRef<boolean>;
+  vcWatchTogetherRemotePlayback: ShallowRef<VcWatchTogetherRemotePlaybackState | null>;
+  publishVcWatchTogetherPlaybackSync: (sample: EchoMediaPlaybackSyncV1) => void;
+  vcWatchTogetherPlaybackShouldPublish: ComputedRef<boolean>;
   handleScreenSharePickerConfirm: (opts: {
     quality: '1080p60' | '720p30' | '720p15' | 'auto';
     audio: boolean;

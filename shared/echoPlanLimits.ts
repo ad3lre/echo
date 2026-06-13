@@ -88,6 +88,12 @@ export const ECHO_PLAN_MAX_CUSTOM_RINGTONES: Record<EchoPlanId, number> = {
 /** Per-file cap for custom ringtone uploads (presign + registration). */
 export const ECHO_RINGTONE_UPLOAD_MAX_BYTES = 6 * 1024 * 1024;
 
+/** Guild VC Watch Together: max source file size per video (host upload). */
+export const ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES = 6 * 1024 * 1024 * 1024;
+
+/** Guild VC Watch Together: max cumulative source bytes per host session. */
+export const ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES = 20 * 1024 * 1024 * 1024;
+
 export type EchoPlanFeatureFlags = {
   lowCompression: boolean;
   rawCompression: boolean;
@@ -124,4 +130,6 @@ export type EchoPlanLimitsPublic = {
   imageSearchesPerDay: number;
   /** Distinct image-search queries used today (UTC); pagination reuses one credit per query. */
   imageSearchesUsedToday: number;
+  watchTogetherMaxVideoBytes: number;
+  watchTogetherMaxSessionBytes: number;
 };

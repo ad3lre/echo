@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <linearGradient id="wtbg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1220"/>
+      <stop offset="45%" stop-color="#121a2e"/>
+      <stop offset="100%" stop-color="#1a2744"/>
+    </linearGradient>
+  </defs>
+  <rect width="160" height="100" fill="url(#wtbg)"/>
+  <rect x="28" y="22" width="104" height="56" rx="8" fill="#0d1528" stroke="#6d9fff" stroke-width="2" opacity="0.9"/>
+  <polygon points="72,38 72,62 96,50" fill="#6d9fff"/>
+  <circle cx="118" cy="34" r="10" fill="#6d9fff" opacity="0.35"/>
+  <circle cx="42" cy="66" r="7" fill="#6d9fff" opacity="0.25"/>
+</svg>

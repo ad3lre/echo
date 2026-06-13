@@ -25,6 +25,7 @@ import type {
   EchoSkrigglesStrokeBatchV1,
   EchoSkrigglesWordChoiceIntentV1,
   EchoVcActivityPresenceV1,
+  EchoWatchTogetherActivityV1,
   EchoYoutubeActivityV1,
 } from '@/audio/voiceEchoLiveKitData';
 
@@ -107,6 +108,11 @@ export type UseLiveKitVoiceRoomOptions = {
   /** Guild VC YouTube “watch together” — incoming playlist snapshots from peers. */
   onYoutubeActivity?: (
     msg: EchoYoutubeActivityV1,
+    senderIdentity: string,
+  ) => void;
+  /** Guild VC Watch Together — incoming playlist / session snapshots from peers. */
+  onWatchTogetherActivity?: (
+    msg: EchoWatchTogetherActivityV1,
     senderIdentity: string,
   ) => void;
   /** Guild VC Hangman — authoritative snapshots from the current setter. */
@@ -278,6 +284,7 @@ export type LiveKitVoiceRoomApi = {
   }) => Promise<void>;
   /** Publish guild VC YouTube activity state to peers (reliable data channel). */
   publishYoutubeActivity: (payload: EchoYoutubeActivityV1) => void;
+  publishWatchTogetherActivity: (payload: EchoWatchTogetherActivityV1) => void;
   publishVcActivityPresence: (payload: EchoVcActivityPresenceV1) => void;
   publishHangmanActivity: (payload: EchoHangmanActivityV1) => void;
   publishHangmanGuessIntent: (payload: EchoHangmanGuessIntentV1) => void;

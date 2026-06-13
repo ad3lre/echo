@@ -42,6 +42,13 @@ import type { EchoWorkspaceEvent } from '@shared/types';
 import { isEchoGraphId } from '@/utils/echoIds';
 import { resolveGuildMemberDisplayName } from '@/utils/resolveGuildMemberDisplayName';
 import {
+  buildWatchTogetherActivityPayload,
+  shouldPublishWatchTogether,
+  shouldPublishWatchTogetherActivity,
+  watchTogetherPayloadMatchesLocalUi,
+  withWatchTogetherSuppressPublish,
+} from '@/features/voice/watchTogetherBridge';
+import {
   buildYoutubeActivityPayload,
   shouldPublishYoutubeWatchTogether,
   withYoutubeWatchTogetherSuppressPublish,
@@ -51,14 +58,19 @@ import type {
   VcActivityPresenceKind,
   VcActivityUiPhase,
   VcActivityUiState,
+  WatchTogetherPlaylistEntry,
   YoutubePlaylistEntry,
 } from '@/features/voice/vcActivityTypes';
-import { vcActivityPresenceKindsFromUi } from '@/features/voice/vcActivityTypes';
+import {
+  emptyWatchTogetherUiFields,
+  vcActivityPresenceKindsFromUi,
+} from '@/features/voice/vcActivityTypes';
 import { primaryVcActivityPresenceKind } from '@/features/voice/vcActivityJoin';
 import { VOICE_E2EE_V2_ENABLED } from '@/config';
 // `voiceMlsSession` pulls in the ts-mls crypto stack; dynamically imported at the
 // voice-reconcile handler below so it stays off the first-paint AppLayout chunk.
 import type { VcYoutubeRemotePlaybackState } from '@/features/voice/composables/useVcYoutubeWatchTogetherPlayer';
+import type { VcWatchTogetherRemotePlaybackState } from '@/features/voice/composables/useVcWatchTogetherPlayer';
 import type {
   EchoCodenamesActivityV1,
   EchoCodenamesAffiliationV1,
@@ -78,6 +90,8 @@ import type {
   EchoTicTacToeInviteV1,
   EchoYoutubeActivityV1,
   EchoYoutubePlaybackSyncV1,
+  EchoWatchTogetherActivityV1,
+  EchoMediaPlaybackSyncV1,
 } from '@/audio/voiceEchoLiveKitData';
 import {
   coerceHangmanActivityToLocalRoster,
@@ -202,6 +216,16 @@ export function useServerVoiceSession(deps: {
     updatedAt: number;
     activityPhase?: VcActivityUiPhase;
   }) => void;
+  applyVcWatchTogetherRemote: (snapshot: {
+    sessionId: string;
+    sessionStarted: boolean;
+    playlist: WatchTogetherPlaylistEntry[];
+    currentIndex: number;
+    browseOpen?: boolean;
+    updatedAt: number;
+    activityPhase?: VcActivityUiPhase;
+    lobbyRole?: VcActivityUiState['watchTogetherLobbyRole'];
+  }) => void;
   /** When the activity host leaves voice, followers reset the activity surface. */
   closeVcActivity: () => void;
 }) {
@@ -228,21 +252,32 @@ export function useServerVoiceSession(deps: {
     dmCallVideo,
     vcActivityUi,
     applyVcYoutubeWatchTogetherRemote,
+    applyVcWatchTogetherRemote,
     closeVcActivity,
   } = deps;
 
   const lastAppliedYoutubeAt = ref(0);
+  const lastAppliedWatchTogetherAt = ref(0);
   /** Echo user id whose VC activity we mirror; null = self-led (publish). */
   const vcActivitySyncKingUserId = ref<string | null>(null);
   const vcActivitySyncKingDisplayName = ref('');
   const pendingIncomingYoutubeQueue = shallowRef<
     { msg: EchoYoutubeActivityV1; senderIdentity: string }[]
   >([]);
+  const pendingIncomingWatchTogetherQueue = shallowRef<
+    { msg: EchoWatchTogetherActivityV1; senderIdentity: string }[]
+  >([]);
   const vcYoutubeRemotePlayback =
     shallowRef<VcYoutubeRemotePlaybackState | null>(null);
+  const vcWatchTogetherRemotePlayback =
+    shallowRef<VcWatchTogetherRemotePlaybackState | null>(null);
   let handlingIncomingYoutubeActivity = false;
+  let handlingIncomingWatchTogetherActivity = false;
 
   const vcYoutubePlaybackShouldPublish = computed(
+    () => vcActivitySyncKingUserId.value == null,
+  );
+  const vcWatchTogetherPlaybackShouldPublish = computed(
     () => vcActivitySyncKingUserId.value == null,
   );
 
@@ -258,6 +293,10 @@ export function useServerVoiceSession(deps: {
     vcYoutubeRemotePlayback.value = null;
   }
 
+  function clearVcWatchTogetherRemotePlayback(): void {
+    vcWatchTogetherRemotePlayback.value = null;
+  }
+
   function applyRemoteYoutubePlaybackFromMsg(msg: EchoYoutubeActivityV1): void {
     const pb = msg.ytPlayback;
     if (!pb || msg.activityPhase !== 'youtube') return;
@@ -269,12 +308,28 @@ export function useServerVoiceSession(deps: {
     };
   }
 
+  function applyRemoteWatchTogetherPlaybackFromMsg(
+    msg: EchoWatchTogetherActivityV1,
+  ): void {
+    const pb = msg.wtPlayback;
+    if (!pb || msg.activityPhase !== 'watch_together') return;
+    vcWatchTogetherRemotePlayback.value = {
+      playing: pb.playing,
+      mediaTimeSec: pb.mediaTimeSec,
+      wallMs: pb.wallMs,
+      updatedAt: msg.updatedAt,
+    };
+  }
+
   function resetVcWatchTogetherConsentState(): void {
     vcActivitySyncKingUserId.value = null;
     vcActivitySyncKingDisplayName.value = '';
     pendingIncomingYoutubeQueue.value = [];
+    pendingIncomingWatchTogetherQueue.value = [];
     handlingIncomingYoutubeActivity = false;
+    handlingIncomingWatchTogetherActivity = false;
     clearVcYoutubeRemotePlayback();
+    clearVcWatchTogetherRemotePlayback();
   }
 
   let liveKitVcDataCleanupTimer: ReturnType<typeof setTimeout> | null = null;
@@ -301,6 +356,14 @@ export function useServerVoiceSession(deps: {
     });
     pendingIncomingYoutubeQueue.value = [];
     handlingIncomingYoutubeActivity = false;
+  }
+
+  function flushPendingIncomingWatchTogetherQueue(reason: string): void {
+    voiceClientTrace('voice.client:vc_watch_together_incoming_queue_flush', {
+      reason,
+    });
+    pendingIncomingWatchTogetherQueue.value = [];
+    handlingIncomingWatchTogetherActivity = false;
   }
 
   function applyIncomingYoutubeActivity(msg: EchoYoutubeActivityV1): void {
@@ -386,6 +449,7 @@ export function useServerVoiceSession(deps: {
             youtubeBrowseOpen: false,
             playlist: [],
             currentIndex: 0,
+            ...emptyWatchTogetherUiFields(),
           }),
         );
       }
@@ -425,6 +489,139 @@ export function useServerVoiceSession(deps: {
     }
   }
 
+  function applyIncomingWatchTogetherActivity(
+    msg: EchoWatchTogetherActivityV1,
+  ): void {
+    lastAppliedWatchTogetherAt.value = Math.max(
+      lastAppliedWatchTogetherAt.value,
+      msg.updatedAt,
+    );
+    withWatchTogetherSuppressPublish(() => {
+      applyVcWatchTogetherRemote({
+        sessionId: msg.sessionId,
+        sessionStarted: msg.sessionStarted,
+        playlist: msg.playlist,
+        currentIndex: msg.currentIndex,
+        browseOpen: msg.browseOpen,
+        updatedAt: msg.updatedAt,
+        activityPhase: msg.activityPhase,
+      });
+    });
+  }
+
+  function handleOneIncomingWatchTogetherActivity(
+    msg: EchoWatchTogetherActivityV1,
+    senderIdentity: string,
+  ): void {
+    const self = currentUser.value?.id?.trim();
+    if (!self) return;
+
+    const sid = senderIdentity.trim();
+    const fromId = msg.fromUserId.trim();
+    if (!fromId || sid !== fromId) return;
+
+    const local = vcActivityUi.value;
+    if (msg.updatedAt <= lastAppliedWatchTogetherAt.value) return;
+
+    const king = vcActivitySyncKingUserId.value?.trim() || null;
+    if (king && fromId !== king) return;
+
+    const fromOther = fromId !== self;
+
+    if (msg.activityPhase === 'closed' && fromOther) {
+      if (!king || fromId !== king) return;
+    }
+
+    const isWaitingFollower =
+      local.phase === 'watch_together' &&
+      !local.watchTogetherSessionStarted &&
+      local.watchTogetherLobbyRole === 'follower';
+
+    if (
+      fromOther &&
+      !king &&
+      local.phase !== 'closed' &&
+      local.phase !== 'pick' &&
+      !isWaitingFollower &&
+      !watchTogetherPayloadMatchesLocalUi(msg, local)
+    ) {
+      return;
+    }
+
+    if (watchTogetherPayloadMatchesLocalUi(msg, local)) {
+      lastAppliedWatchTogetherAt.value = Math.max(
+        lastAppliedWatchTogetherAt.value,
+        msg.updatedAt,
+      );
+      if (fromOther && msg.activityPhase === 'closed' && king === fromId) {
+        vcActivitySyncKingUserId.value = null;
+        vcActivitySyncKingDisplayName.value = '';
+      }
+      if (
+        fromOther &&
+        msg.activityPhase === 'watch_together' &&
+        msg.wtPlayback &&
+        (king == null || king === fromId)
+      ) {
+        applyRemoteWatchTogetherPlaybackFromMsg(msg);
+      }
+      return;
+    }
+
+    applyIncomingWatchTogetherActivity(msg);
+    const chId = currentVoiceChannelId.value?.trim();
+    if (chId) {
+      if (msg.activityPhase === 'closed') {
+        refreshVcChannelActivitySnapshotForCurrentChannel();
+      } else {
+        touchVcChannelActivitySnapshot(
+          chId,
+          vcActivityPresenceKindsFromUi({
+            phase: msg.activityPhase,
+            youtubeVideoId: null,
+            youtubeBrowseOpen: false,
+            playlist: [],
+            currentIndex: 0,
+            ...emptyWatchTogetherUiFields(),
+          }),
+        );
+      }
+    }
+    if (fromOther) {
+      if (msg.activityPhase === 'closed') {
+        vcActivitySyncKingUserId.value = null;
+        vcActivitySyncKingDisplayName.value = '';
+      } else {
+        vcActivitySyncKingUserId.value = fromId;
+        vcActivitySyncKingDisplayName.value = msg.fromName?.trim() ?? '';
+      }
+    }
+    if (fromOther && msg.activityPhase === 'watch_together' && msg.wtPlayback) {
+      applyRemoteWatchTogetherPlaybackFromMsg(msg);
+    }
+  }
+
+  async function drainIncomingWatchTogetherActivities(
+    msg: EchoWatchTogetherActivityV1,
+    senderIdentity: string,
+  ): Promise<void> {
+    pendingIncomingWatchTogetherQueue.value = [
+      ...pendingIncomingWatchTogetherQueue.value,
+      { msg, senderIdentity },
+    ];
+    if (handlingIncomingWatchTogetherActivity) return;
+    handlingIncomingWatchTogetherActivity = true;
+    try {
+      while (pendingIncomingWatchTogetherQueue.value.length > 0) {
+        const cur = pendingIncomingWatchTogetherQueue.value.shift();
+        if (!cur) break;
+        handleOneIncomingWatchTogetherActivity(cur.msg, cur.senderIdentity);
+      }
+    } finally {
+      handlingIncomingWatchTogetherActivity = false;
+    }
+  }
+
   watch(currentVoiceChannelId, (id, prev) => {
     const next = id?.trim() ?? '';
     const was = prev?.trim() ?? '';
@@ -432,9 +629,11 @@ export function useServerVoiceSession(deps: {
     clearVcLiveKitScheduledCleanups();
     liveKitVcReconnectFromConnectedPending = false;
     lastAppliedYoutubeAt.value = 0;
+    lastAppliedWatchTogetherAt.value = 0;
     vcActivitySyncKingUserId.value = null;
     vcActivitySyncKingDisplayName.value = '';
     flushPendingIncomingYoutubeQueue('voice_channel_changed');
+    flushPendingIncomingWatchTogetherQueue('voice_channel_changed');
   });
 
   const vcActivityPresenceByUserId = shallowRef(
@@ -975,6 +1174,9 @@ export function useServerVoiceSession(deps: {
     onYoutubeActivity: (msg, senderIdentity) => {
       void drainIncomingYoutubeActivities(msg, senderIdentity);
     },
+    onWatchTogetherActivity: (msg, senderIdentity) => {
+      void drainIncomingWatchTogetherActivities(msg, senderIdentity);
+    },
     onVcActivityPresence: (_msg, identity) => {
       mergePresenceFromRemote(identity, _msg.activities);
     },
@@ -1010,11 +1212,18 @@ export function useServerVoiceSession(deps: {
       const king = vcActivitySyncKingUserId.value?.trim();
       if (king && id === king) {
         flushPendingIncomingYoutubeQueue('watch_together_host_left');
+        flushPendingIncomingWatchTogetherQueue('watch_together_host_left');
         vcActivitySyncKingUserId.value = null;
         vcActivitySyncKingDisplayName.value = '';
         withYoutubeWatchTogetherSuppressPublish(() => {
-          closeVcActivity();
+          withWatchTogetherSuppressPublish(() => {
+            closeVcActivity();
+          });
         });
+        dispatchAppToast(
+          'Watch Together ended — the session host left voice.',
+          'info',
+        );
       }
     },
   });
@@ -1467,12 +1676,30 @@ export function useServerVoiceSession(deps: {
   function republishVcActivitySnapshotIfHostForLateJoiners() {
     if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
     if (vcActivitySyncKingUserId.value != null) return;
-    if (!shouldPublishYoutubeWatchTogether()) return;
+    const who = resolveWatchTogetherAuthor();
+    if (!who) return;
     const v = vcActivityUi.value;
     if (v.phase === 'closed') return;
     if (v.phase === 'codenames') return;
-    const who = resolveWatchTogetherAuthor();
-    if (!who) return;
+    if (v.phase === 'watch_together') {
+      if (
+        !shouldPublishWatchTogetherActivity(v, {
+          selfUserId: who.userId,
+          syncKingUserId: vcActivitySyncKingUserId.value,
+        })
+      ) {
+        return;
+      }
+      if (!shouldPublishWatchTogether()) return;
+      const payload = buildWatchTogetherActivityPayload(v, who);
+      lastAppliedWatchTogetherAt.value = Math.max(
+        lastAppliedWatchTogetherAt.value,
+        payload.updatedAt,
+      );
+      lkRoom?.publishWatchTogetherActivity(payload);
+      return;
+    }
+    if (!shouldPublishYoutubeWatchTogether()) return;
     const payload = buildYoutubeActivityPayload(v, who);
     lastAppliedYoutubeAt.value = Math.max(
       lastAppliedYoutubeAt.value,
@@ -1503,12 +1730,35 @@ export function useServerVoiceSession(deps: {
     lkRoom?.publishYoutubeActivity(payload);
   }
 
+  function publishVcWatchTogetherPlaybackSync(
+    sample: EchoMediaPlaybackSyncV1,
+  ): void {
+    if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
+    if (!vcWatchTogetherPlaybackShouldPublish.value) return;
+    if (!shouldPublishWatchTogether()) return;
+    const who = resolveWatchTogetherAuthor();
+    if (!who) return;
+    const v = vcActivityUi.value;
+    if (v.phase !== 'watch_together' || !v.watchTogetherSessionStarted) return;
+    const payload = buildWatchTogetherActivityPayload(v, {
+      userId: who.userId,
+      name: who.name,
+      wtPlayback: sample,
+    });
+    lastAppliedWatchTogetherAt.value = Math.max(
+      lastAppliedWatchTogetherAt.value,
+      payload.updatedAt,
+    );
+    lkRoom?.publishWatchTogetherActivity(payload);
+  }
+
   function scheduleVcLiveKitDataTeardownAfterDisconnect(reason: string): void {
     liveKitVcDataCleanupTimer = setTimeout(() => {
       liveKitVcDataCleanupTimer = null;
       liveKitVcReconnectFromConnectedPending = false;
       if (liveKitState.value === 'connected') return;
       lastAppliedYoutubeAt.value = 0;
+      lastAppliedWatchTogetherAt.value = 0;
       resetVcWatchTogetherConsentState();
       clearAllRemotePresence();
       vcHangmanPublic.value = null;
@@ -1542,6 +1792,7 @@ export function useServerVoiceSession(deps: {
       if (s === 'connected') {
         liveKitVcReconnectFromConnectedPending = false;
         flushPendingIncomingYoutubeQueue('livekit_connected');
+        flushPendingIncomingWatchTogetherQueue('livekit_connected');
         if (prev !== 'connected') {
           void nextTick(() =>
             republishVcActivitySnapshotIfHostForLateJoiners(),
@@ -1556,6 +1807,7 @@ export function useServerVoiceSession(deps: {
         liveKitReconnectQueueFlushTimer = setTimeout(() => {
           liveKitReconnectQueueFlushTimer = null;
           flushPendingIncomingYoutubeQueue('livekit_reconnect_settled');
+          flushPendingIncomingWatchTogetherQueue('livekit_reconnect_settled');
         }, VC_LK_RECONNECT_QUEUE_FLUSH_MS);
         return;
       }
@@ -1575,6 +1827,7 @@ export function useServerVoiceSession(deps: {
           return;
         }
         flushPendingIncomingYoutubeQueue('livekit_connect_aborted');
+        flushPendingIncomingWatchTogetherQueue('livekit_connect_aborted');
       }
     },
   );
@@ -1621,6 +1874,8 @@ export function useServerVoiceSession(deps: {
     () => {
       if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
       if (!shouldPublishYoutubeWatchTogether()) return;
+      const v = vcActivityUi.value;
+      if (v.phase === 'watch_together') return;
       const who = resolveWatchTogetherAuthor();
       if (!who) return;
       const payload = buildYoutubeActivityPayload(vcActivityUi.value, {
@@ -1637,6 +1892,36 @@ export function useServerVoiceSession(deps: {
   );
 
   watch(
+    vcActivityUi,
+    () => {
+      if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
+      if (!shouldPublishWatchTogether()) return;
+      const v = vcActivityUi.value;
+      if (v.phase !== 'watch_together') return;
+      const who = resolveWatchTogetherAuthor();
+      if (
+        !who ||
+        !shouldPublishWatchTogetherActivity(v, {
+          selfUserId: who.userId,
+          syncKingUserId: vcActivitySyncKingUserId.value,
+        })
+      ) {
+        return;
+      }
+      const payload = buildWatchTogetherActivityPayload(vcActivityUi.value, {
+        userId: who.userId,
+        name: who.name,
+      });
+      lastAppliedWatchTogetherAt.value = Math.max(
+        lastAppliedWatchTogetherAt.value,
+        payload.updatedAt,
+      );
+      lkRoom?.publishWatchTogetherActivity(payload);
+    },
+    { deep: true },
+  );
+
+  watch(
     () => vcActivityUi.value.phase,
     (phase) => {
       if (phase === 'closed') {
@@ -1645,6 +1930,9 @@ export function useServerVoiceSession(deps: {
       }
       if (phase !== 'youtube') {
         clearVcYoutubeRemotePlayback();
+      }
+      if (phase !== 'watch_together') {
+        clearVcWatchTogetherRemotePlayback();
       }
       if (phase !== 'hangman') {
         vcHangmanSecretByRound.value = new Map();
@@ -2575,6 +2863,9 @@ export function useServerVoiceSession(deps: {
     vcYoutubeRemotePlayback,
     publishVcYoutubePlaybackSync,
     vcYoutubePlaybackShouldPublish,
+    vcWatchTogetherRemotePlayback,
+    publishVcWatchTogetherPlaybackSync,
+    vcWatchTogetherPlaybackShouldPublish,
     effectiveVcActivityKingUserId,
     isCameraEnabled: lkRoom?.isCameraEnabled ?? computed(() => false),
     isScreenShareEnabled: lkRoom?.isScreenShareEnabled ?? computed(() => false),

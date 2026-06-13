@@ -56,7 +56,7 @@ const APP_LAYOUT_CONTROLLER = readFileSync(
     'features',
     'layout',
     'composables',
-    'useAppLayoutController.ts',
+    'createAppLayoutController.ts',
   ),
   'utf8',
 );

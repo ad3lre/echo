@@ -3,13 +3,17 @@
  * Used for global popularity aggregation (server-wide open counts).
  */
 
-import { YOUTUBE_INTEGRATION_ENABLED } from './integrationKillSwitches';
+import {
+  YOUTUBE_INTEGRATION_ENABLED,
+  WATCH_TOGETHER_VC_ACTIVITY_ENABLED,
+} from './integrationKillSwitches';
 
 /** TODO: set true to re-enable Echoed Names in the VC activity library and open flow. */
 export const ECHOED_NAMES_VC_ACTIVITY_ENABLED = false;
 
 export const ECHO_VC_ACTIVITY_KEYS = [
   'youtube',
+  'watch_together',
   'wordle',
   'hangman',
   'skriggles',
@@ -30,6 +34,7 @@ export type EchoVcActivityKey = (typeof ECHO_VC_ACTIVITY_KEYS)[number];
 const KEY_SET = new Set<string>(ECHO_VC_ACTIVITY_KEYS);
 const NATIVE_KEY_SET = new Set<string>([
   'youtube',
+  'watch_together',
   'wordle',
   'hangman',
   'skriggles',
@@ -55,5 +60,8 @@ export function isEchoVcActivityLibraryVisible(
 ): boolean {
   if (key === 'codenames' && !ECHOED_NAMES_VC_ACTIVITY_ENABLED) return false;
   if (key === 'youtube' && !YOUTUBE_INTEGRATION_ENABLED) return false;
+  if (key === 'watch_together' && !WATCH_TOGETHER_VC_ACTIVITY_ENABLED) {
+    return false;
+  }
   return true;
 }

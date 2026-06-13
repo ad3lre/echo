@@ -11,3 +11,6 @@ export const YOUTUBE_INTEGRATION_ENABLED = false;
 
 /** Echo incoming channel webhooks (settings UI, management API, and execute hooks). */
 export const CHANNEL_WEBHOOKS_ENABLED = false;
+
+/** Guild VC Watch Together (local uploads + synced HLS playback). */
+export const WATCH_TOGETHER_VC_ACTIVITY_ENABLED = true;

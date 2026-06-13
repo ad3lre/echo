@@ -2,10 +2,10 @@ import { createReadStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { config } from '../../config';
+import { echoUploadPrefersS3ObjectStore } from '../echoUploadObjectBackend';
 import {
   createEchoS3UploadClient,
   getEchoS3UploadBucket,
-  isEchoS3UploadConfigured,
 } from '../s3UploadPresign';
 import { resolveLocalUploadFilePath } from '../localUploadDisk';
 
@@ -22,7 +22,7 @@ export async function readEchoUploadObjectBytes(opts: {
     throw new Error('invalid byteLength');
   }
 
-  if (isEchoS3UploadConfigured()) {
+  if (echoUploadPrefersS3ObjectStore(storageKey)) {
     const client = createEchoS3UploadClient();
     const bucket = getEchoS3UploadBucket();
     if (!client || !bucket) throw new Error('S3 not configured');

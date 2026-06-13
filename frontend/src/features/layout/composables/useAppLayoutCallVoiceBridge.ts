@@ -151,6 +151,7 @@ export function useAppLayoutCallVoiceBridge(
     isCompactGuildTriPane,
     vcActivityUi: deps.vcActivityUi,
     applyVcYoutubeWatchTogetherRemote: deps.applyVcYoutubeWatchTogetherRemote,
+    applyVcWatchTogetherRemote: deps.applyVcWatchTogetherRemote,
     closeVcActivity: deps.closeVcActivity,
   });
 

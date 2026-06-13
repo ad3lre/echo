@@ -15,7 +15,11 @@ import {
 import { getMergedRolePermissions } from '../../../domain/echoStore/permissions';
 import { echoUsersShareAnyServer } from '../../../domain/echoStore/social';
 import { getEchoEntitlements } from '../../../domain/echoPlanEntitlements';
-import { ECHO_RINGTONE_UPLOAD_MAX_BYTES } from '../../../../../shared/echoPlanLimits';
+import {
+  ECHO_RINGTONE_UPLOAD_MAX_BYTES,
+  ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES,
+  ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES,
+} from '../../../../../shared/echoPlanLimits';
 import { sendError } from '../../errors';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import {
@@ -32,6 +36,12 @@ import {
   isEchoS3UploadConfigured,
 } from '../../../services/s3UploadPresign';
 import { resolveEchoUploadStorageKey } from '../../../services/echoUploadResolveDest';
+import {
+  addVcWatchTogetherSessionBytes,
+  assertVcWatchTogetherSessionQuota,
+  isVcWatchTogetherStorageKey,
+  releaseVcWatchTogetherSessionBytes,
+} from '../../../services/vcWatchTogetherSessions';
 import {
   getLocalUploadPublicPathPrefix,
   resolveLocalUploadFilePath,
@@ -122,7 +132,10 @@ export type EchoPresignBody = {
     | 'server_event_cover'
     | 'server_application_attachment'
     | 'bug_report'
-    | 'user_ringtone';
+    | 'user_ringtone'
+    | 'vc_watch_together';
+  /** Required when `purpose` is `vc_watch_together` (20 GB session budget). */
+  sessionId?: string;
   key?: string;
   contentType?: string;
   contentLength?: number;
@@ -263,6 +276,12 @@ async function canUserReadLocalUploadStorageKey(
   const pool = getPgPool();
   if (!pool) return false;
   if (key.startsWith('echo/channels/')) {
+    const parts = key.split('/');
+    const channelId = parts[2]?.trim();
+    if (!channelId) return false;
+    return canUserAccessChannel(pool, userId, channelId);
+  }
+  if (key.startsWith('echo/vc-watch/')) {
     const parts = key.split('/');
     const channelId = parts[2]?.trim();
     if (!channelId) return false;
@@ -635,11 +654,14 @@ export default async function echoUploadsRoutes(
             );
           }
           try {
+            const putMaxBytes = isVcWatchTogetherStorageKey(payload.storageKey)
+              ? ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES
+              : config.echoLocalUploadBodyMaxBytes;
             await writeLocalEchoUploadFileStream(
               payload.storageKey,
               stream,
               payload.contentLength,
-              config.echoLocalUploadBodyMaxBytes,
+              putMaxBytes,
             );
           } catch (e) {
             req.log.warn({ err: e }, 'local upload write failed');
@@ -671,7 +693,7 @@ export default async function echoUploadsRoutes(
         },
       );
     },
-    { bodyLimit: config.echoLocalUploadBodyMaxBytes },
+    { bodyLimit: ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES },
   );
 
   fastify.post<{ Body: EchoPresignBody }>(
@@ -714,6 +736,113 @@ export default async function echoUploadsRoutes(
 
       const ent = await getEchoEntitlements(pool, userId);
       const purpose = req.body?.purpose;
+      const channelId =
+        typeof req.body?.channelId === 'string'
+          ? req.body.channelId.trim()
+          : '';
+      const serverId =
+        typeof req.body?.serverId === 'string' ? req.body.serverId.trim() : '';
+
+      if (purpose === 'vc_watch_together') {
+        if (ent.plan === 'free') {
+          return sendError(
+            reply,
+            403,
+            'ECHO_PLUS_REQUIRED',
+            'Echo+ is required to host Watch Together uploads',
+          );
+        }
+        if (!config.echoLocalUploadDir) {
+          return sendError(
+            reply,
+            503,
+            'UPLOADS_NOT_CONFIGURED',
+            'Watch Together requires local uploads (ECHO_LOCAL_UPLOAD_DIR)',
+          );
+        }
+        const sessionId =
+          typeof req.body?.sessionId === 'string'
+            ? req.body.sessionId.trim()
+            : '';
+        if (!sessionId) {
+          return sendError(
+            reply,
+            400,
+            'INVALID_BODY',
+            'sessionId required for vc_watch_together presign',
+          );
+        }
+        if (
+          !Number.isFinite(contentLength) ||
+          contentLength < 1 ||
+          contentLength > ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES
+        ) {
+          return sendError(reply, 400, 'UPLOAD_TOO_LARGE', 'File too large');
+        }
+        const quota = await assertVcWatchTogetherSessionQuota(pool, {
+          sessionId,
+          hostUserId: userId,
+          channelId,
+          additionalBytes: contentLength,
+        });
+        if (!quota.ok) {
+          return sendError(
+            reply,
+            400,
+            'UPLOAD_SESSION_QUOTA',
+            `Watch Together session limit is ${ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES} bytes`,
+          );
+        }
+        const dest = await resolveEchoUploadStorageKey(pool, userId, {
+          channelId,
+          serverId,
+          purpose,
+          contentType,
+          objectKey,
+        });
+        if (!dest.ok) {
+          return sendError(
+            reply,
+            dest.error.status,
+            dest.error.code,
+            dest.error.message,
+            dest.error.detail,
+          );
+        }
+        const storageKey = dest.storageKey;
+        await insertEchoUploadIntent(pool, {
+          storageKey,
+          uploaderId: userId,
+          channelId: channelId || undefined,
+          serverId: serverId || undefined,
+          purpose,
+          contentType,
+          declaredByteLength: contentLength,
+        });
+        const token = signLocalUploadToken({
+          storageKey,
+          userId,
+          contentType,
+          contentLength,
+        });
+        const uploadUrl = '/api/v1/echo/uploads/local/put';
+        const publicUrl = localPublicUrlForStorageKey(storageKey);
+        return reply
+          .code(200)
+          .header('Cache-Control', 'private, no-store')
+          .send({
+            uploadMode: 'local' as const,
+            uploadUrl,
+            publicUrl,
+            key: storageKey,
+            headers: {
+              'Content-Type': contentType,
+              Authorization: `Bearer ${token}`,
+            },
+            publicUrlPrefixes: getEchoUploadPublicUrlPrefixes(),
+          });
+      }
+
       const useLocalDisk =
         !isEchoS3UploadConfigured() && Boolean(config.echoLocalUploadDir);
       let effectiveCap = useLocalDisk
@@ -741,16 +870,16 @@ export default async function echoUploadsRoutes(
         return sendError(reply, 400, 'UPLOAD_TOO_LARGE', 'File too large');
       }
 
-      const channelId =
+      const channelIdLegacy =
         typeof req.body?.channelId === 'string'
           ? req.body.channelId.trim()
           : '';
-      const serverId =
+      const serverIdLegacy =
         typeof req.body?.serverId === 'string' ? req.body.serverId.trim() : '';
 
       const dest = await resolveEchoUploadStorageKey(pool, userId, {
-        channelId,
-        serverId,
+        channelId: channelIdLegacy,
+        serverId: serverIdLegacy,
         purpose,
         contentType,
         objectKey,
@@ -769,8 +898,8 @@ export default async function echoUploadsRoutes(
       await insertEchoUploadIntent(pool, {
         storageKey,
         uploaderId: userId,
-        channelId: channelId || undefined,
-        serverId: serverId || undefined,
+        channelId: channelIdLegacy || undefined,
+        serverId: serverIdLegacy || undefined,
         purpose: purpose ?? undefined,
         contentType,
         declaredByteLength: contentLength,
@@ -951,6 +1080,7 @@ export default async function echoUploadsRoutes(
     phashHex?: string;
     kind?: 'image' | 'video';
     byteLength?: number;
+    sessionId?: string;
   };
 
   fastify.post<{ Body: EchoDedupeRegisterBody }>(
@@ -1138,7 +1268,10 @@ export default async function echoUploadsRoutes(
         uploaderId: userId,
       });
 
-      if (kind === 'video' && channelIdReg) {
+      if (
+        kind === 'video' &&
+        (channelIdReg || isVcWatchTogetherStorageKey(storageKeyClient))
+      ) {
         const sourceMeta = (await readEchoUploadSourceMetadata(
           storageKeyClient,
         )) ?? {
@@ -1153,6 +1286,22 @@ export default async function echoUploadsRoutes(
           sourceEtag: sourceMeta.etag,
         });
         kickVideoUploadOptimizeJob();
+      }
+
+      if (
+        isVcWatchTogetherStorageKey(storageKeyClient) &&
+        body.purpose === 'vc_watch_together'
+      ) {
+        const sessionId =
+          typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+        if (sessionId && channelIdReg) {
+          await addVcWatchTogetherSessionBytes(pool, {
+            sessionId,
+            hostUserId: userId,
+            channelId: channelIdReg,
+            byteLength,
+          });
+        }
       }
 
       return reply.code(204).send();
@@ -1344,14 +1493,146 @@ export default async function echoUploadsRoutes(
             });
         }
       }
+      if (row.status === 'processing') {
+        return reply
+          .code(200)
+          .header('Cache-Control', 'private, no-store')
+          .send({
+            status: 'processing',
+            format: 'progressive',
+            ...base,
+          });
+      }
+      if (row.status === 'failed') {
+        return reply
+          .code(200)
+          .header('Cache-Control', 'private, no-store')
+          .send({
+            status: 'failed',
+            format: 'progressive',
+            lastError: row.last_error ?? null,
+            ...base,
+          });
+      }
       return reply
         .code(200)
         .header('Cache-Control', 'private, no-store')
         .send({
-          status: row.status === 'failed' ? 'failed' : 'pending',
+          status: 'pending',
           format: 'progressive',
           ...base,
         });
+    },
+  );
+
+  fastify.post<{ Body: { sessionId?: string; byteLength?: number } }>(
+    '/uploads/vc-watch-together/release-bytes',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      bodyLimit: 4096,
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const userId = getAuthUser(req).id;
+      const sessionId =
+        typeof req.body?.sessionId === 'string'
+          ? req.body.sessionId.trim()
+          : '';
+      const byteLength =
+        typeof req.body?.byteLength === 'number' &&
+        Number.isFinite(req.body.byteLength)
+          ? Math.floor(req.body.byteLength)
+          : 0;
+      if (!sessionId || byteLength < 1) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'sessionId and byteLength required',
+        );
+      }
+      const released = await releaseVcWatchTogetherSessionBytes(pool, {
+        sessionId,
+        hostUserId: userId,
+        byteLength,
+      });
+      if (!released.ok) {
+        if (released.code === 'NOT_HOST') {
+          return sendError(
+            reply,
+            403,
+            'FORBIDDEN',
+            'Not the Watch Together session host',
+          );
+        }
+        return sendError(reply, 400, 'INVALID_BODY', 'Invalid release request');
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  fastify.post<{ Body: { url?: string } }>(
+    '/uploads/video-playback/retry',
+    {
+      preHandler: [requireAuth],
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const rawUrl = req.body?.url?.trim();
+      if (!rawUrl) {
+        return sendError(reply, 400, 'INVALID_BODY', 'url required');
+      }
+      const sourceKey = extractStorageKeyFromEchoMediaUrl(rawUrl);
+      if (!sourceKey) {
+        return sendError(reply, 400, 'INVALID_BODY', 'Invalid media url');
+      }
+      const canRead = await canUserReadLocalUploadStorageKey(req, sourceKey);
+      if (!canRead) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Not allowed to read this upload',
+        );
+      }
+      const pool = getPgPool();
+      if (!pool) {
+        return sendError(reply, 503, 'INTERNAL', 'Database unavailable');
+      }
+      const publicUrl =
+        buildEchoUploadPublicUrlForStorageKey(sourceKey) ?? rawUrl;
+      const ctRow = await pool.query<{ source_content_type: string }>(
+        `SELECT source_content_type FROM echo_video_hls_queue WHERE storage_key = $1 LIMIT 1`,
+        [sourceKey],
+      );
+      const sourceContentType =
+        ctRow.rows[0]?.source_content_type?.trim() || 'video/mp4';
+      const meta = (await readEchoUploadSourceMetadata(sourceKey)) ?? {
+        size: 0,
+        etag: '0',
+      };
+      await enqueueEchoChatVideoHls(pool, {
+        storageKey: sourceKey,
+        publicUrl,
+        sourceContentType,
+        sourceSize: meta.size,
+        sourceEtag: meta.etag,
+      });
+      kickVideoUploadOptimizeJob();
+      return reply.code(204).send();
     },
   );
 

@@ -25,6 +25,7 @@ import {
   decodeEchoSkrigglesWordChoiceIntent,
   decodeEchoVcActivityPresence,
   decodeEchoYoutubeActivity,
+  decodeEchoWatchTogetherActivity,
   encodeEchoCodenamesActivity,
   encodeEchoCodenamesClueIntent,
   encodeEchoCodenamesDealIntent,
@@ -50,6 +51,7 @@ import {
   encodeEchoSkrigglesWordChoiceIntent,
   encodeEchoVcActivityPresence,
   encodeEchoYoutubeActivity,
+  encodeEchoWatchTogetherActivity,
   type EchoCodenamesActivityV1,
   type EchoCodenamesClueIntentV1,
   type EchoCodenamesDealIntentV1,
@@ -74,12 +76,18 @@ import {
   type EchoSkrigglesStrokeBatchV1,
   type EchoSkrigglesWordChoiceIntentV1,
   type EchoVcActivityPresenceV1,
+  type EchoWatchTogetherActivityV1,
   type EchoYoutubeActivityV1,
 } from '@/audio/voiceEchoLiveKitData';
+import type { UseLiveKitVoiceRoomOptions } from '@/composables/livekitVoiceRoom.types';
 
 export type VoiceDataReceiveHandlers = {
   onYoutubeActivity?: (
     msg: EchoYoutubeActivityV1,
+    senderIdentity: string,
+  ) => void;
+  onWatchTogetherActivity?: (
+    msg: EchoWatchTogetherActivityV1,
     senderIdentity: string,
   ) => void;
   onHangmanActivity?: (
@@ -180,6 +188,40 @@ export type VoiceDataReceiveHandlers = {
   ) => void;
 };
 
+/** Activity receive callbacks from {@link UseLiveKitVoiceRoomOptions}. */
+export function voiceDataHandlersFromOpts(
+  opts: UseLiveKitVoiceRoomOptions,
+): VoiceDataReceiveHandlers {
+  return {
+    onYoutubeActivity: opts.onYoutubeActivity,
+    onWatchTogetherActivity: opts.onWatchTogetherActivity,
+    onHangmanActivity: opts.onHangmanActivity,
+    onHangmanGuessIntent: opts.onHangmanGuessIntent,
+    onHangmanNextRound: opts.onHangmanNextRound,
+    onHangmanRoundSecret: opts.onHangmanRoundSecret,
+    onCodenamesActivity: opts.onCodenamesActivity,
+    onCodenamesSpymasterKey: opts.onCodenamesSpymasterKey,
+    onCodenamesKeyToOrchestrator: opts.onCodenamesKeyToOrchestrator,
+    onCodenamesClueIntent: opts.onCodenamesClueIntent,
+    onCodenamesRevealIntent: opts.onCodenamesRevealIntent,
+    onCodenamesEndTurnIntent: opts.onCodenamesEndTurnIntent,
+    onCodenamesSetupIntent: opts.onCodenamesSetupIntent,
+    onCodenamesDealIntent: opts.onCodenamesDealIntent,
+    onCodenamesNewGameIntent: opts.onCodenamesNewGameIntent,
+    onSkrigglesActivity: opts.onSkrigglesActivity,
+    onSkrigglesGuessIntent: opts.onSkrigglesGuessIntent,
+    onSkrigglesWordChoiceIntent: opts.onSkrigglesWordChoiceIntent,
+    onSkrigglesSettingsIntent: opts.onSkrigglesSettingsIntent,
+    onSkrigglesStartIntent: opts.onSkrigglesStartIntent,
+    onSkrigglesNextRoundIntent: opts.onSkrigglesNextRoundIntent,
+    onSkrigglesRoundSecret: opts.onSkrigglesRoundSecret,
+    onSkrigglesStrokeBatch: opts.onSkrigglesStrokeBatch,
+    onSkrigglesCanvasCmd: opts.onSkrigglesCanvasCmd,
+    onSkrigglesCanvasSnapshot: opts.onSkrigglesCanvasSnapshot,
+    onVcActivityPresence: opts.onVcActivityPresence,
+  };
+}
+
 type PublishOpts = {
   destinationIdentities?: string[];
   reliable?: boolean;
@@ -225,6 +267,12 @@ export function routeVoiceDataReceived(
   const yt = decodeEchoYoutubeActivity(payload);
   if (yt) {
     handlers.onYoutubeActivity?.(yt, senderIdentity);
+    return true;
+  }
+
+  const wt = decodeEchoWatchTogetherActivity(payload);
+  if (wt) {
+    handlers.onWatchTogetherActivity?.(wt, senderIdentity);
     return true;
   }
 
@@ -377,6 +425,7 @@ export function routeVoiceDataReceived(
 
 export type VoiceDataPublishers = {
   publishYoutubeActivity: (payload: EchoYoutubeActivityV1) => void;
+  publishWatchTogetherActivity: (payload: EchoWatchTogetherActivityV1) => void;
   publishVcActivityPresence: (payload: EchoVcActivityPresenceV1) => void;
   publishHangmanActivity: (payload: EchoHangmanActivityV1) => void;
   publishHangmanGuessIntent: (payload: EchoHangmanGuessIntentV1) => void;
@@ -439,6 +488,8 @@ export function createVoiceDataPublishers(
   return {
     publishYoutubeActivity: (payload) =>
       pub(encodeEchoYoutubeActivity, payload),
+    publishWatchTogetherActivity: (payload) =>
+      pub(encodeEchoWatchTogetherActivity, payload),
     publishVcActivityPresence: (payload) =>
       pub(encodeEchoVcActivityPresence, payload),
     publishHangmanActivity: (payload) =>
