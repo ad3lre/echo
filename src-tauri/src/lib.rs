@@ -34,6 +34,9 @@ mod ios_auth;
 mod ios_features;
 mod ios_native;
 
+#[cfg(target_os = "macos")]
+mod macos_webview_shortcuts;
+
 /// Persisted preference mirrored from the SPA (close hides to tray vs exit).
 #[derive(Clone)]
 pub struct ShellPrefs {
@@ -769,6 +772,11 @@ fn setup_app_shell(app: &tauri::App) {
         "error": e,
       });
       let _ = append_log_line(app.handle(), &line.to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    if let Some(main) = app.get_webview_window("main") {
+      macos_webview_shortcuts::install_third_party_shortcut_passthrough(&main);
     }
   }
 

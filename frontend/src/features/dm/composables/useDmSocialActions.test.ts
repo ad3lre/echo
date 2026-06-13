@@ -61,11 +61,13 @@ describe('useDmSocialActions', () => {
     });
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        new Response('{}', {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response('{}', {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        ),
       ),
     );
     setActivePinia(createPinia());

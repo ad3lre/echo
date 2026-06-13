@@ -73,6 +73,42 @@ export function projectServerRailVisibleServers(
 }
 
 /**
+ * Visible rail icons in display order: membership from {@link projectServerRailVisibleServers},
+ * sequence from `allServers` (client saved rail order). Keeps drag indices aligned with the UI
+ * and preserves user reorder across starred / MRU segments.
+ */
+export function resolveVisibleServerRail(
+  allServers: readonly Server[],
+  pinned: readonly Server[],
+  mruIds: readonly string[],
+  opts?: { preferSavedOrder?: boolean },
+): Server[] {
+  const { visible: membership } = projectServerRailVisibleServers(
+    allServers,
+    pinned,
+    mruIds,
+  );
+  if (membership.length === 0) return [];
+  if (!opts?.preferSavedOrder) {
+    return membership;
+  }
+  const memberIds = new Set(membership.map((s) => s.id));
+  const ordered: Server[] = [];
+  for (const s of allServers) {
+    if (!memberIds.has(s.id)) continue;
+    ordered.push(s);
+    if (ordered.length >= VISIBLE_SERVER_RAIL_SLOT_COUNT) break;
+  }
+  if (ordered.length < membership.length) {
+    const have = new Set(ordered.map((s) => s.id));
+    for (const s of membership) {
+      if (!have.has(s.id)) ordered.push(s);
+    }
+  }
+  return ordered.slice(0, VISIBLE_SERVER_RAIL_SLOT_COUNT);
+}
+
+/**
  * Map a vertical-rail “gap before index L” (0..n) to `toIndex` for remove-then-insert reorder
  * (same semantics as `reorderVisibleServers`: splice out `fromIndex`, then splice in at `toIndex`).
  * Gap L sits before the item currently at index L (L === n is the gap after the last item).
@@ -169,14 +205,19 @@ export function reorderServerRail(input: {
   mruIds: readonly string[];
   fromIndex: number;
   toIndex: number;
+  preferSavedOrder?: boolean;
 }): { servers: Server[]; pinnedMore: Server[]; mruIds: string[] } {
-  const { allServers, pinnedMore, mruIds, fromIndex, toIndex } = input;
-  const projection = projectServerRailVisibleServers(
+  const {
     allServers,
     pinnedMore,
     mruIds,
-  );
-  const visible = projection.visible;
+    fromIndex,
+    toIndex,
+    preferSavedOrder,
+  } = input;
+  const visible = resolveVisibleServerRail(allServers, pinnedMore, mruIds, {
+    preferSavedOrder,
+  });
   if (visible.length <= 1) {
     return {
       servers: [...allServers],
@@ -195,18 +236,6 @@ export function reorderServerRail(input: {
     };
   }
 
-  const starredLen = projection.starred.length;
-  if (
-    (from < starredLen && to >= starredLen) ||
-    (from >= starredLen && to < starredLen)
-  ) {
-    return {
-      servers: [...allServers],
-      pinnedMore: [...pinnedMore],
-      mruIds: [...mruIds],
-    };
-  }
-
   const visibleIds = visible.map((s) => s.id);
   const [movedId] = visibleIds.splice(from, 1);
   if (!movedId) {
@@ -218,38 +247,12 @@ export function reorderServerRail(input: {
   }
   visibleIds.splice(to, 0, movedId);
 
-  let nextPinned = [...pinnedMore];
-  let nextMru = [...mruIds];
-  const byId = new Map(allServers.map((s) => [s.id, s] as const));
-
-  if (starredLen > 0 && from < starredLen) {
-    const newStarOrder = visibleIds.slice(0, starredLen);
-    const frontPinned = newStarOrder
-      .map((id) => byId.get(id))
-      .filter((s): s is Server => !!s);
-    const tailPinned = pinnedMore.filter((s) => !newStarOrder.includes(s.id));
-    nextPinned = [...frontPinned, ...tailPinned];
-  } else {
-    const fillIds = visibleIds.slice(starredLen);
-    const fillSet = new Set(fillIds);
-    nextMru = [...fillIds, ...mruIds.filter((id) => !fillSet.has(id))].slice(
-      0,
-      SERVER_RAIL_MRU_MAX_STORED,
-    );
-  }
-
-  const nextVisible = visibleIds
-    .map((id) => byId.get(id))
-    .filter((s): s is Server => !!s);
-  const visSet = new Set(visibleIds);
-  const remainder = allServers.filter((s) => !visSet.has(s.id));
-  const nextServers = [...nextVisible, ...remainder];
-
-  return {
-    servers: nextServers,
-    pinnedMore: nextPinned,
-    mruIds: nextMru,
-  };
+  return applyServerRailVisibleOrder({
+    allServers,
+    pinnedMore,
+    mruIds,
+    newVisibleIds: visibleIds,
+  });
 }
 
 function applyServerRailVisibleOrder(input: {
@@ -259,38 +262,26 @@ function applyServerRailVisibleOrder(input: {
   newVisibleIds: readonly string[];
 }): { servers: Server[]; pinnedMore: Server[]; mruIds: string[] } {
   const { allServers, pinnedMore, mruIds, newVisibleIds } = input;
-  const projection = projectServerRailVisibleServers(
-    allServers,
-    pinnedMore,
-    mruIds,
-  );
-  const starredLen = projection.starred.length;
   const byId = new Map(allServers.map((s) => [s.id, s] as const));
+  const pinnedSet = new Set(pinnedMore.map((s) => s.id));
+  const visibleIdSet = new Set(newVisibleIds);
 
-  let nextPinned = [...pinnedMore];
-  let nextMru = [...mruIds];
+  const visiblePinnedIds = newVisibleIds.filter((id) => pinnedSet.has(id));
+  const frontPinned = visiblePinnedIds
+    .map((id) => byId.get(id))
+    .filter((s): s is Server => !!s);
+  const tailPinned = pinnedMore.filter((s) => !visiblePinnedIds.includes(s.id));
+  const nextPinned = [...frontPinned, ...tailPinned];
 
-  if (starredLen > 0) {
-    const newStarOrder = newVisibleIds.slice(0, starredLen);
-    const frontPinned = newStarOrder
-      .map((id) => byId.get(id))
-      .filter((s): s is Server => !!s);
-    const tailPinned = pinnedMore.filter((s) => !newStarOrder.includes(s.id));
-    nextPinned = [...frontPinned, ...tailPinned];
-  } else {
-    const fillIds = newVisibleIds.slice(starredLen);
-    const fillSet = new Set(fillIds);
-    nextMru = [...fillIds, ...mruIds.filter((id) => !fillSet.has(id))].slice(
-      0,
-      SERVER_RAIL_MRU_MAX_STORED,
-    );
-  }
+  const nextMru = [
+    ...newVisibleIds,
+    ...mruIds.filter((id) => !visibleIdSet.has(id)),
+  ].slice(0, SERVER_RAIL_MRU_MAX_STORED);
 
   const nextVisible = newVisibleIds
     .map((id) => byId.get(id))
     .filter((s): s is Server => !!s);
-  const visSet = new Set(newVisibleIds);
-  const remainder = allServers.filter((s) => !visSet.has(s.id));
+  const remainder = allServers.filter((s) => !visibleIdSet.has(s.id));
   const nextServers = [...nextVisible, ...remainder];
 
   return {
@@ -312,6 +303,7 @@ export function reorderServerRailWithOverflow(input: {
   fromIndex: number;
   toIndex: number;
   overflowServerId: string;
+  preferSavedOrder?: boolean;
 }): { servers: Server[]; pinnedMore: Server[]; mruIds: string[] } {
   const {
     allServers,
@@ -320,13 +312,12 @@ export function reorderServerRailWithOverflow(input: {
     fromIndex,
     toIndex,
     overflowServerId,
+    preferSavedOrder,
   } = input;
-  const projection = projectServerRailVisibleServers(
-    allServers,
-    pinnedMore,
-    mruIds,
-  );
-  const n = projection.visible.length;
+  const visible = resolveVisibleServerRail(allServers, pinnedMore, mruIds, {
+    preferSavedOrder,
+  });
+  const n = visible.length;
   const overflowIndex = n;
 
   if (n === 0) {
@@ -344,11 +335,12 @@ export function reorderServerRailWithOverflow(input: {
       mruIds,
       fromIndex,
       toIndex,
+      preferSavedOrder,
     });
   }
 
   if (fromIndex === overflowIndex && toIndex < n) {
-    const visibleIds = projection.visible.map((s) => s.id);
+    const visibleIds = visible.map((s) => s.id);
     const to = Math.min(Math.max(0, toIndex), visibleIds.length);
     const withoutOverflow = visibleIds.filter((id) => id !== overflowServerId);
     const nextIds = [...withoutOverflow];

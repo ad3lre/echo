@@ -12,6 +12,8 @@ import { markdownKatexReadyVersion } from '@/composables/markdownKatex';
 import { normalizeExternalUrlForOpen } from '@/platform/desktopBridge';
 import ChatInviteEmbed from './ChatInviteEmbed.vue';
 import MessageJumpEmbed from './MessageJumpEmbed.vue';
+import MessageImageSlot from './MessageImageSlot.vue';
+import MessageButtonRow from './MessageButtonRow.vue';
 import MessageLinkHoverPreview from './MessageLinkHoverPreview.vue';
 
 const props = defineProps<{
@@ -19,8 +21,11 @@ const props = defineProps<{
   mentions?: MentionEntity[];
   parseIdResolvers?: IdTokenResolvers;
   embeds?: Embed[];
+  contentJson?: unknown;
   onJumpToMessage?: (channelId: string, messageId: string) => void;
   magicTime?: MagicTimeRenderContext | null;
+  canFillImageSlots?: boolean;
+  onFillImageSlot?: (slotId: string) => void;
 }>();
 
 const renderedRows = computed(() => {
@@ -32,6 +37,7 @@ const renderedRows = computed(() => {
     props.mentions,
     props.parseIdResolvers,
     props.magicTime,
+    props.contentJson,
   );
 });
 
@@ -150,6 +156,23 @@ function rowKey(row: EchoRenderedMessageRow, i: number): string {
       v-else-if="row.type === 'jump'"
       :embed="row.embed"
       :on-jump="onJumpToMessage"
+      :class="embedMarginClass(i)"
+    />
+    <MessageImageSlot
+      v-else-if="row.type === 'imageSlot'"
+      :slot-id="row.slotId"
+      :aspect-w="row.aspectW"
+      :aspect-h="row.aspectH"
+      :image-url="row.imageUrl"
+      :width="row.width"
+      :height="row.height"
+      :can-fill="canFillImageSlots"
+      :class="embedMarginClass(i)"
+      @fill="(slotId) => onFillImageSlot?.(slotId)"
+    />
+    <MessageButtonRow
+      v-else-if="row.type === 'buttonRow'"
+      :buttons="row.buttons"
       :class="embedMarginClass(i)"
     />
   </template>

@@ -15,6 +15,8 @@ export interface MentionOption {
   avatar?: string;
   /** When set, offline users get muted label styling in the popover. */
   status?: string;
+  /** Guild role chip color for `kind === 'role'`. */
+  roleColor?: string;
   special?: boolean;
   kind?: MentionKind;
 }
@@ -82,6 +84,7 @@ export function useMentionAutocomplete(
   users: Ref<MentionOption[]>,
   allowBroadcastMentions?: Ref<boolean>,
   getMentions?: () => readonly MentionTriggerSpan[],
+  roles?: Ref<MentionOption[]>,
 ) {
   const triggerStart = ref<number | null>(null);
   const query = ref('');
@@ -96,17 +99,25 @@ export function useMentionAutocomplete(
     const q = query.value;
     const broadcastOptions =
       allowBroadcastMentions?.value === false ? [] : specialOptions;
-    const combined = [...broadcastOptions, ...users.value];
+    const combined = [
+      ...broadcastOptions,
+      ...(roles?.value ?? []),
+      ...users.value,
+    ];
     const filtered = combined.filter((u) => optionMatchesQuery(u, q));
     const specials = filtered.filter((u) => u.special);
-    const regular = filtered.filter((u) => !u.special);
+    const roleItems = filtered.filter((u) => u.kind === 'role');
+    const regular = filtered.filter((u) => !u.special && u.kind !== 'role');
+    roleItems.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+    );
     regular.sort((a, b) => {
       const aOff = isMessageAuthorOffline(a.status);
       const bOff = isMessageAuthorOffline(b.status);
       if (aOff !== bOff) return Number(aOff) - Number(bOff);
       return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     });
-    return [...specials, ...regular].slice(0, SUGGESTION_LIMIT);
+    return [...specials, ...roleItems, ...regular].slice(0, SUGGESTION_LIMIT);
   });
 
   const showPopup = computed(() => {

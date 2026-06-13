@@ -107,7 +107,13 @@ export async function isEchoChatUploadAttachmentRegistered(
     `SELECT 1 FROM echo_upload_dedupe WHERE storage_key = $1 AND uploader_id = $2 LIMIT 1`,
     [key, uid],
   );
-  return (dedupe.rowCount ?? 0) > 0;
+  if ((dedupe.rowCount ?? 0) > 0) return true;
+
+  const retention = await pool.query(
+    `SELECT 1 FROM echo_chat_upload_retention WHERE storage_key = $1 AND uploader_id = $2 LIMIT 1`,
+    [key, uid],
+  );
+  return (retention.rowCount ?? 0) > 0;
 }
 
 export type UploadIntentRegisterGateResult =

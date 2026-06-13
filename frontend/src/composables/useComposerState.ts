@@ -9,6 +9,7 @@ import {
   type Ref,
 } from 'vue';
 import { Editor, type Extensions } from '@tiptap/core';
+import { Selection } from '@tiptap/pm/state';
 import HardBreak from '@tiptap/extension-hard-break';
 import Placeholder from '@tiptap/extension-placeholder';
 import StarterKit from '@tiptap/starter-kit';
@@ -19,6 +20,10 @@ import {
   buildComposerDoc,
   ChannelMentionNode,
   CustomEmojiNode,
+  ImageSlotNode,
+  ButtonRowNode,
+  insertImageSlotInEditor,
+  insertButtonRowInEditor,
   MentionEntityNode,
   isComposerContentEffectivelyEmpty,
   rawOffsetToEditorPos,
@@ -103,6 +108,12 @@ export function useComposerState(
   const keydownHandler = ref<KeydownHandler | null>(null);
   let pendingSerialized: SerializedComposer | null = null;
   let scheduleVueSync: (() => void) | null = null;
+  /** When PM caret sits inside a UTF-16 surrogate, serialized selection can lag raw tail. */
+  let selectionRawOverride: { start: number; end: number } | null = null;
+
+  function clearSelectionRawOverride() {
+    selectionRawOverride = null;
+  }
 
   function getResolvers(): IdTokenResolvers | undefined {
     return overlayIdTokenResolvers ? unref(overlayIdTokenResolvers) : undefined;
@@ -140,10 +151,18 @@ export function useComposerState(
         selectionEnd: selectionEnd.value,
       };
     }
-    return serializeComposerDoc(
+    const serialized = serializeComposerDoc(
       nextEditor.state.doc,
       nextEditor.state.selection,
     );
+    if (selectionRawOverride) {
+      return {
+        ...serialized,
+        selectionStart: selectionRawOverride.start,
+        selectionEnd: selectionRawOverride.end,
+      };
+    }
+    return serialized;
   }
 
   function syncFromEditor(nextEditor = editor.value) {
@@ -188,6 +207,7 @@ export function useComposerState(
     selectionSet: boolean,
   ) {
     if (docChanged) {
+      clearSelectionRawOverride();
       const serialized = serializeComposerDoc(
         updatedEditor.state.doc,
         updatedEditor.state.selection,
@@ -220,6 +240,7 @@ export function useComposerState(
       return;
     }
     if (selectionSet) {
+      clearSelectionRawOverride();
       syncSelectionFromEditor(updatedEditor);
     }
   }
@@ -235,12 +256,34 @@ export function useComposerState(
     // Drop any queued rAF editor sync — otherwise a stale pending snapshot can
     // overwrite programmatic updates (e.g. channel message format rehydration).
     pendingSerialized = null;
+    clearSelectionRawOverride();
     const doc = buildComposerDoc(nextContent, nextMentions, getResolvers());
     nextEditor.commands.setContent(doc, { emitUpdate: false });
-    const from = rawOffsetToEditorPos(nextEditor.state.doc, nextSelectionStart);
-    const to = rawOffsetToEditorPos(nextEditor.state.doc, nextSelectionEnd);
-    nextEditor.commands.setTextSelection({ from, to });
+    const pmDoc = nextEditor.state.doc;
+    const contentEnd = nextContent.length;
+    if (nextSelectionStart === contentEnd && nextSelectionEnd === contentEnd) {
+      // setTextSelection can land inside UTF-16 surrogate pairs; atEnd is stable.
+      nextEditor.view.dispatch(
+        nextEditor.state.tr.setSelection(Selection.atEnd(pmDoc)),
+      );
+    } else {
+      const from = rawOffsetToEditorPos(pmDoc, nextSelectionStart);
+      const to = rawOffsetToEditorPos(pmDoc, nextSelectionEnd);
+      nextEditor.commands.setTextSelection({ from, to });
+    }
     syncFromEditor(nextEditor);
+    if (
+      nextSelectionStart === contentEnd &&
+      nextSelectionEnd === contentEnd &&
+      selectionStart.value !== contentEnd
+    ) {
+      selectionRawOverride = {
+        start: contentEnd,
+        end: contentEnd,
+      };
+      selectionStart.value = contentEnd;
+      selectionEnd.value = contentEnd;
+    }
   }
 
   scheduleVueSync = createRafCoalescer(flushVueSync);
@@ -255,6 +298,7 @@ export function useComposerState(
         codeBlock: false,
         dropcursor: false,
         gapcursor: false,
+        hardBreak: false,
         heading: false,
         horizontalRule: false,
         italic: false,
@@ -272,6 +316,8 @@ export function useComposerState(
       ChannelMentionNode,
       CustomEmojiNode,
       AppIconNode,
+      ImageSlotNode,
+      ButtonRowNode,
       ComposerMarkdownDecorations,
     ] satisfies Extensions,
     content: buildComposerDoc('', [], getResolvers()),
@@ -480,6 +526,20 @@ export function useComposerState(
     return ed.getJSON() as Record<string, unknown>;
   }
 
+  function insertImageSlot(aspectW: number, aspectH: number) {
+    const ed = editor.value;
+    if (!ed) return;
+    insertImageSlotInEditor(ed, aspectW, aspectH);
+  }
+
+  function insertButtonRow(
+    buttons: import('@shared/buttonRow').ButtonRowButton[],
+  ) {
+    const ed = editor.value;
+    if (!ed) return;
+    insertButtonRowInEditor(ed, buttons);
+  }
+
   function getContent(): string {
     return getLiveSerialized().content;
   }
@@ -518,6 +578,8 @@ export function useComposerState(
     captureSnapshot,
     restoreSnapshot,
     getContentJson,
+    insertImageSlot,
+    insertButtonRow,
     setMarkdownDecorationsEnabled,
     setSerializedState,
     /** Apply any pending rAF content sync before send/draft reads. */

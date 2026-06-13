@@ -18,6 +18,18 @@ describe('useAppBootGate', () => {
     vi.useRealTimers();
   });
 
+  it('reveals immediately when the workspace is already settled at setup', () => {
+    const { api, scope } = run({
+      hasSession: false,
+      warmPainted: false,
+      initialLoadSettled: ref(true),
+      timeoutMs: 30_000,
+      fastRevealMs: 600,
+    });
+    expect(api.showBootGate.value).toBe(false);
+    scope.stop();
+  });
+
   it('starts gated and fast-reveals after fastRevealMs for progressive loading', async () => {
     const settled = ref(false);
     const { api, scope } = run({
@@ -27,16 +39,13 @@ describe('useAppBootGate', () => {
       timeoutMs: 30_000,
       fastRevealMs: 600,
     });
-    // Gate starts visible to prevent FOUC
     expect(api.showBootGate.value).toBe(true);
 
-    // Fast reveal after 600ms regardless of session/warm state
     vi.advanceTimersByTime(599);
     expect(api.showBootGate.value).toBe(true);
     vi.advanceTimersByTime(1);
     expect(api.showBootGate.value).toBe(false);
 
-    // Stays revealed even as the load progresses / time passes.
     settled.value = true;
     await nextTick();
     vi.advanceTimersByTime(30_000);
@@ -59,21 +68,6 @@ describe('useAppBootGate', () => {
     scope.stop();
   });
 
-  it('starts gated and fast-reveals even when load already settled', () => {
-    const { api, scope } = run({
-      hasSession: false,
-      warmPainted: false,
-      initialLoadSettled: ref(true),
-      timeoutMs: 30_000,
-      fastRevealMs: 600,
-    });
-    expect(api.showBootGate.value).toBe(true);
-
-    vi.advanceTimersByTime(600);
-    expect(api.showBootGate.value).toBe(false);
-    scope.stop();
-  });
-
   it('gates a no-session cold start and reveals after fastRevealMs', async () => {
     const settled = ref(false);
     const { api, scope } = run({
@@ -85,11 +79,9 @@ describe('useAppBootGate', () => {
     });
     expect(api.showBootGate.value).toBe(true);
 
-    // Reveals after fastRevealMs, not waiting for settled
     vi.advanceTimersByTime(600);
     expect(api.showBootGate.value).toBe(false);
 
-    // Stays revealed when load eventually settles
     settled.value = true;
     await nextTick();
     expect(api.showBootGate.value).toBe(false);
@@ -102,7 +94,7 @@ describe('useAppBootGate', () => {
       warmPainted: false,
       initialLoadSettled: ref(false),
       timeoutMs: 3000,
-      fastRevealMs: 100_000, // Very long, won't be reached
+      fastRevealMs: 100_000,
     });
     expect(api.showBootGate.value).toBe(true);
 
@@ -144,7 +136,6 @@ describe('useAppBootGate', () => {
     expect(api.showBootGate.value).toBe(true);
     scope.stop();
     vi.advanceTimersByTime(3000);
-    // Should still be true because scope was stopped before timers fired
     expect(api.showBootGate.value).toBe(true);
   });
 });

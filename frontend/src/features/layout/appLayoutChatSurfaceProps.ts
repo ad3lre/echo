@@ -101,6 +101,8 @@ export type AppLayoutChatSurfaceProps = {
   users: UserForAuthor[];
   /** Scoped list for `@` autocomplete in the composer (omit only in tests/storybook). */
   usersForMentionAutocomplete: UserForAuthor[];
+  /** Mentionable guild roles for `@` autocomplete in server channels. */
+  rolesForMentionAutocomplete: { id: string; name: string; color: string }[];
   paginatedSearchResults: (MessageWithAuthor & { channelName?: string })[];
   searchResultMessagesCount: number;
   searchResultPage: number;
@@ -483,6 +485,7 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'allChannels',
   'users',
   'usersForMentionAutocomplete',
+  'rolesForMentionAutocomplete',
   'paginatedSearchResults',
   'searchResultMessagesCount',
   'searchResultPage',

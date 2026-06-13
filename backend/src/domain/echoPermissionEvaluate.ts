@@ -29,10 +29,18 @@ import {
   mergeOverwritesForMember,
   type DbOverwriteRow,
 } from './permissionOverwriteMerge';
+import {
+  isEchoServerMember,
+  isEchoServerMemberBanned,
+  isEchoServerOwnerLocal,
+} from './echoServerMembershipChecks';
+import {
+  buildBatchEvaluationPlansFromAggregate,
+  buildEvaluationPlanFromAggregate,
+  isEchoPermAggregateCacheEnabled,
+} from './echoPermissionAggregateFold';
 import { DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS } from './echoStore/constants';
-/** @deprecated alias for backward compatibility */
-const DEFAULT_ECHO_EVERYONE_ROLE_PERMISSIONS =
-  DEFAULT_ECHO_MEMBERS_ROLE_PERMISSIONS;
+
 const RBAC_SEPARATE_TRACES = process.env.RBAC_SEPARATE_TRACES === '1';
 
 const ALL_KEYS = [...ECHO_PERMISSIONS];
@@ -56,7 +64,7 @@ export type EvaluatePermissionSetResult = {
 // Evaluation plan (pure data — no logic)
 // ---------------------------------------------------------------------------
 
-type RoleInput = {
+export type RoleInput = {
   id: string;
   position: number;
   permissions: unknown;
@@ -93,57 +101,19 @@ export type EvaluationPlan =
 // Phase 1: build plan (async, database only, zero business logic)
 // ---------------------------------------------------------------------------
 
-async function isEchoServerOwnerLocal(
-  pool: pg.Pool,
-  serverId: string,
-  userId: string,
-): Promise<boolean> {
-  const r = await pool.query(
-    `SELECT owner_id FROM echo_servers WHERE id = $1`,
-    [serverId],
-  );
-  const row = r.rows[0];
-  return !!row && String(row.owner_id) === userId;
-}
-
-async function isMember(
-  pool: pg.Pool,
-  serverId: string,
-  userId: string,
-): Promise<boolean> {
-  const r = await pool.query(
-    `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
-    [serverId, userId],
-  );
-  return r.rows.length > 0;
-}
-
-async function isBanned(
-  pool: pg.Pool,
-  serverId: string,
-  userId: string,
-): Promise<boolean> {
-  const r = await pool.query(
-    `
-    SELECT 1 FROM echo_server_bans
-    WHERE server_id = $1 AND user_id = $2
-      AND (expires_at IS NULL OR expires_at > NOW())
-    `,
-    [serverId, userId],
-  );
-  return r.rows.length > 0;
-}
-
 export async function buildEvaluationPlan(
   pool: pg.Pool,
   serverId: string,
   userId: string,
   channelId: string | undefined,
 ): Promise<EvaluationPlan> {
+  if (isEchoPermAggregateCacheEnabled()) {
+    return buildEvaluationPlanFromAggregate(pool, serverId, userId, channelId);
+  }
   const [owner, member, banned] = await Promise.all([
     isEchoServerOwnerLocal(pool, serverId, userId),
-    isMember(pool, serverId, userId),
-    isBanned(pool, serverId, userId),
+    isEchoServerMember(pool, serverId, userId),
+    isEchoServerMemberBanned(pool, serverId, userId),
   ]);
   if (owner) return { kind: 'owner_bypass' };
   if (!member) return { kind: 'not_member' };
@@ -167,7 +137,7 @@ export async function buildEvaluationPlan(
     [serverId, userId],
   );
 
-  let roles: RoleInput[] = r.rows.map(
+  const roles: RoleInput[] = r.rows.map(
     (row: {
       id: unknown;
       position: unknown;
@@ -504,13 +474,21 @@ export async function buildBatchEvaluationPlans(
   userId: string,
   channelIds: string[],
 ): Promise<Map<string, EvaluationPlan>> {
+  if (isEchoPermAggregateCacheEnabled()) {
+    return buildBatchEvaluationPlansFromAggregate(
+      pool,
+      serverId,
+      userId,
+      channelIds,
+    );
+  }
   const result = new Map<string, EvaluationPlan>();
   if (channelIds.length === 0) return result;
 
   const [owner, member, banned] = await Promise.all([
     isEchoServerOwnerLocal(pool, serverId, userId),
-    isMember(pool, serverId, userId),
-    isBanned(pool, serverId, userId),
+    isEchoServerMember(pool, serverId, userId),
+    isEchoServerMemberBanned(pool, serverId, userId),
   ]);
   if (owner) {
     for (const cid of channelIds) result.set(cid, { kind: 'owner_bypass' });
@@ -541,7 +519,7 @@ export async function buildBatchEvaluationPlans(
     [serverId, userId],
   );
 
-  let roles: RoleInput[] = r.rows.map(
+  const roles: RoleInput[] = r.rows.map(
     (row: {
       id: unknown;
       position: unknown;

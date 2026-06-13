@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import { IMAGE_SLOT_ASPECT_RATIOS } from '@shared/imageSlot';
+
 const props = withDefaults(
   defineProps<{
     canUploadFiles?: boolean;
     canCreatePolls?: boolean;
+    canInsertImageSlot?: boolean;
     placement?: 'up' | 'down';
     theme?: 'default' | 'forum';
   }>(),
   {
     canUploadFiles: true,
     canCreatePolls: true,
+    canInsertImageSlot: true,
     placement: 'up',
     theme: 'default',
   },
@@ -17,7 +21,10 @@ const props = withDefaults(
 const emit = defineEmits<{
   upload: [];
   createPoll: [];
+  insertImageSlot: [aspectW: number, aspectH: number];
 }>();
+
+const imageSlotRatios = IMAGE_SLOT_ASPECT_RATIOS;
 
 function handleUpload() {
   emit('upload');
@@ -25,6 +32,10 @@ function handleUpload() {
 
 function handleCreatePoll() {
   emit('createPoll');
+}
+
+function handleInsertImageSlot(aspectW: number, aspectH: number) {
+  emit('insertImageSlot', aspectW, aspectH);
 }
 </script>
 
@@ -75,6 +86,48 @@ function handleCreatePoll() {
           </div>
         </div>
       </button>
+      <template v-if="props.canInsertImageSlot">
+        <button
+          v-for="ratio in imageSlotRatios"
+          :key="`${ratio.w}:${ratio.h}`"
+          type="button"
+          role="menuitem"
+          class="attach-option flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-glass-hover"
+          @click="handleInsertImageSlot(ratio.w, ratio.h)"
+        >
+          <span
+            class="attach-popout__icon flex h-7 w-7 flex-shrink-0 items-center justify-center"
+          >
+            <svg
+              class="h-4 w-4 text-fg"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </span>
+          <div class="min-w-0">
+            <div
+              class="text-sm font-medium"
+              :class="props.theme === 'forum' ? 'text-fg' : 'text-foreground'"
+            >
+              Image slot {{ ratio.w }}:{{ ratio.h }}
+            </div>
+            <div
+              class="text-[11px]"
+              :class="props.theme === 'forum' ? 'text-fg-soft' : 'text-muted'"
+            >
+              Placeholder to fill later
+            </div>
+          </div>
+        </button>
+      </template>
       <button
         v-if="props.canCreatePolls"
         type="button"

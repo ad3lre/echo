@@ -294,14 +294,25 @@ export default async function echoPublicRoutes(
           'Client reported boot stall',
         );
 
-        void sendBootStallAlertEmail(req.log, {
-          kind,
-          clientMeta,
-          timingMeta,
-          stateMeta,
-          requestIp: req.ip,
-          userAgent: String(req.headers['user-agent'] ?? '(unknown)'),
-        });
+        const userAgent = String(req.headers['user-agent'] ?? '(unknown)');
+        const clientUa =
+          typeof clientMeta.userAgent === 'string' ? clientMeta.userAgent : '';
+        const isTestRunner =
+          /\bvitest\b/i.test(userAgent) ||
+          /\bvitest\b/i.test(clientUa) ||
+          /\bplaywright\b/i.test(userAgent) ||
+          /\bcypress\b/i.test(userAgent);
+
+        if (!isTestRunner) {
+          void sendBootStallAlertEmail(req.log, {
+            kind,
+            clientMeta,
+            timingMeta,
+            stateMeta,
+            requestIp: req.ip,
+            userAgent,
+          });
+        }
 
         return reply.code(202).send({ ok: true });
       },

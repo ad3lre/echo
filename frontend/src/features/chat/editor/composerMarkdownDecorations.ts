@@ -461,14 +461,14 @@ export function findComposerMarkdownStyleRanges(
     occupy(s, e);
   }
 
-  /* --- bold __...__ --- */
-  const boldUnderRe = /__([^_\n]+?)__/g;
-  while ((cm = boldUnderRe.exec(content))) {
+  /* --- underline __...__ (Discord; GFM uses ** for bold) --- */
+  const underlineRe = /__([^_\n]+?)__/g;
+  while ((cm = underlineRe.exec(content))) {
     const s = cm.index;
     const e = s + cm[0].length;
     if (!isFree(s, e)) continue;
     segs.push({ start: s, end: s + 2, class: 'composer-md-delim' });
-    segs.push({ start: s + 2, end: e - 2, class: 'composer-md-bold' });
+    segs.push({ start: s + 2, end: e - 2, class: 'composer-md-underline' });
     segs.push({ start: e - 2, end: e, class: 'composer-md-delim' });
     occupy(s, e);
   }

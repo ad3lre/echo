@@ -17,6 +17,9 @@ export const APP_LAYOUT_LOAD_TIMEOUT_MS = 30_000;
  */
 export const APP_BOOT_GATE_TIMEOUT_MS = 3_000;
 
+/** Progressive boot gate: reveal the app shell with skeletons after this delay. */
+export const APP_BOOT_GATE_FAST_REVEAL_MS = 600;
+
 /** Boot gate still visible this long after workspace settled → report stall (gate race). */
 export const APP_BOOT_GATE_SETTLED_STALL_MS = 1_500;
 

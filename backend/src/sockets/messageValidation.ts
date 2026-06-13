@@ -5,7 +5,12 @@ import type {
 import { CHAT_E2EE_REMOVED_DETAIL } from '../../../shared/chatE2eePolicy';
 import { ECHO_CONTENT_SCHEMA_VERSION } from '../../../shared/echoMessageFormatV2';
 import { isEchoPublicId } from '../../../shared/snowflakeIds';
-import { validateContentJsonForWrite } from '../domain/contentJsonValidation';
+import {
+  validateContentJsonForWrite,
+  validateContentJsonSchemaVersionForDoc,
+} from '../domain/contentJsonValidation';
+import { countImageSlots } from '../../../shared/imageSlotContentJson';
+import { countButtonRows } from '../../../shared/buttonRowContentJson';
 import type { EchoPollStoredDefinition } from '../domain/echoPollVotesDal';
 import { projectPlainAndMentionsFromContentJson } from '../domain/messagePlainTextProjection';
 import { isEchoS3UploadConfigured } from '../services/s3UploadPresign';
@@ -734,6 +739,21 @@ export function validateMessagePayload(payload: unknown):
     if (!docCheck.ok) {
       return { ok: false, error: `Invalid message: ${docCheck.error}` };
     }
+    const schemaErr = validateContentJsonSchemaVersionForDoc(
+      docCheck.doc,
+      contentSchemaVersion,
+    );
+    if (schemaErr) {
+      return { ok: false, error: `Invalid message: ${schemaErr}` };
+    }
+    const imageSlotCount = countImageSlots(docCheck.doc);
+    const buttonRowCount = countButtonRows(docCheck.doc);
+    if (forwardMessageId && (imageSlotCount > 0 || buttonRowCount > 0)) {
+      return {
+        ok: false,
+        error: 'Invalid message: cannot forward with rich content blocks',
+      };
+    }
     const { plain, mentions: serverMentions } =
       projectPlainAndMentionsFromContentJson(docCheck.doc);
     if (plain.length > MAX_MESSAGE_LENGTH) {
@@ -742,7 +762,14 @@ export function validateMessagePayload(payload: unknown):
         error: 'Invalid message: derived plain text too long',
       };
     }
-    if (!pollDef && !hasMedia && !plain.trim() && !forwardMessageId) {
+    if (
+      !pollDef &&
+      !hasMedia &&
+      !plain.trim() &&
+      imageSlotCount === 0 &&
+      buttonRowCount === 0 &&
+      !forwardMessageId
+    ) {
       return { ok: false, error: 'Invalid message: empty message' };
     }
     const outMentions = serverMentions.length ? serverMentions : undefined;
@@ -916,6 +943,15 @@ export function validateMessageEditPayload(
     if (!docCheck.ok) {
       return { ok: false, error: `Invalid edit: ${docCheck.error}` };
     }
+    const schemaErr = validateContentJsonSchemaVersionForDoc(
+      docCheck.doc,
+      contentSchemaVersion,
+    );
+    if (schemaErr) {
+      return { ok: false, error: `Invalid edit: ${schemaErr}` };
+    }
+    const imageSlotCount = countImageSlots(docCheck.doc);
+    const buttonRowCount = countButtonRows(docCheck.doc);
     const { plain, mentions: serverMentions } =
       projectPlainAndMentionsFromContentJson(docCheck.doc);
     if (plain.length > MAX_MESSAGE_LENGTH) {
@@ -923,7 +959,12 @@ export function validateMessageEditPayload(
     }
     const hasNonEmptyAttachments =
       attachmentsReplace !== undefined && attachmentsReplace.length > 0;
-    if (!plain.trim() && !hasNonEmptyAttachments) {
+    if (
+      !plain.trim() &&
+      !hasNonEmptyAttachments &&
+      imageSlotCount === 0 &&
+      buttonRowCount === 0
+    ) {
       return { ok: false, error: 'Invalid edit: empty message' };
     }
     const outMentions = serverMentions.length ? serverMentions : undefined;
@@ -971,6 +1012,72 @@ export function validateMessageEditPayload(
       ...(attachmentsReplace !== undefined
         ? { attachments: attachmentsReplace }
         : {}),
+    },
+  };
+}
+
+export function validateImageSlotFillPayload(payload: unknown):
+  | {
+      ok: true;
+      value: {
+        channelId: string;
+        messageId: string;
+        slotId: string;
+        imageUrl: string;
+        storageKey?: string;
+        width?: number;
+        height?: number;
+        correlationId?: string;
+      };
+    }
+  | { ok: false; error: string } {
+  if (!payload || typeof payload !== 'object') {
+    return { ok: false, error: 'Invalid fill: payload required' };
+  }
+  const p = payload as Record<string, unknown>;
+  const channelId = typeof p.channelId === 'string' ? p.channelId.trim() : '';
+  const messageId = typeof p.messageId === 'string' ? p.messageId.trim() : '';
+  const slotId = typeof p.slotId === 'string' ? p.slotId.trim() : '';
+  if (!channelId)
+    return { ok: false, error: 'Invalid fill: channelId required' };
+  if (!messageId || !isValidClientMessageId(messageId)) {
+    return { ok: false, error: 'Invalid fill: messageId required' };
+  }
+  if (!slotId || slotId.length > 64) {
+    return { ok: false, error: 'Invalid fill: slotId required' };
+  }
+  const blockData = isEchoS3UploadConfigured();
+  const imageUrl = sanitizeMediaUrlInner(p.imageUrl, blockData);
+  if (!imageUrl) {
+    return { ok: false, error: 'Invalid fill: imageUrl required' };
+  }
+  let storageKey: string | undefined;
+  if (p.storageKey !== undefined && p.storageKey !== null) {
+    if (typeof p.storageKey !== 'string') {
+      return { ok: false, error: 'Invalid fill: storageKey invalid' };
+    }
+    const sk = p.storageKey.trim();
+    if (!sk || sk.length > 512) {
+      return { ok: false, error: 'Invalid fill: storageKey invalid' };
+    }
+    storageKey = sk;
+  }
+  const dims = sanitizeAttachmentDimensions(p);
+  let correlationId: string | undefined;
+  if (typeof p.correlationId === 'string') {
+    const c = p.correlationId.trim();
+    if (c.length > 0 && c.length <= 128) correlationId = c;
+  }
+  return {
+    ok: true,
+    value: {
+      channelId,
+      messageId,
+      slotId,
+      imageUrl,
+      ...(storageKey ? { storageKey } : {}),
+      ...dims,
+      ...(correlationId ? { correlationId } : {}),
     },
   };
 }

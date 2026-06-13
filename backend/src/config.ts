@@ -334,6 +334,14 @@ interface AppConfig {
   readonly echoStatusProbeTimeoutMs: number;
   /** Days of UTC daily buckets exposed on GET /api/v1/status. */
   readonly echoStatusHistoryDays: number;
+  /**
+   * How often the recorded Prometheus metrics are emailed as a digest (ms).
+   * 0 disables the job. Default weekly (7 days). The job ticks more frequently
+   * but only sends once this period has elapsed since the last send.
+   */
+  readonly echoMetricsDigestIntervalMs: number;
+  /** Recipient of the weekly metrics digest. Defaults to {@link echoBugsEmail}. */
+  readonly echoMetricsDigestEmail: string;
   /** Max chat messages per user per channel per minute (socket). */
   readonly echoSocketMsgPerMinute: number;
   /** Burst: max messages per user per channel within burst window. */
@@ -966,6 +974,16 @@ export const config: AppConfig = {
     if (raw) return raw;
     return 'https://chat-echo.com/favicon.svg';
   })(),
+  echoMetricsDigestIntervalMs: (() => {
+    const raw = process.env.ECHO_METRICS_DIGEST_INTERVAL_MS;
+    if (raw === undefined || raw === '') return 7 * 24 * 60 * 60 * 1000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 7 * 24 * 60 * 60 * 1000;
+  })(),
+  echoMetricsDigestEmail:
+    process.env.ECHO_METRICS_DIGEST_EMAIL?.trim() ||
+    process.env.ECHO_BUGS_EMAIL?.trim() ||
+    'bugs@chat-echo.com',
   echoStatusProbeTimeoutMs: (() => {
     const raw = process.env.ECHO_STATUS_PROBE_TIMEOUT_MS;
     if (raw === undefined || raw === '') return 12_000;
@@ -1288,7 +1306,7 @@ export const config: AppConfig = {
     process.env.ECHO_DISCORD_TOKEN_ENCRYPTION_KEY?.trim() || null,
   redisUrl: process.env.REDIS_URL?.trim() || null,
   authLegacyBearer: parseBoolean(process.env.AUTH_LEGACY_BEARER, false),
-  /** Session-bound bearer for iOS native shell; safe in production (revocable via server session). */
+  /** Session-bound bearer for native Tauri shells (iOS + desktop); revocable via server session. */
   authNativeBearer: parseBoolean(process.env.AUTH_NATIVE_BEARER, false),
   echoLoginEventsRetentionDays: (() => {
     const raw = process.env.ECHO_LOGIN_EVENTS_RETENTION_DAYS;

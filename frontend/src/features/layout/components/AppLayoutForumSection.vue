@@ -47,6 +47,7 @@ const props = defineProps<{
     username?: string;
     nickname?: string;
   }[];
+  mentionRoles?: { id: string; name: string; color?: string }[];
   allChannels: ChannelSummary[];
   effectiveActiveChannel: ChannelSummary | null;
   activeChannelMessagesMap: Map<
@@ -447,6 +448,7 @@ watch(
                 :server-id="selectedServerId"
                 :users="users"
                 :mention-users="mentionUsers"
+                :mention-roles="mentionRoles"
                 :channels="allChannels"
                 :send-message="handlePostComposerSend"
                 :message-format-template="
@@ -1000,6 +1002,7 @@ watch(
           :resolve-author-role="resolveAuthorRole"
           :users="users"
           :mention-users="mentionUsers"
+          :mention-roles="mentionRoles"
           :channels="allChannels"
           :send-message="sendMessage"
           :on-request-forward="onRequestForward"

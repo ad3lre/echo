@@ -16,6 +16,7 @@ import AppLayoutLoadError from '@/components/AppLayoutLoadError.vue';
 import AppLayoutSplash from '@/components/AppLayoutSplash.vue';
 import EchoHoverHintsHost from '@/components/EchoHoverHintsHost.vue';
 import {
+  APP_BOOT_GATE_FAST_REVEAL_MS,
   APP_BOOT_GATE_TIMEOUT_MS,
   APP_LAYOUT_LOAD_TIMEOUT_MS,
 } from '@/config/appLoadUi';
@@ -85,7 +86,9 @@ provide(PLATFORM_KEY, echoPlatform);
  * frame.
  */
 const authSessionStore = useAuthSessionStore();
-const hasSessionAtBoot = !!authSessionStore.accessToken?.trim();
+/** Cookie sessions keep `accessToken` null; trust identity cache + unverified flag. */
+const hasSessionAtBoot =
+  authSessionStore.isAuthenticated || authSessionStore.isSessionUnverified;
 
 const workspace = echoPlatform.workspace;
 const { showBootGate } = useAppBootGate({
@@ -93,7 +96,7 @@ const { showBootGate } = useAppBootGate({
   warmPainted: workspace.fromApi.value,
   initialLoadSettled: workspace.initialLoadSettled,
   timeoutMs: APP_BOOT_GATE_TIMEOUT_MS,
-  fastRevealMs: 600, // Show app shell quickly with skeleton states
+  fastRevealMs: APP_BOOT_GATE_FAST_REVEAL_MS,
 });
 
 const appLayoutResolved = ref(false);
@@ -133,6 +136,7 @@ useAppBootStallWatcher({
   showAppLayout,
   appLayoutResolved,
   bootGateTimeoutMs: APP_BOOT_GATE_TIMEOUT_MS,
+  bootGateFastRevealMs: APP_BOOT_GATE_FAST_REVEAL_MS,
   hasSession: hasSessionAtBoot,
 });
 

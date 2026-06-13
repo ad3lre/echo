@@ -28,6 +28,9 @@ import { echoT } from '@/i18n';
 import { messageForDiscordOAuthError } from '@/features/discord/discordIntegrationCopy';
 import { messageForGoogleOAuthError } from '@/features/google/googleIntegrationCopy';
 import { useAuthSessionStore } from '@/stores/authSession';
+import { getEchoPlatform } from '@/platform/createEchoPlatform';
+import type { WorkspaceStateApi } from '@/composables/workspace/types';
+import { primeCookieSessionAfterMint } from '@/services/auth/desktopSessionPrime';
 import {
   clearPendingDesktopOAuthHandoffNonce,
   createPendingDesktopOAuthHandoffNonce,
@@ -176,6 +179,19 @@ export function useInlineAuthFlow(opts: {
     errorMessage.value = message;
   }
 
+  /** After minting a session, prime cookies then reconcile workspace (desktop OAuth parity). */
+  async function adoptSessionAndLoadWorkspace(
+    session: Parameters<typeof authSession.setSession>[0],
+  ): Promise<void> {
+    authSession.setSession(session);
+    const primed = await primeCookieSessionAfterMint();
+    if (primed) {
+      authSession.applyRestoredProfile(primed, { allowUnauthenticated: true });
+    }
+    const workspace = getEchoPlatform().workspace as WorkspaceStateApi;
+    await workspace.startInitialLoad();
+  }
+
   async function completePasskey(
     credential: unknown,
     challengeId: string,
@@ -188,7 +204,7 @@ export function useInlineAuthFlow(opts: {
       beginMfaChallenge(result.mfaToken);
       return;
     }
-    authSession.setSession(result);
+    await adoptSessionAndLoadWorkspace(result);
   }
 
   /**
@@ -299,7 +315,7 @@ export function useInlineAuthFlow(opts: {
         beginMfaChallenge(result.mfaToken);
         return;
       }
-      authSession.setSession(result);
+      await adoptSessionAndLoadWorkspace(result);
     } catch (e) {
       setAuthError(mapError(e));
     } finally {
@@ -330,7 +346,7 @@ export function useInlineAuthFlow(opts: {
       const session = await authLoginMfa(
         useTotp ? { mfaToken: token, code } : { mfaToken: token, recoveryCode },
       );
-      authSession.setSession(session);
+      await adoptSessionAndLoadWorkspace(session);
       mfaToken.value = null;
     } catch (e) {
       setAuthError(mapError(e));
@@ -375,7 +391,7 @@ export function useInlineAuthFlow(opts: {
       const session = authSession.backendUser?.isGuest
         ? await authUpgradeGuest(payload)
         : await authRegister(payload);
-      authSession.setSession(session);
+      await adoptSessionAndLoadWorkspace(session);
     } catch (e) {
       setAuthError(mapError(e));
     } finally {

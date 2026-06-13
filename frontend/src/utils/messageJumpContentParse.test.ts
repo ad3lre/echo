@@ -1,6 +1,7 @@
 import type { Embed } from '@shared/types';
 import { describe, expect, it } from 'vitest';
 import {
+  appendOrphanEchoJumpEmbedSegments,
   isEchoMessageJumpEmbedUrl,
   mergeEchoJumpEmbedsForMessage,
   splitContentByEchoJumpEmbeds,
@@ -106,5 +107,40 @@ describe('splitContentByEchoJumpEmbeds', () => {
     const content = url;
     const parts = splitContentByEchoJumpEmbeds(content, [e1, e2]);
     expect(parts.filter((p) => p.type === 'jump')).toHaveLength(1);
+  });
+});
+
+describe('appendOrphanEchoJumpEmbedSegments', () => {
+  it('appends jump segment when URL is only in contentJson', () => {
+    const url = `${BASE}/channels/ch1/m1`;
+    const contentJson = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'see this',
+              marks: [{ type: 'link', attrs: { href: url } }],
+            },
+          ],
+        },
+      ],
+    };
+    const segments = appendOrphanEchoJumpEmbedSegments(
+      [{ type: 'text', text: 'see this' }],
+      'see this',
+      contentJson,
+      undefined,
+    );
+    expect(segments).toHaveLength(2);
+    expect(segments[1]).toMatchObject({
+      type: 'jump',
+      url,
+      embed: expect.objectContaining({
+        echoJump: { channelId: 'ch1', messageId: 'm1' },
+      }),
+    });
   });
 });

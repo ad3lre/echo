@@ -3,8 +3,6 @@ import type { ComponentPublicInstance } from 'vue';
 import type { Ref } from 'vue';
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue';
 
-/** Surface height above one line (py-2 + 24px editor min) ⇒ multiline composer. */
-const COMPOSER_MULTILINE_SURFACE_PX = 44;
 import { EditorContent } from '@tiptap/vue-3';
 import type { Editor as VueEditor } from '@tiptap/vue-3';
 import type { Editor } from '@tiptap/core';
@@ -287,8 +285,6 @@ onUnmounted(() => {
     document.removeEventListener('keydown', mobileOverflowEscHandler);
   if (mobileOverflowDocDown)
     document.removeEventListener('mousedown', mobileOverflowDocDown, true);
-  composerSurfaceRo?.disconnect();
-  composerSurfaceRo = null;
 });
 
 function bindRef<E extends HTMLElement>(
@@ -300,43 +296,6 @@ function bindRef<E extends HTMLElement>(
 
 const gifPopoutAnchorRef = ref<HTMLElement | null>(null);
 const emojiPopoutAnchorRef = ref<HTMLElement | null>(null);
-
-const composerTall = ref(false);
-let composerSurfaceRo: ResizeObserver | null = null;
-
-function syncComposerTall() {
-  const el = props.composerSurfaceRef.value;
-  composerTall.value = !!el && el.clientHeight > COMPOSER_MULTILINE_SURFACE_PX;
-}
-
-watch(
-  () => props.composerSurfaceRef.value,
-  (el, _prev, onCleanup) => {
-    composerSurfaceRo?.disconnect();
-    composerSurfaceRo = null;
-    if (!el) {
-      composerTall.value = false;
-      return;
-    }
-    syncComposerTall();
-    if (typeof ResizeObserver !== 'undefined') {
-      composerSurfaceRo = new ResizeObserver(() => syncComposerTall());
-      composerSurfaceRo.observe(el);
-    }
-    onCleanup(() => {
-      composerSurfaceRo?.disconnect();
-      composerSurfaceRo = null;
-    });
-  },
-  { immediate: true },
-);
-
-watch(
-  () => props.composerContent,
-  () => {
-    void nextTick(syncComposerTall);
-  },
-);
 
 defineExpose({
   gifPopoutAnchorRef,
@@ -376,7 +335,6 @@ defineExpose({
       :class="{
         'chat-input-bar--forum': props.popoutTheme === 'forum',
         'chat-input-bar--compact-shell': props.compactShellLayout,
-        'chat-input-bar--tall': composerTall,
       }"
     >
       <button
@@ -648,7 +606,7 @@ defineExpose({
           >
             <button
               type="button"
-              class="chat-focus-ring flex items-center gap-0.5 rounded-md px-2 py-1 text-[11px] font-semibold tracking-wide transition-all hover:scale-105 hover:bg-glass-hover"
+              class="chat-focus-ring composer-toolbar-markdown-btn flex items-center justify-center rounded-md p-1 text-lg font-medium leading-none transition-colors hover:bg-glass-hover"
               :class="
                 markdownMenuActive
                   ? 'bg-glass-2 text-foreground'
@@ -661,19 +619,7 @@ defineExpose({
               title="Markdown preview mode"
               @click.stop="toggleMarkdownMenu"
             >
-              MD
-              <svg
-                class="h-3 w-3 opacity-70"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
+              m
             </button>
             <div
               v-if="markdownMenuOpen"
@@ -858,29 +804,22 @@ defineExpose({
 
 .composer-right-rail {
   gap: 0.25rem;
+  contain: layout style;
 }
 
-.chat-input-bar--tall {
-  .composer-right-rail {
-    flex-direction: column;
-    align-items: flex-end;
-    align-self: stretch;
-    justify-content: flex-end;
-  }
+.composer-toolbar-actions :deep(.chat-focus-ring) {
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
 
-  .composer-toolbar-actions {
-    flex-direction: column;
-    align-items: center;
-    gap: 0.125rem;
-  }
+.composer-toolbar-actions :deep(.chat-focus-ring:hover) {
+  transform: none;
+}
 
-  .composer-send-slot {
-    margin-left: 0;
-  }
-
-  .chat-mobile-send-btn,
-  .forum-send-btn {
-    margin-left: 0;
+@media (prefers-reduced-motion: reduce) {
+  .composer-toolbar-actions :deep(.chat-focus-ring) {
+    transition: none;
   }
 }
 
@@ -974,11 +913,11 @@ defineExpose({
 
 .chat-input-editor--emoji-only
   .chat-input-surface
-  :deep(.tiptap .composer-custom-emoji .emoji),
+  :deep(.tiptap .composer-custom-emoji),
 .chat-input-editor--emoji-only
   .chat-input-surface
-  :deep(.tiptap .composer-app-icon .emoji) {
-  vertical-align: middle;
+  :deep(.tiptap .composer-app-icon) {
+  vertical-align: -0.25em;
 }
 
 .chat-input-surface-wrap--disabled {
@@ -1030,6 +969,14 @@ defineExpose({
   margin: 0;
 }
 
+/*
+ * ProseMirror adds a trailing <br> after inline atoms (custom emoji, app icons) so the
+ * caret can follow them; without this rule it reads as a blank second line in the composer.
+ */
+.chat-input-surface :deep(.tiptap br.ProseMirror-trailingBreak) {
+  display: none;
+}
+
 .chat-input-surface :deep(.tiptap .composer-mention),
 .chat-input-surface :deep(.tiptap .composer-mention--channel),
 .chat-input-surface :deep(.tiptap .composer-mention--special) {
@@ -1057,20 +1004,66 @@ defineExpose({
 /*
  * Custom emoji atoms must stay true inline-level: `inline-flex` participates in baseline
  * alignment in a way that can temporarily inflate the line box (looks like an extra line)
- * until more text is typed. `inline-block` + middle alignment matches the text line.
+ * until more text is typed. `inline-block` + text-baseline alignment matches unicode emoji.
  */
 .chat-input-surface :deep(.tiptap .composer-custom-emoji) {
   display: inline-block;
-  vertical-align: middle;
+  vertical-align: -0.2em;
   line-height: 1;
   margin: 0 0.03em;
 }
 
 .chat-input-surface :deep(.tiptap .composer-app-icon) {
   display: inline-block;
-  vertical-align: middle;
+  vertical-align: -0.2em;
   line-height: 1;
   margin: 0 0.03em;
+}
+
+.chat-input-surface :deep(.tiptap .composer-image-slot) {
+  display: block;
+  width: 100%;
+  max-width: min(100%, 20rem);
+  margin: 0.35rem 0;
+  border-radius: 0.5rem;
+  border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--elevated) 88%, transparent);
+  overflow: hidden;
+}
+
+.chat-input-surface :deep(.tiptap .composer-image-slot__label) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.chat-input-surface :deep(.tiptap .composer-image-slot__img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.chat-input-surface :deep(.tiptap .composer-button-row) {
+  display: block;
+  width: 100%;
+  max-width: min(100%, 24rem);
+  margin: 0.35rem 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--elevated) 88%, transparent);
+}
+
+.chat-input-surface :deep(.tiptap .composer-button-row__label) {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .chat-input-surface :deep(.tiptap .emoji) {
@@ -1083,19 +1076,9 @@ defineExpose({
   vertical-align: -0.2em;
 }
 
-.chat-input-surface :deep(.tiptap .composer-custom-emoji .emoji) {
-  vertical-align: middle;
-}
-
-.chat-input-surface :deep(.tiptap .composer-app-icon .emoji) {
-  vertical-align: middle;
-}
-
 /* Shown until emoji URL or icon catalog URL is available — avoids broken <img src="">. */
 .chat-input-surface :deep(.tiptap .composer-inline-glyph-fallback) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-block;
   box-sizing: border-box;
   min-width: 1.25em;
   max-width: 7em;
@@ -1103,7 +1086,7 @@ defineExpose({
   padding: 0 0.2em;
   font-size: 0.68em;
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.25em;
   border-radius: 0.25em;
   background: var(--vue-auto-031);
   color: var(--vue-auto-041);
@@ -1126,8 +1109,9 @@ defineExpose({
   font-weight: 700;
 }
 
-.chat-input-surface :deep(.tiptap .composer-md-italic) {
-  font-style: italic;
+.chat-input-surface :deep(.tiptap .composer-md-underline) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .chat-input-surface :deep(.tiptap .composer-md-code) {
@@ -1212,7 +1196,6 @@ defineExpose({
 
 .chat-input-surface :deep(.tiptap .composer-md-blockquote) {
   color: var(--muted);
-  font-style: italic;
 }
 
 .chat-input-surface :deep(.tiptap .composer-md-list-content) {

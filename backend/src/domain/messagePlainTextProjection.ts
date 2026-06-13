@@ -3,6 +3,8 @@
  * @see docs/contracts/ECHO_CONTRACT_V2.md — INV-JSON-STRING
  */
 import type { MentionEntity } from '../../../shared/types';
+import { formatImageSlotToken } from '../../../shared/imageSlot';
+import { formatButtonRowToken } from '../../../shared/buttonRow';
 import { randomUUID } from 'node:crypto';
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -210,6 +212,33 @@ function walkNode(node: unknown, ctx: WalkCtx, depth: number): void {
         ? sanitizeAppIconFilename(attrs.filename)
         : 'icon.svg';
       appendText(ctx, `<icon:${filename}>`);
+      break;
+    }
+    case 'imageSlot': {
+      const attrs = node.attrs;
+      if (!isPlainObject(attrs)) break;
+      const slotId =
+        typeof attrs.slotId === 'string' ? attrs.slotId.trim() : '';
+      const aspectW =
+        typeof attrs.aspectW === 'number' && Number.isFinite(attrs.aspectW)
+          ? Math.floor(attrs.aspectW)
+          : 0;
+      const aspectH =
+        typeof attrs.aspectH === 'number' && Number.isFinite(attrs.aspectH)
+          ? Math.floor(attrs.aspectH)
+          : 0;
+      if (!slotId || aspectW <= 0 || aspectH <= 0) break;
+      appendText(ctx, formatImageSlotToken({ slotId, aspectW, aspectH }));
+      appendText(ctx, '\n');
+      break;
+    }
+    case 'buttonRow': {
+      const attrs = node.attrs;
+      if (!isPlainObject(attrs)) break;
+      const rowId = typeof attrs.rowId === 'string' ? attrs.rowId.trim() : '';
+      if (!rowId) break;
+      appendText(ctx, formatButtonRowToken({ rowId }));
+      appendText(ctx, '\n');
       break;
     }
     default:

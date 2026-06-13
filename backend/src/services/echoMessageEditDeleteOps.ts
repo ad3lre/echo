@@ -14,6 +14,7 @@ import {
 import { bulkSoftDeleteEchoMessagesForAuthorInServerSince } from '../domain/echoMessagesDal';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
 import { resolveAndBroadcastLinkEmbeds } from '../sockets/echoLinkEmbeds';
+import { deriveMessageComponentsFromContentJson } from '../../../shared/buttonRowContentJson';
 import type { MentionEntity } from '../../../shared/types';
 import type { FastifyBaseLogger } from 'fastify';
 import { botEventBus } from '../platform/botEventBus';
@@ -87,6 +88,12 @@ export async function editEchoMessageAndBroadcast(
       ? { mentions: row.mentions as MentionEntity[] }
       : {}),
     ...(row.attachments !== undefined ? { attachments: row.attachments } : {}),
+    ...(mf >= 2 && row.contentJson !== undefined
+      ? {
+          components:
+            deriveMessageComponentsFromContentJson(row.contentJson) ?? [],
+        }
+      : {}),
   });
 
   void resolveAndBroadcastLinkEmbeds(pool, io, log, {

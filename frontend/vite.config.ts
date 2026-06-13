@@ -119,6 +119,12 @@ function manualChunks(id: string): string | undefined {
   if (normalized.includes('socket.io-client')) return 'realtime-vendor';
   if (normalized.includes('pdfjs-dist')) return 'pdfjs';
 
+  // TipTap + ProseMirror: large, statically imported by the composer/paper editor. Isolate
+  // so editor-engine updates don't invalidate the app/layout chunk's cache line.
+  if (normalized.includes('@tiptap') || normalized.includes('prosemirror')) {
+    return 'rich-editor';
+  }
+
   return undefined;
 }
 

@@ -22,6 +22,30 @@ export const echoMessageFailedTotal = new Counter({
   registers: [registry],
 });
 
+export const echoSocketOpEnvelopeDisconnectsTotal = new Counter({
+  name: 'echo_socket_op_envelope_disconnects_total',
+  help: 'Connections ejected by the per-connection global inbound op envelope',
+  registers: [registry],
+});
+
+export type EchoChannelMetaCacheOutcome = 'hit' | 'miss';
+
+export const echoChannelMetaCacheTotal = new Counter({
+  name: 'echo_channel_meta_cache_total',
+  help: 'Channel-metadata cache outcomes on the send path (hit vs db miss)',
+  labelNames: ['outcome'],
+  registers: [registry],
+});
+
+export type EchoUnfurlCacheOutcome = 'hit' | 'coalesced' | 'miss';
+
+export const echoUnfurlCacheTotal = new Counter({
+  name: 'echo_unfurl_cache_total',
+  help: 'Link unfurl cache outcomes (hit, coalesced in-flight, miss)',
+  labelNames: ['outcome'],
+  registers: [registry],
+});
+
 export const echoMessagesPersistedTotal = new Counter({
   name: 'echo_messages_persisted_total',
   help: 'Echo messages inserted vs duplicate idempotent',

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { useAppLayoutMessageActions } from './useAppLayoutMessageActions';
+import { _resetAllIndexesForTesting } from '@/features/chat/domain/channelMessageIndex';
 import { failResult, okResult } from '@/types/actionResult';
 import * as actionFailurePropagation from '@/utils/actionFailurePropagation';
 
@@ -21,6 +22,7 @@ vi.mock('@/stores/echoSession', () => ({
 describe('useAppLayoutMessageActions editMessage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetAllIndexesForTesting();
   });
 
   it('returns false when active channel has no message list', async () => {
@@ -200,5 +202,70 @@ describe('useAppLayoutMessageActions editMessage', () => {
 
     await expect(editMessage(messageId, 'local')).resolves.toBe(true);
     expect(messages.value[channelId]![0]!.content).toBe('local');
+  });
+
+  it('uses composer-provided contentJson for v2 edits', async () => {
+    const channelId = '88888888-8888-4888-8888-888888888888';
+    const messageId = '77777777-7777-4777-7777-777777777777';
+    const activeChannelId = ref(channelId);
+    const composerJson = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'from composer' }],
+        },
+      ],
+    };
+    const messages = ref<Record<string, RawMessage[]>>({
+      [channelId]: [
+        {
+          id: messageId,
+          authorId: 'a1',
+          timestamp: new Date().toISOString(),
+          content: 'before',
+          messageFormatVersion: 2,
+          contentJson: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'before' }],
+              },
+            ],
+          },
+        },
+      ],
+    });
+    const submitEchoMessageEdit = vi.fn(() => okResult());
+    const { editMessage } = useAppLayoutMessageActions({
+      activeChannelId,
+      currentUser: ref({ id: 'u1' }),
+      users: ref([]),
+      messages,
+      votePoll: vi.fn(),
+      toggleReaction: vi.fn(),
+      recordReaction: vi.fn(),
+      clearSearch: vi.fn(),
+      onSelectServerForChannel: vi.fn(),
+      onSelectDmUser: vi.fn(),
+      isMockDataMode: false,
+      submitEchoMessageEdit,
+      getActiveChatMessageNav: () => null,
+    });
+
+    await expect(
+      editMessage(messageId, 'from composer', undefined, {
+        contentJson: composerJson,
+        mentions: [],
+      }),
+    ).resolves.toBe(true);
+    expect(messages.value[channelId]![0]!.contentJson).toEqual(composerJson);
+    expect(submitEchoMessageEdit).toHaveBeenCalledWith(
+      channelId,
+      messageId,
+      expect.objectContaining({ contentJson: composerJson }),
+      undefined,
+    );
   });
 });

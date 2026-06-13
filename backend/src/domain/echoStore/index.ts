@@ -466,6 +466,7 @@ export {
   type JoinEchoDirectoryResult,
   type UpdateEchoServerPreferencesResult,
 } from './servers';
+export { listEchoServerMemberUserIdsCached } from './serverMemberIds';
 
 export {
   listEchoDirectoryServerMemberHighlights,

@@ -36,7 +36,9 @@ export type CacheInvalidationMessage = {
 
 type Handler = (msg: CacheInvalidationMessage) => void;
 
-const handlers = new Map<string, Handler>();
+/** Multiple caches may hook the same kind (e.g. `channel:delete` clears both the
+ * channel→server and channel-metadata caches), so handlers are kept per-kind as a list. */
+const handlers = new Map<string, Handler[]>();
 
 let publisher: Redis | null = null;
 let subscriber: Redis | null = null;
@@ -60,12 +62,15 @@ export function registerCacheInvalidationHandler(
   kind: string,
   handler: Handler,
 ): void {
-  handlers.set(kind, handler);
+  const existing = handlers.get(kind);
+  if (existing) existing.push(handler);
+  else handlers.set(kind, [handler]);
 }
 
 function dispatchLocal(msg: CacheInvalidationMessage): void {
-  const handler = handlers.get(msg.kind);
-  if (handler) handler(msg);
+  const hs = handlers.get(msg.kind);
+  if (!hs) return;
+  for (const h of hs) h(msg);
 }
 
 /**
@@ -77,7 +82,9 @@ export function publishCacheInvalidation(msg: CacheInvalidationMessage): void {
   const redis = getPublisher();
   if (!redis) return;
   try {
-    void redis.publish(CHANNEL, JSON.stringify({ ...msg, origin: ORIGIN }));
+    void redis
+      .publish(CHANNEL, JSON.stringify({ ...msg, origin: ORIGIN }))
+      .catch(() => {});
   } catch {
     // Best effort: a dropped invalidation degrades to TTL-bounded staleness, not corruption.
   }
@@ -105,4 +112,28 @@ export function initCacheInvalidationBus(): void {
     dispatchLocal(msg);
   });
   void subscriber.subscribe(CHANNEL).catch(() => {});
+}
+
+/** Test seam: drive the local dispatch path (what a remote broadcast triggers) directly. */
+export function dispatchCacheInvalidationLocalForTests(
+  msg: CacheInvalidationMessage,
+): void {
+  dispatchLocal(msg);
+}
+
+/** Tear down Redis connections opened during tests (publisher/subscriber keep Node alive). */
+export function resetCacheInvalidationBusForTests(): void {
+  if (publisher) {
+    publisher.removeAllListeners();
+    publisher.on('error', () => {});
+    publisher.disconnect();
+    publisher = null;
+  }
+  if (subscriber) {
+    subscriber.removeAllListeners();
+    subscriber.on('error', () => {});
+    subscriber.disconnect();
+    subscriber = null;
+  }
+  subscribed = false;
 }

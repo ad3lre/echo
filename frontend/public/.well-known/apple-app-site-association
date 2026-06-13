@@ -42,5 +42,11 @@
         ]
       }
     ]
+  },
+  "webcredentials": {
+    "apps": [
+      "7HBQV8236H.com.echo.ios",
+      "7HBQV8236H.com.echo.desktop"
+    ]
   }
 }

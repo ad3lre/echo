@@ -237,7 +237,7 @@ const emit = defineEmits<{
           type="button"
           class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
-          @click.stop="emit('channel-menu-delete')"
+          @mousedown.prevent="emit('channel-menu-delete')"
         >
           <img
             :src="icons.trash"
@@ -327,7 +327,7 @@ const emit = defineEmits<{
           type="button"
           class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
-          @click.stop="emit('category-menu-delete')"
+          @mousedown.prevent="emit('category-menu-delete')"
         >
           <img
             :src="icons.trash"

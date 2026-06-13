@@ -22,6 +22,8 @@ const ALLOWED_TYPES = new Set([
   'blockquote',
   'codeBlock',
   'heading',
+  'imageSlot',
+  'buttonRow',
 ]);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

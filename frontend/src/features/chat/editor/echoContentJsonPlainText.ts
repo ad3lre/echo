@@ -2,6 +2,8 @@
  * Best-effort plain text from stored Echo TipTap JSON (v2), for clipboard / search fallbacks.
  * Mirrors node kinds allowed in `echoContentJsonForRender` / server validation.
  */
+import { formatImageSlotToken } from '@shared/imageSlot';
+import { formatButtonRowToken } from '@shared/buttonRow';
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -83,6 +85,24 @@ function serializeBlock(node: unknown): string {
         return node.content.map(serializeInline).join('');
       }
       return '';
+    }
+    case 'imageSlot': {
+      const attrs = node.attrs as Record<string, unknown> | undefined;
+      const slotId = String(attrs?.slotId ?? '').trim();
+      const aspectW = Number(attrs?.aspectW ?? 0);
+      const aspectH = Number(attrs?.aspectH ?? 0);
+      if (!slotId || aspectW <= 0 || aspectH <= 0) return '';
+      return formatImageSlotToken({
+        slotId,
+        aspectW,
+        aspectH,
+      });
+    }
+    case 'buttonRow': {
+      const attrs = node.attrs as Record<string, unknown> | undefined;
+      const rowId = String(attrs?.rowId ?? '').trim();
+      if (!rowId) return '';
+      return formatButtonRowToken({ rowId });
     }
     default:
       if (Array.isArray(node.content)) {

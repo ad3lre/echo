@@ -35,6 +35,34 @@ describe('findMentionTrigger', () => {
 });
 
 describe('useMentionAutocomplete', () => {
+  it('lists roles before users among non-special matches', () => {
+    const text = '@';
+    const cursor = 1;
+
+    const users = ref([{ id: 'u1', name: 'Alice', kind: 'user' as const }]);
+    const roles = ref([
+      { id: 'r1', name: 'Moderators', kind: 'role' as const },
+    ]);
+    const mentionAutocomplete = useMentionAutocomplete(
+      () => text,
+      () => cursor,
+      () => {},
+      users,
+      ref(true),
+      undefined,
+      roles,
+    );
+
+    mentionAutocomplete.updateFromInput();
+
+    expect(mentionAutocomplete.suggestions.value.map((s) => s.id)).toEqual([
+      '__everyone__',
+      '__active__',
+      'r1',
+      'u1',
+    ]);
+  });
+
   it('lists non-offline users before offline among matches (broadcast options first)', () => {
     const text = '@';
     const cursor = 1;

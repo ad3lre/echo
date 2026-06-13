@@ -406,6 +406,7 @@ export function buildAppLayoutExpose(ctx: AppLayoutControllerContext) {
     serverSettingsMemberUsers: ctx.serverSettingsMemberUsers,
     usersForChannelPanel: ctx.usersForChannelPanel,
     usersForMentionAutocomplete: ctx.usersForMentionAutocomplete,
+    rolesForMentionAutocomplete: ctx.rolesForMentionAutocomplete,
     memberPopoutOpenRolesPanel: ctx.memberPopoutOpenRolesPanel,
     memberPanelCollapsed: ctx.memberPanelCollapsed,
     memberListShowGuests: ctx.memberListShowGuests,

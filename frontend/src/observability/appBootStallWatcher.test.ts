@@ -63,9 +63,11 @@ describe('useAppBootStallWatcher', () => {
       showAppLayout,
       appLayoutResolved,
       bootGateTimeoutMs: 3_000,
+      bootGateFastRevealMs: 600,
       hasSession: true,
     });
 
+    vi.advanceTimersByTime(600);
     initialLoadSettled.value = true;
     await nextTick();
     expect(postBootStallAlert).not.toHaveBeenCalled();
@@ -81,6 +83,22 @@ describe('useAppBootStallWatcher', () => {
     scope.stop();
   });
 
+  it('does not report during the intentional fast-reveal window', async () => {
+    const scope = run({
+      showBootGate: ref(true),
+      initialLoadSettled: ref(true),
+      showAppLayout: ref(true),
+      appLayoutResolved: ref(false),
+      bootGateTimeoutMs: 3_000,
+      bootGateFastRevealMs: 600,
+      hasSession: true,
+    });
+
+    vi.advanceTimersByTime(2_099);
+    expect(postBootStallAlert).not.toHaveBeenCalled();
+    scope.stop();
+  });
+
   it('reports when the boot gate exceeds the safety timeout', async () => {
     const scope = run({
       showBootGate: ref(true),
@@ -88,6 +106,7 @@ describe('useAppBootStallWatcher', () => {
       showAppLayout: ref(true),
       appLayoutResolved: ref(false),
       bootGateTimeoutMs: 3_000,
+      bootGateFastRevealMs: 600,
       hasSession: false,
     });
 
@@ -111,6 +130,7 @@ describe('useAppBootStallWatcher', () => {
       showAppLayout,
       appLayoutResolved,
       bootGateTimeoutMs: 3_000,
+      bootGateFastRevealMs: 600,
       hasSession: false,
     });
 
@@ -135,6 +155,7 @@ describe('useAppBootStallWatcher', () => {
       showAppLayout: ref(true),
       appLayoutResolved: ref(false),
       bootGateTimeoutMs: 3_000,
+      bootGateFastRevealMs: 600,
       hasSession: true,
     });
 
@@ -151,6 +172,7 @@ describe('useAppBootStallWatcher', () => {
       showAppLayout: ref(true),
       appLayoutResolved: ref(false),
       bootGateTimeoutMs: 3_000,
+      bootGateFastRevealMs: 600,
       hasSession: true,
     });
 

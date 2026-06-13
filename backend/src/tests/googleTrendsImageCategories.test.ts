@@ -4,6 +4,7 @@ import {
   currentUtcMonthKey,
   parseGoogleTrendsRssTitles,
   refreshImageBrowseCategoriesIfStale,
+  sanitizeTrendSearchTerm,
 } from '../services/googleTrendsImageCategories';
 
 const SAMPLE_RSS = `<?xml version="1.0" encoding="UTF-8"?>
@@ -37,6 +38,19 @@ assert.equal(built[0].slug, 'simone-ashley');
 assert.equal(built[0].name, 'Simone Ashley');
 assert.equal(built[0].query, 'simone ashley');
 assert.ok(built[0].navEmoji.length > 0);
+
+assert.equal(
+  sanitizeTrendSearchTerm('**#Childcare** &amp; more'),
+  'Childcare & more',
+);
+
+const caseDupes = buildCategoriesFromTrendTerms([
+  'Childcare',
+  'childcare',
+  'CHILDCARE',
+]);
+assert.equal(caseDupes.length, 1);
+assert.equal(caseDupes[0].name, 'Childcare');
 
 void refreshImageBrowseCategoriesIfStale().then((snapshot) => {
   assert.ok(snapshot.categories.length >= 4);

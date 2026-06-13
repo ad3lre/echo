@@ -69,6 +69,11 @@ async function runMediaUrlPolicyTests(): Promise<void> {
       false,
       'http must fail when https required',
     );
+    assert.equal(
+      mediaUrlPassesEchoPolicy('https://media.giphy.com/media/abc123/200.webp'),
+      true,
+      'known GIF CDN URLs are allowed without host allowlist',
+    );
   } finally {
     restore();
     await clearConfigAndRoutes();
@@ -125,6 +130,38 @@ async function runUploadIntentTests(pool: pg.Pool): Promise<void> {
   ]);
 }
 
+async function runRetentionRegistrationTests(pool: pg.Pool): Promise<void> {
+  const { isEchoChatUploadAttachmentRegistered } =
+    await import('../services/echoUploadIntent');
+  const { registerChatUploadRetention } =
+    await import('../services/chatUploadRetention');
+  const storageKey = `echo/channels/ch_ret/u_ret/import-${Date.now()}.gif`;
+  const userId = 'u_ret_import';
+
+  await registerChatUploadRetention(pool, {
+    storageKey,
+    byteLength: 128_000,
+    sourceType: 'user',
+    uploaderId: userId,
+  });
+
+  assert.equal(
+    await isEchoChatUploadAttachmentRegistered(pool, storageKey, userId),
+    true,
+    'server-imported uploads registered via retention are attachable',
+  );
+  assert.equal(
+    await isEchoChatUploadAttachmentRegistered(pool, storageKey, 'other_user'),
+    false,
+    'retention registration is scoped to uploader',
+  );
+
+  await pool.query(
+    `DELETE FROM echo_chat_upload_retention WHERE storage_key = $1`,
+    [storageKey],
+  );
+}
+
 async function run(): Promise<void> {
   await runMediaUrlPolicyTests();
 
@@ -144,6 +181,7 @@ async function run(): Promise<void> {
   }
 
   await runUploadIntentTests(pool);
+  await runRetentionRegistrationTests(pool);
   console.log('echoUploadSecurity.test: ok');
 }
 

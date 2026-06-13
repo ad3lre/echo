@@ -18,8 +18,9 @@ describe('createAppLayoutRealtimeSocketHostCallbacks', () => {
       applyEchoChannelClientCap: vi.fn(),
       applyRealtimeAuthorHint: vi.fn(),
     });
-    cbs.onSocketConnected?.({} as any);
+    cbs.onSocketConnected?.({ recovered: false } as never);
     expect(extra).toHaveBeenCalledTimes(1);
+    expect(extra).toHaveBeenCalledWith({ recovered: false });
     expect(typeof cbs.onEchoWorkspaceEvent).toBe('function');
   });
 });

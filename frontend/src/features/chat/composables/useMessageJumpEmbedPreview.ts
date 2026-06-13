@@ -1,6 +1,12 @@
 import { ref, watch, type MaybeRefOrGetter, toValue } from 'vue';
 import type { Embed } from '@shared/types';
+import {
+  echoJumpErrorMessage,
+  isEchoJumpEmbedResolved,
+  type EchoJumpEmbedErrorCode,
+} from '@shared/echoJumpEmbedErrors';
 import { fetchEchoChannelMessage } from '@/api/echo/messages';
+import { EchoApiError } from '@/api/echo/transport';
 import { useAuthSessionStore } from '@/stores/authSession';
 
 function truncatePlain(text: string, max: number): string {
@@ -9,8 +15,13 @@ function truncatePlain(text: string, max: number): string {
   return `${t.slice(0, max - 1)}…`;
 }
 
-function isResolvedJumpEmbed(embed: Embed): boolean {
-  return Boolean(embed.description?.trim());
+function classifyJumpFetchError(err: unknown): EchoJumpEmbedErrorCode {
+  if (err instanceof EchoApiError) {
+    if (err.status === 404) return 'not_found';
+    if (err.status === 401 || err.status === 403) return 'forbidden';
+    if (err.status >= 500) return 'network_error';
+  }
+  return 'network_error';
 }
 
 /**
@@ -22,18 +33,18 @@ export function useMessageJumpEmbedPreview(
   const auth = useAuthSessionStore();
   const displayEmbed = ref<Embed | undefined>(toValue(embed));
   const loading = ref(false);
-  const resolveFailed = ref(false);
+  const resolveError = ref<EchoJumpEmbedErrorCode | null>(null);
   let requestSeq = 0;
 
   watch(
     () => toValue(embed),
     (next) => {
       const seq = ++requestSeq;
-      resolveFailed.value = false;
+      resolveError.value = next?.echoJumpError ?? null;
       displayEmbed.value = next;
       const j = next?.echoJump;
       const token = auth.accessToken?.trim();
-      if (!next || !j || !token || isResolvedJumpEmbed(next)) {
+      if (!next || !j || !token || isEchoJumpEmbedResolved(next)) {
         loading.value = false;
         return;
       }
@@ -50,6 +61,7 @@ export function useMessageJumpEmbedPreview(
           const desc = message.content?.trim()
             ? truncatePlain(message.content, 200)
             : '—';
+          resolveError.value = null;
           displayEmbed.value = {
             ...next,
             url: next.url ?? message.id,
@@ -59,11 +71,26 @@ export function useMessageJumpEmbedPreview(
             description: desc,
             author: { name: authorName },
             timestamp: message.timestamp ?? next.timestamp,
+            color: next.color ?? 0x5865f2,
             echoJump: { channelId: j.channelId, messageId: j.messageId },
+            echoJumpError: undefined,
           };
-        } catch {
+        } catch (err) {
           if (seq !== requestSeq) return;
-          resolveFailed.value = true;
+          const code = classifyJumpFetchError(err);
+          resolveError.value = code;
+          displayEmbed.value = {
+            ...next,
+            provider: next.provider ?? 'Echo',
+            title:
+              next.title && next.title !== '#channel'
+                ? next.title
+                : 'Message link',
+            description: echoJumpErrorMessage(code),
+            color: 0xed4245,
+            echoJump: { channelId: j.channelId, messageId: j.messageId },
+            echoJumpError: code,
+          };
         } finally {
           if (seq === requestSeq) loading.value = false;
         }
@@ -72,5 +99,5 @@ export function useMessageJumpEmbedPreview(
     { immediate: true, deep: true },
   );
 
-  return { displayEmbed, loading, resolveFailed };
+  return { displayEmbed, loading, resolveError };
 }

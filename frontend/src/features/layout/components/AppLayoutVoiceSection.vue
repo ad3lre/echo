@@ -103,6 +103,7 @@ const props = defineProps<{
   canManageStageChannel?: boolean;
   users: { id: string; name: string; pfp: string }[];
   mentionUsers?: { id: string; name: string; pfp: string; status?: string }[];
+  mentionRoles?: { id: string; name: string; color?: string }[];
   allChannels: ChannelSummary[];
   activeChannelMessagesMap: Map<
     string,
@@ -175,6 +176,16 @@ const props = defineProps<{
     messageId: string,
     newContent: string,
   ) => boolean | void | Promise<boolean | void>;
+  fillImageSlot?: (
+    messageId: string,
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    },
+  ) => boolean | Promise<boolean>;
   deleteMessage: (messageId: string) => void;
   handleReact: (messageId: string, emoji: string) => void;
   handleGoToChannel: (channelId: string) => void;
@@ -793,6 +804,8 @@ const voiceMobileChatOverlayStyle = computed(() => {
                 :active-channel-messages="activeChannelMessagesMap"
                 :server-id="selectedServerId"
                 :users="users"
+                :mention-users="mentionUsers"
+                :mention-roles="mentionRoles"
                 :channels="allChannels"
                 :send-message="sendMessage"
                 :on-request-forward="onRequestForward"
@@ -804,6 +817,7 @@ const voiceMobileChatOverlayStyle = computed(() => {
                 :pinned-message-ids="[]"
                 :on-poll-vote="handlePollVote"
                 :on-save-edit="editMessage"
+                :on-fill-image-slot="fillImageSlot"
                 :on-delete="deleteMessage"
                 :on-react="handleReact"
                 :top-reactions="topReactions"
@@ -880,6 +894,7 @@ const voiceMobileChatOverlayStyle = computed(() => {
             :server-id="selectedServerId"
             :users="users"
             :mention-users="mentionUsers"
+            :mention-roles="mentionRoles"
             :channels="allChannels"
             :send-message="sendMessage"
             :on-request-forward="onRequestForward"
@@ -891,6 +906,7 @@ const voiceMobileChatOverlayStyle = computed(() => {
             :pinned-message-ids="[]"
             :on-poll-vote="handlePollVote"
             :on-save-edit="editMessage"
+            :on-fill-image-slot="fillImageSlot"
             :on-delete="deleteMessage"
             :on-react="handleReact"
             :top-reactions="topReactions"

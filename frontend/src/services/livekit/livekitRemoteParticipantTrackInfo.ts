@@ -1,41 +1,13 @@
-import type {
-  LocalParticipant,
-  RemoteTrack,
-  RemoteTrackPublication,
-} from 'livekit-client';
+import type { RemoteTrack, RemoteTrackPublication } from 'livekit-client';
 import type { RemoteParticipantTrackInfo } from '@/composables/livekitVoiceRoom.types';
-
-/** `getTrackPublication` expects `Track.Source` (string enum); derive without importing `Track` value. */
-type LiveKitTrackPublicationSource = Parameters<
-  LocalParticipant['getTrackPublication']
->[0];
-
-const LK_SOURCE_MICROPHONE = 'microphone' as LiveKitTrackPublicationSource;
-const LK_SOURCE_CAMERA = 'camera' as LiveKitTrackPublicationSource;
-const LK_SOURCE_SCREEN_SHARE = 'screen_share' as LiveKitTrackPublicationSource;
-const LK_SOURCE_SCREEN_SHARE_AUDIO =
-  'screen_share_audio' as LiveKitTrackPublicationSource;
-
-type TrackLike = {
-  kind?: string;
-  attach?: () => HTMLMediaElement;
-  detach?: () => HTMLMediaElement[];
-  mediaStreamTrack?: MediaStreamTrack;
-  /** Present on some RemoteVideoTrack wrappers when the publisher muxes audio (e.g. tab capture). */
-  mediaStream?: MediaStream;
-  sid?: string;
-  setVolume?: (g: number) => void;
-};
-
-type PublicationLike = {
-  source?: string;
-  kind?: string;
-  isSubscribed?: boolean;
-  isMuted?: boolean;
-  trackSid?: string;
-  track?: TrackLike | null;
-  setSubscribed?: (value: boolean) => void | Promise<void>;
-};
+import {
+  LK_SOURCE_CAMERA,
+  LK_SOURCE_MICROPHONE,
+  LK_SOURCE_SCREEN_SHARE,
+  LK_SOURCE_SCREEN_SHARE_AUDIO,
+  type PublicationLike,
+  type TrackLike,
+} from '@/services/livekit/livekitTrackDuckTypes';
 
 type RemoteTrackAccumulator = {
   cameraTrack: RemoteTrack | null;

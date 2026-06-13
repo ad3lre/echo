@@ -26,4 +26,31 @@ describe('createEchoRealtimeSocketConnectedExtra', () => {
       'socket_connected',
     );
   });
+
+  it('skips the REST resync when connection-state recovery replayed missed packets', () => {
+    const syncEchoPresenceFromApi = vi.fn();
+    const hydrateAttentionSnapshot = vi.fn(() => Promise.resolve());
+    const scheduleActiveChannelTailSyncAfterConnect = vi.fn();
+    const extra = createEchoRealtimeSocketConnectedExtra({
+      syncEchoPresenceFromApi,
+      hydrateAttentionSnapshot,
+      scheduleActiveChannelTailSyncAfterConnect,
+    });
+    extra({ recovered: true });
+    expect(syncEchoPresenceFromApi).not.toHaveBeenCalled();
+    expect(hydrateAttentionSnapshot).not.toHaveBeenCalled();
+    expect(scheduleActiveChannelTailSyncAfterConnect).not.toHaveBeenCalled();
+  });
+
+  it('runs the full resync when the connection was not recovered', () => {
+    const syncEchoPresenceFromApi = vi.fn();
+    const hydrateAttentionSnapshot = vi.fn(() => Promise.resolve());
+    const extra = createEchoRealtimeSocketConnectedExtra({
+      syncEchoPresenceFromApi,
+      hydrateAttentionSnapshot,
+    });
+    extra({ recovered: false });
+    expect(syncEchoPresenceFromApi).toHaveBeenCalledTimes(1);
+    expect(hydrateAttentionSnapshot).toHaveBeenCalledTimes(1);
+  });
 });

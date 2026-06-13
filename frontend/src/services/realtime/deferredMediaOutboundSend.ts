@@ -18,7 +18,10 @@ import {
   type LocalAuthorEchoSnapshot,
   type SocketAdapterInstance,
 } from '@/services/realtime/socketOutbound';
-import { recordPendingClientMessage } from '@/services/realtime/socketPendingClientMessages';
+import {
+  PENDING_CLIENT_MESSAGE_MAX_AGE_MS,
+  recordPendingClientMessage,
+} from '@/services/realtime/socketPendingClientMessages';
 import type { PendingClientEchoMessage } from '@/services/realtime/socketPendingClientMessages';
 import { assertOutboundSendSocketReady } from '@/services/realtime/socketOutboundSendPreflight';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
@@ -96,8 +99,12 @@ export function isOutboundMessageSendPending(
   const cid = channelId.trim();
   const mid = messageId.trim();
   if (!cid || !mid) return false;
+  const nowMs = Date.now();
   return deps.pendingSentMessages.some(
-    (entry) => entry.channelId === cid && entry.clientMessageId === mid,
+    (entry) =>
+      entry.channelId === cid &&
+      entry.clientMessageId === mid &&
+      nowMs - entry.createdAtMs <= PENDING_CLIENT_MESSAGE_MAX_AGE_MS,
   );
 }
 
@@ -237,6 +244,7 @@ export function completeDeferredMediaOutboundSend(opts: {
       },
       Date.now(),
     );
+    touchOutboundSendPendingUi();
   }
 
   socketDiagInfo('emitting_deferred_media_message', {

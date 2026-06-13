@@ -27,6 +27,8 @@ export type EchoSocketDomainWiring = {
   onAfterConnected?: (ctx: {
     activeChannelId: string | undefined;
     rawSocketEmitJoinChannel: (channelId: string) => void;
+    /** True when Socket.IO connection-state recovery replayed the missed packets. */
+    recovered: boolean;
   }) => void;
   onAfterDisconnect?: () => void;
 };

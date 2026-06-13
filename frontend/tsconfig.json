@@ -26,5 +26,5 @@
     "src/**/*.vue",
     "../shared/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "../shared/**/*.test.ts"]
 }

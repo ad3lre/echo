@@ -24,6 +24,8 @@ type BootStallWatcherDeps = {
   showAppLayout: Ref<boolean>;
   appLayoutResolved: Ref<boolean>;
   bootGateTimeoutMs: number;
+  /** Must match {@link useAppBootGate} fast reveal so we do not alert during FOUC hold. */
+  bootGateFastRevealMs: number;
   hasSession: boolean;
 };
 
@@ -103,6 +105,7 @@ function createStallReporter(
 function watchSettledGateStall(
   deps: BootStallWatcherDeps,
   report: (kind: BootStallAlertKind, timing: Record<string, unknown>) => void,
+  mountedAt: number,
 ): { stop: () => void; clearTimer: () => void } {
   let settledStallTimer: ReturnType<typeof setTimeout> | undefined;
   const clearTimer = () => {
@@ -111,28 +114,34 @@ function watchSettledGateStall(
       settledStallTimer = undefined;
     }
   };
-  const stop = watch(
-    () =>
-      deps.showAppLayout.value &&
-      deps.showBootGate.value &&
-      deps.initialLoadSettled.value,
-    (anomaly) => {
-      clearTimer();
-      if (!anomaly) return;
-      settledStallTimer = setTimeout(() => {
-        if (
-          deps.showAppLayout.value &&
-          deps.showBootGate.value &&
-          deps.initialLoadSettled.value
-        ) {
-          report('boot_gate_settled_still_visible', {
-            stallThresholdMs: APP_BOOT_GATE_SETTLED_STALL_MS,
-          });
-        }
-      }, APP_BOOT_GATE_SETTLED_STALL_MS);
-    },
-    { immediate: true },
-  );
+  const isSettledGateAnomaly = () => {
+    if (
+      !deps.showAppLayout.value ||
+      !deps.showBootGate.value ||
+      !deps.initialLoadSettled.value
+    ) {
+      return false;
+    }
+    // The boot gate intentionally stays up through fastRevealMs; only alert after that.
+    return Date.now() - mountedAt >= deps.bootGateFastRevealMs;
+  };
+  const scheduleStallCheck = () => {
+    clearTimer();
+    if (!isSettledGateAnomaly()) return;
+    const msUntilFastRevealEnds = Math.max(
+      0,
+      deps.bootGateFastRevealMs - (Date.now() - mountedAt),
+    );
+    settledStallTimer = setTimeout(() => {
+      if (!isSettledGateAnomaly()) return;
+      report('boot_gate_settled_still_visible', {
+        stallThresholdMs: APP_BOOT_GATE_SETTLED_STALL_MS,
+      });
+    }, msUntilFastRevealEnds + APP_BOOT_GATE_SETTLED_STALL_MS);
+  };
+  const stop = watch(isSettledGateAnomaly, scheduleStallCheck, {
+    immediate: true,
+  });
   return { stop, clearTimer };
 }
 
@@ -205,7 +214,7 @@ export function useAppBootStallWatcher(deps: BootStallWatcherDeps): void {
     },
   );
 
-  const settledWatch = watchSettledGateStall(deps, report);
+  const settledWatch = watchSettledGateStall(deps, report, mountedAt);
   const layoutWatch = watchLayoutChunkStall(deps, report, mountedAt);
 
   const safetyDelayMs = deps.bootGateTimeoutMs + APP_BOOT_GATE_STALL_GRACE_MS;

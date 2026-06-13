@@ -30,6 +30,9 @@ vi.mock('@/config/emailVerificationDowntime', () => ({
 vi.mock('@/platform/syncCapabilities', () => ({
   echoSyncCapabilities: { isMockDataMode: false },
 }));
+vi.mock('@/config/echoGuestAccountsEnabled', () => ({
+  ECHO_GUEST_ACCOUNTS_ENABLED: true,
+}));
 
 import { useAppLayoutBannerNotices } from './useAppLayoutBannerNotices';
 
@@ -60,6 +63,7 @@ describe('useAppLayoutBannerNotices', () => {
       isAuthenticated: ref(true),
       isCompactShell: ref(false),
       isGuestUpgradeModalOpen: ref(false),
+      isAuthModalOpen: ref(false),
       discordBotExportReadyBanner: ref<{ guildName: string } | null>(null),
       openAuthModal: vi.fn(),
       openUserSettingsModal: vi.fn(),
@@ -125,6 +129,22 @@ describe('useAppLayoutBannerNotices', () => {
     expect(api.showGuestUpgradeBanner.value).toBe(true);
     api.dismissGuestUpgradeBannerClick();
     expect(api.showGuestUpgradeBanner.value).toBe(false);
+  });
+
+  it('shows guest onboarding modal for authenticated guests', () => {
+    const { api } = mount({
+      authSession: reactive({
+        backendUser: {
+          id: 'g',
+          isGuest: true,
+          emailVerified: false,
+          email: '',
+        },
+        isAuthenticated: true,
+        clearEmailVerificationFlash: vi.fn(),
+      }),
+    });
+    expect(api.showGuestOnboardingModal.value).toBe(true);
   });
 
   it('resend success sets the confirmation message', async () => {

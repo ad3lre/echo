@@ -15,10 +15,13 @@ defineProps<{
   mentions?: MentionEntity[];
   parseIdResolvers?: IdTokenResolvers;
   embeds?: Embed[];
+  contentJson?: unknown;
   onJumpToMessage?: (channelId: string, messageId: string) => void;
   customEmojiRenderKey: number;
   messageId?: string;
   magicTime?: MagicTimeRenderContext | null;
+  canFillImageSlots?: boolean;
+  onFillImageSlot?: (slotId: string) => void;
 }>();
 </script>
 
@@ -37,7 +40,10 @@ defineProps<{
     :mentions="mentions"
     :parse-id-resolvers="parseIdResolvers"
     :embeds="embeds"
+    :content-json="contentJson"
     :on-jump-to-message="onJumpToMessage"
     :magic-time="magicTime"
+    :can-fill-image-slots="canFillImageSlots"
+    :on-fill-image-slot="onFillImageSlot"
   />
 </template>

@@ -44,6 +44,7 @@ describe('app layout context slices wiring', () => {
       serverSettingsMemberUsers: computed(() => []),
       usersForChannelPanel: computed(() => []),
       usersForMentionAutocomplete: computed(() => []),
+      rolesForMentionAutocomplete: computed(() => []),
       onExpandedProfileModalUpdate: vi.fn(),
       expandedProfile: ref<{ id?: string } | null>({ id: 'u1' }),
       selectDmUser: vi.fn(async () => null),

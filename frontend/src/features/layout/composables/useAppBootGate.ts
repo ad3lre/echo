@@ -49,15 +49,19 @@ export function useAppBootGate(deps: {
 
   // For warm-painted sessions, we could hide even faster, but the fastRevealMs
   // already handles this well
-  const stop = watch(initialLoadSettled, (settled) => {
-    if (settled) {
-      // Fast loads can settle before fastRevealMs; reveal now so we do not
-      // clear the pending timers without ever hiding the gate.
-      reveal();
-      clearTimeout(fastRevealTimer);
-      clearTimeout(safetyTimer);
-    }
-  });
+  const stop = watch(
+    initialLoadSettled,
+    (settled) => {
+      if (settled) {
+        // Fast loads can settle before fastRevealMs; reveal now so we do not
+        // clear the pending timers without ever hiding the gate.
+        reveal();
+        clearTimeout(fastRevealTimer);
+        clearTimeout(safetyTimer);
+      }
+    },
+    { immediate: true },
+  );
 
   onScopeDispose(() => {
     stop();

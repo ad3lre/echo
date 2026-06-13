@@ -76,6 +76,13 @@ function suggestionSecondaryText(option: MentionOption): string {
       >
         @
       </span>
+      <span
+        v-else-if="option.kind === 'role'"
+        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold"
+        :style="{ borderColor: option.roleColor ?? 'var(--muted)' }"
+      >
+        @
+      </span>
       <div
         v-else-if="option.avatar"
         class="relative h-6 w-6 shrink-0 overflow-hidden rounded-full"
@@ -110,7 +117,7 @@ function suggestionSecondaryText(option: MentionOption): string {
       role="status"
       aria-live="polite"
     >
-      No people found
+      No matches found
     </div>
   </div>
 </template>

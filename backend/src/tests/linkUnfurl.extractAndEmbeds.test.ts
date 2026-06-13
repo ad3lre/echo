@@ -81,6 +81,20 @@ async function main() {
     },
   );
 
+  await run(
+    'Echo message jump link returns embed_links_denied when EMBED_LINKS is denied',
+    async () => {
+      const content =
+        'see https://echo.test/channels/100000000000001/200000000000002';
+      const embeds = await buildLinkEmbedsFromPlainText(content, {
+        allow: false,
+      });
+      assert.equal(embeds.length, 1);
+      assert.equal(embeds[0]?.echoJumpError, 'embed_links_denied');
+      assert.equal(embeds[0]?.echoJump?.messageId, '200000000000002');
+    },
+  );
+
   if (YOUTUBE_INTEGRATION_ENABLED) {
     await run(
       'v2 contentJson link href unfurls YouTube when plain text omits URL',

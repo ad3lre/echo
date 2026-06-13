@@ -19,6 +19,7 @@ import {
 import { redactPollOnMessage } from '../../../shared/types';
 import { stripChatE2eeFromEchoMessageRow } from '../domain/echoMessagesDal';
 import { getAuthStore } from '../auth/store';
+import { getEchoEventCachedUser } from '../domain/echoEventUserCache';
 import { config } from '../config';
 import type { EchoMessageRow } from '../domain/echoMessagesDal';
 import type { EchoPollStoredDefinition } from '../domain/echoPollVotesDal';
@@ -32,7 +33,7 @@ import {
   insertEchoMessage,
   getEchoDmRealtimeThreadForUser,
   listEchoDmParticipantUserIds,
-  listEchoServerMembers,
+  listEchoServerMemberUserIdsCached,
 } from '../domain/echoStore';
 import {
   echoMessagesTableHasE2eeColumns,
@@ -43,6 +44,13 @@ import { filterMentionsForChannelContext } from '../domain/echoStore/mentionCont
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { isEchoPublicId } from '../../../shared/snowflakeIds';
 import { echoMessagesPersistedTotal } from '../observability/echoMetrics';
+import {
+  echoMessageSendDbQueries,
+  echoMessageSendDurationSeconds,
+  type EchoMessageSendResult,
+  type EchoMessageSendTransport,
+} from '../observability/echoHotPathMetrics';
+import { countPgQueriesDuring, getPgQueryContext } from '../db/pgQueryContext';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
 import { resolveAndBroadcastLinkEmbeds } from '../sockets/echoLinkEmbeds';
 import { emitEchoAttentionSnapshotsForUsers } from './echoAttentionRealtime';
@@ -57,6 +65,7 @@ import { isHonchoActive } from './honcho/client';
 import { scheduleHonchoMessageSync } from './honcho/memory';
 import { isEchoChatUploadAttachmentRegistered } from './echoUploadIntent';
 import { isDiscordSyncedBridgeSource } from '../../../shared/discordBridgeSources';
+import { deriveMessageComponentsFromContentJson } from '../../../shared/buttonRowContentJson';
 
 async function resolveSafeReplyTo(
   pool: pg.Pool,
@@ -112,6 +121,11 @@ export type EchoPersistedMessageInput = {
   e2eeCiphertext?: string;
   e2eeSenderDeviceId?: string;
   e2eeEncryptionVersion?: 1 | 2;
+  /**
+   * Optional unicast ack to the sending client immediately after the row is durable.
+   * Used by the socket handler so optimistic UI can clear before room broadcast prep.
+   */
+  ackSender?: (message: Message) => void;
 };
 
 export function echoRowToMessage(existing: EchoMessageRow): Message {
@@ -178,7 +192,9 @@ async function authorSnapshotForBroadcast(
 ): Promise<Pick<Message, 'authorDisplayName' | 'authorAvatar'>> {
   try {
     const { store } = await getAuthStore();
-    const authUser = await store.getUserById(userId);
+    const authUser = await getEchoEventCachedUser(userId, () =>
+      store.getUserById(userId),
+    );
     if (!authUser) return { authorDisplayName: 'Unknown' };
     const authorDisplayName =
       authUser.displayName?.trim() || authUser.username?.trim() || 'Unknown';
@@ -262,8 +278,39 @@ async function validateEchoUploadAttachmentOwnership(opts: {
 /**
  * Insert (or reconcile duplicate id) and broadcast `message` / `message_ack` side effects.
  * Caller must have already validated payload, auth, channel branch, post permission, and slowmode.
+ *
+ * Wraps {@link echoPersistedMessageCreateAndBroadcastImpl} with the hot-path send SLIs:
+ * end-to-end latency and the PG query count for this one send (persist + broadcast).
  */
 export async function echoPersistedMessageCreateAndBroadcast(
+  pool: pg.Pool,
+  io: Server,
+  log: FastifyBaseLogger,
+  userId: string,
+  input: EchoPersistedMessageInput,
+): Promise<EchoPersistedMessageCreateResult> {
+  const transport = messageSendTransport();
+  const endTimer = echoMessageSendDurationSeconds.startTimer();
+  let result: EchoMessageSendResult = 'error';
+  try {
+    const { result: res, queryCount } = await countPgQueriesDuring(() =>
+      echoPersistedMessageCreateAndBroadcastImpl(pool, io, log, userId, input),
+    );
+    result = res.ok ? 'ok' : 'rejected';
+    echoMessageSendDbQueries.observe({ transport }, queryCount);
+    return res;
+  } finally {
+    endTimer({ transport, result });
+  }
+}
+
+/** Map the active PG query-context scope to a send transport label. */
+function messageSendTransport(): EchoMessageSendTransport {
+  const scope = getPgQueryContext()?.scope;
+  return scope === 'socket' || scope === 'rest' ? scope : 'other';
+}
+
+async function echoPersistedMessageCreateAndBroadcastImpl(
   pool: pg.Pool,
   io: Server,
   log: FastifyBaseLogger,
@@ -342,6 +389,14 @@ export async function echoPersistedMessageCreateAndBroadcast(
   const pollForClients = pollDef
     ? mergePollVotesIntoDefinition(pollDef, [])
     : undefined;
+  const derivedComponents =
+    messageFormatVersion >= 2 && contentJson !== undefined
+      ? deriveMessageComponentsFromContentJson(contentJson)
+      : null;
+  const ackSender = (row: Message) => {
+    input.ackSender?.(redactPollOnMessage(row, userId));
+  };
+
   const message: Message = {
     id: messageId,
     channelId,
@@ -364,6 +419,7 @@ export async function echoPersistedMessageCreateAndBroadcast(
     ...(attachments && attachments.length > 0 ? { attachments } : {}),
     ...(stickers && stickers.length > 0 ? { stickers } : {}),
     ...(forwardedFrom ? { forwardedFrom } : {}),
+    ...(derivedComponents ? { components: derivedComponents } : {}),
   };
 
   let persistResult: 'inserted' | 'duplicate';
@@ -387,6 +443,7 @@ export async function echoPersistedMessageCreateAndBroadcast(
       messageFormatVersion,
       contentSchemaVersion,
       ...(forwardedFrom ? { forwardedFrom } : {}),
+      ...(derivedComponents ? { components: derivedComponents } : {}),
     });
   } catch (e) {
     if (e instanceof Error && e.message === 'E2EE_STORAGE_UNAVAILABLE') {
@@ -431,16 +488,23 @@ export async function echoPersistedMessageCreateAndBroadcast(
     echoMessagesPersistedTotal.inc({ result: 'duplicate' });
     const existing = await getEchoMessageById(pool, message.id);
     if (existing) {
+      const duplicateMessage = redactPollOnMessage(
+        echoRowToMessage(existing),
+        userId,
+      );
+      ackSender(duplicateMessage);
       return {
         ok: true,
         kind: 'duplicate_ack',
-        message: redactPollOnMessage(echoRowToMessage(existing), userId),
+        message: duplicateMessage,
       };
     }
     return { ok: false, code: 'PERSIST_FAILED', clientMessageId };
   }
 
   echoMessagesPersistedTotal.inc({ result: 'inserted' });
+
+  ackSender(message);
 
   if (isHonchoActive()) {
     scheduleHonchoMessageSync(log, {
@@ -474,7 +538,11 @@ export async function echoPersistedMessageCreateAndBroadcast(
     messageId: message.id,
     branch: 'echo_persisted',
   });
-  const authorSnap = await authorSnapshotForBroadcast(userId);
+  const [authorSnap, dmRecipients, channelServerId] = await Promise.all([
+    authorSnapshotForBroadcast(userId),
+    listEchoDmParticipantUserIds(pool, channelId),
+    getEchoChannelServerId(pool, channelId),
+  ]);
   const messageForClients: Message = { ...message, ...authorSnap };
   log.info(
     {
@@ -487,7 +555,6 @@ export async function echoPersistedMessageCreateAndBroadcast(
     'Broadcasting persisted message to channel room',
   );
   broadcastToEchoChannel(io, channelId, 'message', messageForClients);
-  const dmRecipients = await listEchoDmParticipantUserIds(pool, channelId);
   if (dmRecipients.length > 0) {
     // Bump the authoritative inbox sort key BEFORE selecting the thread payload so the
     // resulting `lastActivityAt` reflects this message (and not a stale older value).
@@ -497,21 +564,27 @@ export async function echoPersistedMessageCreateAndBroadcast(
       message.timestamp,
       'message',
     );
-  }
-  for (const recipientUserId of dmRecipients) {
-    if (!recipientUserId) continue;
-    const thread = await getEchoDmRealtimeThreadForUser(
-      pool,
-      channelId,
-      recipientUserId,
+    // Thread payloads are viewer-dependent (pending message requests, group membership),
+    // so they stay per-recipient — but run concurrently instead of as an N+1 chain.
+    const recipientThreads = await Promise.all(
+      dmRecipients
+        .filter((recipientUserId) => recipientUserId)
+        .map(async (recipientUserId) => ({
+          recipientUserId,
+          thread: await getEchoDmRealtimeThreadForUser(
+            pool,
+            channelId,
+            recipientUserId,
+          ),
+        })),
     );
-    if (!thread) continue;
-    io.to(`echo:user:${recipientUserId}`).emit('dm:activity', {
-      thread,
-      message: messageForClients,
-    });
-  }
-  if (dmRecipients.length > 0) {
+    for (const { recipientUserId, thread } of recipientThreads) {
+      if (!thread) continue;
+      io.to(`echo:user:${recipientUserId}`).emit('dm:activity', {
+        thread,
+        message: messageForClients,
+      });
+    }
     void emitEchoAttentionSnapshotsForUsers(pool, io, dmRecipients, log, {
       mode: 'channel',
       channelId,
@@ -523,36 +596,34 @@ export async function echoPersistedMessageCreateAndBroadcast(
       serverId: null,
       dmRecipients,
     });
-  } else {
-    const serverId = await getEchoChannelServerId(pool, channelId);
-    if (serverId) {
-      const members = await listEchoServerMembers(pool, serverId);
-      void emitEchoAttentionSnapshotsForUsers(
-        pool,
-        io,
-        members.map((member) => member.userId),
-        log,
-        { mode: 'channel', channelId, serverId },
-      );
-      botEventBus.emitBotEvent({
-        kind: 'message',
-        channelId,
-        serverId,
-        message: messageForClients,
-      });
-      void mirrorEchoMessageToDiscordIfConfigured(
-        pool,
-        log,
-        channelId,
-        messageForClients,
-      );
-      void dispatchEchoMessagePushNotifications(pool, log, {
-        message: messageForClients,
-        authorId: userId,
-        serverId,
-        dmRecipients: [],
-      });
-    }
+  } else if (channelServerId) {
+    const memberIds = await listEchoServerMemberUserIdsCached(
+      pool,
+      channelServerId,
+    );
+    void emitEchoAttentionSnapshotsForUsers(pool, io, memberIds, log, {
+      mode: 'channel',
+      channelId,
+      serverId: channelServerId,
+    });
+    botEventBus.emitBotEvent({
+      kind: 'message',
+      channelId,
+      serverId: channelServerId,
+      message: messageForClients,
+    });
+    void mirrorEchoMessageToDiscordIfConfigured(
+      pool,
+      log,
+      channelId,
+      messageForClients,
+    );
+    void dispatchEchoMessagePushNotifications(pool, log, {
+      message: messageForClients,
+      authorId: userId,
+      serverId: channelServerId,
+      dmRecipients: [],
+    });
   }
   log.info(
     {
@@ -575,34 +646,28 @@ export async function echoPersistedMessageCreateAndBroadcast(
   });
 
   // Background: increment usage for any custom emojis found in the message
-  void (async () => {
-    try {
-      const serverId = await pool
-        .query<{
-          server_id: string;
-        }>(`SELECT server_id FROM echo_channels WHERE id = $1`, [channelId])
-        .then((r) => r.rows[0]?.server_id);
-
-      if (serverId) {
+  if (channelServerId) {
+    void (async () => {
+      try {
         const tokens = findAllIdTokenMatches(content);
         for (const match of tokens) {
           if (match.token.kind === 'emoji') {
             await incrementEchoEmojiUsage(
               pool,
-              serverId,
+              channelServerId,
               userId,
               match.token.id,
             );
           }
         }
+      } catch (e) {
+        log.error(
+          { err: e, channelId, messageId: message.id },
+          'Failed to increment emoji usage for message',
+        );
       }
-    } catch (e) {
-      log.error(
-        { err: e, channelId, messageId: message.id },
-        'Failed to increment emoji usage for message',
-      );
-    }
-  })();
+    })();
+  }
 
   return {
     ok: true,
@@ -734,18 +799,12 @@ export async function echoAutomodPostOwnerChannelNotice(
   } else if (io) {
     const sid = await getEchoChannelServerId(pool, input.targetChannelId);
     if (sid && sid !== ECHO_DM_REALM_SERVER_ID) {
-      const members = await listEchoServerMembers(pool, sid);
-      void emitEchoAttentionSnapshotsForUsers(
-        pool,
-        io,
-        members.map((m) => m.userId),
-        log,
-        {
-          mode: 'channel',
-          channelId: input.targetChannelId,
-          serverId: sid,
-        },
-      );
+      const memberIds = await listEchoServerMemberUserIdsCached(pool, sid);
+      void emitEchoAttentionSnapshotsForUsers(pool, io, memberIds, log, {
+        mode: 'channel',
+        channelId: input.targetChannelId,
+        serverId: sid,
+      });
       botEventBus.emitBotEvent({
         kind: 'message',
         channelId: input.targetChannelId,

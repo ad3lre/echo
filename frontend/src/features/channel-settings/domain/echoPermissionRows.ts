@@ -1,4 +1,7 @@
-import type { PermissionOverwriteRowDraft } from '@/features/channel-settings/types';
+import {
+  stripHiddenChannelPermissionPartial,
+  type PermissionOverwriteRowDraft,
+} from '@/features/channel-settings/types';
 
 export function canonicalizeEchoPermissionRowsForSave(
   rows: PermissionOverwriteRowDraft[],
@@ -9,7 +12,9 @@ export function canonicalizeEchoPermissionRowsForSave(
       ...(row.targetType === 'everyone'
         ? {}
         : { targetId: row.targetId ?? null }),
-      partial: { ...(row.partial ?? {}) },
+      partial: stripHiddenChannelPermissionPartial({
+        ...(row.partial ?? {}),
+      }),
     }))
     .filter((row) => Object.keys(row.partial ?? {}).length > 0);
 }

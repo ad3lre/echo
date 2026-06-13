@@ -13,9 +13,12 @@ export type SessionBoundAccessTokenPayload = AccessTokenPayload & {
   typ: typeof NATIVE_BEARER_TOKEN_TYP;
 };
 
+const NATIVE_BEARER_CLIENT_IDS = new Set(['ios', 'desktop']);
+
 export function isNativeBearerClient(req: FastifyRequest | undefined): boolean {
   const raw = req?.headers?.['x-echo-client'];
-  return typeof raw === 'string' && raw.trim().toLowerCase() === 'ios';
+  if (typeof raw !== 'string') return false;
+  return NATIVE_BEARER_CLIENT_IDS.has(raw.trim().toLowerCase());
 }
 
 export function nativeBearerEnabledForRequest(

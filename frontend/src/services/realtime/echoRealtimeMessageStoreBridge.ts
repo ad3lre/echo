@@ -9,6 +9,7 @@ import {
   type PendingClientEchoMessage,
 } from '@/services/realtime/socketPendingClientMessages';
 import { registerEchoPendingClientMessageList } from '@/services/realtime/echoPendingClientMessageRegistry';
+import { touchOutboundSendPendingUi } from '@/services/realtime/deferredMediaOutboundSend';
 import { getChannelIndex } from '@/features/chat/domain/channelMessageIndex';
 import {
   ensureChannelBucket,
@@ -54,6 +55,7 @@ export function createEchoRealtimeMessageStoreBridge(opts: {
       },
       Date.now(),
     );
+    touchOutboundSendPendingUi();
   }
 
   function resolveEchoAuthorId(payload: EchoRealtimeIncomingChatPayload) {
@@ -85,7 +87,11 @@ export function createEchoRealtimeMessageStoreBridge(opts: {
 
   function cleanupOptimisticSend(channelId: string, clientMessageId: string) {
     removeMessageById(channelId, clientMessageId);
+    const hadPending = pendingSentMessages.some(
+      (entry) => entry.clientMessageId === clientMessageId,
+    );
     dropPendingClientMessageByClientId(pendingSentMessages, clientMessageId);
+    if (hadPending) touchOutboundSendPendingUi();
   }
 
   return {

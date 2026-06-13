@@ -13,6 +13,7 @@ export type EchoSocketSubmitEmitters = Pick<
   | 'submitUnpin'
   | 'submitMessageDelete'
   | 'submitMessageEdit'
+  | 'submitImageSlotFill'
   | 'submitDmCallInvite'
   | 'submitDmCallAccept'
   | 'submitDmCallEnd'
@@ -160,6 +161,35 @@ export function createEchoSocketSubmitEmitters(opts: {
     );
   }
 
+  async function submitImageSlotFill(
+    channelId: string,
+    messageId: string,
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    },
+    correlationId?: string,
+  ): Promise<ActionResult> {
+    const corr = correlationId ?? newCorrelationId();
+    return Promise.resolve(
+      tryEmitRealtime((a) => {
+        a.emit('message:fillImageSlot', {
+          channelId,
+          messageId,
+          slotId,
+          imageUrl: body.imageUrl,
+          ...(body.storageKey ? { storageKey: body.storageKey } : {}),
+          ...(body.width != null ? { width: body.width } : {}),
+          ...(body.height != null ? { height: body.height } : {}),
+          correlationId: corr,
+        });
+      }),
+    );
+  }
+
   async function submitDmCallInvite(channelId: string): Promise<ActionResult> {
     const correlationId = newCorrelationId();
     return Promise.resolve(
@@ -220,6 +250,7 @@ export function createEchoSocketSubmitEmitters(opts: {
     submitUnpin,
     submitMessageDelete,
     submitMessageEdit,
+    submitImageSlotFill,
     submitDmCallInvite,
     submitDmCallAccept,
     submitDmCallEnd,

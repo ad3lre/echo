@@ -1,13 +1,22 @@
-import type { MentionEntity } from '@shared/types';
+import type {
+  EditingMessage,
+  MentionEntity,
+  MessageAttachmentPayload,
+} from '@shared/types';
 import { plainTextFromEchoContentJson } from '@/features/chat/editor/echoContentJsonPlainText';
 import { makeMentionEntity } from '@/features/chat/editor/composerModel';
 
 export type MessageEditDraftSource = {
+  id?: string;
   content?: string;
   contentText?: string;
   contentJson?: unknown;
   messageFormatVersion?: number;
   mentions?: MentionEntity[];
+  attachments?: MessageAttachmentPayload[];
+  videoUrl?: string;
+  imageUrl?: string;
+  stickers?: unknown[];
 };
 
 /**
@@ -21,6 +30,52 @@ export function editableTextFromMessage(msg: MessageEditDraftSource): string {
     if (fromJson) return fromJson;
   }
   return (msg.contentText ?? msg.content ?? '').trim();
+}
+
+function previewContentFromMessage(msg: MessageEditDraftSource): string {
+  const text = editableTextFromMessage(msg);
+  if (text) return text;
+  if (msg.videoUrl) return '[Video]';
+  if (msg.imageUrl) return '[Image]';
+  if (msg.attachments?.length) return '[Attachment]';
+  if (msg.stickers?.length) return '[Sticker]';
+  return '';
+}
+
+/** True when the row can be opened in the composer for editing (text or attachments). */
+export function isMessageEditableInComposer(
+  msg: MessageEditDraftSource,
+): boolean {
+  if (editableTextFromMessage(msg)) return true;
+  if (msg.attachments?.length) return true;
+  if (msg.imageUrl?.trim()) return true;
+  if (msg.videoUrl?.trim()) return true;
+  if (msg.stickers?.length) return true;
+  return false;
+}
+
+/**
+ * Build composer edit snapshot from a message row (TipTap preload + edit bar preview).
+ */
+export function buildEditingMessageFromRow(
+  msg: MessageEditDraftSource,
+): EditingMessage | null {
+  const messageId = msg.id?.trim();
+  if (!messageId) return null;
+  const content = editableTextFromMessage(msg);
+  const mf = msg.messageFormatVersion ?? 1;
+  const contentJson =
+    mf >= 2 && msg.contentJson !== undefined && msg.contentJson !== null
+      ? (msg.contentJson as Record<string, unknown>)
+      : null;
+  return {
+    messageId,
+    previewContent: previewContentFromMessage(msg),
+    content,
+    mentions: (msg.mentions ?? []).map((m) => ({ ...m })),
+    contentJson,
+    attachments: [...(msg.attachments ?? [])],
+  };
 }
 
 /**

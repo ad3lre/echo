@@ -49,6 +49,62 @@ test('prefers contentText when content is empty', () => {
   assert.equal(body?.content, 'derived plain text');
 });
 
+test('appends filled image slot URLs to webhook content', () => {
+  const body = buildDiscordBridgeOutboundWebhookBody(
+    baseMessage({
+      content: 'see image',
+      contentJson: {
+        type: 'doc',
+        content: [
+          {
+            type: 'imageSlot',
+            attrs: {
+              slotId: 'slot-1',
+              aspectW: 16,
+              aspectH: 9,
+              imageUrl: 'https://cdn.example.com/slot.png',
+              storageKey: null,
+              width: null,
+              height: null,
+            },
+          },
+        ],
+      },
+    }),
+  );
+  assert.ok(body);
+  assert.equal(body.content, 'see image\nhttps://cdn.example.com/slot.png');
+});
+
+test('forwards full embed schema to Discord webhooks', () => {
+  const body = buildDiscordBridgeOutboundWebhookBody(
+    baseMessage({
+      content: '',
+      embeds: [
+        {
+          title: 'Status',
+          description: '**ok**',
+          color: 5814783,
+          fields: [{ name: 'Env', value: '`prod`', inline: true }],
+          footer: { text: 'Echo' },
+        },
+      ],
+    }),
+  );
+  assert.ok(body);
+  assert.equal(body.content, undefined);
+  assert.equal(Array.isArray(body.embeds), true);
+  const embeds = body.embeds as Record<string, unknown>[];
+  assert.equal(embeds.length, 1);
+  assert.equal(embeds[0]?.title, 'Status');
+  assert.equal(embeds[0]?.description, '**ok**');
+  assert.equal(embeds[0]?.color, 5814783);
+  assert.deepEqual(embeds[0]?.fields, [
+    { name: 'Env', value: '`prod`', inline: true },
+  ]);
+  assert.deepEqual(embeds[0]?.footer, { text: 'Echo' });
+});
+
 void (async () => {
   if (process.exitCode) process.exit(1);
 })();

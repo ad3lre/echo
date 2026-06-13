@@ -16,6 +16,17 @@ import {
   publishCacheInvalidation,
   registerCacheInvalidationHandler,
 } from './cacheInvalidationBus';
+import { invalidateServerMemberUserIds } from './echoServerMemberIdsCache';
+import { invalidateChannelMetaForServer } from './echoChannelMetaCache';
+import {
+  recordHotCacheAccess,
+  timePermissionFold,
+} from '../observability/echoHotPathMetrics';
+import { invalidateServerAggregate } from './echoServerPermissionAggregateCache';
+import {
+  invalidateMemberRoleIdsForServer,
+  invalidateMemberRoleIdsForUser,
+} from './echoMemberRoleIdsCache';
 import {
   invalidateMemberAccessStateForServer,
   invalidateMemberAccessStateForUser,
@@ -76,7 +87,15 @@ function localInvalidateForServer(serverId: string): void {
   // so the member-state cache rides this invalidation (local + remote) rather than wiring
   // each mutation independently.
   invalidateMemberAccessStateForServer(serverId);
+  invalidateServerMemberUserIds(serverId);
   invalidateSearchableChannelsForServer(serverId);
+  // Channel settings (slowmode, message format, category) change behind the same
+  // server-scoped mutation sites, so cached channel metadata rides this invalidation too.
+  invalidateChannelMetaForServer(serverId);
+  // The server permission aggregate (roles + overwrites) and member role-id sets are
+  // user-independent server state; every role/overwrite/channel mutation routes here.
+  invalidateServerAggregate(serverId);
+  invalidateMemberRoleIdsForServer(serverId);
 }
 
 function localInvalidateForUser(serverId: string, userId: string): void {
@@ -86,7 +105,11 @@ function localInvalidateForUser(serverId: string, userId: string): void {
     if (k.startsWith(keyPrefix)) cache.delete(k);
   }
   invalidateMemberAccessStateForUser(serverId, userId);
+  // Join/leave are user-scoped mutations but change the server's member-id list.
+  invalidateServerMemberUserIds(serverId);
   invalidateSearchableChannelsForUser(serverId, userId);
+  // Role grant/revoke is user-scoped; drop this member's cached role-id set.
+  invalidateMemberRoleIdsForUser(serverId, userId);
 }
 
 function localInvalidateForChannel(serverId: string, channelId: string): void {
@@ -98,6 +121,10 @@ function localInvalidateForChannel(serverId: string, channelId: string): void {
     const parts = k.split('\0');
     if (parts[2] === channelId) cache.delete(k);
   }
+  // Channel overwrite edits change the aggregate's per-channel overwrites; drop it so the
+  // next fold reloads. Cheap (one server-keyed entry); the aggregate is server-wide.
+  invalidateServerAggregate(serverId);
+  invalidateChannelMetaForServer(serverId);
 }
 
 export function invalidateEchoPermissionCacheForServer(serverId: string): void {
@@ -154,8 +181,10 @@ export function tryGetCachedPermissions(
       value: new Set(hit.value),
       expiresAt: Date.now() + CACHE_TTL_MS,
     });
+    recordHotCacheAccess('permission_fold', 'hit');
     return new Set(hit.value);
   }
+  recordHotCacheAccess('permission_fold', 'miss');
   return null;
 }
 
@@ -193,8 +222,10 @@ export function getCachedMergedPermissions(
       value: new Set(hit.value),
       expiresAt: Date.now() + CACHE_TTL_MS,
     });
+    recordHotCacheAccess('permission_fold', 'hit');
     return Promise.resolve(new Set(hit.value));
   }
+  recordHotCacheAccess('permission_fold', 'miss');
 
   async function computeConsistent(): Promise<Set<string>> {
     let last: Set<string> = new Set();
@@ -212,7 +243,7 @@ export function getCachedMergedPermissions(
     return last;
   }
 
-  return computeConsistent().then((set) => {
+  return timePermissionFold('single', computeConsistent).then((set) => {
     pruneCache();
     cache.set(key, {
       value: new Set(set),

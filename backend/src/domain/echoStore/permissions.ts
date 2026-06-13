@@ -12,6 +12,7 @@ import {
   tryGetCachedPermissions,
 } from '../echoPermissionCache';
 import { mergeOverwritesForGlobal } from '../permissionOverwriteMerge';
+import { timePermissionFold } from '../../observability/echoHotPathMetrics';
 
 /** Create/edit/delete roles, reorder roles/categories (in scope). */
 export function canManageEchoRolesCatalog(perms: ReadonlySet<string>): boolean {
@@ -178,25 +179,27 @@ export async function batchGetEffectiveChannelPermissions(
   }
   if (uncached.length === 0) return result;
 
-  const startGen = getEchoPermissionCacheGeneration(serverId);
-  const plans = await buildBatchEvaluationPlans(
-    pool,
-    serverId,
-    userId,
-    uncached,
-  );
-  const endGen = getEchoPermissionCacheGeneration(serverId);
-  const safeToCache = startGen === endGen;
+  return timePermissionFold('batch', async () => {
+    const startGen = getEchoPermissionCacheGeneration(serverId);
+    const plans = await buildBatchEvaluationPlans(
+      pool,
+      serverId,
+      userId,
+      uncached,
+    );
+    const endGen = getEchoPermissionCacheGeneration(serverId);
+    const safeToCache = startGen === endGen;
 
-  for (const [cid, plan] of plans) {
-    const { effective } = executeEvaluationPlan(plan, 'compressed');
-    result.set(cid, effective);
-    if (safeToCache) {
-      setCachedPermissions(serverId, userId, cid, effective);
+    for (const [cid, plan] of plans) {
+      const { effective } = executeEvaluationPlan(plan, 'compressed');
+      result.set(cid, effective);
+      if (safeToCache) {
+        setCachedPermissions(serverId, userId, cid, effective);
+      }
     }
-  }
 
-  return result;
+    return result;
+  });
 }
 
 export {

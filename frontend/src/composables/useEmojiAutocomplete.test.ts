@@ -160,6 +160,57 @@ describe('useEmojiAutocomplete', () => {
     expect(text).toBe('hello 🦇');
   });
 
+  it('treats :slug: like :slug for suggestions and replacement', () => {
+    let text = ':bat:';
+    let cursor = text.length;
+    const replaceRange = vi.fn(
+      (start: number, end: number, replacement: string) => {
+        text = text.slice(0, start) + replacement + text.slice(end);
+        cursor = start + replacement.length;
+      },
+    );
+
+    const ac = useEmojiAutocomplete(
+      () => text,
+      () => cursor,
+      replaceRange,
+    );
+
+    ac.updateFromInput();
+    expect(ac.query.value).toBe('bat');
+    expect(ac.suggestions.value.map((e) => e.slug).slice(0, 2)).toEqual([
+      'bat',
+      'battery',
+    ]);
+
+    ac.selectCurrent();
+    expect(text).toBe('🦇');
+    expect(replaceRange).toHaveBeenCalledWith(0, 5, '🦇');
+  });
+
+  it('consumes trailing colon when caret is before it', () => {
+    let text = ':bat:';
+    let cursor = 4;
+    const replaceRange = vi.fn(
+      (start: number, end: number, replacement: string) => {
+        text = text.slice(0, start) + replacement + text.slice(end);
+        cursor = start + replacement.length;
+      },
+    );
+
+    const ac = useEmojiAutocomplete(
+      () => text,
+      () => cursor,
+      replaceRange,
+    );
+
+    ac.updateFromInput();
+    ac.select('🦇');
+
+    expect(replaceRange).toHaveBeenCalledWith(0, 5, '🦇');
+    expect(text).toBe('🦇');
+  });
+
   it('suggests global custom emojis regardless source server', () => {
     const text = ':party';
     const cursor = text.length;

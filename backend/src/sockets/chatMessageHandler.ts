@@ -37,15 +37,8 @@ import {
 } from '../services/auth/guestAbuseLimiter';
 import { evaluateBannedWordsOnMessageSend } from '../domain/echoStore/bannedWords/messageEval';
 import { applyBannedWordsAfterMessagePersisted } from '../services/echoBannedWordsApply';
-import { clientIpFromSocketHandshake } from '../net/clientIp';
-
-function clientIpFromSocket(socket: Socket): string {
-  return clientIpFromSocketHandshake(
-    socket.handshake.headers as Record<string, string | string[] | undefined>,
-    socket.handshake.address,
-    config.trustProxy,
-  );
-}
+import { clientIpFromSocket } from '../net/clientIp';
+import { loadEchoUserCached } from '../domain/echoEventUserCache';
 
 function emitMessageFailed(
   socket: Socket,
@@ -157,7 +150,7 @@ export function registerMessageHandler(
           if (authenticated && !isAnonymousSocketUser(userId)) {
             try {
               const { store } = await getAuthStore();
-              const u = await store.getUserById(userId);
+              const u = await loadEchoUserCached(store, userId);
               if (u?.isGuest) {
                 await blockGuestWritesForIpGuest(
                   clientIpFromSocket(socket),
@@ -178,7 +171,7 @@ export function registerMessageHandler(
 
         if (authenticated && !isAnonymousSocketUser(userId)) {
           const { store } = await getAuthStore();
-          const authU = await store.getUserById(userId);
+          const authU = await loadEchoUserCached(store, userId);
           if (authU?.isGuest) {
             if (
               await isGuestWriteComboBlocked(clientIpFromSocket(socket), userId)
@@ -620,6 +613,9 @@ export function registerMessageHandler(
               messageFormatVersion,
               contentSchemaVersion,
               ...(forwardedFrom ? { forwardedFrom } : {}),
+              ackSender: (message) => {
+                socket.emit('message_ack', { message });
+              },
             },
           );
           if (!persistRes.ok) {
@@ -681,7 +677,6 @@ export function registerMessageHandler(
               },
               'Duplicate message ack emitted to sender',
             );
-            socket.emit('message_ack', { message: persistRes.message });
             return;
           }
           log.debug(

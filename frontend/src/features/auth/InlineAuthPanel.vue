@@ -234,6 +234,7 @@ onBeforeUnmount(() => {
             <input
               v-model="username"
               type="text"
+              name="username"
               autocomplete="username webauthn"
               autocapitalize="none"
               autocorrect="off"
@@ -248,6 +249,7 @@ onBeforeUnmount(() => {
             <input
               v-model="password"
               type="password"
+              name="password"
               autocomplete="current-password"
               class="inline-auth__input"
               placeholder="••••••••"

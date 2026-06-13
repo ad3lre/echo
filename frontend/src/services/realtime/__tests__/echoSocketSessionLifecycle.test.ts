@@ -74,6 +74,7 @@ describe('createEchoSocketSessionLifecycle', () => {
     expect(onAfterConnected).toHaveBeenCalledWith({
       activeChannelId: 'channel-1',
       rawSocketEmitJoinChannel: expect.any(Function),
+      recovered: false,
     });
   });
 });

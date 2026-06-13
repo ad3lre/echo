@@ -114,13 +114,19 @@ const props = defineProps<{
   resolvePollVoterDisplay?: (userId: string) => string;
   resolvePollVoterAvatar?: (userId: string) => string | undefined;
   onPollVote?: (messageId: string, optionId: string) => void;
-  onSaveEdit?: (
+  onFillImageSlot?: (
     messageId: string,
-    newContent: string,
-    attachments?: import('@shared/types').MessageAttachmentPayload[],
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    },
   ) => boolean | void | Promise<boolean | void>;
   onDelete?: (messageId: string) => void;
   onReply?: (message: MessageWithAuthor) => void;
+  onEdit?: (message: MessageWithAuthor) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onGoToChannel?: (channelId: string) => void;
   onGoToMessage?: (channelId: string, messageId: string) => void;
@@ -194,14 +200,19 @@ provide(MESSAGE_LIST_JUMP_UI_KEY, jumpUi);
 
 const coarsePointer = useCoarsePointer();
 
-async function forwardSaveEdit(
+async function forwardFillImageSlot(
   messageId: string,
-  newContent: string,
-  attachments?: import('@shared/types').MessageAttachmentPayload[],
+  slotId: string,
+  body: {
+    imageUrl: string;
+    storageKey?: string;
+    width?: number;
+    height?: number;
+  },
 ): Promise<boolean> {
-  const fn = props.onSaveEdit;
-  if (!fn) return true;
-  const r = await Promise.resolve(fn(messageId, newContent, attachments));
+  const fn = props.onFillImageSlot;
+  if (!fn) return false;
+  const r = await Promise.resolve(fn(messageId, slotId, body));
   return r !== false;
 }
 
@@ -211,6 +222,10 @@ function forwardBubbleDelete(messageId: string) {
 
 function forwardBubbleReply(message: MessageWithAuthor) {
   props.onReply?.(message);
+}
+
+function forwardBubbleEdit(message: MessageWithAuthor) {
+  props.onEdit?.(message);
 }
 
 /** Canonical ids from `messageWindowAuthority` (before DM call-log folding). */
@@ -248,46 +263,6 @@ const mergedEntitiesForList = computed(
 const mergedMessagesForList = computed(
   () => dmCallPresentation.value.mergedMessages,
 );
-
-type MessageBubbleApi = {
-  enterEditMode?: () => void;
-};
-const bubbleApiByMessageId = new Map<string, MessageBubbleApi>();
-type MessageBubbleRefBinder = (
-  el: Element | ComponentPublicInstance | null,
-) => void;
-const messageBubbleRefBinderByMessageId = new Map<
-  string,
-  MessageBubbleRefBinder
->();
-
-function bindMessageBubbleRef(
-  messageId: string | undefined,
-  el: Element | ComponentPublicInstance | null,
-) {
-  const id = messageId?.trim();
-  if (!id) return;
-  if (!el) {
-    bubbleApiByMessageId.delete(id);
-    return;
-  }
-  bubbleApiByMessageId.set(id, el as unknown as MessageBubbleApi);
-}
-
-function getMessageBubbleRef(
-  messageId: string | undefined,
-): MessageBubbleRefBinder | undefined {
-  const id = messageId?.trim();
-  if (!id) return undefined;
-  let fn = messageBubbleRefBinderByMessageId.get(id);
-  if (!fn) {
-    fn = (el) => {
-      bindMessageBubbleRef(id, el);
-    };
-    messageBubbleRefBinderByMessageId.set(id, fn);
-  }
-  return fn;
-}
 
 /**
  * Fully prepared row models — patched incrementally when possible; full rebuild only on structural change.
@@ -2035,7 +2010,6 @@ watch(
     });
     measureRowPendingKeys.clear();
     measureRowLastHeightByKey.clear();
-    messageBubbleRefBinderByMessageId.clear();
     lastObservedScrollTop = 0;
     lastObservedScrollDirection = 'still';
     scrollOwnership.reset();
@@ -2497,37 +2471,11 @@ function measureRowRef(el: Element | ComponentPublicInstance | null) {
   });
 }
 
-async function enterEditModeForMessageId(messageId: string): Promise<boolean> {
-  const id = messageId.trim();
-  if (!id) return false;
-  await scrollMessageIntoView(id);
-  await nextTick();
-  return await new Promise<boolean>((resolve) => {
-    let attempts = 0;
-    const step = () => {
-      attempts += 1;
-      const api = bubbleApiByMessageId.get(id);
-      if (api?.enterEditMode) {
-        api.enterEditMode();
-        resolve(true);
-        return;
-      }
-      if (attempts >= 12) {
-        resolve(false);
-        return;
-      }
-      requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  });
-}
-
 defineExpose({
   scrollMessageIntoView,
   flashMessageHighlight,
   scrollToBottom,
   isNearBottom,
-  enterEditModeForMessageId,
 });
 </script>
 
@@ -2677,11 +2625,6 @@ defineExpose({
           >
             <div class="w-full max-w-full">
               <MessageBubble
-                :ref="
-                  getMessageBubbleRef(
-                    messageListRowPresentations[virtualRow.index]?.message?.id,
-                  )
-                "
                 :row="messageListRowPresentations[virtualRow.index]!"
                 :channel-id="channelId"
                 :is-forum-post-channel="isForumPostChannel"
@@ -2694,7 +2637,7 @@ defineExpose({
                 :resolve-poll-voter-avatar="resolvePollVoterAvatar"
                 :on-vote="getVoteHandler(displayOrderedIds[virtualRow.index])"
                 :on-react="getReactHandler(displayOrderedIds[virtualRow.index])"
-                :save-message-edit="forwardSaveEdit"
+                :fill-image-slot="forwardFillImageSlot"
                 :on-go-to-channel="onGoToChannel"
                 :on-go-to-message="onGoToMessage"
                 :on-open-profile="onOpenProfile"
@@ -2703,6 +2646,7 @@ defineExpose({
                 "
                 @delete="forwardBubbleDelete"
                 @reply="forwardBubbleReply"
+                @edit="forwardBubbleEdit"
                 @expand-dm-call-roll="handleExpandDmCallRollFromBubble"
                 :is-pinned="
                   displayOrderedIds[virtualRow.index]

@@ -4,13 +4,13 @@ Always-on **local** health monitor that survives VPS reboots via **systemd** (`R
 
 ## Behaviour
 
-| Step | Action                                                                                                                                                                                                                         |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1    | Poll **local** API (`127.0.0.1:3000/api/v1/health`) every 30s (configurable)                                                                                                                                                   |
-| 2    | Persist outage start in `logs/vps/echo-recovery-watcher-state.json` so watcher/process reboots do **not** reset the timer                                                                                                      |
-| 3    | When API stays down for **45 minutes** → force-restart: stop live `prod:serve`, free ports, start `prod:serve`, restart PM2 apps (`echo-backend`, `echo-frontend`, `echo-video-hls-worker`, `echo-marketing`, `echo-watchdog`) |
-| 4    | If API is still down after restart → email **`bugs@chat-echo.com`**                                                                                                                                                            |
-| 5    | After a failed recovery, wait another **45 minutes** before retrying (cooldown)                                                                                                                                                |
+| Step | Action                                                                                                                                                                                                                                             |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Poll **local** API (`127.0.0.1:3000/api/v1/health`) every 30s (configurable)                                                                                                                                                                       |
+| 2    | Persist outage start in `logs/vps/echo-recovery-watcher-state.json` so watcher/process reboots do **not** reset the timer                                                                                                                          |
+| 3    | When API stays down for **45 minutes** → force-restart: stop live `prod:serve`, free ports, start `prod:serve`, restart PM2 apps (`echo-backend`, `echo-frontend`, `echo-video-hls-worker`, `echo-marketing`, `echo-discord-bot`, `echo-watchdog`) |
+| 4    | If API is still down after restart → email **`bugs@chat-echo.com`**                                                                                                                                                                                |
+| 5    | After a failed recovery, wait another **45 minutes** before retrying (cooldown)                                                                                                                                                                    |
 
 Successful recoveries are logged only (no email). The Discord watchdog can still fire on public URL transitions for faster reaction in some cases.
 

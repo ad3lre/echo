@@ -1,6 +1,8 @@
 import { DISCORD_ECHO_PERMISSION_STRINGS } from '../../../../../shared/discordEchoPermissions';
 import type { EchoRoleDto } from '../../../domain/echoStore/roles';
 import type { EchoMessageRow } from '../../../domain/echoMessagesDal';
+import { mapEchoEmbedsToDiscordApi } from '../../../../../shared/discordEmbedApi';
+import type { Embed } from '../../../../../shared/types';
 import type { BotApp } from './botAuth';
 
 /**
@@ -333,7 +335,9 @@ export function serializeMessage(
     mentions: [],
     mention_roles: [],
     attachments,
-    embeds: [],
+    embeds: mapEchoEmbedsToDiscordApi(
+      Array.isArray(msg.embeds) ? (msg.embeds as Embed[]) : undefined,
+    ),
     reactions: [],
     pinned: false,
     type: 0,

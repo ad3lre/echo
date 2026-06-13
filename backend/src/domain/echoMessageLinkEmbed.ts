@@ -5,10 +5,22 @@
 
 import type pg from 'pg';
 import type { Embed } from '../../../shared/types';
+import {
+  buildEchoJumpErrorEmbed,
+  type EchoJumpEmbedErrorCode,
+} from '../../../shared/echoJumpEmbedErrors';
 import { parseEchoMessageJumpPath } from '../../../shared/echoMessageJumpPath';
 import { canUserAccessChannel, getEchoMessageById } from './echoStore';
 
 export { parseEchoMessageJumpPath } from '../../../shared/echoMessageJumpPath';
+export {
+  buildEchoJumpErrorEmbed,
+  buildEchoJumpErrorEmbedFromUrl,
+  echoJumpErrorMessage,
+  isEchoJumpEmbedResolved,
+  normalizeEchoJumpUrl,
+  type EchoJumpEmbedErrorCode,
+} from '../../../shared/echoJumpEmbedErrors';
 
 function truncatePlain(text: string, max: number): string {
   const t = text.replace(/\s+/g, ' ').trim();
@@ -29,10 +41,14 @@ export async function buildEchoJumpEmbedFromUrl(
   if (!parsed) return null;
 
   const msg = await getEchoMessageById(pool, parsed.messageId);
-  if (!msg || msg.channelId !== parsed.channelId) return null;
+  if (!msg || msg.channelId !== parsed.channelId) {
+    return buildEchoJumpErrorEmbed(originalUrl, parsed, 'not_found');
+  }
 
   const ok = await canUserAccessChannel(pool, viewerUserId, msg.channelId);
-  if (!ok) return null;
+  if (!ok) {
+    return buildEchoJumpErrorEmbed(originalUrl, parsed, 'forbidden');
+  }
 
   const [chRow, authorRow] = await Promise.all([
     pool.query<{ name: string }>(

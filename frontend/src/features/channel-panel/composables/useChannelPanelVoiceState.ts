@@ -14,6 +14,8 @@ export interface ChannelCategory {
   channels: ChannelWithParticipants[];
   channelPermissionDefaults?: Partial<Record<ChannelPermissionKey, boolean>>;
   hideCategoryHeader?: boolean;
+  /** Pinned system channels (role picker, etc.) — rendered above regular channels. */
+  systemSection?: boolean;
 }
 
 /** Same participant row shape as CallView / `voiceSessionParticipants` (subset for ordering). */

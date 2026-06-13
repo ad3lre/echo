@@ -7,6 +7,7 @@ import {
 } from '@shared/videoEmbedIds';
 import { urlHostnameMatchesSuffix } from '@/utils/hostMatches';
 import MessageEmbedRemoteImg from './MessageEmbedRemoteImg.vue';
+import MessageEmbedMarkdown from './MessageEmbedMarkdown.vue';
 
 const props = defineProps<{
   embeds: Embed[];
@@ -177,7 +178,7 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
 </script>
 
 <template>
-  <div class="message-link-embeds flex flex-col gap-2.5">
+  <div class="message-link-embeds flex flex-col gap-2.5" v-spoiler-reveal>
     <article
       v-for="(embed, i) in list"
       :key="`${i}-${embed.url ?? embed.title ?? ''}`"
@@ -243,12 +244,12 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
               </a>
               <span v-else class="text-[#f2f3f5]">{{ embed.title }}</span>
             </h3>
-            <p
+            <MessageEmbedMarkdown
               v-if="embed.description"
-              class="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-[#b5bac1]"
-            >
-              {{ embed.description }}
-            </p>
+              as="p"
+              class="mt-1 break-words text-xs leading-snug text-[#b5bac1]"
+              :text="embed.description"
+            />
             <div
               v-if="embed.fields?.length"
               class="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-3"
@@ -264,9 +265,9 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
                   {{ field.name }}
                 </div>
                 <div
-                  class="mt-0.5 whitespace-pre-wrap break-words text-[11px] leading-snug text-[#b5bac1]"
+                  class="mt-0.5 break-words text-[11px] leading-snug text-[#b5bac1]"
                 >
-                  {{ field.value }}
+                  <MessageEmbedMarkdown :text="field.value" />
                 </div>
               </div>
             </div>
@@ -409,12 +410,12 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
                 </a>
                 <span v-else>{{ embed.title }}</span>
               </h3>
-              <p
+              <MessageEmbedMarkdown
                 v-if="embed.description"
-                class="mt-1 whitespace-pre-wrap break-words text-xs leading-snug text-[#b5bac1]"
-              >
-                {{ embed.description }}
-              </p>
+                as="p"
+                class="mt-1 break-words text-xs leading-snug text-[#b5bac1]"
+                :text="embed.description"
+              />
             </div>
           </div>
           <div
@@ -432,9 +433,9 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
                 {{ field.name }}
               </div>
               <div
-                class="mt-0.5 whitespace-pre-wrap break-words text-[11px] leading-snug text-[#b5bac1]"
+                class="mt-0.5 break-words text-[11px] leading-snug text-[#b5bac1]"
               >
-                {{ field.value }}
+                <MessageEmbedMarkdown :text="field.value" />
               </div>
             </div>
           </div>
@@ -464,3 +465,36 @@ const list = computed(() => (props.embeds ?? []).filter((e) => !e.echoJump));
     </article>
   </div>
 </template>
+
+<style scoped>
+.message-link-embeds :deep(.discord-embed-md) {
+  white-space: normal;
+}
+
+.message-link-embeds :deep(.discord-embed-md u) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.message-link-embeds :deep(.discord-embed-md-pre) {
+  margin: 0.35em 0;
+  padding: 0.45em 0.6em;
+  border-radius: 6px;
+  background: var(--md-code-bg);
+  overflow-x: auto;
+  max-width: 100%;
+  font-size: 0.92em;
+}
+
+.message-link-embeds :deep(.discord-embed-md-inline) {
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: var(--md-inline-code-bg);
+  font-size: 0.92em;
+}
+
+.message-link-embeds :deep(.discord-embed-md-pre code) {
+  padding: 0;
+  background: none;
+}
+</style>

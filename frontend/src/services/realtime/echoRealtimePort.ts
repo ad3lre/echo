@@ -65,6 +65,12 @@ export type EchoRealtimeSocketLifecyclePort = {
     activeChannelId: string | undefined;
     /** Direct raw emit for server join (not adapter). */
     emitJoinChannel: (channelId: string) => void;
+    /**
+     * True when Socket.IO connection-state recovery replayed every packet missed
+     * during the disconnection — rooms and events are already caught up, so REST
+     * resync (presence / attention / channel tail) is redundant.
+     */
+    recovered: boolean;
   }) => void;
   /** Called during teardown (after adapter/socket cleared). */
   onSocketDisconnected: () => void;
@@ -171,6 +177,18 @@ export interface EchoRealtimePort {
       content: string;
       contentJson?: unknown;
       contentSchemaVersion?: number;
+    },
+    correlationId?: string,
+  ) => Promise<ActionResult>;
+  submitImageSlotFill: (
+    channelId: string,
+    messageId: string,
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
     },
     correlationId?: string,
   ) => Promise<ActionResult>;

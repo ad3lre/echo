@@ -73,6 +73,25 @@ export function currentUtcMonthKey(now = new Date()): string {
   return `${y}-${m}`;
 }
 
+/** Exported for unit tests — strips markup/entities from RSS trend titles. */
+export function sanitizeTrendSearchTerm(raw: string): string {
+  let t = raw
+    .replace(/&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) =>
+      String.fromCharCode(parseInt(h, 16)),
+    );
+  t = t.replace(/<[^>]*>/g, ' ');
+  t = t.replace(/[#*_`~|[\]()]/g, ' ');
+  t = t.replace(/^['"]+|['"]+$/g, '');
+  t = t.replace(/\s+/g, ' ').trim();
+  return t;
+}
+
 function titleCaseTerm(term: string): string {
   return term
     .split(/\s+/)
@@ -121,12 +140,16 @@ export function buildCategoriesFromTrendTerms(
   terms: readonly string[],
 ): ImageBrowseCategoryRow[] {
   const seenSlugs = new Set<string>();
+  const seenNormalized = new Set<string>();
   const out: ImageBrowseCategoryRow[] = [];
   for (const raw of terms) {
-    const term = raw.trim();
+    const term = sanitizeTrendSearchTerm(raw);
     if (!term || term.length < 2) continue;
+    const normalized = term.toLowerCase();
+    if (seenNormalized.has(normalized)) continue;
     const slug = slugifyTerm(term);
     if (seenSlugs.has(slug)) continue;
+    seenNormalized.add(normalized);
     seenSlugs.add(slug);
     out.push({
       slug,

@@ -32,6 +32,7 @@ export type RemoteMessageEditPayload = {
   contentSchemaVersion?: number;
   mentions?: MentionEntity[];
   attachments?: MessageAttachmentPayload[];
+  components?: unknown;
 };
 
 export function applyRemoteMessageEdit(
@@ -60,6 +61,7 @@ export function applyRemoteMessageEdit(
     contentSchemaVersion: cs,
     ...(p.mentions !== undefined ? { mentions: p.mentions } : {}),
     ...(p.attachments !== undefined ? { attachments: p.attachments } : {}),
+    ...(p.components !== undefined ? { components: p.components } : {}),
   });
   sink.materializeChannelAfterIndexMutation(p.channelId);
   sink.onAfterEdit?.(p.channelId, p.messageId);

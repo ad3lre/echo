@@ -28,3 +28,25 @@ export function formatPgQueryContextLabel(): string {
   if (!ctx) return 'internal:unlabeled';
   return `${ctx.scope}:${ctx.label}`;
 }
+
+/**
+ * Per-operation query tally, independent of {@link storage}. Wraps a region of
+ * work (e.g. one message send) so callers can count exactly how many PG
+ * roundtrips it issued — see {@link echoMessageSendDbQueries}.
+ */
+const queryTally = new AsyncLocalStorage<{ count: number }>();
+
+/** Increment the active tally, if any. Called from the query instrumentation. */
+export function bumpPgQueryTally(): void {
+  const t = queryTally.getStore();
+  if (t) t.count += 1;
+}
+
+/** Run `fn` inside a fresh tally and return its result plus the query count. */
+export async function countPgQueriesDuring<T>(
+  fn: () => Promise<T>,
+): Promise<{ result: T; queryCount: number }> {
+  const tally = { count: 0 };
+  const result = await queryTally.run(tally, fn);
+  return { result, queryCount: tally.count };
+}

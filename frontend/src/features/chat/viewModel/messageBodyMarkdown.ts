@@ -31,6 +31,7 @@ import {
   renderMarkdownKatexHtml,
 } from '@/composables/markdownKatex';
 import { preprocessLatexTextCompat } from './latexTextCompat';
+import { preprocessDiscordUnderlinesForMarkdown } from '@shared/discordEmbedMarkdown';
 import {
   appendMarkdownAlertIcon,
   markdownAlertTitleLabel,
@@ -1190,7 +1191,9 @@ export function parseMessageContent(
       resolvers,
     );
     const withHighlights = preprocessHighlights(withMentions);
-    const extractedMath = extractMarkdownMathRegions(withHighlights);
+    const withDiscordUnderlines =
+      preprocessDiscordUnderlinesForMarkdown(withHighlights);
+    const extractedMath = extractMarkdownMathRegions(withDiscordUnderlines);
     if (extractedMath.regions.length > 0) {
       ensureMarkdownKatexLoaded();
       // Register a reactive dependency so consumers re-render once KaTeX loads,

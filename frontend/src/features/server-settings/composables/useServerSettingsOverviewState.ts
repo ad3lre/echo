@@ -221,68 +221,70 @@ export function useServerSettingsOverviewState(
     () => iconPreviewUrl.value || opts.server.value?.imageUrl || '',
   );
 
-  const { onServerBannerFileChange, onServerIconFileChange } =
-    useServerBrandingUploads({
-      serverId: computed(() => opts.server.value?.id),
-      bannerPreviewUrl,
-      iconPreviewUrl,
-      updateServerBannerImageUrl: (id, url) => {
-        if (!isEchoGraphId(id)) {
-          serverStore.updateServerBannerImageUrl(id, url);
-          return;
-        }
-        const prevBanner =
-          serverStore.servers.find((s) => s.id === id)?.bannerImageUrl ?? '';
-        serverStore.updateServerBannerImageUrl(id, url);
-        void serverSettingsService
-          .persistBranding({
-            token: opts.accessToken.value,
-            serverId: id,
-            patch: { bannerUrl: url },
-            refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
-          })
-          .catch((e) => {
-            serverStore.updateServerBannerImageUrl(id, prevBanner);
-            bannerPreviewUrl.value = '';
-            const detail = extractUploadErrorMessage(e);
-            dispatchAppToast(
-              detail
-                ? `Could not save server banner: ${detail}`
-                : 'Could not save server banner.',
-              'warning',
-            );
-          });
-      },
-      updateServerImageUrl: (id, url) => {
-        if (!isEchoGraphId(id)) {
-          serverStore.updateServerImageUrl(id, url);
-          return;
-        }
-        const prevIcon =
-          serverStore.servers.find((s) => s.id === id)?.imageUrl ?? '';
-        serverStore.updateServerImageUrl(id, url);
-        void serverSettingsService
-          .persistBranding({
-            token: opts.accessToken.value,
-            serverId: id,
-            patch: { iconUrl: url },
-            refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
-          })
-          .catch((e) => {
-            serverStore.updateServerImageUrl(id, prevIcon);
-            iconPreviewUrl.value = '';
-            const detail = extractUploadErrorMessage(e);
-            dispatchAppToast(
-              detail
-                ? `Could not save server icon: ${detail}`
-                : 'Could not save server icon.',
-              'warning',
-            );
-          });
-      },
-    });
+  const {
+    onServerBannerFileChange,
+    onServerIconFileChange,
+    cancelBrandingUploadPreviews,
+  } = useServerBrandingUploads({
+    serverId: computed(() => opts.server.value?.id),
+    bannerPreviewUrl,
+    iconPreviewUrl,
+    getServerBannerImageUrl: (id) =>
+      serverStore.servers.find((s) => s.id === id)?.bannerImageUrl ?? '',
+    getServerIconImageUrl: (id) =>
+      serverStore.servers.find((s) => s.id === id)?.imageUrl ?? '',
+    applyServerBannerImageUrl: (id, url) => {
+      serverStore.updateServerBannerImageUrl(id, url);
+    },
+    applyServerIconImageUrl: (id, url) => {
+      serverStore.updateServerImageUrl(id, url);
+    },
+    commitServerBannerImageUrl: async (id, url, prevBanner) => {
+      if (!isEchoGraphId(id)) return;
+      try {
+        await serverSettingsService.persistBranding({
+          token: opts.accessToken.value,
+          serverId: id,
+          patch: { bannerUrl: url },
+          refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+        });
+      } catch (e) {
+        serverStore.updateServerBannerImageUrl(id, prevBanner);
+        const detail = extractUploadErrorMessage(e);
+        dispatchAppToast(
+          detail
+            ? `Could not save server banner: ${detail}`
+            : 'Could not save server banner.',
+          'warning',
+        );
+        throw e;
+      }
+    },
+    commitServerIconImageUrl: async (id, url, prevIcon) => {
+      if (!isEchoGraphId(id)) return;
+      try {
+        await serverSettingsService.persistBranding({
+          token: opts.accessToken.value,
+          serverId: id,
+          patch: { iconUrl: url },
+          refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+        });
+      } catch (e) {
+        serverStore.updateServerImageUrl(id, prevIcon);
+        const detail = extractUploadErrorMessage(e);
+        dispatchAppToast(
+          detail
+            ? `Could not save server icon: ${detail}`
+            : 'Could not save server icon.',
+          'warning',
+        );
+        throw e;
+      }
+    },
+  });
 
   function resetBannerPreviewsAndToggles() {
+    cancelBrandingUploadPreviews();
     bannerPreviewUrl.value = '';
     iconPreviewUrl.value = '';
     if (opts.server.value) {
@@ -346,6 +348,7 @@ export function useServerSettingsOverviewState(
     const sid = opts.server.value?.id;
     const token = opts.accessToken.value;
     if (!opts.canManageServer.value || !sid) return;
+    cancelBrandingUploadPreviews();
     bannerPreviewUrl.value = '';
     if (!isEchoGraphId(sid)) {
       serverStore.updateServerBannerImageUrl(sid, '');

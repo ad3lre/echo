@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS desktop: Associated Domains for iCloud Keychain Password AutoFill (Touch ID)
+  and Universal Links. Requires:
+  - App ID com.echo.desktop with Associated Domains in Apple Developer portal
+  - Developer ID (or distribution) signing — ad-hoc "-" builds ignore these entitlements
+  - https://chat-echo.com/.well-known/apple-app-site-association webcredentials entry
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:chat-echo.com</string>
+		<string>applinks:chat-echo.com</string>
+	</array>
+</dict>
+</plist>

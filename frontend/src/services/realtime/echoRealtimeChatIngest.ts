@@ -16,9 +16,11 @@ import {
   applyRemotePollUpdate,
 } from '@/services/realtime/socketRemoteMessagePatchApply';
 import {
+  isPendingClientMessageId,
   prunePendingClientMessages,
   type PendingClientEchoMessage,
 } from '@/services/realtime/socketPendingClientMessages';
+import { touchOutboundSendPendingUi } from '@/services/realtime/deferredMediaOutboundSend';
 import { createEchoRealtimePendingSendReconciler } from '@/services/realtime/echoRealtimePendingSendReconciler';
 import { createEchoRealtimeOptimisticRollback } from '@/services/realtime/echoRealtimeOptimisticRollback';
 import { shouldApplyRemoteChannelTyping } from '@/services/realtime/socketChannelTypingIngest';
@@ -89,7 +91,19 @@ export function createEchoRealtimeChatIngestPort(opts: {
       onDuplicateById: (channelId, messageId) => {
         pendingReconciler.onDuplicateById(channelId, messageId);
       },
-      resolveAuthorId: (p) => opts.resolveEchoAuthorId(p),
+      resolveAuthorId: (p) => {
+        const wasPending = isPendingClientMessageId(
+          opts.pendingSentMessages,
+          p.channelId,
+          p.id,
+          Date.now(),
+        );
+        const authorId = opts.resolveEchoAuthorId(p);
+        if (wasPending) {
+          pendingReconciler.finalizePendingSend(p.id);
+        }
+        return authorId;
+      },
       appendChannelMessage: opts.appendChannelMessage,
       notifyIncomingChatMessage: opts.notifyIncomingChatMessage,
       applyAuthorHint: opts.applyRealtimeAuthorHint,
@@ -111,8 +125,13 @@ export function createEchoRealtimeChatIngestPort(opts: {
           rollbackTransaction: (id) => opts.uiTx.rollbackTransaction(id),
           rollbackOptimisticClientMessage: (cid, mid) =>
             optimisticRollback.rollbackOptimisticClientMessage(cid, mid),
-          prunePendingClientMessages: (nowMs) =>
-            prunePendingClientMessages(opts.pendingSentMessages, nowMs),
+          prunePendingClientMessages: (nowMs) => {
+            const before = opts.pendingSentMessages.length;
+            prunePendingClientMessages(opts.pendingSentMessages, nowMs);
+            if (opts.pendingSentMessages.length !== before) {
+              touchOutboundSendPendingUi();
+            }
+          },
           dispatchEchoMessageFailed: (detail) =>
             opts.host.errors.onMessageFailed(detail),
         },

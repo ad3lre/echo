@@ -69,6 +69,6 @@ describe('MentionAutocompletePopover runtime', () => {
     await nextTick();
 
     const empty = document.body.querySelector('.echo-autocomplete-empty');
-    expect(empty?.textContent).toContain('No people found');
+    expect(empty?.textContent).toContain('No matches found');
   });
 });

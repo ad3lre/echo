@@ -224,6 +224,7 @@ async function pm2RestartAll(repoRoot, env) {
     'echo-frontend',
     'echo-video-hls-worker',
     'echo-marketing',
+    'echo-discord-bot',
     'echo-watchdog',
   ];
   let any = false;

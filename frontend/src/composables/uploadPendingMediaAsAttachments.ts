@@ -368,7 +368,8 @@ export async function uploadPendingMediaAsAttachments(
     pendingVideos.length +
     pendingAudios.length +
     pendingDocuments.length +
-    pendingExternalImages.length;
+    pendingExternalImages.length +
+    pendingGifs.length;
   const fileOpts =
     options?.onMediaUploadProgress && uploadFileCount > 0
       ? {
@@ -544,13 +545,48 @@ export async function uploadPendingMediaAsAttachments(
       throw wrapped;
     }
   }
-  for (const g of pendingGifs) {
-    attachments.push({
-      url: g.url,
-      kind: 'gif',
-      ...(g.width && g.height ? { width: g.width, height: g.height } : {}),
-      ...(g.spoiler ? { spoiler: true } : {}),
-    });
+  const remoteImportCount = pendingExternalImages.length;
+  for (let g = 0; g < pendingGifs.length; g++) {
+    const gif = pendingGifs[g]!;
+    const emitIf = (
+      phase: ChatMediaUploadProgressEvent['phase'],
+      uploadPercent: number | null = null,
+    ) => {
+      fileOpts?.onProgress?.({
+        fileIndex: fileUploadCount + remoteImportCount + g,
+        fileTotal: uploadFileCount,
+        fileName: 'GIF',
+        kind: 'image',
+        phase,
+        uploadPercent,
+      });
+    };
+    emitIf('preparing', null);
+    emitIf('uploading', null);
+    try {
+      const imported = await importChatRemoteImage(token, channelId, gif.url);
+      emitIf('finishing', null);
+      emitIf('done', null);
+      attachments.push({
+        url: imported.url,
+        storageKey: imported.storageKey,
+        kind: 'gif',
+        mimeType: imported.mimeType,
+        ...(imported.fileSize > 0 ? { fileSize: imported.fileSize } : {}),
+        ...(gif.width && gif.height
+          ? { width: gif.width, height: gif.height }
+          : {}),
+        ...(gif.spoiler ? { spoiler: true } : {}),
+      });
+    } catch (err) {
+      reportPrimaryFlowFailure('chat.remote_gif_import_failed', err, {
+        channelId,
+        url: gif.url,
+      });
+      const wrapped = new Error(formatChatUploadErrorMessage(err));
+      if (err instanceof Error) wrapped.cause = err;
+      throw wrapped;
+    }
   }
 
   return attachments;

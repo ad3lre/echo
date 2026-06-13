@@ -80,9 +80,11 @@ import { branchFromPersistedChannelRow } from '../../../sockets/echoMessageFlow'
 import { resolveAndBroadcastLinkEmbeds } from '../../../sockets/echoLinkEmbeds';
 import { createSocketMessageRateLimiter } from '../../../sockets/messageRateLimiter';
 import {
+  validateImageSlotFillPayload,
   validateMessageEditPayload,
   validateMessagePayload,
 } from '../../../sockets/messageValidation';
+import { fillEchoMessageImageSlotAndBroadcast } from '../../../services/echoImageSlotFillBroadcast';
 import { canDeleteOthersMessagesInChannel } from '../../../domain/echoPolicy';
 import type {
   ForwardedFrom,
@@ -1158,6 +1160,86 @@ export default async function echoMessagesRoutes(
           .send({ message: persistRes.message, idempotentReplay: true });
       }
       return reply.code(201).send({ message: persistRes.message });
+    },
+  );
+
+  fastify.post<{
+    Params: { channelId: string; messageId: string; slotId: string };
+    Body: {
+      imageUrl?: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    };
+  }>(
+    '/channels/:channelId/messages/:messageId/image-slots/:slotId/fill',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_MESSAGE_PATCH_RATE },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const channelId = trimEchoPathParam(req.params.channelId);
+      const messageId = trimEchoPathParam(req.params.messageId);
+      const slotId = trimEchoPathParam(req.params.slotId);
+      const uid = getAuthUser(req).id;
+      const ok = await canUserPostMessage(pool, uid, channelId);
+      if (!ok) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Cannot fill image slot in this channel',
+        );
+      }
+      const parsed = validateImageSlotFillPayload({
+        ...req.body,
+        channelId,
+        messageId,
+        slotId,
+      });
+      if (!parsed.ok) {
+        return sendError(reply, 400, 'INVALID_BODY', parsed.error);
+      }
+      const v = parsed.value;
+      const r = await fillEchoMessageImageSlotAndBroadcast(
+        pool,
+        fastify.io,
+        fastify.log,
+        channelId,
+        messageId,
+        uid,
+        v.slotId,
+        {
+          imageUrl: v.imageUrl,
+          ...(v.storageKey ? { storageKey: v.storageKey } : {}),
+          ...(v.width != null ? { width: v.width } : {}),
+          ...(v.height != null ? { height: v.height } : {}),
+        },
+      );
+      if (r === 'not_found' || r === 'slot_not_found') {
+        return sendError(reply, 404, 'NOT_FOUND', 'Image slot not found');
+      }
+      if (r === 'forbidden') {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Cannot fill this image slot',
+        );
+      }
+      if (r === 'slot_already_filled') {
+        return sendError(reply, 409, 'CONFLICT', 'Image slot already filled');
+      }
+      if (r === 'invalid_format') {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'Message does not support image slots',
+        );
+      }
+      return reply.code(204).send();
     },
   );
 

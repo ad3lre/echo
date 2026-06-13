@@ -14,6 +14,10 @@ import { echoFetch } from './transport';
 import type { ChannelCategory } from '@/composables/useChannels';
 import type { EchoChannelRow, EchoChannelPatch } from './types';
 import { fetchEchoServerCategories } from './categories';
+import {
+  ECHO_SYSTEM_CHANNELS_BUCKET_ID,
+  isEchoSystemChannelType,
+} from '@shared/systemChannels';
 
 export async function fetchEchoServerChannels(
   token: string,
@@ -217,6 +221,44 @@ export function echoChannelRowToChannelSummary(
 }
 
 /**
+ * Pull system channels (role picker, etc.) into a pinned bucket above regular categories.
+ */
+export function prependSystemChannelSection(
+  categories: ChannelCategory[],
+): ChannelCategory[] {
+  const systemChannels: ChannelCategory['channels'] = [];
+  const regular: ChannelCategory[] = [];
+
+  for (const cat of categories) {
+    if (cat.systemSection) continue;
+    const remaining: ChannelCategory['channels'] = [];
+    for (const ch of cat.channels) {
+      if (isEchoSystemChannelType(ch.type)) {
+        systemChannels.push(ch);
+      } else {
+        remaining.push(ch);
+      }
+    }
+    if (remaining.length === 0 && cat.hideCategoryHeader) continue;
+    regular.push({ ...cat, channels: remaining });
+  }
+
+  if (systemChannels.length === 0) return regular;
+
+  return [
+    {
+      id: ECHO_SYSTEM_CHANNELS_BUCKET_ID,
+      name: '',
+      hideCategoryHeader: true,
+      systemSection: true,
+      channels: systemChannels,
+      channelPermissionDefaults: {},
+    },
+    ...regular,
+  ];
+}
+
+/**
  * Merge category list with categoryless channels using compact ordering
  * (`category.position` vs root `channel.position`).
  */
@@ -280,7 +322,7 @@ export function mergeEchoChannelCategoriesWithRoots(
       channelPermissionDefaults: {},
     });
   }
-  return out;
+  return prependSystemChannelSection(out);
 }
 
 /**

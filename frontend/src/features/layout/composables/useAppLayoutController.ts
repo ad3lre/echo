@@ -75,6 +75,7 @@ import { useAppLayoutForwardMessage } from './useAppLayoutForwardMessage';
 import { useAppLayoutGroupDmManagement } from './useAppLayoutGroupDmManagement';
 import { useAppLayoutLinkedDiscord } from './useAppLayoutLinkedDiscord';
 import { useAppLayoutMentionAutocompleteUsers } from './useAppLayoutMentionAutocompleteUsers';
+import { useAppLayoutMentionAutocompleteRoles } from './useAppLayoutMentionAutocompleteRoles';
 import { useAppLayoutVcActivityGuards } from './useAppLayoutVcActivityGuards';
 import { useAppLayoutServerLayoutPrefs } from './useAppLayoutServerLayoutPrefs';
 import { useAppLayoutMessageActions } from './useAppLayoutMessageActions';
@@ -1792,6 +1793,7 @@ export function useAppLayoutController() {
     submitPin: submitPinViaSocket,
     submitUnpin: submitUnpinViaSocket,
     submitMessageEdit: submitMessageEditViaSocket,
+    submitImageSlotFill: submitImageSlotFillViaSocket,
     submitMessageDelete: submitMessageDeleteViaSocket,
     submitDmCallInvite: submitDmCallInviteViaSocket,
     submitDmCallAccept: submitDmCallAcceptViaSocket,
@@ -2379,6 +2381,14 @@ export function useAppLayoutController() {
     memberListUsers,
   });
 
+  const rolesForMentionAutocomplete = useAppLayoutMentionAutocompleteRoles({
+    mainSurface,
+    selectedServerId: selectedServerIdRef,
+    echoRoleCatalog: roleUi.echoRoleCatalog,
+    echoCapabilitiesForServerId: roleUi.echoCapabilitiesForServerId,
+    lightTheme: computed(() => themeStore.canonicalTheme === 'light'),
+  });
+
   const searchIntegration = useAppLayoutSearchIntegration({
     categoriesForServer,
     activeChannelId,
@@ -2571,6 +2581,7 @@ export function useAppLayoutController() {
     votePoll: votePollMock,
     submitEchoPollVote: submitPollVoteViaSocket,
     submitEchoMessageEdit: submitMessageEditViaSocket,
+    submitEchoImageSlotFill: submitImageSlotFillViaSocket,
     submitEchoMessageDelete: submitMessageDeleteViaSocket,
     uiTransactions,
     isLiveSocketReady,
@@ -2886,6 +2897,7 @@ export function useAppLayoutController() {
     serverSettingsMemberUsers,
     usersForChannelPanel,
     usersForMentionAutocomplete,
+    rolesForMentionAutocomplete,
     onExpandedProfileModalUpdate,
     expandedProfile,
     selectDmUser,
@@ -3451,6 +3463,7 @@ export function useAppLayoutController() {
       echoRoleCatalog: roleUi.echoRoleCatalog,
       echoWorkspaceError,
       editMessage: messageActions.editMessage,
+      fillImageSlot: messageActions.fillImageSlot,
       effectiveActiveChannel,
       endDmCall,
       leaveDmCallVoice,

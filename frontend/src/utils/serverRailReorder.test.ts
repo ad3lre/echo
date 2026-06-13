@@ -7,6 +7,7 @@ import {
   reorderServerRail,
   reorderServerRailWithOverflow,
   projectServerRailVisibleServers,
+  resolveVisibleServerRail,
   MAX_STARRED_SERVERS,
   VISIBLE_SERVER_RAIL_SLOT_COUNT,
 } from '@/utils/serverRailReorder';
@@ -75,24 +76,36 @@ describe('reorderServerRail', () => {
     expect(out.mruIds.slice(0, 5)).toEqual(['b', 'a', 'c', 'd', 'e']);
   });
 
-  it('no-ops when reorder would cross starred / MRU boundary', () => {
-    const all = [S('a'), S('b'), S('c'), S('d'), S('e'), S('f'), S('g')];
+  it('reorders across starred / MRU boundary and preserves display order', () => {
+    const all = [S('f'), S('a'), S('b'), S('c'), S('d'), S('e'), S('g')];
     const pinned = [S('f')];
     const mru = ['a', 'b', 'c', 'd', 'e'];
     const out = reorderServerRail({
       allServers: all,
       pinnedMore: pinned,
       mruIds: mru,
-      fromIndex: 0,
-      toIndex: 2,
+      fromIndex: 2,
+      toIndex: 0,
+      preferSavedOrder: true,
     });
-    expect(out.servers.map((s) => s.id)).toEqual(all.map((s) => s.id));
+    expect(out.servers.map((s) => s.id).slice(0, 5)).toEqual([
+      'b',
+      'f',
+      'a',
+      'c',
+      'd',
+    ]);
+    expect(
+      resolveVisibleServerRail(out.servers, out.pinnedMore, out.mruIds, {
+        preferSavedOrder: true,
+      }).map((s) => s.id),
+    ).toEqual(['b', 'f', 'a', 'c', 'd']);
     expect(out.pinnedMore.map((s) => s.id)).toEqual(['f']);
-    expect(out.mruIds).toEqual(mru);
+    expect(out.mruIds.slice(0, 5)).toEqual(['b', 'f', 'a', 'c', 'd']);
   });
 
   it('reorders starred prefix without crossing MRU fill', () => {
-    const all = [S('a'), S('b'), S('c'), S('d'), S('e'), S('f'), S('g')];
+    const all = [S('f'), S('g'), S('a'), S('b'), S('c'), S('d'), S('e')];
     const pinned = [S('f'), S('g')];
     const mru = ['a', 'b', 'c', 'd', 'e'];
     const out = reorderServerRail({
@@ -101,6 +114,7 @@ describe('reorderServerRail', () => {
       mruIds: mru,
       fromIndex: 0,
       toIndex: 1,
+      preferSavedOrder: true,
     });
     expect(out.pinnedMore.map((s) => s.id)).toEqual(['g', 'f']);
     expect(out.servers.map((s) => s.id)).toEqual([
@@ -112,6 +126,18 @@ describe('reorderServerRail', () => {
       'd',
       'e',
     ]);
+  });
+});
+
+describe('resolveVisibleServerRail', () => {
+  it('uses allServers order for visible membership', () => {
+    const all = [S('b'), S('a'), S('c'), S('d'), S('f'), S('e')];
+    const pinned = [S('f')];
+    const mru = ['a', 'b', 'c', 'd', 'e'];
+    const ids = resolveVisibleServerRail(all, pinned, mru, {
+      preferSavedOrder: true,
+    }).map((s) => s.id);
+    expect(ids).toEqual(['b', 'a', 'c', 'd', 'f']);
   });
 });
 

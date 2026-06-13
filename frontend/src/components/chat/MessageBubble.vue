@@ -15,6 +15,7 @@ import type {
   MessageWithAuthor,
 } from '@shared/types';
 import { stubVideoEmbedsFromMessage } from '@shared/linkEmbedCandidates';
+import { docContainsButtonRows } from '@shared/buttonRowContentJson';
 import {
   isInlineGifHostEmbed,
   linkEmbedsExcludingInlineGifs,
@@ -44,9 +45,9 @@ import {
   validateEchoContentJsonForRender,
 } from '@/features/chat/editor/echoContentJsonForRender';
 import MessageLinkEmbeds from './MessageLinkEmbeds.vue';
+import MessageDiscordComponents from './MessageDiscordComponents.vue';
 import MessageInlineGifEmbeds from './MessageInlineGifEmbeds.vue';
 import MessageAttachments from './MessageAttachments.vue';
-import PendingMediaPreview from './PendingMediaPreview.vue';
 import MessageReactions from './MessageReactions.vue';
 import MessageHeader from './MessageHeader.vue';
 import MessageSendPendingDots from './MessageSendPendingDots.vue';
@@ -70,10 +71,8 @@ import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { openReportModal } from '@/features/safety/reportModal';
 import { linkTokenMessage } from '@/utils/idTokens';
 import { useContextMenuPosition } from '@/features/chat/composables/useContextMenuPosition';
-import { useMessageEditState } from '@/features/chat/composables/useMessageEditState';
-import { usePendingMedia } from '@/composables/usePendingMedia';
-import { usePendingVideoEagerUpload } from '@/composables/usePendingVideoEagerUpload';
-import { uploadPendingMediaAsAttachments } from '@/composables/uploadPendingMediaAsAttachments';
+import { useImageSlotFill } from '@/features/chat/composables/useImageSlotFill';
+import { failResult } from '@/types/actionResult';
 import { defaultQuickReactionFavorites } from '@/composables/useReactionFavorites';
 import { useMessageBubbleUi } from '@/features/chat/composables/useMessageBubbleUi';
 import { useMessageKatexScrollbarReveal } from '@/features/chat/composables/useMessageKatexScrollbarReveal';
@@ -94,10 +93,9 @@ import { useAnchoredFloatingPosition } from '@/composables/useAnchoredFloatingPo
 import type { MessageListRowPresentation } from '@/features/chat/presentation/messageListRowPresentation';
 import { isEchoMessageLogicallyOwn } from '@/features/chat/domain/discordTwinMessageOwnership';
 import { isDmCallRollupCollapseMessageId } from '@/features/chat/domain/dmCallLogHistoryCollapse';
-import { emitDiagnostic } from '@/observability/sessionDiagnostics';
+import { isOutboundMessageSendPending } from '@/services/realtime/deferredMediaOutboundSend';
 import { useEchoWorkspace } from '@/composables/useEchoWorkspace';
 import { resolveGuildMemberDisplayName } from '@/utils/resolveGuildMemberDisplayName';
-import { isOutboundMessageSendPending } from '@/services/realtime/deferredMediaOutboundSend';
 
 const props = defineProps<{
   /** Prebuilt row: message, layout, reply preview, separators — from MessageList view model. */
@@ -128,14 +126,15 @@ const props = defineProps<{
   onUnpin?: () => void;
   /** When set, used to show mod actions on others’ messages (server chat only). */
   canModerateAuthor?: (authorId: string) => boolean;
-  /**
-   * Persist edit (Echo live). When set, used instead of `saveEdit` emit so the parent’s
-   * promise result can keep the editor open on failure.
-   */
-  saveMessageEdit?: (
+  fillImageSlot?: (
     messageId: string,
-    newContent: string,
-    attachments?: MessageAttachmentPayload[],
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    },
   ) => boolean | Promise<boolean>;
   onRequestForward?: (
     message: MessageWithAuthor & { channelName?: string },
@@ -143,13 +142,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  saveEdit: [
-    messageId: string,
-    newContent: string,
-    attachments?: MessageAttachmentPayload[],
-  ];
   delete: [messageId: string];
   reply: [message: MessageWithAuthor & { channelName?: string }];
+  edit: [message: MessageWithAuthor & { channelName?: string }];
   expandDmCallRoll: [messageId: string];
   moderateUser: [
     payload: {
@@ -236,16 +231,11 @@ const {
   setMenuPositionFromPoint,
   fitMenuToViewport,
 } = useContextMenuPosition();
-const editTextareaRef = ref<HTMLTextAreaElement | null>(null);
-const editFormRef = ref<HTMLElement | null>(null);
 const rootRef = ref<HTMLElement | null>(null);
 const reactionsRef = ref<InstanceType<typeof MessageReactions> | null>(null);
 const hovered = ref(false);
 const focusWithin = ref(false);
 
-const activeEditInsert = inject<{ value: ((text: string) => void) | null }>(
-  'activeEditInsert',
-);
 const composerInsertUserMention =
   inject<Ref<InsertUserMentionFn | null> | null>(
     COMPOSER_INSERT_USER_MENTION_KEY,
@@ -334,6 +324,34 @@ const isOwnMessage = computed(() =>
   ),
 );
 
+const canFillImageSlots = computed(
+  () => isOwnMessage.value && !!props.fillImageSlot,
+);
+
+const {
+  fileInputRef: imageSlotFileInputRef,
+  openFillPicker,
+  onFileSelected: onImageSlotFileSelected,
+} = useImageSlotFill({
+  channelId: () => props.channelId,
+  submitFill: async (channelId, messageId, slotId, payload) => {
+    if (!props.fillImageSlot) {
+      return failResult('UNAVAILABLE', 'Image slot fill unavailable', false);
+    }
+    const ok = await Promise.resolve(
+      props.fillImageSlot(messageId, slotId, payload),
+    );
+    return ok
+      ? { ok: true }
+      : failResult('FILL_FAILED', 'Could not fill image slot', true);
+  },
+});
+
+function handleFillImageSlot(slotId: string) {
+  if (!canFillImageSlots.value || !message.value.id) return;
+  openFillPicker(message.value.id, slotId);
+}
+
 /** Avatar / gutter mode comes from the list row view model (no neighbor inference here). */
 const showAvatarResolved = computed(() => props.row.showAvatar);
 const showGutterHoverResolved = computed(() => props.row.showGutterHoverTime);
@@ -384,6 +402,17 @@ const linkEmbedsForLinkCards = computed((): Embed[] | undefined => {
 const hasInlineGifEmbeds = computed(() =>
   (linkEmbedsForDisplay.value ?? []).some(isInlineGifHostEmbed),
 );
+
+/** Webhook-only components render below the body; composer button rows render inline from content_json. */
+const showStandaloneMessageComponents = computed(() => {
+  if (
+    !Array.isArray(message.value.components) ||
+    !message.value.components.length
+  ) {
+    return false;
+  }
+  return !docContainsButtonRows(message.value.contentJson);
+});
 
 /** Message body root (markdown / JSON caption) — wires KaTeX overflow scrollbars. */
 const messageContentRef = ref<HTMLElement | null>(null);
@@ -755,171 +784,6 @@ const showExpandedDeveloperIds = computed(
   () => devModeIdsEnabled.value && contextMenuSource.value === 'rightclick',
 );
 
-const editAttachmentFileInputRef = ref<HTMLInputElement | null>(null);
-const {
-  pendingImages,
-  pendingVideos,
-  pendingAudios,
-  pendingDocuments,
-  pendingExternalImages,
-  pendingGifs,
-  addFiles,
-  removeImage,
-  removeVideo,
-  removeAudio,
-  removeDocument,
-  removeExternalImage,
-  removeGif,
-  clearAll: clearPendingEditMedia,
-} = usePendingMedia();
-
-usePendingVideoEagerUpload(
-  computed(() => props.channelId ?? ''),
-  pendingVideos,
-);
-
-async function finalizeEditAttachments(): Promise<MessageAttachmentPayload[]> {
-  const cid = props.channelId?.trim();
-  if (!cid) return [];
-  const n =
-    pendingImages.value.length +
-    pendingVideos.value.length +
-    pendingAudios.value.length +
-    pendingDocuments.value.length +
-    pendingExternalImages.value.length +
-    pendingGifs.value.length;
-  if (n === 0) return [];
-  try {
-    const out = await uploadPendingMediaAsAttachments(
-      cid,
-      [...pendingImages.value],
-      [...pendingVideos.value],
-      [...pendingAudios.value],
-      [...pendingDocuments.value],
-      [...pendingExternalImages.value],
-      [...pendingGifs.value],
-    );
-    clearPendingEditMedia();
-    return out;
-  } catch (e) {
-    dispatchAppToast(
-      e instanceof Error ? e.message : 'Could not upload attachments',
-      'warning',
-    );
-    throw e;
-  }
-}
-
-function onEditAttachmentFilePick(e: Event) {
-  const t = e.target as HTMLInputElement;
-  const files = t.files;
-  if (files?.length) addFiles(Array.from(files), props.channelId ?? '');
-  t.value = '';
-}
-
-const pendingEditUploadCount = computed(
-  () =>
-    pendingImages.value.length +
-    pendingVideos.value.length +
-    pendingAudios.value.length +
-    pendingDocuments.value.length +
-    pendingExternalImages.value.length +
-    pendingGifs.value.length,
-);
-
-const {
-  isEditing,
-  editDraft,
-  editAttachments,
-  removeEditAttachment,
-  saveFeedback,
-  enterEditMode,
-  cancelEdit,
-  saveEdit,
-  onEditKeydown,
-  onEditInput,
-  insertAtEditTextarea,
-} = useMessageEditState({
-  message,
-  isOwnMessage,
-  menuOpen,
-  rootRef,
-  editTextareaRef,
-  editFormRef,
-  messageContentRef,
-  activeEditInsert: activeEditInsert ?? undefined,
-  finalizeAttachments: finalizeEditAttachments,
-  onSave: async (messageId, content, attachments) => {
-    emitDiagnostic({
-      level: 'info',
-      domain: 'chat',
-      event: 'message_edit_ui_save',
-      stage: 'attempt',
-      context: {
-        action: 'MessageBubble.onSave',
-        channelId: props.channelId ?? '',
-        messageId,
-        bytes: content.length,
-        detail: props.saveMessageEdit ? 'path=prop' : 'path=emit',
-      },
-    });
-    if (props.saveMessageEdit) {
-      try {
-        const r = await Promise.resolve(
-          props.saveMessageEdit(messageId, content, attachments),
-        );
-        if (r === false) {
-          emitDiagnostic({
-            level: 'warn',
-            domain: 'chat',
-            event: 'message_edit_ui_save',
-            stage: 'fail',
-            context: {
-              action: 'MessageBubble.onSave',
-              channelId: props.channelId ?? '',
-              messageId,
-              ok: false,
-              reason: 'saveMessageEdit_returned_false',
-            },
-          });
-        }
-        return r !== false;
-      } catch (e) {
-        emitDiagnostic({
-          level: 'error',
-          domain: 'chat',
-          event: 'message_edit_ui_save',
-          stage: 'fail',
-          context: {
-            action: 'MessageBubble.onSave',
-            channelId: props.channelId ?? '',
-            messageId,
-            ok: false,
-            reason: 'saveMessageEdit_threw',
-            detail: e instanceof Error ? e.message : String(e),
-          },
-          error:
-            e instanceof Error
-              ? { message: e.message, stack: e.stack }
-              : { message: String(e) },
-        });
-        throw e;
-      }
-    }
-    emit('saveEdit', messageId, content, attachments);
-    return true;
-  },
-});
-
-const editMessageForAttachments = computed(() => ({
-  ...message.value,
-  attachments: editAttachments.value,
-}));
-
-const showEditAttachmentsSection = computed(
-  () => editAttachments.value.length > 0 || pendingEditUploadCount.value > 0,
-);
-
 function clearMessageActionBarVisibility() {
   hovered.value = false;
   focusWithin.value = false;
@@ -936,29 +800,16 @@ function blurFocusedMessageChrome() {
   }
 }
 
-watch(isEditing, (editing, wasEditing) => {
-  if (!editing) {
-    clearPendingEditMedia();
-    if (wasEditing) {
-      clearMessageActionBarVisibility();
-      blurFocusedMessageChrome();
-    }
-    return;
-  }
-  clearMessageActionBarVisibility();
-});
-
 watch(
   () => message.value.editedAt ?? message.value.content,
   () => {
-    if (!isEditing.value) clearMessageActionBarVisibility();
+    clearMessageActionBarVisibility();
   },
 );
 
 const showActionBar = computed(
   () =>
     !isSystemMessage.value &&
-    !isEditing.value &&
     (hovered.value ||
       focusWithin.value ||
       menuOpen.value ||
@@ -969,10 +820,6 @@ const { style: actionBarFloatingStyle } = useAnchoredFloatingPosition(
   rootRef,
   showActionBar,
 );
-
-defineExpose({
-  enterEditMode,
-});
 
 function handleDelete() {
   if (message.value.id) emit('delete', message.value.id);
@@ -1010,6 +857,12 @@ function emitModerate(
 
 function handleReply() {
   emit('reply', message.value);
+  menuOpen.value = false;
+}
+
+function handleEdit() {
+  if (!message.value.id || !isOwnMessage.value) return;
+  emit('edit', message.value);
   menuOpen.value = false;
 }
 
@@ -1121,9 +974,6 @@ const {
   menuOpen,
   menuRef,
   triggerRef,
-  editFormRef,
-  isEditing,
-  cancelEdit,
   setMenuPositionFromRect,
   setMenuPositionFromPoint,
   fitMenuToViewport,
@@ -1233,7 +1083,7 @@ watch(
       :show-view-reactions="hasReactions"
       :show-copy-image="!!copyableMessageImageUrl"
       :timeout-active="authorTimeoutActive"
-      @enter-edit-mode="enterEditMode"
+      @enter-edit-mode="handleEdit"
       @handle-delete="handleDelete"
       @copy-message="copyMessage"
       @copy-image="copyMessageImage"
@@ -1368,212 +1218,106 @@ watch(
           :author-role-color="authorRoleColor"
           :author-offline="authorLooksOffline"
           :is-pinned="isPinned"
-          :save-feedback="saveFeedback"
           :send-pending="isSendPending"
           :channel-id="channelId"
           @open-profile="openAuthorProfile"
         />
 
         <div data-dev-hit="message" class="min-w-0">
-          <!-- Edit mode -->
           <div
-            v-if="isEditing && isOwnMessage"
-            ref="editFormRef"
-            class="edit-form"
+            v-if="showTextCaption"
+            ref="messageContentRef"
+            v-spoiler-reveal
+            class="message-text message-content max-w-3xl text-fg"
+            :class="{
+              'mb-1': !row.layout.groupedWithNext,
+              'message-text--emoji-only': isEmojiOnlyUpTo12(
+                message.content ?? '',
+              ),
+            }"
+            @click="handleContentInteraction"
+            @keydown.enter="handleContentInteraction"
+            @keydown.space.prevent="handleContentInteraction"
           >
-            <textarea
-              ref="editTextareaRef"
-              v-model="editDraft"
-              rows="1"
-              placeholder="Edit message..."
-              class="edit-textarea message-text message-content max-w-3xl text-fg"
-              spellcheck="true"
-              @input="onEditInput"
-              @keydown="onEditKeydown"
-            />
-            <div
-              v-if="showEditAttachmentsSection"
-              class="edit-form__attachments"
-            >
-              <MessageAttachments
-                :message="editMessageForAttachments"
-                :attachments="editAttachments"
-                :open-image-viewer="openImageViewer"
-                :open-document-viewer="openDocumentViewer"
-              />
-              <div
-                v-if="editAttachments.length"
-                class="edit-form__attachment-tags"
-              >
-                <div
-                  v-for="(att, idx) in editAttachments"
-                  :key="`${att.url}-${idx}`"
-                  class="edit-form__attachment-tag"
-                >
-                  <span class="truncate">{{
-                    att.filename || att.kind || 'Attachment'
-                  }}</span>
-                  <button
-                    type="button"
-                    class="edit-form__attachment-remove chat-focus-ring"
-                    title="Remove attachment"
-                    aria-label="Remove attachment"
-                    @click="removeEditAttachment(idx)"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-              <PendingMediaPreview
-                :images="pendingImages"
-                :videos="pendingVideos"
-                :audios="pendingAudios"
-                :documents="pendingDocuments"
-                :external-images="pendingExternalImages"
-                :gifs="pendingGifs"
-                @remove-image="removeImage"
-                @remove-video="removeVideo"
-                @remove-audio="removeAudio"
-                @remove-document="removeDocument"
-                @remove-external-image="removeExternalImage"
-                @remove-gif="removeGif"
-              />
-            </div>
-            <input
-              ref="editAttachmentFileInputRef"
-              type="file"
-              class="sr-only"
-              multiple
-              accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
-              @change="onEditAttachmentFilePick"
-            />
-            <div
-              class="edit-form__actions"
-              role="group"
-              aria-label="Edit message actions"
-            >
-              <button
-                type="button"
-                class="edit-form__btn edit-form__btn--ghost chat-focus-ring"
-                title="Add files"
-                @click="editAttachmentFileInputRef?.click()"
-              >
-                Add files
-              </button>
-              <span
-                v-if="pendingEditUploadCount > 0"
-                class="edit-form__pending-hint"
-                >{{ pendingEditUploadCount }} to upload</span
-              >
-              <span class="edit-form__actions-spacer" aria-hidden="true" />
-              <button
-                type="button"
-                class="edit-form__btn edit-form__btn--secondary chat-focus-ring"
-                @click="cancelEdit"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                class="edit-form__btn edit-form__btn--primary chat-focus-ring"
-                @click="() => void saveEdit()"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-          <template v-else>
-            <div
-              v-if="showTextCaption"
-              ref="messageContentRef"
-              v-spoiler-reveal
-              class="message-text message-content max-w-3xl text-fg"
-              :class="{
-                'mb-1': !row.layout.groupedWithNext,
-                'message-text--emoji-only': isEmojiOnlyUpTo12(
-                  message.content ?? '',
-                ),
-              }"
-              @click="handleContentInteraction"
-              @keydown.enter="handleContentInteraction"
-              @keydown.space.prevent="handleContentInteraction"
-            >
-              <MessageBubbleInnerBody
-                :body-mode="bodyRenderMode"
-                :display-message-content="displayMessageContent"
-                :mentions="message.mentions"
-                :parse-id-resolvers="parseIdResolvers"
-                :embeds="contentEmbedsForSegments"
-                :on-jump-to-message="onGoToMessage"
-                :custom-emoji-render-key="customEmojiRenderKey"
-                :message-id="message.id"
-                :magic-time="magicTimeContext"
-              />
-            </div>
-            <MessageAttachments
-              :message="message"
-              :attachments="displayAttachments"
-              :open-image-viewer="openImageViewer"
-              :open-document-viewer="openDocumentViewer"
-            />
-            <MessageInlineGifEmbeds
-              v-if="hasInlineGifEmbeds"
-              :embeds="linkEmbedsForDisplay ?? []"
-              :open-image-viewer="openImageViewer"
-              :alt="message.content || 'GIF'"
-            />
-            <MessageLinkEmbeds
-              v-if="linkEmbedsForLinkCards?.some((e) => !e.echoJump)"
-              class="mt-2"
-              :embeds="linkEmbedsForLinkCards"
-            />
-            <div
-              v-if="
-                Array.isArray(message.components) && message.components.length
-              "
-              class="mt-2 max-w-xl rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text-muted)]"
-              data-testid="message-components-placeholder"
-            >
-              This message includes bot-style components (Echo shows a
-              placeholder; interactions are not available).
-            </div>
-            <PollDisplay
-              v-if="pollForDisplay"
-              :poll="pollForDisplay"
+            <MessageBubbleInnerBody
+              :body-mode="bodyRenderMode"
+              :display-message-content="displayMessageContent"
+              :mentions="message.mentions"
+              :parse-id-resolvers="parseIdResolvers"
+              :embeds="contentEmbedsForSegments"
+              :content-json="message.contentJson"
+              :on-jump-to-message="onGoToMessage"
+              :custom-emoji-render-key="customEmojiRenderKey"
               :message-id="message.id"
-              :current-user-id="currentUserId"
-              :current-user-display-name="currentUserName"
-              :discord-synced="!!message.bridgeFromDiscord"
-              :resolve-poll-voter-display="resolvePollVoterDisplay"
-              :resolve-poll-voter-avatar="resolvePollVoterAvatar"
-              @vote="onVote?.($event)"
+              :magic-time="magicTimeContext"
+              :can-fill-image-slots="canFillImageSlots"
+              :on-fill-image-slot="handleFillImageSlot"
             />
-            <!-- Edited indicator for grouped messages -->
-            <span
-              v-if="
-                showGutterHoverResolved && (message.editedAt || saveFeedback)
-              "
-              class="text-xs italic transition-opacity ml-1"
-              :class="saveFeedback ? 'text-emerald-400' : 'text-muted'"
-            >
-              {{ saveFeedback ? 'Saved' : '(edited)' }}
-            </span>
-            <MessageReactions
-              ref="reactionsRef"
-              v-model:reaction-popover-open="reactionPopoverOpen"
-              :message="message"
-              :server-id="serverId"
-              :channel-id="channelId"
-              :current-user-id="currentUserId"
-              :current-user-display-name="currentUserName"
-              :resolve-reactor-display="resolvePollVoterDisplay"
-              :resolve-reactor-avatar="resolvePollVoterAvatar"
-              :on-react="handleReact"
-            />
-          </template>
+          </div>
+          <MessageAttachments
+            :message="message"
+            :attachments="displayAttachments"
+            :open-image-viewer="openImageViewer"
+            :open-document-viewer="openDocumentViewer"
+          />
+          <MessageInlineGifEmbeds
+            v-if="hasInlineGifEmbeds"
+            :embeds="linkEmbedsForDisplay ?? []"
+            :open-image-viewer="openImageViewer"
+            :alt="message.content || 'GIF'"
+          />
+          <MessageLinkEmbeds
+            v-if="linkEmbedsForLinkCards?.some((e) => !e.echoJump)"
+            class="mt-2"
+            :embeds="linkEmbedsForLinkCards"
+          />
+          <MessageDiscordComponents
+            v-if="showStandaloneMessageComponents"
+            :components="message.components"
+            :message-flags="message.messageFlags"
+          />
+          <PollDisplay
+            v-if="pollForDisplay"
+            :poll="pollForDisplay"
+            :message-id="message.id"
+            :current-user-id="currentUserId"
+            :current-user-display-name="currentUserName"
+            :discord-synced="!!message.bridgeFromDiscord"
+            :resolve-poll-voter-display="resolvePollVoterDisplay"
+            :resolve-poll-voter-avatar="resolvePollVoterAvatar"
+            @vote="onVote?.($event)"
+          />
+          <!-- Edited indicator for grouped messages -->
+          <span
+            v-if="showGutterHoverResolved && message.editedAt"
+            class="text-xs italic transition-opacity ml-1 text-muted"
+          >
+            (edited)
+          </span>
+          <MessageReactions
+            ref="reactionsRef"
+            v-model:reaction-popover-open="reactionPopoverOpen"
+            :message="message"
+            :server-id="serverId"
+            :channel-id="channelId"
+            :current-user-id="currentUserId"
+            :current-user-display-name="currentUserName"
+            :resolve-reactor-display="resolvePollVoterDisplay"
+            :resolve-reactor-avatar="resolvePollVoterAvatar"
+            :on-react="handleReact"
+          />
         </div>
       </div>
     </div>
+    <input
+      ref="imageSlotFileInputRef"
+      type="file"
+      accept="image/*"
+      class="hidden"
+      aria-hidden="true"
+      tabindex="-1"
+      @change="onImageSlotFileSelected"
+    />
   </article>
 
   <MessageReactionsVotersModal
@@ -1615,7 +1359,7 @@ watch(
         @remove-quick-reaction-favorite="handleRemoveQuickReactionFavorite"
         @open-reaction-popover="openReactionPopoverWrapper"
         @reply="handleReply"
-        @enter-edit-mode="enterEditMode"
+        @enter-edit-mode="handleEdit"
         @handle-delete="handleDelete"
         @confirm-mod-delete="confirmModDeleteMessage"
         @moderate="emitModerate"

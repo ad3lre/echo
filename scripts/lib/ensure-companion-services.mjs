@@ -22,6 +22,7 @@ const execFileAsync = promisify(execFile);
 /** PM2 apps that usually run beside prod:serve / blue-green API (not the main API/SPA). */
 export const DEFAULT_PM2_COMPANION_APPS = [
   'echo-marketing',
+  'echo-discord-bot',
   'echo-watchdog',
   'echo-video-hls-worker',
 ];
@@ -296,9 +297,46 @@ export async function ensureDiscordBot(opts = {}) {
     return 'unavailable';
   }
 
+  const pm2Result = await ensurePm2App('echo-discord-bot', {
+    repoRoot,
+    env,
+    prefix,
+    appendLog,
+  });
+  if (pm2Result === 'started' || pm2Result === 'skipped') {
+    for (let i = 0; i < 30; i++) {
+      if (await isDiscordBotHealthy(repoRoot)) {
+        logLine(prefix, 'Discord bot healthy via PM2', appendLog);
+        return pm2Result;
+      }
+      await delay(500);
+    }
+    if (pm2Result === 'skipped') {
+      logLine(
+        prefix,
+        'Discord bot PM2 online but health pending — skip detached spawn',
+        appendLog,
+      );
+      return 'skipped';
+    }
+  }
+
+  if (pm2Result !== 'unavailable') {
+    logLine(
+      prefix,
+      'Discord bot PM2 start pending health — skip detached spawn',
+      appendLog,
+    );
+    return pm2Result;
+  }
+
   try {
     const pid = spawnDetachedDiscordBot(repoRoot, env, logDir);
-    logLine(prefix, `Discord bot started pid=${pid}`, appendLog);
+    logLine(
+      prefix,
+      `Discord bot started pid=${pid} (PM2 unavailable fallback)`,
+      appendLog,
+    );
     return 'started';
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

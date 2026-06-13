@@ -24,9 +24,6 @@ interface UseMessageBubbleUiOptions {
   menuOpen: Ref<boolean>;
   menuRef: Ref<HTMLElement | null>;
   triggerRef: Ref<HTMLElement | null>;
-  editFormRef: Ref<HTMLElement | null>;
-  isEditing: Ref<boolean>;
-  cancelEdit: () => void;
   setMenuPositionFromRect: (rect: DOMRect) => void;
   setMenuPositionFromPoint: (x: number, y: number) => void;
   fitMenuToViewport: (el: HTMLElement | null) => void;
@@ -41,9 +38,6 @@ export function useMessageBubbleUi(options: UseMessageBubbleUiOptions) {
     menuOpen,
     menuRef,
     triggerRef,
-    editFormRef,
-    isEditing,
-    cancelEdit,
     setMenuPositionFromRect,
     setMenuPositionFromPoint,
     fitMenuToViewport,
@@ -174,19 +168,11 @@ export function useMessageBubbleUi(options: UseMessageBubbleUiOptions) {
   function handleClickOutside(e: MouseEvent) {
     const target = e.target as Node;
     const tEl = target instanceof Element ? target : null;
-    // Teleported to `body` — `menuRef` is never a DOM ancestor of the menu, so
-    // treat clicks inside the menu as inside (otherwise mousedown closes before
-    // `click` runs, e.g. "View reactions" never fires).
     if (tEl?.closest?.('[data-echo-message-context-menu]')) return;
     const menuEl = resolveElementRef(menuRef.value);
     const triggerEl = resolveElementRef(triggerRef.value);
     if (menuEl?.contains(target) || triggerEl?.contains(target)) return;
     menuOpen.value = false;
-    const editEl = resolveElementRef(editFormRef.value);
-    if (isEditing.value && editEl && !editEl.contains(target)) {
-      if ((target as Element).closest?.('[data-chat-insert-ui]')) return;
-      cancelEdit();
-    }
   }
 
   onMounted(() => {

@@ -517,6 +517,15 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS echo_bug_reports_reporter_idx ON echo_bug_reports(reporter_id);`,
   );
+  // Singleton row tracking when the weekly metrics digest email was last sent,
+  // so the job sends at most once per period across replicas and restarts.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS echo_metrics_digest_state (
+      id SMALLINT PRIMARY KEY DEFAULT 1,
+      last_sent_at TIMESTAMPTZ,
+      CONSTRAINT echo_metrics_digest_state_singleton CHECK (id = 1)
+    );
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS echo_user_ringtones (
       id TEXT PRIMARY KEY,

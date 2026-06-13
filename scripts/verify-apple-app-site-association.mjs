@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify AASA is present in frontend/dist and matches tauri.ios.conf.json Team ID + bundle id.
+ * Verify AASA is present in frontend/dist and matches Team ID + bundle ids.
  * Optional live check: ECHO_AASA_VERIFY_URL=https://chat-echo.com
  */
 import fs from 'node:fs';
@@ -20,17 +20,32 @@ function fail(msg) {
 }
 
 const iosConf = readJson(path.join(root, 'src-tauri', 'tauri.ios.conf.json'));
+const desktopConf = readJson(path.join(root, 'src-tauri', 'tauri.conf.json'));
+
 const teamId = (
   process.env.APPLE_DEVELOPMENT_TEAM ||
   iosConf.bundle?.iOS?.developmentTeam ||
   ''
 ).trim();
-const bundleId = (
+const iosBundleId = (
   process.env.ECHO_IOS_BUNDLE_ID ||
   iosConf.identifier ||
   ''
 ).trim();
-const expectedAppId = `${teamId}.${bundleId}`;
+const desktopBundleId = (
+  process.env.ECHO_DESKTOP_BUNDLE_ID ||
+  desktopConf.identifier ||
+  ''
+).trim();
+
+const expectedIosAppId = `${teamId}.${iosBundleId}`;
+const expectedDesktopAppId =
+  desktopBundleId && desktopBundleId !== iosBundleId
+    ? `${teamId}.${desktopBundleId}`
+    : null;
+const expectedWebcredentialApps = expectedDesktopAppId
+  ? [expectedIosAppId, expectedDesktopAppId]
+  : [expectedIosAppId];
 
 const distPath = path.join(
   root,
@@ -58,13 +73,24 @@ const appIds =
   parsed?.applinks?.details?.flatMap((d) => (d.appID ? [d.appID] : [])) ??
   [];
 
-if (!appIds.includes(expectedAppId)) {
+if (!appIds.includes(expectedIosAppId)) {
   fail(
-    `Expected appID ${expectedAppId} in dist AASA; found ${appIds.join(', ') || '(none)'}`,
+    `Expected iOS appID ${expectedIosAppId} in dist AASA applinks; found ${appIds.join(', ') || '(none)'}`,
   );
 }
 
-console.warn(`[aasa:verify] dist file OK (${expectedAppId})`);
+const webcredentialApps = parsed?.webcredentials?.apps ?? [];
+for (const expected of expectedWebcredentialApps) {
+  if (!webcredentialApps.includes(expected)) {
+    fail(
+      `Expected webcredentials app ${expected} in dist AASA; found ${webcredentialApps.join(', ') || '(none)'}`,
+    );
+  }
+}
+
+console.warn(
+  `[aasa:verify] dist file OK (applinks=${expectedIosAppId}, webcredentials=${expectedWebcredentialApps.join(', ')})`,
+);
 
 const liveUrl = process.env.ECHO_AASA_VERIFY_URL?.trim();
 if (!liveUrl) {
@@ -109,10 +135,19 @@ const liveIds =
   live?.applinks?.details?.flatMap((d) => (d.appID ? [d.appID] : [])) ??
   [];
 
-if (!liveIds.includes(expectedAppId)) {
+if (!liveIds.includes(expectedIosAppId)) {
   fail(
-    `Live AASA missing ${expectedAppId}; found ${liveIds.join(', ') || '(none)'}`,
+    `Live AASA missing iOS appID ${expectedIosAppId}; found ${liveIds.join(', ') || '(none)'}`,
   );
+}
+
+const liveWebcredentialApps = live?.webcredentials?.apps ?? [];
+for (const expected of expectedWebcredentialApps) {
+  if (!liveWebcredentialApps.includes(expected)) {
+    fail(
+      `Live AASA missing webcredentials app ${expected}; found ${liveWebcredentialApps.join(', ') || '(none)'}`,
+    );
+  }
 }
 
 console.warn(`[aasa:verify] live OK (${url})`);

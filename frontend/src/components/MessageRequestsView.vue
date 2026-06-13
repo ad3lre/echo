@@ -129,8 +129,6 @@ provide('keepLatestMessageVisible', (smooth = false) => {
     messageListRef.value?.scrollToBottom(smooth);
   });
 });
-provide('activeEditInsert', { value: null });
-
 /** MessageList/MessageBubble expect this; ChatView is not an ancestor here. */
 provide('openImageViewer', (url: string) => {
   if (!url?.trim()) return;

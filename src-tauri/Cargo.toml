@@ -43,6 +43,13 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = { version = "0.3", features = ["NSEvent"] }
+objc2-web-kit = "0.3"
+security-framework = "3"
+
 [target.'cfg(target_os = "ios")'.dependencies]
 libc = "0.2"
 objc2 = "0.6"

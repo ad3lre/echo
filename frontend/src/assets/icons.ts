@@ -56,6 +56,7 @@ import iconGlobe from './icons/globe.svg?url';
 import iconLeaf from './icons/leaf.svg?url';
 import iconImageGallery from './icons/image gallery.svg?url';
 import iconFolder from './icons/folder.svg?url';
+import iconHeart from './icons/heart.svg?url';
 import iconThumbtack from './icons/thumbtack.svg?url';
 import iconProfileView from './icons/USER-AVATAR-IDENTIFY.svg?url';
 import iconSun from './icons/sun.svg?url';
@@ -153,8 +154,9 @@ export const icons = {
   chatLock: iconChatLock ?? '',
   leaf: iconLeaf ?? '',
   imageGallery: iconImageGallery ?? '',
-  /** Saved media / favorites folder (GIF & image popout). */
   folder: iconFolder ?? '',
+  /** Saved media favorites (GIF & image popout). */
+  heart: iconHeart ?? '',
   thumbtack: iconThumbtack ?? '',
   profileView: iconProfileView ?? '',
   sun: iconSun ?? '',

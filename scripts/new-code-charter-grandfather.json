@@ -860,7 +860,6 @@
     "frontend/src/features/chat/composables/useEchoHistory.ts",
     "frontend/src/features/chat/composables/useEchoInvitePreview.ts",
     "frontend/src/features/chat/composables/useMessageBubbleUi.ts",
-    "frontend/src/features/chat/composables/useMessageEditState.ts",
     "frontend/src/features/chat/composables/useMessageJumpEmbedPreview.ts",
     "frontend/src/features/chat/composables/useMessageKatexScrollbarReveal.ts",
     "frontend/src/features/chat/composables/useMessageLinkActions.ts",

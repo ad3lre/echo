@@ -26,6 +26,7 @@ type ProfileSliceKeys =
   | 'serverSettingsMemberUsers'
   | 'usersForChannelPanel'
   | 'usersForMentionAutocomplete'
+  | 'rolesForMentionAutocomplete'
   | 'onExpandedProfileModalUpdate'
   | 'openExpandedProfileDmFromComposable'
   | 'openExpandedProfileFromMemberPopout'
@@ -79,6 +80,7 @@ export function useAppLayoutContextProfileSlice(deps: {
   serverSettingsMemberUsers: AppLayoutControllerContext['serverSettingsMemberUsers'];
   usersForChannelPanel: AppLayoutControllerContext['usersForChannelPanel'];
   usersForMentionAutocomplete: AppLayoutControllerContext['usersForMentionAutocomplete'];
+  rolesForMentionAutocomplete: AppLayoutControllerContext['rolesForMentionAutocomplete'];
   onExpandedProfileModalUpdate: AppLayoutControllerContext['onExpandedProfileModalUpdate'];
   expandedProfile: Ref<{ id?: string } | null>;
   selectDmUser: (id: string) => Promise<string | null>;
@@ -137,6 +139,7 @@ export function useAppLayoutContextProfileSlice(deps: {
     serverSettingsMemberUsers: deps.serverSettingsMemberUsers,
     usersForChannelPanel: deps.usersForChannelPanel,
     usersForMentionAutocomplete: deps.usersForMentionAutocomplete,
+    rolesForMentionAutocomplete: deps.rolesForMentionAutocomplete,
     onExpandedProfileModalUpdate: deps.onExpandedProfileModalUpdate,
     openExpandedProfileDmFromComposable: (
       uid: string,

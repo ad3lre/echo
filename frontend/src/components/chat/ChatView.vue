@@ -17,6 +17,7 @@ import { useChatCustomEmojiResolvers } from '@/composables/useChatCustomEmojiRes
 import { useEchoHistory } from '@/composables/useEchoHistory';
 import type {
   ChannelSummary,
+  EditingMessage,
   ForwardedFrom,
   MessageAttachmentPayload,
   MessageWithAuthor,
@@ -56,8 +57,13 @@ import { useEchoChatBottomChromeReporter } from '@/features/layout/composables/u
 import SelfAssignableRolesWidget from '@/features/self-roles/components/SelfAssignableRolesWidget.vue';
 import EmojiInspectCard from '@/components/chat/EmojiInspectCard.vue';
 import { useEmojiInspect } from '@/composables/useEmojiInspect';
+import {
+  buildEditingMessageFromRow,
+  isMessageEditableInComposer,
+} from '@/features/chat/editor/messageEditDraft';
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
+const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 const chatColumnRef = ref<HTMLElement | null>(null);
 const chatBottomChromeRef = ref<HTMLElement | null>(null);
 
@@ -223,6 +229,12 @@ const props = defineProps<{
     username?: string;
     nickname?: string;
   }[];
+  /** Mentionable guild roles for `@` suggestions (server channels only). */
+  mentionRoles?: {
+    id: string;
+    name: string;
+    color?: string;
+  }[];
   channels?: {
     id: string;
     name: string;
@@ -258,6 +270,20 @@ const props = defineProps<{
     messageId: string,
     newContent: string,
     attachments?: MessageAttachmentPayload[],
+    composerBody?: {
+      contentJson?: Record<string, unknown>;
+      mentions?: import('@shared/types').MentionEntity[];
+    },
+  ) => boolean | void | Promise<boolean | void>;
+  onFillImageSlot?: (
+    messageId: string,
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    },
   ) => boolean | void | Promise<boolean | void>;
   onDelete?: (messageId: string) => void;
   onReact?: (messageId: string, emoji: string) => void;
@@ -427,9 +453,6 @@ provide('reactionFavorites', {
   removeReactionFavorite: removeReactionFavoriteRef,
 });
 
-const activeEditInsert = ref<((text: string) => void) | null>(null);
-provide('activeEditInsert', activeEditInsert);
-
 const composerInsertUserMention =
   inject<Ref<InsertUserMentionFn | null> | null>(
     COMPOSER_INSERT_USER_MENTION_KEY,
@@ -566,6 +589,7 @@ const isDiscordImportedServer = computed(() => {
 });
 
 const replyingTo = ref<ReplyTo | null>(null);
+const editingMessage = ref<EditingMessage | null>(null);
 /**
  * Slowmode support: compute the timestamp of the last message authored by the current user
  * in the active channel so the composer can display a remaining cooldown visually.
@@ -601,8 +625,21 @@ const lastOwnEditableMessageId = computed(() => {
     const m = msgs[i];
     if (!m || !m.id) continue;
     if (!isEchoMessageLogicallyOwn(m, me, props.linkedDiscordUserId)) continue;
-    const content = (m.content ?? '').trim();
-    if (!content) continue;
+    if (
+      !isMessageEditableInComposer({
+        id: m.id,
+        content: m.content,
+        contentText: m.contentText,
+        contentJson: m.contentJson,
+        messageFormatVersion: m.messageFormatVersion,
+        attachments: m.attachments,
+        videoUrl: m.videoUrl,
+        imageUrl: m.imageUrl,
+        stickers: m.stickers,
+      })
+    ) {
+      continue;
+    }
     return m.id;
   }
   return null;
@@ -611,13 +648,51 @@ const lastOwnEditableMessageId = computed(() => {
 async function requestEditLastOwnMessage(): Promise<boolean> {
   const id = lastOwnEditableMessageId.value;
   if (!id) return false;
-  const list = messageListRef.value as
-    | (InstanceType<typeof MessageList> & {
-        enterEditModeForMessageId?: (messageId: string) => Promise<boolean>;
-      })
-    | null;
-  if (!list?.enterEditModeForMessageId) return false;
-  return await list.enterEditModeForMessageId(id);
+  const m = props.activeChannelMessages?.get(id);
+  if (!m) return false;
+  handleEdit(m as MessageWithAuthor & { channelName?: string });
+  return true;
+}
+
+function clearEditing() {
+  if (!editingMessage.value) return;
+  chatInputRef.value?.cancelEditMode();
+  editingMessage.value = null;
+}
+
+function handleClearEdit() {
+  editingMessage.value = null;
+}
+
+async function scrollToEditingMessage(messageId: string) {
+  const id = messageId.trim();
+  if (!id) return;
+  await ensureMessageInWindowForActiveChannel(id);
+  await nextTick();
+  const list = messageListRef.value;
+  if (!list) return;
+  await list.scrollMessageIntoView(id);
+  list.flashMessageHighlight(id);
+}
+
+async function handleEdit(msg: MessageWithAuthor & { channelName?: string }) {
+  if (!msg.id) return;
+  replyingTo.value = null;
+  const snapshot = buildEditingMessageFromRow({
+    id: msg.id,
+    content: msg.content,
+    contentText: msg.contentText,
+    contentJson: msg.contentJson,
+    messageFormatVersion: msg.messageFormatVersion,
+    mentions: msg.mentions,
+    attachments: msg.attachments,
+    videoUrl: msg.videoUrl,
+    imageUrl: msg.imageUrl,
+    stickers: msg.stickers,
+  });
+  if (!snapshot) return;
+  editingMessage.value = snapshot;
+  void scrollToEditingMessage(msg.id!);
 }
 
 function resolvePollVoterDisplay(userId: string): string {
@@ -650,6 +725,7 @@ async function ensureMessageInWindowForActiveChannel(
 
 function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
   if (!msg.id) return;
+  clearEditing();
   replyingTo.value = {
     messageId: msg.id,
     authorId: msg.authorId,
@@ -733,9 +809,10 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
         :resolve-poll-voter-display="resolvePollVoterDisplay"
         :resolve-poll-voter-avatar="resolvePollVoterAvatar"
         :on-poll-vote="onPollVote"
-        :on-save-edit="onSaveEdit"
+        :on-fill-image-slot="onFillImageSlot"
         :on-delete="onDelete"
         :on-reply="handleReply"
+        :on-edit="handleEdit"
         :on-react="onReact"
         :on-go-to-channel="onGoToChannel"
         :on-go-to-message="onGoToMessage"
@@ -863,15 +940,19 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
           :exclude-user-id="currentUserId"
         />
         <ChatInput
+          ref="chatInputRef"
           class="flex-shrink-0"
           :channel-name="activeChannel.name"
           :channel-id="activeChannel.id"
           :server-id="serverId"
           :users="users"
           :mention-users="mentionUsers"
+          :mention-roles="mentionRoles"
           :channels="channels"
           :send-message="sendMessage"
           :replying-to="replyingTo"
+          :editing-message="editingMessage"
+          :on-save-edit="onSaveEdit"
           :slowmode-interval="activeChannel?.slowModeSeconds ?? 0"
           :last-own-message-at="lastOwnMessageAt"
           :request-edit-last-message="requestEditLastOwnMessage"
@@ -884,6 +965,8 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
           :message-format-template="activeChannel.messageFormatTemplate"
           :message-format-hard="activeChannel.messageFormatHard === true"
           @clear-reply="replyingTo = null"
+          @clear-edit="handleClearEdit"
+          @scroll-to-edit-target="scrollToEditingMessage"
         />
       </div>
 

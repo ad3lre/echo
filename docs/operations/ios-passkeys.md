@@ -20,12 +20,12 @@ Echo iOS passkeys depend on both app entitlements and the public webcredentials 
 ```json
 {
   "webcredentials": {
-    "apps": ["<APPLE_TEAM_ID>.com.echo.tauri.ios.dev"]
+    "apps": ["<APPLE_TEAM_ID>.com.echo.ios", "<APPLE_TEAM_ID>.com.echo.desktop"]
   }
 }
 ```
 
-Replace `<APPLE_TEAM_ID>` with the Apple Developer Team ID used to sign the iOS build. If the production bundle identifier changes, update both this file and the Associated Domains capability together.
+Replace `<APPLE_TEAM_ID>` with the Apple Developer Team ID used to sign builds (e.g. `7HBQV8236H`). If a bundle identifier changes, update both this file and the Associated Domains capability together.
 
 ## Server policy
 

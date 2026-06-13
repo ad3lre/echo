@@ -52,6 +52,8 @@ export function hydrateBootThemeAndPreferences(): void {
   applyAccessibilityPreferences(bootA11yPrefs);
   if (bootA11yPrefs.dyslexiaFriendlyFont) {
     void import('@fontsource/atkinson-hyperlegible/latin-400.css');
+    void import('@fontsource/atkinson-hyperlegible/latin-400-italic.css');
     void import('@fontsource/atkinson-hyperlegible/latin-700.css');
+    void import('@fontsource/atkinson-hyperlegible/latin-700-italic.css');
   }
 }

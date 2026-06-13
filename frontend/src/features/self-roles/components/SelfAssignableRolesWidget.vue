@@ -229,7 +229,7 @@ function roleAccentStyle(role: SelfRolesPanelRole) {
           <p class="self-roles-widget__empty-desc">
             A server admin needs to mark roles as
             <span class="text-fg-soft">Self-selectable</span> and expose them in
-            synced or custom categories under Server Settings.
+            synced role categories or channels under Server Settings.
           </p>
         </div>
 

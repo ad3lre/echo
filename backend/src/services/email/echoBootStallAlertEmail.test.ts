@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   BOOT_STALL_ALERT_KINDS,
-  sendBootStallAlertEmail,
+  buildBootStallMail,
 } from './echoBootStallAlertEmail';
 
 async function run(): Promise<void> {
@@ -11,13 +11,7 @@ async function run(): Promise<void> {
     true,
   );
 
-  const logs: { level: string; payload: unknown }[] = [];
-  const log = {
-    info: (payload: unknown) => logs.push({ level: 'info', payload }),
-    error: (payload: unknown) => logs.push({ level: 'error', payload }),
-  };
-
-  await sendBootStallAlertEmail(log as never, {
+  const mail = buildBootStallMail({
     kind: 'boot_gate_settled_still_visible',
     clientMeta: { url: 'https://chat-echo.com/' },
     timingMeta: { msSinceMount: 1800 },
@@ -26,15 +20,11 @@ async function run(): Promise<void> {
     userAgent: 'vitest',
   });
 
-  const sent = logs.find(
-    (entry) =>
-      entry.level === 'info' &&
-      typeof entry.payload === 'object' &&
-      entry.payload !== null &&
-      (entry.payload as { msg?: string }).msg ===
-        'echo_boot_stall_alert_email_sent',
-  );
-  assert.ok(sent);
+  assert.match(mail.subject, /boot_gate_settled_still_visible/);
+  assert.match(mail.text, /Echo client boot stall detected/);
+  assert.match(mail.html, /Echo client boot stall detected/);
+  assert.equal(mail.attachments.length, 1);
+  assert.match(mail.attachments[0]?.filename ?? '', /^echo-boot-stall-/);
   console.log('echoBootStallAlertEmail: ok');
 }
 

@@ -82,6 +82,8 @@ const props = defineProps<{
     username?: string;
     nickname?: string;
   }[];
+  /** Mentionable guild roles for `@` autocomplete (server channels only). */
+  mentionRoles?: { id: string; name: string; color?: string }[];
   currentUserId: string;
   linkedDiscordUserId?: string | null;
   currentUserName?: string;
@@ -196,6 +198,16 @@ const props = defineProps<{
   editMessage: (
     messageId: string,
     content: string,
+  ) => boolean | void | Promise<boolean | void>;
+  fillImageSlot?: (
+    messageId: string,
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    },
   ) => boolean | void | Promise<boolean | void>;
   deleteMessage: (messageId: string) => void;
   handleReact: (messageId: string, emoji: string) => void;
@@ -554,6 +566,7 @@ async function handleDmCallLeave() {
           :server-id="undefined"
           :users="users"
           :mention-users="mentionUsers"
+          :mention-roles="mentionRoles"
           :channels="allChannels"
           :send-message="sendMessage"
           :on-request-forward="onRequestForward"
@@ -566,6 +579,7 @@ async function handleDmCallLeave() {
           :on-unpin="handleUnpinMessage"
           :on-poll-vote="handlePollVote"
           :on-save-edit="editMessage"
+          :on-fill-image-slot="fillImageSlot"
           :on-delete="deleteMessage"
           :on-react="handleReact"
           :top-reactions="topReactions"
@@ -596,6 +610,7 @@ async function handleDmCallLeave() {
     :server-id="undefined"
     :users="users"
     :mention-users="mentionUsers"
+    :mention-roles="mentionRoles"
     :channels="allChannels"
     :send-message="sendMessage"
     :on-request-forward="onRequestForward"
@@ -608,6 +623,7 @@ async function handleDmCallLeave() {
     :on-unpin="handleUnpinMessage"
     :on-poll-vote="handlePollVote"
     :on-save-edit="editMessage"
+    :on-fill-image-slot="fillImageSlot"
     :on-delete="deleteMessage"
     :on-react="handleReact"
     :top-reactions="topReactions"
@@ -640,6 +656,7 @@ async function handleDmCallLeave() {
     :resolve-author-role="resolveAuthorRole"
     :users="users"
     :mention-users="mentionUsers"
+    :mention-roles="mentionRoles"
     :channels="allChannels"
     :send-message="sendMessage"
     :on-request-forward="onRequestForward"
@@ -649,6 +666,7 @@ async function handleDmCallLeave() {
     :current-user-pfp="currentUserPfp"
     :on-poll-vote="handlePollVote"
     :on-save-edit="editMessage"
+    :on-fill-image-slot="fillImageSlot"
     :on-delete="deleteMessage"
     :on-react="handleReact"
     :top-reactions="topReactions"

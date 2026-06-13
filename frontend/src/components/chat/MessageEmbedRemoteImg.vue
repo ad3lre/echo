@@ -39,6 +39,20 @@ const resolved = computed(() => safeImageUrl(props.src));
 const unavailable = computed(
   () => !isTrustedMediaUrl(props.src) || loadFailed.value,
 );
+
+const emit = defineEmits<{
+  load: [];
+  error: [];
+}>();
+
+function onLoad() {
+  emit('load');
+}
+
+function onError() {
+  loadFailed.value = true;
+  emit('error');
+}
 </script>
 
 <template>
@@ -62,7 +76,8 @@ const unavailable = computed(
       :alt="alt"
       :class="imgClass"
       loading="lazy"
-      @error="loadFailed = true"
+      @load="onLoad"
+      @error="onError"
     />
     <div
       class="pointer-events-none absolute inset-0 flex items-center justify-center bg-scrim-1 transition-colors group-hover:bg-scrim-2"
@@ -88,6 +103,7 @@ const unavailable = computed(
     :alt="alt"
     :class="imgClass"
     loading="lazy"
-    @error="loadFailed = true"
+    @load="onLoad"
+    @error="onError"
   />
 </template>

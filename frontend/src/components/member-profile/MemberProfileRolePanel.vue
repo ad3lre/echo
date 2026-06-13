@@ -165,7 +165,7 @@ const roleListEmptyHint = computed(() => {
     return 'No roles you can assign from here (rank vs target or permissions).';
   }
   if (!manageableRoles.value.length) {
-    return 'No custom roles yet. Create one in Server Settings → Roles.';
+    return 'No roles yet. Create one in Server Settings → Roles.';
   }
   return 'No matching roles.';
 });

@@ -3,6 +3,8 @@
  * Reconstructs emphasis, lists, headings, etc. from stored `contentJson` — not the literal
  * keystrokes, but a faithful Markdown representation of the same structure.
  */
+import { formatImageSlotToken } from '@shared/imageSlot';
+import { formatButtonRowToken } from '@shared/buttonRow';
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -205,6 +207,35 @@ function serializeBlock(node: unknown, listDepth = 0): string {
       return title
         ? `![${alt}](${safeSrc} "${escapeMdImageTitle(title)}")`
         : `![${alt}](${safeSrc})`;
+    }
+    case 'imageSlot': {
+      const attrs = isPlainObject(node.attrs) ? node.attrs : {};
+      const slotId =
+        typeof attrs.slotId === 'string' ? attrs.slotId.trim() : '';
+      const aspectW =
+        typeof attrs.aspectW === 'number' && Number.isFinite(attrs.aspectW)
+          ? Math.floor(attrs.aspectW)
+          : 0;
+      const aspectH =
+        typeof attrs.aspectH === 'number' && Number.isFinite(attrs.aspectH)
+          ? Math.floor(attrs.aspectH)
+          : 0;
+      if (!slotId || aspectW <= 0 || aspectH <= 0) return '';
+      return formatImageSlotToken({
+        slotId,
+        aspectW,
+        aspectH,
+        imageUrl: null,
+        storageKey: null,
+        width: null,
+        height: null,
+      });
+    }
+    case 'buttonRow': {
+      const attrs = isPlainObject(node.attrs) ? node.attrs : {};
+      const rowId = typeof attrs.rowId === 'string' ? attrs.rowId.trim() : '';
+      if (!rowId) return '';
+      return formatButtonRowToken({ rowId });
     }
     case 'horizontalRule':
       return '---';

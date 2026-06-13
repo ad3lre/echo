@@ -106,14 +106,20 @@ impl Default for IosAuthState {
 
 #[cfg(target_os = "ios")]
 const KEYCHAIN_SERVICE: &str = "com.echo.ios.auth";
+#[cfg(all(target_os = "macos", not(target_os = "ios")))]
+const KEYCHAIN_SERVICE: &str = "com.echo.desktop.auth";
 #[cfg(target_os = "ios")]
+const KEYCHAIN_ACCOUNT: &str = "session_memory";
+#[cfg(all(target_os = "macos", not(target_os = "ios")))]
 const KEYCHAIN_ACCOUNT: &str = "session_memory";
 #[cfg(target_os = "ios")]
 const KEYCHAIN_REFRESH_ACCOUNT: &str = "refresh_token";
+#[cfg(all(target_os = "macos", not(target_os = "ios")))]
+const KEYCHAIN_REFRESH_ACCOUNT: &str = "refresh_token";
 
-// ── Keychain: iOS uses security-framework, other platforms use temp file ──
+// ── Keychain: iOS + macOS use security-framework; other platforms use temp file ──
 
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 mod keychain {
     use super::*;
 
@@ -198,7 +204,7 @@ mod keychain {
     }
 }
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(all(not(target_os = "ios"), not(target_os = "macos")))]
 mod keychain {
     use super::*;
     use std::path::PathBuf;

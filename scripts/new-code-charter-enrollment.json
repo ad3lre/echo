@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-06-10",
+  "enrolledAt": "2026-06-13",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -37,6 +37,48 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 4
     },
+    "frontend/src/composables/livekitVoiceRoom/mediaControls.ts": {
+      "lines": 438,
+      "longestFunction": 396,
+      "deepNestingLines": 3,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/composables/livekitVoiceRoom/micSend.ts": {
+      "lines": 297,
+      "longestFunction": 253,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
+    "frontend/src/composables/livekitVoiceRoom/networkStats.ts": {
+      "lines": 199,
+      "longestFunction": 177,
+      "deepNestingLines": 3,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/composables/livekitVoiceRoom/remoteVolume.ts": {
+      "lines": 229,
+      "longestFunction": 197,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 12
+    },
+    "frontend/src/composables/livekitVoiceRoom/roomEvents.ts": {
+      "lines": 403,
+      "longestFunction": 358,
+      "deepNestingLines": 18,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/composables/livekitVoiceRoom/session.ts": {
+      "lines": 654,
+      "longestFunction": 608,
+      "deepNestingLines": 5,
+      "maxNestingSpaces": 14
+    },
+    "frontend/src/composables/livekitVoiceRoom/speaking.ts": {
+      "lines": 286,
+      "longestFunction": 254,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 12
+    },
     "frontend/src/composables/useChatBitmapMediaLayout.ts": {
       "lines": 137,
       "longestFunction": 112,
@@ -62,14 +104,14 @@
       "maxNestingSpaces": 6
     },
     "frontend/src/features/auth/InlineAuthPanel.vue": {
-      "lines": 1151,
+      "lines": 1153,
       "longestFunction": 4,
       "deepNestingLines": 0,
       "maxNestingSpaces": 6
     },
     "frontend/src/features/auth/useInlineAuthFlow.ts": {
-      "lines": 439,
-      "longestFunction": 367,
+      "lines": 455,
+      "longestFunction": 380,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -80,8 +122,8 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/useAppLayoutBannerNotices.ts": {
-      "lines": 227,
-      "longestFunction": 204,
+      "lines": 264,
+      "longestFunction": 240,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -199,9 +241,21 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
+    "frontend/src/services/livekit/livekitVoiceDataChannel.ts": {
+      "lines": 494,
+      "longestFunction": 159,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
     "frontend/src/services/realtime/deferredMediaOutboundSend.ts": {
-      "lines": 295,
-      "longestFunction": 121,
+      "lines": 303,
+      "longestFunction": 122,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "frontend/src/suggestables/useSuggestable.ts": {
+      "lines": 143,
+      "longestFunction": 116,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -240,6 +294,12 @@
       "longestFunction": 52,
       "deepNestingLines": 5,
       "maxNestingSpaces": 14
+    },
+    "shared/discordEmbedApi.ts": {
+      "lines": 130,
+      "longestFunction": 92,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
     }
   }
 }

@@ -1,4 +1,23 @@
-import { Node, mergeAttributes, type JSONContent } from '@tiptap/core';
+import {
+  InputRule,
+  Node,
+  mergeAttributes,
+  type Editor,
+  type JSONContent,
+} from '@tiptap/core';
+import {
+  formatImageSlotToken,
+  isAllowedImageSlotAspect,
+  randomImageSlotId,
+} from '@shared/imageSlot';
+import {
+  formatButtonRowToken,
+  parseButtonRowShortcut,
+  randomButtonRowId,
+  normalizeButtonRowButtons,
+  type ButtonRowButton,
+} from '@shared/buttonRow';
+import { createButtonRowNode } from '@shared/buttonRowContentJson';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import type { MentionEntity } from '@shared/types';
 import { findAllIdTokenMatches, linkTokenAppIcon } from '@/utils/idTokens';
@@ -277,8 +296,13 @@ function mapParagraphChildToRawOffset(
     if (child.isText) {
       const text = child.text ?? '';
       const end = pos + text.length;
-      if (target >= pos && target <= end) {
+      if (target <= pos) {
+        mapped = raw;
+        return;
+      }
+      if (target <= end) {
         mapped = raw + (target - pos);
+        return;
       }
       raw += text.length;
       return;
@@ -294,7 +318,7 @@ function mapParagraphChildToRawOffset(
       const len = `@${child.attrs.label ?? ''}`.length;
       const nextRaw = raw + len;
       if (target <= pos) mapped = raw;
-      else if (target >= pos + child.nodeSize) mapped = nextRaw;
+      else if (target === pos + child.nodeSize) mapped = nextRaw;
       raw = nextRaw;
       return;
     }
@@ -302,7 +326,7 @@ function mapParagraphChildToRawOffset(
       const len = `#${child.attrs.label ?? ''}`.length;
       const nextRaw = raw + len;
       if (target <= pos) mapped = raw;
-      else if (target >= pos + child.nodeSize) mapped = nextRaw;
+      else if (target === pos + child.nodeSize) mapped = nextRaw;
       raw = nextRaw;
       return;
     }
@@ -314,7 +338,7 @@ function mapParagraphChildToRawOffset(
       ).length;
       const nextRaw = raw + len;
       if (target <= pos) mapped = raw;
-      else if (target >= pos + child.nodeSize) mapped = nextRaw;
+      else if (target === pos + child.nodeSize) mapped = nextRaw;
       raw = nextRaw;
       return;
     }
@@ -324,7 +348,7 @@ function mapParagraphChildToRawOffset(
       ).length;
       const nextRaw = raw + len;
       if (target <= pos) mapped = raw;
-      else if (target >= pos + child.nodeSize) mapped = nextRaw;
+      else if (target === pos + child.nodeSize) mapped = nextRaw;
       raw = nextRaw;
       return;
     }
@@ -369,6 +393,16 @@ function composerSerializedPlainLength(doc: ProseMirrorNode): number {
           ).length;
         }
       });
+    } else if (block.type.name === 'imageSlot') {
+      n += formatImageSlotToken({
+        slotId: String(block.attrs.slotId ?? ''),
+        aspectW: Number(block.attrs.aspectW ?? 0),
+        aspectH: Number(block.attrs.aspectH ?? 0),
+      }).length;
+    } else if (block.type.name === 'buttonRow') {
+      n += formatButtonRowToken({
+        rowId: String(block.attrs.rowId ?? ''),
+      }).length;
     } else {
       n += block.textContent.length;
     }
@@ -402,6 +436,28 @@ function mapSelectionToRawOffset(doc: ProseMirrorNode, target: number): number {
       );
       if (inner.mapped !== null) mapped = inner.mapped;
       rawOffset = inner.rawEnd;
+    } else if (block.type.name === 'imageSlot') {
+      const token = formatImageSlotToken({
+        slotId: String(block.attrs.slotId ?? ''),
+        aspectW: Number(block.attrs.aspectW ?? 0),
+        aspectH: Number(block.attrs.aspectH ?? 0),
+      });
+      const textStart = blockStart + 1;
+      const textEnd = textStart + token.length;
+      if (target >= textStart && target <= textEnd) {
+        mapped = rawOffset + (target - textStart);
+      }
+      rawOffset += token.length;
+    } else if (block.type.name === 'buttonRow') {
+      const token = formatButtonRowToken({
+        rowId: String(block.attrs.rowId ?? ''),
+      });
+      const textStart = blockStart + 1;
+      const textEnd = textStart + token.length;
+      if (target >= textStart && target <= textEnd) {
+        mapped = rawOffset + (target - textStart);
+      }
+      rawOffset += token.length;
     } else {
       const t = block.textContent;
       const textStart = blockStart + 1;
@@ -501,6 +557,16 @@ export function serializeComposerDoc(
           return;
         }
       });
+    } else if (block.type.name === 'imageSlot') {
+      content += formatImageSlotToken({
+        slotId: String(block.attrs.slotId ?? ''),
+        aspectW: Number(block.attrs.aspectW ?? 0),
+        aspectH: Number(block.attrs.aspectH ?? 0),
+      });
+    } else if (block.type.name === 'buttonRow') {
+      content += formatButtonRowToken({
+        rowId: String(block.attrs.rowId ?? ''),
+      });
     } else {
       content += block.textContent;
     }
@@ -537,9 +603,9 @@ export function rawOffsetToEditorPos(
   const maxPos = Math.max(1, doc.nodeSize - 1);
   if (rawTarget <= 0) return 1;
 
-  const serializedLen = composerSerializedPlainLength(doc);
-  if (rawTarget >= serializedLen) return maxPos;
-
+  // Binary search for the smallest editor pos whose raw offset is >= rawTarget.
+  // Do not shortcut to maxPos: block tail positions can share the same raw offset
+  // as the last inline character (e.g. surrogate-pair emoji) but break selection.
   let low = 1;
   let high = maxPos;
   while (low < high) {
@@ -744,6 +810,218 @@ export const AppIconNode = Node.create({
     return tokenForAppIcon(String(node.attrs.filename ?? 'icon.svg'));
   },
 });
+
+function imageSlotTokenFromAttrs(attrs: Record<string, unknown>): string {
+  return formatImageSlotToken({
+    slotId: String(attrs.slotId ?? ''),
+    aspectW: Number(attrs.aspectW ?? 0),
+    aspectH: Number(attrs.aspectH ?? 0),
+  });
+}
+
+export const ImageSlotNode = Node.create({
+  name: 'imageSlot',
+  group: 'block',
+  atom: true,
+  selectable: true,
+
+  addAttributes() {
+    return {
+      slotId: { default: '' },
+      aspectW: { default: 16 },
+      aspectH: { default: 9 },
+      imageUrl: { default: null },
+      storageKey: { default: null },
+      width: { default: null },
+      height: { default: null },
+    };
+  },
+
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /!\[image:\s*ratio=(\d+):(\d+)\s*\]$/,
+        handler: ({ range, match, chain }) => {
+          const aspectW = parseInt(match[1] ?? '', 10);
+          const aspectH = parseInt(match[2] ?? '', 10);
+          if (!isAllowedImageSlotAspect(aspectW, aspectH)) return null;
+          const slotId = randomImageSlotId();
+          chain()
+            .deleteRange({ from: range.from, to: range.to })
+            .insertContentAt(range.from, {
+              type: 'imageSlot',
+              attrs: {
+                slotId,
+                aspectW,
+                aspectH,
+                imageUrl: null,
+                storageKey: null,
+                width: null,
+                height: null,
+              },
+            })
+            .run();
+          return null;
+        },
+      }),
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    const aspectW = Number(HTMLAttributes.aspectW ?? 16);
+    const aspectH = Number(HTMLAttributes.aspectH ?? 9);
+    const imageUrl = String(HTMLAttributes.imageUrl ?? '').trim();
+    const ratio = `${aspectW} / ${aspectH}`;
+    const label = `Image ${aspectW}:${aspectH}`;
+    const inner: [string, Record<string, unknown>, ...unknown[]] = imageUrl
+      ? [
+          'img',
+          {
+            class: 'composer-image-slot__img',
+            src: imageUrl,
+            alt: '',
+            draggable: 'false',
+          },
+        ]
+      : ['span', { class: 'composer-image-slot__label' }, label];
+    return [
+      'div',
+      {
+        class: 'composer-image-slot',
+        'data-slot-id': String(HTMLAttributes.slotId ?? ''),
+        'data-aspect-w': String(aspectW),
+        'data-aspect-h': String(aspectH),
+        contenteditable: 'false',
+        style: `aspect-ratio: ${ratio};`,
+      },
+      inner,
+    ];
+  },
+
+  renderText({ node }) {
+    return imageSlotTokenFromAttrs(node.attrs as Record<string, unknown>);
+  },
+});
+
+export function insertImageSlotInEditor(
+  editor: Editor,
+  aspectW: number,
+  aspectH: number,
+): void {
+  if (!isAllowedImageSlotAspect(aspectW, aspectH)) return;
+  editor
+    .chain()
+    .focus()
+    .insertContent({
+      type: 'imageSlot',
+      attrs: {
+        slotId: randomImageSlotId(),
+        aspectW,
+        aspectH,
+        imageUrl: null,
+        storageKey: null,
+        width: null,
+        height: null,
+      },
+    })
+    .run();
+}
+
+function buttonRowTokenFromAttrs(attrs: Record<string, unknown>): string {
+  return formatButtonRowToken({ rowId: String(attrs.rowId ?? '') });
+}
+
+function readComposerButtons(raw: unknown): ButtonRowButton[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ButtonRowButton[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    const label = typeof o.label === 'string' ? o.label : '';
+    const style = Number(o.style);
+    if (!label || ![1, 2, 3, 4, 5].includes(style)) continue;
+    out.push({
+      label,
+      style: style as ButtonRowButton['style'],
+      ...(typeof o.url === 'string' ? { url: o.url } : {}),
+      ...(typeof o.customId === 'string' ? { customId: o.customId } : {}),
+      ...(o.disabled === true ? { disabled: true } : {}),
+    });
+  }
+  return normalizeButtonRowButtons(out);
+}
+
+function insertButtonRowFromShortcut(
+  chain: Parameters<InputRule['handler']>[0]['chain'],
+  range: { from: number; to: number },
+  shortcutRaw: string,
+): boolean {
+  const parsed = parseButtonRowShortcut(shortcutRaw);
+  if (!parsed?.buttons.length) return false;
+  const rowId = randomButtonRowId();
+  chain()
+    .deleteRange({ from: range.from, to: range.to })
+    .insertContentAt(range.from, createButtonRowNode(parsed.buttons, rowId))
+    .run();
+  return true;
+}
+
+export const ButtonRowNode = Node.create({
+  name: 'buttonRow',
+  group: 'block',
+  atom: true,
+  selectable: true,
+
+  addAttributes() {
+    return {
+      rowId: { default: '' },
+      buttons: { default: [] },
+    };
+  },
+
+  addInputRules() {
+    const makeRule = (type: 'button' | 'buttonRow') =>
+      new InputRule({
+        find:
+          type === 'button'
+            ? /!\[button:\s*([^\]]+)\]$/
+            : /!\[buttonRow:\s*([^\]]+)\]$/,
+        handler: ({ range, match, chain }) => {
+          const body = String(match[1] ?? '').trim();
+          const raw = `![${type}: ${body}]`;
+          if (!insertButtonRowFromShortcut(chain, range, raw)) return null;
+          return null;
+        },
+      });
+    return [makeRule('button'), makeRule('buttonRow')];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    const buttons = readComposerButtons(HTMLAttributes.buttons);
+    const preview = buttons.map((btn) => btn.label).join(' · ') || 'Buttons';
+    return [
+      'div',
+      {
+        class: 'composer-button-row',
+        'data-row-id': String(HTMLAttributes.rowId ?? ''),
+        contenteditable: 'false',
+      },
+      ['span', { class: 'composer-button-row__label' }, preview],
+    ];
+  },
+
+  renderText({ node }) {
+    return buttonRowTokenFromAttrs(node.attrs as Record<string, unknown>);
+  },
+});
+
+export function insertButtonRowInEditor(
+  editor: Editor,
+  buttons: ButtonRowButton[],
+): void {
+  if (!buttons.length) return;
+  editor.chain().focus().insertContent(createButtonRowNode(buttons)).run();
+}
 
 export function makeMentionEntity(
   mention: Pick<

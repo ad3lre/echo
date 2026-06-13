@@ -102,7 +102,7 @@ const setupWarnings = computed(() => {
     !customCategories.value.length
   ) {
     warnings.push(
-      'Add synced role categories or custom groups so members have roles to pick from.',
+      'Add synced role categories or channels so members have roles to pick from.',
     );
   }
   if (
@@ -178,7 +178,7 @@ function addCustomCategory() {
     ...customCategories.value,
     {
       id: crypto.randomUUID(),
-      name: `Custom category ${n}`,
+      name: `Channel ${n}`,
       position: customCategories.value.length,
       roleIds: [],
       randomEligible: false,
@@ -282,7 +282,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
           Give members a dedicated widget channel to pick up roles they qualify
           for. Roles must have the
           <span class="text-fg-soft">Self-selectable</span> permission and
-          appear in a synced or custom category below.
+          appear in a synced role category or channel below.
         </p>
 
         <div class="server-settings-panel mt-4 rounded-2xl p-4 sm:p-5">
@@ -390,7 +390,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
               <div
                 class="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle"
               >
-                Custom categories
+                Channels
               </div>
               <div class="mt-1 text-2xl font-semibold tabular-nums text-fg">
                 {{ customCategories.length }}
@@ -471,9 +471,10 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
             class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
           >
             <div class="min-w-0">
-              <div class="settings-subtitle">Custom categories</div>
+              <div class="settings-subtitle">Channels</div>
               <p class="mt-1 text-xs leading-relaxed text-fg-subtle">
-                Group self-selectable roles manually, or use an
+                Group self-selectable roles into channels in the widget, or use
+                an
                 <span class="text-fg-soft">eligible pool</span> category for
                 every role not listed elsewhere.
               </p>
@@ -484,7 +485,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
               :disabled="!selfSelectableRoles.length"
               @click="addCustomCategory"
             >
-              Add category
+              Add channel
             </button>
           </div>
 
@@ -497,7 +498,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
               alt=""
               class="mx-auto mb-3 h-8 w-8 opacity-60 filter invert"
             />
-            <p class="text-sm text-fg-subtle">No custom categories yet.</p>
+            <p class="text-sm text-fg-subtle">No channels yet.</p>
             <p class="mt-1 text-xs text-fg-subtle">
               Optional — synced role categories may be enough on their own.
             </p>
@@ -507,7 +508,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
               :disabled="!selfSelectableRoles.length"
               @click="addCustomCategory"
             >
-              Create first category
+              Create first channel
             </button>
           </div>
 
@@ -521,7 +522,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
                 class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
               >
                 <div class="min-w-0 flex-1">
-                  <label class="settings-label">Category name</label>
+                  <label class="settings-label">Channel name</label>
                   <input
                     v-model="cat.name"
                     type="text"
@@ -543,7 +544,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
                   <div class="font-medium text-fg">Eligible roles pool</div>
                   <div class="text-xs text-fg-subtle">
                     Include every self-selectable role not explicitly assigned
-                    to another custom category.
+                    to another channel.
                   </div>
                 </div>
                 <input
@@ -558,8 +559,8 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
                   class="rounded-xl bg-glass-1 px-3 py-2 text-xs leading-relaxed text-fg-subtle"
                 >
                   Members will see all unclaimed self-selectable roles in this
-                  tab. Roles already listed in other custom categories stay
-                  exclusive to those groups.
+                  tab. Roles already listed in other channels stay exclusive to
+                  those groups.
                 </p>
                 <div
                   v-if="selectedRolesForCategory(cat).length"
@@ -578,9 +579,7 @@ function selectedRolesForCategory(cat: SelfRolesCustomCategory) {
 
               <div v-else class="mt-4">
                 <div class="mb-2 flex items-center justify-between gap-2">
-                  <span class="settings-label mb-0"
-                    >Roles in this category</span
-                  >
+                  <span class="settings-label mb-0">Roles in this channel</span>
                   <span class="text-[11px] tabular-nums text-fg-subtle">
                     {{ cat.roleIds.length }} selected
                   </span>

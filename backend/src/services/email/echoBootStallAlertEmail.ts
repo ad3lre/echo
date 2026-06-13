@@ -28,7 +28,7 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function buildBootStallMail(payload: BootStallAlertEmailPayload): {
+export function buildBootStallMail(payload: BootStallAlertEmailPayload): {
   subject: string;
   text: string;
   html: string;

@@ -173,4 +173,30 @@ describe('authenticatedApiFetch', () => {
     expect(res.status).toBe(401);
     expect(invalidateSessionForReauth).not.toHaveBeenCalled();
   });
+
+  it('does not invalidate the session on 401 during desktop post-mint grace', async () => {
+    const invalidateSessionForReauth = vi.fn();
+    registerAuthSessionApiBridge({
+      invalidateSessionForReauth,
+      clearLocalTokens: () => {},
+      getAuthStateGeneration: () => 1,
+      shouldDeferSession401Invalidate: () => true,
+    });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        jsonResponse(
+          { code: 'UNAUTHORIZED', message: 'expired' },
+          { status: 401, statusText: 'Unauthorized' },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await authenticatedApiFetch(
+      'https://api.example.test/api/v1/me/discord',
+    );
+
+    expect(res.status).toBe(401);
+    expect(invalidateSessionForReauth).not.toHaveBeenCalled();
+  });
 });

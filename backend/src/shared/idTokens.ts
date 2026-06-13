@@ -18,8 +18,19 @@ export type ParsedIdToken =
       rawLen: number;
     };
 
+// Compiled once at module load. `findAllIdTokenMatches` calls `tryMatchTokenAt` at every
+// `<` in every persisted message, so building these per call was 7 RegExp compilations per
+// candidate position. Patterns are byte-identical to the previous inline versions.
+const RE_EMOJI_ANIMATED = /^<a:([^:>]+):(\d+)>/;
+const RE_EMOJI_STATIC = /^<:([^:>]+):(\d+)>/;
+const RE_USER = new RegExp(`^<@!?(${ID_PART})>`);
+const RE_CHANNEL = new RegExp(`^<#(${ID_PART})>`);
+const RE_ROLE = new RegExp(`^<@&(${ID_PART})>`);
+const RE_SERVER = new RegExp(`^<\\$(${ID_PART})>`);
+const RE_MESSAGE = new RegExp(`^<m:(${ID_PART})>`);
+
 function tryMatchTokenAt(s: string): ParsedIdToken | null {
-  let m = s.match(new RegExp(`^<a:([^:>]+):(\\d+)>`));
+  let m = s.match(RE_EMOJI_ANIMATED);
   if (m) {
     return {
       kind: 'emoji',
@@ -30,7 +41,7 @@ function tryMatchTokenAt(s: string): ParsedIdToken | null {
     };
   }
 
-  m = s.match(new RegExp(`^<:([^:>]+):(\\d+)>`));
+  m = s.match(RE_EMOJI_STATIC);
   if (m) {
     return {
       kind: 'emoji',
@@ -41,27 +52,27 @@ function tryMatchTokenAt(s: string): ParsedIdToken | null {
     };
   }
 
-  m = s.match(new RegExp(`^<@!?(${ID_PART})>`));
+  m = s.match(RE_USER);
   if (m) {
     return { kind: 'user', id: m[1], rawLen: m[0].length };
   }
 
-  m = s.match(new RegExp(`^<#(${ID_PART})>`));
+  m = s.match(RE_CHANNEL);
   if (m) {
     return { kind: 'channel', id: m[1], rawLen: m[0].length };
   }
 
-  m = s.match(new RegExp(`^<@&(${ID_PART})>`));
+  m = s.match(RE_ROLE);
   if (m) {
     return { kind: 'role', id: m[1], rawLen: m[0].length };
   }
 
-  m = s.match(new RegExp(`^<\\$(${ID_PART})>`));
+  m = s.match(RE_SERVER);
   if (m) {
     return { kind: 'server', id: m[1], rawLen: m[0].length };
   }
 
-  m = s.match(new RegExp(`^<m:(${ID_PART})>`));
+  m = s.match(RE_MESSAGE);
   if (m) {
     return { kind: 'message', id: m[1], rawLen: m[0].length };
   }

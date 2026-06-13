@@ -6,6 +6,11 @@ import { authPatchMe } from '@/api/authClient';
 import { postEchoPresenceHttp } from '@/api/echoClient';
 import { buildComposerDoc } from '@/features/chat/editor/composerModel';
 import { relocateMentionsInEditableText } from '@/features/chat/editor/messageEditDraft';
+import {
+  docContainsRichContentJsonBlocks,
+  rebuildContentJsonPreservingRichBlocks,
+} from '@shared/richBlockContentJson';
+import { deriveMessageComponentsFromContentJson } from '@shared/buttonRowContentJson';
 import { writeSortedMessagesForChannel } from '@/services/realtime/channelMessageBucket';
 import {
   overwriteLocalProfileFromAuthUser,
@@ -34,7 +39,7 @@ import {
   type DmSubView,
   type RailTab,
 } from '@/features/layout/mainSurface';
-import type { MessageAttachmentPayload } from '@shared/types';
+import type { MentionEntity, MessageAttachmentPayload } from '@shared/types';
 
 /** After switching channels, ChatView unmount can clear the nav bridge before the next surface registers. */
 const CHAT_NAV_BRIDGE_WAIT_MS = [
@@ -94,6 +99,18 @@ interface UseAppLayoutMessageActionsOptions {
   submitEchoMessageDelete?: (
     channelId: string,
     messageId: string,
+    correlationId?: string,
+  ) => void | ActionResult | Promise<ActionResult | void>;
+  submitEchoImageSlotFill?: (
+    channelId: string,
+    messageId: string,
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    },
     correlationId?: string,
   ) => void | ActionResult | Promise<ActionResult | void>;
   isMockDataMode?: boolean;
@@ -449,6 +466,10 @@ export function useAppLayoutMessageActions(
     messageId: string,
     newContent: string,
     attachmentSnapshot?: MessageAttachmentPayload[],
+    composerBody?: {
+      contentJson?: Record<string, unknown>;
+      mentions?: MentionEntity[];
+    },
   ): Promise<boolean> {
     const cid = activeChannelId.value;
     if (!cid) {
@@ -520,22 +541,38 @@ export function useAppLayoutMessageActions(
       trimmed,
       m.mentions,
     );
+    const mentionsForPatch =
+      composerBody?.mentions !== undefined
+        ? composerBody.mentions
+        : relocatedMentions;
+    const composerContentJson = composerBody?.contentJson;
     const docForV2 =
       mf >= 2
-        ? buildComposerDoc(trimmed, relocatedMentions, undefined)
+        ? composerContentJson !== undefined
+          ? composerContentJson
+          : docContainsRichContentJsonBlocks(m.contentJson)
+            ? rebuildContentJsonPreservingRichBlocks(
+                m.contentJson,
+                trimmed,
+                mentionsForPatch,
+              )
+            : buildComposerDoc(trimmed, mentionsForPatch, undefined)
         : undefined;
     const patch: Partial<RawMessage> = {
       content: trimmed,
       editedAt: new Date().toISOString(),
     };
-    if (relocatedMentions.length > 0) {
-      patch.mentions = relocatedMentions;
+    if (composerBody?.mentions !== undefined) {
+      patch.mentions = mentionsForPatch;
+    } else if (mentionsForPatch.length > 0) {
+      patch.mentions = mentionsForPatch;
     }
     if (docForV2 !== undefined) {
       patch.contentJson = docForV2;
       patch.contentSchemaVersion = ECHO_CONTENT_SCHEMA_VERSION;
       patch.messageFormatVersion = mf;
       patch.contentText = trimmed;
+      patch.components = deriveMessageComponentsFromContentJson(docForV2);
     }
     if (attachmentSnapshot !== undefined) {
       patch.attachments =
@@ -690,6 +727,33 @@ export function useAppLayoutMessageActions(
     return applyEditViaMessageIndex();
   }
 
+  async function fillImageSlot(
+    messageId: string,
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    },
+  ): Promise<boolean> {
+    const cid = options.activeChannelId.value?.trim();
+    if (!cid || !messageId || !slotId) return false;
+    const submit = options.submitEchoImageSlotFill;
+    if (!submit) return false;
+    const r = await Promise.resolve(
+      submit(cid, messageId, slotId, body, newUiCorrelationId()),
+    );
+    if (r && typeof r === 'object' && 'ok' in r && !r.ok) {
+      propagateActionFailure(r, {
+        flow: 'socket.message_fill_image_slot',
+        context: 'message_fill_image_slot',
+      });
+      return false;
+    }
+    return true;
+  }
+
   return {
     getLatestDMUserId,
     selectDM,
@@ -700,5 +764,6 @@ export function useAppLayoutMessageActions(
     handleReact,
     deleteMessage,
     editMessage,
+    fillImageSlot,
   };
 }

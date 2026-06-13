@@ -1,4 +1,6 @@
 import type { EchoMessageRow } from '../domain/echoMessagesDal';
+import type { Embed } from '../../../shared/types';
+import { mapEchoEmbedsToDiscordApi } from '../../../shared/discordEmbedApi';
 import type {
   DiscordAttachment,
   DiscordMessage,
@@ -32,8 +34,8 @@ export function serializeEchoRowForDiscordWebhookExecuteWait(
   const content = (row.searchIndexText ?? row.content ?? '').trim();
   const flags = row.messageFlags ?? 0;
   const suppressEmbeds = (flags & DISCORD_MSG_FLAG_SUPPRESS_EMBEDS) !== 0;
-  const rawEmbeds = Array.isArray(row.embeds) ? row.embeds : [];
-  const embedsOut = suppressEmbeds ? [] : rawEmbeds;
+  const rawEmbeds = Array.isArray(row.embeds) ? (row.embeds as Embed[]) : [];
+  const embedsOut = suppressEmbeds ? [] : mapEchoEmbedsToDiscordApi(rawEmbeds);
 
   const attachments: DiscordAttachment[] = (row.attachments ?? []).map(
     (att, idx) => ({

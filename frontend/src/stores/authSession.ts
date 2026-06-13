@@ -170,6 +170,18 @@ export const useAuthSessionStore = defineStore('authSession', () => {
    * actions until the session is server-confirmed.
    */
   const isSessionUnverified = ref(false);
+  /**
+   * Desktop WKWebView: timestamp of the last `setSession` (login/register/upgrade).
+   * Used to defer 401 teardown while HttpOnly cookies finish applying.
+   */
+  const sessionMintedAtMs = ref(0);
+  const DESKTOP_SESSION_MINT_GRACE_MS = 5000;
+
+  function shouldDefer401Teardown(): boolean {
+    if (import.meta.env.VITE_ECHO_DESKTOP !== '1') return false;
+    if (!sessionMintedAtMs.value) return false;
+    return Date.now() - sessionMintedAtMs.value < DESKTOP_SESSION_MINT_GRACE_MS;
+  }
 
   function clearSessionEndedMessage() {
     sessionEndedMessage.value = null;
@@ -208,6 +220,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     invalidateAuthFetchMeCache();
     authStateGeneration.value += 1;
     const generation = authStateGeneration.value;
+    sessionMintedAtMs.value = Date.now();
     sessionEndedMessage.value = null;
     overwriteLocalProfileFromAuthUser(payload.user);
     backendUser.value = mergeLocalProfileIntoUser(
@@ -271,6 +284,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     }
     clearAuthUserCache();
     isSessionUnverified.value = false;
+    sessionMintedAtMs.value = 0;
     void iosAuthClearSession();
     void clearNativeAuthTokens();
   }
@@ -470,6 +484,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     emailVerificationFlash,
     isAuthenticated,
     isSessionUnverified,
+    shouldDefer401Teardown,
     setSession,
     clearLocalTokens,
     clearSessionEndedMessage,

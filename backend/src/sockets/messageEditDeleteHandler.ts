@@ -11,12 +11,16 @@ import {
   getEchoMessageById,
   getEchoStore,
   listEchoDmParticipantUserIds,
-  listEchoServerMembers,
+  listEchoServerMemberUserIdsCached,
   selectEchoMessageAuthorDeleted,
   softDeleteEchoMessage,
   updateEchoMessageContent,
 } from '../domain/echoStore';
-import { validateMessageEditPayload } from './messageValidation';
+import {
+  validateImageSlotFillPayload,
+  validateMessageEditPayload,
+} from './messageValidation';
+import { fillEchoMessageImageSlotAndBroadcast } from '../services/echoImageSlotFillBroadcast';
 import { getSharedSocketMessageRateLimiter } from './messageRateLimiter';
 import { broadcastToEchoChannel } from './channelBroadcast';
 import { resolveAndBroadcastLinkEmbeds } from './echoLinkEmbeds';
@@ -64,14 +68,12 @@ async function emitAttentionForChannel(
   }
   const serverId = await getEchoChannelServerId(pool, channelId);
   if (!serverId) return;
-  const members = await listEchoServerMembers(pool, serverId);
-  await emitEchoAttentionSnapshotsForUsers(
-    pool,
-    io,
-    members.map((member) => member.userId),
-    log,
-    { mode: 'channel', channelId, serverId },
-  );
+  const memberIds = await listEchoServerMemberUserIdsCached(pool, serverId);
+  await emitEchoAttentionSnapshotsForUsers(pool, io, memberIds, log, {
+    mode: 'channel',
+    channelId,
+    serverId,
+  });
 }
 
 export function registerMessageEditDeleteHandler(
@@ -278,6 +280,98 @@ export function registerMessageEditDeleteHandler(
         });
       }
       void emitAttentionForChannel(pool, io, channelId, log);
+    })();
+  });
+
+  socket.on('message:fillImageSlot', (payload: unknown) => {
+    void (async () => {
+      const raw =
+        payload && typeof payload === 'object'
+          ? (payload as Record<string, unknown>)
+          : {};
+      const correlationId =
+        typeof raw.correlationId === 'string'
+          ? raw.correlationId.slice(0, 128)
+          : undefined;
+      const fail = (
+        code: MessageFailedCode,
+        extra?: { channelId?: string; detail?: string },
+      ) =>
+        emitFailed(socket, code, {
+          ...extra,
+          ...(correlationId ? { correlationId } : {}),
+        });
+      if (!authenticated || isAnonymousSocketUser(userId)) {
+        fail('UNAUTHENTICATED', {
+          channelId:
+            typeof raw.channelId === 'string'
+              ? raw.channelId.trim()
+              : undefined,
+        });
+        return;
+      }
+      const { enabled, pool } = await getEchoStore();
+      if (!enabled || !pool) {
+        fail('PERSIST_FAILED', {
+          channelId:
+            typeof raw.channelId === 'string'
+              ? raw.channelId.trim()
+              : undefined,
+        });
+        return;
+      }
+      const parsed = validateImageSlotFillPayload(payload);
+      if (!parsed.ok) {
+        fail('VALIDATION', {
+          channelId:
+            typeof raw.channelId === 'string'
+              ? raw.channelId.trim()
+              : undefined,
+          detail: parsed.error,
+        });
+        return;
+      }
+      const v = parsed.value;
+      if (!checkMessageRate(userId, v.channelId)) {
+        fail('RATE_LIMIT', { channelId: v.channelId });
+        return;
+      }
+      const okPost = await canUserPostMessage(pool, userId, v.channelId);
+      if (!okPost) {
+        fail('FORBIDDEN', { channelId: v.channelId });
+        return;
+      }
+      const r = await fillEchoMessageImageSlotAndBroadcast(
+        pool,
+        io,
+        log,
+        v.channelId,
+        v.messageId,
+        userId,
+        v.slotId,
+        {
+          imageUrl: v.imageUrl,
+          ...(v.storageKey ? { storageKey: v.storageKey } : {}),
+          ...(v.width != null ? { width: v.width } : {}),
+          ...(v.height != null ? { height: v.height } : {}),
+        },
+      );
+      if (r === 'ok') {
+        void emitAttentionForChannel(pool, io, v.channelId, log);
+        return;
+      }
+      if (r === 'not_found' || r === 'slot_not_found') {
+        fail('VALIDATION', { channelId: v.channelId, detail: r });
+        return;
+      }
+      if (r === 'slot_already_filled') {
+        fail('VALIDATION', { channelId: v.channelId, detail: r });
+        return;
+      }
+      fail(r === 'forbidden' ? 'FORBIDDEN' : 'VALIDATION', {
+        channelId: v.channelId,
+        detail: r,
+      });
     })();
   });
 

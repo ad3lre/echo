@@ -26,9 +26,13 @@ import {
 } from '@/composables/useImageSearch';
 import {
   GIF_BROWSE_CATEGORIES,
+  gifCategoryBySlug,
   type MediaBrowseCategory,
 } from '@/data/mediaCategoryLibrary';
-import { useImageBrowseCategories } from '@/composables/useImageBrowseCategories';
+import {
+  imageCategoryBySlug,
+  useImageBrowseCategories,
+} from '@/composables/useImageBrowseCategories';
 import {
   useMediaFavorites,
   gifToMediaFavorite,
@@ -100,8 +104,27 @@ const { gifFavorites, imageFavorites, isFavorite, toggleFavorite } =
 const { categories: imageBrowseCategories, ensureImageBrowseCategories } =
   useImageBrowseCategories();
 
+const activeGifCategory = computed(() =>
+  activeGifCategorySlug.value
+    ? (gifCategoryBySlug(activeGifCategorySlug.value) ?? null)
+    : null,
+);
+
+const activeImageCategory = computed(() =>
+  activeImageCategorySlug.value
+    ? (imageCategoryBySlug(activeImageCategorySlug.value) ?? null)
+    : null,
+);
+
 const favoritesForBrowseKind = computed(() =>
   browseKind.value === 'gif' ? gifFavorites.value : imageFavorites.value,
+);
+
+const gifFavoritePreviewUrls = computed(() =>
+  gifFavorites.value
+    .slice(0, 2)
+    .map((f) => f.thumbUrl || f.url)
+    .filter(Boolean),
 );
 
 const imageFavoritePreviewUrls = computed(() =>
@@ -589,7 +612,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
             @click="setTab('favorites')"
           >
             <img
-              :src="icons.folder"
+              :src="icons.heart"
               alt=""
               class="echo-ink-icon h-4 w-4 opacity-90"
               :class="activeTab === 'favorites' ? 'opacity-100' : ''"
@@ -608,7 +631,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
               class="flex min-h-[10rem] flex-col items-center justify-center gap-2 px-4 py-8 text-center"
             >
               <img
-                :src="icons.folder"
+                :src="icons.heart"
                 alt=""
                 class="echo-ink-icon h-10 w-10 opacity-40"
                 aria-hidden="true"
@@ -711,6 +734,14 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
         </template>
 
         <template v-else-if="!SHOW_IMAGES_TAB || activeTab === 'gif'">
+          <button
+            v-if="activeGifCategory"
+            type="button"
+            class="mx-2 mt-2 flex items-center gap-1 text-xs font-medium text-muted hover:text-foreground"
+            @click="backToGifCategories"
+          >
+            ← {{ activeGifCategory.name }}
+          </button>
           <input
             v-model="gifSearchQuery"
             type="text"
@@ -728,6 +759,44 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
             v-scrollbar-on-scroll
           >
             <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class="group relative flex aspect-[4/3] flex-col overflow-hidden rounded-lg bg-scrim-1 text-left transition-colors hover:bg-glass-hover"
+                @click="setTab('favorites')"
+              >
+                <template v-if="gifFavoritePreviewUrls.length">
+                  <img
+                    v-for="(previewUrl, pi) in gifFavoritePreviewUrls"
+                    :key="`gif-fav-preview-${pi}`"
+                    :src="previewUrl"
+                    alt=""
+                    class="absolute inset-0 h-full w-full object-cover"
+                    :class="
+                      pi === 1 ? 'opacity-80 mix-blend-lighten scale-105' : ''
+                    "
+                    loading="eager"
+                    draggable="false"
+                  />
+                </template>
+                <div
+                  v-else
+                  class="flex h-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-indigo-500/20 to-purple-500/10"
+                >
+                  <img
+                    :src="icons.heart"
+                    alt=""
+                    class="echo-ink-icon h-8 w-8 opacity-80"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div
+                  class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6"
+                >
+                  <span class="text-xs font-semibold text-white"
+                    >Favorites</span
+                  >
+                </div>
+              </button>
               <button
                 v-for="cat in GIF_BROWSE_CATEGORIES"
                 :key="cat.slug"
@@ -776,14 +845,6 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
             class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
             v-scrollbar-on-scroll
           >
-            <button
-              v-if="activeGifCategorySlug && !gifSearchQuery.trim()"
-              type="button"
-              class="mb-2 text-xs font-medium text-muted hover:text-foreground"
-              @click="backToGifCategories"
-            >
-              ← Categories
-            </button>
             <div v-if="gifError" class="py-8 text-center text-sm text-red-400">
               {{ gifError }}
             </div>
@@ -889,6 +950,14 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
         </template>
 
         <template v-else-if="SHOW_IMAGES_TAB && activeTab === 'image'">
+          <button
+            v-if="activeImageCategory"
+            type="button"
+            class="mx-2 mt-2 flex items-center gap-1 text-xs font-medium text-muted hover:text-foreground"
+            @click="backToImageCategories"
+          >
+            ← {{ activeImageCategory.name }}
+          </button>
           <input
             v-model="imageSearchQuery"
             type="text"
@@ -937,7 +1006,7 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
                   class="flex h-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-indigo-500/20 to-purple-500/10"
                 >
                   <img
-                    :src="icons.folder"
+                    :src="icons.heart"
                     alt=""
                     class="echo-ink-icon h-8 w-8 opacity-80"
                     aria-hidden="true"
@@ -991,14 +1060,6 @@ function tabBtnClass(isActive: boolean, iconOnly = false) {
             class="flex-1 overflow-y-auto p-2 custom-scrollbar min-h-0"
             v-scrollbar-on-scroll
           >
-            <button
-              v-if="activeImageCategorySlug && !imageSearchQuery.trim()"
-              type="button"
-              class="mb-2 text-xs font-medium text-muted hover:text-foreground"
-              @click="backToImageCategories"
-            >
-              ← Categories
-            </button>
             <div
               v-if="imageError"
               class="py-8 px-3 text-center text-sm text-red-400"

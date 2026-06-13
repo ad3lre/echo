@@ -3,6 +3,7 @@ import {
   dropPendingClientMessageIfChannelAndId,
   type PendingClientEchoMessage,
 } from '@/services/realtime/socketPendingClientMessages';
+import { touchOutboundSendPendingUi } from '@/services/realtime/deferredMediaOutboundSend';
 import type { UiTransactionManager } from '@/ui/transactions/TransactionManager';
 
 export function createEchoRealtimePendingSendReconciler(opts: {
@@ -20,6 +21,7 @@ export function createEchoRealtimePendingSendReconciler(opts: {
         messageId,
       );
       opts.uiTx.commitTransaction(messageId);
+      touchOutboundSendPendingUi();
     },
     finalizePendingSend: (clientMessageId) => {
       dropPendingClientMessageByClientId(
@@ -27,6 +29,7 @@ export function createEchoRealtimePendingSendReconciler(opts: {
         clientMessageId,
       );
       opts.uiTx.commitTransaction(clientMessageId);
+      touchOutboundSendPendingUi();
     },
   };
 }

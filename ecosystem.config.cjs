@@ -101,10 +101,24 @@ module.exports = {
     },
     echoMarketing,
     {
+      name: 'echo-discord-bot',
+      script: path.join(repoRoot, 'bot/dist/index.js'),
+      args: '--serve',
+      ...(node22Bin ? { interpreter: node22Bin } : {}),
+      cwd: repoRoot,
+      env_file: pm2EnvFile,
+      env: {
+        NODE_ENV: 'production',
+      },
+      restart_delay: 3000,
+      max_restarts: 10,
+    },
+    {
       name: 'echo-watchdog',
       script: 'scripts/watchdog.mjs',
       env: {
-        WATCHDOG_PORT: 3005, // Set to 80 for public access (requires root), or 3005 for testing
+        // 3005 is reserved for the Discord bot internal API (ECHO_DISCORD_BOT_INTERNAL_PORT).
+        WATCHDOG_PORT: 8095,
         TARGET_PORT: 4173, // Default route points to chat-echo.com / echo-frontend
         TARGET_HOST: '127.0.0.1',
         WATCHDOG_HOST_TARGETS:

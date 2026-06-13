@@ -6,6 +6,7 @@ import { canMemberLeaveEchoServer } from '@/utils/echoServerOwnership';
 import {
   applySavedServerRailOrder,
   pruneSavedServerRailOrder,
+  readSavedServerRailOrder,
   writeSavedServerRailOrder,
 } from '@/utils/serverRailOrderPersistence';
 import {
@@ -13,6 +14,7 @@ import {
   MAX_STARRED_SERVERS,
   SERVER_RAIL_MRU_MAX_STORED,
   projectServerRailVisibleServers,
+  resolveVisibleServerRail,
   reorderServerRail,
   reorderServerRailWithOverflow,
 } from '@/utils/serverRailReorder';
@@ -171,11 +173,12 @@ export const useServerStore = defineStore('server', () => {
   });
 
   const visibleServers = computed<Server[]>(() => {
-    return projectServerRailVisibleServers(
+    return resolveVisibleServerRail(
       servers.value,
       pinnedMoreServers.value,
       serverRailMru.value,
-    ).visible;
+      { preferSavedOrder: readSavedServerRailOrder().length > 0 },
+    );
   });
 
   // --- Actions ---
@@ -250,6 +253,7 @@ export const useServerStore = defineStore('server', () => {
     overflowServerId?: string | null,
   ) {
     if (fromIndex === toIndex) return;
+    const preferSavedOrder = readSavedServerRailOrder().length > 0;
     const out = overflowServerId
       ? reorderServerRailWithOverflow({
           allServers: servers.value,
@@ -258,6 +262,7 @@ export const useServerStore = defineStore('server', () => {
           fromIndex,
           toIndex,
           overflowServerId,
+          preferSavedOrder,
         })
       : reorderServerRail({
           allServers: servers.value,
@@ -265,6 +270,7 @@ export const useServerStore = defineStore('server', () => {
           mruIds: serverRailMru.value,
           fromIndex,
           toIndex,
+          preferSavedOrder,
         });
     setServersState(out.servers);
     pinnedMoreServers.value = out.pinnedMore;

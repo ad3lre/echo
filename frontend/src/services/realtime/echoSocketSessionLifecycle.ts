@@ -49,6 +49,8 @@ export function createEchoSocketSessionLifecycle(opts: {
   onAfterConnected?: (ctx: {
     activeChannelId: string | undefined;
     rawSocketEmitJoinChannel: (channelId: string) => void;
+    /** True when Socket.IO connection-state recovery replayed the missed packets. */
+    recovered: boolean;
   }) => void;
   onAfterDisconnect?: () => void;
 }): {
@@ -115,6 +117,7 @@ export function createEchoSocketSessionLifecycle(opts: {
                 rawSocketEmitJoinChannel: (channelId: string) => {
                   io.socket?.emit('joinChannel', channelId);
                 },
+                recovered: client.recovered === true,
               });
             };
             client.on('connect', notifyConnected);

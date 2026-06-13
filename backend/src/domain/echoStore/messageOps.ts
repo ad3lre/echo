@@ -11,6 +11,7 @@ import {
   updateEchoMessageContentSql,
 } from '../echoMessagesDal';
 import { filterMentionsForChannelContext } from './mentionContext';
+import { deriveMessageComponentsFromContentJson } from '../../../../shared/buttonRowContentJson';
 
 export type EchoMessageEditBody =
   | {
@@ -80,6 +81,7 @@ export async function updateEchoMessageContent(
     messageFormatVersion: 2,
     contentSchemaVersion: body.contentSchemaVersion,
     attachments: body.attachments,
+    components: deriveMessageComponentsFromContentJson(body.contentJson),
   });
   return 'ok';
 }

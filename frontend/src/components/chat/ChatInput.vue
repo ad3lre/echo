@@ -13,8 +13,10 @@ import {
 } from 'vue';
 import { useServerEmojiLibrary } from '@/composables/useServerEmojiLibrary';
 import type {
+  EditingMessage,
   MentionEntity,
   MentionKind,
+  MessageAttachmentPayload,
   PollData,
   ReplyTo,
   EchoChannelType,
@@ -93,6 +95,9 @@ import {
   readComposerDraft,
   writeComposerDraft,
 } from '@/features/chat/composables/composerDraftStorage';
+import { uploadPendingMediaAsAttachments } from '@/composables/uploadPendingMediaAsAttachments';
+import type { ComposerSnapshot } from '@/composables/useComposerState';
+import { emitDiagnostic } from '@/observability/sessionDiagnostics';
 
 const props = defineProps<
   {
@@ -119,6 +124,12 @@ const props = defineProps<
       username?: string;
       nickname?: string;
     }[];
+    /** Mentionable guild roles for `@` suggestions (server channels only). */
+    mentionRoles?: {
+      id: string;
+      name: string;
+      color?: string;
+    }[];
     channels?: {
       id: string;
       name: string;
@@ -144,6 +155,16 @@ const props = defineProps<
       stickerPreview?: import('@shared/types').MessageStickerPayload,
     ) => void;
     replyingTo?: ReplyTo | null;
+    editingMessage?: EditingMessage | null;
+    onSaveEdit?: (
+      messageId: string,
+      newContent: string,
+      attachments?: MessageAttachmentPayload[],
+      composerBody?: {
+        contentJson?: Record<string, unknown>;
+        mentions?: MentionEntity[];
+      },
+    ) => boolean | void | Promise<boolean | void>;
   } & {
     slowmodeInterval?: number;
     lastOwnMessageAt?: string | null;
@@ -330,7 +351,48 @@ function isPollSendBlocked(): boolean {
 
 const emit = defineEmits<{
   'clear-reply': [];
+  'clear-edit': [];
+  'scroll-to-edit-target': [messageId: string];
 }>();
+
+const stashedDraftBeforeEdit = ref<ComposerSnapshot | null>(null);
+const editRetainedAttachments = ref<MessageAttachmentPayload[]>([]);
+
+function removeEditRetainedAttachment(index: number) {
+  editRetainedAttachments.value = editRetainedAttachments.value.filter(
+    (_, i) => i !== index,
+  );
+}
+
+function cancelEditMode() {
+  clearPendingMedia();
+  editRetainedAttachments.value = [];
+  if (stashedDraftBeforeEdit.value) {
+    composer.restoreSnapshot(stashedDraftBeforeEdit.value);
+    stashedDraftBeforeEdit.value = null;
+    void nextTick(() => applyChannelMessageFormatAfterRestore());
+  } else {
+    composer.clear();
+    void nextTick(() => applyChannelMessageFormatAfterRestore());
+  }
+  sendError.value = null;
+}
+
+function handleClearEdit() {
+  if (!props.editingMessage) return;
+  cancelEditMode();
+  emit('clear-edit');
+}
+
+function scrollToEditTarget() {
+  const messageId = props.editingMessage?.messageId?.trim();
+  if (!messageId) return;
+  emit('scroll-to-edit-target', messageId);
+}
+
+defineExpose({
+  cancelEditMode,
+});
 
 const sendError = ref<string | null>(null);
 
@@ -338,6 +400,7 @@ const COMPOSER_DRAFT_SAVE_DEBOUNCE_MS = 400;
 let composerDraftSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 function persistComposerDraftForChannel(channelId: string) {
+  if (props.editingMessage) return;
   const id = channelId.trim();
   if (!id) return;
   const snapshot = composer.captureSnapshot();
@@ -349,6 +412,7 @@ function persistComposerDraftForChannel(channelId: string) {
 }
 
 function schedulePersistComposerDraft() {
+  if (props.editingMessage) return;
   if (composerDraftSaveTimer != null) clearTimeout(composerDraftSaveTimer);
   composerDraftSaveTimer = setTimeout(() => {
     composerDraftSaveTimer = null;
@@ -617,6 +681,15 @@ const mentionAutocompleteOptions = computed<MentionOption[]>(() =>
   }),
 );
 
+const mentionRoleAutocompleteOptions = computed<MentionOption[]>(() =>
+  (props.mentionRoles ?? []).map((role) => ({
+    id: role.id,
+    name: role.name,
+    roleColor: role.color,
+    kind: 'role' as const,
+  })),
+);
+
 function toMentionKind(option: MentionOption): MentionKind {
   if (option.kind) return option.kind;
   if (option.id === '__everyone__') return 'everyone';
@@ -627,12 +700,15 @@ function toMentionKind(option: MentionOption): MentionKind {
 const mentionAutocomplete = useMentionAutocomplete(
   () => composer.getContent(),
   () => composer.getSelectionStart(),
-  (start, end, option) =>
+  (start, end, option) => {
+    const kind = toMentionKind(option);
     composer.insertMention(start, end, {
-      kind: toMentionKind(option),
+      kind,
       label: option.name,
-      ...(toMentionKind(option) === 'user' ? { userId: option.id } : {}),
-    }),
+      ...(kind === 'user' ? { userId: option.id } : {}),
+      ...(kind === 'role' ? { roleId: option.id } : {}),
+    });
+  },
   mentionAutocompleteOptions,
   computed(
     () =>
@@ -643,6 +719,7 @@ const mentionAutocomplete = useMentionAutocomplete(
       }).allowed,
   ),
   () => composer.mentions.value,
+  mentionRoleAutocompleteOptions,
 );
 
 const channelOptions = computed(() => props.channels ?? []);
@@ -672,10 +749,12 @@ const hasComposerContent = computed(
   () => composer.content.value.trim().length > 0,
 );
 
-/** Compact shell: enable the tap-to-send control when there is text, pending media, or an active reply. */
+/** Compact shell: enable the tap-to-send control when there is text, pending media, or an active reply/edit. */
 const hasComposerPayload = computed(() => {
   if (composer.content.value.trim().length > 0) return true;
   if (props.replyingTo) return true;
+  if (props.editingMessage) return true;
+  if (editRetainedAttachments.value.length > 0) return true;
   return (
     pendingImages.value.length > 0 ||
     pendingVideos.value.length > 0 ||
@@ -721,6 +800,7 @@ watch(
 );
 
 const composerPlaceholder = computed(() => {
+  if (props.editingMessage) return 'Edit message…';
   if (
     pendingImages.value.length ||
     pendingVideos.value.length ||
@@ -745,10 +825,6 @@ watch(chatInputFocused, (focused) => {
   );
 });
 
-const activeEditInsert = inject<{ value: ((text: string) => void) | null }>(
-  'activeEditInsert',
-);
-
 const CUSTOM_EMOJI_INSERT = /^<a?:[^:>]+:\d+>$/;
 
 function insertEmoji(emoji: string) {
@@ -765,13 +841,8 @@ function insertEmoji(emoji: string) {
       return;
     }
   }
-  const insert = activeEditInsert?.value;
-  if (insert) {
-    insert(emoji);
-  } else {
-    composer.focus();
-    composer.insertText(emoji);
-  }
+  composer.focus();
+  composer.insertText(emoji);
   closePopout();
 }
 
@@ -793,6 +864,7 @@ function sendSticker(
   stickerId: string,
   preview?: import('@shared/types').MessageStickerPayload,
 ) {
+  if (props.editingMessage) return;
   if (!props.sendMessage) return;
   if (isMediaSendBlocked()) return;
   try {
@@ -860,12 +932,21 @@ function handlePaste(e: ClipboardEvent) {
 }
 
 function handleCreatePoll() {
+  if (props.editingMessage) return;
   if (composerBarDisabled.value || isPollSendBlocked()) return;
   pollModalOpen.value = true;
   closePopout();
 }
 
+function handleInsertImageSlot(aspectW: number, aspectH: number) {
+  if (composerBarDisabled.value) return;
+  composer.insertImageSlot(aspectW, aspectH);
+  closePopout();
+  composer.focus();
+}
+
 function handlePollCreate(poll: PollData) {
+  if (props.editingMessage) return;
   props.sendMessage?.(
     props.channelId,
     '',
@@ -987,6 +1068,11 @@ function isImeComposingKeyboardEvent(e: KeyboardEvent): boolean {
 
 function handleKeydown(e: KeyboardEvent): boolean {
   if (isImeComposingKeyboardEvent(e)) return false;
+  if (e.key === 'Escape' && props.editingMessage) {
+    e.preventDefault();
+    handleClearEdit();
+    return true;
+  }
   const plen = messageFormatPrefixLen.value;
   if (plen > 0 && (e.key === 'Backspace' || e.key === 'Delete')) {
     composer.flushComposerSync();
@@ -1019,7 +1105,12 @@ function handleKeydown(e: KeyboardEvent): boolean {
       pendingDocuments.value.length === 0 &&
       pendingExternalImages.value.length === 0 &&
       pendingGifs.value.length === 0;
-    if (emptyComposer && noPendingMedia && props.requestEditLastMessage) {
+    if (
+      emptyComposer &&
+      noPendingMedia &&
+      !props.editingMessage &&
+      props.requestEditLastMessage
+    ) {
       e.preventDefault();
       void Promise.resolve(props.requestEditLastMessage());
       return true;
@@ -1104,7 +1195,140 @@ function handleChannelAutocompleteSelect(option: { id: string; name: string }) {
   });
 }
 
+async function handleEditSubmit() {
+  const editing = props.editingMessage;
+  const saveEdit = props.onSaveEdit;
+  if (!editing?.messageId || !saveEdit) return;
+
+  composer.flushComposerSync();
+  const content = composer.content.value.trim();
+  const hasContent = content.length > 0;
+  const mentions = composer.mentions.value
+    .filter((mention) => mention.end <= composer.content.value.length)
+    .map((mention) => ({ ...mention }));
+  const hasMedia =
+    pendingImages.value.length > 0 ||
+    pendingVideos.value.length > 0 ||
+    pendingAudios.value.length > 0 ||
+    pendingDocuments.value.length > 0 ||
+    pendingExternalImages.value.length > 0 ||
+    pendingGifs.value.length > 0;
+  const hasRetainedAttachments = editRetainedAttachments.value.length > 0;
+  if (!hasContent && !hasMedia && !hasRetainedAttachments) return;
+
+  sendError.value = null;
+  emitDiagnostic({
+    level: 'info',
+    domain: 'chat',
+    event: 'message_edit_ui_save',
+    stage: 'attempt',
+    context: {
+      action: 'ChatInput.handleEditSubmit',
+      channelId: props.channelId,
+      messageId: editing.messageId,
+      bytes: content.length,
+    },
+  });
+  try {
+    let uploaded: MessageAttachmentPayload[] = [];
+    if (hasMedia) {
+      uploaded = await uploadPendingMediaAsAttachments(
+        props.channelId,
+        pendingImages.value,
+        pendingVideos.value,
+        pendingAudios.value,
+        pendingDocuments.value,
+        pendingExternalImages.value,
+        pendingGifs.value,
+      );
+      clearPendingMedia({ revokeObjectUrls: false });
+    }
+    const attachments = [...editRetainedAttachments.value, ...uploaded];
+    const docJson = composer.getContentJson();
+    const jsonOk = docJson !== null && typeof docJson === 'object';
+    const ok = await Promise.resolve(
+      saveEdit(
+        editing.messageId,
+        content,
+        attachments,
+        jsonOk
+          ? { contentJson: docJson, mentions }
+          : mentions.length
+            ? { mentions }
+            : undefined,
+      ),
+    );
+    if (ok === false) {
+      emitDiagnostic({
+        level: 'warn',
+        domain: 'chat',
+        event: 'message_edit_ui_save',
+        stage: 'fail',
+        context: {
+          action: 'ChatInput.handleEditSubmit',
+          channelId: props.channelId,
+          messageId: editing.messageId,
+          ok: false,
+          reason: 'onSaveEdit_returned_false',
+        },
+      });
+      sendError.value = 'Could not save edit. Try again.';
+      return;
+    }
+    emitDiagnostic({
+      level: 'info',
+      domain: 'chat',
+      event: 'message_edit_ui_save',
+      stage: 'success',
+      context: {
+        action: 'ChatInput.handleEditSubmit',
+        channelId: props.channelId,
+        messageId: editing.messageId,
+        bytes: content.length,
+      },
+    });
+    stashedDraftBeforeEdit.value = null;
+    editRetainedAttachments.value = [];
+    composer.clear();
+    clearComposerDraft(props.channelId);
+    void nextTick(() => applyChannelMessageFormatAfterRestore());
+    emojiAutocomplete.close();
+    mentionAutocomplete.close();
+    channelAutocomplete.close();
+    emit('clear-edit');
+    void nextTick(() => {
+      requestAnimationFrame(() => {
+        keepLatestMessageVisible?.(false, true);
+      });
+    });
+  } catch (e) {
+    emitDiagnostic({
+      level: 'error',
+      domain: 'chat',
+      event: 'message_edit_ui_save',
+      stage: 'fail',
+      context: {
+        action: 'ChatInput.handleEditSubmit',
+        channelId: props.channelId,
+        messageId: editing.messageId,
+        ok: false,
+        reason: 'onSaveEdit_threw',
+        detail: e instanceof Error ? e.message : String(e),
+      },
+      error:
+        e instanceof Error
+          ? { message: e.message, stack: e.stack }
+          : { message: String(e) },
+    });
+    sendError.value = e instanceof Error ? e.message : 'Failed to save edit';
+  }
+}
+
 async function handleSubmit() {
+  if (props.editingMessage) {
+    await handleEditSubmit();
+    return;
+  }
   if (!props.sendMessage) return;
   composer.flushComposerSync();
   ensureComposerHardFormatPrefix();
@@ -1195,7 +1419,12 @@ async function handleSubmit() {
 watch(
   () => props.channelId,
   (newChannelId, oldChannelId) => {
-    if (oldChannelId?.trim()) {
+    if (props.editingMessage) {
+      stashedDraftBeforeEdit.value = null;
+      editRetainedAttachments.value = [];
+      clearPendingMedia();
+      emit('clear-edit');
+    } else if (oldChannelId?.trim()) {
       persistComposerDraftForChannel(oldChannelId);
     }
     // Channel switch should reset contextual send errors (e.g. guild slowmode/spam)
@@ -1253,6 +1482,25 @@ watch(
   () => props.replyingTo,
   async (val) => {
     if (val) {
+      await nextTick();
+      composer.focus();
+    }
+  },
+);
+
+watch(
+  () => props.editingMessage,
+  async (next, prev) => {
+    if (next?.messageId && next.messageId !== prev?.messageId) {
+      stashedDraftBeforeEdit.value = composer.captureSnapshot();
+      clearPendingMedia();
+      editRetainedAttachments.value = [...next.attachments];
+      composer.restoreSnapshot({
+        content: next.content,
+        mentions: next.mentions,
+        contentJson: next.contentJson ?? undefined,
+      });
+      sendError.value = null;
       await nextTick();
       composer.focus();
     }
@@ -1515,6 +1763,7 @@ onMounted(() => {
       :theme="props.popoutTheme ?? 'default'"
       @upload="handleUploadClick"
       @create-poll="handleCreatePoll"
+      @insert-image-slot="handleInsertImageSlot"
     />
 
     <GifPopout
@@ -1555,6 +1804,30 @@ onMounted(() => {
       @remove-gif="removeGif"
       @preview-images="openPendingImagePreview"
     />
+
+    <div
+      v-if="editingMessage && editRetainedAttachments.length"
+      class="edit-retained-attachments mb-2 flex flex-wrap gap-1.5"
+    >
+      <div
+        v-for="(att, idx) in editRetainedAttachments"
+        :key="`${att.url}-${idx}`"
+        class="edit-retained-attachment-tag flex max-w-full items-center gap-1 rounded-md bg-glass-2 px-2 py-1 text-xs text-fg-soft"
+      >
+        <span class="truncate">{{
+          att.filename || att.kind || 'Attachment'
+        }}</span>
+        <button
+          type="button"
+          class="edit-retained-attachment-remove chat-focus-ring shrink-0 rounded p-0.5 text-muted hover:text-foreground"
+          title="Remove attachment"
+          aria-label="Remove attachment"
+          @click="removeEditRetainedAttachment(idx)"
+        >
+          ×
+        </button>
+      </div>
+    </div>
 
     <div
       v-if="sendError"
@@ -1665,6 +1938,62 @@ onMounted(() => {
         aria-label="Cancel reply"
         class="reply-bar__close chat-focus-ring rounded p-1"
         @click="emit('clear-reply')"
+      >
+        <svg
+          class="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+    </div>
+
+    <div
+      v-if="editingMessage"
+      class="reply-bar edit-bar mb-2 flex items-center gap-2 rounded-lg px-3 py-2"
+    >
+      <svg
+        class="reply-bar__icon w-4 h-4 shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+        />
+      </svg>
+      <div
+        class="min-w-0 flex-1 cursor-pointer"
+        role="button"
+        tabindex="0"
+        aria-label="Scroll to message being edited"
+        @click="scrollToEditTarget"
+        @keydown.enter="scrollToEditTarget"
+        @keydown.space.prevent="scrollToEditTarget"
+      >
+        <span class="reply-bar__label text-xs font-medium"
+          >Editing your message</span
+        >
+        <p class="reply-bar__preview text-sm truncate">
+          {{ truncateForReply(editingMessage.previewContent) || 'Attachment' }}
+        </p>
+      </div>
+      <button
+        type="button"
+        aria-label="Cancel edit"
+        class="reply-bar__close chat-focus-ring rounded p-1"
+        @click="handleClearEdit"
       >
         <svg
           class="w-4 h-4"

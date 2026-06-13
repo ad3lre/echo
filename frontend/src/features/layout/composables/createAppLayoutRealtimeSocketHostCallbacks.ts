@@ -9,7 +9,7 @@ export function createAppLayoutRealtimeSocketHostCallbacks(deps: {
   mergeReadStateUpdate: AppLayoutEchoRealtimeHostCallbacks['mergeReadStateUpdate'];
   replaceAttentionSnapshot: AppLayoutEchoRealtimeHostCallbacks['replaceAttentionSnapshot'];
   handleWorkspaceEvent: AppLayoutEchoRealtimeHostCallbacks['onEchoWorkspaceEvent'];
-  onSocketConnectedExtra: () => void;
+  onSocketConnectedExtra: (ctx: { recovered: boolean }) => void;
   setChannelPinsFromEcho: AppLayoutEchoRealtimeHostCallbacks['setChannelPinsFromEcho'];
   restorePinnedIds: (channelId: string, ids: string[]) => void;
   applyEchoChannelClientCap: AppLayoutEchoRealtimeHostCallbacks['applyEchoChannelClientCap'];
@@ -23,8 +23,8 @@ export function createAppLayoutRealtimeSocketHostCallbacks(deps: {
     mergeReadStateUpdate: deps.mergeReadStateUpdate,
     replaceAttentionSnapshot: deps.replaceAttentionSnapshot,
     onEchoWorkspaceEvent: deps.handleWorkspaceEvent,
-    onSocketConnected: () => {
-      deps.onSocketConnectedExtra();
+    onSocketConnected: (ctx) => {
+      deps.onSocketConnectedExtra({ recovered: ctx.recovered });
     },
     onSocketDisconnected: () => {},
     setChannelPinsFromEcho: deps.setChannelPinsFromEcho,

@@ -14,6 +14,7 @@ import {
 } from '../../../../shared/videoEmbedIds';
 import {
   buildEchoJumpEmbedFromUrl,
+  buildEchoJumpErrorEmbedFromUrl,
   parseEchoMessageJumpPath,
 } from '../../domain/echoMessageLinkEmbed';
 import {
@@ -22,6 +23,7 @@ import {
   ssrfSafeFetch,
 } from './linkUnfurlFetch';
 import { tryOembedEmbed } from './linkUnfurlOembed';
+import { unfurlWithCoalescedCache } from './unfurlCache';
 import { safeFetchAgent } from './safeFetchAgent';
 import {
   shouldSkipHttpUnfurlForUrl,
@@ -402,14 +404,19 @@ export async function buildLinkEmbedsFromPlainText(
     if (Date.now() > deadline) break;
 
     const looksLikeEchoChannelPath = parseEchoMessageJumpPath(u) != null;
-    if (allow && looksLikeEchoChannelPath && pool && viewerId) {
-      const jump = await buildEchoJumpEmbedFromUrl(pool, viewerId, u);
-      if (jump) {
-        out.push(jump);
+    if (looksLikeEchoChannelPath) {
+      if (!allow) {
+        const denied = buildEchoJumpErrorEmbedFromUrl(u, 'embed_links_denied');
+        if (denied) out.push(denied);
         continue;
       }
-    }
-    if (looksLikeEchoChannelPath) {
+      if (pool && viewerId) {
+        const jump = await buildEchoJumpEmbedFromUrl(pool, viewerId, u);
+        if (jump) {
+          out.push(jump);
+          continue;
+        }
+      }
       continue;
     }
 
@@ -424,7 +431,7 @@ export async function buildLinkEmbedsFromPlainText(
       }
     }
 
-    const e = await unfurlUrlToEmbed(u);
+    const e = await unfurlWithCoalescedCache(u, () => unfurlUrlToEmbed(u));
     if (e) out.push(e);
   }
   return out;

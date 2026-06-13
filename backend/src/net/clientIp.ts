@@ -91,6 +91,16 @@ export function clientIpFromSocketHandshake(
   return resolveTrustedClientIp(headers, fallbackAddress, trustProxy);
 }
 
+export function clientIpFromSocket(socket: {
+  handshake: { headers: unknown; address: string | undefined };
+}): string {
+  return clientIpFromSocketHandshake(
+    socket.handshake.headers as Record<string, string | string[] | undefined>,
+    socket.handshake.address,
+    config.trustProxy,
+  );
+}
+
 /** Returns a normalized IP string safe for `::inet` inserts, or null when not suitable for bans. */
 export function parseClientIpForBan(
   raw: string | null | undefined,

@@ -501,6 +501,7 @@ const {
   serverSettingsMemberUsers,
   usersForChannelPanel,
   usersForMentionAutocomplete,
+  rolesForMentionAutocomplete,
   memberPopoutOpenRolesPanel,
   memberPanelCollapsed,
   memberListShowGuests,
@@ -774,11 +775,13 @@ const {
   onUnverifiedEmailChangeEmail,
   onUnverifiedEmailResend,
   onGuestUpgradeSignInFromSettings,
+  onGuestOnboardingSignInExisting,
 } = useAppLayoutBannerNotices({
   authSession,
   isAuthenticated,
   isCompactShell,
   isGuestUpgradeModalOpen,
+  isAuthModalOpen,
   discordBotExportReadyBanner,
   openAuthModal,
   openUserSettingsModal,
@@ -1540,6 +1543,7 @@ provide(LAYOUT_CHAT_SURFACE_KEY, {
   allChannels,
   users: computed(() => workspace.users.value),
   usersForMentionAutocomplete,
+  rolesForMentionAutocomplete,
   paginatedSearchResults,
   searchResultMessagesCount: computed(() => searchResultMessages.value.length),
   searchResultPage,
@@ -3199,6 +3203,7 @@ watch(
       v-if="showGuestOnboardingModal"
       :model-value="showGuestOnboardingModal"
       @upgraded="() => void onGuestAccountUpgraded()"
+      @sign-in-existing="onGuestOnboardingSignInExisting"
       @update:model-value="() => {}"
     />
     <GuestCaptchaModal

@@ -295,6 +295,8 @@ function handleIconInsert(entry: AppIconEntry) {
 }
 
 const popoutRef = ref<HTMLElement | null>(null);
+const POPOUT_MAX_HEIGHT_PX = 340;
+
 const popoutStyle = ref<Record<string, string>>({
   position: 'fixed',
   left: '0px',
@@ -309,9 +311,9 @@ function updatePopoutPosition() {
   const pad = 8;
   const gap = 8;
   const width = Math.min(360, window.innerWidth - pad * 2);
-  const height =
-    popoutRef.value?.getBoundingClientRect().height ??
-    Math.min(window.innerHeight * 0.55, 340);
+  const measured =
+    popoutRef.value?.getBoundingClientRect().height ?? POPOUT_MAX_HEIGHT_PX;
+  const height = Math.min(POPOUT_MAX_HEIGHT_PX, measured);
   let left = rect.right - width;
   left = Math.max(pad, Math.min(left, window.innerWidth - width - pad));
   const placement = props.placement ?? 'up';
@@ -327,8 +329,16 @@ function updatePopoutPosition() {
     left: `${Math.round(left)}px`,
     top: `${Math.round(top)}px`,
     width: `${Math.round(width)}px`,
+    maxHeight: `${POPOUT_MAX_HEIGHT_PX}px`,
     zIndex: '120',
   };
+}
+
+function schedulePopoutPositionUpdate() {
+  void nextTick(() => {
+    updatePopoutPosition();
+    requestAnimationFrame(updatePopoutPosition);
+  });
 }
 
 function bindPopoutViewportListeners() {
@@ -351,9 +361,10 @@ watch(
     pickerTab.value,
     searchQuery.value,
     renderedCategories.value.length,
+    iconFilterDebounced.value,
   ],
   () => {
-    void nextTick(updatePopoutPosition);
+    schedulePopoutPositionUpdate();
   },
 );
 
@@ -362,12 +373,10 @@ onMounted(async () => {
   await ensureEmojiSearchPrebuildLoaded();
   preloadEmojiImagesOnce();
   bindPopoutViewportListeners();
-  void nextTick(() => {
-    updatePopoutPosition();
-    requestAnimationFrame(() => {
-      advanceToPhase2();
-      updatePopoutPosition();
-    });
+  schedulePopoutPositionUpdate();
+  requestAnimationFrame(() => {
+    advanceToPhase2();
+    schedulePopoutPositionUpdate();
   });
 });
 
@@ -434,7 +443,10 @@ function handleInsert(entry: EmojiEntry) {
                   ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
                   : 'text-muted hover:bg-glass-hover hover:text-foreground'
             "
-            @click="pickerTab = 'emoji'"
+            @click="
+              pickerTab = 'emoji';
+              schedulePopoutPositionUpdate();
+            "
           >
             Emoji
           </button>
@@ -452,7 +464,10 @@ function handleInsert(entry: EmojiEntry) {
                   ? 'text-fg-soft hover:bg-glass-hover hover:text-fg-soft'
                   : 'text-muted hover:bg-glass-hover hover:text-foreground'
             "
-            @click="pickerTab = 'icons'"
+            @click="
+              pickerTab = 'icons';
+              schedulePopoutPositionUpdate();
+            "
           >
             Icons
           </button>

@@ -20,6 +20,7 @@ import { startDiscordImportMediaMirrorJob } from '../jobs/discordImportMediaMirr
 import { startChatUploadRetentionJob } from '../jobs/chatUploadRetention';
 import { startEchoVoiceRosterReconcileJob } from '../jobs/voiceRosterReconcile';
 import { startStatusPageProbeJob } from '../jobs/statusPageProbe';
+import { startMetricsWeeklyDigestJob } from '../jobs/metricsWeeklyDigest';
 import { startImageBrowseCategoriesRefreshJob } from '../jobs/imageBrowseCategoriesRefresh';
 import { getPgPool } from '../db/pg';
 import { reconcileEchoVoiceParticipantsAgainstLiveKit } from '../services/echoVoiceLiveKitReconcile';
@@ -70,6 +71,7 @@ export async function startServer(
   startChatUploadRetentionJob(fastify);
   startEchoVoiceRosterReconcileJob(fastify);
   startStatusPageProbeJob(fastify);
+  startMetricsWeeklyDigestJob(fastify);
   startImageBrowseCategoriesRefreshJob(fastify);
 
   if (config.backendStorageMode === 'postgres') {

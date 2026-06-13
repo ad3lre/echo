@@ -70,12 +70,31 @@ export function decodeGuestBindingCookieValue(
   return { userId, exp };
 }
 
+/** Origins we use to decide desktop `SameSite=None` session cookies. */
+export function requestOriginsForDesktopCookiePolicy(
+  request: FastifyRequest | undefined,
+): string[] {
+  const out: string[] = [];
+  const origin = request?.headers?.origin;
+  if (typeof origin === 'string' && origin.trim()) {
+    out.push(origin.trim());
+  }
+  const referer = request?.headers?.referer;
+  if (typeof referer === 'string' && referer.trim()) {
+    try {
+      out.push(new URL(referer.trim()).origin);
+    } catch {
+      /* ignore malformed referer */
+    }
+  }
+  return out;
+}
+
 function resolveCookieSameSite(
   request: FastifyRequest | undefined,
 ): 'lax' | 'none' {
-  const origin = request?.headers?.origin;
-  if (typeof origin === 'string' && origin.length > 0) {
-    if (config.echoDesktopAllowedOrigins.includes(origin)) {
+  for (const candidate of requestOriginsForDesktopCookiePolicy(request)) {
+    if (config.echoDesktopAllowedOrigins.includes(candidate)) {
       return 'none';
     }
   }

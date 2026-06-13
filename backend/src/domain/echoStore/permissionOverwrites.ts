@@ -6,6 +6,7 @@ import { invalidateEchoPermissionCacheForServer } from '../echoPermissionCache';
 import { normalizePermissionOverwritePartial } from '../echoPermissionPrimitives';
 import { selectLastAuthorMessageCreatedAtForSlowmode } from '../echoMessagesDal';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
+import { getEchoChannelMeta } from './channelMeta';
 import {
   ALLOWED_PERMS_SET,
   ALLOWED_SLOWMODE_SECONDS,
@@ -787,13 +788,10 @@ export async function echoChannelAllowsMessageUnderSlowmode(
   userId: string,
   channelId: string,
 ): Promise<boolean> {
-  const ch = await pool.query(
-    `SELECT type, slowmode_seconds FROM echo_channels WHERE id = $1 AND server_id = $2`,
-    [channelId, serverId],
-  );
-  if (!ch.rows[0]) return true;
-  if (String(ch.rows[0].type) !== 'text') return true;
-  const sm = Number(ch.rows[0].slowmode_seconds ?? 0);
+  const meta = await getEchoChannelMeta(pool, channelId);
+  if (!meta || meta.serverId !== serverId) return true;
+  if (meta.type !== 'text') return true;
+  const sm = meta.slowmodeSeconds;
   if (sm <= 0) return true;
   const perms = await getEffectiveChannelPermissions(
     pool,

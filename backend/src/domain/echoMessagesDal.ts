@@ -1295,6 +1295,31 @@ export async function selectEchoMessageAuthorDeleted(
   };
 }
 
+export async function selectEchoMessageContentJsonRow(
+  pool: pg.Pool,
+  channelId: string,
+  messageId: string,
+): Promise<{
+  contentJson: unknown;
+  contentSchemaVersion: number | null;
+} | null> {
+  const q = await pool.query<{
+    content_json: unknown;
+    content_schema_version: number | null;
+  }>(
+    `SELECT content_json, content_schema_version
+     FROM echo_messages
+     WHERE id = $1 AND channel_id = $2`,
+    [messageId, channelId],
+  );
+  const row = q.rows[0];
+  if (!row) return null;
+  return {
+    contentJson: row.content_json,
+    contentSchemaVersion: row.content_schema_version,
+  };
+}
+
 /** Recompute search flags from the current DB row after media/content edits. */
 async function patchEchoMessageSearchFlags(
   pool: pg.Pool,
@@ -1373,6 +1398,7 @@ export async function updateEchoMessageBodyJsonSql(
     messageFormatVersion: number;
     contentSchemaVersion: number;
     attachments?: MessageAttachmentPayload[] | null;
+    components?: unknown;
   },
 ): Promise<void> {
   if (args.attachments !== undefined) {
@@ -1387,6 +1413,7 @@ export async function updateEchoMessageBodyJsonSql(
       edited_at = NOW(),
       embeds = NULL,
       attachments = $9::jsonb,
+      components = $10::jsonb,
       image_url = NULL, video_url = NULL, audio_url = NULL, gif = FALSE, image_spoiler = FALSE
      WHERE id = $1 AND channel_id = $2`,
       [
@@ -1399,6 +1426,7 @@ export async function updateEchoMessageBodyJsonSql(
         args.messageFormatVersion,
         args.contentSchemaVersion,
         JSON.stringify(args.attachments),
+        JSON.stringify(args.components ?? null),
       ],
     );
     await patchEchoMessageSearchFlags(pool, channelId, messageId);
@@ -1413,7 +1441,8 @@ export async function updateEchoMessageBodyJsonSql(
       message_format_version = $7,
       content_schema_version = $8,
       edited_at = NOW(),
-      embeds = NULL
+      embeds = NULL,
+      components = $9::jsonb
      WHERE id = $1 AND channel_id = $2`,
     [
       messageId,
@@ -1424,6 +1453,7 @@ export async function updateEchoMessageBodyJsonSql(
       JSON.stringify(args.mentions),
       args.messageFormatVersion,
       args.contentSchemaVersion,
+      JSON.stringify(args.components ?? null),
     ],
   );
   await patchEchoMessageSearchFlags(pool, channelId, messageId);

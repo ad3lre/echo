@@ -1,8 +1,10 @@
+import type { ButtonRowButton } from '@shared/buttonRow';
 import type { Embed } from '@shared/types';
 import {
   collectLinkEmbedCandidateUrls,
   stubEchoJumpEmbedFromUrl,
 } from '@shared/linkEmbedCandidates';
+import { normalizeEchoJumpUrl } from '@shared/echoJumpEmbedErrors';
 import {
   isEchoMessageJumpPathname,
   parseEchoMessageJumpPath,
@@ -62,9 +64,11 @@ function mergeNonOverlapping(
 
 function embedForJumpUrl(url: string, embeds: Embed[] | undefined): Embed {
   const trimmed = url.trim();
-  const fromServer = embeds?.find(
-    (e) => e.echoJump && e.url?.trim() === trimmed,
-  );
+  const norm = normalizeEchoJumpUrl(trimmed);
+  const fromServer = embeds?.find((e) => {
+    if (!e.echoJump || !e.url?.trim()) return false;
+    return normalizeEchoJumpUrl(e.url.trim()) === norm;
+  });
   if (fromServer) return fromServer;
   const stub = stubEchoJumpEmbedFromUrl(trimmed);
   if (stub) return stub;
@@ -84,16 +88,18 @@ export function mergeEchoJumpEmbedsForMessage(
 ): Embed[] {
   const out: Embed[] = [...(stored ?? [])];
   const seen = new Set(
-    out.filter((e) => e.echoJump && e.url?.trim()).map((e) => e.url!.trim()),
+    out
+      .filter((e) => e.echoJump && e.url?.trim())
+      .map((e) => normalizeEchoJumpUrl(e.url!.trim())),
   );
   for (const raw of collectLinkEmbedCandidateUrls(content, contentJson, 12)) {
     if (!isEchoMessageJumpEmbedUrl(raw)) continue;
     const url = raw.trim();
-    if (seen.has(url)) continue;
+    if (seen.has(normalizeEchoJumpUrl(url))) continue;
     const stub = stubEchoJumpEmbedFromUrl(url);
     if (stub) {
       out.push(stub);
-      seen.add(url);
+      seen.add(normalizeEchoJumpUrl(url));
     }
   }
   return out;
@@ -174,4 +180,62 @@ export function splitContentByEchoJumpEmbeds(
     parts.push({ type: 'text', text: content });
   }
   return parts;
+}
+
+/**
+ * Appends jump segments for Echo message URLs present in `contentJson` (or stored
+ * `echoJump` embeds) that were not already inlined from plain `content`.
+ */
+export function appendOrphanEchoJumpEmbedSegments<
+  T extends
+    | { type: 'text'; text: string }
+    | { type: 'invite'; url: string }
+    | { type: 'jump'; url: string; embed: Embed }
+    | {
+        type: 'imageSlot';
+        slotId: string;
+        aspectW: number;
+        aspectH: number;
+        imageUrl?: string | null;
+        width?: number | null;
+        height?: number | null;
+      }
+    | {
+        type: 'buttonRow';
+        rowId: string;
+        buttons: ButtonRowButton[];
+      },
+>(
+  segments: T[],
+  content: string,
+  contentJson: unknown | undefined,
+  embeds: Embed[] | undefined,
+): T[] {
+  const used = new Set(
+    segments
+      .filter((s): s is Extract<T, { type: 'jump' }> => s.type === 'jump')
+      .map((s) => normalizeEchoJumpUrl(s.url)),
+  );
+  const out = [...segments];
+
+  const pushJump = (url: string, embed: Embed) => {
+    const norm = normalizeEchoJumpUrl(url);
+    if (!norm || used.has(norm)) return;
+    used.add(norm);
+    out.push({ type: 'jump', url, embed } as T);
+  };
+
+  for (const raw of collectLinkEmbedCandidateUrls(content, contentJson, 12)) {
+    if (!isEchoMessageJumpEmbedUrl(raw)) continue;
+    pushJump(raw.trim(), embedForJumpUrl(raw.trim(), embeds));
+  }
+
+  for (const e of embeds ?? []) {
+    if (!e.echoJump || !e.url?.trim()) continue;
+    const url = e.url.trim();
+    if (content.includes(url)) continue;
+    pushJump(url, e);
+  }
+
+  return out;
 }

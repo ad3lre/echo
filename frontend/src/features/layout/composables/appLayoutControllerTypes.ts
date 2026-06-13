@@ -713,6 +713,16 @@ export interface AppLayoutControllerContext {
     messageId: string,
     content: string,
   ) => boolean | void | Promise<boolean | void>;
+  fillImageSlot: (
+    messageId: string,
+    slotId: string,
+    body: {
+      imageUrl: string;
+      storageKey?: string;
+      width?: number;
+      height?: number;
+    },
+  ) => boolean | Promise<boolean>;
   handlePinMessage: (messageId: string) => void;
   handleUnpinMessage: (messageId: string) => void;
   pinMessage: (channelId: string, messageId: string) => void;
@@ -1053,6 +1063,10 @@ export interface AppLayoutControllerContext {
   >;
   /** `@` mention autocomplete: channel/DM participants only (not full workspace directory). */
   usersForMentionAutocomplete: ComputedRef<UserForAuthor[]>;
+  /** Mentionable guild roles for `@` autocomplete in server channels. */
+  rolesForMentionAutocomplete: ComputedRef<
+    { id: string; name: string; color: string }[]
+  >;
   selfProfile: ComputedRef<MemberProfile | null>;
   memberPopoutOpenRolesPanel: Ref<boolean>;
   onMemberPopoutOpenUpdate: (next: boolean) => void;

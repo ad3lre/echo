@@ -1,0 +1,40 @@
+/**
+ * Discord-style typographic italics: use the font's real italic cut instead of
+ * browser-synthesized oblique slanting (which leaves letters like "f" unchanged).
+ */
+@mixin echo-typographic-italic {
+  font-style: italic;
+  font-synthesis: none;
+}
+
+.message-content :deep(em),
+.message-content :deep(i) {
+  @include echo-typographic-italic;
+}
+
+.message-content :deep(pre em),
+.message-content :deep(pre i),
+.message-content :deep(code em),
+.message-content :deep(code i),
+.message-content :deep(kbd em),
+.message-content :deep(kbd i) {
+  font-style: inherit;
+  font-synthesis: auto;
+}
+
+.message-preview :deep(em),
+.message-preview :deep(i),
+.message-preview-snippet :deep(em),
+.message-preview-snippet :deep(i) {
+  @include echo-typographic-italic;
+}
+
+.discord-embed-md :deep(em),
+.discord-embed-md :deep(i) {
+  @include echo-typographic-italic;
+}
+
+.chat-input-surface :deep(.tiptap .composer-md-italic),
+.chat-input-surface :deep(.tiptap .composer-md-blockquote) {
+  @include echo-typographic-italic;
+}

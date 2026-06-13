@@ -6,6 +6,7 @@
 import pg from 'pg';
 import { config } from '../config';
 import {
+  bumpPgQueryTally,
   formatPgQueryContextLabel,
   getPgQueryContext,
   runWithPgQueryContext,
@@ -37,6 +38,7 @@ function recordPgRoundtrip(): void {
     scope: ctx?.scope ?? 'internal',
     label: ctx?.label ?? 'unlabeled',
   });
+  bumpPgQueryTally();
 }
 
 function wrapQueryWithInstrumentation(

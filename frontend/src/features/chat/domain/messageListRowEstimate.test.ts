@@ -33,4 +33,34 @@ describe('estimateMessageListRowSizePx', () => {
     });
     expect(grouped).toBeLessThanOrEqual(58);
   });
+
+  it('reserves full-width 16:9 image slot height before live measure', () => {
+    const withSlot = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      message: {
+        content: '',
+        contentJson: {
+          type: 'doc',
+          content: [
+            {
+              type: 'imageSlot',
+              attrs: {
+                slotId: 'slot-1',
+                aspectW: 16,
+                aspectH: 9,
+                imageUrl: null,
+              },
+            },
+          ],
+        },
+      },
+    });
+    const baseline = estimateMessageListRowSizePx({
+      groupedWithPrevious: false,
+      showDaySeparatorBefore: false,
+      message: { content: '' },
+    });
+    expect(withSlot - baseline).toBe(340);
+  });
 });

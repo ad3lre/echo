@@ -1,4 +1,6 @@
 import type { MessageWithAuthor } from '@shared/types';
+import { walkImageSlots } from '@shared/imageSlotContentJson';
+import { countButtonRows } from '@shared/buttonRowContentJson';
 
 export const MESSAGE_LIST_DEFAULT_ROW_ESTIMATE_PX = 88;
 export const MESSAGE_LIST_ROW_ESTIMATE_MIN_PX = 64;
@@ -23,6 +25,7 @@ export type MessageListRowEstimateInput = {
     | 'stickers'
     | 'embeds'
     | 'reactions'
+    | 'contentJson'
   >;
 };
 
@@ -36,6 +39,18 @@ const MESSAGE_LIST_GROUPED_CHROME_PX = 6;
 const MESSAGE_LIST_CHARS_PER_LINE = 80;
 /** Cap line contribution so a wall of text cannot blow past the row max. */
 const MESSAGE_LIST_MAX_BODY_LINES = 12;
+/** Matches `MessageImageSlot` max width at 16px root (`36rem`). */
+const MESSAGE_IMAGE_SLOT_MAX_WIDTH_PX = 576;
+/** Matches `MessageImageSlot` vertical margin (`my-2`). */
+const MESSAGE_IMAGE_SLOT_VERTICAL_MARGIN_PX = 16;
+
+function estimateImageSlotBlockPx(aspectW: number, aspectH: number): number {
+  if (aspectW <= 0 || aspectH <= 0) return 200;
+  const heightPx =
+    (MESSAGE_IMAGE_SLOT_MAX_WIDTH_PX * aspectH) / aspectW +
+    MESSAGE_IMAGE_SLOT_VERTICAL_MARGIN_PX;
+  return Math.ceil(heightPx);
+}
 
 /** Rendered line count: explicit newlines plus per-line soft-wrap by width. */
 function estimateRenderedBodyLines(body: string): number {
@@ -97,6 +112,15 @@ export function estimateMessageListRowSizePx(
     )
   ) {
     size += 240;
+  }
+
+  for (const slot of walkImageSlots(message.contentJson)) {
+    size += estimateImageSlotBlockPx(slot.aspectW, slot.aspectH);
+  }
+
+  const buttonRowCount = countButtonRows(message.contentJson);
+  if (buttonRowCount > 0) {
+    size += buttonRowCount * 48;
   }
 
   const embeds = message.embeds ?? [];

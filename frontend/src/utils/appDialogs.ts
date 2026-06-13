@@ -165,13 +165,20 @@ export function requestAppConfirm(
   });
 }
 
-/** Close a context menu, then show the global confirm dialog (safe for right-click actions). */
+/**
+ * Show confirm from a teleported context menu without closing the menu first.
+ * Closing before confirm unmounts the menu during the same pointer gesture, which
+ * can drop the click and auto-dismiss the dialog backdrop (@click.self on
+ * AppLayoutDialogHost). deferDialogDispatch handles dialog open timing; the menu
+ * closes after the user confirms or cancels.
+ */
 export async function requestAppConfirmFromContextMenu(
   closeMenu: () => void,
   payload: AppConfirmPayload,
 ): Promise<boolean> {
+  const ok = await requestAppConfirm(payload);
   closeMenu();
-  return requestAppConfirm(payload);
+  return ok;
 }
 
 export function requestAppAlert(payload: {

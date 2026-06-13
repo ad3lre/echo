@@ -8,6 +8,18 @@ export interface ReplyTo {
   content: string;
 }
 
+/** Snapshot of a message being edited in the main composer. */
+export interface EditingMessage {
+  messageId: string;
+  /** Truncated original for the edit bar (display only). */
+  previewContent: string;
+  /** Composer preload — prefer contentJson when v2. */
+  content: string;
+  mentions: MentionEntity[];
+  contentJson?: Record<string, unknown> | null;
+  attachments: MessageAttachmentPayload[];
+}
+
 /**
  * Snapshot of the original message when this post is a forward (separate from reply).
  * Populated server-side from the source row; clients may send only `forwardMessageId`.
@@ -117,7 +129,7 @@ export interface Message {
   tts?: boolean;
   /** Bitfield (Discord message flags subset Echo persists). */
   messageFlags?: number;
-  /** Discord-style message components JSON (non-interactive display only in Echo UI). */
+  /** Discord-style message components (action rows, buttons; link buttons open URLs). */
   components?: unknown;
   /** Present when this message forwards another (see `ForwardedFrom`). */
   forwardedFrom?: ForwardedFrom;
@@ -265,6 +277,16 @@ export interface Embed {
     channelId: string;
     messageId: string;
   };
+  /**
+   * Set when a message jump link could not be resolved (not found, forbidden, etc.).
+   * Clients show `description` and skip re-fetch when this is present.
+   */
+  echoJumpError?:
+    | 'not_found'
+    | 'forbidden'
+    | 'invalid_link'
+    | 'embed_links_denied'
+    | 'network_error';
 }
 
 export interface Reaction {

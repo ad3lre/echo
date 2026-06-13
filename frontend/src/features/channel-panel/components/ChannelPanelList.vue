@@ -354,6 +354,14 @@ function showVcParticipantDropTarget(channelId: string): boolean {
   );
 }
 
+function categoryReorderEnabledFor(category: ChannelCategory): boolean {
+  return categoryReorderEnabled.value && !category.systemSection;
+}
+
+function channelReorderEnabledFor(category: ChannelCategory): boolean {
+  return reorderEnabled.value && !category.systemSection;
+}
+
 const reorderEnabled = computed(
   () => !!props.canReorderChannels && props.selectedServerId !== 'echo',
 );
@@ -364,7 +372,7 @@ const categoryReorderEnabled = computed(
 
 const realCategoryIds = computed(() =>
   props.effectiveCategories
-    .filter((c) => !c.hideCategoryHeader)
+    .filter((c) => !c.hideCategoryHeader && !c.systemSection)
     .map((c) => c.id),
 );
 
@@ -412,7 +420,7 @@ function syncCollapsedCategoriesForServer(serverId: string | null) {
   const persisted = map[serverId] ?? [];
   const allowed = new Set(
     props.effectiveCategories
-      .filter((c) => !c.hideCategoryHeader)
+      .filter((c) => !c.hideCategoryHeader && !c.systemSection)
       .map((c) => c.id),
   );
   const filtered = persisted.filter((id) => allowed.has(id));
@@ -1035,6 +1043,33 @@ const topLevelChannelCount = computed(() =>
   }, 0),
 );
 
+const systemSectionCategories = computed(() =>
+  props.effectiveCategories.filter((c) => c.systemSection),
+);
+
+const regularCategories = computed(() =>
+  props.effectiveCategories.filter((c) => !c.systemSection),
+);
+
+const channelListSections = computed(() => {
+  const system = systemSectionCategories.value;
+  const regular = regularCategories.value;
+  type Section =
+    | { kind: 'channels'; categories: ChannelCategory[] }
+    | { kind: 'separator' };
+  const out: Section[] = [];
+  if (system.length) out.push({ kind: 'channels', categories: system });
+  if (system.length && regular.length) out.push({ kind: 'separator' });
+  if (regular.length) out.push({ kind: 'channels', categories: regular });
+  return out;
+});
+
+const systemChannelsForBubble = computed(() =>
+  systemSectionCategories.value.flatMap((cat) =>
+    topLevelChannelsForCategory(cat.channels),
+  ),
+);
+
 const visibleForumPostCount = computed(() =>
   props.effectiveCategories.reduce((sum, category) => {
     const perCategory = topLevelChannelsForCategory(category.channels).reduce(
@@ -1361,7 +1396,58 @@ watch(
       v-scrollbar-on-scroll
     >
       <div
-        v-for="category in effectiveCategories"
+        v-if="systemChannelsForBubble.length"
+        class="mb-3 flex flex-col items-center gap-1"
+      >
+        <button
+          v-for="channel in systemChannelsForBubble"
+          :key="`bubble-sys-${channel.id}`"
+          type="button"
+          class="channel-bubble group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all"
+          :data-channel-row-anchor="channel.id"
+          :class="[
+            channel.id === activeChannelId
+              ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-400/50'
+              : 'hover:bg-glass-2 text-fg-soft hover:text-fg',
+          ]"
+          :title="getChannelDisplayName(channel.name)"
+          @click="emit('channel-click', channel)"
+        >
+          <img
+            v-if="
+              getChannelIconUrlOrFallback(channel) &&
+              !getChannelEmojiOrNull(channel)
+            "
+            :src="getChannelIconUrlOrFallback(channel)"
+            alt=""
+            class="h-5 w-5 object-contain"
+            :class="[
+              channelIconUsesInvert(channel) ? 'filter invert' : '',
+              { 'opacity-60': channel.id !== activeChannelId },
+            ]"
+          />
+          <span
+            v-else-if="getChannelEmojiOrNull(channel)"
+            class="text-lg leading-none"
+          >
+            {{ getChannelEmojiOrNull(channel) }}
+          </span>
+          <div
+            v-if="channelRowMissedActivity(channel.id)"
+            class="pointer-events-none absolute -left-0.5 -top-0.5 z-[2] h-2.5 w-2.5 rounded-full border border-[var(--bg)] bg-indigo-500 shadow-sm"
+          />
+        </button>
+      </div>
+      <div
+        v-if="systemChannelsForBubble.length && regularCategories.length"
+        class="mb-3 flex items-center justify-center py-1"
+        role="separator"
+        aria-hidden="true"
+      >
+        <div class="h-px w-8 bg-glass-2"></div>
+      </div>
+      <div
+        v-for="category in regularCategories"
         :key="`bubble-${category.id}`"
         class="mb-3"
       >
@@ -1435,7 +1521,7 @@ watch(
       @dragover.capture="onChannelListDragOverCapture"
     >
       <div
-        v-if="effectiveCategories.length === 0 && allowEmptyState !== false"
+        v-if="topLevelChannelCount === 0 && allowEmptyState !== false"
         class="px-3 py-6"
       >
         <template v-if="canCreateChannels">
@@ -1456,337 +1542,336 @@ watch(
           </p>
         </template>
       </div>
-      <div
-        v-for="category in effectiveCategories"
-        :key="category.id"
-        role="treeitem"
-        :aria-expanded="!isCategoryCollapsed(category.id)"
-        :aria-label="getChannelDisplayName(category.name)"
-        class="mb-4"
-        :data-category-block="
-          category.hideCategoryHeader ? undefined : category.id
+      <template
+        v-for="(section, sectionIdx) in channelListSections"
+        :key="
+          section.kind === 'separator'
+            ? `channel-list-sep-${sectionIdx}`
+            : `channel-list-${section.kind}-${sectionIdx}`
         "
-        @dragover.prevent="onCategoryBlockDragOver(category, $event)"
-        @drop.prevent="onCategoryBlockDrop(category, $event)"
       >
-        <div v-if="category.hideCategoryHeader" class="mb-1.5 px-2">
-          <div
-            class="text-[10px] font-medium uppercase tracking-wide text-fg-subtle"
-          >
-            {{ getChannelDisplayName(category.name) }}
-          </div>
-        </div>
-        <template v-else>
-          <div
-            v-if="categoryReorderEnabled && reorderDragCategoryId"
-            class="category-reorder-slot relative min-h-[8px] -mt-0.5"
-            :class="{
-              'category-reorder-slot--show-line': showCategoryDropLineBefore(
-                realCategoryIndex(category)!,
-              ),
-            }"
-            @dragover.prevent="
-              onCategoryGapDragOver(realCategoryIndex(category)!, $event)
-            "
-            @drop.prevent="
-              onCategoryDropAtLine(realCategoryIndex(category)!, $event)
-            "
-          />
-          <div
-            data-category-header
-            class="group mb-1.5 flex items-center justify-between gap-2 px-2 text-[12px] font-bold uppercase tracking-wider text-fg-soft"
-            :class="{
-              'category-header--drag-source':
-                reorderDragCategoryId === category.id,
-            }"
-            @contextmenu.stop.prevent="
-              emit('category-contextmenu', category.id, category.name, $event)
-            "
-            @dragover.prevent="onCategoryHeaderDragOver(category, $event)"
-            @drop.prevent="onCategoryHeaderDrop(category, $event)"
-          >
-            <div
-              class="channel-category-toggle inline-flex min-w-0 flex-1 items-center gap-1.5 text-left"
-              :class="{
-                'channel-category-toggle--draggable': categoryReorderEnabled,
-              }"
-              role="button"
-              tabindex="0"
-              :aria-label="
-                isCategoryCollapsed(category.id)
-                  ? `Expand ${getChannelDisplayName(category.name)}`
-                  : `Collapse ${getChannelDisplayName(category.name)}`
-              "
-              :aria-expanded="!isCategoryCollapsed(category.id)"
-              :draggable="categoryReorderEnabled"
-              :title="
-                categoryReorderEnabled
-                  ? 'Drag to reorder · Click to expand or collapse'
-                  : undefined
-              "
-              @click.stop="onCategoryToggleClick(category.id, $event)"
-              @keydown.enter.prevent="
-                onCategoryToggleClick(category.id, $event)
-              "
-              @keydown.space.prevent="
-                onCategoryToggleClick(category.id, $event)
-              "
-              @dragstart="onCategoryReorderDragStart(category.id, $event)"
-              @dragend="onCategoryReorderDragEnd"
-            >
-              <span
-                class="channel-category-caret -ml-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm"
-                :class="{
-                  'channel-category-caret--collapsed': isCategoryCollapsed(
-                    category.id,
-                  ),
-                }"
-                aria-hidden="true"
-                >▾</span
-              >
-              <span class="inline min-w-0 flex-1 truncate">{{
-                getChannelDisplayName(category.name)
-              }}</span>
-            </div>
-            <div
-              v-if="canCreateChannels && selectedServerId !== 'echo'"
-              class="flex shrink-0 items-center gap-0.5"
-              draggable="false"
-            >
-              <button
-                type="button"
-                draggable="false"
-                class="channel-category-gear chat-focus-ring flex h-5 w-5 items-center justify-center rounded text-fg-subtle opacity-0 transition-all pointer-fine:hover:bg-glass-hover pointer-fine:hover:text-fg group-hover:opacity-100 pointer-coarse:opacity-100"
-                title="Category settings"
-                aria-label="Category settings"
-                @click.stop="openCategorySettings(category.id, $event)"
-              >
-                <img
-                  :src="icons.settings"
-                  alt=""
-                  draggable="false"
-                  class="h-3 w-3 opacity-80 filter invert"
-                />
-              </button>
-              <button
-                type="button"
-                draggable="false"
-                class="channel-category-add flex h-5 w-5 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg"
-                title="Create channel"
-                aria-label="Create channel in this category"
-                @click.stop="emit('open-create-channel', category.id)"
-              >
-                <span class="text-[14px] font-semibold leading-none">+</span>
-              </button>
-            </div>
-          </div>
-        </template>
         <div
-          v-if="!isCategoryCollapsed(category.id)"
-          role="group"
-          class="flex flex-col gap-1"
-          :class="{
-            'channel-list-bucket--channel-dnd': reorderDragChannelId !== null,
-          }"
+          v-if="section.kind === 'separator'"
+          class="channel-list-system-separator mx-1 mb-3 mt-1 h-px bg-glass-2"
+          role="separator"
+          aria-hidden="true"
+        />
+        <div
+          v-for="category in section.categories"
+          v-else
+          :key="category.id"
+          role="treeitem"
+          :aria-expanded="!isCategoryCollapsed(category.id)"
+          :aria-label="getChannelDisplayName(category.name)"
+          class="mb-4"
+          :data-category-block="
+            category.hideCategoryHeader || category.systemSection
+              ? undefined
+              : category.id
+          "
+          @dragover.prevent="onCategoryBlockDragOver(category, $event)"
+          @drop.prevent="onCategoryBlockDrop(category, $event)"
         >
-          <template
-            v-for="(channel, channelIndex) in topLevelChannelsForCategory(
-              category.channels,
-            )"
-            :key="channel.id"
+          <div
+            v-if="category.hideCategoryHeader && !category.systemSection"
+            class="mb-1.5 px-2"
           >
             <div
-              class="channel-row-slot relative"
+              class="text-[10px] font-medium uppercase tracking-wide text-fg-subtle"
+            >
+              {{ getChannelDisplayName(category.name) }}
+            </div>
+          </div>
+          <template v-else-if="!category.systemSection">
+            <div
+              v-if="
+                categoryReorderEnabledFor(category) && reorderDragCategoryId
+              "
+              class="category-reorder-slot relative min-h-[8px] -mt-0.5"
               :class="{
-                'channel-row-slot--drop-before': showDropLineBefore(
-                  category,
-                  channelIndex,
+                'category-reorder-slot--show-line': showCategoryDropLineBefore(
+                  realCategoryIndex(category)!,
                 ),
               }"
+              @dragover.prevent="
+                onCategoryGapDragOver(realCategoryIndex(category)!, $event)
+              "
+              @drop.prevent="
+                onCategoryDropAtLine(realCategoryIndex(category)!, $event)
+              "
+            />
+            <div
+              data-category-header
+              class="group mb-1.5 flex items-center justify-between gap-2 px-2 text-[12px] font-bold uppercase tracking-wider text-fg-soft"
+              :class="{
+                'category-header--drag-source':
+                  reorderDragCategoryId === category.id,
+              }"
+              @contextmenu.stop.prevent="
+                emit('category-contextmenu', category.id, category.name, $event)
+              "
+              @dragover.prevent="onCategoryHeaderDragOver(category, $event)"
+              @drop.prevent="onCategoryHeaderDrop(category, $event)"
             >
               <div
-                role="treeitem"
-                :aria-selected="activeChannelId === channel.id"
-                :aria-label="getChannelDisplayName(channel.name)"
-                class="group channel-row flex flex-col rounded-lg cursor-pointer"
-                :data-channel-row-anchor="channel.id"
+                class="channel-category-toggle inline-flex min-w-0 flex-1 items-center gap-1.5 text-left"
                 :class="{
-                  'bg-glass-2':
-                    activeChannelId === channel.id &&
-                    !isVoiceLikeChannelType(channel.type),
-                  'ring-1 ring-sky-500/35':
-                    isVoiceLikeChannelType(channel.type) &&
-                    voiceLobbyChannelId &&
-                    voiceLobbyChannelId === channel.id,
-                  'cursor-not-allowed opacity-50 hover:opacity-55':
-                    isVoiceLikeChannelType(channel.type) &&
-                    canJoinVoice &&
-                    !canJoinVoice(channel.id),
-                  'channel-row--drag-source':
-                    reorderDragChannelId === channel.id,
-                  'channel-row--vc-participant-drop-target':
-                    showVcParticipantDropTarget(channel.id),
-                  'select-none': reorderEnabled || !!vcParticipantDrag,
-                  'cursor-grab active:cursor-grabbing':
-                    reorderEnabled &&
-                    !(
-                      isVoiceLikeChannelType(channel.type) &&
-                      canJoinVoice &&
-                      !canJoinVoice(channel.id)
-                    ),
+                  'channel-category-toggle--draggable':
+                    categoryReorderEnabledFor(category),
                 }"
-                :draggable="reorderEnabled"
+                role="button"
+                tabindex="0"
+                :aria-label="
+                  isCategoryCollapsed(category.id)
+                    ? `Expand ${getChannelDisplayName(category.name)}`
+                    : `Collapse ${getChannelDisplayName(category.name)}`
+                "
+                :aria-expanded="!isCategoryCollapsed(category.id)"
+                :draggable="categoryReorderEnabledFor(category)"
                 :title="
-                  isVoiceLikeChannelType(channel.type) &&
-                  canJoinVoice &&
-                  !canJoinVoice(channel.id)
-                    ? 'You do not have permission to join this voice channel'
-                    : reorderEnabled
-                      ? 'Drag to reorder'
-                      : undefined
+                  categoryReorderEnabledFor(category)
+                    ? 'Drag to reorder · Click to expand or collapse'
+                    : undefined
                 "
-                @dragstart="onReorderDragStart(channel.id, $event)"
-                @dragend="onReorderDragEnd"
-                @click="onChannelRowActivate(channel)"
-                @contextmenu.stop.prevent="
-                  emit(
-                    'channel-contextmenu',
-                    channel,
-                    categoryIdForApi(category),
-                    category.name,
-                    $event,
-                  )
+                @click.stop="onCategoryToggleClick(category.id, $event)"
+                @keydown.enter.prevent="
+                  onCategoryToggleClick(category.id, $event)
                 "
-                @mouseenter="emit('set-hovered-channel', channel.id)"
-                @mouseleave="emit('set-hovered-channel', null)"
-                @dragover.prevent="
-                  onChannelRowDragOver(category, channelIndex, channel, $event)
+                @keydown.space.prevent="
+                  onCategoryToggleClick(category.id, $event)
                 "
-                @drop.prevent="
-                  onReorderDropOnRow(category, channelIndex, channel, $event)
-                "
+                @dragstart="onCategoryReorderDragStart(category.id, $event)"
+                @dragend="onCategoryReorderDragEnd"
+              >
+                <span
+                  class="channel-category-caret -ml-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm"
+                  :class="{
+                    'channel-category-caret--collapsed': isCategoryCollapsed(
+                      category.id,
+                    ),
+                  }"
+                  aria-hidden="true"
+                  >▾</span
+                >
+                <span class="inline min-w-0 flex-1 truncate">{{
+                  getChannelDisplayName(category.name)
+                }}</span>
+              </div>
+              <div
+                v-if="canCreateChannels && selectedServerId !== 'echo'"
+                class="flex shrink-0 items-center gap-0.5"
+                draggable="false"
+              >
+                <button
+                  type="button"
+                  draggable="false"
+                  class="channel-category-gear chat-focus-ring flex h-5 w-5 items-center justify-center rounded text-fg-subtle opacity-0 transition-all pointer-fine:hover:bg-glass-hover pointer-fine:hover:text-fg group-hover:opacity-100 pointer-coarse:opacity-100"
+                  title="Category settings"
+                  aria-label="Category settings"
+                  @click.stop="openCategorySettings(category.id, $event)"
+                >
+                  <img
+                    :src="icons.settings"
+                    alt=""
+                    draggable="false"
+                    class="h-3 w-3 opacity-80 filter invert"
+                  />
+                </button>
+                <button
+                  type="button"
+                  draggable="false"
+                  class="channel-category-add flex h-5 w-5 items-center justify-center rounded text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg"
+                  title="Create channel"
+                  aria-label="Create channel in this category"
+                  @click.stop="emit('open-create-channel', category.id)"
+                >
+                  <span class="text-[14px] font-semibold leading-none">+</span>
+                </button>
+              </div>
+            </div>
+          </template>
+          <div
+            v-if="!isCategoryCollapsed(category.id)"
+            role="group"
+            class="flex flex-col gap-1"
+            :class="{
+              'channel-list-bucket--channel-dnd': reorderDragChannelId !== null,
+            }"
+          >
+            <template
+              v-for="(channel, channelIndex) in topLevelChannelsForCategory(
+                category.channels,
+              )"
+              :key="channel.id"
+            >
+              <div
+                class="channel-row-slot relative"
+                :class="{
+                  'channel-row-slot--drop-before': showDropLineBefore(
+                    category,
+                    channelIndex,
+                  ),
+                }"
               >
                 <div
-                  class="channel-row-drop-target relative flex items-center gap-2 min-w-0 rounded-md transition-colors"
-                  :class="[
-                    isVoiceLikeChannelType(channel.type)
-                      ? currentVoiceChannelId === channel.id
-                        ? 'hover:bg-glass-1 px-1.5 py-1'
-                        : 'hover:bg-glass-1 px-1.5 py-1'
-                      : '',
-                    {
-                      'channel-row--has-unread': channelRowMissedActivity(
-                        channel.id,
+                  role="treeitem"
+                  :aria-selected="activeChannelId === channel.id"
+                  :aria-label="getChannelDisplayName(channel.name)"
+                  class="group channel-row flex flex-col rounded-lg cursor-pointer"
+                  :data-channel-row-anchor="channel.id"
+                  :class="{
+                    'bg-glass-2':
+                      activeChannelId === channel.id &&
+                      !isVoiceLikeChannelType(channel.type),
+                    'ring-1 ring-sky-500/35':
+                      isVoiceLikeChannelType(channel.type) &&
+                      voiceLobbyChannelId &&
+                      voiceLobbyChannelId === channel.id,
+                    'cursor-not-allowed opacity-50 hover:opacity-55':
+                      isVoiceLikeChannelType(channel.type) &&
+                      canJoinVoice &&
+                      !canJoinVoice(channel.id),
+                    'channel-row--drag-source':
+                      reorderDragChannelId === channel.id,
+                    'channel-row--vc-participant-drop-target':
+                      showVcParticipantDropTarget(channel.id),
+                    'select-none':
+                      channelReorderEnabledFor(category) || !!vcParticipantDrag,
+                    'cursor-grab active:cursor-grabbing':
+                      channelReorderEnabledFor(category) &&
+                      !(
+                        isVoiceLikeChannelType(channel.type) &&
+                        canJoinVoice &&
+                        !canJoinVoice(channel.id)
                       ),
-                    },
-                    rowCanManageChannel(channel) &&
-                    selectedServerId !== 'echo' &&
-                    !isVoiceLikeChannelType(channel.type)
-                      ? 'pr-9'
-                      : '',
-                  ]"
+                  }"
+                  :draggable="channelReorderEnabledFor(category)"
+                  :title="
+                    isVoiceLikeChannelType(channel.type) &&
+                    canJoinVoice &&
+                    !canJoinVoice(channel.id)
+                      ? 'You do not have permission to join this voice channel'
+                      : channelReorderEnabledFor(category)
+                        ? 'Drag to reorder'
+                        : undefined
+                  "
+                  @dragstart="onReorderDragStart(channel.id, $event)"
+                  @dragend="onReorderDragEnd"
+                  @click="onChannelRowActivate(channel)"
+                  @contextmenu.stop.prevent="
+                    emit(
+                      'channel-contextmenu',
+                      channel,
+                      categoryIdForApi(category),
+                      category.name,
+                      $event,
+                    )
+                  "
+                  @mouseenter="emit('set-hovered-channel', channel.id)"
+                  @mouseleave="emit('set-hovered-channel', null)"
+                  @dragover.prevent="
+                    onChannelRowDragOver(
+                      category,
+                      channelIndex,
+                      channel,
+                      $event,
+                    )
+                  "
+                  @drop.prevent="
+                    onReorderDropOnRow(category, channelIndex, channel, $event)
+                  "
                 >
-                  <div class="flex min-w-0 flex-1 items-center gap-2">
-                    <img
-                      v-if="!getChannelEmojiOrNull(channel)"
-                      :src="getChannelIconUrlOrFallback(channel)"
-                      alt=""
-                      draggable="false"
-                      class="channel-row-icon h-4 w-4 flex-shrink-0 object-contain"
-                      :class="{
-                        'filter invert': channelIconUsesInvert(channel),
-                        '!opacity-100': activeChannelId === channel.id,
-                        'opacity-70':
-                          activeChannelId !== channel.id &&
-                          channelRowMissedActivity(channel.id),
-                        'opacity-40':
-                          activeChannelId !== channel.id &&
-                          !channelRowMissedActivity(channel.id),
-                        'group-hover:!opacity-100 pointer-coarse:!opacity-100':
-                          activeChannelId !== channel.id,
-                        'channel-icon-in-vc':
-                          currentVoiceChannelId === channel.id &&
-                          isVoiceLikeChannelType(channel.type),
-                      }"
-                    />
-                    <span
-                      v-else
-                      draggable="false"
-                      class="channel-row-icon h-4 w-4 flex-shrink-0 flex items-center justify-center text-[14px] leading-none"
-                      :class="{
-                        '!opacity-100': activeChannelId === channel.id,
-                        'opacity-70':
-                          activeChannelId !== channel.id &&
-                          channelRowMissedActivity(channel.id),
-                        'opacity-40':
-                          activeChannelId !== channel.id &&
-                          !channelRowMissedActivity(channel.id),
-                        'group-hover:!opacity-100 pointer-coarse:!opacity-100':
-                          activeChannelId !== channel.id,
-                        'channel-icon-in-vc':
-                          currentVoiceChannelId === channel.id &&
-                          isVoiceLikeChannelType(channel.type),
-                      }"
-                      aria-hidden="true"
-                      >{{ getChannelEmojiOrNull(channel) }}</span
-                    >
-                    <span
-                      draggable="false"
-                      :class="[
-                        'channel-row-name truncate min-w-0 flex-1 text-[14px] block',
-                        currentVoiceChannelId === channel.id &&
-                        isVoiceLikeChannelType(channel.type)
-                          ? 'font-semibold text-emerald-400 group-hover:text-emerald-300'
-                          : activeChannelId === channel.id
-                            ? 'font-semibold text-foreground'
-                            : channelRowMissedActivity(channel.id)
-                              ? 'font-bold text-foreground group-hover:text-foreground'
-                              : 'font-medium text-fg-subtle group-hover:text-fg-soft',
-                      ]"
-                      >{{ getChannelDisplayName(channel.name) }}</span
-                    >
-                  </div>
-                  <button
-                    v-if="
+                  <div
+                    class="channel-row-drop-target relative flex items-center gap-2 min-w-0 rounded-md transition-colors"
+                    :class="[
+                      isVoiceLikeChannelType(channel.type)
+                        ? currentVoiceChannelId === channel.id
+                          ? 'hover:bg-glass-1 px-1.5 py-1'
+                          : 'hover:bg-glass-1 px-1.5 py-1'
+                        : '',
+                      {
+                        'channel-row--has-unread': channelRowMissedActivity(
+                          channel.id,
+                        ),
+                      },
                       rowCanManageChannel(channel) &&
                       selectedServerId !== 'echo' &&
                       !isVoiceLikeChannelType(channel.type)
-                    "
-                    type="button"
-                    class="channel-row-gear chat-focus-ring absolute right-1 top-1/2 z-[3] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-fg-subtle opacity-0 pointer-events-none transition-opacity pointer-fine:hover:bg-glass-hover pointer-fine:hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
-                    title="Channel settings"
-                    aria-label="Channel settings"
-                    @click.stop="
-                      openChannelSettings(
-                        {
-                          channel,
-                          categoryId: categoryIdForApi(category),
-                        },
-                        $event,
-                      )
-                    "
+                        ? 'pr-9'
+                        : '',
+                    ]"
                   >
-                    <img
-                      :src="icons.settings"
-                      alt=""
-                      class="h-3.5 w-3.5 opacity-80 filter invert"
-                    />
-                  </button>
-                  <div
-                    v-if="isVoiceLikeChannelType(channel.type)"
-                    class="ml-auto flex-shrink-0 flex items-center gap-0.5"
-                    @click.stop
-                  >
+                    <div class="flex min-w-0 flex-1 items-center gap-2">
+                      <img
+                        v-if="!getChannelEmojiOrNull(channel)"
+                        :src="getChannelIconUrlOrFallback(channel)"
+                        alt=""
+                        draggable="false"
+                        class="channel-row-icon h-4 w-4 flex-shrink-0 object-contain"
+                        :class="{
+                          'filter invert': channelIconUsesInvert(channel),
+                          '!opacity-100': activeChannelId === channel.id,
+                          'opacity-70':
+                            activeChannelId !== channel.id &&
+                            channelRowMissedActivity(channel.id),
+                          'opacity-40':
+                            activeChannelId !== channel.id &&
+                            !channelRowMissedActivity(channel.id),
+                          'group-hover:!opacity-100 pointer-coarse:!opacity-100':
+                            activeChannelId !== channel.id,
+                          'channel-icon-in-vc':
+                            currentVoiceChannelId === channel.id &&
+                            isVoiceLikeChannelType(channel.type),
+                        }"
+                      />
+                      <span
+                        v-else
+                        draggable="false"
+                        class="channel-row-icon h-4 w-4 flex-shrink-0 flex items-center justify-center text-[14px] leading-none"
+                        :class="{
+                          '!opacity-100': activeChannelId === channel.id,
+                          'opacity-70':
+                            activeChannelId !== channel.id &&
+                            channelRowMissedActivity(channel.id),
+                          'opacity-40':
+                            activeChannelId !== channel.id &&
+                            !channelRowMissedActivity(channel.id),
+                          'group-hover:!opacity-100 pointer-coarse:!opacity-100':
+                            activeChannelId !== channel.id,
+                          'channel-icon-in-vc':
+                            currentVoiceChannelId === channel.id &&
+                            isVoiceLikeChannelType(channel.type),
+                        }"
+                        aria-hidden="true"
+                        >{{ getChannelEmojiOrNull(channel) }}</span
+                      >
+                      <span
+                        draggable="false"
+                        :class="[
+                          'channel-row-name truncate min-w-0 flex-1 text-[14px] block',
+                          currentVoiceChannelId === channel.id &&
+                          isVoiceLikeChannelType(channel.type)
+                            ? 'font-semibold text-emerald-400 group-hover:text-emerald-300'
+                            : activeChannelId === channel.id
+                              ? 'font-semibold text-foreground'
+                              : channelRowMissedActivity(channel.id)
+                                ? 'font-bold text-foreground group-hover:text-foreground'
+                                : 'font-medium text-fg-subtle group-hover:text-fg-soft',
+                        ]"
+                        >{{ getChannelDisplayName(channel.name) }}</span
+                      >
+                    </div>
                     <button
                       v-if="
                         rowCanManageChannel(channel) &&
-                        selectedServerId !== 'echo'
+                        selectedServerId !== 'echo' &&
+                        !isVoiceLikeChannelType(channel.type)
                       "
                       type="button"
-                      class="vc-row-btn chat-focus-ring opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
+                      class="channel-row-gear chat-focus-ring absolute right-1 top-1/2 z-[3] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-fg-subtle opacity-0 pointer-events-none transition-opacity pointer-fine:hover:bg-glass-hover pointer-fine:hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
                       title="Channel settings"
                       aria-label="Channel settings"
-                      @click="
+                      @click.stop="
                         openChannelSettings(
                           {
                             channel,
@@ -1796,361 +1881,397 @@ watch(
                         )
                       "
                     >
-                      <img :src="icons.settings" alt="" class="vc-row-icon" />
+                      <img
+                        :src="icons.settings"
+                        alt=""
+                        class="h-3.5 w-3.5 opacity-80 filter invert"
+                      />
                     </button>
-                    <ChannelPanelVoiceOccupancyIndicator
-                      :channel="channel"
-                      :current-voice-channel-id="currentVoiceChannelId"
-                      :hovered-channel-id="hoveredChannelId"
-                    />
-                    <span
-                      v-if="
-                        discordMirrorMembers(channel.id).length &&
-                        !channel.voiceParticipantIds?.length &&
-                        (currentVoiceChannelId !== channel.id ||
-                          hoveredChannelId !== channel.id)
-                      "
-                      class="text-[11px] text-indigo-300 tabular-nums"
-                      title="Discord voice (mirror)"
+                    <div
+                      v-if="isVoiceLikeChannelType(channel.type)"
+                      class="ml-auto flex-shrink-0 flex items-center gap-0.5"
+                      @click.stop
                     >
-                      {{ discordMirrorMembers(channel.id).length }}
-                    </span>
-                    <template v-if="hoveredChannelId === channel.id">
-                      <button
-                        v-if="canInvite && selectedServerId !== 'echo'"
-                        type="button"
-                        class="vc-row-btn"
-                        title="Invite people"
-                        aria-label="Invite people"
-                        @click="
-                          emit('invite', {
-                            voiceChannelId: channel.id,
-                            voiceChannelName: getChannelDisplayName(
-                              channel.name,
-                            ),
-                          })
-                        "
-                      >
-                        <img
-                          :src="icons.usersAvatar"
-                          alt=""
-                          class="vc-row-icon"
-                        />
-                      </button>
                       <button
                         v-if="
-                          !isCompactShell &&
-                          currentVoiceChannelId === channel.id
+                          rowCanManageChannel(channel) &&
+                          selectedServerId !== 'echo'
                         "
                         type="button"
-                        class="vc-row-btn"
-                        :title="sideChatCollapsed ? 'Show chat' : 'Hide chat'"
-                        :aria-label="
-                          sideChatCollapsed ? 'Show chat' : 'Hide chat'
+                        class="vc-row-btn chat-focus-ring opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
+                        title="Channel settings"
+                        aria-label="Channel settings"
+                        @click="
+                          openChannelSettings(
+                            {
+                              channel,
+                              categoryId: categoryIdForApi(category),
+                            },
+                            $event,
+                          )
                         "
-                        @click="emit('toggle-side-chat')"
                       >
-                        <img
-                          :src="
-                            sideChatCollapsed
-                              ? icons.message
-                              : icons.messageFilled
-                          "
-                          alt=""
-                          class="vc-row-icon"
-                          :class="{ 'opacity-90': !sideChatCollapsed }"
-                        />
+                        <img :src="icons.settings" alt="" class="vc-row-icon" />
                       </button>
+                      <ChannelPanelVoiceOccupancyIndicator
+                        :channel="channel"
+                        :current-voice-channel-id="currentVoiceChannelId"
+                        :hovered-channel-id="hoveredChannelId"
+                      />
+                      <span
+                        v-if="
+                          discordMirrorMembers(channel.id).length &&
+                          !channel.voiceParticipantIds?.length &&
+                          (currentVoiceChannelId !== channel.id ||
+                            hoveredChannelId !== channel.id)
+                        "
+                        class="text-[11px] text-indigo-300 tabular-nums"
+                        title="Discord voice (mirror)"
+                      >
+                        {{ discordMirrorMembers(channel.id).length }}
+                      </span>
+                      <template v-if="hoveredChannelId === channel.id">
+                        <button
+                          v-if="canInvite && selectedServerId !== 'echo'"
+                          type="button"
+                          class="vc-row-btn"
+                          title="Invite people"
+                          aria-label="Invite people"
+                          @click="
+                            emit('invite', {
+                              voiceChannelId: channel.id,
+                              voiceChannelName: getChannelDisplayName(
+                                channel.name,
+                              ),
+                            })
+                          "
+                        >
+                          <img
+                            :src="icons.usersAvatar"
+                            alt=""
+                            class="vc-row-icon"
+                          />
+                        </button>
+                        <button
+                          v-if="
+                            !isCompactShell &&
+                            currentVoiceChannelId === channel.id
+                          "
+                          type="button"
+                          class="vc-row-btn"
+                          :title="sideChatCollapsed ? 'Show chat' : 'Hide chat'"
+                          :aria-label="
+                            sideChatCollapsed ? 'Show chat' : 'Hide chat'
+                          "
+                          @click="emit('toggle-side-chat')"
+                        >
+                          <img
+                            :src="
+                              sideChatCollapsed
+                                ? icons.message
+                                : icons.messageFilled
+                            "
+                            alt=""
+                            class="vc-row-icon"
+                            :class="{ 'opacity-90': !sideChatCollapsed }"
+                          />
+                        </button>
+                      </template>
+                    </div>
+                  </div>
+                  <div
+                    v-if="
+                      channel.type === 'voice' &&
+                      channel.voiceParticipantIds?.length
+                    "
+                    class="vc-participants mt-2.5 pl-6 flex flex-col gap-1.5"
+                    @dragover.prevent="
+                      onVoiceChannelParticipantDragOver(channel, $event)
+                    "
+                    @drop.prevent="
+                      onVoiceChannelParticipantDrop(channel, $event)
+                    "
+                  >
+                    <ChannelPanelVoiceParticipant
+                      v-for="userId in channel.voiceParticipantIds"
+                      :key="userId"
+                      :user-id="userId"
+                      :name="voiceParticipantName(channel.id, userId)"
+                      :pfp="getUserById(userId)?.pfp"
+                      :draggable="canDragMoveVcParticipant(userId)"
+                      :is-drag-source="
+                        vcParticipantDrag?.userId === userId &&
+                        vcParticipantDrag?.fromChannelId === channel.id
+                      "
+                      :is-server-owner="
+                        !!serverOwnerId?.trim() &&
+                        userId === serverOwnerId.trim()
+                      "
+                      :vc="participantVoiceUi(channel.id, userId)"
+                      :activity-presence="getVcActivityPresence?.(userId) ?? []"
+                      :is-vc-activity-king="
+                        !!vcActivityKingUserId?.trim() &&
+                        currentVoiceChannelId === channel.id &&
+                        userId === vcActivityKingUserId.trim()
+                      "
+                      :is-active="openProfileUserId === userId"
+                      @click="onVcParticipantClick(userId, $event)"
+                      @contextmenu="
+                        emit(
+                          'vc-participant-contextmenu',
+                          userId,
+                          channel,
+                          categoryIdForApi(category),
+                          category.name,
+                          $event,
+                        )
+                      "
+                      @dragstart="
+                        onVcParticipantDragStart(userId, channel.id, $event)
+                      "
+                      @dragend="onVcParticipantDragEnd()"
+                    />
+                  </div>
+                  <div
+                    v-else-if="
+                      channel.type === 'stage' &&
+                      channel.voiceParticipantIds?.length
+                    "
+                    class="vc-participants mt-2.5 pl-6 flex flex-col gap-2"
+                    @dragover.prevent="
+                      onVoiceChannelParticipantDragOver(channel, $event)
+                    "
+                    @drop.prevent="
+                      onVoiceChannelParticipantDrop(channel, $event)
+                    "
+                  >
+                    <template
+                      v-if="partitionStageParticipants(channel).speakers.length"
+                    >
+                      <div
+                        class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
+                      >
+                        Speakers
+                      </div>
+                      <ChannelPanelVoiceParticipant
+                        v-for="userId in partitionStageParticipants(channel)
+                          .speakers"
+                        :key="`spk-${userId}`"
+                        :user-id="userId"
+                        :name="voiceParticipantName(channel.id, userId)"
+                        :pfp="getUserById(userId)?.pfp"
+                        :draggable="canDragMoveVcParticipant(userId)"
+                        :is-drag-source="
+                          vcParticipantDrag?.userId === userId &&
+                          vcParticipantDrag?.fromChannelId === channel.id
+                        "
+                        :is-server-owner="
+                          !!serverOwnerId?.trim() &&
+                          userId === serverOwnerId.trim()
+                        "
+                        :vc="participantVoiceUi(channel.id, userId)"
+                        :is-active="openProfileUserId === userId"
+                        @click="onVcParticipantClick(userId, $event)"
+                        @contextmenu="
+                          emit(
+                            'vc-participant-contextmenu',
+                            userId,
+                            channel,
+                            categoryIdForApi(category),
+                            category.name,
+                            $event,
+                          )
+                        "
+                        @dragstart="
+                          onVcParticipantDragStart(userId, channel.id, $event)
+                        "
+                        @dragend="onVcParticipantDragEnd()"
+                      />
+                    </template>
+                    <template
+                      v-if="partitionStageParticipants(channel).audience.length"
+                    >
+                      <div
+                        class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle mt-1"
+                      >
+                        Audience
+                      </div>
+                      <ChannelPanelVoiceParticipant
+                        v-for="userId in partitionStageParticipants(channel)
+                          .audience"
+                        :key="`aud-${userId}`"
+                        :user-id="userId"
+                        :name="voiceParticipantName(channel.id, userId)"
+                        :pfp="getUserById(userId)?.pfp"
+                        :draggable="canDragMoveVcParticipant(userId)"
+                        :is-drag-source="
+                          vcParticipantDrag?.userId === userId &&
+                          vcParticipantDrag?.fromChannelId === channel.id
+                        "
+                        :is-server-owner="
+                          !!serverOwnerId?.trim() &&
+                          userId === serverOwnerId.trim()
+                        "
+                        :vc="participantVoiceUi(channel.id, userId)"
+                        :is-active="openProfileUserId === userId"
+                        @click="onVcParticipantClick(userId, $event)"
+                        @contextmenu="
+                          emit(
+                            'vc-participant-contextmenu',
+                            userId,
+                            channel,
+                            categoryIdForApi(category),
+                            category.name,
+                            $event,
+                          )
+                        "
+                        @dragstart="
+                          onVcParticipantDragStart(userId, channel.id, $event)
+                        "
+                        @dragend="onVcParticipantDragEnd()"
+                      />
                     </template>
                   </div>
+                  <div
+                    v-if="
+                      isVoiceLikeChannelType(channel.type) &&
+                      discordMirrorMembers(channel.id).length &&
+                      !channel.voiceParticipantIds?.length
+                    "
+                    class="vc-participants mt-2.5 pl-6 flex flex-col gap-1"
+                  >
+                    <div
+                      class="text-[10px] font-semibold uppercase tracking-wide text-indigo-300/90"
+                    >
+                      Discord voice
+                    </div>
+                    <ChannelPanelDiscordMirrorParticipant
+                      v-for="m in discordMirrorMembers(channel.id)"
+                      :key="m.discordUserId"
+                      :discord-user-id="m.discordUserId"
+                      :username="m.username"
+                      :global-name="m.globalName"
+                      :avatar="m.avatar"
+                    />
+                  </div>
                 </div>
-                <div
-                  v-if="
-                    channel.type === 'voice' &&
-                    channel.voiceParticipantIds?.length
-                  "
-                  class="vc-participants mt-2.5 pl-6 flex flex-col gap-1.5"
-                  @dragover.prevent="
-                    onVoiceChannelParticipantDragOver(channel, $event)
-                  "
-                  @drop.prevent="onVoiceChannelParticipantDrop(channel, $event)"
-                >
-                  <ChannelPanelVoiceParticipant
-                    v-for="userId in channel.voiceParticipantIds"
-                    :key="userId"
-                    :user-id="userId"
-                    :name="voiceParticipantName(channel.id, userId)"
-                    :pfp="getUserById(userId)?.pfp"
-                    :draggable="canDragMoveVcParticipant(userId)"
-                    :is-drag-source="
-                      vcParticipantDrag?.userId === userId &&
-                      vcParticipantDrag?.fromChannelId === channel.id
-                    "
-                    :is-server-owner="
-                      !!serverOwnerId?.trim() && userId === serverOwnerId.trim()
-                    "
-                    :vc="participantVoiceUi(channel.id, userId)"
-                    :activity-presence="getVcActivityPresence?.(userId) ?? []"
-                    :is-vc-activity-king="
-                      !!vcActivityKingUserId?.trim() &&
-                      currentVoiceChannelId === channel.id &&
-                      userId === vcActivityKingUserId.trim()
-                    "
-                    :is-active="openProfileUserId === userId"
-                    @click="onVcParticipantClick(userId, $event)"
-                    @contextmenu="
+              </div>
+
+              <template
+                v-if="
+                  channel.type === 'forum' &&
+                  visibleForumSubchannelsForParent(
+                    category.channels,
+                    channel.id,
+                    activeForumContextId,
+                  ).length > 0
+                "
+              >
+                <div class="mt-1 flex flex-col gap-1">
+                  <div
+                    v-for="sub in visibleForumSubchannelsForParent(
+                      category.channels,
+                      channel.id,
+                      activeForumContextId,
+                    )"
+                    :key="sub.id"
+                    class="group channel-row forum-post-sidebar-row flex flex-col rounded-lg cursor-pointer ml-4 border-l border-indigo-400/25"
+                    :class="{
+                      'bg-glass-2':
+                        activeChannelId === sub.id && sub.type !== 'voice',
+                    }"
+                    title="Forum post"
+                    @click="emit('channel-click', sub)"
+                    @contextmenu.stop.prevent="
                       emit(
-                        'vc-participant-contextmenu',
-                        userId,
-                        channel,
+                        'channel-contextmenu',
+                        sub,
                         categoryIdForApi(category),
                         category.name,
                         $event,
                       )
                     "
-                    @dragstart="
-                      onVcParticipantDragStart(userId, channel.id, $event)
-                    "
-                    @dragend="onVcParticipantDragEnd()"
-                  />
-                </div>
-                <div
-                  v-else-if="
-                    channel.type === 'stage' &&
-                    channel.voiceParticipantIds?.length
-                  "
-                  class="vc-participants mt-2.5 pl-6 flex flex-col gap-2"
-                  @dragover.prevent="
-                    onVoiceChannelParticipantDragOver(channel, $event)
-                  "
-                  @drop.prevent="onVoiceChannelParticipantDrop(channel, $event)"
-                >
-                  <template
-                    v-if="partitionStageParticipants(channel).speakers.length"
+                    @mouseenter="emit('set-hovered-channel', sub.id)"
+                    @mouseleave="emit('set-hovered-channel', null)"
                   >
                     <div
-                      class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle"
-                    >
-                      Speakers
-                    </div>
-                    <ChannelPanelVoiceParticipant
-                      v-for="userId in partitionStageParticipants(channel)
-                        .speakers"
-                      :key="`spk-${userId}`"
-                      :user-id="userId"
-                      :name="voiceParticipantName(channel.id, userId)"
-                      :pfp="getUserById(userId)?.pfp"
-                      :draggable="canDragMoveVcParticipant(userId)"
-                      :is-drag-source="
-                        vcParticipantDrag?.userId === userId &&
-                        vcParticipantDrag?.fromChannelId === channel.id
-                      "
-                      :is-server-owner="
-                        !!serverOwnerId?.trim() &&
-                        userId === serverOwnerId.trim()
-                      "
-                      :vc="participantVoiceUi(channel.id, userId)"
-                      :is-active="openProfileUserId === userId"
-                      @click="onVcParticipantClick(userId, $event)"
-                      @contextmenu="
-                        emit(
-                          'vc-participant-contextmenu',
-                          userId,
-                          channel,
-                          categoryIdForApi(category),
-                          category.name,
-                          $event,
-                        )
-                      "
-                      @dragstart="
-                        onVcParticipantDragStart(userId, channel.id, $event)
-                      "
-                      @dragend="onVcParticipantDragEnd()"
-                    />
-                  </template>
-                  <template
-                    v-if="partitionStageParticipants(channel).audience.length"
-                  >
-                    <div
-                      class="text-[10px] font-semibold uppercase tracking-wide text-fg-subtle mt-1"
-                    >
-                      Audience
-                    </div>
-                    <ChannelPanelVoiceParticipant
-                      v-for="userId in partitionStageParticipants(channel)
-                        .audience"
-                      :key="`aud-${userId}`"
-                      :user-id="userId"
-                      :name="voiceParticipantName(channel.id, userId)"
-                      :pfp="getUserById(userId)?.pfp"
-                      :draggable="canDragMoveVcParticipant(userId)"
-                      :is-drag-source="
-                        vcParticipantDrag?.userId === userId &&
-                        vcParticipantDrag?.fromChannelId === channel.id
-                      "
-                      :is-server-owner="
-                        !!serverOwnerId?.trim() &&
-                        userId === serverOwnerId.trim()
-                      "
-                      :vc="participantVoiceUi(channel.id, userId)"
-                      :is-active="openProfileUserId === userId"
-                      @click="onVcParticipantClick(userId, $event)"
-                      @contextmenu="
-                        emit(
-                          'vc-participant-contextmenu',
-                          userId,
-                          channel,
-                          categoryIdForApi(category),
-                          category.name,
-                          $event,
-                        )
-                      "
-                      @dragstart="
-                        onVcParticipantDragStart(userId, channel.id, $event)
-                      "
-                      @dragend="onVcParticipantDragEnd()"
-                    />
-                  </template>
-                </div>
-                <div
-                  v-if="
-                    isVoiceLikeChannelType(channel.type) &&
-                    discordMirrorMembers(channel.id).length &&
-                    !channel.voiceParticipantIds?.length
-                  "
-                  class="vc-participants mt-2.5 pl-6 flex flex-col gap-1"
-                >
-                  <div
-                    class="text-[10px] font-semibold uppercase tracking-wide text-indigo-300/90"
-                  >
-                    Discord voice
-                  </div>
-                  <ChannelPanelDiscordMirrorParticipant
-                    v-for="m in discordMirrorMembers(channel.id)"
-                    :key="m.discordUserId"
-                    :discord-user-id="m.discordUserId"
-                    :username="m.username"
-                    :global-name="m.globalName"
-                    :avatar="m.avatar"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <template
-              v-if="
-                channel.type === 'forum' &&
-                visibleForumSubchannelsForParent(
-                  category.channels,
-                  channel.id,
-                  activeForumContextId,
-                ).length > 0
-              "
-            >
-              <div class="mt-1 flex flex-col gap-1">
-                <div
-                  v-for="sub in visibleForumSubchannelsForParent(
-                    category.channels,
-                    channel.id,
-                    activeForumContextId,
-                  )"
-                  :key="sub.id"
-                  class="group channel-row forum-post-sidebar-row flex flex-col rounded-lg cursor-pointer ml-4 border-l border-indigo-400/25"
-                  :class="{
-                    'bg-glass-2':
-                      activeChannelId === sub.id && sub.type !== 'voice',
-                  }"
-                  title="Forum post"
-                  @click="emit('channel-click', sub)"
-                  @contextmenu.stop.prevent="
-                    emit(
-                      'channel-contextmenu',
-                      sub,
-                      categoryIdForApi(category),
-                      category.name,
-                      $event,
-                    )
-                  "
-                  @mouseenter="emit('set-hovered-channel', sub.id)"
-                  @mouseleave="emit('set-hovered-channel', null)"
-                >
-                  <div
-                    class="channel-row-drop-target flex items-center gap-2 min-w-0 rounded-md transition-colors px-1.5 py-1 hover:bg-glass-1"
-                    :class="{
-                      'channel-row--has-unread': channelRowMissedActivity(
-                        sub.id,
-                      ),
-                    }"
-                  >
-                    <img
-                      v-if="!getChannelEmojiOrNull(sub)"
-                      :src="forumPostSubRowIconUrl()"
-                      alt=""
-                      class="channel-row-icon h-3.5 w-3.5 flex-shrink-0 filter invert"
+                      class="channel-row-drop-target flex items-center gap-2 min-w-0 rounded-md transition-colors px-1.5 py-1 hover:bg-glass-1"
                       :class="{
-                        '!opacity-100': activeChannelId === sub.id,
-                        'opacity-65':
-                          activeChannelId !== sub.id &&
-                          channelRowMissedActivity(sub.id),
-                        'opacity-35':
-                          activeChannelId !== sub.id &&
-                          !channelRowMissedActivity(sub.id),
-                        'group-hover:!opacity-100 pointer-coarse:!opacity-100':
-                          activeChannelId !== sub.id,
+                        'channel-row--has-unread': channelRowMissedActivity(
+                          sub.id,
+                        ),
                       }"
-                    />
-                    <span
-                      v-else
-                      class="channel-row-icon h-3.5 w-3.5 flex-shrink-0 flex items-center justify-center text-[13px] leading-none"
-                      :class="{
-                        '!opacity-100': activeChannelId === sub.id,
-                        'opacity-65':
-                          activeChannelId !== sub.id &&
-                          channelRowMissedActivity(sub.id),
-                        'opacity-35':
-                          activeChannelId !== sub.id &&
-                          !channelRowMissedActivity(sub.id),
-                        'group-hover:!opacity-100 pointer-coarse:!opacity-100':
-                          activeChannelId !== sub.id,
-                      }"
-                      aria-hidden="true"
-                      >{{ getChannelEmojiOrNull(sub) }}</span
                     >
-                    <span
-                      :class="[
-                        'channel-row-name truncate min-w-0 flex-1 text-[13px] block',
-                        activeChannelId === sub.id
-                          ? 'font-semibold text-foreground'
-                          : channelRowMissedActivity(sub.id)
-                            ? 'font-bold text-foreground group-hover:text-foreground'
-                            : 'font-medium text-fg-subtle group-hover:text-fg-soft',
-                      ]"
-                      >{{ getChannelDisplayName(sub.name) }}</span
-                    >
-                    <span
-                      v-if="isForumPostPinned(sub)"
-                      class="ml-auto text-[10px] font-semibold text-amber-300/90"
-                      title="Pinned"
-                      aria-label="Pinned"
-                      >PIN</span
-                    >
+                      <img
+                        v-if="!getChannelEmojiOrNull(sub)"
+                        :src="forumPostSubRowIconUrl()"
+                        alt=""
+                        class="channel-row-icon h-3.5 w-3.5 flex-shrink-0 filter invert"
+                        :class="{
+                          '!opacity-100': activeChannelId === sub.id,
+                          'opacity-65':
+                            activeChannelId !== sub.id &&
+                            channelRowMissedActivity(sub.id),
+                          'opacity-35':
+                            activeChannelId !== sub.id &&
+                            !channelRowMissedActivity(sub.id),
+                          'group-hover:!opacity-100 pointer-coarse:!opacity-100':
+                            activeChannelId !== sub.id,
+                        }"
+                      />
+                      <span
+                        v-else
+                        class="channel-row-icon h-3.5 w-3.5 flex-shrink-0 flex items-center justify-center text-[13px] leading-none"
+                        :class="{
+                          '!opacity-100': activeChannelId === sub.id,
+                          'opacity-65':
+                            activeChannelId !== sub.id &&
+                            channelRowMissedActivity(sub.id),
+                          'opacity-35':
+                            activeChannelId !== sub.id &&
+                            !channelRowMissedActivity(sub.id),
+                          'group-hover:!opacity-100 pointer-coarse:!opacity-100':
+                            activeChannelId !== sub.id,
+                        }"
+                        aria-hidden="true"
+                        >{{ getChannelEmojiOrNull(sub) }}</span
+                      >
+                      <span
+                        :class="[
+                          'channel-row-name truncate min-w-0 flex-1 text-[13px] block',
+                          activeChannelId === sub.id
+                            ? 'font-semibold text-foreground'
+                            : channelRowMissedActivity(sub.id)
+                              ? 'font-bold text-foreground group-hover:text-foreground'
+                              : 'font-medium text-fg-subtle group-hover:text-fg-soft',
+                        ]"
+                        >{{ getChannelDisplayName(sub.name) }}</span
+                      >
+                      <span
+                        v-if="isForumPostPinned(sub)"
+                        class="ml-auto text-[10px] font-semibold text-amber-300/90"
+                        title="Pinned"
+                        aria-label="Pinned"
+                        >PIN</span
+                      >
+                    </div>
                   </div>
                 </div>
-              </div>
+              </template>
             </template>
-          </template>
-          <div
-            v-if="reorderEnabled"
-            class="channel-reorder-append-target relative min-h-[10px] -my-0.5 rounded"
-            :class="{
-              'channel-reorder-append-target--show-line':
-                showDropLineEnd(category),
-            }"
-            @dragover.prevent="onAppendZoneDragOver(category, $event)"
-            @drop.prevent="onReorderDrop(category, null, $event)"
-          />
+            <div
+              v-if="channelReorderEnabledFor(category)"
+              class="channel-reorder-append-target relative min-h-[10px] -my-0.5 rounded"
+              :class="{
+                'channel-reorder-append-target--show-line':
+                  showDropLineEnd(category),
+              }"
+              @dragover.prevent="onAppendZoneDragOver(category, $event)"
+              @drop.prevent="onReorderDrop(category, null, $event)"
+            />
+          </div>
         </div>
-      </div>
+      </template>
       <div
         v-if="
           categoryReorderEnabled &&

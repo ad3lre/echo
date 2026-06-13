@@ -1,3 +1,4 @@
+import { isLikelyGifMediaUrl } from '../../../shared/gifHostLinks';
 import { config } from '../config';
 import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from './localUploadDisk';
@@ -19,6 +20,10 @@ export function mediaUrlPassesEchoPolicy(url: string): boolean {
     return t.length <= MAX_LOCAL_PATH_MEDIA_LEN;
   }
   if (extractEchoStorageKeyFromPublicUrl(t)) {
+    return true;
+  }
+  /** GIF picker / Tenor-Giphy CDN direct media (not arbitrary third-party https). */
+  if (isLikelyGifMediaUrl(t)) {
     return true;
   }
   if (config.echoMediaUrlRequireHttps && !t.startsWith('https://')) {

@@ -38,6 +38,40 @@ This document extends [ECHO_CONTRACT_V1.md](./ECHO_CONTRACT_V1.md) with **messag
 
 - Clients must not send authoritative **`contentText`**, **`search_index_text`**, or server-owned **`mentions`** for v2 persistence; server derives them.
 
+## Rich block plain tokens (schema v2)
+
+Universal grammar for block nodes in plain projection / textarea edit:
+
+```
+![type: key=value, key2=value2]
+```
+
+- **`type`** — block kind (`image` today; `button` / `buttonrow` for action-row buttons).
+- Attributes are comma-separated; values may be quoted when they contain commas or spaces.
+- Implementation: `shared/richBlockToken.ts`.
+
+## Image slot blocks (`imageSlot`, schema v2)
+
+- **Node:** block-level `imageSlot` in `content_json` with attrs `slotId`, `aspectW`, `aspectH`, optional `imageUrl`, `storageKey`, `width`, `height`.
+- **Plain projection:** `![image: ratio=W:H, slotId=…]` per slot (filled image URL stays in JSON only).
+- **Composer shortcut:** `![image: ratio=16:9]` assigns `slotId` on insert.
+- **Writes:** `content_schema_version >= 2` required when the doc contains `imageSlot` nodes.
+- **Empty message:** messages with one or more image slots count as non-empty even when derived plain text is whitespace-only.
+- **Fill API:** `message:fillImageSlot` (socket) and `POST …/image-slots/:slotId/fill` (REST). Author-only; patches an empty slot in place.
+- **Not in scope:** webhook/bot embed parity; moderator fill; replacing filled slots.
+
+## Button row blocks (`buttonRow`, schema v2)
+
+- **Node:** block-level `buttonRow` in `content_json` with attrs `rowId`, `buttons[]` (`label`, `style` 1–5, `url` for link buttons, `customId` for others).
+- **Plain projection:** `![button: rowId=…]` per row (button definitions stay in JSON only).
+- **Composer shortcuts (no `rowId`; assigned on insert):**
+  - Link button: `![button: label=Visit, url=https://example.com]`
+  - Styled button: `![button: label=Confirm, style=primary, id=confirm]`
+  - Multi-button row: `![buttonRow: buttons="Visit|link|https://a.com;Cancel|secondary|cancel_id"]`
+- **Styles:** `link`, `primary`, `secondary`, `success`, `danger` (or numeric `1`–`5`).
+- **Persisted `components`:** derived on write for Discord-compatible rendering; link buttons open URLs; `custom_id` buttons are display-only in Echo (same as webhooks).
+- **Empty message:** messages with one or more button rows count as non-empty even when derived plain text is whitespace-only.
+
 ## Phase 7 exit criteria (operational)
 
 Before removing the legacy renderer branch, require (thresholds in runbook):

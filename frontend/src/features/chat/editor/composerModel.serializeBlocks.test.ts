@@ -13,6 +13,8 @@ import {
   CustomEmojiNode,
   ChannelMentionNode,
   MentionEntityNode,
+  ImageSlotNode,
+  ButtonRowNode,
   serializeComposerDoc,
   rawOffsetToEditorPos,
 } from '@/features/chat/editor/composerModel';
@@ -45,6 +47,8 @@ function makeEditor(content: JSONContent): Editor {
       MentionEntityNode,
       ChannelMentionNode,
       CustomEmojiNode,
+      ImageSlotNode,
+      ButtonRowNode,
       ComposerMarkdownDecorations,
     ] satisfies Extensions,
     content,
@@ -53,6 +57,53 @@ function makeEditor(content: JSONContent): Editor {
 }
 
 describe('serializeComposerDoc multi-paragraph', () => {
+  it('serializes imageSlot blocks as canonical tokens', () => {
+    const ed = makeEditor({
+      type: 'doc',
+      content: [
+        {
+          type: 'imageSlot',
+          attrs: {
+            slotId: 'slot-abc',
+            aspectW: 16,
+            aspectH: 9,
+            imageUrl: null,
+            storageKey: null,
+            width: null,
+            height: null,
+          },
+        },
+      ],
+    });
+    const out = serializeComposerDoc(ed.state.doc);
+    ed.destroy();
+    expect(out.content).toBe('![image: ratio=16:9, slotId=slot-abc]');
+  });
+
+  it('serializes buttonRow blocks as canonical tokens', () => {
+    const ed = makeEditor({
+      type: 'doc',
+      content: [
+        {
+          type: 'buttonRow',
+          attrs: {
+            rowId: 'row-abc',
+            buttons: [
+              {
+                label: 'Go',
+                style: 5,
+                url: 'https://example.com',
+              },
+            ],
+          },
+        },
+      ],
+    });
+    const out = serializeComposerDoc(ed.state.doc);
+    ed.destroy();
+    expect(out.content).toBe('![button: rowId=row-abc]');
+  });
+
   it('inserts newlines between pasted paragraphs', () => {
     const ed = makeEditor({
       type: 'doc',

@@ -173,6 +173,10 @@ export function createWorkspaceState(): WorkspaceStateApi {
   let wasPreHydrated = false;
 
   function consumeSkipEchoWorkspaceHydrate(): boolean {
+    /* Only dedupe against the in-flight boot load. Post-login / post-register hydrates
+     * must always fetch workspace — otherwise a skip latched at cold start can leave the
+     * shell authenticated but empty when login races `startInitialLoad`. */
+    if (!initialLoadInFlight.value) return false;
     return workspaceHydrateSkipLatch.consume();
   }
 

@@ -22,9 +22,27 @@ const loaded = ref(false);
 
 let inflight: Promise<void> | null = null;
 
+/** Case-insensitive slug/name dedupe before replacing the picker grid. */
+export function dedupeMediaBrowseCategories(
+  rows: readonly MediaBrowseCategory[],
+): MediaBrowseCategory[] {
+  const seenSlugs = new Set<string>();
+  const seenNames = new Set<string>();
+  const out: MediaBrowseCategory[] = [];
+  for (const row of rows) {
+    const slugKey = row.slug.toLowerCase().trim();
+    const nameKey = row.name.toLowerCase().trim();
+    if (!slugKey || seenSlugs.has(slugKey) || seenNames.has(nameKey)) continue;
+    seenSlugs.add(slugKey);
+    seenNames.add(nameKey);
+    out.push(row);
+  }
+  return out;
+}
+
 function applyPayload(payload: ImageBrowseCategoriesPayload) {
   if (payload.categories?.length) {
-    categories.value = payload.categories;
+    categories.value = dedupeMediaBrowseCategories(payload.categories);
     monthKey.value = payload.monthKey;
     source.value = payload.source;
     loaded.value = true;

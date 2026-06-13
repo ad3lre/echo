@@ -12,6 +12,8 @@ export interface ChannelCategory {
   autoDeleteAfterSeconds?: number | null;
   /** Omit category chrome (compact channels not under a category). */
   hideCategoryHeader?: boolean;
+  /** Pinned system channels (role picker, etc.) — rendered above regular channels. */
+  systemSection?: boolean;
 }
 
 export function useChannels(categories: Ref<ChannelCategory[]>) {

@@ -7,6 +7,8 @@ type AuthSessionApiBridge = {
   clearLocalTokens: () => void;
   /** Rotation counter from the auth store (see client auth invariants doc). */
   getAuthStateGeneration?: () => number;
+  /** Desktop: suppress 401 teardown briefly after login while cookies settle. */
+  shouldDeferSession401Invalidate?: () => boolean;
 };
 
 let bridge: AuthSessionApiBridge | null = null;
@@ -42,6 +44,7 @@ export function finalizeAuthSession401(opts: {
   message: string;
 }): boolean {
   if (captureAuthStateGeneration() !== opts.authGenAtStart) return false;
+  if (bridge?.shouldDeferSession401Invalidate?.()) return false;
   bridge?.invalidateSessionForReauth(opts.message);
   return true;
 }

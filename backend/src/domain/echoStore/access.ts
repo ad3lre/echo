@@ -9,11 +9,7 @@ import {
   getCachedChannelServerId,
   setCachedChannelServerId,
 } from '../echoChannelServerCache';
-import {
-  getCachedMemberAccessState,
-  setCachedMemberAccessState,
-  type EchoMemberAccessState,
-} from '../echoMemberStateCache';
+import { getEchoMemberAccessState } from './memberAccessState';
 import type { ServerAggregationTrace } from '../echoPermissionTrace';
 import { composePermissionExplanation } from '../permissionExplanation';
 import {
@@ -21,6 +17,7 @@ import {
   getEffectiveGlobalPermissions,
   getMergedRolePermissions,
 } from './permissions';
+import { getEchoChannelMeta } from './channelMeta';
 import { type EchoPermission } from '../echoPermissionPrimitives';
 import {
   forumCreatorCanManagePostFlags,
@@ -52,73 +49,16 @@ export async function getEchoChannelServerId(
   return serverId;
 }
 
-/**
- * Membership + active ban + active timeout for a member, in **one** round-trip, cached
- * for a short window via {@link echoMemberStateCache}. These three are read on every guild
- * message send/reaction; folding them into a single cached read removes three uncached
- * queries from the hot write path. Never used for DM channels (no server membership).
- */
-export async function getEchoMemberAccessState(
-  pool: pg.Pool,
-  serverId: string,
-  userId: string,
-): Promise<EchoMemberAccessState> {
-  const cached = getCachedMemberAccessState(serverId, userId);
-  if (cached) return cached;
-  const startGen = getEchoPermissionCacheGeneration(serverId);
-  const r = await pool.query<{
-    is_member: boolean;
-    banned: boolean;
-    timeout_until: string | Date | null;
-  }>(
-    `
-    SELECT
-      EXISTS(
-        SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2
-      ) AS is_member,
-      EXISTS(
-        SELECT 1 FROM echo_server_bans
-        WHERE server_id = $1 AND user_id = $2
-          AND (expires_at IS NULL OR expires_at > NOW())
-      ) AS banned,
-      (
-        SELECT timeout_until FROM echo_server_member_timeouts
-        WHERE server_id = $1 AND user_id = $2 AND timeout_until > NOW()
-      ) AS timeout_until
-    `,
-    [serverId, userId],
-  );
-  const row = r.rows[0];
-  let timeoutUntilEpochMs: number | null = null;
-  if (row?.timeout_until != null) {
-    const iso =
-      row.timeout_until instanceof Date
-        ? row.timeout_until.toISOString()
-        : new Date(String(row.timeout_until)).toISOString();
-    const epoch = Date.parse(iso);
-    timeoutUntilEpochMs = Number.isFinite(epoch) ? epoch : null;
-  }
-  const state: EchoMemberAccessState = {
-    isMember: row?.is_member === true,
-    banned: row?.banned === true,
-    timeoutUntilEpochMs,
-  };
-  if (getEchoPermissionCacheGeneration(serverId) === startGen) {
-    setCachedMemberAccessState(serverId, userId, state);
-  }
-  return state;
-}
+// Moved to ./memberAccessState so the aggregate permission fold can import it without a
+// runtime cycle through the evaluator; imported + re-exported for existing callers here.
+export { getEchoMemberAccessState };
 
 /** Existence check for Socket.IO branch + join gate (no permission — caller checks). */
 export async function echoChannelExistsInDb(
   pool: pg.Pool,
   channelId: string,
 ): Promise<boolean> {
-  const ch = await pool.query(
-    `SELECT 1 FROM echo_channels WHERE id = $1 LIMIT 1`,
-    [channelId],
-  );
-  return ch.rows.length > 0;
+  return (await getEchoChannelMeta(pool, channelId)) !== null;
 }
 
 export async function isUserBannedFromServer(
@@ -998,35 +938,18 @@ export async function isEchoChannelWithinForumContext(
   serverId: string,
   channelId: string,
 ): Promise<boolean> {
-  const ch = await pool.query(
-    `SELECT type, parent_channel_id
-     FROM echo_channels
-     WHERE id = $1 AND server_id = $2
-     LIMIT 1`,
-    [channelId, serverId],
-  );
-  const row = ch.rows[0] as
-    | { type?: unknown; parent_channel_id?: unknown }
-    | undefined;
-  const type = typeof row?.type === 'string' ? row.type : '';
-  if (type === 'forum') return true;
+  const meta = await getEchoChannelMeta(pool, channelId);
+  // Match the prior `WHERE id = $1 AND server_id = $2`: a channel in a different server
+  // (or missing) is not in a forum context.
+  if (!meta || meta.serverId !== serverId) return false;
+  if (meta.type === 'forum') return true;
 
-  const parentId =
-    row?.parent_channel_id != null && String(row.parent_channel_id).trim()
-      ? String(row.parent_channel_id)
-      : null;
+  const parentId = meta.parentChannelId;
   if (!parentId) return false;
 
-  const parent = await pool.query(
-    `SELECT type
-     FROM echo_channels
-     WHERE id = $1 AND server_id = $2
-     LIMIT 1`,
-    [parentId, serverId],
-  );
-  const prow = parent.rows[0] as { type?: unknown } | undefined;
-  const ptype = typeof prow?.type === 'string' ? prow.type : '';
-  return ptype === 'forum';
+  const parent = await getEchoChannelMeta(pool, parentId);
+  if (!parent || parent.serverId !== serverId) return false;
+  return parent.type === 'forum';
 }
 
 /**

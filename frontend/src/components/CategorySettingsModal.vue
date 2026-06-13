@@ -19,6 +19,7 @@ import type {
 import {
   CATEGORY_TAB_COPY,
   getCategoryPermissionDefsForUi,
+  stripHiddenChannelPermissionPartial,
   groupChannelPermissionDefs,
   MESSAGE_AUTO_DELETE_OPTIONS,
 } from '@/features/channel-settings/types';
@@ -78,7 +79,9 @@ function syncFromProps() {
   autoDeleteAfterSecondsStr.value = messageAutoDeleteSecondsToOptionValue(
     cs.autoDeleteAfterSeconds,
   );
-  permissionOverrides.value = { ...cs.channelPermissionDefaults };
+  permissionOverrides.value = stripHiddenChannelPermissionPartial({
+    ...cs.channelPermissionDefaults,
+  });
   const editor = props.echoPermissionEditor;
   if (editor?.loading) {
     echoPermissionRows.value = (editor.rows ?? []).map((row) => ({
@@ -247,7 +250,9 @@ function save() {
     autoDeleteAfterSeconds: messageAutoDeleteOptionValueToSeconds(
       autoDeleteAfterSecondsStr.value,
     ),
-    channelPermissionDefaults: { ...permissionOverrides.value },
+    channelPermissionDefaults: stripHiddenChannelPermissionPartial({
+      ...permissionOverrides.value,
+    }),
     ...(permissionRowsDirty
       ? {
           echoPermissionRows: canonicalizeEchoPermissionRowsForSave(

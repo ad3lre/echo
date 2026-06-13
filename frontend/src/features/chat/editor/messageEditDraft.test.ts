@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildEditingMessageFromRow,
   editableTextFromMessage,
+  isMessageEditableInComposer,
   relocateMentionsInEditableText,
 } from './messageEditDraft';
 
@@ -30,6 +32,67 @@ describe('editableTextFromMessage', () => {
         messageFormatVersion: 1,
       }),
     ).toBe('plain');
+  });
+});
+
+describe('isMessageEditableInComposer', () => {
+  it('returns true for text content', () => {
+    expect(isMessageEditableInComposer({ content: 'hello' })).toBe(true);
+  });
+
+  it('returns true for attachment-only messages', () => {
+    expect(
+      isMessageEditableInComposer({
+        content: '',
+        attachments: [{ url: 'https://x.test/a.png', kind: 'image' }],
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false for empty rows', () => {
+    expect(isMessageEditableInComposer({ content: '' })).toBe(false);
+  });
+});
+
+describe('buildEditingMessageFromRow', () => {
+  it('returns null without message id', () => {
+    expect(buildEditingMessageFromRow({ content: 'hi' })).toBeNull();
+  });
+
+  it('builds composer preload from v2 contentJson', () => {
+    const contentJson = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'hello from json' }],
+        },
+      ],
+    };
+    const row = buildEditingMessageFromRow({
+      id: 'm1',
+      messageFormatVersion: 2,
+      contentJson,
+      mentions: [
+        {
+          id: 'x',
+          kind: 'user',
+          label: 'Ada',
+          start: 0,
+          end: 4,
+          userId: 'u1',
+        },
+      ],
+      attachments: [{ url: 'https://x.test/a.png', kind: 'image' as const }],
+    });
+    expect(row).toMatchObject({
+      messageId: 'm1',
+      previewContent: 'hello from json',
+      content: 'hello from json',
+      contentJson,
+    });
+    expect(row!.mentions).toHaveLength(1);
+    expect(row!.attachments).toHaveLength(1);
   });
 });
 

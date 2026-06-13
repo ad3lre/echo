@@ -8,7 +8,10 @@ export default defineConfig({
     environment: 'node',
     include: [
       'src/**/*.test.ts',
+      '../shared/**/*.test.ts',
       '../backend/src/tests/channelHandlers*.test.ts',
+      '../backend/src/tests/messagePlainTextProjectionImageSlot.test.ts',
+      '../backend/src/tests/imageSlotFillOps.test.ts',
     ],
     setupFiles: ['./src/test/vitestSetup.ts'],
     coverage: {

@@ -41,10 +41,12 @@ describe('findComposerMarkdownStyleRanges', () => {
     expect(segs.some((s) => s.class === 'composer-md-highlight')).toBe(true);
   });
 
-  it('styles __underscore bold__', () => {
+  it('styles __underscore underline__', () => {
     const segs = findComposerMarkdownStyleRanges('__z__', []);
     expect(
-      segs.some((s) => s.class === 'composer-md-bold' && s.end - s.start === 1),
+      segs.some(
+        (s) => s.class === 'composer-md-underline' && s.end - s.start === 1,
+      ),
     ).toBe(true);
   });
 

@@ -235,7 +235,6 @@ export const CHANNEL_PERMISSION_DEFS_TEXT: ChannelPermissionDef[] = [
     group: 'Messaging',
   },
   { key: 'manageMessages', label: 'Manage messages', group: 'Messaging' },
-  { key: 'pinMessages', label: 'Pin messages', group: 'Messaging' },
   { key: 'bypassSlowmode', label: 'Bypass slowmode', group: 'Messaging' },
   {
     key: 'sendTTS',
@@ -334,12 +333,34 @@ const CHANNEL_VOICE_SETTINGS_KEYS = new Set<ChannelPermissionKey>([
   ...CHANNEL_VOICE_ONLY_DEFS.map((def) => def.key),
 ]);
 
+/** Server channel/category settings hide these keys (pins are DM / group-only). */
+export const CHANNEL_SETTINGS_HIDDEN_PERMISSION_KEYS: ReadonlySet<ChannelPermissionKey> =
+  new Set(['pinMessages']);
+
+export function stripHiddenChannelPermissionPartial<
+  T extends Partial<Record<ChannelPermissionKey, boolean>>,
+>(partial: T): T {
+  if (!partial.pinMessages) return partial;
+  const next = { ...partial };
+  delete next.pinMessages;
+  return next;
+}
+
+function filterChannelPermissionDefsForUi(
+  defs: ChannelPermissionDef[],
+): ChannelPermissionDef[] {
+  let out = defs.filter(
+    (d) => !CHANNEL_SETTINGS_HIDDEN_PERMISSION_KEYS.has(d.key),
+  );
+  if (!CHANNEL_WEBHOOKS_ENABLED) {
+    out = out.filter((d) => d.key !== 'manageWebhooks');
+  }
+  return out;
+}
+
 /** Category + permission overwrite UIs (respects channel webhook kill switch). */
 export function getCategoryPermissionDefsForUi(): ChannelPermissionDef[] {
-  if (CHANNEL_WEBHOOKS_ENABLED) return CHANNEL_PERMISSION_DEFS_CATEGORY;
-  return CHANNEL_PERMISSION_DEFS_CATEGORY.filter(
-    (d) => d.key !== 'manageWebhooks',
-  );
+  return filterChannelPermissionDefsForUi(CHANNEL_PERMISSION_DEFS_CATEGORY);
 }
 
 /**
@@ -358,8 +379,7 @@ export function getChannelPermissionDefsForChannelType(
     defs = CHANNEL_PERMISSION_DEFS_CATEGORY.filter((def) =>
       CHANNEL_VOICE_SETTINGS_KEYS.has(def.key),
     );
-  if (CHANNEL_WEBHOOKS_ENABLED) return defs;
-  return defs.filter((d) => d.key !== 'manageWebhooks');
+  return filterChannelPermissionDefsForUi(defs);
 }
 
 export const CATEGORY_TAB_COPY: Record<

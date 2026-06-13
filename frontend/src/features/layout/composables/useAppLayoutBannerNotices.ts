@@ -6,6 +6,7 @@ import {
   EMAIL_VERIFICATION_DOWNTIME,
   EMAIL_VERIFICATION_DOWNTIME_TOAST,
 } from '@/config/emailVerificationDowntime';
+import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
 import { dispatchAppToastDetail } from '@/utils/controllerMissingAction';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 
@@ -28,6 +29,7 @@ export function useAppLayoutBannerNotices(deps: {
   isAuthenticated: Readonly<Ref<boolean>>;
   isCompactShell: Readonly<Ref<boolean>>;
   isGuestUpgradeModalOpen: Ref<boolean>;
+  isAuthModalOpen: Ref<boolean>;
   discordBotExportReadyBanner: Readonly<Ref<{ guildName: string } | null>>;
   openAuthModal: (opts?: {
     entry?: 'social' | 'echo';
@@ -43,6 +45,7 @@ export function useAppLayoutBannerNotices(deps: {
     isAuthenticated,
     isCompactShell,
     isGuestUpgradeModalOpen,
+    isAuthModalOpen,
     discordBotExportReadyBanner,
     openAuthModal,
     openUserSettingsModal,
@@ -127,7 +130,35 @@ export function useAppLayoutBannerNotices(deps: {
     return authSession.backendUser?.isGuest === true;
   });
 
-  const showGuestOnboardingModal = computed(() => false);
+  /** Guest onboarding sits above the auth modal; hide it while signing in so login is usable. */
+  const guestOnboardingHiddenForSignIn = ref(false);
+
+  watch(
+    () => authSession.backendUser?.isGuest === true,
+    (isGuest) => {
+      if (!isGuest) guestOnboardingHiddenForSignIn.value = false;
+    },
+  );
+
+  watch(isAuthModalOpen, (open) => {
+    if (
+      !open &&
+      authSession.isAuthenticated &&
+      authSession.backendUser?.isGuest === true
+    ) {
+      guestOnboardingHiddenForSignIn.value = false;
+    }
+  });
+
+  const showGuestOnboardingModal = computed(() => {
+    if (!ECHO_GUEST_ACCOUNTS_ENABLED) return false;
+    return (
+      authSession.isAuthenticated &&
+      authSession.backendUser?.isGuest === true &&
+      !echoSyncCapabilities.isMockDataMode &&
+      !guestOnboardingHiddenForSignIn.value
+    );
+  });
 
   const discordBotExportReadyGuildNameForBanner = computed(() => {
     const n = discordBotExportReadyBanner.value?.guildName?.trim();
@@ -200,6 +231,11 @@ export function useAppLayoutBannerNotices(deps: {
     openAuthModal();
   }
 
+  function onGuestOnboardingSignInExisting() {
+    guestOnboardingHiddenForSignIn.value = true;
+    openAuthModal({ entry: 'echo', tab: 'login' });
+  }
+
   function onGuestUpgradeSignInFromSettings() {
     onUserSettingsModalUpdate(false);
     onGuestUpgradeSignInExisting();
@@ -222,5 +258,6 @@ export function useAppLayoutBannerNotices(deps: {
     onUnverifiedEmailChangeEmail,
     onUnverifiedEmailResend,
     onGuestUpgradeSignInFromSettings,
+    onGuestOnboardingSignInExisting,
   };
 }

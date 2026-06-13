@@ -901,6 +901,7 @@ export async function authLoginMfa(body: {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            ...nativeAuthRequestHeaders(),
           },
           credentials: 'include',
           body: (() => {
@@ -1093,6 +1094,7 @@ let authFetchMeCache: {
 
 export function invalidateAuthFetchMeCache(): void {
   authFetchMeCache = null;
+  authFetchMeInFlight = null;
 }
 
 export async function authFetchMe(): Promise<{
@@ -1124,6 +1126,7 @@ async function authFetchMeInner(): Promise<{
   planLimits?: EchoPlanLimitsPublic;
 }> {
   assertAuthDomainNetworkAllowed();
+  const authGenAtStart = captureAuthStateGeneration();
   const res = await fetch(`${AUTH_BASE}/me`, {
     method: 'GET',
     credentials: 'include',
@@ -1146,8 +1149,12 @@ async function authFetchMeInner(): Promise<{
       userMessage: 'Your saved login could not be verified. Sign in again.',
       hint: 'Verbose auth logging when enabled (dev or non-prod + VITE_ECHO_AUTH_DEBUG).',
     });
-    /* Probe-only path: do not treat as “session ended” (avoids banner + analytics on every anonymous load). */
-    notifyAuthClearLocalTokensProbe();
+    /* Probe-only path: do not treat as “session ended” (avoids banner + analytics on every anonymous load).
+     * Guard against login/register landing while this cold-start probe is in flight — a stale 401
+     * must not wipe the session that was just minted (see client auth invariants doc). */
+    if (captureAuthStateGeneration() === authGenAtStart) {
+      notifyAuthClearLocalTokensProbe();
+    }
     const b = data as unknown as ApiErrorBody;
     throw new AuthApiError(res.status, {
       code: typeof b?.code === 'string' ? b.code : 'UNAUTHORIZED',

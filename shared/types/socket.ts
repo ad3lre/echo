@@ -428,6 +428,18 @@ export interface ClientToServerEvents {
     correlationId?: string;
   }) => void;
 
+  /** Fill an empty `imageSlot` block in own v2 message (author only). */
+  'message:fillImageSlot': (payload: {
+    channelId: string;
+    messageId: string;
+    slotId: string;
+    imageUrl: string;
+    storageKey?: string;
+    width?: number;
+    height?: number;
+    correlationId?: string;
+  }) => void;
+
   /** Soft-delete message (author or moderator; Echo persisted). Contract v1. */
   'message:delete': (payload: {
     channelId: string;

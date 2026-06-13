@@ -71,6 +71,7 @@ import {
   startSessionHeartbeat,
 } from '@/services/auth/iosBootOrchestrator';
 import { bootstrapNativeBearerSessionFromKeychain } from '@/api/authClient';
+import { isNativeBearerClient } from '@/services/auth/nativeAuthToken';
 import {
   markIosNativeShell,
   detectIosSimulator,
@@ -99,8 +100,11 @@ installGlobalAudioPlaybackUnlock(() => {
 hydrateBootThemeAndPreferences();
 
 function loadDeferredInterWeights() {
+  void import('@fontsource/inter/latin-400-italic.css');
   void import('@fontsource/inter/latin-600.css');
+  void import('@fontsource/inter/latin-600-italic.css');
   void import('@fontsource/inter/latin-700.css');
+  void import('@fontsource/inter/latin-700-italic.css');
 }
 
 async function bootstrap() {
@@ -240,6 +244,9 @@ async function bootstrap() {
     getAuthStateGeneration() {
       return useAuthSessionStore().authStateGeneration;
     },
+    shouldDeferSession401Invalidate() {
+      return useAuthSessionStore().shouldDefer401Teardown();
+    },
   });
 
   const authSessionStore = useAuthSessionStore();
@@ -249,7 +256,7 @@ async function bootstrap() {
    * `app.mount()`, so first paint is never blocked on a network round-trip. */
   authSessionStore.hydrateFromStorage();
 
-  if (hasStoredSessionToRestore() || authSessionStore.isSessionUnverified) {
+  if (isNativeBearerClient()) {
     const bearerUser = await bootstrapNativeBearerSessionFromKeychain();
     if (bearerUser) {
       authSessionStore.applyRestoredProfile(bearerUser, {

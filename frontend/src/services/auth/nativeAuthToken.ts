@@ -1,14 +1,15 @@
 /**
- * Session-bound bearer auth for the iOS Tauri shell.
+ * Session-bound bearer auth for Tauri native shells (iOS + desktop).
  *
- * The bundled WKWebView origin (`tauri://localhost`) is cross-site from the API,
- * so HttpOnly session cookies are not sent. Native clients use short-lived access
- * tokens in memory and refresh tokens persisted in the iOS Keychain.
+ * Bundled WebView origins (`tauri://localhost`, `https://tauri.localhost`) are
+ * cross-site from the API, so HttpOnly session cookies are not reliably sent.
+ * Native clients use short-lived access tokens in memory and refresh tokens
+ * persisted in the platform keychain (via Tauri invoke commands).
  */
 
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { AuthUserPublic } from '@/api/authClient';
-import { API_BASE } from '@/config';
+import { API_BASE, IS_ECHO_TAURI_SHELL } from '@/config';
 import { applyEchoCsrfFromAuthJson } from '@/utils/echoCsrf';
 import {
   echoClientDebugError,
@@ -16,6 +17,7 @@ import {
 } from '@/utils/echoClientDebug';
 
 const IS_IOS_BUILD = import.meta.env.VITE_ECHO_IOS === '1';
+const IS_DESKTOP_BUILD = import.meta.env.VITE_ECHO_DESKTOP === '1';
 const AUTH_BASE = `${API_BASE.replace(/\/$/, '')}/api/v1/auth`;
 
 export type NativeAuthTokens = {
@@ -28,8 +30,13 @@ let accessTokenMem: string | null = null;
 let accessTokenExpiresAtMs = 0;
 let nativeRefreshInFlight: Promise<AuthUserPublic | null> | null = null;
 
+function nativeEchoClientId(): 'ios' | 'desktop' {
+  return IS_IOS_BUILD ? 'ios' : 'desktop';
+}
+
 export function isNativeBearerClient(): boolean {
-  return IS_IOS_BUILD && isTauri();
+  if (!isTauri()) return false;
+  return IS_IOS_BUILD || (IS_DESKTOP_BUILD && IS_ECHO_TAURI_SHELL);
 }
 
 export function getNativeAccessToken(): string | null {
@@ -47,7 +54,9 @@ export function getNativeAccessToken(): string | null {
 export function nativeAuthRequestHeaders(): Record<string, string> {
   if (!isNativeBearerClient()) return {};
   const token = getNativeAccessToken();
-  const headers: Record<string, string> = { 'X-Echo-Client': 'ios' };
+  const headers: Record<string, string> = {
+    'X-Echo-Client': nativeEchoClientId(),
+  };
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
@@ -83,7 +92,7 @@ export async function applyNativeAuthFromAuthJson(
       refreshToken: tokens.refreshToken,
     });
   } catch (e) {
-    console.error('[echo-ios] store refresh token failed:', e);
+    console.error('[echo-native] store refresh token failed:', e);
   }
 }
 
@@ -117,7 +126,7 @@ async function postNativeRefreshOnce(
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'X-Echo-Client': 'ios',
+      'X-Echo-Client': nativeEchoClientId(),
     },
     body: JSON.stringify({ refreshToken }),
   });
@@ -175,7 +184,7 @@ async function executeNativeBearerRefresh(options?: {
   return null;
 }
 
-/** Exchange Keychain refresh token for a new access token (native iOS only). */
+/** Exchange Keychain refresh token for a new access token (native shells). */
 export async function authTryNativeBearerRefresh(options?: {
   quietExpectedNoRefreshToken?: boolean;
 }): Promise<AuthUserPublic | null> {

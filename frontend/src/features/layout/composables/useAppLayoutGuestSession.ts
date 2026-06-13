@@ -5,6 +5,7 @@ import type { useAuthSessionStore } from '@/stores/authSession';
 import type { RailTab } from '@/features/layout/mainSurface';
 import { AuthApiError, authContinueAsGuest } from '@/api/authClient';
 import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
+import { primeCookieSessionAfterMint } from '@/services/auth/desktopSessionPrime';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { isGuestWelcomeLayoutDismissedForUser } from '@/utils/guestWelcomeLayout';
 
@@ -112,6 +113,12 @@ export function useAppLayoutGuestSession(deps: {
       authSession.setSession(session);
       isGuestCaptchaModalOpen.value = false;
       guestCaptchaSiteKey.value = '';
+      const primed = await primeCookieSessionAfterMint();
+      if (primed) {
+        authSession.applyRestoredProfile(primed, {
+          allowUnauthenticated: true,
+        });
+      }
       await workspace.startInitialLoad();
       await hydrateEchoFromApi();
       /** Guests start “serverless”: no guild selected; first screen is public Explore. */

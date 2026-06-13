@@ -37,6 +37,126 @@ describe('buildEchoMessageContentSegments', () => {
     ]);
   });
 
+  it('appends jump widget when href is only in contentJson', () => {
+    const base = PUBLIC_INVITE_BASE.replace(/\/$/, '');
+    const jumpUrl = `${base}/channels/ch-json/m-json`;
+    const contentJson = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'linked',
+              marks: [{ type: 'link', attrs: { href: jumpUrl } }],
+            },
+          ],
+        },
+      ],
+    };
+    const parts = buildEchoMessageContentSegments(
+      'linked',
+      undefined,
+      contentJson,
+    );
+    expect(parts).toEqual([
+      { type: 'text', text: 'linked' },
+      {
+        type: 'jump',
+        url: jumpUrl,
+        embed: expect.objectContaining({
+          echoJump: { channelId: 'ch-json', messageId: 'm-json' },
+        }),
+      },
+    ]);
+  });
+
+  it('includes imageSlot segments from contentJson', () => {
+    const contentJson = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'before' }],
+        },
+        {
+          type: 'imageSlot',
+          attrs: {
+            slotId: 'slot-1',
+            aspectW: 16,
+            aspectH: 9,
+            imageUrl: null,
+            storageKey: null,
+            width: null,
+            height: null,
+          },
+        },
+      ],
+    };
+    const parts = buildEchoMessageContentSegments(
+      'before\n![image: ratio=16:9, slotId=slot-1]',
+      undefined,
+      contentJson,
+    );
+    expect(parts).toEqual([
+      { type: 'text', text: 'before' },
+      {
+        type: 'imageSlot',
+        slotId: 'slot-1',
+        aspectW: 16,
+        aspectH: 9,
+        imageUrl: null,
+        width: null,
+        height: null,
+      },
+    ]);
+  });
+
+  it('includes buttonRow segments from contentJson', () => {
+    const contentJson = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'before' }],
+        },
+        {
+          type: 'buttonRow',
+          attrs: {
+            rowId: 'row-1',
+            buttons: [
+              {
+                label: 'Go',
+                style: 5,
+                url: 'https://example.com',
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const parts = buildEchoMessageContentSegments(
+      'before\n![button: rowId=row-1]',
+      undefined,
+      contentJson,
+    );
+    expect(parts).toEqual([
+      { type: 'text', text: 'before' },
+      {
+        type: 'buttonRow',
+        rowId: 'row-1',
+        buttons: [
+          {
+            label: 'Go',
+            style: 5,
+            url: 'https://example.com',
+          },
+        ],
+      },
+    ]);
+  });
+
   it('interleaves jump embeds and invite splits in order', () => {
     const jumpUrl = 'https://echo.test/jump/1';
     const embeds = [jumpEmbed(jumpUrl)];

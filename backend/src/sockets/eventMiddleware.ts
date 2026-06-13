@@ -2,10 +2,17 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Socket } from 'socket.io';
 import { config } from '../config';
 import { enterPgQueryContext } from '../db/pgQueryContext';
+import { enterEchoEventUserCache } from '../domain/echoEventUserCache';
+import { echoSocketOpEnvelopeDisconnectsTotal } from '../observability/echoMetrics';
+import {
+  createSocketOpEnvelope,
+  socketOpsPerMinuteFromEnv,
+} from './socketOpEnvelope';
 
 const RATE_LIMITED_EVENTS = new Set([
   'message',
   'message:edit',
+  'message:fillImageSlot',
   'message:delete',
   'message:reaction_toggle',
   'message:pin',
@@ -35,6 +42,11 @@ export function attachSocketEventLogger(
   const maxPerSec = config.echoSocketMaxEventsPerSecond;
   const windowMs = 1000;
   const timestamps: number[] = [];
+  const opEnvelope = createSocketOpEnvelope({
+    opsPerMinute: socketOpsPerMinuteFromEnv(
+      process.env.ECHO_SOCKET_OPS_PER_MINUTE,
+    ),
+  });
 
   socket.use((packet, next) => {
     const event = packet[0];
@@ -45,6 +57,22 @@ export function attachSocketEventLogger(
       });
     } else {
       enterPgQueryContext({ scope: 'socket', label: 'unknown' });
+    }
+    // Per-packet user cache so repeated getUserById reads within one event
+    // (guest/abuse checks + author broadcast snapshot) collapse to one query.
+    enterEchoEventUserCache();
+    if (!opEnvelope.admit(Date.now())) {
+      // Global envelope over ALL inbound ops (the allowlist below only meters
+      // known events). Breaching it means sustained abuse: eject the connection
+      // rather than throttling invisibly.
+      echoSocketOpEnvelopeDisconnectsTotal.inc();
+      log.warn(
+        { socketId: socket.id, msg: 'echo.socket.op_envelope_exceeded', event },
+        'Socket exceeded global inbound op envelope; disconnecting',
+      );
+      next(new Error('RATE_LIMIT'));
+      setImmediate(() => socket.disconnect(true));
+      return;
     }
     if (typeof event === 'string' && RATE_LIMITED_EVENTS.has(event)) {
       const now = Date.now();

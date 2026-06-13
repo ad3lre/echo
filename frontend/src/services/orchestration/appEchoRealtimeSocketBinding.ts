@@ -185,6 +185,7 @@ export function createAppEchoRealtimeSocketBinding(
           submitUnpin,
           submitMessageDelete,
           submitMessageEdit,
+          submitImageSlotFill,
           submitDmCallInvite,
           submitDmCallAccept,
           submitDmCallEnd,
@@ -223,6 +224,7 @@ export function createAppEchoRealtimeSocketBinding(
           submitUnpin,
           submitMessageDelete,
           submitMessageEdit,
+          submitImageSlotFill,
           submitDmCallInvite,
           submitDmCallAccept,
           submitDmCallEnd,
@@ -291,6 +293,7 @@ export function createAppEchoRealtimeSocketBinding(
             input.host.lifecycle.onSocketConnected({
               activeChannelId: ctx.activeChannelId ?? undefined,
               emitJoinChannel: ctx.rawSocketEmitJoinChannel,
+              recovered: ctx.recovered,
             });
           },
           onAfterDisconnect: () => {

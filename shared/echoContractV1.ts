@@ -13,6 +13,7 @@ export const ECHO_V1_CLIENT_SOCKET_EVENTS = [
   'message',
   'poll:vote',
   'message:edit',
+  'message:fillImageSlot',
   'message:delete',
   'message:reaction_toggle',
   'message:pin',

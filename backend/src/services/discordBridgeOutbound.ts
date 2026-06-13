@@ -1,6 +1,9 @@
 import type pg from 'pg';
 import type { FastifyBaseLogger } from 'fastify';
-import type { Message, Embed } from '../../../shared/types';
+import type { Message } from '../../../shared/types';
+import { isImageSlotFilled } from '../../../shared/imageSlot';
+import { walkImageSlots } from '../../../shared/imageSlotContentJson';
+import { mapEchoEmbedsToDiscordApi } from '../../../shared/discordEmbedApi';
 import { ECHO_DISCORD_BRIDGE_SYNC_NOTICE_BRIDGE_SOURCE } from '../domain/echoChannelWebhookConstants';
 import {
   getDiscordBridgeForEchoChannel,
@@ -16,27 +19,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function mapEchoEmbedsForDiscord(
-  embeds: Embed[] | undefined,
-): Record<string, unknown>[] {
-  if (!embeds?.length) return [];
-  return embeds.slice(0, 8).map((e) => {
-    const out: Record<string, unknown> = {};
-    if (e.title) out.title = String(e.title).slice(0, 256);
-    if (e.description) out.description = String(e.description).slice(0, 4096);
-    if (e.url) out.url = String(e.url).slice(0, 2048);
-    if (e.color != null) out.color = e.color;
-    if (e.image?.url) out.image = { url: String(e.image.url).slice(0, 2048) };
-    if (e.thumbnail?.url) {
-      out.thumbnail = { url: String(e.thumbnail.url).slice(0, 2048) };
-    }
-    if (e.footer?.text) {
-      out.footer = { text: String(e.footer.text).slice(0, 2048) };
-    }
-    return out;
-  });
-}
-
 /** Exported for unit tests — builds the Discord incoming-webhook JSON body. */
 export function buildDiscordBridgeOutboundWebhookBody(
   message: Message,
@@ -47,13 +29,22 @@ export function buildDiscordBridgeOutboundWebhookBody(
   // webhooks reject non-HTTP(S) avatar_url values with 400 and drop the post.
   const avatarUrl = sanitizeWebhookAvatarUrl(message.authorAvatar);
   let text = (message.contentText ?? message.content ?? '').slice(0, 2000);
+  const filledSlotUrls = walkImageSlots(message.contentJson)
+    .filter((slot) => isImageSlotFilled(slot))
+    .map((slot) => String(slot.imageUrl ?? '').trim())
+    .filter((url) => url.length > 0);
+  if (filledSlotUrls.length) {
+    const slotLine = filledSlotUrls.join('\n');
+    text = text.trim() ? `${text.trim()}\n${slotLine}` : slotLine;
+    text = text.slice(0, 2000);
+  }
   if (!text.trim() && message.attachments?.length) {
     text = message.attachments
       .map((a) => a.url)
       .join('\n')
       .slice(0, 2000);
   }
-  const embeds = mapEchoEmbedsForDiscord(message.embeds);
+  const embeds = mapEchoEmbedsToDiscordApi(message.embeds);
   if (!text.trim() && !embeds.length && !message.stickers?.length) {
     return null;
   }

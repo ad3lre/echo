@@ -112,4 +112,24 @@ describe('startInitialLoad restore-null semantics', () => {
       ),
     ).toHaveLength(0);
   });
+
+  it('does not skip post-login workspace hydrate when initial load is no longer in flight', async () => {
+    const auth = useAuthSessionStore();
+    auth.setSession({ user: cachedUser, planLimits: null });
+    vi.spyOn(auth, 'restoreSessionFromApi').mockResolvedValue(cachedUser);
+
+    const workspace = createWorkspaceState();
+    await workspace.startInitialLoad();
+
+    let skipConsumed = false;
+    const consumeSkip = workspace.consumeSkipEchoWorkspaceHydrate;
+    workspace.consumeSkipEchoWorkspaceHydrate = () => {
+      skipConsumed = consumeSkip.call(workspace);
+      return skipConsumed;
+    };
+
+    await workspace.startInitialLoad();
+
+    expect(skipConsumed).toBe(false);
+  });
 });

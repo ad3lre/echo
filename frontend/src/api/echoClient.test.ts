@@ -108,6 +108,47 @@ describe('echoClient helpers', () => {
     expect(out[2]?.channels.map((c) => c.name)).toEqual(['voice-lobby']);
   });
 
+  it('mergeEchoChannelCategoriesWithRoots pins system channels above regular categories', () => {
+    const categories = [{ id: 'cat-a', name: 'Text', position: 0 }];
+    const channels: any[] = [
+      {
+        id: 'roles',
+        name: 'roles',
+        categoryId: 'cat-a',
+        categoryName: 'Text',
+        categoryPosition: 0,
+        position: -1,
+        type: 'selfRoles',
+        slowmodeSeconds: 0,
+        userLimit: 0,
+        nsfw: false,
+        bitrateBps: null,
+      },
+      {
+        id: 'general',
+        name: 'general',
+        categoryId: 'cat-a',
+        categoryName: 'Text',
+        categoryPosition: 0,
+        position: 0,
+        type: 'text',
+        slowmodeSeconds: 0,
+        userLimit: 0,
+        nsfw: false,
+        bitrateBps: null,
+      },
+    ];
+    const out = mergeEchoChannelCategoriesWithRoots(
+      categories,
+      channels,
+      'srv',
+    );
+    expect(out[0]?.systemSection).toBe(true);
+    expect(out[0]?.channels.map((c) => c.id)).toEqual(['roles']);
+    expect(out[1]?.id).toBe('cat-a');
+    expect(out[1]?.channels.map((c) => c.id)).toEqual(['general']);
+  });
+
   it('groupEchoChannelsToCategories groups and orders channels', () => {
     const channels: any[] = [
       {

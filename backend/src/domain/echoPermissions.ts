@@ -15,25 +15,25 @@ import {
   getEffectiveChannelPermissions,
   getEchoServerCapabilitiesForUser,
   isEchoServerOwner,
-  isUserBannedFromServer,
   messageContainsMassMention,
 } from './echoStore';
+import { getEchoMemberAccessState } from './echoStore/memberAccessState';
 
 /**
  * Single surface for Echo permission checks (REST + Socket.IO).
  * Implementation lives in `echoStore`; this module is the stable import path.
+ *
+ * Member-and-not-banned via the cached member-access state (same SQL semantics as the
+ * previous raw member + ban queries, one round-trip, 20s TTL, invalidated at every
+ * membership/ban mutation site) — this runs on most role/server REST routes.
  */
 export async function isMemberOfServer(
   pool: pg.Pool,
   serverId: string,
   userId: string,
 ): Promise<boolean> {
-  const r = await pool.query(
-    `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
-    [serverId, userId],
-  );
-  if (r.rows.length === 0) return false;
-  return !(await isUserBannedFromServer(pool, serverId, userId));
+  const state = await getEchoMemberAccessState(pool, serverId, userId);
+  return state.isMember && !state.banned;
 }
 
 export {
