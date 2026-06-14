@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, ref, unref, watch } from 'vue';
-import StreamVideoTile from '@/components/StreamVideoTile.vue';
+import StreamVideoTile from '@/features/voice/components/StreamVideoTile.vue';
 import { icons } from '@/assets/icons';
 import {
   LAYOUT_CHAT_SURFACE_KEY,

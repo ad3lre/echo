@@ -39,7 +39,7 @@ import type {
   ForumCreatorDefaultPerms,
   EchoChannelType,
 } from '@shared/types';
-import type { CreateChannelModalSubmitPayload } from '@/components/CreateChannelModal.vue';
+import type { CreateChannelModalSubmitPayload } from '@/features/channel-panel/components/CreateChannelModal.vue';
 import {
   applyOptimisticCategoryReorder,
   applyOptimisticChannelReorder,

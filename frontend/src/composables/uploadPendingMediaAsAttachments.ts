@@ -532,7 +532,11 @@ export async function uploadPendingMediaAsAttachments(
         kind: 'image',
         mimeType: imported.mimeType,
         ...(imported.fileSize > 0 ? { fileSize: imported.fileSize } : {}),
-        ...(x.width && x.height ? { width: x.width, height: x.height } : {}),
+        ...(imported.width && imported.height
+          ? { width: imported.width, height: imported.height }
+          : x.width && x.height
+            ? { width: x.width, height: x.height }
+            : {}),
         ...(x.spoiler ? { spoiler: true } : {}),
       });
     } catch (err) {
@@ -573,9 +577,11 @@ export async function uploadPendingMediaAsAttachments(
         kind: 'gif',
         mimeType: imported.mimeType,
         ...(imported.fileSize > 0 ? { fileSize: imported.fileSize } : {}),
-        ...(gif.width && gif.height
-          ? { width: gif.width, height: gif.height }
-          : {}),
+        ...(imported.width && imported.height
+          ? { width: imported.width, height: imported.height }
+          : gif.width && gif.height
+            ? { width: gif.width, height: gif.height }
+            : {}),
         ...(gif.spoiler ? { spoiler: true } : {}),
       });
     } catch (err) {

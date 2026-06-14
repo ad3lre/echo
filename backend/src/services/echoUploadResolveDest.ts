@@ -19,6 +19,7 @@ import {
   isAllowedVcWatchTogetherUploadContentType,
 } from './s3UploadPresign';
 import { sanitizeEchoUploadObjectKeyFragment } from './echoUploadKeyUtils';
+import { buildVcWatchTogetherGlobalStorageKey } from '../../../shared/echoUploadStorageKey';
 
 export type EchoUploadPurpose =
   | 'channel_media'
@@ -298,7 +299,7 @@ export async function resolveEchoUploadStorageKey(
         },
       };
     }
-    storageKey = `echo/vc-watch/${channelId}/${userId}/${objectKey}`;
+    storageKey = buildVcWatchTogetherGlobalStorageKey(userId, objectKey);
   } else if (channelId) {
     if (purpose === 'server_application_attachment') {
       return {

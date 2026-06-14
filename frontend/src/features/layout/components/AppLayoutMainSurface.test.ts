@@ -45,7 +45,7 @@ vi.mock('@/features/layout/components/InviteLandingView.vue', () =>
 vi.mock('@/features/layout/components/WelcomeBackExploreGate.vue', () =>
   stubChild('WelcomeBackExploreGate', 'welcome-back-gate'),
 );
-vi.mock('@/components/ExploreView.vue', () =>
+vi.mock('@/features/layout/components/ExploreView.vue', () =>
   stubChild('ExploreView', 'explore-view'),
 );
 

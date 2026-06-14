@@ -11,6 +11,36 @@ import {
 /** TODO: set true to re-enable Echoed Names in the VC activity library and open flow. */
 export const ECHOED_NAMES_VC_ACTIVITY_ENABLED = false;
 
+/**
+ * Route tic-tac-toe PvP through the authoritative game server (`useGameRoom`)
+ * instead of the legacy P2P LiveKit-data + client-arbiter model.
+ */
+export const TIC_TAC_TOE_SERVER_MODE = true;
+
+/**
+ * Route Hangman through the authoritative game server instead of LiveKit P2P
+ * orchestration + client-held round secrets.
+ */
+export const HANGMAN_SERVER_MODE = true;
+
+/**
+ * Route Wordline through the authoritative game server (`useGameRoom`).
+ * UI may still use local `useWordlineGame` until fully wired.
+ */
+export const WORDLE_SERVER_MODE = true;
+
+/**
+ * Route Codenames through the authoritative game server instead of LiveKit P2P
+ * orchestration + client-held spymaster keys.
+ */
+export const CODENAMES_SERVER_MODE = true;
+
+/**
+ * Route Skriggles through the authoritative game server instead of LiveKit P2P
+ * orchestration + drawer-held round secrets.
+ */
+export const SKRIGGLES_SERVER_MODE = true;
+
 export const ECHO_VC_ACTIVITY_KEYS = [
   'youtube',
   'watch_together',

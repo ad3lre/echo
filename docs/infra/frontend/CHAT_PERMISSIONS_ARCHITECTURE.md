@@ -23,15 +23,15 @@ This document explains how **server role preview** and **channel-level send rule
 
 ## Key files
 
-| Piece                                                                               | Location                                                                                                       |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Pure math: channel overrides, preview UI bits, **single outgoing block string**     | [`frontend/src/domain/chatRolePreviewPermissions.ts`](../../frontend/src/domain/chatRolePreviewPermissions.ts) |
-| Provided API: **`getSendState`**, **`assertCanSend`**, **`getOutgoingBlockReason`** | [`frontend/src/composables/useChatPermissions.ts`](../../frontend/src/composables/useChatPermissions.ts)       |
-| Shell send choke point: **`executeShellSend`**, **`SendIntent`**                    | [`frontend/src/features/chat/sendIntent.ts`](../../frontend/src/features/chat/sendIntent.ts)                   |
-| Main surface for branching: **`provideMainSurface` / `useMainSurface`**             | [`frontend/src/features/layout/useMainSurface.ts`](../../frontend/src/features/layout/useMainSurface.ts)       |
-| `provideChatPermissions(createChatPermissions(…))`                                  | [`frontend/src/components/AppLayout.vue`](../../frontend/src/components/AppLayout.vue)                         |
-| Composer: strict consumer, no permission props from `ChatView`                      | [`frontend/src/components/chat/ChatInput.vue`](../../frontend/src/components/chat/ChatInput.vue)               |
-| Explicit permissive subtree (required in **dev** if you mount `ChatInput` here)     | [`frontend/src/components/MessageRequestsView.vue`](../../frontend/src/components/MessageRequestsView.vue)     |
+| Piece                                                                               | Location                                                                                                                           |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Pure math: channel overrides, preview UI bits, **single outgoing block string**     | [`frontend/src/domain/chatRolePreviewPermissions.ts`](../../frontend/src/domain/chatRolePreviewPermissions.ts)                     |
+| Provided API: **`getSendState`**, **`assertCanSend`**, **`getOutgoingBlockReason`** | [`frontend/src/composables/useChatPermissions.ts`](../../frontend/src/composables/useChatPermissions.ts)                           |
+| Shell send choke point: **`executeShellSend`**, **`SendIntent`**                    | [`frontend/src/features/chat/sendIntent.ts`](../../frontend/src/features/chat/sendIntent.ts)                                       |
+| Main surface for branching: **`provideMainSurface` / `useMainSurface`**             | [`frontend/src/features/layout/useMainSurface.ts`](../../frontend/src/features/layout/useMainSurface.ts)                           |
+| `provideChatPermissions(createChatPermissions(…))`                                  | [`frontend/src/features/layout/components/AppLayout.vue`](../../frontend/src/features/layout/components/AppLayout.vue)             |
+| Composer: strict consumer, no permission props from `ChatView`                      | [`frontend/src/features/chat/components/ChatInput.vue`](../../frontend/src/features/chat/components/ChatInput.vue)                 |
+| Explicit permissive subtree (required in **dev** if you mount `ChatInput` here)     | [`frontend/src/features/dm/components/MessageRequestsView.vue`](../../frontend/src/features/dm/components/MessageRequestsView.vue) |
 
 ## Domain layer (`chatRolePreviewPermissions.ts`)
 

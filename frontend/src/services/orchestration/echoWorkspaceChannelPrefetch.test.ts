@@ -8,7 +8,9 @@ import { messageWindowAuthority } from '@/services/realtime/messageWindowAuthori
 import { replaceChannelMessagesFromHistory } from '@/services/realtime/channelMessageAuthority';
 import {
   applyPrefetchedWorkspaceChannelMessages,
+  inboundUrlChannelId,
   prefetchChannelMessagesFirstPage,
+  prefetchInboundUrlChannelFirstPage,
   resolveLikelyLandingTextChannelIds,
   resolveWorkspaceBootstrapTextChannelIds,
   shouldSkipChannelMessagePrefetch,
@@ -144,6 +146,21 @@ describe('applyPrefetchedWorkspaceChannelMessages', () => {
     const list = messageWindowAuthority.getIndex(channelId).sorted.value;
     expect(list.map((m) => m.id)).toEqual(['m1', 'm2', 'm3']);
   });
+
+  it('keeps hasMoreOlder true when a full (smaller) first page is applied', () => {
+    // A first page that fills pageLimit means more history likely exists — scroll-up
+    // pagination must stay enabled. Regression guard for the initial-page-size split.
+    const full = Array.from({ length: 40 }, (_, i) =>
+      apiMsg(`m${String(i).padStart(3, '0')}`, 'x'),
+    );
+    applyPrefetchedWorkspaceChannelMessages(channelId, full, 40);
+    expect(messageWindowAuthority.hasMoreOlder.value).toBe(true);
+  });
+
+  it('sets hasMoreOlder false when the first page is shorter than pageLimit', () => {
+    applyPrefetchedWorkspaceChannelMessages(channelId, [apiMsg('m1', 'x')], 40);
+    expect(messageWindowAuthority.hasMoreOlder.value).toBe(false);
+  });
 });
 
 describe('resolveWorkspaceBootstrapTextChannelIds', () => {
@@ -240,10 +257,64 @@ describe('prefetchChannelMessagesFirstPage', () => {
     });
     const ok = await prefetchChannelMessagesFirstPage('token', channelId);
     expect(ok).toBe(true);
+    // First page uses the smaller INITIAL size so the skeleton clears sooner.
     expect(fetchEchoChannelMessages).toHaveBeenCalledWith('token', channelId, {
-      limit: 80,
+      limit: 40,
     });
     const list = messageWindowAuthority.getIndex(channelId).sorted.value;
     expect(list.map((m) => m.id)).toEqual(['m1']);
+  });
+});
+
+describe('inbound URL channel prefetch (cold-boot waterfall collapse)', () => {
+  const urlChannelId = '00000000-0000-4000-8000-000000000099';
+
+  beforeEach(() => {
+    _resetChannelMessagePrefetchForTesting();
+    vi.mocked(fetchEchoChannelMessages).mockReset();
+  });
+
+  it('resolves the channel id from a guild channel URL', () => {
+    expect(inboundUrlChannelId(`/channels/srv/${urlChannelId}`, '/')).toBe(
+      urlChannelId,
+    );
+  });
+
+  it('resolves the channel id from a DM thread URL', () => {
+    expect(inboundUrlChannelId(`/channels/@me/c/${urlChannelId}`, '/')).toBe(
+      urlChannelId,
+    );
+  });
+
+  it('returns empty for non-channel routes and malformed ids', () => {
+    expect(inboundUrlChannelId('/explore', '/')).toBe('');
+    expect(inboundUrlChannelId('/channels/@me', '/')).toBe('');
+    expect(inboundUrlChannelId('/channels/srv/not-a-real-id', '/')).toBe('');
+  });
+
+  it('prefetches the URL channel in parallel (only needs the token)', () => {
+    vi.mocked(fetchEchoChannelMessages).mockResolvedValue({ messages: [] });
+    prefetchInboundUrlChannelFirstPage(
+      'token',
+      `/channels/srv/${urlChannelId}`,
+      '/',
+    );
+    expect(fetchEchoChannelMessages).toHaveBeenCalledWith(
+      'token',
+      urlChannelId,
+      {
+        limit: 40,
+      },
+    );
+  });
+
+  it('no-ops without a token or on a non-channel route', () => {
+    prefetchInboundUrlChannelFirstPage(
+      '',
+      `/channels/srv/${urlChannelId}`,
+      '/',
+    );
+    prefetchInboundUrlChannelFirstPage('token', '/explore', '/');
+    expect(fetchEchoChannelMessages).not.toHaveBeenCalled();
   });
 });

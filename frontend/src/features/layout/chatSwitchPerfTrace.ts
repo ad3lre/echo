@@ -1,4 +1,8 @@
 import type { RailTab } from '@/features/layout/mainSurface';
+import {
+  isPerfHarnessEnabled,
+  perfHarnessRecordChatSwitch,
+} from '@/observability/perfHarness';
 import { emitDiagnostic, newTraceId } from '@/observability/sessionDiagnostics';
 
 // Chrome DevTools exposes non-standard `console.profile`/`profileEnd` that the
@@ -107,6 +111,17 @@ export function beginChatSwitch(params: {
       mainSurfaceType: snapshot.mainSurfaceType,
     },
   });
+  if (isPerfHarnessEnabled()) {
+    perfHarnessRecordChatSwitch({
+      event: 'chat_switch_start',
+      durationMs: 0,
+      context: {
+        switchId: snapshot.switchId,
+        channelId: snapshot.channelId,
+        selectedServerId: snapshot.selectedServerId,
+      },
+    });
+  }
   return snapshot;
 }
 
@@ -209,6 +224,21 @@ export function emitChatSwitchEvent(params: {
       ...(params.context ?? {}),
     },
   });
+
+  if (isPerfHarnessEnabled()) {
+    // Forward every phase (fetch_start → fetch_end → merge_done → ui_rendered →
+    // first_message_visible) so a baseline run can split "data ready" from
+    // "rendered" instead of seeing only the collapsed total.
+    perfHarnessRecordChatSwitch({
+      event: params.event,
+      durationMs,
+      context: {
+        switchId: snapshot.switchId,
+        channelId: snapshot.channelId,
+        ...(params.context ?? {}),
+      },
+    });
+  }
 }
 
 if (typeof window !== 'undefined') {

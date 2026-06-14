@@ -56,11 +56,11 @@ So it **expands the probability space** for overlapping layout shifts, amplifyin
 
 ## 3. Current code touchpoints
 
-| Area                           | File                                           | Notes                                                                                          |
-| ------------------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Virtualizer + scroll           | `frontend/src/components/chat/MessageList.vue` | `useVirtualizer` computed, `onScrollCombined`, `estimateSize`, `overscan`, `orderKey` fallback |
-| Message index / order revision | `frontend/src/stores/messageIndex.ts`          | `orderRevision`, `getChannelIndex`                                                             |
-| Row measure                    | `MessageList.vue`                              | `measureElement` deferred via `requestAnimationFrame`                                          |
+| Area                           | File                                                    | Notes                                                                                          |
+| ------------------------------ | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Virtualizer + scroll           | `frontend/src/features/chat/components/MessageList.vue` | `useVirtualizer` computed, `onScrollCombined`, `estimateSize`, `overscan`, `orderKey` fallback |
+| Message index / order revision | `frontend/src/stores/messageIndex.ts`                   | `orderRevision`, `getChannelIndex`                                                             |
+| Row measure                    | `MessageList.vue`                                       | `measureElement` deferred via `requestAnimationFrame`                                          |
 
 **Known defect pattern:** when `activeChannelIndex` is null (e.g. no `channelId`), `orderKey` falls back to:
 

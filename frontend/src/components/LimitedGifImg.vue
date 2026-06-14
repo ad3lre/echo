@@ -6,7 +6,7 @@ import {
   requiresBundledMediaFallback,
   safeImageUrl,
 } from '@/utils/safeImageUrl';
-import MediaUnavailablePanel from '@/components/chat/MediaUnavailablePanel.vue';
+import MediaUnavailablePanel from '@/features/chat/components/MediaUnavailablePanel.vue';
 
 /** How the GIF is laid out inside the wrapper (see template). */
 function layoutModeFromImgClass(
@@ -37,6 +37,8 @@ const props = withDefaults(
     /** Changing resets loop budget (e.g. message id, server id). Defaults to `src`. */
     sessionKey?: string;
     imgClass?: string;
+    /** Native `<img loading>` — chat surfaces default to eager for stable layout. */
+    loading?: 'lazy' | 'eager';
     /** Inline styles applied to each <img> element (e.g. `object-position`). */
     imgStyle?: Record<string, string>;
     wrapperClass?: string;
@@ -61,6 +63,7 @@ const props = withDefaults(
     sessionKey: '',
     imgClass: '',
     imgStyle: undefined,
+    loading: 'eager',
     wrapperClass: '',
     forceActive: false,
     respectReducedMotion: true,
@@ -212,6 +215,7 @@ const imgReferrerPolicy = 'no-referrer';
         :style="imgStyle"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
+        :loading="props.loading"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -226,6 +230,7 @@ const imgReferrerPolicy = 'no-referrer';
         :style="imgStyle"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
+        :loading="props.loading"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -238,6 +243,7 @@ const imgReferrerPolicy = 'no-referrer';
         :style="imgStyle"
         draggable="false"
         :referrerpolicy="imgReferrerPolicy"
+        :loading="props.loading"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -251,6 +257,7 @@ const imgReferrerPolicy = 'no-referrer';
         :referrerpolicy="imgReferrerPolicy"
         :class="[props.imgClass, 'invisible']"
         :style="imgStyle"
+        :loading="props.loading"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -261,6 +268,7 @@ const imgReferrerPolicy = 'no-referrer';
         :referrerpolicy="imgReferrerPolicy"
         :class="[props.imgClass, fillOverlayClass]"
         :style="imgStyle"
+        :loading="props.loading"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -273,6 +281,7 @@ const imgReferrerPolicy = 'no-referrer';
         :referrerpolicy="imgReferrerPolicy"
         :class="[props.imgClass, fillAnimatedOverlayClass]"
         :style="imgStyle"
+        :loading="props.loading"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -286,6 +295,7 @@ const imgReferrerPolicy = 'no-referrer';
         :referrerpolicy="imgReferrerPolicy"
         :class="[props.imgClass, 'invisible block']"
         :style="imgStyle"
+        :loading="props.loading"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -296,6 +306,7 @@ const imgReferrerPolicy = 'no-referrer';
         :referrerpolicy="imgReferrerPolicy"
         :class="[props.imgClass, intrinsicPosterOverlayClass]"
         :style="imgStyle"
+        :loading="props.loading"
         @error="onImgError"
         @load="onImgLoad"
       />
@@ -308,6 +319,7 @@ const imgReferrerPolicy = 'no-referrer';
         :referrerpolicy="imgReferrerPolicy"
         :class="[props.imgClass, intrinsicAnimatedOverlayClass]"
         :style="imgStyle"
+        :loading="props.loading"
         @error="onImgError"
         @load="onImgLoad"
       />

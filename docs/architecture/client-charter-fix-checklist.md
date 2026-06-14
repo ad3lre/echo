@@ -6,7 +6,7 @@ This file is a change log of work landed in the sweep. It is not a blanket claim
 
 ## Landed changes
 
-- [x] Moved Discord import UI flow out of [`AddServerModal.vue`](../../frontend/src/components/AddServerModal.vue); the flow module [`addServerDiscordImportMe.ts`](../../frontend/src/services/orchestration/addServerDiscordImportMe.ts) lives in orchestration and still encodes UI phase / wait-step names (see [overview/agents.md](../overview/agents.md) for remaining workflow-surface guidance).
+- [x] Moved Discord import UI flow out of [`AddServerModal.vue`](../../frontend/src/features/server-settings/components/AddServerModal.vue); the flow module [`addServerDiscordImportMe.ts`](../../frontend/src/services/orchestration/addServerDiscordImportMe.ts) lives in orchestration and still encodes UI phase / wait-step names (see [overview/agents.md](../overview/agents.md) for remaining workflow-surface guidance).
 - [x] Moved optimistic local server-graph mutations out of [`workspaceServerActions.ts`](../../frontend/src/composables/workspace/workspaceServerActions.ts) into [`workspaceLocalServerGraphApply.ts`](../../frontend/src/services/domain/workspaceLocalServerGraphApply.ts) so the command layer stays wiring-focused.
 - [x] Added Echo HTTP trust-boundary parsing in [`api/echo/messages.ts`](../../frontend/src/api/echo/messages.ts) for message envelopes instead of treating arbitrary JSON as already-semantic data.
 - [x] Split layout composition root into phased wiring (`wireAppLayout*`) + PR2 context assembly (`buildAppLayoutAssemblyDeps`, `assembleAppLayoutControllerContext`) with parity regression tests.

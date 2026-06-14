@@ -14,19 +14,23 @@ import type { ServerNotificationLevel } from '@/features/server-notifications/ty
 import type { CategorySettingsSnapshot } from '@/features/channel-settings/types';
 
 const CreateChannelModal = defineAsyncComponent(
-  () => import('@/components/CreateChannelModal.vue'),
+  () => import('@/features/channel-panel/components/CreateChannelModal.vue'),
 );
 const CreateCategoryModal = defineAsyncComponent(
-  () => import('@/components/CreateCategoryModal.vue'),
+  () =>
+    import('@/features/channel-settings/components/CreateCategoryModal.vue'),
 );
 const ChannelSettingsModal = defineAsyncComponent(
-  () => import('@/components/ChannelSettingsModal.vue'),
+  () =>
+    import('@/features/channel-settings/components/ChannelSettingsModal.vue'),
 );
 const CategorySettingsModal = defineAsyncComponent(
-  () => import('@/components/CategorySettingsModal.vue'),
+  () =>
+    import('@/features/channel-settings/components/CategorySettingsModal.vue'),
 );
 const ServerNotificationSettingsModal = defineAsyncComponent(
-  () => import('@/components/ServerNotificationSettingsModal.vue'),
+  () =>
+    import('@/features/server-settings/components/ServerNotificationSettingsModal.vue'),
 );
 
 const props = defineProps<Partial<AppLayoutGuildModalsProps>>();

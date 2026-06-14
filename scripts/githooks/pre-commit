@@ -11,3 +11,4 @@ fi
 
 node "$ROOT/scripts/check-god-file-ratchet.mjs" --staged
 node "$ROOT/scripts/check-new-code-charter.mjs" --staged
+node "$ROOT/scripts/check-code-placement.mjs" --staged

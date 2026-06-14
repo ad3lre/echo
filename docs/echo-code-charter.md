@@ -67,6 +67,7 @@ numbers, logging, and process safety.
 | **C10** | Don't crash the process            | No `process.exit()` outside entrypoints/CLI; throw only for the unexpected; fail closed gracefully                                                     | grep + manual          |
 | **C11** | Reuse over reinvention             | Use existing `shared/` and `utils/` helpers; no copy-paste                                                                                             | Manual                 |
 | **C12** | Disciplined logging                | Structured diagnostics over raw `console.*` in runtime code; correct grammar in user-facing strings                                                    | grep                   |
+| **C13** | Frontend code placement            | Feature UI under `frontend/src/features/<domain>/`; `frontend/src/components/` is Echo\* + allowlisted primitives only; legacy paths ratchet down      | CI (`placement:check`) |
 
 ---
 
@@ -104,34 +105,34 @@ numbers, logging, and process safety.
 | ID     | Lines | File                                                                              | Status                                                                                                     |
 | ------ | ----- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | C4-001 | 7     | `frontend/src/features/layout/composables/useAppLayoutController.ts`              | PARTIAL (facade; wiring in `wireAppLayout*` + `buildAppLayoutAssemblyDeps`)                                |
-| C4-002 | 3586  | `frontend/src/components/AppLayout.vue`                                           | OPEN                                                                                                       |
+| C4-002 | 3586  | `frontend/src/features/layout/components/AppLayout.vue`                           | OPEN                                                                                                       |
 | C4-003 | 3502  | `frontend/src/composables/useLiveKitVoiceRoom.ts`                                 | OPEN                                                                                                       |
 | C4-004 | 3440  | `frontend/src/features/voice/components/VcActivityStage.vue`                      | OPEN                                                                                                       |
 | C4-005 | 3356  | `frontend/src/features/voice/components/VcHangmanGame.vue`                        | OPEN                                                                                                       |
 | C4-006 | 2883  | `frontend/src/features/channel-panel/components/ChannelPanelList.vue`             | OPEN                                                                                                       |
-| C4-007 | 2777  | `frontend/src/components/chat/MessageList.vue`                                    | OPEN                                                                                                       |
+| C4-007 | 2777  | `frontend/src/features/chat/components/MessageList.vue`                           | OPEN                                                                                                       |
 | C4-008 | 2758  | `backend/src/db/echoTables.ts`                                                    | OPEN                                                                                                       |
 | C4-009 | 2719  | `backend/src/domain/echoMessagesDal.ts`                                           | OPEN                                                                                                       |
 | C4-010 | 2707  | `frontend/src/features/server-settings/components/ServerSettingsRolesSection.vue` | OPEN                                                                                                       |
 | C4-011 | 2483  | `backend/src/services/discordImport.ts`                                           | PARTIAL (pure helpers → `discordImportJson.ts`, `discordImportPermissions.ts`; main still oversized)       |
-| C4-012 | 2583  | `frontend/src/components/MoreServersPanel.vue`                                    | OPEN                                                                                                       |
+| C4-012 | 2583  | `frontend/src/features/layout/components/MoreServersPanel.vue`                    | OPEN                                                                                                       |
 | C4-013 | 2573  | `frontend/src/features/layout/composables/useServerVoiceSession.ts`               | OPEN                                                                                                       |
 | C4-014 | 2417  | `frontend/src/features/layout/components/AppLayoutChatHeader.vue`                 | OPEN                                                                                                       |
-| C4-015 | 2341  | `frontend/src/components/chat/ChatInput.vue`                                      | OPEN                                                                                                       |
+| C4-015 | 2341  | `frontend/src/features/chat/components/ChatInput.vue`                             | OPEN                                                                                                       |
 | C4-016 | 2139  | `frontend/src/features/layout/composables/useAppLayoutDmCalls.ts`                 | OPEN                                                                                                       |
 | C4-017 | 1945  | `backend/src/config.ts`                                                           | OPEN                                                                                                       |
-| C4-018 | 1928  | `frontend/src/components/DMPanel.vue`                                             | OPEN                                                                                                       |
+| C4-018 | 1928  | `frontend/src/features/dm/components/DMPanel.vue`                                 | OPEN                                                                                                       |
 | C4-019 | 1873  | `backend/src/auth/store/postgres/PostgresAuthStore.ts`                            | OPEN                                                                                                       |
-| C4-020 | 1861  | `frontend/src/components/ChannelSettingsModal.vue`                                | OPEN                                                                                                       |
+| C4-020 | 1861  | `frontend/src/features/channel-settings/components/ChannelSettingsModal.vue`      | OPEN                                                                                                       |
 | C4-021 | 1848  | `frontend/src/features/auth/MobileAuthExperience.vue`                             | OPEN                                                                                                       |
-| C4-022 | 1787  | `frontend/src/components/LoginRegisterModal.vue`                                  | OPEN                                                                                                       |
+| C4-022 | 1787  | `frontend/src/features/auth/components/LoginRegisterModal.vue`                    | OPEN                                                                                                       |
 | C4-023 | 1776  | `backend/src/domain/echoStore/categoriesWorkspace.ts`                             | OPEN                                                                                                       |
 | C4-024 | 11    | `frontend/src/audio/voiceEchoLiveKitData.ts`                                      | RESOLVED (barrel; codecs split into `voiceData/*` by activity)                                             |
 | C4-025 | 1480  | `frontend/src/api/authClient.ts`                                                  | PARTIAL (core types/errors/transport helpers → `authClientCore.ts`; below hard threshold, still oversized) |
-| C4-026 | 1233  | `frontend/src/components/CallView.vue`                                            | RESOLVED (state/media/menu logic → `useCallViewState.ts`; below hard threshold)                            |
+| C4-026 | 1233  | `frontend/src/features/voice/components/CallView.vue`                             | RESOLVED (state/media/menu logic → `useCallViewState.ts`; below hard threshold)                            |
 | C4-027 | 1683  | `frontend/src/features/settings/components/SettingsAccount.vue`                   | OPEN                                                                                                       |
 | C4-028 | 1653  | `frontend/src/features/layout/components/AppLayoutLeftChrome.vue`                 | OPEN                                                                                                       |
-| C4-029 | 1624  | `frontend/src/components/chat/MessageBubble.vue`                                  | OPEN                                                                                                       |
+| C4-029 | 1624  | `frontend/src/features/chat/components/MessageBubble.vue`                         | OPEN                                                                                                       |
 | C4-030 | 1561  | `frontend/src/features/layout/components/WelcomeBackExploreGate.vue`              | OPEN                                                                                                       |
 
 > Note: `useAppLayoutController.ts` (C4-001) is now a thin facade (~7 lines).
@@ -185,18 +186,18 @@ numbers, logging, and process safety.
 > Reproduce per file: `... | xargs awk 'length>100'`. Most are long string
 > literals, SQL/DDL, config tables, and doc comments Prettier cannot wrap.
 
-| ID     | Count | File                                                                                                                                    | Status             |
-| ------ | ----- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| C2-001 | 75    | `backend/src/db/echoTables.ts`                                                                                                          | OPEN (DDL strings) |
-| C2-002 | 73    | `backend/src/config.ts`                                                                                                                 | OPEN               |
-| C2-003 | 45    | `frontend/src/components/FriendsView.vue`                                                                                               | OPEN               |
-| C2-004 | 42    | `frontend/src/components/ExploreView.vue`                                                                                               | OPEN               |
-| C2-005 | 37    | `frontend/src/components/chat/MessageList.vue`                                                                                          | OPEN               |
-| C2-006 | 36    | `frontend/src/components/AddServerModal.vue`                                                                                            | OPEN               |
-| C2-007 | 32    | `frontend/src/components/ReportModal.vue`                                                                                               | OPEN               |
-| C2-008 | 30    | `frontend/src/components/ServerSettingsModal.vue`                                                                                       | OPEN               |
-| C2-009 | 29    | `frontend/src/components/chat/PendingMediaPreview.vue` / `DMCallView.vue` / `ChannelSettingsModal.vue` / `backend/.../discordImport.ts` | OPEN               |
-| C2-010 | 28    | `frontend/src/components/DMPanel.vue`                                                                                                   | OPEN               |
+| ID     | Count | File                                                                                                                                             | Status             |
+| ------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
+| C2-001 | 75    | `backend/src/db/echoTables.ts`                                                                                                                   | OPEN (DDL strings) |
+| C2-002 | 73    | `backend/src/config.ts`                                                                                                                          | OPEN               |
+| C2-003 | 45    | `frontend/src/features/layout/components/FriendsView.vue`                                                                                        | OPEN               |
+| C2-004 | 42    | `frontend/src/features/layout/components/ExploreView.vue`                                                                                        | OPEN               |
+| C2-005 | 37    | `frontend/src/features/chat/components/MessageList.vue`                                                                                          | OPEN               |
+| C2-006 | 36    | `frontend/src/features/server-settings/components/AddServerModal.vue`                                                                            | OPEN               |
+| C2-007 | 32    | `frontend/src/features/safety/components/ReportModal.vue`                                                                                        | OPEN               |
+| C2-008 | 30    | `frontend/src/features/server-settings/components/ServerSettingsModal.vue`                                                                       | OPEN               |
+| C2-009 | 29    | `frontend/src/features/chat/components/PendingMediaPreview.vue` / `DMCallView.vue` / `ChannelSettingsModal.vue` / `backend/.../discordImport.ts` | OPEN               |
+| C2-010 | 28    | `frontend/src/features/dm/components/DMPanel.vue`                                                                                                | OPEN               |
 
 ### C9 — Explicit `any` (top offenders of 119)
 
@@ -205,13 +206,13 @@ numbers, logging, and process safety.
 
 | ID     | Count | File                                                                                                                                                                                                                                                                   | Status   |
 | ------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| C9-001 | 0     | `frontend/src/components/AppLayout.vue`                                                                                                                                                                                                                                | RESOLVED |
+| C9-001 | 0     | `frontend/src/features/layout/components/AppLayout.vue`                                                                                                                                                                                                                | RESOLVED |
 | C9-002 | 0     | `frontend/src/features/layout/composables/useAppLayoutProfilesDomain.ts`                                                                                                                                                                                               | RESOLVED |
 | C9-006 | 0     | `frontend/src/composables/useLiveKitVoiceRoom.ts`                                                                                                                                                                                                                      | RESOLVED |
 | C9-012 | 0     | `frontend/src/features/layout/chatSwitchPerfTrace.ts`                                                                                                                                                                                                                  | RESOLVED |
 | C9-013 | 0     | `frontend/src/features/chat/components/ChatInputComposerBar.vue`                                                                                                                                                                                                       | RESOLVED |
 | C9-014 | 0     | `frontend/src/features/channel-panel/components/ChannelPanelList.vue`                                                                                                                                                                                                  | RESOLVED |
-| C9-015 | 0     | `frontend/src/components/CallView.vue`                                                                                                                                                                                                                                 | RESOLVED |
+| C9-015 | 0     | `frontend/src/features/voice/components/CallView.vue`                                                                                                                                                                                                                  | RESOLVED |
 | C9-016 | 0     | `frontend/src/api/echo/channels.ts`                                                                                                                                                                                                                                    | RESOLVED |
 | C9-017 | 0     | `backend/src/auth/store/postgres/PostgresAuthStore.ts`                                                                                                                                                                                                                 | RESOLVED |
 | C9-003 | 0     | `frontend/src/features/server-settings/components/ServerSettingsEmojiSection.vue`                                                                                                                                                                                      | RESOLVED |
@@ -246,7 +247,7 @@ numbers, logging, and process safety.
 | C12-003 | 8     | `backend/src/scripts/wipeAppDatabase.ts` (+ other `backend/src/scripts/*` maintenance scripts) | ACCEPTED                     |
 | C12-004 | 11    | `frontend/src/platform/desktopDeepLink.ts`                                                     | OPEN (route via diagnostics) |
 | C12-005 | 9     | `frontend/src/platform/desktopBridge.ts`                                                       | OPEN (route via diagnostics) |
-| C12-006 | 6     | `frontend/src/components/chat/MessageList.vue`                                                 | OPEN (runtime component)     |
+| C12-006 | 6     | `frontend/src/features/chat/components/MessageList.vue`                                        | OPEN (runtime component)     |
 
 ### C5 — Terminology
 

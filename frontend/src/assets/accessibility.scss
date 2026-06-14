@@ -86,3 +86,101 @@ html[data-echo-message-spacing='0'] {
   --echo-density-msg-header-mt: 0.5rem;
   --echo-density-msg-continuation-py: 0.0312rem;
 }
+
+/* --- Solid glass surfaces -----------------------------------------------------
+ * Blur-based liquid glass (headers, menus, composer, toasts) becomes opaque so
+ * text stays legible when backdrop-filter fails or composites poorly (common on
+ * Linux/Electron and some mobile WebViews). Token aliases keep themed fallbacks.
+ */
+html[data-echo-solid-glass='1'] {
+  --chat-glass-header-backdrop: none;
+  --chat-glass-header-bg: var(--chat-glass-header-bg-fallback);
+  --echo-menu-surface-bg: var(
+    --echo-menu-surface-bg-fallback,
+    var(--chat-glass-header-bg-fallback)
+  );
+  --chat-glass-bg: var(--chat-glass-bg-strong);
+}
+
+html[data-echo-solid-glass='1'] {
+  :is(
+    .chat-header-glass,
+    .voice-side-chat-header,
+    .dm-panel__ringtone-sticky,
+    .ellipsis-menu,
+    .chat-liquid-glass-menu,
+    .pins-dropdown,
+    .reply-bar,
+    .chat-input-bar,
+    .msg-actions-bar,
+    .message-video-shell,
+    .selection-menu-inner,
+    .app-toast-glass,
+    .app-toast-glass--warning,
+    .app-toast-glass--success,
+    .app-toast-incoming-call,
+    .vc-act-browse-drawer,
+    .echo-dropdown-menu,
+    .search-filter-dropdown
+  ) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .chat-header-glass,
+  .voice-side-chat-header,
+  .pins-dropdown,
+  .dm-panel__ringtone-sticky {
+    background-color: var(--chat-glass-header-bg-fallback) !important;
+  }
+
+  .ellipsis-menu,
+  .chat-liquid-glass-menu:not(.chat-liquid-glass-menu--over-modal) {
+    background-color: var(
+      --echo-menu-surface-bg-fallback,
+      var(--chat-glass-header-bg-fallback)
+    ) !important;
+  }
+
+  .echo-autocomplete-menu.chat-liquid-glass-menu:not(
+      .chat-liquid-glass-menu--over-modal
+    ) {
+    background-color: var(
+      --echo-menu-surface-bg-fallback,
+      var(--chat-glass-header-bg-fallback)
+    ) !important;
+  }
+
+  .reply-bar,
+  .chat-input-bar {
+    background: var(--chat-glass-bg-strong) !important;
+  }
+
+  .echo-dropdown-menu:not(.echo-dropdown-menu--server) {
+    background: var(
+      --echo-menu-surface-bg-fallback,
+      var(--chat-glass-header-bg-fallback)
+    ) !important;
+  }
+
+  .echo-dropdown-menu--server {
+    background: var(--srv-role-menu-bg) !important;
+  }
+
+  .app-toast-glass,
+  .app-toast-glass--warning,
+  .app-toast-glass--success,
+  .app-toast-incoming-call {
+    background: var(--elevated) !important;
+  }
+
+  .vc-act-browse-drawer {
+    background: var(--surface) !important;
+  }
+
+  .markdown-preview-inner::before {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: var(--chat-glass-bg-strong) !important;
+  }
+}

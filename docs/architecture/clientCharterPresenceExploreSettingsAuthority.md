@@ -21,7 +21,7 @@ Why this is still debt:
 
 Healthy part:
 
-- [`ExploreView.vue`](../../frontend/src/components/ExploreView.vue) remains prop-driven and presentation-only.
+- [`ExploreView.vue`](../../frontend/src/features/layout/components/ExploreView.vue) remains prop-driven and presentation-only.
 
 Current caveat:
 

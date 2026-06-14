@@ -36,8 +36,8 @@ describe('voice Echo LiveKit data codecs', () => {
     expect(
       vcData.decodeEchoYoutubeActivity(
         bytes({ ...youtube, playlist: [{ title: 'missing id' }] }),
-      ),
-    ).toBeNull();
+      )?.playlist,
+    ).toEqual([]);
 
     expect(
       vcData.decodeEchoVcActivityPresence(
@@ -91,125 +91,6 @@ describe('voice Echo LiveKit data codecs', () => {
       vcData.decodeEchoVcData(bytes({ v: 1, t: 'public_media' })),
     ).toBeNull();
     expect(vcData.decodeEchoVcPrivateViewer(bytes({}))).toBeNull();
-  });
-
-  it('normalizes and rejects Hangman payloads', () => {
-    const activity = {
-      v: 1,
-      t: 'hangman_activity',
-      updatedAt: 200,
-      revision: 3.9,
-      fromUserId: ' host ',
-      roundSeq: 4.8,
-      setterUserId: ' setter ',
-      rosterUserIds: [' player ', 'setter'],
-      phase: 'guessing',
-      guessedLetters: ['A', 'B'],
-      guessHistory: [
-        { userId: ' u1 ', letter: 'A' },
-        { userId: 'u2', letter: 'B' },
-      ],
-      wrongCount: 2.8,
-      mask: 'A _',
-      roundResult: null,
-      answerReveal: null,
-    };
-    expect(
-      vcData.decodeEchoHangmanActivity(
-        vcData.encodeEchoHangmanActivity(activity as never),
-      ),
-    ).toMatchObject({
-      revision: 3,
-      fromUserId: 'host',
-      roundSeq: 4,
-      setterUserId: 'setter',
-      rosterUserIds: ['player', 'setter'],
-      wrongCount: 2,
-      guessHistory: [
-        { userId: 'u1', letter: 'A' },
-        { userId: 'u2', letter: 'B' },
-      ],
-    });
-    expect(
-      vcData.decodeEchoHangmanActivity(
-        bytes({ ...activity, phase: 'guessing', mask: 'A-_' }),
-      ),
-    ).toBeNull();
-    expect(
-      vcData.decodeEchoHangmanActivity(
-        bytes({ ...activity, phase: 'round_over', roundResult: 'lost' }),
-      ),
-    ).toBeNull();
-
-    expect(
-      vcData.decodeEchoHangmanGuessIntent(
-        vcData.encodeEchoHangmanGuessIntent({
-          v: 1,
-          t: 'hangman_guess_intent',
-          updatedAt: 201,
-          fromUserId: ' u1 ',
-          roundSeq: 5.9,
-          letter: 'q',
-        } as never),
-      ),
-    ).toEqual({
-      v: 1,
-      t: 'hangman_guess_intent',
-      updatedAt: 201,
-      fromUserId: 'u1',
-      roundSeq: 5,
-      letter: 'Q',
-    });
-
-    expect(
-      vcData.decodeEchoHangmanRoundSecret(
-        vcData.encodeEchoHangmanRoundSecret({
-          v: 1,
-          t: 'hangman_round_secret',
-          updatedAt: 202,
-          roundSeq: 2.5,
-          setterUserId: ' setter ',
-          secret: ' echo   test ',
-        } as never),
-      ),
-    ).toEqual({
-      v: 1,
-      t: 'hangman_round_secret',
-      updatedAt: 202,
-      roundSeq: 2,
-      setterUserId: 'setter',
-      secret: 'ECHO TEST',
-    });
-    expect(
-      vcData.decodeEchoHangmanRoundSecret(
-        bytes({
-          v: 1,
-          t: 'hangman_round_secret',
-          updatedAt: 202,
-          roundSeq: 2,
-          setterUserId: 'setter',
-          secret: 'A1',
-        }),
-      ),
-    ).toBeNull();
-
-    expect(
-      vcData.decodeEchoHangmanNextRound(
-        vcData.encodeEchoHangmanNextRound({
-          v: 1,
-          t: 'hangman_next_round',
-          updatedAt: 203,
-          fromUserId: ' host ',
-          completedRoundSeq: 7.8,
-        } as never),
-      ),
-    ).toEqual({
-      v: 1,
-      t: 'hangman_next_round',
-      updatedAt: 203,
-      fromUserId: 'host',
-      completedRoundSeq: 7,
-    });
   });
 
   it('normalizes Skriggles activity, intents, and canvas payloads', () => {

@@ -63,4 +63,28 @@ describe('estimateMessageListRowSizePx', () => {
     });
     expect(withSlot - baseline).toBe(340);
   });
+
+  it('reserves attachment height from stored width and height', () => {
+    const withAttachment = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: {
+        content: 'photo',
+        attachments: [
+          {
+            url: 'https://x.test/a.png',
+            kind: 'image',
+            width: 2000,
+            height: 100,
+          },
+        ],
+      },
+    });
+    const baseline = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: { content: 'photo' },
+    });
+    expect(withAttachment - baseline).toBe(40);
+  });
 });

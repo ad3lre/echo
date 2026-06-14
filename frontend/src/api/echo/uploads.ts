@@ -22,6 +22,7 @@ import {
 import { echoFetch } from './transport';
 import { randomUuidV4 } from '@/utils/randomUuid';
 import { sha256HexOfBlob } from '@/utils/uploadFingerprint';
+import type { WatchTogetherTranscodeStatus } from '@/features/voice/vcActivityTypes';
 
 function sha256HexToBase64(hex: string): string {
   const bytes = new Uint8Array(hex.length / 2);
@@ -448,6 +449,8 @@ export type EchoImportRemoteImageResponse = {
   storageKey: string;
   mimeType: string;
   fileSize: number;
+  width?: number;
+  height?: number;
 };
 
 /** Server-side fetch + store for composer image search / external image URLs. */
@@ -570,7 +573,6 @@ export async function uploadChatAttachmentFile(
   };
 }
 
-/** Reset abandonment timers when chat attachments become visible (debounced client-side). */
 export type EchoVideoPlaybackResponse = {
   status: 'ready' | 'pending' | 'processing' | 'failed';
   format: 'hls' | 'progressive';
@@ -581,6 +583,69 @@ export type EchoVideoPlaybackResponse = {
   lastError?: string | null;
   renditions?: { height: number; bandwidth: number; hasAudio: boolean }[];
 };
+
+export type VcWatchTogetherLibraryItem = {
+  storageKey: string;
+  sourcePublicUrl: string;
+  title: string;
+  byteLength: number;
+  createdAt: string;
+  transcodeStatus: WatchTogetherTranscodeStatus;
+  hlsManifestUrl: string | null;
+  transcodeError: string | null;
+};
+
+export async function fetchVcWatchTogetherUploadLibrary(
+  token: string | null,
+): Promise<VcWatchTogetherLibraryItem[]> {
+  const res = await echoFetch<{ items: VcWatchTogetherLibraryItem[] }>(
+    token,
+    '/uploads/vc-watch-together/library',
+    { method: 'GET', cache: 'no-store' },
+  );
+  return res.items ?? [];
+}
+
+export async function claimVcWatchTogetherChannelHost(
+  token: string | null,
+  channelId: string,
+  sessionId: string,
+): Promise<void> {
+  await echoFetch<Record<string, never>>(
+    token,
+    '/uploads/vc-watch-together/claim-host',
+    {
+      method: 'POST',
+      body: JSON.stringify({ channelId, sessionId }),
+    },
+  );
+}
+
+export async function releaseVcWatchTogetherChannelHost(
+  token: string | null,
+  channelId: string,
+): Promise<void> {
+  await echoFetch<Record<string, never>>(
+    token,
+    '/uploads/vc-watch-together/release-host',
+    {
+      method: 'POST',
+      body: JSON.stringify({ channelId }),
+    },
+  );
+}
+
+export async function fetchVcWatchTogetherChannelHost(
+  token: string | null,
+  channelId: string,
+): Promise<{ hostUserId: string | null; sessionId: string | null }> {
+  const q = new URLSearchParams({ channelId: channelId.trim() });
+  return echoFetch<{ hostUserId: string | null; sessionId: string | null }>(
+    token,
+    `/uploads/vc-watch-together/channel-host?${q.toString()}`,
+    { method: 'GET', cache: 'no-store' },
+  );
+}
 
 export async function fetchEchoVideoPlayback(
   token: string | null,
@@ -619,6 +684,28 @@ export async function releaseVcWatchTogetherSessionBytes(
     {
       method: 'POST',
       body: JSON.stringify({ sessionId, byteLength }),
+    },
+  );
+}
+
+export async function addVcWatchTogetherSessionBytes(
+  token: string | null,
+  sessionId: string,
+  channelId: string,
+  byteLength: number,
+  storageKey: string,
+): Promise<void> {
+  await echoFetch<Record<string, never>>(
+    token,
+    '/uploads/vc-watch-together/add-bytes',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId,
+        channelId,
+        byteLength,
+        storageKey,
+      }),
     },
   );
 }

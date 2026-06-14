@@ -18,7 +18,7 @@
     "marketing:pm2:stop": "pm2 stop echo-marketing",
     "marketing:pm2:delete": "pm2 delete echo-marketing",
     "predev": "node scripts/dev-pre.mjs",
-    "dev": "node scripts/kill-dev-ports.mjs && concurrently -n backend,frontend,bot -c auto \"npm run dev -w backend\" \"node scripts/wait-for-port.mjs && npm run dev -w frontend\" \"node scripts/dev-discord-bot.mjs\"",
+    "dev": "node scripts/kill-dev-ports.mjs && concurrently -n backend,frontend,bot,game-server -c auto \"npm run dev -w backend\" \"node scripts/wait-for-port.mjs && npm run dev -w frontend\" \"node scripts/dev-discord-bot.mjs\" \"npm run dev -w game-server\"",
     "dev:core": "node scripts/kill-dev-ports.mjs && concurrently -n backend,frontend -c auto \"npm run dev -w backend\" \"node scripts/wait-for-port.mjs && npm run dev -w frontend\"",
     "dev:core:low-mem": "node scripts/kill-dev-ports.mjs && concurrently -n backend,frontend -c auto \"npm run dev -w backend\" \"node scripts/wait-for-port.mjs && npm run dev:low-mem -w frontend\"",
     "dev:quick": "cross-env ECHO_DEV_SKIP_SETUP=1 npm run dev",
@@ -40,11 +40,11 @@
     "prod:serve": "cross-env ECHO_FREE_PORTS=3000,4173,3005 node scripts/kill-dev-ports.mjs && concurrently -c auto -n backend,frontend,bot \"cross-env NODE_ENV=production npm start\" \"node scripts/wait-for-port.mjs && cross-env NODE_ENV=production npm run preview -w frontend\" \"node scripts/wait-for-port.mjs && node scripts/wait-for-port.mjs 127.0.0.1 4173 && node scripts/prod-discord-bot.mjs\"",
     "prod:smoke": "cross-env ECHO_FREE_PORTS=3000,4173,3005 node scripts/kill-dev-ports.mjs && concurrently -c auto -n backend,frontend,bot \"cross-env NODE_ENV=production ECHO_REQUIRE_REDIS_IN_PRODUCTION=false ECHO_REQUIRE_METRICS_SCRAPE_TOKEN_IN_PRODUCTION=false ECHO_REQUIRE_MEDIA_URL_HARDENING_IN_PRODUCTION=false ECHO_REQUIRE_GUEST_BINDING_SECRET_IN_PRODUCTION=false npm start\" \"node scripts/wait-for-port.mjs && cross-env NODE_ENV=production npm run preview -w frontend\" \"node scripts/wait-for-port.mjs && node scripts/wait-for-port.mjs 127.0.0.1 4173 && node scripts/prod-discord-bot.mjs\"",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=6144 npm run build:workspaces",
-    "build:workspaces": "node scripts/copy-twemoji.mjs && node scripts/build-emoji-secondary-aliases.mjs && node scripts/build-emoji-search-index.mjs && npm run build -w frontend && npm run build -w marketing && npm run build -w backend && npm run build -w bot",
+    "build:workspaces": "node scripts/copy-twemoji.mjs && node scripts/build-emoji-secondary-aliases.mjs && node scripts/build-emoji-search-index.mjs && npm run build -w frontend && npm run build -w marketing && npm run build -w backend && npm run build -w bot && npm run build -w game-server",
     "test": "npm run test:ci",
     "test:ci": "npm run format:check && npm run test:ci:guards && npm run build -w frontend && npm run build -w backend && npm run test -w frontend && npm run test:ci:backend",
     "ci:precheck": "npm run test:ci && npm run lint -w frontend && npm run lint:theme -w frontend && npm run lint:style -w frontend",
-    "test:ci:guards": "node scripts/check-oss-artifacts.mjs && node scripts/check-github-remote-policy.mjs && node scripts/check-god-file-ratchet.mjs && node scripts/check-new-code-charter.mjs && npm run check:echo-channels && npm run check:echo-snowflake && npm run check:echo-single-reality && npm run check:echo-rbac && npm run check:channel-message-writes && node scripts/check-echo-no-sql-in-routes.mjs && npm run check:sql-schema-columns && npm run check:voice-activity",
+    "test:ci:guards": "node scripts/check-oss-artifacts.mjs && node scripts/check-github-remote-policy.mjs && node scripts/check-god-file-ratchet.mjs && node scripts/check-new-code-charter.mjs && npm run check:echo-channels && npm run check:echo-snowflake && npm run check:echo-single-reality && npm run check:echo-rbac && npm run check:channel-message-writes && node scripts/check-echo-no-sql-in-routes.mjs && npm run check:sql-schema-columns && npm run check:voice-activity && npm run placement:check && npm run check:feature-boundaries",
     "test:ci:backend": "npm run test:storage-mode -w backend && npm run test:video-hls-worker-config -w backend && npm run test:video-hls-notify -w backend && npm run test:production-config-gates -w backend && npm run test:linkUnfurlStubs -w backend && npm run test:gifProviders -w backend && npm run test:linkUnfurlExtract -w backend && npm run test:shipping-security -w backend && npm run test:security -w backend && npm run test:echo:contract -w backend && npm run check:echo-channels && npm run check:echo-snowflake && npm run check:echo-single-reality && npm run check:echo-rbac && npm run check:channel-message-writes && node scripts/check-echo-no-sql-in-routes.mjs && npm run check:sql-schema-columns && node --import tsx backend/src/tests/paperCollabState.test.ts && node --import tsx backend/src/tests/paperAttribution.test.ts && node --import tsx backend/src/tests/socketOpEnvelope.test.ts && node --import tsx backend/src/tests/echo.serverMemberIdsCache.test.ts && node --import tsx backend/src/tests/echoEventUserCache.test.ts && node --import tsx backend/src/tests/unfurlCache.test.ts && node --import tsx backend/src/tests/echo.channelMetaCache.test.ts && node --import tsx backend/src/tests/echo.permissionAggregateParity.test.ts && node --import tsx backend/src/tests/echo.serverAggregateCache.test.ts && node --import tsx backend/src/tests/keyedCoalescer.test.ts && node --import tsx backend/src/tests/idTokens.test.ts",
     "test:ci:backend:integration": "cross-env ECHO_BACKEND_STORAGE=postgres DATABASE_URL=postgresql://echo:echo_dev@127.0.0.1:5432/echo USE_MOCK_DB=false npm run test:echo:pipeline -w backend && cross-env ECHO_BACKEND_STORAGE=postgres DATABASE_URL=postgresql://echo:echo_dev@127.0.0.1:5432/echo NATS_URL=nats://127.0.0.1:4222 USE_MOCK_DB=false npm run test:echo:multinode -w backend && cross-env ECHO_BACKEND_STORAGE=postgres DATABASE_URL=postgresql://echo:echo_dev@127.0.0.1:5432/echo USE_MOCK_DB=false npm run test:echo:uploads -w backend && cross-env ECHO_BACKEND_STORAGE=postgres DATABASE_URL=postgresql://echo:echo_dev@127.0.0.1:5432/echo USE_MOCK_DB=false npm run test:echo:rbac -w backend",
     "verify:ship": "npm run test:ci",
@@ -83,6 +83,11 @@
     "check:sql-schema-columns": "node scripts/check-sql-schema-columns.mjs",
     "check:sql-schema-columns:live": "node scripts/check-sql-schema-columns.mjs --live",
     "check:voice-activity": "node scripts/check-voice-activity-conventions.mjs",
+    "placement:check": "node scripts/check-code-placement.mjs",
+    "placement:test": "node --test scripts/check-code-placement.test.mjs",
+    "check:feature-boundaries": "node scripts/check-feature-boundaries.mjs",
+    "check:feature-boundaries:test": "node --test scripts/check-feature-boundaries.test.mjs",
+    "check:feature-boundaries:generate": "node scripts/generate-feature-boundaries-allowlist.mjs --write",
     "test:echo:contract": "npm run test:echo:contract -w backend",
     "test:echo:pipeline": "npm run test:echo:pipeline -w backend",
     "test:echo:rbac": "npm run test:echo:rbac -w backend",
@@ -102,6 +107,8 @@
     "bot:serve": "node --env-file=.env node_modules/tsx/dist/cli.mjs bot/src/index.ts --serve",
     "dev:e2e": "node scripts/kill-dev-ports.mjs && concurrently -k -n backend,frontend -c auto \"cross-env ECHO_BACKEND_STORAGE=memory DATABASE_URL= NODE_ENV=development USE_MOCK_DB=true npm run dev:e2e -w backend\" \"node scripts/wait-for-port.mjs && npm run dev:e2e -w frontend\"",
     "test:e2e": "node scripts/kill-dev-ports.mjs && concurrently -k -s command-cypress -n stack,cypress -c auto \"npm run dev:e2e\" \"wait-on -t 120000 http://localhost:8080 && npm run cy:run -w frontend\"",
+    "test:perf:prod": "node --import tsx perf/run.ts",
+    "test:perf:prod:compare": "node --import tsx perf/compare.ts",
     "vps": "node scripts/vps-serve.mjs",
     "vps:dev": "node scripts/vps-serve.mjs dev",
     "vps:prod": "node scripts/vps-serve.mjs prod",
@@ -162,7 +169,8 @@
     "shared",
     "scripts",
     "bot",
-    "voice-sidecar"
+    "voice-sidecar",
+    "game-server"
   ],
   "keywords": [
     "echo",
@@ -175,9 +183,11 @@
   "license": "AGPL-3.0-only",
   "devDependencies": {
     "@phosphor-icons/core": "^2.1.1",
+    "@playwright/test": "^1.60.0",
     "@tauri-apps/cli": "^2.11.0",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
+    "happy-dom": "^20.10.1",
     "jsdom": "^29.1.1",
     "kill-port": "^2.0.1",
     "prettier": "^3.8.3",
@@ -193,6 +203,8 @@
     "livekit-client": "^2.18.6"
   },
   "overrides": {
+    "@grpc/grpc-js": "1.14.4",
+    "esbuild": "0.28.1",
     "prosemirror-model": "1.25.7",
     "typescript": "6.0.3",
     "@cypress/request": {
@@ -212,9 +224,15 @@
     "tinyglobby": {
       "picomatch": "4.0.4"
     },
-    "vite": "8.0.14",
+    "vite": {
+      ".": "8.0.14",
+      "esbuild": "0.28.1"
+    },
     "@tailwindcss/vite": {
       "vite": "8.0.14"
+    },
+    "astro": {
+      "esbuild": "0.28.1"
     },
     "tmp": "0.2.7"
   },

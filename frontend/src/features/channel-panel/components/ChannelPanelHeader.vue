@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { icons } from '@/assets/icons';
 import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
-import ServerBannerLimitedGif from '@/components/ServerBannerLimitedGif.vue';
+import ServerBannerLimitedGif from '@/features/server-settings/components/ServerBannerLimitedGif.vue';
 import { useChannelPanelMenu } from '@/features/channel-panel/composables/useChannelPanelMenu';
 
 const props = defineProps<{

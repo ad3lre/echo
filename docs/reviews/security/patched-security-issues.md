@@ -83,7 +83,7 @@ This file tracks concrete security issues patched in the repo so we can avoid re
 - Fixed in:
   - `frontend/src/features/chat/viewModel/messageBodyMarkdown.ts` (`ALLOW_UNKNOWN_PROTOCOLS: false`)
   - `frontend/src/features/paper/editor/paperKatexRenderCache.ts` (DOMPurify on KaTeX HTML)
-  - `frontend/src/components/chat/EmojiAutocompletePopover.vue` (`safeCustomEmojiUrl`)
+  - `frontend/src/features/chat/components/EmojiAutocompletePopover.vue` (`safeCustomEmojiUrl`)
   - `backend/src/services/linkUnfurl/linkUnfurlFetch.ts` (HTTPS-only unfurl)
   - `backend/src/services/integrations/turnstileVerify.ts` (`remoteip` binding)
 

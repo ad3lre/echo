@@ -1,0 +1,195 @@
+{
+  "meta": {
+    "baseUrl": "http://127.0.0.1:8080",
+    "gitSha": "b50a47dedcda8dabb7d61b5f1ad630be840a4a37",
+    "iterations": 3,
+    "recordedAt": "2026-06-14T15:27:06.914Z",
+    "runId": "2026-06-14T15-26-08-3N"
+  },
+  "scenarios": {
+    "chat_switch": {
+      "chat_switch_start": {
+        "median": 0,
+        "p95": 0,
+        "min": 0,
+        "max": 0,
+        "stdev": 0,
+        "samples": [0, 0, 0]
+      },
+      "chat_switch_fetch_start": {
+        "median": 0,
+        "p95": 1,
+        "min": 0,
+        "max": 1,
+        "stdev": 0,
+        "samples": [0, 0, 1]
+      },
+      "chat_switch_fetch_end": {
+        "median": 81,
+        "p95": 89,
+        "min": 81,
+        "max": 90,
+        "stdev": 4,
+        "samples": [81, 81, 90]
+      },
+      "chat_switch_merge_done": {
+        "median": 82,
+        "p95": 89,
+        "min": 82,
+        "max": 90,
+        "stdev": 4,
+        "samples": [82, 82, 90]
+      },
+      "chat_switch_ui_rendered": {
+        "median": 20,
+        "p95": 24,
+        "min": 20,
+        "max": 24,
+        "stdev": 2,
+        "samples": [20, 20, 24]
+      },
+      "chat_switch_first_message_visible": {
+        "median": 85,
+        "p95": 92,
+        "min": 84,
+        "max": 93,
+        "stdev": 4,
+        "samples": [84, 85, 93]
+      }
+    },
+    "cold_boot": {
+      "boot_spinner_visible": {
+        "median": 0,
+        "p95": 0,
+        "min": 0,
+        "max": 0,
+        "stdev": 0,
+        "samples": [0, 0, 0]
+      },
+      "boot_vue_mounted": {
+        "median": 44,
+        "p95": 48,
+        "min": 44,
+        "max": 48,
+        "stdev": 2,
+        "samples": [44, 44, 48]
+      },
+      "boot_gate_dismissed": {
+        "median": 2,
+        "p95": 2,
+        "min": 2,
+        "max": 2,
+        "stdev": 0,
+        "samples": [2, 2, 2]
+      },
+      "boot_shell_visible": {
+        "median": 1868,
+        "p95": 1974,
+        "min": 1664,
+        "max": 1986,
+        "stdev": 133,
+        "samples": [1664, 1868, 1986]
+      },
+      "boot_workspace_settled": {
+        "median": 217,
+        "p95": 221,
+        "min": 209,
+        "max": 221,
+        "stdev": 5,
+        "samples": [209, 217, 221]
+      },
+      "boot_chat_ready": {
+        "median": 2130,
+        "p95": 2189,
+        "min": 1885,
+        "max": 2196,
+        "stdev": 134,
+        "samples": [1885, 2130, 2196]
+      }
+    },
+    "misc_nav": {
+      "misc_explore_open_ms": {
+        "median": 234,
+        "p95": 342,
+        "min": 212,
+        "max": 354,
+        "stdev": 62,
+        "samples": [212, 234, 354]
+      },
+      "misc_dm_tab_ms": {
+        "median": 153,
+        "p95": 449,
+        "min": 133,
+        "max": 482,
+        "stdev": 160,
+        "samples": [133, 153, 482]
+      },
+      "misc_server_switch_ms": {
+        "median": 0,
+        "p95": 0,
+        "min": 0,
+        "max": 0,
+        "stdev": 0,
+        "samples": [0, 0, 0]
+      },
+      "misc_return_guild_ms": {
+        "median": 1732,
+        "p95": 1742,
+        "min": 1707,
+        "max": 1743,
+        "stdev": 15,
+        "samples": [1707, 1732, 1743]
+      }
+    },
+    "warm_boot": {
+      "boot_spinner_visible": {
+        "median": 0,
+        "p95": 0,
+        "min": 0,
+        "max": 0,
+        "stdev": 0,
+        "samples": [0, 0, 0]
+      },
+      "boot_vue_mounted": {
+        "median": 26,
+        "p95": 27,
+        "min": 25,
+        "max": 27,
+        "stdev": 1,
+        "samples": [25, 26, 27]
+      },
+      "boot_gate_dismissed": {
+        "median": 1,
+        "p95": 1,
+        "min": 1,
+        "max": 1,
+        "stdev": 0,
+        "samples": [1, 1, 1]
+      },
+      "boot_shell_visible": {
+        "median": 1191,
+        "p95": 1268,
+        "min": 1064,
+        "max": 1276,
+        "stdev": 87,
+        "samples": [1064, 1191, 1276]
+      },
+      "boot_workspace_settled": {
+        "median": 176,
+        "p95": 184,
+        "min": 163,
+        "max": 185,
+        "stdev": 9,
+        "samples": [163, 176, 185]
+      },
+      "boot_chat_ready": {
+        "median": 1383,
+        "p95": 1431,
+        "min": 1231,
+        "max": 1436,
+        "stdev": 87,
+        "samples": [1231, 1383, 1436]
+      }
+    }
+  }
+}

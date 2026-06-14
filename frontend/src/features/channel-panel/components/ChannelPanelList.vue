@@ -17,9 +17,9 @@ import type { VcActivityPresenceKind } from '@/features/voice/vcActivityTypes';
 import type { ChannelVoiceParticipantUi } from '@/features/channel-panel/channelVoiceParticipantUi';
 import ChannelPanelVoiceParticipant from './ChannelPanelVoiceParticipant.vue';
 import ChannelPanelDiscordMirrorParticipant from './ChannelPanelDiscordMirrorParticipant.vue';
-import ChannelIconPickerPopover from '@/components/ChannelIconPickerPopover.vue';
+import ChannelIconPickerPopover from '@/features/channel-settings/components/ChannelIconPickerPopover.vue';
 import EchoDropdown from '@/components/EchoDropdown.vue';
-import type { CreateChannelModalSubmitPayload } from '@/components/CreateChannelModal.vue';
+import type { CreateChannelModalSubmitPayload } from '@/features/channel-panel/components/CreateChannelModal.vue';
 import { layoutHyperLog } from '@/utils/layoutHyperLog';
 import {
   clampEchoChannelName,

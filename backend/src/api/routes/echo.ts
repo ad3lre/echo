@@ -9,6 +9,7 @@ import echoPaper from './echo/echoPaper';
 import echoPermissionOverwrites from './echo/echoPermissionOverwrites';
 import echoCategories from './echo/echoCategories';
 import echoVoice from './echo/echoVoice';
+import echoGameServer from './echo/echoGameServer';
 import echoStageYoutube from './echo/echoStageYoutube';
 import echoVoiceE2ee from './echo/echoVoiceE2ee';
 import echoMls from './echo/echoMls';
@@ -76,6 +77,7 @@ export default async function echoRoutes(
     await secured.register(echoPermissionOverwrites);
     await secured.register(echoCategories);
     await secured.register(echoVoice);
+    await secured.register(echoGameServer);
     if (YOUTUBE_INTEGRATION_ENABLED) {
       await secured.register(echoStageYoutube);
     }

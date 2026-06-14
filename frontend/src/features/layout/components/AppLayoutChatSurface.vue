@@ -9,31 +9,47 @@ import {
   watch,
 } from 'vue';
 import type { MaybeRef } from 'vue';
-import AppLayoutSplash from '@/components/AppLayoutSplash.vue';
-import AppLayoutLoadError from '@/components/AppLayoutLoadError.vue';
+import AppLayoutSplash from '@/features/layout/components/AppLayoutSplash.vue';
+import AppLayoutLoadError from '@/features/layout/components/AppLayoutLoadError.vue';
 import { APP_LAYOUT_LOAD_TIMEOUT_MS } from '@/config/appLoadUi';
 import { getActivePinia, storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import AppLayoutChatHeader from '@/features/layout/components/AppLayoutChatHeader.vue';
 import AppLayoutPinsDropdown from '@/features/layout/components/AppLayoutPinsDropdown.vue';
-import AppLayoutVoiceSection from '@/features/layout/components/AppLayoutVoiceSection.vue';
 import GuildVoiceFloatingSpeakerPill from '@/features/layout/components/GuildVoiceFloatingSpeakerPill.vue';
 import GuildVoiceStreamPip from '@/features/layout/components/GuildVoiceStreamPip.vue';
-import AppLayoutForumSection from '@/features/layout/components/AppLayoutForumSection.vue';
 /**
- * The paper/document editor (PaperView + tiptap editor stack, ~220 KB) only renders
- * for the `serverPaper` surface. Loading it lazily keeps it off the first-paint
- * AppLayout chunk; it downloads the first time a user opens a document.
+ * Main-surface views render one at a time (voice / forum / paper / DM are mutually
+ * exclusive `v-else-if`/`v-else` branches; a text channel renders none of them).
+ * Lazy-load each — with a static literal import path so Vite still code-splits it —
+ * so a cold text-channel open keeps them off the first-paint AppLayout chunk; each
+ * downloads the first time its surface is shown.
  */
-const AppLayoutPaperSection = defineAsyncComponent({
-  loader: () =>
-    import('@/features/layout/components/AppLayoutPaperSection.vue'),
+const surfaceAsyncOptions = {
   loadingComponent: AppLayoutSplash,
   errorComponent: AppLayoutLoadError,
   delay: 200,
   timeout: APP_LAYOUT_LOAD_TIMEOUT_MS,
+};
+const AppLayoutVoiceSection = defineAsyncComponent({
+  loader: () =>
+    import('@/features/layout/components/AppLayoutVoiceSection.vue'),
+  ...surfaceAsyncOptions,
 });
-import AppLayoutDmSection from '@/features/layout/components/AppLayoutDmSection.vue';
+const AppLayoutForumSection = defineAsyncComponent({
+  loader: () =>
+    import('@/features/layout/components/AppLayoutForumSection.vue'),
+  ...surfaceAsyncOptions,
+});
+const AppLayoutPaperSection = defineAsyncComponent({
+  loader: () =>
+    import('@/features/layout/components/AppLayoutPaperSection.vue'),
+  ...surfaceAsyncOptions,
+});
+const AppLayoutDmSection = defineAsyncComponent({
+  loader: () => import('@/features/layout/components/AppLayoutDmSection.vue'),
+  ...surfaceAsyncOptions,
+});
 import AppLayoutDmSidePanel from '@/features/layout/components/AppLayoutDmSidePanel.vue';
 import { APP_LAYOUT_SEARCH_PANEL_KEY } from '@/features/layout/chatSurfaceContext';
 import { LAYOUT_CHAT_SURFACE_KEY } from '@/features/layout/layoutInjectionKeys';

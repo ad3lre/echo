@@ -101,6 +101,53 @@ export function hlsStagingPrefixForSourceKey(
   return `${hlsPackPrefixForSourceKey(sourceStorageKey)}.staging/${safeJob}/`;
 }
 
+/** Guild VC Watch Together user-global uploads (`echo/vc-watch/u/{userId}/…`). */
+export const VC_WATCH_TOGETHER_USER_PREFIX = 'echo/vc-watch/u/';
+
+/** Legacy per-channel layout: `echo/vc-watch/{channelId}/{userId}/…`. */
+export const VC_WATCH_TOGETHER_LEGACY_PREFIX = 'echo/vc-watch/';
+
+export function buildVcWatchTogetherGlobalStorageKey(
+  userId: string,
+  objectKey: string,
+): string {
+  const uid = userId.trim();
+  const obj = objectKey.trim().replace(/^\/+/, '');
+  return `${VC_WATCH_TOGETHER_USER_PREFIX}${uid}/${obj}`;
+}
+
+export type ParsedVcWatchTogetherStorageKey =
+  | { kind: 'global'; ownerUserId: string }
+  | { kind: 'legacy'; channelId: string; ownerUserId: string };
+
+export function parseVcWatchTogetherStorageKey(
+  storageKey: string,
+): ParsedVcWatchTogetherStorageKey | null {
+  const key = storageKey.trim();
+  if (!key.startsWith(VC_WATCH_TOGETHER_LEGACY_PREFIX)) return null;
+  const parts = key.split('/').filter(Boolean);
+  if (parts[0] !== 'echo' || parts[1] !== 'vc-watch') return null;
+  if (parts[2] === 'u' && parts[3]?.trim()) {
+    return { kind: 'global', ownerUserId: parts[3]!.trim() };
+  }
+  if (parts.length >= 5 && parts[2]?.trim() && parts[3]?.trim()) {
+    return {
+      kind: 'legacy',
+      channelId: parts[2]!.trim(),
+      ownerUserId: parts[3]!.trim(),
+    };
+  }
+  return null;
+}
+
+export function isVcWatchTogetherUploadStorageKey(storageKey: string): boolean {
+  return parseVcWatchTogetherStorageKey(storageKey) != null;
+}
+
+export function vcWatchTogetherGlobalLibraryPrefix(userId: string): string {
+  return `${VC_WATCH_TOGETHER_USER_PREFIX}${userId.trim()}/`;
+}
+
 export type ExtractStorageKeyFromEchoMediaUrlOptions = {
   /** Absolute HTTP(S) public URL prefixes for configured S3/R2 buckets. */
   httpPublicUrlPrefixes?: readonly string[];

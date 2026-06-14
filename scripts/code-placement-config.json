@@ -1,0 +1,17 @@
+{
+  "_comment": "Code placement guard config. SSOT: docs/overview/code-placement.md",
+  "componentsRoot": "frontend/src/components",
+  "featuresRoot": "frontend/src/features",
+  "scannedExtensions": [".vue", ".ts", ".scss"],
+  "primitiveBasenames": [
+    "TwemojiText.vue",
+    "StatusIndicator.vue",
+    "LimitedGifImg.vue",
+    "PausedGifAvatar.vue",
+    "EmojiCategorySection.vue",
+    "LegalDocsModal.vue"
+  ],
+  "echoPrimitivePrefix": "Echo",
+  "placementCutoffIso": "2026-06-15T00:00:00Z",
+  "docsUrl": "docs/overview/code-placement.md"
+}

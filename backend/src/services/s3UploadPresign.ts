@@ -4,6 +4,7 @@ import { config } from '../config';
 import { ECHO_UPLOAD_ABS_MAX_BYTES } from '../../../shared/echoPlanLimits';
 import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '../../../shared/echoS3ReadThrough';
 import { isSafeEchoUploadStorageKeyPath } from '../../../shared/echoUploadStorageKey';
+import { sanitizeEchoUploadContentType } from './echoUploadContentTypePolicy';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from './localUploadDisk';
 
 /**
@@ -151,7 +152,10 @@ export function buildEchoUploadPublicUrlForStorageKey(
 
 export function isAllowedChatUploadContentType(contentType: string): boolean {
   const t = contentType.trim().toLowerCase();
-  return CHAT_UPLOAD_CONTENT_TYPES.has(t);
+  if (CHAT_UPLOAD_CONTENT_TYPES.has(t)) return true;
+  const { contentType: safe, coerced } = sanitizeEchoUploadContentType(t);
+  if (coerced) return false;
+  return /^(image|video|audio)\//.test(safe);
 }
 
 const VC_WATCH_TOGETHER_VIDEO_CONTENT_TYPES = new Set([

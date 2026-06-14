@@ -196,6 +196,7 @@ function formatBitrate(kbps: number): string {
               <span
                 class="vc-voice-status-label min-w-0 truncate text-left text-[13px] font-semibold leading-tight"
                 :class="statusLabelClass"
+                data-cy="vc-connection-status"
               >
                 {{ statusLabel }}
               </span>

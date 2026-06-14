@@ -83,6 +83,7 @@ export function useSettingsForm() {
       highContrast: false,
       showMessageSpacing: true,
       dyslexiaFriendlyFont: false,
+      solidGlassSurfaces: false,
     },
     /** Krisp | browser DSP toggles (default) | native minimal request */
     voiceProcessingMode: voiceProcessingPrefs.mode as VoiceProcessingMode,

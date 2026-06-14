@@ -9,10 +9,6 @@ import {
   decodeEchoCodenamesRevealIntent,
   decodeEchoCodenamesSetupIntent,
   decodeEchoCodenamesSpymasterKey,
-  decodeEchoHangmanActivity,
-  decodeEchoHangmanGuessIntent,
-  decodeEchoHangmanNextRound,
-  decodeEchoHangmanRoundSecret,
   decodeEchoSkrigglesActivity,
   decodeEchoSkrigglesCanvasCmd,
   decodeEchoSkrigglesCanvasSnapshot,
@@ -35,10 +31,6 @@ import {
   encodeEchoCodenamesRevealIntent,
   encodeEchoCodenamesSetupIntent,
   encodeEchoCodenamesSpymasterKey,
-  encodeEchoHangmanActivity,
-  encodeEchoHangmanGuessIntent,
-  encodeEchoHangmanNextRound,
-  encodeEchoHangmanRoundSecret,
   encodeEchoSkrigglesActivity,
   encodeEchoSkrigglesCanvasCmd,
   encodeEchoSkrigglesCanvasSnapshot,
@@ -276,30 +268,6 @@ export function routeVoiceDataReceived(
     return true;
   }
 
-  const hmSecret = decodeEchoHangmanRoundSecret(payload);
-  if (hmSecret) {
-    handlers.onHangmanRoundSecret?.(hmSecret, senderIdentity);
-    return true;
-  }
-
-  const hm = decodeEchoHangmanActivity(payload);
-  if (hm) {
-    handlers.onHangmanActivity?.(hm, senderIdentity);
-    return true;
-  }
-
-  const hGuess = decodeEchoHangmanGuessIntent(payload);
-  if (hGuess) {
-    handlers.onHangmanGuessIntent?.(hGuess, senderIdentity);
-    return true;
-  }
-
-  const hNext = decodeEchoHangmanNextRound(payload);
-  if (hNext) {
-    handlers.onHangmanNextRound?.(hNext, senderIdentity);
-    return true;
-  }
-
   const cn = decodeEchoCodenamesActivity(payload);
   if (cn) {
     handlers.onCodenamesActivity?.(cn, senderIdentity);
@@ -492,14 +460,10 @@ export function createVoiceDataPublishers(
       pub(encodeEchoWatchTogetherActivity, payload),
     publishVcActivityPresence: (payload) =>
       pub(encodeEchoVcActivityPresence, payload),
-    publishHangmanActivity: (payload) =>
-      pub(encodeEchoHangmanActivity, payload),
-    publishHangmanGuessIntent: (payload) =>
-      pub(encodeEchoHangmanGuessIntent, payload),
-    publishHangmanNextRound: (payload) =>
-      pub(encodeEchoHangmanNextRound, payload),
-    publishHangmanRoundSecret: (payload, destinationIdentities) =>
-      pub(encodeEchoHangmanRoundSecret, payload, { destinationIdentities }),
+    publishHangmanActivity: () => {},
+    publishHangmanGuessIntent: () => {},
+    publishHangmanNextRound: () => {},
+    publishHangmanRoundSecret: () => {},
     publishCodenamesActivity: (payload) =>
       pub(encodeEchoCodenamesActivity, payload),
     publishCodenamesSpymasterKey: (payload, destinationIdentities) =>

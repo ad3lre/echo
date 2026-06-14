@@ -12,11 +12,13 @@
     "build": "astro build",
     "preview": "astro preview --host --port 4174"
   },
-  "dependencies": {
+  "devDependencies": {
     "@astrojs/sitemap": "^3.7.2",
-    "@fontsource/inter": "^5.2.8",
     "astro": "^6.3.3",
     "sass": "^1.99.0",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8"
   }
 }

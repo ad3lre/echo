@@ -10,8 +10,6 @@ import {
   getEchoChannelServerId,
   getEchoMessageById,
   getEchoStore,
-  listEchoDmParticipantUserIds,
-  listEchoServerMemberUserIdsCached,
   selectEchoMessageAuthorDeleted,
   softDeleteEchoMessage,
   updateEchoMessageContent,
@@ -25,7 +23,7 @@ import { getSharedSocketMessageRateLimiter } from './messageRateLimiter';
 import { broadcastToEchoChannel } from './channelBroadcast';
 import { resolveAndBroadcastLinkEmbeds } from './echoLinkEmbeds';
 import { echoMessageFailedTotal } from '../observability/echoMetrics';
-import { emitEchoAttentionSnapshotsForUsers } from '../services/echoAttentionRealtime';
+import { emitEchoAttentionForChannelMessageActivity } from '../services/echoAttentionRealtime';
 import { isEchoMessageAuthorOrLinkedTwin } from '../domain/discordTwinMessageAuth';
 import { evaluateEchoGuildOutboundMessageEditModeration } from '../services/echoGuildOutboundMessageModeration';
 
@@ -50,30 +48,6 @@ function messageFailedCodeFromModerationDenial(
   if (code === 'SLOWMODE') return 'SLOWMODE';
   if (code === 'INVALID_BODY') return 'VALIDATION';
   return 'FORBIDDEN';
-}
-
-async function emitAttentionForChannel(
-  pool: import('pg').Pool,
-  io: Server,
-  channelId: string,
-  log: FastifyBaseLogger,
-): Promise<void> {
-  const dmParticipants = await listEchoDmParticipantUserIds(pool, channelId);
-  if (dmParticipants.length > 0) {
-    await emitEchoAttentionSnapshotsForUsers(pool, io, dmParticipants, log, {
-      mode: 'channel',
-      channelId,
-    });
-    return;
-  }
-  const serverId = await getEchoChannelServerId(pool, channelId);
-  if (!serverId) return;
-  const memberIds = await listEchoServerMemberUserIdsCached(pool, serverId);
-  await emitEchoAttentionSnapshotsForUsers(pool, io, memberIds, log, {
-    mode: 'channel',
-    channelId,
-    serverId,
-  });
 }
 
 export function registerMessageEditDeleteHandler(
@@ -279,7 +253,7 @@ export function registerMessageEditDeleteHandler(
           correlationId,
         });
       }
-      void emitAttentionForChannel(pool, io, channelId, log);
+      void emitEchoAttentionForChannelMessageActivity(pool, io, channelId, log);
     })();
   });
 
@@ -357,7 +331,12 @@ export function registerMessageEditDeleteHandler(
         },
       );
       if (r === 'ok') {
-        void emitAttentionForChannel(pool, io, v.channelId, log);
+        void emitEchoAttentionForChannelMessageActivity(
+          pool,
+          io,
+          v.channelId,
+          log,
+        );
         return;
       }
       if (r === 'not_found' || r === 'slot_not_found') {
@@ -454,7 +433,7 @@ export function registerMessageEditDeleteHandler(
         channelId,
         messageId,
       });
-      void emitAttentionForChannel(pool, io, channelId, log);
+      void emitEchoAttentionForChannelMessageActivity(pool, io, channelId, log);
     })();
   });
 }

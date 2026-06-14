@@ -11,7 +11,7 @@
 
 ## Context / why
 
-The chat list (`frontend/src/components/chat/MessageList.vue`, ~2.8k lines) renders virtual rows
+The chat list (`frontend/src/features/chat/components/MessageList.vue`, ~2.8k lines) renders virtual rows
 as `position:absolute` + `translateY(...)`. That layout **defeats the browser's native scroll
 anchoring**, which is the root reason an elaborate JS scroll system exists: an 8-intent ownership
 arbiter (`messageListScrollOwnership`), prepend snap-math (`restorePrependScroll`), viewport-anchor
@@ -189,7 +189,7 @@ math deleted; tests green; contract reflects reality.
 
 | File                                                                                            | Stages  |
 | ----------------------------------------------------------------------------------------------- | ------- |
-| `frontend/src/components/chat/MessageList.vue`                                                  | 1,2,3,4 |
+| `frontend/src/features/chat/components/MessageList.vue`                                         | 1,2,3,4 |
 | `frontend/src/features/chat/domain/messageListRowEstimate.ts` (+ `.test.ts`)                    | 1 ✅    |
 | `frontend/src/features/chat/domain/messageListScrollOwnership.ts` (+ `.test.ts`)                | 3,4     |
 | `frontend/src/features/chat/composables/messageListViewportStorage.ts` (read for initialOffset) | 3       |
@@ -199,7 +199,7 @@ math deleted; tests green; contract reflects reality.
 
 ## Verification (run per stage)
 
-- **Unit/runtime:** `cd frontend && npx vitest run src/components/chat src/features/chat`
+- **Unit/runtime:** `cd frontend && npx vitest run src/features/chat/components src/features/chat`
   (focused: `messageListRowEstimate.test.ts`, `messageListScrollOwnership.test.ts`,
   `messageListPrependAnchor.test.ts`, `MessageList.runtime.test.ts`).
 - **Lint/types:** `cd frontend && npx eslint <changed files>` and

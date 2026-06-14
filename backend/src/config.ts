@@ -263,7 +263,7 @@ interface AppConfig {
    * Minimum wall-clock interval between blocklist file re-reads (mtime + periodic). `0` disables periodic reload (mtime only).
    */
   readonly echoCsamBlocklistReloadMinutes: number;
-  /** When true, image `dedupe/register` recomputes SHA-256 of stored bytes and rejects on mismatch with the client. */
+  /** When true, image `dedupe/register` recomputes SHA-256 of stored bytes and rejects on mismatch with the client. Default off — opt in via env when hardening uploads. */
   readonly echoVerifyImageSha256OnRegister: boolean;
   /**
    * When true, `message_failed` FORBIDDEN includes a `diagnostics` object (user, roles, perms, overrides).
@@ -617,6 +617,14 @@ interface AppConfig {
    * Default: on in non-production (set `ECHO_VC_VERBOSE_LOG=false` to silence); in production off unless `true`.
    */
   readonly echoVcVerboseLogging: boolean;
+  /** True when `GAME_SERVER_PUBLIC_URL` is set (authoritative VC games). */
+  readonly gameServerEnabled: boolean;
+  /** Browser-reachable game-server Socket.IO origin (e.g. http://127.0.0.1:3060). */
+  readonly gameServerPublicUrl: string;
+  /** HS256 secret for minted game join tokens (defaults to `JWT_SECRET`). */
+  readonly gameServerJwtSecret: string;
+  /** Lifetime of minted game join tokens in seconds. */
+  readonly gameServerJoinTokenTtlSec: number;
 }
 
 /**
@@ -861,7 +869,7 @@ export const config: AppConfig = {
   })(),
   echoVerifyImageSha256OnRegister: parseBoolean(
     process.env.ECHO_VERIFY_IMAGE_SHA256_ON_REGISTER,
-    true,
+    false,
   ),
   echoMessageFailedDiagnosticsToClient:
     !isProduction &&
@@ -1425,6 +1433,20 @@ export const config: AppConfig = {
     if (raw === 'true' || raw === '1' || raw === 'yes') return true;
     if (raw === 'false' || raw === '0' || raw === 'no') return false;
     return process.env.NODE_ENV !== 'production';
+  })(),
+  gameServerPublicUrl:
+    process.env.GAME_SERVER_PUBLIC_URL?.trim() || 'http://127.0.0.1:3060',
+  gameServerEnabled: !!(
+    process.env.GAME_SERVER_PUBLIC_URL?.trim() ||
+    process.env.NODE_ENV !== 'production'
+  ),
+  gameServerJwtSecret:
+    process.env.GAME_SERVER_JWT_SECRET?.trim() || resolvedJwtSecret,
+  gameServerJoinTokenTtlSec: (() => {
+    const raw = process.env.GAME_SERVER_JOIN_TOKEN_TTL_SEC;
+    if (raw === undefined || raw === '') return 300;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 60 && n <= 3600 ? n : 300;
   })(),
 };
 

@@ -6,52 +6,74 @@ import { computed, createApp, h, nextTick, ref } from 'vue';
 import { createPinia } from 'pinia';
 import { channelIcons } from '@/assets/icons';
 
-vi.mock('@/features/layout/components/AppLayoutChatHeader.vue', () => ({
-  default: { name: 'AppLayoutChatHeader', render: () => null },
-}));
-vi.mock('@/features/layout/components/AppLayoutPinsDropdown.vue', () => ({
-  default: { name: 'AppLayoutPinsDropdown', render: () => null },
-}));
-vi.mock('@/features/layout/components/AppLayoutVoiceSection.vue', () => ({
-  default: {
-    name: 'AppLayoutVoiceSection',
-    render: () => h('div', { 'data-testid': 'voice-section' }),
-  },
-}));
-vi.mock(
-  '@/features/layout/components/GuildVoiceFloatingSpeakerPill.vue',
-  () => ({
-    default: { name: 'GuildVoiceFloatingSpeakerPill', render: () => null },
-  }),
+/* `__esModule: true` lets Vue's defineAsyncComponent unwrap `.default`
+ * from the vitest mock namespace (its proxy throws on unknown probes). */
+function stubChild(name: string, testId?: string) {
+  return {
+    __esModule: true,
+    default: {
+      name,
+      inheritAttrs: false,
+      setup() {
+        return () => (testId ? h('div', { 'data-testid': testId }) : null);
+      },
+    },
+  };
+}
+
+vi.mock('@/features/layout/components/AppLayoutChatHeader.vue', () =>
+  stubChild('AppLayoutChatHeader'),
 );
-vi.mock('@/features/layout/components/GuildVoiceStreamPip.vue', () => ({
-  default: { name: 'GuildVoiceStreamPip', render: () => null },
-}));
-vi.mock('@/features/layout/components/AppLayoutDmSection.vue', () => ({
-  default: {
-    name: 'AppLayoutDmSection',
-    render: () => h('div', { 'data-testid': 'dm-section' }),
-  },
-}));
-vi.mock('@/features/layout/components/AppLayoutDmSidePanel.vue', () => ({
-  default: { name: 'AppLayoutDmSidePanel', render: () => null },
-}));
-vi.mock('@/components/EchoDropdown.vue', () => ({
-  default: { name: 'EchoDropdown', render: () => null },
-}));
-vi.mock('@/components/ChannelIconPickerPopover.vue', () => ({
-  default: { name: 'ChannelIconPickerPopover', render: () => null },
-}));
+vi.mock('@/features/layout/components/AppLayoutPinsDropdown.vue', () =>
+  stubChild('AppLayoutPinsDropdown'),
+);
+vi.mock('@/features/layout/components/AppLayoutVoiceSection.vue', () =>
+  stubChild('AppLayoutVoiceSection', 'voice-section'),
+);
+vi.mock('@/features/layout/components/GuildVoiceFloatingSpeakerPill.vue', () =>
+  stubChild('GuildVoiceFloatingSpeakerPill'),
+);
+vi.mock('@/features/layout/components/GuildVoiceStreamPip.vue', () =>
+  stubChild('GuildVoiceStreamPip'),
+);
+vi.mock('@/features/layout/components/AppLayoutDmSection.vue', () =>
+  stubChild('AppLayoutDmSection', 'dm-section'),
+);
+vi.mock('@/features/layout/components/AppLayoutPaperSection.vue', () =>
+  stubChild('AppLayoutPaperSection'),
+);
+vi.mock('@/features/layout/components/AppLayoutForumSection.vue', () =>
+  stubChild('AppLayoutForumSection'),
+);
+vi.mock('@/features/layout/components/AppLayoutDmSidePanel.vue', () =>
+  stubChild('AppLayoutDmSidePanel'),
+);
+vi.mock('@/components/EchoDropdown.vue', () => stubChild('EchoDropdown'));
+vi.mock(
+  '@/features/channel-settings/components/ChannelIconPickerPopover.vue',
+  () => stubChild('ChannelIconPickerPopover'),
+);
 vi.mock(
   '@/features/channel-settings/components/PermissionOverwriteEditor.vue',
-  () => ({
-    default: { name: 'PermissionOverwriteEditor', render: () => null },
-  }),
+  () => stubChild('PermissionOverwriteEditor'),
 );
 
 import AppLayoutChatSurface from '@/features/layout/components/AppLayoutChatSurface.vue';
 import AppLayoutInfoBanners from '@/features/layout/components/AppLayoutInfoBanners.vue';
-import ChannelSettingsModal from '@/components/ChannelSettingsModal.vue';
+import ChannelSettingsModal from '@/features/channel-settings/components/ChannelSettingsModal.vue';
+
+async function flushPromises(): Promise<void> {
+  for (let i = 0; i < 8; i += 1) {
+    await Promise.resolve();
+    await nextTick();
+  }
+}
+
+async function waitForAsyncSurfaceComponents(): Promise<void> {
+  await flushPromises();
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  await flushPromises();
+}
 
 async function mountWithoutConsoleNoise(
   component: unknown,
@@ -76,9 +98,7 @@ async function mountWithoutConsoleNoise(
 
   try {
     app.mount(container);
-    await nextTick();
-    await Promise.resolve();
-    await nextTick();
+    await waitForAsyncSurfaceComponents();
     if (whileMounted) await whileMounted(container);
   } finally {
     app.unmount();

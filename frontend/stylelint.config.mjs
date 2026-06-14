@@ -49,7 +49,7 @@ export default {
       files: [
         'src/assets/main.scss',
         'src/assets/accessibility.scss',
-        'src/components/expandedProfileShared.scss',
+        'src/features/layout/components/member-profile/expandedProfileShared.scss',
         'src/features/channel-panel/styles/channelPanel.scss',
         'src/features/channel-panel/styles/channelPanelListParticipant.scss',
         'src/features/chat/styles/messageBubble.scss',

@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 const killPort = require('kill-port');
 
 /** Backend (default), Discord bot internal server (default), Vite dev (vite.config.ts), Vite preview (frontend/package.json). */
-const DEFAULT_PORTS = [3000, 3005, 8080, 4173];
+const DEFAULT_PORTS = [3000, 3005, 8080, 4173, 3060];
 
 function collectPorts() {
   const rawList = process.env.ECHO_FREE_PORTS?.trim();

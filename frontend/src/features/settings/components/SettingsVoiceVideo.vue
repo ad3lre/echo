@@ -2,7 +2,7 @@
 import { ref, watch, onUnmounted, inject, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import EchoDropdown from '@/components/EchoDropdown.vue';
-import CameraPreview from '@/components/CameraPreview.vue';
+import CameraPreview from '@/features/voice/components/CameraPreview.vue';
 import { useMediaDevices } from '@/composables/useMediaDevices';
 import { useAudioLevelMonitor } from '@/composables/useAudioLevelMonitor';
 import { useMicTestMonitor } from '@/composables/useMicTestMonitor';

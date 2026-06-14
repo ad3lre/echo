@@ -30,7 +30,7 @@ Desktop notifications must respect [`useNotificationPreferencesStore`](../../fro
 ## Summary
 
 1. **Unread / mentions / DM activity** → `echoAttention` (+ `desktopAttentionScore`).
-2. **Open Messages / settings** → existing layout helpers + Tauri **events** from tray (`echo-desktop-tray`), handled in [`AppLayout.vue`](../../frontend/src/components/AppLayout.vue).
+2. **Open Messages / settings** → existing layout helpers + Tauri **events** from tray (`echo-desktop-tray`), handled in [`AppLayout.vue`](../../frontend/src/features/layout/components/AppLayout.vue).
 3. **Calls** → extend later from the same LiveKit / toast signals; not duplicated in Rust.
 
 **Shell-only preferences** (close-to-tray, launch at login, manual update check) live under **Settings → Desktop** ([`SettingsDesktop.vue`](../../frontend/src/features/settings/components/SettingsDesktop.vue)) and call through [`desktopBridge.ts`](../../frontend/src/platform/desktopBridge.ts); they do not change attention rules.

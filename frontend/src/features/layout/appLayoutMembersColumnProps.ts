@@ -2,7 +2,7 @@ import type { ChannelSummary, MessageWithAuthor } from '@shared/types';
 import type { FilterChip, FilterKey, HasType } from '@/composables/useSearch';
 import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import type { MemberRole, PopoutAnchorRect } from '@/utils/memberProfiles';
-import type { MemberRoleManagementSpec } from '@/components/MemberList.vue';
+import type { MemberRoleManagementSpec } from '@/features/layout/components/MemberList.vue';
 
 /** Props / inject bundle for [`AppLayoutMembersColumn.vue`](./components/AppLayoutMembersColumn.vue). */
 export type AppLayoutMembersColumnProps = {

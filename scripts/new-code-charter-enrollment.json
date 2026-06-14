@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-06-13",
+  "enrolledAt": "2026-06-14",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -13,29 +13,11 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
-    "frontend/src/audio/voiceData/hangman.ts": {
-      "lines": 297,
-      "longestFunction": 84,
-      "deepNestingLines": 0,
-      "maxNestingSpaces": 10
-    },
     "frontend/src/audio/voiceData/skriggles.ts": {
       "lines": 642,
       "longestFunction": 120,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
-    },
-    "frontend/src/components/MoreServersCardStack.vue": {
-      "lines": 529,
-      "longestFunction": 7,
-      "deepNestingLines": 0,
-      "maxNestingSpaces": 4
-    },
-    "frontend/src/components/MoreServersCompactList.vue": {
-      "lines": 589,
-      "longestFunction": 0,
-      "deepNestingLines": 0,
-      "maxNestingSpaces": 4
     },
     "frontend/src/composables/livekitVoiceRoom/connect.ts": {
       "lines": 296,
@@ -132,6 +114,24 @@
       "longestFunction": 85,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
+    },
+    "frontend/src/features/chat/slashCommands/chatSlashCommands.ts": {
+      "lines": 541,
+      "longestFunction": 166,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
+    "frontend/src/features/layout/components/MoreServersCardStack.vue": {
+      "lines": 529,
+      "longestFunction": 7,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 4
+    },
+    "frontend/src/features/layout/components/MoreServersCompactList.vue": {
+      "lines": 589,
+      "longestFunction": 0,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 4
     },
     "frontend/src/features/layout/composables/assembleAppLayoutControllerContext.ts": {
       "lines": 179,
@@ -284,8 +284,8 @@
       "maxNestingSpaces": 16
     },
     "frontend/src/features/voice/components/VcWatchTogetherLobby.vue": {
-      "lines": 626,
-      "longestFunction": 67,
+      "lines": 884,
+      "longestFunction": 68,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
     },
@@ -320,8 +320,8 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/services/livekit/livekitVoiceDataChannel.ts": {
-      "lines": 545,
-      "longestFunction": 165,
+      "lines": 509,
+      "longestFunction": 141,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -362,8 +362,8 @@
       "maxNestingSpaces": 8
     },
     "backend/src/services/chatRemoteImageImport.ts": {
-      "lines": 288,
-      "longestFunction": 140,
+      "lines": 294,
+      "longestFunction": 143,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },

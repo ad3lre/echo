@@ -6,14 +6,15 @@ import {
   onUnmounted,
   provide,
   ref,
+  watch,
 } from 'vue';
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
 import { PLATFORM_KEY } from '@/platform/keys';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useAppBootGate } from '@/features/layout/composables/useAppBootGate';
 import { ENABLE_NUMBERED_ICON_RENAME_TOOL } from '@/dev/echoDevTools';
-import AppLayoutLoadError from '@/components/AppLayoutLoadError.vue';
-import AppLayoutSplash from '@/components/AppLayoutSplash.vue';
+import AppLayoutLoadError from '@/features/layout/components/AppLayoutLoadError.vue';
+import AppLayoutSplash from '@/features/layout/components/AppLayoutSplash.vue';
 import EchoHoverHintsHost from '@/components/EchoHoverHintsHost.vue';
 import {
   APP_BOOT_GATE_FAST_REVEAL_MS,
@@ -22,6 +23,10 @@ import {
 } from '@/config/appLoadUi';
 import { useAppBootStallWatcher } from '@/observability/appBootStallWatcher';
 import { prefetchAppLayoutChunk } from '@/services/appLayoutChunkPrefetch';
+import {
+  isPerfHarnessEnabled,
+  perfHarnessMarkBootWorkspaceSettled,
+} from '@/observability/perfHarness';
 import {
   normalizePathname,
   parseLegalDocPath,
@@ -68,9 +73,7 @@ const LegalDocStandaloneView = defineAsyncComponent({
 /** Lazy-loaded only when enabled; avoids parsing/network for the modal when `false`. */
 const NumberedIconRenameDevModal =
   import.meta.env.DEV && ENABLE_NUMBERED_ICON_RENAME_TOOL
-    ? defineAsyncComponent(
-        () => import('@/components/IconNumberedRenameDevModal.vue'),
-      )
+    ? defineAsyncComponent(() => import('@/dev/IconNumberedRenameDevModal.vue'))
     : null;
 
 const echoPlatform = getEchoPlatform();
@@ -139,6 +142,16 @@ useAppBootStallWatcher({
   bootGateFastRevealMs: APP_BOOT_GATE_FAST_REVEAL_MS,
   hasSession: hasSessionAtBoot,
 });
+
+watch(
+  () => workspace.initialLoadSettled.value,
+  (settled) => {
+    if (settled && isPerfHarnessEnabled()) {
+      perfHarnessMarkBootWorkspaceSettled();
+    }
+  },
+  { immediate: true },
+);
 
 function authShellFromLocation(): null | 'reset' | 'forgot' | 'verify-email' {
   if (typeof window === 'undefined') return null;

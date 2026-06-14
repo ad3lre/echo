@@ -68,7 +68,7 @@ import {
   normalizeEmail,
 } from '@/utils/accountValidation';
 import LegalDocsModal from '@/components/LegalDocsModal.vue';
-import AuthAlertModal from '@/components/auth/AuthAlertModal.vue';
+import AuthAlertModal from '@/features/auth/components/AuthAlertModal.vue';
 
 const props = withDefaults(
   defineProps<{

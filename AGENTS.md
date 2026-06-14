@@ -1,6 +1,7 @@
 # Agent / contributor charter
 
-Canonical rules: **[docs/overview/agents.md](./docs/overview/agents.md)**.
+Canonical rules: **[docs/overview/agents.md](./docs/overview/agents.md)**.  
+**Frontend file placement:** **[docs/overview/code-placement.md](./docs/overview/code-placement.md)** (P1 SSOT; program: [p1-code-placement-program.md](./docs/overview/p1-code-placement-program.md)).
 
 ## GitHub vs GitLab (hard rule)
 

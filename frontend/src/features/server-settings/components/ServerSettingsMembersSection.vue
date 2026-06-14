@@ -7,7 +7,7 @@ import { memberRoleIconImgSrc } from '@/utils/memberRoleIconDisplay';
 import { selectPresence } from '@/services/domain/presence';
 import { copyToClipboard } from '@/utils/copyToClipboard';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
-import ServerOwnerCrownIcon from '@/components/ServerOwnerCrownIcon.vue';
+import ServerOwnerCrownIcon from '@/features/layout/components/ServerOwnerCrownIcon.vue';
 
 export type ServerSettingsMemberRow = {
   id: string;

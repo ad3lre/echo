@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import type { EmojiCategory, EmojiEntry } from '@/composables/useEmojiData';
-import GifImage from '@/components/chat/GifImage.vue';
+import GifImage from '@/features/chat/components/GifImage.vue';
 import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
 import { getTwemojiSrc } from '@/utils/twemoji';
 

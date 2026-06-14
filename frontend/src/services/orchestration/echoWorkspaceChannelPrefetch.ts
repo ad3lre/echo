@@ -1,8 +1,12 @@
 import type { EchoApiMessage } from '@/api/echo/messages';
 import { fetchEchoChannelMessages } from '@/api/echoClient';
 import type { EchoWorkspaceState } from '@/api/echoClient';
-import { ECHO_CHANNEL_MESSAGE_PAGE_SIZE } from '@/constants/echoHistoryPageSize';
+import {
+  ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+  ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+} from '@/constants/echoHistoryPageSize';
 import { firstTextChannelIdFromCategories } from '@/composables/workspace/utils';
+import { parseAppPathname } from '@/features/layout/urlNavigation';
 import { isEchoGraphId } from '@/utils/echoIds';
 import {
   readLastVisitedGuildId,
@@ -126,13 +130,16 @@ export function resolveWorkspaceBootstrapTextChannelIds(
 }
 
 /**
- * Apply bootstrap prefetch for a channel. Empty buckets get a full first page;
+ * Apply bootstrap prefetch for a channel. Empty buckets get a first page;
  * non-empty buckets only gain rows missing locally so a slow/stale prefetch cannot
  * replace fresher history from `loadHistory` or realtime (messages vanishing on refresh).
+ * `pageLimit` is the size the page was fetched with, so `hasMoreOlder` stays correct
+ * for a smaller first page (defaults to the full page size).
  */
 export function applyPrefetchedWorkspaceChannelMessages(
   channelId: string,
   apiMessages: EchoApiMessage[],
+  pageLimit: number = ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
 ): void {
   const raw = mapEchoMessagesToRaw(apiMessages);
   sortRawMessagesInPlace(raw);
@@ -145,6 +152,7 @@ export function applyPrefetchedWorkspaceChannelMessages(
       raw,
       apiMessages.length,
       activeChannelId,
+      pageLimit,
     );
     return;
   }
@@ -194,9 +202,13 @@ export async function prefetchChannelMessagesFirstPage(
   prefetchInFlight.add(cid);
   try {
     const { messages: apiMsgs } = await fetchEchoChannelMessages(token, cid, {
-      limit: ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+      limit: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
     });
-    applyPrefetchedWorkspaceChannelMessages(cid, apiMsgs);
+    applyPrefetchedWorkspaceChannelMessages(
+      cid,
+      apiMsgs,
+      ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+    );
     return true;
   } catch (e) {
     if (isPrefetchPermissionDeniedError(e)) return false;
@@ -238,6 +250,45 @@ export function prefetchWorkspaceBootstrapTextChannelsNonBlocking(
       ),
     );
   })();
+}
+
+/**
+ * Resolve the channel named by an inbound app URL (`/channels/{server}/{channel}`
+ * or a DM thread), or '' if the path is not a channel/DM-thread route.
+ */
+export function inboundUrlChannelId(pathname: string, base: string): string {
+  let parsed;
+  try {
+    parsed = parseAppPathname(pathname, base);
+  } catch {
+    return '';
+  }
+  const channelId =
+    parsed.kind === 'guild' || parsed.kind === 'dm_thread'
+      ? parsed.channelId.trim()
+      : '';
+  return channelId && isEchoGraphId(channelId) ? channelId : '';
+}
+
+/**
+ * Cold-boot waterfall collapse: prefetch the first page for the channel named in
+ * the inbound URL, in PARALLEL with the `/workspace` fetch (both only need the
+ * token). By the time the workspace settles and the channel is selected,
+ * `loadHistory` is a cache hit instead of a cold round-trip that can only start
+ * *after* `/workspace` returns. Best-effort and non-blocking; safe to call before
+ * the workspace exists (unlike the bootstrap prefetch, which needs resolved state).
+ */
+export function prefetchInboundUrlChannelFirstPage(
+  token: string,
+  pathname: string,
+  base: string,
+): void {
+  if (!token.trim()) return;
+  const channelId = inboundUrlChannelId(pathname, base);
+  if (!channelId) return;
+  void prefetchChannelMessagesFirstPage(token, channelId, {
+    flow: 'bootUrlChannelPrefetch',
+  });
 }
 
 export function _resetChannelMessagePrefetchForTesting(): void {

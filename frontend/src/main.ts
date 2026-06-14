@@ -18,7 +18,10 @@ import { hydrateBootThemeAndPreferences } from '@/utils/bootThemeHydration';
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
 import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { EchoWorkspaceState } from '@/api/echoClient';
-import { prefetchWorkspaceBootstrapTextChannelsNonBlocking } from '@/services/orchestration/echoWorkspaceChannelPrefetch';
+import {
+  prefetchInboundUrlChannelFirstPage,
+  prefetchWorkspaceBootstrapTextChannelsNonBlocking,
+} from '@/services/orchestration/echoWorkspaceChannelPrefetch';
 import {
   readJwtSub,
   readWorkspaceSessionCache,
@@ -78,6 +81,9 @@ import {
 } from '@/platform/iosNativeFeedback';
 import { prefetchAppLayoutChunk } from '@/services/appLayoutChunkPrefetch';
 import { reportClientEnvironmentOnce } from '@/observability/reportClientEnvironment';
+import { initPerfHarness } from '@/observability/perfHarness';
+
+initPerfHarness();
 
 ensureEchoBrandFavicon();
 markIosNativeShell();
@@ -274,6 +280,13 @@ async function bootstrap() {
    */
   try {
     const preToken = authSessionStore.accessToken?.trim() || '';
+    /* Cold-boot waterfall collapse: prefetch the URL's channel in parallel with
+     * /workspace so it is a loadHistory cache hit by the time it is selected. */
+    prefetchInboundUrlChannelFirstPage(
+      preToken,
+      window.location.pathname,
+      import.meta.env.BASE_URL || '/',
+    );
     const preSub = preToken ? readJwtSub(preToken) : null;
     if (preSub) {
       const preCache = readWorkspaceSessionCache(preSub);

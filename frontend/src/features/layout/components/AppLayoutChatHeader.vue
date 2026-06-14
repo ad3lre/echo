@@ -10,11 +10,11 @@ import {
   type Ref,
 } from 'vue';
 import type { MainSurface } from '@/features/layout/mainSurface';
-import SearchBar from '@/components/chat/SearchBar.vue';
-import MobileSearchModal from '@/components/chat/MobileSearchModal.vue';
+import SearchBar from '@/features/chat/components/SearchBar.vue';
+import MobileSearchModal from '@/features/chat/components/MobileSearchModal.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import StatusIndicator from '@/components/StatusIndicator.vue';
-import CallRingtoneControls from '@/components/CallRingtoneControls.vue';
+import CallRingtoneControls from '@/features/voice/components/CallRingtoneControls.vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { selectPresence } from '@/services/domain/presence';
 import { parseEmojiIconKey } from '@/assets/icons';
@@ -35,7 +35,7 @@ import type {
 } from '@/features/layout/regionAdapters';
 import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRoom';
 import type { RemoteTrack } from 'livekit-client';
-import StreamVideoTile from '@/components/StreamVideoTile.vue';
+import StreamVideoTile from '@/features/voice/components/StreamVideoTile.vue';
 import QuarterCallMediaBadges from '@/features/layout/components/QuarterCallMediaBadges.vue';
 import { quarterCallMediaBadgesTitle } from '@/features/voice/voiceIndicatorHints';
 import {

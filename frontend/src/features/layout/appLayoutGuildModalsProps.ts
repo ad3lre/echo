@@ -1,7 +1,7 @@
 import type {
   CreateChannelCategoryOption,
   CreateChannelModalSubmitPayload,
-} from '@/components/CreateChannelModal.vue';
+} from '@/features/channel-panel/components/CreateChannelModal.vue';
 import type { ServerNotificationLevel } from '@/features/server-notifications/types';
 import type {
   CategorySettingsSnapshot,

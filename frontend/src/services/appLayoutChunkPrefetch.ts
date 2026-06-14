@@ -1,4 +1,5 @@
-type AppLayoutModule = typeof import('@/components/AppLayout.vue');
+type AppLayoutModule =
+  typeof import('@/features/layout/components/AppLayout.vue');
 
 let appLayoutImportPromise: Promise<AppLayoutModule> | null = null;
 
@@ -9,7 +10,8 @@ let appLayoutImportPromise: Promise<AppLayoutModule> | null = null;
  */
 export function prefetchAppLayoutChunk(): Promise<AppLayoutModule> {
   if (!appLayoutImportPromise) {
-    appLayoutImportPromise = import('@/components/AppLayout.vue');
+    appLayoutImportPromise =
+      import('@/features/layout/components/AppLayout.vue');
   }
   return appLayoutImportPromise;
 }

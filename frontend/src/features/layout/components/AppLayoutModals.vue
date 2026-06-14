@@ -20,46 +20,52 @@ import {
 } from '@/utils/memberProfiles';
 
 const AddServerModal = defineAsyncComponent(
-  () => import('@/components/AddServerModal.vue'),
+  () => import('@/features/server-settings/components/AddServerModal.vue'),
 );
 const InviteUsersModal = defineAsyncComponent(
-  () => import('@/components/InviteUsersModal.vue'),
+  () => import('@/features/server-settings/components/InviteUsersModal.vue'),
 );
 const ServerSettingsModal = defineAsyncComponent(
-  () => import('@/components/ServerSettingsModal.vue'),
+  () => import('@/features/server-settings/components/ServerSettingsModal.vue'),
 );
 const GroupDMSettingsModal = defineAsyncComponent(
-  () => import('@/components/GroupDMSettingsModal.vue'),
+  () => import('@/features/dm/components/GroupDMSettingsModal.vue'),
 );
 const GroupDMCreateModal = defineAsyncComponent(
-  () => import('@/components/GroupDMCreateModal.vue'),
+  () => import('@/features/dm/components/GroupDMCreateModal.vue'),
 );
 const SettingsModal = defineAsyncComponent(
-  () => import('@/components/SettingsModal.vue'),
+  () => import('@/features/settings/components/SettingsModal.vue'),
 );
 const MemberProfilePopout = defineAsyncComponent(
-  () => import('@/components/MemberProfilePopout.vue'),
+  () =>
+    import('@/features/layout/components/member-profile/MemberProfilePopout.vue'),
 );
 const SelfProfilePopout = defineAsyncComponent(
-  () => import('@/components/SelfProfilePopout.vue'),
+  () =>
+    import('@/features/layout/components/member-profile/SelfProfilePopout.vue'),
 );
 const ExpandedProfileModal = defineAsyncComponent(
-  () => import('@/components/ExpandedProfileModal.vue'),
+  () =>
+    import('@/features/layout/components/member-profile/ExpandedProfileModal.vue'),
 );
 const LoginRegisterModal = defineAsyncComponent(
-  () => import('@/components/LoginRegisterModal.vue'),
+  () => import('@/features/auth/components/LoginRegisterModal.vue'),
 );
 const ModerationActionModal = defineAsyncComponent(
-  () => import('@/components/ModerationActionModal.vue'),
+  () => import('@/features/safety/components/ModerationActionModal.vue'),
 );
 const LeaveServerConfirmModal = defineAsyncComponent(
-  () => import('@/components/LeaveServerConfirmModal.vue'),
+  () =>
+    import('@/features/server-settings/components/LeaveServerConfirmModal.vue'),
 );
 const JoinServerConfirmModal = defineAsyncComponent(
-  () => import('@/components/JoinServerConfirmModal.vue'),
+  () =>
+    import('@/features/server-settings/components/JoinServerConfirmModal.vue'),
 );
 const ServerApplicationModal = defineAsyncComponent(
-  () => import('@/components/ServerApplicationModal.vue'),
+  () =>
+    import('@/features/server-settings/components/ServerApplicationModal.vue'),
 );
 const EventDetailModal = defineAsyncComponent(
   () => import('@/features/server-events/components/EventDetailModal.vue'),
@@ -145,10 +151,10 @@ const expandedProfileIntents = computed(
 
 function warmCommonModalChunks(): void {
   void Promise.allSettled([
-    import('@/components/SettingsModal.vue'),
-    import('@/components/SelfProfilePopout.vue'),
-    import('@/components/MemberProfilePopout.vue'),
-    import('@/components/ServerSettingsModal.vue'),
+    import('@/features/settings/components/SettingsModal.vue'),
+    import('@/features/layout/components/member-profile/SelfProfilePopout.vue'),
+    import('@/features/layout/components/member-profile/MemberProfilePopout.vue'),
+    import('@/features/server-settings/components/ServerSettingsModal.vue'),
   ]);
 }
 

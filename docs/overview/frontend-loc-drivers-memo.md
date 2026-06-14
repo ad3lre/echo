@@ -1,5 +1,7 @@
 # Frontend LOC drivers memo (2026-05-14)
 
+> **Path note (2026-06):** P1 code placement moved feature UI from `components/` to `features/<domain>/`. Paths in the tables below are the **May 2026 snapshot**; current homes: [code-placement.md](./code-placement.md). `components/` is now **10 primitives only**.
+
 Companion to [`frontend-typescript-bloat-audit.md`](./frontend-typescript-bloat-audit.md): that document ties **gzip / chunks** to hotspots; this memo ties **raw line counts** under `frontend/src` to **maintainability** and a **safe reduction path**.
 
 ## Methodology

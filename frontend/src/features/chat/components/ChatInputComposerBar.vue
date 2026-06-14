@@ -12,9 +12,12 @@ import type {
 } from '@/composables/useMentionAutocomplete';
 import type { useChannelAutocomplete } from '@/composables/useChannelAutocomplete';
 import type { useEmojiAutocomplete } from '@/composables/useEmojiAutocomplete';
-import EmojiAutocompletePopover from '@/components/chat/EmojiAutocompletePopover.vue';
-import MentionAutocompletePopover from '@/components/chat/MentionAutocompletePopover.vue';
-import ChannelAutocompletePopover from '@/components/chat/ChannelAutocompletePopover.vue';
+import type { useSlashCommandAutocomplete } from '@/composables/useSlashCommandAutocomplete';
+import EmojiAutocompletePopover from '@/features/chat/components/EmojiAutocompletePopover.vue';
+import MentionAutocompletePopover from '@/features/chat/components/MentionAutocompletePopover.vue';
+import ChannelAutocompletePopover from '@/features/chat/components/ChannelAutocompletePopover.vue';
+import SlashCommandAutocompletePopover from '@/features/chat/components/SlashCommandAutocompletePopover.vue';
+import type { ChatSlashCommand } from '@/features/chat/slashCommands/chatSlashCommands';
 import {
   INLINE_MARKDOWN_PREVIEW_UI_ENABLED,
   type MarkdownPreviewMenuMode,
@@ -26,15 +29,18 @@ const props = defineProps<{
   showMentionAutocomplete: boolean;
   showChannelAutocomplete: boolean;
   showEmojiAutocomplete: boolean;
+  showSlashCommandAutocomplete: boolean;
   mentionAutocomplete: ReturnType<typeof useMentionAutocomplete>;
   channelAutocomplete: ReturnType<typeof useChannelAutocomplete>;
   emojiAutocomplete: ReturnType<typeof useEmojiAutocomplete>;
+  slashCommandAutocomplete: ReturnType<typeof useSlashCommandAutocomplete>;
   handleMentionAutocompleteSelect: (option: MentionOption) => void;
   handleChannelAutocompleteSelect: (option: {
     id: string;
     name: string;
   }) => void;
   handleEmojiAutocompleteSelect: (emoji: string) => void;
+  handleSlashCommandAutocompleteSelect: (command: ChatSlashCommand) => void;
   activePopout: 'emoji' | 'gif' | 'attach' | null;
   togglePopout: (kind: 'emoji' | 'gif' | 'attach') => void;
   allSpoilers: boolean;
@@ -328,6 +334,14 @@ defineExpose({
         :selected-index="emojiAutocomplete.selectedIndex"
         :theme="props.popoutTheme ?? 'default'"
         @select="handleEmojiAutocompleteSelect"
+      />
+    </div>
+    <div v-if="showSlashCommandAutocomplete" :class="dockClass">
+      <SlashCommandAutocompletePopover
+        :suggestions="slashCommandAutocomplete.suggestions"
+        :selected-index="slashCommandAutocomplete.selectedIndex"
+        :theme="props.popoutTheme ?? 'default'"
+        @select="handleSlashCommandAutocompleteSelect"
       />
     </div>
     <div

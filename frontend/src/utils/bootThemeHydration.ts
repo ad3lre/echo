@@ -17,6 +17,7 @@ import {
 import {
   loadAccessibilityPreferences,
   applyAccessibilityPreferences,
+  reconcileBraveSolidGlassPreference,
 } from '@/features/settings/accessibilityPreferences';
 
 /**
@@ -50,6 +51,7 @@ export function hydrateBootThemeAndPreferences(): void {
   applyInterfaceDensityToDocument(loadPersistedInterfaceDensity());
   const bootA11yPrefs = loadAccessibilityPreferences();
   applyAccessibilityPreferences(bootA11yPrefs);
+  void reconcileBraveSolidGlassPreference();
   if (bootA11yPrefs.dyslexiaFriendlyFont) {
     void import('@fontsource/atkinson-hyperlegible/latin-400.css');
     void import('@fontsource/atkinson-hyperlegible/latin-400-italic.css');

@@ -1,8 +1,15 @@
+import {
+  isBraveBrowserSyncHint,
+  isBraveBrowser,
+} from '@/platform/browserCompatibility';
+
 export interface AccessibilityPreferences {
   reducedMotion: boolean;
   highContrast: boolean;
   showMessageSpacing: boolean;
   dyslexiaFriendlyFont: boolean;
+  /** Replace blur-based liquid glass with opaque surfaces (readability / weak compositors). */
+  solidGlassSurfaces: boolean;
   fontScale: number;
 }
 
@@ -13,6 +20,7 @@ const DEFAULTS: AccessibilityPreferences = {
   highContrast: false,
   showMessageSpacing: true,
   dyslexiaFriendlyFont: false,
+  solidGlassSurfaces: false,
   fontScale: 100,
 };
 
@@ -31,6 +39,13 @@ function readStored(): Partial<AccessibilityPreferences> {
   } catch {
     return {};
   }
+}
+
+function resolveSolidGlassSurfacesDefault(
+  stored: Partial<AccessibilityPreferences>,
+): boolean {
+  if (isBool(stored.solidGlassSurfaces)) return stored.solidGlassSurfaces;
+  return isBraveBrowserSyncHint() ? true : DEFAULTS.solidGlassSurfaces;
 }
 
 export function loadAccessibilityPreferences(): AccessibilityPreferences {
@@ -53,9 +68,28 @@ export function loadAccessibilityPreferences(): AccessibilityPreferences {
     dyslexiaFriendlyFont: isBool(s.dyslexiaFriendlyFont)
       ? s.dyslexiaFriendlyFont
       : DEFAULTS.dyslexiaFriendlyFont,
+    solidGlassSurfaces: resolveSolidGlassSurfacesDefault(s),
     fontScale,
   };
   return cached;
+}
+
+/**
+ * When Brave is detected asynchronously and the user has not chosen solid-glass
+ * explicitly, enable it and persist so later loads stay consistent.
+ */
+export async function reconcileBraveSolidGlassPreference(): Promise<void> {
+  const stored = readStored();
+  if (isBool(stored.solidGlassSurfaces)) return;
+
+  if (!(await isBraveBrowser())) return;
+
+  const prefs = loadAccessibilityPreferences();
+  if (prefs.solidGlassSurfaces) return;
+
+  cached = null;
+  const updated = saveAccessibilityPreferences({ solidGlassSurfaces: true });
+  applyAccessibilityPreferences(updated);
 }
 
 export function saveAccessibilityPreferences(
@@ -81,6 +115,9 @@ export function saveAccessibilityPreferences(
     dyslexiaFriendlyFont: isBool(next.dyslexiaFriendlyFont)
       ? next.dyslexiaFriendlyFont
       : current.dyslexiaFriendlyFont,
+    solidGlassSurfaces: isBool(next.solidGlassSurfaces)
+      ? next.solidGlassSurfaces
+      : current.solidGlassSurfaces,
     fontScale,
   };
   if (typeof localStorage !== 'undefined') {
@@ -116,5 +153,6 @@ export function applyAccessibilityPreferences(
   root.dataset['echoHighContrast'] = prefs.highContrast ? '1' : '0';
   root.dataset['echoDyslexiaFont'] = prefs.dyslexiaFriendlyFont ? '1' : '0';
   root.dataset['echoMessageSpacing'] = prefs.showMessageSpacing ? '1' : '0';
+  root.dataset['echoSolidGlass'] = prefs.solidGlassSurfaces ? '1' : '0';
   root.style.setProperty('--echo-font-scale', `${prefs.fontScale / 100}`);
 }

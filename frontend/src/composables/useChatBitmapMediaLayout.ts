@@ -12,8 +12,8 @@ import {
 
 type LayoutOptions = {
   url: Ref<string>;
-  metadataWidth?: Ref<number | undefined>;
-  metadataHeight?: Ref<number | undefined>;
+  metadataWidth?: Ref<number | null | undefined>;
+  metadataHeight?: Ref<number | null | undefined>;
   imageStyle?: Ref<StyleValue | undefined>;
   maxWidth?: string;
 };

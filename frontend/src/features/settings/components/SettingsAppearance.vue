@@ -7,7 +7,7 @@ import {
   type EchoActionRailPlacementId,
   type EchoThemeId,
 } from '@/utils/theme';
-import ActionRailPlacementVisualPicker from '@/components/ActionRailPlacementVisualPicker.vue';
+import ActionRailPlacementVisualPicker from '@/features/layout/components/ActionRailPlacementVisualPicker.vue';
 import type { SettingsForm } from '@/features/settings/composables/useSettingsForm';
 
 interface ThemeOption {

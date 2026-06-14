@@ -20,3 +20,8 @@ export {
   useEmojiSuggestable,
   type EmojiSuggestableOptions,
 } from '@/suggestables/adapters/emojiSuggestable';
+export {
+  createSlashCommandSuggestableConfig,
+  useSlashCommandSuggestable,
+  type SlashCommandSuggestableOptions,
+} from '@/suggestables/adapters/slashCommandSuggestable';

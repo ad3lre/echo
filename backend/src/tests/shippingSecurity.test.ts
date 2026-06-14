@@ -65,7 +65,10 @@ function isTrackedRuntimeEnvFile(file: string): boolean {
   const normalized = file.replace(/\\/g, '/');
   const name = normalized.split('/').pop() ?? '';
   return (
-    name === '.env' || (name.startsWith('.env.') && name !== '.env.example')
+    name === '.env' ||
+    (name.startsWith('.env.') &&
+      name !== '.env.example' &&
+      !name.endsWith('.example'))
   );
 }
 

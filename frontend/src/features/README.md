@@ -1,6 +1,6 @@
 # Frontend Feature Modules
 
-This directory is the target home for feature-first modularization.
+This directory is the **home for all feature-owned code**. See **[docs/overview/code-placement.md](../../docs/overview/code-placement.md)** for the full rule set and **[docs/overview/p1-code-placement-program.md](../../docs/overview/p1-code-placement-program.md)** for the migration program.
 
 ## Purpose
 
@@ -12,9 +12,10 @@ This directory is the target home for feature-first modularization.
 
 - `features/<feature>/composables`: feature orchestration and view-model logic.
 - `features/<feature>/components`: feature-specific UI.
-- `features/<feature>/store`: feature-scoped Pinia stores (if needed).
+- `features/<feature>/stores`: feature-scoped Pinia stores (if needed).
 - `features/<feature>/services`: API/domain command wrappers.
 - `features/<feature>/types`: feature-local types that are not shared contracts.
+- `features/<feature>/index.ts`: public re-exports.
 
 ## Import Rules
 
@@ -26,10 +27,10 @@ This directory is the target home for feature-first modularization.
 - Feature modules should not directly import internals from other feature modules.
 - Cross-feature coordination should happen in app-level composition layers.
 
-## Migration Notes
+## Migration
 
-- Existing `components/*` and `composables/*` remain valid during migration.
-- New extraction work should prefer creating feature modules here.
+- **P1 complete (2026-06):** all feature UI now lives under `features/<domain>/`. `components/` is primitives-only (see [code-placement.md](../../docs/overview/code-placement.md)).
+- **New work must land under `features/<domain>/`**, not `components/`.
 - Keep behavior unchanged while moving logic from large orchestrator files.
 
 ## File Size Guardrails

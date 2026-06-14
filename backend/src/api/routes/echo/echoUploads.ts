@@ -35,13 +35,23 @@ import {
   presignEchoUpload,
   isEchoS3UploadConfigured,
 } from '../../../services/s3UploadPresign';
-import { resolveEchoUploadStorageKey } from '../../../services/echoUploadResolveDest';
+import {
+  canUserUploadToEchoChannel,
+  resolveEchoUploadStorageKey,
+} from '../../../services/echoUploadResolveDest';
 import {
   addVcWatchTogetherSessionBytes,
   assertVcWatchTogetherSessionQuota,
   isVcWatchTogetherStorageKey,
   releaseVcWatchTogetherSessionBytes,
 } from '../../../services/vcWatchTogetherSessions';
+import { listVcWatchTogetherUploadLibrary } from '../../../services/vcWatchTogetherLibrary';
+import {
+  claimVcWatchTogetherChannelHost,
+  getVcWatchTogetherChannelHost,
+  releaseVcWatchTogetherChannelHost,
+} from '../../../services/vcWatchTogetherChannelHost';
+import { parseVcWatchTogetherStorageKey } from '../../../../../shared/echoUploadStorageKey';
 import {
   getLocalUploadPublicPathPrefix,
   resolveLocalUploadFilePath,
@@ -282,10 +292,15 @@ async function canUserReadLocalUploadStorageKey(
     return canUserAccessChannel(pool, userId, channelId);
   }
   if (key.startsWith('echo/vc-watch/')) {
-    const parts = key.split('/');
-    const channelId = parts[2]?.trim();
-    if (!channelId) return false;
-    return canUserAccessChannel(pool, userId, channelId);
+    const parsed = parseVcWatchTogetherStorageKey(key);
+    if (!parsed) return false;
+    if (parsed.ownerUserId === userId) return true;
+    if (parsed.kind === 'legacy') {
+      if (await canUserAccessChannel(pool, userId, parsed.channelId)) {
+        return true;
+      }
+    }
+    return echoUsersShareAnyServer(pool, userId, parsed.ownerUserId);
   }
   if (key.startsWith('echo/bug-reports/')) {
     const parts = key.split('/');
@@ -770,6 +785,28 @@ export default async function echoUploadsRoutes(
             400,
             'INVALID_BODY',
             'sessionId required for vc_watch_together presign',
+          );
+        }
+        if (!channelId) {
+          return sendError(
+            reply,
+            400,
+            'INVALID_BODY',
+            'channelId required for vc_watch_together presign',
+          );
+        }
+        const hostClaim = await claimVcWatchTogetherChannelHost(pool, {
+          channelId,
+          hostUserId: userId,
+          sessionId,
+        });
+        if (!hostClaim.ok) {
+          return sendError(
+            reply,
+            409,
+            'WATCH_TOGETHER_HOST_TAKEN',
+            'Another user is already hosting Watch Together in this channel',
+            hostClaim.hostUserId,
           );
         }
         if (
@@ -1419,6 +1456,185 @@ export default async function echoUploadsRoutes(
 
   type EchoVideoPlaybackQuery = { url?: string };
 
+  fastify.get<{ Querystring: { limit?: string } }>(
+    '/uploads/vc-watch-together/library',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const userId = getAuthUser(req).id;
+      const ent = await getEchoEntitlements(pool, userId);
+      if (ent.plan === 'free') {
+        return sendError(
+          reply,
+          403,
+          'ECHO_PLUS_REQUIRED',
+          'Echo+ is required to host Watch Together uploads',
+        );
+      }
+      const limitRaw =
+        typeof req.query.limit === 'string' ? req.query.limit.trim() : '';
+      const limit = limitRaw ? Number(limitRaw) : undefined;
+      const items = await listVcWatchTogetherUploadLibrary(pool, {
+        userId,
+        limit: Number.isFinite(limit) ? limit : undefined,
+      });
+      return reply
+        .code(200)
+        .header('Cache-Control', 'private, no-store')
+        .send({ items });
+    },
+  );
+
+  fastify.get<{ Querystring: { channelId?: string } }>(
+    '/uploads/vc-watch-together/channel-host',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const channelId =
+        typeof req.query.channelId === 'string'
+          ? req.query.channelId.trim()
+          : '';
+      if (!channelId) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'channelId query required',
+        );
+      }
+      const userId = getAuthUser(req).id;
+      if (!(await canUserAccessChannel(pool, userId, channelId))) {
+        return sendError(reply, 403, 'FORBIDDEN', 'Cannot access this channel');
+      }
+      const host = await getVcWatchTogetherChannelHost(pool, channelId);
+      return reply
+        .code(200)
+        .header('Cache-Control', 'private, no-store')
+        .send({
+          hostUserId: host?.hostUserId ?? null,
+          sessionId: host?.sessionId ?? null,
+        });
+    },
+  );
+
+  fastify.post<{
+    Body: { channelId?: string; sessionId?: string };
+  }>(
+    '/uploads/vc-watch-together/claim-host',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      bodyLimit: 4096,
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const userId = getAuthUser(req).id;
+      const channelId =
+        typeof req.body?.channelId === 'string'
+          ? req.body.channelId.trim()
+          : '';
+      const sessionId =
+        typeof req.body?.sessionId === 'string'
+          ? req.body.sessionId.trim()
+          : '';
+      if (!channelId || !sessionId) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'channelId and sessionId required',
+        );
+      }
+      const ent = await getEchoEntitlements(pool, userId);
+      if (ent.plan === 'free') {
+        return sendError(
+          reply,
+          403,
+          'ECHO_PLUS_REQUIRED',
+          'Echo+ is required to host Watch Together uploads',
+        );
+      }
+      if (!(await canUserUploadToEchoChannel(pool, userId, channelId))) {
+        return sendError(
+          reply,
+          403,
+          'FORBIDDEN',
+          'Cannot host Watch Together in this channel',
+        );
+      }
+      const claim = await claimVcWatchTogetherChannelHost(pool, {
+        channelId,
+        hostUserId: userId,
+        sessionId,
+      });
+      if (!claim.ok) {
+        return sendError(
+          reply,
+          409,
+          'WATCH_TOGETHER_HOST_TAKEN',
+          'Another user is already hosting Watch Together in this channel',
+          claim.hostUserId,
+        );
+      }
+      return reply.code(204).send();
+    },
+  );
+
+  fastify.post<{ Body: { channelId?: string } }>(
+    '/uploads/vc-watch-together/release-host',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      bodyLimit: 4096,
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const userId = getAuthUser(req).id;
+      const channelId =
+        typeof req.body?.channelId === 'string'
+          ? req.body.channelId.trim()
+          : '';
+      if (!channelId) {
+        return sendError(reply, 400, 'INVALID_BODY', 'channelId required');
+      }
+      await releaseVcWatchTogetherChannelHost(pool, {
+        channelId,
+        hostUserId: userId,
+      });
+      return reply.code(204).send();
+    },
+  );
+
   fastify.get<{ Querystring: EchoVideoPlaybackQuery }>(
     '/uploads/video-playback',
     {
@@ -1522,6 +1738,119 @@ export default async function echoUploadsRoutes(
           format: 'progressive',
           ...base,
         });
+    },
+  );
+
+  fastify.post<{
+    Body: {
+      sessionId?: string;
+      channelId?: string;
+      byteLength?: number;
+      storageKey?: string;
+    };
+  }>(
+    '/uploads/vc-watch-together/add-bytes',
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      bodyLimit: 4096,
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          keyGenerator: authUserOrIpRateLimitKey,
+        },
+      },
+    },
+    async (req, reply) => {
+      const pool = echoPool(req);
+      const userId = getAuthUser(req).id;
+      const sessionId =
+        typeof req.body?.sessionId === 'string'
+          ? req.body.sessionId.trim()
+          : '';
+      const channelId =
+        typeof req.body?.channelId === 'string'
+          ? req.body.channelId.trim()
+          : '';
+      const storageKey =
+        typeof req.body?.storageKey === 'string'
+          ? req.body.storageKey.trim()
+          : '';
+      const byteLength =
+        typeof req.body?.byteLength === 'number' &&
+        Number.isFinite(req.body.byteLength)
+          ? Math.floor(req.body.byteLength)
+          : 0;
+      if (!sessionId || !channelId || !storageKey || byteLength < 1) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_BODY',
+          'sessionId, channelId, storageKey, and byteLength required',
+        );
+      }
+      const parsed = parseVcWatchTogetherStorageKey(storageKey);
+      if (!parsed || parsed.ownerUserId !== userId) {
+        return sendError(reply, 403, 'FORBIDDEN', 'Invalid library upload');
+      }
+      const hostClaim = await claimVcWatchTogetherChannelHost(pool, {
+        channelId,
+        hostUserId: userId,
+        sessionId,
+      });
+      if (!hostClaim.ok) {
+        return sendError(
+          reply,
+          409,
+          'WATCH_TOGETHER_HOST_TAKEN',
+          'Another user is already hosting Watch Together in this channel',
+          hostClaim.hostUserId,
+        );
+      }
+      const dedupe = await pool.query<{ byte_length: string }>(
+        `SELECT byte_length FROM echo_upload_dedupe
+         WHERE storage_key = $1 AND uploader_id = $2 AND kind = 'video'
+         LIMIT 1`,
+        [storageKey, userId],
+      );
+      const dedupeRow = dedupe.rows[0];
+      if (!dedupeRow) {
+        return sendError(reply, 404, 'NOT_FOUND', 'Upload not found');
+      }
+      const registeredBytes = Number(dedupeRow.byte_length) || 0;
+      if (registeredBytes > 0 && registeredBytes !== byteLength) {
+        return sendError(reply, 400, 'INVALID_BODY', 'byteLength mismatch');
+      }
+      const ent = await getEchoEntitlements(pool, userId);
+      if (ent.plan === 'free') {
+        return sendError(
+          reply,
+          403,
+          'ECHO_PLUS_REQUIRED',
+          'Echo+ is required to host Watch Together uploads',
+        );
+      }
+      const quota = await assertVcWatchTogetherSessionQuota(pool, {
+        sessionId,
+        hostUserId: userId,
+        channelId,
+        additionalBytes: byteLength,
+      });
+      if (!quota.ok) {
+        return sendError(
+          reply,
+          400,
+          'UPLOAD_SESSION_QUOTA',
+          `Watch Together session limit is ${ECHO_WATCH_TOGETHER_MAX_SESSION_BYTES} bytes`,
+        );
+      }
+      await addVcWatchTogetherSessionBytes(pool, {
+        sessionId,
+        hostUserId: userId,
+        channelId,
+        byteLength,
+      });
+      return reply.code(204).send();
     },
   );
 
@@ -1689,12 +2018,17 @@ export default async function echoUploadsRoutes(
       if (!result.ok) {
         return sendError(reply, result.status, result.code, result.message);
       }
-      return reply.code(200).header('Cache-Control', 'private, no-store').send({
-        url: result.url,
-        storageKey: result.storageKey,
-        mimeType: result.mimeType,
-        fileSize: result.fileSize,
-      });
+      return reply
+        .code(200)
+        .header('Cache-Control', 'private, no-store')
+        .send({
+          url: result.url,
+          storageKey: result.storageKey,
+          mimeType: result.mimeType,
+          fileSize: result.fileSize,
+          ...(result.width != null ? { width: result.width } : {}),
+          ...(result.height != null ? { height: result.height } : {}),
+        });
     },
   );
 

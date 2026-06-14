@@ -88,9 +88,11 @@ export function decodeEchoYoutubeActivity(
     ) {
       return null;
     }
+    const playlist: YoutubePlaylistEntry[] = [];
     for (const row of o.playlist) {
-      if (!row || typeof row !== 'object') return null;
-      if (typeof (row as YoutubePlaylistEntry).id !== 'string') return null;
+      if (!row || typeof row !== 'object') continue;
+      if (typeof (row as YoutubePlaylistEntry).id !== 'string') continue;
+      playlist.push(row as YoutubePlaylistEntry);
     }
     const rawYt = (o as { ytPlayback?: unknown }).ytPlayback;
     let ytPlaybackPart: { ytPlayback?: EchoYoutubePlaybackSyncV1 | null } = {};
@@ -100,7 +102,11 @@ export function decodeEchoYoutubeActivity(
       if (parsed) ytPlaybackPart = { ytPlayback: parsed };
     }
 
-    const merged = { ...o, ...ytPlaybackPart } as EchoYoutubeActivityV1 & {
+    const merged = {
+      ...o,
+      playlist,
+      ...ytPlaybackPart,
+    } as EchoYoutubeActivityV1 & {
       codenamesRoomUrl?: unknown;
     };
     if ('codenamesRoomUrl' in merged) {

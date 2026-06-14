@@ -3,114 +3,31 @@ import type {
   EchoHangmanGuessHistoryEntryV1,
 } from '@/audio/voiceEchoLiveKitData';
 
-export const VC_HANGMAN_MAX_WRONG = 6;
-export const VC_HANGMAN_MIN_LEN = 2;
-export const VC_HANGMAN_MAX_LEN = 48;
-export const VC_HANGMAN_MAX_WORDS = 6;
+/** Re-export shared pure Hangman rules (authoritative on game-server). */
+export {
+  VC_HANGMAN_MAX_WRONG,
+  VC_HANGMAN_MIN_LEN,
+  VC_HANGMAN_MAX_LEN,
+  VC_HANGMAN_MAX_WORDS,
+  validateHangmanSecretWord,
+  hangmanMaskForSecretAndGuesses,
+  computeHangmanGuessOutcome,
+  dedupeHangmanGuessedLettersPreservingOrder,
+  expectedSetterForRound,
+  mergeHangmanRoster as mergeHangmanPresenceRoster,
+} from '@shared/games/hangman/core';
 
-export type HangmanWordValidation =
-  | { ok: true; normalized: string }
-  | { ok: false; error: string };
+export type {
+  HangmanWordValidation,
+  HangmanGuessOutcome,
+} from '@shared/games/hangman/core';
 
-/** Uppercase A–Z and single ASCII spaces between words. */
-export function validateHangmanSecretWord(raw: string): HangmanWordValidation {
-  const trimmed = raw.trim().replace(/\s+/g, ' ').toUpperCase();
-  if (trimmed.length < VC_HANGMAN_MIN_LEN) {
-    return {
-      ok: false,
-      error: `At least ${VC_HANGMAN_MIN_LEN} letters total.`,
-    };
-  }
-  if (trimmed.length > VC_HANGMAN_MAX_LEN) {
-    return { ok: false, error: `At most ${VC_HANGMAN_MAX_LEN} characters.` };
-  }
-  const words = trimmed.split(' ');
-  if (words.length > VC_HANGMAN_MAX_WORDS) {
-    return {
-      ok: false,
-      error: `At most ${VC_HANGMAN_MAX_WORDS} words.`,
-    };
-  }
-  for (const w of words) {
-    if (!w.length) return { ok: false, error: 'Invalid spacing.' };
-    if (w.length > 24) {
-      return { ok: false, error: 'Each word is at most 24 letters.' };
-    }
-    if (!/^[A-Z]+$/.test(w)) {
-      return {
-        ok: false,
-        error: 'Letters A–Z only, spaces between words.',
-      };
-    }
-  }
-  return { ok: true, normalized: trimmed };
-}
-
-export function hangmanMaskForSecretAndGuesses(
-  secret: string,
-  guessed: ReadonlySet<string>,
-): string {
-  return secret
-    .split('')
-    .map((ch) => {
-      if (ch === ' ') return ' ';
-      const u = ch.toUpperCase();
-      return guessed.has(u) ? u : '_';
-    })
-    .join('');
-}
-
-export type HangmanGuessOutcome = {
-  guessedLetters: string[];
-  wrongCount: number;
-  mask: string;
-  status: 'playing' | 'won' | 'lost';
-  answerReveal: string | null;
-};
-
-export function computeHangmanGuessOutcome(opts: {
-  secret: string;
-  guessedLetters: string[];
-  letter: string;
-}): HangmanGuessOutcome | null {
-  const L = opts.letter.toUpperCase();
-  if (!/^[A-Z]$/.test(L)) return null;
-  if (opts.guessedLetters.includes(L)) return null;
-  const guessedLetters = [...opts.guessedLetters, L];
-  const secret = opts.secret;
-  const hit = secret.includes(L);
-  const prevWrong = opts.guessedLetters.filter(
-    (g) => !secret.includes(g),
-  ).length;
-  const wrongCount = hit ? prevWrong : prevWrong + 1;
-  const guessSet = new Set(guessedLetters);
-  const lastMask = hangmanMaskForSecretAndGuesses(secret, guessSet);
-  const won = !lastMask.includes('_');
-  const lost = wrongCount >= VC_HANGMAN_MAX_WRONG;
-  let status: 'playing' | 'won' | 'lost' = 'playing';
-  let answerReveal: string | null = null;
-  if (won) status = 'won';
-  else if (lost) {
-    status = 'lost';
-    answerReveal = secret;
-  }
-  return { guessedLetters, wrongCount, mask: lastMask, status, answerReveal };
-}
-
-/** First occurrence wins — matches deduped {@link dedupeHangmanGuessedLettersPreservingOrder}. */
-export function dedupeHangmanGuessedLettersPreservingOrder(
-  raw: readonly string[],
-): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const x of raw) {
-    const u = String(x).toUpperCase();
-    if (!/^[A-Z]$/.test(u) || seen.has(u)) continue;
-    seen.add(u);
-    out.push(u);
-  }
-  return out;
-}
+import {
+  alignHangmanGuessHistoryToLetters as alignShared,
+  dedupeHangmanGuessedLettersPreservingOrder,
+  expectedSetterForRound,
+  mergeHangmanRoster,
+} from '@shared/games/hangman/core';
 
 /** Map first history row per letter onto deduped guess order (empty userId = unknown). */
 export function alignHangmanGuessHistoryToLetters(
@@ -118,45 +35,25 @@ export function alignHangmanGuessHistoryToLetters(
   rawHistory: unknown,
   rosterSorted: readonly string[],
 ): EchoHangmanGuessHistoryEntryV1[] {
-  const roster = new Set(
-    rosterSorted.map((x) => String(x).trim()).filter(Boolean),
-  );
-  const firstByLetter = new Map<string, EchoHangmanGuessHistoryEntryV1>();
+  let parsed: EchoHangmanGuessHistoryEntryV1[] | undefined;
   if (Array.isArray(rawHistory)) {
+    parsed = [];
     for (const row of rawHistory) {
       if (!row || typeof row !== 'object') continue;
       const uidRaw = (row as { userId?: unknown }).userId;
       const chRaw = (row as { letter?: unknown }).letter;
       const letter =
         typeof chRaw === 'string' ? chRaw.trim().toUpperCase() : '';
-      if (!/^[A-Z]$/.test(letter) || firstByLetter.has(letter)) continue;
-      let userId =
+      if (!/^[A-Z]$/.test(letter)) continue;
+      const userId =
         typeof uidRaw === 'string' ? uidRaw.trim().slice(0, 128) : '';
-      if (userId && !roster.has(userId)) userId = '';
-      firstByLetter.set(letter, { userId, letter });
+      parsed.push({ userId, letter });
     }
   }
-  return guessedLetters.map((letter) => {
-    const hit = firstByLetter.get(letter);
-    return hit ?? { userId: '', letter };
-  });
+  return alignShared(guessedLetters, parsed, rosterSorted);
 }
 
-export function mergeHangmanPresenceRoster(
-  a: readonly string[],
-  b: readonly string[],
-): string[] {
-  const s = new Set<string>();
-  for (const x of a) {
-    const id = x.trim();
-    if (id) s.add(id);
-  }
-  for (const x of b) {
-    const id = x.trim();
-    if (id) s.add(id);
-  }
-  return [...s].sort((x, y) => x.localeCompare(y));
-}
+// --- P2P LiveKit merge helpers (unused when HANGMAN_SERVER_MODE) ---
 
 export type HangmanTick = {
   updatedAt: number;
@@ -252,28 +149,11 @@ export function sanitizeHangmanActivityForMerge(
   return null;
 }
 
-export function expectedSetterForRound(
-  rosterSorted: readonly string[],
-  roundSeq: number,
-): string | null {
-  if (!rosterSorted.length) return null;
-  const idx =
-    ((roundSeq % rosterSorted.length) + rosterSorted.length) %
-    rosterSorted.length;
-  return rosterSorted[idx] ?? null;
-}
-
-export function hangmanOrchestratorUserId(
-  rosterSorted: readonly string[],
-): string | null {
-  return rosterSorted[0] ?? null;
-}
-
 export function coerceHangmanActivityToLocalRoster(
   msg: EchoHangmanActivityV1,
   localPresenceRosterSorted: string[],
 ): EchoHangmanActivityV1 {
-  const merged = mergeHangmanPresenceRoster(
+  const merged = mergeHangmanRoster(
     msg.rosterUserIds,
     localPresenceRosterSorted,
   );
@@ -285,6 +165,13 @@ export function coerceHangmanActivityToLocalRoster(
       ? msgSetter
       : (expectedSetterForRound(merged, msg.roundSeq) ?? msgSetter);
   return { ...msg, rosterUserIds: merged, setterUserId: setter };
+}
+
+/** @deprecated P2P orchestrator — Codenames still uses this until M3 server mode. */
+export function hangmanOrchestratorUserId(
+  rosterSorted: readonly string[],
+): string | null {
+  return rosterSorted[0] ?? null;
 }
 
 /** Who on this client should apply incoming guess intents (must hold round secret). */

@@ -20,8 +20,22 @@ const RUNTIME_ECHO_HTTP = new RegExp(
   String.raw`\b(echoFetch|fetchEcho\w*|postEcho\w*|patchEcho\w*|deleteEcho\w*)\s*\(`,
 );
 const TEMP_ALLOWED_RUNTIME_ECHO_API_FILES = new Set([
-  join(FRONTEND_SRC, 'src', 'components', 'e2ee', 'E2eeDevicesModal.vue'),
-  join(FRONTEND_SRC, 'src', 'components', 'GuestOnboardingModal.vue'),
+  join(
+    FRONTEND_SRC,
+    'src',
+    'features',
+    'settings',
+    'components',
+    'E2eeDevicesModal.vue',
+  ),
+  join(
+    FRONTEND_SRC,
+    'src',
+    'features',
+    'auth',
+    'components',
+    'GuestOnboardingModal.vue',
+  ),
   join(
     FRONTEND_SRC,
     'src',

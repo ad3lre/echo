@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import MessagePreviewSnippet from '@/components/chat/MessagePreviewSnippet.vue';
+import MessagePreviewSnippet from '@/features/chat/components/MessagePreviewSnippet.vue';
 import { messagePreviewPlainText } from '@/services/domain/messagePreviewPlain';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 import { useCompactShell } from '@/composables/useCompactShell';

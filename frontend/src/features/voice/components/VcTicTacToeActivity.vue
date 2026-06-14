@@ -591,8 +591,8 @@ const inviteFromName = computed(() =>
       </section>
 
       <p class="ttt-foot">
-        X always opens. Voice matches are verified by the roster arbiter so both
-        clients stay in sync.
+        X always opens. Voice matches run on Echo’s game server so both clients
+        stay in sync.
       </p>
     </div>
   </div>

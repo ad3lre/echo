@@ -98,6 +98,32 @@ function resolveSocketIoBase(): string {
 
 export const SOCKET_IO_BASE = resolveSocketIoBase();
 
+/** Echo game-server port when UI talks to the service on the same host (default 3060). */
+export function devGameServerPort(): string {
+  const raw = (
+    import.meta.env.VITE_DEV_GAME_SERVER_PORT as string | undefined
+  )?.trim();
+  if (raw && /^\d+$/.test(raw)) return raw;
+  return '3060';
+}
+
+/** Origin used for authoritative VC game Socket.IO (see module docstring). */
+function resolveGameServerBase(): string {
+  const env = import.meta.env.VITE_GAME_SERVER_URL as string | undefined;
+  if (env !== undefined && env !== '') {
+    return env.replace(/\/$/, '');
+  }
+  if (import.meta.env.DEV) {
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+      return `http://${window.location.hostname}:${devGameServerPort()}`;
+    }
+    return `http://127.0.0.1:${devGameServerPort()}`;
+  }
+  return API_BASE;
+}
+
+export const GAME_SERVER_BASE = resolveGameServerBase();
+
 /**
  * Voice E2EE v2 (MLS / RFC 9420). When on, voice calls use the MLS group-key
  * protocol with in-band epoch rotation instead of the legacy static-seed +

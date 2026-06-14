@@ -20,10 +20,12 @@
 /backend/dist
 /bot/dist
 /voice-sidecar/dist
+/game-server/dist
 # Accidental tsc emit into TS-only tree (shared has no hand-written .js sources)
 /shared/**/*.js
 /shared/**/*.js.map
 /voice-sidecar/node_modules
+/game-server/node_modules
 /src-tauri/target
 /src-tauri/ios-sim-derived
 # Tauri updater private key (never commit; pubkey `echo-update.key.pub` is tracked)
@@ -45,6 +47,13 @@ src-tauri/gen/android/**/*.jks
 /frontend/cypress/videos
 /frontend/cypress/downloads
 
+# Production perf runs (keep committed baselines)
+/perf/.auth/
+/perf/results/
+/perf/perf/
+!/perf/baselines/
+!/perf/baselines/**
+
 # TLS / PKCS private material (accidental commits)
 *.pem
 *.p12
@@ -55,6 +64,7 @@ src-tauri/gen/android/**/*.jks
 .env.*
 !.env.example
 !**/.env.example
+!.env.perf.example
 .envrc
 .direnv/
 

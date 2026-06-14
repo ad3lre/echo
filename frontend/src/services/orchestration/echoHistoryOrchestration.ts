@@ -35,7 +35,10 @@ import {
   applyEchoHistoryOlderPageFromApi,
   applyEchoHistorySeedFromCachedMessages,
 } from '@/features/chat/domain/echoHistoryChannelApply';
-import { ECHO_CHANNEL_MESSAGE_PAGE_SIZE } from '@/constants/echoHistoryPageSize';
+import {
+  ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+  ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+} from '@/constants/echoHistoryPageSize';
 import {
   mapEchoMessageToRaw,
   mapEchoMessagesToRaw,
@@ -535,13 +538,13 @@ export function createEchoHistoryController(
       context: {
         channelId: cid,
         seq,
-        pageSize: ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+        pageSize: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
       },
     });
     logMessageList('history', 'loadHistory_initial_api_start', {
       channelId: cid,
       seq,
-      pageSize: ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+      pageSize: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
       source: 'network',
       outcomeOk: true,
       expectation:
@@ -553,13 +556,13 @@ export function createEchoHistoryController(
       context: {
         source: 'network',
         seq,
-        pageSize: ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+        pageSize: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
       },
     });
     try {
       const { messages: apiMsgs } = await promiseWithTimeout(
         fetchEchoChannelMessages(token, cid, {
-          limit: ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+          limit: ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
         }),
         ECHO_HISTORY_INITIAL_FETCH_TIMEOUT_MS,
         { label: 'Load messages' },
@@ -580,6 +583,7 @@ export function createEchoHistoryController(
         raw,
         apiMsgs.length,
         activeChannelId.value,
+        ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
       );
       emitDiagnostic({
         level: 'info',

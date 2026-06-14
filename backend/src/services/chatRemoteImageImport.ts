@@ -20,6 +20,7 @@ import {
   isEchoS3UploadConfigured,
 } from './s3UploadPresign';
 import { registerChatUploadRetention } from './chatUploadRetention';
+import { probeImageDimensionsFromBuffer } from './probeImageDimensionsFromBuffer';
 
 const MAX_REDIRECTS = 4;
 const FETCH_TIMEOUT_MS = 30_000;
@@ -136,6 +137,8 @@ export type ImportChatRemoteImageResult =
       storageKey: string;
       mimeType: string;
       fileSize: number;
+      width?: number;
+      height?: number;
     }
   | {
       ok: false;
@@ -277,11 +280,14 @@ export async function importChatRemoteImage(opts: {
     uploaderId: userId,
   });
 
+  const dims = probeImageDimensionsFromBuffer(fetched.buf, fetched.contentType);
+
   return {
     ok: true,
     url,
     storageKey: dest.storageKey,
     mimeType: fetched.contentType,
     fileSize: fetched.buf.length,
+    ...(dims ? { width: dims.width, height: dims.height } : {}),
   };
 }

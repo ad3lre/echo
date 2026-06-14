@@ -13,8 +13,8 @@ import { PUBLIC_INVITE_BASE } from '@/config';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { serverGuildIconDisplayUrl } from '@/utils/serverGuildIconDisplayUrl';
-import ServerBannerLimitedGif from '@/components/ServerBannerLimitedGif.vue';
-import BannerRepositionModal from '@/components/BannerRepositionModal.vue';
+import ServerBannerLimitedGif from '@/features/server-settings/components/ServerBannerLimitedGif.vue';
+import BannerRepositionModal from '@/features/server-settings/components/BannerRepositionModal.vue';
 import EmojiPackTagsField from '@/features/server-settings/components/EmojiPackTagsField.vue';
 import { useVanityAvailabilityCheck } from '@/features/server-settings/composables/useVanityAvailabilityCheck';
 

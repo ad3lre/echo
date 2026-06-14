@@ -22,6 +22,10 @@ import {
   type ParticipantAudioLevel,
 } from '@/composables/useLiveKitVoiceRoom';
 import { voiceClientTrace } from '@/observability/voiceClientTrace';
+import {
+  isPerfHarnessEnabled,
+  perfHarnessRecordVcState,
+} from '@/observability/perfHarness';
 import { useVcPushToTalk } from '@/composables/useVcPushToTalk';
 import type { ChannelSummary } from '@shared/types';
 import type { Server } from '@shared/types/server';
@@ -123,9 +127,36 @@ import {
 } from '@/features/voice/vcCodenamesReducer';
 import { VC_CODENAMES_WORD_BANK } from '@/features/voice/vcCodenamesWordBank';
 import {
+  createSkrigglesGameSession,
+  type SkrigglesGameSession,
+} from '@/features/voice/skriggles/skrigglesGameSession';
+import {
   createSkrigglesVoiceSession,
   type SkrigglesVoiceSession,
 } from '@/features/voice/skriggles/skrigglesVoiceSession';
+import {
+  createCodenamesGameSession,
+  type CodenamesGameSession,
+} from '@/features/voice/codenames/codenamesGameSession';
+import {
+  createWordlineGameSession,
+  type WordlineGameSession,
+} from '@/features/voice/wordline/wordlineGameSession';
+import {
+  createTicTacToeGameSession,
+  type TicTacToeGameSession,
+} from '@/features/voice/ticTacToe/ticTacToeGameSession';
+import {
+  createHangmanGameSession,
+  type HangmanGameSession,
+} from '@/features/voice/hangman/hangmanGameSession';
+import {
+  CODENAMES_SERVER_MODE,
+  HANGMAN_SERVER_MODE,
+  SKRIGGLES_SERVER_MODE,
+  TIC_TAC_TOE_SERVER_MODE,
+  WORDLE_SERVER_MODE,
+} from '@shared/vcActivityCatalog';
 import type { LiveKitVoiceRoomApi } from '@/composables/useLiveKitVoiceRoom';
 
 /** Workspace row can lag; LiveKit `Participant.metadata` may carry a URL or JSON `{ pfp }`. */
@@ -537,6 +568,21 @@ export function useServerVoiceSession(deps: {
       !local.watchTogetherSessionStarted &&
       local.watchTogetherLobbyRole === 'follower';
 
+    const localIsHostLobby =
+      local.phase === 'watch_together' &&
+      !local.watchTogetherSessionStarted &&
+      local.watchTogetherLobbyRole === 'host' &&
+      local.watchTogetherPlaylist.length > 0;
+
+    if (
+      fromOther &&
+      localIsHostLobby &&
+      !msg.sessionStarted &&
+      !watchTogetherPayloadMatchesLocalUi(msg, local)
+    ) {
+      return;
+    }
+
     if (
       fromOther &&
       !king &&
@@ -861,6 +907,7 @@ export function useServerVoiceSession(deps: {
     msg: EchoHangmanActivityV1,
     identity: string,
   ): void {
+    if (HANGMAN_SERVER_MODE) return;
     if (msg.fromUserId.trim() !== identity.trim()) return;
     const localR = hangmanRosterFromPresence();
     const coerced = coerceHangmanActivityToLocalRoster(msg, localR);
@@ -934,6 +981,7 @@ export function useServerVoiceSession(deps: {
     msg: EchoCodenamesActivityV1,
     identity: string,
   ): void {
+    if (CODENAMES_SERVER_MODE) return;
     if (msg.fromUserId.trim() !== identity.trim()) return;
     const localR = codenamesRosterFromPresence();
     const coerced = coerceCodenamesActivityToLocalRoster(msg, localR);
@@ -995,6 +1043,7 @@ export function useServerVoiceSession(deps: {
     intent: EchoCodenamesClueIntentV1,
     identity: string,
   ): void {
+    if (CODENAMES_SERVER_MODE) return;
     if (intent.fromUserId.trim() !== identity.trim()) return;
     const self = currentUser.value?.id?.trim();
     const roster = codenamesRosterFromPresence();
@@ -1019,6 +1068,7 @@ export function useServerVoiceSession(deps: {
     intent: EchoCodenamesRevealIntentV1,
     identity: string,
   ): void {
+    if (CODENAMES_SERVER_MODE) return;
     if (intent.fromUserId.trim() !== identity.trim()) return;
     const self = currentUser.value?.id?.trim();
     const roster = codenamesRosterFromPresence();
@@ -1045,6 +1095,7 @@ export function useServerVoiceSession(deps: {
     intent: EchoCodenamesEndTurnIntentV1,
     identity: string,
   ): void {
+    if (CODENAMES_SERVER_MODE) return;
     if (intent.fromUserId.trim() !== identity.trim()) return;
     const self = currentUser.value?.id?.trim();
     const roster = codenamesRosterFromPresence();
@@ -1067,6 +1118,7 @@ export function useServerVoiceSession(deps: {
     intent: EchoCodenamesSetupIntentV1,
     identity: string,
   ): void {
+    if (CODENAMES_SERVER_MODE) return;
     if (intent.fromUserId.trim() !== identity.trim()) return;
     const self = currentUser.value?.id?.trim();
     const roster = codenamesRosterFromPresence();
@@ -1089,6 +1141,7 @@ export function useServerVoiceSession(deps: {
     intent: EchoCodenamesNewGameIntentV1,
     identity: string,
   ): void {
+    if (CODENAMES_SERVER_MODE) return;
     if (intent.fromUserId.trim() !== identity.trim()) return;
     const self = currentUser.value?.id?.trim();
     const roster = codenamesRosterFromPresence();
@@ -1114,6 +1167,7 @@ export function useServerVoiceSession(deps: {
   }
 
   function tryCodenamesBootstrap(): void {
+    if (CODENAMES_SERVER_MODE) return;
     if (lkRoom?.roomState.value !== 'connected' || isDmVoiceCallUi.value)
       return;
     if (vcActivityUi.value.phase !== 'codenames') return;
@@ -1142,13 +1196,16 @@ export function useServerVoiceSession(deps: {
   }
 
   let skrigglesLkApi: LiveKitVoiceRoomApi | null = null;
-  const skrigglesSession: SkrigglesVoiceSession = createSkrigglesVoiceSession({
-    currentUserId: () => currentUser.value?.id,
-    vcActivityUi,
-    vcActivityPresenceByUserId,
-    isDmVoiceCallUi,
-    getLkRoom: () => skrigglesLkApi,
-  });
+  const skrigglesVoiceSession: SkrigglesVoiceSession | null =
+    SKRIGGLES_SERVER_MODE
+      ? null
+      : createSkrigglesVoiceSession({
+          currentUserId: () => currentUser.value?.id,
+          vcActivityUi,
+          vcActivityPresenceByUserId,
+          isDmVoiceCallUi,
+          getLkRoom: () => skrigglesLkApi,
+        });
 
   let lastVoiceQosReportAt = 0;
 
@@ -1195,16 +1252,25 @@ export function useServerVoiceSession(deps: {
     onCodenamesEndTurnIntent: processCodenamesEndTurnIntent,
     onCodenamesSetupIntent: processCodenamesSetupIntent,
     onCodenamesNewGameIntent: processCodenamesNewGameIntent,
-    onSkrigglesActivity: skrigglesSession.tryApplySkrigglesRemote,
-    onSkrigglesGuessIntent: skrigglesSession.onSkrigglesGuessIntent,
-    onSkrigglesWordChoiceIntent: skrigglesSession.onSkrigglesWordChoiceIntent,
-    onSkrigglesSettingsIntent: skrigglesSession.onSkrigglesSettingsIntent,
-    onSkrigglesStartIntent: skrigglesSession.onSkrigglesStartIntent,
-    onSkrigglesNextRoundIntent: skrigglesSession.onSkrigglesNextRoundIntent,
-    onSkrigglesRoundSecret: skrigglesSession.receiveSkrigglesRoundSecret,
-    onSkrigglesStrokeBatch: skrigglesSession.onSkrigglesStrokeBatch,
-    onSkrigglesCanvasCmd: skrigglesSession.onSkrigglesCanvasCmd,
-    onSkrigglesCanvasSnapshot: skrigglesSession.onSkrigglesCanvasSnapshot,
+    ...(SKRIGGLES_SERVER_MODE || !skrigglesVoiceSession
+      ? {}
+      : {
+          onSkrigglesActivity: skrigglesVoiceSession.tryApplySkrigglesRemote,
+          onSkrigglesGuessIntent: skrigglesVoiceSession.onSkrigglesGuessIntent,
+          onSkrigglesWordChoiceIntent:
+            skrigglesVoiceSession.onSkrigglesWordChoiceIntent,
+          onSkrigglesSettingsIntent:
+            skrigglesVoiceSession.onSkrigglesSettingsIntent,
+          onSkrigglesStartIntent: skrigglesVoiceSession.onSkrigglesStartIntent,
+          onSkrigglesNextRoundIntent:
+            skrigglesVoiceSession.onSkrigglesNextRoundIntent,
+          onSkrigglesRoundSecret:
+            skrigglesVoiceSession.receiveSkrigglesRoundSecret,
+          onSkrigglesStrokeBatch: skrigglesVoiceSession.onSkrigglesStrokeBatch,
+          onSkrigglesCanvasCmd: skrigglesVoiceSession.onSkrigglesCanvasCmd,
+          onSkrigglesCanvasSnapshot:
+            skrigglesVoiceSession.onSkrigglesCanvasSnapshot,
+        }),
     onRemoteParticipantDisconnected: (identity) => {
       dropPresenceForRemote(identity);
       maybeReconcileVoiceMlsAfterLeave(identity);
@@ -1334,6 +1400,7 @@ export function useServerVoiceSession(deps: {
   };
 
   hangmanHandlers.onGuess = (intent, identity) => {
+    if (HANGMAN_SERVER_MODE) return;
     if (intent.fromUserId.trim() !== identity.trim()) return;
     const self = currentUser.value?.id?.trim();
     const st = vcHangmanPublic.value;
@@ -1492,6 +1559,7 @@ export function useServerVoiceSession(deps: {
   }
 
   hangmanHandlers.onNext = (msg, identity) => {
+    if (HANGMAN_SERVER_MODE) return;
     if (msg.fromUserId.trim() !== identity.trim()) return;
     const st = vcHangmanPublic.value;
     if (!st || st.phase !== 'round_over') return;
@@ -1595,6 +1663,7 @@ export function useServerVoiceSession(deps: {
   }
 
   function tryHangmanBootstrap(): void {
+    if (HANGMAN_SERVER_MODE) return;
     if (lkRoom?.roomState.value !== 'connected' || isDmVoiceCallUi.value)
       return;
     if (vcActivityUi.value.phase !== 'hangman') return;
@@ -1672,6 +1741,68 @@ export function useServerVoiceSession(deps: {
     if (!room) return 'idle';
     return room.roomState.value;
   });
+
+  const ticTacToeSession: TicTacToeGameSession | null = TIC_TAC_TOE_SERVER_MODE
+    ? createTicTacToeGameSession({
+        currentUserId: () => currentUser.value?.id,
+        vcActivityUi,
+        isDmVoiceCallUi,
+        currentVoiceChannelId,
+        liveKitState,
+        accessToken: () => authSession.accessToken ?? undefined,
+        resolveGuildVoiceServerId,
+      })
+    : null;
+
+  const hangmanSession: HangmanGameSession | null = HANGMAN_SERVER_MODE
+    ? createHangmanGameSession({
+        currentUserId: () => currentUser.value?.id,
+        vcActivityUi,
+        isDmVoiceCallUi,
+        currentVoiceChannelId,
+        liveKitState,
+        accessToken: () => authSession.accessToken ?? undefined,
+        resolveGuildVoiceServerId,
+      })
+    : null;
+
+  const codenamesSession: CodenamesGameSession | null = CODENAMES_SERVER_MODE
+    ? createCodenamesGameSession({
+        currentUserId: () => currentUser.value?.id,
+        vcActivityUi,
+        isDmVoiceCallUi,
+        currentVoiceChannelId,
+        liveKitState,
+        accessToken: () => authSession.accessToken ?? undefined,
+        resolveGuildVoiceServerId,
+      })
+    : null;
+
+  const wordlineSession: WordlineGameSession | null = WORDLE_SERVER_MODE
+    ? createWordlineGameSession({
+        currentUserId: () => currentUser.value?.id,
+        vcActivityUi,
+        isDmVoiceCallUi,
+        currentVoiceChannelId,
+        liveKitState,
+        accessToken: () => authSession.accessToken ?? undefined,
+        resolveGuildVoiceServerId,
+      })
+    : null;
+
+  const skrigglesGameSession: SkrigglesGameSession | null =
+    SKRIGGLES_SERVER_MODE
+      ? createSkrigglesGameSession({
+          currentUserId: () => currentUser.value?.id,
+          vcActivityUi,
+          vcActivityPresenceByUserId,
+          isDmVoiceCallUi,
+          currentVoiceChannelId,
+          liveKitState,
+          accessToken: () => authSession.accessToken ?? undefined,
+          resolveGuildVoiceServerId,
+        })
+      : null;
 
   function republishVcActivitySnapshotIfHostForLateJoiners() {
     if (liveKitState.value !== 'connected' || isDmVoiceCallUi.value) return;
@@ -1787,6 +1918,9 @@ export function useServerVoiceSession(deps: {
   watch(
     () => liveKitState.value,
     (s, prev) => {
+      if (isPerfHarnessEnabled()) {
+        perfHarnessRecordVcState(s, prev);
+      }
       clearVcLiveKitScheduledCleanups();
 
       if (s === 'connected') {
@@ -1938,8 +2072,13 @@ export function useServerVoiceSession(deps: {
         vcHangmanSecretByRound.value = new Map();
         vcHangmanPendingSecretByRound.value = new Map();
       }
-      skrigglesSession.resetSkrigglesIfLeavingPhase(phase);
-      if (phase !== 'codenames') {
+      skrigglesGameSession?.resetSkrigglesIfLeavingPhase(phase);
+      skrigglesVoiceSession?.resetSkrigglesIfLeavingPhase(phase);
+      ticTacToeSession?.resetIfLeavingPhase(phase);
+      hangmanSession?.resetIfLeavingPhase(phase);
+      codenamesSession?.resetIfLeavingPhase(phase);
+      wordlineSession?.resetIfLeavingPhase(phase);
+      if (phase !== 'codenames' && !CODENAMES_SERVER_MODE) {
         vcCodenamesPublic.value = null;
         vcCodenamesLastTick.value = null;
         vcCodenamesOrchKeyByGameSeq.value = new Map();
@@ -1975,7 +2114,7 @@ export function useServerVoiceSession(deps: {
       rosterSig: codenamesRosterFromPresence().join(','),
     }),
     () => {
-      scheduleCodenamesBootstrap();
+      if (!CODENAMES_SERVER_MODE) scheduleCodenamesBootstrap();
     },
     { flush: 'post' },
   );
@@ -1984,10 +2123,13 @@ export function useServerVoiceSession(deps: {
     () => ({
       conn: liveKitState.value,
       phase: vcActivityUi.value.phase,
-      rosterSig: skrigglesSession.skrigglesRosterUserIds.value.join(','),
+      rosterSig: skrigglesVoiceSession
+        ? skrigglesVoiceSession.skrigglesRosterUserIds.value.join(',')
+        : '',
     }),
     () => {
-      skrigglesSession.scheduleSkrigglesBootstrap();
+      if (skrigglesVoiceSession)
+        skrigglesVoiceSession.scheduleSkrigglesBootstrap();
     },
     { flush: 'post' },
   );
@@ -2787,21 +2929,33 @@ export function useServerVoiceSession(deps: {
     );
   }
 
-  const vcTicTacToeActivity = computed<EchoTicTacToeActivityV1 | null>(
-    () => null,
-  );
-  const vcTicTacToePendingInvite = computed<EchoTicTacToeInviteV1 | null>(
-    () => null,
-  );
-  function sendVcTicTacToeChallenge(_toUserId: string): void {}
-  function respondVcTicTacToeInvite(_accept: boolean): void {
-    void _accept;
-  }
-  function dismissVcTicTacToeInvite(): void {}
-  function requestVcTicTacToeMove(_cellIndex: number): void {
-    void _cellIndex;
-  }
-  function requestVcTicTacToeRematch(): void {}
+  const vcTicTacToeActivity = ticTacToeSession
+    ? ticTacToeSession.vcTicTacToeActivity
+    : computed<EchoTicTacToeActivityV1 | null>(() => null);
+  const vcTicTacToePendingInvite = ticTacToeSession
+    ? ticTacToeSession.vcTicTacToePendingInvite
+    : computed<EchoTicTacToeInviteV1 | null>(() => null);
+  const sendVcTicTacToeChallenge = ticTacToeSession
+    ? ticTacToeSession.sendVcTicTacToeChallenge
+    : (_toUserId: string) => {
+        void _toUserId;
+      };
+  const respondVcTicTacToeInvite = ticTacToeSession
+    ? ticTacToeSession.respondVcTicTacToeInvite
+    : (_accept: boolean) => {
+        void _accept;
+      };
+  const dismissVcTicTacToeInvite = ticTacToeSession
+    ? ticTacToeSession.dismissVcTicTacToeInvite
+    : () => {};
+  const requestVcTicTacToeMove = ticTacToeSession
+    ? ticTacToeSession.requestVcTicTacToeMove
+    : (_cellIndex: number) => {
+        void _cellIndex;
+      };
+  const requestVcTicTacToeRematch = ticTacToeSession
+    ? ticTacToeSession.requestVcTicTacToeRematch
+    : () => {};
 
   return {
     onJoinVoice,
@@ -2809,43 +2963,94 @@ export function useServerVoiceSession(deps: {
     reconnectGuildVoiceAfterE2eeRotation,
     getVcActivityPresenceForUser,
     getVcChannelActivityPresenceForChannel,
-    vcHangmanActivity: computed(() => vcHangmanPublic.value),
-    hangmanRosterUserIds: computed(() => hangmanRosterFromPresence()),
-    vcCodenamesActivity: computed(() => vcCodenamesPublic.value),
+    vcHangmanActivity: hangmanSession
+      ? hangmanSession.vcHangmanActivity
+      : computed(() => vcHangmanPublic.value),
+    hangmanRosterUserIds: hangmanSession
+      ? hangmanSession.hangmanRosterUserIds
+      : computed(() => hangmanRosterFromPresence()),
+    vcCodenamesActivity: codenamesSession
+      ? codenamesSession.vcCodenamesActivity
+      : computed(() => vcCodenamesPublic.value),
     codenamesRosterUserIds: computed(() => codenamesRosterFromPresence()),
-    vcCodenamesSpymasterKey: computed(() => {
-      const st = vcCodenamesPublic.value;
-      const self = currentUser.value?.id?.trim();
-      if (!st || !self) return null;
-      const isSm = st.roleAssignments.some(
-        (r) => r.userId === self && r.role === 'spymaster',
-      );
-      if (!isSm) return null;
-      return vcCodenamesSpymasterKeyByGameSeq.value.get(st.gameSeq) ?? null;
-    }),
-    commitVcCodenamesDeal,
-    requestVcCodenamesSetup,
-    requestVcCodenamesClue,
-    requestVcCodenamesReveal,
-    requestVcCodenamesEndTurn,
-    requestVcCodenamesNewGame,
-    requestVcCodenamesPushKeyToOrchestrator,
-    commitVcHangmanWord,
-    requestVcHangmanGuessLetter,
-    requestVcHangmanNextRound,
-    vcSkrigglesActivity: skrigglesSession.vcSkrigglesActivity,
-    skrigglesRosterUserIds: skrigglesSession.skrigglesRosterUserIds,
-    skrigglesCanvasEvents: skrigglesSession.skrigglesCanvasEvents,
-    commitSkrigglesWordChoice: skrigglesSession.commitSkrigglesWordChoice,
-    submitSkrigglesGuess: skrigglesSession.submitSkrigglesGuess,
-    updateSkrigglesSettings: skrigglesSession.updateSkrigglesSettings,
-    startSkrigglesGame: skrigglesSession.startSkrigglesGame,
-    advanceSkrigglesRound: skrigglesSession.advanceSkrigglesRound,
-    publishSkrigglesStrokeBatch: skrigglesSession.publishSkrigglesStrokeBatch,
-    publishSkrigglesCanvasCmd: skrigglesSession.publishSkrigglesCanvasCmd,
-    publishSkrigglesCanvasSnapshot:
-      skrigglesSession.publishSkrigglesCanvasSnapshot,
-    tickSkrigglesTimers: skrigglesSession.tickSkrigglesTimers,
+    vcCodenamesSpymasterKey: codenamesSession
+      ? codenamesSession.vcCodenamesSpymasterKey
+      : computed(() => {
+          const st = vcCodenamesPublic.value;
+          const self = currentUser.value?.id?.trim();
+          if (!st || !self) return null;
+          const isSm = st.roleAssignments.some(
+            (r) => r.userId === self && r.role === 'spymaster',
+          );
+          if (!isSm) return null;
+          return vcCodenamesSpymasterKeyByGameSeq.value.get(st.gameSeq) ?? null;
+        }),
+    commitVcCodenamesDeal: codenamesSession
+      ? codenamesSession.commitVcCodenamesDeal
+      : commitVcCodenamesDeal,
+    requestVcCodenamesSetup: codenamesSession
+      ? codenamesSession.requestVcCodenamesSetup
+      : requestVcCodenamesSetup,
+    requestVcCodenamesClue: codenamesSession
+      ? codenamesSession.requestVcCodenamesClue
+      : requestVcCodenamesClue,
+    requestVcCodenamesReveal: codenamesSession
+      ? codenamesSession.requestVcCodenamesReveal
+      : requestVcCodenamesReveal,
+    requestVcCodenamesEndTurn: codenamesSession
+      ? codenamesSession.requestVcCodenamesEndTurn
+      : requestVcCodenamesEndTurn,
+    requestVcCodenamesNewGame: codenamesSession
+      ? codenamesSession.requestVcCodenamesNewGame
+      : requestVcCodenamesNewGame,
+    requestVcCodenamesPushKeyToOrchestrator: codenamesSession
+      ? codenamesSession.requestVcCodenamesPushKeyToOrchestrator
+      : requestVcCodenamesPushKeyToOrchestrator,
+    commitVcHangmanWord: hangmanSession
+      ? hangmanSession.commitVcHangmanWord
+      : commitVcHangmanWord,
+    requestVcHangmanGuessLetter: hangmanSession
+      ? hangmanSession.requestVcHangmanGuessLetter
+      : requestVcHangmanGuessLetter,
+    requestVcHangmanNextRound: hangmanSession
+      ? hangmanSession.requestVcHangmanNextRound
+      : requestVcHangmanNextRound,
+    vcSkrigglesActivity: skrigglesGameSession
+      ? skrigglesGameSession.vcSkrigglesActivity
+      : skrigglesVoiceSession!.vcSkrigglesActivity,
+    skrigglesRosterUserIds: skrigglesGameSession
+      ? skrigglesGameSession.skrigglesRosterUserIds
+      : skrigglesVoiceSession!.skrigglesRosterUserIds,
+    skrigglesCanvasEvents: skrigglesGameSession
+      ? skrigglesGameSession.skrigglesCanvasEvents
+      : skrigglesVoiceSession!.skrigglesCanvasEvents,
+    commitSkrigglesWordChoice: skrigglesGameSession
+      ? skrigglesGameSession.commitSkrigglesWordChoice
+      : skrigglesVoiceSession!.commitSkrigglesWordChoice,
+    submitSkrigglesGuess: skrigglesGameSession
+      ? skrigglesGameSession.submitSkrigglesGuess
+      : skrigglesVoiceSession!.submitSkrigglesGuess,
+    updateSkrigglesSettings: skrigglesGameSession
+      ? skrigglesGameSession.updateSkrigglesSettings
+      : skrigglesVoiceSession!.updateSkrigglesSettings,
+    startSkrigglesGame: skrigglesGameSession
+      ? skrigglesGameSession.startSkrigglesGame
+      : skrigglesVoiceSession!.startSkrigglesGame,
+    advanceSkrigglesRound: skrigglesGameSession
+      ? skrigglesGameSession.advanceSkrigglesRound
+      : skrigglesVoiceSession!.advanceSkrigglesRound,
+    publishSkrigglesStrokeBatch: skrigglesGameSession
+      ? skrigglesGameSession.publishSkrigglesStrokeBatch
+      : skrigglesVoiceSession!.publishSkrigglesStrokeBatch,
+    publishSkrigglesCanvasCmd: skrigglesGameSession
+      ? skrigglesGameSession.publishSkrigglesCanvasCmd
+      : skrigglesVoiceSession!.publishSkrigglesCanvasCmd,
+    publishSkrigglesCanvasSnapshot: skrigglesGameSession
+      ? skrigglesGameSession.publishSkrigglesCanvasSnapshot
+      : skrigglesVoiceSession!.publishSkrigglesCanvasSnapshot,
+    tickSkrigglesTimers: skrigglesGameSession
+      ? skrigglesGameSession.tickSkrigglesTimers
+      : skrigglesVoiceSession!.tickSkrigglesTimers,
     vcTicTacToeActivity,
     vcTicTacToePendingInvite,
     sendVcTicTacToeChallenge,

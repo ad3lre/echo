@@ -16,7 +16,10 @@ interface ImportMetaEnv {
   readonly VITE_DESKTOP_UPDATE_CHECK_INTERVAL_MS?: string;
   readonly VITE_API_URL?: string;
   readonly VITE_SOCKET_IO_URL?: string;
-  /** When `"true"`, skip Socket.IO (mock-only UI; quieter console, better bfcache). */
+  /** Authoritative game-server Socket.IO origin (default dev: `http://<host>:3060`). */
+  readonly VITE_GAME_SERVER_URL?: string;
+  /** Dev game-server port when `VITE_GAME_SERVER_URL` is unset (default 3060). */
+  readonly VITE_DEV_GAME_SERVER_PORT?: string;
   readonly VITE_DISABLE_SOCKET?: string;
   /** Override Socket.IO origin only (default dev: `http://localhost:3000` while REST uses Vite + `/api` proxy). */
   readonly VITE_SOCKET_IO_URL?: string;

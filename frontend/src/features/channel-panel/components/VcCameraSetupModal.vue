@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import CameraPreview from '@/components/CameraPreview.vue';
+import CameraPreview from '@/features/voice/components/CameraPreview.vue';
 import EchoDropdown from '@/components/EchoDropdown.vue';
 import { useMediaDevices } from '@/composables/useMediaDevices';
 

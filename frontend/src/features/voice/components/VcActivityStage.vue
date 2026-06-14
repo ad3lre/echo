@@ -10,7 +10,6 @@ import {
   watch,
   type MaybeRef,
 } from 'vue';
-import { withBasePath } from '@/features/layout/urlNavigation';
 import {
   parseYoutubeVideoId,
   youtubePrivacyEmbedUrl,
@@ -74,171 +73,14 @@ import type { VcWatchTogetherRemotePlaybackState } from '@/features/voice/compos
 import VcWatchTogetherLobby from '@/features/voice/components/VcWatchTogetherLobby.vue';
 import VcWatchTogetherStage from '@/features/voice/components/VcWatchTogetherStage.vue';
 import { compareVcActivityLibraryCards } from '@/features/voice/stage/vcActivityLibrarySort';
+import {
+  buildVcActivityArt,
+  VC_ACTIVITY_LIBRARY_CARDS,
+  type VcActivityLibraryCardKey,
+} from '@/features/voice/stage/vcActivityLibraryCards';
 
 const appBase = import.meta.env.BASE_URL || '/';
-/**
- * Library card hero art (served from `public/vc-activities/`).
- * Source URLs and licenses: `public/vc-activities/sources.json`.
- */
-const vcActivityArt = {
-  youtube: withBasePath('/vc-activities/youtube-hero.svg', appBase),
-  watchTogether: withBasePath(
-    '/vc-activities/watch-together-hero.svg',
-    appBase,
-  ),
-  wordle: withBasePath('/vc-activities/wordle-hero.png', appBase),
-  hangman: withBasePath('/vc-activities/hangman-hero.svg', appBase),
-  skriggles: withBasePath('/vc-activities/skriggles-hero.svg', appBase),
-  openguessr: withBasePath('/vc-activities/openguessr-hero.jpg', appBase),
-  skribblIo: withBasePath('/vc-activities/skribbl-hero.png', appBase),
-  garticPhone: withBasePath('/vc-activities/gartic-phone-hero.png', appBase),
-  krunker: withBasePath('/vc-activities/krunker-hero.jpg', appBase),
-  echoedNames: withBasePath('/vc-activities/echoed-names-hero.svg', appBase),
-  richup: withBasePath('/vc-activities/richup-hero.png', appBase),
-  gooberDash: withBasePath('/vc-activities/goober-dash-hero.png', appBase),
-  smashKarts: withBasePath('/vc-activities/smash-karts-hero.png', appBase),
-  clusterRush: withBasePath('/vc-activities/cluster-rush-hero.jpg', appBase),
-  ticTacToe: withBasePath('/vc-activities/tic-tac-toe-hero.svg', appBase),
-} as const;
-
-const VC_ACTIVITY_LIBRARY_CARDS: readonly {
-  key: EchoVcActivityKey;
-  artKey: keyof typeof vcActivityArt;
-  widgetClass: string;
-  title: string;
-  description: string;
-  ariaLabel: string;
-}[] = [
-  {
-    key: 'youtube',
-    artKey: 'youtube',
-    widgetClass: 'vc-act-widget--youtube',
-    title: 'YouTube',
-    description:
-      'Shared queue with voice · one host drives sync until they leave; you follow automatically',
-    ariaLabel: 'Open YouTube activity',
-  },
-  {
-    key: 'watch_together',
-    artKey: 'watchTogether',
-    widgetClass: 'vc-act-widget--watch-together',
-    title: 'Watch Together',
-    description:
-      'Upload your own videos · Echo+ hosts transcode to HLS and sync playback in voice',
-    ariaLabel: 'Open Watch Together activity',
-  },
-  {
-    key: 'wordle',
-    artKey: 'wordle',
-    widgetClass: 'vc-act-widget--wordline',
-    title: 'Wordline',
-    description:
-      'Five-letter puzzles · daily challenge or level practice, private to you in voice',
-    ariaLabel: 'Open Wordline activity',
-  },
-  {
-    key: 'hangman',
-    artKey: 'hangman',
-    widgetClass: 'vc-act-widget--hangman',
-    title: 'Hangman',
-    description:
-      'Echo voice classic · shared board, one puzzle master per round, guesses over the voice channel',
-    ariaLabel: 'Open Hangman activity',
-  },
-  {
-    key: 'skriggles',
-    artKey: 'skriggles',
-    widgetClass: 'vc-act-widget--skriggles',
-    title: 'Skriggles',
-    description:
-      'Draw & guess party game · native Echo voice sync, no external tab',
-    ariaLabel: 'Open Skriggles activity',
-  },
-  {
-    key: 'tic_tac_toe',
-    artKey: 'ticTacToe',
-    widgetClass: 'vc-act-widget--tictactoe',
-    title: 'Tic-Tac-Toe',
-    description:
-      '1v1 classic · challenge someone in voice; shared board in this activity',
-    ariaLabel: 'Open Tic-Tac-Toe activity',
-  },
-  {
-    key: 'openguessr',
-    artKey: 'openguessr',
-    widgetClass: 'vc-act-widget--openguessr',
-    title: 'OpenGuessr',
-    description: 'Geography guessing · play in voice together',
-    ariaLabel: 'Open OpenGuessr activity',
-  },
-  {
-    key: 'skribbl_io',
-    artKey: 'skribblIo',
-    widgetClass: 'vc-act-widget--skribblio',
-    title: 'skribbl.io',
-    description: 'Drawing & guessing party game · play in voice together',
-    ariaLabel: 'Open skribbl.io activity',
-  },
-  {
-    key: 'gartic_phone',
-    artKey: 'garticPhone',
-    widgetClass: 'vc-act-widget--garticphone',
-    title: 'Gartic Phone',
-    description: 'Drawing telephone · play in voice together',
-    ariaLabel: 'Open Gartic Phone activity',
-  },
-  {
-    key: 'krunker',
-    artKey: 'krunker',
-    widgetClass: 'vc-act-widget--krunker',
-    title: 'Krunker',
-    description: 'Browser FPS · play in voice together',
-    ariaLabel: 'Open Krunker activity',
-  },
-  {
-    key: 'goober_dash',
-    artKey: 'gooberDash',
-    widgetClass: 'vc-act-widget--gooberdash',
-    title: 'Goober Dash',
-    description:
-      'Race royale by Winterpixel · runs in the embedded activity web client',
-    ariaLabel: 'Open Goober Dash activity',
-  },
-  {
-    key: 'smash_karts',
-    artKey: 'smashKarts',
-    widgetClass: 'vc-act-widget--smashkarts',
-    title: 'Smash Karts',
-    description:
-      'Multiplayer kart battles by Tall Team · play in voice together',
-    ariaLabel: 'Open Smash Karts activity',
-  },
-  {
-    key: 'cluster_rush',
-    artKey: 'clusterRush',
-    widgetClass: 'vc-act-widget--clusterrush',
-    title: 'Cluster Rush',
-    description:
-      'First-person truck parkour (Unity WebGL on clusterrush.io) · local play in this activity',
-    ariaLabel: 'Open Cluster Rush activity',
-  },
-  {
-    key: 'codenames',
-    artKey: 'echoedNames',
-    widgetClass: 'vc-act-widget--echoed-names',
-    title: 'Echoed Names',
-    description: 'Team word game · voice-synced in Echo',
-    ariaLabel: 'Open Echoed Names activity',
-  },
-  {
-    key: 'richup',
-    artKey: 'richup',
-    widgetClass: 'vc-act-widget--richup',
-    title: 'Richup.io',
-    description: 'Online property board · play in voice together',
-    ariaLabel: 'Open Richup.io activity',
-  },
-];
+const vcActivityArt = buildVcActivityArt(appBase);
 
 const props = withDefaults(
   defineProps<{
@@ -496,9 +338,6 @@ function recordVcActivityOpen(key: EchoVcActivityKey): void {
   if (!token) return;
   void postEchoVcActivityOpen(token, key).catch(() => {});
 }
-
-type VcActivityLibraryCardKey =
-  (typeof VC_ACTIVITY_LIBRARY_CARDS)[number]['key'];
 
 function openActivityFromLibrary(key: VcActivityLibraryCardKey): void {
   // Defense in depth: third-party game embeds are not offered on iOS (see

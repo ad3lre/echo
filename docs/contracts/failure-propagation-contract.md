@@ -46,7 +46,7 @@ if (!result.ok) {
 - Module: [`frontend/src/utils/uiErrorBus.ts`](../../frontend/src/utils/uiErrorBus.ts)
 - API: `UIErrorBus.emit(payload)` / `subscribeUIErrors(handler)`
 - Payload: `context`, `severity` (`info` | `warning` | `error`), `userMessage`, optional `code`, `retryable`, `retryAction`
-- App shell: [`AppLayout.vue`](../../frontend/src/components/AppLayout.vue) subscribes and passes state into [`AppLayoutInfoBanners.vue`](../../frontend/src/features/layout/components/AppLayoutInfoBanners.vue)
+- App shell: [`AppLayout.vue`](../../frontend/src/features/layout/components/AppLayout.vue) subscribes and passes state into [`AppLayoutInfoBanners.vue`](../../frontend/src/features/layout/components/AppLayoutInfoBanners.vue)
 
 ## Relation to primary flow failures
 

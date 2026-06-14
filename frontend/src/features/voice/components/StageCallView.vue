@@ -11,9 +11,9 @@ import {
 } from 'vue';
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
-import StreamVideoTile from '@/components/StreamVideoTile.vue';
-import type { StreamVideoTileTrack } from '@/components/streamVideoTileTrack';
-import type { VcModerateAction } from '@/components/CallView.vue';
+import StreamVideoTile from '@/features/voice/components/StreamVideoTile.vue';
+import type { StreamVideoTileTrack } from '@/features/voice/composables/streamVideoTileTrack';
+import type { VcModerateAction } from '@/features/voice/components/CallView.vue';
 import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRoom';
 import { useAuthSessionStore } from '@/stores/authSession';
 import { useStageSpeakRequests } from '@/features/voice/composables/useStageSpeakRequests';

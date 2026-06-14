@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import DMProfilePanel from '@/components/DMProfilePanel.vue';
-import GroupDMOverviewPanel from '@/components/GroupDMOverviewPanel.vue';
+import DMProfilePanel from '@/features/dm/components/DMProfilePanel.vue';
+import GroupDMOverviewPanel from '@/features/dm/components/GroupDMOverviewPanel.vue';
 import type { ExpandedProfile } from '@/utils/memberProfiles';
 import { computed } from 'vue';
 import type { ProfileSurfaceAdapter } from '@/features/layout/regionAdapters';

@@ -7,6 +7,12 @@ type NavigatorWithStandalone = Navigator & {
   standalone?: boolean;
 };
 
+type BraveNavigator = Navigator & {
+  brave?: {
+    isBrave?: () => boolean | Promise<boolean>;
+  };
+};
+
 function getNavigator(): Navigator | null {
   return typeof navigator === 'undefined' ? null : navigator;
 }
@@ -40,6 +46,26 @@ export function isSafariLikeBrowser(): boolean {
   if (!vendor.includes('Apple')) return false;
   if (!/Safari/i.test(ua)) return false;
   return !/(Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|SamsungBrowser)/i.test(ua);
+}
+
+/** Sync hint: Brave exposes `navigator.brave.isBrave` (often async-only). */
+export function isBraveBrowserSyncHint(): boolean {
+  if (/Brave/i.test(userAgent())) return true;
+  const nav = getNavigator() as BraveNavigator | null;
+  return !!nav?.brave && typeof nav.brave.isBrave === 'function';
+}
+
+/** Definitive Brave check when `navigator.brave.isBrave()` is available. */
+export async function isBraveBrowser(): Promise<boolean> {
+  if (/Brave/i.test(userAgent())) return true;
+  const nav = getNavigator() as BraveNavigator | null;
+  const isBrave = nav?.brave?.isBrave;
+  if (typeof isBrave !== 'function') return false;
+  try {
+    return (await isBrave.call(nav!.brave)) === true;
+  } catch {
+    return false;
+  }
 }
 
 export function isStandaloneDisplayMode(): boolean {
@@ -144,6 +170,9 @@ export const echoBrowserCompatibility = {
   },
   get isSafariLike(): boolean {
     return isSafariLikeBrowser();
+  },
+  get isBraveSyncHint(): boolean {
+    return isBraveBrowserSyncHint();
   },
   get isStandaloneDisplayMode(): boolean {
     return isStandaloneDisplayMode();

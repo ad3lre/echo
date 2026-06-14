@@ -48,17 +48,23 @@ export function applyEchoHistorySeedFromCachedMessages(
   }
 }
 
-/** First page from API (initial load, jump prefetch empty bucket, workspace prefetch). */
+/**
+ * First page from API (initial load, jump prefetch empty bucket, workspace prefetch).
+ * `pageLimit` is the size actually requested — `hasMoreOlder` must compare against
+ * it, not a fixed constant, so a smaller initial page does not wrongly disable
+ * scroll-up history. Defaults to the full page size for back-compat.
+ */
 export function applyEchoHistoryInitialPageFromApi(
   channelId: string,
   rawPage: RawMessage[],
   apiMessageCount: number,
   activeChannelIdForCap: string,
+  pageLimit: number = ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
 ): RawMessage[] {
   const synced = replaceChannelMessagesFromHistory(channelId, rawPage);
   messageWindowAuthority.setHasMoreOlder(
     channelId,
-    apiMessageCount >= ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+    apiMessageCount >= pageLimit,
   );
   applyEchoHistoryChannelClientCap(channelId, activeChannelIdForCap);
   return synced;

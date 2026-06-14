@@ -2,7 +2,7 @@
 import type { Embed, MentionEntity } from '@shared/types';
 import type { IdTokenResolvers } from '@/composables/useMarkdown';
 import type { MagicTimeRenderContext } from '@/features/chat/viewModel/messageContentSegments';
-import MessageContentSegments from '@/components/chat/MessageContentSegments.vue';
+import MessageContentSegments from '@/features/chat/components/MessageContentSegments.vue';
 
 export type BubbleBodyMode =
   | { kind: 'markdown' }

@@ -101,8 +101,7 @@ export function decodeEchoWatchTogetherActivity(
     const playlist: WatchTogetherPlaylistEntry[] = [];
     for (const row of o.playlist) {
       const parsed = parseWatchTogetherPlaylistEntry(row);
-      if (!parsed) return null;
-      playlist.push(parsed);
+      if (parsed) playlist.push(parsed);
     }
 
     let currentIndex = o.currentIndex;

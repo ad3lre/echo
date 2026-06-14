@@ -92,7 +92,7 @@ import {
 } from './useAppLayoutCompactShellExpand';
 
 const ExploreView = defineAsyncComponent(
-  () => import('@/components/ExploreView.vue'),
+  () => import('@/features/layout/components/ExploreView.vue'),
 );
 
 /**

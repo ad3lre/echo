@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, inject, unref, watch } from 'vue';
 import type { MaybeRef } from 'vue';
-import MemberList from '@/components/MemberList.vue';
-import SearchBar from '@/components/chat/SearchBar.vue';
+import MemberList from '@/features/layout/components/MemberList.vue';
+import SearchBar from '@/features/chat/components/SearchBar.vue';
 import { APP_LAYOUT_SEARCH_PANEL_KEY } from '@/features/layout/chatSurfaceContext';
 import { LAYOUT_MEMBERS_COLUMN_KEY } from '@/features/layout/layoutInjectionKeys';
 import type { AppLayoutMembersColumnProps } from '@/features/layout/appLayoutMembersColumnProps';

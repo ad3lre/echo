@@ -14,6 +14,7 @@ import {
   isAllowedChatUploadContentType,
 } from './s3UploadPresign';
 import { registerChatUploadRetention } from './chatUploadRetention';
+import { probeImageDimensionsFromBuffer } from './probeImageDimensionsFromBuffer';
 import {
   WEBHOOK_EXECUTE_MAX_FILE_BYTES,
   WEBHOOK_EXECUTE_MAX_FILES,
@@ -152,13 +153,20 @@ export async function persistWebhookInboundFiles(opts: {
       uploaderId: null,
     });
 
+    const kind = inferAttachmentKind(ct, baseName);
+    const dims =
+      kind === 'image' || kind === 'gif'
+        ? probeImageDimensionsFromBuffer(f.buffer, ct)
+        : null;
+
     attachments.push({
       url,
       storageKey,
-      kind: inferAttachmentKind(ct, baseName),
+      kind,
       filename: baseName.slice(0, 256),
       mimeType: ct.slice(0, 128),
       fileSize: f.buffer.length,
+      ...(dims ? { width: dims.width, height: dims.height } : {}),
     });
   }
   return { ok: true, attachments };

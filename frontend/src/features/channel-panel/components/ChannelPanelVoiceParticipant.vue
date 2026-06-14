@@ -2,7 +2,7 @@
 import { icons } from '@/assets/icons';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
-import ServerOwnerCrownIcon from '@/components/ServerOwnerCrownIcon.vue';
+import ServerOwnerCrownIcon from '@/features/layout/components/ServerOwnerCrownIcon.vue';
 import VcActivityKingCrown from '@/features/voice/components/VcActivityKingCrown.vue';
 import VcActivityPresenceBadges from '@/features/voice/components/VcActivityPresenceBadges.vue';
 import {

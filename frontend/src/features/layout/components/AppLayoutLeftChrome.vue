@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, inject, ref, unref, watch } from 'vue';
 import type { MaybeRef } from 'vue';
-import ServerList from '@/components/ServerList.vue';
-import ChannelPanel from '@/components/ChannelPanel.vue';
+import ServerList from '@/features/layout/components/ServerList.vue';
+import ChannelPanel from '@/features/channel-panel/components/ChannelPanel.vue';
 import ChannelPanelContextMenu from '@/features/channel-panel/components/ChannelPanelContextMenu.vue';
-import DMPanel from '@/components/DMPanel.vue';
+/**
+ * DMPanel (~48 KB raw) only renders behind `v-if="lc.dmPanelOpen"` and is never on
+ * the cold guild-channel boot path. Lazy-load it so its chunk stays off the
+ * first-paint AppLayout chunk; it downloads the first time the DM panel opens.
+ */
+const DMPanel = defineAsyncComponent(
+  () => import('@/features/dm/components/DMPanel.vue'),
+);
 /**
  * MoreServersPanel (~67 KB raw) is never visible on first paint — it opens on demand.
  * Load it lazily and only mount it once it has first been opened (`moreServersEverOpened`
@@ -13,7 +20,7 @@ import DMPanel from '@/components/DMPanel.vue';
  * subsequent toggles; only the very first open skips the enter animation.
  */
 const MoreServersPanel = defineAsyncComponent(
-  () => import('@/components/MoreServersPanel.vue'),
+  () => import('@/features/layout/components/MoreServersPanel.vue'),
 );
 import { useServerStore } from '@/stores/server';
 import { useSimpleContextMenu } from '@/composables/useSimpleContextMenu';
@@ -30,7 +37,7 @@ import type { AppLayoutLeftChromeProps } from '@/features/layout/appLayoutLeftCh
 import type { PopoutAnchorRect } from '@/utils/memberProfiles';
 import type { ChannelSummary } from '@shared/types';
 import type { DmSubView } from '@/features/layout/mainSurface';
-import type { CreateChannelModalSubmitPayload } from '@/components/CreateChannelModal.vue';
+import type { CreateChannelModalSubmitPayload } from '@/features/channel-panel/components/CreateChannelModal.vue';
 import type { NotificationReadPreset } from '@/features/dm/filterDmMentionNotificationRows';
 import { channelPanelDiag } from '@/utils/channelPanelDiag';
 import { getChannelDisplayName } from '@/assets/icons';

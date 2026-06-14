@@ -81,7 +81,7 @@ import type { FilterChip } from '@/composables/useSearch';
 import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import type { DmPanelInboxEntry } from '@/features/dm/buildDmPanelUserList';
 import type { DmIncomingRailAvatar } from '@/services/orchestration/useAppLayoutDmRailUnread';
-import type { MemberRoleManagementSpec } from '@/components/MemberList.vue';
+import type { MemberRoleManagementSpec } from '@/features/layout/components/MemberList.vue';
 import type {
   CategorySettingsSnapshot,
   EchoPermissionEditorState,

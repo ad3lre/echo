@@ -495,15 +495,22 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       return;
     }
     const playlist = snapshot.playlist;
-    const ci = playlist.length
-      ? Math.min(Math.max(0, snapshot.currentIndex), playlist.length - 1)
-      : 0;
     const cur = vcActivityUi.value;
     const keepLocalHost =
       !snapshot.sessionStarted &&
       cur.phase === 'watch_together' &&
       cur.watchTogetherLobbyRole === 'host' &&
-      (cur.watchTogetherSessionId?.trim() ?? '') === snapshot.sessionId.trim();
+      cur.watchTogetherPlaylist.length > 0;
+    const mergedPlaylist =
+      keepLocalHost && playlist.length <= cur.watchTogetherPlaylist.length
+        ? mergeWatchTogetherHostLobbyPlaylist(
+            cur.watchTogetherPlaylist,
+            playlist,
+          )
+        : playlist;
+    const ci = mergedPlaylist.length
+      ? Math.min(Math.max(0, snapshot.currentIndex), mergedPlaylist.length - 1)
+      : 0;
     vcActivityUi.value = {
       phase: 'watch_together',
       youtubeVideoId: null,
@@ -513,18 +520,42 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       watchTogetherSessionId: snapshot.sessionId,
       watchTogetherSessionStarted: snapshot.sessionStarted,
       watchTogetherBrowseOpen: snapshot.browseOpen ?? false,
-      watchTogetherPlaylist: playlist,
+      watchTogetherPlaylist: mergedPlaylist,
       watchTogetherCurrentIndex: ci,
       watchTogetherLobbyRole: snapshot.sessionStarted
         ? 'follower'
         : keepLocalHost
           ? 'host'
           : 'follower',
-      watchTogetherSessionBytesUsed: playlist.reduce(
+      watchTogetherSessionBytesUsed: mergedPlaylist.reduce(
         (n, row) => n + (row.byteLength || 0),
         0,
       ),
     };
+  }
+
+  function mergeWatchTogetherHostLobbyPlaylist(
+    local: WatchTogetherPlaylistEntry[],
+    remote: WatchTogetherPlaylistEntry[],
+  ): WatchTogetherPlaylistEntry[] {
+    if (remote.length === 0) return local;
+    const remoteById = new Map(remote.map((row) => [row.id, row]));
+    const remoteByKey = new Map(remote.map((row) => [row.storageKey, row]));
+    const merged = local.map((row) => {
+      const match = remoteById.get(row.id) ?? remoteByKey.get(row.storageKey);
+      return match ? { ...row, ...match } : row;
+    });
+    for (const row of remote) {
+      if (
+        !merged.some(
+          (existing) =>
+            existing.id === row.id || existing.storageKey === row.storageKey,
+        )
+      ) {
+        merged.push(row);
+      }
+    }
+    return merged;
   }
 
   function setVcYoutubeBrowseOpen(open: boolean) {
@@ -678,14 +709,8 @@ export function useAppLayoutLayoutChrome(pfpBarExpanded: Ref<boolean>) {
       return;
     }
     if (ap === 'watch_together') {
-      applyVcWatchTogetherRemote({
-        sessionId: '',
-        sessionStarted: false,
-        playlist: [],
-        currentIndex: 0,
-        updatedAt: snapshot.updatedAt,
-        activityPhase: ap,
-      });
+      if (vcActivityUi.value.phase === 'watch_together') return;
+      openVcActivityWatchTogether();
       return;
     }
     if (ap === 'wordle') {

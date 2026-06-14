@@ -13,7 +13,7 @@ import { ensureEmojiCategoriesLoaded } from '@/composables/useEmojiData';
 import { useEmojiPicker } from '@/composables/useEmojiPicker';
 import { useRecentlyUsedEmojis } from '@/composables/useRecentlyUsedEmojis';
 import EmojiCategorySection from '@/components/EmojiCategorySection.vue';
-import AppIconPickerPanel from '@/components/AppIconPickerPanel.vue';
+import AppIconPickerPanel from '@/features/settings/components/AppIconPickerPanel.vue';
 import { preloadEmojiImagesOnce } from '@/composables/useEmojiPreload';
 import { useServerEmojiLibrary } from '@/composables/useServerEmojiLibrary';
 import { useUserEmojiLibrary } from '@/composables/useUserEmojiLibrary';

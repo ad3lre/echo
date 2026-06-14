@@ -20,6 +20,8 @@ import {
 } from '../domain/echoMessagesDal';
 import { broadcastToEchoChannel } from '../sockets/channelBroadcast';
 import { echoMessagesPersistedTotal } from '../observability/echoMetrics';
+import { emitEchoAttentionForChannelMessageActivity } from './echoAttentionRealtime';
+import { dispatchEchoMessagePushNotifications } from './echoMessagePushNotify';
 import {
   parseImportedAttachments,
   parseImportedEmbeds,
@@ -285,6 +287,18 @@ export async function ingestDiscordBridgeMessage(
       'Broadcast Discord bridge message',
     );
     broadcastToEchoChannel(io, resolved.echoChannelId, 'message', message);
+    void emitEchoAttentionForChannelMessageActivity(
+      pool,
+      io,
+      resolved.echoChannelId,
+      log,
+    );
+    void dispatchEchoMessagePushNotifications(pool, log, {
+      message,
+      authorId: authorUserId,
+      serverId: resolved.serverId,
+      dmRecipients: [],
+    });
   }
 
   return {
@@ -430,6 +444,12 @@ export async function updateDiscordBridgeMessage(
       },
       'Broadcast Discord bridge message update',
     );
+    void emitEchoAttentionForChannelMessageActivity(
+      pool,
+      io,
+      resolved.echoChannelId,
+      log,
+    );
   }
 
   return { ok: true, message };
@@ -476,6 +496,12 @@ export async function deleteDiscordBridgeMessage(
         messageId: resolved.discordMessageId,
       },
       'Broadcast Discord bridge message delete',
+    );
+    void emitEchoAttentionForChannelMessageActivity(
+      pool,
+      io,
+      resolved.echoChannelId,
+      log,
     );
   }
 

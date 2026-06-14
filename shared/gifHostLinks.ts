@@ -10,6 +10,7 @@ const GIF_HOST_SUFFIXES = [
   'media.giphy.com',
   'tenor.com',
   'tenor.co',
+  'klipy.com',
 ] as const;
 
 function hostMatchesGifHost(hostname: string): boolean {

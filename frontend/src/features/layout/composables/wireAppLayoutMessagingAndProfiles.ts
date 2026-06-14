@@ -61,7 +61,7 @@ import type { WireAppLayoutVoiceAndRealtimeResult } from './wireAppLayoutVoiceAn
 import { useAppLayoutPresenceStatusBridge } from './useAppLayoutPresenceStatusBridge';
 
 const ExploreView = defineAsyncComponent(
-  () => import('@/components/ExploreView.vue'),
+  () => import('@/features/layout/components/ExploreView.vue'),
 );
 
 export function wireAppLayoutMessagingAndProfiles(

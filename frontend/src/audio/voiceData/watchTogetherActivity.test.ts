@@ -48,4 +48,33 @@ describe('watchTogetherActivity codec', () => {
     });
     expect(decodeEchoWatchTogetherActivity(bad)).toBeNull();
   });
+
+  it('skips invalid playlist rows instead of rejecting the whole message', () => {
+    const raw = encodeEchoWatchTogetherActivity({
+      ...sample(),
+      playlist: [
+        {
+          id: 'pl-1',
+          storageKey: 'uploads/vc/foo.mp4',
+          sourcePublicUrl: 'https://echo.example/uploads/vc/foo.mp4',
+          hlsManifestUrl: null,
+          title: 'clip.mp4',
+          transcodeStatus: 'ready',
+          byteLength: 1024,
+        },
+        {
+          id: 'bad',
+          storageKey: 'x',
+          sourcePublicUrl: 'y',
+          hlsManifestUrl: null,
+          title: 'z',
+          transcodeStatus: 'not-a-status',
+          byteLength: 1,
+        } as unknown as EchoWatchTogetherActivityV1['playlist'][number],
+      ],
+    });
+    const decoded = decodeEchoWatchTogetherActivity(raw);
+    expect(decoded?.playlist).toHaveLength(1);
+    expect(decoded?.playlist[0]?.id).toBe('pl-1');
+  });
 });

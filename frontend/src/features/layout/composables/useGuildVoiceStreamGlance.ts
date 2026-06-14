@@ -1,7 +1,7 @@
 import { computed, unref, type MaybeRef } from 'vue';
 import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRoom';
 import type { LayoutChatSurfaceContext } from '@/features/layout/layoutInjectionKeys';
-import type { StreamVideoTileTrack } from '@/components/streamVideoTileTrack';
+import type { StreamVideoTileTrack } from '@/features/voice/composables/streamVideoTileTrack';
 
 export type GuildVoiceStreamGlance = {
   id: string;

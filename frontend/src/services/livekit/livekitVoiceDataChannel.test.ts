@@ -1,13 +1,9 @@
 import { ConnectionState } from 'livekit-client';
 import { describe, expect, it, vi } from 'vitest';
-import type {
-  EchoHangmanActivityV1,
-  EchoHangmanRoundSecretV1,
-} from '@/audio/voiceEchoLiveKitData';
+import type { EchoYoutubeActivityV1 } from '@/audio/voiceEchoLiveKitData';
 import {
-  encodeEchoHangmanActivity,
-  encodeEchoHangmanRoundSecret,
   encodeEchoWatchTogetherActivity,
+  encodeEchoYoutubeActivity,
 } from '@/audio/voiceEchoLiveKitData';
 import {
   publishVoiceData,
@@ -15,31 +11,22 @@ import {
 } from '@/services/livekit/livekitVoiceDataChannel';
 
 describe('livekitVoiceDataChannel', () => {
-  const sampleHangman = (): EchoHangmanActivityV1 => ({
+  const sampleYoutube = (): EchoYoutubeActivityV1 => ({
     v: 1,
-    t: 'hangman_activity',
+    t: 'youtube_activity',
     updatedAt: 1,
-    revision: 0,
     fromUserId: 'u1',
-    roundSeq: 0,
-    setterUserId: 'u1',
-    rosterUserIds: ['u1'],
-    phase: 'guessing',
-    guessedLetters: [],
-    guessHistory: [],
-    wrongCount: 0,
-    mask: 'TEST',
-    roundResult: null,
-    answerReveal: null,
-  });
-
-  const sampleHangmanRoundSecret = (): EchoHangmanRoundSecretV1 => ({
-    v: 1,
-    t: 'hangman_round_secret',
-    updatedAt: 1,
-    roundSeq: 0,
-    setterUserId: 'u1',
-    secret: 'HELLO',
+    activityPhase: 'youtube',
+    playlist: [
+      {
+        id: 'vid-1',
+        title: 'Song',
+        channelTitle: 'Channel',
+        thumbnailUrl: null,
+      },
+    ],
+    currentIndex: 0,
+    youtubeBrowseOpen: false,
   });
 
   it('publishVoiceData skips when room is not connected', () => {
@@ -49,7 +36,7 @@ describe('livekitVoiceDataChannel', () => {
       localParticipant: { publishData },
     } as unknown as import('livekit-client').Room;
 
-    publishVoiceData(room, encodeEchoHangmanActivity, sampleHangman());
+    publishVoiceData(room, encodeEchoYoutubeActivity, sampleYoutube());
 
     expect(publishData).not.toHaveBeenCalled();
   });
@@ -61,7 +48,7 @@ describe('livekitVoiceDataChannel', () => {
       localParticipant: { publishData },
     } as unknown as import('livekit-client').Room;
 
-    publishVoiceData(room, encodeEchoHangmanActivity, sampleHangman(), {
+    publishVoiceData(room, encodeEchoYoutubeActivity, sampleYoutube(), {
       destinationIdentities: ['  ', ''],
     });
 
@@ -74,75 +61,33 @@ describe('livekitVoiceDataChannel', () => {
       state: ConnectionState.Connected,
       localParticipant: { publishData },
     } as unknown as import('livekit-client').Room;
-    const payload = sampleHangman();
+    const payload = sampleYoutube();
 
-    publishVoiceData(room, encodeEchoHangmanActivity, payload);
+    publishVoiceData(room, encodeEchoYoutubeActivity, payload);
 
     expect(publishData).toHaveBeenCalledTimes(1);
     expect(publishData).toHaveBeenCalledWith(
-      encodeEchoHangmanActivity(payload),
+      encodeEchoYoutubeActivity(payload),
       { reliable: true },
     );
   });
 
-  it('publishVoiceData passes destinationIdentities for private publish', () => {
-    const publishData = vi.fn();
-    const room = {
-      state: ConnectionState.Connected,
-      localParticipant: { publishData },
-    } as unknown as import('livekit-client').Room;
-    const payload = sampleHangmanRoundSecret();
-
-    publishVoiceData(room, encodeEchoHangmanRoundSecret, payload, {
-      destinationIdentities: [' orchestrator ', 'peer-b'],
-    });
-
-    expect(publishData).toHaveBeenCalledTimes(1);
-    expect(publishData).toHaveBeenCalledWith(
-      encodeEchoHangmanRoundSecret(payload),
-      {
-        reliable: true,
-        destinationIdentities: ['orchestrator', 'peer-b'],
-      },
-    );
-  });
-
-  it('routeVoiceDataReceived dispatches hangman activity payloads', () => {
+  it('routeVoiceDataReceived dispatches youtube activity payloads', () => {
     const onYoutubeActivity = vi.fn();
-    const onHangmanActivity = vi.fn();
-    const hmPayload = encodeEchoHangmanActivity(sampleHangman());
+    const onWatchTogetherActivity = vi.fn();
+    const ytPayload = encodeEchoYoutubeActivity(sampleYoutube());
 
-    const routed = routeVoiceDataReceived(hmPayload, 'peer-1', {
+    const routed = routeVoiceDataReceived(ytPayload, 'peer-1', {
       onYoutubeActivity,
-      onHangmanActivity,
+      onWatchTogetherActivity,
     });
 
     expect(routed).toBe(true);
-    expect(onHangmanActivity).toHaveBeenCalledWith(
-      expect.objectContaining({ phase: 'guessing' }),
+    expect(onYoutubeActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ fromUserId: 'u1' }),
       'peer-1',
     );
-    expect(onYoutubeActivity).not.toHaveBeenCalled();
-  });
-
-  it('routeVoiceDataReceived prefers hangman round secret before activity', () => {
-    const onHangmanRoundSecret = vi.fn();
-    const onHangmanActivity = vi.fn();
-    const secretPayload = encodeEchoHangmanRoundSecret(
-      sampleHangmanRoundSecret(),
-    );
-
-    const routed = routeVoiceDataReceived(secretPayload, 'setter-1', {
-      onHangmanRoundSecret,
-      onHangmanActivity,
-    });
-
-    expect(routed).toBe(true);
-    expect(onHangmanRoundSecret).toHaveBeenCalledWith(
-      expect.objectContaining({ secret: 'HELLO' }),
-      'setter-1',
-    );
-    expect(onHangmanActivity).not.toHaveBeenCalled();
+    expect(onWatchTogetherActivity).not.toHaveBeenCalled();
   });
 
   it('routeVoiceDataReceived dispatches watch together activity after youtube', () => {

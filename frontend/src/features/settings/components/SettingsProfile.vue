@@ -12,11 +12,11 @@ import {
   profileBannerFallbackLayerStyle,
   profileBannerRefractionBackdropStyle,
 } from '@/utils/profileBannerGradientFromImage';
-import ProfileBannerMedia from '@/components/ProfileBannerMedia.vue';
-import BannerRepositionModal from '@/components/BannerRepositionModal.vue';
+import ProfileBannerMedia from '@/features/layout/components/member-profile/ProfileBannerMedia.vue';
+import BannerRepositionModal from '@/features/server-settings/components/BannerRepositionModal.vue';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
-import ProfileBioText from '@/components/member-profile/ProfileBioText.vue';
+import ProfileBioText from '@/features/layout/components/member-profile/ProfileBioText.vue';
 import type {
   SettingsForm,
   SettingsCurrentUser,

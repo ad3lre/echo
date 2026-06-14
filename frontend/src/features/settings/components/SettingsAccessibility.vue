@@ -69,6 +69,23 @@ const fontScaleId = useId();
             ariaLabel="Message spacing"
           />
         </div>
+
+        <!-- Solid glass surfaces -->
+        <div class="settings-toggle">
+          <span>
+            <span class="block text-sm font-semibold text-foreground"
+              >Solid glass surfaces</span
+            >
+            <span class="block text-sm text-muted">
+              Replace blurred glass panels with solid backgrounds for clearer
+              text on browsers where backdrop blur fails or washes out.
+            </span>
+          </span>
+          <SettingsPillSwitch
+            v-model="props.form.accessibilitySettings.solidGlassSurfaces"
+            ariaLabel="Solid glass surfaces"
+          />
+        </div>
       </div>
     </div>
 

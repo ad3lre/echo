@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useAuthSessionStore } from '@/stores/authSession';
 import {
   uploadVcWatchTogetherVideo,
   releaseVcWatchTogetherSessionBytes,
+  fetchVcWatchTogetherUploadLibrary,
+  addVcWatchTogetherSessionBytes,
+  claimVcWatchTogetherChannelHost,
+  releaseVcWatchTogetherChannelHost,
+  fetchVcWatchTogetherChannelHost,
+  type VcWatchTogetherLibraryItem,
 } from '@/api/echo/uploads';
 import { EchoApiError } from '@/api/echo/transport';
 import {
@@ -50,7 +56,10 @@ const isChoosing = computed(
 const followingRemoteHost = computed(() => {
   const king = props.effectiveKingUserId.trim();
   const self = props.currentUserId?.trim() ?? '';
-  return !!king && !!self && king !== self;
+  if (!self) return false;
+  if (king && king !== self) return true;
+  const chHost = channelHostUserId.value?.trim();
+  return !!chHost && chHost !== self;
 });
 
 const canHostUploads = computed(
@@ -69,6 +78,144 @@ const uploadProgress = ref<number | null>(null);
 const uploadFileName = ref('');
 const retryError = ref('');
 const retryBusy = ref(false);
+
+const libraryItems = ref<VcWatchTogetherLibraryItem[]>([]);
+const libraryLoading = ref(false);
+const libraryError = ref('');
+
+const playlistStorageKeys = computed(
+  () =>
+    new Set(
+      props.state.watchTogetherPlaylist.map((row) => row.storageKey.trim()),
+    ),
+);
+
+const libraryAvailable = computed(() =>
+  libraryItems.value.filter(
+    (item) => !playlistStorageKeys.value.has(item.storageKey.trim()),
+  ),
+);
+
+const hostClaimError = ref('');
+const channelHostUserId = ref<string | null>(null);
+
+async function refreshChannelHost() {
+  const channelId = props.channelId.trim();
+  const token = auth.accessToken?.trim() ?? '';
+  if (!channelId || !token || !auth.isAuthenticated) {
+    channelHostUserId.value = null;
+    return;
+  }
+  try {
+    const res = await fetchVcWatchTogetherChannelHost(token, channelId);
+    channelHostUserId.value = res.hostUserId?.trim() || null;
+  } catch {
+    channelHostUserId.value = null;
+  }
+}
+
+async function releaseChannelHostIfNeeded() {
+  const channelId = props.channelId.trim();
+  const token = auth.accessToken?.trim() ?? '';
+  if (!channelId || !token || !auth.isAuthenticated) return;
+  if (props.state.watchTogetherLobbyRole !== 'host') return;
+  try {
+    await releaseVcWatchTogetherChannelHost(token, channelId);
+  } catch {
+    /* best-effort */
+  }
+}
+
+onBeforeUnmount(() => {
+  void releaseChannelHostIfNeeded();
+});
+
+watch(
+  () => props.effectiveKingUserId,
+  (king) => {
+    const self = props.currentUserId?.trim() ?? '';
+    if (king && self && king !== self && isHostRole.value) {
+      props.setWatchTogetherLobbyRole('follower');
+    }
+  },
+  { immediate: true },
+);
+
+async function refreshUploadLibrary() {
+  libraryError.value = '';
+  if (!isEchoPlus.value || !isHostRole.value || followingRemoteHost.value) {
+    libraryItems.value = [];
+    return;
+  }
+  const token = auth.accessToken?.trim() ?? '';
+  if (!auth.isAuthenticated || !token) return;
+  libraryLoading.value = true;
+  try {
+    libraryItems.value = await fetchVcWatchTogetherUploadLibrary(token);
+  } catch (e) {
+    libraryError.value =
+      e instanceof Error ? e.message : "Couldn't load your upload library.";
+    libraryItems.value = [];
+  } finally {
+    libraryLoading.value = false;
+  }
+}
+
+onMounted(() => {
+  void refreshChannelHost();
+  void refreshUploadLibrary();
+});
+
+watch(
+  () => props.channelId,
+  () => {
+    void refreshChannelHost();
+  },
+);
+
+watch([canHostUploads, () => isHostRole.value, () => isEchoPlus.value], () => {
+  void refreshUploadLibrary();
+});
+
+async function addLibraryItemToQueue(item: VcWatchTogetherLibraryItem) {
+  uploadError.value = '';
+  if (!canHostUploads.value) return;
+  if (playlistStorageKeys.value.has(item.storageKey.trim())) return;
+  const sessionId = props.ensureWatchTogetherSessionId();
+  const token = auth.accessToken?.trim() ?? '';
+  if (item.byteLength > 0 && token && auth.isAuthenticated) {
+    try {
+      await addVcWatchTogetherSessionBytes(
+        token,
+        sessionId,
+        props.channelId,
+        item.byteLength,
+        item.storageKey,
+      );
+    } catch (e) {
+      uploadError.value = uploadErrorMessage(e);
+      return;
+    }
+  }
+  const entry: WatchTogetherPlaylistEntry = {
+    id: randomUuidV4(),
+    storageKey: item.storageKey,
+    sourcePublicUrl: item.sourcePublicUrl,
+    hlsManifestUrl: item.hlsManifestUrl,
+    title: item.title,
+    transcodeStatus: item.transcodeStatus,
+    transcodeError: item.transcodeError,
+    byteLength: item.byteLength,
+  };
+  const playlist = [...props.state.watchTogetherPlaylist, entry];
+  props.patchWatchTogetherUi({
+    watchTogetherPlaylist: playlist,
+    watchTogetherSessionBytesUsed: playlist.reduce(
+      (n, row) => n + (row.byteLength || 0),
+      0,
+    ),
+  });
+}
 
 const pollSourceUrl = ref('');
 const pollEntryId = ref<string | null>(null);
@@ -127,15 +274,50 @@ function transcodeLabel(status: WatchTogetherTranscodeStatus): string {
 }
 
 function chooseHost() {
+  void chooseHostAsync();
+}
+
+async function chooseHostAsync() {
+  hostClaimError.value = '';
   if (followingRemoteHost.value) {
     props.setWatchTogetherLobbyRole('follower');
     return;
   }
-  props.ensureWatchTogetherSessionId();
+  const channelId = props.channelId.trim();
+  if (!channelId) {
+    hostClaimError.value = 'Join a voice channel before hosting.';
+    return;
+  }
+  const sessionId = props.ensureWatchTogetherSessionId();
+  const token = auth.accessToken?.trim() ?? '';
+  if (!auth.isAuthenticated || !token) {
+    hostClaimError.value = 'Sign in again to host.';
+    return;
+  }
+  try {
+    await claimVcWatchTogetherChannelHost(token, channelId, sessionId);
+  } catch (e) {
+    if (
+      e instanceof EchoApiError &&
+      e.body.code === 'WATCH_TOGETHER_HOST_TAKEN'
+    ) {
+      hostClaimError.value =
+        'Someone else is already hosting in this channel. Join as a viewer instead.';
+      props.setWatchTogetherLobbyRole('follower');
+      return;
+    }
+    hostClaimError.value =
+      e instanceof Error ? e.message : "Couldn't claim host for this channel.";
+    return;
+  }
   props.setWatchTogetherLobbyRole('host');
+  channelHostUserId.value = props.currentUserId?.trim() ?? null;
 }
 
-function chooseFollower() {
+async function chooseFollower() {
+  await releaseChannelHostIfNeeded();
+  channelHostUserId.value = null;
+  void refreshChannelHost();
   props.setWatchTogetherLobbyRole('follower');
 }
 
@@ -218,6 +400,12 @@ function uploadErrorMessage(e: unknown): string {
   if (e instanceof EchoApiError && e.body.code === 'UPLOAD_TOO_LARGE') {
     return `File exceeds the ${ECHO_WATCH_TOGETHER_MAX_VIDEO_BYTES / (1024 * 1024 * 1024)} GiB per-video limit.`;
   }
+  if (
+    e instanceof EchoApiError &&
+    e.body.code === 'WATCH_TOGETHER_HOST_TAKEN'
+  ) {
+    return 'Someone else is already hosting in this channel.';
+  }
   if (e instanceof EchoApiError && e.body.code === 'UPLOADS_NOT_CONFIGURED') {
     return 'Uploads are not configured on this server. Ask an admin to enable local uploads.';
   }
@@ -288,6 +476,7 @@ async function onFileInput(ev: Event) {
         0,
       ),
     });
+    void refreshUploadLibrary();
   } catch (e) {
     uploadError.value = uploadErrorMessage(e);
   } finally {
@@ -374,6 +563,9 @@ function removeRow(index: number) {
           <p v-if="followingRemoteHost" class="mt-2 text-[11px] text-amber-200">
             Someone is already hosting — join as a viewer instead.
           </p>
+          <p v-if="hostClaimError" class="mt-2 text-[11px] text-red-400">
+            {{ hostClaimError }}
+          </p>
         </button>
         <button
           type="button"
@@ -445,12 +637,78 @@ function removeRow(index: number) {
           </span>
           <input
             type="file"
-            accept="video/*,.mkv"
+            accept="video/*,.mkv,.mov"
             class="sr-only"
             :disabled="uploadBusy"
             @change="onFileInput"
           />
         </label>
+
+        <div v-if="canHostUploads" class="space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <h3
+              class="text-[12px] font-bold uppercase tracking-wide text-fg-subtle"
+            >
+              Your uploads
+            </h3>
+            <button
+              type="button"
+              class="text-[11px] font-semibold text-fg-soft hover:text-fg disabled:opacity-50"
+              :disabled="libraryLoading"
+              @click="refreshUploadLibrary"
+            >
+              Refresh
+            </button>
+          </div>
+          <p v-if="libraryLoading" class="text-[11px] text-fg-subtle">
+            Loading your upload library…
+          </p>
+          <p v-else-if="libraryError" class="text-[12px] text-red-400">
+            {{ libraryError }}
+          </p>
+          <ul
+            v-else-if="libraryAvailable.length"
+            class="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border/70 bg-elevated/50 p-2"
+          >
+            <li
+              v-for="item in libraryAvailable"
+              :key="item.storageKey"
+              class="flex items-center gap-2 rounded-md px-2 py-1.5"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-[12px] font-medium text-fg">
+                  {{ item.title }}
+                </div>
+                <div
+                  class="text-[10px]"
+                  :class="
+                    item.transcodeStatus === 'failed'
+                      ? 'text-red-400'
+                      : item.transcodeStatus === 'ready'
+                        ? 'text-emerald-400/90'
+                        : 'text-fg-subtle'
+                  "
+                >
+                  {{ transcodeLabel(item.transcodeStatus) }}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 rounded-md bg-elevated px-2 py-1 text-[11px] font-semibold text-fg-soft hover:bg-glass-hover hover:text-fg"
+                @click="addLibraryItemToQueue(item)"
+              >
+                Add
+              </button>
+            </li>
+          </ul>
+          <p v-else-if="libraryItems.length" class="text-[11px] text-fg-subtle">
+            All library videos are already in your queue.
+          </p>
+          <p v-else class="text-[11px] text-fg-subtle">
+            Uploads you add here are saved to your global library and can be
+            reused in any voice channel.
+          </p>
+        </div>
 
         <p
           v-if="uploadBusy && uploadFileName"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import ChatView from '@/components/chat/ChatView.vue';
-import ChatInput from '@/components/chat/ChatInput.vue';
+import ChatView from '@/features/chat/components/ChatView.vue';
+import ChatInput from '@/features/chat/components/ChatInput.vue';
 import { icons } from '@/assets/icons';
 import { useSimpleContextMenu } from '@/composables/useSimpleContextMenu';
 import { copyToClipboard } from '@/features/chat/composables/useMessageLinkActions';

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { icons } from '@/assets/icons';
 import PausedGifAvatar from '@/components/PausedGifAvatar.vue';
-import ServerOwnerCrownIcon from '@/components/ServerOwnerCrownIcon.vue';
+import ServerOwnerCrownIcon from '@/features/layout/components/ServerOwnerCrownIcon.vue';
 import { resolveCallTileAvatarUrl } from '@/utils/avatarDisplay';
 
 const props = defineProps<{

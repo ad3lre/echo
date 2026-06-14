@@ -18,7 +18,7 @@ const ServerDownGate = defineAsyncComponent(
   () => import('@/features/layout/components/ServerDownGate.vue'),
 );
 const ExploreView = defineAsyncComponent(
-  () => import('@/components/ExploreView.vue'),
+  () => import('@/features/layout/components/ExploreView.vue'),
 );
 
 const props = withDefaults(

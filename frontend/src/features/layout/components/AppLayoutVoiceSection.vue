@@ -33,7 +33,7 @@ import type {
   PollData,
   ReplyTo,
 } from '@shared/types';
-import ChatView from '@/components/chat/ChatView.vue';
+import ChatView from '@/features/chat/components/ChatView.vue';
 import type { PopoutAnchorRect } from '@/utils/memberProfiles';
 import type { RemoteParticipantTrackInfo } from '@/composables/useLiveKitVoiceRoom';
 import type { Room as LKRoom } from 'livekit-client';
@@ -52,7 +52,7 @@ import { resolveVoiceChannelForParticipants } from '@/features/layout/resolveVoi
 import type { EchoWorkspaceEventSummary } from '@/api/echoClient';
 
 const CallView = defineAsyncComponent(
-  () => import('@/components/CallView.vue'),
+  () => import('@/features/voice/components/CallView.vue'),
 );
 const StageCallView = defineAsyncComponent(
   () => import('@/features/voice/components/StageCallView.vue'),
@@ -352,7 +352,7 @@ const stageSpeakerByUserId = computed(
 // Warm voice call chunks only when voice UI is active (keeps startup tests/paths light).
 watchEffect(() => {
   if (!props.isViewingVoiceChannel) return;
-  void import('@/components/CallView.vue');
+  void import('@/features/voice/components/CallView.vue');
   if (isStageChannel.value) {
     void import('@/features/voice/components/StageCallView.vue');
     void import('@/features/voice/components/StageVcLobby.vue');

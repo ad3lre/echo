@@ -8,10 +8,10 @@ import type {
   PollData,
   ReplyTo,
 } from '@shared/types';
-import ChatView from '@/components/chat/ChatView.vue';
+import ChatView from '@/features/chat/components/ChatView.vue';
 import { icons } from '@/assets/icons';
-import AppLayoutLoadError from '@/components/AppLayoutLoadError.vue';
-import AppLayoutSplash from '@/components/AppLayoutSplash.vue';
+import AppLayoutLoadError from '@/features/layout/components/AppLayoutLoadError.vue';
+import AppLayoutSplash from '@/features/layout/components/AppLayoutSplash.vue';
 import type { MemberRole, PopoutAnchorRect } from '@/utils/memberProfiles';
 import type { MainSurface } from '@/features/layout/mainSurface';
 import type { ChannelCategory } from '@/composables/useChannels';
@@ -23,28 +23,28 @@ const isDev = import.meta.env.DEV;
 const DM_HUB_LOAD_TIMEOUT_MS = 30_000;
 
 const FriendsView = defineAsyncComponent({
-  loader: () => import('@/components/FriendsView.vue'),
+  loader: () => import('@/features/layout/components/FriendsView.vue'),
   loadingComponent: AppLayoutSplash,
   errorComponent: AppLayoutLoadError,
   delay: 200,
   timeout: DM_HUB_LOAD_TIMEOUT_MS,
 });
 const DMCallView = defineAsyncComponent({
-  loader: () => import('@/components/DMCallView.vue'),
+  loader: () => import('@/features/dm/components/DMCallView.vue'),
   loadingComponent: AppLayoutSplash,
   errorComponent: AppLayoutLoadError,
   delay: 200,
   timeout: DM_HUB_LOAD_TIMEOUT_MS,
 });
 const MessageRequestsView = defineAsyncComponent({
-  loader: () => import('@/components/MessageRequestsView.vue'),
+  loader: () => import('@/features/dm/components/MessageRequestsView.vue'),
   loadingComponent: AppLayoutSplash,
   errorComponent: AppLayoutLoadError,
   delay: 200,
   timeout: DM_HUB_LOAD_TIMEOUT_MS,
 });
 const DmNotificationsView = defineAsyncComponent({
-  loader: () => import('@/components/DmNotificationsView.vue'),
+  loader: () => import('@/features/dm/components/DmNotificationsView.vue'),
   loadingComponent: AppLayoutSplash,
   errorComponent: AppLayoutLoadError,
   delay: 200,
