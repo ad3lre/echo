@@ -89,7 +89,7 @@
     "socket.io-client": "^4.8.3",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.60.1"
+    "typescript-eslint": "^8.61.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",
