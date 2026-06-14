@@ -109,7 +109,7 @@
     "@opentelemetry/sdk-node": "^0.218.0",
     "@simplewebauthn/server": "^13.3.0",
     "@tiptap/core": "^3.25.0",
-    "@tiptap/extension-color": "^3.25.0",
+    "@tiptap/extension-color": "^3.26.1",
     "@tiptap/extension-font-family": "^3.25.0",
     "@tiptap/extension-highlight": "^3.25.0",
     "@tiptap/extension-image": "^3.25.0",
