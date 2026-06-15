@@ -35,4 +35,13 @@ describe('useAppLayoutWelcomeBack', () => {
     });
     expect(api.welcomeBackExploreGate.value).toBe(true);
   });
+
+  it('skips the explore gate for guest accounts on an empty public directory', () => {
+    const api = mount({
+      isAuthenticated: computed(() => true),
+      explorePublicDirectoryEmpty: computed(() => true),
+      isGuestUser: computed(() => true),
+    });
+    expect(api.welcomeBackExploreGate.value).toBe(false);
+  });
 });

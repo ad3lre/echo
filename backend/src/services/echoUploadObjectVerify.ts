@@ -1,6 +1,7 @@
 import { stat } from 'fs/promises';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { config } from '../config';
+import { echoUploadPrefersS3ObjectStore } from './echoUploadObjectBackend';
 import {
   createEchoS3UploadClient,
   getEchoS3UploadBucket,
@@ -32,6 +33,33 @@ export async function verifyEchoStoredUploadObject(opts: {
     return { ok: false, reason: 'INVALID_KEY' };
   }
 
+  if (echoUploadPrefersS3ObjectStore(storageKey)) {
+    const bucket = getEchoS3UploadBucket();
+    const s3 = createEchoS3UploadClient();
+    if (!bucket || !s3) {
+      return { ok: false, reason: 'NOT_CONFIGURED' };
+    }
+
+    let head;
+    try {
+      head = await s3.send(
+        new HeadObjectCommand({ Bucket: bucket, Key: storageKey }),
+      );
+    } catch {
+      return { ok: false, reason: 'NOT_FOUND' };
+    }
+    if (Number(head.ContentLength ?? -1) !== expectedSize) {
+      return { ok: false, reason: 'SIZE_MISMATCH' };
+    }
+    const headType = String(head.ContentType ?? '')
+      .trim()
+      .toLowerCase();
+    if (!headType || headType !== expectedType) {
+      return { ok: false, reason: 'TYPE_MISMATCH' };
+    }
+    return { ok: true };
+  }
+
   if (config.echoLocalUploadDir) {
     const abs = resolveLocalUploadFilePath(storageKey);
     if (!abs) return { ok: false, reason: 'INVALID_KEY' };
@@ -45,28 +73,5 @@ export async function verifyEchoStoredUploadObject(opts: {
     return { ok: true };
   }
 
-  const bucket = getEchoS3UploadBucket();
-  const s3 = createEchoS3UploadClient();
-  if (!bucket || !s3) {
-    return { ok: false, reason: 'NOT_CONFIGURED' };
-  }
-
-  let head;
-  try {
-    head = await s3.send(
-      new HeadObjectCommand({ Bucket: bucket, Key: storageKey }),
-    );
-  } catch {
-    return { ok: false, reason: 'NOT_FOUND' };
-  }
-  if (Number(head.ContentLength ?? -1) !== expectedSize) {
-    return { ok: false, reason: 'SIZE_MISMATCH' };
-  }
-  const headType = String(head.ContentType ?? '')
-    .trim()
-    .toLowerCase();
-  if (!headType || headType !== expectedType) {
-    return { ok: false, reason: 'TYPE_MISMATCH' };
-  }
-  return { ok: true };
+  return { ok: false, reason: 'NOT_CONFIGURED' };
 }

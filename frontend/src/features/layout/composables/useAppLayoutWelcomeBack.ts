@@ -43,6 +43,8 @@ export function useAppLayoutWelcomeBack(deps: {
       if (ECHO_GUEST_ACCOUNTS_ENABLED) return false;
       return true;
     }
+    // Guests browse public Explore like anonymous visitors; skip the member gate.
+    if (deps.isGuestUser.value) return false;
     if (!deps.explorePublicDirectoryEmpty.value) return false;
     const fullMember = !deps.isGuestUser.value;
     if (fullMember && deps.workspaceLoading.value) return false;

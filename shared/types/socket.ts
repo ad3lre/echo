@@ -299,6 +299,8 @@ export type EchoAttentionSnapshot = {
 export type EchoReadStatePutResponse = {
   lastReadMessageId: string | null;
   channelAttention: EchoAttentionChannelSummary;
+  /** Single-channel slice of the attention snapshot (key = channel id). */
+  channelAttentionByChannelId: Record<string, EchoAttentionChannelSummary>;
 };
 
 /**

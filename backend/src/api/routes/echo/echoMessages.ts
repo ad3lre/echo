@@ -442,6 +442,9 @@ export default async function echoMessagesRoutes(
       return reply.code(200).send({
         lastReadMessageId: nextReadState,
         channelAttention,
+        channelAttentionByChannelId: {
+          [channelId]: channelAttention,
+        },
       });
     },
   );

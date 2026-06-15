@@ -86,6 +86,15 @@ describe('useEchoHistory', () => {
         unreadCount: 0,
         peerUserId: '1492135186257805310',
       },
+      channelAttentionByChannelId: {
+        [channelId]: {
+          channelId,
+          kind: 'dm',
+          lastReadMessageId: lastUnreadMessageId,
+          unreadCount: 0,
+          peerUserId: '1492135186257805310',
+        },
+      },
     });
 
     const messages = ref<Record<string, RawMessage[]>>({});

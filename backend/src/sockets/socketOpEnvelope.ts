@@ -14,6 +14,7 @@
  */
 
 import { boundedInteger } from '../shared/numberParsing';
+import { gcraStep } from '../shared/gcraRateLimiter';
 
 const WINDOW_MS = 60_000;
 const MIN_OPS_PER_MINUTE = 60;
@@ -48,16 +49,14 @@ export function createSocketOpEnvelope(opts: {
 }): SocketOpEnvelope {
   const opsPerMinute = Math.max(MIN_OPS_PER_MINUTE, opts.opsPerMinute);
   const emissionIntervalMs = WINDOW_MS / opsPerMinute;
-  /** Theoretical arrival time: the instant the budget fully drains. */
+  /** Single-key GCRA: one connection, full-window burst (`burstMs = WINDOW_MS`). */
   let tatMs = 0;
 
   return {
     admit(nowMs: number): boolean {
-      const nextTatMs = Math.max(tatMs, nowMs) + emissionIntervalMs;
-      if (nextTatMs - nowMs > WINDOW_MS) {
-        return false;
-      }
-      tatMs = nextTatMs;
+      const res = gcraStep(tatMs, nowMs, emissionIntervalMs, WINDOW_MS);
+      if (!res.allowed) return false;
+      tatMs = res.newTatMs;
       return true;
     },
   };

@@ -8,7 +8,7 @@ describe('chat shell', () => {
   it('opens Explore from the rail', () => {
     cy.visit('/');
     waitForAppShell();
-    cy.get('button.explore-trigger[title^="Explore "]', {
+    cy.get('button.explore-trigger[title*="Explore"]', {
       timeout: 60_000,
     })
       .first()

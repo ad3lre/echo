@@ -1,7 +1,6 @@
 import path from 'path';
 import type { FastifyBaseLogger } from 'fastify';
 import type pg from 'pg';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { config } from '../config';
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import {
@@ -11,11 +10,9 @@ import {
 import { safeFetchAgent } from './linkUnfurl/safeFetchAgent';
 import { extractEchoStorageKeyFromPublicUrl } from './echoUploadPublicUrl';
 import { resolveEchoUploadStorageKey } from './echoUploadResolveDest';
-import { writeLocalEchoUploadFile } from './localUploadDisk';
+import { storeEchoUploadBuffer } from './echoUploadStoreBuffer';
 import {
   buildEchoUploadPublicUrlForStorageKey,
-  createEchoS3UploadClient,
-  getEchoS3UploadBucket,
   isAllowedChatUploadContentType,
   isEchoS3UploadConfigured,
 } from './s3UploadPresign';
@@ -219,33 +216,19 @@ export async function importChatRemoteImage(opts: {
   }
 
   try {
-    if (config.echoLocalUploadDir) {
-      await writeLocalEchoUploadFile(dest.storageKey, fetched.buf);
-      await pool.query(
-        `INSERT INTO echo_upload_served_content_type (storage_key, content_type)
-         VALUES ($1, $2)
-         ON CONFLICT (storage_key) DO UPDATE SET content_type = EXCLUDED.content_type`,
-        [dest.storageKey, fetched.contentType],
-      );
-    } else {
-      const client = createEchoS3UploadClient();
-      const bucket = getEchoS3UploadBucket();
-      if (!client || !bucket) {
-        return {
-          ok: false,
-          status: 503,
-          code: 'NOT_CONFIGURED',
-          message: 'File storage is not configured on this server.',
-        };
-      }
-      await client.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: dest.storageKey,
-          Body: fetched.buf,
-          ContentType: fetched.contentType,
-        }),
-      );
+    const stored = await storeEchoUploadBuffer({
+      pool,
+      storageKey: dest.storageKey,
+      buf: fetched.buf,
+      contentType: fetched.contentType,
+    });
+    if (!stored.ok) {
+      return {
+        ok: false,
+        status: 503,
+        code: 'NOT_CONFIGURED',
+        message: 'File storage is not configured on this server.',
+      };
     }
   } catch (e) {
     log?.warn(

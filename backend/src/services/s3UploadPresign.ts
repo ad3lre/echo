@@ -5,6 +5,7 @@ import { ECHO_UPLOAD_ABS_MAX_BYTES } from '../../../shared/echoPlanLimits';
 import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '../../../shared/echoS3ReadThrough';
 import { isSafeEchoUploadStorageKeyPath } from '../../../shared/echoUploadStorageKey';
 import { sanitizeEchoUploadContentType } from './echoUploadContentTypePolicy';
+import { echoUploadPrefersS3ObjectStore } from './echoUploadObjectBackend';
 import { ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX } from './localUploadDisk';
 
 /**
@@ -132,6 +133,21 @@ export function buildEchoUploadPublicUrlForStorageKey(
 ): string | null {
   const trimmedKey = key.trim();
   if (!trimmedKey) return null;
+  if (echoUploadPrefersS3ObjectStore(trimmedKey)) {
+    if (config.echoS3PublicReadThroughApi && isEchoS3UploadConfigured()) {
+      const encoded = trimmedKey.split('/').map(encodeURIComponent).join('/');
+      return `${absoluteEchoS3PublicReadThroughBase()}${encoded}`;
+    }
+    const bucket = config.s3UploadBucket;
+    const region = config.s3UploadRegion;
+    if (!bucket || !region) return null;
+    return buildPublicUrlForStorageKey(
+      trimmedKey,
+      bucket,
+      region,
+      config.s3UploadEndpoint ?? null,
+    );
+  }
   if (config.echoLocalUploadDir) {
     return `${ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX}${trimmedKey.split('/').map(encodeURIComponent).join('/')}`;
   }

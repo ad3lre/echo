@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install cron to clean stale SSH sessions and ssh-agent processes.
-# Runs every 30 minutes so the 15 GB ssh-agent cap can trigger without waiting 48h.
+# Runs every 30 minutes so ssh-agent count/RSS caps can trigger without waiting 48h.
 #
 # Usage:
 #   npm run ssh-cleanup:install-cron
@@ -42,6 +42,7 @@ CRON_LINE="${CRON_SCHEDULE} TZ=${TZ_NAME} bash ${ROOT}/scripts/cleanup-stale-ssh
 echo "Stale SSH / ssh-agent cleanup:"
 echo "  Schedule: ${CRON_SCHEDULE} (${TZ_NAME})"
 echo "  Max age: ${ECHO_SSH_CLEANUP_MAX_AGE_HOURS:-48} hours"
+echo "  ssh-agent hard cap: ${ECHO_SSH_AGENT_MAX_COUNT:-3500} processes (emergency prune, oldest first)"
 echo "  ssh-agent hard cap: ${ECHO_SSH_AGENT_MAX_RSS_GB:-15} GB total RSS (emergency prune, oldest first)"
 echo "  Log:  ${LOG}"
 echo ""

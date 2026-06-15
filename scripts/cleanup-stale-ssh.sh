@@ -3,8 +3,9 @@
 #
 # Targets:
 #   1. ssh-agent processes older than 48 hours (default)
-#   2. ssh-agent emergency prune when total RSS reaches 15 GB (kills oldest first, any age)
-#   3. Remote logind sessions (SSH/Cursor) older than 48h with no Echo/Docker/production processes
+#   2. ssh-agent emergency prune when count reaches 3500 (kills oldest first, any age)
+#   3. ssh-agent emergency prune when total RSS reaches 15 GB (kills oldest first, any age)
+#   4. Remote logind sessions (SSH/Cursor) older than 48h with no Echo/Docker/production processes
 #
 # Protected: PM2, Echo app processes, Docker stack, Caddy, Postgres, LiveKit, NATS, Redis.
 #
@@ -14,6 +15,7 @@
 #
 # Env:
 #   ECHO_SSH_CLEANUP_MAX_AGE_HOURS (48)
+#   ECHO_SSH_AGENT_MAX_COUNT (3500) — hard cap; emergency prune below 90% of this
 #   ECHO_SSH_AGENT_MAX_RSS_GB (15) — hard cap; emergency prune below 90% of this
 #   ECHO_SSH_CLEANUP_DRY_RUN (1 = log only)
 #   ECHO_SSH_CLEANUP_LOG (default: ~/.local/state/echo-ssh-cleanup.log)
@@ -21,6 +23,8 @@ set -euo pipefail
 
 MAX_AGE_HOURS="${ECHO_SSH_CLEANUP_MAX_AGE_HOURS:-48}"
 MAX_AGE_SEC=$((MAX_AGE_HOURS * 3600))
+SSH_AGENT_MAX_COUNT="${ECHO_SSH_AGENT_MAX_COUNT:-3500}"
+SSH_AGENT_TARGET_COUNT=$((SSH_AGENT_MAX_COUNT * 90 / 100))
 SSH_AGENT_MAX_RSS_GB="${ECHO_SSH_AGENT_MAX_RSS_GB:-15}"
 SSH_AGENT_MAX_RSS_KB=$((SSH_AGENT_MAX_RSS_GB * 1024 * 1024))
 SSH_AGENT_TARGET_RSS_KB=$((SSH_AGENT_MAX_RSS_KB * 90 / 100))
@@ -95,12 +99,12 @@ kill_ssh_agent() {
 
 cleanup_ssh_agents() {
   local pid etimes rss cmd
-  local killed_age=0 skipped_young=0 killed_cap=0
+  local killed_age=0 skipped_young=0 killed_count=0 killed_cap=0
   local total_kb count
 
   total_kb="$(ssh_agent_total_rss_kb)"
   count="$(ssh_agent_count)"
-  log "ssh-agent baseline: count=$count total_rss_mb=$((total_kb / 1024)) cap_gb=$SSH_AGENT_MAX_RSS_GB"
+  log "ssh-agent baseline: count=$count total_rss_mb=$((total_kb / 1024)) cap_count=$SSH_AGENT_MAX_COUNT cap_gb=$SSH_AGENT_MAX_RSS_GB"
 
   while read -r pid etimes cmd; do
     [[ -z "${pid:-}" ]] && continue
@@ -111,6 +115,17 @@ cleanup_ssh_agents() {
     rss="$(ps -o rss= -p "$pid" 2>/dev/null | tr -d ' ' || echo 0)"
     kill_ssh_agent "$pid" "max_age" "$etimes" "$rss" && killed_age=$((killed_age + 1))
   done < <(ps -C ssh-agent -o pid=,etimes=,cmd= 2>/dev/null || true)
+
+  count="$(ssh_agent_count)"
+  if [[ "$count" -ge "$SSH_AGENT_MAX_COUNT" ]]; then
+    log "ssh-agent count exceeded: count=$count >= cap_count=$SSH_AGENT_MAX_COUNT; emergency prune to ~$SSH_AGENT_TARGET_COUNT"
+    while read -r pid etimes rss cmd; do
+      [[ -z "${pid:-}" ]] && continue
+      count="$(ssh_agent_count)"
+      [[ "$count" -lt "$SSH_AGENT_TARGET_COUNT" ]] && break
+      kill_ssh_agent "$pid" "count" "$etimes" "$rss" && killed_count=$((killed_count + 1))
+    done < <(ps -C ssh-agent -o pid=,etimes=,rss=,cmd= 2>/dev/null | sort -k2 -nr || true)
+  fi
 
   total_kb="$(ssh_agent_total_rss_kb)"
   if [[ "$total_kb" -ge "$SSH_AGENT_MAX_RSS_KB" ]]; then
@@ -125,7 +140,7 @@ cleanup_ssh_agents() {
 
   total_kb="$(ssh_agent_total_rss_kb)"
   count="$(ssh_agent_count)"
-  log "ssh-agent summary: killed_age=$killed_age killed_cap=$killed_cap skipped_young=$skipped_young remaining=$count total_rss_mb=$((total_kb / 1024))"
+  log "ssh-agent summary: killed_age=$killed_age killed_count=$killed_count killed_cap=$killed_cap skipped_young=$skipped_young remaining=$count total_rss_mb=$((total_kb / 1024))"
 }
 
 cleanup_remote_sessions() {
@@ -198,7 +213,7 @@ verify_production_running() {
   fi
 }
 
-log "cleanup-stale-ssh start max_age_hours=$MAX_AGE_HOURS ssh_agent_cap_gb=$SSH_AGENT_MAX_RSS_GB dry_run=$DRY_RUN"
+log "cleanup-stale-ssh start max_age_hours=$MAX_AGE_HOURS ssh_agent_cap_count=$SSH_AGENT_MAX_COUNT ssh_agent_cap_gb=$SSH_AGENT_MAX_RSS_GB dry_run=$DRY_RUN"
 cleanup_ssh_agents
 cleanup_remote_sessions
 verify_production_running

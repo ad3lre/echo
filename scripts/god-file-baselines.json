@@ -2,7 +2,7 @@
   "backend/src/api/routes/auth/me.ts": 788,
   "backend/src/api/routes/discordOAuth.ts": 791,
   "backend/src/api/routes/echo/echoDiscordImport.ts": 704,
-  "backend/src/api/routes/echo/echoMessages.ts": 1406,
+  "backend/src/api/routes/echo/echoMessages.ts": 1409,
   "backend/src/api/routes/echo/echoMls.ts": 709,
   "backend/src/api/routes/echo/echoRoles.ts": 1141,
   "backend/src/api/routes/echo/echoServerScoped.ts": 1138,

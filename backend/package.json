@@ -28,6 +28,8 @@
     "test:server-aggregate-cache": "node --import tsx src/tests/echo.serverAggregateCache.test.ts",
     "test:keyed-coalescer": "node --import tsx src/tests/keyedCoalescer.test.ts",
     "test:id-tokens": "node --import tsx src/tests/idTokens.test.ts",
+    "test:gcra": "node --import tsx src/tests/gcraRateLimiter.test.ts",
+    "test:message-rate-limiter": "node --import tsx src/tests/messageRateLimiter.test.ts",
     "test:login-protection": "ts-node src/tests/loginProtection.test.ts",
     "test:global-error-handler": "ts-node src/tests/globalErrorHandler.test.ts",
     "test:shipping-security": "ts-node src/tests/shippingSecurity.test.ts",

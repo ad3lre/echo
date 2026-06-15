@@ -75,16 +75,17 @@ export function currentUtcMonthKey(now = new Date()): string {
 
 /** Exported for unit tests — strips markup/entities from RSS trend titles. */
 export function sanitizeTrendSearchTerm(raw: string): string {
+  // Decode numeric refs first, then named entities; &amp; must be last (CodeQL js/double-escaping).
   let t = raw
-    .replace(/&amp;/gi, '&')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) =>
+      String.fromCharCode(parseInt(h, 16)),
+    )
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
     .replace(/&apos;/gi, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) =>
-      String.fromCharCode(parseInt(h, 16)),
-    );
+    .replace(/&amp;/gi, '&');
   t = t.replace(/<[^>]*>/g, ' ');
   t = t.replace(/[#*_`~|[\]()]/g, ' ');
   t = t.replace(/^['"]+|['"]+$/g, '');

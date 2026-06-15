@@ -44,6 +44,9 @@ assert.equal(
   'Childcare & more',
 );
 
+// Double-encoded quotes must not collapse to a single quote (CodeQL js/double-escaping).
+assert.equal(sanitizeTrendSearchTerm('&amp;quot;'), '&quot;');
+
 const caseDupes = buildCategoriesFromTrendTerms([
   'Childcare',
   'childcare',
