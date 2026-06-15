@@ -113,7 +113,7 @@
   "frontend/src/features/voice/components/VcCodenamesGame.vue": 833,
   "frontend/src/features/voice/components/VcHangmanGame.vue": 1039,
   "frontend/src/features/voice/components/VcWatchTogetherLobby.vue": 884,
-  "frontend/src/main.ts": 749,
+  "frontend/src/main.ts": 753,
   "frontend/src/services/domain/workspaceEchoApiSnapshot.ts": 902,
   "frontend/src/services/domain/workspaceSession.ts": 735,
   "frontend/src/services/orchestration/echoHistoryOrchestration.ts": 1340,

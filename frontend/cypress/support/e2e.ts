@@ -1,5 +1,16 @@
 // Global E2E setup and shared commands (Cypress support file).
 
+/** Benign cold-start / stale-cache `/auth/me` 401s must not fail Cypress specs. */
+Cypress.on('uncaught:exception', (err) => {
+  if (err.name === 'AuthApiError' && /sign in again/i.test(err.message ?? '')) {
+    return false;
+  }
+});
+
+beforeEach(() => {
+  cy.clearLocalStorage();
+});
+
 /** Vite dev origin (matches `cypress.config.ts` baseUrl). */
 export const E2E_ORIGIN = 'http://localhost:8080';
 

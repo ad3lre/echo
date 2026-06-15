@@ -7,7 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <!-- Launcher / splash (aligned with default vector launcher background) -->
-    <color name="ic_launcher_background">#FF3DDC84</color>
+    <!-- Launcher background: values/ic_launcher_background.xml (avoid duplicate resource merge). -->
     <color name="splash_background">#FF3DDC84</color>
 </resources>

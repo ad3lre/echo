@@ -105,7 +105,7 @@
     "seed:dev": "node scripts/seed-dev-echo.mjs",
     "bot:export": "node --env-file=.env node_modules/tsx/dist/cli.mjs bot/src/index.ts",
     "bot:serve": "node --env-file=.env node_modules/tsx/dist/cli.mjs bot/src/index.ts --serve",
-    "dev:e2e": "node scripts/kill-dev-ports.mjs && concurrently -k -n backend,frontend -c auto \"cross-env ECHO_BACKEND_STORAGE=memory DATABASE_URL= NODE_ENV=development USE_MOCK_DB=true npm run dev:e2e -w backend\" \"node scripts/wait-for-port.mjs && npm run dev:e2e -w frontend\"",
+    "dev:e2e": "node scripts/kill-dev-ports.mjs && concurrently -k -n backend,frontend -c auto \"cross-env ECHO_BACKEND_STORAGE=memory DATABASE_URL= NODE_ENV=development USE_MOCK_DB=true ECHO_GUEST_ACCOUNTS_ENABLED=1 npm run dev:e2e -w backend\" \"cross-env VITE_ECHO_GUEST_ACCOUNTS_ENABLED=1 node scripts/wait-for-port.mjs && npm run dev:e2e -w frontend\"",
     "test:e2e": "node scripts/kill-dev-ports.mjs && concurrently -k -s command-cypress -n stack,cypress -c auto \"npm run dev:e2e\" \"wait-on -t 120000 http://localhost:8080 && npm run cy:run -w frontend\"",
     "test:perf:prod": "node --import tsx perf/run.ts",
     "test:perf:prod:compare": "node --import tsx perf/compare.ts",

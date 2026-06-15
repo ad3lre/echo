@@ -622,10 +622,14 @@ async function bootstrap() {
     hasStoredSessionToRestore() || authSessionStore.isSessionUnverified;
   if (needsServerValidation) {
     void (async () => {
-      const restored = await authSessionStore.restoreSessionFromApi();
-      if (restored) {
-        await notifyAppAuthenticated();
-        startSessionHeartbeat();
+      try {
+        const restored = await authSessionStore.restoreSessionFromApi();
+        if (restored) {
+          await notifyAppAuthenticated();
+          startSessionHeartbeat();
+        }
+      } catch {
+        /* restoreSessionFromApi should not throw; guard against stray rejections */
       }
     })();
   } else if (iosBootDecision && authSessionStore.isAuthenticated) {

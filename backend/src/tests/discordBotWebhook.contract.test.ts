@@ -46,6 +46,8 @@ describe('discordBotWebhook contract', () => {
     process.env.NODE_ENV = 'test';
     process.env.ECHO_DISCORD_BOT_WEBHOOK_SECRET = TEST_SECRET;
     process.env.ECHO_BACKEND_STORAGE = 'memory';
+    process.env.DATABASE_URL = '';
+    process.env.USE_MOCK_DB = '';
     clearModule('../config');
 
     const { default: discordBridgeHookRoutes } =
