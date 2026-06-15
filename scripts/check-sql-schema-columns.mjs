@@ -433,7 +433,10 @@ async function main() {
       if (file.includes(`${path.sep}tests${path.sep}`)) continue;
       const result = scanFile(file, schemas);
       violations.push(...result.violations);
-      liveQueries.push(...result.liveQueries);
+      /* One-off backfill/migration scripts create ephemeral tables at runtime. */
+      if (!file.includes(`${path.sep}scripts${path.sep}`)) {
+        liveQueries.push(...result.liveQueries);
+      }
     }
   }
 
