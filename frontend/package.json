@@ -151,7 +151,7 @@
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "@tiptap/core": "^3.25.0",
-    "@tiptap/extension-bold": "^3.25.0",
+    "@tiptap/extension-bold": "^3.27.0",
     "@tiptap/extension-bubble-menu": "^3.25.0",
     "@tiptap/extension-code": "^3.25.0",
     "@tiptap/extension-color": "^3.25.0",
