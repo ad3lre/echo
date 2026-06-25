@@ -208,7 +208,7 @@
     "postcss": "^8.5.11",
     "postcss-html": "^1.8.1",
     "postcss-scss": "^4.0.9",
-    "qs": "6.15.2",
+    "qs": "6.15.3",
     "rollup-plugin-visualizer": "^7.0.1",
     "sass": "^1.99.0",
     "stylelint": "^17.9.0",
