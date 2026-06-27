@@ -338,6 +338,24 @@ export const useServerStore = defineStore('server', () => {
     );
   }
 
+  function updateServerWelcomeChannelId(
+    serverId: string,
+    welcomeChannelId: string | null,
+  ) {
+    setServersState(
+      servers.value.map((s) =>
+        s.id === serverId
+          ? {
+              ...s,
+              ...(welcomeChannelId
+                ? { welcomeChannelId }
+                : { welcomeChannelId: undefined }),
+            }
+          : s,
+      ),
+    );
+  }
+
   function updateServerVanityCode(serverId: string, vanityCode: string) {
     const v = vanityCode.trim();
     setServersState(
@@ -415,6 +433,7 @@ export const useServerStore = defineStore('server', () => {
     updateServerBannerPositionY,
     updateServerBannerBlurEnabled,
     updateServerBannerBlackoutEnabled,
+    updateServerWelcomeChannelId,
     updateServerVanityCode,
     pinMoreServer,
     unpinMoreServer,

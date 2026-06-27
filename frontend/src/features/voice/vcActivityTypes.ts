@@ -87,6 +87,18 @@ export function isVcIframeEmbedPhase(
   );
 }
 
+/** Embedded games backed by a heavy Unity/WebGL build — gated on hardware WebGL support. */
+const VC_WEBGL_IFRAME_PHASES = new Set<VcIframeEmbedPhase>([
+  'krunker',
+  'goober_dash',
+  'smash_karts',
+  'cluster_rush',
+]);
+
+export function vcIframeEmbedRequiresWebgl(p: VcIframeEmbedPhase): boolean {
+  return VC_WEBGL_IFRAME_PHASES.has(p);
+}
+
 export function vcIframeEmbedUrl(p: VcIframeEmbedPhase): string {
   switch (p) {
     case 'openguessr':

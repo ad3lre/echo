@@ -38,6 +38,7 @@ export type OverviewServer = {
   tags?: string[];
   allowGlobalGuests?: boolean;
   verificationRequireEmail?: boolean;
+  welcomeChannelId?: string;
 } | null;
 
 export type UseServerSettingsOverviewStateOptions = {
@@ -91,6 +92,7 @@ export function useServerSettingsOverviewState(
 
   const bannerBlurEnabled = ref(false);
   const bannerBlackoutEnabled = ref(false);
+  const welcomeChannelId = ref<string | null>(null);
   const listedInDirectoryEnabled = ref(true);
   const inviteJoinEnabled = ref(true);
   const bannerPositionY = ref(50);
@@ -155,6 +157,38 @@ export function useServerSettingsOverviewState(
         }
       });
     }
+  }
+
+  function rollbackWelcomeChannelIfStill(
+    sid: string,
+    attempted: string | null,
+  ) {
+    if (welcomeChannelId.value !== attempted) return;
+    const reverted = opts.server.value?.welcomeChannelId?.trim() || null;
+    welcomeChannelId.value = reverted;
+    serverStore.updateServerWelcomeChannelId(sid, reverted);
+  }
+
+  function onWelcomeChannelChange(channelId: string | null) {
+    welcomeChannelId.value = channelId;
+    const sid = opts.server.value?.id;
+    if (!sid) return;
+    serverStore.updateServerWelcomeChannelId(sid, channelId);
+    const token = opts.accessToken.value;
+    void enqueueBannerChannelPrefsPersist(async () => {
+      try {
+        await serverSettingsService.persistPreferences({
+          token,
+          serverId: sid,
+          patch: { welcomeChannelId: channelId },
+          serverStore,
+          workspaceServers: opts.workspace.servers,
+          refreshExploreDirectory: opts.workspace.refreshExploreDirectory,
+        });
+      } catch {
+        rollbackWelcomeChannelIfStill(sid, channelId);
+      }
+    });
   }
 
   function onBannerBlackoutEnabledChange(v: boolean) {
@@ -291,6 +325,8 @@ export function useServerSettingsOverviewState(
       bannerBlurEnabled.value = opts.server.value.bannerBlurEnabled ?? false;
       bannerBlackoutEnabled.value =
         opts.server.value.bannerBlackoutEnabled ?? false;
+      welcomeChannelId.value =
+        opts.server.value.welcomeChannelId?.trim() || null;
       const y = (opts.server.value as { bannerPositionY?: unknown })
         .bannerPositionY;
       bannerPositionY.value =
@@ -611,12 +647,14 @@ export function useServerSettingsOverviewState(
     serverBannerUrl,
     bannerBlurEnabled,
     bannerBlackoutEnabled,
+    welcomeChannelId,
     bannerChannelPrefsPersisting,
     listedInDirectoryEnabled,
     inviteJoinEnabled,
     bannerPositionY,
     onBannerBlurEnabledChange,
     onBannerBlackoutEnabledChange,
+    onWelcomeChannelChange,
     onServerAccessModeChange,
     iconPreviewUrl,
     serverIconUrl,

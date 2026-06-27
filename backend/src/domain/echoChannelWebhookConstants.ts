@@ -12,3 +12,7 @@ export const ECHO_WEBHOOK_BRIDGE_SOURCE = 'echo_webhook' as const;
 /** `echo_messages.bridge_source` for Discord↔Echo bridge sync enabled notices. */
 export const ECHO_DISCORD_BRIDGE_SYNC_NOTICE_BRIDGE_SOURCE =
   'discord_bridge_sync_notice' as const;
+
+/** `echo_messages.bridge_source` for member join welcome system messages. */
+export const ECHO_MEMBER_JOIN_WELCOME_BRIDGE_SOURCE =
+  'member_join_welcome' as const;

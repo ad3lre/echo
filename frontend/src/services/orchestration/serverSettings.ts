@@ -21,6 +21,7 @@ type ServerPreferenceStorePatch = Partial<
     | 'tags'
     | 'vanityCode'
     | 'verificationRequireEmail'
+    | 'welcomeChannelId'
   >
 > & {
   applicationForm?: PatchEchoServerPreferencesBody['applicationForm'];
@@ -32,6 +33,7 @@ type ServerPreferenceStorePatch = Partial<
 export type ServerStoreLike = {
   updateServerBannerBlurEnabled: (id: string, v: boolean) => void;
   updateServerBannerBlackoutEnabled: (id: string, v: boolean) => void;
+  updateServerWelcomeChannelId: (id: string, v: string | null) => void;
   updateServerBannerImageUrl: (id: string, url: string) => void;
   updateServerBannerPositionY: (id: string, y: number) => void;
   updateServerImageUrl: (id: string, url: string) => void;
@@ -45,13 +47,16 @@ type ServerListLike = ServerStoreLike['servers'];
 function normalizeServerPreferencePatch(
   patch: Partial<PatchEchoServerPreferencesBody>,
 ): ServerPreferenceStorePatch {
-  const { iconUrl, bannerUrl, ...rest } = patch;
+  const { iconUrl, bannerUrl, welcomeChannelId, ...rest } = patch;
   const normalized: ServerPreferenceStorePatch = { ...rest };
   if (iconUrl !== undefined) {
     normalized.imageUrl = iconUrl;
   }
   if (bannerUrl !== undefined) {
     normalized.bannerImageUrl = bannerUrl;
+  }
+  if (welcomeChannelId !== undefined) {
+    normalized.welcomeChannelId = welcomeChannelId ?? undefined;
   }
   return normalized;
 }

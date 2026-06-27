@@ -6,6 +6,7 @@ function mockWorkspace(overrides: {
   loading?: boolean;
   fromApi?: boolean;
   initialLoadInFlight?: boolean;
+  initialLoadSettled?: boolean;
   categoriesByServer?: Record<string, unknown[]>;
   messages?: Record<string, unknown[]>;
 }) {
@@ -13,6 +14,9 @@ function mockWorkspace(overrides: {
     loading: ref(overrides.loading ?? false),
     fromApi: ref(overrides.fromApi ?? true),
     initialLoadInFlight: ref(overrides.initialLoadInFlight ?? false),
+    // Default to "already settled" so existing cases exercise steady-state logic;
+    // boot-window cases set this false explicitly.
+    initialLoadSettled: ref(overrides.initialLoadSettled ?? true),
     categoriesByServer: ref(overrides.categoriesByServer ?? {}),
     messages: ref(overrides.messages ?? {}),
   };
@@ -138,6 +142,60 @@ describe('useAppLayoutRailLoadingDerived', () => {
       });
     expect(isChannelPanelSwitchLoading.value).toBe(true);
     expect(isMessageSurfaceSwitchLoading.value).toBe(true);
+  });
+
+  it('skeletons the message surface during boot before the active channel resolves (any rail)', () => {
+    const serverStore = reactive({
+      // Echo home / DM rail: no guild selected, so guildShellSettling never fires.
+      selectedServerId: 'echo' as string | null,
+    });
+    const workspace = mockWorkspace({
+      loading: false,
+      fromApi: true, // warm paint applied; categories cached
+      initialLoadInFlight: true,
+      initialLoadSettled: false, // network reconcile still in flight
+      categoriesByServer: { echo: [] },
+    });
+    const { isMessageSurfaceSwitchLoading } = useAppLayoutRailLoadingDerived({
+      immediateShellSwitchPending: ref(false),
+      activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+      serverStore: serverStore as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['serverStore'],
+      workspace: workspace as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['workspace'],
+      activeChannelId: ref(''),
+    });
+    // Before my fix this was false → MessageList flashed "No messages here yet".
+    expect(isMessageSurfaceSwitchLoading.value).toBe(true);
+  });
+
+  it('does not skeleton a warm/ready channel during the boot window', () => {
+    const serverStore = reactive({
+      selectedServerId: 'echo' as string | null,
+    });
+    const workspace = mockWorkspace({
+      loading: false,
+      fromApi: true,
+      initialLoadInFlight: true,
+      initialLoadSettled: false,
+      categoriesByServer: { echo: [] },
+      messages: { ch1: [{}] }, // active channel already has cached messages
+    });
+    const { isMessageSurfaceSwitchLoading } = useAppLayoutRailLoadingDerived({
+      immediateShellSwitchPending: ref(false),
+      activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+      serverStore: serverStore as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['serverStore'],
+      workspace: workspace as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['workspace'],
+      activeChannelId: ref('ch1'),
+    });
+    // A ready chat must paint instantly — no skeleton over cached content.
+    expect(isMessageSurfaceSwitchLoading.value).toBe(false);
   });
 
   it('allows empty channel tree after load settles', () => {

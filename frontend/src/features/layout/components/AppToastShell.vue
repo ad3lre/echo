@@ -49,6 +49,12 @@ const {
   incomingCallToastActionLabel,
   incomingCallToastActionTitle,
   onAppToastInteractionExtend,
+  appToastMessageNavVisible,
+  appToastMessageNavCanGoPrev,
+  appToastMessageNavCanGoNext,
+  appToastMessageNavLabel,
+  showPrevMessageToast,
+  showNextMessageToast,
 } = useAppToastController(props.layoutContext, quickReplyComposerRef);
 </script>
 
@@ -262,75 +268,128 @@ const {
                   </button>
                 </div>
               </div>
-              <button
-                type="button"
-                class="chat-focus-ring relative z-[2] inline-flex shrink-0 items-center justify-center rounded-md transition-colors hover:bg-glass-hover"
-                :class="[
-                  appToastCircularProgressVisible ? 'h-7 w-7 p-0' : 'p-1',
-                  appToastIsRich
-                    ? 'text-fg-subtle hover:text-fg-soft'
-                    : 'text-muted hover:bg-overlay-subtle hover:text-foreground',
-                ]"
-                aria-label="Dismiss"
-                @click="dismissAppToast"
-              >
-                <svg
-                  v-if="appToastCircularProgressVisible"
-                  class="pointer-events-none absolute inset-0 h-full w-full -rotate-90"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
+              <div class="flex shrink-0 flex-col items-end gap-0.5">
+                <div
+                  v-if="appToastMessageNavVisible"
+                  class="flex items-center gap-0.5"
                 >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
+                  <button
+                    type="button"
+                    class="chat-focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg-soft disabled:pointer-events-none disabled:opacity-35"
+                    aria-label="Previous notification"
+                    :disabled="!appToastMessageNavCanGoPrev"
+                    @click="showPrevMessageToast"
+                  >
+                    <svg
+                      class="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                  </button>
+                  <span
+                    class="min-w-[2rem] px-0.5 text-center text-[10px] font-semibold tabular-nums leading-none text-fg-subtle"
+                    aria-live="polite"
+                  >
+                    {{ appToastMessageNavLabel }}
+                  </span>
+                  <button
+                    type="button"
+                    class="chat-focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-glass-hover hover:text-fg-soft disabled:pointer-events-none disabled:opacity-35"
+                    aria-label="Next notification"
+                    :disabled="!appToastMessageNavCanGoNext"
+                    @click="showNextMessageToast"
+                  >
+                    <svg
+                      class="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="chat-focus-ring relative z-[2] inline-flex shrink-0 items-center justify-center rounded-md transition-colors hover:bg-glass-hover"
+                  :class="[
+                    appToastCircularProgressVisible ? 'h-7 w-7 p-0' : 'p-1',
+                    appToastIsRich
+                      ? 'text-fg-subtle hover:text-fg-soft'
+                      : 'text-muted hover:bg-overlay-subtle hover:text-foreground',
+                  ]"
+                  aria-label="Dismiss"
+                  @click="dismissAppToast"
+                >
+                  <svg
+                    v-if="appToastCircularProgressVisible"
+                    class="pointer-events-none absolute inset-0 h-full w-full -rotate-90"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      class="opacity-25"
+                    />
+                    <circle
+                      :key="appToastProgressEpoch"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      pathLength="1"
+                      stroke-dasharray="1"
+                      stroke-dashoffset="0"
+                      class="app-toast-dismiss-progress-ring text-emerald-400/95"
+                      :style="{
+                        animationDuration: `${appToast.durationMs}ms`,
+                      }"
+                    />
+                  </svg>
+                  <svg
+                    v-if="appToastIsRich"
+                    class="relative h-3.5 w-3.5"
+                    viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="1.5"
-                    class="opacity-25"
-                  />
-                  <circle
-                    :key="appToastProgressEpoch"
-                    cx="12"
-                    cy="12"
-                    r="10"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                  <svg
+                    v-else
+                    class="relative h-4 w-4 opacity-80"
+                    viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="1.5"
-                    pathLength="1"
-                    stroke-dasharray="1"
-                    stroke-dashoffset="0"
-                    class="app-toast-dismiss-progress-ring text-emerald-400/95"
-                    :style="{
-                      animationDuration: `${appToast.durationMs}ms`,
-                    }"
-                  />
-                </svg>
-                <svg
-                  v-if="appToastIsRich"
-                  class="relative h-3.5 w-3.5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  aria-hidden="true"
-                >
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
-                <svg
-                  v-else
-                  class="relative h-4 w-4 opacity-80"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  aria-hidden="true"
-                >
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
-              </button>
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
           <div

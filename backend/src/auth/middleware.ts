@@ -15,6 +15,8 @@ import {
   deleteServerSession,
   touchServerSession,
 } from './serverSession';
+import { clientIpFromFastifyRequest } from '../net/clientIp';
+import { replyIfInstanceBanned } from '../domain/instanceBanEnforcement';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -68,6 +70,54 @@ export function getAuthUser(req: FastifyRequest): AuthUser {
   return user;
 }
 
+async function finalizeAuthenticatedUser(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  user: AuthUser,
+  opts?: { sessionId?: string; viaNativeBearer?: boolean },
+): Promise<boolean> {
+  const gate = checkGuestGates(user);
+  if (gate) {
+    if (gate.code === 401 && opts?.sessionId) {
+      await deleteServerSession(opts.sessionId, user.id);
+    }
+    sendError(reply, gate.code, gate.errorCode, gate.message);
+    return false;
+  }
+  if (
+    await replyIfInstanceBanned(reply, {
+      userId: user.id,
+      rawIp: clientIpFromFastifyRequest(req),
+    })
+  ) {
+    if (opts?.sessionId) await deleteServerSession(opts.sessionId, user.id);
+    return false;
+  }
+  if (opts?.sessionId) req.authSessionId = opts.sessionId;
+  if (opts?.viaNativeBearer) req.authViaNativeBearer = true;
+  req.authUser = user;
+  if (opts?.sessionId) void touchServerSession(opts.sessionId);
+  return true;
+}
+
+export async function requireInstanceOperator(
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const user = req.authUser;
+  if (!user) {
+    return sendError(reply, 401, 'UNAUTHORIZED', 'Missing or invalid session');
+  }
+  if (!user.isInstanceOperator) {
+    return sendError(
+      reply,
+      403,
+      'FORBIDDEN',
+      'Instance operator access required',
+    );
+  }
+}
+
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   const debugAuth = process.env.ECHO_DEBUG_AUTH === '1';
   const cookies = req.cookies as Record<string, string | undefined> | undefined;
@@ -98,14 +148,11 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
         await deleteServerSession(sid, sess.userId);
         return sendError(reply, 401, 'UNAUTHORIZED', 'User not found');
       }
-      const gate = checkGuestGates(user);
-      if (gate) {
-        if (gate.code === 401) await deleteServerSession(sid, sess.userId);
-        return sendError(reply, gate.code, gate.errorCode, gate.message);
+      if (
+        !(await finalizeAuthenticatedUser(req, reply, user, { sessionId: sid }))
+      ) {
+        return;
       }
-      req.authSessionId = sid;
-      req.authUser = user;
-      void touchServerSession(sid);
       return;
     }
     if (debugAuth) {
@@ -140,17 +187,14 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
               await deleteServerSession(payload.sid, sess.userId);
               return sendError(reply, 401, 'UNAUTHORIZED', 'User not found');
             }
-            const gate = checkGuestGates(user);
-            if (gate) {
-              if (gate.code === 401) {
-                await deleteServerSession(payload.sid, sess.userId);
-              }
-              return sendError(reply, gate.code, gate.errorCode, gate.message);
+            if (
+              !(await finalizeAuthenticatedUser(req, reply, user, {
+                sessionId: payload.sid,
+                viaNativeBearer: true,
+              }))
+            ) {
+              return;
             }
-            req.authSessionId = payload.sid;
-            req.authUser = user;
-            req.authViaNativeBearer = true;
-            void touchServerSession(payload.sid);
             return;
           }
         }
@@ -231,28 +275,9 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
         }
         return sendError(reply, 401, 'UNAUTHORIZED', 'User not found');
       }
-      const gate = checkGuestGates(user);
-      if (gate) {
-        if (debugAuth) {
-          req.log.warn(
-            {
-              msg: 'echo.debug.auth.reject',
-              reason: 'legacy_bearer_guest_gate',
-              requestId: req.id,
-              method: req.method,
-              url: req.url,
-              origin: req.headers.origin,
-              host: req.headers.host,
-              userId: user.id,
-              gateCode: gate.code,
-              gateErrorCode: gate.errorCode,
-            },
-            'auth_reject',
-          );
-        }
-        return sendError(reply, gate.code, gate.errorCode, gate.message);
+      if (!(await finalizeAuthenticatedUser(req, reply, user))) {
+        return;
       }
-      req.authUser = user;
       return;
     }
   }

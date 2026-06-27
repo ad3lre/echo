@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { computed, ref } from 'vue';
 import { useAddServerFlow } from './useAddServerFlow';
 
+vi.mock('@/api/echo/invitesAndDirectory', () => ({
+  fetchEchoInvitePreview: vi.fn(),
+  fetchEchoDirectoryServerMemberHighlights: vi.fn(),
+}));
+
 vi.mock('@/api/echoClient', () => ({
   createEchoServer: vi.fn(),
   patchEchoServerPreferences: vi.fn(),
@@ -46,16 +51,30 @@ vi.mock('@/utils/controllerMissingAction', async (importOriginal) => {
 });
 
 import {
+  fetchEchoDirectoryServerMemberHighlights,
+  fetchEchoInvitePreview,
+} from '@/api/echo/invitesAndDirectory';
+import {
   postEchoJoinDirectoryServer,
   postEchoJoinWithInviteToken,
 } from '@/api/echoClient';
 import { EchoApiError } from '@/api/echo/transport';
 import { UIErrorBus } from '@/utils/uiErrorBus';
+import type { JoinServerConfirmPreview } from '@/features/layout/composables/useJoinServerConfirmModal';
 
-function buildFlow(isModalOpen: boolean) {
+function buildFlow(
+  isModalOpen: boolean,
+  opts?: {
+    serverIds?: string[];
+    requestJoinServerConfirm?: (
+      preview: JoinServerConfirmPreview,
+    ) => Promise<boolean>;
+  },
+) {
   const selectedServerId = ref<string | null>(null);
+  const serverIds = opts?.serverIds ?? [];
   const serverStore = {
-    servers: [] as Array<{ id: string }>,
+    servers: serverIds.map((id) => ({ id })),
     selectedServerId: selectedServerId.value,
     selectServer: vi.fn((id: string) => {
       selectedServerId.value = id;
@@ -102,7 +121,8 @@ function buildFlow(isModalOpen: boolean) {
     inviteLinkForServer: computed(() => ''),
     selectedServer: computed(() => ({ name: 'Server' })),
     isExploreView: false,
-    requestJoinServerConfirm: vi.fn().mockResolvedValue(true),
+    requestJoinServerConfirm:
+      opts?.requestJoinServerConfirm ?? vi.fn().mockResolvedValue(true),
     finishJoinServerConfirmModal: vi.fn(),
     requestServerApplicationModal: vi.fn().mockResolvedValue('cancelled'),
     finishServerApplicationModal: vi.fn(),
@@ -113,6 +133,51 @@ describe('useAddServerFlow join feedback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     dispatchAppToastDetail.mockClear();
+    vi.mocked(fetchEchoInvitePreview).mockResolvedValue(null);
+    vi.mocked(fetchEchoDirectoryServerMemberHighlights).mockResolvedValue([]);
+  });
+
+  it('opens an already-joined server from invite without confirm modal', async () => {
+    const requestJoinServerConfirm = vi.fn().mockResolvedValue(true);
+    const serverId = '1490467017554264064';
+    vi.mocked(fetchEchoInvitePreview).mockResolvedValueOnce({
+      name: 'Joined Server',
+      iconUrl: '',
+      bannerUrl: '',
+      description: '',
+      memberCount: 1,
+      serverId,
+    });
+    const flow = buildFlow(true, {
+      serverIds: [serverId],
+      requestJoinServerConfirm,
+    });
+
+    await flow.handleJoinWithInviteLink('abc');
+
+    expect(requestJoinServerConfirm).not.toHaveBeenCalled();
+    expect(postEchoJoinWithInviteToken).not.toHaveBeenCalled();
+    expect(flow.addServerJoinError.value).toBe(
+      'You’re already in that server — opened it for you.',
+    );
+  });
+
+  it('opens an already-joined explore server without confirm modal', async () => {
+    const requestJoinServerConfirm = vi.fn().mockResolvedValue(true);
+    const serverId = '1490467017554264064';
+    const flow = buildFlow(false, {
+      serverIds: [serverId],
+      requestJoinServerConfirm,
+    });
+
+    await flow.handleJoinDiscoverableServer({
+      id: serverId,
+      name: 'Joined Server',
+      pfp: '',
+    });
+
+    expect(requestJoinServerConfirm).not.toHaveBeenCalled();
+    expect(postEchoJoinDirectoryServer).not.toHaveBeenCalled();
   });
 
   it('shows join denial inside Add Server modal', async () => {

@@ -105,7 +105,9 @@ async function toggleExpand(event: MouseEvent) {
   window.setTimeout(scrollIntoView, VIDEO_EXPAND_SCROLL_AFTER_MS);
 }
 
-const { state: playbackState } = useChatVideoPlayback(toRef(props, 'url'));
+const { state: playbackState } = useChatVideoPlayback(toRef(props, 'url'), {
+  storageKey: toRef(props, 'storageKey'),
+});
 
 const videoSrc = computed(() => {
   if (!shouldLoadMedia.value) return undefined;
@@ -509,6 +511,8 @@ function onVideoMetadata(): void {
 </template>
 
 <style scoped lang="scss">
+@use '@/assets/echoSkeletonShimmer' as skel;
+
 .echo-video-player {
   width: 100%;
   max-width: min(100%, 28rem);
@@ -620,24 +624,9 @@ function onVideoMetadata(): void {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(
-    110deg,
-    rgb(255 255 255 / 0.04) 8%,
-    rgb(255 255 255 / 0.1) 18%,
-    rgb(255 255 255 / 0.04) 33%
-  );
-  background-size: 200% 100%;
-  animation: echo-video-layout-shimmer 1.4s ease-in-out infinite;
   pointer-events: none;
-}
-
-@keyframes echo-video-layout-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
-  }
+  @include skel.fill;
+  @include skel.reduced-motion;
 }
 
 .echo-video-player__loading {

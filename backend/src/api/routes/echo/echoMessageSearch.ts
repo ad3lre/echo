@@ -181,7 +181,7 @@ export default async function echoMessageSearchRoutes(
         );
         if (allowed.length === 0) return reply.code(200).send({ messages: [] });
 
-        let filterChannelId: string | undefined =
+        const filterChannelId: string | undefined =
           typeof req.query.channelId === 'string'
             ? req.query.channelId.trim()
             : undefined;

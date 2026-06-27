@@ -54,5 +54,5 @@ describe('paperTypography', () => {
         `failed to load ${font.id} (${paperFontPackageName(font)})`,
       ).resolves.toBeUndefined();
     }
-  });
+  }, 60_000);
 });

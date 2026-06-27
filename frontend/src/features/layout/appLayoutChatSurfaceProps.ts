@@ -99,7 +99,7 @@ export type AppLayoutChatSurfaceProps = {
   memberPanelWidth: number;
   searchText: string;
   filterChips: FilterChip[];
-  allChannels: Array<{ id: string; name: string }>;
+  allChannels: import('@/services/orchestration/messageSearchCore').ChannelListEntry[];
   users: UserForAuthor[];
   /** Scoped list for `@` autocomplete in the composer (omit only in tests/storybook). */
   usersForMentionAutocomplete: UserForAuthor[];
@@ -318,6 +318,13 @@ export type AppLayoutChatSurfaceProps = {
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  wordlineView: ComputedRef<
+    import('@shared/games/wordline').WordlineView | null
+  >;
+  submitWordlineGuess: (guess: string) => void;
+  setWordlineMode: (
+    mode: import('@shared/games/wordline/core').GameMode,
+  ) => void;
   vcSkrigglesActivity: ComputedRef<
     import('@/audio/voiceEchoLiveKitData').EchoSkrigglesActivityV1 | null
   >;
@@ -685,6 +692,9 @@ export const CHAT_SURFACE_INJECT_KEYS = [
   'commitVcHangmanWord',
   'requestVcHangmanGuessLetter',
   'requestVcHangmanNextRound',
+  'wordlineView',
+  'submitWordlineGuess',
+  'setWordlineMode',
   'vcSkrigglesActivity',
   'skrigglesRosterUserIds',
   'skrigglesCanvasEvents',

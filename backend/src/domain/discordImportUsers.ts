@@ -3,11 +3,13 @@ import { nextEchoSnowflakeId } from './echoSnowflake';
 import { addEchoServerMember } from './echoStore/servers';
 import {
   avatarHashFromInput,
-  ensureDiscordImportAvatarStoredInEcho,
   isEchoStoredProfileImageUrl,
+  isCorruptedDiscordImportPfp,
   mirrorDiscordImportAvatarToEcho,
+  repairDiscordImportUserPfpIfNeeded,
   resolveStoredDiscordAvatarHash,
 } from '../services/discordImportAvatarMirror';
+import { generateDefaultAvatarPfp } from '../auth/defaultAvatarPfp';
 
 /** Minimal Discord user payload (message author or guild member `user`). */
 export type DiscordAuthorLike = {
@@ -133,6 +135,31 @@ export async function ensureEchoUserForDiscordMember(
   );
   if (existingLink.rows.length > 0) {
     const canonicalId = String(existingLink.rows[0].user_id);
+    const profile = await pool.query<{
+      pfp: string | null;
+      display_name: string | null;
+      username: string | null;
+    }>(`SELECT pfp, display_name, username FROM auth_users WHERE id = $1`, [
+      canonicalId,
+    ]);
+    const row = profile.rows[0];
+    if (row) {
+      const displayName =
+        String(row.display_name ?? '').trim() ||
+        String(row.username ?? '').trim() ||
+        'user';
+      const storedPfp = row.pfp != null ? String(row.pfp).trim() : '';
+      if (storedPfp && isCorruptedDiscordImportPfp(storedPfp)) {
+        await repairDiscordImportUserPfpIfNeeded({
+          pool,
+          userId: canonicalId,
+          pfp: storedPfp,
+          displayName,
+          discordUserId,
+          persist: true,
+        });
+      }
+    }
     await addEchoServerMember(pool, serverId, canonicalId);
     if (recordMap) {
       await mergeDiscordImportUserMap(
@@ -169,20 +196,17 @@ export async function ensureEchoUserForDiscordMember(
         ? String(existingShadow.rows[0].avatar_url).trim()
         : '';
 
-    const backfilled = await ensureDiscordImportAvatarStoredInEcho(
+    const backfilled = await repairDiscordImportUserPfpIfNeeded({
       pool,
-      sid,
+      userId: sid,
+      pfp: storedPfp,
+      displayName: resolveDiscordShadowDisplayName(author),
       discordUserId,
-      storedPfp,
-      storedAvatarMeta,
-    );
+      shadowAvatarMeta: storedAvatarMeta || undefined,
+      isShadow: true,
+      persist: true,
+    });
     if (backfilled && backfilled !== storedPfp) {
-      const hash = resolveStoredDiscordAvatarHash(
-        discordUserId,
-        storedAvatarMeta,
-        storedPfp,
-      );
-      await persistShadowAvatar(pool, sid, backfilled, hash);
       storedPfp = backfilled;
     }
 
@@ -206,13 +230,23 @@ export async function ensureEchoUserForDiscordMember(
       const needsMirror =
         incomingHash !== storedHash || !isEchoStoredProfileImageUrl(storedPfp);
       if (needsMirror) {
-        const mirrored = await mirrorDiscordImportAvatarToEcho(
+        let mirrored = await mirrorDiscordImportAvatarToEcho(
           pool,
           sid,
           discordUserId,
           author.avatar as string | null,
         );
-        if (mirrored) {
+        if (!mirrored || isCorruptedDiscordImportPfp(mirrored)) {
+          mirrored =
+            (await mirrorDiscordImportAvatarToEcho(
+              pool,
+              sid,
+              discordUserId,
+              null,
+            )) ||
+            generateDefaultAvatarPfp(resolveDiscordShadowDisplayName(author));
+        }
+        if (mirrored && mirrored !== storedPfp) {
           await persistShadowAvatar(pool, sid, mirrored, incomingHash);
         }
       }
@@ -242,12 +276,21 @@ export async function ensureEchoUserForDiscordMember(
       : 'user';
   const displayNameRaw = resolveDiscordShadowDisplayName(author);
   const avatarHash = avatarHashFromInput(discordUserId, author.avatar);
-  const pfp = await mirrorDiscordImportAvatarToEcho(
+  let pfp = await mirrorDiscordImportAvatarToEcho(
     pool,
     authUserId,
     discordUserId,
     author.avatar,
   );
+  if (!pfp || isCorruptedDiscordImportPfp(pfp)) {
+    pfp =
+      (await mirrorDiscordImportAvatarToEcho(
+        pool,
+        authUserId,
+        discordUserId,
+        null,
+      )) || generateDefaultAvatarPfp(displayNameRaw);
+  }
   /**
    * `auth_users.username` is UNIQUE globally. Do not derive it from Discord handle +
    * a short id suffix: many snowflakes share the same last 4 digits, and the same

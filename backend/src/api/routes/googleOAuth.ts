@@ -482,6 +482,7 @@ export default async function googleOAuthRoutes(
           targetUserId = userRecord.id;
           void tryJoinOfficialEchoServerOnSignup(fastify.log, targetUserId, {
             joinClientIp: req.ip,
+            io: fastify.io,
           });
         } catch (err: unknown) {
           fastify.log.error(err, 'google_oauth_provision_failed');

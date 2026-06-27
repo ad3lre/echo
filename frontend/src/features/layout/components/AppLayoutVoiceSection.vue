@@ -227,6 +227,13 @@ const props = defineProps<{
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  wordlineView: ComputedRef<
+    import('@shared/games/wordline').WordlineView | null
+  >;
+  submitWordlineGuess: (guess: string) => void;
+  setWordlineMode: (
+    mode: import('@shared/games/wordline/core').GameMode,
+  ) => void;
   vcSkrigglesActivity: ComputedRef<EchoSkrigglesActivityV1 | null>;
   skrigglesRosterUserIds: ComputedRef<string[]>;
   skrigglesCanvasEvents: ShallowRef<
@@ -666,6 +673,9 @@ const voiceMobileChatOverlayStyle = computed(() => {
             :commit-vc-hangman-word="commitVcHangmanWord"
             :request-vc-hangman-guess-letter="requestVcHangmanGuessLetter"
             :request-vc-hangman-next-round="requestVcHangmanNextRound"
+            :wordline-view="wordlineView"
+            :submit-wordline-guess="submitWordlineGuess"
+            :set-wordline-mode="setWordlineMode"
             :vc-skriggles-activity="vcSkrigglesActivity"
             :skriggles-roster-user-ids="skrigglesRosterUserIds"
             :skriggles-canvas-events="skrigglesCanvasEvents"

@@ -14,7 +14,6 @@ import {
   listEchoServerNotificationLevelsForUser,
   listEchoCategories,
   listEchoChannelsForUser,
-  listEchoServerMembers,
   setEchoMemberNickname,
   transferEchoServerOwnership,
   upsertEchoServerNotificationLevel,
@@ -196,6 +195,7 @@ export default async function echoServerScopedRoutes(
       verificationRequireEmail?: boolean;
       applicationsEnabled?: boolean;
       applicationForm?: unknown;
+      welcomeChannelId?: string | null;
     };
   }>(
     '/servers/:serverId/preferences',
@@ -289,6 +289,12 @@ export default async function echoServerScopedRoutes(
             ? req.body.applicationsEnabled
             : undefined,
         applicationForm: req.body?.applicationForm,
+        welcomeChannelId:
+          req.body?.welcomeChannelId === null
+            ? null
+            : typeof req.body?.welcomeChannelId === 'string'
+              ? req.body.welcomeChannelId
+              : undefined,
       };
       const r = await updateEchoServerPreferences(
         pool,
@@ -344,6 +350,7 @@ export default async function echoServerScopedRoutes(
           verificationRequireEmail: body.verificationRequireEmail,
           applicationsEnabled: body.applicationsEnabled,
           applicationFormUpdated: body.applicationForm !== undefined,
+          welcomeChannelIdUpdated: body.welcomeChannelId !== undefined,
         },
       );
       publishEchoWorkspaceEvent(

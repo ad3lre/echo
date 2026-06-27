@@ -245,12 +245,14 @@ const {
   serverBannerUrl,
   bannerBlurEnabled,
   bannerBlackoutEnabled,
+  welcomeChannelId,
   bannerChannelPrefsPersisting,
   listedInDirectoryEnabled,
   inviteJoinEnabled,
   bannerPositionY,
   onBannerBlurEnabledChange,
   onBannerBlackoutEnabledChange,
+  onWelcomeChannelChange,
   onServerAccessModeChange,
   serverIconUrl,
   onServerBannerFileChange,
@@ -827,6 +829,8 @@ async function onModerationPatch(patch: {
                     :banner-channel-prefs-persisting="
                       bannerChannelPrefsPersisting
                     "
+                    :welcome-channel-id="welcomeChannelId"
+                    :categories="structureCategories"
                     :banner-position-y="bannerPositionY"
                     :on-server-banner-file-change="onServerBannerFileChange"
                     :on-remove-server-banner="removeServerBanner"
@@ -837,6 +841,7 @@ async function onModerationPatch(patch: {
                     @update:banner-blackout-enabled="
                       onBannerBlackoutEnabledChange
                     "
+                    @update:welcome-channel-id="onWelcomeChannelChange"
                     @vanity-blur="onOverviewVanityBlur"
                     @name-blur="onOverviewNameBlur"
                     @description-blur="onOverviewDescriptionBlur"

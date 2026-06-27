@@ -92,7 +92,10 @@ import type {
   MessageFailedCode,
 } from '../../../../../shared/types';
 import { authUserOrIpRateLimitKey } from '../../rateLimitKeys';
-import { ECHO_MESSAGE_PATCH_RATE } from '../../sharedMutationRateLimits';
+import {
+  ECHO_MESSAGE_PATCH_RATE,
+  ECHO_READ_STATE_WRITE_RATE,
+} from '../../sharedMutationRateLimits';
 import {
   echoPool,
   requireEchoStore,
@@ -358,7 +361,10 @@ export default async function echoMessagesRoutes(
     Body: { lastReadMessageId?: string };
   }>(
     '/channels/:channelId/read-state',
-    { preHandler: [requireAuth, requireEchoStore] },
+    {
+      preHandler: [requireAuth, requireEchoStore],
+      config: { rateLimit: ECHO_READ_STATE_WRITE_RATE },
+    },
     async (req, reply) => {
       const pool = echoPool(req);
       const channelId = trimEchoPathParam(req.params.channelId);

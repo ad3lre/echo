@@ -7,9 +7,12 @@ import {
   isDiscordHostedImportMediaUrl,
 } from '../domain/discordCdnUrls';
 import {
+  discordDefaultAvatarUrl,
   parseDiscordAvatarHashFromCdnUrl,
+  parseDiscordUserIdFromAvatarCdnUrl,
   resolveDiscordAvatarForStorage,
 } from '../domain/discordNormalized';
+import { generateDefaultAvatarPfp } from '../auth/defaultAvatarPfp';
 import { nextEchoSnowflakeId } from '../domain/echoSnowflake';
 import { writeLocalEchoUploadFile } from './localUploadDisk';
 import { resolveEchoUploadStorageKey } from './echoUploadResolveDest';
@@ -206,11 +209,17 @@ export async function mirrorDiscordImportAvatarToEcho(
   const cdnUrl = resolveDiscordAvatarForStorage(id, avatar ?? null);
   if (!cdnUrl) return '';
 
-  const fetched = await fetchDiscordAvatarBytes(cdnUrl);
+  const fetched =
+    (await fetchDiscordAvatarBytes(cdnUrl)) ??
+    (await fetchDefaultDiscordAvatarBytes(id, cdnUrl));
   if (!fetched) return '';
 
+  const sourceUrl: string =
+    'sourceUrl' in fetched && typeof fetched.sourceUrl === 'string'
+      ? fetched.sourceUrl
+      : cdnUrl;
   const ext =
-    path.extname(new URL(cdnUrl).pathname) ||
+    path.extname(new URL(sourceUrl).pathname) ||
     extForContentType(fetched.contentType) ||
     '.webp';
 
@@ -221,6 +230,17 @@ export async function mirrorDiscordImportAvatarToEcho(
     contentType: fetched.contentType,
     filenameExt: ext,
   });
+}
+
+async function fetchDefaultDiscordAvatarBytes(
+  discordUserId: string,
+  attemptedUrl: string,
+): Promise<{ buf: Buffer; contentType: string; sourceUrl: string } | null> {
+  const defaultUrl = discordDefaultAvatarUrl(discordUserId);
+  if (!defaultUrl || defaultUrl === attemptedUrl) return null;
+  const fetched = await fetchDiscordAvatarBytes(defaultUrl);
+  if (!fetched) return null;
+  return { ...fetched, sourceUrl: defaultUrl };
 }
 
 /** Re-host legacy Discord CDN / hash-only pfps into Echo storage when possible. */
@@ -265,7 +285,92 @@ export async function ensureDiscordImportAvatarStoredInEcho(
     );
   }
 
+  if (isCorruptedDiscordImportPfp(raw)) {
+    return mirrorDiscordImportAvatarToEcho(
+      pool,
+      targetUserId,
+      discordUserId,
+      null,
+    );
+  }
+
   return raw;
+}
+
+function resolveDiscordUserIdForAvatarRepair(opts: {
+  discordUserId?: string;
+  pfp: string;
+}): string {
+  const direct = opts.discordUserId?.trim() ?? '';
+  if (direct) return direct;
+  return parseDiscordUserIdFromAvatarCdnUrl(opts.pfp) ?? '';
+}
+
+/**
+ * Re-host Discord CDN / hash-only pfps onto Echo storage. Persists when `persist` is true.
+ * Falls back to mirrored default Discord avatar, then a generated initials avatar.
+ */
+export async function repairDiscordImportUserPfpIfNeeded(opts: {
+  pool: pg.Pool;
+  userId: string;
+  pfp: string;
+  displayName: string;
+  discordUserId?: string;
+  shadowAvatarMeta?: string;
+  isShadow?: boolean;
+  persist?: boolean;
+}): Promise<string> {
+  const userId = opts.userId.trim();
+  const raw = opts.pfp.trim();
+  if (!userId) return raw;
+  if (raw && isEchoStoredProfileImageUrl(raw)) return raw;
+  if (!raw || !isCorruptedDiscordImportPfp(raw)) return raw;
+
+  const discordUserId = resolveDiscordUserIdForAvatarRepair({
+    discordUserId: opts.discordUserId,
+    pfp: raw,
+  });
+  if (!discordUserId) return raw;
+
+  let repaired = await ensureDiscordImportAvatarStoredInEcho(
+    opts.pool,
+    userId,
+    discordUserId,
+    raw,
+    opts.shadowAvatarMeta,
+  );
+  if (!repaired || isCorruptedDiscordImportPfp(repaired)) {
+    repaired = await mirrorDiscordImportAvatarToEcho(
+      opts.pool,
+      userId,
+      discordUserId,
+      null,
+    );
+  }
+  if (!repaired || isCorruptedDiscordImportPfp(repaired)) {
+    repaired = generateDefaultAvatarPfp(opts.displayName.trim() || 'user');
+  }
+  if (!repaired || repaired === raw) return raw;
+
+  if (opts.persist) {
+    await opts.pool.query(
+      `UPDATE auth_users SET pfp = $2, updated_at = NOW() WHERE id = $1`,
+      [userId, repaired],
+    );
+    if (opts.isShadow) {
+      const hash = resolveStoredDiscordAvatarHash(
+        discordUserId,
+        opts.shadowAvatarMeta ?? '',
+        raw,
+      );
+      await opts.pool.query(
+        `UPDATE echo_discord_shadow_users SET avatar_url = $2 WHERE shadow_user_id = $1`,
+        [userId, hash],
+      );
+    }
+  }
+
+  return repaired;
 }
 
 /** True when `pfp` is a Discord CDN URL or bare avatar hash that should be re-hosted on Echo. */

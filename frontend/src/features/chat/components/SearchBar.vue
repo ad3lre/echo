@@ -13,6 +13,8 @@ import {
   getChannelIcon,
   getChannelDisplayName,
 } from '@/assets/icons';
+import type { EchoChannelType } from '@shared/types';
+import type { ChannelListEntry } from '@/services/orchestration/messageSearchCore';
 import type { FilterKey, FilterChip, HasType } from '@/composables/useSearch';
 import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import type { MessageWithAuthor } from '@shared/types';
@@ -36,7 +38,7 @@ const props = withDefaults(
   defineProps<{
     modelValue: string;
     filterChips: FilterChip[];
-    channels: { id: string; name: string }[];
+    channels: ChannelListEntry[];
     users: UserForAuthor[];
     searchResults?: (MessageWithAuthor & { channelName?: string })[];
     totalResults?: number;
@@ -57,8 +59,12 @@ const props = withDefaults(
     dropdownGapPx?: number;
     /** Extra horizontal padding added around the dropdown width/position. */
     dropdownHorizontalPadPx?: number;
-    /** Live vs client-only search explanation (Echo production readiness). */
-    searchScopeHint?: string;
+    /** When set, channel filter suggestions use the same icon resolver as the sidebar. */
+    resolveChannelIcon?: (channel: {
+      name: string;
+      type?: EchoChannelType;
+      iconKey?: string;
+    }) => string;
     searchLoading?: boolean;
     searchError?: string | null;
     /** Teleported dropdown z-index (useful for full-screen mobile search overlays). */
@@ -70,6 +76,8 @@ const props = withDefaults(
     dropdownPanelSelector?: string;
     /** Full-width mobile search modal layout (taller touch input). */
     mobilePanelLayout?: boolean;
+    /** Optional hint shown above search results (e.g. scoped channel/DM). */
+    searchScopeHint?: string;
   }>(),
   {
     dmMode: false,
@@ -477,9 +485,35 @@ const dropdownOptions = computed(() => {
 
 const channelOptions = computed(() =>
   dropdownMode.value === 'in'
-    ? (dropdownOptions.value as { id: string; name: string }[])
+    ? (dropdownOptions.value as ChannelListEntry[])
     : [],
 );
+
+function channelIconForSuggestion(ch: {
+  name: string;
+  type?: EchoChannelType;
+  iconKey?: string;
+}): string {
+  return props.resolveChannelIcon?.(ch) ?? getChannelIcon(ch);
+}
+
+function channelForName(name: string): ChannelListEntry {
+  return props.channels.find((c) => c.name === name) ?? { id: name, name };
+}
+
+function channelIconForSearchGroup(group: {
+  channelName: string;
+  messages: (MessageWithAuthor & { channelName?: string })[];
+}): string {
+  const first = group.messages[0];
+  const channelId =
+    first && typeof first.channelId === 'string' ? first.channelId : null;
+  if (channelId) {
+    const byId = props.channels.find((c) => c.id === channelId);
+    if (byId) return channelIconForSuggestion(byId);
+  }
+  return channelIconForSuggestion(channelForName(group.channelName));
+}
 const userOptions = computed(() =>
   dropdownMode.value === 'from' || dropdownMode.value === 'mentions'
     ? (dropdownOptions.value as UserForAuthor[])
@@ -1130,12 +1164,7 @@ onBeforeUnmount(() => {
                     class="px-4 py-1.5 mt-2 first:mt-0 text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-2"
                   >
                     <img
-                      :src="
-                        getChannelIcon({
-                          name: group.channelName,
-                          type: 'text',
-                        })
-                      "
+                      :src="channelIconForSearchGroup(group)"
                       alt=""
                       class="h-3.5 w-3.5 filter invert opacity-60"
                     />
@@ -1253,7 +1282,7 @@ onBeforeUnmount(() => {
                 @click.stop="selectOption(ch)"
               >
                 <img
-                  :src="getChannelIcon({ name: ch.name, type: 'text' })"
+                  :src="channelIconForSuggestion(ch)"
                   alt=""
                   class="h-4 w-4 filter invert opacity-50"
                 />

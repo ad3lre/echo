@@ -14,12 +14,17 @@ import {
   assertStepUpTotpIfEnabled,
   sendStepUpTotpError,
 } from '../../../auth/stepUpAuth';
+import {
+  authForgotPasswordRouteRate,
+  authResetPasswordRouteRate,
+} from '../../sharedMutationRateLimits';
 
 export default async function passwordRoutes(fastify: FastifyInstance) {
   await fastify.register(async (forgotScope) => {
+    const forgotRate = authForgotPasswordRouteRate();
     await forgotScope.register(rateLimit, {
-      max: 3,
-      timeWindow: '1 hour',
+      max: forgotRate.max,
+      timeWindow: forgotRate.timeWindow,
       keyGenerator: (req) => `auth_forgot:${req.ip}`,
       addHeaders: { 'retry-after': true },
     });
@@ -82,9 +87,10 @@ export default async function passwordRoutes(fastify: FastifyInstance) {
   });
 
   await fastify.register(async (resetScope) => {
+    const resetRate = authResetPasswordRouteRate();
     await resetScope.register(rateLimit, {
-      max: 15,
-      timeWindow: '1 hour',
+      max: resetRate.max,
+      timeWindow: resetRate.timeWindow,
       keyGenerator: (req) => `auth_reset:${req.ip}`,
       addHeaders: { 'retry-after': true },
     });

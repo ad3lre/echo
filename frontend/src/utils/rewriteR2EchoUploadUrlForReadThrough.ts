@@ -1,6 +1,7 @@
 import { API_BASE } from '@/config';
 import { ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX } from '@shared/echoEmojiCdn';
 import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '@shared/echoS3ReadThrough';
+import { ECHO_MEDIA_CDN_OBJECT_PREFIX } from '@shared/mediaCdn';
 
 function absolutizeApiPath(path: string): string {
   const p = path.trim();
@@ -36,6 +37,9 @@ export function rewriteR2EchoUploadUrlForReadThrough(url: string): string {
   if (/^https?:\/\//i.test(t)) {
     try {
       const u = new URL(t);
+      if (u.pathname.startsWith(ECHO_MEDIA_CDN_OBJECT_PREFIX)) {
+        return t;
+      }
       if (u.pathname.startsWith(ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX)) {
         return t;
       }

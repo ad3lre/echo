@@ -33,6 +33,7 @@ const emit = defineEmits<{
 const props = withDefaults(
   defineProps<{
     src: string;
+    storageKey?: string;
     alt?: string;
     /** Changing resets loop budget (e.g. message id, server id). Defaults to `src`. */
     sessionKey?: string;
@@ -77,7 +78,7 @@ const reducedMotion = ref(false);
 const loadFailed = ref(false);
 
 watch(
-  () => [props.src, props.sessionKey] as const,
+  () => [props.src, props.sessionKey, props.storageKey] as const,
   () => {
     loadFailed.value = false;
   },
@@ -147,9 +148,14 @@ const {
 } = useLimitedGifPlayback({
   imageUrl: () => effectiveImageUrl.value,
   sessionKey: () => session.value,
+  storageKey: () => props.storageKey,
   forceActive: () => props.forceActive,
   reducedMotion: () => reducedMotion.value,
   staticOnly: () => props.staticOnly,
+});
+
+watch(safeUrl, () => {
+  loadFailed.value = false;
 });
 
 const mediaUnavailableHeadline = computed(() => {
@@ -207,7 +213,7 @@ const imgReferrerPolicy = 'no-referrer';
       :detail="mediaUnavailableDetail"
       :href="fallbackHref"
     />
-    <template v-else-if="!isGif">
+    <template v-else-if="!isGif && safeUrl">
       <img
         :src="safeUrl"
         :alt="alt"
@@ -221,7 +227,7 @@ const imgReferrerPolicy = 'no-referrer';
       />
     </template>
     <!-- Pre-sized parent + absolute layers: avoids CLS when poster/animated swap or static PNG differs. -->
-    <template v-else-if="layoutMode === 'absolute-stack'">
+    <template v-else-if="layoutMode === 'absolute-stack' && safeUrl">
       <!-- Keep the poster visible under the animated layer while the GIF decodes (avoids hover flash). -->
       <img
         :src="staticFrame ?? safeUrl"
@@ -248,7 +254,7 @@ const imgReferrerPolicy = 'no-referrer';
         @load="onImgLoad"
       />
     </template>
-    <template v-else-if="layoutMode === 'fill-cover'">
+    <template v-else-if="layoutMode === 'fill-cover' && safeUrl">
       <img
         aria-hidden="true"
         :src="safeUrl"
@@ -286,7 +292,7 @@ const imgReferrerPolicy = 'no-referrer';
         @load="onImgLoad"
       />
     </template>
-    <template v-else>
+    <template v-else-if="safeUrl">
       <img
         aria-hidden="true"
         :src="safeUrl"

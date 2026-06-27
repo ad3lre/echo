@@ -166,6 +166,7 @@ export default async function appleOAuthRoutes(
           }
           void tryJoinOfficialEchoServerOnSignup(fastify.log, user.id, {
             joinClientIp: req.ip,
+            io: fastify.io,
           });
         } catch (err) {
           fastify.log.error({ err }, 'apple_oauth_provision_failed');

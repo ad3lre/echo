@@ -10,7 +10,7 @@ export type AppLayoutMembersColumnProps = {
   effectiveActiveChannel: ChannelSummary | null;
   searchText: string;
   filterChips: FilterChip[];
-  allChannels: Array<{ id: string; name: string }>;
+  allChannels: import('@/services/orchestration/messageSearchCore').ChannelListEntry[];
   users: UserForAuthor[];
   paginatedSearchResults: (MessageWithAuthor & { channelName?: string })[];
   searchResultMessagesCount: number;

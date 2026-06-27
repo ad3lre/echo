@@ -932,7 +932,17 @@ const {
   --speak-strength: 0.4;
   --ring-color: #3ba55d;
   --glow-color: rgba(59, 165, 93, 0.5);
+}
 
+/* Ring overlay above the avatar — inset shadow on the host paints under the full-bleed avatar. */
+.call-avatar-speaking-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+  transition: box-shadow 0.12s ease-out;
   box-shadow:
     inset 0 0 0 3px
       color-mix(
@@ -954,7 +964,7 @@ const {
 }
 
 /* Stronger ring for solo view */
-.call-audio-only-gallery--solo .call-avatar-speaking-ring {
+.call-audio-only-gallery--solo .call-avatar-speaking-ring::after {
   box-shadow:
     inset 0 0 0 4px
       color-mix(

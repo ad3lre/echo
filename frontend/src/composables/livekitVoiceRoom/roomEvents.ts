@@ -36,7 +36,40 @@ import {
   type PublicationLike,
   type TrackLike,
 } from '@/services/livekit/livekitTrackDuckTypes';
+import {
+  attachEchoLocalMicInterruptionRecovery,
+  type RecoverableLocalMicTrack,
+} from '@/services/livekit/echoLocalMicInterruptionRecovery';
 import type { LiveKitVoiceSessionContext } from '@/composables/livekitVoiceRoom/context';
+
+type LocalMicRecoveryActions = {
+  refreshLocalMicLevelMonitor: (room: LKRoom) => void;
+  applyLocalMicGain: (room: LKRoom) => void;
+};
+
+/** Attach/replace local-mic interruption recovery for a freshly published mic track. */
+function wireLocalMicRecovery(
+  room: LKRoom,
+  pub: LocalTrackPublication & PublicationLike,
+  actions: LocalMicRecoveryActions,
+  prevDetach: (() => void) | null,
+): (() => void) | null {
+  const localMic = pub.track as unknown as RecoverableLocalMicTrack | null;
+  if (
+    !localMic ||
+    typeof localMic.restartTrack !== 'function' ||
+    !localMic.mediaStreamTrack
+  ) {
+    return prevDetach;
+  }
+  prevDetach?.();
+  return attachEchoLocalMicInterruptionRecovery(localMic, {
+    onRecovered: () => {
+      actions.refreshLocalMicLevelMonitor(room);
+      actions.applyLocalMicGain(room);
+    },
+  });
+}
 
 export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
   const {
@@ -61,6 +94,7 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
   }
 
   function attachRoomEventHandlers(room: LKRoom) {
+    let detachLocalMicRecovery: (() => void) | null = null;
     room.on(RoomEvent.Reconnecting, () => {
       voiceClientTrace('voice.client:lk_room_reconnecting', {});
       voiceClientDiag('info', 'voice.client:room_reconnecting', {});
@@ -85,6 +119,8 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
     });
 
     room.on(RoomEvent.Disconnected, (reason) => {
+      detachLocalMicRecovery?.();
+      detachLocalMicRecovery = null;
       voiceClientTrace('voice.client:lk_room_disconnected', {
         reason: String(reason),
       });
@@ -373,6 +409,12 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
       } else if (p.source === LK_SOURCE_MICROPHONE) {
         actions.refreshLocalMicLevelMonitor(room);
         actions.applyLocalMicGain(room);
+        detachLocalMicRecovery = wireLocalMicRecovery(
+          room,
+          p,
+          actions,
+          detachLocalMicRecovery,
+        );
       }
     });
 
@@ -389,6 +431,8 @@ export function createRoomEventsController(ctx: LiveKitVoiceSessionContext) {
           actions.announceLocalVcPublic(room, 'stream_end');
         }
       } else if (p.source === LK_SOURCE_MICROPHONE) {
+        detachLocalMicRecovery?.();
+        detachLocalMicRecovery = null;
         actions.refreshLocalMicLevelMonitor(room);
       }
     });

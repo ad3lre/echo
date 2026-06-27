@@ -12,7 +12,10 @@ import {
   readLastVisitedGuildId,
   readLastVisitedServerChannelMap,
 } from '@/utils/lastVisitedNavigationPersistence';
-import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
+import {
+  isBenignPrimaryFlowError,
+  reportPrimaryFlowFailure,
+} from '@/utils/primaryFlowFailure';
 import { sortRawMessagesInPlace } from '@/services/realtime/channelMessageOrder';
 import {
   applyEchoHistoryInitialPageFromApi,
@@ -179,15 +182,6 @@ export function shouldSkipChannelMessagePrefetch(channelId: string): boolean {
   return index.sorted.value.length > 0;
 }
 
-function isPrefetchPermissionDeniedError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  return (
-    msg.includes('View Channel') ||
-    msg.includes('VIEW_CHANNEL') ||
-    msg.includes('permission overwrite')
-  );
-}
-
 /**
  * Best-effort first-page prefetch for a text channel. Safe to call from bootstrap,
  * hover, or server switch — dedupes in-flight work and skips non-empty buckets.
@@ -211,13 +205,9 @@ export async function prefetchChannelMessagesFirstPage(
     );
     return true;
   } catch (e) {
-    if (isPrefetchPermissionDeniedError(e)) return false;
-    reportPrimaryFlowFailure(
-      opts?.flow ?? 'prefetchChannelMessagesFirstPage',
-      e,
-      { channelId: cid },
-      { showBanner: false },
-    );
+    const flow = opts?.flow ?? 'prefetchChannelMessagesFirstPage';
+    if (isBenignPrimaryFlowError(e, flow, { channelId: cid })) return false;
+    reportPrimaryFlowFailure(flow, e, { channelId: cid });
     return false;
   } finally {
     prefetchInFlight.delete(cid);

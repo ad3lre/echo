@@ -24,7 +24,7 @@ import { clearEchoWorkspaceCache } from '@/utils/workspacePersistence';
 import { dbgMemberList } from '@/utils/echoMemberListDebug';
 import type { MemberRole } from '@/utils/memberProfiles';
 import { hasPriorRegistration } from '@/utils/priorRegistration';
-import { ECHO_GUEST_ACCOUNTS_ENABLED } from '@/config/echoGuestAccountsEnabled';
+import { isGuestAccountsEnabled } from '@/config/echoGuestAccountsRuntime';
 import { shouldSkipAutoGuestAfterLogout } from '@/utils/autoGuestLogoutSuppress';
 import { consumeSkipAutoGuestOnce } from '@/utils/autoGuestOAuthReturn';
 import { withTransientFetchRetries } from '@/utils/retryTransientFetch';
@@ -283,7 +283,7 @@ export function createWorkspaceState(): WorkspaceStateApi {
       }
       if (!sessionUser || !auth.isAuthenticated) {
         const skipAutoGuest =
-          !ECHO_GUEST_ACCOUNTS_ENABLED ||
+          !isGuestAccountsEnabled() ||
           shouldSkipAutoGuestAfterLogout() ||
           consumeSkipAutoGuestOnce();
         if (!skipAutoGuest) {

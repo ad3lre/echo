@@ -1,4 +1,6 @@
 import type pg from 'pg';
+import type { FastifyBaseLogger } from 'fastify';
+import type { Server as SocketIoServer } from 'socket.io';
 import { isPostgresUndefinedColumnError } from '../../db/pgErrors';
 import { assertEchoUserHasServerMembershipSlot } from '../echoPlanEntitlements';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
@@ -21,6 +23,26 @@ import { parseEchoApplicationFormFromDb } from './applicationForm';
 import { invalidateEchoPermissionCacheForUser } from '../echoPermissionCache';
 import { applyEchoRoleLinksAfterAssignment } from './roleLinks';
 import { getMergedRolePermissions } from './permissions';
+import { postEchoMemberJoinWelcomeNotice } from '../../services/echoMemberJoinWelcomeNotice';
+
+export type EchoJoinRealtimeContext = {
+  io?: SocketIoServer;
+  log?: FastifyBaseLogger;
+};
+
+async function maybePostMemberJoinWelcomeNotice(
+  pool: pg.Pool,
+  serverId: string,
+  userId: string,
+  alreadyMember: boolean,
+  ctx?: EchoJoinRealtimeContext,
+): Promise<void> {
+  if (alreadyMember || !ctx?.log) return;
+  void postEchoMemberJoinWelcomeNotice(pool, ctx.io, ctx.log, {
+    serverId,
+    userId,
+  });
+}
 async function assignMembersRoleToMember(
   pool: pg.Pool | pg.PoolClient,
   serverId: string,
@@ -578,13 +600,15 @@ export async function listEchoServersForUser(
     discordGuildId?: string;
     allowGlobalGuests?: boolean;
     verificationRequireEmail?: boolean;
+    welcomeChannelId?: string;
   }[]
 > {
   const r = await pool.query(
     `
     SELECT s.id, s.name, s.icon_url, s.banner_url, s.banner_position_y, s.owner_id, s.listed_in_directory, s.invite_join_enabled, s.banner_blur_enabled, s.banner_blackout_enabled,
            s.automod_spam_enabled, s.raid_protection_enabled, s.raid_join_threshold_count, s.raid_join_window_seconds,
-           s.vanity_code, s.description, s.tags, s.applications_enabled, s.allow_global_guests, s.verification_require_email, ist.discord_guild_id
+           s.vanity_code, s.description, s.tags, s.applications_enabled, s.allow_global_guests, s.verification_require_email,
+           s.welcome_channel_id, ist.discord_guild_id
     FROM echo_servers s
     INNER JOIN echo_server_members m ON m.server_id = s.id AND m.user_id = $1
     LEFT JOIN echo_discord_import_states ist ON ist.server_id = s.id
@@ -655,6 +679,10 @@ export async function listEchoServersForUser(
       row.verification_require_email === null
         ? undefined
         : Boolean(row.verification_require_email),
+    welcomeChannelId:
+      row.welcome_channel_id != null && String(row.welcome_channel_id).trim()
+        ? String(row.welcome_channel_id).trim()
+        : undefined,
     discordGuildId:
       row.discord_guild_id != null
         ? String(row.discord_guild_id).trim()
@@ -706,6 +734,8 @@ export async function updateEchoServerPreferences(
     verificationRequireEmail?: boolean;
     applicationsEnabled?: boolean;
     applicationForm?: unknown;
+    /** Text channel id for join welcome system messages; null clears. */
+    welcomeChannelId?: string | null;
   },
 ): Promise<UpdateEchoServerPreferencesResult> {
   const MAX_SERVER_TAGS = 8;
@@ -897,6 +927,32 @@ export async function updateEchoServerPreferences(
     updates.push(`application_form = $${idx++}::jsonb`);
     params.push(JSON.stringify(parsed));
   }
+  if (body.welcomeChannelId !== undefined) {
+    if (body.welcomeChannelId === null) {
+      updates.push(`welcome_channel_id = $${idx++}`);
+      params.push(null);
+    } else if (typeof body.welcomeChannelId === 'string') {
+      const channelId = body.welcomeChannelId.trim();
+      if (!channelId) {
+        updates.push(`welcome_channel_id = $${idx++}`);
+        params.push(null);
+      } else {
+        const ch = await pool.query(
+          `
+          SELECT id FROM echo_channels
+          WHERE id = $1 AND server_id = $2 AND type = 'text'
+          LIMIT 1
+          `,
+          [channelId, serverId],
+        );
+        if (!ch.rows[0]) return 'invalid_body';
+        updates.push(`welcome_channel_id = $${idx++}`);
+        params.push(channelId);
+      }
+    } else {
+      return 'invalid_body';
+    }
+  }
   if (updates.length === 0) return 'invalid_body';
   params.push(serverId);
   await pool.query(
@@ -1060,7 +1116,12 @@ export async function joinEchoServerFromInvite(
   serverId: string,
   userId: string,
   joinClientIp: string | null = null,
-  opts?: { skipInviteJoinGate?: boolean; isGuest?: boolean },
+  opts?: {
+    skipInviteJoinGate?: boolean;
+    isGuest?: boolean;
+    io?: SocketIoServer;
+    log?: FastifyBaseLogger;
+  },
 ): Promise<JoinEchoInviteResult> {
   if (await isUserBannedFromServer(pool, serverId, userId)) {
     return { ok: false, reason: 'banned' };
@@ -1144,6 +1205,7 @@ export async function joinEchoServerFromInvite(
       userId,
       { source: 'invite' },
     );
+    await maybePostMemberJoinWelcomeNotice(pool, serverId, userId, false, opts);
   }
   return { ok: true, serverId, alreadyMember, joinAuditId };
 }
@@ -1154,7 +1216,11 @@ export async function joinEchoServerFromDirectory(
   serverId: string,
   userId: string,
   joinClientIp: string | null = null,
-  opts?: { isGuest?: boolean },
+  opts?: {
+    isGuest?: boolean;
+    io?: SocketIoServer;
+    log?: FastifyBaseLogger;
+  },
 ): Promise<JoinEchoDirectoryResult> {
   const exclude = echoDirectoryExcludedNamesSql();
   const listed = await pool.query(
@@ -1243,6 +1309,7 @@ export async function joinEchoServerFromDirectory(
         source: 'directory',
       },
     );
+    await maybePostMemberJoinWelcomeNotice(pool, serverId, userId, false, opts);
   }
   return { ok: true, serverId, alreadyMember, joinAuditId };
 }

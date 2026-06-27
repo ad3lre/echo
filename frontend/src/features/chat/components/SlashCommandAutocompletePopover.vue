@@ -115,8 +115,9 @@ function groupForIndex(index: number): SlashCommandGroup | null {
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped>
 .slash-command-autocomplete-item--selected {
-  background-color: var(--glass-hover, rgb(255 255 255 / 0.08));
+  color: var(--menu-item-selected-fg);
+  background: var(--menu-item-selected-bg);
 }
 </style>

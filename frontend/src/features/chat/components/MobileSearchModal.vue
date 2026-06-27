@@ -6,6 +6,7 @@ import SearchBar from '@/features/chat/components/SearchBar.vue';
 import type { FilterChip, FilterKey, HasType } from '@/composables/useSearch';
 import type { UserForAuthor } from '@/features/chat/chatMessageTypes';
 import type { MessageWithAuthor } from '@shared/types';
+import type { ChannelListEntry } from '@/services/orchestration/messageSearchCore';
 
 const MOBILE_SEARCH_PANEL_SELECTOR = '.mobile-search-modal-panel';
 
@@ -15,7 +16,12 @@ const props = withDefaults(
     subtitle?: string;
     modelValue: string;
     filterChips: FilterChip[];
-    channels: { id: string; name: string }[];
+    channels: ChannelListEntry[];
+    resolveChannelIcon?: (channel: {
+      name: string;
+      type?: import('@shared/types').EchoChannelType;
+      iconKey?: string;
+    }) => string;
     users: UserForAuthor[];
     searchResults?: (MessageWithAuthor & { channelName?: string })[];
     totalResults?: number;
@@ -147,6 +153,7 @@ onBeforeUnmount(() => {
                 :model-value="modelValue"
                 :filter-chips="filterChips"
                 :channels="channels"
+                :resolve-channel-icon="resolveChannelIcon"
                 :users="users"
                 :dm-mode="dmMode"
                 :search-results="searchResults"

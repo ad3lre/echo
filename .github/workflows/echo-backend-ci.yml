@@ -59,6 +59,9 @@ jobs:
       - name: Typecheck backend
         run: npm run build -w backend
 
+      - name: Lint backend
+        run: npm run lint -w backend
+
       - name: Contract surface + CI guards
         env:
           PG_TEST_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
@@ -118,6 +121,13 @@ jobs:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
           USE_MOCK_DB: 'false'
         run: npm run test:echo:rbac -w backend
+      - name: Auth integration (Postgres)
+        env:
+          ECHO_BACKEND_STORAGE: postgres
+          DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo
+          USE_MOCK_DB: 'false'
+          JWT_SECRET: jwt-0123456789abcdef0123456789abcdef01234567
+        run: npm run test:auth -w backend
       - name: RBAC sparse bench
         env:
           DATABASE_URL: postgresql://echo:echo_dev@127.0.0.1:5432/echo

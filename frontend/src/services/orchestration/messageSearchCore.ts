@@ -1,4 +1,4 @@
-import type { MessageWithAuthor } from '@shared/types';
+import type { EchoChannelType, MessageWithAuthor } from '@shared/types';
 import type { EchoApiMessage } from '@/api/echoClient';
 import { mapEchoMessageToRaw } from '@/services/domain/echoMessageSnapshots';
 import type { EchoMessageSearchQueryInput } from '@/api/echoSearchParams';
@@ -264,7 +264,7 @@ export function stripFilterPrefixes(raw: string): string {
 
 export function resolveFilterChannelEchoId(
   filters: SearchFilters,
-  allChannels: { id: string; name: string }[],
+  allChannels: ChannelListEntry[],
 ): string | undefined {
   if (!filters.in?.trim()) return undefined;
   const needle = filters.in.trim().toLowerCase();
@@ -314,20 +314,33 @@ export function isSearchActiveState(
   );
 }
 
+/** Slim channel row for search filters, `#` autocomplete, and channel pickers. */
+export type ChannelListEntry = {
+  id: string;
+  name: string;
+  type?: EchoChannelType;
+  iconKey?: string;
+};
+
 export function categoriesToChannelList(
   categories: ChannelCategory[],
-): { id: string; name: string }[] {
-  const list: { id: string; name: string }[] = [];
+): ChannelListEntry[] {
+  const list: ChannelListEntry[] = [];
   for (const cat of categories) {
     for (const ch of cat.channels) {
-      list.push({ id: ch.id, name: ch.name });
+      list.push({
+        id: ch.id,
+        name: ch.name,
+        type: ch.type,
+        ...(ch.iconKey ? { iconKey: ch.iconKey } : {}),
+      });
     }
   }
   return list;
 }
 
 export function channelNameByIdFromList(
-  channels: { id: string; name: string }[],
+  channels: ChannelListEntry[],
 ): Map<string, string> {
   const m = new Map<string, string>();
   for (const c of channels) {
@@ -372,7 +385,7 @@ export function computeUseChannelSearchApi(
 export function collectLocalSearchMessages(input: {
   searchActive: boolean;
   activeChannelId: string;
-  allChannels: { id: string; name: string }[];
+  allChannels: ChannelListEntry[];
   users: UserForAuthor[];
   echoDmThreadIds: ReadonlySet<string>;
   hasApiMode: boolean;
@@ -426,7 +439,7 @@ export function collectLocalSearchMessages(input: {
 export function buildEchoMessageSearchParams(input: {
   searchTextRaw: string;
   filters: SearchFilters;
-  allChannels: { id: string; name: string }[];
+  allChannels: ChannelListEntry[];
   users: UserForAuthor[];
   before?: string;
 }): EchoMessageSearchQueryInput {
@@ -455,7 +468,7 @@ export function apiSearchCriteriaSatisfied(
   searchTextRaw: string,
   filters: SearchFilters,
   users: UserForAuthor[],
-  allChannels: { id: string; name: string }[],
+  allChannels: ChannelListEntry[],
 ): boolean {
   const { searchText: normalizedText } =
     extractInlineSearchFilters(searchTextRaw);

@@ -98,6 +98,7 @@ export type EchoWorkspaceRawServer = {
   applicationsEnabled?: boolean;
   allowGlobalGuests?: boolean;
   verificationRequireEmail?: boolean;
+  welcomeChannelId?: string;
 };
 
 /** `/workspace` JSON after transport-level structural validation (servers + categories). */
@@ -571,6 +572,9 @@ export function normalizeEchoWorkspaceServerRow(
       : {}),
     ...(typeof s.verificationRequireEmail === 'boolean'
       ? { verificationRequireEmail: s.verificationRequireEmail }
+      : {}),
+    ...(typeof s.welcomeChannelId === 'string' && s.welcomeChannelId.trim()
+      ? { welcomeChannelId: s.welcomeChannelId.trim() }
       : {}),
   };
 }

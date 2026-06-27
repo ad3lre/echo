@@ -2,7 +2,7 @@ import { config } from '../config';
 
 /** Static page under `ECHO_APP_PUBLIC_URL` that redirects into `echo://` with a one-time handoff code. */
 export function oauthDesktopBridgeHandoffRedirect(handoffCode: string): string {
-  let base = config.echoAppPublicUrl.trim().replace(/\/$/, '');
+  const base = config.echoAppPublicUrl.trim().replace(/\/$/, '');
   let u: URL;
   try {
     u = new URL(base);

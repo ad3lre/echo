@@ -37,6 +37,8 @@ export interface Server {
   updatedAt?: string;
   /** Echo: Discord Guild ID if this server was imported. */
   discordGuildId?: string;
+  /** Echo: text channel for join welcome system messages; unset disables. */
+  welcomeChannelId?: string;
 }
 
 export type EchoServerNotificationLevel =

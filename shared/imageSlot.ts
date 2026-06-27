@@ -73,6 +73,19 @@ export function isAllowedImageSlotAspect(w: number, h: number): boolean {
   return IMAGE_SLOT_ASPECT_RATIOS.some((r) => r.w === w && r.h === h);
 }
 
+/**
+ * Editable composer shortcut (no `slotId`) — what authors type and see in the composer.
+ * Persisted plain projection still uses `formatImageSlotToken` (`slotId` included).
+ */
+export function formatImageSlotComposerShortcut(
+  aspectW: number,
+  aspectH: number,
+): string {
+  const w = Math.floor(aspectW);
+  const h = Math.floor(aspectH);
+  return formatRichBlockToken(IMAGE_BLOCK_TYPE, { ratio: `${w}:${h}` });
+}
+
 /** Canonical plain projection: `![image: ratio=W:H, slotId=…]`. */
 export function formatImageSlotToken(attrs: ImageSlotAttrs): string {
   const w = Math.floor(attrs.aspectW);

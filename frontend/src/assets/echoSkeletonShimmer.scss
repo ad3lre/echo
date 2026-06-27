@@ -1,0 +1,30 @@
+// Theme-aware shimmer for full-area media layout placeholders (images, GIFs, video).
+// Uses --text contrast mix — NOT hardcoded white, which reads as a bright patch on dark scrims.
+
+@keyframes echo-layout-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@mixin fill {
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--text) 4%, transparent) 8%,
+    color-mix(in srgb, var(--text) 11%, transparent) 18%,
+    color-mix(in srgb, var(--text) 4%, transparent) 33%
+  );
+  background-size: 200% 100%;
+  animation: echo-layout-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@mixin reduced-motion {
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    background: color-mix(in srgb, var(--text) 8%, transparent);
+    background-size: auto;
+  }
+}

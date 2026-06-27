@@ -14,6 +14,7 @@ import {
   serializeChannel,
   serializeGuildMember,
   serializeUser,
+  permsBitfield,
 } from '../serializers';
 import { getEchoStore } from '../../../../domain/echoStore/bootstrap';
 import {
@@ -188,7 +189,7 @@ export default async function discordGuildsRoutes(
           icon: null,
           unicode_emoji: null,
           position: r.position,
-          permissions: require('../serializers').permsBitfield(r.permissions),
+          permissions: permsBitfield(r.permissions),
           managed: false,
           mentionable: false,
           tags: {},
@@ -234,7 +235,7 @@ export default async function discordGuildsRoutes(
       const userIds = memberRows.rows.map((r: Record<string, unknown>) =>
         String(r.user_id),
       );
-      let rolesByUser: Record<string, string[]> = {};
+      const rolesByUser: Record<string, string[]> = {};
       if (userIds.length > 0) {
         const roleRows = await pool.query(
           `SELECT user_id, role_id FROM echo_member_roles WHERE server_id = $1 AND user_id = ANY($2::text[])`,

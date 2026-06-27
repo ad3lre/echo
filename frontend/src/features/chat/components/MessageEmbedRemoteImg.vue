@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
+import { isTrustedMediaUrl } from '@/utils/safeImageUrl';
+import { useSignedEchoMediaUrl } from '@/composables/useSignedEchoMediaUrl';
 import MediaUnavailablePanel from './MediaUnavailablePanel.vue';
 
 const props = withDefaults(
   defineProps<{
     src: string;
+    storageKey?: string;
     alt?: string;
     imgClass?: string;
     compact?: boolean;
@@ -32,14 +34,19 @@ const props = withDefaults(
 const loadFailed = ref(false);
 
 watch(
-  () => props.src,
+  () => [props.src, props.storageKey] as const,
   () => {
     loadFailed.value = false;
   },
 );
 
 const imgLoading = computed(() => props.loading ?? 'eager');
-const resolved = computed(() => safeImageUrl(props.src));
+const resolved = useSignedEchoMediaUrl(() => props.src, {
+  storageKey: () => props.storageKey,
+});
+watch(resolved, () => {
+  loadFailed.value = false;
+});
 const unavailable = computed(
   () => !isTrustedMediaUrl(props.src) || loadFailed.value,
 );

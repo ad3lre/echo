@@ -52,7 +52,7 @@ export async function revalidateRecoveredChannelRooms(
 
     const exists = await echoChannelExistsInDb(pool, channelId);
     if (!exists) {
-      socket.leave(channelId);
+      void socket.leave(channelId);
       log.info(
         { socketId: socket.id, channelId, userId },
         'Recovered join evicted: unknown Echo channel',
@@ -62,7 +62,7 @@ export async function revalidateRecoveredChannelRooms(
 
     const ok = await canUserAccessChannel(pool, userId, channelId);
     if (!ok) {
-      socket.leave(channelId);
+      void socket.leave(channelId);
       log.info(
         { socketId: socket.id, channelId, userId },
         'Recovered join evicted: permission denied',
@@ -150,16 +150,16 @@ export function registerChannelHandlers(
       log.info(
         `Socket ${socket.id} (user: ${userId}) joining channel ${channelId}`,
       );
-      socket.join(channelId);
+      void socket.join(channelId);
       if (pool) {
         const sid = await getEchoChannelServerId(pool, channelId);
-        if (sid) socket.join(`echo:server:${sid}`);
+        if (sid) void socket.join(`echo:server:${sid}`);
       }
     })();
   });
 
   socket.on('leaveChannel', (channelId) => {
     if (typeof channelId !== 'string' || !channelId.trim()) return;
-    socket.leave(channelId);
+    void socket.leave(channelId);
   });
 }

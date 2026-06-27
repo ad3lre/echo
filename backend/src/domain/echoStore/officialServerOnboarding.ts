@@ -6,6 +6,9 @@ import { insertEchoAudit } from './auditLog';
 import { normalizeEchoVanityCode } from './invites';
 import { isClientIpBannedFromEchoServer } from './serverIpBans';
 import { addEchoServerMember } from './servers';
+import { postEchoMemberJoinWelcomeNotice } from '../../services/echoMemberJoinWelcomeNotice';
+import type { FastifyBaseLogger } from 'fastify';
+import type { Server as SocketIoServer } from 'socket.io';
 
 let cachedOfficialServerId: string | null | undefined;
 
@@ -50,7 +53,11 @@ export function resetOfficialEchoServerIdCacheForTests(): void {
 export async function joinNewAccountToOfficialEchoServer(
   pool: pg.Pool,
   userId: string,
-  opts?: { joinClientIp?: string | null },
+  opts?: {
+    joinClientIp?: string | null;
+    io?: SocketIoServer;
+    log?: FastifyBaseLogger;
+  },
 ): Promise<{ joined: boolean; serverId: string | null; reason?: string }> {
   const serverId = await resolveOfficialEchoServerId(pool);
   if (!serverId)
@@ -103,6 +110,12 @@ export async function joinNewAccountToOfficialEchoServer(
     await insertEchoAudit(pool, serverId, uid, 'member.join', 'user', uid, {
       source: 'official_onboarding',
     });
+    if (opts?.log) {
+      void postEchoMemberJoinWelcomeNotice(pool, opts.io, opts.log, {
+        serverId,
+        userId: uid,
+      });
+    }
   }
   return { joined: !alreadyMember, serverId };
 }

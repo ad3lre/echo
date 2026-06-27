@@ -114,7 +114,7 @@ export function useAppLayoutChatSound(deps: {
       dispatchAppToastDetail({
         variant: 'incoming_chat_message',
         severity: 'info',
-        durationMs: 12000,
+        durationMs: 6000,
         title,
         subtitle: channelLabel,
         message: messageBody,

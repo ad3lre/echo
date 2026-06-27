@@ -27,7 +27,7 @@ export default tseslint.config(
     // deliberately excluded there (tests run via tsx, never compiled), so the project
     // service can't resolve them — scope the typed rules to non-test source.
     files: ['src/**/*.ts'],
-    ignores: ['src/tests/**'],
+    ignores: ['src/tests/**', '**/*.test.ts'],
     languageOptions: {
       parserOptions: {
         projectService: true,
@@ -40,9 +40,23 @@ export default tseslint.config(
   },
 
   {
-    files: ['src/tests/**/*.ts'],
+    files: [
+      'src/sockets/handlers.ts',
+      'src/sockets/typingHandler.ts',
+      'src/sockets/dmCallSignalHandler.ts',
+      'src/sockets/paperCollabHandler.ts',
+      'src/sockets/paperWatchHandler.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-empty-object-type': 'off',
+    },
+  },
+
+  {
+    files: ['src/tests/**/*.ts', 'src/**/*.test.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 );

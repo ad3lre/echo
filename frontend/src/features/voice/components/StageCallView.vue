@@ -1080,7 +1080,13 @@ watch(
   display: block;
 }
 
-.stage-avatar-speaking-ring {
+.stage-avatar-speaking-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
   box-shadow:
     inset 0 0 0 3px
       color-mix(
@@ -1167,7 +1173,7 @@ watch(
   background: color-mix(in srgb, #10b981 18%, transparent);
 }
 
-[data-theme='light'] .stage-avatar-speaking-ring {
+[data-theme='light'] .stage-avatar-speaking-ring::after {
   --ring-color: #248045;
   box-shadow:
     inset 0 0 0 3px

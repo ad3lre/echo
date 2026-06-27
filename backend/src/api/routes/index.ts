@@ -29,6 +29,7 @@ import devDiagnosticsRoutes from './devDiagnostics';
 import agentNetworkDiagnosticsRoutes from './agentNetworkDiagnostics';
 import echoRoutes from './echo';
 import systemDeployCountdownRoutes from './systemDeployCountdown';
+import systemInstancePolicyRoutes from './systemInstancePolicy';
 import discordApiRoutes from './discordApi';
 import discordGatewayRoutes from './discordApi/gateway';
 import {
@@ -39,6 +40,7 @@ import {
 import { getAccessUserIdFromAuthHeader } from '../../auth/token';
 import { isEchoApiReadRequest } from '../../bootstrap/echoReadRateLimitPaths';
 import { clientIpFromFastifyRequest } from '../../net/clientIp';
+import { resolveEchoApiRateLimitMaxPerMinute } from '../../config/instancePolicy/resolveHttpRateLimit';
 
 /**
  * Registers all REST API routes under /api/v1.
@@ -55,6 +57,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(healthRoutes, { prefix: '/api/v1' });
   await fastify.register(statusPageRoutes, { prefix: '/api/v1' });
   await fastify.register(systemDeployCountdownRoutes, { prefix: '/api/v1' });
+  await fastify.register(systemInstancePolicyRoutes, { prefix: '/api/v1' });
   await fastify.register(giphyRoutes, { prefix: '/api/v1' });
   await fastify.register(imageBrowseCategoriesRoutes, { prefix: '/api/v1' });
   await fastify.register(serperImageSearchRoutes, { prefix: '/api/v1' });
@@ -92,7 +95,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(
     async function echoRateLimitScope(instance) {
       await instance.register(rateLimit, {
-        max: 500,
+        max: () => resolveEchoApiRateLimitMaxPerMinute(),
         timeWindow: '1 minute',
         keyGenerator: (req) => {
           const userId = getAccessUserIdFromAuthHeader(

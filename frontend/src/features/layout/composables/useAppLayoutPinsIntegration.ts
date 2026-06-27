@@ -4,8 +4,10 @@ import type { useAuthSessionStore } from '@/stores/authSession';
 import { isDmThreadId } from '@/features/layout/mainSurface';
 import { resolveEchoDmWireChannelId } from '@/features/layout/resolveEchoDmWireChannelId';
 import { fetchEchoChannelPins } from '@/api/echoClient';
-import { EchoApiError } from '@/api/echo/transport';
-import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
+import {
+  isBenignPrimaryFlowError,
+  reportPrimaryFlowFailure,
+} from '@/utils/primaryFlowFailure';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
 import { scheduleDeferredTask } from '@/utils/scheduleDeferredTask';
@@ -67,23 +69,8 @@ export function useAppLayoutPinsIntegration(deps: {
 
   /**
    * Pins GET can fail while nav/DM list is stale or mid-reconcile (left group, blocked, etc.).
-   * Treat like empty pins — do not surface as a primary flow failure.
+   * Treat like empty pins — `reportPrimaryFlowFailure` suppresses benign channel fetch noise.
    */
-  const BENIGN_PINS_FETCH_DETAILS = new Set([
-    'CHANNEL_NOT_FOUND',
-    'GROUP_DM_NOT_MEMBER',
-    'DM_NOT_ALLOWED',
-    'DM_USER_BLOCKED',
-  ]);
-
-  function isBenignPinsFetchError(e: unknown): boolean {
-    return (
-      e instanceof EchoApiError &&
-      typeof e.body.detail === 'string' &&
-      BENIGN_PINS_FETCH_DETAILS.has(e.body.detail)
-    );
-  }
-
   async function refreshChannelPins(cid: string): Promise<void> {
     if (!pinsEnabled.value) return;
     if (!cid || echoSyncCapabilities.isMockDataMode) return;
@@ -106,7 +93,9 @@ export function useAppLayoutPinsIntegration(deps: {
       loadedPinChannelIds.add(cid);
       setPinnedMessageIdsForChannel(cid, r.messageIds);
     } catch (e) {
-      if (isBenignPinsFetchError(e)) {
+      if (
+        isBenignPrimaryFlowError(e, 'fetchEchoChannelPins', { channelId: cid })
+      ) {
         loadedPinChannelIds.add(cid);
         setPinnedMessageIdsForChannel(cid, []);
         return;

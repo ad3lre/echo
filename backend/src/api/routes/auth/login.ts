@@ -7,13 +7,18 @@ import {
 } from '../../../auth/token';
 import { getAuthStore } from '../../../auth/store';
 import { clearGuestBindingCookie } from '../../../auth/sessionCookies';
-import { config } from '../../../config';
 import { isValidEmailFormat } from '../../../auth/email';
 import type { AuthLoginBody, AuthLoginMfaBody } from '../../../auth/types';
 import { issueEchoBrowserSession } from '../../../auth/issueBrowserSession';
 import { authSessionJsonBody } from '../../../auth/authSessionResponse';
 import { loginAuditDigests } from '../../../auth/loginAudit';
 import { clientIpFromFastifyRequest } from '../../../net/clientIp';
+import {
+  loginRouteRate,
+  loginStrictRouteRate,
+  mfaLoginRouteRate,
+  mfaLoginStrictRouteRate,
+} from '../../meLinkRouteRateLimits';
 import {
   evaluateMfaLogin,
   evaluatePasswordLogin,
@@ -24,6 +29,7 @@ import {
   recordPasswordLoginFailure,
   recordPasswordLoginSuccess,
 } from '../../../services/auth/loginProtection';
+import { replyIfInstanceBanned } from '../../../domain/instanceBanEnforcement';
 import bcrypt from 'bcrypt';
 
 const DUMMY_HASH =
@@ -55,15 +61,17 @@ export default async function loginRoutes(fastify: FastifyInstance) {
       }
       return `auth_login_identity:${clientIpFromFastifyRequest(req)}:${username || '__missing__'}`;
     };
+    const loginRate = loginRouteRate();
     await loginScope.register(rateLimit, {
-      max: 80,
-      timeWindow: '15 minutes',
+      max: loginRate.max,
+      timeWindow: loginRate.timeWindow,
       keyGenerator: (req) => `auth_login:${clientIpFromFastifyRequest(req)}`,
       addHeaders: { 'retry-after': true },
     });
+    const loginStrictRate = loginStrictRouteRate();
     await loginScope.register(rateLimit, {
-      max: 20,
-      timeWindow: '15 minutes',
+      max: loginStrictRate.max,
+      timeWindow: loginStrictRate.timeWindow,
       keyGenerator: loginIdentityRateLimitKey,
       addHeaders: { 'retry-after': true },
     });
@@ -166,6 +174,14 @@ export default async function loginRoutes(fastify: FastifyInstance) {
             ipDigest: audit.ipDigest,
             uaDigest: audit.uaDigest,
           });
+          if (
+            await replyIfInstanceBanned(reply, {
+              userId: userRecord.id,
+              rawIp: clientIpFromFastifyRequest(req),
+            })
+          ) {
+            return;
+          }
           const session = await issueEchoBrowserSession(
             store,
             userRecord,
@@ -197,15 +213,17 @@ export default async function loginRoutes(fastify: FastifyInstance) {
       }
       return `mfa_login_identity:${clientIpFromFastifyRequest(req)}:${token || '__missing__'}`;
     };
+    const mfaIpRate = mfaLoginRouteRate();
     await mfaLoginScope.register(rateLimit, {
-      max: config.echoMfaLoginMaxPerIpPer15Min,
-      timeWindow: '15 minutes',
+      max: mfaIpRate.max,
+      timeWindow: mfaIpRate.timeWindow,
       keyGenerator: (req) => `mfa_login_ip:${clientIpFromFastifyRequest(req)}`,
       addHeaders: { 'retry-after': true },
     });
+    const mfaStrictRate = mfaLoginStrictRouteRate();
     await mfaLoginScope.register(rateLimit, {
-      max: 20,
-      timeWindow: '15 minutes',
+      max: mfaStrictRate.max,
+      timeWindow: mfaStrictRate.timeWindow,
       keyGenerator: mfaIdentityRateLimitKey,
       addHeaders: { 'retry-after': true },
     });
@@ -321,6 +339,14 @@ export default async function loginRoutes(fastify: FastifyInstance) {
             ipDigest: audit.ipDigest,
             uaDigest: audit.uaDigest,
           });
+          if (
+            await replyIfInstanceBanned(reply, {
+              userId,
+              rawIp: clientIpFromFastifyRequest(req),
+            })
+          ) {
+            return;
+          }
           const session = await issueEchoBrowserSession(
             store,
             { id: user.id, username: user.username },

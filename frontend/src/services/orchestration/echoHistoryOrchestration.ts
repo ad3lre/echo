@@ -16,7 +16,10 @@ import {
   toFailResultFromUnknown,
 } from '@/types/actionResult';
 import { propagateActionFailure } from '@/utils/actionFailurePropagation';
-import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
+import {
+  isBenignPrimaryFlowError,
+  reportPrimaryFlowFailure,
+} from '@/utils/primaryFlowFailure';
 import { emitDiagnostic } from '@/observability/sessionDiagnostics';
 import {
   hasChannelMessageInBucket,
@@ -138,6 +141,8 @@ export function createEchoHistoryController(
   let pendingReadWriteTimer: ReturnType<typeof setTimeout> | null = null;
   let pendingReadWriteChannelId = '';
   let pendingReadWriteMessageId = '';
+  const READ_STATE_WRITE_DEBOUNCE_MS = 400;
+  const READ_STATE_WRITE_RATE_LIMIT_RETRY_MS = 5_000;
   let deferredAttentionRefresh: ReturnType<typeof scheduleDeferredTask> | null =
     null;
   const activeChannelSeenMessageId = ref<string | null>(null);
@@ -366,6 +371,30 @@ export function createEchoHistoryController(
         scheduleAttentionRefresh('write_fail', channelId);
         return;
       }
+      if (
+        e instanceof EchoApiError &&
+        e.status === 429 &&
+        (e.body.code === 'RATE_LIMIT' ||
+          e.body.code === 'RATE_LIMITED' ||
+          e.message.toLowerCase().includes('too many'))
+      ) {
+        dbgReadState('write_rate_limited_retry', {
+          channelId,
+          lastReadMessageId,
+        });
+        if (pendingReadWriteTimer) clearTimeout(pendingReadWriteTimer);
+        pendingReadWriteChannelId = channelId;
+        pendingReadWriteMessageId = lastReadMessageId;
+        pendingReadWriteTimer = setTimeout(() => {
+          pendingReadWriteTimer = null;
+          void persistReadState(
+            pendingReadWriteChannelId,
+            pendingReadWriteMessageId,
+          );
+        }, READ_STATE_WRITE_RATE_LIMIT_RETRY_MS);
+        scheduleAttentionRefresh('write_fail', channelId);
+        return;
+      }
       dbgReadState('write_fail', {
         channelId,
         lastReadMessageId,
@@ -449,7 +478,7 @@ export function createEchoHistoryController(
         pendingReadWriteChannelId,
         pendingReadWriteMessageId,
       );
-    }, 180);
+    }, READ_STATE_WRITE_DEBOUNCE_MS);
   }
 
   async function loadHistory() {
@@ -688,12 +717,15 @@ export function createEchoHistoryController(
           'This channel took too long to load. Switch channels or try again.',
           'warning',
         );
-        reportPrimaryFlowFailure(
-          'fetchEchoChannelMessages',
-          e,
-          { cid, timeoutMs: e.timeoutMs, timedOut: true },
-          { showBanner: false },
-        );
+        reportPrimaryFlowFailure('fetchEchoChannelMessages', e, {
+          cid,
+          timeoutMs: e.timeoutMs,
+          timedOut: true,
+        });
+      } else if (
+        isBenignPrimaryFlowError(e, 'fetchEchoChannelMessages', { cid })
+      ) {
+        error.value = null;
       } else {
         reportPrimaryFlowFailure('fetchEchoChannelMessages', e, { cid });
         error.value =
@@ -866,12 +898,15 @@ export function createEchoHistoryController(
           'Older messages took too long to load. Scroll up to retry.',
           'warning',
         );
-        reportPrimaryFlowFailure(
-          'fetchEchoChannelMessages.older',
-          e,
-          { cid, timedOut: true, timeoutMs: e.timeoutMs },
-          { showBanner: false },
-        );
+        reportPrimaryFlowFailure('fetchEchoChannelMessages.older', e, {
+          cid,
+          timedOut: true,
+          timeoutMs: e.timeoutMs,
+        });
+      } else if (
+        isBenignPrimaryFlowError(e, 'fetchEchoChannelMessages.older', { cid })
+      ) {
+        error.value = null;
       } else {
         reportPrimaryFlowFailure('fetchEchoChannelMessages.older', e, { cid });
         error.value =

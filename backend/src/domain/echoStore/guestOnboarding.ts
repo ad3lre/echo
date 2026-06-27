@@ -1,4 +1,6 @@
 import type pg from 'pg';
+import type { FastifyBaseLogger } from 'fastify';
+import type { Server as SocketIoServer } from 'socket.io';
 import { config } from '../../config';
 import {
   joinEchoServerFromDirectory,
@@ -10,6 +12,7 @@ import {
 export async function joinGuestToSampledEchoServers(
   pool: pg.Pool,
   userId: string,
+  ctx?: { io?: SocketIoServer; log?: FastifyBaseLogger },
 ): Promise<void> {
   const poolSize = config.guestDirectoryPoolSize;
   const pick = config.guestServerSampleCount;
@@ -21,6 +24,8 @@ export async function joinGuestToSampledEchoServers(
     try {
       await joinEchoServerFromDirectory(pool, serverId, userId, null, {
         isGuest: true,
+        io: ctx?.io,
+        log: ctx?.log,
       });
     } catch {
       /* ignore single-server failures */

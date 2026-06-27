@@ -31,21 +31,34 @@ export function joinPreviewFromInviteDto(
   };
 }
 
+export async function resolveInviteJoinContext(raw: string): Promise<{
+  preview: JoinServerConfirmPreview;
+  serverId?: string;
+}> {
+  const tok = extractInviteTokenFromUserInput(raw);
+  const voiceHint = extractVoiceChannelIdFromInviteUserInput(raw);
+  if (!tok) return { preview: { serverName: 'Server' } };
+  try {
+    const preview = await fetchInvitePreview(tok, voiceHint);
+    if (!preview) {
+      return { preview: { serverName: 'Server', isVoiceInvite: !!voiceHint } };
+    }
+    return {
+      preview: joinPreviewFromInviteDto(preview, {
+        isVoiceInvite: !!voiceHint || !!preview.voiceChannel?.id,
+      }),
+      serverId: preview.serverId?.trim() || undefined,
+    };
+  } catch {
+    return { preview: { serverName: 'Server', isVoiceInvite: !!voiceHint } };
+  }
+}
+
 export async function buildInviteJoinConfirmPreview(
   raw: string,
 ): Promise<JoinServerConfirmPreview> {
-  const tok = extractInviteTokenFromUserInput(raw);
-  const voiceHint = extractVoiceChannelIdFromInviteUserInput(raw);
-  if (!tok) return { serverName: 'Server' };
-  try {
-    const preview = await fetchInvitePreview(tok, voiceHint);
-    if (!preview) return { serverName: 'Server', isVoiceInvite: !!voiceHint };
-    return joinPreviewFromInviteDto(preview, {
-      isVoiceInvite: !!voiceHint || !!preview.voiceChannel?.id,
-    });
-  } catch {
-    return { serverName: 'Server', isVoiceInvite: !!voiceHint };
-  }
+  const { preview } = await resolveInviteJoinContext(raw);
+  return preview;
 }
 
 export function buildDiscoverableJoinConfirmPreview(entry: {

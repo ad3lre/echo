@@ -80,10 +80,21 @@ export function useWorkspaceServerActions(refs: WorkspaceStateRefs) {
       };
       return channelId;
     } catch (e) {
-      reportPrimaryFlowFailure('createEchoChannel', e, {
-        sid: serverId,
-        payload: { categoryId, channel },
-      });
+      reportPrimaryFlowFailure(
+        'createEchoChannel',
+        e,
+        {
+          sid: serverId,
+          payload: { categoryId, channel },
+        },
+        { showBanner: false },
+      );
+      dispatchAppToast(
+        e instanceof Error && e.message.trim()
+          ? e.message.trim()
+          : 'Could not create the channel. Try again.',
+        'warning',
+      );
       return null;
     }
   }

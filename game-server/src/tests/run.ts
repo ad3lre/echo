@@ -3,7 +3,10 @@ import { runHangmanSocketTests } from './hangman.socket.test';
 import { runRoomLifecycleTests } from './roomLifecycle.test';
 import { runTicTacToeSocketTests } from './ticTacToe.socket.test';
 
+import { runProductionConfigGateTests } from './productionConfigGates.test';
+
 async function main(): Promise<void> {
+  runProductionConfigGateTests();
   runRoomLifecycleTests();
   await runTicTacToeSocketTests();
   await runHangmanSocketTests();

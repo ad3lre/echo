@@ -48,7 +48,9 @@ function getPublisher(): Redis | null {
   if (!config.redisUrl?.trim()) return null;
   if (!publisher) {
     publisher = new Redis(config.redisUrl.trim(), echoIoredisClientOptions);
-    publisher.on('error', () => {});
+    publisher.on('error', (err) => {
+      console.warn('[echo-cache-invalidation] Redis publisher error:', err);
+    });
   }
   return publisher;
 }
@@ -84,7 +86,9 @@ export function publishCacheInvalidation(msg: CacheInvalidationMessage): void {
   try {
     void redis
       .publish(CHANNEL, JSON.stringify({ ...msg, origin: ORIGIN }))
-      .catch(() => {});
+      .catch((err) => {
+        console.warn('[echo-cache-invalidation] Redis publish failed:', err);
+      });
   } catch {
     // Best effort: a dropped invalidation degrades to TTL-bounded staleness, not corruption.
   }
@@ -99,7 +103,9 @@ export function initCacheInvalidationBus(): void {
   if (!config.redisUrl?.trim()) return;
   subscribed = true;
   subscriber = new Redis(config.redisUrl.trim(), echoIoredisClientOptions);
-  subscriber.on('error', () => {});
+  subscriber.on('error', (err) => {
+    console.warn('[echo-cache-invalidation] Redis subscriber error:', err);
+  });
   subscriber.on('message', (channel, raw) => {
     if (channel !== CHANNEL) return;
     let msg: (CacheInvalidationMessage & { origin?: string }) | null = null;
@@ -111,7 +117,9 @@ export function initCacheInvalidationBus(): void {
     if (!msg || msg.origin === ORIGIN || typeof msg.kind !== 'string') return;
     dispatchLocal(msg);
   });
-  void subscriber.subscribe(CHANNEL).catch(() => {});
+  void subscriber.subscribe(CHANNEL).catch((err) => {
+    console.warn('[echo-cache-invalidation] Redis subscribe failed:', err);
+  });
 }
 
 /** Test seam: drive the local dispatch path (what a remote broadcast triggers) directly. */

@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echo.local/schemas/instancePolicy.json",
+  "title": "EchoInstancePolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "general": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instanceName": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "instanceDescription": { "type": "string", "maxLength": 512 },
+        "publicUrls": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "app": { "type": "string", "minLength": 1 },
+            "api": { "type": "string", "minLength": 1 },
+            "marketing": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disabled": { "type": "boolean" },
+        "requireEmailVerification": { "type": "boolean" },
+        "username": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minLength": { "type": "integer", "minimum": 1, "maximum": 64 },
+            "maxLength": { "type": "integer", "minimum": 1, "maximum": 64 }
+          }
+        },
+        "password": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minLength": { "type": "integer", "minimum": 6, "maximum": 128 }
+          }
+        },
+        "hwidCap": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "maxAccountsPerKeyIp": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        }
+      }
+    },
+    "guest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "maxTotalMessages": { "type": "integer", "minimum": 10 },
+        "directory": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "poolSize": { "type": "integer", "minimum": 3, "maximum": 50 }
+          }
+        },
+        "serverSampleCount": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "mint": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxPerIpPerHour": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "captchaAfterN": { "type": "integer", "minimum": 0, "maximum": 500 }
+          }
+        },
+        "captcha": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "failBlockThreshold": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "failBlockHours": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "abuseComboBlockMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1440
+        },
+        "turnstile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "siteKey": { "type": "string" }
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "socket": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "messagesPerMinute": { "type": "integer", "minimum": 1 },
+            "burst": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "max": { "type": "integer", "minimum": 1 },
+                "windowMs": { "type": "integer", "minimum": 100 }
+              }
+            },
+            "maxEventsPerSecond": { "type": "integer", "minimum": 1 },
+            "idempotencyMinutes": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "http": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "global": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "maxPerMinute": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "echoApi": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "maxPerMinute": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "routes": { "type": "object" },
+            "absolute": { "type": "object" }
+          }
+        },
+        "upstream": { "type": "object" }
+      }
+    },
+    "regions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "voice": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "default": { "type": "string", "minLength": 1 },
+            "available": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "name"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1 },
+                  "name": { "type": "string", "minLength": 1 },
+                  "optimal": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

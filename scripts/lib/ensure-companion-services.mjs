@@ -19,7 +19,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-/** PM2 apps that usually run beside prod:serve / blue-green API (not the main API/SPA). */
+/** PM2 apps that usually run beside prod:serve (not the main API/SPA). */
 export const DEFAULT_PM2_COMPANION_APPS = [
   'echo-marketing',
   'echo-discord-bot',

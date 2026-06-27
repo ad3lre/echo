@@ -1077,14 +1077,14 @@ function handleReply(msg: MessageWithAuthor & { channelName?: string }) {
   overflow-x: auto;
   max-width: 100%;
   border-radius: 6px;
-  background: var(--vue-auto-019);
+  background: var(--md-code-bg);
   padding: 0.5em 0.75em;
   font-size: 0.9em;
 }
 
 .markdown-preview-expanded :deep(.markdown-preview__content code) {
   border-radius: 4px;
-  background: var(--vue-auto-031);
+  background: var(--md-inline-code-bg);
   padding: 0.15em 0.35em;
   font-size: 0.9em;
   overflow-wrap: break-word;

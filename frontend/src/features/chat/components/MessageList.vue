@@ -2712,6 +2712,18 @@ defineExpose({
 }
 
 /*
+ * The overlay must OCCLUDE the real list mounted underneath while the one-shot
+ * bottom-anchor settles (see showInitialLoadOverlay / suppressListUntilInitialAnchor) —
+ * the design comment says positioning happens "behind the overlay". Without an opaque
+ * fill the half-painted content (loading avatars, image-slot shimmers) bled through as a
+ * washed panel offset by the avatar gutter. Paint the same bg as ChatView so the skeleton
+ * sits on the exact chat background, then cross-fade out to reveal messages in place.
+ */
+.message-list-skeleton-overlay {
+  background: var(--echo-chat-view-bg);
+}
+
+/*
  * Skeleton → messages crossfade. The list is already painted (bottom-anchored via
  * `initialOffset`) underneath, so fading the overlay out dissolves the placeholder
  * bars into real messages rather than hard-swapping with a blank frame.

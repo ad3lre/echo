@@ -1,0 +1,126 @@
+{
+  "$schema": "./shared/instancePolicySchema.json",
+  "general": {
+    "instanceName": "Echo Instance",
+    "instanceDescription": "A self-hosted Echo communications instance",
+    "publicUrls": {
+      "app": "http://localhost:8080",
+      "api": "http://localhost:3000",
+      "marketing": "https://app-echo.net"
+    }
+  },
+  "registration": {
+    "disabled": false,
+    "requireEmailVerification": true,
+    "username": {
+      "minLength": 4,
+      "maxLength": 32
+    },
+    "password": {
+      "minLength": 8
+    },
+    "hwidCap": {
+      "enabled": false,
+      "maxAccountsPerKeyIp": 3
+    }
+  },
+  "guest": {
+    "enabled": false,
+    "maxTotalMessages": 300,
+    "directory": {
+      "poolSize": 15
+    },
+    "serverSampleCount": 3,
+    "mint": {
+      "maxPerIpPerHour": 12,
+      "captchaAfterN": 0
+    },
+    "captcha": {
+      "failBlockThreshold": 5,
+      "failBlockHours": 24
+    },
+    "abuseComboBlockMinutes": 30,
+    "turnstile": {
+      "siteKey": ""
+    }
+  },
+  "limits": {
+    "socket": {
+      "messagesPerMinute": 60,
+      "burst": {
+        "max": 20,
+        "windowMs": 2000
+      },
+      "maxEventsPerSecond": 80,
+      "idempotencyMinutes": 10
+    },
+    "http": {
+      "global": {
+        "maxPerMinute": 150
+      },
+      "echoApi": {
+        "maxPerMinute": 500
+      },
+      "routes": {
+        "auth": {
+          "register": { "max": 25, "timeWindow": "1 hour" },
+          "login": { "max": 80, "timeWindow": "15 minutes" },
+          "loginStrict": { "max": 20, "timeWindow": "1 hour" },
+          "guestMint": { "max": 20, "timeWindow": "15 minutes" },
+          "verifyEmail": { "max": 20, "timeWindow": "15 minutes" },
+          "forgotPassword": { "max": 3, "timeWindow": "1 hour" },
+          "resetPassword": { "max": 15, "timeWindow": "1 hour" },
+          "mfaLogin": { "max": 60, "timeWindow": "15 minutes" },
+          "mfaLoginStrict": { "max": 20, "timeWindow": "1 hour" }
+        },
+        "mutations": {
+          "discordImportBind": { "max": 10, "timeWindow": "1 hour" },
+          "discordImportRunFull": { "max": 3, "timeWindow": "1 hour" },
+          "discordImportChannel": { "max": 20, "timeWindow": "1 hour" },
+          "discordImportRefresh": { "max": 3, "timeWindow": "1 hour" },
+          "e2eeDeviceMutation": { "max": 30, "timeWindow": "15 minutes" },
+          "emojiUsage": { "max": 120, "timeWindow": "15 minutes" },
+          "discordBridgePut": { "max": 30, "timeWindow": "15 minutes" },
+          "passkeyCeremony": { "max": 12, "timeWindow": "15 minutes" },
+          "authProfilePatch": { "max": 30, "timeWindow": "15 minutes" },
+          "messagePatch": { "max": 60, "timeWindow": "1 minute" },
+          "mlsWrite": { "max": 60, "timeWindow": "1 minute" },
+          "mlsRead": { "max": 120, "timeWindow": "1 minute" },
+          "readStateWrite": { "max": 600, "timeWindow": "1 minute" }
+        }
+      },
+      "absolute": {
+        "register": {
+          "enabled": false,
+          "max": 25,
+          "windowMs": 3600000
+        },
+        "messages": {
+          "enabled": false,
+          "max": 200,
+          "windowMs": 60000
+        }
+      }
+    },
+    "upstream": {
+      "serper": {
+        "perMinute": 10,
+        "maxPerDayPerIp": 180,
+        "globalMaxPerDay": 500,
+        "globalMaxPerMonth": 10000
+      },
+      "honcho": {
+        "perMinute": 20
+      },
+      "discordImport": {
+        "maxMetadataStartsPerUserPerDay": 0
+      }
+    }
+  },
+  "regions": {
+    "voice": {
+      "default": "auto",
+      "available": []
+    }
+  }
+}

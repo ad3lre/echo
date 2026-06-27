@@ -1748,6 +1748,7 @@ function isEchoStorableHttpUrlForChannelIcon(t: string): boolean {
   } else if (!/^https?:\/\//i.test(t)) {
     return false;
   }
+  // eslint-disable-next-line no-control-regex -- reject control chars in URLs
   if (/[\x00-\x1f<>]/.test(t)) return false;
   try {
     const u = new URL(parseInput);
@@ -1767,6 +1768,7 @@ export function normalizeEchoChannelIconKeyForDb(
   if (t.length > MAX_ECHO_CHANNEL_ICON_KEY_LEN) return '';
   if (isEchoStorableHttpUrlForChannelIcon(t)) return t;
   if (t.startsWith('/') && CHANNEL_ICON_RELATIVE_PATH_RE.test(t)) return t;
+  // eslint-disable-next-line no-control-regex -- reject control/path chars in icon keys
   if (/[\x00-\x1f\\/<>]/.test(t)) return '';
   return t;
 }

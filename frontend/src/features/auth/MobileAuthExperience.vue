@@ -69,6 +69,7 @@ import {
 } from '@/utils/accountValidation';
 import LegalDocsModal from '@/components/LegalDocsModal.vue';
 import AuthAlertModal from '@/features/auth/components/AuthAlertModal.vue';
+import PasskeyHelpModal from '@/features/auth/PasskeyHelpModal.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -98,113 +99,55 @@ function pop(target: View = 'welcome') {
   view.value = target;
 }
 
-// ── Platform / biometric detection ──────────────────────────────────────────
-
-type BiometricKind = 'faceId' | 'touchId' | 'passkey' | 'none';
-const biometric = ref<BiometricKind>(
-  ECHO_PASSKEYS_ENABLED ? 'passkey' : 'none',
-);
-
-function detectIosBiometric(): 'faceId' | 'touchId' | 'none' {
-  if (typeof window === 'undefined') return 'none';
-  const ua = navigator.userAgent || '';
-  const isIos = /iPhone|iPad|iPod/.test(ua);
-  if (!isIos) return 'none';
-  // Heuristic: notch/Face-ID iPhones and modern iPads have screen >=800pt on
-  // their longest edge. Older SE/8 iPhones top out at 736pt → Touch ID.
-  const longestEdge = Math.max(window.screen.width, window.screen.height);
-  return longestEdge >= 800 ? 'faceId' : 'touchId';
-}
-
-async function detectBiometric(): Promise<BiometricKind> {
-  if (!ECHO_PASSKEYS_ENABLED) return 'none';
-  if (
-    typeof window === 'undefined' ||
-    typeof window.PublicKeyCredential === 'undefined' ||
-    !(
-      'isUserVerifyingPlatformAuthenticatorAvailable' in
-      window.PublicKeyCredential
-    )
-  ) {
-    return 'passkey';
-  }
-  let hasPlatformAuth: boolean;
-  try {
-    hasPlatformAuth =
-      await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-  } catch {
-    hasPlatformAuth = false;
-  }
-  if (!hasPlatformAuth) return 'passkey';
-  const ios = detectIosBiometric();
-  if (ios !== 'none') return ios;
-  // Non-iOS platform authenticator (Mac Touch ID, Android, Windows Hello).
-  // Best generic label is "Passkey" — covers all WebAuthn flows uniformly.
-  const ua = navigator.userAgent || '';
-  if (/Macintosh|Mac OS X/.test(ua)) return 'touchId';
-  return 'passkey';
-}
-
-onMounted(() => {
-  void detectBiometric().then((b) => {
-    biometric.value = b;
-  });
-  // Surface any OAuth error left by a system-browser handoff round-trip so
-  // the user sees it on the first paint, not after they re-try silently.
-  try {
-    const g = sessionStorage.getItem('echo_google_oauth_error')?.trim();
-    if (g) {
-      sessionStorage.removeItem('echo_google_oauth_error');
-      errorMessage.value = messageForGoogleOAuthError(g);
-      return;
-    }
-    const d = sessionStorage.getItem('echo_discord_oauth_error')?.trim();
-    if (d) {
-      sessionStorage.removeItem('echo_discord_oauth_error');
-      errorMessage.value = messageForDiscordOAuthError(d);
-    }
-  } catch {
-    /* ignore */
-  }
-});
-
-const biometricLabel = computed(() => {
-  switch (biometric.value) {
-    case 'faceId':
-      return 'Sign in with Face ID';
-    case 'touchId':
-      return 'Sign in with Touch ID';
-    case 'passkey':
-      return 'Sign in with Passkey';
-    default:
-      return '';
-  }
-});
-
-const biometricVerb = computed(() => {
-  // Used as the smaller "Use Face ID" link inside the email form.
-  switch (biometric.value) {
-    case 'faceId':
-      return 'Use Face ID';
-    case 'touchId':
-      return 'Use Touch ID';
-    case 'passkey':
-      return 'Use Passkey';
-    default:
-      return '';
-  }
-});
+// ── Passwordless (passkey) availability ─────────────────────────────────────
 
 // In the Tauri iOS app the WKWebView origin (tauri://localhost) does not match
-// the WebAuthn RP ID (chat-echo.com), so startAuthentication always fails.
-// The native Swift overlay (EchoNativeAuthBridge) handles passkeys directly via
-// ASAuthorizationController — hide the web passkey CTA when running in Tauri.
-const showPasskeyCta = computed(
+// the WebAuthn RP ID (chat-echo.com), so startAuthentication always fails. The
+// native Swift overlay (EchoNativeAuthBridge) handles passkeys directly via
+// ASAuthorizationController — so the web passkey flow only applies off-Tauri.
+const passkeyAvailable = computed(
   () =>
     ECHO_PASSKEYS_ENABLED &&
     !props.isMockDataMode &&
     getPasskeyWebCeremonyBlockReason('login') === null,
 );
+
+// Passwordless is surfaced as an auto-popup modal rather than an inline button:
+// when a passkey is usable we pop the modal on load (and warm the discoverable-
+// credential options so the ceremony stays inside the user activation).
+const passkeyModalOpen = ref(false);
+
+function openPasskeyModal(): void {
+  if (!passkeyAvailable.value) return;
+  passkeyModalOpen.value = true;
+  void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(''));
+}
+
+onMounted(() => {
+  // Surface any OAuth error left by a system-browser handoff round-trip so the
+  // user sees it on first paint, not after they re-try silently.
+  let hadOauthError = false;
+  try {
+    const g = sessionStorage.getItem('echo_google_oauth_error')?.trim();
+    if (g) {
+      sessionStorage.removeItem('echo_google_oauth_error');
+      errorMessage.value = messageForGoogleOAuthError(g);
+      hadOauthError = true;
+    } else {
+      const d = sessionStorage.getItem('echo_discord_oauth_error')?.trim();
+      if (d) {
+        sessionStorage.removeItem('echo_discord_oauth_error');
+        errorMessage.value = messageForDiscordOAuthError(d);
+        hadOauthError = true;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  // Auto-open the passkey modal on every load, unless an OAuth error needs the
+  // screen first (don't stack two modals).
+  if (!hadOauthError) openPasskeyModal();
+});
 
 // ── Form state ──────────────────────────────────────────────────────────────
 
@@ -289,23 +232,17 @@ function signalAuthSuccess(): void {
 
 // ── Auth flows ──────────────────────────────────────────────────────────────
 
-function prefetchPasskeyLoginFromForm(): void {
-  if (!ECHO_PASSKEYS_ENABLED || props.isMockDataMode) return;
-  if (getPasskeyWebCeremonyBlockReason('login')) return;
-  void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(username.value));
-}
-
-async function runPasskeyLogin(): Promise<void> {
+/**
+ * Runs the passkey sign-in ceremony for the auto-popup modal. Returns null on
+ * success (PasskeyHelpModal then closes itself), or an error string the modal
+ * shows inline. MFA challenges advance to the in-page MFA view and close it.
+ */
+async function passkeyModalSignIn(raw: string): Promise<string | null> {
   const blocked = getPasskeyWebCeremonyBlockReason('login');
-  if (blocked) {
-    setAuthError(blocked);
-    return;
-  }
+  if (blocked) return blocked;
   iosNativeHaptic('medium');
-  submitting.value = true;
-  errorMessage.value = '';
   try {
-    const ident = passkeyLoginIdentFromRaw(username.value);
+    const ident = passkeyLoginIdentFromRaw(raw);
     const { credential, challengeId } =
       await runPasskeyAuthenticationCeremony(ident);
     const result = await authPasskeyLoginVerify({
@@ -318,16 +255,15 @@ async function runPasskeyLogin(): Promise<void> {
       mfaTotpCode.value = '';
       mfaRecoveryCode.value = '';
       push('mfa');
-      return;
+      return null;
     }
     authSession.setSession(result);
     signalAuthSuccess();
     emit('authenticated');
+    return null;
   } catch (e) {
-    setAuthError(mapPasskeyCeremonyError(e, 'login'));
-    void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(username.value));
-  } finally {
-    submitting.value = false;
+    void prefetchPasskeyLoginOptions(passkeyLoginIdentFromRaw(raw));
+    return mapPasskeyCeremonyError(e, 'login');
   }
 }
 
@@ -588,83 +524,8 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
         </div>
 
         <div class="mobile-auth__center">
-          <!-- Biometric / passkey hero CTA — only when device exposes a platform authenticator -->
-          <button
-            v-if="showPasskeyCta"
-            type="button"
-            class="mobile-auth__biometric"
-            :disabled="submitting"
-            :aria-label="biometricLabel"
-            @pointerdown="prefetchPasskeyLoginFromForm"
-            @click="runPasskeyLogin"
-          >
-            <span class="mobile-auth__biometric-glyph" aria-hidden="true">
-              <!-- Face ID glyph -->
-              <svg
-                v-if="biometric === 'faceId'"
-                viewBox="0 0 28 28"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M5 9.5V7a2 2 0 0 1 2-2h2.5" />
-                <path d="M18.5 5H21a2 2 0 0 1 2 2v2.5" />
-                <path d="M23 18.5V21a2 2 0 0 1-2 2h-2.5" />
-                <path d="M9.5 23H7a2 2 0 0 1-2-2v-2.5" />
-                <path d="M10 12v2" />
-                <path d="M18 12v2" />
-                <path d="M14 11v4.5a1.5 1.5 0 0 0 1.5 1.5h.7" />
-                <path d="M10 19.2c1.2 1.1 2.6 1.6 4 1.6s2.8-.5 4-1.6" />
-              </svg>
-              <!-- Generic passkey glyph -->
-              <svg
-                v-else-if="biometric === 'passkey'"
-                viewBox="0 0 28 28"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M10.8 15.2a5.1 5.1 0 1 1 3.1 3.1" />
-                <path d="M13.2 18.8 6.5 25.5" />
-                <path d="M8.9 23.1 7.3 21.5" />
-                <path d="M11.3 20.7 9.7 19.1" />
-                <circle cx="16.5" cy="11.5" r="1.25" />
-              </svg>
-              <!-- Touch ID / fingerprint glyph -->
-              <svg
-                v-else
-                viewBox="0 0 28 28"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M14 4c-3.4 0-6.3 1.9-7.7 4.7" />
-                <path d="M5.5 13.7c0-4.7 3.8-8.6 8.5-8.6 2 0 3.9.7 5.4 1.9" />
-                <path d="M14 9c-2.6 0-4.7 2.1-4.7 4.7v3.4c0 .6.2 1.1.5 1.6" />
-                <path d="M18.7 13.7c0-1.5-.7-2.9-1.9-3.8" />
-                <path d="M14 13.4v3.6c0 1.3 1 2.4 2.4 2.4" />
-                <path d="M9.2 22c-1-1.3-1.7-2.9-2-4.6" />
-                <path d="M19.5 21.8c1.4-1.8 2.2-4 2.2-6.5" />
-                <path d="M14 17v2" />
-                <path d="M11.6 23.5c1.6.7 3.4.7 5 0" />
-              </svg>
-            </span>
-            <span class="mobile-auth__biometric-text">{{
-              biometricLabel
-            }}</span>
-          </button>
-
-          <div class="mobile-auth__divider" aria-hidden="true">
-            <span class="mobile-auth__divider-line" />
-            <span class="mobile-auth__divider-text">or</span>
-            <span class="mobile-auth__divider-line" />
-          </div>
+          <!-- Passwordless sign-in is offered through an auto-popup modal
+               (PasskeyHelpModal) rather than an inline button — see onMounted. -->
 
           <!-- Smaller-but-special OAuth chips, stacked vertically -->
           <div
@@ -877,17 +738,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
             :disabled="submitting || isMockDataMode"
           >
             {{ submitting ? 'Signing in…' : 'Log in' }}
-          </button>
-
-          <button
-            v-if="showPasskeyCta"
-            type="button"
-            class="mobile-auth__outline"
-            :disabled="submitting"
-            @pointerdown="prefetchPasskeyLoginFromForm"
-            @click="runPasskeyLogin"
-          >
-            {{ biometricVerb }}
           </button>
 
           <p class="mobile-auth__center-text">
@@ -1197,6 +1047,11 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
     />
 
     <LegalDocsModal v-model="legalModalOpen" :initial-tab="legalModalTab" />
+
+    <PasskeyHelpModal
+      v-model="passkeyModalOpen"
+      :on-sign-in="passkeyModalSignIn"
+    />
   </div>
 </template>
 
@@ -1342,87 +1197,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
   gap: 0.85rem;
   margin-top: 0.35rem;
   margin-bottom: 0.35rem;
-}
-
-/* Biometric hero CTA — the big purple central button */
-.mobile-auth__biometric {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  width: 100%;
-  min-height: 4.25rem;
-  padding: 1.05rem 1.4rem;
-  border-radius: 1.35rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent) 96%, white 4%) 0%,
-    var(--accent) 100%
-  );
-  color: var(--accent-contrast-fg);
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  box-shadow:
-    0 12px 38px color-mix(in srgb, var(--accent) 38%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 26%, transparent);
-  cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    filter 0.18s ease,
-    box-shadow 0.18s ease;
-
-  &:active:not(:disabled) {
-    transform: translateY(1px) scale(0.995);
-    filter: brightness(0.96);
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-}
-
-.mobile-auth__biometric-glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  color: var(--accent-contrast-fg);
-}
-
-.mobile-auth__biometric-glyph svg {
-  width: 100%;
-  height: 100%;
-}
-
-.mobile-auth__biometric-text {
-  font-variant-numeric: tabular-nums;
-}
-
-/* OR divider */
-.mobile-auth__divider {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin: 0.1rem 0;
-}
-
-.mobile-auth__divider-line {
-  flex: 1 1 auto;
-  height: 1px;
-  background: color-mix(in srgb, var(--text) 14%, transparent);
-}
-
-.mobile-auth__divider-text {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 48%, transparent);
 }
 
 /* OAuth chips */
@@ -1593,23 +1367,6 @@ function openLegalModal(tabId: 'terms' | 'privacy') {
   &:active:not(:disabled) {
     color: var(--text);
   }
-}
-
-.mobile-auth__outline {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 2.9rem;
-  margin-top: 0.2rem;
-  padding: 0.65rem 1rem;
-  border-radius: 0.9rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--text);
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 /* Footer */

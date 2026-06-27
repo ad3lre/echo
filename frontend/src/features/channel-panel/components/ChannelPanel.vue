@@ -1419,7 +1419,7 @@ function forwardInvite(payload?: {
 @use '@/features/channel-panel/styles/channelPanel.scss';
 
 .channel-panel-skeleton-pulse {
-  background: var(--overlay-subtle);
+  background: color-mix(in srgb, var(--text) 11%, transparent);
   animation: channel-panel-skeleton-pulse 1.4s ease-in-out infinite;
 }
 

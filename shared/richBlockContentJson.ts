@@ -5,17 +5,27 @@ import {
   filledImageSlotAttrsById,
   imageSlotNodeFromAttrs,
   readSlotAttrs,
+  walkImageSlots,
   type ImageSlotSegment,
   docContainsImageSlots,
 } from './imageSlotContentJson';
-import { parseImageSlotToken, type ImageSlotAttrs } from './imageSlot';
+import {
+  parseImageSlotShortcut,
+  parseImageSlotToken,
+  randomImageSlotId,
+  type ImageSlotAttrs,
+} from './imageSlot';
 import {
   type ButtonRowSegment,
   buttonRowNodeFromAttrs,
   buttonRowsById,
   readRowAttrs as readButtonRowAttrs,
 } from './buttonRowContentJson';
-import { parseButtonRowToken } from './buttonRow';
+import {
+  parseButtonRowToken,
+  parseButtonRowShortcut,
+  randomButtonRowId,
+} from './buttonRow';
 
 export type { ImageSlotSegment };
 
@@ -87,6 +97,93 @@ function paragraphFromPlainLine(
   };
 }
 
+type RichBlockRebuildContext = {
+  filledById: ReturnType<typeof filledImageSlotAttrsById>;
+  originalSlots: ReturnType<typeof walkImageSlots>;
+  rowsById: ReturnType<typeof buttonRowsById>;
+  imageShortcutSlotIndex: number;
+};
+
+function richBlockNodeFromLine(
+  line: string,
+  ctx: RichBlockRebuildContext,
+): { node: Record<string, unknown>; imageShortcutSlotIndex: number } | null {
+  const trimmed = line.trim();
+  const isWholeLineToken =
+    trimmed === line.trim() && line.trim().length === trimmed.length;
+  if (!isWholeLineToken) return null;
+
+  const imageParsed = parseImageSlotToken(trimmed);
+  if (imageParsed) {
+    const prior = ctx.filledById.get(imageParsed.slotId);
+    const attrs: ImageSlotAttrs = prior
+      ? {
+          slotId: imageParsed.slotId,
+          aspectW: imageParsed.aspectW,
+          aspectH: imageParsed.aspectH,
+          imageUrl: prior.imageUrl,
+          storageKey: prior.storageKey,
+          width: prior.width,
+          height: prior.height,
+        }
+      : {
+          slotId: imageParsed.slotId,
+          aspectW: imageParsed.aspectW,
+          aspectH: imageParsed.aspectH,
+          imageUrl: null,
+          storageKey: null,
+          width: null,
+          height: null,
+        };
+    return {
+      node: imageSlotNodeFromAttrs(attrs),
+      imageShortcutSlotIndex: ctx.imageShortcutSlotIndex,
+    };
+  }
+
+  const imageShortcut = parseImageSlotShortcut(trimmed);
+  if (imageShortcut) {
+    const prior = ctx.originalSlots[ctx.imageShortcutSlotIndex];
+    const slotId = prior?.slotId ?? randomImageSlotId();
+    return {
+      node: imageSlotNodeFromAttrs({
+        slotId,
+        aspectW: imageShortcut.aspectW,
+        aspectH: imageShortcut.aspectH,
+        imageUrl: prior?.imageUrl ?? null,
+        storageKey: prior?.storageKey ?? null,
+        width: prior?.width ?? null,
+        height: prior?.height ?? null,
+      }),
+      imageShortcutSlotIndex: ctx.imageShortcutSlotIndex + 1,
+    };
+  }
+
+  const buttonParsed = parseButtonRowToken(trimmed);
+  if (buttonParsed) {
+    const prior = ctx.rowsById.get(buttonParsed.rowId);
+    if (prior) {
+      return {
+        node: buttonRowNodeFromAttrs(prior),
+        imageShortcutSlotIndex: ctx.imageShortcutSlotIndex,
+      };
+    }
+  }
+
+  const buttonShortcut = parseButtonRowShortcut(trimmed);
+  if (buttonShortcut?.buttons.length) {
+    return {
+      node: buttonRowNodeFromAttrs({
+        rowId: randomButtonRowId(),
+        buttons: buttonShortcut.buttons,
+      }),
+      imageShortcutSlotIndex: ctx.imageShortcutSlotIndex,
+    };
+  }
+
+  return null;
+}
+
 /**
  * Rebuild v2 doc from edited plain text while preserving image slots and button rows.
  */
@@ -96,9 +193,11 @@ export function rebuildContentJsonPreservingRichBlocks(
   mentions?: InlineMention[],
 ): Record<string, unknown> {
   const filledById = filledImageSlotAttrsById(originalDoc);
+  const originalSlots = walkImageSlots(originalDoc);
   const rowsById = buttonRowsById(originalDoc);
   const plain = editedPlain.replace(/\r\n/g, '\n');
   const blocks: Record<string, unknown>[] = [];
+  let imageShortcutSlotIndex = 0;
 
   if (!plain.length) {
     return { type: 'doc', content: blocks };
@@ -119,41 +218,15 @@ export function rebuildContentJsonPreservingRichBlocks(
       continue;
     }
 
-    const isWholeLineToken =
-      trimmed === line.trim() && line.trim().length === trimmed.length;
-
-    const imageParsed = parseImageSlotToken(trimmed);
-    if (imageParsed && isWholeLineToken) {
-      const prior = filledById.get(imageParsed.slotId);
-      const attrs: ImageSlotAttrs = prior
-        ? {
-            slotId: imageParsed.slotId,
-            aspectW: imageParsed.aspectW,
-            aspectH: imageParsed.aspectH,
-            imageUrl: prior.imageUrl,
-            storageKey: prior.storageKey,
-            width: prior.width,
-            height: prior.height,
-          }
-        : {
-            slotId: imageParsed.slotId,
-            aspectW: imageParsed.aspectW,
-            aspectH: imageParsed.aspectH,
-            imageUrl: null,
-            storageKey: null,
-            width: null,
-            height: null,
-          };
-      blocks.push(imageSlotNodeFromAttrs(attrs));
-      continue;
-    }
-
-    const buttonParsed = parseButtonRowToken(trimmed);
-    if (buttonParsed && isWholeLineToken) {
-      const prior = rowsById.get(buttonParsed.rowId);
-      if (prior) {
-        blocks.push(buttonRowNodeFromAttrs(prior));
-      }
+    const richBlock = richBlockNodeFromLine(line, {
+      filledById,
+      originalSlots,
+      rowsById,
+      imageShortcutSlotIndex,
+    });
+    if (richBlock) {
+      blocks.push(richBlock.node);
+      imageShortcutSlotIndex = richBlock.imageShortcutSlotIndex;
       continue;
     }
 

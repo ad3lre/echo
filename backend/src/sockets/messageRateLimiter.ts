@@ -1,7 +1,33 @@
-import { config } from '../config';
+import { getInstancePolicy } from '../config/instancePolicy';
 import { createGcraLimiter } from '../shared/gcraRateLimiter';
 
 const MAX_RATE_LIMIT_KEYS = 20_000;
+
+type SocketLimiter = ReturnType<typeof createGcraLimiter>;
+
+let cachedSignature: string | null = null;
+let sharedLimiter: SocketLimiter | null = null;
+
+function socketLimitsSignature(): string {
+  const socket = getInstancePolicy().limits.socket;
+  return `${socket.messagesPerMinute}:${socket.burst.max}:${socket.burst.windowMs}`;
+}
+
+function getSharedLimiter(): SocketLimiter {
+  const signature = socketLimitsSignature();
+  if (!sharedLimiter || signature !== cachedSignature) {
+    cachedSignature = signature;
+    const socket = getInstancePolicy().limits.socket;
+    sharedLimiter = createGcraLimiter(
+      [
+        { limit: socket.burst.max, windowMs: socket.burst.windowMs },
+        { limit: socket.messagesPerMinute, windowMs: 60_000 },
+      ],
+      { maxKeys: MAX_RATE_LIMIT_KEYS },
+    );
+  }
+  return sharedLimiter;
+}
 
 /**
  * Per (userId, channelId): burst window + per-minute cap for message / edit / delete /
@@ -15,28 +41,37 @@ export function createSocketMessageRateLimiter(opts?: {
   burstWindowMs?: number;
   perMinute?: number;
 }): (userId: string, channelId: string) => boolean {
-  const burstMax = opts?.burstMax ?? config.echoSocketBurstMax;
-  const burstWindowMs = opts?.burstWindowMs ?? config.echoSocketBurstWindowMs;
-  const perMinute = opts?.perMinute ?? config.echoSocketMsgPerMinute;
-
-  const limiter = createGcraLimiter(
-    [
-      { limit: burstMax, windowMs: burstWindowMs },
-      { limit: perMinute, windowMs: 60_000 },
-    ],
-    { maxKeys: MAX_RATE_LIMIT_KEYS },
-  );
+  if (
+    opts?.burstMax != null ||
+    opts?.burstWindowMs != null ||
+    opts?.perMinute != null
+  ) {
+    const burstMax =
+      opts.burstMax ?? getInstancePolicy().limits.socket.burst.max;
+    const burstWindowMs =
+      opts.burstWindowMs ?? getInstancePolicy().limits.socket.burst.windowMs;
+    const perMinute =
+      opts.perMinute ?? getInstancePolicy().limits.socket.messagesPerMinute;
+    const limiter = createGcraLimiter(
+      [
+        { limit: burstMax, windowMs: burstWindowMs },
+        { limit: perMinute, windowMs: 60_000 },
+      ],
+      { maxKeys: MAX_RATE_LIMIT_KEYS },
+    );
+    return function check(userId: string, channelId: string): boolean {
+      return limiter.check(`${userId}:${channelId}`).allowed;
+    };
+  }
 
   return function check(userId: string, channelId: string): boolean {
-    return limiter.check(`${userId}:${channelId}`).allowed;
+    return getSharedLimiter().check(`${userId}:${channelId}`).allowed;
   };
 }
-
-const sharedSocketMessageRateLimiter = createSocketMessageRateLimiter();
 
 export function getSharedSocketMessageRateLimiter(): (
   userId: string,
   channelId: string,
 ) => boolean {
-  return sharedSocketMessageRateLimiter;
+  return createSocketMessageRateLimiter();
 }

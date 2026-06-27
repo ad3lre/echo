@@ -59,4 +59,54 @@ describe('findComposerMarkdownStyleRanges', () => {
     const segs = findComposerMarkdownStyleRanges('- **x**', []);
     expect(segs.some((s) => s.class === 'composer-md-bold')).toBe(true);
   });
+
+  it('prepended char before fence does not hang (regression)', () => {
+    const segs = findComposerMarkdownStyleRanges('!```\n**a** `b` *c*', []);
+    expect(segs.some((s) => s.class === 'composer-md-code-block')).toBe(false);
+  });
+
+  it('styles markdown inside !-escaped fence region', () => {
+    const segs = findComposerMarkdownStyleRanges(
+      '!```\n## Title\n**bold**\n```',
+      [],
+    );
+    expect(segs.some((s) => s.class === 'composer-md-code-block')).toBe(false);
+    expect(segs.some((s) => s.class === 'composer-md-h2')).toBe(true);
+    expect(segs.some((s) => s.class === 'composer-md-bold')).toBe(true);
+  });
+
+  it('does not style a wrapped continuation line as heading after mid-word break', () => {
+    const text = `## 9. Use Common Sense
+
+Not every bad decision has its own rule.
+
+Staff may act against behavior that clearly har
+ms the community even if it is not explicitly listed here.
+
+## 10. Staff Decisions`;
+    const segs = findComposerMarkdownStyleRanges(text, []);
+    const msIdx = text.indexOf('ms the community');
+    const headingOnMs = segs.some(
+      (s) =>
+        s.class.includes('composer-md-h') &&
+        s.start <= msIdx &&
+        s.end > msIdx + 1,
+    );
+    expect(headingOnMs).toBe(false);
+  });
+
+  it('does not treat numbered section body continuation as a new list heading', () => {
+    const text = `9. Use Common Sense
+
+Not every bad decision has its own rule.
+
+Staff may act against behavior that clearly har
+ms the community even if it is not explicitly listed here.
+
+10. Staff Decisions`;
+    const segs = findComposerMarkdownStyleRanges(text, []);
+    const msIdx = text.indexOf('ms the community');
+    const styledOnMs = segs.some((s) => s.start <= msIdx && s.end > msIdx + 1);
+    expect(styledOnMs).toBe(false);
+  });
 });

@@ -6,7 +6,7 @@ export function youtubeOAuthAppRedirect(
   ok: boolean,
   errorCode?: string,
 ): string {
-  let base = config.echoAppPublicUrl.trim().replace(/\/$/, '');
+  const base = config.echoAppPublicUrl.trim().replace(/\/$/, '');
   let u: URL;
   try {
     u = new URL(base);

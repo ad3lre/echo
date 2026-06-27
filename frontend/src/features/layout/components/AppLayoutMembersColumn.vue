@@ -255,7 +255,6 @@ const resolvedSearchScopeHint = computed(() => {
       class="chat-header-glass pointer-events-auto absolute top-0 left-0 right-0 z-20 flex h-12 min-w-0 flex-shrink-0 items-center gap-2 px-4"
     >
       <div
-        v-if="effectiveActiveChannel"
         class="search-input-wrapper relative flex h-full min-w-0 flex-1 items-end"
       >
         <SearchBar

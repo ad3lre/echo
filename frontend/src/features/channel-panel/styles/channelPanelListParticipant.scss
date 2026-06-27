@@ -207,6 +207,18 @@
   --speak-strength: 0.5;
   --vc-speak-ring: #3ba55d;
   --vc-speak-glow: rgba(59, 165, 93, 0.55);
+  position: relative;
+}
+
+/* The ring is drawn as an overlay ABOVE the avatar via ::after. An inset box-shadow on the
+ * wrap itself paints *under* the full-bleed avatar image, so it was never visible. */
+.vc-speaking-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
   /* 3px inset ring on 24px avatars — matches call/stage stroke, scaled for compact rows */
   box-shadow:
     inset 0 0 0 3px
@@ -224,7 +236,7 @@
   transition: box-shadow 0.1s ease-out;
 }
 
-[data-theme='light'] .vc-speaking-ring {
+[data-theme='light'] .vc-speaking-ring::after {
   --vc-speak-ring: #248045;
   --vc-speak-glow: rgba(36, 128, 69, 0.45);
   box-shadow:

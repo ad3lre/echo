@@ -1,6 +1,9 @@
 import type pg from 'pg';
 import { nextEchoSnowflakeId } from '../echoSnowflake';
-import { joinEchoServerFromInvite } from './servers';
+import {
+  joinEchoServerFromInvite,
+  type EchoJoinRealtimeContext,
+} from './servers';
 import {
   parseEchoApplicationFormFromDb,
   validateEchoApplicationAnswers,
@@ -246,6 +249,7 @@ export async function approveEchoServerApplication(
   applicationId: string,
   actorId: string,
   joinClientIp: string | null,
+  joinCtx?: EchoJoinRealtimeContext,
 ): Promise<ApproveEchoServerApplicationResult> {
   const got = await getEchoServerApplicationById(pool, serverId, applicationId);
   if (!got.ok) return { ok: false, reason: 'not_found' };
@@ -256,7 +260,7 @@ export async function approveEchoServerApplication(
     serverId,
     got.row.userId,
     joinClientIp,
-    { skipInviteJoinGate: true },
+    { skipInviteJoinGate: true, ...joinCtx },
   );
   if (!join.ok) {
     if (join.reason === 'banned') return { ok: false, reason: 'banned' };
@@ -331,7 +335,7 @@ export async function shouldBlockEchoJoinForPendingApplication(
     `SELECT applications_enabled FROM echo_servers WHERE id = $1 LIMIT 1`,
     [serverId],
   );
-  if (!s.rows[0] || !Boolean(s.rows[0].applications_enabled)) return false;
+  if (!s.rows[0] || !s.rows[0].applications_enabled) return false;
   const mem = await pool.query(
     `SELECT 1 FROM echo_server_members WHERE server_id = $1 AND user_id = $2`,
     [serverId, userId],

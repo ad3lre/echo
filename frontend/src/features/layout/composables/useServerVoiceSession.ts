@@ -3015,6 +3015,19 @@ export function useServerVoiceSession(deps: {
     requestVcHangmanNextRound: hangmanSession
       ? hangmanSession.requestVcHangmanNextRound
       : requestVcHangmanNextRound,
+    wordlineView: wordlineSession
+      ? wordlineSession.wordlineView
+      : computed(() => null),
+    submitWordlineGuess: wordlineSession
+      ? wordlineSession.submitWordlineGuess
+      : (_guess: string) => {
+          void _guess;
+        },
+    setWordlineMode: wordlineSession
+      ? wordlineSession.setWordlineMode
+      : (_mode: import('@shared/games/wordline/core').GameMode) => {
+          void _mode;
+        },
     vcSkrigglesActivity: skrigglesGameSession
       ? skrigglesGameSession.vcSkrigglesActivity
       : skrigglesVoiceSession!.vcSkrigglesActivity,

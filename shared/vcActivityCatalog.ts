@@ -8,7 +8,7 @@ import {
   WATCH_TOGETHER_VC_ACTIVITY_ENABLED,
 } from './integrationKillSwitches';
 
-/** TODO: set true to re-enable Echoed Names in the VC activity library and open flow. */
+/** Disabled until Echoed Names UI is production-ready; flip to `true` to re-enable. */
 export const ECHOED_NAMES_VC_ACTIVITY_ENABLED = false;
 
 /**
@@ -23,10 +23,7 @@ export const TIC_TAC_TOE_SERVER_MODE = true;
  */
 export const HANGMAN_SERVER_MODE = true;
 
-/**
- * Route Wordline through the authoritative game server (`useGameRoom`).
- * UI may still use local `useWordlineGame` until fully wired.
- */
+/** Route Wordline through the authoritative game server (`useGameRoom`). */
 export const WORDLE_SERVER_MODE = true;
 
 /**

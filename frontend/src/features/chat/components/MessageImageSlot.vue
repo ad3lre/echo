@@ -7,6 +7,7 @@ const props = defineProps<{
   aspectW: number;
   aspectH: number;
   imageUrl?: string | null;
+  storageKey?: string;
   width?: number | null;
   height?: number | null;
   canFill?: boolean;
@@ -89,6 +90,7 @@ function onImageReady() {
       />
       <MessageEmbedRemoteImg
         :src="imageUrl!"
+        :storage-key="storageKey"
         alt=""
         :img-class="imgClass"
         @load="onImageReady"
@@ -98,28 +100,15 @@ function onImageReady() {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '@/assets/echoSkeletonShimmer' as skel;
+
 .message-image-slot__skeleton {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(
-    110deg,
-    rgb(255 255 255 / 0.04) 8%,
-    rgb(255 255 255 / 0.1) 18%,
-    rgb(255 255 255 / 0.04) 33%
-  );
-  background-size: 200% 100%;
-  animation: message-image-slot-shimmer 1.4s ease-in-out infinite;
   pointer-events: none;
-}
-
-@keyframes message-image-slot-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
-  }
+  @include skel.fill;
+  @include skel.reduced-motion;
 }
 </style>

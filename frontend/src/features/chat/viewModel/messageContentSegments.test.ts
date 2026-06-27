@@ -107,6 +107,7 @@ describe('buildEchoMessageContentSegments', () => {
         aspectW: 16,
         aspectH: 9,
         imageUrl: null,
+        storageKey: null,
         width: null,
         height: null,
       },

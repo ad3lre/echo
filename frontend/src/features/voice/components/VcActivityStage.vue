@@ -1,30 +1,17 @@
 <script setup lang="ts">
 import {
   computed,
-  nextTick,
-  onMounted,
-  onUnmounted,
+  onErrorCaptured,
   ref,
   shallowRef,
   unref,
   watch,
   type MaybeRef,
 } from 'vue';
-import {
-  parseYoutubeVideoId,
-  youtubePrivacyEmbedUrl,
-} from '@/utils/parseYoutubeVideoId';
-import {
-  fetchEchoYoutubePopular,
-  fetchEchoYoutubeRelated,
-  fetchEchoYoutubeVcSearch,
-} from '@/api/echo/youtubeVc';
-import type { EchoYoutubeSearchItem } from '@/api/echo/youtubeVc';
-import { EchoApiError } from '@/api/echo/transport';
+import { youtubePrivacyEmbedUrl } from '@/utils/parseYoutubeVideoId';
 import {
   fetchEchoVcActivityPopularity,
   postEchoVcActivityOpen,
-  postEchoYoutubeWatchTogetherUsage,
 } from '@/api/echo/vcActivities';
 import type {
   EchoCodenamesActivityV1,
@@ -49,6 +36,7 @@ import {
   type EchoVcActivityKey,
 } from '@shared/vcActivityCatalog';
 import { WATCH_TOGETHER_VC_ACTIVITY_ENABLED } from '@shared/integrationKillSwitches';
+import { getWebglSupport, describeWebglBlock } from '@/platform/webglSupport';
 import { isIosTauriShell } from '@/platform/iosNativeFeedback';
 import type {
   VcActivityUiState,
@@ -56,6 +44,7 @@ import type {
 } from '@/features/voice/vcActivityTypes';
 import {
   isVcIframeEmbedPhase,
+  vcIframeEmbedRequiresWebgl,
   vcIframeEmbedTitle,
   vcIframeEmbedUrl,
   youtubeNowPlaying,
@@ -78,6 +67,11 @@ import {
   VC_ACTIVITY_LIBRARY_CARDS,
   type VcActivityLibraryCardKey,
 } from '@/features/voice/stage/vcActivityLibraryCards';
+import {
+  useVcActivityFullscreen,
+  useVcActivityOverflowNarrow,
+} from '@/features/voice/composables/useVcActivityStageViewport';
+import { useVcYoutubeBrowse } from '@/features/voice/composables/useVcYoutubeBrowse';
 
 const appBase = import.meta.env.BASE_URL || '/';
 const vcActivityArt = buildVcActivityArt(appBase);
@@ -124,6 +118,13 @@ const props = withDefaults(
     commitVcHangmanWord: (raw: string) => string | null;
     requestVcHangmanGuessLetter: (letter: string) => void;
     requestVcHangmanNextRound: () => void;
+    wordlineView?: MaybeRef<
+      import('@shared/games/wordline').WordlineView | null
+    >;
+    submitWordlineGuess?: (guess: string) => void;
+    setWordlineMode?: (
+      mode: import('@shared/games/wordline/core').GameMode,
+    ) => void;
     vcSkrigglesActivity: MaybeRef<EchoSkrigglesActivityV1 | null>;
     skrigglesRosterUserIds: MaybeRef<readonly string[]>;
     skrigglesCanvasEvents: MaybeRef<
@@ -254,45 +255,6 @@ const cnSpymasterKey = computed(
 
 const auth = useAuthSessionStore();
 
-function youtubeListingFetchErrorMessage(e: unknown): string {
-  if (
-    e instanceof EchoApiError &&
-    e.status === 429 &&
-    e.body.code === 'YOUTUBE_WATCH_TOGETHER_QUOTA'
-  ) {
-    return (
-      e.body.message?.trim() ||
-      'YouTube watch together daily budget reached. Try again tomorrow (UTC).'
-    );
-  }
-  return e instanceof Error ? e.message : "Something didn't work. Try again.";
-}
-
-/** Bill wall time while the YouTube activity is open (server daily caps, UTC day). */
-let vcYoutubeUsageInterval: ReturnType<typeof setInterval> | null = null;
-let vcYoutubeUsageAnchorMs = 0;
-
-function clearVcYoutubeUsageInterval() {
-  if (vcYoutubeUsageInterval) {
-    clearInterval(vcYoutubeUsageInterval);
-    vcYoutubeUsageInterval = null;
-  }
-}
-
-async function flushVcYoutubeUsageSeconds(maxChunk: number) {
-  const token = auth.accessToken?.trim();
-  if (!token || !vcYoutubeUsageAnchorMs) return;
-  const elapsed = Math.floor((Date.now() - vcYoutubeUsageAnchorMs) / 1000);
-  if (elapsed < 1) return;
-  const chunk = Math.min(maxChunk, elapsed);
-  try {
-    await postEchoYoutubeWatchTogetherUsage(token, chunk);
-    vcYoutubeUsageAnchorMs += chunk * 1000;
-  } catch {
-    vcYoutubeUsageAnchorMs = Date.now();
-  }
-}
-
 const vcActivityPopularityByKey = ref(
   {} as Partial<Record<EchoVcActivityKey, number>>,
 );
@@ -415,48 +377,16 @@ watch(
 const iframeEmbedKey = ref(0);
 
 const stageRootRef = ref<HTMLElement | null>(null);
-const activityFullscreenActive = ref(false);
 
-function syncActivityFullscreenState() {
-  const el = stageRootRef.value;
-  activityFullscreenActive.value = !!el && document.fullscreenElement === el;
-}
+const { activityFullscreenActive, toggleActivityFullscreen } =
+  useVcActivityFullscreen(stageRootRef, () => st.value.phase);
 
-async function exitActivityFullscreenIfActive() {
-  const el = stageRootRef.value;
-  if (el && document.fullscreenElement === el) {
-    try {
-      await document.exitFullscreen();
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-async function toggleActivityFullscreen() {
-  const el = stageRootRef.value;
-  if (!el) return;
-  try {
-    if (document.fullscreenElement === el) {
-      await document.exitFullscreen();
-    } else {
-      await el.requestFullscreen();
-    }
-  } catch {
-    /* unsupported or denied */
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('fullscreenchange', syncActivityFullscreenState);
-});
-
-onUnmounted(() => {
-  if (vcYoutubeUsageAnchorMs) void flushVcYoutubeUsageSeconds(600);
-  clearVcYoutubeUsageInterval();
-  teardownActivityOverflowLayoutWatch();
-  document.removeEventListener('fullscreenchange', syncActivityFullscreenState);
-  void exitActivityFullscreenIfActive();
+useVcActivityOverflowNarrow(stageRootRef, {
+  phase: () => st.value.phase,
+  isCompactShell: () => !!props.isCompactShell,
+  compactLayout: () => !!props.compactLayout,
+  channelPanelCollapsed: () => !!props.channelPanelCollapsed,
+  narrowStep: props.narrowChannelPanelForActivityOverflowStep,
 });
 
 watch(
@@ -465,7 +395,6 @@ watch(
     if (isVcIframeEmbedPhase(phase)) {
       iframeEmbedKey.value += 1;
     }
-    if (phase === 'pick') void exitActivityFullscreenIfActive();
   },
   { immediate: true },
 );
@@ -483,6 +412,64 @@ const iframeEmbedSrc = computed(() =>
 
 const iframeEmbedTitle = computed(() =>
   iframeEmbedPhase.value ? vcIframeEmbedTitle(iframeEmbedPhase.value) : '',
+);
+
+const webglSupport = getWebglSupport();
+
+/** Current iframe game needs hardware WebGL but this device cannot provide it. */
+const webglBlockedForCurrentGame = computed(() => {
+  const p = iframeEmbedPhase.value;
+  return !!p && vcIframeEmbedRequiresWebgl(p) && !webglSupport.ok;
+});
+
+/** User explicitly chose to launch a WebGL game despite the capability warning. */
+const webglTryAnyway = ref(false);
+
+const showIframeGame = computed(
+  () =>
+    !!iframeEmbedPhase.value &&
+    (!webglBlockedForCurrentGame.value || webglTryAnyway.value),
+);
+
+const webglBlockReason = computed(() => describeWebglBlock(webglSupport));
+
+function openWebglGameInNewTab() {
+  const url = iframeEmbedSrc.value;
+  if (url) window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+// A fresh embedded game clears the per-game "try anyway" override.
+watch(iframeEmbedPhase, () => {
+  webglTryAnyway.value = false;
+});
+
+/**
+ * Error boundary: a native activity component (codenames, tic-tac-toe, hangman, ...) throwing
+ * during render/lifecycle previously bubbled up and tore down CallView, disconnecting the user
+ * from voice ("crash kick out"). Trap it here, show a recoverable panel, and keep voice intact.
+ */
+const activityCrash = ref<string | null>(null);
+onErrorCaptured((err) => {
+  activityCrash.value =
+    (err instanceof Error && err.message.trim()) || 'The activity crashed.';
+  return false;
+});
+
+function reloadCrashedActivity() {
+  activityCrash.value = null;
+  iframeEmbedKey.value += 1;
+}
+function closeCrashedActivity() {
+  activityCrash.value = null;
+  props.closeVcActivity();
+}
+
+// Switching phase/game clears any stale crash state.
+watch(
+  () => st.value.phase,
+  () => {
+    activityCrash.value = null;
+  },
 );
 
 const activityRegionLabel = computed(() => {
@@ -510,40 +497,39 @@ const showVcFullscreenControl = computed(
     isVcIframeEmbedPhase(st.value.phase),
 );
 
-const searchDraft = ref('');
-const searchLoading = ref(false);
-const searchError = ref('');
-const searchResults = ref<EchoYoutubeSearchItem[]>([]);
-const searchHint = ref<string | null>(null);
-/** Browse drawer: search vs queue list (compact). */
-const browseTab = ref<'find' | 'queue'>('find');
-
-const popularLoading = ref(false);
-const popularError = ref('');
-const popularItems = ref<EchoYoutubeSearchItem[]>([]);
-const popularHint = ref<string | null>(null);
-
-const QUICK_SEARCH_PRESETS: { label: string; q: string }[] = [
-  { label: 'Music', q: 'popular music videos' },
-  { label: 'Gaming', q: 'gaming highlights' },
-  { label: 'News', q: 'world news today' },
-  { label: 'Comedy', q: 'stand up comedy' },
-  { label: 'Science', q: 'science documentary' },
-];
-
-const queueSuggestLoading = ref(false);
-const queueSuggestError = ref('');
-const queueSuggestHint = ref<string | null>(null);
-const queueSuggestItems = ref<EchoYoutubeSearchItem[]>([]);
-
-const primaryFindRows = computed(() =>
-  searchResults.value.length ? searchResults.value : popularItems.value,
-);
-
-const queueSuggestSeedTitle = computed(() => {
-  if (st.value.phase !== 'youtube') return '';
-  const row = st.value.playlist[st.value.currentIndex];
-  return row?.title?.trim() || '';
+const {
+  searchDraft,
+  searchLoading,
+  searchError,
+  searchResults,
+  searchHint,
+  browseTab,
+  popularLoading,
+  popularError,
+  popularItems,
+  popularHint,
+  queueSuggestLoading,
+  queueSuggestError,
+  queueSuggestHint,
+  queueSuggestItems,
+  primaryFindRows,
+  queueSuggestSeedTitle,
+  hasQueue,
+  QUICK_SEARCH_PRESETS,
+  loadPopular,
+  loadQueueSuggestions,
+  applyPresetSearch,
+  submitFindField,
+  pickVideo,
+  playVideoNow,
+  toggleBrowseFind,
+  toggleBrowseQueue,
+} = useVcYoutubeBrowse({
+  state: () => st.value,
+  token: () => auth.accessToken?.trim() ?? null,
+  setVideo: props.setVcActivityYoutubeVideo,
+  setBrowseOpen: props.setVcYoutubeBrowseOpen,
+  addToQueue: props.addVcYoutubeToQueue,
 });
 
 const nowPlaying = computed(() =>
@@ -606,230 +592,6 @@ watch(syncYoutubeVideoId, (id, prev) => {
   }
 });
 
-const hasQueue = computed(
-  () => st.value.phase === 'youtube' && st.value.playlist.length > 0,
-);
-
-watch(
-  () => st.value.phase,
-  (phase) => {
-    if (phase !== 'youtube') {
-      searchDraft.value = '';
-      searchResults.value = [];
-      searchError.value = '';
-      searchHint.value = null;
-      searchLoading.value = false;
-      popularError.value = '';
-      popularHint.value = null;
-      browseTab.value = 'find';
-      queueSuggestItems.value = [];
-      queueSuggestError.value = '';
-      queueSuggestHint.value = null;
-    } else {
-      browseTab.value = 'find';
-    }
-  },
-);
-
-watch(
-  () => st.value.phase === 'youtube',
-  (isYt, wasYt) => {
-    if (wasYt === true && isYt === false) {
-      void flushVcYoutubeUsageSeconds(600);
-    }
-    clearVcYoutubeUsageInterval();
-    vcYoutubeUsageAnchorMs = 0;
-    if (!isYt) return;
-    vcYoutubeUsageAnchorMs = Date.now();
-    vcYoutubeUsageInterval = setInterval(() => {
-      void flushVcYoutubeUsageSeconds(120);
-    }, 60_000);
-
-    if (!popularItems.value.length && !popularLoading.value) {
-      void loadPopular();
-    }
-  },
-  { immediate: true },
-);
-
-async function loadQueueSuggestions() {
-  if (st.value.phase !== 'youtube') return;
-  const pl = st.value.playlist;
-  if (!pl.length) {
-    queueSuggestItems.value = [];
-    return;
-  }
-  const cur = pl[st.value.currentIndex];
-  if (!cur?.id) return;
-  queueSuggestLoading.value = true;
-  queueSuggestError.value = '';
-  queueSuggestHint.value = null;
-  try {
-    const res = await fetchEchoYoutubeRelated(
-      auth.accessToken?.trim() ?? null,
-      cur.id,
-    );
-    const inQueue = new Set(pl.map((e) => e.id));
-    const raw = res.items ?? [];
-    queueSuggestItems.value = raw.filter((i) => !inQueue.has(i.id));
-    queueSuggestHint.value = res.hint?.trim() ? res.hint : null;
-    if (!queueSuggestItems.value.length && raw.length > 0) {
-      queueSuggestHint.value = 'Suggested picks are already in your queue.';
-    } else if (!queueSuggestItems.value.length && !queueSuggestHint.value) {
-      queueSuggestHint.value = 'No suggestions yet — try Search.';
-    }
-  } catch (e) {
-    queueSuggestError.value = youtubeListingFetchErrorMessage(e);
-    queueSuggestItems.value = [];
-  } finally {
-    queueSuggestLoading.value = false;
-  }
-}
-
-watch(
-  () =>
-    [
-      browseTab.value,
-      st.value.phase === 'youtube' ? st.value.currentIndex : -1,
-      st.value.phase === 'youtube'
-        ? st.value.playlist.map((p) => p.id).join('|')
-        : '',
-    ] as const,
-  ([tab]) => {
-    if (tab !== 'queue' || st.value.phase !== 'youtube') return;
-    void loadQueueSuggestions();
-  },
-);
-
-async function loadPopular() {
-  popularLoading.value = true;
-  popularError.value = '';
-  popularHint.value = null;
-  try {
-    const res = await fetchEchoYoutubePopular(
-      auth.accessToken?.trim() ?? null,
-      'US',
-    );
-    popularItems.value = res.items ?? [];
-    popularHint.value = res.hint?.trim() ? res.hint : null;
-    if (!popularItems.value.length && !popularHint.value) {
-      popularError.value =
-        'No recommendations available. Try search or paste a link.';
-    }
-  } catch (e) {
-    popularError.value = youtubeListingFetchErrorMessage(e);
-    popularItems.value = [];
-  } finally {
-    popularLoading.value = false;
-  }
-}
-
-async function applyPresetSearch(q: string) {
-  searchDraft.value = q;
-  await runSearch();
-}
-
-async function runSearch() {
-  const q = searchDraft.value.trim();
-  if (q.length < 2) {
-    searchError.value = 'Enter a search or a full YouTube link.';
-    return;
-  }
-  searchLoading.value = true;
-  searchError.value = '';
-  searchHint.value = null;
-  try {
-    const res = await fetchEchoYoutubeVcSearch(
-      auth.accessToken?.trim() ?? null,
-      q,
-    );
-    searchResults.value = res.items ?? [];
-    searchHint.value = res.hint?.trim() ? res.hint : null;
-    if (!searchResults.value.length && !searchHint.value) {
-      searchError.value =
-        'No videos found. Try different words or paste a link.';
-    }
-  } catch (e) {
-    searchError.value = youtubeListingFetchErrorMessage(e);
-    searchResults.value = [];
-  } finally {
-    searchLoading.value = false;
-  }
-}
-
-function rowToMeta(v: EchoYoutubeSearchItem) {
-  return {
-    title: v.title,
-    channelTitle: v.channelTitle,
-    thumbnailUrl: v.thumbnailUrl,
-  };
-}
-
-function entryFromItem(v: EchoYoutubeSearchItem): YoutubePlaylistEntry {
-  return {
-    id: v.id,
-    title: v.title,
-    channelTitle: v.channelTitle,
-    thumbnailUrl: v.thumbnailUrl,
-  };
-}
-
-/** Play now or append depending on whether a session is already playing. */
-function pickVideo(v: EchoYoutubeSearchItem) {
-  const meta = rowToMeta(v);
-  if (st.value.phase !== 'youtube') return;
-  if (hasQueue.value) {
-    props.addVcYoutubeToQueue(entryFromItem(v));
-  } else {
-    props.setVcActivityYoutubeVideo(v.id, meta);
-  }
-}
-
-/** Always replace queue and play this video (from queue row “play now” semantics). */
-function playVideoNow(v: EchoYoutubeSearchItem) {
-  props.setVcActivityYoutubeVideo(v.id, rowToMeta(v));
-}
-
-/** Single field: URL / video id plays immediately; otherwise YouTube search. */
-async function submitFindField() {
-  const raw = searchDraft.value.trim();
-  if (!raw) return;
-  const id = parseYoutubeVideoId(raw);
-  if (id) {
-    searchError.value = '';
-    searchHint.value = null;
-    props.setVcActivityYoutubeVideo(id);
-    return;
-  }
-  await runSearch();
-}
-
-function openBrowseFind() {
-  browseTab.value = 'find';
-  props.setVcYoutubeBrowseOpen(true);
-}
-
-function openBrowseQueue() {
-  browseTab.value = 'queue';
-  props.setVcYoutubeBrowseOpen(true);
-}
-
-function toggleBrowseFind() {
-  if (st.value.youtubeBrowseOpen && browseTab.value === 'find') {
-    props.setVcYoutubeBrowseOpen(false);
-  } else {
-    openBrowseFind();
-  }
-}
-
-function toggleBrowseQueue() {
-  if (st.value.youtubeBrowseOpen && browseTab.value === 'queue') {
-    props.setVcYoutubeBrowseOpen(false);
-  } else {
-    openBrowseQueue();
-  }
-}
-
 function onKeydownRoot(e: KeyboardEvent) {
   if (e.key !== 'Escape') return;
   e.preventDefault();
@@ -890,100 +652,38 @@ function revealChannelListFromActivity() {
     props.expandChannels?.();
   }
 }
-
-let activityOverflowRo: ResizeObserver | null = null;
-let activityOverflowDebounce: ReturnType<typeof setTimeout> | null = null;
-
-function teardownActivityOverflowLayoutWatch() {
-  if (activityOverflowDebounce) {
-    clearTimeout(activityOverflowDebounce);
-    activityOverflowDebounce = null;
-  }
-  if (activityOverflowRo) {
-    activityOverflowRo.disconnect();
-    activityOverflowRo = null;
-  }
-}
-
-function activitySubtreeHasCrampedVerticalScroll(root: HTMLElement): boolean {
-  const stack: HTMLElement[] = [root];
-  while (stack.length) {
-    const el = stack.pop()!;
-    const stl = getComputedStyle(el);
-    const oy = stl.overflowY;
-    if (oy !== 'auto' && oy !== 'scroll' && oy !== 'overlay') {
-      for (const c of el.children) {
-        if (c instanceof HTMLElement) stack.push(c);
-      }
-      continue;
-    }
-    const overflowPx = el.scrollHeight - el.clientHeight;
-    if (overflowPx > 14 && el.scrollTop <= 10) {
-      return true;
-    }
-    for (const c of el.children) {
-      if (c instanceof HTMLElement) stack.push(c);
-    }
-  }
-  return false;
-}
-
-function scheduleActivityOverflowChannelNarrow(root: HTMLElement) {
-  if (props.isCompactShell) return;
-  if (props.compactLayout) return;
-  if (props.channelPanelCollapsed) return;
-  if (st.value.phase === 'closed') return;
-  const step = props.narrowChannelPanelForActivityOverflowStep;
-  if (!step) return;
-  if (activityOverflowDebounce) clearTimeout(activityOverflowDebounce);
-  activityOverflowDebounce = setTimeout(() => {
-    activityOverflowDebounce = null;
-    if (!activitySubtreeHasCrampedVerticalScroll(root)) return;
-    step();
-  }, 120);
-}
-
-watch(
-  [
-    stageRootRef,
-    () => st.value.phase,
-    () => props.isCompactShell,
-    () => props.compactLayout,
-    () => props.channelPanelCollapsed,
-  ],
-  () => {
-    teardownActivityOverflowLayoutWatch();
-    const root = stageRootRef.value;
-    const phase = st.value.phase;
-    if (
-      !root ||
-      phase === 'closed' ||
-      props.isCompactShell ||
-      props.compactLayout
-    ) {
-      return;
-    }
-    if (!props.narrowChannelPanelForActivityOverflowStep) return;
-
-    activityOverflowRo = new ResizeObserver(() => {
-      scheduleActivityOverflowChannelNarrow(root);
-    });
-    activityOverflowRo.observe(root);
-    void nextTick(() => scheduleActivityOverflowChannelNarrow(root));
-  },
-  { flush: 'post' },
-);
 </script>
 
 <template>
   <div
     ref="stageRootRef"
-    class="vc-act-stage flex min-h-0 min-w-0 flex-1 flex-col bg-bg text-fg"
+    class="vc-act-stage relative flex min-h-0 min-w-0 flex-1 flex-col bg-bg text-fg"
     role="region"
     :aria-label="activityRegionLabel"
     tabindex="-1"
     @keydown="onKeydownRoot"
   >
+    <div v-if="activityCrash" class="vc-activity-overlay" role="alert">
+      <p class="vc-activity-overlay__title">This activity ran into a problem</p>
+      <p class="vc-activity-overlay__body">{{ activityCrash }}</p>
+      <div class="vc-activity-overlay__actions">
+        <button
+          type="button"
+          class="vc-activity-btn vc-activity-btn--primary"
+          @click="reloadCrashedActivity"
+        >
+          Reload activity
+        </button>
+        <button
+          type="button"
+          class="vc-activity-btn"
+          @click="closeCrashedActivity"
+        >
+          Close
+        </button>
+      </div>
+      <p class="vc-activity-overlay__hint">You're still connected to voice.</p>
+    </div>
     <header
       class="vc-act-header flex h-11 min-h-11 w-full min-w-0 shrink-0 items-center gap-1.5 border-b border-border bg-elevated px-2 sm:px-3"
       :class="{
@@ -1918,6 +1618,9 @@ watch(
         class="min-h-0 min-w-0 flex-1"
         :account-user-id="currentUserId"
         :app-base="appBase"
+        :wordline-view="props.wordlineView"
+        :submit-wordline-guess="props.submitWordlineGuess"
+        :set-wordline-mode="props.setWordlineMode"
       />
     </div>
 
@@ -2012,6 +1715,7 @@ watch(
       class="relative min-h-0 min-w-0 flex-1 bg-black"
     >
       <iframe
+        v-if="showIframeGame"
         :key="iframeEmbedKey"
         :src="iframeEmbedSrc"
         class="absolute inset-0 h-full w-full border-0"
@@ -2033,11 +1737,109 @@ watch(
         referrerpolicy="strict-origin-when-cross-origin"
         allowfullscreen
       />
+      <div v-else class="vc-webgl-block">
+        <p class="vc-activity-overlay__title">
+          This game needs hardware-accelerated graphics
+        </p>
+        <p class="vc-activity-overlay__body">
+          {{ webglBlockReason }}. It may run very slowly or crash on this
+          device. Try enabling hardware acceleration, updating your browser or
+          GPU drivers, or open the game in its own tab.
+        </p>
+        <div class="vc-activity-overlay__actions">
+          <button
+            type="button"
+            class="vc-activity-btn vc-activity-btn--primary"
+            @click="openWebglGameInNewTab"
+          >
+            Open in new tab
+          </button>
+          <button
+            type="button"
+            class="vc-activity-btn"
+            @click="webglTryAnyway = true"
+          >
+            Try anyway
+          </button>
+          <button
+            type="button"
+            class="vc-activity-btn"
+            @click="openVcActivityPicker"
+          >
+            Pick another game
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
+.vc-activity-overlay,
+.vc-webgl-block {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.vc-activity-overlay__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.vc-activity-overlay__body {
+  max-width: 32rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.vc-activity-overlay__hint {
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--text) 45%, transparent);
+}
+.vc-activity-overlay__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.vc-activity-btn {
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease,
+    filter 0.14s ease;
+}
+.vc-activity-btn:hover {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+}
+.vc-activity-btn--primary {
+  border-color: transparent;
+  color: var(--accent-contrast-fg);
+  background: var(--accent);
+}
+.vc-activity-btn--primary:hover {
+  filter: brightness(1.06);
+  background: var(--accent);
+}
+
 /* Activity library — image-forward grid cards */
 .vc-act-library {
   background:
@@ -2976,57 +2778,29 @@ watch(
   background: linear-gradient(152deg, #fef2f2 0%, #eff6ff 45%, #f8fafc 100%);
 }
 
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--youtube:hover {
-  border-color: color-mix(in srgb, #fb7185 38%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--wordline:hover {
-  border-color: color-mix(in srgb, #4ade80 36%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--hangman:hover {
-  border-color: color-mix(in srgb, #fbbf24 36%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--tictactoe:hover {
-  border-color: color-mix(in srgb, #818cf8 36%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--openguessr:hover {
-  border-color: color-mix(in srgb, #2dd4bf 34%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--skribblio:hover {
-  border-color: color-mix(in srgb, #22d3ee 36%, #d97706 20%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--garticphone:hover {
-  border-color: color-mix(in srgb, #c084fc 34%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--krunker:hover {
-  border-color: color-mix(in srgb, #fb923c 38%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--gooberdash:hover {
-  border-color: color-mix(in srgb, #e879f9 34%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--echoed-names:hover {
-  border-color: color-mix(in srgb, #22d3ee 32%, #d97706 24%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--richup:hover {
-  border-color: color-mix(in srgb, #34d399 34%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--smashkarts:hover {
-  border-color: color-mix(in srgb, #fb923c 38%, #d97706 22%, var(--border));
-}
-:global(html[data-theme='light'][data-echo-light-variant='sunny'])
-  .vc-act-widget.vc-act-widget--clusterrush:hover {
-  border-color: color-mix(in srgb, #f87171 34%, #d97706 22%, var(--border));
+/* Sunny light variant: warm each game's hover border with an amber (#d97706)
+ * wash. Per-variant accent + mix ratios only — shared structure via @each. */
+$vc-act-sunny-hover-accents: (
+  'youtube': '#fb7185 38%, #d97706 22%',
+  'wordline': '#4ade80 36%, #d97706 22%',
+  'hangman': '#fbbf24 36%, #d97706 22%',
+  'tictactoe': '#818cf8 36%, #d97706 22%',
+  'openguessr': '#2dd4bf 34%, #d97706 22%',
+  'skribblio': '#22d3ee 36%, #d97706 20%',
+  'garticphone': '#c084fc 34%, #d97706 22%',
+  'krunker': '#fb923c 38%, #d97706 22%',
+  'gooberdash': '#e879f9 34%, #d97706 22%',
+  'echoed-names': '#22d3ee 32%, #d97706 24%',
+  'richup': '#34d399 34%, #d97706 22%',
+  'smashkarts': '#fb923c 38%, #d97706 22%',
+  'clusterrush': '#f87171 34%, #d97706 22%',
+);
+
+@each $key, $accent in $vc-act-sunny-hover-accents {
+  :global(html[data-theme='light'][data-echo-light-variant='sunny'])
+    .vc-act-widget.vc-act-widget--#{$key}:hover {
+    border-color: color-mix(in srgb, #{$accent}, var(--border));
+  }
 }
 
 .vc-act-widget__media {

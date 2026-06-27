@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   findAllButtonRowTokens,
+  formatButtonRowComposerShortcut,
   formatButtonRowToken,
   parseButtonRowShortcut,
   parseButtonRowToken,
@@ -8,6 +9,34 @@ import {
 import { DISCORD_BUTTON_STYLE } from './discordMessageComponents';
 
 describe('buttonRow tokens', () => {
+  it('formats composer shortcuts from button attrs', () => {
+    expect(
+      formatButtonRowComposerShortcut([
+        {
+          label: 'Visit site',
+          style: DISCORD_BUTTON_STYLE.LINK,
+          url: 'https://example.com/path',
+        },
+      ]),
+    ).toBe('![button: label="Visit site", url=https://example.com/path]');
+    expect(
+      formatButtonRowComposerShortcut([
+        {
+          label: 'Confirm',
+          style: DISCORD_BUTTON_STYLE.PRIMARY,
+          customId: 'ok',
+        },
+        {
+          label: 'Cancel',
+          style: DISCORD_BUTTON_STYLE.SECONDARY,
+          customId: 'cancel',
+        },
+      ]),
+    ).toBe(
+      '![buttonrow: buttons="Confirm|primary|ok;Cancel|secondary|cancel"]',
+    );
+  });
+
   it('formats and parses persisted tokens', () => {
     const token = formatButtonRowToken({ rowId: 'row-abc' });
     expect(token).toBe('![button: rowId=row-abc]');

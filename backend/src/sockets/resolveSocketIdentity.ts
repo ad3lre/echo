@@ -12,6 +12,8 @@ import {
   getServerSession,
 } from '../auth/serverSession';
 import { parseCookieValue } from './parseCookieHeader';
+import { clientIpFromSocketHandshake } from '../net/clientIp';
+import { checkInstanceBanBlocked } from '../domain/instanceBanEnforcement';
 
 type SocketIdentityResult = {
   userId: string;
@@ -42,6 +44,69 @@ function createFallbackUserId(): string {
   return `${FALLBACK_USER_PREFIX}${randomBytes(6).toString('base64url')}`;
 }
 
+async function socketUserBlocked(
+  user: AuthUser,
+  handshake: Handshake,
+  log: FastifyBaseLogger,
+  socketId: string,
+): Promise<boolean> {
+  const ban = await checkInstanceBanBlocked({
+    userId: user.id,
+    rawIp: clientIpFromSocketHandshake(
+      handshake.headers as Record<string, string | string[] | undefined>,
+      handshake.address,
+    ),
+  });
+  if (ban.blocked) {
+    log.warn(
+      { socketId, userId: user.id, hits: ban.hits },
+      'Socket connect rejected: instance ban',
+    );
+    return true;
+  }
+  return false;
+}
+
+async function authenticatedSocketIdentity(
+  user: AuthUser,
+  handshake: Handshake,
+  log: FastifyBaseLogger,
+  socketId: string,
+  authSessionId?: string,
+): Promise<SocketIdentityResult | null> {
+  if (user.isGuest && user.guestDeletedAt) {
+    return {
+      userId: createFallbackUserId(),
+      authenticated: false,
+      isGuest: false,
+    };
+  }
+  if (user.isGuest && user.guestSuspendedUntil) {
+    const until = new Date(user.guestSuspendedUntil).getTime();
+    if (until > Date.now()) {
+      return {
+        userId: createFallbackUserId(),
+        authenticated: false,
+        isGuest: false,
+      };
+    }
+  }
+  if (await socketUserBlocked(user, handshake, log, socketId)) {
+    return {
+      userId: createFallbackUserId(),
+      authenticated: false,
+      isGuest: false,
+    };
+  }
+  return {
+    userId: user.id,
+    authenticated: true,
+    authSessionId,
+    isGuest: !!user.isGuest,
+    profileStatus: user.status,
+  };
+}
+
 export async function resolveSocketIdentity(
   handshake: Handshake,
   log: FastifyBaseLogger,
@@ -64,30 +129,14 @@ export async function resolveSocketIdentity(
         if (rt && rt.userId === sess.userId) {
           const user = await store.getUserById(sess.userId);
           if (user) {
-            if (user.isGuest && user.guestDeletedAt) {
-              return {
-                userId: fallbackUserId,
-                authenticated: false,
-                isGuest: false,
-              };
-            }
-            if (user.isGuest && user.guestSuspendedUntil) {
-              const until = new Date(user.guestSuspendedUntil).getTime();
-              if (until > Date.now()) {
-                return {
-                  userId: fallbackUserId,
-                  authenticated: false,
-                  isGuest: false,
-                };
-              }
-            }
-            return {
-              userId: user.id,
-              authenticated: true,
-              authSessionId: sid,
-              isGuest: !!user.isGuest,
-              profileStatus: user.status,
-            };
+            const identity = await authenticatedSocketIdentity(
+              user,
+              handshake,
+              log,
+              socketId,
+              sid,
+            );
+            if (identity) return identity;
           }
         }
       }
@@ -107,30 +156,14 @@ export async function resolveSocketIdentity(
         if (rt && rt.userId === sess.userId) {
           const user = await store.getUserById(sess.userId);
           if (user) {
-            if (user.isGuest && user.guestDeletedAt) {
-              return {
-                userId: fallbackUserId,
-                authenticated: false,
-                isGuest: false,
-              };
-            }
-            if (user.isGuest && user.guestSuspendedUntil) {
-              const until = new Date(user.guestSuspendedUntil).getTime();
-              if (until > Date.now()) {
-                return {
-                  userId: fallbackUserId,
-                  authenticated: false,
-                  isGuest: false,
-                };
-              }
-            }
-            return {
-              userId: user.id,
-              authenticated: true,
-              authSessionId: payload.sid,
-              isGuest: !!user.isGuest,
-              profileStatus: user.status,
-            };
+            const identity = await authenticatedSocketIdentity(
+              user,
+              handshake,
+              log,
+              socketId,
+              payload.sid,
+            );
+            if (identity) return identity;
           }
         }
       }
@@ -145,29 +178,13 @@ export async function resolveSocketIdentity(
       const { store } = await getAuthStore();
       const user = await store.getUserById(payload.sub);
       if (user) {
-        if (user.isGuest && user.guestDeletedAt) {
-          return {
-            userId: fallbackUserId,
-            authenticated: false,
-            isGuest: false,
-          };
-        }
-        if (user.isGuest && user.guestSuspendedUntil) {
-          const until = new Date(user.guestSuspendedUntil).getTime();
-          if (until > Date.now()) {
-            return {
-              userId: fallbackUserId,
-              authenticated: false,
-              isGuest: false,
-            };
-          }
-        }
-        return {
-          userId: user.id,
-          authenticated: true,
-          isGuest: !!user.isGuest,
-          profileStatus: user.status,
-        };
+        const identity = await authenticatedSocketIdentity(
+          user,
+          handshake,
+          log,
+          socketId,
+        );
+        if (identity) return identity;
       }
       log.warn(
         { socketId, payloadSub: payload.sub },

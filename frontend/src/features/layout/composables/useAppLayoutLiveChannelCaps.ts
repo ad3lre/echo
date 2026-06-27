@@ -8,7 +8,6 @@ import type { useAuthSessionStore } from '@/stores/authSession';
 import type { EchoChannelCapabilitiesDto } from '@/api/echo/types';
 import { isEchoGraphId } from '@/utils/echoIds';
 import { fetchEchoChannelCapabilities } from '@/api/echoClient';
-import { EchoApiError } from '@/api/echo/transport';
 import { reportPrimaryFlowFailure } from '@/utils/primaryFlowFailure';
 import { scheduleDeferredTask } from '@/utils/scheduleDeferredTask';
 
@@ -63,12 +62,6 @@ export function useAppLayoutLiveChannelCaps(deps: {
               if (ac.signal.aborted) return;
               if (activeChannelId.value !== channelId) return;
               liveChannelCapabilities.value = null;
-              if (
-                e instanceof EchoApiError &&
-                e.body.detail?.trim() === 'NOT_SERVER_MEMBER'
-              ) {
-                return;
-              }
               reportPrimaryFlowFailure('liveChannelCapabilities', e, {
                 channelId,
               });

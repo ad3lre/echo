@@ -563,6 +563,7 @@ export default async function discordOAuthRoutes(
         provisionedNewGuestViaDiscordLogin = true;
         void tryJoinOfficialEchoServerOnSignup(fastify.log, targetUserId, {
           joinClientIp: mintIp,
+          io: fastify.io,
         });
       } else {
         targetUserId = echoUserId;

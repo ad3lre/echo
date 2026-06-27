@@ -10,6 +10,7 @@ import type pg from 'pg';
 import { mirrorDiscordImportAvatarToEcho } from '../services/discordImportAvatarMirror';
 
 /** Match accountPolicy CONTROL_CHARS_RE — strip before Echo validation. */
+// eslint-disable-next-line no-control-regex -- intentional sanitization
 const DISCORD_IMPORT_STRIP_CONTROLS = /[\u0000-\u001f\u007f]/g;
 
 /**

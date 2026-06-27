@@ -62,6 +62,19 @@ export class EchoMicSendGainStage {
   async init(opts: AudioProcessorOptions): Promise<void> {
     await this.destroy();
     const { track, audioContext } = opts;
+    // Safari/iOS routinely hand us a *suspended* AudioContext here. A suspended context
+    // makes the MediaStreamAudioDestinationNode emit silence, so remote participants hear
+    // nothing even though the local mic track is "live" — the classic "my mic does not work
+    // in Safari" report. Resume before wiring the graph. Harmless on other browsers: it only
+    // resumes when actually suspended, and a failure still attaches the graph for a later
+    // gesture-driven resume.
+    if (audioContext.state === 'suspended') {
+      try {
+        await audioContext.resume();
+      } catch {
+        /* best-effort */
+      }
+    }
     this.source = audioContext.createMediaStreamSource(
       new MediaStream([track]),
     );

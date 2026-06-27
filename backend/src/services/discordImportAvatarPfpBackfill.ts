@@ -1,15 +1,14 @@
 import type pg from 'pg';
 import { parseDiscordUserIdFromAvatarCdnUrl } from '../domain/discordNormalized';
 import {
-  ensureDiscordImportAvatarStoredInEcho,
   isCorruptedDiscordImportPfp,
-  isEchoStoredProfileImageUrl,
-  resolveStoredDiscordAvatarHash,
+  repairDiscordImportUserPfpIfNeeded,
 } from './discordImportAvatarMirror';
 
 export type DiscordAvatarPfpBackfillRow = {
   userId: string;
   pfp: string;
+  displayName: string;
   discordUserId: string;
   shadowAvatarMeta: string;
   isShadow: boolean;
@@ -18,6 +17,7 @@ export type DiscordAvatarPfpBackfillRow = {
 type RawBackfillRow = {
   id: string;
   pfp: string;
+  display_label: string;
   is_discord_shadow: boolean;
   shadow_discord_user_id: string | null;
   shadow_avatar_url: string | null;
@@ -44,6 +44,7 @@ export async function listUsersWithCorruptedDiscordImportPfp(
     SELECT
       u.id,
       TRIM(u.pfp) AS pfp,
+      COALESCE(NULLIF(TRIM(u.display_name), ''), NULLIF(TRIM(u.username), ''), 'user') AS display_label,
       u.is_discord_shadow,
       s.discord_user_id AS shadow_discord_user_id,
       NULLIF(TRIM(s.avatar_url), '') AS shadow_avatar_url,
@@ -71,6 +72,7 @@ export async function listUsersWithCorruptedDiscordImportPfp(
     out.push({
       userId: String(row.id),
       pfp,
+      displayName: String(row.display_label ?? 'user'),
       discordUserId,
       shadowAvatarMeta: String(row.shadow_avatar_url ?? '').trim(),
       isShadow: row.is_discord_shadow === true,
@@ -95,50 +97,35 @@ export async function backfillDiscordImportAvatarPfpForUser(
     return { status: 'skipped', userId, reason: 'missing_user_or_discord_id' };
   }
 
-  if (isEchoStoredProfileImageUrl(row.pfp)) {
-    return { status: 'skipped', userId, reason: 'already_echo_hosted' };
+  if (!isCorruptedDiscordImportPfp(row.pfp)) {
+    return { status: 'skipped', userId, reason: 'not_corrupted' };
   }
 
   let mirrored: string;
   try {
-    mirrored = await ensureDiscordImportAvatarStoredInEcho(
+    mirrored = await repairDiscordImportUserPfpIfNeeded({
       pool,
       userId,
+      pfp: row.pfp,
+      displayName: row.displayName,
       discordUserId,
-      row.pfp,
-      row.shadowAvatarMeta || undefined,
-    );
+      shadowAvatarMeta: row.shadowAvatarMeta || undefined,
+      isShadow: row.isShadow,
+      persist: execute,
+    });
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     return { status: 'failed', userId, reason };
   }
 
   if (!mirrored) {
-    return { status: 'failed', userId, reason: 'mirror_returned_empty' };
+    return { status: 'failed', userId, reason: 'repair_returned_empty' };
   }
   if (mirrored === row.pfp) {
-    return { status: 'skipped', userId, reason: 'unchanged_after_mirror' };
+    return { status: 'skipped', userId, reason: 'unchanged_after_repair' };
   }
   if (isCorruptedDiscordImportPfp(mirrored)) {
-    return { status: 'failed', userId, reason: 'mirror_still_corrupted' };
-  }
-
-  if (execute) {
-    await pool.query(
-      `UPDATE auth_users SET pfp = $2, updated_at = NOW() WHERE id = $1`,
-      [userId, mirrored],
-    );
-    if (row.isShadow) {
-      const hash = resolveStoredDiscordAvatarHash(
-        discordUserId,
-        row.shadowAvatarMeta,
-        row.pfp,
-      );
-      await pool.query(
-        `UPDATE echo_discord_shadow_users SET avatar_url = $2 WHERE shadow_user_id = $1`,
-        [userId, hash],
-      );
-    }
+    return { status: 'failed', userId, reason: 'repair_still_corrupted' };
   }
 
   return { status: 'updated', userId, before: row.pfp, after: mirrored };

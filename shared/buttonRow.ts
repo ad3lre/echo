@@ -155,6 +155,50 @@ function parseSingleButtonShortcut(
   return [{ label, style, customId }];
 }
 
+const STYLE_NUM_TO_NAME: Record<ButtonRowButton['style'], string> = {
+  [DISCORD_BUTTON_STYLE.PRIMARY]: 'primary',
+  [DISCORD_BUTTON_STYLE.SECONDARY]: 'secondary',
+  [DISCORD_BUTTON_STYLE.SUCCESS]: 'success',
+  [DISCORD_BUTTON_STYLE.DANGER]: 'danger',
+  [DISCORD_BUTTON_STYLE.LINK]: 'link',
+};
+
+/**
+ * Editable composer shortcut (no `rowId`) — what authors type and edit in the composer.
+ * Persisted plain projection still uses `formatButtonRowToken` (`rowId` only).
+ */
+export function formatButtonRowComposerShortcut(
+  buttons: ButtonRowButton[],
+): string {
+  const list = normalizeButtonRowButtons(buttons);
+  if (!list.length) return '';
+  if (list.length === 1) {
+    const btn = list[0]!;
+    if (btn.style === DISCORD_BUTTON_STYLE.LINK) {
+      return formatRichBlockToken(BUTTON_BLOCK_TYPE, {
+        label: btn.label,
+        url: btn.url ?? '',
+      });
+    }
+    return formatRichBlockToken(BUTTON_BLOCK_TYPE, {
+      label: btn.label,
+      style: STYLE_NUM_TO_NAME[btn.style],
+      id: btn.customId ?? '',
+    });
+  }
+  const specs = list
+    .map((btn) => {
+      const style = STYLE_NUM_TO_NAME[btn.style];
+      const target =
+        btn.style === DISCORD_BUTTON_STYLE.LINK
+          ? (btn.url ?? '')
+          : (btn.customId ?? '');
+      return `${btn.label}|${style}|${target}`;
+    })
+    .join(';');
+  return formatRichBlockToken(BUTTON_ROW_BLOCK_TYPE, { buttons: specs });
+}
+
 /** Canonical plain projection: `![button: rowId=…]`. */
 export function formatButtonRowToken(
   attrs: Pick<ButtonRowAttrs, 'rowId'>,

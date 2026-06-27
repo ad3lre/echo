@@ -1228,7 +1228,7 @@ watch(
             v-if="showTextCaption"
             ref="messageContentRef"
             v-spoiler-reveal
-            class="message-text message-content max-w-3xl text-fg"
+            class="message-text message-content max-w-full text-fg"
             :class="{
               'mb-1': !row.layout.groupedWithNext,
               'message-text--emoji-only': isEmojiOnlyUpTo12(

@@ -3,8 +3,7 @@
  * discord.js models use camelCase for the same fields).
  */
 
-import { ssrfSafeFetch } from '../services/linkUnfurl/linkUnfurlFetch';
-import { safeFetchAgent } from '../services/linkUnfurl/safeFetchAgent';
+import { canSafelyResolveUrlForOutboundFetch } from '../services/linkUnfurl/linkUnfurlFetch';
 
 const URL_KEYS_DEFAULT = ['url', 'proxy_url', 'proxyURL'] as const;
 
@@ -67,12 +66,13 @@ export async function fetchDiscordHostedImportMedia(
 ): Promise<Response | null> {
   const url = canonicalDiscordHostedImportMediaUrl(raw);
   if (!url) return null;
+  if (!(await canSafelyResolveUrlForOutboundFetch(url))) return null;
   try {
-    return await ssrfSafeFetch(url, {
+    // Allowlisted Discord CDN hosts only. Plain fetch after DNS validation: the
+    // pinned `safeFetchAgent` TLS path often hangs on Discord's CDN edge.
+    return await fetch(url, {
       ...init,
       redirect: 'error',
-      // @ts-expect-error Node 18+ undici dispatcher
-      dispatcher: safeFetchAgent,
     });
   } catch {
     return null;

@@ -28,6 +28,7 @@ import {
   defaultValidateConfigDeps,
   validateConfig,
 } from './config/validateConfig';
+import { initInstancePolicy } from './config/instancePolicy';
 import { ConfigFatalError } from './config/secrets';
 
 export type { BackendStorageMode };
@@ -229,6 +230,19 @@ interface AppConfig {
   readonly echoEmojiCdnBaseUrl: string | null;
   /** When true, copy new emoji uploads to `echo/public-emojis/{id}.{ext}` and set `public_cdn_url`. */
   readonly echoEmojiPublishToCdn: boolean;
+  /** When true, presign/public URLs use {@link echoMediaCdnBaseUrl} canonical object paths. */
+  readonly echoMediaCdnEnabled: boolean;
+  /**
+   * Browser-facing media CDN host (no trailing slash), e.g. `https://media.echo.example`.
+   * Object reads use `GET {base}/v1/o/{storageKey}?t=…` on the media-cdn sidecar.
+   */
+  readonly echoMediaCdnBaseUrl: string | null;
+  /** HMAC secret for media CDN read tokens (independent of {@link localUploadTokenSecret}). */
+  readonly echoMediaCdnSigningSecret: string;
+  /** Optional internal base URL for health checks (defaults to sidecar bind address). */
+  readonly echoMediaCdnInternalUrl: string | null;
+  readonly echoMediaCdnPrivateReadTtlMs: number;
+  readonly echoMediaCdnPublicReadTtlMs: number;
   /**
    * When S3 is not configured: store uploads on local disk (default `data/echo-local-uploads`).
    * Set `ECHO_LOCAL_UPLOADS=false` to disable and keep presign `503` until S3 is configured.
@@ -530,9 +544,14 @@ interface AppConfig {
   readonly echoWebAuthnOrigin: string;
   /**
    * When true, `POST /api/v1/auth/guest` may mint or resume guest sessions.
-   * **Off by default.** Set `ECHO_GUEST_ACCOUNTS_ENABLED=1` to enable.
+   * **Off by default.** Set `ECHO_GUEST_ACCOUNTS_ENABLED=1` or `guest.enabled` in
+   * `echo.instance.json` to enable.
    */
   readonly guestAccountsEnabled: boolean;
+  /** When true, new account registration is rejected (`registration.disabled` policy). */
+  readonly registrationDisabled: boolean;
+  /** When false, skip instance-level ban checks and operator ban API (private instances). */
+  readonly instanceBansEnabled: boolean;
   /**
    * Auth user ids allowed to list Echo+ pre-launch interest signups
    * (`GET /api/v1/auth/echo-plus-interest/list`). Comma-separated in
@@ -632,6 +651,14 @@ interface AppConfig {
  * It's populated from environment variables with sensible defaults.
  */
 const isProduction = process.env.NODE_ENV === 'production';
+let instancePolicy: ReturnType<typeof initInstancePolicy>;
+try {
+  instancePolicy = initInstancePolicy();
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[config] ${message}`);
+  process.exit(1);
+}
 let storage: ReturnType<typeof resolveBackendStorageMode>;
 try {
   storage = resolveBackendStorageMode(isProduction);
@@ -694,15 +721,14 @@ export const config: AppConfig = {
     Number.MAX_SAFE_INTEGER,
   ),
   serperCacheMaxEntries: envMinInt('SERPER_CACHE_MAX_ENTRIES', 200, 16),
-  serperRateLimitPerMinute: envMinInt('SERPER_RATE_LIMIT_PER_MINUTE', 10, 1),
-  serperUpstreamMaxPerDayPerIp: envNonNegInt(
-    'SERPER_UPSTREAM_MAX_PER_DAY_PER_IP',
-    180,
-  ),
+  serperRateLimitPerMinute: instancePolicy.limits.upstream.serper.perMinute,
+  serperUpstreamMaxPerDayPerIp:
+    instancePolicy.limits.upstream.serper.maxPerDayPerIp,
   serperCacheRefreshDays: envMinInt('SERPER_CACHE_REFRESH_DAYS', 90, 1),
   serperCacheMaxResults: envMinInt('SERPER_CACHE_MAX_RESULTS', 60, 8),
-  serperGlobalMaxPerDay: envNonNegInt('SERPER_GLOBAL_MAX_PER_DAY', 500),
-  serperGlobalMaxPerMonth: envNonNegInt('SERPER_GLOBAL_MAX_PER_MONTH', 10_000),
+  serperGlobalMaxPerDay: instancePolicy.limits.upstream.serper.globalMaxPerDay,
+  serperGlobalMaxPerMonth:
+    instancePolicy.limits.upstream.serper.globalMaxPerMonth,
   serperRefreshFailureMaxCount: envSerperRefreshFailureMaxCount(),
   honchoEnabled: (() => {
     const raw = (process.env.HONCHO_ENABLED ?? '').trim().toLowerCase();
@@ -718,7 +744,7 @@ export const config: AppConfig = {
     const raw = process.env.HONCHO_BASE_URL?.trim();
     return raw || null;
   })(),
-  honchoRateLimitPerMinute: envMinInt('HONCHO_RATE_LIMIT_PER_MINUTE', 20, 1),
+  honchoRateLimitPerMinute: instancePolicy.limits.upstream.honcho.perMinute,
   youtubeDataApiKey: process.env.YOUTUBE_DATA_API_KEY?.trim() ?? '',
   youtubeInvidiousHosts: (() => {
     const raw = process.env.YOUTUBE_INVIDIOUS_HOSTS?.trim();
@@ -840,6 +866,31 @@ export const config: AppConfig = {
     process.env.ECHO_EMOJI_PUBLISH_TO_CDN,
     false,
   ),
+  echoMediaCdnEnabled: parseBoolean(process.env.ECHO_MEDIA_CDN_ENABLED, false),
+  echoMediaCdnBaseUrl: (() => {
+    const raw = process.env.ECHO_MEDIA_CDN_BASE_URL?.trim();
+    return raw ? raw.replace(/\/$/, '') : null;
+  })(),
+  echoMediaCdnSigningSecret:
+    process.env.ECHO_MEDIA_CDN_SIGNING_SECRET?.trim() ||
+    process.env.LOCAL_UPLOAD_TOKEN_SECRET?.trim() ||
+    resolvedJwtSecret,
+  echoMediaCdnInternalUrl: (() => {
+    const raw = process.env.ECHO_MEDIA_CDN_INTERNAL_URL?.trim();
+    return raw ? raw.replace(/\/$/, '') : null;
+  })(),
+  echoMediaCdnPrivateReadTtlMs: (() => {
+    const raw = process.env.ECHO_MEDIA_CDN_READ_TTL_MS;
+    if (!raw?.trim()) return 60 * 60 * 1000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 60_000 ? n : 60 * 60 * 1000;
+  })(),
+  echoMediaCdnPublicReadTtlMs: (() => {
+    const raw = process.env.ECHO_MEDIA_CDN_PUBLIC_READ_TTL_MS;
+    if (!raw?.trim()) return 7 * 24 * 60 * 60 * 1000;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 60_000 ? n : 7 * 24 * 60 * 60 * 1000;
+  })(),
   echoLocalUploadDir: resolveEchoLocalUploadDir(),
   echoLocalUploadBodyMaxBytes: (() => {
     const raw = process.env.ECHO_LOCAL_UPLOAD_MAX_BYTES;
@@ -1004,36 +1055,12 @@ export const config: AppConfig = {
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 7 && n <= 366 ? n : 90;
   })(),
-  echoSocketMsgPerMinute: (() => {
-    const raw = process.env.ECHO_SOCKET_MSG_PER_MINUTE;
-    if (raw === undefined) return 60;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1 ? n : 60;
-  })(),
-  echoSocketBurstMax: (() => {
-    const raw = process.env.ECHO_SOCKET_BURST_MAX;
-    if (raw === undefined) return 20;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1 ? n : 20;
-  })(),
-  echoSocketBurstWindowMs: (() => {
-    const raw = process.env.ECHO_SOCKET_BURST_WINDOW_MS;
-    if (raw === undefined) return 2000;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 100 ? n : 2000;
-  })(),
-  echoSocketMaxEventsPerSecond: (() => {
-    const raw = process.env.ECHO_SOCKET_MAX_EVENTS_PER_SEC;
-    if (raw === undefined) return 80;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1 ? n : 80;
-  })(),
-  echoMessageIdempotencyMinutes: (() => {
-    const raw = process.env.ECHO_MESSAGE_IDEMPOTENCY_MINUTES;
-    if (raw === undefined) return 10;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1 ? n : 10;
-  })(),
+  echoSocketMsgPerMinute: instancePolicy.limits.socket.messagesPerMinute,
+  echoSocketBurstMax: instancePolicy.limits.socket.burst.max,
+  echoSocketBurstWindowMs: instancePolicy.limits.socket.burst.windowMs,
+  echoSocketMaxEventsPerSecond: instancePolicy.limits.socket.maxEventsPerSecond,
+  echoMessageIdempotencyMinutes:
+    instancePolicy.limits.socket.idempotencyMinutes,
   snowflakeWorkerId: (() => {
     const raw = process.env.SNOWFLAKE_WORKER_ID;
     if (raw === undefined || raw === '') return 0;
@@ -1060,15 +1087,8 @@ export const config: AppConfig = {
   discordExportCollectionsRoot:
     process.env.ECHO_DISCORD_EXPORTS_ROOT?.trim() ||
     path.resolve(__dirname, '../../bot/exports'),
-  discordImportMaxMetadataStartsPerUserPerDay: (() => {
-    const raw = process.env.ECHO_DISCORD_IMPORT_MAX_PER_USER_PER_DAY;
-    if (raw === undefined || raw === '') {
-      return isProduction ? 3 : 0;
-    }
-    const n = parseInt(raw, 10);
-    if (!Number.isFinite(n) || n < 0) return isProduction ? 3 : 0;
-    return n;
-  })(),
+  discordImportMaxMetadataStartsPerUserPerDay:
+    instancePolicy.limits.upstream.discordImport.maxMetadataStartsPerUserPerDay,
   discordBotInvitePermissionBits:
     process.env.DISCORD_BOT_INVITE_PERMISSIONS?.trim() || '8',
   discordBotInviteRedirectUri:
@@ -1086,71 +1106,26 @@ export const config: AppConfig = {
     if (raw === undefined || raw === '') return 'echo';
     return raw.toLowerCase();
   })(),
-  guestDirectoryPoolSize: (() => {
-    const raw = process.env.ECHO_GUEST_DIRECTORY_POOL_SIZE;
-    if (raw === undefined) return 15;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 3 ? Math.min(n, 50) : 15;
-  })(),
-  guestServerSampleCount: (() => {
-    const raw = process.env.ECHO_GUEST_SERVER_SAMPLE_COUNT;
-    if (raw === undefined) return 3;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1 ? Math.min(n, 10) : 3;
-  })(),
-  guestMaxTotalMessages: (() => {
-    const raw = process.env.ECHO_GUEST_MAX_TOTAL_MESSAGES;
-    if (raw === undefined) return 300;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 10 ? n : 300;
-  })(),
-  guestMintMaxPerIpPerHour: (() => {
-    const raw = process.env.ECHO_GUEST_MINT_MAX_PER_IP_HOUR;
-    if (raw === undefined) return 12;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1 ? Math.min(n, 200) : 12;
-  })(),
-  guestMintCaptchaAfterN: (() => {
-    const raw = process.env.ECHO_GUEST_MINT_CAPTCHA_AFTER_N;
-    if (raw === undefined) return 0;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 0 ? Math.min(n, 500) : 0;
-  })(),
+  guestDirectoryPoolSize: instancePolicy.guest.directory.poolSize,
+  guestServerSampleCount: instancePolicy.guest.serverSampleCount,
+  guestMaxTotalMessages: instancePolicy.guest.maxTotalMessages,
+  guestMintMaxPerIpPerHour: instancePolicy.guest.mint.maxPerIpPerHour,
+  guestMintCaptchaAfterN: instancePolicy.guest.mint.captchaAfterN,
   turnstileSecretKey: process.env.ECHO_TURNSTILE_SECRET_KEY?.trim() ?? '',
-  turnstileSiteKey: process.env.ECHO_TURNSTILE_SITE_KEY?.trim() ?? '',
-  guestCaptchaFailBlockThreshold: (() => {
-    const raw = process.env.ECHO_GUEST_CAPTCHA_FAIL_BLOCK_THRESHOLD;
-    if (raw === undefined) return 5;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1 ? Math.min(n, 50) : 5;
-  })(),
-  guestCaptchaFailBlockDurationMs: (() => {
-    const raw = process.env.ECHO_GUEST_CAPTCHA_FAIL_BLOCK_HOURS;
-    if (raw === undefined) return 24 * 60 * 60 * 1000;
-    const h = parseFloat(raw);
-    return Number.isFinite(h) && h > 0
-      ? Math.round(h * 60 * 60 * 1000)
-      : 24 * 60 * 60 * 1000;
-  })(),
-  guestAbuseComboBlockMs: (() => {
-    const raw = process.env.ECHO_GUEST_ABUSE_COMBO_BLOCK_MINUTES;
-    if (raw === undefined) return 30 * 60 * 1000;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1
-      ? Math.min(n, 24 * 60) * 60 * 1000
-      : 30 * 60 * 1000;
-  })(),
-  authHwidAccountCapEnabled: parseBoolean(
-    process.env.ECHO_AUTH_HWID_ACCOUNT_CAP,
-    false,
+  turnstileSiteKey:
+    process.env.ECHO_TURNSTILE_SITE_KEY?.trim() ||
+    instancePolicy.guest.turnstile.siteKey,
+  guestCaptchaFailBlockThreshold:
+    instancePolicy.guest.captcha.failBlockThreshold,
+  guestCaptchaFailBlockDurationMs: Math.round(
+    instancePolicy.guest.captcha.failBlockHours * 60 * 60 * 1000,
   ),
+  guestAbuseComboBlockMs:
+    instancePolicy.guest.abuseComboBlockMinutes * 60 * 1000,
+  authHwidAccountCapEnabled: instancePolicy.registration.hwidCap.enabled,
   authHwidPepper: process.env.ECHO_AUTH_HWID_PEPPER?.trim() ?? '',
-  authHwidMaxAccountsPerHwidIp: (() => {
-    const raw = process.env.ECHO_AUTH_HWID_MAX_ACCOUNTS_PER_KEY_IP;
-    if (raw === undefined || raw === '') return 3;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 1 ? Math.min(n, 50) : 3;
-  })(),
+  authHwidMaxAccountsPerHwidIp:
+    instancePolicy.registration.hwidCap.maxAccountsPerKeyIp,
   echoApiPublicUrl:
     process.env.ECHO_API_PUBLIC_URL?.trim() || 'http://localhost:3000',
   echoChannelWebhookTokenPepper:
@@ -1256,12 +1231,8 @@ export const config: AppConfig = {
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 5 && n <= 20 ? n : 10;
   })(),
-  echoMfaLoginMaxPerIpPer15Min: (() => {
-    const raw = process.env.ECHO_MFA_LOGIN_MAX_PER_IP_PER_15MIN;
-    if (raw === undefined || raw === '') return 60;
-    const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 10 && n <= 500 ? n : 60;
-  })(),
+  echoMfaLoginMaxPerIpPer15Min:
+    instancePolicy.limits.http.routes.auth.mfaLogin.max,
   echoLoginMaxPasswordFailures: (() => {
     const raw = process.env.ECHO_LOGIN_MAX_PASSWORD_FAILURES;
     if (raw === undefined || raw === '') return 10;
@@ -1354,9 +1325,11 @@ export const config: AppConfig = {
       return 'http://localhost:8080';
     }
   })(),
-  guestAccountsEnabled: parseBoolean(
-    process.env.ECHO_GUEST_ACCOUNTS_ENABLED,
-    false,
+  guestAccountsEnabled: instancePolicy.guest.enabled,
+  registrationDisabled: instancePolicy.registration.disabled,
+  instanceBansEnabled: parseBoolean(
+    process.env.ECHO_INSTANCE_BANS_ENABLED,
+    true,
   ),
   echoPlusInterestAdminUserIds: (
     process.env.ECHO_PLUS_INTEREST_ADMIN_USER_IDS ?? ''

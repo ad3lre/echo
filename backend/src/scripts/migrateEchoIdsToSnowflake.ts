@@ -244,7 +244,7 @@ async function migrateOneServer(
     return;
   }
 
-  let messagesByOldChannel = new Map<string, MessageRow[]>();
+  const messagesByOldChannel = new Map<string, MessageRow[]>();
   if (commitPerChannelMessages && maps.message.size > 0) {
     const snap = await client.query(
       `SELECT id, channel_id, mentions, reply_to, embeds FROM echo_messages WHERE id = ANY($1::text[])`,

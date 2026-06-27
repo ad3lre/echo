@@ -44,7 +44,7 @@ import {
 } from '@/utils/guestJoinExploreBlockedDialog';
 import {
   buildDiscoverableJoinConfirmPreview,
-  buildInviteJoinConfirmPreview,
+  resolveInviteJoinContext,
 } from '@/features/layout/composables/joinServerConfirmPreview';
 import type { JoinServerConfirmPreview } from '@/features/layout/composables/useJoinServerConfirmModal';
 import type { ServerApplicationModalPayload } from '@/features/layout/composables/useServerApplicationModal';
@@ -367,6 +367,25 @@ export function useAddServerFlow(deps: {
     }
   }
 
+  function isUserAlreadyJoinedServer(serverId: string): boolean {
+    const id = serverId.trim();
+    if (!id) return false;
+    return serverStore.servers.some((s) => s.id === id);
+  }
+
+  function openJoinedServerInShellIfAlreadyMember(
+    serverId: string,
+    preferredChannelId?: string | null,
+  ): boolean {
+    if (!isUserAlreadyJoinedServer(serverId)) return false;
+    focusJoinedServerInShell(serverId, preferredChannelId);
+    isAddServerModalOpen.value = false;
+    if (!isMoreServersPinned.value) {
+      isMoreServersPanelOpen.value = false;
+    }
+    return true;
+  }
+
   function focusJoinedServerInShell(
     serverId: string,
     preferredChannelId?: string | null,
@@ -552,7 +571,14 @@ export function useAddServerFlow(deps: {
         needsAuth: true,
       };
     }
-    const preview = await buildInviteJoinConfirmPreview(raw);
+    const voiceHint = extractVoiceChannelIdFromInviteUserInput(raw);
+    const { preview, serverId } = await resolveInviteJoinContext(raw);
+    if (
+      serverId &&
+      openJoinedServerInShellIfAlreadyMember(serverId, voiceHint)
+    ) {
+      return { ok: true, serverId, alreadyMember: true };
+    }
     const confirmed = await requestJoinServerConfirm(preview);
     if (!confirmed) return { ok: false, error: '', cancelled: true };
     try {
@@ -855,26 +881,8 @@ export function useAddServerFlow(deps: {
       }
 
       if (graphId && authSession.isAuthenticated) {
-        const already = serverStore.servers.some((s) => s.id === graphId);
-        if (already) {
-          try {
-            const { serverId } = await postEchoJoinDirectoryServer(
-              token,
-              graphId,
-            );
-            await hydrateWorkspace();
-            isAddServerModalOpen.value = false;
-            focusJoinedServerInShell(serverId);
-            if (!isMoreServersPinned.value) {
-              isMoreServersPanelOpen.value = false;
-            }
-            return;
-          } catch {
-            serverStore.leaveServer(graphId, currentUser.value?.id, {
-              afterApiLeave: true,
-            });
-            await hydrateWorkspace().catch(() => undefined);
-          }
+        if (openJoinedServerInShellIfAlreadyMember(graphId)) {
+          return;
         }
       }
 
@@ -903,6 +911,9 @@ export function useAddServerFlow(deps: {
       }
 
       if (resolvedGraphId) {
+        if (openJoinedServerInShellIfAlreadyMember(resolvedGraphId)) {
+          return;
+        }
         const directoryRow = resolveDiscoverableDirectoryRow(entry);
         const topMembers =
           await fetchEchoDirectoryServerMemberHighlights(resolvedGraphId);

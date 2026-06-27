@@ -30,6 +30,17 @@ describe('findRawDiscordSpoilerRegions', () => {
     const r = findRawDiscordSpoilerRegions(s);
     expect(r).toHaveLength(0);
   });
+
+  it('does not hang when fence markers are not at line start (regression)', () => {
+    const r = findRawDiscordSpoilerRegions('!```\n**a** `b`');
+    expect(r).toHaveLength(0);
+  });
+
+  it('finds spoilers after !-escaped fence closer', () => {
+    const r = findRawDiscordSpoilerRegions('!```\ninner\n```\n||after||');
+    expect(r).toHaveLength(1);
+    expect(r[0]!.inner).toBe('after');
+  });
 });
 
 describe('buildTextWithSpoilerPlaceholders', () => {

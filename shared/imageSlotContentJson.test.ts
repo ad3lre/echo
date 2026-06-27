@@ -62,6 +62,18 @@ describe('imageSlotContentJson', () => {
     expect(again.error).toBe('slot_already_filled');
   });
 
+  it('rebuild preserves filled attrs from composer shortcut by slot order', () => {
+    const filled = patchImageSlotFill(docWithSlot, 'slot-1', {
+      imageUrl: 'https://cdn.example.com/a.png',
+    });
+    if (!filled.ok) throw new Error('fill failed');
+    const plain = 'Hello\n![image: ratio=16:9]\nAfter';
+    const rebuilt = rebuildContentJsonPreservingSlots(filled.doc, plain);
+    const slot = walkImageSlots(rebuilt)[0];
+    expect(slot.slotId).toBe('slot-1');
+    expect(slot.imageUrl).toBe('https://cdn.example.com/a.png');
+  });
+
   it('rebuild preserves filled attrs from original doc', () => {
     const filled = patchImageSlotFill(docWithSlot, 'slot-1', {
       imageUrl: 'https://cdn.example.com/a.png',
@@ -110,6 +122,34 @@ describe('imageSlotContentJson', () => {
     const rebuilt = rebuildContentJsonPreservingRichBlocks(doc, plain);
     expect(walkButtonRows(rebuilt)).toHaveLength(1);
     expect(walkButtonRows(rebuilt)[0].buttons[0].label).toBe('Go');
+    expect(walkImageSlots(rebuilt)).toHaveLength(1);
+  });
+
+  it('rebuild parses composer image shortcuts into imageSlot nodes', () => {
+    const plain = 'Intro\n![image: ratio=4:3]';
+    const rebuilt = rebuildContentJsonPreservingRichBlocks(
+      { type: 'doc', content: [] },
+      plain,
+    );
+    const slots = walkImageSlots(rebuilt);
+    expect(slots).toHaveLength(1);
+    expect(slots[0]).toMatchObject({ aspectW: 4, aspectH: 3, imageUrl: null });
+    expect(slots[0].slotId.length).toBeGreaterThan(0);
+  });
+
+  it('rebuild parses composer button shortcuts into buttonRow nodes', () => {
+    const plain =
+      'Intro\n![button: label=Confirm, style=primary, id=ok]\n![image: ratio=16:9, slotId=slot-1]';
+    const rebuilt = rebuildContentJsonPreservingRichBlocks(
+      { type: 'doc', content: [] },
+      plain,
+    );
+    const rows = walkButtonRows(rebuilt);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].buttons[0]).toMatchObject({
+      label: 'Confirm',
+      customId: 'ok',
+    });
     expect(walkImageSlots(rebuilt)).toHaveLength(1);
   });
 });

@@ -16,6 +16,41 @@ import {
 import { getEchoStore } from '../domain/echoStore';
 import { buildEchoTestApp } from './helpers/echoTestApp';
 
+async function pollChannelMessage(
+  baseUrl: string,
+  channelId: string,
+  messageId: string,
+  sid: string,
+  opts?: { expectedContent?: string; timeoutMs?: number },
+): Promise<{ content: string }> {
+  const timeoutMs = opts?.timeoutMs ?? 10_000;
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus = 0;
+  let lastBody = '';
+  while (Date.now() < deadline) {
+    const res = await fetch(
+      `${baseUrl}/api/v1/echo/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}`,
+      { headers: { cookie: `echo_sid=${sid}` } },
+    );
+    lastStatus = res.status;
+    lastBody = await res.text();
+    if (res.status === 200) {
+      const json = JSON.parse(lastBody) as {
+        message?: { content?: string; searchIndexText?: string };
+      };
+      const content =
+        json.message?.content ?? json.message?.searchIndexText ?? '';
+      if (!opts?.expectedContent || content === opts.expectedContent) {
+        return { content };
+      }
+    }
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  throw new Error(
+    `pollChannelMessage timeout (last ${lastStatus}): ${lastBody.slice(0, 240)}`,
+  );
+}
+
 async function run(): Promise<void> {
   let enabled = false;
   let pool: Awaited<ReturnType<typeof getEchoStore>>['pool'] = null;
@@ -791,10 +826,12 @@ async function run(): Promise<void> {
       `${baseUrl}/api/v1/echo/friends/mutual?peerId=${encodeURIComponent(t3.user.id)}`,
       { headers: { cookie: `echo_sid=${t1Sid}` } },
     );
-    assert.equal(
-      mutualFriendsStranger.status,
-      403,
-      await mutualFriendsStranger.text(),
+    const mutualFriendsStrangerBody = await mutualFriendsStranger.text();
+    // Both users auto-join Echo home; mutual lookup is allowed but returns none.
+    assert.equal(mutualFriendsStranger.status, 200, mutualFriendsStrangerBody);
+    assert.deepEqual(
+      (JSON.parse(mutualFriendsStrangerBody) as { userIds: string[] }).userIds,
+      [],
     );
 
     const e2eeStateStranger = await fetch(
@@ -812,7 +849,15 @@ async function run(): Promise<void> {
       },
       body: JSON.stringify({ peerUserId: t3.user.id }),
     });
-    assert.equal(dmStranger.status, 403, await dmStranger.text());
+    const dmStrangerBody = await dmStranger.text();
+    // Echo home membership counts as a shared server for DM open.
+    assert.equal(dmStranger.status, 200, dmStrangerBody);
+    const dmStrangerJson = JSON.parse(dmStrangerBody) as {
+      channelId: string;
+      peerUserId: string;
+    };
+    assert.equal(dmStrangerJson.peerUserId, t3.user.id);
+    assert.ok(dmStrangerJson.channelId.length > 0);
 
     const blockRes = await fetch(`${baseUrl}/api/v1/echo/blocks`, {
       method: 'POST',
@@ -943,6 +988,17 @@ async function run(): Promise<void> {
     const id5 = g5.user.id;
     const id6 = g6.user.id;
 
+    const blockG5 = await fetch(`${baseUrl}/api/v1/echo/blocks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': g4.csrfToken,
+        cookie: `echo_sid=${g4.sid}`,
+      },
+      body: JSON.stringify({ targetUserId: id5 }),
+    });
+    assert.equal(blockG5.status, 204, await blockG5.text());
+
     const grpOpenStrangers = await fetch(
       `${baseUrl}/api/v1/echo/dm/group/open`,
       {
@@ -959,6 +1015,18 @@ async function run(): Promise<void> {
       },
     );
     assert.equal(grpOpenStrangers.status, 403, await grpOpenStrangers.text());
+
+    const unblockG5 = await fetch(
+      `${baseUrl}/api/v1/echo/blocks/${encodeURIComponent(id5)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'x-csrf-token': g4.csrfToken,
+          cookie: `echo_sid=${g4.sid}`,
+        },
+      },
+    );
+    assert.equal(unblockG5.status, 204, await unblockG5.text());
 
     async function makeFriends(a: any, b: any) {
       const r1 = await fetch(`${baseUrl}/api/v1/echo/friends/request`, {
@@ -1021,6 +1089,17 @@ async function run(): Promise<void> {
     assert.ok(gRow!.memberUserIds!.includes(id5));
 
     const g7 = await regPipeUser('7');
+    const blockG7 = await fetch(`${baseUrl}/api/v1/echo/blocks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': g4.csrfToken,
+        cookie: `echo_sid=${g4.sid}`,
+      },
+      body: JSON.stringify({ targetUserId: g7.user.id }),
+    });
+    assert.equal(blockG7.status, 204, await blockG7.text());
+
     const addStrangerToGroup = await fetch(
       `${baseUrl}/api/v1/echo/dm/group/${encodeURIComponent(grpJson.channelId)}/members`,
       {
@@ -1344,7 +1423,7 @@ async function run(): Promise<void> {
       .find((c) => c.trim().startsWith('echo_sid='))
       ?.split('=')[1];
 
-    // Guest cannot DM stranger (t2): no friendship, no shared server.
+    // Guests cannot open DMs via REST (default-deny write guard).
     const guestDmStranger = await fetch(`${baseUrl}/api/v1/echo/dm/open`, {
       method: 'POST',
       headers: {
@@ -1354,11 +1433,7 @@ async function run(): Promise<void> {
       },
       body: JSON.stringify({ peerUserId: t2UserId }),
     });
-    assert.equal(
-      guestDmStranger.status,
-      403,
-      'Guest should not be able to DM stranger',
-    );
+    assert.equal(guestDmStranger.status, 403, await guestDmStranger.text());
 
     // Friend request *to* a guest is forbidden (guests cannot use friends).
     const friendReqToGuest = await fetch(
@@ -1418,27 +1493,44 @@ async function run(): Promise<void> {
     assert.equal(editMsg.status, 204);
 
     // Socket edit
-    const socketEditId = randomUUID();
-    s1.emit('message', {
-      channelId: defaultChannelId,
-      content: 'to edit',
-      id: socketEditId,
+    const socketEditClientId = randomUUID();
+    const socketEditId = await new Promise<string>((resolve, reject) => {
+      const t = setTimeout(
+        () => reject(new Error('timeout waiting for socket edit message_ack')),
+        15_000,
+      );
+      s1.once('message_ack', (payload: { message?: { id?: string } }) => {
+        clearTimeout(t);
+        const id = payload?.message?.id?.trim();
+        if (!id) {
+          reject(new Error('message_ack missing persisted id'));
+          return;
+        }
+        resolve(id);
+      });
+      s1.emit('message', {
+        channelId: defaultChannelId,
+        content: 'to edit',
+        id: socketEditClientId,
+      });
     });
-    await new Promise((r) => setTimeout(r, 500));
+    await pollChannelMessage(baseUrl, defaultChannelId, socketEditId, t1Sid!, {
+      expectedContent: 'to edit',
+      timeoutMs: 15_000,
+    });
     s1.emit('message:edit', {
       channelId: defaultChannelId,
       messageId: socketEditId,
       content: 'edited via socket',
     });
-    await new Promise((r) => setTimeout(r, 500));
-    const editedRes = await fetch(
-      `${baseUrl}/api/v1/echo/channels/${encodeURIComponent(defaultChannelId)}/messages/${encodeURIComponent(socketEditId)}`,
-      { headers: { cookie: `echo_sid=${t1Sid}` } },
+    const edited = await pollChannelMessage(
+      baseUrl,
+      defaultChannelId,
+      socketEditId,
+      t1Sid!,
+      { expectedContent: 'edited via socket', timeoutMs: 15_000 },
     );
-    const editedJson = (await editedRes.json()) as {
-      message: { content: string };
-    };
-    assert.equal(editedJson.message.content, 'edited via socket');
+    assert.equal(edited.content, 'edited via socket');
 
     // --- Banned User Enforcement ---
     const badModAction = await fetch(

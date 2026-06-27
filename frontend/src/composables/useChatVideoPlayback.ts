@@ -1,6 +1,10 @@
 import { onScopeDispose, ref, watch, type Ref } from 'vue';
 import { fetchEchoVideoPlayback } from '@/api/echo/uploads';
-import { rewriteR2EchoUploadUrlForReadThrough } from '@/utils/rewriteR2EchoUploadUrlForReadThrough';
+import { resolveSignedEchoMediaUrl } from '@/services/mediaCdn';
+import {
+  extractStorageKeyFromEchoMediaUrl,
+  hlsPackPrefixForSourceKey,
+} from '@shared/echoUploadStorageKey';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 
 export type ChatVideoPlaybackMode = 'hls' | 'progressive';
@@ -33,13 +37,33 @@ function rememberPlayback(url: string, state: ChatVideoPlaybackState): void {
   playbackCache.set(key, state);
 }
 
-function resolveEchoUploadPlaybackUrl(raw: string): string {
-  return rewriteR2EchoUploadUrlForReadThrough(safeImageUrl(raw));
+async function resolveEchoUploadPlaybackUrl(
+  raw: string,
+  opts?: { storageKey?: string; hls?: boolean },
+): Promise<string> {
+  const safe = safeImageUrl(raw);
+  const storageKey =
+    opts?.storageKey?.trim() ||
+    extractStorageKeyFromEchoMediaUrl(safe) ||
+    undefined;
+  if (opts?.hls && storageKey) {
+    const prefix = hlsPackPrefixForSourceKey(storageKey).replace(/\/$/, '');
+    return resolveSignedEchoMediaUrl({
+      url: safe,
+      storageKey: prefix,
+      scope: 'prefix',
+    });
+  }
+  return resolveSignedEchoMediaUrl({
+    url: safe,
+    storageKey,
+    scope: 'object',
+  });
 }
 
 export function useChatVideoPlayback(
   sourceUrl: Ref<string>,
-  opts?: { pollMs?: number },
+  opts?: { pollMs?: number; storageKey?: Ref<string | undefined> },
 ): {
   state: Ref<ChatVideoPlaybackState>;
   refresh: () => void;
@@ -53,8 +77,8 @@ export function useChatVideoPlayback(
     cached ?? {
       status: 'loading',
       mode: 'progressive',
-      playbackUrl: resolveEchoUploadPlaybackUrl(sourceUrl.value),
-      sourceUrl: resolveEchoUploadPlaybackUrl(sourceUrl.value),
+      playbackUrl: safeImageUrl(sourceUrl.value),
+      sourceUrl: safeImageUrl(sourceUrl.value),
       sourceEtag: null,
       sourceSize: 0,
     },
@@ -86,7 +110,10 @@ export function useChatVideoPlayback(
   async function load(options?: { silent?: boolean }): Promise<void> {
     const url = sourceUrl.value.trim();
     const id = ++requestId;
-    const fallbackSource = resolveEchoUploadPlaybackUrl(url);
+    const storageKey = opts?.storageKey?.value?.trim();
+    const fallbackSource = await resolveEchoUploadPlaybackUrl(url, {
+      storageKey,
+    });
     if (!url) {
       state.value = {
         status: 'failed',
@@ -120,12 +147,19 @@ export function useChatVideoPlayback(
     try {
       const res = await fetchEchoVideoPlayback(null, url);
       if (id !== requestId) return;
-      const resolvedSource = resolveEchoUploadPlaybackUrl(res.sourceUrl || url);
+      const resolvedSource = await resolveEchoUploadPlaybackUrl(
+        res.sourceUrl || url,
+        { storageKey },
+      );
       if (res.status === 'ready' && res.format === 'hls' && res.playbackUrl) {
+        const signedPlayback = await resolveEchoUploadPlaybackUrl(
+          res.playbackUrl,
+          { storageKey, hls: true },
+        );
         const next: ChatVideoPlaybackState = {
           status: 'ready',
           mode: 'hls',
-          playbackUrl: resolveEchoUploadPlaybackUrl(res.playbackUrl),
+          playbackUrl: signedPlayback,
           sourceUrl: resolvedSource,
           sourceEtag: res.sourceEtag,
           sourceSize: res.sourceSize,
@@ -163,7 +197,7 @@ export function useChatVideoPlayback(
   }
 
   watch(
-    sourceUrl,
+    [sourceUrl, () => opts?.storageKey?.value],
     () => {
       stopPoll();
       const url = sourceUrl.value.trim();

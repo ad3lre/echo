@@ -15,7 +15,7 @@ export function discordOAuthAppRedirect(
     guestSignup?: boolean;
   },
 ): string {
-  let base = config.echoAppPublicUrl.trim().replace(/\/$/, '');
+  const base = config.echoAppPublicUrl.trim().replace(/\/$/, '');
   let u: URL;
   try {
     u = new URL(base);

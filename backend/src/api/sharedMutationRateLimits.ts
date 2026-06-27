@@ -1,42 +1,36 @@
 import type { FastifyRequest } from 'fastify';
+import {
+  resolveHttpRateLimit,
+  type HttpRouteRateLimitId,
+} from '../config/instancePolicy/resolveHttpRateLimit';
 import { authUserOrIpRateLimitKey } from './rateLimitKeys';
 
+function mutationRate(routeId: HttpRouteRateLimitId) {
+  const bucket = resolveHttpRateLimit(routeId);
+  return {
+    max: bucket.max,
+    timeWindow: bucket.timeWindow,
+    keyGenerator: authUserOrIpRateLimitKey,
+  };
+}
+
 /** Shared per-route rate limit configs for Echo mutation endpoints. */
-export const ECHO_DISCORD_IMPORT_BIND_RATE = {
-  max: 10,
-  timeWindow: '1 hour' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
-
-export const ECHO_DISCORD_IMPORT_RUN_FULL_RATE = {
-  max: 3,
-  timeWindow: '1 hour' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
-
-export const ECHO_DISCORD_IMPORT_CHANNEL_RATE = {
-  max: 20,
-  timeWindow: '1 hour' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
-
-export const ECHO_E2EE_DEVICE_MUTATION_RATE = {
-  max: 30,
-  timeWindow: '15 minutes' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
-
-export const ECHO_EMOJI_USAGE_RATE = {
-  max: 120,
-  timeWindow: '15 minutes' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
-
-export const ECHO_DISCORD_BRIDGE_PUT_RATE = {
-  max: 30,
-  timeWindow: '15 minutes' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
+export const ECHO_DISCORD_IMPORT_BIND_RATE = mutationRate(
+  'mutations.discordImportBind',
+);
+export const ECHO_DISCORD_IMPORT_RUN_FULL_RATE = mutationRate(
+  'mutations.discordImportRunFull',
+);
+export const ECHO_DISCORD_IMPORT_CHANNEL_RATE = mutationRate(
+  'mutations.discordImportChannel',
+);
+export const ECHO_E2EE_DEVICE_MUTATION_RATE = mutationRate(
+  'mutations.e2eeDeviceMutation',
+);
+export const ECHO_EMOJI_USAGE_RATE = mutationRate('mutations.emojiUsage');
+export const ECHO_DISCORD_BRIDGE_PUT_RATE = mutationRate(
+  'mutations.discordBridgePut',
+);
 
 export function e2eePairingRateLimitKey(req: FastifyRequest): string {
   return req.authUser?.id
@@ -51,16 +45,13 @@ export function passkeyCeremonyRateLimitKey(req: FastifyRequest): string {
 }
 
 export const PASSKEY_CEREMONY_ROUTE_RATE = {
-  max: 12,
-  timeWindow: '15 minutes' as const,
+  ...mutationRate('mutations.passkeyCeremony'),
   keyGenerator: passkeyCeremonyRateLimitKey,
 };
 
-export const AUTH_PROFILE_PATCH_RATE = {
-  max: 30,
-  timeWindow: '15 minutes' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
+export const AUTH_PROFILE_PATCH_RATE = mutationRate(
+  'mutations.authProfilePatch',
+);
 
 export const DISCORD_BOT_WEBHOOK_ROUTE_RATE = {
   max: 300,
@@ -77,26 +68,48 @@ export const DISCORD_BOT_API_ROUTE_RATE = {
       : `discord_bot_ip:${req.ip}`,
 };
 
-export const ECHO_DISCORD_IMPORT_REFRESH_RATE = {
-  max: 3,
-  timeWindow: '1 hour' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
+export const ECHO_DISCORD_IMPORT_REFRESH_RATE = mutationRate(
+  'mutations.discordImportRefresh',
+);
+export const ECHO_MESSAGE_PATCH_RATE = mutationRate('mutations.messagePatch');
+export const MLS_WRITE_RATE = mutationRate('mutations.mlsWrite');
+export const MLS_READ_RATE = mutationRate('mutations.mlsRead');
+export const ECHO_READ_STATE_WRITE_RATE = mutationRate(
+  'mutations.readStateWrite',
+);
 
-export const ECHO_MESSAGE_PATCH_RATE = {
-  max: 60,
-  timeWindow: '1 minute' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
+export function authRegisterRouteRate() {
+  return resolveHttpRateLimit('auth.register');
+}
 
-export const MLS_WRITE_RATE = {
-  max: 60,
-  timeWindow: '1 minute' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
+export function authGuestMintRouteRate() {
+  return resolveHttpRateLimit('auth.guestMint');
+}
 
-export const MLS_READ_RATE = {
-  max: 120,
-  timeWindow: '1 minute' as const,
-  keyGenerator: authUserOrIpRateLimitKey,
-};
+export function authLoginRouteRate() {
+  return resolveHttpRateLimit('auth.login');
+}
+
+export function authLoginStrictRouteRate() {
+  return resolveHttpRateLimit('auth.loginStrict');
+}
+
+export function authVerifyEmailRouteRate() {
+  return resolveHttpRateLimit('auth.verifyEmail');
+}
+
+export function authForgotPasswordRouteRate() {
+  return resolveHttpRateLimit('auth.forgotPassword');
+}
+
+export function authResetPasswordRouteRate() {
+  return resolveHttpRateLimit('auth.resetPassword');
+}
+
+export function authMfaLoginRouteRate() {
+  return resolveHttpRateLimit('auth.mfaLogin');
+}
+
+export function authMfaLoginStrictRouteRate() {
+  return resolveHttpRateLimit('auth.mfaLoginStrict');
+}

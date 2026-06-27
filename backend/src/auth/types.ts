@@ -77,6 +77,8 @@ export interface AuthUser {
   timeZone?: string | null;
   /** BCP-47 UI locale (e.g. en-US, en-GB). Omitted when unset. */
   locale?: string | null;
+  /** Instance operator — may manage instance-level bans and operators. */
+  isInstanceOperator?: boolean;
 }
 
 /** Second step after password when `totpEnabled` (see login response union). */

@@ -33,6 +33,21 @@ describe('ChannelPanelContextMenu runtime', () => {
     };
   }
 
+  async function clickMenuButton(label: string) {
+    const button = Array.from(document.body.querySelectorAll('button')).find(
+      (btn) => btn.textContent?.includes(label),
+    );
+    expect(button).toBeTruthy();
+    button!.dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+    );
+    await nextTick();
+    button!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    );
+    await nextTick();
+  }
+
   afterEach(() => {
     app?.unmount();
     container?.remove();
@@ -47,7 +62,7 @@ describe('ChannelPanelContextMenu runtime', () => {
     type: 'text',
   } as ChannelWithParticipants;
 
-  it('fires channel delete on mousedown under document mousedown close listeners', async () => {
+  it('fires channel delete on click under document mousedown close listeners', async () => {
     const onChannelMenuDelete = vi.fn();
     const menuOpen = ref(true);
     const menuRef = ref<HTMLElement | null>(null);
@@ -79,15 +94,7 @@ describe('ChannelPanelContextMenu runtime', () => {
       app.mount(container);
       await nextTick();
 
-      const deleteButton = Array.from(
-        document.body.querySelectorAll('button'),
-      ).find((btn) => btn.textContent?.includes('Delete channel'));
-      expect(deleteButton).toBeTruthy();
-
-      deleteButton!.dispatchEvent(
-        new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
-      );
-      await nextTick();
+      await clickMenuButton('Delete channel');
 
       expect(onChannelMenuDelete).toHaveBeenCalledTimes(1);
       expect(menuOpen.value).toBe(true);
@@ -96,7 +103,7 @@ describe('ChannelPanelContextMenu runtime', () => {
     }
   });
 
-  it('fires category delete on mousedown under document mousedown close listeners', async () => {
+  it('fires category delete on click under document mousedown close listeners', async () => {
     const onCategoryMenuDelete = vi.fn();
     const menuOpen = ref(true);
     const menuRef = ref<HTMLElement | null>(null);
@@ -133,15 +140,7 @@ describe('ChannelPanelContextMenu runtime', () => {
       app.mount(container);
       await nextTick();
 
-      const deleteButton = Array.from(
-        document.body.querySelectorAll('button'),
-      ).find((btn) => btn.textContent?.includes('Delete category'));
-      expect(deleteButton).toBeTruthy();
-
-      deleteButton!.dispatchEvent(
-        new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
-      );
-      await nextTick();
+      await clickMenuButton('Delete category');
 
       expect(onCategoryMenuDelete).toHaveBeenCalledTimes(1);
       expect(menuOpen.value).toBe(true);

@@ -3,6 +3,9 @@
 # Watchdog runtime stats (written by scripts/watchdog.mjs)
 /scripts/downtime-stats.json
 
+# Local runtime logs (PM2 / vps-serve rolling output)
+/logs/
+
 # Dependencies
 /node_modules
 /frontend/node_modules
@@ -26,6 +29,8 @@
 /shared/**/*.js.map
 /voice-sidecar/node_modules
 /game-server/node_modules
+/media-cdn/node_modules
+/media-cdn/dist
 /src-tauri/target
 /src-tauri/ios-sim-derived
 # Tauri updater private key (never commit; pubkey `echo-update.key.pub` is tracked)

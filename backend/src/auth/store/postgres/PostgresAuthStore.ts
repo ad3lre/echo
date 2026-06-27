@@ -157,6 +157,12 @@ export class PostgresAuthStore implements AuthStore {
     if (row.locale != null && String(row.locale).trim()) {
       u.locale = String(row.locale).trim().slice(0, 16);
     }
+    if (
+      row.is_instance_operator !== undefined &&
+      row.is_instance_operator !== null
+    ) {
+      u.isInstanceOperator = Boolean(row.is_instance_operator);
+    }
     const ordRaw = row.signup_ordinal;
     const signupOrdinal =
       ordRaw != null && ordRaw !== '' ? Number(ordRaw) : Number.NaN;
@@ -340,6 +346,7 @@ export class PostgresAuthStore implements AuthStore {
         guest_pending_email,
         COALESCE(totp_enabled, false) AS totp_enabled,
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
+        COALESCE(is_instance_operator, false) AS is_instance_operator,
         COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
         time_zone,
         signup_ordinal,
@@ -383,6 +390,7 @@ export class PostgresAuthStore implements AuthStore {
         guest_pending_email,
         COALESCE(totp_enabled, false) AS totp_enabled,
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
+        COALESCE(is_instance_operator, false) AS is_instance_operator,
         COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
         time_zone,
         signup_ordinal,
@@ -409,6 +417,7 @@ export class PostgresAuthStore implements AuthStore {
         guest_pending_email,
         COALESCE(totp_enabled, false) AS totp_enabled,
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
+        COALESCE(is_instance_operator, false) AS is_instance_operator,
         COALESCE(NULLIF(TRIM(echo_plan), ''), 'free') AS echo_plan,
         time_zone,
         signup_ordinal,
@@ -746,6 +755,7 @@ export class PostgresAuthStore implements AuthStore {
         guest_pending_email,
         COALESCE(totp_enabled, false) AS totp_enabled,
         COALESCE(is_discord_shadow, false) AS is_discord_shadow,
+        COALESCE(is_instance_operator, false) AS is_instance_operator,
         time_zone,
         signup_ordinal,
         awarded_badges
@@ -1347,7 +1357,7 @@ export class PostgresAuthStore implements AuthStore {
     );
     const row = pr.rows[0];
     if (!row) throw new Error('NOT_FOUND');
-    if (Boolean(row.totp_enabled)) throw new Error('TOTP_ALREADY_ENABLED');
+    if (row.totp_enabled) throw new Error('TOTP_ALREADY_ENABLED');
 
     const secretBase32 = generateTotpSecretBase32();
     const cipher = encryptTotpSecret(secretBase32);
@@ -1383,7 +1393,7 @@ export class PostgresAuthStore implements AuthStore {
         await client.query('ROLLBACK');
         throw new Error('NOT_FOUND');
       }
-      if (Boolean(r.totp_enabled)) {
+      if (r.totp_enabled) {
         await client.query('ROLLBACK');
         throw new Error('TOTP_ALREADY_ENABLED');
       }
@@ -1465,7 +1475,7 @@ export class PostgresAuthStore implements AuthStore {
     );
     const u = row.rows[0];
     if (!u) throw new Error('NOT_FOUND');
-    if (!Boolean(u.totp_enabled)) throw new Error('TOTP_NOT_ENABLED');
+    if (!u.totp_enabled) throw new Error('TOTP_NOT_ENABLED');
     const pwOk =
       u.password_hash != null
         ? await bcrypt.compare(password, String(u.password_hash))
@@ -1562,7 +1572,7 @@ export class PostgresAuthStore implements AuthStore {
       [userId],
     );
     const r = row.rows[0];
-    if (!r || !Boolean(r.totp_enabled) || !r.totp_secret_cipher) return false;
+    if (!r || !r.totp_enabled || !r.totp_secret_cipher) return false;
     try {
       const secret = decryptTotpSecret(String(r.totp_secret_cipher));
       const isValid = verifyTotpCode(secret, code);
@@ -1690,7 +1700,7 @@ export class PostgresAuthStore implements AuthStore {
         await client.query('ROLLBACK');
         return { ok: false, reason: 'invalid' };
       }
-      if (Boolean(u.totp_enabled)) {
+      if (u.totp_enabled) {
         const code = options?.totpCode?.trim();
         if (!code) {
           await client.query('ROLLBACK');

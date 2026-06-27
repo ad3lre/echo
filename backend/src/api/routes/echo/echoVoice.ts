@@ -184,8 +184,7 @@ async function syncLiveKitMicAfterServerModeration(
   }
   const cid = String(r.rows[0].channel_id);
   const channelType = String(r.rows[0].channel_type ?? '');
-  const stageBlocksMic =
-    channelType === 'stage' && !Boolean(r.rows[0].stage_speaker);
+  const stageBlocksMic = channelType === 'stage' && !r.rows[0].stage_speaker;
   const mute =
     Boolean(r.rows[0].server_muted) ||
     Boolean(r.rows[0].server_deafened) ||

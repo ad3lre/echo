@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type pg from 'pg';
+import type { Server as SocketIoServer } from 'socket.io';
 import { getEchoStore } from '../../domain/echoStore/bootstrap';
 import { joinNewAccountToOfficialEchoServer } from '../../domain/echoStore/officialServerOnboarding';
 import { markOfficialEchoServerMembershipChecked } from './officialEchoServerMembershipCache';
@@ -8,12 +9,16 @@ import { markOfficialEchoServerMembershipChecked } from './officialEchoServerMem
 export async function tryJoinOfficialEchoServerOnSignup(
   log: FastifyBaseLogger,
   userId: string,
-  opts?: { joinClientIp?: string | null },
+  opts?: { joinClientIp?: string | null; io?: SocketIoServer },
 ): Promise<void> {
   const { enabled, pool } = await getEchoStore();
   if (!enabled || !pool) return;
   try {
-    const result = await joinNewAccountToOfficialEchoServer(pool, userId, opts);
+    const result = await joinNewAccountToOfficialEchoServer(pool, userId, {
+      joinClientIp: opts?.joinClientIp,
+      io: opts?.io,
+      log,
+    });
     if (result.joined) {
       log.info({
         msg: 'echo_product_analytics',

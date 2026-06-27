@@ -18,6 +18,7 @@ import type { IdTokenResolvers } from '@/composables/useMarkdown';
 import {
   AppIconNode,
   buildComposerDoc,
+  buildComposerDocFromPlain,
   ChannelMentionNode,
   CustomEmojiNode,
   ImageSlotNode,
@@ -257,7 +258,13 @@ export function useComposerState(
     // overwrite programmatic updates (e.g. channel message format rehydration).
     pendingSerialized = null;
     clearSelectionRawOverride();
-    const doc = buildComposerDoc(nextContent, nextMentions, getResolvers());
+    const priorDoc = nextEditor.getJSON();
+    const doc = buildComposerDocFromPlain(
+      nextContent,
+      nextMentions,
+      getResolvers(),
+      priorDoc,
+    );
     nextEditor.commands.setContent(doc, { emitUpdate: false });
     const pmDoc = nextEditor.state.doc;
     const contentEnd = nextContent.length;
@@ -490,22 +497,30 @@ export function useComposerState(
 
   function captureSnapshot(): ComposerSnapshot {
     flushVueSync();
+    const ed = editor.value;
     return {
       content: content.value,
       mentions: mentions.value.map((m) => ({ ...m })),
+      ...(ed ? { contentJson: ed.getJSON() as Record<string, unknown> } : {}),
     };
   }
 
   function restoreSnapshot(snapshot: ComposerSnapshot) {
     const nextEditor = editor.value;
     if (!nextEditor) return;
+    pendingSerialized = null;
+    clearSelectionRawOverride();
     if (snapshot.contentJson && typeof snapshot.contentJson === 'object') {
       nextEditor.commands.setContent(snapshot.contentJson, {
         emitUpdate: false,
       });
       syncFromEditor(nextEditor);
       const end = content.value.length;
-      setSerializedState(content.value, mentions.value, end, end);
+      nextEditor.view.dispatch(
+        nextEditor.state.tr.setSelection(Selection.atEnd(nextEditor.state.doc)),
+      );
+      selectionStart.value = end;
+      selectionEnd.value = end;
       return;
     }
     const end = snapshot.content.length;

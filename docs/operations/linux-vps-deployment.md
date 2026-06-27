@@ -29,11 +29,11 @@ There is **no root Dockerfile** in this repo. Choose one of these patterns:
 | **A — Compose for data, Node on host** | `docker compose up -d` for services you need | `npm run build` then `npm start` (backend) + serve the built SPA (`vite preview`, static files, or CDN) |
 | **B — Managed services**               | Hosted Postgres, Redis, NATS, LiveKit Cloud  | Same Node processes; set env vars to cloud URLs                                                         |
 
-Minimum for a real deployment: **Postgres**, **`DATABASE_URL`**, **`NODE_ENV=production`**, **`HOST=0.0.0.0`**, explicit **`CORS_ORIGIN`**, **`ECHO_GUEST_BINDING_SECRET`** (unless **`ECHO_REQUIRE_GUEST_BINDING_SECRET_IN_PRODUCTION=false`** for a single-process host only), **`ECHO_METRICS_SCRAPE_TOKEN`**, media URL hardening (**`ECHO_MEDIA_URL_REQUIRE_HTTPS`** and/or **`ECHO_MEDIA_URL_ALLOWED_HOSTS`**), and **`REDIS_URL`** (unless you explicitly set **`ECHO_REQUIRE_REDIS_IN_PRODUCTION=false`** for a single-process host). See [`.env.example`](../../.env.example) and [`PRODUCTION_SECURITY_CHECKLIST.md`](./PRODUCTION_SECURITY_CHECKLIST.md). Voice requires **LiveKit** env alignment; import tooling may need the **Discord bot** as a separate process.
+Minimum for a real deployment: **Postgres**, **`DATABASE_URL`**, **`NODE_ENV=production`**, **`HOST=0.0.0.0`**, explicit **`CORS_ORIGIN`**, **`ECHO_GUEST_BINDING_SECRET`** (unless **`ECHO_REQUIRE_GUEST_BINDING_SECRET_IN_PRODUCTION=false`** for a single-process host only), **`ECHO_METRICS_SCRAPE_TOKEN`**, media URL hardening (**`ECHO_MEDIA_URL_REQUIRE_HTTPS`** and/or **`ECHO_MEDIA_URL_ALLOWED_HOSTS`**), and **`REDIS_URL`** (unless you explicitly set **`ECHO_REQUIRE_REDIS_IN_PRODUCTION=false`** for a single-process host). See [`.env.example`](../../.env.example) and [`PRODUCTION_SECURITY_CHECKLIST.md`](./PRODUCTION_SECURITY_CHECKLIST.md). Optional operational tuning (registration, guest caps, rate buckets) can live in [`echo.instance.json`](../../echo.instance.example.json) — see [`instance-policy.md`](./instance-policy.md). Voice requires **LiveKit** env alignment; import tooling may need the **Discord bot** as a separate process.
 
-## Blue-green production deploy (`npm run deploy*`)
+## Production deploy (`npm run vps:prod`)
 
-For **zero-downtime-style** cutover (build idle slot, health check, flip Caddy upstream snippet, stop old API), see **[blue-green-deployment.md](./blue-green-deployment.md)** (`npm run deploy:init`, `npm run deploy`, `npm run deploy:up`). Example **systemd** units and a timer live under **[infra/systemd/README.md](../../infra/systemd/README.md)** (`scripts/deploy/install-systemd.sh`).
+For production on a single checkout, use **`npm run vps:prod`** (see **VPS runner helper** below). It preverifies TypeScript, builds, stops the previous stack, and starts `npm run prod` (API on **:3000**, SPA preview on **:4173**). Optional **systemd** units: `infra/systemd/echo-vps-prod.service` + timer (`scripts/deploy/install-vps-prod-systemd.sh`).
 
 ## VPS runner helper (`npm run vps:*`)
 
@@ -70,14 +70,13 @@ User-visible downtime is roughly the **cutover** (~seconds), not the full build.
 
 Manual staging only: **`npm run prod:staging:serve`** (optional `--api-port=3001 --frontend-port=4174`).
 
-For dual checkouts + Caddy snippet flip, see **[blue-green-deployment.md](./blue-green-deployment.md)**.
-
 ## Reverse proxy (recommended on a VPS)
 
 Terminate **TLS** at **Caddy** (or **Traefik** / a cloud load balancer), and:
 
-- **HTTP(S)** to the Fastify API (REST + webhook routes).
-- **WebSocket upgrade** for **Socket.IO** on the same origin or explicit `VITE_SOCKET_IO_URL` / proxy path your frontend uses.
+- **HTTP(S)** to the Fastify API on **`127.0.0.1:3000`** (REST + webhook routes).
+- **WebSocket upgrade** for **Socket.IO** on the same origin (proxy `/socket.io*` to **:3000**).
+- **SPA** via **`vite preview` on :4173** or static files from **`frontend/dist`** (see `scripts/deploy/templates/caddy-spa-security-headers.Caddyfile.snippet`).
 - **WebSocket** for **LiveKit** signaling (`wss://`) when using self-hosted SFU or a public `LIVEKIT_PUBLIC_URL`.
 - **Large request / body limits** if users upload attachments (align with your presign / proxy timeouts).
 - **Static compression** for frontend assets (`.js`, `.css`, `.svg`, `.json`, `.webmanifest`): prefer Brotli with gzip fallback.

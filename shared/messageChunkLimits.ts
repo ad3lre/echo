@@ -98,8 +98,24 @@ export function preparePlainTextChunks(
   const trimmedLen = b - a;
   if (trimmedLen <= maxChunk) return null;
   const chunks: string[] = [];
-  for (let i = a; i < b; i += maxChunk) {
-    chunks.push(rawContent.slice(i, Math.min(i + maxChunk, b)));
+  for (let pos = a; pos < b; ) {
+    const hardEnd = Math.min(pos + maxChunk, b);
+    if (hardEnd >= b) {
+      chunks.push(rawContent.slice(pos, b));
+      break;
+    }
+    const window = rawContent.slice(pos, hardEnd);
+    const nlIdx = window.lastIndexOf('\n');
+    let splitAt = hardEnd;
+    if (nlIdx > 0) {
+      splitAt = pos + nlIdx + 1;
+    } else {
+      const spIdx = window.lastIndexOf(' ');
+      if (spIdx > 0) splitAt = pos + spIdx + 1;
+    }
+    if (splitAt <= pos) splitAt = hardEnd;
+    chunks.push(rawContent.slice(pos, splitAt));
+    pos = splitAt;
   }
   return { chunks, trimStart: a, trimEnd: b };
 }

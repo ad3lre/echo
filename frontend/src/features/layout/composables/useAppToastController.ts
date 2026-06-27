@@ -41,6 +41,12 @@ import {
   resolveAppToastReplyExtendMs,
   shouldExtendAppToastOnClick,
 } from '@/features/layout/appToastDismissTimer';
+import {
+  appendMessageToast,
+  canNavigateMessageToasts,
+  messageToastNavLabel,
+  removeMessageToastAtIndex,
+} from '@/features/layout/appMessageToastQueue';
 
 export type AppToastLayoutContext = {
   echoChatBottomChromeInsetPx: Ref<number>;
@@ -72,6 +78,8 @@ export function useAppToastController(
   } | null>,
 ) {
   const appToast = ref<ActiveAppToast | null>(null);
+  const messageToastQueue = ref<ActiveAppToast[]>([]);
+  const messageToastQueueIndex = ref(0);
   const toastQuickReplyText = ref('');
   const appToastProgressEpoch = ref(0);
   let appToastClearTimer: ReturnType<typeof setTimeout> | null = null;
@@ -119,6 +127,36 @@ export function useAppToastController(
       appToastProgressVisible.value &&
       appToast.value?.variant === 'incoming_chat_message',
   );
+
+  const appToastMessageNavVisible = computed(
+    () =>
+      appToast.value?.variant === 'incoming_chat_message' &&
+      messageToastQueue.value.length > 1,
+  );
+
+  const appToastMessageNavCanGoPrev = computed(() =>
+    canNavigateMessageToasts(
+      messageToastQueue.value.length,
+      messageToastQueueIndex.value,
+      'prev',
+    ),
+  );
+
+  const appToastMessageNavCanGoNext = computed(() =>
+    canNavigateMessageToasts(
+      messageToastQueue.value.length,
+      messageToastQueueIndex.value,
+      'next',
+    ),
+  );
+
+  const appToastMessageNavLabel = computed(() => {
+    if (!appToastMessageNavVisible.value) return '';
+    return messageToastNavLabel(
+      messageToastQueueIndex.value,
+      messageToastQueue.value.length,
+    );
+  });
 
   const appToastContainerClass = computed(() => {
     const t = appToast.value;
@@ -195,7 +233,7 @@ export function useAppToastController(
     ) {
       return;
     }
-    clearAppToastOnly();
+    clearAllMessageToasts();
   }
 
   watch(
@@ -378,11 +416,116 @@ export function useAppToastController(
     return 'pointer-events-auto absolute inset-x-0 bottom-0 flex max-h-full min-h-0 flex-col-reverse gap-2.5 overflow-y-auto overscroll-contain';
   });
 
-  function scheduleAppToastDismiss(durationMs: number) {
+  function buildActiveAppToast(d: AppToastDetail): ActiveAppToast {
+    const incomingActions = Array.isArray(d.actions) ? d.actions : [];
+    const durationMs =
+      typeof d.durationMs === 'number' && Number.isFinite(d.durationMs)
+        ? Math.max(0, d.durationMs)
+        : 3500;
+    const variant =
+      d.variant === 'incoming_call'
+        ? 'incoming_call'
+        : d.variant === 'incoming_chat_message'
+          ? 'incoming_chat_message'
+          : 'default';
+    const showAutoDismissProgress =
+      d.showAutoDismissProgress !== false &&
+      durationMs > 0 &&
+      variant !== 'incoming_call';
+    return {
+      message: d.message,
+      severity: d.severity ?? 'info',
+      durationMs,
+      actions: incomingActions,
+      title: d.title,
+      subtitle: d.subtitle,
+      variant,
+      leadingIconSrc: d.leadingIconSrc,
+      imageUrl: d.imageUrl,
+      badge: d.badge,
+      quickReplyChannelId: d.quickReplyChannelId,
+      showAutoDismissProgress,
+    };
+  }
+
+  function clearAppToastTimer() {
     if (appToastClearTimer != null) {
       clearTimeout(appToastClearTimer);
       appToastClearTimer = null;
     }
+  }
+
+  function hideDisplayedToast() {
+    clearAppToastTimer();
+    appToastBaseDurationMs = 0;
+    appToast.value = null;
+  }
+
+  function clearAllMessageToasts() {
+    messageToastQueue.value = [];
+    messageToastQueueIndex.value = 0;
+    hideDisplayedToast();
+  }
+
+  function presentMessageToastAtIndex(index: number) {
+    const queue = messageToastQueue.value;
+    if (index < 0 || index >= queue.length) return;
+    messageToastQueueIndex.value = index;
+    const toast = queue[index];
+    appToastBaseDurationMs = toast.durationMs;
+    appToast.value = { ...toast };
+    scheduleAppToastDismiss(toast.durationMs);
+  }
+
+  function resumeMessageToastQueueIfIdle() {
+    if (appToast.value != null) return;
+    if (messageToastQueue.value.length === 0) return;
+    presentMessageToastAtIndex(messageToastQueue.value.length - 1);
+  }
+
+  function enqueueIncomingMessageToast(d: AppToastDetail) {
+    const toast = buildActiveAppToast(d);
+    messageToastQueue.value = appendMessageToast(
+      messageToastQueue.value,
+      toast,
+    );
+    if (appToast.value?.variant === 'incoming_call') return;
+    presentMessageToastAtIndex(messageToastQueue.value.length - 1);
+  }
+
+  function dismissCurrentMessageToast() {
+    hideDisplayedToast();
+    const { queue, nextIndex } = removeMessageToastAtIndex(
+      messageToastQueue.value,
+      messageToastQueueIndex.value,
+    );
+    messageToastQueue.value = queue;
+    messageToastQueueIndex.value = nextIndex;
+    if (queue.length === 0) return;
+    presentMessageToastAtIndex(nextIndex);
+  }
+
+  function showPrevMessageToast() {
+    if (!appToastMessageNavCanGoPrev.value) return;
+    presentMessageToastAtIndex(messageToastQueueIndex.value - 1);
+  }
+
+  function showNextMessageToast() {
+    if (!appToastMessageNavCanGoNext.value) return;
+    presentMessageToastAtIndex(messageToastQueueIndex.value + 1);
+  }
+
+  function onMessageToastAutoDismiss() {
+    dismissCurrentMessageToast();
+  }
+
+  function onNonMessageToastAutoDismiss() {
+    hideDisplayedToast();
+    resumeMessageToastQueueIfIdle();
+  }
+
+  function scheduleAppToastDismiss(durationMs: number) {
+    clearAppToastTimer();
     const toast = appToast.value;
     if (!toast || durationMs <= 0) return;
 
@@ -392,7 +535,11 @@ export function useAppToastController(
     }
     appToastClearTimer = setTimeout(() => {
       appToastClearTimer = null;
-      appToast.value = null;
+      if (toast.variant === 'incoming_chat_message') {
+        onMessageToastAutoDismiss();
+      } else {
+        onNonMessageToastAutoDismiss();
+      }
     }, durationMs);
   }
 
@@ -421,21 +568,28 @@ export function useAppToastController(
   }
 
   function clearAppToastOnly() {
-    if (appToastClearTimer != null) {
-      clearTimeout(appToastClearTimer);
-      appToastClearTimer = null;
+    if (appToast.value?.variant === 'incoming_chat_message') {
+      dismissCurrentMessageToast();
+      return;
     }
-    appToastBaseDurationMs = 0;
-    appToast.value = null;
+    hideDisplayedToast();
+    resumeMessageToastQueueIfIdle();
   }
 
   function dismissAppToast() {
     const incomingCall = appToast.value?.variant === 'incoming_call';
-    clearAppToastOnly();
+    const incomingMessage = appToast.value?.variant === 'incoming_chat_message';
+    if (incomingMessage) {
+      dismissCurrentMessageToast();
+      toastQuickReplyText.value = '';
+      return;
+    }
+    hideDisplayedToast();
     toastQuickReplyText.value = '';
     if (incomingCall) {
       void layoutContext.declineIncomingCall();
     }
+    resumeMessageToastQueueIfIdle();
   }
 
   function submitToastQuickReply() {
@@ -452,15 +606,21 @@ export function useAppToastController(
       return;
     }
     toastQuickReplyText.value = '';
-    clearAppToastOnly();
+    dismissCurrentMessageToast();
   }
 
   function onAppToastAction(action: AppToastAction) {
+    const variant = appToast.value?.variant;
     try {
       action.run();
     } finally {
       if (action.keepOpen !== true) {
-        clearAppToastOnly();
+        if (variant === 'incoming_chat_message') {
+          dismissCurrentMessageToast();
+        } else {
+          hideDisplayedToast();
+          resumeMessageToastQueueIfIdle();
+        }
       }
     }
   }
@@ -497,9 +657,10 @@ export function useAppToastController(
   function disposeAppToastSideEffects() {
     unsubscribeAppToastsFn?.();
     unsubscribeAppToastsFn = null;
-    if (appToastClearTimer != null) clearTimeout(appToastClearTimer);
-    appToastClearTimer = null;
+    clearAppToastTimer();
     appToastBaseDurationMs = 0;
+    messageToastQueue.value = [];
+    messageToastQueueIndex.value = 0;
     toastQuickReplyBaseline = '';
     window.removeEventListener(
       ECHO_CHAT_COMPOSER_FOCUS_EVENT,
@@ -519,6 +680,18 @@ export function useAppToastController(
 
   onMounted(() => {
     unsubscribeAppToastsFn = subscribeAppToasts((d) => {
+      const variant =
+        d.variant === 'incoming_call'
+          ? 'incoming_call'
+          : d.variant === 'incoming_chat_message'
+            ? 'incoming_chat_message'
+            : 'default';
+
+      if (variant === 'incoming_chat_message') {
+        enqueueIncomingMessageToast(d);
+        return;
+      }
+
       const incomingActions = Array.isArray(d.actions) ? d.actions : [];
       const currentHasActions = !!appToast.value?.actions.length;
       const incomingHasActions = incomingActions.length > 0;
@@ -530,38 +703,11 @@ export function useAppToastController(
       ) {
         return;
       }
-      if (appToastClearTimer != null) clearTimeout(appToastClearTimer);
-      appToastClearTimer = null;
-      const durationMs =
-        typeof d.durationMs === 'number' && Number.isFinite(d.durationMs)
-          ? Math.max(0, d.durationMs)
-          : 3500;
-      appToastBaseDurationMs = durationMs;
-      const variant =
-        d.variant === 'incoming_call'
-          ? 'incoming_call'
-          : d.variant === 'incoming_chat_message'
-            ? 'incoming_chat_message'
-            : 'default';
-      const showAutoDismissProgress =
-        d.showAutoDismissProgress !== false &&
-        durationMs > 0 &&
-        variant !== 'incoming_call';
-      appToast.value = {
-        message: d.message,
-        severity: d.severity ?? 'info',
-        durationMs,
-        actions: incomingActions,
-        title: d.title,
-        subtitle: d.subtitle,
-        variant,
-        leadingIconSrc: d.leadingIconSrc,
-        imageUrl: d.imageUrl,
-        badge: d.badge,
-        quickReplyChannelId: d.quickReplyChannelId,
-        showAutoDismissProgress,
-      };
-      scheduleAppToastDismiss(durationMs);
+      clearAppToastTimer();
+      const toast = buildActiveAppToast(d);
+      appToastBaseDurationMs = toast.durationMs;
+      appToast.value = toast;
+      scheduleAppToastDismiss(toast.durationMs);
     });
 
     window.addEventListener(
@@ -592,6 +738,10 @@ export function useAppToastController(
     appToastIsRich,
     appToastLinearProgressVisible,
     appToastCircularProgressVisible,
+    appToastMessageNavVisible,
+    appToastMessageNavCanGoPrev,
+    appToastMessageNavCanGoNext,
+    appToastMessageNavLabel,
     appToastContainerClass,
     appToastLeadingIconSrc,
     onAppToastContextMenu,
@@ -616,5 +766,7 @@ export function useAppToastController(
     incomingCallToastActionLabel,
     incomingCallToastActionTitle,
     onAppToastInteractionExtend,
+    showPrevMessageToast,
+    showNextMessageToast,
   };
 }

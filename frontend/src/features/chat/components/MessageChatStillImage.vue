@@ -14,7 +14,8 @@ import {
   observeChatMediaRetentionVisible,
   queueChatMediaRetentionTouch,
 } from '@/composables/useChatMediaRetentionTouch';
-import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
+import { isTrustedMediaUrl } from '@/utils/safeImageUrl';
+import { useSignedEchoMediaUrl } from '@/composables/useSignedEchoMediaUrl';
 import MediaUnavailablePanel from './MediaUnavailablePanel.vue';
 
 const props = defineProps<{
@@ -43,7 +44,13 @@ watch(
   },
 );
 
-const resolved = computed(() => safeImageUrl(props.url));
+const resolved = useSignedEchoMediaUrl(() => props.url, {
+  storageKey: () => props.storageKey,
+});
+
+watch(resolved, () => {
+  loadFailed.value = false;
+});
 const unavailable = computed(
   () => !isTrustedMediaUrl(props.url) || loadFailed.value,
 );
@@ -128,7 +135,9 @@ onUnmounted(() => {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '@/assets/echoSkeletonShimmer' as skel;
+
 .message-image-shell {
   position: relative;
 }
@@ -137,28 +146,13 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(
-    110deg,
-    rgb(255 255 255 / 0.04) 8%,
-    rgb(255 255 255 / 0.1) 18%,
-    rgb(255 255 255 / 0.04) 33%
-  );
-  background-size: 200% 100%;
-  animation: message-image-layout-shimmer 1.4s ease-in-out infinite;
   pointer-events: none;
+  @include skel.fill;
+  @include skel.reduced-motion;
 }
 
 .message-image--hidden {
   opacity: 0;
   pointer-events: none;
-}
-
-@keyframes message-image-layout-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
-  }
 }
 </style>

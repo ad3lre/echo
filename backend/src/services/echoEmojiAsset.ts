@@ -37,7 +37,9 @@ export function buildEchoPublicEmojiCdnUrl(
 ): string {
   const rel = buildEchoPublicEmojiCdnPath(emojiId);
   const base = (
-    config.echoEmojiPublicBaseUrl?.trim() || config.echoApiPublicUrl?.trim()
+    config.echoEmojiPublicBaseUrl?.trim() ??
+    config.echoApiPublicUrl?.trim() ??
+    ''
   ).replace(/\/$/, '');
   if (!base) return rel;
   const url = new URL(rel, `${base}/`);
@@ -55,6 +57,9 @@ export function extractStorageKeyFromEchoMediaUrl(url: string): string | null {
     httpPublicUrlPrefixes: getEchoUploadPublicUrlPrefixes().filter((p) =>
       p.startsWith('http'),
     ),
+    httpMediaCdnBaseUrls: config.echoMediaCdnBaseUrl
+      ? [config.echoMediaCdnBaseUrl]
+      : [],
   });
 }
 

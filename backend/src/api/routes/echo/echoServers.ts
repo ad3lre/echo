@@ -232,7 +232,11 @@ export default async function echoServersRoutes(
       sid,
       getAuthUser(req).id,
       clientIpFromFastifyRequest(req),
-      { isGuest: Boolean(req.authUser?.isGuest) },
+      {
+        isGuest: Boolean(req.authUser?.isGuest),
+        io: fastify.io,
+        log: req.log,
+      },
     );
     if (!r.ok) {
       if (r.reason === 'not_found')

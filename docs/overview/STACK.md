@@ -55,6 +55,7 @@ Related: the SPA can optionally show an Echo **screen-share settings** modal whe
 - **Node.js + Fastify:** High-performance HTTP server for REST APIs.
 - **Socket.IO:** Primary realtime transport (chat, presence, notifications). **Default:** in-memory adapter (**one** API process) — see **Scale strategy** below. **Optional multi-instance:** set **NATS_URL** to attach the **Socket.IO NATS adapter** (see [Plan updates](#plan-updates) and [realtime-scaling.md](../infra/realtime-scaling.md)); treat as **exception / pre-50k-CCU experiments** unless metrics justify it. **JetStream** and broader NATS-based platform messaging remain a later phase.
 - **REST API:** User authentication, server management, channel creation, settings, and Echo domain routes.
+- **media-cdn sidecar:** Optional signed GET delivery for uploads (`GET /v1/o/{storageKey}?t=…`); signing authority stays on the API (`POST /media/sign`). See [media-cdn.md](../operations/media-cdn.md).
 
 ## Database
 

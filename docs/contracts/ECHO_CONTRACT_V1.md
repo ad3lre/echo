@@ -57,12 +57,12 @@ All error bodies: `{ code: string, message: string, detail?: string }`.
 
 ### Common HTTP status ↔ code
 
-| HTTP | Typical `code`                                     | Notes                                                  |
-| ---- | -------------------------------------------------- | ------------------------------------------------------ |
-| 400  | `INVALID_BODY`, `INVALID_STATUS`, `INVALID_TARGET` | Bad input                                              |
-| 403  | `FORBIDDEN`, `CHANNEL_FULL`                        | Denied access / moderate; or voice channel at capacity |
-| 404  | `NOT_FOUND`                                        | Missing resource                                       |
-| 503  | `ECHO_UNAVAILABLE`, `UPLOADS_NOT_CONFIGURED`       | Echo DB off or S3 not configured                       |
+| HTTP | Typical `code`                                     | Notes                                                                |
+| ---- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| 400  | `INVALID_BODY`, `INVALID_STATUS`, `INVALID_TARGET` | Bad input                                                            |
+| 403  | `FORBIDDEN`, `CHANNEL_FULL`, `INSTANCE_BANNED`     | Denied access / moderate; instance ban; or voice channel at capacity |
+| 404  | `NOT_FOUND`                                        | Missing resource                                                     |
+| 503  | `ECHO_UNAVAILABLE`, `UPLOADS_NOT_CONFIGURED`       | Echo DB off or S3 not configured                                     |
 
 REST `code` is an **open string** set: routes may return additional `code` values (e.g. `SEARCH_QUERY_REQUIRED`, `UPGRADE_REQUIRED`, auth and integration errors). Document new Echo-domain codes in this file when they are part of the stable client contract.
 
@@ -85,6 +85,13 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
 - `GET` `/blocks`, `POST` `/blocks` (body: `targetUserId`), `DELETE` `/blocks/:targetUserId`
 - `POST` `/reports/user` (body: `targetUserId`, optional `reason`, optional `category`, optional `messageId` + `channelId` for message context). **429** rate limit: 10 submissions per hour per user (IP fallback when unauthenticated bearer parsing fails). Duplicate reports for the same target within 24h succeed with **204** without creating a second row.
 - `POST` `/reports/message` (body: `messageId`, `channelId`, optional `reason`, optional `category`). Caller must have channel access; cannot report own messages. Same rate limit and 24h duplicate suppression per message as user reports. **404** if message missing; **403** if channel inaccessible.
+- **Instance operators** (requires `auth_users.is_instance_operator`; orthogonal to server moderation):
+  - `GET` `/instance/bans` — list active bans (`limit`, `cursor`, optional filters `userId`, `ip`, `hwidHash`). **200** `{ bans, nextCursor }`.
+  - `POST` `/instance/bans` — create ban or allowlist entry (body: `reason`, optional `userId` / `ip` / `hwidHash`, optional `expiresAtMinutes`, `isAllowlisted`, `includeLastSeenIp`, `includeKnownHwid`). **201** `{ bans }`. Revokes target user sessions when banning by `userId`.
+  - `DELETE` `/instance/bans/:banId` — soft-revoke. **200** `{ ban }` or **404**.
+  - `POST` `/instance/operators/:userId` — promote operator. **204**.
+  - `DELETE` `/instance/operators/:userId` — demote operator (cannot demote self if last operator). **204**.
+  - Auth/register/guest/login and authenticated REST/socket paths return **403** `INSTANCE_BANNED` when a matching active ban exists (`detail` comma-separated dimensions: `userId`, `ip`, `hwid`). Allowlist rows override bans on the same dimension.
 - Report `category` (optional, default `other`): `spam` | `harassment` | `hate` | `sexual` | `violence` | `impersonation` | `other`.
 - **DMs (Echo graph, `echo_dm_realm`):**
   - `POST` `/dm/open` (body: `peerUserId`) — returns `{ channelId, peerUserId }` for a **1:1** thread; **403** when blocked or policy denies (non-friends without guest/shared-server carve-out); idempotent on pair.
@@ -100,8 +107,9 @@ Socket `MessageFailedCode` aligns with REST `FORBIDDEN`, `UNAUTHENTICATED`, `RAT
     - **`purpose: user_avatar`** or **`user_banner`**: authenticated user only; must **not** send `channelId` or `serverId`; keys `echo/avatars/{userId}/…` / `echo/banners/{userId}/…`.
     - **`purpose: user_ringtone`**: custom call ringtone audio (≤6 MiB); authenticated user only; keys `echo/ringtones/{userId}/…`. Register with `POST` `/ringtones` after upload.
     - **`purpose: server_icon`** or **`server_banner`** + **`serverId`**: requires `MANAGE_GUILD`; keys `echo/server-icons/{serverId}/{userId}/…` / `echo/server-banners/…`.
-  - **200 response:** `uploadUrl`, `publicUrl`, `key`, `headers` (include `Content-Type` for the `PUT`), `publicUrlPrefixes` (for clients).
+  - **200 response:** `uploadUrl`, `publicUrl`, `key`, `headers` (include `Content-Type` for the `PUT`), `publicUrlPrefixes` (for clients). When `ECHO_MEDIA_CDN_ENABLED` and `ECHO_MEDIA_CDN_BASE_URL` are set, `publicUrl` is the canonical unsigned path `{base}/v1/o/{storageKey}` (clients sign via `POST` `/media/sign` before fetch).
   - **Errors:** **400** `INVALID_BODY`, **403** `FORBIDDEN`, **503** `UPLOADS_NOT_CONFIGURED`.
+- `POST` `/media/sign` — batch issue HMAC read tokens for the media-cdn sidecar. Body `{ items: [{ storageKey?, publicUrl?, scope?: object|prefix }] }` (max **20**). Returns `{ urls: [{ storageKey, url, expiresAt, scope }] }` where `url` includes `?t=`. Session required for private keys; `echo/server-icons/`, `echo/server-banners/`, `echo/public-emojis/` may sign without auth (IP rate limit). **503** `MEDIA_CDN_NOT_CONFIGURED` when CDN env is off. HLS: use `scope: prefix` with `storageKey` `{sourceKey}/hls`. Legacy `POST` `/uploads/read-token` delegates here when CDN is enabled.
 - `POST` `/uploads/retention/touch` — authenticated; body `{ storageKeys: string[] }` (max 20). Resets **abandonment** timers for chat media the caller can read. Server ignores touches when `last_seen_at >= now() - 24h` per key.
 - **Chat video HLS (background packaging):**
   - `POST` `/uploads/register` with `kind: video` and `channelId` enqueues background HLS packaging after CSAM scan passes. Requires `ffmpeg` + `ffprobe` on the transcode worker host (embedded API or standalone worker; see [`docs/operations/chat-video-hls.md`](../operations/chat-video-hls.md)).

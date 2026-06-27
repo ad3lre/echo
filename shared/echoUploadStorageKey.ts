@@ -1,3 +1,4 @@
+import { extractStorageKeyFromMediaCdnUrl } from './mediaCdn';
 import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from './echoS3ReadThrough';
 
 /** Same-origin path for local disk upload reads (mirrors backend `localUploadDisk`). */
@@ -151,6 +152,8 @@ export function vcWatchTogetherGlobalLibraryPrefix(userId: string): string {
 export type ExtractStorageKeyFromEchoMediaUrlOptions = {
   /** Absolute HTTP(S) public URL prefixes for configured S3/R2 buckets. */
   httpPublicUrlPrefixes?: readonly string[];
+  /** Absolute HTTP(S) media CDN base URLs (no trailing slash). */
+  httpMediaCdnBaseUrls?: readonly string[];
 };
 
 /**
@@ -183,6 +186,11 @@ export function extractStorageKeyFromEchoMediaUrl(
       t.slice(ECHO_S3_PUBLIC_READ_THROUGH_PREFIX.length),
     );
   }
+
+  const fromMediaCdn = extractStorageKeyFromMediaCdnUrl(t, {
+    httpMediaCdnBaseUrls: opts?.httpMediaCdnBaseUrls,
+  });
+  if (fromMediaCdn) return fromMediaCdn;
 
   if (/^https?:\/\//i.test(t)) {
     try {

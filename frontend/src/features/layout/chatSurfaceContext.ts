@@ -1,6 +1,7 @@
 import type { ComputedRef, InjectionKey, Ref } from 'vue';
 import type { MessageWithAuthor } from '@shared/types';
 import type { FilterChip, FilterKey, HasType } from '@/composables/useSearch';
+import type { ChannelListEntry } from '@/services/orchestration/messageSearchCore';
 /** Incremental migration: optional inject for chat surface; props remain the source of truth until consumers adopt. */
 export type ChatSurfaceSearchContext = {
   searchText: Ref<string>;
@@ -15,7 +16,7 @@ export const CHAT_SURFACE_SEARCH_KEY: InjectionKey<ChatSurfaceSearchContext> =
 export type AppLayoutSearchPanelContext = {
   searchText: Ref<string>;
   filterChips: ComputedRef<FilterChip[]>;
-  allChannels: ComputedRef<Array<{ id: string; name: string }>>;
+  allChannels: ComputedRef<ChannelListEntry[]>;
   paginatedSearchResults: ComputedRef<
     (MessageWithAuthor & { channelName?: string })[]
   >;

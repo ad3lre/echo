@@ -45,8 +45,8 @@ const MESSAGE_LIST_BODY_LINE_PX = 22;
 const MESSAGE_LIST_HEADER_CHROME_PX = 50;
 /** Continuation chrome: just the tight `.msg-continuation` vertical padding. */
 const MESSAGE_LIST_GROUPED_CHROME_PX = 6;
-/** Avg glyphs per rendered line inside `max-w-3xl` before soft-wrap (rough). */
-const MESSAGE_LIST_CHARS_PER_LINE = 80;
+/** Avg glyphs per rendered line inside the message column before soft-wrap (rough). */
+const MESSAGE_LIST_CHARS_PER_LINE = 100;
 /** Cap line contribution so a wall of text cannot blow past the row max. */
 const MESSAGE_LIST_MAX_BODY_LINES = 12;
 /** Matches `MessageImageSlot` max width at 16px root (`36rem`). */

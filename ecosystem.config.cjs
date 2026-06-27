@@ -3,6 +3,28 @@ const fs = require('fs');
 
 const repoRoot = __dirname;
 const pm2EnvFile = path.join(repoRoot, '.env');
+/** Parsed root `.env` for PM2 children (`env_file` is unreliable on some PM2 builds). */
+function parseEnvFile(filePath) {
+  const out = {};
+  if (!fs.existsSync(filePath)) return out;
+  for (const line of fs.readFileSync(filePath, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) continue;
+    const i = t.indexOf('=');
+    if (i <= 0) continue;
+    const key = t.slice(0, i).trim();
+    let val = t.slice(i + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    out[key] = val;
+  }
+  return out;
+}
+const fileEnv = parseEnvFile(pm2EnvFile);
 /** Watch Together VC uploads: local disk even when S3 is configured (see backend/src/config/storage.ts). */
 const wtLocalUploadEnv = {
   ECHO_LOCAL_UPLOAD_DIR: path.join(repoRoot, 'backend/data/echo-local-uploads'),
@@ -12,6 +34,7 @@ const wtLocalUploadEnv = {
  * PM2 app definitions. Install PM2 once: `npm install -g pm2` (use Node from `.nvmrc`, >=22.13).
  * Start from repo root: `pm2 start ecosystem.config.cjs` so `env_file` loads DATABASE_URL, ECHO_S3_*, etc.
  * `echo-backend` uses ECHO_VIDEO_HLS_WORKER=standalone; `echo-video-hls-worker` must run alongside it (ffmpeg on PATH).
+ * `echo-media-cdn` and `echo-game-server` require Caddy routes on media.* / games.* subdomains.
  */
 function resolveNvmNode22Bin() {
   const home = process.env.HOME || '';
@@ -75,6 +98,7 @@ module.exports = {
       env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
+        ...fileEnv,
         PORT: 3000,
         ECHO_VIDEO_HLS_WORKER: 'standalone',
         ...wtLocalUploadEnv,
@@ -90,6 +114,7 @@ module.exports = {
       env_file: pm2EnvFile,
       env: {
         NODE_ENV: 'production',
+        ...fileEnv,
         ...wtLocalUploadEnv,
       },
       restart_delay: 3000,
@@ -106,6 +131,31 @@ module.exports = {
       restart_delay: 3000,
     },
     echoMarketing,
+    {
+      name: 'echo-media-cdn',
+      script: 'npm',
+      args: 'start',
+      cwd: './media-cdn',
+      env_file: pm2EnvFile,
+      env: {
+        NODE_ENV: 'production',
+        ...fileEnv,
+      },
+      restart_delay: 3000,
+      max_restarts: 10,
+    },
+    {
+      name: 'echo-game-server',
+      script: 'npm',
+      args: 'start',
+      cwd: './game-server',
+      env: {
+        NODE_ENV: 'production',
+        ...fileEnv,
+      },
+      restart_delay: 3000,
+      max_restarts: 10,
+    },
     {
       name: 'echo-discord-bot',
       script: path.join(repoRoot, 'bot/dist/index.js'),

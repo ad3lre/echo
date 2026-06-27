@@ -347,7 +347,7 @@ async function run(): Promise<void> {
       /echoCoreOk/i,
     );
 
-    let failedState = await getDiscordImportState(pool, serverId);
+    const failedState = await getDiscordImportState(pool, serverId);
     assert.ok(failedState);
     assert.match(failedState.lastError, /echoCoreOk/i);
     assert.equal(failedState.nextStep, 'metadata');

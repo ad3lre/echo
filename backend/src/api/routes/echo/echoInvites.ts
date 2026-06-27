@@ -283,7 +283,11 @@ export default async function echoInvitesRoutes(
         joinCtx.serverId,
         getAuthUser(req).id,
         clientIpFromFastifyRequest(req),
-        { isGuest: Boolean(req.authUser?.isGuest) },
+        {
+          isGuest: Boolean(req.authUser?.isGuest),
+          io: fastify.io,
+          log: req.log,
+        },
       );
       if (!r.ok) {
         if (r.reason === 'not_found') {

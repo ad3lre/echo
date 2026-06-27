@@ -1,16 +1,14 @@
 /**
- * Group icon filenames that are the same "family" (numbering, filled/outline, on/off, etc.)
- * so the channel picker can show one tile per family and expand variants on demand.
+ * Group icon filenames that are alternate versions of the same icon (filled/outline, on/off,
+ * -x overlays, numbered exports, stylistic -y alts, etc.) so the picker shows one tile per
+ * family and expands variants on demand.
  *
- * Large semantic buckets (chat/message, voice/video, people) collapse many unrelated filenames
- * into one expandable tile — see {@link resolveSemanticMegaKey}.
+ * Grouping is **filename-only** — we do not collapse unrelated icons by topic (chat vs message,
+ * math pack, people bucket, etc.).
  */
 
 import type { IconCatalogEntry } from '@/assets/iconCatalog';
-import {
-  getChannelIconSortKeys,
-  sortIconsForChannelPicker,
-} from '@/utils/iconChannelSort';
+import { sortIconsForChannelPicker } from '@/utils/iconChannelSort';
 
 export interface IconFamilyGroup {
   /** Stable key (lowercase), used for expand/collapse state */
@@ -22,131 +20,191 @@ export interface IconFamilyGroup {
   variants: IconCatalogEntry[];
 }
 
-const VARIANT_SUFFIX =
-  /-(filled|outline|alt|bold|thin|thin-2|on|off|slash|dashed|light|dark|v2|v3|filled-alt)$/i;
+/** Trailing `-{modifier}` segments stripped iteratively (right to left). */
+const VARIANT_MODIFIERS = new Set(
+  [
+    'filled',
+    'outline',
+    'alt',
+    'bold',
+    'thin',
+    'thin-2',
+    'on',
+    'off',
+    'slash',
+    'dashed',
+    'light',
+    'dark',
+    'v2',
+    'v3',
+    'filled-alt',
+    'normal',
+    'simple',
+    'styled',
+    'skeleton',
+    'skeletion',
+    'correct',
+    'plus',
+    'minus',
+    'x',
+    'xy',
+    'up',
+    'down',
+    'left',
+    'right',
+    'center',
+    'block',
+    'lock',
+    'locked',
+    'mute',
+    'love',
+    'heart',
+    'star',
+    'search',
+    'security',
+    'settings',
+    'time',
+    'read',
+    'write',
+    'danger',
+    'info',
+    'mark',
+    'remove',
+    'download',
+    'code',
+    'trade',
+    'tag',
+    'eyes',
+    'dollar',
+    'identify',
+    'identifid',
+    'identifidy',
+    'hand',
+    'return',
+    'pause',
+    'dot',
+    'dots',
+    'double',
+    'long',
+    'semi',
+    'fat',
+    'bigger',
+    'big',
+    'smaller',
+    'vertical',
+    'verticle',
+    'horizontal',
+    'alignment',
+    'seperated',
+    'seperator',
+    'separate',
+    'silhouette',
+    'friend',
+    'friends',
+    'group',
+    'simpler',
+    'two',
+    'it',
+    'pls',
+    'launch',
+    'fileld',
+    'cricle',
+    'cricly',
+    'taggy',
+    'plussy',
+    'minusey',
+    'offy',
+    'codey',
+    'dollary',
+    'eyey',
+    'searchy',
+    'securityy',
+    'settingy',
+    'starry',
+    'timedy',
+    'writey',
+  ].map((s) => s.toLowerCase()),
+);
 
-const SORT_MAX = 9999;
+const NUMERIC_SUFFIX = /-\d+$/i;
+const MAX_STRIP_PASSES = 24;
 
-/** Tier-1 icons that look “people / social” — substring check on filename. */
-const PEOPLE_MEGA_SUBSTRINGS = [
-  'user',
-  'people',
-  'group',
-  'friend',
-  'member',
-  'profile',
-  'avatar',
-  'community',
-  'team',
-  'invite',
-  'person',
-] as const;
-
-export type SemanticMegaKey =
-  | 'messaging'
-  | 'voice'
-  | 'people'
-  | 'math'
-  | 'hobbies';
-
-const PACK_PREFIX_MEGA: Record<string, SemanticMegaKey> = {
-  'math-': 'math',
-  'hobby-': 'hobbies',
-};
-
-/**
- * Map many chat-, message-, CHAT-, etc. files into one mega-family (tier-0 chat vs voice from
- * {@link getChannelIconSortKeys}), plus a people bucket for common social avatars.
- */
-function resolvePackMegaKey(entry: IconCatalogEntry): SemanticMegaKey | null {
-  const stem = entry.id.replace(/\.svg$/i, '').toLowerCase();
-  for (const [prefix, mega] of Object.entries(PACK_PREFIX_MEGA)) {
-    if (stem.startsWith(prefix)) return mega;
-  }
-  return null;
+/** Lowercase stem with spaces normalized to hyphens. */
+export function normalizeIconStem(filename: string): string {
+  return filename
+    .replace(/\.svg$/i, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase();
 }
 
-export function resolveSemanticMegaKey(
-  entry: IconCatalogEntry,
-  channelType: 'text' | 'voice',
-): SemanticMegaKey | null {
-  const pack = resolvePackMegaKey(entry);
-  if (pack) return pack;
-  const keys = getChannelIconSortKeys(entry);
-  if (keys.tier === 0) {
-    if (channelType === 'text') {
-      if (keys.chatIdx < SORT_MAX) return 'messaging';
-      if (keys.voiceIdx < SORT_MAX) return 'voice';
-    } else {
-      if (keys.voiceIdx < SORT_MAX) return 'voice';
-      if (keys.chatIdx < SORT_MAX) return 'messaging';
-    }
-    return null;
-  }
-  if (keys.tier === 1) {
-    const fileLower = entry.id.toLowerCase();
-    if (PEOPLE_MEGA_SUBSTRINGS.some((s) => fileLower.includes(s))) {
-      return 'people';
-    }
-  }
-  return null;
+/** Drop a trailing stylistic `y` only when the remainder is a known modifier (`offy` → `off`). */
+function stripStylisticYSegment(segment: string): string | null {
+  if (segment.length <= 2 || !segment.endsWith('y')) return null;
+  const base = segment.slice(0, -1);
+  return VARIANT_MODIFIERS.has(base) ? base : null;
 }
 
-const MEGA_LABEL: Record<SemanticMegaKey, string> = {
-  messaging: 'Chat & messages',
-  voice: 'Voice & video',
-  people: 'People & profiles',
-  math: 'Math & science',
-  hobbies: 'Hobbies & fun',
-};
+function stripOneVariantSegment(stem: string): string {
+  const k = stem.replace(NUMERIC_SUFFIX, '');
+  const parts = k.split('-');
+  if (parts.length <= 1) return k;
+
+  let last = parts[parts.length - 1]!.toLowerCase();
+  const stylisticBase = stripStylisticYSegment(last);
+  if (stylisticBase) {
+    parts[parts.length - 1] = stylisticBase;
+    last = stylisticBase;
+  }
+
+  if (!VARIANT_MODIFIERS.has(last)) return k;
+  return parts.slice(0, -1).join('-');
+}
 
 /**
- * Normalize `message-2`, `message-filled`, `camera-on` → same base as `message`, `camera`.
- * Pass `channelType` so chat/voice/people mega-groups apply (same rules as channel icon sort).
+ * Normalize `message-filled`, `USER-AVATAR-X`, `volume up` → shared base keys for true variants.
+ * `channelType` is accepted for call-site compatibility but does not affect grouping.
  */
 export function getBaseIconGroupKey(
   filename: string,
-  channelType?: 'text' | 'voice',
+  _channelType?: 'text' | 'voice',
 ): string {
-  if (channelType !== undefined) {
-    const entry: IconCatalogEntry = {
-      id: filename,
-      url: '',
-      label: filename.replace(/\.svg$/i, '').trim(),
-    };
-    const packMega = resolvePackMegaKey(entry);
-    if (packMega) return `__mega_${packMega}`;
-    const mega = resolveSemanticMegaKey(entry, channelType);
-    if (mega) return `__mega_${mega}`;
+  let k = normalizeIconStem(filename);
+  for (let i = 0; i < MAX_STRIP_PASSES; i++) {
+    const next = stripOneVariantSegment(k);
+    if (next === k) break;
+    k = next;
   }
-  const base = filename.replace(/\.svg$/i, '').trim();
-  let k = base.replace(/-\d+$/i, '');
-  k = k.replace(VARIANT_SUFFIX, '');
-  return k.toLowerCase();
+  return k;
 }
 
 function pickRepresentative(
   key: string,
   variants: IconCatalogEntry[],
 ): IconCatalogEntry {
-  const exact = `${key}.svg`;
-  const byExact = variants.find((v) => v.id.toLowerCase() === exact);
-  if (byExact) return byExact;
-  return variants[0]!;
+  const byExactStem = variants.find((v) => normalizeIconStem(v.id) === key);
+  if (byExactStem) return byExactStem;
+  return variants
+    .slice()
+    .sort(
+      (a, b) =>
+        normalizeIconStem(a.id).length - normalizeIconStem(b.id).length ||
+        a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
+    )[0]!;
 }
 
-function familyLabel(key: string, representative: IconCatalogEntry): string {
-  const mega = key.match(/^__mega_(messaging|voice|people|math|hobbies)$/);
-  if (mega) {
-    return MEGA_LABEL[mega[1] as SemanticMegaKey];
-  }
+function familyLabel(_key: string, representative: IconCatalogEntry): string {
   const raw = representative.label;
-  const simplified = raw
-    .replace(/-\d+$/i, '')
-    .replace(VARIANT_SUFFIX, '')
-    .trim();
-  if (simplified.length > 0) return simplified;
-  return key;
+  let simplified = normalizeIconStem(raw);
+  for (let i = 0; i < MAX_STRIP_PASSES; i++) {
+    const next = stripOneVariantSegment(simplified);
+    if (next === simplified) break;
+    simplified = next;
+  }
+  if (simplified.length > 0) {
+    return simplified.replace(/-/g, ' ');
+  }
+  return raw;
 }
 
 /**
@@ -158,7 +216,7 @@ export function groupIconCatalogEntries(
 ): IconFamilyGroup[] {
   const map = new Map<string, IconCatalogEntry[]>();
   for (const e of entries) {
-    const key = getBaseIconGroupKey(e.id, channelType);
+    const key = getBaseIconGroupKey(e.id);
     const list = map.get(key);
     if (list) list.push(e);
     else map.set(key, [e]);

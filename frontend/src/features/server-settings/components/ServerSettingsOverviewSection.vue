@@ -17,6 +17,7 @@ import ServerBannerLimitedGif from '@/features/server-settings/components/Server
 import BannerRepositionModal from '@/features/server-settings/components/BannerRepositionModal.vue';
 import EmojiPackTagsField from '@/features/server-settings/components/EmojiPackTagsField.vue';
 import { useVanityAvailabilityCheck } from '@/features/server-settings/composables/useVanityAvailabilityCheck';
+import type { ChannelCategory } from '@/composables/useChannels';
 
 const props = withDefaults(
   defineProps<{
@@ -39,6 +40,10 @@ const props = withDefaults(
     bannerBlackoutEnabled: boolean;
     /** Disables blur/blackout toggles while preference PATCHes are in flight. */
     bannerChannelPrefsPersisting?: boolean;
+    /** Optional welcome channel for join system messages. */
+    welcomeChannelId?: string | null;
+    /** Guild channel tree for welcome channel picker. */
+    categories?: ChannelCategory[];
     onServerBannerFileChange: (event: Event) => void;
     /** Clear banner image (persisted for Echo guilds). */
     onRemoveServerBanner: () => void | Promise<void>;
@@ -52,12 +57,15 @@ const props = withDefaults(
     canManageBanner: false,
     bannerChannelPrefsPersisting: false,
     popularTagSuggestions: () => [],
+    welcomeChannelId: null,
+    categories: () => [],
   },
 );
 
 const emit = defineEmits<{
   'update:bannerBlurEnabled': [value: boolean];
   'update:bannerBlackoutEnabled': [value: boolean];
+  'update:welcomeChannelId': [value: string | null];
   'vanity-blur': [];
   'name-blur': [];
   'description-blur': [];
@@ -98,6 +106,23 @@ function onBannerBlurInput(e: Event) {
 function onBannerBlackoutInput(e: Event) {
   const el = e.target as HTMLInputElement;
   emit('update:bannerBlackoutEnabled', el.checked);
+}
+
+const welcomeTextChannels = computed(() => {
+  const out: Array<{ id: string; name: string; categoryName: string }> = [];
+  for (const cat of props.categories ?? []) {
+    for (const ch of cat.channels ?? []) {
+      if (ch.type !== 'text') continue;
+      out.push({ id: ch.id, name: ch.name, categoryName: cat.name });
+    }
+  }
+  return out;
+});
+
+function onWelcomeChannelSelect(e: Event) {
+  const el = e.target as HTMLSelectElement;
+  const value = el.value.trim();
+  emit('update:welcomeChannelId', value ? value : null);
 }
 
 /** File input stacks above the icon; drive GIF play from label hover. */
@@ -499,6 +524,27 @@ function saveReposition(nextY: number) {
             />
           </div>
         </div>
+      </div>
+
+      <div class="server-settings-panel rounded-2xl p-4 sm:p-5">
+        <div class="settings-subtitle mb-1">Welcome channel</div>
+        <p class="mb-3 text-xs text-fg-subtle">
+          Post a system message when someone joins. Leave unset to disable.
+        </p>
+        <select
+          class="server-settings-tickets__select w-full max-w-md rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
+          :value="props.welcomeChannelId ?? ''"
+          :disabled="
+            !props.canManageServer || props.bannerChannelPrefsPersisting
+          "
+          aria-label="Welcome channel"
+          @change="onWelcomeChannelSelect"
+        >
+          <option value="">None</option>
+          <option v-for="ch in welcomeTextChannels" :key="ch.id" :value="ch.id">
+            {{ ch.categoryName ? `${ch.categoryName} / ${ch.name}` : ch.name }}
+          </option>
+        </select>
       </div>
     </div>
   </div>

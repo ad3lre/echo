@@ -181,7 +181,7 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
     if (authenticated && !socket.data.userId.startsWith('user_')) {
       registerEchoPresenceSocket(socket.data.userId);
       registerUserSocket(socket.data.userId, socket.id);
-      socket.join(`echo:user:${socket.data.userId}`);
+      void socket.join(`echo:user:${socket.data.userId}`);
       void (async () => {
         const { pool, enabled } = await getEchoStore();
         if (!enabled || !pool) return;
@@ -200,7 +200,7 @@ export function registerSocketHandlers(fastify: FastifyInstance): void {
             socket.data.userId,
           );
           for (const sid of serverIds) {
-            socket.join(`echo:server:${sid}`);
+            void socket.join(`echo:server:${sid}`);
           }
         } catch (err) {
           log.warn(

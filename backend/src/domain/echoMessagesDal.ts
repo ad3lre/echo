@@ -31,6 +31,7 @@ import {
   computeEchoMessageSearchFlags,
   echoMessageSearchFlagsSqlValues,
 } from './echoMessageSearchFlags';
+import { loadEchoMessageAuthorLabelMap } from './echoMessageAuthorLabels';
 
 export { CHAT_E2EE_REMOVED_DETAIL };
 
@@ -382,44 +383,7 @@ export async function attachAuthorLabelsToEchoMessageRows(
   if (rows.length === 0) return rows;
   const ids = [...new Set(rows.map((r) => r.authorId).filter(Boolean))];
   if (ids.length === 0) return rows;
-  const r = await pool.query(
-    `
-    SELECT u.id,
-      COALESCE(NULLIF(TRIM(u.display_name), ''), NULLIF(TRIM(u.username), ''), 'Unknown') AS display_label,
-      TRIM(u.pfp) AS pfp_trim,
-      u.is_discord_shadow,
-      d.discord_user_id AS shadow_discord_user_id
-    FROM auth_users u
-    LEFT JOIN echo_discord_shadow_users d ON d.shadow_user_id = u.id
-    WHERE u.id = ANY($1::text[])
-    `,
-    [ids],
-  );
-  const byId = new Map<
-    string,
-    {
-      name: string;
-      pfp: string;
-      isDiscordShadow: boolean;
-      shadowDiscordUserId?: string;
-    }
-  >();
-  for (const row of r.rows) {
-    const id = String(row.id);
-    const name = String(row.display_label ?? 'Unknown');
-    const pfpRaw = row.pfp_trim != null ? String(row.pfp_trim) : '';
-    const shadowDid =
-      row.shadow_discord_user_id != null
-        ? String(row.shadow_discord_user_id).trim()
-        : '';
-    const pfp = pfpRaw;
-    byId.set(id, {
-      name,
-      pfp,
-      isDiscordShadow: row.is_discord_shadow === true,
-      ...(shadowDid ? { shadowDiscordUserId: shadowDid } : {}),
-    });
-  }
+  const byId = await loadEchoMessageAuthorLabelMap(pool, ids);
   return rows.map((row) => {
     const a = byId.get(row.authorId);
     if (!a) {
@@ -528,6 +492,7 @@ const REACTION_EMOJI_MAX = 128;
 export function normalizeReactionEmojiKey(raw: string): string | null {
   const s = raw.trim();
   if (s.length === 0 || s.length > REACTION_EMOJI_MAX) return null;
+  // eslint-disable-next-line no-control-regex -- reject ASCII control characters
   if (/[\u0000-\u001f\u007f]/.test(s)) return null;
   return s;
 }

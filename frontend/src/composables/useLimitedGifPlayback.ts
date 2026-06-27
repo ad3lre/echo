@@ -7,7 +7,10 @@ import {
   type MaybeRefOrGetter,
 } from 'vue';
 import { safeImageUrl } from '@/utils/safeImageUrl';
-import { rewriteR2EchoUploadUrlForReadThrough } from '@/utils/rewriteR2EchoUploadUrlForReadThrough';
+import {
+  echoMediaUrlNeedsSigning,
+  resolveSignedEchoMediaUrl,
+} from '@/services/mediaCdn';
 import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
 import { captureImageFirstFrameDataUrl } from '@/utils/gifFirstFrame';
 import {
@@ -22,6 +25,7 @@ const FALLBACK_LOOP_MS = 2200;
 export function useLimitedGifPlayback(options: {
   imageUrl: MaybeRefOrGetter<string>;
   sessionKey: MaybeRefOrGetter<string>;
+  storageKey?: MaybeRefOrGetter<string | undefined>;
   forceActive?: MaybeRefOrGetter<boolean | undefined>;
   maxLoops?: number;
   fallbackLoopMs?: number;
@@ -32,11 +36,32 @@ export function useLimitedGifPlayback(options: {
   const maxLoops = options.maxLoops ?? ECHO_GIF_MAX_LOOPS;
   const fallbackLoopMs = options.fallbackLoopMs ?? FALLBACK_LOOP_MS;
 
-  const safeUrl = computed(() =>
-    rewriteR2EchoUploadUrlForReadThrough(
-      safeImageUrl(toValue(options.imageUrl)),
-    ),
+  const safeUrl = ref('');
+  let safeUrlRequestId = 0;
+
+  watch(
+    () => [toValue(options.imageUrl), toValue(options.storageKey)] as const,
+    ([raw, storageKey]) => {
+      const id = ++safeUrlRequestId;
+      const safe = safeImageUrl(raw);
+      if (!safe || safe === safeImageUrl('')) {
+        safeUrl.value = safe;
+        return;
+      }
+      // Unsigned media-cdn object URLs return 403; never assign them to <img>.
+      if (!echoMediaUrlNeedsSigning(safe)) {
+        safeUrl.value = safe;
+        return;
+      }
+      void resolveSignedEchoMediaUrl({ url: safe, storageKey }).then(
+        (signed) => {
+          if (id === safeUrlRequestId) safeUrl.value = signed;
+        },
+      );
+    },
+    { immediate: true },
   );
+
   const isGif = computed(() => isLikelyGifImageUrl(toValue(options.imageUrl)));
   const forceActiveRef = computed(() => toValue(options.forceActive) ?? false);
   const reducedMotionRef = computed(
@@ -96,10 +121,12 @@ export function useLimitedGifPlayback(options: {
       [
         toValue(options.sessionKey),
         toValue(options.imageUrl),
+        safeUrl.value,
         reducedMotionRef.value,
         staticOnlyRef.value,
       ] as const,
     () => {
+      if (!safeUrl.value.trim()) return;
       clearIntroTimer();
       stopGeneration += 1;
       introElapsed.value = false;

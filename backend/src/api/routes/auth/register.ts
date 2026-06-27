@@ -15,6 +15,14 @@ import type { AuthRegisterBody } from '../../../auth/types';
 import { config } from '../../../config';
 import { MIN_PASSWORD_LENGTH } from '../../../auth/accountPolicy';
 import {
+  authRegisterRouteRate,
+  authVerifyEmailRouteRate,
+} from '../../sharedMutationRateLimits';
+import {
+  checkAbsoluteRegisterAllowed,
+  recordAbsoluteRegisterSuccess,
+} from '../../../services/auth/absoluteInstanceRateLimiter';
+import {
   authHwidAccountCapActive,
   countDistinctAccountsForHwidProfileAndIp,
   hashClientHwidForProfile,
@@ -26,6 +34,8 @@ import { consumeSignupVerificationToken } from '../../../auth/verifyEmailFlow';
 import { disconnectAllSocketsForAuthUser } from '../../../services/auth/socketSessionRevocation';
 import { deleteAllServerSessionsForUser } from '../../../auth/serverSession';
 import { clearBrowserSessionCookies } from '../../../auth/sessionCookies';
+import { replyIfInstanceBanned } from '../../../domain/instanceBanEnforcement';
+import { clientIpFromFastifyRequest } from '../../../net/clientIp';
 
 export default async function registerRoutes(fastify: FastifyInstance) {
   async function finishEmailVerification(
@@ -127,9 +137,10 @@ export default async function registerRoutes(fastify: FastifyInstance) {
   );
 
   await fastify.register(async (verifyEmailScope) => {
+    const verifyEmailRate = authVerifyEmailRouteRate();
     await verifyEmailScope.register(rateLimit, {
-      max: 20,
-      timeWindow: '15 minutes',
+      max: verifyEmailRate.max,
+      timeWindow: verifyEmailRate.timeWindow,
       keyGenerator: (req) => `auth_verify_email:${req.ip}`,
       addHeaders: { 'retry-after': true },
     });
@@ -166,9 +177,10 @@ export default async function registerRoutes(fastify: FastifyInstance) {
   });
 
   await fastify.register(async (registerScope) => {
+    const registerRate = authRegisterRouteRate();
     await registerScope.register(rateLimit, {
-      max: 25,
-      timeWindow: '1 hour',
+      max: registerRate.max,
+      timeWindow: registerRate.timeWindow,
       keyGenerator: (req) => `auth_register:${req.ip}`,
       addHeaders: { 'retry-after': true },
     });
@@ -194,10 +206,28 @@ export default async function registerRoutes(fastify: FastifyInstance) {
         },
       },
       async (req, reply) => {
+        if (config.registrationDisabled) {
+          return sendError(
+            reply,
+            403,
+            'REGISTRATION_DISABLED',
+            'Registration is disabled on this instance.',
+          );
+        }
+        const absolute = checkAbsoluteRegisterAllowed();
+        if (!absolute.ok) {
+          reply.header('Retry-After', Math.ceil(absolute.retryAfterMs / 1000));
+          return sendError(
+            reply,
+            429,
+            'REGISTRATION_RATE_LIMIT',
+            'Too many registrations on this instance. Try again later.',
+          );
+        }
         const body = req.body;
         try {
           const { store, mode } = await getAuthStore();
-          const ip = req.ip;
+          const ip = clientIpFromFastifyRequest(req);
           let normalizedHwidForCap: string | null = null;
           if (authHwidAccountCapActive()) {
             normalizedHwidForCap = normalizeClientHwid(body.clientHwid);
@@ -220,6 +250,14 @@ export default async function registerRoutes(fastify: FastifyInstance) {
                 'Too many accounts from this device on this network. Use an existing account or try again later.',
               );
             }
+          }
+          if (
+            await replyIfInstanceBanned(reply, {
+              rawIp: ip,
+              clientHwid: body.clientHwid,
+            })
+          ) {
+            return;
           }
           const user = await store.createUser(body);
           const session = await issueEchoBrowserSession(
@@ -244,7 +282,9 @@ export default async function registerRoutes(fastify: FastifyInstance) {
           }
           void tryJoinOfficialEchoServerOnSignup(fastify.log, session.user.id, {
             joinClientIp: ip,
+            io: fastify.io,
           });
+          recordAbsoluteRegisterSuccess();
           return reply.code(201).send(authSessionJsonBody(session));
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : undefined;

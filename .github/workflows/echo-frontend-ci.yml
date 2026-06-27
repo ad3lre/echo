@@ -43,6 +43,9 @@ jobs:
       - name: Lint (theme + TS + Vue essential)
         run: npm run lint -w frontend
 
+      - name: i18n key parity
+        run: npm run i18n:check -w frontend
+
       - name: God-file ratchet
         run: node scripts/check-god-file-ratchet.mjs
 

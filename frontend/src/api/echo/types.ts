@@ -371,6 +371,8 @@ export type PatchEchoServerPreferencesBody = {
   verificationRequireEmail?: boolean;
   applicationsEnabled?: boolean;
   applicationForm?: EchoApplicationFormDto;
+  /** Text channel for join welcome system messages; null clears. */
+  welcomeChannelId?: string | null;
 };
 
 export type EchoServerMemberHighlightDto = {

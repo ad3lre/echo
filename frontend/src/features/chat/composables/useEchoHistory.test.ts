@@ -107,7 +107,7 @@ describe('useEchoHistory', () => {
     }
 
     await flushMicrotasks();
-    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(450);
     await flushMicrotasks();
 
     expect(putEchoChannelReadState).not.toHaveBeenCalled();
@@ -115,7 +115,7 @@ describe('useEchoHistory', () => {
     history.reportSeenMessageId(lastUnreadMessageId);
 
     await flushMicrotasks();
-    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(450);
     await flushMicrotasks();
 
     expect(putEchoChannelReadState).toHaveBeenCalledWith(

@@ -212,6 +212,7 @@ const emit = defineEmits<{
         <div class="flex shrink-0 items-center justify-center">
           <button
             type="button"
+            data-cy="explore-rail-trigger"
             class="explore-trigger relative flex h-10 w-10 cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
             title="Explore servers"
             @click="emit('toggle-explore')"
@@ -339,6 +340,7 @@ const emit = defineEmits<{
         <div class="mt-0 flex w-full items-center justify-center">
           <button
             type="button"
+            data-cy="explore-rail-trigger"
             class="explore-trigger relative flex h-12 w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
             title="Explore servers"
             @click="emit('toggle-explore')"
@@ -385,6 +387,7 @@ const emit = defineEmits<{
         </button>
         <button
           type="button"
+          data-cy="explore-rail-trigger"
           class="explore-trigger relative flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-inherit"
           :class="props.horizontal ? 'h-10 w-10 shrink-0' : 'h-12 w-full'"
           title="Explore public servers"

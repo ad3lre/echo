@@ -164,6 +164,7 @@ function rowKey(row: EchoRenderedMessageRow, i: number): string {
       :aspect-w="row.aspectW"
       :aspect-h="row.aspectH"
       :image-url="row.imageUrl"
+      :storage-key="row.storageKey ?? undefined"
       :width="row.width"
       :height="row.height"
       :can-fill="canFillImageSlots"

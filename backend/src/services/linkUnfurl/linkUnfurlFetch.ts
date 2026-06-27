@@ -224,13 +224,12 @@ export async function fetchJsonWithTimeout(
         method: 'GET',
         redirect: 'manual',
         signal: ac.signal,
-        // @ts-expect-error Node 18+ undici dispatcher
         dispatcher: safeFetchAgent,
         headers: {
           Accept: 'application/json',
           'User-Agent': 'EchoLinkEmbed/1.0 (+https://echo.local)',
         },
-      });
+      } as RequestInit & { dispatcher: typeof safeFetchAgent });
     } catch {
       clearTimeout(t);
       return null;

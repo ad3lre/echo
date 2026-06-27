@@ -18,7 +18,10 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const appleDir = path.join(root, 'src-tauri/gen/apple');
-const bundleId = 'com.echo.tauri.ios.dev';
+// Must match `identifier` in src-tauri/tauri.ios.conf.json (Tauri auto-merges
+// the iOS platform config). Stale ids make `simctl launch` fail with
+// FBSOpenApplicationServiceErrorDomain code 4 after a successful install.
+const bundleId = 'com.echo.ios';
 const appBundle = 'Echo.app';
 
 function iosSimRustTarget() {

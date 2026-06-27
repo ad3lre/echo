@@ -672,10 +672,10 @@ function isPaperChannelOption(ch: unknown): boolean {
   );
 }
 
-type SearchFilterChannel = {
-  id: string;
-  name: string;
-};
+type SearchFilterChannel = Pick<
+  ChannelSummary,
+  'id' | 'name' | 'type' | 'iconKey'
+>;
 
 function isSearchFilterChannel(ch: unknown): ch is SearchFilterChannel {
   if (ch === null || typeof ch !== 'object') return false;
@@ -1481,6 +1481,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           :model-value="searchText"
           :filter-chips="filterChips"
           :channels="searchFilterChannels"
+          :resolve-channel-icon="getChannelIcon"
           :users="users"
           :search-results="paginatedSearchResults"
           :total-results="searchResultMessagesCount"
@@ -2396,6 +2397,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
       :model-value="searchText"
       :filter-chips="filterChips"
       :channels="searchFilterChannels"
+      :resolve-channel-icon="getChannelIcon"
       :users="users"
       :search-results="paginatedSearchResults"
       :total-results="searchResultMessagesCount"

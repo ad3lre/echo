@@ -342,7 +342,7 @@ export async function listEchoRolesForServer(
     let lightColor = String(row.light_color ?? row.color ?? '');
     let separateThemeColors = Boolean(row.separate_theme_colors);
     let hoist = Boolean(row.hoist);
-    let defaultOnJoin = Boolean(row.default_on_join);
+    const defaultOnJoin = Boolean(row.default_on_join);
     if (roleType === 'authority') {
       hoist = false;
       separateThemeColors = false;
@@ -1211,7 +1211,7 @@ export async function createEchoRole(
     name === '@members'
       ? 'category'
       : normalizeEchoRoleScope(body.roleScope ?? roleScope);
-  let effectiveRoleType = normalizeEchoRoleType(body.roleType ?? roleType);
+  const effectiveRoleType = normalizeEchoRoleType(body.roleType ?? roleType);
   if (effectiveRoleType === 'authority') {
     hoist = false;
     separateThemeColors = false;
@@ -1286,7 +1286,7 @@ export async function createEchoRole(
   }
 
   const id = nextEchoSnowflakeId();
-  let normalized =
+  const normalized =
     effectiveRoleType === 'visual'
       ? normalizeVisualRolePermissionsForStorage(body.permissions)
       : normalizePermissionListForStorage(body.permissions, ALLOWED_PERMS_SET);

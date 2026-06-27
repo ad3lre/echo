@@ -232,12 +232,13 @@ const emit = defineEmits<{
           />
           Channel settings
         </button>
+        <!-- @click + requestAppConfirmFromContextMenu in parent; do not close menu before confirm -->
         <button
           v-if="rowCanManageChannel(panelContext.channel)"
           type="button"
           class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
-          @mousedown.prevent="emit('channel-menu-delete')"
+          @click="emit('channel-menu-delete')"
         >
           <img
             :src="icons.trash"
@@ -322,12 +323,13 @@ const emit = defineEmits<{
           />
           Category settings
         </button>
+        <!-- @click + requestAppConfirmFromContextMenu in parent; do not close menu before confirm -->
         <button
           v-if="canCreateChannels"
           type="button"
           class="echo-menu-item echo-menu-item--destructive flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
           role="menuitem"
-          @mousedown.prevent="emit('category-menu-delete')"
+          @click="emit('category-menu-delete')"
         >
           <img
             :src="icons.trash"

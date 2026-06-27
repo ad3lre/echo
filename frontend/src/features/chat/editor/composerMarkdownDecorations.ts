@@ -7,6 +7,10 @@ import {
   serializeComposerDoc,
 } from '@/features/chat/editor/composerModel';
 import { findRawDiscordSpoilerRegions } from '@/utils/discordSpoilerMarkdown';
+import {
+  createEscapedMarkdownFenceWalkState,
+  stepEscapedMarkdownFenceAtLine,
+} from '@/utils/markdownFenceEscape';
 import { mightHaveMarkdownSyntax } from '@/features/chat/viewModel/messageBodyMarkdown';
 
 /** Toggle live delimiter styling via transaction meta. */
@@ -66,11 +70,24 @@ function findFencedCodeBlockRanges(content: string): [number, number][] {
   let blockStart = -1;
   let fenceChar: '`' | '~' = '`';
   let minCloseLen = 3;
+  const escapedFence = createEscapedMarkdownFenceWalkState();
 
   while (pos <= content.length) {
     const nl = content.indexOf('\n', pos);
     const lineEnd = nl === -1 ? content.length : nl;
     const line = content.slice(pos, lineEnd);
+
+    if (stepEscapedMarkdownFenceAtLine(line, escapedFence)) {
+      if (nl === -1) break;
+      pos = nl + 1;
+      continue;
+    }
+
+    if (escapedFence.inEscapedFence) {
+      if (nl === -1) break;
+      pos = nl + 1;
+      continue;
+    }
 
     if (blockStart < 0) {
       const open = line.match(/^ {0,3}(`{3,}|~{3,})(?:[ \t]+[^\n]*)?$/);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   findAllImageSlotTokens,
+  formatImageSlotComposerShortcut,
   formatImageSlotToken,
   isAllowedImageSlotAspect,
   parseImageSlotShortcut,
@@ -11,6 +12,14 @@ describe('imageSlot tokens', () => {
   it('allows whitelisted aspect ratios', () => {
     expect(isAllowedImageSlotAspect(16, 9)).toBe(true);
     expect(isAllowedImageSlotAspect(7, 3)).toBe(false);
+  });
+
+  it('formats composer shortcut without slot id', () => {
+    expect(formatImageSlotComposerShortcut(16, 9)).toBe('![image: ratio=16:9]');
+    expect(parseImageSlotShortcut('![image: ratio=16:9]')).toEqual({
+      aspectW: 16,
+      aspectH: 9,
+    });
   });
 
   it('formats and parses canonical tokens', () => {

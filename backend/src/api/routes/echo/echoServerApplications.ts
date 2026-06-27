@@ -252,6 +252,7 @@ export default async function echoServerApplicationsRoutes(
         aid,
         getAuthUser(req).id,
         clientIpFromFastifyRequest(req),
+        { io: fastify.io, log: req.log },
       );
       if (!r.ok) {
         if (r.reason === 'not_found')

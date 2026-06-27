@@ -1,17 +1,37 @@
 <script setup lang="ts">
-import { toRef } from 'vue';
+import { computed, toRef, unref, type MaybeRef } from 'vue';
 import '@/features/voice/styles/wordlineActivity.scss';
 import { useWordlineGame } from '@/features/voice/wordline/useWordlineGame';
+import { useWordlineServerGame } from '@/features/voice/wordline/useWordlineServerGame';
+import { WORDLE_SERVER_MODE } from '@shared/vcActivityCatalog';
+import type { WordlineView } from '@shared/games/wordline';
+import type { GameMode } from '@shared/games/wordline/core';
+
 const props = defineProps<{
   accountUserId?: string | null;
   appBase?: string;
+  wordlineView?: MaybeRef<WordlineView | null>;
+  submitWordlineGuess?: (guess: string) => void;
+  setWordlineMode?: (mode: GameMode) => void;
 }>();
 
-const g = useWordlineGame({
-  accountUserId: toRef(props, 'accountUserId'),
-  appBase: props.appBase ?? (import.meta.env.BASE_URL || '/'),
-  markDailyReminderOnWin: true,
-});
+const serverView = computed(
+  (): import('@shared/games/wordline').WordlineView | null =>
+    WORDLE_SERVER_MODE ? (unref(props.wordlineView) ?? null) : null,
+);
+
+const g = WORDLE_SERVER_MODE
+  ? useWordlineServerGame({
+      wordlineView: computed(() => serverView.value),
+      submitWordlineGuess: props.submitWordlineGuess ?? (() => {}),
+      setWordlineMode: props.setWordlineMode ?? (() => {}),
+      accountUserId: toRef(props, 'accountUserId'),
+    })
+  : useWordlineGame({
+      accountUserId: toRef(props, 'accountUserId'),
+      appBase: props.appBase ?? (import.meta.env.BASE_URL || '/'),
+      markDailyReminderOnWin: true,
+    });
 </script>
 
 <template>

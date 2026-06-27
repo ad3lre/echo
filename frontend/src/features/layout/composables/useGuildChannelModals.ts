@@ -444,7 +444,11 @@ export function useGuildChannelModals(deps: {
           };
         })
         .catch(() => {
-          /* keep optimistic */
+          dispatchAppToastDetail({
+            severity: 'warning',
+            title: 'Channel order may be out of sync',
+            message: 'Refresh the page if the order looks wrong.',
+          });
         });
     } catch (e) {
       workspace.categoriesByServer.value = {
@@ -492,7 +496,11 @@ export function useGuildChannelModals(deps: {
           };
         })
         .catch(() => {
-          /* keep optimistic */
+          dispatchAppToastDetail({
+            severity: 'warning',
+            title: 'Channel order may be out of sync',
+            message: 'Refresh the page if the order looks wrong.',
+          });
         });
     } catch (e) {
       workspace.categoriesByServer.value = {

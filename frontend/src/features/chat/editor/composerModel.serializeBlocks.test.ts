@@ -77,10 +77,10 @@ describe('serializeComposerDoc multi-paragraph', () => {
     });
     const out = serializeComposerDoc(ed.state.doc);
     ed.destroy();
-    expect(out.content).toBe('![image: ratio=16:9, slotId=slot-abc]');
+    expect(out.content).toBe('![image: ratio=16:9]');
   });
 
-  it('serializes buttonRow blocks as canonical tokens', () => {
+  it('serializes buttonRow blocks as composer shortcuts', () => {
     const ed = makeEditor({
       type: 'doc',
       content: [
@@ -101,7 +101,7 @@ describe('serializeComposerDoc multi-paragraph', () => {
     });
     const out = serializeComposerDoc(ed.state.doc);
     ed.destroy();
-    expect(out.content).toBe('![button: rowId=row-abc]');
+    expect(out.content).toBe('![button: label=Go, url=https://example.com]');
   });
 
   it('inserts newlines between pasted paragraphs', () => {

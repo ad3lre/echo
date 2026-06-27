@@ -85,6 +85,7 @@ import { insertUserMentionAtCursor as insertUserMentionAtCursorShared } from '@/
 import { shiftMentionsForReplacement } from '@/features/chat/editor/composerModel';
 
 import { useChatInputSlowmode } from '@/features/chat/composables/useChatInputSlowmode';
+import { useComposerImageSlotFill } from '@/features/chat/composables/useComposerImageSlotFill';
 import { useChatTypingComposer } from '@/features/chat/composables/useChatTypingComposer';
 import ChatInputMarkdownPreview from '@/features/chat/components/ChatInputMarkdownPreview.vue';
 import { useCompactShell } from '@/composables/useCompactShell';
@@ -497,6 +498,17 @@ const composer = useComposerState(parseIdResolvers);
 /** Top-level ref so the template unwraps it; nested `composer.editor` would pass the Ref object to EditorContent and crash. */
 const tiptapEditor = composer.editor;
 const composerContent = composer.content;
+const {
+  fileInputRef: composerImageSlotFileInputRef,
+  filling: composerImageSlotFilling,
+  handleComposerImageSlotPointerDown,
+  onFileSelected: onComposerImageSlotFileSelected,
+} = useComposerImageSlotFill({
+  channelId: () => props.channelId,
+  getEditor: () => composer.editor.value,
+  composerDisabled: () => composerBarDisabled.value,
+  composerDisabledReason: () => composerBarDisabledReason.value,
+});
 useChatTypingComposer({
   channelId: toRef(props, 'channelId'),
   content: composer.content,
@@ -1133,7 +1145,8 @@ function handleComposerScroll() {
   if (showSelectionMenu.value) nextTick(updateSelectionMenuPosition);
 }
 
-function handleComposerPointerDown() {
+function handleComposerPointerDown(event: MouseEvent) {
+  handleComposerImageSlotPointerDown(event);
   closePopout();
 }
 
@@ -2180,6 +2193,16 @@ onMounted(() => {
       </div>
     </div>
 
+    <input
+      ref="composerImageSlotFileInputRef"
+      type="file"
+      accept="image/*"
+      class="hidden"
+      tabindex="-1"
+      aria-hidden="true"
+      @change="onComposerImageSlotFileSelected"
+    />
+
     <ChatInputComposerBar
       ref="composerBarRef"
       v-if="!showSlowmodeOverlay && !showPermissionLockOverlay"
@@ -2232,6 +2255,7 @@ onMounted(() => {
       :format-spoiler="formatSpoiler"
       :channel-name="channelName"
       :handle-composer-pointer-down="handleComposerPointerDown"
+      :composer-image-slot-filling="composerImageSlotFilling"
       :handle-composer-selection-sync="handleComposerSelectionSync"
       :handle-composer-scroll="handleComposerScroll"
       :handle-input-focus="handleInputFocus"
@@ -2471,14 +2495,14 @@ onMounted(() => {
     overflow-x: auto;
     max-width: 100%;
     border-radius: 6px;
-    background: var(--vue-auto-019);
+    background: var(--md-code-bg);
     padding: 0.5em 0.75em;
     font-size: 0.9em;
   }
 
   .markdown-preview__content code {
     border-radius: 4px;
-    background: var(--vue-auto-031);
+    background: var(--md-inline-code-bg);
     padding: 0.15em 0.35em;
     font-size: 0.9em;
     overflow-wrap: break-word;

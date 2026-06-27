@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import { GUEST_MINT_ROUTE_RATE } from '../../meLinkRouteRateLimits';
-import { ipRateLimitKey } from '../../rateLimitKeys';
+import { guestMintRouteRate } from '../../meLinkRouteRateLimits';
 import { sendError } from '../../errors';
 import { getAuthStore } from '../../../auth/store';
 import { requireAuth } from '../../../auth/middleware';
@@ -36,13 +35,15 @@ import {
   recordHwidProfileAccountBinding,
 } from '../../../services/auth/hwidAccountProfile';
 import { tryJoinOfficialEchoServerOnSignup } from '../../../services/auth/officialEchoServerOnSignup';
+import { replyIfInstanceBanned } from '../../../domain/instanceBanEnforcement';
 
 export default async function guestRoutes(fastify: FastifyInstance) {
+  const mintRate = guestMintRouteRate();
   await fastify.register(rateLimit, {
-    max: 20,
-    timeWindow: '15 minutes',
-    keyGenerator: ipRateLimitKey,
-    addHeaders: { 'retry-after': true },
+    max: mintRate.max,
+    timeWindow: mintRate.timeWindow,
+    keyGenerator: mintRate.keyGenerator,
+    addHeaders: mintRate.addHeaders,
   });
 
   fastify.post<{
@@ -55,7 +56,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
   }>(
     '/guest',
     {
-      config: { rateLimit: GUEST_MINT_ROUTE_RATE },
+      config: { rateLimit: guestMintRouteRate() },
       schema: {
         querystring: {
           type: 'object',
@@ -205,6 +206,21 @@ export default async function guestRoutes(fastify: FastifyInstance) {
           }
         }
 
+        const clientHwidRaw =
+          typeof req.body?.clientHwid === 'string'
+            ? req.body.clientHwid
+            : typeof req.query?.clientHwid === 'string'
+              ? req.query.clientHwid
+              : undefined;
+        if (
+          await replyIfInstanceBanned(reply, {
+            rawIp: ip,
+            clientHwid: clientHwidRaw,
+          })
+        ) {
+          return;
+        }
+
         const created = await store.createGuestUser();
         if (!created) {
           return sendError(
@@ -236,6 +252,7 @@ export default async function guestRoutes(fastify: FastifyInstance) {
         });
         void tryJoinOfficialEchoServerOnSignup(fastify.log, session.user.id, {
           joinClientIp: ip,
+          io: fastify.io,
         });
         return reply.code(201).send({
           ...authSessionJsonBody(session),

@@ -10,6 +10,7 @@ import {
   extractInlineSearchFilters,
   resolveFilterChannelEchoId,
   stripFilterPrefixes,
+  categoriesToChannelList,
   type MessageWithOrder,
   type SearchApiModeSnapshot,
 } from '../messageSearchCore';
@@ -194,6 +195,37 @@ describe('messageSearchCore', () => {
       'from',
       'mentions',
       'hasType',
+    ]);
+  });
+
+  it('categoriesToChannelList keeps channel type and iconKey for suggestions', () => {
+    const list = categoriesToChannelList([
+      {
+        id: 'cat1',
+        name: 'Text',
+        channels: [
+          {
+            id: 'ch-text',
+            name: 'general',
+            type: 'text',
+            iconKey: 'coffee',
+          },
+          {
+            id: 'ch-voice',
+            name: 'hangout',
+            type: 'voice',
+          },
+        ],
+      },
+    ]);
+    expect(list).toEqual([
+      {
+        id: 'ch-text',
+        name: 'general',
+        type: 'text',
+        iconKey: 'coffee',
+      },
+      { id: 'ch-voice', name: 'hangout', type: 'voice' },
     ]);
   });
 });

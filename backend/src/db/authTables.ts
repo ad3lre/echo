@@ -135,6 +135,9 @@ export async function ensureAuthTables(pool: Pool | null): Promise<void> {
     `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS is_discord_shadow BOOLEAN NOT NULL DEFAULT false;`,
   );
   await pool.query(
+    `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS is_instance_operator BOOLEAN NOT NULL DEFAULT false;`,
+  );
+  await pool.query(
     `ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS echo_plan TEXT NOT NULL DEFAULT 'free';`,
   );
   await pool.query(`

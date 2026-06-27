@@ -1,7 +1,11 @@
 import { isEchoPublicId } from '@shared/snowflakeIds';
+import { extractStorageKeyFromEchoMediaUrl } from '@shared/echoUploadStorageKey';
+import { ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX } from '@shared/echoEmojiCdn';
+import { ECHO_MEDIA_CDN_OBJECT_PREFIX } from '@shared/mediaCdn';
 import { sanitizeEmojiImgHtmlForVHtml } from '@/utils/sanitizeEmojiImgHtmlForVHtml';
 import { rewriteR2EchoUploadUrlForReadThrough } from '@/utils/rewriteR2EchoUploadUrlForReadThrough';
 import { isTrustedMediaUrl, safeImageUrl } from '@/utils/safeImageUrl';
+import { API_BASE } from '@/config';
 
 function escapeAttr(s: string): string {
   return s
@@ -33,6 +37,28 @@ export function isSafeRasterEmojiDataUrl(url: string): boolean {
   return true;
 }
 
+function publicEmojiApiUrlFromStorageKey(storageKey: string): string | null {
+  if (!storageKey.startsWith('echo/public-emojis/')) return null;
+  const file = storageKey.split('/').pop()?.trim();
+  if (!file) return null;
+  const id = file.split('.')[0]?.trim();
+  if (!id || !isEchoPublicId(id)) return null;
+  try {
+    return new URL(
+      `${ECHO_PUBLIC_EMOJI_CDN_PATH_PREFIX}${encodeURIComponent(id)}`,
+      `${API_BASE.replace(/\/$/, '')}/`,
+    ).href;
+  } catch {
+    return null;
+  }
+}
+
+function maybePublicEmojiApiFallback(url: string): string {
+  const key = extractStorageKeyFromEchoMediaUrl(url);
+  if (!key) return url;
+  return publicEmojiApiUrlFromStorageKey(key) ?? url;
+}
+
 export function safeCustomEmojiUrl(
   url: string | undefined | null,
 ): string | null {
@@ -57,6 +83,9 @@ export function safeCustomEmojiUrl(
   const safe = safeImageUrl(trimmed);
   if (!safe) return null;
   if (safe.toLowerCase().startsWith('data:')) return null;
+  if (safe.includes(ECHO_MEDIA_CDN_OBJECT_PREFIX)) {
+    return maybePublicEmojiApiFallback(safe);
+  }
   return rewriteR2EchoUploadUrlForReadThrough(safe);
 }
 

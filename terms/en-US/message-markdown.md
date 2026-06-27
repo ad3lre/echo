@@ -1,230 +1,388 @@
-# Message formatting (Markdown in Echo chat)
+# Message formatting
 
-Echo turns message text into rich HTML using **Markdown** in the **GitHub-Flavored** style: **bold**, _italic_, lists, links, tables, task lists, footnotes, and more. **Single line breaks** inside a paragraph usually show as line breaks on screen.
+Echo chat uses **GitHub-Flavored Markdown** plus Echo-specific extras (spoilers, highlights, alerts, mentions, ID tokens, and more). Copy any block below into a message.
 
-This page describes **what Echo supports on purpose**, **rough processing order** (so expectations match reality), and **where support stops**.
-
-For **math** (LaTeX delimiters, dollar rules, bare environments, limits, and text-style LaTeX outside math), open **Math in messages** in the same help section.
+**Math (LaTeX / KaTeX)** → see **Math in messages** in this help section.
 
 ---
 
-## Processing order (why it matters)
+## Index
 
-For a typical message, Echo applies steps in roughly this order:
-
-1. **Spoilers** — `||…||` regions are handled first where they do not clash with structured mentions.
-2. **Structured mentions** — data from the server (who you @-mentioned) and pasted ID tokens like `<@…>` are turned into safe HTML **before** Markdown runs.
-3. **`@Everyone` / `@Active`** — plain-text broadcast labels become styled text (not the same as picking a person).
-4. **`==highlight==`** — becomes highlighted text before Markdown.
-5. **Math** — LaTeX blocks are found and set aside so Markdown does not break them; KaTeX runs later (see **Math in messages**).
-6. **Text-style LaTeX** — a **narrow** pass turns a few commands such as `\section` or `\begin{tabular}` into safe structure **outside** math (see **Math in messages**).
-7. **Markdown** — headings, emphasis, code, quotes, lists, links, images, tables, footnotes, etc.
-8. **`#channel` styling** — after Markdown, a plain `#name` can become a channel-style label **only** when the server already attached a matching channel mention for that label (random `#words` stay normal text).
-9. **Spoiler bodies** — inner content is finished with the same rules, up to a **safe depth limit**.
-10. **Math output** — KaTeX HTML is dropped back in.
-11. **Headings** — get stable anchors when possible (for tables of contents or future deep links).
-12. **External links** — open in a **new tab** with safe `rel` attributes.
-13. **Sanitization** — only allowed tags and attributes survive.
-14. **Emoji** — standard emoji become consistent images **outside** math.
-
-**Plain lines:** Very simple messages (no mentions, spoilers, footnotes, tricky punctuation, etc.) may use a **faster path** that still preserves line breaks and escaping, without running the full Markdown engine.
+| Category                              | Syntax                                             |
+| ------------------------------------- | -------------------------------------------------- | --- | --- | --- | --- |
+| [Line breaks](#line-breaks)           | newline / blank line                               |
+| [Headings](#headings)                 | `#` … `######`                                     |
+| [Emphasis](#emphasis)                 | `**bold**` `*italic*` `~~strike~~` `__underline__` |
+| [Highlight](#highlight)               | `==text==`                                         |
+| [Code](#code)                         | `` `inline` `` ` ```lang ` `!````                  |
+| [Blockquotes](#blockquotes)           | `>`                                                |
+| [Alerts](#alerts)                     | `> [!NOTE]` …                                      |
+| [Lists](#lists)                       | `-` `1.` `- [ ]`                                   |
+| [Links & images](#links--images)      | `[text](url)` `![alt](url)`                        |
+| [Tables](#tables)                     | pipe table                                         |
+| [Horizontal rule](#horizontal-rule)   | `---`                                              |
+| [Footnotes](#footnotes)               | `[^1]`                                             |
+| [Spoilers](#spoilers)                 | `                                                  |     | …   |     | `   |
+| [Broadcast labels](#broadcast-labels) | `@Everyone` `@Active`                              |
+| [Mentions](#mentions)                 | picker / server data                               |
+| [ID tokens](#id-tokens)               | `<@id>` `<#id>` …                                  |
+| [Custom emoji](#custom-emoji)         | `:name:` `<:name:id>`                              |
+| [Emoji](#emoji)                       | `😀`                                               |
+| [Raw HTML](#raw-html)                 | `<sub>` `<kbd>` …                                  |
+| [Limits](#limits)                     | —                                                  |
 
 ---
 
 ## Line breaks
 
-- **Inside a paragraph:** one newline often becomes a visible line break.
-- **Between paragraphs:** leave a **blank line** so Echo emits separate paragraphs.
+```md
+Same paragraph,
+still same paragraph.
+
+New paragraph needs a blank line above.
+```
+
+Single newlines inside a paragraph usually render as line breaks.
 
 ---
 
 ## Headings
 
-`#` through `######` produce heading levels 1–6. Echo assigns stable **anchors** to headings (slug from text; duplicates get `-2`, `-3`, …) when possible.
+```md
+# Heading 1
+
+## Heading 2
+
+### Heading 3
+
+#### Heading 4
+
+##### Heading 5
+
+###### Heading 6
+```
+
+Headings get stable anchor IDs when possible (`#my-heading`, duplicates → `-2`, `-3`, …).
 
 ---
 
-## Emphasis and inline styles
+## Emphasis
 
-| You write                | Result                |
-| ------------------------ | --------------------- |
-| `**bold**` or `__bold__` | Bold                  |
-| `*italic*` or `_italic_` | Italic                |
-| `~~strikethrough~~`      | Strikethrough         |
-| `` `inline code` ``      | Monospace inline code |
+```md
+**bold**
+_italic_ or _italic_
+~~strikethrough~~
+**underline** ← Echo uses ** for underline, not bold
+**_bold italic_**
+\*\***bold underline\*\*\_\_
+```
+
+```md
+Combine them: **bold**, _italic_, **underlined**, and ~~struck~~.
+```
 
 ---
 
-## Code blocks
+## Highlight
 
-- **Fenced blocks:** triple backticks or triple tildes, optional language label on the opening fence.
-- **Inside fenced or inline code**, Markdown and math rules **do not** apply — `$`, `$$`, `\(`, etc. stay literal.
+```md
+==This text is highlighted==
+```
 
-Echo’s math handling **skips** code regions so samples are not mistaken for formulas.
+---
+
+## Code
+
+**Inline** — Markdown and math rules do not apply inside code:
+
+```md
+Use `backticks` for `__literal__` and `$x^2$`.
+```
+
+**Fenced** — optional language tag on the opening fence:
+
+````md
+```js
+const x = 1;
+console.log(x);
+```
+
+```text
+||not a spoiler||
+$not math$
+```
+````
+
+**Markdown inside a fence** — prefix the opening fence with `!` to disable the code block and render inner lines with full markdown (headings, bold, spoilers, math, etc.). Echo strips the `!` opener and matching closer before parsing:
+
+````md
+!```
+
+## Looks like a code block
+
+**but this is bold**
+||and this is a spoiler||
+
+```
+
+```
+````
+
+Without the leading `!`, everything between the fences stays literal monospace text.
 
 ---
 
 ## Blockquotes
 
-Lines starting with `>` form blockquotes; nesting is supported.
+```md
+> Single line quote
 
-### Alerts
+> Multi-line
+> quote block
 
-GitHub-style alerts use blockquote syntax with a type marker on the first line:
+> Nested
+>
+> > deeper
+```
+
+---
+
+## Alerts
+
+GitHub-style callouts (case-insensitive type):
 
 ```md
 > [!NOTE]
-> Useful information users should know.
+> Useful information.
 
 > [!TIP]
 > Helpful advice.
 
 > [!IMPORTANT]
-> Key information for the goal.
+> Key information.
 
 > [!WARNING]
-> Urgent info that needs attention.
+> Needs attention.
 
 > [!CAUTION]
-> Advises about risks or negative outcomes.
+> Risk or negative outcome.
 ```
 
-Supported kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION` (case-insensitive). Each renders with a colored left bar, icon, and bold title matching GitHub’s alert styling.
+Types: `NOTE` · `TIP` · `IMPORTANT` · `WARNING` · `CAUTION`
 
 ---
 
 ## Lists
 
-- **Unordered:** `-`, `*`, or `+` at the start of a line.
-- **Ordered:** `1.`, `2.`, …
-- **Task lists:** `- [ ]` and `- [x]` render as checkboxes. In chat they are **read-only** (not a shared todo list).
+**Unordered**
+
+```md
+- Item one
+- Item two
+  - Nested
+
+* Also works
+
+- Also works
+```
+
+**Ordered** — start number is preserved:
+
+```md
+5. Fifth item (list starts at 5)
+6. Sixth item
+```
+
+**Task lists** — checkboxes are read-only in chat:
+
+```md
+- [ ] Todo
+- [x] Done
+```
+
+**Mixed**
+
+```md
+1. First
+   - Sub-bullet
+   - Another
+2. Second
+```
 
 ---
 
-## Links and images
+## Links & images
 
-- `[label](url)` → link. External links open in a **new tab** with safe defaults.
-- `![alt](url)` → image, subject to allowed URL schemes and sanitization.
-- **Autolinking:** bare `http://` and `https://` URLs in prose are usually turned into links where Markdown applies.
+```md
+[Echo docs](https://example.com/docs)
+![Diagram](https://example.com/chart.png)
+```
+
+Bare URLs autolink:
+
+```md
+See https://example.com/path for details.
+```
+
+External links open in a new tab with safe `rel` attributes. Autolinked URLs may show a site favicon.
 
 ---
 
 ## Tables
 
-Pipe tables (`| col |`) in the usual Markdown style are supported.
+```md
+| Name  | Role   | Active |
+| ----- | ------ | :----: |
+| Alice | Admin  |   ✓    |
+| Bob   | Member |   ✗    |
+```
+
+Alignment: `:---` left · `:---:` center · `---:` right
 
 ---
 
 ## Horizontal rule
 
-A line containing only `---`, `***`, or `___` (with optional spaces) produces a horizontal rule.
+```md
+---
+---
+
+---
+```
 
 ---
 
 ## Footnotes
 
-Reference-style footnotes: `[^label]` in the text and `[^label]: note body` elsewhere in the message.
-
-If a message contains **no** footnote syntax, Echo may skip some of the heavier processing.
-
----
-
-## Highlights
-
-Surround text with double equals:
-
 ```md
-==This appears highlighted==
+Echo supports footnotes[^1] inline.
+
+[^1]:
+    The note body can span
+    multiple lines and use **markdown**.
 ```
-
----
-
-## Special broadcast mentions (plain text)
-
-When these appear as plain text (**not** inside code), Echo styles them:
-
-- `@Everyone`
-- `@Active`
-
-These are **not** the same as choosing someone from the mention picker. Whether they notify people is still governed by server rules elsewhere.
-
----
-
-## User, role, channel @mentions and `#channel` names
-
-- **Clickable pills** for people, roles, and channels appear when the message includes **mention data from the server** (for example you used the picker). Free typing `@alice` without that data is **just text**.
-- After Markdown, **`#ChannelName`** may get channel styling **only** if there is a **channel mention** whose label matches (case-insensitive). Random hashtags stay plain text.
-
----
-
-## Linkable ID tokens (paste / insert)
-
-Paste forms like:
-
-| Kind              | Example forms                                       |
-| ----------------- | --------------------------------------------------- |
-| User              | `<@userId>` or `<@!userId>`                         |
-| Channel           | `<#channelId>`                                      |
-| Role              | `<@&roleId>`                                        |
-| Server (Echo)     | `<$serverId>`                                       |
-| Message ref       | `<m:messageId>`                                     |
-| Custom emoji      | `<:name:id>` or `<a:name:id>` (animated)            |
-| In-house app icon | `<icon:filename.svg>` from Echo’s built-in icon set |
-
-**Overlap:** If a token overlaps a **structured mention** from the server, the mention wins and the token is not rendered there.
 
 ---
 
 ## Spoilers
 
-Spoilers use this syntax:
-
 ```md
 ||hidden text||
+||can include **markdown** and
+multiple lines||
+||nested ||inner|| spoilers||
 ```
 
-- Inner content can include Markdown and math; nesting is allowed up to a **safe depth**.
-- If a spoiler would **partially overlap** a structured mention, Echo avoids the risky combination and falls back to simpler handling for that message shape.
+Spoilers are processed before Markdown. Nesting is allowed up to a safe depth.
 
 ---
 
-## Math (overview)
+## Broadcast labels
 
-Inline and display **LaTeX** is rendered with **KaTeX** after math is separated from Markdown. Delimiters, dollar rules, environments, limits, and text-style LaTeX are all described under **Math in messages** in this help section.
+Plain text only (not the mention picker):
+
+```md
+@Everyone
+@Active
+```
+
+---
+
+## Mentions
+
+**Picker mentions** — use `@user`, `@role`, or `#channel` from the UI. Echo styles them when the server attaches mention data. Free-typed `@alice` without that data stays plain text.
+
+**Channel styling after Markdown** — `#general` becomes a channel pill only when a matching channel mention exists for that label:
+
+```md
+Check #general for updates
+```
+
+(Requires a real `#general` channel mention on the message.)
+
+---
+
+## ID tokens
+
+Paste these to render linkable pills (labels resolve when Echo knows the ID):
+
+```md
+<@123456789012345678> user
+<@!123456789012345678> user (bang ignored)
+<#987654321098765432> channel
+<@&111222333444555666> role
+<$777888999000111222> server
+<m:333444555666777888> message link
+<:party_blob:304238867010606080> custom emoji
+<a:spin:304238867010606081> animated emoji
+<icon:shield-check.svg> in-house app icon
+```
+
+If a token overlaps a structured mention from the picker, the mention wins.
+
+---
+
+## Custom emoji
+
+**Shortcode** (when the server has that emoji):
+
+```md
+Hello :party_blob: everyone
+```
+
+**Full token** (always works when pasted):
+
+```md
+<:party_blob:304238867010606080>
+```
 
 ---
 
 ## Emoji
 
-Standard emoji in message HTML are shown with **Twemoji**-style images for a consistent look. That pass does **not** run **inside** math output.
+```md
+Standard emoji render as Twemoji images: 😀 🎉 👍
+```
+
+Emoji styling does not run inside math output.
 
 ---
 
-## Raw HTML in Markdown
+## Raw HTML
 
-Some raw HTML is allowed in Markdown source. Echo then **filters** the result to a safe subset: common text tags, lists, links, images, tables, task-list markup, layout spans used for mentions and spoilers, and the structures KaTeX needs for math.
+Some HTML passes through Markdown and survives sanitization:
 
-**Blocked:** scripts, embedded frames, most event-handler attributes, and anything outside the safe list. This is a **security** boundary, not a promise to support every HTML feature.
+```md
+<sub>subscript</sub> and <sup>superscript</sup>
+<del>deleted</del> and <ins>inserted</ins>
+<kbd>Ctrl</kbd>+<kbd>C</kbd>
+<abbr title="Application Programming Interface">API</abbr>
+```
+
+Allowed: common text tags, lists, links, images, tables, task-list markup, layout spans for mentions/spoilers, and KaTeX math structures.
+
+Blocked: `<script>`, `<iframe>`, event handlers, arbitrary CSS — sanitization always wins.
 
 ---
 
-## Composer and preview
+## Math
 
-- **Sent messages** and **split / full Markdown preview** aim to match the same rules.
-- The **typing overlay** in the editor is a lighter preview: it does **not** run full Markdown; it mainly escapes text and shows a few token types so spacing looks right.
-- Optional **delimiter highlighting** in the rich editor may be off in some builds — when in doubt, use **split or full preview** before sending.
+Quick sample — full delimiter rules, dollar handling, and text-style LaTeX are in **Math in messages**:
 
-Static **legal / policy** pages in Echo may use **different** line-break and heading rules than chat; they are not identical pipelines.
+```md
+Inline $E = mc^2$ or \(a + b\)
+
+$$
+\int_0^1 x^2 \, dx = \frac{1}{3}
+$$
+```
 
 ---
 
-## What Echo does **not** do
+## Limits
 
-- **No** full Slack `mrkdwn` or every Discord shortcut beyond what you see here.
-- **No** guessing users or channels from free-text `@name` or `#name` without server mention data (and no fake channel styling without a matching channel mention label).
-- **No** Markdown or math **inside** code spans, except as literal characters.
-- **No** guarantee that arbitrary HTML, CSS, or scripts survive — **sanitization wins**.
-- **No** server-rendered chat HTML for display in this path — your client builds the view.
-- **No** special footnote popovers beyond what the HTML output provides today.
-
-For math-only limits, see **Math in messages** in the same help section.
+- No Markdown or math **inside** normal code spans/blocks (stays literal). Use `!``` ` on the opening fence to opt into full markdown instead (see [Code](#code)).
+- No Slack `mrkdwn` or Discord shortcuts beyond what is listed here.
+- `@name` / `#name` without server mention data → plain text.
+- Task list checkboxes are display-only, not shared todos.
+- Legal/policy pages use a different Markdown pipeline than chat.

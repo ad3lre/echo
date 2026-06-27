@@ -39,6 +39,10 @@ import { evaluateBannedWordsOnMessageSend } from '../domain/echoStore/bannedWord
 import { applyBannedWordsAfterMessagePersisted } from '../services/echoBannedWordsApply';
 import { clientIpFromSocket } from '../net/clientIp';
 import { loadEchoUserCached } from '../domain/echoEventUserCache';
+import {
+  checkAbsoluteMessageSendAllowed,
+  recordAbsoluteMessageSend,
+} from '../services/auth/absoluteInstanceRateLimiter';
 
 function emitMessageFailed(
   socket: Socket,
@@ -140,6 +144,16 @@ export function registerMessageHandler(
         } = parsed.value;
         const correlationId =
           correlationIdFromPayload ?? options.handshakeCorrelationId;
+
+        if (!checkAbsoluteMessageSendAllowed().ok) {
+          emitMessageFailed(socket, {
+            code: 'RATE_LIMIT',
+            channelId: rawChannelId,
+            clientMessageId: rawClientId,
+            detail: 'Instance message rate limit reached.',
+          });
+          return;
+        }
 
         if (!checkMessageRate(userId, channelId)) {
           log.warn({
@@ -638,6 +652,9 @@ export function registerMessageHandler(
               ...(persistRes.detail ? { detail: persistRes.detail } : {}),
             });
             return;
+          }
+          if (persistRes.kind !== 'duplicate_ack') {
+            recordAbsoluteMessageSend();
           }
           if (
             persistRes.kind !== 'duplicate_ack' &&

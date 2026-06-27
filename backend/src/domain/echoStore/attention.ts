@@ -378,7 +378,7 @@ export async function buildEchoChannelAttentionFanoutDeltas(
     unreadByUser.map((row) => [row.user_id, row] as const),
   );
 
-  let notificationLevelByUserId: Record<string, EchoServerNotificationLevel> =
+  const notificationLevelByUserId: Record<string, EchoServerNotificationLevel> =
     {};
   let roleIdsByUserId: Record<string, string[]> = {};
   if (isGuild && serverId) {

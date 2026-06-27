@@ -4,13 +4,15 @@ import { useAuthSessionStore } from '@/stores/authSession';
 import { useEchoSessionStore } from '@/stores/echoSession';
 import { authPatchMe } from '@/api/authClient';
 import { postEchoPresenceHttp } from '@/api/echoClient';
-import { buildComposerDoc } from '@/features/chat/editor/composerModel';
+import { buildComposerDocFromPlain } from '@/features/chat/editor/composerModel';
+import { plainTextFromEchoContentJson } from '@/features/chat/editor/echoContentJsonPlainText';
 import { relocateMentionsInEditableText } from '@/features/chat/editor/messageEditDraft';
 import {
   docContainsRichContentJsonBlocks,
   rebuildContentJsonPreservingRichBlocks,
 } from '@shared/richBlockContentJson';
 import { deriveMessageComponentsFromContentJson } from '@shared/buttonRowContentJson';
+import { patchImageSlotFill } from '@shared/imageSlotContentJson';
 import { writeSortedMessagesForChannel } from '@/services/realtime/channelMessageBucket';
 import {
   overwriteLocalProfileFromAuthUser,
@@ -556,10 +558,14 @@ export function useAppLayoutMessageActions(
                 trimmed,
                 mentionsForPatch,
               )
-            : buildComposerDoc(trimmed, mentionsForPatch, undefined)
+            : buildComposerDocFromPlain(trimmed, mentionsForPatch, undefined)
         : undefined;
+    const storedPlain =
+      docForV2 !== undefined
+        ? plainTextFromEchoContentJson(docForV2).trim() || trimmed
+        : trimmed;
     const patch: Partial<RawMessage> = {
-      content: trimmed,
+      content: storedPlain,
       editedAt: new Date().toISOString(),
     };
     if (composerBody?.mentions !== undefined) {
@@ -571,7 +577,7 @@ export function useAppLayoutMessageActions(
       patch.contentJson = docForV2;
       patch.contentSchemaVersion = ECHO_CONTENT_SCHEMA_VERSION;
       patch.messageFormatVersion = mf;
-      patch.contentText = trimmed;
+      patch.contentText = storedPlain;
       patch.components = deriveMessageComponentsFromContentJson(docForV2);
     }
     if (attachmentSnapshot !== undefined) {
@@ -740,7 +746,30 @@ export function useAppLayoutMessageActions(
     const cid = options.activeChannelId.value?.trim();
     if (!cid || !messageId || !slotId) return false;
     const submit = options.submitEchoImageSlotFill;
-    if (!submit) return false;
+    if (!submit) {
+      propagateActionFailure(
+        failResult('UNAVAILABLE', 'Image slot fill is unavailable', true),
+        {
+          flow: 'socket.message_fill_image_slot',
+          context: 'message_fill_image_slot',
+        },
+      );
+      return false;
+    }
+
+    const list = messages.value[cid];
+    if (list?.length) {
+      const index = getChannelIndex(cid, list);
+      const prev = index.byId.get(messageId);
+      if (prev?.contentJson) {
+        const patched = patchImageSlotFill(prev.contentJson, slotId, body);
+        if (patched.ok) {
+          index.update(messageId, { contentJson: patched.doc });
+          writeSortedMessagesForChannel(messages.value, cid, index);
+        }
+      }
+    }
+
     const r = await Promise.resolve(
       submit(cid, messageId, slotId, body, newUiCorrelationId()),
     );

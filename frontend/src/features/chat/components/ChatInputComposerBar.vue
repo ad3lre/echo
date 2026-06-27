@@ -23,6 +23,11 @@ import {
   type MarkdownPreviewMenuMode,
 } from '@/features/chat/composables/markdownPreviewModePreference';
 import { isComposerContentEffectivelyEmpty } from '@/features/chat/editor/composerModel';
+
+/** Surface height above one line (py-2 + 24px editor min) ⇒ multiline composer. */
+const COMPOSER_MULTILINE_ENTER_PX = 52;
+const COMPOSER_MULTILINE_EXIT_PX = 40;
+
 const props = defineProps<{
   popoutDirection?: 'up' | 'down';
   popoutTheme?: 'default' | 'forum';
@@ -75,6 +80,9 @@ const props = defineProps<{
   formatSpoiler: () => void;
   channelName: string;
   handleComposerPointerDown: (e: MouseEvent) => void;
+  handleComposerClick?: (e: MouseEvent) => void;
+  /** True while a composer image-slot upload is in flight. */
+  composerImageSlotFilling?: boolean;
   handleComposerSelectionSync?: () => void;
   handleComposerScroll: () => void;
   handleInputFocus: (e: FocusEvent) => void;
@@ -291,6 +299,12 @@ onUnmounted(() => {
     document.removeEventListener('keydown', mobileOverflowEscHandler);
   if (mobileOverflowDocDown)
     document.removeEventListener('mousedown', mobileOverflowDocDown, true);
+  composerSurfaceRo?.disconnect();
+  composerSurfaceRo = null;
+  if (composerTallRaf) {
+    cancelAnimationFrame(composerTallRaf);
+    composerTallRaf = 0;
+  }
 });
 
 function bindRef<E extends HTMLElement>(
@@ -302,6 +316,98 @@ function bindRef<E extends HTMLElement>(
 
 const gifPopoutAnchorRef = ref<HTMLElement | null>(null);
 const emojiPopoutAnchorRef = ref<HTMLElement | null>(null);
+const composerRightRailRef = ref<HTMLElement | null>(null);
+
+const composerTall = ref(false);
+/** Locked horizontal width so vertical stack does not reflow the editor (avoids flicker). */
+const composerRailLockedWidthPx = ref<number | null>(null);
+let composerSurfaceRo: ResizeObserver | null = null;
+let composerTallRaf = 0;
+
+function measureAndLockRailWidth() {
+  const el = composerRightRailRef.value;
+  if (!el || composerTall.value) return;
+  const w = Math.ceil(el.getBoundingClientRect().width);
+  if (w > 0) composerRailLockedWidthPx.value = w;
+}
+
+function syncComposerTall() {
+  const el = props.composerSurfaceRef.value;
+  if (!el) {
+    composerTall.value = false;
+    return;
+  }
+  const height = el.clientHeight;
+  if (composerTall.value) {
+    if (height <= COMPOSER_MULTILINE_EXIT_PX) composerTall.value = false;
+  } else if (height > COMPOSER_MULTILINE_ENTER_PX) {
+    measureAndLockRailWidth();
+    composerTall.value = true;
+  }
+}
+
+function scheduleSyncComposerTall() {
+  if (composerTallRaf) return;
+  composerTallRaf = requestAnimationFrame(() => {
+    composerTallRaf = 0;
+    syncComposerTall();
+  });
+}
+
+watch(composerTall, (tall) => {
+  if (!tall) void nextTick(measureAndLockRailWidth);
+});
+
+watch(
+  () => [
+    props.showMarkdownPreviewToggle,
+    showMobileSendInToolbar.value,
+    props.popoutTheme,
+  ],
+  () => {
+    composerRailLockedWidthPx.value = null;
+    void nextTick(measureAndLockRailWidth);
+  },
+);
+
+watch(
+  () => props.composerSurfaceRef.value,
+  (el, _prev, onCleanup) => {
+    composerSurfaceRo?.disconnect();
+    composerSurfaceRo = null;
+    if (!el) {
+      composerTall.value = false;
+      return;
+    }
+    syncComposerTall();
+    if (typeof ResizeObserver !== 'undefined') {
+      composerSurfaceRo = new ResizeObserver(() => scheduleSyncComposerTall());
+      composerSurfaceRo.observe(el);
+    }
+    onCleanup(() => {
+      composerSurfaceRo?.disconnect();
+      composerSurfaceRo = null;
+    });
+  },
+  { immediate: true },
+);
+
+watch(
+  () => props.composerContent,
+  () => {
+    void nextTick(scheduleSyncComposerTall);
+  },
+);
+
+watch(composerRightRailRef, (el) => {
+  if (el) void nextTick(measureAndLockRailWidth);
+});
+
+const composerRailWidthStyle = computed(() => {
+  const w = composerRailLockedWidthPx.value;
+  if (!w) return undefined;
+  return { width: `${w}px`, minWidth: `${w}px` };
+});
 
 defineExpose({
   gifPopoutAnchorRef,
@@ -349,6 +455,7 @@ defineExpose({
       :class="{
         'chat-input-bar--forum': props.popoutTheme === 'forum',
         'chat-input-bar--compact-shell': props.compactShellLayout,
+        'chat-input-bar--tall': composerTall,
       }"
     >
       <button
@@ -491,6 +598,8 @@ defineExpose({
             {
               'chat-input-surface-wrap--disabled': composerDisabled,
               'chat-input-surface-wrap--empty': showComposerPlaceholder,
+              'chat-input-surface-wrap--image-slot-uploading':
+                props.composerImageSlotFilling,
             },
           ]"
           :title="composerDisabled ? composerDisabledReason : undefined"
@@ -520,7 +629,11 @@ defineExpose({
         </div>
       </div>
 
-      <div class="composer-right-rail relative z-20 flex shrink-0 items-center">
+      <div
+        ref="composerRightRailRef"
+        class="composer-right-rail relative z-20 flex shrink-0 items-center"
+        :style="composerRailWidthStyle"
+      >
         <div
           class="composer-toolbar-actions relative flex items-center gap-1 flex-shrink-0"
         >
@@ -837,6 +950,30 @@ defineExpose({
   }
 }
 
+.chat-input-bar--tall {
+  .composer-right-rail {
+    flex-direction: column;
+    align-items: flex-end;
+    align-self: flex-end;
+    justify-content: flex-end;
+  }
+
+  .composer-toolbar-actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  .composer-send-slot {
+    margin-left: 0;
+  }
+
+  .chat-mobile-send-btn,
+  .forum-send-btn {
+    margin-left: 0;
+  }
+}
+
 .chat-input-bar--compact-stacked {
   flex-wrap: wrap;
   row-gap: 0.375rem;
@@ -1034,50 +1171,54 @@ defineExpose({
   margin: 0 0.03em;
 }
 
-.chat-input-surface :deep(.tiptap .composer-image-slot) {
+.chat-input-surface :deep(.tiptap .composer-rich-block-token) {
   display: block;
   width: 100%;
-  max-width: min(100%, 20rem);
-  margin: 0.35rem 0;
-  border-radius: 0.5rem;
-  border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
-  background: color-mix(in srgb, var(--elevated) 88%, transparent);
-  overflow: hidden;
-}
-
-.chat-input-surface :deep(.tiptap .composer-image-slot__label) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
+  margin: 0.2rem 0;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 1.45;
   color: var(--muted);
+  word-break: break-all;
+  white-space: pre-wrap;
 }
 
-.chat-input-surface :deep(.tiptap .composer-image-slot__img) {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+.chat-input-surface
+  :deep(.tiptap .composer-rich-block-token[data-rich-block='image']) {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0.15rem 0.35rem;
+  border: 1px dashed var(--border);
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
 }
 
-.chat-input-surface :deep(.tiptap .composer-button-row) {
-  display: block;
-  width: 100%;
-  max-width: min(100%, 24rem);
-  margin: 0.35rem 0;
-  padding: 0.45rem 0.65rem;
-  border-radius: 0.5rem;
-  border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
-  background: color-mix(in srgb, var(--elevated) 88%, transparent);
+.chat-input-surface
+  :deep(.tiptap .composer-rich-block-token[data-rich-block='image']:hover) {
+  background: var(--menu-item-selected-bg, rgb(0 0 0 / 0.06));
+  border-color: var(--accent, var(--border));
+  color: var(--text);
 }
 
-.chat-input-surface :deep(.tiptap .composer-button-row__label) {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--muted);
+.chat-input-surface
+  :deep(
+    .tiptap
+      .composer-rich-block-token[data-rich-block='image'][data-image-filled='true']
+  ) {
+  border-style: solid;
+  opacity: 0.92;
+}
+
+.chat-input-surface-wrap--image-slot-uploading
+  :deep(.tiptap .composer-rich-block-token[data-rich-block='image']) {
+  cursor: wait;
+  opacity: 0.72;
+  pointer-events: none;
 }
 
 .chat-input-surface :deep(.tiptap .emoji) {
@@ -1130,7 +1271,7 @@ defineExpose({
 
 .chat-input-surface :deep(.tiptap .composer-md-code) {
   border-radius: 0.25rem;
-  background: var(--vue-auto-031);
+  background: var(--md-inline-code-bg);
   padding: 0.04em 0.2em;
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
@@ -1158,7 +1299,7 @@ defineExpose({
   margin: 0.15em 0;
   border-radius: 0.35rem;
   padding: 0.35em 0.5em;
-  background: var(--vue-auto-031);
+  background: var(--md-code-bg);
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;

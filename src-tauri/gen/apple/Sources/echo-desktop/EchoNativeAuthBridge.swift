@@ -18,9 +18,15 @@ final class EchoNativeAuthBridge {
 
     // MARK: - Passkey Login
 
+    /// - Parameter preferImmediatelyAvailable: when `true` (iOS 16+), the system
+    ///   only presents the passkey sheet if a credential is immediately
+    ///   available for the RP; otherwise it fails fast (no QR / cross-device
+    ///   fallback). Used by the login screen's auto-present-on-appear flow so an
+    ///   absent passkey stays silent.
     func performPasskeyLogin(
         username: String?,
         anchor: ASPresentationAnchor,
+        preferImmediatelyAvailable: Bool = false,
         completion: @escaping (Result<[String: Any], Error>) -> Void
     ) {
         if #available(iOS 15.0, *) {
@@ -28,6 +34,7 @@ final class EchoNativeAuthBridge {
                 authBase: authBase,
                 username: username,
                 anchor: anchor,
+                preferImmediatelyAvailable: preferImmediatelyAvailable,
                 session: makeSession()
             ) { [weak self] result in
                 self?.passkeyCoordinator = nil
@@ -52,6 +59,8 @@ final class EchoNativeAuthBridge {
         username: String,
         password: String,
         isRegister: Bool,
+        email: String? = nil,
+        displayName: String? = nil,
         completion: @escaping (Result<[String: Any], Error>) -> Void
     ) {
         let endpoint = isRegister ? "\(authBase)/register" : "\(authBase)/login"
@@ -69,7 +78,14 @@ final class EchoNativeAuthBridge {
             "password": password
         ]
         if isRegister {
-            body["email"] = username
+            // Registration now has a dedicated email field (matches the web
+            // mobile flow); fall back to username for older callers.
+            let trimmedEmail = email?.trimmingCharacters(in: .whitespacesAndNewlines)
+            body["email"] = (trimmedEmail?.isEmpty == false) ? trimmedEmail! : username
+            if let displayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !displayName.isEmpty {
+                body["displayName"] = displayName
+            }
         }
 
         do {
@@ -331,6 +347,7 @@ private final class EchoPasskeyLoginCoordinator: NSObject, ASAuthorizationContro
     private let authBase: String
     private let username: String?
     private let anchor: ASPresentationAnchor
+    private let preferImmediatelyAvailable: Bool
     private let session: URLSession
     private let completion: (Result<[String: Any], Error>) -> Void
     private var challengeId: String = ""
@@ -339,12 +356,14 @@ private final class EchoPasskeyLoginCoordinator: NSObject, ASAuthorizationContro
         authBase: String,
         username: String?,
         anchor: ASPresentationAnchor,
+        preferImmediatelyAvailable: Bool,
         session: URLSession,
         completion: @escaping (Result<[String: Any], Error>) -> Void
     ) {
         self.authBase = authBase
         self.username = username?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.anchor = anchor
+        self.preferImmediatelyAvailable = preferImmediatelyAvailable
         self.session = session
         self.completion = completion
     }
@@ -429,7 +448,13 @@ private final class EchoPasskeyLoginCoordinator: NSObject, ASAuthorizationContro
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self
         controller.presentationContextProvider = self
-        controller.performRequests()
+        if preferImmediatelyAvailable, #available(iOS 16.0, *) {
+            // Only surface the sheet if a passkey for this RP is immediately
+            // available; otherwise fail fast (no cross-device QR fallback).
+            controller.performRequests(options: .preferImmediatelyAvailableCredentials)
+        } else {
+            controller.performRequests()
+        }
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {

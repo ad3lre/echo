@@ -6,11 +6,12 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { config } from '../config';
 import { getAccessUserIdFromAuthHeader } from '../auth/token';
 import { enforceApiCsrf } from '../auth/csrf';
-import { isEchoApiReadRequest } from './echoReadRateLimitPaths';
+import { isEchoApiGlobalRateLimitExempt } from './echoReadRateLimitPaths';
 import { registerEchoHttpObservability } from './echoHttpObservability';
 import { registerGlobalErrorHandler } from './errorHandler';
 import { recordNetworkDiagnostic } from '../observability/networkDiagnostics';
 import { clientIpFromFastifyRequest } from '../net/clientIp';
+import { resolveGlobalHttpRateLimitMaxPerMinute } from '../config/instancePolicy/resolveHttpRateLimit';
 
 /** Browser preflight must allow every non-simple header Echo clients send (see `frontend/src/api/echo/transport.ts`). */
 export const ECHO_CORS_ALLOWED_HEADERS: string[] = [
@@ -127,14 +128,14 @@ export async function registerHttpPlugins(
 
   await fastify.register(rateLimit, {
     /** Mutations, auth, and non-Echo traffic; Echo GETs use the scoped bucket in registerRoutes. */
-    max: 150,
+    max: () => resolveGlobalHttpRateLimitMaxPerMinute(),
     timeWindow: '1 minute',
     keyGenerator: (req) => {
       const userId = getAccessUserIdFromAuthHeader(req.headers.authorization);
       return userId ? `uid:${userId}` : `ip:${clientIpFromFastifyRequest(req)}`;
     },
     allowList: (req: FastifyRequest) =>
-      isEchoApiReadRequest(req.method, req.url),
+      isEchoApiGlobalRateLimitExempt(req.method, req.url),
     addHeaders: { 'retry-after': true },
   });
 

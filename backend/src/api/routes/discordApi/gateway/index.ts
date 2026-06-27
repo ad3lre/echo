@@ -174,7 +174,7 @@ export async function buildGuildCreatePayload(
     const userIds = memberRows.rows.map((r: Record<string, unknown>) =>
       String(r.user_id),
     );
-    let rolesByUser: Record<string, string[]> = {};
+    const rolesByUser: Record<string, string[]> = {};
     if (userIds.length > 0) {
       const roleRows = await pool.query(
         `SELECT user_id, role_id FROM echo_member_roles WHERE server_id = $1 AND user_id = ANY($2::text[])`,

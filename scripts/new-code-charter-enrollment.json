@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-06-14",
+  "enrolledAt": "2026-06-27",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -56,8 +56,8 @@
       "maxNestingSpaces": 12
     },
     "frontend/src/composables/livekitVoiceRoom/roomEvents.ts": {
-      "lines": 405,
-      "longestFunction": 360,
+      "lines": 449,
+      "longestFunction": 371,
       "deepNestingLines": 18,
       "maxNestingSpaces": 14
     },
@@ -140,8 +140,8 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/buildAppLayoutAssemblyDeps.ts": {
-      "lines": 759,
-      "longestFunction": 748,
+      "lines": 762,
+      "longestFunction": 751,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -218,14 +218,14 @@
       "maxNestingSpaces": 10
     },
     "frontend/src/features/layout/composables/wireAppLayoutMessagingAndProfiles.ts": {
-      "lines": 1430,
-      "longestFunction": 1363,
+      "lines": 1433,
+      "longestFunction": 1366,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/wireAppLayoutVoiceAndRealtime.ts": {
-      "lines": 1817,
-      "longestFunction": 1719,
+      "lines": 1823,
+      "longestFunction": 1725,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
@@ -313,6 +313,18 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 2
     },
+    "frontend/src/features/voice/wordline/useWordlineServerGame.ts": {
+      "lines": 143,
+      "longestFunction": 118,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 6
+    },
+    "frontend/src/features/voice/wordline/wordlineServerGameDisplay.ts": {
+      "lines": 133,
+      "longestFunction": 122,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 10
+    },
     "frontend/src/services/domain/channelStructureOptimistic.ts": {
       "lines": 247,
       "longestFunction": 93,
@@ -338,7 +350,7 @@
       "maxNestingSpaces": 8
     },
     "backend/src/api/routes/appleOAuth.ts": {
-      "lines": 244,
+      "lines": 245,
       "longestFunction": 4,
       "deepNestingLines": 13,
       "maxNestingSpaces": 16
@@ -348,6 +360,12 @@
       "longestFunction": 24,
       "deepNestingLines": 2,
       "maxNestingSpaces": 14
+    },
+    "backend/src/config/instancePolicy/envOverrides.ts": {
+      "lines": 201,
+      "longestFunction": 88,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 6
     },
     "backend/src/config/storage.ts": {
       "lines": 110,
@@ -362,8 +380,8 @@
       "maxNestingSpaces": 8
     },
     "backend/src/services/chatRemoteImageImport.ts": {
-      "lines": 294,
-      "longestFunction": 143,
+      "lines": 277,
+      "longestFunction": 129,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },

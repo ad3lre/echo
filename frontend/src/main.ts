@@ -13,6 +13,7 @@ import {
 } from '@/features/settings/timeLanguagePreferences';
 import { echoT } from '@/i18n';
 import { useAuthSessionStore } from '@/stores/authSession';
+import { useInstancePolicyStore } from '@/stores/instancePolicy';
 import { useBugHunterStore } from '@/stores/bugHunter';
 import { hydrateBootThemeAndPreferences } from '@/utils/bootThemeHydration';
 import { getEchoPlatform } from '@/platform/createEchoPlatform';
@@ -239,6 +240,8 @@ async function bootstrap() {
   const pinia = createPinia();
 
   app.use(pinia);
+
+  void useInstancePolicyStore().load();
 
   registerAuthSessionApiBridge({
     invalidateSessionForReauth(message: string) {

@@ -201,6 +201,13 @@ export interface AppLayoutControllerContext {
   commitVcHangmanWord: (raw: string) => string | null;
   requestVcHangmanGuessLetter: (letter: string) => void;
   requestVcHangmanNextRound: () => void;
+  wordlineView: ComputedRef<
+    import('@shared/games/wordline').WordlineView | null
+  >;
+  submitWordlineGuess: (guess: string) => void;
+  setWordlineMode: (
+    mode: import('@shared/games/wordline/core').GameMode,
+  ) => void;
   sendVcTicTacToeChallenge: (toUserId: string) => void;
   respondVcTicTacToeInvite: (accept: boolean) => void;
   dismissVcTicTacToeInvite: () => void;
@@ -910,7 +917,9 @@ export interface AppLayoutControllerContext {
   // Search
   searchText: Ref<string>;
   filterChips: Ref<FilterChip[]>;
-  allChannels: ComputedRef<{ id: string; name: string }[]>;
+  allChannels: ComputedRef<
+    import('@/services/orchestration/messageSearchCore').ChannelListEntry[]
+  >;
   isSearchActive: ComputedRef<boolean>;
   paginatedSearchResults: ComputedRef<MessageWithAuthor[]>;
   searchResultMessages: ComputedRef<MessageWithAuthor[]>;

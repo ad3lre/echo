@@ -33,7 +33,7 @@ export async function requestEchoStageSpeak(
   );
   if (!vp.rows[0] || String(vp.rows[0].channel_id) !== channelId)
     return 'not_found';
-  if (Boolean(vp.rows[0].stage_speaker)) return 'already_speaker';
+  if (vp.rows[0].stage_speaker) return 'already_speaker';
   const existing = await pool.query(
     `SELECT 1 FROM echo_stage_speak_requests
      WHERE server_id = $1 AND channel_id = $2 AND user_id = $3`,

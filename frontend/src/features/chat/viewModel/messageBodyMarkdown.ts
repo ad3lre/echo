@@ -44,6 +44,7 @@ import {
   type RawSpoilerRegion,
   replaceSpoilerPlaceholdersInHtml,
 } from '@/utils/discordSpoilerMarkdown';
+import { stripEscapedMarkdownFenceMarkers } from '@/utils/markdownFenceEscape';
 import { bioLinkFaviconUrl, formatBioLinkDisplay } from '@/utils/bioLinkText';
 import { safeImageUrl } from '@/utils/safeImageUrl';
 
@@ -728,7 +729,7 @@ function echoTextAllowsMarkedBypass(
 const PARSE_CACHE = new Map<string, string>();
 const PARSE_CACHE_MAX = 2000;
 const HTML_STAGE_CACHE_MAX = 2000;
-const MARKDOWN_PIPELINE_VERSION = `mdp1_math3_dollar_inline_latex_text1_sanitize5_${MARKDOWN_KATEX_PIPELINE_VERSION}_twemoji1_alerts1_extlinkfav1`;
+const MARKDOWN_PIPELINE_VERSION = `mdp1_math3_dollar_inline_latex_text1_sanitize5_${MARKDOWN_KATEX_PIPELINE_VERSION}_twemoji1_alerts1_extlinkfav1_escfence1`;
 const EMOJI_CANDIDATE_RE = /[\u{2600}-\u{27BF}\u{1F000}-\u{1FAFF}]/u;
 const RESOLVER_CACHE_VERSION = new WeakMap<object, number>();
 const HEADING_HTML_CACHE = new Map<string, string>();
@@ -1154,11 +1155,12 @@ export function parseMessageContent(
   if (depth > MAX_PARSE_MESSAGE_DEPTH) {
     return escapeForHighlight(text);
   }
+  const normalizedText = stripEscapedMarkdownFenceMarkers(text);
   const resolverVersion = getResolverCacheVersion(resolvers);
   const useCache = depth === 0;
   if (useCache) {
     const cacheKey = parseMessageCacheKey(
-      text,
+      normalizedText,
       mentions,
       resolverVersion,
       options?.parseCacheExtra,
@@ -1167,8 +1169,8 @@ export function parseMessageContent(
     if (cached !== undefined) return cached;
   }
 
-  const spoilerPass = applyRawSpoilerExtraction(text, mentions);
-  const textForMentions = spoilerPass?.text ?? text;
+  const spoilerPass = applyRawSpoilerExtraction(normalizedText, mentions);
+  const textForMentions = spoilerPass?.text ?? normalizedText;
   const mentionsForMentions = spoilerPass?.outsideMentions ?? mentions;
 
   let rawHtml: string;
@@ -1178,10 +1180,18 @@ export function parseMessageContent(
 
   const useMarkedBypass =
     depth === 0 &&
-    echoTextAllowsMarkedBypass(text, mentions, spoilerPass, resolvers);
+    echoTextAllowsMarkedBypass(
+      normalizedText,
+      mentions,
+      spoilerPass,
+      resolvers,
+    );
 
   if (useMarkedBypass) {
-    const body = text.split('\n').map(escapeForHighlight).join('<br>');
+    const body = normalizedText
+      .split('\n')
+      .map(escapeForHighlight)
+      .join('<br>');
     rawHtml = `<p>${body}</p>`;
     renderedMath = [];
   } else {

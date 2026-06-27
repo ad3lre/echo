@@ -22,7 +22,7 @@ const BACKFILL_WORKER_ID = 31n;
 
 const execute = process.argv.includes('--execute');
 
-let sequenceByMs = new Map<number, number>();
+const sequenceByMs = new Map<number, number>();
 
 function snowflakeFromTimestamp(ms: number): string {
   let seq = sequenceByMs.get(ms) ?? 0;

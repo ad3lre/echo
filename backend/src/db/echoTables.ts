@@ -51,6 +51,10 @@ async function runEnsureEchoTables(pool: pg.Pool): Promise<void> {
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS verification_require_email BOOLEAN NOT NULL DEFAULT false;
   `);
   await pool.query(`
+    ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS welcome_channel_id TEXT NULL
+      REFERENCES echo_channels(id) ON DELETE SET NULL;
+  `);
+  await pool.query(`
     ALTER TABLE echo_servers ADD COLUMN IF NOT EXISTS invite_join_enabled BOOLEAN NOT NULL DEFAULT true;
   `);
   await pool.query(`
@@ -2674,7 +2678,7 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
         );
         if (seeded.rows.length === 0) continue;
 
-        let allRole = await pool.query<{ id: string }>(
+        const allRole = await pool.query<{ id: string }>(
           `SELECT id FROM echo_roles WHERE server_id = $1 AND name = 'All' LIMIT 1`,
           [serverId],
         );
@@ -2975,6 +2979,57 @@ async function migrateEchoCategorySchema(pool: pg.Pool): Promise<void> {
             AND jsonb_array_length(m.attachments) > 0
           )
         WHERE m.deleted_at IS NULL
+      `);
+    },
+  );
+
+  await runEchoSchemaMigrationOnce(
+    pool,
+    '2026-06-16-echo-instance-bans',
+    async () => {
+      await pool.query(`
+        CREATE TABLE echo_instance_bans (
+          id TEXT PRIMARY KEY,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          reason TEXT NOT NULL,
+          user_id TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL,
+          ip INET NULL,
+          hwid_hash TEXT NULL,
+          expires_at TIMESTAMPTZ NULL,
+          is_allowlisted BOOLEAN NOT NULL DEFAULT false,
+          is_propagated BOOLEAN NOT NULL DEFAULT false,
+          origin_ban_id TEXT NULL REFERENCES echo_instance_bans(id) ON DELETE SET NULL,
+          banned_by TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL,
+          revoked_at TIMESTAMPTZ NULL,
+          revoked_by TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL,
+          CHECK (user_id IS NOT NULL OR ip IS NOT NULL OR hwid_hash IS NOT NULL)
+        );
+      `);
+      await pool.query(`
+        CREATE INDEX echo_instance_bans_user_active_idx
+        ON echo_instance_bans (user_id)
+        WHERE revoked_at IS NULL AND user_id IS NOT NULL;
+      `);
+      await pool.query(`
+        CREATE INDEX echo_instance_bans_ip_active_idx
+        ON echo_instance_bans (ip)
+        WHERE revoked_at IS NULL AND ip IS NOT NULL;
+      `);
+      await pool.query(`
+        CREATE INDEX echo_instance_bans_hwid_active_idx
+        ON echo_instance_bans (hwid_hash)
+        WHERE revoked_at IS NULL AND hwid_hash IS NOT NULL;
+      `);
+      await pool.query(`
+        CREATE TABLE echo_instance_ban_audit (
+          id TEXT PRIMARY KEY,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          operator_id TEXT NULL REFERENCES auth_users(id) ON DELETE SET NULL,
+          action TEXT NOT NULL,
+          ban_id TEXT NULL,
+          target_user_id TEXT NULL,
+          detail JSONB NULL
+        );
       `);
     },
   );

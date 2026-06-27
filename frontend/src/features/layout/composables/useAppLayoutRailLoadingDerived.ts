@@ -46,6 +46,23 @@ export function useAppLayoutRailLoadingDerived(opts: {
         opts.activeRailTab.value === 'servers'),
   );
 
+  /**
+   * First app boot, before the workspace's initial load has settled. The latch is
+   * one-way (flips true on the first terminal settle and never resets), so this is
+   * only ever true during the very first hydrate — never on later channel switches.
+   *
+   * During this window the active channel may not be resolved yet (URL/nav restore
+   * runs a tick after mount) and its history page has not landed, so the message
+   * surface would otherwise flash empty-state copy ("No messages here yet") before
+   * the per-channel `initialLoading` skeleton kicks in. We report loading for an
+   * empty/unresolved surface so MessageList shows message-shaped skeletons from the
+   * first frame instead. A channel that is already warm (messages cached) is left
+   * untouched, so a ready chat still paints instantly.
+   */
+  const isBootInitialLoadSettling = computed(
+    () => !opts.workspace.initialLoadSettled.value,
+  );
+
   const isGuildShellSettlingRef = computed(() =>
     isGuildShellSettling({
       rail: opts.activeRailTab.value,
@@ -71,6 +88,14 @@ export function useAppLayoutRailLoadingDerived(opts: {
   const isMessageSurfaceSwitchLoading = computed(() => {
     if (isInitialWorkspaceLoading.value) return true;
     if (isGuildShellSettlingRef.value) return true;
+    // Boot window: skeleton an empty/unresolved message surface (any rail) so the
+    // empty-state copy never flashes before the channel + its history resolve.
+    if (isBootInitialLoadSettling.value) {
+      const bootCid = opts.activeChannelId.value.trim();
+      if (!bootCid) return true;
+      if ((opts.workspace.messages.value[bootCid]?.length ?? 0) === 0)
+        return true;
+    }
     if (!isServerRailFastSwitchPending.value) return false;
     const cid = opts.activeChannelId.value.trim();
     if (!cid) return true;

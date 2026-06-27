@@ -105,8 +105,22 @@ defineProps<{
   height: 1.375rem;
 }
 
+/*
+ * Media placeholders hint at attachments without dominating: a tall portrait
+ * (e.g. 3/4) would otherwise resolve to ~850px at full column width and, with
+ * the bottom-anchored overlay, fill the viewport as one giant block. Cap the
+ * height so it reads as a media slot, not a wall.
+ */
+.skeleton-media {
+  max-height: 12rem;
+}
+
+/*
+ * Contrast-based fill (mirrors MemberList) — NOT --overlay-subtle, which is a
+ * darkening scrim (near-black on dark themes) and renders the bars invisible.
+ */
 .message-list-skeleton-pulse {
-  background: var(--overlay-subtle);
+  background: color-mix(in srgb, var(--text) 11%, transparent);
   animation: message-list-skeleton-pulse 1.4s ease-in-out infinite;
 }
 

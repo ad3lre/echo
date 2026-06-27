@@ -3,6 +3,11 @@
  * Post-HTML regex breaks when marked emits tags (e.g. `||a \`||\` b||` → early close at <code>||</code>).
  */
 
+import {
+  createEscapedMarkdownFenceWalkState,
+  stepEscapedMarkdownFenceAtLine,
+} from '@/utils/markdownFenceEscape';
+
 const MARK_START = '\uFFF0';
 const INDEX_BASE = 0xe000;
 
@@ -36,7 +41,9 @@ function skipInlineBacktickRun(text: string, i: number): number {
   let j = i;
   while (j < text.length && text[j] === '`') j++;
   const run = j - i;
-  if (run >= 3) return i;
+  // Fence-length runs are not inline code; advance past them. Returning `i` here
+  // caused an infinite loop when ``` appeared mid-line (e.g. prepending "!```").
+  if (run >= 3) return j;
   let k = j;
   while (k < text.length) {
     const ch = text[k];
@@ -66,19 +73,26 @@ function findClosingDoublePipe(text: string, from: number): number {
   let inFence = false;
   let fenceChar: '`' | '~' = '`';
   let fenceMinLen = 3;
+  const escapedFence = createEscapedMarkdownFenceWalkState();
 
   while (i < text.length) {
     if (!inFence && (i === 0 || text[i - 1] === '\n')) {
       const le = lineEnd(text, i);
       const line = text.slice(i, le);
-      const op = isFenceOpenerLine(line);
-      if (op) {
-        const fence = op[1]!;
-        fenceChar = fence[0] === '`' ? '`' : '~';
-        fenceMinLen = fence.length;
-        inFence = true;
+      if (stepEscapedMarkdownFenceAtLine(line, escapedFence)) {
         i = le === text.length ? text.length : le + 1;
         continue;
+      }
+      if (!escapedFence.inEscapedFence) {
+        const op = isFenceOpenerLine(line);
+        if (op) {
+          const fence = op[1]!;
+          fenceChar = fence[0] === '`' ? '`' : '~';
+          fenceMinLen = fence.length;
+          inFence = true;
+          i = le === text.length ? text.length : le + 1;
+          continue;
+        }
       }
     }
 
@@ -117,6 +131,7 @@ export function findRawDiscordSpoilerRegions(text: string): RawSpoilerRegion[] {
   let inFence = false;
   let fenceChar: '`' | '~' = '`';
   let fenceMinLen = 3;
+  const escapedFence = createEscapedMarkdownFenceWalkState();
 
   while (i < text.length) {
     if (inFence) {
@@ -132,14 +147,20 @@ export function findRawDiscordSpoilerRegions(text: string): RawSpoilerRegion[] {
     if (i === 0 || text[i - 1] === '\n') {
       const le = lineEnd(text, i);
       const line = text.slice(i, le);
-      const op = isFenceOpenerLine(line);
-      if (op) {
-        const fence = op[1]!;
-        fenceChar = fence[0] === '`' ? '`' : '~';
-        fenceMinLen = fence.length;
-        inFence = true;
+      if (stepEscapedMarkdownFenceAtLine(line, escapedFence)) {
         i = le === text.length ? text.length : le + 1;
         continue;
+      }
+      if (!escapedFence.inEscapedFence) {
+        const op = isFenceOpenerLine(line);
+        if (op) {
+          const fence = op[1]!;
+          fenceChar = fence[0] === '`' ? '`' : '~';
+          fenceMinLen = fence.length;
+          inFence = true;
+          i = le === text.length ? text.length : le + 1;
+          continue;
+        }
       }
     }
 

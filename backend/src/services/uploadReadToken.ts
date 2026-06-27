@@ -1,5 +1,10 @@
-import { createHmac, timingSafeEqual } from 'crypto';
 import { config } from '../config';
+import { MEDIA_CDN_DEFAULT_PRIVATE_READ_TTL_MS } from '../../../shared/mediaCdn';
+import {
+  signMediaCdnReadToken,
+  verifyMediaCdnReadToken,
+} from '../../../shared/mediaCdnSigning';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 export type UploadReadTokenPayload = {
   v: 1;
@@ -7,12 +12,23 @@ export type UploadReadTokenPayload = {
   exp: number;
 };
 
-const DEFAULT_READ_TTL_MS = 60 * 60 * 1000;
+const DEFAULT_READ_TTL_MS = MEDIA_CDN_DEFAULT_PRIVATE_READ_TTL_MS;
+
+function uploadReadSigningSecret(): string {
+  return (
+    config.echoMediaCdnSigningSecret.trim() || config.localUploadTokenSecret
+  );
+}
 
 export function signUploadReadToken(
   storageKey: string,
   ttlMs: number = DEFAULT_READ_TTL_MS,
 ): string {
+  if (config.echoMediaCdnEnabled && config.echoMediaCdnSigningSecret.trim()) {
+    return signMediaCdnReadToken(config.echoMediaCdnSigningSecret, storageKey, {
+      ttlMs,
+    });
+  }
   const key = storageKey.trim();
   const payload: UploadReadTokenPayload = {
     v: 1,
@@ -26,7 +42,7 @@ export function signUploadReadToken(
   return `${Buffer.from(json, 'utf8').toString('base64url')}.${sig}`;
 }
 
-export function verifyUploadReadToken(
+function verifyUploadReadTokenV1(
   token: string,
   expectedStorageKey: string,
 ): boolean {
@@ -61,4 +77,15 @@ export function verifyUploadReadToken(
   } catch {
     return false;
   }
+}
+
+export function verifyUploadReadToken(
+  token: string,
+  expectedStorageKey: string,
+): boolean {
+  const secret = uploadReadSigningSecret();
+  if (verifyMediaCdnReadToken(secret, token, expectedStorageKey)) {
+    return true;
+  }
+  return verifyUploadReadTokenV1(token, expectedStorageKey);
 }

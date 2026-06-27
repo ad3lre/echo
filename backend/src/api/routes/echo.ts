@@ -22,6 +22,7 @@ import echoSocial from './echo/echoSocial';
 import echoDm from './echo/echoDm';
 import echoSafety from './echo/echoSafety';
 import echoUploads from './echo/echoUploads';
+import echoMedia from './echo/echoMedia';
 import echoModeration from './echo/echoModeration';
 import echoBannedWords from './echo/echoBannedWords';
 import echoEmojiLibrary from './echo/echoEmojiLibrary';
@@ -35,6 +36,7 @@ import echoYoutubeSearch from './echo/echoYoutubeSearch';
 import echoChannelWebhooks from './echo/echoChannelWebhooks';
 import echoTickets from './echo/echoTickets';
 import echoSelfAssignableRoles from './echo/echoSelfAssignableRoles';
+import echoInstanceBans from './echo/echoInstanceBans';
 import {
   CHANNEL_WEBHOOKS_ENABLED,
   YOUTUBE_INTEGRATION_ENABLED,
@@ -65,6 +67,7 @@ export default async function echoRoutes(
     }
   });
   await fastify.register(echoPublic);
+  await fastify.register(echoMedia);
 
   await fastify.register(async (secured) => {
     secured.addHook('preHandler', requireAuth);
@@ -106,6 +109,7 @@ export default async function echoRoutes(
     await secured.register(echoBugReports);
     await secured.register(echoUserRingtones);
     await secured.register(echoBotApplications);
+    await secured.register(echoInstanceBans, { prefix: '/instance' });
     if (YOUTUBE_INTEGRATION_ENABLED) {
       await secured.register(echoYoutubeSearch);
     }

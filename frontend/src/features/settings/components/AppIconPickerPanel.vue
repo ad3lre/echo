@@ -212,15 +212,15 @@ onUnmounted(() => {
       v-if="showHints && isBrowsing"
       class="px-3 pb-1 text-[10px] leading-snug text-fg-subtle"
     >
-      Icons are grouped by theme (chat, voice, people, math, hobbies) and by
-      variant — click a tile with a badge to expand.
+      Icons with alternate versions (filled, off, -x, etc.) share one tile —
+      click a badge to expand variants.
     </p>
     <p
       v-else-if="showHints && !isBrowsing"
       class="px-3 pb-1 text-[10px] leading-snug text-fg-subtle"
     >
-      Search uses the same groups — chat, voice, people, math, and hobby icons
-      collapse into one tile each when they match.
+      Search uses the same variant groups — matching alternates collapse into
+      one expandable tile.
     </p>
 
     <div

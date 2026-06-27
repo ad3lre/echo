@@ -1,3 +1,5 @@
+import { assertGameServerProductionConfig } from './config/productionGates';
+
 function env(name: string): string | undefined {
   const v = process.env[name];
   if (v == null) return undefined;
@@ -57,3 +59,9 @@ export const gameServerConfig = {
   /** Dispose an instance this long after its last member leaves. */
   idleDisposeMs: parsePort(env('GAME_SERVER_IDLE_DISPOSE_MS'), 60_000),
 } as const;
+
+assertGameServerProductionConfig({
+  gameTokenSecret: gameServerConfig.gameTokenSecret,
+  echoForwardSecret: gameServerConfig.echoForwardSecret,
+  corsOrigin: gameServerConfig.corsOrigin,
+});

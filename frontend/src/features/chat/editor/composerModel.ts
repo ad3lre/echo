@@ -6,18 +6,23 @@ import {
   type JSONContent,
 } from '@tiptap/core';
 import {
-  formatImageSlotToken,
+  formatImageSlotComposerShortcut,
   isAllowedImageSlotAspect,
   randomImageSlotId,
 } from '@shared/imageSlot';
 import {
   formatButtonRowToken,
+  formatButtonRowComposerShortcut,
   parseButtonRowShortcut,
   randomButtonRowId,
   normalizeButtonRowButtons,
   type ButtonRowButton,
 } from '@shared/buttonRow';
 import { createButtonRowNode } from '@shared/buttonRowContentJson';
+import {
+  docContainsRichContentJsonBlocks,
+  rebuildContentJsonPreservingRichBlocks,
+} from '@shared/richBlockContentJson';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import type { MentionEntity } from '@shared/types';
 import { findAllIdTokenMatches, linkTokenAppIcon } from '@/utils/idTokens';
@@ -280,6 +285,27 @@ export function buildComposerDoc(
   };
 }
 
+/** Rebuild a TipTap doc from serialized plain text without dropping rich blocks. */
+export function buildComposerDocFromPlain(
+  content: string,
+  mentions: MentionEntity[],
+  resolvers?: IdTokenResolvers,
+  preserveFromDoc?: unknown,
+): JSONContent {
+  const needsRichRebuild =
+    content.includes('\n') ||
+    /!\[(?:image|button|buttonrow):/i.test(content) ||
+    docContainsRichContentJsonBlocks(preserveFromDoc);
+  if (!needsRichRebuild) {
+    return buildComposerDoc(content, mentions, resolvers);
+  }
+  return rebuildContentJsonPreservingRichBlocks(
+    preserveFromDoc ?? { type: 'doc', content: [] },
+    content,
+    mentions,
+  ) as JSONContent;
+}
+
 function mapParagraphChildToRawOffset(
   paragraph: ProseMirrorNode,
   blockStart: number,
@@ -394,15 +420,13 @@ function composerSerializedPlainLength(doc: ProseMirrorNode): number {
         }
       });
     } else if (block.type.name === 'imageSlot') {
-      n += formatImageSlotToken({
-        slotId: String(block.attrs.slotId ?? ''),
-        aspectW: Number(block.attrs.aspectW ?? 0),
-        aspectH: Number(block.attrs.aspectH ?? 0),
-      }).length;
+      n += imageSlotComposerTokenFromAttrs(
+        block.attrs as Record<string, unknown>,
+      ).length;
     } else if (block.type.name === 'buttonRow') {
-      n += formatButtonRowToken({
-        rowId: String(block.attrs.rowId ?? ''),
-      }).length;
+      n += buttonRowComposerTokenFromAttrs(
+        block.attrs as Record<string, unknown>,
+      ).length;
     } else {
       n += block.textContent.length;
     }
@@ -437,11 +461,9 @@ function mapSelectionToRawOffset(doc: ProseMirrorNode, target: number): number {
       if (inner.mapped !== null) mapped = inner.mapped;
       rawOffset = inner.rawEnd;
     } else if (block.type.name === 'imageSlot') {
-      const token = formatImageSlotToken({
-        slotId: String(block.attrs.slotId ?? ''),
-        aspectW: Number(block.attrs.aspectW ?? 0),
-        aspectH: Number(block.attrs.aspectH ?? 0),
-      });
+      const token = imageSlotComposerTokenFromAttrs(
+        block.attrs as Record<string, unknown>,
+      );
       const textStart = blockStart + 1;
       const textEnd = textStart + token.length;
       if (target >= textStart && target <= textEnd) {
@@ -449,9 +471,9 @@ function mapSelectionToRawOffset(doc: ProseMirrorNode, target: number): number {
       }
       rawOffset += token.length;
     } else if (block.type.name === 'buttonRow') {
-      const token = formatButtonRowToken({
-        rowId: String(block.attrs.rowId ?? ''),
-      });
+      const token = buttonRowComposerTokenFromAttrs(
+        block.attrs as Record<string, unknown>,
+      );
       const textStart = blockStart + 1;
       const textEnd = textStart + token.length;
       if (target >= textStart && target <= textEnd) {
@@ -558,15 +580,13 @@ export function serializeComposerDoc(
         }
       });
     } else if (block.type.name === 'imageSlot') {
-      content += formatImageSlotToken({
-        slotId: String(block.attrs.slotId ?? ''),
-        aspectW: Number(block.attrs.aspectW ?? 0),
-        aspectH: Number(block.attrs.aspectH ?? 0),
-      });
+      content += imageSlotComposerTokenFromAttrs(
+        block.attrs as Record<string, unknown>,
+      );
     } else if (block.type.name === 'buttonRow') {
-      content += formatButtonRowToken({
-        rowId: String(block.attrs.rowId ?? ''),
-      });
+      content += buttonRowComposerTokenFromAttrs(
+        block.attrs as Record<string, unknown>,
+      );
     } else {
       content += block.textContent;
     }
@@ -811,12 +831,13 @@ export const AppIconNode = Node.create({
   },
 });
 
-function imageSlotTokenFromAttrs(attrs: Record<string, unknown>): string {
-  return formatImageSlotToken({
-    slotId: String(attrs.slotId ?? ''),
-    aspectW: Number(attrs.aspectW ?? 0),
-    aspectH: Number(attrs.aspectH ?? 0),
-  });
+function imageSlotComposerTokenFromAttrs(
+  attrs: Record<string, unknown>,
+): string {
+  return formatImageSlotComposerShortcut(
+    Number(attrs.aspectW ?? 0),
+    Number(attrs.aspectH ?? 0),
+  );
 }
 
 export const ImageSlotNode = Node.create({
@@ -827,7 +848,10 @@ export const ImageSlotNode = Node.create({
 
   addAttributes() {
     return {
-      slotId: { default: '' },
+      slotId: {
+        default: '',
+        parseHTML: (element) => element.getAttribute('data-slot-id') ?? '',
+      },
       aspectW: { default: 16 },
       aspectH: { default: 9 },
       imageUrl: { default: null },
@@ -867,39 +891,34 @@ export const ImageSlotNode = Node.create({
     ];
   },
 
-  renderHTML({ HTMLAttributes }) {
-    const aspectW = Number(HTMLAttributes.aspectW ?? 16);
-    const aspectH = Number(HTMLAttributes.aspectH ?? 9);
-    const imageUrl = String(HTMLAttributes.imageUrl ?? '').trim();
-    const ratio = `${aspectW} / ${aspectH}`;
-    const label = `Image ${aspectW}:${aspectH}`;
-    const inner: [string, Record<string, unknown>, ...unknown[]] = imageUrl
-      ? [
-          'img',
-          {
-            class: 'composer-image-slot__img',
-            src: imageUrl,
-            alt: '',
-            draggable: 'false',
-          },
-        ]
-      : ['span', { class: 'composer-image-slot__label' }, label];
+  renderHTML({ node }) {
+    const attrs = node.attrs as Record<string, unknown>;
+    const imageUrl = String(attrs.imageUrl ?? '').trim();
+    const token = imageSlotComposerTokenFromAttrs(attrs);
+    const label = imageUrl ? `${token} · filled` : token;
+    const slotId = String(attrs.slotId ?? '').trim();
     return [
       'div',
       {
-        class: 'composer-image-slot',
-        'data-slot-id': String(HTMLAttributes.slotId ?? ''),
-        'data-aspect-w': String(aspectW),
-        'data-aspect-h': String(aspectH),
+        class: imageUrl
+          ? 'composer-rich-block-token composer-rich-block-token--filled'
+          : 'composer-rich-block-token composer-rich-block-token--image-slot',
+        'data-rich-block': 'image',
+        'data-slot-id': slotId,
+        'data-image-filled': imageUrl ? 'true' : 'false',
         contenteditable: 'false',
-        style: `aspect-ratio: ${ratio};`,
+        title: imageUrl
+          ? 'Image slot filled — click to replace'
+          : 'Click to add an image',
       },
-      inner,
+      label,
     ];
   },
 
   renderText({ node }) {
-    return imageSlotTokenFromAttrs(node.attrs as Record<string, unknown>);
+    return imageSlotComposerTokenFromAttrs(
+      node.attrs as Record<string, unknown>,
+    );
   },
 });
 
@@ -927,8 +946,119 @@ export function insertImageSlotInEditor(
     .run();
 }
 
-function buttonRowTokenFromAttrs(attrs: Record<string, unknown>): string {
-  return formatButtonRowToken({ rowId: String(attrs.rowId ?? '') });
+export type ComposerImageSlotFillPatch = {
+  imageUrl: string;
+  storageKey?: string;
+  width?: number;
+  height?: number;
+};
+
+export type ComposerImageSlotTarget = {
+  slotId: string;
+  pos: number;
+};
+
+/** Resolve the clicked composer image-slot token from the live TipTap doc. */
+export function resolveComposerImageSlotTarget(
+  editor: Editor,
+  event: MouseEvent,
+): ComposerImageSlotTarget | null {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return null;
+  const el = target.closest('[data-rich-block="image"]') as HTMLElement | null;
+  if (!el?.classList.contains('composer-rich-block-token')) return null;
+
+  try {
+    const pos = editor.view.posAtDOM(el, 0);
+    if (pos >= 0) {
+      const $pos = editor.state.doc.resolve(pos);
+      const nodeAfter = $pos.nodeAfter;
+      if (nodeAfter?.type.name === 'imageSlot') {
+        const slotId = String(nodeAfter.attrs.slotId ?? '').trim();
+        if (slotId) return { slotId, pos };
+      }
+      const nodeBefore = $pos.nodeBefore;
+      if (nodeBefore?.type.name === 'imageSlot') {
+        const slotId = String(nodeBefore.attrs.slotId ?? '').trim();
+        if (slotId) return { slotId, pos: pos - nodeBefore.nodeSize };
+      }
+    }
+  } catch {
+    // Fall back to DOM slot id below.
+  }
+
+  const slotId = el.getAttribute('data-slot-id')?.trim();
+  if (!slotId) return null;
+  let foundPos: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (foundPos !== null) return false;
+    if (node.type.name !== 'imageSlot') return;
+    if (String(node.attrs.slotId ?? '').trim() !== slotId) return;
+    foundPos = pos;
+    return false;
+  });
+  return foundPos === null ? null : { slotId, pos: foundPos };
+}
+
+/** Patch a composer `imageSlot` node in place (pre-send upload). */
+export function updateImageSlotInEditor(
+  editor: Editor,
+  slotId: string,
+  patch: ComposerImageSlotFillPatch,
+  opts?: { pos?: number },
+): boolean {
+  const trimmedId = slotId.trim();
+  if (!trimmedId) return false;
+  const { doc, tr } = editor.state;
+  let foundPos: number | null = opts?.pos ?? null;
+  let resolvedAttrs: Record<string, unknown> | null = null;
+
+  if (foundPos !== null) {
+    const node = doc.nodeAt(foundPos);
+    if (node?.type.name === 'imageSlot') {
+      resolvedAttrs = { ...(node.attrs as Record<string, unknown>) };
+      if (String(resolvedAttrs.slotId ?? '').trim() !== trimmedId) {
+        foundPos = null;
+        resolvedAttrs = null;
+      }
+    } else {
+      foundPos = null;
+    }
+  }
+
+  if (foundPos === null) {
+    doc.descendants((node, pos) => {
+      if (foundPos !== null) return false;
+      if (node.type.name !== 'imageSlot') return;
+      if (String(node.attrs.slotId ?? '').trim() !== trimmedId) return;
+      foundPos = pos;
+      resolvedAttrs = { ...(node.attrs as Record<string, unknown>) };
+      return false;
+    });
+  }
+
+  if (foundPos === null || resolvedAttrs === null) return false;
+  const nextAttrs = resolvedAttrs as Record<string, unknown>;
+  tr.setNodeMarkup(foundPos, undefined, {
+    ...nextAttrs,
+    imageUrl: patch.imageUrl,
+    storageKey: patch.storageKey ?? null,
+    width: patch.width ?? null,
+    height: patch.height ?? null,
+  });
+  editor.view.dispatch(tr);
+  return true;
+}
+
+function buttonRowComposerTokenFromAttrs(
+  attrs: Record<string, unknown>,
+): string {
+  const buttons = readComposerButtons(attrs.buttons);
+  if (buttons.length > 0) {
+    return formatButtonRowComposerShortcut(buttons);
+  }
+  const rowId = String(attrs.rowId ?? '').trim();
+  return rowId ? formatButtonRowToken({ rowId }) : '![button: …]';
 }
 
 function readComposerButtons(raw: unknown): ButtonRowButton[] {
@@ -997,21 +1127,24 @@ export const ButtonRowNode = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const buttons = readComposerButtons(HTMLAttributes.buttons);
-    const preview = buttons.map((btn) => btn.label).join(' · ') || 'Buttons';
+    const text = buttonRowComposerTokenFromAttrs(
+      HTMLAttributes as Record<string, unknown>,
+    );
     return [
       'div',
       {
-        class: 'composer-button-row',
+        class: 'composer-rich-block-token',
         'data-row-id': String(HTMLAttributes.rowId ?? ''),
         contenteditable: 'false',
       },
-      ['span', { class: 'composer-button-row__label' }, preview],
+      text,
     ];
   },
 
   renderText({ node }) {
-    return buttonRowTokenFromAttrs(node.attrs as Record<string, unknown>);
+    return buttonRowComposerTokenFromAttrs(
+      node.attrs as Record<string, unknown>,
+    );
   },
 });
 

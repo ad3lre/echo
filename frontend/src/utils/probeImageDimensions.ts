@@ -1,4 +1,8 @@
 import { echoUploadMediaCrossOrigin } from '@/utils/echoUploadMediaCredentials';
+import {
+  getPersistentImageDimensions,
+  rememberPersistentImageDimensions,
+} from '@/utils/persistentImageDimsCache';
 
 export type ImageDimensions = { width: number; height: number };
 
@@ -8,7 +12,16 @@ const inflight = new Map<string, Promise<ImageDimensions | null>>();
 export function getCachedImageDimensions(url: string): ImageDimensions | null {
   const trimmed = url.trim();
   if (!trimmed) return null;
-  return urlCache.get(trimmed) ?? null;
+  const inMemory = urlCache.get(trimmed);
+  if (inMemory) return inMemory;
+  // Cross-reload hit: hydrate the in-memory cache so a previously-seen image reserves
+  // its exact box on the first frame after a cold load (no default-guess → shift).
+  const persisted = getPersistentImageDimensions(trimmed);
+  if (persisted) {
+    urlCache.set(trimmed, persisted);
+    return persisted;
+  }
+  return null;
 }
 
 export function rememberImageDimensions(
@@ -18,6 +31,7 @@ export function rememberImageDimensions(
   const trimmed = url.trim();
   if (trimmed && dims.width > 0 && dims.height > 0) {
     urlCache.set(trimmed, dims);
+    rememberPersistentImageDimensions(trimmed, dims);
   }
   return dims;
 }

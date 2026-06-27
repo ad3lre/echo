@@ -31,6 +31,7 @@ export type EchoMessageContentSegment =
       aspectW: number;
       aspectH: number;
       imageUrl?: string | null;
+      storageKey?: string | null;
       width?: number | null;
       height?: number | null;
     }
@@ -50,6 +51,7 @@ export type EchoRenderedMessageRow =
       aspectW: number;
       aspectH: number;
       imageUrl?: string | null;
+      storageKey?: string | null;
       width?: number | null;
       height?: number | null;
     }
@@ -88,6 +90,7 @@ export function buildEchoMessageContentSegments(
           aspectW: seg.aspectW,
           aspectH: seg.aspectH,
           imageUrl: seg.imageUrl,
+          storageKey: seg.storageKey,
           width: seg.width,
           height: seg.height,
         });

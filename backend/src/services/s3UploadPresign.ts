@@ -3,6 +3,10 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from '../config';
 import { ECHO_UPLOAD_ABS_MAX_BYTES } from '../../../shared/echoPlanLimits';
 import { ECHO_S3_PUBLIC_READ_THROUGH_PREFIX } from '../../../shared/echoS3ReadThrough';
+import {
+  buildMediaCdnObjectUrl,
+  ECHO_MEDIA_CDN_OBJECT_PREFIX,
+} from '../../../shared/mediaCdn';
 import { isSafeEchoUploadStorageKeyPath } from '../../../shared/echoUploadStorageKey';
 import { sanitizeEchoUploadContentType } from './echoUploadContentTypePolicy';
 import { echoUploadPrefersS3ObjectStore } from './echoUploadObjectBackend';
@@ -101,9 +105,28 @@ function absoluteEchoS3PublicReadThroughBase(): string {
   }
 }
 
+function isEchoMediaCdnConfigured(): boolean {
+  return !!(
+    config.echoMediaCdnEnabled &&
+    config.echoMediaCdnBaseUrl?.trim() &&
+    config.echoMediaCdnSigningSecret.trim()
+  );
+}
+
+function buildCanonicalMediaCdnUrlForStorageKey(key: string): string | null {
+  const base = config.echoMediaCdnBaseUrl?.trim();
+  if (!isEchoMediaCdnConfigured() || !base) return null;
+  return buildMediaCdnObjectUrl(base, key);
+}
+
 /** Public URL prefixes for objects in the configured bucket (for validating message / emoji URLs when S3 is on). */
 export function getEchoUploadPublicUrlPrefixes(): string[] {
   const out: string[] = [];
+  const mediaCdnBase = config.echoMediaCdnBaseUrl?.trim();
+  if (isEchoMediaCdnConfigured() && mediaCdnBase) {
+    out.push(`${mediaCdnBase}${ECHO_MEDIA_CDN_OBJECT_PREFIX}`);
+    out.push(`${mediaCdnBase}/`);
+  }
   if (config.echoLocalUploadDir) {
     out.push(ECHO_LOCAL_UPLOAD_PUBLIC_PREFIX);
   }
@@ -133,6 +156,8 @@ export function buildEchoUploadPublicUrlForStorageKey(
 ): string | null {
   const trimmedKey = key.trim();
   if (!trimmedKey) return null;
+  const mediaCdnUrl = buildCanonicalMediaCdnUrlForStorageKey(trimmedKey);
+  if (mediaCdnUrl) return mediaCdnUrl;
   if (echoUploadPrefersS3ObjectStore(trimmedKey)) {
     if (config.echoS3PublicReadThroughApi && isEchoS3UploadConfigured()) {
       const encoded = trimmedKey.split('/').map(encodeURIComponent).join('/');
