@@ -1,7 +1,7 @@
 ## Terms of Service (and Service Terms) — Echo App
 
-**Last updated:** 3 June 2026  
-**Effective date:** 3 June 2026
+**Last updated:** 28 June 2026  
+**Effective date:** 28 June 2026
 
 These Terms of Service ("Terms") govern your access to and use of the **Echo** mobile/web application (the "Service") provided by the business operating the Echo app ("we", "us", "our"). By accessing or using the Service, you agree to these Terms. If you do not agree, do not use the Service.
 
@@ -59,8 +59,8 @@ By uploading, posting, or otherwise submitting User Content, you grant us a non-
 1. **Operating the Service** (including delivering content to other users and enabling required technical functionality).
 2. **Service improvement**, including analytics and quality measurement.
 3. **Moderation and safety**, including automated moderation and abuse detection.
-4. **Research and development**, including training or improving automated systems where permitted by law and where applicable.
-5. **Commercial use**, including using User Content in aggregated and/or de-identified form for marketing and business development where permitted by law. We will not use your User Content in a way that identifies you (or reveals identifiable, user-specific content) for marketing or promotional purposes without your consent or as otherwise permitted by applicable law, and we will not attempt to re-identify you from de-identified data.
+4. **Research and development**, including improving automated systems where permitted by law and where applicable. We will use your User Content to **train or fine-tune machine-learning or artificial-intelligence models only with your consent** (for example, an opt-in you choose to enable) — except for the automated moderation, safety, and abuse-detection systems described above that are strictly necessary to operate and protect the Service. See our Privacy Policy for how model training works and how to give or withdraw your consent.
+5. **Commercial use**, including using User Content in aggregated and/or de-identified form for marketing and business development where permitted by law. We will not use your User Content in a way that identifies you (or reveals identifiable, user-specific content) for marketing or promotional purposes without your consent or as otherwise permitted by applicable law, and we will not attempt to re-identify you from de-identified data. **We do not sell your personal data**, and we do not share it for advertising resale or data-broker purposes; see the **Data Sharing** section of our Privacy Policy for the full no-sale rule and the limited cases in which data may be shared.
 
 ### 4.3 Content retention after deletion
 

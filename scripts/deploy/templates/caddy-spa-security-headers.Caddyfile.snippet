@@ -31,7 +31,7 @@ route {
 		root * /srv/echo/frontend/dist
 		header {
 			Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-			Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://openguessr.com https://skribbl.io https://garticphone.com https://www.garticphone.com https://krunker.io https://codenames.game https://richup.io https://gooberdash.winterpixel.io https://smashkarts.io https://www.y8.com https://clusterrush.io; upgrade-insecure-requests"
+			Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob: https:; worker-src 'self' blob:; manifest-src 'self'; frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://openguessr.com https://skribbl.io https://garticphone.com https://www.garticphone.com https://krunker.io https://codenames.game https://richup.io https://gooberdash.winterpixel.io https://smashkarts.io https://www.y8.com https://clusterrush.io; upgrade-insecure-requests"
 		}
 		try_files {path} /index.html
 		file_server
