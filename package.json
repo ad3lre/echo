@@ -45,7 +45,8 @@
     "test": "npm run test:ci",
     "test:ci": "npm run format:check && npm run test:ci:guards && npm run build -w frontend && npm run build -w backend && npm run test -w frontend && npm run test:ci:backend && npm run test -w game-server",
     "ci:precheck": "npm run test:ci && npm run lint -w frontend && npm run lint:theme -w frontend && npm run lint:style -w frontend && npm run lint -w backend && npm run i18n:check -w frontend",
-    "test:ci:guards": "node scripts/check-oss-artifacts.mjs && node scripts/check-github-remote-policy.mjs && node scripts/check-god-file-ratchet.mjs && node scripts/check-new-code-charter.mjs && npm run check:echo-channels && npm run check:echo-snowflake && npm run check:echo-single-reality && npm run check:echo-rbac && npm run check:channel-message-writes && node scripts/check-echo-no-sql-in-routes.mjs && npm run check:sql-schema-columns && npm run check:voice-activity && npm run placement:check && npm run check:feature-boundaries",
+    "check:dep-audit": "node scripts/check-dependency-audit.mjs",
+    "test:ci:guards": "node scripts/check-oss-artifacts.mjs && node scripts/check-github-remote-policy.mjs && node scripts/check-god-file-ratchet.mjs && node scripts/check-new-code-charter.mjs && npm run check:echo-channels && npm run check:echo-snowflake && npm run check:echo-single-reality && npm run check:echo-rbac && npm run check:channel-message-writes && node scripts/check-echo-no-sql-in-routes.mjs && npm run check:sql-schema-columns && npm run check:voice-activity && npm run placement:check && npm run check:feature-boundaries && npm run check:dep-audit",
     "test:ci:backend": "npm run test:storage-mode -w backend && npm run test:video-hls-worker-config -w backend && npm run test:video-hls-notify -w backend && npm run test:production-config-gates -w backend && npm run test:linkUnfurlStubs -w backend && npm run test:gifProviders -w backend && npm run test:linkUnfurlExtract -w backend && npm run test:shipping-security -w backend && npm run test:security -w backend && npm run test:echo:contract -w backend && npm run test -w media-cdn && npm run check:echo-channels && npm run check:echo-snowflake && npm run check:echo-single-reality && npm run check:echo-rbac && npm run check:channel-message-writes && node scripts/check-echo-no-sql-in-routes.mjs && npm run check:sql-schema-columns && node --import tsx backend/src/tests/paperCollabState.test.ts && node --import tsx backend/src/tests/paperAttribution.test.ts && node --import tsx backend/src/tests/socketOpEnvelope.test.ts && node --import tsx backend/src/tests/echo.serverMemberIdsCache.test.ts && node --import tsx backend/src/tests/echoEventUserCache.test.ts && node --import tsx backend/src/tests/unfurlCache.test.ts && node --import tsx backend/src/tests/echo.channelMetaCache.test.ts && node --import tsx backend/src/tests/echo.permissionAggregateParity.test.ts && node --import tsx backend/src/tests/echo.serverAggregateCache.test.ts && node --import tsx backend/src/tests/keyedCoalescer.test.ts && node --import tsx backend/src/tests/idTokens.test.ts && node --import tsx backend/src/tests/gcraRateLimiter.test.ts && node --import tsx backend/src/tests/messageRateLimiter.test.ts",
     "test:ci:backend:integration": "cross-env ECHO_BACKEND_STORAGE=postgres DATABASE_URL=postgresql://echo:echo_dev@127.0.0.1:5432/echo USE_MOCK_DB=false npm run test:echo:pipeline -w backend && cross-env ECHO_BACKEND_STORAGE=postgres DATABASE_URL=postgresql://echo:echo_dev@127.0.0.1:5432/echo NATS_URL=nats://127.0.0.1:4222 USE_MOCK_DB=false npm run test:echo:multinode -w backend && cross-env ECHO_BACKEND_STORAGE=postgres DATABASE_URL=postgresql://echo:echo_dev@127.0.0.1:5432/echo USE_MOCK_DB=false npm run test:echo:uploads -w backend && cross-env ECHO_BACKEND_STORAGE=postgres DATABASE_URL=postgresql://echo:echo_dev@127.0.0.1:5432/echo USE_MOCK_DB=false npm run test:echo:rbac -w backend",
     "verify:ship": "npm run test:ci",
@@ -189,7 +190,7 @@
     "happy-dom": "^20.10.1",
     "jsdom": "^29.1.1",
     "kill-port": "^2.0.1",
-    "prettier": "^3.8.3",
+    "prettier": "3.8.3",
     "sharp": "^0.34.5",
     "tree-kill": "^1.2.2",
     "typescript": "6.0.3",
@@ -202,6 +203,9 @@
     "livekit-client": "^2.18.6"
   },
   "overrides": {
+    "discord.js": {
+      "undici": "6.27.0"
+    },
     "@grpc/grpc-js": "1.14.4",
     "esbuild": "0.28.1",
     "prosemirror-model": "1.25.7",
@@ -224,11 +228,11 @@
       "picomatch": "4.0.4"
     },
     "vite": {
-      ".": "8.0.14",
+      ".": "8.0.16",
       "esbuild": "0.28.1"
     },
     "@tailwindcss/vite": {
-      "vite": "8.0.14"
+      "vite": "8.0.16"
     },
     "astro": {
       "esbuild": "0.28.1"

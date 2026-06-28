@@ -13,12 +13,21 @@
     "preview": "astro preview --host --port 4174"
   },
   "devDependencies": {
+    "@astrojs/prism": "^4.0.2",
     "@astrojs/sitemap": "^3.7.2",
-    "astro": "^6.3.3",
+    "astro": "^6.4.8",
+    "hast-util-to-text": "^4.0.2",
+    "mdast-util-definitions": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "remark-smartypants": "^3.0.2",
     "sass": "^1.99.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "unist-util-remove-position": "^5.0.0"
   },
   "dependencies": {
-    "@fontsource/inter": "^5.2.8"
+    "@fontsource/inter": "^5.2.8",
+    "rehype-raw": "^7.0.0"
   }
 }
