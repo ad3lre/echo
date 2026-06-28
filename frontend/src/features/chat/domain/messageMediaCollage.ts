@@ -9,6 +9,11 @@
  *  - 2-4 items -> collage grid, each cell cropped to fill (cover).
  *  - 5+ items -> 3 images shown + a 4th overflow cell badged "+N" (N = total-3).
  *
+ * Still images AND GIFs are routed through this planner (interleaved in
+ * attachment order); GIF cells keep their paused-first-frame / hover-to-play
+ * behavior (see MessageMediaCollageCell). Legacy single `message.imageUrl`
+ * messages render as a one-item collage too.
+ *
  * Rich-block images carry their own resolution and are NOT routed through this
  * planner (they keep their explicit aspect).
  */
@@ -32,6 +37,8 @@ export interface CollageSourceItem {
   storageKey?: string;
   alt?: string;
   spoiler?: boolean;
+  /** Animated GIF cell: renders via LimitedGifImg (paused first frame, hover to play). */
+  isGif?: boolean;
 }
 
 export interface CollageCell {

@@ -103,4 +103,60 @@ describe('estimateMessageListRowSizePx', () => {
     // Grouped into one collage box -> same reserved height as a single image.
     expect(threeImages).toBe(oneImage);
   });
+
+  it('reserves the same fixed 16:9 box for GIF attachments (no fluid probe height)', () => {
+    const baseline = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: { content: 'photo' },
+    });
+    const oneGif = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: {
+        content: 'photo',
+        attachments: [
+          { url: 'https://x.test/a.gif', kind: 'gif', width: 480, height: 270 },
+        ],
+      },
+    });
+    expect(oneGif - baseline).toBe(368);
+  });
+
+  it('folds mixed images + GIFs into one collage box (single reserved height)', () => {
+    const oneImage = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: {
+        content: 'photo',
+        attachments: [{ url: 'https://x.test/a.png', kind: 'image' }],
+      },
+    });
+    const imageAndGif = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: {
+        content: 'photo',
+        attachments: [
+          { url: 'https://x.test/a.png', kind: 'image' },
+          { url: 'https://x.test/b.gif', kind: 'gif' },
+        ],
+      },
+    });
+    expect(imageAndGif).toBe(oneImage);
+  });
+
+  it('routes legacy single imageUrl through the same fixed 16:9 box', () => {
+    const baseline = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: { content: 'photo' },
+    });
+    const legacyImage = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: { content: 'photo', imageUrl: 'https://x.test/legacy.png' },
+    });
+    expect(legacyImage - baseline).toBe(368);
+  });
 });

@@ -58,4 +58,15 @@ describe('planMediaCollage', () => {
   it('reserved box height matches 16:9 at max width', () => {
     expect(CHAT_MEDIA_BOX_HEIGHT_PX).toBe(360);
   });
+
+  it('carries the isGif flag through to cells (images + GIFs share the box)', () => {
+    const mixed: CollageSourceItem[] = [
+      { url: 'a.png', alt: 'still' },
+      { url: 'b.gif', alt: 'anim', isGif: true },
+    ];
+    const plan = planMediaCollage(mixed)!;
+    expect(plan.cells).toHaveLength(2);
+    expect(plan.cells[0].item.isGif).toBeFalsy();
+    expect(plan.cells[1].item.isGif).toBe(true);
+  });
 });

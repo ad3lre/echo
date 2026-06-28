@@ -1,16 +1,10 @@
-import type {
-  MessageAttachmentPayload,
-  MessageWithAuthor,
-} from '@shared/types';
+import type { MessageWithAuthor } from '@shared/types';
 import { walkImageSlots } from '@shared/imageSlotContentJson';
 import { countButtonRows } from '@shared/buttonRowContentJson';
 import { CHAT_MEDIA_BOX_HEIGHT_PX } from '@/features/chat/domain/messageMediaCollage';
 import {
-  CHAT_ATTACHMENT_BITMAP_MAX_WIDTH_PX,
-  CHAT_BITMAP_DEFAULT_ASPECT_RATIO,
   CHAT_IMAGE_SLOT_MAX_WIDTH_PX,
   estimateChatBitmapBlockPx,
-  mediaAspectStyleFromDims,
 } from '@/utils/chatMediaAspect';
 
 export const MESSAGE_LIST_DEFAULT_ROW_ESTIMATE_PX = 88;
@@ -52,59 +46,16 @@ const MESSAGE_LIST_CHARS_PER_LINE = 100;
 const MESSAGE_LIST_MAX_BODY_LINES = 12;
 /** Matches `MessageImageSlot` max width at 16px root (`36rem`). */
 const MESSAGE_IMAGE_SLOT_MAX_WIDTH_PX = CHAT_IMAGE_SLOT_MAX_WIDTH_PX;
-/** Matches attachment shells: `max-width: min(100%, 40rem)`. */
-const MESSAGE_ATTACHMENT_BITMAP_MAX_WIDTH_PX =
-  CHAT_ATTACHMENT_BITMAP_MAX_WIDTH_PX;
 /** Matches `MessageImageSlot` vertical margin (`my-2`). */
 const MESSAGE_IMAGE_SLOT_VERTICAL_MARGIN_PX = 16;
-const MESSAGE_ATTACHMENT_BITMAP_VERTICAL_MARGIN_PX = 8;
-const MESSAGE_ATTACHMENT_BITMAP_FALLBACK_PX = 360;
+/** Vertical margin around the fixed media collage box (`space-y-2` / `mt-1`). */
+const MESSAGE_MEDIA_BOX_VERTICAL_MARGIN_PX = 8;
 
 function estimateImageSlotBlockPx(aspectW: number, aspectH: number): number {
   return estimateChatBitmapBlockPx(aspectW, aspectH, {
     maxWidthPx: MESSAGE_IMAGE_SLOT_MAX_WIDTH_PX,
     verticalMarginPx: MESSAGE_IMAGE_SLOT_VERTICAL_MARGIN_PX,
   });
-}
-
-function estimateAttachmentBitmapBlockPx(
-  attachment: Pick<MessageAttachmentPayload, 'width' | 'height' | 'kind'>,
-): number {
-  const dims = mediaAspectStyleFromDims(attachment);
-  if (dims) {
-    const width = attachment.width!;
-    const height = attachment.height!;
-    return estimateChatBitmapBlockPx(width, height, {
-      maxWidthPx: MESSAGE_ATTACHMENT_BITMAP_MAX_WIDTH_PX,
-      verticalMarginPx: MESSAGE_ATTACHMENT_BITMAP_VERTICAL_MARGIN_PX,
-    });
-  }
-  if (attachment.kind === 'gif' || attachment.kind === 'image') {
-    const [aspectW, aspectH] = CHAT_BITMAP_DEFAULT_ASPECT_RATIO.split('/').map(
-      (part) => Number(part.trim()),
-    );
-    if (aspectW > 0 && aspectH > 0) {
-      return estimateChatBitmapBlockPx(aspectW, aspectH, {
-        maxWidthPx: MESSAGE_ATTACHMENT_BITMAP_MAX_WIDTH_PX,
-        verticalMarginPx: MESSAGE_ATTACHMENT_BITMAP_VERTICAL_MARGIN_PX,
-      });
-    }
-    return MESSAGE_ATTACHMENT_BITMAP_FALLBACK_PX;
-  }
-  return 0;
-}
-
-function estimateLegacyImageUrlBlockPx(): number {
-  const [aspectW, aspectH] = CHAT_BITMAP_DEFAULT_ASPECT_RATIO.split('/').map(
-    (part) => Number(part.trim()),
-  );
-  if (aspectW > 0 && aspectH > 0) {
-    return estimateChatBitmapBlockPx(aspectW, aspectH, {
-      maxWidthPx: MESSAGE_ATTACHMENT_BITMAP_MAX_WIDTH_PX,
-      verticalMarginPx: MESSAGE_ATTACHMENT_BITMAP_VERTICAL_MARGIN_PX,
-    });
-  }
-  return MESSAGE_ATTACHMENT_BITMAP_FALLBACK_PX;
 }
 
 /** Rendered line count: explicit newlines plus per-line soft-wrap by width. */
@@ -159,17 +110,14 @@ export function estimateMessageListRowSizePx(
   } else if (attachments.some((attachment) => attachment.kind === 'document')) {
     size += 120;
   } else {
-    if (message.imageUrl && !attachments.length) {
-      size += estimateLegacyImageUrlBlockPx();
-    }
-    // Still images group into one fixed 16:9 collage box; GIFs render separately.
-    if (attachments.some((attachment) => attachment.kind === 'image')) {
-      size += CHAT_MEDIA_BOX_HEIGHT_PX + 8;
-    }
-    for (const attachment of attachments) {
-      if (attachment.kind === 'gif') {
-        size += estimateAttachmentBitmapBlockPx(attachment);
-      }
+    // Still images AND GIFs group into one fixed 16:9 collage box; the legacy
+    // single `message.imageUrl` routes through the same box. Either way reserve
+    // exactly one box, independent of count or stored dimensions.
+    const hasCollageMedia = attachments.some(
+      (attachment) => attachment.kind === 'image' || attachment.kind === 'gif',
+    );
+    if (hasCollageMedia || (message.imageUrl && !attachments.length)) {
+      size += CHAT_MEDIA_BOX_HEIGHT_PX + MESSAGE_MEDIA_BOX_VERTICAL_MARGIN_PX;
     }
     if ((message.stickers?.length ?? 0) > 0) {
       size += 180;

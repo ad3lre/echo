@@ -14,7 +14,6 @@ import MessageMediaCollage from './MessageMediaCollage.vue';
 import type { CollageSourceItem } from '@/features/chat/domain/messageMediaCollage';
 import MessageChatVideo from './MessageChatVideo.vue';
 import MessageDocumentAttachment from './MessageDocumentAttachment.vue';
-import MessageLegacyImageUrl from './MessageLegacyImageUrl.vue';
 import MessageStickerBitmap from './MessageStickerBitmap.vue';
 
 const props = defineProps<{
@@ -35,17 +34,39 @@ function onDocumentOpen(att: MessageAttachmentPayload) {
 
 const mediaRevealed = ref(false);
 
-/** Still images in this message are grouped into one fixed 16:9 collage box. */
-const imageCollageItems = computed<CollageSourceItem[]>(() =>
+/**
+ * Still images AND GIFs in this message are grouped into one fixed 16:9 collage
+ * box, interleaved in attachment order. GIF cells keep their paused-first-frame
+ * / hover-to-play behavior (handled inside the collage cell).
+ */
+const mediaCollageItems = computed<CollageSourceItem[]>(() =>
   (props.attachments ?? [])
-    .filter((a) => a.kind === 'image' && !isLikelyGifUrl(a.url))
-    .map((a) => ({
-      url: a.url,
-      storageKey: a.storageKey,
-      alt: a.filename || props.message.content || 'Image',
-      spoiler: a.spoiler,
-    })),
+    .filter((a) => a.kind === 'image' || a.kind === 'gif')
+    .map((a) => {
+      const gif = a.kind === 'gif' || isLikelyGifUrl(a.url);
+      return {
+        url: a.url,
+        storageKey: a.storageKey,
+        alt: a.filename || props.message.content || (gif ? 'GIF' : 'Image'),
+        spoiler: a.spoiler,
+        isGif: gif,
+      };
+    }),
 );
+
+/** Legacy single `message.imageUrl` routed through the same fixed 16:9 box. */
+const legacyImageItems = computed<CollageSourceItem[]>(() => {
+  const url = props.message.imageUrl;
+  if (!url) return [];
+  return [
+    {
+      url,
+      alt: props.message.content || (props.message.gif ? 'GIF' : 'Image'),
+      spoiler: props.message.imageSpoiler,
+      isGif: props.message.gif === true || isLikelyGifUrl(url),
+    },
+  ];
+});
 
 function isRenderableSticker(
   sticker: NonNullable<MessageWithAuthor['stickers']>[number],
@@ -106,11 +127,11 @@ function mediaAspectStyle(
       </template>
     </template>
 
-    <!-- Multiple attachments (normalized) -->
+    <!-- Multiple attachments (normalized): images + GIFs share one collage box. -->
     <template v-if="attachments?.length">
       <MessageMediaCollage
-        v-if="imageCollageItems.length"
-        :items="imageCollageItems"
+        v-if="mediaCollageItems.length"
+        :items="mediaCollageItems"
         @open="(u) => openImageViewer?.(u)"
       />
       <template
@@ -138,22 +159,6 @@ function mediaAspectStyle(
           :attachment="att"
           @open="onDocumentOpen(att)"
         />
-        <button
-          v-else-if="att.kind === 'gif' || isLikelyGifUrl(att.url)"
-          type="button"
-          class="block w-full max-w-full min-w-0 text-left cursor-zoom-in rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-          @click="openImageViewer?.(att.url)"
-        >
-          <GifImage
-            :src="safeImageUrl(att.url)"
-            :storage-key="att.storageKey"
-            :alt="att.filename || message.content || 'GIF'"
-            reserve-layout
-            :image-style="mediaAspectStyle(att)"
-            :metadata-width="att.width"
-            :metadata-height="att.height"
-          />
-        </button>
       </template>
     </template>
 
@@ -185,42 +190,11 @@ function mediaAspectStyle(
       </div>
     </div>
 
-    <!-- Legacy single imageUrl -->
+    <!-- Legacy single imageUrl -> same fixed 16:9 collage box -->
     <div v-else-if="message.imageUrl" class="mt-1 max-w-full min-w-0">
-      <div v-if="message.imageSpoiler" class="media-spoiler-container">
-        <button
-          v-if="!mediaRevealed"
-          type="button"
-          class="media-spoiler-btn chat-focus-ring inline-flex items-center gap-2 rounded-lg px-4 py-3 bg-overlay-heavy hover:bg-overlay-heavy text-amber-400/90 hover:text-amber-400 text-xs font-semibold uppercase tracking-wider transition-colors"
-          @click="mediaRevealed = true"
-        >
-          <span>Spoiler</span>
-          <span class="text-[10px] opacity-80">— Click to reveal</span>
-        </button>
-        <div v-else class="relative inline-block max-w-full min-w-0">
-          <MessageLegacyImageUrl
-            :url="message.imageUrl ?? ''"
-            :alt="message.content || 'Image'"
-            :gif="message.gif || isLikelyGifUrl(message.imageUrl)"
-            openable
-            @open="openImageViewer?.(message.imageUrl ?? '')"
-          />
-          <button
-            type="button"
-            class="media-spoiler-hide chat-focus-ring absolute right-2 top-2 rounded px-2 py-1 text-[10px] font-semibold uppercase bg-overlay-heavy text-amber-400 hover:bg-overlay-heavy z-10"
-            @click="mediaRevealed = false"
-          >
-            Hide
-          </button>
-        </div>
-      </div>
-      <MessageLegacyImageUrl
-        v-else
-        :url="message.imageUrl ?? ''"
-        :alt="message.content || (message.gif ? 'GIF' : 'Image')"
-        :gif="message.gif || isLikelyGifUrl(message.imageUrl)"
-        openable
-        @open="openImageViewer?.(message.imageUrl ?? '')"
+      <MessageMediaCollage
+        :items="legacyImageItems"
+        @open="(u) => openImageViewer?.(u)"
       />
     </div>
   </div>

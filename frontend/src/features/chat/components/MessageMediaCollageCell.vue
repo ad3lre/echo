@@ -6,6 +6,7 @@ import {
   queueChatMediaRetentionTouch,
 } from '@/composables/useChatMediaRetentionTouch';
 import { isTrustedMediaUrl } from '@/utils/safeImageUrl';
+import LimitedGifImg from '@/components/LimitedGifImg.vue';
 import MediaUnavailablePanel from './MediaUnavailablePanel.vue';
 import type { CollageSourceItem } from '@/features/chat/domain/messageMediaCollage';
 
@@ -35,10 +36,24 @@ watch(
   },
 );
 
+/**
+ * Still images gate on a trusted URL + load error here; GIFs render via
+ * LimitedGifImg which signs and reports its own unavailable state (and accepts
+ * Giphy/Tenor hosts), so we don't pre-gate those.
+ */
 const unavailable = computed(
-  () => !isTrustedMediaUrl(props.item.url) || loadFailed.value,
+  () =>
+    !props.item.isGif &&
+    (!isTrustedMediaUrl(props.item.url) || loadFailed.value),
 );
 const spoilered = computed(() => !!props.item.spoiler && !revealed.value);
+
+/** GIF cell fill: cover -> object-cover (fill-cover), contain -> absolute-stack contain. */
+const gifImgClass = computed(() =>
+  props.fit === 'cover'
+    ? 'h-full w-full object-cover'
+    : 'absolute inset-0 box-border h-full w-full !max-h-none !max-w-none object-contain',
+);
 
 function onLoad(): void {
   loaded.value = true;
@@ -76,7 +91,28 @@ onUnmounted(() => stopObserve?.());
     <MediaUnavailablePanel v-if="unavailable" headline="Image unavailable" />
     <template v-else>
       <div v-if="!loaded" class="collage-cell__skeleton" aria-hidden="true" />
+      <div
+        v-if="item.isGif"
+        class="collage-cell__media"
+        :class="{
+          'collage-cell__media--hidden': !loaded,
+          'collage-cell__media--dim': overflowCount > 0,
+          'collage-cell__media--spoiler': spoilered,
+        }"
+      >
+        <LimitedGifImg
+          :src="item.url"
+          :storage-key="item.storageKey"
+          :alt="item.alt || 'GIF'"
+          wrapper-class="absolute inset-0 h-full w-full"
+          :img-class="gifImgClass"
+          :respect-reduced-motion="true"
+          loading="lazy"
+          @load="onLoad"
+        />
+      </div>
       <img
+        v-else
         :src="resolved"
         :alt="item.alt || 'Image'"
         loading="lazy"
@@ -142,6 +178,22 @@ onUnmounted(() => stopObserve?.());
   filter: brightness(0.4);
 }
 .collage-cell__img--spoiler {
+  filter: blur(28px);
+  transform: scale(1.08);
+}
+
+/* GIF cells fill the same box via LimitedGifImg; dim/spoiler/hidden apply to the wrapper. */
+.collage-cell__media {
+  position: absolute;
+  inset: 0;
+}
+.collage-cell__media--hidden {
+  opacity: 0;
+}
+.collage-cell__media--dim {
+  filter: brightness(0.4);
+}
+.collage-cell__media--spoiler {
   filter: blur(28px);
   transform: scale(1.08);
 }
