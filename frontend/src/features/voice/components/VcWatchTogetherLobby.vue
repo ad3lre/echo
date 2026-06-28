@@ -102,7 +102,7 @@ const channelHostUserId = ref<string | null>(null);
 async function refreshChannelHost() {
   const channelId = props.channelId.trim();
   const token = auth.accessToken?.trim() ?? '';
-  if (!channelId || !token || !auth.isAuthenticated) {
+  if (!channelId || !auth.isAuthenticated) {
     channelHostUserId.value = null;
     return;
   }
@@ -117,7 +117,7 @@ async function refreshChannelHost() {
 async function releaseChannelHostIfNeeded() {
   const channelId = props.channelId.trim();
   const token = auth.accessToken?.trim() ?? '';
-  if (!channelId || !token || !auth.isAuthenticated) return;
+  if (!channelId || !auth.isAuthenticated) return;
   if (props.state.watchTogetherLobbyRole !== 'host') return;
   try {
     await releaseVcWatchTogetherChannelHost(token, channelId);
@@ -148,7 +148,7 @@ async function refreshUploadLibrary() {
     return;
   }
   const token = auth.accessToken?.trim() ?? '';
-  if (!auth.isAuthenticated || !token) return;
+  if (!auth.isAuthenticated) return;
   libraryLoading.value = true;
   try {
     libraryItems.value = await fetchVcWatchTogetherUploadLibrary(token);
@@ -183,7 +183,7 @@ async function addLibraryItemToQueue(item: VcWatchTogetherLibraryItem) {
   if (playlistStorageKeys.value.has(item.storageKey.trim())) return;
   const sessionId = props.ensureWatchTogetherSessionId();
   const token = auth.accessToken?.trim() ?? '';
-  if (item.byteLength > 0 && token && auth.isAuthenticated) {
+  if (item.byteLength > 0 && auth.isAuthenticated) {
     try {
       await addVcWatchTogetherSessionBytes(
         token,
@@ -290,7 +290,7 @@ async function chooseHostAsync() {
   }
   const sessionId = props.ensureWatchTogetherSessionId();
   const token = auth.accessToken?.trim() ?? '';
-  if (!auth.isAuthenticated || !token) {
+  if (!auth.isAuthenticated) {
     hostClaimError.value = 'Sign in again to host.';
     return;
   }
