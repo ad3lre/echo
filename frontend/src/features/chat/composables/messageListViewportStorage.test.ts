@@ -23,7 +23,7 @@ function memoryLocalStorage() {
   };
 }
 
-describe('messageListViewportStorage', () => {
+describe('messageListViewportStorage (session-only)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal('localStorage', memoryLocalStorage());
@@ -45,29 +45,32 @@ describe('messageListViewportStorage', () => {
     expect(readMessageListViewport('ch-b')).toBeNull();
   });
 
-  it('debounces localStorage writes', () => {
+  it('never persists to localStorage (session-only)', () => {
     writeMessageListViewport('ch-a', {
       anchorMessageId: 'm1',
       anchorTop: 10,
       followNewMessages: true,
     });
+    vi.advanceTimersByTime(1000);
     expect(localStorage.getItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY)).toBeNull();
-    vi.advanceTimersByTime(300);
-    expect(localStorage.getItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY)).toContain(
-      'ch-a',
-    );
   });
 
-  it('flush writes immediately', () => {
+  it('flush is a no-op and writes nothing to localStorage', () => {
     writeMessageListViewport('ch-a', {
       anchorMessageId: 'm1',
       anchorTop: 10,
       followNewMessages: true,
     });
     flushMessageListViewportStorage();
-    expect(localStorage.getItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY)).toContain(
-      'ch-a',
-    );
+    expect(localStorage.getItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY)).toBeNull();
+    // still readable in memory within the session
+    expect(readMessageListViewport('ch-a')?.anchorMessageId).toBe('m1');
+  });
+
+  it('clears legacy persisted anchors on first access', () => {
+    localStorage.setItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY, '{"ch-x":{}}');
+    readMessageListViewport('ch-a');
+    expect(localStorage.getItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY)).toBeNull();
   });
 
   it('clearMessageListViewport removes one channel', () => {
@@ -82,7 +85,6 @@ describe('messageListViewportStorage', () => {
       followNewMessages: false,
     });
     clearMessageListViewport('ch-a');
-    flushMessageListViewportStorage();
     expect(readMessageListViewport('ch-a')).toBeNull();
     expect(readMessageListViewport('ch-b')?.anchorMessageId).toBe('m2');
   });

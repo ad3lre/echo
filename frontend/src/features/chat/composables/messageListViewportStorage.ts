@@ -1,6 +1,11 @@
-import { tryLocalStorageSetItem } from '@/utils/localStoragePersist';
-
-/** Persisted scroll anchor for one channel message list (UI state, not domain truth). */
+/**
+ * Session-only scroll anchor for a channel message list (UI state, not domain truth).
+ *
+ * Kept in memory for the lifetime of the current app session ONLY — it is never
+ * persisted. Switching channels and coming back within the same session restores
+ * where you were; a page reload / new tab / new session starts each channel at the
+ * bottom of chat (the message list's default when there is no remembered anchor).
+ */
 export type MessageListViewportSnapshot = {
   anchorMessageId: string;
   /** Anchor top edge offset inside the scroll container viewport (px). */
@@ -12,108 +17,54 @@ export type MessageListViewportSnapshot = {
 
 type MessageListViewportStore = Record<string, MessageListViewportSnapshot>;
 
+/**
+ * Legacy localStorage key from when viewports were persisted across sessions.
+ * We no longer read or write it; we proactively clear it so stale anchors from
+ * before this change don't linger in users' browsers.
+ */
 export const MESSAGE_LIST_VIEWPORT_STORAGE_KEY =
   'echo-message-list-viewport-v1';
 
 const MAX_STORED_VIEWPORTS = 150;
 
-let memoryCache: MessageListViewportStore | null = null;
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
+/** In-memory store — dies with the session, so positions never persist. */
+let sessionStore: MessageListViewportStore = {};
+let clearedLegacy = false;
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === 'object' && !Array.isArray(v);
-}
-
-function parseStore(raw: string | null): MessageListViewportStore {
-  if (!raw) return {};
+function dropLegacyPersistedViewports(): void {
+  if (clearedLegacy) return;
+  clearedLegacy = true;
+  if (typeof localStorage === 'undefined') return;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed)) return {};
-    const out: MessageListViewportStore = {};
-    for (const [channelId, entry] of Object.entries(parsed)) {
-      if (!channelId.trim() || !isRecord(entry)) continue;
-      const anchorMessageId = entry.anchorMessageId;
-      const anchorTop = entry.anchorTop;
-      if (typeof anchorMessageId !== 'string' || !anchorMessageId.trim()) {
-        continue;
-      }
-      if (typeof anchorTop !== 'number' || !Number.isFinite(anchorTop)) {
-        continue;
-      }
-      const followNewMessages =
-        typeof entry.followNewMessages === 'boolean'
-          ? entry.followNewMessages
-          : true;
-      const updatedAt =
-        typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt)
-          ? entry.updatedAt
-          : 0;
-      out[channelId] = {
-        anchorMessageId: anchorMessageId.trim(),
-        anchorTop,
-        followNewMessages,
-        updatedAt,
-      };
-    }
-    return out;
+    localStorage.removeItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY);
   } catch {
-    return {};
+    /* ignore */
   }
 }
 
-function readStore(): MessageListViewportStore {
-  if (memoryCache) return memoryCache;
-  if (typeof localStorage === 'undefined') {
-    memoryCache = {};
-    return memoryCache;
-  }
-  try {
-    memoryCache = parseStore(
-      localStorage.getItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY),
-    );
-  } catch {
-    memoryCache = {};
-  }
-  return memoryCache;
-}
-
-function pruneStore(store: MessageListViewportStore): MessageListViewportStore {
-  const ids = Object.keys(store);
-  if (ids.length <= MAX_STORED_VIEWPORTS) return store;
+/** Cap memory growth across a long session that visits many channels. */
+function pruneStore(): void {
+  const ids = Object.keys(sessionStore);
+  if (ids.length <= MAX_STORED_VIEWPORTS) return;
   const sorted = ids.sort(
-    (a, b) => (store[b]?.updatedAt ?? 0) - (store[a]?.updatedAt ?? 0),
+    (a, b) =>
+      (sessionStore[b]?.updatedAt ?? 0) - (sessionStore[a]?.updatedAt ?? 0),
   );
-  const keep = new Set(sorted.slice(0, MAX_STORED_VIEWPORTS));
   const next: MessageListViewportStore = {};
-  for (const id of keep) {
-    const row = store[id];
+  for (const id of sorted.slice(0, MAX_STORED_VIEWPORTS)) {
+    const row = sessionStore[id];
     if (row) next[id] = row;
   }
-  return next;
-}
-
-function flushStoreToLocalStorage(store: MessageListViewportStore): void {
-  tryLocalStorageSetItem(
-    MESSAGE_LIST_VIEWPORT_STORAGE_KEY,
-    JSON.stringify(store),
-  );
-}
-
-function schedulePersistToLocalStorage(): void {
-  if (persistTimer != null) return;
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    if (!memoryCache) return;
-    flushStoreToLocalStorage(pruneStore(memoryCache));
-  }, 300);
+  sessionStore = next;
 }
 
 export function readMessageListViewport(
   channelId: string,
 ): MessageListViewportSnapshot | null {
+  dropLegacyPersistedViewports();
   const id = channelId.trim();
   if (!id) return null;
-  return readStore()[id] ?? null;
+  return sessionStore[id] ?? null;
 }
 
 export function hasMessageListViewport(channelId: string): boolean {
@@ -124,43 +75,36 @@ export function writeMessageListViewport(
   channelId: string,
   snapshot: Omit<MessageListViewportSnapshot, 'updatedAt'>,
 ): void {
+  dropLegacyPersistedViewports();
   const id = channelId.trim();
   if (!id || !snapshot.anchorMessageId.trim()) return;
-  const store = { ...readStore() };
-  store[id] = { ...snapshot, updatedAt: Date.now() };
-  memoryCache = store;
-  schedulePersistToLocalStorage();
+  sessionStore[id] = { ...snapshot, updatedAt: Date.now() };
+  pruneStore();
 }
 
 export function clearMessageListViewport(channelId: string): void {
   const id = channelId.trim();
   if (!id) return;
-  const store = readStore();
-  if (!store[id]) return;
-  const next = { ...store };
-  delete next[id];
-  memoryCache = next;
-  schedulePersistToLocalStorage();
+  delete sessionStore[id];
 }
 
-/** Immediate localStorage flush — call on channel leave / page hide. */
+/**
+ * Retained for callers on channel leave / page hide. Session-only viewports have
+ * nothing to flush — kept as a no-op so callers don't need to change.
+ */
 export function flushMessageListViewportStorage(): void {
-  if (persistTimer != null) {
-    clearTimeout(persistTimer);
-    persistTimer = null;
-  }
-  if (!memoryCache) return;
-  flushStoreToLocalStorage(pruneStore(memoryCache));
+  /* session-only: nothing is persisted, so nothing to flush */
 }
 
-/** Test helper: reset module cache between specs. */
+/** Test helper: reset module state between specs. */
 export function resetMessageListViewportStorageForTests(): void {
-  if (persistTimer != null) {
-    clearTimeout(persistTimer);
-    persistTimer = null;
-  }
-  memoryCache = null;
+  sessionStore = {};
+  clearedLegacy = false;
   if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY);
+    try {
+      localStorage.removeItem(MESSAGE_LIST_VIEWPORT_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
   }
 }
