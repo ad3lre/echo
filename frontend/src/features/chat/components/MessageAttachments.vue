@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type {
   MessageWithAuthor,
   MessageAttachmentPayload,
@@ -10,7 +10,8 @@ import { isLikelyGifImageUrl } from '@/utils/isGifImageUrl';
 import { mediaAspectStyleFromDims } from '@/utils/chatMediaAspect';
 import GifImage from './GifImage.vue';
 import MessageAudioAttachment from './MessageAudioAttachment.vue';
-import MessageChatStillImage from './MessageChatStillImage.vue';
+import MessageMediaCollage from './MessageMediaCollage.vue';
+import type { CollageSourceItem } from '@/features/chat/domain/messageMediaCollage';
 import MessageChatVideo from './MessageChatVideo.vue';
 import MessageDocumentAttachment from './MessageDocumentAttachment.vue';
 import MessageLegacyImageUrl from './MessageLegacyImageUrl.vue';
@@ -33,6 +34,18 @@ function onDocumentOpen(att: MessageAttachmentPayload) {
 }
 
 const mediaRevealed = ref(false);
+
+/** Still images in this message are grouped into one fixed 16:9 collage box. */
+const imageCollageItems = computed<CollageSourceItem[]>(() =>
+  (props.attachments ?? [])
+    .filter((a) => a.kind === 'image' && !isLikelyGifUrl(a.url))
+    .map((a) => ({
+      url: a.url,
+      storageKey: a.storageKey,
+      alt: a.filename || props.message.content || 'Image',
+      spoiler: a.spoiler,
+    })),
+);
 
 function isRenderableSticker(
   sticker: NonNullable<MessageWithAuthor['stickers']>[number],
@@ -95,6 +108,11 @@ function mediaAspectStyle(
 
     <!-- Multiple attachments (normalized) -->
     <template v-if="attachments?.length">
+      <MessageMediaCollage
+        v-if="imageCollageItems.length"
+        :items="imageCollageItems"
+        @open="(u) => openImageViewer?.(u)"
+      />
       <template
         v-for="(att, attIdx) in attachments"
         :key="`${message.id ?? 'm'}-att-${attIdx}`"
@@ -136,17 +154,6 @@ function mediaAspectStyle(
             :metadata-height="att.height"
           />
         </button>
-        <MessageChatStillImage
-          v-else-if="att.kind === 'image'"
-          :url="att.url"
-          :storage-key="att.storageKey"
-          :alt="att.filename || message.content || 'Image'"
-          :image-style="mediaAspectStyle(att)"
-          :metadata-width="att.width"
-          :metadata-height="att.height"
-          openable
-          @open="openImageViewer?.(att.url)"
-        />
       </template>
     </template>
 

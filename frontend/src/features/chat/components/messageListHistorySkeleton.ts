@@ -47,7 +47,7 @@ export const HISTORY_SKELETON_ROWS: HistorySkeletonRow[] = [
     nameWidth: 'w-32',
     timeWidth: 'w-10',
     lineWidths: ['w-[min(80%,21rem)]'],
-    imageBlocks: [{ aspectW: 4, aspectH: 3 }],
+    imageBlocks: [{ aspectW: 16, aspectH: 9 }],
   },
   {
     grouped: false,
@@ -66,7 +66,7 @@ export const HISTORY_SKELETON_ROWS: HistorySkeletonRow[] = [
     nameWidth: 'w-16',
     timeWidth: 'w-10',
     lineWidths: ['w-[min(91%,24rem)]', 'w-[min(66%,18rem)]'],
-    imageBlocks: [{ aspectW: 1, aspectH: 1 }],
+    imageBlocks: [{ aspectW: 16, aspectH: 9 }],
   },
   { grouped: true, lineWidths: ['w-[min(78%,20rem)]'] },
   { grouped: true, lineWidths: ['w-[min(88%,22rem)]', 'w-[min(44%,13rem)]'] },
@@ -87,7 +87,7 @@ export const HISTORY_SKELETON_ROWS: HistorySkeletonRow[] = [
       'w-[min(61%,17rem)]',
       'w-[min(40%,12rem)]',
     ],
-    imageBlocks: [{ aspectW: 3, aspectH: 4 }],
+    imageBlocks: [{ aspectW: 16, aspectH: 9 }],
   },
   { grouped: true, lineWidths: ['w-[min(94%,25rem)]'] },
 ];

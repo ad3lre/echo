@@ -64,8 +64,13 @@ describe('estimateMessageListRowSizePx', () => {
     expect(withSlot - baseline).toBe(340);
   });
 
-  it('reserves attachment height from stored width and height', () => {
-    const withAttachment = estimateMessageListRowSizePx({
+  it('reserves one fixed 16:9 collage box for still images, regardless of count or stored dimensions', () => {
+    const baseline = estimateMessageListRowSizePx({
+      groupedWithPrevious: true,
+      showDaySeparatorBefore: false,
+      message: { content: 'photo' },
+    });
+    const oneImage = estimateMessageListRowSizePx({
       groupedWithPrevious: true,
       showDaySeparatorBefore: false,
       message: {
@@ -80,11 +85,22 @@ describe('estimateMessageListRowSizePx', () => {
         ],
       },
     });
-    const baseline = estimateMessageListRowSizePx({
+    // Fixed 16:9 box (CHAT_MEDIA_BOX_HEIGHT_PX 360 + 8px margin), not derived from image dims.
+    expect(oneImage - baseline).toBe(368);
+
+    const threeImages = estimateMessageListRowSizePx({
       groupedWithPrevious: true,
       showDaySeparatorBefore: false,
-      message: { content: 'photo' },
+      message: {
+        content: 'photo',
+        attachments: [
+          { url: 'https://x.test/a.png', kind: 'image' },
+          { url: 'https://x.test/b.png', kind: 'image' },
+          { url: 'https://x.test/c.png', kind: 'image' },
+        ],
+      },
     });
-    expect(withAttachment - baseline).toBe(40);
+    // Grouped into one collage box -> same reserved height as a single image.
+    expect(threeImages).toBe(oneImage);
   });
 });

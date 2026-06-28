@@ -4,6 +4,7 @@ import type {
 } from '@shared/types';
 import { walkImageSlots } from '@shared/imageSlotContentJson';
 import { countButtonRows } from '@shared/buttonRowContentJson';
+import { CHAT_MEDIA_BOX_HEIGHT_PX } from '@/features/chat/domain/messageMediaCollage';
 import {
   CHAT_ATTACHMENT_BITMAP_MAX_WIDTH_PX,
   CHAT_BITMAP_DEFAULT_ASPECT_RATIO,
@@ -161,8 +162,12 @@ export function estimateMessageListRowSizePx(
     if (message.imageUrl && !attachments.length) {
       size += estimateLegacyImageUrlBlockPx();
     }
+    // Still images group into one fixed 16:9 collage box; GIFs render separately.
+    if (attachments.some((attachment) => attachment.kind === 'image')) {
+      size += CHAT_MEDIA_BOX_HEIGHT_PX + 8;
+    }
     for (const attachment of attachments) {
-      if (attachment.kind === 'image' || attachment.kind === 'gif') {
+      if (attachment.kind === 'gif') {
         size += estimateAttachmentBitmapBlockPx(attachment);
       }
     }
