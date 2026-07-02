@@ -134,7 +134,7 @@
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.12.42",
-    "livekit-server-sdk": "^2.15.3",
+    "livekit-server-sdk": "^2.16.0",
     "nats": "^2.29.3",
     "nodemailer": "^9.0.1",
     "otplib": "^13.4.0",
