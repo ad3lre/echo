@@ -21,6 +21,7 @@ import { useLayout } from '@/composables/useLayout';
 import { bindPaperEditorChannelPanelWidth } from '@/features/paper/composables/paperEditorPanelBridge';
 import { useCompactShell } from '@/composables/useCompactShell';
 import { useCompactGuildSplitShell } from '@/composables/useCompactGuildSplitShell';
+import { deriveCompactPhoneShell } from '@/composables/useCompactPhoneShell';
 // Sub-composables
 import { useAppLayoutUiState } from './useAppLayoutUiState';
 import { useAppLayoutShellNavigation } from './useAppLayoutShellNavigation';
@@ -205,6 +206,16 @@ export function wireAppLayoutDmAndShell() {
   const compactPagerPane = ref<0 | 1 | 2>(1);
   /** Guild tri-pane: stack column visibility for compactTriPaneGuildNav (also tied to pager pane — see watch below). */
   const compactGuildTriPaneChannelPanelOpen = ref(false);
+  /** Phone bottom-tab shell navigation state (<600px). */
+  const mobileBottomTab = ref<'home' | 'servers' | 'explore'>('home');
+  const mobileHomeStack = ref<'hub' | 'thread'>('hub');
+  const mobileServersStack = ref<'list' | 'guild'>('list');
+  const mobileChannelSheetOpen = ref(false);
+  const mobileMembersOverlayOpen = ref(false);
+  const isCompactPhoneShell = deriveCompactPhoneShell(
+    isCompactShell,
+    isCompactGuildSplitShell,
+  );
   /** Compact guild: slide-up preview before joining VC (Join / chat / audio check). */
   const guildMobileVcLobby = shallowRef<{
     channelId: string;
@@ -704,6 +715,7 @@ export function wireAppLayoutDmAndShell() {
     selectExploreTab,
     selectDMTab,
     closeDMPanel,
+    clearPhoneHomeDmThread,
     dispatchNav,
     selectIncomingDmFromRail,
     selectIncomingGroupDmFromRail,
@@ -749,6 +761,9 @@ export function wireAppLayoutDmAndShell() {
     isGuestUser: () => authSession.backendUser?.isGuest === true,
     onGuestDmBlocked: () => openGuestUpgradeForDmRef.value?.(),
     isCompactShell,
+    isCompactPhoneShell,
+    mobileBottomTab,
+    mobileHomeStack,
     inviteLandingActive: inviteLandingActiveComputed,
   });
 
@@ -850,10 +865,17 @@ export function wireAppLayoutDmAndShell() {
     channelTree,
     chatMessageNavBridge,
     closeDMPanel,
+    clearPhoneHomeDmThread,
     closeGuildMobileVcLobby,
     closeVcActivity,
     compactGuildTriPaneChannelPanelOpen,
     compactPagerPane,
+    isCompactPhoneShell,
+    mobileBottomTab,
+    mobileChannelSheetOpen,
+    mobileHomeStack,
+    mobileMembersOverlayOpen,
+    mobileServersStack,
     createDirectHexInvite,
     currentUser,
     currentUserComputed,

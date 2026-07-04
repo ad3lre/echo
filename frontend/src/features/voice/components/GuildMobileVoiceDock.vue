@@ -13,6 +13,8 @@ const props = defineProps<{
   voiceSideChatCollapsed: boolean;
   vcSelfServerMuted?: boolean;
   vcSelfServerDeafened?: boolean;
+  /** Lift dock above the phone bottom tab bar when set. */
+  stackAboveBottomTab?: boolean;
   onToggleMuted: (next: boolean) => void;
   onToggleDeafened: (next: boolean) => void;
   onToggleVideo: (next: boolean) => void;
@@ -51,7 +53,12 @@ watch(
 
 <template>
   <div
-    class="pointer-events-auto fixed inset-x-0 bottom-0 z-[90] flex justify-center px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] pt-2"
+    class="pointer-events-auto fixed inset-x-0 z-[90] flex justify-center px-3 pt-2"
+    :class="
+      stackAboveBottomTab
+        ? 'guild-mobile-voice-dock--above-tab-bar pb-2'
+        : 'bottom-0 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]'
+    "
     role="toolbar"
     aria-label="Voice controls"
   >
@@ -332,5 +339,12 @@ html[data-theme='light'][data-echo-light-variant='sunny']
 .vc-mobile-dock__chat-btn--on:hover {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--accent);
+}
+
+.guild-mobile-voice-dock--above-tab-bar {
+  bottom: calc(
+    var(--echo-mobile-bottom-bar-height, 3.25rem) +
+      env(safe-area-inset-bottom, 0px)
+  );
 }
 </style>

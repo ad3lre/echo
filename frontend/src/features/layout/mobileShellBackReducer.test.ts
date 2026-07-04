@@ -1,11 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { planMobileShellBack } from '@/features/layout/mobileShellBackReducer';
+import {
+  planMobileShellBack,
+  type MobileShellBackSnapshot,
+} from '@/features/layout/mobileShellBackReducer';
+
+const phoneIdle: Pick<
+  MobileShellBackSnapshot,
+  | 'useCompactPhoneTabShell'
+  | 'mobileBottomTab'
+  | 'mobileHomeStack'
+  | 'mobileServersStack'
+  | 'mobileChannelSheetOpen'
+  | 'mobileMembersOverlayOpen'
+> = {
+  useCompactPhoneTabShell: false,
+  mobileBottomTab: 'home',
+  mobileHomeStack: 'hub',
+  mobileServersStack: 'list',
+  mobileChannelSheetOpen: false,
+  mobileMembersOverlayOpen: false,
+};
 
 describe('planMobileShellBack', () => {
   it('desktop compact off: servers rail only', () => {
     expect(
       planMobileShellBack(
         {
+          ...phoneIdle,
           useCompactTriPaneShell: false,
           useCompactGuildSplitShell: false,
           memberPanelCollapsed: true,
@@ -23,10 +44,86 @@ describe('planMobileShellBack', () => {
     ).toEqual({ kind: 'noop_desktop', action: 'servers_rail_only' });
   });
 
+  it('phone tab: home thread -> hub', () => {
+    expect(
+      planMobileShellBack(
+        {
+          ...phoneIdle,
+          useCompactPhoneTabShell: true,
+          mobileHomeStack: 'thread',
+          useCompactTriPaneShell: false,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
+          useCompactExploreShell: false,
+          useCompactDmShell: false,
+          useCompactStackShell: false,
+          isExploreView: false,
+          compactPagerPane: 1,
+          compactExplorePane: 0,
+          compactDmPane: 0,
+          compactGuildTriPaneChannelPanelOpen: false,
+        },
+        { isCompactShell: true, historyLength: 3 },
+      ),
+    ).toEqual({ kind: 'phone_home_thread' });
+  });
+
+  it('phone tab: servers guild -> list', () => {
+    expect(
+      planMobileShellBack(
+        {
+          ...phoneIdle,
+          useCompactPhoneTabShell: true,
+          mobileBottomTab: 'servers',
+          mobileServersStack: 'guild',
+          useCompactTriPaneShell: false,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
+          useCompactExploreShell: false,
+          useCompactDmShell: false,
+          useCompactStackShell: false,
+          isExploreView: false,
+          compactPagerPane: 1,
+          compactExplorePane: 0,
+          compactDmPane: 0,
+          compactGuildTriPaneChannelPanelOpen: false,
+        },
+        { isCompactShell: true, historyLength: 3 },
+      ),
+    ).toEqual({ kind: 'phone_servers_guild' });
+  });
+
+  it('phone tab: channel sheet -> close sheet', () => {
+    expect(
+      planMobileShellBack(
+        {
+          ...phoneIdle,
+          useCompactPhoneTabShell: true,
+          mobileBottomTab: 'servers',
+          mobileServersStack: 'guild',
+          mobileChannelSheetOpen: true,
+          useCompactTriPaneShell: false,
+          useCompactGuildSplitShell: false,
+          memberPanelCollapsed: true,
+          useCompactExploreShell: false,
+          useCompactDmShell: false,
+          useCompactStackShell: false,
+          isExploreView: false,
+          compactPagerPane: 1,
+          compactExplorePane: 0,
+          compactDmPane: 0,
+          compactGuildTriPaneChannelPanelOpen: false,
+        },
+        { isCompactShell: true, historyLength: 3 },
+      ),
+    ).toEqual({ kind: 'phone_channel_sheet' });
+  });
+
   it('tri-pane: members -> chat', () => {
     expect(
       planMobileShellBack(
         {
+          ...phoneIdle,
           useCompactTriPaneShell: true,
           useCompactGuildSplitShell: false,
           memberPanelCollapsed: true,
@@ -48,6 +145,7 @@ describe('planMobileShellBack', () => {
     expect(
       planMobileShellBack(
         {
+          ...phoneIdle,
           useCompactTriPaneShell: true,
           useCompactGuildSplitShell: false,
           memberPanelCollapsed: true,
@@ -69,6 +167,7 @@ describe('planMobileShellBack', () => {
     expect(
       planMobileShellBack(
         {
+          ...phoneIdle,
           useCompactTriPaneShell: false,
           useCompactGuildSplitShell: false,
           memberPanelCollapsed: true,
@@ -90,6 +189,7 @@ describe('planMobileShellBack', () => {
     expect(
       planMobileShellBack(
         {
+          ...phoneIdle,
           useCompactTriPaneShell: false,
           useCompactGuildSplitShell: false,
           memberPanelCollapsed: true,
@@ -111,6 +211,7 @@ describe('planMobileShellBack', () => {
     expect(
       planMobileShellBack(
         {
+          ...phoneIdle,
           useCompactTriPaneShell: false,
           useCompactGuildSplitShell: false,
           memberPanelCollapsed: true,
@@ -132,6 +233,7 @@ describe('planMobileShellBack', () => {
     expect(
       planMobileShellBack(
         {
+          ...phoneIdle,
           useCompactTriPaneShell: false,
           useCompactGuildSplitShell: true,
           memberPanelCollapsed: false,
@@ -153,6 +255,7 @@ describe('planMobileShellBack', () => {
     expect(
       planMobileShellBack(
         {
+          ...phoneIdle,
           useCompactTriPaneShell: false,
           useCompactGuildSplitShell: false,
           memberPanelCollapsed: true,

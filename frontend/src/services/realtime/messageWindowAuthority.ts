@@ -204,6 +204,10 @@ class MessageWindowAuthority {
     }
   }
 
+  public getHasMoreOlderForChannel(channelId: string): boolean {
+    return this.channelHasMoreOlder.get(channelId) ?? true;
+  }
+
   applyEchoChannelClientCap(
     channelId: string,
     activeChannelId: string,

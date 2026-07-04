@@ -360,6 +360,7 @@ export interface AppLayoutControllerContext {
   selectExploreTab: () => void;
   selectDMTab: () => void;
   closeDMPanel: () => void;
+  clearPhoneHomeDmThread: () => void;
   selectIncomingDmFromRail: (userId: string) => void;
   selectIncomingGroupDmFromRail: (channelId: string) => void;
   openDmInboxFromRailOverflow: () => void;
@@ -627,10 +628,19 @@ export interface AppLayoutControllerContext {
   /** Sub-800px compact swipe shell (mobile + tablet). */
   isCompactShell: Ref<boolean>;
   isCompactGuildSplitShell: Ref<boolean>;
+  /** Phone-only compact shell (<600px). */
+  isCompactPhoneShell: Ref<boolean>;
+  /** Phone bottom-tab shell active (excludes welcome-back / invite gates). */
+  useCompactPhoneTabShell: ComputedRef<boolean>;
   /** Tri-pane index in compact guild mode: 0 rail+channels, 1 chat, 2 members. */
   compactPagerPane: Ref<0 | 1 | 2>;
   /** Tri-pane: true when the guild channel stack column should show (pane 0 or explicit expand). */
   compactGuildTriPaneChannelPanelOpen: Ref<boolean>;
+  mobileBottomTab: Ref<'home' | 'servers' | 'explore'>;
+  mobileHomeStack: Ref<'hub' | 'thread'>;
+  mobileServersStack: Ref<'list' | 'guild'>;
+  mobileChannelSheetOpen: Ref<boolean>;
+  mobileMembersOverlayOpen: Ref<boolean>;
   /** Compact guild mobile: VC row opens this lobby instead of joining immediately. */
   guildMobileVcLobby: ShallowRef<{
     channelId: string;
@@ -1211,6 +1221,7 @@ export interface AppLayoutControllerContext {
   } | null;
   showApiFetchErrorBanner: Ref<boolean>;
   isChannelPanelSwitchLoading: ComputedRef<boolean>;
+  isChannelTreeLoadedForSelectedServer: ComputedRef<boolean>;
   isGuildShellSettling: ComputedRef<boolean>;
   isMessageSurfaceSwitchLoading: ComputedRef<boolean>;
   isMemberSurfaceSwitchLoading: ComputedRef<boolean>;

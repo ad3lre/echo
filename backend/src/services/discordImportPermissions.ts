@@ -1,4 +1,7 @@
-import { DISCORD_ECHO_PERMISSION_STRINGS } from '../../../shared/discordEchoPermissions';
+import {
+  DISCORD_ECHO_PERMISSION_STRINGS,
+  ECHO_DISABLED_DISCORD_PERMISSION_NAMES,
+} from '../../../shared/discordEchoPermissions';
 
 const DISCORD_PERMISSION_BIT_POSITIONS = DISCORD_ECHO_PERMISSION_STRINGS.map(
   (_: string, index: number) => (index < 47 ? index : index + 2),
@@ -38,7 +41,11 @@ export function permissionsFromBitfield(raw: unknown): string[] {
       (bitfield & entry.bit) === entry.bit,
   )
     .map((entry: { name: string; bit: bigint }) => entry.name)
-    .filter((n) => !THREAD_PERMISSION_NAMES.has(n));
+    .filter(
+      (n) =>
+        !THREAD_PERMISSION_NAMES.has(n) &&
+        !ECHO_DISABLED_DISCORD_PERMISSION_NAMES.has(n),
+    );
 }
 
 export function overwritePartialFromAllowDeny(
@@ -49,7 +56,11 @@ export function overwritePartialFromAllowDeny(
   const deny = parseBitfield(denyRaw);
   const out: Record<string, boolean> = {};
   for (const entry of DISCORD_PERMISSION_BIT_TO_NAME) {
-    if (THREAD_PERMISSION_NAMES.has(entry.name)) continue;
+    if (
+      THREAD_PERMISSION_NAMES.has(entry.name) ||
+      ECHO_DISABLED_DISCORD_PERMISSION_NAMES.has(entry.name)
+    )
+      continue;
     if ((deny & entry.bit) === entry.bit) out[entry.name] = false;
     if ((allow & entry.bit) === entry.bit) out[entry.name] = true;
   }

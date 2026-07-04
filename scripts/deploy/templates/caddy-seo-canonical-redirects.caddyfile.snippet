@@ -1,0 +1,26 @@
+# Echo — SEO canonical redirects (paste near the top of each site block, before SPA catch-all).
+#
+# Fixes Search Console "Duplicate without user-selected canonical":
+# - www → apex (one host for marketing)
+# - chat /legal/* → app-echo.net (legal canonical lives on marketing)
+#
+# Cloudflare: if TLS terminates at Cloudflare, add matching Bulk Redirects or Page Rules
+# for www.app-echo.net → app-echo.net and chat-echo.com/legal/* → app-echo.net/*.
+
+# --- Marketing (app-echo.net) — inside the www site block or as a dedicated listener ---
+# www.app-echo.net {
+# 	redir https://app-echo.net{uri} permanent
+# }
+
+# --- Chat app (chat-echo.com) — inside the chat site block, before SPA try_files ---
+# @chat_legal path /legal/privacy /legal/privacy/ /legal/terms /legal/terms/ /legal/community /legal/community/ /legal/attributions /legal/attributions/
+# handle @chat_legal {
+# 	@privacy path /legal/privacy /legal/privacy/
+# 	@terms path /legal/terms /legal/terms/
+# 	@community path /legal/community /legal/community/
+# 	@attributions path /legal/attributions /legal/attributions/
+# 	redir @privacy https://app-echo.net/privacy permanent
+# 	redir @terms https://app-echo.net/terms permanent
+# 	redir @community https://app-echo.net/community-guidelines permanent
+# 	redir @attributions https://app-echo.net/attributions permanent
+# }

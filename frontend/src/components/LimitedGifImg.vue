@@ -48,6 +48,8 @@ const props = withDefaults(
     respectReducedMotion?: boolean;
     /** GIF shows first frame only (no timed loops, no hover replay). */
     staticOnly?: boolean;
+    /** Treat as GIF even when URL is Echo-hosted (attachment kind gif). */
+    forceGif?: boolean;
     /**
      * `avatar` — small circular slots (pfps): no body text in the unavailable state, scales to wrapper.
      * `panel` — default card with headline/detail (chat embeds, etc.).
@@ -69,6 +71,7 @@ const props = withDefaults(
     forceActive: false,
     respectReducedMotion: true,
     staticOnly: false,
+    forceGif: false,
     unavailableVariant: 'panel',
     missingFallbackSrc: undefined,
   },
@@ -98,10 +101,12 @@ const missingFallbackResolved = computed(
 
 /** Logical URL passed to GIF/static decode — avoids treating “no URL” like a network failure. */
 const effectiveImageUrl = computed(() => {
-  if (requiresBundledMediaFallback(props.src)) {
+  const trimmed = props.src?.trim() ?? '';
+  if (!trimmed) return '';
+  if (requiresBundledMediaFallback(trimmed)) {
     return missingFallbackResolved.value;
   }
-  return props.src.trim();
+  return trimmed;
 });
 
 onMounted(() => {
@@ -150,6 +155,7 @@ const {
   sessionKey: () => session.value,
   storageKey: () => props.storageKey,
   forceActive: () => props.forceActive,
+  forceGif: () => props.forceGif,
   reducedMotion: () => reducedMotion.value,
   staticOnly: () => props.staticOnly,
 });

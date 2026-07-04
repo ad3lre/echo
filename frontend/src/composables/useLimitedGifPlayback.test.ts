@@ -85,4 +85,23 @@ describe('useLimitedGifPlayback', () => {
 
     scope.stop();
   });
+
+  it('treats forceGif as animated even for Echo-hosted URLs', async () => {
+    echoMediaUrlNeedsSigning.mockReturnValue(false);
+
+    const scope = effectScope();
+    const { isGif } = scope.run(() =>
+      useLimitedGifPlayback({
+        imageUrl: () =>
+          'https://media.echo.example/v1/o/echo/channels/c1/u1/remote-image-1.webp',
+        sessionKey: () => 'm1',
+        forceGif: () => true,
+      }),
+    )!;
+
+    await nextTick();
+    expect(isGif.value).toBe(true);
+
+    scope.stop();
+  });
 });

@@ -17,6 +17,7 @@ import {
   pinSelfDmInboxEntryFirst,
 } from '@/features/dm/buildDmPanelUserList';
 import { maxIncomingPeerMessageMs } from '@/features/dm/hiddenDmInboxUtils';
+import { messagePreviewPlainText } from '@/services/domain/messagePreviewPlain';
 import { dispatchAppToast } from '@/utils/controllerMissingAction';
 import { postEchoOpenDm } from '@/api/echo/social';
 import { echoSyncCapabilities } from '@/platform/syncCapabilities';
@@ -199,11 +200,26 @@ export function useAppLayoutDmInboxPanel(deps: {
       if (!channelIdForPeer.has(peer)) channelIdForPeer.set(peer, ch);
     }
     const payload = entries.map((e) => {
+      const channelId =
+        e.kind === 'group' ? e.id : (channelIdForPeer.get(e.id) ?? '');
+      const msgs = channelId ? workspace.messages.value[channelId] : undefined;
+      const last = msgs?.length ? msgs[msgs.length - 1] : undefined;
+      const previewPlainText = last
+        ? messagePreviewPlainText(last, 220) || undefined
+        : undefined;
       if (e.kind === 'group') {
-        return { id: e.id, rankMs: ats.get(e.id) ?? 0 };
+        return {
+          id: e.id,
+          rankMs: ats.get(e.id) ?? 0,
+          previewPlainText,
+        };
       }
       const ch = channelIdForPeer.get(e.id) ?? '';
-      return { id: e.id, rankMs: ch ? (ats.get(ch) ?? 0) : 0 };
+      return {
+        id: e.id,
+        rankMs: ch ? (ats.get(ch) ?? 0) : 0,
+        previewPlainText,
+      };
     });
     dmInboxOrderCacheStore.saveOrder(payload);
   });

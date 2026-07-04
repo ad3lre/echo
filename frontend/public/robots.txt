@@ -1,0 +1,4 @@
+# chat-echo.com — authenticated chat app (not a public marketing site).
+# Canonical legal + landing pages: https://app-echo.net/
+User-agent: *
+Disallow: /

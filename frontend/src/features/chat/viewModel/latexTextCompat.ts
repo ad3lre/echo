@@ -402,7 +402,7 @@ export function preprocessLatexTextCompat(text: string): string {
     }
 
     if (text.startsWith('\\begin{center}', i)) {
-      out += '<div style="text-align:center">';
+      out += '<div class="md-latex-center">';
       i += '\\begin{center}'.length;
       continue;
     }

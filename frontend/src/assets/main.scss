@@ -946,6 +946,10 @@ img.brightness-0.invert {
 .markdown-preview__content,
 .legal-md-preview,
 .paper-math {
+  .md-latex-center {
+    text-align: center;
+  }
+
   .katex {
     padding: 0.14em 0.08em 0.22em;
     box-sizing: content-box;

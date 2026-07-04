@@ -1,4 +1,4 @@
-/* @vitest-environment happy-dom */
+/* @vitest-environment jsdom */
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   ensureMarkdownKatexReady,

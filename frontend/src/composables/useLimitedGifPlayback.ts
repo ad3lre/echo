@@ -27,6 +27,8 @@ export function useLimitedGifPlayback(options: {
   sessionKey: MaybeRefOrGetter<string>;
   storageKey?: MaybeRefOrGetter<string | undefined>;
   forceActive?: MaybeRefOrGetter<boolean | undefined>;
+  /** When true, treat as animated GIF even if URL is Echo-hosted (no giphy/tenor markers). */
+  forceGif?: MaybeRefOrGetter<boolean | undefined>;
   maxLoops?: number;
   fallbackLoopMs?: number;
   reducedMotion?: MaybeRefOrGetter<boolean>;
@@ -43,9 +45,14 @@ export function useLimitedGifPlayback(options: {
     () => [toValue(options.imageUrl), toValue(options.storageKey)] as const,
     ([raw, storageKey]) => {
       const id = ++safeUrlRequestId;
-      const safe = safeImageUrl(raw);
+      const trimmed = raw?.trim() ?? '';
+      if (!trimmed) {
+        safeUrl.value = '';
+        return;
+      }
+      const safe = safeImageUrl(trimmed);
       if (!safe || safe === safeImageUrl('')) {
-        safeUrl.value = safe;
+        safeUrl.value = '';
         return;
       }
       // Unsigned media-cdn object URLs return 403; never assign them to <img>.
@@ -62,7 +69,11 @@ export function useLimitedGifPlayback(options: {
     { immediate: true },
   );
 
-  const isGif = computed(() => isLikelyGifImageUrl(toValue(options.imageUrl)));
+  const isGif = computed(
+    () =>
+      toValue(options.forceGif) === true ||
+      isLikelyGifImageUrl(toValue(options.imageUrl)),
+  );
   const forceActiveRef = computed(() => toValue(options.forceActive) ?? false);
   const reducedMotionRef = computed(
     () => toValue(options.reducedMotion) ?? false,

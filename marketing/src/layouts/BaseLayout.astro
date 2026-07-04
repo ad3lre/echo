@@ -6,6 +6,7 @@ import '@fontsource/inter/700.css';
 import '@fontsource/inter/800.css';
 import '../styles/global.scss';
 import { CHAT_APP_ORIGIN } from '../site';
+import { marketingCanonicalUrl } from '../lib/canonicalUrl';
 import {
   OG_IMAGE_ALT,
   OG_IMAGE_HEIGHT,
@@ -39,7 +40,7 @@ const {
   hreflangAlternates = [],
 } = Astro.props;
 
-const pageUrl = new URL(canonicalPath, Astro.site);
+const pageUrl = marketingCanonicalUrl(canonicalPath);
 const ogImageUrl = new URL(ogImagePath, Astro.site);
 const robotsContent = noindex ? 'noindex,follow' : robots;
 const ogLocale = locale === 'en' ? 'en_US' : `${locale}_${locale.toUpperCase()}`;
@@ -71,7 +72,7 @@ const ogImageType = ogImagePath.endsWith('.svg')
         <link
           rel="alternate"
           hreflang={alt.locale}
-          href={new URL(alt.path, Astro.site).toString()}
+          href={marketingCanonicalUrl(alt.path)}
         />
       ))
     }

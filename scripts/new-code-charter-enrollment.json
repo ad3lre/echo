@@ -1,5 +1,5 @@
 {
-  "enrolledAt": "2026-06-27",
+  "enrolledAt": "2026-07-04",
   "strict": {
     "maxFileLines": 400,
     "maxFunctionLines": 80,
@@ -140,8 +140,8 @@
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/buildAppLayoutAssemblyDeps.ts": {
-      "lines": 762,
-      "longestFunction": 751,
+      "lines": 772,
+      "longestFunction": 761,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
@@ -151,9 +151,15 @@
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
+    "frontend/src/features/layout/composables/useAppLayoutCompactShellExpand.ts": {
+      "lines": 137,
+      "longestFunction": 92,
+      "deepNestingLines": 0,
+      "maxNestingSpaces": 8
+    },
     "frontend/src/features/layout/composables/useAppLayoutDmInboxPanel.ts": {
-      "lines": 262,
-      "longestFunction": 225,
+      "lines": 280,
+      "longestFunction": 242,
       "deepNestingLines": 3,
       "maxNestingSpaces": 14
     },
@@ -212,20 +218,20 @@
       "maxNestingSpaces": 14
     },
     "frontend/src/features/layout/composables/wireAppLayoutDmAndShell.ts": {
-      "lines": 1101,
-      "longestFunction": 992,
+      "lines": 1123,
+      "longestFunction": 1013,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },
     "frontend/src/features/layout/composables/wireAppLayoutMessagingAndProfiles.ts": {
-      "lines": 1433,
-      "longestFunction": 1366,
+      "lines": 1437,
+      "longestFunction": 1370,
       "deepNestingLines": 0,
       "maxNestingSpaces": 8
     },
     "frontend/src/features/layout/composables/wireAppLayoutVoiceAndRealtime.ts": {
-      "lines": 1823,
-      "longestFunction": 1725,
+      "lines": 1846,
+      "longestFunction": 1747,
       "deepNestingLines": 0,
       "maxNestingSpaces": 10
     },

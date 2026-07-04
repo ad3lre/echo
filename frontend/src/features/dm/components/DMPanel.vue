@@ -138,6 +138,8 @@ const props = defineProps<{
   phoneCallIcon?: string;
   /** When true, Friends and Notifications tabs prompt upgrade instead of opening. */
   guestFriendsLocked?: boolean;
+  /** Phone home tab: messages list only (no header/tabs; friends live in MobileHomeSurface). */
+  phoneCombinedHub?: boolean;
   /**
    * Live presence overlay keyed by user id — from presenceByUserId in the layout controller.
    * Used to provide `authoritativeStatus` to `selectPresence` so socket updates are reflected
@@ -759,15 +761,24 @@ watch(
 <template>
   <aside
     v-bind="$attrs"
-    class="dm-panel relative h-full min-w-0 overflow-hidden"
-    :class="open ? 'pointer-events-auto dm-panel--open' : 'pointer-events-none'"
+    class="dm-panel relative min-w-0 overflow-hidden"
+    :class="[
+      open ? 'pointer-events-auto dm-panel--open' : 'pointer-events-none',
+      phoneCombinedHub ? 'h-auto' : 'h-full',
+    ]"
   >
     <div
-      class="dm-panel__inner flex h-full min-w-0 flex-col overflow-hidden"
-      :class="open ? 'dm-panel__inner--open' : 'dm-panel__inner--closed'"
+      class="dm-panel__inner flex min-w-0 flex-col overflow-hidden"
+      :class="[
+        open ? 'dm-panel__inner--open' : 'dm-panel__inner--closed',
+        phoneCombinedHub ? 'h-auto' : 'h-full',
+      ]"
       :inert="!open"
     >
-      <div class="flex items-center justify-between gap-3 px-4 py-2.5">
+      <div
+        v-if="!phoneCombinedHub"
+        class="flex items-center justify-between gap-3 px-4 py-2.5"
+      >
         <div class="min-w-0">
           <div
             class="text-[10px] font-bold uppercase tracking-[0.2em] text-fg-subtle"
@@ -803,7 +814,7 @@ watch(
       </div>
 
       <!-- Tab bar: switches main content -->
-      <div class="flex shrink-0 gap-0.5 px-3 pb-2">
+      <div v-if="!phoneCombinedHub" class="flex shrink-0 gap-0.5 px-3 pb-2">
         <button
           type="button"
           class="dm-tab rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
@@ -861,7 +872,11 @@ watch(
           <!-- Messages tab: search + DM list (also shown while the Notifications
                conversation is open, so the pinned row stays visible). -->
           <div
-            v-if="activeTab === 'messages' || activeTab === 'notifications'"
+            v-if="
+              phoneCombinedHub ||
+              activeTab === 'messages' ||
+              activeTab === 'notifications'
+            "
             class="relative flex flex-col gap-2"
           >
             <div class="dm-list-search-wrap relative shrink-0">

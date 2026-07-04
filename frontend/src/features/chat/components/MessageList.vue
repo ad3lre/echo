@@ -14,6 +14,8 @@ import type { MessageWithAuthor, EchoChannelType } from '@shared/types';
 import type { RawMessage } from '@/features/chat/chatMessageTypes';
 import MessageBubble from './MessageBubble.vue';
 import MessageListHistorySkeleton from './MessageListHistorySkeleton.vue';
+import { buildHistorySkeletonRowsFromMessages } from './buildHistorySkeletonRowsFromMessages';
+import { readMessageSessionCacheForChannel } from '@/utils/messageSessionCache';
 import MessageListJumpFab from './MessageListJumpFab.vue';
 import {
   createMessageListJumpUi,
@@ -540,6 +542,31 @@ const showTransitionSkeleton = computed(
 const showLoadingSkeleton = computed(
   () => showHistorySkeleton.value || showTransitionSkeleton.value,
 );
+
+const historySkeletonRows = computed(() => {
+  if (!showLoadingSkeleton.value) return undefined;
+  const cid = props.channelId?.trim();
+  const userId = props.currentUserId?.trim();
+  if (!cid || !userId) return undefined;
+  const cached = readMessageSessionCacheForChannel(userId, cid);
+  if (!cached?.messages.length) return undefined;
+  return buildHistorySkeletonRowsFromMessages(cached.messages, (authorId) => {
+    for (const msg of cached.messages) {
+      if (msg.authorId === authorId && msg.authorDisplayName?.trim()) {
+        return msg.authorDisplayName.trim();
+      }
+    }
+    for (const msg of props.messages.values()) {
+      if (msg.authorId === authorId) {
+        const name =
+          (msg as MessageWithAuthor & { authorName?: string }).authorName ??
+          msg.author?.name;
+        if (name?.trim()) return name.trim();
+      }
+    }
+    return 'Member';
+  });
+});
 
 const showNoServersYet = computed(
   () => !!props.noServersYet && isEmpty.value && !showLoadingSkeleton.value,
@@ -2687,6 +2714,7 @@ defineExpose({
         }"
       >
         <MessageListHistorySkeleton
+          :rows="historySkeletonRows"
           :aria-label="
             showHistorySkeleton ? 'Loading messages' : 'Loading conversation'
           "

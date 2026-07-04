@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { HISTORY_SKELETON_ROWS } from './messageListHistorySkeleton';
+import { computed } from 'vue';
+import {
+  HISTORY_SKELETON_ROWS,
+  type HistorySkeletonRow,
+} from './messageListHistorySkeleton';
 
-defineProps<{
+const props = defineProps<{
   /** Accessible label for history vs navigation loading. */
   ariaLabel?: string;
+  /** Optional data-driven rows; falls back to the static template. */
+  rows?: HistorySkeletonRow[];
 }>();
+
+const skeletonRows = computed(() =>
+  props.rows?.length ? props.rows : HISTORY_SKELETON_ROWS,
+);
 </script>
 
 <template>
@@ -15,7 +25,7 @@ defineProps<{
     :aria-label="ariaLabel ?? 'Loading messages'"
   >
     <div
-      v-for="(row, index) in HISTORY_SKELETON_ROWS"
+      v-for="(row, index) in skeletonRows"
       :key="index"
       class="skeleton-row flex items-start gap-4 px-1"
       :class="[

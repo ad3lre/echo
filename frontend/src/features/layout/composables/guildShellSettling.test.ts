@@ -21,7 +21,7 @@ describe('guildShellSettling', () => {
     expect(isGuildChannelTreeLoaded({ s1: [] }, 's1')).toBe(true);
   });
 
-  it('isGuildShellSettling during initial load in flight', () => {
+  it('isGuildShellSettling during initial load in flight without cached tree', () => {
     expect(
       isGuildShellSettling({
         rail: 'servers',
@@ -33,6 +33,31 @@ describe('guildShellSettling', () => {
         initialLoadInFlight: true,
       }),
     ).toBe(true);
+  });
+
+  it('isGuildShellSettling false during initial load when cached tree and channel resolve', () => {
+    const categories: Record<string, ChannelCategory[]> = {
+      s1: [
+        {
+          id: 'cat',
+          name: 'General',
+          channels: [
+            { id: 'ch1', name: 'chat', type: 'text' as EchoChannelType },
+          ],
+        },
+      ],
+    };
+    expect(
+      isGuildShellSettling({
+        rail: 'servers',
+        selectedServerId: 's1',
+        activeChannelId: 'ch1',
+        categoriesByServer: categories,
+        workspaceLoading: false,
+        workspaceFromApi: true,
+        initialLoadInFlight: true,
+      }),
+    ).toBe(false);
   });
 
   it('isGuildShellSettling false when tree loaded empty and no channel to pick', () => {

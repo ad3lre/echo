@@ -4,9 +4,12 @@ export function useAppLayoutCompactShellExpand(deps: {
   isCompactShell: Ref<boolean>;
   hasGuildChannelChrome: ComputedRef<boolean>;
   isCompactGuildSplitShell: Ref<boolean>;
+  useCompactPhoneTabShell: Ref<boolean>;
   compactGuildTriPaneChannelPanelOpen: Ref<boolean>;
   compactPagerPane: Ref<number>;
   memberPanelCollapsed: Ref<boolean>;
+  mobileChannelSheetOpen: Ref<boolean>;
+  mobileMembersOverlayOpen: Ref<boolean>;
   expandChannelsGrid: () => void;
   markMemberPanelExpandedByUser: () => void;
   markMemberPanelCollapsedByUser: () => void;
@@ -16,6 +19,10 @@ export function useAppLayoutCompactShellExpand(deps: {
   collapseMembers: () => void;
 } {
   function expandChannels() {
+    if (deps.useCompactPhoneTabShell.value) {
+      deps.mobileChannelSheetOpen.value = true;
+      return;
+    }
     if (
       deps.isCompactShell.value &&
       deps.hasGuildChannelChrome.value &&
@@ -32,6 +39,12 @@ export function useAppLayoutCompactShellExpand(deps: {
   }
 
   function expandMembers() {
+    if (deps.useCompactPhoneTabShell.value) {
+      deps.mobileMembersOverlayOpen.value = true;
+      deps.memberPanelCollapsed.value = false;
+      deps.markMemberPanelExpandedByUser();
+      return;
+    }
     if (
       deps.isCompactShell.value &&
       deps.hasGuildChannelChrome.value &&
@@ -50,6 +63,12 @@ export function useAppLayoutCompactShellExpand(deps: {
   }
 
   function collapseMembers() {
+    if (deps.useCompactPhoneTabShell.value) {
+      deps.mobileMembersOverlayOpen.value = false;
+      deps.memberPanelCollapsed.value = true;
+      deps.markMemberPanelCollapsedByUser();
+      return;
+    }
     if (
       deps.isCompactShell.value &&
       deps.hasGuildChannelChrome.value &&
@@ -78,13 +97,26 @@ export function createAppLayoutToggleMemberList(deps: {
   isCompactShell: Ref<boolean>;
   hasGuildChannelChrome: ComputedRef<boolean>;
   isCompactGuildSplitShell: Ref<boolean>;
+  useCompactPhoneTabShell: Ref<boolean>;
   compactPagerPane: Ref<number>;
   memberPanelCollapsed: Ref<boolean>;
+  mobileMembersOverlayOpen: Ref<boolean>;
   toggleMemberListBase: () => void;
   markMemberPanelExpandedByUser: () => void;
   markMemberPanelCollapsedByUser: () => void;
 }): () => void {
   return function toggleMemberList() {
+    if (deps.useCompactPhoneTabShell.value) {
+      const opening = !deps.mobileMembersOverlayOpen.value;
+      deps.mobileMembersOverlayOpen.value = opening;
+      deps.memberPanelCollapsed.value = !opening;
+      if (opening) {
+        deps.markMemberPanelExpandedByUser();
+      } else {
+        deps.markMemberPanelCollapsedByUser();
+      }
+      return;
+    }
     if (
       deps.isCompactShell.value &&
       deps.hasGuildChannelChrome.value &&

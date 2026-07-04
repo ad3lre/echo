@@ -161,6 +161,8 @@ export type LayoutLeftChromeHostHandlers = {
   onMoreServersSetCompact: (compact: boolean) => void;
   onMoreServersTogglePinned: () => void;
   onDmClose: () => void;
+  /** Phone Home: leave DM thread and return to hub without switching tabs. */
+  onClearPhoneHomeDmThread: () => void;
   onDmUpdateActiveTab: (tab: DmSubView) => void;
   onDmSelectDm: (userId: string) => void;
   onDmSelectGroup: (groupId: string) => void;
@@ -266,23 +268,10 @@ export type LayoutLeftChromeContext = {
 export const LAYOUT_LEFT_CHROME_KEY: InjectionKey<LayoutLeftChromeContext> =
   Symbol('layoutLeftChrome');
 
-/** `ServerDownGate` props (computed bind from `useAppLayoutPlatformLifecycle`). */
-export type LayoutServerDownGateBind = {
-  checking: boolean;
-  outageSinceMs: number | null;
-  lastCheckedAtMs: number | null;
-  detail: string | null;
-  averageRecoverySeconds: number;
-  recoverySampleCount: number;
-};
-
-/** Main-surface gate stack (outage / invite landing / welcome-back / explore vs chat) — injected from `AppLayout.vue` into `AppLayoutMainSurface`. */
+/** Main-surface gate stack (invite landing / welcome-back / explore vs chat) — injected from `AppLayout.vue` into `AppLayoutMainSurface`. */
 export type LayoutMainSurfaceContext = {
   /** Explore renders inside a single unified scroll container (compact explore page). */
   explorePageUnifiedScroll: MaybeRef<boolean>;
-  showServerDownGate: MaybeRef<boolean>;
-  serverDownGateBind: MaybeRef<LayoutServerDownGateBind>;
-  checkServerHealthNow: () => void | Promise<void>;
   inviteLandingActive: MaybeRef<boolean>;
   inviteLandingPreview: MaybeRef<EchoInvitePreviewDto | null>;
   inviteLandingLoading: MaybeRef<boolean>;

@@ -1,4 +1,4 @@
-/* @vitest-environment happy-dom */
+/* @vitest-environment jsdom */
 /**
  * Regression tests for stored CSS injection via the message `style` attribute.
  *

@@ -11,6 +11,14 @@ import CompactDualPaneShell from '@/features/layout/components/CompactDualPaneSh
 import CompactStackShellFrame from '@/features/layout/components/CompactStackShellFrame.vue';
 import CompactTriPaneShell from '@/features/layout/components/CompactTriPaneShell.vue';
 import CompactGuildSplitShell from '@/features/layout/components/CompactGuildSplitShell.vue';
+import CompactPhoneTabShell from '@/features/layout/components/CompactPhoneTabShell.vue';
+import MobileHomeSurface from '@/features/layout/components/mobile/MobileHomeSurface.vue';
+import MobileServersSurface from '@/features/layout/components/mobile/MobileServersSurface.vue';
+import {
+  railTabToMobileBottomTab,
+  type MobileBottomTabId,
+} from '@/features/layout/mobileBottomTab';
+import { planMobileBottomTabNavigation } from '@/features/layout/applyMobileBottomTabNavigation';
 import { resolveEchoServerIdContainingChannel } from '@/features/voice/resolveEchoServerIdForGuildChannel';
 import { ECHO_SCREEN_SHARE_USE_CONFIG_MODAL } from '@/config/screenShareUi';
 
@@ -57,6 +65,10 @@ const ForwardMessageModal = defineAsyncComponent(
 const DiscordProfileImportPromptModal = defineAsyncComponent(
   () =>
     import('@/features/discord/components/DiscordProfileImportPromptModal.vue'),
+);
+/** Lazy: outage overlay; teleported above shell so layout keeps rendering underneath. */
+const ServerDownGate = defineAsyncComponent(
+  () => import('@/features/layout/components/ServerDownGate.vue'),
 );
 
 import {
@@ -222,8 +234,16 @@ const {
   clearRolePreview,
   clearSearch,
   closeDMPanel,
+  clearPhoneHomeDmThread,
   compactPagerPane,
   compactGuildTriPaneChannelPanelOpen,
+  isCompactPhoneShell,
+  useCompactPhoneTabShell,
+  mobileBottomTab,
+  mobileHomeStack,
+  mobileServersStack,
+  mobileChannelSheetOpen,
+  mobileMembersOverlayOpen,
   guildMobileVcLobby,
   openGuildMobileVcLobby,
   closeGuildMobileVcLobby,
@@ -475,6 +495,7 @@ const {
   isMoreServersPinned,
   isOpeningDmThread,
   isChannelPanelSwitchLoading,
+  isChannelTreeLoadedForSelectedServer,
   isGuildShellSettling,
   isMessageSurfaceSwitchLoading,
   isMemberSurfaceSwitchLoading,
@@ -1061,9 +1082,17 @@ const voiceMobileDockReservePxComputed = computed(() =>
   showGuildMobileVoiceDock.value ? 120 : 0,
 );
 
-const mainContentVcDockBottomPadClass = computed(() =>
-  showGuildMobileVoiceDock.value ? 'pb-[7.5rem]' : '',
-);
+const mainContentVcDockBottomPadClass = computed(() => {
+  if (useCompactPhoneTabShell.value) {
+    return showGuildMobileVoiceDock.value
+      ? 'main-content-area--phone-tab-shell-voice-dock'
+      : 'main-content-area--phone-tab-shell';
+  }
+  if (showGuildMobileVoiceDock.value) {
+    return 'pb-[7.5rem]';
+  }
+  return '';
+});
 
 function handleGuildMobileVcLobbyJoin() {
   const lobby = guildMobileVcLobby.value;
@@ -1089,7 +1118,12 @@ function handleGuildMobileVcLobbyChat() {
   }
   closeGuildMobileVcLobby();
   if (isCompactShell.value && hasGuildChannelChrome.value) {
-    compactPagerPane.value = 1;
+    if (useCompactPhoneTabShell.value) {
+      mobileBottomTab.value = 'servers';
+      mobileServersStack.value = 'guild';
+    } else {
+      compactPagerPane.value = 1;
+    }
   }
 }
 
@@ -1262,7 +1296,8 @@ const useCompactTriPaneShell = computed(
     unref(isCompactShell) &&
     unref(hasGuildChannelChrome) &&
     !explorePageUnifiedScroll.value &&
-    !useCompactGuildSplitShell.value,
+    !useCompactGuildSplitShell.value &&
+    !useCompactPhoneTabShell.value,
 );
 
 const useCompactExploreShell = computed(
@@ -1270,7 +1305,8 @@ const useCompactExploreShell = computed(
     unref(isCompactShell) &&
     explorePageUnifiedScroll.value &&
     !welcomeBackExploreGate.value &&
-    !inviteLandingActive.value,
+    !inviteLandingActive.value &&
+    !useCompactPhoneTabShell.value,
 );
 
 /** Compact non–guild-chrome surfaces (explore, DM, onboarding, welcome gate). */
@@ -1280,7 +1316,8 @@ const useCompactDmShell = computed(
     unref(isCompactShell) &&
     unref(isDmUiContext) &&
     !useCompactTriPaneShell.value &&
-    !useCompactExploreShell.value,
+    !useCompactExploreShell.value &&
+    !useCompactPhoneTabShell.value,
 );
 
 const useCompactStackShell = computed(
@@ -1288,7 +1325,8 @@ const useCompactStackShell = computed(
     unref(isCompactShell) &&
     !useCompactDmShell.value &&
     !useCompactTriPaneShell.value &&
-    !useCompactExploreShell.value,
+    !useCompactExploreShell.value &&
+    !useCompactPhoneTabShell.value,
 );
 
 watch(useCompactExploreShell, (on) => {
@@ -1334,6 +1372,74 @@ const isDmThreadSurface = computed(
   () => unref(isDmUiContext) && unref(mainSurface)?.type === 'dmThread',
 );
 
+let syncingMobileBottomTab = false;
+
+function applyMobileBottomTabNavigation(tab: MobileBottomTabId) {
+  const plan = planMobileBottomTabNavigation(tab, {
+    activeRailTab: activeRailTab.value,
+    isDmThreadSurface: isDmThreadSurface.value,
+    selectedServerId: selectedServer.value?.id,
+    activeChannelId: activeChannelId.value,
+    mobileServersStack: mobileServersStack.value,
+  });
+  if (plan.invokeSelectDmTab) handleSelectDmTab();
+  if (plan.invokeSelectServersTab) selectServersTab();
+  if (plan.invokeSelectExploreTab) selectExploreTab();
+  if (plan.mobileHomeStack) mobileHomeStack.value = plan.mobileHomeStack;
+  if (plan.mobileServersStack)
+    mobileServersStack.value = plan.mobileServersStack;
+}
+
+watch(mobileBottomTab, (tab) => {
+  if (!useCompactPhoneTabShell.value || syncingMobileBottomTab) return;
+  applyMobileBottomTabNavigation(tab);
+});
+
+watch(activeRailTab, (rail) => {
+  if (!useCompactPhoneTabShell.value) return;
+  const tab = railTabToMobileBottomTab(rail);
+  syncingMobileBottomTab = true;
+  if (mobileBottomTab.value !== tab) {
+    mobileBottomTab.value = tab;
+  }
+  applyMobileBottomTabNavigation(tab);
+  syncingMobileBottomTab = false;
+});
+
+watch(useCompactPhoneTabShell, (on) => {
+  if (!on) return;
+  syncingMobileBottomTab = true;
+  mobileBottomTab.value = railTabToMobileBottomTab(activeRailTab.value);
+  syncingMobileBottomTab = false;
+  isDMPanelOpen.value = true;
+  if (activeRailTab.value === 'servers') {
+    mobileServersStack.value =
+      selectedServer.value?.id && activeChannelId.value?.trim()
+        ? 'guild'
+        : 'list';
+  }
+});
+
+watch(isDmThreadSurface, (thread) => {
+  if (!useCompactPhoneTabShell.value || mobileBottomTab.value !== 'home')
+    return;
+  mobileHomeStack.value = thread ? 'thread' : 'hub';
+});
+
+const phoneDmUnreadTotal = computed(
+  () => dmIncomingRailCluster.value?.totalUnreadCount ?? 0,
+);
+
+const phoneServersHasActivity = computed(() => {
+  const bubbles = serverPingBubbleByServerId.value;
+  const dots = serverUnreadActivityDotByServerId.value;
+  return Object.keys(bubbles).length > 0 || Object.keys(dots).length > 0;
+});
+
+const phoneExploreHasActivity = computed(
+  () => showWelcomeBackSlimBanner.value || welcomeBackExploreGate.value,
+);
+
 const appToastLayoutContext: AppToastLayoutContext = {
   echoChatBottomChromeInsetPx,
   useCompactTriPaneShell,
@@ -1377,6 +1483,10 @@ watch(
 );
 
 function openChannelPaneFromHeader() {
+  if (useCompactPhoneTabShell.value && mobileBottomTab.value === 'servers') {
+    mobileChannelSheetOpen.value = true;
+    return;
+  }
   if (useCompactDmShell.value) {
     compactDmPane.value = 1;
     return;
@@ -1403,6 +1513,7 @@ const { mobileShellGoBack } = useMobileShellNavigation({
   isCompactShell,
   useCompactTriPaneShell,
   useCompactGuildSplitShell,
+  useCompactPhoneTabShell,
   memberPanelCollapsed,
   useCompactExploreShell,
   useCompactDmShell,
@@ -1412,8 +1523,14 @@ const { mobileShellGoBack } = useMobileShellNavigation({
   compactExplorePane,
   compactDmPane,
   compactGuildTriPaneChannelPanelOpen,
+  mobileBottomTab,
+  mobileHomeStack,
+  mobileServersStack,
+  mobileChannelSheetOpen,
+  mobileMembersOverlayOpen,
   selectServersRailOnly,
   closeDMPanel,
+  clearPhoneHomeDmThread,
 });
 
 provide(LAYOUT_MOBILE_SHELL_NAV_KEY, { mobileShellGoBack });
@@ -2267,13 +2384,10 @@ const {
   openUserSettingsModal,
 });
 
-/* Main-surface gate stack (outage / invite landing / welcome-back / explore vs chat).
- * Consumed by AppLayoutMainSurface across every shell variant. */
+/* Main-surface gate stack (invite landing / welcome-back / explore vs chat).
+ * Server-down outage UI is a teleported overlay on AppLayout, not in this stack. */
 provide(LAYOUT_MAIN_SURFACE_KEY, {
   explorePageUnifiedScroll,
-  showServerDownGate,
-  serverDownGateBind,
-  checkServerHealthNow,
   inviteLandingActive,
   inviteLandingPreview,
   inviteLandingLoading,
@@ -2517,6 +2631,7 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   inDmMode: isInDMMode,
   dmPanelOpen: isDMPanelOpen,
   channelPanelLoading: isChannelPanelSwitchLoading,
+  channelTreeLoaded: isChannelTreeLoadedForSelectedServer,
   currentUserForServerList: leftChromeCurrentUserForServerList,
   presenceByUserId,
   presenceMobileByUserId,
@@ -2636,6 +2751,7 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   onDmClose: () => {
     isDMPanelOpen.value = false;
   },
+  onClearPhoneHomeDmThread: clearPhoneHomeDmThread,
   onDmPanelJoinGuildVoiceActivity: handleDmPanelJoinGuildVoiceActivity,
   onDmUpdateActiveTab: (tab) => {
     dmActiveTab.value = tab;
@@ -2670,6 +2786,12 @@ provide(LAYOUT_LEFT_CHROME_KEY, {
   onDmPanelResizeReset: resetDmPanelWidth,
   onChannelUpdateActiveId: (channelId: string) => {
     handleActiveChannelChange(channelId);
+    if (useCompactPhoneTabShell.value) {
+      mobileChannelSheetOpen.value = false;
+      mobileServersStack.value = 'guild';
+      mobileBottomTab.value = 'servers';
+      return;
+    }
     if (isCompactShell.value && hasGuildChannelChrome.value) {
       compactPagerPane.value = 1;
     }
@@ -2992,6 +3114,68 @@ watch(
       </CompactGuildSplitShell>
       <AppLayoutGuildModals />
     </template>
+    <template v-else-if="useCompactPhoneTabShell">
+      <CompactPhoneTabShell
+        v-model="mobileBottomTab"
+        class="relative min-h-0 flex-1"
+        :show-bar="!inviteLandingActive"
+        :dm-unread-total="phoneDmUnreadTotal"
+        :servers-has-activity="phoneServersHasActivity"
+        :explore-has-activity="phoneExploreHasActivity"
+      >
+        <MobileHomeSurface
+          v-if="mobileBottomTab === 'home'"
+          v-model:stack="mobileHomeStack"
+        >
+          <template #thread>
+            <div
+              ref="mainContentAreaEl"
+              class="main-content-area relative grid min-h-0 min-w-0 flex-1 overflow-hidden"
+              :class="mainContentVcDockBottomPadClass"
+              :style="{
+                gridTemplateRows: mainContentGridTemplateRows,
+                gridTemplateColumns: mainContentAreaGridColumns,
+              }"
+            >
+              <AppLayoutMainSurface members-column />
+            </div>
+          </template>
+        </MobileHomeSurface>
+        <MobileServersSurface
+          v-else-if="mobileBottomTab === 'servers'"
+          v-model:stack="mobileServersStack"
+          v-model:channel-sheet-open="mobileChannelSheetOpen"
+          v-model:members-visible="mobileMembersOverlayOpen"
+        >
+          <template #guild-main>
+            <div
+              ref="mainContentAreaEl"
+              class="main-content-area relative grid min-h-0 min-w-0 flex-1 overflow-hidden"
+              :class="mainContentVcDockBottomPadClass"
+              :style="{
+                gridTemplateRows: mainContentGridTemplateRows,
+                gridTemplateColumns: mainContentAreaGridColumns,
+              }"
+            >
+              <AppLayoutMainSurface members-column />
+            </div>
+          </template>
+        </MobileServersSurface>
+        <div
+          v-else
+          ref="mainContentAreaEl"
+          class="main-content-area main-content-area--explore relative grid min-h-0 min-w-0 flex-1 overflow-hidden"
+          :class="mainContentVcDockBottomPadClass"
+          :style="{
+            gridTemplateRows: mainContentGridTemplateRows,
+            gridTemplateColumns: mainContentAreaGridColumns,
+          }"
+        >
+          <AppLayoutMainSurface surface="explore" />
+        </div>
+      </CompactPhoneTabShell>
+      <AppLayoutGuildModals />
+    </template>
     <template v-else-if="useCompactTriPaneShell">
       <CompactTriPaneShell
         v-model="compactPagerPane"
@@ -3187,6 +3371,7 @@ watch(
     />
     <GuildMobileVoiceDock
       v-if="showGuildMobileVoiceDock"
+      :stack-above-bottom-tab="useCompactPhoneTabShell"
       :live-kit-state="liveKitState"
       :vc-muted="channelPanelVcMutedEffective"
       :vc-deafened="channelPanelVcDeafenedEffective"
@@ -3217,6 +3402,11 @@ watch(
     <BugReportModal
       v-if="isBugReportModalOpen"
       v-model="isBugReportModalOpen"
+    />
+    <ServerDownGate
+      v-if="showServerDownGate"
+      v-bind="serverDownGateBind"
+      @retry="checkServerHealthNow"
     />
     <ReportModal />
 

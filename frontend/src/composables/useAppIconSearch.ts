@@ -52,7 +52,7 @@ export function appIconEntriesForAutocompleteQuery(
 }
 
 /** Bust memoization when sort/grouping rules change. */
-const PICKER_CACHE_VER = 'v6-variant-only-groups';
+const PICKER_CACHE_VER = 'v7-aggressive-grouping';
 
 const sortedCache = new Map<string, AppIconEntry[]>();
 const groupedCache = new Map<string, IconFamilyGroup[]>();
@@ -107,7 +107,7 @@ export function searchAppIcons(
   return sorted.slice(0, limit);
 }
 
-/** Search hits grouped by variant family (same rules as browse). */
+/** Search hits as semantic families (same mega-groups as browse). */
 export function getSearchGroupedAppIcons(
   query: string,
   channelType: 'text' | 'voice',

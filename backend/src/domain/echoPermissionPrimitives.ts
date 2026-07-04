@@ -7,7 +7,10 @@
  * (bitfield flag identifiers). Legacy Echo keys from older rows are expanded via `LEGACY_ECHO_PERMISSION_ALIASES`.
  */
 
-import { DISCORD_ECHO_PERMISSION_STRINGS } from '../../../shared/discordEchoPermissions';
+import {
+  DISCORD_ECHO_PERMISSION_STRINGS,
+  ECHO_DISABLED_DISCORD_PERMISSION_NAMES,
+} from '../../../shared/discordEchoPermissions';
 import { ECHO_EXTENDED_PERMISSION_STRINGS } from '../../../shared/echoExtendedPermissions';
 import { normalizeEchoRoleType } from '../../../shared/echoRoleTypes';
 
@@ -31,7 +34,9 @@ import {
 
 export const ECHO_PERMISSIONS = [
   ...DISCORD_ECHO_PERMISSION_STRINGS.filter(
-    (k) => !THREAD_PERMISSION_NAMES.has(k),
+    (k) =>
+      !THREAD_PERMISSION_NAMES.has(k) &&
+      !ECHO_DISABLED_DISCORD_PERMISSION_NAMES.has(k),
   ),
   ...ECHO_EXTENDED_PERMISSION_STRINGS,
 ] as const;

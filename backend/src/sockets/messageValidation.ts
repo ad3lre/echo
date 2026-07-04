@@ -16,6 +16,7 @@ import { projectPlainAndMentionsFromContentJson } from '../domain/messagePlainTe
 import { isEchoS3UploadConfigured } from '../services/s3UploadPresign';
 import { mediaUrlPassesEchoPolicy } from '../services/mediaUrlPolicy';
 import { echoE2eeEnvelopeRejectedTotal } from '../observability/echoMetrics';
+import { sanitizeAttachmentStorageKey } from './sanitizeAttachmentStorageKey';
 
 export const MAX_MESSAGE_LENGTH = 4000;
 /** Serialized `encryption.envelope` JSON must stay small (server stores JSONB / logs). */
@@ -430,6 +431,7 @@ function sanitizeAttachments(
         ? Math.floor(fileSizeRaw)
         : undefined;
     const dims = sanitizeAttachmentDimensions(o);
+    const storageKey = sanitizeAttachmentStorageKey(o.storageKey);
     out.push({
       url,
       kind,
@@ -437,6 +439,7 @@ function sanitizeAttachments(
       ...(mimeType ? { mimeType } : {}),
       ...(typeof fileSize === 'number' ? { fileSize } : {}),
       ...dims,
+      ...(storageKey ? { storageKey } : {}),
       ...(spoiler ? { spoiler: true } : {}),
     });
   }
@@ -606,9 +609,10 @@ export function validateMessagePayload(payload: unknown):
   const blockData = isEchoS3UploadConfigured();
   const imageUrl = sanitizeMediaUrlInner(rawImageUrl, blockData);
   const videoUrl = sanitizeMediaUrlInner(rawVideoUrl, blockData);
-  const gif = rawGif === true;
   const imageSpoiler = rawImageSpoiler === true;
   const attachments = sanitizeAttachments(rawAttachments, blockData);
+  const gif =
+    rawGif === true || (attachments?.some((a) => a.kind === 'gif') ?? false);
   let stickerIds: string[] | undefined;
   if (rawStickerIds !== undefined && rawStickerIds !== null) {
     if (!Array.isArray(rawStickerIds)) {
@@ -669,7 +673,11 @@ export function validateMessagePayload(payload: unknown):
     };
   }
 
-  if (attachments && attachments.length > 0 && (imageUrl || videoUrl || gif)) {
+  if (
+    attachments &&
+    attachments.length > 0 &&
+    (imageUrl || videoUrl || rawGif === true)
+  ) {
     return {
       ok: false,
       error:

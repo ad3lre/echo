@@ -302,7 +302,8 @@ watch(
       <div class="settings-card rounded-2xl p-6">
         <div class="settings-label mb-4">Action rail (desktop)</div>
         <p class="mb-4 text-sm text-muted">
-          Compact phone and tablet layouts always keep the rail on the side.
+          On phones, navigation uses a bottom tab bar. Tablet layouts (600px and
+          up) keep the side rail with a split channel view.
         </p>
         <ActionRailPlacementVisualPicker
           :model-value="form.actionRailPlacement"

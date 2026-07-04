@@ -13,10 +13,6 @@ const WelcomeBackExploreGate = defineAsyncComponent(
 const InviteLandingView = defineAsyncComponent(
   () => import('@/features/layout/components/InviteLandingView.vue'),
 );
-/** Lazy: outage UI; rarely shown vs main chat chrome. */
-const ServerDownGate = defineAsyncComponent(
-  () => import('@/features/layout/components/ServerDownGate.vue'),
-);
 const ExploreView = defineAsyncComponent(
   () => import('@/features/layout/components/ExploreView.vue'),
 );
@@ -43,7 +39,6 @@ if (!ctx) {
 }
 
 const {
-  checkServerHealthNow,
   inviteLandingPersistBeforeOAuth,
   mobileShellGoBack,
   openAuthModal,
@@ -58,8 +53,6 @@ const exploreFlavor = computed(() => {
   return !!unref(ctx.explorePageUnifiedScroll);
 });
 
-const showServerDownGate = computed(() => !!unref(ctx.showServerDownGate));
-const serverDownGateBind = computed(() => unref(ctx.serverDownGateBind));
 const inviteLandingActive = computed(() => !!unref(ctx.inviteLandingActive));
 const inviteLandingPreview = computed(() => unref(ctx.inviteLandingPreview));
 const inviteLandingLoading = computed(() => !!unref(ctx.inviteLandingLoading));
@@ -86,14 +79,8 @@ const exploreDirectoryJoinBusy = computed(
         class="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
       >
         <AppLayoutInfoBanners />
-        <ServerDownGate
-          v-if="showServerDownGate"
-          class="col-span-full min-h-full min-w-0 self-stretch"
-          v-bind="serverDownGateBind"
-          @retry="checkServerHealthNow"
-        />
         <InviteLandingView
-          v-else-if="inviteLandingActive"
+          v-if="inviteLandingActive"
           class="col-span-full min-h-full min-w-0 self-stretch"
           :preview="inviteLandingPreview"
           :loading="inviteLandingLoading"
@@ -131,14 +118,8 @@ const exploreDirectoryJoinBusy = computed(
   </template>
   <template v-else>
     <AppLayoutInfoBanners />
-    <ServerDownGate
-      v-if="showServerDownGate"
-      class="col-span-full min-h-full min-w-0 self-stretch"
-      v-bind="serverDownGateBind"
-      @retry="checkServerHealthNow"
-    />
     <InviteLandingView
-      v-else-if="inviteLandingActive"
+      v-if="inviteLandingActive"
       class="col-span-full min-h-full min-w-0 self-stretch"
       :preview="inviteLandingPreview"
       :loading="inviteLandingLoading"

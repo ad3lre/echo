@@ -12,3 +12,9 @@ export const COMPACT_GUILD_SPLIT_MIN_WIDTH_PX = 600;
 
 /** CSS media query: compact guild split (tablet) inside the compact shell band. */
 export const COMPACT_GUILD_SPLIT_MEDIA_QUERY = `(min-width: ${COMPACT_GUILD_SPLIT_MIN_WIDTH_PX}px) and (max-width: ${COMPACT_SHELL_BREAKPOINT_PX - 1}px)`;
+
+/** Viewports strictly below guild split min width use the phone bottom-tab shell. */
+export const COMPACT_PHONE_MAX_WIDTH_PX = COMPACT_GUILD_SPLIT_MIN_WIDTH_PX - 1;
+
+/** CSS media query: phone-only compact shell (below tablet split band). */
+export const COMPACT_PHONE_MEDIA_QUERY = `(max-width: ${COMPACT_PHONE_MAX_WIDTH_PX}px)`;

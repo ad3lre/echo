@@ -47,6 +47,8 @@ import {
 import { stripEscapedMarkdownFenceMarkers } from '@/utils/markdownFenceEscape';
 import { bioLinkFaviconUrl, formatBioLinkDisplay } from '@/utils/bioLinkText';
 import { safeImageUrl } from '@/utils/safeImageUrl';
+import { postSanitizeMessageHtml } from './postSanitizeMessageHtml';
+import { domPurifyHtmlFragment } from '@/utils/domPurifyHtmlFragment';
 
 const marked = new Marked()
   .setOptions({ gfm: true, breaks: true })
@@ -637,6 +639,17 @@ const SANITIZE_OPTS = {
   ALLOW_UNKNOWN_PROTOCOLS: false,
 };
 
+const ECHO_MD_SANITIZE_ROOT_ID = 'echo-md-final';
+
+/** Post-sanitize + wrapped DOMPurify (see domPurifyHtmlFragment). */
+function domPurifyMessageHtmlFragment(html: string): string {
+  const pre = postSanitizeMessageHtml(html);
+  if (!pre.trim()) return pre;
+  return postSanitizeMessageHtml(
+    domPurifyHtmlFragment(pre, SANITIZE_OPTS, ECHO_MD_SANITIZE_ROOT_ID),
+  );
+}
+
 const MARKDOWN_SYNTAX =
   /(^|\n)(#{1,6}\s|>\s|[-*+]\s|\d+\.\s|```|~~~|\|.*\||\s*[-*_]{3,}\s*$)|(\*\*[^*\n]*\*\*|\*[^*\n]+\*|__[^_\n]*__|_[^_\n]+_|`[^`\n]+`|~~[^~\n]+~~|\[[^\]]+\]\([^)]+\)|!\[[^\]]*\]\([^)]+\)|==[^=\n]+==|\|\|[^|]+\|\|)|(\*\*|\*\s|\*\S|`|~~|==|\|\|)/m;
 
@@ -729,7 +742,7 @@ function echoTextAllowsMarkedBypass(
 const PARSE_CACHE = new Map<string, string>();
 const PARSE_CACHE_MAX = 2000;
 const HTML_STAGE_CACHE_MAX = 2000;
-const MARKDOWN_PIPELINE_VERSION = `mdp1_math3_dollar_inline_latex_text1_sanitize5_${MARKDOWN_KATEX_PIPELINE_VERSION}_twemoji1_alerts1_extlinkfav1_escfence1`;
+const MARKDOWN_PIPELINE_VERSION = `mdp1_math3_dollar_inline_latex_text1_sanitize10_${MARKDOWN_KATEX_PIPELINE_VERSION}_twemoji1_alerts1_extlinkfav1_escfence1`;
 const EMOJI_CANDIDATE_RE = /[\u{2600}-\u{27BF}\u{1F000}-\u{1FAFF}]/u;
 const RESOLVER_CACHE_VERSION = new WeakMap<object, number>();
 const HEADING_HTML_CACHE = new Map<string, string>();
@@ -1275,16 +1288,17 @@ export function parseMessageContent(
     /<a\s+href=/gi,
     '<a target="_blank" rel="noopener noreferrer" href=',
   );
+  const preDomPurifyHtml = postSanitizeMessageHtml(withExternalLinks);
   let sanitized = useMarkedBypass
-    ? withExternalLinks
+    ? preDomPurifyHtml
     : (() => {
         ensureKatexOnlyStyleSanitizerHook();
-        const cached = getCachedString(SANITIZE_HTML_CACHE, withExternalLinks);
+        const cached = getCachedString(SANITIZE_HTML_CACHE, preDomPurifyHtml);
         if (cached !== undefined) return cached;
         return setCachedString(
           SANITIZE_HTML_CACHE,
-          withExternalLinks,
-          DOMPurify.sanitize(withExternalLinks, SANITIZE_OPTS),
+          preDomPurifyHtml,
+          domPurifyMessageHtmlFragment(preDomPurifyHtml),
           HTML_STAGE_CACHE_MAX,
         );
       })();
@@ -1295,7 +1309,7 @@ export function parseMessageContent(
   sanitized = applyMessageExternalLinkBioPresentation(sanitized);
   const twemojified = applyTwemojiOutsideKatex(sanitized);
   ensureKatexOnlyStyleSanitizerHook();
-  const out = DOMPurify.sanitize(twemojified, SANITIZE_OPTS);
+  const out = domPurifyMessageHtmlFragment(twemojified);
   if (useCache && !mathRenderPending) {
     const cacheKey = parseMessageCacheKey(
       text,

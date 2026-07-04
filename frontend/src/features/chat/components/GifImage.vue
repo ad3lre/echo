@@ -71,6 +71,7 @@ onUnmounted(() => {
         :img-class="gifImgClass"
         :respect-reduced-motion="true"
         :loading="gifLoading"
+        force-gif
         @load="onMediaDecoded"
       />
     </div>
@@ -82,6 +83,7 @@ onUnmounted(() => {
       wrapper-class="relative inline-block max-w-full rounded-lg overflow-hidden"
       img-class="block h-auto max-h-[min(80vh,36rem)] w-auto max-w-full rounded-lg object-contain"
       :respect-reduced-motion="true"
+      force-gif
     />
   </div>
 </template>

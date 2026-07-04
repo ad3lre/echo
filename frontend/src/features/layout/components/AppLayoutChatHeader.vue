@@ -25,6 +25,8 @@ import {
 } from '@/utils/customEmojiUrl';
 import { isEchoEmojiTokenResolveMiss } from '@/composables/useGlobalEmojiTokenResolver';
 import { useCompactShell } from '@/composables/useCompactShell';
+import { useCompactPhoneShell } from '@/composables/useCompactPhoneShell';
+import { LAYOUT_MOBILE_SHELL_NAV_KEY } from '@/features/layout/layoutInjectionKeys';
 import { getActivePinia, storeToRefs } from 'pinia';
 import { useDevSettingsStore } from '@/stores/devSettings';
 import { clampMenuToViewport } from '@/features/chat/composables/useContextMenuPosition';
@@ -359,6 +361,8 @@ function callOpenGroupSettingsFromEllipsis() {
 }
 
 const { isCompactShell } = useCompactShell();
+const { isCompactPhoneShell } = useCompactPhoneShell();
+const mobileShellNav = inject(LAYOUT_MOBILE_SHELL_NAV_KEY, null);
 const activePinia = getActivePinia();
 const devSettings = activePinia ? useDevSettingsStore(activePinia) : null;
 const devModeIdsEnabled = activePinia
@@ -1215,9 +1219,13 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
         "
         type="button"
         class="dm-header-action-btn -ml-0.5 shrink-0"
-        title="Back to channel list"
-        aria-label="Back to channel list"
-        @click="expandChannels"
+        :title="isCompactPhoneShell ? 'Back' : 'Back to channel list'"
+        :aria-label="isCompactPhoneShell ? 'Back' : 'Back to channel list'"
+        @click="
+          isCompactPhoneShell
+            ? mobileShellNav?.mobileShellGoBack()
+            : expandChannels()
+        "
       >
         <img :src="icons.arrowLeft" alt="" class="dm-header-action-icon" />
       </button>
@@ -1400,6 +1408,7 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             !isViewingVoiceChannel &&
             (compactGuildTriPaneNav ||
               memberPanelCollapsedRaw ||
+              (isCompactPhoneShell && !isInDMChat) ||
               (channelPanelCollapsed &&
                 !isCompactShell &&
                 !compactGuildSplitNav &&
@@ -1407,6 +1416,16 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
           "
           class="dm-header-actions flex items-center gap-0.5 shrink-0"
         >
+          <button
+            v-if="isCompactPhoneShell && !isInDMChat"
+            type="button"
+            class="dm-header-action-btn"
+            title="Show channels"
+            aria-label="Show channels"
+            @click="expandChannels"
+          >
+            <img :src="icons.list" alt="" class="dm-header-action-icon" />
+          </button>
           <button
             v-if="
               channelPanelCollapsed &&
@@ -1423,7 +1442,11 @@ function onQuarterGlanceRemoteStreamVolumeChange(v: number) {
             <img :src="icons.list" alt="" class="dm-header-action-icon" />
           </button>
           <button
-            v-if="compactGuildTriPaneNav || memberPanelCollapsedRaw"
+            v-if="
+              compactGuildTriPaneNav ||
+              memberPanelCollapsedRaw ||
+              (isCompactPhoneShell && !isInDMChat)
+            "
             type="button"
             class="dm-header-action-btn dm-header-action-btn--member-toggle"
             :title="compactGuildTriPaneNav ? 'Open members' : 'Show members'"

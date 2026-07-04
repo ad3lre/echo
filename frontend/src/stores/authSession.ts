@@ -16,6 +16,7 @@ import {
   overwriteLocalProfileFromAuthUser,
 } from '@/utils/localProfilePersistence';
 import { clearWorkspaceSessionCache } from '@/utils/workspaceSessionCache';
+import { clearMessageSessionCache } from '@/utils/messageSessionCache';
 import { clearEchoWorkspaceCache } from '@/utils/workspacePersistence';
 import { markPriorRegistered } from '@/utils/priorRegistration';
 import {
@@ -214,6 +215,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     planLimits?: EchoPlanLimitsPublic | null;
   }) {
     clearWorkspaceSessionCache();
+    clearMessageSessionCache();
     /* New session = new user identity; drop stale social/workspace follow-ups. */
     invalidateInFlightEchoWorkspaceSocialRefresh();
     /* New session = new user identity; force any cached `/auth/me` to refetch. */
@@ -274,6 +276,7 @@ export const useAuthSessionStore = defineStore('authSession', () => {
     backendUser.value = null;
     planLimits.value = null;
     clearWorkspaceSessionCache();
+    clearMessageSessionCache();
     clearEchoWorkspaceCache();
     if (
       typeof localStorage !== 'undefined' &&

@@ -37,11 +37,7 @@ import {
   hasMarkdownSyntax,
   type IdTokenResolvers,
 } from '@/composables/useMarkdown';
-import {
-  normalizeEchoMessageFormatTemplateInput,
-  echoHardFormatPrefixSatisfied,
-  stripLeadingDuplicateHardFormatTemplate,
-} from '@shared/messageChunkLimits';
+import { useComposerChannelMessageFormat } from '@/features/chat/composables/useComposerChannelMessageFormat';
 import { useDebouncedMarkdownPreviewHtml } from '@/features/chat/composables/useDebouncedMarkdownPreviewHtml';
 import { useEmojiAutocomplete } from '@/composables/useEmojiAutocomplete';
 import { useSlashCommandAutocomplete } from '@/composables/useSlashCommandAutocomplete';
@@ -82,8 +78,6 @@ import type {
   InsertUserMentionPayload,
 } from '@/features/chat/chatComposerContext';
 import { insertUserMentionAtCursor as insertUserMentionAtCursorShared } from '@/features/chat/composables/insertUserMentionAtCursor';
-import { shiftMentionsForReplacement } from '@/features/chat/editor/composerModel';
-
 import { useChatInputSlowmode } from '@/features/chat/composables/useChatInputSlowmode';
 import { useComposerImageSlotFill } from '@/features/chat/composables/useComposerImageSlotFill';
 import { useChatTypingComposer } from '@/features/chat/composables/useChatTypingComposer';
@@ -495,6 +489,16 @@ const idTokenResolvers = inject<
 const parseIdResolvers = computed(() => idTokenResolvers?.value);
 
 const composer = useComposerState(parseIdResolvers);
+const channelMessageFormat = useComposerChannelMessageFormat(composer, {
+  channelId: toRef(props, 'channelId'),
+  messageFormatTemplate: toRef(props, 'messageFormatTemplate'),
+  messageFormatHard: toRef(props, 'messageFormatHard'),
+});
+const {
+  applyChannelMessageFormatAfterRestore,
+  ensureComposerHardFormatPrefix,
+  handleFormatGuardKeydown,
+} = channelMessageFormat;
 /** Top-level ref so the template unwraps it; nested `composer.editor` would pass the Ref object to EditorContent and crash. */
 const tiptapEditor = composer.editor;
 const composerContent = composer.content;
@@ -521,80 +525,6 @@ const composerSurfaceRef = composer.surfaceRef;
 const markdownPreviewExpanded = computed(
   () => markdownPreviewState?.value?.expanded ?? false,
 );
-
-const messageFormatNormalized = computed(() =>
-  typeof props.messageFormatTemplate === 'string'
-    ? normalizeEchoMessageFormatTemplateInput(props.messageFormatTemplate)
-    : '',
-);
-
-const messageFormatPrefixLen = computed(() =>
-  props.messageFormatHard === true && messageFormatNormalized.value.length > 0
-    ? messageFormatNormalized.value.length
-    : 0,
-);
-
-function shiftMentionEntities(
-  mentions: MentionEntity[],
-  delta: number,
-): MentionEntity[] {
-  if (delta === 0) return mentions.map((m) => ({ ...m }));
-  return mentions.map((m) => ({
-    ...m,
-    start: m.start + delta,
-    end: m.end + delta,
-  }));
-}
-
-function ensureComposerHardFormatPrefix() {
-  const T = messageFormatNormalized.value;
-  if (!T || props.messageFormatHard !== true) return;
-
-  for (let k = 0; k < 8; k++) {
-    const cur = composer.getContent();
-    const stripped = stripLeadingDuplicateHardFormatTemplate(cur, T);
-    if (stripped === null || stripped === cur) break;
-    const lo = T.length;
-    const hi = T.length * 2;
-    const delta = lo - hi;
-    const mentions = shiftMentionsForReplacement(
-      cur,
-      composer.mentions.value,
-      lo,
-      hi,
-      0,
-    );
-    const shiftPos = (p: number) => {
-      if (p <= lo) return p;
-      if (p >= hi) return p + delta;
-      return lo;
-    };
-    let a = shiftPos(composer.getSelectionStart());
-    let b = shiftPos(composer.getSelectionEnd());
-    if (b < a) b = a;
-    composer.setSerializedState(stripped, mentions, a, b);
-  }
-
-  const cur = composer.getContent();
-  if (echoHardFormatPrefixSatisfied(cur, T)) return;
-  const next = T + cur;
-  const m = shiftMentionEntities(composer.mentions.value, T.length);
-  const pos = Math.min(composer.getSelectionStart() + T.length, next.length);
-  composer.setSerializedState(next, m, pos, pos);
-}
-
-function ensureComposerSoftFormatIfEmpty() {
-  const T = messageFormatNormalized.value;
-  if (!T || props.messageFormatHard === true) return;
-  if (composer.getContent().trim().length > 0) return;
-  composer.setSerializedState(T, [], T.length, T.length);
-}
-
-function applyChannelMessageFormatAfterRestore() {
-  composer.flushComposerSync();
-  ensureComposerHardFormatPrefix();
-  ensureComposerSoftFormatIfEmpty();
-}
 
 const markdownPreviewRef = ref<{
   markdownPreviewContentRef: HTMLDivElement | null;
@@ -1162,28 +1092,12 @@ function isImeComposingKeyboardEvent(e: KeyboardEvent): boolean {
 }
 
 function handleKeydown(e: KeyboardEvent): boolean {
+  if (handleFormatGuardKeydown(e)) return true;
   if (isImeComposingKeyboardEvent(e)) return false;
   if (e.key === 'Escape' && props.editingMessage) {
     e.preventDefault();
     handleClearEdit();
     return true;
-  }
-  const plen = messageFormatPrefixLen.value;
-  if (plen > 0 && (e.key === 'Backspace' || e.key === 'Delete')) {
-    composer.flushComposerSync();
-    const a = composer.getSelectionStart();
-    const b = composer.getSelectionEnd();
-    const lo = Math.min(a, b);
-    const hi = Math.max(a, b);
-    if (hi <= plen) {
-      e.preventDefault();
-      return true;
-    }
-    if (lo < plen) {
-      e.preventDefault();
-      composer.replaceRange(plen, hi, '');
-      return true;
-    }
   }
   if (
     e.key === 'ArrowUp' &&
@@ -1636,19 +1550,6 @@ watch(
     }
     refreshAutocomplete();
   },
-);
-
-watch(
-  () =>
-    [
-      props.channelId,
-      props.messageFormatTemplate,
-      props.messageFormatHard,
-    ] as const,
-  () => {
-    void nextTick(() => applyChannelMessageFormatAfterRestore());
-  },
-  { immediate: true },
 );
 
 function onChannelComposerFormatRehydrateEv(ev: Event) {

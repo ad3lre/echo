@@ -1,19 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, toRef, watch } from 'vue';
 import { EditorContent } from '@tiptap/vue-3';
 import type { Editor as VueEditor } from '@tiptap/vue-3';
 import { useComposerState } from '@/composables/useComposerState';
 import { applyComposerOrderedListEnter } from '@/features/chat/editor/composerMarkdownListEnter';
-import {
-  normalizeEchoMessageFormatTemplateInput,
-  echoHardFormatPrefixSatisfied,
-  stripLeadingDuplicateHardFormatTemplate,
-} from '@shared/messageChunkLimits';
-import type { MentionEntity } from '@shared/types';
-import {
-  isComposerContentEffectivelyEmpty,
-  shiftMentionsForReplacement,
-} from '@/features/chat/editor/composerModel';
+import { useComposerChannelMessageFormat } from '@/features/chat/composables/useComposerChannelMessageFormat';
+import { isComposerContentEffectivelyEmpty } from '@/features/chat/editor/composerModel';
 
 const props = defineProps<{
   channelId: string;
@@ -28,6 +20,14 @@ const emit = defineEmits<{
 }>();
 
 const composer = useComposerState();
+const {
+  applyChannelMessageFormatAfterRestore,
+  ensureComposerHardFormatPrefix,
+  handleFormatGuardKeydown,
+} = useComposerChannelMessageFormat(composer, {
+  messageFormatTemplate: toRef(props, 'messageFormatTemplate'),
+  messageFormatHard: toRef(props, 'messageFormatHard'),
+});
 // The composer's tiptap instance is the `@tiptap/core` Editor, nominally
 // distinct from the `@tiptap/vue-3` one EditorContent wants though identical at
 // runtime; bridge the gap once here.
@@ -41,80 +41,6 @@ const showComposerPlaceholder = computed(() =>
   isComposerContentEffectivelyEmpty(composer.content.value),
 );
 
-const messageFormatNormalized = computed(() =>
-  typeof props.messageFormatTemplate === 'string'
-    ? normalizeEchoMessageFormatTemplateInput(props.messageFormatTemplate)
-    : '',
-);
-
-const messageFormatPrefixLen = computed(() =>
-  props.messageFormatHard === true && messageFormatNormalized.value.length > 0
-    ? messageFormatNormalized.value.length
-    : 0,
-);
-
-function shiftMentionEntities(
-  mentions: MentionEntity[],
-  delta: number,
-): MentionEntity[] {
-  if (delta === 0) return mentions.map((m) => ({ ...m }));
-  return mentions.map((m) => ({
-    ...m,
-    start: m.start + delta,
-    end: m.end + delta,
-  }));
-}
-
-function ensureComposerHardFormatPrefix() {
-  const T = messageFormatNormalized.value;
-  if (!T || props.messageFormatHard !== true) return;
-
-  for (let k = 0; k < 8; k++) {
-    const cur = composer.getContent();
-    const stripped = stripLeadingDuplicateHardFormatTemplate(cur, T);
-    if (stripped === null || stripped === cur) break;
-    const lo = T.length;
-    const hi = T.length * 2;
-    const delta = lo - hi;
-    const mentions = shiftMentionsForReplacement(
-      cur,
-      composer.mentions.value,
-      lo,
-      hi,
-      0,
-    );
-    const shiftPos = (p: number) => {
-      if (p <= lo) return p;
-      if (p >= hi) return p + delta;
-      return lo;
-    };
-    let a = shiftPos(composer.getSelectionStart());
-    let b = shiftPos(composer.getSelectionEnd());
-    if (b < a) b = a;
-    composer.setSerializedState(stripped, mentions, a, b);
-  }
-
-  const cur = composer.getContent();
-  if (echoHardFormatPrefixSatisfied(cur, T)) return;
-  const next = T + cur;
-  const m = shiftMentionEntities(composer.mentions.value, T.length);
-  const pos = Math.min(composer.getSelectionStart() + T.length, next.length);
-  composer.setSerializedState(next, m, pos, pos);
-}
-
-function ensureComposerSoftFormatIfEmpty() {
-  const T = messageFormatNormalized.value;
-  if (!T || props.messageFormatHard === true) return;
-  if (composer.getContent().trim().length > 0) return;
-  composer.setSerializedState(T, [], T.length, T.length);
-}
-
-function applyChannelMessageFormatAfterRestore() {
-  composer.flushComposerSync();
-  ensureComposerHardFormatPrefix();
-  ensureComposerSoftFormatIfEmpty();
-}
-
 function syncModelFromComposer() {
   composer.flushComposerSync();
   const next = composer.content.value;
@@ -122,17 +48,8 @@ function syncModelFromComposer() {
 }
 
 function handleKeydown(e: KeyboardEvent): boolean {
+  if (handleFormatGuardKeydown(e)) return true;
   if (e.isComposing) return false;
-  const plen = messageFormatPrefixLen.value;
-  if (plen > 0 && (e.key === 'Backspace' || e.key === 'Delete')) {
-    const a = composer.getSelectionStart();
-    const b = composer.getSelectionEnd();
-    const lo = Math.min(a, b);
-    if (lo < plen) {
-      e.preventDefault();
-      return true;
-    }
-  }
 
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -211,6 +128,7 @@ defineExpose({
   flushComposerSync: () => composer.flushComposerSync(),
   getReplyPayload: () => {
     composer.flushComposerSync();
+    ensureComposerHardFormatPrefix();
     return {
       text: composer.content.value.trim(),
       mentions:

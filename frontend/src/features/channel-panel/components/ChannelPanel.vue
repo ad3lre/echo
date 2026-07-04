@@ -57,7 +57,7 @@ import { layoutHyperLog } from '@/utils/layoutHyperLog';
 
 import ChannelPanelHeader from '@/features/channel-panel/components/ChannelPanelHeader.vue';
 import ChannelPanelList from '@/features/channel-panel/components/ChannelPanelList.vue';
-import { CHANNEL_PANEL_SKELETON_SECTIONS } from '@/features/channel-panel/channelPanelListSkeleton';
+import { buildChannelPanelSkeletonSectionsFromCategories } from '@/features/channel-panel/channelPanelListSkeleton';
 import ChannelPanelContextMenu from '@/features/channel-panel/components/ChannelPanelContextMenu.vue';
 import ServerEventsCarousel from '@/features/channel-panel/components/ServerEventsCarousel.vue';
 import PaperEditorPanel from '@/features/paper/components/PaperEditorPanel.vue';
@@ -109,6 +109,8 @@ const props = defineProps<{
   /** When true, show icon-only bubble view for narrow panels */
   bubbleMode?: boolean;
   loading?: boolean;
+  /** When true, the guild channel tree is loaded (possibly empty) — prefer real list over skeleton. */
+  channelTreeLoaded?: boolean;
   currentUserId?: string;
   currentUser?: { id: string; name: string; pfp: string };
   currentVoiceChannelId?: string | null;
@@ -434,6 +436,20 @@ const paperEditorReady = computed(
 const showPaperEditorPanel = computed(
   () => paperEditorReady.value && paperPanelBridge.panelOpen.value,
 );
+
+/** Generic skeleton only when loading and no cached tree/channels to paint. */
+const showChannelListSkeleton = computed(() => {
+  if (!props.loading) return false;
+  const cats = unref(props.categories) as ChannelCategory[];
+  if (cats.some((c) => (c.channels?.length ?? 0) > 0)) return false;
+  if (props.channelTreeLoaded) return false;
+  return true;
+});
+
+const channelPanelSkeletonSections = computed(() => {
+  const cats = unref(props.categories) as ChannelCategory[];
+  return buildChannelPanelSkeletonSectionsFromCategories(cats);
+});
 
 function togglePaperEditorPanel() {
   if (!paperEditorReady.value) return;
@@ -1181,14 +1197,14 @@ function forwardInvite(payload?: {
       />
 
       <div
-        v-if="loading"
+        v-if="showChannelListSkeleton"
         class="channel-list custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-2 py-2"
         role="status"
         aria-live="polite"
         aria-label="Loading channel panel"
       >
         <div
-          v-for="section in CHANNEL_PANEL_SKELETON_SECTIONS"
+          v-for="section in channelPanelSkeletonSections"
           :key="section.key"
           class="mb-3"
           aria-hidden="true"
@@ -1231,7 +1247,7 @@ function forwardInvite(payload?: {
               class="paper-editor-panel-stage__channels min-h-0 flex-1 flex flex-col overflow-hidden"
             >
               <ChannelPanelList
-                :allow-empty-state="!loading"
+                :allow-empty-state="!showChannelListSkeleton"
                 :effective-categories="effectiveCategories"
                 :active-channel-id="activeChannelId"
                 :server-owner-id="selectedServer?.ownerId ?? null"

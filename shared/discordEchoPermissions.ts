@@ -7,6 +7,17 @@
  * Deprecated API name `MANAGE_EMOJIS_AND_STICKERS` is the same bit as `MANAGE_GUILD_EXPRESSIONS`; resolve imports via `LEGACY_ECHO_PERMISSION_ALIASES`.
  */
 
+/**
+ * Discord API permission strings Echo does not implement yet (excluded from RBAC fold, UI, and import).
+ */
+export const ECHO_DISABLED_DISCORD_PERMISSION_STRINGS = [
+  'SEND_TTS_MESSAGES',
+] as const;
+
+export const ECHO_DISABLED_DISCORD_PERMISSION_NAMES = new Set<string>(
+  ECHO_DISABLED_DISCORD_PERMISSION_STRINGS,
+);
+
 export const DISCORD_ECHO_PERMISSION_STRINGS = [
   'CREATE_INSTANT_INVITE',
   'KICK_MEMBERS',

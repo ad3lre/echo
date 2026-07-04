@@ -13,17 +13,6 @@ On Linux, prefer **tmux** or **GNU screen** for long-running sessions instead of
 
 ---
 
-## SDL-MCP (code context)
-
-This repo is indexed by **SDL-MCP** (repo id: `echo`). When the `sdl-mcp` MCP server is connected in Cursor, agents must prefer SDL tools over native Read/Grep for indexed source.
-
-1. Start with `sdl.repo.status`; refresh with `sdl.index.refresh` (`mode: "incremental"`) only when stale.
-2. Use `sdl.context` or the Iris Gate ladder (`symbol.search` → `getCard` → `getSkeleton` → `getHotPath` → `needWindow`) before reading whole files.
-3. Use `sdl.runtime.execute` (`outputMode: "minimal"`) for repo-local commands; use native Shell only as fallback.
-4. Workflow details: **[SDL.md](../../SDL.md)** (repo root).
-
----
-
 ## Investigation and debugging
 
 ### No guessing

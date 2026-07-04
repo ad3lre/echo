@@ -36,9 +36,6 @@ vi.mock('@/features/layout/components/AppLayoutChatSurface.vue', () =>
 vi.mock('@/features/layout/components/AppLayoutMembersColumn.vue', () =>
   stubChild('AppLayoutMembersColumn', 'members-column'),
 );
-vi.mock('@/features/layout/components/ServerDownGate.vue', () =>
-  stubChild('ServerDownGate', 'server-down-gate'),
-);
 vi.mock('@/features/layout/components/InviteLandingView.vue', () =>
   stubChild('InviteLandingView', 'invite-landing'),
 );
@@ -56,16 +53,6 @@ function makeCtx(
 ): LayoutMainSurfaceContext {
   return {
     explorePageUnifiedScroll: ref(false),
-    showServerDownGate: ref(false),
-    serverDownGateBind: ref({
-      checking: false,
-      outageSinceMs: null,
-      lastCheckedAtMs: null,
-      detail: null,
-      averageRecoverySeconds: 60,
-      recoverySampleCount: 0,
-    }),
-    checkServerHealthNow: vi.fn(),
     inviteLandingActive: ref(false),
     inviteLandingPreview: ref(null),
     inviteLandingLoading: ref(false),
@@ -186,20 +173,13 @@ describe('AppLayoutMainSurface', () => {
     );
   });
 
-  it('server-down gate wins over invite landing and wires retry', async () => {
+  it('invite landing still renders when active (server-down is an AppLayout overlay)', async () => {
     const ctx = makeCtx({
-      showServerDownGate: ref(true),
       inviteLandingActive: ref(true),
     });
     await mountSurface({ surface: 'chat' }, ctx, (c) => {
-      expect(has(c, 'server-down-gate')).toBe(true);
-      expect(has(c, 'invite-landing')).toBe(false);
+      expect(has(c, 'invite-landing')).toBe(true);
       expect(has(c, 'chat-surface')).toBe(false);
-      const attrs = captured.attrs.get('ServerDownGate');
-      expect(attrs?.checking).toBe(false);
-      expect(attrs?.averageRecoverySeconds).toBe(60);
-      (attrs?.onRetry as () => void)();
-      expect(ctx.checkServerHealthNow).toHaveBeenCalledTimes(1);
     });
   });
 

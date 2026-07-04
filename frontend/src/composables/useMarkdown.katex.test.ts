@@ -138,7 +138,7 @@ $eg$ & $\mathbb{Z}_2$ & $D_4$ \\
     expect(out).toContain('<thead>');
     expect(out).toContain('<tbody>');
     expect(out).toContain('katex');
-    expect(out).toContain('text-align:center');
+    expect(out).toContain('md-latex-center');
   });
 
   it('parses markdown after \\end{tabular} (marked needs a blank line after raw HTML blocks)', () => {

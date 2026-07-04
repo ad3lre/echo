@@ -3,54 +3,86 @@ import { describe, expect, it } from 'vitest';
 import {
   getBaseIconGroupKey,
   groupIconCatalogEntries,
-  normalizeIconStem,
+  resolveDenseFamilyPrefix,
+  resolveSemanticMegaKey,
 } from './iconCatalogGrouping';
 
 function e(id: string, label: string): IconCatalogEntry {
   return { id, url: `https://test/${id}`, label };
 }
 
-describe('normalizeIconStem', () => {
-  it('lowercases and converts spaces to hyphens', () => {
-    expect(normalizeIconStem('volume up.svg')).toBe('volume-up');
-    expect(normalizeIconStem('USER-AVATAR.svg')).toBe('user-avatar');
-  });
-});
-
 describe('getBaseIconGroupKey', () => {
-  it('strips numeric and variant suffixes', () => {
+  it('strips numeric and variant suffixes when channelType omitted', () => {
     expect(getBaseIconGroupKey('message-2.svg')).toBe('message');
     expect(getBaseIconGroupKey('camera-on.svg')).toBe('camera');
     expect(getBaseIconGroupKey('ICON-FILLED.SVG')).toBe('icon');
   });
 
-  it('groups -x and stylistic -y alts with their base', () => {
-    expect(getBaseIconGroupKey('USER-AVATAR-X.svg')).toBe('user-avatar');
-    expect(getBaseIconGroupKey('USER-AVATAR-XY.svg')).toBe('user-avatar');
-    expect(getBaseIconGroupKey('USER-AVATAR-OFFY.svg')).toBe('user-avatar');
-    expect(getBaseIconGroupKey('notifications-x.svg')).toBe('notifications');
-    expect(getBaseIconGroupKey('TRASH-X.svg')).toBe('trash');
+  it('uses semantic mega key for tier-0 chat icons when channelType is set', () => {
+    expect(getBaseIconGroupKey('CHAT-NORMAL.svg', 'text')).toBe(
+      '__mega_messaging',
+    );
+    expect(getBaseIconGroupKey('message.svg', 'text')).toBe('__mega_messaging');
   });
 
-  it('does not group unrelated icons by topic', () => {
-    expect(getBaseIconGroupKey('chat.svg')).toBe('chat');
-    expect(getBaseIconGroupKey('message.svg')).toBe('message');
-    expect(getBaseIconGroupKey('CHAT-NORMAL.svg')).toBe('chat');
-    expect(getBaseIconGroupKey('math-sigma.svg')).toBe('math-sigma');
-    expect(getBaseIconGroupKey('math-pi.svg')).toBe('math-pi');
-    expect(getBaseIconGroupKey('hobby-dice.svg')).toBe('hobby-dice');
-    expect(getBaseIconGroupKey('hobby-guitar.svg')).toBe('hobby-guitar');
+  it('does not mega-group unrelated names', () => {
+    expect(getBaseIconGroupKey('chateau.svg', 'text')).toBe('chateau');
+    expect(getBaseIconGroupKey('telescope.svg', 'text')).toBe('telescope');
   });
 
-  it('groups volume level icons as volume variants', () => {
-    expect(getBaseIconGroupKey('volume up.svg')).toBe('volume');
-    expect(getBaseIconGroupKey('volume down.svg')).toBe('volume');
-    expect(getBaseIconGroupKey('VOLUME-X.svg')).toBe('volume');
+  it('mega-groups math and hobby pack prefixes', () => {
+    expect(getBaseIconGroupKey('math-sigma.svg', 'text')).toBe('__mega_math');
+    expect(getBaseIconGroupKey('hobby-dice.svg', 'text')).toBe(
+      '__mega_hobbies',
+    );
   });
 
-  it('normalizes spaced filenames to the same family key', () => {
-    expect(getBaseIconGroupKey('user avatar.svg')).toBe('user-avatar');
-    expect(getBaseIconGroupKey('USER-AVATAR.svg')).toBe('user-avatar');
+  it('dense-groups user-avatar and users-avatar packs', () => {
+    expect(getBaseIconGroupKey('USER-AVATAR-SEARCH.svg', 'text')).toBe(
+      'user-avatar',
+    );
+    expect(getBaseIconGroupKey('USER-AVATAR.svg', 'text')).toBe('user-avatar');
+    expect(getBaseIconGroupKey('USERS-AVATAR-GROUP.svg', 'text')).toBe(
+      'users-avatar',
+    );
+    expect(getBaseIconGroupKey('user-block.svg', 'text')).toBe('user');
+    expect(getBaseIconGroupKey('users.svg', 'text')).toBe('users');
+  });
+});
+
+describe('resolveDenseFamilyPrefix', () => {
+  it('normalizes spaces and case', () => {
+    expect(resolveDenseFamilyPrefix('user avatar.svg')).toBe('user-avatar');
+    expect(resolveDenseFamilyPrefix('Users avatar.svg')).toBe('users-avatar');
+  });
+});
+
+describe('resolveSemanticMegaKey', () => {
+  it('classifies chat vs voice for text channel preference', () => {
+    expect(resolveSemanticMegaKey(e('chat.svg', 'chat'), 'text')).toBe(
+      'messaging',
+    );
+    expect(resolveSemanticMegaKey(e('volume up.svg', 'volume'), 'text')).toBe(
+      'voice',
+    );
+  });
+
+  it('classifies math and hobby packs', () => {
+    expect(resolveSemanticMegaKey(e('math-pi.svg', 'math-pi'), 'text')).toBe(
+      'math',
+    );
+    expect(
+      resolveSemanticMegaKey(e('hobby-guitar.svg', 'hobby-guitar'), 'text'),
+    ).toBe('hobbies');
+  });
+
+  it('classifies tier-2 social icons into people mega', () => {
+    expect(resolveSemanticMegaKey(e('friend.svg', 'friend'), 'text')).toBe(
+      'people',
+    );
+    expect(
+      resolveSemanticMegaKey(e('USER-AVATAR-SEARCH.svg', 'search'), 'text'),
+    ).toBeNull();
   });
 });
 
@@ -65,7 +97,7 @@ describe('groupIconCatalogEntries', () => {
     expect(groups[0]!.variants.length).toBe(2);
   });
 
-  it('keeps chat and message as separate families', () => {
+  it('merges many chat/message filenames into one mega family', () => {
     const entries = [
       e('chat.svg', 'chat'),
       e('CHAT-NORMAL.svg', 'CHAT-NORMAL'),
@@ -73,21 +105,59 @@ describe('groupIconCatalogEntries', () => {
       e('volume up.svg', 'volume up'),
     ];
     const groups = groupIconCatalogEntries(entries, 'text');
-    expect(groups.find((g) => g.key === 'chat')?.variants).toHaveLength(2);
-    expect(groups.find((g) => g.key === 'message')?.variants).toHaveLength(1);
-    expect(groups.find((g) => g.key === 'volume')?.variants).toHaveLength(1);
+    const mega = groups.find((g) => g.key === '__mega_messaging');
+    expect(mega).toBeDefined();
+    expect(mega!.variants).toHaveLength(3);
+    expect(mega!.label).toBe('Chat & messages');
+    expect(groups.some((g) => g.key === '__mega_voice')).toBe(true);
   });
 
-  it('merges user-avatar overlay variants', () => {
+  it('clusters many USER-AVATAR variants into one family', () => {
     const entries = [
       e('USER-AVATAR.svg', 'USER-AVATAR'),
-      e('USER-AVATAR-X.svg', 'USER-AVATAR-X'),
+      e('USER-AVATAR-SEARCH.svg', 'USER-AVATAR-SEARCH'),
       e('USER-AVATAR-OFF.svg', 'USER-AVATAR-OFF'),
-      e('USER-AVATAR-OFFY.svg', 'USER-AVATAR-OFFY'),
+      e('user.svg', 'user'),
+      e('user-block.svg', 'user-block'),
     ];
     const groups = groupIconCatalogEntries(entries, 'text');
-    expect(groups).toHaveLength(1);
-    expect(groups[0]!.variants).toHaveLength(4);
-    expect(groups[0]!.representative.id).toBe('USER-AVATAR.svg');
+    const avatar = groups.find((g) => g.key === 'user-avatar');
+    expect(avatar?.variants).toHaveLength(3);
+    const user = groups.find((g) => g.key === 'user');
+    expect(user?.variants).toHaveLength(2);
+  });
+
+  it('mega-groups navigation, film, log, food, and doors variants', () => {
+    const entries = [
+      e('arrow-left.svg', 'arrow-left'),
+      e('arrow right.svg', 'arrow right'),
+      e('down left.svg', 'down left'),
+      e('film.svg', 'film'),
+      e('FILM-FILLED.svg', 'FILM-FILLED'),
+      e('repeat.svg', 'repeat'),
+      e('REPEAT-NORMAL.svg', 'REPEAT-NORMAL'),
+      e('log in.svg', 'log in'),
+      e('log out.svg', 'log out'),
+      e('open doors.svg', 'open doors'),
+      e('close doors.svg', 'close doors'),
+      e('restaurant.svg', 'restaurant'),
+      e('food tray.svg', 'food tray'),
+    ];
+    const groups = groupIconCatalogEntries(entries, 'text');
+    expect(
+      groups.find((g) => g.key === '__mega_navigation')?.variants,
+    ).toHaveLength(5);
+    expect(
+      groups.find((g) => g.key === '__mega_images')?.variants,
+    ).toHaveLength(2);
+    expect(groups.find((g) => g.key === '__mega_log')?.variants).toHaveLength(
+      2,
+    );
+    expect(groups.find((g) => g.key === '__mega_doors')?.variants).toHaveLength(
+      2,
+    );
+    expect(groups.find((g) => g.key === '__mega_food')?.variants).toHaveLength(
+      2,
+    );
   });
 });

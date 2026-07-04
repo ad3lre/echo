@@ -16,10 +16,8 @@ const props = withDefaults(
     channelType?: 'text' | 'voice';
     /** Highlights current selection (e.g. channel `iconKey` filename). */
     selectedId?: string;
-    /** Hint lines under search — channel picker uses true; compact popouts false. */
-    showHints?: boolean;
   }>(),
-  { channelType: 'text', showHints: false },
+  { channelType: 'text' },
 );
 
 const emit = defineEmits<{
@@ -33,7 +31,9 @@ const scrollTop = ref(0);
 const viewportH = ref(300);
 
 const COLS = 5;
-const CELL_H = 56;
+const GRID_GAP = 4;
+const CELL_H = 52;
+const ROW_H = CELL_H + GRID_GAP;
 const OVERSCAN_PX = 200;
 
 const searchTrim = computed(() => props.filterQuery.trim());
@@ -54,8 +54,9 @@ const searchMatchCount = computed(() => {
 });
 
 function estimateVariantH(count: number): number {
-  const perRow = Math.max(1, Math.floor(370 / 80));
-  return Math.ceil(count / perRow) * 52 + 24;
+  const rows = Math.ceil(count / COLS);
+  const paddingY = 18;
+  return rows * CELL_H + Math.max(0, rows - 1) * GRID_GAP + paddingY;
 }
 
 interface VRow {
@@ -78,10 +79,10 @@ const browseLayout = computed(() => {
       type: 'grid',
       cells,
       y,
-      h: CELL_H,
+      h: ROW_H,
       variants: [],
     });
-    y += CELL_H;
+    y += ROW_H;
     if (expandedFamilyKey.value) {
       const ex = cells.find((g) => g.key === expandedFamilyKey.value);
       if (ex && ex.variants.length > 1) {
@@ -208,21 +209,6 @@ onUnmounted(() => {
   <div
     class="app-icon-picker-panel flex min-h-0 flex-1 flex-col overflow-hidden"
   >
-    <p
-      v-if="showHints && isBrowsing"
-      class="px-3 pb-1 text-[10px] leading-snug text-fg-subtle"
-    >
-      Icons with alternate versions (filled, off, -x, etc.) share one tile —
-      click a badge to expand variants.
-    </p>
-    <p
-      v-else-if="showHints && !isBrowsing"
-      class="px-3 pb-1 text-[10px] leading-snug text-fg-subtle"
-    >
-      Search uses the same variant groups — matching alternates collapse into
-      one expandable tile.
-    </p>
-
     <div
       v-if="!catalogReady"
       class="icon-picker-scroll flex min-h-0 flex-1 items-center justify-center overflow-hidden px-2 py-2"
@@ -306,13 +292,13 @@ onUnmounted(() => {
             <div
               v-else
               class="icon-vrow icon-picker-variant-row"
-              :style="{ top: row.y + 'px' }"
+              :style="{ top: row.y + 'px', height: row.h + 'px' }"
             >
               <button
                 v-for="v in row.variants"
                 :key="v.id"
                 type="button"
-                class="icon-picker-variant-chip flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-hover"
+                class="icon-picker-cell icon-picker-variant-chip flex flex-col items-center justify-center gap-0.5 rounded-lg p-1.5 transition-colors hover:bg-glass-hover"
                 :class="{
                   'bg-glass-2 ring-1 ring-white/25': isVariantSelected(v),
                 }"
@@ -325,7 +311,7 @@ onUnmounted(() => {
                   class="h-6 w-6 object-contain opacity-90 filter invert"
                 />
                 <span
-                  class="max-w-[4.5rem] truncate text-[8px] font-medium text-fg-subtle"
+                  class="max-w-full truncate px-0.5 text-[8px] font-medium text-fg-subtle"
                   >{{ v.label }}</span
                 >
               </button>
@@ -354,6 +340,7 @@ onUnmounted(() => {
 
 .icon-picker-cell {
   min-height: 52px;
+  width: 100%;
 }
 
 .icon-vrow {
@@ -363,14 +350,15 @@ onUnmounted(() => {
 }
 
 .icon-picker-variant-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
   padding: 8px 6px 10px;
   margin-bottom: 2px;
   border-radius: 12px;
   background: var(--vue-auto-038);
   border: 1px solid var(--vue-auto-008);
   box-shadow: inset 0 1px 0 var(--vue-auto-007);
+  overflow: hidden;
 }
 </style>

@@ -9,6 +9,7 @@ import {
   type DmConversationSubtitle,
 } from '@/features/dm/resolveDmConversationSubtitle';
 import { useChannelTypingStore } from '@/stores/channelTyping';
+import { useDmInboxOrderCacheStore } from '@/stores/dmInboxOrderCache';
 import { useEchoWorkspace } from '@/composables/useEchoWorkspace';
 
 type SubtitleDeps = {
@@ -20,6 +21,7 @@ type SubtitleDeps = {
 
 export function useDmConversationSubtitle(deps: SubtitleDeps) {
   const typingStore = useChannelTypingStore();
+  const dmInboxOrderCacheStore = useDmInboxOrderCacheStore();
   const { typersByChannel } = storeToRefs(typingStore);
   const workspace = useEchoWorkspace();
 
@@ -40,6 +42,7 @@ export function useDmConversationSubtitle(deps: SubtitleDeps) {
       typersFor: (channelId: string) =>
         typingStore.typersFor(channelId, toValue(deps.currentUserId)),
       resolveAuthorName: deps.resolveAuthorName,
+      fallbackPreviewByKey: dmInboxOrderCacheStore.initialPreviewByKey,
     };
   }
 

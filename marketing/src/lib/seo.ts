@@ -5,16 +5,13 @@ import {
   MARKETING_SITE_ORIGIN,
   SUPPORT_CONTACT_EMAIL,
 } from '../site';
+import { marketingUrl } from './canonicalUrl';
 
 export const OG_IMAGE_PATH = '/og-card.svg';
 export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;
 export const OG_IMAGE_ALT =
   'Echo — open source community platform for chat, voice, and collaboration';
-
-export function marketingUrl(path = '/'): string {
-  return new URL(path, MARKETING_SITE_ORIGIN).toString();
-}
 
 /** Single JSON-LD script: one object, an array, or a merged @graph. */
 export function jsonLdScript(

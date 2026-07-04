@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import { marketingCanonicalUrl } from './src/lib/canonicalUrl.ts';
 
 const SITE = 'https://app-echo.net';
 
@@ -39,8 +40,10 @@ export default defineConfig({
       serialize(item) {
         const path = new URL(item.url).pathname.replace(/\/$/, '') || '/';
         const priority = SITEMAP_PRIORITY[path];
-        if (priority == null) return item;
-        return { ...item, priority };
+        const loc = marketingCanonicalUrl(path);
+        const next = { ...item, loc };
+        if (priority == null) return next;
+        return { ...next, priority };
       },
     }),
   ],

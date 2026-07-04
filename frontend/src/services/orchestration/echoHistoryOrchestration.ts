@@ -47,6 +47,10 @@ import {
   mapEchoMessagesToRaw,
 } from '@/services/domain/echoMessageSnapshots';
 import { logMessageList } from '@/utils/messageListDebugLog';
+import {
+  persistMessageSessionCacheFromChannel,
+  trySeedChannelFromMessageSessionCache,
+} from '@/utils/messageSessionCache';
 import { emitChatSwitchEvent } from '@/features/layout/chatSwitchPerfTrace';
 import { scheduleDeferredTask } from '@/utils/scheduleDeferredTask';
 import { dbgReadState } from '@/utils/echoReadStateDebug';
@@ -491,7 +495,19 @@ export function createEchoHistoryController(
     }
     const loadStartedAt =
       typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const existing = messageReadFacade.getChannelMessages(cid);
+    const userId = auth.backendUser?.id?.trim() ?? '';
+    let existing = messageReadFacade.getChannelMessages(cid);
+    if ((!existing || existing.length === 0) && userId) {
+      if (
+        trySeedChannelFromMessageSessionCache(
+          userId,
+          cid,
+          activeChannelId.value,
+        )
+      ) {
+        existing = messageReadFacade.getChannelMessages(cid);
+      }
+    }
     const oldestExistingMessageId = existing?.[0]?.id;
     const canTrustCachedHead = isPersistedHistoryAnchor(
       cid,
@@ -672,6 +688,9 @@ export function createEchoHistoryController(
         expectation:
           'cold load should populate active window and let the history skeleton disappear',
       });
+      if (userId) {
+        persistMessageSessionCacheFromChannel(userId, cid);
+      }
       scheduleAttentionRefresh('history_loaded', cid);
       scheduleMissingReplyTargetBackfill(cid, 'history_loaded');
     } catch (e) {
@@ -1342,7 +1361,11 @@ export function createEchoHistoryController(
 
   watch(
     activeChannelId,
-    (cid) => {
+    (cid, prevCid) => {
+      const userId = auth.backendUser?.id?.trim();
+      if (prevCid && userId) {
+        persistMessageSessionCacheFromChannel(userId, prevCid);
+      }
       messageWindowAuthority.setActiveChannel(cid);
       // Eagerly mark loading so MessageList shows skeletons immediately after
       // the channel window clears — without this, there is a render gap between

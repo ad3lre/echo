@@ -67,6 +67,25 @@
   background-color: var(--echo-chat-view-bg);
 }
 
+/* Phone bottom tab bar shell */
+.compact-phone-tab-shell {
+  --echo-mobile-bottom-bar-height: 3.25rem;
+}
+
+.main-content-area--phone-tab-shell {
+  padding-bottom: calc(
+    var(--echo-mobile-bottom-bar-height, 3.25rem) +
+      env(safe-area-inset-bottom, 0px)
+  );
+}
+
+.main-content-area--phone-tab-shell-voice-dock {
+  padding-bottom: calc(
+    var(--echo-mobile-bottom-bar-height, 3.25rem) + 7.5rem +
+      env(safe-area-inset-bottom, 0px)
+  );
+}
+
 /* Ensure explore view paints above any grid siblings when it's the only child */
 .main-content-area--explore {
   isolation: isolate;

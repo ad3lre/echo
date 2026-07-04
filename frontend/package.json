@@ -173,7 +173,7 @@
     "@tiptap/starter-kit": "^3.25.0",
     "@tiptap/vue-3": "^3.25.0",
     "browser-image-compression": "^2.0.2",
-    "dompurify": "3.4.1",
+    "dompurify": "3.4.11",
     "hls.js": "^1.6.16",
     "katex": "^0.16.46",
     "livekit-client": "^2.18.6",

@@ -198,6 +198,61 @@ describe('useAppLayoutRailLoadingDerived', () => {
     expect(isMessageSurfaceSwitchLoading.value).toBe(false);
   });
 
+  it('does not skeleton guild channel panel when cached tree exists during boot reconcile', () => {
+    const serverStore = reactive({
+      selectedServerId: 'srv1' as string | null,
+    });
+    const workspace = mockWorkspace({
+      loading: false,
+      fromApi: true,
+      initialLoadInFlight: true,
+      initialLoadSettled: false,
+      categoriesByServer: {
+        srv1: [{ id: 'cat', name: 'General', channels: [{ id: 'ch1' }] }],
+      },
+    });
+    const { isChannelPanelSwitchLoading } = useAppLayoutRailLoadingDerived({
+      immediateShellSwitchPending: ref(false),
+      activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+      serverStore: serverStore as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['serverStore'],
+      workspace: workspace as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['workspace'],
+      activeChannelId: ref('ch1'),
+    });
+    expect(isChannelPanelSwitchLoading.value).toBe(false);
+  });
+
+  it('does not skeleton guild message surface when cached messages exist during boot reconcile', () => {
+    const serverStore = reactive({
+      selectedServerId: 'srv1' as string | null,
+    });
+    const workspace = mockWorkspace({
+      loading: false,
+      fromApi: true,
+      initialLoadInFlight: true,
+      initialLoadSettled: false,
+      categoriesByServer: {
+        srv1: [{ id: 'cat', name: 'General', channels: [{ id: 'ch1' }] }],
+      },
+      messages: { ch1: [{}] },
+    });
+    const { isMessageSurfaceSwitchLoading } = useAppLayoutRailLoadingDerived({
+      immediateShellSwitchPending: ref(false),
+      activeRailTab: ref<'servers' | 'explore' | 'dm'>('servers'),
+      serverStore: serverStore as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['serverStore'],
+      workspace: workspace as unknown as Parameters<
+        typeof useAppLayoutRailLoadingDerived
+      >[0]['workspace'],
+      activeChannelId: ref('ch1'),
+    });
+    expect(isMessageSurfaceSwitchLoading.value).toBe(false);
+  });
+
   it('allows empty channel tree after load settles', () => {
     const serverStore = reactive({
       selectedServerId: 'srv1' as string | null,

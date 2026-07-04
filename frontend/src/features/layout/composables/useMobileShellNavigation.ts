@@ -3,11 +3,13 @@ import {
   planMobileShellBack,
   type MobileShellBackSnapshot,
 } from '@/features/layout/mobileShellBackReducer';
+import type { MobileBottomTabId } from '@/features/layout/mobileBottomTab';
 
 export type UseMobileShellNavigationOptions = {
   isCompactShell: Ref<boolean>;
   useCompactTriPaneShell: Ref<boolean>;
   useCompactGuildSplitShell: Ref<boolean>;
+  useCompactPhoneTabShell: Ref<boolean>;
   memberPanelCollapsed: Ref<boolean>;
   useCompactExploreShell: Ref<boolean>;
   useCompactDmShell: Ref<boolean>;
@@ -17,8 +19,14 @@ export type UseMobileShellNavigationOptions = {
   compactExplorePane: Ref<0 | 1>;
   compactDmPane: Ref<0 | 1>;
   compactGuildTriPaneChannelPanelOpen: Ref<boolean>;
+  mobileBottomTab: Ref<MobileBottomTabId>;
+  mobileHomeStack: Ref<'hub' | 'thread'>;
+  mobileServersStack: Ref<'list' | 'guild'>;
+  mobileChannelSheetOpen: Ref<boolean>;
+  mobileMembersOverlayOpen: Ref<boolean>;
   selectServersRailOnly: () => void;
   closeDMPanel: () => void;
+  clearPhoneHomeDmThread: () => void;
 };
 
 function historyLengthSafe(): number {
@@ -33,6 +41,7 @@ export function useMobileShellNavigation(
     return {
       useCompactTriPaneShell: opts.useCompactTriPaneShell.value,
       useCompactGuildSplitShell: opts.useCompactGuildSplitShell.value,
+      useCompactPhoneTabShell: opts.useCompactPhoneTabShell.value,
       memberPanelCollapsed: opts.memberPanelCollapsed.value,
       useCompactExploreShell: opts.useCompactExploreShell.value,
       useCompactDmShell: opts.useCompactDmShell.value,
@@ -43,6 +52,11 @@ export function useMobileShellNavigation(
       compactDmPane: opts.compactDmPane.value,
       compactGuildTriPaneChannelPanelOpen:
         opts.compactGuildTriPaneChannelPanelOpen.value,
+      mobileBottomTab: opts.mobileBottomTab.value,
+      mobileHomeStack: opts.mobileHomeStack.value,
+      mobileServersStack: opts.mobileServersStack.value,
+      mobileChannelSheetOpen: opts.mobileChannelSheetOpen.value,
+      mobileMembersOverlayOpen: opts.mobileMembersOverlayOpen.value,
     };
   }
 
@@ -55,6 +69,19 @@ export function useMobileShellNavigation(
     switch (plan.kind) {
       case 'noop_desktop':
         opts.selectServersRailOnly();
+        return true;
+      case 'phone_home_thread':
+        opts.clearPhoneHomeDmThread();
+        return true;
+      case 'phone_members_overlay':
+        opts.mobileMembersOverlayOpen.value = false;
+        opts.memberPanelCollapsed.value = true;
+        return true;
+      case 'phone_channel_sheet':
+        opts.mobileChannelSheetOpen.value = false;
+        return true;
+      case 'phone_servers_guild':
+        opts.mobileServersStack.value = 'list';
         return true;
       case 'tri_pane_pager':
         opts.compactPagerPane.value = plan.next;
@@ -81,10 +108,10 @@ export function useMobileShellNavigation(
       case 'servers_rail_only':
         opts.selectServersRailOnly();
         return true;
+      default:
+        return false;
     }
   }
 
-  return {
-    mobileShellGoBack,
-  };
+  return { mobileShellGoBack };
 }

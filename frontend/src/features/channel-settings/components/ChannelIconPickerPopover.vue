@@ -454,7 +454,6 @@ onUnmounted(() => {
             :filter-query="debouncedQuery"
             :channel-type="channelType"
             :selected-id="modelValue"
-            :show-hints="true"
             class="min-h-0 flex-1"
             @select="select"
           />

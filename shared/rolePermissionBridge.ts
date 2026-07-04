@@ -6,7 +6,10 @@
  */
 
 import type { ChannelPermissionKey } from './types/channel';
-import { DISCORD_ECHO_PERMISSION_STRINGS } from './discordEchoPermissions';
+import {
+  DISCORD_ECHO_PERMISSION_STRINGS,
+  ECHO_DISABLED_DISCORD_PERMISSION_NAMES,
+} from './discordEchoPermissions';
 import { ECHO_EXTENDED_PERMISSION_STRINGS } from './echoExtendedPermissions';
 
 export const ECHO_API_PERMISSIONS = [
@@ -22,6 +25,13 @@ const THREAD_PERMISSION_NAMES = new Set([
   'CREATE_PRIVATE_THREADS',
   'SEND_MESSAGES_IN_THREADS',
 ]);
+
+function isEchoEvaluatedPermission(name: string): boolean {
+  return (
+    !THREAD_PERMISSION_NAMES.has(name) &&
+    !ECHO_DISABLED_DISCORD_PERMISSION_NAMES.has(name)
+  );
+}
 
 const UI_TO_ECHO: Record<string, EchoApiPermission | EchoApiPermission[]> = {
   viewChannels: 'VIEW_CHANNEL',
@@ -88,8 +98,8 @@ export function roleUiPermissionsToEchoStrings(
   perms: Record<string, boolean>,
 ): string[] {
   if (perms.administrator) {
-    return [...ECHO_API_PERMISSIONS].filter(
-      (k) => !THREAD_PERMISSION_NAMES.has(k),
+    return [...ECHO_API_PERMISSIONS].filter((k) =>
+      isEchoEvaluatedPermission(k),
     );
   }
   const set = new Set<string>();
@@ -97,7 +107,7 @@ export function roleUiPermissionsToEchoStrings(
     addUiEchoKeys(set, uiKey, perms);
   }
   return [...ECHO_API_PERMISSIONS].filter(
-    (k) => set.has(k) && !THREAD_PERMISSION_NAMES.has(k),
+    (k) => set.has(k) && isEchoEvaluatedPermission(k),
   );
 }
 
@@ -114,7 +124,7 @@ export function mergeRoleUiPermissionsWithStoredEcho(
   const preserved = storedEcho.filter((p) => !uiManaged.has(p));
   const merged = new Set([...preserved, ...fromUi]);
   return [...ECHO_API_PERMISSIONS].filter(
-    (k) => merged.has(k) && !THREAD_PERMISSION_NAMES.has(k),
+    (k) => merged.has(k) && isEchoEvaluatedPermission(k),
   );
 }
 
@@ -233,10 +243,9 @@ export function channelOverridesToEchoPartial(
     const echo = CH_TO_ECHO[k as ChannelPermissionKey];
     if (!echo || (v !== true && v !== false)) continue;
     if (Array.isArray(echo)) {
-      for (const bit of echo)
-        if (!THREAD_PERMISSION_NAMES.has(bit)) out[bit] = v;
+      for (const bit of echo) if (isEchoEvaluatedPermission(bit)) out[bit] = v;
     } else {
-      if (!THREAD_PERMISSION_NAMES.has(echo)) out[echo] = v;
+      if (isEchoEvaluatedPermission(echo)) out[echo] = v;
     }
   }
   return out;
@@ -247,7 +256,7 @@ const ECHO_TO_CH: Partial<Record<string, ChannelPermissionKey>> = {};
 for (const [ck, ev] of Object.entries(CH_TO_ECHO)) {
   const bits = Array.isArray(ev) ? ev : [ev];
   for (const b of bits) {
-    if (THREAD_PERMISSION_NAMES.has(b)) continue;
+    if (!isEchoEvaluatedPermission(b)) continue;
     if (!(b in ECHO_TO_CH)) ECHO_TO_CH[b] = ck as ChannelPermissionKey;
   }
 }

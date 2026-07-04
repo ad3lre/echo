@@ -108,6 +108,7 @@ onUnmounted(() => stopObserve?.());
           :img-class="gifImgClass"
           :respect-reduced-motion="true"
           loading="lazy"
+          force-gif
           @load="onLoad"
         />
       </div>

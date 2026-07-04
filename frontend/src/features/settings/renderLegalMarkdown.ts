@@ -1,5 +1,5 @@
-import DOMPurify from 'dompurify';
 import { Marked } from 'marked';
+import { domPurifyHtmlFragment } from '@/utils/domPurifyHtmlFragment';
 
 const marked = new Marked().setOptions({ gfm: true, breaks: false });
 
@@ -39,5 +39,5 @@ const SANITIZE = {
  */
 export function renderLegalMarkdown(markdown: string): string {
   const raw = marked.parse(markdown.trim(), { async: false }) as string;
-  return DOMPurify.sanitize(raw, SANITIZE);
+  return domPurifyHtmlFragment(raw, SANITIZE, 'echo-legal-md-root');
 }

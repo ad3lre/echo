@@ -6,6 +6,7 @@
 export type MobileShellBackSnapshot = {
   useCompactTriPaneShell: boolean;
   useCompactGuildSplitShell: boolean;
+  useCompactPhoneTabShell: boolean;
   memberPanelCollapsed: boolean;
   useCompactExploreShell: boolean;
   useCompactDmShell: boolean;
@@ -15,6 +16,11 @@ export type MobileShellBackSnapshot = {
   compactExplorePane: 0 | 1;
   compactDmPane: 0 | 1;
   compactGuildTriPaneChannelPanelOpen: boolean;
+  mobileBottomTab: 'home' | 'servers' | 'explore';
+  mobileHomeStack: 'hub' | 'thread';
+  mobileServersStack: 'list' | 'guild';
+  mobileChannelSheetOpen: boolean;
+  mobileMembersOverlayOpen: boolean;
 };
 
 export type MobileShellBackResult =
@@ -23,6 +29,10 @@ export type MobileShellBackResult =
   | { kind: 'split_collapse_members' }
   | { kind: 'explore_pane'; next: 0 | 1 }
   | { kind: 'dm_pane'; next: 0 | 1 }
+  | { kind: 'phone_home_thread' }
+  | { kind: 'phone_members_overlay' }
+  | { kind: 'phone_channel_sheet' }
+  | { kind: 'phone_servers_guild' }
   | { kind: 'history_back' }
   | { kind: 'servers_rail_only' }
   | { kind: 'close_dm_panel' }
@@ -35,6 +45,29 @@ export function planMobileShellBack(
 ): MobileShellBackResult {
   if (!opts.isCompactShell) {
     return { kind: 'noop_desktop', action: 'servers_rail_only' };
+  }
+
+  if (snapshot.useCompactPhoneTabShell) {
+    if (snapshot.mobileBottomTab === 'home') {
+      if (snapshot.mobileHomeStack === 'thread') {
+        return { kind: 'phone_home_thread' };
+      }
+    }
+    if (snapshot.mobileBottomTab === 'servers') {
+      if (snapshot.mobileMembersOverlayOpen) {
+        return { kind: 'phone_members_overlay' };
+      }
+      if (snapshot.mobileChannelSheetOpen) {
+        return { kind: 'phone_channel_sheet' };
+      }
+      if (snapshot.mobileServersStack === 'guild') {
+        return { kind: 'phone_servers_guild' };
+      }
+    }
+    if (opts.historyLength > 1) {
+      return { kind: 'history_back' };
+    }
+    return { kind: 'servers_rail_only' };
   }
 
   if (snapshot.useCompactGuildSplitShell) {

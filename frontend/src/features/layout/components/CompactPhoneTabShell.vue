@@ -1,0 +1,61 @@
+<script setup lang="ts">
+import { ref, watch } from 'vue';
+import { useCompactShellVisualViewportFrame } from '@/composables/useCompactShellVisualViewportFrame';
+import { useMobileBottomBarInsetReporter } from '@/features/layout/composables/useMobileBottomBarInsetReporter';
+import MobileBottomTabBar from '@/features/layout/components/MobileBottomTabBar.vue';
+import type { MobileBottomTabId } from '@/features/layout/mobileBottomTab';
+
+const props = defineProps<{
+  modelValue: MobileBottomTabId;
+  showBar?: boolean;
+  dmUnreadTotal?: number;
+  serversHasActivity?: boolean;
+  exploreHasActivity?: boolean;
+}>();
+
+const emit = defineEmits<{
+  'update:modelValue': [value: MobileBottomTabId];
+}>();
+
+const { rootStyle } = useCompactShellVisualViewportFrame();
+const tabBarRef = ref<InstanceType<typeof MobileBottomTabBar> | null>(null);
+const barEl = ref<HTMLElement | null>(null);
+
+watch(
+  () => tabBarRef.value?.barEl,
+  (el) => {
+    barEl.value = el ?? null;
+  },
+  { immediate: true },
+);
+
+useMobileBottomBarInsetReporter(barEl);
+</script>
+
+<template>
+  <div
+    class="compact-phone-tab-shell flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    :style="rootStyle"
+  >
+    <div
+      class="compact-phone-tab-shell__content min-h-0 min-w-0 flex-1 overflow-hidden"
+    >
+      <slot />
+    </div>
+    <MobileBottomTabBar
+      v-if="showBar !== false"
+      ref="tabBarRef"
+      :model-value="modelValue"
+      :dm-unread-total="dmUnreadTotal"
+      :servers-has-activity="serversHasActivity"
+      :explore-has-activity="exploreHasActivity"
+      @update:model-value="emit('update:modelValue', $event)"
+    />
+  </div>
+</template>
+
+<style scoped lang="scss">
+.compact-phone-tab-shell {
+  --echo-mobile-bottom-bar-height: 3.25rem;
+}
+</style>

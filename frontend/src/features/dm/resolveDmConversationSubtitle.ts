@@ -104,6 +104,8 @@ export function resolveDmConversationSubtitle(input: {
   getMessages: (channelId: string) => readonly RawMessage[] | undefined;
   typersFor: (channelId: string) => readonly DmTypingUser[];
   resolveAuthorName?: (userId: string) => string;
+  /** Cold-start subtitle snippets keyed by inbox row id (peer id or group channel id). */
+  fallbackPreviewByKey?: ReadonlyMap<string, string>;
 }): DmConversationSubtitle {
   const selfId = input.selfId.trim();
   if (!selfId) return EMPTY_SUBTITLE;
@@ -132,7 +134,16 @@ export function resolveDmConversationSubtitle(input: {
   }
 
   const last = latestMessageForChannelIds(channelIds, input.getMessages);
-  if (!last) return EMPTY_SUBTITLE;
+  if (!last) {
+    const rowId = isGroup
+      ? input.groupChannelId?.trim()
+      : input.peerUserId?.trim();
+    const fallback = rowId
+      ? input.fallbackPreviewByKey?.get(rowId)?.trim()
+      : '';
+    if (fallback) return { text: fallback, isTyping: false };
+    return EMPTY_SUBTITLE;
+  }
 
   const text = formatLastMessagePreview({
     msg: last,

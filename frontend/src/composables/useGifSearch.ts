@@ -12,7 +12,7 @@ import {
 
 export interface GifResult {
   id: string;
-  /** Full-size URL for message display (prefer WebP, smaller downsized) */
+  /** Full-size animated URL for send + message display (prefer GIF over WebP for import) */
   url: string;
   /** Static still for grid thumbnail—instant load, no decode */
   thumbnailUrl: string;
@@ -41,19 +41,28 @@ type GiphyGif = {
   };
 };
 
-/** Full URL for message display—prefer WebP and smaller sizes */
-function pickFullUrl(gif: GiphyGif): string {
+function firstNonEmptyUrl(...candidates: (string | undefined)[]): string {
+  for (const candidate of candidates) {
+    const trimmed = candidate?.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
+/** Send/import URL — prefer real GIF bytes so rehost keeps `.gif` + animation semantics. */
+function pickMessageGifUrl(gif: GiphyGif): string {
   const img = gif?.images;
   if (!img) return '';
-  return (
-    img.downsized?.webp ??
-    img.downsized?.url ??
-    img.fixed_height?.webp ??
-    img.fixed_height?.url ??
-    img.downsized_medium?.url ??
-    img.original?.webp ??
-    img.original?.url ??
-    ''
+  return firstNonEmptyUrl(
+    img.downsized?.url,
+    img.fixed_height?.url,
+    img.downsized_medium?.url,
+    img.preview_gif?.url,
+    img.downsized_small?.url,
+    img.original?.url,
+    img.downsized?.webp,
+    img.fixed_height?.webp,
+    img.original?.webp,
   );
 }
 
@@ -61,13 +70,12 @@ function pickFullUrl(gif: GiphyGif): string {
 function pickThumbnailUrl(gif: GiphyGif): string {
   const img = gif?.images;
   if (!img) return '';
-  return (
-    img.fixed_height_small_still?.url ??
-    img.fixed_height_still?.url ??
-    img.downsized_still?.url ??
-    img.fixed_height_small?.webp ??
-    img.fixed_height_small?.url ??
-    ''
+  return firstNonEmptyUrl(
+    img.fixed_height_small_still?.url,
+    img.fixed_height_still?.url,
+    img.downsized_still?.url,
+    img.fixed_height_small?.webp,
+    img.fixed_height_small?.url,
   );
 }
 
@@ -75,18 +83,18 @@ function pickThumbnailUrl(gif: GiphyGif): string {
 function pickPreviewUrl(gif: GiphyGif): string {
   const img = gif?.images;
   if (!img) return '';
-  return (
-    img.preview_gif?.url ??
-    img.fixed_height_small?.webp ??
-    img.fixed_height_small?.url ??
-    img.downsized_small?.url ??
-    img.fixed_height?.url ??
-    pickFullUrl(gif)
+  return firstNonEmptyUrl(
+    img.preview_gif?.url,
+    img.fixed_height_small?.webp,
+    img.fixed_height_small?.url,
+    img.downsized_small?.url,
+    img.fixed_height?.url,
+    pickMessageGifUrl(gif),
   );
 }
 
 function mapGif(g: GiphyGif): GifResult {
-  const url = pickFullUrl(g);
+  const url = pickMessageGifUrl(g);
   const thumbnailUrl = pickThumbnailUrl(g);
   const previewUrl = pickPreviewUrl(g);
   const previewMp4Url = g?.images?.preview?.mp4 ?? null;

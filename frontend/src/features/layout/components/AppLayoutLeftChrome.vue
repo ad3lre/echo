@@ -99,6 +99,7 @@ const lc = computed((): AppLayoutLeftChromeProps => {
     inDmMode: g('inDmMode') ?? false,
     dmPanelOpen: g('dmPanelOpen') ?? false,
     channelPanelLoading: g('channelPanelLoading'),
+    channelTreeLoaded: g('channelTreeLoaded') ?? true,
     currentUserForServerList: g('currentUserForServerList') ?? null,
     presenceByUserId: g('presenceByUserId') ?? {},
     presenceMobileByUserId: g('presenceMobileByUserId') ?? {},
@@ -1162,6 +1163,7 @@ function onMoreServersPinServer(payload: {
         class="relative z-0 min-h-0 min-w-0 flex-1"
         :show-voice-connection-panel="lc.hideChannelPanelVoiceChrome !== true"
         :loading="lc.channelPanelLoading ?? false"
+        :channel-tree-loaded="lc.channelTreeLoaded ?? true"
         :selected-server="lc.selectedServer"
         :categories="lc.categoriesForServer"
         :users="lc.usersForChannelPanel"
@@ -1554,6 +1556,7 @@ function onMoreServersPinServer(payload: {
         "
         :show-voice-connection-panel="lc.hideChannelPanelVoiceChrome !== true"
         :loading="lc.channelPanelLoading ?? false"
+        :channel-tree-loaded="lc.channelTreeLoaded ?? true"
         :selected-server="lc.selectedServer"
         :categories="lc.categoriesForServer"
         :users="lc.usersForChannelPanel"

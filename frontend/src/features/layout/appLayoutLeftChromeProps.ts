@@ -91,6 +91,8 @@ export type AppLayoutLeftChromeProps = {
   inDmMode: boolean;
   dmPanelOpen: boolean;
   channelPanelLoading?: boolean;
+  /** Guild channel tree loaded for the selected server (possibly empty). */
+  channelTreeLoaded?: boolean;
   currentUserForServerList: {
     id: string;
     name: string;

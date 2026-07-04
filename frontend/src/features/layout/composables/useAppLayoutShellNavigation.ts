@@ -12,6 +12,7 @@ import type { WorkspaceStateApi } from '@/composables/useEchoWorkspace';
 import type { useAuthSessionStore } from '@/stores/authSession';
 import type { SettingsSection } from '@/features/settings/types';
 import type { ServerSettingsSection } from '@/features/server-settings/types';
+import type { MobileBottomTabId } from '@/features/layout/mobileBottomTab';
 import type { ChannelSummary } from '@shared/types';
 import {
   deriveHasGuildChannelChrome,
@@ -99,6 +100,10 @@ export interface UseAppLayoutShellNavigationOptions {
   isGuestUser?: () => boolean;
   onGuestDmBlocked?: () => void;
   isCompactShell: Ref<boolean>;
+  /** Phone tab shell (<600px): Home DM back without switching rail tab. */
+  isCompactPhoneShell?: Ref<boolean>;
+  mobileBottomTab?: Ref<MobileBottomTabId>;
+  mobileHomeStack?: Ref<'hub' | 'thread'>;
   /** When true, unresolved guild slugs are preserved for the invite landing view. */
   inviteLandingActive?: ComputedRef<boolean>;
 }
@@ -135,6 +140,9 @@ export function useAppLayoutShellNavigation(
     isGuestUser: opts.isGuestUser,
     onGuestDmBlocked: opts.onGuestDmBlocked,
     isCompactShell: opts.isCompactShell,
+    isCompactPhoneShell: opts.isCompactPhoneShell,
+    mobileBottomTab: opts.mobileBottomTab,
+    mobileHomeStack: opts.mobileHomeStack,
   });
 
   const {
@@ -142,6 +150,7 @@ export function useAppLayoutShellNavigation(
     selectExploreTab,
     selectDMTab,
     closeDMPanel,
+    clearPhoneHomeDmThread,
     dispatchNav,
   } = railNav;
 
@@ -469,6 +478,7 @@ export function useAppLayoutShellNavigation(
     selectExploreTab,
     selectDMTab,
     closeDMPanel,
+    clearPhoneHomeDmThread,
     dispatchNav,
     selectIncomingDmFromRail,
     selectIncomingGroupDmFromRail,

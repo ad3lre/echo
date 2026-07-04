@@ -15,6 +15,7 @@ import { useMessageReactions } from '@/composables/useMessageReactions';
 // Sub-composables
 import { useAppLayoutRealtimeSocketBinding } from './useAppLayoutRealtimeSocketBinding';
 import { useAppLayoutRailLoadingDerived } from './useAppLayoutRailLoadingDerived';
+import { isGuildChannelTreeLoaded } from './guildShellSettling';
 import { useAppLayoutChannelManageCapabilities } from './useAppLayoutChannelManageCapabilities';
 // `voiceMlsSession` pulls in the ts-mls crypto stack; it is dynamically imported
 // at the voice-event handler below so it stays off the first-paint AppLayout chunk.
@@ -135,6 +136,12 @@ export function wireAppLayoutVoiceAndRealtime(
     closeVcActivity,
     compactGuildTriPaneChannelPanelOpen,
     compactPagerPane,
+    isCompactPhoneShell,
+    mobileBottomTab,
+    mobileChannelSheetOpen,
+    mobileHomeStack,
+    mobileMembersOverlayOpen,
+    mobileServersStack,
     createDirectHexInvite,
     currentUser,
     currentUserComputed,
@@ -799,6 +806,12 @@ export function wireAppLayoutVoiceAndRealtime(
     suspiciousEmptyWorkspace,
   });
 
+  const isChannelTreeLoadedForSelectedServer = computed(() => {
+    const sid = serverStore.selectedServerId?.trim();
+    if (!sid || sid === 'echo') return true;
+    return isGuildChannelTreeLoaded(workspace.categoriesByServer.value, sid);
+  });
+
   const dmUnreadByChannelIdForPanel = useDmAttentionUnreadMapForPanelComputed({
     dmAttentionByChannelId,
     messagesByChannelId: workspace.messages,
@@ -944,6 +957,8 @@ export function wireAppLayoutVoiceAndRealtime(
       !isGuestComputed.value,
   );
 
+  const useCompactPhoneTabShell = computed(() => isCompactPhoneShell.value);
+
   const gridChrome = useAppLayoutGridChrome({
     workspace,
     activeRailTab,
@@ -978,9 +993,12 @@ export function wireAppLayoutVoiceAndRealtime(
       isCompactShell,
       hasGuildChannelChrome,
       isCompactGuildSplitShell,
+      useCompactPhoneTabShell,
       compactGuildTriPaneChannelPanelOpen,
       compactPagerPane,
       memberPanelCollapsed,
+      mobileChannelSheetOpen,
+      mobileMembersOverlayOpen,
       expandChannelsGrid,
       markMemberPanelExpandedByUser,
       markMemberPanelCollapsedByUser,
@@ -1627,6 +1645,7 @@ export function wireAppLayoutVoiceAndRealtime(
     ignoreMessageRequest,
     inviteLanding,
     isChannelPanelSwitchLoading,
+    isChannelTreeLoadedForSelectedServer,
     isCreateCategoryModalOpen,
     isCreateChannelModalOpen,
     isEchoRoleBootstrapLoading,
@@ -1817,6 +1836,7 @@ export function wireAppLayoutVoiceAndRealtime(
     openVcActivityWatchTogether,
     welcomeBackExploreGate,
     welcomeBackExploreMemberEmptyDirectory,
+    useCompactPhoneTabShell,
     wireDmCallSocketSubmitters,
   };
 }

@@ -1,4 +1,4 @@
-/* @vitest-environment happy-dom */
+/* @vitest-environment jsdom */
 import { describe, expect, it } from 'vitest';
 import { parseMessageContent } from '@/composables/useMarkdown';
 import { validateRegistrationUsername } from '@shared/usernamePolicy';

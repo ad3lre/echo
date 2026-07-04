@@ -421,7 +421,6 @@ onUnmounted(() => {
             :filter-query="debouncedQuery"
             channel-type="text"
             :selected-id="selectedAppIconId"
-            :show-hints="true"
             class="min-h-0 flex-1"
             @select="onAppIconPick"
           />

@@ -417,6 +417,7 @@ export function wireAppLayoutMessagingAndProfiles(
     memberPanelCollapsed,
     memberPanelCollapsedEffective,
     memberPanelWidth,
+    mobileMembersOverlayOpen,
     memberPopoutAnchor,
     memberPopoutOpenRolesPanel,
     mergeEchoBlockedFromApi,
@@ -683,6 +684,7 @@ export function wireAppLayoutMessagingAndProfiles(
     wireMessageGoToMessage,
     workspace,
     workspaceMembersByServer,
+    useCompactPhoneTabShell,
   } = phase2;
 
   const {
@@ -1096,8 +1098,10 @@ export function wireAppLayoutMessagingAndProfiles(
     isCompactShell,
     hasGuildChannelChrome,
     isCompactGuildSplitShell,
+    useCompactPhoneTabShell,
     compactPagerPane,
     memberPanelCollapsed,
+    mobileMembersOverlayOpen,
     toggleMemberListBase,
     markMemberPanelExpandedByUser,
     markMemberPanelCollapsedByUser,

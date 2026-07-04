@@ -2,15 +2,20 @@ import { defineStore } from 'pinia';
 
 const STORAGE_KEY = 'echo-dm-inbox-order-v2';
 
-type PersistedEntry = { id: string; rankMs: number };
+type PersistedEntry = { id: string; rankMs: number; previewPlainText?: string };
 
-function loadFromStorage(): Map<string, number> {
+function loadFromStorage(): {
+  ranks: Map<string, number>;
+  previews: Map<string, string>;
+} {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return new Map();
+    if (!raw) return { ranks: new Map(), previews: new Map() };
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Map();
-    const result = new Map<string, number>();
+    if (!Array.isArray(parsed))
+      return { ranks: new Map(), previews: new Map() };
+    const ranks = new Map<string, number>();
+    const previews = new Map<string, string>();
     for (const item of parsed) {
       if (
         item &&
@@ -18,15 +23,15 @@ function loadFromStorage(): Map<string, number> {
         typeof (item as PersistedEntry).id === 'string' &&
         typeof (item as PersistedEntry).rankMs === 'number'
       ) {
-        result.set(
-          (item as PersistedEntry).id,
-          (item as PersistedEntry).rankMs,
-        );
+        const entry = item as PersistedEntry;
+        ranks.set(entry.id, entry.rankMs);
+        const preview = entry.previewPlainText?.trim();
+        if (preview) previews.set(entry.id, preview);
       }
     }
-    return result;
+    return { ranks, previews };
   } catch {
-    return new Map();
+    return { ranks: new Map(), previews: new Map() };
   }
 }
 
@@ -55,7 +60,11 @@ export const useDmInboxOrderCacheStore = defineStore(
      * Snapshot from localStorage, read once at startup. Non-reactive by design.
      * Passed into the inbox sort as a cold-start fallback only.
      */
-    const initialRankMsByKey: ReadonlyMap<string, number> = loadFromStorage();
+    const initialSnapshot = loadFromStorage();
+    const initialRankMsByKey: ReadonlyMap<string, number> =
+      initialSnapshot.ranks;
+    const initialPreviewByKey: ReadonlyMap<string, string> =
+      initialSnapshot.previews;
 
     /**
      * Persist real per-entry sort keys. Callers MUST pass the same ms-epoch number that
@@ -63,12 +72,22 @@ export const useDmInboxOrderCacheStore = defineStore(
      * will diverge from the last live view.
      */
     function saveOrder(
-      entries: readonly { id: string; rankMs: number }[],
+      entries: readonly {
+        id: string;
+        rankMs: number;
+        previewPlainText?: string;
+      }[],
     ): void {
       if (!entries.length) return;
       const serialised: PersistedEntry[] = entries
         .filter((e) => e && typeof e.id === 'string' && e.id && e.rankMs > 0)
-        .map((e) => ({ id: e.id, rankMs: Math.floor(e.rankMs) }));
+        .map((e) => ({
+          id: e.id,
+          rankMs: Math.floor(e.rankMs),
+          ...(e.previewPlainText?.trim()
+            ? { previewPlainText: e.previewPlainText.trim().slice(0, 220) }
+            : {}),
+        }));
       if (!serialised.length) return;
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(serialised));
@@ -77,6 +96,6 @@ export const useDmInboxOrderCacheStore = defineStore(
       }
     }
 
-    return { initialRankMsByKey, saveOrder };
+    return { initialRankMsByKey, initialPreviewByKey, saveOrder };
   },
 );

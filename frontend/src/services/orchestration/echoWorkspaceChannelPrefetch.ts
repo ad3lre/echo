@@ -8,10 +8,15 @@ import {
 import { firstTextChannelIdFromCategories } from '@/composables/workspace/utils';
 import { parseAppPathname } from '@/features/layout/urlNavigation';
 import { isEchoGraphId } from '@/utils/echoIds';
+import { readJwtSub } from '@/utils/workspaceSessionCache';
 import {
   readLastVisitedGuildId,
   readLastVisitedServerChannelMap,
 } from '@/utils/lastVisitedNavigationPersistence';
+import {
+  persistMessageSessionCacheFromChannel,
+  trySeedChannelFromMessageSessionCache,
+} from '@/utils/messageSessionCache';
 import {
   isBenignPrimaryFlowError,
   reportPrimaryFlowFailure,
@@ -143,6 +148,7 @@ export function applyPrefetchedWorkspaceChannelMessages(
   channelId: string,
   apiMessages: EchoApiMessage[],
   pageLimit: number = ECHO_CHANNEL_MESSAGE_PAGE_SIZE,
+  opts?: { cacheUserId?: string | null },
 ): void {
   const raw = mapEchoMessagesToRaw(apiMessages);
   sortRawMessagesInPlace(raw);
@@ -157,6 +163,10 @@ export function applyPrefetchedWorkspaceChannelMessages(
       activeChannelId,
       pageLimit,
     );
+    const userId = opts?.cacheUserId?.trim();
+    if (userId) {
+      persistMessageSessionCacheFromChannel(userId, channelId);
+    }
     return;
   }
   const missing = raw.filter((m) => {
@@ -193,6 +203,17 @@ export async function prefetchChannelMessagesFirstPage(
 ): Promise<boolean> {
   const cid = channelId.trim();
   if (!token.trim() || shouldSkipChannelMessagePrefetch(cid)) return false;
+  const cacheUserId = readJwtSub(token);
+  if (
+    cacheUserId &&
+    trySeedChannelFromMessageSessionCache(
+      cacheUserId,
+      cid,
+      messageWindowAuthority.getActiveChannelId() ?? '',
+    )
+  ) {
+    return true;
+  }
   prefetchInFlight.add(cid);
   try {
     const { messages: apiMsgs } = await fetchEchoChannelMessages(token, cid, {
@@ -202,6 +223,7 @@ export async function prefetchChannelMessagesFirstPage(
       cid,
       apiMsgs,
       ECHO_CHANNEL_INITIAL_MESSAGE_PAGE_SIZE,
+      { cacheUserId },
     );
     return true;
   } catch (e) {

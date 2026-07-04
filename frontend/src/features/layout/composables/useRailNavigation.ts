@@ -1,5 +1,6 @@
 import type { ComputedRef, Ref } from 'vue';
 import { unref } from 'vue';
+import type { MobileBottomTabId } from '@/features/layout/mobileBottomTab';
 import type { DmSubView } from '@/features/layout/mainSurface';
 import { isDmThreadId } from '@/features/layout/mainSurface';
 import { logShellNav } from '@/features/layout/shellNavDebugLog';
@@ -40,6 +41,10 @@ interface UseRailNavigationOptions {
    * Compact / phone shell: DM rail opens the inbox list only — do not auto-select the latest thread.
    */
   isCompactShell?: Ref<boolean>;
+  /** Phone tab shell: back from Home DM thread without leaving the Home tab. */
+  isCompactPhoneShell?: Ref<boolean>;
+  mobileBottomTab?: Ref<MobileBottomTabId>;
+  mobileHomeStack?: Ref<'hub' | 'thread'>;
 }
 
 export function useRailNavigation(options: UseRailNavigationOptions) {
@@ -62,6 +67,9 @@ export function useRailNavigation(options: UseRailNavigationOptions) {
     isGuestUser,
     onGuestDmBlocked,
     isCompactShell,
+    isCompactPhoneShell,
+    mobileBottomTab,
+    mobileHomeStack,
   } = options;
 
   function dmThreadActiveNow(): boolean {
@@ -88,7 +96,34 @@ export function useRailNavigation(options: UseRailNavigationOptions) {
     });
   }
 
+  function clearPhoneHomeDmThread() {
+    selectedDMUserId.value = null;
+    selectedMessageRequestId.value = null;
+    isDMPanelOpen.value = true;
+    dmActiveTab.value = 'messages';
+    if (dmThreadActiveNow()) {
+      logShellNav('useRailNavigation', 'clearPhoneHomeDmThread', {
+        from: activeChannelId.value,
+      });
+      activeChannelId.value = 'general';
+    }
+    if (mobileHomeStack) mobileHomeStack.value = 'hub';
+    if (mobileBottomTab) mobileBottomTab.value = 'home';
+  }
+
+  function isPhoneHomeDmContext(): boolean {
+    return (
+      isCompactPhoneShell?.value === true &&
+      mobileBottomTab?.value === 'home' &&
+      activeRailTab.value === 'dm'
+    );
+  }
+
   function closeDMPanel() {
+    if (isPhoneHomeDmContext()) {
+      clearPhoneHomeDmThread();
+      return;
+    }
     isDMPanelOpen.value = false;
     selectedDMUserId.value = null;
     selectedMessageRequestId.value = null;
@@ -157,6 +192,7 @@ export function useRailNavigation(options: UseRailNavigationOptions) {
     selectExploreTab,
     selectDMTab,
     closeDMPanel,
+    clearPhoneHomeDmThread,
     dispatchNav,
   };
 }

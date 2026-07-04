@@ -10,6 +10,7 @@ import { ENABLE_NUMBERED_ICON_RENAME_TOOL } from './src/dev/echoDevTools';
 import { consoleLogDevPlugin } from './vite-plugins/consoleLogDevPlugin';
 import { iconRenameDevPlugin } from './vite-plugins/iconRenameDevPlugin';
 import { spaSecurityHeadersPlugin } from './vite-plugins/spaSecurityHeadersPlugin';
+import { spaSeoPlugin } from './vite-plugins/spaSeoPlugin';
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -219,6 +220,10 @@ function echoSpaDefaultOgMeta(mode: string): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, repoRoot, 'VITE_');
+  const chatPublicOrigin = (
+    env.VITE_PUBLIC_INVITE_BASE || 'https://chat-echo.com'
+  ).replace(/\/$/, '');
   const shouldAnalyze = process.env.ANALYZE === '1';
   /** Fewer parallel transforms + skip dev-only middleware; use for iOS sim / tight RAM (`npm run dev:low-mem`). */
   const lowMemDev =
@@ -282,6 +287,7 @@ export default defineConfig(({ mode }) => {
       spaSecurityHeadersPlugin(repoRoot),
       vue(),
       echoSpaDefaultOgMeta(mode),
+      spaSeoPlugin(chatPublicOrigin),
       appLayoutModulePreload(),
       tailwindcss(),
       ...(mode !== 'development'

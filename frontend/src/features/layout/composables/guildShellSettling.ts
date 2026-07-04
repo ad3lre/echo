@@ -59,7 +59,6 @@ export function isGuildShellSettling(p: GuildShellSettlingParams): boolean {
 
   const sid = p.selectedServerId!.trim();
 
-  if (p.initialLoadInFlight) return true;
   if (p.workspaceLoading && !p.workspaceFromApi) return true;
 
   if (!isGuildChannelTreeLoaded(p.categoriesByServer, sid)) return true;
