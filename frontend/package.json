@@ -175,7 +175,7 @@
     "browser-image-compression": "^2.0.2",
     "dompurify": "3.4.11",
     "hls.js": "^1.6.16",
-    "katex": "^0.16.46",
+    "katex": "^0.17.0",
     "livekit-client": "^2.18.6",
     "mammoth": "^1.12.0",
     "marked": "^18.0.4",
